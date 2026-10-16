@@ -84,7 +84,7 @@ Status: implemented
 - **目的：** 修正工作区根目录的判定。24 个双 face 包带有自己的 `tsconfig.host.json` 叶子配置；只按 `tsconfig.host.json` 向上查找时，每个这样的包都被当作根目录，workspace 模式每次构建为它们各做一次空发现，`package` 模式下双 face 包得不到产物且没有报错。
 - **改动：** 工作区根目录是打包输出最近的、同时包含 `tsconfig.host.json` 与 `packages/` 的祖先目录。
 - **性能：** Host tsdown 14.82 s → 15.39 s（各 3 个样本的中位数），在噪声内。
-- **无损依据：** 仓库根 [`tsdown.config.ts`](../../../../tsdown.config.ts) 只使用 workspace 模式，743 个产物文件逐字节一致。测试 `resolves the workspace root above a dual-face package leaf` 固定该判定。
+- **无损依据：** 仓库根 [`pack.config.ts`](../../../../pack.config.ts) 只使用 workspace 模式，743 个产物文件逐字节一致。测试 `resolves the workspace root above a dual-face package leaf` 固定该判定。
 - **行为差异：** `package` 模式的使用方构建双 face 包时得到该包的 Typert 产物；仓库构建不使用 `package` 模式。
 
 ### 6. Typert 在 Worker Thread 中生成
@@ -105,7 +105,7 @@ Status: implemented
 ### 8. Client tsdown 预设按包目录读取 manifest
 
 - **目的：** 每个包配置只读取自己的 `package.json`，消除按包名遍历全部 manifest 的 glob。
-- **改动：** [`packages/client/tsdown.client.ts`](../../../../packages/client/tsdown.client.ts) 的 `clientBundle`、`staticLinked` 与 `clientLibrary` 的第一个参数是包目录（通常为配置文件的 `import.meta.dirname`），预设读取一次 `<packageDir>/package.json`，以其中的 `name` 作为插件 id 与诊断名称；该 manifest 缺失、不可读或缺少 `name` 时，配置加载以指明路径与原因的错误失败。82 个包配置调用这些预设。预设不保留模块级 manifest 缓存；Node 半边的生产依赖 external 列表在首次 resolve 时由该 manifest 计算，并缓存在该配置的闭包中。
+- **改动：** [`packages/client/pack.client.ts`](../../../../packages/client/pack.client.ts) 的 `clientBundle`、`staticLinked` 与 `clientLibrary` 的第一个参数是包目录（通常为配置文件的 `import.meta.dirname`），预设读取一次 `<packageDir>/package.json`，以其中的 `name` 作为插件 id 与诊断名称；该 manifest 缺失、不可读或缺少 `name` 时，配置加载以指明路径与原因的错误失败。82 个包配置调用这些预设。预设不保留模块级 manifest 缓存；Node 半边的生产依赖 external 列表在首次 resolve 时由该 manifest 计算，并缓存在该配置的闭包中。
 - **性能：** Client tsdown 从 12.78 s 降到 8.73 s（各 3 个样本的中位数），−4.05 s（−31.7%），两组样本区间不重叠；user CPU 从 26.1 s 降到 25.2 s，sys 从 5.9 s 降到 4.9 s，因此收益主要来自解除主线程阻塞，而不是减少 CPU 总量。原型（一次 glob 建立按包名索引）为 11.72 s → 7.46 s（−36%）。Host tsdown 中只有 5 个 `hostPhase` 包经过该查找，一对样本为 11.92 s → 10.71 s，置信度低。
 - **无损依据：** 11 次运行的 11,566 个 lib 文件逐字节一致。82 个调用处改为传入包目录后，没有一个解析出的包名与原先手写的包名不同。进程内比较 82 个配置 × 3 个 face × 1,600 个 specifier 的 external 判定，结果与原实现完全一致；负对照（多加一个 external）使 75 个判定不同。`client-bundle-purity.spec.ts` 覆盖这些 manifest 错误。
 - **行为差异：** 预设的调用约定从包名改为包目录。

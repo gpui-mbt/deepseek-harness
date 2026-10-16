@@ -1,7 +1,7 @@
 /** Optional input contributions mount through the real Loader and preserve editor ownership. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import {
   captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'

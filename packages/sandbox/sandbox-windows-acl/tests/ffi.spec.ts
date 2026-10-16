@@ -6,7 +6,7 @@
  * acl.spec.ts and probe.spec.ts (win32 only).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'

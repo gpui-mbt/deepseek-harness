@@ -1,5 +1,5 @@
 /** Shared model configuration and context assertions for real Office workflows. */
-import { expect } from 'vitest'
+import { expect } from 'vite-plus/test'
 import { Session, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 
 /** @returns Model provider patches for the configured development or official API. */

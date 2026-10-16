@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ConversationViewNode } from '../src/client/contract/conversation.ts'
 import type { GroupKey, GroupSnapshot, GroupUpdate, NodeKey, NodeReference, RenderEntry } from '../src/client/contract/groups.ts'

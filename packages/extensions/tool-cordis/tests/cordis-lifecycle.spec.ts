@@ -1,5 +1,5 @@
 import { Context, CordisError, FiberState, type Fiber } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 /**
  * Direct regressions for the vendored Cordis ownership substrate used by

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
 describe('pnpm invocation', () => {

@@ -1,6 +1,6 @@
 /** Folded reasoning summaries are bounded and independent of interleaved blocks. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { AssistantLogStream } from '../src/client/views/session-log/stream.ts'
 import { INSPECTOR_PREVIEW_LIMIT } from '../src/client/views/format.ts'
 

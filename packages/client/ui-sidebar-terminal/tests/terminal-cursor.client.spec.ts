@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** DOM cursor contrast without writing escape sequences or replacing the palette. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import type { Terminal } from '@xterm/xterm'
 import { observeTerminalCursor } from '../src/client/terminal-cursor.ts'
 

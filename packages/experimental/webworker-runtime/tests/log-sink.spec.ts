@@ -8,7 +8,7 @@
  * rather than trusted: a diagnostic that runs nothing is a diagnostic that
  * silently stops working.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { installLogSink, type LogExporter, type LogMessage } from '../src/worker-host.ts'
 
 /** Capture the exporter the sink registers, and the cordis renderer it asks for. */

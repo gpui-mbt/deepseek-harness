@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { desktopPublicationSummary } from '../scripts/desktop-publication-summary.ts'
 import type { DesktopRetainedSource } from '../scripts/desktop-release-store.ts'
 import type { DesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'

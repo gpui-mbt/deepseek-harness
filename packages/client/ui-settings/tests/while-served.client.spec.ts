@@ -1,7 +1,7 @@
 /** The served-namespace watch: a registration that lives exactly while the Host serves a namespace. */
 
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { SettingsSchemaService } from '../src/client/schema.ts'
 import { ConfigForms } from '../src/client/config-form.ts'

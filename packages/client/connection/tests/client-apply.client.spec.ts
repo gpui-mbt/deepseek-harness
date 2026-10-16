@@ -3,7 +3,7 @@
  * explicit carrier selection, and single-consumer connection-loop ownership.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   apply,
   type ClientConnectionRpc,

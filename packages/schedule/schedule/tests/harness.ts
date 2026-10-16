@@ -9,8 +9,8 @@ import Storage, { type KvUnit, type KvUnitDescriptor, type StorageBackend } from
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { vi } from 'vite-plus/test'
+import type { Mock } from 'vite-plus/test'
 import { MemoryMediaPool, MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 import ScheduleService, { type Config } from '../src/index.ts'
 

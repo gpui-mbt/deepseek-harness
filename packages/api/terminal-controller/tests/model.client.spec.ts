@@ -1,5 +1,5 @@
 /** Browser view ownership across slow RPCs, remounts and transport generations. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { RemoteStream, RemoteStreamCarrierError, type ClientRemote, type RemoteStreamOptions } from '@deepseek-ai/dsh-api-gateway/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { RemoteError, type RemoteResult, type RemoteUplinkWindow } from '@deepseek-ai/dsh-typert-protocol'

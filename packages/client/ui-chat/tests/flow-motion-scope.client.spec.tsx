@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Fold coordination belongs to its viewport; ordinary searchable hiding stays immediate. */
 import { act, cleanup, render } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { ChatViewport } from '../src/client/chat/use-chat-viewport.ts'
 import { ScrollFollow } from '../src/client/chat/use-scroll-follow.ts'
 import { useSearchableHidden } from '../src/client/chat/searchable-hidden.ts'

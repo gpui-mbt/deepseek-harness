@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Read-only spreadsheet panning keeps the workbook context equal to the clamped scrollbar offsets. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { defaultContext, handleGlobalWheel, type Context, type GlobalCache } from '@fortune-sheet/core'
 
 /**

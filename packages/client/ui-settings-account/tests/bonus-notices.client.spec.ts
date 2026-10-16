@@ -5,7 +5,7 @@
  * card reports a presented frame, with backoff retry for the rest of the
  * signed-in lifecycle; nothing about a notice survives sign-out or unload.
  */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { AccountBonusBatch, AccountBonusOrderId, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import { createBonusNoticeController, type BonusNotice } from '../src/client/bonus-notices.ts'
 

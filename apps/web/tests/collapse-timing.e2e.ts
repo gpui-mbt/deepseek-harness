@@ -5,7 +5,7 @@ import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page, Route } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { deriveReplayScript } from '@deepseek-ai/dsh-llm-replay'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {

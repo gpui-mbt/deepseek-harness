@@ -1,5 +1,5 @@
 /** Native webview events controlled by each test; presentation and navigation stay real. */
-import { vi } from 'vitest'
+import { vi, type Mock } from 'vite-plus/test'
 import type { DesktopBrowserBridge, DesktopBrowserLeaseId, DesktopBrowserReservation } from '../src/types.ts'
 import type { BrowserTabState } from '../src/client/browser/BrowserPersistence.ts'
 import { createElectronPage } from '../src/client/electron/pages.ts'
@@ -11,17 +11,19 @@ let sequence = 0
 export function electronFixture(initial?: BrowserTabState) {
   const opens = new Set<(url: string) => void>()
   const reservation: DesktopBrowserReservation = { lease: `lease-${++sequence}` as DesktopBrowserLeaseId, partition: 'partition' }
+  // Named mock types keep the exported fixture's inferred type portable: the
+  // declaration this package emits must not reach into Vitest's own paths.
   const bridge = {
-    acquire: vi.fn(async (_workspace: string) => reservation),
-    release: vi.fn(async (_lease: DesktopBrowserLeaseId) => {}),
+    acquire: vi.fn(async (_workspace: string) => reservation) as Mock<(workspace: string) => Promise<DesktopBrowserReservation>>,
+    release: vi.fn(async (_lease: DesktopBrowserLeaseId) => {}) as Mock<(lease: DesktopBrowserLeaseId) => Promise<void>>,
     onOpenRequested: vi.fn((_lease: DesktopBrowserLeaseId, listener: (url: string) => void) => {
       opens.add(listener)
       return () => { opens.delete(listener) }
-    }),
+    }) as Mock<(lease: DesktopBrowserLeaseId, listener: (url: string) => void) => () => void>,
   } satisfies DesktopBrowserBridge
-  const workspace = vi.fn(async (_signal: AbortSignal) => 'cwd:/workspace')
-  const persist = vi.fn()
-  const openRequested = vi.fn()
+  const workspace: Mock<(_signal: AbortSignal) => Promise<string>> = vi.fn(async (_signal: AbortSignal) => 'cwd:/workspace')
+  const persist: Mock<() => void> = vi.fn()
+  const openRequested: Mock<() => void> = vi.fn()
   const page = createElectronPage({ initial, persist, openRequested }, bridge, workspace)
   const presentation = page.presentation
   if (!(presentation instanceof ElectronWebviewPresentation)) throw new Error('expected the Electron presentation')
@@ -30,10 +32,16 @@ export function electronFixture(initial?: BrowserTabState) {
   function prepareGuest(approved: DesktopBrowserReservation) {
     const element = create(approved)
     const state = { url: 'about:blank', title: '', loading: true, back: false, forward: false }
+    const clearHistory: Mock<() => void> = vi.fn()
+    const goBack: Mock<() => void> = vi.fn()
+    const goForward: Mock<() => void> = vi.fn()
+    const reload: Mock<() => void> = vi.fn()
     const methods = {
-      loadURL: vi.fn(async (_url: string) => {}), getURL: vi.fn(() => state.url), getTitle: vi.fn(() => state.title),
-      canGoBack: () => state.back, canGoForward: () => state.forward, clearHistory: vi.fn(),
-      goBack: vi.fn(), goForward: vi.fn(), reload: vi.fn(), isLoading: () => state.loading,
+      loadURL: vi.fn(async (_url: string) => {}) as Mock<(url: string) => Promise<void>>,
+      getURL: vi.fn(() => state.url) as Mock<() => string>,
+      getTitle: vi.fn(() => state.title) as Mock<() => string>,
+      canGoBack: () => state.back, canGoForward: () => state.forward,
+      clearHistory, goBack, goForward, reload, isLoading: () => state.loading,
     }
     Object.assign(element, methods)
     const emit = (type: string, fields: object = {}): void => { element.dispatchEvent(Object.assign(new Event(type), fields)) }

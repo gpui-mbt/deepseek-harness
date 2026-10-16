@@ -5,7 +5,7 @@
  * loopback-only document action over the real settings mirror, and recovery
  * across Loader rebuilds of the declaring chain.
  */
-import { describe, expect, onTestFinished, vi } from 'vitest'
+import { describe, expect, onTestFinished, vi } from 'vite-plus/test'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { ok, type RemoteMock } from '@deepseek-ai/dsh-remote-mock'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-settings/types'

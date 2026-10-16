@@ -5,7 +5,7 @@
  * adapter (selects the plan off the session snapshot and follows changes).
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { TodoItem } from '@deepseek-ai/dsh-tool-todo/client'

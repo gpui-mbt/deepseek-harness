@@ -3,7 +3,7 @@
  * cycle fail-soft (every entry always emitted, no infinite walk).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId, SessionSummary } from '@deepseek-ai/dsh-api-remotes/client'
 import { flattenLineage } from '../src/client/sessions/lineage.ts'
 

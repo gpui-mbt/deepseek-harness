@@ -3,7 +3,7 @@
  * request-init assertions alone cannot observe that boundary.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { createServer, type IncomingMessage, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { OllamaSearchProvider } from '@deepseek-ai/dsh-web-search-ollama'

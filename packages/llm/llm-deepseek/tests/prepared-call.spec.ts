@@ -1,5 +1,5 @@
 /** Prepared calls retain their endpoint and credential generation. */
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import { DeepSeekAdapter } from '../src/index.ts'
 import { Config, plainOptions, resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek-api-key'

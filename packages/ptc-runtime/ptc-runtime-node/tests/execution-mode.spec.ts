@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import NodeRuntime from '../src/index.ts'
 import type { Config } from '../src/index.ts'
 import { mountRuntime } from './setup.ts'

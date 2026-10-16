@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { IDisposable, IPty } from 'node-pty'
 import { LocalTerminalHandle } from '@deepseek-ai/dsh-subprocess-local/src/terminal.ts'
 import { createProcessInspector } from '@deepseek-ai/dsh-subprocess-local/src/process-inspector.ts'

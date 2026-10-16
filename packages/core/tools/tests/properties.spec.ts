@@ -5,7 +5,7 @@
  * validator/InferArgs drift risk noted in the arg-validation Agent Note.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import fc from 'fast-check'
 import { isJsonValue } from '@deepseek-ai/dsh-util-values'
 import { parameterSchemaSpecToJsonSchema, validateArgs } from '@deepseek-ai/dsh-tools'

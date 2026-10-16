@@ -1,5 +1,5 @@
 import { Duplex, PassThrough } from 'node:stream'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { JsonChannel } from '../src/channel.ts'
 import { runPersistentMain, type PersistentProcess } from '../src/persistent-process.ts'
 import { decodePtcJsonWire, encodePtcJsonWire } from '../src/json-wire.ts'

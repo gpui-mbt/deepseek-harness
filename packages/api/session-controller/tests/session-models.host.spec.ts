@@ -5,7 +5,7 @@
  * boundary for a running selection change.
  */
 
-import { describe, expect, it, vi, onTestFinished } from 'vitest'
+import { describe, expect, it, vi, onTestFinished } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'

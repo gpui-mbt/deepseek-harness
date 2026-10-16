@@ -1,7 +1,7 @@
 /** Model discovery requires the API-key route's own credential. */
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import * as ApiKey from '../src/index.ts'
 
 it.each([undefined, ''])('hides models without an API key: %j', async (key) => {

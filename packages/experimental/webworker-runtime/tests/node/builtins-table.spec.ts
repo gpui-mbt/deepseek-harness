@@ -13,7 +13,7 @@
  * evaluates at load, which is why nothing here asserts that a factory is
  * unevaluated.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createNodeBuiltins, REPLACED_PREFIXES } from '../../src/node/builtins.ts'
 import { WorkerModuleLoader, type WorkerRequire } from '../../src/module-system/module-loader.ts'
 import { MemoryVfs } from '../../src/storage/memory.ts'

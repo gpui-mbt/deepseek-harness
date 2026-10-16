@@ -11,7 +11,7 @@
  * refusing symbol without listing it here leaves it unproven, and listing one
  * that starts answering fails.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { notAvailableError, notImplementedFail } from '../../src/node/notImplementedFail.ts'
 import * as childProcess from '../../src/node/builtin_modules/implemented/child_process.ts'
 import * as dnsPromises from '../../src/node/builtin_modules/mock/dns/promises.ts'

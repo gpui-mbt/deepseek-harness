@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { publishDesktopRelease, type DesktopPublishEvent, type DesktopPublishOperations, type DesktopRemoteObject } from '../scripts/desktop-publish.ts'
 import type { DesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'
 

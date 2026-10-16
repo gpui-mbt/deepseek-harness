@@ -3,7 +3,7 @@
  * how the store's page table becomes the pages in file order, and how far they
  * reach.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { lastLineLoaded, linesOf, loadedPages } from '../src/client/TextPreview.tsx'
 import type { TextPage } from '../src/client/store.ts'
 

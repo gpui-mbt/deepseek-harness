@@ -1,5 +1,5 @@
 import { setImmediate as nextEventLoopTurn } from 'node:timers/promises'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineTool, type Config as ToolConfig } from '@deepseek-ai/dsh-tools'

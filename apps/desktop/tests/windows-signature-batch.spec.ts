@@ -1,5 +1,5 @@
 /** Parser fault checks; real-file equivalence is measured separately. */
-import { it as test } from 'vitest'
+import { it as test } from 'vite-plus/test'
 import assert from 'node:assert/strict'
 import { copyFile, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

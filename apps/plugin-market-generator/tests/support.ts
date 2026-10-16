@@ -2,7 +2,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, vi } from 'vitest'
+import { afterEach, vi } from 'vite-plus/test'
 
 const cleanups: (() => void | Promise<void>)[] = []
 

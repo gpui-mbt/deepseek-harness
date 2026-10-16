@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const repoRoot = fileURLToPath(new URL('../../../../../../', import.meta.url))
 const dshBin = join(repoRoot, 'apps/cli/lib/bin.js')

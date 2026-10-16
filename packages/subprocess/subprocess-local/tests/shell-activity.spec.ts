@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import type { SubprocessTerminalActivity } from '@deepseek-ai/dsh-subprocess'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import LocalSubprocessRuntime from '../src/index.ts'
 
 const cleanups: Array<() => Promise<void>> = []

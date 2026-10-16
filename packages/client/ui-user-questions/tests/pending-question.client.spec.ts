@@ -1,5 +1,5 @@
 /** Card and waterfall settlement edges the composer and plugin specs do not reach. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { createWaterfallRequest, PendingQuestion } from '../src/client/contract/slots.ts'

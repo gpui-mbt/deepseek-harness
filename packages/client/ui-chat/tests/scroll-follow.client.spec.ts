@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ScrollFollow, scrollMetrics } from '../src/client/chat/use-scroll-follow.ts'
 
 afterEach(() => { vi.unstubAllGlobals() })

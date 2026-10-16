@@ -21,7 +21,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import Projections from '@deepseek-ai/dsh-session-projection'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
-import { expect, vi } from 'vitest'
+import { expect, vi } from 'vite-plus/test'
 import type { BrowserMcpConfig } from '../src/mcp.ts'
 
 export async function verifyMcpBrowser(

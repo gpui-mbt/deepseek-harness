@@ -4,7 +4,7 @@
  * contenteditable reach the registered composer commands (the jsdom lane's
  * gesture entry, below the full component bench).
  */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { fireEvent } from '@testing-library/react'
 import { $createParagraphNode, $createTextNode, $getRoot, createEditor } from 'lexical'
 import { registerPlainText } from '@lexical/plain-text'

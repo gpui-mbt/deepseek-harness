@@ -4,7 +4,8 @@ import { globSync, readFileSync, realpathSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Rolldown, type UserConfigExport } from 'tsdown'
+import { Rolldown, type UserConfig } from 'vite-plus/pack'
+import type { MemberPackConfig } from '../pack.config.ts'
 import ts from 'typescript'
 import { browserDependencyAnalysis } from '../apps/web/product-isolation.ts'
 
@@ -89,10 +90,10 @@ async function collectClientBundles(
   for (const [manifestPath, manifest] of manifests) {
     if (manifest.private === true || manifest.dsh?.client === undefined) continue
     const dir = dirname(manifestPath)
-    const loaded = await import(pathToFileURL(resolve(dir, 'tsdown.config.ts')).href) as { default: UserConfigExport }
-    const factory = await loaded.default
-    const configured = typeof factory === 'function' ? await factory({ env: {} }, { ci: false }) : factory
-    const configs = Array.isArray(configured) ? configured : [configured]
+    const loaded = await import(pathToFileURL(resolve(dir, 'pack.config.ts')).href) as { default: MemberPackConfig }
+    const factory = loaded.default
+    const configured = typeof factory === 'function' ? factory({ env: {} }) : factory
+    const configs: readonly UserConfig[] = Array.isArray(configured) ? configured : [configured]
     const client = configs.find(config => config.name === `${manifest.name}/client`)
     if (client === undefined) throw new Error(`browser notices: ${manifest.name} has no browser build config`)
     if (typeof client.inputOptions === 'function') throw new Error(`browser notices: ${manifest.name} needs resolved input options`)

@@ -1,7 +1,7 @@
 /** Direct one-shot Agent driving, exact Session adoption, machine-readable projection, and exit mapping. */
 
 import { Readable } from 'node:stream'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import AgentRegistry from '@deepseek-ai/dsh-agent'

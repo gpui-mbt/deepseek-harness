@@ -1,5 +1,5 @@
 /** Shared image zoom preferences remain isolated by tab identity. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { createZoomStore, DEFAULT_ZOOM } from '../src/client/zoom/store.ts'
 

@@ -11,7 +11,7 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
 import { JSON_SCHEMA, load } from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { readCurrentSessionFormatVersion } from './gen-session-format-catalog.ts'
 
 const root = resolve(import.meta.dirname, '..')

@@ -1,5 +1,5 @@
 /** Pixel mappings follow the delivered screenshot and invalidate independently of AX indices. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { CuaCoordinates } from '../src/coordinates.ts'
 import { Request } from '../src/protocol.ts'
 import type { CuaAppHandle, CuaWindowInfo } from '../src/types.ts'

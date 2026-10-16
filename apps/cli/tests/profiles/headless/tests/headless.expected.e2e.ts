@@ -17,7 +17,7 @@ import {
   decompressZstdFrame,
   scanZstdFrames,
 } from '@deepseek-ai/dsh-session-persistence-jsonl/src/zstd.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const goldensDir = fileURLToPath(new URL('./expected/', import.meta.url))
 const goalScenarioDir = join(goldensDir, 'goal-tools')

@@ -4,7 +4,7 @@
  * runtime/tests — the classifier moved there.)
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { RpcId, resultOf, transportError } from '../src/client/api.ts'
 
 describe('transportError', () => {

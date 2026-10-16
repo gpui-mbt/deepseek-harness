@@ -12,7 +12,7 @@ import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@de
 import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createSessionTestRemote, testSessionPersistence } from './test-remote.ts'
 
 /** Booted contexts and their temp roots, torn down after each test. */

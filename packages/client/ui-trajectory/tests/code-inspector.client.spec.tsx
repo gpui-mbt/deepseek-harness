@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** PTC source, output, and independent wrapping through the trajectory inspector. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
 import { TrajectoryTable } from '../src/client/TrajectoryTable.tsx'
 import type { TrajectoryCellProps } from '../src/client/trajectory-record.ts'

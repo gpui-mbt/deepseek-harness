@@ -231,7 +231,7 @@ declare module '@deepseek-ai/cordis' {
  * settings transport through this service rather than a shared function: the
  * client bundle purity gate forbids cross-plugin value imports and directs
  * cross-plugin collaboration through cordis services
- * (`packages/client/tsdown.client.ts`).
+ * (`packages/client/pack.client.ts`).
  */
 export class ConfigForms extends Service {
   private readonly forms = new Map<string, ConfigFormController<unknown>>()

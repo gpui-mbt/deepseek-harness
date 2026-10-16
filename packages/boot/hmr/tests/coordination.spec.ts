@@ -8,7 +8,7 @@ import Loader, { ModuleLoader } from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
 import { FSWatcher } from 'chokidar'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 const watchers = vi.hoisted(() => [] as FSWatcher[])

@@ -1,5 +1,5 @@
 import type { Locator, Page } from 'playwright'
-import { expect } from 'vitest'
+import { expect } from 'vite-plus/test'
 
 /**
  * Scroll and select an overflowing command in its rendered terminal card.

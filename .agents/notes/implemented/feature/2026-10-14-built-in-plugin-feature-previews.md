@@ -10,7 +10,7 @@ A one-line plugin description does not always show what a plugin produces. Users
 
 ## Decision
 
-In this note, built-in plugins are the official bundles that ship with DSH. Plugin Manager owns every feature preview of these bundles. [PluginManagerPage.tsx](../../../../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx) maps package names to `{ en, zh }` images, in the same file and with the same hardcoding that defines its optional bundle lists. The images live under `packages/client/ui-plugin-manager/src/client/assets/`. The shared [client tsdown preset](../../../../packages/client/tsdown.client.ts) embeds them in the Plugin Manager client bundle as data URLs. The bundle details page shows the image for the UI language below the description and status notices, whether or not the bundle is enabled.
+In this note, built-in plugins are the official bundles that ship with DSH. Plugin Manager owns every feature preview of these bundles. [PluginManagerPage.tsx](../../../../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx) maps package names to `{ en, zh }` images, in the same file and with the same hardcoding that defines its optional bundle lists. The images live under `packages/client/ui-plugin-manager/src/client/assets/`. The shared [client pack preset](../../../../packages/client/pack.client.ts) embeds them in the Plugin Manager client bundle as data URLs. The bundle details page shows the image for the UI language below the description and status notices, whether or not the bundle is enabled.
 
 Every built-in feature preview is an entry in this map. Packages cannot declare a preview, so the map is not a plugin-author interface and can change without a compatibility path.
 

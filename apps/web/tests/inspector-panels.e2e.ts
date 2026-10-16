@@ -1,7 +1,7 @@
 /** Real packaged DevTools panels against an isolated Web Host. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { afterAll, beforeAll, expect, it, onTestFinished } from 'vitest'
+import { afterAll, beforeAll, expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, type WebScaffold } from './scaffold.ts'
 
 let browser: Browser | undefined

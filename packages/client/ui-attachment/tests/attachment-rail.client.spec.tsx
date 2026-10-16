@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { AttachmentRail } from '../src/AttachmentRail.tsx'
 import type { AttachmentRailItem, AttachmentRailLabels } from '../src/AttachmentRail.tsx'

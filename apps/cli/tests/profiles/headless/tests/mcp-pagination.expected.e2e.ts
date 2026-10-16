@@ -1,7 +1,7 @@
 /** Startup diagnostics through the shipped headless profile and real MCP stdio transport. */
 
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 
 const fixtureRoot = new URL('../../../../../../packages/mcp/mcp-client/tests/fixtures/', import.meta.url)

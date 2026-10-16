@@ -1,7 +1,7 @@
 /** Host-driven Cordis query integration. */
 
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createCordisRuntimeTreeReader } from '../src/shared/cordis/reader.ts'
 import {
   cordisRuntimeSourceId,

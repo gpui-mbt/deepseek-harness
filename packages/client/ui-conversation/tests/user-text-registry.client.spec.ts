@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vite-plus/test'
 import type {
   UserTextDataMap, UserTextEvaluator, UserTextNode, UserTextRule,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'

@@ -25,7 +25,7 @@ import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import { RUN_CODE_NAME } from '@deepseek-ai/dsh-tools'
 import ApprovalService, { setApprovalPolicy } from '@deepseek-ai/dsh-user-approval'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import * as AutoReview from '@deepseek-ai/dsh-experimental-auto-review'
 
 const PROVIDER = 'deepseek-official'

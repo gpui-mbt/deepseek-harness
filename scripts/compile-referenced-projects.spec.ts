@@ -3,7 +3,7 @@ import { existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, rmSync, sta
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { aggregateCheckArgs, buildHostContracts, buildLibraryArtifacts, compileReferencedProjects } from './compile-referenced-projects.ts'
 import { runCiBench } from './run-ci-bench.ts'
 import { removeFixtureSafely } from './test-fixture-cleanup.ts'
@@ -57,21 +57,22 @@ function artifacts(leaf: string): Record<string, string> {
     .map(path => [path.replaceAll('\\', '/'), readFileSync(join(output, path)).toString('base64')]))
 }
 
-function recordedCommands(root: string, failHostBundle = false): () => { args: string[]; title: string }[] {
+function recordedCommands(root: string, failHostBundle = false): () => { args: string[]; title: string; face: string }[] {
   const log = join(root, 'commands.jsonl')
   const entrypoint = join(root, 'pnpm', 'bin', 'pnpm.cjs')
   mkdirSync(join(root, 'pnpm', 'bin'), { recursive: true })
   writeFileSync(entrypoint, [
     'const { appendFileSync } = require("node:fs")',
     'const args = process.argv.slice(2)',
-    `appendFileSync(${JSON.stringify(log)}, JSON.stringify({ args, title: process.env.DSH_CLIENT_TITLE }) + "\\n")`,
-    ...failHostBundle ? ['if (args.includes("host")) process.exit(7)'] : [],
+    `appendFileSync(${JSON.stringify(log)}, JSON.stringify({ args, title: process.env.DSH_CLIENT_TITLE, face: process.env.DSH_BUILD_FACE }) + "\\n")`,
+    ...failHostBundle ? ['if (process.env.DSH_BUILD_FACE === "host") process.exit(7)'] : [],
   ].join('\n') + '\n')
   vi.stubEnv('npm_execpath', entrypoint)
   vi.stubEnv('DSH_CLIENT_TITLE', 'Inherited Build Title')
+  vi.stubEnv('DSH_BUILD_FACE', 'stale-parent')
   onTestFinished(() => { vi.unstubAllEnvs() })
   return () => readFileSync(log, 'utf8').trim().split('\n')
-    .map(line => JSON.parse(line) as { args: string[]; title: string })
+    .map(line => JSON.parse(line) as { args: string[]; title: string; face: string })
 }
 
 describe('internal artifact build order', () => {
@@ -101,13 +102,16 @@ describe('internal artifact build order', () => {
     buildLibraryArtifacts(root, hostOnly)
 
     const expected = [
-      ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'host'],
+      ['exec', 'tsx', 'scripts/pack/run.ts', 'host'],
       ...hostOnly ? [] : [
         ['--filter', '@deepseek-ai/dsh-desktop', 'run', 'bundle'],
-        ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'client'],
+        ['exec', 'tsx', 'scripts/pack/run.ts', 'client'],
       ],
     ]
-    expect(commands()).toEqual(expected.map(args => ({ args, title: 'Inherited Build Title' })))
+    expect(commands()).toEqual(expected.map(args => ({
+      args, title: 'Inherited Build Title',
+      face: args.at(-1) === 'host' ? 'host' : args.at(-1) === 'client' ? 'client' : 'stale-parent',
+    })))
   })
 
   it('stops after a failed Host bundler before Desktop and Client builds', () => {
@@ -127,13 +131,16 @@ describe('internal artifact build order', () => {
 
     expect(commands()).toEqual([
       ['run', 'build:native-system'],
-      ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'host'],
+      ['exec', 'tsx', 'scripts/pack/run.ts', 'host'],
       ['--filter', '@deepseek-ai/dsh-desktop', 'run', 'bundle'],
-      ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'client'],
-      ['exec', 'tsdown', '--config-loader', 'native', '--config', 'benchmarks/tsdown.config.ts'],
+      ['exec', 'tsx', 'scripts/pack/run.ts', 'client'],
+      ['exec', 'tsx', 'scripts/pack/run.ts', 'bench'],
       ['run', 'build:web'],
       ['run', 'test:bench:built'],
-    ].map(args => ({ args, title: 'Inherited Build Title' })))
+    ].map(args => ({
+      args, title: 'Inherited Build Title',
+      face: args.at(-1) === 'host' ? 'host' : args.at(-1) === 'client' ? 'client' : 'stale-parent',
+    })))
 
     expect(() => { buildLibraryArtifacts(root, false) }).toThrow('host compiler exited with')
     expect(commands()).toHaveLength(7)

@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { resolveDesktopPublishRoute } from '../scripts/desktop-publish-route.ts'
 
 function fixture() {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Account operations in the shipped client composition, in Desktop and in a plain browser. */
-import { afterEach, beforeEach, expect, vi } from 'vitest'
+import { afterEach, beforeEach, expect, vi } from 'vite-plus/test'
 import { ok } from '@deepseek-ai/dsh-remote-mock'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'

@@ -3,7 +3,7 @@
 import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanupAcpExampleTest } from './cleanup.ts'
 
 let fallbackWorkdir: string | undefined

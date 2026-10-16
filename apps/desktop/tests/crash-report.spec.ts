@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import {
   CRASH_REPORTS_RETAINED, crashReportFileName, ERROR_SECTION_MAX_CHARS, pruneCrashReports, renderCrashReport, RendererConsoleTail,
   writeCrashReport,

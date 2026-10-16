@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import {
   runScenario,
   type InputScript,

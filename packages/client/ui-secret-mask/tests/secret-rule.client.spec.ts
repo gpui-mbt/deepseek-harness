@@ -3,7 +3,7 @@
  * production UserText evaluator.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { UserTextNode, UserTextRule, UserTextTransformContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/user-text-registry.ts'
 import { collapseWhitespaceRule, trimWhitespaceRule } from '@deepseek-ai/dsh-client-ui-conversation/src/client/user-text/whitespace-rules.ts'

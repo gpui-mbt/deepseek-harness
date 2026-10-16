@@ -1,6 +1,6 @@
 /** Controller wire behavior: document-relative routes, availability filtering, and launch errors. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OpenInAppController } from '../src/client/controller.ts'
 
 afterEach(() => {

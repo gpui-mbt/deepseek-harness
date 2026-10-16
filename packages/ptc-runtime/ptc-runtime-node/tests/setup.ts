@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import SessionStore from '@deepseek-ai/dsh-session'
 import FileSystem from '@deepseek-ai/dsh-fs-local'
 import Subprocess from '@deepseek-ai/dsh-subprocess-local'

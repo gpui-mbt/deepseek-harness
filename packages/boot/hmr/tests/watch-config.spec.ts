@@ -11,7 +11,7 @@ import Hmr from '../src/index.ts'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { FSWatcher, type ChokidarOptions } from 'chokidar'
 
 const configWatch = vi.hoisted(() => ({

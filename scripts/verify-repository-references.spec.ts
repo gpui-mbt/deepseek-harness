@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, type TestContext } from 'vitest'
+import { describe, expect, it, type TestContext } from 'vite-plus/test'
 import { findRepositoryReferences, scanRepositoryReferences, uniquePrefixMatch } from './verify-repository-references.ts'
 
 const organizationUrl = `https://${['github.com', ['deepseek', 'harness'].join('-')].join('/')}`
@@ -44,16 +44,36 @@ function repository(test: TestContext) {
   return { root, git, write, commit, tree }
 }
 
+/** Object name for a commit body in the object format the fixture repository uses. */
+function commitObjectName(tree: string, body: string): string {
+  const algorithm = tree.length === 64 ? 'sha256' : 'sha1'
+  return createHash(algorithm).update(`commit ${String(Buffer.byteLength(body))}\0${body}`).digest('hex')
+}
+
+/** Commit object body carrying `marker` as its message. */
+function commitBody(tree: string, marker: string): string {
+  return `tree ${tree}\nauthor T <t@example.invalid> 0 +0000\ncommitter T <t@example.invalid> 0 +0000\n\n${marker}\n`
+}
+
 /** Two commit object bodies whose object names share at least `length` leading hexadecimal digits. */
 function collidingCommitBodies(tree: string, length: number): [string, string] {
-  const algorithm = tree.length === 64 ? 'sha256' : 'sha1'
   const seen = new Map<string, string>()
   for (let index = 0; ; index += 1) {
-    const body = `tree ${tree}\nauthor T <t@example.invalid> 0 +0000\ncommitter T <t@example.invalid> 0 +0000\n\ncollision ${String(index)}\n`
-    const prefix = createHash(algorithm).update(`commit ${String(Buffer.byteLength(body))}\0${body}`).digest('hex').slice(0, length)
+    const body = commitBody(tree, `collision ${String(index)}`)
+    const prefix = commitObjectName(tree, body).slice(0, length)
     const previous = seen.get(prefix)
     if (previous !== undefined) return [previous, body]
     seen.set(prefix, body)
+  }
+}
+
+/** A commit body whose object name begins with `length` decimal digits, with that name and prefix. */
+function decimalPrefixedCommit(tree: string, length: number): { body: string; name: string; prefix: string } {
+  for (let index = 0; ; index += 1) {
+    const body = commitBody(tree, `decimal ${String(index)}`)
+    const name = commitObjectName(tree, body)
+    const prefix = name.slice(0, length)
+    if (/^\d+$/u.test(prefix)) return { body, name, prefix }
   }
 }
 
@@ -151,6 +171,15 @@ describe('maintained repository reference policy', () => {
     fixture.write('ambiguous.md', first.slice(0, 7))
     fixture.write('unique.md', first.slice(0, shared + 1))
     expect(scanRepositoryReferences(fixture.root)).toEqual([{ file: 'unique.md', line: 1, kind: 'commit-hash' }])
+  })
+
+  it('accepts a decimal run that uniquely prefixes an available commit', (test) => {
+    const fixture = repository(test)
+    const { body, name, prefix } = decimalPrefixedCommit(fixture.tree, 7)
+    fixture.git(['hash-object', '-t', 'commit', '-w', '--stdin'], body)
+    fixture.write('lock.md', `size = ${prefix}`)
+    fixture.write('reference.md', name)
+    expect(scanRepositoryReferences(fixture.root)).toEqual([{ file: 'reference.md', line: 1, kind: 'commit-hash' }])
   })
 
   it('accepts hexadecimal branch names that do not match the referenced commit identifier', (test) => {

@@ -1,5 +1,5 @@
 /** Browser recording bytes conform to the Host's fixed PCM format. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { audioBase64, encodeWave, Recording, RecordingError } from '../src/client/audio.ts'
 import { captureFixture } from './audio-fixture.client.ts'
 

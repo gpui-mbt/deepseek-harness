@@ -1,6 +1,6 @@
 /** Workspace commands capture their business target before the dispatcher executes them. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'

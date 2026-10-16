@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getStaticModules } from '@deepseek-ai/dsh-client-web/src/seed.ts'
-import { afterAll, describe, expect, it, onTestFinished } from 'vitest'
+import { afterAll, describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { MODULES_PACKAGE } from '../src/assembly/modules.ts'
 import { WEB_PROFILE_BUNDLES, bundleRoster, webApp } from '../src/assembly/bundle-roster.ts'
 

@@ -7,7 +7,7 @@ import { SandboxedFileSystem } from '@deepseek-ai/dsh-fs-sandbox'
 import { canonicalPath } from '@deepseek-ai/dsh-sandbox'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assertWorkspaceOutsideTemp, outsideTempWorkspaceParent } from './snapshot-workspace-parent.ts'
 
 // Host disk exhaustion is not simulated: placement and the real write fence are the regression oracles.

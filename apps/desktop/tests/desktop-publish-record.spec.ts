@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createDesktopPublicationRecord, wasDesktopAttemptPublished, withDesktopChannelLock } from '../scripts/desktop-publish-record.ts'
 
 it('excludes another process while a channel lock is held and admits it after release', async () => {

@@ -3,7 +3,7 @@
  * user-authored metadata is never translated.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { presetDisplayText, type BuiltInPresetCopyKey } from '../src/display.ts'
 
 const t = (key: BuiltInPresetCopyKey): string => `t:${key}`

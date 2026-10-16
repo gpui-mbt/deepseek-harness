@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockInstance } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnimatedRows } from '../src/client/rows/AnimatedRows.tsx'
 

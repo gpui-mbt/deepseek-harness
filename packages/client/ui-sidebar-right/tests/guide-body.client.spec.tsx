@@ -7,7 +7,7 @@
  * that type as a page in the guide's own tab. The chain is asserted through
  * what the body hands it — the tab and the shipped guide as the fallback.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { GlobalStandardProps, RenderOpts, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'

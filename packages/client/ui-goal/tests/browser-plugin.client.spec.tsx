@@ -10,9 +10,9 @@
  * plugin fiber (HMR safety), and the node half stays inert.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'

@@ -1,6 +1,6 @@
 /** Target-scoped Host changes, fresh filesystem metadata, and watcher ownership. */
-import { afterEach, beforeEach, describe, expect, it, onTestFailed, vi } from 'vitest'
-import type { Mock, MockInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFailed, vi } from 'vite-plus/test'
+import type { Mock, MockInstance } from 'vite-plus/test'
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'

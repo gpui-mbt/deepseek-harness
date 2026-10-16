@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { act, render } from '@testing-library/react'
 import { bindSnapshotSelector } from '../src/client/bind.ts'
 import type { HostObservable as ObservableSnapshot, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'

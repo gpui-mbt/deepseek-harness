@@ -16,7 +16,7 @@
  * mishandles them. Five traps cannot recur while the AST pass is the parser,
  * but they stay checked because a future parser swap could reintroduce them.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { parse } from 'acorn'
 import { lowerModuleSource } from '../../src/compile/transform.ts'
 import { LOWERING_VERSION, WRAPPER_PARAMS } from '../../src/image-layout.ts'

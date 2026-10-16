@@ -4,7 +4,7 @@ import { setImmediate } from 'node:timers/promises'
 import { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { $getRoot, $nodesOfType, REDO_COMMAND, UNDO_COMMAND } from 'lexical'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { DraftReference, DraftSnapshot, Occurrence } from '../src/client/contract/draft-editor.ts'
 import type {
   CommandClaim, DraftAttachmentId, InputTriggerController, PickOutcome, SubmitOutcome,

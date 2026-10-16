@@ -1,5 +1,5 @@
 /** Account configuration resolves the listing endpoint, cache timing, and model overrides in one step. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { Config, plainAccountOptions, resolveAccountOptions } from '../src/config.ts'
 

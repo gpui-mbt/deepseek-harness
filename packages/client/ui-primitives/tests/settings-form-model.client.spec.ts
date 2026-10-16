@@ -3,7 +3,7 @@
  * call a save reaches, and what happens to drafts the Host did not accept.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   SettingsFormModel, settingsNumberField, settingsTextField,
   type SettingsFormPathOp, type SettingsFormScope, type SettingsFormScopeSnapshot,

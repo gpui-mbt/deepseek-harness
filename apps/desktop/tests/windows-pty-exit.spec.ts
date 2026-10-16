@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 it.skipIf(process.platform !== 'win32').each(['natural', 'kill'])('releases the terminal worker after %s exit', async (mode) => {
   const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => (

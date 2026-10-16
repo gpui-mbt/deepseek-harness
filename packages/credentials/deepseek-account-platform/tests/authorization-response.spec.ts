@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { AccountUnauthorizedError, requestAccount, requestPlatform } from '../src/protocol.ts'
 
 it.each([null, undefined])('recognizes invalid authorization without requiring business data (%s)', async (data) => {

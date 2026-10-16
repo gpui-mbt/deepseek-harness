@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { render } from '@testing-library/react'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { BrowserNavigation } from '../src/client/browser/BrowserNavigation.ts'

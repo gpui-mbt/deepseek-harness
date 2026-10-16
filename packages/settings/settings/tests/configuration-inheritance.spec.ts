@@ -3,7 +3,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import * as appBoot from '@deepseek-ai/dsh-app-boot'
 import { configurationFixture } from './configuration-fixture.ts'
 

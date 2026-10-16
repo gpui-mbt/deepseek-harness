@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createInstalledUpdateRun } from '../scripts/installed-update-qualification.ts'
 import { assertInstalledUpdateSigningClear, installedUpdatePackagingEnvironment, packageInstalledUpdate } from '../scripts/installed-update-packaging.ts'
 

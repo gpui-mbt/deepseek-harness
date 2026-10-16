@@ -2,7 +2,7 @@
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
 import { chromium, type WebSocketRoute } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, seedSession, watchConsole } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 

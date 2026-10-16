@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { setTimeout } from 'node:timers/promises'
 import { logoutAccount } from '../src/protocol.ts'
 import { revokeAccount } from '../src/logout.ts'

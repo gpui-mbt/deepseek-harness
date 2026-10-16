@@ -1,6 +1,6 @@
 /** Automatic closure preserves the visible parent and reserves blank space only after all rows. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { InspectorTableHierarchy, type InspectorRow } from '../src/client/views/table-model.ts'
 import { InspectorTableLayout } from '../src/client/views/table-layout.ts'
 

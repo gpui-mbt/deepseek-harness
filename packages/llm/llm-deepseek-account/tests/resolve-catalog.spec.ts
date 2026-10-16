@@ -1,5 +1,5 @@
 /** Catalog resolution: version gating, this build's model knowledge, and model overrides. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { DEFAULT_REQUEST_IMAGE_MAX_BYTES, resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
 import type { ModelOverride } from '../src/config.ts'
 import { parseModelListing } from '../src/listing.ts'

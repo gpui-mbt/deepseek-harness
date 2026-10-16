@@ -6,7 +6,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const css = readFileSync(fileURLToPath(new URL('../src/client/PlatformOverlay.module.css', import.meta.url)), 'utf8')
 

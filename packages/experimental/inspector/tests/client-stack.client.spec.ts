@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseClientStack } from '../src/client/cdp/stack.ts'
 import { inspectorId } from '../src/shared/bridge/ids.ts'
 

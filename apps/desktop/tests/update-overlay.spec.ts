@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { BrowserWindow, BrowserWindowConstructorOptions, WebContents } from 'electron'
 import { DesktopUpdateOverlays } from '../src/update-overlay.ts'
 

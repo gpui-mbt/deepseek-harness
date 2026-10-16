@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { performance } from 'node:perf_hooks'
 import { brotliCompressSync, gzipSync } from 'node:zlib'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { z } from 'zod'
 import {
   createAssistantMessage,

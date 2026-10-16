@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createPackagingRun } from '../scripts/packaging-run.mjs'
 import { beginWindowsSigningAttempt } from '../scripts/windows-signing-state.mjs'
 

@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { mountSessionMcp } from '@deepseek-ai/dsh-experimental-browser-use-runtime/mcp'
 import * as Provider from '../src/index.ts'
 

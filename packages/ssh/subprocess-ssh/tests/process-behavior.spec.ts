@@ -1,7 +1,7 @@
 /** Remote process transport, output observations, and managed cleanup through the public provider. */
 import { duplexPair, type Duplex, type Readable } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { SshRpcPeer } from '../../ssh/src/protocol.ts'

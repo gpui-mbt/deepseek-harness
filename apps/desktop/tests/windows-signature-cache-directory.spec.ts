@@ -3,7 +3,7 @@ import { mkdtemp, rm, symlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { promisify } from 'node:util'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { prepareWindowsSignatureCacheDirectory, resolveWindowsSignatureCacheDirectory } from '../scripts/windows-signature-cache-directory.mjs'
 
 it.skipIf(process.platform !== 'win32')('resolves an account cache independently of checkout and LocalAppData virtualization', () => {

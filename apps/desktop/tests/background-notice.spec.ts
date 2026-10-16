@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { MessageBoxOptions, MessageBoxReturnValue } from 'electron'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { DesktopBackgroundNotice } from '../src/background-notice.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'
 

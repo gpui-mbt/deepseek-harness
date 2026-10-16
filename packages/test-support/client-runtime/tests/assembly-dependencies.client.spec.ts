@@ -1,6 +1,6 @@
 /** Real bundle dependency closures activate their requested client plugins without extra roster rows. */
 import { FiberState } from '@deepseek-ai/cordis'
-import { describe, expect, vi } from 'vitest'
+import { describe, expect, vi } from 'vite-plus/test'
 import { createClientTest, webApp } from '../src/assembly/index.ts'
 
 const HMR = '@deepseek-ai/dsh-client-hmr'

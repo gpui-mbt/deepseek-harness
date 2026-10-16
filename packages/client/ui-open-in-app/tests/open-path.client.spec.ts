@@ -1,6 +1,6 @@
 /** Path controller behavior: the once-per-page desktop read and the open/reveal outcomes over the Session Remote. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionOpenWorkspacePathRequest } from '@deepseek-ai/dsh-api-session-controller/types'
 import { OpenInAppPathController, type OpenInAppPathRemote } from '../src/client/open-path.ts'

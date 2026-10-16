@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { refreshAfterReturn } from '../src/client/account-refresh.ts'
 
 it('starts a new query after the pre-return balance query settles', async () => {

@@ -1,7 +1,7 @@
 /** Browser geometry for settings, expanded plugin dialogs, and their menus under Windows caption markers. */
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { openSettings, ZH_BROWSER_LOCALE } from './support.ts'
 

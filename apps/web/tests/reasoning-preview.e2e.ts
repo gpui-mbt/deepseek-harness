@@ -1,7 +1,7 @@
 /** Streaming reasoning previews through the assembled Chat and a paused model adapter. */
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { LlmAdapter, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import {

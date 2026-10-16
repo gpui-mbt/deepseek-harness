@@ -7,7 +7,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
 import yaml from 'js-yaml'
-import { expect, onTestFinished } from 'vitest'
+import { expect, onTestFinished } from 'vite-plus/test'
 import { pnpmCommand } from '../../../../scripts/release/process.ts'
 import { packedWorkspaceClosure, type WorkspacePackage } from '../../../../packages/sandbox/sandbox-local/tests/packed-workspace-closure.ts'
 

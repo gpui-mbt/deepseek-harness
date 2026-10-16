@@ -1,8 +1,6 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { flattenDiagnosticMessageText, parseConfigFileTextToJson } from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
+import { lint } from '../lint.config.ts'
 
 type Rules = Record<string, unknown>
 
@@ -65,7 +63,7 @@ function mergedRules(overrides: readonly unknown[], indexes: readonly number[]):
   for (const index of indexes) {
     const override = overrides[index]
     if (!isRecord(override) || !isRecord(override.rules)) {
-      throw new Error(`.oxlintrc.json override ${index} must contain a rules object`)
+      throw new Error(`lint.config.ts override ${index} must contain a rules object`)
     }
     Object.assign(merged, override.rules)
   }
@@ -73,14 +71,9 @@ function mergedRules(overrides: readonly unknown[], indexes: readonly number[]):
 }
 
 describe('Oxlint repository rule fingerprint', () => {
-  const path = fileURLToPath(new URL('../.oxlintrc.json', import.meta.url))
-  const result = parseConfigFileTextToJson(path, readFileSync(path, 'utf8'))
-  if (result.error !== undefined) {
-    throw new Error(flattenDiagnosticMessageText(result.error.messageText, '\n'))
-  }
-  const parsed: unknown = result.config
+  const parsed: unknown = lint
   if (!isRecord(parsed) || !Array.isArray(parsed.overrides)) {
-    throw new Error('.oxlintrc.json must contain an overrides array')
+    throw new Error('lint.config.ts must export a lint object with an overrides array')
   }
   const overrides: readonly unknown[] = parsed.overrides
 

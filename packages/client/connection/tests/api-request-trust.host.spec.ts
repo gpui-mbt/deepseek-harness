@@ -1,6 +1,6 @@
 /** Behavior of the /api browser-trust fence (rebinding + cross-site defense). */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assertTrustedAuthority, isTrustedApiRequest } from '../src/api-request-trust.ts'
 
 function request(headers: Record<string, string | undefined>): { headers: Record<string, string | undefined> } {

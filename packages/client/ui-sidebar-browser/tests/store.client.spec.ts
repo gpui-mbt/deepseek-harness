@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { BrowserNavigation } from '../src/client/browser/BrowserNavigation.ts'
 import { createBrowserStore } from '../src/client/browser/store.ts'

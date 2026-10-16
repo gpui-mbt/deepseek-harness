@@ -7,7 +7,7 @@
  * module-level VFS slot. Mixing the bare package's built entry with `/src/*`
  * imports can create two slots, leaving the bridge with no mounted filesystem.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { MemoryVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/memory.ts'
 import { setActiveVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/active.ts'
 import * as fs from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/fs.ts'

@@ -2,7 +2,7 @@
 import { createRequire } from 'node:module'
 import ExcelJS from 'exceljs'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { XlsxPreviewArchive } from '../src/client/excel/xlsx-archive.ts'

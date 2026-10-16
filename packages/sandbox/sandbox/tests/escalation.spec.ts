@@ -6,7 +6,7 @@
  * verbatim texts are pinned once, next to the vocabulary that owns them.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   ESCALATION_TARGETS,
   WIDER_MODES,

@@ -1,7 +1,7 @@
 /** Source checks for the changed-files and explicit-delivery layout. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const read = (name: string): string =>
   readFileSync(fileURLToPath(new URL(`../src/client/${name}`, import.meta.url)), 'utf8')

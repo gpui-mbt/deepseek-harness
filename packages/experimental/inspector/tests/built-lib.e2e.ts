@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { pnpmInvocation } from '../../../../scripts/pnpm-invocation.ts'
 
 const packageDirectory = fileURLToPath(new URL('..', import.meta.url))

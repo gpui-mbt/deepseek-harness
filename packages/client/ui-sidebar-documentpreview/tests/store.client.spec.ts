@@ -3,7 +3,7 @@
  * file version; a view that survives a reset; one bucket per tab, dropped on
  * `forget` so a closed tab leaves nothing behind.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import { createTextStore, fresh } from '../src/client/store.ts'
 import { page } from './fixtures.client.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { normalizeTerminalText, TerminalSanitizer } from '@deepseek-ai/dsh-terminal-bash/src/sanitize.ts'
 
 describe('TerminalSanitizer', () => {

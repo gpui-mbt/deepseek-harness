@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { isSafariBrowser, repairSafariTextareaLayout } from '../src/client/skeleton/safari.ts'
 
 describe('Safari browser detection', () => {

@@ -1,7 +1,7 @@
 /** Web transport delegates module and entry changes to the page-owned controller. */
 import { Context } from '@deepseek-ai/cordis'
 import type { ClientModuleLoader } from '@deepseek-ai/dsh-client-modules/client'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { apply, inject } from '../src/client/index.ts'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })

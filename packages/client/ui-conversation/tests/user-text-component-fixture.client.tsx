@@ -1,7 +1,7 @@
 /** Production UserText assembly for component units that supply their own outer Slot seats. */
 import { Context } from '@deepseek-ai/cordis'
 import { createElement, type ComponentProps, type ReactNode } from 'react'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { UserTextInput, UserTextNodeOwnerProps } from '../src/client/contract/slots.ts'

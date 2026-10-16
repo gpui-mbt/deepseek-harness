@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const builderRequire = createRequire(createRequire(import.meta.url).resolve('app-builder-lib'))
 const { walkAsync } = builderRequire(join(dirname(builderRequire.resolve('@electron/osx-sign')), 'util.js')) as {

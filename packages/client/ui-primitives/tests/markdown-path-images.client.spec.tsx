@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { MarkdownText } from './markdown-test-components.tsx'
 import type { MarkdownPathImages } from '../src/markdown/MarkdownText.tsx'
 

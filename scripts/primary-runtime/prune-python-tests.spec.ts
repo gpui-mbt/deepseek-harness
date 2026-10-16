@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { zipSync } from 'fflate'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import lock from './lock.json' with { type: 'json' }
 import { unpackPrimaryRuntimeWheel } from './prepare.ts'
 import { prunePrimaryRuntimePythonTests } from './prune-python-tests.ts'

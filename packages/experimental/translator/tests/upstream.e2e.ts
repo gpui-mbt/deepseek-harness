@@ -1,6 +1,6 @@
 /** Opt-in native-fetch probes of the actual anonymous browser endpoints. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import Translator from '../src/index.ts'
 
 const contexts: Context[] = []

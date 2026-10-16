@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { browserUrl, logoutAccount, requestAccount, requestBonusNotified, requestPlatform, requestUnnotifiedBonuses } from '../src/protocol.ts'
 import type { AccountBonusOrderId } from '@deepseek-ai/dsh-deepseek-account/types'
 import { readAccountDetail, readUnnotifiedBonuses } from '../src/details.ts'

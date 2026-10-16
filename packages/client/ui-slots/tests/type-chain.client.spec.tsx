@@ -2,7 +2,7 @@
 // composed register constraint — children spec x SlotMap alignment, renderSlot
 // key-set containment, store share matching, inject face completeness — plus
 // the full positive chain. Bodies with @ts-expect-error sites never run.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ReactNode } from 'react'
 import type {
   BoundActions, DefineStore, FactoryComponentPropsOf, FactoryLocalComponentPropsOf,

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Measured microphone levels drive geometry; quiet audio never creates a synthetic signal. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, render } from '@testing-library/react'
 import { Waveform } from '../src/client/Waveform.tsx'
 import { Recording } from '../src/client/audio.ts'

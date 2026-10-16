@@ -3,7 +3,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url))
 const packageRoot = fileURLToPath(new URL('../', import.meta.url))

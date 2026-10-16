@@ -7,7 +7,7 @@
 import { createRef } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { act } from 'react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import type { AccountBonusOrderId } from '@deepseek-ai/dsh-deepseek-account/types'
 import { AccountNoticeCard } from '../src/client/AccountNotice.tsx'
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 describe('Vitest jsdom compatibility', () => {
   it('provides initial ResizeObserver delivery and supports disconnecting targets', () => {

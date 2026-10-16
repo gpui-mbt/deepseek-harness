@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { bundleWorkflowGuest, generateWorkflowGuest } from './gen-workflow-guest.ts'
 
 async function fixture(source: string): Promise<{ root: string; entry: string; output: string }> {

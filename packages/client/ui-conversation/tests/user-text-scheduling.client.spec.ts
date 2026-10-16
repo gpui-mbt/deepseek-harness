@@ -1,6 +1,6 @@
 /** Candidate scheduling is measured by calls and query offsets, never clocks. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type {
   UserTextFacts, UserTextRule, UserTextNode, UserTextTransformContext,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'

@@ -1,5 +1,5 @@
 /** Form projection preserves live containers and removes secret defaults. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import z from '@deepseek-ai/schemastery'
 import { isVolatilePath, plainConfig, projectForm, volatileForm } from '../src/schema.ts'
 

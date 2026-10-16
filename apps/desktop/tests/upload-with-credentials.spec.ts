@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { resolveCredentialUploadEnvironment } from '../scripts/upload-target.ts'
 
 const execute = promisify(execFile)

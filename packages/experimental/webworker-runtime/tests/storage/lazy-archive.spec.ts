@@ -4,7 +4,7 @@
  * refused by name, one archive is fetched once however many readers wait, and a
  * failed fetch leaves the files registered so a later read retries.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { MemoryVfs } from '../../src/storage/memory.ts'
 import { packTar } from '../../src/storage/tar.ts'
 import { setActiveVfs } from '../../src/storage/active.ts'

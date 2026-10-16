@@ -6,7 +6,7 @@
 // apart from code-block.client.spec.tsx so its lazy-grammar timing cannot
 // race that file's first-touch assertions (files run isolated).
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { CodeBlock } from '../src/markdown/CodeBlock.tsx'
 import { StreamingHighlightSession } from '../src/markdown/highlight.ts'

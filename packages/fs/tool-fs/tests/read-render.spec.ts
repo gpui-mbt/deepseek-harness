@@ -5,7 +5,7 @@
  * of decoded text chunks (so one code path serves whole-file and streamed reads).
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { languageForPath } from '@deepseek-ai/dsh-util-code-language'
 import { buildWindow, langFromPath, readMetaFromMeta, READ_MAX_BYTES, READ_MAX_LINE_LENGTH } from '../src/read-render.ts'
 import type { ReadWindow } from '../src/read-render.ts'

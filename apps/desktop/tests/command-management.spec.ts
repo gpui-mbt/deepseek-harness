@@ -1,6 +1,6 @@
 /** Locale-owned native command-management states. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { en, zh } from '../src/locale.ts'
 import { presentCommandManagement } from '../src/command-management.ts'
 

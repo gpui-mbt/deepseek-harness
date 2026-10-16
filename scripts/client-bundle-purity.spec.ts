@@ -6,9 +6,9 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build, type Rolldown, type TsdownBundle, type UserConfig } from 'tsdown'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { clientBundle, requestedExternals, staticLinked } from '../packages/client/tsdown.client.ts'
+import { build, type Rolldown, type TsdownHandle, type UserConfig } from 'vite-plus/pack'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
+import { clientBundle, requestedExternals, staticLinked } from '../packages/client/pack.client.ts'
 
 type ResolveId = (source: string) => null | { id: string; external: boolean }
 
@@ -134,11 +134,11 @@ describe('client bundle dynamic imports', () => {
         write: false, clean: false, exports: false, report: false, logLevel: 'silent',
       })
       try {
-        const names = builds.flatMap(bundle => bundle.chunks).map(chunk => chunk.fileName)
+        const names = builds.bundles.flatMap(bundle => bundle.chunks).map(chunk => chunk.fileName)
         expect(names).toContain(platform === 'node' ? 'client.node.js' : 'client.browser.js')
         expect(names).toContain(platform === 'node' ? 'client.node.terminal.js' : 'client.browser.terminal.js')
       } finally {
-        for (const bundle of builds) await bundle[Symbol.asyncDispose]()
+        for (const bundle of builds.bundles) await bundle[Symbol.asyncDispose]()
       }
     }
   })
@@ -148,18 +148,18 @@ describe('client bundle dynamic imports', () => {
     const config = clientConfigs()[0]
     if (config === undefined) throw new Error('client config missing')
 
-    let builds: TsdownBundle[] = []
+    let builds: TsdownHandle | undefined
     try {
       builds = await build({
         ...config, cwd: root, config: false, tsconfig: false,
         write: false, clean: false, exports: false, report: false, logLevel: 'silent',
       })
-      const chunks = builds.flatMap(bundle => bundle.chunks).filter(chunk => chunk.type === 'chunk')
+      const chunks = builds.bundles.flatMap(bundle => bundle.chunks).filter(chunk => chunk.type === 'chunk')
       const output = chunks.find(chunk => chunk.fileName === 'client.js')?.code
       expect(output).toContain('require.async("./client.terminal.js")')
       expect(output).not.toContain('Promise.resolve().then(() => require("./client.terminal.js"))')
     } finally {
-      for (const bundle of builds) await bundle[Symbol.asyncDispose]()
+      for (const bundle of builds?.bundles ?? []) await bundle[Symbol.asyncDispose]()
     }
   })
 })
@@ -300,15 +300,15 @@ describe('client bundle experimental input isolation', () => {
   }
 
   async function bundle(owner: string, config: UserConfig): Promise<string> {
-    let builds: TsdownBundle[] = []
+    let builds: TsdownHandle | undefined
     try {
       builds = await build({
         ...config, cwd: owner, config: false, tsconfig: false,
         write: false, clean: false, exports: false, report: false, logLevel: 'silent',
       })
-      return builds.flatMap(build => build.chunks.filter(chunk => chunk.type === 'chunk').map(chunk => chunk.code)).join('\n')
+      return builds.bundles.flatMap(build => build.chunks.filter(chunk => chunk.type === 'chunk').map(chunk => chunk.code)).join('\n')
     } finally {
-      for (const build of builds) await build[Symbol.asyncDispose]()
+      for (const build of builds?.bundles ?? []) await build[Symbol.asyncDispose]()
     }
   }
 

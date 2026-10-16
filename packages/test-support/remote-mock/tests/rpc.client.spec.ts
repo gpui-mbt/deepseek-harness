@@ -1,5 +1,5 @@
 /** The Connection carrier face: payload forms, streams, unmatched rejections, and abort. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { RemoteMock, ok, openStream, type MockClientStream } from '../src/index.ts'
 
 const idle = (): AbortSignal => new AbortController().signal

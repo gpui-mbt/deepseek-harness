@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Path labels retain their full hover text and update clipping with layout and file changes. */
 import { act, cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PathLabel } from '../src/PathLabel.tsx'
 
 afterEach(() => {

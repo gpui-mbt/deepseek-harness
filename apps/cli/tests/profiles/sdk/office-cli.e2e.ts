@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline'
 import { execa } from 'execa'
 import { strToU8, zipSync } from 'fflate'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const repo = fileURLToPath(new URL('../../../../../', import.meta.url))
 const carrier = process.env.DSH_OFFICE_TEST_CARRIER ?? 'npm'

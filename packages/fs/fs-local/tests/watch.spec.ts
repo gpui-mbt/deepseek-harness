@@ -3,7 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import { dirname, join, resolve } from 'node:path'
 import * as chokidar from 'chokidar'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { LocalFileSystem } from '../src/index.ts'
 
 vi.mock('chokidar', async (importOriginal) => {

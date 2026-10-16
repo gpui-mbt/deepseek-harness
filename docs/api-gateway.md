@@ -4,6 +4,8 @@ English | [中文](api-gateway.zh.md)
 
 This is the current-state reference for the Typert API Gateway. It describes how business services declare unary and stream Remote methods, how the build generates Host and Client contracts, and how calls reuse the Connection RPC and `/api` route. Session events, incremental data, and other streaming protocols are outside this document's scope; they may use the same Connection but do not use Remote method descriptors.
 
+<a id="programming-model"></a>
+
 ## Programming model
 
 Business services use `@Remote` or `@RemoteScope` to select the methods exposed to the Client. Unmarked methods do not enter the generated Client types or runtime contributions and cannot be called through `ctx.remote`.
@@ -99,11 +101,11 @@ The API Gateway package owns the Host dispatcher and Client Remote endpoint as p
 
 ## Strict generation pipeline
 
-The root build compiles and bundles the Host face, then the Client face, then builds the Web shell ([step order](development.md#typescript-project-layout)). The Host phase first compiles the Host package references, then runs `tsdown --env.DSH_BUILD_FACE host`; the normal Host Project Reference graph compiles the Typert generator, which runs during this tsdown pass with the Host aggregate as its only `ts.Program` seed. The Client phase then compiles the Client package references and runs `tsdown --env.DSH_BUILD_FACE client`, consuming the newly generated Remote Client declarations and runtime contributions without starting Typert again.
+The root build compiles and bundles Host, bundles Desktop, compiles and bundles Client, then builds the Web shell ([step order](development.md#typescript-project-layout)). The Host phase first compiles the Host package references, then runs `tsx scripts/pack/run.ts host`; the normal Host Project Reference graph compiles the Typert generator, which runs once during Host pack with the Host aggregate as its only `ts.Program` seed. The Client phase then compiles the Client package references and runs `tsx scripts/pack/run.ts client`, consuming the newly generated Remote Client declarations and runtime contributions without starting Typert again.
 
-Both tsdown passes match `vendor/*`, `packages/*/*`, and `apps/cli`, the Host pass also `apps/desktop-host` ([build order](development.md#typescript-project-layout)), and both bundle only JavaScript emitted to `lib/types` by the corresponding tsc phase. The root config does not scan Client artifacts, classify package names, or pass a maintained filter to tsdown; package-local configs return entries for the current phase based on `DSH_BUILD_FACE`. An ordinary Client plugin produces both its Node loader entry and browser bundle during the Client phase.
+The root [`pack.config.ts`](../pack.config.ts) discovers workspace members and merges their phase-selected `pack.config.ts` entries with common defaults ([configuration](development.md#toolchain-configuration)). Both passes bundle only JavaScript emitted to `lib/types` by the corresponding tsc phase; they do not scan Client artifacts or maintain a Host/Client package filter. An ordinary Client plugin produces both its Node loader entry and browser bundle during the Client phase.
 
-`api/remotes`, `api/gateway`, `api/session-controller`, and `api/workspace-controller` (plus `client/connection`) split TypeScript faces. `api/remotes`' Client project depends on `/remote` declarations generated for business packages during Host tsdown; root aggregates and direct consumers must reference each split package's `tsconfig.host.json` or `tsconfig.client.json` respectively. `api-remotes`' `clientBundle(..., { hostPhase: true })` produces its Host entry during Host tsdown and leaves only the browser entry for Client tsdown. The Agent/Session lookup policy lives in `@deepseek-ai/dsh-api-session-controller`, not in `api-remotes`.
+`api/remotes`, `api/gateway`, `api/session-controller`, and `api/workspace-controller` (plus `client/connection`) split TypeScript faces. `api/remotes`' Client project depends on `/remote` declarations generated for business packages during Host pack; root aggregates and direct consumers must reference each split package's `tsconfig.host.json` or `tsconfig.client.json` respectively. `api-remotes`' `clientBundle(..., { hostPhase: true })` produces its Host entry during Host pack and leaves only the browser entry for Client pack. The Agent/Session lookup policy lives in `@deepseek-ai/dsh-api-session-controller`, not in `api-remotes`.
 
 Each contributing business package writes generated files to its own `lib/` directory, not to its source directory:
 
@@ -159,6 +161,8 @@ pnpm run build:lib
 
 The running Client watcher consumes these generated files when it rebundles. If `pnpm run build:lib:host` has already refreshed the Host contract, `pnpm run build:lib:client` can complete the Client side; a clean worktree cannot skip the Host phase. Recompiling only the frontend source cannot infer new types from Host decorators. `pnpm run typecheck` generates the Host contract with the bundle-free Typert pass before Client tsc, and the CI build lanes and release builds generate it in the Host bundle phase before Client tsc.
 
+<a id="boundaries"></a>
+
 ## Boundaries
 
 Remote handles unary method calls with one request and one result, and stream methods whose items flow Host → Client while the Client's items reach the running Host method through `this.ctx.invocation.uplink()`. Session event streams, pagination, incremental reduce, projection, and entity substreams still require a separate data protocol and registration model; even when they reuse the Connection, they must not masquerade as Remote methods or enter invocation descriptors.
@@ -166,6 +170,8 @@ Remote handles unary method calls with one request and one result, and stream me
 The API layers are organized as `remotes → gateway → connection → webserver`. The BFF and Typert RPC layers live under `packages/api`; Connection and WebServer live at `packages/client/connection` and `packages/host/webserver`. Unary results containing `Uint8Array`, including nested fields and array entries, use [binary Remote transfer](../.agents/notes/implemented/architecture/2026-09-17-workspace-file-binary-transfer.md). A feature that needs a response outside the RPC envelope registers an exact Connection Fetch route.
 
 Lookup policy is configured per key, so all `agent` or `session` parameters share the cold-resume behavior. Accepting live objects only would require an explicit per-parameter or per-endpoint policy, which does not exist; the business method must not guess whether the object came from restoration.
+
+<a id="business-ownership"></a>
 
 ### Business ownership
 

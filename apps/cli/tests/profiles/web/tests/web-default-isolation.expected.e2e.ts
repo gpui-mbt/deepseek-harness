@@ -2,7 +2,7 @@
 
 import { FiberState } from '@deepseek-ai/cordis'
 import type { WebBootGraph } from '@deepseek-ai/dsh-client-modules/client'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { modulePackage } from './runtime-roster.ts'
 import { experimentalRuntimeReferences } from './runtime-roster-isolation.ts'
 import { withDefaultWeb, webGet } from './default-web-process.ts'

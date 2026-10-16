@@ -5,7 +5,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { applyEntryPatches } from '@deepseek-ai/cordis-plugin-include'
 import { loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import * as Browser from '@deepseek-ai/dsh-client-ui-sidebar-browser'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 
 it.each([
   { profile: 'web', override: undefined, disabled: true },

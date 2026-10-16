@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Task tab bindings recover the task one restored tab page last showed. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ScheduleId } from '@deepseek-ai/dsh-schedule/client'
 import { TaskTabBindings, type TaskTabPage, type TaskTabTarget } from '../src/client/task-tab-bindings.ts'

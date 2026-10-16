@@ -1,6 +1,6 @@
 /** Recorded npm evidence stays intact while authored files and exact edits remain checked. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { exactEditState, isRescopeExcluded } from './rescope-vendor.ts'
 
 const ANCHOR = '\n## Sync procedure'

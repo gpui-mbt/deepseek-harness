@@ -28,7 +28,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
 import sharp from 'sharp'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import * as NativeProvider from '../src/index.ts'
 import { installNativeFixture, startFixtureHost } from './native-fixture.ts'
 

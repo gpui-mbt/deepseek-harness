@@ -3,7 +3,7 @@ import type { ChatSnapshot, UseChat } from '@deepseek-ai/dsh-client-ui-chat/clie
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ApprovalCommand, commandOf } from '../src/client/chat/ApprovalCommand.tsx'
 
 function props(

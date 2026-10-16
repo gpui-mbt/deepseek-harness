@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { inspectorId } from '../src/shared/bridge/ids.ts'
 import { ClientScriptIdentity } from '../src/worker/realms/client/scripts.ts'
 import { clientConsoleEvent } from '../src/worker/realms/client/values.ts'

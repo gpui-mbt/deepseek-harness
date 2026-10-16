@@ -1,5 +1,5 @@
 /** Registered unary defaults and the carrier's request and outcome log. */
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import { RemoteMock, ok, openStream, type RemoteTable, type UnaryRuleFn } from '../src/index.ts'
 
 describe('RemoteMock unary answers', () => {

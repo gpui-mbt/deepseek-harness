@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'

@@ -1,6 +1,6 @@
 /** DevTools sources are fixed npm inputs; package installation starts no external resource download. */
 import { readFileSync } from 'node:fs'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 interface Manifest {
   scripts?: Record<string, string>

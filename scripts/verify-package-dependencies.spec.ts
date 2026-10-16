@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, sep } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   PACKAGE_DEPENDENCY_POLICY,
   type PackageDependencyPolicy,
@@ -406,7 +406,7 @@ describe('experimental packages and Host build entries', () => {
         dependencies: { ws: '^8.0.0' },
         ...CORDIS_PEER,
       },
-      'packages/g/inspect/tsdown.config.ts': [
+      'packages/g/inspect/pack.config.ts': [
         'export default [',
         "  { entry: ['lib/types/index.js'], platform: 'node' },",
         "  { entry: { worker: 'lib/types/worker/entry.js' } },",
@@ -431,7 +431,7 @@ describe('experimental packages and Host build entries', () => {
   it('evaluates every build face and keeps only Host entries outside the Client source tree', async () => {
     const root = writeWorkspace({
       'packages/g/faces/package.json': { name: '@deepseek-ai/dsh-faces-probe' },
-      'packages/g/faces/tsdown.config.ts': [
+      'packages/g/faces/pack.config.ts': [
         'export default ({ env }: { env: { DSH_BUILD_FACE?: string } }) => env.DSH_BUILD_FACE === \'host\'',
         "  ? [{ entry: '' }, { entry: { runner: './lib/types/runner.js' }, platform: 'neutral' }]",
         "  : [{ entry: ['lib/types/index.js', 'src/helper.ts', 'lib/types/optional/*.js'] },",
@@ -455,19 +455,19 @@ describe('experimental packages and Host build entries', () => {
   })
 
   it.each([
-    ['export default undefined', 'tsdown config has no default export'],
-    ['export default { entry: [1] }', 'tsdown entry [1] is not a path, a path list, or an output-name map'],
-    ["export default { entry: 'dist/index.js' }", 'tsdown entry dist/index.js cannot map to a source entry'],
-    ["export default { entry: 'lib/types/missing.js' }", 'tsdown entry lib/types/missing.js has no source module'],
+    ['export default undefined', 'pack config has no default export'],
+    ['export default { entry: [1] }', 'pack entry [1] is not a path, a path list, or an output-name map'],
+    ["export default { entry: 'dist/index.js' }", 'pack entry dist/index.js cannot map to a source entry'],
+    ["export default { entry: 'lib/types/missing.js' }", 'pack entry lib/types/missing.js has no source module'],
   ])('rejects a build configuration Host entry discovery cannot follow: %s', async (config, message) => {
     const root = writeWorkspace({
       'packages/g/broken/package.json': { name: '@deepseek-ai/dsh-broken-probe' },
-      'packages/g/broken/tsdown.config.ts': `${config}\n`,
+      'packages/g/broken/pack.config.ts': `${config}\n`,
       'packages/g/broken/src/index.ts': 'export {}\n',
     })
 
     await expect(readHostBuildEntries(root, pkg('@deepseek-ai/dsh-broken-probe', 'packages/g/broken/package.json')))
-      .rejects.toThrow(`packages/g/broken/tsdown.config.ts: ${message}`)
+      .rejects.toThrow(`packages/g/broken/pack.config.ts: ${message}`)
   })
 })
 

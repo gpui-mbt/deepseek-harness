@@ -9,7 +9,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { Win32DialogWorkerMessage } from '../src/win32-dialog-worker.ts'
 
 const builtWorker = fileURLToPath(new URL('../lib/worker.cjs', import.meta.url))

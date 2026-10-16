@@ -2,7 +2,7 @@ import { cp, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { create as createTar } from 'tar'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { artifactManifestSchema, fileDigest, payloadFiles, SSH_HELPER_TARGETS, verifyPayload } from './artifact.ts'
 import { macosDeploymentVersions } from './native.ts'
 import { extractHelper } from '../verify-ssh-helper-artifact.ts'

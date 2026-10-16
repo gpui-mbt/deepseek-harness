@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createConnection, createServer, type Socket } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { RemoteProcesses } from '../src/helper-processes.ts'
 import { authenticateStream } from '../src/stream-security.ts'
 

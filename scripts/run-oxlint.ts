@@ -3,10 +3,38 @@ import { availableParallelism } from 'node:os'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defaultParallelism } from './parallelism.ts'
+import { removeStagedLintConfig, writeStagedLintConfig } from './staged-lint-config.ts'
 
-const oxlintCli = fileURLToPath(new URL('../node_modules/oxlint/bin/oxlint', import.meta.url))
+// Vite+ owns the Oxlint version this repository lints with, so every
+// invocation goes through its CLI rather than a separately pinned `oxlint`
+// dependency that could drift from the version `vp` runs.
+const vpCli = fileURLToPath(new URL('../node_modules/vite-plus/bin/vp', import.meta.url))
+const vpLintArgs = (args: readonly string[]): string[] => ['lint', ...args]
 const MAX_CAPTURED_OUTPUT_BYTES = 64 * 1024 * 1024
 const FIX_FLAGS = new Set(['--fix', '--fix-dangerously', '--fix-suggestions'])
+/** Selector for the project-free profile the pre-commit hook asks for. */
+const STAGED_FLAG = '--staged'
+
+/** The staged selector expanded into a generated project-free config. */
+interface StagedProfileResolution {
+  /** Arguments to pass on to `vp lint`. */
+  args: string[]
+  /** Whether this run generated the profile and must delete it before exiting. */
+  generated: boolean
+}
+
+/**
+ * Replace the staged selector with the generated project-free config.
+ * @param args - CLI arguments the caller requested.
+ * @returns The arguments to pass on, and whether a generated config must be removed afterwards.
+ */
+function resolveStagedProfile(args: readonly string[]): StagedProfileResolution {
+  if (!args.includes(STAGED_FLAG)) return { args: [...args], generated: false }
+  return {
+    args: args.flatMap(arg => (arg === STAGED_FLAG ? ['--config', writeStagedLintConfig()] : [arg])),
+    generated: true,
+  }
+}
 
 function isFixInvocation(args: readonly string[]): boolean {
   return args.some(arg => FIX_FLAGS.has(arg))
@@ -70,10 +98,25 @@ function completeFrom(result: { readonly signal: NodeJS.Signals | null; readonly
   process.exitCode = result.status ?? 1
 }
 
+/** Whether this run wrote the staged profile and must delete it before exiting. */
+let generatedProfile = false
+
 function main(): void {
-  const invocation = resolveOxlintInvocation(process.argv.slice(2), process.env)
+  const staged = resolveStagedProfile(process.argv.slice(2))
+  generatedProfile = staged.generated
+  try {
+    run(staged.args)
+  } finally {
+    // Every exit path removes the profile it generated, including the early
+    // return a clean fix takes.
+    if (generatedProfile) removeStagedLintConfig()
+  }
+}
+
+function run(requested: readonly string[]): void {
+  const invocation = resolveOxlintInvocation(requested, process.env)
   if (!isFixInvocation(invocation.args)) {
-    const result = spawnSync(process.execPath, [oxlintCli, ...invocation.args], {
+    const result = spawnSync(process.execPath, [vpCli, ...vpLintArgs(invocation.args)], {
       env: invocation.env,
       stdio: 'inherit',
     })
@@ -82,7 +125,7 @@ function main(): void {
     return
   }
 
-  const first = spawnSync(process.execPath, [oxlintCli, ...invocation.args], {
+  const first = spawnSync(process.execPath, [vpCli, ...vpLintArgs(invocation.args)], {
     encoding: 'utf8',
     env: invocation.env,
     maxBuffer: MAX_CAPTURED_OUTPUT_BYTES,
@@ -100,7 +143,7 @@ function main(): void {
   }
 
   // Overlapping JS-plugin fixes can expose one more fixable diagnostic after the first pass.
-  const second = spawnSync(process.execPath, [oxlintCli, ...invocation.args], {
+  const second = spawnSync(process.execPath, [vpCli, ...vpLintArgs(invocation.args)], {
     env: invocation.env,
     stdio: 'inherit',
   })

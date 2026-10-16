@@ -1,6 +1,6 @@
 /** Factory regressions use static definitions without loading a Controller or a Remote runtime. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { createTypertRemoteInfo, isTypertRemoteMethod } from '../src/remote-info.ts'
 import type { TypertClientRemote, TypertRemoteCodecSpec, TypertRemoteMethodSpec } from '../src/types.ts'

@@ -1,5 +1,5 @@
 /** Protocol invariants at JSON/SSE boundaries, including partial and failed responses. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { translate } from '../src/translate.ts'
 import { parseSse } from '../src/sse.ts'
 import { providerError } from '../src/transport.ts'

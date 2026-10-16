@@ -10,7 +10,7 @@
  * arrive one at a time, which the single-byte case below feeds deliberately.
  */
 import { gzipSync } from 'node:zlib'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { inflateImage, inflateImageStream } from '../../src/storage/image-gzip.ts'
 import { loadVfsImage } from '../../src/storage/memory.ts'
 import { packTar } from '../../src/storage/tar.ts'

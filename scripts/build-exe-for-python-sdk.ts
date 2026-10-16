@@ -7,11 +7,11 @@
  */
 
 import { createHash } from 'node:crypto'
-import { build as bundle } from 'tsdown'
+import { build as bundle } from 'vite-plus/pack'
 import { spawn } from 'node:child_process'
 import { pnpmInvocation, restoreLegacyHoists } from './executable-packaging.ts'
 import { existsSync, statSync } from 'node:fs'
-import { chmod, copyFile, cp, glob, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, cp, glob, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { pathToFileURL } from 'node:url'
@@ -358,24 +358,7 @@ class SingleExeBuild {
     if (!existsSync(join(this.staging, ENTRY_BIN))) {
       throw new Error(`build-exe-for-python-sdk: staged bootstrap ${join(this.staging, ENTRY_BIN)} is missing.`)
     }
-    const helpers = [
-      { name: 'primary-runtime', source: 'scripts/primary-runtime/prepare.ts', exports: 'downloadNodeRuntime, preparePrimaryRuntime' },
-      { name: 'office-sidecar', source: 'scripts/build-exe-for-python-sdk-office.ts', exports: 'downloadOfficeSidecar' },
-    ]
-    const entries: Record<string, string> = {}
-    for (const helper of helpers) {
-      const entry = join(this.staging, `.${helper.name}-entry.ts`)
-      entries[helper.name] = entry
-      await writeFile(entry, `export { ${helper.exports} } from ${JSON.stringify(join(root, helper.source).replaceAll('\\', '/'))}\n`)
-    }
-    try {
-      await bundle({ config: false, tsconfig: false, inputOptions: { tsconfig: false }, target: 'es2024', entry: entries,
-        outDir: this.staging, clean: false, format: 'esm', platform: 'node', dts: false,
-        deps: { neverBundle: [/^@deepseek-ai\//u], alwaysBundle: [/.*/u] }, shims: true, outExtensions: () => ({ js: '.mjs' }),
-        define: { 'import.meta.main': 'false' } })
-    } finally {
-      for (const entry of Object.values(entries)) await rm(entry, { force: true })
-    }
+    await bundlePythonRuntimeHelpers(root, this.staging)
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>
     await writeFile(manifestPath, `${JSON.stringify({ ...manifest, ...patch }, null, 2)}\n`)
     await this.run('resource helper imports', process.execPath, ['--input-type=module', '--eval',
@@ -604,6 +587,35 @@ class SingleExeBuild {
   }
 }
 
+/**
+ * Bundle resource helpers into the deployed Node carrier without loading repository pack configs.
+ * @param sourceRoot - repository or fixture root containing the two helper source modules.
+ * @param staging - existing private deployment directory receiving the .mjs modules.
+ * @returns after bundle resources close and temporary entry files are removed, including on failure.
+ */
+export async function bundlePythonRuntimeHelpers(sourceRoot: string, staging: string): Promise<void> {
+  const temporary = await mkdtemp(join(staging, '.resource-helper-'))
+  try {
+    const helpers = [
+      { name: 'primary-runtime', source: 'scripts/primary-runtime/prepare.ts', exports: 'downloadNodeRuntime, preparePrimaryRuntime' },
+      { name: 'office-sidecar', source: 'scripts/build-exe-for-python-sdk-office.ts', exports: 'downloadOfficeSidecar' },
+    ]
+    const entries: Record<string, string> = {}
+    for (const helper of helpers) {
+      const entry = join(temporary, `${helper.name}.ts`)
+      entries[helper.name] = entry
+      await writeFile(entry, `export { ${helper.exports} } from ${JSON.stringify(join(sourceRoot, helper.source).replaceAll('\\', '/'))}\n`)
+    }
+    const handle = await bundle({ cwd: sourceRoot, config: false, tsconfig: false, inputOptions: { tsconfig: false }, target: 'es2024', entry: entries,
+      outDir: staging, clean: false, format: 'esm', platform: 'node', dts: false,
+      deps: { neverBundle: [/^@deepseek-ai\//u], alwaysBundle: [/.*/u] }, shims: true, outExtensions: () => ({ js: '.mjs' }),
+      define: { 'import.meta.main': 'false' } })
+    await Promise.all(handle.bundles.map(bundle => bundle[Symbol.asyncDispose]()))
+  } finally {
+    await rm(temporary, { recursive: true, force: true })
+  }
+}
+
 async function main(): Promise<void> {
   const cli = BuildCli.parse(process.argv.slice(2))
   const pipeline = new SingleExeBuild(cli)
@@ -619,4 +631,5 @@ async function main(): Promise<void> {
   await pipeline.syncToPythonRuntime(products)
 }
 
-await main()
+const invokedPath = process.argv[1]
+if (invokedPath !== undefined && import.meta.url === pathToFileURL(resolve(invokedPath)).href) await main()

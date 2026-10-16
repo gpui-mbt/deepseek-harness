@@ -1,6 +1,6 @@
 /** Reading install specs and classifying pnpm failures: pure, table-driven. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { classifyInstallFailure, InvalidInstallSpecError, parseInstallSpec } from '@deepseek-ai/dsh-plugin-manager'
 
 describe('parseInstallSpec', () => {

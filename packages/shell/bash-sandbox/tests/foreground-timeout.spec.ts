@@ -7,7 +7,7 @@ import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import { LocalSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-local'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import type { ShellRunResult } from '@deepseek-ai/dsh-shell'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { SandboxBashExecutor } from '../src/index.ts'
 
 async function setup() {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Expanded reasoning keeps its original accessible across translation lifetimes. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { renderReasoningFactory as renderFactorySlot } from '../../../client/ui-chat/tests/reasoning-component-fixture.tsx'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'

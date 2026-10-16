@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { BrowserTarget } from '../src/client/browser/url.ts'
 import { BrowserNavigation, MAX_BROWSER_HISTORY } from '../src/client/browser/BrowserNavigation.ts'
 

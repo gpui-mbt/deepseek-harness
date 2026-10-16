@@ -1,6 +1,6 @@
 /** Type-specific row previews preserve the original payload data. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { inspectorPreview } from '../src/client/views/format.ts'
 
 it('shows only tool-call argument deltas without mutating the raw chunk', () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Trusted native inputs preserve current configuration, frame identity, and modal arbitration. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { installNativeKeyboard } from '../src/client/native.ts'
 import { ShortcutRegistry } from '../src/client/registry.ts'
 import type { DesktopShortcutInput, ShortcutCommandId } from '../src/protocol.ts'

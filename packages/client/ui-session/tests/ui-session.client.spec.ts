@@ -12,7 +12,7 @@ import { MutableSessionEventSource } from '@deepseek-ai/dsh-api-session-controll
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { HostObservable, RootStandardSourceContribution } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   apply,
   type SessionPendingInteractionBase,

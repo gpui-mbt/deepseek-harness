@@ -3,7 +3,7 @@ import { updateVolatile } from '@deepseek-ai/cosmokit'
 import { getDshRuntimeVersion } from '@deepseek-ai/dsh-app-boot'
 import type { BundleInfo } from '@deepseek-ai/dsh-plugin-manager/types'
 import { remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import PluginMarket, { type Config, type MarketQuery } from '../src/index.ts'
 import { parseIndexBody } from '../src/parse.ts'
 

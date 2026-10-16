@@ -4,7 +4,7 @@
  * settlement from a superseded open closes nothing, and the toast sequence
  * retires only the toast the view finished showing.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { MessageId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { MessageFeedbackActionResult } from '../src/client/controller.ts'
 import { FeedbackDialogController, type FeedbackSubmit } from '../src/client/dialog.ts'

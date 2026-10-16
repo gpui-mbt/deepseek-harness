@@ -4,7 +4,7 @@
  * it hands the Host; absolute paths also travel inside the Session address.
  * An address without a Session fails loud.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import { createReadPage, hostFileOf } from '../src/client/rpc.ts'
 import type { ReadWorkspaceFilePage, WorkspaceFilesReadRemote } from '../src/client/index.ts'

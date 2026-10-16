@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { collectConfigCatalog, render, type CatalogEntry } from './gen-config-catalog.ts'
 import { computeTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
 import { generatedRegions } from './translation-pairing.ts'

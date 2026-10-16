@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import Timer from '@deepseek-ai/cordis-plugin-timer'

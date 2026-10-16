@@ -2,6 +2,19 @@
 
 DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
 
+## This Repo (fork from shiguredo/deepseek-harness)
+
+* `upstream/shiguredo` は `shiguredo/deepseek-harness`、比較用の `canonical/master` は `deepseek-ai/deepseek-harness` とする。
+* フォークのブランチは `main`（ローカル変更を含む）と `shiguredo`（shiguredo の追従スナップショット）の2本とし、`main` は常に `shiguredo` の直上の1コミットに保つ。
+* shiguredo 自身の履歴更新で古い独自コミットを再適用しない。更新前のベース（1コミット構成なら `HEAD^`）を保存し、次の手順で追従する:
+
+```sh
+git fetch --force upstream shiguredo:upstream/shiguredo  # shiguredo が履歴を書き換えた場合も追従する
+git rebase --onto upstream/shiguredo HEAD^              # 旧ベースが HEAD^ でない場合は保存したベースを指定
+git branch -f shiguredo upstream/shiguredo
+git push --force-with-lease origin shiguredo main
+```
+
 ## Pre-stable APIs and released Session data
 
 Public APIs are pre-stable; update every consumer. Follow [version/status](docs/session-format-status.md) and [type acknowledgements](docs/cookbook/reviewing-persistence-type-changes.md). [Adjacent migration](.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) may add a version-named successor but never move, overwrite, or delete committed generations; predecessors imply neither fallback nor downgrade support. SQLite uses monotonic `SCHEMA_VERSION`.
@@ -81,7 +94,7 @@ Package groups: [packages/README.md](packages/README.md). [Experimental status](
 ## Commands
 
 ```sh
-pnpm install            # pnpm workspaces, node ^22.19 || >=24
+pnpm install            # pnpm workspaces, node ^22.19 || ^24.11 || >=26
 pnpm run clean           # remove build outputs and safe residue from deleted packages
 pnpm run test           # unit tests
 pnpm run test:coverage  # CI coverage gate: per-file 100% on packages/*/*/src
@@ -93,7 +106,7 @@ pnpm run typecheck
 pnpm run lint
 pnpm run duplication    # cross-file TypeScript clone detection
 pnpm run build          # build:artifacts + build:check, concurrently
-pnpm run build:artifacts # artifacts: tsc emits lib/types, tsdown bundles runtime, Web
+pnpm run build:artifacts # artifacts: tsc emits lib/types, Vite+ pack bundles runtime, Web
 pnpm run build:check    # typecheck aggregate tests/scripts against current build:artifacts output
 pnpm run hygiene        # publint + workspace/package/dependency checks + NodeNext consumer check
 pnpm run check:windows-wine  # ONLY when diagnosing a known Windows failure (needs wine); CI owns this signal

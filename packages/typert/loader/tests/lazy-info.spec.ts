@@ -1,6 +1,6 @@
 /** Loading a generated contribution must not request consumer-owned input views or projections. */
 
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { createTypertRemoteInfo } from '@deepseek-ai/dsh-typert-protocol/remote-info'
 import { validateTypertManifest } from '../src/index.ts'

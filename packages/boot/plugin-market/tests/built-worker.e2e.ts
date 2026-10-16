@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
 const built = ['lib/index.js', 'lib/worker.cjs'].every(path => existsSync(join(packageRoot, path)))

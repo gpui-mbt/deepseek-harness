@@ -3,7 +3,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { WorkspaceGit, type WorkspaceGitScope } from '../src/index.ts'
 
 const signal = (): AbortSignal => new AbortController().signal

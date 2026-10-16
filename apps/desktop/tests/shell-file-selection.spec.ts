@@ -10,7 +10,7 @@ import { PM } from 'app-builder-lib/out/node-module-collector/index.js'
 import type { PlatformPackager } from 'app-builder-lib/out/platformPackager.js'
 import type { ResolvedFileSet } from 'app-builder-lib/out/util/appFileCopier.js'
 import { WinPackager } from 'app-builder-lib/out/winPackager.js'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { createElectronBuilderConfig } from '../scripts/electron-builder-config.mjs'
 
 const require = createRequire(import.meta.url)

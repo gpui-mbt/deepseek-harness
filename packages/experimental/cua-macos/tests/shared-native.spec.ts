@@ -5,7 +5,7 @@ import { createServer, Socket } from 'node:net'
 import { userInfo } from 'node:os'
 import { join } from 'node:path'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { NativeClientConfig } from '@deepseek-ai/dsh-cua/native-client'
 import { createSharedNativeChannel, type NativeChannel } from '../src/shared-native.ts'
 

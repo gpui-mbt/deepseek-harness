@@ -8,7 +8,7 @@
  * (declaration conflicts, store instance accounting) belong to the renderer
  * SlotRegistry suite, not here.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { act, fireEvent, render } from '@testing-library/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Context } from '@deepseek-ai/cordis'

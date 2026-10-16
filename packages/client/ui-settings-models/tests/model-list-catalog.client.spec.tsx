@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Catalog reads preserve draft ownership and discard responses for a previous provider. */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
 import type { ModelDiscoveryOutcome, ModelsOperations } from '../src/client/operations.ts'
 import { en } from '../src/client/locales.ts'

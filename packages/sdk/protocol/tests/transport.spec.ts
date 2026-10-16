@@ -1,6 +1,6 @@
 import { once } from 'node:events'
 import { PassThrough, Writable } from 'node:stream'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { JsonRpcLineTransport, JsonRpcResponseError } from '../src/index.ts'
 
 function transportPair() {

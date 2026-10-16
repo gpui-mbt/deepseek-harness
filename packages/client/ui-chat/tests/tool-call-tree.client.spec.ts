@@ -1,6 +1,6 @@
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { StartedToolCall, ToolCallBlock } from '../src/client/contract/snapshot.ts'
 import {
   MAX_TOOL_CALL_TREE_DEPTH, ToolCallTree,

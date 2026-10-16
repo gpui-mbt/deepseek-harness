@@ -1,5 +1,5 @@
 /** Running-state ownership across the real Controller catalog and UI status source. */
-import { expect, vi } from 'vitest'
+import { expect, vi } from 'vite-plus/test'
 import { ok } from '@deepseek-ai/dsh-remote-mock'
 import { createClientTest, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import { SESSION_FORMAT_VERSION, type SessionId } from '@deepseek-ai/dsh-session/types'

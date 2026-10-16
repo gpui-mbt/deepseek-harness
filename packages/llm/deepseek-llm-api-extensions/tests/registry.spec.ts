@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context, LoggerLevel } from '@deepseek-ai/cordis'
 import DeepSeekLlmApiExtensionRegistry from '../src/index.ts'
 

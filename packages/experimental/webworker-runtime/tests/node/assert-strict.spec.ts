@@ -1,5 +1,5 @@
 /** Strict assertion resolution and execution through the Worker image loader. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { lowerModuleSource } from '../../src/compile/transform.ts'
 import { MODULE_PROXIES } from '../../src/module-proxies.ts'
 import { WorkerModuleLoader } from '../../src/module-system/module-loader.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseClaudeCodeConfig, substituteCommand } from '@deepseek-ai/dsh-hooks-claude-code/src/config.ts'
 
 describe('substituteCommand', () => {

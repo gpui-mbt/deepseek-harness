@@ -1,5 +1,5 @@
 /** Pure timing edits accept every recurrence kind, compute creation targets, and preserve targets for normalized no-ops. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import * as domain from '../src/domain.ts'
 import { resolveScheduleUpdate, retainedTitle } from '../src/update.ts'
 import type { ScheduleRecord, ScheduleTimingChange, ScheduleToolError, ScheduleUpdateContent } from '../src/types.ts'

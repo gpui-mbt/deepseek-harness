@@ -3,7 +3,7 @@
  * reach Node through when `--expose-internals` is absent. It answers Node's module ids with the members those
  * callers read, backed by the Worker loader; anything the Worker does not provide refuses with Node's platform code.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { createNodeBuiltins } from '../../src/node/builtins.ts'
 import { installProcessGlobal } from '../../src/node/globals/process.ts'
 import { setActiveModuleLoader, WorkerModuleLoader, type WorkerRequire } from '../../src/module-system/module-loader.ts'

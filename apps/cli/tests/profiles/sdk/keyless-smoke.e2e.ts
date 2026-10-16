@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { zstdDecompress } from 'node:zlib'
 import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 import { execa } from 'execa'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { workspaceDependencyPaths, type PrimaryRuntimeManifest } from '@deepseek-ai/dsh-tool-workspace-dependencies'
 
 const repoRoot = fileURLToPath(new URL('../../../../../', import.meta.url))

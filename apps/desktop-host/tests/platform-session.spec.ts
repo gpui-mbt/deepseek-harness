@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import { DeepSeekAccount, type AccountView, type PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { installPlatformSessionPublisher } from '../src/platform-session.ts'
 
 const state: AccountView = {

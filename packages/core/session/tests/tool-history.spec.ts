@@ -1,5 +1,5 @@
 /** Capability-independent tool history folded from committed headers and developer messages. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createDeveloperMessage, projectToolUpdates } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, ToolSchema } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'

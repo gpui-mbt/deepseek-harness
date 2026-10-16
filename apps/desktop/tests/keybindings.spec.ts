@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { desktopKeybindings } from '../src/keybindings.ts'
 import type { ShortcutCommandId, ShortcutConfigSnapshot } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 

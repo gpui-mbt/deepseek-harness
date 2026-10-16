@@ -5,7 +5,7 @@ import https from 'node:https'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { buildFrontend } from '../scripts/devtools/vite.ts'
 import { frontendSourceRoot } from '../scripts/devtools/inputs.ts'
 

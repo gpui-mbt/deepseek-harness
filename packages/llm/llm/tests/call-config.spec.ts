@@ -4,7 +4,7 @@
  * the loop applies to every built request.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import { callConfigEquals, isAgentLoopRequest, markAgentLoopRequest } from '../src/call-config.ts'
 import { ReasoningEffortId } from '../src/brand.ts'

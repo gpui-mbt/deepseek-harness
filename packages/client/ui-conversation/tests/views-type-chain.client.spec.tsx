@@ -1,6 +1,6 @@
 // Target-neutral View-ring type chain and runtime ledger projection.
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ReactNode } from 'react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { ConvViewProps } from '../src/client/contract/slots.ts'

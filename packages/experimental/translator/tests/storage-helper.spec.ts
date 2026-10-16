@@ -1,7 +1,7 @@
 /** Storage helpers classify their own failures before a provider consumer can catch them. */
 import { SessionSeq } from '@deepseek-ai/dsh-session'
 import { rm } from 'node:fs/promises'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TranslationStorage } from '../src/storage.ts'
 import type { TranslationIdentity } from '../src/types.ts'
 import { storageFixture } from './storage-fixture.ts'

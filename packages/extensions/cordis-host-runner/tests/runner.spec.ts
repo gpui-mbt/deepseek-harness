@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ApprovalRequestId } from '../src/index.ts'
 import type {
   ApprovalRequestId as ApprovalRequestIdType, CordisDynamicPluginId,

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { createElectronBuilderConfig } from '../scripts/electron-builder-config.mjs'
 import { verifyMacOSDiskImage } from '../scripts/verify-macos-signature.mjs'
 

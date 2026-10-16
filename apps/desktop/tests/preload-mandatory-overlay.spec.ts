@@ -1,6 +1,6 @@
 import { MessageChannel } from 'node:worker_threads'
 import { JSDOM } from 'jsdom'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { installMandatoryUpdateOverlay } from '../src/preload-mandatory-overlay.ts'
 import { MANDATORY_IPC } from '../src/mandatory-update-ipc.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'

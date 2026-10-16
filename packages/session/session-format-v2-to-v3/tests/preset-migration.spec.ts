@@ -1,6 +1,6 @@
 /** Released preset references change after strict source admission without rewriting opaque ids. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SessionFormatError, SessionFormatEventCollector, SessionFormatUnsupportedMigrationError } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatEvent, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
 import { sessionFormatV2ToV3 } from '../src/index.ts'

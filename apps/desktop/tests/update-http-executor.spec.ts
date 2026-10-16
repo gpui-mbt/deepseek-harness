@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ClientRequest } from 'electron'
 import { DesktopUpdateHttpExecutor } from '../src/update-http-executor.ts'
 

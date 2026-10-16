@@ -1,7 +1,7 @@
 import { Agent, createServer, type RequestListener } from 'node:http'
 import { Agent as HttpsAgent } from 'node:https'
 import { once } from 'node:events'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { EventLogReporter, type EventLogOptions } from '../src/event-log.ts'
 
 const cleanup: (() => Promise<void>)[] = []

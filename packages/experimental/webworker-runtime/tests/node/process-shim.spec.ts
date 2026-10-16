@@ -3,7 +3,7 @@
  * `getBuiltinModule` face, which must answer the loader's module proxies for
  * builtin ids and undefined for everything else — never an image resolution.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { installProcessGlobal } from '../../src/node/globals/process.ts'
 import { setActiveModuleLoader, WorkerModuleLoader } from '../../src/module-system/module-loader.ts'
 import { MemoryVfs } from '../../src/storage/memory.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { isSessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
 import { catalogFact, childCatalogFact, childCatalogSubject } from '../src/facts.ts'
 import type { SessionFormatEvent, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'

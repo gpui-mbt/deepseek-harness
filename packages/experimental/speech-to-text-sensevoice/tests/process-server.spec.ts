@@ -1,5 +1,5 @@
 /** The private recognizer admits only authenticated bounded audio requests. */
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { SpeechInputError } from '../src/input.ts'
 import { startRecognitionServer } from '../src/process-server.ts'
 

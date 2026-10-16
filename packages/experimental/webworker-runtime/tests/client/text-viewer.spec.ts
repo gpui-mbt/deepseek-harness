@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeAll, expect, it } from 'vitest'
+import { beforeAll, expect, it } from 'vite-plus/test'
 import { showTextViewer } from '../../src/client/text-viewer.ts'
 
 beforeAll(() => {

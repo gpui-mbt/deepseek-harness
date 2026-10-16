@@ -1,7 +1,7 @@
 /** Remote translation enforces accepted routing and sanitizes provider failures. */
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { TranslationError } from '@deepseek-ai/dsh-experimental-translator'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { TranslationProvider, TranslationRequest } from '@deepseek-ai/dsh-experimental-translator/types'

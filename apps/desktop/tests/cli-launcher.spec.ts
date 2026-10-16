@@ -5,7 +5,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeF
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { prepareDesktopCli } from '../scripts/prepare-cli.ts'
 
 function fixture() {

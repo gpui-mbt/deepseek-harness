@@ -2,7 +2,7 @@
  * The task tab type's registry definition: the identity its body and title
  * register under, and the chip label it reads from the active locale.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SCHEDULE_TASK_ID, SCHEDULE_TASK_KIND, scheduleTaskDefinition } from '../src/client/definition.ts'
 import { en } from '../src/client/task-manager-locales.ts'

@@ -1,6 +1,6 @@
 /** Detached launch settlement with controlled process events and watch time. */
 import { ChildProcess, spawn } from 'node:child_process'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { launchDetachedApp } from '../src/resolver.ts'
 
 vi.mock('node:child_process', async importOriginal => ({

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** PDF controls and stale-completion guards with real tab view state and controlled document loads. */
 import { useMemo, useSyncExternalStore } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'

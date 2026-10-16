@@ -13,7 +13,7 @@ import {
 } from '@deepseek-ai/dsh-session-snapshot'
 import { foldGoal } from '@deepseek-ai/dsh-goal'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 // This lifecycle proof has goal-specific timestamp normalization and semantic
 // assertions, so it owns a separate snapshot root from the generic suite.

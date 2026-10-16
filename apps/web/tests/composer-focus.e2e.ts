@@ -2,7 +2,7 @@
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { chromium, type Page } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import {
   assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole, webSnapshotMode,
 } from './scaffold.ts'

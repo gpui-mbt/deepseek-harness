@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createDesktopUploadPlan, type DesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'
 import { loadDesktopPackageEnvironment } from '../scripts/desktop-package-environment.mjs'
 import { tagDesktopRelease } from '../scripts/desktop-release-tag.ts'

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { HoverCard } from '../src/HoverCard.tsx'
 import { HoverCardGroup } from '../src/HoverCardGroup.tsx'
 import { Tooltip } from '../src/Tooltip.tsx'

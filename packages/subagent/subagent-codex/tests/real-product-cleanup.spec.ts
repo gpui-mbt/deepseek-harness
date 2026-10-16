@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { cleanupRealProduct } from './real-product-cleanup.ts'
 
 it.each(['context', 'HTTP fixture'] as const)('attributes %s cleanup failures without losing the cause', async (stage) => {

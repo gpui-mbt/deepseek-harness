@@ -1,6 +1,6 @@
 /** Native browser ownership through real Agent, Session, and ToolRuntime services. */
 
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { StagehandDrainError } from '../src/native.ts'
 import type { NativeBrowserConfig } from '../src/native.ts'
 import { Context } from '@deepseek-ai/cordis'

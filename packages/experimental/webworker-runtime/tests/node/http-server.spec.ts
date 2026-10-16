@@ -11,7 +11,7 @@
  * The capture is module state, so the cases below run in order: the first
  * observes the empty slot before anything fills it.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   createServer, get, request, requestListener, ServerResponse, STATUS_CODES, whenRequestListener,
 } from '../../src/node/builtin_modules/implemented/http.ts'

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Recorded layout arithmetic supplements browser geometry; no browser layout is asserted here. */
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { ChatViewport } from '../src/client/chat/use-chat-viewport.ts'
 import { ChatReading } from '../src/client/chat/use-chat-reading.ts'
 import { ScrollFollow } from '../src/client/chat/use-scroll-follow.ts'

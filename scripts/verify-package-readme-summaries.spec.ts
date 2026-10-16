@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   MAX_PACKAGE_README_SUMMARY_WORDS,
   packageReadmeSummaryErrors,

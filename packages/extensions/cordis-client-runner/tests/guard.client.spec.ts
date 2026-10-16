@@ -8,7 +8,7 @@
  * CALLING fiber, so disposing it must remove them (HMR safety).
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { FC } from 'react'
 import type {
   CordisDynamicPackageId,

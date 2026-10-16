@@ -1,6 +1,6 @@
 /** JSON Schema describes Config inputs, while native normalization remains explicit. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import Schema from '@deepseek-ai/schemastery'
 import { createConfigProjector, type ConfigProjection } from '../src/config-schema/projector.ts'

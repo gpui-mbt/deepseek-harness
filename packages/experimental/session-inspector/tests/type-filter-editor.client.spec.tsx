@@ -3,7 +3,7 @@
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { TypeFilter } from '../src/client/views/TypeFilter.tsx'
 import { en } from '../src/client/locales.ts'
 

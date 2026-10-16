@@ -1,7 +1,7 @@
 /** Registered parent fixtures for external backend activation tests. */
 
 import { randomUUID } from 'node:crypto'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'

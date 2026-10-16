@@ -9,7 +9,7 @@ import Timer from '@deepseek-ai/cordis-plugin-timer'
 import { boot, initProfile, readProfileManifest, readProfilePatches, type ProfileContext } from '@deepseek-ai/dsh-app-boot'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
 import { FSWatcher } from 'chokidar'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 const watchers = vi.hoisted(() => [] as FSWatcher[])

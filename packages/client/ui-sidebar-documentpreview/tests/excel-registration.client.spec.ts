@@ -1,6 +1,6 @@
 /** Excel registration remains independent of the Office conversion service. */
 import { Context } from '@deepseek-ai/cordis'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { binaryDocumentPath, DocumentPreviewRegistry } from '../src/client/document/registry.ts'
 import { Config } from '../src/config.ts'

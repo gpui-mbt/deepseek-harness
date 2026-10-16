@@ -7,12 +7,12 @@
 
 import { globSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { coverageExemptHeavySuites } from './coverage-exempt.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
-/** The spec inventory mirrored from vitest.config.ts testIncludes. */
+/** The spec inventory mirrored from vitest.unit.config.ts testIncludes. */
 const allSpecs = new Set([
   ...globSync('packages/*/*/tests/**/*.spec.ts', { cwd: root }),
   ...globSync('packages/*/*/tests/**/*.spec.tsx', { cwd: root }),

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { PROXY_ENV_NAMES } from '../packages/util/http-proxy/src/policy.ts'
 import { clearAmbientProxyEnv, TEST_PROXY_SETUP_FILE, vitestConfigFiles } from './test-proxy-environment.ts'
 
@@ -33,8 +33,8 @@ describe('ambient proxy environment', () => {
   it('finds the configurations that declare a setup at all', () => {
     // Guards the discovery itself: a glob that stopped matching would make every case below vacuous.
     expect(declared.map(entry => entry.config)).toEqual([
-      'vitest.bench.config.ts', 'vitest.config.ts', 'vitest.e2e.config.ts', 'vitest.expected.config.ts',
-      'vitest.snapshot.config.ts',
+      'vitest.bench.config.ts', 'vitest.e2e.config.ts', 'vitest.expected.config.ts',
+      'vitest.snapshot.config.ts', 'vitest.unit.config.ts',
     ])
   })
 

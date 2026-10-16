@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { handleError } from '../src/error.ts'
 
 it.each([null, 'failure', {}, { errors: null }, { errors: [null] }, { errors: [7] }, { errors: [{}] }, { errors: [{ text: 7 }] }])

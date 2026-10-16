@@ -1,6 +1,6 @@
 /** Regex projection preserves known portable patterns and rejects Unicode-dependent assertions. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RegExpParser } from '@eslint-community/regexpp'
 import { createPatternCheck } from '../src/config-schema/pattern.ts'
 

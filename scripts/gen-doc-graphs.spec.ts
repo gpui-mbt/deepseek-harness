@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import ts from 'typescript'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { collectPackageSources, EventRelationCollector, withMemoizedFileSystemProbes } from './gen-doc-graphs.ts'
 import { TypeScriptProject } from './ts-project.ts'
 

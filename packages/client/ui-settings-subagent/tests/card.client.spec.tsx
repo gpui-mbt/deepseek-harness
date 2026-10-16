@@ -2,7 +2,7 @@
 /** The Subagent page as the Plugins page renders it: both sections on one page with one save. */
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { SubagentCard, type SubagentCardProps } from '../src/client/SubagentCard.tsx'

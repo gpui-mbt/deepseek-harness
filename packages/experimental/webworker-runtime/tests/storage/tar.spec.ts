@@ -2,7 +2,7 @@
  * The bare-tar image codec: byte-faithful roundtrip through packTar/parseTar
  * and the VFS mount the worker performs on that archive.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { packTar, parseTar } from '../../src/storage/tar.ts'
 import { loadVfsImage, loadVfsOverlay } from '../../src/storage/memory.ts'
 

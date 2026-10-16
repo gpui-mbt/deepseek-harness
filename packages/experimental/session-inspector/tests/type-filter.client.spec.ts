@@ -1,6 +1,6 @@
 /** Type fragments retain matching rows with enough hierarchy to inspect their context. */
 
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { InspectorTableHierarchy, type InspectorRow } from '../src/client/views/table-model.ts'
 import { InspectorTypeFilter } from '../src/client/views/type-filter.ts'
 

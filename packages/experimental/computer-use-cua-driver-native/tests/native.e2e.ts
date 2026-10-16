@@ -1,6 +1,6 @@
 /** Opt-in native SDK compatibility check without screenshots, input, or permission prompts. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import ComputerUseRegistry from '@deepseek-ai/dsh-computer-use'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'

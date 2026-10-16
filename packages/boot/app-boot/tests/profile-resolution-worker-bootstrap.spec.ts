@@ -1,6 +1,6 @@
 /** Worker bootstrap installs only the resolution inherited from its parent. */
 
-import { beforeEach, expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vite-plus/test'
 import type { RuntimeResolution } from '../src/profile.ts'
 
 const harness = vi.hoisted(() => ({

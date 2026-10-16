@@ -1,6 +1,6 @@
 /** The projection of the plugins carrying configuration: what it reads from the ledgers and when it moves. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { configLedgerSource, rowConfigKey } from '../src/client/config-ledger.ts'
 import { tabLedgerSource } from '../src/client/tab-ledger.ts'
 

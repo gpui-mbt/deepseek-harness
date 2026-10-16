@@ -1,7 +1,7 @@
 /** Worker-side source buffer behavior. */
 
 import { MessageChannel } from 'node:worker_threads'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { HostBridgePublisher } from '../src/host/bridge/publisher.ts'
 import { inspectorId } from '../src/shared/bridge/ids.ts'
 import { InspectorSourceBuffer, type InspectorSourceBufferOptions } from '../src/shared/bridge/buffer.ts'

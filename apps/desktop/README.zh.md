@@ -186,9 +186,11 @@ macOS 和 Linux 从图形界面启动的程序只继承会话管理器提供的�
 
 ## 开发
 
+未打包的 `dev:desktop` 和 `start:desktop` 启动支持 Linux x64 与 arm64，使用[锁定的 Linux primary-runtime 产物](../../scripts/primary-runtime/lock.json)。Linux 需要可用的图形会话、Electron 所需的操作系统库，以及允许 Chromium Linux 沙箱运行的宿主策略。Linux 分发、打包、签名和自动更新仍不受支持。
+
 开发环境应用菜单提供“刷新页面”（macOS 为 Cmd+R，其他平台为 Ctrl+R）和“重启应用与 Host”。重启会等待 Host 关闭，再重新启动 Electron 和新的 Host；这两项操作都不会重新构建源码。
 
-`dev:desktop` 会构建当前 Host、客户端 bundle、Web 前端和 Electron 壳，把已构建的 CLI 包、私有 Desktop Host 包及其 workspace 依赖投影为一次性桌面 npm 项目，然后直接启动 Electron；这条路径不从 npm 解析 dsh：
+`dev:desktop` 会重新构建共享 `lib/` 产物、客户端 bundle、`apps/web/dist` 和 Electron 壳，把已构建的 CLI 包、私有 Desktop Host 包及其 workspace 依赖投影为一次性桌面 npm 项目，然后直接启动 Electron；这条路径不从 npm 解析 dsh。不要在 `dev:web` watcher 运行期间同时执行此命令：
 
 ```sh
 pnpm run dev:desktop
@@ -196,7 +198,7 @@ pnpm run dev:desktop
 
 开发 Harness 状态默认写入 `apps/desktop/.desktop-build/development/home`，一次性 npm 项目位于 `apps/desktop/.desktop-build/development/project`，Electron 浏览器数据则位于 `apps/desktop/.desktop-build/development/electron-user-data`。因此，会话、设置、凭据、包链接和浏览器数据都不会进入用户正常使用的 Harness home；显式 `DSH_HOME` 只会替换开发 Harness home。Renderer DevTools 默认自动打开，Main、Renderer 和 dsh Host 调试端口依次为 9229、9222 和 9230。`DSH_DESKTOP_MAIN_INSPECT_PORT`、`DSH_DESKTOP_RENDERER_DEBUG_PORT` 与 `DSH_DESKTOP_HOST_INSPECT_PORT` 可以替换这些端口，`DSH_DESKTOP_OPEN_DEVTOOLS=0` 则保持 Renderer 调试窗口关闭。
 
-显式构建完成后，`start:desktop` 会重新生成一次性项目，并跳过构建直接启动已有产物：
+所需产物已存在时，使用 `start:desktop` 跳过共享产物的重新构建。它仍会重新生成隔离的一次性项目并准备 primary runtime，准备过程可能下载锁定的依赖：
 
 ```sh
 pnpm run start:desktop

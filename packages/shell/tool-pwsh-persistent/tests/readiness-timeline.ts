@@ -8,7 +8,7 @@ import type { SubprocessTerminalForeground, SubprocessTerminalHandle } from '@de
 import type { TerminalSendOperation, TerminalSendRequest, TerminalWaitReason } from '@deepseek-ai/dsh-terminal'
 import { CONTROLLED_PROMPT, TerminalSanitizer } from '@deepseek-ai/dsh-terminal-bash/src/sanitize.ts'
 import type { SanitizedChunk } from '@deepseek-ai/dsh-terminal-bash/src/sanitize.ts'
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 
 /** First line of the formatted timeline; a failure message carrying it needs no second print. */
 export const TIMELINE_HEADER = 'readiness timeline (ms since the case started; s<n> = terminal session in spawn order)'

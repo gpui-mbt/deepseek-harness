@@ -10,7 +10,7 @@ import type {} from '@deepseek-ai/dsh-experimental-translator/types'
 import { pluginRecordOf } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished, vi } from 'vite-plus/test'
 import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, readPersistedEvents, watchConsole, webSnapshotMode, type WebScaffold,

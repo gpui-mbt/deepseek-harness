@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { developmentLauncher } from '../scripts/development-app.ts'
 
 it.skipIf(process.platform === 'win32')('passes literal workspace paths and cold-start settings to Electron', () => {

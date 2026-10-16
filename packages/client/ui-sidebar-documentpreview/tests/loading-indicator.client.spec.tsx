@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Document loading text and compact additional-page feedback. */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { LoadingIndicator } from '../src/client/LoadingIndicator.tsx'
 

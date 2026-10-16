@@ -8,7 +8,7 @@ import { Context, type Plugin } from '@deepseek-ai/cordis'
 import Loader, { type ModuleJob, type ModuleLoader } from '@deepseek-ai/cordis-plugin-loader'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
 import z from '@deepseek-ai/schemastery'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 interface ModuleReload {

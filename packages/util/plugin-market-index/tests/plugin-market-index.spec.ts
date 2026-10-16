@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { MarketIndexError, marketInstallTarget, parseMarketIndex } from '../src/index.ts'
 
 const INDEX_URL = 'https://market.example/dsh/index.json'

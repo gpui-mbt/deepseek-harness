@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { DesktopPolicyTestAuth } from '../src/policy-test-auth.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import type { BrowserWindowConstructorOptions } from 'electron'

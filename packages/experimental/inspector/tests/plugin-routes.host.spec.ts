@@ -8,7 +8,7 @@ import type { Message } from '@deepseek-ai/cordis'
 import type { WebRoute, WebServer, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 import type { BrowserAuth } from '@deepseek-ai/dsh-client-connection/src/browser-auth.ts'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apply, Config, inject, name } from '../src/index.ts'
 import { startInspector, type InspectorHandle } from '../src/host/bridge/controller.ts'
 

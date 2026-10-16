@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Menu-group naming, sticky transitions, and viewport-observer ownership. */
 import { cleanup, fireEvent, isInaccessible, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { MenuGroup, observeStickyMenuGroups } from '../src/MenuGroup.tsx'
 
 const disposers: (() => void)[] = []

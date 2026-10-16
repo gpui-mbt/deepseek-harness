@@ -7,7 +7,7 @@
  * the cost of one extra tree propagation).
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 import { tempWriteSid, workspaceWriteSid } from '../src/index.ts'
 

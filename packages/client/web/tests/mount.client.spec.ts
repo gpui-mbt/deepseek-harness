@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { mountClient } from '../src/mount.ts'
 
 /** Provide a fake `uiRenderer` from its own plugin fiber so it can be replaced. */

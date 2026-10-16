@@ -2,7 +2,7 @@
 import { mkdir, realpath, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { canonicalPath, compareDisplay, displayPathOf, durablePathOf, isTemporaryPath, temporaryRoots } from '../src/paths.ts'
 import { scratchDir } from './support.ts'
 

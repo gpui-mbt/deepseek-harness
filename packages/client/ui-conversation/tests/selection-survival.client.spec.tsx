@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Exercises Conversation persistence through the real SlotRegistry store axis. */
-import { beforeEach, describe, expect, it, onTestFinished } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 
 const streamSimple = vi.hoisted(() => vi.fn())

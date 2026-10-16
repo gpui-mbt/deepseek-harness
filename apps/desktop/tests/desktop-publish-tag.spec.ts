@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { publishDesktopTag } from '../scripts/desktop-publish-tag.ts'
 
 const commit = 'a'.repeat(40)

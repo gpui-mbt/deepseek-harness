@@ -2,7 +2,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { SubprocessExecutableNotFoundError } from '@deepseek-ai/dsh-subprocess'
 import { RemoteOperationError } from '@deepseek-ai/dsh-ssh/protocol'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshSubprocessRuntime } from '../src/index.ts'
 

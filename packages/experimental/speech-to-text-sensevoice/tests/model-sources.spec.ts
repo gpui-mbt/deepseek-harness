@@ -1,5 +1,5 @@
 /** Source races are controlled by response barriers and share preparation cancellation. */
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { orderModelSources } from '../src/model-sources.ts'
 
 const origins = ['https://huggingface.co', 'https://hf-mirror.com'] as const

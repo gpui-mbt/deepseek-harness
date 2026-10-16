@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { JSDOM } from 'jsdom'
 import ts from 'typescript'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { OPTIONAL_BUNDLES } from '../packages/boot/app-boot/src/profile.ts'
 
 const pagePath = resolve(import.meta.dirname, '../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx')

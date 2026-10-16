@@ -5,7 +5,7 @@
  * published `--dsh-frame-top-clearance` (the macOS window strip).
  */
 import { useRef } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { useAnchoredMaxHeight } from '../src/useAnchoredMaxHeight.ts'
 

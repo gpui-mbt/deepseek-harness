@@ -1,5 +1,5 @@
 /** A window hold accepts each physical acknowledgement and releases pending consumers. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { RemoteStream, type ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
 import { streamMethod } from '@deepseek-ai/dsh-remote-mock'

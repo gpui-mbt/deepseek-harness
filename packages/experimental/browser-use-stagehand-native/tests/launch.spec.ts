@@ -2,7 +2,7 @@
 
 import { EventEmitter } from 'node:events'
 import { access, rm } from 'node:fs/promises'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import type { NativeBrowserConfig } from '../src/native.ts'
 import { launchChromium } from '../src/launch.ts'
 import { nativeModel } from './fixtures/stagehand.ts'

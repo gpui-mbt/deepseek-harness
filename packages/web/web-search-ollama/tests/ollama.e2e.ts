@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   OLLAMA_DEFAULT_BASE_URL,
   OLLAMA_DEFAULT_MAX_RESULTS,

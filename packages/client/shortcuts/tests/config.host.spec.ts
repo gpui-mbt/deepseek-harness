@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Config, apply } from '../src/index.ts'
 
 it('validates positive sequence timing and publishes it through the product page injection', async () => {

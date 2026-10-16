@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import { globSync, readFileSync, writeFileSync } from 'node:fs'
 import { lstat, mkdir, readdir, readFile, rm, unlink, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
-import type { TestUserConfig } from 'vitest/config'
+import type { TestUserConfig } from 'vite-plus'
 import { coverageExemptHeavySuites } from './coverage-exempt.ts'
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
@@ -115,7 +115,7 @@ export type CoverageTestTimeoutOptions = Pick<TestUserConfig, 'testTimeout' | 'h
  * raised test budget accounts for: fixtures that await child exit or retry
  * Windows handle release spend that cost in `afterEach`, where Vitest's
  * separate 10 s default would otherwise fail a suite whose cases all passed.
- * The root `vitest.config.ts` spreads these into each inline project, so the
+ * The unit lane `vitest.unit.config.ts` spreads these into each inline project, so the
  * budget governs every Vitest run of that config in an environment carrying
  * the variable, whichever gate or script starts it. The config, not a CLI
  * flag, is the only route into inline projects: Vitest forwards a fixed list
@@ -437,7 +437,7 @@ function partitionConfigSource(
   const threadSafe = JSON.stringify(files.filter(file => projectOf.get(file) !== 'process-bound').map(file => file.split('\\').join('/')))
   const processBound = JSON.stringify(files.filter(file => projectOf.get(file) === 'process-bound').map(file => file.split('\\').join('/')))
   return [
-    "import base from '../../vitest.config.ts'",
+    "import base from '../../vitest.unit.config.ts'",
     "import { coverageForkPool } from '../../scripts/coverage-fork-diagnostics.ts'",
     'export default {',
     '  ...base,',

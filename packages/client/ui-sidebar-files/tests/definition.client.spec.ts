@@ -4,7 +4,7 @@
  * address, sits in the builtin band, and offers the guide page one entry that
  * opens its kind.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { createElement } from 'react'
 import { cleanup, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'

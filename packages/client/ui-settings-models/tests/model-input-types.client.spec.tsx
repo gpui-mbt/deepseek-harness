@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Input-type defaults, nonempty selections, and hidden model metadata. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ModelInputTypes } from '../src/client/ModelInputTypes.tsx'
 import { en } from '../src/client/locales.ts'
 

@@ -1,6 +1,6 @@
 /** Measurable virtual-row grouping and durable identity contracts. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { TrajectoryCellProps } from '../src/client/trajectory-record.ts'
 import {
   groupTrajectoryVirtualRows, trajectoryVirtualRecordKey,

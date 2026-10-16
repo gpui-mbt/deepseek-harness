@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { createLazyRequire } from '../src/index.ts'
 
 interface FixtureGlobal {

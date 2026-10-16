@@ -23,7 +23,7 @@
  * gets two module instances and a shim mounted in the wrong world (the failure
  * mode asserted in `../node/fs.spec.ts`). One resolution path per module.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import {
   AsyncLocalStorage, __restoreAll, __snapshotAll, alsCausality, runAtAsyncContextRoot,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/async_hooks.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   DUNDER_MEMBER,
   PORTABLE_RESERVED_WORDS,

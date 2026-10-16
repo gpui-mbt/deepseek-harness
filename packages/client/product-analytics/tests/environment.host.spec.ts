@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import * as os from 'node:os'
 import { queryEnvironment } from '../src/environment-query.ts'
 import { collectEnvironment } from '../src/environment.ts'

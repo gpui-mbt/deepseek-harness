@@ -9,7 +9,7 @@ import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-clie
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { isTypertOwnedValue } from '@deepseek-ai/dsh-typert-protocol'
-import { afterEach, describe, expect, vi, type MockInstance } from 'vitest'
+import { afterEach, describe, expect, vi, type MockInstance } from 'vite-plus/test'
 import { ClientSessions } from '../src/client/sessions/service.ts'
 import type { SessionListValue } from '../src/types.ts'
 

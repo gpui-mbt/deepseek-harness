@@ -1,6 +1,6 @@
 /** Desktop media permissions exclude external pages, subframes and camera requests. */
 import type { Session, WebContents } from 'electron'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { installMicrophonePermissions } from '../src/microphone-permissions.ts'
 
 const access = vi.hoisted(() => ({ getMediaAccessStatus: vi.fn(() => 'granted'), askForMediaAccess: vi.fn(async () => true) }))

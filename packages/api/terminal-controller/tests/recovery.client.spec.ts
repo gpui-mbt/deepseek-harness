@@ -1,6 +1,6 @@
 /** Reloaded tab identities and nonblocking close requests use independent lifetimes. */
 import { setImmediate } from 'node:timers/promises'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { RemoteError, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'

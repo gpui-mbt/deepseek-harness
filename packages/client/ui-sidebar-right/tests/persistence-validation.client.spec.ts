@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Saved layouts reject invalid structures and references before either rendering or inventory publication. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { createSurface, createSidebarRightStore } from '../src/client/stores.ts'
 import { readSidebarLayout, writeSidebarLayout, clearSidebarLayout, sidebarPersistence } from '../src/client/persistence.ts'
 import { SidebarTabInventory } from '../src/client/tab-inventory.ts'

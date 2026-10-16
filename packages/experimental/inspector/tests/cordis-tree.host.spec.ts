@@ -2,7 +2,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import WebSocket, { type RawData } from 'ws'
-import { afterEach, describe, expect, it, vi, type TestContext } from 'vitest'
+import { afterEach, describe, expect, it, vi, type TestContext } from 'vite-plus/test'
 import { CordisTreeCollector } from '../src/shared/cordis/collector.ts'
 import { observeCordisTree } from '../src/shared/cordis/observer.ts'
 import * as inspectorBridge from '../src/host/bridge/controller.ts'

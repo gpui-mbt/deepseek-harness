@@ -1,6 +1,6 @@
 /** Worker and shared protocol behavior. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { INSPECTOR_PROTOCOL_VERSION, parseSourceFrame, parseWorkerSourceFrame } from '../src/shared/bridge/messages/observation.ts'
 import { InspectorSourceRegistry, type InspectorRecordConsumer, type SourceConnection } from '../src/worker/bridge/hub.ts'
 

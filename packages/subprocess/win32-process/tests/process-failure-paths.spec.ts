@@ -5,7 +5,7 @@
  * Pure stubs — no real Win32 calls, so these run on every platform.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import {

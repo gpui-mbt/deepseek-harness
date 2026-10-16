@@ -1,7 +1,7 @@
 /** Bottom Slot geometry and lifetime in the shipped Web composition. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Page } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 
 async function geometry(page: Page) {

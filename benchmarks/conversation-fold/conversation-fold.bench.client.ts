@@ -1,7 +1,7 @@
 /** Required performance budgets for compiled Client history folding and tool preparation. */
 
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   runBuiltBenchmarkWorker,
   type BuiltBenchmarkWorkerRun,

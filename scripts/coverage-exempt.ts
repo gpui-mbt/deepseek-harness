@@ -2,7 +2,7 @@
  * Heavy suites the coverage aggregate runs uninstrumented in a parallel gate.
  * Membership rule: a suite qualifies only when every coverage-measured
  * file it executes in-process (`coverage.include` spans package src trees;
- * Typert src is threshold-excluded in vitest.config.ts) is already
+ * Typert src is threshold-excluded in vite.config.ts) is already
  * fully covered by other suites, so removing it from the instrumented run
  * changes no threshold outcome. The aggregate still runs every listed suite
  * plain beside the instrumented gate, so correctness signal is unchanged —
@@ -19,7 +19,7 @@ export interface CoverageExemptSuite {
 }
 
 /**
- * Set to `1` by the instrumented coverage gate; vitest.config.ts then drops
+ * Set to `1` by the instrumented coverage gate; vitest.unit.config.ts then drops
  * the exempt suites from every project. CLI `--exclude` cannot express this:
  * it does not reach per-project include resolution.
  */
@@ -35,7 +35,7 @@ export const coverageExemptHeavySuites: readonly CoverageExemptSuite[] = [
     exclude: 'packages/typert/*/tests/**',
   },
   // The webworker-runtime package is outside the coverage requirement by
-  // decision: vitest.config.ts threshold-excludes its src, so every suite
+  // decision: vite.config.ts threshold-excludes its src, so every suite
   // runs uninstrumented. This tree includes the full-corpus import gate, a
   // single 900s-budget case that spawns a child sweep over every built
   // bundle; inside an instrumented partition it exceeds the Windows

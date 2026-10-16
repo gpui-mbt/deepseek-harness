@@ -5,7 +5,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { apply, inject } from '../src/client/index.ts'
 import { FakeRemote } from './fake-remote.client.ts'
 

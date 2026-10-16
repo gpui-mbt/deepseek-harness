@@ -1,7 +1,7 @@
 /** Queued cancellation, native storage ownership, and quiescent translator disposal. */
 import { pluginRecordOf, SessionId } from '@deepseek-ai/dsh-session'
 import { rm } from 'node:fs/promises'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { storageFixture, storageReply } from './storage-fixture.ts'
 
 const cleanups: Array<() => Promise<void>> = []

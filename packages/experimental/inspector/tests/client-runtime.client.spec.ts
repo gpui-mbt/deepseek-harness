@@ -1,6 +1,6 @@
 /** Client-face Runtime behavior. */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { ClientRuntimeExecutor } from '../src/client/cdp/runtime.ts'
 import type {
   ClientRuntimeCommand,

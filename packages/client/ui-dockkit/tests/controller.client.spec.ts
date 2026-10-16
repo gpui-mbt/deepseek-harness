@@ -3,7 +3,7 @@
  * identity (focus an existing tab, or open an explicit copy), the guide tab a
  * split seats, drop resolution, floating, and the notification contract.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { DockController } from '../src/engine/controller.ts'
 import { dockPaneCount, FLOAT_DEFAULT_SIZE } from '../src/engine/constraints.ts'
 import { SEED_CONTENT_ID, childAt, firstTab, seededController } from './fixtures.client.ts'

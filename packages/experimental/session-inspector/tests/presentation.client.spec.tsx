@@ -2,7 +2,7 @@
 /** The single Inspector switches sources and navigates object references inside folded table groups. */
 
 import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector, makeTranslate, sessionSnapshot } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'

@@ -27,6 +27,8 @@ export interface LibraryStep {
   readonly args: readonly string[]
   /** Steps that must succeed first; together they repeat the serial library order. */
   readonly needs: readonly LibraryStepId[]
+  /** Values the step's own environment adds, such as the pack pass selector. */
+  readonly env: Readonly<Record<string, string>>
 }
 
 /**
@@ -141,6 +143,7 @@ function compilerStep(
     command: process.execPath,
     args: referencedProjectsCompilerArgs(root, face, mode),
     needs,
+    env: {},
   }
 }
 
@@ -156,12 +159,19 @@ function typertStep(): LibraryStep {
     command: process.execPath,
     args: ['--import', import.meta.resolve('tsx/esm'), fileURLToPath(new URL('generate-typert.ts', import.meta.url))],
     needs: [],
+    env: {},
   }
 }
 
-function pnpmStep(id: LibraryStepId, label: string, args: readonly string[], needs: readonly LibraryStepId[]): LibraryStep {
+function pnpmStep(
+  id: LibraryStepId,
+  label: string,
+  args: readonly string[],
+  needs: readonly LibraryStepId[],
+  env: Readonly<Record<string, string>> = {},
+): LibraryStep {
   const [command, ...prefix] = pnpmCommand()
-  return { id, label, displayCommand: `pnpm ${args.join(' ')}`, command, args: [...prefix, ...args], needs }
+  return { id, label, displayCommand: `pnpm ${args.join(' ')}`, command, args: [...prefix, ...args], needs, env }
 }
 
 /**
@@ -176,14 +186,14 @@ function pnpmStep(id: LibraryStepId, label: string, args: readonly string[], nee
 export function libraryBuildSteps(root: string, faces: 'host' | 'all', mode: CompilationMode = 'checked'): LibraryStep[] {
   const host: LibraryStep[] = [
     compilerStep(root, 'host', mode, []),
-    pnpmStep('host-bundle', 'Host bundle', ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'host'], ['host-src']),
+    pnpmStep('host-bundle', 'Host bundle', ['exec', 'tsx', 'scripts/pack/run.ts', 'host'], ['host-src'], { DSH_BUILD_FACE: 'host' }),
   ]
   if (faces === 'host') return host
   return [
     ...host,
     pnpmStep('desktop-bundle', 'Desktop bundle', ['--filter', '@deepseek-ai/dsh-desktop', 'run', 'bundle'], ['host-bundle']),
     compilerStep(root, 'client', mode, ['desktop-bundle']),
-    pnpmStep('client-bundle', 'Client bundle', ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'client'], ['client-src']),
+    pnpmStep('client-bundle', 'Client bundle', ['exec', 'tsx', 'scripts/pack/run.ts', 'client'], ['client-src'], { DSH_BUILD_FACE: 'client' }),
   ]
 }
 
@@ -204,14 +214,14 @@ export function contractSteps(root: string, faces: 'host' | 'all'): LibraryStep[
 }
 
 function runStep(root: string, step: LibraryStep): void {
-  const result = spawnSync(step.command, step.args, { cwd: root, stdio: 'inherit' })
+  const result = spawnSync(step.command, step.args, { cwd: root, stdio: 'inherit', env: { ...process.env, ...step.env } })
   if (result.error !== undefined) throw result.error
   if (result.status !== 0) throw stepFailure(step, result.status ?? result.signal)
 }
 
 function runStepConcurrently(root: string, step: LibraryStep): Promise<void> {
   return new Promise((settle, fail) => {
-    const child = spawn(step.command, step.args, { cwd: root, stdio: 'inherit' })
+    const child = spawn(step.command, step.args, { cwd: root, stdio: 'inherit', env: { ...process.env, ...step.env } })
     child.once('error', fail)
     child.once('close', (code, signal) => {
       if (code === 0) settle()

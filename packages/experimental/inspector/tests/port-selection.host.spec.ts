@@ -2,7 +2,7 @@
 
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { startInspector, type InspectorHandle } from '../src/host/bridge/controller.ts'
 
 async function closeServer(server: Server): Promise<void> {

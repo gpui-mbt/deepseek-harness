@@ -2,7 +2,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { parseSessionLog, prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
 import type { Session } from '@deepseek-ai/dsh-session'

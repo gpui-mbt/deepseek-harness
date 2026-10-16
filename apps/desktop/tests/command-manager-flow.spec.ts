@@ -3,7 +3,7 @@
 import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { ExecFileOptions } from 'node:child_process'
 import type { MessageBoxOptions, MessageBoxReturnValue } from 'electron'
 import { DesktopCommandManager } from '../src/command-management.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 
 // The installed catalog is fixed, so the three provider postures the
 // configurable-provider directory distinguishes are replaced at the pi-ai

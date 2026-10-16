@@ -1,6 +1,6 @@
 /** Download diagnostics distinguish actionable causes without publishing raw network errors. */
 import { TimeoutReason } from '@deepseek-ai/dsh-timeout'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { classifyDownloadFailure } from '../src/download-error.ts'
 
 it.each([

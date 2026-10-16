@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, seedSession, selectedSessionFixture, watchConsole } from './scaffold.ts'
 import { newEnglishPage } from './support.ts'
 

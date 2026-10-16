@@ -7,7 +7,7 @@
  * and effect-tied removal of registrations and change listeners (HMR safety).
  */
 
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
 import SessionStore, {

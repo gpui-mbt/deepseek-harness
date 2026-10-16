@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { clearedProxyEnv } from '@deepseek-ai/dsh-http-proxy'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SourceToolEvidence } from '../../../fixtures/source-tool-driver.ts'
 
 const repoRoot = fileURLToPath(new URL('../../../../../../', import.meta.url))

@@ -1,3 +1,6 @@
+// The custom matcher below augments the `vitest` module, so this spec keeps
+// the upstream import identity: `vite-plus/test` re-exports Vitest but does
+// not carry the augmentation through the type-aware lint pass.
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Storage, { BackendRegistry, storageBackendServiceKey } from '../src/index.ts'
@@ -83,7 +86,7 @@ expect.extend({
 })
 
 declare module 'vitest' {
-  interface Assertion<T> {
-    toThrowMatchingObject(expected: object): T
+  interface Assertion<R extends void | Promise<void> = void, T = unknown> {
+    toThrowMatchingObject(expected: object): R
   }
 }

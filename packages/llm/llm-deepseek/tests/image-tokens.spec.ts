@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { deepSeekImageTokens, deepSeekRequestImageDimensions } from '../src/image-tokens.ts'
 
 describe('DeepSeek image tokens', () => {

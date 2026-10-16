@@ -1,5 +1,5 @@
 /** Target-scoped watch streams with explicit delivery and asynchronous release barriers. */
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WatchWorkspaceDirectory } from '../src/client/face.ts'
 

@@ -1,5 +1,5 @@
 /** Stream scripts, live stream control, cancellation, and the built-in `$events` opening. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
 import { RemoteMock, frames, openStream, streamHandle, streamMethod } from '../src/index.ts'
 

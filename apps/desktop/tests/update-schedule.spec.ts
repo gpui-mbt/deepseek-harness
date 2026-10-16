@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { AppUpdater } from 'electron-updater'
 import type { DesktopUpdateState } from '../src/ipc.ts'
 import { DesktopUpdateSchedule, resolveDesktopUpdateScheduleConfig } from '../src/update-schedule.ts'

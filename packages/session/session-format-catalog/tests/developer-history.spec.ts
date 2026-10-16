@@ -1,5 +1,5 @@
 /** Initial and incremental tool definitions survive current-format restoration and forks. */
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import { createDeveloperMessage } from '@deepseek-ai/dsh-llm'
 import type { ToolAdditionBlock, ToolSchema } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'

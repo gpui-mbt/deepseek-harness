@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, type SessionHeader } from '@deepseek-ai/dsh-session'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import WorkspaceGit from '../src/index.ts'
 
 const CONFIG = { timeoutMs: 5_000 }

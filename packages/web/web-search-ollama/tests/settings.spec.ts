@@ -1,6 +1,6 @@
 /** The `web-search-ollama` settings section layered over the composition entry. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 import WebRuntime from '@deepseek-ai/dsh-web'

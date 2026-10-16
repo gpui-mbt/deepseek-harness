@@ -5,7 +5,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { createInterface } from 'node:readline'
 import { Context } from '@deepseek-ai/cordis'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 // This fixture has no credentials, application state, or descendants. Port zero
 // keeps the deliberately vulnerable control away from existing inspectors.

@@ -7,7 +7,7 @@ import Group from '@deepseek-ai/cordis-plugin-group'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { PluginPackages } from '@deepseek-ai/dsh-app-boot'
 import z from '@deepseek-ai/schemastery'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { queryLiveConfig } from '../src/config.ts'
 
 /** The Config provider reads the running Loader tree: only live fibers expose a Config, carriers never do. */

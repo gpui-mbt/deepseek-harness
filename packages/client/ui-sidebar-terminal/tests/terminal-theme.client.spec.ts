@@ -1,5 +1,5 @@
 /** Program palette retention and XParseColor reset semantics across application themes. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import type { Terminal } from '@xterm/xterm'
 import { TerminalTheme } from '../src/client/terminal-theme.ts'
 

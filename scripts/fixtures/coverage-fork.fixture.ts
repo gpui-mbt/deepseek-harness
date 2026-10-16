@@ -1,5 +1,5 @@
 import { writeSync } from 'node:fs'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 declare global {
   /** Native process exit captured by this fixture's Node preload. */

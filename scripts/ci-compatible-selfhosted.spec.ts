@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 interface Step {
   name?: string
@@ -72,12 +72,12 @@ describe('Node compatibility self-hosted routing', () => {
     expect(job.strategy['fail-fast']).toBe(false)
     expect(job.strategy.matrix.include).toEqual([
       { node: '22.19', name: 'node 22.19', runner: 'ubuntu-latest', gate_concurrency: '1' },
-      { node: '24.9', name: 'node 24.9', runner: 'ubuntu-latest', gate_concurrency: '1' },
+      { node: '24.11', name: 'node 24.11', runner: 'ubuntu-latest', gate_concurrency: '1' },
       { node: 26, name: 'node 26', runner: 'ubuntu-latest', gate_concurrency: '1' },
     ])
     expect(job.env.DSH_GATE_CONCURRENCY).toBe('${{ matrix.gate_concurrency }}')
     expect(job.steps.map(step => step.run)).toContain('pnpm run check:node-compat')
-    expect(job.steps.map(step => step.run)).toContain('pnpm exec vitest run packages/boot/app-boot/tests/loader-shape.compat.spec.ts')
+    expect(job.steps.map(step => step.run)).toContain("pnpm exec vp test run --project 'unit*' packages/boot/app-boot/tests/loader-shape.compat.spec.ts")
     expect(workflow.jobs['python-sdk']['runs-on']).toBe('ubuntu-latest')
   })
 
@@ -133,8 +133,8 @@ describe('Node compatibility self-hosted routing', () => {
     const step = job.steps.find(candidate => candidate.name === 'Verify isolated Node installation')!
     expect(step.if).toBe("runner.environment == 'self-hosted'")
     for (const [executable, status] of [
-      ['/runner temp/node-compat-toolcache/node/24.9.0/x64/bin/node', 0],
-      ['/shared/toolcache/node/24.9.0/x64/bin/node', 1],
+      ['/runner temp/node-compat-toolcache/node/24.11.0/x64/bin/node', 0],
+      ['/shared/toolcache/node/24.11.0/x64/bin/node', 1],
       ['/runner temp/node-compat-toolcache-other/node', 1],
     ] as const) {
       const child = spawnSync('bash', ['-e', '-u', '-o', 'pipefail', '-c', 'node() { printf "%s" "$TEST_EXECUTABLE"; }; ' + step.run!], {

@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { copyPrimaryRuntime, type PrimaryRuntimeManifest } from '../src/index.ts'
 
 vi.mock('node:fs/promises', async (importOriginal) => {

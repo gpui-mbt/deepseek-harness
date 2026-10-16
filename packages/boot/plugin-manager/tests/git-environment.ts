@@ -10,7 +10,7 @@
  * so they run Git without the host's group.
  */
 
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 
 /** Names Git uses for its indexed command-line configuration. */
 const COMMAND_LINE_CONFIG_NAME = /^GIT_CONFIG_(?:COUNT|PARAMETERS|KEY_\d+|VALUE_\d+)$/u

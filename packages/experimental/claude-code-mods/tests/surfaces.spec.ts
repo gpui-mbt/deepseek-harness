@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { uiElements } from '../src/elements.ts'
 import { SurfaceTable } from '../src/surfaces.ts'
 import type { SurfaceHost, SurfaceSnapshot } from '../src/surfaces.ts'

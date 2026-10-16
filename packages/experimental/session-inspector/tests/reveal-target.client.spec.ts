@@ -1,6 +1,6 @@
 /** Inspector ranks precise and nearby reveal candidates from the loaded Chat model. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { ConversationLocationIndex } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { ChatConversationViewNode } from '@deepseek-ai/dsh-client-ui-chat/client'

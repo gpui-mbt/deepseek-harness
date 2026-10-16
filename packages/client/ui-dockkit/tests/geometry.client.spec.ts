@@ -2,7 +2,7 @@
  * Drag geometry: point tests, dock-zone resolution against a real rectangle,
  * tab-strip insertion slots, the drag threshold, and divider arithmetic.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   containsPoint, dividerSizes, DRAG_THRESHOLD, floatRectAt, insertionIndex, movedRect,
   passedThreshold, resizedRect, zoneInRect,

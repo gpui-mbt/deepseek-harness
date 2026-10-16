@@ -1,6 +1,6 @@
 import { isIP } from 'node:net'
 import { networkInterfaces } from 'node:os'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { probeZonedLoopback } from './test-non-loopback-address.ts'
 
 const binding = vi.hoisted(() => ({ refusal: undefined as Error | undefined }))

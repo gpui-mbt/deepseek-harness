@@ -10,8 +10,8 @@
 
 import { tmpdir } from 'node:os'
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'
-import { describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import type { Mock } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import { grantWrite, revokeWrite, withPathLock } from '../src/acl.ts'

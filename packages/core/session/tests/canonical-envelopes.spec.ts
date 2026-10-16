@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import { createMessage, createSystemMessage, createToolResultMessage, createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import SessionStore, {
   adoptSessionEvent,
   SESSION_FORMAT_VERSION,

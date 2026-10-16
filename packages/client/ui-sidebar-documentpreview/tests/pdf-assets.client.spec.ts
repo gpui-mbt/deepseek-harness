@@ -1,5 +1,5 @@
 /** PDF binary resources are exact-name, local data with independent transferable buffers. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createPdfBinaryDataFactory, type PdfAssetMap } from '../src/client/pdf/assets.ts'
 
 afterEach(() => { vi.unstubAllGlobals() })

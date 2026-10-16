@@ -1,7 +1,7 @@
 /** The attachment entry validates its messages and leaves external Chromium open. */
 
 import type { MessagePort } from 'node:worker_threads'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { request } from '../src/worker-rpc.ts'
 
 const transport = vi.hoisted(() => ({ port: null as MessagePort | null, data: {} as unknown }))

@@ -1,6 +1,6 @@
 /** Which registries an operation asks, in order, and what a failed attempt could not reach: pure, table-driven. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseInstallSpec } from '../src/install-spec.ts'
 import { attributeFailure, normalizeRegistry, OFFICIAL_NPM_REGISTRY, registryPlan, REGISTRY_URL } from '../src/registry.ts'
 

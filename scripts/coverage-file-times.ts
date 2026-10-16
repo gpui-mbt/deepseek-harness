@@ -1,7 +1,7 @@
 /** Record coverage partition file costs without retaining test results or coverage maps. */
 import { writeFile } from 'node:fs/promises'
 import { relative, resolve, sep } from 'node:path'
-import type { Reporter, ResolvedConfig, TestModule } from 'vitest/node'
+import type { Reporter, ResolvedConfig, TestModule } from 'vite-plus/test/node'
 
 /** Vitest reporter that writes repository-relative file and duration records to `outputFile.fileTimes`. */
 export default class CoverageFileTimesReporter implements Reporter {

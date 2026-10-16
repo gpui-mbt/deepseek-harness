@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { signWindowsPrimaryRuntime, signWindowsDesktopRuntime } from '../scripts/sign-primary-runtime.ts'
 import { inspectWindowsRuntimeSignature, preserveWindowsRuntimeSignature, windowsRuntimeCode, verifyWindowsCode, signWindowsCode } from '../scripts/windows-runtime-signature.mjs'
 import { runtimeFixture } from './runtime-fixture.ts'

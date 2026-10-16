@@ -1,6 +1,6 @@
 /** Raw details retain shared values while terminating cyclic live object references. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { inspectorJson } from '../src/client/views/raw-json.ts'
 import { chatNodeWithLocation } from './chat-node-fixture.client.ts'
 

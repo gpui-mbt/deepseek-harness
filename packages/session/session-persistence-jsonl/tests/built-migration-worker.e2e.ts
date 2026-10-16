@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
 const built = ['lib/index.js', 'lib/worker.cjs']

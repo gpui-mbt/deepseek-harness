@@ -1,6 +1,6 @@
 /** The Session projection that records which preset a Session runs. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { agentPresetProjectionDefinition } from '../src/session.ts'

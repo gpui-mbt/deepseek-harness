@@ -1,7 +1,7 @@
 /** Accepted writes retain translation admission after a consumer's cancellation race settles. */
 import type { Context } from '@deepseek-ai/cordis'
 import { pluginRecordOf } from '@deepseek-ai/dsh-session'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TranslationError } from '../src/error.ts'
 import { TranslationStorage } from '../src/storage.ts'
 import type { TranslationIdentity } from '../src/types.ts'

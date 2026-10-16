@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import { chromium, type Browser, type Page } from 'playwright'
 import WebSocket, { type RawData } from 'ws'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { startInspector, type InspectorHandle } from '../src/host/bridge/controller.ts'
 import { publishCordisTree } from '../src/shared/cordis/publisher.ts'
 

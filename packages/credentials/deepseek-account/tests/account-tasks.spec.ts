@@ -1,7 +1,7 @@
 /** Account cancellation follows logged routes and the owning plugin lifetime. */
 import { Context } from '@deepseek-ai/cordis'
 import { LlmError } from '@deepseek-ai/dsh-llm'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { installAccountTaskCancellation } from '../src/account-tasks.ts'
 
 it('cancels running account tasks with their inboxes retained and detaches with its owner', async () => {

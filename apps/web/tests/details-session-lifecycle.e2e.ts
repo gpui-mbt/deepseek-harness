@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, compareOrRefreshGolden,
   fixtureUserPrompts, launchWebScaffold, seedSession, watchConsole, webSnapshotMode,

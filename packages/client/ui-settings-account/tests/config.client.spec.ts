@@ -1,6 +1,6 @@
 /** Public questionnaire options are emitted in the page bootstrap. */
 import { Context } from '@deepseek-ai/cordis'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import { apply, Config } from '../src/index.ts'
 import { CONTACT_CONFIG_GLOBAL } from '../src/contact-config.ts'

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createLayoutStore } from '../src/client/stores.ts'
 import type { MainPanelId } from '../src/client/service.ts'
 

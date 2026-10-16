@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Rolldown } from 'tsdown'
-import { afterAll, describe, expect, it } from 'vitest'
+import { Rolldown } from 'vite-plus/pack'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import {
   importPackageName,
   isBareSpecifier,

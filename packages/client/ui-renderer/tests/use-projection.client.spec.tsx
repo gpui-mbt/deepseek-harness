@@ -8,7 +8,7 @@
  * sessions read `undefined`; live value changes re-render; the selector
  * overload runs over the whole value.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { act, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import { useSyncExternalStore } from 'react'

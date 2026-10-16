@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type COS from 'cos-nodejs-sdk-v5'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createInstalledUpdateCos } from '../scripts/installed-update-cos.ts'
 import { answer, cosError, startCosLoopback, type CosLoopback, type CosLoopbackResponder } from './cos-loopback.ts'
 

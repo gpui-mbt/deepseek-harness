@@ -3,7 +3,7 @@
  * The DOM side of the room rule, over a hand-built pane tree: which rectangles
  * and computed styles feed `halvesFit`, and what an unmeasured pane reads as.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { fitOf, measurePaneFits, paneElements, sameFits } from '../src/components/measure.ts'
 import type { HalvesFit, Rect } from '../src/engine/geometry.ts'
 import { asPane } from './fixtures.client.ts'

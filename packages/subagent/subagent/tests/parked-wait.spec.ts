@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 /** Host completion races around idle local children with preserved input. */
 import { setImmediate } from 'node:timers/promises'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'

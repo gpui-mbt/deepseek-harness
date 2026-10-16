@@ -1,7 +1,7 @@
 /** Shared radius choices cover controls and cards; small drawing details retain their geometry. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { packageStylesheets, parseRules, varReferences } from './stylesheet-scan.ts'
 
 const base = readFileSync(fileURLToPath(new URL('../src/styles/base.css', import.meta.url)), 'utf8')

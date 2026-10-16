@@ -5,7 +5,7 @@
  * every entry drops its snapshot and prewarms), the warm hook's cold/failed
  * gate, and the per-key ensureReady strong-wait policy.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { CommandDefinitionId } from '@deepseek-ai/dsh-commands/brand'
 import type { CommandDescriptor } from '../src/client/directory.ts'

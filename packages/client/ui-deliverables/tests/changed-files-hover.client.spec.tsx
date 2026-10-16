@@ -2,7 +2,7 @@
 /** Hover dwell, lazy comparison reads, and Sidebar navigation from turn-tail rows. */
 import { useSyncExternalStore } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { ChangedFiles } from '../src/client/ChangedFiles.tsx'

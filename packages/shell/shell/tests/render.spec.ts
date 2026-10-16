@@ -6,7 +6,7 @@
  * slicing) once, at the seam that owns it.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseExitStatus } from '../src/render.ts'
 
 describe('parseExitStatus', () => {

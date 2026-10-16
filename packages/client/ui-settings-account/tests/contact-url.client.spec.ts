@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import type { AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import { ContactConfig } from '../src/contact-config.ts'
 import { contactUrl } from '../src/client/contact-url.ts'

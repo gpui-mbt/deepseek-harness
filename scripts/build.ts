@@ -125,7 +125,7 @@ function libraryGate(step: LibraryStep, needs: readonly string[], env: Record<st
     command: step.command,
     args: [...step.args],
     needs: [...needs],
-    env,
+    env: { ...env, ...step.env },
   }
 }
 
@@ -151,10 +151,6 @@ function environmentOverlay(parent: NodeJS.ProcessEnv, child: NodeJS.ProcessEnv)
 }
 
 async function main(): Promise<number> {
-  // tsdown.config.ts loads only through Node type stripping (`--config-loader native`); this names the cause before tsdown fails.
-  if (!process.features.typescript) {
-    throw new Error('build: Node.js TypeScript type stripping is unavailable in this Node.js process; remove --no-experimental-strip-types from NODE_OPTIONS or use a Node.js build with TypeScript support')
-  }
   const { scope, profile } = parseBuildArguments(process.argv.slice(2))
   const root = resolve(import.meta.dirname, '..')
   const name = scope === 'complete' ? 'build' : scope === 'typecheck' ? 'typecheck' : `build:${scope}`

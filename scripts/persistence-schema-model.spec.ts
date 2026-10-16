@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { canonicalizeSchema, isArbitraryJsonSchema, schemaDigest, type SchemaNode, type SourceCompatibility } from './persistence-schema-model.ts'
 
 const string: SchemaNode = { kind: 'primitive', type: 'string' }

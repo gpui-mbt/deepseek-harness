@@ -2,7 +2,7 @@
 /** Renderer-owned loads retain displayed versions and retire work on reload, replacement, and close. */
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { OwnerOf } from '@deepseek-ai/dsh-client-ui-slots'
 import type { OfficeToPdfGeneration } from '@deepseek-ai/dsh-office-to-pdf/types'

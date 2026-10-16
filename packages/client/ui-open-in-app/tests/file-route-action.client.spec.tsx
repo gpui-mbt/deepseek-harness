@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Authorized file routes use the same application menu and failure feedback as previews. */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { FileRouteAction } from '../src/client/FileRouteAction.tsx'
 import { en } from '../src/client/locales.ts'

@@ -4,7 +4,7 @@
  * chain, the account settings page, and the one shared native Platform host.
  */
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, fireEvent, screen } from '@testing-library/react'
 import { SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'

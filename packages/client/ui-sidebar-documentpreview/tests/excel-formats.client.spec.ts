@@ -1,7 +1,7 @@
 /** Additional spreadsheet formats retain layout and literal delimited fields. */
 import { readFileSync } from 'node:fs'
 import { utils, write } from 'xlsx'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { excelFormat } from '../src/client/excel/format.ts'

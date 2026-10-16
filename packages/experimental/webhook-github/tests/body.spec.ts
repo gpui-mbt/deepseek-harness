@@ -1,5 +1,5 @@
 import type { IncomingMessage } from 'node:http'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { readBoundedUtf8Body } from '../src/body.ts'
 
 /** Minimal async-iterable request for byte-level branches Node fetch cannot construct. */

@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createDesktopCos } from '../scripts/desktop-cos.ts'
 import { desktopPublishCos } from '../scripts/desktop-publish-cos.ts'
 import { desktopArtifactDigest } from '../scripts/desktop-publish.ts'

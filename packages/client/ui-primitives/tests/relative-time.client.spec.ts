@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const MIN = 60_000

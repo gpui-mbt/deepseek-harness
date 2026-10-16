@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PlatformOverlay } from '../src/client/PlatformOverlay.tsx'
 import { acquireOverlayInert } from '../src/client/overlay-inert.ts'
 import { OnboardingSurface } from '../src/client/OnboardingSurface.tsx'

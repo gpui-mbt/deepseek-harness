@@ -6,7 +6,7 @@ import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import * as locators from './snapshot-spill-locators.ts'
 
 it.each([false, true])('keeps concurrent physical spill files private while retaining logical locator length and bytes (reverse allocation=%s)', async (reverseAllocation) => {

@@ -6,7 +6,7 @@ import OTel from '@deepseek-ai/dsh-otel'
  * for the default-exported Service class.
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import { createServer, type Server } from 'node:http'
 import { once } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'

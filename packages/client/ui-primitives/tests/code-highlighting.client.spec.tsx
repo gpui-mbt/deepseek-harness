@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, renderHook, waitFor } from '@testing-library/react'
 import { languageForPath as sharedLanguageForPath, readLangHintForPath } from '@deepseek-ai/dsh-util-code-language'
 import { CODE_HIGHLIGHT_EXTENSIONS, languageForPath, useCodeHighlighter } from '../src/code-highlighting.ts'

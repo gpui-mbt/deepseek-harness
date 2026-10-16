@@ -7,11 +7,11 @@
  * read, behind one documented cast, so the specs exercise the components and
  * not the slot runtime.
  */
-import { onTestFinished, vi } from 'vitest'
+import { onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ResourceRegistry } from '../../resources/src/client/resources.ts'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import type { Mock } from 'vitest'
+import type { Mock } from 'vite-plus/test'
 import { act } from '@testing-library/react'
 import { createElement, useSyncExternalStore } from 'react'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'

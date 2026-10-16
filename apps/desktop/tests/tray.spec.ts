@@ -1,5 +1,5 @@
 import type { MenuItemConstructorOptions } from 'electron'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import { DesktopTray } from '../src/tray.ts'
 

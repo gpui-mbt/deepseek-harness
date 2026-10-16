@@ -1,7 +1,7 @@
 /** Unsupported XLSX drawings cannot prevent cell preview or mutate retained file bytes. */
 import ExcelJS from 'exceljs'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { XlsxPreviewArchive } from '../src/client/excel/xlsx-archive.ts'

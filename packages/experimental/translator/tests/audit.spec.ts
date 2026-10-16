@@ -5,7 +5,7 @@ import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import type { JsonlHandleStorage } from '../../../session/session-persistence-jsonl/src/storage.ts'
 import { readFile } from 'node:fs/promises'
 import { setImmediate } from 'node:timers/promises'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { paidFixture } from './paid-fixture.ts'
 
 const cleanups: Array<() => Promise<void>> = []

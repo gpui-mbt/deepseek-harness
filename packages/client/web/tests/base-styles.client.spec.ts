@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { INTERACTIVE_SELECTOR } from '../src/window-drag/regions.ts'
 
 const THEME_PACKAGE = '@deepseek-ai/dsh-client-ui-theme'

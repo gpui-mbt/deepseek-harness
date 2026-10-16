@@ -1,7 +1,7 @@
 /** Compile request-only inputs against the actual LLM and durable write interfaces. */
 import { resolve } from 'node:path'
 import ts from 'typescript'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const root = resolve(import.meta.dirname, '..')
 const probePath = resolve(import.meta.dirname, '__request_input_probe.ts')

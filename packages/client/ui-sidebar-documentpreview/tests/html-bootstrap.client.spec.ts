@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Bootstrap serialization and resource creation in the receiving document's environment. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { runInNewContext } from 'node:vm'
 import { createHtmlDocument } from '../src/client/html/bootstrap.ts'
 import { decodeText, encodeText } from '../src/client/html/bytes.ts'

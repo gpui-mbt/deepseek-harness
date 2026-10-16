@@ -1,6 +1,6 @@
 import { PassThrough } from 'node:stream'
 import { once } from 'node:events'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshRpcPeer, RemoteOperationError } from '../src/protocol.ts'
 

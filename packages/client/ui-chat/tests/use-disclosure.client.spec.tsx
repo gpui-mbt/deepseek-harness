@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { memo } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { UseDisclosure } from '../src/client/contract/slots.ts'

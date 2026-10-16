@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { chromium, webkit } from 'playwright'
-import { describe, expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import {
   acknowledgeReloadConnectionLoss, captureExpandedTurnProcessAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, selectedSessionFixture, watchConsole, webSnapshotMode,

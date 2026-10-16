@@ -16,7 +16,7 @@ Measure the Web Host's Session list, content search, and fork over synthetic cor
 
 ## Run
 
-From the repository root, build the libraries and workers with `pnpm run build:bench`, then run `pnpm exec vitest run --config vitest.bench.config.ts benchmarks/session-corpus/session-corpus.bench.ts`. Do not overlap timing runs with builds or other benchmarks. Seeding writes about 1.5 GB of Zstandard logs under a private temporary root, which the test removes after success or failure.
+From the repository root, build the libraries and workers with `pnpm run build:bench`, then run `pnpm exec vp test bench --project bench benchmarks/session-corpus/session-corpus.bench.ts`. Do not overlap timing runs with builds or other benchmarks. Seeding writes about 1.5 GB of Zstandard logs under a private temporary root, which the test removes after success or failure.
 
 The test reports every fresh-process sample, the CPU model, available parallelism, platform, and Node version, and enforces median budgets. Its last case fails when the file, including seeding, exceeds five minutes. A failed worker reports its exit, signal, timeout, and stderr tail. The required benchmark lane discovers this file automatically.
 

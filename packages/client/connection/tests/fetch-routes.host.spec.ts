@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { PeerScope, Principal } from '@deepseek-ai/dsh-typert-protocol'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { BrowserAuth } from '../src/browser-auth.ts'
 import { HostConnectionService } from '../src/rpc-host.ts'
 

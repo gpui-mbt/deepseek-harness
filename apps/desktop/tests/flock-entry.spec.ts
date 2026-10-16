@@ -4,7 +4,7 @@ import { copyFile, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { createFlockEntryLoader } from '../scripts/flock-entry.ts'
 
 type Entry = Awaited<ReturnType<ReturnType<typeof createFlockEntryLoader>>>

@@ -1,7 +1,7 @@
 /** Required time and allocation budgets for sent-user-text evaluation with the credential matcher. */
 
 import { join } from 'node:path'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { ciTimeBudget, PERFORMANCE_BUDGET_HEADROOM } from '../support/calibration.ts'
 import { recordTimings, type BenchmarkCase } from '../support/scaling-report.ts'

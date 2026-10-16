@@ -8,7 +8,7 @@ import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-direc
  */
 
 import { startExternalActivation } from '../../subagent/tests/external-activation-helpers.ts'
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

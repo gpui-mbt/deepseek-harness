@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The chip title: the file type's sheet, then the name the registry captured. */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { TextTitle } from '../src/client/TextTitle.tsx'

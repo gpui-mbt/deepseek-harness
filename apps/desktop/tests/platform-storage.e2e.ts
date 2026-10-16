@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { execa } from 'execa'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const require = createRequire(import.meta.url)
 const repository = fileURLToPath(new URL('../../../', import.meta.url))

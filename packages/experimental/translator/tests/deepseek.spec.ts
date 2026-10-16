@@ -5,7 +5,7 @@ import { Config as AccountConfig } from '@deepseek-ai/dsh-llm-deepseek-account'
 import { Config as OfficialConfig } from '@deepseek-ai/dsh-llm-deepseek-api-key'
 import { pluginRecordOf, SessionId } from '@deepseek-ai/dsh-session'
 import { TimeoutReason } from '@deepseek-ai/dsh-timeout'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import Translator from '../src/index.ts'
 import { paidFixture, replyEvents, sse } from './paid-fixture.ts'
 

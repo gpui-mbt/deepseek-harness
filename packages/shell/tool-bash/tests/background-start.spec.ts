@@ -1,4 +1,4 @@
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { ShellProcess } from '@deepseek-ai/dsh-shell'
 import { processJob, processOutcome, processSources } from '../src/background.ts'
 

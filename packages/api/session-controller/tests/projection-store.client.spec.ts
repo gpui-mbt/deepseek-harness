@@ -8,7 +8,7 @@
  * control-stream projection routing pre- and post-instantiation, the list
  * rows' title projection).
  */
-import { describe, expect } from 'vitest'
+import { describe, expect } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import { ok, type RemoteMock } from '@deepseek-ai/dsh-remote-mock'

@@ -1,5 +1,5 @@
 /** Wire audio validation rejects malformed headers and inconsistent duration. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { validateWave } from '@deepseek-ai/dsh-experimental-speech-to-text/wave'
 
 function wave(): Buffer {

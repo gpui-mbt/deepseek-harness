@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import type { NotarizeOptions } from '@electron/notarize'

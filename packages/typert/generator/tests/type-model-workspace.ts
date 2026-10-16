@@ -17,7 +17,7 @@ import { Buffer } from 'node:buffer'
 import type * as NodeFileSystem from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import ts from 'typescript'
-import { afterAll, afterEach, beforeAll } from 'vitest'
+import { afterAll, afterEach, beforeAll } from 'vite-plus/test'
 
 type FileSystem = typeof NodeFileSystem
 

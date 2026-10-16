@@ -1,6 +1,6 @@
 /** Terminal screen continuity and process ownership under real output scheduling. */
 import { PassThrough } from 'node:stream'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SubprocessOutcome, SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
 import { BrowserTerminal } from '../src/terminal.ts'
 import { inputChannel } from './input.ts'

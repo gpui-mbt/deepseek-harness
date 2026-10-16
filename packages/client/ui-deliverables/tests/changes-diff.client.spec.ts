@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The comparison store: served and missing comparisons stay, failures retry, resets and disposal forget. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { changesDiffUrl, type ChangesDiff } from '../src/changes.ts'
 import { ChangesDiffStore } from '../src/client/changes-diff.ts'

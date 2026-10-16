@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { runGate } from './run-gates.ts'
 import { PassThrough } from 'node:stream'
-import { afterEach, describe, expect, it, type MockInstance, vi } from 'vitest'
-import { ForksPoolWorker } from 'vitest/node'
-import type { PoolOptions, PoolWorker, TestProject, WorkerRequest, WorkerResponse } from 'vitest/node'
+import { afterEach, describe, expect, it, type MockInstance, vi } from 'vite-plus/test'
+import { ForksPoolWorker } from 'vite-plus/test/node'
+import type { PoolOptions, PoolWorker, TestProject, WorkerRequest, WorkerResponse } from 'vite-plus/test/node'
 import { coverageForkPool } from './coverage-fork-diagnostics.ts'
 
 const roots: string[] = []

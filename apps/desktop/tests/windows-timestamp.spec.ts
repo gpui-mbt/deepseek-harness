@@ -1,5 +1,5 @@
 /** Timestamp retries use fresh signed inputs and cannot publish partial or substituted files. */
-import { it, expect, type TestContext } from 'vitest'
+import { it, expect, type TestContext } from 'vite-plus/test'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'

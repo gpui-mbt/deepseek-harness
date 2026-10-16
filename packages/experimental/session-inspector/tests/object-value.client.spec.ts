@@ -1,6 +1,6 @@
 /** Shallow object inspection preserves native values and never executes getters. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { InspectorObjectValue } from '../src/client/views/object-value.ts'
 
 it('labels opaque scalar objects without exposing enumerable internals', () => {

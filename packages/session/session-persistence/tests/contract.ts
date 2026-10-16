@@ -11,7 +11,7 @@
  * @module @deepseek-ai/dsh-session-persistence/tests/contract
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SessionSeq, SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { MessageId, freezeMessage } from '@deepseek-ai/dsh-llm'

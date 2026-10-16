@@ -3,7 +3,7 @@
  * no-listener laziness, synchronous notifyNow, and unsubscribe.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Notifier } from '../src/client/sessions/notifier.ts'
 
 const microtask = (): Promise<void> => new Promise((resolve) => { queueMicrotask(resolve) })

@@ -274,11 +274,21 @@ function ciBuildGate(id = 'build', options: Partial<Gate> = {}): Gate {
   })
 }
 
+/**
+ * Render one argument the way a shell would read it back. A project filter
+ * like `unit*` must stay quoted in the printed command, or a reader copying it
+ * hands the shell a glob instead of the name.
+ */
+function displayArg(arg: string): string {
+  return /[*?]/.test(arg) ? `'${arg}'` : arg
+}
+
 function pnpmExec(id: string, args: string[], options: Partial<Gate> = {}): Gate {
+  const displayed = args.map(displayArg).join(' ')
   return {
     id,
-    label: options.label ?? `pnpm exec ${args.join(' ')}`,
-    displayCommand: `pnpm exec ${args.join(' ')}`,
+    label: options.label ?? `pnpm exec ${displayed}`,
+    displayCommand: `pnpm exec ${displayed}`,
     ...pnpmInvocation(['exec', ...args]),
     ...options,
   }
@@ -446,8 +456,11 @@ function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
     // Serial files keep CLI and PTC children from overlapping. Vitest's
     // environment worker override takes precedence over its CLI flags.
     pnpmExec('source-compat-smokes', [
-      'vitest',
+      'vp',
+      'test',
       'run',
+      '--project',
+      'unit*',
       'packages/workflow/workflow-ptc/tests/source-runtime.compat.spec.ts',
       'packages/session/session-persistence-jsonl/tests/zstd.compat.spec.ts',
       'apps/cli/tests/source-launch.compat.spec.ts',
@@ -462,8 +475,11 @@ function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
   if (options.cliSmoke) {
     gates.push(
       pnpmExec('cli-lazy-search-startup-smoke', [
-        'vitest',
+        'vp',
+        'test',
         'run',
+        '--project',
+        'unit*',
         'apps/cli/tests/lazy-search-startup.compat.spec.ts',
       ], {
         label: 'CLI lazy-search startup smoke',
@@ -679,7 +695,7 @@ function lintGate(options: { needs?: string[] } = {}): Gate {
 // small share. A budget of 1 gives each gate 1 worker; lanes that need a strict
 // total of one (the serial reference jobs) also set DSH_GATE_CONCURRENCY=1,
 // which keeps the gates from overlapping at all.
-// DSH_COVERAGE_TEST_TIMEOUT_MS is not a gate argument: vitest.config.ts reads
+// DSH_COVERAGE_TEST_TIMEOUT_MS is not a gate argument: vitest.unit.config.ts reads
 // it from the environment every gate inherits (coverageTestTimeoutOptions).
 function coverageWorkerArgs(): { instrumented: string[]; exempt: string[] } {
   const [flag] = positiveIntArg('DSH_COVERAGE_MAX_WORKERS', '--maxWorkers')
@@ -699,9 +715,12 @@ function coverageGates(platform: NodeJS.Platform = process.platform): Gate[] {
   const partitions = parseCoveragePartitionCount(process.env[COVERAGE_PARTITIONS_ENV])
   const instrumented = partitions === undefined
     ? pnpmExec('coverage', [
-      'vitest',
+      'vp',
+      'test',
       'run',
       '--coverage',
+      '--project',
+      'unit*',
       ...workers.instrumented,
     ], {
       label: 'test:coverage',
@@ -718,8 +737,11 @@ function coverageGates(platform: NodeJS.Platform = process.platform): Gate[] {
     ...electron,
     { ...instrumented, needs: ['native-system', ...electron.map(gate => gate.id)] },
     pnpmExec('coverage-exempt-heavy', [
-      'vitest',
+      'vp',
+      'test',
       'run',
+      '--project',
+      'unit*',
       ...coverageExemptHeavySuites.map(suite => suite.filter),
       ...workers.exempt,
     ], {
@@ -731,14 +753,14 @@ function coverageGates(platform: NodeJS.Platform = process.platform): Gate[] {
 
 // The uninstrumented unit inventory for a whole-inventory reference lane
 // (the Sandbox workflow's darwin parity job). It is `pnpm run test`; the lane
-// sets DSH_COVERAGE_TEST_TIMEOUT_MS, which vitest.config.ts reads from the
+// sets DSH_COVERAGE_TEST_TIMEOUT_MS, which vitest.unit.config.ts reads from the
 // inherited environment, because a shared hosted runner delays cases that
 // inherit Vitest's defaults past them. Output streams so the job log keeps
 // per-file timestamps for a 15–30 minute run.
 function ciUnitGates(): Gate[] {
   return [
     pnpmScript('native-system', 'build:native-system'),
-    pnpmExec('unit', ['vitest', 'run'], {
+    pnpmExec('unit', ['vp', 'test', 'run', '--project', 'unit*'], {
       label: 'test',
       needs: ['native-system'],
       streamOutput: true,
@@ -856,12 +878,12 @@ function docSyncLeafGates(options: {
     pnpmScript('translation-prompt', 'verify-translation-prompt', { label: 'translation prompt', quick: true }),
     pnpmScript('doc-budgets', 'verify-doc-budgets', { label: 'doc budgets', quick: true }),
     pnpmScript('upgrade-guides', 'verify-upgrade-guides', { label: 'upgrade guides', quick: true }),
-    pnpmExec('doc-standard-tests', ['vitest', 'run', 'scripts/doc-standard.spec.ts'], {
+    pnpmExec('doc-standard-tests', ['vp', 'test', 'run', '--project', 'unit*', 'scripts/doc-standard.spec.ts'], {
       label: 'documentation standard tests',
       quick: true,
     }),
     pnpmExec('docs-site-projection', [
-      'vitest', 'run', 'scripts/project-doc-site.spec.ts', 'scripts/verify-doc-site-fragments.spec.ts',
+      'vp', 'test', 'run', '--project', 'unit*', 'scripts/project-doc-site.spec.ts', 'scripts/verify-doc-site-fragments.spec.ts',
       'website/tests/mermaid-viewer.spec.ts',
       'website/tests/image-viewer.spec.ts',
       'website/tests/code-groups.spec.ts',
@@ -884,10 +906,11 @@ function docQuickLeafGates(): Gate[] {
 
 function builtBinSmokeGate(needs: string[] = ['build']): Gate {
   return pnpmExec('built-bin-smoke', [
-    'vitest',
+    'vp',
+    'test',
     'run',
-    '--config',
-    'vitest.e2e.config.ts',
+    '--project',
+    'e2e',
     'apps/cli/tests/profiles/headless/tests/keyless-smoke.e2e.ts',
     'apps/cli/tests/profiles/headless/tests/source-tool.built.e2e.ts',
     'apps/cli/tests/built-bin.e2e.ts',

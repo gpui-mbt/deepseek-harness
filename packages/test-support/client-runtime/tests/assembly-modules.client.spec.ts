@@ -11,7 +11,7 @@ import { parseBootManifest } from '@deepseek-ai/dsh-client-modules/client'
 import type { WebBootGraph } from '@deepseek-ai/dsh-client-modules/client'
 import * as uiRenderer from '@deepseek-ai/dsh-client-ui-renderer/client'
 import * as typertRegistry from '@deepseek-ai/dsh-typert-registry/client'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { ClientRoster } from '../src/assembly/index.ts'
 import { MODULES_PACKAGE, createInProcessModules, loadPluginModules } from '../src/assembly/modules.ts'
 

@@ -9,7 +9,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import ts from 'typescript'
 import { contextKeyMap, contextMergeFiles, eventNameList } from './cordis-walk.ts'
 import { walkPartitionProblems } from './gen-cordis-catalog.ts'

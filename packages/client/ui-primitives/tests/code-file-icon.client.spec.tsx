@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   classifyFileType, FileTypeIcon, type CodeFileType, type FileTypeProjectContext,
 } from '@deepseek-ai/dsh-client-ui-primitives'

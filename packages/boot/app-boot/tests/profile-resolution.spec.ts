@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { getEnvironmentData } from 'node:worker_threads'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   installRuntimeInterception,
   ResolutionRestartRequired,
@@ -647,10 +647,13 @@ describe('runtime resolution', { concurrent: false }, () => {
     registrations.push(registration)
     const parent = pathToFileURL(join(f.profile.dir, 'entry.mjs')).href
     await expect(importFrom('#library', parent)).resolves.toMatchObject({ marker: 1 })
+    /* oxlint-disable typescript/no-unsafe-assignment -- Asymmetric matchers are typed `any`, and the
+       matcher is the assertion's own subject rather than a value the test stores. */
     await expect(importFrom('#missing', parent)).rejects.toMatchObject({
       code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
-      message: expect.stringContaining(fileURLToPath(parent)) as unknown as string,
+      message: expect.stringContaining(fileURLToPath(parent)),
     })
+    /* oxlint-enable typescript/no-unsafe-assignment */
   })
 
   it('leaves relative package imports targets and their diagnostics to Node', async () => {

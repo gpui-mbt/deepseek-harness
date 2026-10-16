@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { AGENT_A, CLIENT_CODE, setup } from './helpers.ts'
 
 const HOST = 'return { apply() {} }'

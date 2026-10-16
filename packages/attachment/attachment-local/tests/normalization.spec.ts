@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import sharp from 'sharp'
 import { canPassThroughNormalization, normalizeImage } from '../src/normalization.ts'
 import type { NormalizationPolicy } from '../src/normalization.ts'

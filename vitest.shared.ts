@@ -9,6 +9,32 @@ const decoratorSyntax = /^\s*@[A-Za-z_$][\w$]*/m
 export const vitestExecArgv = process.allowedNodeEnvironmentFlags.has('--webstorage') ? ['--no-webstorage'] : []
 
 /**
+ * Packages whose suites only run off Windows. The coverage lane in the root
+ * config exempts the same packages' sources, so the inventory lives here rather
+ * than in either config.
+ */
+export const windowsUnsupportedPackages = process.platform === 'win32'
+  ? [
+      // Bash-requiring suites (a real POSIX shell is unavailable on Windows).
+      // The pwsh-requiring suites (pwsh-local, tool-pwsh) deliberately stay
+      // INCLUDED: PowerShell ships with Windows, so they run natively here.
+      // This explicit list (not a 'packages/shell/*' glob) keeps
+      // packages/shell/shell — the Service Definition package — running on Windows.
+      'packages/shell/bash-local',
+      'packages/shell/bash-sandbox',
+      'packages/shell/tool-bash',
+      'packages/experimental/hook-protocol',
+      'packages/experimental/hooks-claude-code',
+      'packages/experimental/hooks-codex',
+      'packages/terminal/terminal-bash',
+      'packages/experimental/ptc-runtime-python',
+      'packages/sandbox/sandbox-local',
+      // OpenSSH multiplexing and Unix-socket helper streams require POSIX endpoints.
+      'packages/ssh/*',
+    ]
+  : []
+
+/**
  * Transform standard TypeScript decorators before Vite's default parser sees source files.
  * @returns a pre-transform Vite plugin shared by source-mode test configurations.
  */

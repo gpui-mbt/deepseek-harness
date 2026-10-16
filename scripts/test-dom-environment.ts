@@ -1,5 +1,5 @@
 /** Initial resize delivery from jsdom's modeled offsets; geometry/timing suites supply their own observers. */
-import { afterAll, beforeEach } from 'vitest'
+import { afterAll, beforeEach } from 'vite-plus/test'
 
 const original = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver')
 let installed = false

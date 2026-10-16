@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import type { Browser, CDPSession, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import {
   ToolCallId,

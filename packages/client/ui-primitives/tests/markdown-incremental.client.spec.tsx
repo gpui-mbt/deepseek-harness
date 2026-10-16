@@ -4,7 +4,7 @@
 // mount of the same prefix shows, while reusing the frozen blocks' DOM nodes
 // instead of remounting them.
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Root, RootContent } from 'mdast'
 import { MarkdownText } from './markdown-test-components.tsx'
 import { IncrementalMarkdownParser } from '../src/markdown/incremental.ts'

@@ -178,7 +178,7 @@ const POSTCONDITIONS: readonly PostCondition[] = [
   { file: 'scripts/cordis-walk.ts', text: '!== \'@deepseek-ai/cordis\'', count: 1 },
   { file: 'packages/typert/generator/src/analyzer.ts', text: '!== \'@deepseek-ai/cordis\'', count: 2 },
   { file: 'scripts/check-workspace-constraints.ts', text: '?.[\'@deepseek-ai/cordis\']', count: 2 },
-  { file: 'packages/boot/app-boot/tsdown.config.ts', text: '[\'@deepseek-ai/cordis-plugin-include\']', count: 1 },
+  { file: 'packages/boot/app-boot/pack.config.ts', text: '[\'@deepseek-ai/cordis-plugin-include\']', count: 1 },
   { file: 'tsconfig.base.json', text: '"@deepseek-ai/cordis-plugin-loader": ["./vendor/loader/src"]', count: 1 },
   // The vendored README owns this required entry; reject its deletion or duplication.
   { file: 'vendor/README.md', text: '17. **`@deepseek-ai` rescope**', count: 1 },
@@ -277,7 +277,7 @@ const EXACT_EDITS: readonly ExactEdit[] = [
     // namespace, where the gate would reject the library imports client
     // bundles have always inlined, so it needs their names.
     id: 'client-purity-vendored-libraries',
-    file: 'packages/client/tsdown.client.ts',
+    file: 'packages/client/pack.client.ts',
     find: '/** Generated descriptor/codec contribution with no shared runtime identity. */',
     replace: `/**
  * Vendored framework libraries: rescoped into @deepseek-ai, so the gate below
@@ -292,7 +292,7 @@ const VENDORED_LIBRARY = /^@deepseek-ai\\/(cosmokit|schemastery)(\\/|$)/
   },
   {
     id: 'client-purity-vendored-libraries-predicate',
-    file: 'packages/client/tsdown.client.ts',
+    file: 'packages/client/pack.client.ts',
     find: '        if (INLINE_SAFE.test(source) || GENERATED_REMOTE.test(source)) return null // wire contribution: inline is the point',
     replace: `        if (VENDORED_LIBRARY.test(source)) return null // vendored library: inline, no shared identity
         if (INLINE_SAFE.test(source) || GENERATED_REMOTE.test(source)) return null // wire contribution: inline is the point`,

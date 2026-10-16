@@ -4,7 +4,7 @@
  * the spec owns the frame queue and the per-row box watchers, so every pulse is
  * decided by the test rather than by wall-clock timing.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { DRAG_MARK, RECALL_MARK } from '../src/window-drag/regions.ts'
 import { installWindowDragRecall } from '../src/window-drag/recall.ts'
 

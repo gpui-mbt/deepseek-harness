@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { bindingIssue, editShortcutDocument, effectiveShortcuts, normalizeBinding, overlappingBindings, parseBinding,
   parseShortcutDefinitions, parseShortcutDocument, parseShortcutEdit } from '../src/protocol.ts'
 import type { ShortcutCommandId, ShortcutDefinition, ShortcutDocument } from '../src/protocol.ts'

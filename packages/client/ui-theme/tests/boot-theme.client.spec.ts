@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The theme bootstrap injection row and the resulting pre-plugin browser theme. */
 import { runInNewContext } from 'node:vm'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bootThemeInjections } from '../src/boot-theme.ts'
 import type { FontSizes, ThemePreference } from '../src/theme-settings.ts'
 

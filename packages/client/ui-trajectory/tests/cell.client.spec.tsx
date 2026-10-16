@@ -3,7 +3,7 @@
  * TrajectoryCell presentation: kind tags, ellipsis-hosting text, Message
  * metric columns, own-duration formatting, and selected ring.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import {

@@ -1,5 +1,5 @@
 /** Index body parsing as the parse Worker runs it. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { parseIndexBody } from '../src/parse.ts'
 
 const URL_A = 'https://market.example/index.json'

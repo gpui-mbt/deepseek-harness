@@ -8,7 +8,7 @@
  * lifecycle, and the directory invalidation event subscriptions.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { CommandResult } from '@deepseek-ai/dsh-commands/types'
 import { CommandDefinitionId } from '@deepseek-ai/dsh-commands/brand'
 import { scopeOf } from '@deepseek-ai/dsh-api-session-controller/client'

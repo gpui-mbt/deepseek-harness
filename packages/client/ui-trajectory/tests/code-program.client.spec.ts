@@ -1,5 +1,5 @@
 /** Recorded PTC argument validation and historical language selection. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { codeProgram } from '../src/client/code-program.ts'
 import type { TrajectoryCellProps } from '../src/client/trajectory-record.ts'
 

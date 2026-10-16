@@ -6,7 +6,7 @@
  * serialize per Session, and a disposed controller stops publishing.
  */
 import { RemoteMock, ok } from '@deepseek-ai/dsh-remote-mock'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { MessageId, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type {

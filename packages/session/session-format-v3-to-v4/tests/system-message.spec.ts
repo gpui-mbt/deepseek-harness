@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SessionFormatEventCollector, type SessionFormatEvent } from '@deepseek-ai/dsh-session-format'
 import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { releasedV4SessionFormatCodec } from '../src/codec.ts'

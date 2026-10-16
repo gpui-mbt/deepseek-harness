@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { describeMatcher, eventMatches, isEventPattern, KNOWN_EVENTS, matcherMatches } from '../src/matcher.ts'
 import { createToolNameAliases, DEFAULT_TOOL_ALIASES } from '../src/tool-names.ts'
 

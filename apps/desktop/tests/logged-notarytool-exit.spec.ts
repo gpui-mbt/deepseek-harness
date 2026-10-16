@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { runLoggedNotarytool } from '../scripts/logged-notarytool.mjs'
 
 const command = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<{ stdout: string; stderr: string }>>())

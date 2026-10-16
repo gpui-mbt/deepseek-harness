@@ -9,7 +9,7 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
 import ApprovalService from '@deepseek-ai/dsh-user-approval'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
 describe.each(['pre-step', 'prepareCall'] as const)('%s context changes', (phase) => {

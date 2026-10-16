@@ -1,5 +1,5 @@
 /** Model-authored operation JSON cannot supply host configuration or bypass retained identities. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { Request, ScreenshotResult } from '../src/protocol.ts'
 

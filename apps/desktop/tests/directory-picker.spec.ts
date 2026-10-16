@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { BrowserWindow, IpcMainInvokeEvent, OpenDialogReturnValue } from 'electron'
 import { DESKTOP_IPC } from '../src/ipc.ts'
 

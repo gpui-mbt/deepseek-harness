@@ -1,7 +1,7 @@
 /** Per-connection Client selection in the frontend bootstrap and upgrade URL. */
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { INSPECTOR_CLIENT_QUERY, readInspectorClientSelection } from '../src/shared/web.ts'
 
 const bootstrap = readFileSync(new URL('../assets/devtools/connect.js', import.meta.url), 'utf8')

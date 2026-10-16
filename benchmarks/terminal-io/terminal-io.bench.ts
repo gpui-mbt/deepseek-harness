@@ -1,6 +1,6 @@
 /** Bounded terminal output must not rescan a full retained window on every chunk. */
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { ciTimeBudget } from '../support/calibration.ts'
 import { recordTimings, type BenchmarkCase, type Timing } from '../support/scaling-report.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type {
   ChatConversationViewNode, ChatNodeSource,
 } from '@deepseek-ai/dsh-client-ui-chat/client'

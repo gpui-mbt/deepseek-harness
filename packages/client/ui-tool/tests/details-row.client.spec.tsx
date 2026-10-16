@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Recorded detail cards, conservative fallback, and standard row interactions. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { IconUsersOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'

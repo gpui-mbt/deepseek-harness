@@ -3,7 +3,7 @@ import { spawn as nodeSpawn, spawnSync as nodeSpawnSync } from 'node:child_proce
 import { mkdtempSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vite-plus/test'
 import {
   bindManagedProcess,
   childEnv,

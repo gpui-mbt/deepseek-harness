@@ -3,7 +3,7 @@
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { launchChromium } from '../src/launch.ts'
 import { nativeModel } from './fixtures/stagehand.ts'
 

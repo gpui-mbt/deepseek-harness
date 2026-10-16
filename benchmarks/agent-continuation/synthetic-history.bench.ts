@@ -1,5 +1,5 @@
 /** Current-generation benchmark seeds retain the system head across continuation. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createSystemMessage } from '@deepseek-ai/dsh-llm'
 import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import { Session, SessionId, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'

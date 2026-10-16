@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { EVENT_API, queryServiceApi, SERVICE_API } from '../src/client/api-catalog.ts'
 
 describe('Client Cordis inspect catalog', () => {

@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 /** External activation admission and resource ownership across parent lifetimes. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { SessionId } from '@deepseek-ai/dsh-session'

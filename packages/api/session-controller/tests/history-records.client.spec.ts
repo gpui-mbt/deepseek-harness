@@ -1,6 +1,6 @@
 /** V2 history records become one event-shaped Client value per wire record. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ToolCallId } from '@deepseek-ai/dsh-llm/brand'
 import type { SessionHistoryRecord } from '../src/types.ts'
 import {

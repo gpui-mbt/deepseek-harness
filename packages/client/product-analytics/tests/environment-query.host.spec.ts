@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import * as childProcess from 'node:child_process'
 import { queryEnvironment } from '../src/environment-query.ts'
 import { collectEnvironment } from '../src/environment.ts'

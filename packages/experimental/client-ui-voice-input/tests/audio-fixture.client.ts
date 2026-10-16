@@ -1,5 +1,5 @@
 /** Controlled browser audio devices with real Recording ownership and conversion. */
-import { vi } from 'vitest'
+import { vi, type Mock } from 'vite-plus/test'
 import { Recording } from '../src/client/audio.ts'
 
 /**
@@ -8,9 +8,15 @@ import { Recording } from '../src/client/audio.ts'
  * @returns the recording, device controls, and resource observations.
  */
 export function captureFixture(options: { empty?: boolean; recorderError?: boolean; constructError?: boolean } = {}) {
-  const trackStop = vi.fn(), close = vi.fn(async () => {}), disposed = vi.fn()
-  const decoding = vi.fn(async (_data: ArrayBuffer) => ({ duration: 2 }))
-  const rendering = vi.fn(async () => ({ getChannelData: () => new Float32Array([0.5, -0.5]) }))
+  // Named mock types keep the fixture's inferred return type portable: the
+  // declarations this package emits must not reach into Vitest's own paths.
+  const trackStop: Mock<() => void> = vi.fn()
+  const close: Mock<() => Promise<void>> = vi.fn(async () => {})
+  const disposed: Mock<() => void> = vi.fn()
+  const decoding: Mock<(data: ArrayBuffer) => Promise<{ duration: number }>> = vi.fn(async (_data: ArrayBuffer) => ({ duration: 2 }))
+  const rendering: Mock<() => Promise<{ getChannelData: () => Float32Array }>> = vi.fn(
+    async () => ({ getChannelData: () => new Float32Array([0.5, -0.5]) }),
+  )
   let failRecorder: () => void
   class Recorder {
     state = 'inactive'

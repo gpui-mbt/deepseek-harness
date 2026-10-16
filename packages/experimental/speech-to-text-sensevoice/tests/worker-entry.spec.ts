@@ -6,7 +6,7 @@
  */
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const ENTRY = fileURLToPath(new URL('../src/worker.ts', import.meta.url))
 const TSCONFIG = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))

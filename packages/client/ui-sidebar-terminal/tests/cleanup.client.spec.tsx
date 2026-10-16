@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Cleanup errors remain reachable after the terminal tab has disappeared. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { allowAllAccess, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TerminalCloseFailure } from '@deepseek-ai/dsh-api-terminal-controller/client'

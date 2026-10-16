@@ -9,7 +9,7 @@ import SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SkillOffice from '@deepseek-ai/dsh-skill-office'
 import { isSea } from 'node:sea'
 import { execa } from 'execa'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 
 vi.mock('node:sea', () => ({ isSea: vi.fn(() => false) }))
 

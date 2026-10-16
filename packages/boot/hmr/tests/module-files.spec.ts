@@ -1,6 +1,6 @@
 /** The file clock ModuleFiles compares module files with. */
 import * as fs from 'node:fs'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { ModuleFiles } from '../src/module-files.ts'
 
 vi.mock('node:fs', async original => ({ ...await original<typeof import('node:fs')>() }))

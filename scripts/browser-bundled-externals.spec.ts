@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { browserBundledExternals, browserPackageOfFile, browserSourceAliases } from './browser-bundled-externals.ts'
 
 const filesystem = vi.hoisted(() => ({ preservedAlias: undefined as string | undefined }))
@@ -57,7 +57,7 @@ function dynamicPlugin(root: string, source: string): void {
   write(root, 'packages/client/dynamic/package.json', JSON.stringify({
     name: '@fixture/dynamic', dsh: { client: { platform: 'web' } },
   }))
-  write(root, 'packages/client/dynamic/tsdown.config.ts', [
+  write(root, 'packages/client/dynamic/pack.config.ts', [
     'export default {',
     '  name: "@fixture/dynamic/client",',
     '  entry: { client: "src/client/index.ts" },',
@@ -91,7 +91,7 @@ describe('browser dependency discovery', () => {
   it('rejects a declared client without its browser config', async () => {
     const root = fixture()
     dynamicPlugin(root, 'export const value = 1')
-    write(root, 'packages/client/dynamic/tsdown.config.ts', 'export default { name: "@fixture/dynamic", entry: "src/index.ts" }')
+    write(root, 'packages/client/dynamic/pack.config.ts', 'export default { name: "@fixture/dynamic", entry: "src/index.ts" }')
     await expect(browserBundledExternals(root)).rejects.toThrow('has no browser build config')
   })
 

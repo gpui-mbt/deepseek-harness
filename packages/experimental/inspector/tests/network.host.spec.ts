@@ -1,6 +1,6 @@
 /** Worker-side Network projection behavior. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { NetworkDomain, type NetworkSink } from '../src/worker/cdp/domains/network/session.ts'
 import { NetworkStore } from '../src/worker/inspection/network-store.ts'
 import { inspectorId } from '../src/shared/bridge/ids.ts'

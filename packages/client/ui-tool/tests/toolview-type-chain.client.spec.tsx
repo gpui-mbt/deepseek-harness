@@ -1,6 +1,6 @@
 // The Tool-owned keyed-slot type chain: registration shape and composed
 // atomic-view props. Generic slot-system duals live in ui-slots tests.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ReactNode } from 'react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { ToolCallViewProps } from '../src/client/contract/slots.ts'

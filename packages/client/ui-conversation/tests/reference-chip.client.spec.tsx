@@ -3,7 +3,7 @@
  * ReferenceChip visual face: icon selection per appearance, the trigger
  * marker fallback, label truncation container, and invalid styling.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { ReferenceChip } from '../src/client/input/editor/ReferenceChip.tsx'
 

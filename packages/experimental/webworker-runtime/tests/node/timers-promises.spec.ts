@@ -8,7 +8,7 @@
  * are a minute long on purpose: any case that waited would fail by timing out
  * rather than pass slowly.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { scheduler, setImmediate, setTimeout } from '../../src/node/builtin_modules/implemented/timers/promises.ts'
 
 afterEach(() => { vi.restoreAllMocks() })

@@ -1,7 +1,7 @@
 /** Real Slot/Factory rendering seats for standalone reasoning component tests. */
 import { useState, type ReactNode } from 'react'
 import { act, type RenderResult } from '@testing-library/react'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { binaryDocumentPath, DocumentPreviewRegistry } from '../src/client/document/registry.ts'
 import type { DocumentPreviewDefinition } from '../src/client/document/registry.ts'
 

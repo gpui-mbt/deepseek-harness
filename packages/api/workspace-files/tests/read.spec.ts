@@ -1,5 +1,5 @@
 /** The `read` endpoint: its four gates and the line window it cuts. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FsError } from '@deepseek-ai/dsh-fs'

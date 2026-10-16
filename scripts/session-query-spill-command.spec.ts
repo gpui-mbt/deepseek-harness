@@ -8,7 +8,7 @@ import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import * as locators from './snapshot-spill-locators.ts'
 import * as commands from '../snapshots/session/session-query-spill/resolve-spill-command.mjs'
 

@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   COVERAGE_PARTITION_MODE_ENV,
   COVERAGE_PARTITIONS_ENV,
@@ -584,7 +584,7 @@ describe('coverage partition coordinator', () => {
     expect(allConfigs).toContain('b.spec.ts')
     expect(allConfigs).toContain('c.spec.ts')
     for (const source of partitionConfigs) {
-      expect(source).toContain("from '../../vitest.config.ts'")
+      expect(source).toContain("from '../../vitest.unit.config.ts'")
       expect(source).toContain("from '../../scripts/coverage-fork-diagnostics.ts'")
       expect(source).toContain('pool: coverageForkPool')
     }

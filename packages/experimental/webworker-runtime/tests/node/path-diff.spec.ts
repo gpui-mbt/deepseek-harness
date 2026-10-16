@@ -12,7 +12,7 @@
  * Imports go through the package name so the harness and the shim resolve to one
  * module instance (see `../polyfill/als-shim.spec.ts` for why that matters).
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { posix as nodePosix, win32 as nodeWin32 } from 'node:path'
 import * as shim from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/path.ts'
 

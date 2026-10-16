@@ -3,7 +3,7 @@
 import { once } from 'node:events'
 import { connect } from 'node:net'
 import type { Worker } from 'node:worker_threads'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { openBrowserWorker } from '../src/worker-client.ts'
 import type { NativeBrowserConfig, NativeBrowserRuntime } from '../src/native.ts'
 import { nativeModel } from './fixtures/stagehand.ts'

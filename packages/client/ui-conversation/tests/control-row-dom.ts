@@ -1,5 +1,5 @@
 /** jsdom font-loading events; layout tests drive their own measurements. */
-import { beforeEach, afterEach, vi } from 'vitest'
+import { beforeEach, afterEach, vi } from 'vite-plus/test'
 
 const fonts = Object.getOwnPropertyDescriptor(document, 'fonts')
 beforeEach(() => {

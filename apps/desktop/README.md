@@ -186,9 +186,11 @@ macOS and Linux GUI launches inherit only the session manager's environment, wit
 
 ## Develop
 
+Unpackaged `dev:desktop` and `start:desktop` launches support Linux x64 and arm64 using the [locked Linux primary-runtime payload](../../scripts/primary-runtime/lock.json). Linux requires an active graphical session, Electron's OS libraries, and host policy that permits Chromium's Linux sandbox. Linux distribution, packaging, signing, and auto-update remain unsupported.
+
 The development application menu offers Reload Page (Cmd+R on macOS, Ctrl+R elsewhere) and Restart App and Host. Restart waits for Host shutdown before relaunching Electron and starting a new Host; neither action rebuilds source files.
 
-`dev:desktop` builds the current Host, client bundles, Web frontend, and Electron shell, projects the built CLI and private Desktop Host packages with their workspace dependencies into a disposable desktop npm project, and launches Electron without resolving dsh from npm:
+`dev:desktop` rebuilds shared `lib/` outputs, client bundles, `apps/web/dist`, and the Electron shell, projects the built CLI and private Desktop Host packages with their workspace dependencies into a disposable desktop npm project, and launches Electron without resolving dsh from npm. Do not run it alongside active `dev:web` watchers:
 
 ```sh
 pnpm run dev:desktop
@@ -196,7 +198,7 @@ pnpm run dev:desktop
 
 Development Harness state defaults to `apps/desktop/.desktop-build/development/home`, the disposable npm project lives at `apps/desktop/.desktop-build/development/project`, and Electron browser data lives at `apps/desktop/.desktop-build/development/electron-user-data`. Sessions, settings, credentials, package links, and browser data therefore stay out of the user's normal Harness home. An explicit `DSH_HOME` replaces only the development Harness home. Renderer DevTools opens automatically; Main, Renderer, and dsh Host debugging listen on ports 9229, 9222, and 9230. `DSH_DESKTOP_MAIN_INSPECT_PORT`, `DSH_DESKTOP_RENDERER_DEBUG_PORT`, and `DSH_DESKTOP_HOST_INSPECT_PORT` replace those ports, while `DSH_DESKTOP_OPEN_DEVTOOLS=0` keeps the detached Renderer tools closed.
 
-After an explicit build, `start:desktop` reconstructs the disposable project and launches the existing artifacts without building again:
+When the required artifacts already exist, use `start:desktop` to skip the shared rebuild. It still reconstructs the isolated disposable project and prepares its primary runtime, which may download locked dependencies:
 
 ```sh
 pnpm run start:desktop

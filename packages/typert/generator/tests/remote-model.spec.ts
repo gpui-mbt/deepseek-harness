@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import ts from 'typescript'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import type { InvocationModel } from '../src/model.ts'
 import { WorkspaceTypertGenerator } from '../src/workspace.ts'

@@ -1,5 +1,5 @@
 /** Turn-node Locations and Assistant timing across partial windows and transient retirement. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createAssistantMessage, createToolResultMessage, LlmAttemptId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { AssistantStreamAccumulator } from '@deepseek-ai/dsh-llm/assistant-stream'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'

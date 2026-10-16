@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { setImmediate } from 'node:timers/promises'
 import { promisify } from 'node:util'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { runWorkflowGuest } from '../src/guest.ts'
 import { WORKFLOW_GUEST_SOURCE } from '../src/guest-source.ts'
 import type { WorkflowGuestHost, WorkflowProgress } from '../src/guest-types.ts'

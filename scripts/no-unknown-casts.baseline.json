@@ -310,9 +310,6 @@
     "46749c86ea74f896ecf7a25e5839d4b49f839497cec757f3ef09ad551d99a933": 1,
     "f66725b07f595b27258f0e9fe86618d8c44652052e6150704f0488ecc7d176b9": 1
   },
-  "packages/boot/app-boot/tests/profile-resolution.spec.ts": {
-    "595612a86672eea9eaae2da6c5e42de22708304549218489fa2b9f851305ac35": 1
-  },
   "packages/boot/app-boot/tests/user-patches.spec.ts": {
     "3ce67a64d2a210f22f3d3c4752b1a1db216fb18b1f665241c9c8555b851d3ff8": 1,
     "d996d63af331b6ea3da16ea0397e764708da3b96874ff8227fe99a9571108467": 1

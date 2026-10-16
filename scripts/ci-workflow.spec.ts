@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 function evaluateRunsOn(selector: unknown, context: Record<string, unknown>): unknown {
   if (typeof selector !== 'string') throw new TypeError('Runner selector must be a string')
@@ -30,7 +30,7 @@ describe('CI workflow', () => {
     expect(compatibilityLimit).toBeGreaterThan(0)
     expect(compatibility.strategy).toMatchObject({
       'fail-fast': false,
-      matrix: { include: [{ node: '22.19' }, { node: '24.9' }, { node: 26 }] },
+      matrix: { include: [{ node: '22.19' }, { node: '24.11' }, { node: 26 }] },
     })
     expect(workflowJob(ci, 'all-checks-passed').needs).toContain('node-compat')
     const ordinaryJobs = Object.entries(ci.jobs)
@@ -771,7 +771,7 @@ describe('CI workflow', () => {
   })
 
   it('keeps supported LSP source under native Windows coverage', () => {
-    const config = readFileSync(resolve(root, 'vitest.config.ts'), 'utf8')
+    const config = readFileSync(resolve(root, 'vitest.unit.config.ts'), 'utf8')
 
     expect(config).not.toContain('packages/lsp/lsp-stdio/src/connection.ts')
     expect(config).not.toContain('packages/lsp/lsp-stdio/src/index.ts')
@@ -900,7 +900,7 @@ describe('CI workflow', () => {
   })
 
   it('keeps every Vitest project process-isolated on native Windows', () => {
-    const config = readFileSync(resolve(root, 'vitest.config.ts'), 'utf8')
+    const config = readFileSync(resolve(root, 'vitest.unit.config.ts'), 'utf8')
 
     expect(config).not.toContain("pool: process.platform === 'win32' ? 'threads' : 'forks'")
     expect(config.match(/pool: 'forks'/g)).toHaveLength(2)
@@ -910,7 +910,7 @@ describe('CI workflow', () => {
     // Each inline project spreads coverageTestTimeoutOptions, the only route
     // for DSH_COVERAGE_TEST_TIMEOUT_MS into projects; the behavior itself is
     // pinned by scripts/lane-test-budget.spec.ts.
-    const config = readFileSync(resolve(root, 'vitest.config.ts'), 'utf8')
+    const config = readFileSync(resolve(root, 'vitest.unit.config.ts'), 'utf8')
 
     expect(config).toContain('const laneTestBudget = coverageTestTimeoutOptions(process.env[COVERAGE_TEST_TIMEOUT_ENV])')
     expect(config.match(/^ {10}\.\.\.laneTestBudget,$/gm)).toHaveLength(2)

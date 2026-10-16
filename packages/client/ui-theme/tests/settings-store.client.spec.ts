@@ -1,5 +1,5 @@
 /** Appearance and font-size row stores: snapshot-mirror actions and the revision guards. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createAppearanceRowStore, createFontRowStore } from '../src/client/settings-store.ts'
 
 describe('createAppearanceRowStore', () => {

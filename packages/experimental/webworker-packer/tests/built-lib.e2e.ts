@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { pnpmInvocation } from '../../../../scripts/pnpm-invocation.ts'
 
 const experimentalDirectory = fileURLToPath(new URL('../..', import.meta.url))

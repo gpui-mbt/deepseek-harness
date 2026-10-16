@@ -1,5 +1,5 @@
 /** Schemastery and Cordis config reference behavior through direct and Loader updates. */
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import { type Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { Config } from './volatile-config.fixture.ts'

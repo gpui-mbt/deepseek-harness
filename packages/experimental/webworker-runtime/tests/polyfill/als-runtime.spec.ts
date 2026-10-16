@@ -19,7 +19,7 @@
  * actually fold, do the hooks cover timers) is `als-shim.spec.ts`. This file is
  * the middle layer: the protocol, in isolation.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { createAlsRuntime, type AlsCausality, type AlsToken } from '../../src/polyfill/async-context/als-runtime.ts'
 
 const check = (label: string, actual: unknown, expected: unknown): void => {

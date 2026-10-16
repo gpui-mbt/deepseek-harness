@@ -4,7 +4,7 @@
  * rejections pin the hazards WHATWG URL parsing accepts on its own.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parsePublicUrl } from '../src/public-url.ts'
 
 describe('parsePublicUrl', () => {

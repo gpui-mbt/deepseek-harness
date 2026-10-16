@@ -30,7 +30,7 @@ const ALWAYS_PUBLISHED = ['package.json', 'README*', 'LICENSE*', 'LICENCE*'] as 
  * the sources or the build configuration changes the tarball while no published
  * path appears in the diff.
  */
-const BUILD_INPUTS = ['src/**', 'tsconfig*.json', 'tsdown.config.*', 'build.config.*'] as const
+const BUILD_INPUTS = ['src/**', 'tsconfig*.json', 'pack.config.*', 'build.config.*'] as const
 
 /** Release types the dsh family accepts besides an explicit version. */
 const RELEASE_TYPES = ['major', 'minor', 'patch'] as const

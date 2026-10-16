@@ -1,5 +1,5 @@
 /** Fault checks for the exploratory cache; these never call signing hardware. */
-import { it as test, type TestContext } from 'vitest'
+import { it as test, type TestContext } from 'vite-plus/test'
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, readdir, rm, writeFile, mkdir, symlink } from 'node:fs/promises'
 import { join } from 'node:path'

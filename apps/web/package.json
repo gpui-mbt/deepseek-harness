@@ -25,7 +25,7 @@
     "build": "vite build",
     "dev": "vite",
     "watch": "vite build --watch --no-emptyOutDir",
-    "build:preview": "pnpm --filter @deepseek-ai/dsh-experimental-webworker-runtime exec tsdown && pnpm --filter @deepseek-ai/dsh-experimental-webworker-packer exec tsdown && vite build && dsh-pack-vfs-image --out dist/preview/vfs-image.tar.gz",
+    "build:preview": "tsx ../../scripts/pack/run.ts preview && vite build && dsh-pack-vfs-image --out dist/preview/vfs-image.tar.gz",
     "serve:preview": "http-server dist -a 0.0.0.0 -p 4173 -c-1"
   },
   "license": "MIT",
@@ -58,7 +58,7 @@
     "react-dom": "^18.2.0",
     "typescript": "^6.0.3",
     "vite": "^6.4.3",
-    "vitest": "^4.1.11",
+    "vitest": "catalog:",
     "ws": "8.21.3",
     "@deepseek-ai/dsh-client-ui-theme": "workspace:*",
     "@deepseek-ai/dsh-launch-environment": "workspace:*",

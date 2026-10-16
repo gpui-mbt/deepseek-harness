@@ -7,7 +7,7 @@
 // the durable session-log reference, and the browser URL is the SAME object
 // URL Chat resolved — one sessions.attachment read per session attachment.
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()

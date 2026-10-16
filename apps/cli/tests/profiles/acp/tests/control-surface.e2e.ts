@@ -10,7 +10,7 @@ import {
   type AgentUnderTest,
   type LaunchedAcpTestAgent,
 } from '@deepseek-ai/dsh-session-snapshot'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const repoRoot = fileURLToPath(new URL('../../../../../../', import.meta.url))
 const agent: AgentUnderTest = {

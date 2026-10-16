@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { PackageFiles } from '../src/files.ts'
 import { readDisplayMetadata } from '../src/metadata.ts'
 import { dshRange, findBundlePackages, isBundle, readManifest, type Manifest } from '../src/packages.ts'

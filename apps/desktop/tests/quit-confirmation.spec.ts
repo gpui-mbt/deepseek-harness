@@ -1,5 +1,5 @@
 import type { MessageBoxOptions, MessageBoxReturnValue, NativeImage } from 'electron'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { DesktopQuitInspection } from '../src/host-process.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import { DesktopQuitConfirmation, resolveDesktopQuitPrompt } from '../src/quit-confirmation.ts'

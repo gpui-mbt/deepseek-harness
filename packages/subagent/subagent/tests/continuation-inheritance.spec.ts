@@ -7,7 +7,7 @@ import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
  * (the one-shot `subagent-inprocess/tests/inheritance.spec.ts` counterpart).
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'

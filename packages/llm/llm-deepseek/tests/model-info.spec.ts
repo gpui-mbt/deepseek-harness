@@ -1,5 +1,5 @@
 /** Catalog metadata supports embedding callers without deployment normalization. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { catalogModelInfo } from '../src/model-info.ts'
 
 it('advertises a minimal model declaration as text input with its ID as the label', () => {

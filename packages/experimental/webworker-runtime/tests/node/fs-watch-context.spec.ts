@@ -6,7 +6,7 @@
  *
  * Imports go through the package name so the shim, the hook layer, and the watcher share one module instance.
  */
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test } from 'vite-plus/test'
 import { AsyncLocalStorage } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/async_hooks.ts'
 import { installAsyncContextHooks } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/polyfill/async-context/async-context-hooks.ts'
 import { installTimerGlobals } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/globals/timers.ts'

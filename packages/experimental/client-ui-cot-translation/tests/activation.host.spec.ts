@@ -14,7 +14,7 @@ import * as JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import CotTranslationController from '../src/index.ts'
 
 /** Real stored-session reads; this fixture does not provide full-text search. */

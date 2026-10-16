@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { createRequire, type ModuleHooks } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { installOfficeEngineResolution } from '../src/office-engine.ts'
 import { PackageManifests } from '../../../packages/boot/hmr/src/package-manifest.ts'
 

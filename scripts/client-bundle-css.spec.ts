@@ -2,11 +2,39 @@
  * Stylesheets and images enter client bundles through plugin loaders, which
  * must register their physical files as watch dependencies.
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { clientBundle } from '../packages/client/tsdown.client.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { build } from 'vite-plus/pack'
+import { clientBundle } from '../packages/client/pack.client.ts'
+
+it('exports compiled inline CSS text without passing its query through the compiler CSS plugin', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-inline-css-build-'))
+  try {
+    await writeFile(join(root, 'package.json'), '{"name":"@fixture/inline-css","type":"module"}\n')
+    await mkdir(join(root, 'src/client'), { recursive: true })
+    await writeFile(join(root, 'src/client/index.ts'), 'export { default as css } from "./style.css?inline"\n')
+    await writeFile(join(root, 'src/client/style.css'), 'body { color: red; }\n')
+    const config = clientBundle(root, ['lib/types/index.js'])({ env: {} }).find(config => config.platform === 'browser')
+    if (config === undefined) throw new Error('fixture browser config missing')
+    const handle = await build({
+      ...config, cwd: root, config: false, tsconfig: false, write: false,
+      clean: false, exports: false, report: false, logLevel: 'silent',
+    })
+    try {
+      const output = handle.bundles.flatMap(bundle => bundle.chunks)
+        .filter(chunk => chunk.type === 'chunk').map(chunk => chunk.code).join('\n')
+      expect(output).toContain('body{color:red}')
+      expect(output).not.toContain('createElement')
+      expect(output).not.toContain('data-plugin-css')
+    } finally {
+      for (const bundle of handle.bundles) await bundle[Symbol.asyncDispose]()
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 interface BundlePlugin {
   name: string
@@ -21,10 +49,14 @@ function bundlePlugin(name: 'dsh-css-modules-inline' | 'dsh-css-global-inline' |
   )({ env: { DSH_BUILD_FACE: 'client' } })
   const client = configs.find(config => config.platform === 'browser')
   if (client === undefined) throw new Error('client config missing')
-  const plugins = (client as { plugins: BundlePlugin[] }).plugins
+  type ResolveId = NonNullable<BundlePlugin['resolveId']>
+  const plugins = (client as { plugins: (Omit<BundlePlugin, 'resolveId'> & {
+    resolveId?: ResolveId | { handler: ResolveId }
+  })[] }).plugins
   const plugin = plugins.find(candidate => candidate.name === name)
   if (plugin === undefined) throw new Error(`${name} missing from client config`)
-  return plugin
+  const { resolveId, ...rest } = plugin
+  return { ...rest, ...resolveId === undefined ? {} : { resolveId: typeof resolveId === 'object' ? resolveId.handler : resolveId } }
 }
 
 describe('client bundle CSS Modules', () => {

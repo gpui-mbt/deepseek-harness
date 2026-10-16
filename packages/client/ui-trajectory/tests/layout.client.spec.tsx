@@ -3,7 +3,7 @@
  * Trajectory turn chrome and layout fold: expand blocks, usage on Message,
  * tool own-duration, group wall-span descriptions, in-flight rows.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render, screen } from '@testing-library/react'
 import type {
   ConversationLocation, ConversationNode, RequestView,

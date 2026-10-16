@@ -2,7 +2,7 @@
 import { appendFile, mkdtemp, rm, stat, writeFile, type FileHandle } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { readPdf } from '../src/output.ts'
 
 const io = vi.hoisted(() => ({ opened: undefined as ((file: FileHandle) => Promise<void>) | undefined }))

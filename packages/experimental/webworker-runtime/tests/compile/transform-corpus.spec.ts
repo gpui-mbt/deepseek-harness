@@ -14,7 +14,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { expect, test, TestRunner } from 'vitest'
+import { expect, test, TestRunner } from 'vite-plus/test'
 
 const runner = fileURLToPath(new URL('./transform-corpus-check.ts', import.meta.url))
 

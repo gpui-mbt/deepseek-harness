@@ -1,5 +1,5 @@
 import { PassThrough } from 'node:stream'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { drainOutput } from '../src/output-stream.ts'
 
 afterEach(() => vi.useRealTimers())

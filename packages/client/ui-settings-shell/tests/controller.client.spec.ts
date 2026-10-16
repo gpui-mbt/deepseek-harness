@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { ShellCardController, type ShellSettings } from '../src/client/shell-card-controller.ts'

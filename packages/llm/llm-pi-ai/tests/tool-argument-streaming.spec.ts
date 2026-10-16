@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { AssistantMessageEvent, Model } from '@earendil-works/pi-ai'
 import { stream as streamAnthropic } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { stream as streamCompletions } from '@earendil-works/pi-ai/api/openai-completions'

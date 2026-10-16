@@ -4,8 +4,8 @@ import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import SessionStore from '@deepseek-ai/dsh-session'
 import FsLocal from '@deepseek-ai/dsh-fs-local'
-import { onTestFinished } from 'vitest'
-import { describe, expect, it, vi } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   createSessionTestController,
   createSessionTestRemote,

@@ -1,4 +1,4 @@
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { LocaleRuntime } from '../src/client/index.ts'
 

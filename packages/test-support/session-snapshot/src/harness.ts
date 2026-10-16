@@ -21,7 +21,7 @@ import { existsSync, realpathSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, delimiter } from 'node:path'
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import {
   PROTOCOL_VERSION,
   type ContentBlock as AcpContentBlock,

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 it.each(['../lib/index.js', '../lib/types/remote-info.js'])(
   'keeps the published protocol entry %s free of Zod runtime imports',

@@ -5,7 +5,7 @@ import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
  * controller can never deliver a reminder there.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'

@@ -1,7 +1,7 @@
 /** Verify application qualification commands without invoking Apple tools. */
 
 import { spawnSync } from 'node:child_process'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { verifyMacOSNotarizedApplication } from '../scripts/verify-macos-signature.mjs'
 
 vi.mock('node:child_process', async importOriginal => ({

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   createProcessShutdown,
   PROCESS_SHUTDOWN_TIMEOUT_MS,

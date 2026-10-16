@@ -1,5 +1,5 @@
 /** Worker entry translates parser failures into its private response protocol. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { excelFixture } from './excel-fixture.ts'
 

@@ -1,6 +1,6 @@
 /** Sign-out impact follows the latest logged provider of running tasks. */
 import { Context } from '@deepseek-ai/cordis'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { AccountController } from '../src/index.ts'
 

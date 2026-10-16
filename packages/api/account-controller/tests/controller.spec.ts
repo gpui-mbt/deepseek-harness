@@ -3,7 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { DeepSeekAccount } from '@deepseek-ai/dsh-deepseek-account'
 import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountView, SignInAttemptId } from '../src/types.ts'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import AccountController from '../src/index.ts'
 
 const roots: Context[] = []

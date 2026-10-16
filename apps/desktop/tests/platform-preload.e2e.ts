@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 
 interface Bridge {
   getAuthToken(): string

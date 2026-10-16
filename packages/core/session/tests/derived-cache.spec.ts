@@ -6,7 +6,7 @@ import type { MessageSource } from '@deepseek-ai/dsh-llm'
  * frozen messages, and remain value-equal to replay at every step.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 
 type CheckpointSource = Extract<MessageSource, { readonly kind: 'compact-checkpoint' }>

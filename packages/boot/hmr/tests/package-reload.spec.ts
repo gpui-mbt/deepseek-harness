@@ -11,7 +11,7 @@ import {
   type PluginPackages, type ProfileContext, type RuntimeResolution,
 } from '@deepseek-ai/dsh-app-boot'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 const watchers = vi.hoisted(() => [] as import('chokidar').FSWatcher[])

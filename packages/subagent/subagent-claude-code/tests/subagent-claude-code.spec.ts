@@ -24,7 +24,7 @@ import {
   it,
   type Mock,
   vi,
-} from 'vitest'
+} from 'vite-plus/test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'

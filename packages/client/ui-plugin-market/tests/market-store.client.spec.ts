@@ -2,7 +2,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import type { MarketIndexSummary, MarketListingEntry, MarketQuery, MarketSearchResult } from '@deepseek-ai/dsh-api-remotes/client'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { DiscoverController, PAGE_SIZE } from '../src/client/market-store.ts'
 import { INITIAL_QUERY } from '../src/client/presentation.ts'
 

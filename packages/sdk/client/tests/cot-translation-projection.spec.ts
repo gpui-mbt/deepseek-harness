@@ -1,7 +1,7 @@
 /** Raw audit projection; the translator's native Loader tests own billing and model dispatch evidence. */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { appendPluginRecord, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId, createUserMessage } from '@deepseek-ai/dsh-llm'

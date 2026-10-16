@@ -1,6 +1,6 @@
 /** Compact inventories retain root fingerprints and restore shared recursive type graphs. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseHistoricalPersistenceSnapshot, parsePersistenceSnapshot } from './persistence-changes.ts'
 import { canonicalizeSchema, persistenceSchemaSnapshot, schemaDigest, type PersistenceSchemaInventory } from './persistence-schema-model.ts'
 import { reviewPersistenceSchemas } from './persistence-review.ts'

@@ -1,7 +1,7 @@
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { canExecute, hasLinuxChooserBinary } from '../src/probe.ts'
 import { resolveDirectoryPickerBackend } from '../src/resolve.ts'
 import type { DirectoryPickerHostFacts } from '../src/resolve.ts'

@@ -1,5 +1,5 @@
 /** Late-reply conversation node: source matching and payload projection. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type { ConversationViewNode } from '@deepseek-ai/dsh-client-ui-conversation/client'

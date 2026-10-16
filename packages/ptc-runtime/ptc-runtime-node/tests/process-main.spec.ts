@@ -1,6 +1,6 @@
 import { Duplex, PassThrough } from 'node:stream'
 import { setImmediate as nextTurn } from 'node:timers/promises'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { JsonChannel } from '../src/channel.ts'
 import { runNodeMain } from '../src/process.ts'
 import type { ProgramProcess } from '../src/process.ts'

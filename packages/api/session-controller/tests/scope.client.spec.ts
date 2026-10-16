@@ -7,7 +7,7 @@
  * dispose with the fiber.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { createScope, scopeOf } from '../src/client/scope.ts'
 

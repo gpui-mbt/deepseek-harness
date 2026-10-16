@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { PreviewFixtureManifest } from '../../src/fixture-manifest.ts'
 import { choosePreviewSource } from '../../src/client/source-chooser.ts'
 

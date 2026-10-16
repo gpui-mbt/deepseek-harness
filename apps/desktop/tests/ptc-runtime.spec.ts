@@ -6,7 +6,7 @@ import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { mountRuntime } from '../../../packages/ptc-runtime/ptc-runtime-node/tests/setup.ts'
 
 const require = createRequire(import.meta.url)

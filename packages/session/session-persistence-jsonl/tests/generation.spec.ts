@@ -1,5 +1,5 @@
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createHash } from 'node:crypto'
 import {
   link,

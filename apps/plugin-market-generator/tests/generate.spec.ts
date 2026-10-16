@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { c as createTar } from 'tar'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { main } from '../src/cli.ts'
 import { generate, type GenerateOptions } from '../src/generate.ts'
 import { onCleanup, scratch } from './support.ts'

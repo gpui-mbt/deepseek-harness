@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { queryObjects } from 'node:v8'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import WebSocket, { type RawData } from 'ws'
 import { Context, symbols } from '@deepseek-ai/cordis'
 import { apply as applyConnection, inject as connectionInject } from '@deepseek-ai/dsh-client-connection'

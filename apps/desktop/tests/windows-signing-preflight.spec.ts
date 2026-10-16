@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { createPackagingRun } from '../scripts/packaging-run.mjs'
 import { preflightWindowsSigning } from '../scripts/windows-signing-preflight.ts'
 import { inspectWindowsRuntimeSignature } from '../scripts/windows-runtime-signature.mjs'

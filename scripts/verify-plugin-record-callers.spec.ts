@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   checkDeclaredPluginRecordWrites,
   checkPluginRecordCallers,
@@ -285,7 +285,7 @@ describe('verify-plugin-record-callers', () => {
       'tsconfig.host.json': JSON.stringify({ compilerOptions, include: ['packages/core/**/src/**/*.ts'] }),
       'tsconfig.client.json': JSON.stringify({ compilerOptions, include: ['packages/**/src/**/*.ts'] }),
       'packages/experimental/bridge/src/client.ts': "import { appendPluginRecord } from '@deepseek-ai/dsh-session'\nappendPluginRecord({}, 'plugin:bridge/state', { value: 1 })\n",
-      'packages/experimental/bridge/tsdown.config.ts': 'const broken: number = "config is not source"\n',
+      'packages/experimental/bridge/pack.config.ts': 'const broken: number = "config is not source"\n',
       'packages/experimental/bridge/examples/hook.js': 'export const hook = value => value\n',
     })
     expect(checkDeclaredPluginRecordWrites(root, readRepositorySources(root))).toEqual([])

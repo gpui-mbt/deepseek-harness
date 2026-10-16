@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import type { PanzoomOptions } from '@panzoom/panzoom'
 import { getByRole, queryAllByRole, queryByRole, waitFor } from '@testing-library/dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { MediaViewer } from '../.vitepress/theme/media-viewer.ts'
 import { installMermaidViewer, type MermaidViewer } from '../.vitepress/theme/mermaid-viewer.ts'
 

@@ -1,7 +1,7 @@
 /** Private worker readiness and response parsing stop on invalid process/wire output. */
 import { PassThrough } from 'node:stream'
 import type { SubprocessHandle } from '@deepseek-ai/dsh-subprocess'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { SpeechInputError } from '../src/input.ts'
 import { readReady, readTranscript } from '../src/recognizer.ts'
 

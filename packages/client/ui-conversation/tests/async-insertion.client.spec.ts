@@ -1,7 +1,7 @@
 /** Late input insertions preserve references, subsequent edits, and undo ownership. */
 import { Context } from '@deepseek-ai/cordis'
 import { UNDO_COMMAND } from 'lexical'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 
 function shell(): SessionInputShell {

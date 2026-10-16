@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises'
 import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { SenseVoiceWorker } from '../src/recognizer.ts'
 

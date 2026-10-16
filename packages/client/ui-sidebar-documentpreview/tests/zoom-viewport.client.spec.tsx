@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Shared zoom fitting follows pane size until the reader selects a fixed scale. */
 import { useState, type CSSProperties } from 'react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { fitWidthZoom, ZoomViewport, zoomSurfaceClass } from '../src/client/zoom/ZoomViewport.tsx'
 import { FIT_WIDTH, type ZoomPreference } from '../src/client/zoom/types.ts'

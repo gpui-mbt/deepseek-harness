@@ -2,7 +2,7 @@
  * Sequence behavior: linear history, exact inverses, the focus-run undo step, and
  * the redo branch a new operation discards.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { replay } from '../src/engine/operations.ts'
 import { createIdMinter, createInitialState } from '../src/engine/initial.ts'
 import { asPane, asTab, fileTab, seedTab } from './fixtures.client.ts'

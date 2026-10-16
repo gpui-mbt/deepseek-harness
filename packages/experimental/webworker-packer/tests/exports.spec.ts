@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, type TestContext } from 'vitest'
+import { expect, it, type TestContext } from 'vite-plus/test'
 import { packVfsImage, type PackOptions } from '../src/pack.ts'
 
 const SUBJECT = '@deepseek-ai/dsh-image-export-fixture'

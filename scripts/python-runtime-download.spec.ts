@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, copyFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'dsh-resource-download-'))

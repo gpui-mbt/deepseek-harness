@@ -5,7 +5,7 @@
  * `emit` reports, the point at which `once` unregisters, and the listener set an
  * in-flight emit dispatches to.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { EventEmitter } from '../../src/node/builtin_modules/implemented/events.ts'
 
 describe('emit', () => {

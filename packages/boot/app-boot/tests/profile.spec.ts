@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterAll, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterAll, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import {
   composeEntries,
   createRuntimeResolution,

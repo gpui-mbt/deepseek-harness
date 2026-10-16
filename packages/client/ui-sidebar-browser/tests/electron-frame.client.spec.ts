@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { ElectronWebViewImpl } from '../src/client/electron/ElectronWebViewImpl.ts'
 import { ElectronWebviewPresentation, type WebviewElement } from '../src/client/electron/ElectronWebviewPresentation.ts'
 import type { DesktopBrowserBridge, DesktopBrowserLeaseId } from '../src/types.ts'

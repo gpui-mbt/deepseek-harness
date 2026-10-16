@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Account take-over of the frame-wide quota notice, and its generic fallback. */
 import { act, cleanup, render, fireEvent, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi, type Mock } from 'vitest'
+import { afterEach, expect, it, vi, type Mock } from 'vite-plus/test'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { QuotaNoticeOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'

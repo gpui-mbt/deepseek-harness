@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   collectClientPackageViolations,
   collectLocalSourceSpecifiers,
@@ -13,10 +13,39 @@ import {
   collectSourcePackageUses,
   fixClientPackageManifests,
   readClientDeclarations,
+  readStaticLinkedRoster,
   type ClientDeclaration,
   type ClientPackage,
   type ClientPackageFacts,
 } from './verify-client-packages.ts'
+
+describe('static library config discovery', () => {
+  function fixture(): string {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-static-pack-roster-'))
+    roots.push(root)
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module' }))
+    return root
+  }
+
+  it('reads the Client face from current pack configs and excludes dynamic entries', async () => {
+    const root = fixture()
+    for (const [name, marker] of [['static', 'dsh-static-linked-external'], ['dynamic', 'dynamic-client']] as const) {
+      const directory = join(root, 'packages/client', name)
+      mkdirSync(directory, { recursive: true })
+      writeFileSync(join(directory, 'package.json'), JSON.stringify({ name: `@fixture/${name}` }))
+      writeFileSync(join(directory, 'pack.config.ts'), `export default ({ env }) => {
+        if (env.DSH_BUILD_FACE !== 'client') throw new Error('expected Client face')
+        return [{ plugins: [{ name: ${JSON.stringify(marker)} }] }]
+      }`)
+    }
+
+    expect(await readStaticLinkedRoster(root)).toEqual(new Set(['@fixture/static']))
+  })
+
+  it('rejects an empty config corpus rather than reporting an empty static roster', async () => {
+    await expect(readStaticLinkedRoster(fixture())).rejects.toThrow('no pack configs found')
+  })
+})
 
 const CORDIS = '@deepseek-ai/cordis'
 const roots: string[] = []

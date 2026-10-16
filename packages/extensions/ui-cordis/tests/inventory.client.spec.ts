@@ -1,7 +1,7 @@
 // The inventory store: how the panel's rows arrive, what a failed read leaves
 // behind, and why a read is single-flight.
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createCordisInventory } from '../src/client/inventory.ts'
 import type { CordisDynamicPort, CordisInventoryRow } from '../src/client/dynamic-port.ts'
 

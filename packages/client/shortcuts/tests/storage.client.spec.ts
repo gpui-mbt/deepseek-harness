@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { webShortcutStorage, SHORTCUT_STORAGE_KEY } from '../src/client/storage.ts'
 import type { ShortcutCommandId, ShortcutConfigSnapshot } from '../src/protocol.ts'
 

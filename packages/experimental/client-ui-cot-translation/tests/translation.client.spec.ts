@@ -1,5 +1,5 @@
 /** Paragraph completion, provider failures, and disclosure-owned cancellation. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { ReasoningTranslation, reasoningFragments, type TranslateText, type TranslationState } from '../src/client/translation.ts'
 
 function fixture(maxTextChars = 4000) {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseHookOutput } from '@deepseek-ai/dsh-hook-protocol'
 
 describe('parseHookOutput — exit code semantics', () => {

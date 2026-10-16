@@ -9,7 +9,7 @@
  */
 
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import { allocBytes, isNullPtr } from '../src/ffi.ts'

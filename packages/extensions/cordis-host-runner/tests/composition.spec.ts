@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { CordisDynamicPackageId, CordisDynamicPluginId } from '../src/types.ts'
 import { missingServices } from '../src/lifecycle.ts'
 import {

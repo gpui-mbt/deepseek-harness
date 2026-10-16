@@ -1,6 +1,6 @@
 /** Shared JSON and exact-field validation behavior. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { inspectorId } from '../src/shared/identity.ts'
 import { isJsonValue, isPlainObject, jsonByteLength, requireJsonObject } from '../src/shared/json.ts'
 import {

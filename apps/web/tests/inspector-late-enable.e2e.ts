@@ -1,7 +1,7 @@
 /** Enabling the optional Inspector bundle on a running page mounts the bottom DevTools without a reload. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot } from './support.ts'
 

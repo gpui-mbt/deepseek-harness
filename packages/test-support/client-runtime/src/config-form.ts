@@ -1,5 +1,5 @@
 /** Test doubles for settings transport. */
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import type {
   ConfigForm, ConfigFormSnapshot,
 } from '@deepseek-ai/dsh-client-ui-settings/client'

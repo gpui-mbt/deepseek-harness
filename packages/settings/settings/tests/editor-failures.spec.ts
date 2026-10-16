@@ -1,7 +1,7 @@
 /** File failures between validation and commit must not persist partial edits. */
 import * as fs from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { configurationFixture } from './configuration-fixture.ts'
 
 vi.mock('node:fs/promises', async (importOriginal) => {

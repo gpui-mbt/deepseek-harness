@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type {
   ConnectionGeneration, ConnectionHandle,
 } from '@deepseek-ai/dsh-client-connection/client'

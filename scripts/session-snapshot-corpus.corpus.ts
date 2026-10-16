@@ -3,7 +3,7 @@
 import { existsSync } from 'node:fs'
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import {
   assertSessionFixtureVersion,
   captureExpectedWorkspaceSnapshot,

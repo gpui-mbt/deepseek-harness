@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Shared association reads retain one native request until the last control leaves. */
 import { act, cleanup, renderHook } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SessionWorkspacePathApplication } from '@deepseek-ai/dsh-api-session-controller/types'
 import { useFileApplications } from '../src/client/file-applications.ts'
 

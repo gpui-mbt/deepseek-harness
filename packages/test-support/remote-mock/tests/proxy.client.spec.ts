@@ -1,5 +1,5 @@
 /** Native namespace mocks shared by local callers and the Connection carrier. */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { RemoteMock, frames, ok, openStream, streamHandle, type StreamHandle } from '../src/index.ts'
 
 const describeValue = (hasDocument: boolean) => ok({ writable: true, hasDocument, namespaces: [] })

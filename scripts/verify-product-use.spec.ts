@@ -3,7 +3,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { ProductPackagePolicy } from './product-package-policy.ts'
 import { verifyProductUse } from './verify-product-use.ts'
 import { writeFixtureFile as write } from './fixture-file.ts'

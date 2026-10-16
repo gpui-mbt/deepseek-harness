@@ -1,5 +1,5 @@
 import { Duplex, PassThrough } from 'node:stream'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { JsonChannel } from '../src/channel.ts'
 
 function pair() {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   ClientWorkspaceModel, type WorkspaceRemote,
 } from '../src/client/index.ts'

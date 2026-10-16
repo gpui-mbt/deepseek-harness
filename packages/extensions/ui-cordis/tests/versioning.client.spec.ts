@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { DynamicCordisLivePackage } from '@deepseek-ai/dsh-cordis-client-runner/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import type {

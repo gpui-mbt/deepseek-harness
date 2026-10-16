@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scheduler } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { logPath } from '../src/format.ts'
 
 it('waits for injected consumer teardown, persists its final event, and releases listeners and leases', async () => {

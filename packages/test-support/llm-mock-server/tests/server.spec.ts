@@ -1,5 +1,5 @@
 import { request } from 'node:http'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { MockLlmBehavior, MockLlmServer, MockLlmServerEvent } from '../src/index.ts'
 import { startMockLlmServer } from '../src/index.ts'
 

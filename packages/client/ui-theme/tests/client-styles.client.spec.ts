@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Dynamic ui-theme entry owns the global styles in dependency order. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { installThemeStyles } from '../src/client/styles.ts'
 
 const PLUGIN_ID = '@deepseek-ai/dsh-client-ui-theme'

@@ -6,7 +6,7 @@
  * `no-drag` wins over an earlier `drag`, a later `drag` re-adds what an
  * earlier `no-drag` removed) and the edge semantics callers rely on.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   INTERACTIVE_SELECTOR, containsPoint, isDraggableAt, type RegionRect,
 } from '../src/window-drag/regions.ts'

@@ -7,7 +7,7 @@
  * invariants below are the contract the agent loop relies on.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import fc from 'fast-check'
 import { BlockAssembler } from '@deepseek-ai/dsh-llm'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'

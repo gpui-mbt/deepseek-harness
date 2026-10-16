@@ -1,6 +1,6 @@
 /** Developer-tool choices share settings validation, persistence and accepted-state publication. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { stubConfigForm, TestRemote, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { DEVELOPER_TOOLS_NAMESPACE, DeveloperToolsSettingsSchema, type DeveloperToolsSettings } from '../src/developer-tools-settings.ts'
 import { DeveloperToolsPreference } from '../src/client/developer-tools.ts'

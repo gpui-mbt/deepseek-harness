@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import { createMarkdownRenderer } from 'vitepress'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { codeGroupFallbackHead, isolateCodeGroupRadios } from '../.vitepress/code-groups.ts'
 
 const source = '::: code-group\n\n```sh [Linux/macOS]\n. .venv/bin/activate\n```\n\n```powershell [Windows PowerShell]\n.venv\\Scripts\\Activate.ps1\n```\n\n:::\n'

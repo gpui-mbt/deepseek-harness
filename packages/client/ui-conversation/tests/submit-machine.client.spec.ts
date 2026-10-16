@@ -5,7 +5,7 @@
  * Text-edit semantics live in the editor (lexical-editor-core spec) — the
  * machine only observes the document through event payloads.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { CommandClaim } from '../src/client/contract/input.ts'
 import type { InputEffect, SubmitAttempt } from '../src/client/contract/input.ts'
 import { SubmitMachine } from '../src/client/input/machine.ts'

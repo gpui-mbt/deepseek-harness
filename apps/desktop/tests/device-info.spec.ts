@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { readDeviceInfo } from '../src/device-info.ts'
 
 const os = vi.hoisted(() => ({ cpus: vi.fn(), totalmem: vi.fn() }))

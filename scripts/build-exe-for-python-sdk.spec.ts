@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 const root = resolve(import.meta.dirname, '..')
 const script = resolve(root, 'scripts/build-exe-for-python-sdk.ts')
@@ -98,7 +98,7 @@ describe('Python runtime executable builder CLI', () => {
   it('keeps the single-file dispatcher on the Python packaging surface', () => {
     const bootstrapPath = resolve(root, 'python/sdk-runtime/runtime-bootstrap.mjs')
     const bootstrap = readFileSync(bootstrapPath, 'utf8')
-    const cliConfig = readFileSync(resolve(root, 'apps/cli/tsdown.config.ts'), 'utf8')
+    const cliConfig = readFileSync(resolve(root, 'apps/cli/pack.config.ts'), 'utf8')
     const cliTsconfig = readFileSync(resolve(root, 'apps/cli/tsconfig.json'), 'utf8')
     const cliManifest = JSON.parse(readFileSync(resolve(root, 'apps/cli/package.json'), 'utf8')) as {
       dependencies?: Record<string, string>

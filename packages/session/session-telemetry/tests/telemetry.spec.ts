@@ -6,7 +6,7 @@ import { createAssistantMessage, createToolResultMessage, createUserMessage, Too
  * dispose-ordering pins, failure containment, and the `agent/error` relay.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, {
   SESSION_FORMAT_VERSION,

@@ -1,6 +1,6 @@
 /** Stateful behavior of the app-owned RemoteMock scenario. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createAssembledRemote } from './assembled-remote.ts'
 
 it('advances turns and updates the Session summary after accepted prompts', async () => {

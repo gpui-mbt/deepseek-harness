@@ -1,6 +1,6 @@
 /** Validation and projection of the shared Cordis tree representations. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseCordisRuntimeTree } from '../src/shared/cordis/model.ts'
 import {
   identifyRealmObject,

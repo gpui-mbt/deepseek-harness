@@ -1,5 +1,5 @@
 import { createRuntimeContext } from './setup.ts'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { logTruncationMarker } from '../src/protocol.ts'
 
 // Keep the interpreter and pipe lifecycle real; only OS-dependent read sizes

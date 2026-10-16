@@ -9,7 +9,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import * as SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SandboxLocal from '@deepseek-ai/dsh-sandbox-local'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { ACL_DIAGNOSIS_SKILL } from '../src/acl-skill.ts'
 
 // sandbox-local's POSIX suites are excluded on Windows; this owner runs in Windows coverage.

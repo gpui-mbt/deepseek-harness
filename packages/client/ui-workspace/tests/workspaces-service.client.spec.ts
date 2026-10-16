@@ -1,7 +1,7 @@
 import { setImmediate } from 'node:timers/promises'
 import { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import { afterEach, describe, expect, it, vi, type MockInstance } from 'vite-plus/test'
 import type {
   ISessions, SessionListState, SessionReference, SessionSummary,
 } from '@deepseek-ai/dsh-api-session-controller/client'

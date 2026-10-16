@@ -1,7 +1,7 @@
 import { chmod, mkdir, mkdtemp, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { resolvePrimaryRuntime } from '../packages/skill/tool-workspace-dependencies/src/index.ts'
 import { syncPythonRuntimeProduct } from './build-exe-for-python-sdk-resources.ts'
 

@@ -1,5 +1,5 @@
 /** Output followers drain on process exit and discard queued data on detach. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { TerminalFollower } from '../src/stream.ts'
 import type { TerminalFrame } from '../src/types.ts'
 

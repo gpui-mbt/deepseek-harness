@@ -10,7 +10,7 @@
  * injected face fails with `no filesystem is mounted` — a suite that mounted a
  * VFS as well would pass either way.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { runShellCommand } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/interpret.ts'
 import { filesystemError } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/fs-access.ts'
 import type {

@@ -8,7 +8,7 @@ import { ToolCallId, createUserMessage, expandAssistantStream } from '@deepseek-
  * @module dsh-agent-loop/tests/cancel
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId, SessionLogOffset, TurnEndReason } from '@deepseek-ai/dsh-session'

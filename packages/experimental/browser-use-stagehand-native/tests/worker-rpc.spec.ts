@@ -3,7 +3,7 @@
 import { getEventListeners, once } from 'node:events'
 import { MessageChannel } from 'node:worker_threads'
 import type { MessagePort } from 'node:worker_threads'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { answer, request, requestSchema } from '../src/worker-rpc.ts'
 
 const cleanups: Array<() => Promise<void>> = []

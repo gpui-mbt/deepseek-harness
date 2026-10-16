@@ -6,7 +6,7 @@
  * resolution and lifecycle on the ledger axis, and the entry-unload cascade.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { FC } from 'react'
 import { StaleAuthorizationError } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ScopedStandardSourceBinding, SlotRendererHost } from '@deepseek-ai/dsh-client-ui-slots'

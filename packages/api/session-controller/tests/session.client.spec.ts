@@ -5,7 +5,7 @@
  * proxies and is answered by endpoint name.
  */
 
-import { describe, expect, onTestFinished, vi } from 'vitest'
+import { describe, expect, onTestFinished, vi } from 'vite-plus/test'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'

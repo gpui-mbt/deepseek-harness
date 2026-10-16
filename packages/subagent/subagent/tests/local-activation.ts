@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { type ContinuableCreateSpec, type SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 
 /**
  * Mount isolated persistence and remove it after the context reaches quiescence.

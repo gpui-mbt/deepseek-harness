@@ -2,7 +2,7 @@
  * Interaction limits: the four-pane cap, the five dock regions, and divider
  * clamping. The model itself stays unbounded; these rules gate dispatch.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { applyOp } from '../src/engine/operations.ts'
 import {
   canSplit, clampSizes, DOCK_ZONES, dockPaneCount, MAX_DOCK_PANES, MIN_PANE_FRACTION, zoneAt, zoneSplit,

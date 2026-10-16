@@ -8,7 +8,7 @@
 // the commands/execute payload — and clears the composer on success, including
 // when the image is the whole `/plan` task.
 import { fireEvent, waitFor } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createAssembledSessionComposer, installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()

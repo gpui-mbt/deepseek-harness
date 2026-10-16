@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { macOSDownloadEnvironment, resolveMacOSPackageSettings } from '../scripts/macos-package-settings.mjs'
 
 it('defaults to four workers and keeps download and Apple proxies independent', () => {

@@ -2,7 +2,7 @@
 
 import { EventEmitter } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { internals, provideCmdline } from '@deepseek-ai/dsh-cmdline'
 import { ACP_APP_STARTUP_SERVICE, apply } from '../src/index.ts'
 

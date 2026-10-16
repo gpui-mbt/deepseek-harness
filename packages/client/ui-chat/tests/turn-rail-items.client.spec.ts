@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { mergeTurnRailItems } from '../src/client/chat/turn-rail-items.ts'
 import type { TurnNavigationItem } from '../src/client/contract/snapshot.ts'
 

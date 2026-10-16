@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { selectDesktopPackage } from '../scripts/resolve-desktop-publish-ci.ts'
 import { resolveRetainedDesktopPublication } from '../scripts/resolve-retained-desktop-publish-ci.ts'
 import { retainDesktopRelease, verifyRetainedDesktopRelease } from '../scripts/desktop-release-store.ts'

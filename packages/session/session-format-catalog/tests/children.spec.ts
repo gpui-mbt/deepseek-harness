@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '../src/index.ts'
 
 const header = { type: 'session', version: 3, id: 'parent', createdAt: 1, isSeeded: false, delegationDepth: 0 }

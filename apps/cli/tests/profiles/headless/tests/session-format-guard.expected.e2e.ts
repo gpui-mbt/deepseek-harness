@@ -23,7 +23,7 @@ import {
   generationLogPath,
   logPath,
 } from '../../../../../../packages/session/session-persistence-jsonl/src/format.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), 'expected/workspace-context-resume/offline-edit')
 const replayFixture = join(fixtureDir, 'replay.jsonl')

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { installedUpdateFileHash, verifyInstalledUpdateSignature } from '../scripts/installed-update-signature.mjs'
 
 type Execute = (command: string, args: string[], options: {

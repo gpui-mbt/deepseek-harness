@@ -1,6 +1,6 @@
 /** Linked catalog regressions for transitive changes and shared definitions. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { canonicalizeSchema, schemaDigest, type PersistenceRoot, type PersistenceSchemaInventory, type PersistenceType, type SchemaNode } from './persistence-schema-model.ts'
 import { renderPersistenceSchemaDefinitions, renderPersistenceSchemaIndex } from './render-persistence-schema.ts'
 import { render } from './gen-persistence-catalog.ts'

@@ -6,7 +6,7 @@ import type {
   TypertRemoteEventSource,
 } from '@deepseek-ai/dsh-api-gateway'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { apply, inject } from '../src/index.ts'
 
 interface GatewayProbe {

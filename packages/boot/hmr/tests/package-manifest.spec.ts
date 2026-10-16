@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, toNamespacedPath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { ModuleLoader } from '@deepseek-ai/cordis-plugin-loader'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PackageManifests } from '../src/package-manifest.ts'
 
 const require = createRequire(import.meta.url)

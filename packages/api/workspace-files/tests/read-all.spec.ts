@@ -1,5 +1,5 @@
 /** Full-file reads retain the ordinary file gates and never return a silently truncated result. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdir, realpath, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FsVersion } from '@deepseek-ai/dsh-fs'

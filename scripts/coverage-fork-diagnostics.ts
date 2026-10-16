@@ -1,7 +1,7 @@
 /** Add exit metadata without changing Vitest's fork scheduling or failure handling. */
 import type { ChildProcess } from 'node:child_process'
-import { ForksPoolWorker } from 'vitest/node'
-import type { PoolOptions, PoolRunnerInitializer, WorkerRequest, WorkerResponse } from 'vitest/node'
+import { ForksPoolWorker } from 'vite-plus/test/node'
+import type { PoolOptions, PoolRunnerInitializer, WorkerRequest, WorkerResponse } from 'vite-plus/test/node'
 
 const FINISHED_RESPONSE_TYPE: WorkerResponse['type'] = 'testfileFinished'
 

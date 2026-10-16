@@ -1,6 +1,6 @@
 /** Host-run checks for ordered async Inspector cleanup. */
 
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { disposeInspectorResources } from '../src/shared/dispose.ts'
 
 it('waits for each registration before releasing its predecessor and source', async () => {

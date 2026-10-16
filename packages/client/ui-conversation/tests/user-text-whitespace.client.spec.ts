@@ -1,6 +1,6 @@
 /** Whitespace is ordinary Text-producing matching, including scheduling and Facts invalidation. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vite-plus/test'
 import type { UserTextFacts, UserTextNode, UserTextRule } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '../src/client/conversation/user-text-registry.ts'
 import { collapseWhitespaceRule, trimWhitespaceRule } from '../src/client/user-text/whitespace-rules.ts'

@@ -2,7 +2,7 @@
 /** Desktop directory flow through the Web bundle roster and production client boot. */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { afterEach, expect, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vite-plus/test'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import type { DirectoryFlowOwnerProps } from '@deepseek-ai/dsh-client-ui-workspace/client'

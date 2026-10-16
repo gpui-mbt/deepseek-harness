@@ -1,7 +1,7 @@
 /** Context and Fiber identities collected from live Cordis plugins. */
 
 import { Context, Service, type Fiber } from '@deepseek-ai/cordis'
-import { assert, describe, expect, it, type TestContext } from 'vitest'
+import { assert, describe, expect, it, type TestContext } from 'vite-plus/test'
 import { CordisTreeCollector } from '../src/shared/cordis/collector.ts'
 import type { CordisTreeNode } from '../src/shared/cordis/snapshot.ts'
 

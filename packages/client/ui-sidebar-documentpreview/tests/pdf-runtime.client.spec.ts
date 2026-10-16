@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Browser Worker ownership, handshake, and PDF.js teardown under controlled completions. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { PdfDocument, PdfSession } from '../src/client/pdf/document.ts'
 
 const api = vi.hoisted(() => ({ getDocument: vi.fn(), createWorker: vi.fn(), destroyBridge: vi.fn() }))

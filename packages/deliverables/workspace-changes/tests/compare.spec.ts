@@ -1,5 +1,5 @@
 /** Line comparison with its timeout degradation. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { compareText } from '../src/compare.ts'
 
 describe('compareText', () => {

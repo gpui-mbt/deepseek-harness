@@ -4,12 +4,13 @@ English | [中文](development.zh.md)
 
 The setup tutorial takes a new contributor from prerequisites to a checked checkout. The contributor reference that follows covers repository layout, daily workflow, and CI organization. Design rationale and implementation details belong to the linked Agent Notes and scripts.
 
+<a id="setup-tutorial"></a>
+
 ## Setup tutorial
 
 ### Prerequisites
 
-- Node.js supports 22.19+ and 24+. CI covers 22.19, 24, and 26; see the [Node engine floor Agent Note](../.agents/notes/implemented/process/2026-07-06-node-engine-floor.md).
-- Node.js TypeScript type stripping enabled. The repository build scripts load `tsdown.config.ts` with tsdown's native config loader, so they fail when `--no-experimental-strip-types` is in `NODE_OPTIONS` or the Node.js build lacks TypeScript support; `pnpm run build` checks this first and names the cause.
+- Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`. CI covers 22.19, 24.11, and 26; see the [Node engine floor Agent Note](../.agents/notes/implemented/process/2026-07-06-node-engine-floor.md).
 - Corepack-enabled pnpm. The repo pins `pnpm@11.28.5` in `package.json`; run `corepack enable` if `pnpm --version` does not resolve through Corepack.
 - Git 2.26 or newer; hook setup enables Git's worktree-specific configuration extension.
 - Optional: a DeepSeek API key for the Web, headless, and ACP automation demos and real-API e2e tests.
@@ -54,6 +55,8 @@ Setup is complete when `pnpm run typecheck` exits successfully.
 
 ## Contributor reference
 
+<a id="typescript-project-layout"></a>
+
 ### TypeScript project layout
 
 The repository uses isolated Host and Client aggregates. An ordinary package is registered in exactly one aggregate: Host packages in `tsconfig.host.json` and Client packages in `tsconfig.client.json`; three packages (`host/webserver`, `compaction/compaction`, `typert/registry`) are referenced by both aggregates as shared leaves so each side type-checks the same source.
@@ -63,7 +66,7 @@ The repository uses isolated Host and Client aggregates. An ordinary package is 
 | `tsconfig.json` | Solution root: `extends` base, `files: []`, and references to the two aggregates. It is the tsserver discovery entry and the entry for explicitly running the complete Project Reference graph; through the inherited `paths`, it is also the resolution config for tsx running `scripts/`. | No |
 | `tsconfig.host.json` | Host aggregate: Host packages, examples, tests, scripts, website, and the exceptional Host project of `api/remotes`. | Yes |
 | `tsconfig.client.json` | Client aggregate: `packages/client/*` packages and their tests, `apps/web`, and the exceptional Client project of `api/remotes`. | Yes |
-| `tsconfig.base.json` | Shared compilerOptions and the source `paths` map. Also the resolution facade the vitest configs point vite-tsconfig-paths at: it has no `include`, so its `paths` apply to every importer. | No |
+| `tsconfig.base.json` | Shared compilerOptions and the source `paths` map. Also the resolution facade the test-lane configs point vite-tsconfig-paths at: it has no `include`, so its `paths` apply to every importer. | No |
 | `tsconfig.base.client.json` | Browser compiler settings (`jsx`, DOM libs, `types: []`) extended by the Client aggregate and every `packages/client/*` package. | No |
 
 Host and Client stay two aggregate programs because both sides declaration-merge the cordis `Context` interface under the same keys with different services; one program seeing both merges reports a collision. The collision exists only inside a `ts.Program` — module resolution never triggers it — which is why the solution may reference both aggregates and one paths facade may span both sides. Three disciplines follow:
@@ -79,10 +82,10 @@ Six packages split Host and Client tsconfigs: `api/remotes`, `api/gateway`, `api
 ```sh
 pnpm run build:native-system
 tsc -b <tsconfig.host.json references>
-tsdown --env.DSH_BUILD_FACE host
-pnpm --filter @deepseek-ai/dsh-desktop run bundle
+tsx scripts/pack/run.ts host
+tsx scripts/pack/run.ts desktop
 tsc -b <tsconfig.client.json references>
-tsdown --env.DSH_BUILD_FACE client
+tsx scripts/pack/run.ts client
 pnpm run build:web
 ```
 
@@ -101,9 +104,9 @@ Choose the command by what the change needs:
 
 PR artifact builders run `build:artifacts`; required Linux and Windows normal builds and public `typecheck` also check the repository-wide test and script programs. CI benchmark preparation additionally uses `--noCheck` for its disposable library outputs, relying on those required builds for diagnostics; other artifact builders keep package checking ([rationale](../.agents/notes/implemented/process/2026-10-05-pr-artifact-typechecks.md)).
 
-Both tsdown passes match `vendor/*`, `packages/*/*`, and `apps/cli`; the Host pass also matches `apps/desktop-host`. They neither scan build artifacts to discover Client packages nor maintain a Host/Client package filter list. Package-local tsdown configs select entries for the current phase through `DSH_BUILD_FACE`: an ordinary Client plugin produces both its Node loader and browser bundle during the Client phase; `api-remotes` uses `hostPhase: true` to produce its Host entry early and only its browser bundle during the Client phase. Tsdown consumes only the JavaScript emitted to `lib/types` by the preceding tsc phase. Tsdown builds the matched workspace members concurrently, so `apps/desktop`, whose main bundle inlines workspace devDependencies from their `lib/` output, bundles in its own step after the Host pass ([Desktop README](../apps/desktop/README.md#bundled-workspace-dependencies)).
+The root [`pack.config.ts`](../pack.config.ts) dynamically discovers and sorts members under `vendor/*` and `packages/*/*`, plus `apps/cli` and, for Host, `apps/desktop-host`, and merges their `pack.config.ts` entries over common defaults. It neither scans build artifacts to discover Client packages nor maintains a Host/Client package filter list. Package-local configs select entries through `DSH_BUILD_FACE`: an ordinary Client plugin produces both its Node loader and browser bundle during the Client phase; `api-remotes` uses `hostPhase: true` to produce its Host entry early and only its browser bundle during the Client phase. Both pack passes consume only JavaScript emitted to `lib/types` by the preceding tsc phase. Pack builds members concurrently, so `apps/desktop`, whose main bundle inlines workspace devDependencies from their `lib/` output, bundles separately after Host and before Client ([Desktop README](../apps/desktop/README.md#bundled-workspace-dependencies)).
 
-Typert analyzes Host types, seeded by `tsconfig.host.json`, and generates both Host reflection artifacts and the Host-for-Client Remote projection; Client tsdown does not start Typert. Host tsdown runs it as a plugin, and [`generate-typert.ts`](../scripts/generate-typert.ts) runs the same generation without bundling and writes byte-identical files. The bundle-free pass reads workspace packages only from source and fails when the Host program would load a package's `lib/` output, naming the import and the `paths` alias to add, so it can run beside Host package compilation. Client package compilation always follows one of the two passes because Client sources import the generated Remote declarations. `pnpm run typecheck` runs the `build.ts --scope typecheck` graph: Host package compilation beside the bundle-free Typert pass, then Client package compilation, with each aggregate checked in build mode (`tsc -b`) once its own face's packages compile; it skips the native addon, every bundle, Web, and the client build record. `lint`, `lint:fix`, and `doc-typecheck` read the generated declarations but not the Host aggregate check, so they prepare only Host package compilation and the bundle-free Typert pass (`compile-referenced-projects.ts host-contracts`). None of these commands writes bundles: the runnable `lib/` output stays as the last `build:artifacts` left it, so run `build:artifacts` before launching or testing built output.
+Typert analyzes Host types, seeded by `tsconfig.host.json`, and generates both Host reflection artifacts and the Host-for-Client Remote projection; Client pack does not start Typert. Host pack runs one workspace Typert plugin, and [`generate-typert.ts`](../scripts/generate-typert.ts) runs the same generation without bundling and writes byte-identical files. The bundle-free pass reads workspace packages only from source and fails when the Host program would load a package's `lib/` output, naming the import and the `paths` alias to add, so it can run beside Host package compilation. Client package compilation always follows one of the two passes because Client sources import the generated Remote declarations. `pnpm run typecheck` runs the `build.ts --scope typecheck` graph: Host package compilation beside the bundle-free Typert pass, then Client package compilation, with each aggregate checked in build mode (`tsc -b`) once its own face's packages compile; it skips the native addon, every bundle, Web, and the client build record. `lint`, `lint:fix`, and `doc-typecheck` read the generated declarations but not the Host aggregate check, so they prepare only Host package compilation and the bundle-free Typert pass (`compile-referenced-projects.ts host-contracts`). None of these commands writes bundles: the runnable `lib/` output stays as the last `build:artifacts` left it, so run `build:artifacts` before launching or testing built output.
 
 `pnpm run build` and `build:artifacts` embed the root package version, the seven-character source commit, and a dirty marker when Git reports local changes; they also inherit other caller-supplied `DSH_CLIENT_*` values. `pnpm run build:official` is the cross-platform local equivalent of the CI and release artifact build and omits the local dirty marker. Each successful `build` or `build:artifacts` writes a gitignored record that binds the exact public values to the Vite output and dynamic client bundles; release packing and built Web tests reject a missing record or artifacts changed by a later partial build. `pnpm run dev:web` runs `build:artifacts` first (`--skip-build` reuses an existing artifact tree instead), then samples the current version and Git state once and shares that environment across every watcher stage for the session; it does not validate the complete-build record because the watcher stages rewrite its recorded artifacts.
 
@@ -118,6 +121,14 @@ pnpm run build
 ```
 
 `pnpm run hygiene` includes `publint`, which validates package entrypoints against the built `lib/*.js` files, and `verify-node-next-types`, which validates built declarations against a temporary NodeNext consumer. A fresh worktree has no bundled JS or declarations until `pnpm run build` runs; ordinary commits and pushes do not require that build unless their selected checks consume it.
+
+<a id="toolchain-configuration"></a>
+
+### Toolchain configuration
+
+Vite+ owns the bundled tools. The root `vite.config.ts` declares the lint block, the coverage profile Vitest 5 keeps at the root, and the test lanes; `vp test --project <lane>` selects the lane whose `vitest.<lane>.config.ts` declares that name. Each lane config keeps its own file inventory and setup files, because Vitest 5 concatenates an inherited array with a project's own instead of replacing it. `lint.config.ts` exports the Oxlint rules that `vp lint` runs and that `scripts/lint-rule-fingerprint.spec.ts` pins, and `check.fmt` stays off because the `@stylistic` rules own formatting. `vitest.shared.ts` holds the lane-wide decorator plugin, the Web Storage worker argument, and the Windows package exclusions both the test lanes and the coverage profile read. The root config imports no pack configuration or built library.
+
+Library bundling uses the dedicated [`scripts/pack/vite.config.ts`](../scripts/pack/vite.config.ts) adapter. The shell-free, cross-platform runner `tsx scripts/pack/run.ts host|client|desktop|bench|preview` owns the build mode and environment and invokes `vp -C scripts/pack pack`; it does not require Node's native TypeScript config loader. The shared Client presets live in [`pack.client.ts`](../packages/client/pack.client.ts). Programmatic consumers import the public `vite-plus/pack` API, pass explicit configs, and own the returned `TsdownHandle` lifecycle.
 
 ### Environment variables
 
@@ -136,7 +147,7 @@ DEEPSEEK_BASE_URL=https://... # optional
 
 lefthook is configured in `lefthook.yml` as a fast local checkpoint:
 
-- `pre-commit` verifies staged pairing records against the staged owner blobs, validates staged files with the project-free `.oxlintrc.staged.json` profile and applies Oxlint fixes with one bounded retry, checks the staged diff for whitespace errors, checks pi-ai provider metadata when its inputs or generated file are staged, and runs the vendor manifest guard.
+- `pre-commit` verifies staged pairing records against the staged owner blobs, validates staged files with `vp lint --no-type-aware` and applies its fixes with one bounded retry, checks the staged diff for whitespace errors, checks pi-ai provider metadata when its inputs or generated file are staged, and runs the vendor manifest guard.
 - `pre-merge-commit` performs the same index-backed pairing check before Git creates an automatic merge commit.
 - `pre-push` runs `pnpm run typecheck`, which generates Typert contracts without bundling before the Client TypeScript check and checks both aggregates.
 
@@ -144,7 +155,7 @@ The vendor manifest guard checks that changes under `vendor/*/src` are staged wi
 
 The pi-ai check regenerates expected metadata in memory. It rejects stale data without rewriting or staging files. After a pi-ai dependency or generator change, follow the package's [provider metadata update steps](../packages/llm/llm-pi-ai/README.md#generated-provider-metadata).
 
-Apart from the scoped pairing and provider metadata checks, the hooks intentionally do not run tests, snapshots, documentation checks, builds, or hygiene. Contributors run the [checks relevant to the changed behavior](../AGENTS.md#run-relevant-checks-locally) once; CI owns exhaustive coverage, built-artifact smokes, and the Node 22.19, 24, and 26 compatibility matrix.
+Apart from the scoped pairing and provider metadata checks, the hooks intentionally do not run tests, snapshots, documentation checks, builds, or hygiene. Contributors run the [checks relevant to the changed behavior](../AGENTS.md#run-relevant-checks-locally) once; CI owns exhaustive coverage, built-artifact smokes, and the Node 22.19, 24.11, and 26 compatibility matrix.
 
 Contributors can opt into the comprehensive local gate set with `pnpm run check:all`. The command is independent of the Git hooks and is not an agent instruction.
 
@@ -202,6 +213,8 @@ Use one of three comment tags to flag known issues in the code, ordered by urgen
 - `XXX` — an issue that we may fix someday; lowest priority, no commitment.
 
 Pick the tag that matches the urgency so anyone scanning the code can tell a release blocker from a someday-maybe.
+
+<a id="documenting-types-verbatim-ts-type-equiv"></a>
 
 ### Documenting types verbatim (`ts type-equiv`)
 

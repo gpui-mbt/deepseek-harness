@@ -2,7 +2,7 @@
 
 import { readFile } from 'node:fs/promises'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import { apply, inject } from '../src/index.ts'
 

@@ -1,6 +1,6 @@
 /** Source-labelled Client references over real history transport and scoped Contexts. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, onTestFinished, vi } from 'vitest'
+import { describe, expect, onTestFinished, vi } from 'vite-plus/test'
 import type {
   SessionReference, SessionReferenceSource, SessionRetainInfo,
 } from '@deepseek-ai/dsh-api-session-controller/client'

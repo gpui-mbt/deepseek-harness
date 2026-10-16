@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { SessionEventLike } from '@deepseek-ai/dsh-api-session-controller/client'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
 import {

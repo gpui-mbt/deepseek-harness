@@ -6,7 +6,7 @@
  * idempotence. All through the production SlotRegistry + createSlotRenderer
  * stack — this suite is the fixture the migrated feature specs rely on.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { stubConfigForm } from '../src/config-form.ts'
 import { act, cleanup } from '@testing-library/react'

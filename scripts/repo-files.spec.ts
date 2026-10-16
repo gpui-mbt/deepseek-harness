@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { uniqueRepoFiles } from './repo-files.ts'
 
 const filesystem = vi.hoisted(() => ({ listed: [] as string[], canonicalized: [] as string[] }))

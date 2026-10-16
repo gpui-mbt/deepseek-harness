@@ -9,7 +9,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
  * holes (sidebar.workspaces / sidebar.settings) have no registrant here, so
  * the snapshots pin the shell chrome itself.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, waitFor } from '@testing-library/react'
 import { SlotTestRuntime, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'

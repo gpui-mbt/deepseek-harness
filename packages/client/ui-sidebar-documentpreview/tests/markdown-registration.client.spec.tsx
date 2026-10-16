@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Markdown metadata, deferred slot registration, localization, and unload through the real renderer. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, waitFor } from '@testing-library/react'
 import { apply as resourcesApply, inject as resourcesInject } from '@deepseek-ai/dsh-client-resources/src/client/index.ts'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'

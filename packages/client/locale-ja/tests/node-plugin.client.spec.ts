@@ -1,5 +1,5 @@
 /** The node half exists so the Loader can mount the bundle row; its empty apply must stay callable. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { apply } from '../src/index.ts'
 
 describe('locale-ja node half', () => {

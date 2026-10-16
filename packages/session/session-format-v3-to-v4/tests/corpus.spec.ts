@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createSessionFormatCatalogWithChildren, historicalSessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { isSessionFormatJsonObject, type SessionFormatArtifact, type SessionFormatEvent, type SessionFormatJsonObject, type SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
 import { historicalChildCatalogSource } from '../src/index.ts'

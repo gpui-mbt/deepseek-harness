@@ -3,7 +3,7 @@
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
 import assert from 'node:assert/strict'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'

@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { readDesktopPublishConfig, readDesktopUploadCredentials } from '../scripts/desktop-publish-config.ts'
 
 it('reads public settings without opening the absent credential file and requires production App settings', async () => {

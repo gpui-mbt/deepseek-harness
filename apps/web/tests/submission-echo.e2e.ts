@@ -7,7 +7,7 @@
 // echoes the prompt requestId as the durable source's rpcId, so the retirement
 // path here is the production correlation, not a test hook.
 import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createAssembledSessionComposer, installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime from '@deepseek-ai/dsh-web'
 import { ExaSearchProvider, EXA_PROVIDER_ID } from '@deepseek-ai/dsh-web-search-exa'
@@ -107,10 +107,10 @@ describe('ExaSearchProvider request mapping', () => {
   })
 
   it('uses a configured full endpoint as-is instead of appending the operation path twice', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    const fetchMock = vi.fn(async (_input: string, _init: RequestInit) => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await new ExaSearchProvider({ ...options, baseURL: 'https://api.exa.test/search' }).search({ query: 'q' })
-    const [url] = fetchMock.mock.calls[0] as unknown as [string]
+    const [url] = fetchMock.mock.calls[0]!
     expect(url).toBe('https://api.exa.test/search')
   })
 

@@ -1,7 +1,7 @@
 /** Built npm frontend assets work under a deployment prefix without remote resource requests. */
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold } from './scaffold.ts'
 
 it.each([

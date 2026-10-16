@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 it.skipIf(process.platform !== 'win32')('preserves unrelated PATH entries and rejects stale or foreign removal', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-command-path-'))

@@ -1,6 +1,6 @@
 /** Directory-node lifecycle tests with controlled stream delivery and deferred reads. */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import type { MockInstance } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
+import type { MockInstance } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { DirectoryNode } from '../src/client/directory-node.ts'

@@ -3,7 +3,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'

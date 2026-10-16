@@ -15,7 +15,7 @@ import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } fr
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { scheduler } from 'node:timers/promises'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { JsonlGenerationSourceChangedError } from '../src/generation.ts'
 import { generationLogPath, type JsonlCompression } from '../src/format.ts'
 import { compressZstdFrame, decompressZstdFrame, scanZstdFrames } from '../src/zstd.ts'

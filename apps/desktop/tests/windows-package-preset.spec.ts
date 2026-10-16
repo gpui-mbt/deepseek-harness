@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { loadDesktopPackageEnvironment } from '../scripts/desktop-package-environment.mjs'
 
 async function withPreset(run: (root: string) => Promise<void>) {

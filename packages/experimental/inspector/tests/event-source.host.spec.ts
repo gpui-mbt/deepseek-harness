@@ -1,6 +1,6 @@
 /** Consumer-neutral Server-Sent Event parsing behavior. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { InspectorEventSourceParser } from '../src/shared/network/event-source.ts'
 
 const encoder = new TextEncoder()

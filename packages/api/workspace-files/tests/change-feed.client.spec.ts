@@ -1,6 +1,6 @@
 /** Target-scoped Host streams, canonical-path delivery, and follower disposal. */
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { ChangeFeed } from '../src/client/change-feed.ts'
 import type { WorkspaceFileWatchFrame } from '../src/types.ts'
 import { FakeRemote } from './fake-remote.client.ts'

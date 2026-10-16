@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ModuleDiagnostic, ResolvedConfig } from 'vitest/node'
-import { afterEach, describe, expect, it } from 'vitest'
+import type { ModuleDiagnostic, ResolvedConfig } from 'vite-plus/test/node'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import CoverageFileTimesReporter from './coverage-file-times.ts'
 
 const roots: string[] = []
@@ -22,6 +22,8 @@ describe('coverage file timing report', () => {
     const reporter = new CoverageFileTimesReporter()
     reporter.onInit({ config: { root, outputFile: { fileTimes: 'times.json' } } })
     const diagnostic: ModuleDiagnostic = {
+      concurrencyId: 0,
+      workerId: 1,
       environmentSetupDuration: 3,
       prepareDuration: 5,
       setupDuration: 7,

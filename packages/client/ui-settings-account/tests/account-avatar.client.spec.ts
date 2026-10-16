@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { AccountAvatarLoader, type AccountAvatarSnapshot } from '../src/client/account-avatar.ts'
 
 afterEach(() => { vi.unstubAllGlobals() })

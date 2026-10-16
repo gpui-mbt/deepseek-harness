@@ -3,7 +3,7 @@
  * loader's `await` rewriting consumes: run boundaries, ambient snapshots, and
  * the context root the tunnel dispatches at.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   AsyncLocalStorage, alsCausality, captureAsyncContext, runAtAsyncContextRoot, runWithAsyncContext,
 } from '../../src/node/builtin_modules/implemented/async_hooks.ts'

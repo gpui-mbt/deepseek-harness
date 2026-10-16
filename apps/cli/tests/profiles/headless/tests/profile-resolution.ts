@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveExampleLaunch, type ExampleMode } from '@deepseek-ai/dsh-loader-smoke'
 import { execa } from 'execa'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const repoRoot = fileURLToPath(new URL('../../../../../../', import.meta.url))
 const processTimeoutMs = 75_000

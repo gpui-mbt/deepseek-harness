@@ -3,7 +3,7 @@
  * A retained render binding dies with its entry. Re-registering the same key
  * creates a new binding rather than reviving the stale closure.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { act, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import {

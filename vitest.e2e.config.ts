@@ -1,5 +1,5 @@
 import tsconfigPaths from 'vite-tsconfig-paths'
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite-plus'
 import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 
 // Real-API suite, separate because it spends tokens. Each test self-skips without
@@ -29,7 +29,7 @@ function positiveIntFromEnv(name: string, fallback: number): number {
 const e2eMaxWorkers = positiveIntFromEnv('DSH_E2E_MAX_WORKERS', DEFAULT_E2E_MAX_WORKERS)
 
 export default defineConfig({
-  // Same resolution note as vitest.config.ts: bare workspace names resolve
+  // Same resolution note as vitest.unit.config.ts: bare workspace names resolve
   // through the tsconfig.base.json paths facade (no include = match-all, so
   // client-package sources get mapping too — dropping /client subpath imports
   // onto package exports would load browser dist bundles into node).
@@ -38,6 +38,12 @@ export default defineConfig({
   // entirely.
   plugins: [tsconfigPaths({ projects: ['./tsconfig.base.json'] }), standardDecoratorPlugin()],
   test: {
+    name: 'e2e',
+    // Vitest v4 compatibility: preserve mock call history.
+    // Remove after tests no longer rely on calls from setup or earlier tests.
+    // https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+    // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
+    clearMocks: false,
     execArgv: vitestExecArgv,
     setupFiles: ['./scripts/test-proxy-environment.ts'],
     // Explicit Node app owners only: apps/web/tests/*.e2e.ts needs the built

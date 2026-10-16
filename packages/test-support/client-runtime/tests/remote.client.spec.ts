@@ -4,7 +4,7 @@
  * `$mount` refusal that sends a spec to the real Client Remote service.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { TestRemote } from '../src/remote.ts'
 
 describe('TestRemote', () => {

@@ -1,6 +1,6 @@
 /** GitHub remote parsing over the spellings git stores. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { githubRepository } from '../src/github.ts'
 
 describe('githubRepository', () => {

@@ -3,7 +3,7 @@
  * direct messages of the same batch, incrementally — an assistant-only apply
  * must neither scan the store nor re-emit message Nodes.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ChatConversationViewNode } from '../src/client/contract/chat-nodes.ts'
 import type { ChatNodeStore } from '../src/client/contract/snapshot.ts'
 import { SkillNameProjector } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'

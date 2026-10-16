@@ -3,7 +3,7 @@
 import { once } from 'node:events'
 import { Worker } from 'node:worker_threads'
 import { finished } from 'node:stream/promises'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { request } from '../src/worker-rpc.ts'
 
 it('reports malformed requests before exiting its real Worker', async () => {

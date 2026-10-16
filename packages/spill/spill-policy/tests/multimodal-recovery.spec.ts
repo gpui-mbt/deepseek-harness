@@ -30,7 +30,7 @@ import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import sharp from 'sharp'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import * as SpillPolicy from '../src/index.ts'
 
 const CAP = 12500

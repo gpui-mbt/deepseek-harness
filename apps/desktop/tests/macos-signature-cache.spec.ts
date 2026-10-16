@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { cachedMacOSSignature, type MacOSCachedSigner } from '../scripts/macos-signature-cache.ts'
 
 const roots: string[] = []

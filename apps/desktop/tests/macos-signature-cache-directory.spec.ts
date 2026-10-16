@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { resolveMacOSSignatureCacheDirectory, validateMacOSSignatureCacheDirectory } from '../scripts/macos-signature-cache-directory.mjs'
 import { cachedMacOSSignature } from '../scripts/macos-signature-cache.ts'
 

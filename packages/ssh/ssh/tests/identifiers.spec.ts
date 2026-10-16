@@ -1,4 +1,4 @@
-import { expect, expectTypeOf, it } from 'vitest'
+import { expect, expectTypeOf, it } from 'vite-plus/test'
 import { preparedSchema, processIdSchema, textStreamIdSchema } from '../src/schemas.ts'
 import type { SshProcessId, SshTextStreamId } from '../src/schemas.ts'
 

@@ -2,7 +2,7 @@
 // streams through a prefix-stripping HTTP proxy.
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import {
   launchWebScaffold, watchConsole, webSnapshotMode, WELCOME_NOTICE_COPY,
   type WebConsoleTripwire, type WebScaffold,

@@ -3,7 +3,7 @@
  * Inline projection of sent user text: decoration adds no block containers,
  * preserves whitespace, and folds wire session forms to their label.
  */
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import type { ComponentProps } from 'react'

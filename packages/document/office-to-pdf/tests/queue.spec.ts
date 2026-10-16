@@ -1,5 +1,5 @@
 /** Controlled source and engine completions exercise admission and shared content ownership. */
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { ConversionQueue } from '../src/queue.ts'
 import { Config, OfficeSourceKey, OfficeToPdfGeneration, type OfficeToPdfRequest } from '../src/index.ts'
 

@@ -1,6 +1,6 @@
 /** Messages file-reference admission, bounded recovery and request-wide inline fallback. */
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
 import { createAssistantMessage, createToolResultMessage, LlmError, ToolCallId } from '@deepseek-ai/dsh-llm'

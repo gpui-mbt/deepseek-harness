@@ -9,7 +9,7 @@ import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execa } from 'execa'
 import type { Context } from '@deepseek-ai/cordis'
-import { afterAll, beforeAll, expect, it, onTestFinished, vi } from 'vitest'
+import { afterAll, beforeAll, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import {
   boot, composeEntries, initProfile, loadProfileDirectory, readProfilePatches, readProfileManifest,
   reconcileProfilePatches, OPTIONAL_BUNDLES, OFFICIAL_ON_DEMAND_CATALOG, PluginPackages, readPluginMeta, getDshRuntimeVersion,

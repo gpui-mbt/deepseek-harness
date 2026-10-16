@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createDetachedRuns } from '@deepseek-ai/dsh-hook-protocol'
 
 /** A promise settled from outside, so a test controls exactly when a tracked run finishes. */

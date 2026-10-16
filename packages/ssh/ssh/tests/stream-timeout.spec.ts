@@ -1,6 +1,6 @@
 import { once } from 'node:events'
 import { createConnection, createServer, type Socket } from 'node:net'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { authenticateStream } from '../src/stream-security.ts'
 
 describe('SSH TLS authentication deadline', () => {

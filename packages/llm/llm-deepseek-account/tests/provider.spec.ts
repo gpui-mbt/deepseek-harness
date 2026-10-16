@@ -1,7 +1,7 @@
 /** The account route serves its /models listing, gates models, and keeps discovery independent of the API-key route. */
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { DeepSeekAccount } from '@deepseek-ai/dsh-deepseek-account'

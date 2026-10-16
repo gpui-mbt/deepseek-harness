@@ -1,6 +1,6 @@
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { ModelCatalogDirectory } from '../src/client/catalog.ts'
 
 const catalog = (model: string): ModelCatalog => ({

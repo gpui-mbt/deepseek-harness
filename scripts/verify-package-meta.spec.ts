@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vite-plus/test'
 import { packageMetaProblems } from './verify-package-meta.ts'
 
 const validSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="ink"><stop stop-color="#69B9FF" /></linearGradient></defs><path d="M8 8H28V28H8Z" fill="url(#ink)" /></svg>'

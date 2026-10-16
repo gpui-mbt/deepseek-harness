@@ -1,6 +1,6 @@
 import { Readable, Writable } from 'node:stream'
 import type { ServerResponse } from 'node:http'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cosOperation } from '../scripts/cos-operation.ts'
 import { createDesktopCos } from '../scripts/desktop-cos.ts'
 import { answer, cosError, startCosLoopback, type CosLoopback } from './cos-loopback.ts'

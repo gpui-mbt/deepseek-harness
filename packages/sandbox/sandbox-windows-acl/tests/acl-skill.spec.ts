@@ -4,7 +4,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ACL_DIAGNOSIS_SKILL, registerAclDiagnosisSkill } from '../src/acl-skill.ts'
 
 describe('bundled Windows ACL diagnosis skill', () => {

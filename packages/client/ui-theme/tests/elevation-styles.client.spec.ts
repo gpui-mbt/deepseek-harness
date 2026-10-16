@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { packageStylesheets, parseRules } from './stylesheet-scan.ts'
 
 /** Stroke-color indirection components may rebind per surface or state. */

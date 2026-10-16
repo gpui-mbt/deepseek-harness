@@ -9,7 +9,7 @@ import SessionProjections from '@deepseek-ai/dsh-session-projection'
 import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentActivation, SubagentResult } from '@deepseek-ai/dsh-subagent'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import PtcWorkflowEngine from '../src/index.ts'
 import { fakeParent } from './setup.ts'
 

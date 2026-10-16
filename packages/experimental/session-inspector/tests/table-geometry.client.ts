@@ -1,7 +1,7 @@
 /** Fixed row geometry for Inspector tests in jsdom, which has no layout engine. */
 
 import { cleanup } from '@testing-library/react'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 
 /** @param height - Modeled scroll viewport height. */
 export function installInspectorTableGeometry(height = 300): void {

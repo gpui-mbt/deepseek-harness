@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { CommandText } from '../src/CommandText.tsx'
 import { TerminalBlock } from '../src/TerminalBlock.tsx'
 import { terminalBlockLabels } from './labels.client.ts'

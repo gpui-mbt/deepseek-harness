@@ -3,7 +3,7 @@ import { fstatSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import type { FileHandle } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { initProfile } from '@deepseek-ai/dsh-app-boot'
 import { runProfilePnpm } from '../src/operations.ts'
 

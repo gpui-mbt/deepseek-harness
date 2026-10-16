@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import * as vm from 'node:vm'
 import { materializeFromRealm, MaterializeError, renderThrown } from '../src/realm.ts'
 

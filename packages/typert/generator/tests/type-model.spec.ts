@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import ts from 'typescript'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { TypertAnalysisError, WorkspaceAnalyzer, WorkspaceCaches } from '../src/analyzer.ts'
 import { FaceModelEmitter } from '../src/emitter.ts'
 import type {

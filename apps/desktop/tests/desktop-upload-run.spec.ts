@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import COS from 'cos-nodejs-sdk-v5'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { createDesktopCos, DESKTOP_COS_REGION } from '../scripts/desktop-cos.ts'
 import { uploadDesktopRelease } from '../scripts/desktop-upload-run.ts'
 import type { DesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'

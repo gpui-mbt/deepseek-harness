@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import type { McpServer } from '@agentclientprotocol/sdk'
 import type { Config as McpClientConfig } from '@deepseek-ai/dsh-mcp-client'

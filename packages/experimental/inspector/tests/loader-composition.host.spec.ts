@@ -12,7 +12,7 @@ import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 import { composeEntries, loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import type { BrowserAuth } from '@deepseek-ai/dsh-client-connection/src/browser-auth.ts'
 import open from 'open'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import * as Inspector from '../src/index.ts'
 import { INSPECTOR_BOOTSTRAP_PATH } from '../src/shared/web.ts'
 

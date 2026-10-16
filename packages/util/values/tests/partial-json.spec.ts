@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { type JsonValue, PartialArguments } from '../src/index.ts'
 
 /** Complete, valid objects exercising strings, escapes, scalars, nested values, and whitespace. */

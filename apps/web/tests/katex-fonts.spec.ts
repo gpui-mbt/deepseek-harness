@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { transform } from 'lightningcss'
 import { build, loadConfigFromFile } from 'vite'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 
 const require = createRequire(new URL('../../../packages/client/ui-primitives/package.json', import.meta.url))
 const stylesheet = require.resolve('katex/dist/katex.min.css')

@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { lowerModuleSource } from '../../src/compile/transform.ts'
 import { WorkerModuleLoader } from '../../src/module-system/module-loader.ts'
 import { createNodeBuiltins } from '../../src/node/builtins.ts'

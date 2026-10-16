@@ -1,7 +1,7 @@
 /** The provider joins unpublished terminal allocations before disposal completes. */
 import { PassThrough } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { SshSubprocessRuntime } from '../src/index.ts'
 
 const id = 'a7b17d9c-5ebf-40d8-9e82-3d1ddae8517b'

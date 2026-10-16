@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { MenuState, TriggerHit } from '../src/core/contract.ts'
 import { exactMatch, MENU_CLOSED, menuReduce, seedGroups } from '../src/core/menu.ts'
 

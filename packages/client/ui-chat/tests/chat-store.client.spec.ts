@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createChatStore, storedTurnProcessEntry, turnProcessOpen } from '../src/client/stores.ts'
 
 describe('createChatStore', () => {

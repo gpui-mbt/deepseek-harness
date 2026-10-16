@@ -7,7 +7,7 @@
  * references (the cache axis), and ledger-fed stale bindings are the
  * real-core semantics the fake-host suite cannot vouch for.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { act, render } from '@testing-library/react'
 import {
   SlotCore, StaleAuthorizationError, type PropsRenderSlots, type SlotRendererHost,

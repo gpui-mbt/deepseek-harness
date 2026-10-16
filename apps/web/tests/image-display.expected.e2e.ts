@@ -7,7 +7,7 @@
 // sessions.attachment route, the single-click ImageLightbox, and the composer
 // intake chain (paste → ordered thumbnail rail → image-only send enablement → remove).
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createAssembledSessionComposer, installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()

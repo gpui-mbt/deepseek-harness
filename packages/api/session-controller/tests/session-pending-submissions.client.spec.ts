@@ -4,7 +4,7 @@
  * Gateway client and are answered by endpoint name.
  */
 
-import { afterEach, describe, expect, vi } from 'vitest'
+import { afterEach, describe, expect, vi } from 'vite-plus/test'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'

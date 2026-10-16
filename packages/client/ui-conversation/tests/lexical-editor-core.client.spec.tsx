@@ -5,7 +5,7 @@
  * case — no React tree, no contenteditable; the chip's visual face has its
  * own component spec.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createHeadlessEditor } from '@lexical/headless'
 import type { LexicalEditor, NodeKey, ParagraphNode } from 'lexical'
 import {

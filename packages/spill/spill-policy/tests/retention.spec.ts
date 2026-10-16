@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import { retainContent, type RetainableBlock } from '../src/retention.ts'
 

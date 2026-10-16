@@ -2,7 +2,7 @@
 import { join } from 'node:path'
 import { build } from 'vite'
 import { chromium, type Locator, type Page } from 'playwright'
-import { beforeAll, describe, expect, it, onTestFinished } from 'vitest'
+import { beforeAll, describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, REPO_ROOT } from './support.ts'
 

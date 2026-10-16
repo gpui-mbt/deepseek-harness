@@ -5,7 +5,7 @@ import { ChatSnapshotBuilder } from '@deepseek-ai/dsh-client-ui-chat/src/client/
 import { ConversationGroupStore } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/group-store.ts'
 import type { ConversationBinding, ConversationSnapshot, GroupKey, GroupSnapshot, NodeKey } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { ChatNodeModel } from '../src/client/views/chat-node/model.ts'
 
 const timeline = { turnOrder: [], turns: new Map() }

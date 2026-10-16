@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { evaluate } from '@deepseek-ai/cordis-plugin-loader'
 import { definitionComposition } from '../src/composition-inventory.ts'
 

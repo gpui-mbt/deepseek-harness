@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events'
 import { Duplex, PassThrough } from 'node:stream'
 import { Context, Service } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshRpcPeer } from '../src/protocol.ts'
 import { SshConnection } from '../src/index.ts'

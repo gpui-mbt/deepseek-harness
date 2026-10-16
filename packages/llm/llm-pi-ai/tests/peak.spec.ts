@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { PiAiPeakProvider, PiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
 import { Config, resolveProfiles } from '../src/config.ts'

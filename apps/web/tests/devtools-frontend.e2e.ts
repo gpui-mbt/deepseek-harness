@@ -2,7 +2,7 @@
 import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, type WebScaffold } from './scaffold.ts'
 
 it('serves the built DevTools frontend under its own path without rebuilding DevTools', async () => {

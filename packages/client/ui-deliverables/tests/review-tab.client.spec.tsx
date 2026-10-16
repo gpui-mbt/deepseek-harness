@@ -3,7 +3,7 @@
 import { renderFileActions } from './file-actions.tsx'
 import { useSyncExternalStore } from 'react'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { SidebarRightTabActions } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'

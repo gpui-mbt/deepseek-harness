@@ -1,6 +1,6 @@
 import { once } from 'node:events'
 import { WebSocketServer } from 'ws'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { accountView, desktopAccountBackend } from '../src/account-backend.ts'
 
 it('projects only safe account fields and refuses non-browser authorization schemes', () => {

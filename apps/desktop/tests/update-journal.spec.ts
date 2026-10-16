@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { DesktopUpdateJournal, desktopUpdateJournalState } from '../src/update-journal.ts'
 
 describe('desktop qualification update journal', () => {

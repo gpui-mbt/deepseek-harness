@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { call, CONTENT_OUTPUT_CODE, dummyTool, mount, setup, text } from './helpers.ts'
 
 /**

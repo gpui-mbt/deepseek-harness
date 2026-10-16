@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -215,10 +215,10 @@ describe('DeepSeekSearchProvider request mapping', () => {
   })
 
   it('uses a configured full endpoint as-is instead of appending the operation path twice', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(searchResponse()))
+    const fetchMock = vi.fn(async (_input: string, _init: RequestInit) => jsonResponse(searchResponse()))
     vi.stubGlobal('fetch', fetchMock)
     await searchProvider({ ...options, baseURL: 'https://api.deepseek.test/anthropic/v1/messages' }).search({ query: 'q' })
-    const [url] = fetchMock.mock.calls[0] as unknown as [string]
+    const [url] = fetchMock.mock.calls[0]!
     expect(url).toBe('https://api.deepseek.test/anthropic/v1/messages')
   })
 

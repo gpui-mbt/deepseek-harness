@@ -7,7 +7,7 @@
 import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterAll, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { FSWatcher, type ChokidarOptions } from 'chokidar'
 import { Context } from '@deepseek-ai/cordis'
 import Hmr from '../src/index.ts'

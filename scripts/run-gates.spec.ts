@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi, type MockInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi, type MockInstance } from 'vite-plus/test'
 import {
   cliGateOptions,
   ciWorkerEnvironment,
@@ -279,10 +279,10 @@ describe('gate graph validation', () => {
     })
     expect(scripts['test:bench']).toBe('npm run build:bench && npm run build:web && npm run test:bench:built')
     expect(scripts['build:bench']).toBe(
-      'npm run build:native-system && npm run build:lib && tsdown --config-loader native --config benchmarks/tsdown.config.ts',
+      'npm run build:native-system && npm run build:lib && tsx scripts/pack/run.ts bench',
     )
     expect(scripts['build:native-system']).toBe('tsx native/system/scripts/build.ts --host-addon-only')
-    expect(scripts['test:bench:built']).toBe('vitest run --config vitest.bench.config.ts')
+    expect(scripts['test:bench:built']).toBe('vp test bench --project bench')
   })
 
   it('checks all maintained repository references locally and in CI', () => {
@@ -652,7 +652,7 @@ describe('gate graph validation', () => {
   })
 
   it('leaves the lane test budget to the inherited environment on both coverage gates', () => {
-    // vitest.config.ts reads DSH_COVERAGE_TEST_TIMEOUT_MS per inline project
+    // vitest.unit.config.ts reads DSH_COVERAGE_TEST_TIMEOUT_MS per inline project
     // (coverageTestTimeoutOptions); a gate argument would add a second owner.
     for (const budget of ['15000', undefined]) {
       const gates = withEnv('DSH_COVERAGE_TEST_TIMEOUT_MS', budget, () =>
@@ -676,7 +676,7 @@ describe('gate graph validation', () => {
 
     // The aggregate is the `test` package script's two segments, in order,
     // so a step added to one cannot silently leave the other. The lane sets
-    // DSH_COVERAGE_TEST_TIMEOUT_MS; vitest.config.ts reads it per inline
+    // DSH_COVERAGE_TEST_TIMEOUT_MS; vitest.unit.config.ts reads it per inline
     // project (coverageTestTimeoutOptions), so the gate passes no budget flag.
     const [nativeBuild, unitRun, ...rest] = (scripts.test ?? '').split(' && ')
     expect(rest).toEqual([])
@@ -690,7 +690,7 @@ describe('gate graph validation', () => {
         label: 'test',
         needs: ['native-system'],
         streamOutput: true,
-        args: ['/private/pnpm.cjs', 'exec', 'vitest', 'run'],
+        args: ['/private/pnpm.cjs', 'exec', 'vp', 'test', 'run', '--project', 'unit*'],
       })
       expect(gates[1]?.env ?? {}).not.toHaveProperty('DSH_COVERAGE_TEST_TIMEOUT_MS')
     }
@@ -855,8 +855,11 @@ describe('Node compatibility graph', () => {
       args: [
         '/private/pnpm.cjs',
         'exec',
-        'vitest',
+        'vp',
+        'test',
         'run',
+        '--project',
+        'unit*',
         'packages/workflow/workflow-ptc/tests/source-runtime.compat.spec.ts',
         'packages/session/session-persistence-jsonl/tests/zstd.compat.spec.ts',
         'apps/cli/tests/source-launch.compat.spec.ts',

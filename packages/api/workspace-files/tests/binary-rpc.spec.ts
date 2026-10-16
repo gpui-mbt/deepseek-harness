@@ -1,7 +1,7 @@
 /** Workspace byte reads traverse Gateway lookup and Connection's binary RPC response. */
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { beforeEach, afterEach, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, expect, it, vi } from 'vite-plus/test'
 import SessionStore from '@deepseek-ai/dsh-session'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import TypertGateway from '@deepseek-ai/dsh-api-gateway'

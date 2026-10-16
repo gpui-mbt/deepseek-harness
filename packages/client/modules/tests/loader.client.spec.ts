@@ -2,7 +2,7 @@
 import { removeOwnedStyles } from '../src/client/entry-lifecycle.ts'
 import { readRelease } from '../src/client/manifest.ts'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   apply, createClientModuleSystem, parseBootManifest,
   type BootModuleRow, type ClientBundleRegistration, type ClientModuleCreateOptions,

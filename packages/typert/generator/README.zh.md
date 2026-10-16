@@ -66,7 +66,7 @@ JSON、YAML、SVG、PNG、JPEG 和 WebP 资源导出不提供 TypeScript 声明�
 
 ### 在 tsdown 构建中运行生成
 
-包的 `./tsdown` 子路径为根 tsdown 配置提供 `typertPlugin()`：它在打包前转换 TypeScript 依赖中的标准装饰器，并在包输出根目录生成模型驱动的 face 产物。其 `transform` 钩子带有模块 id 过滤器，非 TypeScript 模块不会进入 JavaScript。工作区根目录是打包输出最近的、同时包含 `tsconfig.host.json` 与 `packages/` 的祖先目录，因此包自身的 face 叶子配置永远不会被当作根目录。`package` 模式在当前包的 `writeBundle` 中同步生成，并只生成该包。
+包的 `./tsdown` 子路径为仓库根 pack 配置及其他 tsdown 构建提供 `typertPlugin()`：它在打包前转换 TypeScript 依赖中的标准装饰器，并在包输出根目录生成模型驱动的 face 产物。其 `transform` 钩子带有模块 id 过滤器，非 TypeScript 模块不会进入 JavaScript。工作区根目录是打包输出最近的、同时包含 `tsconfig.host.json` 与 `packages/` 的祖先目录，因此包自身的 face 叶子配置永远不会被当作根目录。`package` 模式在当前包的 `writeBundle` 中同步生成，并只生成该包。
 
 `workspace` 模式对每个显式贡献方各生成一次，且不阻塞打包：第一个包构建的 `buildStart` 在 Worker Thread 中启动生成，第一个 `writeBundle` 等待结果并写入全部产物，之后的打包立即返回。分析错误、worker 崩溃或提前退出、worker 响应格式错误，都会以指明工作区与原因的 `TypertWorkerError` 使该打包失败，从而使整个 tsdown 阶段失败；报告失败之前 worker 已被终止。
 

@@ -1,5 +1,5 @@
 /** Raw config comparison reads schema metadata without resolving config or committing references. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import z from '@deepseek-ai/schemastery'
 import { equalExceptVolatile as equal } from '../vendor/loader/src/config/diff.ts'
 

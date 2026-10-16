@@ -1,7 +1,7 @@
 /** TestClient without a DOM: the api roster boots and connects; mount is refused; flush degrades to a microtask flush. */
 import type { ClientTransportHooks } from '@deepseek-ai/dsh-client-connection/client'
 import { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { TestClient, remoteDefaultResponses, webApp } from '../src/assembly/index.ts'
 
 /** The Gateway client and what it injects: the Typert registry and the Connection. */

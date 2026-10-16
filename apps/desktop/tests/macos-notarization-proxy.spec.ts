@@ -4,7 +4,7 @@ import { once } from 'node:events'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it as test, vi } from 'vitest'
+import { expect, it as test, vi } from 'vite-plus/test'
 import { restoreMacOSNotarizationProxy, withMacOSNotarizationProxy } from '../scripts/macos-notarization-proxy.ts'
 
 // System proxy transactions use POSIX flock, which is unavailable on Windows.

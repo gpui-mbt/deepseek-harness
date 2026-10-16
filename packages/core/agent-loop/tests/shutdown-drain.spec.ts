@@ -1,6 +1,6 @@
 /** Root-fiber shutdown drains buffered session events durably (both mount orders). */
 
-import { describe, expect, it, afterEach } from 'vitest'
+import { describe, expect, it, afterEach } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

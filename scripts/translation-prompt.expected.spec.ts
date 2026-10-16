@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process'
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const execFileAsync = promisify(execFile)
 const root = resolve(import.meta.dirname, '..')

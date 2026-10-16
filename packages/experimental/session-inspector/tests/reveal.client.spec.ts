@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Inspector opens existing searchable folds and draws only a body-level overlay. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { InspectorChatRevealer } from '../src/client/views/chat-node/reveal.ts'
 
 it('reveals nested folds in order, selects the exact group part, and cancels its overlay resources', () => {

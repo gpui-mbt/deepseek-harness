@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Focus ownership remains separate from layout selection and validates captured lifetimes. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createElement } from 'react'
 import { cleanup, render } from '@testing-library/react'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'

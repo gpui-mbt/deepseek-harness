@@ -3,7 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { BlockAssembler, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { DeepSeekAccount } from '@deepseek-ai/dsh-deepseek-account'
 import * as ApiKey from '@deepseek-ai/dsh-llm-deepseek-api-key'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import * as Account from '../src/index.ts'
 
 const contexts: Context[] = []

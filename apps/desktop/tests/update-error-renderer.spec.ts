@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { runInContext } from 'node:vm'
 import { JSDOM } from 'jsdom'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import type { UpdateDialogApi, UpdateDialogView } from '../src/update-dialog.ts'
 import type { MandatoryUpdateApi, MandatoryUpdateView } from '../src/mandatory-update-window.ts'

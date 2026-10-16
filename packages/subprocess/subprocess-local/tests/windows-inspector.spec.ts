@@ -1,5 +1,5 @@
 import { spawnSync as nodeSpawnSync } from 'node:child_process'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   createWindowsProcessInspector,
   isInvalidHandle,

@@ -1,6 +1,6 @@
 /** Request-header canonicalization, equality, and snapshot folding. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Session, SessionId, SessionSeq, canonicalHeader, foldRequestHeader, headerEquals } from '@deepseek-ai/dsh-session'
 import type { EpochHeader, SessionEvent } from '@deepseek-ai/dsh-session'
 import { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'

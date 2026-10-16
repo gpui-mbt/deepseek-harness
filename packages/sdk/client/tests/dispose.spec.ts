@@ -6,7 +6,7 @@
 
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { disposeRuntimeProcess } from '../src/dispose.ts'
 
 /** What fells a scripted {@link FakeChild}. */

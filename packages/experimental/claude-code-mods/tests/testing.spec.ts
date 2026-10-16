@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { defineMod } from '../src/define-mod.ts'
 import type { ModPlugin } from '../src/define-mod.ts'
 import { createModTestKit, mock } from '../src/testing.ts'

@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { ON_DEMAND_BUNDLES } from '../packages/boot/app-boot/src/official-bundles.ts'
 import { generateOfficialBundleCatalog, renderOfficialBundleCatalog, syncOfficialBundleCatalog } from './gen-official-bundle-catalog.ts'
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { claimDesktopSingleInstance, type DesktopSingleInstanceApplication } from '../src/single-instance.ts'
 
 describe('desktop single-instance ownership', () => {

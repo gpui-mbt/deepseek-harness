@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { finished } from 'node:stream/promises'
 import type { WriteStream } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const require = createRequire(import.meta.url)
 const builderRequire = createRequire(require.resolve('app-builder-lib/package.json'))

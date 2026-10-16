@@ -3,7 +3,7 @@
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import semver from 'semver'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { evaluatePluginCompatibility, getDshRuntimeVersion, pluginCompatibilityWarning } from '../src/plugin-compatibility.ts'
 
 const runtime = '0.1.7-alpha.1'

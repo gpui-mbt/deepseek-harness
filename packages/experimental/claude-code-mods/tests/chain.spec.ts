@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { BudgetClock, dispatch, ENGINE_ORIGIN, HookTimeoutError, RewriteRefusedError } from '../src/chain.ts'
 import type { DispatchRequest, LoadedMod, RegisteredHook } from '../src/chain.ts'
 import { createModsApi } from '../src/api.ts'

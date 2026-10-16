@@ -1,7 +1,7 @@
 // The built shared Web/Electron composer hides guidance as soon as a draft contains whitespace.
 import { fileURLToPath } from 'node:url'
 import { chromium, type Page } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 

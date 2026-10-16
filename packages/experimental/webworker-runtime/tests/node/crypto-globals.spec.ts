@@ -4,7 +4,7 @@
  * it off the global, so the worker fills the one missing method — and leaves
  * a platform that already has it untouched.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { installCryptoGlobals } from '../../src/node/globals/crypto.ts'
 import { randomUUID } from '../../src/node/builtin_modules/implemented/crypto.ts'
 

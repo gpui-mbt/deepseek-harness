@@ -2,7 +2,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
 import SpeechToText from '@deepseek-ai/dsh-experimental-speech-to-text'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import * as Provider from '../src/index.ts'
 import { SenseVoiceWorker } from '../src/recognizer.ts'
 

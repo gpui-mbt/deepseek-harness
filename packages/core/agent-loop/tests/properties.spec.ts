@@ -9,7 +9,7 @@
  * idle→running→idle, while teardown is a registry lifecycle.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import { createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm'

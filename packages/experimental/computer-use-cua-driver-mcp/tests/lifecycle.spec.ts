@@ -1,5 +1,5 @@
 /** The external MCP process is replaced by barriers to pin disposal ordering. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import ComputerUse from '@deepseek-ai/dsh-computer-use'
 import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'

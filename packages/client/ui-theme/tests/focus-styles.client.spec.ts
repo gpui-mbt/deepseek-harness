@@ -2,7 +2,7 @@
 /** Automatic focus presentation and subsequent keyboard navigation use the shipped theme sheet. */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vite-plus/test'
 import { focusWithoutRing } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const base = readFileSync(resolve(import.meta.dirname, '../src/styles/base.css'), 'utf8')

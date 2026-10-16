@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 import { FiberState } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-experimental-worktree'
 import { chromium } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot } from './support.ts'
 

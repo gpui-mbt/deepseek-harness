@@ -2,7 +2,7 @@
  * The Schedule `session/created` listener must not veto Session creation when a historical
  * `schedule/change` stream is unreadable.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { harness } from './harness.ts'

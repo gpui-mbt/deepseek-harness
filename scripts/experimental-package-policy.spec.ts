@@ -1,6 +1,6 @@
 /** Retained package names keep experimental isolation and persisted record namespaces. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS,
   experimentalPackageRecordNamespace,

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Text overlay resources follow page ownership; resize only aligns selection with the existing canvas. */
 import type { PageViewport, PDFPageProxy } from 'pdfjs-dist'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 
 const api = vi.hoisted(() => ({ render: vi.fn(), cancel: vi.fn(), create: vi.fn() }))
 vi.mock('pdfjs-dist', () => ({}))

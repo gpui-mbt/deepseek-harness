@@ -9,7 +9,7 @@ import Include, { applyEntryPatches } from '@deepseek-ai/cordis-plugin-include'
 import { loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import { OfficeSourceKey, type OfficeToPdfRequest } from '@deepseek-ai/dsh-office-to-pdf'
 import * as LibreOfficeProvider from '@deepseek-ai/dsh-office-to-pdf'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 
 it('loads one shared conversion row and retains caller-owned PDFs after disposal', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'dsh-conversion-loader-'))

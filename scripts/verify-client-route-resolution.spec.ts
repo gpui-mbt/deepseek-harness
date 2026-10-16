@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { browserFaceSources, findRouteResolutionViolations, type RouteGateFace } from './verify-client-route-resolution.ts'
 
 function patterns(file: string, source: string, face?: RouteGateFace): string[] {

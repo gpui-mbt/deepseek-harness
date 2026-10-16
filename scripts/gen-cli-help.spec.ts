@@ -1,6 +1,6 @@
 /** Command discovery and complete output preservation for the CLI reference. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { collectCliHelp, parseCliHelp, prefetchHelp, topLevelHelpArgs } from './gen-cli-help.ts'
 
 interface PendingRead {

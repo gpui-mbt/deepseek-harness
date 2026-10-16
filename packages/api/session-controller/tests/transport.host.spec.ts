@@ -5,7 +5,7 @@ import type { Session, SessionEvent, SessionHeader, SurfaceIntent } from '@deeps
 import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
 import { subagentIdentityProjectionDefinition } from '@deepseek-ai/dsh-subagent/src/projection.ts'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { SessionHistoryController } from '../src/history.ts'
 import { installSessionReadTestServices, testSessionPersistence } from './test-remote.ts'
 

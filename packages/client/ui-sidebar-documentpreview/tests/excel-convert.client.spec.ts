@@ -1,7 +1,7 @@
 /** XLSX formatting, cached formula results, and resource admission. */
 import ExcelJS from 'exceljs'
 import { strToU8, unzipSync, zipSync } from 'fflate'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { Config } from '../src/config.ts'
 import { excelFixture, meetingMinutesFixture } from './excel-fixture.ts'

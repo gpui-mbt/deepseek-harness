@@ -4,7 +4,7 @@
  * hook reaches every slot component as `useResource`, and both leave with the
  * fiber so a reload of the plugin registers cleanly again.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act } from '@testing-library/react'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'

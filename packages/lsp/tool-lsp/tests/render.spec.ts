@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { pathToFileURL } from 'node:url'
 import { join, resolve } from 'node:path'
 import {

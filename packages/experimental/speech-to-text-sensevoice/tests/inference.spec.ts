@@ -1,5 +1,5 @@
 /** Native inference preserves language hints, bounded segments, and Electron-safe buffers. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { createTranscriber } from '../src/inference.ts'
 

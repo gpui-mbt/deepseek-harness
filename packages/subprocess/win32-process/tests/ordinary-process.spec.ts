@@ -1,5 +1,5 @@
 import koffi from 'koffi'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   closeHandleChecked,
   isJobEmpty,

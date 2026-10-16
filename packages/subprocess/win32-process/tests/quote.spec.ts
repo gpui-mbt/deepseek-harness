@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { buildCommandLine, quoteArg } from '../src/process.ts'
 
 const isWin32 = process.platform === 'win32'

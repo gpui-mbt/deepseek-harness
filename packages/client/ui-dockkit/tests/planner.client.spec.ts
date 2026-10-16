@@ -9,7 +9,7 @@
  * pure history functions, so the stateful `Sequencer` embedding and an embedder
  * driving `record`/`stepBack` directly cannot drift apart.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { applyOp } from '../src/engine/operations.ts'
 import { DockController } from '../src/engine/controller.ts'
 import { createIdMinter, createInitialState } from '../src/engine/initial.ts'

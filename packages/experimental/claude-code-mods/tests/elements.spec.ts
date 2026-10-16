@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { findAll, isUiElement, renderText, serializeTree, treeProblem, uiElements } from '../src/elements.ts'
 
 describe('elements', () => {

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { fstatSync } from 'node:fs'
 import { PassThrough } from 'node:stream'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   launchWindowsJob,
   probeWindowsJob,

@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { installProxyFromEnvironment } from '../src/index.ts'
 import { proxyForUrl, resolveProxyPolicy } from '../src/policy.ts'
 

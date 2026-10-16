@@ -1,6 +1,6 @@
 /** Native SDK lifecycle and catalog behavior without desktop access. */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import ComputerUseRegistry from '@deepseek-ai/dsh-computer-use'
 import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'

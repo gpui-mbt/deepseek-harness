@@ -1,6 +1,6 @@
 /** Raw requests must not replace Vite's page-module responses. */
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { rawMarkdownRoute } from '../../scripts/project-doc-site.ts'
 import { rawMarkdownMiddleware } from '../raw-markdown.ts'
 

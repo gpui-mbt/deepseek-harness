@@ -66,7 +66,7 @@
     "lib/types/**/*.d.ts"
   ],
   "scripts": {
-    "bundle": "tsdown",
-    "watch": "tsdown --watch"
+    "bundle": "tsx ../../../scripts/pack/member.ts",
+    "watch": "tsx ../../../scripts/pack/member.ts --watch"
   }
 }

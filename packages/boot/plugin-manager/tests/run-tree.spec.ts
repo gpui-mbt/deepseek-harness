@@ -1,5 +1,5 @@
 /** Waiting for one run's tree is decided by platform and target, without starting a real process. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { awaitTreeGone, leadsOwnGroup, type RunTree } from '../src/run-tree.ts'
 
 /** One run's process or process group. */

@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { COVERAGE_TEST_TIMEOUT_ENV } from './coverage-partitions.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -35,7 +35,7 @@ beforeAll(() => {
   configPath = join(temporaryRoot, 'vitest.config.ts')
   writeFileSync(join(temporaryRoot, 'package.json'), '{ "type": "module" }\n', 'utf8')
   writeFileSync(configPath, [
-    `import base from ${JSON.stringify(resolve(root, 'vitest.config.ts').split('\\').join('/'))}`,
+    `import base from ${JSON.stringify(resolve(root, 'vitest.unit.config.ts').split('\\').join('/'))}`,
     'export default {',
     '  ...base,',
     '  test: {',

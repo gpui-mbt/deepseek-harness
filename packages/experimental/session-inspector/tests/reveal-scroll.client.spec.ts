@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Smooth Chat navigation waits for all moving ancestors and releases its callbacks on cancellation. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { InspectorChatRevealer } from '../src/client/views/chat-node/reveal.ts'
 
 function fixture(reducedMotion = false) {

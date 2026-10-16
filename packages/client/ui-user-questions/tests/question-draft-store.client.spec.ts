@@ -1,5 +1,5 @@
 /** Question-composer Session store behavior. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createQuestionDraftStore, type QuestionDraftProgress } from '../src/client/draft-store.ts'
 
 const FIRST: QuestionDraftProgress = {

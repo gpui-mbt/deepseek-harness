@@ -2,7 +2,7 @@
 /** The settings form frame: what it says in each state, and that leaving it discards. */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { SettingsForm } from '../src/settings-form/SettingsForm.tsx'
 import type { SettingsFormShell } from '../src/settings-form/form-model.ts'
 

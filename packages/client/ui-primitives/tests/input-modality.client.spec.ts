@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Keyboard navigation and pointer focus use distinct tooltip and ring policies. */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { INPUT_MODALITY, INPUT_MODALITY_ATTRIBUTE, pointerModality } from '../src/input-modality.ts'
 
 const press = (key: string, init: KeyboardEventInit = {}): void => {

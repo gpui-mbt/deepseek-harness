@@ -1,10 +1,11 @@
 /** Build a relocatable, native-host SSH helper archive with its private Node workers. */
 import { spawn, execFileSync } from 'node:child_process'
-import { existsSync, globSync } from 'node:fs'
+import { globSync } from 'node:fs'
 import { chmod, copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { build } from 'tsdown'
+import { build } from 'vite-plus/pack'
+import { createPackEntries } from '../pack.config.ts'
 import { create as createTar } from 'tar'
 import { verifyRuntimeClosure } from './verify-runtime-closure.ts'
 import { pnpmInvocation, restoreLegacyHoists } from './executable-packaging.ts'
@@ -40,13 +41,25 @@ async function pnpm(...args: string[]): Promise<void> { const [command, argv] = 
 async function compileRuntime(dependencies: Readonly<Record<string, string>>): Promise<void> {
   await pnpm('exec', 'tsx', 'native/system/scripts/build.ts')
   await pnpm('exec', 'tsc', '-b', closureDirectory, 'native/system/packages/entry')
+  await bundleSshHelperRuntime(root, dependencies)
+}
+
+/**
+ * Bundle the SSH closure with its declared member entries, including private workers.
+ * @param repositoryRoot - repository or fixture root containing compiled lib/types inputs.
+ * @param dependencies - runtime closure package names selecting members to bundle.
+ * @returns after every standalone build's resources are disposed; no Typert generation runs.
+ */
+export async function bundleSshHelperRuntime(repositoryRoot: string, dependencies: Readonly<Record<string, string>>): Promise<void> {
   const names = new Set([closureName, ...Object.keys(dependencies)])
-  for (const path of globSync(['packages/*/*/package.json', 'vendor/*/package.json'], { cwd: root }).sort()) {
-    if (!names.has((await manifest(join(root, path))).name)) continue
-    const cwd = dirname(join(root, path))
-    const config = join(cwd, 'tsdown.config.ts')
-    if (existsSync(config)) await build({ cwd, config })
-    else await build({ cwd, config: false, entry: ['lib/types/{index,invariant,startup}.js'], outDir: 'lib', format: ['esm'], platform: 'node', target: 'es2024', fixedExtension: false, dts: false, clean: false })
+  const members: string[] = []
+  for (const path of globSync(['packages/*/*/package.json', 'vendor/*/package.json'], { cwd: repositoryRoot }).sort()) {
+    if (names.has((await manifest(join(repositoryRoot, path))).name)) members.push(dirname(path).replaceAll('\\', '/'))
+  }
+  const entries = await createPackEntries({ root: repositoryRoot, mode: 'standalone', members })
+  for (const entry of entries) {
+    const handle = await build({ ...entry, config: false })
+    await Promise.all(handle.bundles.map(bundle => bundle[Symbol.asyncDispose]()))
   }
 }
 

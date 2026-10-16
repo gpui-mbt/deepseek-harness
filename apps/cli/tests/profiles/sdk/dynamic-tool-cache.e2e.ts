@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import type { TokenUsage } from '@deepseek-ai/dsh-llm'
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 
 const fixturePath = fileURLToPath(new URL('./fixtures/dynamic-tool-cache.mjs', import.meta.url))
 const dshBin = fileURLToPath(new URL('../../../lib/bin.js', import.meta.url))

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** DOM and row matching retain useful parents when a precise target is unavailable. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { findChatTargets } from '../src/client/views/chat-node/dom.ts'
 import { matchChatElement, matchChatNodeRow } from '../src/client/views/chat-node/pick-match.ts'
 import { placeChatHighlight } from '../src/client/views/chat-node/highlight.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { windowsCiVersion } from '../scripts/prepare-windows-ci.mjs'
 
 const inputs = { PACKAGE_BUILD_VERSION: 'auto', GITHUB_RUN_NUMBER: '42', GITHUB_RUN_ATTEMPT: '2' }

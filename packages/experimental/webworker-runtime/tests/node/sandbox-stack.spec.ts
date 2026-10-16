@@ -1,5 +1,5 @@
 /** The unchanged sandbox-local → bash-sandbox → subprocess stack over the Worker Node layer. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SandboxBashExecutor } from '@deepseek-ai/dsh-bash-sandbox'
 import LocalSandboxProvider from '@deepseek-ai/dsh-sandbox-local'

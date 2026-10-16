@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { z } from 'zod'
 import { desktopPublicationFailure } from '../scripts/desktop-publication-failure.ts'
 import { DesktopPublishError } from '../scripts/desktop-publish.ts'

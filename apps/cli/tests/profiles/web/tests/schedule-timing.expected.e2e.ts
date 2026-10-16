@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { DailyScheduleRecord, ScheduleCatalogEntry } from '@deepseek-ai/dsh-schedule'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { withDefaultWeb, webGet, webRequest } from './default-web-process.ts'
 
 const id = 'retained-remote-task' as DailyScheduleRecord['id']

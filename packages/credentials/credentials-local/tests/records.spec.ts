@@ -2,7 +2,7 @@
 // presence rather than content answers "configured", and every write goes
 // through one serialized read-modify-write so a rotating credential cannot be
 // lost between processes.
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { DockIntents } from '../src/contract/adapter.ts'
 import type { PaneId, TabId } from '../src/contract/types.ts'
 import { DockController } from '../src/engine/controller.ts'

@@ -2,7 +2,7 @@
  * Model and operation-engine behavior: what each operation does to the tree, and
  * that applying its inverse returns the exact state it started from.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { applyOp, replay } from '../src/engine/operations.ts'
 import { createIdMinter, createInitialState } from '../src/engine/initial.ts'
 import { asPane, asSplit, asTab, childAt, fileTab, firstTab, seedTab } from './fixtures.client.ts'

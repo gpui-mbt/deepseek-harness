@@ -5,7 +5,7 @@ import type { Context, Plugin, RegistryService } from '@deepseek-ai/cordis'
 import type { ClientModuleLoader, ClientModuleLoaderTarget } from '@deepseek-ai/dsh-client-modules/client'
 import { chromium } from 'playwright'
 import { hasExperimentalPackageReference } from '../../../scripts/experimental-package-policy.ts'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { withDefaultWeb } from '../../cli/tests/profiles/web/tests/default-web-process.ts'
 import { newEnglishPage } from './support.ts'
 

@@ -1,5 +1,5 @@
 /** Ordinary Web leaves Office authoring composition to its carrier. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { withDefaultWeb } from './default-web-process.ts'
 
 it('does not mount Office skills, commands, or authoring dependencies in ordinary Web', async (test) => {

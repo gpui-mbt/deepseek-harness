@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { buildGates, parseBuildArguments } from './build.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -20,15 +20,14 @@ function graph(gates: ReturnType<typeof buildGates>): Record<string, string[] | 
 }
 
 describe('repository build CLI', () => {
-  // The sentinel makes parseArgs fail fast if the check ever stops running first.
-  it('rejects a Node process without TypeScript type stripping before any build step', () => {
+  it('parses arguments without requiring native TypeScript type stripping', () => {
     const result = spawnSync(
       process.execPath,
       ['--no-experimental-strip-types', '--import', 'tsx/esm', resolve(root, 'scripts/build.ts'), '--spec-sentinel'],
       { cwd: root, encoding: 'utf8' },
     )
     expect(result.status).not.toBe(0)
-    expect(result.stderr).toContain('build: Node.js TypeScript type stripping is unavailable')
+    expect(result.stderr).toContain("Unknown option '--spec-sentinel'")
   })
 
   it('rejects the removed artifacts-only flag before any build step', () => {
@@ -97,7 +96,10 @@ describe('repository build steps', () => {
   })
 
   it('applies the environment overlay to every step', () => {
-    const environment = { DSH_CLIENT_TITLE: 'Title', DSH_BUILD_CLIENT_PROFILE: undefined }
-    for (const gate of buildGates(root, 'complete', environment)) expect(gate.env).toEqual(environment)
+    const environment = { DSH_CLIENT_TITLE: 'Title', DSH_BUILD_CLIENT_PROFILE: undefined, DSH_BUILD_FACE: 'stale' }
+    for (const gate of buildGates(root, 'complete', environment)) {
+      const face = gate.id === 'host-bundle' ? 'host' : gate.id === 'client-bundle' ? 'client' : 'stale'
+      expect(gate.env).toEqual({ ...environment, DSH_BUILD_FACE: face })
+    }
   })
 })

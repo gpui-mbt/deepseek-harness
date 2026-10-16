@@ -1,7 +1,7 @@
 import { z } from 'zod'
 /** Real SDK negotiation, subscription, and cancellation through the connection supervisor. */
 
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { InMemoryTransport, type Transport } from '@modelcontextprotocol/client'
 import { McpServer } from '@modelcontextprotocol/server'

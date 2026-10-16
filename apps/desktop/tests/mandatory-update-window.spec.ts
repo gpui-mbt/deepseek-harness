@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { BrowserWindow, WebContents, WebFrameMain } from 'electron'
 import { DesktopMandatoryUpdateWindow, type MandatoryUpdateView } from '../src/mandatory-update-window.ts'
 import { MANDATORY_IPC } from '../src/mandatory-update-ipc.ts'

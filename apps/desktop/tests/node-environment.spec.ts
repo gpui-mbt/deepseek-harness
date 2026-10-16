@@ -1,5 +1,5 @@
 import { delimiter } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { desktopNodeEnvironment } from '../src/node-environment.ts'
 
 it('keeps private Desktop launchers out of the Host environment inherited by PTC', () => {

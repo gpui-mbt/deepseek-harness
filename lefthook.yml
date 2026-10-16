@@ -18,7 +18,9 @@ pre-commit:
       glob: '*.{ts,tsx,mts,cts,mjs}'
       exclude:
         - 'vendor/*/src/**'
-      run: node_modules/.bin/tsx scripts/run-oxlint.ts --config .oxlintrc.staged.json --fix --no-error-on-unmatched-pattern {staged_files}
+      # The project-free profile: type-aware rules need a TypeScript program per
+      # staged file, which is too slow for a pre-commit checkpoint.
+      run: node_modules/.bin/tsx scripts/run-oxlint.ts --staged --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
     - name: whitespace (staged)

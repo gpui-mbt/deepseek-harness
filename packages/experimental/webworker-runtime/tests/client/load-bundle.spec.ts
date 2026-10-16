@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { WorkerTunnel } from '../../src/client/client.ts'
 
 type StubListener = (event: { data?: unknown }) => void

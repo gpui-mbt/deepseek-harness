@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { fireEvent } from '@testing-library/dom'
 import { installKeyboard, detectEnvironment } from '../src/client/dom.ts'
 import { ShortcutRegistry } from '../src/client/registry.ts'

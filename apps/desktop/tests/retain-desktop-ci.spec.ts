@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { desktopReleasesRoot, retainDesktopCi } from '../scripts/retain-desktop-ci.ts'
 import { verifyRetainedDesktopRelease } from '../scripts/desktop-release-store.ts'
 

@@ -1,7 +1,7 @@
 /** The optional Developer Tools bundle enables both inspectors, including fetch capture. */
 
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import * as yaml from 'js-yaml'
 

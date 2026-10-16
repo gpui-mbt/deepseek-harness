@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { once } from 'node:events'
 import { execa } from 'execa'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Message } from 'publint'
 import { isBrowserBundleFormatFalsePositive } from './publint-browser-format.ts'
 

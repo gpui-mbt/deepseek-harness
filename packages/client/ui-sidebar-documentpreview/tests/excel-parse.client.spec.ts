@@ -1,5 +1,5 @@
 /** Parser Worker allocation, cancellation, timeout, and message failures. */
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { parseExcel } from '../src/client/excel/parse.ts'
 import { Config } from '../src/config.ts'
 

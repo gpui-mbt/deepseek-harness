@@ -3,7 +3,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { SessionResources } from '../src/index.ts'
 
 it('closes an owned resource during disposed cancellation before the real Agent reaches idle', async () => {

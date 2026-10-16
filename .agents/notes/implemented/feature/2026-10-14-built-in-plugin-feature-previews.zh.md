@@ -10,7 +10,7 @@ Status: implemented
 
 ## 决策
 
-在本记录中，内置插件指随 DSH 发布的官方组合包。插件管理拥有这些组合包的所有功能配图。[PluginManagerPage.tsx](../../../../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx) 把包名映射到 `{ en, zh }` 图片；该映射与定义其可选组合包列表的代码位于同一文件，并采用相同的硬编码方式。图片放在 `packages/client/ui-plugin-manager/src/client/assets/` 下。共享的 [client tsdown preset](../../../../packages/client/tsdown.client.ts) 把图片以 data URL 嵌入插件管理 client bundle。组合包详情页在描述和状态提示下方显示当前 UI 语言对应的图片，无论组合包是否启用。
+在本记录中，内置插件指随 DSH 发布的官方组合包。插件管理拥有这些组合包的所有功能配图。[PluginManagerPage.tsx](../../../../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx) 把包名映射到 `{ en, zh }` 图片；该映射与定义其可选组合包列表的代码位于同一文件，并采用相同的硬编码方式。图片放在 `packages/client/ui-plugin-manager/src/client/assets/` 下。共享的 [client pack preset](../../../../packages/client/pack.client.ts) 把图片以 data URL 嵌入插件管理 client bundle。组合包详情页在描述和状态提示下方显示当前 UI 语言对应的图片，无论组合包是否启用。
 
 每个内置功能配图都是这个映射中的一项。包不能声明配图，因此该映射不是面向插件作者的接口，修改时不需要兼容路径。
 

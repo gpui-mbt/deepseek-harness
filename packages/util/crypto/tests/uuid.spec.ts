@@ -3,7 +3,7 @@
  * pinned), uniqueness across calls, and no dependence on the secure-context
  * `crypto.randomUUID` — the reason this package exists.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { bytesToBase64, randomUUID } from '../src/index.ts'
 
 const V4_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/

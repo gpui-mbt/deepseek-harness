@@ -2,7 +2,7 @@ import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-test
 /** The Node compatibility matrix runs this complete source-entry smoke. */
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'

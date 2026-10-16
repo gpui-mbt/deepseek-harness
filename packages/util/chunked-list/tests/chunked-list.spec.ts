@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { z } from 'zod'
 import { appendChunkedList, chunkedListSchema, iterateChunkedList } from '../src/index.ts'
 import type { ChunkedList } from '../src/index.ts'

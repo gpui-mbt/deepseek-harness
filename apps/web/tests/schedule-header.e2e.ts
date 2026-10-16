@@ -1,7 +1,7 @@
 // UI-only geometry for the Automation tasks page; no model calls or task mutations.
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 
 it('keeps the automation title intact before moving New to another line', async () => {

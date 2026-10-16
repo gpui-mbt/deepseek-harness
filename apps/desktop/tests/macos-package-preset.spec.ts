@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, readFile, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseEnv } from 'node:util'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { loadDesktopPackageEnvironment } from '../scripts/desktop-package-environment.mjs'
 
 it('loads machine signing credentials independently of the checkout and rejects misplaced settings', async () => {

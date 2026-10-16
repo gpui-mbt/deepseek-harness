@@ -1,6 +1,6 @@
 /** File association results and explicit handler authorization at the native command adapter. */
 import { readFile } from 'node:fs/promises'
-import { describe, expect, it, vi, onTestFinished } from 'vitest'
+import { describe, expect, it, vi, onTestFinished } from 'vite-plus/test'
 import * as runner from '../src/runner.ts'
 import { nativeFileApplications, openNativeFileApplication } from '../src/file-applications.ts'
 

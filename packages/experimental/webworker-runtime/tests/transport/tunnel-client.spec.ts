@@ -12,7 +12,7 @@
  * expanded cause chain, so both sides hold each other to it. Do not relax these
  * expectations to make a change pass — agree the new text with the worker host first.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { WorkerTunnel } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/client/client.ts'
 
 // Both sides are serialized here, at call time, rather than inside the case: the

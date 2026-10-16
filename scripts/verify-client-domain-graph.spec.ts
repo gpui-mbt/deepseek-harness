@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { resolveClientImport } from './verify-client-domain-graph.ts'
 
 describe('client domain import resolution', () => {

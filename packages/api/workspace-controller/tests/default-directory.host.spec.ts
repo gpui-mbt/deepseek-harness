@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { NativeCommandRunner } from '@deepseek-ai/dsh-native-command'
 import { defaultWorkspaceDirectory, validateDocumentsDirectory } from '../src/default-directory.ts'
 

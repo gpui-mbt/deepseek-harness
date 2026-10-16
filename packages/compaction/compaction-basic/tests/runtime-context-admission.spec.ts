@@ -10,7 +10,7 @@ import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deep
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import BasicCompaction from '@deepseek-ai/dsh-compaction-basic'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 class CompactionAdapter extends LlmAdapter {
   readonly conversation: GenerateOptions[] = []

@@ -2,7 +2,7 @@
  * Generate the repository's Typert artifacts without bundling.
  *
  * The pass writes the same files, through the same generator calls, as the workspace-mode Typert
- * plugin in the Host tsdown pass (`tsdown.config.ts`): every explicit contributor's
+ * plugin in the Host pack pass (`pack.config.ts`): every explicit contributor's
  * `lib/typert.host.*` and `lib/typert.remote-client.*`. Gates that read only generated
  * declarations run it instead of bundling. It reads workspace packages only from source and fails
  * when the Host program would load a package's `lib/` output, so it can run beside Host package

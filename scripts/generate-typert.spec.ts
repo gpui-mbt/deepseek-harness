@@ -1,7 +1,7 @@
 import { existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { typertPlugin } from '../packages/typert/generator/src/tsdown-plugin.ts'
 import { WorkspaceTypertGenerator } from '../packages/typert/generator/src/workspace.ts'
 import { main } from './generate-typert.ts'

@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for 2026-10-15-viteplus-toolchain-migration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-10-15-viteplus-toolchain-migration.md
+/agent-note-adopt-vite-for-the-test-lint-and-pack-toolchain:
+  en: 27d8f3509380abb6
+  zh: 1912c6813d3b4778
+/agent-note-adopt-vite-for-the-test-lint-and-pack-toolchain/problem:
+  en: b0ef5e2c550d048f
+  zh: ce69160adbfafa06
+/agent-note-adopt-vite-for-the-test-lint-and-pack-toolchain/decision:
+  en: 27f5fe411867fe3b
+  zh: d1dd71a8c49ce9bb
+/agent-note-adopt-vite-for-the-test-lint-and-pack-toolchain/consequences:
+  en: c5bcca12e17a2785
+  zh: a0929fdbdbffd7e8
+/agent-note-adopt-vite-for-the-test-lint-and-pack-toolchain/alternatives-considered:
+  en: 59816e75f4a63927
+  zh: e3cc2457a74208ff
+/agent-note-adopt-vite-for-the-test-lint-and-pack-toolchain/known-gaps:
+  en: e81eeeefed62317e
+  zh: 91980db6c63bf9eb

@@ -1,6 +1,6 @@
 /** The brand font remains self-contained in the packaged Web application. */
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 describe('offline brand font', () => {
   it('ships a local WOFF2 with its redistribution license', () => {

@@ -17,7 +17,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const SHEETS = ['MessageFeedbackActions', 'FeedbackDialog'] as const
 const sheets = Object.fromEntries(SHEETS.map(name => [name, readFileSync(

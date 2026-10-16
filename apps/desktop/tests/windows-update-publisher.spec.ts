@@ -2,7 +2,7 @@ import { createRequire } from 'node:module'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test'
 import { resolveWindowsUpdatePublisher } from '../scripts/windows-sign.mjs'
 
 vi.mock('../scripts/windows-sign.mjs', async importOriginal => ({

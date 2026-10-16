@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import yaml from 'js-yaml'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 it.each(['macos', 'windows'])('%s packaging accepts test branches but preserves production and tag restrictions', (platform) => {
   const workflow = yaml.load(readFileSync(resolve(import.meta.dirname, `../.github/workflows/${platform}-package.yml`), 'utf8')) as {

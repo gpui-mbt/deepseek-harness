@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { OutputLedger } from '../src/output-ledger.ts'
 
 it('accounts for exact JSON escaping, separators and optional completion values', () => {

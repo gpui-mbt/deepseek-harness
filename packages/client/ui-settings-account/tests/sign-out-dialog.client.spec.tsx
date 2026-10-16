@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Sign-out impact copy and explicit confirmation. */
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { SignOutDialog } from '../src/client/SignOutDialog.tsx'
 import { en, zh } from '../src/client/locales.ts'
 

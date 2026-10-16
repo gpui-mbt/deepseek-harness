@@ -2,7 +2,7 @@
 import { pluginRecordOf, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { appendFile, readFile, writeFile } from 'node:fs/promises'
 import type { ServerResponse } from 'node:http'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TranslationStorage } from '../src/storage.ts'
 import type { TranslationIdentity } from '../src/types.ts'
 import { storageFixture, storageReply } from './storage-fixture.ts'

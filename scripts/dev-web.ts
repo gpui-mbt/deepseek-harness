@@ -34,16 +34,17 @@
  * to this process alone and is forwarded once. The exit code is 130 after
  * SIGINT, 0 after SIGTERM, and 1 when a stage exited on its own.
  *
- * Each package keeps its own tsdown.config.ts untouched: this script layers
- * `watch` through API-level inline config (tsdown workspace mode fills inline
- * keys under each package's file config, and no package config defines it).
+ * Member pack.config.ts files are loaded explicitly and watched by this loop.
+ * A config edit closes the old build handles before loading fresh entries;
+ * adding a package still requires restarting the loop.
  */
-import { globSync, readFileSync } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { existsSync, globSync, readFileSync, unwatchFile, watch, watchFile } from 'node:fs'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execa } from 'execa'
-import { build } from 'tsdown'
-import type { TsdownBundle } from 'tsdown'
+import { build, globalLogger, mergeConfig } from 'vite-plus/pack'
+import type { TsdownHandle } from 'vite-plus/pack'
+import { createPackEntries } from '../pack.config.ts'
 import {
   CLIENT_BUILD_PROFILE_SELECTOR,
   clientBuildProcessEnvironment,
@@ -156,10 +157,10 @@ export function discoverPluginDirs(root = repoRoot): string[] {
  */
 export function discoverLibraryDirs(root = repoRoot): string[] {
   const dirs: string[] = []
-  for (const configPath of globSync('packages/*/*/tsdown.config.ts', { cwd: root }).sort()) {
+  for (const configPath of globSync('packages/*/*/pack.config.ts', { cwd: root }).sort()) {
     const dir = dirname(configPath).split(sep).join('/')
     if (dir.startsWith(TEST_INFRASTRUCTURE_PREFIX)) continue
-    if (!readFileSync(join(root, configPath), 'utf8').includes('tsdown.client.ts')) continue
+    if (!readFileSync(join(root, configPath), 'utf8').includes('pack.client.ts')) continue
     const manifest = JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')) as {
       dsh?: { client?: unknown }
     }
@@ -169,44 +170,172 @@ export function discoverLibraryDirs(root = repoRoot): string[] {
 }
 
 /**
- * Start the tsdown watch build used by `pnpm run dev:web`.
- * @param root - repository or fixture root passed to tsdown.
- * @param pluginDirs - workspace-relative package directories to watch.
- * @param pollInterval - optional source-watcher polling interval in milliseconds.
- * @returns live bundles after every watcher has completed its initial build and package-owned post-build hooks.
+ * Start explicit member builds and own their source and configuration watchers.
+ * @param root - repository or fixture root containing member pack configs.
+ * @param pluginDirs - workspace-relative member directories, fixed until restart.
+ * @param pollInterval - polling interval; omission selects native file watching.
+ * @param onFailure - receives a config-reload failure after its builds stop; omission reports it to stderr.
+ * @param signal - optional cancellation, including before initial readiness; cancellation closes acquired watchers.
+ * @returns a handle after every initial build and package post-build hook succeeds. Await watch.close() to stop all owned work.
+ * @throws when initial configuration or bundling fails, after acquired watchers close.
  */
 export async function watchClientPlugins(
   root: string,
   pluginDirs: readonly string[],
   pollInterval?: number,
-): Promise<TsdownBundle[]> {
-  let resolveInitialBuilds: (() => void) | undefined
-  const initialBuilds = new Promise<void>((resolve) => { resolveInitialBuilds = resolve })
-  const initialized = new WeakSet<object>()
-  const readiness: { expectedBuilds?: number; initializedBuilds: number } = { initializedBuilds: 0 }
-  const bundles = await build({
-    cwd: root,
-    workspace: [...pluginDirs],
-    configLoader: 'native',
-    watch: true,
-    // Workspace hooks override inline hooks; onSuccess runs after each package's build:done work.
-    onSuccess: (options) => {
-      if (initialized.has(options)) return
-      initialized.add(options)
-      readiness.initializedBuilds += 1
-      if (
-        readiness.expectedBuilds !== undefined
-        && readiness.initializedBuilds >= readiness.expectedBuilds
-      ) resolveInitialBuilds?.()
+  onFailure: (error: unknown) => void = (error) => { console.error('dev-web: client config reload failed; restart dev:web', error) },
+  signal?: AbortSignal,
+): Promise<TsdownHandle> {
+  let handles: TsdownHandle[] = []
+  let closed = false
+  let operation: Promise<void> = Promise.resolve()
+  let closing: Promise<void> | undefined
+  const stopConfigWatchers: (() => void | Promise<void>)[] = []
+  const hookWork = new Set<Promise<void>>()
+  const rejectInitialBuilds = new Set<(error: unknown) => void>()
+
+  async function closeBuilds(): Promise<void> {
+    const owned = handles
+    handles = []
+    const disposed = await Promise.allSettled(owned.map(handle => handle.watch.close()))
+    await Promise.all(hookWork)
+    const failures = disposed.filter(result => result.status === 'rejected').map((result): unknown => result.reason)
+    if (failures.length > 0) throw new AggregateError(failures, 'dev-web: failed to close client build watchers')
+  }
+
+  async function startBuilds(): Promise<void> {
+    const entries = await createPackEntries({ root, mode: 'watch', members: pluginDirs })
+    try {
+      for (const entry of entries) {
+        signal?.throwIfAborted()
+        if (closed) throw new Error('dev-web: client watcher is closed')
+        const ready = Promise.withResolvers<void>()
+        // Pack reports watch errors through its logger rather than rejecting build().
+        // Observe the rejection immediately, even while build() acquires its handle.
+        const readiness = ready.promise.then(() => ({ ok: true as const }), (error: unknown) => ({ ok: false as const, error }))
+        rejectInitialBuilds.add(ready.reject)
+        const logger = entry.customLogger ?? globalLogger
+        const config = mergeConfig(entry, {
+          config: false,
+          watch: true,
+          customLogger: {
+            ...logger,
+            error(...args: unknown[]) {
+              ready.reject(new Error(`dev-web: initial client build failed in ${entry.cwd ?? root}`, { cause: args }))
+              logger.error(...args)
+            },
+          },
+          ...pollInterval !== undefined
+            ? { inputOptions: { watch: { watcher: { usePolling: true, pollInterval } } } }
+            : {},
+        })
+        config.hooks = async (hooks) => {
+          if (typeof entry.hooks === 'function') await entry.hooks(hooks)
+          else if (entry.hooks !== undefined) hooks.addHooks(entry.hooks)
+          const completions = new WeakMap<object, () => void>()
+          hooks.beforeEach((event) => {
+            const completion = Promise.withResolvers<void>()
+            hookWork.add(completion.promise)
+            completions.set(event, () => {
+              hookWork.delete(completion.promise)
+              completion.resolve()
+            })
+          })
+          hooks.afterEach((event) => { completions.get(event)?.() })
+          hooks.hook('build:done', () => { ready.resolve() })
+        }
+        const handle = await build({ ...config, config: false })
+        handles.push(handle)
+        const result = await readiness
+        rejectInitialBuilds.delete(ready.reject)
+        if (!result.ok) throw result.error
+      }
+    } catch (error) {
+      await closeBuilds()
+      throw error
+    }
+  }
+
+  const handle: TsdownHandle = {
+    get bundles() { return handles.flatMap(handle => handle.bundles) },
+    watch: {
+      restart() {
+        const restarting = operation.then(async () => {
+          if (closed) throw new Error('dev-web: client watcher is closed')
+          await closeBuilds()
+          await startBuilds()
+        })
+        operation = restarting.catch((error: unknown) => { /* The returned restart promise owns this error. */ void error })
+        return restarting.then(() => handle)
+      },
+      close() {
+        closing ??= (async () => {
+          closed = true
+          signal?.removeEventListener('abort', aborted)
+          for (const reject of rejectInitialBuilds) reject(signal?.reason ?? new Error('dev-web: client watcher closed before initial readiness'))
+          const stopped = await Promise.allSettled(stopConfigWatchers.map(stop => Promise.resolve(stop())))
+          await operation
+          await closeBuilds()
+          const failures = stopped.filter(result => result.status === 'rejected').map((result): unknown => result.reason)
+          if (failures.length > 0) throw new AggregateError(failures, 'dev-web: failed to close configuration watchers')
+        })()
+        return closing
+      },
     },
-    ...pollInterval !== undefined
-      ? { inputOptions: { watch: { watcher: { usePolling: true, pollInterval } } } }
-      : {},
-  })
-  readiness.expectedBuilds = bundles.length
-  if (readiness.initializedBuilds >= readiness.expectedBuilds) resolveInitialBuilds?.()
-  await initialBuilds
-  return bundles
+  }
+
+  function failed(error: unknown): void {
+    void handle.watch.close().then(
+      () => { onFailure(error) },
+      (cleanupError: unknown) => { onFailure(new AggregateError([error, cleanupError], 'dev-web: client watcher failed to stop')) },
+    )
+  }
+
+  function aborted(): void {
+    void handle.watch.close().catch(onFailure)
+  }
+
+  signal?.addEventListener('abort', aborted, { once: true })
+  try {
+    signal?.throwIfAborted()
+    for (const member of new Set(pluginDirs)) {
+      const path = resolve(root, member, 'pack.config.ts')
+      const contents = (): string | undefined => existsSync(path) ? readFileSync(path, 'utf8') : undefined
+      let previous = contents()
+      const changed = (): void => {
+        if (closed) return
+        try {
+          const current = contents()
+          if (current === previous) return
+          previous = current
+        } catch (error) {
+          failed(error)
+          return
+        }
+        void handle.watch.restart().catch((error: unknown) => { if (!closed) failed(error) })
+      }
+      if (pollInterval !== undefined) {
+        watchFile(path, { interval: pollInterval }, changed)
+        stopConfigWatchers.push(() => { unwatchFile(path, changed) })
+      } else {
+        const watcher = watch(dirname(path), (_event, filename) => {
+          if (filename === null || filename === basename(path)) changed()
+        })
+        watcher.on('error', failed)
+        stopConfigWatchers.push(() => new Promise<void>((resolve) => {
+          watcher.once('close', resolve)
+          watcher.close()
+        }))
+      }
+    }
+    const starting = startBuilds()
+    operation = starting.catch((error: unknown) => { /* The initial caller owns this error. */ void error })
+    await starting
+    return handle
+  } catch (error) {
+    await handle.watch.close()
+    throw error
+  }
 }
 
 /** One long-lived stage process as the supervisor observes it. */
@@ -345,6 +474,7 @@ if (isMain) {
   // its own; `signal` stays unset for SIGINT because the terminal's process
   // group already delivered it to every stage.
   const shutdown = Promise.withResolvers<number>()
+  const watchAbort = new AbortController()
   const requested: { code?: number; signal?: NodeJS.Signals } = {}
   const shutdownRequested = (): boolean => requested.code !== undefined
   const requestShutdown = (code: number, signal: NodeJS.Signals | undefined): void => {
@@ -352,6 +482,7 @@ if (isMain) {
     requested.code = code
     if (signal !== undefined) requested.signal = signal
     shutdown.resolve(code)
+    watchAbort.abort(new Error('dev-web: shutdown requested'))
   }
   const supervisor = new StageSupervisor((stage, code) => {
     console.error(`dev-web: ${stage} exited (code ${String(code)}); stopping the other stages`)
@@ -407,7 +538,18 @@ if (isMain) {
   // first build reads current lib bundles rather than whatever the last full
   // build left. Its own watch then covers later lib rewrites — those files are
   // in its module graph.
-  const bundles = await watchClientPlugins(repoRoot, [...pluginDirs, ...libraryDirs], options.pollInterval)
+  let clientWatch: TsdownHandle | undefined
+  try {
+    clientWatch = await watchClientPlugins(repoRoot, [...pluginDirs, ...libraryDirs], options.pollInterval, (error) => {
+      console.error('dev-web: client config reload failed; stopping the other stages; restart dev:web', error)
+      requestShutdown(1, 'SIGTERM')
+    }, watchAbort.signal)
+  } catch (error) {
+    if (!shutdownRequested()) {
+      console.error('dev-web: initial client build failed; stopping the other stages', error)
+      requestShutdown(1, 'SIGTERM')
+    }
+  }
   if (!shutdownRequested()) {
     // Through the shell's own `watch` script rather than vite's API: vite is not a
     // repository-root dependency, and more importantly the vite root is its
@@ -435,6 +577,6 @@ if (isMain) {
 
   const exitCode = await shutdown.promise
   await supervisor.stop({ signal: requested.signal, graceMs: STOP_GRACE_MS })
-  for (const bundle of bundles) await bundle[Symbol.asyncDispose]()
+  await clientWatch?.watch.close()
   process.exit(exitCode)
 }

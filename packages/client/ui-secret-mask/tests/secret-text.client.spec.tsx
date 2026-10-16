@@ -2,7 +2,7 @@
 /** The masked credential renderer: reveal control, accessible names, and reset to masked. */
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SecretText } from '../src/client/SecretText.tsx'
 import { en, zh } from '../src/client/locales.ts'

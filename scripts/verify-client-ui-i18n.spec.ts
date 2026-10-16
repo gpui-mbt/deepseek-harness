@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { clientSourceRoot, findUiI18nViolations } from './verify-client-ui-i18n.ts'
 
 function messages(source: string): string[] {

@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { desktopClientMetadata, desktopClientVersion } from '../src/client-metadata.ts'
 
 afterEach(() => { vi.unstubAllEnvs() })

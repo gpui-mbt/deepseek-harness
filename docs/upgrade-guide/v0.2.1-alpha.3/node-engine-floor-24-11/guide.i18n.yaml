@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.1-alpha.3/node-engine-floor-24-11/guide.md
+/:
+  en: a197f1db6ab5fd03
+  zh: 7bbcf70d13cf787b
+/node-24-floor-moves-to-24-11:
+  en: 346cf40b980c87bf
+  zh: 463a3f3a6100e326
+/node-24-floor-moves-to-24-11/change:
+  en: 78d824ea2ed0a0d3
+  zh: 654dae6e9380fd51
+/node-24-floor-moves-to-24-11/migration:
+  en: 05b7b8713077bf78
+  zh: c5e006ebcc7fbef6

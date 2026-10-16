@@ -2,7 +2,7 @@
 /** Chat row motion with instance-owned geometry and a controlled transition clock. */
 import { act, cleanup, render } from '@testing-library/react'
 import { StrictMode, useRef } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite-plus/test'
 import {
   createFlowMotion, hiddenOrCollapsing, motionEnabled, useFlowHidden, useMotionHidden,
   type FlowMotion, type FlowMotionRows, type InputFoldBox, type InputFoldDriver,

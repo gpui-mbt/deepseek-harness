@@ -1,6 +1,6 @@
 /** Physical WebSocket selection and Host mount resolution. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   openConnectionWebSocket,
   type ConnectionWebSocket,

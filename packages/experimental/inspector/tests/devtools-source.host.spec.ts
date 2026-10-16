@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { imagesModule } from '../scripts/devtools/inputs.ts'
 import {
   configureCodeMirrorBrowser,

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The Inspector mask hit-tests underlying Chat identities and owns the selection gesture. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { matchChatElement, matchChatNodeRow } from '../src/client/views/chat-node/pick-match.ts'
 import { mainChatRoot } from '../src/client/views/chat-node/dom.ts'
 import { InspectorChatPicker } from '../src/client/views/chat-node/picker.ts'

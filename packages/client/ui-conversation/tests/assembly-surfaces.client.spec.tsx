@@ -2,7 +2,7 @@
 /** Conversation assembly acceptance independent of Tool presentation. */
 import './control-row-dom.ts'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'

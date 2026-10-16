@@ -2,7 +2,7 @@
  * Waits that end only through the lane budget in force. Runs only inside the
  * Vitest child that scripts/lane-test-budget.spec.ts spawns.
  */
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 

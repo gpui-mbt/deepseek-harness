@@ -1,5 +1,5 @@
 /** Browser client identity is converted from the local environment for each account call. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { accountClientMetadata } from '../src/client/client-metadata.ts'
 
 afterEach(() => { vi.restoreAllMocks() })

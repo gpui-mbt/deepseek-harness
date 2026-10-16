@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The shared Platform page request channel: ownership, identity-safe release, and teardown. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { createPlatformPages } from '../src/client/platform-pages.ts'
 
 it('ignores a close with no live request', () => {

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { verifyCurrentGenerationInWorker } from '../src/migration-verifier.ts'
 import { compressZstdFrame } from '../src/zstd.ts'
 

@@ -19,6 +19,7 @@ coverage/
 .node-next-types-*/
 .oxlint-contract-*/
 .oxlintrc.contract-*.json
+.oxlintrc.staged.json
 oxlint-contract-*.ts
 .humanize/
 tmp/

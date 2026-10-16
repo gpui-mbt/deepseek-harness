@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { officialBundleInstallTarget } from '../src/official-install-target.ts'
 
 const name = '@deepseek-ai/dsh-subagent-codex'

@@ -3,7 +3,7 @@
 import { createServer, type Server } from 'node:http'
 import { createContext, runInContext } from 'node:vm'
 import WebSocket, { WebSocketServer, type RawData } from 'ws'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { startInspector, type InspectorHandle } from '../src/host/bridge/controller.ts'
 import { InspectorClientFixture } from './fixtures/client-source.host.ts'
 import { COVERAGE_TEST_TIMEOUT_ENV, coverageTestTimeoutOptions } from '../../../../scripts/coverage-partitions.ts'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Config, resolveProfiles } from '../src/config.ts'
 import { THINKING_TOKEN_BUDGET_FIELDS } from '../src/catalog.ts'
 

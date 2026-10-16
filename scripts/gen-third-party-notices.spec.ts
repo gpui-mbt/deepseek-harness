@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import primaryRuntimeLock from './primary-runtime/lock.json' with { type: 'json' }
 import {
   CLAUDE_AGENT_SDK_PACKAGE,

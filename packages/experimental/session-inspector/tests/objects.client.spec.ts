@@ -1,6 +1,6 @@
 /** Named references use runtime identity and read the latest materialized values. */
 
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { ChatSnapshotBuilder } from '@deepseek-ai/dsh-client-ui-chat/src/client/conversation-nodes/chat-snapshot-builder.ts'
 import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'

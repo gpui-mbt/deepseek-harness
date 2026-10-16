@@ -2,8 +2,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
-import { build } from 'tsdown'
-import { expect, it, onTestFinished } from 'vitest'
+import { build } from 'vite-plus/pack'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { workspacePackageGlobs } from './workspace-package-globs.ts'
 
 it('selects workspace packages from Windows and POSIX manifest paths', async () => {
@@ -17,7 +17,15 @@ it('selects workspace packages from Windows and POSIX manifest paths', async () 
   }
   const options = { cwd, config: false as const, entry: ['src/index.ts'], write: false, dts: false, logLevel: 'silent' as const }
   const selected = await build({ ...options, workspace: workspacePackageGlobs(manifests) })
-  expect(selected).toHaveLength(2)
-  const unnormalized = await build({ ...options, workspace: manifests.map(path => win32.dirname(path)) })
-  expect(unnormalized.map(bundle => bundle.config.name)).toEqual(['fixture-1'])
+  try {
+    expect(selected.bundles).toHaveLength(2)
+    const unnormalized = await build({ ...options, workspace: manifests.map(path => win32.dirname(path)) })
+    try {
+      expect(unnormalized.bundles.map(bundle => bundle.config.name)).toEqual(['fixture-1'])
+    } finally {
+      for (const bundle of unnormalized.bundles) await bundle[Symbol.asyncDispose]()
+    }
+  } finally {
+    for (const bundle of selected.bundles) await bundle[Symbol.asyncDispose]()
+  }
 })

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The model row's peak-routing control: destination, window, and clearing. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
 import { routingDraftOf } from '../src/client/ModelRow.tsx'
 import type { ModelsOperations } from '../src/client/operations.ts'

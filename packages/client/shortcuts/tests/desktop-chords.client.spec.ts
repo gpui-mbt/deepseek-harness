@@ -1,5 +1,5 @@
 /** Physical shortcut chords share normalization, conflicts, and persistence rules. */
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { bindingIssue, bindingKey, effectiveShortcuts, normalizeBinding, parseBinding, parseShortcutDocument,
   parseShortcutDefinitions, presentBinding, ShortcutPersistence } from '../src/protocol.ts'
 import type { ShortcutBinding, ShortcutCommandId, ShortcutDefinition } from '../src/protocol.ts'

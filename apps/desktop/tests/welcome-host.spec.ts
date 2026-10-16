@@ -1,5 +1,5 @@
 /** Native onboarding reuses authenticated Web RPC and never reads credential values. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { connectDesktopWelcome } from '../src/welcome-backend.ts'
 
 function transport(preference?: string) {

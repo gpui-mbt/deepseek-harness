@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Session terminal recovery hides ordinary work and keeps failed lookup retryable. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { TerminalRecovery } from '../src/client/TerminalRecovery.tsx'

@@ -1,6 +1,6 @@
 /** Global navigation before the first Session, through the shipped Web composition. */
 import { chromium, type Browser } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 import { initialShortcutConfig } from '@deepseek-ai/dsh-client-shortcuts/protocol'

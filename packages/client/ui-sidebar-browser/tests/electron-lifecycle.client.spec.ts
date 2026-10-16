@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { DesktopBrowserReservation } from '../src/types.ts'
 import { electronFixture } from './electron-harness.client.ts'
 

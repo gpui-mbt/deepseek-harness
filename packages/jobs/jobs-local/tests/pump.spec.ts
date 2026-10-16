@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { JobAppendOptions, JobOutputSource } from '@deepseek-ai/dsh-jobs'
 import { startPump } from '../src/pump.ts'
 import type { PumpSink } from '../src/pump.ts'

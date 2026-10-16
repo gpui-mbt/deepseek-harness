@@ -13,7 +13,7 @@ import {
 } from '@deepseek-ai/dsh-app-boot'
 import Hmr from '@deepseek-ai/dsh-hmr'
 import type { ChokidarOptions } from 'chokidar'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import PluginManager, { type PluginInstallRequestId } from '../src/index.ts'
 import * as operations from '../src/operations.ts'
 

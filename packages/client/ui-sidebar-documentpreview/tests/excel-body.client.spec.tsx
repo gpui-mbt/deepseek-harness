@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Excel preview lifecycle and read-only renderer settings. */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { Config } from '../src/config.ts'
 import { en, zh } from '../src/client/excel/locales.ts'

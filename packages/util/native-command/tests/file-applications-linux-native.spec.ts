@@ -4,7 +4,7 @@ import { promisify } from 'node:util'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { nativeFileApplications, openNativeFileApplication } from '../src/file-applications.ts'
 import type { NativeCommandRunner } from '../src/runner.ts'
 

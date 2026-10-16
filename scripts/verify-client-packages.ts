@@ -11,10 +11,10 @@ import { TypeScriptProject } from './ts-project.ts'
 const GATE = 'verify-client-packages'
 const CLIENT_MANIFEST_GLOB = 'packages/client/*/package.json'
 const MANIFEST_GLOBS = ['packages/*/*/package.json', 'apps/*/package.json', 'vendor/*/package.json']
-const CONFIG_GLOB = 'packages/*/*/tsdown.config.ts'
+const CONFIG_GLOB = 'packages/*/*/pack.config.ts'
 const PLATFORM_SOURCE = 'packages/client/web/src/platform.ts'
 const PARSER_PRELOAD_SOURCE = 'packages/client/modules/src/index.ts'
-const STATIC_PRESET_SOURCE = 'packages/client/tsdown.client.ts'
+const STATIC_PRESET_SOURCE = 'packages/client/pack.client.ts'
 const CORDIS = '@deepseek-ai/cordis'
 
 /** One workspace package's browser-module declaration. */
@@ -496,7 +496,13 @@ function stringArray(
   return value as string[]
 }
 
-async function readStaticLinkedRoster(root: string): Promise<Set<string>> {
+/**
+ * Discover static browser libraries through each member's Client pack configuration.
+ * @param root - Repository root containing package manifests and pack configs.
+ * @returns Package names whose Client entries declare static linking.
+ * @throws If discovery finds no pack configs or a selected config cannot be read.
+ */
+export async function readStaticLinkedRoster(root: string): Promise<Set<string>> {
   const presetUrl = pathToFileURL(resolve(import.meta.dirname, '..', STATIC_PRESET_SOURCE)).href
   const preset = await import(presetUrl) as { isStaticLinkedConfig?: unknown }
   if (typeof preset.isStaticLinkedConfig !== 'function') {
@@ -504,7 +510,9 @@ async function readStaticLinkedRoster(root: string): Promise<Set<string>> {
   }
   const predicate = preset.isStaticLinkedConfig as (configs: readonly unknown[]) => boolean
   const roster = new Set<string>()
-  for (const configPath of globSync(CONFIG_GLOB, { cwd: root }).map(normalizePath).sort()) {
+  const configPaths = globSync(CONFIG_GLOB, { cwd: root }).map(normalizePath).sort()
+  if (configPaths.length === 0) throw new Error(GATE + ': no pack configs found under ' + root)
+  for (const configPath of configPaths) {
     const loaded = await import(pathToFileURL(resolve(root, configPath)).href) as { default?: unknown }
     if (typeof loaded.default !== 'function') continue
     const configs = (loaded.default as (input: { env: Record<string, string> }) => unknown)({
@@ -512,7 +520,7 @@ async function readStaticLinkedRoster(root: string): Promise<Set<string>> {
     })
     if (!Array.isArray(configs) || !predicate(configs)) continue
     const manifest = JSON.parse(
-      readFileSync(resolve(root, configPath.replace(/tsdown\.config\.ts$/, 'package.json')), 'utf8'),
+      readFileSync(resolve(root, configPath.replace(/pack\.config\.ts$/, 'package.json')), 'utf8'),
     ) as Manifest
     if (typeof manifest.name === 'string') roster.add(manifest.name)
   }

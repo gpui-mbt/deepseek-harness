@@ -1,6 +1,6 @@
 /** SDK cleanup keeps owned Chromium distinct from externally attached Chromium. */
 
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { openNativeBrowser } from '../src/native.ts'
 import type { NativeBrowserConfig, NativeBrowserRuntime } from '../src/native.ts'
 import { fixture, nativeModel, resetFixture } from './fixtures/stagehand.ts'

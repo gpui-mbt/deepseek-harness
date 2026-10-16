@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vite-plus/test'
 
 const state = vi.hoisted(() => ({ failure: new Error('sharp native binding unavailable') }))
 

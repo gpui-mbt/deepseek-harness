@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { DESKTOP_IPC } from '../src/ipc.ts'
 import { syncWindowsAppearance } from '../src/preload-windows.ts'
 

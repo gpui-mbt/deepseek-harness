@@ -6,7 +6,7 @@
 // defensive arms directly.
 import { StrictMode } from 'react'
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type * as Md from 'mdast'
 import { MarkdownText } from './markdown-test-components.tsx'
 import { markdownLabels } from './labels.client.ts'

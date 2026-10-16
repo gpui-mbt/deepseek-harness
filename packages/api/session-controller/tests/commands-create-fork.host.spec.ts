@@ -7,7 +7,7 @@ import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import type { Workspace, WorkspaceId } from '@deepseek-ai/dsh-workspace'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   ApiSessionAgentController,
   ApiSessionCwdConflict,

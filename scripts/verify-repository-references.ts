@@ -11,7 +11,8 @@ const organization = ['deepseek', 'harness'].join('-')
 const organizationUrl = new RegExp(`\\bgithub\\.com/${organization}(?![a-z0-9-])`)
 // The independent kit repository owns the engine source and documentation.
 const kitRepositoryUrl = new RegExp(`\\bgithub\\.com/${organization}/libreoffice-kit(?:\\.git)?(?=/|[^a-zA-Z0-9_.-]|$)`, 'g')
-const commitCandidate = /(?<![a-z0-9])[\da-f]{7,40}(?![a-z0-9])/gi
+// Require one hexadecimal letter so decimal sizes and version numbers are not resolved as identifiers.
+const commitCandidate = /(?<![a-z0-9])(?=[\da-f]*[a-f])[\da-f]{7,40}(?![a-z0-9])/gi
 const excludedPrefixes = ['vendor/', '.agents/notes/archived/']
 const gitOutputLimit = 64 * 1024 * 1024
 // One 41-byte line per object; 1.2 million objects produce about 49 MiB.
@@ -105,6 +106,7 @@ export function uniquePrefixMatch(objects: readonly string[], prefix: string): s
 
 /**
  * Resolve commit-identifier candidates in maintained sources against the local object database.
+ * A candidate is a 7-40 character hexadecimal run containing at least one letter.
  * @param repoRoot - Working tree whose Git objects are inspected.
  * @param sources - File texts or symlink targets to extract candidates from.
  * @returns Lowercase candidates that name exactly one available object, which is a commit.

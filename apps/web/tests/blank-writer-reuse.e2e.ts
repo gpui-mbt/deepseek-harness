@@ -1,7 +1,7 @@
 /** Blank Session writer acquisition through the shipped Web composition. */
 
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionHandle } from '@deepseek-ai/dsh-session-persistence'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'

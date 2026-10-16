@@ -3,7 +3,7 @@
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
 import { ConversationLocationIndex } from '@deepseek-ai/dsh-client-ui-conversation/client'

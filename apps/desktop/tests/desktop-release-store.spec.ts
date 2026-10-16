@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { retainDesktopRelease, retainedDesktopPath, verifyRetainedDesktopRelease, type DesktopRetainedSource } from '../scripts/desktop-release-store.ts'
 
 const roots: string[] = []

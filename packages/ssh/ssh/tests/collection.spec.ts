@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto'
 import { readFile, rm } from 'node:fs/promises'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SshSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-ssh'
 import { createHelperHarness } from './fixtures/helper.ts'
 import { doneSchema, preparedSchema } from '../src/schemas.ts'

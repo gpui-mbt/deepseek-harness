@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { LoadedMod } from '../src/chain.ts'
 import { ModsEngine, OpDenied } from '../src/engine.ts'
 import { createOn, HookRegistry, registerMod } from '../src/module.ts'

@@ -10,7 +10,7 @@ import { gunzipSync } from 'node:zlib'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, type TestContext } from 'vitest'
+import { expect, it, type TestContext } from 'vite-plus/test'
 import { parseTar } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/tar.ts'
 import { MANIFEST_PATH, packVfsImage, type PackOptions } from '../src/pack.ts'
 

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import type { AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import { DesktopPlatformView, platformBounds } from '../src/platform-view.ts'
 

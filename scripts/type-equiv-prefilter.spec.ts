@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { markdownFences } from './markdown.ts'
 import { mayContainEquivFence } from './type-equiv-prefilter.ts'
 

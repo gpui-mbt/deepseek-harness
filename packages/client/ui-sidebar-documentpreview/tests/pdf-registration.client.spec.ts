@@ -3,7 +3,7 @@
 import { createElement } from 'react'
 import { Context } from '@deepseek-ai/cordis'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'

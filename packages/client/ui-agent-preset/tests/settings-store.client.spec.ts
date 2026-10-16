@@ -5,7 +5,7 @@
  * preference through a narrow field writer in the same settings namespace.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { RemoteErrorCode } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'

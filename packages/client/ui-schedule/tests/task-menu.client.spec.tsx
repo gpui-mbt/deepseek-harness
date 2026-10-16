@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TaskMenu } from '../src/client/TaskMenu.tsx'
 import type { TaskMenuEntry } from '../src/client/TaskMenu.tsx'
 import taskMenuCss from '../src/client/TaskMenu.module.css'

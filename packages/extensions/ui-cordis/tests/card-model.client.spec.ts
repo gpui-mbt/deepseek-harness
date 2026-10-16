@@ -1,7 +1,7 @@
 // Card view model: what a definition card can and cannot derive from the frozen
 // call/result slice.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { cordisActionCard, cordisDefineCard } from '../src/client/card-model.ts'

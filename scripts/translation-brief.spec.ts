@@ -1,6 +1,6 @@
 /** Regression tests for the minimal-update briefing assembly. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   changedSpanIndices,
   computeMechanicalUpdate,

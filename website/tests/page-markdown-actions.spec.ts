@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { createApp, createSSRApp, h, nextTick, reactive, ref, type App, type Slots } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { fireEvent, getByRole, queryAllByRole, queryByRole, waitFor } from '@testing-library/dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import Theme from '../.vitepress/theme/index.ts'
 
 vi.mock('vitepress', () => ({ useData: () => data, useRoute: () => route }))

@@ -1,6 +1,6 @@
 /** Required baseline budgets for reconnecting during a large active Assistant stream. */
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { ciTimeBudget, PERFORMANCE_BUDGET_HEADROOM } from '../support/calibration.ts'
 import { recordTimings, type BenchmarkCase } from '../support/scaling-report.ts'

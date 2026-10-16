@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
-import type { TsdownBundle } from 'tsdown'
+import { describe, expect, it } from 'vite-plus/test'
+import type { TsdownHandle } from 'vite-plus/pack'
 import { writeClientBuildRecord } from './client-build-environment.ts'
 import {
   devWebBuildEnvironment,
@@ -165,9 +165,9 @@ it('discovers client-preset packages the shell links, excluding loader-delivered
     const write = async (dir: string, manifest: unknown, config: string): Promise<void> => {
       await mkdir(join(root, dir), { recursive: true })
       await writeFile(join(root, dir, 'package.json'), JSON.stringify(manifest))
-      await writeFile(join(root, dir, 'tsdown.config.ts'), config)
+      await writeFile(join(root, dir, 'pack.config.ts'), config)
     }
-    const clientPreset = "import { clientLibrary } from '../tsdown.client.ts'\nexport default clientLibrary(import.meta.dirname, [])\n"
+    const clientPreset = "import { clientLibrary } from '../pack.client.ts'\nexport default clientLibrary(import.meta.dirname, [])\n"
 
     // Linked by the compile shell: client preset, no loader-delivered half.
     await write('packages/client/linked', {}, clientPreset)
@@ -176,7 +176,7 @@ it('discovers client-preset packages the shell links, excluding loader-delivered
     // Test infrastructure builds through the preset but never enters the shell graph.
     await write('packages/test-support/harness', {}, clientPreset)
     // Host package with its own config: not a client-face build at all.
-    await write('packages/host/server', {}, "import { defineConfig } from 'tsdown'\nexport default defineConfig({})\n")
+    await write('packages/host/server', {}, "import { defineConfig } from 'vite-plus/pack'\nexport default defineConfig({})\n")
 
     expect(discoverLibraryDirs(root)).toEqual(['packages/client/linked'])
   } finally {
@@ -184,37 +184,82 @@ it('discovers client-preset packages the shell links, excluding loader-delivered
   }
 })
 
-it('rebuilds a client-plugin bundle after its source changes', async () => {
+async function watchFixture(): Promise<{ root: string; member: string; directory: string }> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-dev-web-watch-'))
-  let bundles: TsdownBundle[] = []
   try {
+    const member = 'packages/client/watch'
+    const directory = join(root, member)
+    await mkdir(directory, { recursive: true })
     await symlink(join(import.meta.dirname, '..', 'node_modules'), join(root, 'node_modules'), 'dir')
-    await writeFile(join(root, 'package.json'), JSON.stringify({ name: '@dsh-test/dev-web-watch', private: true, type: 'module' }))
-    await writeFile(join(root, 'tsdown.config.ts'), `
-import { defineConfig } from 'tsdown'
-export default defineConfig({
-  entry: { client: 'src.ts' }, outDir: 'lib', format: 'cjs', platform: 'browser', dts: false, clean: false,
-  outputOptions: { entryFileNames: 'client.js' },
-  hooks: { 'build:done': async () => {
-    const { writeFile } = await import('node:fs/promises')
-    await writeFile(new URL('./hook-complete', import.meta.url), 'ready')
-  } },
-})
-`)
-    const sourcePath = join(root, 'src.ts')
-    const bundlePath = join(root, 'lib/client.js')
-    await writeFile(sourcePath, 'export const version = "watch-v1"\n')
-    bundles = await watchClientPlugins(root, ['.'], 50)
-    expect(await readFile(bundlePath, 'utf8')).toContain('watch-v1')
-    expect(await readFile(join(root, 'hook-complete'), 'utf8')).toBe('ready')
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
+    await writeFile(join(directory, 'package.json'), JSON.stringify({ name: '@dsh-test/dev-web-watch', type: 'module' }))
+    return { root, member, directory }
+  } catch (error) {
+    await rm(root, { recursive: true, force: true })
+    throw error
+  }
+}
 
-    await new Promise(resolve => setTimeout(resolve, 1_000))
-    await writeFile(sourcePath, `export const version = "watch-v2-${'x'.repeat(100)}"\n`)
-    await expect.poll(async () => (await readFile(bundlePath, 'utf8')).includes('watch-v2-'), {
-      timeout: 10_000,
-    }).toBe(true)
+function watchConfig(marker = 'config-v1'): string {
+  return `
+import { writeFile } from 'node:fs/promises'
+export default ({ env }) => {
+  if (env.DSH_BUILD_FACE !== undefined) throw new Error('watch must keep the unset build face')
+  return {
+    entry: { client: 'src.ts' }, outDir: 'lib', format: 'cjs', platform: 'browser', dts: false, clean: false,
+    tsconfig: false, inputOptions: { tsconfig: false },
+    define: { __CONFIG_SENTINEL__: ${JSON.stringify(JSON.stringify(marker))} },
+    outputOptions: { entryFileNames: 'client.js' },
+    hooks: { 'build:done': async () => {
+      await writeFile(new URL('./hook-complete', import.meta.url), ${JSON.stringify(marker)})
+    } },
+    plugins: [{ name: 'fixture-disposal', closeWatcher: async () => {
+      await writeFile(new URL('./watch-closed', import.meta.url), ${JSON.stringify(marker)})
+    } }],
+  }
+}
+`
+}
+
+it.each([undefined, 50])('rebuilds source and reloads member pack configs with polling %s', async (pollInterval) => {
+  const { root, member, directory } = await watchFixture()
+  let handle: TsdownHandle | undefined
+  try {
+    const configPath = join(directory, 'pack.config.ts')
+    const sourcePath = join(directory, 'src.ts')
+    const bundlePath = join(directory, 'lib/client.js')
+    await writeFile(configPath, watchConfig())
+    await writeFile(sourcePath, 'export const version = "watch-v1"; export const config = __CONFIG_SENTINEL__\n')
+    handle = await watchClientPlugins(root, [member], pollInterval)
+    expect(handle.bundles).toHaveLength(1)
+    expect(await readFile(bundlePath, 'utf8')).toContain('watch-v1')
+    expect(await readFile(join(directory, 'hook-complete'), 'utf8')).toBe('config-v1')
+
+    await writeFile(sourcePath, 'export const version = "watch-v2-longer"; export const config = __CONFIG_SENTINEL__\n')
+    await expect.poll(() => readFile(bundlePath, 'utf8')).toContain('watch-v2-longer')
+    await writeFile(configPath, watchConfig('config-v2-longer'))
+    await expect.poll(() => readFile(bundlePath, 'utf8')).toContain('config-v2-longer')
+    await expect.poll(() => readFile(join(directory, 'hook-complete'), 'utf8')).toBe('config-v2-longer')
+    await handle.watch.close()
+    expect(handle.bundles).toEqual([])
+    expect(await readFile(join(directory, 'watch-closed'), 'utf8')).toBe('config-v2-longer')
   } finally {
-    for (const bundle of bundles) await bundle[Symbol.asyncDispose]()
+    await handle?.watch.close()
     await rm(root, { recursive: true, force: true })
   }
-}, 20_000)
+})
+
+it.each(['source', 'hook'])('rejects an initial %s failure after closing acquired source watchers', async (failure) => {
+  const { root, member, directory } = await watchFixture()
+  try {
+    const config = failure === 'hook'
+      ? watchConfig().replace('await writeFile(new URL(\'./hook-complete\', import.meta.url), "config-v1")', "throw new Error('fixture hook failed')")
+      : watchConfig()
+    await writeFile(join(directory, 'pack.config.ts'), config)
+    await writeFile(join(directory, 'src.ts'), failure === 'source' ? 'export const version = (\n' : 'export const version = "valid"\n')
+    await expect(watchClientPlugins(root, [member], 50)).rejects.toThrow('initial client build failed')
+    expect(await readFile(join(directory, 'watch-closed'), 'utf8')).toBe('config-v1')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

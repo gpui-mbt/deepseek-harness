@@ -6,7 +6,7 @@
  * platform; the real-FFI round-trip lives in grant.spec.ts (win32 only).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { tmpdir } from 'node:os'
 import koffi from 'koffi'
 

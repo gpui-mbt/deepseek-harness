@@ -1,5 +1,5 @@
 /** Command-line parsing and help of the generator. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { main } from '../src/cli.ts'
 
 afterEach(() => { vi.restoreAllMocks() })

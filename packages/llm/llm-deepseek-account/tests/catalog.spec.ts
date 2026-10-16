@@ -1,5 +1,5 @@
 /** Credential-scoped listing cache: first-use waits, background refresh, retention, and disposal. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { timeoutOf } from '@deepseek-ai/dsh-timeout'
 import { AccountModelCatalog } from '../src/catalog.ts'
 import { LISTING_TIMEOUT } from '../src/listing.ts'

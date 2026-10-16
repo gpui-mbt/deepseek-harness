@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { TunnelOutboundFrame } from '../../src/transport/frames.ts'
 import { TunnelServer, type TunnelSeams } from '../../src/transport/tunnel.ts'
 

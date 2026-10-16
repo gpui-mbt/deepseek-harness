@@ -3,7 +3,7 @@
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, readlink, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { inspectFileCommand, installFileCommand, removeFileCommand } from '../src/command-installation.ts'
 import { prepareCommandLink } from '../scripts/prepare-command-link.ts'
 

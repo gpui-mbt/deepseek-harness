@@ -1,5 +1,5 @@
 import { PassThrough, Writable } from 'node:stream'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshRpcPeer } from '../src/protocol.ts'
 

@@ -1,5 +1,5 @@
 /** Provider-owned connection readiness and model admission on the shared DeepSeek adapter. */
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { LlmError } from '@deepseek-ai/dsh-llm'
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'

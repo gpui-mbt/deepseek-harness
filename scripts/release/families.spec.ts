@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { officialClientBuildEnvironment, writeClientBuildRecord } from '../client-build-environment.ts'
 import { ON_DEMAND_BUNDLES } from '../../packages/boot/app-boot/src/official-bundles.ts'
 import { releaseFamily, type ReleaseMember } from './families.ts'
@@ -477,6 +477,8 @@ describe('payload change judgement', () => {
     // version whose bytes moved.
     expect(reachesPayload(buildOutputOnly, 'vendor/cordis/src/context.ts')).toBe(true)
     expect(reachesPayload(buildOutputOnly, 'vendor/cordis/tsconfig.json')).toBe(true)
+    expect(reachesPayload(buildOutputOnly, 'vendor/cordis/pack.config.ts')).toBe(true)
+    expect(reachesPayload(buildOutputOnly, 'vendor/cordis/tests/pack.config.ts')).toBe(false)
   })
 
   it('ignores paths no tarball carries', () => {

@@ -1,7 +1,7 @@
 import { fork, type ChildProcess } from 'node:child_process'
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, it, type TestContext } from 'vitest'
+import { expect, it, type TestContext } from 'vite-plus/test'
 import { withWindowsSigningStage } from '../scripts/windows-signing-stage.mjs'
 
 const test = it.skipIf(process.platform !== 'win32')

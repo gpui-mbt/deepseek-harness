@@ -1,5 +1,5 @@
 /** Platform client identity headers derived from one call's metadata. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { platformClientHeaders } from '../src/index.ts'
 
 it.each([

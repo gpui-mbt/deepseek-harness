@@ -1,5 +1,5 @@
 /** Native fixture cleanup remains active after assertion failure and without a started client. */
-import { afterAll, describe, expect } from 'vitest'
+import { afterAll, describe, expect } from 'vite-plus/test'
 import { ok } from '@deepseek-ai/dsh-remote-mock'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { createClientTest, webApp, type TestClient } from '../src/assembly/index.ts'

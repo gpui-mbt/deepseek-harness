@@ -1,5 +1,5 @@
 import { Context, Service } from '@deepseek-ai/cordis'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { RemoteStreamOptions } from '@deepseek-ai/dsh-api-gateway/client'
 import * as Analytics from '../src/client/index.ts'
 

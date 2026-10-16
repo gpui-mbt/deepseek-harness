@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apply } from '../src/client/index.ts'
 import { ClientRealmSource } from '../src/client/inspection/realm.ts'
 import type { InspectorClientBootstrap } from '../src/shared/bridge/messages/control.ts'

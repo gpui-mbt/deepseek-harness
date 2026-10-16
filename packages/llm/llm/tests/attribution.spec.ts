@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { APP_IDENTITY, attributionHeaders, userAgent } from '@deepseek-ai/dsh-llm'
 import type { AppIdentity } from '@deepseek-ai/dsh-llm'
 

@@ -1,7 +1,7 @@
 /** FileTypeIcon's default per-category palette as CSS text. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { CodeFileType, FileType } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const css = readFileSync(fileURLToPath(new URL('../src/FileTypeIcon.module.css', import.meta.url)), 'utf8')

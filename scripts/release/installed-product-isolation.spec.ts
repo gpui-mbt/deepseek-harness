@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS } from '../experimental-package-policy.ts'
 import { verifyInstalledProductIsolation } from './installed-product-isolation.ts'
 

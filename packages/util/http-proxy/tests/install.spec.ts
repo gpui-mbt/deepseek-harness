@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vite-plus/test'
 import { getGlobalDispatcher } from 'undici'
 import {
   clearedProxyEnv,

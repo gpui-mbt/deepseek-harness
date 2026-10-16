@@ -1,6 +1,6 @@
 /** Authenticated speech domain methods validate audio before selecting a recognizer. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import SpeechToText from '@deepseek-ai/dsh-experimental-speech-to-text'
 import type { SpeechProviderId } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
 import SpeechController from '../src/index.ts'

@@ -10,8 +10,7 @@
 
 ### 前置条件
 
-- Node.js 支持 22.19+ 与 24+。CI 覆盖 22.19、24 和 26；见 [Node 引擎下限 Agent Note](../.agents/notes/implemented/process/2026-07-06-node-engine-floor.zh.md)。
-- 启用 Node.js TypeScript 类型剥离。仓库构建脚本用 tsdown 的 native 配置加载器加载 `tsdown.config.ts`，因此当 `NODE_OPTIONS` 含 `--no-experimental-strip-types` 或 Node.js 构建缺少 TypeScript 支持时会失败；`pnpm run build` 会先检查这一条件并指出原因。
+- Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`。CI 覆盖 22.19、24.11 和 26；见 [Node 引擎下限 Agent Note](../.agents/notes/implemented/process/2026-07-06-node-engine-floor.zh.md)。
 - 启用了 Corepack 的 pnpm。仓库在 `package.json` 中固定使用 `pnpm@11.28.5`；如果 `pnpm --version` 无法通过 Corepack 解析，请先运行 `corepack enable`。
 - Git 2.26 或更高版本；钩子设置会启用 Git 的 worktree 专属配置扩展。
 - 可选：一个 DeepSeek API key，用于 Web、headless 和 ACP（Agent Client Protocol）自动化 agent（智能体）演示以及真实 API 的 e2e 测试。
@@ -83,10 +82,10 @@ Host 与 Client 保持两个 aggregate program，是因为两侧在相同键下�
 ```sh
 pnpm run build:native-system
 tsc -b <tsconfig.host.json references>
-tsdown --env.DSH_BUILD_FACE host
-pnpm --filter @deepseek-ai/dsh-desktop run bundle
+tsx scripts/pack/run.ts host
+tsx scripts/pack/run.ts desktop
 tsc -b <tsconfig.client.json references>
-tsdown --env.DSH_BUILD_FACE client
+tsx scripts/pack/run.ts client
 pnpm run build:web
 ```
 
@@ -105,9 +104,9 @@ pnpm run build:web
 
 PR 产物 builder 运行 `build:artifacts`；必需的 Linux 与 Windows 普通构建以及公开 `typecheck` 还检查仓库级测试和脚本 program。CI benchmark 准备阶段还对其临时 library 输出使用 `--noCheck`，由这些必需构建负责诊断；其他产物 builder 保留包检查（[理由](../.agents/notes/implemented/process/2026-10-05-pr-artifact-typechecks.zh.md)）。
 
-两次 tsdown 都匹配 `vendor/*`、`packages/*/*` 与 `apps/cli`，Host 阶段另外匹配 `apps/desktop-host`；两者都不扫描构建产物来发现 Client 包，也不维护 Host/Client 包过滤表。包内 tsdown 配置根据 `DSH_BUILD_FACE` 决定当前阶段的入口：普通 Client 插件在 Client 阶段同时生成 Node loader 与 browser bundle；`api-remotes` 通过 `hostPhase: true` 提前生成 Host 入口，再在 Client 阶段只生成 browser bundle。tsdown 只消费 `lib/types` 中由前置 tsc 发射的 JavaScript。tsdown 并发构建匹配到的 workspace 成员；`apps/desktop` 的主进程 bundle 需要从工作区 devDependencies 的 `lib/` 产物内联这些包，因此在 Host 阶段之后单独一步打 bundle（[Desktop README](../apps/desktop/README.zh.md#bundled-workspace-dependencies)）。
+根 [`pack.config.ts`](../pack.config.ts) 动态发现并排序 `vendor/*` 与 `packages/*/*` 下的成员，另加 `apps/cli`，Host 阶段再加 `apps/desktop-host`，并把各成员的 `pack.config.ts` 入口与公共默认值合并。它既不扫描构建产物来发现 Client 包，也不维护 Host/Client 包过滤表。包内配置通过 `DSH_BUILD_FACE` 选择入口：普通 Client 插件在 Client 阶段同时生成 Node loader 与 browser bundle；`api-remotes` 通过 `hostPhase: true` 提前生成 Host 入口，再在 Client 阶段只生成 browser bundle。两次 pack 都只消费 `lib/types` 中由前置 tsc 发射的 JavaScript。Pack 并发构建成员；`apps/desktop` 的主进程 bundle 需要从工作区 devDependencies 的 `lib/` 产物内联这些包，因此在 Host 之后、Client 之前单独打包（[Desktop README](../apps/desktop/README.zh.md#bundled-workspace-dependencies)）。
 
-Typert 以 `tsconfig.host.json` 为种子分析 Host 类型，生成 Host 反射产物及 Host-for-Client Remote 投影；Client tsdown 不启动 Typert。Host tsdown 以插件形式运行它，[`generate-typert.ts`](../scripts/generate-typert.ts) 则不打包地执行同一生成，写出逐字节相同的文件。不打包的这一轮只从源码读取工作区包；若 Host program 会载入某个包的 `lib/` 产物，它就失败并指出该 import 及应补的 `paths` 别名，因此可以与 Host 包编译并行。Client 源码 import 生成的 Remote 声明，所以 Client 包编译总在这两种生成之一之后。`pnpm run typecheck` 运行 `build.ts --scope typecheck` 图：Host 包编译与不打包的 Typert 生成并行，之后是 Client 包编译，每个 aggregate 在本 face 的包编译完成后以 build mode（`tsc -b`）检查；它跳过 native addon、所有 bundle、Web 以及 client build record。`lint`、`lint:fix` 与 `doc-typecheck` 读取生成的声明但不依赖 Host aggregate 检查，因此只准备 Host 包编译与不打包的 Typert 生成（`compile-referenced-projects.ts host-contracts`）。这些命令都不写 bundle：可运行的 `lib/` 产物保持上一次 `build:artifacts` 的状态，因此启动或测试构建产物之前先运行 `build:artifacts`。
+Typert 以 `tsconfig.host.json` 为种子分析 Host 类型，生成 Host 反射产物及 Host-for-Client Remote 投影；Client pack 不启动 Typert。Host pack 运行一个 workspace Typert 插件，[`generate-typert.ts`](../scripts/generate-typert.ts) 则不打包地执行同一生成，写出逐字节相同的文件。不打包的这一轮只从源码读取工作区包；若 Host program 会载入某个包的 `lib/` 产物，它就失败并指出该 import 及应补的 `paths` 别名，因此可以与 Host 包编译并行。Client 源码 import 生成的 Remote 声明，所以 Client 包编译总在这两种生成之一之后。`pnpm run typecheck` 运行 `build.ts --scope typecheck` 图：Host 包编译与不打包的 Typert 生成并行，之后是 Client 包编译，每个 aggregate 在本 face 的包编译完成后以 build mode（`tsc -b`）检查；它跳过 native addon、所有 bundle、Web 以及 client build record。`lint`、`lint:fix` 与 `doc-typecheck` 读取生成的声明但不依赖 Host aggregate 检查，因此只准备 Host 包编译与不打包的 Typert 生成（`compile-referenced-projects.ts host-contracts`）。这些命令都不写 bundle：可运行的 `lib/` 产物保持上一次 `build:artifacts` 的状态，因此启动或测试构建产物之前先运行 `build:artifacts`。
 
 `pnpm run build` 与 `build:artifacts` 会内联根包版本、七位源码 commit，并在 Git 报告本地变化时内联 dirty 标记；调用方提供的其他 `DSH_CLIENT_*` 值也会被继承。`pnpm run build:official` 是与 CI 和 release 产物构建等价的跨平台本地命令，并省略本地 dirty 标记。每次 `build` 或 `build:artifacts` 成功后都会写入一份被 gitignore 的记录，把精确公开值与 Vite 输出及动态 client bundle 绑定；release 打包和 built Web 测试会拒绝缺少记录或被后续局部构建改动的产物。`pnpm run dev:web` 会先执行 `build:artifacts`（`--skip-build` 则复用现有产物树），再读取一次当前版本和 Git 状态，并在本次会话的所有 watcher stage 之间共享该环境；它不会校验完整构建记录，因为 watcher stage 会重写记录覆盖的产物。
 
@@ -123,6 +122,13 @@ pnpm run build
 
 `pnpm run hygiene` 包含 `publint`（用构建出的 `lib/*.js` 文件校验包入口点）和 `verify-node-next-types`（用一个临时的 NodeNext 消费方校验构建出的声明文件）。新 worktree 在 `pnpm run build` 运行之前没有打包的 JS 和声明文件；普通提交和推送无需构建，除非所选检查会使用这些产物。
 
+<a id="toolchain-configuration"></a>
+
+### 工具链配置
+
+Vite+ 拥有这套捆绑工具。根 `vite.config.ts` 声明 lint 配置块、Vitest 5 仅保留在根层的覆盖率配置以及各测试通道；`vp test --project <lane>` 选中声明该名称的 `vitest.<lane>.config.ts`。每个通道配置各自持有文件清单与 setup 文件，因为 Vitest 5 会把继承得到的数组与通道自身的数组拼接，而不是替换。`lint.config.ts` 导出 `vp lint` 运行的 Oxlint 规则，`scripts/lint-rule-fingerprint.spec.ts` 也据此固定指纹；`check.fmt` 保持关闭，因为格式由 `@stylistic` 规则负责。`vitest.shared.ts` 保存各通道共用的 decorator 插件、Web Storage 的 worker 参数，以及测试通道与覆盖率配置共同读取的 Windows 包排除列表。根配置不导入 pack 配置或已构建的库。
+
+库打包使用专用的 [`scripts/pack/vite.config.ts`](../scripts/pack/vite.config.ts) 适配器。跨平台且不经 shell 的运行器 `tsx scripts/pack/run.ts host|client|desktop|bench|preview` 拥有构建模式与环境，并调用 `vp -C scripts/pack pack`；它不要求 Node 的原生 TypeScript 配置加载器。共享 Client 预设位于 [`pack.client.ts`](../packages/client/pack.client.ts)。编程调用方从公开的 `vite-plus/pack` API 导入，传入显式配置，并拥有返回的 `TsdownHandle` 生命周期。
 
 ### 环境变量
 
@@ -141,7 +147,7 @@ DEEPSEEK_BASE_URL=https://... # optional
 
 lefthook 在 `lefthook.yml` 中配置，作为快速的本地检查点：
 
-- `pre-commit` 对照暂存的配对文档 blob 校验暂存的配对记录，使用不加载项目的 `.oxlintrc.staged.json` 配置验证暂存文件，并通过一次有界重试应用 Oxlint 修复，然后检查暂存 diff 中的空白错误，在 pi-ai 提供方元数据的输入或生成文件已暂存时校验元数据，并运行 vendor manifest（元数据清单）守卫；
+- `pre-commit` 对照暂存的配对文档 blob 校验暂存的配对记录，使用 `vp lint --no-type-aware` 验证暂存文件，并通过一次有界重试应用其修复，然后检查暂存 diff 中的空白错误，在 pi-ai 提供方元数据的输入或生成文件已暂存时校验元数据，并运行 vendor manifest（元数据清单）守卫；
 - `pre-merge-commit` 在 Git 创建自动合并提交前执行同样以索引为准的配对检查；
 - `pre-push` 运行 `pnpm run typecheck`；该命令先不打包地生成 Typert 约定，再运行 Client TypeScript 检查，并检查两个 aggregate。
 
@@ -149,7 +155,7 @@ vendor manifest 守卫检查 `vendor/*/src` 下的改动是否连同对应的 `v
 
 pi-ai 检查会在内存中重新生成预期元数据。数据过期时，检查拒绝提交，不改写或暂存文件。修改 pi-ai 依赖或生成器后，请按包内的[提供方元数据更新步骤](../packages/llm/llm-pi-ai/README.zh.md#generated-provider-metadata)操作。
 
-除限定范围的配对和提供方元数据检查外，这些钩子有意不运行测试、快照、文档检查、构建或 `hygiene`。贡献者只运行一次[与改动行为相关的检查](../AGENTS.md#run-relevant-checks-locally)；CI 负责全量覆盖率门禁、构建产物冒烟测试，以及 Node 22.19、24 和 26 兼容性矩阵。
+除限定范围的配对和提供方元数据检查外，这些钩子有意不运行测试、快照、文档检查、构建或 `hygiene`。贡献者只运行一次[与改动行为相关的检查](../AGENTS.md#run-relevant-checks-locally)；CI 负责全量覆盖率门禁、构建产物冒烟测试，以及 Node 22.19、24.11 和 26 兼容性矩阵。
 
 贡献者可以选择运行 `pnpm run check:all`，执行全面的本地门禁集。该命令独立于 Git 钩子，也不是对 agent 的指令。
 

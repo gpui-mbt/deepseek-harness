@@ -3,7 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { compareOrRefreshGolden, launchWebScaffold, seedSession, selectedSessionFixture, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 
 const bundle = fileURLToPath(new URL('../../../packages/experimental/inspector-profile', import.meta.url))

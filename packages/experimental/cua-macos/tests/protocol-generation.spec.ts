@@ -1,6 +1,6 @@
 /** Native admission artifacts follow the model schema without exposing Host-only operations. */
 import { readFile } from 'node:fs/promises'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { renderNativeProtocol } from '../native/generate-protocol.ts'
 import { Request } from '@deepseek-ai/dsh-cua/protocol'
 

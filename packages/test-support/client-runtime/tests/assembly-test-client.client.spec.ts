@@ -7,7 +7,7 @@
  */
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { RemoteMock, ok, openStream } from '@deepseek-ai/dsh-remote-mock'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { AssemblyPlan, ClientPluginModule, TestClientOptions } from '../src/assembly/index.ts'
 import { ClientRoster, TestClient, remoteDefaultResponses, webApp } from '../src/assembly/index.ts'
 

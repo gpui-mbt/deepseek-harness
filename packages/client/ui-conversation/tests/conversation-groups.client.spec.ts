@@ -1,7 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type {
   ConversationTimelineSnapshot, ConversationViewBuilder, ConversationViewDefinition, ConversationViewNode,
 } from '../src/client/contract/conversation.ts'

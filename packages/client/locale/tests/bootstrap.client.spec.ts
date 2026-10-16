@@ -1,6 +1,6 @@
 /** Native initialization precedes Client mounting and does not persist automatic locale choices. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, LocaleRuntime } from '../src/client/index.ts'
 import { parseLocaleBootstrap } from '../src/client/bootstrap.ts'

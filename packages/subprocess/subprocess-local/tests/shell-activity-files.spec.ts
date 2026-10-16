@@ -2,7 +2,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SubprocessTerminalSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { prepareShellActivity, ShellActivity } from '../src/shell-activity.ts'
 

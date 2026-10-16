@@ -1,7 +1,7 @@
 /** A parse Worker failure surfaces as a fetch failure of its index. */
 import { Context, Service } from '@deepseek-ai/cordis'
 import { remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 
 vi.mock('../src/parse-thread.ts', () => ({ parseIndexInWorker: () => Promise.reject(new Error('parser crashed')) }))
 

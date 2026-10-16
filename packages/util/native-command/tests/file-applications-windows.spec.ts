@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, vi, onTestFinished } from 'vitest'
+import { expect, it, vi, onTestFinished } from 'vite-plus/test'
 import { nativeFileApplications, openNativeFileApplication } from '../src/file-applications.ts'
 import { runNativeCommand, type NativeCommandRunner } from '../src/runner.ts'
 

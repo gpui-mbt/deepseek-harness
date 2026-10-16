@@ -4,7 +4,7 @@ import { readFile, realpath, writeFile } from 'node:fs/promises'
 import { isBuiltin } from 'node:module'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { Rolldown } from 'tsdown'
+import { Rolldown } from 'vite-plus/pack'
 
 const GUEST_ENTRY = 'packages/workflow/workflow-ptc/src/guest.ts'
 const GUEST_SOURCE = 'packages/workflow/workflow-ptc/src/guest-source.ts'
@@ -31,10 +31,8 @@ export async function bundleWorkflowGuest(root: string): Promise<string> {
   })
   try {
     const { output } = await bundle.generate({ format: 'esm', codeSplitting: false, sourcemap: false })
+    if (output.length !== 1) throw new Error('workflow guest must bundle into exactly one JavaScript module')
     const chunk = output[0]
-    if (output.length !== 1) {
-      throw new Error('workflow guest must bundle into exactly one JavaScript module')
-    }
     const external = [...chunk.imports, ...chunk.dynamicImports].filter(id => !isBuiltin(id))
     if (external.length > 0) throw new Error(`workflow guest imports files outside its module: ${external.join(', ')}`)
     return `${chunk.code.trimEnd()}\n//# sourceURL=dsh-workflow-guest.js\n`

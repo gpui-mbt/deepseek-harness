@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { Context } from '@deepseek-ai/cordis'
 import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { mountRuntime } from './setup.ts'
 
 async function setup(mode: 'read-only' | 'workspace-write' = 'read-only', executionMode: 'per-call' | 'persistent-in-memory' = 'persistent-in-memory') {

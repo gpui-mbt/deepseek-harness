@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Visible highlight geometry excludes clipped group content and the composer. */
 
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { visibleChatRect } from '../src/client/views/chat-node/highlight.ts'
 
 it('keeps partially visible targets in place but excludes content behind the composer or outside a group', () => {

@@ -1,6 +1,6 @@
 /** Connection generation readiness, loss, retry, and sink isolation. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { ConnectionGenerationSource, ConnectionState } from '../src/client/connection.ts'
 import { ConnectionController } from '../src/client/connection.ts'
 import { FakeGenerationSource } from './fake-generation.client.ts'

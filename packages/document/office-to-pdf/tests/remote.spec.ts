@@ -5,7 +5,7 @@ import type { WorkspaceFiles } from '@deepseek-ai/dsh-api-workspace-files'
 import type { FileSystem, FsInfo, FsTarget } from '@deepseek-ai/dsh-fs'
 import { OfficeToPdfError, OfficeToPdfKey, type OfficeToPdfResult } from '../src/index.ts'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import OfficeToPdf from '../src/index.ts'
 
 const scope = { sessionId: SessionId('document-test'), workspaceRoot: '/workspace' }

@@ -1,5 +1,5 @@
 /** Recorded todo predecessors follow incremental history repair and nested invocations. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'

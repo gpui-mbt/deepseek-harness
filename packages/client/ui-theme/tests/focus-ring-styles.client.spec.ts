@@ -1,6 +1,6 @@
 /** Static ring declarations; browser interaction coverage lives in focus-rings.e2e.ts. */
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { INPUT_MODALITY, INPUT_MODALITY_ATTRIBUTE } from '../../ui-primitives/src/input-modality.ts'
 import { packageStylesheets, parseRules, varReferences } from './stylesheet-scan.ts'
 

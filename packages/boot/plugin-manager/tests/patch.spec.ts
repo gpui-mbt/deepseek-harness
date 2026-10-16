@@ -2,7 +2,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { applyEntryPatches } from '@deepseek-ai/cordis-plugin-include'
 import { initProfile, loadOptionalPatches, type ProfileContext } from '@deepseek-ai/dsh-app-boot'
 import { writePluginEnabled } from '../src/patch.ts'

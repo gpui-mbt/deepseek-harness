@@ -6,7 +6,7 @@
  * the style bookkeeping whose disposal the runner owns.
  */
 import * as React from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { CordisDynamicPluginId } from '@deepseek-ai/dsh-api-remotes/client'
 import {
   DynamicCordisStyles,

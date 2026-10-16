@@ -43,7 +43,7 @@ release 指 Host 的版本身份：版本号加可选的源码 commit。名字�
 
 - 字段：`{ version, commit? }`，两个字段都相等才算同一 release。每次完整构建（包括正式发布）都会记录仓库 commit，所以页面比较的是两个字段；发布新版本时两者一起变。
 - `version` 取 client-modules 自己 package.json 的版本。所有包同一版本号发布，所以它等于 CLI 版本。
-- `commit` 在构建时固化。共享 client 构建预设 [tsdown.client.ts](../../../../packages/client/tsdown.client.ts) 给每个 client 包的 Node 半侧注入与浏览器半侧相同的公开 `process.env.DSH_CLIENT_*` 取值（[`clientBuildValueDefines`](../../../../scripts/client-build-environment.ts) 只替换具体变量，保留 `process.env` 本身）。client-modules 的 Host 代码读 `process.env.DSH_CLIENT_COMMIT_HASH`，在构建产物里是常量。
+- `commit` 在构建时固化。共享 client 构建预设 [pack.client.ts](../../../../packages/client/pack.client.ts) 给每个 client 包的 Node 半侧注入与浏览器半侧相同的公开 `process.env.DSH_CLIENT_*` 取值（[`clientBuildValueDefines`](../../../../scripts/client-build-environment.ts) 只替换具体变量，保留 `process.env` 本身）。client-modules 的 Host 代码读 `process.env.DSH_CLIENT_COMMIT_HASH`，在构建产物里是常量。
 - 从 TypeScript 源码启动的 Host 没有构建这一步：`pnpm run dev:web` 把构建取值放进 Host 进程环境，因此读到的是同一个 commit；不经 dev-web 的源码启动只发布版本号。
 - 字段值属于 wire 数据，对话框原样显示，不做本地化。
 

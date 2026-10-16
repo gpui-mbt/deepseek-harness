@@ -12,7 +12,7 @@ import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { codePointLength } from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 import SkillRegistry, { renderSkillContent } from '@deepseek-ai/dsh-skill'
 import * as SkillFileSystem from '@deepseek-ai/dsh-skill-filesystem'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const skills = fileURLToPath(new URL('../skills/', import.meta.url))
 const names = readdirSync(skills)

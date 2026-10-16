@@ -1,6 +1,6 @@
 /** Client-face source catalog behavior. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ClientSourceCatalog, discoverInspectorClientSourceCatalog } from '../src/client/cdp/sources.ts'
 import { inspectorId } from '../src/shared/bridge/ids.ts'
 

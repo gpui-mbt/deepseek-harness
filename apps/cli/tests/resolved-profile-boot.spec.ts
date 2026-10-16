@@ -10,7 +10,7 @@ import {
   PluginPackages, type Profile,
 } from '@deepseek-ai/dsh-app-boot'
 import { installProxyFromEnvironment } from '@deepseek-ai/dsh-http-proxy'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { runProfile } from '../src/profile-boot.ts'
 
 vi.mock('@deepseek-ai/dsh-app-boot', async (importOriginal) => {
