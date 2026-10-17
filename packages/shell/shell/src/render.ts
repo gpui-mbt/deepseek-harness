@@ -10,9 +10,7 @@
  * The exit status recovered from a rendered result, with the output body that
  * status was split off from.
  */
-export type ParsedExitStatus =
-  & { body: string }
-  & ({ exitCode: number } | { signal: string })
+export type ParsedExitStatus = { body: string } & ({ exitCode: number } | { signal: string })
 
 /**
  * Split a rendered shell-tool result string into its output body and the

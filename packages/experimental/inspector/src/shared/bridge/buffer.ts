@@ -155,7 +155,8 @@ export class InspectorSourceBuffer {
   }
 
   private stateFits(): boolean {
-    return jsonByteLength([...this.state.values()] as unknown as InspectorJsonValue) + SOURCE_FRAME_OVERHEAD_BYTES
-      <= this.options.maxFrameBytes
+    return (
+      jsonByteLength([...this.state.values()] as unknown as InspectorJsonValue) + SOURCE_FRAME_OVERHEAD_BYTES <= this.options.maxFrameBytes
+    )
   }
 }

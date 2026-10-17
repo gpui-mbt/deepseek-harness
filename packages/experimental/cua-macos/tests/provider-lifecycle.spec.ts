@@ -22,7 +22,7 @@ import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
 import { LlmAdapter, ToolCallId, type LlmResolvedModelInfo, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import Subprocess from '@deepseek-ai/dsh-subprocess'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import sharp from 'sharp'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import * as NativeProvider from '../src/index.ts'
@@ -32,16 +32,18 @@ import type { NativeBuildSpec } from '../src/native-build.ts'
 const native = vi.hoisted(() => ({
   prepare: vi.fn<(spec: NativeBuildSpec) => Promise<string>>(),
   architecture: vi.fn(() => 'arm64' as const),
-  request: vi.fn<NativeClient['request']>(), dispose: vi.fn(), instances: [] as Array<{ disposed: boolean }>,
+  request: vi.fn<NativeClient['request']>(),
+  dispose: vi.fn(),
+  instances: [] as Array<{ disposed: boolean }>,
   reportDiagnostic: undefined as ((message: string) => void) | undefined,
 }))
 vi.mock('../src/native-build.ts', async importOriginal => ({
-  ...await importOriginal<typeof import('../src/native-build.ts')>(),
+  ...(await importOriginal<typeof import('../src/native-build.ts')>()),
   nativeHostArchitecture: native.architecture,
   prepareNativeExecutable: native.prepare,
 }))
 vi.mock('@deepseek-ai/dsh-cua/native-client', async importOriginal => ({
-  ...await importOriginal<typeof import('@deepseek-ai/dsh-cua/native-client')>(),
+  ...(await importOriginal<typeof import('@deepseek-ai/dsh-cua/native-client')>()),
   NativeClient: class {
     disposed = false
     constructor(...args: ConstructorParameters<typeof NativeClient>) {
@@ -49,14 +51,34 @@ vi.mock('@deepseek-ai/dsh-cua/native-client', async importOriginal => ({
       native.instances.push(this)
     }
     request = native.request
-    invalidate() { this.disposed = true }
-    async dispose() { this.disposed = true; await native.dispose() }
+    invalidate() {
+      this.disposed = true
+    }
+    async dispose() {
+      this.disposed = true
+      await native.dispose()
+    }
   },
 }))
 
 const config = {
-  helperPath: resolve('fixture-helper'), buildTimeoutMs: 300_000, timeoutMs: 10_000, connectTimeoutMs: 5000, screenshotTimeoutMs: 5000, axTimeoutMs: 3000, maxRequestBytes: 1024, maxResponseBytes: 4096, maxClipboardBytes: 8192, pasteReadTimeoutMs: 1000, maxAppMatches: 20,
-  graceMs: 10, textEventIntervalMs: 8, maxElements: 64, maxDepth: 8, dragDurationMs: 200, dragSteps: 10,
+  helperPath: resolve('fixture-helper'),
+  buildTimeoutMs: 300_000,
+  timeoutMs: 10_000,
+  connectTimeoutMs: 5000,
+  screenshotTimeoutMs: 5000,
+  axTimeoutMs: 3000,
+  maxRequestBytes: 1024,
+  maxResponseBytes: 4096,
+  maxClipboardBytes: 8192,
+  pasteReadTimeoutMs: 1000,
+  maxAppMatches: 20,
+  graceMs: 10,
+  textEventIntervalMs: 8,
+  maxElements: 64,
+  maxDepth: 8,
+  dragDurationMs: 200,
+  dragSteps: 10,
 } satisfies Omit<NativeProvider.Config, 'allowedApps'>
 
 const { helperPath: _helperPath, ...automaticConfig } = config
@@ -65,11 +87,19 @@ class ImageAdapter extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text', 'image'] })
   }
-  stream(): AsyncIterable<StreamChunk> { throw new Error('This direct tool test does not request model generation') }
+  stream(): AsyncIterable<StreamChunk> {
+    throw new Error('This direct tool test does not request model generation')
+  }
 }
 
 const imageData = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC'
-const imageMetadata = { pixelWidth: 1, pixelHeight: 1, bounds: { x: 2, y: 3, width: 1, height: 1 }, coordinateSpace: 'window-points', windowId: 7 }
+const imageMetadata = {
+  pixelWidth: 1,
+  pixelHeight: 1,
+  bounds: { x: 2, y: 3, width: 1, height: 1 },
+  coordinateSpace: 'window-points',
+  windowId: 7,
+}
 
 async function setup(model?: { provider: string; model: string }) {
   native.request.mockReset().mockResolvedValue([])
@@ -83,40 +113,66 @@ async function setup(model?: { provider: string; model: string }) {
   await ctx.plugin(Subprocess, [])
   const provider = await ctx.plugin(NativeProvider, config)
   await mountAgentLoopTestHarness(ctx)
-  const handle = await ctx.agents.create({ sessionId: SessionId('native-lifecycle'), ...model ? { agentOptions: model } : {} })
+  const handle = await ctx.agents.create({ sessionId: SessionId('native-lifecycle'), ...(model ? { agentOptions: model } : {}) })
   let index = 0
-  const execute = (method = 'listApps', params: Record<string, unknown> = {}, signal = new AbortController().signal) => ctx.tools.execute({
-    agent: handle.agent, signal, callId: ToolCallId(`lifecycle-${++index}`), name: 'cua', arguments: { method, params },
-  })
+  const execute = (method = 'listApps', params: Record<string, unknown> = {}, signal = new AbortController().signal) =>
+    ctx.tools.execute({
+      agent: handle.agent,
+      signal,
+      callId: ToolCallId(`lifecycle-${++index}`),
+      name: 'cua',
+      arguments: { method, params },
+    })
   return { ctx, provider, handle, execute }
 }
 
 async function selectApplication(f: Awaited<ReturnType<typeof setup>>) {
   await f.ctx.plugin(UserQuestions)
   f.ctx.on('user-questions/request', async () => ({ answers: [{ id: 'cua-app-access', selected: ['Allow for this task'] }] }))
-  native.request.mockResolvedValueOnce({ appHandle: 'app-one', pid: 17, name: 'Fixture',
-    authorization: { id: 'a'.repeat(64), name: 'Fixture', executablePath: '/fixture/app', persistable: true } })
+  native.request.mockResolvedValueOnce({
+    appHandle: 'app-one',
+    pid: 17,
+    name: 'Fixture',
+    authorization: { id: 'a'.repeat(64), name: 'Fixture', executablePath: '/fixture/app', persistable: true },
+  })
   expect((await f.execute('getApp', { selector: 'Fixture' })).isError).toBe(false)
 }
 
 it('rejects a relative helper path before publishing computer-use operations', async () => {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
-  await expect(NativeProvider.apply(ctx, { ...config, allowedApps: { get: () => [] }, helperPath: 'relative-helper' })).rejects.toThrow('helperPath must be absolute')
+  await expect(NativeProvider.apply(ctx, { ...config, allowedApps: { get: () => [] }, helperPath: 'relative-helper' })).rejects.toThrow(
+    'helperPath must be absolute',
+  )
 })
 
-it.each(['Allow for this task', 'Deny'])('obtains %s before a stopped application can launch', async (choice) => {
+it.each(['Allow for this task', 'Deny'])('obtains %s before a stopped application can launch', async choice => {
   const f = await setup()
   await f.ctx.plugin(UserQuestions)
   const asked: PromiseWithResolvers<void> = Promise.withResolvers()
   const answer = Promise.withResolvers<{ answers: Array<{ id: string; selected: string[] }> }>()
-  onTestFinished(() => { answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] }) })
-  f.ctx.on('user-questions/request', async () => { asked.resolve(); return answer.promise })
-  native.request.mockImplementation(async (method: string) => method === 'getApp'
-    ? { appHandle: 'pending-app', pid: null, name: 'Fixture', authorization: {
-      id: 'a'.repeat(64), name: 'Fixture', executablePath: '/fixture/app', persistable: false,
-    } }
-    : { appHandle: 'pending-app', pid: 17, name: 'Fixture' })
+  onTestFinished(() => {
+    answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] })
+  })
+  f.ctx.on('user-questions/request', async () => {
+    asked.resolve()
+    return answer.promise
+  })
+  native.request.mockImplementation(async (method: string) =>
+    method === 'getApp'
+      ? {
+          appHandle: 'pending-app',
+          pid: null,
+          name: 'Fixture',
+          authorization: {
+            id: 'a'.repeat(64),
+            name: 'Fixture',
+            executablePath: '/fixture/app',
+            persistable: false,
+          },
+        }
+      : { appHandle: 'pending-app', pid: 17, name: 'Fixture' },
+  )
   const pending = f.execute('getApp', { selector: 'Fixture' })
   await asked.promise
   expect(native.request.mock.calls.map(call => call[0])).toEqual(['getApp'])
@@ -131,9 +187,19 @@ it('rejects a launch result that changes the approved handle', async () => {
   const f = await setup()
   await f.ctx.plugin(UserQuestions)
   f.ctx.on('user-questions/request', async () => ({ answers: [{ id: 'cua-app-access', selected: ['Allow for this task'] }] }))
-  native.request.mockResolvedValueOnce({ appHandle: 'pending-app', pid: null, name: 'Fixture', authorization: {
-    id: 'a'.repeat(64), name: 'Fixture', executablePath: '/fixture/app', persistable: false,
-  } }).mockResolvedValueOnce({ appHandle: 'another-app', pid: 17, name: 'Fixture' })
+  native.request
+    .mockResolvedValueOnce({
+      appHandle: 'pending-app',
+      pid: null,
+      name: 'Fixture',
+      authorization: {
+        id: 'a'.repeat(64),
+        name: 'Fixture',
+        executablePath: '/fixture/app',
+        persistable: false,
+      },
+    })
+    .mockResolvedValueOnce({ appHandle: 'another-app', pid: 17, name: 'Fixture' })
   const result = await f.execute('getApp', { selector: 'Fixture' })
   expect(result.isError).toBe(true)
   expect(JSON.stringify(result.content)).toContain('another handle')
@@ -164,8 +230,12 @@ it('reports screenshot pixel coordinates while preserving native capabilities', 
 it('sends native diagnostics to the Host logger without changing the tool result', async () => {
   const f = await setup()
   const messages: string[] = []
-  const debug = vi.spyOn(f.provider.ctx.logger, 'debug').mockImplementation((message: unknown) => { messages.push(String(message)) })
-  onTestFinished(() => { debug.mockRestore() })
+  const debug = vi.spyOn(f.provider.ctx.logger, 'debug').mockImplementation((message: unknown) => {
+    messages.push(String(message))
+  })
+  onTestFinished(() => {
+    debug.mockRestore()
+  })
   const result = await f.execute()
   native.reportDiagnostic?.('fixture screenshot phase')
   expect(messages).toEqual(['fixture screenshot phase'])
@@ -187,7 +257,9 @@ it('rejects helper acquisition when Agent disposal begins during replacement cle
     else disposal.resolve()
     await release.promise
   })
-  onTestFinished(() => { release.resolve() })
+  onTestFinished(() => {
+    release.resolve()
+  })
   const reacquiring = f.execute()
   await acquisition.promise
   const disposing = f.handle.dispose()
@@ -198,7 +270,11 @@ it('rejects helper acquisition when Agent disposal begins during replacement cle
     await disposing
     expect(native.instances).toHaveLength(1)
     expect(native.request).toHaveBeenCalledTimes(1)
-  } finally { release.resolve(); await disposing; await reacquiring }
+  } finally {
+    release.resolve()
+    await disposing
+    await reacquiring
+  }
 })
 
 it('aborts pending replacement before provider disposal can finish', async () => {
@@ -209,12 +285,19 @@ it('aborts pending replacement before provider disposal can finish', async () =>
   previous.disposed = true
   const acquisition: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
-  native.dispose.mockImplementation(async () => { acquisition.resolve(); await release.promise })
-  onTestFinished(() => { release.resolve() })
+  native.dispose.mockImplementation(async () => {
+    acquisition.resolve()
+    await release.promise
+  })
+  onTestFinished(() => {
+    release.resolve()
+  })
   const reacquiring = f.execute()
   await acquisition.promise
   let disposed = false
-  const disposing = f.provider.dispose().then(() => { disposed = true })
+  const disposing = f.provider.dispose().then(() => {
+    disposed = true
+  })
   try {
     await Promise.resolve()
     expect(disposed).toBe(false)
@@ -223,7 +306,11 @@ it('aborts pending replacement before provider disposal can finish', async () =>
     await disposing
     expect(native.instances).toHaveLength(1)
     expect(f.ctx.tools.schemas()).toEqual([])
-  } finally { release.resolve(); await disposing; await reacquiring }
+  } finally {
+    release.resolve()
+    await disposing
+    await reacquiring
+  }
 })
 
 it('replaces a failed helper before dispatching the next operation', async () => {
@@ -242,10 +329,17 @@ it('keeps Agent disposal pending until its helper cleanup completes', async () =
   await f.execute()
   const started: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
-  native.dispose.mockImplementation(async () => { started.resolve(); await release.promise })
-  onTestFinished(() => { release.resolve() })
+  native.dispose.mockImplementation(async () => {
+    started.resolve()
+    await release.promise
+  })
+  onTestFinished(() => {
+    release.resolve()
+  })
   let disposed = false
-  const disposing = f.handle.dispose().then(() => { disposed = true })
+  const disposing = f.handle.dispose().then(() => {
+    disposed = true
+  })
   try {
     await started.promise
     // Drain this turn's promise continuations while cleanup remains held by the explicit barrier.
@@ -254,7 +348,10 @@ it('keeps Agent disposal pending until its helper cleanup completes', async () =
     release.resolve()
     await disposing
     expect(disposed).toBe(true)
-  } finally { release.resolve(); await disposing }
+  } finally {
+    release.resolve()
+    await disposing
+  }
 })
 
 it('joins helper cleanup already started by Agent disposal when the provider unloads', async () => {
@@ -262,19 +359,29 @@ it('joins helper cleanup already started by Agent disposal when the provider unl
   await f.execute()
   const started: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
-  native.dispose.mockImplementation(async () => { started.resolve(); await release.promise })
-  onTestFinished(() => { release.resolve() })
+  native.dispose.mockImplementation(async () => {
+    started.resolve()
+    await release.promise
+  })
+  onTestFinished(() => {
+    release.resolve()
+  })
   const agentClosing = f.handle.dispose()
   await started.promise
   let providerClosed = false
-  const providerClosing = f.provider.dispose().then(() => { providerClosed = true })
+  const providerClosing = f.provider.dispose().then(() => {
+    providerClosed = true
+  })
   try {
     await setImmediate()
     expect(providerClosed).toBe(false)
     release.resolve()
     await Promise.all([agentClosing, providerClosing])
     expect(native.dispose).toHaveBeenCalledTimes(1)
-  } finally { release.resolve(); await Promise.all([agentClosing, providerClosing]) }
+  } finally {
+    release.resolve()
+    await Promise.all([agentClosing, providerClosing])
+  }
 })
 
 it('reports failed cleanup after waiting for other owners and releasing their Agent effects', async () => {
@@ -282,20 +389,37 @@ it('reports failed cleanup after waiting for other owners and releasing their Ag
   await f.execute()
   const other = await f.ctx.agents.create({ sessionId: SessionId('native-lifecycle-other') })
   await f.ctx.tools.execute({
-    agent: other.agent, signal: new AbortController().signal, callId: ToolCallId('other-owner'),
-    name: 'cua', arguments: { method: 'listApps', params: {} },
+    agent: other.agent,
+    signal: new AbortController().signal,
+    callId: ToolCallId('other-owner'),
+    name: 'cua',
+    arguments: { method: 'listApps', params: {} },
   })
   const failure = new Error('native range observation failed')
   const started: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
-  native.dispose.mockImplementationOnce(async () => { throw failure })
-    .mockImplementationOnce(async () => { started.resolve(); await release.promise })
-  onTestFinished(() => { release.resolve() })
+  native.dispose
+    .mockImplementationOnce(async () => {
+      throw failure
+    })
+    .mockImplementationOnce(async () => {
+      started.resolve()
+      await release.promise
+    })
+  onTestFinished(() => {
+    release.resolve()
+  })
   const reported: unknown[] = []
-  const errors = vi.spyOn(f.provider.ctx.logger, 'error').mockImplementation((error: unknown) => { reported.push(error) })
-  onTestFinished(() => { errors.mockRestore() })
+  const errors = vi.spyOn(f.provider.ctx.logger, 'error').mockImplementation((error: unknown) => {
+    reported.push(error)
+  })
+  onTestFinished(() => {
+    errors.mockRestore()
+  })
   let closed = false
-  const closing = f.provider.dispose().then(() => { closed = true })
+  const closing = f.provider.dispose().then(() => {
+    closed = true
+  })
   try {
     await started.promise
     await setImmediate()
@@ -311,21 +435,27 @@ it('reports failed cleanup after waiting for other owners and releasing their Ag
     expect(native.dispose).toHaveBeenCalledTimes(2)
     expect(errors).toHaveBeenCalledTimes(errorsBeforeAgentDisposal)
     expect(f.ctx.tools.schemas()).toEqual([])
-  } finally { release.resolve(); await closing }
+  } finally {
+    release.resolve()
+    await closing
+  }
 })
 
 it('rejects malformed and unowned operations before acquiring a helper', async () => {
   const f = await setup()
   expect((await f.execute('screenshot', { pid: 9, windowId: 7 })).isError).toBe(true)
   const unowned = await f.ctx.tools.execute({
-    signal: new AbortController().signal, callId: ToolCallId('unowned'), name: 'cua', arguments: { method: 'listApps', params: {} },
+    signal: new AbortController().signal,
+    callId: ToolCallId('unowned'),
+    name: 'cua',
+    arguments: { method: 'listApps', params: {} },
   })
   expect(unowned.isError).toBe(true)
   expect(native.instances).toEqual([])
   expect(native.request).not.toHaveBeenCalled()
 })
 
-it.each([false, true])('rejects an ended Agent with prior helper acquisition %s', async (acquired) => {
+it.each([false, true])('rejects an ended Agent with prior helper acquisition %s', async acquired => {
   const f = await setup()
   if (acquired) await f.execute()
   await f.handle.dispose()
@@ -340,16 +470,45 @@ it.each([false, true])('rejects an ended Agent with prior helper acquisition %s'
 it('supplies configured resource bounds and clears registrations on unload', async () => {
   const f = await setup()
   await selectApplication(f)
-  native.request.mockResolvedValueOnce({ appHandle: 'app-one', pid: 17, windowId: null, snapshotId: 's', tree: 'Window', truncated: false,
-    windows: [{ windowId: 7, pid: 17, appName: 'Fixture', title: 'Window', bounds: imageMetadata.bounds, isOnScreen: true, onCurrentSpace: true }] })
+  native.request.mockResolvedValueOnce({
+    appHandle: 'app-one',
+    pid: 17,
+    windowId: null,
+    snapshotId: 's',
+    tree: 'Window',
+    truncated: false,
+    windows: [
+      { windowId: 7, pid: 17, appName: 'Fixture', title: 'Window', bounds: imageMetadata.bounds, isOnScreen: true, onCurrentSpace: true },
+    ],
+  })
   await f.execute('getState', { appHandle: 'app-one' })
-  expect(native.request).toHaveBeenLastCalledWith('getState', { appHandle: 'app-one', maxElements: 64, maxDepth: 8 }, expect.any(AbortSignal), ToolCallId('lifecycle-2'))
+  expect(native.request).toHaveBeenLastCalledWith(
+    'getState',
+    { appHandle: 'app-one', maxElements: 64, maxDepth: 8 },
+    expect.any(AbortSignal),
+    ToolCallId('lifecycle-2'),
+  )
   await f.execute('drag', { appHandle: 'app-one', windowId: 7, fromX: 1, fromY: 2, toX: 3, toY: 4, relative: true })
-  expect(native.request).toHaveBeenLastCalledWith('drag', expect.objectContaining({ durationMs: 200, steps: 10 }), expect.any(AbortSignal), ToolCallId('lifecycle-3'))
+  expect(native.request).toHaveBeenLastCalledWith(
+    'drag',
+    expect.objectContaining({ durationMs: 200, steps: 10 }),
+    expect.any(AbortSignal),
+    ToolCallId('lifecycle-3'),
+  )
   await f.execute('paste', { appHandle: 'app-one', text: 'hello', format: 'text' })
-  expect(native.request).toHaveBeenLastCalledWith('paste', expect.objectContaining({ maxClipboardBytes: 8192, pasteReadTimeoutMs: 1000, maxElements: 64, maxDepth: 8 }), expect.any(AbortSignal), ToolCallId('lifecycle-4'))
+  expect(native.request).toHaveBeenLastCalledWith(
+    'paste',
+    expect.objectContaining({ maxClipboardBytes: 8192, pasteReadTimeoutMs: 1000, maxElements: 64, maxDepth: 8 }),
+    expect.any(AbortSignal),
+    ToolCallId('lifecycle-4'),
+  )
   await f.execute('findApps', { query: 'Fixture' })
-  expect(native.request).toHaveBeenLastCalledWith('findApps', { query: 'Fixture', maxAppMatches: 20 }, expect.any(AbortSignal), ToolCallId('lifecycle-5'))
+  expect(native.request).toHaveBeenLastCalledWith(
+    'findApps',
+    { query: 'Fixture', maxAppMatches: 20 },
+    expect.any(AbortSignal),
+    ToolCallId('lifecycle-5'),
+  )
   await f.provider.dispose()
   expect(f.ctx.tools.schemas()).toEqual([])
   expect(native.dispose).toHaveBeenCalledTimes(1)
@@ -358,8 +517,16 @@ it('supplies configured resource bounds and clears registrations on unload', asy
 it('keeps native element diagnostics out of model-visible state and structured tool values', async () => {
   const f = await setup()
   await selectApplication(f)
-  const visible = { appHandle: 'app-one', pid: 17, windowId: null, focusedWindowId: null,
-    snapshotId: 'state-one', tree: '- [0] AXButton "Save"', windows: [], truncated: false }
+  const visible = {
+    appHandle: 'app-one',
+    pid: 17,
+    windowId: null,
+    focusedWindowId: null,
+    snapshotId: 'state-one',
+    tree: '- [0] AXButton "Save"',
+    windows: [],
+    truncated: false,
+  }
   native.request.mockResolvedValue({ ...visible, elements: [{ index: 0, role: 'AXButton', bounds: [10, 20, 30, 40] }] })
   const result = await f.execute('getState', { appHandle: 'app-one' })
   expect(result.isError).toBe(false)
@@ -375,7 +542,10 @@ it('preserves screenshot attachments and invalidates pixel coordinates when wind
   await selectApplication(f)
   f.ctx.llm.registerAdapter(['image-fixture'], new ImageAdapter())
   const root = await mkdtemp(join(tmpdir(), 'dsh-cua-image-'))
-  onTestFinished(async () => { await f.ctx.fiber.dispose(); await rm(root, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await f.ctx.fiber.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
   await f.ctx.plugin(LocalAttachmentStore, { dshHome: root })
   const data = imageData
   const metadata = imageMetadata
@@ -390,8 +560,17 @@ it('preserves screenshot attachments and invalidates pixel coordinates when wind
   const stored = await f.ctx.attachments.readImage(image.attachment)
   expect(Buffer.from(stored.data).toString('base64')).toBe(data)
   expect(result.value).toMatchObject({ ...metadata, coordinateSpace: 'screenshot-pixels', mimeType: 'image/png', data })
-  const windows = [{ windowId: 7, pid: 17, appName: 'Fixture', title: 'Window',
-    bounds: { ...metadata.bounds, width: 2 }, isOnScreen: true, onCurrentSpace: true }]
+  const windows = [
+    {
+      windowId: 7,
+      pid: 17,
+      appName: 'Fixture',
+      title: 'Window',
+      bounds: { ...metadata.bounds, width: 2 },
+      isOnScreen: true,
+      onCurrentSpace: true,
+    },
+  ]
   native.request.mockResolvedValueOnce(windows)
   const listed = await f.execute('listWindows', { appHandle: 'app-one' })
   expect(listed.isError).toBe(false)
@@ -413,12 +592,23 @@ it('maps the actual model-request image pixels back to native points without sto
   }
   f.ctx.llm.registerAdapter(['image-fixture'], new ResizingAdapter())
   const root = await mkdtemp(join(tmpdir(), 'dsh-cua-coordinate-image-'))
-  onTestFinished(async () => { await f.ctx.fiber.dispose(); await rm(root, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await f.ctx.fiber.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
   await f.ctx.plugin(LocalAttachmentStore, { dshHome: root })
   const save = vi.spyOn(f.ctx.attachments, 'saveImages')
-  const image = await sharp({ create: { width: 40, height: 20, channels: 3, background: '#4488cc' } }).png().toBuffer()
-  native.request.mockResolvedValue({ ...imageMetadata, bounds: { x: 10, y: 20, width: 400, height: 200 },
-    pixelWidth: 40, pixelHeight: 20, mimeType: 'image/png', data: image.toString('base64') })
+  const image = await sharp({ create: { width: 40, height: 20, channels: 3, background: '#4488cc' } })
+    .png()
+    .toBuffer()
+  native.request.mockResolvedValue({
+    ...imageMetadata,
+    bounds: { x: 10, y: 20, width: 400, height: 200 },
+    pixelWidth: 40,
+    pixelHeight: 20,
+    mimeType: 'image/png',
+    data: image.toString('base64'),
+  })
   const result = await f.execute('screenshot', { appHandle: 'app-one', windowId: 7 })
   expect(result.isError, JSON.stringify(result.content)).toBe(false)
   expect(result.value).toMatchObject({ pixelWidth: 10, pixelHeight: 5, coordinateSpace: 'screenshot-pixels' })
@@ -427,24 +617,40 @@ it('maps the actual model-request image pixels back to native points without sto
   expect(save).toHaveBeenCalledTimes(1)
   native.request.mockResolvedValue({ dispatched: true, verified: false })
   expect((await f.execute('click', { appHandle: 'app-one', windowId: 7, x: 5, y: 2.5 })).isError).toBe(false)
-  expect(native.request).toHaveBeenLastCalledWith('click', { appHandle: 'app-one', windowId: 7, x: 200, y: 100 }, expect.any(AbortSignal), expect.any(String))
+  expect(native.request).toHaveBeenLastCalledWith(
+    'click',
+    { appHandle: 'app-one', windowId: 7, x: 200, y: 100 },
+    expect.any(AbortSignal),
+    expect.any(String),
+  )
   expect((await f.execute('click', { appHandle: 'app-one', windowId: 7, x: 500, y: 500, relative: true })).isError).toBe(false)
-  expect(native.request).toHaveBeenLastCalledWith('click', { appHandle: 'app-one', windowId: 7, x: 200, y: 100 }, expect.any(AbortSignal), expect.any(String))
+  expect(native.request).toHaveBeenLastCalledWith(
+    'click',
+    { appHandle: 'app-one', windowId: 7, x: 200, y: 100 },
+    expect.any(AbortSignal),
+    expect.any(String),
+  )
 })
 
-it.each([{ pixelWidth: 2 }, { pixelHeight: 2 }])('rejects native screenshot dimensions that disagree with decoded bytes: %j', async (invalid) => {
-  const f = await setup({ provider: 'image-fixture', model: 'vision' })
-  await selectApplication(f)
-  f.ctx.llm.registerAdapter(['image-fixture'], new ImageAdapter())
-  const root = await mkdtemp(join(tmpdir(), 'dsh-cua-image-metadata-'))
-  onTestFinished(async () => { await f.ctx.fiber.dispose(); await rm(root, { recursive: true, force: true }) })
-  await f.ctx.plugin(LocalAttachmentStore, { dshHome: root })
-  native.request.mockResolvedValue({ ...imageMetadata, ...invalid, mimeType: 'image/png', data: imageData })
-  const result = await f.execute('screenshot', { appHandle: 'app-one', windowId: 7 })
-  expect(result.isError).toBe(true)
-  expect(JSON.stringify(result.content)).toContain('dimensions disagree')
-  expect(result.content.some(block => block.type === 'image')).toBe(false)
-})
+it.each([{ pixelWidth: 2 }, { pixelHeight: 2 }])(
+  'rejects native screenshot dimensions that disagree with decoded bytes: %j',
+  async invalid => {
+    const f = await setup({ provider: 'image-fixture', model: 'vision' })
+    await selectApplication(f)
+    f.ctx.llm.registerAdapter(['image-fixture'], new ImageAdapter())
+    const root = await mkdtemp(join(tmpdir(), 'dsh-cua-image-metadata-'))
+    onTestFinished(async () => {
+      await f.ctx.fiber.dispose()
+      await rm(root, { recursive: true, force: true })
+    })
+    await f.ctx.plugin(LocalAttachmentStore, { dshHome: root })
+    native.request.mockResolvedValue({ ...imageMetadata, ...invalid, mimeType: 'image/png', data: imageData })
+    const result = await f.execute('screenshot', { appHandle: 'app-one', windowId: 7 })
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('dimensions disagree')
+    expect(result.content.some(block => block.type === 'image')).toBe(false)
+  },
+)
 
 it('refuses screenshot capture when no attachment store is mounted', async () => {
   const f = await setup({ provider: 'image-fixture', model: 'vision' })
@@ -457,23 +663,36 @@ it('refuses screenshot capture when no attachment store is mounted', async () =>
 })
 
 it.each(['unresolved', 'unknown', 'text-only', 'provider-error'] as const)(
-  'refuses screenshot capture and storage for a %s model route', async (route) => {
+  'refuses screenshot capture and storage for a %s model route',
+  async route => {
     const f = await setup(route === 'unresolved' ? undefined : { provider: 'image-fixture', model: 'vision' })
     await selectApplication(f)
     const root = await mkdtemp(join(tmpdir(), 'dsh-cua-image-route-'))
-    onTestFinished(async () => { await f.ctx.fiber.dispose(); await rm(root, { recursive: true, force: true }) })
+    onTestFinished(async () => {
+      await f.ctx.fiber.dispose()
+      await rm(root, { recursive: true, force: true })
+    })
     await f.ctx.plugin(LocalAttachmentStore, { dshHome: root })
     const saved = vi.spyOn(f.ctx.attachments, 'saveImages')
     const resolve = vi.spyOn(f.ctx.llm, 'resolveModelInfo')
     if (route === 'provider-error') resolve.mockRejectedValue(new Error('model lookup failed'))
-    else resolve.mockResolvedValue({ provider: 'image-fixture', id: 'vision', name: 'Vision',
-      ...route === 'text-only' ? { inputModalities: ['text'] } : {},
-    })
+    else
+      resolve.mockResolvedValue({
+        provider: 'image-fixture',
+        id: 'vision',
+        name: 'Vision',
+        ...(route === 'text-only' ? { inputModalities: ['text'] } : {}),
+      })
     native.request.mockClear()
     const result = await f.execute('screenshot', { appHandle: 'app-one', windowId: 7 })
     expect(result.isError).toBe(true)
-    expect(JSON.stringify(result.content)).toContain(route === 'unresolved' ? 'model route could not be resolved'
-      : route === 'provider-error' ? 'model lookup failed' : 'declare image input')
+    expect(JSON.stringify(result.content)).toContain(
+      route === 'unresolved'
+        ? 'model route could not be resolved'
+        : route === 'provider-error'
+          ? 'model lookup failed'
+          : 'declare image input',
+    )
     expect(native.request).not.toHaveBeenCalled()
     expect(saved).not.toHaveBeenCalled()
   },
@@ -484,7 +703,10 @@ it('returns an image-admission failure without emitting a successful screenshot'
   await selectApplication(f)
   f.ctx.llm.registerAdapter(['image-fixture'], new ImageAdapter())
   const root = await mkdtemp(join(tmpdir(), 'dsh-cua-image-invalid-'))
-  onTestFinished(async () => { await f.ctx.fiber.dispose(); await rm(root, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await f.ctx.fiber.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
   await f.ctx.plugin(LocalAttachmentStore, { dshHome: root })
   native.request.mockResolvedValue({ ...imageMetadata, mimeType: 'image/png', data: 'AQ==' })
   const result = await f.execute('screenshot', { appHandle: 'app-one', windowId: 7 })
@@ -502,22 +724,36 @@ it.each([
   await selectApplication(f)
   f.ctx.llm.registerAdapter(['image-fixture'], new ImageAdapter())
   const root = await mkdtemp(join(tmpdir(), 'dsh-cua-image-disposal-'))
-  onTestFinished(async () => { try { await f.ctx.fiber.dispose() } finally { await rm(root, { recursive: true, force: true }) } })
+  onTestFinished(async () => {
+    try {
+      await f.ctx.fiber.dispose()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
   await f.ctx.plugin(LocalAttachmentStore, { dshHome: root })
   native.request.mockResolvedValue({ ...imageMetadata, mimeType: 'image/png', data: imageData })
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
-  onTestFinished(() => { release.resolve() })
+  onTestFinished(() => {
+    release.resolve()
+  })
   let admissionSignal: AbortSignal | undefined
   const resolveModel = f.ctx.llm.resolveModelInfo.bind(f.ctx.llm)
   const admission = vi.spyOn(f.ctx.llm, 'resolveModelInfo').mockImplementation(async (provider, model, signal) => {
     admissionSignal = signal
-    if (stage === 'admission') { entered.resolve(); await release.promise }
+    if (stage === 'admission') {
+      entered.resolve()
+      await release.promise
+    }
     return resolveModel(provider, model, signal)
   })
   const saveImages = f.ctx.attachments.saveImages.bind(f.ctx.attachments)
-  const storage = vi.spyOn(f.ctx.attachments, 'saveImages').mockImplementation(async (images) => {
-    if (stage === 'storage') { entered.resolve(); await release.promise }
+  const storage = vi.spyOn(f.ctx.attachments, 'saveImages').mockImplementation(async images => {
+    if (stage === 'storage') {
+      entered.resolve()
+      await release.promise
+    }
     return saveImages(images)
   })
   const pending = f.execute('screenshot', { appHandle: 'app-one', windowId: 7 })
@@ -526,7 +762,9 @@ it.each([
     const reached = await Promise.race([entered.promise.then(() => true), pending.then(() => false)])
     expect(reached).toBe(true)
     let closed = false
-    closing = (owner === 'provider' ? f.provider.dispose() : f.handle.dispose()).then(() => { closed = true })
+    closing = (owner === 'provider' ? f.provider.dispose() : f.handle.dispose()).then(() => {
+      closed = true
+    })
     await setImmediate()
     expect(admissionSignal?.aborted).toBe(true)
     expect(closed).toBe(false)
@@ -573,8 +811,13 @@ it('keeps Cordis loading until preparation succeeds and reports preparation fail
   await f.provider.dispose()
   const ready: PromiseWithResolvers<string> = Promise.withResolvers()
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
-  onTestFinished(() => { ready.resolve(resolve('prepared-helper')) })
-  native.prepare.mockReset().mockImplementation(() => { entered.resolve(); return ready.promise })
+  onTestFinished(() => {
+    ready.resolve(resolve('prepared-helper'))
+  })
+  native.prepare.mockReset().mockImplementation(() => {
+    entered.resolve()
+    return ready.promise
+  })
   await f.ctx.plugin(Loader)
   f.ctx.loader.builtins.cua = NativeProvider
   const entry = f.ctx.loader.resolve(await f.ctx.loader.create({ name: 'cordis:cua', config: automaticConfig }))
@@ -594,16 +837,26 @@ it('waits for canceled preparation and never publishes its late success', async 
   const f = await setup()
   await f.provider.dispose()
   const ready = Promise.withResolvers<string>()
-  onTestFinished(() => { ready.resolve(resolve('late-helper')) })
+  onTestFinished(() => {
+    ready.resolve(resolve('late-helper'))
+  })
   native.prepare.mockReset().mockReturnValue(ready.promise)
   const starting = Promise.resolve(NativeProvider.apply(f.ctx, { ...automaticConfig, allowedApps: { get: () => [] } }))
   const failed = expect(starting).rejects.toThrow()
   const signal = native.prepare.mock.calls[0]![0].signal
-  const aborted = new Promise<void>((resolve) => {
-    signal.addEventListener('abort', () => { resolve() }, { once: true })
+  const aborted = new Promise<void>(resolve => {
+    signal.addEventListener(
+      'abort',
+      () => {
+        resolve()
+      },
+      { once: true },
+    )
   })
   let closed = false
-  const closing = f.ctx.fiber.dispose().then(() => { closed = true })
+  const closing = f.ctx.fiber.dispose().then(() => {
+    closed = true
+  })
   try {
     await aborted
     expect(closed).toBe(false)
@@ -617,32 +870,52 @@ it('waits for canceled preparation and never publishes its late success', async 
 it('rejects an unsupported native host before starting preparation', async () => {
   const f = await setup()
   await f.provider.dispose()
-  native.architecture.mockImplementationOnce(() => { throw new Error('unsupported host') })
+  native.architecture.mockImplementationOnce(() => {
+    throw new Error('unsupported host')
+  })
   native.prepare.mockReset()
   await expect(NativeProvider.apply(f.ctx, { ...automaticConfig, allowedApps: { get: () => [] } })).rejects.toThrow('unsupported host')
   expect(native.prepare).not.toHaveBeenCalled()
 })
 
-
 it('stores signed application consent in the current profile and refuses unavailable settings', async () => {
   const f = await setup()
   await f.provider.dispose()
-  const home = await mkdtemp(join(tmpdir(), 'cua-grant-profile-')), dir = join(home, 'profile')
-  onTestFinished(async () => { await f.ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }) })
+  const home = await mkdtemp(join(tmpdir(), 'cua-grant-profile-')),
+    dir = join(home, 'profile')
+  onTestFinished(async () => {
+    await f.ctx.fiber.dispose()
+    await rm(home, { recursive: true, force: true })
+  })
   initProfile(dir, ['permission-fixture-bundle'])
   const bundle = join(dir, 'node_modules', 'permission-fixture-bundle')
   await mkdir(bundle, { recursive: true })
   await writeFile(join(home, 'package.json'), '{"name":"test-installation"}\n')
-  await writeFile(join(bundle, 'package.json'), JSON.stringify({ name: 'permission-fixture-bundle', version: '1.0.0',
-    dsh: { bundle: { patch: 'cordis.patch.yml' } } }))
+  await writeFile(
+    join(bundle, 'package.json'),
+    JSON.stringify({ name: 'permission-fixture-bundle', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' } } }),
+  )
   await writeFile(join(bundle, 'cordis.patch.yml'), JSON.stringify([{ insert: [{ id: 'cua', name: 'cordis:cua', config }] }]))
   await writeFile(join(dir, 'cordis.yml'), '[]\n')
-  const profile: ProfileContext = { name: 'test', startedBundles: ['permission-fixture-bundle'], dir,
-    patchPath: join(dir, 'cordis.patch.yml'), installAnchor: join(home, 'package.json'), cwd: home, home,
-    overlays: [], telemetryDisabledEnv: undefined }
+  const profile: ProfileContext = {
+    name: 'test',
+    startedBundles: ['permission-fixture-bundle'],
+    dir,
+    patchPath: join(dir, 'cordis.patch.yml'),
+    installAnchor: join(home, 'package.json'),
+    cwd: home,
+    home,
+    overlays: [],
+    telemetryDisabledEnv: undefined,
+  }
   f.ctx.baseUrl = pathToFileURL(home).href + '/'
   f.ctx.provide('profileContext', profile)
-  f.ctx.provide('appReady', { onReady: (listener: () => void) => { listener(); return () => {} } })
+  f.ctx.provide('appReady', {
+    onReady: (listener: () => void) => {
+      listener()
+      return () => {}
+    },
+  })
   await f.ctx.plugin(Loader)
   f.ctx.loader.builtins.cua = NativeProvider
   await f.ctx.plugin(ConfigEditor)
@@ -651,8 +924,12 @@ it('stores signed application consent in the current profile and refuses unavail
   await f.ctx.plugin(UserQuestions)
   const answer = vi.fn(async () => ({ answers: [{ id: 'cua-app-access', selected: ['Allow for this task'] }] }))
   f.ctx.on('user-questions/request', answer)
-  native.request.mockResolvedValue({ appHandle: 'task-app', pid: 17, name: 'Fixture',
-    authorization: { id: 'a'.repeat(64), name: 'Fixture', executablePath: '/fixture/app', persistable: true } })
+  native.request.mockResolvedValue({
+    appHandle: 'task-app',
+    pid: 17,
+    name: 'Fixture',
+    authorization: { id: 'a'.repeat(64), name: 'Fixture', executablePath: '/fixture/app', persistable: true },
+  })
   expect((await f.execute('getApp', { selector: 'Fixture' })).isError).toBe(false)
   await f.ctx.plugin(Settings)
   await f.ctx.plugin(Timer)
@@ -671,7 +948,12 @@ it('stores signed application consent in the current profile and refuses unavail
   expect(revoked.isError).toBe(true)
   expect(JSON.stringify(revoked.content)).toContain('APP_ACCESS_REVOKED')
   vi.spyOn(f.ctx.settings, 'describe').mockReturnValue([])
-  native.request.mockResolvedValue({ appHandle: 'different-app', pid: 18, name: 'Other fixture', authorization: { ...authorization, id: 'b'.repeat(64) } })
+  native.request.mockResolvedValue({
+    appHandle: 'different-app',
+    pid: 18,
+    name: 'Other fixture',
+    authorization: { ...authorization, id: 'b'.repeat(64) },
+  })
   const unavailable = await f.execute('getApp', { selector: 'Fixture' })
   expect(unavailable.isError).toBe(true)
   expect(JSON.stringify(unavailable.content)).toContain('APP_ACCESS_DENIED')

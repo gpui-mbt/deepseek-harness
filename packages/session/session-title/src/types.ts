@@ -28,14 +28,14 @@ export interface SessionTitleModelIdentity {
 export type SessionTitleSource =
   | { readonly kind: 'fallback' }
   | {
-    readonly kind: 'provider'
-    readonly provider: SessionTitleProviderId
-    readonly model?: SessionTitleModelIdentity
-  }
+      readonly kind: 'provider'
+      readonly provider: SessionTitleProviderId
+      readonly model?: SessionTitleModelIdentity
+    }
   | {
-    /** Explicit user rename: pins the title — automatic generation stops scheduling. */
-    readonly kind: 'user'
-  }
+      /** Explicit user rename: pins the title — automatic generation stops scheduling. */
+      readonly kind: 'user'
+    }
 
 /** Payload of the log-only `session/title` event. */
 export interface SessionTitleEventData {

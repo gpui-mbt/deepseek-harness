@@ -1,6 +1,12 @@
 import type {
-  AssistantBlock, AssistantMessageNode, CommandNode, CompactionSummaryNode,
-  ConversationLocation, ConversationViewNode, ModelRetryNode, RunningToolCall,
+  AssistantBlock,
+  AssistantMessageNode,
+  CommandNode,
+  CompactionSummaryNode,
+  ConversationLocation,
+  ConversationViewNode,
+  ModelRetryNode,
+  RunningToolCall,
   ToolCallBlock,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatGroupTree } from './group-tree.ts'

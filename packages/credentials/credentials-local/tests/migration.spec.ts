@@ -2,7 +2,7 @@
 // earlier build must survive the versioned-document change without a hand
 // edit, byte for byte, while everything the recognizer cannot prove flat
 // keeps the loud rejection local.spec exercises.
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -31,7 +31,9 @@ async function tempDir(): Promise<string> {
 async function boot(config: ConstructorParameters<typeof LocalCredentialProvider>[1]): Promise<Context> {
   const ctx = new Context()
   const fiber = ctx.plugin(LocalCredentialProvider, config)
-  cleanups.push(async () => { await fiber.dispose() })
+  cleanups.push(async () => {
+    await fiber.dispose()
+  })
   await fiber
   return ctx
 }
@@ -39,31 +41,33 @@ async function boot(config: ConstructorParameters<typeof LocalCredentialProvider
 // Every spelling an earlier build accepted: plain, quoted, block-scalar, a
 // comment header, an interior blank line, and a key that happens to spell a
 // section name of the versioned layout.
-const FLAT = [
-  '# keys stored before the versioned layout',
-  'DSH_CRED_TEST: stored',
-  '',
-  '# annotates the quoted entry',
-  "DSH_CRED_OTHER: 'quoted value'",
-  'DSH_CRED_BLOCK: |',
-  '  first line',
-  '  second line',
-  'records: tricky',
-].join('\n') + '\n'
+const FLAT =
+  [
+    '# keys stored before the versioned layout',
+    'DSH_CRED_TEST: stored',
+    '',
+    '# annotates the quoted entry',
+    "DSH_CRED_OTHER: 'quoted value'",
+    'DSH_CRED_BLOCK: |',
+    '  first line',
+    '  second line',
+    'records: tricky',
+  ].join('\n') + '\n'
 
-const MIGRATED = [
-  'version: 1',
-  'refs:',
-  '  # keys stored before the versioned layout',
-  '  DSH_CRED_TEST: stored',
-  '',
-  '  # annotates the quoted entry',
-  "  DSH_CRED_OTHER: 'quoted value'",
-  '  DSH_CRED_BLOCK: |',
-  '    first line',
-  '    second line',
-  '  records: tricky',
-].join('\n') + '\n'
+const MIGRATED =
+  [
+    'version: 1',
+    'refs:',
+    '  # keys stored before the versioned layout',
+    '  DSH_CRED_TEST: stored',
+    '',
+    '  # annotates the quoted entry',
+    "  DSH_CRED_OTHER: 'quoted value'",
+    '  DSH_CRED_BLOCK: |',
+    '    first line',
+    '    second line',
+    '  records: tricky',
+  ].join('\n') + '\n'
 
 describe('flat-layout boot migration', () => {
   it('upgrades the flat document in place, byte for byte, and serves its keys', async () => {
@@ -74,10 +78,8 @@ describe('flat-layout boot migration', () => {
     expect(await readFile(path, 'utf8')).toBe(MIGRATED)
     if (process.platform !== 'win32') expect((await stat(path)).mode & 0o777).toBe(0o600)
     expect(await ctx.credentials.resolve(credentialRef('DSH_CRED_TEST'))).toEqual({ value: 'stored', source: 'file' })
-    expect(await ctx.credentials.resolve(credentialRef('DSH_CRED_OTHER')))
-      .toEqual({ value: 'quoted value', source: 'file' })
-    expect(await ctx.credentials.resolve(credentialRef('DSH_CRED_BLOCK')))
-      .toEqual({ value: 'first line\nsecond line\n', source: 'file' })
+    expect(await ctx.credentials.resolve(credentialRef('DSH_CRED_OTHER'))).toEqual({ value: 'quoted value', source: 'file' })
+    expect(await ctx.credentials.resolve(credentialRef('DSH_CRED_BLOCK'))).toEqual({ value: 'first line\nsecond line\n', source: 'file' })
     expect(await ctx.credentials.resolve(credentialRef('records'))).toEqual({ value: 'tricky', source: 'file' })
   })
 
@@ -97,9 +99,13 @@ describe('flat-layout boot migration', () => {
     await writeCredentials(path, FLAT)
     const winner = 'version: 1\nrefs:\n  DSH_CRED_TEST: winner\n'
     let release!: () => void
-    const held = new Promise<void>((resolve) => { release = resolve })
+    const held = new Promise<void>(resolve => {
+      release = resolve
+    })
     let acquired!: () => void
-    const holding = new Promise<void>((resolve) => { acquired = resolve })
+    const holding = new Promise<void>(resolve => {
+      acquired = resolve
+    })
     const holder = withFileLock(path, async () => {
       acquired()
       await held

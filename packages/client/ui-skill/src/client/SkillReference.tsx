@@ -19,10 +19,18 @@ type SkillReferenceProps = UserTextNodeProps<'skill'> & SkillReferenceInjected
  * @returns an inline skill label or interactive chip.
  */
 export function SkillReference({ node, raw, interactive, openSkill }: SkillReferenceProps) {
-  return <ReferenceChip
-    appearance="skill"
-    label={`/${node.data.name}`}
-    title={raw}
-    {...(interactive ? { onActivate: () => { openSkill(node.data.name) } } : {})}
-  />
+  return (
+    <ReferenceChip
+      appearance="skill"
+      label={`/${node.data.name}`}
+      title={raw}
+      {...(interactive
+        ? {
+            onActivate: () => {
+              openSkill(node.data.name)
+            },
+          }
+        : {})}
+    />
+  )
 }

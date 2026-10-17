@@ -2,7 +2,9 @@
 
 import type { ReactNode } from 'react'
 import {
-  IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconTrashOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconChevronRightOutlineRegular,
+  IconTrashOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import type { RoutingProviderOption } from './store.ts'
@@ -47,13 +49,9 @@ export interface RoutingDraft {
  */
 export function routingDraftOf(model: DeepSeekModelDraft): RoutingDraft {
   const windows = model['peak']
-  const entry = Array.isArray(windows) && windows.length > 0
-    ? windows[0] as Record<string, unknown>
-    : undefined
+  const entry = Array.isArray(windows) && windows.length > 0 ? (windows[0] as Record<string, unknown>) : undefined
   const providers = entry?.['providers']
-  const candidate = Array.isArray(providers) && providers.length > 0
-    ? providers[0] as Record<string, unknown>
-    : undefined
+  const candidate = Array.isArray(providers) && providers.length > 0 ? (providers[0] as Record<string, unknown>) : undefined
   const provider = candidate?.['provider']
   const apiKeyEnv = candidate?.['apiKeyEnv']
   return {
@@ -61,7 +59,7 @@ export function routingDraftOf(model: DeepSeekModelDraft): RoutingDraft {
     from: typeof entry?.['from'] === 'string' ? entry['from'] : '',
     to: typeof entry?.['to'] === 'string' ? entry['to'] : '',
     timeZone: typeof entry?.['timeZone'] === 'string' ? entry['timeZone'] : '',
-    ...typeof apiKeyEnv === 'string' && apiKeyEnv !== '' ? { apiKeyEnv } : {},
+    ...(typeof apiKeyEnv === 'string' && apiKeyEnv !== '' ? { apiKeyEnv } : {}),
   }
 }
 
@@ -100,11 +98,12 @@ export function ModelRow(props: ModelRowProps): ReactNode {
   const routing = props.onRoutingChange === undefined ? undefined : routingDraftOf(model)
   // A stored destination the catalog no longer lists stays selectable, so the
   // row shows what the profile actually says instead of blanking the select.
-  const routingOptions = props.routingProviders === undefined || routing === undefined
-    ? []
-    : routing.provider !== '' && !props.routingProviders.some(option => option.id === routing.provider)
-      ? [{ id: routing.provider, name: routing.provider, models: [] }, ...props.routingProviders]
-      : props.routingProviders
+  const routingOptions =
+    props.routingProviders === undefined || routing === undefined
+      ? []
+      : routing.provider !== '' && !props.routingProviders.some(option => option.id === routing.provider)
+        ? [{ id: routing.provider, name: routing.provider, models: [] }, ...props.routingProviders]
+        : props.routingProviders
   const editRouting = (next: Partial<RoutingDraft>): void => {
     /* v8 ignore next -- the control is only rendered when the draft exists */
     if (routing === undefined) return
@@ -114,7 +113,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
       from: next.from ?? routing.from,
       to: next.to ?? routing.to,
       timeZone: next.timeZone ?? routing.timeZone,
-      ...routing.apiKeyEnv === undefined || destinationChanged ? {} : { apiKeyEnv: routing.apiKeyEnv },
+      ...(routing.apiKeyEnv === undefined || destinationChanged ? {} : { apiKeyEnv: routing.apiKeyEnv }),
     }
     props.onRoutingChange?.(merged.provider === '' ? undefined : merged)
   }
@@ -130,7 +129,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
             placeholder={t(field === 'id' ? 'modelId' : 'modelName')}
             aria-label={`${t(field === 'id' ? 'modelId' : 'modelName')} ${String(position)}`}
             disabled={disabled}
-            onChange={(event) => {
+            onChange={event => {
               const value = event.target.value
               props.onFieldChange(field, field === 'name' && value === '' ? undefined : value)
             }}
@@ -158,102 +157,110 @@ export function ModelRow(props: ModelRowProps): ReactNode {
           <IconTrashOutlineRegular size={14} />
         </button>
       </div>
-      {props.expanded
-        ? (
-          <div className={styles['modelAdvanced']}>
-            {(['contextWindow', 'maxTokens'] as const).map(field => (
-              <label className={styles['modelField']} key={field}>
-                <span className={styles['modelFieldLabel']}>{t(field)}</span>
+      {props.expanded ? (
+        <div className={styles['modelAdvanced']}>
+          {(['contextWindow', 'maxTokens'] as const).map(field => (
+            <label className={styles['modelField']} key={field}>
+              <span className={styles['modelFieldLabel']}>{t(field)}</span>
+              <input
+                className={styles['input']}
+                type="text"
+                inputMode="numeric"
+                value={props[field].value}
+                placeholder={props[field].placeholder}
+                aria-label={`${t(field)} ${String(position)}`}
+                disabled={disabled}
+                onChange={event => {
+                  props[field].onChange(event.target.value)
+                }}
+                onBlur={props[field].onBlur}
+              />
+            </label>
+          ))}
+          <ModelInputTypes
+            model={model}
+            field={props.inputField}
+            position={position}
+            fallback={props.inputFallback}
+            disabled={disabled || props.inputLoading === true}
+            t={t}
+            onChange={props.onChange}
+          />
+          {props.reasoningLevels !== undefined && props.reasoningLevels.length > 0 ? (
+            <ModelReasoningEfforts
+              model={model}
+              levels={props.reasoningLevels}
+              position={position}
+              disabled={disabled}
+              t={t}
+              onChange={props.onChange}
+            />
+          ) : null}
+          {routing === undefined || routingOptions.length === 0 ? null : (
+            <div className={styles['routingFields']}>
+              <span className={styles['modelFieldLabel']}>{t('peakRouting')}</span>
+              <label className={styles['modelField']}>
+                <span className={styles['modelFieldLabel']}>{t('routingProvider')}</span>
+                <select
+                  className={`${styles['input']} ${styles['selectInput']}`}
+                  value={routing.provider}
+                  aria-label={`${t('routingProvider')} ${String(position)}`}
+                  disabled={disabled}
+                  onChange={event => {
+                    const provider = event.target.value
+                    editRouting({
+                      provider,
+                      ...(provider !== '' && routing.from === '' && routing.to === '' ? { from: '21:00', to: '03:00' } : {}),
+                    })
+                  }}
+                >
+                  <option value="">{t('routingNone')}</option>
+                  {routingOptions.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles['modelField']}>
+                <span className={styles['modelFieldLabel']}>{t('routingTimeZone')}</span>
                 <input
                   className={styles['input']}
                   type="text"
-                  inputMode="numeric"
-                  value={props[field].value}
-                  placeholder={props[field].placeholder}
-                  aria-label={`${t(field)} ${String(position)}`}
+                  value={routing.timeZone}
+                  placeholder={t('routingTimeZonePlaceholder')}
+                  aria-label={`${t('routingTimeZone')} ${String(position)}`}
                   disabled={disabled}
-                  onChange={(event) => { props[field].onChange(event.target.value) }}
-                  onBlur={props[field].onBlur}
+                  onChange={event => {
+                    editRouting({ timeZone: event.target.value })
+                  }}
                 />
               </label>
-            ))}
-            <ModelInputTypes
-              model={model} field={props.inputField} position={position}
-              fallback={props.inputFallback} disabled={disabled || props.inputLoading === true} t={t} onChange={props.onChange}
-            />
-            {props.reasoningLevels !== undefined && props.reasoningLevels.length > 0
-              ? (
-                <ModelReasoningEfforts
-                  model={model} levels={props.reasoningLevels} position={position} disabled={disabled} t={t} onChange={props.onChange}
-                />
-              )
-              : null}
-            {routing === undefined || routingOptions.length === 0
-              ? null
-              : (
-                <div className={styles['routingFields']}>
-                  <span className={styles['modelFieldLabel']}>{t('peakRouting')}</span>
-                  <label className={styles['modelField']}>
-                    <span className={styles['modelFieldLabel']}>{t('routingProvider')}</span>
-                    <select
-                      className={`${styles['input']} ${styles['selectInput']}`}
-                      value={routing.provider}
-                      aria-label={`${t('routingProvider')} ${String(position)}`}
-                      disabled={disabled}
-                      onChange={(event) => {
-                        const provider = event.target.value
-                        editRouting({
-                          provider,
-                          ...provider !== '' && routing.from === '' && routing.to === ''
-                            ? { from: '21:00', to: '03:00' }
-                            : {},
-                        })
-                      }}
-                    >
-                      <option value="">{t('routingNone')}</option>
-                      {routingOptions.map(option => (
-                        <option key={option.id} value={option.id}>{option.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className={styles['modelField']}>
-                    <span className={styles['modelFieldLabel']}>{t('routingTimeZone')}</span>
+              {routing.provider === '' ? (
+                <p className={styles['routingHint']}>{t('routingHint')}</p>
+              ) : (
+                (['from', 'to'] as const).map(field => (
+                  <label className={styles['modelField']} key={field}>
+                    <span className={styles['modelFieldLabel']}>{t(field === 'from' ? 'routingFrom' : 'routingTo')}</span>
                     <input
                       className={styles['input']}
                       type="text"
-                      value={routing.timeZone}
-                      placeholder={t('routingTimeZonePlaceholder')}
-                      aria-label={`${t('routingTimeZone')} ${String(position)}`}
+                      value={routing[field]}
+                      placeholder={t('routingTimePlaceholder')}
+                      aria-label={`${t(field === 'from' ? 'routingFrom' : 'routingTo')} ${String(position)}`}
                       disabled={disabled}
-                      onChange={(event) => { editRouting({ timeZone: event.target.value }) }}
+                      onChange={event => {
+                        const value = event.target.value
+                        editRouting(field === 'from' ? { from: value } : { to: value })
+                      }}
                     />
                   </label>
-                  {routing.provider === ''
-                    ? <p className={styles['routingHint']}>{t('routingHint')}</p>
-                    : (['from', 'to'] as const).map(field => (
-                      <label className={styles['modelField']} key={field}>
-                        <span className={styles['modelFieldLabel']}>
-                          {t(field === 'from' ? 'routingFrom' : 'routingTo')}
-                        </span>
-                        <input
-                          className={styles['input']}
-                          type="text"
-                          value={routing[field]}
-                          placeholder={t('routingTimePlaceholder')}
-                          aria-label={`${t(field === 'from' ? 'routingFrom' : 'routingTo')} ${String(position)}`}
-                          disabled={disabled}
-                          onChange={(event) => {
-                            const value = event.target.value
-                            editRouting(field === 'from' ? { from: value } : { to: value })
-                          }}
-                        />
-                      </label>
-                    ))}
-                </div>
+                ))
               )}
-          </div>
-        )
-        : null}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }

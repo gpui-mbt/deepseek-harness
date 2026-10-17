@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 
 it.each([
@@ -19,16 +19,19 @@ it.each([
     const patch = join(root, 'shutdown.patch.yml')
     const resultPath = join(root, 'result.json')
     const interrupt = join(root, 'interrupt')
-    await writeFile(patch, [
-      '- id: hmr',
-      '  disabled: true',
-      '- id: session-title-llm',
-      '  disabled: true',
-      '- insert:',
-      `    - name: ${JSON.stringify(new URL('./fixtures/agent-shutdown.mjs', import.meta.url).href)}`,
-      `      config: ${JSON.stringify({ root, result: resultPath, interrupt, running: state === 'running', cancelFirst })}`,
-      '',
-    ].join('\n'))
+    await writeFile(
+      patch,
+      [
+        '- id: hmr',
+        '  disabled: true',
+        '- id: session-title-llm',
+        '  disabled: true',
+        '- insert:',
+        `    - name: ${JSON.stringify(new URL('./fixtures/agent-shutdown.mjs', import.meta.url).href)}`,
+        `      config: ${JSON.stringify({ root, result: resultPath, interrupt, running: state === 'running', cancelFirst })}`,
+        '',
+      ].join('\n'),
+    )
     const launch = resolveExampleLaunch({
       srcBin: fileURLToPath(new URL('../src/bin.ts', import.meta.url)),
       tsconfigPath: fileURLToPath(new URL('../../../tsconfig.json', import.meta.url)),
@@ -40,18 +43,24 @@ it.each([
       },
     })
     const child = execa(launch.command, launch.args, {
-      cwd: root, env: launch.env, stdin: 'pipe',
-      timeout: 90_000, killSignal: 'SIGKILL', reject: false,
+      cwd: root,
+      env: launch.env,
+      stdin: 'pipe',
+      timeout: 90_000,
+      killSignal: 'SIGKILL',
+      reject: false,
     })
     const lines = createInterface({ input: child.stdout })
     try {
       const ready = Promise.withResolvers<undefined>()
-      lines.on('line', (line) => {
+      lines.on('line', line => {
         if (line === 'agent-shutdown: ready') ready.resolve(undefined)
       })
       await Promise.race([
         ready.promise,
-        child.then((result) => { throw new Error(`Web exited before readiness: ${result.stderr}`) }),
+        child.then(result => {
+          throw new Error(`Web exited before readiness: ${result.stderr}`)
+        }),
       ])
       if (process.platform === 'win32') await writeFile(interrupt, '')
       else child.kill('SIGTERM')
@@ -66,10 +75,7 @@ it.each([
         status: 'idle',
         nextStep: [],
         nextTurn: [],
-        cancelled: [
-          { data: { target: 'next-step', removedCount: 1 } },
-          { data: { target: 'next-turn', removedCount: 1 } },
-        ],
+        cancelled: [{ data: { target: 'next-step', removedCount: 1 } }, { data: { target: 'next-turn', removedCount: 1 } }],
       })
       if (state === 'running') {
         expect(evidence).toMatchObject({

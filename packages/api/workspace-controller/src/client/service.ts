@@ -107,11 +107,7 @@ export interface IWorkspaces {
    * @param beforeSessionId - anchor Session; omitted appends.
    * @returns the changed Workspace.
    */
-  insertSessionBefore(
-    workspaceId: WorkspaceId,
-    sessionId: SessionId,
-    beforeSessionId?: SessionId,
-  ): Promise<WorkspaceView>
+  insertSessionBefore(workspaceId: WorkspaceId, sessionId: SessionId, beforeSessionId?: SessionId): Promise<WorkspaceView>
 }
 
 /** Owns the bare Workspace snapshot and Workspace-only commands. */
@@ -122,7 +118,10 @@ export class WorkspaceController extends Service implements IWorkspaces {
    * @param ctx - Client root Context.
    * @param model - Remote-backed Workspace state model.
    */
-  constructor(ctx: Context, private readonly model: ClientWorkspaceModel) {
+  constructor(
+    ctx: Context,
+    private readonly model: ClientWorkspaceModel,
+  ) {
     super(ctx, 'workspaces')
     this.list = model
   }
@@ -175,11 +174,7 @@ export class WorkspaceController extends Service implements IWorkspaces {
     if (!result.ok) throw commandError('session unpin', result.error)
   }
 
-  async insertSessionBefore(
-    workspaceId: WorkspaceId,
-    sessionId: SessionId,
-    beforeSessionId?: SessionId,
-  ): Promise<WorkspaceView> {
+  async insertSessionBefore(workspaceId: WorkspaceId, sessionId: SessionId, beforeSessionId?: SessionId): Promise<WorkspaceView> {
     const result = await this.model.insertSessionBefore(workspaceId, sessionId, beforeSessionId)
     if (!result.ok) throw commandError('move', result.error)
     return result.value.workspace

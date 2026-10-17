@@ -63,10 +63,7 @@ function assertNever(value: never): never {
  * @param internals - Worker/window hooks for deterministic tests.
  * @returns the selected path, or null when the user cancels.
  */
-export async function pickWin32Directory(
-  signal: AbortSignal,
-  internals: Win32DialogInternals = {},
-): Promise<string | null> {
+export async function pickWin32Directory(signal: AbortSignal, internals: Win32DialogInternals = {}): Promise<string | null> {
   if (signal.aborted) throw new Error('native directory picker aborted')
   const spawnWorker = internals.spawnWorker ?? spawnDialogWorker
   const closeWindows = internals.closeThreadWindows ?? hostCloseThreadWindows

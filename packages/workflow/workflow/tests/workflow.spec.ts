@@ -1,11 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
-import WorkflowEngineDefault, {
-  isFatalWorkflowError,
-  WorkflowError,
-  WorkflowRunId,
-  WorkflowEngine,
-} from '../src/index.ts'
+import WorkflowEngineDefault, { isFatalWorkflowError, WorkflowError, WorkflowRunId, WorkflowEngine } from '../src/index.ts'
 import type { WorkflowRun, WorkflowRunInfo, WorkflowStartRequest } from '../src/index.ts'
 
 /** A minimal concrete subclass exposing the protected emit helper for tests. */
@@ -55,8 +50,12 @@ describe('dsh-workflow (interface)', () => {
     const ctx = new Context()
     await ctx.plugin(StubEngine)
     const seen: unknown[][] = []
-    ctx.on('workflow/log', (info, message) => { seen.push([info, message]) })
-    ctx.on('workflow/agent-start', (info, agent) => { seen.push([info, agent]) })
+    ctx.on('workflow/log', (info, message) => {
+      seen.push([info, message])
+    })
+    ctx.on('workflow/agent-start', (info, agent) => {
+      seen.push([info, agent])
+    })
     const engine = ctx.workflowEngine as StubEngine
     engine.emit('workflow/start', INFO)
     engine.emit('workflow/log', INFO, 'hello')
@@ -76,8 +75,12 @@ describe('dsh-workflow (interface)', () => {
     const seen: string[] = []
     // Runtime listeners may return thenables even though the declaration's observable result is void.
     // oxlint-disable-next-line typescript/no-misused-promises -- exercises rejected-listener containment
-    ctx.on('workflow/agent-start', async () => { throw new Error('async observer failed') })
-    ctx.on('workflow/agent-start', (_info, agent) => { seen.push(agent.label) })
+    ctx.on('workflow/agent-start', async () => {
+      throw new Error('async observer failed')
+    })
+    ctx.on('workflow/agent-start', (_info, agent) => {
+      seen.push(agent.label)
+    })
     const engine = ctx.workflowEngine as StubEngine
     const payload = { seq: 1, label: 'original', childId: 'c' }
     engine.emit('workflow/start', INFO)
@@ -94,11 +97,17 @@ describe('dsh-workflow (interface)', () => {
     await ctx.plugin(StubEngine)
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => ctx.logger)
     const reached: string[] = []
-    ctx.on('workflow/phase', () => { throw new Error('bad listener') })
-    ctx.on('workflow/phase', (_info, title) => { reached.push(title) })
+    ctx.on('workflow/phase', () => {
+      throw new Error('bad listener')
+    })
+    ctx.on('workflow/phase', (_info, title) => {
+      reached.push(title)
+    })
     const engine = ctx.workflowEngine as StubEngine
     engine.emit('workflow/start', INFO)
-    expect(() => { engine.emit('workflow/phase', INFO, 'Scan') }).not.toThrow()
+    expect(() => {
+      engine.emit('workflow/phase', INFO, 'Scan')
+    }).not.toThrow()
     engine.emit('workflow/end', INFO, { stopReason: 'completed', agentsStarted: 0 })
     expect(reached).toEqual(['Scan'])
     expect(warn).toHaveBeenCalledOnce()
@@ -111,12 +120,20 @@ describe('dsh-workflow (interface)', () => {
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => ctx.logger)
     const reached: string[] = []
     ctx.on('workflow/phase', () => {
-      throw { toString: () => { throw new Error('coercion trap') } }
+      throw {
+        toString: () => {
+          throw new Error('coercion trap')
+        },
+      }
     })
-    ctx.on('workflow/phase', (_info, title) => { reached.push(title) })
+    ctx.on('workflow/phase', (_info, title) => {
+      reached.push(title)
+    })
     const engine = ctx.workflowEngine as StubEngine
     engine.emit('workflow/start', INFO)
-    expect(() => { engine.emit('workflow/phase', INFO, 'Scan') }).not.toThrow()
+    expect(() => {
+      engine.emit('workflow/phase', INFO, 'Scan')
+    }).not.toThrow()
     engine.emit('workflow/end', INFO, { stopReason: 'completed', agentsStarted: 0 })
     expect(reached).toEqual(['Scan'])
     expect(warn).toHaveBeenCalledOnce()

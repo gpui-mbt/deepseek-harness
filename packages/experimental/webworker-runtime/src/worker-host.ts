@@ -36,9 +36,7 @@ import { inflateImage, inflateImageStream } from './storage/image-gzip.ts'
 import { loadVfsImage, loadVfsOverlay, MemoryVfs } from './storage/memory.ts'
 import { setActiveVfs } from './storage/active.ts'
 import { setTextViewer } from './shell/process/xdg-open.ts'
-import {
-  DEFAULT_ROOT, IMAGE_EMPTY_DIRECTORIES, IMAGE_HOME_DIRECTORY, IMAGE_MANIFEST_PATH, LOWERING_VERSION,
-} from './image-layout.ts'
+import { DEFAULT_ROOT, IMAGE_EMPTY_DIRECTORIES, IMAGE_HOME_DIRECTORY, IMAGE_MANIFEST_PATH, LOWERING_VERSION } from './image-layout.ts'
 import { parseImageManifest, type ImageManifest } from './image-manifest.ts'
 
 export { DEFAULT_ROOT } from './image-layout.ts'
@@ -149,7 +147,11 @@ function requireGlobalPort(channel: TunnelPort | undefined): TunnelPort {
   if (typeof post !== 'function') {
     throw new Error('webworker host: no channel; pass options.channel outside a dedicated worker')
   }
-  return { postMessage: (message, transfer) => { post(message, transfer) } }
+  return {
+    postMessage: (message, transfer) => {
+      post(message, transfer)
+    },
+  }
 }
 
 async function readImage(image: Uint8Array | string): Promise<Uint8Array> {
@@ -173,10 +175,12 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
   const tunnel = new TunnelServer({
     port: requireGlobalPort(options.channel),
     requestListener: options.requestListener,
-    ...options.privilegedMethods === undefined ? {} : { privilegedMethods: options.privilegedMethods },
-    ...options.unaryApiLane === undefined ? {} : { unaryApiLane: options.unaryApiLane },
+    ...(options.privilegedMethods === undefined ? {} : { privilegedMethods: options.privilegedMethods }),
+    ...(options.unaryApiLane === undefined ? {} : { unaryApiLane: options.unaryApiLane }),
   })
-  setTextViewer((path, text) => { tunnel.viewText(path, text) })
+  setTextViewer((path, text) => {
+    tunnel.viewText(path, text)
+  })
 
   let vfs: MemoryVfs | undefined
   let modules: WorkerModuleLoader | undefined
@@ -187,10 +191,7 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
       const home = join(root, IMAGE_HOME_DIRECTORY)
       const processShim = installProcessGlobal({ cwd: root, env: { DSH_HOME: home, HOME: home, ...options.env } })
 
-      const [bytes, overlays] = await Promise.all([
-        readImage(options.image),
-        Promise.all((options.overlays ?? []).map(readImage)),
-      ])
+      const [bytes, overlays] = await Promise.all([readImage(options.image), Promise.all((options.overlays ?? []).map(readImage))])
       const mounted = loadVfsImage(bytes, root)
       for (const overlay of overlays) loadVfsOverlay(overlay, root, mounted)
       // Belt and braces over the image's own empty-directory entries: a hand
@@ -214,8 +215,8 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
         vfs: mounted,
         root,
         staticModules,
-        ...options.staticModulePrefixes === undefined ? {} : { staticModulePrefixes: options.staticModulePrefixes },
-        ...options.alsCausality === undefined ? {} : { alsCausality: options.alsCausality },
+        ...(options.staticModulePrefixes === undefined ? {} : { staticModulePrefixes: options.staticModulePrefixes }),
+        ...(options.alsCausality === undefined ? {} : { alsCausality: options.alsCausality }),
       })
       setActiveModuleLoader(loader)
       modules = loader
@@ -226,18 +227,21 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
         DSH_LAUNCH_ENVIRONMENT_KEY: string
       }
       const cmdline = require('@deepseek-ai/dsh-cmdline') as {
-        provideCmdline(ctx: unknown, host: {
-          args: readonly string[]
-          exit: (code: number) => void
-          ready: { onReady(listener: () => void): () => void }
-        }): void
+        provideCmdline(
+          ctx: unknown,
+          host: {
+            args: readonly string[]
+            exit: (code: number) => void
+            ready: { onReady(listener: () => void): () => void }
+          },
+        ): void
       }
       // Resolved once the tunnel serves; a failed start never resolves it.
       const started = Promise.withResolvers<void>()
 
       const { patches, profile, environment } = prepareProfile(appBoot, mounted, manifest, root, processShim.env)
       const profileConfig = join(profile.dir, 'cordis.yml')
-      const ctx = await appBoot.boot(BIN_NAME, profileConfig, patches, async (hostCtx) => {
+      const ctx = await appBoot.boot(BIN_NAME, profileConfig, patches, async hostCtx => {
         hostCtx.provide('profileContext', profile)
         hostCtx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, environment)
         installLogSink(hostCtx, require)
@@ -246,12 +250,18 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
         await hostCtx.plugin(appBoot.PluginPackages, {})
         cmdline.provideCmdline(hostCtx, {
           args: [...(options.cmdlineArgs ?? ['--host', '127.0.0.1', '--port', String(port), '--no-open'])],
-          exit: (code: number) => { console.warn(`webworker host: tree requested exit(${String(code)})`) },
+          exit: (code: number) => {
+            console.warn(`webworker host: tree requested exit(${String(code)})`)
+          },
           ready: {
-            onReady: (listener) => {
+            onReady: listener => {
               let pending = true
-              void started.promise.then(() => { if (pending) listener() })
-              return () => { pending = false }
+              void started.promise.then(() => {
+                if (pending) listener()
+              })
+              return () => {
+                pending = false
+              }
             },
           },
         })
@@ -266,15 +276,16 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
       }
       const handler = connection.createSharedFetchHandler('/api')
       const usage = loader.usage()
-      console.info(`webworker host: tree active (modules=${String(usage.modules)}, data overlays=${String(overlays.length)}, lazy archives=${String(manifest.lazy.length)}, direct lane=connection.createSharedFetchHandler, als causality=${options.alsCausality === undefined ? 'inert' : 'snapshot/restore'}, image lowering=${LOWERING_VERSION})`)
+      console.info(
+        `webworker host: tree active (modules=${String(usage.modules)}, data overlays=${String(overlays.length)}, lazy archives=${String(manifest.lazy.length)}, direct lane=connection.createSharedFetchHandler, als causality=${options.alsCausality === undefined ? 'inert' : 'snapshot/restore'}, image lowering=${LOWERING_VERSION})`,
+      )
 
       // The worker tree serves only the page that spawned it, so every call speaks for the browser Peer.
       const peer = connection.browserPeer
       tunnel.serve({
         directFetch: (request: Request) => handler.fetch(request, peer),
         bootPayload: () => readBootPayload(ctx),
-        openStream: (endpoint, payload, uplink, signal) =>
-          typertGateway.wireStream.open(endpoint, payload, uplink, peer, signal),
+        openStream: (endpoint, payload, uplink, signal) => typertGateway.wireStream.open(endpoint, payload, uplink, peer, signal),
         streamFailure: typertGateway.wireStream.failure,
       })
       started.resolve()
@@ -285,7 +296,9 @@ export function createWorkerHost(options: WorkerHostOptions): WorkerHost {
   }
 
   return {
-    handleMessage: (data: unknown): void => { tunnel.handleMessage(data) },
+    handleMessage: (data: unknown): void => {
+      tunnel.handleMessage(data)
+    },
     start,
     stop: async (): Promise<void> => {
       tunnel.fail(new Error('webworker host: the tree was disposed'))
@@ -331,7 +344,7 @@ export function installLogSink(ctx: HostContext, require: (specifier: string) =>
     // which is what the built-in ring-buffer exporter does, so the skipped-provider
     // warning this sink exists for never even reached the buffer.
     levels: { default: 2 },
-    export: (message) => {
+    export: message => {
       if (message.type !== 'warn' && message.type !== 'error') return
       const line = `${message.name}: ${Logger.format(exporter, message)}`
       if (message.type === 'error') console.error(line)
@@ -346,12 +359,7 @@ const BIN_NAME = 'dsh'
 
 /** The app-boot members the Worker boots the tree with, as the image's own app-boot exports them. */
 interface AppBootFace {
-  boot(
-    binName: string,
-    configPath: string,
-    patches: unknown[],
-    prepare: (ctx: HostContext) => Promise<void>,
-  ): Promise<HostContext>
+  boot(binName: string, configPath: string, patches: unknown[], prepare: (ctx: HostContext) => Promise<void>): Promise<HostContext>
   loadProfile(binName: string, name: string, installAnchor: string, home: string): LoadedProfile
   reportSkippedBundles(binName: string, profile: LoadedProfile): void
   readProfilePatches(binName: string, context: ProfileContext, initialProfile: LoadedProfile): unknown[]
@@ -439,9 +447,15 @@ function prepareProfile(
   // The empty root list the include anchors at; the launcher rewrites it on every boot.
   vfs.writeFileSync(join(loaded.dir, 'cordis.yml'), '[]\n')
   const profile: ProfileContext = {
-    name: loaded.name, dir: loaded.dir, patchPath: loaded.patchPath, installAnchor, cwd: root, home,
+    name: loaded.name,
+    dir: loaded.dir,
+    patchPath: loaded.patchPath,
+    installAnchor,
+    cwd: root,
+    home,
     startedBundles: loaded.layers.map(layer => layer.packageName),
-    overlays: [], telemetryDisabledEnv: env.DSH_TELEMETRY_DISABLED,
+    overlays: [],
+    telemetryDisabledEnv: env.DSH_TELEMETRY_DISABLED,
   }
   return { patches: appBoot.readProfilePatches(BIN_NAME, profile, loaded), profile, environment }
 }
@@ -478,7 +492,9 @@ export async function startWorkerHost(options: WorkerHostOptions): Promise<void>
     if (typeof scope.addEventListener !== 'function') {
       throw new Error('webworker host: no message source; pass options.channel outside a dedicated worker')
     }
-    scope.addEventListener('message', (event: MessageEvent) => { host.handleMessage(event.data) })
+    scope.addEventListener('message', (event: MessageEvent) => {
+      host.handleMessage(event.data)
+    })
   }
   await host.start()
 }

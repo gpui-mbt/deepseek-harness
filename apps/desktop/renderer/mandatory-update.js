@@ -11,7 +11,13 @@ function render(view) {
   if (!view.policy.blocking) return
   const wasConfirming = current?.confirmation !== undefined
   current = view
-  const { locale: { id, messages }, policy, update, confirmation, navigation } = view
+  const {
+    locale: { id, messages },
+    policy,
+    update,
+    confirmation,
+    navigation,
+  } = view
   const confirming = confirmation !== undefined
   const failed = update.phase === 'error'
   const ready = update.phase === 'ready' || (failed && update.failedOperation === 'install')
@@ -25,10 +31,21 @@ function render(view) {
   const fallback = failed || update.phase === 'idle' || view.error !== undefined
   let title = policy.title ?? messages.mandatoryTitle
   let detail = policy.detail ?? messages.mandatoryDetail
-  let primary = '', action = '', status = ''
-  if (downloadable) { primary = failed ? messages.updateRetry : messages.updateDownload; action = 'download' }
-  if (ready) { primary = view.deferred ? messages.mandatoryContinue : messages.updateRetry; action = 'install' }
-  if (view.deferred) { title = messages.mandatoryReady; detail = messages.mandatoryDeferred }
+  let primary = '',
+    action = '',
+    status = ''
+  if (downloadable) {
+    primary = failed ? messages.updateRetry : messages.updateDownload
+    action = 'download'
+  }
+  if (ready) {
+    primary = view.deferred ? messages.mandatoryContinue : messages.updateRetry
+    action = 'install'
+  }
+  if (view.deferred) {
+    title = messages.mandatoryReady
+    detail = messages.mandatoryDeferred
+  }
   if (update.phase === 'downloading') status = format(messages.updateDownloading, { percent: String(Math.floor(update.percent ?? 0)) })
   if (update.phase === 'verifying') status = messages.updateVerifying
   if (update.phase === 'installing') status = messages.mandatoryInspecting
@@ -37,20 +54,31 @@ function render(view) {
     title = confirmation.active ? messages.updateActiveTasks : messages.mandatoryReady
     detail = confirmation.active ? messages.updateActiveTasksDetail : messages.mandatoryReadyDetail
     primary = confirmation.active ? messages.updateStopTasks : messages.installAndRestart
-    action = 'install'; status = ''
+    action = 'install'
+    status = ''
   }
   if (view.restart !== undefined) {
     title = messages.updateInstalling
     detail = view.restart === 'stopping-tasks' ? messages.mandatoryStopping : messages.mandatoryRestarting
-    status = ''; primary = ''; action = ''
+    status = ''
+    primary = ''
+    action = ''
   }
-  const error = localError ?? view.error ?? (authenticationRequired ? messages.policyLoginRequired : failed
-    ? update.failedOperation === 'download' ? messages.mandatoryDownloadFailed
-      : update.failedOperation === 'install'
-        ? preparationMessages[update.preparationFailure] ?? messages.mandatoryInstallFailed
-        : messages.mandatoryUnavailable
-    : update.phase === 'idle' && !policy.checking ? messages.mandatoryNoRelease : undefined)
-  const technicalDetails = failed ? update.technicalDetails ?? update.message ?? '' : ''
+  const error =
+    localError ??
+    view.error ??
+    (authenticationRequired
+      ? messages.policyLoginRequired
+      : failed
+        ? update.failedOperation === 'download'
+          ? messages.mandatoryDownloadFailed
+          : update.failedOperation === 'install'
+            ? (preparationMessages[update.preparationFailure] ?? messages.mandatoryInstallFailed)
+            : messages.mandatoryUnavailable
+        : update.phase === 'idle' && !policy.checking
+          ? messages.mandatoryNoRelease
+          : undefined)
+  const technicalDetails = failed ? (update.technicalDetails ?? update.message ?? '') : ''
   document.documentElement.lang = id
   document.title = messages.mandatoryTitle
   element('title').textContent = title
@@ -84,7 +112,7 @@ function render(view) {
   element('copy-message').textContent = navigation?.copy === 'failed' ? messages.mandatoryCopyFailed : ''
   element('manual-copy').hidden = navigation?.copy !== 'failed'
   element('address-label').textContent = messages.mandatoryAddress
-  element('address').value = navigation?.copy === 'failed' ? policy.page ?? '' : ''
+  element('address').value = navigation?.copy === 'failed' ? (policy.page ?? '') : ''
   // A download button can become an install button while a key remains held.
   if (confirming && !wasConfirming && document.activeElement?.id === 'update') document.activeElement.blur()
 }
@@ -96,12 +124,20 @@ async function act(action) {
   if (!navigation) busy = true
   localError = undefined
   render(current)
-  try { await api.action(action, current.confirmation?.version ?? current.update.version, current.confirmation?.revision) }
-  catch { localError = current.locale.messages.mandatoryActionFailed }
-  finally { if (!navigation) busy = false; render(current) }
+  try {
+    await api.action(action, current.confirmation?.version ?? current.update.version, current.confirmation?.revision)
+  } catch {
+    localError = current.locale.messages.mandatoryActionFailed
+  } finally {
+    if (!navigation) busy = false
+    render(current)
+  }
 }
 
-for (const action of ['refresh', 'page', 'copy', 'later']) element(action).addEventListener('click', () => { void act(action) })
+for (const action of ['refresh', 'page', 'copy', 'later'])
+  element(action).addEventListener('click', () => {
+    void act(action)
+  })
 element('update').addEventListener('click', event => {
   if (event.detail <= 1) void act(element('update').dataset.action)
 })
@@ -109,6 +145,11 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape' || (event.repeat && ['Enter', ' '].includes(event.key))) event.preventDefault()
 })
 let changed = false
-const unsubscribe = api.subscribe(view => { changed = true; render(view) })
+const unsubscribe = api.subscribe(view => {
+  changed = true
+  render(view)
+})
 window.addEventListener('pagehide', unsubscribe, { once: true })
-void api.status().then(view => { if (!changed) render(view) })
+void api.status().then(view => {
+  if (!changed) render(view)
+})

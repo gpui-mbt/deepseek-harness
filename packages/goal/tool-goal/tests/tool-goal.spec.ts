@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
@@ -9,12 +9,7 @@ import type { GoalRef } from '@deepseek-ai/dsh-goal'
 import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import SessionStore, {
-  SESSION_FORMAT_VERSION,
-  Session,
-  SessionId,
-  SessionLogOffset,
-} from '@deepseek-ai/dsh-session'
+import SessionStore, { SESSION_FORMAT_VERSION, Session, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
@@ -24,7 +19,7 @@ import { createInboxStub } from '@deepseek-ai/dsh-agent-loop-testkit'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -45,9 +40,8 @@ await isolatedInboxCtx.plugin(AgentRegistry)
 /** Build one registry-compatible live agent whose injections enter its test Inbox. */
 function stubAgent(rawId: string, supplied?: Session, suppliedCtx?: Context): StubAgent {
   const agentCtx = suppliedCtx ?? isolatedInboxCtx
-  const session = supplied ?? (suppliedCtx === undefined
-    ? agentCtx.sessions.create(SessionId(rawId))
-    : suppliedCtx.sessions.create(SessionId(rawId)))
+  const session =
+    supplied ?? (suppliedCtx === undefined ? agentCtx.sessions.create(SessionId(rawId)) : suppliedCtx.sessions.create(SessionId(rawId)))
   if (suppliedCtx === undefined) {
     if (agentCtx.sessions.get(session.id) !== session) agentCtx.sessions.enter(session)
   }
@@ -58,7 +52,9 @@ function stubAgent(rawId: string, supplied?: Session, suppliedCtx?: Context): St
     options: {},
     session,
     inbox,
-    get status() { return status },
+    get status() {
+      return status
+    },
     ctx: agentCtx,
     send: () => {},
     followup: () => {},
@@ -68,16 +64,27 @@ function stubAgent(rawId: string, supplied?: Session, suppliedCtx?: Context): St
     },
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
-    whenIdle() { return Promise.resolve() },
+    whenIdle() {
+      return Promise.resolve()
+    },
   }
-  return { agent, session, inbox, setStatus(value) { status = value } }
+  return {
+    agent,
+    session,
+    inbox,
+    setStatus(value) {
+      status = value
+    },
+  }
 }
 
 /** Open one message-triggered turn with its accepted model-visible input. */
 function openTurn(stub: StubAgent, source: MessageSource, text = 'prompt'): number {
-  const turn = stub.session.snapshotEvents()
-    .filter(event => event.type === 'turn/start')
-    .reduce((max, event) => Math.max(max, event.data.turn), 0) + 1
+  const turn =
+    stub.session
+      .snapshotEvents()
+      .filter(event => event.type === 'turn/start')
+      .reduce((max, event) => Math.max(max, event.data.turn), 0) + 1
   const message = createUserMessage({
     content: [{ type: 'text', text }],
     source,
@@ -120,13 +127,14 @@ async function execute(
   agent?: Agent,
   initiator: Agent | undefined = agent,
 ): Promise<ToolExecutionResult> {
-  const run = () => ctx.tools.execute({
-    signal: testToolSignal,
-    callId: ToolCallId(`call-${Math.random()}`),
-    name,
-    arguments: args,
-    ...agent === undefined ? {} : { agent },
-  })
+  const run = () =>
+    ctx.tools.execute({
+      signal: testToolSignal,
+      callId: ToolCallId(`call-${Math.random()}`),
+      name,
+      arguments: args,
+      ...(agent === undefined ? {} : { agent }),
+    })
   return initiator === undefined ? run() : ctx.agents.withInitiator(initiator, run)
 }
 
@@ -151,11 +159,15 @@ function resultGoal(result: ToolExecutionResult): Record<string, unknown> {
 describe('goal tool registration and presentation', () => {
   it('registers three exclusive tools plus configured guidance and disposes all contributions', async () => {
     const { ctx, fiber } = await harness({ blockedAfterConsecutiveRounds: 5 })
-    expect(['create_goal', 'get_goal', 'update_goal'].map(name => ctx.tools.get(name)?.name))
-      .toEqual(['create_goal', 'get_goal', 'update_goal'])
+    expect(['create_goal', 'get_goal', 'update_goal'].map(name => ctx.tools.get(name)?.name)).toEqual([
+      'create_goal',
+      'get_goal',
+      'update_goal',
+    ])
     for (const name of ['create_goal', 'get_goal', 'update_goal']) {
-      expect(ctx.tools.executionMode({ signal: testToolSignal, callId: ToolCallId(name), name, arguments: {} }))
-        .toEqual({ kind: 'exclusive' })
+      expect(ctx.tools.executionMode({ signal: testToolSignal, callId: ToolCallId(name), name, arguments: {} })).toEqual({
+        kind: 'exclusive',
+      })
     }
     const section = (await ctx.systemPrompt.assemble()).sections.find(item => item.name === 'tool:goal')
     expect(section?.text).toContain('infer goal intent')
@@ -169,26 +181,54 @@ describe('goal tool registration and presentation', () => {
   it('uses args-only generic render intent and soft-fails malformed replay args', async () => {
     const { ctx } = await harness()
     expect(ctx.tools.get('get_goal')?.presentCall?.({})).toEqual({
-      card: 'generic', title: 'Read current goal', kind: 'read',
+      card: 'generic',
+      title: 'Read current goal',
+      kind: 'read',
     })
     expect(ctx.tools.get('create_goal')?.presentCall?.({ objective: 'ship' })).toEqual({
-      card: 'generic', title: 'Create goal', kind: 'other', rawInput: 'ship',
+      card: 'generic',
+      title: 'Create goal',
+      kind: 'other',
+      rawInput: 'ship',
     })
-    expect(ctx.tools.get('update_goal')?.presentCall?.({
-      goal_id: 'goal-1', revision: 2, action: 'blocked', blocked_reason: 'Waiting for a human choice.',
-    })).toEqual({ card: 'generic', title: 'Mark goal', kind: 'other', rawInput: 'Waiting for a human choice.' })
-    expect(ctx.tools.get('update_goal')?.presentCall?.({
-      goal_id: 'goal-1', revision: 2, action: 'edit',
-      objective: 'ship', max_goal_rounds: 0, blocked_reason: '',
-    })).toEqual({ card: 'generic', title: 'Edit goal', kind: 'other', rawInput: 'ship' })
-    expect(ctx.tools.get('update_goal')?.presentCall?.({
-      goal_id: 'goal-1', revision: 2, action: 'edit',
-      objective: '', max_goal_rounds: 8, blocked_reason: '',
-    })).toEqual({ card: 'generic', title: 'Edit goal', kind: 'other', rawInput: 8 })
-    expect(ctx.tools.get('update_goal')?.presentCall?.({
-      goal_id: 'goal-1', revision: 2, action: 'resume',
-      objective: '', max_goal_rounds: 0, blocked_reason: '',
-    })).toEqual({ card: 'generic', title: 'Resume goal', kind: 'other', rawInput: 'goal-1' })
+    expect(
+      ctx.tools.get('update_goal')?.presentCall?.({
+        goal_id: 'goal-1',
+        revision: 2,
+        action: 'blocked',
+        blocked_reason: 'Waiting for a human choice.',
+      }),
+    ).toEqual({ card: 'generic', title: 'Mark goal', kind: 'other', rawInput: 'Waiting for a human choice.' })
+    expect(
+      ctx.tools.get('update_goal')?.presentCall?.({
+        goal_id: 'goal-1',
+        revision: 2,
+        action: 'edit',
+        objective: 'ship',
+        max_goal_rounds: 0,
+        blocked_reason: '',
+      }),
+    ).toEqual({ card: 'generic', title: 'Edit goal', kind: 'other', rawInput: 'ship' })
+    expect(
+      ctx.tools.get('update_goal')?.presentCall?.({
+        goal_id: 'goal-1',
+        revision: 2,
+        action: 'edit',
+        objective: '',
+        max_goal_rounds: 8,
+        blocked_reason: '',
+      }),
+    ).toEqual({ card: 'generic', title: 'Edit goal', kind: 'other', rawInput: 8 })
+    expect(
+      ctx.tools.get('update_goal')?.presentCall?.({
+        goal_id: 'goal-1',
+        revision: 2,
+        action: 'resume',
+        objective: '',
+        max_goal_rounds: 0,
+        blocked_reason: '',
+      }),
+    ).toEqual({ card: 'generic', title: 'Resume goal', kind: 'other', rawInput: 'goal-1' })
     expect(ctx.tools.get('update_goal')?.presentCall?.({ wrong: true })).toBeUndefined()
   })
 
@@ -208,9 +248,7 @@ describe('goal tool registration and presentation', () => {
     await ctx.plugin(GoalService)
     expect(() => {
       toolGoal.apply(ctx, { blockedAfterConsecutiveRounds: 1.5 })
-    }).toThrow(
-      'blockedAfterConsecutiveRounds must be a positive safe integer',
-    )
+    }).toThrow('blockedAfterConsecutiveRounds must be a positive safe integer')
     expect(ctx.tools.get('get_goal')).toBeUndefined()
   })
 
@@ -230,11 +268,20 @@ describe('goal tool execution authority', () => {
   it('lets a root model infer create intent from its accepted human turn', async () => {
     const { ctx, root } = await harness()
     openTurn(root, { kind: 'user' }, '请持续工作直到这个功能完成')
-    const result = await execute(ctx, 'create_goal', {
-      objective: 'Finish the feature', max_goal_rounds: 9,
-    }, root.agent)
+    const result = await execute(
+      ctx,
+      'create_goal',
+      {
+        objective: 'Finish the feature',
+        max_goal_rounds: 9,
+      },
+      root.agent,
+    )
     expect(resultGoal(result)).toMatchObject({
-      objective: 'Finish the feature', revision: 1, phase: 'active', maxGoalRounds: 9,
+      objective: 'Finish the feature',
+      revision: 1,
+      phase: 'active',
+      maxGoalRounds: 9,
     })
     expect(resultJson(result)['activation']).toBe('armed')
     expect(ctx.goals.get(root.agent)?.objective).toBe('Finish the feature')
@@ -289,21 +336,33 @@ describe('goal tool execution authority', () => {
     const created = ctx.goals.create(root.agent, { objective: 'resume the fork' })
     closeTurn(root, originalTurn)
     const forkId = SessionId('goal-tool-resumed-fork')
-    const forkSession = Session.create(forkId, root.session.snapshotEvents(), {
-      version: SESSION_FORMAT_VERSION,
-      id: forkId,
-      createdAt: Date.now(),
-      parentSession: root.session.id,
-      isSeeded: true,
-    }, SessionLogOffset(root.session.seq))
+    const forkSession = Session.create(
+      forkId,
+      root.session.snapshotEvents(),
+      {
+        version: SESSION_FORMAT_VERSION,
+        id: forkId,
+        createdAt: Date.now(),
+        parentSession: root.session.id,
+        isSeeded: true,
+      },
+      SessionLogOffset(root.session.seq),
+    )
     const fork = stubAgent(forkId, forkSession)
     await ctx.agents.register(fork.agent)
     expect(ctx.goals.get(fork.agent)).toMatchObject({ id: created.id, activation: 'disarmed' })
 
     openTurn(fork, { kind: 'user' }, '继续这个目标')
-    const resumed = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'resume',
-    }, fork.agent)
+    const resumed = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'resume',
+      },
+      fork.agent,
+    )
     expect(resultGoal(resumed)).toMatchObject({ id: created.id, revision: 2, phase: 'active' })
   })
 
@@ -321,13 +380,28 @@ describe('goal tool execution authority', () => {
   it('rejects terminal reporting without human input or a current goal round', async () => {
     const { ctx, root } = await harness()
     openTurn(root, { kind: 'test' })
-    const result = await execute(ctx, 'update_goal', {
-      goal_id: 'goal-missing', revision: 1, action: 'complete',
-    }, root.agent)
+    const result = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: 'goal-missing',
+        revision: 1,
+        action: 'complete',
+      },
+      root.agent,
+    )
     expect(result.error?.info?.code).toBe('GOAL_TOOL_AUTHORITY_REQUIRED')
-    const malformed = await execute(ctx, 'update_goal', {
-      goal_id: 'goal-missing', revision: 1, action: 'pause', objective: 'probe',
-    }, root.agent)
+    const malformed = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: 'goal-missing',
+        revision: 1,
+        action: 'pause',
+        objective: 'probe',
+      },
+      root.agent,
+    )
     expect(malformed.error?.info?.code).toBe('GOAL_TOOL_AUTHORITY_REQUIRED')
   })
 
@@ -337,15 +411,29 @@ describe('goal tool execution authority', () => {
     const created = ctx.goals.create(root.agent, { objective: 'steer me' })
     closeTurn(root, humanTurn)
     openTurn(root, {
-      kind: 'goal', goalId: created.id, revision: created.revision, round: 1,
+      kind: 'goal',
+      goalId: created.id,
+      revision: created.revision,
+      round: 1,
     })
-    root.session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'pause now' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    const paused = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'pause',
-    }, root.agent)
+    root.session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'pause now' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
+    const paused = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'pause',
+      },
+      root.agent,
+    )
     expect(resultGoal(paused)).toMatchObject({ phase: 'paused', revision: 2 })
   })
 
@@ -365,21 +453,48 @@ describe('goal tool state transitions', () => {
     openTurn(root, { kind: 'user' })
     expect(resultJson(await execute(ctx, 'get_goal', {}, root.agent))).toEqual({ goal: null })
     let goal = resultGoal(await execute(ctx, 'create_goal', { objective: 'old' }, root.agent))
-    goal = resultGoal(await execute(ctx, 'update_goal', {
-      goal_id: goal['id'], revision: goal['revision'], action: 'edit',
-      objective: 'new', max_goal_rounds: 8,
-    }, root.agent))
+    goal = resultGoal(
+      await execute(
+        ctx,
+        'update_goal',
+        {
+          goal_id: goal['id'],
+          revision: goal['revision'],
+          action: 'edit',
+          objective: 'new',
+          max_goal_rounds: 8,
+        },
+        root.agent,
+      ),
+    )
     expect(goal).toMatchObject({ objective: 'new', revision: 2, maxGoalRounds: 8 })
-    goal = resultGoal(await execute(ctx, 'update_goal', {
-      goal_id: goal['id'], revision: goal['revision'], action: 'pause',
-    }, root.agent))
+    goal = resultGoal(
+      await execute(
+        ctx,
+        'update_goal',
+        {
+          goal_id: goal['id'],
+          revision: goal['revision'],
+          action: 'pause',
+        },
+        root.agent,
+      ),
+    )
     expect(goal).toMatchObject({ phase: 'paused', revision: 3 })
-    const rejected = await execute(ctx, 'update_goal', {
-      goal_id: goal['id'], revision: goal['revision'], action: 'resume',
-    }, root.agent)
+    const rejected = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal['id'],
+        revision: goal['revision'],
+        action: 'resume',
+      },
+      root.agent,
+    )
     expect(rejected.error?.info?.code).toBe('GOAL_TOOL_RESUME_PAUSED')
     const resumed = ctx.goals.resume(root.agent, {
-      id: GoalId(goal['id'] as string), revision: goal['revision'] as number,
+      id: GoalId(goal['id'] as string),
+      revision: goal['revision'] as number,
     })
     expect(resumed).toMatchObject({ phase: 'active', revision: 4 })
   })
@@ -388,15 +503,31 @@ describe('goal tool state transitions', () => {
     const { ctx, root } = await harness()
     const firstTurn = openTurn(root, { kind: 'user' })
     let goal = resultGoal(await execute(ctx, 'create_goal', { objective: 'pause me' }, root.agent))
-    goal = resultGoal(await execute(ctx, 'update_goal', {
-      goal_id: goal['id'], revision: goal['revision'], action: 'pause',
-    }, root.agent))
+    goal = resultGoal(
+      await execute(
+        ctx,
+        'update_goal',
+        {
+          goal_id: goal['id'],
+          revision: goal['revision'],
+          action: 'pause',
+        },
+        root.agent,
+      ),
+    )
     closeTurn(root, firstTurn)
 
     openTurn(root, { kind: 'user' }, 'later unrelated request')
-    const rejected = await execute(ctx, 'update_goal', {
-      goal_id: goal['id'], revision: goal['revision'], action: 'resume',
-    }, root.agent)
+    const rejected = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal['id'],
+        revision: goal['revision'],
+        action: 'resume',
+      },
+      root.agent,
+    )
     expect(rejected.error?.info?.code).toBe('GOAL_TOOL_RESUME_PAUSED')
     expect(ctx.goals.get(root.agent)).toMatchObject({ phase: 'paused', activation: 'disarmed' })
   })
@@ -405,9 +536,16 @@ describe('goal tool state transitions', () => {
     const { ctx, root } = await harness()
     const humanTurn = openTurn(root, { kind: 'user' })
     const created = ctx.goals.create(root.agent, { objective: 'pause cleanly' })
-    const paused = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'pause',
-    }, root.agent)
+    const paused = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'pause',
+      },
+      root.agent,
+    )
     expect(resultGoal(paused)).toMatchObject({ phase: 'paused' })
     expect(paused.concludesTurn).toBeUndefined()
     expect(paused.additionalContexts).toBeUndefined()
@@ -415,11 +553,21 @@ describe('goal tool state transitions', () => {
     closeTurn(root, humanTurn)
 
     openTurn(root, {
-      kind: 'goal', goalId: created.id, revision: resumed['revision'], round: 1,
+      kind: 'goal',
+      goalId: created.id,
+      revision: resumed['revision'],
+      round: 1,
     })
-    const complete = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: resumed['revision'], action: 'complete',
-    }, root.agent)
+    const complete = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: resumed['revision'],
+        action: 'complete',
+      },
+      root.agent,
+    )
     expect(resultGoal(complete)).toMatchObject({ phase: 'complete' })
     expect(complete.concludesTurn).toBeUndefined()
     const contexts = complete.additionalContexts ?? []
@@ -440,9 +588,16 @@ describe('goal tool state transitions', () => {
     const { ctx, root } = await harness()
     openTurn(root, { kind: 'user' })
     const created = ctx.goals.create(root.agent, { objective: 'finish now' })
-    const complete = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'complete',
-    }, root.agent)
+    const complete = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'complete',
+      },
+      root.agent,
+    )
     expect(resultGoal(complete)).toMatchObject({ phase: 'complete' })
     expect(complete.concludesTurn).toBeUndefined()
     expect(complete.additionalContexts).toBeUndefined()
@@ -456,9 +611,16 @@ describe('goal tool state transitions', () => {
     await agentEvents(ctx, root.agent).serial('agent/created', { source: 'resume' })
     expect(ctx.goals.get(root.agent)?.activation).toBe('disarmed')
     turn = openTurn(root, { kind: 'user' }, '继续')
-    const resumed = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'resume',
-    }, root.agent)
+    const resumed = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'resume',
+      },
+      root.agent,
+    )
     expect(resultGoal(resumed)).toMatchObject({ phase: 'active', revision: 2 })
     expect(resultJson(resumed)['activation']).toBe('armed')
     closeTurn(root, turn)
@@ -470,43 +632,89 @@ describe('goal tool state transitions', () => {
     const invalidCreate = await execute(ctx, 'create_goal', { objective: ' ' }, root.agent)
     expect(invalidCreate.error?.info?.code).toBe('GOAL_INVALID_OBJECTIVE')
     const created = ctx.goals.create(root.agent, { objective: 'valid' })
-    const replacement = await execute(ctx, 'update_goal', {
-      goal_id: created.id,
-      revision: created.revision,
-      action: 'pause',
-      objective: 'not valid for pause',
-    }, root.agent)
+    const replacement = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'pause',
+        objective: 'not valid for pause',
+      },
+      root.agent,
+    )
     expect(replacement.error?.info?.code).toBe('GOAL_TOOL_INVALID_UPDATE')
-    const terminalUpdate = await execute(ctx, 'update_goal', {
-      goal_id: created.id,
-      revision: created.revision,
-      action: 'complete',
-      max_goal_rounds: 2,
-    }, root.agent)
+    const terminalUpdate = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'complete',
+        max_goal_rounds: 2,
+      },
+      root.agent,
+    )
     expect(terminalUpdate.error?.info?.code).toBe('GOAL_TOOL_INVALID_UPDATE')
-    const blockedWithoutReason = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'blocked',
-    }, root.agent)
+    const blockedWithoutReason = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'blocked',
+      },
+      root.agent,
+    )
     expect(blockedWithoutReason.error?.info?.code).toBe('GOAL_TOOL_INVALID_UPDATE')
-    const blockedWithEmptyReason = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'blocked', blocked_reason: ' ',
-    }, root.agent)
+    const blockedWithEmptyReason = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'blocked',
+        blocked_reason: ' ',
+      },
+      root.agent,
+    )
     expect(blockedWithEmptyReason.error?.info?.code).toBe('GOAL_TOOL_INVALID_UPDATE')
-    const completeWithReason = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'complete', blocked_reason: 'Not a blocker.',
-    }, root.agent)
+    const completeWithReason = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'complete',
+        blocked_reason: 'Not a blocker.',
+      },
+      root.agent,
+    )
     expect(completeWithReason.error?.info?.code).toBe('GOAL_TOOL_INVALID_UPDATE')
-    const editWithReason = await execute(ctx, 'update_goal', {
-      goal_id: created.id,
-      revision: created.revision,
-      action: 'edit',
-      objective: 'still valid',
-      blocked_reason: 'Not valid for edit.',
-    }, root.agent)
+    const editWithReason = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'edit',
+        objective: 'still valid',
+        blocked_reason: 'Not valid for edit.',
+      },
+      root.agent,
+    )
     expect(editWithReason.error?.info?.code).toBe('GOAL_TOOL_INVALID_UPDATE')
-    const malformedRef = await execute(ctx, 'update_goal', {
-      goal_id: '', revision: 0, action: 'edit', objective: 'x',
-    }, root.agent)
+    const malformedRef = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: '',
+        revision: 0,
+        action: 'edit',
+        objective: 'x',
+      },
+      root.agent,
+    )
     expect(malformedRef.error?.info?.code).toBe('GOAL_TOOL_INVALID_UPDATE')
   })
 
@@ -515,71 +723,101 @@ describe('goal tool state transitions', () => {
     openTurn(root, { kind: 'user' })
     let goal = ctx.goals.create(root.agent, { objective: 'valid' })
 
-    const edited = await execute(ctx, 'update_goal', {
-      goal_id: goal.id,
-      revision: goal.revision,
-      action: 'edit',
-      objective: 'edited',
-      max_goal_rounds: 0,
-      blocked_reason: '',
-    }, root.agent)
+    const edited = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal.id,
+        revision: goal.revision,
+        action: 'edit',
+        objective: 'edited',
+        max_goal_rounds: 0,
+        blocked_reason: '',
+      },
+      root.agent,
+    )
     expect(resultGoal(edited)).toMatchObject({ objective: 'edited' })
     goal = ctx.goals.get(root.agent)!
 
-    const capped = await execute(ctx, 'update_goal', {
-      goal_id: goal.id,
-      revision: goal.revision,
-      action: 'edit',
-      objective: '',
-      max_goal_rounds: 8,
-      blocked_reason: '',
-    }, root.agent)
+    const capped = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal.id,
+        revision: goal.revision,
+        action: 'edit',
+        objective: '',
+        max_goal_rounds: 8,
+        blocked_reason: '',
+      },
+      root.agent,
+    )
     expect(resultGoal(capped)).toMatchObject({ objective: 'edited', maxGoalRounds: 8 })
     goal = ctx.goals.get(root.agent)!
 
-    const paused = await execute(ctx, 'update_goal', {
-      goal_id: goal.id,
-      revision: goal.revision,
-      action: 'pause',
-      objective: '',
-      max_goal_rounds: 0,
-      blocked_reason: '',
-    }, root.agent)
+    const paused = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal.id,
+        revision: goal.revision,
+        action: 'pause',
+        objective: '',
+        max_goal_rounds: 0,
+        blocked_reason: '',
+      },
+      root.agent,
+    )
     expect(resultGoal(paused)).toMatchObject({ phase: 'paused', objective: 'edited' })
     goal = ctx.goals.get(root.agent)!
     goal = ctx.goals.resume(root.agent, { id: goal.id, revision: goal.revision })
     goal = ctx.goals.disarm(root.agent)!
 
-    const resumed = await execute(ctx, 'update_goal', {
-      goal_id: goal.id,
-      revision: goal.revision,
-      action: 'resume',
-      objective: '',
-      max_goal_rounds: 0,
-      blocked_reason: '',
-    }, root.agent)
+    const resumed = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal.id,
+        revision: goal.revision,
+        action: 'resume',
+        objective: '',
+        max_goal_rounds: 0,
+        blocked_reason: '',
+      },
+      root.agent,
+    )
     expect(resultGoal(resumed)).toMatchObject({ phase: 'active', objective: 'edited' })
     goal = ctx.goals.get(root.agent)!
 
-    const blocked = await execute(ctx, 'update_goal', {
-      goal_id: goal.id,
-      revision: goal.revision,
-      action: 'blocked',
-      objective: '',
-      max_goal_rounds: 0,
-      blocked_reason: 'actual blocker',
-    }, root.agent)
+    const blocked = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal.id,
+        revision: goal.revision,
+        action: 'blocked',
+        objective: '',
+        max_goal_rounds: 0,
+        blocked_reason: 'actual blocker',
+      },
+      root.agent,
+    )
     expect(resultGoal(blocked)).toMatchObject({ phase: 'blocked' })
     goal = ctx.goals.resume(root.agent, { id: goal.id, revision: goal.revision + 1 })
 
-    const complete = await execute(ctx, 'update_goal', {
-      goal_id: goal.id,
-      revision: goal.revision,
-      action: 'complete',
-      objective: '',
-      max_goal_rounds: 0,
-      blocked_reason: '',
-    }, root.agent)
+    const complete = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: goal.id,
+        revision: goal.revision,
+        action: 'complete',
+        objective: '',
+        max_goal_rounds: 0,
+        blocked_reason: '',
+      },
+      root.agent,
+    )
     expect(resultGoal(complete)).toMatchObject({ phase: 'complete', objective: 'edited' })
   })
 
@@ -589,13 +827,28 @@ describe('goal tool state transitions', () => {
     const created = ctx.goals.create(root.agent, { objective: 'round-owned' })
     closeTurn(root, humanTurn)
     openTurn(root, { kind: 'goal', goalId: created.id, revision: created.revision, round: 1 })
-    const edit = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'edit', objective: 'forbidden',
-    }, root.agent)
+    const edit = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'edit',
+        objective: 'forbidden',
+      },
+      root.agent,
+    )
     expect(edit.error?.info?.code).toBe('GOAL_TOOL_AUTHORITY_REQUIRED')
-    const complete = await execute(ctx, 'update_goal', {
-      goal_id: created.id, revision: created.revision, action: 'complete',
-    }, root.agent)
+    const complete = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'complete',
+      },
+      root.agent,
+    )
     expect(resultGoal(complete)).toMatchObject({ phase: 'complete', revision: 2, roundsStarted: 1 })
   })
 
@@ -608,22 +861,32 @@ describe('goal tool state transitions', () => {
 
     for (let round = 1; round <= 2; round += 1) {
       turn = openTurn(root, { kind: 'goal', goalId: ref.id, revision: ref.revision, round })
-      const result = await execute(ctx, 'update_goal', {
-        goal_id: ref.id,
-        revision: ref.revision,
-        action: 'blocked',
-        blocked_reason: 'The required credential is still unavailable.',
-      }, root.agent)
+      const result = await execute(
+        ctx,
+        'update_goal',
+        {
+          goal_id: ref.id,
+          revision: ref.revision,
+          action: 'blocked',
+          blocked_reason: 'The required credential is still unavailable.',
+        },
+        root.agent,
+      )
       expect(result.error?.info?.code).toBe('GOAL_TOOL_BLOCK_THRESHOLD')
       closeTurn(root, turn)
     }
     openTurn(root, { kind: 'goal', goalId: ref.id, revision: ref.revision, round: 3 })
-    const blocked = await execute(ctx, 'update_goal', {
-      goal_id: ref.id,
-      revision: ref.revision,
-      action: 'blocked',
-      blocked_reason: 'The required credential is still unavailable.',
-    }, root.agent)
+    const blocked = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: ref.id,
+        revision: ref.revision,
+        action: 'blocked',
+        blocked_reason: 'The required credential is still unavailable.',
+      },
+      root.agent,
+    )
     expect(resultGoal(blocked)).toMatchObject({
       phase: 'blocked',
       blockedReason: { code: 'model-reported', message: 'The required credential is still unavailable.' },
@@ -643,12 +906,17 @@ describe('goal tool state transitions', () => {
     const { ctx, root } = await harness({ blockedAfterConsecutiveRounds: 9 })
     openTurn(root, { kind: 'user' })
     const created = ctx.goals.create(root.agent, { objective: 'human stop' })
-    const blocked = await execute(ctx, 'update_goal', {
-      goal_id: created.id,
-      revision: created.revision,
-      action: 'blocked',
-      blocked_reason: 'The user asked to stop until a prerequisite is available.',
-    }, root.agent)
+    const blocked = await execute(
+      ctx,
+      'update_goal',
+      {
+        goal_id: created.id,
+        revision: created.revision,
+        action: 'blocked',
+        blocked_reason: 'The user asked to stop until a prerequisite is available.',
+      },
+      root.agent,
+    )
     expect(resultGoal(blocked)).toMatchObject({
       phase: 'blocked',
       blockedReason: {

@@ -81,21 +81,21 @@ function validateBashArgs(args: BashToolArgs, effectiveMode: SandboxMode | undef
     throw new Error(`invalid timeoutMs: expected a positive number, got ${JSON.stringify(args.timeoutMs)}`)
   }
   if (args.sandbox_permissions !== undefined && args.sandbox_permissions === effectiveMode) return
-  const justification = args.sandbox_permissions === undefined && args.justification?.trim() === ''
-    ? undefined
-    : args.justification
+  const justification = args.sandbox_permissions === undefined && args.justification?.trim() === '' ? undefined : args.justification
   validateEscalationArgs(args.sandbox_permissions, justification)
 }
 
 function bashDescription(): string {
-  return 'Execute a bash command (`bash -c`) and return its stdout/stderr. '
-    + 'Each call runs in a fresh shell; pass `workdir` instead of using `cd`. '
-    + `Managed \`$${DSH_ENV_PREFIX}*\` variables expose current harness environment facts. `
-    + 'Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. '
-    + 'Provide `description` before `command` in the arguments. '
-    + 'Before any delete or move, verify that the resolved absolute target path is the intended one; never run it against a computed path you have not checked. '
-    + 'An unset variable expands to an empty string, so guard variables in such paths with `${VAR:?}`. '
-    + 'Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]`, a policy denial: do not retry another way.'
+  return (
+    'Execute a bash command (`bash -c`) and return its stdout/stderr. ' +
+    'Each call runs in a fresh shell; pass `workdir` instead of using `cd`. ' +
+    `Managed \`$${DSH_ENV_PREFIX}*\` variables expose current harness environment facts. ` +
+    'Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. ' +
+    'Provide `description` before `command` in the arguments. ' +
+    'Before any delete or move, verify that the resolved absolute target path is the intended one; never run it against a computed path you have not checked. ' +
+    'An unset variable expands to an empty string, so guard variables in such paths with `${VAR:?}`. ' +
+    'Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]`, a policy denial: do not retry another way.'
+  )
 }
 
 /**
@@ -119,7 +119,7 @@ function presentBashCall(args: BashCallArgs): GenericCallView | TerminalCallView
     card: 'terminal',
     title: args.command,
     description: args.description,
-    ...args.workdir !== undefined ? { cwd: args.workdir } : {},
+    ...(args.workdir !== undefined ? { cwd: args.workdir } : {}),
   }
 }
 
@@ -156,7 +156,7 @@ function canonicalBashResult(result: ShellRunResult, cwd: string) {
   const output = (stream: ShellRunResult['stdout']) => ({
     text: stream.text,
     truncated: stream.truncated,
-    ...stream.spillPath !== undefined ? { spillPath: stream.spillPath } : {},
+    ...(stream.spillPath !== undefined ? { spillPath: stream.spillPath } : {}),
   })
   return {
     cwd,
@@ -167,14 +167,16 @@ function canonicalBashResult(result: ShellRunResult, cwd: string) {
     timeoutMs: result.timeoutMs,
     stdout: output(result.stdout),
     stderr: output(result.stderr),
-    ...result.sandbox !== undefined ? {
-      sandbox: {
-        mode: result.sandbox.mode,
-        denied: result.sandbox.denied,
-        ...result.sandbox.enforcement !== undefined ? { enforcement: result.sandbox.enforcement } : {},
-        ...result.sandbox.runnerFailed !== undefined ? { runnerFailed: result.sandbox.runnerFailed } : {},
-      },
-    } : {},
+    ...(result.sandbox !== undefined
+      ? {
+          sandbox: {
+            mode: result.sandbox.mode,
+            denied: result.sandbox.denied,
+            ...(result.sandbox.enforcement !== undefined ? { enforcement: result.sandbox.enforcement } : {}),
+            ...(result.sandbox.runnerFailed !== undefined ? { runnerFailed: result.sandbox.runnerFailed } : {}),
+          },
+        }
+      : {}),
   }
 }
 
@@ -270,11 +272,11 @@ export function apply(ctx: Context, config: Config = {}): void {
         kind: 'bash',
         label: args.command,
         toolCall: { callId: exec.callId, rootCallId: exec.rootCallId },
-        ...exec.agent ? { owner: exec.agent.id } : {},
+        ...(exec.agent ? { owner: exec.agent.id } : {}),
         output: processSources(() => proc),
         run: () => {
           const hooks = processJob(
-            async (signal) => {
+            async signal => {
               proc = await ctx.shell.execute({ ...spec, signal })
               return proc
             },
@@ -284,7 +286,7 @@ export function apply(ctx: Context, config: Config = {}): void {
             done: hooks.done,
             // A kill from outside this call (the human's, a parallel job_kill)
             // reaches the process here; its reason is what the model reads.
-            cancel: (reason) => {
+            cancel: reason => {
               stopped = reason
               hooks.cancel(reason)
             },
@@ -334,7 +336,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           timeoutMs,
           stdout: { text: '', truncated: false },
           stderr: { text: '', truncated: false },
-          ...spec.sandboxPolicy !== undefined ? { sandbox: { mode: spec.sandboxPolicy.mode, denied: false } } : {},
+          ...(spec.sandboxPolicy !== undefined ? { sandbox: { mode: spec.sandboxPolicy.mode, denied: false } } : {}),
         }
       }
       if (view.status === 'running' || view.status === 'stopping') {
@@ -348,7 +350,11 @@ export function apply(ctx: Context, config: Config = {}): void {
           jobId: attached.id,
           timeoutMs,
           output: renderJobRead(
-            ringDelta(read.chunks), read.lossy, read.job.output.spillPaths ?? [], attached.process()?.sandbox, escalationModes,
+            ringDelta(read.chunks),
+            read.lossy,
+            read.job.output.spillPaths ?? [],
+            attached.process()?.sandbox,
+            escalationModes,
           ),
         }
       }
@@ -363,7 +369,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       if (process === undefined) throw new Error(view.detail)
       const result = await process.result()
       const stopped = attached.stopped()
-      return { kind: 'foreground' as const, ...canonicalBashResult(result, spec.workdir), ...stopped !== undefined ? { stopped } : {} }
+      return { kind: 'foreground' as const, ...canonicalBashResult(result, spec.workdir), ...(stopped !== undefined ? { stopped } : {}) }
     }
     return defineTool({
       name: 'bash',
@@ -372,9 +378,10 @@ export function apply(ctx: Context, config: Config = {}): void {
         description: {
           type: 'string',
           required: true,
-          description: 'Clear, concise description of what this command does in active voice, '
-            + '5-10 words (shown in the UI). Examples: "ls" → "List files in current directory"; '
-            + '"git status" → "Show working tree status"; "npm install" → "Install package dependencies".',
+          description:
+            'Clear, concise description of what this command does in active voice, ' +
+            '5-10 words (shown in the UI). Examples: "ls" → "List files in current directory"; ' +
+            '"git status" → "Show working tree status"; "npm install" → "Install package dependencies".',
         },
         command: { type: 'string', required: true, description: 'The bash command to execute.' },
         timeoutMs: {
@@ -383,22 +390,34 @@ export function apply(ctx: Context, config: Config = {}): void {
             ? 'Timeout in milliseconds. The executor applies its configured default and cap; on expiry the command moves to the background as a job instead of being killed.'
             : 'Timeout in milliseconds. The executor applies its configured default and cap, and kills the command on expiry.',
         },
-        workdir: { type: 'string', description: 'Working directory for this command. Defaults to the session workspace; a relative path is resolved against it.' },
-        ...background ? {
-          run_in_background: { type: 'boolean' as const, description: 'Run in the background and return a job id immediately (collect with job_output, stop with job_kill). No timeout applies.' },
-        } : {},
-        ...escalationModes.length > 0 ? {
-          sandbox_permissions: {
-            type: 'string' as const,
-            enum: [...escalationModes],
-            description: sandboxPermissionsDescription('command'),
-          },
-          justification: {
-            type: 'string' as const,
-            description: 'Required with sandbox_permissions: one sentence for the user explaining why this exact command needs the wider access. '
-              + 'Use the language of the user’s current request.',
-          },
-        } : {},
+        workdir: {
+          type: 'string',
+          description: 'Working directory for this command. Defaults to the session workspace; a relative path is resolved against it.',
+        },
+        ...(background
+          ? {
+              run_in_background: {
+                type: 'boolean' as const,
+                description:
+                  'Run in the background and return a job id immediately (collect with job_output, stop with job_kill). No timeout applies.',
+              },
+            }
+          : {}),
+        ...(escalationModes.length > 0
+          ? {
+              sandbox_permissions: {
+                type: 'string' as const,
+                enum: [...escalationModes],
+                description: sandboxPermissionsDescription('command'),
+              },
+              justification: {
+                type: 'string' as const,
+                description:
+                  'Required with sandbox_permissions: one sentence for the user explaining why this exact command needs the wider access. ' +
+                  'Use the language of the user’s current request.',
+              },
+            }
+          : {}),
       },
       output: {
         schema: {
@@ -465,35 +484,37 @@ export function apply(ctx: Context, config: Config = {}): void {
             },
           ],
         },
-        render: (_args, value) => [{
-          type: 'text',
-          text: value.kind === 'background'
-            ? `started background job ${value.jobId}`
-            : value.kind === 'promoted'
-              ? renderPromoted(value)
-              : renderResult(value as { kind: 'foreground' } & ShellRunResult, escalationModes),
-        }],
+        render: (_args, value) => [
+          {
+            type: 'text',
+            text:
+              value.kind === 'background'
+                ? `started background job ${value.jobId}`
+                : value.kind === 'promoted'
+                  ? renderPromoted(value)
+                  : renderResult(value as { kind: 'foreground' } & ShellRunResult, escalationModes),
+          },
+        ],
         presentationMeta: (_args, value) => ({ cwd: value.cwd }),
       },
       async execute(args: BashToolArgs, exec) {
         // Description is display metadata; workdir defaults to the caller's session.
         const standingPolicy = resolveSandboxPolicy(exec)
         validateBashArgs(args, standingPolicy?.mode)
-        const approvedMode = args.sandbox_permissions !== undefined && args.justification !== undefined
-          ? await approveBashEscalation(args.sandbox_permissions, args.justification, exec, standingPolicy)
-          : undefined
-        const policy = approvedMode === undefined
-          ? standingPolicy
-          : { ...(standingPolicy as SandboxExecutionPolicy), mode: approvedMode }
+        const approvedMode =
+          args.sandbox_permissions !== undefined && args.justification !== undefined
+            ? await approveBashEscalation(args.sandbox_permissions, args.justification, exec, standingPolicy)
+            : undefined
+        const policy = approvedMode === undefined ? standingPolicy : { ...(standingPolicy as SandboxExecutionPolicy), mode: approvedMode }
         const cwd = exec.agent === undefined ? undefined : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
         const workdir = resolveWorkdir(args.workdir, cwd)
         const dshEnv = ctx.shellEnv.collect(exec)
         const request: ShellExecRequest = {
           command: args.command,
-          ...workdir !== undefined ? { workdir } : {},
-          ...args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {},
+          ...(workdir !== undefined ? { workdir } : {}),
+          ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
           dshEnv,
-          ...policy !== undefined ? { sandboxPolicy: policy } : {},
+          ...(policy !== undefined ? { sandboxPolicy: policy } : {}),
         }
         if (args.run_in_background === true) {
           // Undeclared keys are allowed, so schema omission also needs enforcement.
@@ -544,7 +565,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     return
   }
   let foregroundOnly = ctx.get('jobs') === undefined ? ctx.tools.register(bashTool(undefined)) : undefined
-  ctx.inject(['jobs'], (jobCtx) => {
+  ctx.inject(['jobs'], jobCtx => {
     foregroundOnly?.()
     foregroundOnly = undefined
     const unregister = ctx.tools.register(bashTool(jobCtx.jobs))

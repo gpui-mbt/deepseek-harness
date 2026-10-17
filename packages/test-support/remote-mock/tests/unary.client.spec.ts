@@ -1,12 +1,14 @@
 /** Registered unary defaults and the carrier's request and outcome log. */
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import { RemoteMock, ok, openStream, type RemoteTable, type UnaryRuleFn } from '../src/index.ts'
 
 describe('RemoteMock unary answers', () => {
   it('answers a fixed value verbatim and logs args and result with a global seq', async () => {
     const mock = RemoteMock.create().unary('session/list', ok({ items: [] }))
     await expect(mock.dispatch('session/list', [{}])).resolves.toEqual({ ok: true, value: { items: [] } })
-    expect(mock.log.calls()).toEqual([{ endpoint: 'session/list', args: [{}], state: 'answered', result: { ok: true, value: { items: [] } }, seq: 1 }])
+    expect(mock.log.calls()).toEqual([
+      { endpoint: 'session/list', args: [{}], state: 'answered', result: { ok: true, value: { items: [] } }, seq: 1 },
+    ])
     expect(mock.log.calls('other/x')).toEqual([])
     expect(mock.modeOf('session/list')).toBe('unary')
     expect(mock.modeOf('other/x')).toBeUndefined()
@@ -52,7 +54,7 @@ describe('RemoteMock unary answers', () => {
     await expect(mock.dispatch('a/read', ['settings', 2])).resolves.toEqual(ok({ namespace: 'settings', value: 2 }))
     await expect(mock.dispatch('a/void', [])).resolves.toBeUndefined()
     await expect(mock.dispatch('a/null', [])).resolves.toBeNull()
-    mock.unary('a/inferred', (value) => {
+    mock.unary('a/inferred', value => {
       expectTypeOf(value).toEqualTypeOf<unknown>()
       return value
     })
@@ -63,7 +65,9 @@ describe('RemoteMock unary answers', () => {
     const gate = Promise.withResolvers<unknown>()
     const mock = RemoteMock.create()
       .unary('a/slow', () => gate.promise)
-      .unary('a/throws', () => { throw new Error('sync boom') })
+      .unary('a/throws', () => {
+        throw new Error('sync boom')
+      })
       .unary('a/rejects', () => Promise.reject(new Error('async boom')))
     const slow = mock.dispatch('a/slow', [1])
     expect(mock.log.calls('a/slow')).toEqual([{ endpoint: 'a/slow', args: [1], state: 'pending', result: undefined, seq: 1 }])
@@ -72,15 +76,18 @@ describe('RemoteMock unary answers', () => {
     expect(mock.log.calls('a/slow')[0]).toMatchObject({ state: 'answered', result: 'late' })
     await expect(mock.dispatch('a/throws', [])).rejects.toThrow('sync boom')
     await expect(mock.dispatch('a/rejects', [])).rejects.toThrow('async boom')
-    expect(mock.log.calls().map(call => [call.endpoint, call.state, call.result instanceof Error ? call.result.message : call.result]))
-      .toEqual([['a/slow', 'answered', 'late'], ['a/throws', 'failed', 'sync boom'], ['a/rejects', 'failed', 'async boom']])
+    expect(
+      mock.log.calls().map(call => [call.endpoint, call.state, call.result instanceof Error ? call.result.message : call.result]),
+    ).toEqual([
+      ['a/slow', 'answered', 'late'],
+      ['a/throws', 'failed', 'sync boom'],
+      ['a/rejects', 'failed', 'async boom'],
+    ])
     expect(mock.log.unmatched()).toEqual([])
   })
 
-  it('requests() lists the first arg of calls and opens in order, per endpoint or across all but the Gateway\'s own', async () => {
-    const mock = RemoteMock.create()
-      .unary('session/page', ok(null))
-      .stream('session/follow', openStream([]))
+  it("requests() lists the first arg of calls and opens in order, per endpoint or across all but the Gateway's own", async () => {
+    const mock = RemoteMock.create().unary('session/page', ok(null)).stream('session/follow', openStream([]))
     const signal = new AbortController().signal
     await mock.dispatch('session/page', [{ throughSeq: 5 }])
     mock.open('session/follow', [{ address: 'a' }], signal)

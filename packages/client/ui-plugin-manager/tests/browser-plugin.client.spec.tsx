@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import assert from 'node:assert/strict'
 import { Context, Service } from '@deepseek-ai/cordis'
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -17,12 +17,16 @@ import { PluginsPanelIcon } from '../src/client/PluginsPanelIcon.tsx'
 import type { PluginManagerFace } from '../src/client/manager-store.ts'
 
 usePinnedBrowserLanguages('zh-CN')
-beforeEach(() => { localStorage.clear() })
+beforeEach(() => {
+  localStorage.clear()
+})
 afterEach(cleanup)
 
 async function bench() {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
@@ -44,22 +48,33 @@ async function bench() {
     },
   })
   const panelInfo = createSnapshotStore<PanelInfo>({ activePanelId: null })
-  const selectPanel = vi.fn<ILayout['selectPanel']>((activePanelId) => { panelInfo.set({ activePanelId }) })
-  ctx.provide('layout', { panelInfo, selectPanel, beginNavigation: () => new AbortController().signal,
-    toggleSidebar: vi.fn(), openRightbar: vi.fn(), closeRightbar: vi.fn() })
+  const selectPanel = vi.fn<ILayout['selectPanel']>(activePanelId => {
+    panelInfo.set({ activePanelId })
+  })
+  ctx.provide('layout', {
+    panelInfo,
+    selectPanel,
+    beginNavigation: () => new AbortController().signal,
+    toggleSidebar: vi.fn(),
+    openRightbar: vi.fn(),
+    closeRightbar: vi.fn(),
+  })
   await ctx.plugin(settings).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, list, remote, selectPanel, panelInfo }
 }
 
 function declare(slots: SlotRegistry): () => void {
-  return slots.register({
-    name: 'root',
-    children: {
-      'main': { kind: 'keyed', scope: 'root' },
-      'shell.overlay': { kind: 'list', scope: 'root' },
-      'sidebar.panellist': { kind: 'list', scope: 'root' },
-    },
-  } as never, () => null)
+  return slots.register(
+    {
+      name: 'root',
+      children: {
+        main: { kind: 'keyed', scope: 'root' },
+        'shell.overlay': { kind: 'list', scope: 'root' },
+        'sidebar.panellist': { kind: 'list', scope: 'root' },
+      },
+    } as never,
+    () => null,
+  )
 }
 
 describe('ui-plugin-manager browser plugin', () => {
@@ -100,12 +115,16 @@ describe('ui-plugin-manager browser plugin', () => {
     const overlay = overlayInjected as PluginRefreshToastFace
     expect(overlay.hooks.pluginManager).toBe(face.hooks.pluginManager)
     face.ensure()
-    await vi.waitFor(() => { expect(face.hooks.pluginManager.getSnapshot().status).toBe('ready') })
+    await vi.waitFor(() => {
+      expect(face.hooks.pluginManager.getSnapshot().status).toBe('ready')
+    })
     b.selectPanel(PANEL_ID)
     b.list.mockRejectedValueOnce(new Error('offline'))
     face.refresh()
     b.selectPanel(null)
-    await vi.waitFor(() => { expect(overlay.hooks.pluginManager.getSnapshot().notice?.kind).toBe('refresh-failed') })
+    await vi.waitFor(() => {
+      expect(overlay.hooks.pluginManager.getSnapshot().notice?.kind).toBe('refresh-failed')
+    })
     overlay.dismissNotice()
     expect(face.hooks.pluginManager.getSnapshot().notice).toBeNull()
     removeRoot()
@@ -124,7 +143,16 @@ describe('ui-plugin-manager browser plugin', () => {
   })
 
   it('declares only the services the page and its Remote methods use', () => {
-    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.pluginManager', 'remote.pluginInventory', 'remote.pluginRegistryProbe', 'configForms', 'layout'])
+    expect(inject).toEqual([
+      'slots',
+      'locale',
+      'remote',
+      'remote.pluginManager',
+      'remote.pluginInventory',
+      'remote.pluginRegistryProbe',
+      'configForms',
+      'layout',
+    ])
   })
 
   it('registers the sidebar entry and its page, which reads the Host only once rendered and follows Host changes', async () => {
@@ -144,10 +172,22 @@ describe('ui-plugin-manager browser plugin', () => {
     // The sidebar entry addresses the page by the same id and speaks the dictionary.
     const icon = b.slots.entries('sidebar.panellist')[0]!
     expect(icon.component).toBe(PluginsPanelIcon)
-    const unread = () => { throw new Error('The sidebar icon must not read application state') }
-    const glyph = render(<PluginsPanelIcon size={18} active={false}
-      usePanelInfo={unread} useSessions={unread} useSessionStatus={unread} useSessionRetainInfo={unread}
-      useWorkspaces={unread} useResource={unread} {...allowAllAccess} />)
+    const unread = () => {
+      throw new Error('The sidebar icon must not read application state')
+    }
+    const glyph = render(
+      <PluginsPanelIcon
+        size={18}
+        active={false}
+        usePanelInfo={unread}
+        useSessions={unread}
+        useSessionStatus={unread}
+        useSessionRetainInfo={unread}
+        useWorkspaces={unread}
+        useResource={unread}
+        {...allowAllAccess}
+      />,
+    )
     expect(glyph.container.querySelector('svg')?.getAttribute('width')).toBe('18')
     expect(icon.options).toMatchObject({ id: PANEL_ID, order: 0 })
     expect(icon.locale).toBe(NS)
@@ -184,12 +224,18 @@ describe('ui-plugin-manager browser plugin', () => {
     await Promise.resolve()
     expect(b.list).not.toHaveBeenCalled()
     face.ensure()
-    await vi.waitFor(() => { expect(face.hooks.pluginManager.getSnapshot().status).toBe('ready') })
+    await vi.waitFor(() => {
+      expect(face.hooks.pluginManager.getSnapshot().status).toBe('ready')
+    })
     expect(b.list).toHaveBeenCalledTimes(1)
     b.remote.emit('plugin-manager/changed', [{ reason: 'bundle' }])
-    await vi.waitFor(() => { expect(b.list).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(b.list).toHaveBeenCalledTimes(2)
+    })
     b.ctx.emit('connection/reset')
-    await vi.waitFor(() => { expect(b.list).toHaveBeenCalledTimes(3) })
+    await vi.waitFor(() => {
+      expect(b.list).toHaveBeenCalledTimes(3)
+    })
 
     // Install output folds into an open run only.
     face.openInstall()

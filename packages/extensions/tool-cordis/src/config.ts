@@ -97,7 +97,8 @@ function toJson(value: object): JsonValue {
  */
 export async function queryLiveConfig(ctx: Context, input: JsonValue | undefined): Promise<JsonValue> {
   const loader = ctx.get('loader')
-  if (loader === undefined) throw new Error('Config inspection requires the Loader that mounted this profile; this Host was composed without one')
+  if (loader === undefined)
+    throw new Error('Config inspection requires the Loader that mounted this profile; this Host was composed without one')
   const query = parseQuery(input)
   const entries = [...loader.entries()].map(liveConfig)
   if (query.entry === undefined) {
@@ -112,9 +113,14 @@ export async function queryLiveConfig(ctx: Context, input: JsonValue | undefined
   if (entry.native === undefined) return listed
   const project = await createConfigProjector()
   const { schema, definitions, acceptsMissing, limitations } = project(entry.native, 'config')
-  return toJson({ ...listed, acceptsMissing, limitations, schema: {
-    $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $defs: { ...definitions, loaderExpression: LOADER_EXPRESSION_SCHEMA },
-    ...schema,
-  } })
+  return toJson({
+    ...listed,
+    acceptsMissing,
+    limitations,
+    schema: {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $defs: { ...definitions, loaderExpression: LOADER_EXPRESSION_SCHEMA },
+      ...schema,
+    },
+  })
 }

@@ -67,8 +67,7 @@ function normalizeStructure(code: string): string {
  * repository do not contain comment delimiters inside string literals.
  */
 function normalizeJSDoc(code: string): string[] {
-  return [...code.matchAll(/\/\*\*[\s\S]*?\*\//g)]
-    .map(match => match[0].replace(/\s+/g, ' ').trim())
+  return [...code.matchAll(/\/\*\*[\s\S]*?\*\//g)].map(match => match[0].replace(/\s+/g, ' ').trim())
 }
 
 /** Strip source-only export modifiers. */
@@ -81,8 +80,7 @@ function blockSymbol(code: string): string | null {
   const sf = ts.createSourceFile('type-equiv.ts', code, ts.ScriptTarget.Latest, /* setParentNodes */ false, ts.ScriptKind.TS)
   for (const stmt of sf.statements) {
     const named =
-      ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt)
-      || ts.isClassDeclaration(stmt) || ts.isEnumDeclaration(stmt)
+      ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt) || ts.isClassDeclaration(stmt) || ts.isEnumDeclaration(stmt)
     if (named && stmt.name) return stmt.name.text
   }
   return null
@@ -146,11 +144,11 @@ function sourceDeclaration(sourceRel: string, symbol: string): string | null {
   const { text, sourceFile: sf } = parsedSource(sourceRel)
   for (const stmt of sf.statements) {
     const named =
-      ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt)
-      || ts.isClassDeclaration(stmt) || ts.isEnumDeclaration(stmt)
+      ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt) || ts.isClassDeclaration(stmt) || ts.isEnumDeclaration(stmt)
     if (named && stmt.name?.text === symbol) {
       const declarationStart = stmt.getStart(sf)
-      const jsDoc = ts.getJSDocCommentsAndTags(stmt)
+      const jsDoc = ts
+        .getJSDocCommentsAndTags(stmt)
         .filter(ts.isJSDoc)
         .map(doc => text.slice(doc.pos, doc.end))
         .join('\n')
@@ -170,8 +168,8 @@ interface InterfacePart {
 /** Find one top-level interface declaration in a source file. */
 function sourceInterface(sourceRel: string, symbol: string): InterfacePart | null {
   const { text, sourceFile } = parsedSource(sourceRel)
-  const declaration = sourceFile.statements.find((statement): statement is ts.InterfaceDeclaration =>
-    ts.isInterfaceDeclaration(statement) && statement.name.text === symbol,
+  const declaration = sourceFile.statements.find(
+    (statement): statement is ts.InterfaceDeclaration => ts.isInterfaceDeclaration(statement) && statement.name.text === symbol,
   )
   return declaration === undefined ? null : { text, sourceFile, declaration }
 }
@@ -180,10 +178,16 @@ function sourceInterface(sourceRel: string, symbol: string): InterfacePart | nul
 function augmentedInterface(sourceRel: string, moduleName: string, symbol: string): InterfacePart | null {
   const { text, sourceFile } = parsedSource(sourceRel)
   for (const statement of sourceFile.statements) {
-    if (!ts.isModuleDeclaration(statement) || !ts.isStringLiteral(statement.name)
-      || statement.name.text !== moduleName || !statement.body || !ts.isModuleBlock(statement.body)) continue
-    const declaration = statement.body.statements.find((member): member is ts.InterfaceDeclaration =>
-      ts.isInterfaceDeclaration(member) && member.name.text === symbol,
+    if (
+      !ts.isModuleDeclaration(statement) ||
+      !ts.isStringLiteral(statement.name) ||
+      statement.name.text !== moduleName ||
+      !statement.body ||
+      !ts.isModuleBlock(statement.body)
+    )
+      continue
+    const declaration = statement.body.statements.find(
+      (member): member is ts.InterfaceDeclaration => ts.isInterfaceDeclaration(member) && member.name.text === symbol,
     )
     if (declaration !== undefined) return { text, sourceFile, declaration }
   }
@@ -203,24 +207,33 @@ function mergedInterfaceDeclaration(entry: ManifestEntry): string | null {
 
   const parts = [base, ...additions]
   const docs = parts.map(part => sourceJSDoc(part.text, part.declaration)).filter(Boolean)
-  const typeParameters = base.declaration.typeParameters
-    ?.map(parameter => parameter.getText(base.sourceFile)).join(', ')
-  const heritage = parts.flatMap(part =>
-    part.declaration.heritageClauses?.map(clause => clause.getText(part.sourceFile)) ?? [],
-  ).join(' ')
+  const typeParameters = base.declaration.typeParameters?.map(parameter => parameter.getText(base.sourceFile)).join(', ')
+  const heritage = parts.flatMap(part => part.declaration.heritageClauses?.map(clause => clause.getText(part.sourceFile)) ?? []).join(' ')
   const header = `interface ${entry.symbol}${typeParameters ? `<${typeParameters}>` : ''}${heritage ? ` ${heritage}` : ''} {`
-  const members = parts.flatMap(part => part.declaration.members.map((member) => {
-    const jsDoc = sourceJSDoc(part.text, member)
-    const declaration = part.text.slice(member.getStart(part.sourceFile), member.getEnd())
-    return jsDoc === '' ? declaration : `${jsDoc}\n${declaration}`
-  }))
-  const declaration = [header, ...members.map(member => member.split('\n').map(line => `  ${line}`).join('\n')), '}'].join('\n')
+  const members = parts.flatMap(part =>
+    part.declaration.members.map(member => {
+      const jsDoc = sourceJSDoc(part.text, member)
+      const declaration = part.text.slice(member.getStart(part.sourceFile), member.getEnd())
+      return jsDoc === '' ? declaration : `${jsDoc}\n${declaration}`
+    }),
+  )
+  const declaration = [
+    header,
+    ...members.map(member =>
+      member
+        .split('\n')
+        .map(line => `  ${line}`)
+        .join('\n'),
+    ),
+    '}',
+  ].join('\n')
   return docs.length === 0 ? declaration : `${docs.join('\n')}\n${declaration}`
 }
 
 /** Leading source JSDoc attached to one declaration or member. */
 function sourceJSDoc(text: string, node: ts.Node): string {
-  return ts.getJSDocCommentsAndTags(node)
+  return ts
+    .getJSDocCommentsAndTags(node)
     .filter(ts.isJSDoc)
     .map(doc => text.slice(doc.pos, doc.end))
     .join('\n')
@@ -232,18 +245,21 @@ function isPublicMember(member: ts.ClassElement): boolean {
   const name = ts.getNameOfDeclaration(member)
   if (name && ts.isPrivateIdentifier(name)) return false
   const modifiers = ts.canHaveModifiers(member) ? ts.getModifiers(member) : undefined
-  return !(modifiers?.some(modifier =>
-    modifier.kind === ts.SyntaxKind.PrivateKeyword
-    || modifier.kind === ts.SyntaxKind.ProtectedKeyword,
-  ) ?? false)
+  return !(
+    modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.PrivateKeyword || modifier.kind === ts.SyntaxKind.ProtectedKeyword) ?? false
+  )
 }
 
 /** Remove an implementation body while retaining the source signature. */
 function bodylessMember(text: string, sf: ts.SourceFile, member: ts.ClassElement): string {
   const start = member.getStart(sf)
   let end = member.end
-  if (ts.isConstructorDeclaration(member) || ts.isMethodDeclaration(member)
-    || ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member)) {
+  if (
+    ts.isConstructorDeclaration(member) ||
+    ts.isMethodDeclaration(member) ||
+    ts.isGetAccessorDeclaration(member) ||
+    ts.isSetAccessorDeclaration(member)
+  ) {
     if (member.body) end = member.body.getStart(sf)
   }
   if (ts.isPropertyDeclaration(member) && member.initializer) end = member.initializer.getStart(sf)
@@ -266,14 +282,21 @@ function sourcePublicApi(sourceRel: string, symbol: string): string | null {
     const typeParameters = stmt.typeParameters?.map(parameter => parameter.getText(sf)).join(', ')
     const heritage = stmt.heritageClauses?.map(clause => clause.getText(sf)).join(' ')
     const header = `declare ${abstract}class ${symbol}${typeParameters ? `<${typeParameters}>` : ''}${heritage ? ` ${heritage}` : ''} {`
-    const members = stmt.members
-      .filter(isPublicMember)
-      .map((member) => {
-        const jsDoc = sourceJSDoc(text, member)
-        const declaration = bodylessMember(text, sf, member)
-        return jsDoc === '' ? declaration : `${jsDoc}\n${declaration}`
-      })
-    const declaration = [header, ...members.map(member => member.split('\n').map(line => `  ${line}`).join('\n')), '}'].join('\n')
+    const members = stmt.members.filter(isPublicMember).map(member => {
+      const jsDoc = sourceJSDoc(text, member)
+      const declaration = bodylessMember(text, sf, member)
+      return jsDoc === '' ? declaration : `${jsDoc}\n${declaration}`
+    })
+    const declaration = [
+      header,
+      ...members.map(member =>
+        member
+          .split('\n')
+          .map(line => `  ${line}`)
+          .join('\n'),
+      ),
+      '}',
+    ].join('\n')
     return classDoc === '' ? declaration : `${classDoc}\n${declaration}`
   }
   return null
@@ -310,7 +333,8 @@ const errors: string[] = []
 // scope, so no block could ever match it) is an error in its own right.
 for (const d of [...new Set(entries.map(e => e.doc))]) {
   if (!existsSync(resolve(root, d))) errors.push(`manifest references ${d}, which does not exist`)
-  else if (!docSet.has(d)) errors.push(`manifest references ${d}, which is outside the scanned markdown scope (${MARKDOWN_GLOBS.join(', ')})`)
+  else if (!docSet.has(d))
+    errors.push(`manifest references ${d}, which is outside the scanned markdown scope (${MARKDOWN_GLOBS.join(', ')})`)
 }
 
 // Duplicate-block guard: the same projected symbol twice in one doc is ambiguous.
@@ -353,11 +377,12 @@ let verified = 0
 for (const e of entries) {
   const b = blockByKey.get(keyOf(e))
   if (!b) continue // already reported as an orphan entry
-  const decl = e.augmentations !== undefined
-    ? mergedInterfaceDeclaration(e)
-    : e.projection === 'public-api'
-      ? sourcePublicApi(e.source, e.symbol)
-      : sourceDeclaration(e.source, e.symbol)
+  const decl =
+    e.augmentations !== undefined
+      ? mergedInterfaceDeclaration(e)
+      : e.projection === 'public-api'
+        ? sourcePublicApi(e.source, e.symbol)
+        : sourceDeclaration(e.source, e.symbol)
   if (decl === null) {
     errors.push(`symbol ${e.symbol} not found in ${e.source} (manifest entry for ${e.doc})`)
     continue
@@ -369,11 +394,11 @@ for (const e of entries) {
   const docJSDoc = normalizeJSDoc(doc)
   if (sourceStructure !== docStructure || JSON.stringify(sourceJSDoc) !== JSON.stringify(docJSDoc)) {
     errors.push(
-      `DRIFT: ${e.doc}:${b.line} — type-equiv block for ${e.symbol} does not match ${e.source}.\n`
-      + `    source structure: ${sourceStructure}\n`
-      + `    doc structure:    ${docStructure}\n`
-      + `    source JSDoc:     ${JSON.stringify(sourceJSDoc)}\n`
-      + `    doc JSDoc:        ${JSON.stringify(docJSDoc)}`,
+      `DRIFT: ${e.doc}:${b.line} — type-equiv block for ${e.symbol} does not match ${e.source}.\n` +
+        `    source structure: ${sourceStructure}\n` +
+        `    doc structure:    ${docStructure}\n` +
+        `    source JSDoc:     ${JSON.stringify(sourceJSDoc)}\n` +
+        `    doc JSDoc:        ${JSON.stringify(docJSDoc)}`,
     )
     continue
   }
@@ -381,11 +406,15 @@ for (const e of entries) {
 }
 
 if (errors.length === 0) {
-  console.log(`verify-type-equiv: ${verified} type-equiv block(s) match source structure and JSDoc (1:1 with manifest); ${derivatives.length} paired derivative(s).`)
+  console.log(
+    `verify-type-equiv: ${verified} type-equiv block(s) match source structure and JSDoc (1:1 with manifest); ${derivatives.length} paired derivative(s).`,
+  )
   process.exit(0)
 }
 
 console.error('verify-type-equiv: type-equiv verification failed:')
 for (const e of errors) console.error(`  ${e}`)
-console.error(`\n(checked ${blocks.length} primary block(s) across ${new Set(blocks.map(b => b.doc)).size} doc(s), ${derivatives.length} paired derivative(s); manifest at scripts/type-equiv.manifest.json)`)
+console.error(
+  `\n(checked ${blocks.length} primary block(s) across ${new Set(blocks.map(b => b.doc)).size} doc(s), ${derivatives.length} paired derivative(s); manifest at scripts/type-equiv.manifest.json)`,
+)
 process.exit(1)

@@ -2,10 +2,7 @@
 
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 import { inspectorId } from '../identity.ts'
-import {
-  type InspectorObjectHandle,
-  type InspectorObjectRegistryId,
-} from './ids.ts'
+import { type InspectorObjectHandle, type InspectorObjectRegistryId } from './ids.ts'
 import type { InspectorObjectReference } from './object-reference.ts'
 
 const REGISTRIES_SYMBOL = 'dsh.inspector.realm-object-registries'

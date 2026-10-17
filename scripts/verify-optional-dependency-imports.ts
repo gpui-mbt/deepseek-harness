@@ -45,7 +45,7 @@ type OptionalKind = 'optionalDependencies' | 'peerDependenciesMeta'
  */
 function packageOf(specifier: string): string {
   const parts = specifier.split('/')
-  return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0] ?? specifier
+  return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : (parts[0] ?? specifier)
 }
 
 /**
@@ -96,9 +96,7 @@ function optionalFor(projectRoot: string, relativePath: string): Map<string, Opt
   if (cached !== undefined) return cached
   const manifestPath = resolve(directory, 'package.json')
   const parsed: unknown = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {}
-  const manifest = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
-    ? parsed as Record<string, unknown>
-    : {}
+  const manifest = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {}
   const optional = optionalDependencies(manifest)
   optionalByDirectory.set(directory, optional)
   return optional
@@ -174,14 +172,12 @@ export function collectOptionalImportViolations(project: TypeScriptProject): str
       if (specifierNode === undefined || !ts.isStringLiteral(specifierNode)) continue
       const kind = optional.get(packageOf(specifierNode.text))
       if (kind === undefined) continue
-      const loads = isImport
-        ? importLoadsModule(statement, checker)
-        : exportLoadsModule(statement, checker)
+      const loads = isImport ? importLoadsModule(statement, checker) : exportLoadsModule(statement, checker)
       if (!loads) continue
       const { line } = sourceFile.getLineAndCharacterOfPosition(statement.getStart(sourceFile))
       violations.push(
-        `${relativePath}:${String(line + 1)} loads ${specifierNode.text} at module scope,`
-        + ` declared optional in ${kind}; import it as a type, or restructure so module scope does not need it`,
+        `${relativePath}:${String(line + 1)} loads ${specifierNode.text} at module scope,` +
+          ` declared optional in ${kind}; import it as a type, or restructure so module scope does not need it`,
       )
     }
   }

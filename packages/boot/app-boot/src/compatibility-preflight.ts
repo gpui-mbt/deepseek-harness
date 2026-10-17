@@ -43,15 +43,17 @@ function manifestOf(ctx: Context, name: string, parentURL: string): object | und
   if (!isAbsolute(specifier) && !specifier.startsWith('.') && !specifier.startsWith('file:')) return undefined
   const url = isAbsolute(specifier) ? pathToFileURL(specifier) : new URL(specifier, parentURL)
   let dir: string
-  try { dir = dirname(realpathSync(fileURLToPath(url))) }
-  catch (error) {
+  try {
+    dir = dirname(realpathSync(fileURLToPath(url)))
+  } catch (error) {
     // A row this profile cannot resolve is the Loader's import failure to report, not a compatibility decision.
     if (['ENOENT', 'ENOTDIR', 'EISDIR'].includes(String((error as NodeJS.ErrnoException).code))) return undefined
     throw error
   }
   while (true) {
-    try { return readManifest(join(dir, 'package.json')) }
-    catch (error) {
+    try {
+      return readManifest(join(dir, 'package.json'))
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       const parent = dirname(dir)
       if (parent === dir) return undefined
@@ -72,7 +74,10 @@ function manifestOf(ctx: Context, name: string, parentURL: string): object | und
  * @throws For malformed compatibility permissions or a profile composition without a resolution base.
  */
 export function prepareProfileEntries(
-  ctx: Context, entries: readonly EntryOptions[], parentURL: string | undefined, binName = 'dsh',
+  ctx: Context,
+  entries: readonly EntryOptions[],
+  parentURL: string | undefined,
+  binName = 'dsh',
 ): EntryOptions[] {
   // Admission runs before the composed tree mounts, so no plugin-owned logger exporter exists yet;
   // composition-stage diagnostics go to stderr like the profile launcher's skipped-bundle report.
@@ -86,9 +91,7 @@ export function prepareProfileEntries(
 /** Denial reporter invoked once per denied row. */
 type DenialReporter = (row: EntryOptions, reason: string) => void
 
-function preflight(
-  ctx: Context, entries: readonly EntryOptions[], parentURL: string | undefined, report: DenialReporter,
-) {
+function preflight(ctx: Context, entries: readonly EntryOptions[], parentURL: string | undefined, report: DenialReporter) {
   const rows = structuredClone(entries) as EntryOptions[]
   const profile = ctx.get('profileContext')
   if (profile === undefined) return { rows, blocked: false }
@@ -127,8 +130,12 @@ function preflight(
         continue
       }
       // The `group` marker, not the module name, is what makes a row another tree carrier.
-      if ((row.group === true || row.name === 'cordis:group' || row.name === '@deepseek-ai/cordis-plugin-group')
-        && Array.isArray(row.config) && check(row.config as EntryOptions[], base)) blocked = true
+      if (
+        (row.group === true || row.name === 'cordis:group' || row.name === '@deepseek-ai/cordis-plugin-group') &&
+        Array.isArray(row.config) &&
+        check(row.config as EntryOptions[], base)
+      )
+        blocked = true
       if (row.name !== 'cordis:include' && row.name !== '@deepseek-ai/cordis-plugin-include') continue
       const reached = includedConflicts(row, base)
       if (reached !== undefined) {
@@ -151,8 +158,9 @@ function preflight(
     includes.add(filename)
     try {
       let data: unknown
-      try { data = load(readFileSync(filename, 'utf8'), { schema: entryListSchema }) }
-      catch (error) {
+      try {
+        data = load(readFileSync(filename, 'utf8'), { schema: entryListSchema })
+      } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || config.initial === undefined) return undefined
         data = config.initial
       }
@@ -177,9 +185,7 @@ function preflight(
  * @param binName Diagnostic prefix for a denied row; defaults to `dsh`.
  * @returns One prepared insertion patch for profiles, or the original patches for non-profile callers.
  */
-export function prepareProfilePatches(
-  ctx: Context, patches: PatchOptions[], parentURL: string, binName = 'dsh',
-): PatchOptions[] {
+export function prepareProfilePatches(ctx: Context, patches: PatchOptions[], parentURL: string, binName = 'dsh'): PatchOptions[] {
   if (ctx.get('profileContext') === undefined) return patches
   const entries = applyEntryPatches([], patches, patchWarning(ctx))
   const rows = prepareProfileEntries(ctx, entries, parentURL, binName)

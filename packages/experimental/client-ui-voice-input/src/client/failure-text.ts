@@ -10,6 +10,7 @@ import type { NS } from './locales.ts'
  * @returns localized failure text.
  */
 export function failureText(failure: unknown, t: PropsLocale<typeof NS>['t']): string {
-  return failure instanceof RecordingError ? t(failure.kind)
+  return failure instanceof RecordingError
+    ? t(failure.kind)
     : t('failed', { message: failure instanceof Error ? failure.message : String(failure) })
 }

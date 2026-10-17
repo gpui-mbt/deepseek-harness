@@ -22,11 +22,14 @@ export class WorkspaceChangeFeed {
     ctx.on('fs/observed', (target, observation) => {
       for (const follower of this.followers) follower.push([target, observation])
     })
-    ctx.effect(() => async () => {
-      const followers = [...this.followers]
-      await Promise.all(followers.map(follower => follower.close()))
-      this.followers.clear()
-    }, 'workspace-files.changes')
+    ctx.effect(
+      () => async () => {
+        const followers = [...this.followers]
+        await Promise.all(followers.map(follower => follower.close()))
+        this.followers.clear()
+      },
+      'workspace-files.changes',
+    )
   }
 
   /**
@@ -46,7 +49,9 @@ export class WorkspaceChangeFeed {
     signal = AbortSignal.any([signal, follower.controller.signal])
     const aborted = (): boolean => signal.aborted
     const cancel = (): void => {
-      void follower.close().catch((error: unknown) => { this.ctx.logger.error(error) })
+      void follower.close().catch((error: unknown) => {
+        this.ctx.logger.error(error)
+      })
     }
     signal.addEventListener('abort', cancel, { once: true })
     this.followers.add(follower)
@@ -76,16 +81,19 @@ export class WorkspaceChangeFeed {
       await stat()
       if (aborted()) return
       try {
-        unwatch = await this.ctx.fs.watch(target, (error) => {
-          if (error !== undefined) follower.fail(error)
-          else if (!follower.isClosed) follower.push([target])
-        }, signal)
+        unwatch = await this.ctx.fs.watch(
+          target,
+          error => {
+            if (error !== undefined) follower.fail(error)
+            else if (!follower.isClosed) follower.push([target])
+          },
+          signal,
+        )
         if (follower.error !== undefined) throw follower.error
       } catch (error) {
         if (aborted() && follower.error === undefined) return
         const failure = follower.error ?? error
-        throw new RemoteError('workspace-file/watch-unsupported',
-          failure instanceof Error ? failure.message : String(failure), { path })
+        throw new RemoteError('workspace-file/watch-unsupported', failure instanceof Error ? failure.message : String(failure), { path })
       }
       follower.initialized.resolve(unwatch)
       if (aborted()) return
@@ -97,9 +105,7 @@ export class WorkspaceChangeFeed {
         const absolutePath = this.ctx.fs.processPath(target)
         yield {
           kind: 'change',
-          change: info !== undefined
-            ? { absolutePath, version: info.version }
-            : { absolutePath, absent: true },
+          change: info !== undefined ? { absolutePath, version: info.version } : { absolutePath, absent: true },
         }
       }
     } finally {
@@ -154,7 +160,9 @@ class ChangeFollower {
         yield observed
         continue
       }
-      await new Promise<void>((resolve) => { this.wake = resolve })
+      await new Promise<void>(resolve => {
+        this.wake = resolve
+      })
       this.wake = undefined
     }
     if (this.error !== undefined) throw this.error

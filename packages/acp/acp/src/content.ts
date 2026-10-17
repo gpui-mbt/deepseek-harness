@@ -8,12 +8,7 @@ import type { ModelSelection } from '@deepseek-ai/dsh-agent'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 
 /** Raster formats shared by ACP image blocks and the core attachment vocabulary. */
-const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-]
+const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 
 /** Canonical RFC 4648 base64, excluding whitespace and URL-safe aliases. */
 const CANONICAL_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
@@ -40,7 +35,7 @@ export class AcpContentError extends Error {
 
 /** Narrow a wire MIME string to the durable raster vocabulary. */
 function imageMediaType(value: string): ImageMediaType | undefined {
-  return IMAGE_MEDIA_TYPES.includes(value as ImageMediaType) ? value as ImageMediaType : undefined
+  return IMAGE_MEDIA_TYPES.includes(value as ImageMediaType) ? (value as ImageMediaType) : undefined
 }
 
 /** Strictly decode one ACP inline image without accepting base64 aliases. */
@@ -86,11 +81,7 @@ async function assertImageRoute(ctx: Context, route: ModelSelection | undefined,
  * @param model - configured exact model id used for newly created sessions.
  * @returns whether this bridge can admit images at initialization time.
  */
-export async function supportsAcpImagePrompts(
-  ctx: Context,
-  provider: string | undefined,
-  model: string | undefined,
-): Promise<boolean> {
+export async function supportsAcpImagePrompts(ctx: Context, provider: string | undefined, model: string | undefined): Promise<boolean> {
   const attachments = ctx.get('attachments')
   const llm = ctx.get('llm')
   if (attachments === undefined || llm === undefined || provider === undefined || model === undefined) return false
@@ -211,10 +202,7 @@ export async function admitAcpPrompt(
  * @param block - committed core assistant block.
  * @returns ACP text/image content, or undefined for non-output blocks.
  */
-export async function assistantBlockToAcp(
-  ctx: Context,
-  block: ContentBlock,
-): Promise<AcpContentBlock | undefined> {
+export async function assistantBlockToAcp(ctx: Context, block: ContentBlock): Promise<AcpContentBlock | undefined> {
   if (block.type === 'text') {
     return block.text.length === 0 ? undefined : { type: 'text', text: block.text }
   }

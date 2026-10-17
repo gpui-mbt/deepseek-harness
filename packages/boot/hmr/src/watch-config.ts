@@ -36,7 +36,10 @@ async function findWatchRoot(filename: string): Promise<{ filename: string; root
  * @throws When path resolution, watcher startup, or effect registration fails.
  */
 export async function watchConfig(
-  ctx: Context, filename: string, options: ChokidarOptions, refresh: () => Promise<void> | void,
+  ctx: Context,
+  filename: string,
+  options: ChokidarOptions,
+  refresh: () => Promise<void> | void,
   inTransaction: () => boolean = () => false,
 ): Promise<() => Promise<void>> {
   const target = await findWatchRoot(filename)
@@ -46,8 +49,11 @@ export async function watchConfig(
   const { cwd: _cwd, ignored: _ignored, ...watchOptions } = options
   const watcher = watch(target.root, {
     // Stabilized events bypass Chokidar's lossy 50 ms change-event throttle.
-    awaitWriteFinish: true, ...watchOptions, depth: target.depth, ignoreInitial: false,
-    ignored: (path) => {
+    awaitWriteFinish: true,
+    ...watchOptions,
+    depth: target.depth,
+    ignoreInitial: false,
+    ignored: path => {
       const remainder = relative(resolve(path), target.filename)
       return remainder === '..' || remainder.startsWith(`..${sep}`)
     },
@@ -71,7 +77,9 @@ export async function watchConfig(
           ctx.logger.warn(error)
         }
       }
-    })().finally(() => { running = undefined })
+    })().finally(() => {
+      running = undefined
+    })
   }
   watcher.on('add', onChange)
   watcher.on('change', onChange)
@@ -79,12 +87,20 @@ export async function watchConfig(
   const ready = Promise.withResolvers<void>()
   let pending = true
   let disposed = false
-  watcher.once('ready', () => { pending = false; ready.resolve() })
+  watcher.once('ready', () => {
+    pending = false
+    ready.resolve()
+  })
   const onError = (error: unknown): void => {
     // A watcher error after disposal is not actionable: this registration's
     // path is gone and no refresh will run.
     if (disposed) return
-    if (pending) { pending = false; ready.reject(error) } else { ctx.logger.warn(error) }
+    if (pending) {
+      pending = false
+      ready.reject(error)
+    } else {
+      ctx.logger.warn(error)
+    }
   }
   watcher.on('error', onError)
   const dispose = async () => {

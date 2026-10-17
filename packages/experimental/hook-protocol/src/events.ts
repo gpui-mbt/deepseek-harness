@@ -78,7 +78,7 @@ export function appendHookInvoked(session: Session, invocation: HookInvocation):
     point: invocation.point,
     dialect: invocation.dialect,
     handlerId: invocation.handlerId,
-    ...invocation.matcher !== undefined ? { matcher: invocation.matcher } : {},
+    ...(invocation.matcher !== undefined ? { matcher: invocation.matcher } : {}),
   })
 }
 
@@ -97,8 +97,8 @@ export function appendHookResult(session: Session, record: HookResultRecord): vo
     point: record.point,
     handlerId: record.handlerId,
     decision: output.decision ?? (output.continue === false ? 'stop' : 'pass'),
-    ...output.exitCode !== undefined ? { exitCode: output.exitCode } : {},
-    ...stderrSummary !== undefined ? { stderrSummary } : {},
+    ...(output.exitCode !== undefined ? { exitCode: output.exitCode } : {}),
+    ...(stderrSummary !== undefined ? { stderrSummary } : {}),
     durationMs: record.durationMs,
   })
 }

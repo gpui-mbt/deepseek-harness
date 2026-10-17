@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 const binScript = fileURLToPath(new URL('./fixtures/dsh-badge/snapshot.ts', import.meta.url))
 const configPath = fileURLToPath(new URL('./fixtures/dsh-badge/cordis.yml', import.meta.url))
@@ -8,31 +8,31 @@ const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta
 const badgeAssetsPath = fileURLToPath(new URL('../../../packages/experimental/skill-badge/assets/', import.meta.url))
 
 describe('dsh badge assembled snapshot', () => {
-  it('advertises and loads the opt-in bundled skill through the shipped app', async () => {
-    const disabled = await runLoaderSmoke({
-      label: 'disabled dsh badge skill snapshot',
-      tempDirPrefix: 'headless-snapshot-dsh-badge-disabled-',
-      binScript,
-      libBinScript: binScript,
-      configPath: defaultConfigPath,
-      tsconfigPath,
-    })
-    const enabled = await runLoaderSmoke({
-      label: 'dsh badge skill snapshot',
-      tempDirPrefix: 'headless-snapshot-dsh-badge-',
-      binScript,
-      libBinScript: binScript,
-      configPath,
-      tsconfigPath,
-    })
-    const disabledSnapshot: unknown = JSON.parse(disabled.stdout)
-    const enabledSnapshot: unknown = JSON.parse(
-      enabled.stdout.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}'),
-    )
+  it(
+    'advertises and loads the opt-in bundled skill through the shipped app',
+    async () => {
+      const disabled = await runLoaderSmoke({
+        label: 'disabled dsh badge skill snapshot',
+        tempDirPrefix: 'headless-snapshot-dsh-badge-disabled-',
+        binScript,
+        libBinScript: binScript,
+        configPath: defaultConfigPath,
+        tsconfigPath,
+      })
+      const enabled = await runLoaderSmoke({
+        label: 'dsh badge skill snapshot',
+        tempDirPrefix: 'headless-snapshot-dsh-badge-',
+        binScript,
+        libBinScript: binScript,
+        configPath,
+        tsconfigPath,
+      })
+      const disabledSnapshot: unknown = JSON.parse(disabled.stdout)
+      const enabledSnapshot: unknown = JSON.parse(enabled.stdout.replaceAll(badgeAssetsPath, '{{badgeAssetsPath}}'))
 
-    expect(disabled.stderr).toBe('')
-    expect(enabled.stderr).toBe('')
-    expect(disabledSnapshot).toMatchInlineSnapshot(`
+      expect(disabled.stderr).toBe('')
+      expect(enabled.stderr).toBe('')
+      expect(disabledSnapshot).toMatchInlineSnapshot(`
       {
         "catalog": null,
         "result": {
@@ -50,7 +50,7 @@ describe('dsh badge assembled snapshot', () => {
         "summary": null,
       }
     `)
-    expect(enabledSnapshot).toMatchInlineSnapshot(`
+      expect(enabledSnapshot).toMatchInlineSnapshot(`
       {
         "catalog": [
           {
@@ -172,5 +172,7 @@ describe('dsh badge assembled snapshot', () => {
         },
       }
     `)
-  }, LOADER_SMOKE_TEST_TIMEOUT_MS * 2)
+    },
+    LOADER_SMOKE_TEST_TIMEOUT_MS * 2,
+  )
 })

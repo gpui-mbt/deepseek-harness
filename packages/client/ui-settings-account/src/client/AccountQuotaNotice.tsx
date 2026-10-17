@@ -17,10 +17,8 @@ export interface AccountQuotaNoticeInjected {
   }
 }
 
-type AccountQuotaNoticeProps = PropsRuntime<'shell.quota-notice'>
-  & { matched: QuotaNoticeOwnerProps }
-  & PropsLocale<'settings.account'>
-  & InjectFace<AccountQuotaNoticeInjected>
+type AccountQuotaNoticeProps = PropsRuntime<'shell.quota-notice'> & { matched: QuotaNoticeOwnerProps } & PropsLocale<'settings.account'> &
+  InjectFace<AccountQuotaNoticeInjected>
 
 /**
  * @param props - the claimed notice, account state, and the shared Platform page channel.
@@ -66,16 +64,35 @@ export function AccountQuotaNotice({ matched, openPlatformPage, useAccount, useP
   // Defer the Modal until the native page closes; do not mount hidden focus or
   // Escape handlers under the opaque view.
   if (opened || platformPage !== null) return null
-  return <Modal open title={t('quotaTitle')} closeLabel={t('close')} onClose={dismiss}
-    description={t('quotaDescription')}
-    footer={<>
-      <Button variant="outline" onClick={dismiss}>{t('cancel')}</Button>
-      <Button variant="primary" onClick={() => {
-        // Retain the notice before its page mounts; a later failure would
-        // otherwise republish it and remount this entry.
-        releaseHold.current = keepOpen()
-        releasePage.current = openPlatformPage('top-up', () => { releasePage.current = undefined; dismiss() })
-        setOpened(true)
-      }}>{t('quotaTopUp')}</Button>
-    </>} />
+  return (
+    <Modal
+      open
+      title={t('quotaTitle')}
+      closeLabel={t('close')}
+      onClose={dismiss}
+      description={t('quotaDescription')}
+      footer={
+        <>
+          <Button variant="outline" onClick={dismiss}>
+            {t('cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              // Retain the notice before its page mounts; a later failure would
+              // otherwise republish it and remount this entry.
+              releaseHold.current = keepOpen()
+              releasePage.current = openPlatformPage('top-up', () => {
+                releasePage.current = undefined
+                dismiss()
+              })
+              setOpened(true)
+            }}
+          >
+            {t('quotaTopUp')}
+          </Button>
+        </>
+      }
+    />
+  )
 }

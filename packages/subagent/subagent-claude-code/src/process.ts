@@ -6,16 +6,8 @@
  */
 
 import { EventEmitter } from 'node:events'
-import type {
-  SpawnedProcess,
-  SpawnOptions,
-} from '@anthropic-ai/claude-agent-sdk'
-import {
-  scrubbedParentEnv,
-  type SubprocessHandle,
-  type SubprocessOutcome,
-  type SubprocessSpawnSpec,
-} from '@deepseek-ai/dsh-subprocess'
+import type { SpawnedProcess, SpawnOptions } from '@anthropic-ai/claude-agent-sdk'
+import { scrubbedParentEnv, type SubprocessHandle, type SubprocessOutcome, type SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 
 function thrown(value: unknown): Error {
   /* v8 ignore next -- the subprocess seam rejects with Error. */
@@ -27,9 +19,7 @@ function thrown(value: unknown): Error {
  * @param env - SDK-composed child environment after its removals and replacements.
  * @returns explicit values plus tombstones for surviving ambient names the SDK removed.
  */
-export function sdkEnvironmentOverlay(
-  env: SpawnOptions['env'],
-): NodeJS.ProcessEnv {
+export function sdkEnvironmentOverlay(env: SpawnOptions['env']): NodeJS.ProcessEnv {
   const overlay: NodeJS.ProcessEnv = { ...env }
   for (const name of Object.keys(scrubbedParentEnv())) {
     if (!(name in env)) overlay[name] = undefined
@@ -43,10 +33,7 @@ export function sdkEnvironmentOverlay(
  * @param graceMs - managed-range termination grace.
  * @returns the fully explicit shared subprocess request.
  */
-export function claudeSpawnSpec(
-  options: SpawnOptions,
-  graceMs: number,
-): SubprocessSpawnSpec {
+export function claudeSpawnSpec(options: SpawnOptions, graceMs: number): SubprocessSpawnSpec {
   if (options.cwd === undefined || options.cwd.length === 0) {
     throw new Error('subagent-claude-code: SDK spawn request omitted its workspace')
   }
@@ -83,7 +70,7 @@ export class ManagedClaudeCodeProcess implements SpawnedProcess {
     // while this no-op also contains an already-rejected spawn handle.
     this.events.on('error', () => {})
     void child.done.then(
-      (outcome) => {
+      outcome => {
         this.outcomeValue = outcome
         this.events.emit('exit', outcome.exitCode, outcome.signal)
       },
@@ -119,10 +106,7 @@ export class ManagedClaudeCodeProcess implements SpawnedProcess {
    * @returns false only after exit or a previous termination request.
    */
   kill(_signal: NodeJS.Signals): boolean {
-    if (
-      this.killRequested
-      || this.outcomeValue !== undefined
-    ) {
+    if (this.killRequested || this.outcomeValue !== undefined) {
       return false
     }
     this.killRequested = true
@@ -131,29 +115,17 @@ export class ManagedClaudeCodeProcess implements SpawnedProcess {
   }
 
   /** Register a persistent process lifecycle listener. */
-  on(
-    event: 'exit' | 'error',
-    listener: ((code: number | null, signal: NodeJS.Signals | null) => void)
-      | ((error: Error) => void),
-  ): void {
+  on(event: 'exit' | 'error', listener: ((code: number | null, signal: NodeJS.Signals | null) => void) | ((error: Error) => void)): void {
     this.events.on(event, listener)
   }
 
   /** Register a one-shot process lifecycle listener. */
-  once(
-    event: 'exit' | 'error',
-    listener: ((code: number | null, signal: NodeJS.Signals | null) => void)
-      | ((error: Error) => void),
-  ): void {
+  once(event: 'exit' | 'error', listener: ((code: number | null, signal: NodeJS.Signals | null) => void) | ((error: Error) => void)): void {
     this.events.once(event, listener)
   }
 
   /** Remove a process lifecycle listener. */
-  off(
-    event: 'exit' | 'error',
-    listener: ((code: number | null, signal: NodeJS.Signals | null) => void)
-      | ((error: Error) => void),
-  ): void {
+  off(event: 'exit' | 'error', listener: ((code: number | null, signal: NodeJS.Signals | null) => void) | ((error: Error) => void)): void {
     this.events.off(event, listener)
   }
 }

@@ -1,15 +1,36 @@
 import type {
-  ConversationNode, ConversationTimelineSnapshot, PartialAssistant, RunningToolCall,
+  ConversationNode,
+  ConversationTimelineSnapshot,
+  PartialAssistant,
+  RunningToolCall,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatConversationViewNode, ChatNodeDataMap, ChatNodeKind } from './chat-nodes.ts'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { TurnProcessSpec } from './turn-process.ts'
 
 export type {
-  AssistantBlock, AssistantMessageNode, AssistantProviderMetadataView, AssistantRequestConfig,
-  AssistantTiming, CommandNode, CompactionSummaryNode, ContextMessageNode, ConversationNode,
-  ModelRetryNode, PartialAssistant, PreparingToolCall, RunningToolCall, StartedToolCall, SteeringMessageNode, TodoItem,
-  ToolArgs, ToolCallBlock, ToolResultNode, TurnErrorNode, TurnMaxTokensNode, UnknownSurfaceNode,
+  AssistantBlock,
+  AssistantMessageNode,
+  AssistantProviderMetadataView,
+  AssistantRequestConfig,
+  AssistantTiming,
+  CommandNode,
+  CompactionSummaryNode,
+  ContextMessageNode,
+  ConversationNode,
+  ModelRetryNode,
+  PartialAssistant,
+  PreparingToolCall,
+  RunningToolCall,
+  StartedToolCall,
+  SteeringMessageNode,
+  TodoItem,
+  ToolArgs,
+  ToolCallBlock,
+  ToolResultNode,
+  TurnErrorNode,
+  TurnMaxTokensNode,
+  UnknownSurfaceNode,
   UserMessageNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 

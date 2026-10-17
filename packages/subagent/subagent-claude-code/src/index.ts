@@ -60,8 +60,7 @@ export const Config: z<Config> = z.object({
   providerName: z.string().min(1).default(DEFAULT_PROVIDER_NAME),
   model: z.string().min(1),
   env: z.dict(z.string()).default({}),
-  permissionMode: z.union([...CLAUDE_CODE_PERMISSION_MODES])
-    .default(DEFAULT_CLAUDE_CODE_PERMISSION_MODE),
+  permissionMode: z.union([...CLAUDE_CODE_PERMISSION_MODES]).default(DEFAULT_CLAUDE_CODE_PERMISSION_MODE),
   disposeGraceMs: z.number().default(DEFAULT_DISPOSE_GRACE_MS),
 })
 
@@ -86,29 +85,21 @@ class ClaudeCodeProvider implements SubagentProvider {
       cwd = assertUsableCwd('subagent-claude-code', 'child cwd', request.cwd)
     } catch (error: unknown) {
       if (request.signal.aborted) {
-        throw new Error(
-          'subagent-claude-code: request was aborted before SDK startup',
-        )
+        throw new Error('subagent-claude-code: request was aborted before SDK startup')
       }
       const failure = claudeCodeStartupFailure(error)
-      this.ctx.logger.warn(
-        `subagent-claude-code "${this.name}": child start failed: %o`,
-        failure,
-      )
+      this.ctx.logger.warn(`subagent-claude-code "${this.name}": child start failed: %o`, failure)
       throw failure
     }
     const spec: ClaudeCodeRunSpec = {
       cwd,
-      ...this.config.model === undefined ? {} : { model: this.config.model },
+      ...(this.config.model === undefined ? {} : { model: this.config.model }),
       permissionMode: this.config.permissionMode,
       env: this.config.env,
       disposeGraceMs: this.config.disposeGraceMs,
       spawn: spawnSpec => this.ctx.subprocess.spawn(spawnSpec),
       onError: (error, stopReason) => {
-        this.ctx.logger.warn(
-          `subagent-claude-code "${this.name}": child run failed (${stopReason}): %o`,
-          error,
-        )
+        this.ctx.logger.warn(`subagent-claude-code "${this.name}": child run failed (${stopReason}): %o`, error)
       },
     }
     return startClaudeCodeRun(request, spec)
@@ -123,25 +114,15 @@ class ClaudeCodeProvider implements SubagentProvider {
 export function apply(ctx: Context, config: Config): void {
   const resolved: ResolvedConfig = {
     providerName: config.providerName ?? DEFAULT_PROVIDER_NAME,
-    ...config.model === undefined ? {} : { model: config.model },
+    ...(config.model === undefined ? {} : { model: config.model }),
     env: config.env as Record<string, string>,
     permissionMode: config.permissionMode ?? DEFAULT_CLAUDE_CODE_PERMISSION_MODE,
     disposeGraceMs: config.disposeGraceMs as number,
   }
-  assertPositiveFinite(
-    'subagent-claude-code',
-    'disposeGraceMs',
-    resolved.disposeGraceMs,
-  )
+  assertPositiveFinite('subagent-claude-code', 'disposeGraceMs', resolved.disposeGraceMs)
   if (resolved.disposeGraceMs > MAX_TIMER_DELAY_MS) {
-    throw new Error(
-      `subagent-claude-code: disposeGraceMs must be no greater than ${MAX_TIMER_DELAY_MS}`,
-    )
+    throw new Error(`subagent-claude-code: disposeGraceMs must be no greater than ${MAX_TIMER_DELAY_MS}`)
   }
-  ctx.subagents.registerProvider(new ClaudeCodeProvider(
-    resolved.providerName,
-    ctx,
-    resolved,
-  ))
+  ctx.subagents.registerProvider(new ClaudeCodeProvider(resolved.providerName, ctx, resolved))
 }
 /* jscpd:ignore-end */

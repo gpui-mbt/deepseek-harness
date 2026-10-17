@@ -40,9 +40,7 @@ const SLASH_TOKEN_END_RE = /^(?:\s|$)/
  * @param lexicon - per-trigger name lists; missing catalogs match no named tokens.
  * @returns matched ranges in draft order.
  */
-export function scanTextRefs(
-  draft: string, lexicon: ReadonlyMap<'/' | '@', readonly string[]>,
-): TextRefRange[] {
+export function scanTextRefs(draft: string, lexicon: ReadonlyMap<'/' | '@', readonly string[]>): TextRefRange[] {
   if (draft === '') return []
   const out: TextRefRange[] = []
   TEXT_REF_RE.lastIndex = 0

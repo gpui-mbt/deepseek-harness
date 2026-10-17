@@ -14,7 +14,14 @@
  */
 import type { Volatile } from '@deepseek-ai/cordis'
 
-import type { CacheRetention, ChatTemplateKwargValue, ModelThinkingLevel, Provider, ThinkingBudgets, Transport } from '@earendil-works/pi-ai'
+import type {
+  CacheRetention,
+  ChatTemplateKwargValue,
+  ModelThinkingLevel,
+  Provider,
+  ThinkingBudgets,
+  Transport,
+} from '@earendil-works/pi-ai'
 import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
@@ -33,14 +40,7 @@ import {
   THINKING_LEVELS,
   THINKING_TOKEN_BUDGET_FIELDS,
 } from './catalog.ts'
-import type {
-  PiAiCompatProfile,
-  PiAiModality,
-  PiAiModelOverride,
-  PiAiModelProfile,
-  PiAiReasoningEfforts,
-  RouteCatalog,
-} from './catalog.ts'
+import type { PiAiCompatProfile, PiAiModality, PiAiModelOverride, PiAiModelProfile, PiAiReasoningEfforts, RouteCatalog } from './catalog.ts'
 import { buildProvider, supportedProtocols } from './provider.ts'
 import { bundledProvider } from './bundled-catalog.ts'
 import type { PiAiPeakProvider, PiAiPeakWindow } from './peak.ts'
@@ -186,8 +186,7 @@ export interface PiAiProviderProfile {
 }
 
 /** Validated profile with its route stamped and every adapter-owned default resolved. */
-export interface ResolvedPiAiProviderProfile
-  extends Omit<PiAiProviderProfile, 'apiKeyEnv' | 'retryPolicy' | 'models' | 'displayName'> {
+export interface ResolvedPiAiProviderProfile extends Omit<PiAiProviderProfile, 'apiKeyEnv' | 'retryPolicy' | 'models' | 'displayName'> {
   /** Harness route key and the `Models` collection key (the configuration dict key). */
   provider: string
   /** Resolved display name for selectors and configuration surfaces. */
@@ -299,10 +298,7 @@ const compatProfile: z<PiAiCompatProfile> = z.object({
  * schemastery's `Dict`, which types every literal key as required; dict
  * validation checks only present keys, so the runtime value is a partial record.
  */
-const reasoningEfforts = z.dict(
-  z.union([z.string(), z.const(null)]),
-  z.union(THINKING_LEVELS),
-) as unknown as z<PiAiReasoningEfforts>
+const reasoningEfforts = z.dict(z.union([z.string(), z.const(null)]), z.union(THINKING_LEVELS)) as unknown as z<PiAiReasoningEfforts>
 
 const peakProvider: z<PiAiPeakProvider> = z.object({
   provider: z.string().required(),
@@ -380,8 +376,9 @@ export const Config = z.object({
  * @throws Error naming the route and configuration entry that cannot be served.
  */
 export function assertServiceable(config: Options, previous?: Options): void {
-  const changed = Object.fromEntries(Object.entries(config.providers ?? {}).filter(([provider, profile]) =>
-    !deepEqualJson(profile, previous?.providers?.[provider])))
+  const changed = Object.fromEntries(
+    Object.entries(config.providers ?? {}).filter(([provider, profile]) => !deepEqualJson(profile, previous?.providers?.[provider])),
+  )
   resolveProfiles(changed)
 }
 
@@ -397,8 +394,8 @@ function rejectRemovedFields(provider: string, source: PiAiProviderProfile): voi
   }
   if ('maxRetries' in legacy || 'maxRetryDelayMs' in legacy) {
     throw new Error(
-      `llm-pi-ai: provider "${provider}" sets maxRetries or maxRetryDelayMs, which were removed;`
-      + ' compose agent recovery with dsh-llm-retry',
+      `llm-pi-ai: provider "${provider}" sets maxRetries or maxRetryDelayMs, which were removed;` +
+        ' compose agent recovery with dsh-llm-retry',
     )
   }
 }
@@ -410,8 +407,8 @@ function assertValidHeaders(provider: string, headers: Readonly<Record<string, s
       new Headers([[name, value]])
     } catch {
       throw new Error(
-        `llm-pi-ai: provider "${provider}" header "${name}" is not valid for Fetch;`
-        + ' use a valid HTTP field name and a single-line value representable as bytes',
+        `llm-pi-ai: provider "${provider}" header "${name}" is not valid for Fetch;` +
+          ' use a valid HTTP field name and a single-line value representable as bytes',
       )
     }
   }
@@ -445,9 +442,7 @@ export function resolveProfiles(
     }
     assertValidHeaders(provider, source.headers)
     const streamIdleTimeoutMs = source.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
-    if (!Number.isFinite(streamIdleTimeoutMs)
-      || streamIdleTimeoutMs <= 0
-      || streamIdleTimeoutMs > MAX_TIMER_DELAY_MS) {
+    if (!Number.isFinite(streamIdleTimeoutMs) || streamIdleTimeoutMs <= 0 || streamIdleTimeoutMs > MAX_TIMER_DELAY_MS) {
       throw new Error(
         `llm-pi-ai: provider "${provider}" streamIdleTimeoutMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`,
       )
@@ -469,7 +464,7 @@ export function resolveProfiles(
     // list here is always one someone typed — and unlike an entry's, nothing
     // below it can answer instead — so it is refused rather than read as "no
     // answer".
-    const defaultInput = [...source.defaultInput ?? DEFAULT_INPUT]
+    const defaultInput = [...(source.defaultInput ?? DEFAULT_INPUT)]
     if (defaultInput.length === 0) {
       throw new Error(`llm-pi-ai: provider "${provider}" defaultInput must name at least one modality`)
     }
@@ -490,23 +485,26 @@ export function resolveProfiles(
     let piProvider: Provider | undefined
     let catalogError: string | undefined
     try {
-      catalog = resolveRouteModels({
-        provider,
-        ...api === undefined ? {} : { api },
-        ...baseURL === undefined ? {} : { baseURL },
-        ...source.models === undefined ? {} : { models: source.models },
-        ...source.modelOverrides === undefined ? {} : { modelOverrides: source.modelOverrides },
-        ...source.compat === undefined ? {} : { compat: source.compat },
-        defaultInput,
-        defaultContextWindow: source.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
-        defaultMaxTokens: source.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,
-      }, validation)
+      catalog = resolveRouteModels(
+        {
+          provider,
+          ...(api === undefined ? {} : { api }),
+          ...(baseURL === undefined ? {} : { baseURL }),
+          ...(source.models === undefined ? {} : { models: source.models }),
+          ...(source.modelOverrides === undefined ? {} : { modelOverrides: source.modelOverrides }),
+          ...(source.compat === undefined ? {} : { compat: source.compat }),
+          defaultInput,
+          defaultContextWindow: source.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
+          defaultMaxTokens: source.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,
+        },
+        validation,
+      )
       catalogError = catalog.modelErrors.values().next().value
       piProvider = buildProvider({
         provider,
         displayName,
-        ...api === undefined ? {} : { api },
-        ...baseURL === undefined ? {} : { baseURL },
+        ...(api === undefined ? {} : { api }),
+        ...(baseURL === undefined ? {} : { baseURL }),
         models: catalog.models,
         namesCredential: source.apiKeyEnv !== undefined,
       })
@@ -519,21 +517,21 @@ export function resolveProfiles(
       ...rest,
       provider,
       displayName,
-      ...api === undefined ? {} : { api },
-      ...baseURL === undefined ? {} : { baseURL },
-      ...apiKeyEnv === undefined ? {} : { apiKeyEnv: credentialRef(apiKeyEnv) },
+      ...(api === undefined ? {} : { api }),
+      ...(baseURL === undefined ? {} : { baseURL }),
+      ...(apiKeyEnv === undefined ? {} : { apiKeyEnv: credentialRef(apiKeyEnv) }),
       streamIdleTimeoutMs,
       maxRequestImageBytes,
       requestImagePixelBudget,
       requestImageMaxBytes,
       retryPolicy: resolveRetryPolicy(retryPolicy, `llm-pi-ai: provider "${provider}" retryPolicy`),
-      ...rest.headers === undefined ? {} : { headers: { ...rest.headers } },
-      ...rest.thinkingBudgets === undefined ? {} : { thinkingBudgets: { ...rest.thinkingBudgets } },
+      ...(rest.headers === undefined ? {} : { headers: { ...rest.headers } }),
+      ...(rest.thinkingBudgets === undefined ? {} : { thinkingBudgets: { ...rest.thinkingBudgets } }),
       configuredMaxTokens: catalog?.configuredMaxTokens ?? new Map(),
       modelErrors: catalog?.modelErrors ?? new Map(),
       peak: catalog?.peak ?? new Map(),
-      ...piProvider === undefined ? {} : { piProvider },
-      ...catalogError === undefined ? {} : { catalogError },
+      ...(piProvider === undefined ? {} : { piProvider }),
+      ...(catalogError === undefined ? {} : { catalogError }),
     })
   }
   return resolved

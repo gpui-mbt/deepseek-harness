@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Bottom Inspector lifetime and shortcuts through the production slot renderer. */
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { act } from '@testing-library/react'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -28,7 +28,12 @@ async function setup() {
   await runtime.ctx.plugin(ShortcutsService).await()
   await expect.poll(() => runtime.ctx.shortcuts.config.getSnapshot().status).toBe('ready')
   await runtime.declare({ 'shell.bottom': { kind: 'single', scope: 'root' } })
-  const plugin = { inject: ['locale', 'shortcuts', 'slots'], apply: (ctx: typeof runtime.ctx) => { registerInspectorPage(ctx, sourceId) } }
+  const plugin = {
+    inject: ['locale', 'shortcuts', 'slots'],
+    apply: (ctx: typeof runtime.ctx) => {
+      registerInspectorPage(ctx, sourceId)
+    },
+  }
   const provider = await runtime.mount(plugin)
   const body = runtime.renderSlot('shell.bottom', {})
   return { runtime, locale, provider, body, plugin }
@@ -36,17 +41,28 @@ async function setup() {
 
 function press(target: EventTarget = window, options: KeyboardEventInit = {}) {
   const event = new KeyboardEvent('keydown', {
-    key: '>', code: 'Period', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true, composed: true, ...options,
+    key: '>',
+    code: 'Period',
+    ctrlKey: true,
+    shiftKey: true,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    ...options,
   })
-  act(() => { target.dispatchEvent(event) })
+  act(() => {
+    target.dispatchEvent(event)
+  })
   return event
 }
 
 it('opens on Mod+Shift+Period without a Session or Sidebar and retains the iframe while collapsed', async () => {
   const { runtime, body } = await setup()
   expect(body.container.querySelector('iframe')).toBeNull()
-  expect(runtime.ctx.shortcuts.catalog.getSnapshot().find(row => row.id === ID)?.binding)
-    .toEqual({ code: 'Period', modifiers: ['control', 'shift'] })
+  expect(runtime.ctx.shortcuts.catalog.getSnapshot().find(row => row.id === ID)?.binding).toEqual({
+    code: 'Period',
+    modifiers: ['control', 'shift'],
+  })
   expect(press(window, { ctrlKey: false }).defaultPrevented).toBe(false)
   expect(body.container.querySelector('iframe')).toBeNull()
   expect(press().defaultPrevented).toBe(true)
@@ -74,12 +90,18 @@ it('resizes with the owned pointer, bounds the height, and retains it across col
   const divider = body.view.getByRole('separator', { name: 'Resize NodeJS Inspector panel' })
   let captured: number | undefined
   Object.assign(divider, {
-    setPointerCapture: (id: number) => { captured = id },
+    setPointerCapture: (id: number) => {
+      captured = id
+    },
     hasPointerCapture: (id: number) => captured === id,
-    releasePointerCapture: () => { captured = undefined },
+    releasePointerCapture: () => {
+      captured = undefined
+    },
   })
   const pointer = (type: string, clientY: number, pointerId = 1, button = 0): void => {
-    act(() => { divider.dispatchEvent(new PointerEvent(type, { clientY, pointerId, button, bubbles: true })) })
+    act(() => {
+      divider.dispatchEvent(new PointerEvent(type, { clientY, pointerId, button, bubbles: true }))
+    })
   }
   const height = () => parseFloat(panel.style.getPropertyValue('--inspector-height'))
   pointer('pointerdown', 500, 1, 2)
@@ -122,7 +144,12 @@ it('resizes the horizontal divider with arrow keys and Home or End', async () =>
   const divider = body.view.getByRole('separator')
   expect(divider.getAttribute('aria-orientation')).toBe('horizontal')
   expect(divider.getAttribute('aria-controls')).toBe(body.container.querySelector('section')!.id)
-  for (const [key, value] of [['ArrowUp', '50'], ['ArrowDown', '45'], ['Home', '20'], ['End', '80']] as const) {
+  for (const [key, value] of [
+    ['ArrowUp', '50'],
+    ['ArrowDown', '45'],
+    ['Home', '20'],
+    ['End', '80'],
+  ] as const) {
     expect(press(divider, { key, code: key, ctrlKey: false, shiftKey: false }).defaultPrevented).toBe(true)
     expect(divider.getAttribute('aria-valuenow')).toBe(value)
   }
@@ -154,7 +181,9 @@ it('routes frame input through the effective binding and restores opener focus',
     expect(body.container.querySelector('section')?.hidden).toBe(false)
     expect(press(document, { code: 'Comma', key: '<', ctrlKey: true }).defaultPrevented).toBe(true)
     expect(body.container.querySelector('section')?.hidden).toBe(true)
-  } finally { opener.remove() }
+  } finally {
+    opener.remove()
+  }
 })
 
 it('keeps modal arbitration and updates locale without replacing the iframe', async () => {
@@ -166,12 +195,18 @@ it('keeps modal arbitration and updates locale without replacing the iframe', as
   try {
     press()
     expect(body.container.querySelector('iframe')).toBeNull()
-  } finally { modal.remove() }
+  } finally {
+    modal.remove()
+  }
   press()
   const frame = body.view.getByTitle('NodeJS Inspector')
-  act(() => { locale.setLocale('zh') })
+  act(() => {
+    locale.setLocale('zh')
+  })
   expect(body.view.getByTitle('NodeJS 诊断')).toBe(frame)
-  act(() => { body.view.getByRole('button', { name: '收起' }).click() })
+  act(() => {
+    body.view.getByRole('button', { name: '收起' }).click()
+  })
   expect(body.container.querySelector('section')?.hidden).toBe(true)
 })
 

@@ -43,10 +43,10 @@ export interface GroupUpdate<Data> {
   readonly groups:
     | { readonly kind: 'replace'; readonly snapshots: readonly GroupSnapshot<Data>[] }
     | {
-      readonly kind: 'apply'
-      readonly upserts: readonly GroupSnapshot<Data>[]
-      readonly removes: readonly GroupKey[]
-    }
+        readonly kind: 'apply'
+        readonly upserts: readonly GroupSnapshot<Data>[]
+        readonly removes: readonly GroupKey[]
+      }
 }
 
 /** Target-processed Node values before and after one update. */
@@ -74,16 +74,17 @@ interface GroupInputNodes<Node> {
 }
 
 /** Target-local inputs; apply includes lifecycle changes without Node upserts. */
-export type ConversationGroupInput<Node> = GroupInputNodes<Node> & (
-  | { readonly kind: 'replace' }
-  | {
-    readonly kind: 'apply'
-    readonly changes: readonly NodeChange<Node>[]
-    readonly changedTurns: readonly number[]
-    /** Turns whose visible keys or immediate neighbours changed, including removal and cross-Turn moves. */
-    readonly changedTurnOrders: readonly number[]
-  }
-)
+export type ConversationGroupInput<Node> = GroupInputNodes<Node> &
+  (
+    | { readonly kind: 'replace' }
+    | {
+        readonly kind: 'apply'
+        readonly changes: readonly NodeChange<Node>[]
+        readonly changedTurns: readonly number[]
+        /** Turns whose visible keys or immediate neighbours changed, including removal and cross-Turn moves. */
+        readonly changedTurnOrders: readonly number[]
+      }
+  )
 
 /** Framework-owned State for one Session's registered Group Definition. */
 export interface ConversationGroupContext<State> {
@@ -91,11 +92,7 @@ export interface ConversationGroupContext<State> {
 }
 
 /** Business grouping rules, driven after the target Builder has installed Nodes. */
-export interface ConversationGroupDefinition<
-  Node extends ConversationViewNode = ConversationViewNode,
-  State = unknown,
-  Data = unknown,
-> {
+export interface ConversationGroupDefinition<Node extends ConversationViewNode = ConversationViewNode, State = unknown, Data = unknown> {
   readonly kind: string
   readonly target: string
   /** @returns initial Session-local grouping State. */
@@ -119,8 +116,9 @@ export interface ConversationGroupDefinition<
 export interface ConversationGroupDataMap {}
 
 /** Group data declared by a target; undeclared targets have no group payload. */
-export type ConversationGroupData<Target extends string> =
-  Target extends keyof ConversationGroupDataMap ? ConversationGroupDataMap[Target] : never
+export type ConversationGroupData<Target extends string> = Target extends keyof ConversationGroupDataMap
+  ? ConversationGroupDataMap[Target]
+  : never
 
 /** Stable grouped reader; data-only updates preserve entries and member arrays. */
 export interface ConversationGroupedView<Data> {

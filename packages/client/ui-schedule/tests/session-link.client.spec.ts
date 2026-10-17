@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -12,10 +12,24 @@ const ready: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSess
 function sessions(ids: SessionId[], rows: SessionId[]): SessionListState {
   return {
     ids,
-    byId: Object.fromEntries(rows.map(row => [row, {
-      id: row, displayTitle: row, running: false, blank: false, updatedAt: 0, retainedBy: {},
-    }] as const)),
-    phase: 'ready', projectionsBySession: {},
+    byId: Object.fromEntries(
+      rows.map(
+        row =>
+          [
+            row,
+            {
+              id: row,
+              displayTitle: row,
+              running: false,
+              blank: false,
+              updatedAt: 0,
+              retainedBy: {},
+            },
+          ] as const,
+      ),
+    ),
+    phase: 'ready',
+    projectionsBySession: {},
   }
 }
 

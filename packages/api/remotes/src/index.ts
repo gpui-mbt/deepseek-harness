@@ -46,35 +46,31 @@ export function apply(ctx: Context): void {
 
 /** Create the sole queue and listener set consumed by the registered Gateway. */
 function remoteEventSource(ctx: Context): TypertRemoteEventSource {
-  return (signal) => {
+  return signal => {
     const queue = new RemoteEventQueue()
-    const disposers = API_REMOTE_FORWARDED_EVENTS.map((entry) => {
+    const disposers = API_REMOTE_FORWARDED_EVENTS.map(entry => {
       const { event, mode } = entry
       if (mode === 'emit') {
         const resources = 'resources' in entry ? entry.resources : undefined
-        return ctx.on(event as never, ((...args: unknown[]) => {
-          queue.push({ event, args: assertJsonArgs(event, args), ...resources === undefined ? {} : { resources } })
-        }) as never)
-      }
-      return ctx.on(event as never, (function (
-        this: unknown,
-        request: object,
-        next: () => unknown,
-      ) {
-        const carrierAgent = carrierKeyOf(this)
-        if (carrierAgent === undefined) return next()
-        const agent = (request as { readonly agent?: Agent }).agent
-        if (agent === undefined || agent !== carrierAgent) {
-          throw new TypeError(`forwarded scoped event ${JSON.stringify(event)} must carry its Agent directly`)
-        }
-        return forwardWaterfall(
-          queue,
-          event,
-          request,
-          { value: agent.ctx, subject: agent, agentId: agent.id },
-          next,
+        return ctx.on(
+          event as never,
+          ((...args: unknown[]) => {
+            queue.push({ event, args: assertJsonArgs(event, args), ...(resources === undefined ? {} : { resources }) })
+          }) as never,
         )
-      }) as never)
+      }
+      return ctx.on(
+        event as never,
+        function (this: unknown, request: object, next: () => unknown) {
+          const carrierAgent = carrierKeyOf(this)
+          if (carrierAgent === undefined) return next()
+          const agent = (request as { readonly agent?: Agent }).agent
+          if (agent === undefined || agent !== carrierAgent) {
+            throw new TypeError(`forwarded scoped event ${JSON.stringify(event)} must carry its Agent directly`)
+          }
+          return forwardWaterfall(queue, event, request, { value: agent.ctx, subject: agent, agentId: agent.id }, next)
+        } as never,
+      )
     })
     return queue.iterate(signal, () => {
       for (const dispose of disposers) dispose()
@@ -106,13 +102,17 @@ class RemoteEventQueue {
   }
 
   async *iterate(signal: AbortSignal, cleanup: () => void): AsyncGenerator<TypertRemoteEventDispatch> {
-    const abort = (): void => { this.end(remoteEventSourceEndReason(signal)) }
+    const abort = (): void => {
+      this.end(remoteEventSourceEndReason(signal))
+    }
     signal.addEventListener('abort', abort, { once: true })
     try {
       while (true) {
         if (this.done || signal.aborted) return
         while (this.buffer.size > 0) yield this.buffer.popFront() as TypertRemoteEventDispatch
-        await new Promise<void>((resolve) => { this.waiter = resolve })
+        await new Promise<void>(resolve => {
+          this.waiter = resolve
+        })
         this.waiter = undefined
       }
     } finally {

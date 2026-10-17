@@ -61,7 +61,7 @@ export function callResources(
     sources.set(kind, () => {
       positional ??= [
         ...descriptor.parameters.map(parameter => args[parameter.wire]),
-        ...descriptor.cancellation === undefined ? [] : [signal],
+        ...(descriptor.cancellation === undefined ? [] : [signal]),
       ]
       return read(reader, positional, [])
     })

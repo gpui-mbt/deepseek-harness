@@ -1,6 +1,6 @@
 /** Worker-side Network projection behavior. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { NetworkDomain, type NetworkSink } from '../src/worker/cdp/domains/network/session.ts'
 import { NetworkStore } from '../src/worker/inspection/network-store.ts'
 import { inspectorId } from '../src/shared/bridge/ids.ts'
@@ -80,12 +80,14 @@ describe('Inspector Network domain', () => {
     })
 
     const later = Buffer.from('data: second\n\n').toString('base64')
-    store.append(source, [{
-      sequence: 4,
-      monotonicMs: 4,
-      topic: 'fetch/response-body-chunk',
-      payload: { requestId: 'stream', data: later },
-    }])
+    store.append(source, [
+      {
+        sequence: 4,
+        monotonicMs: 4,
+        topic: 'fetch/response-body-chunk',
+        payload: { requestId: 'stream', data: later },
+      },
+    ])
     expect(firstSend.mock.calls.findLast(call => call[0] === 'Network.dataReceived')?.[1]).toMatchObject({ data: later })
     expect(secondSend.mock.calls.findLast(call => call[0] === 'Network.dataReceived')?.[1]).toMatchObject({ data: later })
   })
@@ -97,19 +99,23 @@ describe('Inspector Network domain', () => {
     network.enable({ sendEvent: liveSend })
     store.append(source, eventStreamRecords('events'))
 
-    expect(liveSend).toHaveBeenNthCalledWith(1, 'Network.requestWillBeSent', expect.objectContaining({
-      type: 'EventSource',
-    }))
-    expect(liveSend).toHaveBeenCalledWith('Network.responseReceived', expect.objectContaining({
-      type: 'EventSource',
-    }))
-    expect(liveSend.mock.calls
-      .filter(call => call[0] === 'Network.eventSourceMessageReceived')
-      .map(call => call[1] as unknown))
-      .toEqual([
-        expect.objectContaining({ eventName: 'message', eventId: '1', data: 'first' }),
-        expect.objectContaining({ eventName: 'update', eventId: '2', data: 'second\nline' }),
-      ])
+    expect(liveSend).toHaveBeenNthCalledWith(
+      1,
+      'Network.requestWillBeSent',
+      expect.objectContaining({
+        type: 'EventSource',
+      }),
+    )
+    expect(liveSend).toHaveBeenCalledWith(
+      'Network.responseReceived',
+      expect.objectContaining({
+        type: 'EventSource',
+      }),
+    )
+    expect(liveSend.mock.calls.filter(call => call[0] === 'Network.eventSourceMessageReceived').map(call => call[1] as unknown)).toEqual([
+      expect.objectContaining({ eventName: 'message', eventId: '1', data: 'first' }),
+      expect.objectContaining({ eventName: 'update', eventId: '2', data: 'second\nline' }),
+    ])
     expect(liveSend.mock.calls.map(call => String(call[0]))).toEqual([
       'Network.requestWillBeSent',
       'Network.responseReceived',
@@ -122,16 +128,17 @@ describe('Inspector Network domain', () => {
 
     const replay = vi.fn()
     network.enable({ sendEvent: replay })
-    expect(replay).toHaveBeenNthCalledWith(1, 'Network.requestWillBeSent', expect.objectContaining({
-      type: 'EventSource',
-    }))
-    expect(replay.mock.calls
-      .filter(call => call[0] === 'Network.eventSourceMessageReceived')
-      .map(call => call[1] as unknown))
-      .toEqual([
-        expect.objectContaining({ timestamp: 0.003, eventName: 'message', eventId: '1', data: 'first' }),
-        expect.objectContaining({ timestamp: 0.004, eventName: 'update', eventId: '2', data: 'second\nline' }),
-      ])
+    expect(replay).toHaveBeenNthCalledWith(
+      1,
+      'Network.requestWillBeSent',
+      expect.objectContaining({
+        type: 'EventSource',
+      }),
+    )
+    expect(replay.mock.calls.filter(call => call[0] === 'Network.eventSourceMessageReceived').map(call => call[1] as unknown)).toEqual([
+      expect.objectContaining({ timestamp: 0.003, eventName: 'message', eventId: '1', data: 'first' }),
+      expect.objectContaining({ timestamp: 0.004, eventName: 'update', eventId: '2', data: 'second\nline' }),
+    ])
     expect(replay.mock.calls.map(call => String(call[0]))).toEqual([
       'Network.requestWillBeSent',
       'Network.responseReceived',
@@ -149,16 +156,19 @@ describe('Inspector Network domain', () => {
     store.append(source, requestRecords('active-first', 'first').slice(0, 1))
     store.append(source, requestRecords('active-second', 'second').slice(0, 1))
 
-    expect(firstSend).toHaveBeenCalledWith('Network.loadingFailed', expect.objectContaining({
-      requestId: requestId('active-first'),
-      canceled: true,
-    }))
-    expect(() => network.handle(
-      'Network.getRequestPostData',
-      { requestId: requestId('active-first') },
-      { sendEvent: vi.fn() },
-    )).toThrow('No resource with given identifier')
-    expect(() => { store.append(source, requestRecords('active-first', 'first').slice(1)) }).not.toThrow()
+    expect(firstSend).toHaveBeenCalledWith(
+      'Network.loadingFailed',
+      expect.objectContaining({
+        requestId: requestId('active-first'),
+        canceled: true,
+      }),
+    )
+    expect(() => network.handle('Network.getRequestPostData', { requestId: requestId('active-first') }, { sendEvent: vi.fn() })).toThrow(
+      'No resource with given identifier',
+    )
+    expect(() => {
+      store.append(source, requestRecords('active-first', 'first').slice(1))
+    }).not.toThrow()
 
     store.append(source, requestRecords('active-second', 'second').slice(1))
     const replay = vi.fn()
@@ -191,24 +201,28 @@ describe('Inspector Network domain', () => {
       },
     ])
 
-    expect(sendEvent).toHaveBeenCalledWith('Network.loadingFinished', expect.objectContaining({
-      requestId: requestId('capture-error'),
-      encodedDataLength: 7,
-      dshInspectorTruncated: true,
-    }))
-    expect(sendEvent.mock.calls.some(call => call[0] === 'Network.loadingFailed')).toBe(false)
-    expect(network.handle('Network.getResponseBody', { requestId: requestId('capture-error') }, { sendEvent: vi.fn() }))
-      .toMatchObject({
-        body: Buffer.from('partial').toString('base64'),
+    expect(sendEvent).toHaveBeenCalledWith(
+      'Network.loadingFinished',
+      expect.objectContaining({
+        requestId: requestId('capture-error'),
+        encodedDataLength: 7,
         dshInspectorTruncated: true,
-        dshInspectorCaptureError: 'AbortError: aborted',
-      })
+      }),
+    )
+    expect(sendEvent.mock.calls.some(call => call[0] === 'Network.loadingFailed')).toBe(false)
+    expect(network.handle('Network.getResponseBody', { requestId: requestId('capture-error') }, { sendEvent: vi.fn() })).toMatchObject({
+      body: Buffer.from('partial').toString('base64'),
+      dshInspectorTruncated: true,
+      dshInspectorCaptureError: 'AbortError: aborted',
+    })
   })
 
   it('marks a failure after response headers truncated with the transport error', () => {
     const store = new NetworkStore({ maxRetainedRequests: 10, maxJournalBytes: 1_024 })
     const observed: unknown[] = []
-    const unsubscribe = store.subscribe((event) => { observed.push(event) })
+    const unsubscribe = store.subscribe(event => {
+      observed.push(event)
+    })
     store.append(source, [
       ...requestRecords('midstream', 'partial').slice(0, 3),
       {
@@ -233,16 +247,30 @@ describe('Inspector Network domain', () => {
   it('retains request capture metadata and isolates malformed observations', () => {
     const store = new NetworkStore({ maxRetainedRequests: 10, maxJournalBytes: 1_024 })
     const observed: unknown[] = []
-    store.subscribe(() => { throw new Error('broken observer') })
-    const unsubscribe = store.subscribe((event) => { observed.push(event) })
+    store.subscribe(() => {
+      throw new Error('broken observer')
+    })
+    const unsubscribe = store.subscribe(event => {
+      observed.push(event)
+    })
     const start = requestRecords('metadata', 'response')[0]!
     store.append(source, [
       { ...start, topic: 'ignored/topic' },
       { ...start, payload: null },
       start,
       start,
-      { sequence: 2, monotonicMs: 2, topic: 'fetch/request-body-chunk', payload: { requestId: 'metadata', data: Buffer.from('body').toString('base64') } },
-      { sequence: 3, monotonicMs: 3, topic: 'fetch/request-body-end', payload: { requestId: 'metadata', truncated: true, captureError: 'request capture failed' } },
+      {
+        sequence: 2,
+        monotonicMs: 2,
+        topic: 'fetch/request-body-chunk',
+        payload: { requestId: 'metadata', data: Buffer.from('body').toString('base64') },
+      },
+      {
+        sequence: 3,
+        monotonicMs: 3,
+        topic: 'fetch/request-body-end',
+        payload: { requestId: 'metadata', truncated: true, captureError: 'request capture failed' },
+      },
     ])
     expect(store.requestBody(requestId('metadata'))).toMatchObject({
       bytes: Buffer.from('body'),
@@ -289,7 +317,9 @@ describe('Inspector Network domain', () => {
   it('closes only active requests from the selected source and supports replacement', () => {
     const store = new NetworkStore({ maxRetainedRequests: 10, maxJournalBytes: 1_024 })
     const observed: Array<{ type: string; requestId?: string }> = []
-    store.subscribe((event) => { observed.push(event) })
+    store.subscribe(event => {
+      observed.push(event)
+    })
     const clientSource: InspectorSourceDescriptor = {
       ...source,
       sourceId: inspectorId<'InspectorSourceId'>('other-network', 'sourceId'),
@@ -301,9 +331,7 @@ describe('Inspector Network domain', () => {
     store.append(clientSource, requestRecords('other', 'partial').slice(0, 3))
 
     store.close(source, 'source closed')
-    expect(observed.filter(event => event.type === 'request-failed')).toEqual([
-      expect.objectContaining({ requestId: requestId('active') }),
-    ])
+    expect(observed.filter(event => event.type === 'request-failed')).toEqual([expect.objectContaining({ requestId: requestId('active') })])
     store.close(source, 'source closed again')
     store.replace(clientSource, [])
     expect(observed.filter(event => event.type === 'request-failed')).toHaveLength(2)
@@ -314,11 +342,11 @@ describe('Inspector Network domain', () => {
     const validStart = requestRecords('valid', 'ok')[0]!
     const malformed: IngestedInspectorRecord[] = [
       { ...validStart, payload: null },
-      { ...validStart, payload: { ...validStart.payload as object, requestId: 1 } },
-      { ...validStart, payload: { ...validStart.payload as object, wallTimeMs: Number.POSITIVE_INFINITY } },
-      { ...validStart, payload: { ...validStart.payload as object, headers: {} } },
-      { ...validStart, payload: { ...validStart.payload as object, headers: [[1, 'value']] } },
-      { ...validStart, payload: { ...validStart.payload as object, hasBody: 'yes' } },
+      { ...validStart, payload: { ...(validStart.payload as object), requestId: 1 } },
+      { ...validStart, payload: { ...(validStart.payload as object), wallTimeMs: Number.POSITIVE_INFINITY } },
+      { ...validStart, payload: { ...(validStart.payload as object), headers: {} } },
+      { ...validStart, payload: { ...(validStart.payload as object), headers: [[1, 'value']] } },
+      { ...validStart, payload: { ...(validStart.payload as object), hasBody: 'yes' } },
     ]
     store.append(source, [...malformed, validStart])
     const invalidPayloads: InspectorJsonValue[] = [
@@ -327,17 +355,42 @@ describe('Inspector Network domain', () => {
       { requestId: 'valid', data: '!!!!' },
       { requestId: 'valid', data: 'ZE==' },
     ]
-    store.append(source, invalidPayloads.map((payload, index) => ({
-      sequence: index + 2,
-      monotonicMs: index + 2,
-      topic: 'fetch/request-body-chunk',
-      payload,
-    })))
+    store.append(
+      source,
+      invalidPayloads.map((payload, index) => ({
+        sequence: index + 2,
+        monotonicMs: index + 2,
+        topic: 'fetch/request-body-chunk',
+        payload,
+      })),
+    )
     store.append(source, [
       { sequence: 10, monotonicMs: 10, topic: 'fetch/request-body-end', payload: { requestId: 'valid', truncated: 'yes' } },
-      { sequence: 11, monotonicMs: 11, topic: 'fetch/request-body-end', payload: { requestId: 'valid', truncated: false, captureError: 1 } },
-      { sequence: 12, monotonicMs: 12, topic: 'fetch/response', payload: { requestId: 'valid', url: 'https://example.test', status: '200', statusText: 'OK', headers: [], mimeType: 'text/plain' } },
-      { sequence: 13, monotonicMs: 13, topic: 'fetch/response', payload: { requestId: 'valid', url: 'https://example.test', status: 200, statusText: 'OK', headers: [['bad']], mimeType: 'text/plain' } },
+      {
+        sequence: 11,
+        monotonicMs: 11,
+        topic: 'fetch/request-body-end',
+        payload: { requestId: 'valid', truncated: false, captureError: 1 },
+      },
+      {
+        sequence: 12,
+        monotonicMs: 12,
+        topic: 'fetch/response',
+        payload: { requestId: 'valid', url: 'https://example.test', status: '200', statusText: 'OK', headers: [], mimeType: 'text/plain' },
+      },
+      {
+        sequence: 13,
+        monotonicMs: 13,
+        topic: 'fetch/response',
+        payload: {
+          requestId: 'valid',
+          url: 'https://example.test',
+          status: 200,
+          statusText: 'OK',
+          headers: [['bad']],
+          mimeType: 'text/plain',
+        },
+      },
       requestRecords('valid', 'ok')[1]!,
       requestRecords('valid', 'ok')[2]!,
       requestRecords('valid', 'ok')[3]!,
@@ -347,12 +400,15 @@ describe('Inspector Network domain', () => {
     expect(store.responseBody(requestId('valid')).bytes).toEqual(Buffer.from('ok'))
 
     const failedStart = requestRecords('failed-before-response', '')[0]!
-    store.append(source, [failedStart, {
-      sequence: 20,
-      monotonicMs: 20,
-      topic: 'fetch/error',
-      payload: { requestId: 'failed-before-response', message: 'connection failed', canceled: false },
-    }])
+    store.append(source, [
+      failedStart,
+      {
+        sequence: 20,
+        monotonicMs: 20,
+        topic: 'fetch/error',
+        payload: { requestId: 'failed-before-response', message: 'connection failed', canceled: false },
+      },
+    ])
   })
 
   it('tracks zero-byte truncation and evicts a completed request before an active request', () => {
@@ -378,19 +434,21 @@ describe('Inspector Network domain', () => {
       complete: false,
     })
 
-    store.append(source, [{
-      sequence: 4,
-      monotonicMs: 4,
-      topic: 'fetch/request-body-chunk',
-      payload: { requestId: 'active', data: Buffer.from('d').toString('base64') },
-    }])
+    store.append(source, [
+      {
+        sequence: 4,
+        monotonicMs: 4,
+        topic: 'fetch/request-body-chunk',
+        payload: { requestId: 'active', data: Buffer.from('d').toString('base64') },
+      },
+    ])
     expect(store.requestBody(requestId('active'))).toMatchObject({ bytes: Buffer.from('x'), truncated: true })
   })
 
   it('rejects a non-list header field without dropping the active request', () => {
     const store = new NetworkStore({ maxRetainedRequests: 10, maxJournalBytes: 1_024 })
     const start = requestRecords('headers', 'ok')[0]!
-    store.append(source, [{ ...start, payload: { ...start.payload as object, headers: null } }, start])
+    store.append(source, [{ ...start, payload: { ...(start.payload as object), headers: null } }, start])
 
     expect(store.requestBody(requestId('headers')).complete).toBe(false)
   })

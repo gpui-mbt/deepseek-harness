@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -38,13 +38,16 @@ afterEach(async () => {
   vi.unstubAllEnvs()
 })
 
-async function loadComposition(
-  options: { withDynamic: boolean; baseURL: string; reuseRoot?: string; enableSessionLog?: boolean },
-): Promise<{ ctx: Context; settingsPath: string; credentialsPath: string }> {
+async function loadComposition(options: {
+  withDynamic: boolean
+  baseURL: string
+  reuseRoot?: string
+  enableSessionLog?: boolean
+}): Promise<{ ctx: Context; settingsPath: string; credentialsPath: string }> {
   // A reused root is the restart case: the same harness home, its documents
   // exactly as the previous process left them.
   const fresh = options.reuseRoot === undefined
-  root = options.reuseRoot ?? await mkdtemp(join(tmpdir(), 'dsh-llm-composition-'))
+  root = options.reuseRoot ?? (await mkdtemp(join(tmpdir(), 'dsh-llm-composition-')))
   vi.stubEnv('DSH_HOME', root)
   const settingsPath = join(root, 'profile', 'cordis.patch.yml')
   const credentialsPath = join(root, '.credentials.yaml')
@@ -53,37 +56,38 @@ async function loadComposition(
   }
 
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [
-    '- id: llm',
-    "  name: '@deepseek-ai/dsh-llm'",
-    '- id: session',
-    "  name: '@deepseek-ai/dsh-session'",
-    '- id: agents',
-    "  name: '@deepseek-ai/dsh-agent'",
-    '- id: deepseek-llm-api-extensions',
-    "  name: '@deepseek-ai/dsh-deepseek-llm-api-extensions'",
-    '- id: session-log-deepseek',
-    "  name: '@deepseek-ai/dsh-session-log-deepseek'",
-    ...options.enableSessionLog !== undefined
-      ? ['  config:', `    enabled: ${String(options.enableSessionLog)}`]
-      : [],
-    '- id: plugin-package-inventory-deepseek',
-    "  name: '@deepseek-ai/dsh-plugin-package-inventory-deepseek'",
-    ...options.withDynamic
-      ? [
-        '- id: credentials',
-        "  name: '@deepseek-ai/dsh-credentials-local'",
-        '  config:',
-        `    path: ${JSON.stringify(credentialsPath)}`,
-        '    debounceMs: 10',
-      ]
-      : [],
-    '- id: llm-deepseek',
-    "  name: '@deepseek-ai/dsh-llm-deepseek-api-key'",
-    '  config:',
-    `    baseURL: ${JSON.stringify(options.baseURL)}`,
-    '',
-  ].join('\n'))
+  await writeFile(
+    configPath,
+    [
+      '- id: llm',
+      "  name: '@deepseek-ai/dsh-llm'",
+      '- id: session',
+      "  name: '@deepseek-ai/dsh-session'",
+      '- id: agents',
+      "  name: '@deepseek-ai/dsh-agent'",
+      '- id: deepseek-llm-api-extensions',
+      "  name: '@deepseek-ai/dsh-deepseek-llm-api-extensions'",
+      '- id: session-log-deepseek',
+      "  name: '@deepseek-ai/dsh-session-log-deepseek'",
+      ...(options.enableSessionLog !== undefined ? ['  config:', `    enabled: ${String(options.enableSessionLog)}`] : []),
+      '- id: plugin-package-inventory-deepseek',
+      "  name: '@deepseek-ai/dsh-plugin-package-inventory-deepseek'",
+      ...(options.withDynamic
+        ? [
+            '- id: credentials',
+            "  name: '@deepseek-ai/dsh-credentials-local'",
+            '  config:',
+            `    path: ${JSON.stringify(credentialsPath)}`,
+            '    debounceMs: 10',
+          ]
+        : []),
+      '- id: llm-deepseek',
+      "  name: '@deepseek-ai/dsh-llm-deepseek-api-key'",
+      '  config:',
+      `    baseURL: ${JSON.stringify(options.baseURL)}`,
+      '',
+    ].join('\n'),
+  )
 
   const ctx = new Context()
   context = ctx
@@ -102,16 +106,21 @@ async function loadComposition(
   ])
   // The custom importer bypasses Node resolution; mirror the package manifests
   // a deployed cordis.yml has beside its declared dependencies.
-  await Promise.all([...modules.keys()].map(async (packageName) => {
-    const packageDir = join(root!, 'node_modules', ...packageName.split('/'))
-    await mkdir(packageDir, { recursive: true })
-    await writeFile(join(packageDir, 'package.json'), `${JSON.stringify({
-      name: packageName,
-      version: '0.1.0-rc.8',
-      type: 'module',
-    })}\n`)
-  }))
-  ctx.loader.internal = sourceModuleLoader(async (specifier) => {
+  await Promise.all(
+    [...modules.keys()].map(async packageName => {
+      const packageDir = join(root!, 'node_modules', ...packageName.split('/'))
+      await mkdir(packageDir, { recursive: true })
+      await writeFile(
+        join(packageDir, 'package.json'),
+        `${JSON.stringify({
+          name: packageName,
+          version: '0.1.0-rc.8',
+          type: 'module',
+        })}\n`,
+      )
+    }),
+  )
+  ctx.loader.internal = sourceModuleLoader(async specifier => {
     if (!modules.has(specifier)) throw new Error(`unexpected Loader import: ${specifier}`)
     return modules.get(specifier)
   })
@@ -122,7 +131,6 @@ async function loadComposition(
   await ctx.loader.await()
   return { ctx, settingsPath, credentialsPath }
 }
-
 
 describe('llm-deepseek real dynamic composition', () => {
   it('updates the model catalog when the stored API key is removed or added', async () => {
@@ -143,7 +151,9 @@ describe('llm-deepseek real dynamic composition', () => {
     const resolve = vi.spyOn(credentials, 'resolve').mockRejectedValue(failure)
     try {
       await expect(ctx.llm.listModels('deepseek-official')).rejects.toBe(failure)
-    } finally { resolve.mockRestore() }
+    } finally {
+      resolve.mockRestore()
+    }
   })
 
   it('keeps package inventory on when the Loader composition disables session upload', async () => {
@@ -156,11 +166,13 @@ describe('llm-deepseek real dynamic composition', () => {
     await assemble(ctx, { model: 'deepseek-v4-flash', messages: [], sessionId: session.id })
     const request = server.requests[0] as { dsh_plugin_packages: { version: number; packages: unknown[] } }
     expect(request).not.toHaveProperty('dsh_session_log')
-    expect(request.dsh_plugin_packages.packages).toEqual(expect.arrayContaining([
-      { name: '@deepseek-ai/dsh-deepseek-llm-api-extensions', version: '0.1.0-rc.8' },
-      { name: '@deepseek-ai/dsh-llm-deepseek-api-key', version: '0.1.0-rc.8' },
-      { name: '@deepseek-ai/dsh-session-log-deepseek', version: '0.1.0-rc.8' },
-    ]))
+    expect(request.dsh_plugin_packages.packages).toEqual(
+      expect.arrayContaining([
+        { name: '@deepseek-ai/dsh-deepseek-llm-api-extensions', version: '0.1.0-rc.8' },
+        { name: '@deepseek-ai/dsh-llm-deepseek-api-key', version: '0.1.0-rc.8' },
+        { name: '@deepseek-ai/dsh-session-log-deepseek', version: '0.1.0-rc.8' },
+      ]),
+    )
     expect(request.dsh_plugin_packages.version).toBe(1)
     expect(SessionLogDeepSeek.acceptedThrough(session)).toBe(-1)
   })
@@ -209,13 +221,19 @@ describe('llm-deepseek real dynamic composition', () => {
 
     // External edits, exactly as a user or the web UI would leave them on disk.
     await writeFile(settingsPath, JSON.stringify([{ id: NS, config: { baseURL: serverB.url } }]))
-    await vi.waitFor(() => {
-      expect((ctx.settings.describe().find(row => row.ns === NS)!.value as { baseURL?: string }).baseURL).toBe(serverB.url)
-    }, { timeout: 5000 })
+    await vi.waitFor(
+      () => {
+        expect((ctx.settings.describe().find(row => row.ns === NS)!.value as { baseURL?: string }).baseURL).toBe(serverB.url)
+      },
+      { timeout: 5000 },
+    )
     await writeFile(credentialsPath, 'version: 1\nrefs:\n  DEEPSEEK_API_KEY: rotated-key\n', { mode: 0o600 })
-    await vi.waitFor(async () => {
-      expect(await ctx.get('credentials')!.resolve(KEY_REF)).toEqual({ value: 'rotated-key', source: 'file' })
-    }, { timeout: 5000 })
+    await vi.waitFor(
+      async () => {
+        expect(await ctx.get('credentials')!.resolve(KEY_REF)).toEqual({ value: 'rotated-key', source: 'file' })
+      },
+      { timeout: 5000 },
+    )
 
     await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(serverA.requests).toHaveLength(1)
@@ -231,8 +249,7 @@ describe('llm-deepseek real dynamic composition', () => {
     const boot = await loadComposition({ withDynamic: true, baseURL: first.url })
     const home = root!
     await boot.ctx.get('credentials')!.set(KEY_REF, 'stored-by-ui')
-    expect(await boot.ctx.get('credentials')!.describe(KEY_REF))
-      .toEqual({ configured: true, source: 'file', writable: true })
+    expect(await boot.ctx.get('credentials')!.describe(KEY_REF)).toEqual({ configured: true, source: 'file', writable: true })
     await assemble(boot.ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(first.headers[0]?.['x-api-key']).toBe('stored-by-ui')
     await boot.ctx.fiber.dispose()

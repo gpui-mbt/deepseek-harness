@@ -1,7 +1,7 @@
 /** Registered parent fixtures for external backend activation tests. */
 
 import { randomUUID } from 'node:crypto'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -39,11 +39,21 @@ export async function externalTestParent(ctx: Context, cwd?: string): Promise<Ag
     options: {},
     status: 'idle',
     inbox,
-    send: (message, target) => { inbox.append(target, message) },
-    followup: (message) => { inbox.append('next-turn', message) },
-    steer: (message) => { inbox.append('next-step', message) },
-    inject: (message) => { inbox.append('next-step', message) },
-    cancel: (_cause, options) => { if (!options?.keepInbox) inbox.clear() },
+    send: (message, target) => {
+      inbox.append(target, message)
+    },
+    followup: message => {
+      inbox.append('next-turn', message)
+    },
+    steer: message => {
+      inbox.append('next-step', message)
+    },
+    inject: message => {
+      inbox.append('next-step', message)
+    },
+    cancel: (_cause, options) => {
+      if (!options?.keepInbox) inbox.clear()
+    },
     whenIdle: () => Promise.resolve(),
     runMaintenance: task => task(new AbortController().signal),
   }
@@ -52,15 +62,9 @@ export async function externalTestParent(ctx: Context, cwd?: string): Promise<Ag
 }
 
 /** Start through the activation service while preserving a backend fixture's workspace input. */
-export async function startExternalActivation(
-  ctx: Context,
-  provider: string,
-  request: SubagentStartRequest,
-): Promise<SubagentActivation> {
+export async function startExternalActivation(ctx: Context, provider: string, request: SubagentStartRequest): Promise<SubagentActivation> {
   const registry = await parentStore(ctx)
-  let parent = ctx.agents.get(request.parent.id) === request.parent
-    ? request.parent
-    : registry.get(request.parent)
+  let parent = ctx.agents.get(request.parent.id) === request.parent ? request.parent : registry.get(request.parent)
   if (parent === undefined) {
     parent = await externalTestParent(ctx, request.parent.session.header.cwd)
     registry.set(request.parent, parent)

@@ -162,7 +162,11 @@ declare module '@deepseek-ai/cordis' {
      * @param exec - the allowed call about to dispatch (name, parsed arguments, caller agent, signal).
      * @mode waterfall
      */
-    'tools/execute'(this: Scoped<ToolRuntime>, exec: ToolDispatchExecution, next: () => Promise<ToolExecutionResult>): Promise<ToolExecutionResult>
+    'tools/execute'(
+      this: Scoped<ToolRuntime>,
+      exec: ToolDispatchExecution,
+      next: () => Promise<ToolExecutionResult>,
+    ): Promise<ToolExecutionResult>
     /**
      * Accept, replace, enrich, or block a normalized dispatch result. `next()`
      * accepts it unchanged; thrown tools still reach this waterfall as errors. Async
@@ -174,7 +178,12 @@ declare module '@deepseek-ai/cordis' {
      * @param result - the dispatch outcome a listener may accept, replace, or block.
      * @mode waterfall
      */
-    'tools/post-execute'(this: Scoped<ToolRuntime>, exec: ToolExecution, result: Readonly<ToolExecutionResult>, next: () => Promise<PostToolDecision>): Promise<PostToolDecision>
+    'tools/post-execute'(
+      this: Scoped<ToolRuntime>,
+      exec: ToolExecution,
+      result: Readonly<ToolExecutionResult>,
+      next: () => Promise<PostToolDecision>,
+    ): Promise<PostToolDecision>
     /**
      * Allow a listener to replace content in the DURABLE LOG COPY of one
      * `run_code` sub-dispatch outcome before the bridge appends its
@@ -188,7 +197,11 @@ declare module '@deepseek-ai/cordis' {
      * @param dispatch - the parent execution, sub-call identity, and the settled content to log.
      * @mode waterfall
      */
-    'tools/ptc-dispatch-log'(this: Scoped<ToolRuntime>, dispatch: PtcDispatchLog, next: () => Promise<ContentBlock[]>): Promise<ContentBlock[]>
+    'tools/ptc-dispatch-log'(
+      this: Scoped<ToolRuntime>,
+      dispatch: PtcDispatchLog,
+      next: () => Promise<ContentBlock[]>,
+    ): Promise<ContentBlock[]>
     /**
      * Observe the frozen, lossless-JSON final outcome. Listener failures are contained.
      * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): keyed by `exec.agent`.
@@ -356,9 +369,7 @@ export interface ToolExecutionInput {
  * Scheduling mode for one pending call. `parallel` may overlap with siblings;
  * `exclusive` runs alone and forms an ordering barrier.
  */
-export type ToolExecutionMode =
-  | { kind: 'parallel' }
-  | { kind: 'exclusive' }
+export type ToolExecutionMode = { kind: 'parallel' } | { kind: 'exclusive' }
 
 /**
  * One settled `run_code` sub-dispatch about to be logged, as seen by the
@@ -516,12 +527,7 @@ export class ToolNotFoundError extends HarnessError {
    *   Omitted for a name that is registered nowhere.
    */
   constructor(toolName: string, reachableFrom?: string) {
-    super(
-      reachableFrom === undefined
-        ? `unknown tool "${toolName}"`
-        : `unknown tool "${toolName}": ${reachableFrom}`,
-      'UNKNOWN_TOOL',
-    )
+    super(reachableFrom === undefined ? `unknown tool "${toolName}"` : `unknown tool "${toolName}": ${reachableFrom}`, 'UNKNOWN_TOOL')
     this.name = 'ToolNotFoundError'
   }
 }
@@ -629,8 +635,7 @@ export type PostToolDecision =
 function errorMessage(error: unknown): string {
   try {
     if (error instanceof Error) return error.message
-    if (typeof error === 'object' && error !== null
-      && 'message' in error && typeof error.message === 'string') {
+    if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
       return error.message
     }
     return String(error)
@@ -644,9 +649,7 @@ function errorMessage(error: unknown): string {
 
 /** Derive one failure message from policy feedback without changing its rendered blocks. */
 function failureMessageFromContent(content: ContentBlock[]): string {
-  const text = content
-    .map(block => block.type === 'text' ? block.text : `[${block.type} content]`)
-    .join('\n')
+  const text = content.map(block => (block.type === 'text' ? block.text : `[${block.type} content]`)).join('\n')
   return text.length > 0 ? text : 'tool result blocked by post-execute policy'
 }
 
@@ -744,22 +747,25 @@ class ToolLayer implements ScopeLayer {
   mode: ToolPresentationMode | undefined
 
   constructor(scope: ScopeKey | undefined) {
-    this.tools = new NamedEntries(name => new Error(scope === undefined
-      ? `tool "${name}" is already registered (for a per-agent variant, register through that agent's \`agent.ctx\` instead)`
-      : `tool "${name}" is already registered in this scope`))
+    this.tools = new NamedEntries(
+      name =>
+        new Error(
+          scope === undefined
+            ? `tool "${name}" is already registered (for a per-agent variant, register through that agent's \`agent.ctx\` instead)`
+            : `tool "${name}" is already registered in this scope`,
+        ),
+    )
   }
 
   /** Whether every contribution table in this aggregate layer is empty. */
   isEmpty(): boolean {
-    return this.tools.isEmpty() && this.restrictions.isEmpty() && this.guards.isEmpty()
-      && this.mode === undefined
+    return this.tools.isEmpty() && this.restrictions.isEmpty() && this.guards.isEmpty() && this.mode === undefined
   }
 
   /** Whether every compiled restriction in this layer admits a global tool name. */
   admits(name: string): boolean {
     for (const filter of this.restrictions.values()) {
-      if ((filter.allow !== undefined && !filter.allow.has(name))
-        || (filter.deny !== undefined && filter.deny.has(name))) return false
+      if ((filter.allow !== undefined && !filter.allow.has(name)) || (filter.deny !== undefined && filter.deny.has(name))) return false
     }
     return true
   }
@@ -833,7 +839,9 @@ export class ToolRuntime extends Service {
   private contentProjectors = new WeakMap<ToolRunContext, ToolDefinition['projectContent']>()
   private readonly layers = new ScopedLayers(
     scope => new ToolLayer(scope),
-    () => { this.ctx.emit('tools/change') },
+    () => {
+      this.ctx.emit('tools/change')
+    },
   )
   /** Presentation for scopes that declare none; {@link presentAs} shadows it per scope. */
   private readonly defaultMode: ToolPresentationMode
@@ -882,7 +890,7 @@ export class ToolRuntime extends Service {
       order: this.ctx.systemPrompt.getSectionOrder('PTC_ONLY'),
       // The SAME predicate the executor denies by, so the prompt cannot state
       // a rule the registry does not enforce (see `collapses`).
-      text: context => this.modeFor(context.scope) === 'ptc' ? PTC_ONLY_INSTRUCTION : '',
+      text: context => (this.modeFor(context.scope) === 'ptc' ? PTC_ONLY_INSTRUCTION : ''),
     }
   }
 
@@ -902,7 +910,7 @@ export class ToolRuntime extends Service {
       order: this.ctx.systemPrompt.getSectionOrder('TOOLS_SDK'),
       interpolate: false,
       // Regenerate from the calling scope's visible tools in stable order.
-      text: (context) => {
+      text: context => {
         const mode = this.modeFor(context.scope)
         if (mode === 'native') return ''
         const runtime = this.requirePtcRuntime(mode)
@@ -945,29 +953,33 @@ export class ToolRuntime extends Service {
    * @returns the shared transport definition.
    */
   private requirePtcTransport(): ToolDefinition {
-    this.ptcTransport ??= createRunCodeTool(this, {
-      resolveWorkingDirectory: async (exec) => {
-        // Only Agent-owned PTC requires directory state; native registries
-        // and unowned programs can run without this service.
-        if (exec.agent === undefined) return undefined
-        const directories = this.ctx.get('workingDirectory')
-        if (directories === undefined) throw new Error('dsh-tools: run_code with an Agent requires workingDirectory')
-        return directories.ensure(exec.agent, exec.signal)
+    this.ptcTransport ??= createRunCodeTool(
+      this,
+      {
+        resolveWorkingDirectory: async exec => {
+          // Only Agent-owned PTC requires directory state; native registries
+          // and unowned programs can run without this service.
+          if (exec.agent === undefined) return undefined
+          const directories = this.ctx.get('workingDirectory')
+          if (directories === undefined) throw new Error('dsh-tools: run_code with an Agent requires workingDirectory')
+          return directories.ensure(exec.agent, exec.signal)
+        },
+        requireRuntime: () => this.requirePtcRuntime(this.defaultMode),
+        peekApprover: () => this.ctx.get('approval'),
+        resolveSandboxPolicy: exec => {
+          const policy = this.ctx.get('sandboxPolicy')
+          if (policy === undefined) throw new Error('dsh-tools: confined PTC runtime requires sandboxPolicy')
+          return policy.resolve(exec.agent === undefined ? {} : { session: exec.agent.session })
+        },
+        // The language-aware description/parameters getters read the runtime
+        // without demanding one, so a native-default process can still project
+        // the transport for an agent that chose code.
+        peekRuntime: () => this.ctx.get('ptcRuntime'),
+        maxParallel: this.maxParallelSubCalls,
+        shapeDispatchLog: dispatch => this.shapeDispatchLog(dispatch),
       },
-      requireRuntime: () => this.requirePtcRuntime(this.defaultMode),
-      peekApprover: () => this.ctx.get('approval'),
-      resolveSandboxPolicy: (exec) => {
-        const policy = this.ctx.get('sandboxPolicy')
-        if (policy === undefined) throw new Error('dsh-tools: confined PTC runtime requires sandboxPolicy')
-        return policy.resolve(exec.agent === undefined ? {} : { session: exec.agent.session })
-      },
-      // The language-aware description/parameters getters read the runtime
-      // without demanding one, so a native-default process can still project
-      // the transport for an agent that chose code.
-      peekRuntime: () => this.ctx.get('ptcRuntime'),
-      maxParallel: this.maxParallelSubCalls,
-      shapeDispatchLog: dispatch => this.shapeDispatchLog(dispatch),
-    }, this.ptcContext)
+      this.ptcContext,
+    )
     return this.ptcTransport
   }
 
@@ -985,29 +997,38 @@ export class ToolRuntime extends Service {
   presentAs(mode: ToolPresentationMode): () => void {
     const ctx = this.ctx
     if (scopeOf(ctx) === undefined) {
-      throw new Error('tools.presentAs() requires a scoped context (agent.ctx): a context-global presentation is the `mode` config field on the tools row')
-    }
-    const dispose = ctx.effect(function* (this: ToolRuntime) {
-      yield this.layers.effect(
-        ctx,
-        (layer) => {
-          if (layer.mode !== undefined) {
-            throw new Error(`tools.presentAs("${mode}") conflicts with "${layer.mode}" already declared for this scope; one composition selects one presentation`)
-          }
-          layer.mode = mode
-          return () => { layer.mode = undefined }
-        },
-        { label: 'tools.presentAs()' },
+      throw new Error(
+        'tools.presentAs() requires a scoped context (agent.ctx): a context-global presentation is the `mode` config field on the tools row',
       )
-      // The SDK and collapse sections are per scope for the same reason the
-      // mode is. Under a deployment that already defaults to PTC mode this
-      // shadows the global registration with an identical body, which costs
-      // nothing and keeps one rule instead of a case analysis.
-      if (mode !== 'native') {
-        yield ctx.systemPrompt.section(this.collapseSection())
-        yield ctx.systemPrompt.section(this.sdkSection())
-      }
-    }.bind(this), 'tools.presentAs()')
+    }
+    const dispose = ctx.effect(
+      function* (this: ToolRuntime) {
+        yield this.layers.effect(
+          ctx,
+          layer => {
+            if (layer.mode !== undefined) {
+              throw new Error(
+                `tools.presentAs("${mode}") conflicts with "${layer.mode}" already declared for this scope; one composition selects one presentation`,
+              )
+            }
+            layer.mode = mode
+            return () => {
+              layer.mode = undefined
+            }
+          },
+          { label: 'tools.presentAs()' },
+        )
+        // The SDK and collapse sections are per scope for the same reason the
+        // mode is. Under a deployment that already defaults to PTC mode this
+        // shadows the global registration with an identical body, which costs
+        // nothing and keeps one rule instead of a case analysis.
+        if (mode !== 'native') {
+          yield ctx.systemPrompt.section(this.collapseSection())
+          yield ctx.systemPrompt.section(this.sdkSection())
+        }
+      }.bind(this),
+      'tools.presentAs()',
+    )
     // oxlint-disable-next-line typescript/no-misused-promises -- synchronous composite teardown
     return dispose
   }
@@ -1053,10 +1074,14 @@ export class ToolRuntime extends Service {
   private requirePtcRuntime(mode: ToolPresentationMode): PtcRuntime {
     const runtime = this.ctx.get('ptcRuntime')
     if (!runtime) {
-      throw new Error(`dsh-tools: mode "${mode}" requires a PTC runtime — load a ctx.ptcRuntime implementation (e.g. @deepseek-ai/dsh-ptc-runtime-node) or set tools mode to "native"`)
+      throw new Error(
+        `dsh-tools: mode "${mode}" requires a PTC runtime — load a ctx.ptcRuntime implementation (e.g. @deepseek-ai/dsh-ptc-runtime-node) or set tools mode to "native"`,
+      )
     }
     if (!Object.hasOwn(SDK_RENDERERS, runtime.language)) {
-      const known = Object.keys(SDK_RENDERERS).map(name => JSON.stringify(name)).join(', ')
+      const known = Object.keys(SDK_RENDERERS)
+        .map(name => JSON.stringify(name))
+        .join(', ')
       throw new Error(`dsh-tools: no SDK renderer registered for runtime language ${JSON.stringify(runtime.language)} (known: ${known})`)
     }
     return runtime
@@ -1071,28 +1096,28 @@ export class ToolRuntime extends Service {
   register(definition: ToolDefinition): () => void {
     const name = definition.name
     const output = (definition as Partial<ToolDefinition>).output
-    if (output === undefined || typeof output !== 'object'
-      || typeof output.render !== 'function'
-      || (output.presentationMeta !== undefined && typeof output.presentationMeta !== 'function')) {
+    if (
+      output === undefined ||
+      typeof output !== 'object' ||
+      typeof output.render !== 'function' ||
+      (output.presentationMeta !== undefined && typeof output.presentationMeta !== 'function')
+    ) {
       throw new TypeError(`tool "${name}" must declare output { schema, render, presentationMeta? }`)
     }
     assertSupportedJsonSchema(output.schema)
     const timeoutMs = definition.timeoutMs
-    if (timeoutMs !== undefined
-      && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) {
+    if (timeoutMs !== undefined && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) {
       throw new TypeError(`tool "${name}" timeoutMs must be a positive finite number`)
     }
     // Reserved unconditionally: any agent may select a code mode for itself,
     // so a name free to take under the deployment default would become a
     // collision the moment a preset mounted.
     if (name === RUN_CODE_NAME) {
-      throw new Error(`tool name "${RUN_CODE_NAME}" is reserved for the PTC mode presentation transport and cannot be registered or shadowed`)
+      throw new Error(
+        `tool name "${RUN_CODE_NAME}" is reserved for the PTC mode presentation transport and cannot be registered or shadowed`,
+      )
     }
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.tools.insert(name, definition),
-      { label: 'tools.register()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.tools.insert(name, definition), { label: 'tools.register()' })
   }
 
   /**
@@ -1105,30 +1130,34 @@ export class ToolRuntime extends Service {
   restrict(filter: ToolRestriction): () => void {
     const scope = scopeOf(this.ctx)
     if (scope === undefined) {
-      throw new Error('tools.restrict() requires a scoped context (agent.ctx): a context-global restriction would mask every agent — deny the tool for the intended agent instead')
+      throw new Error(
+        'tools.restrict() requires a scoped context (agent.ctx): a context-global restriction would mask every agent — deny the tool for the intended agent instead',
+      )
     }
     const allow = filter.allow
     const deny = filter.deny
     if (allow === undefined && deny === undefined) {
-      throw new Error('tools.restrict({}) is a no-op: pass `allow` and/or `deny` (an empty filter is almost always a materialized-empty-config bug)')
+      throw new Error(
+        'tools.restrict({}) is a no-op: pass `allow` and/or `deny` (an empty filter is almost always a materialized-empty-config bug)',
+      )
     }
     const compiled: CompiledToolRestriction = {
-      ...allow !== undefined ? { allow: new Set(allow) } : {},
-      ...deny !== undefined ? { deny: new Set(deny) } : {},
+      ...(allow !== undefined ? { allow: new Set(allow) } : {}),
+      ...(deny !== undefined ? { deny: new Set(deny) } : {}),
     }
-    if ([...allow ?? [], ...deny ?? []].includes(RUN_CODE_NAME)) {
-      throw new Error(`tools.restrict() cannot name reserved PTC mode presentation transport "${RUN_CODE_NAME}"; restrict end-capability tools instead`)
+    if ([...(allow ?? []), ...(deny ?? [])].includes(RUN_CODE_NAME)) {
+      throw new Error(
+        `tools.restrict() cannot name reserved PTC mode presentation transport "${RUN_CODE_NAME}"; restrict end-capability tools instead`,
+      )
     }
     const known = this.view(scope).restrictableNames
-    const unknown = [...allow ?? [], ...deny ?? []].filter(name => !known.has(name))
+    const unknown = [...(allow ?? []), ...(deny ?? [])].filter(name => !known.has(name))
     if (unknown.length > 0) {
-      throw new Error(`tools.restrict() names unknown global tool${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known global tools: ${[...known].sort().join(', ') || '(none)'}`)
+      throw new Error(
+        `tools.restrict() names unknown global tool${unknown.length > 1 ? 's' : ''} ${unknown.map(n => `"${n}"`).join(', ')}; known global tools: ${[...known].sort().join(', ') || '(none)'}`,
+      )
     }
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.restrictions.append(compiled),
-      { label: 'tools.restrict()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.restrictions.append(compiled), { label: 'tools.restrict()' })
   }
 
   /**
@@ -1142,11 +1171,7 @@ export class ToolRuntime extends Service {
    * @returns the exact disposer that unregisters the guard.
    */
   guard(guard: ToolGuard): () => void {
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.guards.append(guard),
-      { label: 'tools.guard()', notify: false },
-    )
+    return this.layers.effect(this.ctx, layer => layer.guards.append(guard), { label: 'tools.guard()', notify: false })
   }
 
   /** First monotonic denial from the global then the scope chain's guard layers, farthest first. */
@@ -1297,7 +1322,7 @@ export class ToolRuntime extends Service {
       name,
       description,
       parameters: detached,
-      ...deferLoading === true ? { deferLoading } : {},
+      ...(deferLoading === true ? { deferLoading } : {}),
     }
   }
 
@@ -1330,12 +1355,13 @@ export class ToolRuntime extends Service {
    */
   private async shapeDispatchLog(dispatch: PtcDispatchLog): Promise<ContentBlock[]> {
     try {
-      return await this.ctx.waterfall(
-        scopeTarget(this, dispatch.agent), 'tools/ptc-dispatch-log', dispatch,
-        () => Promise.resolve(dispatch.content),
+      return await this.ctx.waterfall(scopeTarget(this, dispatch.agent), 'tools/ptc-dispatch-log', dispatch, () =>
+        Promise.resolve(dispatch.content),
       )
     } catch (error: unknown) {
-      this.ctx.logger.warn(`tools: ptc-dispatch-log listener failed for ${dispatch.name}: ${errorMessage(error)}; logging the original settled content`)
+      this.ctx.logger.warn(
+        `tools: ptc-dispatch-log listener failed for ${dispatch.name}: ${errorMessage(error)}; logging the original settled content`,
+      )
       return dispatch.content
     }
   }
@@ -1421,9 +1447,9 @@ export class ToolRuntime extends Service {
       rootCallId,
       name,
       signal,
-      ...agent !== undefined ? { agent } : {},
-      ...parent !== undefined ? { parent } : {},
-      ...exec.schema !== undefined ? { schema: exec.schema } : {},
+      ...(agent !== undefined ? { agent } : {}),
+      ...(parent !== undefined ? { parent } : {}),
+      ...(exec.schema !== undefined ? { schema: exec.schema } : {}),
       deferContext(context: UserMessage): void {
         deferredContexts.push(context)
       },
@@ -1443,8 +1469,7 @@ export class ToolRuntime extends Service {
     // could never execute).
     const capturedFinalizer = visible?.finalizeContent?.bind(visible)
     const capturedProjector = visible?.projectContent?.bind(visible)
-    const finalizerFor = (): ToolDefinition['finalizeContent'] | undefined =>
-      collapsed && !signal.aborted ? undefined : capturedFinalizer
+    const finalizerFor = (): ToolDefinition['finalizeContent'] | undefined => (collapsed && !signal.aborted ? undefined : capturedFinalizer)
     try {
       const detached = snapshotJsonValue(exec.arguments)
       if (detached === undefined) {
@@ -1474,10 +1499,12 @@ export class ToolRuntime extends Service {
         return {
           kind: 'final-result',
           exec: execution,
-          result: toolErrorResult(new ToolNotFoundError(
-            name,
-            `only \`${RUN_CODE_NAME}\` is callable directly — call \`${name}\` from inside a \`${RUN_CODE_NAME}\` program instead`,
-          )),
+          result: toolErrorResult(
+            new ToolNotFoundError(
+              name,
+              `only \`${RUN_CODE_NAME}\` is callable directly — call \`${name}\` from inside a \`${RUN_CODE_NAME}\` program instead`,
+            ),
+          ),
         }
       }
       return { kind: 'ready', exec: execution }
@@ -1510,13 +1537,8 @@ export class ToolRuntime extends Service {
     }
     try {
       const carrier = scopeTarget(this, exec.agent)
-      const gate = await this.ctx.waterfall(
-        carrier, 'tools/pre-execute', exec,
-        () => Promise.resolve<PreToolDecision>({ kind: 'allow' }),
-      )
-      const askResolution = gate.kind === 'ask'
-        ? await this.serviceAsk(exec, gate)
-        : { decision: gate, approvalCancelled: false }
+      const gate = await this.ctx.waterfall(carrier, 'tools/pre-execute', exec, () => Promise.resolve<PreToolDecision>({ kind: 'allow' }))
+      const askResolution = gate.kind === 'ask' ? await this.serviceAsk(exec, gate) : { decision: gate, approvalCancelled: false }
       const { decision } = askResolution
       if (this.callerCancelled(exec) && askResolution.approvalCancelled) {
         return await next({ kind: 'post-result', exec, result: toolAbortedBeforeDispatchResult() })
@@ -1533,7 +1555,7 @@ export class ToolRuntime extends Service {
           result: this.materializeFinalResult({
             content: [{ type: 'text', text: `Error: ${denialReason}` }],
             isError: true,
-            error: { message: denialReason, ...denialInfo === undefined ? {} : { info: denialInfo } },
+            error: { message: denialReason, ...(denialInfo === undefined ? {} : { info: denialInfo }) },
           }),
         })
       }
@@ -1559,9 +1581,7 @@ export class ToolRuntime extends Service {
     const state = this.cancellationStates.get(exec)
     /* v8 ignore next -- only registry-minted executions reach the staged scheduler methods */
     if (state === undefined) throw new Error('tool registry scheduler invariant violated: missing cancellation state')
-    return state.bodyInvoked
-      ? toolAbortedResult(prior)
-      : toolAbortedBeforeDispatchResult(prior)
+    return state.bodyInvoked ? toolAbortedResult(prior) : toolAbortedBeforeDispatchResult(prior)
   }
 
   /**
@@ -1588,9 +1608,7 @@ export class ToolRuntime extends Service {
       state.bodyInvoked = true
       const returned = await tool.execute(exec.arguments, exec)
       const result = this.createSuccessResult(exec, tool, returned)
-      return isAborted(signal)
-        ? toolAbortedResult(result)
-        : result
+      return isAborted(signal) ? toolAbortedResult(result) : result
     } catch (error: unknown) {
       return toolErrorResult(error)
     } finally {
@@ -1610,28 +1628,24 @@ export class ToolRuntime extends Service {
     try {
       const mutableExec = exec as MutableToolRunContext
       const carrier = scopeTarget(this, exec.agent)
-      const result = await this.ctx.waterfall(
-        carrier, 'tools/execute', mutableExec,
-        () => this.dispatchToolBody(mutableExec),
-      )
+      const result = await this.ctx.waterfall(carrier, 'tools/execute', mutableExec, () => this.dispatchToolBody(mutableExec))
       const normalized = this.normalizeDispatchResult(exec, result)
       const deferredContexts = this.deferredContexts.get(exec)
       /* v8 ignore next -- dispatch only receives executions minted by this registry's prepare stage */
       if (deferredContexts === undefined) throw new Error('tool registry scheduler invariant violated: unprepared execution')
-      const resultWithDeferredContexts: ToolExecutionResult = deferredContexts.length === 0
-        ? normalized
-        : this.markCanonical(exec, {
-          ...normalized,
-          additionalContexts: [
-            ...deferredContexts,
-            ...normalized.additionalContexts ?? [],
-          ],
-        })
+      const resultWithDeferredContexts: ToolExecutionResult =
+        deferredContexts.length === 0
+          ? normalized
+          : this.markCanonical(exec, {
+              ...normalized,
+              additionalContexts: [...deferredContexts, ...(normalized.additionalContexts ?? [])],
+            })
       return {
         kind: 'post-result',
-        result: this.callerCancelled(exec) && !resultWithDeferredContexts.isError
-          ? this.cancellationResult(exec, resultWithDeferredContexts)
-          : resultWithDeferredContexts,
+        result:
+          this.callerCancelled(exec) && !resultWithDeferredContexts.isError
+            ? this.cancellationResult(exec, resultWithDeferredContexts)
+            : resultWithDeferredContexts,
       }
     } catch (error: unknown) {
       return { kind: 'final-result', result: toolErrorResult(error) }
@@ -1651,15 +1665,11 @@ export class ToolRuntime extends Service {
       const project = this.contentProjectors.get(exec)
       this.contentProjectors.delete(exec)
       const content = project?.(exec, result)
-      const projected = content === undefined
-        ? result
-        : this.markCanonical(exec, this.materializeFinalResult({ ...result, content }))
+      const projected = content === undefined ? result : this.markCanonical(exec, this.materializeFinalResult({ ...result, content }))
       const postResult = await this.postExecute(exec, projected)
       return this.finishScheduledExecution(
         exec,
-        this.callerCancelled(exec) && !postResult.isError
-          ? this.cancellationResult(exec, postResult)
-          : postResult,
+        this.callerCancelled(exec) && !postResult.isError ? this.cancellationResult(exec, postResult) : postResult,
       )
     } catch (error: unknown) {
       return this.finishScheduledExecution(exec, toolErrorResult(error))
@@ -1708,9 +1718,7 @@ export class ToolRuntime extends Service {
     const reportFailure = (error: unknown): void => {
       this.ctx.logger.warn(`tool "${toolName}" (${callId}): tools/result observer failed: ${errorMessage(error)}`)
     }
-    const callbacks = this.ctx.events.dispatch('emit', [
-      scopeTarget(this, exec.agent), 'tools/result', exec, result,
-    ])
+    const callbacks = this.ctx.events.dispatch('emit', [scopeTarget(this, exec.agent), 'tools/result', exec, result])
     for (const callback of callbacks) {
       try {
         const returned: unknown = callback(exec, result)
@@ -1732,10 +1740,7 @@ export class ToolRuntime extends Service {
    * distinct reasons so the model can tell a human "no" from an absent
    * approval channel.
    */
-  private async serviceAsk(
-    exec: ToolExecution,
-    ask: Extract<PreToolDecision, { kind: 'ask' }>,
-  ): Promise<ToolAskResolution> {
+  private async serviceAsk(exec: ToolExecution, ask: Extract<PreToolDecision, { kind: 'ask' }>): Promise<ToolAskResolution> {
     const approval = this.ctx.get('approval')
     if (approval === undefined) {
       return {
@@ -1753,25 +1758,30 @@ export class ToolRuntime extends Service {
       agent: exec.agent,
       toolName: exec.name,
       callId: exec.callId,
-      ...ask.reason !== undefined ? { reason: ask.reason } : {},
-      ...ask.displayReason !== undefined ? { displayReason: ask.displayReason } : {},
+      ...(ask.reason !== undefined ? { reason: ask.reason } : {}),
+      ...(ask.displayReason !== undefined ? { displayReason: ask.displayReason } : {}),
       signal: exec.signal,
     })
     switch (outcome) {
-      case 'allowed-once': return { decision: { kind: 'allow' }, approvalCancelled: false }
-      case 'rejected': return {
-        decision: { kind: 'deny', reason: `the user rejected tool "${exec.name}"` },
-        approvalCancelled: false,
-      }
-      case 'cancelled': return {
-        decision: { kind: 'deny', reason: `approval for tool "${exec.name}" was cancelled` },
-        approvalCancelled: true,
-      }
-      case 'unavailable': return {
-        decision: { kind: 'deny', reason: `tool "${exec.name}" requires approval, but no approval channel is available` },
-        approvalCancelled: false,
-      }
-      default: return assertNever(outcome, 'ApprovalOutcome')
+      case 'allowed-once':
+        return { decision: { kind: 'allow' }, approvalCancelled: false }
+      case 'rejected':
+        return {
+          decision: { kind: 'deny', reason: `the user rejected tool "${exec.name}"` },
+          approvalCancelled: false,
+        }
+      case 'cancelled':
+        return {
+          decision: { kind: 'deny', reason: `approval for tool "${exec.name}" was cancelled` },
+          approvalCancelled: true,
+        }
+      case 'unavailable':
+        return {
+          decision: { kind: 'deny', reason: `tool "${exec.name}" requires approval, but no approval channel is available` },
+          approvalCancelled: false,
+        }
+      default:
+        return assertNever(outcome, 'ApprovalOutcome')
     }
   }
 
@@ -1787,9 +1797,8 @@ export class ToolRuntime extends Service {
    * Runs inside `execute`'s outer try/catch (a throwing listener → isError).
    */
   private async postExecute(exec: ToolExecution, result: ToolExecutionResult): Promise<ToolExecutionResult> {
-    const decision = await this.ctx.waterfall(
-      scopeTarget(this, exec.agent), 'tools/post-execute', exec, result,
-      () => Promise.resolve<PostToolDecision>({ kind: 'accept' }),
+    const decision = await this.ctx.waterfall(scopeTarget(this, exec.agent), 'tools/post-execute', exec, result, () =>
+      Promise.resolve<PostToolDecision>({ kind: 'accept' }),
     )
     const decisionContexts = decision.additionalContexts ?? []
     if (decision.kind === 'block') {
@@ -1798,16 +1807,13 @@ export class ToolRuntime extends Service {
         content: decision.feedback,
         isError: true,
         error: { message },
-        ...decisionContexts.length > 0 ? { additionalContexts: decisionContexts } : {},
+        ...(decisionContexts.length > 0 ? { additionalContexts: decisionContexts } : {}),
       })
     }
     if (Object.hasOwn(decision, 'content') && Object.hasOwn(decision, 'value')) {
       throw new TypeError('tools/post-execute accept decision cannot replace both value and content')
     }
-    const additionalContexts = [
-      ...result.additionalContexts ?? [],
-      ...decisionContexts,
-    ]
+    const additionalContexts = [...(result.additionalContexts ?? []), ...decisionContexts]
     if (Object.hasOwn(decision, 'value')) {
       if (result.isError) {
         throw new TypeError('tools/post-execute cannot replace the value of a failed result')
@@ -1817,13 +1823,13 @@ export class ToolRuntime extends Service {
       const replaced = this.createSuccessResult(exec, tool, decision.value)
       return this.markCanonical(exec, {
         ...replaced,
-        ...additionalContexts.length > 0 ? { additionalContexts } : {},
+        ...(additionalContexts.length > 0 ? { additionalContexts } : {}),
       })
     }
     return this.markCanonical(exec, {
       ...result,
-      ...decision.content !== undefined ? { content: decision.content } : {},
-      ...additionalContexts.length > 0 ? { additionalContexts } : {},
+      ...(decision.content !== undefined ? { content: decision.content } : {}),
+      ...(additionalContexts.length > 0 ? { additionalContexts } : {}),
     })
   }
 
@@ -1860,13 +1866,16 @@ export class ToolRuntime extends Service {
       meta = snapshotProjection(tool.name, 'presentationMeta', projected)
     }
     const concludesTurn = this.concludingExecutions.has(exec)
-    return this.markCanonical(exec, this.materializeFinalResult({
-      isError: false,
-      value,
-      content,
-      ...meta !== undefined ? { meta } : {},
-      ...concludesTurn ? { concludesTurn: true as const } : {},
-    }) as ToolExecutionSuccess)
+    return this.markCanonical(
+      exec,
+      this.materializeFinalResult({
+        isError: false,
+        value,
+        content,
+        ...(meta !== undefined ? { meta } : {}),
+        ...(concludesTurn ? { concludesTurn: true as const } : {}),
+      }) as ToolExecutionSuccess,
+    )
   }
 
   /** Normalize an around-dispatch wrapper's authored result through the owning output contract. */
@@ -1877,8 +1886,8 @@ export class ToolRuntime extends Service {
         isError: true,
         error: result.error,
         content: result.content,
-        ...result.meta !== undefined ? { meta: result.meta } : {},
-        ...result.additionalContexts !== undefined ? { additionalContexts: result.additionalContexts } : {},
+        ...(result.meta !== undefined ? { meta: result.meta } : {}),
+        ...(result.additionalContexts !== undefined ? { additionalContexts: result.additionalContexts } : {}),
       })
     }
     const tool = this.resolveExecution(exec.name, exec.agent, exec.parent !== undefined)
@@ -1886,7 +1895,7 @@ export class ToolRuntime extends Service {
     const normalized = this.createSuccessResult(exec, tool, result.value)
     return this.markCanonical(exec, {
       ...normalized,
-      ...result.additionalContexts !== undefined ? { additionalContexts: result.additionalContexts } : {},
+      ...(result.additionalContexts !== undefined ? { additionalContexts: result.additionalContexts } : {}),
     })
   }
 
@@ -1894,8 +1903,8 @@ export class ToolRuntime extends Service {
   private materializeFinalResult(result: ToolExecutionResult): ToolExecutionResult {
     const presentation = {
       content: result.content,
-      ...result.meta !== undefined ? { meta: result.meta } : {},
-      ...result.additionalContexts !== undefined ? { additionalContexts: result.additionalContexts } : {},
+      ...(result.meta !== undefined ? { meta: result.meta } : {}),
+      ...(result.additionalContexts !== undefined ? { additionalContexts: result.additionalContexts } : {}),
     }
     if (result.isError) {
       return materializePresentation({ isError: true as const, error: result.error, ...presentation })
@@ -1903,7 +1912,7 @@ export class ToolRuntime extends Service {
     const detached = materializePresentation({
       isError: false as const,
       ...presentation,
-      ...result.concludesTurn === true ? { concludesTurn: true as const } : {},
+      ...(result.concludesTurn === true ? { concludesTurn: true as const } : {}),
     })
     return deepFreeze({ ...detached, value: result.value })
   }
@@ -1920,7 +1929,7 @@ function toolErrorResult(error: unknown): ToolExecutionResult {
   return {
     content: [{ type: 'text', text: `Error: ${message}` }],
     isError: true,
-    error: { message, ...info ? { info } : {} },
+    error: { message, ...(info ? { info } : {}) },
   }
 }
 
@@ -1949,8 +1958,12 @@ function fuseToolSignals(caller: AbortSignal, wrapper: AbortSignal): FusedToolSi
     controller.abort(reason)
     dispose()
   }
-  const abortFromCaller = (): void => { abortFrom(caller) }
-  const abortFromWrapper = (): void => { abortFrom(wrapper) }
+  const abortFromCaller = (): void => {
+    abortFrom(caller)
+  }
+  const abortFromWrapper = (): void => {
+    abortFrom(wrapper)
+  }
 
   if (wrapper.aborted) abortFromWrapper()
   else if (caller.aborted) abortFromCaller()
@@ -1972,7 +1985,7 @@ function toolAbortedResult(prior?: ToolExecutionResult): ToolExecutionResult {
       message: 'tool call aborted',
       info: { name: 'AbortError', code: TOOL_ABORTED },
     },
-    ...additionalContexts.length > 0 ? { additionalContexts } : {},
+    ...(additionalContexts.length > 0 ? { additionalContexts } : {}),
   }
 }
 
@@ -1986,7 +1999,7 @@ function toolAbortedBeforeDispatchResult(prior?: ToolExecutionResult): ToolExecu
       message: 'tool call aborted before dispatch',
       info: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH },
     },
-    ...additionalContexts.length > 0 ? { additionalContexts } : {},
+    ...(additionalContexts.length > 0 ? { additionalContexts } : {}),
   }
 }
 

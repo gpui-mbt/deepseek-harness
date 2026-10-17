@@ -45,25 +45,19 @@ export interface RuntimeBackend {
    * @param request - Property request containing this backend's object handle.
    * @returns Property descriptors and optional exception details.
    */
-  getProperties(
-    request: RuntimeGetPropertiesRequest<RuntimeBackendObjectHandle>,
-  ): Promise<RuntimeProperties<RuntimeBackendObjectHandle>>
+  getProperties(request: RuntimeGetPropertiesRequest<RuntimeBackendObjectHandle>): Promise<RuntimeProperties<RuntimeBackendObjectHandle>>
   /**
    * Invoke a function with references owned by this realm session.
    * @param request - Function source, receiver, arguments, and result options.
    * @returns Completion containing the invocation result or JavaScript exception.
    */
-  callFunction(
-    request: RuntimeCallFunctionRequest<RuntimeBackendObjectHandle>,
-  ): Promise<RuntimeCompletion<RuntimeBackendObjectHandle>>
+  callFunction(request: RuntimeCallFunctionRequest<RuntimeBackendObjectHandle>): Promise<RuntimeCompletion<RuntimeBackendObjectHandle>>
   /**
    * Await one retained Promise.
    * @param request - Promise handle and result options.
    * @returns Completion containing the fulfilled value or rejection.
    */
-  awaitPromise(
-    request: RuntimeAwaitPromiseRequest<RuntimeBackendObjectHandle>,
-  ): Promise<RuntimeCompletion<RuntimeBackendObjectHandle>>
+  awaitPromise(request: RuntimeAwaitPromiseRequest<RuntimeBackendObjectHandle>): Promise<RuntimeCompletion<RuntimeBackendObjectHandle>>
   /**
    * Read names visible in one backend execution context's global lexical scope.
    * @param context - Native sub-context selector, or the realm default when omitted.
@@ -133,9 +127,7 @@ export interface DebuggerBackend {
    * @param request - Frame identity, expression, and result options.
    * @returns A common Runtime completion.
    */
-  evaluateOnCallFrame(
-    request: RuntimeCallFrameEvaluationRequest,
-  ): Promise<RuntimeCompletion<RuntimeBackendObjectHandle>>
+  evaluateOnCallFrame(request: RuntimeCallFrameEvaluationRequest): Promise<RuntimeCompletion<RuntimeBackendObjectHandle>>
   /**
    * Subscribe to paused, resumed, and breakpoint events.
    * @param listener - Connection-local debugger event consumer.

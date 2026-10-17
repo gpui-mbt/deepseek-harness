@@ -118,9 +118,9 @@ export class RemoteMock {
   private readonly streamMocks = new Map<string, Mock<UnaryRuleFn>>()
   /** The carrier's uplink for the open in progress through {@link open}; a direct call has none. */
   private carrierUplink: AsyncIterable<unknown> | undefined
-  private readonly proxy = createRemoteProxy(endpoint => this.modeOf(endpoint) === 'stream'
-    ? this.streamMock(endpoint)
-    : this.unaryMock(endpoint))
+  private readonly proxy = createRemoteProxy(endpoint =>
+    this.modeOf(endpoint) === 'stream' ? this.streamMock(endpoint) : this.unaryMock(endpoint),
+  )
 
   /**
    * Native mock functions for every namespace: configure answers and inspect calls without declaring method names.
@@ -136,12 +136,23 @@ export class RemoteMock {
 
   /** Control over streams opened by registered scripts. */
   readonly streams: OpenStreams = {
-    push: (endpoint, item, where) => this.forEachOpen(endpoint, where, (stream) => { stream.push(item) }),
-    end: (endpoint, where) => this.forEachOpen(endpoint, where, (stream) => { stream.end() }),
-    fail: (endpoint, error, where) => this.forEachOpen(endpoint, where, (stream) => { stream.fail(error) }),
+    push: (endpoint, item, where) =>
+      this.forEachOpen(endpoint, where, stream => {
+        stream.push(item)
+      }),
+    end: (endpoint, where) =>
+      this.forEachOpen(endpoint, where, stream => {
+        stream.end()
+      }),
+    fail: (endpoint, error, where) =>
+      this.forEachOpen(endpoint, where, stream => {
+        stream.fail(error)
+      }),
     opened: (endpoint, count) => {
       if (this.logStore.streams(endpoint).length >= count) return Promise.resolve()
-      return new Promise<void>((resolve) => { this.openWaiters.push({ endpoint, count, resolve }) })
+      return new Promise<void>(resolve => {
+        this.openWaiters.push({ endpoint, count, resolve })
+      })
     },
     drained: (endpoint, where) => Promise.all(this.matching(endpoint, where).map(stream => stream.drained())).then(() => undefined),
   }
@@ -291,12 +302,7 @@ export class RemoteMock {
    * @returns the controlled script stream or the native override's caller-owned iterable.
    * @throws {Error} when the default runs without a registered script (logged as unmatched).
    */
-  open(
-    endpoint: string,
-    args: readonly unknown[],
-    signal: AbortSignal,
-    uplink?: AsyncIterable<unknown>,
-  ): AsyncIterable<unknown> {
+  open(endpoint: string, args: readonly unknown[], signal: AbortSignal, uplink?: AsyncIterable<unknown>): AsyncIterable<unknown> {
     this.carrierUplink = uplink
     try {
       return this.streamMock(endpoint)(...args, signal) as AsyncIterable<unknown>
@@ -310,7 +316,7 @@ export class RemoteMock {
     if (mock === undefined) {
       mock = fn((...values: readonly unknown[]) => {
         const args = [...values]
-        const signal = args.at(-1) instanceof AbortSignal ? args.pop() as AbortSignal : new AbortController().signal
+        const signal = args.at(-1) instanceof AbortSignal ? (args.pop() as AbortSignal) : new AbortController().signal
         return this.openScript(endpoint, args, signal, this.carrierUplink)
       })
       this.streamMocks.set(endpoint, mock)
@@ -337,7 +343,9 @@ export class RemoteMock {
     } else {
       uplink = carrierUplink
     }
-    const stream = new MockStream(this.logStore.stream(endpoint, args), signal, uplink, () => { owned?.close() })
+    const stream = new MockStream(this.logStore.stream(endpoint, args), signal, uplink, () => {
+      owned?.close()
+    })
     this.live.push(stream)
     this.wakeOpened(endpoint)
     stream.run(script, args)
@@ -349,7 +357,9 @@ export class RemoteMock {
     const unmatched = this.logStore.unmatched()
     if (unmatched.length === 0) return
     const lines = unmatched.map(entry => `  ${entry.endpoint} (${entry.mode})`)
-    throw new Error(`remote-mock: ${String(unmatched.length)} unmatched request(s):\n${lines.join('\n')}\nregistered: ${this.endpoints().join(', ')}`)
+    throw new Error(
+      `remote-mock: ${String(unmatched.length)} unmatched request(s):\n${lines.join('\n')}\nregistered: ${this.endpoints().join(', ')}`,
+    )
   }
 
   private noRuleMessage(endpoint: string): string {
@@ -405,9 +415,13 @@ function argsOf(endpoint: string, payload: unknown): readonly unknown[] {
  */
 function settleOrAbort<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const abort = (): void => { reject(signal.reason instanceof Error ? signal.reason : new Error('remote-mock: call aborted', { cause: signal.reason })) }
+    const abort = (): void => {
+      reject(signal.reason instanceof Error ? signal.reason : new Error('remote-mock: call aborted', { cause: signal.reason }))
+    }
     signal.addEventListener('abort', abort, { once: true })
-    pending.then(resolve, reject).finally(() => { signal.removeEventListener('abort', abort) })
+    pending.then(resolve, reject).finally(() => {
+      signal.removeEventListener('abort', abort)
+    })
     if (signal.aborted) abort()
   })
 }

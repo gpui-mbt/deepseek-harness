@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { codingHarness, finalText, SYSTEM_PROMPT, waitForIdle } from './harness.ts'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -55,15 +55,26 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('coding task: fix a failing test 
     expect(before.status).not.toBe(0)
 
     ctx = await codingHarness(workdir, { personaPrefix: SYSTEM_PROMPT })
-    const agent = await ctx.agentLoop.create(SessionId('e2e-task'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, { cwd: workdir })
+    const agent = await ctx.agentLoop.create(
+      SessionId('e2e-task'),
+      { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      { cwd: workdir },
+    )
 
-    agent.followup(createUserMessage({
-      content: [{
-        type: 'text',
-        text: 'In the current directory, `node add.test.js` fails because add.js has a bug. '
-        + 'Fix add.js so the test passes, run `node add.test.js` to verify, and report the result. '
-        + 'Do not modify add.test.js.',
-      }], source: { kind: 'user' } }))
+    agent.followup(
+      createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text:
+              'In the current directory, `node add.test.js` fails because add.js has a bug. ' +
+              'Fix add.js so the test passes, run `node add.test.js` to verify, and report the result. ' +
+              'Do not modify add.test.js.',
+          },
+        ],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, agent)
 
     // The agent claims success…

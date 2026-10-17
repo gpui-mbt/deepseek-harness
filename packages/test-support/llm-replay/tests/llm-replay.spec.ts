@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SESSION_FORMAT_VERSION, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -70,8 +70,8 @@ function sessionJsonl(
     version,
     id: header?.id ?? 's1',
     createdAt: header?.createdAt ?? 0,
-    ...version >= 2 ? { isSeeded: false } : {},
-    ...header?.seedLength !== undefined ? { seedLength: header.seedLength } : {},
+    ...(version >= 2 ? { isSeeded: false } : {}),
+    ...(header?.seedLength !== undefined ? { seedLength: header.seedLength } : {}),
     delegationDepth: 0,
   })
   return [headerLine, ...events.map(event => JSON.stringify(event))].join('\n') + '\n'
@@ -87,12 +87,14 @@ function releasedV2ResultMessage(callId: ToolCallId): ToolResultMessage {
     id: `${callId}-result`,
     role: 'user',
     source: { kind: 'tool', callId },
-    content: [{
-      type: 'tool-result',
-      toolCallId: callId,
-      content: [],
-      isError: false,
-    }],
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: callId,
+        content: [],
+        isError: false,
+      },
+    ],
   } as unknown as ToolResultMessage
 }
 
@@ -122,9 +124,10 @@ function replaySessionJsonl(
           name: chunk.block.name,
           arguments: chunk.block.arguments,
         })
-        const message = version >= 3
-          ? createToolResultMessage({ callId: chunk.block.id, content: [], isError: false })
-          : releasedV2ResultMessage(chunk.block.id)
+        const message =
+          version >= 3
+            ? createToolResultMessage({ callId: chunk.block.id, content: [], isError: false })
+            : releasedV2ResultMessage(chunk.block.id)
         events.push({
           type: 'tool/result',
           seq: SessionSeq(seq++),
@@ -144,11 +147,14 @@ function replaySessionJsonl(
 
 /** Remove persistence envelopes to produce the committed snapshot projection. */
 function projectSessionJsonl(complete: string): string {
-  return complete.split('\n').map((line, index) => {
-    if (index === 0 || line.length === 0) return line
-    const { seq: _seq, time: _time, ...projected } = JSON.parse(line) as Record<string, unknown>
-    return JSON.stringify(projected)
-  }).join('\n')
+  return complete
+    .split('\n')
+    .map((line, index) => {
+      if (index === 0 || line.length === 0) return line
+      const { seq: _seq, time: _time, ...projected } = JSON.parse(line) as Record<string, unknown>
+      return JSON.stringify(projected)
+    })
+    .join('\n')
 }
 
 /** One current durable Assistant stream event for a model attempt. */
@@ -185,10 +191,10 @@ function streamEvent(
         source: {
           provider: 'mock',
           model: 'mock',
-          ...assembler.replayState === undefined ? {} : { replayState: assembler.replayState },
+          ...(assembler.replayState === undefined ? {} : { replayState: assembler.replayState }),
         },
       }),
-      ...assembler.usage === undefined ? {} : { usage: assembler.usage },
+      ...(assembler.usage === undefined ? {} : { usage: assembler.usage }),
     },
     surfaceOp: 'append',
   }
@@ -232,7 +238,7 @@ async function drain(iter: AsyncIterable<StreamChunk>): Promise<StreamChunk[]> {
 describe('Session format package parity', () => {
   it('refuses catalog and Session version skew at module load', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
+    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async importOriginal => {
       const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
       return {
         ...actual,
@@ -243,8 +249,9 @@ describe('Session format package parity', () => {
       }
     })
     try {
-      await expect(import('../src/index.ts'))
-        .rejects.toThrow(`format catalog v${SESSION_FORMAT_VERSION + 1} does not match Session v${SESSION_FORMAT_VERSION}`)
+      await expect(import('../src/index.ts')).rejects.toThrow(
+        `format catalog v${SESSION_FORMAT_VERSION + 1} does not match Session v${SESSION_FORMAT_VERSION}`,
+      )
     } finally {
       vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
       vi.resetModules()
@@ -255,7 +262,7 @@ describe('Session format package parity', () => {
 describe('fixture format diagnostics', () => {
   it('attaches the header line to a restore-construction failure', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
+    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async importOriginal => {
       const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
       return {
         ...actual,
@@ -271,8 +278,7 @@ describe('fixture format diagnostics', () => {
     try {
       const replay = await import('../src/index.ts')
 
-      expect(() => replay.parseSessionLog(sessionJsonl([])))
-        .toThrow('session snapshot line 1: decoder exploded')
+      expect(() => replay.parseSessionLog(sessionJsonl([]))).toThrow('session snapshot line 1: decoder exploded')
     } finally {
       vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
       vi.resetModules()
@@ -281,7 +287,7 @@ describe('fixture format diagnostics', () => {
 
   it('attaches the header line to a restore-finalization failure', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
+    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async importOriginal => {
       const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
       return {
         ...actual,
@@ -302,8 +308,9 @@ describe('fixture format diagnostics', () => {
     try {
       const replay = await import('../src/index.ts')
 
-      expect(() => replay.parseSessionLog(sessionJsonl([])))
-        .toThrow('session snapshot line 1: Session event 99 restore finalization failed')
+      expect(() => replay.parseSessionLog(sessionJsonl([]))).toThrow(
+        'session snapshot line 1: Session event 99 restore finalization failed',
+      )
     } finally {
       vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
       vi.resetModules()
@@ -312,7 +319,7 @@ describe('fixture format diagnostics', () => {
 
   it('falls back to the header when a source-range diagnostic has no matching physical prefix', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
+    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async importOriginal => {
       const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
       return {
         ...actual,
@@ -333,8 +340,7 @@ describe('fixture format diagnostics', () => {
     try {
       const replay = await import('../src/index.ts')
 
-      expect(() => replay.parseSessionLog(sessionJsonl([])))
-        .toThrow('session snapshot line 1: sourceEventSeqs synthetic unmatched failure')
+      expect(() => replay.parseSessionLog(sessionJsonl([]))).toThrow('session snapshot line 1: sourceEventSeqs synthetic unmatched failure')
     } finally {
       vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
       vi.resetModules()
@@ -343,7 +349,7 @@ describe('fixture format diagnostics', () => {
 
   it('maps a non-Error row failure to its physical row', async () => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
+    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async importOriginal => {
       const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
       let row = 0
       return {
@@ -357,7 +363,9 @@ describe('fixture format diagnostics', () => {
                 row += 1
                 if (row === 2) throw 'row decoder exploded'
               },
-              finish(): never { throw new Error('unexpected finish') },
+              finish(): never {
+                throw new Error('unexpected finish')
+              },
             }
           },
         }),
@@ -370,8 +378,7 @@ describe('fixture format diagnostics', () => {
         { type: 'permission/preset', seq: SessionSeq(1), time: 0, data: { preset: 'auto' } },
       ]
 
-      expect(() => replay.parseSessionLog(sessionJsonl(events)))
-        .toThrow('session snapshot line 3: row decoder exploded')
+      expect(() => replay.parseSessionLog(sessionJsonl(events))).toThrow('session snapshot line 3: row decoder exploded')
     } finally {
       vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
       vi.resetModules()
@@ -387,7 +394,7 @@ describe('fixture format diagnostics', () => {
     ['out-of-range logical event', 'Session event 99 is malformed', 1],
   ])('maps a %s finalization diagnostic to its source line', async (_label, message, line) => {
     vi.resetModules()
-    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async (importOriginal) => {
+    vi.doMock('@deepseek-ai/dsh-session-format-catalog', async importOriginal => {
       const actual = await importOriginal<typeof import('@deepseek-ai/dsh-session-format-catalog')>()
       return {
         ...actual,
@@ -397,7 +404,9 @@ describe('fixture format diagnostics', () => {
             return {
               header: { version: SESSION_FORMAT_VERSION, id: 'fixture', createdAt: 0, isSeeded: false, delegationDepth: 0 },
               decodeRow() {},
-              finish(): never { throw new Error(message) },
+              finish(): never {
+                throw new Error(message)
+              },
             }
           },
         }),
@@ -407,8 +416,7 @@ describe('fixture format diagnostics', () => {
       const replay = await import('../src/index.ts')
       const event: SessionEvent = { type: 'turn/start', seq: SessionSeq(0), time: 0, data: { turn: 1 } }
 
-      expect(() => replay.parseSessionLog(sessionJsonl([event])))
-        .toThrow(`session snapshot line ${line}: ${message}`)
+      expect(() => replay.parseSessionLog(sessionJsonl([event]))).toThrow(`session snapshot line ${line}: ${message}`)
     } finally {
       vi.doUnmock('@deepseek-ai/dsh-session-format-catalog')
       vi.resetModules()
@@ -444,8 +452,7 @@ describe('parseSessionLog', () => {
   it('reports invalid JSON at its physical source line', () => {
     const header = JSON.stringify({ type: 'session', version: 0, id: 's1', createdAt: 0 })
 
-    expect(() => parseSessionLog(`${header}\n{"type":\n`))
-      .toThrow('session snapshot line 2 contains invalid JSON')
+    expect(() => parseSessionLog(`${header}\n{"type":\n`)).toThrow('session snapshot line 2 contains invalid JSON')
   })
 
   it('skips the header line and parses each event', () => {
@@ -491,8 +498,9 @@ describe('parseSessionLog', () => {
         ...(index === 4 ? { sourceEventSeqs: [[5, 3]] } : {}),
       })),
     ]
-    expect(() => parseSessionLog(`${header}\n${events.map(event => JSON.stringify(event)).join('\n')}\n`))
-      .toThrow(/session snapshot line 8: sourceEventSeqs range/)
+    expect(() => parseSessionLog(`${header}\n${events.map(event => JSON.stringify(event)).join('\n')}\n`)).toThrow(
+      /session snapshot line 8: sourceEventSeqs range/,
+    )
   })
 
   it('locates malformed source-event ranges with a materialized v0 seedLength header', () => {
@@ -510,28 +518,32 @@ describe('parseSessionLog', () => {
       })),
     ]
 
-    expect(() => parseSessionLog(`${header}\n${events.map(event => JSON.stringify(event)).join('\n')}\n`))
-      .toThrow(/session snapshot line 6: sourceEventSeqs range/)
+    expect(() => parseSessionLog(`${header}\n${events.map(event => JSON.stringify(event)).join('\n')}\n`)).toThrow(
+      /session snapshot line 6: sourceEventSeqs range/,
+    )
   })
 
   it('rejects non-object body rows with their source line', () => {
     const header = JSON.stringify({ type: 'session', version: 0, id: 's1', createdAt: 0 })
-    expect(() => parseSessionLog(`${header}\nnull\n`))
-      .toThrow('session snapshot line 2 must be a JSON object')
+    expect(() => parseSessionLog(`${header}\nnull\n`)).toThrow('session snapshot line 2 must be a JSON object')
   })
 
   it('rejects partial and mixed projected envelopes at their source lines', () => {
     const header = JSON.stringify({
-      type: 'session', version: 0, id: 's1', createdAt: 0, delegationDepth: 0,
+      type: 'session',
+      version: 0,
+      id: 's1',
+      createdAt: 0,
+      delegationDepth: 0,
     })
     const partial = JSON.stringify({ type: 'turn/start', seq: 0, data: { turn: 1 } })
-    expect(() => parseSessionLog(`${header}\n${partial}\n`))
-      .toThrow('session snapshot line 2 must contain both seq and time, or neither')
+    expect(() => parseSessionLog(`${header}\n${partial}\n`)).toThrow('session snapshot line 2 must contain both seq and time, or neither')
 
     const projected = JSON.stringify({ type: 'turn/start', data: { turn: 1 } })
     const complete = JSON.stringify({ type: 'permission/preset', seq: 1, time: 0, data: { preset: 'auto' } })
-    expect(() => parseSessionLog(`${header}\n${projected}\n${complete}\n`))
-      .toThrow('session snapshot line 3 cannot mix projected and complete body rows')
+    expect(() => parseSessionLog(`${header}\n${projected}\n${complete}\n`)).toThrow(
+      'session snapshot line 3 cannot mix projected and complete body rows',
+    )
   })
 
   it('expands a packed chunk row into its events (a fixture recorded with packChunks on)', () => {
@@ -539,19 +551,24 @@ describe('parseSessionLog', () => {
     const turn = JSON.stringify({ type: 'turn/start', seq: 0, time: 0, data: { turn: 1 } })
     const step = JSON.stringify({ type: 'step/start', seq: 1, time: 0, data: { turn: 1, step: 1 } })
     const row = JSON.stringify({
-      type: 'text-chunks', seq0: 2, time0: 0,
+      type: 'text-chunks',
+      seq0: 2,
+      time0: 0,
       data: { turn: 1, step: 1, index: 0, dt: [0, 0], texts: ['a', 'b', 'c'] },
     })
-    expect(parseSessionLog(`${header}\n${turn}\n${step}\n${row}\n`).slice(2)).toEqual([migratedSystemHead, {
-      type: 'assistant/attempt',
-      seq: 3,
-      time: 0,
-      data: {
-        turn: 1,
-        step: 1,
-        stream: [{ type: 'text-chunks', time0: 0, index: 0, dt: [0, 0], texts: ['a', 'b', 'c'] }],
+    expect(parseSessionLog(`${header}\n${turn}\n${step}\n${row}\n`).slice(2)).toEqual([
+      migratedSystemHead,
+      {
+        type: 'assistant/attempt',
+        seq: 3,
+        time: 0,
+        data: {
+          turn: 1,
+          step: 1,
+          stream: [{ type: 'text-chunks', time0: 0, index: 0, dt: [0, 0], texts: ['a', 'b', 'c'] }],
+        },
       },
-    }])
+    ])
   })
 
   it('synthesizes omitted ordinary and packed snapshot envelopes', () => {
@@ -579,9 +596,16 @@ describe('parseSessionLog', () => {
     ])
   })
 
-  it.each([0, 1, 2] as const)('derives system messages and omits tokenized request tools during v%i validation', (version) => {
+  it.each([0, 1, 2] as const)('derives system messages and omits tokenized request tools during v%i validation', version => {
     const source = [
-      JSON.stringify({ type: 'session', version, id: 'tokens', createdAt: 7, delegationDepth: 0, ...version >= 2 ? { isSeeded: false } : {} }),
+      JSON.stringify({
+        type: 'session',
+        version,
+        id: 'tokens',
+        createdAt: 7,
+        delegationDepth: 0,
+        ...(version >= 2 ? { isSeeded: false } : {}),
+      }),
       JSON.stringify({ type: 'turn/start', data: { turn: 1 } }),
       JSON.stringify({ type: 'step/start', data: { turn: 1, step: 1 } }),
       JSON.stringify({
@@ -606,7 +630,9 @@ describe('parseSessionLog', () => {
         sourceEventSeqs: [2],
       },
       {
-        type: 'request/header', seq: 4, time: 0,
+        type: 'request/header',
+        seq: 4,
+        time: 0,
         data: { reason: 'initial', header: { config: { provider: 'mock', model: 'mock' } } },
       },
     ])
@@ -637,7 +663,11 @@ describe('parseSessionLog', () => {
       }),
     ].join('\n')
     const events = parseSessionLog(source)
-    expect(events[2]).toMatchObject({ type: 'system/message', surfaceOp: 'append', data: { message: { content: [{ type: 'text', text: '{{system}}' }] } } })
+    expect(events[2]).toMatchObject({
+      type: 'system/message',
+      surfaceOp: 'append',
+      data: { message: { content: [{ type: 'text', text: '{{system}}' }] } },
+    })
     expect(events[3]).not.toHaveProperty('data.header.tools')
     expect(events[3]).not.toHaveProperty('data.header.system')
     const comparison = prepareSessionSnapshotFixtureForComparison(source)
@@ -647,13 +677,17 @@ describe('parseSessionLog', () => {
 
   it('derives current replay calls from a fixture with tokenized request tools', () => {
     const rows = projectSessionJsonl(replaySessionJsonl([TEXT_CHUNKS])).split('\n')
-    rows.splice(2, 0, JSON.stringify({
-      type: 'request/header',
-      data: {
-        header: { config: { provider: 'mock', model: 'mock' }, tools: '{{tools}}' },
-        reason: 'initial',
-      },
-    }))
+    rows.splice(
+      2,
+      0,
+      JSON.stringify({
+        type: 'request/header',
+        data: {
+          header: { config: { provider: 'mock', model: 'mock' }, tools: '{{tools}}' },
+          reason: 'initial',
+        },
+      }),
+    )
     const source = rows.join('\n')
     expect(deriveReplayScript(parseSessionLog(source))).toEqual([{ kind: 'chunks', chunks: TEXT_CHUNKS }])
   })
@@ -669,8 +703,9 @@ describe('parseSessionLog', () => {
       }),
     ].join('\n')
     expect(() => parseSessionLog(source)).toThrow(/session snapshot line 3:.*empty optional header fields must be omitted/)
-    expect(() => prepareSessionSnapshotFixtureForComparison(source))
-      .toThrow(/session snapshot line 3:.*empty optional header fields must be omitted/)
+    expect(() => prepareSessionSnapshotFixtureForComparison(source)).toThrow(
+      /session snapshot line 3:.*empty optional header fields must be omitted/,
+    )
   })
 
   it('materializes Python snapshot tool-name projections before format validation', () => {
@@ -688,10 +723,14 @@ describe('parseSessionLog', () => {
 
     expect(parseSessionLog(source)[1]).toMatchObject({
       type: 'request/header',
-      data: { header: { tools: [
-        { name: 'bash', description: '', parameters: {} },
-        { name: 'workflow', description: '', parameters: {} },
-      ] } },
+      data: {
+        header: {
+          tools: [
+            { name: 'bash', description: '', parameters: {} },
+            { name: 'workflow', description: '', parameters: {} },
+          ],
+        },
+      },
     })
   })
 
@@ -720,37 +759,42 @@ describe('parseSessionLog', () => {
       }),
     ].join('\n')
 
-    expect(parseSessionLog(source).slice(2)).toEqual([migratedSystemHead, {
-      type: 'assistant/attempt',
-      seq: 3,
-      time: 0,
-      data: {
-        turn: 1,
-        step: 1,
-        stream: [{
-          type: 'tool-call-chunks',
-          time0: 0,
-          index: 0,
-          dt: [0],
-          id: callId,
-          name: 'read',
-          args: ['{', '}'],
-        }],
+    expect(parseSessionLog(source).slice(2)).toEqual([
+      migratedSystemHead,
+      {
+        type: 'assistant/attempt',
+        seq: 3,
+        time: 0,
+        data: {
+          turn: 1,
+          step: 1,
+          stream: [
+            {
+              type: 'tool-call-chunks',
+              time0: 0,
+              index: 0,
+              dt: [0],
+              id: callId,
+              name: 'read',
+              args: ['{', '}'],
+            },
+          ],
+        },
       },
-    }])
+    ])
   })
 
   it.each([
     ['non-object packed data', { type: 'text-chunks', data: null }],
-    ['empty packed payload', {
-      type: 'text-chunks',
-      data: { turn: 1, step: 1, index: 0, dt: [], texts: [] },
-    }],
+    [
+      'empty packed payload',
+      {
+        type: 'text-chunks',
+        data: { turn: 1, step: 1, index: 0, dt: [], texts: [] },
+      },
+    ],
   ])('reports %s at its one synthesized event line', (_name, row) => {
-    const source = [
-      JSON.stringify({ type: 'session', version: 0, id: 'malformed-packed', createdAt: 0 }),
-      JSON.stringify(row),
-    ].join('\n')
+    const source = [JSON.stringify({ type: 'session', version: 0, id: 'malformed-packed', createdAt: 0 }), JSON.stringify(row)].join('\n')
 
     expect(() => parseSessionLog(source)).toThrow(/session snapshot line 2:/)
   })
@@ -832,7 +876,10 @@ describe('prepareSessionSnapshotFixtureForComparison', () => {
     }
     lines.splice(3, 0, JSON.stringify(request))
     const prepared = prepareSessionSnapshotFixtureForComparison(`${lines.join('\n')}\n`)
-    const restored = prepared.trimEnd().split('\n').map(line => JSON.parse(line) as Record<string, unknown>)
+    const restored = prepared
+      .trimEnd()
+      .split('\n')
+      .map(line => JSON.parse(line) as Record<string, unknown>)
     expect(restored.find(record => record.type === 'request/header')).toMatchObject(request)
     delete (request.data.header as Record<string, unknown>).futureHeader
     lines[3] = JSON.stringify(request)
@@ -842,13 +889,16 @@ describe('prepareSessionSnapshotFixtureForComparison', () => {
   it('rejects retired request-header system before current-format comparison', () => {
     const source = projectSessionJsonl(replaySessionJsonl([TEXT_CHUNKS]))
     const lines = source.trimEnd().split('\n')
-    lines.splice(3, 0, JSON.stringify({
-      type: 'request/header',
-      data: { reason: 'initial', header: { config: { provider: 'mock', model: 'mock' }, system: 'retired prompt' } },
-    }))
+    lines.splice(
+      3,
+      0,
+      JSON.stringify({
+        type: 'request/header',
+        data: { reason: 'initial', header: { config: { provider: 'mock', model: 'mock' }, system: 'retired prompt' } },
+      }),
+    )
 
-    expect(() => prepareSessionSnapshotFixtureForComparison(lines.join('\n')))
-      .toThrow(/request\/header.*system/)
+    expect(() => prepareSessionSnapshotFixtureForComparison(lines.join('\n'))).toThrow(/request\/header.*system/)
   })
 
   it('encodes a migrated fixture without inventing a trailing newline and retains its cwd token', () => {
@@ -888,8 +938,7 @@ describe('prepareSessionSnapshotFixtureForComparison', () => {
         surfaceOp: 'append',
       }),
     ].join('\n')
-    expect(() => prepareSessionSnapshotFixtureForComparison(source))
-      .toThrow('message must have role "user"')
+    expect(() => prepareSessionSnapshotFixtureForComparison(source)).toThrow('message must have role "user"')
   })
 })
 
@@ -904,10 +953,7 @@ describe('deriveReplayScript', () => {
       { type: 'usage', usage: { inputTokens: 0, outputTokens: 0 } },
       { type: 'finish', reason: { kind: 'error', failure: { message: 'empty', code: 'EMPTY_RESPONSE' } } },
     ]
-    const events: SessionEvent[] = [
-      streamEvent(1, 1, 1, failed),
-      streamEvent(2, 1, 1, TEXT_CHUNKS),
-    ]
+    const events: SessionEvent[] = [streamEvent(1, 1, 1, failed), streamEvent(2, 1, 1, TEXT_CHUNKS)]
     expect(deriveReplayScript(events)).toEqual([
       { kind: 'chunks', chunks: failed },
       { kind: 'chunks', chunks: TEXT_CHUNKS },
@@ -1060,24 +1106,31 @@ describe('deriveReplayScript', () => {
       data: { llmStreamCall: true },
     } as unknown as SessionEvent
 
-    expect(() => deriveReplayScript([event]))
-      .toThrow('llm-replay: compaction/summary marks an LLM stream call without rawOutput')
+    expect(() => deriveReplayScript([event])).toThrow('llm-replay: compaction/summary marks an LLM stream call without rawOutput')
   })
 
   it('rejects a persisted marked compact LLM call without its complete output', () => {
     const source = [
       JSON.stringify({
-        type: 'session', version: 0, id: 'invalid-compact', createdAt: 0, delegationDepth: 0,
+        type: 'session',
+        version: 0,
+        id: 'invalid-compact',
+        createdAt: 0,
+        delegationDepth: 0,
       }),
       JSON.stringify({ type: 'turn/start', seq: 0, time: 0, data: { turn: 1 } }),
       JSON.stringify({ type: 'step/start', seq: 1, time: 0, data: { turn: 1, step: 1 } }),
       JSON.stringify({
-        type: 'user/message', seq: 2, time: 0,
+        type: 'user/message',
+        seq: 2,
+        time: 0,
         data: { role: 'user', id: 'source', content: [], source: { kind: 'user' } },
         surfaceOp: 'append',
       }),
       JSON.stringify({
-        type: 'compaction/start', seq: 3, time: 0,
+        type: 'compaction/start',
+        seq: 3,
+        time: 0,
         data: { compactionId: COMPACTION_ID, turn: 1 },
       }),
       JSON.stringify({
@@ -1119,14 +1172,16 @@ describe('deriveReplayScript', () => {
       },
     }
 
-    expect(deriveReplayScript([event])).toEqual([{
-      kind: 'chunks',
-      chunks: [
-        { type: 'block-start', index: 0, blockType: 'text' },
-        { type: 'block-end', index: 0, block },
-        { type: 'finish', reason: { kind: 'stop' } },
-      ],
-    }])
+    expect(deriveReplayScript([event])).toEqual([
+      {
+        kind: 'chunks',
+        chunks: [
+          { type: 'block-start', index: 0, blockType: 'text' },
+          { type: 'block-end', index: 0, block },
+          { type: 'finish', reason: { kind: 'stop' } },
+        ],
+      },
+    ])
   })
 
   it('throws on a group that lacks a terminal finish chunk (a thrown stream)', () => {
@@ -1136,15 +1191,18 @@ describe('deriveReplayScript', () => {
         { type: 'block-start', index: 0, blockType: 'text' },
         { type: 'text-delta', index: 0, text: 'par' },
       ]),
-      { type: 'turn/end', seq: SessionSeq(3), time: 0, data: { turn: 1, reason: { kind: 'error', error: { message: 'x', code: 'UNKNOWN' } } } },
+      {
+        type: 'turn/end',
+        seq: SessionSeq(3),
+        time: 0,
+        data: { turn: 1, reason: { kind: 'error', error: { message: 'x', code: 'UNKNOWN' } } },
+      },
     ]
     expect(() => deriveReplayScript(events)).toThrow(/without a finish chunk.*replay\.override\.json/s)
   })
 
   it('names the offending (turn, step) when a group is incomplete', () => {
-    const events: SessionEvent[] = [
-      streamEvent(1, 2, 3, [{ type: 'block-start', index: 0, blockType: 'text' }]),
-    ]
+    const events: SessionEvent[] = [streamEvent(1, 2, 3, [{ type: 'block-start', index: 0, blockType: 'text' }])]
     expect(() => deriveReplayScript(events)).toThrow(/2\/3/)
   })
 
@@ -1190,7 +1248,9 @@ describe('loadReplayScript', () => {
     writeFileSync(file, source, 'utf8')
 
     expect(loadReplayScript({ file })).toEqual([{ kind: 'chunks', chunks: TEXT_CHUNKS }])
-    expect(JSON.parse(prepareSessionSnapshotFixtureForComparison(source).split('\n')[0] as string)).toMatchObject({ version: SESSION_FORMAT_VERSION })
+    expect(JSON.parse(prepareSessionSnapshotFixtureForComparison(source).split('\n')[0] as string)).toMatchObject({
+      version: SESSION_FORMAT_VERSION,
+    })
     expect(readFileSync(file, 'utf8')).toBe(source)
   })
 
@@ -1212,8 +1272,7 @@ describe('loadReplayScript', () => {
 
   it('falls back to the JSONL when the override path is set but absent', () => {
     writeFileSync(file, replaySessionJsonl([TEXT_CHUNKS]), 'utf8')
-    expect(loadReplayScript({ file, overrideFile: join(dir, 'nope.json') }))
-      .toEqual([{ kind: 'chunks', chunks: TEXT_CHUNKS }])
+    expect(loadReplayScript({ file, overrideFile: join(dir, 'nope.json') })).toEqual([{ kind: 'chunks', chunks: TEXT_CHUNKS }])
   })
 
   it('fails loud when the fixture is missing', () => {
@@ -1235,9 +1294,13 @@ describe('loadReplayScript', () => {
     ]
     writeFileSync(file, replaySessionJsonl([TEXT_CHUNKS, callB]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
-    writeFileSync(overrideFile, JSON.stringify({
-      patches: [{ at: 0, entry: { kind: 'throw', chunks: [], message: 'transient', code: 'SERVER' } }],
-    }), 'utf8')
+    writeFileSync(
+      overrideFile,
+      JSON.stringify({
+        patches: [{ at: 0, entry: { kind: 'throw', chunks: [], message: 'transient', code: 'SERVER' } }],
+      }),
+      'utf8',
+    )
     expect(loadReplayScript({ file, overrideFile })).toEqual([
       { kind: 'throw', chunks: [], message: 'transient', code: 'SERVER' },
       { kind: 'chunks', chunks: callB },
@@ -1247,12 +1310,16 @@ describe('loadReplayScript', () => {
   it('patches form: at == derived length appends (the retry-attempt slot)', () => {
     writeFileSync(file, replaySessionJsonl([TEXT_CHUNKS]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
-    writeFileSync(overrideFile, JSON.stringify({
-      patches: [
-        { at: 0, entry: { kind: 'throw', chunks: [], message: '429', code: 'RATE_LIMIT' } },
-        { at: 1, entry: { kind: 'chunks', chunks: TEXT_CHUNKS } },
-      ],
-    }), 'utf8')
+    writeFileSync(
+      overrideFile,
+      JSON.stringify({
+        patches: [
+          { at: 0, entry: { kind: 'throw', chunks: [], message: '429', code: 'RATE_LIMIT' } },
+          { at: 1, entry: { kind: 'chunks', chunks: TEXT_CHUNKS } },
+        ],
+      }),
+      'utf8',
+    )
     expect(loadReplayScript({ file, overrideFile })).toEqual([
       { kind: 'throw', chunks: [], message: '429', code: 'RATE_LIMIT' },
       { kind: 'chunks', chunks: TEXT_CHUNKS },
@@ -1294,12 +1361,16 @@ describe('loadReplayScript', () => {
   it('rejects duplicate patch indexes instead of silently taking the last one', () => {
     writeFileSync(file, replaySessionJsonl([TEXT_CHUNKS]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
-    writeFileSync(overrideFile, JSON.stringify({
-      patches: [
-        { at: 0, entry: { kind: 'hang' } },
-        { at: 0, entry: { kind: 'throw', chunks: [], message: 'busy', code: 'SERVER' } },
-      ],
-    }), 'utf8')
+    writeFileSync(
+      overrideFile,
+      JSON.stringify({
+        patches: [
+          { at: 0, entry: { kind: 'hang' } },
+          { at: 0, entry: { kind: 'throw', chunks: [], message: 'busy', code: 'SERVER' } },
+        ],
+      }),
+      'utf8',
+    )
     expect(() => loadReplayScript({ file, overrideFile })).toThrow(/duplicate override patch index 0/)
   })
 })
@@ -1319,10 +1390,12 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
   })
 
   describe('{{fromRequest:...}} substitution', () => {
-    const requestMessages = [createUserMessage({
-      content: [{ type: 'text' as const, text: 'stale {"goal":{"id":"goal-old"}} then {"goal":{"id":"goal-42ab"}}' }],
-      source: { kind: 'user' as const },
-    })]
+    const requestMessages = [
+      createUserMessage({
+        content: [{ type: 'text' as const, text: 'stale {"goal":{"id":"goal-old"}} then {"goal":{"id":"goal-42ab"}}' }],
+        source: { kind: 'user' as const },
+      }),
+    ]
 
     function scriptedCall(argumentsDelta: string): StreamChunk[] {
       return [
@@ -1364,13 +1437,11 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     })
 
     it('fails loud when a placeholder matches nothing in the request', async () => {
-      await expect(streamScripted('{"goal_id":"{{fromRequest:task-[0-9]+}}"}'))
-        .rejects.toThrow(/fromRequest.*matched nothing/)
+      await expect(streamScripted('{"goal_id":"{{fromRequest:task-[0-9]+}}"}')).rejects.toThrow(/fromRequest.*matched nothing/)
     })
 
     it('fails loud on an invalid placeholder pattern', async () => {
-      await expect(streamScripted('{"goal_id":"{{fromRequest:(goal-}}"}'))
-        .rejects.toThrow(/fromRequest.*invalid pattern/)
+      await expect(streamScripted('{"goal_id":"{{fromRequest:(goal-}}"}')).rejects.toThrow(/fromRequest.*invalid pattern/)
     })
 
     it('fails loud on an unterminated placeholder', () => {
@@ -1439,7 +1510,10 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
       inputModalities: ['text', 'image'],
       defaultMaxTokens: 64_000,
       reasoning: {
-        efforts: [{ id: 'off', name: 'off' }, { id: 'max', name: 'max' }],
+        efforts: [
+          { id: 'off', name: 'off' },
+          { id: 'max', name: 'max' },
+        ],
         defaultEffort: 'max',
       },
       systemPromptUpdate: 'in-history',
@@ -1470,9 +1544,14 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
       maxDelayMs: 10_000,
       jitterRatio: 0.1,
     })
-    const prepared = await ctx.llm.prepareCall({
-      provider: 'deepseek', model: 'flash',
-    }, undefined, (controls, model) => ({ ...controls, reasoningEffort: model.reasoning!.efforts[0]!.id }))
+    const prepared = await ctx.llm.prepareCall(
+      {
+        provider: 'deepseek',
+        model: 'flash',
+      },
+      undefined,
+      (controls, model) => ({ ...controls, reasoningEffort: model.reasoning!.efforts[0]!.id }),
+    )
     expect(prepared.config.reasoningEffort).toBe('off')
     expect(await drain(prepared.stream({ ...prepared.config, messages: [] }))).toEqual(TEXT_CHUNKS)
 
@@ -1521,14 +1600,16 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     const sessionId = 'deepseek-replay' as NonNullable<GenerateOptions['sessionId']>
     await drain(ctx.llm.stream({ provider: 'deepseek-official', model: 'm', messages: [], sessionId }))
     expect(accepted).toHaveBeenCalledOnce()
-    await drain(ctx.llm.stream({
-      provider: 'deepseek-official',
-      model: 'm',
-      messages: [],
-      sessionId,
-      signal: new AbortController().signal,
-      purpose: 'compaction',
-    }))
+    await drain(
+      ctx.llm.stream({
+        provider: 'deepseek-official',
+        model: 'm',
+        messages: [],
+        sessionId,
+        signal: new AbortController().signal,
+        purpose: 'compaction',
+      }),
+    )
     expect(accepted).toHaveBeenCalledTimes(2)
     await drain(ctx.llm.stream({ provider: 'another-provider', model: 'm', messages: [], sessionId }))
     expect(accepted).toHaveBeenCalledTimes(2)
@@ -1550,18 +1631,23 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     const withoutRegistry = new Context()
     await withoutRegistry.plugin(LlmRuntime)
     installLlmReplay(withoutRegistry, { file })
-    await expect(drain(withoutRegistry.llm.stream({ provider: 'deepseek-official', model: 'm', messages: [] })))
-      .resolves.toEqual(TEXT_CHUNKS)
+    await expect(drain(withoutRegistry.llm.stream({ provider: 'deepseek-official', model: 'm', messages: [] }))).resolves.toEqual(
+      TEXT_CHUNKS,
+    )
   })
 
   it('accepts only throw entries that reached the post-2xx point', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
-    writeFileSync(overrideFile, JSON.stringify([
-      { kind: 'throw', chunks: [{ type: 'block-start', index: 0, blockType: 'text' }], message: 'partial', code: 'STREAM_CLOSED' },
-      { kind: 'throw', chunks: [], message: 'unauthorized', code: 'AUTH' },
-      { kind: 'throw', chunks: [], message: 'empty body', code: 'EMPTY_RESPONSE', accepted: true },
-    ]), 'utf8')
+    writeFileSync(
+      overrideFile,
+      JSON.stringify([
+        { kind: 'throw', chunks: [{ type: 'block-start', index: 0, blockType: 'text' }], message: 'partial', code: 'STREAM_CLOSED' },
+        { kind: 'throw', chunks: [], message: 'unauthorized', code: 'AUTH' },
+        { kind: 'throw', chunks: [], message: 'empty body', code: 'EMPTY_RESPONSE', accepted: true },
+      ]),
+      'utf8',
+    )
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(DeepSeekLlmApiExtensionRegistry)
@@ -1583,29 +1669,29 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
   it('rejects a non-boolean throw acceptance override', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
-    writeFileSync(overrideFile, JSON.stringify([
-      { kind: 'throw', chunks: [], message: 'bad', code: 'X', accepted: 'yes' },
-    ]), 'utf8')
+    writeFileSync(overrideFile, JSON.stringify([{ kind: 'throw', chunks: [], message: 'bad', code: 'X', accepted: 'yes' }]), 'utf8')
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
-    expect(() => { installLlmReplay(ctx, { file, overrideFile }) }).toThrow(/accepted must be a boolean/)
+    expect(() => {
+      installLlmReplay(ctx, { file, overrideFile })
+    }).toThrow(/accepted must be a boolean/)
   })
 
   it('replays a sidecar throw-entry as an LlmError with its stable code, after its prefix chunks', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
     const partial: StreamChunk[] = [{ type: 'block-start', index: 0, blockType: 'text' }]
-    writeFileSync(overrideFile, JSON.stringify([
-      { kind: 'throw', chunks: partial, message: 'unauthorized', code: 'AUTH' },
-    ]), 'utf8')
+    writeFileSync(overrideFile, JSON.stringify([{ kind: 'throw', chunks: partial, message: 'unauthorized', code: 'AUTH' }]), 'utf8')
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile })
 
     const seen: StreamChunk[] = []
-    await expect((async () => {
-      for await (const c of ctx.llm.stream({ provider: 'm', model: 'm', messages: [] })) seen.push(c)
-    })()).rejects.toMatchObject({ message: 'unauthorized', code: 'AUTH' })
+    await expect(
+      (async () => {
+        for await (const c of ctx.llm.stream({ provider: 'm', model: 'm', messages: [] })) seen.push(c)
+      })(),
+    ).rejects.toMatchObject({ message: 'unauthorized', code: 'AUTH' })
     expect(seen).toEqual(partial)
   })
 
@@ -1643,8 +1729,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     installLlmReplay(ctx, { file })
     const controller = new AbortController()
     controller.abort()
-    await expect(drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal })))
-      .rejects.toThrow('aborted')
+    await expect(drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal }))).rejects.toThrow('aborted')
   })
 
   it('removes the waterfall listener when the owning fiber is disposed (HMR safety)', async () => {
@@ -1654,23 +1739,27 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
 
     // A real adapter to fall through to AFTER dispose, proving the listener is gone.
     class FallthroughAdapter extends LlmAdapter {
-      async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+      async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         yield { type: 'finish', reason: { kind: 'stop' } }
       }
     }
     ctx.llm.registerAdapter(['m'], new FallthroughAdapter())
 
-    const fiber = await ctx.plugin(Object.assign((inner: Context) => {
-      installLlmReplay(inner, { file })
-    }, { inject: ['llm'] }))
+    const fiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          installLlmReplay(inner, { file })
+        },
+        { inject: ['llm'] },
+      ),
+    )
 
     // While installed, replay short-circuits to the derived fixture ('hi').
     expect(await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))).toEqual(TEXT_CHUNKS)
 
     await fiber.dispose()
     // After dispose the listener is gone; the call reaches the real adapter.
-    expect(await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] })))
-      .toEqual([{ type: 'finish', reason: { kind: 'stop' } }])
+    expect(await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))).toEqual([{ type: 'finish', reason: { kind: 'stop' } }])
   })
 
   it('rejects a malformed sidecar entry kind before installing replay', async () => {
@@ -1709,9 +1798,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
     const partial: StreamChunk[] = [{ type: 'block-start', index: 0, blockType: 'text' }]
-    writeFileSync(overrideFile, JSON.stringify([
-      { kind: 'throw', chunks: partial, message: 'unauthorized', code: 'AUTH' },
-    ]), 'utf8')
+    writeFileSync(overrideFile, JSON.stringify([{ kind: 'throw', chunks: partial, message: 'unauthorized', code: 'AUTH' }]), 'utf8')
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile })
@@ -1719,8 +1806,7 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     controller.abort()
     // Already aborted: the throw-entry's prefix loop surfaces 'aborted' before
     // it can reach the recorded LlmError.
-    await expect(drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal })))
-      .rejects.toThrow('aborted')
+    await expect(drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], signal: controller.signal }))).rejects.toThrow('aborted')
   })
 
   it('surfaces an already-aborted signal on a hang entry before waiting', async () => {
@@ -1780,18 +1866,20 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     const handle = installLlmReplay(ctx, { file })
     await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))
     // One of two recorded calls consumed — the underrun must name the gap.
-    expect(() => { handle.assertConsumed() }).toThrow(/consumed 1\/2 recorded call/)
+    expect(() => {
+      handle.assertConsumed()
+    }).toThrow(/consumed 1\/2 recorded call/)
     await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))
-    expect(() => { handle.assertConsumed() }).not.toThrow()
+    expect(() => {
+      handle.assertConsumed()
+    }).not.toThrow()
   })
 
   it('paces a throw-entry prefix too (the recorded partial streams at the same cadence)', async () => {
     writeFileSync(file, sessionJsonl([]), 'utf8')
     const overrideFile = join(dir, 'replay.override.json')
     const partial: StreamChunk[] = [{ type: 'block-start', index: 0, blockType: 'text' }]
-    writeFileSync(overrideFile, JSON.stringify([
-      { kind: 'throw', chunks: partial, message: 'boom', code: 'STREAM_CLOSED' },
-    ]), 'utf8')
+    writeFileSync(overrideFile, JSON.stringify([{ kind: 'throw', chunks: partial, message: 'boom', code: 'STREAM_CLOSED' }]), 'utf8')
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file, overrideFile, paceMs: 10 })
@@ -1807,7 +1895,9 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     const handle = installLlmReplay(ctx, { file })
     const sessionId = 'live-underrun' as NonNullable<GenerateOptions['sessionId']>
     await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], sessionId }))
-    expect(() => { handle.assertConsumed() }).toThrow(/session live-underrun consumed 1\/2/)
+    expect(() => {
+      handle.assertConsumed()
+    }).toThrow(/session live-underrun consumed 1\/2/)
   })
 
   it('assertConsumed reports recorded scripts no live session ever bound', async () => {
@@ -1817,30 +1907,41 @@ describe('installLlmReplay (through the real LlmRuntime)', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     const handle = installLlmReplay(ctx, { file, childFiles: [childFile] })
-    await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [], sessionId: 'live-parent' as NonNullable<GenerateOptions['sessionId']> }))
+    await drain(
+      ctx.llm.stream({ provider: 'm', model: 'm', messages: [], sessionId: 'live-parent' as NonNullable<GenerateOptions['sessionId']> }),
+    )
     // The child script never bound: the scenario drove fewer sessions than recorded.
-    expect(() => { handle.assertConsumed() }).toThrow(/1 recorded script\(s\) never bound/)
+    expect(() => {
+      handle.assertConsumed()
+    }).toThrow(/1 recorded script\(s\) never bound/)
   })
 })
 
 describe('parseSessionHeader', () => {
   it('reads id, createdAt, and the inherited event count off the v0 header line', () => {
-    expect(parseSessionHeader(sessionJsonl([], { id: 'abc', createdAt: 42 })))
-      .toEqual({ id: 'abc', createdAt: 42, inheritedEventCount: 0 })
+    expect(parseSessionHeader(sessionJsonl([], { id: 'abc', createdAt: 42 }))).toEqual({ id: 'abc', createdAt: 42, inheritedEventCount: 0 })
   })
 
   it('reads a non-zero v0 seedLength as the inherited event count', () => {
     const events: SessionEvent[] = Array.from({ length: 4 }, (_, seq) => ({
-      type: 'permission/preset', seq: SessionSeq(seq), time: 0, data: { preset: 'workspace-write' },
+      type: 'permission/preset',
+      seq: SessionSeq(seq),
+      time: 0,
+      data: { preset: 'workspace-write' },
     }))
-    expect(parseSessionHeader(sessionJsonl(events, { id: 'child', createdAt: 7, seedLength: 4 })))
-      .toEqual({ id: 'child', createdAt: 7, inheritedEventCount: 4 })
+    expect(parseSessionHeader(sessionJsonl(events, { id: 'child', createdAt: 7, seedLength: 4 }))).toEqual({
+      id: 'child',
+      createdAt: 7,
+      inheritedEventCount: 4,
+    })
   })
 
   it('materializes omitted v0 delegation depth and tokenized cwd for projected validation', () => {
-    expect(parseSessionHeader(
-      '{"type":"session","version":0,"id":"projected","createdAt":7,"cwd":"{{cwd}}/workspace"}\n',
-    )).toEqual({ id: 'projected', createdAt: 7, inheritedEventCount: 0 })
+    expect(parseSessionHeader('{"type":"session","version":0,"id":"projected","createdAt":7,"cwd":"{{cwd}}/workspace"}\n')).toEqual({
+      id: 'projected',
+      createdAt: 7,
+      inheritedEventCount: 0,
+    })
   })
 
   it('rejects a projected header that lacks required identity fields', () => {
@@ -1851,10 +1952,19 @@ describe('parseSessionHeader', () => {
     expect(() => parseSessionHeader('')).toThrow(/must start with a session header/)
   })
 
-  it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1])('rejects invalid v0 seedLength %s', (seedLength) => {
-    expect(() => parseSessionHeader(JSON.stringify({
-      type: 'session', version: 0, id: 'invalid', createdAt: 0, seedLength, delegationDepth: 0,
-    }))).toThrow(/seedLength/)
+  it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1])('rejects invalid v0 seedLength %s', seedLength => {
+    expect(() =>
+      parseSessionHeader(
+        JSON.stringify({
+          type: 'session',
+          version: 0,
+          id: 'invalid',
+          createdAt: 0,
+          seedLength,
+          delegationDepth: 0,
+        }),
+      ),
+    ).toThrow(/seedLength/)
   })
 })
 
@@ -1880,15 +1990,17 @@ describe('loadSessionScripts', () => {
 
   it('throws when a declared child fixture is missing', () => {
     const f = writeSession('session.jsonl', { id: 'p', createdAt: 1 }, [TEXT_CHUNKS])
-    expect(() => loadSessionScripts({ file: f, childFiles: [join(dir, 'absent.jsonl')] }))
-      .toThrow(/child fixture not found/)
+    expect(() => loadSessionScripts({ file: f, childFiles: [join(dir, 'absent.jsonl')] })).toThrow(/child fixture not found/)
   })
 
   it('derives a FORK child script from its OWN events only (skips the seeded parent prefix)', () => {
     // A fork log includes the parent's assistant chunks before `seedLength`. Deriving from the
     // whole log would replay parent responses as child calls, so only child-owned chunks qualify.
     const parentChunk: StreamChunk = { type: 'text-delta', index: 0, text: 'PARENT-RESPONSE' }
-    const childChunks: StreamChunk[] = [{ type: 'text-delta', index: 0, text: 'CHILD-RESPONSE' }, { type: 'finish', reason: { kind: 'stop' } }]
+    const childChunks: StreamChunk[] = [
+      { type: 'text-delta', index: 0, text: 'CHILD-RESPONSE' },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ]
     const f = writeSession('session.jsonl', { id: 'parent', createdAt: 100 }, [TEXT_CHUNKS])
     // The child fixture contains one complete inherited turn followed by its own turn.
     // seedLength = 6 marks the exact cut between those lifecycles.
@@ -1899,7 +2011,9 @@ describe('loadSessionScripts', () => {
       legacyChunkEvent(3, 1, 1, { type: 'finish', reason: { kind: 'stop' } }),
       { type: 'step/end', seq: SessionSeq(4), time: 0, data: { turn: 1, step: 1 } },
       {
-        type: 'turn/end', seq: SessionSeq(5), time: 0,
+        type: 'turn/end',
+        seq: SessionSeq(5),
+        time: 0,
         data: { turn: 1, reason: { kind: 'completed' } },
       },
       { type: 'turn/start', seq: SessionSeq(6), time: 0, data: { turn: 2 } },
@@ -1908,14 +2022,23 @@ describe('loadSessionScripts', () => {
       legacyChunkEvent(9, 2, 1, childChunks[1]!),
       { type: 'step/end', seq: SessionSeq(10), time: 0, data: { turn: 2, step: 1 } },
       {
-        type: 'turn/end', seq: SessionSeq(11), time: 0,
+        type: 'turn/end',
+        seq: SessionSeq(11),
+        time: 0,
         data: { turn: 2, reason: { kind: 'completed' } },
       },
     ]
     const childPath = join(dir, 'session.1.jsonl')
-    writeFileSync(childPath, sessionJsonl(childEvents, {
-      id: 'child', createdAt: 200, seedLength: 6, version: 0,
-    }), 'utf8')
+    writeFileSync(
+      childPath,
+      sessionJsonl(childEvents, {
+        id: 'child',
+        createdAt: 200,
+        seedLength: 6,
+        version: 0,
+      }),
+      'utf8',
+    )
 
     const scripts = loadSessionScripts({ file: f, childFiles: [childPath] })
     // The child script is ONLY the child's own model call — the parent's seeded
@@ -1950,12 +2073,14 @@ describe('loadSessionScripts', () => {
 
     const scripts = loadSessionScripts({ file: overrideFile, overrideFile })
 
-    expect(scripts).toEqual([{
-      recordedId: '',
-      createdAt: 0,
-      entries: [{ kind: 'hang' }],
-      primary: true,
-    }])
+    expect(scripts).toEqual([
+      {
+        recordedId: '',
+        createdAt: 0,
+        entries: [{ kind: 'hang' }],
+        primary: true,
+      },
+    ])
   })
 
   it('orders two same-createdAt children deterministically after the primary', () => {
@@ -1990,8 +2115,12 @@ describe('installLlmReplay (per-session keying)', () => {
     { type: 'finish', reason: { kind: 'stop' } },
   ]
 
-  const live = (id: string): GenerateOptions =>
-    ({ provider: 'm', model: 'm', messages: [], sessionId: id as NonNullable<GenerateOptions['sessionId']> })
+  const live = (id: string): GenerateOptions => ({
+    provider: 'm',
+    model: 'm',
+    messages: [],
+    sessionId: id as NonNullable<GenerateOptions['sessionId']>,
+  })
 
   it('routes each live session to its own script by FIRST-CALL order', async () => {
     const parentFile = writeSession('session.jsonl', { id: 'rec-parent', createdAt: 100 }, [TEXT_CHUNKS])
@@ -2007,9 +2136,15 @@ describe('installLlmReplay (per-session keying)', () => {
     await expect(drain(ctx.llm.stream(live('live-A')))).rejects.toThrow(/exhausted/)
   })
 
-  it('keeps each session\'s cursor independent (interleaved calls)', async () => {
-    const a2: StreamChunk[] = [{ type: 'text-delta', index: 0, text: 'a2' }, { type: 'finish', reason: { kind: 'stop' } }]
-    const b2: StreamChunk[] = [{ type: 'text-delta', index: 0, text: 'b2' }, { type: 'finish', reason: { kind: 'stop' } }]
+  it("keeps each session's cursor independent (interleaved calls)", async () => {
+    const a2: StreamChunk[] = [
+      { type: 'text-delta', index: 0, text: 'a2' },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ]
+    const b2: StreamChunk[] = [
+      { type: 'text-delta', index: 0, text: 'b2' },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ]
     const parentFile = writeSession('session.jsonl', { id: 'p', createdAt: 1 }, [TEXT_CHUNKS, a2])
     const childFile = writeSession('session.1.jsonl', { id: 'c', createdAt: 2 }, [second, b2])
     const ctx = new Context()
@@ -2085,10 +2220,12 @@ describe('installLlmReplay (per-session keying)', () => {
     installLlmReplay(ctx, { file: parentFile, childFiles: [childFile] })
     const options: GenerateOptions = {
       ...live('live-parent'),
-      messages: [createUserMessage({
-        content: [{ type: 'text', text: 'started subagent live-child-before-call started subagent live-child-before-call' }],
-        source: { kind: 'user' },
-      })],
+      messages: [
+        createUserMessage({
+          content: [{ type: 'text', text: 'started subagent live-child-before-call started subagent live-child-before-call' }],
+          source: { kind: 'user' },
+        }),
+      ],
     }
 
     expect(await drain(ctx.llm.stream(options))).toEqual([
@@ -2103,13 +2240,19 @@ describe('installLlmReplay (per-session keying)', () => {
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, { file: parentFile })
 
-    expect(await drain(ctx.llm.stream({
-      ...live('live-parent'),
-      messages: [createUserMessage({
-        content: [{ type: 'text', text: 'started subagent unrecorded-child' }],
-        source: { kind: 'user' },
-      })],
-    }))).toEqual(TEXT_CHUNKS)
+    expect(
+      await drain(
+        ctx.llm.stream({
+          ...live('live-parent'),
+          messages: [
+            createUserMessage({
+              content: [{ type: 'text', text: 'started subagent unrecorded-child' }],
+              source: { kind: 'user' },
+            }),
+          ],
+        }),
+      ),
+    ).toEqual(TEXT_CHUNKS)
   })
 
   it('treats a call with no sessionId as the single anonymous (primary) session', async () => {
@@ -2161,16 +2304,16 @@ describe('apply (the plugin entry)', () => {
       providers: [
         {
           id: 'm',
-          models: [
-            { id: 'm', inputModalities: ['image'], reasoningEfforts: ['low'] },
-            { id: 'text' },
-          ],
+          models: [{ id: 'm', inputModalities: ['image'], reasoningEfforts: ['low'] }, { id: 'text' }],
         },
         { id: 'empty' },
       ],
       paceMs: 1,
     })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'm', name: 'm' }, { id: 'empty', name: 'empty' }])
+    expect(ctx.llm.listProviders()).toEqual([
+      { id: 'm', name: 'm' },
+      { id: 'empty', name: 'empty' },
+    ])
     await expect(ctx.llm.resolveModelInfo('m', 'm')).resolves.toMatchObject({ inputModalities: ['image'] })
     expect(await drain(ctx.llm.stream({ provider: 'm', model: 'm', messages: [] }))).toEqual(TEXT_CHUNKS)
   })
@@ -2181,13 +2324,12 @@ describe('apply (the plugin entry)', () => {
     await ctx.plugin(LlmRuntime)
     installLlmReplay(ctx, {
       file,
-      providers: [{
-        id: 'deepseek',
-        models: [
-          { id: 'vision', inputModalities: ['text', 'image'], imageRequestTokens: 384 },
-          { id: 'plain' },
-        ],
-      }],
+      providers: [
+        {
+          id: 'deepseek',
+          models: [{ id: 'vision', inputModalities: ['text', 'image'], imageRequestTokens: 384 }, { id: 'plain' }],
+        },
+      ],
     })
     const pricing = ctx.llm.imageRequestPricing('deepseek', 'vision')
     expect(pricing).toBeDefined()
@@ -2210,11 +2352,10 @@ describe('apply (the plugin entry)', () => {
 
   it('rejects imageRequestTokens on a model without the image modality during load', () => {
     const ctx = new Context()
-    const providers = [{ id: 'm', models: [{ id: 'm', imageRequestTokens: 384 }] }] as
-      NonNullable<Config['providers']>
-    expect(() => { apply(ctx, { file, providers }) }).toThrow(
-      'llm-replay: provider "m" model "m" imageRequestTokens requires inputModalities to include "image"',
-    )
+    const providers = [{ id: 'm', models: [{ id: 'm', imageRequestTokens: 384 }] }] as NonNullable<Config['providers']>
+    expect(() => {
+      apply(ctx, { file, providers })
+    }).toThrow('llm-replay: provider "m" model "m" imageRequestTokens requires inputModalities to include "image"')
   })
 
   it.each([
@@ -2222,28 +2363,26 @@ describe('apply (the plugin entry)', () => {
     ['a float', 1.5],
   ])('rejects imageRequestTokens configured as %s during load', (_case, imageRequestTokens) => {
     const ctx = new Context()
-    const providers = [{ id: 'm', models: [{ id: 'm', imageRequestTokens }] }] as
-      NonNullable<Config['providers']>
-    expect(() => { apply(ctx, { file, providers }) }).toThrow(
-      'llm-replay: provider "m" model "m" imageRequestTokens must be a positive safe integer',
-    )
+    const providers = [{ id: 'm', models: [{ id: 'm', imageRequestTokens }] }] as NonNullable<Config['providers']>
+    expect(() => {
+      apply(ctx, { file, providers })
+    }).toThrow('llm-replay: provider "m" model "m" imageRequestTokens must be a positive safe integer')
   })
 
   it('rejects an unknown toolUpdate mode during load', () => {
     const ctx = new Context()
     const providers: NonNullable<Config['providers']> = [{ id: 'm', models: [{ id: 'm', toolUpdate: 'always' as never }] }]
-    expect(() => { apply(ctx, { file, providers }) }).toThrow(
-      'llm-replay: provider "m" model "m" toolUpdate must be "in-history" or "addition-only" when present',
-    )
+    expect(() => {
+      apply(ctx, { file, providers })
+    }).toThrow('llm-replay: provider "m" model "m" toolUpdate must be "in-history" or "addition-only" when present')
   })
 
   it('rejects an unknown systemPromptUpdate mode during load', () => {
     const ctx = new Context()
-    const providers = [{ id: 'm', models: [{ id: 'm', systemPromptUpdate: 'leading' }] }] as unknown as
-      NonNullable<Config['providers']>
-    expect(() => { apply(ctx, { file, providers }) }).toThrow(
-      'llm-replay: provider "m" model "m" systemPromptUpdate must be "in-history" when present',
-    )
+    const providers = [{ id: 'm', models: [{ id: 'm', systemPromptUpdate: 'leading' }] }] as unknown as NonNullable<Config['providers']>
+    expect(() => {
+      apply(ctx, { file, providers })
+    }).toThrow('llm-replay: provider "m" model "m" systemPromptUpdate must be "in-history" when present')
   })
 
   it.each([
@@ -2251,11 +2390,10 @@ describe('apply (the plugin entry)', () => {
     ['an unknown modality', ['audio']],
   ])('rejects inputModalities configured as %s during load', (_case, inputModalities) => {
     const ctx = new Context()
-    const providers = [{ id: 'm', models: [{ id: 'm', inputModalities }] }] as unknown as
-      NonNullable<Config['providers']>
-    expect(() => { apply(ctx, { file, providers }) }).toThrow(
-      'llm-replay: provider "m" model "m" inputModalities must be an array containing only "text" and "image"',
-    )
+    const providers = [{ id: 'm', models: [{ id: 'm', inputModalities }] }] as unknown as NonNullable<Config['providers']>
+    expect(() => {
+      apply(ctx, { file, providers })
+    }).toThrow('llm-replay: provider "m" model "m" inputModalities must be an array containing only "text" and "image"')
   })
 
   it('falls back to $DSH_SNAPSHOT_FILE / $DSH_SNAPSHOT_OVERRIDE when config is empty', async () => {
@@ -2284,14 +2422,18 @@ describe('apply (the plugin entry)', () => {
     delete process.env.DSH_SNAPSHOT_FILE
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
-    expect(() => { apply(ctx, {}) }).toThrow(/a fixture path is required/)
+    expect(() => {
+      apply(ctx, {})
+    }).toThrow(/a fixture path is required/)
   })
 
   it('treats an empty-string fixture path as missing', async () => {
     delete process.env.DSH_SNAPSHOT_FILE
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
-    expect(() => { apply(ctx, { file: '' }) }).toThrow(/a fixture path is required/)
+    expect(() => {
+      apply(ctx, { file: '' })
+    }).toThrow(/a fixture path is required/)
   })
 
   it('loads child fixtures from config.childFiles (per-session routing)', async () => {
@@ -2306,8 +2448,12 @@ describe('apply (the plugin entry)', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx, { file, childFiles: [childFile] })
-    const live = (id: string): GenerateOptions =>
-      ({ provider: 'm', model: 'm', messages: [], sessionId: id as NonNullable<GenerateOptions['sessionId']> })
+    const live = (id: string): GenerateOptions => ({
+      provider: 'm',
+      model: 'm',
+      messages: [],
+      sessionId: id as NonNullable<GenerateOptions['sessionId']>,
+    })
     expect(await drain(ctx.llm.stream(live('A')))).toEqual(TEXT_CHUNKS)
     expect(await drain(ctx.llm.stream(live('B')))).toEqual(childSecond)
   })
@@ -2326,8 +2472,12 @@ describe('apply (the plugin entry)', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     apply(ctx)
-    const live = (id: string): GenerateOptions =>
-      ({ provider: 'm', model: 'm', messages: [], sessionId: id as NonNullable<GenerateOptions['sessionId']> })
+    const live = (id: string): GenerateOptions => ({
+      provider: 'm',
+      model: 'm',
+      messages: [],
+      sessionId: id as NonNullable<GenerateOptions['sessionId']>,
+    })
     expect(await drain(ctx.llm.stream(live('A')))).toEqual(TEXT_CHUNKS)
     expect(await drain(ctx.llm.stream(live('B')))).toEqual(childChunks)
   })

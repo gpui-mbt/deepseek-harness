@@ -1,12 +1,12 @@
 import { isIP } from 'node:net'
 import { networkInterfaces } from 'node:os'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { probeZonedLoopback } from './test-non-loopback-address.ts'
 
 const binding = vi.hoisted(() => ({ refusal: undefined as Error | undefined }))
 
 vi.mock('node:os', async importOriginal => ({
-  ...await importOriginal<typeof import('node:os')>(),
+  ...(await importOriginal<typeof import('node:os')>()),
   networkInterfaces: vi.fn(),
 }))
 
@@ -15,12 +15,16 @@ vi.mock('node:http', () => ({
   createServer: () => {
     let reject: (error: Error) => void
     return {
-      once(_event: string, listener: (error: Error) => void) { reject = listener },
+      once(_event: string, listener: (error: Error) => void) {
+        reject = listener
+      },
       listen(_options: { host: string; port: number }, ready: () => void) {
         if (binding.refusal) reject(binding.refusal)
         else ready()
       },
-      close(closed: () => void) { closed() },
+      close(closed: () => void) {
+        closed()
+      },
     }
   },
 }))
@@ -28,15 +32,17 @@ vi.mock('node:http', () => ({
 beforeEach(() => {
   binding.refusal = undefined
   vi.mocked(networkInterfaces).mockReturnValue({
-    'Loopback Pseudo-Interface 1': [{
-      address: '::1',
-      netmask: 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
-      family: 'IPv6',
-      mac: '00:00:00:00:00:00',
-      internal: true,
-      scopeid: 0,
-      cidr: '::1/128',
-    }],
+    'Loopback Pseudo-Interface 1': [
+      {
+        address: '::1',
+        netmask: 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
+        family: 'IPv6',
+        mac: '00:00:00:00:00:00',
+        internal: true,
+        scopeid: 0,
+        cidr: '::1/128',
+      },
+    ],
   })
 })
 

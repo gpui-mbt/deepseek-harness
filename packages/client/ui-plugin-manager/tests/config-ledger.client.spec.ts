@@ -1,6 +1,6 @@
 /** The projection of the plugins carrying configuration: what it reads from the ledgers and when it moves. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { configLedgerSource, rowConfigKey } from '../src/client/config-ledger.ts'
 import { tabLedgerSource } from '../src/client/tab-ledger.ts'
 
@@ -10,7 +10,12 @@ interface Registration {
 
 /** A slot registry and locale stand-in: ledgers by slot, versions that move on registration, and a locale revision. */
 function bench() {
-  const entries: Record<string, Registration[]> = { 'plugins.item': [], 'plugins.bundle.config': [], 'plugins.row.config': [], 'plugins.tab': [] }
+  const entries: Record<string, Registration[]> = {
+    'plugins.item': [],
+    'plugins.bundle.config': [],
+    'plugins.row.config': [],
+    'plugins.tab': [],
+  }
   const versions: Record<string, number> = { 'plugins.item': 0, 'plugins.bundle.config': 0, 'plugins.row.config': 0, 'plugins.tab': 0 }
   const listeners = new Map<string, Set<() => void>>()
   const localeListeners = new Set<() => void>()
@@ -23,14 +28,18 @@ function bench() {
         const set = listeners.get(name) ?? new Set<() => void>()
         set.add(listener)
         listeners.set(name, set)
-        return () => { set.delete(listener) }
+        return () => {
+          set.delete(listener)
+        }
       },
     },
     locale: {
       getSnapshot: () => ({ revision }),
       subscribe: (listener: () => void) => {
         localeListeners.add(listener)
-        return () => { localeListeners.delete(listener) }
+        return () => {
+          localeListeners.delete(listener)
+        }
       },
     },
   }
@@ -62,7 +71,10 @@ describe('configLedgerSource', () => {
     b.register('plugins.row.config', { key: rowConfigKey('dsh-x', 'row') })
 
     expect(source.getSnapshot()).toEqual({
-      items: [{ id: 'bash', label: 'Shell' }, { id: 'loop', label: 'Agent loop' }],
+      items: [
+        { id: 'bash', label: 'Shell' },
+        { id: 'loop', label: 'Agent loop' },
+      ],
       bundles: new Set(['dsh-x']),
       rows: new Set(['dsh-x#row']),
     })
@@ -115,7 +127,10 @@ describe('tabLedgerSource', () => {
     b.register('plugins.tab', { id: 'unlabelled' })
     expect(listener).toHaveBeenCalledTimes(2)
     const first = source.getSnapshot()
-    expect(first).toEqual([{ id: 'discover', label: 'Discover' }, { id: 'unlabelled', label: '' }])
+    expect(first).toEqual([
+      { id: 'discover', label: 'Discover' },
+      { id: 'unlabelled', label: '' },
+    ])
     expect(source.getSnapshot()).toBe(first)
     label = '发现'
     b.setLocale()

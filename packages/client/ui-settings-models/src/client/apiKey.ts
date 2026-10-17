@@ -34,7 +34,7 @@ export type ApiKeyFailureKey = 'keyBlank' | 'keyIllegalCharacters'
 /** Whether a value is wrapped in one matching pair of quotes. */
 function isQuoted(value: string): boolean {
   const first = value[0]
-  if (first !== '"' && first !== '\'' && first !== '`') return false
+  if (first !== '"' && first !== "'" && first !== '`') return false
   return value.length > 1 && value.endsWith(first)
 }
 

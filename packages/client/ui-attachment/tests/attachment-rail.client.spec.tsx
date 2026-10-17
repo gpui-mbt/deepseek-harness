@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { AttachmentRail } from '../src/AttachmentRail.tsx'
 import type { AttachmentRailItem, AttachmentRailLabels } from '../src/AttachmentRail.tsx'
@@ -12,17 +12,26 @@ afterEach(cleanup)
 const observers: { callback: ResizeObserverCallback; observed: Element[] }[] = []
 beforeEach(() => {
   observers.length = 0
-  vi.stubGlobal('ResizeObserver', class {
-    observed: Element[] = []
-    constructor(callback: ResizeObserverCallback) {
-      observers.push({ callback, observed: this.observed })
-    }
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observed: Element[] = []
+      constructor(callback: ResizeObserverCallback) {
+        observers.push({ callback, observed: this.observed })
+      }
 
-    observe(el: Element) { this.observed.push(el) }
-    disconnect() { this.observed.length = 0 }
-  })
+      observe(el: Element) {
+        this.observed.push(el)
+      }
+      disconnect() {
+        this.observed.length = 0
+      }
+    },
+  )
 })
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 const labels: AttachmentRailLabels = {
   group: '待发送图片',
@@ -44,13 +53,20 @@ function stubGeometry(rail: HTMLElement, { scrollWidth, clientWidth }: { scrollW
   Object.defineProperty(rail, 'scrollLeft', {
     configurable: true,
     get: () => scrollLeft,
-    set: (value: number) => { scrollLeft = value },
+    set: (value: number) => {
+      scrollLeft = value
+    },
   })
   const scrollBy = vi.fn((options: { left: number }) => {
     scrollLeft = Math.max(0, Math.min(scrollWidth - clientWidth, scrollLeft + options.left))
   })
   rail.scrollBy = scrollBy as unknown as typeof rail.scrollBy
-  return { scrollBy, setScrollLeft: (value: number) => { scrollLeft = value } }
+  return {
+    scrollBy,
+    setScrollLeft: (value: number) => {
+      scrollLeft = value
+    },
+  }
 }
 
 describe('AttachmentRail', () => {
@@ -62,9 +78,7 @@ describe('AttachmentRail', () => {
   })
 
   it('shows edge arrows from scroll geometry and pages a viewport at a time', () => {
-    const view = render(
-      <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />,
-    )
+    const view = render(<AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />)
     const rail = view.getByRole('group', { name: '待发送图片' })
     const { scrollBy } = stubGeometry(rail, { scrollWidth: 400, clientWidth: 200 })
     // No arrows until geometry is observed (mount saw jsdom's zero metrics).
@@ -88,33 +102,29 @@ describe('AttachmentRail', () => {
   })
 
   it('shows both arrows mid-scroll and recomputes when the rail itself resizes', () => {
-    const view = render(
-      <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />,
-    )
+    const view = render(<AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />)
     const rail = view.getByRole('group', { name: '待发送图片' })
     const { setScrollLeft } = stubGeometry(rail, { scrollWidth: 400, clientWidth: 200 })
     setScrollLeft(100)
     // The component observes the rail element, not the window: a sidebar or
     // panel resize reaches it through the ResizeObserver callback.
     expect(observers.at(-1)?.observed).toContain(rail)
-    act(() => { observers.at(-1)!.callback([], undefined as never) })
+    act(() => {
+      observers.at(-1)!.callback([], undefined as never)
+    })
     expect(view.getByLabelText('向左滚动图片')).toBeTruthy()
     expect(view.getByLabelText('向右滚动图片')).toBeTruthy()
   })
 
   it('keeps scrolling available when ResizeObserver is unavailable', () => {
     vi.stubGlobal('ResizeObserver', undefined)
-    const view = render(
-      <AttachmentRail items={[item('a')]} labels={labels} renderItem={renderItem} />,
-    )
+    const view = render(<AttachmentRail items={[item('a')]} labels={labels} renderItem={renderItem} />)
     expect(view.getByRole('group', { name: '待发送图片' })).toBeTruthy()
     view.unmount()
   })
 
   it('pans horizontally on a vertical wheel, consuming the event, with clamped normalized travel', () => {
-    const view = render(
-      <AttachmentRail items={[item('a'), item('b')]} labels={labels} renderItem={renderItem} />,
-    )
+    const view = render(<AttachmentRail items={[item('a'), item('b')]} labels={labels} renderItem={renderItem} />)
     const rail = view.getByRole('group', { name: '待发送图片' })
     const { scrollBy } = stubGeometry(rail, { scrollWidth: 400, clientWidth: 200 })
     // Converted ticks are consumed (preventDefault): fireEvent returns false.
@@ -140,11 +150,15 @@ describe('AttachmentRail', () => {
   })
 
   it('pages instantly under a reduced-motion preference, smoothly otherwise', () => {
-    for (const [matches, behavior] of [[true, 'auto'], [false, 'smooth']] as const) {
-      vi.stubGlobal('matchMedia', vi.fn(() => ({ matches }) as MediaQueryList))
-      const view = render(
-        <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />,
+    for (const [matches, behavior] of [
+      [true, 'auto'],
+      [false, 'smooth'],
+    ] as const) {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches }) as MediaQueryList),
       )
+      const view = render(<AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />)
       const rail = view.getByRole('group', { name: '待发送图片' })
       const { scrollBy } = stubGeometry(rail, { scrollWidth: 400, clientWidth: 200 })
       fireEvent.scroll(rail)
@@ -156,18 +170,12 @@ describe('AttachmentRail', () => {
 
   it('reveals the rail end when an item is added, not when one is removed', () => {
     const first = [item('a'), item('b')]
-    const view = render(
-      <AttachmentRail items={first} labels={labels} renderItem={renderItem} />,
-    )
+    const view = render(<AttachmentRail items={first} labels={labels} renderItem={renderItem} />)
     const rail = view.getByRole('group', { name: '待发送图片' })
     stubGeometry(rail, { scrollWidth: 400, clientWidth: 200 })
-    view.rerender(
-      <AttachmentRail items={[...first, item('c')]} labels={labels} renderItem={renderItem} />,
-    )
+    view.rerender(<AttachmentRail items={[...first, item('c')]} labels={labels} renderItem={renderItem} />)
     expect(rail.scrollLeft).toBe(200)
-    view.rerender(
-      <AttachmentRail items={first} labels={labels} renderItem={renderItem} />,
-    )
+    view.rerender(<AttachmentRail items={first} labels={labels} renderItem={renderItem} />)
     // Removal keeps the position; only growth jumps to the end.
     expect(rail.scrollLeft).toBe(200)
   })

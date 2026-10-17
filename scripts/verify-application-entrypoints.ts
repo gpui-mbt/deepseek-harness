@@ -76,12 +76,7 @@ const SOURCE_PATTERNS = [
   'python/sdk-runtime/*.mjs',
 ]
 
-const SOURCE_EXCLUDES = [
-  '**/node_modules/**',
-  '**/lib/**',
-  '**/dist/**',
-  '**/coverage/**',
-]
+const SOURCE_EXCLUDES = ['**/node_modules/**', '**/lib/**', '**/dist/**', '**/coverage/**']
 
 /** Convert a host path from glob output to the repository's slash form. */
 function repositoryPath(path: string): string {
@@ -152,8 +147,10 @@ function rootLauncherViolations(root: string): string[] {
     }
     const command = typeof commandValue === 'string' ? commandValue : ''
     if (policy.kind === 'dsh-direct') {
-      if (!referencesDshCli(command)) failures.push(`package.json scripts.${name}: application launcher script must launch apps/cli/src/bin.ts`)
-      if (referencesPackageEntry(command)) failures.push(`package.json scripts.${name}: application launcher script must not launch a package entry directly`)
+      if (!referencesDshCli(command))
+        failures.push(`package.json scripts.${name}: application launcher script must launch apps/cli/src/bin.ts`)
+      if (referencesPackageEntry(command))
+        failures.push(`package.json scripts.${name}: application launcher script must not launch a package entry directly`)
       continue
     }
     const wrapper = policy.wrapper
@@ -179,11 +176,7 @@ function rootLauncherViolations(root: string): string[] {
  * @returns deterministic path-qualified violations.
  */
 export function applicationEntrypointViolations(root: string): string[] {
-  return [
-    ...manifestBinViolations(root),
-    ...executableSourceViolations(root),
-    ...rootLauncherViolations(root),
-  ]
+  return [...manifestBinViolations(root), ...executableSourceViolations(root), ...rootLauncherViolations(root)]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -32,7 +32,13 @@ export async function apply(ctx: Context): Promise<void> {
       confineCalls++
       audit()
       return new Promise((_resolve, reject) => {
-        signal.addEventListener('abort', () => { reject(new Error('fixture preparation aborted')) }, { once: true })
+        signal.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('fixture preparation aborted'))
+          },
+          { once: true },
+        )
       })
     }
   }

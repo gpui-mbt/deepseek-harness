@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError, stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { WebSearchCardController } from '../src/client/web-search-card-controller.ts'
@@ -7,8 +7,8 @@ type Section = Record<string, unknown>
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites(host: StubConfigForm<Section>): void {
-  const section = (): Section => ({ ...host.scope.getSnapshot().value as Section })
-  const layer = (): Section => ({ ...host.scope.getSnapshot().user as Section })
+  const section = (): Section => ({ ...(host.scope.getSnapshot().value as Section) })
+  const layer = (): Section => ({ ...(host.scope.getSnapshot().user as Section) })
   host.set.mockImplementation((field: string, value: unknown) => {
     host.publish({ value: { ...section(), [field]: value }, user: { ...layer(), [field]: value } })
   })
@@ -37,10 +37,12 @@ function acceptWrites(host: StubConfigForm<Section>): void {
 
 /** The credentials domain, answering for whichever reference the page asks about. */
 function credentialsApi(configured: boolean) {
-  const describe = vi.fn((refs: readonly string[]) => Promise.resolve({
-    ok: true as const,
-    value: Object.fromEntries(refs.map(ref => [ref, { configured, writable: true }])),
-  }))
+  const describe = vi.fn((refs: readonly string[]) =>
+    Promise.resolve({
+      ok: true as const,
+      value: Object.fromEntries(refs.map(ref => [ref, { configured, writable: true }])),
+    }),
+  )
   const set = vi.fn(() => Promise.resolve({ ok: true as const, value: undefined }))
   return { api: { describe, set }, describe, set }
 }
@@ -67,7 +69,12 @@ function configForms(served: readonly string[], values: Record<string, Section> 
         view: { namespaces: namespaces.map(ns => ({ ns })), writable: true, hasDocument: true },
         error: null,
       }),
-      subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+      subscribe: (listener: () => void) => {
+        listeners.add(listener)
+        return () => {
+          listeners.delete(listener)
+        }
+      },
       ensure: () => Promise.resolve(),
       acceptView: () => {},
     }),
@@ -95,9 +102,16 @@ const OLLAMA = 'web-search-ollama'
 
 describe('WebSearchCardController', () => {
   it('reads the credential state for the reference the selected provider names', async () => {
-    const bench = controllerFor([DEEPSEEK, OLLAMA], { web: { searchProvider: 'deepseek-official' }, [DEEPSEEK]: { baseURL: 'https://search.test/v1' } })
-    await vi.waitFor(() => { expect(bench.credentials.describe).toHaveBeenCalled() })
-    await vi.waitFor(() => { expect(bench.state().apiKeyConfigured).toBe(true) })
+    const bench = controllerFor([DEEPSEEK, OLLAMA], {
+      web: { searchProvider: 'deepseek-official' },
+      [DEEPSEEK]: { baseURL: 'https://search.test/v1' },
+    })
+    await vi.waitFor(() => {
+      expect(bench.credentials.describe).toHaveBeenCalled()
+    })
+    await vi.waitFor(() => {
+      expect(bench.state().apiKeyConfigured).toBe(true)
+    })
 
     expect(bench.state()).toMatchObject({
       baseURL: { text: 'https://search.test/v1', overridden: false },
@@ -128,9 +142,7 @@ describe('WebSearchCardController', () => {
 
     face.selectProvider('ollama-cloud')
 
-    expect(bench.forms.stubs.get('web')!.mutate).toHaveBeenCalledWith([
-      { op: 'set', path: ['searchProvider'], value: 'ollama-cloud' },
-    ])
+    expect(bench.forms.stubs.get('web')!.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['searchProvider'], value: 'ollama-cloud' }])
 
     bench.forms.stubs.get('web')!.publish({ value: { searchProvider: 'ollama-cloud' } })
     expect(bench.state()).toMatchObject({ selectedProviderId: 'ollama-cloud', limitField: 'maxResults' })
@@ -202,10 +214,12 @@ describe('WebSearchCardController', () => {
 
   it('writes the staged key through the credentials domain, never the settings section', async () => {
     const bench = controllerFor([DEEPSEEK, 'web'])
-    bench.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const,
-      value: Object.fromEntries(refs.map(ref => [ref, { configured: false, writable: true }])),
-    }))
+    bench.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: false, writable: true }])),
+      }),
+    )
     bench.forms.stubs.get(DEEPSEEK)!.publish({ value: {}, user: {} })
     const face = bench.controller.inject()
 
@@ -213,12 +227,16 @@ describe('WebSearchCardController', () => {
     expect(bench.state().dirty).toBe(true)
     expect(bench.credentials.set).not.toHaveBeenCalled()
 
-    bench.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const,
-      value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
-    }))
+    bench.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
+      }),
+    )
     face.save()
-    await vi.waitFor(() => { expect(bench.credentials.set).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(bench.credentials.set).toHaveBeenCalled()
+    })
 
     expect(bench.credentials.set).toHaveBeenCalledWith('DEEPSEEK_API_KEY', 'ds-secret')
     expect(bench.forms.stubs.get(DEEPSEEK)!.set).not.toHaveBeenCalled()
@@ -241,7 +259,9 @@ describe('WebSearchCardController', () => {
 
   it('re-reads when the Host reports the watched reference changed', async () => {
     const bench = controllerFor([DEEPSEEK, 'web'])
-    await vi.waitFor(() => { expect(bench.credentials.describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(bench.credentials.describe).toHaveBeenCalled()
+    })
     bench.credentials.describe.mockClear()
 
     // Another reference is not this card's business.
@@ -249,10 +269,12 @@ describe('WebSearchCardController', () => {
     expect(bench.credentials.describe).not.toHaveBeenCalled()
 
     // A key written on another surface reaches this card only through this signal.
-    bench.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const,
-      value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
-    }))
+    bench.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
+      }),
+    )
     bench.controller.refreshCredential('DEEPSEEK_API_KEY')
 
     await vi.waitFor(() => {
@@ -266,17 +288,21 @@ describe('WebSearchCardController', () => {
 
     face.edit('apiKey', 'ds-secret')
     face.save()
-    await vi.waitFor(() => { expect(bench.credentials.set).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(bench.credentials.set).toHaveBeenCalled()
+    })
 
     expect(bench.credentials.set).toHaveBeenCalledWith('SEARCH_KEY', 'ds-secret')
   })
 
   it('reports a key the Host did not store as a failed save', async () => {
     const bench = controllerFor([DEEPSEEK, 'web'])
-    bench.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const,
-      value: Object.fromEntries(refs.map(ref => [ref, { configured: false, writable: true }])),
-    }))
+    bench.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: false, writable: true }])),
+      }),
+    )
     bench.forms.stubs.get(DEEPSEEK)!.publish({ value: {}, user: {} })
     const face = bench.controller.inject()
 
@@ -290,21 +316,26 @@ describe('WebSearchCardController', () => {
 
   it('keeps the card usable when the credential read is refused', async () => {
     const forms = configForms([DEEPSEEK, 'web'])
-    const refusal = () => Promise.resolve({
-      ok: false as const,
-      error: new RemoteError('credential/rejected', 'offline', { ref: 'DEEPSEEK_API_KEY' }),
-    })
+    const refusal = () =>
+      Promise.resolve({
+        ok: false as const,
+        error: new RemoteError('credential/rejected', 'offline', { ref: 'DEEPSEEK_API_KEY' }),
+      })
     const describe = vi.fn(refusal)
     const set = vi.fn(refusal)
     const ctx = { configForms: forms.service, remote: { credentials: { describe, set } } } as never
     const controller = new WebSearchCardController(ctx)
     const face = controller.inject()
-    await vi.waitFor(() => { expect(describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(describe).toHaveBeenCalled()
+    })
 
     forms.stubs.get(DEEPSEEK)!.publish({ value: { baseURL: 'https://search.test/v1' }, user: {} })
     face.edit('apiKey', 'ds-secret')
     face.save()
-    await vi.waitFor(() => { expect(set).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(set).toHaveBeenCalled()
+    })
 
     expect(face.hooks.webSearchCard.getSnapshot()).toMatchObject({
       available: true,
@@ -315,13 +346,17 @@ describe('WebSearchCardController', () => {
 
   it('ignores a credential read the Host refused', async () => {
     const forms = configForms([DEEPSEEK, 'web'])
-    const describe = vi.fn(() => Promise.resolve({
-      ok: false as const,
-      error: new RemoteError('gateway/internal', 'no credential provider', {}),
-    }))
+    const describe = vi.fn(() =>
+      Promise.resolve({
+        ok: false as const,
+        error: new RemoteError('gateway/internal', 'no credential provider', {}),
+      }),
+    )
     const ctx = { configForms: forms.service, remote: { credentials: { describe, set: vi.fn() } } } as never
     const controller = new WebSearchCardController(ctx)
-    await vi.waitFor(() => { expect(describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(describe).toHaveBeenCalled()
+    })
 
     expect(controller.inject().hooks.webSearchCard.getSnapshot().apiKeyConfigured).toBe(false)
   })
@@ -335,10 +370,15 @@ describe('WebSearchCardController', () => {
     face.edit('baseURL', 'https://other.test')
     face.edit('maxUses', '3')
     face.save()
-    await vi.waitFor(() => { expect(bench.forms.stubs.get(DEEPSEEK)!.mutate).toHaveBeenCalledTimes(1) })
+    await vi.waitFor(() => {
+      expect(bench.forms.stubs.get(DEEPSEEK)!.mutate).toHaveBeenCalledTimes(1)
+    })
 
     expect(bench.forms.stubs.get(DEEPSEEK)!.mutate.mock.calls.map(([ops]) => ops)).toEqual([
-      [{ op: 'set', path: ['baseURL'], value: 'https://other.test' }, { op: 'set', path: ['maxUses'], value: 3 }],
+      [
+        { op: 'set', path: ['baseURL'], value: 'https://other.test' },
+        { op: 'set', path: ['maxUses'], value: 3 },
+      ],
     ])
     expect(bench.credentials.set).not.toHaveBeenCalled()
   })

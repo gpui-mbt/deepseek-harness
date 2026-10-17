@@ -10,26 +10,11 @@ import z from '@deepseek-ai/schemastery'
 import { assembleAssistantStream } from '@deepseek-ai/dsh-llm'
 import type { LlmImageRequestPricing, LlmRuntime, Message, TokenUsage } from '@deepseek-ai/dsh-llm'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
-import type {
-  EpochHeader,
-  Session,
-  SessionEvent,
-  SessionLogOffset as SessionLogOffsetType,
-} from '@deepseek-ai/dsh-session'
-import {
-  canonicalHeader,
-  headerEquals,
-  isSurfaceEvent,
-  SessionLogOffset,
-  SessionSeq,
-} from '@deepseek-ai/dsh-session'
+import type { EpochHeader, Session, SessionEvent, SessionLogOffset as SessionLogOffsetType } from '@deepseek-ai/dsh-session'
+import { canonicalHeader, headerEquals, isSurfaceEvent, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
 // Type-only: activates the `ctx.sessionProjections` Context declaration.
 import type {} from '@deepseek-ai/dsh-session-projection'
-import type {
-  TokenMeasurement,
-  TokenMeasurementBaseline,
-  TokenMeterConfig,
-} from './types.ts'
+import type { TokenMeasurement, TokenMeasurementBaseline, TokenMeterConfig } from './types.ts'
 import { contextBreakdownProjectionDefinition } from './breakdown-projection.ts'
 import { contextPressureProjectionDefinition, tokenUsageProjectionDefinition } from './usage-projection.ts'
 import { estimateContent, estimateMessage, estimateToolsTokens, ROLE_OVERHEAD } from './estimate.ts'
@@ -69,17 +54,11 @@ interface ReplayState {
 
 /** Sum disjoint provider usage buckets without double-counting reasoning output. */
 function usageTokens(usage: TokenUsage): number {
-  return usage.inputTokens
-    + (usage.cacheReadTokens ?? 0)
-    + (usage.cacheWriteTokens ?? 0)
-    + usage.outputTokens
+  return usage.inputTokens + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0) + usage.outputTokens
 }
 
 /** Compare optional envelopes so a headerless estimate can track later surface deltas. */
-function optionalHeaderEquals(
-  left: EpochHeader | undefined,
-  right: EpochHeader | undefined,
-): boolean {
+function optionalHeaderEquals(left: EpochHeader | undefined, right: EpochHeader | undefined): boolean {
   if (left === undefined || right === undefined) return left === right
   return headerEquals(left, right)
 }
@@ -117,7 +96,7 @@ export class TokenMeter extends Service {
 
     // Readers catch up independently, while eager observation bounds ordinary
     // read latency without creating state for sessions no consumer has read.
-    ctx.on('session/event', (session) => {
+    ctx.on('session/event', session => {
       if (this.states.has(session)) this._sync(session)
     })
   }
@@ -145,9 +124,7 @@ export class TokenMeter extends Service {
    */
   measure(session: Session, requestHeader?: EpochHeader): TokenMeasurement {
     const state = this._sync(session)
-    const header = requestHeader === undefined
-      ? state.header
-      : canonicalHeader(requestHeader)
+    const header = requestHeader === undefined ? state.header : canonicalHeader(requestHeader)
     const pricing = this._routeImagePricing(header)
     const fileText = this._fileRequestText()
     const surface = priceSurface(state.surface, pricing, fileText)
@@ -159,15 +136,15 @@ export class TokenMeter extends Service {
       // Matching headers share one route, so the anchored snapshot reprices
       // under the same pricing as the current surface and the signed delta
       // compares like with like.
-      const anchorSurfaceTokens = priceSurface(anchor.nodes, pricing, fileText).surfaceTokens
-        + anchor.assistantTokens
+      const anchorSurfaceTokens = priceSurface(anchor.nodes, pricing, fileText).surfaceTokens + anchor.assistantTokens
       const estimatedAnchorTokens = estimateToolsTokens(header) + anchorSurfaceTokens
       const usage = anchor.usage
       // Signed heuristic deltas remain conservative only from an anchor
       // that is at least as large as the matching full heuristic price.
-      baseline = usage !== undefined && usageTokens(usage) >= estimatedAnchorTokens
-        ? { kind: 'usage', tokens: usageTokens(usage), usage }
-        : { kind: 'estimated', tokens: estimatedAnchorTokens }
+      baseline =
+        usage !== undefined && usageTokens(usage) >= estimatedAnchorTokens
+          ? { kind: 'usage', tokens: usageTokens(usage), usage }
+          : { kind: 'estimated', tokens: estimatedAnchorTokens }
       surfaceDeltaTokens = surface.surfaceTokens - anchorSurfaceTokens
     } else if (header === undefined && surface.surfaceTokens === 0) {
       baseline = { kind: 'none', tokens: 0 }
@@ -180,14 +157,16 @@ export class TokenMeter extends Service {
       surfaceDeltaTokens = 0
     }
 
-    return deepFreeze(structuredClone({
-      logRevision: state.consumedEvents,
-      baseline,
-      surfaceDeltaTokens,
-      totalTokens: Math.max(0, baseline.tokens + surfaceDeltaTokens),
-      surfaceTokens: surface.surfaceTokens,
-      nodes: surface.nodes,
-    }))
+    return deepFreeze(
+      structuredClone({
+        logRevision: state.consumedEvents,
+        baseline,
+        surfaceDeltaTokens,
+        totalTokens: Math.max(0, baseline.tokens + surfaceDeltaTokens),
+        surfaceTokens: surface.surfaceTokens,
+        nodes: surface.nodes,
+      }),
+    )
   }
 
   /** Resolve the routed model's image pricing, when the llm service and route declare one. */
@@ -198,9 +177,7 @@ export class TokenMeter extends Service {
   }
 
   /** Resolve request-time file projection when an LLM service is mounted. */
-  private _fileRequestText(): (
-    (ref: Parameters<LlmRuntime['fileRequestText']>[0]) => string
-  ) | undefined {
+  private _fileRequestText(): ((ref: Parameters<LlmRuntime['fileRequestText']>[0]) => string) | undefined {
     const llm = this.ctx.get('llm')
     return llm === undefined ? undefined : ref => llm.fileRequestText(ref)
   }
@@ -252,7 +229,7 @@ export class TokenMeter extends Service {
     switch (event.type) {
       case 'image/offload': {
         const offloaded = new Map(event.data.targets.map(target => [target.seq, new Set(target.imageIndexes)]))
-        state.surface = state.surface.map((node) => {
+        state.surface = state.surface.map(node => {
           const indexes = offloaded.get(node.seq)
           if (indexes === undefined) return node
           return {
@@ -274,9 +251,7 @@ export class TokenMeter extends Service {
         nextStepStart = { ...event.data }
         break
       case 'step/end':
-        if (state.stepStart === undefined
-          || state.stepStart.turn !== event.data.turn
-          || state.stepStart.step !== event.data.step) {
+        if (state.stepStart === undefined || state.stepStart.turn !== event.data.turn || state.stepStart.step !== event.data.step) {
           throw new Error(`token meter: step/end at seq ${event.seq} has no matching step/start event`)
         }
         nextStepStart = undefined
@@ -285,15 +260,11 @@ export class TokenMeter extends Service {
         break
     }
 
-    const plan = isSurfaceEvent(event)
-      ? planSurfaceTokens(state.surface, event)
-      : undefined
+    const plan = isSurfaceEvent(event) ? planSurfaceTokens(state.surface, event) : undefined
 
     if (event.type === 'assistant/message') {
       const stepStart = state.stepStart
-      if (stepStart === undefined
-        || stepStart.turn !== event.data.turn
-        || stepStart.step !== event.data.step) {
+      if (stepStart === undefined || stepStart.turn !== event.data.turn || stepStart.step !== event.data.step) {
         throw new Error(`token meter: assistant/message at seq ${event.seq} has no matching step/start event`)
       }
 
@@ -331,9 +302,7 @@ export class TokenMeter extends Service {
   /**
    * Reassemble provider output from the message's exact embedded stream.
    */
-  private _estimateProviderAssistant(
-    event: SessionEvent<'assistant/message'>,
-  ): number {
+  private _estimateProviderAssistant(event: SessionEvent<'assistant/message'>): number {
     const providerContent = assembleAssistantStream(event.data.stream).blocks()
     return providerContent.length === 0 ? 0 : estimateContent(providerContent) + ROLE_OVERHEAD
   }

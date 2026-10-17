@@ -1,5 +1,5 @@
 /** The source-mode parse Worker, run end to end. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { parseIndexInWorker } from '../src/parse-thread.ts'
 
 const URL_A = 'https://market.example/index.json'

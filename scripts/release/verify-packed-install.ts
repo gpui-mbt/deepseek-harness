@@ -57,7 +57,9 @@ function consumerEnvironment(consumerRoot: string): NodeJS.ProcessEnv {
 function packedDependencies(directories: readonly string[]): Map<string, { url: string; version: string }> {
   const dependencies = new Map<string, { url: string; version: string }>()
   for (const directory of directories) {
-    const tarballs = readdirSync(directory).filter(name => name.endsWith('.tgz')).sort()
+    const tarballs = readdirSync(directory)
+      .filter(name => name.endsWith('.tgz'))
+      .sort()
     if (tarballs.length === 0) throw new Error(`${directory} holds no packed tarball`)
     for (const filename of tarballs) {
       const tarball = join(directory, filename)
@@ -92,12 +94,19 @@ function main(): void {
 
   const consumerRoot = mkdtempSync(join(tmpdir(), `dsh-packed-${family.id}-`))
   try {
-    writeFileSync(join(consumerRoot, 'package.json'), `${JSON.stringify({
-      name: `dsh-packed-install-${family.id}`,
-      version: '0.0.0',
-      private: true,
-      dependencies: Object.fromEntries([...packed].map(([name, entryPacked]) => [name, entryPacked.url])),
-    }, null, 2)}\n`)
+    writeFileSync(
+      join(consumerRoot, 'package.json'),
+      `${JSON.stringify(
+        {
+          name: `dsh-packed-install-${family.id}`,
+          version: '0.0.0',
+          private: true,
+          dependencies: Object.fromEntries([...packed].map(([name, entryPacked]) => [name, entryPacked.url])),
+        },
+        null,
+        2,
+      )}\n`,
+    )
 
     const environment = consumerEnvironment(consumerRoot)
     console.log(`release verify-packed-install: installing ${String(packed.size)} tarball(s) into ${consumerRoot}`)
@@ -106,8 +115,20 @@ function main(): void {
     // that cannot install them must still start — which is what optional means
     // here. Their entry package is a plain dependency of dsh-sandbox-local, so
     // its tarball is supplied through --from.
-    capture('npm', ['install', '--cache', join(consumerRoot, '.npm-cache'), '--no-audit', '--no-fund', '--package-lock=false', '--omit=optional', '--loglevel=http'],
-      { cwd: consumerRoot, env: environment })
+    capture(
+      'npm',
+      [
+        'install',
+        '--cache',
+        join(consumerRoot, '.npm-cache'),
+        '--no-audit',
+        '--no-fund',
+        '--package-lock=false',
+        '--omit=optional',
+        '--loglevel=http',
+      ],
+      { cwd: consumerRoot, env: environment },
+    )
 
     const installedEntry = join(consumerRoot, 'node_modules', entry.packageName)
     const packageCount = verifyInstalledProductIsolation(installedEntry)

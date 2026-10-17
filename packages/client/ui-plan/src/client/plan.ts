@@ -38,8 +38,11 @@ export function submittedPlan(event: { readonly type: string; readonly data: unk
   let args: unknown = data.arguments
   if (event.type === 'tool/call') {
     if (typeof args !== 'string') return undefined
-    try { args = JSON.parse(args) as unknown }
-    catch (_error) { return undefined /* Malformed model JSON remains in the generic tool row. */ }
+    try {
+      args = JSON.parse(args) as unknown
+    } catch (_error) {
+      return undefined /* Malformed model JSON remains in the generic tool row. */
+    }
   }
   if (!record(args) || typeof args.plan !== 'string') return undefined
   const markdown = args.plan
@@ -54,9 +57,10 @@ export function submittedPlan(event: { readonly type: string; readonly data: unk
  */
 export function planAddress(target: PlanAddress): string {
   const { session, callId } = target
-  const parts = session.kind === 'session'
-    ? [session.sessionId, callId]
-    : ['subagent', session.parentSessionId, session.childSessionId, session.mode, callId]
+  const parts =
+    session.kind === 'session'
+      ? [session.sessionId, callId]
+      : ['subagent', session.parentSessionId, session.childSessionId, session.mode, callId]
   return `dsh-resource://plan/${parts.map(encodeURIComponent).join('/')}`
 }
 
@@ -71,13 +75,16 @@ export function parsePlanAddress(address: string): PlanAddress | undefined {
   try {
     const parts = (match[1] as string).split('/').map(decodeURIComponent)
     if (parts.some(part => part === '')) return undefined
-    if (parts.length === 2) return {
-      session: { kind: 'session', sessionId: parts[0] as SessionId }, callId: parts[1] as ToolCallId,
-    }
-    if (parts.length === 5 && parts[0] === 'subagent' && (parts[3] === 'one-shot' || parts[3] === 'continuable' || parts[3] === 'unknown')) return {
-      session: { kind: 'subagent', parentSessionId: parts[1] as SessionId, childSessionId: parts[2] as SessionId, mode: parts[3] },
-      callId: parts[4] as ToolCallId,
-    }
+    if (parts.length === 2)
+      return {
+        session: { kind: 'session', sessionId: parts[0] as SessionId },
+        callId: parts[1] as ToolCallId,
+      }
+    if (parts.length === 5 && parts[0] === 'subagent' && (parts[3] === 'one-shot' || parts[3] === 'continuable' || parts[3] === 'unknown'))
+      return {
+        session: { kind: 'subagent', parentSessionId: parts[1] as SessionId, childSessionId: parts[2] as SessionId, mode: parts[3] },
+        callId: parts[4] as ToolCallId,
+      }
     return undefined
   } catch (_error) {
     // Invalid saved percent encoding cannot identify a Session or invocation.

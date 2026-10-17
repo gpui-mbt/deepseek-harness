@@ -41,8 +41,9 @@ export interface DeepSeekOnboardingInjected {
 }
 
 /** Slot owner props plus the feature's injected dependencies. */
-export type DeepSeekOnboardingDialogProps =
-  PropsRuntime<'settings.onboarding'> & PropsRenderSlots<'settings.models.sign-in'> & InjectFace<DeepSeekOnboardingInjected>
+export type DeepSeekOnboardingDialogProps = PropsRuntime<'settings.onboarding'> &
+  PropsRenderSlots<'settings.models.sign-in'> &
+  InjectFace<DeepSeekOnboardingInjected>
 
 /* v8 ignore next 3 -- closed-union defaults only defend future source widening */
 function assertNever(_value: never): never {
@@ -67,11 +68,12 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
 
   useEffect(() => {
     if (
-      (!automatic && !explicit)
-      || readiness.kind === 'adapter-absent'
-      || (!explicit && readiness.kind === 'provider-ready')
-      || readiness.kind === 'unavailable'
-    ) complete()
+      (!automatic && !explicit) ||
+      readiness.kind === 'adapter-absent' ||
+      (!explicit && readiness.kind === 'provider-ready') ||
+      readiness.kind === 'unavailable'
+    )
+      complete()
   }, [complete, readiness.kind, explicit, automatic])
 
   if (!automatic && !explicit) return null
@@ -91,10 +93,12 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       return assertNever(readiness)
   }
 
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+  const row = state.rows.find(
+    candidate =>
+      candidate.entry.provider === 'deepseek-official' &&
+      candidate.entry.settingsNs === 'llm-deepseek' &&
+      candidate.entry.settingsPath.length === 0,
+  )
   const namespace = state.namespaces.get('llm-deepseek')
   /* v8 ignore next 2 -- credential-missing is derived only from this exact joined row. */
   if (row === undefined || namespace === undefined) return null
@@ -122,7 +126,9 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           readOnly={false}
           hideTitle
           credentialOnly
-          onSubmitCredential={() => { props.track?.('api_key_save_click', {}) }}
+          onSubmitCredential={() => {
+            props.track?.('api_key_save_click', {})
+          }}
           credentialRequired
           autoFocusCredential
           cancelLabelKey="onboardingLater"
@@ -133,5 +139,16 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       </div>
     </OnboardingModal>
   )
-  return apiKey ? editor : renderSlot('settings.models.sign-in', { complete, useApiKey: () => { setApiKey(true) } }, { fallback: editor })
+  return apiKey
+    ? editor
+    : renderSlot(
+        'settings.models.sign-in',
+        {
+          complete,
+          useApiKey: () => {
+            setApiKey(true)
+          },
+        },
+        { fallback: editor },
+      )
 }

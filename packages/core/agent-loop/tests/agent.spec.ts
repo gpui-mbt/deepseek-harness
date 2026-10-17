@@ -1,5 +1,5 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -14,8 +14,8 @@ import { MockAdapter, textResponse } from './mock-adapter.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'p': { kind: 'p' } & ContextFormed
-    'test': { kind: 'test' } & ContextFormed
+    p: { kind: 'p' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -58,8 +58,7 @@ describe('Agent', () => {
     agent.inject(createUserMessage({ content: [{ type: 'text', text: 'empty plugin source' }], source }))
 
     const injected = agent.session.snapshotEvents().at(-1)
-    expect(injected?.type === 'agent/inbox/spliced' && injected.data.inserted[0]?.source)
-      .toEqual({ kind: 'unknown-producer' })
+    expect(injected?.type === 'agent/inbox/spliced' && injected.data.inserted[0]?.source).toEqual({ kind: 'unknown-producer' })
   })
 
   it('emits exact inserted, claimed, and discarded inbox messages', async () => {
@@ -151,7 +150,9 @@ describe('Agent', () => {
 
     send(agent, 'queued')
     let settled = false
-    const idle = agent.whenIdle().then(() => { settled = true })
+    const idle = agent.whenIdle().then(() => {
+      settled = true
+    })
     await Promise.resolve()
     expect(settled).toBe(false)
 
@@ -172,8 +173,6 @@ describe('Agent', () => {
     await agent.whenIdle()
 
     expect(agent.status).toBe('idle')
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('agent event "agent/status" listener threw'),
-    )
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('agent event "agent/status" listener threw'))
   })
 })

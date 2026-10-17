@@ -2,13 +2,9 @@ import { mkdtemp, writeFile, access } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
-import {
-  launchAcpTestAgent,
-  type AgentUnderTest,
-  type LaunchedAcpTestAgent,
-} from '@deepseek-ai/dsh-session-snapshot'
+import { launchAcpTestAgent, type AgentUnderTest, type LaunchedAcpTestAgent } from '@deepseek-ai/dsh-session-snapshot'
 import { cleanupAcpExampleTest } from './cleanup.ts'
 
 /**
@@ -25,13 +21,7 @@ const AGENT: AgentUnderTest = {
   tsconfigPath: fileURLToPath(new URL('../../../../../../tsconfig.json', import.meta.url)),
 }
 
-const STANDARD_EXECUTION_UPDATES = new Set([
-  'agent_message_chunk',
-  'agent_thought_chunk',
-  'tool_call',
-  'tool_call_update',
-  'usage_update',
-])
+const STANDARD_EXECUTION_UPDATES = new Set(['agent_message_chunk', 'agent_thought_chunk', 'tool_call', 'tool_call_update', 'usage_update'])
 
 let spawned: LaunchedAcpTestAgent | undefined
 let workdir: string | undefined
@@ -49,9 +39,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('acp-agent e2e: a PreToolUse hook
     workdir = await mkdtemp(join(tmpdir(), 'acp-hooks-e2e-'))
     // `configPath` is process-relative, so placing the match-all hook in the
     // launch cwd selects it; hook commands themselves run in the session cwd.
-    await writeFile(join(workdir, 'hooks.json'), JSON.stringify({
-      hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'echo "bash blocked by policy" >&2; exit 2' }] }] },
-    }))
+    await writeFile(
+      join(workdir, 'hooks.json'),
+      JSON.stringify({
+        hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'echo "bash blocked by policy" >&2; exit 2' }] }] },
+      }),
+    )
 
     spawned = launchAcpTestAgent({
       agent: AGENT,
@@ -65,7 +58,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('acp-agent e2e: a PreToolUse hook
 
     const res = await client.prompt({
       sessionId,
-      prompt: [{ type: 'text', text: 'Use the bash tool to write the exact text HOOK_FAIL into a file named proof.txt in the current directory. Then stop.' }],
+      prompt: [
+        {
+          type: 'text',
+          text: 'Use the bash tool to write the exact text HOOK_FAIL into a file named proof.txt in the current directory. Then stop.',
+        },
+      ],
     })
     // The turn completes normally (the block is a tool-result error fed back to
     // the model, not a turn failure).

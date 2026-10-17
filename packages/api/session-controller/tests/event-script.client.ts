@@ -1,16 +1,10 @@
-import {
-  ToolCallId, createMessage, createToolResultMessage, createUserMessage,
-} from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 // Minimal SessionEvent builders for orchestration tests (shape mirrors what the
 // host emits; only the fields the object layer reads).
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type {
-  SessionEventEntry,
-  SessionPage,
-  SessionWireEvent,
-} from '../src/types.ts'
+import type { SessionEventEntry, SessionPage, SessionWireEvent } from '../src/types.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
@@ -32,35 +26,44 @@ const at = (seq: SessionSeq, e: Record<string, unknown>): SessionEvent =>
   ({ seq, time: 1_700_000_000_000 + seq, ...e }) as unknown as SessionEvent
 
 export const ev = {
-  turnStart: (seq: SessionSeq, turn: number): SessionEvent =>
-    at(seq, { type: 'turn/start', data: { turn } }),
+  turnStart: (seq: SessionSeq, turn: number): SessionEvent => at(seq, { type: 'turn/start', data: { turn } }),
   user: (seq: SessionSeq, body: string): SessionEvent =>
-    at(seq, { type: 'user/message', surfaceOp: 'append', data: createUserMessage({
-      content: text(body), source: { kind: 'user' },
-    }) }),
-  stepStart: (seq: SessionSeq, turn: number, step = 0): SessionEvent =>
-    at(seq, { type: 'step/start', data: { turn, step } }),
-  assistant: (seq: SessionSeq, turn: number, body: string, step = 0): SessionEvent =>
-    at(seq, { type: 'assistant/message', surfaceOp: 'append', data: {
-      turn, step,
-      stream: [
-        { type: 'chunk', time: 1_700_000_000_000 + seq, chunk: { type: 'block-start', index: 0, blockType: 'text' } },
-        { type: 'text-chunks', time0: 1_700_000_000_000 + seq, index: 0, dt: [], texts: [body] },
-        {
-          type: 'chunk', time: 1_700_000_000_000 + seq,
-          chunk: { type: 'block-end', index: 0, block: { type: 'text', text: body } },
-        },
-        { type: 'chunk', time: 1_700_000_000_000 + seq, chunk: { type: 'finish', reason: { kind: 'stop' } } },
-      ],
-      message: createMessage({
-        role: 'assistant',
+    at(seq, {
+      type: 'user/message',
+      surfaceOp: 'append',
+      data: createUserMessage({
         content: text(body),
-        source: {
-          kind: 'model',
-          ...{ provider: 'fake', model: 'fk-1' },
-        },
+        source: { kind: 'user' },
       }),
-    } }),
+    }),
+  stepStart: (seq: SessionSeq, turn: number, step = 0): SessionEvent => at(seq, { type: 'step/start', data: { turn, step } }),
+  assistant: (seq: SessionSeq, turn: number, body: string, step = 0): SessionEvent =>
+    at(seq, {
+      type: 'assistant/message',
+      surfaceOp: 'append',
+      data: {
+        turn,
+        step,
+        stream: [
+          { type: 'chunk', time: 1_700_000_000_000 + seq, chunk: { type: 'block-start', index: 0, blockType: 'text' } },
+          { type: 'text-chunks', time0: 1_700_000_000_000 + seq, index: 0, dt: [], texts: [body] },
+          {
+            type: 'chunk',
+            time: 1_700_000_000_000 + seq,
+            chunk: { type: 'block-end', index: 0, block: { type: 'text', text: body } },
+          },
+          { type: 'chunk', time: 1_700_000_000_000 + seq, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+        ],
+        message: createMessage({
+          role: 'assistant',
+          content: text(body),
+          source: {
+            kind: 'model',
+            ...{ provider: 'fake', model: 'fk-1' },
+          },
+        }),
+      },
+    }),
   toolCall: (seq: SessionSeq, turn: number, callId: string, name: string, args: string, step = 0): SessionEvent =>
     at(seq, { type: 'tool/call', data: { turn, step, callId, name, arguments: args } }),
   toolResult: (seq: SessionSeq, turn: number, callId: string, body: string, step = 0): SessionEvent =>
@@ -93,10 +96,17 @@ export const ev = {
   ): SessionEvent =>
     at(seq, {
       type: 'tool/ptc-dispatch',
-      data: { rootCallId: parentCallId, parentCallId, subCallId: `${parentCallId}:ptc:${n}`, name, arguments: args, isError, content: text(body) },
+      data: {
+        rootCallId: parentCallId,
+        parentCallId,
+        subCallId: `${parentCallId}:ptc:${n}`,
+        name,
+        arguments: args,
+        isError,
+        content: text(body),
+      },
     }),
-  stepEnd: (seq: SessionSeq, turn: number, step = 0): SessionEvent =>
-    at(seq, { type: 'step/end', data: { turn, step } }),
+  stepEnd: (seq: SessionSeq, turn: number, step = 0): SessionEvent => at(seq, { type: 'step/end', data: { turn, step } }),
   retry: (
     seq: SessionSeq,
     turn: number,
@@ -109,19 +119,28 @@ export const ev = {
     at(seq, {
       type: 'llm/retry',
       data: {
-        turn, step,
-        provider: 'fake', mode: 'normal', policyKey: 'fake-normal',
-        retry, maxRetries, delayMs,
+        turn,
+        step,
+        provider: 'fake',
+        mode: 'normal',
+        policyKey: 'fake-normal',
+        retry,
+        maxRetries,
+        delayMs,
         failure: { code: 'TRANSPORT', message },
       },
     }),
   turnEnd: (seq: SessionSeq, turn: number, reason: 'completed' | 'aborted' | 'disposed' = 'completed'): SessionEvent =>
-    at(seq, { type: 'turn/end', data: {
-      turn,
-      reason: reason === 'completed'
-        ? { kind: 'completed' }
-        : { kind: 'aborted', reason: { kind: reason === 'disposed' ? 'disposed' : 'user' } },
-    } }),
+    at(seq, {
+      type: 'turn/end',
+      data: {
+        turn,
+        reason:
+          reason === 'completed'
+            ? { kind: 'completed' }
+            : { kind: 'aborted', reason: { kind: reason === 'disposed' ? 'disposed' : 'user' } },
+      },
+    }),
   commandRun: (seq: SessionSeq, commandId: string, name: string, args = ''): SessionEvent =>
     at(seq, { type: 'command/run', data: { commandId, name, args, source: { kind: 'user' } } }),
   commandRunWithoutInput: (seq: SessionSeq, commandId: string, name: string): SessionEvent =>
@@ -133,29 +152,30 @@ export const ev = {
     text?: string,
     sourceEventSeq?: SessionSeq,
   ): SessionEvent =>
-    at(seq, { type: 'command/done', data: {
-      commandId,
-      kind,
-      ...text === undefined ? {} : { text },
-      ...sourceEventSeq === undefined ? {} : { sourceEventSeq },
-    } }),
+    at(seq, {
+      type: 'command/done',
+      data: {
+        commandId,
+        kind,
+        ...(text === undefined ? {} : { text }),
+        ...(sourceEventSeq === undefined ? {} : { sourceEventSeq }),
+      },
+    }),
   /** A compaction's log-only `compaction/summary` record. */
   compactSummary: (seq: SessionSeq, summary: string, start: SessionSeq, end: SessionSeq): SessionEvent =>
-    at(seq, { type: 'compaction/summary', data: {
-      summary: text(summary),
-      shadowedRange: { start, end },
-      shadowedSeqs: [start, end],
-      shadowedTokenCount: 100,
-      provider: 'fake',
-      model: 'compact-1',
-    } }),
+    at(seq, {
+      type: 'compaction/summary',
+      data: {
+        summary: text(summary),
+        shadowedRange: { start, end },
+        shadowedSeqs: [start, end],
+        shadowedTokenCount: 100,
+        provider: 'fake',
+        model: 'compact-1',
+      },
+    }),
   /** The replacement user message a compaction backend lands (the checkpoint). */
-  compactCheckpoint: (
-    seq: SessionSeq,
-    summarySeq: SessionSeq,
-    start: SessionSeq,
-    end: SessionSeq,
-  ): SessionEvent =>
+  compactCheckpoint: (seq: SessionSeq, summarySeq: SessionSeq, start: SessionSeq, end: SessionSeq): SessionEvent =>
     at(seq, {
       type: 'user/message',
       surfaceOp: { op: 'replace', startSeq: start, endSeq: end },

@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import type { ShortcutCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WebTerminalId, WebTerminalInfo } from '@deepseek-ai/dsh-api-terminal-controller/types'
 import { SidebarRightTabRegistry } from '@deepseek-ai/dsh-client-ui-sidebar-right/src/client/tab-registry.ts'
@@ -26,7 +26,10 @@ const SHORTCUT_CATALOG: readonly never[] = []
 const renderedTerminal = vi.hoisted(() => vi.fn(() => null))
 vi.mock('../src/client/terminal.tsx', () => ({ TerminalBody: renderedTerminal }))
 
-afterEach(() => { cleanup(); renderedTerminal.mockClear() })
+afterEach(() => {
+  cleanup()
+  renderedTerminal.mockClear()
+})
 
 async function mountPlugin() {
   const ctx = new Context()
@@ -44,8 +47,13 @@ async function mountPlugin() {
   let closeHandler: SidebarRightCloseHandler | undefined
   const model = { state: {} }
   const terminals = {
-    retainTabs: vi.fn(), view: vi.fn(() => model), close: vi.fn(), closeFailures: {}, retryClose: vi.fn(),
-    launchShells: vi.fn(async () => ({ shells: [], selectedShell: undefined })), selectShell: vi.fn(),
+    retainTabs: vi.fn(),
+    view: vi.fn(() => model),
+    close: vi.fn(),
+    closeFailures: {},
+    retryClose: vi.fn(),
+    launchShells: vi.fn(async () => ({ shells: [], selectedShell: undefined })),
+    selectShell: vi.fn(),
     recover: vi.fn(async (_sessionId: SessionId): Promise<WebTerminalInfo[]> => []),
   }
   let params: { terminalId: WebTerminalId } | { shellPath: string } | undefined
@@ -53,35 +61,90 @@ async function mountPlugin() {
   const openTabIn = vi.fn()
   const tabsIn = vi.fn(() => [] as { id: string; kind: string }[])
   const openTabs = createSnapshotStore<readonly SidebarRightOpenTab[]>([])
-  const commandTarget = vi.fn(), openTabFromTarget = vi.fn()
+  const commandTarget = vi.fn(),
+    openTabFromTarget = vi.fn()
   const commands: ShortcutCommand[] = []
   ctx.provide('webTerminals', terminals as never)
   ctx.provide('sidebarRight', {
-    tabDomain: { occurrence }, openTabIn, tabsIn, openTabs, commandTarget, openTabFromTarget,
-    registerCloseHandler: (kind: string, handler: SidebarRightCloseHandler) => { expect(kind).toBe('terminal'); closeHandler = handler; return () => { closeHandler = undefined } },
+    tabDomain: { occurrence },
+    openTabIn,
+    tabsIn,
+    openTabs,
+    commandTarget,
+    openTabFromTarget,
+    registerCloseHandler: (kind: string, handler: SidebarRightCloseHandler) => {
+      expect(kind).toBe('terminal')
+      closeHandler = handler
+      return () => {
+        closeHandler = undefined
+      }
+    },
   } as never)
   ctx.provide('slots', {
     inject: (_name: string, register: () => () => void) => register(),
-    register: (options: Omit<typeof entries[number], 'component'>, component: unknown) => { const entry = { ...options, component }; entries.push(entry); return () => { entries.splice(entries.indexOf(entry), 1) } },
+    register: (options: Omit<(typeof entries)[number], 'component'>, component: unknown) => {
+      const entry = { ...options, component }
+      entries.push(entry)
+      return () => {
+        entries.splice(entries.indexOf(entry), 1)
+      }
+    },
   } as never)
-  ctx.provide('shortcuts', { register: (command: ShortcutCommand) => {
-    commands.push(command)
-    return () => { commands.splice(commands.indexOf(command), 1) }
-  }, catalog: { getSnapshot: () => SHORTCUT_CATALOG, subscribe: () => () => {} } } as never)
+  ctx.provide('shortcuts', {
+    register: (command: ShortcutCommand) => {
+      commands.push(command)
+      return () => {
+        commands.splice(commands.indexOf(command), 1)
+      }
+    },
+    catalog: { getSnapshot: () => SHORTCUT_CATALOG, subscribe: () => () => {} },
+  } as never)
   ctx.provide('locale', {
     bind: () => (key: string) => key,
-    register: (name: string, values: unknown) => { dictionaries.set(name, values); return () => { dictionaries.delete(name) } },
+    register: (name: string, values: unknown) => {
+      dictionaries.set(name, values)
+      return () => {
+        dictionaries.delete(name)
+      }
+    },
   } as never)
-  const theme = { preference: 'light' as const, fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' }, active: { id: 'light', colorScheme: 'light' as const, tokens: {} }, themes: [], revision: 0 }
+  const theme = {
+    preference: 'light' as const,
+    fontSizes: { text: 14, code: 11, terminal: 13 },
+    fontFamilies: { text: '', code: '', terminal: '' },
+    active: { id: 'light', colorScheme: 'light' as const, tokens: {} },
+    themes: [],
+    revision: 0,
+  }
   ctx.provide('theme', { getTheme: () => theme } as never)
   const fiber = await ctx.plugin({ inject, apply })
   return {
-    tabs, entries, dictionaries, terminals, model, occurrence, openTabIn, tabsIn, openTabs, theme,
-    commandTarget, openTabFromTarget, commands,
-    emitTheme() { ctx.emit('theme/change', theme) },
-    get closeHandler() { return closeHandler },
-    setParams(next: typeof params) { params = next },
-    async dispose() { await fiber.dispose(); await ctx.fiber.dispose() },
+    tabs,
+    entries,
+    dictionaries,
+    terminals,
+    model,
+    occurrence,
+    openTabIn,
+    tabsIn,
+    openTabs,
+    theme,
+    commandTarget,
+    openTabFromTarget,
+    commands,
+    emitTheme() {
+      ctx.emit('theme/change', theme)
+    },
+    get closeHandler() {
+      return closeHandler
+    },
+    setParams(next: typeof params) {
+      params = next
+    },
+    async dispose() {
+      await fiber.dispose()
+      await ctx.fiber.dispose()
+    },
   }
 }
 
@@ -160,13 +223,17 @@ it('opens a terminal for the command target and refuses without a selected Sessi
     if (result.status !== 'handled') throw new Error('Expected terminal command to be available')
     result.run()
     expect(h.openTabFromTarget).toHaveBeenCalledWith('terminal', target)
-  } finally { await h.dispose() }
+  } finally {
+    await h.dispose()
+  }
   expect(h.commands).toEqual([])
 })
 
 it('loads the terminal body implementation when its registered wrapper mounts', async () => {
   render(createElement(LazyTerminalBody, {} as never))
-  await waitFor(() => { expect(renderedTerminal).toHaveBeenCalledOnce() })
+  await waitFor(() => {
+    expect(renderedTerminal).toHaveBeenCalledOnce()
+  })
 })
 
 it('retains terminal metadata from dormant layouts and releases its inventory subscription on unload', async () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Expanded reasoning keeps its original accessible across translation lifetimes. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { renderReasoningFactory as renderFactorySlot } from '../../../client/ui-chat/tests/reasoning-component-fixture.tsx'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -18,16 +18,27 @@ function fixture() {
   const locale = createSnapshotStore<LocaleSnapshot>({ active: 'zh', locales: [], revision: 0 })
   const translationLimit = createSnapshotStore(4000)
   const translate = vi.fn<TranslateText>(async request => `${request.provider}:${request.targetLanguage}:${request.text}`)
-  const props = { text: 'Original paragraph', running: false, translate, renderFactorySlot, t: makeTranslate(en),
-    usePreferences: bindSnapshotSelector(preferences), useTranslationLocale: bindSnapshotSelector(locale),
-    useTranslationLimit: bindSnapshotSelector(translationLimit) } as TranslationBodyProps
+  const props = {
+    text: 'Original paragraph',
+    running: false,
+    translate,
+    renderFactorySlot,
+    t: makeTranslate(en),
+    usePreferences: bindSnapshotSelector(preferences),
+    useTranslationLocale: bindSnapshotSelector(locale),
+    useTranslationLimit: bindSnapshotSelector(translationLimit),
+  } as TranslationBodyProps
   return { props, preferences, locale, translationLimit, translate }
 }
 
 it('honors an explicit Google selection and the UI language, and switches to the original without another request', async () => {
-  const b = fixture(), view = render(<TranslationBody {...b.props} />)
+  const b = fixture(),
+    view = render(<TranslationBody {...b.props} />)
   await view.findByText('google:zh:Original paragraph')
-  expect(b.translate).toHaveBeenCalledWith({ text: 'Original paragraph', provider: 'google', targetLanguage: 'zh' }, expect.any(AbortSignal))
+  expect(b.translate).toHaveBeenCalledWith(
+    { text: 'Original paragraph', provider: 'google', targetLanguage: 'zh' },
+    expect.any(AbortSignal),
+  )
   const markdown = view.container.querySelector('[data-markdown-variant]')
   fireEvent.click(view.getByRole('button', { name: 'View original' }))
   expect(view.container.querySelector('[data-markdown-variant]')).toBe(markdown)
@@ -40,19 +51,28 @@ it('honors an explicit Google selection and the UI language, and switches to the
 })
 
 it('cancels stale provider or locale requests and honors an explicit language after locale changes', async () => {
-  const b = fixture(), first = Promise.withResolvers<string>()
+  const b = fixture(),
+    first = Promise.withResolvers<string>()
   b.translate.mockImplementationOnce(() => first.promise)
   const view = render(<TranslationBody {...b.props} />)
   const firstSignal = b.translate.mock.calls[0]![1]
-  act(() => { b.preferences.set({ provider: 'bing', targetLanguage: 'ja' }) })
+  act(() => {
+    b.preferences.set({ provider: 'bing', targetLanguage: 'ja' })
+  })
   expect(firstSignal.aborted).toBe(true)
   await view.findByText('bing:ja:Original paragraph')
   first.resolve('outdated translation')
-  await act(async () => { await first.promise })
+  await act(async () => {
+    await first.promise
+  })
   expect(view.queryByText('outdated translation')).toBeNull()
-  act(() => { b.locale.set({ active: 'en', locales: [], revision: 1 }) })
+  act(() => {
+    b.locale.set({ active: 'en', locales: [], revision: 1 })
+  })
   expect(b.translate).toHaveBeenCalledTimes(2)
-  act(() => { b.preferences.set({ provider: 'bing', targetLanguage: 'auto' }) })
+  act(() => {
+    b.preferences.set({ provider: 'bing', targetLanguage: 'auto' })
+  })
   await view.findByText('bing:en:Original paragraph')
 })
 
@@ -93,7 +113,8 @@ it('keeps the full original visible after a later paragraph fails and reuses com
 })
 
 it('keeps an unfinished streaming tail original and cancels the disclosure on unmount', async () => {
-  const b = fixture(), pending = Promise.withResolvers<string>()
+  const b = fixture(),
+    pending = Promise.withResolvers<string>()
   b.translate.mockImplementationOnce(() => pending.promise)
   const view = render(<TranslationBody {...b.props} text="Unfinished" running />)
   expect(b.translate).not.toHaveBeenCalled()
@@ -107,15 +128,20 @@ it('keeps an unfinished streaming tail original and cancels the disclosure on un
 })
 
 it('cancels the previous request and rechunks when the request limit changes', async () => {
-  const b = fixture(), first = Promise.withResolvers<string>()
+  const b = fixture(),
+    first = Promise.withResolvers<string>()
   b.translate.mockImplementationOnce(() => first.promise)
   const view = render(<TranslationBody {...b.props} text="abcdefghij" />)
   const firstSignal = b.translate.mock.calls[0]![1]
-  act(() => { b.translationLimit.set(4) })
+  act(() => {
+    b.translationLimit.set(4)
+  })
   expect(firstSignal.aborted).toBe(true)
   await view.findByText('google:zh:abcdgoogle:zh:efghgoogle:zh:ij')
   expect(b.translate.mock.calls.slice(1).map(([request]) => request.text)).toEqual(['abcd', 'efgh', 'ij'])
   first.resolve('outdated long request')
-  await act(async () => { await first.promise })
+  await act(async () => {
+    await first.promise
+  })
   expect(view.queryByText('outdated long request')).toBeNull()
 })

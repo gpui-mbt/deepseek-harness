@@ -142,8 +142,7 @@ export class WorkerModuleLoader {
     // A Map, not the record itself: a specifier that names an Object prototype
     // member must miss the table the way any other unregistered name does.
     this.staticModules = new Map(Object.entries(options.staticModules))
-    this.staticPrefixes = Object.entries(options.staticModulePrefixes ?? {})
-      .sort(([left], [right]) => right.length - left.length)
+    this.staticPrefixes = Object.entries(options.staticModulePrefixes ?? {}).sort(([left], [right]) => right.length - left.length)
     this.conditions = new Set(options.conditions ?? DEFAULT_CONDITIONS)
     this.als = createAlsRuntime(options.alsCausality)
     const resolveInternal = (specifier: string, parentURL?: string): WorkerInternalResolution => {
@@ -171,7 +170,7 @@ export class WorkerModuleLoader {
    * @returns This loader's one cascaded loader.
    */
   cascadedLoader(): CascadedLoader {
-    return this.cascaded ??= createCascadedLoader(this.internal)
+    return (this.cascaded ??= createCascadedLoader(this.internal))
   }
 
   /**
@@ -312,7 +311,7 @@ export class WorkerModuleLoader {
       return { kind: 'file', path: this.probe(specifier, specifier) }
     }
     const segments = specifier.split('/')
-    const packageName = specifier.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0] ?? specifier
+    const packageName = specifier.startsWith('@') ? segments.slice(0, 2).join('/') : (segments[0] ?? specifier)
     const rest = specifier.slice(packageName.length).replace(/^\//, '')
     const packageDirectory = join(this.root, 'node_modules', packageName)
     if (!this.vfs.existsSync(join(packageDirectory, 'package.json'))) {
@@ -330,7 +329,7 @@ export class WorkerModuleLoader {
       }
       return { kind: 'file', path: this.probe(join(packageDirectory, target), specifier) }
     }
-    const legacy = subpath === '.' ? manifest.main ?? 'index.js' : rest
+    const legacy = subpath === '.' ? (manifest.main ?? 'index.js') : rest
     return { kind: 'file', path: this.probe(join(packageDirectory, legacy), specifier) }
   }
 
@@ -404,8 +403,9 @@ export class WorkerModuleLoader {
         this.fail(`${path} uses top-level await, which cannot run as CommonJS in the worker: ${reason.message}`)
       }
       if (reason instanceof SyntaxError && /import|export/i.test(reason.message)) {
-        this.fail(`${path} still carries module syntax, so the image was not lowered by the packer `
-          + `(${reason.message}); rebuild the image`)
+        this.fail(
+          `${path} still carries module syntax, so the image was not lowered by the packer ` + `(${reason.message}); rebuild the image`,
+        )
       }
       this.fail(`${path} failed to compile: ${(reason as Error).message}`)
     }
@@ -467,7 +467,9 @@ export function setActiveModuleLoader(loader: WorkerModuleLoader): void {
  */
 export function requireActiveModuleLoader(): WorkerModuleLoader {
   if (active === undefined) {
-    throw new Error('webworker modules: no loader is mounted; the worker entry must call setActiveModuleLoader before any createRequire use')
+    throw new Error(
+      'webworker modules: no loader is mounted; the worker entry must call setActiveModuleLoader before any createRequire use',
+    )
   }
   return active
 }

@@ -1,12 +1,10 @@
 /** Streaming reasoning previews through the assembled Chat and a paused model adapter. */
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { LlmAdapter, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
-import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode,
-} from './scaffold.ts'
+import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, writeComposerDraft } from './support.ts'
 
 const SUMMARY = `Next paragraph: ${'inspect the loaded context and pending tools '.repeat(8).trim()}`
@@ -14,7 +12,9 @@ const DELTAS = ['First paragraph', `\nDetails\n\n\n${SUMMARY}`, '\nMore detail']
 const UI_EXPECTED = fileURLToPath(new URL('./expected/reasoning-preview/running.expected.md', import.meta.url))
 
 class PausedReasoningAdapter extends LlmAdapter {
-  override async listModels(provider: string) { return [{ provider, id: 'paused', name: `${provider}/paused` }] }
+  override async listModels(provider: string) {
+    return [{ provider, id: 'paused', name: `${provider}/paused` }]
+  }
   readonly stages = DELTAS.map(text => ({
     text,
     arrived: Promise.withResolvers<undefined>(),
@@ -74,7 +74,7 @@ it('shows completed paragraph first lines across blank lines with a right-edge f
         await expect.poll(() => animatedWhale.isVisible()).toBe(false)
         await expect.poll(() => restingWhale.isVisible()).toBe(true)
         expect(await animatedWhale.evaluate(element => getComputedStyle(element).maskImage)).toBe('none')
-        const colors = await restingWhale.locator('path').evaluate((path) => {
+        const colors = await restingWhale.locator('path').evaluate(path => {
           const probe = document.createElement('span')
           probe.style.cssText = 'color: Canvas; forced-color-adjust: none'
           document.body.append(probe)
@@ -85,7 +85,9 @@ it('shows completed paragraph first lines across blank lines with a right-edge f
               canvas: getComputedStyle(probe).color,
               length: (path as SVGPathElement).getTotalLength(),
             }
-          } finally { probe.remove() }
+          } finally {
+            probe.remove()
+          }
         })
         expect(colors.stroke).not.toBe('none')
         expect(colors.stroke).not.toBe('transparent')
@@ -96,7 +98,7 @@ it('shows completed paragraph first lines across blank lines with a right-edge f
         await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'none' })
         await expect.poll(() => animatedWhale.isVisible()).toBe(true)
         expect(await animatedWhale.evaluate(element => getComputedStyle(element).maskMode)).toBe('alpha')
-        const imageSize = await animatedWhale.evaluate(async (element) => {
+        const imageSize = await animatedWhale.evaluate(async element => {
           const source = getComputedStyle(element).maskImage.match(/^url\("?(data:image\/png;base64,[A-Za-z0-9+/=]+)"?\)$/)?.[1]
           if (source === undefined) throw new Error('Running whale mask must use the bundled PNG data URL')
           const image = new Image()
@@ -107,9 +109,11 @@ it('shows completed paragraph first lines across blank lines with a right-edge f
         expect(imageSize).toEqual([28, 28])
         expect(await restingWhale.isVisible()).toBe(false)
         const firstWhaleFrame = await whale.screenshot({ animations: 'allow' })
-        await expect.poll(async () => !(await whale.screenshot({ animations: 'allow' })).equals(firstWhaleFrame), {
-          timeout: 5000,
-        }).toBe(true)
+        await expect
+          .poll(async () => !(await whale.screenshot({ animations: 'allow' })).equals(firstWhaleFrame), {
+            timeout: 5000,
+          })
+          .toBe(true)
         await page.emulateMedia({ reducedMotion: 'reduce' })
         await expectStaticWhale()
         await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'active' })
@@ -124,7 +128,9 @@ it('shows completed paragraph first lines across blank lines with a right-edge f
       const preview = reasoning.locator('[data-streaming]:not([inert] *)')
       await expect.poll(() => preview.textContent()).toBe('First paragraph')
       expect(await preview.isVisible()).toBe(true)
-      await preview.evaluate((element) => { element.setAttribute('data-retained-preview', 'true') })
+      await preview.evaluate(element => {
+        element.setAttribute('data-retained-preview', 'true')
+      })
 
       second.proceed.resolve(undefined)
       await third.arrived.promise
@@ -133,8 +139,11 @@ it('shows completed paragraph first lines across blank lines with a right-edge f
       expect(await preview.evaluate(element => getComputedStyle(element).maskImage)).toContain('linear-gradient')
       expect(await preview.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
       expect(await reasoning.getByRole('button').getAttribute('aria-expanded')).toBe('false')
-      await compareOrRefreshGolden(UI_EXPECTED,
-        await captureStableAria(page, '[data-variant="think"]', scaffold.workspaceCwd), webSnapshotMode())
+      await compareOrRefreshGolden(
+        UI_EXPECTED,
+        await captureStableAria(page, '[data-variant="think"]', scaffold.workspaceCwd),
+        webSnapshotMode(),
+      )
 
       third.proceed.resolve(undefined)
       await settled

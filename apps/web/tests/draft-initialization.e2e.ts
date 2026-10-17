@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Page } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { ClientModuleLoaderTarget } from '@deepseek-ai/dsh-client-modules/client'
 import { formatSessionReferenceMention } from '@deepseek-ai/dsh-session-reference'
@@ -61,7 +61,7 @@ async function observeDraftApi(page: Page): Promise<void> {
       set(target: ClientModuleLoaderTarget) {
         Object.defineProperty(globalThis, '__ModuleLoader__', { configurable: true, writable: true, value: target })
         let load = target.load.bind(target)
-        const observeLoad: ClientModuleLoaderTarget['load'] = (registration) => {
+        const observeLoad: ClientModuleLoaderTarget['load'] = registration => {
           if (registration.id !== '@deepseek-ai/dsh-client-ui-workspace' || registration.chunk !== undefined) {
             load(registration)
             return
@@ -93,7 +93,9 @@ async function observeDraftApi(page: Page): Promise<void> {
         Object.defineProperty(target, 'load', {
           configurable: true,
           get: () => observeLoad,
-          set(next: ClientModuleLoaderTarget['load']) { load = next.bind(target) },
+          set(next: ClientModuleLoaderTarget['load']) {
+            load = next.bind(target)
+          },
         })
       },
     })
@@ -101,11 +103,14 @@ async function observeDraftApi(page: Page): Promise<void> {
 }
 
 async function startSession(page: Page, workspaceId: string | undefined, options: DraftOptions): Promise<void> {
-  await page.evaluate(({ workspaceId, options }) => {
-    const observation = Reflect.get(globalThis, '__dshDraftApiObservation') as DraftApiObservation | undefined
-    if (observation?.startSession === undefined) throw new Error('The shipped Workspace apply has not been observed')
-    observation.startSession(workspaceId, options)
-  }, { workspaceId, options })
+  await page.evaluate(
+    ({ workspaceId, options }) => {
+      const observation = Reflect.get(globalThis, '__dshDraftApiObservation') as DraftApiObservation | undefined
+      if (observation?.startSession === undefined) throw new Error('The shipped Workspace apply has not been observed')
+      observation.startSession(workspaceId, options)
+    },
+    { workspaceId, options },
+  )
 }
 
 function composer(page: Page) {
@@ -116,13 +121,14 @@ function selectedSession(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const raw = localStorage.getItem('dsh.sessions.current')
     const value: unknown = raw === null ? null : JSON.parse(raw)
-    return typeof value === 'object' && value !== null && 'sessionId' in value
-      && typeof value.sessionId === 'string' ? value.sessionId : null
+    return typeof value === 'object' && value !== null && 'sessionId' in value && typeof value.sessionId === 'string'
+      ? value.sessionId
+      : null
   })
 }
 
 function storedDraft(page: Page, sessionId: SessionId): Promise<unknown> {
-  return page.evaluate((id) => {
+  return page.evaluate(id => {
     const raw = localStorage.getItem(`dsh.conversation.${id}`)
     const value: unknown = raw === null ? null : JSON.parse(raw)
     return typeof value === 'object' && value !== null && 'draft' in value ? value.draft : null
@@ -130,7 +136,7 @@ function storedDraft(page: Page, sessionId: SessionId): Promise<unknown> {
 }
 
 async function writeStoredDrafts(page: Page, drafts: readonly { sessionId: SessionId; draft: string | DraftSnapshot }[]): Promise<void> {
-  await page.evaluate((drafts) => {
+  await page.evaluate(drafts => {
     for (const { sessionId, draft } of drafts) {
       const key = `dsh.conversation.${sessionId}`
       const raw = localStorage.getItem(key)
@@ -149,10 +155,15 @@ async function restoreStoredDrafts(page: Page, drafts: readonly { sessionId: Ses
 }
 
 function editorSelection(page: Page) {
-  return composer(page).evaluate((element) => {
+  return composer(page).evaluate(element => {
     const selection = element.ownerDocument.getSelection()
-    if (selection?.anchorNode === null || selection?.focusNode === null || selection === null
-      || !element.contains(selection.anchorNode) || !element.contains(selection.focusNode)) {
+    if (
+      selection?.anchorNode === null ||
+      selection?.focusNode === null ||
+      selection === null ||
+      !element.contains(selection.anchorNode) ||
+      !element.contains(selection.focusNode)
+    ) {
       throw new Error('The selection is outside the draft editor')
     }
     const offset = (node: Node, position: number): number => {
@@ -175,16 +186,21 @@ async function assertDraft(page: Page, sessionId: SessionId, expected: DraftSnap
   await expect.poll(() => storedDraft(page, sessionId), { ...SETTLE, message }).toEqual(expected)
   const chips = composer(page).locator('[data-composer-chip]')
   await expect.poll(() => chips.allTextContents(), SETTLE).toEqual(expected.references.map(reference => reference.label))
-  expect(await chips.evaluateAll(elements => elements.map(element => ({
-    source: element.getAttribute('data-composer-chip'), editable: element.getAttribute('contenteditable'),
-  })))).toEqual(expected.references.map(() => ({ source: 'reference', editable: 'false' })))
+  expect(
+    await chips.evaluateAll(elements =>
+      elements.map(element => ({
+        source: element.getAttribute('data-composer-chip'),
+        editable: element.getAttribute('contenteditable'),
+      })),
+    ),
+  ).toEqual(expected.references.map(() => ({ source: 'reference', editable: 'false' })))
   let displayed = expected.text
   for (const reference of [...expected.references].reverse()) {
-    displayed = displayed.slice(0, reference.offset) + reference.label
-      + displayed.slice(reference.offset + reference.length)
+    displayed = displayed.slice(0, reference.offset) + reference.label + displayed.slice(reference.offset + reference.length)
   }
-  await expect.poll(() => composer(page).evaluate(element =>
-    [...element.children].map(paragraph => paragraph.textContent).join('\n')), SETTLE).toBe(displayed)
+  await expect
+    .poll(() => composer(page).evaluate(element => [...element.children].map(paragraph => paragraph.textContent).join('\n')), SETTLE)
+    .toBe(displayed)
 }
 
 async function initialize(page: Page, prompt: string, workspaceId?: string, clearPreviousDraft = false) {
@@ -203,7 +219,10 @@ async function assertUnsubmitted(scaffold: WebScaffold, ids: readonly SessionId[
     const handle = await scaffold.ctx.sessionPersistence.open(id, 'read')
     try {
       const { events } = await handle.read()
-      expect(events.filter(event => event.type === 'user/message' || event.type === 'turn/start'), id).toEqual([])
+      expect(
+        events.filter(event => event.type === 'user/message' || event.type === 'turn/start'),
+        id,
+      ).toEqual([])
     } finally {
       await handle.close()
     }
@@ -218,7 +237,9 @@ async function launchDraftFixture(beforeBrowserOpen?: (page: Page, scaffold: Web
   onTestFinished(() => browser.close())
   const page = await newEnglishPage(browser)
   const console = watchConsole(page)
-  page.on('pageerror', (error) => { globalThis.console.error(error.stack ?? error.message) })
+  page.on('pageerror', error => {
+    globalThis.console.error(error.stack ?? error.message)
+  })
   await observeDraftApi(page)
   onTestFinished(async ({ task }) => {
     if (task.result?.state !== 'fail') return
@@ -233,10 +254,16 @@ async function launchDraftFixture(beforeBrowserOpen?: (page: Page, scaffold: Web
   })
   await beforeBrowserOpen?.(page, scaffold)
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-  await expect.poll(() => page.evaluate(() => {
-    const observation = Reflect.get(globalThis, '__dshDraftApiObservation') as DraftApiObservation | undefined
-    return typeof observation?.startSession
-  }), SETTLE).toBe('function')
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const observation = Reflect.get(globalThis, '__dshDraftApiObservation') as DraftApiObservation | undefined
+          return typeof observation?.startSession
+        }),
+      SETTLE,
+    )
+    .toBe('function')
   await composer(page).waitFor()
   await expect.poll(() => first.sessionIds.length, SETTLE).toBe(1)
   const firstId = first.sessionIds[0]!
@@ -261,8 +288,11 @@ function structuredDraft(sessionId: SessionId, title: string): DraftSnapshot {
       { ref: session, label: '关联会话 🧩', appearance: 'session' },
     ] as const) {
       references.push({
-        ...item, offset: text.length, length: item.ref.length,
-        source: 'reference', clipboardText: item.ref,
+        ...item,
+        offset: text.length,
+        length: item.ref.length,
+        source: 'reference',
+        clipboardText: item.ref,
       })
       text += `${item.ref} `
     }
@@ -354,14 +384,16 @@ it('restores repeated file, folder and Session capsules across edits, Workspace 
     { sessionId: secondId, draft: secondDraft },
   ])
   await assertDraft(page, secondId, secondDraft)
-  expect(await composer(page).evaluate(element => ({
-    paragraphs: [...element.children].map(paragraph => paragraph.textContent),
-    capsules: [...element.querySelectorAll('[data-composer-chip]')].map(chip => ({
-      source: chip.getAttribute('data-composer-chip'),
-      editable: chip.getAttribute('contenteditable'),
-      label: chip.textContent,
+  expect(
+    await composer(page).evaluate(element => ({
+      paragraphs: [...element.children].map(paragraph => paragraph.textContent),
+      capsules: [...element.querySelectorAll('[data-composer-chip]')].map(chip => ({
+        source: chip.getAttribute('data-composer-chip'),
+        editable: chip.getAttribute('contenteditable'),
+        label: chip.textContent,
+      })),
     })),
-  }))).toMatchInlineSnapshot(`
+  ).toMatchInlineSnapshot(`
     {
       "capsules": [
         {
@@ -429,8 +461,7 @@ it('restores repeated file, folder and Session capsules across edits, Workspace 
     await assertDraft(page, item.id, item.draft)
   }
   await composer(page).locator('[data-composer-chip]').first().click()
-  await expect.poll(() => page.locator('[data-document-markdown]').textContent(), SETTLE)
-    .toContain('Unsubmitted file reference: 雪 🧭.')
+  await expect.poll(() => page.locator('[data-document-markdown]').textContent(), SETTLE).toContain('Unsubmitted file reference: 雪 🧭.')
   await assertDraft(page, secondId, drafts[1]!.draft)
   await startSession(page, undefined, { clearPreviousDraft: true })
   await assertDraft(page, secondId, EMPTY)
@@ -455,8 +486,9 @@ it('reads a legacy string from the existing conversation key and saves ordinary 
   await restoreStoredDrafts(page, [{ sessionId: firstId, draft: legacy }])
   await expect.poll(() => selectedSession(page), SETTLE).toBe(firstId)
   await composer(page).waitFor()
-  await expect.poll(() => composer(page).evaluate(element =>
-    [...element.children].map(paragraph => paragraph.textContent).join('\n')), SETTLE).toBe(legacy)
+  await expect
+    .poll(() => composer(page).evaluate(element => [...element.children].map(paragraph => paragraph.textContent).join('\n')), SETTLE)
+    .toBe(legacy)
   expect(await composer(page).locator('[data-composer-chip]').count()).toBe(0)
   await composer(page).click()
   await page.keyboard.press(EDITOR_END)
@@ -475,10 +507,20 @@ it('rematches the current draft after a delayed real skills catalog without repl
     for (const name of ['draft-late-original', 'draft-late-current']) {
       const directory = join(scaffold.workspaceCwd, '.agents', 'skills', name)
       await mkdir(directory, { recursive: true })
-      await writeFile(join(directory, 'SKILL.md'), [
-        '---', `name: ${name}`, `description: Draft catalog fixture ${name}`, '---',
-        '', `# ${name}`, '', 'Keep the supplied draft unchanged.', '',
-      ].join('\n'))
+      await writeFile(
+        join(directory, 'SKILL.md'),
+        [
+          '---',
+          `name: ${name}`,
+          `description: Draft catalog fixture ${name}`,
+          '---',
+          '',
+          `# ${name}`,
+          '',
+          'Keep the supplied draft unchanged.',
+          '',
+        ].join('\n'),
+      )
     }
     await writeFile(join(scaffold.workspaceCwd, FILE_NAME), FILE_BODY)
   })
@@ -487,31 +529,41 @@ it('rematches the current draft after a delayed real skills catalog without repl
   const currentPrefix = '/draft-late-current /draft-late-missing\n'
   const initial: DraftSnapshot = {
     text: `${originalPrefix}${file} abcdef`,
-    references: [{
-      offset: originalPrefix.length, length: file.length, source: 'reference', ref: file,
-      label: FILE_NAME, appearance: 'file', clipboardText: file,
-    }],
+    references: [
+      {
+        offset: originalPrefix.length,
+        length: file.length,
+        source: 'reference',
+        ref: file,
+        label: FILE_NAME,
+        appearance: 'file',
+        clipboardText: file,
+      },
+    ],
   }
   await writeStoredDrafts(page, [{ sessionId: firstId, draft: initial }])
   // Only the new document's catalog may wait on this gate; the preceding page has no held routes.
   await page.goto('about:blank', { waitUntil: 'load' })
   let intercepted = false
-  await page.route(url => url.pathname === '/api/skills/list', async (route) => {
-    catalogRequests++
-    if (intercepted) {
-      await route.continue()
-      return
-    }
-    intercepted = true
-    const response = await route.fetch()
-    try {
-      captured = { status: response.status(), body: await response.text(), request: route.request().postData() }
-      await releaseCatalog.promise
-      await route.fulfill({ response })
-    } finally {
-      await response.dispose()
-    }
-  })
+  await page.route(
+    url => url.pathname === '/api/skills/list',
+    async route => {
+      catalogRequests++
+      if (intercepted) {
+        await route.continue()
+        return
+      }
+      intercepted = true
+      const response = await route.fetch()
+      try {
+        captured = { status: response.status(), body: await response.text(), request: route.request().postData() }
+        await releaseCatalog.promise
+        await route.fulfill({ response })
+      } finally {
+        await response.dispose()
+      }
+    },
+  )
   onTestFinished(async () => {
     releaseCatalog.resolve(undefined)
     await page.unrouteAll({ behavior: 'wait' })
@@ -546,14 +598,12 @@ it('rematches the current draft after a delayed real skills catalog without repl
   const selection = await editorSelection(page)
   expect(selection.text).toBe('cd')
   expect(catalogRequests).toBe(1)
-  await expect.poll(() => composer(page).locator('[data-composer-text-ref]').allTextContents(), SETTLE)
-    .toEqual([])
+  await expect.poll(() => composer(page).locator('[data-composer-text-ref]').allTextContents(), SETTLE).toEqual([])
 
   const delivered = page.waitForResponse(response => new URL(response.url()).pathname === '/api/skills/list')
   releaseCatalog.resolve(undefined)
   expect((await delivered).status()).toBe(200)
-  await expect.poll(() => composer(page).locator('[data-composer-text-ref]').allTextContents(), SETTLE)
-    .toEqual(['/draft-late-current'])
+  await expect.poll(() => composer(page).locator('[data-composer-text-ref]').allTextContents(), SETTLE).toEqual(['/draft-late-current'])
   await assertDraft(page, firstId, edited)
   expect(await editorSelection(page)).toEqual(selection)
   expect(await chip.evaluate(element => element.isConnected)).toBe(true)
@@ -590,8 +640,7 @@ it('carries all reference capsules through the real Workspace picker and leaves 
   await page.reload({ waitUntil: 'load' })
   await assertDraft(page, secondId, draft)
   await composer(page).locator('[data-composer-chip]').first().click()
-  await expect.poll(() => page.locator('[data-document-markdown]').textContent(), SETTLE)
-    .toContain('Unsubmitted file reference: 雪 🧭.')
+  await expect.poll(() => page.locator('[data-document-markdown]').textContent(), SETTLE).toContain('Unsubmitted file reference: 雪 🧭.')
   await assertUnsubmitted(scaffold, [firstId, secondId])
   expect(console.pageErrors).toEqual([])
   expect(console.warnings).toEqual([])
@@ -623,15 +672,64 @@ it('applies a parameter transition matrix to one reusable target without changin
     restore?: DraftSnapshot
     reload?: boolean
   }[] = [
-    { name: 'nonempty text preserves existing capsules', target: 'current', options: { prompt: 'ignored', clearPreviousDraft: false }, expected: structured },
-    { name: 'empty text preserves existing capsules', target: 'explicit', options: { prompt: '', clearPreviousDraft: false }, expected: structured },
-    { name: 'text replaces a nonempty structured draft', target: 'current', options: { prompt: plain.text, clearPreviousDraft: true }, expected: plain, reload: true },
-    { name: 'nonempty text preserves existing text', target: 'explicit', options: { prompt: structured.text, clearPreviousDraft: false }, expected: plain },
-    { name: 'empty text explicitly clears existing text', target: 'current', options: { prompt: '', clearPreviousDraft: true }, expected: EMPTY },
-    { name: 'reference-like text fills an empty target without creating capsules', target: 'explicit', options: { prompt: structured.text, clearPreviousDraft: false }, expected: literalReferences },
-    { name: 'nonempty text explicitly replaces existing text', target: 'current', options: { prompt: replacement.text, clearPreviousDraft: true }, expected: replacement, reload: true },
-    { name: 'absent prompt and false clear preserve restored capsules', target: 'explicit', options: { clearPreviousDraft: false }, expected: restored, restore: restored },
-    { name: 'empty text explicitly clears capsules', target: 'current', options: { prompt: '', clearPreviousDraft: true }, expected: EMPTY, reload: true },
+    {
+      name: 'nonempty text preserves existing capsules',
+      target: 'current',
+      options: { prompt: 'ignored', clearPreviousDraft: false },
+      expected: structured,
+    },
+    {
+      name: 'empty text preserves existing capsules',
+      target: 'explicit',
+      options: { prompt: '', clearPreviousDraft: false },
+      expected: structured,
+    },
+    {
+      name: 'text replaces a nonempty structured draft',
+      target: 'current',
+      options: { prompt: plain.text, clearPreviousDraft: true },
+      expected: plain,
+      reload: true,
+    },
+    {
+      name: 'nonempty text preserves existing text',
+      target: 'explicit',
+      options: { prompt: structured.text, clearPreviousDraft: false },
+      expected: plain,
+    },
+    {
+      name: 'empty text explicitly clears existing text',
+      target: 'current',
+      options: { prompt: '', clearPreviousDraft: true },
+      expected: EMPTY,
+    },
+    {
+      name: 'reference-like text fills an empty target without creating capsules',
+      target: 'explicit',
+      options: { prompt: structured.text, clearPreviousDraft: false },
+      expected: literalReferences,
+    },
+    {
+      name: 'nonempty text explicitly replaces existing text',
+      target: 'current',
+      options: { prompt: replacement.text, clearPreviousDraft: true },
+      expected: replacement,
+      reload: true,
+    },
+    {
+      name: 'absent prompt and false clear preserve restored capsules',
+      target: 'explicit',
+      options: { clearPreviousDraft: false },
+      expected: restored,
+      restore: restored,
+    },
+    {
+      name: 'empty text explicitly clears capsules',
+      target: 'current',
+      options: { prompt: '', clearPreviousDraft: true },
+      expected: EMPTY,
+      reload: true,
+    },
   ]
   for (const transition of transitions) {
     if (transition.restore !== undefined) {
@@ -661,7 +759,8 @@ it('applies a parameter transition matrix to one reusable target without changin
 })
 
 it.each(['older-first', 'newer-first'] as const)(
-  'initializes only the latest target when two real Session creations overlap (%s)', async (completionOrder) => {
+  'initializes only the latest target when two real Session creations overlap (%s)',
+  async completionOrder => {
     const { scaffold, page, console, first, firstId, second } = await launchDraftFixture()
     const thirdPath = await mkdtemp(join(scaffold.workspaceCwd, 'draft-latest-'))
     const third = await scaffold.ctx.workspaceRegistry.create(thirdPath, 'Draft latest')
@@ -678,36 +777,48 @@ it.each(['older-first', 'newer-first'] as const)(
     }
     const older: HeldCreation = { workspaceId: second.id, release: Promise.withResolvers<undefined>() }
     const newer: HeldCreation = { workspaceId: third.id, release: Promise.withResolvers<undefined>() }
-    await page.route(url => url.pathname === '/api/session/create', async (route) => {
-      const request = route.request().postData() ?? ''
-      const held = [older, newer].find(candidate => request.includes(candidate.workspaceId))
-      if (held === undefined) {
-        await route.continue()
-        return
-      }
-      const response = await route.fetch()
-      try {
-        held.response = { status: response.status(), body: await response.text() }
-        await held.release.promise
-        await route.fulfill({ response })
-      } finally {
-        await response.dispose()
-      }
-    })
+    await page.route(
+      url => url.pathname === '/api/session/create',
+      async route => {
+        const request = route.request().postData() ?? ''
+        const held = [older, newer].find(candidate => request.includes(candidate.workspaceId))
+        if (held === undefined) {
+          await route.continue()
+          return
+        }
+        const response = await route.fetch()
+        try {
+          held.response = { status: response.status(), body: await response.text() }
+          await held.release.promise
+          await route.fulfill({ response })
+        } finally {
+          await response.dispose()
+        }
+      },
+    )
     onTestFinished(async () => {
       older.release.resolve(undefined)
       newer.release.resolve(undefined)
       await page.unrouteAll({ behavior: 'wait' })
     })
     const deliver = async (held: HeldCreation): Promise<void> => {
-      const delivered = page.waitForResponse(response => new URL(response.url()).pathname === '/api/session/create'
-        && (response.request().postData() ?? '').includes(held.workspaceId))
+      const delivered = page.waitForResponse(
+        response =>
+          new URL(response.url()).pathname === '/api/session/create' && (response.request().postData() ?? '').includes(held.workspaceId),
+      )
       held.release.resolve(undefined)
       const response = await delivered
       expect(response.status()).toBe(200)
       await response.finished()
       // Observe rendered navigation after the received RPC body's promise callbacks.
-      await page.evaluate(() => new Promise<undefined>(resolve => requestAnimationFrame(() => { resolve(undefined) })))
+      await page.evaluate(
+        () =>
+          new Promise<undefined>(resolve =>
+            requestAnimationFrame(() => {
+              resolve(undefined)
+            }),
+          ),
+      )
     }
 
     await startSession(page, second.id, { prompt: '过期请求不得写入任何草稿', clearPreviousDraft: true })

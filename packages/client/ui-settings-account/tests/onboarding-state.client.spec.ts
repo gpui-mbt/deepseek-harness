@@ -1,5 +1,5 @@
 import type { TranscriptViewMode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { DeveloperToolsPreference } from '@deepseek-ai/dsh-client-ui-settings/src/client/developer-tools.ts'
@@ -9,27 +9,41 @@ import { ConfigFormController } from '@deepseek-ai/dsh-client-ui-settings/src/cl
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { AccountSnapshot } from '../src/client/AccountSection.tsx'
 import { DesktopOnboardingController } from '../src/client/onboarding-state.ts'
-import { DESKTOP_ONBOARDING_NAMESPACE, OnboardingSettingsSchema, type OnboardingProgress, type OnboardingSettings } from '../src/onboarding-settings.ts'
+import {
+  DESKTOP_ONBOARDING_NAMESPACE,
+  OnboardingSettingsSchema,
+  type OnboardingProgress,
+  type OnboardingSettings,
+} from '../src/onboarding-settings.ts'
 
 const cleanup: (() => void | Promise<void>)[] = []
-afterEach(async () => { for (const dispose of cleanup.splice(0).reverse()) await dispose() })
+afterEach(async () => {
+  for (const dispose of cleanup.splice(0).reverse()) await dispose()
+})
 
 function accountState(status?: 'credential-stored' | 'signed-out'): AccountSnapshot {
   return {
-    view: status === undefined ? undefined : { status, attempt: null, links: { usageUrl: 'https://platform.example/usage', topUpUrl: 'https://platform.example/top_up' } },
-    details: undefined, avatar: undefined, failed: false,
+    view:
+      status === undefined
+        ? undefined
+        : { status, attempt: null, links: { usageUrl: 'https://platform.example/usage', topUpUrl: 'https://platform.example/top_up' } },
+    details: undefined,
+    avatar: undefined,
+    failed: false,
   }
 }
 
-async function harness(options: {
-  status?: 'credential-stored' | 'signed-out'
-  progress?: Partial<OnboardingProgress>
-  keys?: () => Promise<boolean>
-  omitNulls?: boolean
-  writable?: boolean
-  failRead?: () => boolean
-  waitSettings?: Promise<void>
-} = {}) {
+async function harness(
+  options: {
+    status?: 'credential-stored' | 'signed-out'
+    progress?: Partial<OnboardingProgress>
+    keys?: () => Promise<boolean>
+    omitNulls?: boolean
+    writable?: boolean
+    failRead?: () => boolean
+    waitSettings?: Promise<void>
+  } = {},
+) {
   const data: Record<string, unknown> = {
     [DESKTOP_ONBOARDING_NAMESPACE]: OnboardingSettingsSchema({ purpose: null, process: null, completion: null, ...options.progress }),
     'ui-chat': { transcriptView: 'compact', performanceUsage: 'detailed' },
@@ -43,7 +57,7 @@ async function harness(options: {
   const mutate = vi.fn(async (ns: string, ops: SettingsPathOpView[]) => {
     if (waitNamespace === undefined || waitNamespace === ns) await waitWrite
     if (ns === refusal) return { ok: false, error: { code: 'settings/conflict', message: 'changed elsewhere' } }
-    const next = { ...data[ns] as Record<string, unknown> }
+    const next = { ...(data[ns] as Record<string, unknown>) }
     for (const op of ops) {
       if (op.op === 'set') next[op.path[0]!] = op.value
     }
@@ -51,46 +65,95 @@ async function harness(options: {
     revision++
     return { ok: true, value: namespace(ns) }
   })
-  const ctx = { remote: { settings: {
-    describe: async () => {
-      await options.waitSettings
-      if (options.failRead?.()) throw new Error('temporary describe failure')
-      return { ok: true, value: { namespaces: Object.keys(data).map(namespace), writable: options.writable ?? true, hasDocument: true } }
+  const ctx = {
+    remote: {
+      settings: {
+        describe: async () => {
+          await options.waitSettings
+          if (options.failRead?.()) throw new Error('temporary describe failure')
+          return {
+            ok: true,
+            value: { namespaces: Object.keys(data).map(namespace), writable: options.writable ?? true, hasDocument: true },
+          }
+        },
+        mutate,
+      },
     },
-    mutate,
-  } } } as never
+  } as never
   const schema = new SettingsSchemaService(new Context())
   const mirror = new SettingsDescribeMirror(ctx)
-  const progress = new ConfigFormController(ctx, {
-    namespace: DESKTOP_ONBOARDING_NAMESPACE,
-    decode: value => OnboardingSettingsSchema(value as OnboardingSettings),
-  }, mirror, schema)
-  const chat = new ConfigFormController<{ transcriptView: TranscriptViewMode; performanceUsage: 'compact' | 'detailed' }>(ctx, {
-    namespace: 'ui-chat', decode: value => value as { transcriptView: TranscriptViewMode; performanceUsage: 'compact' | 'detailed' },
-  }, mirror, schema)
-  const developerScope = new ConfigFormController<{ enabled: boolean }>(ctx, {
-    namespace: 'ui-settings', decode: value => value as { enabled: boolean },
-  }, mirror, schema)
+  const progress = new ConfigFormController(
+    ctx,
+    {
+      namespace: DESKTOP_ONBOARDING_NAMESPACE,
+      decode: value => OnboardingSettingsSchema(value as OnboardingSettings),
+    },
+    mirror,
+    schema,
+  )
+  const chat = new ConfigFormController<{ transcriptView: TranscriptViewMode; performanceUsage: 'compact' | 'detailed' }>(
+    ctx,
+    {
+      namespace: 'ui-chat',
+      decode: value => value as { transcriptView: TranscriptViewMode; performanceUsage: 'compact' | 'detailed' },
+    },
+    mirror,
+    schema,
+  )
+  const developerScope = new ConfigFormController<{ enabled: boolean }>(
+    ctx,
+    {
+      namespace: 'ui-settings',
+      decode: value => value as { enabled: boolean },
+    },
+    mirror,
+    schema,
+  )
   const developerTools = new DeveloperToolsPreference(developerScope)
   const setDeveloperTools = (enabled: boolean) => developerTools.setEnabled(enabled)
   cleanup.push(() => developerScope.dispose())
   const account = createSnapshotStore(accountState(options.status))
   const readKeys = vi.fn(options.keys ?? (async () => false))
   const controller = new DesktopOnboardingController(progress, chat, setDeveloperTools, account, readKeys, mirror)
-  cleanup.push(() => progress.dispose(), () => chat.dispose(), () => { controller.dispose() })
+  cleanup.push(
+    () => progress.dispose(),
+    () => chat.dispose(),
+    () => {
+      controller.dispose()
+    },
+  )
   const loaded = mirror.load()
   if (options.waitSettings === undefined) await loaded
   return {
-    controller, setDeveloperTools, account, readKeys, data, mutate, progress, chat, loaded, mirror,
-    refuse(ns?: string) { refusal = ns },
-    wait(promise?: Promise<void>, ns?: string) { waitWrite = promise; waitNamespace = ns },
+    controller,
+    setDeveloperTools,
+    account,
+    readKeys,
+    data,
+    mutate,
+    progress,
+    chat,
+    loaded,
+    mirror,
+    refuse(ns?: string) {
+      refusal = ns
+    },
+    wait(promise?: Promise<void>, ns?: string) {
+      waitWrite = promise
+      waitNamespace = ns
+    },
   }
 }
 
 describe('desktop onboarding lifecycle', () => {
   it('counts bonus-only credit before entry', async () => {
     const h = await harness({ status: 'credential-stored' })
-    h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', value: [{ currency: 'CNY', balance: '0' }], bonusWallets: [{ currency: 'CNY', balance: '1' }] } } })
+    h.account.set({
+      ...h.account.getSnapshot(),
+      details: {
+        balance: { status: 'ready', value: [{ currency: 'CNY', balance: '0' }], bonusWallets: [{ currency: 'CNY', balance: '1' }] },
+      },
+    })
     await h.controller.update({ step: 'credit' })
     expect(h.controller.state.getSnapshot().creditFunded).toBe(true)
   })
@@ -118,7 +181,10 @@ describe('desktop onboarding lifecycle', () => {
 
   it('keeps funded credit visible and freezes its actions without persisting the decision', async () => {
     const h = await harness({ status: 'credential-stored' })
-    h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'USD', balance: '0.01' }] } } })
+    h.account.set({
+      ...h.account.getSnapshot(),
+      details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'USD', balance: '0.01' }] } },
+    })
     await h.controller.update({ step: 'credit' })
     expect(h.controller.state.getSnapshot()).toMatchObject({ progress: { step: 'credit' }, creditFunded: true })
     h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'failed' } } })
@@ -128,15 +194,23 @@ describe('desktop onboarding lifecycle', () => {
     expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).not.toHaveProperty('creditFunded')
     h.controller.dispose()
     const reopened = new DesktopOnboardingController(h.progress, h.chat, h.setDeveloperTools, h.account, h.readKeys, h.mirror)
-    cleanup.push(() => { reopened.dispose() })
+    cleanup.push(() => {
+      reopened.dispose()
+    })
     expect(reopened.state.getSnapshot()).toMatchObject({ progress: { step: 'credit' }, creditFunded: false })
   })
 
-  it.each(['0', '-1'])('keeps unfunded actions for balance %s when a positive result arrives after entry', async (balance) => {
+  it.each(['0', '-1'])('keeps unfunded actions for balance %s when a positive result arrives after entry', async balance => {
     const h = await harness({ status: 'credential-stored' })
-    h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance }] } } })
+    h.account.set({
+      ...h.account.getSnapshot(),
+      details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance }] } },
+    })
     await h.controller.update({ step: 'credit' })
-    h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '10' }] } } })
+    h.account.set({
+      ...h.account.getSnapshot(),
+      details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '10' }] } },
+    })
     expect(h.controller.state.getSnapshot()).toMatchObject({ progress: { step: 'credit' }, creditFunded: false })
     await h.controller.update({ step: 'purpose' })
     await h.controller.update({ step: 'credit' })
@@ -146,7 +220,10 @@ describe('desktop onboarding lifecycle', () => {
   it('uses a balance received before saved credit progress loads without rewriting progress', async () => {
     const settings = Promise.withResolvers<undefined>()
     const h = await harness({ status: 'credential-stored', progress: { step: 'credit' }, waitSettings: settings.promise })
-    h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } } })
+    h.account.set({
+      ...h.account.getSnapshot(),
+      details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } },
+    })
     settings.resolve(undefined)
     await h.loaded
     expect(h.controller.state.getSnapshot()).toMatchObject({ progress: { step: 'credit' }, creditFunded: true })
@@ -158,7 +235,10 @@ describe('desktop onboarding lifecycle', () => {
     const write = Promise.withResolvers<undefined>()
     h.wait(write.promise)
     const saved = h.controller.update({ step: 'credit' })
-    h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } } })
+    h.account.set({
+      ...h.account.getSnapshot(),
+      details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } },
+    })
     write.resolve(undefined)
     expect(await saved).toBe(true)
     expect(h.controller.state.getSnapshot()).toMatchObject({ progress: { step: 'credit' }, creditFunded: false })
@@ -167,14 +247,20 @@ describe('desktop onboarding lifecycle', () => {
   it('does not change credit actions when the first balance result arrives after entry', async () => {
     const h = await harness({ status: 'credential-stored' })
     await h.controller.update({ step: 'credit' })
-    h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } } })
+    h.account.set({
+      ...h.account.getSnapshot(),
+      details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } },
+    })
     expect(h.controller.state.getSnapshot().creditFunded).toBe(false)
     h.account.set(accountState('signed-out'))
-    h.account.set({ ...accountState('credential-stored'), details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } } })
+    h.account.set({
+      ...accountState('credential-stored'),
+      details: { balance: { status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }] } },
+    })
     expect(h.controller.state.getSnapshot().creditFunded).toBe(true)
   })
 
-  it.each(['welcome', 'done'] as const)('covers the main page while saved %s progress loads for a signed-in account', async (step) => {
+  it.each(['welcome', 'done'] as const)('covers the main page while saved %s progress loads for a signed-in account', async step => {
     const settings = Promise.withResolvers<undefined>()
     const h = await harness({ status: 'credential-stored', progress: { step }, waitSettings: settings.promise })
     expect(h.controller.state.getSnapshot()).toMatchObject({ status: 'loading', visible: true })
@@ -195,7 +281,9 @@ describe('desktop onboarding lifecycle', () => {
 
   it('keeps an unauthenticated installation unfinished and never fabricates API-key completion', async () => {
     const h = await harness({ status: 'signed-out' })
-    await vi.waitFor(() => { expect(h.readKeys).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(h.readKeys).toHaveBeenCalledOnce()
+    })
     expect(h.controller.state.getSnapshot()).toMatchObject({ visible: false, progress: { step: 'welcome', completion: null } })
     expect(await h.controller.update({ step: 'credit' })).toBe(false)
     expect(await h.controller.complete('skipped')).toBe(false)
@@ -204,10 +292,17 @@ describe('desktop onboarding lifecycle', () => {
 
   it('applies API-key defaults once and does not rerun onboarding after a later account login', async () => {
     const h = await harness({ status: 'signed-out', keys: async () => true })
-    await vi.waitFor(() => { expect(h.controller.state.getSnapshot().progress.step).toBe('done') })
+    await vi.waitFor(() => {
+      expect(h.controller.state.getSnapshot().progress.step).toBe('done')
+    })
     expect(h.data['ui-chat']).toEqual({ transcriptView: 'standard', performanceUsage: 'detailed' })
     expect(h.data['ui-settings']).toEqual({ enabled: true })
-    expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).toMatchObject({ completion: 'api-key', process: 'standard', usage: 'detailed', developerTools: true })
+    expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).toMatchObject({
+      completion: 'api-key',
+      process: 'standard',
+      usage: 'detailed',
+      developerTools: true,
+    })
     h.account.set(accountState('credential-stored'))
     h.controller.invalidateCredentials()
     expect(h.controller.state.getSnapshot().visible).toBe(false)
@@ -231,23 +326,31 @@ describe('desktop onboarding lifecycle', () => {
     expect(h.mutate).not.toHaveBeenCalled()
   })
 
-  it.each(['ui-chat', 'ui-settings', DESKTOP_ONBOARDING_NAMESPACE])('discards failed API-key completion after %s refuses a write and the user signs in', async (namespace) => {
-    const keys = Promise.withResolvers<boolean>()
-    const h = await harness({ status: 'signed-out', keys: () => keys.promise })
-    h.refuse(namespace)
-    keys.resolve(true)
-    await vi.waitFor(() => { expect(h.controller.state.getSnapshot().status).toBe('error') })
-    h.account.set(accountState('credential-stored'))
-    expect(h.controller.state.getSnapshot()).toMatchObject({
-      status: 'ready', visible: true, error: null, progress: { step: 'welcome', completion: null },
-    })
-    const writesBefore = h.mutate.mock.calls.length
-    h.refuse()
-    expect(await h.controller.retry()).toBe(false)
-    expect(h.mutate).toHaveBeenCalledTimes(writesBefore)
-    expect(await h.controller.complete('skipped')).toBe(false)
-    expect(await h.controller.update({ step: 'credit' })).toBe(true)
-  })
+  it.each(['ui-chat', 'ui-settings', DESKTOP_ONBOARDING_NAMESPACE])(
+    'discards failed API-key completion after %s refuses a write and the user signs in',
+    async namespace => {
+      const keys = Promise.withResolvers<boolean>()
+      const h = await harness({ status: 'signed-out', keys: () => keys.promise })
+      h.refuse(namespace)
+      keys.resolve(true)
+      await vi.waitFor(() => {
+        expect(h.controller.state.getSnapshot().status).toBe('error')
+      })
+      h.account.set(accountState('credential-stored'))
+      expect(h.controller.state.getSnapshot()).toMatchObject({
+        status: 'ready',
+        visible: true,
+        error: null,
+        progress: { step: 'welcome', completion: null },
+      })
+      const writesBefore = h.mutate.mock.calls.length
+      h.refuse()
+      expect(await h.controller.retry()).toBe(false)
+      expect(h.mutate).toHaveBeenCalledTimes(writesBefore)
+      expect(await h.controller.complete('skipped')).toBe(false)
+      expect(await h.controller.update({ step: 'credit' })).toBe(true)
+    },
+  )
 
   it('requires welcome continuation and resumes saved progress after a controller restart', async () => {
     const h = await harness({ status: 'credential-stored' })
@@ -255,7 +358,9 @@ describe('desktop onboarding lifecycle', () => {
     expect(await h.controller.update({ step: 'credit' })).toBe(true)
     h.controller.dispose()
     const resumed = new DesktopOnboardingController(h.progress, h.chat, h.setDeveloperTools, h.account, h.readKeys, h.mirror)
-    cleanup.push(() => { resumed.dispose() })
+    cleanup.push(() => {
+      resumed.dispose()
+    })
     expect(resumed.state.getSnapshot()).toMatchObject({ visible: true, progress: { step: 'credit' } })
     h.account.set(accountState('signed-out'))
     expect(resumed.state.getSnapshot().visible).toBe(false)
@@ -268,7 +373,9 @@ describe('desktop onboarding lifecycle', () => {
     expect(await h.controller.update({ step: 'credit' })).toBe(true)
     expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).not.toHaveProperty('purpose')
     expect(h.controller.state.getSnapshot()).toMatchObject({
-      status: 'ready', error: null, progress: { step: 'credit', purpose: null, process: null, completion: null },
+      status: 'ready',
+      error: null,
+      progress: { step: 'credit', purpose: null, process: null, completion: null },
     })
   })
 
@@ -282,17 +389,30 @@ describe('desktop onboarding lifecycle', () => {
     expect(await h.controller.complete('completed')).toBe(true)
     expect(h.data['ui-chat']).toEqual({ transcriptView, performanceUsage: usage })
     expect(h.data['ui-settings']).toEqual({ enabled: developerTools })
-    expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).toMatchObject({ step: 'done', usage, developerTools, process: purpose === 'office' ? 'compact' : process })
+    expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).toMatchObject({
+      step: 'done',
+      usage,
+      developerTools,
+      process: purpose === 'office' ? 'compact' : process,
+    })
   })
 
   it.each([
-    ['purpose', 'standard'], ['credit', 'standard'], ['process', 'standard'],
+    ['purpose', 'standard'],
+    ['credit', 'standard'],
+    ['process', 'standard'],
   ] as const)('applies the shared skip defaults from %s', async (step, process) => {
     const h = await harness({ status: 'credential-stored', progress: { step, purpose: 'office', process: 'detailed' } })
     expect(await h.controller.complete('skipped')).toBe(true)
     expect(h.data['ui-chat']).toEqual({ transcriptView: 'standard', performanceUsage: 'compact' })
     expect(h.data['ui-settings']).toEqual({ enabled: false })
-    expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).toMatchObject({ step: 'done', completion: 'skipped', process, usage: 'compact', developerTools: false })
+    expect(h.data[DESKTOP_ONBOARDING_NAMESPACE]).toMatchObject({
+      step: 'done',
+      completion: 'skipped',
+      process,
+      usage: 'compact',
+      developerTools: false,
+    })
   })
 
   it('records the preference defaults applied before onboarding completion', async () => {
@@ -323,9 +443,10 @@ describe('desktop onboarding lifecycle', () => {
     expect(h.controller.state.getSnapshot()).toMatchObject({ status: 'ready', progress: { step: 'credit' } })
   })
 
-  it.each(['ui-chat', 'ui-settings', DESKTOP_ONBOARDING_NAMESPACE])('retries completion after %s persistence fails', async (namespace) => {
+  it.each(['ui-chat', 'ui-settings', DESKTOP_ONBOARDING_NAMESPACE])('retries completion after %s persistence fails', async namespace => {
     const h = await harness({
-      status: 'credential-stored', progress: { step: 'process', purpose: 'development', process: 'detailed' },
+      status: 'credential-stored',
+      progress: { step: 'process', purpose: 'development', process: 'detailed' },
     })
     h.refuse(namespace)
     expect(await h.controller.complete('completed')).toBe(false)
@@ -339,7 +460,8 @@ describe('desktop onboarding lifecycle', () => {
     expect(h.data['ui-chat']).toEqual({ transcriptView: 'detailed', performanceUsage: 'detailed' })
     expect(h.data['ui-settings']).toEqual({ enabled: true })
     expect(h.controller.state.getSnapshot()).toMatchObject({
-      status: 'ready', visible: false,
+      status: 'ready',
+      visible: false,
       progress: { step: 'done', completion: 'completed', process: 'detailed', usage: 'detailed', developerTools: true },
     })
     expect(await h.controller.retry()).toBe(false)
@@ -473,18 +595,29 @@ it('retries failed invisible API-key completion after credential invalidation', 
   const h = await harness({ status: 'signed-out', keys: () => keys.promise })
   h.refuse(DESKTOP_ONBOARDING_NAMESPACE)
   keys.resolve(true)
-  await vi.waitFor(() => { expect(h.controller.state.getSnapshot().error).toBe('settings') })
+  await vi.waitFor(() => {
+    expect(h.controller.state.getSnapshot().error).toBe('settings')
+  })
   h.refuse()
   h.controller.invalidateCredentials()
-  await vi.waitFor(() => { expect(h.controller.state.getSnapshot().progress.completion).toBe('api-key') })
+  await vi.waitFor(() => {
+    expect(h.controller.state.getSnapshot().progress.completion).toBe('api-key')
+  })
 })
 
 it('keeps ordinary actions when restoring credit before its balance arrives', async () => {
   const h = await harness({ status: 'credential-stored', progress: { step: 'credit' } })
   expect(h.controller.state.getSnapshot()).toMatchObject({ status: 'ready', creditFunded: false })
-  h.account.set({ ...h.account.getSnapshot(), details: { balance: {
-    status: 'ready', bonusWallets: [], value: [{ currency: 'CNY', balance: '1' }],
-  } } })
+  h.account.set({
+    ...h.account.getSnapshot(),
+    details: {
+      balance: {
+        status: 'ready',
+        bonusWallets: [],
+        value: [{ currency: 'CNY', balance: '1' }],
+      },
+    },
+  })
   expect(h.controller.state.getSnapshot()).toMatchObject({ status: 'ready', creditFunded: false })
 })
 
@@ -501,7 +634,7 @@ it('refuses navigation before progress loads and after completion', async () => 
   expect(await h.controller.complete('completed')).toBe(false)
 })
 
-it.each(['sign-out', 'dispose'] as const)('cancels completion before preferences start on %s', async (action) => {
+it.each(['sign-out', 'dispose'] as const)('cancels completion before preferences start on %s', async action => {
   const h = await harness({ status: 'credential-stored', progress: { step: 'credit' } })
   const saved = h.controller.complete('skipped')
   if (action === 'dispose') h.controller.dispose()
@@ -511,14 +644,18 @@ it.each(['sign-out', 'dispose'] as const)('cancels completion before preferences
 })
 
 it.each([
-  ['sign-out', 'ui-chat'], ['dispose', 'ui-chat'],
-  ['sign-out', 'ui-settings'], ['dispose', 'ui-settings'],
+  ['sign-out', 'ui-chat'],
+  ['dispose', 'ui-chat'],
+  ['sign-out', 'ui-settings'],
+  ['dispose', 'ui-settings'],
 ] as const)('stops preference completion after %s during a pending %s write', async (action, namespace) => {
   const h = await harness({ status: 'credential-stored', progress: { step: 'credit' } })
   const pending = Promise.withResolvers<undefined>()
   h.wait(pending.promise, namespace)
   const saved = h.controller.complete('skipped')
-  await vi.waitFor(() => { expect(h.mutate.mock.calls.some(([ns]) => ns === namespace)).toBe(true) })
+  await vi.waitFor(() => {
+    expect(h.mutate.mock.calls.some(([ns]) => ns === namespace)).toBe(true)
+  })
   if (action === 'dispose') h.controller.dispose()
   else h.account.set(accountState('signed-out'))
   pending.resolve(undefined)
@@ -536,7 +673,7 @@ it('does not persist a choice after disposal during the draft publication', asyn
   expect(h.mutate).not.toHaveBeenCalled()
 })
 
-it.each(['current', 'invalidated', 'disposed'] as const)('contains a rejected %s credential query', async (state) => {
+it.each(['current', 'invalidated', 'disposed'] as const)('contains a rejected %s credential query', async state => {
   const keys = Promise.withResolvers<boolean>()
   const h = await harness({ status: 'signed-out', keys: () => keys.promise })
   if (state === 'disposed') h.controller.dispose()

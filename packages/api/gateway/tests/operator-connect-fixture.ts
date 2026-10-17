@@ -46,7 +46,9 @@ export default class OperatorConnectFixture extends TypertRemoteService {
   async hold(label: string, signal: AbortSignal): Promise<string> {
     const call = this.observe(label, signal)
     const finish = Promise.withResolvers<undefined>()
-    const complete = (): void => { finish.resolve(undefined) }
+    const complete = (): void => {
+      finish.resolve(undefined)
+    }
     this.holds.set(label, complete)
     signal.addEventListener('abort', complete, { once: true })
     try {
@@ -65,9 +67,16 @@ export default class OperatorConnectFixture extends TypertRemoteService {
     const call = this.observe(label, signal)
     try {
       yield `${label}:ready`
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         if (signal.aborted) resolve()
-        else signal.addEventListener('abort', () => { resolve() }, { once: true })
+        else
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve()
+            },
+            { once: true },
+          )
       })
     } finally {
       if (this.delayStreamCleanup) await this.streamCleanup.promise
@@ -85,9 +94,11 @@ export default class OperatorConnectFixture extends TypertRemoteService {
     void settled.promise.catch(() => {})
     const subject = { ctx: this.ctx }
     this.dispatches.push({
-      event: 'fixture/approval', request: { agent: subject, prompt: label },
+      event: 'fixture/approval',
+      request: { agent: subject, prompt: label },
       context: { value: this.ctx, subject, agentId: `agent-${label}` },
-      resolve: settled.resolve, reject: settled.reject,
+      resolve: settled.resolve,
+      reject: settled.reject,
     })
     this.wake?.()
     this.wake = undefined
@@ -101,19 +112,27 @@ export default class OperatorConnectFixture extends TypertRemoteService {
     this.calls.set(label, call)
     invocation.peer.ctx.effect(() => {
       this.effects.add(label)
-      return () => { this.effects.delete(label) }
+      return () => {
+        this.effects.delete(label)
+      }
     })
     return call
   }
 
   private async *events(signal: AbortSignal): AsyncIterable<TypertRemoteEventDispatch> {
-    const wake = (): void => { this.wake?.(); this.wake = undefined }
+    const wake = (): void => {
+      this.wake?.()
+      this.wake = undefined
+    }
     signal.addEventListener('abort', wake, { once: true })
     try {
       while (!signal.aborted) {
         const next = this.dispatches.shift()
         if (next !== undefined) yield next
-        else await new Promise<void>((resolve) => { this.wake = resolve })
+        else
+          await new Promise<void>(resolve => {
+            this.wake = resolve
+          })
       }
     } finally {
       signal.removeEventListener('abort', wake)

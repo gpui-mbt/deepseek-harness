@@ -42,9 +42,9 @@ export function publicJob(job: JobView): PublicJobSnapshot {
     kind: job.kind,
     label: job.label,
     status: job.status,
-    ...detail !== undefined ? { detail } : {},
+    ...(detail !== undefined ? { detail } : {}),
     startedAt: job.startedAt,
-    ...job.finishedAt !== undefined ? { finishedAt: job.finishedAt } : {},
+    ...(job.finishedAt !== undefined ? { finishedAt: job.finishedAt } : {}),
   }
 }
 
@@ -54,9 +54,7 @@ export function publicJob(job: JobView): PublicJobSnapshot {
  * @returns a bracketed status line.
  */
 export function statusLine(snapshot: Pick<PublicJobSnapshot, 'status' | 'detail'>): string {
-  return snapshot.detail !== undefined
-    ? `[status: ${snapshot.status}, ${snapshot.detail}]`
-    : `[status: ${snapshot.status}]`
+  return snapshot.detail !== undefined ? `[status: ${snapshot.status}, ${snapshot.detail}]` : `[status: ${snapshot.status}]`
 }
 
 /**
@@ -74,8 +72,14 @@ export function statusLine(snapshot: Pick<PublicJobSnapshot, 'status' | 'detail'
  */
 export function renderModelDelta(chunks: readonly JobChunk[], lossy: boolean, spillPaths: readonly string[]): string {
   const visible = chunks.filter(chunk => chunk.channel !== 'log')
-  const out = visible.filter(chunk => chunk.channel !== 'stderr').map(chunk => chunk.text).join('')
-  const err = visible.filter(chunk => chunk.channel === 'stderr').map(chunk => chunk.text).join('')
+  const out = visible
+    .filter(chunk => chunk.channel !== 'stderr')
+    .map(chunk => chunk.text)
+    .join('')
+  const err = visible
+    .filter(chunk => chunk.channel === 'stderr')
+    .map(chunk => chunk.text)
+    .join('')
   const separator = out.length > 0 && !out.endsWith('\n') ? '\n' : ''
   const body = out + (err.length > 0 ? `${separator}[stderr]\n${err}` : '')
   if (!lossy && !visible.some(chunk => chunk.gapBefore === true)) return body

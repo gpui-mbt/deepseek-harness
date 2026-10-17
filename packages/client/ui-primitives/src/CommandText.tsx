@@ -25,7 +25,9 @@ export function CommandText({ text, label, className }: CommandTextProps) {
     const element = ref.current
     /* v8 ignore next -- the span is rendered unconditionally. */
     if (element === null) return undefined
-    const measure = () => { setOverflow(element.scrollWidth > element.clientWidth) }
+    const measure = () => {
+      setOverflow(element.scrollWidth > element.clientWidth)
+    }
     measure()
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
     observer?.observe(element)
@@ -37,10 +39,15 @@ export function CommandText({ text, label, className }: CommandTextProps) {
     }
   }, [text])
   return (
-    <span ref={ref} className={clsx(css.text, className)} data-command-text
+    <span
+      ref={ref}
+      className={clsx(css.text, className)}
+      data-command-text
       tabIndex={overflow ? 0 : undefined}
       role={overflow ? 'group' : undefined}
       aria-label={overflow ? label : undefined}
-    >{text}</span>
+    >
+      {text}
+    </span>
   )
 }

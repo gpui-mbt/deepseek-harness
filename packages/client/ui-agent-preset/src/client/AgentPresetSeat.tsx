@@ -16,7 +16,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconAgentPresetOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconWarningOutlineRegular,
+  Menu,
+  Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -68,10 +72,9 @@ function introStaggerMs(count: number): number {
 }
 
 /** Full component props. */
-export type AgentPresetSeatProps =
-  PropsRuntime<'conversation.hero.agentPreset'>
-  & PropsLocale<'settings.agentPreset'>
-  & InjectFace<AgentPresetSeatInjected>
+export type AgentPresetSeatProps = PropsRuntime<'conversation.hero.agentPreset'> &
+  PropsLocale<'settings.agentPreset'> &
+  InjectFace<AgentPresetSeatInjected>
 
 /**
  * Render the new-session agent-preset chip.
@@ -79,12 +82,19 @@ export type AgentPresetSeatProps =
  * @returns The chip and any pending selection refusal, or null outside the main view.
  */
 export function AgentPresetSeat({
-  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, t,
+  sessionId,
+  useSessionRetainInfo,
+  load,
+  select,
+  dismissRefusal,
+  introduced,
+  useAgentPresetSeat,
+  useDeveloperTools,
+  t,
 }: AgentPresetSeatProps) {
   const developerTools = useDeveloperTools(value => value)
   const state = useAgentPresetSeat(snapshot => snapshot)
-  const main = useSessionRetainInfo(info => sessionId === undefined
-    || (info?.retainedBy.mainView ?? 0) > 0)
+  const main = useSessionRetainInfo(info => sessionId === undefined || (info?.retainedBy.mainView ?? 0) > 0)
   const [open, setOpen] = useState(false)
   // The seq keys the banner, so picking the same broken preset twice replays
   // it rather than leaving the first one silently in place.
@@ -129,11 +139,16 @@ export function AgentPresetSeat({
       return
     }
     setIntroducing(true)
-    const done = window.setTimeout(() => {
-      setIntroducing(false)
-      introduced()
-    }, INTRO_TEXT_DELAY_MS + (characters.length - 1) * introStaggerMs(characters.length) + INTRO_CHAR_FADE_MS)
-    return () => { window.clearTimeout(done) }
+    const done = window.setTimeout(
+      () => {
+        setIntroducing(false)
+        introduced()
+      },
+      INTRO_TEXT_DELAY_MS + (characters.length - 1) * introStaggerMs(characters.length) + INTRO_CHAR_FADE_MS,
+    )
+    return () => {
+      window.clearTimeout(done)
+    }
   }, [state.introduce, ready, label, introduced])
 
   // A refused initial composition still needs its Toast when there is no chip to show.
@@ -143,65 +158,67 @@ export function AgentPresetSeat({
   // spans would each pick up the gap between them.
   const characters = Array.from(label)
   const stagger = introStaggerMs(characters.length)
-  const shownLabel = introducing
-    ? (
-      <span className={css.introText}>
-        {characters.map((character, index) => (
-          <span
-            key={index}
-            className={css.introChar}
-            style={{ animationDelay: `${INTRO_TEXT_DELAY_MS + index * stagger}ms` }}
-          >
-            {character}
-          </span>
-        ))}
-      </span>
-    )
-    : label
+  const shownLabel = introducing ? (
+    <span className={css.introText}>
+      {characters.map((character, index) => (
+        <span key={index} className={css.introChar} style={{ animationDelay: `${INTRO_TEXT_DELAY_MS + index * stagger}ms` }}>
+          {character}
+        </span>
+      ))}
+    </span>
+  ) : (
+    label
+  )
 
   return (
     <>
-      {ready && <Menu
-        open={open && options.length > 0}
-        onClose={() => { setOpen(false) }}
-        items={options.map((option) => {
-          const text = presetDisplayText(option, t)
-          return {
-            id: option.id,
-            // Name and description together: the id alone never says what a
-            // preset does, which is why the roster carries display copy.
-            label: (
-              <span className={css.item}>
-                <span className={css.itemName}>{text.name}</span>
-                <span className={css.itemDesc}>{text.description ?? t('noDescription')}</span>
-              </span>
-            ),
+      {ready && (
+        <Menu
+          open={open && options.length > 0}
+          onClose={() => {
+            setOpen(false)
+          }}
+          items={options.map(option => {
+            const text = presetDisplayText(option, t)
+            return {
+              id: option.id,
+              // Name and description together: the id alone never says what a
+              // preset does, which is why the roster carries display copy.
+              label: (
+                <span className={css.item}>
+                  <span className={css.itemName}>{text.name}</span>
+                  <span className={css.itemDesc}>{text.description ?? t('noDescription')}</span>
+                </span>
+              ),
+            }
+          })}
+          selectedId={state.current}
+          onSelect={id => {
+            setOpen(false)
+            void select(id)
+          }}
+          align="start"
+          portal
+          className={css.menuAnchor}
+          anchor={
+            <button
+              type="button"
+              className={css.seat}
+              aria-haspopup="menu"
+              aria-expanded={open && options.length > 0}
+              title={(typeof state.error === 'object' ? state.error?.reason : state.error) ?? t('seatHint')}
+              disabled={state.busy || options.length === 0}
+              onClick={() => {
+                setOpen(value => !value)
+              }}
+            >
+              <IconAgentPresetOutlineRegular className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
+              <span className={css.seatLabel}>{shownLabel}</span>
+              <IconChevronDownOutlineRegular className={css.chevron} />
+            </button>
           }
-        })}
-        selectedId={state.current}
-        onSelect={(id) => {
-          setOpen(false)
-          void select(id)
-        }}
-        align="start"
-        portal
-        className={css.menuAnchor}
-        anchor={(
-          <button
-            type="button"
-            className={css.seat}
-            aria-haspopup="menu"
-            aria-expanded={open && options.length > 0}
-            title={(typeof state.error === 'object' ? state.error?.reason : state.error) ?? t('seatHint')}
-            disabled={state.busy || options.length === 0}
-            onClick={() => { setOpen(value => !value) }}
-          >
-            <IconAgentPresetOutlineRegular className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
-            <span className={css.seatLabel}>{shownLabel}</span>
-            <IconChevronDownOutlineRegular className={css.chevron} />
-          </button>
-        )}
-      />}
+        />
+      )}
       {toast !== null && (
         <Toast
           key={toast.seq}
@@ -213,7 +230,9 @@ export function AgentPresetSeat({
           // Absent, the banner centers on the window, which is off-center
           // whenever the sidebar is open.
           anchor={document.querySelector<HTMLElement>('[data-composer-card]')}
-          onDone={() => { dismissRefusal(toast.error) }}
+          onDone={() => {
+            dismissRefusal(toast.error)
+          }}
         />
       )}
     </>

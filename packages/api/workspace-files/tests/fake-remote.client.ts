@@ -12,9 +12,8 @@ import type { SupervisedStream, SupervisedStreamOptions, WorkspaceFilesRemote } 
 
 /** One scripted Host `changes` generation: frames pushed by the spec, ended by abort. */
 export class Source<T> implements AsyncIterable<T> {
-  private readonly queue: Array<
-    { kind: 'value'; value: T; delivered?: () => void } | { kind: 'end' } | { kind: 'fail'; error: unknown }
-  > = []
+  private readonly queue: Array<{ kind: 'value'; value: T; delivered?: () => void } | { kind: 'end' } | { kind: 'fail'; error: unknown }> =
+    []
   private wake: (() => void) | undefined
 
   get aborted(): boolean {
@@ -36,7 +35,7 @@ export class Source<T> implements AsyncIterable<T> {
 
   /** Resolve after the consumer processes this frame and asks for the next one. */
   deliver(value: T): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.queue.push({ kind: 'value', value, delivered: resolve })
       this.wake?.()
     })
@@ -58,7 +57,9 @@ export class Source<T> implements AsyncIterable<T> {
         if (this.aborted) return
         const next = this.queue.shift()
         if (next === undefined) {
-          await new Promise<void>((resolve) => { this.wake = resolve })
+          await new Promise<void>(resolve => {
+            this.wake = resolve
+          })
           this.wake = undefined
           continue
         }
@@ -126,7 +127,7 @@ export class FakeRemote implements WorkspaceFilesRemote {
   /** Wait until the feed requests an indexed stream disposal, before its gate settles. */
   waitForDispose(index: number): Promise<void> {
     if (this.disposed[index] !== undefined) return Promise.resolve()
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const waiters = this.disposeWaiters.get(index) ?? []
       waiters.push(resolve)
       this.disposeWaiters.set(index, waiters)
@@ -156,7 +157,7 @@ export class FakeRemote implements WorkspaceFilesRemote {
   waitForStat(index: number): Promise<PendingStat> {
     const stat = this.stats[index]
     if (stat !== undefined) return Promise.resolve(stat)
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const waiters = this.statWaiters.get(index) ?? []
       waiters.push(resolve)
       this.statWaiters.set(index, waiters)
@@ -167,7 +168,7 @@ export class FakeRemote implements WorkspaceFilesRemote {
   waitForChanges(index: number): Promise<OpenedWatch> {
     const watch = this.opened[index]
     if (watch !== undefined) return Promise.resolve(watch)
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const waiters = this.watchWaiters.get(index) ?? []
       waiters.push(resolve)
       this.watchWaiters.set(index, waiters)
@@ -203,7 +204,13 @@ export class FakeRemote implements WorkspaceFilesRemote {
           let accepted = false
           for await (const value of options.open(controller.signal)) {
             if (controller.signal.aborted) return
-            yield { value, accept: () => { accepted = true; calls.push('accept') } }
+            yield {
+              value,
+              accept: () => {
+                accepted = true
+                calls.push('accept')
+              },
+            }
           }
           if (controller.signal.aborted) return
           throw options.ended(accepted)
@@ -217,7 +224,7 @@ export class FakeRemote implements WorkspaceFilesRemote {
 
   readonly workspaceFiles = {
     stat: (sessionId: SessionId, path: string, signal?: AbortSignal): Promise<RemoteResult<WorkspaceFileStat>> =>
-      new Promise((resolve) => {
+      new Promise(resolve => {
         this.calls.push('stat')
         const index = this.stats.length
         const stat = { sessionId, path, signal, resolve }
@@ -242,4 +249,7 @@ export class FakeRemote implements WorkspaceFilesRemote {
 }
 
 /** Let queued microtasks and background pumps settle. */
-export const settle = (): Promise<void> => new Promise((resolve) => { setTimeout(resolve, 0) })
+export const settle = (): Promise<void> =>
+  new Promise(resolve => {
+    setTimeout(resolve, 0)
+  })

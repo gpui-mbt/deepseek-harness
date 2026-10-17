@@ -1,7 +1,7 @@
 /** Worker-side source buffer behavior. */
 
 import { MessageChannel } from 'node:worker_threads'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { HostBridgePublisher } from '../src/host/bridge/publisher.ts'
 import { inspectorId } from '../src/shared/bridge/ids.ts'
 import { InspectorSourceBuffer, type InspectorSourceBufferOptions } from '../src/shared/bridge/buffer.ts'
@@ -18,10 +18,7 @@ const source: InspectorSourceDescriptor = {
   capabilities: [],
 }
 
-function buffer(
-  maxQueuedRecords = 2,
-  overrides: Partial<InspectorSourceBufferOptions> = {},
-): InspectorSourceBuffer {
+function buffer(maxQueuedRecords = 2, overrides: Partial<InspectorSourceBufferOptions> = {}): InspectorSourceBuffer {
   return new InspectorSourceBuffer({
     topics: ['*'],
     maxQueuedRecords,
@@ -53,26 +50,35 @@ describe('Inspector source buffer', () => {
   it('validates records before either carrier can enqueue them', () => {
     const records = buffer()
 
-    expect(() => { records.publish('', {}, 1) }).toThrow('topic must contain 1 to 128 characters')
-    expect(() => { records.publish('x'.repeat(129), {}, 1) }).toThrow('topic must contain 1 to 128 characters')
-    expect(() => { buffer(2, { topics: ['declared'] }).publish('undeclared', {}, 1) })
-      .toThrow('source does not declare topic')
-    expect(() => { records.publish('test/event', {}, Number.NaN) }).toThrow('monotonicMs must be finite')
+    expect(() => {
+      records.publish('', {}, 1)
+    }).toThrow('topic must contain 1 to 128 characters')
+    expect(() => {
+      records.publish('x'.repeat(129), {}, 1)
+    }).toThrow('topic must contain 1 to 128 characters')
+    expect(() => {
+      buffer(2, { topics: ['declared'] }).publish('undeclared', {}, 1)
+    }).toThrow('source does not declare topic')
+    expect(() => {
+      records.publish('test/event', {}, Number.NaN)
+    }).toThrow('monotonicMs must be finite')
     const cyclic: Record<string, unknown> = {}
     cyclic.self = cyclic
-    expect(() => { records.publish('test/event', cyclic as never, 1) }).toThrow('lossless JSON data')
+    expect(() => {
+      records.publish('test/event', cyclic as never, 1)
+    }).toThrow('lossless JSON data')
   })
 
   it('rejects oversized retained state without replacing the previous value', () => {
     const records = buffer(4, { maxFrameBytes: 4_300 })
     records.setState('state', { value: 'kept' }, 1)
-    expect(() => { records.setState('state', { value: 'x'.repeat(1_000) }, 2) })
-      .toThrow('source state exceeds the source-frame byte limit')
-    expect(() => { records.setState('other', { value: 'x'.repeat(1_000) }, 3) })
-      .toThrow('source state exceeds the source-frame byte limit')
-    expect(records.replacement(sourceId, generation).records).toEqual([
-      { topic: 'state', payload: { value: 'kept' }, monotonicMs: 1 },
-    ])
+    expect(() => {
+      records.setState('state', { value: 'x'.repeat(1_000) }, 2)
+    }).toThrow('source state exceeds the source-frame byte limit')
+    expect(() => {
+      records.setState('other', { value: 'x'.repeat(1_000) }, 3)
+    }).toThrow('source state exceeds the source-frame byte limit')
+    expect(records.replacement(sourceId, generation).records).toEqual([{ topic: 'state', payload: { value: 'kept' }, monotonicMs: 1 }])
   })
 
   it('splits frames at record, byte, and sequence gaps and discards pending records', () => {
@@ -117,7 +123,9 @@ describe('Inspector source buffer', () => {
   it('keeps at most one Host MessagePort observation batch in flight', async () => {
     const channel = new MessageChannel()
     const messages: unknown[] = []
-    channel.port2.on('message', (message) => { messages.push(message) })
+    channel.port2.on('message', message => {
+      messages.push(message)
+    })
     channel.port2.start()
     const publisher = new HostBridgePublisher(channel.port1, source, {
       topics: ['*'],
@@ -131,13 +139,17 @@ describe('Inspector source buffer', () => {
       publisher.flush()
       publisher.publish('test/event', { ordinal: 2 })
       publisher.publish('test/event', { ordinal: 3 })
-      await vi.waitFor(() => { expect(messages).toHaveLength(1) })
+      await vi.waitFor(() => {
+        expect(messages).toHaveLength(1)
+      })
       const first = messages[0] as { firstSequence: number; records: Array<{ payload: unknown }> }
       expect(first.records).toHaveLength(1)
       expect(first.records[0]?.payload).toEqual({ ordinal: 1 })
 
       publisher.acknowledge(first.firstSequence + first.records.length)
-      await vi.waitFor(() => { expect(messages).toHaveLength(2) })
+      await vi.waitFor(() => {
+        expect(messages).toHaveLength(2)
+      })
       const second = messages[1] as { firstSequence: number; droppedBefore: number; records: Array<{ payload: unknown }> }
       expect(second).toMatchObject({
         firstSequence: 2,
@@ -145,7 +157,9 @@ describe('Inspector source buffer', () => {
         records: [{ payload: { ordinal: 2 } }],
       })
       publisher.acknowledge(second.firstSequence + second.records.length)
-      await vi.waitFor(() => { expect(messages).toHaveLength(3) })
+      await vi.waitFor(() => {
+        expect(messages).toHaveLength(3)
+      })
       expect(messages[2]).toMatchObject({
         firstSequence: 3,
         records: [{ payload: { ordinal: 3 } }],

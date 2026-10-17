@@ -5,8 +5,9 @@ import type { OfficeStore } from './store.ts'
 import { FontNotice } from './FontNotice.tsx'
 
 /** Office toolbar inputs share the body’s conversion result. */
-export type OfficeFontActionProps = PropsRuntime<'sidebar.right.tab.document.action'>
-  & PropsStore<OfficeStore> & PropsLocale<'sidebarOffice'>
+export type OfficeFontActionProps = PropsRuntime<'sidebar.right.tab.document.action'> &
+  PropsStore<OfficeStore> &
+  PropsLocale<'sidebarOffice'>
 
 /**
  * Expose font details only for the currently loaded Office revision.

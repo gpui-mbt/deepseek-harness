@@ -1,6 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ContextMessageNode, ConversationNodeDefinition, SteeringMessageNode, UserMessageNode,
+  ContextMessageNode,
+  ConversationNodeDefinition,
+  SteeringMessageNode,
+  UserMessageNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { isAppendSurfaceEvent, isReplacementSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import type { InboxState } from './inbox.ts'
@@ -62,11 +65,9 @@ function contextMessage(
 export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
   kind: 'input-message',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'user/message') {
-      return isAppendSurfaceEvent(event) && !isCompactionCheckpoint(event)
-        ? { id: String(event.data.id), role: 'start' }
-        : null
+      return isAppendSurfaceEvent(event) && !isCompactionCheckpoint(event) ? { id: String(event.data.id), role: 'start' } : null
     }
     return null
   },
@@ -80,53 +81,51 @@ export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
       const turnStart = location.kind === 'step' ? location.turn.start?.seq : undefined
       // An idle steer opens Step 1 without a next-turn claim in this Turn.
       // A human in that same next-step claim owns the opening instead of its notices.
-      const idleSteer = location.kind === 'step' && location.step.step === 1
-        && turnStart !== undefined && (nextStep?.claimSeq ?? -1) > turnStart
-        && (nextTurn?.claimSeq ?? -1) < turnStart && nextStep?.claimedHuman === false
-        && nextStep.currentClaimed.has(String(event.data.id))
+      const idleSteer =
+        location.kind === 'step' &&
+        location.step.step === 1 &&
+        turnStart !== undefined &&
+        (nextStep?.claimSeq ?? -1) > turnStart &&
+        (nextTurn?.claimSeq ?? -1) < turnStart &&
+        nextStep?.claimedHuman === false &&
+        nextStep.currentClaimed.has(String(event.data.id))
 
       return {
         ...contextMessage(event, event.data),
         waking: nextTurn?.currentClaimed.has(String(event.data.id)) === true || idleSteer,
       }
     }
-    const claimed = reader.previous<InboxState>('inbox-next-step')
-      ?.state.currentClaimed.has(String(event.data.id)) === true
+    const claimed = reader.previous<InboxState>('inbox-next-step')?.state.currentClaimed.has(String(event.data.id)) === true
     return claimed
       ? {
-        kind: 'steering',
-        messageId: event.data.id,
-        seq: event.seq,
-        time: event.time,
-        content: event.data.content,
-        source: event.data.source,
-      }
+          kind: 'steering',
+          messageId: event.data.id,
+          seq: event.seq,
+          time: event.time,
+          content: event.data.content,
+          source: event.data.source,
+        }
       : {
-        kind: 'user',
-        seq: event.seq,
-        time: event.time,
-        content: event.data.content,
-        source: event.data.source,
-      }
+          kind: 'user',
+          seq: event.seq,
+          time: event.time,
+          content: event.data.content,
+          source: event.data.source,
+        }
   },
   update: context => context.state,
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     if (context.state === undefined) return null
-    const waking = context.state.kind === 'context'
-      && context.start?.event.type === 'user/message'
-      && context.state.waking === true
+    const waking = context.state.kind === 'context' && context.start?.event.type === 'user/message' && context.state.waking === true
     // Human input claimed for Step 1 opens an exchange; Notice-woken Turns and
     // later steering stay in the current exchange, so they never fold earlier Turns.
     const location = contextLocation(context)
     const human = context.state.kind === 'user' || context.state.kind === 'steering'
     const opensExchange = human && location.kind === 'step' && location.step.step === 1
-    return chatNode(
-      context,
-      waking ? 'turn-trigger' : context.state.kind,
-      context.state.seq,
-      context.state,
-      { location, groupTree: opensExchange ? 'exchange' : (human || waking) ? 'input' : undefined },
-    )
+    return chatNode(context, waking ? 'turn-trigger' : context.state.kind, context.state.seq, context.state, {
+      location,
+      groupTree: opensExchange ? 'exchange' : human || waking ? 'input' : undefined,
+    })
   },
 }
 
@@ -134,9 +133,7 @@ export const messageDefinition: ConversationNodeDefinition<MessageNode> = {
 export const developerMessageDefinition: ConversationNodeDefinition<MessageNode> = {
   ...messageDefinition,
   kind: 'developer-message',
-  match: event => event.type === 'developer/message'
-    ? { id: String(event.data.message.id), role: 'start' }
-    : null,
+  match: event => (event.type === 'developer/message' ? { id: String(event.data.message.id), role: 'start' } : null),
   start: (_context, match) => {
     const event = match.event
     if (event.type !== 'developer/message') throw new Error('developer-message start requires developer/message')

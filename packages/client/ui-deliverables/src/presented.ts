@@ -36,9 +36,11 @@ export interface PresentedHost {
 export function isPresentedHost(value: unknown): value is PresentedHost {
   if (typeof value !== 'object' || value === null) return false
   const host = value as Record<string, unknown>
-  return typeof host.name === 'string' && typeof host.available === 'boolean'
-    && (host.fileManager === null || host.fileManager === 'finder'
-      || host.fileManager === 'explorer' || host.fileManager === 'directory')
+  return (
+    typeof host.name === 'string' &&
+    typeof host.available === 'boolean' &&
+    (host.fileManager === null || host.fileManager === 'finder' || host.fileManager === 'explorer' || host.fileManager === 'directory')
+  )
 }
 
 /**
@@ -49,8 +51,7 @@ export function isPresentedHost(value: unknown): value is PresentedHost {
 export function isPresentedFile(value: unknown): value is PresentedFile {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const { path, description } = value as Record<string, unknown>
-  return typeof path === 'string' && path.trim().length > 0
-    && (description === undefined || typeof description === 'string')
+  return typeof path === 'string' && path.trim().length > 0 && (description === undefined || typeof description === 'string')
 }
 
 /**
@@ -72,8 +73,14 @@ export function presentedFileUrl(sessionId: SessionId, seq: number, index: numbe
 export function isPresentedData(value: unknown): value is { turn: number; callId: ToolCallId; files: unknown[] } {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const { turn, callId, files } = value as Record<string, unknown>
-  return typeof turn === 'number' && Number.isSafeInteger(turn) && turn >= 1
-    && typeof callId === 'string' && callId.length > 0 && Array.isArray(files)
+  return (
+    typeof turn === 'number' &&
+    Number.isSafeInteger(turn) &&
+    turn >= 1 &&
+    typeof callId === 'string' &&
+    callId.length > 0 &&
+    Array.isArray(files)
+  )
 }
 
 /**

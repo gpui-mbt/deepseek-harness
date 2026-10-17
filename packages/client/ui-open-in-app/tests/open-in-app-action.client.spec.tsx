@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -22,13 +22,15 @@ interface Bench {
   choose: ReturnType<typeof vi.fn>
 }
 
-function bench(over: {
-  apps?: readonly string[] | null
-  choice?: string
-  absolutePath?: string
-  shortcuts?: readonly ShortcutCatalogEntry[]
-  launch?: (appId: string, path: string) => Promise<void>
-} = {}): Bench {
+function bench(
+  over: {
+    apps?: readonly string[] | null
+    choice?: string
+    absolutePath?: string
+    shortcuts?: readonly ShortcutCatalogEntry[]
+    launch?: (appId: string, path: string) => Promise<void>
+  } = {},
+): Bench {
   const apps = createSnapshotStore<readonly string[] | null>(over.apps ?? null)
   const choice = createSnapshotStore<string>(over.choice ?? '')
   const controller = new OpenInAppController(async (_input, init) => {
@@ -54,11 +56,30 @@ function bench(over: {
 
 describe('OpenInAppAction visibility', () => {
   it('advertises the configured workspace accelerator', () => {
-    render(<OpenInAppAction {...bench({ apps: ['finder'], absolutePath: '/w', shortcuts: [{
-      id: 'workspace.openLocal' as ShortcutCommandId, label: 'Open', aliases: [], binding: null,
-      keys: ['Ctrl', 'O'], aria: 'Control+O', modified: true, conflicts: [], issue: null,
-    }] }).props} />)
-    expect(screen.getByRole('button', { name: t('open.title', { app: zh['app.finder'] }) }).getAttribute('aria-keyshortcuts')).toBe('Control+O')
+    render(
+      <OpenInAppAction
+        {...bench({
+          apps: ['finder'],
+          absolutePath: '/w',
+          shortcuts: [
+            {
+              id: 'workspace.openLocal' as ShortcutCommandId,
+              label: 'Open',
+              aliases: [],
+              binding: null,
+              keys: ['Ctrl', 'O'],
+              aria: 'Control+O',
+              modified: true,
+              conflicts: [],
+              issue: null,
+            },
+          ],
+        }).props}
+      />,
+    )
+    expect(screen.getByRole('button', { name: t('open.title', { app: zh['app.finder'] }) }).getAttribute('aria-keyshortcuts')).toBe(
+      'Control+O',
+    )
   })
   it('renders nothing before availability arrives, with no apps, and for unnameable ids', () => {
     for (const over of [
@@ -75,11 +96,21 @@ describe('OpenInAppAction visibility', () => {
 
   it('shows the remembered choice, falling back to the first available app when it is gone', () => {
     render(<OpenInAppAction {...bench({ apps: ['finder', 'cursor'], choice: 'cursor', absolutePath: '/w' }).props} />)
-    expect(screen.getByRole('button', { name: t('open.title', { app: 'Cursor' }) }).querySelector('img')?.getAttribute('src')).toBe('open-in-app/icon/cursor')
+    expect(
+      screen
+        .getByRole('button', { name: t('open.title', { app: 'Cursor' }) })
+        .querySelector('img')
+        ?.getAttribute('src'),
+    ).toBe('open-in-app/icon/cursor')
     cleanup()
 
     render(<OpenInAppAction {...bench({ apps: ['finder', 'cursor'], choice: 'vscode', absolutePath: '/w' }).props} />)
-    expect(screen.getByRole('button', { name: t('open.title', { app: zh['app.finder'] }) }).querySelector('img')?.getAttribute('src')).toBe('open-in-app/icon/finder')
+    expect(
+      screen
+        .getByRole('button', { name: t('open.title', { app: zh['app.finder'] }) })
+        .querySelector('img')
+        ?.getAttribute('src'),
+    ).toBe('open-in-app/icon/finder')
   })
 })
 
@@ -95,15 +126,25 @@ describe('OpenInAppAction launching', () => {
     fireEvent.click(main)
     expect(b.launch).toHaveBeenCalledOnce()
     expect(view.container.querySelector('[data-open-target]')?.getAttribute('data-state')).toBe('busy')
-    await act(async () => { pending.resolve(undefined) })
+    await act(async () => {
+      pending.resolve(undefined)
+    })
     expect(main).toHaveProperty('disabled', false)
   })
 
   it('announces launch failure without changing the remembered application', async () => {
-    const b = bench({ apps: ['finder', 'cursor'], absolutePath: '/w', launch: async () => { throw new Error('gone') } })
+    const b = bench({
+      apps: ['finder', 'cursor'],
+      absolutePath: '/w',
+      launch: async () => {
+        throw new Error('gone')
+      },
+    })
     render(<OpenInAppAction {...b.props} />)
     fireEvent.click(screen.getByRole('button', { name: zh['path.more'] }))
-    await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Cursor' })) })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Cursor' }))
+    })
     expect(screen.getByRole('alert').textContent).toContain(zh['path.openError'])
     expect(b.choose).not.toHaveBeenCalled()
   })
@@ -114,7 +155,9 @@ describe('OpenInAppAction launching', () => {
     fireEvent.click(screen.getByRole('button', { name: zh['path.more'] }))
     expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['访达（默认）', 'Cursor', '终端'])
     expect(screen.queryByText(zh['path.reveal'])).toBeNull()
-    await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Cursor' })) })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Cursor' }))
+    })
     expect(b.launch).toHaveBeenCalledWith('cursor', '/w/dir')
     expect(b.choose).toHaveBeenCalledWith('cursor')
   })
@@ -139,7 +182,6 @@ describe('OpenInAppAction launching', () => {
   })
 })
 
-
 it('omits the dropdown when only one directory application is available', () => {
   render(<OpenInAppAction {...bench({ apps: ['finder'], absolutePath: '/w' }).props} />)
   expect(screen.getAllByRole('button')).toHaveLength(1)
@@ -149,10 +191,14 @@ it('omits the dropdown when only one directory application is available', () => 
 it('opens the displayed directory and follows its changes', async () => {
   const b = bench({ apps: ['finder'], absolutePath: '/displayed-directory' })
   const view = render(<OpenInAppAction {...b.props} absolutePath="/displayed-directory" />)
-  await act(async () => { fireEvent.click(screen.getByRole('button')) })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button'))
+  })
   expect(b.launch).toHaveBeenLastCalledWith('finder', '/displayed-directory')
 
   view.rerender(<OpenInAppAction {...b.props} absolutePath="/another-directory" />)
-  await act(async () => { fireEvent.click(screen.getByRole('button')) })
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button'))
+  })
   expect(b.launch).toHaveBeenLastCalledWith('finder', '/another-directory')
 })

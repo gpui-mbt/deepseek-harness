@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { DirectoryPicker, DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
 import type { DirectoryPickerCapability } from '@deepseek-ai/dsh-host-directory-picker'
@@ -24,7 +24,7 @@ const NATIVE_STUB: DirectoryPickerCapability = { kind: 'native', pick: async () 
 
 const BROWSE_STUB: DirectoryPickerCapability = {
   kind: 'browse',
-  list: async (path) => {
+  list: async path => {
     if (path === '/denied') {
       throw new DirectoryPickerError('directory-unreadable', '/denied', 'cannot list /denied')
     }
@@ -68,7 +68,7 @@ async function refused(call: Promise<unknown>): Promise<{ code: string; message:
 }
 
 describe('directoryPicker pick Remote', () => {
-  it('answers the selected path or the operator\'s cancellation', async () => {
+  it("answers the selected path or the operator's cancellation", async () => {
     const selected = await harness({ kind: 'native', pick: async () => '/tmp/project' })
     expect(await selected.pick(new AbortController().signal)).toBe('/tmp/project')
 
@@ -79,16 +79,28 @@ describe('directoryPicker pick Remote', () => {
   it('reports an aborted chooser as cancelled and any other failure as internal', async () => {
     const picker = await harness({
       kind: 'native',
-      pick: signal => new Promise((_resolve, reject) => {
-        signal.addEventListener('abort', () => { reject(new Error('aborted')) }, { once: true })
-      }),
+      pick: signal =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('aborted'))
+            },
+            { once: true },
+          )
+        }),
     })
     const abort = new AbortController()
     const pending = refused(picker.pick(abort.signal))
     abort.abort()
     expect((await pending).code).toBe('gateway/cancelled')
 
-    const broken = await harness({ kind: 'native', pick: async () => { throw new Error('no chooser installed') } })
+    const broken = await harness({
+      kind: 'native',
+      pick: async () => {
+        throw new Error('no chooser installed')
+      },
+    })
     const failure = await refused(broken.pick(new AbortController().signal))
     expect(failure.code).toBe('gateway/internal')
     expect(failure.message).toContain('no chooser installed')
@@ -108,15 +120,16 @@ describe('directoryPicker browse Remotes', () => {
     const picker = await harness(BROWSE_STUB)
     const signal = new AbortController().signal
     expect(await picker.list(undefined, signal)).toMatchObject({ path: '/home/user', home: '/home/user' })
-    expect(await picker.list('/home/user/projects', signal))
-      .toMatchObject({ path: '/home/user/projects' })
+    expect(await picker.list('/home/user/projects', signal)).toMatchObject({ path: '/home/user/projects' })
     expect(await picker.createDirectory('/home/user', 'fresh')).toBe('/home/user/fresh')
   })
 
-  it('maps the seam\'s typed failures and folds unknown throws to internal', async () => {
+  it("maps the seam's typed failures and folds unknown throws to internal", async () => {
     const picker = await harness(BROWSE_STUB)
-    expect(await refused(picker.list('/denied', new AbortController().signal)))
-      .toMatchObject({ code: 'directory-picker/unreadable', details: { path: '/denied' } })
+    expect(await refused(picker.list('/denied', new AbortController().signal))).toMatchObject({
+      code: 'directory-picker/unreadable',
+      details: { path: '/denied' },
+    })
     expect((await refused(picker.createDirectory('/home/user', 'taken'))).code).toBe('directory-picker/exists')
     expect((await refused(picker.createDirectory('/home/user', 'unwritable'))).code).toBe('gateway/internal')
 
@@ -146,9 +159,16 @@ describe('directoryPicker browse Remotes', () => {
   it('reports an aborted listing as cancelled', async () => {
     const picker = await harness({
       kind: 'browse',
-      list: (_path, signal) => new Promise((_resolve, reject) => {
-        signal?.addEventListener('abort', () => { reject(new Error('scan aborted')) }, { once: true })
-      }),
+      list: (_path, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('scan aborted'))
+            },
+            { once: true },
+          )
+        }),
       createDirectory: async () => '/never',
     })
     const abort = new AbortController()
@@ -159,9 +179,13 @@ describe('directoryPicker browse Remotes', () => {
 
   it('refuses the browse verbs under a native composition', async () => {
     const picker = await harness()
-    expect(await refused(picker.list(undefined, new AbortController().signal)))
-      .toMatchObject({ code: 'directory-picker/unavailable', details: { capability: 'native' } })
-    expect(await refused(picker.createDirectory('/x', 'y')))
-      .toMatchObject({ code: 'directory-picker/unavailable', details: { capability: 'native' } })
+    expect(await refused(picker.list(undefined, new AbortController().signal))).toMatchObject({
+      code: 'directory-picker/unavailable',
+      details: { capability: 'native' },
+    })
+    expect(await refused(picker.createDirectory('/x', 'y'))).toMatchObject({
+      code: 'directory-picker/unavailable',
+      details: { capability: 'native' },
+    })
   })
 })

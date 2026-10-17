@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { DEFAULT_TERMINAL_MAX_LINES, TerminalBlock as LocalizedTerminalBlock } from '../src/index.ts'
@@ -94,7 +94,7 @@ describe('TerminalBlock states', () => {
     { output: 'launch acknowledgement', running: false, exitCode: 7, signal: 'SIGTERM' },
     { output: 'launch acknowledgement', running: false, exitCode: 0 },
     { output: '', running: false, exitCode: 0 },
-  ])('background suppresses execution presentation for %j', (execution) => {
+  ])('background suppresses execution presentation for %j', execution => {
     const view = render(<TerminalBlock command={'worker --watch\nprintf ready\n'} cwd="/workspace/app" background {...execution} />)
     expect(promptRows(view.container)).toEqual(['appworker --watch', '$printf ready'])
     expect(runStateOf(view.container)).toEqual({ state: null, label: undefined })
@@ -142,7 +142,9 @@ describe('TerminalBlock states', () => {
     const view = render(<TerminalBlock command="npm run build --verbose" running copyText="npm run build --verbose" />)
     // No output yet, but the command is already copyable.
     const button = view.getByRole('button', { name: '复制' })
-    await act(async () => { fireEvent.click(button) })
+    await act(async () => {
+      fireEvent.click(button)
+    })
     expect(writeText).toHaveBeenCalledWith('npm run build --verbose')
   })
 
@@ -470,7 +472,7 @@ describe('writeClipboard', () => {
     expect(document.querySelector('textarea')).toBeNull()
   })
 
-  it('reports execCommand\'s own refusal verbatim', async () => {
+  it("reports execCommand's own refusal verbatim", async () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
     Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn(() => false) })
     await expect(writeClipboard('payload')).resolves.toBe(false)

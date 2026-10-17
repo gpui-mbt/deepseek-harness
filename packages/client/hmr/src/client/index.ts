@@ -49,10 +49,10 @@ async function readPageTransportEvents(fetch: PageTransportFetch, signal: AbortS
 export function apply(ctx: Context): void {
   const entries = ctx.modules.entries
   const handle = (frame: Extract<PluginsEventParseResult, { kind: 'frame' }>['frame']): void => {
-    const run = frame.type === 'graph'
-      ? Promise.resolve().then(() => entries.sync(frame.graph))
-      : entries.reload(frame.id, frame.rev)
-    void run.catch((error: unknown) => { ctx.logger.error(error) })
+    const run = frame.type === 'graph' ? Promise.resolve().then(() => entries.sync(frame.graph)) : entries.reload(frame.id, frame.rev)
+    void run.catch((error: unknown) => {
+      ctx.logger.error(error)
+    })
   }
   const receive = (data: string): void => {
     let value: unknown
@@ -78,10 +78,16 @@ export function apply(ctx: Context): void {
       void readPageTransportEvents(transport.fetch, controller.signal, receive).catch((error: unknown) => {
         if (!controller.signal.aborted) ctx.logger.error(error)
       })
-      return () => { controller.abort() }
+      return () => {
+        controller.abort()
+      }
     }
     const source = new EventSource(EVENTS_ROUTE)
-    source.addEventListener('message', (event: MessageEvent<string>) => { receive(event.data) })
-    return () => { source.close() }
+    source.addEventListener('message', (event: MessageEvent<string>) => {
+      receive(event.data)
+    })
+    return () => {
+      source.close()
+    }
   }, 'client-hmr: event source')
 }

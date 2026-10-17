@@ -4,7 +4,7 @@
  * contenteditable reach the registered composer commands (the jsdom lane's
  * gesture entry, below the full component bench).
  */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { fireEvent } from '@testing-library/react'
 import { $createParagraphNode, $createTextNode, $getRoot, createEditor } from 'lexical'
 import { registerPlainText } from '@lexical/plain-text'
@@ -12,7 +12,12 @@ import { registerComposerKeymap } from '../src/client/input/editor/keymap.ts'
 
 describe('keymap keydown routing', () => {
   it('clears composition presentation on root swaps and unregisters pending callbacks', async () => {
-    const editor = createEditor({ namespace: 'composition-root', onError: (e) => { throw e } })
+    const editor = createEditor({
+      namespace: 'composition-root',
+      onError: e => {
+        throw e
+      },
+    })
     const first = document.createElement('div')
     const second = document.createElement('div')
     document.body.append(first, second)
@@ -23,8 +28,13 @@ describe('keymap keydown routing', () => {
     })
     editor.setRootElement(first)
     const unregister = registerComposerKeymap(editor, {
-      arbitrate: () => 'pass', space: () => false, dismissPopup: () => {},
-      canSubmit: () => false, submit: () => {}, intakeFiles: () => {}, pasteText: () => {},
+      arbitrate: () => 'pass',
+      space: () => false,
+      dismissPopup: () => {},
+      canSubmit: () => false,
+      submit: () => {},
+      intakeFiles: () => {},
+      pasteText: () => {},
     })
     onTestFinished(unregister)
     fireEvent.compositionStart(first)
@@ -45,7 +55,12 @@ describe('keymap keydown routing', () => {
   })
 
   it('routes Enter to the keymap submit handler', () => {
-    const editor = createEditor({ namespace: 'keymap-routing', onError: (e) => { throw e } })
+    const editor = createEditor({
+      namespace: 'keymap-routing',
+      onError: e => {
+        throw e
+      },
+    })
     const root = document.createElement('div')
     root.contentEditable = 'true'
     document.body.appendChild(root)
@@ -75,28 +90,48 @@ describe('keymap keydown routing', () => {
     { shiftKey: true, metaKey: true },
     { shiftKey: true, ctrlKey: true },
     { shiftKey: true, altKey: true },
-  ])('leaves modified Enter %j available to application commands', async (modifiers) => {
-    const editor = createEditor({ namespace: 'modified-enter', onError: (error) => { throw error } })
+  ])('leaves modified Enter %j available to application commands', async modifiers => {
+    const editor = createEditor({
+      namespace: 'modified-enter',
+      onError: error => {
+        throw error
+      },
+    })
     const root = document.createElement('div')
     root.contentEditable = 'true'
     document.body.appendChild(root)
-    onTestFinished(() => { editor.setRootElement(null); root.remove() })
+    onTestFinished(() => {
+      editor.setRootElement(null)
+      root.remove()
+    })
     editor.setRootElement(root)
     onTestFinished(registerPlainText(editor))
     const submit = vi.fn()
     const arbitrate = vi.fn(() => 'pass' as const)
-    onTestFinished(registerComposerKeymap(editor, {
-      arbitrate, space: () => false, dismissPopup: () => {}, canSubmit: () => true,
-      submit, intakeFiles: () => {}, pasteText: () => {},
-    }))
-    editor.update(() => {
-      const paragraph = $createParagraphNode().append($createTextNode('unsent draft'))
-      $getRoot().append(paragraph)
-      paragraph.selectEnd()
-    }, { discrete: true })
+    onTestFinished(
+      registerComposerKeymap(editor, {
+        arbitrate,
+        space: () => false,
+        dismissPopup: () => {},
+        canSubmit: () => true,
+        submit,
+        intakeFiles: () => {},
+        pasteText: () => {},
+      }),
+    )
+    editor.update(
+      () => {
+        const paragraph = $createParagraphNode().append($createTextNode('unsent draft'))
+        $getRoot().append(paragraph)
+        paragraph.selectEnd()
+      },
+      { discrete: true },
+    )
     const applicationKeydown = vi.fn()
     document.addEventListener('keydown', applicationKeydown)
-    onTestFinished(() => { document.removeEventListener('keydown', applicationKeydown) })
+    onTestFinished(() => {
+      document.removeEventListener('keydown', applicationKeydown)
+    })
 
     const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...modifiers })
     root.dispatchEvent(event)
@@ -110,13 +145,19 @@ describe('keymap keydown routing', () => {
   })
 
   it('routes Tab through arbitration and passes when unconsumed', () => {
-    const editor = createEditor({ namespace: 'keymap-routing', onError: (e) => { throw e } })
+    const editor = createEditor({
+      namespace: 'keymap-routing',
+      onError: e => {
+        throw e
+      },
+    })
     const root = document.createElement('div')
     root.contentEditable = 'true'
     document.body.appendChild(root)
     editor.setRootElement(root)
     registerPlainText(editor)
-    const arbitrate = vi.fn<(key: string, composing: boolean) => 'consumed' | 'pick-highlighted' | 'pass'>()
+    const arbitrate = vi
+      .fn<(key: string, composing: boolean) => 'consumed' | 'pick-highlighted' | 'pass'>()
       .mockReturnValueOnce('consumed')
       .mockReturnValueOnce('pick-highlighted')
       .mockReturnValue('pass')

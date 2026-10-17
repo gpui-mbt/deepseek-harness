@@ -11,12 +11,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {
-  ContinuableCreateRequest,
-  ContinuableCreateSpec,
-  SubagentCapabilities,
-  SubagentProvider,
-} from '@deepseek-ai/dsh-subagent'
+import type { ContinuableCreateRequest, ContinuableCreateSpec, SubagentCapabilities, SubagentProvider } from '@deepseek-ai/dsh-subagent'
 
 export const name = 'subagent-fork-in-process'
 // `tools` is deliberately NOT injected — same rationale as subagent-spawn-in-process: the

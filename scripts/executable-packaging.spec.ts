@@ -1,7 +1,7 @@
 import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { restoreLegacyHoists } from './executable-packaging.ts'
 import { materializeStagedLinks } from './build-exe-for-python-sdk-staging.ts'
 

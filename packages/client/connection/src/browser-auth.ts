@@ -5,11 +5,7 @@ import type { PeerId } from '@deepseek-ai/dsh-typert-protocol'
 import { CONNECT_PATH, type ConnectionInteractions } from './connect-protocol.ts'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
-import type {
-  ConnectionIndexRequest,
-  ConnectionIndexResponse,
-  ConnectionTrustRequest,
-} from './rpc.ts'
+import type { ConnectionIndexRequest, ConnectionIndexResponse, ConnectionTrustRequest } from './rpc.ts'
 
 const AUTH_RECORD_KEY = credentialKey('client-connection', 'browser-session')
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
@@ -45,15 +41,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function encodeBase64Url(value: Uint8Array): string {
-  return Buffer.from(value).toString('base64')
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/u, '')
+  return Buffer.from(value).toString('base64').replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '')
 }
 
 function decodeBase64Url(value: string): Buffer | undefined {
   if (!BASE64URL_PATTERN.test(value) || value.length % 4 === 1) return undefined
-  const padding = '='.repeat((4 - value.length % 4) % 4)
+  const padding = '='.repeat((4 - (value.length % 4)) % 4)
   const decoded = Buffer.from(value.replaceAll('-', '+').replaceAll('_', '/') + padding, 'base64')
   return encodeBase64Url(decoded) === value ? decoded : undefined
 }
@@ -66,10 +59,7 @@ function processLaunchToken(owner: object): string {
   return created
 }
 
-function header(
-  headers: ConnectionTrustRequest['headers'],
-  name: string,
-): string | undefined {
+function header(headers: ConnectionTrustRequest['headers'], name: string): string | undefined {
   if (headers instanceof Headers) return headers.get(name) ?? undefined
   const value = headers[name]
   return typeof value === 'string' ? value : undefined
@@ -96,8 +86,7 @@ function canonicalSecret(value: unknown): Buffer | undefined {
 
 function storedSecret(record: CredentialRecord | undefined): Buffer | undefined {
   if (record === undefined) return undefined
-  if (record.kind !== 'grant' || !isRecord(record.payload)
-    || record.payload.version !== STORED_SECRET_VERSION) {
+  if (record.kind !== 'grant' || !isRecord(record.payload) || record.payload.version !== STORED_SECRET_VERSION) {
     throw new Error('client-connection: browser-session credential record has an unsupported format')
   }
   const secret = canonicalSecret(record.payload.secret)
@@ -128,13 +117,7 @@ function cookieValue(headerValue: string, name: string): string | undefined {
 }
 
 /** Serialize the fixed browser-session attributes; generated names and values are cookie-safe base64url. */
-function sessionCookie(
-  name: string,
-  value: string,
-  expiresAt: number,
-  maxAgeSeconds: number,
-  secure: boolean,
-): string {
+function sessionCookie(name: string, value: string, expiresAt: number, maxAgeSeconds: number, secure: boolean): string {
   const attributes = `${name}=${value}; Max-Age=${String(maxAgeSeconds)}; Path=/; Expires=${new Date(expiresAt).toUTCString()}; HttpOnly; SameSite=Strict`
   return secure ? `${attributes}; Secure` : attributes
 }
@@ -157,8 +140,7 @@ function decodeCookie(value: string, secret: Buffer): CookiePayload | undefined 
   const actualSignature = decodeBase64Url(encodedSignature)
   if (actualSignature === undefined) return undefined
   const expectedSignature = signature(secret, body)
-  if (actualSignature.byteLength !== expectedSignature.byteLength
-    || !timingSafeEqual(actualSignature, expectedSignature)) return undefined
+  if (actualSignature.byteLength !== expectedSignature.byteLength || !timingSafeEqual(actualSignature, expectedSignature)) return undefined
   let decoded: unknown
   try {
     const bodyBytes = decodeBase64Url(body)
@@ -167,12 +149,17 @@ function decodeCookie(value: string, secret: Buffer): CookiePayload | undefined 
   } catch {
     return undefined
   }
-  if (!isRecord(decoded)
-    || (decoded.version !== COOKIE_PAYLOAD_VERSION && decoded.version !== 2)
-    || version !== `v${decoded.version}`
-    || typeof decoded.authority !== 'string'
-    || typeof decoded.issuedAt !== 'number' || !Number.isSafeInteger(decoded.issuedAt)
-    || typeof decoded.expiresAt !== 'number' || !Number.isSafeInteger(decoded.expiresAt)) return undefined
+  if (
+    !isRecord(decoded) ||
+    (decoded.version !== COOKIE_PAYLOAD_VERSION && decoded.version !== 2) ||
+    version !== `v${decoded.version}` ||
+    typeof decoded.authority !== 'string' ||
+    typeof decoded.issuedAt !== 'number' ||
+    !Number.isSafeInteger(decoded.issuedAt) ||
+    typeof decoded.expiresAt !== 'number' ||
+    !Number.isSafeInteger(decoded.expiresAt)
+  )
+    return undefined
   const payload = { authority: decoded.authority, issuedAt: decoded.issuedAt, expiresAt: decoded.expiresAt }
   if (decoded.version === COOKIE_PAYLOAD_VERSION) return { version: COOKIE_PAYLOAD_VERSION, ...payload }
   if (typeof decoded.id !== 'string' || decoded.id.length === 0) return undefined
@@ -184,7 +171,7 @@ async function initializeSecret(credentials: CredentialProvider): Promise<Buffer
     version: STORED_SECRET_VERSION,
     secret: encodeBase64Url(randomBytes(SECRET_BYTES)),
   }
-  const record = await credentials.modifyRecord(AUTH_RECORD_KEY, (current) => {
+  const record = await credentials.modifyRecord(AUTH_RECORD_KEY, current => {
     if (current !== undefined) {
       storedSecret(current)
       return Promise.resolve(undefined)
@@ -214,8 +201,7 @@ export class BrowserAuth {
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
-    if (!Number.isSafeInteger(this.maxAgeMilliseconds)
-      || !Number.isSafeInteger(Date.now() + this.maxAgeMilliseconds)) {
+    if (!Number.isSafeInteger(this.maxAgeMilliseconds) || !Number.isSafeInteger(Date.now() + this.maxAgeMilliseconds)) {
       throw new Error('client-connection: cookieMaxAgeDays exceeds the safe timestamp range')
     }
   }
@@ -228,11 +214,7 @@ export class BrowserAuth {
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
    * @returns initialized authentication owner with the process owner's launch token.
    */
-  static async create(
-    processOwner: object,
-    credentials: CredentialProvider,
-    maxAgeDays: number,
-  ): Promise<BrowserAuth> {
+  static async create(processOwner: object, credentials: CredentialProvider, maxAgeDays: number): Promise<BrowserAuth> {
     return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays)
   }
 
@@ -266,23 +248,29 @@ export class BrowserAuth {
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     if (tokens.length > 0) {
       const authority = requestAudience(req.headers, secure)
-      if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
-        && authority !== undefined && tokenMatches(tokens.join(''), this.launchToken)) {
+      if (
+        req.method === 'GET' &&
+        url.pathname === '/' &&
+        tokens.length === 1 &&
+        authority !== undefined &&
+        tokenMatches(tokens.join(''), this.launchToken)
+      ) {
         const issuedAt = Date.now()
         const expiresAt = issuedAt + this.maxAgeMilliseconds
-        const value = encodeCookie({
-          version: COOKIE_PAYLOAD_VERSION,
-          authority,
-          issuedAt,
-          expiresAt,
-        }, this.secret)
+        const value = encodeCookie(
+          {
+            version: COOKIE_PAYLOAD_VERSION,
+            authority,
+            issuedAt,
+            expiresAt,
+          },
+          this.secret,
+        )
         res.writeHead(303, {
           'cache-control': 'no-store',
-          'location': './',
+          location: './',
           'referrer-policy': 'no-referrer',
-          'set-cookie': sessionCookie(
-            cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure,
-          ),
+          'set-cookie': sessionCookie(cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure),
         })
         res.end()
         return false
@@ -290,7 +278,7 @@ export class BrowserAuth {
       if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req, secure)) {
         res.writeHead(303, {
           'cache-control': 'no-store',
-          'location': './',
+          location: './',
           'referrer-policy': 'no-referrer',
         })
         res.end()
@@ -327,8 +315,13 @@ export class BrowserAuth {
     }
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     const authority = requestAudience(req.headers, secure)
-    if (req.method !== 'GET' || url.pathname !== CONNECT_PATH || tokens.length !== 1
-      || authority === undefined || !tokenMatches(tokens.join(''), this.launchToken)) {
+    if (
+      req.method !== 'GET' ||
+      url.pathname !== CONNECT_PATH ||
+      tokens.length !== 1 ||
+      authority === undefined ||
+      !tokenMatches(tokens.join(''), this.launchToken)
+    ) {
       this.writeUnauthorized(req, res)
       return
     }
@@ -338,11 +331,9 @@ export class BrowserAuth {
     const value = encodeCookie({ version: 2, authority, id, issuedAt, expiresAt }, this.secret)
     res.writeHead(302, {
       'cache-control': 'no-store',
-      'location': './api/remote.mux',
+      location: './api/remote.mux',
       'referrer-policy': 'no-referrer',
-      'set-cookie': sessionCookie(
-        cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure,
-      ),
+      'set-cookie': sessionCookie(cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure),
     })
     res.end()
   }
@@ -377,8 +368,13 @@ export class BrowserAuth {
     const payload = decodeCookie(value, this.secret)
     if (payload === undefined || payload.authority !== authority) return undefined
     const now = Date.now()
-    if (payload.issuedAt > now || payload.expiresAt <= now || payload.expiresAt <= payload.issuedAt
-      || payload.expiresAt - payload.issuedAt > this.maxAgeMilliseconds) return undefined
+    if (
+      payload.issuedAt > now ||
+      payload.expiresAt <= now ||
+      payload.expiresAt <= payload.issuedAt ||
+      payload.expiresAt - payload.issuedAt > this.maxAgeMilliseconds
+    )
+      return undefined
     return payload
   }
 
@@ -387,8 +383,6 @@ export class BrowserAuth {
       'cache-control': 'no-store',
       'content-type': 'text/plain; charset=utf-8',
     })
-    res.end(req.method === 'HEAD'
-      ? undefined
-      : 'dsh web authentication required; reopen the URL printed by dsh web.\n')
+    res.end(req.method === 'HEAD' ? undefined : 'dsh web authentication required; reopen the URL printed by dsh web.\n')
   }
 }

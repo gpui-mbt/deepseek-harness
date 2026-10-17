@@ -123,7 +123,7 @@ export function pnpmCommand(): readonly [command: string, ...args: string[]] {
   }
   // Windows resolves a bare `pnpm` to a batch shim that spawnSync cannot start, so say that rather than fail later.
   if (process.platform === 'win32') {
-    throw new Error('release: cannot locate pnpm\'s JavaScript entry; run this through a pnpm script or install workspace dependencies')
+    throw new Error("release: cannot locate pnpm's JavaScript entry; run this through a pnpm script or install workspace dependencies")
   }
   return ['pnpm']
 }

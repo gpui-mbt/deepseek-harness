@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context, type Fiber } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage, ToolCallId, HarnessError , createMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId, HarnessError, createMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { MAX_TIMER_DELAY_MS, TimeoutReason } from '@deepseek-ai/dsh-timeout'
 import * as TimeoutPolicy from '@deepseek-ai/dsh-tool-call-timeout-policy'
@@ -35,7 +35,7 @@ import * as ToolSessionQuery from '@deepseek-ai/dsh-tool-session-query'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -54,23 +54,17 @@ function header(id: string, cwd: string | undefined, createdAt = 1, parentSessio
     id: SessionId(id),
     createdAt,
     isSeeded: false,
-    ...cwd === undefined ? {} : { cwd },
-    ...parentSession === undefined ? {} : { parentSession },
+    ...(cwd === undefined ? {} : { cwd }),
+    ...(parentSession === undefined ? {} : { parentSession }),
   }
 }
 
-function createSession(
-  ctx: Context,
-  id: string,
-  cwd: string | undefined,
-  createdAt = 1,
-  parentSession?: SessionIdValue,
-): Session {
+function createSession(ctx: Context, id: string, cwd: string | undefined, createdAt = 1, parentSession?: SessionIdValue): Session {
   return ctx.sessions.create(SessionId(id), {
     meta: {
       createdAt,
-      ...cwd === undefined ? {} : { cwd },
-      ...parentSession === undefined ? {} : { parentSession },
+      ...(cwd === undefined ? {} : { cwd }),
+      ...(parentSession === undefined ? {} : { parentSession }),
     },
   })
 }
@@ -80,7 +74,8 @@ function openStep(session: Session, text = 'prior needle'): void {
   session.append(
     'user/message',
     createUserMessage({
-      content: [{ type: 'text', text }], source: { kind: 'user' },
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
     }),
     { surfaceOp: 'append' },
   )
@@ -91,12 +86,7 @@ function fakeAgent(session: Session): Agent {
   return { id: session.id, session } as unknown as Agent
 }
 
-function sessionHit(
-  id: string,
-  cwd: string | undefined,
-  text = 'needle excerpt',
-  parentSession?: SessionIdValue,
-): SessionSearchHit {
+function sessionHit(id: string, cwd: string | undefined, text = 'needle excerpt', parentSession?: SessionIdValue): SessionSearchHit {
   return {
     header: header(id, cwd, 100, parentSession),
     live: true,
@@ -124,18 +114,14 @@ function eventHit(sessionId: SessionIdValue, seq: SessionSeq, text = 'needle exc
 }
 
 class FakeQuery extends SessionQueryEngine {
-  static sessionSearch: (
-    request: SessionSearchRequest,
-    exec?: SessionSearchExecContext,
-  ) => Promise<SessionSearchPage<SessionSearchHit>> = () => Promise.resolve({ items: [] })
+  static sessionSearch: (request: SessionSearchRequest, exec?: SessionSearchExecContext) => Promise<SessionSearchPage<SessionSearchHit>> =
+    () => Promise.resolve({ items: [] })
 
-  static eventSearch: (
-    request: SessionEventSearchRequest,
-    exec?: SessionSearchExecContext,
-  ) => Promise<SessionEventSearchPage> = request => Promise.resolve({
-    session: header(request.sessionId, '/work'),
-    items: [],
-  })
+  static eventSearch: (request: SessionEventSearchRequest, exec?: SessionSearchExecContext) => Promise<SessionEventSearchPage> = request =>
+    Promise.resolve({
+      session: header(request.sessionId, '/work'),
+      items: [],
+    })
 
   static sessionRequests: SessionSearchRequest[] = []
   static eventRequests: SessionEventSearchRequest[] = []
@@ -144,38 +130,30 @@ class FakeQuery extends SessionQueryEngine {
 
   static reset(): void {
     this.sessionSearch = () => Promise.resolve({ items: [] })
-    this.eventSearch = request => Promise.resolve({
-      session: header(request.sessionId, '/work'),
-      items: [],
-    })
+    this.eventSearch = request =>
+      Promise.resolve({
+        session: header(request.sessionId, '/work'),
+        items: [],
+      })
     this.sessionRequests = []
     this.eventRequests = []
     this.searchSignals = []
     this.titles = new Map()
   }
 
-  override searchSessions(
-    request: SessionSearchRequest,
-    exec?: SessionSearchExecContext,
-  ): Promise<SessionSearchPage<SessionSearchHit>> {
+  override searchSessions(request: SessionSearchRequest, exec?: SessionSearchExecContext): Promise<SessionSearchPage<SessionSearchHit>> {
     FakeQuery.sessionRequests.push(request)
     FakeQuery.searchSignals.push(exec?.signal)
     return FakeQuery.sessionSearch(request, exec)
   }
 
-  override searchEvents(
-    request: SessionEventSearchRequest,
-    exec?: SessionSearchExecContext,
-  ): Promise<SessionEventSearchPage> {
+  override searchEvents(request: SessionEventSearchRequest, exec?: SessionSearchExecContext): Promise<SessionEventSearchPage> {
     FakeQuery.eventRequests.push(request)
     FakeQuery.searchSignals.push(exec?.signal)
     return FakeQuery.eventSearch(request, exec)
   }
 
-  override async readTitleSnapshots(
-    sessionIds: readonly SessionIdValue[],
-    signal?: AbortSignal,
-  ): Promise<SessionTitleObservationResult[]> {
+  override async readTitleSnapshots(sessionIds: readonly SessionIdValue[], signal?: AbortSignal): Promise<SessionTitleObservationResult[]> {
     const observations = await super.readTitleSnapshots(sessionIds, signal)
     return observations.map((observation): SessionTitleObservationResult => {
       const value = FakeQuery.titles.get(observation.sessionId)
@@ -211,11 +189,7 @@ function registerTurnBoundary(ctx: Context): void {
   ctx.sessionProjections.register(turnBoundaryProjectionDefinition)
 }
 
-async function mount(
-  config: ToolSessionQuery.Config = {},
-  callerCwd: string | null = '/work',
-  enforceTimeout = false,
-): Promise<Mounted> {
+async function mount(config: ToolSessionQuery.Config = {}, callerCwd: string | null = '/work', enforceTimeout = false): Promise<Mounted> {
   const ctx = new Context()
   activeContexts.push(ctx)
   await ctx.plugin(SessionStore)
@@ -233,18 +207,19 @@ async function mount(
     ctx,
     fiber,
     caller,
-    call: (toolName, args, options = {}) => ctx.tools.execute({
-      name: toolName,
-      arguments: args,
-      callId: ToolCallId(`call-${++calls}`),
-      signal: options.signal ?? new AbortController().signal,
-      ...options.agent === undefined ? { agent: fakeAgent(caller) } : { agent: options.agent },
-    }),
+    call: (toolName, args, options = {}) =>
+      ctx.tools.execute({
+        name: toolName,
+        arguments: args,
+        callId: ToolCallId(`call-${++calls}`),
+        signal: options.signal ?? new AbortController().signal,
+        ...(options.agent === undefined ? { agent: fakeAgent(caller) } : { agent: options.agent }),
+      }),
   }
 }
 
 function text(result: ToolExecutionResult): string {
-  return result.content.map(block => block.type === 'text' ? block.text : '').join('\n')
+  return result.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')
 }
 
 function errorCode(result: ToolExecutionResult): string | undefined {
@@ -255,13 +230,7 @@ describe('registration and schemas', () => {
   it('registers the five cursor-free tools, prompt, timeouts, and pure generic presenters, then disposes them', async () => {
     const mounted = await mount({ maxSearchResults: 7, searchTimeoutMs: 1234 })
     const names = mounted.ctx.tools.schemas().map(schema => schema.name)
-    expect(names).toEqual([
-      'session_search',
-      'session_event_search',
-      'session_trace',
-      'session_event_trace',
-      'session_event_read',
-    ])
+    expect(names).toEqual(['session_search', 'session_event_search', 'session_trace', 'session_event_trace', 'session_event_read'])
     const sessionSchema = mounted.ctx.tools.schemas().find(schema => schema.name === 'session_search')
     expect(sessionSchema?.parameters).not.toHaveProperty('properties.cursor')
     expect(sessionSchema?.parameters).not.toHaveProperty('properties.limit')
@@ -276,33 +245,48 @@ describe('registration and schemas', () => {
     for (const [name, args] of Object.entries(parallelArgs)) {
       expect(mounted.ctx.tools.get(name)?.isConcurrencySafe?.(args)).toBe(true)
     }
-    expect(mounted.ctx.tools.get('session_search')?.output.render({}, 'rendered'))
-      .toEqual([{ type: 'text', text: 'rendered' }])
-    expect(mounted.ctx.tools.get('session_search')?.presentCall?.({ query: 'needle' }))
-      .toEqual({ card: 'generic', kind: 'search', title: 'Search prior sessions', rawInput: 'needle' })
-    expect(mounted.ctx.tools.get('session_event_search')?.presentCall?.({ query: 'needle' }))
-      .toEqual({ card: 'generic', kind: 'search', title: 'Search session events', rawInput: 'needle' })
-    expect(mounted.ctx.tools.get('session_trace')?.presentCall?.({}))
-      .toEqual({ card: 'generic', kind: 'read', title: 'Trace current session' })
-    expect(mounted.ctx.tools.get('session_trace')?.presentCall?.({ session_id: 'other' }))
-      .toEqual({ card: 'generic', kind: 'read', title: 'Trace session other', rawInput: 'other' })
-    expect(mounted.ctx.tools.get('session_event_trace')?.presentCall?.({ session_id: 'other', seq: 3 }))
-      .toEqual({
-        card: 'generic',
-        kind: 'read',
-        title: 'Trace event 3',
-        rawInput: { session_id: 'other', seq: 3 },
-      })
-    expect(mounted.ctx.tools.get('session_event_read')?.presentCall?.({ seq: 4 }))
-      .toEqual({ card: 'generic', kind: 'read', title: 'Read event 4', rawInput: { seq: 4 } })
+    expect(mounted.ctx.tools.get('session_search')?.output.render({}, 'rendered')).toEqual([{ type: 'text', text: 'rendered' }])
+    expect(mounted.ctx.tools.get('session_search')?.presentCall?.({ query: 'needle' })).toEqual({
+      card: 'generic',
+      kind: 'search',
+      title: 'Search prior sessions',
+      rawInput: 'needle',
+    })
+    expect(mounted.ctx.tools.get('session_event_search')?.presentCall?.({ query: 'needle' })).toEqual({
+      card: 'generic',
+      kind: 'search',
+      title: 'Search session events',
+      rawInput: 'needle',
+    })
+    expect(mounted.ctx.tools.get('session_trace')?.presentCall?.({})).toEqual({
+      card: 'generic',
+      kind: 'read',
+      title: 'Trace current session',
+    })
+    expect(mounted.ctx.tools.get('session_trace')?.presentCall?.({ session_id: 'other' })).toEqual({
+      card: 'generic',
+      kind: 'read',
+      title: 'Trace session other',
+      rawInput: 'other',
+    })
+    expect(mounted.ctx.tools.get('session_event_trace')?.presentCall?.({ session_id: 'other', seq: 3 })).toEqual({
+      card: 'generic',
+      kind: 'read',
+      title: 'Trace event 3',
+      rawInput: { session_id: 'other', seq: 3 },
+    })
+    expect(mounted.ctx.tools.get('session_event_read')?.presentCall?.({ seq: 4 })).toEqual({
+      card: 'generic',
+      kind: 'read',
+      title: 'Read event 4',
+      rawInput: { seq: 4 },
+    })
     const assembly = await mounted.ctx.systemPrompt.assemble()
-    expect(assembly.sections.find(section => section.name === 'tool:session-query')?.text)
-      .toContain('prior sessions')
+    expect(assembly.sections.find(section => section.name === 'tool:session-query')?.text).toContain('prior sessions')
 
     await mounted.fiber.dispose()
     expect(mounted.ctx.tools.schemas().map(schema => schema.name)).toEqual([])
-    expect((await mounted.ctx.systemPrompt.assemble()).sections.map(section => section.name))
-      .not.toContain('tool:session-query')
+    expect((await mounted.ctx.systemPrompt.assemble()).sections.map(section => section.name)).not.toContain('tool:session-query')
   })
 
   it('keeps generation-bound searches exclusive while exact observations remain parallel', async () => {
@@ -316,32 +300,40 @@ describe('registration and schemas', () => {
     ] as const
 
     for (const [name, args, kind] of classifications) {
-      expect(mounted.ctx.tools.executionMode({
-        name,
-        arguments: args,
-        callId: ToolCallId(`mode-${name}`),
-        signal: new AbortController().signal,
-        agent: fakeAgent(mounted.caller),
-      })).toEqual({ kind })
+      expect(
+        mounted.ctx.tools.executionMode({
+          name,
+          arguments: args,
+          callId: ToolCallId(`mode-${name}`),
+          signal: new AbortController().signal,
+          agent: fakeAgent(mounted.caller),
+        }),
+      ).toEqual({ kind })
     }
   })
 
   it('fails invalid direct config before registering anything', async () => {
     const mounted = await mount()
     for (const maxSearchResults of [0, 1.5, Number.NaN]) {
-      expect(() => { ToolSessionQuery.apply(mounted.ctx, { maxSearchResults }) })
-        .toThrow('maxSearchResults')
+      expect(() => {
+        ToolSessionQuery.apply(mounted.ctx, { maxSearchResults })
+      }).toThrow('maxSearchResults')
     }
     for (const searchTimeoutMs of [0, 1.5, Number.POSITIVE_INFINITY, MAX_TIMER_DELAY_MS + 1]) {
-      expect(() => { ToolSessionQuery.apply(mounted.ctx, { searchTimeoutMs }) })
-        .toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
+      expect(() => {
+        ToolSessionQuery.apply(mounted.ctx, { searchTimeoutMs })
+      }).toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
     }
-    expect(() => { ToolSessionQuery.apply(new Context(), {}) }).toThrow()
+    expect(() => {
+      ToolSessionQuery.apply(new Context(), {})
+    }).toThrow()
   })
 
   it('expresses the complete Node timer range in the Loader config schema', () => {
-    expect(new ToolSessionQuery.Config({ searchTimeoutMs: MAX_TIMER_DELAY_MS }))
-      .toEqual({ maxSearchResults: 100, searchTimeoutMs: MAX_TIMER_DELAY_MS })
+    expect(new ToolSessionQuery.Config({ searchTimeoutMs: MAX_TIMER_DELAY_MS })).toEqual({
+      maxSearchResults: 100,
+      searchTimeoutMs: MAX_TIMER_DELAY_MS,
+    })
     expect(() => new ToolSessionQuery.Config({ searchTimeoutMs: 1.5 })).toThrow()
     expect(() => new ToolSessionQuery.Config({ searchTimeoutMs: MAX_TIMER_DELAY_MS + 1 })).toThrow()
   })
@@ -370,11 +362,14 @@ describe('input validation and translation', () => {
     [{ query: 'q', created_at_from: '2026-01-01T00:00:60Z' }, 'SESSION_QUERY_INVALID_FILTER'],
     [{ query: 'q', created_at_from: '2026-01-01T00:00:00+24:00' }, 'SESSION_QUERY_INVALID_FILTER'],
     [{ query: 'q', created_at_from: '2026-01-01T00:00:00+00:60' }, 'SESSION_QUERY_INVALID_FILTER'],
-    [{
-      query: 'q',
-      created_at_from: '2026-07-25T00:00:00Z',
-      created_at_to: '2026-07-24T00:00:00Z',
-    }, 'SESSION_QUERY_INVALID_FILTER'],
+    [
+      {
+        query: 'q',
+        created_at_from: '2026-07-25T00:00:00Z',
+        created_at_to: '2026-07-24T00:00:00Z',
+      },
+      'SESSION_QUERY_INVALID_FILTER',
+    ],
   ])('rejects invalid search arguments %#', async (args, code) => {
     const mounted = await mount()
     const result = await mounted.call('session_search', args)
@@ -455,8 +450,7 @@ describe('input validation and translation', () => {
 
     expect(result.isError).toBe(false)
     expect(text(result)).toContain('No prior session matches found.')
-    const range = FakeQuery.sessionRequests[0]?.sessionFilters
-      ?.find(filter => filter.kind === 'created-at')
+    const range = FakeQuery.sessionRequests[0]?.sessionFilters?.find(filter => filter.kind === 'created-at')
     expect(range).toBeDefined()
     if (range?.kind !== 'created-at' || range.from === undefined || range.to === undefined) {
       throw new Error('expected complete created-at range')
@@ -611,26 +605,19 @@ describe('workspace authority and lineage redaction', () => {
     const own = await mounted.call('session_trace', {})
     expect(own.isError).toBe(false)
     expect(text(own)).toContain('Session caller')
-    expect(errorCode(await mounted.call('session_search', { query: 'q' })))
-      .toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
+    expect(errorCode(await mounted.call('session_search', { query: 'q' }))).toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
     createSession(mounted.ctx, 'other', undefined)
-    expect(errorCode(await mounted.call('session_trace', { session_id: 'other' })))
-      .toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
+    expect(errorCode(await mounted.call('session_trace', { session_id: 'other' }))).toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
   })
 
   it('makes hidden and nonexistent parent guesses indistinguishable without calling search', async () => {
     const mounted = await mount()
     const hiddenParent = createSession(mounted.ctx, 'guessed-hidden-parent-secret', '/outside')
-    const visibleChild = createSession(
-      mounted.ctx,
-      'visible-child-of-hidden-parent',
-      '/work',
-      20,
-      hiddenParent.id,
-    )
-    FakeQuery.sessionSearch = () => Promise.resolve({
-      items: [sessionHit(visibleChild.id, '/work', 'must not be discoverable', hiddenParent.id)],
-    })
+    const visibleChild = createSession(mounted.ctx, 'visible-child-of-hidden-parent', '/work', 20, hiddenParent.id)
+    FakeQuery.sessionSearch = () =>
+      Promise.resolve({
+        items: [sessionHit(visibleChild.id, '/work', 'must not be discoverable', hiddenParent.id)],
+      })
 
     const hidden = await mounted.call('session_search', {
       query: 'needle',
@@ -668,8 +655,7 @@ describe('workspace authority and lineage redaction', () => {
       include_root_sessions: true,
     })
 
-    const parentValues = FakeQuery.sessionRequests.map(request =>
-      request.sessionFilters?.find(filter => filter.kind === 'parent'))
+    const parentValues = FakeQuery.sessionRequests.map(request => request.sessionFilters?.find(filter => filter.kind === 'parent'))
     expect(parentValues).toEqual([
       { kind: 'parent', values: [visible.id, null] },
       { kind: 'parent', values: [null] },
@@ -753,39 +739,49 @@ describe('workspace authority and lineage redaction', () => {
   it('preserves parent-preauthorization cancellation and waits for cleanup without logging it', async () => {
     const mounted = await mount()
     const controller = new AbortController()
-    const cancellation = new SessionQueryError(
-      'parent preauthorization cancelled',
-      'SESSION_QUERY_ABORTED',
-    )
+    const cancellation = new SessionQueryError('parent preauthorization cancelled', 'SESSION_QUERY_ABORTED')
     const started = Promise.withResolvers<undefined>()
     const abortObserved = Promise.withResolvers<undefined>()
     const cleanup = Promise.withResolvers<undefined>()
     let active = false
-    vi.spyOn(mounted.ctx.sessionQuery, 'filterSessions')
-      .mockImplementation(async (_filters, signal) => {
-        if (signal === undefined) throw new Error('expected parent-authorization signal')
-        active = true
-        const aborted = new Promise<void>((resolve) => {
-          signal.addEventListener('abort', () => { resolve() }, { once: true })
-        })
-        started.resolve(undefined)
-        await aborted
-        abortObserved.resolve(undefined)
-        await cleanup.promise
-        active = false
-        signal.throwIfAborted()
-        return []
+    vi.spyOn(mounted.ctx.sessionQuery, 'filterSessions').mockImplementation(async (_filters, signal) => {
+      if (signal === undefined) throw new Error('expected parent-authorization signal')
+      active = true
+      const aborted = new Promise<void>(resolve => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve()
+          },
+          { once: true },
+        )
       })
+      started.resolve(undefined)
+      await aborted
+      abortObserved.resolve(undefined)
+      await cleanup.promise
+      active = false
+      signal.throwIfAborted()
+      return []
+    })
     const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
 
-    const pending = mounted.call('session_search', {
-      query: 'needle',
-      parent_session_ids: ['guessed-parent'],
-    }, { signal: controller.signal })
+    const pending = mounted.call(
+      'session_search',
+      {
+        query: 'needle',
+        parent_session_ids: ['guessed-parent'],
+      },
+      { signal: controller.signal },
+    )
     let settled = false
     void pending.then(
-      () => { settled = true },
-      () => { settled = true },
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
     )
     await started.promise
     controller.abort(cancellation)
@@ -844,20 +840,14 @@ describe('workspace authority and lineage redaction', () => {
   it.each([
     {
       name: 'sensitive source conflict',
-      makeError: () => new SessionQueryError(
-        'conflict with hidden-lineage-session-secret',
-        'SESSION_QUERY_SOURCE_CONFLICT',
-      ),
+      makeError: () => new SessionQueryError('conflict with hidden-lineage-session-secret', 'SESSION_QUERY_SOURCE_CONFLICT'),
       code: 'SESSION_QUERY_TOOL_FAILED',
       message: 'session query operation failed',
       secret: 'hidden-lineage-session-secret',
     },
     {
       name: 'typed query error',
-      makeError: () => new SessionQueryError(
-        'unrelated persistence failure',
-        'SESSION_QUERY_PERSISTENCE_FAILED',
-      ),
+      makeError: () => new SessionQueryError('unrelated persistence failure', 'SESSION_QUERY_PERSISTENCE_FAILED'),
       code: 'SESSION_QUERY_PERSISTENCE_FAILED',
       message: 'session history storage is unavailable',
       secret: 'unrelated persistence failure',
@@ -883,16 +873,14 @@ describe('workspace authority and lineage redaction', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(secret))
   })
 
-  it.each([
-    'session_event_trace',
-    'session_event_read',
-  ] as const)('sanitizes typed service diagnostics from %s', async (toolName) => {
+  it.each(['session_event_trace', 'session_event_read'] as const)('sanitizes typed service diagnostics from %s', async toolName => {
     const mounted = await mount()
     const target = createSession(mounted.ctx, `${toolName}-failure-target`, '/work')
     target.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'event' }], source: { kind: 'user' },
+        content: [{ type: 'text', text: 'event' }],
+        source: { kind: 'user' },
       }),
       { surfaceOp: 'append' },
     )
@@ -913,101 +901,103 @@ describe('workspace authority and lineage redaction', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(secret))
   })
 
-  it.each([
-    'session_trace',
-    'session_event_trace',
-    'session_event_read',
-  ] as const)('forwards the exact signal to %s and waits for service cleanup', async (toolName) => {
-    const mounted = await mount()
-    const target = createSession(mounted.ctx, `cancelled-${toolName}`, '/work')
-    target.append(
-      'user/message',
-      createUserMessage({
-        content: [{ type: 'text', text: 'pending exact read' }], source: { kind: 'user' },
-      }),
-      { surfaceOp: 'append' },
-    )
-    const controller = new AbortController()
-    const cancellation = new SessionQueryError(
-      `${toolName} cancelled`,
-      'SESSION_QUERY_ABORTED',
-    )
-    const started = Promise.withResolvers<undefined>()
-    const abortObserved = Promise.withResolvers<undefined>()
-    const cleanup = Promise.withResolvers<undefined>()
-    const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
-    let observedSignal: AbortSignal | undefined
-    let active = false
-    const holdExactRead = async (signal?: AbortSignal): Promise<never> => {
-      if (signal === undefined) throw new Error('expected exact tool execution signal')
-      observedSignal = signal
-      active = true
-      const aborted = new Promise<void>((resolve) => {
-        signal.addEventListener('abort', () => { resolve() }, { once: true })
-      })
-      started.resolve(undefined)
-      await aborted
-      abortObserved.resolve(undefined)
-      await cleanup.promise
-      active = false
-      signal.throwIfAborted()
-      throw new Error('unreachable after exact tool cancellation')
-    }
-    if (toolName === 'session_trace') {
-      vi.spyOn(mounted.ctx.sessionQuery, 'traceSession')
-        .mockImplementation((_sessionId, signal) => holdExactRead(signal))
-    } else if (toolName === 'session_event_trace') {
-      vi.spyOn(mounted.ctx.sessionQuery, 'traceEvent')
-        .mockImplementation((_request, signal) => holdExactRead(signal))
-    } else {
-      vi.spyOn(mounted.ctx.sessionQuery, 'readEvent')
-        .mockImplementation((_request, signal) => holdExactRead(signal))
-    }
-    const args = toolName === 'session_trace'
-      ? { session_id: target.id }
-      : { session_id: target.id, seq: 0 }
+  it.each(['session_trace', 'session_event_trace', 'session_event_read'] as const)(
+    'forwards the exact signal to %s and waits for service cleanup',
+    async toolName => {
+      const mounted = await mount()
+      const target = createSession(mounted.ctx, `cancelled-${toolName}`, '/work')
+      target.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: 'pending exact read' }],
+          source: { kind: 'user' },
+        }),
+        { surfaceOp: 'append' },
+      )
+      const controller = new AbortController()
+      const cancellation = new SessionQueryError(`${toolName} cancelled`, 'SESSION_QUERY_ABORTED')
+      const started = Promise.withResolvers<undefined>()
+      const abortObserved = Promise.withResolvers<undefined>()
+      const cleanup = Promise.withResolvers<undefined>()
+      const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
+      let observedSignal: AbortSignal | undefined
+      let active = false
+      const holdExactRead = async (signal?: AbortSignal): Promise<never> => {
+        if (signal === undefined) throw new Error('expected exact tool execution signal')
+        observedSignal = signal
+        active = true
+        const aborted = new Promise<void>(resolve => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve()
+            },
+            { once: true },
+          )
+        })
+        started.resolve(undefined)
+        await aborted
+        abortObserved.resolve(undefined)
+        await cleanup.promise
+        active = false
+        signal.throwIfAborted()
+        throw new Error('unreachable after exact tool cancellation')
+      }
+      if (toolName === 'session_trace') {
+        vi.spyOn(mounted.ctx.sessionQuery, 'traceSession').mockImplementation((_sessionId, signal) => holdExactRead(signal))
+      } else if (toolName === 'session_event_trace') {
+        vi.spyOn(mounted.ctx.sessionQuery, 'traceEvent').mockImplementation((_request, signal) => holdExactRead(signal))
+      } else {
+        vi.spyOn(mounted.ctx.sessionQuery, 'readEvent').mockImplementation((_request, signal) => holdExactRead(signal))
+      }
+      const args = toolName === 'session_trace' ? { session_id: target.id } : { session_id: target.id, seq: 0 }
 
-    const pending = mounted.call(toolName, args, { signal: controller.signal })
-    let settled = false
-    void pending.then(
-      () => { settled = true },
-      () => { settled = true },
-    )
-    await started.promise
-    controller.abort(cancellation)
-    await abortObserved.promise
+      const pending = mounted.call(toolName, args, { signal: controller.signal })
+      let settled = false
+      void pending.then(
+        () => {
+          settled = true
+        },
+        () => {
+          settled = true
+        },
+      )
+      await started.promise
+      controller.abort(cancellation)
+      await abortObserved.promise
 
-    expect(settled).toBe(false)
-    expect(active).toBe(true)
-    expect(observedSignal).toBe(controller.signal)
+      expect(settled).toBe(false)
+      expect(active).toBe(true)
+      expect(observedSignal).toBe(controller.signal)
 
-    cleanup.resolve(undefined)
-    const result = await pending
-    expect(active).toBe(false)
-    expect(errorCode(result)).toBe('SESSION_QUERY_ABORTED')
-    expect(text(result)).toBe(`Error: ${toolName} cancelled`)
-    expect(warn).not.toHaveBeenCalled()
-  })
+      cleanup.resolve(undefined)
+      const result = await pending
+      expect(active).toBe(false)
+      expect(errorCode(result)).toBe('SESSION_QUERY_ABORTED')
+      expect(text(result)).toBe(`Error: ${toolName} cancelled`)
+      expect(warn).not.toHaveBeenCalled()
+    },
+  )
 
   it('preserves caller cancellation while a lineage trace is pending', async () => {
     const mounted = await mount()
     const target = createSession(mounted.ctx, 'cancelled-trace-target', '/work')
     const trace = await mounted.ctx.sessionQuery.traceSession(target.id)
     let started!: () => void
-    const traceStarted = new Promise<void>((resolve) => { started = resolve })
+    const traceStarted = new Promise<void>(resolve => {
+      started = resolve
+    })
     let finish!: (value: typeof trace) => void
     vi.spyOn(mounted.ctx.sessionQuery, 'traceSession').mockImplementation(() => {
       started()
-      return new Promise<typeof trace>((resolve) => { finish = resolve })
+      return new Promise<typeof trace>(resolve => {
+        finish = resolve
+      })
     })
     const controller = new AbortController()
     const cancellation = new SessionQueryError('lineage trace cancelled', 'SESSION_QUERY_ABORTED')
 
-    const pending = mounted.call(
-      'session_trace',
-      { session_id: target.id },
-      { signal: controller.signal },
-    )
+    const pending = mounted.call('session_trace', { session_id: target.id }, { signal: controller.signal })
     await traceStarted
     controller.abort(cancellation)
     finish(trace)
@@ -1021,26 +1011,23 @@ describe('workspace authority and lineage redaction', () => {
     const mounted = await mount()
     const target = createSession(mounted.ctx, 'cancelled-invalid-lineage-target', '/work')
     let started!: () => void
-    const traceStarted = new Promise<void>((resolve) => { started = resolve })
+    const traceStarted = new Promise<void>(resolve => {
+      started = resolve
+    })
     let fail!: (error: SessionQueryError) => void
     vi.spyOn(mounted.ctx.sessionQuery, 'traceSession').mockImplementation(() => {
       started()
-      return new Promise((_resolve, reject) => { fail = reject })
+      return new Promise((_resolve, reject) => {
+        fail = reject
+      })
     })
     const controller = new AbortController()
     const cancellation = new SessionQueryError('lineage trace cancelled first', 'SESSION_QUERY_ABORTED')
 
-    const pending = mounted.call(
-      'session_trace',
-      { session_id: target.id },
-      { signal: controller.signal },
-    )
+    const pending = mounted.call('session_trace', { session_id: target.id }, { signal: controller.signal })
     await traceStarted
     controller.abort(cancellation)
-    fail(new SessionQueryError(
-      'session lineage contains a cycle at "hidden-race-secret"',
-      'SESSION_QUERY_INVALID_LINEAGE',
-    ))
+    fail(new SessionQueryError('session lineage contains a cycle at "hidden-race-secret"', 'SESSION_QUERY_INVALID_LINEAGE'))
     const result = await pending
 
     expect(errorCode(result)).toBe('SESSION_QUERY_ABORTED')
@@ -1051,10 +1038,12 @@ describe('workspace authority and lineage redaction', () => {
   it('renders branching descendants in source preorder with one indented marker per pruned subtree', async () => {
     const mounted = await mount()
     const target = createSession(mounted.ctx, 'branch-target', '/work', 20)
-    const [targetRecord] = await mounted.ctx.sessionQuery.filterSessions([{
-      kind: 'id',
-      values: [target.id],
-    }])
+    const [targetRecord] = await mounted.ctx.sessionQuery.filterSessions([
+      {
+        kind: 'id',
+        values: [target.id],
+      },
+    ])
     if (targetRecord === undefined) throw new Error('expected target record')
     const firstId = SessionId('branch-first')
     const nestedId = SessionId('branch-nested')
@@ -1071,10 +1060,12 @@ describe('workspace authority and lineage redaction', () => {
           },
           {
             session: { ...targetRecord, header: header(hiddenId, '/outside', 50) },
-            descendants: [{
-              session: { ...targetRecord, header: header(hiddenDescendantId, '/work', 60) },
-              descendants: [],
-            }],
+            descendants: [
+              {
+                session: { ...targetRecord, header: header(hiddenDescendantId, '/work', 60) },
+                descendants: [],
+              },
+            ],
           },
         ],
       },
@@ -1091,23 +1082,27 @@ describe('workspace authority and lineage redaction', () => {
       root: targetRecord,
     })
     const titleReads: SessionIdValue[] = []
-    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockImplementation((sessionIds) => {
+    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockImplementation(sessionIds => {
       titleReads.push(...sessionIds)
-      return Promise.resolve([...new Set(sessionIds)].map(sessionId => ({
-        sessionId,
-        status: 'fulfilled' as const,
-        value: { session: header(sessionId, '/work') },
-      })))
+      return Promise.resolve(
+        [...new Set(sessionIds)].map(sessionId => ({
+          sessionId,
+          status: 'fulfilled' as const,
+          value: { session: header(sessionId, '/work') },
+        })),
+      )
     })
 
     const output = text(await mounted.call('session_trace', { session_id: target.id }))
-    expect(output.slice(output.indexOf('Descendants:'))).toBe([
-      'Descendants:',
-      '- branch-first — untitled | 1970-01-01T00:00:00.030Z | live',
-      '  - branch-nested — untitled | 1970-01-01T00:00:00.040Z | live',
-      '  - [outside workspace subtree]',
-      '- branch-last — untitled | 1970-01-01T00:00:00.070Z | live',
-    ].join('\n'))
+    expect(output.slice(output.indexOf('Descendants:'))).toBe(
+      [
+        'Descendants:',
+        '- branch-first — untitled | 1970-01-01T00:00:00.030Z | live',
+        '  - branch-nested — untitled | 1970-01-01T00:00:00.040Z | live',
+        '  - [outside workspace subtree]',
+        '- branch-last — untitled | 1970-01-01T00:00:00.070Z | live',
+      ].join('\n'),
+    )
     expect(titleReads).toEqual([target.id, firstId, nestedId, lastId])
   })
 
@@ -1129,10 +1124,12 @@ describe('workspace authority and lineage redaction', () => {
     const mounted = await mount()
     const target = createSession(mounted.ctx, 'trace-unavailable', '/work')
     const [record] = await mounted.ctx.sessionQuery.filterSessions([{ kind: 'id', values: [target.id] }])
-    const [callerRecord] = await mounted.ctx.sessionQuery.filterSessions([{
-      kind: 'id',
-      values: [mounted.caller.id],
-    }])
+    const [callerRecord] = await mounted.ctx.sessionQuery.filterSessions([
+      {
+        kind: 'id',
+        values: [mounted.caller.id],
+      },
+    ])
     if (record === undefined || callerRecord === undefined) throw new Error('expected live records')
     const unavailable = { ...record, live: false, persisted: false }
     const persisted = { ...callerRecord, live: false, persisted: true }
@@ -1155,16 +1152,18 @@ describe('workspace authority and lineage redaction', () => {
     target.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'authorized payload' }], source: { kind: 'user' },
+        content: [{ type: 'text', text: 'authorized payload' }],
+        source: { kind: 'user' },
       }),
       { surfaceOp: 'append' },
     )
     const movedHeader = header(target.id, '/outside')
 
-    FakeQuery.eventSearch = () => Promise.resolve({
-      session: movedHeader,
-      items: [eventHit(target.id, SessionSeq(0), 'secret event hit')],
-    })
+    FakeQuery.eventSearch = () =>
+      Promise.resolve({
+        session: movedHeader,
+        items: [eventHit(target.id, SessionSeq(0), 'secret event hit')],
+      })
     const search = await mounted.call('session_event_search', {
       session_id: target.id,
       query: 'secret',
@@ -1177,42 +1176,42 @@ describe('workspace authority and lineage redaction', () => {
       ...lineage,
       target: { ...lineage.target, header: movedHeader },
     })
-    expect(errorCode(await mounted.call('session_trace', { session_id: target.id })))
-      .toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
+    expect(errorCode(await mounted.call('session_trace', { session_id: target.id }))).toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
 
     const eventTrace = await mounted.ctx.sessionQuery.traceEvent({ sessionId: target.id, seq: SessionSeq(0) })
     vi.spyOn(mounted.ctx.sessionQuery, 'traceEvent').mockResolvedValueOnce({
       ...eventTrace,
       session: movedHeader,
     })
-    expect(errorCode(await mounted.call('session_event_trace', { session_id: target.id, seq: 0 })))
-      .toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
+    expect(errorCode(await mounted.call('session_event_trace', { session_id: target.id, seq: 0 }))).toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
 
     const eventWindow = await mounted.ctx.sessionQuery.readEvent({ sessionId: target.id, seq: SessionSeq(0) })
     vi.spyOn(mounted.ctx.sessionQuery, 'readEvent').mockResolvedValueOnce({
       ...eventWindow,
       session: movedHeader,
     })
-    expect(errorCode(await mounted.call('session_event_read', { session_id: target.id, seq: 0 })))
-      .toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
+    expect(errorCode(await mounted.call('session_event_read', { session_id: target.id, seq: 0 }))).toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
 
-    FakeQuery.sessionSearch = () => Promise.resolve({
-      items: [sessionHit(target.id, '/work', 'safe hit')],
-    })
-    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockResolvedValueOnce([{
-      sessionId: target.id,
-      status: 'fulfilled',
-      value: {
-        session: movedHeader,
-        title: {
-          title: 'secret moved title',
-          messageSeqs: [],
-          source: { kind: 'fallback' },
-          eventSeq: SessionSeq(0),
-          updatedAt: 1,
+    FakeQuery.sessionSearch = () =>
+      Promise.resolve({
+        items: [sessionHit(target.id, '/work', 'safe hit')],
+      })
+    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockResolvedValueOnce([
+      {
+        sessionId: target.id,
+        status: 'fulfilled',
+        value: {
+          session: movedHeader,
+          title: {
+            title: 'secret moved title',
+            messageSeqs: [],
+            source: { kind: 'fallback' },
+            eventSeq: SessionSeq(0),
+            updatedAt: 1,
+          },
         },
       },
-    }])
+    ])
     const titled = await mounted.call('session_search', { query: 'safe' })
     expect(errorCode(titled)).toBe('SESSION_QUERY_TOOL_UNAUTHORIZED')
     expect(text(titled)).not.toContain('secret moved title')
@@ -1220,17 +1219,11 @@ describe('workspace authority and lineage redaction', () => {
 
   it('rejects a default self read when its same-id observation moved after caller capture', async () => {
     const mounted = await mount()
-    const appendLegacy = mounted.caller.append.bind(mounted.caller) as unknown as (
-      type: string,
-      data: unknown,
-    ) => SessionEvent
-    const secret = appendLegacy(
-      'context/message',
-      {
-        content: [{ type: 'text', text: 'same-id moved secret' }],
-        source: { kind: 'test' },
-      },
-    )
+    const appendLegacy = mounted.caller.append.bind(mounted.caller) as unknown as (type: string, data: unknown) => SessionEvent
+    const secret = appendLegacy('context/message', {
+      content: [{ type: 'text', text: 'same-id moved secret' }],
+      source: { kind: 'test' },
+    })
     const window = await mounted.ctx.sessionQuery.readEvent({
       sessionId: mounted.caller.id,
       seq: secret.seq,
@@ -1256,13 +1249,10 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     FakeQuery.titles.set(b.id, 'Beta')
     const c1 = SessionSearchCursor('c1')
     const c2 = SessionSearchCursor('c2')
-    FakeQuery.sessionSearch = (request) => {
+    FakeQuery.sessionSearch = request => {
       if (request.cursor === undefined) {
         return Promise.resolve({
-          items: [
-            sessionHit('caller', '/work'),
-            sessionHit('unauthorized', '/outside'),
-          ],
+          items: [sessionHit('caller', '/work'), sessionHit('unauthorized', '/outside')],
           nextCursor: c1,
         })
       }
@@ -1273,10 +1263,7 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
         })
       }
       return Promise.resolve({
-        items: [
-          sessionHit('b', '/work', 'second'),
-          sessionHit('additional-authorized', '/work', 'third'),
-        ],
+        items: [sessionHit('b', '/work', 'second'), sessionHit('additional-authorized', '/work', 'third')],
       })
     }
 
@@ -1295,17 +1282,15 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
   it('does not report a cap when only rejected hits remain after the authorized limit', async () => {
     const mounted = await mount({ maxSearchResults: 1 })
     const cursor = SessionSearchCursor('rejected-tail')
-    FakeQuery.sessionSearch = request => request.cursor === undefined
-      ? Promise.resolve({
-        items: [sessionHit('authorized', '/work')],
-        nextCursor: cursor,
-      })
-      : Promise.resolve({
-        items: [
-          sessionHit(mounted.caller.id, '/work'),
-          sessionHit('outside', '/outside'),
-        ],
-      })
+    FakeQuery.sessionSearch = request =>
+      request.cursor === undefined
+        ? Promise.resolve({
+            items: [sessionHit('authorized', '/work')],
+            nextCursor: cursor,
+          })
+        : Promise.resolve({
+            items: [sessionHit(mounted.caller.id, '/work'), sessionHit('outside', '/outside')],
+          })
 
     const output = text(await mounted.call('session_search', { query: 'needle' }))
     expect(FakeQuery.sessionRequests.map(request => request.cursor)).toEqual([undefined, cursor])
@@ -1317,27 +1302,17 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     {
       toolName: 'session_search',
       args: { query: 'needle' },
-      secrets: [
-        'session source conflict at hidden-search-session-secret',
-        'hidden-search-cause-secret',
-      ],
-      failure: () => new SessionQueryError(
-        'session source conflict at hidden-search-session-secret',
-        'SESSION_QUERY_SOURCE_CONFLICT',
-        { cause: new Error('hidden-search-cause-secret') },
-      ),
+      secrets: ['session source conflict at hidden-search-session-secret', 'hidden-search-cause-secret'],
+      failure: () =>
+        new SessionQueryError('session source conflict at hidden-search-session-secret', 'SESSION_QUERY_SOURCE_CONFLICT', {
+          cause: new Error('hidden-search-cause-secret'),
+        }),
     },
     {
       toolName: 'session_event_search',
       args: { query: 'needle' },
-      secrets: [
-        'plain event provider failure at hidden-event-session-secret',
-        'hidden-event-cause-secret',
-      ],
-      failure: () => new Error(
-        'plain event provider failure at hidden-event-session-secret',
-        { cause: 'hidden-event-cause-secret' },
-      ),
+      secrets: ['plain event provider failure at hidden-event-session-secret', 'hidden-event-cause-secret'],
+      failure: () => new Error('plain event provider failure at hidden-event-session-secret', { cause: 'hidden-event-cause-secret' }),
     },
   ] as const)('sanitizes $toolName provider diagnostics', async ({ toolName, args, secrets, failure }) => {
     const mounted = await mount()
@@ -1363,14 +1338,15 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
       name: 'a hostile prototype trap',
       secrets: ['proxy payload secret', 'getPrototypeOf secondary secret'],
       diagnostic: '[unprintable session query failure]',
-      failure: (): unknown => new Proxy(
-        { payload: 'proxy payload secret' },
-        {
-          getPrototypeOf() {
-            throw new Error('getPrototypeOf secondary secret')
+      failure: (): unknown =>
+        new Proxy(
+          { payload: 'proxy payload secret' },
+          {
+            getPrototypeOf() {
+              throw new Error('getPrototypeOf secondary secret')
+            },
           },
-        },
-      ),
+        ),
     },
     {
       name: 'a throwing stack getter',
@@ -1416,10 +1392,7 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
       secrets: ['code primary secret', 'code getter secondary secret'],
       diagnostic: 'code primary secret',
       failure: (): unknown => {
-        const error = new SessionQueryError(
-          'code primary secret',
-          'SESSION_QUERY_PERSISTENCE_FAILED',
-        )
+        const error = new SessionQueryError('code primary secret', 'SESSION_QUERY_PERSISTENCE_FAILED')
         Object.defineProperty(error, 'code', {
           get() {
             throw new Error('code getter secondary secret')
@@ -1433,10 +1406,7 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
       secrets: ['unknown code primary secret', '__proto__'],
       diagnostic: 'unknown code primary secret',
       failure: (): unknown => {
-        const error = new SessionQueryError(
-          'unknown code primary secret',
-          'SESSION_QUERY_PERSISTENCE_FAILED',
-        )
+        const error = new SessionQueryError('unknown code primary secret', 'SESSION_QUERY_PERSISTENCE_FAILED')
         Object.defineProperty(error, 'code', { value: '__proto__' })
         return error
       },
@@ -1446,10 +1416,7 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
       secrets: ['non-string code primary secret', 'non-string code secondary secret'],
       diagnostic: 'non-string code primary secret',
       failure: (): unknown => {
-        const error = new SessionQueryError(
-          'non-string code primary secret',
-          'SESSION_QUERY_PERSISTENCE_FAILED',
-        )
+        const error = new SessionQueryError('non-string code primary secret', 'SESSION_QUERY_PERSISTENCE_FAILED')
         Object.defineProperty(error, 'code', {
           value: {
             toString() {
@@ -1486,13 +1453,7 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
         },
       },
     )
-    FakeQuery.sessionSearch = () => Promise.reject(
-      new SessionQueryError(
-        primary,
-        'SESSION_QUERY_PERSISTENCE_FAILED',
-        { cause },
-      ),
-    )
+    FakeQuery.sessionSearch = () => Promise.reject(new SessionQueryError(primary, 'SESSION_QUERY_PERSISTENCE_FAILED', { cause }))
     const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
 
     const result = await mounted.call('session_search', { query: 'needle' })
@@ -1528,10 +1489,9 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const mounted = await mount()
     const primary = 'typed persistence primary secret'
     const secondary = 'logger warning secondary secret'
-    FakeQuery.sessionSearch = () => Promise.reject(
-      new SessionQueryError(primary, 'SESSION_QUERY_PERSISTENCE_FAILED'),
-    )
-    const warn = vi.spyOn(mounted.ctx.logger, 'warn')
+    FakeQuery.sessionSearch = () => Promise.reject(new SessionQueryError(primary, 'SESSION_QUERY_PERSISTENCE_FAILED'))
+    const warn = vi
+      .spyOn(mounted.ctx.logger, 'warn')
       .mockImplementation(() => undefined)
       .mockImplementationOnce(() => {
         throw new Error(secondary)
@@ -1549,9 +1509,10 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
   it('preserves stale-cursor diagnostics without transparently restarting', async () => {
     const mounted = await mount({ maxSearchResults: 2 })
     const cursor = SessionSearchCursor('stale-next')
-    FakeQuery.sessionSearch = request => request.cursor === undefined
-      ? Promise.resolve({ items: [], nextCursor: cursor })
-      : Promise.reject(new SessionQueryError('stale provider generation', 'SESSION_QUERY_STALE_CURSOR'))
+    FakeQuery.sessionSearch = request =>
+      request.cursor === undefined
+        ? Promise.resolve({ items: [], nextCursor: cursor })
+        : Promise.reject(new SessionQueryError('stale provider generation', 'SESSION_QUERY_STALE_CURSOR'))
     const result = await mounted.call('session_search', { query: 'needle' })
     expect(errorCode(result)).toBe('SESSION_QUERY_STALE_CURSOR')
     expect(text(result)).toContain('retry the complete search call')
@@ -1573,13 +1534,14 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const parent = createSession(mounted.ctx, 'parent', '/work')
     const child = createSession(mounted.ctx, 'child', '/work', 2, parent.id)
     const callerChild = createSession(mounted.ctx, 'caller-child', '/work', 3, mounted.caller.id)
-    FakeQuery.sessionSearch = () => Promise.resolve({
-      items: [
-        { ...sessionHit(child.id, '/work', 'both', parent.id), live: true, persisted: true },
-        { ...sessionHit(callerChild.id, '/work', 'persisted', mounted.caller.id), live: false, persisted: true },
-        { ...sessionHit('unavailable', '/work', 'neither'), live: false, persisted: false },
-      ],
-    })
+    FakeQuery.sessionSearch = () =>
+      Promise.resolve({
+        items: [
+          { ...sessionHit(child.id, '/work', 'both', parent.id), live: true, persisted: true },
+          { ...sessionHit(callerChild.id, '/work', 'persisted', mounted.caller.id), live: false, persisted: true },
+          { ...sessionHit('unavailable', '/work', 'neither'), live: false, persisted: false },
+        ],
+      })
     const output = text(await mounted.call('session_search', { query: 'needle' }))
     expect(output).toContain('Parent: parent')
     expect(output).toContain(`Parent: ${mounted.caller.id}`)
@@ -1590,10 +1552,11 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
 
   it('intersects current-session search with the event before the latest step and leaves other targets unchanged', async () => {
     const mounted = await mount()
-    FakeQuery.eventSearch = request => Promise.resolve({
-      session: header(request.sessionId, '/work'),
-      items: [eventHit(request.sessionId, SessionSeq(1))],
-    })
+    FakeQuery.eventSearch = request =>
+      Promise.resolve({
+        session: header(request.sessionId, '/work'),
+        items: [eventHit(request.sessionId, SessionSeq(1))],
+      })
     await mounted.call('session_event_search', {
       query: 'prior',
       seq_from: 0,
@@ -1625,25 +1588,22 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
   it('requires a current step boundary and drains event pages to a capped result', async () => {
     const mounted = await mount({ maxSearchResults: 2 })
     const noStep = createSession(mounted.ctx, 'no-step', '/work')
-    const missing = await mounted.call(
-      'session_event_search',
-      { query: 'q' },
-      { agent: fakeAgent(noStep) },
-    )
+    const missing = await mounted.call('session_event_search', { query: 'q' }, { agent: fakeAgent(noStep) })
     expect(errorCode(missing)).toBe('SESSION_QUERY_INVALID_FILTER')
 
     const other = createSession(mounted.ctx, 'paged-events', '/work')
     const cursor = SessionSearchCursor('events-next')
-    FakeQuery.eventSearch = request => request.cursor === undefined
-      ? Promise.resolve({
-        session: header(other.id, '/work'),
-        items: [eventHit(other.id, SessionSeq(1))],
-        nextCursor: cursor,
-      })
-      : Promise.resolve({
-        session: header(other.id, '/work'),
-        items: [eventHit(other.id, SessionSeq(2)), eventHit(other.id, SessionSeq(3))],
-      })
+    FakeQuery.eventSearch = request =>
+      request.cursor === undefined
+        ? Promise.resolve({
+            session: header(other.id, '/work'),
+            items: [eventHit(other.id, SessionSeq(1))],
+            nextCursor: cursor,
+          })
+        : Promise.resolve({
+            session: header(other.id, '/work'),
+            items: [eventHit(other.id, SessionSeq(2)), eventHit(other.id, SessionSeq(3))],
+          })
     const result = await mounted.call('session_event_search', {
       session_id: other.id,
       query: 'q',
@@ -1693,17 +1653,14 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const second = createSession(mounted.ctx, 'second-title-failure', '/work')
     const stackless = new Error('stackless')
     Object.defineProperty(stackless, 'stack', { value: undefined })
-    const readTitles = vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots')
-      .mockResolvedValueOnce([
-        { sessionId: first.id, status: 'rejected', reason: 'string failure' },
-        { sessionId: second.id, status: 'rejected', reason: stackless },
-      ])
-    FakeQuery.sessionSearch = () => Promise.resolve({
-      items: [
-        sessionHit(first.id, '/work'),
-        sessionHit(second.id, '/work'),
-      ],
-    })
+    const readTitles = vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockResolvedValueOnce([
+      { sessionId: first.id, status: 'rejected', reason: 'string failure' },
+      { sessionId: second.id, status: 'rejected', reason: stackless },
+    ])
+    FakeQuery.sessionSearch = () =>
+      Promise.resolve({
+        items: [sessionHit(first.id, '/work'), sessionHit(second.id, '/work')],
+      })
     const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
     const result = await mounted.call('session_search', { query: 'needle' })
     expect(text(result)).toContain('title unavailable: SESSION_QUERY_TOOL_FAILED')
@@ -1729,11 +1686,13 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
       },
     )
     FakeQuery.sessionSearch = () => Promise.resolve({ items: [sessionHit(hit.id, '/work')] })
-    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockResolvedValueOnce([{
-      sessionId: hit.id,
-      status: 'rejected',
-      reason,
-    }])
+    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockResolvedValueOnce([
+      {
+        sessionId: hit.id,
+        status: 'rejected',
+        reason,
+      },
+    ])
     const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
 
     const result = await mounted.call('session_search', { query: 'needle' })
@@ -1750,8 +1709,7 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const hit = createSession(mounted.ctx, 'thrown-title-failure', '/work')
     const secret = 'title batch failed beside hidden-title-session-secret'
     FakeQuery.sessionSearch = () => Promise.resolve({ items: [sessionHit(hit.id, '/work')] })
-    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots')
-      .mockRejectedValueOnce(new Error(secret))
+    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockRejectedValueOnce(new Error(secret))
     const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
 
     const result = await mounted.call('session_search', { query: 'needle' })
@@ -1769,11 +1727,19 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const cancellation = new Error('cancelled title batch')
     FakeQuery.sessionSearch = () => Promise.resolve({ items: [sessionHit(hit.id, '/work')] })
     let started!: () => void
-    const batchStarted = new Promise<void>((resolve) => { started = resolve })
+    const batchStarted = new Promise<void>(resolve => {
+      started = resolve
+    })
     const readTitles = vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockImplementation((_ids, signal) => {
       started()
       return new Promise((_resolve, reject) => {
-        signal?.addEventListener('abort', () => { reject(cancellation) }, { once: true })
+        signal?.addEventListener(
+          'abort',
+          () => {
+            reject(cancellation)
+          },
+          { once: true },
+        )
       })
     })
     const pending = mounted.call('session_search', { query: 'needle' }, { signal: controller.signal })
@@ -1788,16 +1754,15 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
   it('does not downgrade an authorization failure returned by title observation', async () => {
     const mounted = await mount()
     const hit = createSession(mounted.ctx, 'unauthorized-title-error', '/work')
-    const failure = new HarnessError(
-      'title observation became unauthorized',
-      'SESSION_QUERY_TOOL_UNAUTHORIZED',
-    )
+    const failure = new HarnessError('title observation became unauthorized', 'SESSION_QUERY_TOOL_UNAUTHORIZED')
     FakeQuery.sessionSearch = () => Promise.resolve({ items: [sessionHit(hit.id, '/work')] })
-    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockResolvedValueOnce([{
-      sessionId: hit.id,
-      status: 'rejected',
-      reason: failure,
-    }])
+    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockResolvedValueOnce([
+      {
+        sessionId: hit.id,
+        status: 'rejected',
+        reason: failure,
+      },
+    ])
 
     const result = await mounted.call('session_search', { query: 'needle' })
 
@@ -1811,39 +1776,41 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const mounted = await mount()
     const target = createSession(mounted.ctx, 'stalled-direct-authorization', '/work')
     const controller = new AbortController()
-    const cancellation = new SessionQueryError(
-      'direct-target authorization cancelled',
-      'SESSION_QUERY_ABORTED',
-    )
+    const cancellation = new SessionQueryError('direct-target authorization cancelled', 'SESSION_QUERY_ABORTED')
     const started = Promise.withResolvers<undefined>()
     const abortObserved = Promise.withResolvers<undefined>()
     const cleanup = Promise.withResolvers<undefined>()
     let active = false
-    const filterSessions = vi.spyOn(mounted.ctx.sessionQuery, 'filterSessions')
-      .mockImplementation(async (_filters, signal) => {
-        if (signal === undefined) throw new Error('expected authorization signal')
-        active = true
-        const aborted = new Promise<void>((resolve) => {
-          signal.addEventListener('abort', () => { resolve() }, { once: true })
-        })
-        started.resolve(undefined)
-        await aborted
-        abortObserved.resolve(undefined)
-        await cleanup.promise
-        active = false
-        signal.throwIfAborted()
-        return []
+    const filterSessions = vi.spyOn(mounted.ctx.sessionQuery, 'filterSessions').mockImplementation(async (_filters, signal) => {
+      if (signal === undefined) throw new Error('expected authorization signal')
+      active = true
+      const aborted = new Promise<void>(resolve => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve()
+          },
+          { once: true },
+        )
       })
+      started.resolve(undefined)
+      await aborted
+      abortObserved.resolve(undefined)
+      await cleanup.promise
+      active = false
+      signal.throwIfAborted()
+      return []
+    })
 
-    const pending = mounted.call(
-      'session_event_search',
-      { session_id: target.id, query: 'needle' },
-      { signal: controller.signal },
-    )
+    const pending = mounted.call('session_event_search', { session_id: target.id, query: 'needle' }, { signal: controller.signal })
     let settled = false
     void pending.then(
-      () => { settled = true },
-      () => { settled = true },
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
     )
     await started.promise
     controller.abort(cancellation)
@@ -1868,41 +1835,47 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const timeoutMs = 1_234
     const mounted = await mount({ searchTimeoutMs: timeoutMs }, '/work', true)
     const parent = createSession(mounted.ctx, 'stalled-parent-authorization', '/work')
-    FakeQuery.sessionSearch = () => Promise.resolve({
-      items: [sessionHit('authorized-child', '/work', 'needle', parent.id)],
-    })
+    FakeQuery.sessionSearch = () =>
+      Promise.resolve({
+        items: [sessionHit('authorized-child', '/work', 'needle', parent.id)],
+      })
     const upstream = new AbortController()
     const started = Promise.withResolvers<undefined>()
     const abortObserved = Promise.withResolvers<undefined>()
     const cleanup = Promise.withResolvers<undefined>()
     let active = false
     let deadlineSignal: AbortSignal | undefined
-    const filterSessions = vi.spyOn(mounted.ctx.sessionQuery, 'filterSessions')
-      .mockImplementation(async (_filters, signal) => {
-        if (signal === undefined) throw new Error('expected authorization signal')
-        deadlineSignal = signal
-        active = true
-        const aborted = new Promise<void>((resolve) => {
-          signal.addEventListener('abort', () => { resolve() }, { once: true })
-        })
-        started.resolve(undefined)
-        await aborted
-        abortObserved.resolve(undefined)
-        await cleanup.promise
-        active = false
-        signal.throwIfAborted()
-        return []
+    const filterSessions = vi.spyOn(mounted.ctx.sessionQuery, 'filterSessions').mockImplementation(async (_filters, signal) => {
+      if (signal === undefined) throw new Error('expected authorization signal')
+      deadlineSignal = signal
+      active = true
+      const aborted = new Promise<void>(resolve => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve()
+          },
+          { once: true },
+        )
       })
+      started.resolve(undefined)
+      await aborted
+      abortObserved.resolve(undefined)
+      await cleanup.promise
+      active = false
+      signal.throwIfAborted()
+      return []
+    })
 
-    const pending = mounted.call(
-      'session_search',
-      { query: 'needle' },
-      { signal: upstream.signal },
-    )
+    const pending = mounted.call('session_search', { query: 'needle' }, { signal: upstream.signal })
     let settled = false
     void pending.then(
-      () => { settled = true },
-      () => { settled = true },
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
     )
     await started.promise
     await vi.advanceTimersByTimeAsync(timeoutMs)
@@ -1929,13 +1902,20 @@ describe('search paging, prior-history bounds, titles, and cancellation', () => 
     const controller = new AbortController()
     const warn = vi.spyOn(mounted.ctx.logger, 'warn').mockImplementation(() => undefined)
     let started!: () => void
-    const bodyStarted = new Promise<void>((resolve) => { started = resolve })
-    FakeQuery.sessionSearch = (_request, exec) => new Promise((_resolve, reject) => {
-      started()
-      exec?.signal?.addEventListener('abort', () => {
-        reject(new SessionQueryError('aborted', 'SESSION_QUERY_ABORTED'))
-      }, { once: true })
+    const bodyStarted = new Promise<void>(resolve => {
+      started = resolve
     })
+    FakeQuery.sessionSearch = (_request, exec) =>
+      new Promise((_resolve, reject) => {
+        started()
+        exec?.signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new SessionQueryError('aborted', 'SESSION_QUERY_ABORTED'))
+          },
+          { once: true },
+        )
+      })
     const cancellation = new SessionQueryError('aborted', 'SESSION_QUERY_ABORTED')
     const pending = mounted.call('session_search', { query: 'needle' }, { signal: controller.signal })
     await bodyStarted
@@ -1952,21 +1932,25 @@ describe('trace and exact read rendering', () => {
   it('renders a deeply nested lineage without recursive consumer traversal', async () => {
     const mounted = await mount()
     const target = createSession(mounted.ctx, 'deep-target', '/work')
-    const [targetRecord] = await mounted.ctx.sessionQuery.filterSessions([{
-      kind: 'id',
-      values: [target.id],
-    }])
+    const [targetRecord] = await mounted.ctx.sessionQuery.filterSessions([
+      {
+        kind: 'id',
+        values: [target.id],
+      },
+    ])
     if (targetRecord === undefined) throw new Error('expected target record')
     const depth = 3_000
     let descendants: SessionLineageNode[] = []
     for (let index = depth; index >= 1; index -= 1) {
-      descendants = [{
-        session: {
-          ...targetRecord,
-          header: header(`deep-${index}`, '/work', index),
+      descendants = [
+        {
+          session: {
+            ...targetRecord,
+            header: header(`deep-${index}`, '/work', index),
+          },
+          descendants,
         },
-        descendants,
-      }]
+      ]
     }
     vi.spyOn(mounted.ctx.sessionQuery, 'traceSession').mockResolvedValue({
       target: targetRecord,
@@ -1975,13 +1959,15 @@ describe('trace and exact read rendering', () => {
       complete: true,
       root: targetRecord,
     })
-    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockImplementation(sessionIds => Promise.resolve(
-      [...new Set(sessionIds)].map(sessionId => ({
-        sessionId,
-        status: 'fulfilled' as const,
-        value: { session: header(sessionId, '/work') },
-      })),
-    ))
+    vi.spyOn(mounted.ctx.sessionQuery, 'readTitleSnapshots').mockImplementation(sessionIds =>
+      Promise.resolve(
+        [...new Set(sessionIds)].map(sessionId => ({
+          sessionId,
+          status: 'fulfilled' as const,
+          value: { session: header(sessionId, '/work') },
+        })),
+      ),
+    )
 
     const output = text(await mounted.call('session_trace', { session_id: target.id }))
     expect(output).toContain('Descendants:\n- deep-1 —')
@@ -1994,7 +1980,8 @@ describe('trace and exact read rendering', () => {
     session.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'source' }], source: { kind: 'user' },
+        content: [{ type: 'text', text: 'source' }],
+        source: { kind: 'user' },
       }),
       { surfaceOp: 'append' },
     )
@@ -2022,7 +2009,8 @@ describe('trace and exact read rendering', () => {
     session.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'before semantic text' }], source: { kind: 'user' },
+        content: [{ type: 'text', text: 'before semantic text' }],
+        source: { kind: 'user' },
       }),
       { surfaceOp: 'append' },
     )
@@ -2043,14 +2031,8 @@ describe('trace and exact read rendering', () => {
       },
       { surfaceOp: 'append' },
     )
-    const appendLegacy = session.append.bind(session) as unknown as (
-      type: string,
-      data: unknown,
-    ) => SessionEvent
-    appendLegacy(
-      'context/message',
-      { content: [{ type: 'text', text: 'after semantic text' }], source: { kind: 'test' } },
-    )
+    const appendLegacy = session.append.bind(session) as unknown as (type: string, data: unknown) => SessionEvent
+    appendLegacy('context/message', { content: [{ type: 'text', text: 'after semantic text' }], source: { kind: 'test' } })
     const result = await mounted.call('session_event_read', {
       session_id: session.id,
       seq: 1,
@@ -2073,26 +2055,32 @@ describe('trace and exact read rendering', () => {
     session.append('step/start', { turn: 1, step: 1 })
     session.append('step/end', { turn: 1, step: 1 })
 
-    const trace = text(await mounted.call('session_event_trace', {
-      session_id: session.id,
-      seq: 0,
-    }))
+    const trace = text(
+      await mounted.call('session_event_trace', {
+        session_id: session.id,
+        seq: 0,
+      }),
+    )
     expect(trace).toContain('Replaced by: none')
     expect(trace).toContain('Replacement chain: none')
 
-    const onlyAfter = text(await mounted.call('session_event_read', {
-      session_id: session.id,
-      seq: 0,
-      after: 1,
-    }))
+    const onlyAfter = text(
+      await mounted.call('session_event_read', {
+        session_id: session.id,
+        seq: 0,
+        after: 1,
+      }),
+    )
     expect(onlyAfter).not.toContain('Before:')
     expect(onlyAfter).toContain('(no semantic text)')
 
-    const onlyBefore = text(await mounted.call('session_event_read', {
-      session_id: session.id,
-      seq: 1,
-      before: 1,
-    }))
+    const onlyBefore = text(
+      await mounted.call('session_event_read', {
+        session_id: session.id,
+        seq: 1,
+        before: 1,
+      }),
+    )
     expect(onlyBefore).toContain('Before:')
     expect(onlyBefore).not.toContain('After:')
   })

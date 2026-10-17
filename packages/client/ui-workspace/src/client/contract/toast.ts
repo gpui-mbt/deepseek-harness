@@ -1,6 +1,11 @@
 /** Keyed Workspace notices and the shared Toast Factory's display data. */
 import type {
-  FactoryComponentPropsOf, InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, PropsStore,
+  FactoryComponentPropsOf,
+  InjectFace,
+  PropsLocale,
+  PropsRenderFactories,
+  PropsRuntime,
+  PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RowToastState, WorkspaceViewStoreHandle } from './slots.ts'
 
@@ -25,8 +30,10 @@ export interface ToastDisplayInjected<K extends ToastKind> {
   display: (notice: ToastNotice<K>, t: PropsLocale<'workspace'>['t'], dismiss: () => void) => ToastDisplay
 }
 /** Shared adapter props; each registration narrows its notice payload. */
-export type ToastEntryProps<P extends PropsRuntime<'workspace.toast'>> =
-  P & PropsLocale<'workspace'> & PropsRenderFactories & InjectFace<{
+export type ToastEntryProps<P extends PropsRuntime<'workspace.toast'>> = P &
+  PropsLocale<'workspace'> &
+  PropsRenderFactories &
+  InjectFace<{
     display: (notice: P, t: PropsLocale<'workspace'>['t'], dismiss: () => void) => ToastDisplay
   }>
 /** Archive adapters additionally read the existing viewing store. */
@@ -34,9 +41,11 @@ export interface ArchiveToastInjected extends ToastDisplayInjected<'archived' | 
   filterAction: (t: PropsLocale<'workspace'>['t'], dismiss: () => void) => NonNullable<ToastDisplay['actions']>[number]
 }
 /** Archive adapter props with its injected action and viewing-state seats. */
-export type ArchiveToastEntryProps =
-  PropsRuntime<'workspace.toast', 'archived' | 'stoppedAndArchived'> & PropsLocale<'workspace'> & PropsRenderFactories
-  & PropsStore<WorkspaceViewStoreHandle> & InjectFace<ArchiveToastInjected>
+export type ArchiveToastEntryProps = PropsRuntime<'workspace.toast', 'archived' | 'stoppedAndArchived'> &
+  PropsLocale<'workspace'> &
+  PropsRenderFactories &
+  PropsStore<WorkspaceViewStoreHandle> &
+  InjectFace<ArchiveToastInjected>
 
 /** Complete props of the shared Workspace Toast Factory. */
 export type WorkspaceToastProps = FactoryComponentPropsOf<'workspace.toast.content'>

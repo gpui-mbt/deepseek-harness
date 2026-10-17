@@ -113,9 +113,7 @@ interface WebFetchResult {
  * stays its own object literal even where fields coincide, so an arm can gain
  * fields the others lack.
  */
-type WebFetchBody =
-  | { readonly kind: 'html'; readonly content: string }
-  | { readonly kind: 'text'; readonly content: string }
+type WebFetchBody = { readonly kind: 'html'; readonly content: string } | { readonly kind: 'text'; readonly content: string }
 ```
 
 ## Provider availability

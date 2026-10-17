@@ -45,8 +45,7 @@ export async function officePackageDirectories(staging, target) {
     ])
     for (const name of dependencies) {
       if (name.startsWith('@deepseek-ai/libreoffice-kit-')) continue
-      const optional = manifest.optionalDependencies?.[name] !== undefined
-        || manifest.peerDependenciesMeta?.[name]?.optional === true
+      const optional = manifest.optionalDependencies?.[name] !== undefined || manifest.peerDependenciesMeta?.[name]?.optional === true
       const dependencyDirectory = (require.resolve.paths(name) ?? [])
         .map(directory => join(directory, name))
         .find(directory => existsSync(directory))
@@ -64,7 +63,8 @@ export async function officePackageDirectories(staging, target) {
 
   await visit(entry)
   const engineDirectory = join(staging, 'node_modules', engineName)
-  if (!existsSync(engineDirectory)) throw new Error(`Office engine ${engineName} required for ${target.platform}/${target.arch} is missing.`)
+  if (!existsSync(engineDirectory))
+    throw new Error(`Office engine ${engineName} required for ${target.platform}/${target.arch} is missing.`)
   await visit(engineDirectory)
   return [...packages].sort()
 }
@@ -75,6 +75,8 @@ export async function officePackageDirectories(staging, target) {
  * @returns {boolean} Whether the optional package supports the target.
  */
 function supports(values, value) {
-  return values === undefined || (!values.includes(`!${value}`)
-    && (values.every(item => item.startsWith('!')) || values.includes(value) || values.includes('any')))
+  return (
+    values === undefined ||
+    (!values.includes(`!${value}`) && (values.every(item => item.startsWith('!')) || values.includes(value) || values.includes('any')))
+  )
 }

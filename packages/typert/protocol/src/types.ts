@@ -66,10 +66,9 @@ export type TypertResourceKind = Extract<keyof TypertResourceMap, string>
  * @template Args - the argument tuple the readers receive as parameters.
  */
 export type TypertResourceReaders<Args extends readonly unknown[]> = {
-  readonly [Kind in TypertResourceKind]?: (...args: Args) =>
-    | TypertResourceId<TypertResourceMap[Kind]>
-    | readonly TypertResourceId<TypertResourceMap[Kind]>[]
-    | undefined
+  readonly [Kind in TypertResourceKind]?: (
+    ...args: Args
+  ) => TypertResourceId<TypertResourceMap[Kind]> | readonly TypertResourceId<TypertResourceMap[Kind]>[] | undefined
 }
 
 /**
@@ -81,13 +80,13 @@ export type TypertResourceReader = { read(...args: readonly unknown[]): unknown 
 
 type TypertLookupEntry = TypertLookupMap[keyof TypertLookupMap]
 type TypertWireForHost<Value, Entry> = Entry extends unknown
-  ? Value extends TypertLookupHost<Entry> ? TypertLookupWire<Entry> : never
+  ? Value extends TypertLookupHost<Entry>
+    ? TypertLookupWire<Entry>
+    : never
   : never
 
 /** A method parameter as it arrives on the wire: a lookup's Host object becomes its wire identity. */
-export type RemoteWireValue<Value> = Value extends TypertLookupHost<TypertLookupEntry>
-  ? TypertWireForHost<Value, TypertLookupEntry>
-  : Value
+export type RemoteWireValue<Value> = Value extends TypertLookupHost<TypertLookupEntry> ? TypertWireForHost<Value, TypertLookupEntry> : Value
 
 /** A method's positional parameters as the wire carries them. */
 export type RemoteWireArgs<Args extends unknown[]> = { [Index in keyof Args]: RemoteWireValue<Args[Index]> }
@@ -127,9 +126,7 @@ export type RemoteFailure = {
  * Context adapter) still reject.
  * @template T - the Host method's business result.
  */
-export type RemoteResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: RemoteFailure }
+export type RemoteResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: RemoteFailure }
 
 declare const STREAM_UPLINK: unique symbol
 
@@ -180,11 +177,9 @@ export interface RemoteStreamHandle<Out, In> extends AsyncIterable<Out> {
 /** Merge-extensible scoped Remote method signatures generated for consumers. */
 export interface TypertRemoteScopeMap {}
 
-type TypertEventParameters<Event extends keyof Events> =
-  Events[Event] extends (...args: infer Args) => unknown ? Args : never
+type TypertEventParameters<Event extends keyof Events> = Events[Event] extends (...args: infer Args) => unknown ? Args : never
 
-type TypertEventResult<Event extends keyof Events> =
-  Events[Event] extends (...args: never[]) => infer Result ? Result : never
+type TypertEventResult<Event extends keyof Events> = Events[Event] extends (...args: never[]) => infer Result ? Result : never
 
 type TypertProjectedContextKey = Extract<keyof TypertLookupMap, keyof TypertContextMap>
 
@@ -194,7 +189,9 @@ type TypertProjectedContextSubject = {
 
 type TypertAgentScopedRequest<Request> = Request extends object
   ? 'agent' extends keyof Request
-    ? Exclude<Request['agent'], undefined> extends TypertProjectedContextSubject ? Request : never
+    ? Exclude<Request['agent'], undefined> extends TypertProjectedContextSubject
+      ? Request
+      : never
     : never
   : never
 
@@ -204,15 +201,21 @@ type TypertWaterfallEvent<Event extends keyof Events> =
     : TypertEventParameters<Event> extends [infer Request, infer Next]
       ? Next extends () => TypertEventResult<Event>
         ? TypertEventResult<Event> extends Promise<unknown>
-          ? TypertAgentScopedRequest<Request> extends never ? never : Event
+          ? TypertAgentScopedRequest<Request> extends never
+            ? never
+            : Event
           : never
         : never
       : never
 
 type TypertForwardingMode<Event extends keyof Events> =
   unknown extends ThisParameterType<Events[Event]>
-    ? TypertEventResult<Event> extends void ? 'emit' : never
-    : TypertWaterfallEvent<Event> extends never ? never : 'waterfall'
+    ? TypertEventResult<Event> extends void
+      ? 'emit'
+      : never
+    : TypertWaterfallEvent<Event> extends never
+      ? never
+      : 'waterfall'
 
 /**
  * Cordis event names the Remote Event carrier can preserve without a second
@@ -234,10 +237,10 @@ export type TypertForwardableEventEntry = {
   [Event in keyof Events]: TypertForwardingMode<Event> extends infer Mode
     ? Mode extends 'emit'
       ? {
-        readonly event: Event
-        readonly mode: Mode
-        readonly resources?: TypertResourceReaders<TypertEventParameters<Event>>
-      }
+          readonly event: Event
+          readonly mode: Mode
+          readonly resources?: TypertResourceReaders<TypertEventParameters<Event>>
+        }
       : Mode extends 'waterfall'
         ? { readonly event: Event; readonly mode: Mode }
         : never
@@ -251,22 +254,18 @@ export interface TypertRemoteEventSelection {}
 export type TypertRemoteEvent = Extract<TypertForwardableEvent, keyof TypertRemoteEventSelection>
 
 type TypertClientAgent<Value> =
-  Exclude<Value, undefined> extends TypertProjectedContextSubject
-    ? Context | Extract<Value, undefined>
-    : Value
+  Exclude<Value, undefined> extends TypertProjectedContextSubject ? Context | Extract<Value, undefined> : Value
 
 type TypertClientEventRequest<Request> = Request extends object
   ? { [Key in keyof Request]: Key extends 'agent' ? TypertClientAgent<Request[Key]> : Request[Key] }
   : never
 
-type TypertScopedClientEventListener<Event extends TypertRemoteEvent> =
-  Events[Event] extends (request: infer Request, next: infer Next) => infer Result
-    ? (
-      this: Context,
-      request: TypertClientEventRequest<Request>,
-      next: Next,
-    ) => Result
-    : never
+type TypertScopedClientEventListener<Event extends TypertRemoteEvent> = Events[Event] extends (
+  request: infer Request,
+  next: infer Next,
+) => infer Result
+  ? (this: Context, request: TypertClientEventRequest<Request>, next: Next) => Result
+  : never
 
 /**
  * Listener derived from one selected Cordis event declaration. Scoped Host
@@ -275,18 +274,14 @@ type TypertScopedClientEventListener<Event extends TypertRemoteEvent> =
  * @template Event - selected Remote Event name.
  */
 export type TypertClientEventListener<Event extends TypertRemoteEvent> =
-  unknown extends ThisParameterType<Events[Event]>
-    ? Events[Event]
-    : TypertScopedClientEventListener<Event>
+  unknown extends ThisParameterType<Events[Event]> ? Events[Event] : TypertScopedClientEventListener<Event>
 
 /**
  * Resolve one direct Remote namespace from the generated flat endpoint map.
  * @template Namespace - wire namespace before the endpoint slash.
  */
 export type TypertRemoteNamespace<Namespace extends string> = {
-  [Endpoint in keyof TypertRemoteMap as Endpoint extends `${Namespace}/${infer Method}`
-    ? Method
-    : never]: TypertRemoteMap[Endpoint]
+  [Endpoint in keyof TypertRemoteMap as Endpoint extends `${Namespace}/${infer Method}` ? Method : never]: TypertRemoteMap[Endpoint]
 }
 
 /**
@@ -294,13 +289,10 @@ export type TypertRemoteNamespace<Namespace extends string> = {
  * The calling Cordis Context supplies the concrete identity at runtime.
  * @template Namespace - wire namespace between the Context prefix and method.
  */
-export type TypertRemoteScopeNamespace<
-  Namespace extends string,
-  ContextKey extends string = string,
-> = {
-  [Endpoint in keyof TypertRemoteScopeMap as Endpoint extends `${ContextKey}:${Namespace}/${infer Method}`
-    ? Method
-    : never]: TypertRemoteScopeMap[Endpoint]
+export type TypertRemoteScopeNamespace<Namespace extends string, ContextKey extends string = string> = {
+  [
+    Endpoint in keyof TypertRemoteScopeMap as Endpoint extends `${ContextKey}:${Namespace}/${infer Method}` ? Method : never
+  ]: TypertRemoteScopeMap[Endpoint]
 }
 
 type TypertRemoteScopeNamespaceKey<
@@ -310,8 +302,7 @@ type TypertRemoteScopeNamespaceKey<
 
 /** Generated scoped Remote namespaces available to one Context kind. */
 export type TypertRemoteScopeApi<ContextKey extends string> = {
-  [Namespace in TypertRemoteScopeNamespaceKey<ContextKey>]:
-  TypertRemoteScopeNamespace<Namespace, ContextKey>
+  [Namespace in TypertRemoteScopeNamespaceKey<ContextKey>]: TypertRemoteScopeNamespace<Namespace, ContextKey>
 }
 
 /** Merge-extensible direct namespace surface generated for Client Remote services. */
@@ -333,32 +324,38 @@ export interface TypertSchema<Output = unknown> {
 }
 
 /** Native byte views reconstructed by a Remote carrier have ordinary ArrayBuffer backing. */
-export type RemoteDecoded<Value> = Value extends Uint8Array ? Uint8Array<ArrayBuffer>
-  : Value extends string | number | boolean | bigint | symbol ? Value
-    : Value extends object ? { [Key in keyof Value]: RemoteDecoded<Value[Key]> } : Value
+export type RemoteDecoded<Value> = Value extends Uint8Array
+  ? Uint8Array<ArrayBuffer>
+  : Value extends string | number | boolean | bigint | symbol
+    ? Value
+    : Value extends object
+      ? { [Key in keyof Value]: RemoteDecoded<Value[Key]> }
+      : Value
 
 /** Codec attached to one invocation parameter or result. */
 export type TypertCodec<Value = unknown> =
-  | TypertRemoteValue<Value> & {
-    readonly mode: 'strict'
-    readonly typeSymbol: string
-    /**
-     * Decode a unary result whose fields require type-specific handling.
-     * @param value - result reconstructed by the RPC carrier.
-     * @returns the validated result, retaining native byte views.
-     */
-    readonly decode?: ((value: unknown) => unknown) | undefined
-    /**
-     * Project typed binary fields into RPC result attachments.
-     * @param value - native unary result.
-     * @param writeBytes - records a byte view at its result-relative path and returns its JSON placeholder.
-     * @returns JSON metadata with untouched JSON subtrees retained.
-     */
-    readonly encode?: ((value: unknown, writeBytes: (bytes: Uint8Array, path: readonly (string | number)[]) => null) => unknown) | undefined
-  }
+  | (TypertRemoteValue<Value> & {
+      readonly mode: 'strict'
+      readonly typeSymbol: string
+      /**
+       * Decode a unary result whose fields require type-specific handling.
+       * @param value - result reconstructed by the RPC carrier.
+       * @returns the validated result, retaining native byte views.
+       */
+      readonly decode?: ((value: unknown) => unknown) | undefined
+      /**
+       * Project typed binary fields into RPC result attachments.
+       * @param value - native unary result.
+       * @param writeBytes - records a byte view at its result-relative path and returns its JSON placeholder.
+       * @returns JSON metadata with untouched JSON subtrees retained.
+       */
+      readonly encode?:
+        | ((value: unknown, writeBytes: (bytes: Uint8Array, path: readonly (string | number)[]) => null) => unknown)
+        | undefined
+    })
   | {
-    readonly mode: 'src-json'
-  }
+      readonly mode: 'src-json'
+    }
 
 /** One ordered business parameter in a Remote invocation. */
 export interface InvocationParameterDescriptor {
@@ -403,11 +400,11 @@ export interface InvocationDescriptor {
   readonly invocation:
     | { readonly kind: 'direct' }
     | {
-      readonly kind: 'context'
-      readonly context: string
-      readonly wire: string
-      readonly codec: TypertCodec
-    }
+        readonly kind: 'context'
+        readonly context: string
+        readonly wire: string
+        readonly codec: TypertCodec
+      }
   /** Optional consuming-Context projection for one direct lookup parameter. */
   readonly scope?: {
     /** Context kind whose Client adapter supplies the identity. */
@@ -550,9 +547,14 @@ export interface TypertRemoteInputOptions {
 }
 
 /** A direct descriptor; DecodedOutput differs from its parser output only for carrier-reconstructed unary bytes. */
-export type TypertRemoteMethod<Input extends object, Output, Mode extends 'unary' | 'stream' = 'unary', Uplink = never, DecodedOutput = Output> =
-  Omit<InvocationDescriptor, 'mode' | 'invocation' | 'result'>
-  & (Mode extends 'stream' ? { readonly mode: 'stream' } : { readonly mode?: never }) & {
+export type TypertRemoteMethod<
+  Input extends object,
+  Output,
+  Mode extends 'unary' | 'stream' = 'unary',
+  Uplink = never,
+  DecodedOutput = Output,
+> = Omit<InvocationDescriptor, 'mode' | 'invocation' | 'result'> &
+  (Mode extends 'stream' ? { readonly mode: 'stream' } : { readonly mode?: never }) & {
     /** Named invocation selects a direct Service method, not a Context receiver. */
     readonly invocation: { readonly kind: 'direct' }
     /**
@@ -570,16 +572,18 @@ export type TypertRemoteMethod<Input extends object, Output, Mode extends 'unary
      * @param signal - caller-owned invocation lifetime.
      * @returns the carrier-decoded unary result or complete stream handle, including uplink and disposal.
      */
-    invoke(remote: TypertClientRemote, input: Input, signal?: AbortSignal): Mode extends 'stream'
-      ? RemoteStreamHandle<Output, Uplink>
-      : Promise<RemoteResult<DecodedOutput>>
+    invoke(
+      remote: TypertClientRemote,
+      input: Input,
+      signal?: AbortSignal,
+    ): Mode extends 'stream' ? RemoteStreamHandle<Output, Uplink> : Promise<RemoteResult<DecodedOutput>>
   }
 
 /** Ordinary contribution whose method index references its direct invocation descriptors. */
-export interface TypertRemoteInfo<Methods extends Readonly<Record<string,
-  TypertRemoteMethod<object, unknown> | TypertRemoteMethod<object, unknown, 'stream', unknown>
->> = Readonly<Record<string, TypertRemoteMethod<object, unknown> | TypertRemoteMethod<object, unknown, 'stream', unknown>>>>
-  extends TypertRemoteContribution {
+export interface TypertRemoteInfo<
+  Methods extends Readonly<Record<string, TypertRemoteMethod<object, unknown> | TypertRemoteMethod<object, unknown, 'stream', unknown>>> =
+    Readonly<Record<string, TypertRemoteMethod<object, unknown> | TypertRemoteMethod<object, unknown, 'stream', unknown>>>,
+> extends TypertRemoteContribution {
   /** Exact generated keys and types; Context-only receivers are available only through descriptors. */
   readonly methods: Methods
 }
@@ -641,9 +645,7 @@ export interface TypertClientRemote extends TypertRemoteNamespaceMap {
  * @param id - validated wire identity.
  * @returns the Host object, or `undefined` when unavailable.
  */
-export type TypertLookupResolver<Host = unknown, Wire = unknown> = (
-  id: Wire,
-) => Host | undefined | Promise<Host | undefined>
+export type TypertLookupResolver<Host = unknown, Wire = unknown> = (id: Wire) => Host | undefined | Promise<Host | undefined>
 
 /** Resource kinds whose identity type is a wire identity; every kind for a type-erased provider. */
 type TypertResourceKindFor<Wire> = unknown extends Wire
@@ -701,9 +703,7 @@ export interface TypertHostContextAdapter<Wire = unknown> {
 }
 
 /** Composition-owned resolver replacing one Host Context adapter's default lookup policy. */
-export type TypertHostContextResolver<Wire = unknown> = (
-  id: Wire,
-) => Context | undefined | Promise<Context | undefined>
+export type TypertHostContextResolver<Wire = unknown> = (id: Wire) => Context | undefined | Promise<Context | undefined>
 
 /** Client-side bidirectional Context adapter. */
 export interface TypertClientContextAdapter<Wire = unknown> {
@@ -788,10 +788,7 @@ export interface TypertLookupRegistry {
    */
   register<K extends StringKeyOf<TypertLookupMap>>(
     key: K,
-    provider: TypertLookupProvider<
-      TypertLookupHost<TypertLookupMap[K]>,
-      TypertLookupWire<TypertLookupMap[K]>
-    >,
+    provider: TypertLookupProvider<TypertLookupHost<TypertLookupMap[K]>, TypertLookupWire<TypertLookupMap[K]>>,
   ): TypertDisposer
   /**
    * Replace one provider's default resolution policy while this contribution is active.
@@ -802,10 +799,7 @@ export interface TypertLookupRegistry {
    */
   configure<K extends StringKeyOf<TypertLookupMap>>(
     key: K,
-    resolver: TypertLookupResolver<
-      TypertLookupHost<TypertLookupMap[K]>,
-      TypertLookupWire<TypertLookupMap[K]>
-    >,
+    resolver: TypertLookupResolver<TypertLookupHost<TypertLookupMap[K]>, TypertLookupWire<TypertLookupMap[K]>>,
   ): TypertDisposer
   /**
    * Look up one provider by runtime key.

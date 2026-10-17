@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { act, renderHook } from '@testing-library/react'
 import type { HostObservable, KeyedStandardSource } from '@deepseek-ai/dsh-client-ui-slots'
 import { keyedObservableHook } from '../src/client/bindings.tsx'
@@ -9,11 +9,13 @@ function observable<T>(initial: T): HostObservable<T> & { set(next: T): void } {
   const listeners = new Set<() => void>()
   return {
     getSnapshot: () => value,
-    subscribe: (listener) => {
+    subscribe: listener => {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
-    set: (next) => {
+    set: next => {
       value = next
       for (const listener of [...listeners]) listener()
     },
@@ -21,16 +23,19 @@ function observable<T>(initial: T): HostObservable<T> & { set(next: T): void } {
 }
 
 describe('keyed standard Hooks', () => {
-  it('reads the resolver\'s (key, member) source when the second argument is a string', () => {
+  it("reads the resolver's (key, member) source when the second argument is a string", () => {
     const fork = observable(true)
     const whole = observable({ title: 'one' })
     const resolver = vi.fn<KeyedStandardSource>((key, member) =>
-      member === undefined ? (key === 's1' ? whole : undefined) : (key === 's1' && member === 'session/fork' ? fork : undefined))
+      member === undefined ? (key === 's1' ? whole : undefined) : key === 's1' && member === 'session/fork' ? fork : undefined,
+    )
     const useAccess = keyedObservableHook(resolver)
 
     const member = renderHook(() => useAccess('s1', 'session/fork'))
     expect(member.result.current).toBe(true)
-    act(() => { fork.set(false) })
+    act(() => {
+      fork.set(false)
+    })
     expect(member.result.current).toBe(false)
     expect(resolver).toHaveBeenCalledWith('s1', 'session/fork')
 
@@ -46,7 +51,9 @@ describe('keyed standard Hooks', () => {
     expect(renderHook(() => useValue((value: unknown) => (value as { count: number }).count)).result.current).toBe(1)
     const equal = vi.fn(() => true)
     renderHook(() => useValue('k', (value: unknown) => value, equal))
-    act(() => { whole.set({ title: 'two', count: 2 }) })
+    act(() => {
+      whole.set({ title: 'two', count: 2 })
+    })
     expect(equal).toHaveBeenCalled()
     const noDefault = keyedObservableHook(key => (key === 'k' ? whole : undefined))
     expect(renderHook(() => noDefault((value: unknown) => value)).result.current).toBeUndefined()

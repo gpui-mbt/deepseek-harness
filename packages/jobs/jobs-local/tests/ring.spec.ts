@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { OutputRing } from '../src/ring.ts'
 
 describe('OutputRing', () => {
@@ -36,7 +36,14 @@ describe('OutputRing', () => {
     // 10 bytes retained > cap 8: the oldest whole chunk goes.
     expect(ring.earliest).toBe(4)
     expect(ring.retainedBytes).toBe(6)
-    expect(ring.readFrom(0)).toEqual({ chunks: [{ at: 4, text: 'bbbb' }, { at: 8, text: 'cc' }], next: 10, lossy: true })
+    expect(ring.readFrom(0)).toEqual({
+      chunks: [
+        { at: 4, text: 'bbbb' },
+        { at: 8, text: 'cc' },
+      ],
+      next: 10,
+      lossy: true,
+    })
     expect(ring.readFrom(4).lossy).toBe(false)
   })
 

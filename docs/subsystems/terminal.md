@@ -17,9 +17,7 @@ type TerminalWaitReason = 'stdin_read' | 'inferred_idle' | 'timeout' | 'session_
 
 ```ts type-equiv
 /** Top-level PTY process status, independent of a send's wait reason. */
-type TerminalSessionStatus =
-  | { kind: 'running' }
-  | { kind: 'exited'; exitCode: number | null; signal: NodeJS.Signals | null }
+type TerminalSessionStatus = { kind: 'running' } | { kind: 'exited'; exitCode: number | null; signal: NodeJS.Signals | null }
 ```
 
 ## Backend and live session

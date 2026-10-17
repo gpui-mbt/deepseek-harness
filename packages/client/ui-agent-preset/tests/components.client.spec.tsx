@@ -7,7 +7,7 @@
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SessionRetainInfo } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -30,10 +30,7 @@ const ROSTER_READY: AgentPresetSettingsState = {
 
 const SEAT_READY: AgentPresetSeatState = {
   current: 'standard',
-  options: [
-    { id: 'standard' },
-    { id: 'mine' },
-  ],
+  options: [{ id: 'standard' }, { id: 'mine' }],
   busy: false,
   error: null,
   introduce: false,
@@ -46,7 +43,7 @@ function translate(key: keyof typeof en, params?: Record<string, unknown>): stri
   const template = en[key]
   return params === undefined
     ? template
-    : template.replace(/\{(\w+)\}/g, (match, name: string) => name in params ? String(params[name]) : match)
+    : template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match))
 }
 
 function renderSeat(
@@ -58,7 +55,9 @@ function renderSeat(
   const store = createSnapshotStore<AgentPresetSeatState>({ ...SEAT_READY, ...state })
   const developerTools = createSnapshotStore(enabled)
   const actions = {
-    load: vi.fn(() => Promise.resolve()), select: vi.fn(select), introduced: vi.fn(),
+    load: vi.fn(() => Promise.resolve()),
+    select: vi.fn(select),
+    introduced: vi.fn(),
     dismissRefusal: vi.fn((error: AgentPresetSeatState['error']) => {
       if (store.getSnapshot().error === error && error !== null && typeof error === 'object') {
         store.set({ ...store.getSnapshot(), error: error.reason })
@@ -70,9 +69,10 @@ function renderSeat(
     sessionId: session === undefined ? undefined : SessionId(session.id),
     useDeveloperTools: bindSnapshotSelector(developerTools),
     useAgentPresetSeat: bindSnapshotSelector(store),
-    useSessionRetainInfo: session === undefined
-      ? useSessionRetainInfo
-      : <Selected,>(selector: (value: SessionRetainInfo | undefined) => Selected) => selector(session.retainInfo),
+    useSessionRetainInfo:
+      session === undefined
+        ? useSessionRetainInfo
+        : <Selected,>(selector: (value: SessionRetainInfo | undefined) => Selected) => selector(session.retainInfo),
     t: translate,
   } as AgentPresetSeatProps
   render(<AgentPresetSeat {...props} />)
@@ -85,25 +85,34 @@ function renderLabel(
 ) {
   // The chip and the label read the same roster, metadata included.
   const store = createSnapshotStore<AgentPresetSettingsState>({
-    ...ROSTER_READY, options: SEAT_READY.options, ...roster,
+    ...ROSTER_READY,
+    options: SEAT_READY.options,
+    ...roster,
   })
   const sessions = createSnapshotStore({ byId: summary === undefined ? {} : { s1: summary } })
   const load = vi.fn(() => Promise.resolve())
-  const view = render(<AgentPresetLabel {...({
-    load,
-    sessionId: 's1',
-    useSessions: bindSnapshotSelector(sessions),
-    useAgentPresets: bindSnapshotSelector(store),
-    t: (key: keyof typeof en) => en[key],
-  } as unknown as AgentPresetLabelProps)} />)
+  const view = render(
+    <AgentPresetLabel
+      {...({
+        load,
+        sessionId: 's1',
+        useSessions: bindSnapshotSelector(sessions),
+        useAgentPresets: bindSnapshotSelector(store),
+        t: (key: keyof typeof en) => en[key],
+      } as unknown as AgentPresetLabelProps)}
+    />,
+  )
   return { load, view }
 }
 
 describe('the new-session chip', () => {
-  it.each([false, true])('offers Standard, Creator and custom presets with Developer tools %s', (enabled) => {
-    const actions = renderSeat({ options: [
-      { id: 'standard' }, { id: 'ptc' }, { id: 'minimal' }, { id: 'cordis' }, { id: 'mine' },
-    ] }, undefined, undefined, enabled)
+  it.each([false, true])('offers Standard, Creator and custom presets with Developer tools %s', enabled => {
+    const actions = renderSeat(
+      { options: [{ id: 'standard' }, { id: 'ptc' }, { id: 'minimal' }, { id: 'cordis' }, { id: 'mine' }] },
+      undefined,
+      undefined,
+      enabled,
+    )
 
     fireEvent.click(screen.getByRole('button'))
     expect(screen.getAllByRole('menuitem')).toHaveLength(enabled ? 5 : 3)
@@ -137,11 +146,15 @@ describe('the new-session chip', () => {
     const trigger = screen.getByRole<HTMLButtonElement>('button', { name: en.presetMinimalName })
     fireEvent.click(trigger)
     expect(screen.getByRole('menuitem', { name: /^mine/ })).toBeTruthy()
-    act(() => { actions.store.set({ ...actions.store.getSnapshot(), options: [{ id: 'ptc' }, { id: 'minimal' }] }) })
+    act(() => {
+      actions.store.set({ ...actions.store.getSnapshot(), options: [{ id: 'ptc' }, { id: 'minimal' }] })
+    })
     expect(trigger.disabled).toBe(true)
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByRole('menu')).toBeNull()
-    act(() => { actions.store.set({ ...actions.store.getSnapshot(), options }) })
+    act(() => {
+      actions.store.set({ ...actions.store.getSnapshot(), options })
+    })
     expect(trigger.disabled).toBe(false)
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByRole('menu')).toBeNull()
@@ -150,7 +163,8 @@ describe('the new-session chip', () => {
 
   it('renders only for a Session retained by the main view', () => {
     renderSeat({}, undefined, {
-      id: 's1', retainInfo: { referenceCount: 1, retainedBy: { mainView: 1 } },
+      id: 's1',
+      retainInfo: { referenceCount: 1, retainedBy: { mainView: 1 } },
     })
     expect(screen.getByRole('button')).toBeTruthy()
     cleanup()
@@ -162,7 +176,9 @@ describe('the new-session chip', () => {
   it('reads the roster once and shows the staged preset by name', async () => {
     const actions = renderSeat()
 
-    await waitFor(() => { expect(actions.load).toHaveBeenCalledTimes(1) })
+    await waitFor(() => {
+      expect(actions.load).toHaveBeenCalledTimes(1)
+    })
     expect(screen.getByRole('button').textContent).toContain(en.presetStandardName)
     expect(screen.getByRole('button').getAttribute('title')).toBe(en.seatHint)
   })
@@ -185,11 +201,15 @@ describe('the new-session chip', () => {
     const actions = renderSeat()
     fireEvent.click(screen.getByRole('button'))
     expect(screen.getByText(en.presetStandardDescription)).toBeTruthy()
-    act(() => { actions.developerTools.set(false) })
+    act(() => {
+      actions.developerTools.set(false)
+    })
     expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByText(en.presetStandardDescription)).toBeNull()
     expect(actions.select).not.toHaveBeenCalled()
-    act(() => { actions.developerTools.set(true) })
+    act(() => {
+      actions.developerTools.set(true)
+    })
     expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('false')
     expect(screen.getByRole('button').textContent).toContain(en.presetStandardName)
   })
@@ -257,7 +277,9 @@ describe('a refused switch', () => {
       const reason = 'failed to import loader entry live-on-mac (@deepseek-ai/dsh-also-gone)'
       const actions = renderSeat({ current: '' }, undefined, undefined, false)
       const refusal = { preset: { id: 'cordis' }, reason }
-      act(() => { actions.store.set({ ...actions.store.getSnapshot(), error: refusal }) })
+      act(() => {
+        actions.store.set({ ...actions.store.getSnapshot(), error: refusal })
+      })
 
       // The host refuses a mount discovery reported healthy, so this banner is
       // the only place the cause appears — the chip has already reverted and
@@ -267,14 +289,22 @@ describe('a refused switch', () => {
       expect(banner.textContent).toContain(en.presetCordisName)
       expect(screen.queryByRole('button')).toBeNull()
 
-      act(() => { vi.advanceTimersByTime(7000) })
-      act(() => { actions.store.set({ ...actions.store.getSnapshot(), error: { ...refusal } }) })
-      act(() => { vi.advanceTimersByTime(2001) })
+      act(() => {
+        vi.advanceTimersByTime(7000)
+      })
+      act(() => {
+        actions.store.set({ ...actions.store.getSnapshot(), error: { ...refusal } })
+      })
+      act(() => {
+        vi.advanceTimersByTime(2001)
+      })
       expect(screen.getByRole('alert').textContent).toContain(reason)
 
       // Transient by design: it holds long enough to read a cause that names
       // packages, then leaves rather than sitting over the screen.
-      act(() => { vi.advanceTimersByTime(9001) })
+      act(() => {
+        vi.advanceTimersByTime(9001)
+      })
       expect(screen.queryByRole('alert')).toBeNull()
       expect(actions.dismissRefusal).toHaveBeenCalledOnce()
     } finally {
@@ -288,7 +318,9 @@ describe('a refused switch', () => {
     fireEvent.click(screen.getByRole('button'))
     fireEvent.click(screen.getByRole('menuitem', { name: /mine/ }))
 
-    await waitFor(() => { expect(actions.select).toHaveBeenCalledWith('mine') })
+    await waitFor(() => {
+      expect(actions.select).toHaveBeenCalledWith('mine')
+    })
     expect(screen.queryByRole('alert')).toBeNull()
   })
 })
@@ -305,7 +337,10 @@ describe('the chip introduce cue', () => {
   }
 
   it('reveals a long Latin name inside the shared window, then acknowledges', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    )
     vi.useFakeTimers()
     const actions = renderSeat({
       current: 'creator',
@@ -323,15 +358,22 @@ describe('the chip introduce cue', () => {
 
     // 150 delay + 200 window + 400 fade: acknowledged only once the last
     // character has settled, and the label is plain text again after.
-    act(() => { vi.advanceTimersByTime(749) })
+    act(() => {
+      vi.advanceTimersByTime(749)
+    })
     expect(actions.introduced).not.toHaveBeenCalled()
-    act(() => { vi.advanceTimersByTime(1) })
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
     expect(actions.introduced).toHaveBeenCalledTimes(1)
     expect(delayedChars()).toHaveLength(0)
   })
 
   it('keeps the per-tick cap for a short CJK name', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    )
     vi.useFakeTimers()
     renderSeat({
       current: 'creator',
@@ -347,7 +389,10 @@ describe('the chip introduce cue', () => {
   })
 
   it('starts a one-character name with no stagger at all', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    )
     vi.useFakeTimers()
     const actions = renderSeat({
       current: 'creator',
@@ -356,12 +401,17 @@ describe('the chip introduce cue', () => {
     })
 
     expect(delayedChars()[0]!.style.animationDelay).toBe('150ms')
-    act(() => { vi.advanceTimersByTime(550) })
+    act(() => {
+      vi.advanceTimersByTime(550)
+    })
     expect(actions.introduced).toHaveBeenCalledTimes(1)
   })
 
   it('skips the run under reduced motion and acknowledges at once', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true })),
+    )
     const actions = renderSeat({ introduce: true })
 
     expect(actions.introduced).toHaveBeenCalledTimes(1)
@@ -369,7 +419,10 @@ describe('the chip introduce cue', () => {
   })
 
   it('acknowledges an empty staged name without arming a run', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    )
     const actions = renderSeat({
       current: 'creator',
       options: [{ id: 'creator', name: '' }],
@@ -388,7 +441,9 @@ describe('the session-header label', () => {
       projectionValues: { agentPreset: 'standard' },
     })
 
-    await waitFor(() => { expect(load).toHaveBeenCalledTimes(1) })
+    await waitFor(() => {
+      expect(load).toHaveBeenCalledTimes(1)
+    })
     // A control here would promise a switch the host refuses outright.
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.getByTitle(en.presetStandardDescription).textContent).toBe(en.presetStandardName)
@@ -401,10 +456,13 @@ describe('the session-header label', () => {
   })
 
   it('shows the id until the roster resolves it', () => {
-    renderLabel({
-      blank: false,
-      projectionValues: { agentPreset: 'standard' },
-    }, { options: [] })
+    renderLabel(
+      {
+        blank: false,
+        projectionValues: { agentPreset: 'standard' },
+      },
+      { options: [] },
+    )
 
     // The session's own summary is the authority on which preset it runs; the
     // roster only supplies the display name, and its arrival is a later frame.
@@ -420,7 +478,9 @@ describe('the session-header label', () => {
     // that composes no presets must not pay for a roster read per header.
     const unknown = renderLabel(undefined)
     expect(unknown.view.container.firstChild).toBeNull()
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(absent.load).not.toHaveBeenCalled()
     expect(unknown.load).not.toHaveBeenCalled()
   })

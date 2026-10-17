@@ -18,6 +18,11 @@ overrides:
   'extract-zip>yauzl': '3.4.0'
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
+  # Vite+ bundles Vitest 5.0.5; keep the root diagnostic runner, coverage
+  # provider, and spy package in lockstep with it.
+  'vitest@*': '5.0.5'
+  '@vitest/coverage-v8@*': '5.0.5'
+  '@vitest/spy@*': '5.0.5'
 
 peerDependencyRules:
   allowedVersions:

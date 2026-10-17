@@ -7,10 +7,16 @@
  */
 /* oxlint-disable typescript/no-unsafe-assignment -- Vitest asymmetric matchers are typed as any. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type {
-  ApprovalRequestId, CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
-  DynamicCordisClientSource, DynamicCordisHostHalfResult, DynamicCordisResolveAck, SessionId,
+  ApprovalRequestId,
+  CordisDynamicPackageId,
+  CordisDynamicPluginId,
+  CordisDynamicPluginRunId,
+  DynamicCordisClientSource,
+  DynamicCordisHostHalfResult,
+  DynamicCordisResolveAck,
+  SessionId,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import { CordisRunOrchestrator } from '../src/client/orchestrator.ts'
 import type { CordisUserRunRequest } from '../src/client/orchestrator.ts'
@@ -31,7 +37,11 @@ const HOST_OK: Extract<DynamicCordisHostHalfResult, { ok: true }> = {
 }
 /** A user's own run of a two-half definition: the host half, then this page's half. */
 const DUAL: CordisUserRunRequest = {
-  agentId: AGENT, pluginId: PLUGIN, packageId: PACKAGE, mode: 'run', hasClientHalf: true,
+  agentId: AGENT,
+  pluginId: PLUGIN,
+  packageId: PACKAGE,
+  mode: 'run',
+  hasClientHalf: true,
 }
 /** A user's own run of a host-only definition: nothing for this page to load. */
 const HOST_ONLY: CordisUserRunRequest = { ...DUAL, hasClientHalf: false }
@@ -49,18 +59,28 @@ interface Bench {
   answers: unknown[]
 }
 
-function boot(overrides: {
-  hostHalf?: () => Promise<DynamicCordisHostHalfResult>
-  clientCode?: () => Promise<DynamicCordisClientSource>
-  loaded?: () => Promise<DynamicCordisLoadResult>
-  resolve?: () => Promise<DynamicCordisResolveAck>
-} = {}): Bench {
+function boot(
+  overrides: {
+    hostHalf?: () => Promise<DynamicCordisHostHalfResult>
+    clientCode?: () => Promise<DynamicCordisClientSource>
+    loaded?: () => Promise<DynamicCordisLoadResult>
+    resolve?: () => Promise<DynamicCordisResolveAck>
+  } = {},
+): Bench {
   const answers: unknown[] = []
   const host = {
     runHostHalf: vi.fn(overrides.hostHalf ?? (() => Promise.resolve(HOST_OK))),
-    getClientCode: vi.fn(overrides.clientCode ?? (() => Promise.resolve({
-      code: 'return {}', name: 'demo', pluginId: PLUGIN, packageId: PACKAGE, pluginRunId: RUN,
-    }))),
+    getClientCode: vi.fn(
+      overrides.clientCode ??
+        (() =>
+          Promise.resolve({
+            code: 'return {}',
+            name: 'demo',
+            pluginId: PLUGIN,
+            packageId: PACKAGE,
+            pluginRunId: RUN,
+          })),
+    ),
     resolveRequestRun: vi.fn((_requestId: unknown, resolution: unknown) => {
       answers.push(resolution)
       return (overrides.resolve ?? (() => Promise.resolve({ accepted: true })))()
@@ -74,7 +94,8 @@ function boot(overrides: {
         pluginRunId: (resolution as { pluginRunId: CordisDynamicPluginRunId }).pluginRunId,
         waitingFor: [],
         mode: 'run' as const,
-      })),
+      }),
+    ),
   }
   const load = vi.fn(overrides.loaded ?? (() => Promise.resolve({ ok: true as const, pluginRunId: RUN })))
   const orchestrator = new CordisRunOrchestrator({
@@ -102,7 +123,9 @@ describe('the waiting affordance', () => {
   it('publishes failures on their own observable', async () => {
     const bench = boot({ hostHalf: () => Promise.resolve({ ok: false, message: 'nope' }) })
     let notified = 0
-    const unsubscribe = bench.orchestrator.lastRunError.subscribe(() => { notified++ })
+    const unsubscribe = bench.orchestrator.lastRunError.subscribe(() => {
+      notified++
+    })
     const empty = bench.orchestrator.lastRunError.getSnapshot()
     expect(bench.orchestrator.lastRunError.getSnapshot()).toBe(empty)
     await bench.orchestrator.startUserRun(DUAL)
@@ -129,7 +152,14 @@ describe('the waiting affordance', () => {
 
   it('keeps naming the session once the decision is made', async () => {
     let release = (): void => {}
-    const bench = boot({ hostHalf: () => new Promise((resolve) => { release = (): void => { resolve(HOST_OK) } }) })
+    const bench = boot({
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve(HOST_OK)
+          }
+        }),
+    })
     const running = bench.orchestrator.startUserRun(DUAL)
     // A run must not fall out of its session group by advancing past the decision.
     expect(bench.orchestrator.activeRuns.getSnapshot().get(PLUGIN)).toEqual({
@@ -145,7 +175,9 @@ describe('the waiting affordance', () => {
   it('keeps a stable snapshot reference between mutations, and notifies on each', () => {
     const bench = boot()
     let notified = 0
-    const unsubscribe = bench.orchestrator.activeRuns.subscribe(() => { notified++ })
+    const unsubscribe = bench.orchestrator.activeRuns.subscribe(() => {
+      notified++
+    })
     const empty = bench.orchestrator.activeRuns.getSnapshot()
     expect(bench.orchestrator.activeRuns.getSnapshot()).toBe(empty)
     ask(bench)
@@ -170,14 +202,24 @@ describe('the waiting affordance', () => {
 
   it('leaves an orchestration alone when its own request settles elsewhere', async () => {
     let release = (): void => {}
-    const bench = boot({ hostHalf: () => new Promise((resolve) => { release = (): void => { resolve(HOST_OK) } }) })
+    const bench = boot({
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve(HOST_OK)
+          }
+        }),
+    })
     ask(bench)
     const running = bench.orchestrator.approve(REQ, false)
     // The host announced the request settled (this page answered it) — the work
     // this page is doing owns its entry until it finishes.
     bench.orchestrator.close(REQ)
     expect(bench.orchestrator.activeRuns.getSnapshot().get(PLUGIN)).toEqual({
-      phase: 'orchestrating', agentId: AGENT, packageId: PACKAGE, mode: 'run',
+      phase: 'orchestrating',
+      agentId: AGENT,
+      packageId: PACKAGE,
+      mode: 'run',
     })
     release()
     await running
@@ -186,7 +228,14 @@ describe('the waiting affordance', () => {
 
   it('refuses to decline a request whose definition is already orchestrating', async () => {
     let release = (): void => {}
-    const bench = boot({ hostHalf: () => new Promise((resolve) => { release = (): void => { resolve(HOST_OK) } }) })
+    const bench = boot({
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve(HOST_OK)
+          }
+        }),
+    })
     const running = bench.orchestrator.startUserRun(DUAL)
     const late = 'rr-late-decline' as ApprovalRequestId
     ask(bench, late)
@@ -214,12 +263,22 @@ describe('the waiting affordance', () => {
 
   it('does not downgrade an orchestration to a waiting decision', async () => {
     let release = (): void => {}
-    const bench = boot({ hostHalf: () => new Promise((resolve) => { release = (): void => { resolve(HOST_OK) } }) })
+    const bench = boot({
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve(HOST_OK)
+          }
+        }),
+    })
     const started = bench.orchestrator.startUserRun(DUAL)
     ask(bench, 'rr-late' as ApprovalRequestId)
     // A request arriving mid-orchestration must not offer a decision already made.
     expect(bench.orchestrator.activeRuns.getSnapshot().get(PLUGIN)).toEqual({
-      phase: 'orchestrating', agentId: AGENT, packageId: PACKAGE, mode: 'run',
+      phase: 'orchestrating',
+      agentId: AGENT,
+      packageId: PACKAGE,
+      mode: 'run',
     })
     release()
     await started
@@ -236,7 +295,12 @@ describe('approve', () => {
     // The load carries the session too: a crash while React renders it is
     // reported back to whoever the run was carried out for.
     expect(bench.load).toHaveBeenCalledWith({
-      pluginId: PLUGIN, packageId: PACKAGE, pluginRunId: RUN, agentId: AGENT, name: 'demo', code: 'return {}',
+      pluginId: PLUGIN,
+      packageId: PACKAGE,
+      pluginRunId: RUN,
+      agentId: AGENT,
+      name: 'demo',
+      code: 'return {}',
     })
     expect(bench.answers).toEqual([{ ok: true, pluginRunId: RUN }])
     expect(bench.orchestrator.activeRuns.getSnapshot().size).toBe(0)
@@ -256,20 +320,26 @@ describe('approve', () => {
     expect(bench.host.getClientCode).not.toHaveBeenCalled()
     expect(bench.load).not.toHaveBeenCalled()
     expect(bench.answers).toEqual([{ ok: false, reason: 'host-half-failed', message: 'vm exploded' }])
-    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN))
-      .toEqual({ packageId: PACKAGE, reason: 'host-half-failed', ok: false, message: 'vm exploded' })
+    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN)).toEqual({
+      packageId: PACKAGE,
+      reason: 'host-half-failed',
+      ok: false,
+      message: 'vm exploded',
+    })
   })
 
   it('folds a transport rejection of the host verb into its own failure shape', async () => {
     const bench = boot({ hostHalf: () => Promise.reject(new Error('socket closed')) })
     ask(bench)
     await bench.orchestrator.approve(REQ, false)
-    expect(bench.answers).toEqual([{
-      ok: false,
-      reason: 'host-half-failed',
-      message: 'socket closed',
-      stack: expect.any(String),
-    }])
+    expect(bench.answers).toEqual([
+      {
+        ok: false,
+        reason: 'host-half-failed',
+        message: 'socket closed',
+        stack: expect.any(String),
+      },
+    ])
   })
 
   it('reports a source fetch that failed as the browser half failing', async () => {
@@ -277,36 +347,64 @@ describe('approve', () => {
     ask(bench)
     await bench.orchestrator.approve(REQ, false)
     expect(bench.load).not.toHaveBeenCalled()
-    expect(bench.answers).toEqual([{
-      ok: false, reason: 'client-half-failed', pluginRunId: RUN, startedHere: true,
-      message: 'definition vanished', stack: expect.any(String),
-    }])
+    expect(bench.answers).toEqual([
+      {
+        ok: false,
+        reason: 'client-half-failed',
+        pluginRunId: RUN,
+        startedHere: true,
+        message: 'definition vanished',
+        stack: expect.any(String),
+      },
+    ])
   })
 
   it('carries the failing load stage into the answer', async () => {
     const bench = boot({ loaded: () => Promise.resolve({ ok: false, cause: 'activate', message: 'apply threw' }) })
     ask(bench)
     await bench.orchestrator.approve(REQ, false)
-    expect(bench.answers).toEqual([{
-      ok: false, reason: 'client-half-failed', pluginRunId: RUN, startedHere: true, message: 'activate: apply threw',
-    }])
-    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN))
-      .toEqual({ packageId: PACKAGE, reason: 'client-half-failed', message: 'activate: apply threw' })
+    expect(bench.answers).toEqual([
+      {
+        ok: false,
+        reason: 'client-half-failed',
+        pluginRunId: RUN,
+        startedHere: true,
+        message: 'activate: apply threw',
+      },
+    ])
+    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN)).toEqual({
+      packageId: PACKAGE,
+      reason: 'client-half-failed',
+      message: 'activate: apply threw',
+    })
   })
 
   it('treats a load that rejects outright as a browser-half failure', async () => {
     const bench = boot({ loaded: () => Promise.reject(new Error('module table missing')) })
     ask(bench)
     await bench.orchestrator.approve(REQ, false)
-    expect(bench.answers).toEqual([{
-      ok: false, reason: 'client-half-failed', pluginRunId: RUN, startedHere: true,
-      message: 'evaluate: module table missing', stack: expect.any(String),
-    }])
+    expect(bench.answers).toEqual([
+      {
+        ok: false,
+        reason: 'client-half-failed',
+        pluginRunId: RUN,
+        startedHere: true,
+        message: 'evaluate: module table missing',
+        stack: expect.any(String),
+      },
+    ])
   })
 
   it('joins a second approve into the orchestration already in flight', async () => {
     let release = (): void => {}
-    const bench = boot({ hostHalf: () => new Promise((resolve) => { release = (): void => { resolve(HOST_OK) } }) })
+    const bench = boot({
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve(HOST_OK)
+          }
+        }),
+    })
     ask(bench)
     const first = bench.orchestrator.approve(REQ, false)
     const second = bench.orchestrator.approve(REQ, false)
@@ -356,7 +454,14 @@ describe('decline', () => {
 
   it('is a no-op once the decision was already made', async () => {
     let release = (): void => {}
-    const bench = boot({ hostHalf: () => new Promise((resolve) => { release = (): void => { resolve(HOST_OK) } }) })
+    const bench = boot({
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve(HOST_OK)
+          }
+        }),
+    })
     ask(bench)
     const running = bench.orchestrator.approve(REQ, false)
     await bench.orchestrator.decline(REQ)
@@ -387,8 +492,12 @@ describe('startUserRun', () => {
   it('records its own failure for the surface to show', async () => {
     const bench = boot({ hostHalf: () => Promise.resolve({ ok: false, message: 'no definition' }) })
     await bench.orchestrator.startUserRun(DUAL)
-    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN))
-      .toEqual({ packageId: PACKAGE, reason: 'host-half-failed', ok: false, message: 'no definition' })
+    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN)).toEqual({
+      packageId: PACKAGE,
+      reason: 'host-half-failed',
+      ok: false,
+      message: 'no definition',
+    })
     expect(bench.host.resolveRequestRun).not.toHaveBeenCalled()
   })
 
@@ -396,28 +505,36 @@ describe('startUserRun', () => {
     const bench = boot({ clientCode: () => Promise.reject(new Error('gone')) })
     await bench.orchestrator.startUserRun(DUAL)
     expect(bench.host.resolveRequestRun).not.toHaveBeenCalled()
-    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN))
-      .toEqual({
-        packageId: PACKAGE,
-        reason: 'client-half-failed',
-        message: 'gone',
-        stack: expect.any(String),
-      })
+    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN)).toEqual({
+      packageId: PACKAGE,
+      reason: 'client-half-failed',
+      message: 'gone',
+      stack: expect.any(String),
+    })
   })
 
   it('records a load failure, stringifying a non-Error rejection', async () => {
-
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the non-Error rejection is the case under test
     const bench = boot({ loaded: () => Promise.reject('plain rejection') })
     await bench.orchestrator.startUserRun(DUAL)
     expect(bench.host.resolveRequestRun).not.toHaveBeenCalled()
-    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN))
-      .toEqual({ packageId: PACKAGE, reason: 'client-half-failed', message: 'evaluate: plain rejection' })
+    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN)).toEqual({
+      packageId: PACKAGE,
+      reason: 'client-half-failed',
+      message: 'evaluate: plain rejection',
+    })
   })
 
   it('is idempotent per definition while one attempt is in flight', async () => {
     let release = (): void => {}
-    const bench = boot({ hostHalf: () => new Promise((resolve) => { release = (): void => { resolve(HOST_OK) } }) })
+    const bench = boot({
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve(HOST_OK)
+          }
+        }),
+    })
     const first = bench.orchestrator.startUserRun(DUAL)
     const second = bench.orchestrator.startUserRun(DUAL)
     release()
@@ -441,19 +558,29 @@ describe('startUserRun', () => {
   it('publishes a host-only run while it is in flight, and its own failure', async () => {
     let release = (): void => {}
     const bench = boot({
-      hostHalf: () => new Promise((resolve) => {
-        release = (): void => { resolve({ ok: false, message: 'vm exploded' }) }
-      }),
+      hostHalf: () =>
+        new Promise(resolve => {
+          release = (): void => {
+            resolve({ ok: false, message: 'vm exploded' })
+          }
+        }),
     })
     const running = bench.orchestrator.startUserRun(HOST_ONLY)
     // The control a surface disables comes from this entry, and a host half can
     // take real time to evaluate — so a host-only run is in flight like any other.
     expect(bench.orchestrator.activeRuns.getSnapshot().get(PLUGIN)).toEqual({
-      phase: 'orchestrating', agentId: AGENT, packageId: PACKAGE, mode: 'run',
+      phase: 'orchestrating',
+      agentId: AGENT,
+      packageId: PACKAGE,
+      mode: 'run',
     })
     release()
     await running
-    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN))
-      .toEqual({ packageId: PACKAGE, reason: 'host-half-failed', ok: false, message: 'vm exploded' })
+    expect(bench.orchestrator.lastRunError.getSnapshot().get(PLUGIN)).toEqual({
+      packageId: PACKAGE,
+      reason: 'host-half-failed',
+      ok: false,
+      message: 'vm exploded',
+    })
   })
 })

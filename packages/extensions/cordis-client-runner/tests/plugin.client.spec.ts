@@ -9,10 +9,14 @@
 /* oxlint-disable typescript/no-unsafe-assignment -- Vitest asymmetric matchers are typed as any. */
 
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type {
-  ApprovalRequestId, CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
-  DynamicCordisInvokeResult, SessionId,
+  ApprovalRequestId,
+  CordisDynamicPackageId,
+  CordisDynamicPluginId,
+  CordisDynamicPluginRunId,
+  DynamicCordisInvokeResult,
+  SessionId,
 } from '@deepseek-ai/dsh-api-remotes/client'
 // Type-only: resolves the `ctx.remote.$on` surface.
 import type {} from '@deepseek-ai/dsh-api-gateway/client'
@@ -25,19 +29,25 @@ const PACKAGE = 'pkg-1' as CordisDynamicPackageId
 const RUN = 'run-1' as CordisDynamicPluginRunId
 const AGENT = 's-1' as SessionId
 const USER_RUN = {
-  agentId: AGENT, pluginId: PLUGIN, packageId: PACKAGE, mode: 'run' as const, hasClientHalf: true,
+  agentId: AGENT,
+  pluginId: PLUGIN,
+  packageId: PACKAGE,
+  mode: 'run' as const,
+  hasClientHalf: true,
 }
 
 interface Bench {
   ctx: Context
   /** Source the host hands over for the next run. */
-  source: { current: {
-    code: string
-    name: string
-    pluginId: CordisDynamicPluginId
-    packageId: CordisDynamicPackageId
-    pluginRunId: CordisDynamicPluginRunId
-  } }
+  source: {
+    current: {
+      code: string
+      name: string
+      pluginId: CordisDynamicPluginId
+      packageId: CordisDynamicPackageId
+      pluginRunId: CordisDynamicPluginRunId
+    }
+  }
   /** Resolutions the host received. */
   resolved: { requestId: string; resolution: unknown }[]
   /** What the namespace received. */
@@ -75,7 +85,9 @@ async function boot(): Promise<Bench> {
   const fibers = new Map<string, { fiber: unknown }>()
   let next = 0
   ;(globalThis as { __ModuleLoader__?: unknown }).__ModuleLoader__ = {
-    load: (handoff: { id: string; factory: () => unknown }) => { factories.set(handoff.id, handoff.factory) },
+    load: (handoff: { id: string; factory: () => unknown }) => {
+      factories.set(handoff.id, handoff.factory)
+    },
   }
   ctx.reflect.provide('loader', {
     create: (options: { name: string }) => {
@@ -98,13 +110,15 @@ async function boot(): Promise<Bench> {
   const invoked: Bench['invoked'] = []
   const invokeResult: { current: DynamicCordisInvokeResult } = { current: { ok: true, value: 'pong' } }
   const invokeThrow: { current: unknown } = { current: undefined }
-  const source: Bench['source'] = { current: {
-    code: 'return { apply(ctx) {} }',
-    name: 'demo',
-    pluginId: PLUGIN,
-    packageId: PACKAGE,
-    pluginRunId: RUN,
-  } }
+  const source: Bench['source'] = {
+    current: {
+      code: 'return { apply(ctx) {} }',
+      name: 'demo',
+      pluginId: PLUGIN,
+      packageId: PACKAGE,
+      pluginRunId: RUN,
+    },
+  }
   const resolved: { requestId: string; resolution: unknown }[] = []
   const renderFailures: Bench['renderFailures'] = []
   const reportRefused = { current: false }
@@ -114,18 +128,24 @@ async function boot(): Promise<Bench> {
   const namespace = {
     syncInspectManifest: () => answered(null),
     resolveInspectQuery: () => answered({ accepted: true }),
-    runHostHalf: () => answered({
-      ok: true, pluginId: PLUGIN, packageId: PACKAGE, pluginRunId: RUN, waitingFor: [], startedHere: true,
-    }),
-    settleUserRun: () => answered({
-      ok: true, pluginId: PLUGIN, packageId: PACKAGE, pluginRunId: RUN, waitingFor: [],
-    }),
-    reportRenderFailure: (
-      agentId: string,
-      pluginId: CordisDynamicPluginId,
-      pluginRunId: CordisDynamicPluginRunId,
-      failure: unknown,
-    ) => {
+    runHostHalf: () =>
+      answered({
+        ok: true,
+        pluginId: PLUGIN,
+        packageId: PACKAGE,
+        pluginRunId: RUN,
+        waitingFor: [],
+        startedHere: true,
+      }),
+    settleUserRun: () =>
+      answered({
+        ok: true,
+        pluginId: PLUGIN,
+        packageId: PACKAGE,
+        pluginRunId: RUN,
+        waitingFor: [],
+      }),
+    reportRenderFailure: (agentId: string, pluginId: CordisDynamicPluginId, pluginRunId: CordisDynamicPluginRunId, failure: unknown) => {
       renderFailures.push({ agentId, pluginId, pluginRunId, failure })
       return reportRefused.current ? Promise.reject(new Error('stream gone')) : answered(undefined)
     },
@@ -134,12 +154,7 @@ async function boot(): Promise<Bench> {
       resolved.push({ requestId, resolution })
       return answered({ accepted: true })
     },
-    invoke: (
-      pluginId: CordisDynamicPluginId,
-      pluginRunId: CordisDynamicPluginRunId,
-      method: string,
-      args: unknown,
-    ) => {
+    invoke: (pluginId: CordisDynamicPluginId, pluginRunId: CordisDynamicPluginRunId, method: string, args: unknown) => {
       invoked.push({ pluginId, pluginRunId, method, args })
       const refusal = invokeThrow.current
       // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the non-Error rejection is a case under test
@@ -152,8 +167,8 @@ async function boot(): Promise<Bench> {
   // stub owes (api-gateway covers isolation and disposal on the real one).
   const listeners = new Map<string, ((...args: never[]) => void)[]>()
   const forward = (event: string, payload: object): void => {
-    for (const listener of [...listeners.get(event) ?? []]) {
-      (listener as (...args: readonly unknown[]) => void)(payload)
+    for (const listener of [...(listeners.get(event) ?? [])]) {
+      ;(listener as (...args: readonly unknown[]) => void)(payload)
     }
   }
   const remote = {
@@ -183,13 +198,21 @@ async function boot(): Promise<Bench> {
     reportRefused,
     forward,
     crash: (slot, entry, abdicate, error) => {
-      const core = (ctx.slots as unknown as {
-        _core: { reportEntryError(key: string, entry: unknown, error: unknown, info: { abdicate: boolean }): void }
-      })._core
+      const core = (
+        ctx.slots as unknown as {
+          _core: { reportEntryError(key: string, entry: unknown, error: unknown, info: { abdicate: boolean }): void }
+        }
+      )._core
       core.reportEntryError(slot, entry, error, { abdicate })
     },
-    dispose: async () => { await fiber.dispose() },
-    settle: async () => { await new Promise((resolve) => { setTimeout(resolve, 0) }) },
+    dispose: async () => {
+      await fiber.dispose()
+    },
+    settle: async () => {
+      await new Promise(resolve => {
+        setTimeout(resolve, 0)
+      })
+    },
   }
 }
 
@@ -205,7 +228,9 @@ describe('browser half', () => {
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
     expect(bench.ctx.dynamicCordisRunner.isLoaded(PLUGIN)).toBe(true)
     bench.forward('cordis/dynamic-retract', {
-      pluginId: PLUGIN, packageId: PACKAGE, pluginRunId: RUN,
+      pluginId: PLUGIN,
+      packageId: PACKAGE,
+      pluginRunId: RUN,
     })
     await bench.settle()
     expect(bench.ctx.dynamicCordisRunner.isLoaded(PLUGIN)).toBe(false)
@@ -222,33 +247,43 @@ describe('browser half', () => {
 
   it('routes host.call through the namespace and unwraps the result', async () => {
     const bench = await boot()
-    bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping", { a: 1 })'
-        + '.then((value) => value, (error) => error.message) } }',
+    bench.source.current = {
+      ...bench.source.current,
+      code:
+        'return { apply: () => { globalThis.__dynCall = host.call("ping", { a: 1 })' +
+        '.then((value) => value, (error) => error.message) } }',
     }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
     const call = (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
     delete (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
     await expect(call).resolves.toBe('pong')
-    expect(bench.invoked).toEqual([{
-      pluginId: PLUGIN, pluginRunId: RUN, method: 'ping', args: { a: 1 },
-    }])
+    expect(bench.invoked).toEqual([
+      {
+        pluginId: PLUGIN,
+        pluginRunId: RUN,
+        method: 'ping',
+        args: { a: 1 },
+      },
+    ])
   })
 
   it('carries an omitted host.call argument to the namespace as null', async () => {
     const bench = await boot()
-    bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("listServices") } }',
-    }
+    bench.source.current = { ...bench.source.current, code: 'return { apply: () => { globalThis.__dynCall = host.call("listServices") } }' }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
     const call = (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
     delete (globalThis as { __dynCall?: Promise<unknown> }).__dynCall
     await call
     // `undefined` is not JSON, so the wire would refuse the call the model wrote
     // most naturally; the omission travels as null instead.
-    expect(bench.invoked).toEqual([{
-      pluginId: PLUGIN, pluginRunId: RUN, method: 'listServices', args: null,
-    }])
+    expect(bench.invoked).toEqual([
+      {
+        pluginId: PLUGIN,
+        pluginRunId: RUN,
+        method: 'listServices',
+        args: null,
+      },
+    ])
   })
 
   it('teaches the JSON contract when the namespace refuses the payload', async () => {
@@ -256,9 +291,9 @@ describe('browser half', () => {
     // What the generated codec throws for a value that is not JSON: a bare field
     // name, with no idea which call it belonged to or what to write instead.
     bench.invokeThrow.current = new Error('client api: dynamicCordisRunner/invoke rejected "args"')
-    bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping", 1)'
-        + '.then(() => "resolved", (error) => error.message) } }',
+    bench.source.current = {
+      ...bench.source.current,
+      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping", 1)' + '.then(() => "resolved", (error) => error.message) } }',
     }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
     const call = (globalThis as { __dynCall?: Promise<string> }).__dynCall
@@ -271,9 +306,9 @@ describe('browser half', () => {
   it('stringifies a non-Error refusal into the same teaching error', async () => {
     const bench = await boot()
     bench.invokeThrow.current = 'stream gone'
-    bench.source.current = { ...bench.source.current,
-      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping")'
-        + '.then(() => "resolved", (error) => error.message) } }',
+    bench.source.current = {
+      ...bench.source.current,
+      code: 'return { apply: () => { globalThis.__dynCall = host.call("ping")' + '.then(() => "resolved", (error) => error.message) } }',
     }
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
     const call = (globalThis as { __dynCall?: Promise<string> }).__dynCall
@@ -283,7 +318,8 @@ describe('browser half', () => {
 
   it('sends a render crash of its own entry to the host, and survives a refused report', async () => {
     const bench = await boot()
-    bench.source.current = { ...bench.source.current,
+    bench.source.current = {
+      ...bench.source.current,
       code: `return {
         inject: ['slots'],
         apply(ctx) { ctx.slots.register({ name: 'root' }, () => null) },
@@ -292,17 +328,19 @@ describe('browser half', () => {
     await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
     const [entry] = bench.ctx.slots.entries('root')
     bench.crash('root', entry, true, new Error('Cannot read properties of undefined'))
-    expect(bench.renderFailures).toEqual([{
-      agentId: AGENT,
-      pluginId: PLUGIN,
-      pluginRunId: RUN,
-      failure: {
-        slot: 'root',
-        message: 'your entry in slot "root" crashed while React rendered it: Cannot read properties of undefined',
-        stack: expect.any(String),
-        abdicated: true,
+    expect(bench.renderFailures).toEqual([
+      {
+        agentId: AGENT,
+        pluginId: PLUGIN,
+        pluginRunId: RUN,
+        failure: {
+          slot: 'root',
+          message: 'your entry in slot "root" crashed while React rendered it: Cannot read properties of undefined',
+          stack: expect.any(String),
+          abdicated: true,
+        },
       },
-    }])
+    ])
     // The same observation also reaches the page's own surface, so a row can show
     // it without reading the host back.
     expect(bench.ctx.dynamicCordisRunner.renderFailures.getSnapshot().get(PLUGIN)).toEqual(bench.renderFailures[0]?.failure)
@@ -327,9 +365,10 @@ describe('browser half', () => {
     for (const [code, expected] of codes) {
       const bench = await boot()
       bench.invokeResult.current = { ok: false, code, message: 'boom' }
-      bench.source.current = { ...bench.source.current,
-        code: 'return { apply: () => { globalThis.__dynCall = host.call("ping", 1)'
-          + '.then(() => "resolved", (error) => error.message) } }',
+      bench.source.current = {
+        ...bench.source.current,
+        code:
+          'return { apply: () => { globalThis.__dynCall = host.call("ping", 1)' + '.then(() => "resolved", (error) => error.message) } }',
       }
       await bench.ctx.dynamicCordisRunner.startUserRun(USER_RUN)
       const call = (globalThis as { __dynCall?: Promise<string> }).__dynCall
@@ -364,9 +403,12 @@ describe('browser half', () => {
       purpose: 'show a clock',
     })
     await bench.ctx.dynamicCordisRunner.approve(request, false)
-    expect(bench.resolved).toEqual([{
-      requestId: request, resolution: { ok: true, pluginRunId: RUN },
-    }])
+    expect(bench.resolved).toEqual([
+      {
+        requestId: request,
+        resolution: { ok: true, pluginRunId: RUN },
+      },
+    ])
     expect(bench.ctx.dynamicCordisRunner.isLoaded(PLUGIN)).toBe(true)
     expect(bench.ctx.dynamicCordisRunner.activeRuns.getSnapshot().size).toBe(0)
   })
@@ -386,7 +428,8 @@ describe('browser half', () => {
     })
     await bench.settle()
     bench.forward('cordis/request-run-resolved', {
-      requestId: request, outcome: 'approved',
+      requestId: request,
+      outcome: 'approved',
     })
     await bench.settle()
     expect(bench.ctx.dynamicCordisRunner.activeRuns.getSnapshot().size).toBe(0)
@@ -410,7 +453,9 @@ describe('browser half', () => {
     })
     await bench.settle()
     let loads = 0
-    const unsubscribe = bench.ctx.dynamicCordisRunner.subscribe(() => { loads++ })
+    const unsubscribe = bench.ctx.dynamicCordisRunner.subscribe(() => {
+      loads++
+    })
     await bench.ctx.dynamicCordisRunner.decline(request)
     expect(bench.resolved).toEqual([{ requestId: request, resolution: { ok: false, reason: 'rejected' } }])
     expect(bench.ctx.dynamicCordisRunner.isLoaded(PLUGIN)).toBe(false)

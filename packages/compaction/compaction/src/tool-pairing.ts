@@ -38,11 +38,7 @@ function eventDelta(event: SessionEvent): number {
 }
 
 /** Fold surface sequences not yet in the cache into its balance state. */
-function extendCache(
-  session: Session,
-  cache: BalanceCache,
-  seqs: readonly SessionSeq[],
-): BalanceCache {
+function extendCache(session: Session, cache: BalanceCache, seqs: readonly SessionSeq[]): BalanceCache {
   const processed = cache.cutBalanced.length - 1
   const tail = seqs.slice(processed)
   // Validate the unseen tail before mutating the live cache, so a corrupt
@@ -78,12 +74,16 @@ function balanceCache(session: Session): BalanceCache {
   if (cached === undefined || cached.generation !== generation || cached.cutBalanced.length - 1 > seqs.length) {
     // A rebuild is the same fold started from the empty-surface state, whose
     // single leading cut is trivially balanced.
-    const rebuilt = extendCache(session, {
-      generation,
-      cutBalanced: [true],
-      indexBySeq: new Map(),
-      inProgressToolCalls: 0,
-    }, seqs)
+    const rebuilt = extendCache(
+      session,
+      {
+        generation,
+        cutBalanced: [true],
+        indexBySeq: new Map(),
+        inProgressToolCalls: 0,
+      },
+      seqs,
+    )
     balanceCacheBySession.set(session, rebuilt)
     return rebuilt
   }

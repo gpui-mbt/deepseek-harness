@@ -39,13 +39,7 @@ export class AclWriteGrant {
   private readonly revocablePaths: string[] = []
   private readonly standingPaths: string[] = []
 
-  private constructor(
-    api: Win32Bindings,
-    sidPtr: NativePtr,
-    lowLabelSidPtr: NativePtr,
-    worldSidPtr: NativePtr,
-    writeSid: string,
-  ) {
+  private constructor(api: Win32Bindings, sidPtr: NativePtr, lowLabelSidPtr: NativePtr, worldSidPtr: NativePtr, writeSid: string) {
     this.api = api
     this.sidPtr = sidPtr
     this.lowLabelSidPtr = lowLabelSidPtr

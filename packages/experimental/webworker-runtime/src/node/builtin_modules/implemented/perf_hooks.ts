@@ -9,8 +9,7 @@ const MODULE = 'node:perf_hooks'
 export const performance = globalThis.performance
 
 /** Observation of performance entries has no consumer here. */
-export const PerformanceObserver: typeof import('node:perf_hooks').PerformanceObserver
-  = notImplementedFail(MODULE, 'PerformanceObserver')
+export const PerformanceObserver: typeof import('node:perf_hooks').PerformanceObserver = notImplementedFail(MODULE, 'PerformanceObserver')
 
 /** CommonJS interop marker: the worker loader hands `default` to default imports (see ./builtins.ts). */
 export const __esModule = true

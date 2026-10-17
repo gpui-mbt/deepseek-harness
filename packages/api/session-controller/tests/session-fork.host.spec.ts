@@ -1,6 +1,6 @@
 /** Session Controller fork boundaries, lineage, and inherited model routing. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentHandle, CreateAgentOptions } from '@deepseek-ai/dsh-agent'
@@ -15,14 +15,14 @@ import { SessionPersistenceRevision, type SessionPersistenceSnapshot } from '@de
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import type { Workspace } from '@deepseek-ai/dsh-workspace'
-import {
-  createSessionTestRemote, installSessionReadTestServices, testSessionPersistence,
-} from './test-remote.ts'
+import { createSessionTestRemote, installSessionReadTestServices, testSessionPersistence } from './test-remote.ts'
 
 const sid = (id: string): SessionId => id as SessionId
-const message = (text: string) => createUserMessage({
-  content: [{ type: 'text', text }], source: { kind: 'user' },
-})
+const message = (text: string) =>
+  createUserMessage({
+    content: [{ type: 'text', text }],
+    source: { kind: 'user' },
+  })
 
 function request<P>(payload: P): P {
   return payload
@@ -38,11 +38,9 @@ async function composed(workspaces: readonly Workspace[] = []): Promise<Context>
   ctx.agents.setFactory({
     createAgent: async (ownerCtx: Context, options: CreateAgentOptions): Promise<AgentHandle> => {
       const session = ctx.sessions.create(options.sessionId, {
-        ...options.seed === undefined ? {} : { seed: [...options.seed] },
-        ...options.meta === undefined ? {} : { meta: options.meta },
-        ...options.inheritedEventCount === undefined
-          ? {}
-          : { inheritedEventCount: options.inheritedEventCount },
+        ...(options.seed === undefined ? {} : { seed: [...options.seed] }),
+        ...(options.meta === undefined ? {} : { meta: options.meta }),
+        ...(options.inheritedEventCount === undefined ? {} : { inheritedEventCount: options.inheritedEventCount }),
       })
       const agent = {} as Agent
       const agentCtx = ownerCtx
@@ -69,31 +67,41 @@ async function liveAgent(
   const session = ctx.sessions.create(sid(id), { meta: { cwd: '/proj', ...lineage } })
   for (let turn = 1; turn <= turns; turn++) {
     session.append('turn/start', { turn })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `prompt ${String(turn)}` }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: `prompt ${String(turn)}` }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
   if (tail !== 'none') {
     session.append('turn/start', { turn: turns + 1 })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'open prompt' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    if (tail === 'aborted') session.append('turn/end', {
-      turn: turns + 1,
-      reason: { kind: 'aborted', reason: { kind: 'user' } },
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'open prompt' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
+    if (tail === 'aborted')
+      session.append('turn/end', {
+        turn: turns + 1,
+        reason: { kind: 'aborted', reason: { kind: 'user' } },
+      })
   }
   await ctx.agents.register({ id: session.id, session, status: 'idle', ctx } as Agent)
   return session
 }
 
-const remote = (ctx: Context) => createSessionTestRemote(ctx, {
-  defaultModelSelection: () => ({ provider: 'default-provider', model: 'default-model' }),
-  cwd: '/tmp',
-})
+const remote = (ctx: Context) =>
+  createSessionTestRemote(ctx, {
+    defaultModelSelection: () => ({ provider: 'default-provider', model: 'default-model' }),
+    cwd: '/tmp',
+  })
 
 describe('sessions.fork', () => {
   it.each([
@@ -111,18 +119,21 @@ describe('sessions.fork', () => {
       const snapshot: SessionPersistenceSnapshot = {
         header: source.header,
         revision: SessionPersistenceRevision('test:cold-source'),
-        ...status === undefined ? {} : { formatStatus: status },
+        ...(status === undefined ? {} : { formatStatus: status }),
       }
-      ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
-        list: () => Promise.resolve([source.header]),
-        stat: () => Promise.resolve(snapshot),
-        inspect: () => Promise.resolve({ meta: source.header, events: source.snapshotEvents() }),
-      }) as never)
+      ctx.provide(
+        'sessionPersistence',
+        testSessionPersistence(ctx, {
+          list: () => Promise.resolve([source.header]),
+          stat: () => Promise.resolve(snapshot),
+          inspect: () => Promise.resolve({ meta: source.header, events: source.snapshotEvents() }),
+        }) as never,
+      )
       const open = vi.spyOn(ctx.sessionPersistence, 'open')
 
       const response = await remote(ctx).fork({
         sessionId: source.id,
-        ...allowMigration === undefined ? {} : { allowMigration },
+        ...(allowMigration === undefined ? {} : { allowMigration }),
       })
 
       if (!response.ok) throw response.error
@@ -151,7 +162,8 @@ describe('sessions.fork', () => {
       const create = vi.spyOn(ctx.agents, 'create')
 
       await expect(remote(ctx).fork({ sessionId: sourceId, allowMigration: false })).resolves.toMatchObject({
-        ok: false, error: { code: 'session/migration-required', details: { sessionId: sourceId } },
+        ok: false,
+        error: { code: 'session/migration-required', details: { sessionId: sourceId } },
       })
       expect(stat).toHaveBeenCalledExactlyOnceWith(sourceId)
       expect(open).not.toHaveBeenCalled()
@@ -230,7 +242,8 @@ describe('sessions.fork', () => {
       const create = vi.spyOn(ctx.agents, 'create')
 
       await expect(remote(ctx).fork({ sessionId: sourceId, allowMigration: false })).resolves.toMatchObject({
-        ok: false, error: { code: 'gateway/internal', message: 'source metadata unavailable' },
+        ok: false,
+        error: { code: 'gateway/internal', message: 'source metadata unavailable' },
       })
 
       expect(stat).toHaveBeenCalledExactlyOnceWith(sourceId)
@@ -248,9 +261,7 @@ describe('sessions.fork', () => {
       const harness = await mountAgentLoopTestHarness(ctx)
       await ctx.plugin(TokenMeter)
       const compact = new BasicCompactionEngine(ctx, { auto: false })
-      const adapter = new MockAdapter([
-        textResponse('reply'), textResponse('checkpoint'), textResponse('continued'),
-      ])
+      const adapter = new MockAdapter([textResponse('reply'), textResponse('checkpoint'), textResponse('continued')])
       ctx.llm.registerAdapter(['mock'], adapter)
       ctx.provide('workspaceRegistry', { list: () => [], archivedSessionIds: [] } as never)
       const source = await harness.create(sid('manual-compaction-source'), { provider: 'mock', model: 'mock' })
@@ -263,7 +274,8 @@ describe('sessions.fork', () => {
       source.inbox.append('next-turn', message('queued after compaction'))
 
       const response = await createSessionTestRemote(ctx, {
-        defaultModelSelection: () => ({ provider: 'mock', model: 'mock' }), cwd: '/tmp',
+        defaultModelSelection: () => ({ provider: 'mock', model: 'mock' }),
+        cwd: '/tmp',
       }).fork({ sessionId: source.id })
 
       if (!response.ok) throw response.error
@@ -283,46 +295,46 @@ describe('sessions.fork', () => {
     }
   })
 
-  it.each(['turn-end', 'omitted'] as const)(
-    'excludes the next user input when forking at %s', async (anchor) => {
-      const ctx = new Context()
-      try {
-        await mountAgentLoopTestDependencies(ctx)
-        const harness = await mountAgentLoopTestHarness(ctx)
-        const adapter = new MockAdapter(Array.from({ length: 4 }, () => textResponse('reply')))
-        ctx.llm.registerAdapter(['mock'], adapter)
-        ctx.provide('workspaceRegistry', { list: () => [], archivedSessionIds: [] } as never)
-        const source = await harness.create(sid('source'), { provider: 'mock', model: 'mock' })
-        source.followup(message('A'))
+  it.each(['turn-end', 'omitted'] as const)('excludes the next user input when forking at %s', async anchor => {
+    const ctx = new Context()
+    try {
+      await mountAgentLoopTestDependencies(ctx)
+      const harness = await mountAgentLoopTestHarness(ctx)
+      const adapter = new MockAdapter(Array.from({ length: 4 }, () => textResponse('reply')))
+      ctx.llm.registerAdapter(['mock'], adapter)
+      ctx.provide('workspaceRegistry', { list: () => [], archivedSessionIds: [] } as never)
+      const source = await harness.create(sid('source'), { provider: 'mock', model: 'mock' })
+      source.followup(message('A'))
+      await source.whenIdle()
+      const boundary = source.session.snapshotEvents().at(-1)!.seq
+      if (anchor === 'turn-end') {
+        source.followup(message('B'))
         await source.whenIdle()
-        const boundary = source.session.snapshotEvents().at(-1)!.seq
-        if (anchor === 'turn-end') {
-          source.followup(message('B'))
-          await source.whenIdle()
-        } else {
-          source.inbox.append('next-turn', message('B'))
-        }
-        const original = source.session.snapshotEvents()
-        const atSeq = anchor === 'omitted' ? undefined : boundary
-        const response = await createSessionTestRemote(ctx, {
-          defaultModelSelection: () => ({ provider: 'mock', model: 'mock' }), cwd: '/tmp',
-        }).fork({ sessionId: source.id, ...(atSeq === undefined ? {} : { atSeq }) })
-        if (!response.ok) throw response.error
-        const child = ctx.agents.get(response.value.sessionId)!
-        const requestCount = adapter.requests.length
-        child.followup(message('C'))
-        await child.whenIdle()
-        const userTexts = child.session.deriveMessages().flatMap(item => item.role === 'user'
-          ? item.content.flatMap(part => part.type === 'text' ? [part.text] : []) : [])
-        expect(userTexts).toEqual(['A', 'C'])
-        expect(adapter.requests.slice(requestCount)).toHaveLength(1)
-        expect(child.session.inheritedEventCount).toBe(boundary + 1)
-        expect(source.session.snapshotEvents()).toEqual(original)
-      } finally {
-        await ctx.fiber.dispose()
+      } else {
+        source.inbox.append('next-turn', message('B'))
       }
-    },
-  )
+      const original = source.session.snapshotEvents()
+      const atSeq = anchor === 'omitted' ? undefined : boundary
+      const response = await createSessionTestRemote(ctx, {
+        defaultModelSelection: () => ({ provider: 'mock', model: 'mock' }),
+        cwd: '/tmp',
+      }).fork({ sessionId: source.id, ...(atSeq === undefined ? {} : { atSeq }) })
+      if (!response.ok) throw response.error
+      const child = ctx.agents.get(response.value.sessionId)!
+      const requestCount = adapter.requests.length
+      child.followup(message('C'))
+      await child.whenIdle()
+      const userTexts = child.session
+        .deriveMessages()
+        .flatMap(item => (item.role === 'user' ? item.content.flatMap(part => (part.type === 'text' ? [part.text] : [])) : []))
+      expect(userTexts).toEqual(['A', 'C'])
+      expect(adapter.requests.slice(requestCount)).toHaveLength(1)
+      expect(child.session.inheritedEventCount).toBe(boundary + 1)
+      expect(source.session.snapshotEvents()).toEqual(original)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
 
   it('cuts exactly at a completed turn and records lineage and cwd', async () => {
     const ctx = await composed()
@@ -331,9 +343,7 @@ describe('sessions.fork', () => {
     expect(response.ok ? null : response.error).toBeNull()
     if (!response.ok) return
     const child = ctx.sessions.get(response.value.sessionId)
-    expect(child?.snapshotEvents().map(event => event.type)).toEqual([
-      'turn/start', 'user/message', 'turn/end', 'session/end-seed',
-    ])
+    expect(child?.snapshotEvents().map(event => event.type)).toEqual(['turn/start', 'user/message', 'turn/end', 'session/end-seed'])
     expect(child?.header.parentSession).toBe(source.id)
     expect(child?.header.cwd).toBe('/proj')
     await ctx.fiber.dispose()
@@ -341,8 +351,7 @@ describe('sessions.fork', () => {
 
   it('attaches a subagent fork to its nearest workspace-owning ancestor', async () => {
     const accounted: SessionId[] = []
-    const attachSession = vi.fn<(sessionId: SessionId) => Promise<void>>()
-      .mockResolvedValue(undefined)
+    const attachSession = vi.fn<(sessionId: SessionId) => Promise<void>>().mockResolvedValue(undefined)
     const workspace = {
       sessionIds: accounted,
       attachSession,
@@ -414,14 +423,18 @@ describe('sessions.fork', () => {
       },
       { type: 'turn/end', seq: SessionSeq(2), time: 3, data: { turn: 1, reason: { kind: 'completed' } } },
     ] satisfies SessionEvent[]
-    ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
-      list: () => Promise.resolve([header]),
-      inspect: () => Promise.resolve({
-        meta: header,
-        inheritedEventCount: SessionLogOffset(0),
-        events,
-      }),
-    }) as never)
+    ctx.provide(
+      'sessionPersistence',
+      testSessionPersistence(ctx, {
+        list: () => Promise.resolve([header]),
+        inspect: () =>
+          Promise.resolve({
+            meta: header,
+            inheritedEventCount: SessionLogOffset(0),
+            events,
+          }),
+      }) as never,
+    )
     const resume = vi.spyOn(ctx.agents, 'resume')
 
     const response = await remote(ctx).fork(request({ sessionId: sourceId }))
@@ -445,12 +458,12 @@ describe('sessions.fork', () => {
     const omitted = await proxy.fork(request({ sessionId: source.id }))
     expect(omitted.ok).toBe(true)
     if (omitted.ok) {
-      expect(ctx.sessions.get(omitted.value.sessionId)?.snapshotEvents().map(event => event.type))
-        .toEqual([
-          'turn/start', 'user/message', 'turn/end',
-          'turn/start', 'user/message', 'turn/end',
-          'session/end-seed',
-        ])
+      expect(
+        ctx.sessions
+          .get(omitted.value.sessionId)
+          ?.snapshotEvents()
+          .map(event => event.type),
+      ).toEqual(['turn/start', 'user/message', 'turn/end', 'turn/start', 'user/message', 'turn/end', 'session/end-seed'])
     }
     const pastEnd = await proxy.fork(request({ sessionId: source.id, atSeq: 999 }))
     expect(pastEnd).toMatchObject({
@@ -473,7 +486,7 @@ describe('sessions.fork', () => {
     await ctx.fiber.dispose()
   })
 
-  it.each([false, true])('inherits standalone tail events with the next turn open: %s', async (openNextTurn) => {
+  it.each([false, true])('inherits standalone tail events with the next turn open: %s', async openNextTurn => {
     const ctx = await composed()
     try {
       const source = await liveAgent(ctx, 'session-standalone-tail', 1)
@@ -487,8 +500,12 @@ describe('sessions.fork', () => {
       const child = ctx.sessions.get(response.value.sessionId)!
       expect(child.inheritedEventCount).toBe(inherited.length)
       expect(child.snapshotEvents().slice(0, child.inheritedEventCount)).toEqual(inherited)
-      expect(child.snapshotEvents().slice(child.inheritedEventCount).map(event => event.type))
-        .toEqual(['session/end-seed'])
+      expect(
+        child
+          .snapshotEvents()
+          .slice(child.inheritedEventCount)
+          .map(event => event.type),
+      ).toEqual(['session/end-seed'])
     } finally {
       await ctx.fiber.dispose()
     }
@@ -499,8 +516,10 @@ describe('sessions.fork', () => {
     const proxy = remote(ctx)
 
     for (const atSeq of [-1, 0.5]) {
-      await expect(proxy.fork(request({ sessionId: sid('missing'), atSeq })))
-        .resolves.toMatchObject({ ok: false, error: { code: 'gateway/bad-request' } })
+      await expect(proxy.fork(request({ sessionId: sid('missing'), atSeq }))).resolves.toMatchObject({
+        ok: false,
+        error: { code: 'gateway/bad-request' },
+      })
     }
     expect(ctx.sessions.list()).toEqual([])
     await ctx.fiber.dispose()
@@ -515,8 +534,13 @@ describe('sessions.fork', () => {
     if (!response.ok) return
     const child = ctx.sessions.get(response.value.sessionId)
     expect(child?.snapshotEvents().map(event => event.type)).toEqual([
-      'turn/start', 'user/message', 'turn/end',
-      'turn/start', 'user/message', 'session/end-seed', 'turn/end',
+      'turn/start',
+      'user/message',
+      'turn/end',
+      'turn/start',
+      'user/message',
+      'session/end-seed',
+      'turn/end',
     ])
     const closer = child?.snapshotEvents().at(-1)
     expect(closer?.type === 'turn/end' && closer.data.reason).toEqual({ kind: 'forked' })
@@ -532,8 +556,13 @@ describe('sessions.fork', () => {
     if (!response.ok) return
     const child = ctx.sessions.get(response.value.sessionId)
     expect(child?.snapshotEvents().map(event => event.type)).toEqual([
-      'turn/start', 'user/message', 'turn/end',
-      'turn/start', 'user/message', 'session/end-seed', 'turn/end',
+      'turn/start',
+      'user/message',
+      'turn/end',
+      'turn/start',
+      'user/message',
+      'session/end-seed',
+      'turn/end',
     ])
     const closer = child?.snapshotEvents().at(-1)
     expect(closer?.type === 'turn/end' && closer.data.reason).toEqual({ kind: 'forked' })
@@ -552,9 +581,12 @@ describe('sessions.fork', () => {
 
     expect(response.ok ? undefined : response.error).toBeUndefined()
     if (!response.ok) return
-    expect(ctx.sessions.get(response.value.sessionId)?.snapshotEvents().map(event => event.type)).toEqual([
-      'turn/start', 'user/message', 'turn/end', 'session/end-seed',
-    ])
+    expect(
+      ctx.sessions
+        .get(response.value.sessionId)
+        ?.snapshotEvents()
+        .map(event => event.type),
+    ).toEqual(['turn/start', 'user/message', 'turn/end', 'session/end-seed'])
     await ctx.fiber.dispose()
   })
 
@@ -598,10 +630,13 @@ describe('sessions.fork', () => {
         data: { turn: 1, reason: { kind: 'error', error: { message: 'scheduler failed', code: 'UNKNOWN' } } },
       },
     ] as SessionEvent[]
-    ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
-      list: () => Promise.resolve([header]),
-      inspect: () => Promise.resolve({ meta: header, events }),
-    }) as never)
+    ctx.provide(
+      'sessionPersistence',
+      testSessionPersistence(ctx, {
+        list: () => Promise.resolve([header]),
+        inspect: () => Promise.resolve({ meta: header, events }),
+      }) as never,
+    )
     const resume = vi.spyOn(ctx.agents, 'resume')
 
     const response = await remote(ctx).fork(request({ sessionId: sourceId, atSeq: 4 }))
@@ -611,8 +646,15 @@ describe('sessions.fork', () => {
     expect(resume).not.toHaveBeenCalled()
     const child = ctx.sessions.get(response.value.sessionId)
     expect(child?.snapshotEvents().map(event => event.type)).toEqual([
-      'turn/start', 'step/start', 'user/message', 'assistant/message',
-      'tool/call', 'session/end-seed', 'tool/result', 'step/end', 'turn/end',
+      'turn/start',
+      'step/start',
+      'user/message',
+      'assistant/message',
+      'tool/call',
+      'session/end-seed',
+      'tool/result',
+      'step/end',
+      'turn/end',
     ])
     expect(child?.inheritedEventCount).toBe(5)
     expect(child?.snapshotEvents().at(-3)).toMatchObject({
@@ -648,7 +690,9 @@ describe('sessions.fork', () => {
     const boundary = source.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     const inherited = source.snapshotEvents()
     source.append('session/title', {
-      title: 'Title after the selected turn', messageSeqs: [], source: { kind: 'user' },
+      title: 'Title after the selected turn',
+      messageSeqs: [],
+      source: { kind: 'user' },
     })
     source.append('turn/start', { turn: 2 })
     source.append('request/header', {
@@ -668,9 +712,11 @@ describe('sessions.fork', () => {
       model: 'inherited-model',
     })
     const fallback: LlmCallConfig = { provider: 'default-provider', model: 'default-model' }
-    await expect(agentEvents(child.ctx, child).waterfall(
-      'agent/request', { turn: 1, step: 0, signal: new AbortController().signal }, () => Promise.resolve(fallback),
-    )).resolves.toMatchObject({
+    await expect(
+      agentEvents(child.ctx, child).waterfall('agent/request', { turn: 1, step: 0, signal: new AbortController().signal }, () =>
+        Promise.resolve(fallback),
+      ),
+    ).resolves.toMatchObject({
       provider: 'inherited-provider',
       model: 'inherited-model',
       reasoningEffort: 'high',

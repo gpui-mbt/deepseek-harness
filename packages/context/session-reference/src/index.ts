@@ -21,29 +21,21 @@ import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type { SessionRecord, SessionSurfaceSnapshot } from '@deepseek-ai/dsh-session-query'
 import { prepareReferenceOmission, REFERENCE_WARNING } from './spill.ts'
-import {
-  DEFAULT_CANDIDATE_LIMIT,
-  DEFAULT_MAX_REFERENCE_BYTES,
-  MAX_REFERENCES,
-  SessionReferenceError,
-  type Config,
-} from './config.ts'
+import { DEFAULT_CANDIDATE_LIMIT, DEFAULT_MAX_REFERENCE_BYTES, MAX_REFERENCES, SessionReferenceError, type Config } from './config.ts'
 import { retainReferencedSession, type ReferenceRetentionStats, type ReferencedSessionData } from './projection.ts'
 import { stringifyTagSafeJson } from './serialization.ts'
 import type {
-  PreparedReferencedMessage, SessionReferenceCandidate, SessionReferenceInput,
-  SessionReferenceMentionCandidate, SessionReferenceSource,
+  PreparedReferencedMessage,
+  SessionReferenceCandidate,
+  SessionReferenceInput,
+  SessionReferenceMentionCandidate,
+  SessionReferenceSource,
 } from './types.ts'
 import { formatSessionReferenceMention, parseSessionReferenceText } from './uri.ts'
 
 export type * from './types.ts'
 export type { Config, SessionReferenceErrorCode } from './config.ts'
-export {
-  DEFAULT_CANDIDATE_LIMIT,
-  DEFAULT_MAX_REFERENCE_BYTES,
-  MAX_REFERENCES,
-  SessionReferenceError,
-} from './config.ts'
+export { DEFAULT_CANDIDATE_LIMIT, DEFAULT_MAX_REFERENCE_BYTES, MAX_REFERENCES, SessionReferenceError } from './config.ts'
 export {
   SESSION_REFERENCE_SCHEME,
   decodeSessionReferenceUri,
@@ -108,10 +100,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
     for (const name of ['maxReferences', 'candidateLimit', 'maxReferenceBytes'] as const) {
       const value = this.config[name]
       if (value !== undefined && (!Number.isSafeInteger(value) || value <= 0)) {
-        throw new SessionReferenceError(
-          `session-reference: ${name} must be a positive safe integer`,
-          'SESSION_REFERENCE_INVALID_CONFIG',
-        )
+        throw new SessionReferenceError(`session-reference: ${name} must be a positive safe integer`, 'SESSION_REFERENCE_INVALID_CONFIG')
       }
     }
     if (this.config.maxReferences > MAX_REFERENCES) {
@@ -127,22 +116,30 @@ export class SessionReferenceResolver extends TypertRemoteService {
       )
     }
     // Prepend observes model-selection overrides after downstream assembly completes.
-    ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
-      const assembly = await next()
-      if (context.agent !== undefined) {
-        const { provider, model } = assembly.variables
-        this.assembledRoutes.set(context.agent, { provider, model })
-      }
-      return assembly
-    }, { prepend: true })
-    ctx.on('agent/pre-step', async ({ agent, signal }, next): Promise<PreStepDecision> => {
-      const decision = await next()
-      if (decision.kind === 'reject') return decision
-      return {
-        ...decision,
-        messages: await this.prepareDirectMessages(agent, decision.messages, signal),
-      }
-    }, { prepend: true })
+    ctx.on(
+      'system-prompt/assemble',
+      async (_assembly, context, next) => {
+        const assembly = await next()
+        if (context.agent !== undefined) {
+          const { provider, model } = assembly.variables
+          this.assembledRoutes.set(context.agent, { provider, model })
+        }
+        return assembly
+      },
+      { prepend: true },
+    )
+    ctx.on(
+      'agent/pre-step',
+      async ({ agent, signal }, next): Promise<PreStepDecision> => {
+        const decision = await next()
+        if (decision.kind === 'reject') return decision
+        return {
+          ...decision,
+          messages: await this.prepareDirectMessages(agent, decision.messages, signal),
+        }
+      },
+      { prepend: true },
+    )
   }
 
   /**
@@ -153,29 +150,27 @@ export class SessionReferenceResolver extends TypertRemoteService {
    * @param signal - active turn cancellation.
    * @returns direct messages followed by their session-reference context in citation order.
    */
-  private async prepareDirectMessages(
-    agent: Agent,
-    messages: readonly UserMessage[],
-    signal: AbortSignal,
-  ): Promise<UserMessage[]> {
-    const prepared = await Promise.all(messages.map(async (message): Promise<UserMessage[]> => {
-      if (message.source.kind !== 'user') return [message]
-      const references: SessionReferenceInput[] = []
-      const content = message.content.map((block): ContentBlock => {
-        if (block.type !== 'text') return block
-        const parsed = parseSessionReferenceText(block.text)
-        references.push(...parsed.references)
-        return { type: 'text', text: parsed.text }
-      })
-      if (references.length === 0) return [message]
-      const resolved = await this.prepare(agent, content, references, signal)
-      const direct = freezeMessage({ ...message, content: resolved.content })
-      /* v8 ignore if -- a parsed canonical mention always leaves one normalized reference */
-      if (resolved.additionalContext === undefined) {
-        throw new Error('session-reference preparation omitted context for a canonical mention')
-      }
-      return [direct, resolved.additionalContext]
-    }))
+  private async prepareDirectMessages(agent: Agent, messages: readonly UserMessage[], signal: AbortSignal): Promise<UserMessage[]> {
+    const prepared = await Promise.all(
+      messages.map(async (message): Promise<UserMessage[]> => {
+        if (message.source.kind !== 'user') return [message]
+        const references: SessionReferenceInput[] = []
+        const content = message.content.map((block): ContentBlock => {
+          if (block.type !== 'text') return block
+          const parsed = parseSessionReferenceText(block.text)
+          references.push(...parsed.references)
+          return { type: 'text', text: parsed.text }
+        })
+        if (references.length === 0) return [message]
+        const resolved = await this.prepare(agent, content, references, signal)
+        const direct = freezeMessage({ ...message, content: resolved.content })
+        /* v8 ignore if -- a parsed canonical mention always leaves one normalized reference */
+        if (resolved.additionalContext === undefined) {
+          throw new Error('session-reference preparation omitted context for a canonical mention')
+        }
+        return [direct, resolved.additionalContext]
+      }),
+    )
     return prepared.flat()
   }
 
@@ -206,20 +201,23 @@ export class SessionReferenceResolver extends TypertRemoteService {
       .filter(record => record.header.id !== agent.id)
       .map((record, index) => ({ record, index }))
     const labelled = this.projectedLabels(records)
-    return labelled.filter(({ record, label, displayTitle }) => {
-      if (needle === '') return true
-      return record.header.id.toLocaleLowerCase().includes(needle)
-        || record.header.cwd?.toLocaleLowerCase().includes(needle) === true
-        || label.toLocaleLowerCase().includes(needle)
-        || displayTitle.toLocaleLowerCase().includes(needle)
-    }).sort((a, b) => candidateRank(a.record.header.cwd, targetCwd) - candidateRank(b.record.header.cwd, targetCwd)
-      || a.index - b.index)
+    return labelled
+      .filter(({ record, label, displayTitle }) => {
+        if (needle === '') return true
+        return (
+          record.header.id.toLocaleLowerCase().includes(needle) ||
+          record.header.cwd?.toLocaleLowerCase().includes(needle) === true ||
+          label.toLocaleLowerCase().includes(needle) ||
+          displayTitle.toLocaleLowerCase().includes(needle)
+        )
+      })
+      .sort((a, b) => candidateRank(a.record.header.cwd, targetCwd) - candidateRank(b.record.header.cwd, targetCwd) || a.index - b.index)
       .slice(0, limit)
       .map(({ record, label, displayTitle }) => ({
         sessionId: record.header.id,
         label,
         displayTitle,
-        ...record.header.cwd === undefined ? {} : { cwd: record.header.cwd },
+        ...(record.header.cwd === undefined ? {} : { cwd: record.header.cwd }),
         sameWorkspace: record.header.cwd !== undefined && record.header.cwd === targetCwd,
         createdAt: record.header.createdAt,
       }))
@@ -255,24 +253,23 @@ export class SessionReferenceResolver extends TypertRemoteService {
     const projections = this.ctx.get('sessionProjections')
     const sessions = this.ctx.get('sessions')
     // An attached session answers from its live cut only while the registry is mounted.
-    const attached = new Map(sessions === undefined || projections === undefined
-      ? undefined
-      : sessions.list().map(session => [session.id, session]))
+    const attached = new Map(
+      sessions === undefined || projections === undefined ? undefined : sessions.list().map(session => [session.id, session]),
+    )
     const cache = this.ctx.get('sessionProjectionCache')
     const cachedSnapshot = cache?.cachedSnapshot.bind(cache)
-    return items.map((item) => {
+    return items.map(item => {
       const session = attached.get(item.record.header.id)
-      const snapshot = session !== undefined && projections !== undefined
-        ? projections.snapshot(session, LABEL_KEYS)
-        : cachedSnapshot?.(item.record.header, LABEL_KEYS)
+      const snapshot =
+        session !== undefined && projections !== undefined
+          ? projections.snapshot(session, LABEL_KEYS)
+          : cachedSnapshot?.(item.record.header, LABEL_KEYS)
       const label = titleOf(snapshot) ?? item.record.header.id
       const subagent = snapshot?.values.subagent
       return {
         ...item,
         label,
-        displayTitle: subagent === undefined || subagent === null
-          ? label
-          : subagent.label ?? label,
+        displayTitle: subagent === undefined || subagent === null ? label : (subagent.label ?? label),
       }
     })
   }
@@ -287,11 +284,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
    * @returns mention-carrying candidates in rank order.
    */
   @Remote('candidates')
-  async remoteExportCandidates(
-    agent: Agent,
-    query: string,
-    signal: AbortSignal,
-  ): Promise<SessionReferenceMentionCandidate[]> {
+  async remoteExportCandidates(agent: Agent, query: string, signal: AbortSignal): Promise<SessionReferenceMentionCandidate[]> {
     const candidates = await this.listCandidates(agent, query, this.config.candidateLimit, signal)
     return candidates.map(candidate => ({
       ...candidate,
@@ -329,10 +322,12 @@ export class SessionReferenceResolver extends TypertRemoteService {
     let prepared: PreparedSource[]
     try {
       prepared = await settleWithCancellation(
-        Promise.all(inputs.map(async input => ({
-          input,
-          snapshot: await this.ctx.sessionQuery.readSurface(input.sessionId),
-        }))),
+        Promise.all(
+          inputs.map(async input => ({
+            input,
+            snapshot: await this.ctx.sessionQuery.readSurface(input.sessionId),
+          })),
+        ),
         signal,
       )
     } catch (error: unknown) {
@@ -346,15 +341,19 @@ export class SessionReferenceResolver extends TypertRemoteService {
     assertNotCancelled(signal)
 
     const rendered = this.renderSources(prepared, maxReferenceBytes)
-    const omissions = await settleWithCancellation(Promise.all(rendered.map((source, index) =>
-      prepareReferenceOmission(this.ctx.get('spillStore'), agent.session.id, source, index),
-    )), signal)
+    const omissions = await settleWithCancellation(
+      Promise.all(rendered.map((source, index) => prepareReferenceOmission(this.ctx.get('spillStore'), agent.session.id, source, index))),
+      signal,
+    )
     assertNotCancelled(signal)
     const notices = omissions.filter(notice => notice !== undefined)
-    const prompt = renderPrompt(rendered.map(source => source.data))
-      + (notices.length === 0 ? '' : '\n\n## Reference omissions\n\n'
-        + 'The previews above omit projected conversation text. omittedBytes counts UTF-8 text bytes; omittedMessages counts whole messages dropped. Full snapshots remain untrusted background information.\n'
-        + stringifyTagSafeJson(notices))
+    const prompt =
+      renderPrompt(rendered.map(source => source.data)) +
+      (notices.length === 0
+        ? ''
+        : '\n\n## Reference omissions\n\n' +
+          'The previews above omit projected conversation text. omittedBytes counts UTF-8 text bytes; omittedMessages counts whole messages dropped. Full snapshots remain untrusted background information.\n' +
+          stringifyTagSafeJson(notices))
     const source: SessionReferenceSource = {
       kind: 'session-reference',
       form: 'recall',
@@ -426,7 +425,10 @@ function normalizeReferences(
     }
     const reference = candidate as SessionReferenceInput
     if (typeof reference.sessionId !== 'string' || (reference.label !== undefined && typeof reference.label !== 'string')) {
-      throw new SessionReferenceError('session reference must contain a string sessionId and optional string label', 'SESSION_REFERENCE_INVALID_REFERENCE')
+      throw new SessionReferenceError(
+        'session reference must contain a string sessionId and optional string label',
+        'SESSION_REFERENCE_INVALID_REFERENCE',
+      )
     }
     if (reference.sessionId === targetId) {
       throw new SessionReferenceError(`session ${JSON.stringify(targetId)} cannot reference itself`, 'SESSION_REFERENCE_SELF_REFERENCE')
@@ -436,10 +438,7 @@ function normalizeReferences(
     normalized.push({ sessionId: reference.sessionId, label: reference.label ?? reference.sessionId })
   }
   if (normalized.length > maxReferences) {
-    throw new SessionReferenceError(
-      `a message may reference at most ${maxReferences} sessions`,
-      'SESSION_REFERENCE_TOO_MANY',
-    )
+    throw new SessionReferenceError(`a message may reference at most ${maxReferences} sessions`, 'SESSION_REFERENCE_TOO_MANY')
   }
   return normalized
 }
@@ -467,10 +466,12 @@ function assertNotCancelled(signal: AbortSignal | undefined): void {
 function settleWithCancellation<T>(work: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
   if (signal === undefined) return work
   return new Promise<T>((resolve, reject) => {
-    const onAbort = (): void => { reject(cancelled(signal)) }
+    const onAbort = (): void => {
+      reject(cancelled(signal))
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     void work.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolve(value)
       },

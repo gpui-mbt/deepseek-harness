@@ -20,17 +20,8 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import { SessionLogOffset } from '@deepseek-ai/dsh-session'
-import type {
-  Session,
-  SessionEvent,
-  SessionHeader,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
-import type {
-  ProjectionCheckpoint,
-  ProjectionSnapshot,
-  SessionProjectionMap,
-} from '@deepseek-ai/dsh-session-projection'
+import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+import type { ProjectionCheckpoint, ProjectionSnapshot, SessionProjectionMap } from '@deepseek-ai/dsh-session-projection'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import { projectionCacheDomainSpec } from './spec.ts'
 import type { CheckpointIdentity, CheckpointRecord } from './spec.ts'
@@ -109,7 +100,10 @@ export class SessionProjectionCache extends Service {
   private table?: KvTable<SessionId, CheckpointRecord>
   private readonly dirty = new Map<Session, DirtyState>()
 
-  constructor(ctx: Context, public config: Config) {
+  constructor(
+    ctx: Context,
+    public config: Config,
+  ) {
     super(ctx, 'sessionProjectionCache')
   }
 
@@ -158,10 +152,7 @@ export class SessionProjectionCache extends Service {
    * @returns the viewed block, or `undefined` when no usable row exists for
    *   this lifecycle at the current Session format.
    */
-  cachedSnapshot(
-    meta: SessionHeader,
-    keys?: readonly Extract<keyof SessionProjectionMap, string>[],
-  ): ProjectionSnapshot | undefined {
+  cachedSnapshot(meta: SessionHeader, keys?: readonly Extract<keyof SessionProjectionMap, string>[]): ProjectionSnapshot | undefined {
     const expected = lifecycleIdentityOf(meta)
     const record = this.requireTable().get(meta.id)
     if (record === undefined || !currentLifecycleMatches(record.identity, expected)) return undefined
@@ -219,24 +210,13 @@ export class SessionProjectionCache extends Service {
    * @param events - exact logical event prefix represented by the observation.
    * @returns all projection values at the event cut.
    */
-  hydratePrepared(
-    session: Session,
-    events: readonly SessionEvent[],
-  ): ProjectionSnapshot {
-    const record = this.recordFor(
-      session.id,
-      identityOf(session.header, session.inheritedEventCount),
-    )
+  hydratePrepared(session: Session, events: readonly SessionEvent[]): ProjectionSnapshot {
+    const record = this.recordFor(session.id, identityOf(session.header, session.inheritedEventCount))
     if (record === undefined) {
       return this.ctx.sessionProjections.hydrate(session, {}, events, SessionLogOffset(0))
     }
     try {
-      return this.ctx.sessionProjections.hydrate(
-        session,
-        record.rows,
-        events,
-        SessionLogOffset(0),
-      )
+      return this.ctx.sessionProjections.hydrate(session, record.rows, events, SessionLogOffset(0))
     } catch {
       // Cached rows are disposable derived data. Retry from the exact log so a
       // stale schema cannot make a valid Session unreadable.
@@ -264,11 +244,7 @@ export class SessionProjectionCache extends Service {
     // already gone; persistence's own retirement drain covers that path and
     // any residual overreach is caught by the cold read's anchored floor.
     if (this.ctx.sessions.get(session.id) === session) await this.ctx.sessions.flush(session)
-    await this.put(
-      session.id,
-      identityOf(session.header, session.inheritedEventCount),
-      rows,
-    )
+    await this.put(session.id, identityOf(session.header, session.inheritedEventCount), rows)
   }
 
   /**
@@ -284,11 +260,7 @@ export class SessionProjectionCache extends Service {
    * @param events - the session's complete log, in seq order.
    * @returns the projection cut at the log end.
    */
-  coldSnapshot(
-    meta: SessionHeader,
-    inheritedEventCount: SessionLogOffset,
-    events: readonly SessionEvent[],
-  ): ProjectionSnapshot {
+  coldSnapshot(meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[]): ProjectionSnapshot {
     const identity = identityOf(meta, inheritedEventCount)
     const restored = this.ctx.sessionProjections.restore(
       this.recordFor(meta.id, identity)?.rows ?? {},
@@ -304,7 +276,6 @@ export class SessionProjectionCache extends Service {
     })
     return restored.snapshot
   }
-
 
   // --- write-behind (throttle + mandatory points) ---
 
@@ -353,12 +324,15 @@ export class SessionProjectionCache extends Service {
     // in init runs after this disposer and drains already-queued writes, so
     // a late flush can never land after disposal (it rejects `closed` into
     // flushSoft's warning instead).
-    this.ctx.effect(() => () => {
-      for (const state of this.dirty.values()) {
-        if (state.timer !== undefined) clearTimeout(state.timer)
-      }
-      this.dirty.clear()
-    }, 'sessionProjectionCache.timers')
+    this.ctx.effect(
+      () => () => {
+        for (const state of this.dirty.values()) {
+          if (state.timer !== undefined) clearTimeout(state.timer)
+        }
+        this.dirty.clear()
+      },
+      'sessionProjectionCache.timers',
+    )
   }
 
   /**
@@ -406,16 +380,13 @@ function lifecycleIdentityOf(header: SessionHeader): LifecycleIdentity {
   return {
     formatVersion: header.version,
     createdAt: header.createdAt,
-    ...header.cwd === undefined ? {} : { cwd: header.cwd },
+    ...(header.cwd === undefined ? {} : { cwd: header.cwd }),
     isSeeded: header.isSeeded,
   }
 }
 
 /** Project a header and its exact inherited cut onto the complete fold identity. */
-function identityOf(
-  header: SessionHeader,
-  inheritedEventCount: SessionLogOffset,
-): CurrentCheckpointIdentity {
+function identityOf(header: SessionHeader, inheritedEventCount: SessionLogOffset): CurrentCheckpointIdentity {
   const cut = SessionLogOffset(inheritedEventCount)
   if (!header.isSeeded && cut !== 0) {
     throw new Error('unseeded projection-cache identity inherited event count must be 0')
@@ -433,8 +404,7 @@ function identityOf(
  * an unseeded caller, while a seeded caller fails the match.
  */
 function identityMatches(stored: CheckpointIdentity, expected: CurrentCheckpointIdentity): boolean {
-  return currentLifecycleMatches(stored, expected)
-    && (stored.inheritedEventCount ?? 0) === expected.inheritedEventCount
+  return currentLifecycleMatches(stored, expected) && (stored.inheritedEventCount ?? 0) === expected.inheritedEventCount
 }
 
 /**
@@ -444,28 +414,18 @@ function identityMatches(stored: CheckpointIdentity, expected: CurrentCheckpoint
  * reader can check, and the whole identity a view needs.
  */
 function currentLifecycleMatches(stored: CheckpointIdentity, expected: LifecycleIdentity): boolean {
-  return stored.formatVersion === expected.formatVersion
-    && lifecycleIdentityMatches(stored, expected)
+  return stored.formatVersion === expected.formatVersion && lifecycleIdentityMatches(stored, expected)
 }
 
 /** Match one predecessor cache record to the authoritative listed lifecycle. */
-function predecessorIdentityMatches(
-  stored: CheckpointIdentity,
-  expected: LifecycleIdentity,
-): boolean {
-  const predecessor = stored.formatVersion === undefined
-    || stored.formatVersion < expected.formatVersion
+function predecessorIdentityMatches(stored: CheckpointIdentity, expected: LifecycleIdentity): boolean {
+  const predecessor = stored.formatVersion === undefined || stored.formatVersion < expected.formatVersion
   return predecessor && lifecycleIdentityMatches(stored, expected)
 }
 
 /** Match the format-independent fields that distinguish one Session lifecycle. */
-function lifecycleIdentityMatches(
-  stored: CheckpointIdentity,
-  expected: LifecycleIdentity,
-): boolean {
-  return stored.createdAt === expected.createdAt
-    && stored.cwd === expected.cwd
-    && (stored.isSeeded ?? false) === expected.isSeeded
+function lifecycleIdentityMatches(stored: CheckpointIdentity, expected: LifecycleIdentity): boolean {
+  return stored.createdAt === expected.createdAt && stored.cwd === expected.cwd && (stored.isSeeded ?? false) === expected.isSeeded
 }
 
 export default SessionProjectionCache

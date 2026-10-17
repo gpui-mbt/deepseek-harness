@@ -20,5 +20,7 @@ export const Config = z.object({
  * @param ctx Plugin context used for optional settings presentation.
  */
 export function apply(ctx: Context): void {
-  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+  ctx.inject(['settings'], child => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
 }

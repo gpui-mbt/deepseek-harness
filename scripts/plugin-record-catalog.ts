@@ -29,7 +29,8 @@ export interface PluginRecordEntry {
 function packageName(source: string, root: string): string | undefined {
   const manifest: unknown = JSON.parse(readFileSync(resolve(root, source.split('/').slice(0, 3).join('/'), 'package.json'), 'utf8'))
   return typeof manifest === 'object' && manifest !== null && 'name' in manifest && typeof manifest.name === 'string'
-    ? manifest.name : undefined
+    ? manifest.name
+    : undefined
 }
 
 /** Print compact type syntax while preserving whitespace within literal values. */
@@ -54,7 +55,8 @@ export function collectPluginRecords(scanRoot: string): PluginRecordEntry[] {
   const seen = new Map<string, string>()
   let owningDeclaration: string | undefined
   const files = globSync('packages/*/*/src/**/*.{ts,tsx,mts,cts}', { cwd: scanRoot })
-    .map(file => file.split(sep).join('/')).sort()
+    .map(file => file.split(sep).join('/'))
+    .sort()
   for (const file of files) {
     const text = readFileSync(resolve(scanRoot, file), 'utf8')
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
@@ -89,8 +91,13 @@ export function collectPluginRecords(scanRoot: string): PluginRecordEntry[] {
       }
       const container = node.parent
       const module = ts.isModuleBlock(container) ? container.parent : undefined
-      if (module === undefined || !ts.isModuleDeclaration(module) || !ts.isStringLiteral(module.name)
-        || module.name.text !== SESSION_TYPES_MODULE || !ts.isSourceFile(module.parent)) {
+      if (
+        module === undefined ||
+        !ts.isModuleDeclaration(module) ||
+        !ts.isStringLiteral(module.name) ||
+        module.name.text !== SESSION_TYPES_MODULE ||
+        !ts.isSourceFile(module.parent)
+      ) {
         violations.push(`${where} must augment declare module '${SESSION_TYPES_MODULE}'.`)
         return
       }
@@ -102,8 +109,12 @@ export function collectPluginRecords(scanRoot: string): PluginRecordEntry[] {
       const prefix = `plugin:${namespace}/`
       for (const member of node.members) {
         const location = pointer(file, source, member)
-        if (!ts.isPropertySignature(member) || member.type === undefined || member.questionToken !== undefined
-          || !ts.isStringLiteral(member.name)) {
+        if (
+          !ts.isPropertySignature(member) ||
+          member.type === undefined ||
+          member.questionToken !== undefined ||
+          !ts.isStringLiteral(member.name)
+        ) {
           violations.push(`plugin record at ${location} must be a required string-literal property with an explicit payload type.`)
           continue
         }

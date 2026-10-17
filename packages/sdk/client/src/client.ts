@@ -168,7 +168,7 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
    * terminating rejection propagates).
    * @returns an async iterator over {@link next} results.
    */
-  async * [Symbol.asyncIterator](): AsyncIterator<HarnessNotification> {
+  async *[Symbol.asyncIterator](): AsyncIterator<HarnessNotification> {
     for (;;) yield await this.next()
   }
 }
@@ -217,7 +217,7 @@ export class HarnessClient {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     this.child = child
-    child.once('error', (error) => {
+    child.once('error', error => {
       this.spawnError = error
       // A spawn failure destroys the pipes without an input 'end' edge, so the
       // transport's pending requests must be failed here.
@@ -240,7 +240,9 @@ export class HarnessClient {
       }
     })
     let signalStreamsSettled!: () => void
-    this.streamsSettled = new Promise((resolve) => { signalStreamsSettled = resolve })
+    this.streamsSettled = new Promise(resolve => {
+      signalStreamsSettled = resolve
+    })
     const settled = { stderr: false, exited: false }
     const maybeSettle = (): void => {
       if (settled.stderr && settled.exited) signalStreamsSettled()
@@ -250,7 +252,7 @@ export class HarnessClient {
       settled.stderr = true
       maybeSettle()
     })
-    child.once('exit', (code) => {
+    child.once('exit', code => {
       this.exitCode = code
       settled.exited = true
       maybeSettle()
@@ -263,7 +265,9 @@ export class HarnessClient {
       this.transport?.close()
     })
     const transport = new JsonRpcLineTransport(child.stdout, child.stdin)
-    transport.onNotification((method, params) => { this.dispatchNotification({ method, params }) })
+    transport.onNotification((method, params) => {
+      this.dispatchNotification({ method, params })
+    })
     transport.start()
     this.transport = transport
   }
@@ -275,8 +279,12 @@ export class HarnessClient {
    */
   async initialize(params: InitializeParams): Promise<InitializeResult> {
     const result = await this.request('initialize', { ...params }, this.runtime.initializeTimeoutMs)
-    if (!isRecord(result) || !isRecord(result.serverInfo)
-      || typeof result.serverInfo.name !== 'string' || typeof result.serverInfo.version !== 'string') {
+    if (
+      !isRecord(result) ||
+      !isRecord(result.serverInfo) ||
+      typeof result.serverInfo.name !== 'string' ||
+      typeof result.serverInfo.version !== 'string'
+    ) {
       throw new SdkProtocolError(`initialize returned no server identity: ${JSON.stringify(result)}`)
     }
     return { serverInfo: { name: result.serverInfo.name, version: result.serverInfo.version } }
@@ -387,7 +395,9 @@ export class HarnessClient {
   subscribe(filter?: NotificationFilter): NotificationSubscription {
     const id = String(this.subscriptionSerial++)
     const state: SubscriptionState = { queue: [], waiters: [], filter, failure: undefined }
-    const subscription = new NotificationSubscriptionImpl(state, () => { this.subscriptions.delete(id) })
+    const subscription = new NotificationSubscriptionImpl(state, () => {
+      this.subscriptions.delete(id)
+    })
     if (this.closeTask !== undefined || this.exitCode !== undefined || this.spawnError !== undefined) {
       subscription.fail(this.closedError('DeepSeek Harness runtime closed'))
       return subscription
@@ -404,7 +414,7 @@ export class HarnessClient {
    * @returns the filtered subscription handle.
    */
   subscribeSessionTree(sessionId: string): NotificationSubscription {
-    return this.subscribe((notification) => {
+    return this.subscribe(notification => {
       const params = notification.params
       if (notification.method === 'subagent.started' || notification.method === 'subagent.finished') {
         const parentId = params.parentSessionId
@@ -489,7 +499,9 @@ export class HarnessClient {
   private settleStreams(): Promise<void> {
     return Promise.race([
       this.streamsSettled,
-      new Promise<void>((resolve) => { setTimeout(resolve, STREAM_SETTLE_MS) }),
+      new Promise<void>(resolve => {
+        setTimeout(resolve, STREAM_SETTLE_MS)
+      }),
     ])
   }
 
@@ -504,10 +516,7 @@ export class HarnessClient {
 
 /** Construct the transport against a generic process for package-local fake-runtime tests. */
 export function createProcessHarnessClient(options: RuntimeProcessOptions): HarnessClient {
-  const Constructor = HarnessClient as new (
-    publicOptions: HarnessClientOptions,
-    runtime: RuntimeProcessOptions,
-  ) => HarnessClient
+  const Constructor = HarnessClient as new (publicOptions: HarnessClientOptions, runtime: RuntimeProcessOptions) => HarnessClient
   return new Constructor({}, options)
 }
 

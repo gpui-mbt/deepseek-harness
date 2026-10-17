@@ -15,8 +15,14 @@ type UserTextOwner = Parameters<FactoryComponentPropsOf<'conversation.user.text'
  * @returns ordered inline nodes with raw-text fallbacks for missing registrations.
  */
 export function UserText({
-  text, facts, interactive = false, ellipsis = false,
-  useUserTextRevision, createUserTextEvaluator, reportTransformFailure, renderSlot,
+  text,
+  facts,
+  interactive = false,
+  ellipsis = false,
+  useUserTextRevision,
+  createUserTextEvaluator,
+  reportTransformFailure,
+  renderSlot,
 }: FactoryComponentPropsOf<'conversation.user.text'>) {
   useUserTextRevision(revision => revision)
   const evaluate = useMemo(createUserTextEvaluator, [createUserTextEvaluator])
@@ -31,17 +37,29 @@ export function UserText({
   useEffect(() => {
     if (failed) reportTransformFailure(error)
   }, [failed, error, reportTransformFailure])
-  const content = useMemo(() => nodes === undefined ? <UserTextRun text={text} /> : <>{nodes.map((node) => {
-    const raw = text.slice(node.start, node.end)
-    // The node ID determines its payload; TypeScript does not distribute this enclosing owner over the node union.
-    const owner = { node, raw, interactive } as UserTextOwner
-    return <Fragment key={`${node.id}:${node.start}`}>
-      {renderSlot('conversation.user.text.node', owner, {
-        entryKey: node.id,
-        fallback: <UserTextRun text={node.id === 'text' ? node.data.display ?? raw : raw} />,
-      })}
-    </Fragment>
-  })}</>, [nodes, text, interactive, renderSlot])
+  const content = useMemo(
+    () =>
+      nodes === undefined ? (
+        <UserTextRun text={text} />
+      ) : (
+        <>
+          {nodes.map(node => {
+            const raw = text.slice(node.start, node.end)
+            // The node ID determines its payload; TypeScript does not distribute this enclosing owner over the node union.
+            const owner = { node, raw, interactive } as UserTextOwner
+            return (
+              <Fragment key={`${node.id}:${node.start}`}>
+                {renderSlot('conversation.user.text.node', owner, {
+                  entryKey: node.id,
+                  fallback: <UserTextRun text={node.id === 'text' ? (node.data.display ?? raw) : raw} />,
+                })}
+              </Fragment>
+            )
+          })}
+        </>
+      ),
+    [nodes, text, interactive, renderSlot],
+  )
   return <span className={ellipsis ? css.ellipsis : css.root}>{content}</span>
 }
 

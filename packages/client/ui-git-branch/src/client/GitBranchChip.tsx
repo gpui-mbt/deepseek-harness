@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  IconBranchOutlineRegular,
-  useAnchoredPosition,
-  useDismissOnOutsidePointer,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconBranchOutlineRegular, useAnchoredPosition, useDismissOnOutsidePointer } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceGitStatus } from '@deepseek-ai/dsh-api-workspace-git/types'
@@ -32,10 +28,9 @@ export interface GitBranchChipInjected {
 }
 
 /** Full props for the composer stats-row git-branch chip. */
-export type GitBranchChipProps =
-  PropsRuntime<'conversation.composer.stats.lead'>
-  & PropsLocale<typeof NS>
-  & InjectFace<GitBranchChipInjected>
+export type GitBranchChipProps = PropsRuntime<'conversation.composer.stats.lead'> &
+  PropsLocale<typeof NS> &
+  InjectFace<GitBranchChipInjected>
 
 /** Display parts of one checkout answer. */
 export interface GitBranchReading {
@@ -104,25 +99,29 @@ export function GitBranchChip(props: GitBranchChipProps): React.JSX.Element | nu
   useDismissOnOutsidePointer(rootRef, open, setOpen, panelRef)
   useEffect(() => {
     acquire(sessionId)
-    return () => { release(sessionId) }
+    return () => {
+      release(sessionId)
+    }
   }, [acquire, release, sessionId])
   // A working-directory change (a worktree tool entering a linked checkout) can
   // land mid-turn; re-read at once instead of waiting for the 15-second poll.
-  useEffect(() => { refresh(sessionId) }, [workingDirectory, refresh, sessionId])
+  useEffect(() => {
+    refresh(sessionId)
+  }, [workingDirectory, refresh, sessionId])
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('keydown', onKeyDown)
-    return () => { document.removeEventListener('keydown', onKeyDown) }
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [open])
   if (status === undefined) return null
   const reading = gitBranchReading(status)
   if (reading === null) return null
-  const refLabel = reading.detached
-    ? t('detached.tooltip', { ref: reading.ref })
-    : t('branch.tooltip', { ref: reading.ref })
+  const refLabel = reading.detached ? t('detached.tooltip', { ref: reading.ref }) : t('branch.tooltip', { ref: reading.ref })
   const labelParts = [refLabel]
   if (reading.worktree !== null) labelParts.push(t('worktree.tooltip', { name: reading.worktree }))
   if (reading.root !== null) labelParts.push(t('path.tooltip', { path: reading.root }))
@@ -141,48 +140,45 @@ export function GitBranchChip(props: GitBranchChipProps): React.JSX.Element | nu
         aria-expanded={open}
         aria-label={label}
         title={label}
-        onClick={() => { setOpen(!open) }}
+        onClick={() => {
+          setOpen(!open)
+        }}
       >
         <IconBranchOutlineRegular />
         <span className={css.label}>{text}</span>
       </button>
-      {open && createPortal(
-        <div
-          ref={panelRef}
-          className={css.panel}
-          role="dialog"
-          aria-label={t('dialog.title')}
-          style={pos ?? MEASURE_STYLE}
-        >
-          <div className={css.title}>
-            <span className={css.titleLabel}>
-              <IconBranchOutlineRegular />
-              {t('dialog.title')}
-            </span>
-            <span className={css.titleValue}>{reading.name}</span>
-          </div>
-          <div className={css.titleRule} aria-hidden />
-          <dl className={css.details}>
-            <dt>{t(reading.detached ? 'dialog.commit' : 'dialog.branch')}</dt>
-            <dd>{reading.name}</dd>
-            {reading.worktree !== null && (
-              <>
-                <dt>{t('dialog.worktree')}</dt>
-                <dd>{reading.worktree}</dd>
-              </>
-            )}
-            {reading.root !== null && (
-              <>
-                <dt>{t('dialog.path')}</dt>
-                <dd className={css.path}>{reading.root}</dd>
-              </>
-            )}
-            <dt>{t('dialog.repository')}</dt>
-            <dd className={css.path}>{reading.repositoryUrl ?? t('dialog.none')}</dd>
-          </dl>
-        </div>,
-        document.body,
-      )}
+      {open &&
+        createPortal(
+          <div ref={panelRef} className={css.panel} role="dialog" aria-label={t('dialog.title')} style={pos ?? MEASURE_STYLE}>
+            <div className={css.title}>
+              <span className={css.titleLabel}>
+                <IconBranchOutlineRegular />
+                {t('dialog.title')}
+              </span>
+              <span className={css.titleValue}>{reading.name}</span>
+            </div>
+            <div className={css.titleRule} aria-hidden />
+            <dl className={css.details}>
+              <dt>{t(reading.detached ? 'dialog.commit' : 'dialog.branch')}</dt>
+              <dd>{reading.name}</dd>
+              {reading.worktree !== null && (
+                <>
+                  <dt>{t('dialog.worktree')}</dt>
+                  <dd>{reading.worktree}</dd>
+                </>
+              )}
+              {reading.root !== null && (
+                <>
+                  <dt>{t('dialog.path')}</dt>
+                  <dd className={css.path}>{reading.root}</dd>
+                </>
+              )}
+              <dt>{t('dialog.repository')}</dt>
+              <dd className={css.path}>{reading.repositoryUrl ?? t('dialog.none')}</dd>
+            </dl>
+          </div>,
+          document.body,
+        )}
     </>
   )
 }

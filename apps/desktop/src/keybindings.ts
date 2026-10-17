@@ -12,16 +12,27 @@ import type { ShortcutConfigSnapshot, ShortcutPlatform } from '@deepseek-ai/dsh-
  * @param publish - updates the native binding index and trusted product page after commit.
  * @returns the single-writer transaction coordinator.
  */
-export function desktopKeybindings(userData: string, platform: ShortcutPlatform,
-  publish: (snapshot: ShortcutConfigSnapshot) => void): ShortcutPersistence {
+export function desktopKeybindings(
+  userData: string,
+  platform: ShortcutPlatform,
+  publish: (snapshot: ShortcutConfigSnapshot) => void,
+): ShortcutPersistence {
   const path = join(userData, 'keybindings.json')
-  return new ShortcutPersistence({
-    read: async () => {
-      try { return await readFile(path, 'utf8') } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
-        throw error
-      }
+  return new ShortcutPersistence(
+    {
+      read: async () => {
+        try {
+          return await readFile(path, 'utf8')
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+          throw error
+        }
+      },
+      write: raw => writeFileAtomic(path, raw, { mode: 0o600, dirMode: 0o700 }),
     },
-    write: raw => writeFileAtomic(path, raw, { mode: 0o600, dirMode: 0o700 }),
-  }, 'desktop', platform, false, publish)
+    'desktop',
+    platform,
+    false,
+    publish,
+  )
 }

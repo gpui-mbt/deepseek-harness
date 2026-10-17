@@ -9,14 +9,17 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {
-  ResolvedSubagentStartRequest,
-  SubagentCapabilities,
-  SubagentProvider,
-} from '@deepseek-ai/dsh-subagent'
+import type { ResolvedSubagentStartRequest, SubagentCapabilities, SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import { assertUsableCwd } from '@deepseek-ai/dsh-subagent'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import { acpConfigurationFailure, type AcpRunSpec, DEFAULT_DISPOSE_EOF_GRACE_MS, DEFAULT_DISPOSE_GRACE_MS, type PermissionPolicy, startAcpRun } from './run.ts'
+import {
+  acpConfigurationFailure,
+  type AcpRunSpec,
+  DEFAULT_DISPOSE_EOF_GRACE_MS,
+  DEFAULT_DISPOSE_GRACE_MS,
+  type PermissionPolicy,
+  startAcpRun,
+} from './run.ts'
 
 export const name = 'subagent-acp'
 export const inject = ['subagents', 'subprocess']
@@ -87,7 +90,11 @@ class AcpProvider implements SubagentProvider {
   // Context contract: an out-of-process ACP child starts fresh — no parent conversation crosses the process boundary.
   readonly inheritsParentContext = false
 
-  constructor(readonly name: string, private readonly ctx: Context, private readonly config: ResolvedConfig) {}
+  constructor(
+    readonly name: string,
+    private readonly ctx: Context,
+    private readonly config: ResolvedConfig,
+  ) {}
 
   start(request: ResolvedSubagentStartRequest) {
     if (request.signal.aborted) {

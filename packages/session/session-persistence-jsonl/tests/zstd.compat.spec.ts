@@ -1,7 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import {
-  compressZstdFrame, createZstdFrameDecoder, decompressZstdFrame, scanZstdFrames,
-} from '../src/zstd.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { compressZstdFrame, createZstdFrameDecoder, decompressZstdFrame, scanZstdFrames } from '../src/zstd.ts'
 import { NodePrivateZstdFrameDecoder } from '../src/zstd-private-decoder.ts'
 import { PublicZstdFrameDecoder } from '../src/zstd-public-decoder.ts'
 
@@ -15,8 +13,7 @@ describe('JSONL Zstandard compatibility', () => {
 
     expect(tornStart).toBeUndefined()
     expect(frames).toHaveLength(2)
-    expect(frames.map(frame => encoded.subarray(frame.start, frame.start + 4).toString('hex')))
-      .toEqual(['28b52ffd', '28b52ffd'])
+    expect(frames.map(frame => encoded.subarray(frame.start, frame.start + 4).toString('hex'))).toEqual(['28b52ffd', '28b52ffd'])
     const decoded = await Promise.all(frames.map(frame => decompressZstdFrame(encoded.subarray(frame.start, frame.end))))
     expect(Buffer.concat(decoded).toString()).toContain('"type":"turn/start"')
 

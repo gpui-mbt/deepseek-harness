@@ -1,5 +1,5 @@
 /** HTML URL decoding stays local; workspace reads leave path resolution and authorization to the Host. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import { createReadHtmlRelative } from '../src/client/html/read-relative.ts'
@@ -25,7 +25,14 @@ describe('HTML relative file reader', () => {
   })
 
   it('observes the Host-resolved dependency instead of a symlink and parent-segment spelling', async () => {
-    const value = { absolutePath: '/workspace/style.css', data: new TextEncoder().encode('x'), version: 'v1', offset: 0, bytes: 1, eof: true }
+    const value = {
+      absolutePath: '/workspace/style.css',
+      data: new TextEncoder().encode('x'),
+      version: 'v1',
+      offset: 0,
+      bytes: 1,
+      eof: true,
+    }
     const readRelated = vi.fn<ReadHtmlRelated>().mockResolvedValue({ ok: true, value })
     const addResource = vi.fn()
     const signal = new AbortController().signal
@@ -36,18 +43,21 @@ describe('HTML relative file reader', () => {
   it('observes the Host-reported missing path so creation can invalidate the preview', async () => {
     const path = '/workspace/missing.css'
     const readRelated = vi.fn<ReadHtmlRelated>().mockResolvedValue({
-      ok: false, error: new RemoteError('workspace-file/not-found', 'Missing dependency', { path }),
+      ok: false,
+      error: new RemoteError('workspace-file/not-found', 'Missing dependency', { path }),
     })
     const addResource = vi.fn()
     const signal = new AbortController().signal
-    await expect(createReadHtmlRelative(readRelated, ADDRESS, signal, addResource)('linked/../missing.css', signal))
-      .rejects.toThrow('Missing dependency')
+    await expect(createReadHtmlRelative(readRelated, ADDRESS, signal, addResource)('linked/../missing.css', signal)).rejects.toThrow(
+      'Missing dependency',
+    )
     expect(addResource).toHaveBeenCalledExactlyOnceWith(sessionFileAddress('html', path))
   })
 
   it('does not guess a dependency path when the Host failure contains none', async () => {
     const readRelated = vi.fn<ReadHtmlRelated>().mockResolvedValue({
-      ok: false, error: new RemoteError('gateway/internal', 'Read failed', {}),
+      ok: false,
+      error: new RemoteError('gateway/internal', 'Read failed', {}),
     })
     const addResource = vi.fn()
     const signal = new AbortController().signal
@@ -57,7 +67,8 @@ describe('HTML relative file reader', () => {
 
   it('refuses non-relative references and preserves Host permission failures', async () => {
     const readRelated = vi.fn<ReadHtmlRelated>().mockResolvedValue({
-      ok: false, error: new RemoteError('workspace-file/outside-workspace', 'outside workspace', { path: '../x.js' }),
+      ok: false,
+      error: new RemoteError('workspace-file/outside-workspace', 'outside workspace', { path: '../x.js' }),
     })
     const signal = new AbortController().signal
     const read = createReadHtmlRelative(readRelated, ADDRESS, signal, vi.fn())
@@ -85,7 +96,10 @@ describe('HTML relative file reader', () => {
     const result = read('./late.js', loading.signal)
     const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' })
     loading.abort()
-    pending.resolve({ ok: true, value: { absolutePath: '/workspace/late.js', version: 'v1', bytes: 1, offset: 0, data: new Uint8Array([1]), eof: true } })
+    pending.resolve({
+      ok: true,
+      value: { absolutePath: '/workspace/late.js', version: 'v1', bytes: 1, offset: 0, data: new Uint8Array([1]), eof: true },
+    })
     await rejected
   })
 })

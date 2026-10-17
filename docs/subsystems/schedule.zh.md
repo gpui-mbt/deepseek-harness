@@ -182,10 +182,7 @@ cron 解码保留已提交时点及已存储的时区拼写，并拒绝非规范
  * `after`, `at`, and `every` decode without one and stay readable. The Host task
  * record requires the member and never persists a record without it.
  */
-type LegacyScheduleRecord =
-  | LegacyAfterScheduleRecord
-  | LegacyAtScheduleRecord
-  | LegacyEveryScheduleRecord
+type LegacyScheduleRecord = LegacyAfterScheduleRecord | LegacyAtScheduleRecord | LegacyEveryScheduleRecord
 ```
 
 ```ts type-equiv
@@ -413,17 +410,17 @@ interface DeliveryRetentionBounds {
 /** Newest-first saved deliveries, or a non-mutating task/cursor lookup failure. */
 type ScheduleDeliveryHistoryResult =
   | {
-    readonly id: ScheduleId
-    readonly records: ScheduleDeliveryRecord[]
-    /** Whether earlier delivery records may be unavailable; missing receipts are never reconstructed. */
-    readonly earlierRecordsUnavailable: boolean
-    /** True only after an append removed saved records; absent legacy evidence is false. */
-    readonly earlierRecordsPruned: boolean
-    /** Current Host retention configuration, also used by the delivery writer. */
-    readonly retention: DeliveryRetentionBounds
-    /** Oldest returned message identity, present only when older saved records remain. */
-    readonly nextBefore?: MessageId
-  }
+      readonly id: ScheduleId
+      readonly records: ScheduleDeliveryRecord[]
+      /** Whether earlier delivery records may be unavailable; missing receipts are never reconstructed. */
+      readonly earlierRecordsUnavailable: boolean
+      /** True only after an append removed saved records; absent legacy evidence is false. */
+      readonly earlierRecordsPruned: boolean
+      /** Current Host retention configuration, also used by the delivery writer. */
+      readonly retention: DeliveryRetentionBounds
+      /** Oldest returned message identity, present only when older saved records remain. */
+      readonly nextBefore?: MessageId
+    }
   | { readonly id: ScheduleId; readonly code: 'schedule_not_found' | 'delivery_cursor_not_found' }
 ```
 

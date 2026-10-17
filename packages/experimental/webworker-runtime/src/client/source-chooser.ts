@@ -1,8 +1,6 @@
 /** Pre-boot filesystem-source chooser for static WebWorker previews. */
 
-import {
-  parsePreviewFixtureManifest, type PreviewFixtureManifestEntry,
-} from '../fixture-manifest.ts'
+import { parsePreviewFixtureManifest, type PreviewFixtureManifestEntry } from '../fixture-manifest.ts'
 
 const EMPTY_SOURCE = 'none'
 const WEBFS_SOURCE = 'webfs'
@@ -162,7 +160,11 @@ const CHOOSER_STYLE = `
 `
 
 const ENTITIES: Readonly<Record<string, string>> = {
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
 }
 
 function escapeMarkup(value: string): string {
@@ -249,12 +251,16 @@ export async function choosePreviewSource(manifestUrl: URL): Promise<readonly UR
   const form = chooser.querySelector<HTMLFormElement>('[data-preview-source-card]')
   if (form === null) throw new Error('preview source chooser: form was not rendered')
   const sourceId = await new Promise<string>((resolve, reject) => {
-    form.addEventListener('submit', (event) => {
-      event.preventDefault()
-      const value = new FormData(form).get('preview-source')
-      if (typeof value === 'string') resolve(value)
-      else reject(new Error('preview source chooser: no source selected'))
-    }, { once: true })
+    form.addEventListener(
+      'submit',
+      event => {
+        event.preventDefault()
+        const value = new FormData(form).get('preview-source')
+        if (typeof value === 'string') resolve(value)
+        else reject(new Error('preview source chooser: no source selected'))
+      },
+      { once: true },
+    )
   })
   const choice = choices.find(candidate => candidate.id === sourceId && candidate.disabled !== true)
   if (choice === undefined) throw new Error(`preview source chooser: unavailable source "${sourceId}"`)

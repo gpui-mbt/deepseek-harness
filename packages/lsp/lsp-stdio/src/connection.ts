@@ -49,11 +49,7 @@ interface Pending {
  * @param message - the unencoded JSON-RPC message.
  * @param done - callback that reports asynchronous stream settlement.
  */
-export type ConnectionWriter = (
-  stdin: Writable,
-  message: unknown,
-  done: (error?: Error | null) => void,
-) => void
+export type ConnectionWriter = (stdin: Writable, message: unknown, done: (error?: Error | null) => void) => void
 
 /** Spawn one subprocess for this connection (the provider passes `ctx.subprocess.spawn`). */
 export type ConnectionSpawner = (spec: SubprocessSpawnSpec) => SubprocessHandle
@@ -108,7 +104,7 @@ export class LspConnection {
     }
     /* v8 ignore stop */
     this.stdin = this.handle.stdin
-    this.closed = new Promise<void>((resolve) => {
+    this.closed = new Promise<void>(resolve => {
       const close = (): void => {
         const reason = this.closeReason ?? new Error(this.exitMessage())
         // Record the reason so any request issued AFTER close rejects immediately instead of hanging
@@ -127,8 +123,12 @@ export class LspConnection {
     // Child stdin can fail while the process itself remains alive (for example, a server closes fd
     // 0). Treat that as a fatal connection error so pending requests reject immediately instead of
     // waiting for a process-close event that may never arrive.
-    this.stdin.on('error', (error) => { this.fail(error) })
-    this.handle.stdout.on('data', (chunk: Buffer) => { this.onStdout(chunk) })
+    this.stdin.on('error', error => {
+      this.fail(error)
+    })
+    this.handle.stdout.on('data', (chunk: Buffer) => {
+      this.onStdout(chunk)
+    })
   }
 
   /** The retained stderr tail, for diagnostics on a failed server. */
@@ -286,7 +286,7 @@ export class LspConnection {
       }
       try {
         this.writer(this.stdin, message, done)
-      /* v8 ignore start -- Node stream write failures are callback-delivered; this guards a
+        /* v8 ignore start -- Node stream write failures are callback-delivered; this guards a
          nonconforming Writable implementation throwing synchronously. */
       } catch (error) {
         const failure = asError(error)

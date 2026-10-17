@@ -7,15 +7,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
-import {
-  type SessionHeader,
-  type SessionId as SessionIdValue,
-} from '@deepseek-ai/dsh-session'
+import { type SessionHeader, type SessionId as SessionIdValue } from '@deepseek-ai/dsh-session'
 import type { TurnBoundaryProjection } from '@deepseek-ai/dsh-agent'
-import type {
-  SessionLineageNode,
-  SessionRecord,
-} from '@deepseek-ai/dsh-session-query'
+import type { SessionLineageNode, SessionRecord } from '@deepseek-ai/dsh-session-query'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { serviceBoundary } from './service-boundary.ts'
@@ -56,10 +50,7 @@ interface DescendantVisit {
 function callerOf(exec: ToolRunContext, ctx: Context): Caller {
   const agent = exec.agent
   if (agent === undefined) {
-    throw new HarnessError(
-      'session query tools require an agent-bound caller',
-      'SESSION_QUERY_TOOL_MISSING_AGENT',
-    )
+    throw new HarnessError('session query tools require an agent-bound caller', 'SESSION_QUERY_TOOL_MISSING_AGENT')
   }
   return {
     id: agent.session.id,
@@ -72,20 +63,19 @@ function targetId(args: { readonly session_id?: string }, caller: Caller): Sessi
   return args.session_id === undefined ? caller.id : brandString<SessionIdValue>(args.session_id)
 }
 
-async function authorizeTarget(
-  ctx: Context,
-  caller: Caller,
-  target: SessionIdValue,
-  signal: AbortSignal,
-): Promise<void> {
+async function authorizeTarget(ctx: Context, caller: Caller, target: SessionIdValue, signal: AbortSignal): Promise<void> {
   if (target === caller.id) return
   const cwd = caller.header.cwd
   if (cwd === undefined) throw serviceBoundary.unauthorizedTarget()
   const records = await serviceBoundary.call(ctx, signal, 'target authorization', () =>
-    ctx.sessionQuery.filterSessions([
-      { kind: 'id', values: [target] },
-      { kind: 'cwd', values: [cwd] },
-    ], signal))
+    ctx.sessionQuery.filterSessions(
+      [
+        { kind: 'id', values: [target] },
+        { kind: 'cwd', values: [cwd] },
+      ],
+      signal,
+    ),
+  )
   if (records.length !== 1) throw serviceBoundary.unauthorizedTarget()
 }
 
@@ -98,11 +88,7 @@ function headerAuthorized(header: SessionHeader, caller: Caller): boolean {
   return caller.header.cwd !== undefined && header.cwd === caller.header.cwd
 }
 
-function assertObservedTargetAuthorized(
-  caller: Caller,
-  target: SessionIdValue,
-  observed: SessionHeader,
-): void {
+function assertObservedTargetAuthorized(caller: Caller, target: SessionIdValue, observed: SessionHeader): void {
   if (observed.id !== target || !headerAuthorized(observed, caller)) {
     throw serviceBoundary.unauthorizedTarget()
   }
@@ -121,10 +107,14 @@ async function authorizeSessionIds(
   const other = unique.filter(id => id !== caller.id)
   if (cwd === undefined || other.length === 0) return authorized
   const records = await serviceBoundary.call(ctx, signal, 'session-id authorization', () =>
-    ctx.sessionQuery.filterSessions([
-      { kind: 'id', values: other },
-      { kind: 'cwd', values: [cwd] },
-    ], signal))
+    ctx.sessionQuery.filterSessions(
+      [
+        { kind: 'id', values: other },
+        { kind: 'cwd', values: [cwd] },
+      ],
+      signal,
+    ),
+  )
   const requested = new Set(other)
   for (const record of records) {
     if (requested.has(record.header.id) && recordAuthorized(record, caller)) {
@@ -134,15 +124,9 @@ async function authorizeSessionIds(
   return authorized
 }
 
-async function readTitles(
-  ctx: Context,
-  caller: Caller,
-  ids: readonly SessionIdValue[],
-  signal: AbortSignal,
-): Promise<CompleteTitleMap> {
+async function readTitles(ctx: Context, caller: Caller, ids: readonly SessionIdValue[], signal: AbortSignal): Promise<CompleteTitleMap> {
   const result = new Map<SessionIdValue, TitleView>()
-  const observations = await serviceBoundary.call(ctx, signal, 'title observation', () =>
-    ctx.sessionQuery.readTitleSnapshots(ids, signal))
+  const observations = await serviceBoundary.call(ctx, signal, 'title observation', () => ctx.sessionQuery.readTitleSnapshots(ids, signal))
   for (const observation of observations) {
     if (observation.status === 'rejected') {
       result.set(observation.sessionId, unavailableTitle(ctx, observation.reason))
@@ -154,28 +138,17 @@ async function readTitles(
   return result as CompleteTitleMap
 }
 
-async function readTitle(
-  ctx: Context,
-  caller: Caller,
-  id: SessionIdValue,
-  signal: AbortSignal,
-): Promise<TitleView> {
+async function readTitle(ctx: Context, caller: Caller, id: SessionIdValue, signal: AbortSignal): Promise<TitleView> {
   return (await readTitles(ctx, caller, [id], signal)).get(id)
 }
 
-function unavailableTitle(
-  ctx: Context,
-  error: unknown,
-): TitleView {
+function unavailableTitle(ctx: Context, error: unknown): TitleView {
   const sanitized = serviceBoundary.sanitizeError(ctx, 'title observation item', error)
   if (sanitized.code === 'SESSION_QUERY_TOOL_UNAUTHORIZED') throw sanitized
   return { text: 'untitled', unavailableCode: sanitized.code }
 }
 
-function authorizeDescendants(
-  nodes: readonly SessionLineageNode[],
-  caller: Caller,
-): Array<AuthorizedDescendant | null> {
+function authorizeDescendants(nodes: readonly SessionLineageNode[], caller: Caller): Array<AuthorizedDescendant | null> {
   const result: Array<AuthorizedDescendant | null> = []
   let pending: DescendantProjectionFrame | undefined
   for (const node of [...nodes].reverse()) {
@@ -204,9 +177,7 @@ function authorizeDescendants(
   return result
 }
 
-function * visitDescendants(
-  nodes: readonly (AuthorizedDescendant | null)[],
-): Generator<DescendantVisit> {
+function* visitDescendants(nodes: readonly (AuthorizedDescendant | null)[]): Generator<DescendantVisit> {
   let pending: DescendantVisit | undefined
   for (const node of [...nodes].reverse()) {
     pending = { node, depth: 0, next: pending }
@@ -235,9 +206,7 @@ function descendantIds(nodes: readonly (AuthorizedDescendant | null)[]): Session
 }
 
 function titleText(view: TitleView): string {
-  return view.unavailableCode === undefined
-    ? view.text
-    : `${view.text} (title unavailable: ${view.unavailableCode})`
+  return view.unavailableCode === undefined ? view.text : `${view.text} (title unavailable: ${view.unavailableCode})`
 }
 
 /** Workspace-scoped caller authorization, title access, and lineage projection. */

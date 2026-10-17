@@ -1,5 +1,5 @@
 import { request } from 'node:http'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { MockLlmBehavior, MockLlmServer, MockLlmServerEvent } from '../src/index.ts'
 import { startMockLlmServer } from '../src/index.ts'
 
@@ -26,23 +26,27 @@ function messages(
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...options.key === undefined ? {} : { 'x-api-key': options.key },
+      ...(options.key === undefined ? {} : { 'x-api-key': options.key }),
     },
     body: options.body ?? JSON.stringify({ model: 'mock', messages: [], stream: true }),
-    ...options.signal === undefined ? {} : { signal: options.signal },
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
   })
 }
 
 function rawMessages(server: MockLlmServer, chunks: readonly Buffer[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const outgoing = request(`${server.baseURL}/v1/messages`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-    }, (response) => {
-      response.once('error', reject)
-      response.once('end', resolve)
-      response.resume()
-    })
+    const outgoing = request(
+      `${server.baseURL}/v1/messages`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+      },
+      response => {
+        response.once('error', reject)
+        response.once('end', resolve)
+        response.resume()
+      },
+    )
     outgoing.once('error', reject)
     for (const chunk of chunks) outgoing.write(chunk)
     outgoing.end()
@@ -56,7 +60,9 @@ describe('mock LLM server wire behaviors', () => {
       apiKey: 'mock-key',
       successText: 'recovered',
       chunkSize: 3,
-      onEvent: (event) => { events.push(event) },
+      onEvent: event => {
+        events.push(event)
+      },
     })
 
     const response = await messages(server, { key: 'mock-key' })
@@ -71,14 +77,16 @@ describe('mock LLM server wire behaviors', () => {
     expect(body).toContain('event: message_start\ndata:')
     expect(body).toContain('event: content_block_delta\ndata:')
     expect(body).toContain('event: message_stop\ndata: {"type":"message_stop"}')
-    expect(server.requests).toEqual([expect.objectContaining({
-      attempt: 1,
-      behavior: 'success',
-      path: '/v1/messages',
-      body: { model: 'mock', messages: [], stream: true },
-      chunksSent: 8,
-      outcome: 'completed',
-    })])
+    expect(server.requests).toEqual([
+      expect.objectContaining({
+        attempt: 1,
+        behavior: 'success',
+        path: '/v1/messages',
+        body: { model: 'mock', messages: [], stream: true },
+        chunksSent: 8,
+        outcome: 'completed',
+      }),
+    ])
     expect(events).toEqual([
       {
         type: 'request',
@@ -130,27 +138,28 @@ describe('mock LLM server wire behaviors', () => {
     expect(server.requests[0]).toMatchObject({ behavior, chunksSent: chunks, outcome: 'completed' })
   })
 
-  it.each([
-    ['connection_reset', false] as const,
-    ['stream_disconnect', true] as const,
-    ['partial_disconnect', true] as const,
-  ])('forces the %s transport boundary', async (behavior, receivesHeaders) => {
-    const server = await start([behavior], { disconnectDelayMs: 20, partialText: 'half' })
+  it.each([['connection_reset', false] as const, ['stream_disconnect', true] as const, ['partial_disconnect', true] as const])(
+    'forces the %s transport boundary',
+    async (behavior, receivesHeaders) => {
+      const server = await start([behavior], { disconnectDelayMs: 20, partialText: 'half' })
 
-    let headersReceived = false
-    await expect((async () => {
-      const response = await messages(server)
-      headersReceived = true
-      await response.text()
-    })()).rejects.toThrow()
+      let headersReceived = false
+      await expect(
+        (async () => {
+          const response = await messages(server)
+          headersReceived = true
+          await response.text()
+        })(),
+      ).rejects.toThrow()
 
-    expect(headersReceived).toBe(receivesHeaders)
-    expect(server.requests[0]).toMatchObject({
-      behavior,
-      chunksSent: behavior === 'partial_disconnect' ? 3 : 0,
-      outcome: 'reset',
-    })
-  })
+      expect(headersReceived).toBe(receivesHeaders)
+      expect(server.requests[0]).toMatchObject({
+        behavior,
+        chunksSent: behavior === 'partial_disconnect' ? 3 : 0,
+        outcome: 'reset',
+      })
+    },
+  )
 
   it('holds a stalled stream until the client aborts and server close remains idempotent', async () => {
     const server = await start(['stall'])
@@ -165,33 +174,30 @@ describe('mock LLM server wire behaviors', () => {
     await server.close()
   })
 
-  it.each([
-    ['slow_success', 100] as const,
-    ['stream_disconnect', 100] as const,
-    ['partial_disconnect', 100] as const,
-  ])('records a client that closes during %s', async (behavior, delayMs) => {
-    const events: MockLlmServerEvent[] = []
-    const result = Promise.withResolvers<Extract<MockLlmServerEvent, { type: 'result' }>>()
-    const server = await start([behavior], {
-      chunkDelayMs: delayMs,
-      disconnectDelayMs: delayMs,
-      chunkSize: 1,
-      onEvent: (event) => {
-        events.push(event)
-        if (event.type === 'result') result.resolve(event)
-      },
-    })
-    const controller = new AbortController()
-    const response = await messages(server, { signal: controller.signal })
-    controller.abort()
-    await expect(response.text()).rejects.toThrow()
-    await result.promise
+  it.each([['slow_success', 100] as const, ['stream_disconnect', 100] as const, ['partial_disconnect', 100] as const])(
+    'records a client that closes during %s',
+    async (behavior, delayMs) => {
+      const events: MockLlmServerEvent[] = []
+      const result = Promise.withResolvers<Extract<MockLlmServerEvent, { type: 'result' }>>()
+      const server = await start([behavior], {
+        chunkDelayMs: delayMs,
+        disconnectDelayMs: delayMs,
+        chunkSize: 1,
+        onEvent: event => {
+          events.push(event)
+          if (event.type === 'result') result.resolve(event)
+        },
+      })
+      const controller = new AbortController()
+      const response = await messages(server, { signal: controller.signal })
+      controller.abort()
+      await expect(response.text()).rejects.toThrow()
+      await result.promise
 
-    expect(server.requests[0]).toMatchObject({ behavior, outcome: 'client_closed' })
-    expect(events.filter(event => event.type === 'result')).toEqual([
-      expect.objectContaining({ behavior, outcome: 'client_closed' }),
-    ])
-  })
+      expect(server.requests[0]).toMatchObject({ behavior, outcome: 'client_closed' })
+      expect(events.filter(event => event.type === 'result')).toEqual([expect.objectContaining({ behavior, outcome: 'client_closed' })])
+    },
+  )
 
   it('preserves UTF-8 code points split across request chunks', async () => {
     const server = await start(['success'])
@@ -199,10 +205,7 @@ describe('mock LLM server wire behaviors', () => {
     const characterOffset = encoded.indexOf(Buffer.from('你'))
     expect(characterOffset).toBeGreaterThanOrEqual(0)
 
-    await rawMessages(server, [
-      encoded.subarray(0, characterOffset + 1),
-      encoded.subarray(characterOffset + 1),
-    ])
+    await rawMessages(server, [encoded.subarray(0, characterOffset + 1), encoded.subarray(characterOffset + 1)])
 
     expect(server.requests[0]?.body).toEqual({ messages: [{ role: 'user', content: '你好' }] })
   })
@@ -215,13 +218,7 @@ describe('mock LLM server wire behaviors', () => {
   })
 
   it('emits reasoning, tool calls, max-token finishes, slow chunks, and a wrong content type', async () => {
-    const server = await start([
-      'reasoning_success',
-      'tool_call_success',
-      'max_tokens',
-      'slow_success',
-      'wrong_content_type',
-    ], {
+    const server = await start(['reasoning_success', 'tool_call_success', 'max_tokens', 'slow_success', 'wrong_content_type'], {
       successText: 'answer',
       reasoningText: 'think',
       toolName: 'lookup',
@@ -355,7 +352,6 @@ describe('mock LLM server option validation', () => {
     [{ sequence: ['random'], randomWeights: { success: -1 } }, /non-negative/],
     [{ sequence: ['random'], randomWeights: { success: 0 } }, /positive weight/],
   ] as const)('rejects invalid options %#', async (options, expected) => {
-    await expect(startMockLlmServer(options as Parameters<typeof startMockLlmServer>[0]))
-      .rejects.toThrow(expected)
+    await expect(startMockLlmServer(options as Parameters<typeof startMockLlmServer>[0])).rejects.toThrow(expected)
   })
 })

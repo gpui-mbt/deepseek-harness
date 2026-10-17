@@ -3,7 +3,7 @@ import { fstatSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import type { FileHandle } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { initProfile } from '@deepseek-ai/dsh-app-boot'
 import { runProfilePnpm } from '../src/operations.ts'
 
@@ -12,7 +12,7 @@ const observed = vi.hoisted(() => {
   return { logs }
 })
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
@@ -38,9 +38,13 @@ it('closes the pnpm log when the profile manifest cannot be parsed', async () =>
   initProfile(dir, [])
   writeFileSync(join(dir, 'package.json'), '{')
 
-  await expect(runProfilePnpm({ home, profile: 'test', installAnchor, cwd: home }, ['install'], {
-    execution: 'service', outputBytes: 100, activateNewBundles: false,
-  })).rejects.toThrow(SyntaxError)
+  await expect(
+    runProfilePnpm({ home, profile: 'test', installAnchor, cwd: home }, ['install'], {
+      execution: 'service',
+      outputBytes: 100,
+      activateNewBundles: false,
+    }),
+  ).rejects.toThrow(SyntaxError)
 
   expect(observed.logs).toHaveLength(1)
   const { fd } = observed.logs[0]!

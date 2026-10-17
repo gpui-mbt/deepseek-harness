@@ -47,20 +47,20 @@ export type InspectorSourceEvent =
   | { readonly type: 'opened'; readonly source: InspectorSourceDescriptor }
   | { readonly type: 'closed'; readonly source: InspectorSourceDescriptor; readonly reason: string }
   | {
-    readonly type: 'client-runtime-response'
-    readonly source: InspectorSourceDescriptor
-    readonly frame: ClientRuntimeResponseFrame
-  }
+      readonly type: 'client-runtime-response'
+      readonly source: InspectorSourceDescriptor
+      readonly frame: ClientRuntimeResponseFrame
+    }
   | {
-    readonly type: 'client-console-event'
-    readonly source: InspectorSourceDescriptor
-    readonly frame: ClientConsoleEventFrame
-  }
+      readonly type: 'client-console-event'
+      readonly source: InspectorSourceDescriptor
+      readonly frame: ClientConsoleEventFrame
+    }
   | {
-    readonly type: 'client-source-response'
-    readonly source: InspectorSourceDescriptor
-    readonly frame: ClientSourceResponseFrame
-  }
+      readonly type: 'client-source-response'
+      readonly source: InspectorSourceDescriptor
+      readonly frame: ClientSourceResponseFrame
+    }
 
 /** Read-only diagnostic for `DSHInspector.getSources`. */
 export interface InspectorSourceView {
@@ -144,7 +144,9 @@ export class InspectorSourceRegistry {
    */
   subscribeStatus(listener: () => void): () => void {
     this.statusListeners.add(listener)
-    return () => { this.statusListeners.delete(listener) }
+    return () => {
+      this.statusListeners.delete(listener)
+    }
   }
 
   /**
@@ -154,7 +156,9 @@ export class InspectorSourceRegistry {
    */
   subscribeEvents(listener: (event: InspectorSourceEvent) => void): () => void {
     this.eventListeners.add(listener)
-    return () => { this.eventListeners.delete(listener) }
+    return () => {
+      this.eventListeners.delete(listener)
+    }
   }
 
   /**
@@ -200,24 +204,21 @@ export class InspectorSourceRegistry {
       return
     }
     if (frame.t === 'client-runtime/response') {
-      if (state.source.kind !== 'client'
-        || !state.source.capabilities.some(capability => capability.type === 'client-runtime')) {
+      if (state.source.kind !== 'client' || !state.source.capabilities.some(capability => capability.type === 'client-runtime')) {
         throw new Error('inspector protocol: source did not declare Client Runtime')
       }
       this.emit({ type: 'client-runtime-response', source: state.source, frame })
       return
     }
     if (frame.t === 'client-console/event') {
-      if (state.source.kind !== 'client'
-        || !state.source.capabilities.some(capability => capability.type === 'client-console')) {
+      if (state.source.kind !== 'client' || !state.source.capabilities.some(capability => capability.type === 'client-console')) {
         throw new Error('inspector protocol: source did not declare Client Console')
       }
       this.emit({ type: 'client-console-event', source: state.source, frame })
       return
     }
     if (frame.t === 'client-sources/response') {
-      if (state.source.kind !== 'client'
-        || !state.source.capabilities.some(capability => capability.type === 'client-sources')) {
+      if (state.source.kind !== 'client' || !state.source.capabilities.some(capability => capability.type === 'client-sources')) {
         throw new Error('inspector protocol: source did not declare Client Sources')
       }
       this.emit({ type: 'client-source-response', source: state.source, frame })
@@ -226,10 +227,11 @@ export class InspectorSourceRegistry {
     this.assertTopics(state, frame.records)
     if (frame.t === 'source/replace') {
       state.expectedSequence = frame.nextSequence
-      for (const consumer of this.consumers) consumer.replace(
-        state.source,
-        frame.records.map((record, index) => ({ ...record, sequence: frame.nextSequence + index })),
-      )
+      for (const consumer of this.consumers)
+        consumer.replace(
+          state.source,
+          frame.records.map((record, index) => ({ ...record, sequence: frame.nextSequence + index })),
+        )
       this.count(state, frame.records)
       this.notifyStatus()
       return

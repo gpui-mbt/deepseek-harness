@@ -14,14 +14,9 @@ const SESSION_PACKAGE = '@deepseek-ai/dsh-session'
 const SESSION_TYPES_MODULE = '@deepseek-ai/dsh-session/types'
 
 /** Event-envelope declarations rendered before the per-event vocabulary. */
-const EVENT_ENVELOPE_TYPE_NAMES = [
-  'SessionEventType',
-  'SurfaceEventType',
-  'SurfaceOp',
-  'SessionEvent',
-] as const
+const EVENT_ENVELOPE_TYPE_NAMES = ['SessionEventType', 'SurfaceEventType', 'SurfaceOp', 'SessionEvent'] as const
 
-type EventEnvelopeTypeName = typeof EVENT_ENVELOPE_TYPE_NAMES[number]
+type EventEnvelopeTypeName = (typeof EVENT_ENVELOPE_TYPE_NAMES)[number]
 
 /** One log event, extracted from a `SessionEventMap` declaration. */
 export interface LogEventEntry {
@@ -65,7 +60,8 @@ const printer = ts.createPrinter({ removeComments: true })
  * repository's inline-literal style.
  */
 function payloadText(type: ts.TypeNode, sf: ts.SourceFile): string {
-  return printer.printNode(ts.EmitHint.Unspecified, type, sf)
+  return printer
+    .printNode(ts.EmitHint.Unspecified, type, sf)
     .replace(/\s+/g, ' ')
     .replace(/;\s*\}/g, ' }')
     .trim()
@@ -82,9 +78,10 @@ function declarationText(text: string, sf: ts.SourceFile, node: ts.Node): string
   const { line } = sf.getLineAndCharacterOfPosition(start)
   const lineStart = sf.getPositionOfLineAndCharacter(line, 0)
   const indent = text.slice(lineStart, start)
-  return text.slice(lineStart, node.end)
+  return text
+    .slice(lineStart, node.end)
     .split('\n')
-    .map(lineText => lineText.startsWith(indent) ? lineText.slice(indent.length) : lineText)
+    .map(lineText => (lineText.startsWith(indent) ? lineText.slice(indent.length) : lineText))
     .join('\n')
     .trimEnd()
 }
@@ -102,8 +99,13 @@ function sessionEventMapDecls(sf: ts.SourceFile): { decl: ts.InterfaceDeclaratio
   const decls: { decl: ts.InterfaceDeclaration; topLevel: boolean }[] = []
   for (const stmt of sf.statements) {
     if (ts.isInterfaceDeclaration(stmt) && stmt.name.text === 'SessionEventMap') decls.push({ decl: stmt, topLevel: true })
-    if (ts.isModuleDeclaration(stmt) && ts.isStringLiteral(stmt.name) && stmt.name.text === SESSION_TYPES_MODULE
-      && stmt.body && ts.isModuleBlock(stmt.body)) {
+    if (
+      ts.isModuleDeclaration(stmt) &&
+      ts.isStringLiteral(stmt.name) &&
+      stmt.name.text === SESSION_TYPES_MODULE &&
+      stmt.body &&
+      ts.isModuleBlock(stmt.body)
+    ) {
       for (const inner of stmt.body.statements) {
         if (ts.isInterfaceDeclaration(inner) && inner.name.text === 'SessionEventMap') decls.push({ decl: inner, topLevel: false })
       }
@@ -139,7 +141,9 @@ export function collectLogEvents(scanRoot: string = root): LogEventEntry[] {
   const violations: string[] = []
   const seen = new Map<string, string>()
   let owningDecl: string | null = null
-  for (const rel of globSync('packages/*/*/src/**/*.{ts,tsx}', { cwd: scanRoot }).map(s => s.split(sep).join('/')).sort()) {
+  for (const rel of globSync('packages/*/*/src/**/*.{ts,tsx}', { cwd: scanRoot })
+    .map(s => s.split(sep).join('/'))
+    .sort()) {
     const abs = resolve(scanRoot, rel)
     const text = readFileSync(abs, 'utf8')
     if (!text.includes('SessionEventMap')) continue
@@ -152,22 +156,30 @@ export function collectLogEvents(scanRoot: string = root): LogEventEntry[] {
         // types and must not enter the on-disk catalog.
         const pkg = packageNameFor(rel, scanRoot)
         if (pkg !== SESSION_PACKAGE) {
-          violations.push(`top-level interface SessionEventMap (${declSrc}) is outside ${SESSION_PACKAGE} (package ${pkg ?? 'unknown'}). Rename the interface, or contribute events via declare module '${SESSION_TYPES_MODULE}'.`)
+          violations.push(
+            `top-level interface SessionEventMap (${declSrc}) is outside ${SESSION_PACKAGE} (package ${pkg ?? 'unknown'}). Rename the interface, or contribute events via declare module '${SESSION_TYPES_MODULE}'.`,
+          )
           continue
         }
         const exported = decl.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
         if (!exported) {
-          violations.push(`top-level interface SessionEventMap (${declSrc}) is not exported; the owning vocabulary is the single exported declaration — rename a local helper interface.`)
+          violations.push(
+            `top-level interface SessionEventMap (${declSrc}) is not exported; the owning vocabulary is the single exported declaration — rename a local helper interface.`,
+          )
           continue
         }
         if (owningDecl) {
-          violations.push(`top-level interface SessionEventMap (${declSrc}) is already declared at ${owningDecl}; the owning vocabulary has exactly one home.`)
+          violations.push(
+            `top-level interface SessionEventMap (${declSrc}) is already declared at ${owningDecl}; the owning vocabulary has exactly one home.`,
+          )
           continue
         }
         owningDecl = declSrc
       }
       if (decl.heritageClauses?.length) {
-        violations.push(`SessionEventMap declaration (${declSrc}) uses extends; inherited keys would join keyof SessionEventMap without a catalog row — declare event members directly.`)
+        violations.push(
+          `SessionEventMap declaration (${declSrc}) uses extends; inherited keys would join keyof SessionEventMap without a catalog row — declare event members directly.`,
+        )
       }
       for (const member of decl.members) {
         const src = pointer(rel, sf, member)
@@ -176,7 +188,9 @@ export function collectLogEvents(scanRoot: string = root): LogEventEntry[] {
           // so skipping it silently would be exactly the undocumented-event hole
           // this catalog exists to close.
           const label = (member as { name?: ts.Node }).name?.getText(sf) ?? member.getText(sf).replace(/\s+/g, ' ')
-          violations.push(`SessionEventMap member ${label} (${src}) is not a property signature with an explicit payload type; declare every log event as 'scope/name': <payload>.`)
+          violations.push(
+            `SessionEventMap member ${label} (${src}) is not a property signature with an explicit payload type; declare every log event as 'scope/name': <payload>.`,
+          )
           continue
         }
         if (!ts.isStringLiteral(member.name)) {
@@ -186,7 +200,9 @@ export function collectLogEvents(scanRoot: string = root): LogEventEntry[] {
         const name = member.name.text
         const where = `log event '${name}' (${src})`
         if (name.startsWith('plugin:')) {
-          violations.push(`${where} uses the plugin: namespace, which holds ignorable plugin records outside SessionEventMap; choose a scope/name event type.`)
+          violations.push(
+            `${where} uses the plugin: namespace, which holds ignorable plugin records outside SessionEventMap; choose a scope/name event type.`,
+          )
           continue
         }
         const prior = seen.get(name)
@@ -198,14 +214,26 @@ export function collectLogEvents(scanRoot: string = root): LogEventEntry[] {
         const payload = payloadText(member.type, sf)
         const { doc, hasMode } = parseJsDoc(rawJsDoc(text, member))
         if (hasMode) {
-          violations.push(`${where} carries an @mode tag, but a log event has no dispatch mode (it is not a cordis bus event — it rides the 'session/event' emit). Remove the tag.`)
+          violations.push(
+            `${where} carries an @mode tag, but a log event has no dispatch mode (it is not a cordis bus event — it rides the 'session/event' emit). Remove the tag.`,
+          )
         }
         if (!doc) {
-          violations.push(`${where} has no description prose. Say what the event records and what its payload means — the JSDoc becomes the catalog entry.`)
+          violations.push(
+            `${where} has no description prose. Say what the event records and what its payload means — the JSDoc becomes the catalog entry.`,
+          )
         }
         const declaration = declarationText(text, sf, member)
         const messageProjection = ts.getJSDocTags(member).some(tag => tag.tagName.text === 'messageProjection')
-        entries.push({ name, scope: name.split('/')[0] ?? name, payload, declaration, doc, source: src, ...messageProjection ? { messageProjection: true as const } : {} })
+        entries.push({
+          name,
+          scope: name.split('/')[0] ?? name,
+          payload,
+          declaration,
+          doc,
+          source: src,
+          ...(messageProjection ? { messageProjection: true as const } : {}),
+        })
       }
     }
   }
@@ -221,7 +249,9 @@ export function collectEventEnvelopeTypes(scanRoot: string = root): EventEnvelop
   const found = new Map<EventEnvelopeTypeName, EventEnvelopeTypeEntry>()
   const violations: string[] = []
   const wanted = new Set<string>(EVENT_ENVELOPE_TYPE_NAMES)
-  for (const rel of globSync('packages/*/*/src/**/*.{ts,tsx}', { cwd: scanRoot }).map(s => s.split(sep).join('/')).sort()) {
+  for (const rel of globSync('packages/*/*/src/**/*.{ts,tsx}', { cwd: scanRoot })
+    .map(s => s.split(sep).join('/'))
+    .sort()) {
     const abs = resolve(scanRoot, rel)
     const text = readFileSync(abs, 'utf8')
     if (!EVENT_ENVELOPE_TYPE_NAMES.some(name => text.includes(name))) continue
@@ -251,7 +281,7 @@ export function collectEventEnvelopeTypes(scanRoot: string = root): EventEnvelop
     violations.push(`missing event-envelope declaration(s): ${missing.join(', ')}.`)
   }
   reportViolations('gen-persistence-catalog', violations)
-  return EVENT_ENVELOPE_TYPE_NAMES.map((name) => {
+  return EVENT_ENVELOPE_TYPE_NAMES.map(name => {
     const entry = found.get(name)
     if (!entry) throw new Error(`gen-persistence-catalog: missing checked event-envelope declaration '${name}'.`)
     return entry
@@ -267,7 +297,9 @@ export function collectEventEnvelopeTypes(scanRoot: string = root): EventEnvelop
  */
 export function collectSurfaceEventTypes(scanRoot: string = root): string[] {
   const found: { names: string[]; source: string }[] = []
-  for (const rel of globSync('packages/*/*/src/**/*.{ts,tsx}', { cwd: scanRoot }).map(s => s.split(sep).join('/')).sort()) {
+  for (const rel of globSync('packages/*/*/src/**/*.{ts,tsx}', { cwd: scanRoot })
+    .map(s => s.split(sep).join('/'))
+    .sort()) {
     const abs = resolve(scanRoot, rel)
     const text = readFileSync(abs, 'utf8')
     if (!text.includes('SurfaceEventType')) continue
@@ -279,14 +311,20 @@ export function collectSurfaceEventTypes(scanRoot: string = root): string[] {
       const names: string[] = []
       for (const m of members) {
         if (ts.isLiteralTypeNode(m) && ts.isStringLiteral(m.literal)) names.push(m.literal.text)
-        else throw new Error(`gen-persistence-catalog: SurfaceEventType (${src}) has a non-string-literal member; the badge derivation needs a closed literal union.`)
+        else
+          throw new Error(
+            `gen-persistence-catalog: SurfaceEventType (${src}) has a non-string-literal member; the badge derivation needs a closed literal union.`,
+          )
       }
       found.push({ names, source: src })
     }
   }
   const only = found[0]
   if (!only) throw new Error('gen-persistence-catalog: no SurfaceEventType union found under packages/*/*/src.')
-  if (found.length > 1) throw new Error(`gen-persistence-catalog: SurfaceEventType is declared more than once (${found.map(f => f.source).join(', ')}); the surface subset has exactly one owner.`)
+  if (found.length > 1)
+    throw new Error(
+      `gen-persistence-catalog: SurfaceEventType is declared more than once (${found.map(f => f.source).join(', ')}); the surface subset has exactly one owner.`,
+    )
   return only.names
 }
 
@@ -299,7 +337,9 @@ export function annotateSurface(events: LogEventEntry[], surfaceTypes: string[])
   const names = new Set(events.map(e => e.name))
   const stale = surfaceTypes.filter(t => !names.has(t))
   if (stale.length > 0) {
-    throw new Error(`gen-persistence-catalog: SurfaceEventType member(s) ${stale.map(t => `'${t}'`).join(', ')} name no declared log event (stale union member?).`)
+    throw new Error(
+      `gen-persistence-catalog: SurfaceEventType member(s) ${stale.map(t => `'${t}'`).join(', ')} name no declared log event (stale union member?).`,
+    )
   }
   const surface = new Set(surfaceTypes)
   for (const event of events) {

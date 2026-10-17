@@ -1,8 +1,4 @@
-import type {
-  SessionFormatEvent,
-  SessionFormatEventRun,
-  SessionFormatMigrationContext,
-} from './types.ts'
+import type { SessionFormatEvent, SessionFormatEventRun, SessionFormatMigrationContext } from './types.ts'
 
 /** Migration output context that expands compact runs into retained events. */
 export class SessionFormatEventCollector implements SessionFormatMigrationContext {

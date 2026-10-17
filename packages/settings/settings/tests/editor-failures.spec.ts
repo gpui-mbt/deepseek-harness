@@ -1,14 +1,16 @@
 /** File failures between validation and commit must not persist partial edits. */
 import * as fs from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { configurationFixture } from './configuration-fixture.ts'
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const original = await importOriginal<typeof import('node:fs/promises')>()
   return { ...original, readFile: vi.fn(original.readFile) }
 })
-afterEach(() => { vi.mocked(fs.readFile).mockReset() })
+afterEach(() => {
+  vi.mocked(fs.readFile).mockReset()
+})
 
 it.each([
   ['denied read', Object.assign(new Error('denied read'), { code: 'EACCES' })],

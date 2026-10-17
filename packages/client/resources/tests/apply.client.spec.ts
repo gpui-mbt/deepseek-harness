@@ -4,7 +4,7 @@
  * hook reaches every slot component as `useResource`, and both leave with the
  * fiber so a reload of the plugin registers cleanly again.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act } from '@testing-library/react'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -33,7 +33,10 @@ afterEach(async () => {
   runtime = undefined
 })
 
-const settle = (): Promise<void> => new Promise((resolve) => { setTimeout(resolve, 0) })
+const settle = (): Promise<void> =>
+  new Promise(resolve => {
+    setTimeout(resolve, 0)
+  })
 
 async function boot(): Promise<SlotTestRuntime> {
   const rt = await SlotTestRuntime.create()
@@ -66,21 +69,31 @@ describe('client-resources apply', () => {
 
     let push: ((value: string) => void) | undefined
     await act(async () => {
-      runtime!.ctx.effect(() => runtime!.ctx.resources.register<'feed'>({
-        protocol: 'feed',
-        open: () => ({
-          [Symbol.asyncIterator]: () => ({
-            next: () => new Promise<IteratorResult<RemoteResult<string>>>((resolve) => {
-              push = (value) => { resolve({ done: false, value: { ok: true, value } }) }
+      runtime!.ctx.effect(
+        () =>
+          runtime!.ctx.resources.register<'feed'>({
+            protocol: 'feed',
+            open: () => ({
+              [Symbol.asyncIterator]: () => ({
+                next: () =>
+                  new Promise<IteratorResult<RemoteResult<string>>>(resolve => {
+                    push = value => {
+                      resolve({ done: false, value: { ok: true, value } })
+                    }
+                  }),
+              }),
             }),
           }),
-        }),
-      }), 'spec: feed provider')
+        'spec: feed provider',
+      )
     })
     expect(seen).toMatchObject({ status: 'loading' })
     // Rendering the hook is what holds the address: the provider's stream is open.
     expect(push).toBeDefined()
-    await act(async () => { push!('v1'); await settle() })
+    await act(async () => {
+      push!('v1')
+      await settle()
+    })
     expect(seen).toMatchObject({ status: 'live', value: 'v1' })
     expect(runtime.ctx.resources.source(A).getSnapshot()).toBe(seen)
   })
@@ -116,7 +129,11 @@ describe('client-resources apply', () => {
     await rt.mount({ inject: [...inject], apply })
     const opened = Promise.withResolvers<undefined>()
     const open = vi.fn<ResourceProvider<'feed'>['open']>(async function* () {
-      try { yield { ok: true as const, value: 'shared data' } } finally { opened.resolve(undefined) }
+      try {
+        yield { ok: true as const, value: 'shared data' }
+      } finally {
+        opened.resolve(undefined)
+      }
     })
     await act(async () => {
       rt.ctx.effect(() => rt.ctx.resources.register({ protocol: 'feed', open }), 'spec: shared address')
@@ -146,7 +163,9 @@ describe('client-resources apply', () => {
     rt.renderSlot('resources.probe', {})
     const firstView = rt.renderSlot('resources.sessionProbe', {}, { session: firstReference })
     const secondView = rt.renderSlot('resources.sessionPeer', {}, { session: secondReference })
-    await act(async () => { await opened.promise })
+    await act(async () => {
+      await opened.promise
+    })
     const snapshot = source.getSnapshot()
     expect(snapshot).toEqual({ status: 'live', value: 'shared data', failure: undefined })
     expect(seen.root).toBe(snapshot)

@@ -34,10 +34,13 @@ interface AcceptedGeneration {
 /** Creates isolated query peers over one shared semantic reader. */
 export class InspectorQueryRouter {
   private readonly peers = new Set<InspectorQueryPeer>()
-  private readonly activeBySource = new Map<InspectorSourceId, {
-    readonly generation: InspectorSourceGeneration
-    readonly peer: InspectorQueryPeer
-  }>()
+  private readonly activeBySource = new Map<
+    InspectorSourceId,
+    {
+      readonly generation: InspectorSourceGeneration
+      readonly peer: InspectorQueryPeer
+    }
+  >()
 
   constructor(
     private readonly reader: CordisRuntimeTreeReader,
@@ -48,20 +51,21 @@ export class InspectorQueryRouter {
    * Create query state for one Host MessagePort or Client WebSocket.
    * @param transport - Carrier response and rejection operations.
    * @returns The peer that receives frames from this carrier only.
-  */
+   */
   open(transport: InspectorQueryPeerTransport): InspectorQueryPeer {
     const peer: InspectorQueryPeer = new InspectorQueryPeer(
       this.reader,
       this.maxFrameBytes,
       transport,
-      (accepted) => {
+      accepted => {
         for (const [sourceId, active] of this.activeBySource) {
           if (active.peer === peer) this.activeBySource.delete(sourceId)
         }
         this.activeBySource.set(accepted.sourceId, { ...accepted, peer })
       },
-      (accepted): boolean => this.activeBySource.get(accepted.sourceId)?.peer === peer
-        && this.activeBySource.get(accepted.sourceId)?.generation === accepted.generation,
+      (accepted): boolean =>
+        this.activeBySource.get(accepted.sourceId)?.peer === peer &&
+        this.activeBySource.get(accepted.sourceId)?.generation === accepted.generation,
       () => {
         this.peers.delete(peer)
         for (const [sourceId, active] of this.activeBySource) {
@@ -147,9 +151,13 @@ export class InspectorQueryPeer {
       return true
     }
     const accepted = this.accepted
-    if (this.closed || accepted === undefined || !this.isRegistered(accepted)
-      || accepted.sourceId !== frame.sourceId
-      || accepted.generation !== frame.generation) {
+    if (
+      this.closed ||
+      accepted === undefined ||
+      !this.isRegistered(accepted) ||
+      accepted.sourceId !== frame.sourceId ||
+      accepted.generation !== frame.generation
+    ) {
       this.sendFailure(frame, 'stale-source', 'Inspector query does not belong to the accepted source generation')
       return true
     }
@@ -226,10 +234,7 @@ export class InspectorQueryPeer {
   }
 
   private canReply(frame: InspectorQueryRequestFrame, accepted: AcceptedGeneration): boolean {
-    return !this.closed
-      && this.accepted === accepted
-      && this.isRegistered(accepted)
-      && this.inFlight.get(frame.requestId) === accepted
+    return !this.closed && this.accepted === accepted && this.isRegistered(accepted) && this.inFlight.get(frame.requestId) === accepted
   }
 
   private deliver(frame: InspectorQueryResponseFrame): void {

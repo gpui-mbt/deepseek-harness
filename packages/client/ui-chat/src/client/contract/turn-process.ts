@@ -24,15 +24,17 @@ export interface TurnProcessSpec {
  * @returns whether both values describe the same process presentation.
  */
 export function sameTurnProcessSpec(left: TurnProcessSpec, right: TurnProcessSpec): boolean {
-  return left.turn === right.turn
-    && left.controlAnchorSeq === right.controlAnchorSeq
-    && left.processStartSeq === right.processStartSeq
-    && left.answerAnchorSeq === right.answerAnchorSeq
-    && left.answerStep === right.answerStep
-    && left.inlineReasoning === right.inlineReasoning
-    && left.messageCount === right.messageCount
-    && left.toolCallCount === right.toolCallCount
-    && left.subagentCount === right.subagentCount
+  return (
+    left.turn === right.turn &&
+    left.controlAnchorSeq === right.controlAnchorSeq &&
+    left.processStartSeq === right.processStartSeq &&
+    left.answerAnchorSeq === right.answerAnchorSeq &&
+    left.answerStep === right.answerStep &&
+    left.inlineReasoning === right.inlineReasoning &&
+    left.messageCount === right.messageCount &&
+    left.toolCallCount === right.toolCallCount &&
+    left.subagentCount === right.subagentCount
+  )
 }
 
 /**

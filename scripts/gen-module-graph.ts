@@ -2,22 +2,9 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  collectPackageGraph,
-  escapeMermaidLabel as escLabel,
-  graphNodeId as nodeId,
-  type PackageGraphNode,
-} from './package-graph.ts'
-import {
-  computeTranslationPairingRecord,
-  renderTranslationPairingRecord,
-  translationPairPaths,
-} from './translation-pairing-record.ts'
-import {
-  parseTranslationPairingManifest,
-  renderGeneratedRegion,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
+import { collectPackageGraph, escapeMermaidLabel as escLabel, graphNodeId as nodeId, type PackageGraphNode } from './package-graph.ts'
+import { computeTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
+import { parseTranslationPairingManifest, renderGeneratedRegion, translationPairSourcePredicate } from './translation-pairing.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const SOURCE = 'docs/module-graph.md'
@@ -76,19 +63,21 @@ export function renderModuleGraph(pkgs: readonly Pkg[], locale: Locale): string 
   const groupBlocks: string[] = []
   for (const group of groups) {
     groupBlocks.push(`  subgraph ${nodeId('group', group)}["packages/${escLabel(group)}"]`)
-    for (const pkg of pkgs.filter(candidate => candidate.group === group)
-      .sort((left, right) => left.short.localeCompare(right.short))) {
+    for (const pkg of pkgs.filter(candidate => candidate.group === group).sort((left, right) => left.short.localeCompare(right.short))) {
       groupBlocks.push(`    ${nodeId('pkg', pkg.short)}["${escLabel(pkg.short)}"]`)
     }
     groupBlocks.push('  end')
   }
-  const rows = pkgs.map((pkg) => {
-    const dependencies = pkg.deps.length > 0
-      ? pkg.deps.map((dependency) => {
-        const target = byShort.get(dependency)
-        return target ? packageLink(target) : `\`${dependency}\``
-      }).join(', ')
-      : '—'
+  const rows = pkgs.map(pkg => {
+    const dependencies =
+      pkg.deps.length > 0
+        ? pkg.deps
+            .map(dependency => {
+              const target = byShort.get(dependency)
+              return target ? packageLink(target) : `\`${dependency}\``
+            })
+            .join(', ')
+        : '—'
     return `| ${packageLink(pkg)} | \`${pkg.group}\` | ${dependencies} |`
   })
   const chinese = locale === 'zh'
@@ -110,11 +99,10 @@ export function renderModuleGraph(pkgs: readonly Pkg[], locale: Locale): string 
     ...edges,
     '```',
     '',
-    renderGeneratedRegion('module-graph:packages', [
-      '| `package` | `group` | `peerDependencies` |',
-      '| --- | --- | --- |',
-      ...rows,
-    ].join('\n')),
+    renderGeneratedRegion(
+      'module-graph:packages',
+      ['| `package` | `group` | `peerDependencies` |', '| --- | --- | --- |', ...rows].join('\n'),
+    ),
     '',
   ].join('\n')
 }
@@ -134,15 +122,14 @@ export function computeModuleGraphOutputs(scanRoot: string = root): ReadonlyMap<
 
 /** Render the consistency record for the two computed graph documents. */
 function moduleGraphRecord(scanRoot: string, outputs: ReadonlyMap<string, string>): string {
-  const manifest = parseTranslationPairingManifest(
-    readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-  )
-  return renderTranslationPairingRecord(PATHS, computeTranslationPairingRecord(
+  const manifest = parseTranslationPairingManifest(readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'))
+  return renderTranslationPairingRecord(
     PATHS,
-    outputs.get(PATHS.source) ?? '',
-    outputs.get(PATHS.zh) ?? '',
-    { repoRoot: scanRoot, isTranslationPairSource: translationPairSourcePredicate(manifest) },
-  ))
+    computeTranslationPairingRecord(PATHS, outputs.get(PATHS.source) ?? '', outputs.get(PATHS.zh) ?? '', {
+      repoRoot: scanRoot,
+      isTranslationPairSource: translationPairSourcePredicate(manifest),
+    }),
+  )
 }
 
 /**
@@ -173,9 +160,9 @@ export function main(): void {
   const outputs = computeModuleGraphOutputs(root)
   const expected = new Map([...outputs, [PATHS.meta, moduleGraphRecord(root, outputs)]])
   if (process.argv.includes('--check')) {
-    const stale = [...expected].filter(([path, content]) => (
-      !existsSync(resolve(root, path)) || readFileSync(resolve(root, path), 'utf8') !== content
-    )).map(([path]) => path)
+    const stale = [...expected]
+      .filter(([path, content]) => !existsSync(resolve(root, path)) || readFileSync(resolve(root, path), 'utf8') !== content)
+      .map(([path]) => path)
     if (stale.length === 0) {
       console.log(`gen-module-graph: ${expected.size} artifact(s) are up to date.`)
       return

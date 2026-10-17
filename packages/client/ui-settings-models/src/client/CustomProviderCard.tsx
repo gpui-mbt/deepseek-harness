@@ -109,7 +109,9 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const [models, setModels] = useState<readonly ModelDraft[]>([])
   const [busy, setBusy] = useState(false)
   const [listBusy, setListBusy] = useState(false)
-  useEffect(() => { onBusyChange?.(busy || listBusy) }, [busy, listBusy, onBusyChange])
+  useEffect(() => {
+    onBusyChange?.(busy || listBusy)
+  }, [busy, listBusy, onBusyChange])
   const [failure, setFailure] = useState<string | undefined>(undefined)
   /**
    * The profile write landed. Only the key write can still be outstanding, so
@@ -135,26 +137,37 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   // string, which the create path reads as "no key supplied" — a route may
   // legitimately authenticate through the provider's own ambient discovery.
   const keyValue = keyDraft.trim()
-  const ready = route.length > 0 && !routeInvalid && !routeTaken
-    && normalizedBaseURL.length > 0 && !baseUrlInvalid && models.length > 0 && modelFailure === undefined
-    && keyFailure === undefined
+  const ready =
+    route.length > 0 &&
+    !routeInvalid &&
+    !routeTaken &&
+    normalizedBaseURL.length > 0 &&
+    !baseUrlInvalid &&
+    models.length > 0 &&
+    modelFailure === undefined &&
+    keyFailure === undefined
   // The one blocked gate worth a line under the form. A satisfied card says
   // nothing at all rather than printing an empty paragraph.
-  const hint = failure !== undefined || ready
+  const hint =
+    failure !== undefined ||
+    ready ||
     // The key field prints its own failure directly beneath itself, so a card
     // blocked only by the key stays silent here rather than answering with the
     // next unmet gate — which is satisfied, and reads as a second, false fault.
-    || keyFailure !== undefined
+    keyFailure !== undefined ||
     // Same for the route id, and it must be tested rather than assumed: the
     // fallback arm below reads "no models yet", so an unmet route gate would
     // fall through to it and contradict the filled-in list right above.
-    || route.length === 0 || routeInvalid || routeTaken || baseUrlInvalid
-    ? undefined
-    : normalizedBaseURL.length === 0
-      ? t('customNeedsBaseUrl')
-      : modelFailure !== undefined
-        ? `${t('model')} ${String(modelFailure.index + 1)}: ${t(modelFailure.key)}`
-        : t('customNeedsModels')
+    route.length === 0 ||
+    routeInvalid ||
+    routeTaken ||
+    baseUrlInvalid
+      ? undefined
+      : normalizedBaseURL.length === 0
+        ? t('customNeedsBaseUrl')
+        : modelFailure !== undefined
+          ? `${t('model')} ${String(modelFailure.index + 1)}: ${t(modelFailure.key)}`
+          : t('customNeedsModels')
 
   /** Perform the create, returning a failure message or undefined. */
   const createOnce = async (): Promise<string | undefined> => {
@@ -162,12 +175,12 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
     const storesKey = keyValue.length > 0
     if (!committed) {
       const profile = {
-        ...displayName.length === 0 ? {} : { displayName },
+        ...(displayName.length === 0 ? {} : { displayName }),
         // The profile names the conventional reference only when this card is
         // about to store a key, matching the editor: a route declared with the
         // key left blank keeps its provider-native auth path (a credential
         // chain, ADC) instead of resolving a reference nothing ever sets.
-        ...storesKey ? { apiKeyEnv: keyRef } : {},
+        ...(storesKey ? { apiKeyEnv: keyRef } : {}),
         api: protocol,
         baseURL: normalizedBaseURL,
         models: models.map(model => ({ ...model })),
@@ -175,11 +188,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       // `taken` is a snapshot too, so the id check alone cannot see a route
       // declared after this card opened; the revision makes that race a
       // `settings-conflict` instead of a write over the other profile.
-      const written = await operations.writeSettings(
-        NS,
-        [{ op: 'set', path: ['providers', route], value: profile as JsonValue }],
-        openedAt,
-      )
+      const written = await operations.writeSettings(NS, [{ op: 'set', path: ['providers', route], value: profile as JsonValue }], openedAt)
       if (written.kind !== 'written') {
         return written.kind === 'conflict' ? t('conflict') : written.message
       }
@@ -224,14 +233,18 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           placeholder="acme-gateway"
           aria-label={t('customRoute')}
           disabled={profileDisabled}
-          onChange={(event) => { setRoute(event.target.value) }}
+          onChange={event => {
+            setRoute(event.target.value)
+          }}
         />
       </div>
       {/* A rejected id reads as a fault, not as guidance — the same split the
           key field below already makes between its failure and its hint. */}
-      {routeInvalid || routeTaken
-        ? <p className={styles['error']}>{t(routeInvalid ? 'customRouteInvalid' : 'customRouteTaken')}</p>
-        : <p className={styles['advancedHint']}>{t('customRouteHint')}</p>}
+      {routeInvalid || routeTaken ? (
+        <p className={styles['error']}>{t(routeInvalid ? 'customRouteInvalid' : 'customRouteTaken')}</p>
+      ) : (
+        <p className={styles['advancedHint']}>{t('customRouteHint')}</p>
+      )}
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
         <input
@@ -241,7 +254,9 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           placeholder={route.length === 0 ? t('customDisplayName') : route}
           aria-label={t('customDisplayName')}
           disabled={profileDisabled}
-          onChange={(event) => { setDisplayName(event.target.value) }}
+          onChange={event => {
+            setDisplayName(event.target.value)
+          }}
         />
       </div>
       <div className={styles['field']}>
@@ -250,13 +265,13 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           className={styles['input']}
           type="text"
           value={baseURL}
-          placeholder={t(protocol === 'anthropic-messages'
-            ? 'customAnthropicBaseUrlPlaceholder'
-            : 'customBaseUrlPlaceholder')}
+          placeholder={t(protocol === 'anthropic-messages' ? 'customAnthropicBaseUrlPlaceholder' : 'customBaseUrlPlaceholder')}
           aria-label={t('baseUrl')}
           aria-invalid={baseUrlInvalid}
           disabled={profileDisabled}
-          onChange={(event) => { setBaseURL(event.target.value) }}
+          onChange={event => {
+            setBaseURL(event.target.value)
+          }}
         />
       </div>
       {baseUrlInvalid ? <p className={styles['error']}>{t('customBaseUrlInvalid')}</p> : null}
@@ -267,9 +282,15 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           value={protocol}
           aria-label={t('customApi')}
           disabled={profileDisabled}
-          onChange={(event) => { setProtocol(event.target.value) }}
+          onChange={event => {
+            setProtocol(event.target.value)
+          }}
         >
-          {protocols.map(choice => <option key={choice} value={choice}>{protocolLabel(t, choice)}</option>)}
+          {protocols.map(choice => (
+            <option key={choice} value={choice}>
+              {protocolLabel(t, choice)}
+            </option>
+          ))}
         </select>
       </div>
       <div className={styles['field']}>
@@ -280,14 +301,14 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           placeholder={t('keyPlaceholder')}
           aria-label={t('keyInput')}
           disabled={disabled}
-          onChange={(event) => { setKeyDraft(event.target.value) }}
+          onChange={event => {
+            setKeyDraft(event.target.value)
+          }}
         />
         {/* A create card has no stored key to keep, so the blank case says
             what a blank field means here instead: this route may authenticate
             through the provider's own ambient discovery or OAuth. */}
-        {keyFailure === undefined
-          ? null
-          : <p className={styles['error']}>{t(keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure)}</p>}
+        {keyFailure === undefined ? null : <p className={styles['error']}>{t(keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure)}</p>}
       </div>
       <ModelListEditor
         models={models}
@@ -297,11 +318,9 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           settingsNs: NS,
           baseURL: normalizedBaseURL,
           api: protocol,
-          ...keyValue.length === 0 ? {} : { apiKey: keyValue },
+          ...(keyValue.length === 0 ? {} : { apiKey: keyValue }),
         }}
-        probeBlocked={baseUrlInvalid
-          ? 'customBaseUrlInvalid'
-          : keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
+        probeBlocked={baseUrlInvalid ? 'customBaseUrlInvalid' : keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
         operations={operations}
         t={t}
         disabled={profileDisabled}
@@ -317,8 +336,12 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         submitDisabled={disabled || !ready}
         submitLabelKey="create"
         submitBusyLabelKey="creating"
-        onCancel={() => { props.onClose(committed) }}
-        onSubmit={() => { void create() }}
+        onCancel={() => {
+          props.onClose(committed)
+        }}
+        onSubmit={() => {
+          void create()
+        }}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 /** Request immutability through the real loop, including adopted restore graphs. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -44,28 +44,50 @@ function expectFrozen(value: unknown): void {
 
 describe('loop-owned request freezing', () => {
   it('adopts restored identities, freezes nested messages at dispatch, and leaves event wrappers mutable', async () => {
-    const { ctx, loopCtx } = await harness(new MockAdapter([textResponse('one'), textResponse('two'), textResponse('three'), textResponse('four')]))
+    const { ctx, loopCtx } = await harness(
+      new MockAdapter([textResponse('one'), textResponse('two'), textResponse('three'), textResponse('four')]),
+    )
     const id = SessionId('restored-freeze')
     const seed = Session.create(id)
-    seed.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'restored user' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    seed.append('assistant/message', {
-      turn: 1, step: 1,
-      message: createAssistantMessage({
-        content: [{ type: 'text', text: 'restored assistant' }],
-        source: { provider: 'mock', model: 'mock', replayState: { nested: ['opaque'] } },
+    seed.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'restored user' }],
+        source: { kind: 'user' },
       }),
-      stream: [],
-    }, { surfaceOp: 'append' })
+      { surfaceOp: 'append' },
+    )
+    seed.append(
+      'assistant/message',
+      {
+        turn: 1,
+        step: 1,
+        message: createAssistantMessage({
+          content: [{ type: 'text', text: 'restored assistant' }],
+          source: { provider: 'mock', model: 'mock', replayState: { nested: ['opaque'] } },
+        }),
+        stream: [],
+      },
+      { surfaceOp: 'append' },
+    )
     const events = structuredClone(seed.snapshotEvents())
     const userEvent = events.find(event => event.type === 'user/message')!
     const assistantEvent = events.find(event => event.type === 'assistant/message')!
     Object.freeze(userEvent.data)
     const freeze = vi.spyOn(values, 'deepFreeze')
-    const session = Session.fromRestore(id, events, {
-      id, version: SESSION_FORMAT_VERSION, createdAt: 1, cwd: '/test', isSeeded: false,
-    }, SessionLogOffset(0), 'detached')
+    const session = Session.fromRestore(
+      id,
+      events,
+      {
+        id,
+        version: SESSION_FORMAT_VERSION,
+        createdAt: 1,
+        cwd: '/test',
+        isSeeded: false,
+      },
+      SessionLogOffset(0),
+      'detached',
+    )
     const before = session.deriveMessages()
     expect(before[0]).toBe(userEvent.data)
     expect(before[1]).toBe(assistantEvent.data.message)
@@ -81,7 +103,9 @@ describe('loop-owned request freezing', () => {
     })
     const requests: GenerateOptions[] = []
     const errors: unknown[] = []
-    ctx.on('agent/error', ({ error }) => { errors.push(error) })
+    ctx.on('agent/error', ({ error }) => {
+      errors.push(error)
+    })
     ctx.on('llm/stream', (request, next) => {
       expect(isAgentLoopRequest(request)).toBe(true)
       expectFrozen(request)
@@ -107,12 +131,17 @@ describe('loop-owned request freezing', () => {
     expect(requests[1]!.messages[0]).toBe(first.messages[0])
     expect(requests[1]!.messages.length).toBeGreaterThan(first.messages.length)
     const nodes = session.surface.nodes
-    const replacement = session.append('user/message', {
-      ...userEvent.data, content: [{ type: 'text', text: 'compacted' }],
-    }, {
-      surfaceOp: { op: 'replace', startSeq: nodes[0]!, endSeq: nodes[1]! },
-      sourceEventSeqs: [nodes[0]!, nodes[1]!],
-    })
+    const replacement = session.append(
+      'user/message',
+      {
+        ...userEvent.data,
+        content: [{ type: 'text', text: 'compacted' }],
+      },
+      {
+        surfaceOp: { op: 'replace', startSeq: nodes[0]!, endSeq: nodes[1]! },
+        sourceEventSeqs: [nodes[0]!, nodes[1]!],
+      },
+    )
     await send(agent, 'third')
     expect(requests).toHaveLength(3)
     expect(requests[2]!.messages[0]).toBe(replacement.data)
@@ -136,19 +165,29 @@ describe('loop-owned request freezing', () => {
   it('retries freezing an identity whose previous traversal failed', async () => {
     const { ctx } = await harness(new MockAdapter([textResponse('done')]))
     const agent = await ctx.agentLoop.create(SessionId('freeze-failure'), { provider: 'mock', model: 'mock' })
-    const message = agent.session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'history' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' }).data
+    const message = agent.session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'history' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    ).data
     const realFreeze = values.deepFreeze
     let traversals = 0
-    vi.spyOn(values, 'deepFreeze').mockImplementation((value) => {
+    vi.spyOn(values, 'deepFreeze').mockImplementation(value => {
       if (value === message && ++traversals === 1) throw new Error('freeze traversal failed')
       return realFreeze(value)
     })
     const errors: unknown[] = []
     const requests: GenerateOptions[] = []
-    ctx.on('agent/error', ({ error }) => { errors.push(error) })
-    ctx.on('llm/stream', (request, next) => { requests.push(request); return next() })
+    ctx.on('agent/error', ({ error }) => {
+      errors.push(error)
+    })
+    ctx.on('llm/stream', (request, next) => {
+      requests.push(request)
+      return next()
+    })
     await send(agent, 'failed turn')
     expect(errors).toEqual([new Error('freeze traversal failed')])
     expect(requests).toHaveLength(0)
@@ -159,16 +198,23 @@ describe('loop-owned request freezing', () => {
     expectFrozen(requests[0])
   })
 
-  it.each([true, false])('freezes each local header with an adapter present: %s', async (registered) => {
+  it.each([true, false])('freezes each local header with an adapter present: %s', async registered => {
     const adapter = registered ? new MockAdapter([textResponse('one'), textResponse('two')]) : undefined
     const { ctx } = await harness(adapter)
     const schemas: ToolSchema[][] = []
     const stops: string[][] = []
     ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
       const assembly = await next()
-      const tools: ToolSchema[] = [{ name: 'nested', description: 'test', parameters: {
-        type: 'object', properties: { value: { type: 'array', items: { type: 'string', enum: ['a', 'b'] } } },
-      } }]
+      const tools: ToolSchema[] = [
+        {
+          name: 'nested',
+          description: 'test',
+          parameters: {
+            type: 'object',
+            properties: { value: { type: 'array', items: { type: 'string', enum: ['a', 'b'] } } },
+          },
+        },
+      ]
       schemas.push(tools)
       return { ...assembly, tools }
     })
@@ -180,12 +226,18 @@ describe('loop-owned request freezing', () => {
     })
     const requests: GenerateOptions[] = []
     const errors: unknown[] = []
-    ctx.on('agent/error', ({ error }) => { errors.push(error) })
+    ctx.on('agent/error', ({ error }) => {
+      errors.push(error)
+    })
     ctx.on('llm/stream', (request, next) => {
       expect(isAgentLoopRequest(request)).toBe(true)
       expectFrozen(request)
       requests.push(request)
-      return registered ? next() : (async function* () { yield* textResponse('virtual') })()
+      return registered
+        ? next()
+        : (async function* () {
+            yield* textResponse('virtual')
+          })()
     })
     const agent = await ctx.agentLoop.create(SessionId('headers'), { provider: 'mock', model: 'mock' })
     await send(agent, 'first')
@@ -207,7 +259,10 @@ describe('loop-owned request freezing', () => {
     const { ctx } = await harness(new MockAdapter(['hang']))
     const agent = await ctx.agentLoop.create(SessionId('cancel-freeze'), { provider: 'mock', model: 'mock' })
     const started = Promise.withResolvers<GenerateOptions>()
-    ctx.on('llm/stream', (request, next) => { started.resolve(request); return next() })
+    ctx.on('llm/stream', (request, next) => {
+      started.resolve(request)
+      return next()
+    })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     try {
       const request = await started.promise
@@ -215,14 +270,21 @@ describe('loop-owned request freezing', () => {
       expect(Object.isFrozen(request.signal)).toBe(false)
       expect(request.signal!.aborted).toBe(false)
       const aborted = Promise.withResolvers<undefined>()
-      request.signal!.addEventListener('abort', () => { aborted.resolve(undefined) }, { once: true })
+      request.signal!.addEventListener(
+        'abort',
+        () => {
+          aborted.resolve(undefined)
+        },
+        { once: true },
+      )
       agent.cancel({ kind: 'user' })
       await aborted.promise
       await agent.whenIdle()
       expect(request.signal!.aborted).toBe(true)
       expect(request.signal!.reason).toEqual({ kind: 'user' })
       expect(agent.session.snapshotEvents().at(-1)).toMatchObject({
-        type: 'turn/end', data: { reason: { kind: 'aborted', reason: { kind: 'user' } } },
+        type: 'turn/end',
+        data: { reason: { kind: 'aborted', reason: { kind: 'user' } } },
       })
     } finally {
       agent.cancel({ kind: 'disposed' })

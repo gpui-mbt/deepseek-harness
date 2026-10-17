@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import { SlotRegistry } from '../src/client/registry.ts'
@@ -10,14 +10,18 @@ import * as UiRenderer from '../src/client/index.ts'
 const mounted: (() => void)[] = []
 
 afterEach(() => {
-  act(() => { for (const unmount of mounted.splice(0)) unmount() })
+  act(() => {
+    for (const unmount of mounted.splice(0)) unmount()
+  })
   vi.restoreAllMocks()
   cleanup()
   document.body.innerHTML = ''
 })
 
 const stabilize = async (fn: () => void | Promise<void>): Promise<void> => {
-  await act(async () => { await fn() })
+  await act(async () => {
+    await fn()
+  })
 }
 
 async function bench() {
@@ -51,7 +55,9 @@ function container(): HTMLElement {
 
 describe('UI renderer plugin', () => {
   it('provides no host-side behavior', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 
   it('installs the renderer and mounts the assembled application', async () => {
@@ -60,7 +66,9 @@ describe('UI renderer plugin', () => {
     const renderer = ctx.get('uiRenderer')
     expect(renderer).toBeDefined()
     const el = container()
-    act(() => { mounted.push(renderer!.mount(el)) })
+    act(() => {
+      mounted.push(renderer!.mount(el))
+    })
     expect(el.querySelector('[data-testid="root-probe"]')).toBeTruthy()
   })
 
@@ -68,13 +76,16 @@ describe('UI renderer plugin', () => {
     const { ctx, slots } = await bench()
     slots.register({ name: 'root' }, () => <div data-testid="root-probe" />)
     const el = container()
-    el.innerHTML = '<div class="boot" data-dsh-boot=""><div><div class="spinner" data-dsh-boot-spinner="" style="--dsh-boot-arc: 180deg"></div><div>Loading plugins…</div></div></div>'
+    el.innerHTML =
+      '<div class="boot" data-dsh-boot=""><div><div class="spinner" data-dsh-boot-spinner="" style="--dsh-boot-arc: 180deg"></div><div>Loading plugins…</div></div></div>'
     const boot = el.firstElementChild
     const observer = new MutationObserver(() => {})
     observer.observe(el, { childList: true, subtree: true })
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    act(() => { mounted.push(ctx.get('uiRenderer')!.mount(el)) })
+    act(() => {
+      mounted.push(ctx.get('uiRenderer')!.mount(el))
+    })
 
     const records = observer.takeRecords()
     observer.disconnect()
@@ -89,8 +100,12 @@ describe('UI renderer plugin', () => {
     slots.register({ name: 'root' }, () => <div data-testid="root-probe" />)
     const el = container()
     let unmount: () => void = () => {}
-    act(() => { unmount = ctx.get('uiRenderer')!.mount(el) })
-    act(() => { unmount() })
+    act(() => {
+      unmount = ctx.get('uiRenderer')!.mount(el)
+    })
+    act(() => {
+      unmount()
+    })
     expect(el.querySelector('[data-testid="root-probe"]')).toBeNull()
   })
 

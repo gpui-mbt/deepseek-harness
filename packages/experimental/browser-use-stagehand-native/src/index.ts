@@ -48,19 +48,30 @@ type ResolvedConfig = Config & Required<Pick<Config, 'headless' | 'operationTime
 
 /** Loader defaults and validation for explicit browser connection choices. */
 export const Config: Schema<Config, ResolvedConfig> = Schema.object({
-  model: Schema.transform(Schema.object({
-    modelName: Schema.string().required(),
-    apiKey: Schema.string().role('secret').required(),
-    headers: Schema.dict(Schema.string()),
-  }).required(), value => stagehandModelSchema.parse(value)).required(),
+  model: Schema.transform(
+    Schema.object({
+      modelName: Schema.string().required(),
+      apiKey: Schema.string().role('secret').required(),
+      headers: Schema.dict(Schema.string()),
+    }).required(),
+    value => stagehandModelSchema.parse(value),
+  ).required(),
   mode: Schema.union(['launch', 'attach']).default('launch'),
   cdpEndpoint: Schema.string(),
   extensionId: Schema.string(),
   executablePath: Schema.string(),
   headless: Schema.boolean().default(true),
   // Stagehand adds ten seconds to the action RPC timeout before arming its timer.
-  operationTimeoutMs: Schema.number().step(1).min(1).max(2 ** 31 - 1 - 10_000).default(30_000),
-  shutdownGraceMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(5_000),
+  operationTimeoutMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1 - 10_000)
+    .default(30_000),
+  shutdownGraceMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(5_000),
 })
 
 interface BrowserResource {
@@ -93,7 +104,9 @@ export function apply(ctx: Context, input: Config): void {
     throw new Error('Stagehand executablePath requires launch mode')
   }
   if (config.mode === 'attach') {
-    z.url().refine(value => /^(?:https?|wss?):/u.test(value), 'Expected an HTTP(S) or WS(S) endpoint').parse(config.cdpEndpoint)
+    z.url()
+      .refine(value => /^(?:https?|wss?):/u.test(value), 'Expected an HTTP(S) or WS(S) endpoint')
+      .parse(config.cdpEndpoint)
   }
   ctx.effect(function* () {
     yield ctx.browserUse.register(BrowserUseProviderName('stagehand-native'))
@@ -103,13 +116,23 @@ export function apply(ctx: Context, input: Config): void {
       async open(_agent, signal) {
         signal.throwIfAborted()
         const chromium = config.mode === 'launch' ? await launchChromium(config, signal) : undefined
-        const connect = (connectionSignal: AbortSignal) => openBrowserWorker({
-          mode: 'attach', model: config.model, headless: config.headless,
-          operationTimeoutMs: config.operationTimeoutMs, shutdownGraceMs: config.shutdownGraceMs,
-          ...config.extensionId === undefined ? {} : { extensionId: config.extensionId },
-          ...config.cdpEndpoint === undefined ? {} : { cdpEndpoint: config.cdpEndpoint },
-          ...chromium === undefined ? {} : { cdpEndpoint: chromium.endpoint },
-        }, connectionSignal, (message) => { ctx.logger.warn(message) })
+        const connect = (connectionSignal: AbortSignal) =>
+          openBrowserWorker(
+            {
+              mode: 'attach',
+              model: config.model,
+              headless: config.headless,
+              operationTimeoutMs: config.operationTimeoutMs,
+              shutdownGraceMs: config.shutdownGraceMs,
+              ...(config.extensionId === undefined ? {} : { extensionId: config.extensionId }),
+              ...(config.cdpEndpoint === undefined ? {} : { cdpEndpoint: config.cdpEndpoint }),
+              ...(chromium === undefined ? {} : { cdpEndpoint: chromium.endpoint }),
+            },
+            connectionSignal,
+            message => {
+              ctx.logger.warn(message)
+            },
+          )
         let connection: NativeBrowserRuntime | undefined
         try {
           connection = await connect(signal)
@@ -119,7 +142,7 @@ export function apply(ctx: Context, input: Config): void {
         }
         const native: BrowserResource['native'] = {
           async execute(method, args, operationSignal) {
-            const current = connection ??= await connect(operationSignal)
+            const current = (connection ??= await connect(operationSignal))
             try {
               return await current.execute(method, args, operationSignal)
             } finally {
@@ -129,13 +152,17 @@ export function apply(ctx: Context, input: Config): void {
               }
             }
           },
-          async close() { await connection?.close() },
+          async close() {
+            await connection?.close()
+          },
         }
         const close = async () => {
           const [connectionResult, chromiumResult] = await Promise.allSettled([native.close(), chromium?.close()])
           const errors: unknown[] = []
-          if (connectionResult.status === 'rejected'
-            && !(connectionResult.reason instanceof StagehandDrainError && chromium !== undefined && chromiumResult.status === 'fulfilled')) {
+          if (
+            connectionResult.status === 'rejected' &&
+            !(connectionResult.reason instanceof StagehandDrainError && chromium !== undefined && chromiumResult.status === 'fulfilled')
+          ) {
             errors.push(connectionResult.reason)
           }
           if (chromiumResult.status === 'rejected') errors.push(chromiumResult.reason)
@@ -157,7 +184,9 @@ export function apply(ctx: Context, input: Config): void {
     const child = ctx.plugin({
       name: 'browser-use-stagehand-native-tools',
       inject: ['tools', 'systemPrompt'],
-      apply(inner) { mountTools(inner, resources) },
+      apply(inner) {
+        mountTools(inner, resources)
+      },
     })
     yield child.dispose
   }, 'browser-use-stagehand-native.runtime')
@@ -176,19 +205,25 @@ function mountTools(ctx: Context, resources: SessionResources<BrowserResource>):
   for (const method of Object.keys(browserInputs) as BrowserMethod[]) {
     const toolName = `stagehand_${method}`
     names.add(toolName)
-    ctx.tools.register(createMcpToolDefinition(ctx, {
-      name: toolName,
-      rawName: method,
-      description: descriptions[method],
-      inputSchema: { ...z.record(z.string(), z.json()).parse(z.toJSONSchema(browserInputs[method])), type: 'object' },
-      async call(args) {
-        const agent = ctx.agents.requireInitiator()
-        const resource = await resources.get(agent)
-        return resource.native.execute(method, args, resource.operationSignal)
-      },
-    }))
+    ctx.tools.register(
+      createMcpToolDefinition(ctx, {
+        name: toolName,
+        rawName: method,
+        description: descriptions[method],
+        inputSchema: { ...z.record(z.string(), z.json()).parse(z.toJSONSchema(browserInputs[method])), type: 'object' },
+        async call(args) {
+          const agent = ctx.agents.requireInitiator()
+          const resource = await resources.get(agent)
+          return resource.native.execute(method, args, resource.operationSignal)
+        },
+      }),
+    )
   }
-  ctx.systemPrompt.section({ name: 'browser-use:stagehand-native', text: GUIDANCE, order: ctx.systemPrompt.getSectionOrder('TOOL_COMPUTER_USE') })
+  ctx.systemPrompt.section({
+    name: 'browser-use:stagehand-native',
+    text: GUIDANCE,
+    order: ctx.systemPrompt.getSectionOrder('TOOL_COMPUTER_USE'),
+  })
   ctx.on('tools/execute', async (exec, next) => {
     if (!names.has(exec.name)) return next()
     const agent = exec.agent

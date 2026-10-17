@@ -43,11 +43,14 @@ export class SubagentPresetSelection {
 
   /** Model-visible selection guidance and configured preset descriptions. */
   get description(): string {
-    const fallback = this.config.agentPreset === undefined
-      ? 'Omit to inherit the parent agent\'s current preset.'
-      : `Omit to use ${this.config.agentPreset}.`
-    return `Agent preset for this child. ${fallback}`
-      + (this.descriptions.length === 0 ? '' : ` Available presets: ${this.descriptions.join('; ')}`)
+    const fallback =
+      this.config.agentPreset === undefined
+        ? "Omit to inherit the parent agent's current preset."
+        : `Omit to use ${this.config.agentPreset}.`
+    return (
+      `Agent preset for this child. ${fallback}` +
+      (this.descriptions.length === 0 ? '' : ` Available presets: ${this.descriptions.join('; ')}`)
+    )
   }
 
   /**
@@ -58,8 +61,8 @@ export class SubagentPresetSelection {
     const presets = ctx.get('agentPresets')
     if (presets === undefined) throw new Error('tool-subagent: agent preset selection requires the agent-presets service')
     const ids = new Set([
-      ...this.config.agentPreset === undefined ? [] : [this.config.agentPreset],
-      ...this.config.allowedAgentPresets ?? [],
+      ...(this.config.agentPreset === undefined ? [] : [this.config.agentPreset]),
+      ...(this.config.allowedAgentPresets ?? []),
     ])
     const descriptions: string[] = []
     for (const id of ids) {

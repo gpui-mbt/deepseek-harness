@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -26,16 +26,26 @@ type Props = Parameters<typeof TodoRow>[0] & Parameters<typeof ReadImageRow>[0] 
 
 function preparation(name: string, args = new PartialArguments()): Extract<Props, { phase: 'preparing' }> {
   return {
-    phase: 'preparing', callId: 'call', toolName: name,
+    phase: 'preparing',
+    callId: 'call',
+    toolName: name,
     block: { phase: 'preparing', args, callId: 'call', name, turn: 1, step: 1, time: 1, subCalls: [] },
-    cwd: '/workspace', t: makeTranslate(en, common), useDisclosure, openFile: vi.fn(), loadImage: vi.fn(),
-    useTodoHistory: vi.fn(), useSession: vi.fn(() => false), renderSlot: vi.fn(() => null),
-    useProjection: vi.fn(() => undefined), revealPanel: vi.fn(() => false), reviewPanel: vi.fn(() => false),
+    cwd: '/workspace',
+    t: makeTranslate(en, common),
+    useDisclosure,
+    openFile: vi.fn(),
+    loadImage: vi.fn(),
+    useTodoHistory: vi.fn(),
+    useSession: vi.fn(() => false),
+    renderSlot: vi.fn(() => null),
+    useProjection: vi.fn(() => undefined),
+    revealPanel: vi.fn(() => false),
+    reviewPanel: vi.fn(() => false),
   } as Extract<Props, { phase: 'preparing' }>
 }
 
 describe('tool preparation', () => {
-  it.each(['read', 'write', 'edit'])('%s does not expose a malformed completed path as a file link', (name) => {
+  it.each(['read', 'write', 'edit'])('%s does not expose a malformed completed path as a file link', name => {
     const args = PartialArguments.fromText(String.raw`{"file_path":"unsafe.txt\q"}`)
     const props = preparation(name, args)
     expect(toolRowModel(name, props.block).filePath).toBeUndefined()
@@ -43,10 +53,19 @@ describe('tool preparation', () => {
   })
 
   it.each([
-    ['read', ReadRow], ['read_image', ReadImageRow], ['write', FileMutationRow], ['edit', FileMutationRow],
-    ['grep', SearchRow], ['glob', SearchRow], ['web_search', WebRow], ['web_fetch', WebRow],
-    ['todo_write', TodoRow], ['ask_user_question', AskQuestionRow], ['subagent', DetailsRow],
-    ['run_code', GenericToolCard], ['custom_tool', GenericToolCard],
+    ['read', ReadRow],
+    ['read_image', ReadImageRow],
+    ['write', FileMutationRow],
+    ['edit', FileMutationRow],
+    ['grep', SearchRow],
+    ['glob', SearchRow],
+    ['web_search', WebRow],
+    ['web_fetch', WebRow],
+    ['todo_write', TodoRow],
+    ['ask_user_question', AskQuestionRow],
+    ['subagent', DetailsRow],
+    ['run_code', GenericToolCard],
+    ['custom_tool', GenericToolCard],
   ] as const)('%s has a tool-owned prefix without arguments or disclosure', (name, Component) => {
     const props = preparation(name)
     const view = render(<Component {...props} />)
@@ -62,7 +81,10 @@ describe('tool preparation', () => {
     expect(view.container.querySelector('[aria-expanded="true"]')).toBeNull()
   })
 
-  it.each([['write', 'content'], ['edit', 'new_string']])('%s hides content progress without a path', (name, field) => {
+  it.each([
+    ['write', 'content'],
+    ['edit', 'new_string'],
+  ])('%s hides content progress without a path', (name, field) => {
     const args = new PartialArguments()
     args.append(`{"${field}":"hello`)
     const view = render(<FileMutationRow {...preparation(name, args)} />)
@@ -92,7 +114,14 @@ describe('tool preparation', () => {
     fireEvent.click(view.getByText('hello.txt'))
     expect(props.openFile).not.toHaveBeenCalled()
     const started: StartedToolCall = {
-      phase: 'start', args: PartialArguments.fromText('{"file_path":"hello.txt","content":"hello"}'), callId: 'call', name: 'write', turn: 1, step: 1, time: 2, subCalls: [],
+      phase: 'start',
+      args: PartialArguments.fromText('{"file_path":"hello.txt","content":"hello"}'),
+      callId: 'call',
+      name: 'write',
+      turn: 1,
+      step: 1,
+      time: 2,
+      subCalls: [],
       argsRaw: '{"file_path":"hello.txt","content":"hello"}',
     }
     view.rerender(<FileMutationRow {...props} phase="start" block={started} />)
@@ -105,9 +134,17 @@ describe('tool preparation', () => {
     fireEvent.click(view.getByText('hello.txt'))
     expect(props.openFile).not.toHaveBeenCalled()
     const result: ToolResultNode = {
-      kind: 'tool-result', seq: 3, time: 3, callId: 'call', callTime: 2,
-      name: 'write', args: PartialArguments.fromText(started.argsRaw),
-      call: { name: 'write', argsRaw: started.argsRaw }, content: [], isError: false, subCalls: [],
+      kind: 'tool-result',
+      seq: 3,
+      time: 3,
+      callId: 'call',
+      callTime: 2,
+      name: 'write',
+      args: PartialArguments.fromText(started.argsRaw),
+      call: { name: 'write', argsRaw: started.argsRaw },
+      content: [],
+      isError: false,
+      subCalls: [],
       meta: { operation: 'create', path: '/workspace/hello.txt' },
     }
     view.rerender(<FileMutationRow {...props} phase="result" block={result} />)
@@ -130,8 +167,17 @@ describe('tool preparation', () => {
     view.rerender(<FileMutationRow {...props} phase="start" block={started} />)
     expect(row?.textContent).toMatch(/2KB.*\+1 -1/)
     const result: ToolResultNode = {
-      kind: 'tool-result', seq: 3, time: 3, callId: 'call', callTime: 2,
-      name: 'edit', args, call: { name: 'edit', argsRaw }, content: [], isError: false, subCalls: [],
+      kind: 'tool-result',
+      seq: 3,
+      time: 3,
+      callId: 'call',
+      callTime: 2,
+      name: 'edit',
+      args,
+      call: { name: 'edit', argsRaw },
+      content: [],
+      isError: false,
+      subCalls: [],
       meta: { diffs: [{ path: 'hello.txt', oldText: 'before', newText: 'after' }] },
     }
     view.rerender(<FileMutationRow {...props} phase="result" block={result} />)
@@ -150,7 +196,14 @@ describe('tool preparation', () => {
     expect(view.queryByText(name, { exact: true }) !== null).toBe(name === 'custom_tool')
     expect(view.queryByRole('button')).toBeNull()
     const started: StartedToolCall = {
-      phase: 'start', args: PartialArguments.fromText('{"prompt":"Inspect this file"}'), callId: 'call', name, turn: 1, step: 1, time: 2, subCalls: [],
+      phase: 'start',
+      args: PartialArguments.fromText('{"prompt":"Inspect this file"}'),
+      callId: 'call',
+      name,
+      turn: 1,
+      step: 1,
+      time: 2,
+      subCalls: [],
       argsRaw: '{"prompt":"Inspect this file"}',
     }
     view.rerender(<Component {...props} phase="start" block={started} />)
@@ -158,9 +211,17 @@ describe('tool preparation', () => {
     expect(view.getByText(summary, { exact: true })).toBeTruthy()
     expect(view.getByRole('button', { expanded: false })).toBeTruthy()
     const result: ToolResultNode = {
-      kind: 'tool-result', seq: 3, time: 3, callId: 'call', callTime: 2,
-      name, args: PartialArguments.fromText(started.argsRaw),
-      call: { name, argsRaw: started.argsRaw }, content: [], isError: false, subCalls: [],
+      kind: 'tool-result',
+      seq: 3,
+      time: 3,
+      callId: 'call',
+      callTime: 2,
+      name,
+      args: PartialArguments.fromText(started.argsRaw),
+      call: { name, argsRaw: started.argsRaw },
+      content: [],
+      isError: false,
+      subCalls: [],
     }
     view.rerender(<Component {...props} phase="result" block={result} />)
     expect(view.getByText(title, { exact: true })).toBeTruthy()

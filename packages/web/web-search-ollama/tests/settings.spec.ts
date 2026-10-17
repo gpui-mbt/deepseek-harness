@@ -1,6 +1,6 @@
 /** The `web-search-ollama` settings section layered over the composition entry. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 import WebRuntime from '@deepseek-ai/dsh-web'
@@ -32,15 +32,14 @@ afterEach(() => {
  * @returns the URL the provider fetched and the parsed request body.
  */
 async function searchOnce(ctx: Context): Promise<{ url: string; body: Record<string, unknown> }> {
-  const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    .mockImplementation(() => Promise.resolve(jsonResponse({ results: [] })))
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(jsonResponse({ results: [] })))
   fetchSpy.mockClear()
   await ctx.web.search({ query: 'anything' })
   const call = fetchSpy.mock.calls.at(-1)
   const init = call?.[1]
   return {
     url: String((call?.[0] as URL | string | undefined) ?? ''),
-    body: typeof init?.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : {},
+    body: typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {},
   }
 }
 

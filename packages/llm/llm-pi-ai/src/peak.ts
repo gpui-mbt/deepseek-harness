@@ -52,7 +52,7 @@ export const CLOCK_TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/
  */
 function localClock(now: number, timeZone: string | undefined): string {
   return new Intl.DateTimeFormat('en-GB', {
-    ...timeZone === undefined ? {} : { timeZone },
+    ...(timeZone === undefined ? {} : { timeZone }),
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
@@ -67,9 +67,7 @@ function localClock(now: number, timeZone: string | undefined): string {
  * @returns whether the reading is inside the window.
  */
 function inWindow(clock: string, from: string, to: string): boolean {
-  return from <= to
-    ? clock >= from && clock < to
-    : clock >= from || clock < to
+  return from <= to ? clock >= from && clock < to : clock >= from || clock < to
 }
 
 /**
@@ -78,9 +76,6 @@ function inWindow(clock: string, from: string, to: string): boolean {
  * @param now - epoch milliseconds of the request.
  * @returns the matching window, or `undefined` when none matches.
  */
-export function selectPeakWindow(
-  windows: readonly PiAiPeakWindow[],
-  now: number,
-): PiAiPeakWindow | undefined {
+export function selectPeakWindow(windows: readonly PiAiPeakWindow[], now: number): PiAiPeakWindow | undefined {
   return windows.find(window => inWindow(localClock(now, window.timeZone), window.from, window.to))
 }

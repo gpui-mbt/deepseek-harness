@@ -93,9 +93,7 @@ export function eventNameList(body: ts.ModuleBlock, sf: ts.SourceFile): string[]
     if (!ts.isInterfaceDeclaration(stmt) || stmt.name.text !== 'Events') continue
     for (const member of stmt.members) {
       if (!member.name) continue
-      names.push(ts.isStringLiteral(member.name) || ts.isIdentifier(member.name)
-        ? member.name.text
-        : member.name.getText(sf))
+      names.push(ts.isStringLiteral(member.name) || ts.isIdentifier(member.name) ? member.name.text : member.name.getText(sf))
     }
   }
   return names

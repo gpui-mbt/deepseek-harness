@@ -3,12 +3,17 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'schedule': { kind: 'schedule' } & ContextFormed
+    schedule: { kind: 'schedule' } & ContextFormed
   }
 }
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-session-controller'
-import { isRecurringScheduleRecord, renderReminderFraming, renderRecurringReminderBatchFraming, resolveRecurringOccurrence } from './domain.ts'
+import {
+  isRecurringScheduleRecord,
+  renderReminderFraming,
+  renderRecurringReminderBatchFraming,
+  resolveRecurringOccurrence,
+} from './domain.ts'
 import type { DeliveryRetentionBounds, RecurringScheduleRecord } from './types.ts'
 import type { ScheduleTask } from './storage.ts'
 import { appendDelivery } from './delivery-history.ts'
@@ -51,7 +56,9 @@ export class ScheduleRuntime {
       run = this.ctx.agents.withoutInitiator(async () => {
         while (this.requested && !this.stopping) {
           this.requested = false
-          await this.transact(async () => { await this.drive() })
+          await this.transact(async () => {
+            await this.drive()
+          })
         }
       })
     } catch (error: unknown) {
@@ -61,12 +68,14 @@ export class ScheduleRuntime {
       return
     }
     this.running = run
-    void run.catch((error: unknown) => {
-      this.ctx.logger.warn(`schedule: dispatch stopped: ${String(error)}`)
-    }).finally(() => {
-      this.running = undefined
-      if (this.requested && !this.stopping) this.requestDrive()
-    })
+    void run
+      .catch((error: unknown) => {
+        this.ctx.logger.warn(`schedule: dispatch stopped: ${String(error)}`)
+      })
+      .finally(() => {
+        this.running = undefined
+        if (this.requested && !this.stopping) this.requestDrive()
+      })
   }
 
   /** Stop the timer and drain an accepted delivery before storage closes. */
@@ -107,17 +116,23 @@ export class ScheduleRuntime {
         admitted = group.filter(member => Date.parse(member.record.scheduledAt) <= now)
         if (admitted.length === 0) continue
         const recurring = admitted.filter((member): member is ScheduleTask & { record: RecurringScheduleRecord } =>
-          isRecurringScheduleRecord(member.record))
+          isRecurringScheduleRecord(member.record),
+        )
         const occurrences = recurring.map(member => ({
-          task: member, occurrence: resolveRecurringOccurrence(member.record, now),
+          task: member,
+          occurrence: resolveRecurringOccurrence(member.record, now),
         }))
         const text = isRecurringScheduleRecord(task.record)
-          ? renderRecurringReminderBatchFraming(occurrences.map(({ task: member, occurrence }) => ({
-            record: member.record, occurrenceAt: occurrence.occurrenceAt,
-          })))
+          ? renderRecurringReminderBatchFraming(
+              occurrences.map(({ task: member, occurrence }) => ({
+                record: member.record,
+                occurrenceAt: occurrence.occurrenceAt,
+              })),
+            )
           : renderReminderFraming(task.record)
         const message = createUserMessage({
-          content: [{ type: 'text', text }], source: { kind: 'schedule' },
+          content: [{ type: 'text', text }],
+          source: { kind: 'schedule' },
         })
         // followup synchronously appends the inbox splice before flush observes the Session.
         resolved.agent.followup(message)
@@ -126,7 +141,8 @@ export class ScheduleRuntime {
         const deliveredAt = new Date(Date.now()).toISOString()
         if (!isRecurringScheduleRecord(task.record)) {
           await this.commit({
-            ...task, status: 'inactive',
+            ...task,
+            status: 'inactive',
             ...appendDelivery(task, { scheduledAt: task.record.scheduledAt, deliveredAt, messageId: message.id }, this.retention),
           })
           committed.add(task.record.id)
@@ -152,14 +168,20 @@ export class ScheduleRuntime {
       }
     }
     if (this.stopping) return
-    const next = this.tasks().filter(task => task.status === 'active' && !failed.has(task.record.id))
+    const next = this.tasks()
+      .filter(task => task.status === 'active' && !failed.has(task.record.id))
       .reduce<number | undefined>((at, task) => {
         const target = Date.parse(task.record.scheduledAt)
         return at === undefined ? target : Math.min(at, target)
       }, undefined)
     if (next !== undefined) {
-      this.timer = setTimeout(() => { this.timer = undefined; this.requestDrive() },
-        Math.max(0, Math.min(next - Date.now(), MAX_TIMER_DELAY_MS)))
+      this.timer = setTimeout(
+        () => {
+          this.timer = undefined
+          this.requestDrive()
+        },
+        Math.max(0, Math.min(next - Date.now(), MAX_TIMER_DELAY_MS)),
+      )
       this.timer.unref()
     }
   }

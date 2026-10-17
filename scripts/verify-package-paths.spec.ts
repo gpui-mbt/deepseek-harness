@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { findPackagePathViolations } from './verify-package-paths.ts'
 
 const historicalPath = 'docs/persistence-changes/historical-formats/v3.md'
@@ -26,17 +26,19 @@ function scan(file: string, source: string) {
 }
 
 describe('historical package references', () => {
-  it.each(['v0.md', 'v3.md', 'v10.zh.md'])('preserves checked historical source paths in %s', (name) => {
+  it.each(['v0.md', 'v3.md', 'v10.zh.md'])('preserves checked historical source paths in %s', name => {
     const file = `docs/persistence-changes/historical-formats/${name}`
     for (const newline of ['\n', '\r\n']) {
       expect(scan(file, [start, removedReference, end].join(newline))).toEqual([])
     }
   })
 
-  it.each(['md', 'zh.md'])('checks authored prose around the generated %s region at its original lines', (suffix) => {
+  it.each(['md', 'zh.md'])('checks authored prose around the generated %s region at its original lines', suffix => {
     const file = `docs/persistence-changes/historical-formats/v3.${suffix}`
-    expect(scan(file, [removedReference, start, removedReference, end, removedReference].join('\r\n')))
-      .toEqual([{ file, line: 1, ref: removedReference }, { file, line: 5, ref: removedReference }])
+    expect(scan(file, [removedReference, start, removedReference, end, removedReference].join('\r\n'))).toEqual([
+      { file, line: 1, ref: removedReference },
+      { file, line: 5, ref: removedReference },
+    ])
   })
 
   it.each([
@@ -46,9 +48,8 @@ describe('historical package references', () => {
     'docs/persistence-changes/historical-formats/v03.md',
     'docs/persistence-changes/historical-formats/V3.md',
     'docs/persistence-changes/historical-formats-extra/v3.md',
-  ])('keeps generated-looking content strict in %s', (file) => {
-    expect(scan(file, [start, removedReference, end].join('\n')))
-      .toEqual([{ file, line: 2, ref: removedReference }])
+  ])('keeps generated-looking content strict in %s', file => {
+    expect(scan(file, [start, removedReference, end].join('\n'))).toEqual([{ file, line: 2, ref: removedReference }])
   })
 
   it.each([
@@ -61,13 +62,13 @@ describe('historical package references', () => {
     ['malformed marker', ['<!-- persistence-format-schema:start', removedReference, end]],
     ['split nested marker', [start, removedReference, '<!--\npersistence-format-schema:start -->', end]],
   ])('rejects stale package paths with %s', (_name, lines) => {
-    expect(scan(historicalPath, lines.join('\n')))
-      .toEqual([{ file: historicalPath, line: 2, ref: removedReference }])
+    expect(scan(historicalPath, lines.join('\n'))).toEqual([{ file: historicalPath, line: 2, ref: removedReference }])
   })
 
   it('retains existing-path and hypothetical-package handling outside historical content', () => {
     const file = 'docs/current.md'
-    expect(scan(file, [currentReference, 'packages/hypothetical/unpublished/src/types.ts', removedReference].join('\n')))
-      .toEqual([{ file, line: 3, ref: removedReference }])
+    expect(scan(file, [currentReference, 'packages/hypothetical/unpublished/src/types.ts', removedReference].join('\n'))).toEqual([
+      { file, line: 3, ref: removedReference },
+    ])
   })
 })

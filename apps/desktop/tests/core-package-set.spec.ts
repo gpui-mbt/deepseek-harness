@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   DESKTOP_PACKAGES_DIR,
   DESKTOP_PACKAGE_SET_FILE,
@@ -45,10 +45,13 @@ function packageSetProject(): {
   writeFileSync(join(packageDir, dsh.file), dshBody)
   writeFileSync(join(packageDir, base.file), baseBody)
   writeFileSync(join(packageDir, host.file), hostBody)
-  writeFileSync(join(root, DESKTOP_PACKAGE_SET_FILE), `${JSON.stringify({
-    schemaVersion: 1,
-    packages: [dsh, base, host],
-  })}\n`)
+  writeFileSync(
+    join(root, DESKTOP_PACKAGE_SET_FILE),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      packages: [dsh, base, host],
+    })}\n`,
+  )
   return { root, dsh, base, host }
 }
 
@@ -71,12 +74,16 @@ describe('desktop core package set', () => {
   it('rejects version drift, descriptor disorder, corruption, and extra files', () => {
     const { root, dsh, base, host } = packageSetProject()
     expect(() => verifyDesktopCorePackageSet(root, '2.0.0')).toThrow(/does not match Desktop/u)
-    expect(() => parseDesktopCorePackageSet({
-      schemaVersion: 1,
-      packages: [dsh, base, { ...host, version: '2.0.0' }],
-    }, '1.2.3')).toThrow(/dsh-desktop-host@2\.0\.0 does not match Desktop 1\.2\.3/u)
-    expect(() => parseDesktopCorePackageSet({ schemaVersion: 1, packages: [base, dsh, host] }))
-      .toThrow(/sorted by name/u)
+    expect(() =>
+      parseDesktopCorePackageSet(
+        {
+          schemaVersion: 1,
+          packages: [dsh, base, { ...host, version: '2.0.0' }],
+        },
+        '1.2.3',
+      ),
+    ).toThrow(/dsh-desktop-host@2\.0\.0 does not match Desktop 1\.2\.3/u)
+    expect(() => parseDesktopCorePackageSet({ schemaVersion: 1, packages: [base, dsh, host] })).toThrow(/sorted by name/u)
     writeFileSync(join(root, DESKTOP_PACKAGES_DIR, dsh.file), 'changed')
     expect(() => verifyDesktopCorePackageSet(root, '1.2.3')).toThrow(/integrity check failed/u)
     writeFileSync(join(root, DESKTOP_PACKAGES_DIR, 'extra.tgz'), '')
@@ -88,16 +95,10 @@ describe('desktop core package set', () => {
     const host = record('@deepseek-ai/dsh-desktop-host', 'host.tgz', Buffer.from('host'))
     const packageSet = parseDesktopCorePackageSet({ schemaVersion: 1, packages: [dsh, host] })
     expect(() => {
-      verifyDesktopCoreLockfile(
-        "packages:\n  '@deepseek-ai/dsh@file:desktop-packages/dsh.tgz':\n    resolution: {}\n",
-        packageSet,
-      )
+      verifyDesktopCoreLockfile("packages:\n  '@deepseek-ai/dsh@file:desktop-packages/dsh.tgz':\n    resolution: {}\n", packageSet)
     }).not.toThrow()
     expect(() => {
-      verifyDesktopCoreLockfile(
-        "packages:\n  '@deepseek-ai/dsh@1.2.3':\n    resolution: {integrity: sha512-registry}\n",
-        packageSet,
-      )
+      verifyDesktopCoreLockfile("packages:\n  '@deepseek-ai/dsh@1.2.3':\n    resolution: {integrity: sha512-registry}\n", packageSet)
     }).toThrow(/outside the local package set/u)
   })
 })

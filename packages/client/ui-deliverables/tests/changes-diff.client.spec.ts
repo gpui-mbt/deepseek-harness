@@ -1,16 +1,23 @@
 // @vitest-environment jsdom
 /** The comparison store: served and missing comparisons stay, failures retry, resets and disposal forget. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { changesDiffUrl, type ChangesDiff } from '../src/changes.ts'
 import { ChangesDiffStore } from '../src/client/changes-diff.ts'
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 const SESSION = SessionId('viewed')
 const URL_ = changesDiffUrl(SESSION, 5, 1)
 const text: ChangesDiff = {
-  kind: 'text', path: 'a.ts', display: 'a.ts', before: true, after: true, coarse: false,
+  kind: 'text',
+  path: 'a.ts',
+  display: 'a.ts',
+  before: true,
+  after: true,
+  coarse: false,
   hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-a', '+b'] }],
 }
 
@@ -44,14 +51,22 @@ describe('ChangesDiffStore', () => {
     store.reset()
     expect(store.state.getSnapshot()).toEqual({})
     let settle!: (response: Response) => void
-    fetcher.mockReturnValueOnce(new Promise<Response>((resolve) => { settle = resolve }))
+    fetcher.mockReturnValueOnce(
+      new Promise<Response>(resolve => {
+        settle = resolve
+      }),
+    )
     const stale = store.load(SESSION, 5, 1)
     expect(store.state.getSnapshot()[URL_]).toBe('loading')
     store.reset()
     settle(Response.json(text))
     await stale
     expect(store.state.getSnapshot()[URL_]).toBeUndefined()
-    fetcher.mockReturnValueOnce(new Promise<Response>((resolve) => { settle = resolve }))
+    fetcher.mockReturnValueOnce(
+      new Promise<Response>(resolve => {
+        settle = resolve
+      }),
+    )
     const late = store.load(SESSION, 5, 1)
     const disposal = store.dispose()
     settle(Response.json(text))

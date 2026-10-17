@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ScheduleCatalogEntry, ScheduleDeleteResult, ScheduleId } from '@deepseek-ai/dsh-schedule/client'
@@ -18,27 +18,26 @@ afterEach(cleanup)
 
 function entry(taskId: string, sessionId: SessionId, status: 'active' | 'inactive' = 'active'): ScheduleCatalogEntry {
   return {
-    id: taskId as ScheduleId, sessionId, status, kind: 'at',
-    title: 'Read status', prompt: 'Read status', scheduledAt: '2026-10-01T00:00:00.000Z',
+    id: taskId as ScheduleId,
+    sessionId,
+    status,
+    kind: 'at',
+    title: 'Read status',
+    prompt: 'Read status',
+    scheduledAt: '2026-10-01T00:00:00.000Z',
   }
 }
 
-function sourceFor(
-  list: () => Promise<RemoteResult<ScheduleCatalogEntry[]>>,
-): CatalogInjected<ScheduleCatalogEntry> {
+function sourceFor(list: () => Promise<RemoteResult<ScheduleCatalogEntry[]>>): CatalogInjected<ScheduleCatalogEntry> {
   return createCatalogSource<ScheduleCatalogEntry>({
     list,
-    remove: async (): Promise<RemoteResult<ScheduleDeleteResult>> =>
-      ({ ok: true, value: { id, deleted: true } }),
+    remove: async (): Promise<RemoteResult<ScheduleDeleteResult>> => ({ ok: true, value: { id, deleted: true } }),
     subscribeChanged: () => () => {},
     subscribeReset: () => () => {},
   })
 }
 
-function renderMark(
-  source: CatalogInjected<ScheduleCatalogEntry>,
-  sessionId: SessionId = SESSION,
-) {
+function renderMark(source: CatalogInjected<ScheduleCatalogEntry>, sessionId: SessionId = SESSION) {
   const props = {
     sessionId,
     useCatalog: bindSnapshotSelector(source.hooks.catalog),
@@ -49,7 +48,9 @@ function renderMark(
 
 /** Flush the source's initial read and its publication. */
 async function settle(): Promise<void> {
-  await act(async () => { await Promise.resolve() })
+  await act(async () => {
+    await Promise.resolve()
+  })
 }
 
 describe('Session schedule sidebar mark', () => {
@@ -66,9 +67,12 @@ describe('Session schedule sidebar mark', () => {
     await settle()
     expect(ended.container.querySelector('[data-session-schedule-mark]')).toBeNull()
 
-    const failed = renderMark(sourceFor(async () => ({
-      ok: false, error: new RemoteError('gateway/internal', 'Unavailable', {}),
-    })))
+    const failed = renderMark(
+      sourceFor(async () => ({
+        ok: false,
+        error: new RemoteError('gateway/internal', 'Unavailable', {}),
+      })),
+    )
     await settle()
     expect(failed.container.querySelector('[data-session-schedule-mark]')).toBeNull()
   })
@@ -82,8 +86,10 @@ describe('Session schedule sidebar mark', () => {
   })
 
   it('marks no row for a Session whose active tasks belong to another Session', async () => {
-    const list = vi.fn(async (): Promise<RemoteResult<ScheduleCatalogEntry[]>> =>
-      ({ ok: true, value: [entry('other-task', OTHER_SESSION)] }))
+    const list = vi.fn(async (): Promise<RemoteResult<ScheduleCatalogEntry[]>> => ({
+      ok: true,
+      value: [entry('other-task', OTHER_SESSION)],
+    }))
     renderMark(sourceFor(list), SESSION)
     await settle()
     expect(document.querySelector('[data-session-schedule-mark]')).toBeNull()
@@ -98,16 +104,20 @@ describe('Session schedule sidebar mark', () => {
     const source = sourceFor(list)
     render(
       <div>
-        <SessionScheduleMark {...{
-          sessionId: SESSION,
-          useCatalog: bindSnapshotSelector(source.hooks.catalog),
-          t: makeTranslate(en),
-        } as SessionScheduleMarkProps} />
-        <SessionScheduleMark {...{
-          sessionId: OTHER_SESSION,
-          useCatalog: bindSnapshotSelector(source.hooks.catalog),
-          t: makeTranslate(en),
-        } as SessionScheduleMarkProps} />
+        <SessionScheduleMark
+          {...({
+            sessionId: SESSION,
+            useCatalog: bindSnapshotSelector(source.hooks.catalog),
+            t: makeTranslate(en),
+          } as SessionScheduleMarkProps)}
+        />
+        <SessionScheduleMark
+          {...({
+            sessionId: OTHER_SESSION,
+            useCatalog: bindSnapshotSelector(source.hooks.catalog),
+            t: makeTranslate(en),
+          } as SessionScheduleMarkProps)}
+        />
       </div>,
     )
     await settle()
@@ -123,7 +133,11 @@ describe('Session schedule sidebar mark', () => {
       useCatalog: bindSnapshotSelector(source.hooks.catalog),
       t: makeTranslate(en),
     } as SessionScheduleMarkProps
-    render(<div onClick={onOpen}><SessionScheduleMark {...props} /></div>)
+    render(
+      <div onClick={onOpen}>
+        <SessionScheduleMark {...props} />
+      </div>,
+    )
     await settle()
     fireEvent.click(screen.getByText(en['mark.aria'].replace('{count}', '1')))
     expect(onOpen).not.toHaveBeenCalled()

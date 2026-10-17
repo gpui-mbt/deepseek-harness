@@ -27,8 +27,7 @@ export interface SegmentedControlOption<Value extends string> {
 type WalkKey = 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown' | 'Home' | 'End'
 
 function isWalkKey(key: string): key is WalkKey {
-  return key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown'
-    || key === 'Home' || key === 'End'
+  return key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown' || key === 'Home' || key === 'End'
 }
 
 /**
@@ -47,7 +46,7 @@ function walk<Value extends string>(
   const step = key === 'ArrowRight' || key === 'ArrowDown' ? 1 : -1
   const count = options.length
   for (let offset = 1; offset < count; offset += 1) {
-    const candidate = options[((from + step * offset) % count + count) % count]
+    const candidate = options[(((from + step * offset) % count) + count) % count]
     if (candidate !== undefined && candidate.disabled !== true) return candidate
   }
   return undefined
@@ -68,7 +67,13 @@ function walk<Value extends string>(
  * @returns the tablist element.
  */
 export function SegmentedControl<Value extends string>({
-  id, value, options, onChange, label, disabled = false, className,
+  id,
+  value,
+  options,
+  onChange,
+  label,
+  disabled = false,
+  className,
 }: {
   id: string
   value: Value
@@ -106,15 +111,9 @@ export function SegmentedControl<Value extends string>({
   } as CSSProperties
 
   return (
-    <div
-      ref={list}
-      role="tablist"
-      aria-label={label}
-      className={clsx(css.control, className)}
-      style={indicator}
-    >
+    <div ref={list} role="tablist" aria-label={label} className={clsx(css.control, className)} style={indicator}>
       <span aria-hidden="true" className={css.indicator} />
-      {options.map((option) => {
+      {options.map(option => {
         const active = option.value === value
         return (
           <button
@@ -128,7 +127,9 @@ export function SegmentedControl<Value extends string>({
             disabled={disabled || option.disabled === true}
             title={option.title}
             className={css.tab}
-            onClick={() => { if (!active) onChange(option.value) }}
+            onClick={() => {
+              if (!active) onChange(option.value)
+            }}
             onKeyDown={onKeyDown}
           >
             {option.label}

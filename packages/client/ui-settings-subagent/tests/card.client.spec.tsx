@@ -2,7 +2,7 @@
 /** The Subagent page as the Plugins page renders it: both sections on one page with one save. */
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { SubagentCard, type SubagentCardProps } from '../src/client/SubagentCard.tsx'
@@ -135,15 +135,17 @@ describe('Subagent model selection fields', () => {
       enabled: true,
       catalogStatus: 'ready',
       catalogPartial: true,
-      candidates: [{
-        key: 'legacy\0old',
-        provider: 'legacy',
-        model: 'old',
-        providerName: 'legacy',
-        modelName: 'old',
-        available: false,
-        selected: true,
-      }],
+      candidates: [
+        {
+          key: 'legacy\0old',
+          provider: 'legacy',
+          model: 'old',
+          providerName: 'legacy',
+          modelName: 'old',
+          available: false,
+          selected: true,
+        },
+      ],
     })
     expect(screen.getByText(en.subagentModelSelectionPartial)).toBeTruthy()
     expect(screen.getByText(en.subagentModelSelectionUnavailable)).toBeTruthy()
@@ -239,17 +241,24 @@ describe('SubagentCard', () => {
     })
     fireEvent.change(screen.getByLabelText(en.subagentMaxDepth), { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText(en.subagentMaxActive), { target: { value: '12' } })
-    expect(actions.editLimit.mock.calls).toEqual([['maxDepth', '2'], ['maxActiveSubagents', '12']])
+    expect(actions.editLimit.mock.calls).toEqual([
+      ['maxDepth', '2'],
+      ['maxActiveSubagents', '12'],
+    ])
     for (const button of screen.getAllByRole('button', { name: en.reset })) fireEvent.click(button)
     expect(actions.resetLimit.mock.calls).toEqual([['maxDepth'], ['maxActiveSubagents']])
-    act(() => { limits.set({ ...limits.getSnapshot(), writable: false }) })
+    act(() => {
+      limits.set({ ...limits.getSnapshot(), writable: false })
+    })
     expect(screen.getByLabelText(en.subagentMaxActive)).toHaveProperty('disabled', true)
   })
 
   it('blocks saving both sections when a model selection is invalid or conflicted', () => {
     const { models } = renderSubagent({ dirty: true }, { dirty: true, invalid: true })
     expect(screen.getByRole('button', { name: en.save })).toHaveProperty('disabled', true)
-    act(() => { models.set({ ...models.getSnapshot(), invalid: false, conflicted: true }) })
+    act(() => {
+      models.set({ ...models.getSnapshot(), invalid: false, conflicted: true })
+    })
     expect(screen.getByRole('button', { name: en.save })).toHaveProperty('disabled', true)
   })
 
@@ -262,9 +271,13 @@ describe('SubagentCard', () => {
     expect(screen.getByLabelText(en.subagentMaxDepth)).toHaveProperty('disabled', true)
     expect(screen.getByRole('switch')).toHaveProperty('disabled', true)
     expect(screen.getByRole('button', { name: en.saving })).toHaveProperty('disabled', true)
-    act(() => { limits.set({ ...limits.getSnapshot(), saving: false, dirty: false }) })
+    act(() => {
+      limits.set({ ...limits.getSnapshot(), saving: false, dirty: false })
+    })
     expect(screen.getByRole('switch')).toHaveProperty('disabled', true)
-    act(() => { models.set({ ...models.getSnapshot(), saving: false, dirty: false }) })
+    act(() => {
+      models.set({ ...models.getSnapshot(), saving: false, dirty: false })
+    })
     expect(screen.getByRole('switch')).toHaveProperty('disabled', false)
     expect(screen.getByRole('button', { name: en.save })).toHaveProperty('disabled', true)
   })

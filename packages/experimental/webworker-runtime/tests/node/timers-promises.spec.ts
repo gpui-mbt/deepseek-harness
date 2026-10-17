@@ -8,14 +8,19 @@
  * are a minute long on purpose: any case that waited would fail by timing out
  * rather than pass slowly.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { scheduler, setImmediate, setTimeout } from '../../src/node/builtin_modules/implemented/timers/promises.ts'
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 /** The rejection reason, however the wait failed. */
 const rejectionOf = async (pending: Promise<unknown>): Promise<unknown> =>
-  await pending.then(() => undefined, (error: unknown) => error)
+  await pending.then(
+    () => undefined,
+    (error: unknown) => error,
+  )
 
 describe('setTimeout', () => {
   it('resolves with the value after the delay, and undefined without one', async () => {

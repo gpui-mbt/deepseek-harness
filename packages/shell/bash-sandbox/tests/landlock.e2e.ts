@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { launcherPath } from '@deepseek-ai/node-addon-system/landlock-run'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
@@ -22,7 +22,6 @@ async function run(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> },
 function start(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spec: ShellExecSpec): Promise<ShellExecution> {
   return x.execute({ ...spec, onExpiry: 'none' })
 }
-
 
 /**
  * KEYLESS consumer-integration proof: the REAL `LocalSandboxProvider` (bwrap
@@ -96,7 +95,7 @@ describe.skipIf(!landlockUsable)('bash-sandbox: real Landlock confinement throug
   it('classifies a background denial once the task settles', async () => {
     const workdir = await tempDir(homedir())
     const bash = await sandboxedBash(workdir, 'read-only')
-    const task = (await start(bash, bash.resolve({ command: `echo hi > ${workdir}/bg-denied.txt` })))
+    const task = await start(bash, bash.resolve({ command: `echo hi > ${workdir}/bg-denied.txt` }))
     await task.done
     expect(task.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement })
     expect(existsSync(join(workdir, 'bg-denied.txt'))).toBe(false)

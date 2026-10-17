@@ -1,6 +1,6 @@
 import { Readable, Writable } from 'node:stream'
 import type { ServerResponse } from 'node:http'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cosOperation } from '../scripts/cos-operation.ts'
 import { createDesktopCos } from '../scripts/desktop-cos.ts'
 import { answer, cosError, startCosLoopback, type CosLoopback } from './cos-loopback.ts'
@@ -22,7 +22,9 @@ async function fixture(retry = false) {
       answer(response, 500, cosError('InternalError'))
       return
     }
-    response.once('close', () => { disconnected.resolve(undefined) })
+    response.once('close', () => {
+      disconnected.resolve(undefined)
+    })
     received.resolve(response)
   })
   loopbacks.push(loopback)
@@ -50,9 +52,13 @@ describe('COS operation total deadlines', () => {
     const f = await fixture()
     let received = Promise.withResolvers<undefined>()
     let size = 0
-    const output = new Writable({ write(bytes: Buffer, _encoding, done) {
-      size += bytes.length; received.resolve(undefined); done()
-    } })
+    const output = new Writable({
+      write(bytes: Buffer, _encoding, done) {
+        size += bytes.length
+        received.resolve(undefined)
+        done()
+      },
+    })
     const pending = cosOperation(f.cos, 900_000, () => f.cos.getObject({ ...object, Output: output }))
     const rejected = expect(pending).rejects.toMatchObject({ name: 'TimeoutError' })
     try {
@@ -68,7 +74,9 @@ describe('COS operation total deadlines', () => {
       await f.disconnected
       expect(size).toBe(3)
       expect(f.loopback.requests).toHaveLength(1)
-    } finally { output.destroy() }
+    } finally {
+      output.destroy()
+    }
   })
 
   it('aborts a PUT awaiting confirmation without resending the object', async () => {
@@ -83,7 +91,9 @@ describe('COS operation total deadlines', () => {
       await f.disconnected
       expect(f.loopback.requests).toHaveLength(1)
       expect(f.loopback.requests[0]!.body.toString()).toBe('bytes')
-    } finally { body.destroy() }
+    } finally {
+      body.destroy()
+    }
   })
 
   it('clears the deadline after success and leaves another client running', async () => {

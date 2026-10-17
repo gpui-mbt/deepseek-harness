@@ -1,9 +1,12 @@
 /** Delivery gestures share pending state, report failures, and cancel with the plugin. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { PresentedOpenController } from '../src/client/present-open.ts'
 
-afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 const id = SessionId('fork')
 const url = 'api/present.open?sessionId=fork&seq=2&index=1'
@@ -39,7 +42,7 @@ it('opens changed files through their own coordinates', async () => {
   await controller.dispose()
 })
 
-it.each(['http', 'network'])('publishes retryable %s failures', async (failure) => {
+it.each(['http', 'network'])('publishes retryable %s failures', async failure => {
   const fetcher = vi.fn()
   if (failure === 'http') fetcher.mockResolvedValueOnce(new Response(null, { status: 500 }))
   else fetcher.mockRejectedValueOnce(new Error('offline'))
@@ -57,7 +60,13 @@ it('awaits cancellation and prevents late state publication or new requests afte
   const aborted = Promise.withResolvers<undefined>()
   const release = Promise.withResolvers<Response>()
   const fetcher = vi.fn((_url: string, { signal }: RequestInit) => {
-    signal!.addEventListener('abort', () => { aborted.resolve(undefined) }, { once: true })
+    signal!.addEventListener(
+      'abort',
+      () => {
+        aborted.resolve(undefined)
+      },
+      { once: true },
+    )
     return release.promise
   })
   vi.stubGlobal('fetch', fetcher)
@@ -65,7 +74,9 @@ it('awaits cancellation and prevents late state publication or new requests afte
   const open = controller.open(id, 2, 1)
   const state = controller.state.getSnapshot()
   let disposed = false
-  const disposal = controller.dispose().then(() => { disposed = true })
+  const disposal = controller.dispose().then(() => {
+    disposed = true
+  })
   await aborted.promise
   expect(disposed).toBe(false)
   release.resolve(new Response(null, { status: 204 }))
@@ -75,10 +86,12 @@ it('awaits cancellation and prevents late state publication or new requests afte
   expect(fetcher).toHaveBeenCalledOnce()
 })
 
-
 it('shares pending state across open and reveal and retries the selected action', async () => {
   const reply = Promise.withResolvers<Response>()
-  const fetcher = vi.fn().mockReturnValueOnce(reply.promise).mockResolvedValue(new Response(null, { status: 204 }))
+  const fetcher = vi
+    .fn()
+    .mockReturnValueOnce(reply.promise)
+    .mockResolvedValue(new Response(null, { status: 204 }))
   vi.stubGlobal('fetch', fetcher)
   const controller = new PresentedOpenController()
   const revealing = controller.open(id, 2, 1, 'reveal')
@@ -94,9 +107,15 @@ it('shares pending state across open and reveal and retries the selected action'
   await controller.dispose()
 })
 
-it.each([null, {}, { name: 'host', available: 'yes', fileManager: 'finder' },
-  { name: 'host', available: true, fileManager: 'unknown' }, 'invalid json', 'http', 'network',
-])('makes invalid Host metadata retryable: %j', async (value) => {
+it.each([
+  null,
+  {},
+  { name: 'host', available: 'yes', fileManager: 'finder' },
+  { name: 'host', available: true, fileManager: 'unknown' },
+  'invalid json',
+  'http',
+  'network',
+])('makes invalid Host metadata retryable: %j', async value => {
   const host = { name: 'linux-host', available: true, fileManager: 'directory' }
   const fetcher = vi.fn()
   if (value === 'network') fetcher.mockRejectedValueOnce(new Error('offline'))
@@ -129,7 +148,6 @@ it('coalesces metadata reads and suppresses their publication after disposal', a
   await Promise.all([first, second, disposal])
   expect(controller.host.getSnapshot()).toBeNull()
 })
-
 
 it('invalidates cached desktop metadata without eagerly fetching an unused Host', async () => {
   const fetcher = vi.fn().mockResolvedValue(Response.json({ name: 'old', available: false, fileManager: null }))
@@ -166,8 +184,7 @@ it('discards a replaced Host response and keeps the new metadata request coalesc
   await controller.dispose()
 })
 
-
-it.each(['open', 'reveal'] as const)('reports an unavailable Host path for %s while retaining the declaration', async (action) => {
+it.each(['open', 'reveal'] as const)('reports an unavailable Host path for %s while retaining the declaration', async action => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 422 })))
   const controller = new PresentedOpenController()
   await controller.open(id, 2, 1, action)
@@ -175,20 +192,24 @@ it.each(['open', 'reveal'] as const)('reports an unavailable Host path for %s wh
   await controller.dispose()
 })
 
-
 it('encodes an explicit application identifier without changing the file coordinates', async () => {
   const fetcher = vi.fn(async () => new Response(null, { status: 204 }))
   vi.stubGlobal('fetch', fetcher)
   const controller = new PresentedOpenController()
   expect(await controller.open(id, 2, 1, 'open', '/Apps/A&B.app')).toBeNull()
-  expect(fetcher).toHaveBeenCalledWith(`${url}&application=%2FApps%2FA%26B.app`, { method: 'POST', signal: expect.any(AbortSignal) as AbortSignal })
+  expect(fetcher).toHaveBeenCalledWith(`${url}&application=%2FApps%2FA%26B.app`, {
+    method: 'POST',
+    signal: expect.any(AbortSignal) as AbortSignal,
+  })
   await controller.dispose()
 })
 
-
-it.each(['open', 'reveal'] as const)('expires successful %s feedback after five seconds and its fade', async (action) => {
+it.each(['open', 'reveal'] as const)('expires successful %s feedback after five seconds and its fade', async action => {
   vi.useFakeTimers()
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 204 })))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(null, { status: 204 })),
+  )
   const controller = new PresentedOpenController()
   await controller.open(id, 2, 1, action)
   await vi.advanceTimersByTimeAsync(5000)
@@ -200,7 +221,9 @@ it.each(['open', 'reveal'] as const)('expires successful %s feedback after five 
 
 it('cancels an earlier success expiry when the next action fails', async () => {
   vi.useFakeTimers()
-  const fetcher = vi.fn().mockResolvedValueOnce(new Response(null, { status: 204 }))
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
     .mockResolvedValueOnce(new Response(null, { status: 500 }))
   vi.stubGlobal('fetch', fetcher)
   const controller = new PresentedOpenController()
@@ -214,7 +237,10 @@ it('cancels an earlier success expiry when the next action fails', async () => {
 
 it('cancels success expiry when its controller is disposed', async () => {
   vi.useFakeTimers()
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 204 })))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(null, { status: 204 })),
+  )
   const controller = new PresentedOpenController()
   await controller.open(id, 2, 1)
   const state = controller.state.getSnapshot()
@@ -223,10 +249,12 @@ it('cancels success expiry when its controller is disposed', async () => {
   expect(controller.state.getSnapshot()).toBe(state)
 })
 
-
 it('owns the expiry before notifying subscribers that can dispose the controller', async () => {
   vi.useFakeTimers()
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 204 })))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(null, { status: 204 })),
+  )
   const controller = new PresentedOpenController()
   let disposal: Promise<void> | undefined
   const release = controller.state.subscribe(() => {

@@ -28,13 +28,15 @@ export function filesDefinition(t: TranslateNS<'sidebarFiles'>): SidebarRightTab
     kind: FILES_KIND,
     priority: 'builtin',
     title: () => t('type.label'),
-    guide: [{
-      id: 'workspace',
-      commandId: 'workspace.files' as ShortcutCommandId,
-      order: 10,
-      title: () => t('guide.title'),
-      description: () => t('guide.description'),
-      icon: GuideArtworkFiles,
-    }],
+    guide: [
+      {
+        id: 'workspace',
+        commandId: 'workspace.files' as ShortcutCommandId,
+        order: 10,
+        title: () => t('guide.title'),
+        description: () => t('guide.description'),
+        icon: GuideArtworkFiles,
+      },
+    ],
   }
 }

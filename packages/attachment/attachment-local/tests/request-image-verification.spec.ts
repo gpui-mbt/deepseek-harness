@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import sharp from 'sharp'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 
 const control = vi.hoisted(() => ({ mismatch: false }))
 
-vi.mock('../src/image.ts', async (importOriginal) => {
+vi.mock('../src/image.ts', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/image.ts')>()
   return {
     ...actual,
@@ -32,16 +32,19 @@ describe('request image verification', () => {
     const dshHome = await mkdtemp(join(tmpdir(), 'dsh-request-verification-'))
     homes.push(dshHome)
     const attachments = new LocalAttachmentStore(new Context(), { dshHome })
-    const source = new Uint8Array(await sharp({
-      create: { width: 64, height: 32, channels: 3, background: { r: 12, g: 34, b: 56 } },
-    }).png().toBuffer())
+    const source = new Uint8Array(
+      await sharp({
+        create: { width: 64, height: 32, channels: 3, background: { r: 12, g: 34, b: 56 } },
+      })
+        .png()
+        .toBuffer(),
+    )
     const attachment = await attachments.saveImage({ data: source, mediaType: 'image/png' })
     control.mismatch = true
 
-    await expect(attachments.readImageRequest(attachment, { width: 22, height: 11, maxBytes: 1024 * 1024 }))
-      .rejects.toMatchObject({
-        code: 'ATTACHMENT_WRITE_FAILED',
-        message: 'Encoded model-request image does not match its verified 8-bit sRGB metadata.',
-      })
+    await expect(attachments.readImageRequest(attachment, { width: 22, height: 11, maxBytes: 1024 * 1024 })).rejects.toMatchObject({
+      code: 'ATTACHMENT_WRITE_FAILED',
+      message: 'Encoded model-request image does not match its verified 8-bit sRGB metadata.',
+    })
   })
 })

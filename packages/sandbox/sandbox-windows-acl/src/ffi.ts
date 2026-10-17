@@ -11,18 +11,10 @@ import {
 import type { NativePtr, Win32ProcessBindings } from '@deepseek-ai/dsh-win32-process'
 import * as abi from './win32-abi.ts'
 
-export {
-  allocPtrSlot,
-  allocUint32,
-  decodePtr,
-  decodeUint32,
-  isNullPtr,
-  throwLastError,
-  throwWin32,
-} from '@deepseek-ai/dsh-win32-process'
+export { allocPtrSlot, allocUint32, decodePtr, decodeUint32, isNullPtr, throwLastError, throwWin32 } from '@deepseek-ai/dsh-win32-process'
 export type { NativePtr } from '@deepseek-ai/dsh-win32-process'
 
-type Koffi = typeof import('koffi')['default']
+type Koffi = (typeof import('koffi'))['default']
 type Ptr = ReturnType<Koffi['pointer']>
 
 const requireKoffi = createLazyRequire<Koffi>('koffi', import.meta.url)
@@ -32,7 +24,7 @@ function ffiTypes(): { PVOID: Ptr; PPVOID: Ptr } {
   if (cachedTypes !== undefined) return cachedTypes
   const koffi = requireKoffi()
   const PVOID = koffi.pointer('void')
-  return cachedTypes = { PVOID, PPVOID: koffi.pointer(PVOID) }
+  return (cachedTypes = { PVOID, PPVOID: koffi.pointer(PVOID) })
 }
 
 /** ACL/token calls composed with the generic Win32 process binding table. */
@@ -93,21 +85,8 @@ export interface Win32Bindings extends Win32ProcessBindings {
     flagsAndAttributes: number,
     templateFile: null,
   ): NativePtr
-  lockFileEx(
-    file: NativePtr,
-    flags: number,
-    reserved: number,
-    bytesLow: number,
-    bytesHigh: number,
-    overlapped: NativePtr,
-  ): number
-  unlockFileEx(
-    file: NativePtr,
-    reserved: number,
-    bytesLow: number,
-    bytesHigh: number,
-    overlapped: NativePtr,
-  ): number
+  lockFileEx(file: NativePtr, flags: number, reserved: number, bytesLow: number, bytesHigh: number, overlapped: NativePtr): number
+  unlockFileEx(file: NativePtr, reserved: number, bytesLow: number, bytesHigh: number, overlapped: NativePtr): number
 }
 
 /**
@@ -117,7 +96,7 @@ export interface Win32Bindings extends Win32ProcessBindings {
  */
 export function isInvalidHandle(handle: NativePtr | null | undefined): boolean {
   if (isNullPtr(handle)) return true
-  return (handle as bigint) === 0xFFFFFFFFFFFFFFFFn || (handle as bigint) === -1n
+  return (handle as bigint) === 0xffffffffffffffffn || (handle as bigint) === -1n
 }
 
 /**
@@ -206,12 +185,7 @@ export function decodeUint32At(ptr: NativePtr, offset: number): number {
  * @param rightOffset - second SID byte offset.
  * @returns true when revision, authority, and every sub-authority match.
  */
-export function sameSidAt(
-  left: NativePtr,
-  leftOffset: number,
-  right: NativePtr,
-  rightOffset: number,
-): boolean {
+export function sameSidAt(left: NativePtr, leftOffset: number, right: NativePtr, rightOffset: number): boolean {
   if (decodeUint8At(left, leftOffset) !== decodeUint8At(right, rightOffset)) return false
   const leftCount = decodeUint8At(left, leftOffset + 1)
   const rightCount = decodeUint8At(right, rightOffset + 1)
@@ -222,8 +196,7 @@ export function sameSidAt(
     }
   }
   for (let index = 0; index < leftCount; index += 1) {
-    if (decodeUint32At(left, leftOffset + 8 + index * 4) !==
-      decodeUint32At(right, rightOffset + 8 + index * 4)) return false
+    if (decodeUint32At(left, leftOffset + 8 + index * 4) !== decodeUint32At(right, rightOffset + 8 + index * 4)) return false
   }
   return true
 }
@@ -240,40 +213,43 @@ function bindings(): Win32Bindings {
     localAlloc: bind(kernel32, 'LocalAlloc', PVOID, ['uint32', 'size_t']),
     localFree: bind(kernel32, 'LocalFree', PVOID, [PVOID]),
     convertStringSidToSidW: bind(advapi32, 'ConvertStringSidToSidW', 'int', ['str16', PPVOID]),
-    createWellKnownSid: bind(advapi32, 'CreateWellKnownSid', 'int', [
-      'int', PVOID, PVOID, koffi.pointer('uint32'),
-    ]),
+    createWellKnownSid: bind(advapi32, 'CreateWellKnownSid', 'int', ['int', PVOID, PVOID, koffi.pointer('uint32')]),
     isValidSid: bind(advapi32, 'IsValidSid', 'int', [PVOID]),
     getLengthSid: bind(advapi32, 'GetLengthSid', 'uint32', [PVOID]),
     copySid: bind(advapi32, 'CopySid', 'int', ['uint32', PVOID, PVOID]),
-    getTokenInformation: bind(advapi32, 'GetTokenInformation', 'int', [
-      PVOID, 'int', PVOID, 'uint32', koffi.pointer('uint32'),
-    ]),
+    getTokenInformation: bind(advapi32, 'GetTokenInformation', 'int', [PVOID, 'int', PVOID, 'uint32', koffi.pointer('uint32')]),
     setTokenInformation: bind(advapi32, 'SetTokenInformation', 'int', [PVOID, 'int', PVOID, 'uint32']),
     createRestrictedToken: bind(advapi32, 'CreateRestrictedToken', 'int', [
-      PVOID, 'uint32', 'uint32', PVOID, 'uint32', PVOID, 'uint32', PVOID, PPVOID,
+      PVOID,
+      'uint32',
+      'uint32',
+      PVOID,
+      'uint32',
+      PVOID,
+      'uint32',
+      PVOID,
+      PPVOID,
     ]),
     setEntriesInAclW: bind(advapi32, 'SetEntriesInAclW', 'uint32', ['uint32', PVOID, PVOID, PPVOID]),
     initializeAcl: bind(advapi32, 'InitializeAcl', 'int', [PVOID, 'uint32', 'uint32']),
     addMandatoryAce: bind(advapi32, 'AddMandatoryAce', 'int', [PVOID, 'uint32', 'uint32', 'uint32', PVOID]),
-    setNamedSecurityInfoW: bind(advapi32, 'SetNamedSecurityInfoW', 'uint32', [
-      'str16', 'int', 'uint32', PVOID, PVOID, PVOID, PVOID,
-    ]),
+    setNamedSecurityInfoW: bind(advapi32, 'SetNamedSecurityInfoW', 'uint32', ['str16', 'int', 'uint32', PVOID, PVOID, PVOID, PVOID]),
     getNamedSecurityInfoW: bind(advapi32, 'GetNamedSecurityInfoW', 'uint32', [
-      'str16', 'int', 'uint32', PPVOID, PPVOID, PPVOID, PPVOID, PPVOID,
+      'str16',
+      'int',
+      'uint32',
+      PPVOID,
+      PPVOID,
+      PPVOID,
+      PPVOID,
+      PPVOID,
     ]),
     getTempPathW: bind(kernel32, 'GetTempPathW', 'uint32', ['uint32', PVOID]),
     setEnvironmentVariableW: bind(kernel32, 'SetEnvironmentVariableW', 'int', ['str16', 'str16']),
     setConsoleCtrlHandler: bind(kernel32, 'SetConsoleCtrlHandler', 'int', [PVOID, 'int']),
-    createFileW: bind(kernel32, 'CreateFileW', PVOID, [
-      'str16', 'uint32', 'uint32', PVOID, 'uint32', 'uint32', PVOID,
-    ]),
-    lockFileEx: bind(kernel32, 'LockFileEx', 'int', [
-      PVOID, 'uint32', 'uint32', 'uint32', 'uint32', PVOID,
-    ]),
-    unlockFileEx: bind(kernel32, 'UnlockFileEx', 'int', [
-      PVOID, 'uint32', 'uint32', 'uint32', PVOID,
-    ]),
+    createFileW: bind(kernel32, 'CreateFileW', PVOID, ['str16', 'uint32', 'uint32', PVOID, 'uint32', 'uint32', PVOID]),
+    lockFileEx: bind(kernel32, 'LockFileEx', 'int', [PVOID, 'uint32', 'uint32', 'uint32', 'uint32', PVOID]),
+    unlockFileEx: bind(kernel32, 'UnlockFileEx', 'int', [PVOID, 'uint32', 'uint32', 'uint32', PVOID]),
   })) as Win32Bindings
   return cached
 }

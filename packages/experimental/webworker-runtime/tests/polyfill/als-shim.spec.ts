@@ -23,9 +23,13 @@
  * gets two module instances and a shim mounted in the wrong world (the failure
  * mode asserted in `../node/fs.spec.ts`). One resolution path per module.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import {
-  AsyncLocalStorage, __restoreAll, __snapshotAll, alsCausality, runAtAsyncContextRoot,
+  AsyncLocalStorage,
+  __restoreAll,
+  __snapshotAll,
+  alsCausality,
+  runAtAsyncContextRoot,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/async_hooks.ts'
 import { installAsyncContextHooks } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/polyfill/async-context/async-context-hooks.ts'
 import { installTimerGlobals } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/globals/timers.ts'
@@ -40,9 +44,14 @@ installTimerGlobals()
 // would read a later block's state by the time the case executes.
 const check = (label: string, actual: unknown, expected: unknown): void => {
   const [seen, wanted] = [JSON.stringify(actual), JSON.stringify(expected)]
-  test(label, () => { expect(seen).toBe(wanted) })
+  test(label, () => {
+    expect(seen).toBe(wanted)
+  })
 }
-const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(resolve, ms) })
+const delay = (ms = 0): Promise<void> =>
+  new Promise(resolve => {
+    setTimeout(resolve, ms)
+  })
 
 // 0. The migration's own precondition: the hook layer really is installed over
 //    this module instance. If the check and the shim ever resolve to two
@@ -51,7 +60,11 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
 {
   const als = new AsyncLocalStorage<string>()
   let seen: string | undefined = 'unset'
-  als.run('installed', () => { void Promise.resolve().then(() => { seen = als.getStore() }) })
+  als.run('installed', () => {
+    void Promise.resolve().then(() => {
+      seen = als.getStore()
+    })
+  })
   await delay()
   check('hook layer is installed over this module instance', seen, 'installed')
 }
@@ -62,7 +75,11 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const seen = als.run('sync', () => als.getStore())
   check('sync body sees store', seen, 'sync')
   check('sync boundary closes', als.getStore(), undefined)
-  check('sync return value preserved', als.run('x', () => 42), 42)
+  check(
+    'sync return value preserved',
+    als.run('x', () => 42),
+    42,
+  )
 }
 
 // 2. The reason for the upgrade: the store survives awaits inside the operation.
@@ -91,7 +108,10 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
     await delay()
     throw new Error('operation failed')
   })
-  const message = await failing.then(() => 'resolved', (error: unknown) => (error as Error).message)
+  const message = await failing.then(
+    () => 'resolved',
+    (error: unknown) => (error as Error).message,
+  )
   check('rejection propagates', message, 'operation failed')
   await delay()
   check('boundary closes after rejection', als.getStore(), undefined)
@@ -101,8 +121,12 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
 {
   const als = new AsyncLocalStorage<string>()
   try {
-    als.run('thrower', () => { throw new Error('sync failure') })
-  } catch { /* expected */ }
+    als.run('thrower', () => {
+      throw new Error('sync failure')
+    })
+  } catch {
+    /* expected */
+  }
   check('boundary closes after sync throw', als.getStore(), undefined)
 }
 
@@ -174,14 +198,20 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   await Promise.all([first, second])
   await delay()
   check('interleaved reads never crash', seen.length, 2)
-  check('interleaved reads resolve to an open boundary', seen.every(entry => entry === 'A' || entry === 'B'), true)
+  check(
+    'interleaved reads resolve to an open boundary',
+    seen.every(entry => entry === 'A' || entry === 'B'),
+    true,
+  )
   check('stack unwinds after interleaving', als.getStore(), undefined)
 }
 
 // 9. disable() drops everything, as teardown expects.
 {
   const als = new AsyncLocalStorage<string>()
-  const pending = als.run('leaked', async () => { await delay(50) })
+  const pending = als.run('leaked', async () => {
+    await delay(50)
+  })
   als.disable()
   check('disable clears the stack', als.getStore(), undefined)
   await pending
@@ -192,8 +222,14 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
 {
   const als = new AsyncLocalStorage<string>()
   let seen: string | undefined = 'unset'
-  const promise = new Promise<void>((resolve) => { setTimeout(resolve, 10) })
-  als.run('registrar', () => { void promise.then(() => { seen = als.getStore() }) })
+  const promise = new Promise<void>(resolve => {
+    setTimeout(resolve, 10)
+  })
+  als.run('registrar', () => {
+    void promise.then(() => {
+      seen = als.getStore()
+    })
+  })
   check('boundary closed before the callback runs', als.getStore(), undefined)
   await delay(30)
   check('then callback reads the registration store', seen, 'registrar')
@@ -206,17 +242,25 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const seen: (string | undefined)[] = []
   const register = (label: string, ms: number): void => {
     als.run(label, () => {
-      setTimeout(() => { seen.push(`${label}:${String(als.getStore())}`) }, ms)
-      void Promise.resolve().then(() => { seen.push(`${label}-then:${String(als.getStore())}`) })
-      queueMicrotask(() => { seen.push(`${label}-micro:${String(als.getStore())}`) })
+      setTimeout(() => {
+        seen.push(`${label}:${String(als.getStore())}`)
+      }, ms)
+      void Promise.resolve().then(() => {
+        seen.push(`${label}-then:${String(als.getStore())}`)
+      })
+      queueMicrotask(() => {
+        seen.push(`${label}-micro:${String(als.getStore())}`)
+      })
     })
   }
   register('A', 20)
   register('B', 5)
   await delay(40)
-  check('interleaved timers read their own store', seen.filter((entry): entry is string => entry !== undefined && entry.includes(':')).sort(), [
-    'A-micro:A', 'A-then:A', 'A:A', 'B-micro:B', 'B-then:B', 'B:B',
-  ])
+  check(
+    'interleaved timers read their own store',
+    seen.filter((entry): entry is string => entry !== undefined && entry.includes(':')).sort(),
+    ['A-micro:A', 'A-then:A', 'A:A', 'B-micro:B', 'B-then:B', 'B:B'],
+  )
 }
 
 // 12. `catch`/`finally` inherit the patched `then` (they invoke it on the receiver).
@@ -224,9 +268,15 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const als = new AsyncLocalStorage<string>()
   const seen: (string | undefined)[] = []
   const rejected = Promise.reject(new Error('boom'))
-  const settled = als.run('handler', () => rejected
-    .catch(() => { seen.push(als.getStore()) })
-    .finally(() => { seen.push(als.getStore()) }))
+  const settled = als.run('handler', () =>
+    rejected
+      .catch(() => {
+        seen.push(als.getStore())
+      })
+      .finally(() => {
+        seen.push(als.getStore())
+      }),
+  )
   await settled
   await delay()
   check('catch and finally carry the registration store', seen, ['handler', 'handler'])
@@ -236,9 +286,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
 //     wrapper standing in for an absent fulfilled handler.
 {
   const als = new AsyncLocalStorage<string>()
-  const outcome = await als.run('slots', () => Promise
-    .reject(new Error('preserved'))
-    .then(undefined, (error: unknown) => `caught:${(error as Error).message}`))
+  const outcome = await als.run('slots', () =>
+    Promise.reject(new Error('preserved')).then(undefined, (error: unknown) => `caught:${(error as Error).message}`),
+  )
   check('empty fulfilled slot preserved', outcome, 'caught:preserved')
   const passthrough = await als.run('slots', () => Promise.resolve('value').then(undefined, () => 'wrong'))
   check('value passes an empty fulfilled slot', passthrough, 'value')
@@ -252,7 +302,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   als.run('outer', () => {
     queueMicrotask(() => {
       seen.push(als.getStore())
-      als.run('inner', () => { seen.push(als.getStore()) })
+      als.run('inner', () => {
+        seen.push(als.getStore())
+      })
       seen.push(als.getStore())
     })
   })
@@ -265,7 +317,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const als = new AsyncLocalStorage<string>()
   let seen: string | undefined = 'unset'
   als.run('stale', () => {
-    runAtAsyncContextRoot(() => { seen = als.getStore() })
+    runAtAsyncContextRoot(() => {
+      seen = als.getStore()
+    })
   })
   check('root context masks an open boundary', seen, undefined)
   check('root context restores afterwards', als.getStore(), undefined)
@@ -287,9 +341,13 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const seen: (string | undefined)[] = []
   // Frame A pauses inside its boundary…
   let paused: ReturnType<typeof __snapshotAll> | undefined
-  als.run('A', () => { paused = __snapshotAll() })
+  als.run('A', () => {
+    paused = __snapshotAll()
+  })
   // …an unrelated boundary opens and stays open…
-  const other = als.run('B', async () => { await delay(20) })
+  const other = als.run('B', async () => {
+    await delay(20)
+  })
   seen.push(als.getStore())
   // …and frame A resumes: the ambient slot answers A, not the open B.
   const release = __restoreAll(paused!)
@@ -312,7 +370,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const seen: string[] = []
   const pauseIn = (label: string): ReturnType<typeof __snapshotAll> => {
     let snapshot: ReturnType<typeof __snapshotAll> | undefined
-    als.run(label, () => { snapshot = __snapshotAll() })
+    als.run(label, () => {
+      snapshot = __snapshotAll()
+    })
     return snapshot!
   }
   const first = pauseIn('one')
@@ -321,13 +381,11 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   seen.push(`first:${String(als.getStore())}`)
   const releaseSecond = __restoreAll(second)
   seen.push(`second:${String(als.getStore())}`)
-  releaseFirst()   // out of order on purpose
+  releaseFirst() // out of order on purpose
   seen.push(`afterFirstRelease:${String(als.getStore())}`)
   releaseSecond()
   seen.push(`afterSecondRelease:${String(als.getStore())}`)
-  check('interleaved resumes keep their own context', seen, [
-    'first:one', 'second:two', 'afterFirstRelease:two', 'afterSecondRelease:one',
-  ])
+  check('interleaved resumes keep their own context', seen, ['first:one', 'second:two', 'afterFirstRelease:two', 'afterSecondRelease:one'])
 }
 
 // 19. The ambient slot outranks the folding stack but not a hook overlay: the
@@ -336,7 +394,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const als = new AsyncLocalStorage<string>()
   const seen: (string | undefined)[] = []
   let paused: ReturnType<typeof __snapshotAll> | undefined
-  als.run('ambient', () => { paused = __snapshotAll() })
+  als.run('ambient', () => {
+    paused = __snapshotAll()
+  })
   als.run('stack', () => {
     const release = __restoreAll(paused!)
     seen.push(als.getStore())
@@ -352,7 +412,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   const als = new AsyncLocalStorage<string>()
   const pauseIn = (label: string): ReturnType<typeof alsCausality.snapshot> => {
     let snapshot: ReturnType<typeof alsCausality.snapshot> | undefined
-    als.run(label, () => { snapshot = alsCausality.snapshot() })
+    als.run(label, () => {
+      snapshot = alsCausality.snapshot()
+    })
     return snapshot!
   }
   const one = pauseIn('one')
@@ -364,7 +426,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
   alsCausality.restore(one)
   check('resuming the first frame again republishes its own', als.getStore(), 'one')
   // A new boundary shadows the resumed slot, and the slot comes back after it.
-  als.run('boundary', () => { check('boundary shadows the resumed slot', als.getStore(), 'boundary') })
+  als.run('boundary', () => {
+    check('boundary shadows the resumed slot', als.getStore(), 'boundary')
+  })
   check('resumed slot returns after the boundary', als.getStore(), 'one')
   als.disable()
   check('disable clears the resumed slot', als.getStore(), undefined)
@@ -380,7 +444,9 @@ const delay = (ms = 0): Promise<void> => new Promise((resolve) => { setTimeout(r
     await delay(10)
     return captured
   })
-  const other = als.run('interleaved', async () => { await delay(30) })
+  const other = als.run('interleaved', async () => {
+    await delay(30)
+  })
   seen.push(als.getStore())
   alsCausality.restore(paused)
   seen.push(als.getStore())

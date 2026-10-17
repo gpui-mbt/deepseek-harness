@@ -1,7 +1,7 @@
 /**
  * One sentence per endpoint code, and the transport's own words for anything else.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 // The namespace declaration `TranslateNS<'sidebarDocumentPreview'>` resolves against.
@@ -10,7 +10,11 @@ import { emptyFailureRecourse, failureLine } from '../src/client/failure-line.ts
 
 /** Key-echoing translate that also shows its parameters, so a formatted value is visible. */
 const t: TranslateNS<'sidebarDocumentPreview'> = (key, params) =>
-  params === undefined ? key : `${key}(${Object.entries(params).map(([k, v]) => `${k}=${String(v)}`).join(',')})`
+  params === undefined
+    ? key
+    : `${key}(${Object.entries(params)
+        .map(([k, v]) => `${k}=${String(v)}`)
+        .join(',')})`
 
 function failure(code: string, details: Record<string, unknown> = {}, message = 'boom'): RemoteFailure {
   return { code, message, details } as unknown as RemoteFailure

@@ -4,7 +4,7 @@
  * round-trip, and registration lifecycle.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
@@ -14,7 +14,10 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { RemoteError, TestSessions } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionFixture } from '@deepseek-ai/dsh-client-test-runtime'
 import type {
-  CandidateRequest, ClientSessionContext, InputTriggerCandidate, InputTriggerSource,
+  CandidateRequest,
+  ClientSessionContext,
+  InputTriggerCandidate,
+  InputTriggerSource,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
 import type { SessionReferenceMentionCandidate } from '@deepseek-ai/dsh-session-reference/types'
@@ -35,22 +38,15 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
 })
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => {
+  vi.useRealTimers()
+})
 
-type RemoteEnvelope<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: { code: string; message: string; details: object } }
+type RemoteEnvelope<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string; details: object } }
 
-type RemoteLookup<T> = (
-  agentId: SessionId,
-  query: string,
-  signal?: AbortSignal,
-) => Promise<RemoteEnvelope<T[]>>
+type RemoteLookup<T> = (agentId: SessionId, query: string, signal?: AbortSignal) => Promise<RemoteEnvelope<T[]>>
 
-function request(
-  query: string,
-  options: { quoted?: boolean; signal?: AbortSignal } = {},
-): CandidateRequest {
+function request(query: string, options: { quoted?: boolean; signal?: AbortSignal } = {}): CandidateRequest {
   return {
     query,
     quoted: options.quoted ?? false,
@@ -67,37 +63,49 @@ function TextSlotDeclaration(_props: PropsRenderSlots<'conversation.user.text.no
 async function installTextSlots(ctx: Context, sessions: TestSessions): Promise<void> {
   new UiConversation(ctx, sessions)
   await ctx.plugin(SlotRegistry).await()
-  ctx.slots.register({
-    name: 'root',
-    children: { 'conversation.user.text.node': { kind: 'keyed', scope: 'session' } },
-  }, TextSlotDeclaration)
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: { 'conversation.user.text.node': { kind: 'keyed', scope: 'session' } },
+    },
+    TextSlotDeclaration,
+  )
 }
 
 async function bench(
-  files: RemoteLookup<FileReferenceCandidate> = vi.fn(() => Promise.resolve({
-    ok: true as const,
-    value: [
-      { path: 'src', kind: 'directory' as const },
-      { path: 'docs/a b.md', kind: 'file' as const },
-    ],
-  })),
-  sessions: RemoteLookup<SessionReferenceMentionCandidate> = vi.fn(() => Promise.resolve({
-    ok: true as const,
-    value: [{
-      sessionId: sid('source'),
-      label: 'Research',
-      cwd: `${HOME}/project`,
-      sameWorkspace: false,
-      createdAt: CREATED_AT,
-      mention: '@[Research](dsh-session:InNvdXJjZSI)',
-    }],
-  })),
-  listed: Record<string, {
-    updatedAt: number
-    origin?: 'subagent'
-    parentId?: SessionId
-    projectionValues?: { title?: string | null }
-  }> = {},
+  files: RemoteLookup<FileReferenceCandidate> = vi.fn(() =>
+    Promise.resolve({
+      ok: true as const,
+      value: [
+        { path: 'src', kind: 'directory' as const },
+        { path: 'docs/a b.md', kind: 'file' as const },
+      ],
+    }),
+  ),
+  sessions: RemoteLookup<SessionReferenceMentionCandidate> = vi.fn(() =>
+    Promise.resolve({
+      ok: true as const,
+      value: [
+        {
+          sessionId: sid('source'),
+          label: 'Research',
+          cwd: `${HOME}/project`,
+          sameWorkspace: false,
+          createdAt: CREATED_AT,
+          mention: '@[Research](dsh-session:InNvdXJjZSI)',
+        },
+      ],
+    }),
+  ),
+  listed: Record<
+    string,
+    {
+      updatedAt: number
+      origin?: 'subagent'
+      parentId?: SessionId
+      projectionValues?: { title?: string | null }
+    }
+  > = {},
   opening: Pick<SessionFixture, 'initialOpen' | 'snapshot'> = {},
 ) {
   const ctx = new Context()
@@ -106,7 +114,9 @@ async function bench(
   ctx.provide('inputTriggers', {
     registerSource(candidate: InputTriggerSource) {
       source = candidate
-      return () => { source = undefined }
+      return () => {
+        source = undefined
+      }
     },
   })
   class RemoteService extends Service {
@@ -120,14 +130,16 @@ async function bench(
   ctx.provide('remote.fileReferences', { list: files })
   ctx.provide('remote.sessionReferenceResolver', { candidates: sessions })
   ctx.provide('locale', new LocaleRuntime(ctx))
-  const sessionStore = new TestSessions(async (action) => { await action() }, ctx)
+  const sessionStore = new TestSessions(async action => {
+    await action()
+  }, ctx)
   onTestFinished(async () => {
     await sessionStore.disposeScopes()
     await ctx.fiber.dispose()
   })
   ctx.provide('sessions', sessionStore)
   const summary = listed[session.sessionId]
-  await sessionStore.add({ id: session.sessionId, ...opening, ...summary === undefined ? {} : { summary } })
+  await sessionStore.add({ id: session.sessionId, ...opening, ...(summary === undefined ? {} : { summary }) })
   for (const [id, summary] of Object.entries(listed)) {
     if (id !== session.sessionId) await sessionStore.add({ id, summary })
   }
@@ -142,8 +154,15 @@ async function bench(
 describe('apply', () => {
   it('declares its services and releases the @ reference registration on disposal', async () => {
     expect(inject).toEqual([
-      'inputTriggers', 'locale', 'sessions', 'remote', 'remote.fileReferences',
-      'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation',
+      'inputTriggers',
+      'locale',
+      'sessions',
+      'remote',
+      'remote.fileReferences',
+      'remote.sessionReferenceResolver',
+      'sidebarRight',
+      'slots',
+      'uiConversation',
     ])
     const { fiber } = await bench()
     let registered: InputTriggerSource | undefined
@@ -153,7 +172,9 @@ describe('apply', () => {
     ctx.provide('inputTriggers', {
       registerSource(source: InputTriggerSource) {
         registered = source
-        return () => { registered = undefined }
+        return () => {
+          registered = undefined
+        }
       },
     })
     class RemoteService extends Service {
@@ -167,7 +188,9 @@ describe('apply', () => {
     ctx.provide('remote.fileReferences', { list: () => Promise.resolve({ ok: true, value: [] }) })
     ctx.provide('remote.sessionReferenceResolver', { candidates: () => Promise.resolve({ ok: true, value: [] }) })
     ctx.provide('locale', new LocaleRuntime(ctx))
-    const sessions = new TestSessions(async (action) => { await action() }, ctx)
+    const sessions = new TestSessions(async action => {
+      await action()
+    }, ctx)
     onTestFinished(() => sessions.disposeScopes())
     ctx.provide('sessions', sessions)
     await installTextSlots(ctx, sessions)
@@ -188,7 +211,9 @@ describe('apply', () => {
   })
 
   it('the node half applies without host-side behavior', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })
 
@@ -205,7 +230,9 @@ describe('candidates', () => {
       expect(files).not.toHaveBeenCalled()
       expect(lookup).not.toHaveBeenCalled()
       opened.resolve(undefined)
-      await vi.waitFor(() => { expect(files).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(files).toHaveBeenCalledOnce()
+      })
       expect(lookup).toHaveBeenCalledOnce()
       expect(b.sessions.retainInfo(session.sessionId).getSnapshot().referenceCount).toBe(2)
       response.resolve({ ok: true, value: [] })
@@ -217,7 +244,7 @@ describe('candidates', () => {
     }
   })
 
-  it.each([true, false])('refuses an unsuccessful history open (reported error: %s)', async (reported) => {
+  it.each([true, false])('refuses an unsuccessful history open (reported error: %s)', async reported => {
     const error = new RemoteError('gateway/internal', 'history unavailable', {})
     const files = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
     const lookup = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
@@ -258,48 +285,58 @@ describe('candidates', () => {
   it('starts both Remote lookups together and renders files before sessions with stable labels', async () => {
     let releaseFiles!: () => void
     let releaseSessions!: () => void
-    const files = vi.fn(() => new Promise<{
-      ok: true
-      value: { path: string; kind: 'file' | 'directory' }[]
-    }>((resolve) => {
-      releaseFiles = () => {
-        resolve({
-          ok: true,
-          value: [
-            { path: 'src', kind: 'directory' },
-            { path: 'docs/a b.md', kind: 'file' },
-          ],
-        })
-      }
-    }))
-    const sessions = vi.fn(() => new Promise<{
-      ok: true
-      value: {
-        sessionId: SessionId
-        label: string
-        cwd: string
-        sameWorkspace: boolean
-        createdAt: number
-        mention: string
-      }[]
-    }>((resolve) => {
-      releaseSessions = () => {
-        resolve({
-          ok: true,
-          value: [{
-            sessionId: sid('source'),
-            label: 'Research',
-            cwd: `${HOME}/project`,
-            sameWorkspace: false,
-            createdAt: CREATED_AT,
-            mention: '@[Research](dsh-session:InNvdXJjZSI)',
-          }],
-        })
-      }
-    }))
+    const files = vi.fn(
+      () =>
+        new Promise<{
+          ok: true
+          value: { path: string; kind: 'file' | 'directory' }[]
+        }>(resolve => {
+          releaseFiles = () => {
+            resolve({
+              ok: true,
+              value: [
+                { path: 'src', kind: 'directory' },
+                { path: 'docs/a b.md', kind: 'file' },
+              ],
+            })
+          }
+        }),
+    )
+    const sessions = vi.fn(
+      () =>
+        new Promise<{
+          ok: true
+          value: {
+            sessionId: SessionId
+            label: string
+            cwd: string
+            sameWorkspace: boolean
+            createdAt: number
+            mention: string
+          }[]
+        }>(resolve => {
+          releaseSessions = () => {
+            resolve({
+              ok: true,
+              value: [
+                {
+                  sessionId: sid('source'),
+                  label: 'Research',
+                  cwd: `${HOME}/project`,
+                  sameWorkspace: false,
+                  createdAt: CREATED_AT,
+                  mention: '@[Research](dsh-session:InNvdXJjZSI)',
+                },
+              ],
+            })
+          }
+        }),
+    )
     const { source } = await bench(files, sessions, { source: { updatedAt: UPDATED_AT } })
     const pending = source.candidates(session, request('re'))
-    await vi.waitFor(() => { expect(files).toHaveBeenCalledTimes(1) })
+    await vi.waitFor(() => {
+      expect(files).toHaveBeenCalledTimes(1)
+    })
     expect(sessions).toHaveBeenCalledTimes(1)
     releaseSessions()
     releaseFiles()
@@ -327,7 +364,8 @@ describe('candidates', () => {
   })
 
   it('suppresses sessions for an open quoted path and degrades each failed domain independently', async () => {
-    const files = vi.fn()
+    const files = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: true as const,
         value: [{ path: 'README.md', kind: 'file' as const }],
@@ -336,28 +374,34 @@ describe('candidates', () => {
         ok: false as const,
         error: new RemoteError('gateway/internal', 'file scan failed', {}),
       })
-    const sessions = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [{
-        sessionId: sid('source'),
-        label: 'Research',
-        cwd: `${HOME}/project`,
-        sameWorkspace: false,
-        createdAt: CREATED_AT,
-        mention: '@[Research](dsh-session:InNvdXJjZSI)',
-      }],
-    }))
+    const sessions = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [
+          {
+            sessionId: sid('source'),
+            label: 'Research',
+            cwd: `${HOME}/project`,
+            sameWorkspace: false,
+            createdAt: CREATED_AT,
+            mention: '@[Research](dsh-session:InNvdXJjZSI)',
+          },
+        ],
+      }),
+    )
     const { source } = await bench(files, sessions)
     const quoted = await source.candidates(session, request('READ', { quoted: true }))
     expect(quoted).toEqual([expect.objectContaining({ name: 'README.md', icon: 'file' })])
-    expect(source.onPick({
-      candidate: quoted[0]!,
-      session,
-      position: 'inline',
-      via: 'menu',
-      action: 'pick',
-      span: { start: 0, end: 6, draftRev: 1 },
-    })).toEqual({
+    expect(
+      source.onPick({
+        candidate: quoted[0]!,
+        session,
+        position: 'inline',
+        via: 'menu',
+        action: 'pick',
+        span: { start: 0, end: 6, draftRev: 1 },
+      }),
+    ).toEqual({
       insert: {
         source: 'reference',
         ref: '@"README.md"',
@@ -378,21 +422,27 @@ describe('candidates', () => {
     const files = vi.fn(() => gate.promise)
     const { source } = await bench(files)
     const pending = source.candidates(session, request('', { signal: controller.signal }))
-    await vi.waitFor(() => { expect(files).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(files).toHaveBeenCalledOnce()
+    })
     controller.abort()
     gate.resolve({ ok: true, value: [] })
     await expect(pending).resolves.toEqual([])
   })
 
   it('treats Remote failures as empty domains and filters paths that cannot be mentioned', async () => {
-    const files = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [{ path: 'bad\nname', kind: 'file' as const }],
-    }))
-    const sessions = vi.fn(() => Promise.resolve({
-      ok: false as const,
-      error: new RemoteError('gateway/internal', 'session lookup failed', {}),
-    }))
+    const files = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [{ path: 'bad\nname', kind: 'file' as const }],
+      }),
+    )
+    const sessions = vi.fn(() =>
+      Promise.resolve({
+        ok: false as const,
+        error: new RemoteError('gateway/internal', 'session lookup failed', {}),
+      }),
+    )
     const { source } = await bench(files, sessions)
     await expect(source.candidates(session, request('bad'))).resolves.toEqual([])
 
@@ -405,16 +455,20 @@ describe('candidates', () => {
 
   it('labels a session without a cwd and still dates it', async () => {
     const files = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
-    const sessions = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [{
-        sessionId: sid('same'),
-        label: 'same',
-        sameWorkspace: false,
-        createdAt: CREATED_AT,
-        mention: '@[same](dsh-session:InNhbWUi)',
-      }],
-    }))
+    const sessions = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [
+          {
+            sessionId: sid('same'),
+            label: 'same',
+            sameWorkspace: false,
+            createdAt: CREATED_AT,
+            mention: '@[same](dsh-session:InNhbWUi)',
+          },
+        ],
+      }),
+    )
     const { source } = await bench(files, sessions)
     await expect(source.candidates(session, request('same'))).resolves.toEqual([
       expect.objectContaining({
@@ -426,17 +480,21 @@ describe('candidates', () => {
 
   it('falls back to the candidate createdAt for a session the Host list does not carry', async () => {
     const files = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
-    const sessions = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [{
-        sessionId: sid('unlisted'),
-        label: 'Unlisted run',
-        cwd: `${HOME}/project`,
-        sameWorkspace: true,
-        createdAt: CREATED_AT,
-        mention: '@[Unlisted run](dsh-session:InVubGlzdGVkIg)',
-      }],
-    }))
+    const sessions = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [
+          {
+            sessionId: sid('unlisted'),
+            label: 'Unlisted run',
+            cwd: `${HOME}/project`,
+            sameWorkspace: true,
+            createdAt: CREATED_AT,
+            mention: '@[Unlisted run](dsh-session:InVubGlzdGVkIg)',
+          },
+        ],
+      }),
+    )
     // A row absent from the list has no durable activity time to read.
     const { source } = await bench(files, sessions, { other: { updatedAt: UPDATED_AT } })
     await expect(source.candidates(session, request('unlisted'))).resolves.toEqual([
@@ -446,33 +504,36 @@ describe('candidates', () => {
 
   it('uses current Session titles and groups direct subagents above ordinary Sessions', async () => {
     const files = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
-    const sessions = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [
-        {
-          sessionId: sid('ordinary'),
-          label: 'Ordinary title',
-          displayTitle: 'Ordinary title',
-          cwd: `${HOME}/project`,
-          sameWorkspace: true,
-          createdAt: CREATED_AT,
-          mention: '@[Ordinary title](dsh-session:Im9yZGluYXJ5Ig)',
-        },
-        {
-          sessionId: sid('worker'),
-          label: 'Investigate startup',
-          displayTitle: 'researcher',
-          cwd: `${HOME}/project`,
-          sameWorkspace: true,
-          createdAt: CREATED_AT,
-          mention: '@[researcher](dsh-session:IndvcmtlciI)',
-        },
-      ],
-    }))
+    const sessions = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [
+          {
+            sessionId: sid('ordinary'),
+            label: 'Ordinary title',
+            displayTitle: 'Ordinary title',
+            cwd: `${HOME}/project`,
+            sameWorkspace: true,
+            createdAt: CREATED_AT,
+            mention: '@[Ordinary title](dsh-session:Im9yZGluYXJ5Ig)',
+          },
+          {
+            sessionId: sid('worker'),
+            label: 'Investigate startup',
+            displayTitle: 'researcher',
+            cwd: `${HOME}/project`,
+            sameWorkspace: true,
+            createdAt: CREATED_AT,
+            mention: '@[researcher](dsh-session:IndvcmtlciI)',
+          },
+        ],
+      }),
+    )
     const { source } = await bench(files, sessions, {
       worker: {
         updatedAt: UPDATED_AT,
-        origin: 'subagent', parentId: session.sessionId,
+        origin: 'subagent',
+        parentId: session.sessionId,
         projectionValues: { title: 'Investigate startup' },
       },
       ordinary: { updatedAt: UPDATED_AT, projectionValues: { title: 'Ordinary title' } },
@@ -483,14 +544,16 @@ describe('candidates', () => {
       { name: 'Ordinary title', section: 'Sessions' },
     ])
     const [candidate] = candidates
-    expect(source.onPick({
-      candidate: candidate!,
-      session,
-      position: 'inline',
-      via: 'menu',
-      action: 'pick',
-      span: { start: 0, end: 7, draftRev: 1 },
-    })).toEqual({
+    expect(
+      source.onPick({
+        candidate: candidate!,
+        session,
+        position: 'inline',
+        via: 'menu',
+        action: 'pick',
+        span: { start: 0, end: 7, draftRev: 1 },
+      }),
+    ).toEqual({
       insert: {
         source: 'reference',
         ref: '@[researcher](dsh-session:IndvcmtlciI)',
@@ -503,17 +566,21 @@ describe('candidates', () => {
 
   it('reads a session opened moments ago as the present, not a zero distance', async () => {
     const files = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
-    const sessions = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [{
-        sessionId: sid('just-now'),
-        label: 'Just now',
-        cwd: `${HOME}/project`,
-        sameWorkspace: true,
-        createdAt: NOW - 1_000,
-        mention: '@[Just now](dsh-session:Imp1c3Qtbm93Ig)',
-      }],
-    }))
+    const sessions = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [
+          {
+            sessionId: sid('just-now'),
+            label: 'Just now',
+            cwd: `${HOME}/project`,
+            sameWorkspace: true,
+            createdAt: NOW - 1_000,
+            mention: '@[Just now](dsh-session:Imp1c3Qtbm93Ig)',
+          },
+        ],
+      }),
+    )
     const { source } = await bench(files, sessions, { 'just-now': { updatedAt: NOW - 1_000 } })
     await expect(source.candidates(session, request('just'))).resolves.toEqual([
       expect.objectContaining({ name: 'Just now', description: 'now' }),
@@ -522,17 +589,21 @@ describe('candidates', () => {
 
   it('dates a session in the current workspace without repeating that workspace', async () => {
     const files = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
-    const sessions = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [{
-        sessionId: sid('sibling'),
-        label: 'Sibling run',
-        cwd: `${HOME}/project`,
-        sameWorkspace: true,
-        createdAt: CREATED_AT,
-        mention: '@[Sibling run](dsh-session:InNpYmxpbmdyIg)',
-      }],
-    }))
+    const sessions = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [
+          {
+            sessionId: sid('sibling'),
+            label: 'Sibling run',
+            cwd: `${HOME}/project`,
+            sameWorkspace: true,
+            createdAt: CREATED_AT,
+            mention: '@[Sibling run](dsh-session:InNpYmxpbmdyIg)',
+          },
+        ],
+      }),
+    )
     const { source } = await bench(files, sessions)
     await expect(source.candidates(session, request('sib'))).resolves.toEqual([
       expect.objectContaining({ name: 'Sibling run', description: '3d' }),
@@ -575,8 +646,11 @@ describe('directory header', () => {
   it('keeps an open quote across every crumb of a quoted descent', async () => {
     const { source } = await bench()
     const crumbs = source.header?.(session, { query: 'my dir/sub/', quoted: true, drilled: true })
-    expect(crumbs?.map(crumb => JSON.parse(crumb.value) as { mention: string }).map(value => value.mention))
-      .toEqual(['@"', '@"my dir/', '@"my dir/sub/'])
+    expect(crumbs?.map(crumb => JSON.parse(crumb.value) as { mention: string }).map(value => value.mention)).toEqual([
+      '@"',
+      '@"my dir/',
+      '@"my dir/sub/',
+    ])
   })
 
   it('publishes no header when a segment cannot be written back as mention text', async () => {
@@ -587,21 +661,25 @@ describe('directory header', () => {
   it('returns to a crumb through the same drill outcome a folder row uses', async () => {
     const { source } = await bench()
     const crumbs = source.header?.(session, { query: 'src/module1/', drilled: true })
-    expect(source.onPick({
-      candidate: { name: 'src', value: crumbs?.[1]?.value ?? '' },
-      session,
-      position: 'inline',
-      via: 'menu',
-      action: 'drill',
-      span: { start: 0, end: 13, draftRev: 1 },
-    })).toEqual({ text: '@src/', continue: true })
+    expect(
+      source.onPick({
+        candidate: { name: 'src', value: crumbs?.[1]?.value ?? '' },
+        session,
+        position: 'inline',
+        via: 'menu',
+        action: 'drill',
+        span: { start: 0, end: 13, draftRev: 1 },
+      }),
+    ).toEqual({ text: '@src/', continue: true })
   })
 
   it('drops the row location a drilled listing already shows in its header', async () => {
-    const files = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: [{ path: 'src/module1/index.html', kind: 'file' as const }],
-    }))
+    const files = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [{ path: 'src/module1/index.html', kind: 'file' as const }],
+      }),
+    )
     const sessions = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
     const { source } = await bench(files, sessions)
     await expect(source.candidates(session, drilledRequest('src/module1/'))).resolves.toEqual([
@@ -613,8 +691,8 @@ describe('directory header', () => {
 })
 
 describe('pick and codec', () => {
-  const pickAs = (action: 'pick' | 'drill') =>
-    (source: InputTriggerSource, candidate: InputTriggerCandidate) => source.onPick({
+  const pickAs = (action: 'pick' | 'drill') => (source: InputTriggerSource, candidate: InputTriggerCandidate) =>
+    source.onPick({
       candidate,
       session,
       position: 'inline',

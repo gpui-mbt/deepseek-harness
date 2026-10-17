@@ -22,7 +22,8 @@ function missing(error: unknown): boolean {
  * @returns Streaming reads and single-attempt writes; transport construction performs no requests.
  */
 export function desktopPublishCos(
-  plan: DesktopUploadPlan, credentials: DesktopCosCredentials,
+  plan: DesktopUploadPlan,
+  credentials: DesktopCosCredentials,
   createClient: (credentials: DesktopCosCredentials) => COS = createDesktopCos,
 ): DesktopPublishTransport {
   const keys = new Map(plan.artifacts.map(artifact => [artifact.key, artifact.channelMetadata]))
@@ -41,7 +42,10 @@ export function desktopPublishCos(
       const output = new Writable({
         write(bytes: Buffer, _encoding, done) {
           size += bytes.length
-          if (channel && size > 1024 * 1024) { done(new Error('desktop publish: channel metadata exceeds 1 MiB')); return }
+          if (channel && size > 1024 * 1024) {
+            done(new Error('desktop publish: channel metadata exceeds 1 MiB'))
+            return
+          }
           sha512.update(bytes)
           if (channel) chunks.push(Buffer.from(bytes))
           done()
@@ -54,7 +58,9 @@ export function desktopPublishCos(
       } catch (error) {
         if (missing(error)) return null
         throw new DesktopCosOperationError('GetObject', error)
-      } finally { output.destroy() }
+      } finally {
+        output.destroy()
+      }
     },
     async put(artifact, digest, forbidOverwrite) {
       const address = location(artifact.key)
@@ -69,13 +75,20 @@ export function desktopPublishCos(
       for await (const chunk of bytes) md5.update(chunk)
       const body = artifact.contents === undefined ? createReadStream(artifact.path) : Readable.from([Buffer.from(artifact.contents)])
       try {
-        await cosOperation(cos, 900_000, () => cos.putObject({
-          ...address, Body: body, ContentLength: digest.size, ContentType: artifact.contentType,
-          Headers: { 'Content-MD5': md5.digest('base64'), ...(forbidOverwrite ? { 'x-cos-forbid-overwrite': 'true' } : {}) },
-        }))
+        await cosOperation(cos, 900_000, () =>
+          cos.putObject({
+            ...address,
+            Body: body,
+            ContentLength: digest.size,
+            ContentType: artifact.contentType,
+            Headers: { 'Content-MD5': md5.digest('base64'), ...(forbidOverwrite ? { 'x-cos-forbid-overwrite': 'true' } : {}) },
+          }),
+        )
       } catch (error) {
         throw new DesktopCosOperationError('PutObject', error)
-      } finally { body.destroy() }
+      } finally {
+        body.destroy()
+      }
     },
   }
 }

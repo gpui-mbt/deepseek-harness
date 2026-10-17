@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context, type Fiber } from '@deepseek-ai/cordis'
 import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import ClaudeCodeMods, { defineMod } from '../src/index.ts'
@@ -23,7 +23,12 @@ describe('defineMod', () => {
     })
     expect(plugin.name).toBe('claude-code-mod-weather')
     expect(plugin.inject).toEqual(['claudeCodeMods'])
-    expect(plugin.definition).toMatchObject({ name: 'weather', version: '0.1.0', root: '/mods/weather', options: { history: 12, unit: 'tokens' } })
+    expect(plugin.definition).toMatchObject({
+      name: 'weather',
+      version: '0.1.0',
+      root: '/mods/weather',
+      options: { history: 12, unit: 'tokens' },
+    })
     expect(typeof plugin.definition.register).toBe('function')
     expect(plugin.Config({})).toEqual({})
     expect(plugin.Config({ history: 3, tags: ['a'] })).toEqual({ history: 3, tags: ['a'] })
@@ -47,25 +52,37 @@ describe('defineMod', () => {
     let release: (() => void) | undefined
     const slow = defineMod({
       name: 'slow',
-      register: () => new Promise<void>((resolve) => { release = resolve }),
+      register: () =>
+        new Promise<void>(resolve => {
+          release = resolve
+        }),
     })
     const ctx = new Context()
     fibers.push(ctx.fiber)
     provideWorkingDirectoryFixture(ctx)
     await ctx.plugin(ClaudeCodeMods, {})
     const fiber = ctx.plugin(slow, {})
-    await vi.waitFor(() => { expect(release).toBeDefined() })
+    await vi.waitFor(() => {
+      expect(release).toBeDefined()
+    })
     const disposing = fiber.dispose()
     release?.()
     await disposing
-    await vi.waitFor(() => { expect(ctx.claudeCodeMods.mods).toEqual([]) })
+    await vi.waitFor(() => {
+      expect(ctx.claudeCodeMods.mods).toEqual([])
+    })
   })
 
   it('leaves version and root to the host when the spec names none, and fails the mount when register throws', async () => {
     const bare = defineMod({ name: 'bare', register: () => {} })
     expect(bare.definition).toMatchObject({ name: 'bare', options: {} })
     expect(Object.keys(bare.definition).sort()).toEqual(['name', 'options', 'register'])
-    const broken = defineMod({ name: 'broken', register: () => { throw new Error('no thanks') } })
+    const broken = defineMod({
+      name: 'broken',
+      register: () => {
+        throw new Error('no thanks')
+      },
+    })
     const ctx = new Context()
     fibers.push(ctx.fiber)
     provideWorkingDirectoryFixture(ctx)

@@ -2,11 +2,7 @@
 
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { RemoteStreamCarrierError } from './stream-client.ts'
-import type {
-  RemoteStream,
-  RemoteStreamItem,
-  RemoteStreamOptions,
-} from './remote-stream.ts'
+import type { RemoteStream, RemoteStreamItem, RemoteStreamOptions } from './remote-stream.ts'
 
 /** Host-side stream protocol violation, marked so consumers surface it as an error state. */
 function protocolViolation(message: string): RemoteError<'gateway/internal'> {
@@ -17,32 +13,26 @@ function protocolViolation(message: string): RemoteError<'gateway/internal'> {
 export type RemoteJournalFrame<Entry, Cursor, Page, Notification = never> =
   | { readonly type: 'opened'; readonly cursor: Cursor; readonly page: Page }
   | { readonly type: 'entry'; readonly entry: Entry }
-  | ([Notification] extends [never]
-    ? never
-    : { readonly type: 'notification'; readonly notification: Notification })
+  | ([Notification] extends [never] ? never : { readonly type: 'notification'; readonly notification: Notification })
 
 /** One journal-window update or cursorless domain notification. */
 export type RemoteJournalChange<Page, Entry, Notification = never> =
   | {
-    readonly type: 'replace'
-    readonly page: Page
-    readonly entries: readonly Entry[]
-    readonly hasMore: boolean
-  }
+      readonly type: 'replace'
+      readonly page: Page
+      readonly entries: readonly Entry[]
+      readonly hasMore: boolean
+    }
   | {
-    readonly type: 'prepend'
-    readonly page: Page
-    readonly entries: readonly Entry[]
-    readonly hasMore: boolean
-  }
+      readonly type: 'prepend'
+      readonly page: Page
+      readonly entries: readonly Entry[]
+      readonly hasMore: boolean
+    }
   | { readonly type: 'append'; readonly entry: Entry }
-  | ([Notification] extends [never]
-    ? never
-    : { readonly type: 'notification'; readonly notification: Notification })
+  | ([Notification] extends [never] ? never : { readonly type: 'notification'; readonly notification: Notification })
 
-type JournalStreamItem<Page, Entry, Cursor, Notification> = RemoteStreamItem<
-  RemoteJournalFrame<Entry, Cursor, Page, Notification>
->
+type JournalStreamItem<Page, Entry, Cursor, Notification> = RemoteStreamItem<RemoteJournalFrame<Entry, Cursor, Page, Notification>>
 
 /** Gateway capability used to create one reconnecting Remote stream. */
 export interface RemoteStreamFactory {
@@ -87,9 +77,7 @@ export interface RemoteJournalStreamOptions<Page, Entry, Cursor, Notification = 
  * published only after the opening page reaches the generation's cursor.
  * Notifications never change a cursor and wait behind an in-flight gap repair.
  */
-export abstract class RemoteJournalStream<
-  Page, Entry, Cursor, PageRequest = void, Notification = never,
-> {
+export abstract class RemoteJournalStream<Page, Entry, Cursor, PageRequest = void, Notification = never> {
   private readonly stream: RemoteStream<RemoteJournalFrame<Entry, Cursor, Page, Notification>>
   private initialRequest!: PageRequest
   private resumeCursor: Cursor | undefined
@@ -115,14 +103,11 @@ export abstract class RemoteJournalStream<
     this.stream = remote.$stream<RemoteJournalFrame<Entry, Cursor, Page, Notification>>({
       name: options.name,
       open: signal => this.follow(this.initialRequest, signal),
-      ended: accepted => accepted
-        ? new RemoteStreamCarrierError(`${options.name} ended without a terminal result`)
-        : protocolViolation(
-          `${this.hasResumeCursor ? 'resumed ' : ''}${options.name} ended before its opening cursor`,
-        ),
-      ...(options.carrierFailed === undefined
-        ? {}
-        : { carrierFailed: options.carrierFailed }),
+      ended: accepted =>
+        accepted
+          ? new RemoteStreamCarrierError(`${options.name} ended without a terminal result`)
+          : protocolViolation(`${this.hasResumeCursor ? 'resumed ' : ''}${options.name} ended before its opening cursor`),
+      ...(options.carrierFailed === undefined ? {} : { carrierFailed: options.carrierFailed }),
     })
   }
 
@@ -132,10 +117,7 @@ export abstract class RemoteJournalStream<
    * @param signal - cancellation lifetime of the physical generation.
    * @returns opening cursor followed by live entries.
    */
-  protected abstract follow(
-    request: PageRequest,
-    signal: AbortSignal,
-  ): AsyncIterable<RemoteJournalFrame<Entry, Cursor, Page, Notification>>
+  protected abstract follow(request: PageRequest, signal: AbortSignal): AsyncIterable<RemoteJournalFrame<Entry, Cursor, Page, Notification>>
 
   /**
    * Read one journal page through the addressed domain source.
@@ -192,12 +174,10 @@ export abstract class RemoteJournalStream<
     const entries = this.options.entries(page)
     this.assertPage(entries)
     const before = this.firstCursor
-    const accepted = before === undefined
-      ? [...entries]
-      : entries.filter(entry => this.options.compare(this.options.first(entry), before) < 0)
+    const accepted =
+      before === undefined ? [...entries] : entries.filter(entry => this.options.compare(this.options.first(entry), before) < 0)
     const tail = accepted.at(-1)
-    if (tail !== undefined && before !== undefined
-      && !this.options.follows(this.options.last(tail), before)) {
+    if (tail !== undefined && before !== undefined && !this.options.follows(this.options.last(tail), before)) {
       this.options.publish({ type: 'prepend', page, entries: [], hasMore: false })
       throw protocolViolation(`${this.options.name} history page is discontinuous`)
     }
@@ -232,9 +212,7 @@ export abstract class RemoteJournalStream<
     return closing
   }
 
-  private async consume(
-    iterator: AsyncIterator<JournalStreamItem<Page, Entry, Cursor, Notification>>,
-  ): Promise<void> {
+  private async consume(iterator: AsyncIterator<JournalStreamItem<Page, Entry, Cursor, Notification>>): Promise<void> {
     try {
       while (true) {
         const next = await this.takeNext(iterator)
@@ -258,10 +236,7 @@ export abstract class RemoteJournalStream<
     }
   }
 
-  private replaceGeneration(
-    initial: JournalStreamItem<Page, Entry, Cursor, Notification>,
-    resumed: boolean,
-  ): void {
+  private replaceGeneration(initial: JournalStreamItem<Page, Entry, Cursor, Notification>, resumed: boolean): void {
     const opening = this.opening(initial, resumed)
     this.replaceFromOpening(opening.page, opening.cursor)
   }
@@ -274,11 +249,8 @@ export abstract class RemoteJournalStream<
       throw protocolViolation(`${resumed ? 'resumed ' : ''}${this.options.name} emitted an entry before its opening cursor`)
     }
     const cursor = item.value.cursor
-    if (resumed && this.lastCursor !== undefined
-      && this.options.compare(cursor, this.lastCursor) < 0) {
-      throw protocolViolation(
-        `${this.options.name} resumed at a cursor behind the last applied entry`,
-      )
+    if (resumed && this.lastCursor !== undefined && this.options.compare(cursor, this.lastCursor) < 0) {
+      throw protocolViolation(`${this.options.name} resumed at a cursor behind the last applied entry`)
     }
     this.generation = item.generation
     item.accept()
@@ -315,15 +287,7 @@ export abstract class RemoteJournalStream<
     }
     if (!this.options.follows(last, first)) {
       const request = this.repairPageRequest()
-      const superseded = await this.replaceThrough(
-        request,
-        cursor,
-        item.generation,
-        item.signal,
-        iterator,
-        [entry],
-        [],
-      )
+      const superseded = await this.replaceThrough(request, cursor, item.generation, item.signal, iterator, [entry], [])
       if (superseded !== undefined) {
         this.replaceGeneration(superseded, true)
       }
@@ -344,30 +308,14 @@ export abstract class RemoteJournalStream<
     queued: Entry[],
     notifications: Notification[],
   ): Promise<JournalStreamItem<Page, Entry, Cursor, Notification> | undefined> {
-    let read = await this.readPageWhileFollowing(
-      request,
-      requiredCursor,
-      generation,
-      signal,
-      iterator,
-      queued,
-      notifications,
-    )
+    let read = await this.readPageWhileFollowing(request, requiredCursor, generation, signal, iterator, queued, notifications)
     if (read.type === 'superseded') return read.item
     let page = read.page
     this.assertPageThrough(page, requiredCursor)
     let entries = this.mergeReplacement(page, queued)
     let target = this.maxCursor(requiredCursor, queued)
     if (entries === undefined || this.options.compare(this.tailCursor(entries), target) < 0) {
-      read = await this.readPageWhileFollowing(
-        this.repairPageRequest(),
-        target,
-        generation,
-        signal,
-        iterator,
-        queued,
-        notifications,
-      )
+      read = await this.readPageWhileFollowing(this.repairPageRequest(), target, generation, signal, iterator, queued, notifications)
       if (read.type === 'superseded') return read.item
       page = read.page
       this.assertPageThrough(page, target)
@@ -474,9 +422,7 @@ export abstract class RemoteJournalStream<
     const entries = [...this.options.entries(page)]
     this.assertPage(entries)
     for (const entry of queued) this.entryRange(entry)
-    const sorted = [...queued].sort((left, right) => (
-      this.options.compare(this.options.first(left), this.options.first(right))
-    ))
+    const sorted = [...queued].sort((left, right) => this.options.compare(this.options.first(left), this.options.first(right)))
     let tail = this.tailCursor(entries)
     for (const entry of sorted) {
       const first = this.options.first(entry)

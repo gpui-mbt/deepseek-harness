@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -17,14 +17,20 @@ async function harness(withTitleService: boolean): Promise<{ ctx: Context; sessi
 }
 
 function appendTitle(session: Session, title: string): SessionSeqType {
-  const messageSeq = session.snapshotEvents().find(event =>
-    event.type === 'user/message' && event.data.source.kind === 'user')?.seq
-    ?? session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'Title source' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' }).seq
+  const messageSeq =
+    session.snapshotEvents().find(event => event.type === 'user/message' && event.data.source.kind === 'user')?.seq ??
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'Title source' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    ).seq
   return session.append('session/title', {
-    title, messageSeqs: [messageSeq], source: { kind: 'fallback' },
+    title,
+    messageSeqs: [messageSeq],
+    source: { kind: 'fallback' },
   }).seq
 }
 
@@ -57,9 +63,11 @@ describe('title projection unit', () => {
   it('reads the version-1 string checkpoint format used by existing title caches', async () => {
     const { ctx } = await harness(true)
 
-    expect(ctx.sessionProjections.viewCheckpoint({
-      title: { ver: 1, seq: SessionSeq(8), val: 'Cached title' },
-    })).toEqual({ title: 'Cached title' })
+    expect(
+      ctx.sessionProjections.viewCheckpoint({
+        title: { ver: 1, seq: SessionSeq(8), val: 'Cached title' },
+      }),
+    ).toEqual({ title: 'Cached title' })
   })
 
   it('folds titles already in the log when the service mounts late (lazy cell build)', async () => {
@@ -83,10 +91,14 @@ describe('title projection unit', () => {
     const { ctx, session } = await harness(false)
     session.append('turn/start', { turn: 1 })
     for (let index = 0; index < 5_000; index++) {
-      session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text: `message ${String(index)}` }],
-        source: { kind: 'user' },
-      }), { surfaceOp: 'append' })
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: `message ${String(index)}` }],
+          source: { kind: 'user' },
+        }),
+        { surfaceOp: 'append' },
+      )
     }
     await ctx.plugin(SessionTitleService, CONFIG)
 
@@ -113,18 +125,25 @@ describe('title projection unit', () => {
         ...checkpoint,
         titleInput: { ...row!, val: state },
       }
-      expect(() => ctx.sessionProjections.restore(
-        malformed, [], SessionLogOffset(0), session.header, session.inheritedEventCount,
-      ))
-        .toThrow(/title input state must pair its count with first and last message seqs/)
+      expect(() => ctx.sessionProjections.restore(malformed, [], SessionLogOffset(0), session.header, session.inheritedEventCount)).toThrow(
+        /title input state must pair its count with first and last message seqs/,
+      )
     }
 
-    expect(() => ctx.sessionProjections.restore({
-      ...checkpoint,
-      titleInput: {
-        ...row!,
-        val: { first: { seq: 1, text: 'first' }, count: 1, lastSeq: 1 },
-      },
-    }, [], SessionLogOffset(0), session.header, session.inheritedEventCount)).not.toThrow()
+    expect(() =>
+      ctx.sessionProjections.restore(
+        {
+          ...checkpoint,
+          titleInput: {
+            ...row!,
+            val: { first: { seq: 1, text: 'first' }, count: 1, lastSeq: 1 },
+          },
+        },
+        [],
+        SessionLogOffset(0),
+        session.header,
+        session.inheritedEventCount,
+      ),
+    ).not.toThrow()
   })
 })

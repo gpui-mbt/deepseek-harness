@@ -6,9 +6,13 @@ class InspectorJsonWriter {
 
   write(value: unknown): string {
     const replace = this.replace.bind(this)
-    const result: unknown = JSON.stringify(value, function (this: object, _key, item: unknown) {
-      return replace(this, item)
-    }, 2)
+    const result: unknown = JSON.stringify(
+      value,
+      function (this: object, _key, item: unknown) {
+        return replace(this, item)
+      },
+      2,
+    )
     return typeof result === 'string' ? result : ''
   }
 
@@ -18,8 +22,7 @@ class InspectorJsonWriter {
     while (this.ancestors.length > 0 && this.ancestors.at(-1) !== parent) this.ancestors.pop()
     let rendered = value
     if (value instanceof Map || value instanceof Set) {
-      const container: object = this.containers.get(value)
-        ?? (value instanceof Map ? Object.fromEntries<unknown>(value) : [...value])
+      const container: object = this.containers.get(value) ?? (value instanceof Map ? Object.fromEntries<unknown>(value) : [...value])
       this.containers.set(value, container)
       rendered = container
     }

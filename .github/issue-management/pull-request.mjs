@@ -5,12 +5,7 @@ import process from 'node:process'
 
 import config from './config.json' with { type: 'json' }
 import { api, projectContext } from './github.mjs'
-import {
-  parseReferences,
-  retainIssueReferences,
-  requiresPullRequestPolicy,
-  validatePullRequest,
-} from './rules.mjs'
+import { parseReferences, retainIssueReferences, requiresPullRequestPolicy, validatePullRequest } from './rules.mjs'
 
 /**
  * Resolve all same-repository body references with REST, excluding pull-request numbers.
@@ -25,9 +20,7 @@ export async function resolvingReferencesSnapshot(number, pull) {
   })
   const issues = new Map()
   for (const issueNumber of references.all) {
-    const issue = await api(
-      `/repos/${config.organization}/${config.repository}/issues/${issueNumber}`,
-    )
+    const issue = await api(`/repos/${config.organization}/${config.repository}/issues/${issueNumber}`)
     if (!issue.pull_request) issues.set(issueNumber, { priority: null })
   }
   return {
@@ -51,7 +44,7 @@ export async function pullRequestSnapshot(number, includeProject = true) {
     authorType: pull.user?.type ?? 'User',
     reviewRequestCount: 0,
     reviewCount: 0,
-    labels: pull.labels.map((label) => label.name),
+    labels: pull.labels.map(label => label.name),
     references: { all: [], resolving: [], related: [] },
     issues: new Map(),
   }
@@ -86,8 +79,7 @@ export async function lifecyclePullRequestSnapshot(number) {
   }
 }
 
-const EXEMPT_MESSAGE =
-  'Issue policy exempt：当前 PR 不在强制范围（Draft、Bot/App 或尚无 review request/review）。\n'
+const EXEMPT_MESSAGE = 'Issue policy exempt：当前 PR 不在强制范围（Draft、Bot/App 或尚无 review request/review）。\n'
 
 /**
  * Determine current policy eligibility and Project access needs without Project credentials.
@@ -99,10 +91,7 @@ export async function runPullRequestPreflight(event) {
   const eligible = requiresPullRequestPolicy(pull)
   const needsProject = eligible && pull.references.resolving.length > 0
   if (process.env.GITHUB_OUTPUT) {
-    fs.appendFileSync(
-      process.env.GITHUB_OUTPUT,
-      `eligible=${eligible}\nexempt=${!eligible}\nneeds-project=${needsProject}\n`,
-    )
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `eligible=${eligible}\nexempt=${!eligible}\nneeds-project=${needsProject}\n`)
   }
   process.stdout.write(eligible ? 'Issue policy applicable；执行完整校验。\n' : EXEMPT_MESSAGE)
   return { eligible, needsProject }
@@ -120,7 +109,5 @@ export async function runPullRequestCheck(event) {
     for (const error of errors) process.stdout.write(`::error::${error}\n`)
     throw new Error(`Issue policy 未通过，共 ${errors.length} 项`)
   }
-  process.stdout.write(
-    requiresPullRequestPolicy(pull) ? 'Issue policy 通过。\n' : EXEMPT_MESSAGE,
-  )
+  process.stdout.write(requiresPullRequestPolicy(pull) ? 'Issue policy 通过。\n' : EXEMPT_MESSAGE)
 }

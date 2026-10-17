@@ -11,9 +11,15 @@ import { helloSchema } from '../../packages/ssh/ssh/src/schemas.ts'
  * @returns the validated handshake after the helper has exited.
  */
 export async function probeHelper(executable: string, workspace: string): Promise<z.infer<typeof helloSchema>> {
-  const child = spawn(executable, [], { cwd: workspace, env: { ...process.env, NODE_OPTIONS: '--disable-sigusr1' }, stdio: ['pipe', 'pipe', 'pipe'] })
+  const child = spawn(executable, [], {
+    cwd: workspace,
+    env: { ...process.env, NODE_OPTIONS: '--disable-sigusr1' },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
   let diagnostic = ''
-  child.stderr.on('data', (chunk: Buffer) => { diagnostic = (diagnostic + chunk.toString()).slice(-8192) })
+  child.stderr.on('data', (chunk: Buffer) => {
+    diagnostic = (diagnostic + chunk.toString()).slice(-8192)
+  })
   const closed = new Promise<void>((resolve, reject) => {
     child.once('error', reject)
     child.once('close', (code, signal) => {
@@ -23,10 +29,19 @@ export async function probeHelper(executable: string, workspace: string): Promis
   })
   void closed.catch(() => {})
   const rpc = new SshRpcPeer(child.stdout, child.stdin, 64 * 1024 * 1024, 128)
-  child.once('error', (error) => { rpc.close(error) })
-  const force = setTimeout(() => { child.kill('SIGKILL') }, 30_000)
+  child.once('error', error => {
+    rpc.close(error)
+  })
+  const force = setTimeout(() => {
+    child.kill('SIGKILL')
+  }, 30_000)
   try {
-    const hello = await rpc.request('hello', { protocol: SSH_PROTOCOL_VERSION, workspace, leaseMs: 30_000 }, helloSchema, AbortSignal.timeout(20_000))
+    const hello = await rpc.request(
+      'hello',
+      { protocol: SSH_PROTOCOL_VERSION, workspace, leaseMs: 30_000 },
+      helloSchema,
+      AbortSignal.timeout(20_000),
+    )
     await rpc.request('close', {}, z.null(), AbortSignal.timeout(5000))
     child.stdin.end()
     await closed

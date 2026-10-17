@@ -1,16 +1,27 @@
 /** Shared discovery preserves explicit retries, acknowledged changes and connection ownership. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { RemoteError, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { TerminalInventory } from '../src/client/inventory.ts'
 import type { WebTerminalId, WebTerminalInfo } from '../src/types.ts'
 
-const info: WebTerminalInfo = { id: 'terminal' as WebTerminalId, title: 'bash', shell: { name: 'bash', path: '/bin/bash', args: [] }, cwd: '/workspace', cols: 80, rows: 24, state: 'running', exitCode: null }
+const info: WebTerminalInfo = {
+  id: 'terminal' as WebTerminalId,
+  title: 'bash',
+  shell: { name: 'bash', path: '/bin/bash', args: [] },
+  cwd: '/workspace',
+  cols: 80,
+  rows: 24,
+  state: 'running',
+  exitCode: null,
+}
 const success = (value: WebTerminalInfo[]): RemoteResult<WebTerminalInfo[]> => ({ ok: true, value })
 
 it('retains an empty list and a discovery failure until an explicit shared retry', async () => {
   const error = new RemoteError('gateway/bad-request', 'Host unavailable', {})
-  const load = vi.fn<() => Promise<RemoteResult<WebTerminalInfo[]>>>()
-    .mockResolvedValueOnce({ ok: false, error }).mockResolvedValue(success([]))
+  const load = vi
+    .fn<() => Promise<RemoteResult<WebTerminalInfo[]>>>()
+    .mockResolvedValueOnce({ ok: false, error })
+    .mockResolvedValue(success([]))
   const inventory = new TerminalInventory(load)
   try {
     await expect(inventory.read()).rejects.toBe(error)
@@ -21,7 +32,9 @@ it('retains an empty list and a discovery failure until an explicit shared retry
     expect((await retry).size).toBe(0)
     expect((await inventory.read()).size).toBe(0)
     expect(load).toHaveBeenCalledTimes(2)
-  } finally { await inventory.dispose() }
+  } finally {
+    await inventory.dispose()
+  }
 })
 
 it('merges creation, rename, state frames and closure over an older pending list', async () => {
@@ -40,14 +53,19 @@ it('merges creation, rename, state frames and closure over an older pending list
     expect([...result.values()]).toEqual([renamed, created])
     inventory.remove(created.id)
     expect([...(await inventory.read()).values()]).toEqual([renamed])
-  } finally { listed.resolve(success([])); await inventory.dispose() }
+  } finally {
+    listed.resolve(success([]))
+    await inventory.dispose()
+  }
 })
 
-it.each(['success', 'failure'] as const)('ignores a previous connection response after replacement: %s', async (outcome) => {
+it.each(['success', 'failure'] as const)('ignores a previous connection response after replacement: %s', async outcome => {
   const previous = Promise.withResolvers<RemoteResult<WebTerminalInfo[]>>()
   const current = Promise.withResolvers<RemoteResult<WebTerminalInfo[]>>()
-  const load = vi.fn<() => Promise<RemoteResult<WebTerminalInfo[]>>>()
-    .mockReturnValueOnce(previous.promise).mockReturnValueOnce(current.promise)
+  const load = vi
+    .fn<() => Promise<RemoteResult<WebTerminalInfo[]>>>()
+    .mockReturnValueOnce(previous.promise)
+    .mockReturnValueOnce(current.promise)
   const inventory = new TerminalInventory(load)
   const pending = inventory.read()
   const next = { ...info, title: 'Current Host' }
@@ -60,7 +78,11 @@ it.each(['success', 'failure'] as const)('ignores a previous connection response
     else previous.reject(new Error('Old connection failed'))
     expect([...(await pending).values()]).toEqual([next])
     expect(load).toHaveBeenCalledTimes(2)
-  } finally { previous.resolve(success([])); current.resolve(success([])); await inventory.dispose() }
+  } finally {
+    previous.resolve(success([]))
+    current.resolve(success([]))
+    await inventory.dispose()
+  }
 })
 
 it('does not discover unused inventories on reconnect and refreshes a settled inventory once', async () => {
@@ -75,7 +97,9 @@ it('does not discover unused inventories on reconnect and refreshes a settled in
     expect(inventory.read()).toBe(refreshed)
     await refreshed
     expect(load).toHaveBeenCalledTimes(2)
-  } finally { await inventory.dispose() }
+  } finally {
+    await inventory.dispose()
+  }
 })
 
 it('joins outstanding requests on disposal and rejects their late results', async () => {
@@ -85,7 +109,9 @@ it('joins outstanding requests on disposal and rejects their late results', asyn
   const pending = inventory.read()
   const rejected = expect(pending).rejects.toThrow('Terminal inventory disposed')
   let disposed = false
-  const disposing = inventory.dispose().then(() => { disposed = true })
+  const disposing = inventory.dispose().then(() => {
+    disposed = true
+  })
   try {
     expect(disposed).toBe(false)
     inventory.update(info)
@@ -97,7 +123,10 @@ it('joins outstanding requests on disposal and rejects their late results', asyn
     await disposing
     expect(disposed).toBe(true)
     expect(load).toHaveBeenCalledOnce()
-  } finally { listed.resolve(success([])); await disposing }
+  } finally {
+    listed.resolve(success([]))
+    await disposing
+  }
 })
 
 it('preserves a non-Error transport rejection as the cached failure cause', async () => {
@@ -105,5 +134,7 @@ it('preserves a non-Error transport rejection as the cached failure cause', asyn
   const inventory = new TerminalInventory(load)
   try {
     await expect(inventory.read()).rejects.toMatchObject({ message: 'Terminal discovery failed', cause: 'offline' })
-  } finally { await inventory.dispose() }
+  } finally {
+    await inventory.dispose()
+  }
 })

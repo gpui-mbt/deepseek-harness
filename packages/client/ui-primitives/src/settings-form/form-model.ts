@@ -32,9 +32,7 @@ export interface SettingsFormScopeSnapshot<T> {
 }
 
 /** One path edit a save sends, as the shared configuration form's `mutate` accepts it. */
-export type SettingsFormPathOp =
-  | { op: 'set'; path: readonly string[]; value: unknown }
-  | { op: 'unset'; path: readonly string[] }
+export type SettingsFormPathOp = { op: 'set'; path: readonly string[]; value: unknown } | { op: 'unset'; path: readonly string[] }
 
 /** The entry form the model stages over: the reads and the atomic write of the form `ui-settings` shares per Host entry. */
 export interface SettingsFormScope<T> {
@@ -56,9 +54,7 @@ export interface SettingsFormScope<T> {
 }
 
 /** The write one field's staged text performs when the card is saved. */
-export type SettingsFieldWrite =
-  | { kind: 'set'; value: unknown }
-  | { kind: 'clear' }
+export type SettingsFieldWrite = { kind: 'set'; value: unknown } | { kind: 'clear' }
 
 /** How one section field converts between its stored value and its draft text. */
 export interface SettingsFieldSpec {
@@ -158,8 +154,8 @@ export function settingsNumberField(field: string): SettingsFieldSpec {
     field,
     // A section that carries no number for this field renders empty rather
     // than as a value nobody chose.
-    format: value => typeof value === 'number' ? String(value) : '',
-    parse: (text) => {
+    format: value => (typeof value === 'number' ? String(value) : ''),
+    parse: text => {
       const trimmed = text.trim()
       if (trimmed === '') return { kind: 'clear' }
       const parsed = Number(trimmed)
@@ -177,8 +173,8 @@ export function settingsNumberField(field: string): SettingsFieldSpec {
 export function settingsTextField(field: string): SettingsFieldSpec {
   return {
     field,
-    format: value => typeof value === 'string' ? value : '',
-    parse: (text) => {
+    format: value => (typeof value === 'string' ? value : ''),
+    parse: text => {
       const trimmed = text.trim()
       return trimmed === '' ? { kind: 'clear' } : { kind: 'set', value: trimmed }
     },
@@ -214,7 +210,9 @@ export class SettingsFormModel<T> {
   ) {
     this.specs = new Map(specs.map(spec => [spec.field, spec]))
     this.secretSpecs = new Map(secrets.map(spec => [spec.field, spec]))
-    this.unsubscribe = scope.subscribe(() => { this.publish() })
+    this.unsubscribe = scope.subscribe(() => {
+      this.publish()
+    })
   }
 
   /**
@@ -224,7 +222,9 @@ export class SettingsFormModel<T> {
    */
   bind<S>(project: () => S): SnapshotStore<S> {
     const store = createSnapshotStore(project())
-    this.listeners.add(() => { store.set(project()) })
+    this.listeners.add(() => {
+      store.set(project())
+    })
     return store
   }
 
@@ -273,11 +273,15 @@ export class SettingsFormModel<T> {
    */
   actions(): SettingsFormActions {
     return {
-      edit: (field, text) => { this.stage(field, { text, clear: false }) },
-      resetField: (field) => {
+      edit: (field, text) => {
+        this.stage(field, { text, clear: false })
+      },
+      resetField: field => {
         this.stage(field, { text: this.spec(field).format(this.baseValue(field)), clear: true })
       },
-      save: () => { void this.save() },
+      save: () => {
+        void this.save()
+      },
       discard: () => {
         if (this.staged.size === 0 && !this.failed) return
         this.staged.clear()
@@ -299,17 +303,28 @@ export class SettingsFormModel<T> {
    */
   async save(): Promise<void> {
     const plan = this.plan()
-    if (!plan.length || this.saving || !this.scope.getSnapshot().writable
-      || plan.some(item => item.run === undefined && item.op === undefined)) return
+    if (
+      !plan.length ||
+      this.saving ||
+      !this.scope.getSnapshot().writable ||
+      plan.some(item => item.run === undefined && item.op === undefined)
+    )
+      return
     this.saving = true
     this.failed = false
     this.publish()
     try {
-      const ops = plan.flatMap(item => item.op === undefined ? [] : [item.op])
-      let landed = !ops.length || await this.scope.mutate(ops, this.baseline?.revision)
-      if (!landed) { this.failed = true; return }
-      for (const item of plan) if (item.run) landed = await item.run() && landed
-      if (landed) { this.staged.clear(); this.baseline = undefined }
+      const ops = plan.flatMap(item => (item.op === undefined ? [] : [item.op]))
+      let landed = !ops.length || (await this.scope.mutate(ops, this.baseline?.revision))
+      if (!landed) {
+        this.failed = true
+        return
+      }
+      for (const item of plan) if (item.run) landed = (await item.run()) && landed
+      if (landed) {
+        this.staged.clear()
+        this.baseline = undefined
+      }
       this.failed = !landed
     } catch (_error) {
       this.failed = true
@@ -320,7 +335,10 @@ export class SettingsFormModel<T> {
   }
 
   /** Release the form's accepted-value subscription. */
-  dispose(): void { this.unsubscribe(); this.listeners.clear() }
+  dispose(): void {
+    this.unsubscribe()
+    this.listeners.clear()
+  }
 
   /**
    * Every staged edit a save would write. An entry whose draft is not a value

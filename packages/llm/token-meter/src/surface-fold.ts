@@ -117,13 +117,9 @@ export function planSurfaceTokens(
   const startIdx = nodes.findIndex(candidate => candidate.seq === op.startSeq)
   const endIdx = nodes.findIndex(candidate => candidate.seq === op.endSeq)
   if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-    throw new Error(
-      `token surface: replace at seq ${event.seq} has invalid current range ${op.startSeq}-${op.endSeq}`,
-    )
+    throw new Error(`token surface: replace at seq ${event.seq} has invalid current range ${op.startSeq}-${op.endSeq}`)
   }
-  const removed = nodes
-    .slice(startIdx, endIdx + 1)
-    .reduce((total, candidate) => total + candidate.heuristicTokens, 0)
+  const removed = nodes.slice(startIdx, endIdx + 1).reduce((total, candidate) => total + candidate.heuristicTokens, 0)
   return { tokens, deltaTokens: tokens - removed, node, target: { startIdx, endIdx } }
 }
 

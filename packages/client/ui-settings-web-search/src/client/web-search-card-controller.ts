@@ -23,12 +23,14 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the ctx.remote merge into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import {
-  SettingsFormModel, settingsNumberField, settingsTextField,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { SettingsFormModel, settingsNumberField, settingsTextField } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  SettingsFieldState, SettingsFormActions, SettingsFormPathOp,
-  SettingsFormShell, SettingsFormScope, SettingsFormScopeSnapshot,
+  SettingsFieldState,
+  SettingsFormActions,
+  SettingsFormPathOp,
+  SettingsFormShell,
+  SettingsFormScope,
+  SettingsFormScopeSnapshot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WebSearchSettingsLocaleKey } from './locales.ts'
 
@@ -74,28 +76,54 @@ interface SearchProviderView {
  */
 const SEARCH_PROVIDERS: readonly SearchProviderView[] = [
   {
-    id: 'deepseek-official', ns: 'web-search-deepseek', labelKey: 'providerDeepseek',
-    limitField: 'maxUses', limitLabelKey: 'maxUses', limitHintKey: 'maxUsesHint', keyRef: 'DEEPSEEK_API_KEY',
+    id: 'deepseek-official',
+    ns: 'web-search-deepseek',
+    labelKey: 'providerDeepseek',
+    limitField: 'maxUses',
+    limitLabelKey: 'maxUses',
+    limitHintKey: 'maxUsesHint',
+    keyRef: 'DEEPSEEK_API_KEY',
     defaultEndpoint: 'https://api.deepseek.com/anthropic/v1/messages',
   },
   {
-    id: 'deepseek-search-api', ns: 'web-deepseek-api', labelKey: 'providerDeepseekApi',
-    limitField: 'count', limitLabelKey: 'maxResults', limitHintKey: 'maxResultsHint', keyRef: 'DEEPSEEK_API_KEY',
-    defaultEndpoint: 'https://api.deepseek.com/v1/tools/search', fetchProviderId: 'deepseek-fetch-api',
+    id: 'deepseek-search-api',
+    ns: 'web-deepseek-api',
+    labelKey: 'providerDeepseekApi',
+    limitField: 'count',
+    limitLabelKey: 'maxResults',
+    limitHintKey: 'maxResultsHint',
+    keyRef: 'DEEPSEEK_API_KEY',
+    defaultEndpoint: 'https://api.deepseek.com/v1/tools/search',
+    fetchProviderId: 'deepseek-fetch-api',
   },
   {
-    id: 'ollama-cloud', ns: 'web-search-ollama', labelKey: 'providerOllamaCloud',
-    limitField: 'maxResults', limitLabelKey: 'maxResults', limitHintKey: 'maxResultsHint', keyRef: 'OLLAMA_CLOUD_API_KEY',
+    id: 'ollama-cloud',
+    ns: 'web-search-ollama',
+    labelKey: 'providerOllamaCloud',
+    limitField: 'maxResults',
+    limitLabelKey: 'maxResults',
+    limitHintKey: 'maxResultsHint',
+    keyRef: 'OLLAMA_CLOUD_API_KEY',
     defaultEndpoint: 'https://ollama.com/api/web_search',
   },
   {
-    id: 'exa', ns: 'web-search-exa', labelKey: 'providerExa',
-    limitField: 'numResults', limitLabelKey: 'maxResults', limitHintKey: 'maxResultsHint', keyRef: 'EXA_API_KEY',
+    id: 'exa',
+    ns: 'web-search-exa',
+    labelKey: 'providerExa',
+    limitField: 'numResults',
+    limitLabelKey: 'maxResults',
+    limitHintKey: 'maxResultsHint',
+    keyRef: 'EXA_API_KEY',
     defaultEndpoint: 'https://api.exa.ai/search',
   },
   {
-    id: 'perplexity', ns: 'web-search-perplexity', labelKey: 'providerPerplexity',
-    limitField: 'maxTokens', limitLabelKey: 'maxTokens', limitHintKey: 'maxTokensHint', keyRef: 'PERPLEXITY_API_KEY',
+    id: 'perplexity',
+    ns: 'web-search-perplexity',
+    labelKey: 'providerPerplexity',
+    limitField: 'maxTokens',
+    limitLabelKey: 'maxTokens',
+    limitHintKey: 'maxTokensHint',
+    keyRef: 'PERPLEXITY_API_KEY',
     defaultEndpoint: 'https://api.perplexity.ai/chat/completions',
   },
 ]
@@ -205,7 +233,9 @@ class SwitchableScope<T> implements SettingsFormScope<T> {
    */
   constructor(scope: SettingsFormScope<T>) {
     this.current = scope
-    this.detach = scope.subscribe(() => { this.emit() })
+    this.detach = scope.subscribe(() => {
+      this.emit()
+    })
   }
 
   getSnapshot(): SettingsFormScopeSnapshot<T> {
@@ -214,7 +244,9 @@ class SwitchableScope<T> implements SettingsFormScope<T> {
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   mutate(ops: readonly SettingsFormPathOp[], expectedRevision?: number): Promise<boolean> {
@@ -228,7 +260,9 @@ class SwitchableScope<T> implements SettingsFormScope<T> {
   switchTo(scope: SettingsFormScope<T>): void {
     this.detach()
     this.current = scope
-    this.detach = scope.subscribe(() => { this.emit() })
+    this.detach = scope.subscribe(() => {
+      this.emit()
+    })
     this.emit()
   }
 
@@ -262,9 +296,7 @@ export class WebSearchCardController {
    * answers for the reference the selected provider's section names.
    */
   constructor(private readonly ctx: ClientContext) {
-    this.providerScope = new SwitchableScope(
-      this.ctx.configForms.get<WebSearchSettings>(WEB_SEARCH_NS),
-    )
+    this.providerScope = new SwitchableScope(this.ctx.configForms.get<WebSearchSettings>(WEB_SEARCH_NS))
     this.webForm = this.ctx.configForms.get<WebProviderSelection>(WEB_NAMESPACE)
     this.form = new SettingsFormModel(
       this.providerScope,
@@ -276,7 +308,7 @@ export class WebSearchCardController {
         settingsNumberField('maxTokens'),
         {
           ...settingsNumberField('count'),
-          parse: (text) => {
+          parse: text => {
             const trimmed = text.trim()
             if (trimmed === '') return { kind: 'clear' }
             const value = Number(trimmed)
@@ -287,9 +319,15 @@ export class WebSearchCardController {
       [{ field: API_KEY_FIELD, write: text => this.writeKey(text) }],
     )
     this.store = this.form.bind(() => this.projection())
-    this.unsubscribeSection = this.providerScope.subscribe(() => { void this.readCredential() })
-    this.unsubscribeDescribe = this.ctx.configForms.describe().subscribe(() => { this.sync() })
-    this.unsubscribeSelection = this.webForm.subscribe(() => { this.sync() })
+    this.unsubscribeSection = this.providerScope.subscribe(() => {
+      void this.readCredential()
+    })
+    this.unsubscribeDescribe = this.ctx.configForms.describe().subscribe(() => {
+      this.sync()
+    })
+    this.unsubscribeSelection = this.webForm.subscribe(() => {
+      this.sync()
+    })
     this.sync()
     void this.readCredential()
   }
@@ -407,7 +445,9 @@ export class WebSearchCardController {
     return {
       hooks: { webSearchCard: this.store },
       ...this.form.actions(),
-      selectProvider: (value) => { this.selectProvider(value) },
+      selectProvider: value => {
+        this.selectProvider(value)
+      },
     }
   }
 

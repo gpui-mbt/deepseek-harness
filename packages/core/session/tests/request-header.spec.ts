@@ -1,6 +1,6 @@
 /** Request-header canonicalization, equality, and snapshot folding. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Session, SessionId, SessionSeq, canonicalHeader, foldRequestHeader, headerEquals } from '@deepseek-ai/dsh-session'
 import type { EpochHeader, SessionEvent } from '@deepseek-ai/dsh-session'
 import { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
@@ -14,11 +14,13 @@ function tool(name: string, description = 'd'): ToolSchema {
 
 describe('canonicalHeader', () => {
   it('normalizes empty optional fields to absence and preserves populated fields', () => {
-    expect(canonicalHeader({
-      config: CONFIG,
-      adapterDefaults: {},
-      tools: [],
-    })).toEqual({ config: CONFIG })
+    expect(
+      canonicalHeader({
+        config: CONFIG,
+        adapterDefaults: {},
+        tools: [],
+      }),
+    ).toEqual({ config: CONFIG })
     const full = canonicalHeader({
       config: { ...CONFIG, maxTokens: 256_000 },
       adapterDefaults: { maxTokens: true },
@@ -38,18 +40,22 @@ describe('headerEquals', () => {
   it('compares every canonical field and preserves tool order', () => {
     expect(headerEquals(base, structuredClone(base))).toBe(true)
     expect(headerEquals(base, { ...base, config: { provider: 'mock', model: 'other' } })).toBe(false)
-    expect(headerEquals(base, {
-      ...base,
-      config: { ...base.config, reasoningEffort: ReasoningEffortId('high') },
-    })).toBe(false)
-    expect(headerEquals(
-      { ...base, config: { ...base.config, maxTokens: 256_000 } },
-      {
+    expect(
+      headerEquals(base, {
         ...base,
-        config: { ...base.config, maxTokens: 256_000 },
-        adapterDefaults: { maxTokens: true },
-      },
-    )).toBe(false)
+        config: { ...base.config, reasoningEffort: ReasoningEffortId('high') },
+      }),
+    ).toBe(false)
+    expect(
+      headerEquals(
+        { ...base, config: { ...base.config, maxTokens: 256_000 } },
+        {
+          ...base,
+          config: { ...base.config, maxTokens: 256_000 },
+          adapterDefaults: { maxTokens: true },
+        },
+      ),
+    ).toBe(false)
     expect(headerEquals(base, { ...base, tools: [] })).toBe(false)
     expect(headerEquals(base, { ...base, tools: [tool('a', 'changed')] })).toBe(false)
     expect(headerEquals({ config: CONFIG, tools: [tool('a'), tool('b')] }, { config: CONFIG, tools: [tool('b'), tool('a')] })).toBe(false)
@@ -65,9 +71,7 @@ describe('headerEquals', () => {
 describe('foldRequestHeader', () => {
   it('returns the supplied baseline when no snapshot follows', () => {
     const from: EpochHeader = { config: CONFIG, tools: [tool('baseline')] }
-    const unrelated: SessionEvent[] = [
-      { type: 'turn/start', seq: SessionSeq(0), time: 1, data: { turn: 1 } },
-    ]
+    const unrelated: SessionEvent[] = [{ type: 'turn/start', seq: SessionSeq(0), time: 1, data: { turn: 1 } }]
     expect(foldRequestHeader(unrelated)).toBeUndefined()
     expect(foldRequestHeader(unrelated, from)).toBe(from)
   })
@@ -76,9 +80,14 @@ describe('foldRequestHeader', () => {
     const session = Session.create(SessionId('fold'))
     session.append('turn/start', { turn: 1 })
     session.append('request/header', { header: { config: CONFIG, tools: [tool('first')] }, reason: 'initial' })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'hi' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'hi' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('request/header', { header: { config: { provider: 'mock', model: 'other' } }, reason: 'change' })
     expect(foldRequestHeader(session.snapshotEvents())).toEqual({ config: { provider: 'mock', model: 'other' } })
   })
@@ -89,9 +98,14 @@ describe('Session.requestContext', () => {
 
   /** A turn-enclosed capacity record; the invariant rejects one outside a turn. */
   function seedWith(...records: { provider: string; model: string; contextWindow?: number }[]): SessionEvent[] {
-    const events: SessionEvent[] = [{
-      type: 'turn/start', seq: SessionSeq(0), time: 1, data: { turn: 1 },
-    }]
+    const events: SessionEvent[] = [
+      {
+        type: 'turn/start',
+        seq: SessionSeq(0),
+        time: 1,
+        data: { turn: 1 },
+      },
+    ]
     for (const data of records) {
       events.push({ type: 'request/context', seq: SessionSeq(events.length), time: 1, data })
     }
@@ -105,19 +119,24 @@ describe('Session.requestContext', () => {
   it('folds a seeded log on first read, taking the last record', () => {
     // The fold watermark starts at 0 with the seed already in the log, so the
     // first read must consume the whole seed rather than skip it.
-    const session = Session.create(SessionId('seeded-capacity'), seedWith(
-      CAPACITY,
-      { ...CAPACITY, model: 'later', contextWindow: 256_000 },
-    ))
+    const session = Session.create(
+      SessionId('seeded-capacity'),
+      seedWith(CAPACITY, { ...CAPACITY, model: 'later', contextWindow: 256_000 }),
+    )
     expect(session.requestContext()).toEqual({ provider: 'mock', model: 'later', contextWindow: 256_000 })
   })
 
   it('advances incrementally across appends and skips unrelated events', () => {
     const session = Session.create(SessionId('incremental-capacity'), seedWith(CAPACITY))
     expect(session.requestContext()).toEqual(CAPACITY)
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'unrelated' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'unrelated' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     expect(session.requestContext()).toEqual(CAPACITY)
     session.append('request/context', { ...CAPACITY, model: 'next', contextWindow: 64_000 })
     expect(session.requestContext()).toEqual({ provider: 'mock', model: 'next', contextWindow: 64_000 })
@@ -129,9 +148,14 @@ describe('Session.requestContext', () => {
     const session = Session.create(SessionId('batched-capacity'), seedWith(CAPACITY))
     expect(session.requestContext()).toEqual(CAPACITY)
     session.append('request/context', { ...CAPACITY, contextWindow: 200_000 })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'unrelated' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'unrelated' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('request/context', { ...CAPACITY, contextWindow: 300_000 })
     expect(session.requestContext()?.contextWindow).toBe(300_000)
   })
@@ -141,6 +165,8 @@ describe('Session.requestContext', () => {
     const held = session.requestContext()
     if (held === undefined) throw new Error('expected a folded capacity record')
     expect(Object.isFrozen(held)).toBe(true)
-    expect(() => { (held as { contextWindow?: number }).contextWindow = 1 }).toThrow()
+    expect(() => {
+      ;(held as { contextWindow?: number }).contextWindow = 1
+    }).toThrow()
   })
 })

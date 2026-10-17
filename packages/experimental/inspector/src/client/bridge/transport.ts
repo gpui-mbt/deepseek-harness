@@ -17,11 +17,7 @@ import {
 import { InspectorSourceConnection } from '../../shared/bridge/publisher.ts'
 import { ClientConsoleObserver } from '../cdp/console.ts'
 import { ClientRuntimeExecutor } from '../cdp/runtime.ts'
-import {
-  ClientSourceCatalog,
-  ClientSourceCatalogError,
-  discoverInspectorClientSourceCatalog,
-} from '../cdp/sources.ts'
+import { ClientSourceCatalog, ClientSourceCatalogError, discoverInspectorClientSourceCatalog } from '../cdp/sources.ts'
 import type { ClientSourceRequestFrame, ClientSourceResponseFrame } from '../../shared/bridge/messages/sources/index.ts'
 import { ClientRealmSource } from '../inspection/realm.ts'
 import { NETWORK_TOPICS } from '../inspection/network.ts'
@@ -40,16 +36,21 @@ export class ClientInspectorSource extends InspectorSourceConnection {
   private closed = false
   private suspended = false
   private readonly runtime: ClientRuntimeExecutor
-  private readonly runtimeRequests = new Map<ClientRuntimeRequestId, {
-    readonly controller: AbortController
-    readonly sessionId: ClientRuntimeSessionId
-  }>()
+  private readonly runtimeRequests = new Map<
+    ClientRuntimeRequestId,
+    {
+      readonly controller: AbortController
+      readonly sessionId: ClientRuntimeSessionId
+    }
+  >()
   private readonly console: ClientConsoleObserver
   protected readonly queries: ClientBridgeRpc
   private readonly lifecycle: ClientBridgeLifecycle
 
   /** Claimed page identity, unchanged across transport reconnects. */
-  get sourceId(): InspectorSourceId { return this.realmSource.sourceId }
+  get sourceId(): InspectorSourceId {
+    return this.realmSource.sourceId
+  }
 
   private readonly onPageHide = (): void => {
     this.suspended = true
@@ -71,40 +72,47 @@ export class ClientInspectorSource extends InspectorSourceConnection {
     super()
     this.realmSource = realmSource
     this.lifecycle = new ClientBridgeLifecycle(bootstrap.reconnectBaseMs, bootstrap.reconnectMaxMs)
-    this.publisher = new ClientBridgePublisher({
-      topics: ['*'],
-      maxQueuedRecords: bootstrap.maxQueuedRecords,
-      maxQueuedBytes: bootstrap.maxQueuedBytes,
-      maxRecordsPerFrame: bootstrap.maxRecordsPerFrame,
-      maxFrameBytes: bootstrap.maxFrameBytes,
-    }, bootstrap.maxQueuedBytes)
-    this.runtime = new ClientRuntimeExecutor({
-      maxObjectsPerSession: bootstrap.maxRuntimeObjectsPerSession,
-      maxPropertiesPerResult: bootstrap.maxRuntimePropertiesPerResult,
-      maxResponseBytes: bootstrap.maxFrameBytes,
-    }, url => this.sourceCatalog?.scriptKeyForUrl(url))
-    this.console = new ClientConsoleObserver(this.runtime, (sessionId, event) => {
-      const socket = this.socket
-      const generation = this.generation
-      if (this.closed
-        || !this.accepted
-        || socket?.readyState !== WebSocket.OPEN
-        || generation === undefined) return
-      const frame = {
-        v: INSPECTOR_PROTOCOL_VERSION,
-        t: 'client-console/event',
-        sourceId: this.realmSource.sourceId,
-        generation,
-        sessionId,
-        event,
-      } as const
-      if (!isJsonValue(frame) || jsonByteLength(frame) > this.bootstrap.maxFrameBytes) return
-      try {
-        socket.send(JSON.stringify(frame))
-      } catch {
-        // The socket close path resets this generation's Runtime and Console state.
-      }
-    }, url => this.sourceCatalog?.scriptKeyForUrl(url))
+    this.publisher = new ClientBridgePublisher(
+      {
+        topics: ['*'],
+        maxQueuedRecords: bootstrap.maxQueuedRecords,
+        maxQueuedBytes: bootstrap.maxQueuedBytes,
+        maxRecordsPerFrame: bootstrap.maxRecordsPerFrame,
+        maxFrameBytes: bootstrap.maxFrameBytes,
+      },
+      bootstrap.maxQueuedBytes,
+    )
+    this.runtime = new ClientRuntimeExecutor(
+      {
+        maxObjectsPerSession: bootstrap.maxRuntimeObjectsPerSession,
+        maxPropertiesPerResult: bootstrap.maxRuntimePropertiesPerResult,
+        maxResponseBytes: bootstrap.maxFrameBytes,
+      },
+      url => this.sourceCatalog?.scriptKeyForUrl(url),
+    )
+    this.console = new ClientConsoleObserver(
+      this.runtime,
+      (sessionId, event) => {
+        const socket = this.socket
+        const generation = this.generation
+        if (this.closed || !this.accepted || socket?.readyState !== WebSocket.OPEN || generation === undefined) return
+        const frame = {
+          v: INSPECTOR_PROTOCOL_VERSION,
+          t: 'client-console/event',
+          sourceId: this.realmSource.sourceId,
+          generation,
+          sessionId,
+          event,
+        } as const
+        if (!isJsonValue(frame) || jsonByteLength(frame) > this.bootstrap.maxFrameBytes) return
+        try {
+          socket.send(JSON.stringify(frame))
+        } catch {
+          // The socket close path resets this generation's Runtime and Console state.
+        }
+      },
+      url => this.sourceCatalog?.scriptKeyForUrl(url),
+    )
     this.queries = new ClientBridgeRpc({
       timeoutMs: bootstrap.queryTimeoutMs,
       maxFrameBytes: bootstrap.maxFrameBytes,
@@ -185,7 +193,7 @@ export class ClientInspectorSource extends InspectorSourceConnection {
       }
       socket.send(JSON.stringify(frame))
     })
-    socket.addEventListener('message', (event) => {
+    socket.addEventListener('message', event => {
       if (this.socket !== socket || typeof event.data !== 'string') return
       try {
         if (new TextEncoder().encode(event.data).byteLength > this.bootstrap.maxFrameBytes) {
@@ -194,8 +202,7 @@ export class ClientInspectorSource extends InspectorSourceConnection {
         const value: unknown = JSON.parse(event.data)
         if (this.queries.receive(value)) return
         const frame = parseWorkerSourceFrame(value)
-        if (frame.t !== 'source/rejected'
-          && (frame.sourceId !== this.realmSource.sourceId || frame.generation !== generation)) return
+        if (frame.t !== 'source/rejected' && (frame.sourceId !== this.realmSource.sourceId || frame.generation !== generation)) return
         dispatchBridgeFrame(frame, {
           accepted: () => {
             this.accepted = true
@@ -204,29 +211,37 @@ export class ClientInspectorSource extends InspectorSourceConnection {
             this.publisher.accept(socket)
           },
           acknowledged: () => {},
-          resnapshot: () => { this.publisher.replace(socket) },
-          rejected: (rejected) => {
+          resnapshot: () => {
+            this.publisher.replace(socket)
+          },
+          rejected: rejected => {
             console.error(`[inspector] Client source rejected: ${rejected.message}`)
             socket.close(1008, 'source rejected')
           },
-          runtime: (request) => {
+          runtime: request => {
             void this.executeRuntime(socket, generation, request).catch((error: unknown) => {
               console.error('[inspector] Client Runtime transport failed:', error)
               socket.close(1011, 'Client Runtime transport failed')
             })
           },
-          runtimeCanceled: (canceled) => { this.cancelRuntime(canceled.sessionId, canceled.requestId) },
-          runtimeAcknowledged: (acknowledged) => {
+          runtimeCanceled: canceled => {
+            this.cancelRuntime(canceled.sessionId, canceled.requestId)
+          },
+          runtimeAcknowledged: acknowledged => {
             this.acknowledgeRuntime(acknowledged.sessionId, acknowledged.requestId)
           },
-          runtimeClosed: (closed) => {
+          runtimeClosed: closed => {
             this.cancelRuntimeSession(closed.sessionId)
             this.console.disable(closed.sessionId)
             this.runtime.closeSession(closed.sessionId)
           },
-          consoleEnabled: (enabled) => { this.console.enable(enabled.sessionId) },
-          consoleDisabled: (disabled) => { this.console.disable(disabled.sessionId) },
-          sources: (request) => {
+          consoleEnabled: enabled => {
+            this.console.enable(enabled.sessionId)
+          },
+          consoleDisabled: disabled => {
+            this.console.disable(disabled.sessionId)
+          },
+          sources: request => {
             void this.executeSourceRequest(socket, generation, request).catch((error: unknown) => {
               console.error('[inspector] Client Sources transport failed:', error)
               socket.close(1011, 'Client Sources transport failed')
@@ -248,7 +263,9 @@ export class ClientInspectorSource extends InspectorSourceConnection {
       this.cancelRuntimeRequests()
       this.runtime.reset()
       this.queries.disconnect('Inspector Client source disconnected')
-      this.lifecycle.reconnect(() => { this.connect() })
+      this.lifecycle.reconnect(() => {
+        this.connect()
+      })
     })
     socket.addEventListener('error', () => {
       // `close` owns reconnection and keeps one timer.
@@ -345,7 +362,6 @@ export class ClientInspectorSource extends InspectorSourceConnection {
     if (this.closed || this.socket !== socket || this.generation !== generation || socket.readyState !== WebSocket.OPEN) return
     socket.send(JSON.stringify(response))
   }
-
 }
 
 function renderError(error: unknown): string {

@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -98,9 +98,11 @@ describe('real Loader composition', () => {
   it('rejects stale token-meter config after Schemastery normalization', async () => {
     context = new Context()
     await context.plugin(SessionProjectionRegistry)
-    await expect(context.plugin(TokenMeter, {
-      contextWindow: 4096,
-    } as never)).rejects.toThrow(/TokenMeterConfig: unknown key "contextWindow"/)
+    await expect(
+      context.plugin(TokenMeter, {
+        contextWindow: 4096,
+      } as never),
+    ).rejects.toThrow(/TokenMeterConfig: unknown key "contextWindow"/)
   })
 
   it('rejects stale compaction-basic config after Schemastery normalization', async () => {
@@ -109,9 +111,11 @@ describe('real Loader composition', () => {
     await context.plugin(SessionStore)
     await context.plugin(SessionProjectionRegistry)
     await context.plugin(TokenMeter)
-    await expect(context.plugin(BasicCompactionEngine, {
-      models: { legacy: { thresholdRatio: 0.5 } },
-    } as never)).rejects.toThrow(/BasicCompactionConfig: unknown key "models"/)
+    await expect(
+      context.plugin(BasicCompactionEngine, {
+        models: { legacy: { thresholdRatio: 0.5 } },
+      } as never),
+    ).rejects.toThrow(/BasicCompactionConfig: unknown key "models"/)
   })
 
   it('rejects a capacity-independent merged ratio conflict during plugin load', async () => {
@@ -120,14 +124,18 @@ describe('real Loader composition', () => {
     await context.plugin(SessionStore)
     await context.plugin(SessionProjectionRegistry)
     await context.plugin(TokenMeter)
-    await expect(context.plugin(BasicCompactionEngine, {
-      retainRatio: 0.2,
-      modelPolicies: [{
-        provider: 'test-provider',
-        model: 'test-model',
-        thresholdRatio: 0.1,
-      }],
-    })).rejects.toThrow(/modelPolicies\[0\]: retainRatio \(0.2\).*thresholdRatio \(0.1\)/)
+    await expect(
+      context.plugin(BasicCompactionEngine, {
+        retainRatio: 0.2,
+        modelPolicies: [
+          {
+            provider: 'test-provider',
+            model: 'test-model',
+            thresholdRatio: 0.1,
+          },
+        ],
+      }),
+    ).rejects.toThrow(/modelPolicies\[0\]: retainRatio \(0.2\).*thresholdRatio \(0.1\)/)
   })
 
   it('rejects an incomplete model-policy summarization pair during plugin load', async () => {
@@ -136,14 +144,18 @@ describe('real Loader composition', () => {
     await context.plugin(SessionStore)
     await context.plugin(SessionProjectionRegistry)
     await context.plugin(TokenMeter)
-    await expect(context.plugin(BasicCompactionEngine, {
-      summarizationProvider: 'default-provider',
-      summarizationModel: 'default-model',
-      modelPolicies: [{
-        provider: 'test-provider',
-        model: 'test-model',
-        summarizationModel: '',
-      }],
-    })).rejects.toThrow(/modelPolicies\[0\].*must be set together/)
+    await expect(
+      context.plugin(BasicCompactionEngine, {
+        summarizationProvider: 'default-provider',
+        summarizationModel: 'default-model',
+        modelPolicies: [
+          {
+            provider: 'test-provider',
+            model: 'test-model',
+            summarizationModel: '',
+          },
+        ],
+      }),
+    ).rejects.toThrow(/modelPolicies\[0\].*must be set together/)
   })
 })

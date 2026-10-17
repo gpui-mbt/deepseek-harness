@@ -3,7 +3,7 @@
 // another '/' (second slash of '//') or a ':' itself preceded by a
 // non-whitespace char (scheme separator) — this is the concrete rule chosen
 // to honor "no trigger inside URLs".
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { detectTrigger } from '../src/core/detect.ts'
 import type { TriggerGuard } from '../src/types.ts'
 

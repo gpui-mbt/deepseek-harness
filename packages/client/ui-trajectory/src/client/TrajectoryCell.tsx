@@ -1,19 +1,11 @@
 // Legacy standalone trajectory cell retained for direct consumers and specs.
 
-import {
-  formatElapsedSeconds,
-  type TrajectoryCellKind,
-  type TrajectoryCellProps,
-} from './trajectory-record.ts'
+import { formatElapsedSeconds, type TrajectoryCellKind, type TrajectoryCellProps } from './trajectory-record.ts'
 import type { TrajectoryKey, TrajectoryTranslate } from './locales.ts'
 import css from './TrajectoryCell.module.css'
 
 export { formatElapsedSeconds }
-export type {
-  AssistantMetricDetail,
-  TrajectoryCellKind,
-  TrajectoryCellProps,
-} from './trajectory-record.ts'
+export type { AssistantMetricDetail, TrajectoryCellKind, TrajectoryCellProps } from './trajectory-record.ts'
 
 /** Display label per kind (matches the design tags). */
 const KIND_LABEL_KEY: Record<TrajectoryCellKind, TrajectoryKey> = {
@@ -68,11 +60,7 @@ export function TrajectoryCell({
   className,
   ...rest
 }: TrajectoryCellProps & { t: TrajectoryTranslate }) {
-  const rootClass = [
-    css.root,
-    selected ? css.selected : undefined,
-    className,
-  ].filter((c): c is string => c !== undefined).join(' ')
+  const rootClass = [css.root, selected ? css.selected : undefined, className].filter((c): c is string => c !== undefined).join(' ')
   const showMetrics = kind === 'message'
   return (
     <div className={rootClass} data-kind={kind} data-selected={selected || undefined} {...rest}>

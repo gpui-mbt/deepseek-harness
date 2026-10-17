@@ -14,22 +14,18 @@ const worker: UserConfig = {
   dts: false,
   clean: false,
   outputOptions: { inlineDynamicImports: true },
-  deps: { neverBundle: specifier => (
-    specifier === 'ws' || specifier === '@deepseek-ai/dsh-app-boot/worker/profile-resolution-bootstrap'
-  ) },
+  deps: { neverBundle: specifier => specifier === 'ws' || specifier === '@deepseek-ai/dsh-app-boot/worker/profile-resolution-bootstrap' },
 }
 
 /** Build the Host plugin and Worker during the Host pass, and the dynamic Client plugin during the Client pass. */
-export default clientBundle(
-  import.meta.dirname,
-  ['lib/types/index.js'],
-  {
-    hostPhase: true,
-    companions: [worker],
-    lib: {
-      hooks: {
-        'build:done': async () => { await buildDevtools() },
+export default clientBundle(import.meta.dirname, ['lib/types/index.js'], {
+  hostPhase: true,
+  companions: [worker],
+  lib: {
+    hooks: {
+      'build:done': async () => {
+        await buildDevtools()
       },
     },
   },
-)
+})

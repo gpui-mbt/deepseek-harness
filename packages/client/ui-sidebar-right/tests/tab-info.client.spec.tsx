@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Tab information refuses readers whose committed record and navigation binding disagree. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, renderHook } from '@testing-library/react'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { keyedObservableHook } from '@deepseek-ai/dsh-client-ui-renderer/src/client/bindings.tsx'
@@ -40,13 +40,20 @@ function harness() {
     const occurrence = domain.occurrence(SESSION, { id: tabId })
     navigationSources.set(tabId, occurrence.navigation)
     return tabInfoFactory(standard, {
-      tabId, title: false, fullscreen: false, active: true, shortcuts: [],
-      signal: occurrence.signal, actions: occurrence.tabActions, useStore, useTabNavigation,
+      tabId,
+      title: false,
+      fullscreen: false,
+      active: true,
+      shortcuts: [],
+      signal: occurrence.signal,
+      actions: occurrence.tabActions,
+      useStore,
+      useTabNavigation,
     })
   }
   const open = (beforeCommit?: (tabId: TabId) => void): TabId => {
     let opened: TabId | undefined
-    instance.actions.openContent(SESSION, { kind: 'text', contentId: ADDRESS, title: 'a' }, (tabId) => {
+    instance.actions.openContent(SESSION, { kind: 'text', contentId: ADDRESS, title: 'a' }, tabId => {
       opened = tabId
       domain.navigate(SESSION, tabId, { address: ADDRESS, params: undefined })
       beforeCommit?.(tabId)
@@ -76,7 +83,7 @@ function expectUncommitted(useTabInfo: UseSidebarRightTabInfo, tabId: TabId): vo
 describe('tabInfoFactory committed-record relation', () => {
   it('rejects a navigation before the first layout commit and reads the same record after commit', () => {
     const h = harness()
-    const tabId = h.open((opened) => {
+    const tabId = h.open(opened => {
       expect(h.layout()).toBeUndefined()
       expectUncommitted(h.bind(opened), opened)
     })

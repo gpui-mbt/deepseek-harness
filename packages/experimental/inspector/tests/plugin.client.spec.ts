@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apply } from '../src/client/index.ts'
 import { ClientRealmSource } from '../src/client/inspection/realm.ts'
 import type { InspectorClientBootstrap } from '../src/shared/bridge/messages/control.ts'
@@ -23,7 +23,7 @@ class FakeWebSocket extends EventTarget {
   constructor(url: string | URL, protocols?: string | string[]) {
     super()
     this.url = String(url)
-    this.protocol = typeof protocols === 'string' ? protocols : protocols?.[0] ?? ''
+    this.protocol = typeof protocols === 'string' ? protocols : (protocols?.[0] ?? '')
     FakeWebSocket.sockets.push(this)
   }
 
@@ -101,7 +101,9 @@ describe('experimental Inspector Client plugin', () => {
       const resumed = JSON.parse(second.sent[0]!) as { source: { sourceId: string; generation: string } }
       expect(resumed.source.sourceId).toBe(opened.source.sourceId)
       expect(resumed.source.generation).not.toBe(opened.source.generation)
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
     window.dispatchEvent(new Event('pageshow'))
     expect(FakeWebSocket.sockets).toHaveLength(2)
   })
@@ -131,7 +133,8 @@ describe('experimental Inspector Client plugin', () => {
     })
 
     const treePromise = ctx.inspector.cordis.getTree()
-    const treeRequest = socket.sent.map(value => JSON.parse(value) as { t: string; requestId?: string })
+    const treeRequest = socket.sent
+      .map(value => JSON.parse(value) as { t: string; requestId?: string })
       .find(frame => frame.t === 'query/request')
     expect(treeRequest?.requestId).toBeTypeOf('string')
     socket.receive({
@@ -148,11 +151,15 @@ describe('experimental Inspector Client plugin', () => {
     await expect(treePromise).resolves.toEqual({ schemaVersion: 0, host: null, clients: [] })
 
     ctx.inspector.publish('client/probe', { ready: true }, 7)
-    const append = socket.sent.map(value => JSON.parse(value) as {
-      t: string
-      records: Array<{ topic: string; monotonicMs: number; payload: unknown }>
-    }).find(frame => frame.t === 'source/append'
-      && frame.records.some(record => record.topic === 'client/probe'))
+    const append = socket.sent
+      .map(
+        value =>
+          JSON.parse(value) as {
+            t: string
+            records: Array<{ topic: string; monotonicMs: number; payload: unknown }>
+          },
+      )
+      .find(frame => frame.t === 'source/append' && frame.records.some(record => record.topic === 'client/probe'))
     expect(append).toMatchObject({
       t: 'source/append',
       records: [{ topic: 'client/probe', monotonicMs: 7, payload: { ready: true } }],
@@ -169,8 +176,7 @@ describe('experimental Inspector Client plugin', () => {
       command: { op: 'evaluate', expression: 'document.title', returnByValue: true },
     })
     await vi.waitFor(() => {
-      const response = socket.sent.map(value => JSON.parse(value) as { requestId?: string })
-        .find(frame => frame.requestId === 'runtime-1')
+      const response = socket.sent.map(value => JSON.parse(value) as { requestId?: string }).find(frame => frame.requestId === 'runtime-1')
       expect(response).toMatchObject({
         t: 'client-runtime/response',
         sessionId: 'devtools-1',
@@ -200,7 +206,9 @@ describe('experimental Inspector Client plugin', () => {
     }
 
     firstSocket.close()
-    await vi.waitFor(() => { expect(FakeWebSocket.sockets).toHaveLength(2) })
+    await vi.waitFor(() => {
+      expect(FakeWebSocket.sockets).toHaveLength(2)
+    })
     const secondSocket = FakeWebSocket.sockets[1]!
     secondSocket.open()
     const secondOpen = JSON.parse(secondSocket.sent[0]!) as {
@@ -242,11 +250,7 @@ describe('experimental Inspector Client plugin', () => {
   it('rotates a copied session identity while its original page remains live', async () => {
     const descriptor = Object.getOwnPropertyDescriptor(navigator, 'locks')
     const held = new Set<string>()
-    const request = async (
-      name: string,
-      _options: LockOptions,
-      callback: (lock: Lock | null) => unknown,
-    ): Promise<unknown> => {
+    const request = async (name: string, _options: LockOptions, callback: (lock: Lock | null) => unknown): Promise<unknown> => {
       const acquired = !held.has(name)
       if (acquired) held.add(name)
       try {
@@ -268,7 +272,9 @@ describe('experimental Inspector Client plugin', () => {
       expect(duplicate.sourceId).not.toBe(first.sourceId)
 
       first.close()
-      await vi.waitFor(() => { expect(held.size).toBe(1) })
+      await vi.waitFor(() => {
+        expect(held.size).toBe(1)
+      })
       sessionStorage.setItem('dsh.experimental-inspector.client-source-id.v0', first.sourceId)
       refreshed = await ClientRealmSource.claim('refreshed')
       expect(refreshed.sourceId).toBe(first.sourceId)
@@ -333,8 +339,9 @@ describe('experimental Inspector Client plugin', () => {
       requestId: 'runtime-cancel',
     })
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(socket.sent.map(value => JSON.parse(value) as { requestId?: string })
-      .some(frame => frame.requestId === 'runtime-cancel')).toBe(false)
+    expect(socket.sent.map(value => JSON.parse(value) as { requestId?: string }).some(frame => frame.requestId === 'runtime-cancel')).toBe(
+      false,
+    )
 
     socket.receive({
       v: 0,
@@ -346,8 +353,9 @@ describe('experimental Inspector Client plugin', () => {
       command: { op: 'evaluate', expression: '42', returnByValue: true },
     })
     await vi.waitFor(() => {
-      expect(socket.sent.map(value => JSON.parse(value) as { requestId?: string })
-        .some(frame => frame.requestId === 'runtime-after-cancel')).toBe(true)
+      expect(
+        socket.sent.map(value => JSON.parse(value) as { requestId?: string }).some(frame => frame.requestId === 'runtime-after-cancel'),
+      ).toBe(true)
     })
 
     await fiber.dispose()
@@ -394,13 +402,16 @@ describe('experimental Inspector Client plugin', () => {
     globalThis.__DSH_INSPECTOR__ = bootstrap
     Reflect.set(globalThis, '__DSH_BOOT__', {
       rev: 'graph',
-      entries: [{
-        id: '@deepseek-ai/dsh-experimental-inspector',
-        url: 'plugins/??@deepseek-ai/dsh-experimental-inspector/client.js&rev=bundle-rev',
-        rev: 'bundle-rev',
-      }],
+      entries: [
+        {
+          id: '@deepseek-ai/dsh-experimental-inspector',
+          url: 'plugins/??@deepseek-ai/dsh-experimental-inspector/client.js&rev=bundle-rev',
+          rev: 'bundle-rev',
+        },
+      ],
     })
-    const source = 'const clientBundleMarker = "你好"\n//# sourceMappingURL=??@deepseek-ai/dsh-experimental-inspector/client.js.map&rev=bundle-rev\n'
+    const source =
+      'const clientBundleMarker = "你好"\n//# sourceMappingURL=??@deepseek-ai/dsh-experimental-inspector/client.js.map&rev=bundle-rev\n'
     const sourceMap = '{"version":3,"sources":["client/index.ts"]}'
     globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -434,14 +445,18 @@ describe('experimental Inspector Client plugin', () => {
 
     let scriptKey: string | undefined
     await vi.waitFor(() => {
-      const response = socket.sent.map(value => JSON.parse(value) as {
-        requestId?: string
-        outcome?: { result?: { scripts?: Array<{ scriptKey: string; url: string; sourceMapUrl: string }> } }
-      }).find(frame => frame.requestId === 'source-request-1')
+      const response = socket.sent
+        .map(
+          value =>
+            JSON.parse(value) as {
+              requestId?: string
+              outcome?: { result?: { scripts?: Array<{ scriptKey: string; url: string; sourceMapUrl: string }> } }
+            },
+        )
+        .find(frame => frame.requestId === 'source-request-1')
       const script = response?.outcome?.result?.scripts?.[0]
       expect(script?.url).toContain('/plugins/??@deepseek-ai/dsh-experimental-inspector/client.js&rev=bundle-rev')
-      expect(script?.sourceMapUrl)
-        .toContain('/plugins/??@deepseek-ai/dsh-experimental-inspector/client.js.map&rev=bundle-rev')
+      expect(script?.sourceMapUrl).toContain('/plugins/??@deepseek-ai/dsh-experimental-inspector/client.js.map&rev=bundle-rev')
       scriptKey = script?.scriptKey
     })
     socket.receive({
@@ -454,10 +469,15 @@ describe('experimental Inspector Client plugin', () => {
       command: { op: 'get-content-chunk', scriptKey, content: 'source', offset: 0, maxBytes: 1_024 },
     })
     await vi.waitFor(() => {
-      const response = socket.sent.map(value => JSON.parse(value) as {
-        requestId?: string
-        outcome?: { result?: { data?: string; eof?: boolean } }
-      }).find(frame => frame.requestId === 'source-request-2')
+      const response = socket.sent
+        .map(
+          value =>
+            JSON.parse(value) as {
+              requestId?: string
+              outcome?: { result?: { data?: string; eof?: boolean } }
+            },
+        )
+        .find(frame => frame.requestId === 'source-request-2')
       expect(response?.outcome?.result?.eof).toBe(true)
       const bytes = Uint8Array.from(atob(response?.outcome?.result?.data ?? ''), character => character.charCodeAt(0))
       expect(new TextDecoder().decode(bytes)).toBe(source)
@@ -470,8 +490,7 @@ describe('experimental Inspector Client plugin', () => {
     vi.stubGlobal('WebSocket', FakeWebSocket)
     const fetch = vi.fn(async (url: string) => {
       expect(url).toBe(INSPECTOR_BOOTSTRAP_ROUTE)
-      expect(new URL(url, 'https://host.example/tools/dsh/').pathname)
-        .toBe('/tools/dsh/api/experimental-inspector/bootstrap')
+      expect(new URL(url, 'https://host.example/tools/dsh/').pathname).toBe('/tools/dsh/api/experimental-inspector/bootstrap')
       return Response.json(bootstrap)
     })
     vi.stubGlobal('fetch', fetch)
@@ -482,38 +501,53 @@ describe('experimental Inspector Client plugin', () => {
       expect(ctx.get('inspector')).toBeDefined()
       expect(FakeWebSocket.sockets).toHaveLength(1)
       ctx.emit('connection/reset')
-      await vi.waitFor(() => { expect(fetch).toHaveBeenCalledTimes(2) })
+      await vi.waitFor(() => {
+        expect(fetch).toHaveBeenCalledTimes(2)
+      })
       expect(FakeWebSocket.sockets).toHaveLength(1)
       await fiber.dispose()
       expect(FakeWebSocket.sockets[0]!.readyState).toBe(FakeWebSocket.CLOSED)
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('retries a missing bootstrap and replaces a source after the Host generation changes', async () => {
     vi.stubGlobal('WebSocket', FakeWebSocket)
     let response = new Response(null, { status: 503 })
-    vi.stubGlobal('fetch', vi.fn(async () => response))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response),
+    )
     const ctx = new Context()
     try {
       await ctx.plugin({ apply }).await()
       expect(ctx.get('inspector')).toBeUndefined()
       response = Response.json(bootstrap)
       ctx.emit('connection/reset')
-      await vi.waitFor(() => { expect(FakeWebSocket.sockets).toHaveLength(1) })
+      await vi.waitFor(() => {
+        expect(FakeWebSocket.sockets).toHaveLength(1)
+      })
       const first = FakeWebSocket.sockets[0]!
       response = Response.json({ ...bootstrap, protocol: 'dsh-inspector-v0-new-worker' })
       ctx.emit('connection/reset')
-      await vi.waitFor(() => { expect(FakeWebSocket.sockets).toHaveLength(2) })
+      await vi.waitFor(() => {
+        expect(FakeWebSocket.sockets).toHaveLength(2)
+      })
       expect(first.readyState).toBe(FakeWebSocket.CLOSED)
       expect(FakeWebSocket.sockets[1]!.protocol).toBe('dsh-inspector-v0-new-worker')
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('does not install a late bootstrap after disposal begins', async () => {
     vi.stubGlobal('WebSocket', FakeWebSocket)
     globalThis.__DSH_INSPECTOR__ = bootstrap
     let respond!: (response: Response) => void
-    const pending = new Promise<Response>((resolve) => { respond = resolve })
+    const pending = new Promise<Response>(resolve => {
+      respond = resolve
+    })
     const fetch = vi.fn(() => pending)
     vi.stubGlobal('fetch', fetch)
     const ctx = new Context()
@@ -521,7 +555,9 @@ describe('experimental Inspector Client plugin', () => {
       const fiber = ctx.plugin({ apply })
       await fiber.await()
       ctx.emit('connection/reset')
-      await vi.waitFor(() => { expect(fetch).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(fetch).toHaveBeenCalledOnce()
+      })
       const disposed = fiber.dispose()
       respond(Response.json({ ...bootstrap, protocol: 'dsh-inspector-v0-late-worker' }))
       await disposed
@@ -533,10 +569,14 @@ describe('experimental Inspector Client plugin', () => {
     }
   })
 
-  it.each([true, false])('closes the Client source when registration fails (injected=%s)', async (injected) => {
+  it.each([true, false])('closes the Client source when registration fails (injected=%s)', async injected => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket
     if (injected) globalThis.__DSH_INSPECTOR__ = bootstrap
-    else vi.stubGlobal('fetch', vi.fn(async () => Response.json(bootstrap)))
+    else
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => Response.json(bootstrap)),
+      )
     const ctx = new Context()
     ctx.provide('inspector', {
       publish: () => undefined,
@@ -550,9 +590,12 @@ describe('experimental Inspector Client plugin', () => {
     await fiber.dispose()
   })
 
-  it.each([true, false])('retains reconnect recovery after transport setup fails (injected=%s)', async (injected) => {
+  it.each([true, false])('retains reconnect recovery after transport setup fails (injected=%s)', async injected => {
     vi.stubGlobal('WebSocket', FakeWebSocket)
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json(bootstrap)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(bootstrap)),
+    )
     if (injected) globalThis.__DSH_INSPECTOR__ = bootstrap
     vi.spyOn(ClientRealmSource, 'claim').mockRejectedValueOnce(new Error('identity temporarily unavailable'))
     const ctx = new Context()
@@ -562,23 +605,33 @@ describe('experimental Inspector Client plugin', () => {
       expect(warn).toHaveBeenCalledOnce()
       expect(ctx.get('inspector')).toBeUndefined()
       ctx.emit('connection/reset')
-      await vi.waitFor(() => { expect(ctx.get('inspector')).toBeDefined() })
+      await vi.waitFor(() => {
+        expect(ctx.get('inspector')).toBeDefined()
+      })
       expect(FakeWebSocket.sockets).toHaveLength(1)
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
     expect(FakeWebSocket.sockets[0]?.readyState).toBe(FakeWebSocket.CLOSED)
     expect(ctx.get('inspector')).toBeUndefined()
   })
 
-  it.each([true, false])('rejects invalid bootstrap data during startup (injected=%s)', async (injected) => {
+  it.each([true, false])('rejects invalid bootstrap data during startup (injected=%s)', async injected => {
     vi.stubGlobal('WebSocket', FakeWebSocket)
     if (injected) globalThis.__DSH_INSPECTOR__ = null
-    else vi.stubGlobal('fetch', vi.fn(async () => Response.json(null)))
+    else
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => Response.json(null)),
+      )
     const ctx = new Context()
     try {
       await expect(ctx.plugin({ apply }).await()).rejects.toThrow()
       expect(FakeWebSocket.sockets).toHaveLength(0)
       expect(ctx.get('inspector')).toBeUndefined()
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('retains recovery after a bootstrap network failure', async () => {
@@ -589,8 +642,12 @@ describe('experimental Inspector Client plugin', () => {
       await ctx.plugin({ apply }).await()
       expect(ctx.get('inspector')).toBeUndefined()
       ctx.emit('connection/reset')
-      await vi.waitFor(() => { expect(ctx.get('inspector')).toBeDefined() })
-    } finally { await ctx.fiber.dispose() }
+      await vi.waitFor(() => {
+        expect(ctx.get('inspector')).toBeDefined()
+      })
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('settles an aborted bootstrap refresh without warning after disposal', async () => {
@@ -599,7 +656,13 @@ describe('experimental Inspector Client plugin', () => {
     const pending = Promise.withResolvers<Response>()
     const aborted = Promise.withResolvers<undefined>()
     const fetch = vi.fn((_url: string, init: RequestInit) => {
-      init.signal?.addEventListener('abort', () => { aborted.resolve(undefined) }, { once: true })
+      init.signal?.addEventListener(
+        'abort',
+        () => {
+          aborted.resolve(undefined)
+        },
+        { once: true },
+      )
       return pending.promise
     })
     vi.stubGlobal('fetch', fetch)
@@ -609,7 +672,9 @@ describe('experimental Inspector Client plugin', () => {
     try {
       await fiber.await()
       ctx.emit('connection/reset')
-      await vi.waitFor(() => { expect(fetch).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(fetch).toHaveBeenCalledOnce()
+      })
       const disposed = fiber.dispose()
       await aborted.promise
       pending.reject(new Error('aborted request'))
@@ -624,25 +689,35 @@ describe('experimental Inspector Client plugin', () => {
   it('joins service-consumer cleanup before claiming a replacement source', async () => {
     vi.stubGlobal('WebSocket', FakeWebSocket)
     globalThis.__DSH_INSPECTOR__ = bootstrap
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ ...bootstrap, protocol: 'replacement-worker' })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ ...bootstrap, protocol: 'replacement-worker' })),
+    )
     const claimed = vi.spyOn(ClientRealmSource, 'claim')
     const started = Promise.withResolvers<undefined>()
     const released = Promise.withResolvers<undefined>()
     const ctx = new Context()
     try {
       await ctx.plugin({ apply }).await()
-      await ctx.plugin({ inject: ['inspector'], apply(child) {
-        child.effect(() => async () => {
-          started.resolve(undefined)
-          await released.promise
+      await ctx
+        .plugin({
+          inject: ['inspector'],
+          apply(child) {
+            child.effect(() => async () => {
+              started.resolve(undefined)
+              await released.promise
+            })
+          },
         })
-      } }).await()
+        .await()
       ctx.emit('connection/reset')
       await started.promise
       expect(claimed).toHaveBeenCalledTimes(1)
       expect(ctx.get('inspector')).toBeUndefined()
       released.resolve(undefined)
-      await vi.waitFor(() => { expect(FakeWebSocket.sockets).toHaveLength(2) })
+      await vi.waitFor(() => {
+        expect(FakeWebSocket.sockets).toHaveLength(2)
+      })
       expect(FakeWebSocket.sockets[0]?.readyState).toBe(FakeWebSocket.CLOSED)
       expect(ctx.get('inspector')).toBeDefined()
     } finally {

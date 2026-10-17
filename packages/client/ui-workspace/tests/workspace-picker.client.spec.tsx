@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
-import type {
-  WorkspaceId, WorkspaceSnapshot, WorkspaceView,
-} from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
@@ -15,7 +13,12 @@ import { WorkspacePicker } from '../src/client/WorkspacePicker.tsx'
 import { zh } from '../src/client/locales.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({
+  status: 'none' as const,
+  value: undefined,
+  failure: undefined,
+  reload: () => {},
+})) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
 afterEach(cleanup)
@@ -27,25 +30,46 @@ const t: WorkspacePickerProps['t'] = makeTranslate(zh, commonZh)
 const wid = (id: string) => id as WorkspaceId
 function workspace(id: string, title = id): WorkspaceView {
   return {
-    workspaceId: wid(id), path: `/projects/${id}`, title, sessionIds: [],
-    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    workspaceId: wid(id),
+    path: `/projects/${id}`,
+    title,
+    sessionIds: [],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
   }
 }
 function hook<T>(snapshot: T) {
-  return function select<S>(selector: (state: T) => S): S { return selector(snapshot) }
+  return function select<S>(selector: (state: T) => S): S {
+    return selector(snapshot)
+  }
 }
 const sessions: SessionListState = {
-  ids: [], byId: {}, phase: 'ready', projectionsBySession: {},
+  ids: [],
+  byId: {},
+  phase: 'ready',
+  projectionsBySession: {},
 }
 const noPendingInteraction: SessionStatusSnapshot = new Map()
 const workspaceState = (items: readonly WorkspaceView[]): WorkspaceSnapshot => ({
-  items, archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
+  items,
+  archivedSessionIds: [],
+  pinnedSessionIds: [],
+  state: 'idle',
+  phase: 'ready',
+  error: null,
 })
 function anchor(): { current: HTMLElement } {
   const element = document.createElement('button')
   element.getBoundingClientRect = () => ({
-    top: 10, left: 20, width: 30, height: 40, right: 50, bottom: 50,
-    x: 20, y: 10, toJSON: () => ({}),
+    top: 10,
+    left: 20,
+    width: 30,
+    height: 40,
+    right: 50,
+    bottom: 50,
+    x: 20,
+    y: 10,
+    toJSON: () => ({}),
   })
   return { current: element }
 }
@@ -72,7 +96,9 @@ function occupancySource(initial = true) {
     getSnapshot: () => occupied,
     subscribe: (listener: () => void) => {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
   })
   return {
@@ -84,11 +110,7 @@ function occupancySource(initial = true) {
   }
 }
 
-function mount(
-  items: readonly WorkspaceView[] = [workspace('alpha', 'Alpha')],
-  createWorkspace = vi.fn(),
-  occupancy = occupancySource(),
-) {
+function mount(items: readonly WorkspaceView[] = [workspace('alpha', 'Alpha')], createWorkspace = vi.fn(), occupancy = occupancySource()) {
   const onPick = vi.fn()
   const onClose = vi.fn()
   const anchorRef = anchor()
@@ -100,7 +122,8 @@ function mount(
       useSessions={hook(sessions)}
       useSessionStatus={hook(noPendingInteraction)}
       useSessionRetainInfo={() => undefined}
-      usePanelInfo={usePanelInfo} useResource={useResource}
+      usePanelInfo={usePanelInfo}
+      useResource={useResource}
       useWorkspaces={hook(workspaceState(nextItems))}
       {...allowAllAccess}
       onPick={onPick}
@@ -111,12 +134,17 @@ function mount(
       t={t}
     />
   )
-  const view = render(
-    renderPicker(items),
-  )
+  const view = render(renderPicker(items))
   return {
-    view, onPick, onClose, createWorkspace, probe, occupancy,
-    rerenderItems: (nextItems: readonly WorkspaceView[]) => { view.rerender(renderPicker(nextItems)) },
+    view,
+    onPick,
+    onClose,
+    createWorkspace,
+    probe,
+    occupancy,
+    rerenderItems: (nextItems: readonly WorkspaceView[]) => {
+      view.rerender(renderPicker(nextItems))
+    },
   }
 }
 
@@ -141,9 +169,13 @@ describe('WorkspacePicker', () => {
     chooseAdd()
     expect(b.onClose).toHaveBeenCalled()
     expect(screen.getByTestId('directory-flow')).toBeTruthy()
-    await act(async () => { b.probe.owner!.onPicked('/tmp/project') })
+    await act(async () => {
+      b.probe.owner!.onPicked('/tmp/project')
+    })
     expect(createWorkspace).toHaveBeenCalledWith({ path: '/tmp/project' })
-    await waitFor(() => { expect(b.onPick).toHaveBeenCalledWith(created.workspaceId) })
+    await waitFor(() => {
+      expect(b.onPick).toHaveBeenCalledWith(created.workspaceId)
+    })
     // Successful adoption withdraws the flow request.
     expect(screen.queryByTestId('directory-flow')).toBeNull()
   })
@@ -161,7 +193,9 @@ describe('WorkspacePicker', () => {
   it('treats flow cancellation as a silent no-op', () => {
     const b = mount([workspace('alpha', 'Alpha')])
     chooseAdd()
-    act(() => { b.probe.owner!.onCancel() })
+    act(() => {
+      b.probe.owner!.onCancel()
+    })
     expect(screen.queryByTestId('directory-flow')).toBeNull()
     expect(b.createWorkspace).not.toHaveBeenCalled()
     expect(b.onPick).not.toHaveBeenCalled()
@@ -169,9 +203,16 @@ describe('WorkspacePicker', () => {
   })
 
   it('reports a non-Error adoption failure in the folder-error surface', async () => {
-    const b = mount([workspace('alpha', 'Alpha')], vi.fn(async () => { throw 'permission denied' }))
+    const b = mount(
+      [workspace('alpha', 'Alpha')],
+      vi.fn(async () => {
+        throw 'permission denied'
+      }),
+    )
     chooseAdd()
-    await act(async () => { b.probe.owner!.onPicked('/one/project') })
+    await act(async () => {
+      b.probe.owner!.onPicked('/one/project')
+    })
     await waitFor(() => {
       expect(screen.getByRole('dialog', { name: '无法打开文件夹' })).toBeTruthy()
     })
@@ -184,26 +225,38 @@ describe('WorkspacePicker', () => {
 
   it('disables every menu action from flow open through adoption, and reports busy to the flow', async () => {
     let resolve!: (workspace: WorkspaceView) => void
-    const pending = new Promise<WorkspaceView>((settle) => { resolve = settle })
+    const pending = new Promise<WorkspaceView>(settle => {
+      resolve = settle
+    })
     const created = workspace('adopted')
-    const b = mount([workspace('alpha', 'Alpha')], vi.fn(() => pending))
+    const b = mount(
+      [workspace('alpha', 'Alpha')],
+      vi.fn(() => pending),
+    )
     chooseAdd()
     // The flow is open but nothing is picked yet: a chooser pending on the
     // host display must already block concurrent workspace actions.
     expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Alpha' }).disabled).toBe(true)
     expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: '添加工作区…' }).disabled).toBe(true)
-    act(() => { b.probe.owner!.onPicked('/tmp/project') })
+    act(() => {
+      b.probe.owner!.onPicked('/tmp/project')
+    })
     expect(b.probe.owner!.busy).toBe(true)
     expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Alpha' }).disabled).toBe(true)
     expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: '添加工作区…' }).disabled).toBe(true)
-    await act(async () => { resolve(created); await pending })
+    await act(async () => {
+      resolve(created)
+      await pending
+    })
     expect(b.probe.owner!.busy).toBe(false)
   })
 
   it('shows the flow-reported failure in the folder-error surface', () => {
     const b = mount([workspace('alpha', 'Alpha')])
     chooseAdd()
-    act(() => { b.probe.owner!.onError('no chooser installed') })
+    act(() => {
+      b.probe.owner!.onError('no chooser installed')
+    })
     expect(screen.getByRole('alert').textContent).toBe('no chooser installed')
     expect(screen.queryByTestId('directory-flow')).toBeNull()
     expect(b.createWorkspace).not.toHaveBeenCalled()
@@ -212,7 +265,9 @@ describe('WorkspacePicker', () => {
   it('closes the folder-error surface when the user cancels', () => {
     const b = mount([workspace('alpha', 'Alpha')])
     chooseAdd()
-    act(() => { b.probe.owner!.onError('no chooser installed') })
+    act(() => {
+      b.probe.owner!.onError('no chooser installed')
+    })
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -221,13 +276,20 @@ describe('WorkspacePicker', () => {
     const { renderSlot } = flowProbe()
     render(
       <WorkspacePicker
-        open useSessions={hook(sessions)} useWorkspaces={hook(workspaceState([workspace('alpha', 'Alpha')]))}
+        open
+        useSessions={hook(sessions)}
+        useWorkspaces={hook(workspaceState([workspace('alpha', 'Alpha')]))}
         useSessionStatus={hook(noPendingInteraction)}
         useSessionRetainInfo={() => undefined}
-        usePanelInfo={usePanelInfo} useResource={useResource}
+        usePanelInfo={usePanelInfo}
+        useResource={useResource}
         {...allowAllAccess}
-        onPick={vi.fn()} onClose={vi.fn()} createWorkspace={vi.fn()}
-        useDirectoryFlow={occupancySource().useDirectoryFlow} renderSlot={renderSlot} t={t}
+        onPick={vi.fn()}
+        onClose={vi.fn()}
+        createWorkspace={vi.fn()}
+        useDirectoryFlow={occupancySource().useDirectoryFlow}
+        renderSlot={renderSlot}
+        t={t}
       />,
     )
     expect(screen.queryByRole('menu')).toBeNull()
@@ -235,18 +297,28 @@ describe('WorkspacePicker', () => {
 
   it('keeps the menu up while the list baseline is still in flight', () => {
     const state: WorkspaceSnapshot = {
-      ...workspaceState([]), phase: 'pending', state: 'loading',
+      ...workspaceState([]),
+      phase: 'pending',
+      state: 'loading',
     }
     const { renderSlot } = flowProbe()
     render(
       <WorkspacePicker
-        open anchorRef={anchor()} useSessions={hook(sessions)} useWorkspaces={hook(state)}
+        open
+        anchorRef={anchor()}
+        useSessions={hook(sessions)}
+        useWorkspaces={hook(state)}
         useSessionStatus={hook(noPendingInteraction)}
         useSessionRetainInfo={() => undefined}
-        usePanelInfo={usePanelInfo} useResource={useResource}
+        usePanelInfo={usePanelInfo}
+        useResource={useResource}
         {...allowAllAccess}
-        onPick={vi.fn()} onClose={vi.fn()} createWorkspace={vi.fn()}
-        useDirectoryFlow={occupancySource().useDirectoryFlow} renderSlot={renderSlot} t={t}
+        onPick={vi.fn()}
+        onClose={vi.fn()}
+        createWorkspace={vi.fn()}
+        useDirectoryFlow={occupancySource().useDirectoryFlow}
+        renderSlot={renderSlot}
+        t={t}
       />,
     )
     // An empty list is not final yet: jumping into the directory flow here
@@ -270,17 +342,29 @@ describe('WorkspacePicker', () => {
     // The auto-open path obeys the same busy rule as the disabled menu entry:
     // an occupant that re-registers mid-adoption must not raise a second flow.
     let resolve!: (workspace: WorkspaceView) => void
-    const pending = new Promise<WorkspaceView>((settle) => { resolve = settle })
+    const pending = new Promise<WorkspaceView>(settle => {
+      resolve = settle
+    })
     const created = workspace('adopted')
-    const b = mount([workspace('alpha', 'Alpha')], vi.fn(() => pending))
+    const b = mount(
+      [workspace('alpha', 'Alpha')],
+      vi.fn(() => pending),
+    )
     chooseAdd()
-    act(() => { b.probe.owner!.onPicked('/tmp/project') })
+    act(() => {
+      b.probe.owner!.onPicked('/tmp/project')
+    })
     expect(b.probe.owner!.busy).toBe(true)
     // The list empties under the still-settling adoption (the workspace was
     // deleted elsewhere), which would otherwise make add the only entry.
-    act(() => { b.rerenderItems([]) })
+    act(() => {
+      b.rerenderItems([])
+    })
     expect(b.createWorkspace).toHaveBeenCalledTimes(1)
-    await act(async () => { resolve(created); await pending })
+    await act(async () => {
+      resolve(created)
+      await pending
+    })
     expect(b.probe.owner!.busy).toBe(false)
   })
 
@@ -294,18 +378,31 @@ describe('WorkspacePicker', () => {
     const b = mount([workspace('alpha', 'Alpha')], vi.fn(), occupancySource(false))
     expect(screen.queryByRole('menuitem', { name: '添加工作区…' })).toBeNull()
     // Registration changes flow through the subscription, no re-render needed.
-    act(() => { b.occupancy.flip(true) })
+    act(() => {
+      b.occupancy.flip(true)
+    })
     expect(screen.getByRole('menuitem', { name: '添加工作区…' })).toBeTruthy()
   })
 
   it('keeps Choose again inert while the flow occupant is gone, and snaps back a flow opened over an empty hole', async () => {
-    const b = mount([workspace('alpha', 'Alpha')], vi.fn(async () => { throw new Error('adoption failed') }))
+    const b = mount(
+      [workspace('alpha', 'Alpha')],
+      vi.fn(async () => {
+        throw new Error('adoption failed')
+      }),
+    )
     chooseAdd()
-    await act(async () => { b.probe.owner!.onPicked('/one/project') })
-    await waitFor(() => { expect(screen.getByRole('dialog', { name: '无法打开文件夹' })).toBeTruthy() })
+    await act(async () => {
+      b.probe.owner!.onPicked('/one/project')
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: '无法打开文件夹' })).toBeTruthy()
+    })
     // The occupant unloads while the error dialog is up: retrying would open
     // a flow nobody can serve or cancel, so the button goes inert.
-    act(() => { b.occupancy.flip(false) })
+    act(() => {
+      b.occupancy.flip(false)
+    })
     expect(screen.getByRole<HTMLButtonElement>('button', { name: '重新选择' }).disabled).toBe(true)
     // Cancel stays the way out, and the menu actions are usable again.
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
@@ -318,7 +415,9 @@ describe('WorkspacePicker', () => {
     expect(screen.getByTestId('directory-flow')).toBeTruthy()
     // The flow plugin unloads mid-interaction (HMR): nobody is left to
     // cancel, so the owner withdraws and the actions come back.
-    act(() => { b.occupancy.flip(false) })
+    act(() => {
+      b.occupancy.flip(false)
+    })
     expect(b.probe.owner!.open).toBe(false)
     expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Alpha' }).disabled).toBe(false)
     expect(screen.queryByRole('menuitem', { name: '添加工作区…' })).toBeNull()

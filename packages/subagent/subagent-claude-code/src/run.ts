@@ -26,16 +26,8 @@ import {
   type SubagentStartRequest,
   type SubagentStopReason,
 } from '@deepseek-ai/dsh-subagent'
-import {
-  scrubbedParentEnv,
-  type SubprocessHandle,
-  type SubprocessOutcome,
-  type SubprocessSpawnSpec,
-} from '@deepseek-ai/dsh-subprocess'
-import {
-  claudeSpawnSpec,
-  ManagedClaudeCodeProcess,
-} from './process.ts'
+import { scrubbedParentEnv, type SubprocessHandle, type SubprocessOutcome, type SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
+import { claudeSpawnSpec, ManagedClaudeCodeProcess } from './process.ts'
 
 /** Default POSIX grace between subprocess termination tiers. */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
@@ -50,27 +42,16 @@ export const CLAUDE_CODE_PERMISSION_MODES = [
 ] as const satisfies readonly NonNullable<Options['permissionMode']>[]
 
 /** Profile-selectable non-interactive Claude Code permission mode. */
-export type ClaudeCodePermissionMode = typeof CLAUDE_CODE_PERMISSION_MODES[number]
+export type ClaudeCodePermissionMode = (typeof CLAUDE_CODE_PERMISSION_MODES)[number]
 
 /** Safe default for unattended Claude Code runs. */
 export const DEFAULT_CLAUDE_CODE_PERMISSION_MODE: ClaudeCodePermissionMode = 'dontAsk'
 
-const SUPPORTED_UNATTENDED_DIALOG_KINDS = [
-  'refusal_fallback_prompt',
-] satisfies NonNullable<Options['supportedDialogKinds']>
+const SUPPORTED_UNATTENDED_DIALOG_KINDS = ['refusal_fallback_prompt'] satisfies NonNullable<Options['supportedDialogKinds']>
 
-type ClaudeCodeFailureStage =
-  | 'query-start'
-  | 'query-run'
-  | 'process'
-  | 'teardown'
+type ClaudeCodeFailureStage = 'query-start' | 'query-run' | 'process' | 'teardown'
 
-type ClaudeCodeFailureCategory =
-  | 'limit'
-  | 'product-error'
-  | 'invalid-result'
-  | 'process'
-  | 'unknown'
+type ClaudeCodeFailureCategory = 'limit' | 'product-error' | 'invalid-result' | 'process' | 'unknown'
 
 interface ClaudeCodeFailureFacts {
   readonly stage: ClaudeCodeFailureStage
@@ -79,11 +60,7 @@ interface ClaudeCodeFailureFacts {
 }
 
 function failureDiagnostic(facts: ClaudeCodeFailureFacts): string {
-  const fields = [
-    'product: Claude Code',
-    `stage: ${facts.stage}`,
-    `category: ${facts.category}`,
-  ]
+  const fields = ['product: Claude Code', `stage: ${facts.stage}`, `category: ${facts.category}`]
   const exitCode = facts.outcome?.exitCode
   if (exitCode !== null && exitCode !== undefined) {
     fields.push(`exit code: ${exitCode}`)
@@ -100,17 +77,12 @@ class ClaudeCodeFailure extends Error {
     readonly facts: ClaudeCodeFailureFacts,
     cause?: unknown,
   ) {
-    super(
-      `subagent-claude-code: ${failureDiagnostic(facts)}`,
-      cause === undefined ? undefined : { cause },
-    )
+    super(`subagent-claude-code: ${failureDiagnostic(facts)}`, cause === undefined ? undefined : { cause })
     this.name = 'ClaudeCodeFailure'
   }
 }
 
-function sdkFailureCategory(
-  subtype: string,
-): ClaudeCodeFailureCategory {
+function sdkFailureCategory(subtype: string): ClaudeCodeFailureCategory {
   switch (subtype) {
     case 'error_max_turns':
     case 'error_max_budget_usd':
@@ -129,10 +101,13 @@ function sdkFailureCategory(
  * @returns a rejection safe to expose through the subagent start boundary.
  */
 export function claudeCodeStartupFailure(cause: unknown): Error {
-  return new ClaudeCodeFailure({
-    stage: 'query-start',
-    category: 'unknown',
-  }, cause)
+  return new ClaudeCodeFailure(
+    {
+      stage: 'query-start',
+      category: 'unknown',
+    },
+    cause,
+  )
 }
 
 function unattendedDiagnostic(
@@ -206,14 +181,10 @@ export function textTask(prompt: readonly ContentBlock[]): string {
 export function successfulResult(message: SDKResultMessage): string {
   if (message.subtype !== 'success') {
     const category = sdkFailureCategory(message.subtype)
-    const detail = category === 'unknown'
-      ? undefined
-      : message.errors.join('; ')
+    const detail = category === 'unknown' ? undefined : message.errors.join('; ')
     throw new ClaudeCodeFailure(
       { stage: 'query-run', category },
-      detail === undefined || detail.length === 0
-        ? undefined
-        : new Error(detail),
+      detail === undefined || detail.length === 0 ? undefined : new Error(detail),
     )
   }
   if (message.is_error || message.result.trim().length === 0) {
@@ -267,14 +238,13 @@ export async function consumeClaudeQuery(
  * @param child - shared-service handle that owns the CLI managed range, including
  * a published handle whose direct result later rejects.
  */
-export async function disposeClaudeCodeChild(
-  query: Pick<Query, 'close'> | undefined,
-  child: SubprocessHandle,
-): Promise<void> {
+export async function disposeClaudeCodeChild(query: Pick<Query, 'close'> | undefined, child: SubprocessHandle): Promise<void> {
   const failures: Error[] = []
   let outcome: SubprocessOutcome | undefined
   void child.done.then(
-    (value) => { outcome = value },
+    value => {
+      outcome = value
+    },
     () => {},
   )
   try {
@@ -297,9 +267,7 @@ export async function disposeClaudeCodeChild(
       category: 'unknown',
       outcome,
     } as const
-    const cause = failures.length === 1
-      ? firstFailure
-      : new AggregateError(failures, 'Claude Code teardown failures')
+    const cause = failures.length === 1 ? firstFailure : new AggregateError(failures, 'Claude Code teardown failures')
     throw new ClaudeCodeFailure(facts, cause)
   }
   await child.done.catch(() => {})
@@ -316,54 +284,40 @@ export async function disposeClaudeCodeChild(
 export function claudeQueryOptions(
   spec: ClaudeCodeRunSpec,
   controller: AbortController,
-  capture: (
-    child: SubprocessHandle,
-    process: ManagedClaudeCodeProcess,
-  ) => void,
+  capture: (child: SubprocessHandle, process: ManagedClaudeCodeProcess) => void,
   captureDiagnostic: (diagnostic: string) => void,
 ): Options {
   return {
     abortController: controller,
     cwd: spec.cwd,
-    ...spec.model === undefined ? {} : { model: spec.model },
+    ...(spec.model === undefined ? {} : { model: spec.model }),
     env: { ...scrubbedParentEnv(), ...spec.env },
     persistSession: false,
-    disallowedTools: spec.permissionMode === 'plan'
-      ? ['AskUserQuestion', 'ExitPlanMode']
-      : ['AskUserQuestion'],
+    disallowedTools: spec.permissionMode === 'plan' ? ['AskUserQuestion', 'ExitPlanMode'] : ['AskUserQuestion'],
     permissionMode: spec.permissionMode,
-    ...spec.permissionMode === 'bypassPermissions'
+    ...(spec.permissionMode === 'bypassPermissions'
       ? { allowDangerouslySkipPermissions: true }
       : {
-        canUseTool: () => {
-          captureDiagnostic(unattendedDiagnostic(
-            spec.permissionMode,
-            'tool permission',
-            'denied',
-            'the provider does not request human approval',
-          ))
-          return Promise.resolve({
-            behavior: 'deny' as const,
-            message: 'This unattended Claude Code subagent cannot request human approval.',
-          })
-        },
-      },
+          canUseTool: () => {
+            captureDiagnostic(
+              unattendedDiagnostic(spec.permissionMode, 'tool permission', 'denied', 'the provider does not request human approval'),
+            )
+            return Promise.resolve({
+              behavior: 'deny' as const,
+              message: 'This unattended Claude Code subagent cannot request human approval.',
+            })
+          },
+        }),
     onElicitation: () => {
-      captureDiagnostic(unattendedDiagnostic(
-        spec.permissionMode,
-        'MCP elicitation',
-        'declined',
-        'the provider does not collect interactive MCP input',
-      ))
+      captureDiagnostic(
+        unattendedDiagnostic(spec.permissionMode, 'MCP elicitation', 'declined', 'the provider does not collect interactive MCP input'),
+      )
       return Promise.resolve({ action: 'decline' })
     },
     onUserDialog: () => {
-      captureDiagnostic(unattendedDiagnostic(
-        spec.permissionMode,
-        'user dialog',
-        'cancelled',
-        'the provider does not render blocking dialogs',
-      ))
+      captureDiagnostic(
+        unattendedDiagnostic(spec.permissionMode, 'user dialog', 'cancelled', 'the provider does not render blocking dialogs'),
+      )
       return Promise.resolve({ behavior: 'cancelled' as const })
     },
     supportedDialogKinds: SUPPORTED_UNATTENDED_DIALOG_KINDS,
@@ -382,10 +336,7 @@ export function claudeQueryOptions(
  * @param spec - Workspace, environment, process service, and diagnostic policy.
  * @returns the published run after both Query and the real CLI handle exist.
  */
-export async function startClaudeCodeRun(
-  request: SubagentStartRequest,
-  spec: ClaudeCodeRunSpec,
-): Promise<SubagentRun> {
+export async function startClaudeCodeRun(request: SubagentStartRequest, spec: ClaudeCodeRunSpec): Promise<SubagentRun> {
   const prompt = textTask(request.prompt)
   if (request.signal.aborted) {
     throw new Error('subagent-claude-code: request was aborted before SDK startup')
@@ -397,7 +348,9 @@ export async function startClaudeCodeRun(
       controller.abort(new Error('subagent-claude-code: run cancelled locally'))
     }
   }
-  const onAbort = (): void => { requestCancel() }
+  const onAbort = (): void => {
+    requestCancel()
+  }
   request.signal.addEventListener('abort', onAbort, { once: true })
   const reportFailure = (error: Error): void => {
     try {
@@ -418,14 +371,9 @@ export async function startClaudeCodeRun(
   }
   const prependFailureDiagnostic = (facts: ClaudeCodeFailureFacts): void => {
     const failure = failureDiagnostic(facts)
-    diagnostic = diagnostic === undefined
-      ? failure
-      : `${failure}\n${diagnostic}`
+    diagnostic = diagnostic === undefined ? failure : `${failure}\n${diagnostic}`
   }
-  const captureChild = (
-    captured: SubprocessHandle,
-    process: ManagedClaudeCodeProcess,
-  ): void => {
+  const captureChild = (captured: SubprocessHandle, process: ManagedClaudeCodeProcess): void => {
     child = captured
     managedProcess = process
     childProcessFailure = captured.done.then(
@@ -440,17 +388,10 @@ export async function startClaudeCodeRun(
   try {
     query = officialQuery({
       prompt,
-      options: claudeQueryOptions(
-        spec,
-        controller,
-        captureChild,
-        capturePermissionDiagnostic,
-      ),
+      options: claudeQueryOptions(spec, controller, captureChild, capturePermissionDiagnostic),
     })
     if (child === undefined || childProcessFailure === undefined) {
-      throw new Error(
-        'subagent-claude-code: official SDK did not publish a controllable Claude Code process',
-      )
+      throw new Error('subagent-claude-code: official SDK did not publish a controllable Claude Code process')
     }
     if (isAborted(controller.signal)) {
       throw new Error('subagent-claude-code: request was aborted before SDK startup')
@@ -466,10 +407,7 @@ export async function startClaudeCodeRun(
       category: 'unknown',
       outcome: startupOutcome,
     } as const
-    const startupFailure = (cause: unknown = childFailure ?? error): ClaudeCodeFailure => new ClaudeCodeFailure(
-      startupFacts,
-      thrown(cause),
-    )
+    const startupFailure = (cause: unknown = childFailure ?? error): ClaudeCodeFailure => new ClaudeCodeFailure(startupFacts, thrown(cause))
     requestCancel()
     if (child !== undefined) {
       try {
@@ -477,10 +415,7 @@ export async function startClaudeCodeRun(
       } catch (disposeError: unknown) {
         const failure = startupFailure()
         const cleanupFailure = thrown(disposeError)
-        const aggregate = new AggregateError(
-          [failure, cleanupFailure],
-          `${failure.message}; ${cleanupFailure.message}`,
-        )
+        const aggregate = new AggregateError([failure, cleanupFailure], `${failure.message}; ${cleanupFailure.message}`)
         reportFailure(aggregate)
         throw aggregate
       }
@@ -495,14 +430,14 @@ export async function startClaudeCodeRun(
         query.close()
       } catch (disposeError: unknown) {
         const failure = startupFailure()
-        const cleanupFailure = new ClaudeCodeFailure({
-          stage: 'teardown',
-          category: 'unknown',
-        }, thrown(disposeError))
-        const aggregate = new AggregateError(
-          [failure, cleanupFailure],
-          `${failure.message}; ${cleanupFailure.message}`,
+        const cleanupFailure = new ClaudeCodeFailure(
+          {
+            stage: 'teardown',
+            category: 'unknown',
+          },
+          thrown(disposeError),
         )
+        const aggregate = new AggregateError([failure, cleanupFailure], `${failure.message}; ${cleanupFailure.message}`)
         reportFailure(aggregate)
         throw aggregate
       }
@@ -523,16 +458,22 @@ export async function startClaudeCodeRun(
     attempt: async () => {
       try {
         return await Promise.race([
-          consumeClaudeQuery(publishedQuery, () => {
-            capturePermissionDiagnostic(unattendedDiagnostic(
-              spec.permissionMode,
-              'tool permission',
-              'denied',
-              'Claude Code denied the request before an interactive prompt',
-            ))
-          }, () => {
-            receivedResult = true
-          }),
+          consumeClaudeQuery(
+            publishedQuery,
+            () => {
+              capturePermissionDiagnostic(
+                unattendedDiagnostic(
+                  spec.permissionMode,
+                  'tool permission',
+                  'denied',
+                  'Claude Code denied the request before an interactive prompt',
+                ),
+              )
+            },
+            () => {
+              receivedResult = true
+            },
+          ),
           publishedProcessFailure,
         ])
       } catch (error: unknown) {
@@ -555,9 +496,7 @@ export async function startClaudeCodeRun(
         }
         prependFailureDiagnostic(facts)
         // Keep the SDK category and cause; the diagnostic adds later process facts.
-        throw error instanceof ClaudeCodeFailure
-          ? error
-          : new ClaudeCodeFailure(facts, thrown(error))
+        throw error instanceof ClaudeCodeFailure ? error : new ClaudeCodeFailure(facts, thrown(error))
       }
     },
     collectOutput: () => [],

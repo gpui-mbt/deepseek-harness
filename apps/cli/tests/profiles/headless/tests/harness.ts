@@ -23,16 +23,18 @@ import type { BasicCompactionConfig } from '@deepseek-ai/dsh-compaction-basic'
  * file's tests.
  */
 
-export const SYSTEM_PROMPT = 'You are a coding agent. Use bash for file operations '
-  + 'with cat/grep/heredocs; check [exit code: N] markers, '
-  + 'and report results briefly.'
+export const SYSTEM_PROMPT =
+  'You are a coding agent. Use bash for file operations ' +
+  'with cat/grep/heredocs; check [exit code: N] markers, ' +
+  'and report results briefly.'
 
 /** System prompt for the todo_write e2e: nudges the model to plan with the tool. */
-export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, '
-  + 'use the todo_write tool to track a task list: send the WHOLE list each call, '
-  + 'mark every task being actively worked on in_progress (several at once when '
-  + 'work runs in parallel, at least one while work remains), and mark a task '
-  + 'completed as soon as it is done.'
+export const TODO_SYSTEM_PROMPT =
+  'You are a coding agent. For multi-step work, ' +
+  'use the todo_write tool to track a task list: send the WHOLE list each call, ' +
+  'mark every task being actively worked on in_progress (several at once when ' +
+  'work runs in parallel, at least one while work remains), and mark a task ' +
+  'completed as soon as it is done.'
 
 /** Options for {@link codingHarness}. */
 export interface CodingHarnessOptions {
@@ -71,13 +73,17 @@ export async function codingHarness(workdir: string, options: CodingHarnessOptio
   })
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(LlmDeepSeek, {
-    ...options.modelContextWindow === undefined && options.modelMaxTokens === undefined ? {} : {
-      models: [{
-        id: 'deepseek-v4-flash',
-        ...options.modelContextWindow === undefined ? {} : { contextWindow: options.modelContextWindow },
-        ...options.modelMaxTokens === undefined ? {} : { maxTokens: options.modelMaxTokens },
-      }],
-    },
+    ...(options.modelContextWindow === undefined && options.modelMaxTokens === undefined
+      ? {}
+      : {
+          models: [
+            {
+              id: 'deepseek-v4-flash',
+              ...(options.modelContextWindow === undefined ? {} : { contextWindow: options.modelContextWindow }),
+              ...(options.modelMaxTokens === undefined ? {} : { maxTokens: options.modelMaxTokens }),
+            },
+          ],
+        }),
   })
   await ctx.plugin(LocalSubprocessRuntime)
   await ctx.plugin(BashEnvPlugin)
@@ -101,7 +107,7 @@ export async function codingHarness(workdir: string, options: CodingHarnessOptio
 }
 
 export function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()

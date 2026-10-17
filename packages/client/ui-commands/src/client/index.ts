@@ -27,8 +27,17 @@ export { filterOptions, PopupSelectController } from './popup.ts'
 export type { PopupSelectDeps, PopupSpec, PopupState, TokenSegment } from './popup.ts'
 export type { PopupSelectInjected, PopupSelectViewProps } from './PopupSelectView.tsx'
 export type {
-  ActionSpec, CommandContribution, CommandDecoration, CommandUiContract, CommandUiSpec, PopupSearchLabels, PopupSelectSpec,
-  SelectConfirmation, SelectOption, SelectOptionGroup, PopupSearchMode,
+  ActionSpec,
+  CommandContribution,
+  CommandDecoration,
+  CommandUiContract,
+  CommandUiSpec,
+  PopupSearchLabels,
+  PopupSelectSpec,
+  SelectConfirmation,
+  SelectOption,
+  SelectOptionGroup,
+  PopupSearchMode,
 } from './contract.ts'
 export type { CommandKey } from './locales.ts'
 
@@ -61,16 +70,21 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['slots', 'commandUi', 'sessions'], (scope: ClientContext) => {
     const command = scope.commandUi
     const sessions = scope.get('sessions') as ISessions
-    scope.slots.inject('conversation.input.overlay', () => scope.slots.register({
-      name: 'conversation.input.overlay',
-      id: 'command-popup',
-      order: 1,
-      locale: NS,
-      inject: (sessionId): PopupSelectInjected => {
-        const actx = sessions.scope(sessionId)
-        if (actx === undefined) throw new Error(`ui-commands: session "${String(sessionId)}" resolved no scope`)
-        return { popup: command.popupFor(actx) }
-      },
-    }, PopupSelectView))
+    scope.slots.inject('conversation.input.overlay', () =>
+      scope.slots.register(
+        {
+          name: 'conversation.input.overlay',
+          id: 'command-popup',
+          order: 1,
+          locale: NS,
+          inject: (sessionId): PopupSelectInjected => {
+            const actx = sessions.scope(sessionId)
+            if (actx === undefined) throw new Error(`ui-commands: session "${String(sessionId)}" resolved no scope`)
+            return { popup: command.popupFor(actx) }
+          },
+        },
+        PopupSelectView,
+      ),
+    )
   })
 }

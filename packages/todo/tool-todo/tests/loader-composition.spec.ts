@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -34,9 +34,17 @@ async function agent(ctx: Context): Promise<Agent> {
   const id = SessionId('todo-loader-agent')
   const session = Session.create(id)
   const value: Agent = {
-    id, options: {}, session, inbox: unsupportedInbox(),
-    status: 'idle', ctx: scope.ctx,
-    followup: () => {}, steer: () => {}, inject: () => {}, send: () => {}, cancel() {},
+    id,
+    options: {},
+    session,
+    inbox: unsupportedInbox(),
+    status: 'idle',
+    ctx: scope.ctx,
+    followup: () => {},
+    steer: () => {},
+    inject: () => {},
+    send: () => {},
+    cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -45,7 +53,10 @@ async function agent(ctx: Context): Promise<Agent> {
 }
 
 function resultText(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 /**
@@ -56,15 +67,18 @@ function resultText(result: { content: { type: string; text?: string }[] }): str
 async function boot(configLines: readonly string[]): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-todo-loader-'))
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [
-    "- name: '@deepseek-ai/dsh-agent'",
-    "- name: '@deepseek-ai/dsh-system-prompt'",
-    "- name: '@deepseek-ai/dsh-tools'",
-    "- name: '@deepseek-ai/dsh-session-projection'",
-    "- name: '@deepseek-ai/dsh-tool-todo'",
-    ...configLines.length > 0 ? ['  config:', ...configLines] : [],
-    '',
-  ].join('\n'))
+  await writeFile(
+    configPath,
+    [
+      "- name: '@deepseek-ai/dsh-agent'",
+      "- name: '@deepseek-ai/dsh-system-prompt'",
+      "- name: '@deepseek-ai/dsh-tools'",
+      "- name: '@deepseek-ai/dsh-session-projection'",
+      "- name: '@deepseek-ai/dsh-tool-todo'",
+      ...(configLines.length > 0 ? ['  config:', ...configLines] : []),
+      '',
+    ].join('\n'),
+  )
 
   const ctx = new Context()
   context = ctx
@@ -136,9 +150,13 @@ describe('tool-todo real Loader composition through cordis.yml', () => {
   it.each([
     { label: 'is omitted', configLines: [], failure: '$.allowParallelInProgress missing required value' },
     { label: 'is not boolean', configLines: ['    allowParallelInProgress: "no"'], failure: '$.allowParallelInProgress expected boolean' },
-  ])('fails loading when allowParallelInProgress $label', async ({ configLines, failure }) => {
-    // The policy is self-contained, so misconfiguration fails at load: the
-    // entry's apply rejects and boot never reaches a running tool.
-    await expect(boot(configLines)).rejects.toThrow(failure)
-  }, 30_000)
+  ])(
+    'fails loading when allowParallelInProgress $label',
+    async ({ configLines, failure }) => {
+      // The policy is self-contained, so misconfiguration fails at load: the
+      // entry's apply rejects and boot never reaches a running tool.
+      await expect(boot(configLines)).rejects.toThrow(failure)
+    },
+    30_000,
+  )
 })

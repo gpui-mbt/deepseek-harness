@@ -105,8 +105,13 @@ const CRON_ELEMENT = /^(?<start>\d+)(?:-(?<end>\d+))?(?:\/(?<step>\d+))?$/
 
 /** ISO weekday dictionary keys indexed by ISO weekday minus one. */
 const CRON_WEEKDAY_KEYS = [
-  'frequency.weekday.1', 'frequency.weekday.2', 'frequency.weekday.3', 'frequency.weekday.4',
-  'frequency.weekday.5', 'frequency.weekday.6', 'frequency.weekday.7',
+  'frequency.weekday.1',
+  'frequency.weekday.2',
+  'frequency.weekday.3',
+  'frequency.weekday.4',
+  'frequency.weekday.5',
+  'frequency.weekday.6',
+  'frequency.weekday.7',
 ] as const satisfies readonly CronWeekdayKey[]
 
 /** Most clock times the description spells out before it names minutes and hours instead. */
@@ -239,18 +244,18 @@ export function parseCronExpression(expression: string): ParsedCron | undefined 
     return values === undefined
       ? undefined
       : (() => {
-        // The star flag reads the field text's first character, exactly as the
-        // Host's `parseCronField` does; full coverage is a separate fact, because
-        // `*/2` is a star field that still restricts and `1-31` covers everything
-        // without being a star field.
-        const starred = field.startsWith('*')
-        const full = values.length === spec.count
-        return { values, starred, full, unrestricted: starred && full }
-      })()
+          // The star flag reads the field text's first character, exactly as the
+          // Host's `parseCronField` does; full coverage is a separate fact, because
+          // `*/2` is a star field that still restricts and `1-31` covers everything
+          // without being a star field.
+          const starred = field.startsWith('*')
+          const full = values.length === spec.count
+          return { values, starred, full, unrestricted: starred && full }
+        })()
   })
   const [minutes, hours, daysOfMonth, months, daysOfWeek] = parsed
-  if (minutes === undefined || hours === undefined || daysOfMonth === undefined
-    || months === undefined || daysOfWeek === undefined) return undefined
+  if (minutes === undefined || hours === undefined || daysOfMonth === undefined || months === undefined || daysOfWeek === undefined)
+    return undefined
   return { minutes, hours, daysOfMonth, months, daysOfWeek }
 }
 
@@ -297,12 +302,15 @@ function numberList(values: readonly number[], t: CronDescriptionTranslator): st
  */
 function cronWeekdayText(values: readonly number[], t: CronDescriptionTranslator): string {
   const join = t('cron.list.join')
-  const name = (day: number): string =>
-    t('cron.weekday.name', { weekday: t(cronElementAt(CRON_WEEKDAY_KEYS, day - 1)) })
+  const name = (day: number): string => t('cron.weekday.name', { weekday: t(cronElementAt(CRON_WEEKDAY_KEYS, day - 1)) })
   const iso = values.map(value => (value === 0 ? 7 : value)).sort((left, right) => left - right)
-  return consecutiveRuns(iso).map(run => run.length >= 3
-    ? t('cron.weekday.range', { from: name(cronElementAt(run, 0)), to: name(cronElementAt(run, run.length - 1)) })
-    : run.map(name).join(join)).join(join)
+  return consecutiveRuns(iso)
+    .map(run =>
+      run.length >= 3
+        ? t('cron.weekday.range', { from: name(cronElementAt(run, 0)), to: name(cronElementAt(run, run.length - 1)) })
+        : run.map(name).join(join),
+    )
+    .join(join)
 }
 
 /**
@@ -326,11 +334,7 @@ function cronMonthSuffix(values: readonly number[], locale: string, t: CronDescr
  * @param t - cron translations.
  * @returns whether the phrase states no day restriction at all, and the localized day phrase.
  */
-function cronDayText(
-  parsed: ParsedCron,
-  locale: string,
-  t: CronDescriptionTranslator,
-): { everyDay: boolean; text: string } {
+function cronDayText(parsed: ParsedCron, locale: string, t: CronDescriptionTranslator): { everyDay: boolean; text: string } {
   const months = cronMonthSuffix(parsed.months.values, locale, t)
   const weekdays = cronWeekdayText(parsed.daysOfWeek.values, t)
   const days = numberList(parsed.daysOfMonth.values, t)
@@ -359,8 +363,7 @@ function cronDayText(
  */
 function cronHourText(values: readonly number[], t: CronDescriptionTranslator): string {
   const hours = values.map(twoDigits)
-  const contiguous = hours.length >= 2
-    && cronElementAt(values, values.length - 1) - cronElementAt(values, 0) === values.length - 1
+  const contiguous = hours.length >= 2 && cronElementAt(values, values.length - 1) - cronElementAt(values, 0) === values.length - 1
   return contiguous
     ? t('cron.hours.range', { from: cronElementAt(hours, 0), to: cronElementAt(hours, hours.length - 1) })
     : t('cron.hours.list', { hours: hours.join(t('cron.list.join')) })
@@ -395,10 +398,7 @@ function cronFullRangeStep(values: readonly number[], min: number, max: number):
  * @returns whether the phrase states the repeating interval itself, its standalone
  * text, and its text after a day phrase.
  */
-function cronTimeText(
-  parsed: ParsedCron,
-  t: CronDescriptionTranslator,
-): { interval: boolean; text: string; joined: string } {
+function cronTimeText(parsed: ParsedCron, t: CronDescriptionTranslator): { interval: boolean; text: string; joined: string } {
   const step = parsed.minutes.unrestricted ? undefined : cronFullRangeStep(parsed.minutes.values, 0, 59)
   if (parsed.hours.unrestricted) {
     if (parsed.minutes.unrestricted) {
@@ -439,19 +439,18 @@ function cronTimeText(
   // A zero minute over an evenly stepped hour set repeats whole hours: `0 */2 * * *`
   // reads as `Every 2 hours` rather than naming its zero minute.
   const hourStep = cronFullRangeStep(parsed.hours.values, 0, 23)
-  if (parsed.minutes.values.length === 1 && cronElementAt(parsed.minutes.values, 0) === 0
-    && hourStep !== undefined && hourStep >= 2) {
+  if (parsed.minutes.values.length === 1 && cronElementAt(parsed.minutes.values, 0) === 0 && hourStep !== undefined && hourStep >= 2) {
     return {
       interval: true,
       text: t('cron.time.everyNHours', { count: hourStep }),
       joined: t('cron.time.joinedEveryNHours', { count: hourStep }),
     }
   }
-  const times = parsed.hours.values.flatMap(hour =>
-    parsed.minutes.values.map(minute => `${twoDigits(hour)}:${twoDigits(minute)}`))
-  const text = times.length <= CRON_TIME_LIST_LIMIT
-    ? t('cron.time.at', { times: times.join(t('cron.list.join')) })
-    : t('cron.time.hoursAt', { hours, minutes: numberList(parsed.minutes.values, t) })
+  const times = parsed.hours.values.flatMap(hour => parsed.minutes.values.map(minute => `${twoDigits(hour)}:${twoDigits(minute)}`))
+  const text =
+    times.length <= CRON_TIME_LIST_LIMIT
+      ? t('cron.time.at', { times: times.join(t('cron.list.join')) })
+      : t('cron.time.hoursAt', { hours, minutes: numberList(parsed.minutes.values, t) })
   return { interval: false, text, joined: text }
 }
 
@@ -471,47 +470,47 @@ export function cronPreview(parsed: ParsedCron, t: CronDescriptionTranslator, lo
 /** One structured cron shape the Run time card's builder edits as rows. */
 export type CronBuilderState =
   | {
-    /** Runs every `step` minutes of every hour and day. */
-    readonly kind: 'minutely'
-    /** Whole minutes between runs, 1 through 59. */
-    readonly step: number
-  }
+      /** Runs every `step` minutes of every hour and day. */
+      readonly kind: 'minutely'
+      /** Whole minutes between runs, 1 through 59. */
+      readonly step: number
+    }
   | {
-    /** Runs at one minute of every `step` hours, every day. */
-    readonly kind: 'hourly'
-    /** Whole hours between runs, 1 through 23. */
-    readonly step: number
-    /** Minute of each matched hour, 0 through 59. */
-    readonly minute: number
-  }
+      /** Runs at one minute of every `step` hours, every day. */
+      readonly kind: 'hourly'
+      /** Whole hours between runs, 1 through 23. */
+      readonly step: number
+      /** Minute of each matched hour, 0 through 59. */
+      readonly minute: number
+    }
   | {
-    /** Runs once a day at one wall-clock time. */
-    readonly kind: 'daily'
-    /** Hour of that time, 0 through 23. */
-    readonly hour: number
-    /** Minute of that hour, 0 through 59. */
-    readonly minute: number
-  }
+      /** Runs once a day at one wall-clock time. */
+      readonly kind: 'daily'
+      /** Hour of that time, 0 through 23. */
+      readonly hour: number
+      /** Minute of that hour, 0 through 59. */
+      readonly minute: number
+    }
   | {
-    /** Runs on chosen weekdays at one wall-clock time. */
-    readonly kind: 'weekly'
-    /** ISO weekdays, Monday 1 through Sunday 7; never empty. */
-    readonly weekdays: readonly number[]
-    /** Hour of that time, 0 through 23. */
-    readonly hour: number
-    /** Minute of that hour, 0 through 59. */
-    readonly minute: number
-  }
+      /** Runs on chosen weekdays at one wall-clock time. */
+      readonly kind: 'weekly'
+      /** ISO weekdays, Monday 1 through Sunday 7; never empty. */
+      readonly weekdays: readonly number[]
+      /** Hour of that time, 0 through 23. */
+      readonly hour: number
+      /** Minute of that hour, 0 through 59. */
+      readonly minute: number
+    }
   | {
-    /** Runs on chosen days of every month at one wall-clock time. */
-    readonly kind: 'monthly'
-    /** Days of the month, 1 through 31, ascending; never empty. */
-    readonly days: readonly number[]
-    /** Hour of that time, 0 through 23. */
-    readonly hour: number
-    /** Minute of that hour, 0 through 59. */
-    readonly minute: number
-  }
+      /** Runs on chosen days of every month at one wall-clock time. */
+      readonly kind: 'monthly'
+      /** Days of the month, 1 through 31, ascending; never empty. */
+      readonly days: readonly number[]
+      /** Hour of that time, 0 through 23. */
+      readonly hour: number
+      /** Minute of that hour, 0 through 59. */
+      readonly minute: number
+    }
 
 /**
  * Recognize the structured shape one parsed expression states, when one does.
@@ -546,9 +545,7 @@ export function recognizeCronShape(parsed: ParsedCron): CronBuilderState | undef
     return { kind: 'monthly', days: parsed.daysOfMonth.values, hour, minute }
   }
   if (!parsed.daysOfMonth.unrestricted || minute === undefined || hour === undefined) return undefined
-  const weekdays = parsed.daysOfWeek.values
-    .map(value => (value === 0 ? 7 : value))
-    .sort((left, right) => left - right)
+  const weekdays = parsed.daysOfWeek.values.map(value => (value === 0 ? 7 : value)).sort((left, right) => left - right)
   return { kind: 'weekly', weekdays, hour, minute }
 }
 
@@ -583,14 +580,18 @@ function cronWeekdayField(weekdays: readonly number[]): string {
  */
 export function cronShapeExpression(state: CronBuilderState): string {
   switch (state.kind) {
-    case 'minutely': return state.step === 1 ? '* * * * *' : `*/${state.step} * * * *`
-    case 'hourly': return state.step === 1
-      ? `${state.minute} * * * *`
-      : `${state.minute} */${state.step} * * *`
-    case 'daily': return `${state.minute} ${state.hour} * * *`
-    case 'weekly': return `${state.minute} ${state.hour} * * ${cronWeekdayField(state.weekdays)}`
-    case 'monthly': return `${state.minute} ${state.hour} ${cronRunField([...new Set(state.days)].sort((left, right) => left - right))} * *`
+    case 'minutely':
+      return state.step === 1 ? '* * * * *' : `*/${state.step} * * * *`
+    case 'hourly':
+      return state.step === 1 ? `${state.minute} * * * *` : `${state.minute} */${state.step} * * *`
+    case 'daily':
+      return `${state.minute} ${state.hour} * * *`
+    case 'weekly':
+      return `${state.minute} ${state.hour} * * ${cronWeekdayField(state.weekdays)}`
+    case 'monthly':
+      return `${state.minute} ${state.hour} ${cronRunField([...new Set(state.days)].sort((left, right) => left - right))} * *`
     /* v8 ignore next -- every CronBuilderState kind has a case above. */
-    default: return assertNever(state)
+    default:
+      return assertNever(state)
   }
 }

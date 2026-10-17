@@ -12,8 +12,11 @@ export async function prepareInstalledUpdateBootstrap(manifest: string): Promise
   const run = await readInstalledUpdateRun(manifest)
   const directory = join(run.root, 'bootstrap')
   await mkdir(directory)
-  await copyFile(join(import.meta.dirname, 'installed-update-identity.mjs'),
-    join(directory, 'installed-update-identity.mjs'), constants.COPYFILE_EXCL)
+  await copyFile(
+    join(import.meta.dirname, 'installed-update-identity.mjs'),
+    join(directory, 'installed-update-identity.mjs'),
+    constants.COPYFILE_EXCL,
+  )
   const entry = `import { app } from 'electron'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

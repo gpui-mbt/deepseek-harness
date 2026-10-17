@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS } from './experimental-package-policy.ts'
 import { verifyDefaultProductIsolation } from './verify-default-product-isolation.ts'
 import { writeFixtureFile as write } from './fixture-file.ts'
@@ -37,8 +37,11 @@ function fixture(): string {
   write(root, patch, [{ insert: [{ name: core }] }])
   write(root, preset, [{ insert: [{ name: '@deepseek-ai/dsh-agent-preset', config: { id: 'standard', plugins: [{ name: core }] } }] }])
   write(root, 'packages/preset/agent-preset/package.json', { name: '@deepseek-ai/dsh-agent-preset' })
-  write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n`
-    + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`)
+  write(
+    root,
+    profile,
+    `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n` + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`,
+  )
   write(root, 'packages/experimental/prototype/package.json', { name: experimental })
   return root
 }
@@ -50,19 +53,22 @@ afterEach(() => {
 describe('default product isolation', () => {
   describe.each(Object.entries(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS))('retained experimental identity %s', (directory, name) => {
     it.each(['direct dependency', 'transitive dependency', 'npm alias', 'value import', 'subpath import', 'profile row', 'preset row'])(
-      'rejects default product use through a %s', (route) => {
+      'rejects default product use through a %s',
+      route => {
         const root = fixture()
         write(root, `${directory}/package.json`, { name })
         if (route === 'direct dependency') manifest(root, 'apps/cli/package.json', { dependencies: { [name]: 'workspace:*' } })
-        if (route === 'transitive dependency') manifest(root, 'packages/core/core/package.json', { dependencies: { [name]: 'workspace:*' } })
+        if (route === 'transitive dependency')
+          manifest(root, 'packages/core/core/package.json', { dependencies: { [name]: 'workspace:*' } })
         if (route === 'npm alias') manifest(root, 'packages/core/core/package.json', { dependencies: { alias: `npm:${name}@1.0.0` } })
         if (route === 'value import') write(root, 'apps/cli/src/bin.ts', `import '${name}'\n`)
         if (route === 'subpath import') write(root, 'apps/cli/src/bin.ts', `import '${name}/feature'\n`)
         if (route === 'profile row') write(root, patch, [{ insert: [{ name }] }])
-        if (route === 'preset row') write(root, preset, [{ insert: [{ name: '@deepseek-ai/dsh-agent-preset', config: { id: 'standard', plugins: [{ name }] } }] }])
-        expect(verifyDefaultProductIsolation(root).failures).toEqual(expect.arrayContaining([
-          expect.stringMatching(new RegExp(`${name}.*default product must not include experimental packages`)),
-        ]))
+        if (route === 'preset row')
+          write(root, preset, [{ insert: [{ name: '@deepseek-ai/dsh-agent-preset', config: { id: 'standard', plugins: [{ name }] } }] }])
+        expect(verifyDefaultProductIsolation(root).failures).toEqual(
+          expect.arrayContaining([expect.stringMatching(new RegExp(`${name}.*default product must not include experimental packages`))]),
+        )
       },
     )
 
@@ -74,26 +80,22 @@ describe('default product isolation', () => {
     })
   })
 
-  it.each(['@deepseek-ai/libreoffice-kit'])(
-    'accepts independently published %s but rejects unknown workspace packages', (name) => {
-      const root = fixture()
-      const file = 'packages/core/core/package.json'
-      write(root, 'packages/core/core/src/index.ts', `import '${name}'\n`)
-      manifest(root, file, { dependencies: { [name]: '0.0.1' } })
-      expect(verifyDefaultProductIsolation(root).failures).toEqual([])
-      manifest(root, file, { dependencies: { [`${name}-unknown`]: '0.0.1' } })
-      expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain('unknown workspace package')
-    },
-  )
+  it.each(['@deepseek-ai/libreoffice-kit'])('accepts independently published %s but rejects unknown workspace packages', name => {
+    const root = fixture()
+    const file = 'packages/core/core/package.json'
+    write(root, 'packages/core/core/src/index.ts', `import '${name}'\n`)
+    manifest(root, file, { dependencies: { [name]: '0.0.1' } })
+    expect(verifyDefaultProductIsolation(root).failures).toEqual([])
+    manifest(root, file, { dependencies: { [`${name}-unknown`]: '0.0.1' } })
+    expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain('unknown workspace package')
+  })
 
-  it.each(['wasm', 'darwin-arm64', 'darwin-x64', 'win32-arm64', 'win32-x64'])(
-    'rejects a direct dependency on the %s engine', (engine) => {
-      const root = fixture()
-      const name = `@deepseek-ai/libreoffice-kit-${engine}`
-      manifest(root, 'packages/core/core/package.json', { dependencies: { [name]: '0.0.1' } })
-      expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`unknown workspace package ${name}`)
-    },
-  )
+  it.each(['wasm', 'darwin-arm64', 'darwin-x64', 'win32-arm64', 'win32-x64'])('rejects a direct dependency on the %s engine', engine => {
+    const root = fixture()
+    const name = `@deepseek-ai/libreoffice-kit-${engine}`
+    manifest(root, 'packages/core/core/package.json', { dependencies: { [name]: '0.0.1' } })
+    expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`unknown workspace package ${name}`)
+  })
 
   it('allows development dependencies, type imports, and separate experimental preview entries', () => {
     const root = fixture()
@@ -113,61 +115,79 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures).toEqual([])
   })
 
-  it.each([true, false])('ships an optional bundle switched off with legacy icon=%s', (legacy) => {
+  it.each([true, false])('ships an optional bundle switched off with legacy icon=%s', legacy => {
     const root = fixture()
     const layer = '@deepseek-ai/dsh-experimental-layer'
     write(root, 'packages/experimental/layer/package.json', {
-      name: layer, ...legacy ? { icon: './icon.svg' } : {},
-      exports: { ...legacy ? {} : { './icon': './icon.svg' }, './locale/*.json': './locale/*.json' },
-      dependencies: { [experimental]: 'workspace:^' }, dsh: { bundle: { patch: './cordis.patch.yml' } },
+      name: layer,
+      ...(legacy ? { icon: './icon.svg' } : {}),
+      exports: { ...(legacy ? {} : { './icon': './icon.svg' }), './locale/*.json': './locale/*.json' },
+      dependencies: { [experimental]: 'workspace:^' },
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
     })
     write(root, 'packages/experimental/layer/cordis.patch.yml', [{ insert: [{ name: experimental }] }])
     manifest(root, 'apps/cli/package.json', { dependencies: { [core]: 'workspace:^', [layer]: 'workspace:^' } })
-    write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n`
-      + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`
-      + `export const OPTIONAL_BUNDLES = ['${layer}']\n`)
+    write(
+      root,
+      profile,
+      `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n` +
+        `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n` +
+        `export const OPTIONAL_BUNDLES = ['${layer}']\n`,
+    )
     expect(verifyDefaultProductIsolation(root)).toMatchObject({ failures: [], packageCount: 6 })
 
     // The exception covers the dependency edge alone: a runtime import or a default template still names the product.
     write(root, 'apps/cli/src/bin.ts', `import '${layer}'\n`)
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`apps/cli/src/bin.ts -> ${layer}`)
     write(root, 'apps/cli/src/bin.ts', 'export {}\n')
-    write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}', '${layer}'] } }\n`
-      + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`
-      + `export const OPTIONAL_BUNDLES = ['${layer}']\n`)
+    write(
+      root,
+      profile,
+      `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}', '${layer}'] } }\n` +
+        `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n` +
+        `export const OPTIONAL_BUNDLES = ['${layer}']\n`,
+    )
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`optional bundle ${layer} must not be a default bundle`)
   })
 
-  it.each(['dependencies', 'source', 'patch'])(
-    'checks a nonexperimental optional bundle for experimental %s', (kind) => {
-      const root = fixture()
-      const layer = '@deepseek-ai/dsh-optional-layer'
-      write(root, 'packages/bundle/optional-layer/package.json', {
-        name: layer, icon: './icon.svg', exports: { './locale/*.json': './locale/*.json' },
-        dsh: { bundle: { patch: './cordis.patch.yml' } },
-      })
-      write(root, 'packages/bundle/optional-layer/src/index.ts', 'export {}')
-      write(root, 'packages/bundle/optional-layer/cordis.patch.yml', [])
-      manifest(root, 'apps/cli/package.json', { dependencies: { [core]: 'workspace:*', [layer]: 'workspace:*' } })
-      write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n`
-        + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\nexport const OPTIONAL_BUNDLES = ['${layer}']\n`)
-      expect(verifyDefaultProductIsolation(root).failures).toEqual([])
-      if (kind === 'dependencies') {
-        manifest(root, 'packages/bundle/optional-layer/package.json', { dependencies: { [experimental]: 'workspace:*' } })
-      } else if (kind === 'source') {
-        write(root, 'packages/bundle/optional-layer/src/index.ts', `import '${experimental}'`)
-      } else {
-        write(root, 'packages/bundle/optional-layer/cordis.patch.yml', [{ preset: 'preset-standard', insert: [{ name: experimental }] }])
-      }
-      expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain('must not include experimental packages')
-    },
-  )
+  it.each(['dependencies', 'source', 'patch'])('checks a nonexperimental optional bundle for experimental %s', kind => {
+    const root = fixture()
+    const layer = '@deepseek-ai/dsh-optional-layer'
+    write(root, 'packages/bundle/optional-layer/package.json', {
+      name: layer,
+      icon: './icon.svg',
+      exports: { './locale/*.json': './locale/*.json' },
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    })
+    write(root, 'packages/bundle/optional-layer/src/index.ts', 'export {}')
+    write(root, 'packages/bundle/optional-layer/cordis.patch.yml', [])
+    manifest(root, 'apps/cli/package.json', { dependencies: { [core]: 'workspace:*', [layer]: 'workspace:*' } })
+    write(
+      root,
+      profile,
+      `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n` +
+        `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\nexport const OPTIONAL_BUNDLES = ['${layer}']\n`,
+    )
+    expect(verifyDefaultProductIsolation(root).failures).toEqual([])
+    if (kind === 'dependencies') {
+      manifest(root, 'packages/bundle/optional-layer/package.json', { dependencies: { [experimental]: 'workspace:*' } })
+    } else if (kind === 'source') {
+      write(root, 'packages/bundle/optional-layer/src/index.ts', `import '${experimental}'`)
+    } else {
+      write(root, 'packages/bundle/optional-layer/cordis.patch.yml', [{ preset: 'preset-standard', insert: [{ name: experimental }] }])
+    }
+    expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain('must not include experimental packages')
+  })
 
   it('requires each optional bundle to be a runtime dependency that declares a bundle patch, an icon, and locale metadata', () => {
     const root = fixture()
-    write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n`
-      + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`
-      + `export const OPTIONAL_BUNDLES = ['${experimental}']\n`)
+    write(
+      root,
+      profile,
+      `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n` +
+        `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n` +
+        `export const OPTIONAL_BUNDLES = ['${experimental}']\n`,
+    )
     const failures = verifyDefaultProductIsolation(root).failures.join('\n')
     expect(failures).toContain(`optional bundle ${experimental} must be a runtime dependency of apps/cli`)
     expect(failures).toContain(`optional bundle ${experimental} must declare dsh.bundle.patch`)
@@ -175,27 +195,29 @@ describe('default product isolation', () => {
     expect(failures).toContain(`optional bundle ${experimental} must export ./locale/*.json display metadata`)
 
     // An experimental runtime dependency the list does not name is still a product requirement.
-    write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n`
-      + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`)
+    write(
+      root,
+      profile,
+      `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n` + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`,
+    )
     manifest(root, 'apps/cli/package.json', { dependencies: { [core]: 'workspace:^', [experimental]: 'workspace:^' } })
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`@deepseek-ai/dsh dependencies -> ${experimental}`)
   })
 
-  it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
-    'rejects transitive experimental %s',
-    (section) => {
-      const root = fixture()
-      manifest(root, 'packages/core/core/package.json', { [section]: { [experimental]: 'workspace:^' } })
+  it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])('rejects transitive experimental %s', section => {
+    const root = fixture()
+    manifest(root, 'packages/core/core/package.json', { [section]: { [experimental]: 'workspace:^' } })
 
-      expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`${core} ${section} -> ${experimental}`)
-    },
-  )
+    expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`${core} ${section} -> ${experimental}`)
+  })
 
   it.each([
-    `npm:${experimental}@1.0.0`, `workspace:${experimental}@*`,
-    'file:../../experimental/prototype', 'link:../../experimental/prototype',
+    `npm:${experimental}@1.0.0`,
+    `workspace:${experimental}@*`,
+    'file:../../experimental/prototype',
+    'link:../../experimental/prototype',
     'workspace:../../experimental/prototype',
-  ])('rejects a safe-looking dependency alias targeting %s', (range) => {
+  ])('rejects a safe-looking dependency alias targeting %s', range => {
     const root = fixture()
     manifest(root, 'packages/core/core/package.json', { dependencies: { safe: range } })
 
@@ -215,8 +237,11 @@ describe('default product isolation', () => {
 
   it('follows private application intermediaries and terminates cycles', () => {
     const root = fixture()
-    write(root, 'apps/desktop/package.json', { name: '@fixture/desktop', private: true,
-      dependencies: { [core]: '*', [experimental]: '*' } })
+    write(root, 'apps/desktop/package.json', {
+      name: '@fixture/desktop',
+      private: true,
+      dependencies: { [core]: '*', [experimental]: '*' },
+    })
     manifest(root, 'packages/core/core/package.json', { peerDependencies: { '@fixture/desktop': '*' } })
 
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
@@ -227,8 +252,8 @@ describe('default product isolation', () => {
     `export * from '${experimental}'`,
     `await import('${experimental}/client')`,
     `const x = require('${experimental}')`,
-    'import \'./../../../packages/experimental/prototype/src/index.ts\'',
-  ])('rejects runtime source reference %s', (source) => {
+    "import './../../../packages/experimental/prototype/src/index.ts'",
+  ])('rejects runtime source reference %s', source => {
     const root = fixture()
     write(root, 'apps/cli/src/bin.ts', source)
     write(root, 'packages/experimental/prototype/src/index.ts', 'export {}\n')
@@ -236,22 +261,23 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
-  it.each([
-    "import './preview.ts'", "import './preview.ts?worker'", "new Worker(new URL('./preview.ts', import.meta.url))",
-  ])('rejects default Web entry reaching preview via %s', (source) => {
-    const root = fixture()
-    write(root, 'apps/web/src/main.ts', source)
-    write(root, 'apps/web/src/preview.ts', `import '${experimental}'\n`)
+  it.each(["import './preview.ts'", "import './preview.ts?worker'", "new Worker(new URL('./preview.ts', import.meta.url))"])(
+    'rejects default Web entry reaching preview via %s',
+    source => {
+      const root = fixture()
+      write(root, 'apps/web/src/main.ts', source)
+      write(root, 'apps/web/src/preview.ts', `import '${experimental}'\n`)
 
-    expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
-  })
+      expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
+    },
+  )
 
   it.each([
     "import '/src/preview.ts'",
     "export * from '/src/preview.ts'",
     "await import('/src/preview.ts')",
     "new Worker(new URL('/src/preview.ts', import.meta.url))",
-  ])('follows Web-root runtime reference %s', (source) => {
+  ])('follows Web-root runtime reference %s', source => {
     const root = fixture()
     write(root, 'apps/web/src/main.ts', source)
     write(root, 'apps/web/src/preview.ts', `import '${experimental}'\n`)
@@ -267,7 +293,7 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures).toEqual([])
   })
 
-  it.each(['.js', '.jsx', '.mjs', '.ts', '.tsx', '.mts'])('follows extensionless Web imports to %s in a dotted checkout', (extension) => {
+  it.each(['.js', '.jsx', '.mjs', '.ts', '.tsx', '.mts'])('follows extensionless Web imports to %s in a dotted checkout', extension => {
     const root = fixture()
     write(root, 'apps/web/src/main.ts', "import './preview'\n")
     write(root, `apps/web/src/preview${extension}`, `import '${experimental}'\n`)
@@ -275,7 +301,7 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
-  it.each(['.js', '.jsx', '.mjs'])('follows Web directory imports to index%s', (extension) => {
+  it.each(['.js', '.jsx', '.mjs'])('follows Web directory imports to index%s', extension => {
     const root = fixture()
     write(root, 'apps/web/src/main.ts', "import './preview'\n")
     write(root, `apps/web/src/preview/index${extension}`, `import '${experimental}'\n`)
@@ -283,7 +309,10 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
-  it.each([['.mjs', '.mts'], ['.cjs', '.cts']])('follows %s runtime requests to their %s source', (request, source) => {
+  it.each([
+    ['.mjs', '.mts'],
+    ['.cjs', '.cts'],
+  ])('follows %s runtime requests to their %s source', (request, source) => {
     const root = fixture()
     write(root, 'apps/web/src/main.ts', `import './preview${request}'\n`)
     write(root, `apps/web/src/preview${source}`, `import '${experimental}'\n`)
@@ -308,13 +337,15 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
-  it.each([
-    [{ name: experimental, disabled: true }],
-    [{ group: true, config: [{ name: experimental }] }],
-    [{ insert: [{ name: experimental }] }],
-    [{ name: '@deepseek-ai/cordis-plugin-group', config: [{ name: experimental }] }],
-    [{ name: '@deepseek-ai/cordis-plugin-include', config: { patches: [{ insert: [{ name: experimental }] }] } }],
-  ].map(entries => ({ entries })))('rejects experimental plugin rows in $entries', ({ entries }) => {
+  it.each(
+    [
+      [{ name: experimental, disabled: true }],
+      [{ group: true, config: [{ name: experimental }] }],
+      [{ insert: [{ name: experimental }] }],
+      [{ name: '@deepseek-ai/cordis-plugin-group', config: [{ name: experimental }] }],
+      [{ name: '@deepseek-ai/cordis-plugin-include', config: { patches: [{ insert: [{ name: experimental }] }] } }],
+    ].map(entries => ({ entries })),
+  )('rejects experimental plugin rows in $entries', ({ entries }) => {
     const root = fixture()
     write(root, patch, entries)
 
@@ -330,47 +361,88 @@ describe('default product isolation', () => {
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
-  it.each([false, true])('checks Include.initial when its file exists: %s', (existing) => {
+  it.each([false, true])('checks Include.initial when its file exists: %s', existing => {
     const root = fixture()
     const included = join(root, 'included.yml')
     if (existing) write(root, 'included.yml', [{ name: core }])
-    write(root, patch, [{ insert: [{ name: 'cordis:include', config: {
-      path: pathToFileURL(included).href,
-      initial: [{ name: experimental }],
-    } }] }])
+    write(root, patch, [
+      {
+        insert: [
+          {
+            name: 'cordis:include',
+            config: {
+              path: pathToFileURL(included).href,
+              initial: [{ name: experimental }],
+            },
+          },
+        ],
+      },
+    ])
 
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
   it('accepts a missing Include file initialized with stable entries and applies its patches', () => {
     const root = fixture()
-    write(root, patch, [{ insert: [{ name: 'cordis:include', config: {
-      path: pathToFileURL(join(root, 'included.yml')).href,
-      initial: [{ id: 'feature', group: true, config: [{ name: core }] }],
-    } }] }])
+    write(root, patch, [
+      {
+        insert: [
+          {
+            name: 'cordis:include',
+            config: {
+              path: pathToFileURL(join(root, 'included.yml')).href,
+              initial: [{ id: 'feature', group: true, config: [{ name: core }] }],
+            },
+          },
+        ],
+      },
+    ])
     expect(verifyDefaultProductIsolation(root).failures).toEqual([])
-    write(root, patch, [{ insert: [{ name: 'cordis:include', config: {
-      path: pathToFileURL(join(root, 'included.yml')).href,
-      initial: [{ id: 'feature', group: true, config: [{ name: core }] }],
-      patches: [{ id: 'feature', config: [{ name: experimental }] }],
-    } }] }])
+    write(root, patch, [
+      {
+        insert: [
+          {
+            name: 'cordis:include',
+            config: {
+              path: pathToFileURL(join(root, 'included.yml')).href,
+              initial: [{ id: 'feature', group: true, config: [{ name: core }] }],
+              patches: [{ id: 'feature', config: [{ name: experimental }] }],
+            },
+          },
+        ],
+      },
+    ])
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
   it('rejects an Include.initial tree that includes its own generated file', () => {
     const root = fixture()
     const path = pathToFileURL(join(root, 'included.yml')).href
-    write(root, patch, [{ insert: [{ name: 'cordis:include', config: {
-      path, initial: [{ name: 'cordis:include', config: { path } }],
-    } }] }])
+    write(root, patch, [
+      {
+        insert: [
+          {
+            name: 'cordis:include',
+            config: {
+              path,
+              initial: [{ name: 'cordis:include', config: { path } }],
+            },
+          },
+        ],
+      },
+    ])
 
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain('cyclic Include path included.yml')
   })
 
   it('checks default profile bundle names and declared config trees', () => {
     const root = fixture()
-    write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${experimental}'] } }\n`
-      + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`)
+    write(
+      root,
+      profile,
+      `export const PROFILE_TEMPLATES = { web: { bundles: ['${experimental}'] } }\n` +
+        `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`,
+    )
     manifest(root, 'apps/cli/package.json', { dsh: { configTrees: [{ path: './config' }] } })
     write(root, 'apps/cli/config/extra.cordis.yml', [{ name: experimental }])
     const failures = verifyDefaultProductIsolation(root).failures.join('\n')
@@ -378,7 +450,7 @@ describe('default product isolation', () => {
     expect(failures).toContain('apps/cli/config/extra.cordis.yml')
   })
 
-  it.each([false, true])('rejects a declared config tree without composition files when its directory exists: %s', (existing) => {
+  it.each([false, true])('rejects a declared config tree without composition files when its directory exists: %s', existing => {
     const root = fixture()
     manifest(root, 'apps/cli/package.json', { dsh: { configTrees: [{ path: './config' }] } })
     if (existing) write(root, 'apps/cli/config/README.i18n.yaml', 'en: test\n')
@@ -408,11 +480,13 @@ describe('default product isolation', () => {
     const web = '@deepseek-ai/dsh-web-app'
     write(root, 'packages/bundle/web-app/package.json', { name: web, dsh: { bundle: { patch: './cordis.patch.yml' } } })
     write(root, patch, [{ insert: [{ id: 'feature-group', group: true, config: [{ name: core }] }] }])
-    write(root, 'packages/bundle/web-app/cordis.patch.yml', [
-      { id: 'feature-group', config: [{ name: experimental }] },
-    ])
-    write(root, profile, `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}', '${web}'] } }\n`
-      + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`)
+    write(root, 'packages/bundle/web-app/cordis.patch.yml', [{ id: 'feature-group', config: [{ name: experimental }] }])
+    write(
+      root,
+      profile,
+      `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}', '${web}'] } }\n` +
+        `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`,
+    )
 
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`${profile} -> ${experimental}`)
   })
@@ -421,10 +495,19 @@ describe('default product isolation', () => {
     const root = fixture()
     const included = join(root, 'included tree', 'cordis.yml')
     write(root, 'included tree/cordis.yml', [{ id: 'feature-group', group: true, config: [{ name: core }] }])
-    write(root, patch, [{ insert: [{ name: 'cordis:include', config: {
-      path: pathToFileURL(included).href,
-      patches: [{ id: 'feature-group', config: [{ name: experimental }] }],
-    } }] }])
+    write(root, patch, [
+      {
+        insert: [
+          {
+            name: 'cordis:include',
+            config: {
+              path: pathToFileURL(included).href,
+              patches: [{ id: 'feature-group', config: [{ name: experimental }] }],
+            },
+          },
+        ],
+      },
+    ])
 
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`included tree/cordis.yml -> ${experimental}`)
   })
@@ -466,15 +549,18 @@ describe('default product isolation', () => {
 
   it('checks inline modules alongside the default Web script', () => {
     const root = fixture()
-    write(root, 'apps/web/index.html', '<script type="module" src="/src/main.ts"></script>'
-      + `<script type="module">import '${experimental}'</script>`)
+    write(
+      root,
+      'apps/web/index.html',
+      '<script type="module" src="/src/main.ts"></script>' + `<script type="module">import '${experimental}'</script>`,
+    )
 
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(experimental)
   })
 
   it.each(['apps/cli/package.json', 'apps/web/index.html', 'python/sdk-runtime/package.json', preset])(
     'fails closed when required input %s is missing',
-    (path) => {
+    path => {
       const root = fixture()
       rmSync(join(root, path))
       expect(verifyDefaultProductIsolation(root).failures.length).toBeGreaterThan(0)
@@ -485,7 +571,7 @@ describe('default product isolation', () => {
     '',
     'export const PROFILE_TEMPLATES = {}; export const DEFAULT_PROFILE_BUNDLES = []',
     'export const PROFILE_TEMPLATES = computedProfiles(); export const DEFAULT_PROFILE_BUNDLES = []',
-  ])('rejects absent, empty, or uninspectable default profile definitions', (source) => {
+  ])('rejects absent, empty, or uninspectable default profile definitions', source => {
     const root = fixture()
     write(root, profile, source)
     expect(() => verifyDefaultProductIsolation(root)).toThrow('profile')

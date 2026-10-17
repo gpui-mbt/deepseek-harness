@@ -4,7 +4,7 @@
  * changes what the endpoint is asked for. Self-skips without a credential.
  */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
@@ -44,15 +44,20 @@ describe.skipIf(apiKey === undefined)('llm-pi-ai bundled Ollama Cloud e2e', () =
     const result = await assemble(ctx, {
       provider: 'ollama-cloud',
       model,
-      messages: [createUserMessage({
-        content: [{ type: 'text', text: 'Reply with exactly the word: pong' }],
-        source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-      })],
+      messages: [
+        createUserMessage({
+          content: [{ type: 'text', text: 'Reply with exactly the word: pong' }],
+          source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        }),
+      ],
       maxTokens: 1024,
     })
 
     expect(result.finish.kind).toBe('stop')
-    const text = result.message.content.filter(block => block.type === 'text').map(block => block.text).join('')
+    const text = result.message.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('')
     expect(text.toLowerCase()).toContain('pong')
     expect(result.message.source.kind === 'model' ? result.message.source.replayState : undefined).toMatchObject({
       response: { kind: 'pi-ai', api: 'openai-responses', provider: 'ollama-cloud', model },
@@ -66,10 +71,12 @@ describe.skipIf(apiKey === undefined)('llm-pi-ai bundled Ollama Cloud e2e', () =
     const result = await assemble(ctx, {
       provider: 'ollama-cloud',
       model,
-      messages: [createUserMessage({
-        content: [{ type: 'text', text: 'What is 17*23? Answer with the number.' }],
-        source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-      })],
+      messages: [
+        createUserMessage({
+          content: [{ type: 'text', text: 'What is 17*23? Answer with the number.' }],
+          source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        }),
+      ],
       reasoningEffort: ReasoningEffortId('max'),
       maxTokens: 2048,
     })

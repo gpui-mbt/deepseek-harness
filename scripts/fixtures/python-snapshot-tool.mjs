@@ -10,7 +10,8 @@ export function apply(ctx) {
       kind: 'deny',
       reason: 'Auto review rejected tool "snapshot_double"; its body was not executed',
       info: {
-        name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED',
+        name: 'AutoReviewDeniedError',
+        code: 'AUTO_REVIEW_DENIED',
         reason: '  transport raw\r\nreason  ',
       },
     }
@@ -23,7 +24,7 @@ export function apply(ctx) {
       schema: { type: 'number' },
       render(_args, value) {
         return [{ type: 'text', text: String(value) }]
-      }
+      },
     },
     async execute(args, exec) {
       const owner = exec.agent
@@ -40,6 +41,6 @@ export function apply(ctx) {
       })
       await ctx.jobs.wait(id, 60_000, owner.id)
       return Number(ctx.jobs.read(id, owner.id).result)
-    }
+    },
   })
 }

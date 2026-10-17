@@ -1,6 +1,6 @@
 /** Shallow object inspection preserves native values and never executes getters. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { InspectorObjectValue } from '../src/client/views/object-value.ts'
 
 it('labels opaque scalar objects without exposing enumerable internals', () => {
@@ -24,8 +24,9 @@ it('keeps byte offsets for buffers and DataViews', () => {
   const buffer = new InspectorObjectValue(bytes.buffer)
   expect(buffer.label).toBe('ArrayBuffer(4)')
   expect([...buffer.entries()]).toEqual([{ key: 'bytes', name: 'bytes', value: bytes }])
-  expect([...new InspectorObjectValue(new DataView(bytes.buffer, 1, 2)).entries()])
-    .toEqual([{ key: 'bytes', name: 'bytes', value: Uint8Array.of(20, 30) }])
+  expect([...new InspectorObjectValue(new DataView(bytes.buffer, 1, 2)).entries()]).toEqual([
+    { key: 'bytes', name: 'bytes', value: Uint8Array.of(20, 30) },
+  ])
 })
 
 it('supports null prototypes, symbol fields, accessors, and disappearing Proxy properties', () => {
@@ -47,10 +48,14 @@ it('supports null prototypes, symbol fields, accessors, and disappearing Proxy p
 })
 
 it.each([Array.from({ length: 100_000 }, (_, index) => index), new Uint8Array(100_000)])(
-  'reads only the first page of indexed values without listing all keys', (value) => {
+  'reads only the first page of indexed values without listing all keys',
+  value => {
     const keys = vi.spyOn(Reflect, 'ownKeys')
     const descriptors = vi.spyOn(Object, 'getOwnPropertyDescriptor')
-    onTestFinished(() => { keys.mockRestore(); descriptors.mockRestore() })
+    onTestFinished(() => {
+      keys.mockRestore()
+      descriptors.mockRestore()
+    })
     const entries = []
     for (const entry of new InspectorObjectValue(value).entries()) {
       entries.push(entry)
@@ -78,13 +83,16 @@ it('keeps sparse slots, custom properties, and accessors separate without execut
   expect(iterator.next().value).toMatchObject({ key: '1', absent: true })
   expect(read).not.toHaveBeenCalled()
   expect([...new InspectorObjectValue(properties.value).entries()]).toEqual([
-    { key: 'note', name: 'note', value: 'kept' }, { key: 'symbol:3', name: 'Symbol(metadata)', value: 7 },
+    { key: 'note', name: 'note', value: 'kept' },
+    { key: 'symbol:3', name: 'Symbol(metadata)', value: 7 },
   ])
 })
 
 it('uses intrinsic TypedArray length even when an own getter shadows it', () => {
   const value = Uint8Array.of(3, 4)
-  const read = vi.fn(() => { throw new Error('must not execute') })
+  const read = vi.fn(() => {
+    throw new Error('must not execute')
+  })
   Object.defineProperty(value, 'length', { get: read })
   const entries = [...new InspectorObjectValue(value).entries()]
   expect(entries.slice(1).map(entry => entry.value)).toEqual([3, 4])

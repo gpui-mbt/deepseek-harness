@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import {
   assertFixtureInventory,
   compareOrRefreshGolden,
@@ -30,10 +30,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Extract the opaque item version while keeping every surrounding wire field snapshot-owned. */
 function createdVersion(response: unknown): string {
-  if (!isRecord(response) || !isRecord(response.result) || response.result.ok !== true
-    || !isRecord(response.result.value) || response.result.value.ok !== true
-    || !isRecord(response.result.value.value)
-    || typeof response.result.value.value.version !== 'string') {
+  if (
+    !isRecord(response) ||
+    !isRecord(response.result) ||
+    response.result.ok !== true ||
+    !isRecord(response.result.value) ||
+    response.result.value.ok !== true ||
+    !isRecord(response.result.value.value) ||
+    typeof response.result.value.value.version !== 'string'
+  ) {
     throw new Error('messageFeedback.put did not return a successful versioned item')
   }
   return response.result.value.value.version
@@ -41,12 +46,16 @@ function createdVersion(response: unknown): string {
 
 /** Replace only run-owned UUID/time values; all protocol names and business fields stay exact. */
 function normalizeProtocol(exchanges: readonly ProtocolExchange[], version: string): string {
-  return JSON.stringify(exchanges, (key, value: unknown) => {
-    if (key === 'messageId' && value === MESSAGE_ID) return '{{message:2}}'
-    if ((key === 'version' || key === 'ifVersion') && value === version) return '{{version}}'
-    if ((key === 'createdAt' || key === 'updatedAt') && typeof value === 'number') return '{{timestamp}}'
-    return value
-  }, 2)
+  return JSON.stringify(
+    exchanges,
+    (key, value: unknown) => {
+      if (key === 'messageId' && value === MESSAGE_ID) return '{{message:2}}'
+      if ((key === 'version' || key === 'ifVersion') && value === version) return '{{version}}'
+      if ((key === 'createdAt' || key === 'updatedAt') && typeof value === 'number') return '{{timestamp}}'
+      return value
+    },
+    2,
+  )
 }
 
 describe('message feedback Host Remote protocol', () => {

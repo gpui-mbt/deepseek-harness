@@ -7,12 +7,7 @@
  */
 
 import { WebError } from '@deepseek-ai/dsh-web'
-import type {
-  WebSearchProvider,
-  WebSearchRequest,
-  WebSearchResult,
-  WebSearchSource,
-} from '@deepseek-ai/dsh-web'
+import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { PerplexityError, PerplexityResponse, PerplexitySearchResult } from './types.ts'
 
 /** Stable id this provider registers under. */
@@ -56,9 +51,9 @@ export interface PerplexitySearchProviderOptions {
 export function mapPerplexityResult(result: PerplexitySearchResult): WebSearchSource {
   return {
     url: result.url,
-    ...result.title != null && result.title.length > 0 ? { title: result.title } : {},
-    ...result.snippet != null && result.snippet.length > 0 ? { snippet: result.snippet } : {},
-    ...result.date != null && result.date.length > 0 ? { publishedAt: result.date } : {},
+    ...(result.title != null && result.title.length > 0 ? { title: result.title } : {}),
+    ...(result.snippet != null && result.snippet.length > 0 ? { snippet: result.snippet } : {}),
+    ...(result.date != null && result.date.length > 0 ? { publishedAt: result.date } : {}),
   }
 }
 
@@ -72,11 +67,12 @@ export function mapPerplexityResult(result: PerplexitySearchResult): WebSearchSo
  */
 export function mapPerplexityResponse(response: PerplexityResponse): WebSearchResult {
   const content = response.choices?.[0]?.message?.content
-  const sources: WebSearchSource[] = response.search_results !== undefined
-    ? response.search_results.map(mapPerplexityResult)
-    : (response.citations ?? []).map(url => ({ url }))
+  const sources: WebSearchSource[] =
+    response.search_results !== undefined
+      ? response.search_results.map(mapPerplexityResult)
+      : (response.citations ?? []).map(url => ({ url }))
   return {
-    ...content != null && content.length > 0 ? { content } : {},
+    ...(content != null && content.length > 0 ? { content } : {}),
     sources,
     truncated: false,
   }
@@ -92,9 +88,7 @@ export class PerplexitySearchProvider implements WebSearchProvider {
   // a shared base class would obscure which fields make this backend usable.
   /* jscpd:ignore-start */
   available(): boolean {
-    return this.options.apiKey.length > 0
-      && URL.canParse(this.options.baseURL)
-      && isPositiveInteger(this.options.maxTokens)
+    return this.options.apiKey.length > 0 && URL.canParse(this.options.baseURL) && isPositiveInteger(this.options.maxTokens)
   }
   /* jscpd:ignore-end */
 
@@ -106,18 +100,18 @@ export class PerplexitySearchProvider implements WebSearchProvider {
         method: 'POST',
         redirect: 'error',
         headers: {
-          'authorization': `Bearer ${this.options.apiKey}`,
+          authorization: `Bearer ${this.options.apiKey}`,
           'content-type': 'application/json',
-          'accept': 'application/json',
+          accept: 'application/json',
           'user-agent': USER_AGENT,
         },
         body: JSON.stringify({
           model: this.options.model,
           max_tokens: this.options.maxTokens,
           messages: [{ role: 'user', content: request.query }],
-          ...this.options.searchRecency !== undefined ? { search_recency_filter: this.options.searchRecency } : {},
+          ...(this.options.searchRecency !== undefined ? { search_recency_filter: this.options.searchRecency } : {}),
         }),
-        ...signal !== undefined ? { signal } : {},
+        ...(signal !== undefined ? { signal } : {}),
       })
     } catch (error: unknown) {
       if (isAbortError(error)) throw new WebError('Perplexity search aborted', 'WEB_ABORTED', { cause: error })
@@ -128,8 +122,8 @@ export class PerplexitySearchProvider implements WebSearchProvider {
       const status = response.status
       let message = `Perplexity API error (HTTP ${status})`
       try {
-        const parsed = await response.json() as PerplexityError
-        const detail = typeof parsed.error === 'string' ? parsed.error : parsed.error?.message ?? parsed.message
+        const parsed = (await response.json()) as PerplexityError
+        const detail = typeof parsed.error === 'string' ? parsed.error : (parsed.error?.message ?? parsed.message)
         if (detail !== undefined && detail.length > 0) message = detail
       } catch (error: unknown) {
         // An abort fired mid-body must surface as WEB_ABORTED, not be swallowed
@@ -144,7 +138,7 @@ export class PerplexitySearchProvider implements WebSearchProvider {
     }
 
     try {
-      const payload = await response.json() as PerplexityResponse
+      const payload = (await response.json()) as PerplexityResponse
       return mapPerplexityResponse(payload)
     } catch (error: unknown) {
       if (isAbortError(error)) throw new WebError('Perplexity search aborted', 'WEB_ABORTED', { cause: error })

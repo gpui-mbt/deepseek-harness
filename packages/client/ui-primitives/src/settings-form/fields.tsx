@@ -46,16 +46,18 @@ export interface SettingsFieldProps {
  * @param props - the field's copy, its staged text, and the edit actions.
  * @returns the labelled control.
  */
-export function SettingsValueField(props: Omit<SettingsFieldProps, 'hint'> & {
-  /** Optional explanation shown below the input. */
-  hint?: string
-  /** Rules disclosed by the information button beside the label. */
-  help?: { label: string; content: ReactNode }
-  /** Hints a numeric keypad without narrowing what the control accepts. */
-  numeric?: boolean
-  /** Placeholder shown while the draft is empty. */
-  placeholder?: string
-}) {
+export function SettingsValueField(
+  props: Omit<SettingsFieldProps, 'hint'> & {
+    /** Optional explanation shown below the input. */
+    hint?: string
+    /** Rules disclosed by the information button beside the label. */
+    help?: { label: string; content: ReactNode }
+    /** Hints a numeric keypad without narrowing what the control accepts. */
+    numeric?: boolean
+    /** Placeholder shown while the draft is empty. */
+    placeholder?: string
+  },
+) {
   const [helpOpen, setHelpOpen] = useState(false)
   const helpId = `${props.id}-help`
   const messageId = `${props.id}-message`
@@ -65,51 +67,57 @@ export function SettingsValueField(props: Omit<SettingsFieldProps, 'hint'> & {
     <div className={css.field}>
       <div className={css.head}>
         <div className={css.labelGroup}>
-          <label className={css.label} htmlFor={props.id}>{props.label}</label>
-          {props.help !== undefined
-            ? (
-              <button type="button" className={css.helpButton}
-                aria-label={props.help.label} aria-expanded={helpOpen} aria-controls={helpId}
-                onClick={() => { setHelpOpen(!helpOpen) }}>
-                <IconInfoOutlineRegular size={12} />
-              </button>
-            )
-            : null}
+          <label className={css.label} htmlFor={props.id}>
+            {props.label}
+          </label>
+          {props.help !== undefined ? (
+            <button
+              type="button"
+              className={css.helpButton}
+              aria-label={props.help.label}
+              aria-expanded={helpOpen}
+              aria-controls={helpId}
+              onClick={() => {
+                setHelpOpen(!helpOpen)
+              }}
+            >
+              <IconInfoOutlineRegular size={12} />
+            </button>
+          ) : null}
         </div>
-        {props.overridden
-          ? (
-            <span className={css.badges}>
-              <Tag tone="neutral">{props.overriddenLabel}</Tag>
-              <button
-                type="button"
-                className={css.reset}
-                disabled={props.disabled}
-                onClick={props.onReset}
-              >
-                {props.resetLabel}
-              </button>
-            </span>
-          )
-          : null}
+        {props.overridden ? (
+          <span className={css.badges}>
+            <Tag tone="neutral">{props.overriddenLabel}</Tag>
+            <button type="button" className={css.reset} disabled={props.disabled} onClick={props.onReset}>
+              {props.resetLabel}
+            </button>
+          </span>
+        ) : null}
       </div>
       <input
         id={props.id}
         className={css.input}
         type="text"
-        {...props.numeric === true ? { inputMode: 'numeric' as const } : {}}
-        {...props.invalid ? { 'aria-invalid': true } : {}}
+        {...(props.numeric === true ? { inputMode: 'numeric' as const } : {})}
+        {...(props.invalid ? { 'aria-invalid': true } : {})}
         aria-describedby={description || undefined}
         value={props.text}
         placeholder={props.placeholder ?? ''}
         disabled={props.disabled}
-        onChange={(event) => { props.onEdit(event.target.value) }}
+        onChange={event => {
+          props.onEdit(event.target.value)
+        }}
       />
-      {hasMessage
-        ? <p id={messageId} className={props.invalid ? css.invalid : css.hint}>{props.invalid ? props.invalidLabel : props.hint}</p>
-        : null}
-      {props.help !== undefined && helpOpen
-        ? <div id={helpId} className={css.help} role="region" aria-label={props.help.label}>{props.help.content}</div>
-        : null}
+      {hasMessage ? (
+        <p id={messageId} className={props.invalid ? css.invalid : css.hint}>
+          {props.invalid ? props.invalidLabel : props.hint}
+        </p>
+      ) : null}
+      {props.help !== undefined && helpOpen ? (
+        <div id={helpId} className={css.help} role="region" aria-label={props.help.label}>
+          {props.help.content}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -122,16 +130,20 @@ export function SettingsValueField(props: Omit<SettingsFieldProps, 'hint'> & {
  * @param props - the field's copy, its staged text, and the configured state.
  * @returns the labelled control.
  */
-export function SettingsSecretField(props: Pick<SettingsFieldProps, 'id' | 'label' | 'hint' | 'text' | 'disabled' | 'onEdit'> & {
-  /** Whether the Host reports a configured credential for this reference. */
-  configured: boolean
-  /** Copy describing the configured state. */
-  stateLabel: string
-}) {
+export function SettingsSecretField(
+  props: Pick<SettingsFieldProps, 'id' | 'label' | 'hint' | 'text' | 'disabled' | 'onEdit'> & {
+    /** Whether the Host reports a configured credential for this reference. */
+    configured: boolean
+    /** Copy describing the configured state. */
+    stateLabel: string
+  },
+) {
   return (
     <div className={css.field}>
       <div className={css.head}>
-        <label className={css.label} htmlFor={props.id}>{props.label}</label>
+        <label className={css.label} htmlFor={props.id}>
+          {props.label}
+        </label>
         <span className={css.badges}>
           <Tag tone={props.configured ? 'neutral' : 'quiet'}>{props.stateLabel}</Tag>
         </span>
@@ -143,7 +155,9 @@ export function SettingsSecretField(props: Pick<SettingsFieldProps, 'id' | 'labe
         autoComplete="new-password"
         value={props.text}
         disabled={props.disabled}
-        onChange={(event) => { props.onEdit(event.target.value) }}
+        onChange={event => {
+          props.onEdit(event.target.value)
+        }}
       />
       <p className={css.hint}>{props.hint}</p>
     </div>

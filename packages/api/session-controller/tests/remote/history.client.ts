@@ -1,7 +1,11 @@
 /** Pure history response builders for assembled Session tests. */
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session/types'
 import type {
-  SessionAssistantStreamBaseline, SessionFollowFrame, SessionFollowRequest, SessionPage, SessionProjectionBaseline,
+  SessionAssistantStreamBaseline,
+  SessionFollowFrame,
+  SessionFollowRequest,
+  SessionPage,
+  SessionProjectionBaseline,
 } from '../../src/types.ts'
 import { historyRecordLastSeq } from '../../src/client/sessions/history-records.ts'
 

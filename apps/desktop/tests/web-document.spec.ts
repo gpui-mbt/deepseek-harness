@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -28,7 +28,9 @@ it('serves the Web entry and assets without starting or contacting a Host', asyn
 })
 
 it('requires the Host authentication exchange and retains only its cookie value', async () => {
-  const fetch = vi.fn().mockResolvedValueOnce(new Response(null, { status: 303, headers: { 'set-cookie': 'session=owned; HttpOnly; SameSite=Strict' } }))
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(null, { status: 303, headers: { 'set-cookie': 'session=owned; HttpOnly; SameSite=Strict' } }))
     .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
   vi.stubGlobal('fetch', fetch)
   expect(await authenticateWebHost('http://127.0.0.1:1234/?token=owned')).toBe('session=owned')
@@ -36,11 +38,18 @@ it('requires the Host authentication exchange and retains only its cookie value'
 })
 
 it('forwards upload bytes and cancellation with Host credentials while keeping the response streaming', async () => {
-  const body = new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('stream')); controller.close() } })
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('stream'))
+      controller.close()
+    },
+  })
   const fetch = vi.fn().mockResolvedValue(new Response(body, { headers: { 'content-encoding': 'gzip', 'set-cookie': 'private' } }))
   vi.stubGlobal('fetch', fetch)
   const request = new Request('dsh-app://app/api/upload?name=file', {
-    method: 'POST', body: 'upload bytes', headers: { origin: 'dsh-app://app', cookie: 'untrusted' },
+    method: 'POST',
+    body: 'upload bytes',
+    headers: { origin: 'dsh-app://app', cookie: 'untrusted' },
   })
   const response = await forwardWebRequest(request, 'http://127.0.0.1:1234/?token=secret', 'session=owned')
   const [target, init] = fetch.mock.calls[0] as [URL, RequestInit]
@@ -55,10 +64,20 @@ it('forwards upload bytes and cancellation with Host credentials while keeping t
 })
 
 it('drops connection-level headers the Host wrote for its own transport', async () => {
-  const fetch = vi.fn().mockResolvedValue(new Response('body', { headers: {
-    'transfer-encoding': 'chunked', connection: 'keep-alive', 'keep-alive': 'timeout=5', trailer: 'x', te: 'trailers',
-    'content-type': 'text/plain', 'cache-control': 'no-cache', etag: '"1"',
-  } }))
+  const fetch = vi.fn().mockResolvedValue(
+    new Response('body', {
+      headers: {
+        'transfer-encoding': 'chunked',
+        connection: 'keep-alive',
+        'keep-alive': 'timeout=5',
+        trailer: 'x',
+        te: 'trailers',
+        'content-type': 'text/plain',
+        'cache-control': 'no-cache',
+        etag: '"1"',
+      },
+    }),
+  )
   vi.stubGlobal('fetch', fetch)
   const response = await forwardWebRequest(new Request('dsh-app://app/api/read'), 'http://127.0.0.1:1234/', 'session=owned')
   for (const name of ['transfer-encoding', 'connection', 'keep-alive', 'trailer', 'te']) expect(response.headers.get(name)).toBeNull()
@@ -82,7 +101,11 @@ it('replaces the immutable cache header of plugin bundles with no-store and leav
 it('refuses another page origin without forwarding its request', async () => {
   const fetch = vi.fn()
   vi.stubGlobal('fetch', fetch)
-  const response = await forwardWebRequest(new Request('dsh-app://app/api/read', { headers: { origin: 'https://other.example' } }), 'http://127.0.0.1:1234/', 'session=owned')
+  const response = await forwardWebRequest(
+    new Request('dsh-app://app/api/read', { headers: { origin: 'https://other.example' } }),
+    'http://127.0.0.1:1234/',
+    'session=owned',
+  )
   expect(response.status).toBe(403)
   expect(fetch).not.toHaveBeenCalled()
 })

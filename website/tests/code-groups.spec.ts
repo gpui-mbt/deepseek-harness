@@ -4,10 +4,11 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import { createMarkdownRenderer } from 'vitepress'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { codeGroupFallbackHead, isolateCodeGroupRadios } from '../.vitepress/code-groups.ts'
 
-const source = '::: code-group\n\n```sh [Linux/macOS]\n. .venv/bin/activate\n```\n\n```powershell [Windows PowerShell]\n.venv\\Scripts\\Activate.ps1\n```\n\n:::\n'
+const source =
+  '::: code-group\n\n```sh [Linux/macOS]\n. .venv/bin/activate\n```\n\n```powershell [Windows PowerShell]\n.venv\\Scripts\\Activate.ps1\n```\n\n:::\n'
 
 it('keeps the page selection when a search excerpt selects the same named radio', async () => {
   const md = await createMarkdownRenderer(import.meta.dirname, { config: isolateCodeGroupRadios })
@@ -35,7 +36,8 @@ it('keeps the page selection when a search excerpt selects the same named radio'
     expect(pageRadios[0].form).not.toBe(excerptRadio.form)
     expect(document.querySelector('main .tabs')?.hasAttribute('@submit.prevent')).toBe(true)
     expect([...document.querySelectorAll('main code')].map(code => code.textContent)).toEqual([
-      '. .venv/bin/activate', '.venv\\Scripts\\Activate.ps1',
+      '. .venv/bin/activate',
+      '.venv\\Scripts\\Activate.ps1',
     ])
     expect(document.querySelectorAll('main .blocks > .active')).toHaveLength(1)
   } finally {
@@ -45,7 +47,10 @@ it('keeps the page selection when a search excerpt selects the same named radio'
 
 it('exposes both commands without client handlers in MPA output', async () => {
   const md = await createMarkdownRenderer(import.meta.dirname, { config: isolateCodeGroupRadios })
-  const nativeStyles = readFileSync(new URL('../node_modules/vitepress/dist/client/theme-default/styles/components/vp-code-group.css', import.meta.url), 'utf8')
+  const nativeStyles = readFileSync(
+    new URL('../node_modules/vitepress/dist/client/theme-default/styles/components/vp-code-group.css', import.meta.url),
+    'utf8',
+  )
   const fallback = codeGroupFallbackHead(true)
   const dom = new JSDOM(`<style>${nativeStyles}</style>${md.render(source)}`)
   try {
@@ -61,9 +66,7 @@ it('exposes both commands without client handlers in MPA output', async () => {
     const controls = [...document.querySelectorAll<HTMLElement>('.tabs, button.copy')]
     expect(controls).toHaveLength(3)
     expect(controls.every(control => dom.window.getComputedStyle(control).display === 'none')).toBe(true)
-    expect(blocks.map(block => block.querySelector('code')?.textContent)).toEqual([
-      '. .venv/bin/activate', '.venv\\Scripts\\Activate.ps1',
-    ])
+    expect(blocks.map(block => block.querySelector('code')?.textContent)).toEqual(['. .venv/bin/activate', '.venv\\Scripts\\Activate.ps1'])
     expect(codeGroupFallbackHead(false)).toEqual([])
   } finally {
     dom.window.close()

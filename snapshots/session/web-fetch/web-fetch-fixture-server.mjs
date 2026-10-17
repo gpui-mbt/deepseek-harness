@@ -45,7 +45,7 @@ export async function apply(ctx) {
   let transportUrl
   let startupError
 
-  const resolveAddresses = async (hostname) => {
+  const resolveAddresses = async hostname => {
     if (hostname !== 'public.test') throw new Error(`unexpected snapshot hostname: ${hostname}`)
     return [{ address: '127.0.0.1', family: 4 }]
   }
@@ -74,7 +74,7 @@ export async function apply(ctx) {
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
         res.end('not found')
       },
-      onListening: (address) => {
+      onListening: address => {
         transportUrl = new URL(RECORDED_URL)
         transportUrl.port = String(address.port)
         readiness.resolve(undefined)

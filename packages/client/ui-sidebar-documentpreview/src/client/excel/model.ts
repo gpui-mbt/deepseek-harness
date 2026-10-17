@@ -15,7 +15,7 @@ export interface ExcelLimits {
 export const EXCEL_UNSUPPORTED_FEATURES = ['charts', 'images', 'shapes', 'conditionalFormatting'] as const
 
 /** A detected workbook feature that the spreadsheet preview does not display. */
-export type ExcelUnsupportedFeature = typeof EXCEL_UNSUPPORTED_FEATURES[number]
+export type ExcelUnsupportedFeature = (typeof EXCEL_UNSUPPORTED_FEATURES)[number]
 
 /** Preview data, missing formula results, and detected content that is not displayed. */
 export interface ExcelPreview {
@@ -43,7 +43,7 @@ export function initialSelection(config: SheetConfig): NonNullable<Sheet['luckys
 export function formatCell(cell: Cell, numberFormat: string): Cell {
   if (cell.ht === undefined) cell.ht = typeof cell.v === 'number' ? 2 : typeof cell.v === 'boolean' ? 0 : 1
   if (cell.ct === undefined) cell.ct = { fa: numberFormat, t: typeof cell.v === 'number' ? 'n' : typeof cell.v === 'boolean' ? 'b' : 's' }
-  const formatted = typeof cell.v === 'number' ? formatNumber(numberFormat, cell.v) as string | number : cell.v
+  const formatted = typeof cell.v === 'number' ? (formatNumber(numberFormat, cell.v) as string | number) : cell.v
   cell.m = formatted === undefined ? '' : String(formatted)
   return cell
 }

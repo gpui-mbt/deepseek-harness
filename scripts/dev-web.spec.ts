@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { TsdownBundle } from 'tsdown'
 import { writeClientBuildRecord } from './client-build-environment.ts'
 import {
@@ -15,7 +15,10 @@ import {
 import type { StageHandle } from './dev-web.ts'
 
 /** A stage double that exits only on the listed signals or an explicit exit code. */
-function fakeStage(name: string, exitOn: readonly NodeJS.Signals[]): {
+function fakeStage(
+  name: string,
+  exitOn: readonly NodeJS.Signals[],
+): {
   handle: StageHandle
   signals: NodeJS.Signals[]
   exit: (code: number) => void
@@ -32,14 +35,18 @@ function fakeStage(name: string, exitOn: readonly NodeJS.Signals[]): {
       },
     },
     signals,
-    exit: (code) => { exit.resolve(code) },
+    exit: code => {
+      exit.resolve(code)
+    },
   }
 }
 
 describe('StageSupervisor', () => {
   it('reports a stage that exits on its own', async () => {
     const stale: [string, number | null][] = []
-    const supervisor = new StageSupervisor((name, code) => { stale.push([name, code]) })
+    const supervisor = new StageSupervisor((name, code) => {
+      stale.push([name, code])
+    })
     const tsc = fakeStage('tsc', ['SIGTERM'])
     supervisor.add(tsc.handle)
     tsc.exit(2)
@@ -49,7 +56,9 @@ describe('StageSupervisor', () => {
 
   it('forwards one signal, escalates survivors after the grace period, and reports none of them', async () => {
     const stale: string[] = []
-    const supervisor = new StageSupervisor((name) => { stale.push(name) })
+    const supervisor = new StageSupervisor(name => {
+      stale.push(name)
+    })
     const polite = fakeStage('vite', ['SIGTERM'])
     const stubborn = fakeStage('dsh web', ['SIGKILL'])
     supervisor.add(polite.handle)
@@ -61,7 +70,9 @@ describe('StageSupervisor', () => {
   })
 
   it('waits for stages the terminal already interrupted before signaling survivors', async () => {
-    const supervisor = new StageSupervisor(() => { throw new Error('unexpected stale report') })
+    const supervisor = new StageSupervisor(() => {
+      throw new Error('unexpected stale report')
+    })
     const interrupted = fakeStage('tsdown', [])
     const survivor = fakeStage('dsh web', ['SIGTERM'])
     supervisor.add(interrupted.handle)
@@ -84,13 +95,16 @@ describe('parseDevWebArguments', () => {
     expect(parseDevWebArguments(['--poll=250']).pollInterval).toBe(250)
   })
 
-  it.each(['--poll=abc', '--poll=0', '--poll=-5', '--poll=1.5'])('rejects the polling interval %s', (flag) => {
+  it.each(['--poll=abc', '--poll=0', '--poll=-5', '--poll=1.5'])('rejects the polling interval %s', flag => {
     expect(() => parseDevWebArguments([flag])).toThrow(`invalid --poll interval "${flag}"`)
   })
 
   it('separates its own flags from the arguments forwarded to dsh web', () => {
     expect(parseDevWebArguments(['--skip-build', '--poll', '--no-open', '--port', '8080'])).toEqual({
-      skipBuild: true, serve: true, pollInterval: 500, appArgs: ['--no-open', '--port', '8080'],
+      skipBuild: true,
+      serve: true,
+      pollInterval: 500,
+      appArgs: ['--no-open', '--port', '8080'],
     })
   })
 
@@ -124,12 +138,14 @@ it('samples one local environment at startup without validating watcher outputs'
     })
     await writeFile(join(root, 'packages/client/example/lib/client.js'), 'module.exports = { changed: true }\n')
 
-    expect(devWebBuildEnvironment(root, {
-      PATH: '/bin',
-      DSH_BUILD_CLIENT_PROFILE: 'official',
-      DSH_CLIENT_COMMIT_HASH: 'abc1234',
-      DSH_CLIENT_EXTRA: 'launch-value',
-    })).toEqual({
+    expect(
+      devWebBuildEnvironment(root, {
+        PATH: '/bin',
+        DSH_BUILD_CLIENT_PROFILE: 'official',
+        DSH_CLIENT_COMMIT_HASH: 'abc1234',
+        DSH_CLIENT_EXTRA: 'launch-value',
+      }),
+    ).toEqual({
       PATH: '/bin',
       DSH_CLIENT_COMMIT_HASH: 'abc1234',
       DSH_CLIENT_EXTRA: 'launch-value',
@@ -145,13 +161,16 @@ it('discovers dsh.client packages with sibling roles', async () => {
   try {
     const current = join(root, 'packages', 'client', 'current')
     await mkdir(current, { recursive: true })
-    await writeFile(join(current, 'package.json'), JSON.stringify({
-      dsh: {
-        bundle: { patch: './cordis.patch.yml' },
-        client: { platform: 'web' },
-        profile: { bundles: [] },
-      },
-    }))
+    await writeFile(
+      join(current, 'package.json'),
+      JSON.stringify({
+        dsh: {
+          bundle: { patch: './cordis.patch.yml' },
+          client: { platform: 'web' },
+          profile: { bundles: [] },
+        },
+      }),
+    )
 
     expect(discoverPluginDirs(root)).toEqual(['packages/client/current'])
   } finally {
@@ -190,7 +209,9 @@ it('rebuilds a client-plugin bundle after its source changes', async () => {
   try {
     await symlink(join(import.meta.dirname, '..', 'node_modules'), join(root, 'node_modules'), 'dir')
     await writeFile(join(root, 'package.json'), JSON.stringify({ name: '@dsh-test/dev-web-watch', private: true, type: 'module' }))
-    await writeFile(join(root, 'tsdown.config.ts'), `
+    await writeFile(
+      join(root, 'tsdown.config.ts'),
+      `
 import { defineConfig } from 'tsdown'
 export default defineConfig({
   entry: { client: 'src.ts' }, outDir: 'lib', format: 'cjs', platform: 'browser', dts: false, clean: false,
@@ -200,7 +221,8 @@ export default defineConfig({
     await writeFile(new URL('./hook-complete', import.meta.url), 'ready')
   } },
 })
-`)
+`,
+    )
     const sourcePath = join(root, 'src.ts')
     const bundlePath = join(root, 'lib/client.js')
     await writeFile(sourcePath, 'export const version = "watch-v1"\n')
@@ -210,9 +232,11 @@ export default defineConfig({
 
     await new Promise(resolve => setTimeout(resolve, 1_000))
     await writeFile(sourcePath, `export const version = "watch-v2-${'x'.repeat(100)}"\n`)
-    await expect.poll(async () => (await readFile(bundlePath, 'utf8')).includes('watch-v2-'), {
-      timeout: 10_000,
-    }).toBe(true)
+    await expect
+      .poll(async () => (await readFile(bundlePath, 'utf8')).includes('watch-v2-'), {
+        timeout: 10_000,
+      })
+      .toBe(true)
   } finally {
     for (const bundle of bundles) await bundle[Symbol.asyncDispose]()
     await rm(root, { recursive: true, force: true })

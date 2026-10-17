@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { isRemoteJsonValue } from '@deepseek-ai/dsh-typert-protocol'
 import {
   parseRemoteEventResult,
@@ -10,39 +10,57 @@ import {
 
 describe('Remote Event result protocol', () => {
   it('accepts delegation, values, and structured rejections', () => {
-    expect(parseRemoteEventResult({
-      clientId: 'client-1', eventId: 'event-1', outcome: { kind: 'next' },
-    })).toEqual({ clientId: 'client-1', eventId: 'event-1', outcome: { kind: 'next' } })
-    expect(parseRemoteEventResult({
-      clientId: 'client-1', eventId: 'event-2', outcome: { kind: 'result' },
-    })).toEqual({ clientId: 'client-1', eventId: 'event-2', outcome: { kind: 'result' } })
-    expect(parseRemoteEventResult({
-      clientId: 'client-1', eventId: 'event-3', outcome: { kind: 'result', value: { accepted: true } },
-    })).toEqual({
-      clientId: 'client-1', eventId: 'event-3', outcome: { kind: 'result', value: { accepted: true } },
+    expect(
+      parseRemoteEventResult({
+        clientId: 'client-1',
+        eventId: 'event-1',
+        outcome: { kind: 'next' },
+      }),
+    ).toEqual({ clientId: 'client-1', eventId: 'event-1', outcome: { kind: 'next' } })
+    expect(
+      parseRemoteEventResult({
+        clientId: 'client-1',
+        eventId: 'event-2',
+        outcome: { kind: 'result' },
+      }),
+    ).toEqual({ clientId: 'client-1', eventId: 'event-2', outcome: { kind: 'result' } })
+    expect(
+      parseRemoteEventResult({
+        clientId: 'client-1',
+        eventId: 'event-3',
+        outcome: { kind: 'result', value: { accepted: true } },
+      }),
+    ).toEqual({
+      clientId: 'client-1',
+      eventId: 'event-3',
+      outcome: { kind: 'result', value: { accepted: true } },
     })
-    expect(parseRemoteEventResult({
+    expect(
+      parseRemoteEventResult({
+        clientId: 'client-1',
+        eventId: 'event-minimal',
+        outcome: { kind: 'rejected', error: { name: 'Error', message: 'offline' } },
+      }),
+    ).toEqual({
       clientId: 'client-1',
       eventId: 'event-minimal',
       outcome: { kind: 'rejected', error: { name: 'Error', message: 'offline' } },
-    })).toEqual({
-      clientId: 'client-1',
-      eventId: 'event-minimal',
-      outcome: { kind: 'rejected', error: { name: 'Error', message: 'offline' } },
     })
-    expect(parseRemoteEventResult({
-      clientId: 'client-1',
-      eventId: 'event-4',
-      outcome: {
-        kind: 'rejected',
-        error: {
-          name: 'ApprovalError',
-          message: 'declined',
-          code: 'DECLINED',
-          details: { retryable: false },
+    expect(
+      parseRemoteEventResult({
+        clientId: 'client-1',
+        eventId: 'event-4',
+        outcome: {
+          kind: 'rejected',
+          error: {
+            name: 'ApprovalError',
+            message: 'declined',
+            code: 'DECLINED',
+            details: { retryable: false },
+          },
         },
-      },
-    })).toEqual({
+      }),
+    ).toEqual({
       clientId: 'client-1',
       eventId: 'event-4',
       outcome: {
@@ -87,15 +105,19 @@ describe('Remote Event result protocol', () => {
       eventId: 'event-1',
       outcome: { kind: 'rejected', error: { name: 'Error', message: 'bad', extra: true } },
     },
-  ])('rejects an invalid result frame: %#', (value) => {
+  ])('rejects an invalid result frame: %#', value => {
     expect(() => parseRemoteEventResult(value)).toThrow('api gateway: invalid Remote event')
   })
 
   it('rejects symbol properties in rejection records', () => {
     const error = { name: 'Error', message: 'bad', [Symbol('hidden')]: true }
-    expect(() => parseRemoteEventResult({
-      clientId: 'client-1', eventId: 'event-1', outcome: { kind: 'rejected', error },
-    })).toThrow('api gateway: invalid Remote event rejection')
+    expect(() =>
+      parseRemoteEventResult({
+        clientId: 'client-1',
+        eventId: 'event-1',
+        outcome: { kind: 'rejected', error },
+      }),
+    ).toThrow('api gateway: invalid Remote event rejection')
   })
 })
 
@@ -104,12 +126,15 @@ describe('Remote Event request projection', () => {
     const agent = { kind: 'agent' }
     const abort = new AbortController()
     const nested = { agent, signal: 'payload' }
-    const projected = projectRemoteEventRequest({
+    const projected = projectRemoteEventRequest(
+      {
+        agent,
+        signal: abort.signal,
+        prompt: 'approve?',
+        nested,
+      },
       agent,
-      signal: abort.signal,
-      prompt: 'approve?',
-      nested,
-    }, agent)
+    )
 
     expect(projected).toEqual({
       request: { prompt: 'approve?', nested },
@@ -131,42 +156,33 @@ describe('Remote Event request projection', () => {
 
   it('requires the scoped Agent as a direct own field', () => {
     const agent = { kind: 'agent' }
-    expect(() => projectRemoteEventRequest(null, agent))
-      .toThrow('must carry its scoped Agent directly')
-    expect(() => projectRemoteEventRequest({}, agent))
-      .toThrow('must carry its scoped Agent directly')
-    expect(() => projectRemoteEventRequest({ agent: {} }, agent))
-      .toThrow('must carry its scoped Agent directly')
-    expect(() => projectRemoteEventRequest(Object.create({ agent }), agent))
-      .toThrow('must carry its scoped Agent directly')
+    expect(() => projectRemoteEventRequest(null, agent)).toThrow('must carry its scoped Agent directly')
+    expect(() => projectRemoteEventRequest({}, agent)).toThrow('must carry its scoped Agent directly')
+    expect(() => projectRemoteEventRequest({ agent: {} }, agent)).toThrow('must carry its scoped Agent directly')
+    expect(() => projectRemoteEventRequest(Object.create({ agent }), agent)).toThrow('must carry its scoped Agent directly')
   })
 
   it('rejects an invalid direct signal', () => {
     const agent = { kind: 'agent' }
-    expect(() => projectRemoteEventRequest({ agent, signal: 'abort' }, agent))
-      .toThrow('request signal must be an AbortSignal')
+    expect(() => projectRemoteEventRequest({ agent, signal: 'abort' }, agent)).toThrow('request signal must be an AbortSignal')
   })
 
   it('rejects non-JSON payload fields', () => {
     const agent = { kind: 'agent' }
-    expect(() => projectRemoteEventRequest({ agent, value: 1n }, agent))
-      .toThrow('request is not lossless JSON data')
+    expect(() => projectRemoteEventRequest({ agent, value: 1n }, agent)).toThrow('request is not lossless JSON data')
 
     const cycle: Record<string, unknown> = {}
     cycle.self = cycle
-    expect(() => projectRemoteEventRequest({ agent, cycle }, agent))
-      .toThrow('request is not lossless JSON data')
+    expect(() => projectRemoteEventRequest({ agent, cycle }, agent)).toThrow('request is not lossless JSON data')
   })
 
   it('rejects symbol and non-enumerable payload fields', () => {
     const agent = { kind: 'agent' }
-    expect(() => projectRemoteEventRequest({ agent, [Symbol('hidden')]: true }, agent))
-      .toThrow('request has a non-JSON property')
+    expect(() => projectRemoteEventRequest({ agent, [Symbol('hidden')]: true }, agent)).toThrow('request has a non-JSON property')
 
     const hidden = { agent }
     Object.defineProperty(hidden, 'value', { value: true })
-    expect(() => projectRemoteEventRequest(hidden, agent))
-      .toThrow('request has a non-JSON property')
+    expect(() => projectRemoteEventRequest(hidden, agent)).toThrow('request has a non-JSON property')
   })
 })
 
@@ -200,15 +216,23 @@ describe('Remote Event rejection projection', () => {
 
   it('normalizes arbitrary reasons and omits non-JSON optional fields', () => {
     expect(projectRemoteEventRejection('offline')).toEqual({
-      name: 'Error', message: 'offline',
+      name: 'Error',
+      message: 'offline',
     })
     expect(projectRemoteEventRejection(undefined)).toEqual({
-      name: 'Error', message: 'undefined',
+      name: 'Error',
+      message: 'undefined',
     })
-    expect(projectRemoteEventRejection({
-      name: 1, message: 2, code: 3, details: 1n,
-    })).toEqual({
-      name: 'Error', message: '[object Object]',
+    expect(
+      projectRemoteEventRejection({
+        name: 1,
+        message: 2,
+        code: 3,
+        details: 1n,
+      }),
+    ).toEqual({
+      name: 'Error',
+      message: '[object Object]',
     })
 
     const restored = restoreRemoteEventRejection({ name: 'Error', message: 'offline' })
@@ -224,27 +248,24 @@ describe('Remote Event JSON values', () => {
     const nullPrototype = Object.assign(Object.create(null) as Record<string, unknown>, {
       enabled: true,
     })
-    expect(isRemoteJsonValue({
-      null: null,
-      string: 'value',
-      boolean: true,
-      number: 1.5,
-      array: [shared, shared],
-      nullPrototype,
-    })).toBe(true)
+    expect(
+      isRemoteJsonValue({
+        null: null,
+        string: 'value',
+        boolean: true,
+        number: 1.5,
+        array: [shared, shared],
+        nullPrototype,
+      }),
+    ).toBe(true)
   })
 
-  it.each([
-    undefined,
-    1n,
-    Symbol('value'),
-    () => undefined,
-    NaN,
-    Number.POSITIVE_INFINITY,
-    -0,
-  ])('rejects a non-lossless scalar: %s', (value) => {
-    expect(isRemoteJsonValue(value)).toBe(false)
-  })
+  it.each([undefined, 1n, Symbol('value'), () => undefined, NaN, Number.POSITIVE_INFINITY, -0])(
+    'rejects a non-lossless scalar: %s',
+    value => {
+      expect(isRemoteJsonValue(value)).toBe(false)
+    },
+  )
 
   it('rejects cycles and non-plain arrays and objects', () => {
     const cycle: Record<string, unknown> = {}
@@ -280,8 +301,14 @@ describe('Remote Event JSON values', () => {
 
 describe('Remote stream client protocol', () => {
   it('rejects the removed logical-stream input message', () => {
-    expect(() => parseRemoteStreamClientMessage(JSON.stringify({
-      type: 'input', streamId: 'stream-1', value: { answer: true },
-    }))).toThrow('api gateway: invalid Remote stream client message')
+    expect(() =>
+      parseRemoteStreamClientMessage(
+        JSON.stringify({
+          type: 'input',
+          streamId: 'stream-1',
+          value: { answer: true },
+        }),
+      ),
+    ).toThrow('api gateway: invalid Remote stream client message')
   })
 })

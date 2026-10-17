@@ -34,7 +34,10 @@ const DETAIL_TAIL_LINES = 8
 function dialogDetail(error: string, messages: DesktopMessages, reportPath: string | undefined): string {
   const advice = `\n\n${messages.startupReinstallAdvice}`
   const report = reportLine(messages, reportPath)
-  const tail = error.split(/\r\n|[\n\r\u2028\u2029]/u).slice(-DETAIL_TAIL_LINES).join('\n')
+  const tail = error
+    .split(/\r\n|[\n\r\u2028\u2029]/u)
+    .slice(-DETAIL_TAIL_LINES)
+    .join('\n')
   const budget = DETAIL_BUDGET - advice.length - report.length - messages.diagnosticTruncated.length - 1
   const shortened = tail.slice(-budget).replace(/^[\uDC00-\uDFFF]/u, '')
   return `${shortened === error ? error : `${messages.diagnosticTruncated}\n${shortened}`}${report}${advice}`
@@ -52,7 +55,9 @@ export class DesktopFatalRecovery {
   constructor(private readonly operations: RecoveryOperations) {}
 
   /** Whether this process requires a native recovery action before further plugin changes. */
-  get active(): boolean { return this.reported }
+  get active(): boolean {
+    return this.reported
+  }
 
   /**
    * Show the first fatal error; later reports cannot replace it or open another dialog.
@@ -86,7 +91,11 @@ export class DesktopFatalRecovery {
         noLink: true,
       })
       if (response === 0) {
-        try { await this.operations.stop() } catch (failure) { console.error(failure) }
+        try {
+          await this.operations.stop()
+        } catch (failure) {
+          console.error(failure)
+        }
         this.operations.exit()
         return
       }
@@ -108,7 +117,11 @@ export class DesktopFatalRecovery {
     try {
       return await Promise.race([
         this.operations.writeReport(error, source),
-        new Promise<undefined>((resolve) => { timer = setTimeout(() => { resolve(undefined) }, CRASH_REPORT_WAIT_MS) }),
+        new Promise<undefined>(resolve => {
+          timer = setTimeout(() => {
+            resolve(undefined)
+          }, CRASH_REPORT_WAIT_MS)
+        }),
       ])
     } catch (failure) {
       console.error('dsh desktop: crash report failed', failure)

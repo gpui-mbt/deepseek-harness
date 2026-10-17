@@ -1,5 +1,5 @@
 /** Directory notifications and disposal through the shared scripted Remote transport. */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SupervisedStreamOptions } from '@deepseek-ai/dsh-api-workspace-files/src/client/remote.ts'
@@ -51,7 +51,7 @@ describe('createWatch', () => {
     expect(h.remote.opened).toEqual([])
   })
 
-  it.each([false, true])('classifies a normal stream end after ready=%s and disposes it', async (ready) => {
+  it.each([false, true])('classifies a normal stream end after ready=%s and disposes it', async ready => {
     const h = mount()
     const first = h.iterator.next()
     const watch = await h.remote.waitForChanges(0)
@@ -82,7 +82,10 @@ describe('createWatch', () => {
     if (result?.type !== 'return') throw new Error('expected a supervised stream')
     const dispose = vi.spyOn(result.value, 'dispose')
     let closed = false
-    const closing = h.iterator.return!().then((value) => { closed = true; return value })
+    const closing = h.iterator.return!().then(value => {
+      closed = true
+      return value
+    })
     try {
       await h.remote.waitForDispose(0)
       expect(closed).toBe(false)
@@ -103,7 +106,7 @@ describe('createWatch', () => {
     const supervise = FakeRemote.prototype.$stream.bind(h.remote)
     const pulled = Promise.withResolvers<undefined>()
     const deliver = Promise.withResolvers<undefined>()
-    h.supervise.mockImplementation(function<Item>(options: SupervisedStreamOptions<Item>) {
+    h.supervise.mockImplementation(function <Item>(options: SupervisedStreamOptions<Item>) {
       const stream = supervise(options)
       return {
         dispose: () => stream.dispose(),

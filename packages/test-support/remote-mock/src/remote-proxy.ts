@@ -18,12 +18,12 @@ export function createRemoteProxy(method: (endpoint: string) => unknown): Record
   return new Proxy(Object.create(null) as Record<string, object>, {
     get(namespaces, namespace) {
       if (typeof namespace !== 'string' || namespace === 'then') return undefined
-      return namespaces[namespace] ??= new Proxy(Object.create(null) as Record<string, unknown>, {
+      return (namespaces[namespace] ??= new Proxy(Object.create(null) as Record<string, unknown>, {
         get(methods, name) {
           if (typeof name !== 'string' || name === 'then') return undefined
-          return methods[name] = method(`${namespace}/${name}`)
+          return (methods[name] = method(`${namespace}/${name}`))
         },
-      })
+      }))
     },
   })
 }

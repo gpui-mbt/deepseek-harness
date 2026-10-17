@@ -75,9 +75,8 @@ export function retainContent(
   remaining = Math.floor(budget / 2)
   while (last >= first) {
     const original = content[last] as RetainableBlock
-    const block = last === first && original.type === 'text'
-      ? { type: 'text' as const, text: original.text.slice(headCharacters) }
-      : original
+    const block =
+      last === first && original.type === 'text' ? { type: 'text' as const, text: original.text.slice(headCharacters) } : original
     const cost = price(block)
     if (cost <= remaining) {
       tail.push(block)
@@ -92,8 +91,8 @@ export function retainContent(
     break
   }
   tail.reverse()
-  const bytes = (blocks: readonly RetainableBlock[]): number => blocks.reduce(
-    (total, block) => total + (block.type === 'text' ? Buffer.byteLength(block.text, 'utf8') : 0), 0)
+  const bytes = (blocks: readonly RetainableBlock[]): number =>
+    blocks.reduce((total, block) => total + (block.type === 'text' ? Buffer.byteLength(block.text, 'utf8') : 0), 0)
   const images = (blocks: readonly RetainableBlock[]): number => blocks.filter(block => block.type === 'image').length
   return {
     head,

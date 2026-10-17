@@ -2,9 +2,7 @@
 
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type {
-  GoalActivationChanged, GoalProjection, GoalRef, GoalView,
-} from '@deepseek-ai/dsh-goal/client'
+import type { GoalActivationChanged, GoalProjection, GoalRef, GoalView } from '@deepseek-ai/dsh-goal/client'
 import type { GoalActivationSnapshot } from './slots.ts'
 
 /** Live inputs for one Session's goal activation source. */
@@ -59,19 +57,22 @@ export function createGoalActivationSource(deps: GoalActivationDeps): HostObserv
     const read = ++readEpoch
     const startedAtEvent = eventEpoch
     const startedAtProjection = projectionEpoch
-    void deps.getGoal().then((result) => {
-      if (read !== readEpoch || startedAtEvent !== eventEpoch || startedAtProjection !== projectionEpoch) return
-      if (!result.ok) return
-      const goal = result.value
-      /* v8 ignore next 4 -- projection drive is the authoritative clear edge; an active projection with no live goal is transient. */
-      if (goal === undefined) {
-        if (activeRef(deps.projection.getSnapshot()) === undefined) publish({})
-        return
-      }
-      publish({ id: goal.id, revision: goal.revision, activation: goal.activation })
-    }, (error: unknown) => {
-      console.warn('[ui-goal] goal activation read failed:', error)
-    })
+    void deps.getGoal().then(
+      result => {
+        if (read !== readEpoch || startedAtEvent !== eventEpoch || startedAtProjection !== projectionEpoch) return
+        if (!result.ok) return
+        const goal = result.value
+        /* v8 ignore next 4 -- projection drive is the authoritative clear edge; an active projection with no live goal is transient. */
+        if (goal === undefined) {
+          if (activeRef(deps.projection.getSnapshot()) === undefined) publish({})
+          return
+        }
+        publish({ id: goal.id, revision: goal.revision, activation: goal.activation })
+      },
+      (error: unknown) => {
+        console.warn('[ui-goal] goal activation read failed:', error)
+      },
+    )
   }
 
   const refreshProjection = (): void => {
@@ -91,9 +92,7 @@ export function createGoalActivationSource(deps: GoalActivationDeps): HostObserv
   const onActivation = (goal: GoalActivationChanged['goal']): void => {
     eventEpoch++
     readEpoch++
-    publish(goal === undefined
-      ? {}
-      : { id: goal.id, revision: goal.revision, activation: goal.activation })
+    publish(goal === undefined ? {} : { id: goal.id, revision: goal.revision, activation: goal.activation })
   }
 
   const onRunning = (): void => {

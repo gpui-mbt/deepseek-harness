@@ -15,7 +15,10 @@ export function QuotaNoticeHost({ useNotice, dismissNotice, keepNoticeOpen, rend
   const notice = useNotice(current => current)
   if (notice === null) return null
   const owner: QuotaNoticeOwnerProps = {
-    code: notice.code, message: t('message.failure.quota'), dismiss: dismissNotice, keepOpen: keepNoticeOpen,
+    code: notice.code,
+    message: t('message.failure.quota'),
+    dismiss: dismissNotice,
+    keepOpen: keepNoticeOpen,
   }
   return (
     <Fragment key={`quota-notice-${String(notice.seq)}`}>

@@ -1,9 +1,8 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { profile } from '../src/details.ts'
 
-it.each([undefined, null, '', 'https://example.test/avatar.png'])('projects Platform picture %s', (picture) => {
-  expect(profile({ id: 'user', email: 'masked@example.test', id_profile: { name: 'User', picture } }).avatarUrl)
-    .toBe(picture || null)
+it.each([undefined, null, '', 'https://example.test/avatar.png'])('projects Platform picture %s', picture => {
+  expect(profile({ id: 'user', email: 'masked@example.test', id_profile: { name: 'User', picture } }).avatarUrl).toBe(picture || null)
 })
 
 it('projects missing display fields and empty contact values as null', () => {

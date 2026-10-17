@@ -2,18 +2,20 @@
 
 import { readFileSync } from 'node:fs'
 import { hasLanguageSwitcher } from './translation-links.ts'
+import { computeTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
 import {
-  computeTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths,
-} from './translation-pairing-record.ts'
-import {
-  languageSwitcherTargets, parseTranslationMarkdown, parseTranslationPairingManifest,
-  requiresSourceLanguageSwitcher, translationPairSourcePredicate,
-  translationStructureDiff, translationStructureSignature,
+  languageSwitcherTargets,
+  parseTranslationMarkdown,
+  parseTranslationPairingManifest,
+  requiresSourceLanguageSwitcher,
+  translationPairSourcePredicate,
+  translationStructureDiff,
+  translationStructureSignature,
 } from './translation-pairing.ts'
 
-const isTranslationPairSource = translationPairSourcePredicate(parseTranslationPairingManifest(
-  readFileSync(new URL('./translation-pairing.manifest.json', import.meta.url), 'utf8'),
-))
+const isTranslationPairSource = translationPairSourcePredicate(
+  parseTranslationPairingManifest(readFileSync(new URL('./translation-pairing.manifest.json', import.meta.url), 'utf8')),
+)
 
 /** One repository-relative generated file and its complete UTF-8 content. */
 export interface PersistenceArtifact {
@@ -36,8 +38,10 @@ export function renderPersistencePair(root: string, source: string, en: string, 
   const zhTree = parseTranslationMarkdown(zh)
   const sourceTargets = languageSwitcherTargets(paths.source)
   const zhTargets = languageSwitcherTargets(paths.zh)
-  if (!hasLanguageSwitcher(zhTree, zh, sourceTargets)
-    || requiresSourceLanguageSwitcher(source) && !hasLanguageSwitcher(sourceTree, en, zhTargets)) {
+  if (
+    !hasLanguageSwitcher(zhTree, zh, sourceTargets) ||
+    (requiresSourceLanguageSwitcher(source) && !hasLanguageSwitcher(sourceTree, en, zhTargets))
+  ) {
     throw new Error(`${source}: both authored languages need their counterpart switcher`)
   }
   const context = { repoRoot: root, isTranslationPairSource, repositoryFileExists: () => true }

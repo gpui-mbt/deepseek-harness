@@ -8,7 +8,7 @@
  * sessions read `undefined`; live value changes re-render; the selector
  * overload runs over the whole value.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { act, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import { useSyncExternalStore } from 'react'
@@ -16,7 +16,10 @@ import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/c
 import type { SessionProviderComponent, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {
-  ScopedStandardSourceBinding, SlotRendererHost, SlotScopeAdapter, StandardSourceBinding,
+  ScopedStandardSourceBinding,
+  SlotRendererHost,
+  SlotScopeAdapter,
+  StandardSourceBinding,
 } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createSlotRenderer } from '../src/client/scoped-slots.tsx'
 
@@ -27,8 +30,16 @@ function observable<T>(initial: T) {
   const subs = new Set<() => void>()
   return {
     getSnapshot: () => value,
-    subscribe: (fn: () => void) => { subs.add(fn); return () => { subs.delete(fn) } },
-    set: (next: T) => { value = next; for (const fn of [...subs]) fn() },
+    subscribe: (fn: () => void) => {
+      subs.add(fn)
+      return () => {
+        subs.delete(fn)
+      }
+    },
+    set: (next: T) => {
+      value = next
+      for (const fn of [...subs]) fn()
+    },
   }
 }
 
@@ -80,21 +91,19 @@ function makeHost() {
   })
   const sessionAdapter: SlotScopeAdapter = {
     current: absentBindingSource,
-    bindingSource: target => target === undefined ? absentBindingSource : bindingSources.get(target.sessionId)!,
-    renderArea: (scopeBinding, { empty, children }) => scopeBinding.key === undefined
-      ? <>{empty?.() ?? null}</>
-      : <>{children}</>,
+    bindingSource: target => (target === undefined ? absentBindingSource : bindingSources.get(target.sessionId)!),
+    renderArea: (scopeBinding, { empty, children }) => (scopeBinding.key === undefined ? <>{empty?.() ?? null}</> : <>{children}</>),
   }
   const host: SlotRendererHost = {
     subscribe: () => () => {},
     getVersion: () => 0,
-    entriesOf: key => key === 'root' ? [rootEntry] : sessionEntries,
+    entriesOf: key => (key === 'root' ? [rootEntry] : sessionEntries),
     // Single-kind everywhere and no crashes in this suite: the projection is
     // the raw view and crash reports never fire.
-    entriesOfSlot: key => key === 'root' ? [rootEntry] : sessionEntries,
+    entriesOfSlot: key => (key === 'root' ? [rootEntry] : sessionEntries),
     reportEntryError: () => {},
     reportFactoryError: () => {},
-    specOf: key => key === 'k.session' ? { kind: 'single', scope: 'session' } : undefined,
+    specOf: key => (key === 'k.session' ? { kind: 'single', scope: 'session' } : undefined),
     isLive: () => true,
     storeOf: () => undefined,
     factoryStoreOf: () => undefined,
@@ -114,10 +123,12 @@ function makeHost() {
     current: {
       set: (id: string | undefined) => {
         if (id !== undefined) binding(id)
-        selected.set(id === undefined ? undefined : { sessionId: id } as SessionReference)
+        selected.set(id === undefined ? undefined : ({ sessionId: id } as SessionReference))
       },
     },
-    registerSession: (entry: StoredEntry) => { sessionEntries.push(entry) },
+    registerSession: (entry: StoredEntry) => {
+      sessionEntries.push(entry)
+    },
   }
 }
 
@@ -141,7 +152,9 @@ describe('useProjection standard-kit delivery', () => {
     render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
     expect(reads.at(-1)).toEqual({ marks: { marks: ['a'] }, ghost: undefined })
     // Live change re-renders with the new whole value.
-    act(() => { cell.set({ marks: ['a', 'b'] }) })
+    act(() => {
+      cell.set({ marks: ['a', 'b'] })
+    })
     expect(reads.at(-1)).toEqual({ marks: { marks: ['a', 'b'] }, ghost: undefined })
   })
 

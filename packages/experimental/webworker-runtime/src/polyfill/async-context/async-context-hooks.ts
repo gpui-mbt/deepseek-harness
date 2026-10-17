@@ -66,7 +66,7 @@ export function installAsyncContextHooks(): void {
   }
 
   const nativeFetch = globalThis.fetch.bind(globalThis)
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const snapshot = captureAsyncContext()
     if (snapshot === undefined) return nativeFetch(input, init)
     // Bind the response continuation to the call site, for consumers that hand
@@ -74,7 +74,10 @@ export function installAsyncContextHooks(): void {
     return nativeThen.call(
       nativeFetch(input, init),
       (response: Response) => runWithAsyncContext(snapshot, () => response),
-      (reason: unknown) => runWithAsyncContext(snapshot, () => { throw reason }),
+      (reason: unknown) =>
+        runWithAsyncContext(snapshot, () => {
+          throw reason
+        }),
     ) as Promise<Response>
-  })
+  }
 }

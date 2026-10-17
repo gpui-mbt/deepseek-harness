@@ -7,9 +7,7 @@
  */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {
-  WorkflowMeta, WorkflowResult, WorkflowRunId,
-} from './types.ts'
+import type { WorkflowMeta, WorkflowResult, WorkflowRunId } from './types.ts'
 
 /**
  * What a caller asks for when starting a workflow run. `meta` and `args` are

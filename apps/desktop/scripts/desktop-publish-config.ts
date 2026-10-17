@@ -3,11 +3,17 @@ import { readFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { z } from 'zod'
 
-const singleLine = z.string().min(1).regex(/^[^\r\n\0]+$/u, 'expected a single-line value')
+const singleLine = z
+  .string()
+  .min(1)
+  .regex(/^[^\r\n\0]+$/u, 'expected a single-line value')
 const absolutePath = singleLine.refine(isAbsolute, 'expected an absolute path')
 const schema = z.strictObject({
   bucket: z.string().regex(/^[a-z0-9-]+-\d+$/u),
-  origin: z.url().refine((value) => { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash }, 'expected an HTTPS origin'),
+  origin: z.url().refine(value => {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash
+  }, 'expected an HTTPS origin'),
   credentialsFile: absolutePath,
   macOS: z.strictObject({ signingIdentity: z.string().min(1), teamId: z.string().regex(/^[A-Z0-9]{10}$/u) }).optional(),
   windows: z.strictObject({ certificateThumbprint: z.string().regex(/^[A-Fa-f0-9]{40}$/u) }).optional(),
@@ -38,7 +44,8 @@ export async function readDesktopPublishConfig(configRoot: string, preset: 'test
  */
 export async function readDesktopUploadCredentials(config: DesktopPublishConfig): Promise<{ secretId: string; secretKey: string }> {
   try {
-    return z.strictObject({ secretId: z.string().min(1), secretKey: z.string().min(1) })
+    return z
+      .strictObject({ secretId: z.string().min(1), secretKey: z.string().min(1) })
       .parse(JSON.parse(await readFile(config.credentialsFile, 'utf8')))
   } catch {
     throw new Error('desktop publish: cannot read valid upload credentials from the configured file')

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SessionFormatEventCollector } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatEvent, SessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
@@ -7,10 +7,17 @@ import { assertReleasedV4Header, assertV4RowAdmission, releasedV4SessionFormatCo
 
 const header = { version: 4, id: 'parent', createdAt: 1, isSeeded: false, delegationDepth: 0 }
 const fact: SessionFormatEvent = { type: 'feedback/record', seq: 0, time: 1, data: { text: 'retained' } }
-const catalog: SessionFormatEvent = { type: 'subagent/catalog', seq: 0, time: 1, data: { version: 0, childId: 'child', childCreatedAt: 2, mode: 'one-shot' } }
+const catalog: SessionFormatEvent = {
+  type: 'subagent/catalog',
+  seq: 0,
+  time: 1,
+  data: { version: 0, childId: 'child', childCreatedAt: 2, mode: 'one-shot' },
+}
 const types = new Set(['subagent/catalog', 'feedback/record', 'session-log-deepseek/delivery-accepted', 'session/end-seed'])
 const delivery = (version: number | undefined, sessionId = header.id): SessionFormatEvent => ({
-  type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
+  type: 'session-log-deepseek/delivery-accepted',
+  seq: 1,
+  time: 2,
   data: { sessionId, throughSeq: 0, ...(version === undefined ? {} : { sessionFormatVersion: version }) },
 })
 
@@ -36,8 +43,12 @@ describe('V4 framing and restoration', () => {
   })
 
   it('rejects mismatched versions and malformed logical and physical metadata', () => {
-    expect(() => { assertReleasedV4Header({ ...header, version: 3 }) }).toThrow('v4 header')
-    expect(() => { assertReleasedV4Header({ ...header, createdAt: -1 }) }).toThrow('createdAt')
+    expect(() => {
+      assertReleasedV4Header({ ...header, version: 3 })
+    }).toThrow('v4 header')
+    expect(() => {
+      assertReleasedV4Header({ ...header, createdAt: -1 })
+    }).toThrow('createdAt')
     expect(() => releasedV4SessionFormatCodec.decodeHeader(null)).toThrow('v4 physical')
     expect(() => releasedV4SessionFormatCodec.createDecoder({ ...header, version: 3 }, 'strict')).toThrow('v4 physical')
     expect(() => releasedV4SessionFormatCodec.decodeHeader({ type: 'session', ...header, extra: 1 })).toThrow(/field|member/)
@@ -57,20 +68,30 @@ describe('V4 framing and restoration', () => {
       [{ ...header, origin: 'parent' }, 'origin must be "subagent"'],
     ] as const
     for (const [value, message] of malformed) {
-      expect(() => { assertReleasedV4Header(value) }).toThrow(message)
+      expect(() => {
+        assertReleasedV4Header(value)
+      }).toThrow(message)
     }
   })
 
   it('rejects released wrapper rows before structural recovery can admit them', () => {
     const wrapperRow: SessionFormatEvent = {
-      type: 'tool/result', seq: 0, time: 1, data: { message: { role: 'user' } },
+      type: 'tool/result',
+      seq: 0,
+      time: 1,
+      data: { message: { role: 'user' } },
     }
-    expect(() => { assertV4RowAdmission(wrapperRow) }).toThrow(/first-class message/)
+    expect(() => {
+      assertV4RowAdmission(wrapperRow)
+    }).toThrow(/first-class message/)
   })
 
   it('retains predecessor and future delivery generations without activating their watermarks', () => {
     for (const version of [undefined, 0, 1, 2, 3, 5]) {
-      const marker = { ...delivery(version, 'foreign'), data: { ...delivery(version).data as SessionFormatJsonObject, sessionId: 'foreign', throughSeq: 500 } }
+      const marker = {
+        ...delivery(version, 'foreign'),
+        data: { ...(delivery(version).data as SessionFormatJsonObject), sessionId: 'foreign', throughSeq: 500 },
+      }
       expect(restore([fact, marker]).events[1]).toBe(marker)
     }
     const current = delivery(4)
@@ -100,7 +121,8 @@ describe('V4 framing and restoration', () => {
   it('preserves inherited and local events and admits foreign active deliveries inside the seed only', () => {
     const inherited = delivery(4, 'ancestor')
     const artifact = {
-      header: { ...header, isSeeded: true, parentSession: 'ancestor' }, inheritedEventCount: 2,
+      header: { ...header, isSeeded: true, parentSession: 'ancestor' },
+      inheritedEventCount: 2,
       events: [fact, inherited, { type: 'session/end-seed', seq: 2, time: 3, data: { inherited: true } }, { ...fact, seq: 3 }],
     }
     expect(restoreReleasedV4Artifact(artifact, types)).toBe(artifact)
@@ -108,15 +130,17 @@ describe('V4 framing and restoration', () => {
   })
 
   it('rejects invalid inherited cuts, sparse rows, and unseeded inherited markers', () => {
-    expect(() => restoreReleasedV4Artifact({ header, inheritedEventCount: 1, events: [] }, types))
-      .toThrow('exceeds its events')
-    expect(() => restoreReleasedV4Artifact({ header, inheritedEventCount: 1, events: [fact] }, types))
-      .toThrow('unseeded format v4 Session has inherited events')
-    expect(() => restoreReleasedV4Artifact({ header, inheritedEventCount: 0,
-      events: [{ ...fact, seq: 1 }] }, types)).toThrow('not dense')
-    expect(() => restoreReleasedV4Artifact({ header, inheritedEventCount: 0,
-      events: [{ type: 'session/end-seed', seq: 0, time: 1, data: { inherited: true } }] }, types))
-      .toThrow('unseeded Session contains an inherited end-seed marker')
+    expect(() => restoreReleasedV4Artifact({ header, inheritedEventCount: 1, events: [] }, types)).toThrow('exceeds its events')
+    expect(() => restoreReleasedV4Artifact({ header, inheritedEventCount: 1, events: [fact] }, types)).toThrow(
+      'unseeded format v4 Session has inherited events',
+    )
+    expect(() => restoreReleasedV4Artifact({ header, inheritedEventCount: 0, events: [{ ...fact, seq: 1 }] }, types)).toThrow('not dense')
+    expect(() =>
+      restoreReleasedV4Artifact(
+        { header, inheritedEventCount: 0, events: [{ type: 'session/end-seed', seq: 0, time: 1, data: { inherited: true } }] },
+        types,
+      ),
+    ).toThrow('unseeded Session contains an inherited end-seed marker')
   })
 
   it('preserves unknown ignorable values and requires installed vocabulary for unknown required events', () => {
@@ -129,20 +153,40 @@ describe('V4 framing and restoration', () => {
   })
 
   it('refuses wrapper-shaped and malformed native tool results before recovery', () => {
-    const wrapper = { type: 'tool/result', seq: 0, time: 1, data: { message: { id: 'result', role: 'user', source: { kind: 'tool', callId: 'call' }, content: [] } } }
-    const malformed = { type: 'tool/result', seq: 0, time: 1, data: { message: { id: 'result', role: 'tool', source: { kind: 'tool', callId: 'call' }, toolCallId: 'call', content: [], isError: 'yes' } } }
+    const wrapper = {
+      type: 'tool/result',
+      seq: 0,
+      time: 1,
+      data: { message: { id: 'result', role: 'user', source: { kind: 'tool', callId: 'call' }, content: [] } },
+    }
+    const malformed = {
+      type: 'tool/result',
+      seq: 0,
+      time: 1,
+      data: {
+        message: { id: 'result', role: 'tool', source: { kind: 'tool', callId: 'call' }, toolCallId: 'call', content: [], isError: 'yes' },
+      },
+    }
     for (const row of [wrapper, malformed]) {
-      expect(() => { assertV4RowAdmission(row) }).toThrow()
+      expect(() => {
+        assertV4RowAdmission(row)
+      }).toThrow()
       const decoder = releasedV4SessionFormatCodec.createDecoder({ type: 'session', ...header }, 'recoverable')
       const output = new SessionFormatEventCollector()
       decoder.decodeRow(null, output)
-      expect(() => { decoder.decodeRow(row, output) }).toThrow()
+      expect(() => {
+        decoder.decodeRow(row, output)
+      }).toThrow()
     }
   })
 
   it('leaves ordinary framing recovery to the released decoder', () => {
-    expect(() => { assertV4RowAdmission(null) }).not.toThrow()
-    expect(() => { assertV4RowAdmission(fact) }).not.toThrow()
+    expect(() => {
+      assertV4RowAdmission(null)
+    }).not.toThrow()
+    expect(() => {
+      assertV4RowAdmission(fact)
+    }).not.toThrow()
     const decoder = releasedV4SessionFormatCodec.createDecoder({ type: 'session', ...header }, 'recoverable')
     const output = new SessionFormatEventCollector()
     decoder.decodeRow(fact, output)
@@ -155,12 +199,14 @@ describe('V4 framing and restoration', () => {
   })
 
   it('keeps inherited catalog entries outside own uniqueness checks', () => {
-    const artifact = { header: { ...header, isSeeded: true, parentSession: 'ancestor' }, inheritedEventCount: 1,
-      events: [catalog, { type: 'session/end-seed', seq: 1, time: 2, data: { inherited: true } }, { ...catalog, seq: 2 }] }
+    const artifact = {
+      header: { ...header, isSeeded: true, parentSession: 'ancestor' },
+      inheritedEventCount: 1,
+      events: [catalog, { type: 'session/end-seed', seq: 1, time: 2, data: { inherited: true } }, { ...catalog, seq: 2 }],
+    }
     expect(restoreReleasedV4Artifact(artifact, types)).toBe(artifact)
   })
 })
-
 
 it('restores external membership and rejects duplicate catalog children', () => {
   const data = { ...(catalog.data as SessionFormatJsonObject), version: 2, mode: 'external', label: 'External' }
@@ -175,7 +221,7 @@ it.each([
   { version: 2, mode: 'one-shot' },
   { version: 2, mode: 'continuable' },
   { version: 2, mode: 'unknown' },
-])('rejects a catalog mode outside its payload version: %j', (descriptor) => {
+])('rejects a catalog mode outside its payload version: %j', descriptor => {
   const data = { ...(catalog.data as SessionFormatJsonObject), ...descriptor }
   expect(() => restore([{ ...catalog, data }])).toThrow('supported versioned catalog fact')
 })

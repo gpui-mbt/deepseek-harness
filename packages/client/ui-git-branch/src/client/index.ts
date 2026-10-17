@@ -17,7 +17,7 @@ import { en, NS, zh, type GitBranchKey } from './locales.ts'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Composer stats-row git-branch copy. */
-    'gitBranch': GitBranchKey
+    gitBranch: GitBranchKey
   }
 }
 
@@ -34,31 +34,52 @@ export const inject = ['slots', 'locale', 'remote', 'remote.workspaceGit']
  */
 export function apply(ctx: ClientContext): void {
   const controller = new GitBranchController(ctx.remote)
-  ctx.effect(() => () => { controller.dispose() }, 'ui-git-branch: checkout polling')
+  ctx.effect(
+    () => () => {
+      controller.dispose()
+    },
+    'ui-git-branch: checkout polling',
+  )
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-git-branch: dictionaries')
   const chipInjected = (): GitBranchChipInjected => ({
     hooks: { gitBranch: controller.branches },
-    acquire: (sessionId) => { controller.acquire(sessionId) },
-    release: (sessionId) => { controller.release(sessionId) },
-    refresh: (sessionId) => { controller.refresh(sessionId) },
+    acquire: sessionId => {
+      controller.acquire(sessionId)
+    },
+    release: sessionId => {
+      controller.release(sessionId)
+    },
+    refresh: sessionId => {
+      controller.refresh(sessionId)
+    },
   })
   // ui-chat's stats row renders this seat ahead of its figures, so the chip
   // reads with the stats it shares the line with.
-  ctx.slots.inject('conversation.composer.stats.lead', () => ctx.slots.register({
-    name: 'conversation.composer.stats.lead',
-    id: 'git-branch',
-    order: 0,
-    locale: NS,
-    inject: chipInjected,
-  }, GitBranchChip))
+  ctx.slots.inject('conversation.composer.stats.lead', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.composer.stats.lead',
+        id: 'git-branch',
+        order: 0,
+        locale: NS,
+        inject: chipInjected,
+      },
+      GitBranchChip,
+    ),
+  )
   // The question takeover hides the composer bar, so ui-user-questions'
   // card header carries its own lead seat and the checkout stays visible
   // while the user answers. Both chips share one watch per Session.
-  ctx.slots.inject('conversation.question.header.lead', () => ctx.slots.register({
-    name: 'conversation.question.header.lead',
-    id: 'git-branch',
-    order: 0,
-    locale: NS,
-    inject: chipInjected,
-  }, GitBranchChip))
+  ctx.slots.inject('conversation.question.header.lead', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.question.header.lead',
+        id: 'git-branch',
+        order: 0,
+        locale: NS,
+        inject: chipInjected,
+      },
+      GitBranchChip,
+    ),
+  )
 }

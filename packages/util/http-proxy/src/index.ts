@@ -14,10 +14,4 @@
  * @module @deepseek-ai/dsh-http-proxy
  */
 
-export {
-  clearedProxyEnv,
-  installProxyFromEnvironment,
-  proxyEnvironmentForChild,
-  proxyRouteFor,
-  type ProxyRoute,
-} from './install.ts'
+export { clearedProxyEnv, installProxyFromEnvironment, proxyEnvironmentForChild, proxyRouteFor, type ProxyRoute } from './install.ts'

@@ -58,9 +58,8 @@ export function resolveDshBinFromManifests(dshManifestUrl: string, clientManifes
   if (typeof dshManifest.version !== 'string' || dshManifest.version !== clientManifest.version) {
     throw new Error(`dsh SDK client ${String(clientManifest.version)} requires the same dsh version, got ${String(dshManifest.version)}`)
   }
-  const bin = typeof dshManifest.bin === 'object' && dshManifest.bin !== null
-    ? (dshManifest.bin as Record<string, unknown>).dsh
-    : dshManifest.bin
+  const bin =
+    typeof dshManifest.bin === 'object' && dshManifest.bin !== null ? (dshManifest.bin as Record<string, unknown>).dsh : dshManifest.bin
   if (typeof bin !== 'string' || bin === '') throw new Error('@deepseek-ai/dsh declares no dsh executable')
   return resolve(dirname(fileURLToPath(dshManifestUrl)), bin)
 }
@@ -70,10 +69,7 @@ export function resolveDshBinFromManifests(dshManifestUrl: string, clientManifes
  * @returns the absolute built executable path, whether or not it exists in a source checkout.
  */
 export function installedDshBin(): string {
-  return resolveDshBinFromManifests(
-    import.meta.resolve('@deepseek-ai/dsh/package.json'),
-    new URL('../package.json', import.meta.url).href,
-  )
+  return resolveDshBinFromManifests(import.meta.resolve('@deepseek-ai/dsh/package.json'), new URL('../package.json', import.meta.url).href)
 }
 
 /**
@@ -125,33 +121,28 @@ function installedDshNodeLaunch(): DshNodeLaunch {
  * @param callerCwd - parent-process directory used for lexical resolution.
  * @returns one generic subprocess spec for the JSON-RPC transport.
  */
-export function resolveDshLaunch(
-  options: HarnessClientOptions = {},
-  callerCwd: string = process.cwd(),
-): RuntimeProcessOptions {
+export function resolveDshLaunch(options: HarnessClientOptions = {}, callerCwd: string = process.cwd()): RuntimeProcessOptions {
   const profile = options.profile ?? 'sdk'
-  const dshLaunch = options.dshBin === undefined
-    ? installedDshNodeLaunch()
-    : { nodeArgs: [resolve(callerCwd, options.dshBin)], patches: [], environment: {} }
-  const patches = [
-    ...dshLaunch.patches,
-    ...(options.patches ?? []).map(path => resolve(callerCwd, path)),
-  ]
+  const dshLaunch =
+    options.dshBin === undefined
+      ? installedDshNodeLaunch()
+      : { nodeArgs: [resolve(callerCwd, options.dshBin)], patches: [], environment: {} }
+  const patches = [...dshLaunch.patches, ...(options.patches ?? []).map(path => resolve(callerCwd, path))]
   const dshHome = options.dshHome === undefined ? undefined : resolve(callerCwd, options.dshHome)
   return {
     command: process.execPath,
     args: [...dshLaunch.nodeArgs, '--profile', profile, ...patches.flatMap(path => ['--patch', path])],
-    ...options.processCwd === undefined ? {} : { cwd: resolve(callerCwd, options.processCwd) },
+    ...(options.processCwd === undefined ? {} : { cwd: resolve(callerCwd, options.processCwd) }),
     environment: () => ({
       ...(options.env ?? process.env),
       ...dshLaunch.environment,
-      ...dshHome === undefined ? {} : { DSH_HOME: dshHome },
+      ...(dshHome === undefined ? {} : { DSH_HOME: dshHome }),
     }),
     description: `dsh profile ${JSON.stringify(profile)}`,
     initializeTimeoutMs: options.initializeTimeoutMs ?? DEFAULT_INITIALIZE_TIMEOUT_MS,
-    ...options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs },
-    ...options.shutdownTimeoutMs === undefined ? {} : { shutdownTimeoutMs: options.shutdownTimeoutMs },
-    ...options.disposeEofGraceMs === undefined ? {} : { disposeEofGraceMs: options.disposeEofGraceMs },
-    ...options.disposeGraceMs === undefined ? {} : { disposeGraceMs: options.disposeGraceMs },
+    ...(options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs }),
+    ...(options.shutdownTimeoutMs === undefined ? {} : { shutdownTimeoutMs: options.shutdownTimeoutMs }),
+    ...(options.disposeEofGraceMs === undefined ? {} : { disposeEofGraceMs: options.disposeEofGraceMs }),
+    ...(options.disposeGraceMs === undefined ? {} : { disposeGraceMs: options.disposeGraceMs }),
   }
 }

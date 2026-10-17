@@ -89,10 +89,15 @@ export class JobController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream' })
   follow(request: JobFollowRequest, signal: AbortSignal): AsyncIterable<JobFollowFrame> {
-    return observeJobOutput(this.ctx.jobs, request, {
-      flushMs: this.observeFlushMs,
-      maxFrameBytes: this.observeMaxFrameBytes,
-    }, signal)
+    return observeJobOutput(
+      this.ctx.jobs,
+      request,
+      {
+        flushMs: this.observeFlushMs,
+        maxFrameBytes: this.observeMaxFrameBytes,
+      },
+      signal,
+    )
   }
 
   /**

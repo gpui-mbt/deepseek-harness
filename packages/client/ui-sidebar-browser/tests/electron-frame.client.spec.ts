@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { ElectronWebViewImpl } from '../src/client/electron/ElectronWebViewImpl.ts'
 import { ElectronWebviewPresentation, type WebviewElement } from '../src/client/electron/ElectronWebviewPresentation.ts'
 import type { DesktopBrowserBridge, DesktopBrowserLeaseId } from '../src/types.ts'
@@ -8,17 +8,36 @@ it('clears a failed load when the main page retries without a toolbar command', 
   let url = 'about:blank'
   let loading = true
   const element: WebviewElement = Object.assign(document.createElement('div'), {
-    loadURL: vi.fn(async () => {}), getURL: () => url, getTitle: () => 'Recovered',
-    canGoBack: () => false, canGoForward: () => false, clearHistory: vi.fn(),
-    goBack: vi.fn(), goForward: vi.fn(), reload: vi.fn(), isLoading: () => loading,
+    loadURL: vi.fn(async () => {}),
+    getURL: () => url,
+    getTitle: () => 'Recovered',
+    canGoBack: () => false,
+    canGoForward: () => false,
+    clearHistory: vi.fn(),
+    goBack: vi.fn(),
+    goForward: vi.fn(),
+    reload: vi.fn(),
+    isLoading: () => loading,
   })
   const bridge: DesktopBrowserBridge = {
     acquire: vi.fn(async () => ({ lease: 'lease' as DesktopBrowserLeaseId, partition: 'partition' })),
-    release: vi.fn(async () => {}), onOpenRequested: () => () => {},
+    release: vi.fn(async () => {}),
+    onOpenRequested: () => () => {},
   }
-  const presentation = new ElectronWebviewPresentation({ mounted: () =>{  frame.attach() }, unmounted: () =>{  frame.detach() } })
-  const frame = new ElectronWebViewImpl({ initial: undefined, persist: vi.fn(), openRequested: vi.fn() },
-    bridge, async () => 'cwd:/workspace', presentation)
+  const presentation = new ElectronWebviewPresentation({
+    mounted: () => {
+      frame.attach()
+    },
+    unmounted: () => {
+      frame.detach()
+    },
+  })
+  const frame = new ElectronWebViewImpl(
+    { initial: undefined, persist: vi.fn(), openRequested: vi.fn() },
+    bridge,
+    async () => 'cwd:/workspace',
+    presentation,
+  )
   const createElement = vi.spyOn(presentation, 'createElement').mockReturnValue(element)
   const host = document.createElement('div')
   host.id = 'electron-frame-retry'
@@ -26,11 +45,17 @@ it('clears a failed load when the main page retries without a toolbar command', 
   try {
     presentation.mount(host.id)
     frame.loadUrl({ kind: 'https', url: 'https://example.test/', title: 'Example' })
-    await vi.waitFor(() => { expect(host.firstElementChild).toBe(element) })
+    await vi.waitFor(() => {
+      expect(host.firstElementChild).toBe(element)
+    })
     element.dispatchEvent(new Event('dom-ready'))
-    element.dispatchEvent(Object.assign(new Event('did-fail-load'), {
-      isMainFrame: true, errorCode: -105, errorDescription: 'ERR_NAME_NOT_RESOLVED',
-    }))
+    element.dispatchEvent(
+      Object.assign(new Event('did-fail-load'), {
+        isMainFrame: true,
+        errorCode: -105,
+        errorDescription: 'ERR_NAME_NOT_RESOLVED',
+      }),
+    )
     expect(frame.getSnapshot().error?.code).toBe(-105)
     element.dispatchEvent(new Event('page-title-updated'))
     element.dispatchEvent(Object.assign(new Event('did-start-navigation'), { isMainFrame: false }))

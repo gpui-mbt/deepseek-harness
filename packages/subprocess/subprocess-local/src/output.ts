@@ -52,7 +52,11 @@ function privateSpillDir(): string {
 /* v8 ignore next 4 -- exit listeners run after the coverage dump; removal is verified by the CI /tmp residue measurement. */
 process.once('exit', () => {
   if (defaultSpillDir === undefined) return
-  try { rmdirSync(defaultSpillDir) } catch { /* best-effort: ENOENT/ENOTEMPTY/EBUSY/EPERM must not change the exit code. */ }
+  try {
+    rmdirSync(defaultSpillDir)
+  } catch {
+    /* best-effort: ENOENT/ENOTEMPTY/EBUSY/EPERM must not change the exit code. */
+  }
 })
 
 /**
@@ -78,8 +82,10 @@ export function logSpillFailure(logger: { error(message: string, ...detail: unkn
   return (error, label) => {
     const removedDirectory = (error as NodeJS.ErrnoException).code === 'ENOENT'
     logger.error(
-      `${owner} could not write the complete ${label} stream to its spill file; the result keeps only the in-memory tail and reports no full-output path.`
-      + (removedDirectory ? ' The spill directory no longer exists; a temporary-file cleaner removing it while empty is the usual cause.' : ''),
+      `${owner} could not write the complete ${label} stream to its spill file; the result keeps only the in-memory tail and reports no full-output path.` +
+        (removedDirectory
+          ? ' The spill directory no longer exists; a temporary-file cleaner removing it while empty is the usual cause.'
+          : ''),
       error,
     )
   }
@@ -109,7 +115,6 @@ export function prepareManagedProcessBinding(
     onSpillFailure: internals.onSpillFailure ?? reportSpillFailureToStderr,
   }
 }
-
 
 /**
  * Collects one stream with a bounded in-memory tail. With spill options, on
@@ -201,10 +206,7 @@ export class OutputCollector {
         // published only once the open succeeded, so a failed open (EEXIST on a
         // planted entry included) never lets discardSpill unlink a path this
         // process did not create.
-        const file = join(
-          spill.dir,
-          `dsh-subprocess-${process.pid}-${++spillCounter}-${randomBytes(6).toString('hex')}-${this.label}.log`,
-        )
+        const file = join(spill.dir, `dsh-subprocess-${process.pid}-${++spillCounter}-${randomBytes(6).toString('hex')}-${this.label}.log`)
         const fd = openSync(file, 'wx', 0o600)
         this.spillFile = file
         this.spillFd = fd
@@ -267,7 +269,7 @@ export class OutputCollector {
       text: slice.toString('utf8'),
       nextOffset: this.total,
       lossy,
-      ...this.spillFile !== undefined ? { spillPath: this.spillFile } : {},
+      ...(this.spillFile !== undefined ? { spillPath: this.spillFile } : {}),
     }
   }
 
@@ -307,7 +309,7 @@ export class OutputCollector {
     return {
       text: Buffer.concat(this.chunks).toString('utf8'),
       truncated: this.dropped,
-      ...this.spillFile !== undefined ? { spillPath: this.spillFile } : {},
+      ...(this.spillFile !== undefined ? { spillPath: this.spillFile } : {}),
     }
   }
 }

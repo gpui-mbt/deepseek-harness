@@ -38,10 +38,12 @@ export class SubmitMachine {
   private phase: InputState['phase'] = 'plain'
   private claim: CommandClaim | undefined
   private seq = 0
-  private inflight: {
-    readonly attempt: SubmitAttempt
-    readonly controller: AbortController
-  } | undefined
+  private inflight:
+    | {
+        readonly attempt: SubmitAttempt
+        readonly controller: AbortController
+      }
+    | undefined
   /** Ordinary sends detached from the editor, retained for settlement validation and cancellation. */
   private readonly detached = new Map<number, AbortController>()
 
@@ -52,13 +54,13 @@ export class SubmitMachine {
       phase: this.phase,
       ...(c
         ? {
-          claim: {
-            name: c.name,
-            token: c.token,
-            ...(c.hint !== undefined ? { hint: c.hint } : {}),
-            ...(c.attachments === true ? { attachments: true } : {}),
-          },
-        }
+            claim: {
+              name: c.name,
+              token: c.token,
+              ...(c.hint !== undefined ? { hint: c.hint } : {}),
+              ...(c.attachments === true ? { attachments: true } : {}),
+            },
+          }
         : {}),
     }
   }
@@ -70,16 +72,26 @@ export class SubmitMachine {
    */
   dispatch(ev: InputEvent): readonly InputEffect[] {
     switch (ev.type) {
-      case 'draft-changed': return this.followCommand(ev.command)
-      case 'claim': return this.followCommand(ev.claim)
-      case 'enter': return this.onEnter(ev.mode, ev.draft, ev.submission)
-      case 'adjudicated': return this.onAdjudicated(ev.attempt, ev.outcome)
-      case 'adjudication-failed': return this.onAdjudicationFailed(ev.attempt, ev.message)
-      case 'submit-settled': return this.onSubmitSettled(ev)
-      case 'sink-settled': return this.onSinkSettled(ev)
-      case 'send-committed': return this.onSendCommitted()
-      case 'release': return this.onRelease()
-      default: return unreachable(ev)
+      case 'draft-changed':
+        return this.followCommand(ev.command)
+      case 'claim':
+        return this.followCommand(ev.claim)
+      case 'enter':
+        return this.onEnter(ev.mode, ev.draft, ev.submission)
+      case 'adjudicated':
+        return this.onAdjudicated(ev.attempt, ev.outcome)
+      case 'adjudication-failed':
+        return this.onAdjudicationFailed(ev.attempt, ev.message)
+      case 'submit-settled':
+        return this.onSubmitSettled(ev)
+      case 'sink-settled':
+        return this.onSinkSettled(ev)
+      case 'send-committed':
+        return this.onSendCommitted()
+      case 'release':
+        return this.onRelease()
+      default:
+        return unreachable(ev)
     }
   }
 
@@ -98,14 +110,24 @@ export class SubmitMachine {
   }
 
   /** Mint an attempt and controller without assigning its lifecycle owner. */
-  private mintAttempt(mode: InputSubmitMode, draft: string, submission?: MessageSubmission): {
+  private mintAttempt(
+    mode: InputSubmitMode,
+    draft: string,
+    submission?: MessageSubmission,
+  ): {
     readonly attempt: SubmitAttempt
     readonly controller: AbortController
   } {
     const controller = new AbortController()
     this.seq += 1
     return {
-      attempt: { seq: this.seq, signal: controller.signal, draftSnapshot: draft, mode, ...submission === undefined ? {} : { submission } },
+      attempt: {
+        seq: this.seq,
+        signal: controller.signal,
+        draftSnapshot: draft,
+        mode,
+        ...(submission === undefined ? {} : { submission }),
+      },
       controller,
     }
   }
@@ -151,21 +173,20 @@ export class SubmitMachine {
     return this.detachedEffects(this.beginDetached(mode, draft, submission))
   }
 
-  private onAdjudicated(
-    attempt: SubmitAttempt,
-    outcome: Extract<InputEvent, { type: 'adjudicated' }>['outcome'],
-  ): readonly InputEffect[] {
+  private onAdjudicated(attempt: SubmitAttempt, outcome: Extract<InputEvent, { type: 'adjudicated' }>['outcome']): readonly InputEffect[] {
     const flight = this.inflight
     if (this.phase !== 'adjudicating' || flight === undefined || flight.attempt.seq !== attempt.seq) return []
     if (outcome !== undefined && outcome !== 'handled' && 'claim' in outcome) {
       this.claim = outcome.claim
       this.phase = 'submitting'
-      return [{
-        type: 'begin-submit',
-        attempt,
-        claim: outcome.claim,
-        args: argsAfter(attempt.draftSnapshot, outcome.claim.token),
-      }]
+      return [
+        {
+          type: 'begin-submit',
+          attempt,
+          claim: outcome.claim,
+          args: argsAfter(attempt.draftSnapshot, outcome.claim.token),
+        },
+      ]
     }
     this.inflight = undefined
     this.phase = 'plain'

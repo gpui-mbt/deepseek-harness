@@ -52,19 +52,29 @@ export function runShellProcess(start: ShellStartFrame, scope: ProcessScope): vo
   const call = async (op: FilesystemOperation, args: readonly unknown[]): Promise<unknown> => {
     nextCall += 1
     const id = nextCall
-    const reply = new Promise<unknown>((settle, fail) => { pending.set(id, { settle, fail }) })
+    const reply = new Promise<unknown>((settle, fail) => {
+      pending.set(id, { settle, fail })
+    })
     scope.postMessage({ t: 'fs-call', id, op, args })
     return await reply
   }
 
   const fs: ShellFileSystem = {
-    stat: async (path: string) => await call('stat', [path]) as ShellStats | undefined,
-    list: async (path: string) => await call('list', [path]) as ShellDirent[],
-    readText: async (path: string) => await call('readText', [path]) as string,
-    writeText: async (path: string, text: string, append = false) => { await call('writeText', [path, text, append]) },
-    mkdir: async (path: string, recursive: boolean) => { await call('mkdir', [path, recursive]) },
-    remove: async (path: string, options: { recursive: boolean; force: boolean }) => { await call('remove', [path, options]) },
-    rename: async (from: string, to: string) => { await call('rename', [from, to]) },
+    stat: async (path: string) => (await call('stat', [path])) as ShellStats | undefined,
+    list: async (path: string) => (await call('list', [path])) as ShellDirent[],
+    readText: async (path: string) => (await call('readText', [path])) as string,
+    writeText: async (path: string, text: string, append = false) => {
+      await call('writeText', [path, text, append])
+    },
+    mkdir: async (path: string, recursive: boolean) => {
+      await call('mkdir', [path, recursive])
+    },
+    remove: async (path: string, options: { recursive: boolean; force: boolean }) => {
+      await call('remove', [path, options])
+    },
+    rename: async (from: string, to: string) => {
+      await call('rename', [from, to])
+    },
   }
 
   const options = {
@@ -73,13 +83,13 @@ export function runShellProcess(start: ShellStartFrame, scope: ProcessScope): vo
     stdin: start.stdin,
     signal: stopping.signal,
     fs,
-    onOutput: (stream: 'stdout' | 'stderr', text: string) => { scope.postMessage({ t: 'shell-out', stream, text }) },
+    onOutput: (stream: 'stdout' | 'stderr', text: string) => {
+      scope.postMessage({ t: 'shell-out', stream, text })
+    },
   }
-  const run = start.script === undefined
-    ? runShellProgram(start.argv, options)
-    : runShellCommand(start.script, options)
+  const run = start.script === undefined ? runShellProgram(start.argv, options) : runShellCommand(start.script, options)
   void run.then(
-    (outcome) => {
+    outcome => {
       scope.postMessage({ t: 'shell-exit', code: outcome.exitCode })
       scope.close()
     },

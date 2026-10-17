@@ -1,34 +1,65 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { allowAllAccess, bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AgentPresetSection, type AgentPresetSectionProps } from '../src/client/AgentPresetSection.tsx'
 import type { AgentPresetSectionState } from '../src/client/section-store.ts'
 import { en } from '../src/client/locales.ts'
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+})
 const translations: ReadonlyMap<string, string> = new Map(Object.entries(en))
 function unusedHook(): never {
   throw new Error('This section does not read global slot sources')
 }
 function view(partial: Partial<AgentPresetSectionState> = {}, startCreatorDraft?: () => void, outerClose?: () => void, enabled = true) {
   const developerTools = createSnapshotStore(enabled)
-  const store = createSnapshotStore<AgentPresetSectionState>({ status: 'ready', error: null,
-    saving: false, rows: [{ id: 'standard', isDefault: true }, { id: 'mine', name: 'Mine', isDefault: false }],
-    view: null, ...partial })
-  const actions = { load: vi.fn(async () => {}), view: vi.fn(async () => {}), closeView: vi.fn(), makeDefault: vi.fn(async () => {}),
-    close: vi.fn() }
-  const props: AgentPresetSectionProps = { ...actions,
+  const store = createSnapshotStore<AgentPresetSectionState>({
+    status: 'ready',
+    error: null,
+    saving: false,
+    rows: [
+      { id: 'standard', isDefault: true },
+      { id: 'mine', name: 'Mine', isDefault: false },
+    ],
+    view: null,
+    ...partial,
+  })
+  const actions = {
+    load: vi.fn(async () => {}),
+    view: vi.fn(async () => {}),
+    closeView: vi.fn(),
+    makeDefault: vi.fn(async () => {}),
+    close: vi.fn(),
+  }
+  const props: AgentPresetSectionProps = {
+    ...actions,
     ...(startCreatorDraft === undefined ? {} : { startCreatorDraft }),
-    usePanelInfo: unusedHook, useSessions: unusedHook, useSessionStatus: unusedHook, useSessionRetainInfo: unusedHook,
-    useWorkspaces: unusedHook, useResource: unusedHook,
+    usePanelInfo: unusedHook,
+    useSessions: unusedHook,
+    useSessionStatus: unusedHook,
+    useSessionRetainInfo: unusedHook,
+    useWorkspaces: unusedHook,
+    useResource: unusedHook,
     ...allowAllAccess,
     useAgentPresetSection: bindSnapshotSelector(store),
     useDeveloperTools: bindSnapshotSelector(developerTools),
-    t: key => translations.get(key) ?? key }
-  render(outerClose === undefined ? <AgentPresetSection {...props} />
-    : <Modal open onClose={outerClose} title="Settings" closeLabel="Close"><AgentPresetSection {...props} /></Modal>)
+    t: key => translations.get(key) ?? key,
+  }
+  render(
+    outerClose === undefined ? (
+      <AgentPresetSection {...props} />
+    ) : (
+      <Modal open onClose={outerClose} title="Settings" closeLabel="Close">
+        <AgentPresetSection {...props} />
+      </Modal>
+    ),
+  )
   return { ...actions, store, developerTools }
 }
 function rowFor(id: string): HTMLElement {
@@ -36,15 +67,28 @@ function rowFor(id: string): HTMLElement {
   if (row === null) throw new Error(`no card for ${id}`)
   return row
 }
-it.each([false, true])('offers Standard, Creator and custom defaults with Coding Tools %s', (enabled) => {
-  const actions = view({ rows: [
-    { id: 'standard', isDefault: false }, { id: 'ptc', isDefault: false },
-    { id: 'minimal', isDefault: true }, { id: 'cordis', isDefault: false },
-    { id: 'mine', name: 'Mine', isDefault: false },
-  ] }, vi.fn(), undefined, enabled)
+it.each([false, true])('offers Standard, Creator and custom defaults with Coding Tools %s', enabled => {
+  const actions = view(
+    {
+      rows: [
+        { id: 'standard', isDefault: false },
+        { id: 'ptc', isDefault: false },
+        { id: 'minimal', isDefault: true },
+        { id: 'cordis', isDefault: false },
+        { id: 'mine', name: 'Mine', isDefault: false },
+      ],
+    },
+    vi.fn(),
+    undefined,
+    enabled,
+  )
   expect(screen.queryByRole('button', { name: `${en.setDefault}: ${en.presetPtcName}` }) !== null).toBe(enabled)
   expect(screen.queryByRole('button', { name: `${en.inUse}: ${en.presetMinimalName}` }) !== null).toBe(enabled)
-  for (const [id, name] of [['standard', en.presetStandardName], ['cordis', en.presetCordisName], ['mine', 'Mine']]) {
+  for (const [id, name] of [
+    ['standard', en.presetStandardName],
+    ['cordis', en.presetCordisName],
+    ['mine', 'Mine'],
+  ]) {
     const button = screen.getByRole<HTMLButtonElement>('button', { name: `${en.setDefault}: ${name}` })
     expect(button.disabled).toBe(false)
     fireEvent.click(button)
@@ -53,23 +97,31 @@ it.each([false, true])('offers Standard, Creator and custom defaults with Coding
   expect(screen.getByRole<HTMLButtonElement>('button', { name: en.creatorDraft }).disabled).toBe(false)
 })
 it('updates visible settings choices without writing defaults from the renderer', () => {
-  const actions = view({ rows: [
-    { id: 'standard', isDefault: false }, { id: 'ptc', isDefault: false },
-    { id: 'minimal', isDefault: true }, { id: 'cordis', isDefault: false },
-  ] })
+  const actions = view({
+    rows: [
+      { id: 'standard', isDefault: false },
+      { id: 'ptc', isDefault: false },
+      { id: 'minimal', isDefault: true },
+      { id: 'cordis', isDefault: false },
+    ],
+  })
   const rows = actions.store.getSnapshot().rows
-  act(() => { actions.developerTools.set(false) })
+  act(() => {
+    actions.developerTools.set(false)
+  })
   expect(document.querySelector('[data-agent-preset-id="ptc"]')).toBeNull()
   expect(document.querySelector('[data-agent-preset-id="minimal"]')).toBeNull()
   expect(rowFor('standard')).toBeTruthy()
   expect(rowFor('cordis')).toBeTruthy()
   expect(actions.makeDefault).not.toHaveBeenCalled()
   expect(actions.store.getSnapshot().rows).toBe(rows)
-  act(() => { actions.developerTools.set(true) })
+  act(() => {
+    actions.developerTools.set(true)
+  })
   expect(screen.getByRole('button', { name: `${en.inUse}: ${en.presetMinimalName}` })).toBeTruthy()
   expect(rowFor('ptc')).toBeTruthy()
 })
-it.each(['ptc', 'minimal'])('keeps a named custom %s override selectable with Coding Tools off', (id) => {
+it.each(['ptc', 'minimal'])('keeps a named custom %s override selectable with Coding Tools off', id => {
   const actions = view({ rows: [{ id, name: 'My mode', isDefault: false }] }, undefined, undefined, false)
   fireEvent.click(screen.getByRole('button', { name: `${en.setDefault}: My mode` }))
   expect(actions.makeDefault).toHaveBeenCalledWith(id)
@@ -79,7 +131,9 @@ it('reads the roster once and sets a default from the card body', async () => {
   expect(screen.queryByRole('switch')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: `${en.setDefault}: Mine` }))
   expect(actions.makeDefault).toHaveBeenCalledWith('mine')
-  await waitFor(() =>{  expect(actions.load).toHaveBeenCalledOnce() })
+  await waitFor(() => {
+    expect(actions.load).toHaveBeenCalledOnce()
+  })
   expect(screen.queryByRole('button', { name: /^Edit plugins/ })).toBeNull()
 })
 it('replaces the default preset group tag with its new-task default status', () => {
@@ -125,7 +179,12 @@ it('disables the Creator entry while a default is being saved', () => {
   expect(launch).not.toHaveBeenCalled()
 })
 it('reads a declared composition read-only from every card, broken ones included', () => {
-  const actions = view({ rows: [{ id: 'standard', isDefault: true }, { id: 'broken', isDefault: false, broken: 'Missing plugin' }] })
+  const actions = view({
+    rows: [
+      { id: 'standard', isDefault: true },
+      { id: 'broken', isDefault: false, broken: 'Missing plugin' },
+    ],
+  })
   expect(screen.queryByRole('dialog')).toBeNull()
   fireEvent.click(within(rowFor('standard')).getByRole('button', { name: `${en.view}: ${en.presetStandardName}` }))
   expect(actions.view).toHaveBeenCalledWith('standard')
@@ -151,7 +210,9 @@ it('keeps Escape inside the composition viewer when Settings is also open', () =
   const trigger = within(rowFor('standard')).getByRole('button', { name: `${en.view}: ${en.presetStandardName}` })
   trigger.focus()
   fireEvent.click(trigger)
-  act(() => { actions.store.set({ ...actions.store.getSnapshot(), view: { id: 'standard', title: 'standard', content: '[]\n' } }) })
+  act(() => {
+    actions.store.set({ ...actions.store.getSnapshot(), view: { id: 'standard', title: 'standard', content: '[]\n' } })
+  })
   const dialog = screen.getByRole('dialog', { name: `${en.view} · ${en.presetStandardName}` })
   const [header, footer] = within(dialog).getAllByRole('button', { name: en.close })
   expect(document.activeElement).toBe(footer)
@@ -171,10 +232,13 @@ it('clears an open viewer when the settings section unmounts', () => {
   expect(actions.closeView).toHaveBeenCalledOnce()
 })
 it('shows roster errors without hiding the roster', () => {
-  const actions = view({ error: 'Roster stale', rows: [
-    { id: 'broken', isDefault: false, broken: 'Missing plugin' },
-    { id: 'mine', name: 'Mine', isDefault: false },
-  ] })
+  const actions = view({
+    error: 'Roster stale',
+    rows: [
+      { id: 'broken', isDefault: false, broken: 'Missing plugin' },
+      { id: 'mine', name: 'Mine', isDefault: false },
+    ],
+  })
   expect(screen.getAllByRole('alert').map(node => node.textContent)).toEqual(['Roster stale', 'Missing plugin'])
   fireEvent.click(screen.getByRole('button', { name: `${en.setDefault}: Mine` }))
   expect(actions.makeDefault).toHaveBeenCalledWith('mine')
@@ -254,7 +318,12 @@ it('connects keyboard selection to the visible guide panel', () => {
   expect(within(dialog).queryByRole('tabpanel', { name: en.modeExplanation })).toBeNull()
 })
 it('does not attach built-in claims to named or unknown presets', () => {
-  view({ rows: [{ id: 'ptc', name: 'My PTC', isDefault: false }, { id: 'third-party', isDefault: false }] })
+  view({
+    rows: [
+      { id: 'ptc', name: 'My PTC', isDefault: false },
+      { id: 'third-party', isDefault: false },
+    ],
+  })
   expect(screen.queryByRole('button', { name: new RegExp(en.modeExplanation) })).toBeNull()
   expect(screen.queryByRole('button', { name: new RegExp(en.howToUse) })).toBeNull()
 })
@@ -281,14 +350,16 @@ it('closes help even when the browser reports no previously focused element', ()
     activeElement.mockRestore()
   }
 })
-it.each([false, true])('only offers a description tooltip when the card clips it: %s', (overflow) => {
+it.each([false, true])('only offers a description tooltip when the card clips it: %s', overflow => {
   vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(overflow ? 400 : 80)
   vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(80)
   const disconnect = vi.spyOn(ResizeObserver.prototype, 'disconnect')
   vi.useFakeTimers()
   view({ rows: [{ id: 'mine', isDefault: false, description: 'Preset description' }] })
   fireEvent.mouseEnter(screen.getByText('Preset description'))
-  act(() => { vi.advanceTimersByTime(400) })
+  act(() => {
+    vi.advanceTimersByTime(400)
+  })
   expect(screen.queryByRole('tooltip')?.textContent ?? null).toBe(overflow ? 'Preset description' : null)
   cleanup()
   expect(disconnect).toHaveBeenCalledTimes(overflow ? 2 : 1)

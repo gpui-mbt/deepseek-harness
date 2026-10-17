@@ -26,7 +26,9 @@ type FileReferenceProps = UserTextNodeProps<'file'> & InjectFace<FileReferenceIn
 export function FileReference({ node, raw, interactive, openFile, t }: FileReferenceProps) {
   const [failedPath, setFailedPath] = useState<string | null>(null)
   const { path, label } = node.data
-  const close = () => { setFailedPath(null) }
+  const close = () => {
+    setFailedPath(null)
+  }
   const open = () => {
     try {
       openFile(path)
@@ -36,20 +38,30 @@ export function FileReference({ node, raw, interactive, openFile, t }: FileRefer
     }
     setFailedPath(null)
   }
-  return <>
-    <ReferenceChip appearance="file" label={label} title={raw} {...interactive ? { onActivate: open } : {}} />
-    {interactive && failedPath === path && <Modal
-      open
-      onClose={close}
-      closeLabel={t('fileOpen.close')}
-      title={t('fileOpen.title')}
-      description={t('fileOpen.failed', { path })}
-      footer={<>
-        <Button variant="outline" onClick={close}>{t('fileOpen.close')}</Button>
-        <Button variant="primary" onClick={open}>{t('fileOpen.retry')}</Button>
-      </>}
-    />}
-  </>
+  return (
+    <>
+      <ReferenceChip appearance="file" label={label} title={raw} {...(interactive ? { onActivate: open } : {})} />
+      {interactive && failedPath === path && (
+        <Modal
+          open
+          onClose={close}
+          closeLabel={t('fileOpen.close')}
+          title={t('fileOpen.title')}
+          description={t('fileOpen.failed', { path })}
+          footer={
+            <>
+              <Button variant="outline" onClick={close}>
+                {t('fileOpen.close')}
+              </Button>
+              <Button variant="primary" onClick={open}>
+                {t('fileOpen.retry')}
+              </Button>
+            </>
+          }
+        />
+      )}
+    </>
+  )
 }
 
 /**

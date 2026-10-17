@@ -37,13 +37,7 @@ import type {
   SimpleStreamOptions,
   ThinkingLevel,
 } from '@earendil-works/pi-ai'
-import {
-  attributionHeaders,
-  contentHasImage,
-  LlmAdapter,
-  LlmError,
-  ReasoningEffortId,
-} from '@deepseek-ai/dsh-llm'
+import { attributionHeaders, contentHasImage, LlmAdapter, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type {
   GenerateOptions,
   ImageAttachmentAccess,
@@ -148,7 +142,7 @@ function routingOf(profile: ResolvedPiAiProviderProfile, model: string): LlmMode
   const windows = profile.peak.get(model)
   if (windows === undefined) return undefined
   return {
-    windows: windows.map((window) => {
+    windows: windows.map(window => {
       // Configuration refused an empty window, and the first candidate serves
       // every request; that is the provider a selector names for the window.
       // oxlint-disable-next-line typescript/no-non-null-assertion -- validation guarantees a first candidate
@@ -157,7 +151,7 @@ function routingOf(profile: ResolvedPiAiProviderProfile, model: string): LlmMode
         from: window.from,
         to: window.to,
         provider,
-        ...window.timeZone === undefined ? {} : { timeZone: window.timeZone },
+        ...(window.timeZone === undefined ? {} : { timeZone: window.timeZone }),
       }
     }),
   }
@@ -179,13 +173,13 @@ function profileOptions(
 ): SimpleStreamOptions {
   const enabledReasoning: ThinkingLevel | undefined = reasoning === 'off' ? undefined : reasoning
   return {
-    ...apiKey === undefined ? {} : { apiKey },
-    ...enabledReasoning === undefined ? {} : { reasoning: enabledReasoning },
-    ...profile.thinkingBudgets === undefined ? {} : { thinkingBudgets: profile.thinkingBudgets },
-    ...profile.cacheRetention === undefined ? {} : { cacheRetention: profile.cacheRetention },
-    ...profile.transport === undefined ? {} : { transport: profile.transport },
-    ...profile.timeoutMs === undefined ? {} : { timeoutMs: profile.timeoutMs },
-    ...profile.websocketConnectTimeoutMs === undefined ? {} : { websocketConnectTimeoutMs: profile.websocketConnectTimeoutMs },
+    ...(apiKey === undefined ? {} : { apiKey }),
+    ...(enabledReasoning === undefined ? {} : { reasoning: enabledReasoning }),
+    ...(profile.thinkingBudgets === undefined ? {} : { thinkingBudgets: profile.thinkingBudgets }),
+    ...(profile.cacheRetention === undefined ? {} : { cacheRetention: profile.cacheRetention }),
+    ...(profile.transport === undefined ? {} : { transport: profile.transport }),
+    ...(profile.timeoutMs === undefined ? {} : { timeoutMs: profile.timeoutMs }),
+    ...(profile.websocketConnectTimeoutMs === undefined ? {} : { websocketConnectTimeoutMs: profile.websocketConnectTimeoutMs }),
     // The agent recovery layer owns visible attempts; one adapter call is one SDK attempt.
     maxRetries: 0,
   }
@@ -209,9 +203,7 @@ function describableReasoningLevel(
   effort: ReasoningEffortIdType | ModelThinkingLevel | undefined,
 ): ModelThinkingLevel | undefined {
   if (effort === undefined) return undefined
-  return getSupportedThinkingLevels(model).some(level => level === effort)
-    ? effort as ModelThinkingLevel
-    : undefined
+  return getSupportedThinkingLevels(model).some(level => level === effort) ? (effort as ModelThinkingLevel) : undefined
 }
 
 /** Validate an explicit Harness/profile effort without invoking pi-ai's clamp. */
@@ -256,7 +248,7 @@ function reasoningInfo(
         id: ReasoningEffortId(level),
         name: `${level.charAt(0).toUpperCase()}${level.slice(1)}`,
       })),
-      ...defaultLevel === undefined ? {} : { defaultEffort: ReasoningEffortId(defaultLevel) },
+      ...(defaultLevel === undefined ? {} : { defaultEffort: ReasoningEffortId(defaultLevel) }),
     },
   }
 }
@@ -344,8 +336,7 @@ export class PiAiAdapter extends LlmAdapter {
   /** The configured descriptor for one exact route/model pair within one snapshot. */
   private modelOf(snapshot: PiAiSnapshot, provider: string, model: string): Model<Api> {
     const profile = this.profileOf(snapshot, provider)
-    const failure = profile.modelErrors.get(model)
-      ?? (profile.piProvider === undefined ? profile.catalogError : undefined)
+    const failure = profile.modelErrors.get(model) ?? (profile.piProvider === undefined ? profile.catalogError : undefined)
     if (failure !== undefined) throw new LlmError(failure, 'INVALID_CONFIG')
     const resolved = snapshot.models.getModel(provider, model)
     if (resolved === undefined) {
@@ -378,30 +369,29 @@ export class PiAiAdapter extends LlmAdapter {
       // oxlint-disable-next-line typescript/no-non-null-assertion -- validation and registration guarantee both
       const descriptor = snapshot.models.getModel(candidate.provider, model)!
       const configured = snapshot.profiles.get(candidate.provider)
-      const profile = configured
+      const profile =
+        configured ??
         // oxlint-disable-next-line typescript/no-non-null-assertion -- an unconfigured candidate has a synthetic profile
-        ?? snapshot.alternates.get(candidate.provider)!
+        snapshot.alternates.get(candidate.provider)!
       // The window switches the endpoint, not how the route it names
       // authenticates: that route's own reference applies unless the window
       // names one, which is what keeps a candidate that is a configured route
       // usable without repeating its credential in every window. An
       // installed-catalog alternate has no route profile, so omission there
       // keeps pi-ai's provider-native ambient discovery.
-      const apiKeyEnv = candidate.apiKeyEnv === undefined
-        ? configured?.apiKeyEnv
-        : credentialRef(candidate.apiKeyEnv)
+      const apiKeyEnv = candidate.apiKeyEnv === undefined ? configured?.apiKeyEnv : credentialRef(candidate.apiKeyEnv)
       return {
         provider: candidate.provider,
         model: descriptor,
         profile,
-        ...apiKeyEnv === undefined ? {} : { apiKeyEnv },
+        ...(apiKeyEnv === undefined ? {} : { apiKeyEnv }),
       }
     }
     return {
       provider,
       model: this.modelOf(snapshot, provider, model),
       profile: primary,
-      ...primary.apiKeyEnv === undefined ? {} : { apiKeyEnv: primary.apiKeyEnv },
+      ...(primary.apiKeyEnv === undefined ? {} : { apiKeyEnv: primary.apiKeyEnv }),
     }
   }
 
@@ -420,30 +410,27 @@ export class PiAiAdapter extends LlmAdapter {
     return Promise.resolve().then(async () => {
       const snapshot = this.current()
       const profile = this.profileOf(snapshot, provider)
-      try { await this.config.resolveApiKey(provider, profile.apiKeyEnv) }
-      catch (error) {
+      try {
+        await this.config.resolveApiKey(provider, profile.apiKeyEnv)
+      } catch (error) {
         // A route whose named key does not resolve cannot serve a request, so it offers no models until the key is stored.
         if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') return []
         throw error
       }
-      return snapshot.models.getModels(provider).map((model) => {
+      return snapshot.models.getModels(provider).map(model => {
         const routing = routingOf(profile, model.id)
         return {
           provider,
           id: model.id,
           name: model.name,
           inputModalities: [...model.input],
-          ...routing === undefined ? {} : { routing },
+          ...(routing === undefined ? {} : { routing }),
         }
       })
     })
   }
 
-  override resolveModel(
-    provider: string,
-    model: string,
-    _signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo> {
+  override resolveModel(provider: string, model: string, _signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
     return Promise.resolve().then(() => {
       const snapshot = this.current()
       return this.modelInfo(snapshot, provider, model)
@@ -469,9 +456,9 @@ export class PiAiAdapter extends LlmAdapter {
       id: model,
       name: descriptor.name,
       inputModalities: [...descriptor.input],
-      ...routing === undefined ? {} : { routing },
+      ...(routing === undefined ? {} : { routing }),
       context: { contextWindow: descriptor.contextWindow },
-      ...configuredMaxTokens === undefined ? {} : { defaultMaxTokens: configuredMaxTokens },
+      ...(configuredMaxTokens === undefined ? {} : { defaultMaxTokens: configuredMaxTokens }),
       ...reasoningInfo(descriptor, defaultLevel),
       ...conversationUpdates(descriptor),
     }
@@ -513,7 +500,7 @@ export class PiAiAdapter extends LlmAdapter {
     return this.streamWithSnapshot(options, snapshot, this.routeFor(snapshot, options.provider, options.model, this.now()))
   }
 
-  private async * streamWithSnapshot(
+  private async *streamWithSnapshot(
     options: GenerateOptions,
     snapshot: PiAiSnapshot,
     effective: EffectiveRoute,
@@ -531,23 +518,20 @@ export class PiAiAdapter extends LlmAdapter {
     const updates = conversationUpdates(model)
     // pi-ai collapses Anthropic tool updates without an initially active declaration.
     const tools = options.tools ?? []
-    const needsPlaceholder = model.api === 'anthropic-messages' && updates.toolUpdate === 'in-history'
-      && tools.every(tool => tool.deferLoading === true)
-      && options.messages.some(message => message.role === 'developer'
-        && message.content.some(block => block.type === 'tool-addition' || block.type === 'tool-removal'))
-    const request = needsPlaceholder
-      ? { ...options, tools: [ANTHROPIC_TOOL_UPDATE_PLACEHOLDER, ...tools] }
-      : options
-    const reasoning = resolveReasoningLevel(
-      model,
-      options.reasoningEffort ?? profile.reasoning,
-    )
+    const needsPlaceholder =
+      model.api === 'anthropic-messages' &&
+      updates.toolUpdate === 'in-history' &&
+      tools.every(tool => tool.deferLoading === true) &&
+      options.messages.some(
+        message =>
+          message.role === 'developer' && message.content.some(block => block.type === 'tool-addition' || block.type === 'tool-removal'),
+      )
+    const request = needsPlaceholder ? { ...options, tools: [ANTHROPIC_TOOL_UPDATE_PLACEHOLDER, ...tools] } : options
+    const reasoning = resolveReasoningLevel(model, options.reasoningEffort ?? profile.reasoning)
     const apiKey = await this.config.resolveApiKey(effective.provider, effective.apiKeyEnv)
 
     const consumer = new AbortController()
-    const upstream = options.signal === undefined
-      ? consumer.signal
-      : AbortSignal.any([options.signal, consumer.signal])
+    const upstream = options.signal === undefined ? consumer.signal : AbortSignal.any([options.signal, consumer.signal])
     const streamIdleTimeoutMs = profile.streamIdleTimeoutMs
     using watchdog = idleWatchdog(upstream, streamIdleTimeoutMs, 'LLM_STREAM_IDLE_TIMEOUT')
 
@@ -563,22 +547,27 @@ export class PiAiAdapter extends LlmAdapter {
       const onReplayDegrade = (reason: string): void => {
         this.config.onReplayDegrade?.({ provider: options.provider, model: options.model, reason })
       }
-      const context = attachments === undefined
-        ? toPiContext(request, undefined, onReplayDegrade)
-        : await toPiContext({ ...request, signal: watchdog.signal }, {
-          attachments,
-          resolveImageAccess: ref => this.config.resolveImageAccess?.(attachments, ref),
-          maxRequestImageBytes: profile.maxRequestImageBytes,
-          requestImagePolicy: {
-            maxPixels: profile.requestImagePixelBudget,
-            maxBytes: profile.requestImageMaxBytes,
-          },
-        }, onReplayDegrade)
+      const context =
+        attachments === undefined
+          ? toPiContext(request, undefined, onReplayDegrade)
+          : await toPiContext(
+              { ...request, signal: watchdog.signal },
+              {
+                attachments,
+                resolveImageAccess: ref => this.config.resolveImageAccess?.(attachments, ref),
+                maxRequestImageBytes: profile.maxRequestImageBytes,
+                requestImagePolicy: {
+                  maxPixels: profile.requestImagePixelBudget,
+                  maxBytes: profile.requestImageMaxBytes,
+                },
+              },
+              onReplayDegrade,
+            )
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
-        ...options.temperature === undefined ? {} : { temperature: options.temperature },
-        ...options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens },
-        ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
+        ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+        ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
+        ...(options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) }),
         signal: watchdog.signal,
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.

@@ -5,10 +5,18 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, seedSession, selectedSessionFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  seedSession,
+  selectedSessionFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -66,12 +74,15 @@ describe.skipIf(MODE === 'record')('web e2e: dedicated Skill tool row', () => {
     const output = call.locator('pre')
     await output.waitFor()
     expect(await output.textContent()).toContain('<skill_content name="editing-cordis-compositions">')
-    expect(await output.textContent()).toContain('Agent presets are ordinary `@deepseek-ai/dsh-agent-preset` declarations carried by bundle patches.')
+    expect(await output.textContent()).toContain(
+      'Agent presets are ordinary `@deepseek-ai/dsh-agent-preset` declarations carried by bundle patches.',
+    )
     expect(await output.evaluate(element => getComputedStyle(element.parentElement!).maxHeight)).toBe('260px')
 
     const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
       .replace(/\b\d{1,2}\/\d{1,2}(?= \{\{clock\}\})/g, '{{date}}')
-      .split(SEED_ID).join('{{seededId}}')
+      .split(SEED_ID)
+      .join('{{seededId}}')
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
@@ -80,7 +91,7 @@ describe.skipIf(MODE === 'record')('web e2e: dedicated Skill tool row', () => {
   it('keeps the collapsed Skill line on the global ToolCall font-size axis', async () => {
     const call = page.locator('[data-tool="skill"]')
     const toggle = call.getByRole('button', { name: 'Skill editing-cordis-compositions' })
-    if (await toggle.getAttribute('aria-expanded') === 'true') await toggle.click()
+    if ((await toggle.getAttribute('aria-expanded')) === 'true') await toggle.click()
     await expect.poll(() => toggle.getAttribute('aria-expanded')).toBe('false')
     const row = call.locator(':scope > div').first()
     const title = call.getByText('Skill', { exact: true })
@@ -106,9 +117,14 @@ describe.skipIf(MODE === 'record')('web e2e: dedicated Skill tool row', () => {
       expect(await title.evaluate(element => getComputedStyle(element).fontSize)).toBe('15px')
       expect(await summary.evaluate(element => getComputedStyle(element).fontSize)).toBe('15px')
       expect(await row.evaluate(element => getComputedStyle(element).height)).toBe('26px')
-      expect(await row.locator('svg').first().evaluate(element => getComputedStyle(element).width)).toBe('16px')
+      expect(
+        await row
+          .locator('svg')
+          .first()
+          .evaluate(element => getComputedStyle(element).width),
+      ).toBe('16px')
     } finally {
-      await page.evaluate((saved) => {
+      await page.evaluate(saved => {
         const restore = (name: string, entry: { value: string; priority: string }): void => {
           if (entry.value === '') document.body.style.removeProperty(name)
           else document.body.style.setProperty(name, entry.value, entry.priority)

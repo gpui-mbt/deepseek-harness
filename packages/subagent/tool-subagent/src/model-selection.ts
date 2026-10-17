@@ -46,10 +46,17 @@ export function assertAllowedModelRoutes(routes: unknown): asserts routes is rea
   const seen = new Set<string>()
   const candidates: readonly unknown[] = routes
   for (const candidate of candidates) {
-    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)
-      || !('provider' in candidate) || typeof candidate.provider !== 'string'
-      || !('model' in candidate) || typeof candidate.model !== 'string'
-      || candidate.provider.length === 0 || candidate.model.length === 0) {
+    if (
+      typeof candidate !== 'object' ||
+      candidate === null ||
+      Array.isArray(candidate) ||
+      !('provider' in candidate) ||
+      typeof candidate.provider !== 'string' ||
+      !('model' in candidate) ||
+      typeof candidate.model !== 'string' ||
+      candidate.provider.length === 0 ||
+      candidate.model.length === 0
+    ) {
       throw new Error('subagent model selection requires non-empty provider and model ids')
     }
     const route = { provider: candidate.provider, model: candidate.model }
@@ -74,9 +81,7 @@ export interface DelegationModelRequest {
  * @returns Whether at least one route or effort field is present.
  */
 export function hasDelegationModelRequest(request: DelegationModelRequest): boolean {
-  return request.provider !== undefined
-    || request.model !== undefined
-    || request.reasoning_effort !== undefined
+  return request.provider !== undefined || request.model !== undefined || request.reasoning_effort !== undefined
 }
 
 /** Reject an empty model-facing route value at the tool JSON boundary. */
@@ -115,15 +120,12 @@ export function requestedAgentOptions(
 
   const baselineProvider = configured?.provider ?? parentOptions.provider
   const baselineModel = configured?.model ?? parentOptions.model
-  const routeChanged = request.provider !== undefined
-    && (request.provider !== baselineProvider || request.model !== baselineModel)
+  const routeChanged = request.provider !== undefined && (request.provider !== baselineProvider || request.model !== baselineModel)
   const { reasoningEffort: _configuredReasoningEffort, ...configuredWithoutReasoning } = configured ?? {}
   return {
-    ...routeChanged && request.reasoning_effort === undefined ? configuredWithoutReasoning : configured,
-    ...request.provider === undefined ? {} : { provider: request.provider, model: request.model },
-    ...request.reasoning_effort === undefined
-      ? {}
-      : { reasoningEffort: ReasoningEffortId(request.reasoning_effort) },
+    ...(routeChanged && request.reasoning_effort === undefined ? configuredWithoutReasoning : configured),
+    ...(request.provider === undefined ? {} : { provider: request.provider, model: request.model }),
+    ...(request.reasoning_effort === undefined ? {} : { reasoningEffort: ReasoningEffortId(request.reasoning_effort) }),
   }
 }
 
@@ -158,9 +160,7 @@ export function assertAllowedModelSelection(
  * @returns Whether configured provider, model, or effort values must be resolved.
  */
 export function hasConfiguredLlmSelection(options: AgentOptions | undefined): boolean {
-  return options?.provider !== undefined
-    || options?.model !== undefined
-    || options?.reasoningEffort !== undefined
+  return options?.provider !== undefined || options?.model !== undefined || options?.reasoningEffort !== undefined
 }
 
 /**
@@ -186,11 +186,14 @@ export async function preflightChildLlmRoute(
     throw new Error('cannot select child LLM values without an effective provider and model')
   }
   const routeChanged = provider !== parentOptions.provider || model !== parentOptions.model
-  const reasoningEffort = requested?.reasoningEffort
-    ?? (inheritParentReasoningEffort && !routeChanged ? parentOptions.reasoningEffort : undefined)
-  await llm.resolveCallConfig({
-    provider,
-    model,
-    ...reasoningEffort === undefined ? {} : { reasoningEffort },
-  }, signal)
+  const reasoningEffort =
+    requested?.reasoningEffort ?? (inheritParentReasoningEffort && !routeChanged ? parentOptions.reasoningEffort : undefined)
+  await llm.resolveCallConfig(
+    {
+      provider,
+      model,
+      ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+    },
+    signal,
+  )
 }

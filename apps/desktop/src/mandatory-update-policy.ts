@@ -34,14 +34,20 @@ export interface DesktopPolicyState {
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
 
 function origin(value: unknown, local: boolean): string {
   if (typeof value !== 'string') throw new Error('desktop policy: origin must be a URL')
   const url = new URL(value)
-  if (url.username !== '' || url.password !== '' || url.pathname !== '/' || url.search !== '' || url.hash !== ''
-    || (url.protocol !== 'https:' && !(local && url.protocol === 'http:' && url.hostname === '127.0.0.1'))) {
+  if (
+    url.username !== '' ||
+    url.password !== '' ||
+    url.pathname !== '/' ||
+    url.search !== '' ||
+    url.hash !== '' ||
+    (url.protocol !== 'https:' && !(local && url.protocol === 'http:' && url.hostname === '127.0.0.1'))
+  ) {
     throw new Error('desktop policy: expected an HTTPS origin without credentials, path, query, or fragment')
   }
   return url.origin
@@ -88,7 +94,11 @@ export function resolveDesktopPolicyConfig(input: unknown, allowLoopback = false
     origin: origin(value.origin, authentication === 'anonymous' && allowLoopback),
     allowedPageOrigins: value.allowedPageOrigins.map(item => origin(item, false)),
     allowedAuthOrigins: authentication === 'feishu-test' ? (authOrigins as unknown[]).map(item => origin(item, false)) : [],
-    intervalMs, timeoutMs: duration('timeoutMs', 15_000), maxBackoffMs, jitter, authentication,
+    intervalMs,
+    timeoutMs: duration('timeoutMs', 15_000),
+    maxBackoffMs,
+    jitter,
+    authentication,
   }
 }
 
@@ -101,9 +111,14 @@ export function resolveDesktopPolicyConfig(input: unknown, allowLoopback = false
 export function desktopPolicyPage(value: unknown, allowedOrigins: readonly string[]): string | undefined {
   if (typeof value !== 'string' || value.length > 2048) return undefined
   let url: URL
-  try { url = new URL(value) } catch { return undefined }
+  try {
+    url = new URL(value)
+  } catch {
+    return undefined
+  }
   return url.protocol === 'https:' && url.username === '' && url.password === '' && allowedOrigins.includes(url.origin)
-    ? url.href : undefined
+    ? url.href
+    : undefined
 }
 
 function text(value: unknown, limit: number): string | undefined {
@@ -118,8 +133,13 @@ function parsePolicy(body: unknown, ok: boolean, config: DesktopPolicyConfig): D
     const title = text(content?.title, 256)
     const detail = text(content?.detail, 16_384)
     const page = desktopPolicyPage(data?.desktop_app_link, config.allowedPageOrigins)
-    return { blocking: true, checking: false,
-      ...(title === undefined ? {} : { title }), ...(detail === undefined ? {} : { detail }), ...(page === undefined ? {} : { page }) }
+    return {
+      blocking: true,
+      checking: false,
+      ...(title === undefined ? {} : { title }),
+      ...(detail === undefined ? {} : { detail }),
+      ...(page === undefined ? {} : { page }),
+    }
   }
   if (ok && root?.code === 0 && data?.biz_code === 0 && data.biz_data === null) return { blocking: false, checking: false }
   throw new Error('desktop policy: response does not contain a valid mandatory or no-force decision')
@@ -151,21 +171,28 @@ export class DesktopMandatoryUpdatePolicy {
     private readonly client: () => AccountClientMetadata,
     private readonly random: () => number = Math.random,
   ) {
-    if (valid(this.client().version) === null || valid(identity.bundledDshVersion) === null
-      || (identity.platform === 'win32' && identity.arch !== 'x64')) throw new Error('desktop policy: invalid installed client identity')
+    if (
+      valid(this.client().version) === null ||
+      valid(identity.bundledDshVersion) === null ||
+      (identity.platform === 'win32' && identity.arch !== 'x64')
+    )
+      throw new Error('desktop policy: invalid installed client identity')
   }
 
   /** Platform headers for one check; the calling UI's language and UTC offset are read now. */
   private requestHeaders(): Record<string, string> {
     return {
       ...platformClientHeaders(this.identity.platform, this.client()),
-      'x-client-arch': this.identity.arch, 'x-client-update-channel': this.identity.channel,
+      'x-client-arch': this.identity.arch,
+      'x-client-update-channel': this.identity.channel,
       'x-client-bundled-dsh-version': this.identity.bundledDshVersion,
     }
   }
 
   /** Latest policy; failures never erase a known mandatory decision. */
-  get state(): DesktopPolicyState { return this.current }
+  get state(): DesktopPolicyState {
+    return this.current
+  }
 
   /**
    * Check immediately when manual, otherwise only when due; matching concurrent callers share one request.
@@ -178,44 +205,58 @@ export class DesktopMandatoryUpdatePolicy {
     if (this.pending !== undefined) return this.pending
     if (!manual && Date.now() < this.nextCheck) return Promise.resolve(this.current)
     clearTimeout(this.timer)
-    this.pending = Promise.resolve().then(async () => {
-      if (this.disposed) return this.current
-      const controller = new AbortController()
-      this.controller = controller
-      const timeout = setTimeout(() => { controller.abort() }, this.config.timeoutMs)
-      this.setState({ ...this.current, checking: true })
-      try {
-        const url = new URL('/api/v0/check_client_update', this.config.origin)
-        url.searchParams.set('scenario', scenario)
-        const response = await this.request(url, { headers: this.requestHeaders(), signal: controller.signal,
-          credentials: this.config.authentication === 'feishu-test' ? 'include' : 'omit', cache: 'no-store', redirect: 'error' })
-        const body: unknown = await response.json()
-        if (this.config.authentication === 'feishu-test' && response.status === 401
-          && record(record(body)?.error)?.code === 'UNAUTHENTICATED') {
+    this.pending = Promise.resolve()
+      .then(async () => {
+        if (this.disposed) return this.current
+        const controller = new AbortController()
+        this.controller = controller
+        const timeout = setTimeout(() => {
+          controller.abort()
+        }, this.config.timeoutMs)
+        this.setState({ ...this.current, checking: true })
+        try {
+          const url = new URL('/api/v0/check_client_update', this.config.origin)
+          url.searchParams.set('scenario', scenario)
+          const response = await this.request(url, {
+            headers: this.requestHeaders(),
+            signal: controller.signal,
+            credentials: this.config.authentication === 'feishu-test' ? 'include' : 'omit',
+            cache: 'no-store',
+            redirect: 'error',
+          })
+          const body: unknown = await response.json()
+          if (
+            this.config.authentication === 'feishu-test' &&
+            response.status === 401 &&
+            record(record(body)?.error)?.code === 'UNAUTHENTICATED'
+          ) {
+            this.failures++
+            this.setState({ ...this.current, checking: false, error: 'authentication-required' })
+            return this.current
+          }
+          const state = parsePolicy(body, response.ok, this.config)
+          this.failures = 0
+          this.setState(state)
+        } catch {
+          // Transport, JSON, and protocol failures retain any previously established block.
           this.failures++
-          this.setState({ ...this.current, checking: false, error: 'authentication-required' })
-          return this.current
+          this.setState({ ...this.current, checking: false, error: 'unavailable' })
+        } finally {
+          clearTimeout(timeout)
+          this.controller = undefined
         }
-        const state = parsePolicy(body, response.ok, this.config)
-        this.failures = 0
-        this.setState(state)
-      } catch {
-        // Transport, JSON, and protocol failures retain any previously established block.
-        this.failures++
-        this.setState({ ...this.current, checking: false, error: 'unavailable' })
-      } finally {
-        clearTimeout(timeout)
-        this.controller = undefined
-      }
-      return this.current
-    }).finally(() => {
-      this.pending = undefined
-      if (this.disposed) return
-      const base = Math.min(this.config.maxBackoffMs, this.config.intervalMs * 2 ** Math.min(this.failures, 20))
-      const delay = Math.min(this.config.maxBackoffMs, Math.round(base * (1 + this.random() * this.config.jitter)))
-      this.nextCheck = Date.now() + delay
-      this.timer = setTimeout(() => { void this.check('periodic') }, delay)
-    })
+        return this.current
+      })
+      .finally(() => {
+        this.pending = undefined
+        if (this.disposed) return
+        const base = Math.min(this.config.maxBackoffMs, this.config.intervalMs * 2 ** Math.min(this.failures, 20))
+        const delay = Math.min(this.config.maxBackoffMs, Math.round(base * (1 + this.random() * this.config.jitter)))
+        this.nextCheck = Date.now() + delay
+        this.timer = setTimeout(() => {
+          void this.check('periodic')
+        }, delay)
+      })
     return this.pending
   }
 

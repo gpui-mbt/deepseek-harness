@@ -25,9 +25,7 @@ export async function writeClipboard(text: string): Promise<boolean> {
   // execCommand('copy') is the only clipboard fallback where the async API
   // is missing; deprecated but deliberately retained.
   /* oxlint-disable typescript/no-deprecated */
-  const exec = typeof document.execCommand === 'function'
-    ? document.execCommand.bind(document)
-    : undefined
+  const exec = typeof document.execCommand === 'function' ? document.execCommand.bind(document) : undefined
   if (exec === undefined) return false
   const el = document.createElement('textarea')
   el.value = text

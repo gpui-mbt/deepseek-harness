@@ -5,11 +5,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { LlmResolvedModelInfo, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
-import {
-  normalizeSessionTitle,
-  SessionTitleProviderId,
-  type SessionTitleUserMessage,
-} from '@deepseek-ai/dsh-session-title'
+import { normalizeSessionTitle, SessionTitleProviderId, type SessionTitleUserMessage } from '@deepseek-ai/dsh-session-title'
 import {
   executeSessionTitleLlm,
   resolveSessionTitleLlmConfig,
@@ -72,8 +68,7 @@ function resolveConfig(config: Config): ResolvedConfig {
 }
 
 /** Select the route's least supported reasoning effort for a title call. */
-const selectReasoningEffort = (model: Readonly<LlmResolvedModelInfo>): ReasoningEffortId | undefined =>
-  model.reasoning?.efforts[0]?.id
+const selectReasoningEffort = (model: Readonly<LlmResolvedModelInfo>): ReasoningEffortId | undefined => model.reasoning?.efforts[0]?.id
 /* jscpd:ignore-end */
 
 /* jscpd:ignore-start -- independent provider strategies share only the execution module, not prompt or parsing policy. */
@@ -105,7 +100,11 @@ const EMPHASIS_WRAPPER = /^(?<marker>\*{1,3})(?<inner>\S(?:.*\S)?)\k<marker>$/u
  * line, and the system instruction forbids Markdown.
  */
 function titleFromOutput(text: string): string {
-  const line = text.split(/\r?\n/u).map(item => item.trim()).find(item => item.length > 0) ?? ''
+  const line =
+    text
+      .split(/\r?\n/u)
+      .map(item => item.trim())
+      .find(item => item.length > 0) ?? ''
   const groups = EMPHASIS_WRAPPER.exec(line)?.groups
   const marker = groups?.['marker']
   const inner = groups?.['inner']
@@ -122,7 +121,8 @@ function titleFromResponse(response: SessionTitleLlmResponse): string {
     case 'max-tokens':
       throw new Error('session-title-llm: title output reached maxOutputTokens')
     /* v8 ignore next -- closed SessionTitleLlmFinish union exhaustiveness guard */
-    default: return assertNever(response.finish, 'SessionTitleLlmFinish')
+    default:
+      return assertNever(response.finish, 'SessionTitleLlmFinish')
   }
   if (response.blocks.some(block => block.type === 'tool-call')) {
     throw new Error('session-title-llm: title output must contain text only')

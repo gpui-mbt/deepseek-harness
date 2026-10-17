@@ -95,11 +95,7 @@ export function leakedServices(ctx: Context, mount: Fiber): string[] {
  * @param name - the service name as the preset's rows resolve it.
  * @returns the implementation, or undefined when the mount provides none.
  */
-export function serviceForMount<K extends string & keyof Context>(
-  ctx: Context,
-  mount: PresetMount,
-  name: K,
-): Context[K] | undefined {
+export function serviceForMount<K extends string & keyof Context>(ctx: Context, mount: PresetMount, name: K): Context[K] | undefined {
   const store = ctx.reflect.store
   for (const key of Object.getOwnPropertySymbols(store)) {
     const impl = store[key]
@@ -182,10 +178,7 @@ function mountDetail(error: unknown): string {
   if (!(error instanceof Error)) return String(error)
   const branches = detailBranches(error)
   if (branches.length === 0) return error.message
-  return [
-    error.message,
-    ...branches.map(branch => `- ${mountDetail(branch).replaceAll('\n', '\n  ')}`),
-  ].join('\n')
+  return [error.message, ...branches.map(branch => `- ${mountDetail(branch).replaceAll('\n', '\n  ')}`)].join('\n')
 }
 
 /** Load and audit one revision under its registry-owned scope.
@@ -205,7 +198,12 @@ export async function mountPreset(ctx: Context, id: string, plugins: PresetDefin
   if (scopeOf(ctx) === undefined) throw new Error('agent-preset: mounting requires a scope')
   await ctx.fiber.await()
   const tree = new PresetTree(ctx)
-  ctx.effect(() => () =>{  tree.root.stop() }, 'agent-preset.tree')
+  ctx.effect(
+    () => () => {
+      tree.root.stop()
+    },
+    'agent-preset.tree',
+  )
   await tree.root.update(prepareProfileEntries(ctx, plugins as EntryOptions[], ctx.baseUrl))
   const audit = await auditRows(tree)
   const leaked = leakedServices(ctx, ctx.fiber)

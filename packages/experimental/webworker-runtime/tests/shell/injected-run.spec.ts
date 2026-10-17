@@ -10,11 +10,14 @@
  * injected face fails with `no filesystem is mounted` — a suite that mounted a
  * VFS as well would pass either way.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { runShellCommand } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/interpret.ts'
 import { filesystemError } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/fs-access.ts'
 import type {
-  ShellDirent, ShellFileSystem, ShellRunOutcome, ShellStats,
+  ShellDirent,
+  ShellFileSystem,
+  ShellRunOutcome,
+  ShellStats,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/types.ts'
 
 const WORKSPACE = '/dsh/workspace'
@@ -135,14 +138,19 @@ describe('incremental output', () => {
       cwd: WORKSPACE,
       env: {},
       fs,
-      onOutput: (stream, text) => { seen.push([stream, text]) },
+      onOutput: (stream, text) => {
+        seen.push([stream, text])
+      },
     })
     return { seen, outcome }
   }
 
   it('reports each write as it happens and still returns the complete text', async () => {
     const { seen, outcome } = await reported('echo one; echo two')
-    expect(seen).toEqual([['stdout', 'one\n'], ['stdout', 'two\n']])
+    expect(seen).toEqual([
+      ['stdout', 'one\n'],
+      ['stdout', 'two\n'],
+    ])
     expect(outcome.stdout).toBe('one\ntwo\n')
   })
 

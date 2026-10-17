@@ -8,14 +8,23 @@
  * session scope (createScope).
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createScope, scopeOf } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { LocaleSnapshot } from '@deepseek-ai/dsh-client-locale/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { InputTriggerController, InputTriggerService } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type {
-  BeginCommandRequest, ClientSessionContext, CommandClaim, InsertReferenceRequest, PickOutcome,
-  ReferenceInsert, InputTriggerCandidate, InputTriggerPick, InputTriggerSource, SourceRoster, TriggerChar,
+  BeginCommandRequest,
+  ClientSessionContext,
+  CommandClaim,
+  InsertReferenceRequest,
+  PickOutcome,
+  ReferenceInsert,
+  InputTriggerCandidate,
+  InputTriggerPick,
+  InputTriggerSource,
+  SourceRoster,
+  TriggerChar,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 
 const sid = (k: string): SessionId => k as SessionId
@@ -35,9 +44,10 @@ function deferredSource(trigger: TriggerChar, name: string, over: Partial<InputT
   const source: InputTriggerSource = {
     trigger,
     name,
-    candidates: (session, req) => new Promise<readonly InputTriggerCandidate[]>((resolve, reject) => {
-      pending.push({ resolve, reject, query: req.query, signal: req.signal, session })
-    }),
+    candidates: (session, req) =>
+      new Promise<readonly InputTriggerCandidate[]>((resolve, reject) => {
+        pending.push({ resolve, reject, query: req.query, signal: req.signal, session })
+      }),
     onPick: () => undefined,
     warm,
     ...over,
@@ -47,14 +57,17 @@ function deferredSource(trigger: TriggerChar, name: string, over: Partial<InputT
 
 /** Source whose candidates resolve immediately; picks are recorded. */
 function readySource(
-  trigger: TriggerChar, name: string, items: readonly InputTriggerCandidate[], onPick?: (pick: InputTriggerPick) => PickOutcome,
+  trigger: TriggerChar,
+  name: string,
+  items: readonly InputTriggerCandidate[],
+  onPick?: (pick: InputTriggerPick) => PickOutcome,
 ) {
   const picks: InputTriggerPick[] = []
   const source: InputTriggerSource = {
     trigger,
     name,
     candidates: () => Promise.resolve(items),
-    onPick: (pick) => {
+    onPick: pick => {
       picks.push(pick)
       return onPick?.(pick)
     },
@@ -62,8 +75,11 @@ function readySource(
   return { source, picks }
 }
 
-const claimOf = (token: string): CommandClaim =>
-  ({ name: token.slice(1).trim(), token, submit: () => Promise.resolve({ kind: 'success' }) })
+const claimOf = (token: string): CommandClaim => ({
+  name: token.slice(1).trim(),
+  token,
+  submit: () => Promise.resolve({ kind: 'success' }),
+})
 
 /** One microtask hop: lets settled candidate promises flow into the store. */
 const tick = () => Promise.resolve()
@@ -108,8 +124,7 @@ describe('registerSource', () => {
   it('throws on a duplicate (trigger, name); same name across triggers is fine', async () => {
     const { inputTriggers } = await serviceBench()
     inputTriggers.registerSource(readySource('/', 'command', []).source)
-    expect(() => inputTriggers.registerSource(readySource('/', 'command', []).source))
-      .toThrow(/already registered/)
+    expect(() => inputTriggers.registerSource(readySource('/', 'command', []).source)).toThrow(/already registered/)
     inputTriggers.registerSource(readySource('@', 'command', []).source)
   })
 
@@ -153,10 +168,7 @@ describe('registerSource', () => {
     const controller = inputTriggers.sessionOf(mint('a').actx)
     const fiber = root.plugin({
       apply(pluginCtx: Context) {
-        pluginCtx.effect(
-          () => inputTriggers.registerSource(readySource('/', 'command', [{ name: 'goal' }]).source),
-          'test: slash source',
-        )
+        pluginCtx.effect(() => inputTriggers.registerSource(readySource('/', 'command', [{ name: 'goal' }]).source), 'test: slash source')
       },
     })
     await fiber.await()
@@ -349,14 +361,10 @@ describe('track', () => {
 
     // Stale-while-revalidate: the pending group still carries the items.
     controller.track('/go', 3, { tier: 'plain' }, 1)
-    expect(controller.menu.getSnapshot().groups[0]).toEqual(
-      { source: 'command', status: 'pending', items: [{ name: 'goal' }] },
-    )
+    expect(controller.menu.getSnapshot().groups[0]).toEqual({ source: 'command', status: 'pending', items: [{ name: 'goal' }] })
     cmd.pending[1]!.resolve([{ name: 'goat' }])
     await tick()
-    expect(controller.menu.getSnapshot().groups[0]).toEqual(
-      { source: 'command', status: 'ready', items: [{ name: 'goat' }] },
-    )
+    expect(controller.menu.getSnapshot().groups[0]).toEqual({ source: 'command', status: 'ready', items: [{ name: 'goat' }] })
   })
 
   it('same hit re-track refreshes the span stamp without refetching', () => {
@@ -385,10 +393,7 @@ describe('track', () => {
   })
 
   it('trigger switch reseeds the roster', () => {
-    const { controller } = controllerBench([
-      deferredSource('/', 'command').source,
-      deferredSource('@', 'subagent').source,
-    ])
+    const { controller } = controllerBench([deferredSource('/', 'command').source, deferredSource('@', 'subagent').source])
     controller.track('/g', 2, { tier: 'plain' }, 1)
     expect(controller.menu.getSnapshot().groups.map(g => g.source)).toEqual(['command'])
     controller.track('@w', 2, { tier: 'plain' }, 1)
@@ -524,11 +529,11 @@ describe('pick / scoped input events', () => {
     const bench = controllerBench([cmd.source])
     const begins: BeginCommandRequest[] = []
     const inserts: InsertReferenceRequest[] = []
-    bench.actx.on('slash/input-begin-command', (req) => {
+    bench.actx.on('slash/input-begin-command', req => {
       begins.push(req)
       return true
     })
-    bench.actx.on('slash/input-insert-reference', (req) => {
+    bench.actx.on('slash/input-insert-reference', req => {
       inserts.push(req)
       return true
     })
@@ -564,7 +569,7 @@ describe('pick / scoped input events', () => {
   it('routes a text outcome through the scoped insert-text event and closes the menu', async () => {
     const { controller, actx } = pickBench(() => ({ text: '/goal ' }))
     const texts: Array<{ text: string; span: unknown }> = []
-    actx.on('slash/input-insert-text', (req) => {
+    actx.on('slash/input-insert-text', req => {
       texts.push(req)
       return true
     })
@@ -577,7 +582,7 @@ describe('pick / scoped input events', () => {
   it('forwards a continuing text outcome so a directory pick keeps completion open', async () => {
     const { controller, actx } = pickBench(() => ({ text: '@src/', continue: true }))
     const texts: Array<{ text: string; continue?: boolean }> = []
-    actx.on('slash/input-insert-text', (req) => {
+    actx.on('slash/input-insert-text', req => {
       texts.push(req)
       return true
     })
@@ -600,18 +605,20 @@ describe('pick / scoped input events', () => {
     expect(controller.onSpace()).toBe(false)
   })
 
-  it('scope carrier routing: a foreign session\'s listener never hears the dispatch, untagged root does', async () => {
+  it("scope carrier routing: a foreign session's listener never hears the dispatch, untagged root does", async () => {
     const claim = claimOf('/goal ')
     const cmd = readySource('/', 'command', [{ name: 'goal' }], () => ({ claim }))
     const { root, controller } = controllerBench([cmd.source])
     const foreign: BeginCommandRequest[] = []
     const rootSeen: BeginCommandRequest[] = []
-    createScope(root, sid('b')).ctx.on('slash/input-begin-command', (req) => {
+    createScope(root, sid('b')).ctx.on('slash/input-begin-command', req => {
       foreign.push(req)
       return true
     })
     // Untagged root listeners are admitted globally (the carrier contract).
-    root.on('slash/input-begin-command', (req) => { rootSeen.push(req) })
+    root.on('slash/input-begin-command', req => {
+      rootSeen.push(req)
+    })
     controller.track('/g', 2, { tier: 'plain' }, 3)
     await tick()
     controller.pick('command', 0)
@@ -654,9 +661,12 @@ describe('header / drilled descent', () => {
       header: (_session, req) => {
         requests.push({ ...req })
         if (!req.drilled || !req.query.includes('/')) return undefined
-        return req.query.split('/').filter(Boolean).map(label => ({ label, value: label }))
+        return req.query
+          .split('/')
+          .filter(Boolean)
+          .map(label => ({ label, value: label }))
       },
-      onPick: (pick) => {
+      onPick: pick => {
         picks.push(pick)
         return pick.action === 'drill' ? { text: `@${String(pick.candidate.value)}/`, continue: true } : undefined
       },
@@ -677,7 +687,7 @@ describe('header / drilled descent', () => {
     const { source, picks } = crumbSource()
     const { controller, actx } = controllerBench([source])
     const texts: string[] = []
-    actx.on('slash/input-insert-text', (req) => {
+    actx.on('slash/input-insert-text', req => {
       texts.push(req.text)
       return true
     })
@@ -719,7 +729,7 @@ describe('header / drilled descent', () => {
     // for it has returned — the keyboard drill, dispatched inside an update,
     // re-tracks only once that update commits. Both orders must reach the
     // header and candidate requests as a drill.
-    actx.on('slash/input-insert-text', (req) => {
+    actx.on('slash/input-insert-text', req => {
       controller.track(req.text, req.text.length, { tier: 'plain' }, 2)
       return true
     })
@@ -748,7 +758,9 @@ describe('header / drilled descent', () => {
       trigger: '@',
       name: 'broken',
       candidates: () => Promise.resolve([{ name: 'x' }]),
-      header: () => { throw new Error('header boom') },
+      header: () => {
+        throw new Error('header boom')
+      },
       onPick: () => undefined,
     }
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -784,7 +796,7 @@ describe('header / drilled descent', () => {
 })
 
 describe('lexicon', () => {
-  function lexSource(trigger: TriggerChar, name: string, roll?: readonly string[]  , hasHook = true): InputTriggerSource {
+  function lexSource(trigger: TriggerChar, name: string, roll?: readonly string[], hasHook = true): InputTriggerSource {
     return {
       trigger,
       name,
@@ -801,7 +813,7 @@ describe('lexicon', () => {
       name: 'skill',
       candidates: () => Promise.resolve([]),
       onPick: () => undefined,
-      lexicon: (projection) => {
+      lexicon: projection => {
         seen.push(projection)
         return ['commit-helper', 'review']
       },
@@ -845,7 +857,9 @@ describe('lexicon', () => {
       lexicon: () => roll,
       subscribeLexicon: (_session, listener) => {
         notify = listener
-        return () => { notify = undefined }
+        return () => {
+          notify = undefined
+        }
       },
     }
     const { controller } = controllerBench([source])
@@ -854,7 +868,9 @@ describe('lexicon', () => {
     await tick()
     expect(controller.menu.getSnapshot().groups[0]?.items).toEqual([{ name: 'old' }])
     const seen: number[] = []
-    controller.lexicon.subscribe(() => { seen.push(controller.lexicon.getSnapshot().size) })
+    controller.lexicon.subscribe(() => {
+      seen.push(controller.lexicon.getSnapshot().size)
+    })
     roll = ['commit-helper']
     notify?.()
     await tick()
@@ -965,7 +981,10 @@ describe('arbitrate', () => {
   it('a launcher-opened menu survives the track its own focus produces', async () => {
     const { controller } = await menuBench()
     controller.toggleSource('command', {
-      trigger: '/', query: '', quoted: false, position: 'leading',
+      trigger: '/',
+      query: '',
+      quoted: false,
+      position: 'leading',
       span: { start: 0, end: 0, draftRev: 0 },
     })
     expect(controller.menu.getSnapshot().open).toBe(true)
@@ -1032,7 +1051,10 @@ describe('arbitrate', () => {
   it('tab during a pending refinement is consumed: no pick, no focus traversal', async () => {
     const picks: string[] = []
     const cmd = deferredSource('/', 'command', {
-      onPick: (pick) => { picks.push(pick.candidate.name); return undefined },
+      onPick: pick => {
+        picks.push(pick.candidate.name)
+        return undefined
+      },
     })
     const { controller } = controllerBench([cmd.source])
     controller.track('/g', 2, { tier: 'plain' }, 1)
@@ -1080,7 +1102,10 @@ describe('arbitrate', () => {
   it('enter during a pending refinement is consumed: no pick, no submit fallthrough', async () => {
     const picks: string[] = []
     const cmd = deferredSource('/', 'command', {
-      onPick: (pick) => { picks.push(pick.candidate.name); return undefined },
+      onPick: pick => {
+        picks.push(pick.candidate.name)
+        return undefined
+      },
     })
     const { controller } = controllerBench([cmd.source])
     controller.track('/g', 2, { tier: 'plain' }, 1)
@@ -1126,7 +1151,7 @@ describe('onSpace', () => {
       spaceSource('third', { claim: claimOf('/x ') }, calls),
     ])
     const begins: BeginCommandRequest[] = []
-    actx.on('slash/input-begin-command', (req) => {
+    actx.on('slash/input-begin-command', req => {
       begins.push(req)
       return true
     })
@@ -1145,7 +1170,7 @@ describe('onSpace', () => {
 
     const handled = controllerBench([spaceSource('command', 'handled', calls)])
     const begins: BeginCommandRequest[] = []
-    handled.actx.on('slash/input-begin-command', (req) => {
+    handled.actx.on('slash/input-begin-command', req => {
       begins.push(req)
       return true
     })
@@ -1166,10 +1191,7 @@ describe('onSpace', () => {
 })
 
 describe('adjudicate', () => {
-  const enterSource = (
-    trigger: TriggerChar, name: string,
-    matchEnter?: InputTriggerSource['matchEnter'],
-  ): InputTriggerSource => ({
+  const enterSource = (trigger: TriggerChar, name: string, matchEnter?: InputTriggerSource['matchEnter']): InputTriggerSource => ({
     trigger,
     name,
     candidates: () => Promise.resolve([]),
@@ -1234,8 +1256,7 @@ describe('adjudicate', () => {
       enterSource('/', 'command', () => Promise.reject(new Error('warmup failed'))),
       enterSource('/', 'late', () => Promise.resolve('handled')),
     ])
-    await expect(controller.adjudicate('/goal x', new AbortController().signal, { attachments: 0 }))
-      .rejects.toThrow('warmup failed')
+    await expect(controller.adjudicate('/goal x', new AbortController().signal, { attachments: 0 })).rejects.toThrow('warmup failed')
   })
 
   it('an aborted attempt signal stops the poll', async () => {
@@ -1249,10 +1270,7 @@ describe('adjudicate', () => {
 })
 
 describe('resolveClaim', () => {
-  const claimSource = (
-    trigger: TriggerChar, name: string,
-    matchClaim?: InputTriggerSource['matchClaim'],
-  ): InputTriggerSource => ({
+  const claimSource = (trigger: TriggerChar, name: string, matchClaim?: InputTriggerSource['matchClaim']): InputTriggerSource => ({
     trigger,
     name,
     candidates: () => Promise.resolve([]),

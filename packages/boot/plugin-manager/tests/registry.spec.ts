@@ -1,6 +1,6 @@
 /** Which registries an operation asks, in order, and what a failed attempt could not reach: pure, table-driven. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseInstallSpec } from '../src/install-spec.ts'
 import { attributeFailure, normalizeRegistry, OFFICIAL_NPM_REGISTRY, registryPlan, REGISTRY_URL } from '../src/registry.ts'
 
@@ -8,7 +8,7 @@ const MIRROR = 'https://registry.npmmirror.com/'
 const CORP = 'https://npm.corp.example/'
 
 describe('normalizeRegistry', () => {
-  it('parses an http(s) URL into pnpm\'s comparison form: lower-case host, trailing slash', () => {
+  it("parses an http(s) URL into pnpm's comparison form: lower-case host, trailing slash", () => {
     expect(normalizeRegistry('https://REGISTRY.npmmirror.com')).toBe(MIRROR)
     expect(normalizeRegistry('http://npm.corp.example:4873/prefix')).toBe('http://npm.corp.example:4873/prefix/')
     expect(normalizeRegistry(MIRROR)).toBe(MIRROR)
@@ -27,7 +27,7 @@ describe('registryPlan', () => {
   /** The shipped configuration on a machine whose pnpm names npm's own registry. */
   const shipped = { registry: null, fallbackRegistries: [MIRROR], resolved: OFFICIAL_NPM_REGISTRY }
 
-  it('asks pnpm\'s own registry first, then the fallbacks, when pnpm\'s own is the public one', () => {
+  it("asks pnpm's own registry first, then the fallbacks, when pnpm's own is the public one", () => {
     expect(registryPlan(undefined, shipped)).toEqual([null, MIRROR])
     expect(registryPlan(null, shipped)).toEqual([null, MIRROR])
   })
@@ -41,11 +41,13 @@ describe('registryPlan', () => {
   it('asks a registry outside the configured set alone, never followed by a public one', () => {
     expect(registryPlan(CORP, shipped)).toEqual([CORP])
     expect(registryPlan(undefined, { registry: CORP, fallbackRegistries: [], resolved: OFFICIAL_NPM_REGISTRY })).toEqual([CORP])
-    expect(registryPlan(undefined, { registry: CORP, fallbackRegistries: [MIRROR], resolved: OFFICIAL_NPM_REGISTRY }))
-      .toEqual([CORP, MIRROR])
+    expect(registryPlan(undefined, { registry: CORP, fallbackRegistries: [MIRROR], resolved: OFFICIAL_NPM_REGISTRY })).toEqual([
+      CORP,
+      MIRROR,
+    ])
   })
 
-  it('keeps pnpm\'s own registry alone when it names a private one, and never falls back into it', () => {
+  it("keeps pnpm's own registry alone when it names a private one, and never falls back into it", () => {
     const corporate = { ...shipped, resolved: CORP }
     expect(registryPlan(undefined, corporate)).toEqual([null])
     expect(registryPlan(null, corporate)).toEqual([null])
@@ -55,13 +57,13 @@ describe('registryPlan', () => {
     expect(registryPlan(MIRROR, corporate)).toEqual([MIRROR])
   })
 
-  it('keeps pnpm\'s own registry alone while what it names is unknown', () => {
+  it("keeps pnpm's own registry alone while what it names is unknown", () => {
     const unknown = { ...shipped, resolved: null }
     expect(registryPlan(undefined, unknown)).toEqual([null])
     expect(registryPlan(MIRROR, unknown)).toEqual([MIRROR])
   })
 
-  it('asks a registry once when pnpm\'s own configuration already names a fallback', () => {
+  it("asks a registry once when pnpm's own configuration already names a fallback", () => {
     const mirrored = { ...shipped, resolved: MIRROR }
     expect(registryPlan(undefined, mirrored)).toEqual([null])
     expect(registryPlan(MIRROR, mirrored)).toEqual([MIRROR])
@@ -69,8 +71,10 @@ describe('registryPlan', () => {
   })
 
   it('lists each registry once', () => {
-    expect(registryPlan(undefined, { registry: MIRROR, fallbackRegistries: [MIRROR, CORP], resolved: OFFICIAL_NPM_REGISTRY }))
-      .toEqual([MIRROR, CORP])
+    expect(registryPlan(undefined, { registry: MIRROR, fallbackRegistries: [MIRROR, CORP], resolved: OFFICIAL_NPM_REGISTRY })).toEqual([
+      MIRROR,
+      CORP,
+    ])
   })
 })
 
@@ -93,13 +97,19 @@ describe('attributeFailure', () => {
   })
 
   it('lays a failure whose error line names the host a git or tarball spec is fetched from at that host', () => {
-    expect(attributeFailure('network', 'fatal: unable to access \'https://github.com/acme/dsh-x/\': Could not resolve host: github.com', git)).toBe('spec-host')
+    expect(
+      attributeFailure('network', "fatal: unable to access 'https://github.com/acme/dsh-x/': Could not resolve host: github.com", git),
+    ).toBe('spec-host')
     expect(attributeFailure('network', 'ssh: Could not resolve hostname GITHUB.COM: nodename nor servname provided', git)).toBe('spec-host')
-    expect(attributeFailure('network', 'ERR_PNPM_FETCH_502  GET https://cdn.example.com/dsh-x-1.0.0.tgz: Bad Gateway', tarball)).toBe('spec-host')
+    expect(attributeFailure('network', 'ERR_PNPM_FETCH_502  GET https://cdn.example.com/dsh-x-1.0.0.tgz: Bad Gateway', tarball)).toBe(
+      'spec-host',
+    )
     // The same specs' dependencies still come from the registry.
     expect(attributeFailure('network', registryLog, git)).toBe('registry')
     expect(attributeFailure('network', registryLog, tarball)).toBe('registry')
-    expect(attributeFailure('not-found', 'ERR_PNPM_FETCH_404  GET https://registry.npmjs.org/left-pad: Not Found - 404', git)).toBe('registry')
+    expect(attributeFailure('not-found', 'ERR_PNPM_FETCH_404  GET https://registry.npmjs.org/left-pad: Not Found - 404', git)).toBe(
+      'registry',
+    )
   })
 
   it('reads the host only off error lines, not off a warning that links to it', () => {
@@ -110,7 +120,7 @@ describe('attributeFailure', () => {
     expect(attributeFailure('network', log, git)).toBe('registry')
   })
 
-  it('reads a failure that names no host as the registry\'s', () => {
+  it("reads a failure that names no host as the registry's", () => {
     expect(attributeFailure('network', 'ECONNRESET', git)).toBe('registry')
     expect(attributeFailure('network', 'socket hang up', name)).toBe('registry')
   })

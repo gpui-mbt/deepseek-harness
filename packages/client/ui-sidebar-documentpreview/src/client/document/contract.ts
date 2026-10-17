@@ -18,16 +18,16 @@ export type DocumentContent =
   | { readonly kind: 'text'; readonly text: string; readonly pages: readonly DocumentTextPage[]; readonly eof: boolean }
   | { readonly kind: 'bytes'; readonly data: Uint8Array<ArrayBuffer> }
   | {
-    readonly kind: 'renderer'
-    /** Changes on reload or implementation replacement; retained contents belong to one revision. */
-    readonly revision: number
-    /** Report the displayed source version; stale revisions cannot update the owner. @param version - loaded source version. */
-    readonly loaded: (version: string) => void
-    /** End a failed load; a later file change can start another revision. */
-    readonly failed: () => void
-    /** Cancel the current load and start a new revision. */
-    readonly reload: () => void
-  }
+      readonly kind: 'renderer'
+      /** Changes on reload or implementation replacement; retained contents belong to one revision. */
+      readonly revision: number
+      /** Report the displayed source version; stale revisions cannot update the owner. @param version - loaded source version. */
+      readonly loaded: (version: string) => void
+      /** End a failed load; a later file change can start another revision. */
+      readonly failed: () => void
+      /** Cancel the current load and start a new revision. */
+      readonly reload: () => void
+    }
 
 /** Content and viewing inputs shared by document bodies and nested PDF presentation. */
 export interface DocumentBodyOwner {
@@ -103,5 +103,5 @@ export type DocumentPreviewProps = PropsRuntime<'sidebar.right.tab.document'>
  * @param useTabInfo - enclosing tab's bound reader.
  * @returns the same reader, without another subscription adapter.
  */
-export const documentTabInfoFactory: SlotHookFactory<'sidebar.right.tab.document', UseSidebarRightTabInfo> =
-  (_standard, useTabInfo) => useTabInfo
+export const documentTabInfoFactory: SlotHookFactory<'sidebar.right.tab.document', UseSidebarRightTabInfo> = (_standard, useTabInfo) =>
+  useTabInfo

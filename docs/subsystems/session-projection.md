@@ -44,19 +44,21 @@ interface ProjectionDefinition<
    */
   apply(state: NoInfer<S>, event: SessionEvent): NoInfer<S>
   /** Client view. Omit for host-only units. */
-  wire?: K extends keyof SessionProjectionMap ? {
-    /** Validates the wire payload before it leaves the host. */
-    viewSchema: ZodType<SessionProjectionMap[K]>
-    /**
-     * State → wire payload (the read-side projection). The live drive keeps
-     * the two latest raw results and compares them with `Object.is`; an
-     * object-valued view must reuse its reference to suppress publication
-     * across internal-only state changes.
-     * @param state - the current state.
-     * @returns the whole current value for this unit's key.
-     */
-    view(state: NoInfer<S>): SessionProjectionMap[K]
-  } : never
+  wire?: K extends keyof SessionProjectionMap
+    ? {
+        /** Validates the wire payload before it leaves the host. */
+        viewSchema: ZodType<SessionProjectionMap[K]>
+        /**
+         * State → wire payload (the read-side projection). The live drive keeps
+         * the two latest raw results and compares them with `Object.is`; an
+         * object-valued view must reuse its reference to suppress publication
+         * across internal-only state changes.
+         * @param state - the current state.
+         * @returns the whole current value for this unit's key.
+         */
+        view(state: NoInfer<S>): SessionProjectionMap[K]
+      }
+    : never
   /**
    * Persisted-cache invalidation version: bump whenever the serialized state fields or the
    * fold semantics change, so persisted `(sessionId, key, ver, seq, val)`
@@ -139,7 +141,7 @@ The persisted projection cache service. Opens the `session_projcache` domain at 
  * @returns the viewed block, or `undefined` when no usable row exists for
  *   this lifecycle at the current Session format.
  */
-cachedSnapshot( meta: SessionHeader, keys?: readonly Extract<keyof SessionProjectionMap, string>[], ): ProjectionSnapshot | undefined
+cachedSnapshot(meta: SessionHeader, keys?: readonly Extract<keyof SessionProjectionMap, string>[]): ProjectionSnapshot | undefined
 
 /**
  * Read only a predecessor checkpoint's title as a zero-I/O listing hint.
@@ -167,7 +169,7 @@ cachedPredecessorTitle(meta: SessionHeader): ProjectionSnapshot | undefined
  * @param events - exact logical event prefix represented by the observation.
  * @returns all projection values at the event cut.
  */
-hydratePrepared( session: Session, events: readonly SessionEvent[], ): ProjectionSnapshot
+hydratePrepared(session: Session, events: readonly SessionEvent[]): ProjectionSnapshot
 
 /**
  * Durably checkpoint one live session NOW (all mandatory points call
@@ -193,7 +195,7 @@ async write(session: Session): Promise<void>
  * @param events - the session's complete log, in seq order.
  * @returns the projection cut at the log end.
  */
-coldSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[], ): ProjectionSnapshot
+coldSnapshot(meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[]): ProjectionSnapshot
 ```
 
 Types: [Session](session.md) · [SessionEvent](session.md) · [SessionHeader](persistence.md) · [SessionLogOffset](session.md)
@@ -215,7 +217,7 @@ Source: [`packages/session/session-projection-cache/src/index.ts`](../../package
  * @param definition - key, state schema, pure unit functions, and stateVersion.
  * @returns the exact disposer that unregisters this unit.
  */
-register< K extends keyof SessionProjectionMap, S extends SessionProjectionStateMap[K], >( definition: Omit<ProjectionDefinition<K, S>, 'wire'> & { wire: NonNullable<ProjectionDefinition<K, S>['wire']> }, ): () => void
+register<K extends keyof SessionProjectionMap, S extends SessionProjectionStateMap[K]>( definition: Omit<ProjectionDefinition<K, S>, 'wire'> & { wire: NonNullable<ProjectionDefinition<K, S>['wire']> }, ): () => void
 
 /**
  * Register one host-only unit. Its state is omitted from client snapshots
@@ -223,7 +225,7 @@ register< K extends keyof SessionProjectionMap, S extends SessionProjectionState
  * @param definition - key, state schema, pure unit functions, and stateVersion.
  * @returns the exact disposer that unregisters this unit.
  */
-register< K extends Exclude<keyof SessionProjectionStateMap, keyof SessionProjectionMap>, S extends SessionProjectionStateMap[K], >( definition: Omit<ProjectionDefinition<K, S>, 'wire'>, ): () => void
+register<K extends Exclude<keyof SessionProjectionStateMap, keyof SessionProjectionMap>, S extends SessionProjectionStateMap[K]>( definition: Omit<ProjectionDefinition<K, S>, 'wire'>, ): () => void
 
 /**
  * Subscribe to the change feed. The registration is an effect on the
@@ -241,7 +243,7 @@ onChanged(listener: ProjectionChangeListener): () => void
  * @param key - the registered unit key.
  * @returns current state, or `undefined` when the key is not registered.
  */
-stateOf<K extends keyof SessionProjectionStateMap>( session: Session, key: K, ): SessionProjectionStateMap[K] | undefined
+stateOf<K extends keyof SessionProjectionStateMap>(session: Session, key: K): SessionProjectionStateMap[K] | undefined
 
 /**
  * One consistent cut over every registered client-visible unit for one session, read from
@@ -252,7 +254,7 @@ stateOf<K extends keyof SessionProjectionStateMap>( session: Session, key: K, ):
  * @param keys - optional client-visible outputs; state materialization remains complete.
  * @returns the snapshot; `values` is empty when no selected client-visible unit is registered.
  */
-snapshot( session: Session, keys?: readonly Extract<keyof SessionProjectionMap, string>[], ): ProjectionSnapshot
+snapshot(session: Session, keys?: readonly Extract<keyof SessionProjectionMap, string>[]): ProjectionSnapshot
 
 /**
  * Read only already-materialized client-visible cells without folding history.
@@ -262,7 +264,7 @@ snapshot( session: Session, keys?: readonly Extract<keyof SessionProjectionMap, 
  * @param keys - optional wire keys to view.
  * @returns the lowest common cached cut, or `undefined` when no wire cell exists.
  */
-cachedSnapshot( session: Session, keys?: readonly Extract<keyof SessionProjectionMap, string>[], ): ProjectionSnapshot | undefined
+cachedSnapshot(session: Session, keys?: readonly Extract<keyof SessionProjectionMap, string>[]): ProjectionSnapshot | undefined
 
 /**
  * State-level checkpoint of every persisted unit for one session, read

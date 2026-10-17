@@ -11,9 +11,30 @@ import { uiElements } from './elements.ts'
 import type { BudgetClock, LoadedMod } from './chain.ts'
 import { messageOf } from './values.ts'
 import type {
-  AskOptions, CommandInfo, CommandRunResult, CommandSpec, FsEntry, FsStat, HttpInit, HttpResponse, ModsApi, PaneOpenArgs,
-  PaneOpenResult, ProcessRunInit, ProcessRunResult, PromptSubmitArgs, SessionMessage, SessionUsage, SessionVersion,
-  StateRef, ModTimer, ToastOptions, ToolCallResult, ToolInfo, ToolSpec, UiLogOptions,
+  AskOptions,
+  CommandInfo,
+  CommandRunResult,
+  CommandSpec,
+  FsEntry,
+  FsStat,
+  HttpInit,
+  HttpResponse,
+  ModsApi,
+  PaneOpenArgs,
+  PaneOpenResult,
+  ProcessRunInit,
+  ProcessRunResult,
+  PromptSubmitArgs,
+  SessionMessage,
+  SessionUsage,
+  SessionVersion,
+  StateRef,
+  ModTimer,
+  ToastOptions,
+  ToolCallResult,
+  ToolInfo,
+  ToolSpec,
+  UiLogOptions,
 } from './types.ts'
 
 /** Timers the engine owns on a mod's behalf, so disposal and reload can cancel them. */
@@ -48,7 +69,7 @@ export function createModsApi(binding: ApiBinding): ModsApi {
   async function call<T>(op: string, input: unknown): Promise<T> {
     clock?.pause()
     try {
-      return await binding.invoke(op, input) as T
+      return (await binding.invoke(op, input)) as T
     } finally {
       clock?.resume()
     }
@@ -68,7 +89,7 @@ export function createModsApi(binding: ApiBinding): ModsApi {
         fire('ui.log', { text, to: options?.to ?? 'transcript' })
       },
       toast(text: string, options?: ToastOptions): void {
-        fire('ui.toast', { text, ...options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs } })
+        fire('ui.toast', { text, ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }) })
       },
       status(text: string | undefined): void {
         fire('ui.status', { text })
@@ -86,7 +107,7 @@ export function createModsApi(binding: ApiBinding): ModsApi {
         return call('ui.panes', {})
       },
       ask(question: string, options?: readonly string[] | AskOptions): Promise<string> {
-        const normalized: AskOptions = Array.isArray(options) ? { options } : options as AskOptions | undefined ?? {}
+        const normalized: AskOptions = Array.isArray(options) ? { options } : ((options as AskOptions | undefined) ?? {})
         return call('ui.ask', { question, ...normalized })
       },
       resolve: () => uiElements(),
@@ -158,17 +179,17 @@ export function createModsApi(binding: ApiBinding): ModsApi {
     }),
     process: Object.freeze({
       run(argv: readonly string[], init?: ProcessRunInit): Promise<ProcessRunResult> {
-        return call('process.run', { argv, ...init === undefined ? {} : { init } })
+        return call('process.run', { argv, ...(init === undefined ? {} : { init }) })
       },
     }),
     http: Object.freeze({
       fetch(url: string, init?: HttpInit): Promise<HttpResponse> {
-        return call('http.fetch', { url, ...init === undefined ? {} : { init } })
+        return call('http.fetch', { url, ...(init === undefined ? {} : { init }) })
       },
     }),
     env: Object.freeze({
       get: (name: string): Promise<string | undefined> => call('env.get', { name }),
-      set: (name: string, value: string | undefined): Promise<void> => call('env.set', { name, ...value === undefined ? {} : { value } }),
+      set: (name: string, value: string | undefined): Promise<void> => call('env.set', { name, ...(value === undefined ? {} : { value }) }),
     }),
   }
   return withUnservedMembers(served, mod.name)
@@ -176,8 +197,26 @@ export function createModsApi(binding: ApiBinding): ModsApi {
 
 /** The method namespaces Claude Code's `$` has; `plugin` holds facts, not methods, and stays as served. */
 const METHOD_NAMESPACES: ReadonlySet<string> = new Set([
-  'ui', 'command', 'tool', 'prompt', 'session', 'state', 'store', 'clock', 'fs', 'process', 'http', 'env',
-  'model', 'agent', 'config', 'settings', 'mcp', 'audio', 'telemetry', 'turn',
+  'ui',
+  'command',
+  'tool',
+  'prompt',
+  'session',
+  'state',
+  'store',
+  'clock',
+  'fs',
+  'process',
+  'http',
+  'env',
+  'model',
+  'agent',
+  'config',
+  'settings',
+  'mcp',
+  'audio',
+  'telemetry',
+  'turn',
 ])
 
 /**

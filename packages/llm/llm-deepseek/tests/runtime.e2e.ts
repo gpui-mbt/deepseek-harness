@@ -4,11 +4,18 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
-import LlmRuntime, { createToolResultMessage, createUserMessage, ToolCallId, ReasoningEffortId, createMessage, createSystemMessage } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, {
+  createToolResultMessage,
+  createUserMessage,
+  ToolCallId,
+  ReasoningEffortId,
+  createMessage,
+  createSystemMessage,
+} from '@deepseek-ai/dsh-llm'
 import type { Message, ToolSchema } from '@deepseek-ai/dsh-llm'
 import AttachmentStore, { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import LocalAttachments from '@deepseek-ai/dsh-attachment-local'
@@ -43,9 +50,7 @@ const VISION = 'deepseek-v4-flash-vision-exp'
 const VISION_E2E_ENABLED = process.env.DEEPSEEK_VISION_E2E === '1'
 /** A model whose endpoint reads the latest `system` message at any position; unset skips the in-history smoke. */
 const IN_HISTORY_MODEL = process.env.DEEPSEEK_IN_HISTORY_MODEL
-const TEST_PNG = Uint8Array.from(readFileSync(
-  new URL('../../llm-pi-ai/tests/fixtures/qr-code.png', import.meta.url),
-))
+const TEST_PNG = Uint8Array.from(readFileSync(new URL('../../llm-pi-ai/tests/fixtures/qr-code.png', import.meta.url)))
 const contexts: Context[] = []
 let identityHome: string
 
@@ -91,11 +96,7 @@ class E2eAttachmentStore extends AttachmentStore {
     return Promise.resolve({ ref, data: TEST_PNG })
   }
 
-  override readImageRequest(
-    _ref: ImageAttachmentRef,
-    _target: ImageRequestTarget,
-    _signal?: AbortSignal,
-  ): Promise<RequestImageAttachment> {
+  override readImageRequest(_ref: ImageAttachmentRef, _target: ImageRequestTarget, _signal?: AbortSignal): Promise<RequestImageAttachment> {
     return Promise.resolve(this.version)
   }
 }
@@ -112,7 +113,7 @@ async function harness(model: string, config: Partial<Config> = {}) {
   await ctx.plugin(E2eAttachmentStore)
   await ctx.plugin(LlmDeepSeek, {
     baseURL: Protocol.PUBLIC_BASE_URL,
-    ...model === VISION ? { models: [{ id: VISION, inputModalities: ['text', 'image'] }] } : {},
+    ...(model === VISION ? { models: [{ id: VISION, inputModalities: ['text', 'image'] }] } : {}),
     ...config,
   })
   return ctx
@@ -126,10 +127,12 @@ afterEach(async () => {
 })
 
 function ask(text: string): Message[] {
-  return [createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  })]
+  return [
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+  ]
 }
 
 function textOf(result: AssembledResult): string {
@@ -158,9 +161,13 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
     await ctx.plugin(LlmDeepSeek, { baseURL: Protocol.PUBLIC_BASE_URL, maxTokens: 4096 })
     const model = 'deepseek-flash'
     await expect(ctx.llm.resolveModelInfo('deepseek-official', model)).resolves.toMatchObject({
-      inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history',
+      inputModalities: ['text', 'image'],
+      systemPromptUpdate: 'in-history',
     })
-    const attachment = await ctx.attachments.saveImage({ data: readFileSync(new URL('fixtures/red.png', import.meta.url)), mediaType: 'image/png' })
+    const attachment = await ctx.attachments.saveImage({
+      data: readFileSync(new URL('fixtures/red.png', import.meta.url)),
+      mediaType: 'image/png',
+    })
     const message = ask('What is the dominant color of this image?')[0]!
     const history: Message[] = [
       createSystemMessage('Answer with one English color word.'),
@@ -193,7 +200,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
       const url = new URL(input instanceof Request ? input.url : input)
       const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
       if (method === 'POST' && url.pathname.endsWith('/files') && response.ok) {
-        const value = await response.clone().json() as { id?: unknown }
+        const value = (await response.clone().json()) as { id?: unknown }
         if (typeof value.id === 'string') uploadedFile = Protocol.DeepSeekFileId(value.id)
       }
       return response
@@ -204,19 +211,18 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
     try {
       const result = await assemble(ctx, {
         model: VISION,
-        messages: [createUserMessage({
-          content: [
-            { type: 'text', text: 'Briefly describe this image.' },
-            { type: 'image', attachment: attachments.ref },
-          ],
-          source: { kind: 'user' },
-        })],
+        messages: [
+          createUserMessage({
+            content: [
+              { type: 'text', text: 'Briefly describe this image.' },
+              { type: 'image', attachment: attachments.ref },
+            ],
+            source: { kind: 'user' },
+          }),
+        ],
         maxTokens: 100,
       })
-      expect(
-        result.finish.kind,
-        `DeepSeek vision result: ${JSON.stringify(result.finish)}`,
-      ).toBe('stop')
+      expect(result.finish.kind, `DeepSeek vision result: ${JSON.stringify(result.finish)}`).toBe('stop')
       expect(textOf(result).trim().length).toBeGreaterThan(0)
       expect(uploadedFile).toMatch(/^file-api-/u)
     } finally {
@@ -281,7 +287,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
 
   it('flash dynamically switches from off to low', async () => {
     const ctx = await harness(FLASH, { reasoningEffort: 'off' })
-    const withoutThinking = await assemble(ctx,{
+    const withoutThinking = await assemble(ctx, {
       model: FLASH,
       messages: ask('Reply with exactly the word: pong'),
       maxTokens: 50,
@@ -292,7 +298,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
     expect(withoutThinking.usage?.inputTokens).toBeGreaterThan(0)
     expect(withoutThinking.usage?.outputTokens).toBeGreaterThan(0)
 
-    const withThinking = await assemble(ctx,{
+    const withThinking = await assemble(ctx, {
       model: FLASH,
       reasoningEffort: ReasoningEffortId('low'),
       messages: ask('Which is larger, 9.11 or 9.8? Answer with just the number.'),
@@ -304,55 +310,47 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
     expect(withThinking.usage?.outputTokens).toBeGreaterThan(0)
   })
 
-  it(
-    'flash + thinking enabled (effort max): tool-call round trip with reasoning passback',
-    async () => {
-      const ctx = await harness(FLASH, { thinking: 'enabled' })
+  it('flash + thinking enabled (effort max): tool-call round trip with reasoning passback', async () => {
+    const ctx = await harness(FLASH, { thinking: 'enabled' })
 
-      // Turn 1: the model must call the tool (and think before it).
-      const first = await assemble(ctx,{
-        model: FLASH,
-        reasoningEffort: ReasoningEffortId('max'),
-        messages: ask('What is the weather in Paris right now? Use the get_weather tool.'),
-        tools: [weatherTool],
-        maxTokens: 2000,
-      })
-      expect(
-        first.finish.kind,
-        `DeepSeek Flash tool-call turn finished as ${JSON.stringify(first.finish)}`,
-      ).toBe('tool-calls')
-      const call = first.message.content.find(block => block.type === 'tool-call')
-      expect(call).toBeDefined()
-      expect(call!.name).toBe('get_weather')
-      expect(JSON.parse(call!.arguments)).toMatchObject({ city: expect.stringMatching(/paris/i) as string })
+    // Turn 1: the model must call the tool (and think before it).
+    const first = await assemble(ctx, {
+      model: FLASH,
+      reasoningEffort: ReasoningEffortId('max'),
+      messages: ask('What is the weather in Paris right now? Use the get_weather tool.'),
+      tools: [weatherTool],
+      maxTokens: 2000,
+    })
+    expect(first.finish.kind, `DeepSeek Flash tool-call turn finished as ${JSON.stringify(first.finish)}`).toBe('tool-calls')
+    const call = first.message.content.find(block => block.type === 'tool-call')
+    expect(call).toBeDefined()
+    expect(call!.name).toBe('get_weather')
+    expect(JSON.parse(call!.arguments)).toMatchObject({ city: expect.stringMatching(/paris/i) as string })
 
-      // Turn 2: send the tool result back WITH the assistant's reasoning
-      // block in history (the official thinking+tools passback rule).
-      const second = await assemble(ctx,{
-        model: FLASH,
-        reasoningEffort: ReasoningEffortId('max'),
-        messages: [
-          ...ask('What is the weather in Paris right now? Use the get_weather tool.'),
-          createMessage({
-            role: 'assistant', content: first.message.content,
-            source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-          }),
-          createToolResultMessage({
-            callId: ToolCallId(call!.id),
-            content: [{ type: 'text', text: 'Sunny, 22°C' }],
-            isError: false,
-          }),
-        ],
-        tools: [weatherTool],
-        maxTokens: 2000,
-      })
-      expect(
-        second.finish.kind,
-        `DeepSeek Flash tool-result turn finished as ${JSON.stringify(second.finish)}`,
-      ).toBe('stop')
-      expect(textOf(second).toLowerCase()).toMatch(/sunny|22/)
-    },
-  )
+    // Turn 2: send the tool result back WITH the assistant's reasoning
+    // block in history (the official thinking+tools passback rule).
+    const second = await assemble(ctx, {
+      model: FLASH,
+      reasoningEffort: ReasoningEffortId('max'),
+      messages: [
+        ...ask('What is the weather in Paris right now? Use the get_weather tool.'),
+        createMessage({
+          role: 'assistant',
+          content: first.message.content,
+          source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        }),
+        createToolResultMessage({
+          callId: ToolCallId(call!.id),
+          content: [{ type: 'text', text: 'Sunny, 22°C' }],
+          isError: false,
+        }),
+      ],
+      tools: [weatherTool],
+      maxTokens: 2000,
+    })
+    expect(second.finish.kind, `DeepSeek Flash tool-result turn finished as ${JSON.stringify(second.finish)}`).toBe('stop')
+    expect(textOf(second).toLowerCase()).toMatch(/sunny|22/)
+  })
 
   it.skipIf(IN_HISTORY_MODEL === undefined)(
     'an in-history model follows a mid-history system message and keeps the cached prefix',
@@ -362,8 +360,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
         thinking: 'disabled',
         models: [{ id: model, systemPromptUpdate: 'in-history' }],
       })
-      await expect(ctx.llm.resolveModelInfo('deepseek-official', model))
-        .resolves.toMatchObject({ systemPromptUpdate: 'in-history' })
+      await expect(ctx.llm.resolveModelInfo('deepseek-official', model)).resolves.toMatchObject({ systemPromptUpdate: 'in-history' })
       const system = (text: string) => createSystemMessage(text)
       // A nonce before the padding isolates the provider cache across runs and retries.
       const nonce = randomBytes(16).toString('hex')
@@ -412,7 +409,9 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
         expect(reusableTokens).toBeLessThanOrEqual(initialTokens)
         expect(reusableTokens).toBeGreaterThan(0)
         const assistant = createMessage({
-          role: 'assistant', content: first.message.content, source: first.message.source,
+          role: 'assistant',
+          content: first.message.content,
+          source: first.message.source,
         })
 
         const updated = await assemble(ctx, {

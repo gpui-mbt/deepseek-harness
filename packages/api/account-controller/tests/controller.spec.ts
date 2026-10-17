@@ -3,12 +3,18 @@ import { Context } from '@deepseek-ai/cordis'
 import type { DeepSeekAccount } from '@deepseek-ai/dsh-deepseek-account'
 import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountView, SignInAttemptId } from '../src/types.ts'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import AccountController from '../src/index.ts'
 
 const roots: Context[] = []
-afterEach(async () => { await Promise.all(roots.splice(0).map(ctx => ctx.fiber.dispose())) })
-const state: AccountView = { status: 'signed-out', links: { usageUrl: 'https://platform.example/usage', topUpUrl: 'https://platform.example/top_up' }, attempt: null }
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map(ctx => ctx.fiber.dispose()))
+})
+const state: AccountView = {
+  status: 'signed-out',
+  links: { usageUrl: 'https://platform.example/usage', topUpUrl: 'https://platform.example/top_up' },
+  attempt: null,
+}
 const client: AccountClientMetadata = { version: '0.0.0-test', locale: 'zh-CN', timezoneOffsetSeconds: 28_800 }
 
 function fixture() {
@@ -51,7 +57,10 @@ it('delegates bonus reads and acknowledgements without altering their values', a
   const { provider, controller } = fixture()
   const accountId = 'account' as AccountUserId
   const orderId = 'order' as AccountBonusOrderId
-  const batch: AccountBonusBatch = { accountId, bonuses: [{ orderId, expiresAt: '2026-10-21T12:00:00Z', message: '已赠送您 5.00 元 DSH 体验赠金。' }] }
+  const batch: AccountBonusBatch = {
+    accountId,
+    bonuses: [{ orderId, expiresAt: '2026-10-21T12:00:00Z', message: '已赠送您 5.00 元 DSH 体验赠金。' }],
+  }
   provider.getUnnotifiedBonuses.mockResolvedValueOnce(batch)
   expect(await controller.getUnnotifiedBonuses(client)).toBe(batch)
   expect(provider.getUnnotifiedBonuses).toHaveBeenCalledExactlyOnceWith(client)
@@ -66,7 +75,11 @@ it('delegates bonus reads and acknowledgements without altering their values', a
 it('passes the subscriber lifetime to the provider and returns its state stream', async () => {
   const { provider, controller } = fixture()
   const lifetime = new AbortController()
-  const stream: AsyncIterable<AccountView> = { async *[Symbol.asyncIterator]() { yield state } }
+  const stream: AsyncIterable<AccountView> = {
+    async *[Symbol.asyncIterator]() {
+      yield state
+    },
+  }
   provider.watch.mockReturnValue(stream)
   expect(controller.watch(lifetime.signal)).toBe(stream)
   expect(provider.watch).toHaveBeenCalledExactlyOnceWith(lifetime.signal)

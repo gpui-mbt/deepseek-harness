@@ -29,7 +29,9 @@ export abstract class ConversationDefinitionRegistry<Definition> {
    */
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -40,12 +42,7 @@ export abstract class ConversationDefinitionRegistry<Definition> {
    * @param effectName - Cordis effect diagnostic label.
    * @returns idempotent disposer.
    */
-  protected registerDefinition(
-    key: string,
-    definition: Definition,
-    duplicateMessage: string,
-    effectName: string,
-  ): () => void {
+  protected registerDefinition(key: string, definition: Definition, duplicateMessage: string, effectName: string): () => void {
     if (this.definitions.has(key)) throw new Error(duplicateMessage)
     const owner = this.ctx
     const dispose = owner.effect(() => {
@@ -57,7 +54,9 @@ export abstract class ConversationDefinitionRegistry<Definition> {
         this.refresh()
       }
     }, effectName)
-    return () => { void dispose() }
+    return () => {
+      void dispose()
+    }
   }
 
   /** Refresh cached entries and synchronously invalidate subscribers. */

@@ -42,9 +42,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 }
 
 /** One Host-reported target change in the Session's filesystem. */
-export type WorkspaceFileEdit =
-  | { readonly kind: 'changed'; readonly version: string }
-  | { readonly kind: 'absent' }
+export type WorkspaceFileEdit = { readonly kind: 'changed'; readonly version: string } | { readonly kind: 'absent' }
 
 /** A target change or a request to restat after reconnection. */
 export type WorkspaceFileNotice = WorkspaceFileEdit | { readonly kind: 'refresh' }

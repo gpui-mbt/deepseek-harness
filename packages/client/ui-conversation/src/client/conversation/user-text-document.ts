@@ -1,13 +1,14 @@
 /** Per-document candidate reconciliation, query coverage, tracked Facts and JSON identity reuse. */
 import type { UserTextFacts } from '../index.ts'
-import type {
-  UserTextDocumentInput, UserTextNode, UserTextRule, UserTextTransformContext,
-} from '../contract/user-text.ts'
+import type { UserTextDocumentInput, UserTextNode, UserTextRule, UserTextTransformContext } from '../contract/user-text.ts'
 
 type FactKey = keyof UserTextFacts
 
 class UserTextTransformError extends Error {
-  constructor(readonly ruleId: string, cause: unknown) {
+  constructor(
+    readonly ruleId: string,
+    cause: unknown,
+  ) {
     super(`user-text rule "${ruleId}" failed to evaluate`, { cause })
     this.name = 'UserTextTransformError'
   }
@@ -114,7 +115,6 @@ export class UserTextDocument {
       }
     }
   }
-
 }
 
 function factsChanged(reads: ReadonlyMap<FactKey, unknown>, input: UserTextDocumentInput): boolean {
@@ -147,8 +147,10 @@ function nextCandidate(traversal: Traversal, input: UserTextDocumentInput, curso
       next = matcher.queries[traversal.index + 1]
     }
     const recorded = matcher.queries[traversal.index]
-    if (recorded !== undefined && (recorded.error !== undefined
-      ? recorded.from === cursor : recorded.node === undefined || recorded.node.start >= cursor)) {
+    if (
+      recorded !== undefined &&
+      (recorded.error !== undefined ? recorded.from === cursor : recorded.node === undefined || recorded.node.start >= cursor)
+    ) {
       traversal.head = recorded
     } else {
       let node: UserTextNode | undefined
@@ -168,8 +170,13 @@ function nextCandidate(traversal: Traversal, input: UserTextDocumentInput, curso
 }
 
 function validateCandidate(text: string, ruleId: string, from: number, node: UserTextNode): void {
-  if (!Number.isInteger(node.start) || !Number.isInteger(node.end)
-    || node.start < from || node.end <= node.start || node.end > text.length) {
+  if (
+    !Number.isInteger(node.start) ||
+    !Number.isInteger(node.end) ||
+    node.start < from ||
+    node.end <= node.start ||
+    node.end > text.length
+  ) {
     throw new Error(`invalid candidate range [${node.start}, ${node.end}); expected a nonempty range from ${from} to ${text.length}`)
   }
   if (node.id === 'text') {
@@ -204,7 +211,9 @@ function textNode(text: string, start: number, end: number): UserTextNode<'text'
 }
 
 function alignNodes(
-  output: readonly UserTextNode[], previous: readonly UserTextNode[], input: readonly UserTextNode[],
+  output: readonly UserTextNode[],
+  previous: readonly UserTextNode[],
+  input: readonly UserTextNode[],
 ): readonly UserTextNode[] {
   let previousIndex = 0
   let inputIndex = 0
@@ -214,8 +223,7 @@ function alignNodes(
     while (inputNode && inputNode.start < node.start) inputNode = input[++inputIndex]
     let previousNode = previous[previousIndex]
     while (previousNode && previousNode.start < node.start) previousNode = previous[++previousIndex]
-    const reused = inputNode && equalNode(node, inputNode) ? inputNode
-      : previousNode && equalNode(node, previousNode) ? previousNode : node
+    const reused = inputNode && equalNode(node, inputNode) ? inputNode : previousNode && equalNode(node, previousNode) ? previousNode : node
     if (reused !== node && !aligned) aligned = output.slice(0, index)
     aligned?.push(reused)
   }
@@ -229,8 +237,10 @@ function equalElements(left: readonly UserTextNode[], right: readonly UserTextNo
 }
 
 function equalNode(left: UserTextNode, right: UserTextNode): boolean {
-  return Object.is(left, right) || (left.id === right.id && left.start === right.start && left.end === right.end
-    && equalJson(left.data, right.data))
+  return (
+    Object.is(left, right) ||
+    (left.id === right.id && left.start === right.start && left.end === right.end && equalJson(left.data, right.data))
+  )
 }
 
 function equalJson(left: unknown, right: unknown): boolean {
@@ -239,6 +249,5 @@ function equalJson(left: unknown, right: unknown): boolean {
   if (Array.isArray(left) !== Array.isArray(right)) return false
   const keys = Object.keys(left)
   if (keys.length !== Object.keys(right).length) return false
-  return keys.every(key => Object.hasOwn(right, key)
-    && equalJson(Reflect.get(left, key), Reflect.get(right, key)))
+  return keys.every(key => Object.hasOwn(right, key) && equalJson(Reflect.get(left, key), Reflect.get(right, key)))
 }

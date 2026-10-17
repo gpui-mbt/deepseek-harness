@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { type JsonValue, PartialArguments } from '../src/index.ts'
 
 /** Complete, valid objects exercising strings, escapes, scalars, nested values, and whitespace. */
@@ -42,7 +42,7 @@ function seededSizes(seed: number): () => number {
     let t = state
     t = Math.imul(t ^ (t >>> 15), t | 1)
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) % 3 + 1
+    return (((t ^ (t >>> 14)) >>> 0) % 3) + 1
   }
 }
 
@@ -101,7 +101,9 @@ describe('PartialArguments', () => {
       view.append(' ')
       expect(view.settle('{"a":"value"} ')).toBe(view)
       expect(view.isSealed).toBe(true)
-      expect(() => { view.append('') }).toThrow('cannot append to a sealed view')
+      expect(() => {
+        view.append('')
+      }).toThrow('cannot append to a sealed view')
       expect(PartialArguments.EMPTY.isSealed).toBe(true)
       expect(PartialArguments.fromText('{"a":"unfinished').isSealed).toBe(true)
       const partial = streamed(['{"a":"old'])
@@ -135,7 +137,9 @@ describe('PartialArguments', () => {
       expect(empty.text('x')).toBeUndefined()
       expect(empty.value('x')).toBeUndefined()
       expect(empty.invalid).toBe(false)
-      expect(() => { empty.append('{') }).toThrow('cannot append to a sealed view')
+      expect(() => {
+        empty.append('{')
+      }).toThrow('cannot append to a sealed view')
     })
 
     it('reports every sealed view as closed, whatever its text says', () => {
@@ -181,7 +185,9 @@ describe('PartialArguments', () => {
       expect(view.complete('missing')).toBe(false)
       expect(view.value('missing')).toBeUndefined()
       expect(view.invalid).toBe(false)
-      expect(() => { view.append('{') }).toThrow('cannot append to a sealed view')
+      expect(() => {
+        view.append('{')
+      }).toThrow('cannot append to a sealed view')
     })
 
     it('fromObject treats anything but an object as a call without fields', () => {
@@ -197,7 +203,9 @@ describe('PartialArguments', () => {
       for (const text of CLOSED_TEXTS) {
         const fromText = PartialArguments.fromText(text)
         expect(snapshotOf(fromText)).toStrictEqual(snapshotOf(PartialArguments.fromObject(JSON.parse(text))))
-        expect(() => { fromText.append(' ') }).toThrow('cannot append to a sealed view')
+        expect(() => {
+          fromText.append(' ')
+        }).toThrow('cannot append to a sealed view')
       }
       expect('polluted' in {}).toBe(false)
     })
@@ -280,7 +288,9 @@ describe('PartialArguments', () => {
       expect(view.refresh()).toBe(true)
       expect(view.refresh()).toBe(false)
       expect(view.settle(finalText)).toBe(view)
-      expect(() => { view.append(' ') }).toThrow('cannot append to a sealed view')
+      expect(() => {
+        view.append(' ')
+      }).toThrow('cannot append to a sealed view')
     })
 
     it('leaves matching unread containers unparsed until requested after settlement', () => {
@@ -322,8 +332,12 @@ describe('PartialArguments', () => {
       expect(view.text('a')).toBe(before)
       expect(view.refresh()).toBe(true)
       expect(view.refresh()).toBe(false)
-      expect(() => { view.append(' ') }).not.toThrow()
-      expect(() => { settled.append(' ') }).toThrow('cannot append to a sealed view')
+      expect(() => {
+        view.append(' ')
+      }).not.toThrow()
+      expect(() => {
+        settled.append(' ')
+      }).toThrow('cannot append to a sealed view')
     })
 
     it('does not carry an invalid reader cache into corrected authoritative text', () => {
@@ -345,7 +359,9 @@ describe('PartialArguments', () => {
       expect(empty.closed()).toBe(true)
       expect(empty.keys()).toEqual([])
       expect(empty).toEqual(PartialArguments.fromText(''))
-      expect(() => { empty.append('{}') }).toThrow('cannot append to a sealed view')
+      expect(() => {
+        empty.append('{}')
+      }).toThrow('cannot append to a sealed view')
       const object = PartialArguments.fromObject({ a: 'old' })
       const settled = object.settle('{"a":"new"}')
       expect(settled).not.toBe(object)
@@ -576,7 +592,10 @@ describe('PartialArguments', () => {
     })
 
     it('decodes a \\uXXXX escape split across appends, whether the text was read before or only after', () => {
-      const chunkings = [[String.raw`{"file_path":"\u4e`, '2d"}'], ['{"file_path":"\\', 'u', '4', 'e2', 'd"}']]
+      const chunkings = [
+        [String.raw`{"file_path":"\u4e`, '2d"}'],
+        ['{"file_path":"\\', 'u', '4', 'e2', 'd"}'],
+      ]
       for (const chunks of chunkings) {
         const lazy = streamed(chunks)
         expect(lazy.text('file_path')).toBe('中')
@@ -1090,8 +1109,11 @@ describe('PartialArguments', () => {
         view.append(chunk)
         const changed = view.refresh()
         const after = observe()
-        const expectChanged = after.path !== before.path || after.pathDone !== before.pathDone
-          || after.steps !== before.steps || after.overwrite !== before.overwrite
+        const expectChanged =
+          after.path !== before.path ||
+          after.pathDone !== before.pathDone ||
+          after.steps !== before.steps ||
+          after.overwrite !== before.overwrite
         expect(changed).toBe(expectChanged)
         if (changed) reported++
         if (after.length !== undefined) {
@@ -1103,7 +1125,13 @@ describe('PartialArguments', () => {
       }
       expect(reported).toBeGreaterThan(0)
       expect(reported).toBeLessThan(chunks.length / 2)
-      expect(before).toStrictEqual({ path: 'src/a.ts', pathDone: true, length: content.length, steps: Math.ceil(content.length / 64), overwrite: true })
+      expect(before).toStrictEqual({
+        path: 'src/a.ts',
+        pathDone: true,
+        length: content.length,
+        steps: Math.ceil(content.length / 64),
+        overwrite: true,
+      })
       expect(view.complete('content')).toBe(true)
       expect(view.keys()).toEqual(['file_path', 'content', 'overwrite'])
       expect(view.invalid).toBe(false)
@@ -1128,7 +1156,7 @@ describe('PartialArguments', () => {
       ['{"a":{"b":[]]', 'mismatched nested object brackets'],
       [String.raw`{"a\u12G4":1}`, 'a non-hex digit in a key escape'],
       ['{"a\nb":1}', 'an unescaped control character in a key'],
-    ])('freezes as invalid on %j (%s) and ignores later text', (text) => {
+    ])('freezes as invalid on %j (%s) and ignores later text', text => {
       expect(PartialArguments.fromText(text).invalid).toBe(true)
 
       const view = new PartialArguments()

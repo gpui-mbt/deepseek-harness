@@ -1,7 +1,7 @@
 /** Chip presentation: what it folds, when it renders, and its watch lifecycle. */
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -17,7 +17,12 @@ const SESSION = 'session' as SessionId
 const t: GitBranchChipProps['t'] = makeTranslate(zh)
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({
+  status: 'none' as const,
+  value: undefined,
+  failure: undefined,
+  reload: () => {},
+})) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
 type AttentionSnapshot = Parameters<Parameters<GitBranchChipProps['useSessionStatus']>[0]>[0]
@@ -26,13 +31,17 @@ const useSessionStatus: GitBranchChipProps['useSessionStatus'] = selector => sel
 
 /** Empty global and session standard-kit hooks (the chip reads its own props only). */
 function emptySessions() {
-  const store = createSnapshotStore<SessionListState>(
-    { ids: [], byId: {}, phase: 'ready', projectionsBySession: {} })
+  const store = createSnapshotStore<SessionListState>({ ids: [], byId: {}, phase: 'ready', projectionsBySession: {} })
   return bindSnapshotSelector(store)
 }
 function emptyWorkspaces() {
   const store = createSnapshotStore<WorkspaceSnapshot>({
-    items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
+    items: [],
+    archivedSessionIds: [],
+    pinnedSessionIds: [],
+    state: 'idle',
+    phase: 'ready',
+    error: null,
   })
   return bindSnapshotSelector(store)
 }
@@ -44,7 +53,10 @@ afterEach(() => {
 })
 
 /** One chip over a published checkout record with recorded watch verbs. */
-function bench(initial: WorkspaceGitStatus | undefined, workingDirectory: string | null = null): {
+function bench(
+  initial: WorkspaceGitStatus | undefined,
+  workingDirectory: string | null = null,
+): {
   branches: ReturnType<typeof createSnapshotStore<Record<SessionId, WorkspaceGitStatus | undefined>>>
   acquire: ReturnType<typeof vi.fn>
   release: ReturnType<typeof vi.fn>
@@ -72,11 +84,19 @@ function bench(initial: WorkspaceGitStatus | undefined, workingDirectory: string
       refresh,
       t,
       // The chip reads its own owner data only; every standard seat is a stub.
-      useSession: () => { throw new Error('GitBranchChip does not read the session snapshot') },
-      useProjection: (key: string) => key === 'workingDirectory' ? workingDirectory : undefined,
-      useConversation: () => { throw new Error('GitBranchChip does not read the conversation snapshot') },
-      useInput: () => { throw new Error('GitBranchChip does not read the input snapshot') },
-      useChat: () => { throw new Error('GitBranchChip does not read the chat snapshot') },
+      useSession: () => {
+        throw new Error('GitBranchChip does not read the session snapshot')
+      },
+      useProjection: (key: string) => (key === 'workingDirectory' ? workingDirectory : undefined),
+      useConversation: () => {
+        throw new Error('GitBranchChip does not read the conversation snapshot')
+      },
+      useInput: () => {
+        throw new Error('GitBranchChip does not read the input snapshot')
+      },
+      useChat: () => {
+        throw new Error('GitBranchChip does not read the chat snapshot')
+      },
       inputActions: {
         captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }),
         insertText: () => false,
@@ -87,7 +107,9 @@ function bench(initial: WorkspaceGitStatus | undefined, workingDirectory: string
         pruneAttachments: vi.fn(),
         submit: vi.fn(),
       } satisfies GitBranchChipProps['inputActions'],
-      useTrajectory: () => { throw new Error('GitBranchChip does not read the trajectory snapshot') },
+      useTrajectory: () => {
+        throw new Error('GitBranchChip does not read the trajectory snapshot')
+      },
       useSessions: emptySessions(),
       useSessionStatus,
       useSessionRetainInfo: () => undefined,
@@ -101,31 +123,43 @@ function bench(initial: WorkspaceGitStatus | undefined, workingDirectory: string
 describe('gitBranchReading', () => {
   it('qualifies the ref with the GitHub slug and drops an unavailable checkout', () => {
     expect(gitBranchReading({ kind: 'none' })).toBeNull()
-    expect(gitBranchReading({ kind: 'branch', name: 'main', worktree: null, root: null, github: null }))
-      .toEqual({ ref: 'main', name: 'main', repositoryUrl: null, worktree: null, root: null, detached: false })
-    expect(gitBranchReading({ kind: 'branch', name: 'main', worktree: 'moqt-js-feature', root: '/srv/moqt-js-feature', github: GITHUB }))
-      .toEqual({
-        ref: 'shiguredo/moqt-js:main',
-        name: 'main',
-        repositoryUrl: GITHUB.url,
-        worktree: 'moqt-js-feature',
-        root: '/srv/moqt-js-feature',
-        detached: false,
-      })
-    expect(gitBranchReading({ kind: 'detached', head: 'abc1234', worktree: null, root: null, github: null }))
-      .toEqual({ ref: 'abc1234', name: 'abc1234', repositoryUrl: null, worktree: null, root: null, detached: true })
+    expect(gitBranchReading({ kind: 'branch', name: 'main', worktree: null, root: null, github: null })).toEqual({
+      ref: 'main',
+      name: 'main',
+      repositoryUrl: null,
+      worktree: null,
+      root: null,
+      detached: false,
+    })
+    expect(
+      gitBranchReading({ kind: 'branch', name: 'main', worktree: 'moqt-js-feature', root: '/srv/moqt-js-feature', github: GITHUB }),
+    ).toEqual({
+      ref: 'shiguredo/moqt-js:main',
+      name: 'main',
+      repositoryUrl: GITHUB.url,
+      worktree: 'moqt-js-feature',
+      root: '/srv/moqt-js-feature',
+      detached: false,
+    })
+    expect(gitBranchReading({ kind: 'detached', head: 'abc1234', worktree: null, root: null, github: null })).toEqual({
+      ref: 'abc1234',
+      name: 'abc1234',
+      repositoryUrl: null,
+      worktree: null,
+      root: null,
+      detached: true,
+    })
   })
 
   it('keeps the worktree directory and path even when the directory repeats the repository name', () => {
-    expect(gitBranchReading({ kind: 'branch', name: 'main', worktree: 'moqt-js', root: '/srv/moqt-js', github: GITHUB }))
-      .toEqual({
-        ref: 'shiguredo/moqt-js:main',
-        name: 'main',
-        repositoryUrl: GITHUB.url,
-        worktree: 'moqt-js',
-        root: '/srv/moqt-js',
-        detached: false,
-      })
+    expect(gitBranchReading({ kind: 'branch', name: 'main', worktree: 'moqt-js', root: '/srv/moqt-js', github: GITHUB })).toEqual({
+      ref: 'shiguredo/moqt-js:main',
+      name: 'main',
+      repositoryUrl: GITHUB.url,
+      worktree: 'moqt-js',
+      root: '/srv/moqt-js',
+      detached: false,
+    })
   })
 })
 
@@ -142,7 +176,13 @@ describe('GitBranchChip', () => {
   })
 
   it('renders a summary trigger that opens a dialog listing every checkout fact', () => {
-    const { props } = bench({ kind: 'branch', name: 'feature/x', worktree: 'moqt-js-feature', root: '/srv/moqt-js-feature', github: GITHUB })
+    const { props } = bench({
+      kind: 'branch',
+      name: 'feature/x',
+      worktree: 'moqt-js-feature',
+      root: '/srv/moqt-js-feature',
+      github: GITHUB,
+    })
     render(<GitBranchChip {...props} />)
     const chip = screen.getByRole('button', { name: '分支 shiguredo/moqt-js:feature/x (工作树 moqt-js-feature) 位于 /srv/moqt-js-feature' })
     expect(chip.textContent).toBe('shiguredo/moqt-js:feature/x (moqt-js-feature) · /srv/moqt-js-feature')
@@ -198,10 +238,7 @@ describe('GitBranchChip', () => {
   })
 
   it('re-reads at once when the projected working directory changes', () => {
-    const { refresh, props } = bench(
-      { kind: 'branch', name: 'main', worktree: null, root: '/srv/main', github: null },
-      '/srv/main',
-    )
+    const { refresh, props } = bench({ kind: 'branch', name: 'main', worktree: null, root: '/srv/main', github: null }, '/srv/main')
     const view = render(<GitBranchChip {...props} />)
     // Mount acquires and refreshes; the baseline projection landing is the same value.
     expect(refresh).toHaveBeenCalledTimes(1)

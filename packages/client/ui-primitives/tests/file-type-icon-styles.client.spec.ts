@@ -1,7 +1,7 @@
 /** FileTypeIcon's default per-category palette as CSS text. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { CodeFileType, FileType } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const css = readFileSync(fileURLToPath(new URL('../src/FileTypeIcon.module.css', import.meta.url)), 'utf8')
@@ -23,13 +23,10 @@ const TYPE_COLORS: Readonly<Record<TraditionalFileType, string>> = {
 }
 
 describe('FileTypeIcon.module.css', () => {
-  it.each(Object.entries(TYPE_COLORS) as [TraditionalFileType, string][])(
-    '%s has its own default color',
-    (type, color) => {
-      const rule = css.match(new RegExp(`\\.${type}\\s*\\{([^}]*)\\}`))?.[1]
-      expect(rule).toContain(`--dsh-file-type-default-color: ${color}`)
-    },
-  )
+  it.each(Object.entries(TYPE_COLORS) as [TraditionalFileType, string][])('%s has its own default color', (type, color) => {
+    const rule = css.match(new RegExp(`\\.${type}\\s*\\{([^}]*)\\}`))?.[1]
+    expect(rule).toContain(`--dsh-file-type-default-color: ${color}`)
+  })
 
   it('keeps one caller override and the supplied violet in named variables', () => {
     expect(css).toContain('color: var(--dsh-file-type-icon-color, var(--dsh-file-type-default-color))')

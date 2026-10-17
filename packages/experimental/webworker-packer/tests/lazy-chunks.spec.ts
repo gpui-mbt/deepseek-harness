@@ -10,7 +10,7 @@ import { gunzipSync } from 'node:zlib'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, type TestContext } from 'vitest'
+import { expect, it, type TestContext } from 'vite-plus/test'
 import { parseTar } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/tar.ts'
 import { MANIFEST_PATH, packVfsImage, type PackOptions } from '../src/pack.ts'
 
@@ -19,14 +19,19 @@ const PREFIX = `node_modules/${SUBJECT}/lib`
 
 function fixture(test: TestContext, files: Record<string, string>): PackOptions {
   const root = mkdtempSync(join(tmpdir(), 'dsh-image-lazy-'))
-  test.onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
+  test.onTestFinished(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
   mkdirSync(join(root, 'lib'))
-  writeFileSync(join(root, 'package.json'), JSON.stringify({
-    name: SUBJECT,
-    type: 'module',
-    files: ['lib'],
-    exports: { '.': './lib/index.js', './client': './lib/client.browser.js' },
-  }))
+  writeFileSync(
+    join(root, 'package.json'),
+    JSON.stringify({
+      name: SUBJECT,
+      type: 'module',
+      files: ['lib'],
+      exports: { '.': './lib/index.js', './client': './lib/client.browser.js' },
+    }),
+  )
   writeFileSync(join(root, 'lib/index.js'), 'export const value = 1')
   for (const [name, body] of Object.entries(files)) writeFileSync(join(root, 'lib', name), body)
   return {
@@ -40,12 +45,12 @@ function fixture(test: TestContext, files: Record<string, string>): PackOptions 
 
 const CHUNKS = {
   'client.browser.js': 'module.exports = { load: () => require.async("./client.pdf.js") }',
-  'client.pdf.js': 'module.exports = { worker: () => require.async(\'./client.pdf-worker.js\') }',
+  'client.pdf.js': "module.exports = { worker: () => require.async('./client.pdf-worker.js') }",
   'client.pdf-worker.js': 'module.exports = "pdf worker"',
   'client.orphan.js': 'module.exports = "nobody asks for me"',
 }
 
-it('moves every require.async chunk into its own archive and registers it', (test) => {
+it('moves every require.async chunk into its own archive and registers it', test => {
   const result = packVfsImage(fixture(test, CHUNKS))
   const base = Object.keys(result.files)
   expect(base).toContain(`${PREFIX}/client.browser.js`)
@@ -53,10 +58,7 @@ it('moves every require.async chunk into its own archive and registers it', (tes
   expect(base).not.toContain(`${PREFIX}/client.pdf.js`)
   expect(base).not.toContain(`${PREFIX}/client.pdf-worker.js`)
 
-  expect(result.lazyArchives.map(archive => archive.files)).toEqual([
-    [`${PREFIX}/client.pdf-worker.js`],
-    [`${PREFIX}/client.pdf.js`],
-  ])
+  expect(result.lazyArchives.map(archive => archive.files)).toEqual([[`${PREFIX}/client.pdf-worker.js`], [`${PREFIX}/client.pdf.js`]])
   const manifest = JSON.parse(new TextDecoder().decode(result.files[MANIFEST_PATH])) as {
     lazy: Array<{ archive: string; files: Array<{ path: string; size: number }> }>
   }
@@ -74,23 +76,25 @@ it('moves every require.async chunk into its own archive and registers it', (tes
   }
 })
 
-it('packs the same chunks to the same archive names and bytes', (test) => {
+it('packs the same chunks to the same archive names and bytes', test => {
   const first = packVfsImage(fixture(test, CHUNKS))
   const second = packVfsImage(fixture(test, CHUNKS))
   expect(second.lazyArchives.map(archive => archive.name)).toEqual(first.lazyArchives.map(archive => archive.name))
   expect(Buffer.from(second.image).equals(Buffer.from(first.image))).toBe(true)
 })
 
-it('refuses a chunk request whose file the package does not publish', (test) => {
+it('refuses a chunk request whose file the package does not publish', test => {
   const options = fixture(test, { 'client.browser.js': 'module.exports = () => require.async("./client.missing.js")' })
   expect(() => packVfsImage(options)).toThrow(/client\.browser\.js requests chunk "\.\/client\.missing\.js"/)
 })
 
-it('keeps a ./client export target in the base image even when a chunk requests it', (test) => {
-  const result = packVfsImage(fixture(test, {
-    'client.browser.js': 'module.exports = { load: () => require.async("./client.pdf.js") }',
-    'client.pdf.js': 'module.exports = { back: () => require.async("./client.browser.js") }',
-  }))
+it('keeps a ./client export target in the base image even when a chunk requests it', test => {
+  const result = packVfsImage(
+    fixture(test, {
+      'client.browser.js': 'module.exports = { load: () => require.async("./client.pdf.js") }',
+      'client.pdf.js': 'module.exports = { back: () => require.async("./client.browser.js") }',
+    }),
+  )
   expect(Object.keys(result.files)).toContain(`${PREFIX}/client.browser.js`)
   expect(result.lazyArchives.map(archive => archive.files)).toEqual([[`${PREFIX}/client.pdf.js`]])
 })

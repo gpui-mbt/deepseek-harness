@@ -20,8 +20,25 @@ export function createRequire(base: string | URL): NodeRequire {
 
 /** Builtin specifiers the module proxy table answers (without the `node:` prefix). */
 export const builtinModules = [
-  'assert', 'assert/strict', 'async_hooks', 'buffer', 'child_process', 'crypto', 'events', 'fs', 'http', 'module',
-  'net', 'os', 'path', 'process', 'stream', 'tty', 'url', 'util', 'worker_threads',
+  'assert',
+  'assert/strict',
+  'async_hooks',
+  'buffer',
+  'child_process',
+  'crypto',
+  'events',
+  'fs',
+  'http',
+  'module',
+  'net',
+  'os',
+  'path',
+  'process',
+  'stream',
+  'tty',
+  'url',
+  'util',
+  'worker_threads',
 ]
 
 /**
@@ -70,5 +87,10 @@ type NodeFace = Partial<Omit<typeof import('node:module'), 'createRequire'>> & R
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  createRequire, builtinModules, isBuiltin, register, syncBuiltinESMExports, stripTypeScriptTypes,
+  createRequire,
+  builtinModules,
+  isBuiltin,
+  register,
+  syncBuiltinESMExports,
+  stripTypeScriptTypes,
 } satisfies NodeFace

@@ -18,9 +18,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 
 /** The access Hooks every Slot component receives. */
-export type AccessStandardProps =
-  & Pick<GlobalStandardProps, 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'>
-  & Pick<SessionStandardProps, 'useAccess'>
+export type AccessStandardProps = Pick<GlobalStandardProps, 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'> &
+  Pick<SessionStandardProps, 'useAccess'>
 
 /** Access Hooks that allow every action on every resource, for hand-built component props. */
 export const allowAllAccess: AccessStandardProps = {

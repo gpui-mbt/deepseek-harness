@@ -47,8 +47,7 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
-  const rows = useMemo(() => filterOptions(state.options, state.search, state.searchMode),
-    [state.options, state.search, state.searchMode])
+  const rows = useMemo(() => filterOptions(state.options, state.search, state.searchMode), [state.options, state.search, state.searchMode])
   const groups = useMemo(() => groupOptions(rows), [rows])
   useEffect(() => {
     const viewport = viewportRef.current
@@ -79,7 +78,9 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
       popup.dismiss()
     }
     document.addEventListener('pointerdown', onPointerDown, true)
-    return () => { document.removeEventListener('pointerdown', onPointerDown, true) }
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+    }
   }, [state.open, state.confirming, popup])
 
   // Focus the search input after it mounts (separate effect so the ref is populated).
@@ -90,9 +91,8 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
   if (!state.open) return null
 
   const confirmation = state.confirming?.confirmation
-  const emptyLabel = state.searchLabels === null
-    ? t('status.empty')
-    : state.options.length === 0 ? state.searchLabels.empty : state.searchLabels.noResults
+  const emptyLabel =
+    state.searchLabels === null ? t('status.empty') : state.options.length === 0 ? state.searchLabels.empty : state.searchLabels.noResults
 
   const onKeyDown = (ev: React.KeyboardEvent<HTMLDivElement>): void => {
     // ArrowLeft/ArrowRight fall through on purpose: the search input keeps
@@ -138,15 +138,23 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
       aria-selected={index === state.active}
       aria-label={option.badge === undefined ? undefined : `${option.label} ${option.badge}`}
       className={clsx(css.row, index === state.active && css.rowActive)}
-      onClick={() => { void popup.select(index) }}
-      onMouseEnter={() => { popup.highlight(index) }}
+      onClick={() => {
+        void popup.select(index)
+      }}
+      onMouseEnter={() => {
+        popup.highlight(index)
+      }}
     >
       <span className={css.label}>
         <span className={css.labelText}>{option.label}</span>
         {option.badge !== undefined && <sup className={css.badge}>{option.badge}</sup>}
       </span>
       {option.detail !== undefined && <span className={css.detail}>{option.detail}</span>}
-      {option.active === true && <span className={css.check}><IconCheckOutlineRegular /></span>}
+      {option.active === true && (
+        <span className={css.check}>
+          <IconCheckOutlineRegular />
+        </span>
+      )}
     </div>
   )
   let optionIndex = 0
@@ -168,13 +176,23 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
             aria-label={t('search.aria')}
             value={state.search}
             readOnly={state.submitting}
-            onChange={(ev) => { popup.setSearch(ev.currentTarget.value) }}
+            onChange={ev => {
+              popup.setSearch(ev.currentTarget.value)
+            }}
           />
           {state.error !== null && (
             <div className={css.error} role="alert">
               <span className={css.errorText}>{state.error}</span>
               {state.status === 'failed' && (
-                <button type="button" className={css.retry} onClick={() => { popup.retry() }}>{t('retry')}</button>
+                <button
+                  type="button"
+                  className={css.retry}
+                  onClick={() => {
+                    popup.retry()
+                  }}
+                >
+                  {t('retry')}
+                </button>
               )}
             </div>
           )}
@@ -182,12 +200,21 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
           {state.submitting && <div className={css.status}>{t('status.applying')}</div>}
           {state.status === 'ready' && rows.length === 0 && <div className={css.status}>{emptyLabel}</div>}
           {state.status === 'ready' && (
-            <div ref={viewportRef} role="listbox" aria-label={t('listbox.aria', { command: String(state.command) })} className={css.viewport}>
-              {groups.map(({ group, rows: groupRows }) => group === undefined
-                ? <Fragment key="ungrouped">{groupRows.map(option => renderOption(option, optionIndex++))}</Fragment>
-                : <MenuGroup key={`group:${group.name}`} label={group.label}>
-                  {groupRows.map(option => renderOption(option, optionIndex++))}
-                </MenuGroup>)}
+            <div
+              ref={viewportRef}
+              role="listbox"
+              aria-label={t('listbox.aria', { command: String(state.command) })}
+              className={css.viewport}
+            >
+              {groups.map(({ group, rows: groupRows }) =>
+                group === undefined ? (
+                  <Fragment key="ungrouped">{groupRows.map(option => renderOption(option, optionIndex++))}</Fragment>
+                ) : (
+                  <MenuGroup key={`group:${group.name}`} label={group.label}>
+                    {groupRows.map(option => renderOption(option, optionIndex++))}
+                  </MenuGroup>
+                ),
+              )}
             </div>
           )}
         </MenuSurface>
@@ -202,9 +229,15 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
           closeLabel={t('close')}
           confirmLabel={confirmation.confirmLabel}
           acknowledged={state.acknowledged}
-          onAcknowledgedChange={(value) => { popup.acknowledge(value) }}
-          onCancel={() => { popup.cancelConfirmation() }}
-          onConfirm={() => { void popup.confirm() }}
+          onAcknowledgedChange={value => {
+            popup.acknowledge(value)
+          }}
+          onCancel={() => {
+            popup.cancelConfirmation()
+          }}
+          onConfirm={() => {
+            void popup.confirm()
+          }}
         />
       )}
     </>

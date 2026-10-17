@@ -45,7 +45,9 @@ export class HostReadStore<T> {
   protected async loadUrl(url: string): Promise<void> {
     const current = this.state.getSnapshot()[url]
     if (this.lifetime.signal.aborted || (current !== undefined && !this.policy.retryable(current))) return
-    this.state.update((state) => { state[url] = this.policy.loading })
+    this.state.update(state => {
+      state[url] = this.policy.loading
+    })
     const task = this.read(url, AbortSignal.any([this.lifetime.signal, this.generation.signal]))
     this.pending.add(task)
     try {
@@ -76,6 +78,9 @@ export class HostReadStore<T> {
       // A transport failure publishes the policy's failed state until the connection is replaced and the store reset.
       next = this.policy.failed
     }
-    if (!signal.aborted) this.state.update((state) => { state[url] = next })
+    if (!signal.aborted)
+      this.state.update(state => {
+        state[url] = next
+      })
   }
 }

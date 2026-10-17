@@ -1,13 +1,16 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  AssistantMessageNode, ConversationNode, ConversationPromptSnapshot, ConversationViewBuilder,
-  ConversationViewDefinition, RequestPromptChange, RequestView, ToolCallBlock,
+  AssistantMessageNode,
+  ConversationNode,
+  ConversationPromptSnapshot,
+  ConversationViewBuilder,
+  ConversationViewDefinition,
+  RequestPromptChange,
+  RequestView,
+  ToolCallBlock,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { COMPACTION_INTERRUPTED_ERROR } from './copy-codes.ts'
-import type {
-  TrajectoryConversationViewNode, TrajectoryRequestHeaderState,
-  TrajectorySnapshot,
-} from './trajectory-contract.ts'
+import type { TrajectoryConversationViewNode, TrajectoryRequestHeaderState, TrajectorySnapshot } from './trajectory-contract.ts'
 
 const EMPTY_LIST: readonly never[] = []
 type AssistantRequest = Extract<RequestView, { purpose: 'assistant' }>
@@ -29,9 +32,7 @@ function stepKey(turn: number, step: number): string {
 
 function headerStepKey(header: TrajectoryRequestHeaderState): string | undefined {
   const location = header.location
-  return location.kind === 'step'
-    ? stepKey(location.turn.turn, location.step.step)
-    : undefined
+  return location.kind === 'step' ? stepKey(location.turn.turn, location.step.step) : undefined
 }
 
 interface StepHeaders {
@@ -46,42 +47,33 @@ function headerFor(
   headersByStep: ReadonlyMap<string, StepHeaders>,
   previous: TrajectoryRequestHeaderState | undefined,
 ): StepHeaders | undefined {
-  return headersByStep.get(stepKey(request.turn, request.step))
-    ?? (previous !== undefined && previous.seq < request.startSeq
+  return (
+    headersByStep.get(stepKey(request.turn, request.step)) ??
+    (previous !== undefined && previous.seq < request.startSeq
       ? {
-        latest: previous,
-        ...(previous.change === undefined ? {} : { change: previous.change }),
-      }
+          latest: previous,
+          ...(previous.change === undefined ? {} : { change: previous.change }),
+        }
       : undefined)
+  )
 }
 
-function applyHeader(
-  request: AssistantRequest,
-  header: StepHeaders | undefined,
-  includeChange: boolean,
-): AssistantRequest {
+function applyHeader(request: AssistantRequest, header: StepHeaders | undefined, includeChange: boolean): AssistantRequest {
   return header === undefined
     ? request
     : {
-      ...request,
-      prompt: header.latest.prompt,
-      requestConfig: header.latest.prompt.config,
-      ...(includeChange && header.change !== undefined ? { promptChange: header.change } : {}),
-    }
+        ...request,
+        prompt: header.latest.prompt,
+        requestConfig: header.latest.prompt.config,
+        ...(includeChange && header.change !== undefined ? { promptChange: header.change } : {}),
+      }
 }
 
-function withRequestConfig(
-  node: AssistantMessageNode,
-  prompt: ConversationPromptSnapshot | undefined,
-): AssistantMessageNode {
+function withRequestConfig(node: AssistantMessageNode, prompt: ConversationPromptSnapshot | undefined): AssistantMessageNode {
   return prompt === undefined ? node : { ...node, requestConfig: prompt.config }
 }
 
-function captureSchemas(
-  block: ToolCallBlock,
-  toolsByName: ReadonlyMap<string, ToolSchema>,
-  output: Map<string, ToolSchema>,
-): void {
+function captureSchemas(block: ToolCallBlock, toolsByName: ReadonlyMap<string, ToolSchema>, output: Map<string, ToolSchema>): void {
   const name = 'kind' in block ? block.call?.name : block.name
   const schema = name === undefined ? undefined : toolsByName.get(name)
   if (schema !== undefined) output.set(block.callId, schema)
@@ -92,10 +84,7 @@ function indexTools(tools: readonly ToolSchema[]): ReadonlyMap<string, ToolSchem
   return new Map(tools.map(tool => [tool.name, tool]))
 }
 
-function interruptCompactions(
-  requests: RequestView[],
-  boundaries: readonly { seq: number; time: number }[],
-): void {
+function interruptCompactions(requests: RequestView[], boundaries: readonly { seq: number; time: number }[]): void {
   let nextRequest = 0
   const runningCompactions: number[] = []
   for (const boundary of boundaries) {
@@ -148,27 +137,20 @@ function applyTurnErrors(
 }
 
 /** Simple keyed adapter retaining the old Trajectory snapshot and stage layout. */
-export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
-  TrajectoryConversationViewNode,
-  TrajectorySnapshot
-> {
+export class TrajectorySnapshotBuilder implements ConversationViewBuilder<TrajectoryConversationViewNode, TrajectorySnapshot> {
   private readonly nodes = new Map<string, TrajectoryConversationViewNode>()
   private readonly positions = new Map<string, number>()
   private contributions: TrajectoryConversationViewNode[] = []
   readonly empty = EMPTY_TRAJECTORY_SNAPSHOT
 
-  replace(input: {
-    readonly nodes: readonly TrajectoryConversationViewNode[]
-  }): TrajectorySnapshot {
+  replace(input: { readonly nodes: readonly TrajectoryConversationViewNode[] }): TrajectorySnapshot {
     this.nodes.clear()
     for (const node of input.nodes) this.nodes.set(node.key, node)
     this.rebuildContributions()
     return this.snapshot()
   }
 
-  apply(input: {
-    readonly upserts: readonly TrajectoryConversationViewNode[]
-  }): TrajectorySnapshot {
+  apply(input: { readonly upserts: readonly TrajectoryConversationViewNode[] }): TrajectorySnapshot {
     let structural = false
     for (const node of input.upserts) {
       const previous = this.nodes.get(node.key)
@@ -196,11 +178,16 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
         latest: contribution.data.header,
         ...(contribution.data.header.change !== undefined
           ? { change: contribution.data.header.change }
-          : previous?.change === undefined ? {} : { change: previous.change }),
+          : previous?.change === undefined
+            ? {}
+            : { change: previous.change }),
       })
     }
-    const representedPrompts = new Set(this.contributions.flatMap(node =>
-      node.data.kind === 'request-header' && node.data.header.change !== undefined ? [node.data.header.change.seq] : []))
+    const representedPrompts = new Set(
+      this.contributions.flatMap(node =>
+        node.data.kind === 'request-header' && node.data.header.change !== undefined ? [node.data.header.change.seq] : [],
+      ),
+    )
     const systemPrompts: NonNullable<TrajectorySnapshot['systemPrompts']>[number][] = []
     const finalized: ConversationNode[] = []
     const eventLocations = new Map<number, TrajectoryConversationViewNode['location']>()
@@ -236,15 +223,12 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
         continue
       }
       if (data.kind === 'assistant') {
-        const header = data.request === undefined
-          ? undefined
-          : headerFor(data.request, headersByStep, previousHeader)
+        const header = data.request === undefined ? undefined : headerFor(data.request, headersByStep, previousHeader)
         if (data.node !== undefined) finalized.push(withRequestConfig(data.node, header?.latest.prompt))
         if (data.partial !== null) partial = data.partial
         if (data.request !== undefined) {
           const change = header?.change
-          const includeChange = change !== undefined
-            && !consumedPromptChanges.has(change.seq)
+          const includeChange = change !== undefined && !consumedPromptChanges.has(change.seq)
           requests.push(applyHeader(data.request, header, includeChange))
           if (includeChange) consumedPromptChanges.add(change.seq)
         }
@@ -281,7 +265,7 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
     const eventNodes = finalized
     return {
       eventNodes,
-      ...systemPrompts.length > 0 ? { systemPrompts } : {},
+      ...(systemPrompts.length > 0 ? { systemPrompts } : {}),
       eventLocations,
       requests,
       callSchemas,
@@ -291,8 +275,9 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
   }
 
   private rebuildContributions(): void {
-    this.contributions = [...this.nodes.values()]
-      .sort((left, right) => left.anchorSeq - right.anchorSeq || left.key.localeCompare(right.key))
+    this.contributions = [...this.nodes.values()].sort(
+      (left, right) => left.anchorSeq - right.anchorSeq || left.key.localeCompare(right.key),
+    )
     this.positions.clear()
     for (const [index, contribution] of this.contributions.entries()) {
       this.positions.set(contribution.key, index)
@@ -301,10 +286,7 @@ export class TrajectorySnapshotBuilder implements ConversationViewBuilder<
 }
 
 /** Trajectory target factory preserving the existing stage-oriented view model. */
-export const trajectoryViewDefinition: ConversationViewDefinition<
-  TrajectoryConversationViewNode,
-  TrajectorySnapshot
-> = {
+export const trajectoryViewDefinition: ConversationViewDefinition<TrajectoryConversationViewNode, TrajectorySnapshot> = {
   target: 'trajectory',
   toolCallFocus: callId => callId,
   create: () => new TrajectorySnapshotBuilder(),

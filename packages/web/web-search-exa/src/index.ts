@@ -9,12 +9,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-web'
-import {
-  ExaSearchProvider,
-  EXA_DEFAULT_BASE_URL,
-  EXA_DEFAULT_HIGHLIGHTS_PER_RESULT,
-  EXA_DEFAULT_SEARCH_TYPE,
-} from './provider.ts'
+import { ExaSearchProvider, EXA_DEFAULT_BASE_URL, EXA_DEFAULT_HIGHLIGHTS_PER_RESULT, EXA_DEFAULT_SEARCH_TYPE } from './provider.ts'
 
 export {
   EXA_DEFAULT_BASE_URL,
@@ -55,13 +50,15 @@ export const Config: z<Config> = z.object({
 
 /** Register the Exa search provider with `ctx.web`. */
 export function apply(ctx: Context, config: Config): void {
-  ctx.web.registerSearchProvider(new ExaSearchProvider({
-    // Every environment layer may name this key: the product trusts the
-    // project it is launched in, and the managed store is not involved here.
-    apiKey: config.apiKey ?? launchEnvironmentOf(ctx).get('EXA_API_KEY')?.value ?? '',
-    baseURL: config.baseURL ?? EXA_DEFAULT_BASE_URL,
-    searchType: config.searchType ?? EXA_DEFAULT_SEARCH_TYPE,
-    highlightsPerResult: config.highlightsPerResult ?? EXA_DEFAULT_HIGHLIGHTS_PER_RESULT,
-    ...config.numResults !== undefined ? { numResults: config.numResults } : {},
-  }))
+  ctx.web.registerSearchProvider(
+    new ExaSearchProvider({
+      // Every environment layer may name this key: the product trusts the
+      // project it is launched in, and the managed store is not involved here.
+      apiKey: config.apiKey ?? launchEnvironmentOf(ctx).get('EXA_API_KEY')?.value ?? '',
+      baseURL: config.baseURL ?? EXA_DEFAULT_BASE_URL,
+      searchType: config.searchType ?? EXA_DEFAULT_SEARCH_TYPE,
+      highlightsPerResult: config.highlightsPerResult ?? EXA_DEFAULT_HIGHLIGHTS_PER_RESULT,
+      ...(config.numResults !== undefined ? { numResults: config.numResults } : {}),
+    }),
+  )
 }

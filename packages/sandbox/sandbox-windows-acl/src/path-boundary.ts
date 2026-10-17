@@ -34,7 +34,9 @@ export function assertTempRootOutsideWorkspace(workspaceRoot: string, tempRoot: 
 export function assertPrivateTempDisjoint(writableDirs: readonly string[], tempDir: string): void {
   for (const writableDir of writableDirs) {
     if (containsDirectory(writableDir, tempDir) || containsDirectory(tempDir, writableDir)) {
-      throw new Error(`AclSandbox private temp directory must be disjoint from writable directories: writable=${writableDir}; temp=${tempDir}`)
+      throw new Error(
+        `AclSandbox private temp directory must be disjoint from writable directories: writable=${writableDir}; temp=${tempDir}`,
+      )
     }
   }
 }

@@ -17,17 +17,31 @@ import { SUBPROCESS_CONTROL_ENV, SUBPROCESS_CONTROL_FD } from '../../packages/su
  * @param hostNode - real host Node path denied by Seatbelt.
  */
 export async function probeRestrictedWorker(
-  executable: string, workspace: string, home: string, checkout: string, hostNode: string,
+  executable: string,
+  workspace: string,
+  home: string,
+  checkout: string,
+  hostNode: string,
 ): Promise<void> {
   const profile = `(version 1)(allow default)${[checkout, hostNode].map(path => `(deny file-read* (subpath ${JSON.stringify(path)}))(deny process-exec (subpath ${JSON.stringify(path)}))`).join('')}`
   const child = spawn('/usr/bin/sandbox-exec', ['-p', profile, executable, '1048576'], {
-    cwd: workspace, env: { HOME: home, TMPDIR: home, PATH: '/usr/bin:/bin', DSH_PTC_RUNTIME_NODE: '1', [SUBPROCESS_CONTROL_ENV]: 'pipe', NODE_OPTIONS: '--disable-sigusr1' },
+    cwd: workspace,
+    env: {
+      HOME: home,
+      TMPDIR: home,
+      PATH: '/usr/bin:/bin',
+      DSH_PTC_RUNTIME_NODE: '1',
+      [SUBPROCESS_CONTROL_ENV]: 'pipe',
+      NODE_OPTIONS: '--disable-sigusr1',
+    },
     stdio: ['ignore', 'pipe', 'pipe', 'ignore', 'ignore', 'ignore', 'ignore', 'pipe'],
   })
   const completed = Promise.withResolvers<unknown>()
   let diagnostic = ''
   assert(child.stderr !== null && child.stdout !== null)
-  child.stderr.on('data', (chunk: Buffer) => { diagnostic = (diagnostic + chunk.toString()).slice(-8192) })
+  child.stderr.on('data', (chunk: Buffer) => {
+    diagnostic = (diagnostic + chunk.toString()).slice(-8192)
+  })
   child.stdout.resume()
   const exited = new Promise<void>((resolve, reject) => {
     child.once('error', reject)
@@ -36,25 +50,39 @@ export async function probeRestrictedWorker(
       else reject(new Error(`Restricted PTC worker exited (${code ?? signal}): ${diagnostic}`))
     })
   })
-  void exited.catch((error: unknown) => { completed.reject(error) })
+  void exited.catch((error: unknown) => {
+    completed.reject(error)
+  })
   const streams: ReadonlyArray<Readable | Writable | null | undefined> = child.stdio
   const control = streams[SUBPROCESS_CONTROL_FD]
   assert(control instanceof Duplex)
-  const channel = new JsonChannel(control, 1_048_576, (raw) => {
-    const message = z.object({ type: z.string(), value: z.unknown().optional(), error: z.unknown().optional() }).parse(raw)
-    if (message.type === 'ready') {
-      const code = `const fs=await import('node:fs/promises'); const denied=[]; for(const path of ${JSON.stringify([join(checkout, 'package.json'), hostNode])}) { try { await fs.readFile(path); denied.push('readable') } catch(error) { denied.push(error.code) } } return {executable:process.execPath,env:Object.keys(process.env),denied};`
-      void channel.send({ type: 'boot', data: { code, namespaces: [], maxOutputBytes: 65_536 } })
-        .catch((error: unknown) => { completed.reject(error) })
-    } else if (message.type === 'done') {
-      if (message.error !== undefined) completed.reject(new Error(JSON.stringify(message.error)))
-      else completed.resolve(decodePtcJsonWire(message.value))
-      channel.close()
-    } else completed.reject(new Error(`Unexpected restricted-worker message: ${message.type}`))
-  }, (error) => { completed.reject(error) })
-  const force = setTimeout(() => { child.kill('SIGKILL') }, 20_000)
+  const channel = new JsonChannel(
+    control,
+    1_048_576,
+    raw => {
+      const message = z.object({ type: z.string(), value: z.unknown().optional(), error: z.unknown().optional() }).parse(raw)
+      if (message.type === 'ready') {
+        const code = `const fs=await import('node:fs/promises'); const denied=[]; for(const path of ${JSON.stringify([join(checkout, 'package.json'), hostNode])}) { try { await fs.readFile(path); denied.push('readable') } catch(error) { denied.push(error.code) } } return {executable:process.execPath,env:Object.keys(process.env),denied};`
+        void channel.send({ type: 'boot', data: { code, namespaces: [], maxOutputBytes: 65_536 } }).catch((error: unknown) => {
+          completed.reject(error)
+        })
+      } else if (message.type === 'done') {
+        if (message.error !== undefined) completed.reject(new Error(JSON.stringify(message.error)))
+        else completed.resolve(decodePtcJsonWire(message.value))
+        channel.close()
+      } else completed.reject(new Error(`Unexpected restricted-worker message: ${message.type}`))
+    },
+    error => {
+      completed.reject(error)
+    },
+  )
+  const force = setTimeout(() => {
+    child.kill('SIGKILL')
+  }, 20_000)
   try {
-    const result = z.object({ executable: z.string(), env: z.array(z.string()), denied: z.array(z.enum(['EPERM', 'EACCES'])) }).parse(await completed.promise)
+    const result = z
+      .object({ executable: z.string(), env: z.array(z.string()), denied: z.array(z.enum(['EPERM', 'EACCES'])) })
+      .parse(await completed.promise)
     assert.equal(result.executable, executable)
     assert.deepEqual(result.env, [])
     assert.equal(result.denied.length, 2)
@@ -62,6 +90,10 @@ export async function probeRestrictedWorker(
   } finally {
     channel.close()
     child.kill('SIGTERM')
-    try { await exited } finally { clearTimeout(force) }
+    try {
+      await exited
+    } finally {
+      clearTimeout(force)
+    }
   }
 }

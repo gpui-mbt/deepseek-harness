@@ -1,5 +1,5 @@
 // Dynamic-key escape hatches and untouched-key behavior of the terminal core.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SlotComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -32,10 +32,13 @@ describe('dynamic-key escape hatch', () => {
   it('records the parent-declared Slot inject on the runtime spec', () => {
     const core = new SlotCore()
     const inject = { token: 'shared' }
-    core.register({
-      name: 'root',
-      children: { 'surface.injected': { kind: 'single', scope: 'root', inject } },
-    }, Comp as never)
+    core.register(
+      {
+        name: 'root',
+        children: { 'surface.injected': { kind: 'single', scope: 'root', inject } },
+      },
+      Comp as never,
+    )
     expect(core.spec('surface.injected')?.inject).toBe(inject)
   })
 

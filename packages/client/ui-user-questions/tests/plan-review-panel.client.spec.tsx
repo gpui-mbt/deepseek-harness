@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { allowAllAccess } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ToolCallId } from '@deepseek-ai/dsh-llm/brand'
 import {
-  createWaterfallRequest, PendingQuestion, planReviewOf, type QuestionComposerProps, type QuestionWait,
+  createWaterfallRequest,
+  PendingQuestion,
+  planReviewOf,
+  type QuestionComposerProps,
+  type QuestionWait,
 } from '../src/client/contract/slots.ts'
 import { createQuestionDraftStore } from '../src/client/draft-store.ts'
 import { QuestionComposer } from '../src/client/QuestionComposer.tsx'
@@ -15,16 +19,22 @@ import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 
 // Every session-scope fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({
+  status: 'none' as const,
+  value: undefined,
+  failure: undefined,
+  reload: () => {},
+})) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
 afterEach(cleanup)
 
-
 const SID = 's1' as SessionId
 
-const seatOver = (dict: Record<string, string>, common: Record<string, string>): QuestionComposerProps['t'] =>
-  (key => dict[key] ?? common[key] ?? key)
+const seatOver =
+  (dict: Record<string, string>, common: Record<string, string>): QuestionComposerProps['t'] =>
+  key =>
+    dict[key] ?? common[key] ?? key
 
 type SessionState = Parameters<Parameters<QuestionComposerProps['useSession']>[0]>[0]
 type ConversationState = Parameters<Parameters<QuestionComposerProps['useConversation']>[0]>[0]
@@ -76,7 +86,9 @@ const chatState: ChatState = {
     get: () => undefined,
     source: () => emptyNodeSource,
     bottomSource: () => ({ getSnapshot: () => false, subscribe: () => () => {} }),
-    turnDataSource: () => { throw new Error('unused') },
+    turnDataSource: () => {
+      throw new Error('unused')
+    },
     processSource: () => emptyNodeSource,
     values: () => [],
   },
@@ -112,7 +124,9 @@ const questionDraftStore = createQuestionDraftStore().create(SID)
 
 /** Framework standard-kit stubs: the panel consumes only the locale seat. */
 const kit: Omit<QuestionComposerProps, 'matched'> = {
-  useQuestionCard: () => { throw new Error('plan review does not read question card state') },
+  useQuestionCard: () => {
+    throw new Error('plan review does not read question card state')
+  },
   renderSlot: () => null,
   SessionProvider: ({ children }) => children,
   sessionId: SID,
@@ -120,7 +134,8 @@ const kit: Omit<QuestionComposerProps, 'matched'> = {
   pendingInteraction: undefined,
   useSession: selector => selector(sessionState),
   useSessions: selector => selector(sessionList),
-  usePanelInfo, useResource,
+  usePanelInfo,
+  useResource,
   useSessionStatus: selector => selector(attentionState),
   useSessionRetainInfo: () => undefined,
   useWorkspaces: selector => selector(workspaceState),
@@ -128,17 +143,29 @@ const kit: Omit<QuestionComposerProps, 'matched'> = {
   useConversation: selector => selector(conversationState),
   useChat: selector => selector(chatState),
   useTrajectory: selector => selector(trajectoryState),
-  useProjection: (() => undefined),
+  useProjection: () => undefined,
   useInput: selector => selector(inputState),
   inputActions: {
     captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }),
     insertText: () => false,
-    setDraft: () => { throw new Error('unused') },
-    persistDraft: () => { throw new Error('unused') },
-    addAttachments: () => { throw new Error('unused') },
-    removeAttachment: () => { throw new Error('unused') },
-    pruneAttachments: () => { throw new Error('unused') },
-    submit: () => { throw new Error('unused') },
+    setDraft: () => {
+      throw new Error('unused')
+    },
+    persistDraft: () => {
+      throw new Error('unused')
+    },
+    addAttachments: () => {
+      throw new Error('unused')
+    },
+    removeAttachment: () => {
+      throw new Error('unused')
+    },
+    pruneAttachments: () => {
+      throw new Error('unused')
+    },
+    submit: () => {
+      throw new Error('unused')
+    },
   },
   useStore: selector => selector(questionDraftStore.getSnapshot()),
   actions: questionDraftStore.actions,
@@ -148,22 +175,26 @@ const kit: Omit<QuestionComposerProps, 'matched'> = {
 const PLAN = '# Ship the picker\n\n- read the store\n- render the rows\n'
 
 /** The plan-mode request shape: one question, the plan as detail, approve named. */
-const questions = (): QuestionWait['questions'] => [{
-  id: 'plan-review',
-  header: 'Plan review',
-  question: 'Approve this plan and leave plan mode?',
-  detail: PLAN,
-  options: [
-    { label: 'Approve', description: 'Leave plan mode; the plan is carried out from the next step.' },
-    { label: 'Keep planning', description: 'Stay in plan mode; feedback goes back to the model.' },
-  ],
-  intent: { kind: 'plan-review', approve: 'Approve' },
-}]
+const questions = (): QuestionWait['questions'] => [
+  {
+    id: 'plan-review',
+    header: 'Plan review',
+    question: 'Approve this plan and leave plan mode?',
+    detail: PLAN,
+    options: [
+      { label: 'Approve', description: 'Leave plan mode; the plan is carried out from the next step.' },
+      { label: 'Keep planning', description: 'Stay in plan mode; feedback goes back to the model.' },
+    ],
+    intent: { kind: 'plan-review', approve: 'Approve' },
+  },
+]
 
 /** Pending waterfall fixture with observable Client response methods. */
 function wait(items: QuestionWait['questions'] = questions()) {
   const carrier = new PendingQuestion(SID, items)
-  const request = createWaterfallRequest(undefined, undefined, (channel) => { carrier.detachWaterfall(channel) })
+  const request = createWaterfallRequest(undefined, undefined, channel => {
+    carrier.detachWaterfall(channel)
+  })
   carrier.attachWaterfall(request.channel)
   const answer = vi.spyOn(carrier, 'answer')
   const cancel = vi.spyOn(carrier, 'dismiss')
@@ -187,35 +218,48 @@ describe('planReviewOf', () => {
   it('retains the logged invocation so the review can reopen its exact plan', () => {
     const question = questions()[0]!
     const callId = 'plan-call' as ToolCallId
-    const review = planReviewOf([{
-      ...question,
-      intent: { kind: 'plan-review', approve: 'Approve', callId },
-    }])
+    const review = planReviewOf([
+      {
+        ...question,
+        intent: { kind: 'plan-review', approve: 'Approve', callId },
+      },
+    ])
     expect(review).toEqual({ ...planReviewOf([question]), callId })
   })
 
   it('leaves the decline absent when the asker offered approve alone', () => {
     const [question] = questions()
-    const review = planReviewOf([{ ...question as object, options: [{ label: 'Approve' }] } as never])
+    const review = planReviewOf([{ ...(question as object), options: [{ label: 'Approve' }] } as never])
     expect(review?.approve).toEqual({ label: 'Approve' })
     expect(review === undefined ? true : 'decline' in review).toBe(false)
   })
 
   it.each([
     ['a batch of more than one question', () => [...questions(), ...questions()]],
-    ['no intent at all', () => [{ ...questions()[0] as object, intent: undefined }]],
-    ['an intent without the plan as detail', () => [{ ...questions()[0] as object, detail: undefined }]],
-    ['an intent whose approve names no option', () => [{
-      ...questions()[0] as object, intent: { kind: 'plan-review', approve: 'Ship it' },
-    }]],
-    ['an intent with no options at all', () => [{ ...questions()[0] as object, options: undefined }]],
+    ['no intent at all', () => [{ ...(questions()[0] as object), intent: undefined }]],
+    ['an intent without the plan as detail', () => [{ ...(questions()[0] as object), detail: undefined }]],
+    [
+      'an intent whose approve names no option',
+      () => [
+        {
+          ...(questions()[0] as object),
+          intent: { kind: 'plan-review', approve: 'Ship it' },
+        },
+      ],
+    ],
+    ['an intent with no options at all', () => [{ ...(questions()[0] as object), options: undefined }]],
     // Two buttons cannot send a third label or a combination, and the generic
     // flow can: an intent never costs the user a reachable answer.
-    ['a third option the card could not offer', () => [{
-      ...questions()[0] as object,
-      options: [{ label: 'Approve' }, { label: 'Keep planning' }, { label: 'Start over' }],
-    }]],
-    ['a multi-select decision', () => [{ ...questions()[0] as object, multiSelect: true }]],
+    [
+      'a third option the card could not offer',
+      () => [
+        {
+          ...(questions()[0] as object),
+          options: [{ label: 'Approve' }, { label: 'Keep planning' }, { label: 'Start over' }],
+        },
+      ],
+    ],
+    ['a multi-select decision', () => [{ ...(questions()[0] as object), multiSelect: true }]],
   ])('declines %s, leaving the request to the generic flow', (_case, build) => {
     expect(planReviewOf(build() as never)).toBeUndefined()
   })
@@ -228,16 +272,21 @@ describe('planReviewOf', () => {
 describe('PlanReviewPanel', () => {
   it('passes distinct pending request identities to the preview action for unlogged reviews', () => {
     const rendered = vi.fn<(key: string, owner: unknown) => void>()
-    const renderSlot: QuestionComposerProps['renderSlot'] = (key, owner) => { rendered(key, owner); return null }
+    const renderSlot: QuestionComposerProps['renderSlot'] = (key, owner) => {
+      rendered(key, owner)
+      return null
+    }
     const first = wait()
     const second = wait()
     const view = render(<QuestionComposer matched={first.carrier} {...kit} renderSlot={renderSlot} />)
     expect(rendered).toHaveBeenLastCalledWith('conversation.plan-review.actions', {
-      review: planReviewOf(first.carrier.questions), requestKey: first.carrier.key,
+      review: planReviewOf(first.carrier.questions),
+      requestKey: first.carrier.key,
     })
     view.rerender(<QuestionComposer matched={second.carrier} {...kit} renderSlot={renderSlot} />)
     expect(rendered).toHaveBeenLastCalledWith('conversation.plan-review.actions', {
-      review: planReviewOf(second.carrier.questions), requestKey: second.carrier.key,
+      review: planReviewOf(second.carrier.questions),
+      requestKey: second.carrier.key,
     })
     expect(first.carrier.key).not.toBe(second.carrier.key)
     expect(first.answer).not.toHaveBeenCalled()
@@ -250,9 +299,7 @@ describe('PlanReviewPanel', () => {
       <QuestionComposer
         matched={carrier}
         {...kit}
-        renderSlot={key => (key === 'conversation.question.header.lead'
-          ? <span data-testid="header-lead">⎇ main</span>
-          : null)}
+        renderSlot={key => (key === 'conversation.question.header.lead' ? <span data-testid="header-lead">⎇ main</span> : null)}
       />,
     )
 
@@ -299,7 +346,7 @@ describe('PlanReviewPanel', () => {
     expect(screen.getAllByText('A single paragraph plan.')).toHaveLength(1)
   })
 
-  it('answers with the asker\'s approve label and keeps its description as the tooltip', () => {
+  it("answers with the asker's approve label and keeps its description as the tooltip", () => {
     const { carrier, answer } = wait()
     render(<QuestionComposer matched={carrier} {...kit} />)
 
@@ -326,7 +373,9 @@ describe('PlanReviewPanel', () => {
     render(<QuestionComposer matched={carrier} {...kit} />)
 
     fireEvent.click(screen.getByRole('button', { name: zh['plan.approve'] }))
-    await vi.waitFor(() => { expect(hide).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(hide).toHaveBeenCalledOnce()
+    })
     expect(screen.getByRole('button', { name: zh['plan.approve'] }).hasAttribute('disabled')).toBe(false)
     expect(answer).toHaveBeenCalledOnce()
   })
@@ -335,7 +384,11 @@ describe('PlanReviewPanel', () => {
     const carrier = new PendingQuestion(SID, questions(), 'continued-plan-hide-error' as ToolCallId)
     const answer = vi.fn(async () => true)
     carrier.attachRpc({ answer })
-    carrier.attachSeat({ hide: () => { throw new Error('hide failed') } })
+    carrier.attachSeat({
+      hide: () => {
+        throw new Error('hide failed')
+      },
+    })
     carrier.setState('continued')
     render(<QuestionComposer matched={carrier} {...kit} />)
 
@@ -343,7 +396,6 @@ describe('PlanReviewPanel', () => {
     expect(await screen.findByText(zh['status.sent'])).toBeTruthy()
     expect(answer).toHaveBeenCalledOnce()
   })
-
 
   it('dismisses the request so the composer returns for a plain message', () => {
     const { carrier, cancel, answer } = wait()
@@ -355,19 +407,24 @@ describe('PlanReviewPanel', () => {
   })
 
   it('omits the tooltip for an option carrying no description', () => {
-    const { carrier } = wait([{
-      ...questions()[0] as object,
-      options: [{ label: 'Approve' }, { label: 'Keep planning' }],
-    }] as never)
+    const { carrier } = wait([
+      {
+        ...(questions()[0] as object),
+        options: [{ label: 'Approve' }, { label: 'Keep planning' }],
+      },
+    ] as never)
     render(<QuestionComposer matched={carrier} {...kit} />)
 
     expect(screen.getByRole('button', { name: zh['plan.approve'] }).hasAttribute('title')).toBe(false)
   })
 
   it('hides the decline action when the asker offered approve alone', () => {
-    const { carrier } = wait([{
-      ...questions()[0] as object, options: [{ label: 'Approve' }],
-    }] as never)
+    const { carrier } = wait([
+      {
+        ...(questions()[0] as object),
+        options: [{ label: 'Approve' }],
+      },
+    ] as never)
     render(<QuestionComposer matched={carrier} {...kit} />)
 
     expect(screen.queryByRole('button', { name: zh['plan.decline'] })).toBeNull()

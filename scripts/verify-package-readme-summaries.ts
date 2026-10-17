@@ -8,11 +8,7 @@ const root = resolve(import.meta.dirname, '..')
 /** Maximum `wc -w`-style length of an English package README Summary. */
 export const MAX_PACKAGE_README_SUMMARY_WORDS = 100
 
-const PACKAGE_README_PATTERNS = [
-  'packages/README.md',
-  'packages/*/README.md',
-  'packages/*/*/README.md',
-] as const
+const PACKAGE_README_PATTERNS = ['packages/README.md', 'packages/*/README.md', 'packages/*/*/README.md'] as const
 
 /** `wc -w` equivalent used by the documentation budget gate. */
 function countWords(text: string): number {
@@ -45,9 +41,7 @@ export function packageReadmeSummaryErrors(file: string, source: string): string
   if (words <= MAX_PACKAGE_README_SUMMARY_WORDS) return []
 
   const kind = readKind(source)
-  const template = kind === undefined
-    ? '.agents/skills/dsh-doc/templates/'
-    : `.agents/skills/dsh-doc/templates/${kind}.md`
+  const template = kind === undefined ? '.agents/skills/dsh-doc/templates/' : `.agents/skills/dsh-doc/templates/${kind}.md`
   return [
     `${file}: Summary has ${String(words)} words; the limit is ${String(MAX_PACKAGE_README_SUMMARY_WORDS)}. Read .agents/skills/dsh-doc/SKILL.md and ${template} before rewriting it.`,
   ]
@@ -55,23 +49,25 @@ export function packageReadmeSummaryErrors(file: string, source: string): string
 
 /** Find every authored English package README covered by the kind templates. */
 function packageReadmes(): string[] {
-  return PACKAGE_README_PATTERNS
-    .flatMap(pattern => globSync(pattern, { cwd: root, exclude: ['**/node_modules/**'] }))
+  return PACKAGE_README_PATTERNS.flatMap(pattern => globSync(pattern, { cwd: root, exclude: ['**/node_modules/**'] }))
     .map(file => file.replaceAll('\\', '/'))
     .sort()
 }
 
 if (import.meta.main) {
   const files = packageReadmes()
-  const failures = files.length === 0
-    ? ['no English package READMEs found; the scan is empty or narrowed']
-    : files.flatMap(file => packageReadmeSummaryErrors(file, readFileSync(resolve(root, file), 'utf8')))
+  const failures =
+    files.length === 0
+      ? ['no English package READMEs found; the scan is empty or narrowed']
+      : files.flatMap(file => packageReadmeSummaryErrors(file, readFileSync(resolve(root, file), 'utf8')))
 
   if (failures.length > 0) {
     console.error('verify-package-readme-summaries: violations found:')
     for (const failure of failures) console.error(`  ${failure}`)
     process.exitCode = 1
   } else {
-    console.log(`verify-package-readme-summaries: ${String(files.length)} English package README Summaries are within ${String(MAX_PACKAGE_README_SUMMARY_WORDS)} words.`)
+    console.log(
+      `verify-package-readme-summaries: ${String(files.length)} English package README Summaries are within ${String(MAX_PACKAGE_README_SUMMARY_WORDS)} words.`,
+    )
   }
 }

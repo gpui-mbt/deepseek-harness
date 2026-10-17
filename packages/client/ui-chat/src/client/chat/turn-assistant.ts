@@ -6,5 +6,5 @@ import type { AssistantBlock } from '../contract/snapshot.ts'
  * @returns concatenated text blocks.
  */
 export function assistantText(blocks: readonly AssistantBlock[]): string {
-  return blocks.flatMap(block => block.kind === 'text' ? [block.text] : []).join('')
+  return blocks.flatMap(block => (block.kind === 'text' ? [block.text] : [])).join('')
 }

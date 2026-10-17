@@ -11,7 +11,7 @@
  * @module @deepseek-ai/dsh-session-persistence/tests/contract
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SessionSeq, SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { MessageId, freezeMessage } from '@deepseek-ai/dsh-llm'
@@ -54,7 +54,7 @@ export function meta(id: string, cwd?: string): SessionHeader {
     id: SessionId(id),
     createdAt: 1000,
     isSeeded: false,
-    ...cwd !== undefined ? { cwd } : {},
+    ...(cwd !== undefined ? { cwd } : {}),
   }
 }
 
@@ -62,30 +62,44 @@ export function meta(id: string, cwd?: string): SessionHeader {
 export function oneTurnLog(): SessionEvent[] {
   return [
     { type: 'turn/start', seq: SessionSeq(0), time: 1, data: { turn: 1 } },
-    { type: 'user/message', seq: SessionSeq(1), time: 2, data: freezeMessage({
-      id: MessageId('one-turn-user'),
-      role: 'user',
-      content: [{ type: 'text', text: 'hi' }], source: { kind: 'user' },
-    }), surfaceOp: 'append' },
-    { type: 'step/start', seq: SessionSeq(2), time: 3, data: { turn: 1, step: 1 } },
-    { type: 'assistant/message', seq: SessionSeq(3), time: 4, data: {
-      turn: 1, step: 1,
-      message: freezeMessage({
-        id: MessageId('one-turn-assistant'),
-        role: 'assistant',
-        content: [{ type: 'text', text: 'hello' }],
-        source: {
-          kind: 'model',
-          ...{ provider: 'mock', model: 'mock' },
-        },
+    {
+      type: 'user/message',
+      seq: SessionSeq(1),
+      time: 2,
+      data: freezeMessage({
+        id: MessageId('one-turn-user'),
+        role: 'user',
+        content: [{ type: 'text', text: 'hi' }],
+        source: { kind: 'user' },
       }),
-      stream: [
-        { type: 'chunk', time: 3, chunk: { type: 'block-start', index: 0, blockType: 'text' } },
-        { type: 'text-chunks', time0: 3, index: 0, dt: [], texts: ['hello'] },
-        { type: 'chunk', time: 4, chunk: { type: 'block-end', index: 0, block: { type: 'text', text: 'hello' } } },
-        { type: 'chunk', time: 4, chunk: { type: 'finish', reason: { kind: 'stop' } } },
-      ],
-    }, surfaceOp: 'append' },
+      surfaceOp: 'append',
+    },
+    { type: 'step/start', seq: SessionSeq(2), time: 3, data: { turn: 1, step: 1 } },
+    {
+      type: 'assistant/message',
+      seq: SessionSeq(3),
+      time: 4,
+      data: {
+        turn: 1,
+        step: 1,
+        message: freezeMessage({
+          id: MessageId('one-turn-assistant'),
+          role: 'assistant',
+          content: [{ type: 'text', text: 'hello' }],
+          source: {
+            kind: 'model',
+            ...{ provider: 'mock', model: 'mock' },
+          },
+        }),
+        stream: [
+          { type: 'chunk', time: 3, chunk: { type: 'block-start', index: 0, blockType: 'text' } },
+          { type: 'text-chunks', time0: 3, index: 0, dt: [], texts: ['hello'] },
+          { type: 'chunk', time: 4, chunk: { type: 'block-end', index: 0, block: { type: 'text', text: 'hello' } } },
+          { type: 'chunk', time: 4, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+        ],
+      },
+      surfaceOp: 'append',
+    },
     { type: 'step/end', seq: SessionSeq(4), time: 5, data: { turn: 1, step: 1 } },
     { type: 'turn/end', seq: SessionSeq(5), time: 6, data: { turn: 1, reason: { kind: 'completed' } } },
   ]
@@ -99,28 +113,60 @@ export function releasedV1OneTurnLog(): SessionEvent[] {
     current[0] as SessionEvent,
     current[1] as SessionEvent,
     current[2] as SessionEvent,
-    { type: 'assistant/chunk', seq: SessionSeq(3), time: 3, data: {
-      turn: 1, step: 1, chunk: { type: 'block-start', index: 0, blockType: 'text' },
-    } } as unknown as SessionEvent,
-    { type: 'assistant/chunk', seq: SessionSeq(4), time: 3, data: {
-      turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'hello' },
-    } } as unknown as SessionEvent,
-    { type: 'assistant/chunk', seq: SessionSeq(5), time: 4, data: {
-      turn: 1, step: 1, chunk: { type: 'block-end', index: 0, block: { type: 'text', text: 'hello' } },
-    } } as unknown as SessionEvent,
-    { type: 'assistant/chunk', seq: SessionSeq(6), time: 4, data: {
-      turn: 1, step: 1, chunk: { type: 'finish', reason: { kind: 'stop' } },
-    } } as unknown as SessionEvent,
-    { ...message, seq: SessionSeq(7), data: {
-      turn: message.data.turn,
-      step: message.data.step,
-      message: message.data.message,
-    }, sourceEventSeqs: [SessionSeq(3), SessionSeq(4), SessionSeq(5), SessionSeq(6)] } as SessionEvent,
+    {
+      type: 'assistant/chunk',
+      seq: SessionSeq(3),
+      time: 3,
+      data: {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-start', index: 0, blockType: 'text' },
+      },
+    } as unknown as SessionEvent,
+    {
+      type: 'assistant/chunk',
+      seq: SessionSeq(4),
+      time: 3,
+      data: {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'text-delta', index: 0, text: 'hello' },
+      },
+    } as unknown as SessionEvent,
+    {
+      type: 'assistant/chunk',
+      seq: SessionSeq(5),
+      time: 4,
+      data: {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'block-end', index: 0, block: { type: 'text', text: 'hello' } },
+      },
+    } as unknown as SessionEvent,
+    {
+      type: 'assistant/chunk',
+      seq: SessionSeq(6),
+      time: 4,
+      data: {
+        turn: 1,
+        step: 1,
+        chunk: { type: 'finish', reason: { kind: 'stop' } },
+      },
+    } as unknown as SessionEvent,
+    {
+      ...message,
+      seq: SessionSeq(7),
+      data: {
+        turn: message.data.turn,
+        step: message.data.step,
+        message: message.data.message,
+      },
+      sourceEventSeqs: [SessionSeq(3), SessionSeq(4), SessionSeq(5), SessionSeq(6)],
+    } as SessionEvent,
     { ...(current[4] as SessionEvent), seq: SessionSeq(8) },
     { ...(current[5] as SessionEvent), seq: SessionSeq(9) },
   ]
 }
-
 
 /** A contiguous second-turn batch continuing {@link oneTurnLog}. */
 function secondTurn(startSeq = 6): SessionEvent[] {
@@ -228,8 +274,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
 
         const reopened = await backend.reopen()
         try {
-          await expect(reopened.persistence.create(meta('dup-stored', '/work')))
-            .rejects.toBeInstanceOf(SessionAlreadyExistsError)
+          await expect(reopened.persistence.create(meta('dup-stored', '/work'))).rejects.toBeInstanceOf(SessionAlreadyExistsError)
         } finally {
           await reopened.dispose()
         }
@@ -485,9 +530,15 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
       try {
         const m = meta('non-json')
         const handle = await persistence.create(m)
-        const bad = (extra: unknown): SessionEvent[] => [{
-          type: 'turn/start', seq: SessionSeq(0), time: 1, data: { turn: 1, extra },
-        }] as unknown as SessionEvent[]
+        const bad = (extra: unknown): SessionEvent[] =>
+          [
+            {
+              type: 'turn/start',
+              seq: SessionSeq(0),
+              time: 1,
+              data: { turn: 1, extra },
+            },
+          ] as unknown as SessionEvent[]
         await expect(handle.append(bad(1n))).rejects.toThrow(TypeError)
         await expect(handle.append(bad(1n))).rejects.toThrow(/losslessly JSON-serializable/)
         await expect(handle.append(bad(undefined))).rejects.toThrow(/losslessly JSON-serializable/)
@@ -508,9 +559,7 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         // The append side is permissive — a newer producer's event type is
         // stored verbatim…
         await handle.append(oneTurnLog())
-        await handle.append([
-          { type: 'mystery/event', seq: SessionSeq(6), time: 7, data: { payload: true } },
-        ] as unknown as SessionEvent[])
+        await handle.append([{ type: 'mystery/event', seq: SessionSeq(6), time: 7, data: { payload: true } }] as unknown as SessionEvent[])
         await handle.close()
 
         // …but this build refuses to interpret the stored log: a write open
@@ -520,9 +569,12 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         // the same refusal, never SessionAlreadyOwnedError.
         await expect(persistence.open(m.id, 'write')).rejects.toBeInstanceOf(SessionFormatUnsupportedError)
         const readFailure = await persistence.open(m.id, 'read').then(
-          async (reader) => {
+          async reader => {
             try {
-              return await reader.read().then(() => undefined, (error: unknown) => error)
+              return await reader.read().then(
+                () => undefined,
+                (error: unknown) => error,
+              )
             } finally {
               await reader.close()
             }

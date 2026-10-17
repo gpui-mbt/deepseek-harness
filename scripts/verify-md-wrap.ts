@@ -45,7 +45,7 @@ function maskVitePressStructure(source: string): string {
       for (let index = 0; index <= closing; index++) lines[index] = ''
     }
   }
-  return lines.map(line => line.trimStart().startsWith(':::') ? '' : line).join('\n')
+  return lines.map(line => (line.trimStart().startsWith(':::') ? '' : line)).join('\n')
 }
 
 /** Find every hard-wrapped prose paragraph in one Markdown file via its AST. */

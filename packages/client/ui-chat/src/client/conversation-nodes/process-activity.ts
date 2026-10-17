@@ -25,8 +25,28 @@ const LIVE_TOOL_DETAIL_MAX_CHARS = 160
 const LIVE_TOOL_DETAIL_PREFIX_CHARS = 512
 const LIVE_TOOL_DETAIL_SEGMENTER = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const LIVE_TOOL_DETAIL_KEYS = [
-  'title', 'description', 'objective', 'task', 'task_name', 'name', 'question', 'questions', 'prompt', 'message',
-  'command', 'cmd', 'queries', 'query', 'pattern', 'url', 'uri', 'file_path', 'path', 'target', 'action', 'status',
+  'title',
+  'description',
+  'objective',
+  'task',
+  'task_name',
+  'name',
+  'question',
+  'questions',
+  'prompt',
+  'message',
+  'command',
+  'cmd',
+  'queries',
+  'query',
+  'pattern',
+  'url',
+  'uri',
+  'file_path',
+  'path',
+  'target',
+  'action',
+  'status',
 ] as const
 
 interface NormalizedDetail {
@@ -41,7 +61,10 @@ function normalizeLiveToolText(text: string): NormalizedDetail {
   for (const { segment } of LIVE_TOOL_DETAIL_SEGMENTER.segment(normalized)) {
     if (chars.length === LIVE_TOOL_DETAIL_MAX_CHARS) {
       return {
-        text: `${chars.slice(0, LIVE_TOOL_DETAIL_MAX_CHARS - 1).join('').trimEnd()}…`,
+        text: `${chars
+          .slice(0, LIVE_TOOL_DETAIL_MAX_CHARS - 1)
+          .join('')
+          .trimEnd()}…`,
         truncated: true,
       }
     }
@@ -51,11 +74,8 @@ function normalizeLiveToolText(text: string): NormalizedDetail {
 }
 
 function normalizeLiveToolDetail(value: unknown): string {
-  const text = typeof value === 'string'
-    ? value
-    : Array.isArray(value) && value.every(item => typeof item === 'string')
-      ? value.join(', ')
-      : ''
+  const text =
+    typeof value === 'string' ? value : Array.isArray(value) && value.every(item => typeof item === 'string') ? value.join(', ') : ''
   return normalizeLiveToolText(text).text
 }
 
@@ -118,9 +138,8 @@ function liveReasoningDetail(nodes: readonly ChatNode[]): string {
 function liveToolDetail(name: string, args: ToolArgs): string {
   for (const key of LIVE_TOOL_DETAIL_KEYS) {
     if (!args.has(key)) continue
-    const detail = key === 'questions'
-      ? questionDetail(args.value(key))
-      : argumentTextDetail(args, key) ?? normalizeLiveToolDetail(args.value(key))
+    const detail =
+      key === 'questions' ? questionDetail(args.value(key)) : (argumentTextDetail(args, key) ?? normalizeLiveToolDetail(args.value(key)))
     if (detail !== '') return detail
   }
   return args.closed() ? normalizeLiveToolDetail(name) : ''
@@ -162,6 +181,6 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
     counts: [...counts].map(([kind, count]) => ({ kind, count })).sort((a, b) => b.count - a.count),
     running,
     runningDetail,
-    ...preparing ? { preparing: true } : {},
+    ...(preparing ? { preparing: true } : {}),
   }
 }

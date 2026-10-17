@@ -54,11 +54,32 @@ export const RECALL_MARK = 'data-window-drag-recall'
  * the two cannot drift.
  */
 export const INTERACTIVE_SELECTOR = [
-  'button', 'a', 'input', 'select', 'textarea', 'summary', "[contenteditable='true']", '[tabindex]',
-  "[role='dialog']", "[role='alertdialog']", "[role='menu']", "[role='listbox']", "[role='tooltip']",
-  "[role='button']", "[role='link']", "[role='tab']", "[role='menuitem']", "[role='menuitemcheckbox']",
-  "[role='menuitemradio']", "[role='option']", "[role='checkbox']", "[role='radio']", "[role='switch']",
-  "[role='slider']", "[role='combobox']", "[role='textbox']",
+  'button',
+  'a',
+  'input',
+  'select',
+  'textarea',
+  'summary',
+  "[contenteditable='true']",
+  '[tabindex]',
+  "[role='dialog']",
+  "[role='alertdialog']",
+  "[role='menu']",
+  "[role='listbox']",
+  "[role='tooltip']",
+  "[role='button']",
+  "[role='link']",
+  "[role='tab']",
+  "[role='menuitem']",
+  "[role='menuitemcheckbox']",
+  "[role='menuitemradio']",
+  "[role='option']",
+  "[role='checkbox']",
+  "[role='radio']",
+  "[role='switch']",
+  "[role='slider']",
+  "[role='combobox']",
+  "[role='textbox']",
 ].join(', ')
 
 /**

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ModuleDiagnostic, ResolvedConfig } from 'vitest/node'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import CoverageFileTimesReporter from './coverage-file-times.ts'
 
 const roots: string[] = []
@@ -28,6 +28,8 @@ describe('coverage file timing report', () => {
       collectDuration: 100,
       duration: 200,
       heap: undefined,
+      concurrencyId: 1,
+      workerId: 1,
       // Per-dependency import times are already included in collectDuration.
       importDurations: { dependency: { selfTime: 100, totalTime: 100 } },
     }
@@ -36,7 +38,9 @@ describe('coverage file timing report', () => {
       diagnostic: () => diagnostic,
       // Vitest modules retain tests and coverage through their project. The
       // timing report must read only their paths and diagnostics.
-      toJSON: () => { throw new Error('test module was serialized') },
+      toJSON: () => {
+        throw new Error('test module was serialized')
+      },
     }
     await reporter.onTestRunEnd([module, module])
 
@@ -59,12 +63,10 @@ describe('coverage file timing report', () => {
   })
 
   const missingOutputs: ResolvedConfig['outputFile'][] = ['report.json', {}, { fileTimes: '' }]
-  it.each(missingOutputs)(
-    'rejects missing timing output %j',
-    (outputFile) => {
-      const reporter = new CoverageFileTimesReporter()
-      expect(() => { reporter.onInit({ config: { root: '/repo', outputFile } }) })
-        .toThrow('outputFile.fileTimes is required')
-    },
-  )
+  it.each(missingOutputs)('rejects missing timing output %j', outputFile => {
+    const reporter = new CoverageFileTimesReporter()
+    expect(() => {
+      reporter.onInit({ config: { root: '/repo', outputFile } })
+    }).toThrow('outputFile.fileTimes is required')
+  })
 })

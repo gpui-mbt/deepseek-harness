@@ -78,10 +78,12 @@ export class MarketSearch {
       positions = [...scores.keys()].sort((a, b) => a - b)
     }
     const labels = selection.labels ?? []
-    const matching = positions.filter((position) => {
+    const matching = positions.filter(position => {
       const { metadata } = plugins[position] as MarketPlugin
-      return (selection.category === undefined || metadata.category === selection.category)
-        && labels.every(label => metadata.labels.includes(label))
+      return (
+        (selection.category === undefined || metadata.category === selection.category) &&
+        labels.every(label => metadata.labels.includes(label))
+      )
     })
     return this.order(matching, selection.sort, scores).map(position => plugins[position] as MarketPlugin)
   }
@@ -102,37 +104,42 @@ export class MarketSearch {
         boost: { name: 3, title: 3, keywords: 2 },
         prefix: true,
         // Edit distance of one fifth of the term length, rounded, at most 2; shorter terms match only as written or as a prefix.
-        fuzzy: term => term.length >= 4 ? 0.2 : false,
+        fuzzy: term => (term.length >= 4 ? 0.2 : false),
         maxFuzzy: 2,
         combineWith: 'AND',
       },
     })
-    await engine.addAllAsync(this.index.plugins.map((plugin, id): SearchDocument => {
-      const { category, keywords } = plugin.metadata
-      // parseMarketIndex accepts only declared category and label ids.
-      const title = (declarations: Readonly<Record<string, MarketDeclaration>>, id: string): string[] =>
-        variants((declarations[id] as MarketDeclaration).title)
-      const taxonomy = [
-        ...category === undefined ? [] : title(categories, category),
-        ...plugin.metadata.labels.flatMap(label => title(labels, label)),
-      ]
-      return {
-        id,
-        name: plugin.name,
-        title: variants(plugin.title).join('\n'),
-        keywords: keywords.join('\n'),
-        description: variants(plugin.description).join('\n'),
-        author: plugin.author ?? '',
-        taxonomy: taxonomy.join('\n'),
-      }
-    }), { chunkSize: BUILD_CHUNK })
+    await engine.addAllAsync(
+      this.index.plugins.map((plugin, id): SearchDocument => {
+        const { category, keywords } = plugin.metadata
+        // parseMarketIndex accepts only declared category and label ids.
+        const title = (declarations: Readonly<Record<string, MarketDeclaration>>, id: string): string[] =>
+          variants((declarations[id] as MarketDeclaration).title)
+        const taxonomy = [
+          ...(category === undefined ? [] : title(categories, category)),
+          ...plugin.metadata.labels.flatMap(label => title(labels, label)),
+        ]
+        return {
+          id,
+          name: plugin.name,
+          title: variants(plugin.title).join('\n'),
+          keywords: keywords.join('\n'),
+          description: variants(plugin.description).join('\n'),
+          author: plugin.author ?? '',
+          taxonomy: taxonomy.join('\n'),
+        }
+      }),
+      { chunkSize: BUILD_CHUNK },
+    )
     return engine
   }
 
   private order(positions: number[], sort: MarketQuery['sort'], scores: ReadonlyMap<number, number>): number[] {
     switch (sort.kind) {
-      case 'index': return positions
-      case 'relevance': return positions.sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0) || a - b)
+      case 'index':
+        return positions
+      case 'relevance':
+        return positions.sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0) || a - b)
       case 'published':
       case 'key': {
         const value = (position: number): number | undefined => {
@@ -141,15 +148,19 @@ export class MarketSearch {
           return Object.hasOwn(plugin.metadata.sortKeys, sort.id) ? plugin.metadata.sortKeys[sort.id] : undefined
         }
         const sign = sort.direction === 'asc' ? 1 : -1
-        return positions.map(position => ({ position, value: value(position) })).sort((a, b) => {
-          if (a.value === undefined || b.value === undefined) {
-            return a.value === b.value ? a.position - b.position : a.value === undefined ? 1 : -1
-          }
-          return (a.value - b.value) * sign || a.position - b.position
-        }).map(item => item.position)
+        return positions
+          .map(position => ({ position, value: value(position) }))
+          .sort((a, b) => {
+            if (a.value === undefined || b.value === undefined) {
+              return a.value === b.value ? a.position - b.position : a.value === undefined ? 1 : -1
+            }
+            return (a.value - b.value) * sign || a.position - b.position
+          })
+          .map(item => item.position)
       }
       /* v8 ignore next -- the Gateway validates `sort` against the closed union */
-      default: return assertNever(sort)
+      default:
+        return assertNever(sort)
     }
   }
 }

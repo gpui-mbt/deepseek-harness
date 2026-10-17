@@ -31,13 +31,23 @@ import type { CredentialKey, CredentialRecord } from '@deepseek-ai/dsh-credentia
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 
 import type {
-  AuthorizationEntry, AuthorizationMethod, AuthorizationNotice, AuthorizationOutcome, AuthorizationPrompt,
+  AuthorizationEntry,
+  AuthorizationMethod,
+  AuthorizationNotice,
+  AuthorizationOutcome,
+  AuthorizationPrompt,
   AuthorizationSettlement,
 } from './types.ts'
 
 export type {
-  AuthorizationEntry, AuthorizationMethod, AuthorizationNotice, AuthorizationOutcome, AuthorizationPrompt,
-  AuthorizationPromptOption, AuthorizationSettlement, AuthorizationStatus,
+  AuthorizationEntry,
+  AuthorizationMethod,
+  AuthorizationNotice,
+  AuthorizationOutcome,
+  AuthorizationPrompt,
+  AuthorizationPromptOption,
+  AuthorizationSettlement,
+  AuthorizationStatus,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -207,20 +217,22 @@ export class AuthorizationService extends Service {
    * @throws {AuthorizationError} code `DUPLICATE_FLOW` when the key is already claimed.
    */
   registerFlow(flow: AuthorizationFlow): () => void {
-    const dispose = this.ctx.effect(function* (this: AuthorizationService) {
-      if (this.flows.has(flow.key)) {
-        throw new AuthorizationError(
-          `an authorization flow for "${flow.key}" is already registered`, 'DUPLICATE_FLOW')
-      }
-      this.flows.set(flow.key, flow)
-      yield () => {
-        this.flows.delete(flow.key)
-        // A flow leaving mid-attempt takes its attempt with it: the runner
-        // belongs to a plugin that is going away, so letting it keep prompting
-        // would outlive the fiber that can answer for it.
-        this.cancel(flow.key)
-      }
-    }.bind(this), 'authorization.registerFlow()')
+    const dispose = this.ctx.effect(
+      function* (this: AuthorizationService) {
+        if (this.flows.has(flow.key)) {
+          throw new AuthorizationError(`an authorization flow for "${flow.key}" is already registered`, 'DUPLICATE_FLOW')
+        }
+        this.flows.set(flow.key, flow)
+        yield () => {
+          this.flows.delete(flow.key)
+          // A flow leaving mid-attempt takes its attempt with it: the runner
+          // belongs to a plugin that is going away, so letting it keep prompting
+          // would outlive the fiber that can answer for it.
+          this.cancel(flow.key)
+        }
+      }.bind(this),
+      'authorization.registerFlow()',
+    )
     return () => void dispose()
   }
 
@@ -288,12 +300,10 @@ export class AuthorizationService extends Service {
     }
     const method = request.method ?? flow.methods[0].id
     if (!flow.methods.some(candidate => candidate.id === method)) {
-      throw new AuthorizationError(
-        `authorization flow for "${key}" offers no method "${method}"`, 'UNKNOWN_METHOD')
+      throw new AuthorizationError(`authorization flow for "${key}" offers no method "${method}"`, 'UNKNOWN_METHOD')
     }
     if (this.running.has(key)) {
-      throw new AuthorizationError(
-        `an authorization attempt for "${key}" is already running`, 'ALREADY_IN_FLIGHT')
+      throw new AuthorizationError(`an authorization attempt for "${key}" is already running`, 'ALREADY_IN_FLIGHT')
     }
     // Withdrawn before it began: never claim the slot and never run the flow.
     // Handing an aborted signal to `run()` would rely on every flow checking it
@@ -370,10 +380,16 @@ export class AuthorizationService extends Service {
     // key is indistinguishable from a busy one from the outside. The orphaned
     // run is left to finish on its own; nothing waits on it, and a record it
     // still manages to commit is a record the human did authorize.
-    const withdrawn = new Promise<'withdrawn'>((resolve) => {
+    const withdrawn = new Promise<'withdrawn'>(resolve => {
       // `begin()` returns before claiming the key when its caller has already
       // withdrawn, so this signal cannot already be aborted here.
-      signal.addEventListener('abort', () => { resolve('withdrawn') }, { once: true })
+      signal.addEventListener(
+        'abort',
+        () => {
+          resolve('withdrawn')
+        },
+        { once: true },
+      )
     })
     // What the seam itself witnessed during the run, held as properties
     // because closure writes do not narrow locals across awaits: the prompt
@@ -390,7 +406,7 @@ export class AuthorizationService extends Service {
       const running = flow.run({
         method,
         signal,
-        commit: async (record) => {
+        commit: async record => {
           signal.throwIfAborted()
           const attempt = this.running.get(flow.key)
           if (attempt === undefined || attempt.controller.signal !== signal) {
@@ -399,7 +415,7 @@ export class AuthorizationService extends Service {
           attempt.committing = true
           await this.ctx.credentials.modifyRecord(flow.key, () => Promise.resolve(record))
         },
-        notify: (notice) => {
+        notify: notice => {
           try {
             interaction.notify(notice)
           } catch (error) {
@@ -410,16 +426,19 @@ export class AuthorizationService extends Service {
             this.ctx.logger.warn(error)
           }
         },
-        prompt: prompt => interaction.prompt(prompt).catch((error: unknown) => {
-          if (error instanceof AuthorizationDeclinedError) observed.declined = true
-          throw error
-        }),
+        prompt: prompt =>
+          interaction.prompt(prompt).catch((error: unknown) => {
+            if (error instanceof AuthorizationDeclinedError) observed.declined = true
+            throw error
+          }),
       })
       try {
-        if (await Promise.race([running.then(() => 'ran' as const), withdrawn]) === 'withdrawn') {
+        if ((await Promise.race([running.then(() => 'ran' as const), withdrawn])) === 'withdrawn') {
           // Nothing awaits the orphan any more, so its eventual failure has to be
           // marked handled or it would take down the process.
-          void running.catch(() => { this.ctx.logger.debug('authorization: withdrawn flow failed after the fact') })
+          void running.catch(() => {
+            this.ctx.logger.debug('authorization: withdrawn flow failed after the fact')
+          })
           return { status: 'cancelled' }
         }
       } catch (error) {
@@ -435,13 +454,15 @@ export class AuthorizationService extends Service {
     if (!observed.committed) {
       throw new AuthorizationError(
         `authorization flow for "${flow.key}" resolved without committing a credential record in this attempt`,
-        'NOT_COMMITTED')
+        'NOT_COMMITTED',
+      )
     }
     const stored = await this.ctx.credentials.describeRecord(flow.key)
     if (!stored.configured) {
       throw new AuthorizationError(
         `authorization flow for "${flow.key}" deleted its credential record instead of committing one`,
-        'NOT_COMMITTED')
+        'NOT_COMMITTED',
+      )
     }
     return { status: 'authorized' }
   }

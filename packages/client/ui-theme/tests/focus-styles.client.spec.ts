@@ -2,7 +2,7 @@
 /** Automatic focus presentation and subsequent keyboard navigation use the shipped theme sheet. */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vite-plus/test'
 import { focusWithoutRing } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const base = readFileSync(resolve(import.meta.dirname, '../src/styles/base.css'), 'utf8')
@@ -13,7 +13,10 @@ beforeEach(() => {
   style.textContent = `button:focus { outline: ${outline}; border: 1px solid red; box-shadow: 0 0 4px black; }\n${base}`
   document.head.append(style)
 })
-afterEach(() => { document.head.replaceChildren(); document.body.replaceChildren() })
+afterEach(() => {
+  document.head.replaceChildren()
+  document.body.replaceChildren()
+})
 
 function control(): HTMLButtonElement {
   const button = document.createElement('button')
@@ -49,8 +52,14 @@ it('restores navigation outlines after repeated automatic focus without consumin
 it('keeps typing, modifier shortcuts and input-method navigation free of automatic outlines', () => {
   const button = control()
   focusWithoutRing(button)
-  for (const init of [{ key: 'Enter' }, { key: 'a' }, { key: 'ArrowDown', isComposing: true },
-    { key: 'ArrowDown', ctrlKey: true }, { key: 'ArrowDown', altKey: true }, { key: 'ArrowDown', metaKey: true }]) {
+  for (const init of [
+    { key: 'Enter' },
+    { key: 'a' },
+    { key: 'ArrowDown', isComposing: true },
+    { key: 'ArrowDown', ctrlKey: true },
+    { key: 'ArrowDown', altKey: true },
+    { key: 'ArrowDown', metaKey: true },
+  ]) {
     button.dispatchEvent(new KeyboardEvent('keydown', init))
     expect(getComputedStyle(button).outline).toBe('none')
   }

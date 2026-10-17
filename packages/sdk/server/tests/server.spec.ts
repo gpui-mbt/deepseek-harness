@@ -7,7 +7,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { mkdtemp, mkdir, realpath, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
 import { randomUUID } from 'node:crypto'
@@ -19,7 +19,13 @@ import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-a
 import SessionStore, { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
-import SubagentRuntime, { SubagentRunId, type SubagentStartRequest, type SubagentRun, type SubagentResult, type SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
+import SubagentRuntime, {
+  SubagentRunId,
+  type SubagentStartRequest,
+  type SubagentRun,
+  type SubagentResult,
+  type SubagentRunEndInfo,
+} from '@deepseek-ai/dsh-subagent'
 import type { JsonRpcTransportPeer } from '@deepseek-ai/dsh-sdk-protocol'
 import { HarnessSdkJsonRpcServer } from '../src/index.ts'
 
@@ -47,7 +53,9 @@ async function mockCompletionServer(): Promise<{ url: string; requests: unknown[
   const headers: IncomingMessage['headers'][] = []
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
     let body = ''
-    request.on('data', (chunk: Buffer) => { body += chunk.toString('utf8') })
+    request.on('data', (chunk: Buffer) => {
+      body += chunk.toString('utf8')
+    })
     request.on('end', () => {
       requests.push(JSON.parse(body))
       headers.push(request.headers)
@@ -75,7 +83,10 @@ async function makeHarness(storageDir: string, workingDirectory = false) {
 
 /** Feed SDK lifecycle inputs without coupling protocol projection tests to activation admission. */
 async function startLifecycleFixture(
-  ctx: Context, providerName: string, request: SubagentStartRequest, local = false,
+  ctx: Context,
+  providerName: string,
+  request: SubagentStartRequest,
+  local = false,
 ): Promise<SubagentRun> {
   const provider = ctx.subagents.getProvider(providerName)
   if (provider?.start === undefined) throw new Error('missing lifecycle fixture provider')
@@ -84,8 +95,16 @@ async function startLifecycleFixture(
   const carrier = scopeTarget(ctx.subagents, request.parent)
   ctx.emit(carrier, 'subagent/start', identity)
   void run.result.then(
-    (result) => { ctx.emit(carrier, 'subagent/end', { ...identity, stopReason: result.stopReason, ...result.output.length > 0 ? { lastAssistantMessage: result.output } : {} }) },
-    () => { ctx.emit(carrier, 'subagent/end', { ...identity, stopReason: 'error' }) },
+    result => {
+      ctx.emit(carrier, 'subagent/end', {
+        ...identity,
+        stopReason: result.stopReason,
+        ...(result.output.length > 0 ? { lastAssistantMessage: result.output } : {}),
+      })
+    },
+    () => {
+      ctx.emit(carrier, 'subagent/end', { ...identity, stopReason: 'error' })
+    },
   )
   return run
 }
@@ -111,18 +130,26 @@ async function settleSubagent(
     },
   })
   try {
-    const run = await startLifecycleFixture(ctx, info.provider, {
-      parent,
-      prompt: [],
-      signal: new AbortController().signal,
-    }, info.localAgent !== undefined)
+    const run = await startLifecycleFixture(
+      ctx,
+      info.provider,
+      {
+        parent,
+        prompt: [],
+        signal: new AbortController().signal,
+      },
+      info.localAgent !== undefined,
+    )
     await beforeSettle?.()
     if (info.lastAssistantMessage === undefined) {
       result.reject(new Error('synthetic infrastructure failure'))
     } else {
       result.resolve({ output: info.lastAssistantMessage, stopReason: info.stopReason })
     }
-    await run.result.then(() => undefined, () => undefined)
+    await run.result.then(
+      () => undefined,
+      () => undefined,
+    )
     await run.dispose()
   } finally {
     disposeProvider()
@@ -139,7 +166,7 @@ describe('HarnessSdkJsonRpcServer', () => {
       override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
         return Promise.resolve({ provider, id: model, name: model })
       }
-      async * stream(): AsyncIterable<StreamChunk> {
+      async *stream(): AsyncIterable<StreamChunk> {
         yield { type: 'block-start', index: 0, blockType: 'text' }
         yield { type: 'text-delta', index: 0, text: 'answer' }
         yield { type: 'block-end', index: 0, block: { type: 'text', text: 'answer' } }
@@ -158,18 +185,29 @@ describe('HarnessSdkJsonRpcServer', () => {
       const observed = Promise.withResolvers<undefined>()
       const children = Promise.withResolvers<boolean>()
       vi.spyOn(ctx.subagents, 'waitForChildren')
-        .mockImplementationOnce(() => { observed.resolve(undefined); return children.promise })
+        .mockImplementationOnce(() => {
+          observed.resolve(undefined)
+          return children.promise
+        })
         .mockResolvedValue(false)
       let settled = false
-      const waiting = server.handleRequest('session/wait', { sessionId: 'main' }).then((result) => { settled = true; return result })
+      const waiting = server.handleRequest('session/wait', { sessionId: 'main' }).then(result => {
+        settled = true
+        return result
+      })
       await observed.promise
       expect(settled).toBe(false)
       parent.followup(createUserMessage({ content: [{ type: 'text', text: 'child result' }], source: { kind: 'user' } }))
       children.resolve(true)
       await expect(waiting).resolves.toEqual({})
-      expect(transport.notifications.filter(notification => notification.method === 'session.event'
-        && notification.params?.sessionId === 'main'
-        && (notification.params.event as SessionEvent).type === 'turn/end')).toHaveLength(2)
+      expect(
+        transport.notifications.filter(
+          notification =>
+            notification.method === 'session.event' &&
+            notification.params?.sessionId === 'main' &&
+            (notification.params.event as SessionEvent).type === 'turn/end',
+        ),
+      ).toHaveLength(2)
       await server.shutdown()
       await expect(server.handleRequest('session/wait', { sessionId: 'main' })).rejects.toThrow('unknown SDK session')
     } finally {
@@ -188,23 +226,33 @@ describe('HarnessSdkJsonRpcServer', () => {
     const transport = new FakeTransport()
     const server = new HarnessSdkJsonRpcServer(ctx, transport)
     try {
-      await expect(server.handleRequest('session/working-directory/get', { sessionId: 'a' }))
-        .rejects.toThrow('SDK server is not initialized')
-      await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: child }))
-        .rejects.toThrow('SDK server is not initialized')
+      await expect(server.handleRequest('session/working-directory/get', { sessionId: 'a' })).rejects.toThrow(
+        'SDK server is not initialized',
+      )
+      await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: child })).rejects.toThrow(
+        'SDK server is not initialized',
+      )
       expect(ctx.agents.list()).toEqual([])
       await server.initialize({ cwd: root, provider: 'mock', model: 'mock' })
       await expect(server.handleRequest('session/working-directory/get', { sessionId: 'a' })).resolves.toEqual({ cwd: root })
       const selected = await realpath(child)
-      await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: 'child' })).resolves.toEqual({ cwd: selected })
+      await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: 'child' })).resolves.toEqual({
+        cwd: selected,
+      })
       await expect(server.handleRequest('session/working-directory/get', { sessionId: 'b' })).resolves.toEqual({ cwd: root })
       const agent = ctx.agents.get(SessionId('a'))!
       expect(agent.session.header.cwd).toBe(root)
       await server.prompt({ sessionId: 'a', contentBlocks: [{ type: 'text', text: 'where' }] })
       await agent.whenIdle()
-      expect(agent.session.snapshotEvents().some(event => event.type === 'user/message'
-        && event.data.content.some(block => block.type === 'text'
-          && block.text.includes(JSON.stringify(selected))))).toBe(true)
+      expect(
+        agent.session
+          .snapshotEvents()
+          .some(
+            event =>
+              event.type === 'user/message' &&
+              event.data.content.some(block => block.type === 'text' && block.text.includes(JSON.stringify(selected))),
+          ),
+      ).toBe(true)
       await expect(server.handleRequest('session/working-directory/get', {})).rejects.toThrow('sessionId')
       await expect(server.handleRequest('session/working-directory/set', { sessionId: 'a', path: 3 })).rejects.toThrow('path string')
     } finally {
@@ -223,13 +271,13 @@ describe('HarnessSdkJsonRpcServer', () => {
       const transport = new FakeTransport()
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
 
-      const init = await server.handleRequest('initialize', {
+      const init = (await server.handleRequest('initialize', {
         cwd: storageDir,
         provider: 'deepseek-official',
         model: 'dsagent-model',
         reasoningEffort: 'max',
         maxTokens: 321,
-      }) as { serverInfo: { name: string } }
+      })) as { serverInfo: { name: string } }
       expect(init.serverInfo.name).toBe('deepseek-harness-sdk-runtime')
 
       const receipt = await server.handleRequest('session/prompt', {
@@ -238,7 +286,9 @@ describe('HarnessSdkJsonRpcServer', () => {
       })
       expect((receipt as { messageId?: unknown }).messageId).toBeTypeOf('string')
 
-      await vi.waitFor(() => { expect(llmServer.requests).toHaveLength(1) })
+      await vi.waitFor(() => {
+        expect(llmServer.requests).toHaveLength(1)
+      })
       const body = llmServer.requests[0] as {
         model: string
         messages: { role: string }[]
@@ -265,14 +315,18 @@ describe('HarnessSdkJsonRpcServer', () => {
         sessionId: 'main',
         contentBlocks: [{ type: 'text', text: 'again' }],
       })
-      await vi.waitFor(() => { expect(llmServer.requests).toHaveLength(2) })
+      await vi.waitFor(() => {
+        expect(llmServer.requests).toHaveLength(2)
+      })
 
       const orphanHandle = await ctx.agents.create({
         sessionId: SessionId('orphan-session'),
         meta: { cwd: storageDir },
         agentOptions: { provider: 'deepseek-official', model: 'dsagent-model' },
       })
-      orphanHandle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'outside the sdk session map' }], source: { kind: 'user' } }))
+      orphanHandle.agent.followup(
+        createUserMessage({ content: [{ type: 'text', text: 'outside the sdk session map' }], source: { kind: 'user' } }),
+      )
       await orphanHandle.agent.whenIdle()
       await orphanHandle.dispose()
       expect(llmServer.requests).toHaveLength(3)
@@ -286,20 +340,22 @@ describe('HarnessSdkJsonRpcServer', () => {
 
   it('queues overlapping prompts for one session without blocking other sessions', async () => {
     const mainFollowup = vi.fn<Agent['followup']>()
-    const mainAgent = ({
+    const mainAgent = {
       id: SessionId('main'),
       followup: mainFollowup,
-    } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
+    } satisfies Pick<Agent, 'id' | 'followup'> as unknown as Agent
     const otherFollowup = vi.fn<Agent['followup']>()
-    const otherAgent = ({
+    const otherAgent = {
       id: SessionId('other'),
       followup: otherFollowup,
-    } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
+    } satisfies Pick<Agent, 'id' | 'followup'> as unknown as Agent
     const mainHandle = { agent: mainAgent, dispose: vi.fn(() => Promise.resolve()) }
     const otherHandle = { agent: otherAgent, dispose: vi.fn(() => Promise.resolve()) }
-    const create = vi.fn(async (options: { sessionId: SessionId }) =>
-      String(options.sessionId) === 'main' ? mainHandle : otherHandle)
-    const liveAgents = new Map<string, Agent>([['main', mainAgent], ['other', otherAgent]])
+    const create = vi.fn(async (options: { sessionId: SessionId }) => (String(options.sessionId) === 'main' ? mainHandle : otherHandle))
+    const liveAgents = new Map<string, Agent>([
+      ['main', mainAgent],
+      ['other', otherAgent],
+    ])
     const ctx = {
       on: vi.fn(() => () => undefined),
       agents: { create, get: (id: SessionId) => liveAgents.get(String(id)) },
@@ -308,10 +364,11 @@ describe('HarnessSdkJsonRpcServer', () => {
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
     // This isolated prompt test begins after the handshake boundary.
     ;(server as unknown as { initialized: boolean }).initialized = true
-    const prompt = (sessionId: string, text: string) => server.prompt({
-      sessionId,
-      contentBlocks: [{ type: 'text', text }],
-    })
+    const prompt = (sessionId: string, text: string) =>
+      server.prompt({
+        sessionId,
+        contentBlocks: [{ type: 'text', text }],
+      })
 
     expect((await prompt('main', 'first')).messageId).toBeTypeOf('string')
     expect((await prompt('main', 'overlap')).messageId).toBeTypeOf('string')
@@ -326,7 +383,7 @@ describe('HarnessSdkJsonRpcServer', () => {
 
   it('admits inline SDK images before the user message enters the session', async () => {
     const followup = vi.fn<Agent['followup']>()
-    const agent = ({ id: SessionId('image'), followup } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
+    const agent = { id: SessionId('image'), followup } satisfies Pick<Agent, 'id' | 'followup'> as unknown as Agent
     const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
     const ref = {
       attachmentId: 'sha256:image',
@@ -339,7 +396,7 @@ describe('HarnessSdkJsonRpcServer', () => {
     const ctx = {
       on: vi.fn(() => () => undefined),
       agents: { create: vi.fn(async () => handle), get: () => agent },
-      get: (name: string) => name === 'attachments' ? { saveImages } : undefined,
+      get: (name: string) => (name === 'attachments' ? { saveImages } : undefined),
     } as unknown as Context
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
     // This isolated prompt test begins after the handshake boundary.
@@ -363,7 +420,7 @@ describe('HarnessSdkJsonRpcServer', () => {
 
   it('rejects inline SDK images when the composition has no attachment store', async () => {
     const followup = vi.fn<Agent['followup']>()
-    const agent = ({ id: SessionId('image'), followup } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
+    const agent = { id: SessionId('image'), followup } satisfies Pick<Agent, 'id' | 'followup'> as unknown as Agent
     const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
     const ctx = {
       on: vi.fn(() => () => undefined),
@@ -374,32 +431,36 @@ describe('HarnessSdkJsonRpcServer', () => {
     // This isolated prompt test begins after the handshake boundary.
     ;(server as unknown as { initialized: boolean }).initialized = true
 
-    await expect(server.prompt({
-      sessionId: 'image',
-      contentBlocks: [{ type: 'image', data: 'AQ==', mimeType: 'image/png' }],
-    })).rejects.toThrow('SDK image prompt requires an attachment store')
+    await expect(
+      server.prompt({
+        sessionId: 'image',
+        contentBlocks: [{ type: 'image', data: 'AQ==', mimeType: 'image/png' }],
+      }),
+    ).rejects.toThrow('SDK image prompt requires an attachment store')
     expect(followup).not.toHaveBeenCalled()
     await server.shutdown()
   })
 
   it('rechecks agent liveness after asynchronous image admission', async () => {
     const followup = vi.fn<Agent['followup']>()
-    const agent = ({ id: SessionId('image-race'), followup } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
+    const agent = { id: SessionId('image-race'), followup } satisfies Pick<Agent, 'id' | 'followup'> as unknown as Agent
     const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
-    const admitted = Promise.withResolvers<Array<{
-      attachmentId: string
-      mediaType: string
-      bytes: number
-    }>>()
+    const admitted = Promise.withResolvers<
+      Array<{
+        attachmentId: string
+        mediaType: string
+        bytes: number
+      }>
+    >()
     const saveImages = vi.fn(() => admitted.promise)
     let live = true
     const ctx = {
       on: vi.fn(() => () => undefined),
       agents: {
         create: vi.fn(async () => handle),
-        get: () => live ? agent : undefined,
+        get: () => (live ? agent : undefined),
       },
-      get: (name: string) => name === 'attachments' ? { saveImages } : undefined,
+      get: (name: string) => (name === 'attachments' ? { saveImages } : undefined),
     } as unknown as Context
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
     // This isolated prompt test begins after the handshake boundary.
@@ -409,7 +470,9 @@ describe('HarnessSdkJsonRpcServer', () => {
       sessionId: 'image-race',
       contentBlocks: [{ type: 'image', data: 'AQ==', mimeType: 'image/png' }],
     })
-    await vi.waitFor(() => { expect(saveImages).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(saveImages).toHaveBeenCalledOnce()
+    })
     live = false
     admitted.resolve([{ attachmentId: 'sha256:image', mediaType: 'image/png', bytes: 1 }])
 
@@ -420,11 +483,11 @@ describe('HarnessSdkJsonRpcServer', () => {
 
   it('rejects a prompt for a session whose agent was disposed outside the server', async () => {
     const followup = vi.fn<Agent['followup']>()
-    const agent = ({
+    const agent = {
       id: SessionId('zombie'),
       followup,
       whenIdle: vi.fn(() => Promise.resolve()),
-    } satisfies Pick<Agent, 'id' | 'followup' | 'whenIdle'>) as unknown as Agent
+    } satisfies Pick<Agent, 'id' | 'followup' | 'whenIdle'> as unknown as Agent
     const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
     // The registry drops the agent after creation, modelling an agent-loop-only
     // reload that leaves the server's SessionRecord pointing at a detached agent.
@@ -440,10 +503,11 @@ describe('HarnessSdkJsonRpcServer', () => {
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
     // This isolated prompt test begins after the handshake boundary.
     ;(server as unknown as { initialized: boolean }).initialized = true
-    const prompt = (text: string) => server.prompt({
-      sessionId: 'zombie',
-      contentBlocks: [{ type: 'text', text }],
-    })
+    const prompt = (text: string) =>
+      server.prompt({
+        sessionId: 'zombie',
+        contentBlocks: [{ type: 'text', text }],
+      })
 
     expect((await prompt('while live')).messageId).toBeTypeOf('string')
     live = false
@@ -460,19 +524,18 @@ describe('HarnessSdkJsonRpcServer', () => {
     const transport = new FakeTransport()
     const server = new HarnessSdkJsonRpcServer(ctx, transport)
     const session = ctx.sessions.create(SessionId('message-outcome'))
-    const agent = ({
+    const agent = {
       id: SessionId('message-outcome'),
       session,
-    } satisfies Pick<Agent, 'id' | 'session'>) as Agent
+    } satisfies Pick<Agent, 'id' | 'session'> as Agent
 
     ctx.emit('agent/status', { agent, status: 'running' })
     ctx.emit('agent/status', { agent, status: 'idle' })
 
-    expect(transport.notifications.filter(notification => notification.method === 'session.status'))
-      .toEqual([
-        { method: 'session.status', params: { sessionId: 'message-outcome', status: 'running' } },
-        { method: 'session.status', params: { sessionId: 'message-outcome', status: 'idle' } },
-      ])
+    expect(transport.notifications.filter(notification => notification.method === 'session.status')).toEqual([
+      { method: 'session.status', params: { sessionId: 'message-outcome', status: 'running' } },
+      { method: 'session.status', params: { sessionId: 'message-outcome', status: 'idle' } },
+    ])
     await server.shutdown()
     await ctx.fiber.dispose()
   })
@@ -521,7 +584,9 @@ describe('HarnessSdkJsonRpcServer', () => {
         contentBlocks: [{ type: 'text', text: 'hello' }],
       })
 
-      await vi.waitFor(() => { expect(llmServer.requests).toHaveLength(1) })
+      await vi.waitFor(() => {
+        expect(llmServer.requests).toHaveLength(1)
+      })
       await server.shutdown()
     } finally {
       await ctx.fiber.dispose()
@@ -555,19 +620,29 @@ describe('HarnessSdkJsonRpcServer', () => {
         agentOptions: { model: 'deepseek-official' },
         parentAgent: parentHandle.agent,
       })
-      await settleSubagent(ctx, parentHandle.agent, {
-        provider: 'spawn',
-        id: SessionId('child-session'),
-        localAgent: handle.agent,
-        stopReason: 'completed',
-        lastAssistantMessage: [{ type: 'text', text: 'child done' }],
-      }, () => handle.dispose())
-      await settleSubagent(ctx, parentHandle.agent, {
-        provider: 'spawn',
-        id: SessionId('parentless-child-session'),
-        localAgent: parentlessHandle.agent,
-        stopReason: 'error',
-      }, () => parentlessHandle.dispose())
+      await settleSubagent(
+        ctx,
+        parentHandle.agent,
+        {
+          provider: 'spawn',
+          id: SessionId('child-session'),
+          localAgent: handle.agent,
+          stopReason: 'completed',
+          lastAssistantMessage: [{ type: 'text', text: 'child done' }],
+        },
+        () => handle.dispose(),
+      )
+      await settleSubagent(
+        ctx,
+        parentHandle.agent,
+        {
+          provider: 'spawn',
+          id: SessionId('parentless-child-session'),
+          localAgent: parentlessHandle.agent,
+          stopReason: 'error',
+        },
+        () => parentlessHandle.dispose(),
+      )
 
       expect(transport.notifications).toContainEqual({
         method: 'subagent.finished',
@@ -626,10 +701,11 @@ describe('HarnessSdkJsonRpcServer', () => {
         lastAssistantMessage: [],
       })
 
-      expect(transport.notifications.some(notification =>
-        notification.method === 'subagent.finished'
-        && notification.params?.agentId === 'remote-run-id',
-      )).toBe(false)
+      expect(
+        transport.notifications.some(
+          notification => notification.method === 'subagent.finished' && notification.params?.agentId === 'remote-run-id',
+        ),
+      ).toBe(false)
 
       await collidingChild.dispose()
       await parentHandle.dispose()
@@ -665,18 +741,24 @@ describe('HarnessSdkJsonRpcServer', () => {
         stopReason: 'completed',
         lastAssistantMessage: [{ type: 'text', text: 'first' }],
       })
-      await settleSubagent(ctx, parentHandle.agent, {
-        provider: 'continuation',
-        id: SessionId('continuation-child'),
-        localAgent: childHandle.agent,
-        stopReason: 'completed',
-        lastAssistantMessage: [{ type: 'text', text: 'second' }],
-      }, () => childHandle.dispose())
+      await settleSubagent(
+        ctx,
+        parentHandle.agent,
+        {
+          provider: 'continuation',
+          id: SessionId('continuation-child'),
+          localAgent: childHandle.agent,
+          stopReason: 'completed',
+          lastAssistantMessage: [{ type: 'text', text: 'second' }],
+        },
+        () => childHandle.dispose(),
+      )
 
-      expect(transport.notifications.filter(notification =>
-        notification.method === 'subagent.finished'
-        && notification.params?.childSessionId === 'continuation-child',
-      )).toHaveLength(2)
+      expect(
+        transport.notifications.filter(
+          notification => notification.method === 'subagent.finished' && notification.params?.childSessionId === 'continuation-child',
+        ),
+      ).toHaveLength(2)
 
       await parentHandle.dispose()
       await server.shutdown()
@@ -711,7 +793,9 @@ describe('HarnessSdkJsonRpcServer', () => {
       const disposeProvider = ctx.subagents.registerProvider({
         name: 'reused',
         capabilities: {
-          agentOptions: false, agentPreset: false, outputSchema: false,
+          agentOptions: false,
+          agentPreset: false,
+          outputSchema: false,
           depthLimit: false,
         },
         inheritsParentContext: false,
@@ -723,16 +807,26 @@ describe('HarnessSdkJsonRpcServer', () => {
         },
       })
 
-      const firstRun = await startLifecycleFixture(ctx, 'reused', {
-        parent: oldParent.agent,
-        prompt: [],
-        signal: new AbortController().signal,
-      }, true)
-      const sameLifetimeRun = await startLifecycleFixture(ctx, 'reused', {
-        parent: oldParent.agent,
-        prompt: [],
-        signal: new AbortController().signal,
-      }, true)
+      const firstRun = await startLifecycleFixture(
+        ctx,
+        'reused',
+        {
+          parent: oldParent.agent,
+          prompt: [],
+          signal: new AbortController().signal,
+        },
+        true,
+      )
+      const sameLifetimeRun = await startLifecycleFixture(
+        ctx,
+        'reused',
+        {
+          parent: oldParent.agent,
+          prompt: [],
+          signal: new AbortController().signal,
+        },
+        true,
+      )
       sameLifetime.resolve({ output: [{ type: 'text', text: 'same lifetime' }], stopReason: 'completed' })
       await sameLifetimeRun.result
       await oldChild.dispose()
@@ -747,11 +841,16 @@ describe('HarnessSdkJsonRpcServer', () => {
         agentOptions: { model: 'deepseek-official' },
         parentAgent: newParent.agent,
       })
-      const secondRun = await startLifecycleFixture(ctx, 'reused', {
-        parent: newParent.agent,
-        prompt: [],
-        signal: new AbortController().signal,
-      }, true)
+      const secondRun = await startLifecycleFixture(
+        ctx,
+        'reused',
+        {
+          parent: newParent.agent,
+          prompt: [],
+          signal: new AbortController().signal,
+        },
+        true,
+      )
 
       replacement.resolve({ output: [{ type: 'text', text: 'new lifetime' }], stopReason: 'completed' })
       await secondRun.result
@@ -759,20 +858,15 @@ describe('HarnessSdkJsonRpcServer', () => {
       await firstRun.result
       await Promise.resolve()
 
-      const finished = transport.notifications.filter(notification =>
-        notification.method === 'subagent.finished'
-        && notification.params?.childSessionId === 'reused-child',
+      const finished = transport.notifications.filter(
+        notification => notification.method === 'subagent.finished' && notification.params?.childSessionId === 'reused-child',
       )
       expect(finished.map(notification => notification.params?.lastAssistantMessage)).toEqual([
         [{ type: 'text', text: 'same lifetime' }],
         [{ type: 'text', text: 'new lifetime' }],
         [{ type: 'text', text: 'old lifetime' }],
       ])
-      expect(finished.map(notification => notification.params?.parentSessionId)).toEqual([
-        'old-parent',
-        'new-parent',
-        'old-parent',
-      ])
+      expect(finished.map(notification => notification.params?.parentSessionId)).toEqual(['old-parent', 'new-parent', 'old-parent'])
 
       await firstRun.dispose()
       await sameLifetimeRun.dispose()
@@ -810,35 +904,46 @@ describe('HarnessSdkJsonRpcServer', () => {
       const unregisterLocal = ctx.subagents.registerProvider({
         name: 'reused-provider',
         capabilities: {
-          agentOptions: false, agentPreset: false, outputSchema: false,
+          agentOptions: false,
+          agentPreset: false,
+          outputSchema: false,
           depthLimit: false,
         },
         inheritsParentContext: false,
-        start: () => Promise.resolve({
-          id: SessionId('provider-reuse-child'),
-          result: localResult.promise,
-          dispose: () => Promise.resolve(),
-        }),
+        start: () =>
+          Promise.resolve({
+            id: SessionId('provider-reuse-child'),
+            result: localResult.promise,
+            dispose: () => Promise.resolve(),
+          }),
       })
-      const localRun = await startLifecycleFixture(ctx, 'reused-provider', {
-        parent: parent.agent,
-        prompt: [],
-        signal: new AbortController().signal,
-      }, true)
+      const localRun = await startLifecycleFixture(
+        ctx,
+        'reused-provider',
+        {
+          parent: parent.agent,
+          prompt: [],
+          signal: new AbortController().signal,
+        },
+        true,
+      )
       unregisterLocal()
 
       const unregisterRemote = ctx.subagents.registerProvider({
         name: 'reused-provider',
         capabilities: {
-          agentOptions: false, agentPreset: false, outputSchema: false,
+          agentOptions: false,
+          agentPreset: false,
+          outputSchema: false,
           depthLimit: false,
         },
         inheritsParentContext: false,
-        start: () => Promise.resolve({
-          id: SessionId('provider-reuse-child'),
-          result: remoteResult.promise,
-          dispose: () => Promise.resolve(),
-        }),
+        start: () =>
+          Promise.resolve({
+            id: SessionId('provider-reuse-child'),
+            result: remoteResult.promise,
+            dispose: () => Promise.resolve(),
+          }),
       })
       const remoteRun = await startLifecycleFixture(ctx, 'reused-provider', {
         parent: parent.agent,
@@ -849,30 +954,34 @@ describe('HarnessSdkJsonRpcServer', () => {
       remoteResult.resolve({ output: [{ type: 'text', text: 'remote' }], stopReason: 'completed' })
       await remoteRun.result
       await Promise.resolve()
-      expect(transport.notifications.some(notification =>
-        notification.method === 'subagent.finished'
-        && notification.params?.lastAssistantMessage !== undefined,
-      )).toBe(false)
+      expect(
+        transport.notifications.some(
+          notification => notification.method === 'subagent.finished' && notification.params?.lastAssistantMessage !== undefined,
+        ),
+      ).toBe(false)
 
       await child.dispose()
       localResult.resolve({ output: [{ type: 'text', text: 'local' }], stopReason: 'completed' })
       await localRun.result
       await Promise.resolve()
-      expect(transport.notifications.filter(notification =>
-        notification.method === 'subagent.finished'
-        && notification.params?.childSessionId === 'provider-reuse-child',
-      )).toEqual([{
-        method: 'subagent.finished',
-        params: {
-          provider: 'reused-provider',
-          agentId: 'provider-reuse-child',
-          parentSessionId: 'provider-reuse-parent',
-          childSessionId: 'provider-reuse-child',
-          status: 'ok',
-          stopReason: 'completed',
-          lastAssistantMessage: [{ type: 'text', text: 'local' }],
+      expect(
+        transport.notifications.filter(
+          notification => notification.method === 'subagent.finished' && notification.params?.childSessionId === 'provider-reuse-child',
+        ),
+      ).toEqual([
+        {
+          method: 'subagent.finished',
+          params: {
+            provider: 'reused-provider',
+            agentId: 'provider-reuse-child',
+            parentSessionId: 'provider-reuse-parent',
+            childSessionId: 'provider-reuse-child',
+            status: 'ok',
+            stopReason: 'completed',
+            lastAssistantMessage: [{ type: 'text', text: 'local' }],
+          },
         },
-      }])
+      ])
 
       await localRun.dispose()
       await remoteRun.dispose()
@@ -914,23 +1023,31 @@ describe('HarnessSdkJsonRpcServer', () => {
       const disposeMissedStartProvider = ctx.subagents.registerProvider({
         name: 'fork',
         capabilities: {
-          agentOptions: false, agentPreset: false, outputSchema: false,
+          agentOptions: false,
+          agentPreset: false,
+          outputSchema: false,
           depthLimit: false,
         },
         inheritsParentContext: true,
-        start: () => Promise.resolve({
-          id: SessionId('fallback-child-session'),
-          result: missedStartResult.promise,
-          dispose: () => Promise.resolve(),
-        }),
+        start: () =>
+          Promise.resolve({
+            id: SessionId('fallback-child-session'),
+            result: missedStartResult.promise,
+            dispose: () => Promise.resolve(),
+          }),
       })
       // Start before the server subscribes. The terminal payload still carries
       // this run's exact local child without reconstructing it from ids.
-      const missedStartRun = await startLifecycleFixture(ctx, 'fork', {
-        parent: parentHandle.agent,
-        prompt: [],
-        signal: new AbortController().signal,
-      }, true)
+      const missedStartRun = await startLifecycleFixture(
+        ctx,
+        'fork',
+        {
+          parent: parentHandle.agent,
+          prompt: [],
+          signal: new AbortController().signal,
+        },
+        true,
+      )
       const transport = new FakeTransport()
       const server = new HarnessSdkJsonRpcServer(ctx, transport, { maxTokensAsSuccess: true })
 
@@ -984,10 +1101,7 @@ describe('HarnessSdkJsonRpcServer', () => {
           stopReason: 'error',
         },
       })
-      expect(transport.notifications.some(n =>
-        n.method === 'subagent.finished'
-        && n.params?.agentId === 'missing-child-agent',
-      )).toBe(false)
+      expect(transport.notifications.some(n => n.method === 'subagent.finished' && n.params?.agentId === 'missing-child-agent')).toBe(false)
 
       await server.shutdown()
     } finally {
@@ -1012,7 +1126,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       expect(inspect.hasAdapterFor('missing-provider')).toBe(false)
       await server.initialize({ cwd: storageDir, provider: 'deepseek-official', model: 'preinstalled-model' })
 
-      expect(ctx.get('llm')?.listProviders().filter(provider => provider.id === 'deepseek-official')).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+      expect(
+        ctx
+          .get('llm')
+          ?.listProviders()
+          .filter(provider => provider.id === 'deepseek-official'),
+      ).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
       await server.shutdown()
     } finally {
       await ctx.fiber.dispose()
@@ -1028,12 +1147,11 @@ describe('HarnessSdkJsonRpcServer', () => {
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
-      await expect(server.initialize({ cwd: storageDir, provider: 'private', model: 'new-model' }))
-        .rejects.toThrow('no adapter registered for provider "private"')
+      await expect(server.initialize({ cwd: storageDir, provider: 'private', model: 'new-model' })).rejects.toThrow(
+        'no adapter registered for provider "private"',
+      )
 
-      expect(ctx.get('llm')?.listProviders()).toEqual([
-        { id: 'deepseek-official', name: 'DeepSeek' },
-      ])
+      expect(ctx.get('llm')?.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
       await server.shutdown()
     } finally {
       await ctx.fiber.dispose()
@@ -1043,17 +1161,19 @@ describe('HarnessSdkJsonRpcServer', () => {
 
   it.each([0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(
     'rejects invalid initialize maxTokens %s at the wire boundary',
-    async (maxTokens) => {
+    async maxTokens => {
       const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-invalid-max-tokens-'))
       const ctx = await makeHarness(storageDir)
       try {
         const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
-        await expect(server.initialize({
-          cwd: storageDir,
-          provider: 'deepseek-official',
-          model: 'model',
-          maxTokens,
-        })).rejects.toThrow('initialize maxTokens must be a positive safe integer')
+        await expect(
+          server.initialize({
+            cwd: storageDir,
+            provider: 'deepseek-official',
+            model: 'model',
+            maxTokens,
+          }),
+        ).rejects.toThrow('initialize maxTokens must be a positive safe integer')
         await server.shutdown()
       } finally {
         await ctx.fiber.dispose()
@@ -1067,12 +1187,14 @@ describe('HarnessSdkJsonRpcServer', () => {
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
     try {
       for (const reasoningEffort of ['', 42]) {
-        await expect(server.handleRequest('initialize', {
-          cwd: '.',
-          provider: 'deepseek-official',
-          model: 'model',
-          reasoningEffort,
-        })).rejects.toThrow('initialize reasoningEffort must be a non-empty string')
+        await expect(
+          server.handleRequest('initialize', {
+            cwd: '.',
+            provider: 'deepseek-official',
+            model: 'model',
+            reasoningEffort,
+          }),
+        ).rejects.toThrow('initialize reasoningEffort must be a non-empty string')
       }
       await server.shutdown()
     } finally {
@@ -1088,19 +1210,22 @@ describe('HarnessSdkJsonRpcServer', () => {
         return Promise.reject(new Error(`model unavailable: ${provider}/${model}`))
       }
 
-      async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+      async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         throw new Error('unreachable')
       }
     }
     const disposeAdapter = ctx.llm.registerAdapter(['private'], new RejectingAdapter())
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
-      await expect(server.initialize({ cwd: storageDir, provider: 'private', model: 'missing' }))
-        .rejects.toThrow('model unavailable: private/missing')
-      await expect(server.prompt({
-        sessionId: 'invalid-route',
-        contentBlocks: [{ type: 'text', text: 'must not run' }],
-      })).rejects.toThrow('SDK server is not initialized')
+      await expect(server.initialize({ cwd: storageDir, provider: 'private', model: 'missing' })).rejects.toThrow(
+        'model unavailable: private/missing',
+      )
+      await expect(
+        server.prompt({
+          sessionId: 'invalid-route',
+          contentBlocks: [{ type: 'text', text: 'must not run' }],
+        }),
+      ).rejects.toThrow('SDK server is not initialized')
       expect((server as unknown as { sessions: Map<string, unknown> }).sessions.size).toBe(0)
       await server.shutdown()
     } finally {
@@ -1122,7 +1247,7 @@ describe('HarnessSdkJsonRpcServer', () => {
         return resolution.promise
       }
 
-      async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+      async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
         throw new Error('unreachable')
       }
     }
@@ -1130,12 +1255,16 @@ describe('HarnessSdkJsonRpcServer', () => {
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
       const initialization = server.initialize({ cwd: storageDir, provider: 'private', model: 'selected' })
-      await vi.waitFor(() => { expect(resolveModelCalled).toBe(true) })
+      await vi.waitFor(() => {
+        expect(resolveModelCalled).toBe(true)
+      })
 
-      await expect(server.prompt({
-        sessionId: 'too-early',
-        contentBlocks: [{ type: 'text', text: 'must not run' }],
-      })).rejects.toThrow('SDK server is not initialized')
+      await expect(
+        server.prompt({
+          sessionId: 'too-early',
+          contentBlocks: [{ type: 'text', text: 'must not run' }],
+        }),
+      ).rejects.toThrow('SDK server is not initialized')
       expect((server as unknown as { sessions: Map<string, unknown> }).sessions.size).toBe(0)
 
       resolution.resolve(resolvedModel)
@@ -1155,12 +1284,14 @@ describe('HarnessSdkJsonRpcServer', () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
-      await expect(server.handleRequest('initialize', {
-        cwd: storageDir,
-        provider: 'deepseek-official',
-        model: 'deepseek-v4-flash',
-        reasoningEffort: 'impossible',
-      })).rejects.toThrow('does not support reasoning effort "impossible"')
+      await expect(
+        server.handleRequest('initialize', {
+          cwd: storageDir,
+          provider: 'deepseek-official',
+          model: 'deepseek-v4-flash',
+          reasoningEffort: 'impossible',
+        }),
+      ).rejects.toThrow('does not support reasoning effort "impossible"')
       expect((server as unknown as { sessions: Map<string, unknown> }).sessions.size).toBe(0)
       await server.shutdown()
     } finally {
@@ -1190,9 +1321,9 @@ describe('HarnessSdkJsonRpcServer', () => {
     try {
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
-      await expect(server.handleRequest('does/not/exist', {}))
-        .rejects
-        .toThrow('unknown DeepSeek Harness SDK runtime method: does/not/exist')
+      await expect(server.handleRequest('does/not/exist', {})).rejects.toThrow(
+        'unknown DeepSeek Harness SDK runtime method: does/not/exist',
+      )
 
       await server.shutdown()
     } finally {
@@ -1203,10 +1334,13 @@ describe('HarnessSdkJsonRpcServer', () => {
 
   it('coalesces concurrent session creation and retries a failed creation', async () => {
     let resolveShared: ((handle: AgentHandle) => void) | undefined
-    const sharedCreation = new Promise<AgentHandle>((resolve) => { resolveShared = resolve })
+    const sharedCreation = new Promise<AgentHandle>(resolve => {
+      resolveShared = resolve
+    })
     const sharedHandle = { agent: {} as Agent, dispose: vi.fn(() => Promise.resolve()) }
     const retryHandle = { agent: {} as Agent, dispose: vi.fn(() => Promise.resolve()) }
-    const create = vi.fn<(options: unknown) => Promise<AgentHandle>>()
+    const create = vi
+      .fn<(options: unknown) => Promise<AgentHandle>>()
       .mockReturnValueOnce(sharedCreation)
       .mockRejectedValueOnce(new Error('creation failed'))
       .mockResolvedValueOnce(retryHandle)
@@ -1241,9 +1375,12 @@ describe('HarnessSdkJsonRpcServer', () => {
     const ctx = new Context()
     await mountAgentLoopTestDependencies(ctx)
     await ctx.plugin(AgentLoop, { agents: [] })
-    ctx.llm.registerAdapter(['mock'], new MockAdapter([textResponse('answer')], {
-      efforts: [{ id: ReasoningEffortId('high'), name: 'High' }],
-    }))
+    ctx.llm.registerAdapter(
+      ['mock'],
+      new MockAdapter([textResponse('answer')], {
+        efforts: [{ id: ReasoningEffortId('high'), name: 'High' }],
+      }),
+    )
     const create = vi.spyOn(ctx.agents, 'create')
     const resolveCallConfig = vi.spyOn(ctx.llm, 'resolveCallConfig')
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
@@ -1258,15 +1395,17 @@ describe('HarnessSdkJsonRpcServer', () => {
         reasoningEffort: ReasoningEffortId('high'),
         maxTokens: 123,
       })
-      expect(create).toHaveBeenCalledWith(expect.objectContaining({
-        meta: { cwd: process.cwd() },
-        agentOptions: {
-          provider: 'mock',
-          model: 'model',
-          reasoningEffort: ReasoningEffortId('high'),
-          maxTokens: 123,
-        },
-      }))
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: { cwd: process.cwd() },
+          agentOptions: {
+            provider: 'mock',
+            model: 'model',
+            reasoningEffort: ReasoningEffortId('high'),
+            maxTokens: 123,
+          },
+        }),
+      )
     } finally {
       await server.shutdown()
       await ctx.fiber.dispose()
@@ -1274,7 +1413,9 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('settles every teardown and aggregates multiple failures', async () => {
-    const firstDispose = vi.fn(() => { throw new Error('first teardown failed') })
+    const firstDispose = vi.fn(() => {
+      throw new Error('first teardown failed')
+    })
     const secondDispose = vi.fn(() => Promise.reject(new Error('second teardown failed')))
     const ctx = {
       on: vi.fn(() => () => undefined),

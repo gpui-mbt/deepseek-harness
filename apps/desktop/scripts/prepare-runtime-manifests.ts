@@ -5,8 +5,7 @@ import { createRequire } from 'node:module'
 
 // electron-builder omits declarations for its internal manifest transformer.
 const { createTransformer } = createRequire(import.meta.url)('app-builder-lib/out/fileTransformer.js') as {
-  createTransformer: (root: string, config: object, extraMetadata: undefined) =>
-  (path: string) => Promise<string | undefined> | null
+  createTransformer: (root: string, config: object, extraMetadata: undefined) => (path: string) => Promise<string | undefined> | null
 }
 
 /**

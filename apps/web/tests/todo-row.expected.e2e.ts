@@ -13,7 +13,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { hasClass, installAssembledBootEnv, mountAssembledApp, REFRESHING_GOLDEN } from './assembled-boot.ts'
 
 const EXPECTED = join(process.cwd(), 'apps/web/tests/expected/todo-row/parallel-plan.expected.txt')
@@ -24,12 +24,11 @@ installAssembledBootEnv()
  *  title, its truncatable summary, its non-shrinking suffix, then the panel's
  *  per-status header and every list item with its status. */
 function todoShape(row: Element, panel: Element): string {
-  const pick = (from: Element, name: string): Element[] =>
-    [...from.querySelectorAll('*')].filter(el => hasClass(el, name))
-  const first = (from: Element, name: string): string =>
-    pick(from, name)[0]?.textContent?.trim() ?? '<absent>'
-  const items = [...panel.querySelectorAll('[data-status]')]
-    .map(item => `item=${item.getAttribute('data-status')} ${item.textContent?.trim() ?? ''}`)
+  const pick = (from: Element, name: string): Element[] => [...from.querySelectorAll('*')].filter(el => hasClass(el, name))
+  const first = (from: Element, name: string): string => pick(from, name)[0]?.textContent?.trim() ?? '<absent>'
+  const items = [...panel.querySelectorAll('[data-status]')].map(
+    item => `item=${item.getAttribute('data-status')} ${item.textContent?.trim() ?? ''}`,
+  )
   return [
     `row=${row.getAttribute('data-tool')}`,
     `title=${first(row, 'title')}`,
@@ -48,11 +47,14 @@ describe('assembled todo surfaces', () => {
     fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
     // The todo turn is the fixture's last, so wait for its keyed row rather
     // than for chat content in general.
-    const row = await waitFor(() => {
-      const found = document.querySelector('[data-tool="todo_write"]')
-      expect(found).not.toBeNull()
-      return found!
-    }, { timeout: 10_000 })
+    const row = await waitFor(
+      () => {
+        const found = document.querySelector('[data-tool="todo_write"]')
+        expect(found).not.toBeNull()
+        return found!
+      },
+      { timeout: 10_000 },
+    )
     // The panel is the standing plan the turn's `todo/write` event feeds; it
     // mounts above the composer, outside the row, and starts collapsed — its
     // list only exists once expanded.

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
 import { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
@@ -23,7 +23,6 @@ function start(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spe
   return x.execute({ ...spec, onExpiry: 'none' })
 }
 
-
 /**
  * Keyless macOS integration of the real provider and executor through public run/start paths.
  * Linux rungs are forced off so Seatbelt is selected. The tests check world effects and stamped
@@ -32,7 +31,10 @@ function start(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spe
  * `sandbox-exec` rejects the profile.
  */
 
-const probe = spawnSync('sandbox-exec', [...seatbeltProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], { timeout: 5_000, stdio: 'ignore' })
+const probe = spawnSync('sandbox-exec', [...seatbeltProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
+  timeout: 5_000,
+  stdio: 'ignore',
+})
 const seatbeltUsable = probe.status === 0
 
 let ctx: Context | undefined
@@ -96,21 +98,20 @@ describe.skipIf(!seatbeltUsable)('bash-sandbox: real Seatbelt confinement throug
     const hook = join(workdir, 'bash-env-hook.sh')
     const insideProbe = join(workdir, 'hook-ran.txt')
     const outsideProbe = join(outside, 'escaped.txt')
-    await writeFile(hook, [
-      'printf hook > "$DSH_BASH_ENV_INSIDE"',
-      'printf escaped > "$DSH_BASH_ENV_OUTSIDE"',
-      '',
-    ].join('\n'))
+    await writeFile(hook, ['printf hook > "$DSH_BASH_ENV_INSIDE"', 'printf escaped > "$DSH_BASH_ENV_OUTSIDE"', ''].join('\n'))
     const bash = await sandboxedBash(workdir, 'workspace-write')
 
-    await run(bash, bash.resolve({
-      command: 'true',
-      env: { BASH_ENV: hook },
-      dshEnv: {
-        DSH_BASH_ENV_INSIDE: insideProbe,
-        DSH_BASH_ENV_OUTSIDE: outsideProbe,
-      },
-    }))
+    await run(
+      bash,
+      bash.resolve({
+        command: 'true',
+        env: { BASH_ENV: hook },
+        dshEnv: {
+          DSH_BASH_ENV_INSIDE: insideProbe,
+          DSH_BASH_ENV_OUTSIDE: outsideProbe,
+        },
+      }),
+    )
 
     expect(readFileSync(insideProbe, 'utf8')).toBe('hook')
     expect(existsSync(outsideProbe)).toBe(false)
@@ -119,7 +120,7 @@ describe.skipIf(!seatbeltUsable)('bash-sandbox: real Seatbelt confinement throug
   it('classifies a background denial once the task settles', async () => {
     const workdir = await tempDir(homedir())
     const bash = await sandboxedBash(workdir, 'read-only')
-    const task = (await start(bash, bash.resolve({ command: `echo hi > ${workdir}/bg-denied.txt` })))
+    const task = await start(bash, bash.resolve({ command: `echo hi > ${workdir}/bg-denied.txt` }))
     await task.done
     expect(task.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
     expect(existsSync(join(workdir, 'bg-denied.txt'))).toBe(false)

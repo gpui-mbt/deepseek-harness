@@ -19,12 +19,18 @@ import { isPresentedData, isPresentedFile, PRESENT_OPEN_PATH, PRESENT_HOST_PATH,
  */
 export function registerPresentOpen(ctx: Context): void {
   ctx.connection.fetch.register({
-    path: PRESENT_HOST_PATH, methods: ['GET'], requestBody: 'buffered',
-    fetch: () => Promise.resolve(Response.json(ctx.sessionController.workspaceDesktop() satisfies PresentedHost,
-      { headers: { 'cache-control': 'no-store' } })),
+    path: PRESENT_HOST_PATH,
+    methods: ['GET'],
+    requestBody: 'buffered',
+    fetch: () =>
+      Promise.resolve(
+        Response.json(ctx.sessionController.workspaceDesktop() satisfies PresentedHost, { headers: { 'cache-control': 'no-store' } }),
+      ),
   })
   ctx.connection.fetch.register({
-    path: CHANGED_FILES_PATH, methods: ['GET'], requestBody: 'buffered',
+    path: CHANGED_FILES_PATH,
+    methods: ['GET'],
+    requestBody: 'buffered',
     fetch: request => Promise.resolve(handleChangesSummary(ctx, request)),
   })
   const lifetime = new AbortController()
@@ -34,19 +40,31 @@ export function registerPresentOpen(ctx: Context): void {
     await Promise.allSettled(pending)
   })
   const routes = [
-    [PRESENT_OPEN_PATH, ['GET', 'POST'], handlePresentOpen], [CHANGES_OPEN_PATH, ['GET', 'POST'], handleChangesOpen], [CHANGES_DIFF_PATH, ['GET'], handleChangesDiff],
+    [PRESENT_OPEN_PATH, ['GET', 'POST'], handlePresentOpen],
+    [CHANGES_OPEN_PATH, ['GET', 'POST'], handleChangesOpen],
+    [CHANGES_DIFF_PATH, ['GET'], handleChangesDiff],
   ] as const
   for (const [path, methods, handler] of routes) {
     ctx.connection.fetch.register({
       path,
       methods: [...methods],
       requestBody: 'buffered',
-      fetch: (request) => {
-        const task = handler(ctx, new Request(request, {
-          signal: AbortSignal.any([request.signal, lifetime.signal]),
-        }))
+      fetch: request => {
+        const task = handler(
+          ctx,
+          new Request(request, {
+            signal: AbortSignal.any([request.signal, lifetime.signal]),
+          }),
+        )
         pending.add(task)
-        void task.then(() => { pending.delete(task) }, () => { pending.delete(task) })
+        void task.then(
+          () => {
+            pending.delete(task)
+          },
+          () => {
+            pending.delete(task)
+          },
+        )
         return task
       },
     })
@@ -62,10 +80,16 @@ function coordinate(value: string | null): number | undefined {
 /** Translate lookup and filesystem failures into the not-found or failure status the browser retries from. */
 function failureStatus(error: unknown): number {
   const remote = remoteErrorOf(error)
-  const missing = remote?.code === 'session/not-found' || remote?.code === 'workspace-file/not-found'
-    || remote?.code === 'workspace-file/not-regular-file' || error instanceof Error && 'code' in error
-    && (error.code === 'SESSION_QUERY_SESSION_NOT_FOUND' || error.code === 'SESSION_QUERY_EVENT_NOT_FOUND'
-      || error.code === 'ENOENT' || error.code === 'ENOTDIR')
+  const missing =
+    remote?.code === 'session/not-found' ||
+    remote?.code === 'workspace-file/not-found' ||
+    remote?.code === 'workspace-file/not-regular-file' ||
+    (error instanceof Error &&
+      'code' in error &&
+      (error.code === 'SESSION_QUERY_SESSION_NOT_FOUND' ||
+        error.code === 'SESSION_QUERY_EVENT_NOT_FOUND' ||
+        error.code === 'ENOENT' ||
+        error.code === 'ENOTDIR'))
   return missing ? 404 : 500
 }
 
@@ -73,7 +97,12 @@ function failureStatus(error: unknown): number {
  * Read the addressed event once the Host desktop is known to be available.
  * @returns the event with its Session header, or the refusal to answer with.
  */
-async function readTarget(ctx: Context, request: Request, id: string, seq: number): Promise<Awaited<ReturnType<Context['sessionQuery']['readEvent']>> | Response> {
+async function readTarget(
+  ctx: Context,
+  request: Request,
+  id: string,
+  seq: number,
+): Promise<Awaited<ReturnType<Context['sessionQuery']['readEvent']>> | Response> {
   request.signal.throwIfAborted()
   if (!ctx.sessionController.workspaceDesktop().available) return new Response('Host desktop unavailable.', { status: 409 })
   return ctx.sessionQuery.readEvent({ sessionId: id as SessionId, seq: seq as SessionSeq, before: 0, after: 0 }, request.signal)
@@ -92,12 +121,15 @@ async function openVerified(ctx: Context, request: Request, path: string, action
   }
   request.signal.throwIfAborted()
   if (request.method === 'GET') {
-    return Response.json(await ctx.sessionController.workspacePathApplications({ path }, request.signal),
-      { headers: { 'cache-control': 'no-store' } })
+    return Response.json(await ctx.sessionController.workspacePathApplications({ path }, request.signal), {
+      headers: { 'cache-control': 'no-store' },
+    })
   }
   const application = new URL(request.url).searchParams.get('application')
-  await ctx.sessionController.openWorkspacePath({ path, ...(action === 'reveal' ? { action }
-    : application === null ? {} : { application }) }, request.signal)
+  await ctx.sessionController.openWorkspacePath(
+    { path, ...(action === 'reveal' ? { action } : application === null ? {} : { application }) },
+    request.signal,
+  )
   return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } })
 }
 
@@ -116,10 +148,14 @@ async function handlePresentOpen(ctx: Context, request: Request): Promise<Respon
     const file = target.type === 'deliverables/presented' && isPresentedData(target.data) ? target.data.files[index] : undefined
     if (!isPresentedFile(file)) return new Response('Presented file not found in this Session result.', { status: 404 })
     request.signal.throwIfAborted()
-    const { absolutePath: path } = await ctx.workspaceFiles.stat({
-      sessionId: id as SessionId,
-      workspaceRoot: session.cwd ?? ctx.sandboxPolicy.workspaceRoot,
-    }, file.path, request.signal)
+    const { absolutePath: path } = await ctx.workspaceFiles.stat(
+      {
+        sessionId: id as SessionId,
+        workspaceRoot: session.cwd ?? ctx.sandboxPolicy.workspaceRoot,
+      },
+      file.path,
+      request.signal,
+    )
     return await openVerified(ctx, request, path, action)
   } catch (error: unknown) {
     request.signal.throwIfAborted()

@@ -10,7 +10,7 @@
  * `ResizeObserver` does not exist.
  */
 import { useRef } from 'react'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { useAnchoredPosition } from '../src/useAnchoredPosition.ts'
 
@@ -32,17 +32,24 @@ interface Recorded {
  */
 function stubResizeObserver(): Recorded[] {
   const made: Recorded[] = []
-  vi.stubGlobal('ResizeObserver', class {
-    private readonly record: Recorded
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      private readonly record: Recorded
 
-    constructor(callback: ResizeObserverCallback) {
-      this.record = { callback, observed: [], disconnected: false }
-      made.push(this.record)
-    }
+      constructor(callback: ResizeObserverCallback) {
+        this.record = { callback, observed: [], disconnected: false }
+        made.push(this.record)
+      }
 
-    observe(element: Element) { this.record.observed.push(element) }
-    disconnect() { this.record.disconnected = true }
-  })
+      observe(element: Element) {
+        this.record.observed.push(element)
+      }
+      disconnect() {
+        this.record.disconnected = true
+      }
+    },
+  )
   return made
 }
 
@@ -54,17 +61,22 @@ function stubResizeObserver(): Recorded[] {
 function Host({ open, align }: { open: boolean; align?: 'start' | 'end' }) {
   const anchorRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const position = useAnchoredPosition({ open, anchorRef, panelRef, gap: 4, margin: 12, ...align === undefined ? {} : { align } })
+  const position = useAnchoredPosition({ open, anchorRef, panelRef, gap: 4, margin: 12, ...(align === undefined ? {} : { align }) })
   return (
     <>
-      <button ref={anchorRef} type="button">anchor</button>
+      <button ref={anchorRef} type="button">
+        anchor
+      </button>
       {open && <div ref={panelRef} data-testid="panel" style={position ?? { visibility: 'hidden' }} />}
     </>
   )
 }
 
 describe('useAnchoredPosition', () => {
-  it.each([{ fullscreen: false, top: 60 }, { fullscreen: true, top: 20 }])('keeps an anchored panel at $top with fullscreen=$fullscreen', ({ fullscreen, top }) => {
+  it.each([
+    { fullscreen: false, top: 60 },
+    { fullscreen: true, top: 20 },
+  ])('keeps an anchored panel at $top with fullscreen=$fullscreen', ({ fullscreen, top }) => {
     const root = document.documentElement
     const previous = root.getAttribute('style')
     const priorFullscreen = root.getAttribute('data-fullscreen')
@@ -84,7 +96,7 @@ describe('useAnchoredPosition', () => {
     expect(getByTestId('panel').style.top).toBe(`${top}px`)
   })
 
-  it('lines the panel up with the anchor\'s right edge when aligned to the end', () => {
+  it("lines the panel up with the anchor's right edge when aligned to the end", () => {
     // jsdom lays nothing out: the anchor's rect and the panel's width are stated, and the placement read back.
     const rect = { left: 100, right: 300, top: 10, bottom: 30, width: 200, height: 20, x: 100, y: 10, toJSON: () => ({}) } as DOMRect
     const anchorRect = vi.spyOn(HTMLButtonElement.prototype, 'getBoundingClientRect').mockReturnValue(rect)
@@ -125,7 +137,9 @@ describe('useAnchoredPosition', () => {
     // A status line appearing inside the panel, or a dragged textarea, changes
     // the height without a scroll or resize event; the observer is the only
     // thing that notices, so driving its callback must not throw.
-    expect(() => { before?.([], {} as ResizeObserver) }).not.toThrow()
+    expect(() => {
+      before?.([], {} as ResizeObserver)
+    }).not.toThrow()
   })
 
   it('still places the panel where ResizeObserver does not exist', () => {

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import { chromium, type Browser, type Page } from 'playwright'
 import WebSocket, { type RawData } from 'ws'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { startInspector, type InspectorHandle } from '../src/host/bridge/controller.ts'
 import { publishCordisTree } from '../src/shared/cordis/publisher.ts'
 
@@ -30,7 +30,7 @@ class BrowserTestCdpClient {
   private readonly waiters = new Set<() => void>()
 
   private constructor(private readonly socket: WebSocket) {
-    socket.on('message', (data) => {
+    socket.on('message', data => {
       const message = JSON.parse(rawText(data)) as CdpMessage
       if (message.id !== undefined) {
         this.pending.get(message.id)?.(message)
@@ -44,7 +44,9 @@ class BrowserTestCdpClient {
   static async connect(url: string): Promise<BrowserTestCdpClient> {
     const socket = new WebSocket(url)
     await new Promise<void>((resolve, reject) => {
-      socket.once('open', () => { resolve() })
+      socket.once('open', () => {
+        resolve()
+      })
       socket.once('error', reject)
     })
     return new BrowserTestCdpClient(socket)
@@ -57,7 +59,7 @@ class BrowserTestCdpClient {
         this.pending.delete(id)
         reject(new Error(`CDP call timed out: ${method}`))
       }, 5_000)
-      this.pending.set(id, (message) => {
+      this.pending.set(id, message => {
         clearTimeout(timer)
         this.pending.delete(id)
         resolve(message)
@@ -87,7 +89,11 @@ class BrowserTestCdpClient {
 
   async close(): Promise<void> {
     if (this.socket.readyState === WebSocket.CLOSED) return
-    const closed = new Promise<void>((resolve) => { this.socket.once('close', () => { resolve() }) })
+    const closed = new Promise<void>(resolve => {
+      this.socket.once('close', () => {
+        resolve()
+      })
+    })
     this.socket.close()
     await closed
   }
@@ -101,14 +107,21 @@ describe.skipIf(!built)('Inspector built Client in Chromium', () => {
   let cdp: BrowserTestCdpClient | undefined
 
   afterEach(async () => {
-    await page?.evaluate(() => {
-      const state = Reflect.get(globalThis, '__INSPECTOR_BROWSER_TEST__') as { dispose?: () => void } | undefined
-      state?.dispose?.()
-    }).catch(() => {})
+    await page
+      ?.evaluate(() => {
+        const state = Reflect.get(globalThis, '__INSPECTOR_BROWSER_TEST__') as { dispose?: () => void } | undefined
+        state?.dispose?.()
+      })
+      .catch(() => {})
     await cdp?.close()
     await browser?.close()
     await inspector?.close()
-    if (server !== undefined) await new Promise<void>((resolve) => { server!.close(() => { resolve() }) })
+    if (server !== undefined)
+      await new Promise<void>(resolve => {
+        server!.close(() => {
+          resolve()
+        })
+      })
     page = undefined
     cdp = undefined
     browser = undefined
@@ -116,12 +129,16 @@ describe.skipIf(!built)('Inspector built Client in Chromium', () => {
     server = undefined
   })
 
-  it('preserves Chrome node identities across recursive and shallower Cordis expansion', async (test) => {
+  it('preserves Chrome node identities across recursive and shallower Cordis expansion', async test => {
     const host = new Context()
-    test.onTestFinished(async () => { await host.fiber.dispose() })
+    test.onTestFinished(async () => {
+      await host.fiber.dispose()
+    })
     const outer = await host.plugin({
       name: 'browser-tree-outer',
-      apply(ctx: Context) { ctx.plugin({ name: 'browser-tree-inner', apply() {} }) },
+      apply(ctx: Context) {
+        ctx.plugin({ name: 'browser-tree-inner', apply() {} })
+      },
     })
     inspector = await startInspector({ port: 0, captureFetch: false, startupTimeoutMs: test.task.timeout })
     const stopObserving = publishCordisTree(host, inspector.source, { maxNodes: 100, maxBytes: 64 * 1024 })
@@ -129,7 +146,9 @@ describe.skipIf(!built)('Inspector built Client in Chromium', () => {
     browser = await chromium.launch({ executablePath: chromium.executablePath() })
     page = await browser.newPage()
     const errors: string[] = []
-    page.on('pageerror', (error) => { errors.push(error.message) })
+    page.on('pageerror', error => {
+      errors.push(error.message)
+    })
     await page.goto(inspector.endpoint.devtoolsFrontendUrl)
     await page.getByRole('treeitem').first().waitFor()
 
@@ -187,7 +206,11 @@ describe.skipIf(!built)('Inspector built Client in Chromium', () => {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
       response.end(browserFixture(inspector!.endpoint.client))
     })
-    await new Promise<void>((resolve) => { server!.listen(0, '127.0.0.1', () => { resolve() }) })
+    await new Promise<void>(resolve => {
+      server!.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
     const port = (server.address() as import('node:net').AddressInfo).port
 
     browser = await chromium.launch()
@@ -197,7 +220,7 @@ describe.skipIf(!built)('Inspector built Client in Chromium', () => {
 
     cdp = await BrowserTestCdpClient.connect(inspector.endpoint.webSocketDebuggerUrl)
     await cdp.call('Runtime.enable')
-    const contextEvent = await cdp.waitForEvent('Runtime.executionContextCreated', (event) => {
+    const contextEvent = await cdp.waitForEvent('Runtime.executionContextCreated', event => {
       const context = event.params?.context as Record<string, unknown> | undefined
       return String(context?.name).startsWith('Client —')
     })
@@ -232,43 +255,52 @@ describe.skipIf(!built)('Inspector built Client in Chromium', () => {
       const value = { browser: true, nested: { ready: true } }
       Reflect.set(globalThis, '__inspectorBrowserValue', value)
       console.log(value, 'browser-client-console')
-      setTimeout(() => { throw new Error('browser-client-exception') }, 0)
+      setTimeout(() => {
+        throw new Error('browser-client-exception')
+      }, 0)
     })
-    const consoleEvent = await cdp.waitForEvent('Runtime.consoleAPICalled', event =>
-      event.params?.executionContextId === contextId && hasArgument(event, 'browser-client-console'))
+    const consoleEvent = await cdp.waitForEvent(
+      'Runtime.consoleAPICalled',
+      event => event.params?.executionContextId === contextId && hasArgument(event, 'browser-client-console'),
+    )
     const args = consoleEvent.params?.args
     if (!Array.isArray(args)) throw new Error('Client Console event has no arguments')
-    expect((consoleEvent.params?.stackTrace as { callFrames?: unknown[] } | undefined)?.callFrames?.length)
-      .toBeGreaterThan(0)
+    expect((consoleEvent.params?.stackTrace as { callFrames?: unknown[] } | undefined)?.callFrames?.length).toBeGreaterThan(0)
     const objectId = asRecord(args[0]).objectId
     expect(String(objectId)).toMatch(/^runtime:/u)
     const properties = await cdp.call('Runtime.getProperties', { objectId, ownProperties: true })
     expect(propertyValue(properties, 'browser')).toBe(true)
-    const exception = await cdp.waitForEvent('Runtime.exceptionThrown', (event) => {
+    const exception = await cdp.waitForEvent('Runtime.exceptionThrown', event => {
       const details = event.params?.exceptionDetails as Record<string, unknown> | undefined
-      return details !== undefined
-        && details.executionContextId === contextId
-        && String((details.exception as Record<string, unknown> | undefined)?.description).includes('browser-client-exception')
+      return (
+        details !== undefined &&
+        details.executionContextId === contextId &&
+        String((details.exception as Record<string, unknown> | undefined)?.description).includes('browser-client-exception')
+      )
     })
     const exceptionDetails = exception.params?.exceptionDetails as Record<string, unknown>
-    expect((exceptionDetails.stackTrace as { callFrames?: unknown[] } | undefined)?.callFrames?.length)
-      .toBeGreaterThan(0)
+    expect((exceptionDetails.stackTrace as { callFrames?: unknown[] } | undefined)?.callFrames?.length).toBeGreaterThan(0)
 
     const enabled = await cdp.call('Debugger.enable')
     expect(enabled.error).toBeUndefined()
     expect(enabled.result?.debuggerId).toBeTypeOf('string')
     const script = await cdp.waitForEvent('Debugger.scriptParsed', event =>
-      String(event.params?.url).includes('/client.js?rev=browser-test'))
+      String(event.params?.url).includes('/client.js?rev=browser-test'),
+    )
     expect(script.params).toMatchObject({ executionContextId: contextId, buildId: '' })
     const scriptId = script.params?.scriptId
     const content = await cdp.call('Debugger.getScriptSource', { scriptId })
     expect(String(content.result?.scriptSource)).toContain('ClientInspectorSource')
-    expect((await cdp.call('Debugger.setBreakpointByUrl', {
-      url: script.params?.url,
-      lineNumber: 0,
-    })).error?.message).toContain('Client native debugging is unavailable')
+    expect(
+      (
+        await cdp.call('Debugger.setBreakpointByUrl', {
+          url: script.params?.url,
+          lineNumber: 0,
+        })
+      ).error?.message,
+    ).toContain('Client native debugging is unavailable')
 
-    const duplicateContext = cdp.waitForEvent('Runtime.executionContextCreated', (event) => {
+    const duplicateContext = cdp.waitForEvent('Runtime.executionContextCreated', event => {
       const candidate = event.params?.context as Record<string, unknown> | undefined
       return String(candidate?.name).startsWith('Client —') && candidate?.id !== contextId
     })
@@ -293,11 +325,13 @@ describe.skipIf(!built)('Inspector built Client in Chromium', () => {
 function browserFixture(bootstrap: InspectorHandle['endpoint']['client']): string {
   const boot = {
     rev: 'browser-test',
-    entries: [{
-      id: '@deepseek-ai/dsh-experimental-inspector',
-      url: '/client.js?rev=browser-test',
-      rev: 'browser-test',
-    }],
+    entries: [
+      {
+        id: '@deepseek-ai/dsh-experimental-inspector',
+        url: '/client.js?rev=browser-test',
+        rev: 'browser-test',
+      },
+    ],
   }
   return `<!doctype html>
 <title>Inspector Browser Client</title>

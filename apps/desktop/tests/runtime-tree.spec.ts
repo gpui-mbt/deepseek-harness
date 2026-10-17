@@ -1,7 +1,7 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { DESKTOP_HOST_PACKAGE, DESKTOP_HOST_RUNTIME_FILES } from '../src/core-package-set.ts'
 import { DESKTOP_RUNTIME_FILE, readDesktopRuntime, runtimePath, verifyDesktopRuntime } from '../src/runtime-tree.ts'
 import { runtimeFixture } from './runtime-fixture.ts'
@@ -13,7 +13,9 @@ function fixture(): string {
   runtimeFixture(join(root, 'dsh'))
   return root
 }
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
 
 it('verifies a runtime after relocation without depending on build paths', async () => {
   const root = fixture()
@@ -21,7 +23,7 @@ it('verifies a runtime after relocation without depending on build paths', async
   cpSync(join(root, 'dsh'), join(root, 'moved'), { recursive: true })
   expect(await verifyDesktopRuntime(join(root, 'moved'), '1.0.0')).toEqual(before)
 })
-it.each(['changed', 'same-size', 'extra', 'missing'])('checks %s runtime bytes only during build verification', async (operation) => {
+it.each(['changed', 'same-size', 'extra', 'missing'])('checks %s runtime bytes only during build verification', async operation => {
   const dsh = join(fixture(), 'dsh')
   const before = readDesktopRuntime(dsh)
   if (operation === 'changed') writeFileSync(join(dsh, 'package.json'), '{}')
@@ -46,7 +48,7 @@ it('reads file inventory records unchanged during startup', () => {
   writeFileSync(path, JSON.stringify(descriptor))
   expect(readDesktopRuntime(dsh).files).toEqual(descriptor.files)
 })
-it.each(['missing', 'directory'])('checks a %s Host entry only during build verification', async (operation) => {
+it.each(['missing', 'directory'])('checks a %s Host entry only during build verification', async operation => {
   const dsh = join(fixture(), 'dsh')
   const path = join(dsh, 'node_modules', DESKTOP_HOST_PACKAGE, DESKTOP_HOST_RUNTIME_FILES[0])
   rmSync(path)
@@ -67,7 +69,7 @@ it.each([
   { release: { hostProtocolVersion: 999 } },
   { release: { nodeVersion: 'invalid' } },
   { release: { pnpmVersion: 'invalid' } },
-])('checks release compatibility only during build verification: %j', async (patch) => {
+])('checks release compatibility only during build verification: %j', async patch => {
   const dsh = join(fixture(), 'dsh')
   const path = join(dsh, DESKTOP_RUNTIME_FILE)
   const original = readDesktopRuntime(dsh)
@@ -76,7 +78,7 @@ it.each([
   expect(readDesktopRuntime(dsh)).toEqual(descriptor)
   await expect(verifyDesktopRuntime(dsh, '1.0.0')).rejects.toThrow(/invalid|incompatible/u)
 })
-it.each(['missing', 'invalid-json', 'mismatched'])('checks %s shared manifests only during build verification', async (operation) => {
+it.each(['missing', 'invalid-json', 'mismatched'])('checks %s shared manifests only during build verification', async operation => {
   const dsh = join(fixture(), 'dsh')
   const before = readDesktopRuntime(dsh)
   const path = join(dsh, 'node_modules', DESKTOP_HOST_PACKAGE, 'package.json')
@@ -102,6 +104,6 @@ it('verifies recorded executable permissions only on Unix', async () => {
   if (process.platform === 'win32') await expect(verifyDesktopRuntime(dsh, '1.0.0')).resolves.toMatchObject(descriptor)
   else await expect(verifyDesktopRuntime(dsh, '1.0.0')).rejects.toThrow(/integrity/u)
 })
-it.each(['../outside', '/absolute', 'C:/absolute', 'a\\b', 'a//b', './a'])('rejects nonportable path %s', (path) => {
+it.each(['../outside', '/absolute', 'C:/absolute', 'a\\b', 'a//b', './a'])('rejects nonportable path %s', path => {
   expect(() => runtimePath('/runtime', path)).toThrow(/invalid relative path/u)
 })

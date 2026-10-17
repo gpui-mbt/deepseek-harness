@@ -1,6 +1,6 @@
 /** Schedule owns its record schema, so the creation-ordering integration runs here beside the storage it seeds. */
 import { setImmediate } from 'node:timers/promises'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -74,8 +74,15 @@ describe('due delivery during Agent creation', () => {
       await release.promise
       created = true
     })
-    ctx.on('agent/created', () => { laterCreated = true })
-    ctx.on('session/event', (_session, event) => { if (event.type === 'turn/start') { turns += 1; turn.resolve(undefined) } })
+    ctx.on('agent/created', () => {
+      laterCreated = true
+    })
+    ctx.on('session/event', (_session, event) => {
+      if (event.type === 'turn/start') {
+        turns += 1
+        turn.resolve(undefined)
+      }
+    })
     const creating = ctx.agents.create({ sessionId })
     try {
       await entered.promise

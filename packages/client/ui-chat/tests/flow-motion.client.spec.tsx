@@ -2,10 +2,17 @@
 /** Chat row motion with instance-owned geometry and a controlled transition clock. */
 import { act, cleanup, render } from '@testing-library/react'
 import { StrictMode, useRef } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite-plus/test'
 import {
-  createFlowMotion, hiddenOrCollapsing, motionEnabled, useFlowHidden, useMotionHidden,
-  type FlowMotion, type FlowMotionRows, type InputFoldBox, type InputFoldDriver,
+  createFlowMotion,
+  hiddenOrCollapsing,
+  motionEnabled,
+  useFlowHidden,
+  useMotionHidden,
+  type FlowMotion,
+  type FlowMotionRows,
+  type InputFoldBox,
+  type InputFoldDriver,
 } from '../src/client/chat/flow-motion.ts'
 
 const ownedRows = new Set<HTMLElement>()
@@ -83,7 +90,11 @@ interface HiddenRowProps {
 function PlainHiddenRow({ hidden, motion }: HiddenRowProps) {
   const ref = useRef<HTMLDivElement>(null)
   useMotionHidden(ref, hidden, motion)
-  return <div ref={ref} data-testid="motion-row">Process details</div>
+  return (
+    <div ref={ref} data-testid="motion-row">
+      Process details
+    </div>
+  )
 }
 
 function UnboundHiddenRow({ motion }: { motion: FlowMotionRows }) {
@@ -94,7 +105,11 @@ function UnboundHiddenRow({ motion }: { motion: FlowMotionRows }) {
 
 function SearchableHiddenRow({ hidden, onReveal, motion }: HiddenRowProps) {
   const ref = useFlowHidden(hidden, onReveal, motion)
-  return <div ref={ref} data-testid="motion-row">Process details</div>
+  return (
+    <div ref={ref} data-testid="motion-row">
+      Process details
+    </div>
+  )
 }
 
 describe('flow motion', () => {
@@ -104,7 +119,10 @@ describe('flow motion', () => {
     expect(motionEnabled(row)).toBe(false)
     scope.dataset.chatMotion = ''
     expect(motionEnabled(row)).toBe(true)
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true })),
+    )
     expect(motionEnabled(row)).toBe(false)
   })
 
@@ -123,8 +141,12 @@ describe('flow motion', () => {
   it('commits hidden state before idle notification and finishes only on its own height transition', async () => {
     const row = rowWithHeight(80)
     const child = rowWithHeight(20, row)
-    const done = vi.fn(() => { row.setAttribute('hidden', 'until-found') })
-    const idle = vi.fn(() => { expect(row.getAttribute('hidden')).toBe('until-found') })
+    const done = vi.fn(() => {
+      row.setAttribute('hidden', 'until-found')
+    })
+    const idle = vi.fn(() => {
+      expect(row.getAttribute('hidden')).toBe('until-found')
+    })
     motion.collapse(row, done)
     subscriptions.add(motion.onFoldIdle(idle))
     expect(motion.foldActive()).toBe(true)
@@ -224,7 +246,9 @@ describe('flow motion', () => {
     await Promise.resolve()
     expect(calls.begin).toHaveBeenCalledTimes(1)
     expect(calls.begin.mock.calls[0]?.[0].map(box => [box.element, box.height, box.closing])).toEqual([
-      [parent, 180, true], [sibling, 50, true], [opening, 30, false],
+      [parent, 180, true],
+      [sibling, 50, true],
+      [opening, 30, false],
     ])
     expect(motion.inputActive()).toBe(true)
   })
@@ -244,10 +268,19 @@ describe('flow motion', () => {
     const calls = batchDriver()
     const row = rowWithHeight(180)
     const order: string[] = []
-    const done = vi.fn(() => { order.push('hidden'); row.setAttribute('hidden', '') })
-    calls.finish.mockImplementation(() => { order.push('finish') })
+    const done = vi.fn(() => {
+      order.push('hidden')
+      row.setAttribute('hidden', '')
+    })
+    calls.finish.mockImplementation(() => {
+      order.push('finish')
+    })
     motion.collapse(row, done)
-    subscriptions.add(motion.onFoldIdle(() => { order.push('idle') }))
+    subscriptions.add(
+      motion.onFoldIdle(() => {
+        order.push('idle')
+      }),
+    )
     await Promise.resolve()
     vi.advanceTimersByTime(96)
     expect(row.style.translate).toBe('0 -20px')
@@ -406,7 +439,8 @@ describe('flow motion', () => {
     motion.collapse(closing, vi.fn())
     await Promise.resolve()
     expect(calls.begin.mock.calls[0]?.[0].map(box => [box.element, box.height, box.closing])).toEqual([
-      [opening, 75, false], [closing, 80, true],
+      [opening, 75, false],
+      [closing, 80, true],
     ])
     expect(opening.style.height).toBe('45px')
     vi.advanceTimersByTime(400)
@@ -449,7 +483,10 @@ describe('flow motion', () => {
   })
 
   it('finishes a batch synchronously under reduced motion', async () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true })),
+    )
     const calls = batchDriver()
     const row = rowWithHeight(180)
     const done = vi.fn()
@@ -501,7 +538,7 @@ describe('flow motion', () => {
     expectCleared(row)
   })
 
-  it.each(['transition', 'timeout', 'cancel'] as const)('clears reveal styles and detaches completion on %s', (finish) => {
+  it.each(['transition', 'timeout', 'cancel'] as const)('clears reveal styles and detaches completion on %s', finish => {
     const row = rowWithHeight(80)
     motion.reveal(row)
     expect(row.dataset.chatMotion).toBe('reveal')
@@ -547,16 +584,32 @@ describe('flow motion', () => {
   })
 
   it('keeps the original close clock when the reveal callback changes', async () => {
-    const view = render(<div data-chat-motion=""><SearchableHiddenRow motion={motion} hidden={false} onReveal={vi.fn()} /></div>)
+    const view = render(
+      <div data-chat-motion="">
+        <SearchableHiddenRow motion={motion} hidden={false} onReveal={vi.fn()} />
+      </div>,
+    )
     const row = view.getByTestId('motion-row')
     Object.defineProperty(row, 'offsetHeight', { value: 80 })
-    view.rerender(<div data-chat-motion=""><SearchableHiddenRow motion={motion} hidden onReveal={vi.fn()} /></div>)
+    view.rerender(
+      <div data-chat-motion="">
+        <SearchableHiddenRow motion={motion} hidden onReveal={vi.fn()} />
+      </div>,
+    )
     await Promise.resolve()
-    act(() => { vi.advanceTimersByTime(100) })
-    view.rerender(<div data-chat-motion=""><SearchableHiddenRow motion={motion} hidden onReveal={vi.fn()} /></div>)
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    view.rerender(
+      <div data-chat-motion="">
+        <SearchableHiddenRow motion={motion} hidden onReveal={vi.fn()} />
+      </div>,
+    )
     expect(changed.mock.calls).toEqual([[true]])
     expect(driver).toHaveBeenCalledTimes(1)
-    act(() => { vi.advanceTimersByTime(140) })
+    act(() => {
+      vi.advanceTimersByTime(140)
+    })
     expect(row.getAttribute('hidden')).toBe('until-found')
     expect(changed.mock.calls).toEqual([[true], [false]])
     expectCleared(row)
@@ -564,7 +617,13 @@ describe('flow motion', () => {
   })
 
   it('retains initially hidden content through StrictMode effect replay without starting motion', () => {
-    const view = render(<StrictMode><div data-chat-motion=""><PlainHiddenRow motion={motion} hidden onReveal={vi.fn()} /></div></StrictMode>)
+    const view = render(
+      <StrictMode>
+        <div data-chat-motion="">
+          <PlainHiddenRow motion={motion} hidden onReveal={vi.fn()} />
+        </div>
+      </StrictMode>,
+    )
     const row = view.getByTestId('motion-row')
     expect(row.getAttribute('hidden')).toBe('')
     expectCleared(row)
@@ -578,7 +637,11 @@ describe.each([
   { name: 'searchable hidden', Component: SearchableHiddenRow, hiddenValue: 'until-found' },
 ])('$name lifecycle', ({ Component, hiddenValue }) => {
   it('applies initial visibility without animating', () => {
-    const view = render(<div data-chat-motion=""><Component motion={motion} hidden onReveal={vi.fn()} /></div>)
+    const view = render(
+      <div data-chat-motion="">
+        <Component motion={motion} hidden onReveal={vi.fn()} />
+      </div>,
+    )
     const row = view.getByTestId('motion-row')
     expect(row.getAttribute('hidden')).toBe(hiddenValue)
     expectCleared(row)
@@ -586,14 +649,27 @@ describe.each([
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it.each([false, true])('hides before the next paint when reduced motion is %s', async (reduced) => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: reduced })))
+  it.each([false, true])('hides before the next paint when reduced motion is %s', async reduced => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: reduced })),
+    )
     const onReveal = vi.fn()
-    const view = render(<div data-chat-motion={reduced ? '' : undefined}><Component motion={motion} hidden={false} onReveal={onReveal} /></div>)
+    const view = render(
+      <div data-chat-motion={reduced ? '' : undefined}>
+        <Component motion={motion} hidden={false} onReveal={onReveal} />
+      </div>,
+    )
     const row = view.getByTestId('motion-row')
     Object.defineProperty(row, 'offsetHeight', { value: 80 })
-    view.rerender(<div data-chat-motion={reduced ? '' : undefined}><Component motion={motion} hidden onReveal={onReveal} /></div>)
-    await act(async () => { await Promise.resolve() })
+    view.rerender(
+      <div data-chat-motion={reduced ? '' : undefined}>
+        <Component motion={motion} hidden onReveal={onReveal} />
+      </div>,
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(row.getAttribute('hidden')).toBe(hiddenValue)
     expectCleared(row)
     expect(motion.foldActive()).toBe(false)
@@ -601,17 +677,27 @@ describe.each([
 
   it('cancels an unfinished collapse on unmount without delivering its hidden state', async () => {
     const onReveal = vi.fn()
-    const view = render(<div data-chat-motion=""><Component motion={motion} hidden={false} onReveal={onReveal} /></div>)
+    const view = render(
+      <div data-chat-motion="">
+        <Component motion={motion} hidden={false} onReveal={onReveal} />
+      </div>,
+    )
     const row = view.getByTestId('motion-row')
     Object.defineProperty(row, 'offsetHeight', { value: 80 })
-    view.rerender(<div data-chat-motion=""><Component motion={motion} hidden onReveal={onReveal} /></div>)
+    view.rerender(
+      <div data-chat-motion="">
+        <Component motion={motion} hidden onReveal={onReveal} />
+      </div>,
+    )
     expect(motion.foldActive()).toBe(true)
     view.unmount()
     expect(motion.foldActive()).toBe(false)
     expectCleared(row)
     await Promise.resolve()
     expect(driver).not.toHaveBeenCalled()
-    act(() => { vi.runAllTimers() })
+    act(() => {
+      vi.runAllTimers()
+    })
     transitionEnd(row, 'height')
     expect(row.hasAttribute('hidden')).toBe(false)
     expect(onReveal).not.toHaveBeenCalled()
@@ -619,14 +705,28 @@ describe.each([
 
   it('cancels a stale hide when the same row becomes visible again', () => {
     const onReveal = vi.fn()
-    const view = render(<div data-chat-motion=""><Component motion={motion} hidden={false} onReveal={onReveal} /></div>)
+    const view = render(
+      <div data-chat-motion="">
+        <Component motion={motion} hidden={false} onReveal={onReveal} />
+      </div>,
+    )
     const row = view.getByTestId('motion-row')
     Object.defineProperty(row, 'offsetHeight', { value: 80 })
-    view.rerender(<div data-chat-motion=""><Component motion={motion} hidden onReveal={onReveal} /></div>)
+    view.rerender(
+      <div data-chat-motion="">
+        <Component motion={motion} hidden onReveal={onReveal} />
+      </div>,
+    )
     expect(motion.foldActive()).toBe(true)
-    view.rerender(<div data-chat-motion=""><Component motion={motion} hidden={false} onReveal={onReveal} /></div>)
+    view.rerender(
+      <div data-chat-motion="">
+        <Component motion={motion} hidden={false} onReveal={onReveal} />
+      </div>,
+    )
     expect(motion.foldActive()).toBe(false)
-    act(() => { vi.runAllTimers() })
+    act(() => {
+      vi.runAllTimers()
+    })
     transitionEnd(row, 'height')
     expect(row.hasAttribute('hidden')).toBe(false)
     expectCleared(row)

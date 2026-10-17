@@ -43,13 +43,16 @@ function headlessCommand(): Command {
     .option('--json', 'write newline-delimited run events to stdout instead of the final message')
     .option('--session-id <id>', 'adopt the persisted Session with this id; an unknown id is an error')
     .argument('[task...]', 'the task text; multiple words are joined by spaces, and `-` reads stdin')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   dsh --profile headless "run the tests"          answer one task and exit
   echo "run the tests" | dsh --profile headless   read the task from stdin
   dsh --profile headless --json "run the tests"   emit machine-readable run events
   dsh --profile headless --session-id session-… "continue"   resume an existing Session
-`)
+`,
+    )
 }
 
 /**

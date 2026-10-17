@@ -17,10 +17,7 @@ export interface LinkOpeningRowInjected {
 }
 
 /** Full Settings-row props. */
-export type LinkOpeningRowProps =
-  PropsRuntime<'settings.general.item'>
-  & PropsLocale<'chat'>
-  & InjectFace<LinkOpeningRowInjected>
+export type LinkOpeningRowProps = PropsRuntime<'settings.general.item'> & PropsLocale<'chat'> & InjectFace<LinkOpeningRowInjected>
 
 /**
  * Render the link-opening destination selector.
@@ -41,7 +38,9 @@ export function LinkOpeningRow({ useLinkOpening, useBrowserAvailable, setLinkOpe
         { id: 'sidebar', label: t('settings.links.sidebar') },
         { id: 'new-tab', label: t('settings.links.newTab') },
       ]}
-      onSelect={(value) => { setLinkOpening(value as LinkOpening) }}
+      onSelect={value => {
+        setLinkOpening(value as LinkOpening)
+      }}
     />
   )
 }

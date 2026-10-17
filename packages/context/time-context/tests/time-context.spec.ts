@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { createUserMessage, ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
@@ -56,7 +56,9 @@ function sessionAgent(session: Session, id = 'agent'): Agent {
     send: () => {},
     followup: () => {},
     steer: () => {},
-    inject: () => { throw new Error('time-context must append directly to the open step') },
+    inject: () => {
+      throw new Error('time-context must append directly to the open step')
+    },
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
@@ -66,40 +68,33 @@ function sessionAgent(session: Session, id = 'agent'): Agent {
 
 function openMessageTurn(session: Session, turn: number, clientTimeZone?: string): void {
   session.append('turn/start', { turn })
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: `turn ${turn}` }],
-    source: clientTimeZone === undefined
-      ? { kind: 'user' }
-      : { kind: 'user', rpcId: `turn-${String(turn)}`, clientTimeZone } as never,
-  }), { surfaceOp: 'append' })
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: `turn ${turn}` }],
+      source: clientTimeZone === undefined ? { kind: 'user' } : ({ kind: 'user', rpcId: `turn-${String(turn)}`, clientTimeZone } as never),
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 function contextTexts(session: Session): string[] {
   const texts: string[] = []
   for (const event of session.snapshotEvents()) {
-    if (event.type === 'user/message'
-      && event.data.source.kind === 'time-context') {
+    if (event.type === 'user/message' && event.data.source.kind === 'time-context') {
       texts.push(event.data.content.find(block => block.type === 'text')?.text ?? '')
     }
   }
   return texts
 }
 
-async function fire(
-  ctx: Context,
-  agent: Agent,
-  turn: number,
-  step: number,
-  signal: AbortSignal = SIGNAL,
-): Promise<void> {
+async function fire(ctx: Context, agent: Agent, turn: number, step: number, signal: AbortSignal = SIGNAL): Promise<void> {
   const proposed = createUserMessage({
     content: [{ type: 'text', text: 'request proposal' }],
     source: { kind: 'time-context-test' },
   })
-  const decision = await agentEvents(ctx, agent).waterfall(
-    'agent/pre-step',
-    { messages: [proposed], turn, step, signal },
-    () => Promise.resolve({ kind: 'enter' as const, messages: [proposed] }),
+  const decision = await agentEvents(ctx, agent).waterfall('agent/pre-step', { messages: [proposed], turn, step, signal }, () =>
+    Promise.resolve({ kind: 'enter' as const, messages: [proposed] }),
   )
   if (decision.kind === 'enter') {
     for (const message of decision.messages) {
@@ -136,7 +131,7 @@ class ScriptedAdapter extends LlmAdapter {
     super()
   }
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     const chunks = this.script.shift()
     if (chunks === undefined) throw new Error('ScriptedAdapter: script exhausted')
@@ -171,9 +166,9 @@ describe('durable step context', () => {
     await fire(ctx, sessionAgent(session), 1, 1)
 
     expect(contextTexts(session)).toEqual([
-      'Time sampled while preparing turn 1, step 1: 2026-07-15T09:01:01+08:00[Asia/Shanghai]\n'
-      + 'Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone.\n'
-      + 'Elapsed since the preceding model-visible message: 1d 1h 1m 1s.',
+      'Time sampled while preparing turn 1, step 1: 2026-07-15T09:01:01+08:00[Asia/Shanghai]\n' +
+        'Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone.\n' +
+        'Elapsed since the preceding model-visible message: 1d 1h 1m 1s.',
     ])
     const event = session.snapshotEvents().at(-1)
     expect(event?.type).toBe('user/message')
@@ -184,12 +179,15 @@ describe('durable step context', () => {
     expect(event.data.source).toEqual({
       kind: 'time-context',
       form: 'snapshot',
-      sections: [{
-        name: 'time-context',
-        text: 'Time sampled while preparing turn 1, step 1: 2026-07-15T09:01:01+08:00[Asia/Shanghai]\n'
-          + 'Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone.\n'
-          + 'Elapsed since the preceding model-visible message: 1d 1h 1m 1s.',
-      }],
+      sections: [
+        {
+          name: 'time-context',
+          text:
+            'Time sampled while preparing turn 1, step 1: 2026-07-15T09:01:01+08:00[Asia/Shanghai]\n' +
+            'Browser time zone for this request: Asia/Shanghai. Interpret otherwise-unqualified dates and times in this zone.\n' +
+            'Elapsed since the preceding model-visible message: 1d 1h 1m 1s.',
+        },
+      ],
     })
     expect(event.surfaceOp).toBe('append')
   })
@@ -201,9 +199,7 @@ describe('durable step context', () => {
 
     await fire(ctx, sessionAgent(session), 1, 1)
 
-    expect(contextTexts(session)[0]).toContain(
-      'Elapsed since the preceding model-visible message: unavailable.',
-    )
+    expect(contextTexts(session)[0]).toContain('Elapsed since the preceding model-visible message: unavailable.')
   })
 
   it('uses the preceding durable step-context timestamp after step one with zero interval', async () => {
@@ -217,9 +213,9 @@ describe('durable step context', () => {
     await fire(ctx, agent, 3, 2)
 
     expect(contextTexts(session)[1]).toBe(
-      'Time sampled while preparing turn 3, step 2: 2026-07-14T00:01:01+00:00[UTC]\n'
-      + 'Browser time zone for this request: unavailable. Ask the user to clarify otherwise-unqualified dates and times.\n'
-      + 'Elapsed since the preceding step context: 1m 1s.',
+      'Time sampled while preparing turn 3, step 2: 2026-07-14T00:01:01+00:00[UTC]\n' +
+        'Browser time zone for this request: unavailable. Ask the user to clarify otherwise-unqualified dates and times.\n' +
+        'Elapsed since the preceding step context: 1m 1s.',
     )
   })
 
@@ -229,26 +225,30 @@ describe('durable step context', () => {
     openMessageTurn(resolved, 1, 'America/New_York')
     await fire(ctx, sessionAgent(resolved), 1, 1)
     expect(contextTexts(resolved)[0]).toContain(
-      '2026-07-13T20:00:00-04:00[America/New_York]\n'
-      + 'Browser time zone for this request: America/New_York. '
-      + 'Interpret otherwise-unqualified dates and times in this zone.',
+      '2026-07-13T20:00:00-04:00[America/New_York]\n' +
+        'Browser time zone for this request: America/New_York. ' +
+        'Interpret otherwise-unqualified dates and times in this zone.',
     )
 
     const mixed = Session.create(SessionId('browser-zone-mixed'))
     openMessageTurn(mixed, 1, 'Asia/Shanghai')
-    mixed.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'steering from another browser' }],
-      source: {
-        kind: 'user',
-        rpcId: 'mixed-steer',
-        clientTimeZone: 'America/New_York',
-      } as never,
-    }), { surfaceOp: 'append' })
+    mixed.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'steering from another browser' }],
+        source: {
+          kind: 'user',
+          rpcId: 'mixed-steer',
+          clientTimeZone: 'America/New_York',
+        } as never,
+      }),
+      { surfaceOp: 'append' },
+    )
     await fire(ctx, sessionAgent(mixed), 1, 1)
     expect(contextTexts(mixed)[0]).toContain(
-      '2026-07-14T00:00:00+00:00[UTC]\n'
-      + 'Browser time zone for this request: mixed ["America/New_York","Asia/Shanghai"]. '
-      + 'Ask the user to clarify otherwise-unqualified dates and times.',
+      '2026-07-14T00:00:00+00:00[UTC]\n' +
+        'Browser time zone for this request: mixed ["America/New_York","Asia/Shanghai"]. ' +
+        'Ask the user to clarify otherwise-unqualified dates and times.',
     )
   })
 
@@ -259,9 +259,7 @@ describe('durable step context', () => {
 
     await fire(ctx, sessionAgent(session), 4, 2)
 
-    expect(contextTexts(session)[0]).toContain(
-      'Elapsed since the preceding step context: unavailable.',
-    )
+    expect(contextTexts(session)[0]).toContain('Elapsed since the preceding step context: unavailable.')
   })
 
   it('reports an unavailable later-step baseline when event lookup is exhausted', async () => {
@@ -270,9 +268,7 @@ describe('durable step context', () => {
 
     await fire(ctx, sessionAgent(session), 1, 2)
 
-    expect(contextTexts(session)[0]).toContain(
-      'Elapsed since the preceding step context: unavailable.',
-    )
+    expect(contextTexts(session)[0]).toContain('Elapsed since the preceding step context: unavailable.')
   })
 
   it('injects after backward wall-clock movement and clamps elapsed time to zero', async () => {
@@ -300,13 +296,17 @@ describe('durable step context', () => {
     const user = original.snapshotEvents().find(event => event.type === 'user/message' && event.data.source.kind === 'user')
     const reading = original.snapshotEvents().find(event => event.type === 'user/message' && event.data.source.kind === 'time-context')
     if (user === undefined || reading === undefined) throw new Error('missing source surface events')
-    original.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'compacted history' }],
-      source: { kind: 'compaction-basic' },
-    }), {
-      surfaceOp: { op: 'replace', startSeq: user.seq, endSeq: reading.seq },
-      sourceEventSeqs: [user.seq, reading.seq],
-    })
+    original.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'compacted history' }],
+        source: { kind: 'compaction-basic' },
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: user.seq, endSeq: reading.seq },
+        sourceEventSeqs: [user.seq, reading.seq],
+      },
+    )
     original.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     expect(JSON.stringify(original.deriveMessages())).not.toContain('Time sampled while preparing')
 
@@ -325,9 +325,7 @@ describe('durable step context', () => {
     await fire(ctx, resumedAgent, 2, 2)
 
     expect(contextTexts(resumed)).toHaveLength(2)
-    expect(contextTexts(resumed)[1]).toContain(
-      'Elapsed since the preceding step context: unavailable.',
-    )
+    expect(contextTexts(resumed)[1]).toContain('Elapsed since the preceding step context: unavailable.')
   })
 
   it('applies a positive interval across turns without sharing state between sessions', async () => {
@@ -384,9 +382,7 @@ describe('configuration and lifecycle', () => {
     const invalid = new Context()
     await invalid.plugin(SessionProjectionRegistry)
     await invalid.plugin(AgentRegistry)
-    await expect(invalid.plugin(timeContext, { timeZone: 'Not/A_Real_Zone' })).rejects.toThrow(
-      /invalid IANA timeZone/,
-    )
+    await expect(invalid.plugin(timeContext, { timeZone: 'Not/A_Real_Zone' })).rejects.toThrow(/invalid IANA timeZone/)
 
     vi.spyOn(Intl, 'DateTimeFormat').mockImplementationOnce(() => {
       throw new RangeError('system zone unavailable')
@@ -400,9 +396,7 @@ describe('configuration and lifecycle', () => {
   it('rejects invalid refresh intervals at plugin load with one diagnostic', async () => {
     const invalid = [-1, 0.5, Number.MAX_SAFE_INTEGER + 1, Number.POSITIVE_INFINITY, Number.NaN]
     for (const refreshIntervalMs of invalid) {
-      await expect(mount({ refreshIntervalMs })).rejects.toThrow(
-        'time-context: refreshIntervalMs must be a non-negative safe integer',
-      )
+      await expect(mount({ refreshIntervalMs })).rejects.toThrow('time-context: refreshIntervalMs must be a non-negative safe integer')
     }
   })
 
@@ -425,10 +419,14 @@ describe('time-context projection fold edges', () => {
     const { ctx } = await mount()
     const session = Session.create(SessionId('same-turn'))
     session.append('turn/start', { turn: 1 })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'reading' }],
-      source: { kind: 'time-context' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'reading' }],
+        source: { kind: 'time-context' },
+      }),
+      { surfaceOp: 'append' },
+    )
     expect(typeof ctx.sessionProjections.stateOf(session, 'timeContext')?.lastTurnInjectionTime).toBe('number')
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     session.append('turn/start', { turn: 2 })
@@ -448,56 +446,58 @@ describe('time-context projection fold edges', () => {
 })
 
 describe('real agent-loop request history', () => {
-  it.each([
-    ['throws'],
-    ['cancels'],
-  ] as const)('does not commit a preparation reading when a downstream pre-step listener %s', async (mode) => {
-    const adapter = new ScriptedAdapter([textResponse('unused')])
-    const ctx = await loopHarness(adapter)
-    ctx.on('agent/pre-step', ({ agent: subject }, next) => {
-      if (mode === 'throws') throw new Error('later pre-step failure')
-      subject.cancel({ kind: 'user' })
-      return next()
-    })
-    const agent = await ctx.agentLoop.create(SessionId(`late-${mode}`), { provider: 'mock', model: 'mock' })
+  it.each([['throws'], ['cancels']] as const)(
+    'does not commit a preparation reading when a downstream pre-step listener %s',
+    async mode => {
+      const adapter = new ScriptedAdapter([textResponse('unused')])
+      const ctx = await loopHarness(adapter)
+      ctx.on('agent/pre-step', ({ agent: subject }, next) => {
+        if (mode === 'throws') throw new Error('later pre-step failure')
+        subject.cancel({ kind: 'user' })
+        return next()
+      })
+      const agent = await ctx.agentLoop.create(SessionId(`late-${mode}`), { provider: 'mock', model: 'mock' })
 
-    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'start' }], source: { kind: 'user' } }))
-    await agent.whenIdle()
+      agent.followup(createUserMessage({ content: [{ type: 'text', text: 'start' }], source: { kind: 'user' } }))
+      await agent.whenIdle()
 
-    expect(contextTexts(agent.session)).toHaveLength(0)
-    expect(adapter.requests).toHaveLength(0)
-    expect(agent.session.snapshotEvents().some(event => event.type === 'step/start')).toBe(false)
-    await ctx.fiber.dispose()
-  })
+      expect(contextTexts(agent.session)).toHaveLength(0)
+      expect(adapter.requests).toHaveLength(0)
+      expect(agent.session.snapshotEvents().some(event => event.type === 'step/start')).toBe(false)
+      await ctx.fiber.dispose()
+    },
+  )
 
   it('persists one ordered context per request, accumulates readings, and leaves system headers unchanged', async () => {
     const adapter = new ScriptedAdapter([toolCallResponse(), textResponse('done')])
     const ctx = await loopHarness(adapter, { refreshIntervalMs: 0 })
-    ctx.tools.register(defineContentToolFixture({
-      name: 'tick',
-      description: 'advance fake time',
-      parameters: {},
-      async execute() {
-        vi.setSystemTime(BASE + 61_000)
-        return [{ type: 'text' as const, text: 'advanced' }]
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'tick',
+        description: 'advance fake time',
+        parameters: {},
+        async execute() {
+          vi.setSystemTime(BASE + 61_000)
+          return [{ type: 'text' as const, text: 'advanced' }]
+        },
+      }),
+    )
     const agent = await ctx.agentLoop.create(SessionId('loop'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'start' }], source: { kind: 'user' } }))
     await agent.whenIdle()
 
     expect(adapter.requests).toHaveLength(2)
-    const contexts = agent.session.snapshotEvents().filter(
-      (event): event is SessionEvent<'user/message'> => event.type === 'user/message' && event.data.source.kind !== 'user')
+    const contexts = agent.session
+      .snapshotEvents()
+      .filter((event): event is SessionEvent<'user/message'> => event.type === 'user/message' && event.data.source.kind !== 'user')
     const starts = agent.session.snapshotEvents().filter(event => event.type === 'step/start')
     expect(contexts).toHaveLength(adapter.requests.length)
     expect(starts).toHaveLength(adapter.requests.length)
     for (let index = 0; index < contexts.length; index += 1) {
       expect(contexts[index]!.seq).toBeGreaterThan(starts[index]!.seq)
     }
-    expect(contexts.every(event => event.data.source.kind === 'time-context'
-      && event.surfaceOp === 'append')).toBe(true)
+    expect(contexts.every(event => event.data.source.kind === 'time-context' && event.surfaceOp === 'append')).toBe(true)
 
     const firstRequestText = requestText(adapter.requests[0]!)
     const secondRequestText = requestText(adapter.requests[1]!)

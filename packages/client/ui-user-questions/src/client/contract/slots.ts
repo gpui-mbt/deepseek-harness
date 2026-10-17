@@ -4,7 +4,10 @@ import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStor
 import type { ToolCallId } from '@deepseek-ai/dsh-llm/brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
-  AskUserQuestionAnswer, AskUserQuestionAnswerItem, AskUserQuestionItem, UserQuestionState,
+  AskUserQuestionAnswer,
+  AskUserQuestionAnswerItem,
+  AskUserQuestionItem,
+  UserQuestionState,
 } from '@deepseek-ai/dsh-user-questions/types'
 import type { createQuestionDraftStore } from '../draft-store.ts'
 
@@ -18,7 +21,11 @@ declare module '@deepseek-ai/dsh-client-ui-session/client' {
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /** Actions for the exact plan under review; approval remains with the question composer. */
-    'conversation.plan-review.actions': { kind: 'list'; scope: 'session'; owner: { review: PlanReview; requestKey: PendingQuestion['key'] } }
+    'conversation.plan-review.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: { review: PlanReview; requestKey: PendingQuestion['key'] }
+    }
     /**
      * Ambient lead seat at the top of the question card's header. The composer
      * takeover hides the composer bar, so a feature hanging context on the
@@ -45,9 +52,7 @@ function settlePendingComposer(settle: () => void, failureMessage: string): Prom
     settle()
     return Promise.resolve()
   } catch (error) {
-    return Promise.reject(error instanceof Error
-      ? error
-      : new Error(failureMessage, { cause: error }))
+    return Promise.reject(error instanceof Error ? error : new Error(failureMessage, { cause: error }))
   }
 }
 /* jscpd:ignore-end */
@@ -108,10 +113,10 @@ export function planReviewOf(questions: readonly QuestionItem[]): PlanReview | u
   }
 }
 
-
 /** Reload-unique prefix so an unnamed legacy card cannot reuse a persisted draft. */
-const unnamedQuestionPrefix = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),
-  byte => byte.toString(16).padStart(2, '0')).join('')
+const unnamedQuestionPrefix = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), byte =>
+  byte.toString(16).padStart(2, '0'),
+).join('')
 let nextQuestionKey = 0
 
 /** Rejection codes a Client returns through the waterfall; the wire preserves `name` and `code`. */
@@ -193,13 +198,27 @@ export function createWaterfallRequest(
     onSettle(channel)
   }
   const onAbort = (): void => {
-    finish(() => { completion.reject(questionError('ASK_ABORTED')) })
+    finish(() => {
+      completion.reject(questionError('ASK_ABORTED'))
+    })
   }
   const channel: QuestionWaterfallChannel = {
     deadline,
-    resolve: (answer) => { finish(() => { completion.resolve(answer) }) },
-    reject: (code) => { finish(() => { completion.reject(questionError(code)) }) },
-    delegate: () => { finish(() => { completion.reject(delegated) }) },
+    resolve: answer => {
+      finish(() => {
+        completion.resolve(answer)
+      })
+    },
+    reject: code => {
+      finish(() => {
+        completion.reject(questionError(code))
+      })
+    },
+    delegate: () => {
+      finish(() => {
+        completion.reject(delegated)
+      })
+    },
   }
   if (signal !== undefined) {
     signal.addEventListener('abort', onAbort, { once: true })
@@ -295,9 +314,8 @@ export class PendingQuestion {
     this.dismissal = callId === undefined ? 'cancel' : 'hide'
     this.#siblings = siblings
     if (callId === undefined) nextQuestionKey += 1
-    this.key = callId === undefined
-      ? `question:${unnamedQuestionPrefix}:${String(nextQuestionKey)}`
-      : PendingQuestion.keyOf(sessionId, callId)
+    this.key =
+      callId === undefined ? `question:${unnamedQuestionPrefix}:${String(nextQuestionKey)}` : PendingQuestion.keyOf(sessionId, callId)
     this.#snapshot = this.createSnapshot()
   }
 
@@ -324,7 +342,9 @@ export class PendingQuestion {
   /** Subscribe to card state changes. */
   readonly subscribe = (listener: () => void): (() => void) => {
     this.#listeners.add(listener)
-    return () => { this.#listeners.delete(listener) }
+    return () => {
+      this.#listeners.delete(listener)
+    }
   }
 
   /** Read the stable current card state. */
@@ -334,24 +354,25 @@ export class PendingQuestion {
   readonly getSnapshot = this.snapshot
 
   private createSnapshot(): QuestionCardSnapshot {
-    const channel = this.#waterfall !== undefined
-      ? 'waterfall'
-      : this.#state === 'continued' && this.#rpc !== undefined ? 'rpc' : 'none'
-    const waitState = this.#state === 'continued'
-      ? 'continued'
-      : this.#held ? 'waiting'
-        : this.#engaged ? 'editing'
-          : this.#focused ? 'focused' : 'counting'
+    const channel = this.#waterfall !== undefined ? 'waterfall' : this.#state === 'continued' && this.#rpc !== undefined ? 'rpc' : 'none'
+    const waitState =
+      this.#state === 'continued'
+        ? 'continued'
+        : this.#held
+          ? 'waiting'
+          : this.#engaged
+            ? 'editing'
+            : this.#focused
+              ? 'focused'
+              : 'counting'
     return {
       state: this.#state,
       waitState,
       countdown: this.#timedWait
         ? {
-          remainingMs: this.#deadline === undefined
-            ? this.#remainingMs ?? 0
-            : Math.max(0, this.#deadline - Date.now()),
-          running: this.#deadline !== undefined,
-        }
+            remainingMs: this.#deadline === undefined ? (this.#remainingMs ?? 0) : Math.max(0, this.#deadline - Date.now()),
+            running: this.#deadline !== undefined,
+          }
         : undefined,
       channel,
       closed: this.#closed,
@@ -377,7 +398,9 @@ export class PendingQuestion {
       this.#timer = undefined
       return
     }
-    this.#timer = setInterval(() => { this.#tick() }, 1000)
+    this.#timer = setInterval(() => {
+      this.#tick()
+    }, 1000)
   }
 
   #tick(): void {
@@ -536,11 +559,13 @@ export class PendingQuestion {
   answer(answer: QuestionAnswer): Promise<void> {
     const waterfall = this.#waterfall
     if (waterfall !== undefined) {
-      return settlePendingComposer(() => { waterfall.resolve(answer) }, 'pending question settlement failed')
+      return settlePendingComposer(() => {
+        waterfall.resolve(answer)
+      }, 'pending question settlement failed')
     }
     const rpc = this.#rpc
     if (this.#state === 'continued' && rpc !== undefined) {
-      return rpc.answer(answer).then((accepted) => {
+      return rpc.answer(answer).then(accepted => {
         if (!accepted) throw new Error('this question is no longer answerable')
       })
     }
@@ -555,11 +580,15 @@ export class PendingQuestion {
    */
   dismiss(): Promise<void> {
     if (this.dismissal === 'hide') {
-      return settlePendingComposer(() => { this.#seat?.hide() }, 'pending question hide failed')
+      return settlePendingComposer(() => {
+        this.#seat?.hide()
+      }, 'pending question hide failed')
     }
     const waterfall = this.#waterfall
     if (waterfall === undefined) return Promise.reject(new Error('no channel accepts a cancellation yet'))
-    return settlePendingComposer(() => { waterfall.reject('ASK_CANCELLED') }, 'pending question cancellation failed')
+    return settlePendingComposer(() => {
+      waterfall.reject('ASK_CANCELLED')
+    }, 'pending question cancellation failed')
   }
 }
 
@@ -573,10 +602,9 @@ export type QuestionWait = PendingQuestion
  * standard locale seat; the carrier plus the domain face above carry the
  * whole behavior surface.
  */
-export type QuestionComposerProps =
-  PropsRuntime<'conversation.composer'>
-  & PropsStore<ReturnType<typeof createQuestionDraftStore>>
-  & PropsRenderSlots<'conversation.plan-review.actions' | 'conversation.question.header.lead'>
-  & InjectFace<{ keyedHooks: { questionCard: (key: string) => PendingQuestion | undefined } }>
-  & { matched: QuestionWait }
-  & PropsLocale<'question'>
+export type QuestionComposerProps = PropsRuntime<'conversation.composer'> &
+  PropsStore<ReturnType<typeof createQuestionDraftStore>> &
+  PropsRenderSlots<'conversation.plan-review.actions' | 'conversation.question.header.lead'> &
+  InjectFace<{ keyedHooks: { questionCard: (key: string) => PendingQuestion | undefined } }> & {
+    matched: QuestionWait
+  } & PropsLocale<'question'>

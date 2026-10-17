@@ -51,15 +51,13 @@ function expectedFailure(error: ManualCompactionError): CommandResult {
         text: 'Compaction finished, but the session could not be saved.',
       }
     /* v8 ignore next 2 -- ManualCompactionErrorCode is closed and every member is handled above */
-    default: return assertNever(error.code)
+    default:
+      return assertNever(error.code)
   }
 }
 
 /** Execute one argument-free manual compaction request. */
-async function executeCompact(
-  ctx: Context,
-  invocation: CommandInvocation,
-): Promise<CommandResult> {
+async function executeCompact(ctx: Context, invocation: CommandInvocation): Promise<CommandResult> {
   if (invocation.rawInput.trim().length > 0) {
     return { kind: 'error', text: USAGE }
   }
@@ -87,7 +85,9 @@ export function apply(ctx: Context): void {
   const handler = (invocation: CommandInvocation): Promise<CommandResult> => {
     const operation = executeCompact(ctx, invocation)
     active.add(operation)
-    const retire = (): void => { active.delete(operation) }
+    const retire = (): void => {
+      active.delete(operation)
+    }
     // Both branches retire without rethrowing, so the derived observer promise
     // cannot become an unhandled mirror of an expected handler rejection.
     void operation.then(retire, retire)
@@ -97,7 +97,9 @@ export function apply(ctx: Context): void {
   ctx.effect(function* () {
     // Yield drain before registration: composite teardown is LIFO, so no new
     // invocation can enter while already-started handler promises quiesce.
-    yield async () => { await Promise.allSettled(active) }
+    yield async () => {
+      await Promise.allSettled(active)
+    }
     yield ctx.commands.register({
       definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-compact'),
       name: 'compact',

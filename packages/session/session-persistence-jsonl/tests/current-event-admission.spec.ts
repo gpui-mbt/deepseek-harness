@@ -4,7 +4,7 @@ import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-j
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { generationLogPath, scanLog } from '../src/format.ts'
 
 const id = SessionId('current-admission')
@@ -15,7 +15,9 @@ const obsoleteTypes = ['tool/code-dispatch-start', 'tool/code-dispatch'] as cons
 
 function obsoleteEvent(type: string, ignorable?: true) {
   return {
-    type, seq: 1, time: 2,
+    type,
+    seq: 1,
+    time: 2,
     data: { rootCallId: 'root', parentCallId: 'root', subCallId: 'child', name: 'read', arguments: {} },
     ...(ignorable ? { ignorable } : {}),
   }
@@ -46,29 +48,32 @@ describe('current event admission at EOF', () => {
     return path
   }
 
-  it.each([{ surfaceOp: 'append' }, { sourceEventSeqs: [] }])('refuses unknown required metadata %j without truncating a provider append', async (metadata) => {
-    const event = { type: 'future/required', seq: 0, time: 1, data: {}, ...metadata }
-    const bytes = Buffer.from([header, event].map(row => JSON.stringify(row)).join('\n') + '\n')
-    expect(scanLog(bytes)).toMatchObject({ events: [event], committedBytes: bytes.length })
-    const path = await store(bytes)
-    const sourceStat = await stat(path)
-    for (const access of ['read', 'write'] as const) {
-      const operation = async () => {
-        const handle = await ctx.sessionPersistence.open(id, access)
-        try {
-          if (access === 'read') await handle.read()
-          else await handle.append([{ type: 'turn/start', seq: SessionSeq(1), time: 2, data: { turn: 1 } }])
-        } finally {
-          await handle.close()
+  it.each([{ surfaceOp: 'append' }, { sourceEventSeqs: [] }])(
+    'refuses unknown required metadata %j without truncating a provider append',
+    async metadata => {
+      const event = { type: 'future/required', seq: 0, time: 1, data: {}, ...metadata }
+      const bytes = Buffer.from([header, event].map(row => JSON.stringify(row)).join('\n') + '\n')
+      expect(scanLog(bytes)).toMatchObject({ events: [event], committedBytes: bytes.length })
+      const path = await store(bytes)
+      const sourceStat = await stat(path)
+      for (const access of ['read', 'write'] as const) {
+        const operation = async () => {
+          const handle = await ctx.sessionPersistence.open(id, access)
+          try {
+            if (access === 'read') await handle.read()
+            else await handle.append([{ type: 'turn/start', seq: SessionSeq(1), time: 2, data: { turn: 1 } }])
+          } finally {
+            await handle.close()
+          }
         }
+        await expect(operation()).rejects.toThrow('unknown to this harness and not marked ignorable')
+        expect(await readFile(path)).toEqual(bytes)
+        expect(await stat(path)).toMatchObject({ dev: sourceStat.dev, ino: sourceStat.ino })
       }
-      await expect(operation()).rejects.toThrow('unknown to this harness and not marked ignorable')
-      expect(await readFile(path)).toEqual(bytes)
-      expect(await stat(path)).toMatchObject({ dev: sourceStat.dev, ino: sourceStat.ino })
-    }
-  })
+    },
+  )
 
-  it.each(obsoleteTypes)('retains ignorable %s through scanning and a provider append', async (type) => {
+  it.each(obsoleteTypes)('retains ignorable %s through scanning and a provider append', async type => {
     const event = obsoleteEvent(type, true)
     const bytes = Buffer.from(prefix + JSON.stringify(event) + '\n')
     expect(scanLog(bytes)).toMatchObject({ events: [start, event], committedBytes: bytes.length })
@@ -76,13 +81,17 @@ describe('current event admission at EOF', () => {
     const writer = await ctx.sessionPersistence.open(id, 'write')
     try {
       expect((await writer.read()).events).toEqual([start, event])
-      await writer.append([{
-        type: 'turn/end', seq: SessionSeq(2), time: 3, data: { turn: 1, reason: { kind: 'completed' } },
-      }])
+      await writer.append([
+        {
+          type: 'turn/end',
+          seq: SessionSeq(2),
+          time: 3,
+          data: { turn: 1, reason: { kind: 'completed' } },
+        },
+      ])
     } finally {
       await writer.close()
     }
     expect((await readFile(path)).subarray(0, bytes.length)).toEqual(bytes)
   })
-
 })

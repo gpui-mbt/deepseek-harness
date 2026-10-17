@@ -81,7 +81,11 @@ export class DirectoryPickerError extends Error {
    * @param path - the absolute path the failure is about.
    * @param message - operator-facing description.
    */
-  constructor(readonly code: DirectoryPickerErrorCode, readonly path: string, message: string) {
+  constructor(
+    readonly code: DirectoryPickerErrorCode,
+    readonly path: string,
+    message: string,
+  ) {
     super(message)
     this.name = 'DirectoryPickerError'
   }

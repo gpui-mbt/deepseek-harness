@@ -21,11 +21,7 @@ import { FsError } from '@deepseek-ai/dsh-fs'
 export function remediateFsError(error: unknown, displayPath: string): unknown {
   if (!(error instanceof FsError)) return error
   if (error.code === 'FS_NOT_OBSERVED') {
-    return new FsError(
-      `cannot modify "${displayPath}": file has not been read — read the file, then retry`,
-      error.code,
-      { cause: error },
-    )
+    return new FsError(`cannot modify "${displayPath}": file has not been read — read the file, then retry`, error.code, { cause: error })
   }
   if (error.code === 'FS_STALE_VERSION') {
     return new FsError(`${error.message} — re-read the file, then retry`, error.code, { cause: error })

@@ -49,7 +49,7 @@ export function configLedgerSource(ctx: ClientContext): HostObservable<ConfigLed
   let revision = -1
   let ledger: ConfigLedger = { items: [], bundles: new Set(), rows: new Set() }
   const keysOf = (name: 'plugins.bundle.config' | 'plugins.row.config'): ReadonlySet<string> =>
-    new Set(ctx.slots.entries(name).flatMap(entry => entry.options.key === undefined ? [] : [entry.options.key]))
+    new Set(ctx.slots.entries(name).flatMap(entry => (entry.options.key === undefined ? [] : [entry.options.key])))
   return {
     getSnapshot: () => {
       const next = SLOTS.map(name => ctx.slots.getVersion(name))
@@ -69,9 +69,11 @@ export function configLedgerSource(ctx: ClientContext): HostObservable<ConfigLed
       }
       return ledger
     },
-    subscribe: (listener) => {
+    subscribe: listener => {
       const offs = [...SLOTS.map(name => ctx.slots.subscribe(name, listener)), ctx.locale.subscribe(listener)]
-      return () => { for (const off of offs) off() }
+      return () => {
+        for (const off of offs) off()
+      }
     },
   }
 }

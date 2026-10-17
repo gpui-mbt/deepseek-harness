@@ -1,6 +1,18 @@
 /** Command contributions and immutable catalog values. */
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { BindingIssue, NormalizedBinding, ShortcutConfigSnapshot, ShortcutEdit, ShortcutRevision, ShortcutSaveResult, ShortcutBinding, ShortcutCommandId, ShortcutPlatform, ShortcutProfile, ShortcutRuntime } from '../protocol.ts'
+import type {
+  BindingIssue,
+  NormalizedBinding,
+  ShortcutConfigSnapshot,
+  ShortcutEdit,
+  ShortcutRevision,
+  ShortcutSaveResult,
+  ShortcutBinding,
+  ShortcutCommandId,
+  ShortcutPlatform,
+  ShortcutProfile,
+  ShortcutRuntime,
+} from '../protocol.ts'
 
 /** Local input owner resolved before an application command. */
 export type ShortcutRegion = 'page' | 'editable' | 'terminal'
@@ -13,9 +25,7 @@ export interface ShortcutContext {
   readonly target: Element | null
 }
 /** A resolved action captures its target; failures remain the owner's responsibility. */
-export type ShortcutResolution = { status: 'handled'; run(): void }
-  | { status: 'blocked'; reason: string }
-  | { status: 'pass' }
+export type ShortcutResolution = { status: 'handled'; run(): void } | { status: 'blocked'; reason: string } | { status: 'pass' }
 /** One command's labels, defaults, input ownership, and target resolver. */
 export interface ShortcutCommand {
   readonly id: ShortcutCommandId
@@ -56,12 +66,14 @@ export interface ShortcutGesture {
   readonly defaultPrevented: boolean
 }
 /** Local fixed input delivered after controls, or a sequence-invalidating interaction. */
-export type ShortcutFixedInput = {
-  readonly type: 'keydown'
-  readonly gesture: ShortcutGesture
-  readonly context: ShortcutContext
-  consume(): void
-} | { readonly type: 'reset' }
+export type ShortcutFixedInput =
+  | {
+      readonly type: 'keydown'
+      readonly gesture: ShortcutGesture
+      readonly context: ShortcutContext
+      consume(): void
+    }
+  | { readonly type: 'reset' }
 /** Read-only input action contributed while its owning feature is mounted. */
 export interface ShortcutFixedCommand {
   readonly id: ShortcutCommandId

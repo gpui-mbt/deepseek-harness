@@ -1,7 +1,7 @@
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { canExecute, hasLinuxChooserBinary } from '../src/probe.ts'
 import { resolveDirectoryPickerBackend } from '../src/resolve.ts'
 import type { DirectoryPickerHostFacts } from '../src/resolve.ts'
@@ -28,7 +28,6 @@ describe('resolveDirectoryPickerBackend', () => {
     expect(resolveDirectoryPickerBackend({ ...attended, bindHost: 'fd00::1' })).toBe('browse')
   })
 
-
   it('resolves browse when the trust policy admits a remote authority, even on an attended loopback host', () => {
     expect(resolveDirectoryPickerBackend({ ...attended, allowsRemoteAuthorities: true })).toBe('browse')
   })
@@ -51,9 +50,14 @@ describe('resolveDirectoryPickerBackend', () => {
   })
 
   it('treats blank env exports as unset', () => {
-    expect(resolveDirectoryPickerBackend({
-      ...attended, platform: 'linux', linuxChooser: true, env: { DISPLAY: '', WAYLAND_DISPLAY: '' },
-    })).toBe('browse')
+    expect(
+      resolveDirectoryPickerBackend({
+        ...attended,
+        platform: 'linux',
+        linuxChooser: true,
+        env: { DISPLAY: '', WAYLAND_DISPLAY: '' },
+      }),
+    ).toBe('browse')
   })
 })
 
@@ -68,14 +72,16 @@ describe('hasLinuxChooserBinary', () => {
   it('finds a chooser binary in any PATH segment, skipping empty segments', () => {
     const seen: string[] = []
     const path = ['', '/opt/none', '/usr/local/bin'].join(delimiter)
-    const found = hasLinuxChooserBinary(path, (candidate) => {
+    const found = hasLinuxChooserBinary(path, candidate => {
       seen.push(candidate)
       return candidate === join('/usr/local/bin', 'kdialog')
     })
     expect(found).toBe(true)
     expect(seen).toEqual([
-      join('/opt/none', 'zenity'), join('/opt/none', 'kdialog'),
-      join('/usr/local/bin', 'zenity'), join('/usr/local/bin', 'kdialog'),
+      join('/opt/none', 'zenity'),
+      join('/opt/none', 'kdialog'),
+      join('/usr/local/bin', 'zenity'),
+      join('/usr/local/bin', 'kdialog'),
     ])
   })
 

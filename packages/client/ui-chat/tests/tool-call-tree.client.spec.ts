@@ -1,28 +1,40 @@
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { StartedToolCall, ToolCallBlock } from '../src/client/contract/snapshot.ts'
-import {
-  MAX_TOOL_CALL_TREE_DEPTH, ToolCallTree,
-} from '../src/client/model/tool-call-tree.ts'
+import { MAX_TOOL_CALL_TREE_DEPTH, ToolCallTree } from '../src/client/model/tool-call-tree.ts'
 
 const at = (seq: number, type: string, data: Record<string, unknown>): SessionEvent =>
   ({ seq, time: 1_700_000_000_000 + seq, type, data }) as unknown as SessionEvent
 
 const start = (seq: number, parentCallId: string, subCallId: string): SessionEvent =>
   at(seq, 'tool/ptc-dispatch-start', {
-    parentCallId, subCallId, name: 'run_code', arguments: {},
+    parentCallId,
+    subCallId,
+    name: 'run_code',
+    arguments: {},
   })
 
 const settle = (seq: number, parentCallId: string, subCallId: string): SessionEvent =>
   at(seq, 'tool/ptc-dispatch', {
-    parentCallId, subCallId, name: 'run_code', arguments: {},
-    isError: false, content: [],
+    parentCallId,
+    subCallId,
+    name: 'run_code',
+    arguments: {},
+    isError: false,
+    content: [],
   })
 
 const root = (callId: string): StartedToolCall => ({
-  phase: 'start' as const, args: PartialArguments.fromText('{}'), callId, name: 'run_code', argsRaw: '{}', turn: 1, step: 1,
-  time: 1_700_000_000_000, subCalls: [],
+  phase: 'start' as const,
+  args: PartialArguments.fromText('{}'),
+  callId,
+  name: 'run_code',
+  argsRaw: '{}',
+  turn: 1,
+  step: 1,
+  time: 1_700_000_000_000,
+  subCalls: [],
 })
 
 describe('ToolCallTree', () => {
@@ -40,13 +52,18 @@ describe('ToolCallTree', () => {
     tree.apply(start(1, 'b', 'c'))
 
     expect(tree.apply(settle(2, 'c', 'a'))).toBe(true)
-    expect(tree.projectRunningCalls([root('a')])).toMatchObject([{
-      callId: 'a',
-      subCalls: [{
-        callId: 'b', parentCallId: 'a',
-        subCalls: [{ callId: 'c', parentCallId: 'b', subCalls: [] }],
-      }],
-    }])
+    expect(tree.projectRunningCalls([root('a')])).toMatchObject([
+      {
+        callId: 'a',
+        subCalls: [
+          {
+            callId: 'b',
+            parentCallId: 'a',
+            subCalls: [{ callId: 'c', parentCallId: 'b', subCalls: [] }],
+          },
+        ],
+      },
+    ])
   })
 
   it('accepts an acyclic graph with a shared descendant', () => {
@@ -57,13 +74,17 @@ describe('ToolCallTree', () => {
     tree.apply(start(3, 'c', 'd'))
 
     expect(tree.apply(start(4, 'root', 'a'))).toBe(true)
-    expect(tree.projectRunningCalls([root('root')])).toMatchObject([{
-      callId: 'root',
-      subCalls: [{
-        callId: 'a',
-        subCalls: [{ callId: 'b' }, { callId: 'c' }],
-      }],
-    }])
+    expect(tree.projectRunningCalls([root('root')])).toMatchObject([
+      {
+        callId: 'root',
+        subCalls: [
+          {
+            callId: 'a',
+            subCalls: [{ callId: 'b' }, { callId: 'c' }],
+          },
+        ],
+      },
+    ])
   })
 
   it('rejects an edge beyond the recursive depth safety limit', () => {
@@ -72,11 +93,9 @@ describe('ToolCallTree', () => {
       tree.apply(start(depth, `call-${depth - 1}`, `call-${depth}`))
     }
 
-    expect(tree.apply(start(
-      MAX_TOOL_CALL_TREE_DEPTH,
-      `call-${MAX_TOOL_CALL_TREE_DEPTH - 1}`,
-      `call-${MAX_TOOL_CALL_TREE_DEPTH}`,
-    ))).toBe(true)
+    expect(tree.apply(start(MAX_TOOL_CALL_TREE_DEPTH, `call-${MAX_TOOL_CALL_TREE_DEPTH - 1}`, `call-${MAX_TOOL_CALL_TREE_DEPTH}`))).toBe(
+      true,
+    )
 
     let current: ToolCallBlock = tree.projectRunningCalls([root('call-0')])[0]!
     let depth = 1

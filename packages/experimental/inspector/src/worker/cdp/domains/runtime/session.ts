@@ -36,7 +36,9 @@ export class RuntimeDomainSession {
     private readonly realms: InspectorRealmSessionSet,
   ) {
     this.objects = new RuntimeObjectTable(realms.connectionId)
-    this.unsubscribeRealms = realms.subscribe((event) => { this.receiveRealm(event) })
+    this.unsubscribeRealms = realms.subscribe(event => {
+      this.receiveRealm(event)
+    })
   }
 
   /**
@@ -197,7 +199,11 @@ export class RuntimeDomainSession {
   private async enable(): Promise<object> {
     this.enabled = true
     try {
-      await Promise.all(this.realms.all().map(async (realm) => { await runtimeBackend(realm).enable() }))
+      await Promise.all(
+        this.realms.all().map(async realm => {
+          await runtimeBackend(realm).enable()
+        }),
+      )
       for (const realm of this.realms.all()) {
         this.attachConsole(realm)
         this.announce(realm)
@@ -208,7 +214,11 @@ export class RuntimeDomainSession {
       for (const dispose of this.consoleDisposers.values()) dispose()
       this.consoleDisposers.clear()
       this.announcedContexts.clear()
-      await Promise.allSettled(this.realms.all().map(async (realm) => { await runtimeBackend(realm).disable() }))
+      await Promise.allSettled(
+        this.realms.all().map(async realm => {
+          await runtimeBackend(realm).disable()
+        }),
+      )
       throw error
     }
   }
@@ -217,7 +227,11 @@ export class RuntimeDomainSession {
     for (const dispose of this.consoleDisposers.values()) dispose()
     this.consoleDisposers.clear()
     try {
-      await Promise.all(this.realms.all().map(async (realm) => { await runtimeBackend(realm).disable() }))
+      await Promise.all(
+        this.realms.all().map(async realm => {
+          await runtimeBackend(realm).disable()
+        }),
+      )
     } finally {
       this.enabled = false
       this.objects.clear()
@@ -304,7 +318,11 @@ export class RuntimeDomainSession {
     const group = parseReleaseObjectGroup(params)
     const realms = this.objects.realmsInGroup(group)
     try {
-      await Promise.all(realms.map(async (realm) => { await runtimeBackend(realm).releaseObjectGroup(group) }))
+      await Promise.all(
+        realms.map(async realm => {
+          await runtimeBackend(realm).releaseObjectGroup(group)
+        }),
+      )
     } finally {
       this.objects.releaseGroup(group)
     }
@@ -319,18 +337,17 @@ export class RuntimeDomainSession {
   }
 
   private async discardConsoleEntries(): Promise<object> {
-    await Promise.all(this.realms.all().map(async (realm) => {
-      if (realm.console.state === 'supported') await realm.console.backend.clear()
-      await runtimeBackend(realm).releaseObjectGroup('console')
-    }))
+    await Promise.all(
+      this.realms.all().map(async realm => {
+        if (realm.console.state === 'supported') await realm.console.backend.clear()
+        await runtimeBackend(realm).releaseObjectGroup('console')
+      }),
+    )
     this.objects.releaseGroup('console')
     return {}
   }
 
-  private realmFromSelector(
-    params: CdpExecutionContextSelector,
-    numericKey: 'contextId' | 'executionContextId',
-  ): InspectorRealmSession {
+  private realmFromSelector(params: CdpExecutionContextSelector, numericKey: 'contextId' | 'executionContextId'): InspectorRealmSession {
     return this.realmFromOptionalSelector(params, numericKey) ?? this.realms.host()
   }
 
@@ -363,15 +380,10 @@ export class RuntimeDomainSession {
     if (realm.context.kind !== 'native') return {}
     const numeric = params[numericKey]
     if (typeof numeric === 'number') return { context: { kind: 'numeric', id: numeric } }
-    return params.uniqueContextId === undefined
-      ? {}
-      : { context: { kind: 'unique', id: params.uniqueContextId } }
+    return params.uniqueContextId === undefined ? {} : { context: { kind: 'unique', id: params.uniqueContextId } }
   }
 
-  private routeArgument(
-    realm: InspectorRealmSession,
-    argument: CdpCallArgument,
-  ): RuntimeCallArgument<RuntimeBackendObjectHandle> {
+  private routeArgument(realm: InspectorRealmSession, argument: CdpCallArgument): RuntimeCallArgument<RuntimeBackendObjectHandle> {
     if (argument.kind !== 'object') return argument
     const route = this.objects.resolve(argument.objectId)
     if (route === undefined || route.realm !== realm) {
@@ -407,14 +419,18 @@ export class RuntimeDomainSession {
   private receiveRealm(event: InspectorRealmSessionEvent): void {
     if (event.type === 'opened') {
       if (this.enabled) {
-        void runtimeBackend(event.session).enable().then(
-          () => {
-            if (this.closed || !this.enabled || !this.realms.all().includes(event.session)) return
-            this.attachConsole(event.session)
-            this.announce(event.session)
-          },
-          () => { event.session.close() },
-        )
+        void runtimeBackend(event.session)
+          .enable()
+          .then(
+            () => {
+              if (this.closed || !this.enabled || !this.realms.all().includes(event.session)) return
+              this.attachConsole(event.session)
+              this.announce(event.session)
+            },
+            () => {
+              event.session.close()
+            },
+          )
       }
       return
     }
@@ -426,10 +442,13 @@ export class RuntimeDomainSession {
 
   private attachConsole(realm: InspectorRealmSession): void {
     if (realm.console.state === 'unsupported' || this.consoleDisposers.has(realm.descriptor.realmId)) return
-    this.consoleDisposers.set(realm.descriptor.realmId, realm.console.backend.subscribe((event) => {
-      if (!this.enabled) return
-      this.transport.send(this.objects.consoleEvent(realm, event))
-    }))
+    this.consoleDisposers.set(
+      realm.descriptor.realmId,
+      realm.console.backend.subscribe(event => {
+        if (!this.enabled) return
+        this.transport.send(this.objects.consoleEvent(realm, event))
+      }),
+    )
   }
 
   private announce(realm: InspectorRealmSession): void {

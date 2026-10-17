@@ -19,11 +19,13 @@ export interface ConcreteTermViolation {
 }
 
 function isExcluded(file: string): boolean {
-  return excludedPrefixes.some(prefix => file.startsWith(prefix))
+  return (
+    excludedPrefixes.some(prefix => file.startsWith(prefix)) ||
     // Release snapshots retain the identifiers present in their pinned source;
     // historical-format pairing records key sections by those identifiers' headings.
-    || /^docs\/persistence-changes\/releases\/dsh-v\d+\.\d+\.\d+-(?:alpha|rc)\.\d+\.schema\.json$/u.test(file)
-    || /^docs\/persistence-changes\/historical-formats\/v(?:0|[1-9]\d*)\.(?:schema\.json|i18n\.yaml)$/u.test(file)
+    /^docs\/persistence-changes\/releases\/dsh-v\d+\.\d+\.\d+-(?:alpha|rc)\.\d+\.schema\.json$/u.test(file) ||
+    /^docs\/persistence-changes\/historical-formats\/v(?:0|[1-9]\d*)\.(?:schema\.json|i18n\.yaml)$/u.test(file)
+  )
 }
 
 function containsBlockedTerm(value: string): boolean {
@@ -53,11 +55,13 @@ function trackedFiles(repoRoot: string): string[] {
   const files = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' })
     .split('\0')
     .filter(file => file !== '')
-  if (!files.includes('AGENTS.md')
-    || !files.some(file => file.startsWith('packages/'))
-    || !files.some(file => file.startsWith('docs/'))
-    || !files.some(file => file.startsWith('vendor/'))
-    || !files.some(file => file.startsWith('.agents/notes/archived/'))) {
+  if (
+    !files.includes('AGENTS.md') ||
+    !files.some(file => file.startsWith('packages/')) ||
+    !files.some(file => file.startsWith('docs/')) ||
+    !files.some(file => file.startsWith('vendor/')) ||
+    !files.some(file => file.startsWith('.agents/notes/archived/'))
+  ) {
     throw new Error('verify-concrete-terms: tracked-file discovery omitted a required repository area')
   }
   return files
@@ -96,9 +100,7 @@ if (isMain) {
   } else {
     console.error(`verify-concrete-terms: ${blockedTerm} is forbidden; name the exact source, field, identity, or evidence:`)
     for (const violation of violations) {
-      console.error(violation.line === null
-        ? `  ${violation.file} (path)`
-        : `  ${violation.file}:${String(violation.line)}`)
+      console.error(violation.line === null ? `  ${violation.file} (path)` : `  ${violation.file}:${String(violation.line)}`)
     }
     process.exitCode = 1
   }

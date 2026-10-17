@@ -97,9 +97,7 @@ type SearchRow =
  */
 function copyText(props: SearchBlockProps): string {
   if (props.kind === 'paths') return props.paths.join('\n')
-  return props.files
-    .map(file => [file.path, ...file.matches.map(m => `${m.lineNumber}: ${m.line}`)].join('\n'))
-    .join('\n\n')
+  return props.files.map(file => [file.path, ...file.matches.map(m => `${m.lineNumber}: ${m.line}`)].join('\n')).join('\n\n')
 }
 
 /**
@@ -110,9 +108,7 @@ function copyText(props: SearchBlockProps): string {
  * @returns the retained result count.
  */
 function shownCount(props: SearchBlockProps): number {
-  return props.kind === 'paths'
-    ? props.paths.length
-    : props.files.reduce((sum, file) => sum + file.matches.length, 0)
+  return props.kind === 'paths' ? props.paths.length : props.files.reduce((sum, file) => sum + file.matches.length, 0)
 }
 
 /**
@@ -163,9 +159,12 @@ function toRows(props: SearchBlockProps, collapsed: ReadonlySet<number>): Search
  */
 function rowKey(row: SearchRow): string {
   switch (row.type) {
-    case 'match': return `match:${row.key}`
-    case 'file': return `file:${row.index}`
-    case 'path': return `path:${row.path}`
+    case 'match':
+      return `match:${row.key}`
+    case 'file':
+      return `file:${row.index}`
+    case 'path':
+      return `path:${row.path}`
   }
 }
 
@@ -186,10 +185,12 @@ export function SearchBlock(props: SearchBlockProps) {
   const empty = rows.length === 0
   const { copied, onCopy } = useCopyFeedback(copyText(props))
 
-  const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
+  const onToggle = useCallback(() => {
+    setExpanded(value => !value)
+  }, [])
 
   const toggleFile = useCallback((index: number) => {
-    setCollapsed((prev) => {
+    setCollapsed(prev => {
       const next = new Set(prev)
       if (next.has(index)) next.delete(index)
       else next.add(index)
@@ -205,11 +206,10 @@ export function SearchBlock(props: SearchBlockProps) {
   // file. Restore the owning header at the top of the tail — unless the head
   // slice already carries it (a single large file), where it would duplicate.
   const tailLead = naturalTail[0]
-  const tailHeader = tailLead?.type === 'match'
-    && !head.some(row => row.type === 'file' && row.index === tailLead.fileIndex)
-    ? rows.find((row): row is Extract<SearchRow, { type: 'file' }> =>
-      row.type === 'file' && row.index === tailLead.fileIndex)
-    : undefined
+  const tailHeader =
+    tailLead?.type === 'match' && !head.some(row => row.type === 'file' && row.index === tailLead.fileIndex)
+      ? rows.find((row): row is Extract<SearchRow, { type: 'file' }> => row.type === 'file' && row.index === tailLead.fileIndex)
+      : undefined
   // The restored header is itself a row. Left extra it would push the card to
   // maxLines + 1 and overstate `hidden` by one, so it consumes a tail slot: drop
   // the tail's first row (the match whose header this is) for it. Visible rows
@@ -232,7 +232,9 @@ export function SearchBlock(props: SearchBlockProps) {
         type="button"
         className={css.fileHeader}
         aria-expanded={!row.collapsed}
-        onClick={() => { toggleFile(row.index) }}
+        onClick={() => {
+          toggleFile(row.index)
+        }}
       >
         <span className={css.filePath}>{row.path}</span>
         <span className={css.fileCount}>{row.count}</span>
@@ -250,32 +252,30 @@ export function SearchBlock(props: SearchBlockProps) {
           </button>
         )}
       </div>
-      {empty
-        ? <div className={css.empty}>{props.labels.noResults}</div>
-        : (
-          <div className={css.body}>
-            {head.map(row => (
-              <div key={rowKey(row)}>{renderRow(row)}</div>
-            ))}
-            {hidden > 0 && (
-              <button
-                type="button"
-                className={css.expand}
-                aria-expanded={expanded}
-                aria-label={expanded ? props.labels.collapseAria : props.labels.expandAria(hidden)}
-                onClick={onToggle}
-              >
-                {expanded ? props.labels.collapse : props.labels.expand(hidden)}
-              </button>
-            )}
-            {tailHeader !== undefined && (
-              <div key={`tailHeader:${rowKey(tailHeader)}`}>{renderRow(tailHeader)}</div>
-            )}
-            {tail.map(row => (
-              <div key={rowKey(row)}>{renderRow(row)}</div>
-            ))}
-          </div>
-        )}
+      {empty ? (
+        <div className={css.empty}>{props.labels.noResults}</div>
+      ) : (
+        <div className={css.body}>
+          {head.map(row => (
+            <div key={rowKey(row)}>{renderRow(row)}</div>
+          ))}
+          {hidden > 0 && (
+            <button
+              type="button"
+              className={css.expand}
+              aria-expanded={expanded}
+              aria-label={expanded ? props.labels.collapseAria : props.labels.expandAria(hidden)}
+              onClick={onToggle}
+            >
+              {expanded ? props.labels.collapse : props.labels.expand(hidden)}
+            </button>
+          )}
+          {tailHeader !== undefined && <div key={`tailHeader:${rowKey(tailHeader)}`}>{renderRow(tailHeader)}</div>}
+          {tail.map(row => (
+            <div key={rowKey(row)}>{renderRow(row)}</div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

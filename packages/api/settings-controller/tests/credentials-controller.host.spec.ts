@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { CredentialInfo } from '@deepseek-ai/dsh-credentials/types'
 import { remoteErrorOf, remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
@@ -8,9 +8,7 @@ import { MemoryCredentials } from '../../../credentials/credentials/tests/memory
 /** A store whose `describe` carries more than the view declares, as a foreign provider might. */
 class LeakyCredentials extends MemoryCredentials {
   override describe(): Promise<CredentialInfo> {
-    return Promise.resolve(
-      { configured: true, source: 'memory', writable: true, value: 'sk-leaked' } as CredentialInfo,
-    )
+    return Promise.resolve({ configured: true, source: 'memory', writable: true, value: 'sk-leaked' } as CredentialInfo)
   }
 }
 
@@ -62,7 +60,8 @@ describe('the credentials Remote namespace a configuration surface calls', () =>
       const failure = await call().catch((error: unknown) => error)
       expect(remoteErrorOf(failure)).toMatchObject({
         code: 'gateway/internal',
-        message: 'credentials service is absent: this deployment does not mount a credential provider (e.g. @deepseek-ai/dsh-credentials-local) in its composition',
+        message:
+          'credentials service is absent: this deployment does not mount a credential provider (e.g. @deepseek-ai/dsh-credentials-local) in its composition',
         details: {},
       })
     }
@@ -108,11 +107,11 @@ describe('the credentials Remote namespace a configuration surface calls', () =>
   it('stores and removes through the same references the batch describes', async () => {
     const controller = await boot()
     await controller.set('DEEPSEEK_API_KEY', 'sk-live')
-    expect(await controller.describe(['DEEPSEEK_API_KEY']))
-      .toEqual({ DEEPSEEK_API_KEY: { configured: true, source: 'memory', writable: true } })
+    expect(await controller.describe(['DEEPSEEK_API_KEY'])).toEqual({
+      DEEPSEEK_API_KEY: { configured: true, source: 'memory', writable: true },
+    })
     await controller.unset('DEEPSEEK_API_KEY')
-    expect(await controller.describe(['DEEPSEEK_API_KEY']))
-      .toEqual({ DEEPSEEK_API_KEY: { configured: false, writable: true } })
+    expect(await controller.describe(['DEEPSEEK_API_KEY'])).toEqual({ DEEPSEEK_API_KEY: { configured: false, writable: true } })
   })
 
   it('reports a refused write as credential/rejected naming only the reference', async () => {

@@ -11,7 +11,7 @@ class ProfileAdapter extends LlmAdapter {
     return Promise.resolve({ provider, id: model, name: model, contextWindow: 1_000_000 })
   }
 
-  async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
     const serial = this.requests++
     if (serial % 2 === 1) {
       yield* response(200_000 + serial, 0).chunks

@@ -2,7 +2,7 @@
 /** Desktop directory flow through the Web bundle roster and production client boot. */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { afterEach, expect, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vite-plus/test'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import type { DirectoryFlowOwnerProps } from '@deepseek-ai/dsh-client-ui-workspace/client'
@@ -13,10 +13,20 @@ const manifest = JSON.parse(readFileSync(resolve(import.meta.dirname, '../packag
   dsh: { client: { inject: string[] } }
 }
 // Auto mounts the native row dynamically; use that package's actual dependency declaration.
-const test = createClientTest({ roster: ClientRoster.of([...webApp.rows, {
-  name: manifest.name, inject: manifest.dsh.client.inject, immediately: false,
-}]) })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+const test = createClientTest({
+  roster: ClientRoster.of([
+    ...webApp.rows,
+    {
+      name: manifest.name,
+      inject: manifest.dsh.client.inject,
+      immediately: false,
+    },
+  ]),
+})
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 test('the composed native flow cancels through Desktop without invoking the Host chooser', async ({ start, remote }) => {
   const pick = vi.fn<() => Promise<string | null>>().mockResolvedValue(null)
@@ -27,7 +37,9 @@ test('the composed native flow cancels through Desktop without invoking the Host
   const Component = entry.component as ComponentType<DirectoryFlowOwnerProps & typeof injected>
   const onCancel = vi.fn()
   render(<Component {...injected} open busy={false} onCancel={onCancel} onPicked={vi.fn()} onError={vi.fn()} />)
-  await waitFor(() => { expect(onCancel).toHaveBeenCalledOnce() })
+  await waitFor(() => {
+    expect(onCancel).toHaveBeenCalledOnce()
+  })
   expect(pick).toHaveBeenCalledOnce()
   expect(remote.directoryPicker.pick).not.toHaveBeenCalled()
 }, 60_000)

@@ -12,9 +12,10 @@ export interface BandInjected {
 }
 
 /** Full props of the band entry in the input dock. */
-export type BandProps = PropsRuntime<'conversation.input.dock'>
-  & { press: BandInjected['press']; useBand: <T>(select: (snapshot: SurfaceSnapshot | undefined) => T) => T }
-  & PropsLocale<typeof NS>
+export type BandProps = PropsRuntime<'conversation.input.dock'> & {
+  press: BandInjected['press']
+  useBand: <T>(select: (snapshot: SurfaceSnapshot | undefined) => T) => T
+} & PropsLocale<typeof NS>
 
 /** The terminal color names Claude Code's `Text` and `Box` accept; the stylesheet maps each to a theme token. */
 const COLORS: ReadonlySet<string> = new Set(['yellow', 'red', 'green', 'cyan', 'blue', 'magenta', 'gray', 'grey', 'white', 'black'])
@@ -38,9 +39,12 @@ function textAttributes(props: SerializedElement['props']): Record<string, strin
   }
 }
 
-function boxStyle(props: SerializedElement['props']): { attributes: Record<string, string | true | undefined>; style: Record<string, string> } {
+function boxStyle(props: SerializedElement['props']): {
+  attributes: Record<string, string | true | undefined>
+  style: Record<string, string>
+} {
   const style: Record<string, string> = {}
-  const unit = (value: unknown): string | undefined => typeof value === 'number' ? `${value * 4}px` : undefined
+  const unit = (value: unknown): string | undefined => (typeof value === 'number' ? `${value * 4}px` : undefined)
   const paddingX = unit(props['paddingX'] ?? props['padding'])
   const paddingY = unit(props['paddingY'] ?? props['padding'])
   if (paddingX !== undefined) style.paddingLeft = style.paddingRight = paddingX
@@ -70,9 +74,22 @@ interface NodeProps {
 function Node({ node, path, generation, pending, onPress, hotkeyLabel }: NodeProps) {
   if (typeof node === 'string') return <>{node}</>
   const children = node.children.map((child, index) => (
-    <Node key={`${path}.${index}`} node={child} path={`${path}.${index}`} generation={generation} pending={pending} onPress={onPress} hotkeyLabel={hotkeyLabel} />
+    <Node
+      key={`${path}.${index}`}
+      node={child}
+      path={`${path}.${index}`}
+      generation={generation}
+      pending={pending}
+      onPress={onPress}
+      hotkeyLabel={hotkeyLabel}
+    />
   ))
-  if (node.type === 'Text') return <span className={css.text} {...textAttributes(node.props)}>{children}</span>
+  if (node.type === 'Text')
+    return (
+      <span className={css.text} {...textAttributes(node.props)}>
+        {children}
+      </span>
+    )
   if (node.type === 'Button') {
     const label = String(node.props['label'])
     const hotkey = typeof node.props['hotkey'] === 'string' ? node.props['hotkey'] : undefined
@@ -85,7 +102,9 @@ function Node({ node, path, generation, pending, onPress, hotkeyLabel }: NodePro
         className={css.button}
         disabled={disabled}
         aria-busy={pending === actionId}
-        onClick={() => { onPress(actionId) }}
+        onClick={() => {
+          onPress(actionId)
+        }}
       >
         {label}
         {hotkey === undefined ? null : <span className={css.hotkey}>{hotkeyLabel(hotkey)}</span>}
@@ -93,7 +112,11 @@ function Node({ node, path, generation, pending, onPress, hotkeyLabel }: NodePro
     )
   }
   const { attributes, style } = boxStyle(node.props)
-  return <div className={css.box} style={style} {...attributes}>{children}</div>
+  return (
+    <div className={css.box} style={style} {...attributes}>
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -110,7 +133,9 @@ export function Band({ press, useBand, t }: BandProps) {
     setPending(actionId)
     setNotice(undefined)
     press(snapshot.generation, actionId).then(
-      () => { setPending(undefined) },
+      () => {
+        setPending(undefined)
+      },
       (error: unknown) => {
         setPending(undefined)
         setNotice(t('press.failed', { message: error instanceof Error ? error.message : String(error) }))
@@ -121,10 +146,21 @@ export function Band({ press, useBand, t }: BandProps) {
     <div className={css.band} role="group" aria-label={t('band')} data-generation={snapshot.generation}>
       {snapshot.tree.map((node, index) => (
         <span key={`${snapshot.generation}.${index}`} className={css.text}>
-          <Node node={node} path={String(index)} generation={snapshot.generation} pending={pending} onPress={onPress} hotkeyLabel={hotkey => `[${hotkey}]`} />
+          <Node
+            node={node}
+            path={String(index)}
+            generation={snapshot.generation}
+            pending={pending}
+            onPress={onPress}
+            hotkeyLabel={hotkey => `[${hotkey}]`}
+          />
         </span>
       ))}
-      {notice === undefined ? null : <div className={css.notice} role="status">{notice}</div>}
+      {notice === undefined ? null : (
+        <div className={css.notice} role="status">
+          {notice}
+        </div>
+      )}
     </div>
   )
 }

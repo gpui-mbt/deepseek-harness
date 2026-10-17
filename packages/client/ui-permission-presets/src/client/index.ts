@@ -40,26 +40,27 @@ import { PermissionSelect } from './PermissionSelect.tsx'
 import type { PermissionSelectInjected } from './PermissionSelect.tsx'
 import { PermissionRow } from './PermissionRow.tsx'
 import type { PermissionRowInjected } from './PermissionRow.tsx'
-import {
-  accessEn, accessZh, en, PERMISSION_ACCESS_NS, zh,
-} from './locales.ts'
-import {
-  AUTO_REVIEW_PRESET, displayPermissionPreset, FULL_ACCESS_PRESET,
-} from './presentation.ts'
+import { accessEn, accessZh, en, PERMISSION_ACCESS_NS, zh } from './locales.ts'
+import { AUTO_REVIEW_PRESET, displayPermissionPreset, FULL_ACCESS_PRESET } from './presentation.ts'
 import { PermissionPresetSettingsController } from './settings-store.ts'
 
 export type { PermissionRowInjected, PermissionRowProps } from './PermissionRow.tsx'
 export type { PermissionCatalogState } from './catalog.ts'
 export type { PermissionSelectInjected, PermissionSelectProps } from './PermissionSelect.tsx'
-export type {
-  PermissionDefaultOption, PermissionSettingsState,
-} from './settings-store.ts'
+export type { PermissionDefaultOption, PermissionSettingsState } from './settings-store.ts'
 
 /** Required services (cordis fiber inject). */
 export const inject = [
-  'commandUi', 'connection', 'sessions', 'slots', 'locale', 'remote',
-  'remote.permissionPresets', 'remote.settings',
-  'configForms', 'settingsSchema',
+  'commandUi',
+  'connection',
+  'sessions',
+  'slots',
+  'locale',
+  'remote',
+  'remote.permissionPresets',
+  'remote.settings',
+  'configForms',
+  'settingsSchema',
 ]
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -75,24 +76,19 @@ function selectionOf(session: SessionFace | undefined): PermissionSelection | un
 }
 
 /** Join the process catalog with one Session's current value. */
-function optionsOf(
-  catalog: PermissionCatalog,
-  currentValue: string,
-  t: TranslateNS<typeof PERMISSION_ACCESS_NS>,
-): SelectOption[] {
-  return catalog.options
-    .map(option => ({
-      id: option.value,
-      label: option.value === AUTO_REVIEW_PRESET
-        ? t('auto.label')
-        : displayPermissionPreset(option.value, option.name, t),
-      ...(option.value === AUTO_REVIEW_PRESET ? { badge: t('auto.badge') } : {}),
-      ...(option.value === AUTO_REVIEW_PRESET
-        ? { detail: t('auto.description') }
-        : option.description !== undefined ? { detail: option.description } : {}),
-      ...(option.value === currentValue ? { active: true } : {}),
-      ...(option.value === FULL_ACCESS_PRESET || option.value === AUTO_REVIEW_PRESET
-        ? {
+function optionsOf(catalog: PermissionCatalog, currentValue: string, t: TranslateNS<typeof PERMISSION_ACCESS_NS>): SelectOption[] {
+  return catalog.options.map(option => ({
+    id: option.value,
+    label: option.value === AUTO_REVIEW_PRESET ? t('auto.label') : displayPermissionPreset(option.value, option.name, t),
+    ...(option.value === AUTO_REVIEW_PRESET ? { badge: t('auto.badge') } : {}),
+    ...(option.value === AUTO_REVIEW_PRESET
+      ? { detail: t('auto.description') }
+      : option.description !== undefined
+        ? { detail: option.description }
+        : {}),
+    ...(option.value === currentValue ? { active: true } : {}),
+    ...(option.value === FULL_ACCESS_PRESET || option.value === AUTO_REVIEW_PRESET
+      ? {
           confirmation: {
             title: t(option.value === AUTO_REVIEW_PRESET ? 'auto.confirm.title' : 'confirm.title'),
             description: t(option.value === AUTO_REVIEW_PRESET ? 'auto.confirm.description' : 'confirm.description'),
@@ -101,8 +97,8 @@ function optionsOf(
             confirmLabel: t(option.value === AUTO_REVIEW_PRESET ? 'auto.confirm.enable' : 'confirm.enable'),
           },
         }
-        : {}),
-    }))
+      : {}),
+  }))
 }
 
 /**
@@ -113,13 +109,9 @@ function optionsOf(
 export function apply(ctx: ClientContext): void {
   const command = ctx.get('commandUi') as CommandUiContract
   const sessions = ctx.sessions
-  ctx.effect(
-    () => ctx.locale.register(PERMISSION_ACCESS_NS, { zh: accessZh, en: accessEn }),
-    'ui-permission: current-session dictionaries',
-  )
+  ctx.effect(() => ctx.locale.register(PERMISSION_ACCESS_NS, { zh: accessZh, en: accessEn }), 'ui-permission: current-session dictionaries')
   const t = ctx.locale.bind(PERMISSION_ACCESS_NS)
-  const sessionFor = (session: ClientSessionContext): SessionFace | undefined =>
-    sessions.binding(session.sessionId)?.session
+  const sessionFor = (session: ClientSessionContext): SessionFace | undefined => sessions.binding(session.sessionId)?.session
   const submit = async (sessionId: SessionId, preset: string): Promise<boolean> => {
     const live = sessions.binding(sessionId)?.session
     if (live === undefined) throw new Error('this session is not materialized yet')
@@ -132,20 +124,27 @@ export function apply(ctx: ClientContext): void {
   }
 
   const catalog = new PermissionCatalogDirectory(ctx)
-  ctx.effect(() => () => { catalog.dispose() }, 'ui-permission: process catalog directory')
+  ctx.effect(
+    () => () => {
+      catalog.dispose()
+    },
+    'ui-permission: process catalog directory',
+  )
   ctx.effect(
     // Only an invalidation makes displayed options stale; publishing the result
     // of a read a displayed picker waits for must leave it open with its failure
     // and retry state intact.
-    () => catalog.invalidations.subscribe(() => { command.dismiss('permission') }),
+    () =>
+      catalog.invalidations.subscribe(() => {
+        command.dismiss('permission')
+      }),
     'ui-permission: dismiss stale slash choices',
   )
 
   ctx.effect(() => ctx.locale.register('settings.permission', { zh, en }), 'ui-permission: settings row dictionaries')
 
   // The shared ConfigForm mirror updates after document commits and reconnects.
-  const controller = new PermissionPresetSettingsController(
-    ctx.configForms.describe(), ctx, catalog)
+  const controller = new PermissionPresetSettingsController(ctx.configForms.describe(), ctx, catalog)
   const load = (): Promise<void> => controller.load()
   const select = (preset: string): Promise<void> => controller.select(preset)
   const injected = (): PermissionRowInjected => ({
@@ -154,39 +153,58 @@ export function apply(ctx: ClientContext): void {
     select,
   })
 
-  ctx.effect(() => () => { controller.dispose() }, 'ui-permission: settings row directory')
-
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'permission',
-    order: -20,
-    locale: 'settings.permission',
-    inject: injected,
-  }, PermissionRow))
-
-  ctx.slots.inject('conversation.input.permission', () => ctx.slots.register({
-    name: 'conversation.input.permission',
-    locale: PERMISSION_ACCESS_NS,
-    inject: (sessionId: SessionId): PermissionSelectInjected => ({
-      hooks: { permissionCatalog: catalog.store },
-      select: preset => submit(sessionId, preset),
-    }),
-  }, PermissionSelect))
-
-  ctx.effect(() => command.decorate({
-    name: 'permission',
-    // The Session's current value alone decides availability. A missing catalog
-    // surfaces through `options()`, which keeps the picker's own retry entry
-    // reachable after a failed read instead of hiding the command.
-    available: session => selectionOf(sessionFor(session)) !== undefined,
-    ui: {
-      kind: 'popupSelect',
-      options: async (session) => {
-        const selection = selectionOf(sessionFor(session))
-        if (selection === undefined) throw new Error('permission presets are not available on this host')
-        return optionsOf(await catalog.load(), selection.currentValue, t)
-      },
-      onSelect: (option, session) => submit(session.sessionId, option.id).then(() => undefined),
+  ctx.effect(
+    () => () => {
+      controller.dispose()
     },
-  }), 'ui-permission: /permission decoration')
+    'ui-permission: settings row directory',
+  )
+
+  ctx.slots.inject('settings.general.item', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.general.item',
+        id: 'permission',
+        order: -20,
+        locale: 'settings.permission',
+        inject: injected,
+      },
+      PermissionRow,
+    ),
+  )
+
+  ctx.slots.inject('conversation.input.permission', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.input.permission',
+        locale: PERMISSION_ACCESS_NS,
+        inject: (sessionId: SessionId): PermissionSelectInjected => ({
+          hooks: { permissionCatalog: catalog.store },
+          select: preset => submit(sessionId, preset),
+        }),
+      },
+      PermissionSelect,
+    ),
+  )
+
+  ctx.effect(
+    () =>
+      command.decorate({
+        name: 'permission',
+        // The Session's current value alone decides availability. A missing catalog
+        // surfaces through `options()`, which keeps the picker's own retry entry
+        // reachable after a failed read instead of hiding the command.
+        available: session => selectionOf(sessionFor(session)) !== undefined,
+        ui: {
+          kind: 'popupSelect',
+          options: async session => {
+            const selection = selectionOf(sessionFor(session))
+            if (selection === undefined) throw new Error('permission presets are not available on this host')
+            return optionsOf(await catalog.load(), selection.currentValue, t)
+          },
+          onSelect: (option, session) => submit(session.sessionId, option.id).then(() => undefined),
+        },
+      }),
+    'ui-permission: /permission decoration',
+  )
 }

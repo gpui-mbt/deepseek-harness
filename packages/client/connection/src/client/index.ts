@@ -32,14 +32,18 @@ declare module '@deepseek-ai/cordis' {
 // ---- Browser-safe protocol and shared value re-exports ----
 export type {
   MessageId,
-  RpcRequest, RpcResponse, RpcResult,
-  ClientRequest, ServerResponse, RpcMessage,
-  SessionId, SessionEvent, ContentBlock, StreamChunk,
+  RpcRequest,
+  RpcResponse,
+  RpcResult,
+  ClientRequest,
+  ServerResponse,
+  RpcMessage,
+  SessionId,
+  SessionEvent,
+  ContentBlock,
+  StreamChunk,
 } from './api.ts'
-export {
-  RpcId,
-  transportError,
-} from './api.ts'
+export { RpcId, transportError } from './api.ts'
 
 // Connection loop types are public through ConnectionHandle.start; the
 // controller remains package-internal.
@@ -51,9 +55,7 @@ export type {
   ConnectionSinks,
   ConnectionState,
 } from './connection.ts'
-export type {
-  ClientConnectionRpc, ConnectionRpcFailure, ConnectionRpcResult,
-} from '../rpc.ts'
+export type { ClientConnectionRpc, ConnectionRpcFailure, ConnectionRpcResult } from '../rpc.ts'
 export type { RpcFetch } from './rpc.ts'
 
 /** Observable identity and Host facts for the active connection generation. */
@@ -203,8 +205,12 @@ function watchBrowserNetwork(controller: ConnectionController): () => void {
   const browser = (globalThis as { readonly window?: BrowserNetworkTarget }).window
   const initiallyAvailable = browser?.navigator?.onLine
   if (browser === undefined || initiallyAvailable === undefined) return () => {}
-  const online = (): void => { controller.setNetworkAvailable(true) }
-  const offline = (): void => { controller.setNetworkAvailable(false) }
+  const online = (): void => {
+    controller.setNetworkAvailable(true)
+  }
+  const offline = (): void => {
+    controller.setNetworkAvailable(false)
+  }
   controller.setNetworkAvailable(initiallyAvailable)
   browser.addEventListener('online', online)
   browser.addEventListener('offline', offline)
@@ -268,16 +274,20 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
     isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
     generation: {
       getSnapshot: () => generation,
-      subscribe: (listener) => {
+      subscribe: listener => {
         generationListeners.add(listener)
-        return () => { generationListeners.delete(listener) }
+        return () => {
+          generationListeners.delete(listener)
+        }
       },
     },
     state: {
       getSnapshot: () => state,
-      subscribe: (listener) => {
+      subscribe: listener => {
         stateListeners.add(listener)
-        return () => { stateListeners.delete(listener) }
+        return () => {
+          stateListeners.delete(listener)
+        }
       },
     },
     rpc,
@@ -302,28 +312,34 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
       if (source === undefined) throw new Error('connection: no generation source is registered')
       const token = {}
       const ownsGeneration = (): boolean => owner?.token === token
-      const controller = new ConnectionController(source, {
-        ...sinks,
-        onConnected: (host) => {
-          const nextGeneration = { id: ++generationId, host }
-          publishGeneration(nextGeneration)
-          if (!ownsGeneration() || !Object.is(generation, nextGeneration)) return
-          sinks.onConnected?.(host)
+      const controller = new ConnectionController(
+        source,
+        {
+          ...sinks,
+          onConnected: host => {
+            const nextGeneration = { id: ++generationId, host }
+            publishGeneration(nextGeneration)
+            if (!ownsGeneration() || !Object.is(generation, nextGeneration)) return
+            sinks.onConnected?.(host)
+          },
+          onStateChange: state => {
+            if (state !== 'connected') {
+              publishGeneration(undefined)
+            }
+            if (!ownsGeneration()) return
+            publishState(state)
+            sinks.onStateChange?.(state)
+          },
         },
-        onStateChange: (state) => {
-          if (state !== 'connected') {
-            publishGeneration(undefined)
-          }
-          if (!ownsGeneration()) return
-          publishState(state)
-          sinks.onStateChange?.(state)
-        },
-      }, { ...recovery, ...config })
+        { ...recovery, ...config },
+      )
       const current = { token, source, controller, stopNetworkWatch: watchBrowserNetwork(controller) }
       owner = current
       controller.start()
       return {
-        stop: () => { releaseOwner(current) },
+        stop: () => {
+          releaseOwner(current)
+        },
       }
     },
   }

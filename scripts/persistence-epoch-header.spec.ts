@@ -1,6 +1,6 @@
 /** The generated request-header schema retains the native reader's retired-field refusal. */
 import { resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { assertV4RowAdmission } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { extractPersistenceSchema } from './persistence-schema.ts'
 import { classifyPersistenceChange } from './persistence-changes.ts'
@@ -33,16 +33,19 @@ it('requires compatibility review before request headers can carry retired syste
   nodes.push({ kind: 'primitive', type: 'string' })
   nodes[headerIndex] = {
     ...header,
-    properties: header.properties.map(field => field.name === 'system' ? { ...field, type: stringIndex } : field),
+    properties: header.properties.map(field => (field.name === 'system' ? { ...field, type: stringIndex } : field)),
   }
   const schema = canonicalizeSchema(nodes, before.schema.root)
   const after = { ...before, schema, digest: schemaDigest(schema) }
-  expect(classifyPersistenceChange(before, after)).toEqual([{
-    path: 'event:request/header.data.header.system',
-    kind: 'type-changed',
-    description: 'type changed',
-    requiresCompatibilityReview: true,
-  }])
-  expect(() => { assertV4RowAdmission({ type: 'request/header', data: { header: { system: 'retired text' } } }) })
-    .toThrow('format v4 request/header rejects retired header.system')
+  expect(classifyPersistenceChange(before, after)).toEqual([
+    {
+      path: 'event:request/header.data.header.system',
+      kind: 'type-changed',
+      description: 'type changed',
+      requiresCompatibilityReview: true,
+    },
+  ])
+  expect(() => {
+    assertV4RowAdmission({ type: 'request/header', data: { header: { system: 'retired text' } } })
+  }).toThrow('format v4 request/header rejects retired header.system')
 })

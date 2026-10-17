@@ -1,5 +1,5 @@
 /** Invocation ownership remains generic, idempotent, and shared across bundles. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { isTypertOwnedValue, TYPERT_OWNED_VALUE, typertOwnedValue } from '../src/owned-value.ts'
 
 describe('TypertOwnedValue', () => {

@@ -52,12 +52,7 @@ interface SearchCollection<T> {
   readonly capped: boolean
 }
 
-async function executeSessionSearch(
-  ctx: Context,
-  args: SessionSearchArgs,
-  exec: ToolRunContext,
-  maxResults: number,
-): Promise<string> {
+async function executeSessionSearch(ctx: Context, args: SessionSearchArgs, exec: ToolRunContext, maxResults: number): Promise<string> {
   const caller = workspaceAccess.callerOf(exec, ctx)
   const cwd = caller.header.cwd
   if (cwd === undefined) {
@@ -78,11 +73,11 @@ async function executeSessionSearch(
   })
   const requestedParentIds = toolInput.materializeParentSessionIds(args.parent_session_ids)
   if (requestedParentIds !== undefined || args.include_root_sessions === true) {
-    const authorizedParentIds = requestedParentIds === undefined
-      ? new Set<SessionId>()
-      : await workspaceAccess.authorizeSessionIds(ctx, caller, requestedParentIds, exec.signal)
-    const parentValues: Array<SessionId | null> = requestedParentIds
-      ?.filter(id => authorizedParentIds.has(id)) ?? []
+    const authorizedParentIds =
+      requestedParentIds === undefined
+        ? new Set<SessionId>()
+        : await workspaceAccess.authorizeSessionIds(ctx, caller, requestedParentIds, exec.signal)
+    const parentValues: Array<SessionId | null> = requestedParentIds?.filter(id => authorizedParentIds.has(id)) ?? []
     if (args.include_root_sessions === true) parentValues.push(null)
     if (parentValues.length === 0) return presentation.formatEmptySessionSearch()
     sessionFilters.push({ kind: 'parent', values: parentValues })
@@ -91,19 +86,22 @@ async function executeSessionSearch(
   const collected = await collectPages(
     maxResults,
     exec.signal,
-    cursor => serviceBoundary.call(ctx, exec.signal, 'session search', () =>
-      ctx.sessionQuery.searchSessions({
-        query,
-        sessionFilters,
-        eventFilters,
-        ...cursor === undefined ? {} : { cursor },
-      }, { signal: exec.signal })),
+    cursor =>
+      serviceBoundary.call(ctx, exec.signal, 'session search', () =>
+        ctx.sessionQuery.searchSessions(
+          {
+            query,
+            sessionFilters,
+            eventFilters,
+            ...(cursor === undefined ? {} : { cursor }),
+          },
+          { signal: exec.signal },
+        ),
+      ),
     hit => hit.header.id !== caller.id && workspaceAccess.recordAuthorized(hit, caller),
   )
 
-  const parentIds = collected.items
-    .map(hit => hit.header.parentSession)
-    .filter((id): id is SessionId => id !== undefined)
+  const parentIds = collected.items.map(hit => hit.header.parentSession).filter((id): id is SessionId => id !== undefined)
   const authorizedParents = await workspaceAccess.authorizeSessionIds(ctx, caller, parentIds, exec.signal)
   const titles = await workspaceAccess.readTitles(
     ctx,
@@ -114,12 +112,7 @@ async function executeSessionSearch(
   return presentation.formatSessionSearch(collected, titles, authorizedParents)
 }
 
-async function executeEventSearch(
-  ctx: Context,
-  args: EventSearchArgs,
-  exec: ToolRunContext,
-  maxResults: number,
-): Promise<string> {
+async function executeEventSearch(ctx: Context, args: EventSearchArgs, exec: ToolRunContext, maxResults: number): Promise<string> {
   const caller = workspaceAccess.callerOf(exec, ctx)
   const sessionId = workspaceAccess.targetId(args, caller)
   await workspaceAccess.authorizeTarget(ctx, caller, sessionId, exec.signal)
@@ -128,10 +121,7 @@ async function executeEventSearch(
   if (sessionId === caller.id) {
     const stepStartSeq = caller.boundary?.lastStepStartSeq
     if (stepStartSeq === undefined) {
-      throw new HarnessError(
-        'current-session search requires an active step boundary',
-        'SESSION_QUERY_TOOL_NO_CURRENT_STEP',
-      )
+      throw new HarnessError('current-session search requires an active step boundary', 'SESSION_QUERY_TOOL_NO_CURRENT_STEP')
     }
     // `null` (no step started yet) caps the range to a degenerate `to` the
     // filter validation rejects — the loop never runs tools outside a step.
@@ -154,12 +144,16 @@ async function executeEventSearch(
     exec.signal,
     async (cursor): Promise<SessionEventSearchPage> => {
       const page = await serviceBoundary.call(ctx, exec.signal, 'event search', () =>
-        ctx.sessionQuery.searchEvents({
-          sessionId,
-          query,
-          filters,
-          ...cursor === undefined ? {} : { cursor },
-        }, { signal: exec.signal }))
+        ctx.sessionQuery.searchEvents(
+          {
+            sessionId,
+            query,
+            filters,
+            ...(cursor === undefined ? {} : { cursor }),
+          },
+          { signal: exec.signal },
+        ),
+      )
       workspaceAccess.assertObservedTargetAuthorized(caller, sessionId, page.session)
       return page
     },
@@ -168,16 +162,13 @@ async function executeEventSearch(
   return presentation.formatEventSearch(sessionId, title, collected)
 }
 
-async function executeSessionTrace(
-  ctx: Context,
-  args: SessionTargetArgs,
-  exec: ToolRunContext,
-): Promise<string> {
+async function executeSessionTrace(ctx: Context, args: SessionTargetArgs, exec: ToolRunContext): Promise<string> {
   const caller = workspaceAccess.callerOf(exec, ctx)
   const sessionId = workspaceAccess.targetId(args, caller)
   await workspaceAccess.authorizeTarget(ctx, caller, sessionId, exec.signal)
   const trace = await serviceBoundary.call(ctx, exec.signal, 'session lineage trace', () =>
-    ctx.sessionQuery.traceSession(sessionId, exec.signal))
+    ctx.sessionQuery.traceSession(sessionId, exec.signal),
+  )
   workspaceAccess.assertObservedTargetAuthorized(caller, sessionId, trace.target.header)
 
   const ancestors: SessionRecord[] = []
@@ -191,37 +182,26 @@ async function executeSessionTrace(
   }
   if (ancestors.length === trace.ancestors.length && !trace.complete) ancestorBoundary = true
   const descendants = workspaceAccess.authorizeDescendants(trace.descendants, caller)
-  const visibleIds = [
-    trace.target.header.id,
-    ...ancestors.map(record => record.header.id),
-    ...workspaceAccess.descendantIds(descendants),
-  ]
+  const visibleIds = [trace.target.header.id, ...ancestors.map(record => record.header.id), ...workspaceAccess.descendantIds(descendants)]
   const titles = await workspaceAccess.readTitles(ctx, caller, visibleIds, exec.signal)
   return presentation.formatSessionTrace(trace, ancestors, ancestorBoundary, descendants, titles)
 }
 
-async function executeEventTrace(
-  ctx: Context,
-  args: EventTargetArgs,
-  exec: ToolRunContext,
-): Promise<string> {
+async function executeEventTrace(ctx: Context, args: EventTargetArgs, exec: ToolRunContext): Promise<string> {
   toolInput.assertNonNegativeSafeInteger('seq', args.seq)
   const seq = SessionSeq(args.seq)
   const caller = workspaceAccess.callerOf(exec, ctx)
   const sessionId = workspaceAccess.targetId(args, caller)
   await workspaceAccess.authorizeTarget(ctx, caller, sessionId, exec.signal)
   const trace = await serviceBoundary.call(ctx, exec.signal, 'event trace', () =>
-    ctx.sessionQuery.traceEvent({ sessionId, seq }, exec.signal))
+    ctx.sessionQuery.traceEvent({ sessionId, seq }, exec.signal),
+  )
   workspaceAccess.assertObservedTargetAuthorized(caller, sessionId, trace.session)
   const title = await workspaceAccess.readTitle(ctx, caller, sessionId, exec.signal)
   return presentation.formatEventTrace(sessionId, title, trace)
 }
 
-async function executeEventRead(
-  ctx: Context,
-  args: EventReadArgs,
-  exec: ToolRunContext,
-): Promise<string> {
+async function executeEventRead(ctx: Context, args: EventReadArgs, exec: ToolRunContext): Promise<string> {
   toolInput.assertNonNegativeSafeInteger('seq', args.seq)
   const seq = SessionSeq(args.seq)
   if (args.before !== undefined) toolInput.assertNonNegativeSafeInteger('before', args.before)
@@ -230,12 +210,16 @@ async function executeEventRead(
   const sessionId = workspaceAccess.targetId(args, caller)
   await workspaceAccess.authorizeTarget(ctx, caller, sessionId, exec.signal)
   const window = await serviceBoundary.call(ctx, exec.signal, 'event read', () =>
-    ctx.sessionQuery.readEvent({
-      sessionId,
-      seq,
-      ...args.before === undefined ? {} : { before: args.before },
-      ...args.after === undefined ? {} : { after: args.after },
-    }, exec.signal))
+    ctx.sessionQuery.readEvent(
+      {
+        sessionId,
+        seq,
+        ...(args.before === undefined ? {} : { before: args.before }),
+        ...(args.after === undefined ? {} : { after: args.after }),
+      },
+      exec.signal,
+    ),
+  )
   workspaceAccess.assertObservedTargetAuthorized(caller, sessionId, window.session)
   const title = await workspaceAccess.readTitle(ctx, caller, sessionId, exec.signal)
   return presentation.formatEventRead(sessionId, title, window)
@@ -266,10 +250,7 @@ async function collectPages<T>(
     }
     if (page.nextCursor === undefined) return { items, capped: false }
     if (seen.has(page.nextCursor)) {
-      throw new SessionQueryError(
-        'session-search provider repeated a continuation cursor',
-        'SESSION_QUERY_INVALID_CURSOR',
-      )
+      throw new SessionQueryError('session-search provider repeated a continuation cursor', 'SESSION_QUERY_INVALID_CURSOR')
     }
     seen.add(page.nextCursor)
     cursor = page.nextCursor

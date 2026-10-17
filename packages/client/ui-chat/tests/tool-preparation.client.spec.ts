@@ -1,9 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createAssistantMessage, createToolResultMessage, LlmAttemptId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { AssistantStreamAccumulator } from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type { SessionAssistantSettlementEntry, SessionEventLikeEntry, SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
+import type {
+  SessionAssistantSettlementEntry,
+  SessionEventLikeEntry,
+  SessionLiveEventEntry,
+} from '@deepseek-ai/dsh-api-session-controller/client'
 import { ConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatNode, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { assistantDefinition } from '../src/client/conversation-nodes/assistant.ts'
@@ -25,37 +29,72 @@ const opening = [
   entry({ type: 'step/start', seq: SessionSeq(2), time: 2, data: { turn: 1, step: 1 } }),
 ]
 
-function delta(seq: number, id = first, argumentsDelta = '', name: string | null = 'write', index = id === first ? 0 : 1): SessionEventLikeEntry {
+function delta(
+  seq: number,
+  id = first,
+  argumentsDelta = '',
+  name: string | null = 'write',
+  index = id === first ? 0 : 1,
+): SessionEventLikeEntry {
   return {
     type: 'transient',
     event: {
-      type: 'assistant/live-chunk', seq, time: seq,
-      data: { turn: 1, step: 1, attemptId, chunk: {
-        type: 'tool-call-delta', index, id, argumentsDelta,
-        ...(name === null ? {} : { name }),
-      } },
+      type: 'assistant/live-chunk',
+      seq,
+      time: seq,
+      data: {
+        turn: 1,
+        step: 1,
+        attemptId,
+        chunk: {
+          type: 'tool-call-delta',
+          index,
+          id,
+          argumentsDelta,
+          ...(name === null ? {} : { name }),
+        },
+      },
     },
   }
 }
 
 function call(seq: number, callId = first, name = 'write', argumentsRaw = args): SessionLiveEventEntry {
-  return entry({ type: 'tool/call', seq: SessionSeq(seq), time: seq,
-    data: { turn: 1, step: 1, callId, name, arguments: argumentsRaw } })
+  return entry({ type: 'tool/call', seq: SessionSeq(seq), time: seq, data: { turn: 1, step: 1, callId, name, arguments: argumentsRaw } })
 }
 
 function blockEnd(seq: number, argumentsRaw: string): SessionEventLikeEntry {
-  return { type: 'transient', event: {
-    type: 'assistant/live-chunk', seq, time: seq,
-    data: { turn: 1, step: 1, attemptId, chunk: {
-      type: 'block-end', index: 0, block: { type: 'tool-call', id: first, name: 'write', arguments: argumentsRaw },
-    } },
-  } }
+  return {
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      seq,
+      time: seq,
+      data: {
+        turn: 1,
+        step: 1,
+        attemptId,
+        chunk: {
+          type: 'block-end',
+          index: 0,
+          block: { type: 'tool-call', id: first, name: 'write', arguments: argumentsRaw },
+        },
+      },
+    },
+  }
 }
 
 function result(seq: number, callId = first): SessionLiveEventEntry {
-  return entry({ type: 'tool/result', seq: SessionSeq(seq), time: seq, surfaceOp: 'append', data: {
-    turn: 1, step: 1, message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'Written' }], isError: false }),
-  } })
+  return entry({
+    type: 'tool/result',
+    seq: SessionSeq(seq),
+    time: seq,
+    surfaceOp: 'append',
+    data: {
+      turn: 1,
+      step: 1,
+      message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'Written' }], isError: false }),
+    },
+  })
 }
 
 function settlement(ids = [first, second], name = 'write', argumentsRaw = args, text = ''): SessionAssistantSettlementEntry {
@@ -65,15 +104,27 @@ function settlement(ids = [first, second], name = 'write', argumentsRaw = args, 
     const chunk: StreamChunk = { type: 'tool-call-delta', index: index + Number(text !== ''), id, name, argumentsDelta: argumentsRaw }
     stream.push({ time: 3, chunk })
   }
-  return { type: 'event', event: {
-    type: 'assistant/message', seq: SessionSeq(5), time: 5, surfaceOp: 'append', data: {
-      turn: 1, step: 1, stream: [...stream.snapshot()],
-      message: createAssistantMessage({ source: { provider: 'test', model: 'test' }, content: [
-        ...text === '' ? [] : [{ type: 'text' as const, text }],
-        ...ids.map(id => ({ type: 'tool-call' as const, id, name, arguments: argumentsRaw })),
-      ] }),
+  return {
+    type: 'event',
+    event: {
+      type: 'assistant/message',
+      seq: SessionSeq(5),
+      time: 5,
+      surfaceOp: 'append',
+      data: {
+        turn: 1,
+        step: 1,
+        stream: [...stream.snapshot()],
+        message: createAssistantMessage({
+          source: { provider: 'test', model: 'test' },
+          content: [
+            ...(text === '' ? [] : [{ type: 'text' as const, text }]),
+            ...ids.map(id => ({ type: 'tool-call' as const, id, name, arguments: argumentsRaw })),
+          ],
+        }),
+      },
     },
-  } }
+  }
 }
 
 function harness(
@@ -85,14 +136,16 @@ function harness(
   const assembler = new ConversationNodeAssembler(
     { entries: () => [assistant, tool], fallbackEntry: () => undefined },
     { entries: () => [chatViewDefinition] },
-    { entries: () => [processGroupDefinition], forTarget: target => target === 'chat' ? processGroupDefinition : undefined },
+    { entries: () => [processGroupDefinition], forTarget: target => (target === 'chat' ? processGroupDefinition : undefined) },
   )
   assembler.replaceWindow(entries, hasMore)
   assembler.activateTarget('chat')
   const tools = () => {
     assembler.flush()
     const snapshot = assembler.snapshot('chat') as ChatSnapshot
-    return snapshot.nodes.values().filter((node): node is ChatNode<'tool-call'> => node.kind === 'tool-call' && node.visibility === 'visible')
+    return snapshot.nodes
+      .values()
+      .filter((node): node is ChatNode<'tool-call'> => node.kind === 'tool-call' && node.visibility === 'visible')
       .sort((left, right) => left.anchorSeq - right.anchorSeq)
   }
   const phases = () => tools().map(node => [node.id, 'kind' in node.data.root ? 'result' : node.data.root.phase])
@@ -144,7 +197,7 @@ describe('Tool preparation and durable replay', () => {
     expect(h.tools()[0]!.data.root.args).toBe(view)
   })
 
-  it.each([null, 'write'])('ignores late tool deltas after block-end (name=%s)', (name) => {
+  it.each([null, 'write'])('ignores late tool deltas after block-end (name=%s)', name => {
     const h = harness()
     h.assembler.append(delta(2.1, first, args))
     const view = h.tools()[0]!.data.root.args
@@ -177,25 +230,24 @@ describe('Tool preparation and durable replay', () => {
     expect(h.tools()[0]!.data.root.args).toBe(view)
   })
 
-  it.each([
-    '{"file_path":"other.txt","content":"hello"}',
-    '{"file_path":"hello.txt","content":"he',
-    args + args,
-  ])('uses authoritative block-end text after conflicting deltas: %s', (streamed) => {
-    const h = harness()
-    h.assembler.append(delta(2.1, first, streamed))
-    const before = h.tools()[0]!.data.root.args
-    before.text('file_path')
-    h.assembler.append(blockEnd(2.2, args))
-    const ended = h.tools()[0]!.data.root.args
-    expect(ended).not.toBe(before)
-    expect(ended.text('file_path')).toBe('hello.txt')
-    expect(ended.text('content')).toBe('hello')
-    const dispatched = '{"file_path":"final.txt","content":"done"}'
-    h.assembler.append(call(6, first, 'write', dispatched))
-    expect(h.tools()[0]!.data.root.args.text('file_path')).toBe('final.txt')
-    expect(h.tools()[0]!.data.root).toMatchObject({ argsRaw: dispatched })
-  })
+  it.each(['{"file_path":"other.txt","content":"hello"}', '{"file_path":"hello.txt","content":"he', args + args])(
+    'uses authoritative block-end text after conflicting deltas: %s',
+    streamed => {
+      const h = harness()
+      h.assembler.append(delta(2.1, first, streamed))
+      const before = h.tools()[0]!.data.root.args
+      before.text('file_path')
+      h.assembler.append(blockEnd(2.2, args))
+      const ended = h.tools()[0]!.data.root.args
+      expect(ended).not.toBe(before)
+      expect(ended.text('file_path')).toBe('hello.txt')
+      expect(ended.text('content')).toBe('hello')
+      const dispatched = '{"file_path":"final.txt","content":"done"}'
+      h.assembler.append(call(6, first, 'write', dispatched))
+      expect(h.tools()[0]!.data.root.args.text('file_path')).toBe('final.txt')
+      expect(h.tools()[0]!.data.root).toMatchObject({ argsRaw: dispatched })
+    },
+  )
 
   it('batches repeated named deltas and retains the unchanged Tool node', () => {
     const start = vi.fn<typeof toolDefinition.start>((...args) => toolDefinition.start(...args))
@@ -256,21 +308,32 @@ describe('Tool preparation and durable replay', () => {
     h.assembler.append(delta(2.3, first, '{"content":"hello', null))
     expect(h.tools()[0]?.data.root).toBe(original.data.root)
     h.assembler.append(delta(2.4, second))
-    expect(h.phases()).toEqual([[first, 'preparing'], [second, 'preparing']])
+    expect(h.phases()).toEqual([
+      [first, 'preparing'],
+      [second, 'preparing'],
+    ])
     const groups = h.assembler.grouped('chat')!
     const group = groups.entries.find(entry => entry.kind === 'group')!
     if (group.kind !== 'group') throw new Error('expected a process group')
     expect(groups.groupSource(group.key).getSnapshot()?.data.summary).toMatchObject({
-      counts: [{ kind: 'write', count: 2 }], preparing: true, runningDetail: '',
+      counts: [{ kind: 'write', count: 2 }],
+      preparing: true,
+      runningDetail: '',
     })
     h.assembler.append(call(6))
     expect(h.tools()[0]?.key).toBe(original.key)
-    expect(h.phases()).toEqual([[first, 'start'], [second, 'preparing']])
+    expect(h.phases()).toEqual([
+      [first, 'start'],
+      [second, 'preparing'],
+    ])
     expect(h.tools()[0]?.data.root).toMatchObject({ argsRaw: args })
     h.assembler.append(result(7))
     h.assembler.append(call(8, second))
     h.assembler.append(result(9, second))
-    expect(h.phases()).toEqual([[first, 'result'], [second, 'result']])
+    expect(h.phases()).toEqual([
+      [first, 'result'],
+      [second, 'result'],
+    ])
   })
 
   it('keeps five command preparations below the Assistant message through dispatch and Step end', () => {
@@ -278,10 +341,15 @@ describe('Tool preparation and durable replay', () => {
     const ids = Array.from({ length: 5 }, (_, index) => ToolCallId(`command-${index}`))
     const command = '{"command":"echo hello"}'
     const text = 'Running five commands'
-    h.assembler.append({ type: 'transient', event: {
-      type: 'assistant/live-chunk', seq: 2.01, time: 3,
-      data: { turn: 1, step: 1, attemptId, chunk: { type: 'text-delta', index: 0, text } },
-    } })
+    h.assembler.append({
+      type: 'transient',
+      event: {
+        type: 'assistant/live-chunk',
+        seq: 2.01,
+        time: 3,
+        data: { turn: 1, step: 1, attemptId, chunk: { type: 'text-delta', index: 0, text } },
+      },
+    })
     for (const [index, id] of ids.entries()) h.assembler.append(delta(2.1 + index / 10, id, command, 'bash', index + 1))
     const keys = h.tools().map(node => node.key)
     const groups = h.assembler.grouped('chat')!
@@ -323,7 +391,10 @@ describe('Tool preparation and durable replay', () => {
     h.assembler.append(message)
     h.assembler.append(call(6))
     h.assembler.append(result(7))
-    expect(h.phases()).toEqual([[first, 'result'], [second, 'preparing']])
+    expect(h.phases()).toEqual([
+      [first, 'result'],
+      [second, 'preparing'],
+    ])
     const closed = entry({ type: 'step/end', seq: SessionSeq(8), time: 8, data: { turn: 1, step: 1 } })
     h.assembler.append(closed)
     expect(h.phases()).toEqual([[first, 'result']])
@@ -335,7 +406,10 @@ describe('Tool preparation and durable replay', () => {
     const message = settlement()
     const history = [...opening, message, call(6), result(7), call(8, second), result(9, second)]
     const full = harness(history)
-    expect(full.phases()).toEqual([[first, 'result'], [second, 'result']])
+    expect(full.phases()).toEqual([
+      [first, 'result'],
+      [second, 'result'],
+    ])
     const paged = harness([result(9, second)], true)
     expect(paged.phases()).toEqual([[second, 'result']])
     paged.assembler.prepend([call(8, second)], true)

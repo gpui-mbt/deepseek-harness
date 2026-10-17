@@ -16,12 +16,13 @@
  * @module @deepseek-ai/dsh-experimental-webworker-runtime/src/transport/tunnel
  */
 import {
-  parseInboundFrame, type TunnelOutboundFrame, type TunnelRequestFrame, type TunnelRequestId,
+  parseInboundFrame,
+  type TunnelOutboundFrame,
+  type TunnelRequestFrame,
+  type TunnelRequestId,
   type TunnelStreamOpenFrame,
 } from './frames.ts'
-import {
-  createSyntheticExchange, type RequestListener, type ResponseSink, type SyntheticExchange,
-} from './synthetic-http.ts'
+import { createSyntheticExchange, type RequestListener, type ResponseSink, type SyntheticExchange } from './synthetic-http.ts'
 
 /** Prefix owning the API methods. */
 export const API_PREFIX = '/api'
@@ -53,7 +54,7 @@ export function describeFailure(reason: unknown): string {
     if (!(value instanceof Error)) {
       // A thrower may pass anything as a cause; JSON keeps an object readable
       // where the default stringification would print `[object Object]`.
-      const rendered = typeof value === 'string' ? value : JSON.stringify(value) as string | undefined
+      const rendered = typeof value === 'string' ? value : (JSON.stringify(value) as string | undefined)
       lines.push(`${indent}${rendered ?? typeof value}`)
       return
     }
@@ -141,20 +142,32 @@ class BufferedSink {
   private settle: ((outcome: { streamed: boolean; status: number }) => void) | undefined
 
   /** Resolves when the exchange either starts streaming or answers in one frame. */
-  readonly settled = new Promise<{ streamed: boolean; status: number }>((resolve) => { this.settle = resolve })
+  readonly settled = new Promise<{ streamed: boolean; status: number }>(resolve => {
+    this.settle = resolve
+  })
 
   readonly sink: ResponseSink = {
     head: (status, headers) => {
-      this.record(() => { this.target?.head(status, headers) })
+      this.record(() => {
+        this.target?.head(status, headers)
+      })
       this.settle?.({ streamed: true, status })
     },
-    chunk: (bytes) => { this.record(() => { this.target?.chunk(bytes) }) },
-    end: (payload) => {
-      this.record(() => { this.target?.end(payload) })
+    chunk: bytes => {
+      this.record(() => {
+        this.target?.chunk(bytes)
+      })
+    },
+    end: payload => {
+      this.record(() => {
+        this.target?.end(payload)
+      })
       this.settle?.({ streamed: payload === undefined, status: payload?.status ?? 200 })
     },
-    fail: (message) => {
-      this.record(() => { this.target?.fail(message) })
+    fail: message => {
+      this.record(() => {
+        this.target?.fail(message)
+      })
       this.settle?.({ streamed: true, status: 500 })
     },
   }
@@ -203,7 +216,9 @@ class TunnelUplink implements AsyncIterable<unknown>, AsyncIterator<unknown> {
       if (this.items.length > 0) return { value: this.items.shift(), done: false }
       if (this.ended) return { value: undefined, done: true }
       if (this.wake !== undefined) throw new Error('webworker tunnel: stream uplink has one pending read')
-      await new Promise<void>((resolve) => { this.wake = resolve })
+      await new Promise<void>(resolve => {
+        this.wake = resolve
+      })
     }
   }
 
@@ -272,7 +287,10 @@ export class TunnelServer {
       if (queued !== -1) this.queue.splice(queued, 1)
       return
     }
-    if (this.failure !== undefined) {  this.refuse(frame, this.failure); return }
+    if (this.failure !== undefined) {
+      this.refuse(frame, this.failure)
+      return
+    }
     if (frame.t === 'stream-open') this.uplinks.set(frame.id, new TunnelUplink())
     if (this.seams === undefined) {
       this.queue.push(frame)
@@ -287,7 +305,9 @@ export class TunnelServer {
    */
   serve(seams: TunnelSeams): void {
     this.seams = seams
-    console.info(`webworker tunnel: serving (unary /api lane=${this.unaryApiLane}${this.unaryApiLane === 'route' ? ' with 401/403 retry' : ''}, privileged set=${this.privilegedMethods === undefined ? 'none' : String(this.privilegedMethods.size)}, queued=${String(this.queue.length)})`)
+    console.info(
+      `webworker tunnel: serving (unary /api lane=${this.unaryApiLane}${this.unaryApiLane === 'route' ? ' with 401/403 retry' : ''}, privileged set=${this.privilegedMethods === undefined ? 'none' : String(this.privilegedMethods.size)}, queued=${String(this.queue.length)})`,
+    )
     for (const frame of this.queue.splice(0)) this.dispatchFrame(frame)
   }
 
@@ -326,14 +346,17 @@ export class TunnelServer {
       return
     }
     const body = toTransferable(encoder.encode(message))
-    this.send({
-      t: 'res',
-      id: frame.id,
-      status: 503,
-      headers: { 'content-type': 'text/plain; charset=utf-8' },
-      body,
-      message,
-    }, [body])
+    this.send(
+      {
+        t: 'res',
+        id: frame.id,
+        status: 503,
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+        body,
+        message,
+      },
+      [body],
+    )
   }
 
   private dispatchFrame(frame: QueuedFrame): void {
@@ -349,7 +372,11 @@ export class TunnelServer {
     const seams = this.seams
     const uplink = this.uplinks.get(frame.id) ?? new TunnelUplink()
     const controller = new AbortController()
-    this.inFlight.set(frame.id, { abort: () => { controller.abort() } })
+    this.inFlight.set(frame.id, {
+      abort: () => {
+        controller.abort()
+      },
+    })
     try {
       const source = await seams.openStream(frame.endpoint, frame.payload, uplink, controller.signal)
       for await (const value of source) {
@@ -420,8 +447,14 @@ export class TunnelServer {
     const sink = this.sinkFor(frame.id)
     try {
       const { frame: routed, path } = this.pathFrame(frame)
-      if (path === '/__boot__') {  this.serveBoot(frame, sink); return }
-      if (path.startsWith(`${API_PREFIX}/`)) {  await this.serveApi(frame, routed, path, sink); return }
+      if (path === '/__boot__') {
+        this.serveBoot(frame, sink)
+        return
+      }
+      if (path.startsWith(`${API_PREFIX}/`)) {
+        await this.serveApi(frame, routed, path, sink)
+        return
+      }
       this.dispatch(routed, sink)
     } catch (reason) {
       sink.fail(reason instanceof Error ? reason.message : String(reason))
@@ -447,12 +480,15 @@ export class TunnelServer {
       listener(exchange.req, exchange.res)
       return exchange
     }
-    void this.whenListener().then((resolved) => {
-      // A page that gave up while the server was still binding has nothing to answer.
-      if (!exchange.aborted) resolved(exchange.req, exchange.res)
-    }, (reason: unknown) => {
-      sink.fail(reason instanceof Error ? reason.message : String(reason))
-    })
+    void this.whenListener().then(
+      resolved => {
+        // A page that gave up while the server was still binding has nothing to answer.
+        if (!exchange.aborted) resolved(exchange.req, exchange.res)
+      },
+      (reason: unknown) => {
+        sink.fail(reason instanceof Error ? reason.message : String(reason))
+      },
+    )
     return exchange
   }
 
@@ -460,12 +496,7 @@ export class TunnelServer {
    * Unary `/api`: keep the route lane's fences, but fall back to the direct lane
    * when network authentication or trust rejects the worker-owning page.
    */
-  private async serveApi(
-    original: TunnelRequestFrame,
-    routed: TunnelRequestFrame,
-    path: string,
-    sink: ResponseSink,
-  ): Promise<void> {
+  private async serveApi(original: TunnelRequestFrame, routed: TunnelRequestFrame, path: string, sink: ResponseSink): Promise<void> {
     const method = path.slice(API_PREFIX.length + 1)
     if (this.unaryApiLane === 'direct' || this.privilegedMethods?.has(method) === true) {
       await this.serveDirect(original, sink)
@@ -477,8 +508,17 @@ export class TunnelServer {
     // frames, so `settled` alone would never resolve when the handler had not
     // yet written a head.
     let settleAborted = (): void => {}
-    const aborted = new Promise<'aborted'>((resolve) => { settleAborted = () => { resolve('aborted') } })
-    this.inFlight.set(routed.id, { abort: () => { exchange.abort(); settleAborted() } })
+    const aborted = new Promise<'aborted'>(resolve => {
+      settleAborted = () => {
+        resolve('aborted')
+      }
+    })
+    this.inFlight.set(routed.id, {
+      abort: () => {
+        exchange.abort()
+        settleAborted()
+      },
+    })
     const outcome = await Promise.race([buffered.settled, aborted])
     if (outcome === 'aborted' || exchange.aborted) return
     // The decision happens at the first frame, before anything reaches the page:
@@ -508,7 +548,11 @@ export class TunnelServer {
   private async serveDirect(frame: TunnelRequestFrame, sink: ResponseSink): Promise<void> {
     if (this.seams === undefined) throw new Error('webworker tunnel: direct fetch requested before the host tree is serving')
     const controller = new AbortController()
-    this.inFlight.set(frame.id, { abort: () => { controller.abort() } })
+    this.inFlight.set(frame.id, {
+      abort: () => {
+        controller.abort()
+      },
+    })
     const headers = new Headers()
     for (const [key, value] of Object.entries(frame.headers)) {
       // Forbidden header names throw on a guarded Headers instance.
@@ -526,7 +570,9 @@ export class TunnelServer {
     })
     const response = await this.seams.directFetch(request)
     const responseHeaders: Record<string, string> = {}
-    response.headers.forEach((value, key) => { responseHeaders[key] = value })
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value
+    })
     // Event streams are the only responses the page consumes incrementally;
     // everything else answers as one frame, as the route lane does.
     const streamed = response.body !== null && (responseHeaders['content-type'] ?? '').startsWith('text/event-stream')

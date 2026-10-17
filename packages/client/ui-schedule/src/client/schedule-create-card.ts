@@ -79,9 +79,8 @@ function isNumberArray(value: unknown): value is number[] {
 export function narrowScheduleRecord(value: unknown): ScheduleRecord | undefined {
   if (!isRecord(value)) return undefined
   const { id, prompt, scheduledAt, kind } = value
-  if (typeof id !== 'string' || id === ''
-    || typeof prompt !== 'string' || prompt === ''
-    || typeof scheduledAt !== 'string') return undefined
+  if (typeof id !== 'string' || id === '' || typeof prompt !== 'string' || prompt === '' || typeof scheduledAt !== 'string')
+    return undefined
   const title = typeof value.title === 'string' && value.title.trim() !== '' ? value.title : firstLine(prompt)
   if (title === '') return undefined
   switch (kind) {
@@ -98,23 +97,39 @@ export function narrowScheduleRecord(value: unknown): ScheduleRecord | undefined
     case 'daily':
       return typeof value.time === 'string' && typeof value.timeZone === 'string'
         ? {
-          id: id as ScheduleId, kind: 'daily', title, prompt, time: value.time,
-          timeZone: value.timeZone, scheduledAt,
-        }
+            id: id as ScheduleId,
+            kind: 'daily',
+            title,
+            prompt,
+            time: value.time,
+            timeZone: value.timeZone,
+            scheduledAt,
+          }
         : undefined
     case 'weekly':
       return typeof value.time === 'string' && typeof value.timeZone === 'string' && isNumberArray(value.weekdays)
         ? {
-          id: id as ScheduleId, kind: 'weekly', title, prompt, time: value.time,
-          timeZone: value.timeZone, weekdays: value.weekdays, scheduledAt,
-        }
+            id: id as ScheduleId,
+            kind: 'weekly',
+            title,
+            prompt,
+            time: value.time,
+            timeZone: value.timeZone,
+            weekdays: value.weekdays,
+            scheduledAt,
+          }
         : undefined
     case 'cron':
       return typeof value.expression === 'string' && typeof value.timeZone === 'string'
         ? {
-          id: id as ScheduleId, kind: 'cron', title, prompt, expression: value.expression,
-          timeZone: value.timeZone, scheduledAt,
-        }
+            id: id as ScheduleId,
+            kind: 'cron',
+            title,
+            prompt,
+            expression: value.expression,
+            timeZone: value.timeZone,
+            scheduledAt,
+          }
         : undefined
     default:
       return undefined
@@ -140,14 +155,12 @@ function pendingTitle(argsRaw: string): string | undefined {
 export function scheduleCreateCardModel(block: ToolBlock, toolName: string): ScheduleCreateCardModel {
   const settled = 'kind' in block
   // A call still preparing carries no arguments, so its title falls back to the tool name.
-  const argsRaw = settled
-    ? block.call?.argsRaw ?? ''
-    : block.phase === 'start' ? block.argsRaw : ''
+  const argsRaw = settled ? (block.call?.argsRaw ?? '') : block.phase === 'start' ? block.argsRaw : ''
   const output = settled ? resultText(block) : null
   const task = settled ? narrowScheduleRecord(parseJson(output ?? '')) : undefined
   return {
     task,
-    title: task === undefined ? pendingTitle(argsRaw) ?? toolName : taskName(task),
+    title: task === undefined ? (pendingTitle(argsRaw) ?? toolName) : taskName(task),
     output,
   }
 }

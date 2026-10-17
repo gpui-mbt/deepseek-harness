@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -23,7 +23,7 @@ import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -75,11 +75,7 @@ class StaticAttachmentStore extends AttachmentStore {
     return HOST_IMAGE_PATH
   }
 
-  override readImageRequest(
-    ref: ImageAttachmentRef,
-    _target: ImageRequestTarget,
-    _signal?: AbortSignal,
-  ): Promise<RequestImageAttachment> {
+  override readImageRequest(ref: ImageAttachmentRef, _target: ImageRequestTarget, _signal?: AbortSignal): Promise<RequestImageAttachment> {
     return Promise.resolve({
       variantId: ImageVariantId(`sha256:${'b'.repeat(64)}`),
       attachment: ref,
@@ -214,13 +210,15 @@ describe('request-level dynamic configuration', () => {
     ])
     const { ctx } = await boot(dir, { baseURL: server.url })
     await ctx.plugin(MappedFileSystem)
-    const messages = [createUserMessage({
-      content: [
-        { type: 'image', attachment: IMAGE_REF },
-        { type: 'image', attachment: IMAGE_REF },
-      ],
-      source: { kind: 'test' },
-    })]
+    const messages = [
+      createUserMessage({
+        content: [
+          { type: 'image', attachment: IMAGE_REF },
+          { type: 'image', attachment: IMAGE_REF },
+        ],
+        source: { kind: 'test' },
+      }),
+    ]
 
     await assemble(ctx, { model: 'deepseek-flash', messages })
     await configurations.get(ctx)!.update({ maxRequestFilesBytes: 4, imageOffloadByteQuantum: 2 })
@@ -232,13 +230,15 @@ describe('request-level dynamic configuration', () => {
     })
     await assemble(ctx, {
       model: 'deepseek-flash',
-      messages: [createUserMessage({
-        content: [
-          { type: 'image', attachment: IMAGE_REF, offloaded: true },
-          { type: 'image', attachment: IMAGE_REF },
-        ],
-        source: { kind: 'test' },
-      })],
+      messages: [
+        createUserMessage({
+          content: [
+            { type: 'image', attachment: IMAGE_REF, offloaded: true },
+            { type: 'image', attachment: IMAGE_REF },
+          ],
+          source: { kind: 'test' },
+        }),
+      ],
     })
 
     const first = (server.requests[0] as { messages: Array<{ content: unknown }> }).messages[0]?.content
@@ -309,9 +309,8 @@ describe('request-level dynamic configuration', () => {
     expect(rejected.headers[0]?.['x-api-key']).toBe('good-key')
   })
 
-  it.each(['messages', 'chat-completions'])('refuses a stored protocol=%s when the adapter mounts', async (protocol) => {
+  it.each(['messages', 'chat-completions'])('refuses a stored protocol=%s when the adapter mounts', async protocol => {
     const dir = await home()
     await expect(boot(dir, { baseURL: 'http://127.0.0.1:1', protocol })).rejects.toThrow(/protocol/)
   })
-
 })

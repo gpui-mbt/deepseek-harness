@@ -43,8 +43,7 @@ export class UserTextRegistry extends ConversationDefinitionRegistry<UserTextRul
   }
 
   protected override refresh(): void {
-    this.rules = [...this.definitions.values()].sort((a, b) =>
-      a.order - b.order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    this.rules = [...this.definitions.values()].sort((a, b) => a.order - b.order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     this.revision++
     super.refresh()
   }

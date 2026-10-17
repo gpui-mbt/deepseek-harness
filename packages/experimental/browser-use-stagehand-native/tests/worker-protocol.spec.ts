@@ -3,7 +3,7 @@
 import { once } from 'node:events'
 import { Worker } from 'node:worker_threads'
 import { finished } from 'node:stream/promises'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { request } from '../src/worker-rpc.ts'
 
 it('reports malformed requests before exiting its real Worker', async () => {
@@ -15,12 +15,23 @@ it('reports malformed requests before exiting its real Worker', async () => {
     `await import(${JSON.stringify(entry.href)});`,
   ].join('\n')
   const worker = new Worker(new URL(`data:text/javascript,${encodeURIComponent(bootstrap)}`), {
-    workerData: { model: { modelName: 'openai/gpt-5.4-mini', apiKey: 'fixture-model-key' }, mode: 'attach', cdpEndpoint: 'http://fixture', headless: true, operationTimeoutMs: 30000, shutdownGraceMs: 1000 },
-    env: {}, execArgv: [], stderr: true,
+    workerData: {
+      model: { modelName: 'openai/gpt-5.4-mini', apiKey: 'fixture-model-key' },
+      mode: 'attach',
+      cdpEndpoint: 'http://fixture',
+      headless: true,
+      operationTimeoutMs: 30000,
+      shutdownGraceMs: 1000,
+    },
+    env: {},
+    execArgv: [],
+    stderr: true,
   })
   let diagnostics = ''
   worker.stderr.setEncoding('utf8')
-  worker.stderr.on('data', (chunk: string) => { diagnostics += chunk })
+  worker.stderr.on('data', (chunk: string) => {
+    diagnostics += chunk
+  })
   try {
     await request(worker, 'ready')
     const exited = once(worker, 'exit')

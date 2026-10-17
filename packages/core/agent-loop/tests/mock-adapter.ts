@@ -1,4 +1,11 @@
-import type { GenerateOptions, LlmModelReasoningInfo, LlmResolvedModelInfo, StreamChunk, SystemPromptUpdate, ToolUpdate } from '@deepseek-ai/dsh-llm'
+import type {
+  GenerateOptions,
+  LlmModelReasoningInfo,
+  LlmResolvedModelInfo,
+  StreamChunk,
+  SystemPromptUpdate,
+  ToolUpdate,
+} from '@deepseek-ai/dsh-llm'
 import { ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
 
 /** Helpers to write scripted responses tersely. */
@@ -84,22 +91,19 @@ export class MockAdapter extends LlmAdapter {
     super()
   }
 
-  override resolveModel(
-    provider: string,
-    model: string,
-  ): Promise<LlmResolvedModelInfo> {
+  override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({
       provider,
       id: model,
       name: model,
-      ...this.reasoning === undefined ? {} : { reasoning: this.reasoning },
-      ...this.defaultMaxTokens === undefined ? {} : { defaultMaxTokens: this.defaultMaxTokens },
-      ...this.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: this.systemPromptUpdate },
-      ...this.toolUpdate === undefined ? {} : { toolUpdate: this.toolUpdate },
+      ...(this.reasoning === undefined ? {} : { reasoning: this.reasoning }),
+      ...(this.defaultMaxTokens === undefined ? {} : { defaultMaxTokens: this.defaultMaxTokens }),
+      ...(this.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: this.systemPromptUpdate }),
+      ...(this.toolUpdate === undefined ? {} : { toolUpdate: this.toolUpdate }),
     })
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     const entry = this.script.shift()
     if (!entry) throw new Error('MockAdapter: script exhausted')
@@ -107,16 +111,34 @@ export class MockAdapter extends LlmAdapter {
       yield { type: 'block-start', index: 0, blockType: 'text' }
       yield { type: 'text-delta', index: 0, text: 'partial' }
       await new Promise<void>((_resolve, reject) => {
-        if (options.signal?.aborted) { reject(new Error('aborted')); return }
-        options.signal?.addEventListener('abort', () => { reject(new Error('aborted')) }, { once: true })
+        if (options.signal?.aborted) {
+          reject(new Error('aborted'))
+          return
+        }
+        options.signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('aborted'))
+          },
+          { once: true },
+        )
       })
       return
     }
     if (typeof entry === 'object' && !Array.isArray(entry) && 'hangAfter' in entry) {
       for (const chunk of entry.hangAfter) yield chunk
       await new Promise<void>((_resolve, reject) => {
-        if (options.signal?.aborted) { reject(new Error('aborted')); return }
-        options.signal?.addEventListener('abort', () => { reject(new Error('aborted')) }, { once: true })
+        if (options.signal?.aborted) {
+          reject(new Error('aborted'))
+          return
+        }
+        options.signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('aborted'))
+          },
+          { once: true },
+        )
       })
       return
     }
@@ -124,9 +146,20 @@ export class MockAdapter extends LlmAdapter {
       yield { type: 'block-start', index: 0, blockType: 'text' }
       yield { type: 'text-delta', index: 0, text: 'partial' }
       await new Promise<void>((_resolve, reject) => {
-        const fail = (): void => { reject(new Error('aborted')) }
-        if (options.signal?.aborted) { setTimeout(fail, 50); return }
-        options.signal?.addEventListener('abort', () => { setTimeout(fail, 50) }, { once: true })
+        const fail = (): void => {
+          reject(new Error('aborted'))
+        }
+        if (options.signal?.aborted) {
+          setTimeout(fail, 50)
+          return
+        }
+        options.signal?.addEventListener(
+          'abort',
+          () => {
+            setTimeout(fail, 50)
+          },
+          { once: true },
+        )
       })
       return
     }

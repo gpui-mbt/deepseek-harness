@@ -16,7 +16,7 @@ import type { ProcessIdentity, ProcessInspector, ProcessSnapshot } from './proce
 import type { ShellActivity } from './shell-activity.ts'
 
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const finish = (): void => {
       clearTimeout(timer)
       signal?.removeEventListener('abort', finish)
@@ -30,10 +30,7 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 async function raceWithDelay<T, U>(operation: Promise<T>, ms: number, timeout: U): Promise<T | U> {
   const controller = new AbortController()
   try {
-    return await Promise.race([
-      operation,
-      delay(ms, controller.signal).then(() => timeout),
-    ])
+    return await Promise.race([operation, delay(ms, controller.signal).then(() => timeout)])
   } finally {
     controller.abort()
   }
@@ -94,8 +91,14 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
     private readonly observeShellExit = false,
   ) {
     this.pid = terminal.pid
-    try { this.rootIdentity = inspector.snapshot().tree(this.pid).find(member => member.pid === this.pid) }
-    catch (_rootIdentityUnavailable) { this.rootIdentity = undefined }
+    try {
+      this.rootIdentity = inspector
+        .snapshot()
+        .tree(this.pid)
+        .find(member => member.pid === this.pid)
+    } catch (_rootIdentityUnavailable) {
+      this.rootIdentity = undefined
+    }
     this.done = this.outcome.promise
     const resume = (): void => {
       if (!this.outputPaused) return
@@ -103,8 +106,10 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
       if (!this.exited) terminal.resume()
     }
     this.output.on('drain', resume)
-    this.output.once('close', () => { this.output.off('drain', resume) })
-    this.dataDisposable = terminal.onData((data) => {
+    this.output.once('close', () => {
+      this.output.off('drain', resume)
+    })
+    this.dataDisposable = terminal.onData(data => {
       if (!this.output.write(Buffer.from(data, 'utf8')) && this.cleanup === undefined && !this.outputPaused) {
         this.outputPaused = true
         terminal.pause()
@@ -114,9 +119,14 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
       if (this.exited) return
       this.exited = true
       if (this.managedOwner !== undefined && this.observeShellExit) {
-        void this.managedOwner.waitForExit().then(() => { this.managedRangeEmpty = true }).catch(() => {
-          // Failed range observation cannot authorize idle reclamation.
-        })
+        void this.managedOwner
+          .waitForExit()
+          .then(() => {
+            this.managedRangeEmpty = true
+          })
+          .catch(() => {
+            // Failed range observation cannot authorize idle reclamation.
+          })
       }
       this.output.end()
       const outcome = {
@@ -175,10 +185,15 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
         const root = observed.tree(this.pid).find(member => member.pid === this.pid)
         if (this.exited && this.managedRangeEmpty) state = 'idle'
         else if (descendants.length > 0) state = 'busy'
-        else if (this.exited && this.managedOwner === undefined && this.platform === 'linux' && observed.complete === true && root === undefined) {
+        else if (
+          this.exited &&
+          this.managedOwner === undefined &&
+          this.platform === 'linux' &&
+          observed.complete === true &&
+          root === undefined
+        ) {
           state = observed.session(this.pid).some(member => observed.alive(member)) ? 'busy' : 'idle'
-        }
-        else if (observed.complete === true && root?.started === this.rootIdentity?.started && root !== undefined) {
+        } else if (observed.complete === true && root?.started === this.rootIdentity?.started && root !== undefined) {
           const foreground = this.inspector.foregroundPgid(this.pid)
           state = foreground === undefined ? 'unknown' : foreground === this.pid ? shell.state : 'busy'
           if (state === 'idle' && this.managedOwner !== undefined) {
@@ -186,10 +201,15 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
             state = tasks === undefined || tasks < 1 ? 'unknown' : tasks === 1 ? 'idle' : 'busy'
           }
         }
-      } catch (_incompleteActivityObservation) { state = 'unknown' }
+      } catch (_incompleteActivityObservation) {
+        state = 'unknown'
+      }
     }
     const key = `${revision}:${state}`
-    if (key !== this.activityKey) { this.activityKey = key; this.activityRevision++ }
+    if (key !== this.activityKey) {
+      this.activityKey = key
+      this.activityRevision++
+    }
     return { state, revision: this.activityRevision }
   }
 
@@ -221,14 +241,19 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
 
   terminate(): Promise<void> {
     if (this.cleanup !== undefined) return this.cleanup
-    if (this.outputPaused) { this.outputPaused = false; this.terminal.resume() }
+    if (this.outputPaused) {
+      this.outputPaused = false
+      this.terminal.resume()
+    }
     const cleanup = this.closeOnce().then(() => {
       this.quiescent = true
       this.shellActivity?.dispose()
       this.onQuiescence?.()
     })
     this.cleanup = cleanup
-    void cleanup.catch(() => { this.cleanup = undefined })
+    void cleanup.catch(() => {
+      this.cleanup = undefined
+    })
     return cleanup
   }
 
@@ -272,13 +297,13 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
     // members keep their own start identities, which every signal rechecks.
     const tree = observed.tree(this.pid)
     const root = tree.find(member => member.pid === this.pid)
-    const rootVerified = this.rootIdentity !== undefined
-      && root !== undefined
-      && root.started === this.rootIdentity.started
-    this.trackedDescendants = this.survivors(this.unionMembers(
-      this.trackedDescendants,
-      ...rootVerified ? [tree, observed.session(this.pid)] : [],
-    ).filter(member => member.pid !== this.pid), observed)
+    const rootVerified = this.rootIdentity !== undefined && root !== undefined && root.started === this.rootIdentity.started
+    this.trackedDescendants = this.survivors(
+      this.unionMembers(this.trackedDescendants, ...(rootVerified ? [tree, observed.session(this.pid)] : [])).filter(
+        member => member.pid !== this.pid,
+      ),
+      observed,
+    )
     return this.trackedDescendants
   }
 
@@ -374,8 +399,7 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
     // identity miss falls back to the bare kill. taskkill termination also does
     // not reliably fire node-pty's exit notification, so the tiers verify the
     // shell's absence through the inspector instead of waiting on `done` alone.
-    const shellGone = (): boolean =>
-      this.exited || (this.rootIdentity !== undefined && !this.inspector.isAlive(this.rootIdentity))
+    const shellGone = (): boolean => this.exited || (this.rootIdentity !== undefined && !this.inspector.isAlive(this.rootIdentity))
     if (!shellGone() && this.rootIdentity !== undefined) {
       this.inspector.signalProcess(this.rootIdentity, 'SIGTERM')
       await this.waitForWindowsShellExit()
@@ -410,7 +434,11 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
         this.dataDisposable.dispose()
         this.exitDisposable.dispose()
       } finally {
-        void this.done.finally(() => { this.cleanupManagedOwner(this.managedOwner as BoundProcessOwner) }).catch(() => {})
+        void this.done
+          .finally(() => {
+            this.cleanupManagedOwner(this.managedOwner as BoundProcessOwner)
+          })
+          .catch(() => {})
       }
       return
     }
@@ -437,10 +465,14 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
   private async closeManagedRange(owner: BoundProcessOwner): Promise<void> {
     owner.signal('SIGTERM')
     const observation = owner.waitForExit()
-    const first = await raceWithDelay(observation.then(
-      () => ({ kind: 'stopped' as const }),
-      (error: unknown) => ({ kind: 'failed' as const, error }),
-    ), this.graceMs, { kind: 'timeout' as const })
+    const first = await raceWithDelay(
+      observation.then(
+        () => ({ kind: 'stopped' as const }),
+        (error: unknown) => ({ kind: 'failed' as const, error }),
+      ),
+      this.graceMs,
+      { kind: 'timeout' as const },
+    )
     if (first.kind !== 'stopped') {
       owner.signal('SIGKILL')
       if (first.kind === 'failed') {
@@ -456,7 +488,11 @@ export class LocalTerminalHandle implements SubprocessTerminalHandle {
       await observation
     }
     if (!this.exited) {
-      await raceWithDelay(this.done.then(() => undefined), this.graceMs, undefined)
+      await raceWithDelay(
+        this.done.then(() => undefined),
+        this.graceMs,
+        undefined,
+      )
     }
     if (!this.exited) throw new Error(`terminal cleanup failed; surviving pid: ${this.pid}`)
   }

@@ -8,19 +8,10 @@
 
 import { Context, Service, type Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {
-  WebFetchProvider,
-  WebFetchRequest,
-  WebFetchResult,
-  WebSearchProvider,
-  WebSearchRequest,
-  WebSearchResult,
-} from './types.ts'
+import type { WebFetchProvider, WebFetchRequest, WebFetchResult, WebSearchProvider, WebSearchRequest, WebSearchResult } from './types.ts'
 import { WebError } from './types.ts'
 
-export {
-  WebError,
-} from './types.ts'
+export { WebError } from './types.ts'
 export type {
   WebFetchBody,
   WebFetchProvider,
@@ -89,7 +80,10 @@ export class WebRuntime extends Service {
   private readonly searchProviderEnv: string | undefined
   private readonly fetchProviderEnv: string | undefined
 
-  constructor(ctx: Context, private readonly config: WebRuntimeConfig) {
+  constructor(
+    ctx: Context,
+    private readonly config: WebRuntimeConfig,
+  ) {
     super(ctx, 'web')
     this.searchProviderEnv = process.env.DSH_WEB_SEARCH_PROVIDER
     this.fetchProviderEnv = process.env.DSH_WEB_FETCH_PROVIDER
@@ -143,7 +137,7 @@ export class WebRuntime extends Service {
     const configuredId = this.config.searchProvider.get() ?? this.searchProviderEnv
     const provider = resolveProvider({
       providers: this.searchProviders,
-      ...configuredId !== undefined ? { configuredId } : {},
+      ...(configuredId !== undefined ? { configuredId } : {}),
     })
     const result = await provider.search(request, signal)
     return capSources(result, request.maxResults)
@@ -161,7 +155,7 @@ export class WebRuntime extends Service {
     const configuredId = this.config.fetchProvider.get() ?? this.fetchProviderEnv
     const provider = resolveProvider({
       providers: this.fetchProviders,
-      ...configuredId !== undefined ? { configuredId } : {},
+      ...(configuredId !== undefined ? { configuredId } : {}),
     })
     return provider.fetch(request, signal)
   }

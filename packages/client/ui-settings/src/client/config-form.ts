@@ -4,9 +4,7 @@ import { DeveloperToolsPreference } from './developer-tools.ts'
 import { DEVELOPER_TOOLS_NAMESPACE } from '../developer-tools-settings.ts'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  SettingsNamespaceView, SettingsPathOpView,
-} from '@deepseek-ai/dsh-api-remotes/client'
+import type { SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 // Type-only, and deliberately NOT `@deepseek-ai/dsh-api-remotes/client`: this
@@ -81,7 +79,9 @@ export class ConfigFormController<T> implements ConfigForm<T> {
       revision: undefined,
       writable: false,
     })
-    this.unsubscribe = mirror.subscribe(() => { this.derive() })
+    this.unsubscribe = mirror.subscribe(() => {
+      this.derive()
+    })
     this.derive()
   }
 
@@ -174,7 +174,10 @@ export class ConfigFormController<T> implements ConfigForm<T> {
     })
     // The returned task carries its own settlement to the caller; the queue
     // tail is kept fulfilled so one failed subscriber cannot strand later operations.
-    this.tail = task.then(() => {}, () => {})
+    this.tail = task.then(
+      () => {},
+      () => {},
+    )
     return task
   }
 
@@ -185,14 +188,14 @@ export class ConfigFormController<T> implements ConfigForm<T> {
     const { writable } = mirrored.view
     const view = mirrored.view.namespaces.find(candidate => candidate.ns === this.spec.namespace)
     if (view === undefined) {
-      this.store.update((draft) => {
+      this.store.update(draft => {
         draft.status = 'unavailable'
         draft.writable = writable
       })
       return
     }
     const decoded = this.decode(view)
-    this.store.update((draft) => {
+    this.store.update(draft => {
       draft.revision = view.revision
       draft.base = view.base
       draft.user = view.user
@@ -216,7 +219,7 @@ export class ConfigFormController<T> implements ConfigForm<T> {
       // the value is treated exactly like a schema-invalid one.
       return undefined
     }
-    return failure === undefined ? view.value as T : undefined
+    return failure === undefined ? (view.value as T) : undefined
   }
 }
 
@@ -251,19 +254,25 @@ export class ConfigForms extends Service {
    * @param config - the shared describe mirror every shared form derives from
    * and the settings-owned schema operations.
    */
-  constructor(ctx: Context, config: {
-    mirror: SettingsDescribeMirror
-    schema: SettingsSchemaService
-  }) {
+  constructor(
+    ctx: Context,
+    config: {
+      mirror: SettingsDescribeMirror
+      schema: SettingsSchemaService
+    },
+  ) {
     super(ctx, 'configForms')
     this.mirror = config.mirror
     this.schema = config.schema
     this.owner = ctx
     this.developerTools = new DeveloperToolsPreference(this.get(DEVELOPER_TOOLS_NAMESPACE))
-    ctx.effect(() => async () => {
-      await Promise.all([...this.forms.values()].map(form => form.dispose()))
-      this.forms.clear()
-    }, 'ui-settings: configuration forms')
+    ctx.effect(
+      () => async () => {
+        await Promise.all([...this.forms.values()].map(form => form.dispose()))
+        this.forms.clear()
+      },
+      'ui-settings: configuration forms',
+    )
   }
 
   /**
@@ -284,9 +293,7 @@ export class ConfigForms extends Service {
   get<T>(entryId: string): ConfigForm<T> {
     const existing = this.forms.get(entryId)
     if (existing !== undefined) return existing as ConfigFormController<T>
-    const form = new ConfigFormController<T>(
-      this.owner, { namespace: entryId }, this.mirror, this.schema,
-    )
+    const form = new ConfigFormController<T>(this.owner, { namespace: entryId }, this.mirror, this.schema)
     this.forms.set(entryId, form)
     void this.mirror.ensure()
     return form

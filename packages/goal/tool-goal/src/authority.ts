@@ -16,9 +16,7 @@ export interface GoalToolExecution {
 }
 
 /** Hard authority granted to one state-changing call. */
-export type GoalToolAuthority =
-  | { readonly kind: 'direct-human' }
-  | { readonly kind: 'goal-round'; readonly goal: GoalView }
+export type GoalToolAuthority = { readonly kind: 'direct-human' } | { readonly kind: 'goal-round'; readonly goal: GoalView }
 
 /** Throw one structured tool-policy failure. */
 function reject(message: string, code = 'GOAL_TOOL_AUTHORITY_REQUIRED'): never {
@@ -26,10 +24,7 @@ function reject(message: string, code = 'GOAL_TOOL_AUTHORITY_REQUIRED'): never {
 }
 
 /** Resolve the immutable event cut and open-turn boundary without copying the turn suffix. */
-function openTurnEvents(
-  ctx: Context,
-  agent: Agent,
-): Pick<GoalToolExecution, 'events' | 'openTurnStartSeq'> {
+function openTurnEvents(ctx: Context, agent: Agent): Pick<GoalToolExecution, 'events' | 'openTurnStartSeq'> {
   // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
   const events = agent.session.snapshotEvents()
   const boundary = ctx.sessionProjections.stateOf(agent.session, 'turnBoundary')
@@ -50,21 +45,14 @@ export function goalToolExecution(ctx: Context, exec: ToolRunContext): GoalToolE
   if (agent === undefined) {
     return reject('goal tools require a calling agent', 'GOAL_TOOL_AGENT_REQUIRED')
   }
-  if (ctx.agents.get(agent.id) !== agent || agent.status !== 'running'
-    || ctx.agents.currentInitiator() !== agent) {
-    return reject(
-      'goal tools require the exact live calling agent inside its active driver',
-      'GOAL_TOOL_DRIVER_REQUIRED',
-    )
+  if (ctx.agents.get(agent.id) !== agent || agent.status !== 'running' || ctx.agents.currentInitiator() !== agent) {
+    return reject('goal tools require the exact live calling agent inside its active driver', 'GOAL_TOOL_DRIVER_REQUIRED')
   }
   return { agent, ...openTurnEvents(ctx, agent) }
 }
 
 /** Whether the captured open turn contains an event accepted by `predicate`. */
-function someOpenTurnEvent(
-  execution: GoalToolExecution,
-  predicate: (event: SessionEvent) => boolean,
-): boolean {
+function someOpenTurnEvent(execution: GoalToolExecution, predicate: (event: SessionEvent) => boolean): boolean {
   for (let seq = execution.openTurnStartSeq + 1; seq < execution.events.length; seq += 1) {
     const event = execution.events[seq]
     if (event !== undefined && predicate(event)) return true
@@ -79,17 +67,20 @@ function someOpenTurnEvent(
  */
 function hasDirectHumanInput(ctx: Context, execution: GoalToolExecution): boolean {
   if (!ctx.agents.roots().includes(execution.agent)) return false
-  return someOpenTurnEvent(execution, event =>
-    event.type === 'user/message' && event.data.source.kind === 'user')
+  return someOpenTurnEvent(execution, event => event.type === 'user/message' && event.data.source.kind === 'user')
 }
 
 /** Whether this turn is the current goal's exact admitted round. */
 function isMatchingGoalRound(execution: GoalToolExecution, goal: GoalView): boolean {
-  return someOpenTurnEvent(execution, event => event.type === 'user/message'
-    && event.data.source.kind === 'goal'
-    && event.data.source.goalId === goal.id
-    && event.data.source.revision === goal.revision
-    && event.data.source.round === goal.roundsStarted)
+  return someOpenTurnEvent(
+    execution,
+    event =>
+      event.type === 'user/message' &&
+      event.data.source.kind === 'goal' &&
+      event.data.source.goalId === goal.id &&
+      event.data.source.revision === goal.revision &&
+      event.data.source.round === goal.roundsStarted,
+  )
 }
 
 /**

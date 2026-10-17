@@ -3,12 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  defineAcpSnapshotSuite,
-  parseSnapshotManifest,
-  type Scenario,
-  type SnapshotSuiteOptions,
-} from '@deepseek-ai/dsh-session-snapshot'
+import { defineAcpSnapshotSuite, parseSnapshotManifest, type Scenario, type SnapshotSuiteOptions } from '@deepseek-ai/dsh-session-snapshot'
 
 const corpusDir = fileURLToPath(new URL('./', import.meta.url))
 
@@ -16,10 +11,14 @@ function snapshotMode(value: string | undefined): SnapshotSuiteOptions['mode'] {
   switch (value) {
     case undefined:
     case '':
-    case 'replay': return 'replay'
-    case 'record': return 'record'
-    case 'refresh': return 'refresh'
-    default: throw new Error(`unknown DSH_SNAPSHOT mode: ${value}`)
+    case 'replay':
+      return 'replay'
+    case 'record':
+      return 'record'
+    case 'refresh':
+      return 'refresh'
+    default:
+      throw new Error(`unknown DSH_SNAPSHOT mode: ${value}`)
   }
 }
 
@@ -47,7 +46,7 @@ function localScenarioSource(source: string | undefined): string | undefined {
   return source?.includes('/') === false ? source : undefined
 }
 
-const scenarios: Scenario[] = controllerCases.map((controller) => {
+const scenarios: Scenario[] = controllerCases.map(controller => {
   const manifestPath = join(corpusDir, controller.name, 'snapshot.yml')
   const manifest = parseSnapshotManifest(readFileSync(manifestPath, 'utf8'), manifestPath)
   if (manifest.recording === undefined || manifest.header === undefined) {
@@ -68,14 +67,14 @@ const scenarios: Scenario[] = controllerCases.map((controller) => {
     ...(manifest.platform === 'posix' ? { posixOnly: true } : {}),
     ...(manifest.platform === 'pwsh' ? { pwshOnly: true } : {}),
     ...(controller.configPath === undefined ? {} : { configPath: controller.configPath }),
-    ...manifest.permission === undefined && manifest.environment === undefined
+    ...(manifest.permission === undefined && manifest.environment === undefined
       ? {}
       : {
           env: {
             ...manifest.environment,
             ...(manifest.permission === undefined ? {} : { DSH_PERMISSION_MODE: manifest.permission }),
           },
-        },
+        }),
   }
 })
 

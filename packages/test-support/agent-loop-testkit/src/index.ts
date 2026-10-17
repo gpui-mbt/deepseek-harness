@@ -69,10 +69,7 @@ export interface AgentLoopTestDependenciesOptions {
  * @param options - optional service configuration forwarded without mutation.
  * @returns after every prerequisite service has activated.
  */
-export async function mountAgentLoopTestDependencies(
-  ctx: Context,
-  options: AgentLoopTestDependenciesOptions = {},
-): Promise<void> {
+export async function mountAgentLoopTestDependencies(ctx: Context, options: AgentLoopTestDependenciesOptions = {}): Promise<void> {
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)

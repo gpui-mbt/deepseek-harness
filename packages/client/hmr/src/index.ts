@@ -55,9 +55,7 @@ function bundleStat(path: string): WatchedBundleStat {
 
 /** Whether the executable bundle metadata is unchanged since its last publication. */
 function sameBundleStat(left: WatchedBundleStat, right: WatchedBundleStat): boolean {
-  return left.mtimeMs === right.mtimeMs
-    && left.ctimeMs === right.ctimeMs
-    && left.size === right.size
+  return left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs && left.size === right.size
 }
 
 /**
@@ -167,14 +165,16 @@ export function apply(ctx: Context, config: Config): void {
     res.writeHead(200, {
       'content-type': 'text/event-stream',
       'cache-control': 'no-cache',
-      'connection': 'keep-alive',
+      connection: 'keep-alive',
     })
     // Comment line on open so clients/proxies see a live channel even when
     // no rebuild ever happens; EventSource frame parsing skips it naturally.
     res.write(': connected\n\n')
     connections.add(res)
     res.write(sseData({ type: 'graph', graph: ctx.clientModules.graph() }))
-    res.on('close', () => { connections.delete(res) })
+    res.on('close', () => {
+      connections.delete(res)
+    })
   }
 
   ctx.effect(() => {

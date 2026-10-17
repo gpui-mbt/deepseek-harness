@@ -1,6 +1,6 @@
 import { createUserMessage, createMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionLogOffset, SessionSeq, SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -21,7 +21,7 @@ import { TestSessionQueryEngine } from './test-service.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -42,10 +42,11 @@ function appendEvent(seq: number, sources?: readonly number[]): SessionEvent {
     seq: SessionSeq(seq),
     time: seq + 1,
     data: createUserMessage({
-      content: [{ type: 'text', text: `event ${seq}` }], source: { kind: 'user' },
+      content: [{ type: 'text', text: `event ${seq}` }],
+      source: { kind: 'user' },
     }),
     surfaceOp: 'append',
-    ...sources === undefined ? {} : { sourceEventSeqs: sources as SessionSeq[] },
+    ...(sources === undefined ? {} : { sourceEventSeqs: sources as SessionSeq[] }),
   }
 }
 
@@ -157,7 +158,8 @@ function appendTraceEvents(session: Session): void {
   session.append(
     'user/message',
     createUserMessage({
-      content: [{ type: 'text', text: 'original' }], source: { kind: 'user' },
+      content: [{ type: 'text', text: 'original' }],
+      source: { kind: 'user' },
     }),
     { surfaceOp: 'append', sourceEventSeqs: [SessionSeq(2)] },
   )
@@ -175,7 +177,8 @@ function appendTraceEvents(session: Session): void {
   session.append(
     'user/message',
     createUserMessage({
-      content: [{ type: 'text', text: 'context' }], source: { kind: 'test' },
+      content: [{ type: 'text', text: 'context' }],
+      source: { kind: 'test' },
     }),
     { surfaceOp: 'append' },
   )
@@ -218,10 +221,8 @@ describe('session lineage tracing', () => {
     if (!trace.complete) throw new Error('expected complete lineage')
     expect(trace.ancestors.map(record => record.header.id)).toEqual([parent.id, root.id])
     expect(trace.root.header.id).toBe(root.id)
-    expect(trace.descendants.map(node => node.session.header.id))
-      .toEqual([SessionId('older'), SessionId('a'), SessionId('b')])
-    expect(trace.descendants[1]?.descendants.map(node => node.session.header.id))
-      .toEqual([SessionId('grandchild')])
+    expect(trace.descendants.map(node => node.session.header.id)).toEqual([SessionId('older'), SessionId('a'), SessionId('b')])
+    expect(trace.descendants[1]?.descendants.map(node => node.session.header.id)).toEqual([SessionId('grandchild')])
 
     mutableHeader(trace.target.header).createdAt = 99
     mutableHeader(trace.ancestors[0]!.header).createdAt = 99
@@ -261,10 +262,8 @@ describe('session lineage tracing', () => {
       meta: { createdAt: 2, parentSession: SessionId('a') },
     })
 
-    await expect(ctx.sessionQuery.traceSession(SessionId('a')))
-      .rejects.toThrow(expectCode('SESSION_QUERY_INVALID_LINEAGE'))
-    await expect(ctx.sessionQuery.traceSession(SessionId('missing')))
-      .rejects.toThrow(expectCode('SESSION_QUERY_SESSION_NOT_FOUND'))
+    await expect(ctx.sessionQuery.traceSession(SessionId('a'))).rejects.toThrow(expectCode('SESSION_QUERY_INVALID_LINEAGE'))
+    await expect(ctx.sessionQuery.traceSession(SessionId('missing'))).rejects.toThrow(expectCode('SESSION_QUERY_SESSION_NOT_FOUND'))
   })
 
   it('uses one cross-corpus observation and preserves persistence failure semantics', async () => {
@@ -281,8 +280,7 @@ describe('session lineage tracing', () => {
     expect(TracePersistence.readCalls).toBe(0)
 
     TracePersistence.listFailure = new Error('unavailable')
-    await expect(ctx.sessionQuery.traceSession(durable.id))
-      .rejects.toThrow(expectCode('SESSION_QUERY_PERSISTENCE_FAILED'))
+    await expect(ctx.sessionQuery.traceSession(durable.id)).rejects.toThrow(expectCode('SESSION_QUERY_PERSISTENCE_FAILED'))
   })
 
   it('constructs deeply nested descendants without consuming the JavaScript call stack', async () => {
@@ -327,28 +325,25 @@ describe('session event tracing', () => {
       sourceEventSeqs: [2],
       derivedEventSeqs: [4],
     })
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: SessionSeq(4) }))
-      .resolves.toMatchObject({
-        replacedBy: 8,
-        replacementChain: [8],
-        replacedEventSeqs: [3],
-        sourceEventSeqs: [3, 2],
-        derivedEventSeqs: [8],
-      })
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: SessionSeq(2) }))
-      .resolves.toMatchObject({
-        target: { surface: 'log-only' },
-        replacementChain: [],
-        sourceEventSeqs: [],
-        derivedEventSeqs: [3, 4, 8],
-      })
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: SessionSeq(8) }))
-      .resolves.toMatchObject({
-        replacementChain: [],
-        replacedEventSeqs: [4],
-        sourceEventSeqs: [2, 4],
-        derivedEventSeqs: [],
-      })
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: SessionSeq(4) })).resolves.toMatchObject({
+      replacedBy: 8,
+      replacementChain: [8],
+      replacedEventSeqs: [3],
+      sourceEventSeqs: [3, 2],
+      derivedEventSeqs: [8],
+    })
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: SessionSeq(2) })).resolves.toMatchObject({
+      target: { surface: 'log-only' },
+      replacementChain: [],
+      sourceEventSeqs: [],
+      derivedEventSeqs: [3, 4, 8],
+    })
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: SessionSeq(8) })).resolves.toMatchObject({
+      replacementChain: [],
+      replacedEventSeqs: [4],
+      sourceEventSeqs: [2, 4],
+      derivedEventSeqs: [],
+    })
   })
 
   it('returns fresh trace arrays and target records', async () => {
@@ -376,8 +371,9 @@ describe('session event tracing', () => {
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) }))
-      .resolves.toMatchObject({ target: { type: 'user/message', surface: 'current' } })
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) })).resolves.toMatchObject({
+      target: { type: 'user/message', surface: 'current' },
+    })
     expect([TracePersistence.listCalls, TracePersistence.readCalls]).toEqual([1, 1])
 
     const live = ctx.sessions.create(durable.id, { meta: { createdAt: 1, cwd: '/same' } })
@@ -385,104 +381,101 @@ describe('session event tracing', () => {
     live.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'live' }], source: { kind: 'test' },
+        content: [{ type: 'text', text: 'live' }],
+        source: { kind: 'test' },
       }),
       { surfaceOp: 'append' },
     )
     TracePersistence.listFailure = new Error('list unavailable')
     TracePersistence.readFailure = new Error('inspect unavailable')
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(1) }))
-      .resolves.toMatchObject({ target: { type: 'user/message' } })
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(1) })).resolves.toMatchObject({
+      target: { type: 'user/message' },
+    })
     expect([TracePersistence.listCalls, TracePersistence.readCalls]).toEqual([1, 1])
 
     TracePersistence.reset([{ meta: durable, events: [appendEvent(0)] }])
     const failedCtx = await queryContext()
     await failedCtx.plugin(TracePersistence)
     TracePersistence.listFailure = new Error('list unavailable')
-    await expect(failedCtx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) }))
-      .rejects.toThrow(expectCode('SESSION_QUERY_PERSISTENCE_FAILED'))
+    await expect(failedCtx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) })).rejects.toThrow(
+      expectCode('SESSION_QUERY_PERSISTENCE_FAILED'),
+    )
     TracePersistence.listFailure = undefined
     TracePersistence.readFailure = new Error('inspect unavailable')
-    await expect(failedCtx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) }))
-      .rejects.toThrow(expectCode('SESSION_QUERY_PERSISTENCE_FAILED'))
+    await expect(failedCtx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) })).rejects.toThrow(
+      expectCode('SESSION_QUERY_PERSISTENCE_FAILED'),
+    )
     TracePersistence.readFailure = undefined
     TracePersistence.afterList = () => {
       mutableHeader(TracePersistence.entries.get(durable.id)!.meta).cwd = '/changed'
     }
-    await expect(failedCtx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) }))
-      .rejects.toThrow(expectCode('SESSION_QUERY_SOURCE_CONFLICT'))
+    await expect(failedCtx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) })).rejects.toThrow(
+      expectCode('SESSION_QUERY_SOURCE_CONFLICT'),
+    )
   })
 
   it('checks target existence before surface or source-event analysis', async () => {
     const bad = header('bad-target')
-    const malformed: SessionEvent[] = [appendEvent(0), {
-      type: 'assistant/message',
-      seq: SessionSeq(1),
-      time: 2,
-      data: {
-        stream: [],
-        turn: 1, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
+    const malformed: SessionEvent[] = [
+      appendEvent(0),
+      {
+        type: 'assistant/message',
+        seq: SessionSeq(1),
+        time: 2,
+        data: {
+          stream: [],
+          turn: 1,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+        surfaceOp: { op: 'replace', startSeq: SessionSeq(9), endSeq: SessionSeq(9) },
       },
-      surfaceOp: { op: 'replace', startSeq: SessionSeq(9), endSeq: SessionSeq(9) },
-    }]
+    ]
     TracePersistence.reset([{ meta: bad, events: malformed }])
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: bad.id, seq: SessionSeq(9) }))
-      .rejects.toThrow(expectCode('SESSION_QUERY_EVENT_NOT_FOUND'))
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: bad.id, seq: SessionSeq(0) }))
-      .rejects.toThrow(expectCode('SESSION_QUERY_INVALID_SURFACE'))
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: bad.id, seq: SessionSeq(9) })).rejects.toThrow(
+      expectCode('SESSION_QUERY_EVENT_NOT_FOUND'),
+    )
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: bad.id, seq: SessionSeq(0) })).rejects.toThrow(
+      expectCode('SESSION_QUERY_INVALID_SURFACE'),
+    )
   })
 
   it.each([
-    ['non-surface sources', [
-      { type: 'turn/start', seq: SessionSeq(0), time: 1, data: { turn: 1 }, sourceEventSeqs: [0] },
-    ]],
-    ['invalid source array', [
-      { ...appendEvent(0), sourceEventSeqs: 'invalid' },
-    ]],
-    ['empty sources', [
-      appendEvent(0, []),
-    ]],
-    ['sparse sources', [
-      appendEvent(0, Array<number>(1)),
-    ]],
-    ['duplicate sources', [
-      appendEvent(0),
-      appendEvent(1, [0, 0]),
-    ]],
-    ['missing earlier source', [
-      appendEvent(0),
-      appendEvent(1, [-1]),
-    ]],
-    ['future source', [
-      appendEvent(0, [1]),
-      appendEvent(1),
-    ]],
-    ['replacement without sources', [
-      appendEvent(0),
-      { ...appendEvent(1), surfaceOp: { op: 'replace', startSeq: 0, endSeq: 0 } },
-    ]],
-    ['replacement missing a shadowed source', [
-      {
-        type: 'assistant/attempt', seq: 0, time: 1,
-        data: {
-          turn: 1, step: 1,
-          stream: [{ type: 'text-chunks', time0: 1, index: 0, dt: [], texts: ['draft'] }],
+    ['non-surface sources', [{ type: 'turn/start', seq: SessionSeq(0), time: 1, data: { turn: 1 }, sourceEventSeqs: [0] }]],
+    ['invalid source array', [{ ...appendEvent(0), sourceEventSeqs: 'invalid' }]],
+    ['empty sources', [appendEvent(0, [])]],
+    ['sparse sources', [appendEvent(0, Array<number>(1))]],
+    ['duplicate sources', [appendEvent(0), appendEvent(1, [0, 0])]],
+    ['missing earlier source', [appendEvent(0), appendEvent(1, [-1])]],
+    ['future source', [appendEvent(0, [1]), appendEvent(1)]],
+    ['replacement without sources', [appendEvent(0), { ...appendEvent(1), surfaceOp: { op: 'replace', startSeq: 0, endSeq: 0 } }]],
+    [
+      'replacement missing a shadowed source',
+      [
+        {
+          type: 'assistant/attempt',
+          seq: 0,
+          time: 1,
+          data: {
+            turn: 1,
+            step: 1,
+            stream: [{ type: 'text-chunks', time0: 1, index: 0, dt: [], texts: ['draft'] }],
+          },
         },
-      },
-      appendEvent(SessionSeq(1)),
-      { ...appendEvent(SessionSeq(2), [0]), surfaceOp: { op: 'replace', startSeq: 1, endSeq: 1 } },
-    ]],
+        appendEvent(SessionSeq(1)),
+        { ...appendEvent(SessionSeq(2), [0]), surfaceOp: { op: 'replace', startSeq: 1, endSeq: 1 } },
+      ],
+    ],
   ] as const)('rejects an invalid surface log: %s', async (_name, rawEvents) => {
     const durable = header('invalid-source-reference')
     const events = structuredClone(rawEvents) as unknown as SessionEvent[]
@@ -490,25 +483,29 @@ describe('session event tracing', () => {
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) }))
-      .rejects.toThrow(expectCode('SESSION_QUERY_INVALID_SURFACE'))
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) })).rejects.toThrow(
+      expectCode('SESSION_QUERY_INVALID_SURFACE'),
+    )
   })
 
   it('rejects surfaceOp on a non-surface event as an invalid surface', async () => {
     const durable = header('invalid-non-surface-op')
-    const events = [{
-      type: 'turn/start',
-      seq: SessionSeq(0),
-      time: 1,
-      data: { turn: 1 },
-      surfaceOp: 'append',
-    }] as unknown as SessionEvent[]
+    const events = [
+      {
+        type: 'turn/start',
+        seq: SessionSeq(0),
+        time: 1,
+        data: { turn: 1 },
+        surfaceOp: 'append',
+      },
+    ] as unknown as SessionEvent[]
     TracePersistence.reset([{ meta: durable, events }])
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
-    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) }))
-      .rejects.toThrow(expectCode('SESSION_QUERY_INVALID_SURFACE'))
+    await expect(ctx.sessionQuery.traceEvent({ sessionId: durable.id, seq: SessionSeq(0) })).rejects.toThrow(
+      expectCode('SESSION_QUERY_INVALID_SURFACE'),
+    )
   })
 
   it('applies the same surface contract to listEvents', async () => {
@@ -517,7 +514,6 @@ describe('session event tracing', () => {
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
-    await expect(ctx.sessionQuery.listEvents(durable.id))
-      .rejects.toThrow(expectCode('SESSION_QUERY_INVALID_SURFACE'))
+    await expect(ctx.sessionQuery.listEvents(durable.id)).rejects.toThrow(expectCode('SESSION_QUERY_INVALID_SURFACE'))
   })
 })

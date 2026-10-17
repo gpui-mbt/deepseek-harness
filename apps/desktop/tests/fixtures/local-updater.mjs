@@ -44,11 +44,20 @@ async function main() {
     const config = join(directory, 'app-update.yml')
     // Unsigned inert bytes are confined to this fixture; production configuration is never loaded or changed.
     await writeFile(config, `updaterCacheDirName: cache\n`)
-    const forbidden = () => { throw new Error('Unexpected application quit or relaunch') }
+    const forbidden = () => {
+      throw new Error('Unexpected application quit or relaunch')
+    }
     const updater = new NsisUpdater(undefined, {
-      version: '1.0.0', name: 'local-update-qualification', isPackaged: true,
-      appUpdateConfigPath: config, userDataPath: directory, baseCachePath: directory,
-      whenReady: async () => {}, quit: forbidden, relaunch: forbidden, onQuit: forbidden,
+      version: '1.0.0',
+      name: 'local-update-qualification',
+      isPackaged: true,
+      appUpdateConfigPath: config,
+      userDataPath: directory,
+      baseCachePath: directory,
+      whenReady: async () => {},
+      quit: forbidden,
+      relaunch: forbidden,
+      onQuit: forbidden,
     })
     updater.logger = null
     updater.httpExecutor = new DesktopUpdateHttpExecutor(timeoutMs)
@@ -58,14 +67,37 @@ async function main() {
     const installations = []
     const states = []
     let restart = async () => true
-    updater.quitAndInstall = (...args) => { installations.push(args) }
-    const coordinator = new DesktopUpdateCoordinator(state => { states.push(state); return state },
-      () => restart(), updater, () => true, () => '1.0.0')
-    const result = { updater, coordinator, installations, states, directory, restart: handler => { restart = handler } }
+    updater.quitAndInstall = (...args) => {
+      installations.push(args)
+    }
+    const coordinator = new DesktopUpdateCoordinator(
+      state => {
+        states.push(state)
+        return state
+      },
+      () => restart(),
+      updater,
+      () => true,
+      () => '1.0.0',
+    )
+    const result = {
+      updater,
+      coordinator,
+      installations,
+      states,
+      directory,
+      restart: handler => {
+        restart = handler
+      },
+    }
     fixtures.push(result)
     return result
   }
-  async function scenario(name, run) { await run(); cases.push(name); console.log(`local updater: ${name}`) }
+  async function scenario(name, run) {
+    await run()
+    cases.push(name)
+    console.log(`local updater: ${name}`)
+  }
   try {
     await scenario('same-version-no-update', async () => {
       const f = await fixture()
@@ -101,8 +133,11 @@ async function main() {
       const before = server.requests.length
       const checks = [f.coordinator.check(), f.coordinator.check(true)]
       await server.arrived()
-      try { assert.equal(server.requests.length - before, 1) }
-      finally { server.release() }
+      try {
+        assert.equal(server.requests.length - before, 1)
+      } finally {
+        server.release()
+      }
       assert.ok((await Promise.all(checks)).every(state => state.phase === 'available'))
     })
     await scenario('same-feed-url-observes-new-release', async () => {
@@ -127,7 +162,9 @@ async function main() {
         assert.equal((await f.coordinator.check(true)).phase, 'downloading')
         assert.equal(server.requests.length - before, 2)
         assert.equal(f.installations.length, 0)
-      } finally { server.release() }
+      } finally {
+        server.release()
+      }
       assert.ok((await Promise.all(downloads)).every(state => state.phase === 'ready'))
       assert.deepEqual(await readFile(f.updater.installerPath), server.payload)
       assert.equal(f.installations.length, 0)
@@ -141,7 +178,9 @@ async function main() {
       f.restart(async () => false)
       assert.equal((await f.coordinator.install(available.version)).phase, 'ready')
       assert.equal(f.installations.length, 0)
-      f.restart(async () => { throw new Error('Host clean stop failed') })
+      f.restart(async () => {
+        throw new Error('Host clean stop failed')
+      })
       assert.equal((await f.coordinator.install(available.version)).failedOperation, 'install')
       assert.equal(f.installations.length, 0)
       f.restart(async () => true)
@@ -179,15 +218,19 @@ async function main() {
       // Only this fixture's executable stream injects ENOSPC, after a real partial write.
       fs.createWriteStream = (file, options) => {
         if (typeof file !== 'string' || !file.startsWith(f.directory + sep) || !file.endsWith('.exe')) return original(file, options)
-        const stream = original(file, { ...options, fs: {
-          open: fs.open, close: fs.close,
-          write(fd, buffer, offset, length, position, callback) {
-            fs.write(fd, buffer, offset, Math.min(length, 1024), position, (error, bytes) => {
-              written += bytes ?? 0
-              callback(error ?? Object.assign(new Error('ENOSPC: no space left on device, write'), { code: 'ENOSPC' }), bytes)
-            })
+        const stream = original(file, {
+          ...options,
+          fs: {
+            open: fs.open,
+            close: fs.close,
+            write(fd, buffer, offset, length, position, callback) {
+              fs.write(fd, buffer, offset, Math.min(length, 1024), position, (error, bytes) => {
+                written += bytes ?? 0
+                callback(error ?? Object.assign(new Error('ENOSPC: no space left on device, write'), { code: 'ENOSPC' }), bytes)
+              })
+            },
           },
-        } })
+        })
         closed.push(new Promise(resolve => stream.once('close', resolve)))
         return stream
       }
@@ -203,10 +246,16 @@ async function main() {
         const count = server.requests.length
         await f.coordinator.check()
         assert.equal(server.requests.length, count, 'Automatic checks must not retry a failed write')
-      } finally { fs.createWriteStream = original; await Promise.all(closed) }
+      } finally {
+        fs.createWriteStream = original
+        await Promise.all(closed)
+      }
       assert.equal(fs.createWriteStream, original)
       const cache = await readdir(join(f.directory, 'cache'), { recursive: true })
-      assert.ok(!cache.some(file => file.endsWith('.exe') || file.endsWith('update-info.json')), 'Partial bytes must not remain installable')
+      assert.ok(
+        !cache.some(file => file.endsWith('.exe') || file.endsWith('update-info.json')),
+        'Partial bytes must not remain installable',
+      )
       const presentation = presentDesktopUpdate(f.coordinator.state)
       assert.equal(presentation.phase, 'error')
       assert.equal(presentation.failure, 'download')
@@ -228,30 +277,71 @@ async function main() {
     })
     await scenario('mandatory-real-window-policy-download-retry-and-clear', async () => {
       protocol.handle('dsh-app', async request => {
-        if (new URL(request.url).hostname === 'app') return new Response('<!doctype html><title>Updater qualification</title>', { headers: { 'content-type': 'text/html' } })
+        if (new URL(request.url).hostname === 'app')
+          return new Response('<!doctype html><title>Updater qualification</title>', { headers: { 'content-type': 'text/html' } })
         const path = new URL(request.url).pathname.slice(1)
-        assert.ok(['mandatory-update-frame.js', 'mandatory-update.html', 'mandatory-update.js', 'mandatory-update.css', 'update-dialog.css'].includes(path))
+        assert.ok(
+          [
+            'mandatory-update-frame.js',
+            'mandatory-update.html',
+            'mandatory-update.js',
+            'mandatory-update.css',
+            'update-dialog.css',
+          ].includes(path),
+        )
         const mime = path.endsWith('.js') ? 'text/javascript' : path.endsWith('.css') ? 'text/css' : 'text/html'
         return new Response(await readFile(new URL(`../../renderer/${path}`, import.meta.url)), { headers: { 'content-type': mime } })
       })
-      const parent = new BrowserWindow({ show: true, width: 900, height: 650, webPreferences: { preload: fileURLToPath(new URL('../../lib/preload-app.cjs', import.meta.url)), sandbox: true, contextIsolation: true } })
+      const parent = new BrowserWindow({
+        show: true,
+        width: 900,
+        height: 650,
+        webPreferences: {
+          preload: fileURLToPath(new URL('../../lib/preload-app.cjs', import.meta.url)),
+          sandbox: true,
+          contextIsolation: true,
+        },
+      })
       await parent.loadURL('dsh-app://app/')
       const f = await fixture('hold-download')
-      const config = resolveDesktopPolicyConfig({ origin: server.url, allowedPageOrigins: ['https://downloads.example.com'],
-        intervalMs: 600_000, timeoutMs: 1000 }, true)
+      const config = resolveDesktopPolicyConfig(
+        { origin: server.url, allowedPageOrigins: ['https://downloads.example.com'], intervalMs: 600_000, timeoutMs: 1000 },
+        true,
+      )
       let modal
-      const policy = new DesktopMandatoryUpdatePolicy(config, { platform: 'win32', arch: 'x64', bundledDshVersion: '1.0.0' },
-        () => { modal?.sync() }, undefined,
-        () => ({ version: '1.0.0', locale: 'zh-CN', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 }))
+      const policy = new DesktopMandatoryUpdatePolicy(
+        config,
+        { platform: 'win32', arch: 'x64', bundledDshVersion: '1.0.0' },
+        () => {
+          modal?.sync()
+        },
+        undefined,
+        () => ({ version: '1.0.0', locale: 'zh-CN', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 }),
+      )
       modal = new DesktopMandatoryUpdateWindow({
         preload: fileURLToPath(new URL('../../lib/preload-mandatory.cjs', import.meta.url)),
-        locale: resolveDesktopLocale('zh-CN'), allowedPageOrigins: config.allowedPageOrigins,
-        parent: () => parent, policy: () => policy.state, update: () => f.coordinator.state,
-        refresh: async () => { await Promise.all([policy.check('manual', true), f.coordinator.check(true)]); modal.sync() },
-        download: async version => { const pending = f.coordinator.download(version); await Promise.resolve(); modal.sync();
-          const state = await pending; modal.sync();
-          return state.phase === 'ready' ? f.coordinator.install(version) : state },
-        install: async version => { const state = await f.coordinator.install(version); modal.sync(); return state },
+        locale: resolveDesktopLocale('zh-CN'),
+        allowedPageOrigins: config.allowedPageOrigins,
+        parent: () => parent,
+        policy: () => policy.state,
+        update: () => f.coordinator.state,
+        refresh: async () => {
+          await Promise.all([policy.check('manual', true), f.coordinator.check(true)])
+          modal.sync()
+        },
+        download: async version => {
+          const pending = f.coordinator.download(version)
+          await Promise.resolve()
+          modal.sync()
+          const state = await pending
+          modal.sync()
+          return state.phase === 'ready' ? f.coordinator.install(version) : state
+        },
+        install: async version => {
+          const state = await f.coordinator.install(version)
+          modal.sync()
+          return state
+        },
       })
       const originalOpen = shell.openExternal
       f.restart(() => modal.confirm(f.coordinator.state.version, true))
@@ -260,8 +350,14 @@ async function main() {
       const opened = []
       const copied = []
       const copyComplete = Promise.withResolvers()
-      shell.openExternal = async url => { opened.push(url); throw new Error('Simulated unavailable browser') }
-      clipboard.writeText = async value => { copied.push(value); copyComplete.resolve() }
+      shell.openExternal = async url => {
+        opened.push(url)
+        throw new Error('Simulated unavailable browser')
+      }
+      clipboard.writeText = async value => {
+        copied.push(value)
+        copyComplete.resolve()
+      }
       clipboard.readText = async () => copied.at(-1)
       try {
         server.policy('force')
@@ -271,16 +367,28 @@ async function main() {
         const contents = process.platform === 'win32' ? await mandatoryFrame(parent) : window.webContents
         assert.equal(window.isModal(), false)
         assert.equal(parent.isEnabled(), true)
-        window.webContents.on('console-message', event => { console.log('mandatory renderer:', event.message) })
-        window.webContents.on('preload-error', (_event, _path, error) => { console.error('mandatory preload:', error) })
+        window.webContents.on('console-message', event => {
+          console.log('mandatory renderer:', event.message)
+        })
+        window.webContents.on('preload-error', (_event, _path, error) => {
+          console.error('mandatory preload:', error)
+        })
         async function until(expression) {
-          try { return await contents.executeJavaScript(`new Promise((resolve, reject) => {
+          try {
+            return await contents.executeJavaScript(`new Promise((resolve, reject) => {
             const observer = new MutationObserver(check);
             const deadline = setTimeout(() => { observer.disconnect(); reject(new Error('Modal DOM condition timed out')); }, 10000);
             function check() { if (${expression}) { observer.disconnect(); clearTimeout(deadline); resolve(true); } }
             observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true }); check();
-          })`) } catch (error) {
-            console.error('Modal condition:', expression, await contents.executeJavaScript('({ url: location.href, text: document.body?.innerText, bridge: typeof window.dshMandatoryUpdate })'))
+          })`)
+          } catch (error) {
+            console.error(
+              'Modal condition:',
+              expression,
+              await contents.executeJavaScript(
+                '({ url: location.href, text: document.body?.innerText, bridge: typeof window.dshMandatoryUpdate })',
+              ),
+            )
             throw error
           }
         }
@@ -290,7 +398,10 @@ async function main() {
           assert.equal(window, parent)
           assert.equal(parent.getChildWindows().length, 0)
         }
-        assert.equal(await contents.executeJavaScript("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))"), false)
+        assert.equal(
+          await contents.executeJavaScript("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))"),
+          false,
+        )
         assert.equal(window.isDestroyed(), false)
         assert.equal(f.installations.length, 0)
         await contents.executeJavaScript("document.getElementById('page').click()")
@@ -325,27 +436,43 @@ async function main() {
         await until("document.getElementById('update').textContent === '继续安装更新' && !document.getElementById('update').disabled")
         assert.equal(f.installations.length, 0)
         let capture
-        try { capture = await window.webContents.capturePage() }
-        catch (error) { screenshot = { captured: false, reason: String(error) } }
+        try {
+          capture = await window.webContents.capturePage()
+        } catch (error) {
+          screenshot = { captured: false, reason: String(error) }
+        }
         if (capture !== undefined) {
           await writeFile(join(root, 'mandatory-update.png'), capture.toPNG())
           screenshot = { captured: true }
         }
         const restartRequested = Promise.withResolvers()
-        f.restart(async () => { restartRequested.resolve(); return false })
+        f.restart(async () => {
+          restartRequested.resolve()
+          return false
+        })
         await contents.executeJavaScript("document.getElementById('update').click()")
         await restartRequested.promise
         await until("!document.getElementById('update').disabled")
         assert.equal(f.installations.length, 0)
         assert.equal(policy.state.blocking, true)
-        f.restart(async () => { throw new DesktopUpdatePreparationError('stop-failed', resolveDesktopLocale('zh-CN').messages.updateStopFailed,
-          'exit 0; shutdown acknowledged false') })
+        f.restart(async () => {
+          throw new DesktopUpdatePreparationError(
+            'stop-failed',
+            resolveDesktopLocale('zh-CN').messages.updateStopFailed,
+            'exit 0; shutdown acknowledged false',
+          )
+        })
         await contents.executeJavaScript("document.getElementById('update').click()")
         await until("!document.getElementById('technical-details').hidden && !document.getElementById('update').disabled")
         assert.equal(await contents.executeJavaScript("document.getElementById('technical-details').open"), false)
         for (const expanded of [false, true]) {
           if (expanded) {
-            assert.equal(await contents.executeJavaScript("document.getElementById('technical-details-label').click(); document.getElementById('technical-details').open"), true)
+            assert.equal(
+              await contents.executeJavaScript(
+                "document.getElementById('technical-details-label').click(); document.getElementById('technical-details').open",
+              ),
+              true,
+            )
           }
           const name = expanded ? 'mandatory-error-expanded.png' : 'mandatory-error-collapsed.png'
           await writeFile(join(root, name), (await window.webContents.capturePage()).toPNG())
@@ -356,8 +483,10 @@ async function main() {
         server.policy('clear')
         const closed = process.platform === 'win32' ? undefined : once(window, 'closed')
         await policy.check('manual', true)
-        if (closed) { await closed; assert.equal(window.isDestroyed(), true) }
-        else {
+        if (closed) {
+          await closed
+          assert.equal(window.isDestroyed(), true)
+        } else {
           const deadline = Date.now() + 10000
           while (!contents.detached && Date.now() < deadline) await delay(20)
           assert.equal(contents.detached, true)
@@ -375,13 +504,31 @@ async function main() {
       }
     })
     assert.deepEqual(server.failures, [])
-    console.log(`LOCAL_UPDATER_RESULT=${JSON.stringify({ cases, presentations, actualElectron: process.versions.electron,
-      actualTransport: 'DesktopUpdateHttpExecutor (ElectronHttpExecutor)', installerExecuted: false, screenshot, requests: server.requests.length })}`)
-    await writeFile(join(root, 'result.json'), `${JSON.stringify({ cases, presentations, installerExecuted: false, screenshot, dialogScreenshots }, null, 2)}\n`)
+    console.log(
+      `LOCAL_UPDATER_RESULT=${JSON.stringify({
+        cases,
+        presentations,
+        actualElectron: process.versions.electron,
+        actualTransport: 'DesktopUpdateHttpExecutor (ElectronHttpExecutor)',
+        installerExecuted: false,
+        screenshot,
+        requests: server.requests.length,
+      })}`,
+    )
+    await writeFile(
+      join(root, 'result.json'),
+      `${JSON.stringify({ cases, presentations, installerExecuted: false, screenshot, dialogScreenshots }, null, 2)}\n`,
+    )
   } finally {
     for (const f of fixtures) f.coordinator.dispose()
     await server.close()
   }
 }
 
-main().then(() => app.exit(0), error => { console.error(error); app.exit(1) })
+main().then(
+  () => app.exit(0),
+  error => {
+    console.error(error)
+    app.exit(1)
+  },
+)

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, type TestContext } from 'vitest'
+import { describe, expect, it, type TestContext } from 'vite-plus/test'
 import { findRepositoryReferences, scanRepositoryReferences, uniquePrefixMatch } from './verify-repository-references.ts'
 
 const organizationUrl = `https://${['github.com', ['deepseek', 'harness'].join('-')].join('/')}`
@@ -50,7 +50,10 @@ function collidingCommitBodies(tree: string, length: number): [string, string] {
   const seen = new Map<string, string>()
   for (let index = 0; ; index += 1) {
     const body = `tree ${tree}\nauthor T <t@example.invalid> 0 +0000\ncommitter T <t@example.invalid> 0 +0000\n\ncollision ${String(index)}\n`
-    const prefix = createHash(algorithm).update(`commit ${String(Buffer.byteLength(body))}\0${body}`).digest('hex').slice(0, length)
+    const prefix = createHash(algorithm)
+      .update(`commit ${String(Buffer.byteLength(body))}\0${body}`)
+      .digest('hex')
+      .slice(0, length)
     const previous = seen.get(prefix)
     if (previous !== undefined) return [previous, body]
     seen.set(prefix, body)
@@ -81,32 +84,32 @@ describe('maintained repository reference policy', () => {
     }
   })
 
-  it('rejects complete and abbreviated commit identifiers in tracked, staged, and new files', (test) => {
+  it('rejects complete and abbreviated commit identifiers in tracked, staged, and new files', test => {
     const fixture = repository(test)
     fixture.write('tracked.md', `release\n${fixture.commit}\n${fixture.commit.toUpperCase()}\n`)
     fixture.write('staged.md', fixture.commit.slice(0, 7))
     fixture.git(['add', 'staged.md'])
     fixture.write('new.md', `\0${fixture.commit.slice(0, 12)}`)
 
-    expect(scanRepositoryReferences(fixture.root)).toEqual(expect.arrayContaining([
-      { file: 'tracked.md', line: 2, kind: 'commit-hash' },
-      { file: 'tracked.md', line: 3, kind: 'commit-hash' },
-      { file: 'staged.md', line: 1, kind: 'commit-hash' },
-      { file: 'new.md', line: 1, kind: 'commit-hash' },
-    ]))
+    expect(scanRepositoryReferences(fixture.root)).toEqual(
+      expect.arrayContaining([
+        { file: 'tracked.md', line: 2, kind: 'commit-hash' },
+        { file: 'tracked.md', line: 3, kind: 'commit-hash' },
+        { file: 'staged.md', line: 1, kind: 'commit-hash' },
+        { file: 'new.md', line: 1, kind: 'commit-hash' },
+      ]),
+    )
     expect(scanRepositoryReferences(fixture.root)).toHaveLength(4)
   })
 
-  it('checks available unreachable commits without requiring a branch or network', (test) => {
+  it('checks available unreachable commits without requiring a branch or network', test => {
     const fixture = repository(test)
     const unreachable = fixture.git(['commit-tree', fixture.tree, '-m', 'unreachable fixture'])
     fixture.write('unreachable.md', unreachable)
-    expect(scanRepositoryReferences(fixture.root)).toEqual([
-      { file: 'unreachable.md', line: 1, kind: 'commit-hash' },
-    ])
+    expect(scanRepositoryReferences(fixture.root)).toEqual([{ file: 'unreachable.md', line: 1, kind: 'commit-hash' }])
   })
 
-  it('does not fetch missing commits from a partial clone\'s promisor remote', (test) => {
+  it("does not fetch missing commits from a partial clone's promisor remote", test => {
     const remote = repository(test)
     remote.git(['config', 'uploadpack.allowFilter', 'true'])
     const clone = join(remote.root, 'partial-clone')
@@ -116,34 +119,40 @@ describe('maintained repository reference policy', () => {
     remote.write('partial-clone/new.md', missing)
 
     expect(scanRepositoryReferences(clone)).toEqual([])
-    expect(execFileSync('git', ['cat-file', '--batch-check'], {
-      cwd: clone,
-      encoding: 'utf8',
-      env: { ...process.env, GIT_NO_LAZY_FETCH: '1' },
-      input: `${missing}\n`,
-    }).trim()).toBe(`${missing} missing`)
+    expect(
+      execFileSync('git', ['cat-file', '--batch-check'], {
+        cwd: clone,
+        encoding: 'utf8',
+        env: { ...process.env, GIT_NO_LAZY_FETCH: '1' },
+        input: `${missing}\n`,
+      }).trim(),
+    ).toBe(`${missing} missing`)
   })
 
-  it('accepts blobs, trees, unknown hex, long digests, and identifiers embedded in alphanumeric words', (test) => {
+  it('accepts blobs, trees, unknown hex, long digests, and identifiers embedded in alphanumeric words', test => {
     const fixture = repository(test)
     const blob = fixture.git(['hash-object', '-w', '--stdin'], 'blob fixture')
-    fixture.write('accepted.md', [
-      blob,
-      fixture.tree,
-      '0'.repeat(40),
-      `${fixture.commit}${'0'.repeat(24)}`,
-      fixture.commit.slice(0, 6),
-      `prefix${fixture.commit}`,
-      `${fixture.commit}suffix`,
-      'dsh-v0.0.1-rc.1',
-    ].join('\n'))
+    fixture.write(
+      'accepted.md',
+      [
+        blob,
+        fixture.tree,
+        '0'.repeat(40),
+        `${fixture.commit}${'0'.repeat(24)}`,
+        fixture.commit.slice(0, 6),
+        `prefix${fixture.commit}`,
+        `${fixture.commit}suffix`,
+        'dsh-v0.0.1-rc.1',
+      ].join('\n'),
+    )
     expect(scanRepositoryReferences(fixture.root)).toEqual([])
   })
 
-  it('accepts a prefix that two available commits share and rejects a longer unique prefix', (test) => {
+  it('accepts a prefix that two available commits share and rejects a longer unique prefix', test => {
     const fixture = repository(test)
     const [first, second] = collidingCommitBodies(fixture.tree, 7).map(body =>
-      fixture.git(['hash-object', '-t', 'commit', '-w', '--stdin'], body))
+      fixture.git(['hash-object', '-t', 'commit', '-w', '--stdin'], body),
+    )
     if (first === undefined || second === undefined) throw new Error('fixture must write two commits')
     let shared = 0
     while (first[shared] === second[shared]) shared += 1
@@ -153,7 +162,7 @@ describe('maintained repository reference policy', () => {
     expect(scanRepositoryReferences(fixture.root)).toEqual([{ file: 'unique.md', line: 1, kind: 'commit-hash' }])
   })
 
-  it('accepts hexadecimal branch names that do not match the referenced commit identifier', (test) => {
+  it('accepts hexadecimal branch names that do not match the referenced commit identifier', test => {
     const fixture = repository(test)
     const branch = 'b'.repeat(12)
     fixture.git(['update-ref', `refs/heads/${branch}`, fixture.commit])
@@ -161,33 +170,32 @@ describe('maintained repository reference policy', () => {
     expect(scanRepositoryReferences(fixture.root)).toEqual([])
   })
 
-  it('excludes only ignored new files, vendored sources, frozen notes, and deleted files', (test) => {
+  it('excludes only ignored new files, vendored sources, frozen notes, lockfiles, and deleted files', test => {
     const fixture = repository(test)
     fixture.write('.gitignore', 'ignored.md\ntracked-ignore.md\n')
     fixture.write('ignored.md', fixture.commit)
     fixture.write('vendor/project/file.md', `${fixture.commit}\n${organizationUrl}`)
     fixture.write('.agents/notes/archived/process/frozen.md', `${fixture.commit}\n${organizationUrl}`)
+    fixture.write('python/sdk/uv.lock', `${fixture.commit}\n${organizationUrl}`)
     fixture.write('tracked-ignore.md', fixture.commit)
     fixture.git(['add', '--force', 'tracked-ignore.md'])
     unlinkSync(join(fixture.root, 'tracked.md'))
 
-    expect(scanRepositoryReferences(fixture.root)).toEqual([
-      { file: 'tracked-ignore.md', line: 1, kind: 'commit-hash' },
-    ])
+    expect(scanRepositoryReferences(fixture.root)).toEqual([{ file: 'tracked-ignore.md', line: 1, kind: 'commit-hash' }])
   })
 
-  it.skipIf(process.platform === 'win32')('inspects dangling symlink targets without following files outside the tree', (test) => {
+  it.skipIf(process.platform === 'win32')('inspects dangling symlink targets without following files outside the tree', test => {
     const fixture = repository(test)
     symlinkSync(`../${fixture.commit}`, join(fixture.root, 'reference-link'))
     symlinkSync('../outside', join(fixture.root, 'ordinary-link'))
-    expect(scanRepositoryReferences(fixture.root)).toEqual([
-      { file: 'reference-link', line: 1, kind: 'commit-hash' },
-    ])
+    expect(scanRepositoryReferences(fixture.root)).toEqual([{ file: 'reference-link', line: 1, kind: 'commit-hash' }])
   })
 
   it('rejects literal, encoded, escaped, case-varied, and compatibility forms of the organization URL', () => {
-    const fullwidth = organizationUrl.split('').map(character =>
-      String.fromCodePoint(character.charCodeAt(0) + 0xfee0)).join('')
+    const fullwidth = organizationUrl
+      .split('')
+      .map(character => String.fromCodePoint(character.charCodeAt(0) + 0xfee0))
+      .join('')
     const source = [
       organizationUrl,
       `${organizationUrl.toUpperCase()}/project`,
@@ -210,7 +218,9 @@ describe('maintained repository reference policy', () => {
     expect(findRepositoryReferences('source.md', `${organizationUrl}-tools/project`, new Set())).toEqual([])
     expect(findRepositoryReferences('vendor/project/source.md', organizationUrl, new Set())).toEqual([])
     expect(findRepositoryReferences('.agents/notes/archived/process/frozen.md', organizationUrl, new Set())).toEqual([])
-    expect(findRepositoryReferences('.agents/notes/implemented/process/current.md', organizationUrl, new Set()))
-      .toEqual([{ file: '.agents/notes/implemented/process/current.md', line: 1, kind: 'organization-url' }])
+    expect(findRepositoryReferences('python/sdk/uv.lock', organizationUrl, new Set())).toEqual([])
+    expect(findRepositoryReferences('.agents/notes/implemented/process/current.md', organizationUrl, new Set())).toEqual([
+      { file: '.agents/notes/implemented/process/current.md', line: 1, kind: 'organization-url' },
+    ])
   })
 })

@@ -44,9 +44,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.models'
 
-export type {
-  ModelsSettingsState, ProviderDirectoryEntry, ProviderRow,
-} from './store.ts'
+export type { ModelsSettingsState, ProviderDirectoryEntry, ProviderRow } from './store.ts'
 export type { ModelDiscoveryOutcome, ModelsOperations, SettingsWriteOutcome } from './operations.ts'
 
 /**
@@ -65,8 +63,15 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  * constrained; registration depends on each slot through `slots.inject()`.
  */
 export const inject = [
-  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session',
-  'configForms', 'settingsSchema',
+  'slots',
+  'locale',
+  'remote',
+  'remote.credentials',
+  'remote.llm',
+  'remote.settings',
+  'remote.session',
+  'configForms',
+  'settingsSchema',
 ]
 
 /**
@@ -119,9 +124,13 @@ export function apply(ctx: ClientContext): void {
   // mirror refresh before this store joins that refresh. The welcome notice
   // follows its settings scope, so it needs no subscription here.
   ctx.effect(() => {
-    const refreshModels = (): void => { refreshIfLoaded(controller) }
+    const refreshModels = (): void => {
+      refreshIfLoaded(controller)
+    }
     const disposers = [
-      ctx.remote.$on('settings/document-updated', () => { refreshModels() }),
+      ctx.remote.$on('settings/document-updated', () => {
+        refreshModels()
+      }),
       ctx.remote.$on('credentials/record-updated', refreshModels),
       ctx.remote.$on('credentials/reference-updated', refreshModels),
       ctx.remote.$on('llm/adapters-updated', refreshModels),
@@ -133,28 +142,44 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'ui-settings-models: pushed invalidations')
 
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
-    id: 'models',
-    order: 10,
-    label: () => t('nav'),
-    inject: injected,
-    children: {
-      'settings.models.provider-card': { kind: 'keyed', scope: 'root' },
-      'settings.models.footer': { kind: 'list', scope: 'root' },
-    },
-  }, ModelsSection))
-  if (!('dshDesktop' in globalThis)) ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
-    name: 'settings.onboarding',
-    id: 'welcome-notice',
-    order: -100,
-    inject: welcomeInjected,
-  }, WelcomeNotice))
-  ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
-    name: 'settings.onboarding',
-    id: 'deepseek-official',
-    children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } },
-    order: 0,
-    inject: deepSeekOnboardingInjected,
-  }, DeepSeekOnboardingDialog))
+  ctx.slots.inject('settings.section', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.section',
+        id: 'models',
+        order: 10,
+        label: () => t('nav'),
+        inject: injected,
+        children: {
+          'settings.models.provider-card': { kind: 'keyed', scope: 'root' },
+          'settings.models.footer': { kind: 'list', scope: 'root' },
+        },
+      },
+      ModelsSection,
+    ),
+  )
+  if (!('dshDesktop' in globalThis))
+    ctx.slots.inject('settings.onboarding', () =>
+      ctx.slots.register(
+        {
+          name: 'settings.onboarding',
+          id: 'welcome-notice',
+          order: -100,
+          inject: welcomeInjected,
+        },
+        WelcomeNotice,
+      ),
+    )
+  ctx.slots.inject('settings.onboarding', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.onboarding',
+        id: 'deepseek-official',
+        children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } },
+        order: 0,
+        inject: deepSeekOnboardingInjected,
+      },
+      DeepSeekOnboardingDialog,
+    ),
+  )
 }

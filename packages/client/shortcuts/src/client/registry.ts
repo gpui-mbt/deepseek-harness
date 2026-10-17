@@ -1,12 +1,29 @@
 /** Command registration, normalized default bindings, and synchronous dispatch. */
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { bindingIssue, bindingKey, effectiveShortcuts, initialShortcutConfig, isWebBindingAllowed, normalizeBinding, overlappingBindings, presentBinding, resolveShortcutDefault } from '../protocol.ts'
+import {
+  bindingIssue,
+  bindingKey,
+  effectiveShortcuts,
+  initialShortcutConfig,
+  isWebBindingAllowed,
+  normalizeBinding,
+  overlappingBindings,
+  presentBinding,
+  resolveShortcutDefault,
+} from '../protocol.ts'
 import type { ShortcutCommandId, ShortcutConfigSnapshot, ShortcutDefinition, ShortcutPlatform, ShortcutRuntime } from '../protocol.ts'
-import type { ShortcutCatalogEntry, ShortcutCommand, ShortcutContext, ShortcutGesture,
-  ShortcutFixedCommand, ShortcutFixedCatalogEntry } from './types.ts'
+import type {
+  ShortcutCatalogEntry,
+  ShortcutCommand,
+  ShortcutContext,
+  ShortcutGesture,
+  ShortcutFixedCommand,
+  ShortcutFixedCatalogEntry,
+} from './types.ts'
 
 /** Dispatch consumption is independent of later business-operation success. */
-type ShortcutDispatch = { status: 'handled'; commandId: ShortcutCommandId }
+type ShortcutDispatch =
+  | { status: 'handled'; commandId: ShortcutCommandId }
   | { status: 'blocked'; commandId: ShortcutCommandId; reason: string }
   | { status: 'pass' }
 
@@ -24,13 +41,20 @@ export class ShortcutRegistry {
   /** Fixed local operations whose owning plugins are mounted. */
   readonly fixedCatalog = createSnapshotStore<readonly ShortcutFixedCatalogEntry[]>([])
 
-  constructor(readonly runtime: ShortcutRuntime, readonly platform: ShortcutPlatform,
-    config: ShortcutConfigSnapshot = { ...initialShortcutConfig(), status: 'ready' }) {
+  constructor(
+    readonly runtime: ShortcutRuntime,
+    readonly platform: ShortcutPlatform,
+    config: ShortcutConfigSnapshot = { ...initialShortcutConfig(), status: 'ready' },
+  ) {
     this.state = createSnapshotStore<{ catalog: readonly ShortcutCatalogEntry[]; config: ShortcutConfigSnapshot }>({ catalog: [], config })
-    this.catalog = { getSnapshot: () => this.state.getSnapshot().catalog,
-      subscribe: (listener: () => void) => this.state.subscribe(listener) }
-    this.config = { getSnapshot: () => this.state.getSnapshot().config,
-      subscribe: (listener: () => void) => this.state.subscribe(listener) }
+    this.catalog = {
+      getSnapshot: () => this.state.getSnapshot().catalog,
+      subscribe: (listener: () => void) => this.state.subscribe(listener),
+    }
+    this.config = {
+      getSnapshot: () => this.state.getSnapshot().config,
+      subscribe: (listener: () => void) => this.state.subscribe(listener),
+    }
   }
 
   /**
@@ -38,8 +62,10 @@ export class ShortcutRegistry {
    * @returns definitions without callbacks or localized labels.
    */
   definitions(): readonly ShortcutDefinition[] {
-    return [...[...this.commands.values()].map(({ id, defaults }) => ({ id, defaults })),
-      ...[...this.fixedCommands.values()].map(({ id, bindings }) => ({ id, defaults: {}, fixed: bindings }))]
+    return [
+      ...[...this.commands.values()].map(({ id, defaults }) => ({ id, defaults })),
+      ...[...this.fixedCommands.values()].map(({ id, bindings }) => ({ id, defaults: {}, fixed: bindings })),
+    ]
   }
 
   /**
@@ -60,10 +86,15 @@ export class ShortcutRegistry {
   }
 
   private refreshFixedLabels(): void {
-    this.fixedCatalog.set([...this.fixedCommands.values()].map(command => ({
-      id: command.id, label: command.label(), keys: command.keys, group: command.group,
-      bindings: command.bindings.map(binding => normalizeBinding(binding, this.platform)),
-    })))
+    this.fixedCatalog.set(
+      [...this.fixedCommands.values()].map(command => ({
+        id: command.id,
+        label: command.label(),
+        keys: command.keys,
+        group: command.group,
+        bindings: command.bindings.map(binding => normalizeBinding(binding, this.platform)),
+      })),
+    )
   }
 
   /**
@@ -117,16 +148,20 @@ export class ShortcutRegistry {
     this.bindings.clear()
     this.conflicts.clear()
     const rows = effectiveShortcuts(this.definitions(), config.document, this.runtime, this.platform)
-    const catalog = rows.map((row) => {
+    const catalog = rows.map(row => {
       const command = this.commands.get(row.id) as ShortcutCommand
       const enabled = config.status !== 'loading' && row.issue === null && row.conflicts.length === 0
       if (enabled && row.binding !== null) this.bindings.set(bindingKey(row.binding), command)
       if (config.status !== 'loading' && row.issue === null && row.conflicts.length > 0 && row.binding !== null) {
         this.conflicts.set(bindingKey(row.binding), command)
       }
-      return { ...row, label: command.label(), aliases: command.aliases,
+      return {
+        ...row,
+        label: command.label(),
+        aliases: command.aliases,
         ...presentBinding(row.binding, this.platform),
-        aria: enabled ? presentBinding(row.binding, this.platform).aria : undefined }
+        aria: enabled ? presentBinding(row.binding, this.platform).aria : undefined,
+      }
     })
     this.state.set({ config, catalog })
     this.refreshFixedLabels()
@@ -154,14 +189,25 @@ export class ShortcutRegistry {
   dispatch(gesture: ShortcutGesture, context: ShortcutContext, consume: () => void): ShortcutDispatch {
     if (gesture.defaultPrevented || gesture.composing) return { status: 'pass' }
     const modifiers = (['control', 'alt', 'shift', 'meta'] as const).filter(value => gesture[value])
-    const pairKey = bindingKey({ code: gesture.code, modifiers,
-      ...(gesture.secondCode === undefined ? {} : { secondCode: gesture.secondCode }) })
+    const pairKey = bindingKey({
+      code: gesture.code,
+      modifiers,
+      ...(gesture.secondCode === undefined ? {} : { secondCode: gesture.secondCode }),
+    })
     const key = this.bindings.has(pairKey) || this.conflicts.has(pairKey) ? pairKey : bindingKey({ code: gesture.code, modifiers })
     const command = this.bindings.get(key) ?? this.conflicts.get(key)
     const priority = this.runtime === 'desktop' && (this.platform === 'windows' || this.platform === 'macos')
     if (command === undefined || (!priority && !command.regions.includes(context.region))) return { status: 'pass' }
-    if (!priority && context.region === 'terminal' && gesture.control && !gesture.meta && !gesture.alt && !gesture.shift
-      && (gesture.code === 'KeyW' || gesture.code === 'KeyR')) return { status: 'pass' }
+    if (
+      !priority &&
+      context.region === 'terminal' &&
+      gesture.control &&
+      !gesture.meta &&
+      !gesture.alt &&
+      !gesture.shift &&
+      (gesture.code === 'KeyW' || gesture.code === 'KeyR')
+    )
+      return { status: 'pass' }
     if (!this.bindings.has(key)) {
       consume()
       return { status: 'blocked', commandId: command.id, reason: 'conflict' }

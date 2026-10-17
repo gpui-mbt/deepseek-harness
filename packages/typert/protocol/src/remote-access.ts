@@ -10,11 +10,7 @@
  * `TypertResourceKind` is the declare-merge key pattern: the resource map is
  * empty in this compilation unit, so the rule sees `never`, while every
  * domain that declares a kind merges its key in. */
-import type {
-  TypertResourceId,
-  TypertResourceKind,
-  TypertResourceMap,
-} from './types.ts'
+import type { TypertResourceId, TypertResourceKind, TypertResourceMap } from './types.ts'
 
 /** One resource kind: the built-in `global` kind or a declared kind. */
 export type RemoteAccessResourceKind = 'global' | TypertResourceKind
@@ -27,8 +23,8 @@ export type RemoteAccessResourceKind = 'global' | TypertResourceKind
 export type RemoteAccessResource =
   | { readonly kind: 'global' }
   | {
-    [Kind in TypertResourceKind]: { readonly kind: Kind; readonly id: TypertResourceId<TypertResourceMap[Kind]> }
-  }[TypertResourceKind]
+      [Kind in TypertResourceKind]: { readonly kind: Kind; readonly id: TypertResourceId<TypertResourceMap[Kind]> }
+    }[TypertResourceKind]
 
 /**
  * The resource variant of one kind: `{ kind: 'global' }` for `global`, else

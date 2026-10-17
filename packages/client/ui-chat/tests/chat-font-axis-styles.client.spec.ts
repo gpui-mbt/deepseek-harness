@@ -6,43 +6,48 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
-const read = (name: string): string =>
-  readFileSync(fileURLToPath(new URL(`../src/client/chat/${name}`, import.meta.url)), 'utf8')
+const read = (name: string): string => readFileSync(fileURLToPath(new URL(`../src/client/chat/${name}`, import.meta.url)), 'utf8')
 
 function declarationsFrom(source: string, selector: string): string[] {
   const declarationText = source.replace(/\/\*[\s\S]*?\*\//g, ' ')
   const rule = new RegExp(`(?:^|[{}])\\s*${selector.replace(/[.[\]():*+^$\\]/g, '\\$&')}\\s*\\{([^{}]*)\\}`).exec(declarationText)
   if (rule === null) throw new Error(`no \`${selector}\` rule`)
-  return (rule[1] ?? '').split(';').map(part => part.trim()).filter(Boolean)
+  return (rule[1] ?? '')
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
 }
 
 describe('chat flow font-size axis', () => {
   it('think text reads the secondary tier (one step under the body size)', () => {
     const css = read('ReasoningRow.module.css')
-    expect(declarationsFrom(css, '.summary')).toEqual(expect.arrayContaining([
-      'font-size: var(--dsh-content-font-size-secondary, 13px)',
-      'line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px))',
-      'white-space: nowrap',
-    ]))
-    expect(declarationsFrom(css, '.summaryText')).toEqual(expect.arrayContaining([
-      'overflow: hidden',
-      'text-overflow: ellipsis',
-    ]))
+    expect(declarationsFrom(css, '.summary')).toEqual(
+      expect.arrayContaining([
+        'font-size: var(--dsh-content-font-size-secondary, 13px)',
+        'line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px))',
+        'white-space: nowrap',
+      ]),
+    )
+    expect(declarationsFrom(css, '.summaryText')).toEqual(expect.arrayContaining(['overflow: hidden', 'text-overflow: ellipsis']))
   })
 
   it('command and context summaries read the secondary tier on the shared row line', () => {
-    expect(declarationsFrom(read('GenericCommandCard.module.css'), '.summary')).toEqual(expect.arrayContaining([
-      'font-size: var(--dsh-content-font-size-secondary, 13px)',
-      'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
-    ]))
-    const context = read('ContextInjectionRow.module.css')
-    for (const selector of ['.source', '.summary']) {
-      expect(declarationsFrom(context, selector)).toEqual(expect.arrayContaining([
+    expect(declarationsFrom(read('GenericCommandCard.module.css'), '.summary')).toEqual(
+      expect.arrayContaining([
         'font-size: var(--dsh-content-font-size-secondary, 13px)',
         'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
-      ]))
+      ]),
+    )
+    const context = read('ContextInjectionRow.module.css')
+    for (const selector of ['.source', '.summary']) {
+      expect(declarationsFrom(context, selector)).toEqual(
+        expect.arrayContaining([
+          'font-size: var(--dsh-content-font-size-secondary, 13px)',
+          'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
+        ]),
+      )
     }
   })
 
@@ -50,56 +55,64 @@ describe('chat flow font-size axis', () => {
     // The clock is a fixed caption line, like the session row's project line:
     // it stays 11px however far the content font-size preference moves the
     // message. The icons still follow the axis of the text they sit beside.
-    expect(declarationsFrom(read('MessageClock.module.css'), '.clock')).toEqual(expect.arrayContaining([
-      'font-size: 11px',
-      'line-height: 16px',
-      'color: var(--dsw-alias-label-tertiary)',
-      'white-space: nowrap',
-    ]))
+    expect(declarationsFrom(read('MessageClock.module.css'), '.clock')).toEqual(
+      expect.arrayContaining(['font-size: 11px', 'line-height: 16px', 'color: var(--dsw-alias-label-tertiary)', 'white-space: nowrap']),
+    )
     const actions = read('MessageIconActions.module.css')
-    expect(declarationsFrom(actions, '.action svg')).toEqual(expect.arrayContaining([
-      'width: calc(15px + var(--dsh-content-font-delta, 0px))',
-      'height: calc(15px + var(--dsh-content-font-delta, 0px))',
-    ]))
+    expect(declarationsFrom(actions, '.action svg')).toEqual(
+      expect.arrayContaining([
+        'width: calc(15px + var(--dsh-content-font-delta, 0px))',
+        'height: calc(15px + var(--dsh-content-font-delta, 0px))',
+      ]),
+    )
     // The assistant completion row gives its glyphs two extra pixels.
-    expect(declarationsFrom(actions, ".actions[data-variant='assistant'] .action svg")).toEqual(expect.arrayContaining([
-      'width: calc(17px + var(--dsh-content-font-delta, 0px))',
-      'height: calc(17px + var(--dsh-content-font-delta, 0px))',
-    ]))
+    expect(declarationsFrom(actions, ".actions[data-variant='assistant'] .action svg")).toEqual(
+      expect.arrayContaining([
+        'width: calc(17px + var(--dsh-content-font-delta, 0px))',
+        'height: calc(17px + var(--dsh-content-font-delta, 0px))',
+      ]),
+    )
   })
 
   it('compaction rows follow the axis like the disclosure rows they mirror', () => {
     const css = read('MessageItem.module.css')
     for (const selector of ['.compactionTitle', '.compactionSummary', '.compactionBody']) {
-      expect(declarationsFrom(css, selector)).toEqual(expect.arrayContaining([
-        'font-size: var(--dsh-content-font-size-secondary, 13px)',
-        'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
-      ]))
+      expect(declarationsFrom(css, selector)).toEqual(
+        expect.arrayContaining([
+          'font-size: var(--dsh-content-font-size-secondary, 13px)',
+          'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
+        ]),
+      )
     }
-    expect(declarationsFrom(css, '.compactionLeading svg')).toEqual(expect.arrayContaining([
-      'width: calc(14px + var(--dsh-content-font-delta, 0px))',
-      'height: calc(14px + var(--dsh-content-font-delta, 0px))',
-    ]))
+    expect(declarationsFrom(css, '.compactionLeading svg')).toEqual(
+      expect.arrayContaining([
+        'width: calc(14px + var(--dsh-content-font-delta, 0px))',
+        'height: calc(14px + var(--dsh-content-font-delta, 0px))',
+      ]),
+    )
   })
 
   it('expanded bodies indent by 22px + delta so content stays under the shifted title start', () => {
     // The DisclosureRow title starts at leading (16 + delta) + gap 6; a fixed
     // 22px indent would misalign at every non-default size.
     const indent = 'calc(22px + var(--dsh-content-font-delta, 0px))'
-    expect(declarationsFrom(read('ReasoningRow.module.css'), '.thinkBody'))
-      .toEqual(expect.arrayContaining([`padding: 4px 0 4px ${indent}`]))
-    expect(declarationsFrom(read('MessageItem.module.css'), '.compactionBody'))
-      .toEqual(expect.arrayContaining([`padding: 4px 0 4px ${indent}`]))
-    expect(declarationsFrom(read('ContextInjectionRow.module.css'), '.body'))
-      .toEqual(expect.arrayContaining([`margin: 4px 0 0 ${indent}`]))
+    expect(declarationsFrom(read('ReasoningRow.module.css'), '.thinkBody')).toEqual(
+      expect.arrayContaining([`padding: 4px 0 4px ${indent}`]),
+    )
+    expect(declarationsFrom(read('MessageItem.module.css'), '.compactionBody')).toEqual(
+      expect.arrayContaining([`padding: 4px 0 4px ${indent}`]),
+    )
+    expect(declarationsFrom(read('ContextInjectionRow.module.css'), '.body')).toEqual(expect.arrayContaining([`margin: 4px 0 0 ${indent}`]))
   })
 
   it('the usage-details trigger reads the secondary tier like its clock label', () => {
     const css = read('TurnUsagePanel.module.css')
-    expect(declarationsFrom(css, '.trigger')).toEqual(expect.arrayContaining([
-      'font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px)',
-      'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
-    ]))
+    expect(declarationsFrom(css, '.trigger')).toEqual(
+      expect.arrayContaining([
+        'font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px)',
+        'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
+      ]),
+    )
   })
 
   it('the usage pill sizes its glyph and hit height like the sibling action buttons', () => {
@@ -107,22 +120,18 @@ describe('chat flow font-size axis', () => {
     // and 28px hit height follow the same delta rule as `.action` so the row
     // stays one height at every font size.
     const css = read('TurnUsagePanel.module.css')
-    expect(declarationsFrom(css, '.trigger')).toEqual(expect.arrayContaining([
-      'height: calc(28px + var(--dsh-content-font-delta, 0px))',
-      'white-space: nowrap',
-      'min-width: 0',
-    ]))
-    expect(declarationsFrom(css, '.trigger svg')).toEqual(expect.arrayContaining([
-      'width: calc(15px + var(--dsh-content-font-delta, 0px))',
-      'height: calc(15px + var(--dsh-content-font-delta, 0px))',
-    ]))
+    expect(declarationsFrom(css, '.trigger')).toEqual(
+      expect.arrayContaining(['height: calc(28px + var(--dsh-content-font-delta, 0px))', 'white-space: nowrap', 'min-width: 0']),
+    )
+    expect(declarationsFrom(css, '.trigger svg')).toEqual(
+      expect.arrayContaining([
+        'width: calc(15px + var(--dsh-content-font-delta, 0px))',
+        'height: calc(15px + var(--dsh-content-font-delta, 0px))',
+      ]),
+    )
     // A narrow column trims the pill label to an ellipsis instead of letting
     // it overflow or widen the chat column.
-    expect(declarationsFrom(css, '.label')).toEqual(expect.arrayContaining([
-      'min-width: 0',
-      'overflow: hidden',
-      'text-overflow: ellipsis',
-    ]))
+    expect(declarationsFrom(css, '.label')).toEqual(expect.arrayContaining(['min-width: 0', 'overflow: hidden', 'text-overflow: ellipsis']))
   })
 
   it('narrow viewports collapse the stat pills to the action-button circle', () => {
@@ -174,9 +183,8 @@ describe('chat flow font-size axis', () => {
   it('the interrupted-turn tag stays fixed like the dense token variants', () => {
     // 11px would fall to an illegible 9px at the 12px floor; the tag is
     // exempt from the axis the same way small/code tokens are.
-    expect(declarationsFrom(read('AssistantMarkdown.module.css'), '.stopped')).toEqual(expect.arrayContaining([
-      'font-size: 11px',
-      'line-height: 18px',
-    ]))
+    expect(declarationsFrom(read('AssistantMarkdown.module.css'), '.stopped')).toEqual(
+      expect.arrayContaining(['font-size: 11px', 'line-height: 18px']),
+    )
   })
 })

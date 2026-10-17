@@ -7,12 +7,7 @@
  */
 
 import { WebError } from '@deepseek-ai/dsh-web'
-import type {
-  WebSearchProvider,
-  WebSearchRequest,
-  WebSearchResult,
-  WebSearchSource,
-} from '@deepseek-ai/dsh-web'
+import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import type { OllamaError, OllamaResult, OllamaSearchResponse } from './types.ts'
 
@@ -57,8 +52,8 @@ export function mapOllamaResult(result: OllamaResult): WebSearchSource | undefin
   const snippet = result.content?.trim()
   return {
     url: result.url,
-    ...result.title != null && result.title.length > 0 ? { title: result.title } : {},
-    ...snippet !== undefined && snippet.length > 0 ? { snippet } : {},
+    ...(result.title != null && result.title.length > 0 ? { title: result.title } : {}),
+    ...(snippet !== undefined && snippet.length > 0 ? { snippet } : {}),
   }
 }
 
@@ -70,9 +65,7 @@ export function mapOllamaResult(result: OllamaResult): WebSearchSource | undefin
  *   ({@link mapOllamaResult}).
  */
 export function mapOllamaResponse(response: OllamaSearchResponse): WebSearchResult {
-  const sources = (response.results ?? [])
-    .map(mapOllamaResult)
-    .filter((source): source is WebSearchSource => source !== undefined)
+  const sources = (response.results ?? []).map(mapOllamaResult).filter((source): source is WebSearchSource => source !== undefined)
   // Ollama Cloud returns no generated answer, so `content` is omitted. The web service owns the
   // final `maxResults` truncation, so this provider reports `truncated: false`.
   return { sources, truncated: false }
@@ -92,9 +85,11 @@ export class OllamaSearchProvider implements WebSearchProvider {
 
   available(): boolean {
     const options = this.resolveOptions()
-    return ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined)
-      && URL.canParse(options.baseURL)
-      && isPositiveInteger(options.maxResults)
+    return (
+      ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined) &&
+      URL.canParse(options.baseURL) &&
+      isPositiveInteger(options.maxResults)
+    )
   }
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
@@ -113,28 +108,24 @@ export class OllamaSearchProvider implements WebSearchProvider {
         method: 'POST',
         redirect: 'error',
         headers: {
-          'authorization': `Bearer ${apiKey}`,
+          authorization: `Bearer ${apiKey}`,
           'content-type': 'application/json',
-          'accept': 'application/json',
+          accept: 'application/json',
           'user-agent': USER_AGENT,
         },
         body: JSON.stringify({ query: request.query, max_results: maxResults }),
-        ...signal !== undefined ? { signal } : {},
+        ...(signal !== undefined ? { signal } : {}),
       })
     } catch (error: unknown) {
       if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
-      throw searchEndpointError(
-        endpoint,
-        `Ollama Cloud search request failed: ${String(error)}`,
-        error,
-      )
+      throw searchEndpointError(endpoint, `Ollama Cloud search request failed: ${String(error)}`, error)
     }
 
     if (!response.ok) {
       const status = response.status
       let message = `Ollama Cloud API error (HTTP ${status})`
       try {
-        const parsed = await response.json() as OllamaError
+        const parsed = (await response.json()) as OllamaError
         const detail = parsed.error ?? parsed.message
         if (detail !== undefined && detail.length > 0) message += `: ${detail}`
       } catch (error: unknown) {
@@ -150,7 +141,7 @@ export class OllamaSearchProvider implements WebSearchProvider {
     }
 
     try {
-      const payload = await response.json() as OllamaSearchResponse
+      const payload = (await response.json()) as OllamaSearchResponse
       return mapOllamaResponse(payload)
     } catch (error: unknown) {
       if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
@@ -172,9 +163,9 @@ export class OllamaSearchProvider implements WebSearchProvider {
     if (resolved !== undefined && resolved.length > 0) return resolved
     const ref = options.apiKeyEnv ?? OLLAMA_DEFAULT_API_KEY_ENV
     throw new WebError(
-      `Ollama Cloud search has no API key for "${ref}"; store it through the credentials service`
-      + ' (the web Models page writes it), export it in the launching environment, or set a literal'
-      + ' "apiKey" in the web-search-ollama config',
+      `Ollama Cloud search has no API key for "${ref}"; store it through the credentials service` +
+        ' (the web Models page writes it), export it in the launching environment, or set a literal' +
+        ' "apiKey" in the web-search-ollama config',
       'WEB_PROVIDER_CREDENTIAL_MISSING',
     )
   }
@@ -188,31 +179,25 @@ export class OllamaSearchProvider implements WebSearchProvider {
  * @returns the resolved credential, or undefined when the resolver supplied none.
  * @throws {@link WebError} `WEB_ABORTED` on cancellation, `WEB_PROVIDER_ERROR` when the resolver fails.
  */
-async function resolveCredential(
-  resolve: () => Promise<string | undefined>, signal?: AbortSignal,
-): Promise<string | undefined> {
+async function resolveCredential(resolve: () => Promise<string | undefined>, signal?: AbortSignal): Promise<string | undefined> {
   throwIfSearchAborted(signal)
   try {
     return await abortable(resolve(), signal)
   } catch (error: unknown) {
     if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
-    throw new WebError(
-      `Ollama Cloud search credential resolution failed: ${String(error)}`,
-      'WEB_PROVIDER_ERROR',
-      { cause: error },
-    )
+    throw new WebError(`Ollama Cloud search credential resolution failed: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
   }
 }
 
 /** Add endpoint recovery instructions to failures that occur after request dispatch begins. */
 function searchEndpointError(endpoint: string, message: string, cause?: unknown): WebError {
   return new WebError(
-    `${message}\n\nThe web search request used endpoint ${JSON.stringify(endpoint)}. `
-    + 'Search endpoint configuration is separate from chat. If that endpoint is not intended, '
-    + 'guide the user to Settings > Plugins > Plugin configuration > Web search, where they can '
-    + 'change and save Endpoint. If that settings page is unavailable, the user can set '
-    + 'OLLAMA_SEARCH_BASE_URL or configure web-search-ollama.baseURL to a trusted Ollama Cloud base. '
-    + 'Only the user should choose or change the endpoint.',
+    `${message}\n\nThe web search request used endpoint ${JSON.stringify(endpoint)}. ` +
+      'Search endpoint configuration is separate from chat. If that endpoint is not intended, ' +
+      'guide the user to Settings > Plugins > Plugin configuration > Web search, where they can ' +
+      'change and save Endpoint. If that settings page is unavailable, the user can set ' +
+      'OLLAMA_SEARCH_BASE_URL or configure web-search-ollama.baseURL to a trusted Ollama Cloud base. ' +
+      'Only the user should choose or change the endpoint.',
     'WEB_PROVIDER_ERROR',
     cause === undefined ? undefined : { cause },
   )
@@ -227,10 +212,12 @@ function abortable<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (signal === undefined) return operation
   if (signal.aborted) return Promise.reject(searchAborted(signal))
   return new Promise<T>((resolve, reject) => {
-    const onAbort = (): void => { reject(searchAborted(signal)) }
+    const onAbort = (): void => {
+      reject(searchAborted(signal))
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     void operation.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolve(value)
       },

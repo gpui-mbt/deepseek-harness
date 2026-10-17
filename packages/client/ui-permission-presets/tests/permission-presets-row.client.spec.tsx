@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { allowAllAccess, bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
@@ -11,10 +11,19 @@ import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/
 import { PermissionPresetSettingsController } from '../src/client/settings-store.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({
+  status: 'none' as const,
+  value: undefined,
+  failure: undefined,
+  reload: () => {},
+})) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
-const catalog = { options: [], defaultPreset: 'read-only', defaultOptions: ['read-only', 'workspace-write', 'danger-full-access'].map(value => ({ value, name: value })) }
+const catalog = {
+  options: [],
+  defaultPreset: 'read-only',
+  defaultOptions: ['read-only', 'workspace-write', 'danger-full-access'].map(value => ({ value, name: value })),
+}
 const directory = { store: createSnapshotStore({ value: catalog }), load: () => Promise.resolve(catalog) }
 
 /** Controller over a real mirror derived from the same scripted context. */
@@ -42,7 +51,8 @@ function view(defaultPreset: string, revision = 0): SettingsNamespaceView {
     schema: SCHEMA,
     value: { defaultPreset },
     base: { defaultPreset: 'read-only' },
-    autoGenerate: true, applies: 'live',
+    autoGenerate: true,
+    applies: 'live',
     secrets: [],
     revision,
   }
@@ -59,10 +69,16 @@ type AttentionSnapshot = Parameters<Parameters<PermissionRowProps['useSessionSta
 const noAttention: AttentionSnapshot = new Map()
 const useSessionStatus: PermissionRowProps['useSessionStatus'] = selector => selector(noAttention)
 const runtime = {
-  useSessions: (() => { throw new Error('unused') }) as never,
+  useSessions: (() => {
+    throw new Error('unused')
+  }) as never,
   useSessionStatus,
-  usePanelInfo, useSessionRetainInfo: () => undefined, useResource,
-  useWorkspaces: (() => { throw new Error('unused') }) as never,
+  usePanelInfo,
+  useSessionRetainInfo: () => undefined,
+  useResource,
+  useWorkspaces: (() => {
+    throw new Error('unused')
+  }) as never,
   ...allowAllAccess,
 }
 
@@ -93,7 +109,9 @@ describe('PermissionRow', () => {
     fireEvent.click(button)
     expect(button.getAttribute('aria-expanded')).toBe('true')
     fireEvent.keyDown(document, { key: 'Escape' })
-    await waitFor(() => { expect(button.getAttribute('aria-expanded')).toBe('false') })
+    await waitFor(() => {
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+    })
     fireEvent.click(button)
     fireEvent.click(button)
     expect(button.getAttribute('aria-expanded')).toBe('false')
@@ -127,7 +145,9 @@ describe('PermissionRow', () => {
     expect((enable as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByRole('checkbox'))
     fireEvent.click(enable)
-    await waitFor(() => { expect(mutate).toHaveBeenCalledOnce() })
+    await waitFor(() => {
+      expect(mutate).toHaveBeenCalledOnce()
+    })
     expect(dialog.isConnected).toBe(false)
   })
 
@@ -139,7 +159,9 @@ describe('PermissionRow', () => {
       },
     })
     const rendered = mount(absent)
-    await waitFor(() => { expect(rendered.container.textContent).toBe('') })
+    await waitFor(() => {
+      expect(rendered.container.textContent).toBe('')
+    })
     rendered.unmount()
 
     const readonly = derivedController({
@@ -153,19 +175,26 @@ describe('PermissionRow', () => {
   })
 
   it('shows loading and a contained write error', async () => {
-    const describe = Promise.withResolvers<ReturnType<typeof ok<{
-      writable: boolean
-      namespaces: SettingsNamespaceView[]
-    }>>>()
+    const describe = Promise.withResolvers<
+      ReturnType<
+        typeof ok<{
+          writable: boolean
+          namespaces: SettingsNamespaceView[]
+        }>
+      >
+    >()
     const controller = derivedController({
       settings: {
         describe: () => describe.promise,
-        mutate: () => Promise.resolve({
-          ok: false as const,
-          error: new RemoteError('settings/conflict', 'changed elsewhere', {
-            ns: 'permission', expected: 1, actual: 2,
+        mutate: () =>
+          Promise.resolve({
+            ok: false as const,
+            error: new RemoteError('settings/conflict', 'changed elsewhere', {
+              ns: 'permission',
+              expected: 1,
+              actual: 2,
+            }),
           }),
-        }),
       },
     })
     mount(controller)

@@ -19,7 +19,19 @@ export interface IncompatiblePlugin {
 
 /** Localizable management failure and optional external diagnostic. */
 export interface ManagementError {
-  code: ReadOnlyReason | 'unknown-plugin' | 'invalid-spec' | 'already-installed' | 'ambiguous-install' | 'not-bundle' | 'not-removable' | 'stop-profile' | 'bundle-in-use' | 'stale-approval' | 'incompatible-version' | 'operation-error'
+  code:
+    | ReadOnlyReason
+    | 'unknown-plugin'
+    | 'invalid-spec'
+    | 'already-installed'
+    | 'ambiguous-install'
+    | 'not-bundle'
+    | 'not-removable'
+    | 'stop-profile'
+    | 'bundle-in-use'
+    | 'stale-approval'
+    | 'incompatible-version'
+    | 'operation-error'
   diagnostic?: string
   /** Present with `incompatible-version`: the packages the running DSH version rejects. */
   incompatible?: IncompatiblePlugin[]
@@ -35,10 +47,8 @@ export interface ManagementError {
 export type RestartReason = 'no-hmr' | 'package-moved' | 'host-module' | 'unmanaged-plugin' | 'module-comparison'
 
 /** One running-profile entry and its persistent control availability. */
-export type PluginInfo = PluginInventoryEntry & (
-  | { patchId: string; readOnlyReason?: never }
-  | { patchId?: never; readOnlyReason: ReadOnlyReason }
-)
+export type PluginInfo = PluginInventoryEntry &
+  ({ patchId: string; readOnlyReason?: never } | { patchId?: never; readOnlyReason: ReadOnlyReason })
 
 /** One row a bundle's patch declares, with its live entry while the bundle contributes it. */
 export interface BundleRowInfo {
@@ -200,27 +210,27 @@ export type PluginInspectProblem =
  */
 export type PluginSpecInspection =
   | {
-    readonly status: 'accepted'
-    readonly kind: InstallSpecKind
-    readonly name?: string
-    readonly version?: string
-    /** `description` of the package manifest. */
-    readonly description?: string
-    /** Whether the package declares a bundle patch; null when the spec's form does not say. */
-    readonly bundle: boolean | null
-    /** The registry that answered for a name, and for the other forms the one an install of the spec asks first. */
-    readonly registry: Registry
-    /** The host a git spec or a tarball URL is fetched from, which no registry stands in for. */
-    readonly host?: string
-  }
+      readonly status: 'accepted'
+      readonly kind: InstallSpecKind
+      readonly name?: string
+      readonly version?: string
+      /** `description` of the package manifest. */
+      readonly description?: string
+      /** Whether the package declares a bundle patch; null when the spec's form does not say. */
+      readonly bundle: boolean | null
+      /** The registry that answered for a name, and for the other forms the one an install of the spec asks first. */
+      readonly registry: Registry
+      /** The host a git spec or a tarball URL is fetched from, which no registry stands in for. */
+      readonly host?: string
+    }
   | {
-    readonly status: 'refused'
-    readonly problem: PluginInspectProblem
-    /** What pnpm, the registry, or the file system said. */
-    readonly reason: string
-    /** The registries asked, in order, when the refusal came from asking them; `reason` is the last one's. */
-    readonly registries?: Registry[]
-  }
+      readonly status: 'refused'
+      readonly problem: PluginInspectProblem
+      /** What pnpm, the registry, or the file system said. */
+      readonly reason: string
+      /** The registries asked, in order, when the refusal came from asking them; `reason` is the last one's. */
+      readonly registries?: Registry[]
+    }
 
 /** The Host phase of one installation, before its install call settles; `installing` is announced once per registry asked. */
 export interface PluginInstallProgress {

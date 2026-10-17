@@ -1,9 +1,7 @@
 /** Source-labelled Client references over real history transport and scoped Contexts. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, onTestFinished, vi } from 'vitest'
-import type {
-  SessionReference, SessionReferenceSource, SessionRetainInfo,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import { describe, expect, onTestFinished, vi } from 'vite-plus/test'
+import type { SessionReference, SessionReferenceSource, SessionRetainInfo } from '@deepseek-ai/dsh-api-session-controller/client'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { ok, type RemoteMock } from '@deepseek-ai/dsh-remote-mock'
@@ -35,9 +33,9 @@ async function bench(mock: RemoteMock, start: () => Promise<TestClient>, listed 
   })
   mock.stream(FOLLOW, followScript(EMPTY_HISTORY))
   const feed = async (include: boolean): Promise<void> => {
-    mock.remote.session.list.mockResolvedValue(ok({ items: include
-      ? [{ sessionId: ID, updatedAt: 1, running: false, blank: true, agentAvailable: true }]
-      : [] }))
+    mock.remote.session.list.mockResolvedValue(
+      ok({ items: include ? [{ sessionId: ID, updatedAt: 1, running: false, blank: true, agentAvailable: true }] : [] }),
+    )
     await svc.refresh()
   }
   if (listed) await feed(true)
@@ -66,8 +64,16 @@ describe('Client reference sources', () => {
     const b = await bench(mock, start)
     const opening = Promise.withResolvers<Awaited<HistoryAnswer>>()
     const entered = Promise.withResolvers<undefined>()
-    b.unblock.push(() => { opening.resolve(EMPTY_HISTORY) })
-    mock.stream(FOLLOW, followScript(() => { entered.resolve(undefined); return opening.promise }))
+    b.unblock.push(() => {
+      opening.resolve(EMPTY_HISTORY)
+    })
+    mock.stream(
+      FOLLOW,
+      followScript(() => {
+        entered.resolve(undefined)
+        return opening.promise
+      }),
+    )
     const source = b.svc.retainInfo(ID)
     const first = b.svc.retain(ID, { source: viewSource })
     const binding = b.svc.binding(ID)
@@ -145,30 +151,38 @@ describe('Client reference sources', () => {
     expect(b.svc.list.getSnapshot().byId[ID]?.retainedBy).toEqual({ gateway: 1 })
   })
 
-  for (const kind of ['remote', 'unexpected'] as const) it(`settles ${kind} initial opening failure through Session state and allows another acquisition after release`, async ({ mock, start }) => {
-    const b = await bench(mock, start)
-    using local = b.svc.retainAgentScope(ID)
-    const binding = local.binding
-    const failure = kind === 'remote'
-      ? new RemoteError('session/not-found', 'opening failed', { sessionId: ID })
-      : new Error('opening failed')
-    mock.stream(FOLLOW, followScript(() => Promise.reject(failure)))
-    const failed = b.svc.retain(ID, { source: viewSource })
-    await expect(failed.ready).resolves.toBe(binding)
-    expect(b.svc.retainInfo(ID).getSnapshot()).toEqual({ referenceCount: 2, retainedBy: { gateway: 1, referenceTestView: 1 } })
-    expect(binding.session.getSnapshot().openState).toBe('error')
-    failed.release()
-    mock.stream(FOLLOW, followScript(EMPTY_HISTORY))
-    using retried = b.svc.retain(ID, { source: workSource })
-    await retried.ready
-    expect(retried.binding).toBe(binding)
-    expect(retried.binding.session.getSnapshot().openState).toBe('open')
-  })
+  for (const kind of ['remote', 'unexpected'] as const)
+    it(`settles ${kind} initial opening failure through Session state and allows another acquisition after release`, async ({
+      mock,
+      start,
+    }) => {
+      const b = await bench(mock, start)
+      using local = b.svc.retainAgentScope(ID)
+      const binding = local.binding
+      const failure =
+        kind === 'remote' ? new RemoteError('session/not-found', 'opening failed', { sessionId: ID }) : new Error('opening failed')
+      mock.stream(
+        FOLLOW,
+        followScript(() => Promise.reject(failure)),
+      )
+      const failed = b.svc.retain(ID, { source: viewSource })
+      await expect(failed.ready).resolves.toBe(binding)
+      expect(b.svc.retainInfo(ID).getSnapshot()).toEqual({ referenceCount: 2, retainedBy: { gateway: 1, referenceTestView: 1 } })
+      expect(binding.session.getSnapshot().openState).toBe('error')
+      failed.release()
+      mock.stream(FOLLOW, followScript(EMPTY_HISTORY))
+      using retried = b.svc.retain(ID, { source: workSource })
+      await retried.ready
+      expect(retried.binding).toBe(binding)
+      expect(retried.binding.session.getSnapshot().openState).toBe('open')
+    })
 
   it('cancels only one waiter while another owns the shared initial opening', async ({ mock, start }) => {
     const b = await bench(mock, start)
     const opening = Promise.withResolvers<Awaited<HistoryAnswer>>()
-    b.unblock.push(() => { opening.resolve(EMPTY_HISTORY) })
+    b.unblock.push(() => {
+      opening.resolve(EMPTY_HISTORY)
+    })
     mock.stream(FOLLOW, followScript(opening.promise))
     const controller = new AbortController()
     const cancelled = b.svc.retain(ID, { source: viewSource, signal: controller.signal })
@@ -208,9 +222,13 @@ describe('Client reference sources', () => {
     const controller = new AbortController()
     const failure = new Error('owner ended during acquisition')
     const source = b.svc.retainInfo(ID)
-    b.ctx.effect(() => source.subscribe(() => {
-      if (source.getSnapshot().referenceCount > 0) controller.abort(failure)
-    }), 'test: acquisition cancellation')
+    b.ctx.effect(
+      () =>
+        source.subscribe(() => {
+          if (source.getSnapshot().referenceCount > 0) controller.abort(failure)
+        }),
+      'test: acquisition cancellation',
+    )
 
     await expect(b.svc.using(ID, { source: viewSource, signal: controller.signal }, () => undefined)).rejects.toBe(failure)
 
@@ -250,8 +268,16 @@ describe('Client reference sources', () => {
     const binding = old.binding
     const entered = Promise.withResolvers<undefined>()
     const resume = Promise.withResolvers<undefined>()
-    b.unblock.push(() => { resume.resolve(undefined) })
-    binding.ctx.effect(() => async () => { entered.resolve(undefined); await resume.promise }, 'test: delayed generation cleanup')
+    b.unblock.push(() => {
+      resume.resolve(undefined)
+    })
+    binding.ctx.effect(
+      () => async () => {
+        entered.resolve(undefined)
+        await resume.promise
+      },
+      'test: delayed generation cleanup',
+    )
     old.release()
     expect(b.svc.binding(ID)).toBeUndefined()
     expect(source.getSnapshot().referenceCount).toBe(0)
@@ -288,8 +314,10 @@ describe('ClientSessions.using', () => {
     const b = await bench(mock, start)
     const entered = Promise.withResolvers<SessionReference>()
     const response = Promise.withResolvers<number>()
-    b.unblock.push(() => { response.resolve(7) })
-    const using = b.svc.using(ID, { source: workSource, signal: undefined }, (reference) => {
+    b.unblock.push(() => {
+      response.resolve(7)
+    })
+    const using = b.svc.using(ID, { source: workSource, signal: undefined }, reference => {
       entered.resolve(reference)
       return response.promise
     })
@@ -301,20 +329,26 @@ describe('ClientSessions.using', () => {
     expect(() => reference.binding).toThrow('is released')
   })
 
-  for (const kind of ['sync', 'async'] as const) it(`releases and propagates a ${kind} callback failure`, async ({ mock, start }) => {
-    const b = await bench(mock, start)
-    const failure = new Error('callback failed')
-    await expect(b.svc.using(ID, { source: workSource }, () => {
-      if (kind === 'sync') throw failure
-      return Promise.reject(failure)
-    })).rejects.toBe(failure)
-    expect(b.svc.retainInfo(ID).getSnapshot()).toEqual({ referenceCount: 0, retainedBy: {} })
-  })
+  for (const kind of ['sync', 'async'] as const)
+    it(`releases and propagates a ${kind} callback failure`, async ({ mock, start }) => {
+      const b = await bench(mock, start)
+      const failure = new Error('callback failed')
+      await expect(
+        b.svc.using(ID, { source: workSource }, () => {
+          if (kind === 'sync') throw failure
+          return Promise.reject(failure)
+        }),
+      ).rejects.toBe(failure)
+      expect(b.svc.retainInfo(ID).getSnapshot()).toEqual({ referenceCount: 0, retainedBy: {} })
+    })
 
   it('calls the operation after a stateful opening failure', async ({ mock, start }) => {
     const b = await bench(mock, start)
     const operation = vi.fn(() => 7)
-    mock.stream(FOLLOW, followScript(() => Promise.reject(new Error('cannot open'))))
+    mock.stream(
+      FOLLOW,
+      followScript(() => Promise.reject(new Error('cannot open'))),
+    )
     await expect(b.svc.using(ID, { source: workSource }, operation)).resolves.toBe(7)
     expect(operation).toHaveBeenCalledOnce()
     const info: SessionRetainInfo = b.svc.retainInfo(ID).getSnapshot()

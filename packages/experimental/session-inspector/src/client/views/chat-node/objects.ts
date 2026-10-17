@@ -24,7 +24,9 @@ export class ChatObjectIndex {
     return this.identities.get(value)
   }
 
-  private chat(): ChatSnapshot | undefined { return this.binding.snapshot.getSnapshot().views.get('chat') }
+  private chat(): ChatSnapshot | undefined {
+    return this.binding.snapshot.getSnapshot().views.get('chat')
+  }
 
   private register(value: unknown, reference: Reference): void {
     if (value !== null && typeof value === 'object' && !this.identities.has(value)) this.identities.set(value, reference)
@@ -41,8 +43,13 @@ export class ChatObjectIndex {
     const firstNode = step === undefined ? this.chat()?.locations.getTurn(turn)[0] : this.chat()?.locations.getStep(turn, step)[0]
     const target: InspectorChatTarget = { turn, ...(firstNode === undefined ? {} : { nodeKey: firstNode }) }
     this.register(value, { id: `${kind}:${identity}`, kind, identity, target, read })
-    this.register(value.data, { id: `${kind}-data:${identity}`, kind: step === undefined ? 'turnData' : 'stepData',
-      identity, target, read: () => read()?.data })
+    this.register(value.data, {
+      id: `${kind}-data:${identity}`,
+      kind: step === undefined ? 'turnData' : 'stepData',
+      identity,
+      target,
+      read: () => read()?.data,
+    })
   }
 
   private refresh(): void {
@@ -56,8 +63,13 @@ export class ChatObjectIndex {
         const turn = location.kind === 'turn' || location.kind === 'step' ? location.turn.turn : undefined
         const target: InspectorChatTarget = { nodeKey: key, ...(turn === undefined ? {} : { turn }) }
         this.register(node, { id: `node:${key}`, kind: 'node', identity: key, target, read: () => this.chat()?.nodes.get(key) })
-        this.register(node.data, { id: `node-data:${key}`, kind: 'nodeData', identity: key, target,
-          read: () => this.chat()?.nodes.get(key)?.data })
+        this.register(node.data, {
+          id: `node-data:${key}`,
+          kind: 'nodeData',
+          identity: key,
+          target,
+          read: () => this.chat()?.nodes.get(key)?.data,
+        })
       }
     }
     if (!this.indexed.has(chat.timeline)) {
@@ -81,9 +93,13 @@ export class ChatObjectIndex {
       this.register(group.data, { id: `group-data:${key}`, kind: 'groupData', identity: key, target, read: () => read()?.data })
       for (const member of group.members) {
         const nodeKey = member.key
-        this.register(member, { id: `node:${nodeKey}`, kind: 'node', identity: nodeKey,
-          target: { nodeKey, ...member.groupPart === undefined ? {} : { groupPart: member.groupPart } },
-          read: () => this.chat()?.nodes.get(nodeKey) })
+        this.register(member, {
+          id: `node:${nodeKey}`,
+          kind: 'node',
+          identity: nodeKey,
+          target: { nodeKey, ...(member.groupPart === undefined ? {} : { groupPart: member.groupPart }) },
+          read: () => this.chat()?.nodes.get(nodeKey),
+        })
       }
     }
   }

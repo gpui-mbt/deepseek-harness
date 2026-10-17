@@ -12,7 +12,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import { SessionAlreadyOwnedError } from '@deepseek-ai/dsh-session-persistence'
@@ -38,7 +38,11 @@ describe('two-process write lock (built lib)', () => {
     const holder = spawn(process.execPath, [HOLDER, root, SESSION], {
       stdio: ['ignore', 'pipe', 'inherit'],
     })
-    const exited = new Promise<void>((resolve) => { holder.once('exit', () => { resolve() }) })
+    const exited = new Promise<void>(resolve => {
+      holder.once('exit', () => {
+        resolve()
+      })
+    })
     try {
       await once(holder.stdout, 'data') // 'holding'
 

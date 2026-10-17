@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { streamJobRows } from '../src/rows.ts'
 import { harness, next, registerAgent, startJob, wait } from './host-harness.ts'
 
@@ -52,7 +52,7 @@ describe('streamJobRows', () => {
     await job.settle({ status: 'killed' })
   })
 
-  it('drops an owner\'s rows when its lifecycle ends, keeping the unowned set', async () => {
+  it("drops an owner's rows when its lifecycle ends, keeping the unowned set", async () => {
     const ctx = await harness()
     const alice = await registerAgent(ctx, 'alice')
     startJob(ctx, { label: 'shared' })

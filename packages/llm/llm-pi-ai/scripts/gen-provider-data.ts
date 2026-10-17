@@ -52,18 +52,21 @@ export async function resolverEnv(provider: Provider): Promise<string[]> {
   })
   const reads = async (set: ReadonlySet<string>): Promise<string[]> => {
     const read: string[] = []
-    await Promise.race([provider.auth.apiKey?.resolve({
-      ctx: {
-        env: (name) => {
-          controller.signal.throwIfAborted()
-          if (read.length >= 128) throw new Error(`${provider.id}: auth metadata probe exceeded its read limit`)
-          read.push(name)
-          return Promise.resolve(set.has(name) ? 'probe-value' : undefined)
+    await Promise.race([
+      provider.auth.apiKey?.resolve({
+        ctx: {
+          env: name => {
+            controller.signal.throwIfAborted()
+            if (read.length >= 128) throw new Error(`${provider.id}: auth metadata probe exceeded its read limit`)
+            read.push(name)
+            return Promise.resolve(set.has(name) ? 'probe-value' : undefined)
+          },
+          fileExists: () => Promise.resolve(false),
         },
-        fileExists: () => Promise.resolve(false),
-      },
-      signal: controller.signal,
-    }), timedOut])
+        signal: controller.signal,
+      }),
+      timedOut,
+    ])
     controller.signal.throwIfAborted()
     return read
   }
@@ -93,12 +96,14 @@ export async function generateProviderData(providers: readonly Provider[] = buil
   const data: Record<string, ProviderData> = {}
   for (const provider of providers) {
     let env: readonly string[]
-    try { env = await resolverEnv(provider) }
-    catch (error) {
+    try {
+      env = await resolverEnv(provider)
+    } catch (error) {
       // compat is a temporary upstream surface. Import it only as a last
       // resort, with a synthetic dictionary that never reads process.env.
       const fallback = (await import('@earendil-works/pi-ai/compat')).findEnvKeys(
-        provider.id, new Proxy<Record<string, string>>({}, { get: () => 'probe-value' }),
+        provider.id,
+        new Proxy<Record<string, string>>({}, { get: () => 'probe-value' }),
       )
       if (fallback === undefined || fallback.length === 0) throw new Error(`${provider.id}: no auth metadata fallback`, { cause: error })
       console.warn(`${provider.id}: using findEnvKeys auth metadata fallback`, error)
@@ -106,14 +111,16 @@ export async function generateProviderData(providers: readonly Provider[] = buil
     }
     const urls = provider.getModels().map(model => model.baseUrl)
     const fixed = provider.baseUrl || (urls.length > 0 && urls.every(url => url === urls[0]) ? urls[0] : undefined)
-    const baseURLEnv = [...new Set([
-      ...(SUPPLEMENTS[provider.id]?.baseURLEnv ?? []),
-      ...[provider.baseUrl ?? '', ...urls].flatMap(url => [...url.matchAll(/\{([A-Z][A-Z0-9_]+)\}/g)].map(match => match[1]!)),
-    ])]
+    const baseURLEnv = [
+      ...new Set([
+        ...(SUPPLEMENTS[provider.id]?.baseURLEnv ?? []),
+        ...[provider.baseUrl ?? '', ...urls].flatMap(url => [...url.matchAll(/\{([A-Z][A-Z0-9_]+)\}/g)].map(match => match[1]!)),
+      ]),
+    ]
     data[provider.id] = {
       env,
-      ...fixed && !fixed.includes('{') ? { defaultBaseURL: fixed } : {},
-      ...baseURLEnv.length === 0 ? {} : { baseURLEnv },
+      ...(fixed && !fixed.includes('{') ? { defaultBaseURL: fixed } : {}),
+      ...(baseURLEnv.length === 0 ? {} : { baseURLEnv }),
     }
   }
   return data
@@ -125,32 +132,44 @@ export async function generateProviderData(providers: readonly Provider[] = buil
  * @param cached - Validate the staged file instead; never write or stage files.
  */
 export async function syncProviderData(check: boolean, cached = false): Promise<void> {
-  const source = '/** Generated from the installed pi-ai catalog. Run pnpm gen-provider-data; do not edit. */\n\n'
-    + "import type { BuiltinProvider } from '@earendil-works/pi-ai/providers/all'\n"
-    + "import type { LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'\n\n"
-    + "type ProviderData = Pick<LlmConfigurableProvider, 'defaultBaseURL' | 'baseURLEnv'> & { env: readonly string[] }\n\n"
-    + '/** Catalog endpoints and environment names; no credentials are evaluated at runtime. */\n'
-    + 'export const PROVIDER_DATA: Record<BuiltinProvider, ProviderData> & Partial<Record<string, ProviderData>> = {\n'
-    + Object.entries(await generateProviderData()).map(([id, data]) => {
-      const fields = [`env: [${data.env.map(quote).join(', ')}]`,
-        ...data.defaultBaseURL === undefined ? [] : [`defaultBaseURL: ${quote(data.defaultBaseURL)}`],
-        ...data.baseURLEnv === undefined ? [] : [`baseURLEnv: [${data.baseURLEnv.map(quote).join(', ')}]`],
-      ]
-      return `  ${quote(id)}: { ${fields.join(', ')} },\n`
-    }).join('') + '}\n'
+  const source =
+    '/** Generated from the installed pi-ai catalog. Run pnpm gen-provider-data; do not edit. */\n\n' +
+    "import type { BuiltinProvider } from '@earendil-works/pi-ai/providers/all'\n" +
+    "import type { LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'\n\n" +
+    "type ProviderData = Pick<LlmConfigurableProvider, 'defaultBaseURL' | 'baseURLEnv'> & { env: readonly string[] }\n\n" +
+    '/** Catalog endpoints and environment names; no credentials are evaluated at runtime. */\n' +
+    'export const PROVIDER_DATA: Record<BuiltinProvider, ProviderData> & Partial<Record<string, ProviderData>> = {\n' +
+    Object.entries(await generateProviderData())
+      .map(([id, data]) => {
+        const fields = [
+          `env: [${data.env.map(quote).join(', ')}]`,
+          ...(data.defaultBaseURL === undefined ? [] : [`defaultBaseURL: ${quote(data.defaultBaseURL)}`]),
+          ...(data.baseURLEnv === undefined ? [] : [`baseURLEnv: [${data.baseURLEnv.map(quote).join(', ')}]`]),
+        ]
+        return `  ${quote(id)}: { ${fields.join(', ')} },\n`
+      })
+      .join('') +
+    '}\n'
   const path = new URL('../src/provider-data.generated.ts', import.meta.url)
   let current: string | undefined
   try {
-    current = cached ? execFileSync('git', ['show', ':packages/llm/llm-pi-ai/src/provider-data.generated.ts'], {
-      cwd: fileURLToPath(new URL('../../../../', import.meta.url)), encoding: 'utf8', stdio: 'pipe',
-    }) : readFileSync(path, 'utf8')
-  }
-  catch (error) {
-    if (cached) throw new Error('Cannot read staged provider metadata; run pnpm gen-provider-data and stage provider-data.generated.ts', { cause: error })
+    current = cached
+      ? execFileSync('git', ['show', ':packages/llm/llm-pi-ai/src/provider-data.generated.ts'], {
+          cwd: fileURLToPath(new URL('../../../../', import.meta.url)),
+          encoding: 'utf8',
+          stdio: 'pipe',
+        })
+      : readFileSync(path, 'utf8')
+  } catch (error) {
+    if (cached)
+      throw new Error('Cannot read staged provider metadata; run pnpm gen-provider-data and stage provider-data.generated.ts', {
+        cause: error,
+      })
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
   }
   if (current === source) return
-  if (check || cached) throw new Error(`Provider metadata is stale; run pnpm gen-provider-data${cached ? ' and stage provider-data.generated.ts' : ''}`)
+  if (check || cached)
+    throw new Error(`Provider metadata is stale; run pnpm gen-provider-data${cached ? ' and stage provider-data.generated.ts' : ''}`)
   writeFileSync(path, source)
 }
 

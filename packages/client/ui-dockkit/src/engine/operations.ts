@@ -7,12 +7,28 @@
  * Interaction limits (pane count, drag preview coalescing) are not enforced
  * here; they belong to the interaction layer (`constraints.ts` and the UI).
  */
-import type {
-  ApplyResult, FloatRect, LayoutOp, LayoutState, NodeId, PaneId, PaneNode, TabId,
-} from '../contract/types.ts'
+import type { ApplyResult, FloatRect, LayoutOp, LayoutState, NodeId, PaneId, PaneNode, TabId } from '../contract/types.ts'
 import {
-  assertNever, entriesOf, findParent, findTabPane, firstDockPaneId, floatIndex, floatRect, getPane, getSplit, getTab,
-  insertAt, keysOf, neighbourTabId, normalizeSizes, onlyTabId, paneWithTabs, removeAt, replaceInParent, withNodes, withTabs,
+  assertNever,
+  entriesOf,
+  findParent,
+  findTabPane,
+  firstDockPaneId,
+  floatIndex,
+  floatRect,
+  getPane,
+  getSplit,
+  getTab,
+  insertAt,
+  keysOf,
+  neighbourTabId,
+  normalizeSizes,
+  onlyTabId,
+  paneWithTabs,
+  removeAt,
+  replaceInParent,
+  withNodes,
+  withTabs,
 } from './tree.ts'
 
 /** Capture the focus facts of `paneIds` plus global focus, as the operation that restores them. */
@@ -137,10 +153,7 @@ function applyMerge(state: LayoutState, op: Extract<LayoutOp, { type: 'merge' }>
   })
   return {
     state: reseatFocus(collapsed, op.paneId),
-    inverse: [
-      { type: 'insertPane', pane, tabs: [], attach: { mode: 'wrap', targetId: siblingId, split: parent } },
-      focus,
-    ],
+    inverse: [{ type: 'insertPane', pane, tabs: [], attach: { mode: 'wrap', targetId: siblingId, split: parent } }, focus],
   }
 }
 
@@ -183,25 +196,16 @@ function applyCloseTab(state: LayoutState, op: Extract<LayoutOp, { type: 'closeT
 
   if (pane.host === 'float') {
     const index = floatIndex(state, pane.id)
-    const dropped = withTabs(
-      withNodes({ ...state, floats: removeAt(state.floats, index) }, { [pane.id]: null }),
-      { [op.tabId]: null },
-    )
+    const dropped = withTabs(withNodes({ ...state, floats: removeAt(state.floats, index) }, { [pane.id]: null }), { [op.tabId]: null })
     return {
       state: reseatFocus(dropped, pane.id),
-      inverse: [
-        { type: 'insertPane', pane, tabs: [tab], attach: { mode: 'float', index } },
-        focus,
-      ],
+      inverse: [{ type: 'insertPane', pane, tabs: [tab], attach: { mode: 'float', index } }, focus],
     }
   }
 
   const activeTabId = pane.activeTabId === op.tabId ? neighbourTabId(pane.tabs, index) : pane.activeTabId
   return {
-    state: withTabs(
-      withNodes(state, { [pane.id]: paneWithTabs(pane, removeAt(pane.tabs, index), activeTabId) }),
-      { [op.tabId]: null },
-    ),
+    state: withTabs(withNodes(state, { [pane.id]: paneWithTabs(pane, removeAt(pane.tabs, index), activeTabId) }), { [op.tabId]: null }),
     inverse: [{ type: 'insertTab', paneId: pane.id, tab, index }, focus],
   }
 }
@@ -215,15 +219,16 @@ function applyInsertPane(state: LayoutState, op: Extract<LayoutOp, { type: 'inse
   assertFreeNode(state, op.pane.id)
   if (op.pane.tabs.length !== op.tabs.length) throw new Error('layout: insertPane tab records do not match the pane')
   if (op.pane.host === 'dock' && op.tabs.length > 0) throw new Error('layout: insertPane returns a docked pane empty')
-  const tabUpdates: Record<TabId, typeof op.tabs[number]> = {}
+  const tabUpdates: Record<TabId, (typeof op.tabs)[number]> = {}
   for (const tab of op.tabs) {
     assertFreeTab(state, tab.id)
     tabUpdates[tab.id] = tab
   }
   const restoredTab = op.tabs[0]
-  const inverse: LayoutOp[] = restoredTab === undefined
-    ? [{ type: 'merge', paneId: op.pane.id }]
-    : [{ type: 'closeTab', tabId: restoredTab.id }, focusSnapshot(state, [])]
+  const inverse: LayoutOp[] =
+    restoredTab === undefined
+      ? [{ type: 'merge', paneId: op.pane.id }]
+      : [{ type: 'closeTab', tabId: restoredTab.id }, focusSnapshot(state, [])]
 
   const attach = op.attach
   switch (attach.mode) {
@@ -360,10 +365,13 @@ function applyUnfloat(state: LayoutState, op: Extract<LayoutOp, { type: 'unfloat
   const to = getPane(state, op.toPaneId)
   if (to.host !== 'dock') throw new Error('layout: unfloat target must be docked')
   const focus = focusSnapshot(state, [to.id])
-  const docked = withNodes({ ...state, floats: removeAt(state.floats, floatIndex(state, op.paneId)) }, {
-    [op.paneId]: null,
-    [to.id]: paneWithTabs(to, insertAt(to.tabs, op.index, tabId), tabId),
-  })
+  const docked = withNodes(
+    { ...state, floats: removeAt(state.floats, floatIndex(state, op.paneId)) },
+    {
+      [op.paneId]: null,
+      [to.id]: paneWithTabs(to, insertAt(to.tabs, op.index, tabId), tabId),
+    },
+  )
   return {
     state: { ...docked, activePaneId: to.id },
     inverse: [{ type: 'float', tabId, newPaneId: op.paneId, rect }, focus],
@@ -422,21 +430,36 @@ function applyRestoreFocus(state: LayoutState, op: Extract<LayoutOp, { type: 're
  */
 export function applyOp(state: LayoutState, op: LayoutOp): ApplyResult {
   switch (op.type) {
-    case 'split': return applySplit(state, op)
-    case 'merge': return applyMerge(state, op)
-    case 'openTab': return applyOpenTab(state, op)
-    case 'insertTab': return applyInsertTab(state, op)
-    case 'closeTab': return applyCloseTab(state, op)
-    case 'insertPane': return applyInsertPane(state, op)
-    case 'moveTab': return applyMoveTab(state, op)
-    case 'reorderTab': return applyReorderTab(state, op)
-    case 'focusTab': return applyFocusTab(state, op)
-    case 'focusPane': return applyFocusPane(state, op)
-    case 'resize': return applyResize(state, op)
-    case 'float': return applyFloat(state, op)
-    case 'unfloat': return applyUnfloat(state, op)
-    case 'moveFloat': return applyMoveFloat(state, op)
-    case 'resizeFloat': return applyResizeFloat(state, op)
+    case 'split':
+      return applySplit(state, op)
+    case 'merge':
+      return applyMerge(state, op)
+    case 'openTab':
+      return applyOpenTab(state, op)
+    case 'insertTab':
+      return applyInsertTab(state, op)
+    case 'closeTab':
+      return applyCloseTab(state, op)
+    case 'insertPane':
+      return applyInsertPane(state, op)
+    case 'moveTab':
+      return applyMoveTab(state, op)
+    case 'reorderTab':
+      return applyReorderTab(state, op)
+    case 'focusTab':
+      return applyFocusTab(state, op)
+    case 'focusPane':
+      return applyFocusPane(state, op)
+    case 'resize':
+      return applyResize(state, op)
+    case 'float':
+      return applyFloat(state, op)
+    case 'unfloat':
+      return applyUnfloat(state, op)
+    case 'moveFloat':
+      return applyMoveFloat(state, op)
+    case 'resizeFloat':
+      return applyResizeFloat(state, op)
     case 'setExpanded':
       return {
         state: { ...state, expanded: op.expanded },
@@ -447,9 +470,11 @@ export function applyOp(state: LayoutState, op: LayoutOp): ApplyResult {
         state: { ...state, mode: op.mode },
         inverse: [{ type: 'setMode', mode: state.mode }],
       }
-    case 'restoreFocus': return applyRestoreFocus(state, op)
+    case 'restoreFocus':
+      return applyRestoreFocus(state, op)
     /* v8 ignore next -- closed-union backstop; the compiler rejects a new operation type here. */
-    default: return assertNever(op, 'layout: operation')
+    default:
+      return assertNever(op, 'layout: operation')
   }
 }
 

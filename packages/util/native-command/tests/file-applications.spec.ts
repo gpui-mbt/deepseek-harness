@@ -1,6 +1,6 @@
 /** File association results and explicit handler authorization at the native command adapter. */
 import { readFile } from 'node:fs/promises'
-import { describe, expect, it, vi, onTestFinished } from 'vitest'
+import { describe, expect, it, vi, onTestFinished } from 'vite-plus/test'
 import * as runner from '../src/runner.ts'
 import { nativeFileApplications, openNativeFileApplication } from '../src/file-applications.ts'
 
@@ -15,10 +15,20 @@ describe('native file associations', () => {
     expect(run).toHaveBeenCalledWith('osascript', ['-l', 'JavaScript', '-e', expect.any(String), path, 'icons'], signal, 'hidden')
   })
 
-  it.each(['{}', '[null]', '[{"id":1}]', '[{"id":"/a.app","default":false,"icon":null,"bundle":"b"}]', '[{"id":"/a.app","name":"A","default":false,"icon":null,"bundle":5}]', JSON.stringify([{ ...application, icon: 'javascript:alert(1)' }])])('rejects malformed native output %s', async (stdout) => {
-    await expect(nativeFileApplications('/file.mp3', signal, {
-      platform: 'darwin', run: async () => ({ stdout, stderr: '' }),
-    })).rejects.toThrow()
+  it.each([
+    '{}',
+    '[null]',
+    '[{"id":1}]',
+    '[{"id":"/a.app","default":false,"icon":null,"bundle":"b"}]',
+    '[{"id":"/a.app","name":"A","default":false,"icon":null,"bundle":5}]',
+    JSON.stringify([{ ...application, icon: 'javascript:alert(1)' }]),
+  ])('rejects malformed native output %s', async stdout => {
+    await expect(
+      nativeFileApplications('/file.mp3', signal, {
+        platform: 'darwin',
+        run: async () => ({ stdout, stderr: '' }),
+      }),
+    ).rejects.toThrow()
   })
 
   it('collapses duplicate copies of one application to its default or newest install', async () => {
@@ -57,10 +67,14 @@ describe('native file associations', () => {
   it('keeps the first copy on version ties and prefers any version over none', async () => {
     const copy = (id: string, bundle: string, version?: string) => ({ id, name: bundle, default: false, icon: null, bundle, version })
     const stdout = JSON.stringify([
-      copy('/a/H.app', 'h', '1.0'), copy('/b/H.app', 'h', '1.0.0'),
-      copy('/a/N.app', 'n'), copy('/b/N.app', 'n'),
-      copy('/a/V.app', 'v', ''), copy('/b/V.app', 'v', '0.1'),
-      copy('/a/W.app', 'w', '0.1'), copy('/b/W.app', 'w'),
+      copy('/a/H.app', 'h', '1.0'),
+      copy('/b/H.app', 'h', '1.0.0'),
+      copy('/a/N.app', 'n'),
+      copy('/b/N.app', 'n'),
+      copy('/a/V.app', 'v', ''),
+      copy('/b/V.app', 'v', '0.1'),
+      copy('/a/W.app', 'w', '0.1'),
+      copy('/b/W.app', 'w'),
     ])
     const apps = await nativeFileApplications('/file.txt', signal, { platform: 'darwin', run: async () => ({ stdout, stderr: '' }) })
     expect(apps.map(app => app.id)).toEqual(['/a/H.app', '/a/N.app', '/b/V.app', '/a/W.app'])
@@ -71,18 +85,29 @@ describe('native file associations', () => {
       { ...application, bundle: 'com.apple.Music', version: '2.0' },
       { id: '/updates/Music.app', name: 'Music', icon: null, bundle: 'com.apple.Music', version: '1.0' },
     ])
-    await expect(nativeFileApplications('/file.mp3', signal, {
-      platform: 'darwin', run: async () => ({ stdout, stderr: '' }),
-    })).rejects.toThrow('Invalid native application entry')
+    await expect(
+      nativeFileApplications('/file.mp3', signal, {
+        platform: 'darwin',
+        run: async () => ({ stdout, stderr: '' }),
+      }),
+    ).rejects.toThrow('Invalid native application entry')
   })
 
   it('launches only a currently registered application with argv', async () => {
     const run = vi.fn(async () => ({ stdout: JSON.stringify([application]), stderr: '' }))
     await openNativeFileApplication('/file.mp3', application.id, signal, { platform: 'darwin', run })
-    expect(run).toHaveBeenNthCalledWith(1, 'osascript', ['-l', 'JavaScript', '-e', expect.any(String), '/file.mp3', 'handlers'], signal, 'hidden')
+    expect(run).toHaveBeenNthCalledWith(
+      1,
+      'osascript',
+      ['-l', 'JavaScript', '-e', expect.any(String), '/file.mp3', 'handlers'],
+      signal,
+      'hidden',
+    )
     expect(run).toHaveBeenLastCalledWith('open', ['-a', application.id, '/file.mp3'], signal, 'hidden')
     run.mockClear()
-    await expect(openNativeFileApplication('/file.mp3', '/arbitrary.app', signal, { platform: 'darwin', run })).rejects.toThrow('not registered')
+    await expect(openNativeFileApplication('/file.mp3', '/arbitrary.app', signal, { platform: 'darwin', run })).rejects.toThrow(
+      'not registered',
+    )
     expect(run).toHaveBeenCalledOnce()
   })
 
@@ -106,17 +131,23 @@ describe('native file associations', () => {
   })
 })
 
-
 it('uses the production command adapter and current platform when no override is supplied', async () => {
   const run = vi.spyOn(runner, 'runNativeCommand').mockImplementation(async command => ({
-    stdout: command === 'gio' ? 'standard::content-type: audio/mpeg' : command === 'env' ? 'No applications found' : JSON.stringify([application]), stderr: '',
+    stdout:
+      command === 'gio'
+        ? 'standard::content-type: audio/mpeg'
+        : command === 'env'
+          ? 'No applications found'
+          : JSON.stringify([application]),
+    stderr: '',
   }))
-  onTestFinished(() => { run.mockRestore() })
+  onTestFinished(() => {
+    run.mockRestore()
+  })
   expect(await nativeFileApplications('/file.mp3', signal)).toEqual(process.platform === 'linux' ? [] : [application])
   await openNativeFileApplication('/file.mp3', application.id, signal, { platform: 'darwin' })
   expect(run).toHaveBeenLastCalledWith('open', ['-a', application.id, '/file.mp3'], signal, 'hidden')
 })
-
 
 it('encodes Windows query and invocation data separately from native adapter source', async () => {
   const scripts: string[] = []
@@ -132,7 +163,15 @@ it('encodes Windows query and invocation data separately from native adapter sou
   await openNativeFileApplication(path, application.id, signal, { platform: 'win32', run })
   expect(scripts[1]!).toContain('::Open($path, $application)')
   expect(run.mock.calls[1]![0]).toBe('powershell.exe')
-  expect(run.mock.calls[1]![1]).toEqual(['-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-File', expect.any(String)])
+  expect(run.mock.calls[1]![1]).toEqual([
+    '-NoProfile',
+    '-NonInteractive',
+    '-STA',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    expect.any(String),
+  ])
   // PowerShell 5.1 reads a -File script as ANSI without the BOM.
   expect(scripts[1]!).toMatch(/^\uFEFF/)
 })
@@ -162,7 +201,8 @@ it('keeps the complete Windows command line below the CreateProcess limit for lo
 
 it('uses the Windows desktop for WSL paths and rejects an empty translation', async () => {
   const run = vi.fn<runner.NativeCommandRunner>(async command => ({
-    stdout: command === 'wslpath' ? 'C:\\音频.mp3\n' : JSON.stringify([application]), stderr: '',
+    stdout: command === 'wslpath' ? 'C:\\音频.mp3\n' : JSON.stringify([application]),
+    stderr: '',
   }))
   const facts = { platform: 'linux' as const, osRelease: 'microsoft', env: {}, run }
   expect(await nativeFileApplications('/mnt/c/音频.mp3', signal, facts)).toEqual([application])
@@ -172,14 +212,21 @@ it('uses the Windows desktop for WSL paths and rejects an empty translation', as
   await expect(nativeFileApplications('/a', signal, { ...facts, run: empty })).rejects.toThrow('no Windows path')
 })
 
-
 it('uses production environment and runner defaults for Linux and WSL', async () => {
   const run = vi.spyOn(runner, 'runNativeCommand').mockImplementation(async command => ({
-    stdout: command === 'gio' ? 'standard::content-type: audio/mpeg'
-      : command === 'env' ? 'No applications found'
-        : command === 'wslpath' ? 'C:\\file.mp3\n' : JSON.stringify([application]), stderr: '',
+    stdout:
+      command === 'gio'
+        ? 'standard::content-type: audio/mpeg'
+        : command === 'env'
+          ? 'No applications found'
+          : command === 'wslpath'
+            ? 'C:\\file.mp3\n'
+            : JSON.stringify([application]),
+    stderr: '',
   }))
-  onTestFinished(() => { run.mockRestore() })
+  onTestFinished(() => {
+    run.mockRestore()
+  })
   expect(await nativeFileApplications('/file.mp3', signal, { platform: 'linux', osRelease: 'linux' })).toEqual([])
   expect(await nativeFileApplications('/file.mp3', signal, { platform: 'linux', osRelease: 'microsoft', env: {} })).toEqual([application])
 })

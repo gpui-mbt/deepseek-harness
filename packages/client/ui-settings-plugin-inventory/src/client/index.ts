@@ -44,21 +44,30 @@ export function apply(ctx: ClientContext): void {
   // Resolved per call over ui-agent-preset's dictionaries, so a language
   // switch re-resolves shipped names; user-authored metadata passes through.
   const agentPresetCopy = ctx.locale.bind('settings.agentPreset')
-  const presetName: PluginInventorySettingsTabInjected['presetName'] = preset =>
-    presetDisplayText(preset, agentPresetCopy).name
+  const presetName: PluginInventorySettingsTabInjected['presetName'] = preset => presetDisplayText(preset, agentPresetCopy).name
   const injected = (): PluginInventorySettingsTabInjected => ({
-    list, presetName,
+    list,
+    presetName,
     resolveText: text => ctx.locale.resolveText(text),
     hooks: { clientSync: ctx.modules.entries.state },
-    retryClient: () => { void ctx.modules.entries.retry().catch((error: unknown) => { ctx.logger.error(error) }) },
+    retryClient: () => {
+      void ctx.modules.entries.retry().catch((error: unknown) => {
+        ctx.logger.error(error)
+      })
+    },
   })
 
-  ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
-    name: 'settings.plugins.tab',
-    id: 'all',
-    order: 10,
-    label: () => t('tab'),
-    locale: NS,
-    inject: injected,
-  }, PluginInventorySettingsTab))
+  ctx.slots.inject('settings.plugins.tab', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.plugins.tab',
+        id: 'all',
+        order: 10,
+        label: () => t('tab'),
+        locale: NS,
+        inject: injected,
+      },
+      PluginInventorySettingsTab,
+    ),
+  )
 }

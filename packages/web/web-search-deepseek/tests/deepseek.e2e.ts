@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   DeepSeekSearchProvider,
   DEEPSEEK_DEFAULT_API_VERSION,
@@ -11,8 +11,7 @@ import {
 /** Construct the provider over a fixed options value; production passes a live thunk. */
 import type { DeepSeekSearchProviderOptions } from '@deepseek-ai/dsh-web-search-deepseek'
 
-const searchProvider = (options: DeepSeekSearchProviderOptions): DeepSeekSearchProvider =>
-  new DeepSeekSearchProvider(() => options)
+const searchProvider = (options: DeepSeekSearchProviderOptions): DeepSeekSearchProvider => new DeepSeekSearchProvider(() => options)
 
 /**
  * Disabled real-API probe for the DeepSeek search provider. The live endpoint

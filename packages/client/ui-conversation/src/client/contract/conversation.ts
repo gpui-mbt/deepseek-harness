@@ -1,8 +1,6 @@
 import type { SessionEventLike } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type {
-  ConversationGroupData, ConversationGroupedView, ConversationGroupInput,
-} from './groups.ts'
+import type { ConversationGroupData, ConversationGroupedView, ConversationGroupInput } from './groups.ts'
 
 /** Definition-local identity; start permits initialization when no earlier start is present. */
 export interface ConversationMatchResult {
@@ -47,9 +45,7 @@ export interface ConversationLocationDataStore<DataMap extends object> {
    * @param key - declaration-merged business key.
    * @returns identity-stable source for the current value.
    */
-  source<Key extends keyof DataMap & string>(
-    key: Key,
-  ): ConversationLocationDataSource<Readonly<DataMap[Key]> | undefined>
+  source<Key extends keyof DataMap & string>(key: Key): ConversationLocationDataSource<Readonly<DataMap[Key]> | undefined>
 }
 
 interface ConversationLocationDataValue {
@@ -79,16 +75,12 @@ type RegisteredStepData<DataMap extends object> = {
   }
 }[Extract<keyof DataMap, string>]
 
-type ConversationLocationDataOf<TurnData extends object, StepData extends object> =
-  [keyof TurnData | keyof StepData] extends [never]
-    ? ConversationLocationDataValue
-    : RegisteredTurnData<TurnData> | RegisteredStepData<StepData>
+type ConversationLocationDataOf<TurnData extends object, StepData extends object> = [keyof TurnData | keyof StepData] extends [never]
+  ? ConversationLocationDataValue
+  : RegisteredTurnData<TurnData> | RegisteredStepData<StepData>
 
 /** One Definition-owned value attached to an Engine-owned Turn or Step. */
-export type ConversationLocationData = ConversationLocationDataOf<
-  ConversationTurnDataMap,
-  ConversationStepDataMap
->
+export type ConversationLocationData = ConversationLocationDataOf<ConversationTurnDataMap, ConversationStepDataMap>
 
 /** Immutable resolved boundary for one Agent step. */
 export interface StepLocation {
@@ -119,10 +111,7 @@ export type ConversationLocation =
   | { readonly kind: 'step'; readonly turn: TurnLocation; readonly step: StepLocation }
   | { readonly kind: 'unresolved' }
 
-interface ConversationMatchOf<
-  Event extends SessionEventLike,
-  Role extends ConversationMatchResult['role'],
-> {
+interface ConversationMatchOf<Event extends SessionEventLike, Role extends ConversationMatchResult['role']> {
   readonly event: Event
   readonly role: Role
   readonly location: ConversationLocation
@@ -132,9 +121,7 @@ interface ConversationMatchOf<
 export type ConversationStartMatch = ConversationMatchOf<SessionEventLike, 'start'>
 
 /** One event accepted by a Definition, with its lifecycle role and resolved Location. */
-export type ConversationMatch =
-  | ConversationStartMatch
-  | ConversationMatchOf<SessionEventLike, 'update'>
+export type ConversationMatch = ConversationStartMatch | ConversationMatchOf<SessionEventLike, 'update'>
 
 /** Target-neutral identity returned by a business Definition. */
 export interface ConversationViewNode {
@@ -151,17 +138,13 @@ export interface ConversationViewSnapshotMap {}
 /** Stable reader over the latest snapshot of every registered view target. */
 export interface ConversationViewSnapshotStore {
   /** @param target - registered view target. @returns its current snapshot. */
-  get<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(
-    target: Target,
-  ): ConversationViewSnapshotMap[Target] | undefined
+  get<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(target: Target): ConversationViewSnapshotMap[Target] | undefined
   /**
    * Read grouping for an activated target without activating another target.
    * @param target - registered View target.
    * @returns its grouped reader, when a Group Definition is active.
    */
-  grouped<Target extends string>(
-    target: Target,
-  ): ConversationGroupedView<ConversationGroupData<Target>> | undefined
+  grouped<Target extends string>(target: Target): ConversationGroupedView<ConversationGroupData<Target>> | undefined
 }
 
 /** Immutable public view of an assembled business Context. */
@@ -227,21 +210,14 @@ export interface ConversationNodeDefinition<State = unknown> {
    * @param reader - strictly-backward read-only Context lookup.
    * @returns the State adopted by the engine.
    */
-  start(
-    context: ConversationNodeContext<State>,
-    match: ConversationStartMatch,
-    reader: ConversationContextReader,
-  ): State
+  start(context: ConversationNodeContext<State>, match: ConversationStartMatch, reader: ConversationContextReader): State
   /**
    * Apply a later Match, including another event marked start.
    * @param context - Context with its current State.
    * @param match - subsequent Match in ascending event order.
    * @returns the State adopted by the engine.
    */
-  update(
-    context: ConversationNodeContext<State> & { readonly state: State },
-    match: ConversationMatch,
-  ): State
+  update(context: ConversationNodeContext<State> & { readonly state: State }, match: ConversationMatch): State
   /**
    * Select publication cadence for one accepted Match.
    * @param match - accepted Match.
@@ -273,10 +249,9 @@ export interface ConversationNodeDefinition<State = unknown> {
 }
 
 /** Registration accepts a function or an immutable table of own event-type handlers. */
-export type ConversationNodeDefinitionInput<State = unknown> =
-  Omit<ConversationNodeDefinition<State>, 'match'> & {
-    readonly match: ConversationMatchHandler | Readonly<Record<string, ConversationMatchHandler>>
-  }
+export type ConversationNodeDefinitionInput<State = unknown> = Omit<ConversationNodeDefinition<State>, 'match'> & {
+  readonly match: ConversationMatchHandler | Readonly<Record<string, ConversationMatchHandler>>
+}
 
 /** Reference-stable Turn/Step facts published beside view Nodes. */
 export interface ConversationTimelineSnapshot {

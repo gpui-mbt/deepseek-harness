@@ -1,5 +1,5 @@
 import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -48,7 +48,7 @@ afterEach(() => {
 })
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -68,9 +68,7 @@ function findEvent<T extends SessionEvent['type']>(
   type: T,
   position: 'first' | 'last' = 'first',
 ): Extract<SessionEvent, { type: T }> {
-  const found = position === 'first'
-    ? log.find(event => event.type === type)
-    : log.findLast(event => event.type === type)
+  const found = position === 'first' ? log.find(event => event.type === type) : log.findLast(event => event.type === type)
   if (!found) throw new Error(`no ${type} event in the session log`)
   return found as Extract<SessionEvent, { type: T }>
 }
@@ -120,8 +118,14 @@ describe('bash tool through the agent loop', () => {
       await ctx.plugin(BashBindingRuntime)
       agent.ctx.tools.presentAs('ptc')
       const result = await ctx.tools.execute({
-        callId: ToolCallId('nested-shell-root'), agent, signal: new AbortController().signal, name: 'run_code',
-        arguments: { code: 'return await tools.bash({ command: "pwd", description: "Print launch directory" })', description: 'Inspect current directory' },
+        callId: ToolCallId('nested-shell-root'),
+        agent,
+        signal: new AbortController().signal,
+        name: 'run_code',
+        arguments: {
+          code: 'return await tools.bash({ command: "pwd", description: "Print launch directory" })',
+          description: 'Inspect current directory',
+        },
       })
       expect(result.error).toBeUndefined()
       expect(result.isError).toBe(false)
@@ -187,9 +191,7 @@ describe('bash tool through the agent loop', () => {
     expect(toolResultBlocks).toHaveLength(1)
 
     const finalMessage = findEvent(log, 'assistant/message', 'last')
-    expect(finalMessage.data.message.content.some(
-      block => block.type === 'text' && block.text.includes('integration-ok'),
-    )).toBe(true)
+    expect(finalMessage.data.message.content.some(block => block.type === 'text' && block.text.includes('integration-ok'))).toBe(true)
   })
 
   it('foreground: non-zero exit is reported in the result text, not as isError', async () => {
@@ -226,7 +228,7 @@ describe('bash tool through the agent loop', () => {
         run_in_background: true,
       }),
       textResponse('Started it in the background.'),
-      (options) => {
+      options => {
         const jobId = /started background job (bash-[0-9a-f]{16})/.exec(JSON.stringify(options.messages))?.[1]
         if (jobId === undefined) throw new Error('model history lacks the started job id')
         return toolCallResponse('call-2', 'job_output', { job_id: jobId })
@@ -244,8 +246,7 @@ describe('bash tool through the agent loop', () => {
     const jobId = /^started background job (bash-[0-9a-f]{16})$/.exec(resultText(firstResult))?.[1]
     if (jobId === undefined) throw new Error('first tool result lacks a job id')
     // The turn closed with the task still running, so the notice cannot exist yet.
-    const isNotice = (e: SessionEvent): e is SessionEvent<'user/message'> =>
-      e.type === 'user/message' && e.data.source.kind === 'tool-jobs'
+    const isNotice = (e: SessionEvent): e is SessionEvent<'user/message'> => e.type === 'user/message' && e.data.source.kind === 'tool-jobs'
     expect(events(agent).some(isNotice)).toBe(false)
 
     // Releasing the command now settles it against a provably idle owner. No
@@ -264,7 +265,9 @@ describe('bash tool through the agent loop', () => {
     // and its bounding are pinned in the tool-jobs unit tests.
     const notice = events(agent).find(isNotice)!
     const noticeText = notice.data.content
-      .filter(block => block.type === 'text').map(block => block.text).join('')
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('')
     expect(noticeText).toContain(`background job ${jobId} (bash: `)
     expect(noticeText).toContain('finished [status: completed, exit code: 0]')
     expect(notice.data.source).toMatchObject({

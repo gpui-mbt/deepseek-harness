@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { claimDesktopSingleInstance, type DesktopSingleInstanceApplication } from '../src/single-instance.ts'
 
 describe('desktop single-instance ownership', () => {
@@ -22,7 +22,9 @@ describe('desktop single-instance ownership', () => {
     const application = {
       requestSingleInstanceLock: () => true,
       quit: vi.fn(),
-      on: vi.fn((_event: 'second-instance', listener: () => void) => { secondInstance = listener }),
+      on: vi.fn((_event: 'second-instance', listener: () => void) => {
+        secondInstance = listener
+      }),
     } satisfies DesktopSingleInstanceApplication
 
     expect(claimDesktopSingleInstance(application, focus)).toBe(true)

@@ -36,21 +36,29 @@ export interface ReferenceChipProps {
  */
 export function ReferenceChip({ appearance, label, title, onActivate }: ReferenceChipProps): ReactNode {
   const slash = appearance === 'skill' || appearance === 'command'
-  const contents = <>
-    {!slash && <ReferenceIconRegular kind={appearance} size={16} className={css.refIcon} />}
-    {label}
-  </>
+  const contents = (
+    <>
+      {!slash && <ReferenceIconRegular kind={appearance} size={16} className={css.refIcon} />}
+      {label}
+    </>
+  )
   const className = clsx(css.refChip, slash && css.slashChip)
-  return onActivate === undefined
-    ? <span className={className} data-ref-chip={appearance} title={title}>{contents}</span>
-    : <button
+  return onActivate === undefined ? (
+    <span className={className} data-ref-chip={appearance} title={title}>
+      {contents}
+    </span>
+  ) : (
+    <button
       type="button"
       className={clsx(className, markdownCss.fileMention)}
       data-ref-chip={appearance}
       title={title}
-      onClick={(event) => {
+      onClick={event => {
         if (event.detail > 1 || (event.detail !== 0 && event.currentTarget.ownerDocument.getSelection()?.isCollapsed === false)) return
         onActivate()
       }}
-    >{contents}</button>
+    >
+      {contents}
+    </button>
+  )
 }

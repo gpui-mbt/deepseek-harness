@@ -1,9 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { JobId, JobRegistry } from '@deepseek-ai/dsh-jobs'
 import type {
-  JobEvent, JobEventFilter, JobEventListener, JobHooks, JobOutputSource, JobOutputRead, JobRead, JobSpec, JobView,
+  JobEvent,
+  JobEventFilter,
+  JobEventListener,
+  JobHooks,
+  JobOutputSource,
+  JobOutputRead,
+  JobRead,
+  JobSpec,
+  JobView,
 } from '@deepseek-ai/dsh-jobs'
 
 /** Compile-time probe: does `Shape` carry a `Key` member? */
@@ -22,7 +30,9 @@ class StubJobRegistry extends JobRegistry {
     subscribe: (filter: JobEventFilter, listener: JobEventListener): (() => void) => {
       const entry = { filter, listener }
       this.subscriptions.push(entry)
-      return () => { this.subscriptions.splice(this.subscriptions.indexOf(entry), 1) }
+      return () => {
+        this.subscriptions.splice(this.subscriptions.indexOf(entry), 1)
+      }
     },
   }
 
@@ -31,7 +41,7 @@ class StubJobRegistry extends JobRegistry {
       id,
       kind: 'bash',
       label: 'sleep 60',
-      ...owner !== undefined ? { owner } : {},
+      ...(owner !== undefined ? { owner } : {}),
       status: 'running',
       startedAt: 0,
       output: { total: 0, earliest: 0 },
@@ -99,7 +109,9 @@ describe('JobRegistry seam', () => {
     expect(ctx.jobs.get(id).owner).toBeUndefined()
 
     const events: JobEvent[] = []
-    const unsubscribe = ctx.jobs.events.subscribe({ owners: 'all' }, (event) => { events.push(event) })
+    const unsubscribe = ctx.jobs.events.subscribe({ owners: 'all' }, event => {
+      events.push(event)
+    })
     unsubscribe()
     detachController()
   })
@@ -114,7 +126,7 @@ describe('JobRegistry seam', () => {
       kind: 'bash',
       label: 'x',
       output: [source],
-      run: (job) => {
+      run: job => {
         job.append('lands in the ring', { channel: 'log' })
         job.updateProgress('1/2')
         return hooks
@@ -146,7 +158,8 @@ describe('JobRegistry seam', () => {
 
   it('mounting the abstract seam directly fails loudly at load (stale-composition fence)', async () => {
     const ctx = new Context()
-    await expect(ctx.plugin(JobRegistry as typeof StubJobRegistry))
-      .rejects.toThrow(/abstract job registry seam; load an implementation such as @deepseek-ai\/dsh-jobs-local/)
+    await expect(ctx.plugin(JobRegistry as typeof StubJobRegistry)).rejects.toThrow(
+      /abstract job registry seam; load an implementation such as @deepseek-ai\/dsh-jobs-local/,
+    )
   })
 })

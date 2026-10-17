@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranscriptViewMode } from '../src/chat-settings.ts'
-import { COLLAPSE_TIMINGS, derivePresentationPolicy, presentationPolicyFor, type ChatPresentationPolicy, type CollapseTiming } from '../src/client/presentation-policy.ts'
+import {
+  COLLAPSE_TIMINGS,
+  derivePresentationPolicy,
+  presentationPolicyFor,
+  type ChatPresentationPolicy,
+  type CollapseTiming,
+} from '../src/client/presentation-policy.ts'
 
 afterEach(cleanup)
 
@@ -14,16 +20,26 @@ describe('Chat presentation policy', () => {
     ['standard', true, 'collapsed', true, true],
     ['detailed', true, 'history', true, true],
     ['verbose', false, 'none', true, false],
-  ] as const)('maps %s to stable presentation capabilities', (mode, foldCompletedTurns, stepGrouping, settledReasoningPreview, liveProcessDetail) => {
-    const policy = presentationPolicyFor(mode)
-    expect(policy).toEqual({ mode, collapseTiming: 'completion', foldCompletedTurns, stepGrouping, settledReasoningPreview, liveProcessDetail })
-    expect(presentationPolicyFor(mode)).toBe(policy)
-    expect(presentationPolicyFor(mode, 'completion')).toBe(policy)
-    const deferred = presentationPolicyFor(mode, 'next-input')
-    expect(deferred).toEqual({ ...policy, collapseTiming: 'next-input' })
-    expect(presentationPolicyFor(mode, 'next-input')).toBe(deferred)
-    expect(deferred).not.toBe(policy)
-  })
+  ] as const)(
+    'maps %s to stable presentation capabilities',
+    (mode, foldCompletedTurns, stepGrouping, settledReasoningPreview, liveProcessDetail) => {
+      const policy = presentationPolicyFor(mode)
+      expect(policy).toEqual({
+        mode,
+        collapseTiming: 'completion',
+        foldCompletedTurns,
+        stepGrouping,
+        settledReasoningPreview,
+        liveProcessDetail,
+      })
+      expect(presentationPolicyFor(mode)).toBe(policy)
+      expect(presentationPolicyFor(mode, 'completion')).toBe(policy)
+      const deferred = presentationPolicyFor(mode, 'next-input')
+      expect(deferred).toEqual({ ...policy, collapseTiming: 'next-input' })
+      expect(presentationPolicyFor(mode, 'next-input')).toBe(deferred)
+      expect(deferred).not.toBe(policy)
+    },
+  )
 
   it('keeps all eight mode and timing policies distinct and stable', () => {
     const policies = new Set<ChatPresentationPolicy>()
@@ -72,19 +88,32 @@ describe('Chat presentation policy', () => {
       previewRender(preview)
       return <span>{String(preview)}</span>
     }
-    render(<><Fold /><Preview /></>)
+    render(
+      <>
+        <Fold />
+        <Preview />
+      </>,
+    )
     expect(foldRender).toHaveBeenCalledTimes(1)
     expect(previewRender).toHaveBeenCalledTimes(1)
-    act(() => { mode.set('detailed') })
+    act(() => {
+      mode.set('detailed')
+    })
     expect(foldRender).toHaveBeenCalledTimes(1)
     expect(previewRender).toHaveBeenCalledTimes(2)
-    act(() => { mode.set('standard') })
+    act(() => {
+      mode.set('standard')
+    })
     expect(foldRender).toHaveBeenCalledTimes(1)
     expect(previewRender).toHaveBeenCalledTimes(2)
-    act(() => { mode.set('compact') })
+    act(() => {
+      mode.set('compact')
+    })
     expect(foldRender).toHaveBeenCalledTimes(1)
     expect(previewRender).toHaveBeenCalledTimes(3)
-    act(() => { timing.set('next-input') })
+    act(() => {
+      timing.set('next-input')
+    })
     expect(foldRender).toHaveBeenCalledTimes(1)
     expect(previewRender).toHaveBeenCalledTimes(3)
   })

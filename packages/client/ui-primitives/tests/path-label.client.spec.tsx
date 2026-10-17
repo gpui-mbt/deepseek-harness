@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Path labels retain their full hover text and update clipping with layout and file changes. */
 import { act, cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PathLabel } from '../src/PathLabel.tsx'
 
 afterEach(() => {
@@ -56,17 +56,24 @@ describe('PathLabel', () => {
       expect(observer.observe).toHaveBeenCalledWith(text)
 
       boxWidth = 120
-      act(() => { observer.fire() })
+      act(() => {
+        observer.fire()
+      })
       expect(path?.hasAttribute('data-path-clipped')).toBe(true)
 
       boxWidth = 300
-      act(() => { observer.fire() })
+      act(() => {
+        observer.fire()
+      })
       expect(path?.hasAttribute('data-path-clipped')).toBe(false)
       view.unmount()
       expect(observer.disconnect).toHaveBeenCalledTimes(1)
     } finally {
       vi.unstubAllGlobals()
-      for (const [name, descriptor] of [['offsetWidth', offsetWidth], ['clientWidth', clientWidth]] as const) {
+      for (const [name, descriptor] of [
+        ['offsetWidth', offsetWidth],
+        ['clientWidth', clientWidth],
+      ] as const) {
         if (descriptor === undefined) Reflect.deleteProperty(HTMLElement.prototype, name)
         else Object.defineProperty(HTMLElement.prototype, name, descriptor)
       }

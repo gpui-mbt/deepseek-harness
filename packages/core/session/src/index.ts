@@ -15,7 +15,23 @@ import type { Scoped } from '@deepseek-ai/dsh-scope'
 import type { Message } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, SessionLogOffset, SessionSeq } from './types.ts'
 import type { TypertLookup } from '@deepseek-ai/dsh-typert-protocol'
-import type { CreateSessionOptions, EpochHeader, PluginRecord, PluginRecordMap, PluginRecordType, PrepareSessionOptions, RequestContext, SessionEvent, SessionEventMap, SessionEventType, SessionHeader, SessionId, SessionSeedEventState, SurfaceIntent, SurfaceEventType } from './types.ts'
+import type {
+  CreateSessionOptions,
+  EpochHeader,
+  PluginRecord,
+  PluginRecordMap,
+  PluginRecordType,
+  PrepareSessionOptions,
+  RequestContext,
+  SessionEvent,
+  SessionEventMap,
+  SessionEventType,
+  SessionHeader,
+  SessionId,
+  SessionSeedEventState,
+  SurfaceIntent,
+  SurfaceEventType,
+} from './types.ts'
 import { SurfaceManager, validateSessionEventData, validateSurfaceMetadata } from './surface.ts'
 import type { SessionSurface, SessionMessageProjection } from './surface.ts'
 import { foldRequestHeader } from './request-header.ts'
@@ -30,8 +46,21 @@ export { SessionPreparation } from './preparation.ts'
 export type { SessionPreparationOptions } from './preparation.ts'
 export type { AssistantMessage, DeveloperMessage, SystemMessage, ToolResultMessage, UserMessage } from '@deepseek-ai/dsh-llm'
 export { interruptedTurnClosers, ToolCallRecovery, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from './repair.ts'
-export type { SessionSurface, SurfaceFoldReplacement, SurfaceFoldResult, SessionMessageProjection, SessionMessageProjectionContext } from './surface.ts'
-export { deriveEventMessage, foldSurface, isAppendSurfaceEvent, isReplacementSurfaceEvent, isSurfaceEvent, isSurfaceEligibleType } from './surface.ts'
+export type {
+  SessionSurface,
+  SurfaceFoldReplacement,
+  SurfaceFoldResult,
+  SessionMessageProjection,
+  SessionMessageProjectionContext,
+} from './surface.ts'
+export {
+  deriveEventMessage,
+  foldSurface,
+  isAppendSurfaceEvent,
+  isReplacementSurfaceEvent,
+  isSurfaceEvent,
+  isSurfaceEligibleType,
+} from './surface.ts'
 export { canonicalHeader, foldRequestHeader, headerEquals } from './request-header.ts'
 export { KNOWN_SESSION_EVENT_TYPES } from './known-event-types.ts'
 
@@ -104,9 +133,7 @@ function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
   if (record.id !== id) {
     throw new Error(`session header id "${String(record.id)}" does not match session id "${id}"`)
   }
-  if (typeof record.createdAt !== 'number'
-    || !Number.isSafeInteger(record.createdAt)
-    || record.createdAt < 0) {
+  if (typeof record.createdAt !== 'number' || !Number.isSafeInteger(record.createdAt) || record.createdAt < 0) {
     throw new Error('session header createdAt must be a non-negative safe integer')
   }
   if (record.cwd !== undefined) {
@@ -124,8 +151,10 @@ function validateSessionHeader(id: SessionId, input: unknown): SessionHeader {
   if (record.origin !== undefined && record.origin !== 'subagent') {
     throw new Error('session header origin must be "subagent"')
   }
-  if (record.delegationDepth !== undefined
-    && (typeof record.delegationDepth !== 'number' || !Number.isSafeInteger(record.delegationDepth) || record.delegationDepth < 0)) {
+  if (
+    record.delegationDepth !== undefined &&
+    (typeof record.delegationDepth !== 'number' || !Number.isSafeInteger(record.delegationDepth) || record.delegationDepth < 0)
+  ) {
     throw new Error('session header delegationDepth must be a non-negative safe integer')
   }
   if (record.agentPreset !== undefined && typeof record.agentPreset !== 'string') {
@@ -147,9 +176,7 @@ function validateRestoredSessionHeader(id: SessionId, input: unknown): SessionHe
 
 /** Detach, validate, and freeze the creation metadata published by a session. */
 function snapshotSessionHeader(id: SessionId, source?: SessionHeader): SessionHeader {
-  const input: unknown = source === undefined
-    ? { version: SESSION_FORMAT_VERSION, id, createdAt: Date.now(), isSeeded: false }
-    : source
+  const input: unknown = source === undefined ? { version: SESSION_FORMAT_VERSION, id, createdAt: Date.now(), isSeeded: false } : source
   const snapshot = snapshotJsonValue(input)
   if (snapshot === undefined) throw new Error('session header is not losslessly JSON-serializable')
   return validateSessionHeader(id, snapshot)
@@ -167,10 +194,7 @@ function snapshotSessionHeader(id: SessionId, source?: SessionHeader): SessionHe
 export function adoptSessionEvent<T extends SessionEvent>(event: T): T {
   validateSessionEventData(event, `session event at seq ${event.seq}`)
   validateSurfaceMetadata(event)
-  assertMessageEventShape(
-    event,
-    `session event at seq ${event.seq}`,
-  )
+  assertMessageEventShape(event, `session event at seq ${event.seq}`)
   switch (event.type) {
     case 'user/message':
       deepFreeze(event.data)
@@ -220,11 +244,17 @@ function assertSessionEventEnvelope(value: unknown, index: number): asserts valu
   const type = event['type']
   const seq = event['seq']
   const time = event['time']
-  if (typeof type !== 'string'
-    || typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq < 0 || Object.is(seq, -0)
-    || typeof time !== 'number' || !Number.isSafeInteger(time)
-    || event['data'] === undefined
-    || (event['ignorable'] !== undefined && event['ignorable'] !== true)) {
+  if (
+    typeof type !== 'string' ||
+    typeof seq !== 'number' ||
+    !Number.isSafeInteger(seq) ||
+    seq < 0 ||
+    Object.is(seq, -0) ||
+    typeof time !== 'number' ||
+    !Number.isSafeInteger(time) ||
+    event['data'] === undefined ||
+    (event['ignorable'] !== undefined && event['ignorable'] !== true)
+  ) {
     throw new Error(`seed event at index ${index} has an invalid event envelope`)
   }
   validateSessionEventData(event as SessionEvent, `seed ${type} at index ${index}`)
@@ -244,17 +274,14 @@ function assertSessionEventEnvelope(value: unknown, index: number): asserts valu
 /** Reject obsolete request headers and malformed messages at the seed/load boundary. */
 function assertCurrentLlmShape(event: Record<string, unknown>, index: number): void {
   const data = event['data']
-  const record = typeof data === 'object' && data !== null
-    ? data as Record<string, unknown>
-    : undefined
+  const record = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : undefined
   if (event['type'] === 'request/header') {
     const headerRecord = record?.['header'] as Record<string, unknown>
     const config = headerRecord['config']
     if (!hasProviderModel(config)) throw new Error(`seed request/header at index ${index} lacks provider/model`)
     const configRecord = config as Record<string, unknown>
     const reasoningEffort = configRecord['reasoningEffort']
-    if (reasoningEffort !== undefined
-      && (typeof reasoningEffort !== 'string' || reasoningEffort.length === 0)) {
+    if (reasoningEffort !== undefined && (typeof reasoningEffort !== 'string' || reasoningEffort.length === 0)) {
       throw new Error(`seed request/header at index ${index} has an invalid reasoningEffort`)
     }
     assertAdapterDefaults(headerRecord['adapterDefaults'], configRecord, index)
@@ -286,9 +313,17 @@ function assertAssistantSettlementShape(
 ): void {
   const turn = data?.['turn']
   const step = data?.['step']
-  if (typeof turn !== 'number' || !Number.isSafeInteger(turn) || turn < 0 || Object.is(turn, -0)
-    || typeof step !== 'number' || !Number.isSafeInteger(step) || step < 0 || Object.is(step, -0)
-    || !Array.isArray(data?.['stream'])) {
+  if (
+    typeof turn !== 'number' ||
+    !Number.isSafeInteger(turn) ||
+    turn < 0 ||
+    Object.is(turn, -0) ||
+    typeof step !== 'number' ||
+    !Number.isSafeInteger(step) ||
+    step < 0 ||
+    Object.is(step, -0) ||
+    !Array.isArray(data?.['stream'])
+  ) {
     throw new Error(`seed ${type} at index ${index} has invalid settlement fields`)
   }
 }
@@ -296,28 +331,31 @@ function assertAssistantSettlementShape(
 const allowedAdapterKeys = new Set(['reasoningEffort', 'maxTokens'])
 
 /** Validate adapter-default markers imported from a durable request header. */
-function assertAdapterDefaults(
-  value: unknown,
-  config: Record<string, unknown>,
-  index: number,
-): void {
+function assertAdapterDefaults(value: unknown, config: Record<string, unknown>, index: number): void {
   if (value === undefined) return
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`seed request/header at index ${index} has invalid adapterDefaults`)
   }
   const defaults = value as Record<string, unknown>
-  if (Object.keys(defaults).some(key => !allowedAdapterKeys.has(key))
-    || Object.values(defaults).some(marker => marker !== true)
-    || defaults['reasoningEffort'] === true && config['reasoningEffort'] === undefined
-    || defaults['maxTokens'] === true && config['maxTokens'] === undefined) {
+  if (
+    Object.keys(defaults).some(key => !allowedAdapterKeys.has(key)) ||
+    Object.values(defaults).some(marker => marker !== true) ||
+    (defaults['reasoningEffort'] === true && config['reasoningEffort'] === undefined) ||
+    (defaults['maxTokens'] === true && config['maxTokens'] === undefined)
+  ) {
     throw new Error(`seed request/header at index ${index} has invalid adapterDefaults`)
   }
 }
 
 /** The surface event types whose payload carries an identified message. */
 function isMessageEventType(type: unknown): type is SurfaceEventType {
-  return type === 'developer/message' || type === 'system/message' || type === 'user/message'
-    || type === 'assistant/message' || type === 'tool/result'
+  return (
+    type === 'developer/message' ||
+    type === 'system/message' ||
+    type === 'user/message' ||
+    type === 'assistant/message' ||
+    type === 'tool/result'
+  )
 }
 
 const MESSAGE_ROLE_BY_TYPE: Record<SurfaceEventType, Message['role']> = {
@@ -333,13 +371,14 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
   const type = event['type']
   if (!isMessageEventType(type)) return
   const data = event['data']
-  const record = typeof data === 'object' && data !== null
-    ? data as Record<string, unknown>
-    : undefined
+  const record = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : undefined
   const message = type === 'user/message' ? record : record?.['message']
-  if (typeof message !== 'object' || message === null
-    || typeof (message as Record<string, unknown>)['id'] !== 'string'
-    || (message as Record<string, unknown>)['id'] === '') {
+  if (
+    typeof message !== 'object' ||
+    message === null ||
+    typeof (message as Record<string, unknown>)['id'] !== 'string' ||
+    (message as Record<string, unknown>)['id'] === ''
+  ) {
     throw new Error(`${subject} lacks an identified message`)
   }
   const messageRecord = message as Record<string, unknown>
@@ -348,9 +387,12 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
     throw new Error(`${subject} message must have role "${expectedRole}"`)
   }
   const source = messageRecord['source']
-  if (typeof source !== 'object' || source === null
-    || typeof (source as Record<string, unknown>)['kind'] !== 'string'
-    || (source as Record<string, unknown>)['kind'] === '') {
+  if (
+    typeof source !== 'object' ||
+    source === null ||
+    typeof (source as Record<string, unknown>)['kind'] !== 'string' ||
+    (source as Record<string, unknown>)['kind'] === ''
+  ) {
     throw new Error(`${subject} message has invalid source`)
   }
   if (!Array.isArray(messageRecord['content'])) {
@@ -370,9 +412,7 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
     return
   }
   if (type !== 'tool/result') return
-  if (sourceRecord['kind'] !== 'tool'
-    || typeof sourceRecord['callId'] !== 'string'
-    || sourceRecord['callId'] === '') {
+  if (sourceRecord['kind'] !== 'tool' || typeof sourceRecord['callId'] !== 'string' || sourceRecord['callId'] === '') {
     throw new Error(`${subject} message must have tool source`)
   }
   if (messageRecord['toolCallId'] !== sourceRecord['callId']) {
@@ -384,8 +424,9 @@ function assertMessageEventShape(event: Record<string, unknown>, subject: string
 function hasProviderModel(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
   const pair = value as Record<string, unknown>
-  return typeof pair['provider'] === 'string' && pair['provider'].length > 0
-    && typeof pair['model'] === 'string' && pair['model'].length > 0
+  return (
+    typeof pair['provider'] === 'string' && pair['provider'].length > 0 && typeof pair['model'] === 'string' && pair['model'].length > 0
+  )
 }
 
 type SessionCallback = (...args: unknown[]) => unknown
@@ -613,14 +654,7 @@ export class Session {
     eventState: SessionSeedEventState,
     projections?: readonly SessionMessageProjection[],
   ): Session {
-    return new Session(
-      id,
-      seed,
-      header,
-      eventState,
-      inheritedEventCount,
-      projections,
-    )
+    return new Session(id, seed, header, eventState, inheritedEventCount, projections)
   }
 
   private constructor(
@@ -683,7 +717,10 @@ export class Session {
     if (mode === 'snapshot' && this.header.isSeeded && inheritedEventCount !== this.log.length && !markedSeed) {
       throw new Error('seeded session constructor seed must equal its inherited prefix or mark its inherited cut')
     }
-    if (markedSeed && this.log.slice(inheritedEventCount + 1).some(event => event.type === 'session/end-seed' && event.data.inherited === true)) {
+    if (
+      markedSeed &&
+      this.log.slice(inheritedEventCount + 1).some(event => event.type === 'session/end-seed' && event.data.inherited === true)
+    ) {
       throw new Error('session inherited event count must identify the final inherited marker')
     }
     this.inheritedEventCount = inheritedEventCount
@@ -722,10 +759,7 @@ export class Session {
    * @param toSeqExclusive - non-negative exclusive sequence number; defaults to the current end.
    * @returns a frozen array of the selected deeply frozen events.
    */
-  snapshotEvents(
-    fromSeq: SessionLogOffset = SessionLogOffset(0),
-    toSeqExclusive: SessionLogOffset = this.seq,
-  ): readonly SessionEvent[] {
+  snapshotEvents(fromSeq: SessionLogOffset = SessionLogOffset(0), toSeqExclusive: SessionLogOffset = this.seq): readonly SessionEvent[] {
     if (fromSeq === 0 && toSeqExclusive === this.log.length) {
       this.eventsSnapshot ??= Object.freeze([...this.log])
       return this.eventsSnapshot
@@ -802,8 +836,8 @@ export class Session {
   ): SessionEvent<T> {
     const surfaceOpts: SurfaceIntent | undefined = opts[0]
     const surfaceMetadata = {
-      ...surfaceOpts?.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: surfaceOpts.sourceEventSeqs },
-      ...surfaceOpts?.surfaceOp === undefined ? {} : { surfaceOp: surfaceOpts.surfaceOp },
+      ...(surfaceOpts?.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: surfaceOpts.sourceEventSeqs }),
+      ...(surfaceOpts?.surfaceOp === undefined ? {} : { surfaceOp: surfaceOpts.surfaceOp }),
     }
     const dataSnapshot = snapshotJsonValue(data)
     if (dataSnapshot === undefined) {
@@ -1025,15 +1059,14 @@ export type SessionForkSource = Session | SessionId
  * already taken (`SESSION_ALREADY_EXISTS`); or the boundary is not a contiguous
  * existing seq (`INVALID_BOUNDARY`).
  */
-export type SessionForkErrorCode =
-  | 'SESSION_NOT_FOUND'
-  | 'SESSION_NOT_LIVE'
-  | 'SESSION_ALREADY_EXISTS'
-  | 'INVALID_BOUNDARY'
+export type SessionForkErrorCode = 'SESSION_NOT_FOUND' | 'SESSION_NOT_LIVE' | 'SESSION_ALREADY_EXISTS' | 'INVALID_BOUNDARY'
 
 /** Typed error for session fork rejections. */
 export class SessionForkError extends Error {
-  constructor(message: string, public readonly code: SessionForkErrorCode) {
+  constructor(
+    message: string,
+    public readonly code: SessionForkErrorCode,
+  ) {
     super(message)
     this.name = 'SessionForkError'
   }
@@ -1069,13 +1102,15 @@ export class SessionStore extends Service {
     }
     return this.ctx.effect(() => {
       this.projections.push(projection)
-      return () => { this.projections.splice(this.projections.indexOf(projection), 1) }
+      return () => {
+        this.projections.splice(this.projections.indexOf(projection), 1)
+      }
     }, 'sessions.registerMessageProjection()')
   }
 
   constructor(ctx: Context) {
     super(ctx, 'sessions')
-    ctx.inject(['typert'], (typeCtx) => {
+    ctx.inject(['typert'], typeCtx => {
       typeCtx.typert.lookups.register('session', {
         parameter: 'session',
         wire: 'sessionId',
@@ -1114,10 +1149,13 @@ export class SessionStore extends Service {
     // announcing so a throwing `session/created` listener rolls the attach back
     // (the generator effect disposes already-yielded disposers on a throw)
     // instead of leaking the store entry and its publication hooks.
-    this.ctx.effect(function* (this: SessionStore) {
-      yield this.enter(session)
-      this.announce(session)
-    }.bind(this), 'sessions.create()')
+    this.ctx.effect(
+      function* (this: SessionStore) {
+        yield this.enter(session)
+        this.announce(session)
+      }.bind(this),
+      'sessions.create()',
+    )
     return session
   }
 
@@ -1154,14 +1192,7 @@ export class SessionStore extends Service {
       switch (eventState) {
         case 'detached':
         case 'shared-frozen':
-          return Session.fromRestore(
-            sessionId,
-            options.seed,
-            options.meta,
-            options.inheritedEventCount,
-            eventState,
-            this.projections,
-          )
+          return Session.fromRestore(sessionId, options.seed, options.meta, options.inheritedEventCount, eventState, this.projections)
         case undefined:
           break
         /* v8 ignore next -- closed-union exhaustiveness guard */
@@ -1175,12 +1206,12 @@ export class SessionStore extends Service {
       version: SESSION_FORMAT_VERSION,
       id: sessionId,
       createdAt: meta?.createdAt ?? Date.now(),
-      ...meta?.cwd === undefined ? {} : { cwd: meta.cwd },
-      ...meta?.parentSession === undefined ? {} : { parentSession: meta.parentSession },
+      ...(meta?.cwd === undefined ? {} : { cwd: meta.cwd }),
+      ...(meta?.parentSession === undefined ? {} : { parentSession: meta.parentSession }),
       isSeeded: meta?.isSeeded ?? false,
-      ...meta?.origin === undefined ? {} : { origin: meta.origin },
-      ...meta?.delegationDepth === undefined ? {} : { delegationDepth: meta.delegationDepth },
-      ...meta?.agentPreset === undefined ? {} : { agentPreset: meta.agentPreset },
+      ...(meta?.origin === undefined ? {} : { origin: meta.origin }),
+      ...(meta?.delegationDepth === undefined ? {} : { delegationDepth: meta.delegationDepth }),
+      ...(meta?.agentPreset === undefined ? {} : { agentPreset: meta.agentPreset }),
     }
     return Session.create(sessionId, seed, header, options?.inheritedEventCount, this.projections)
   }
@@ -1223,7 +1254,9 @@ export class SessionStore extends Service {
       announcing: false,
       appending: false,
       detachRequested: false,
-      detach: () => { this.detachEntered(entry) },
+      detach: () => {
+        this.detachEntered(entry)
+      },
     }
     this.store.set(id, entry)
     attachments.set(session, entry)
@@ -1320,16 +1353,18 @@ export class SessionStore extends Service {
     const { carrier } = this.liveEntryFor(session)
     const callbackArgs: unknown[] = [session]
     const callbacks = collectSessionCallbacks(this.ctx, [carrier, 'session/flush', session])
-    const results = await Promise.allSettled(callbacks.map((callback) => {
-      try {
-        return callback(...callbackArgs)
-      } catch (error: unknown) {
-        // Preserve the listener's exact rejection value; flush is a caller-owned
-        // failure boundary, and Cordis listeners may throw arbitrary values.
-        // oxlint-disable-next-line typescript/prefer-promise-reject-errors
-        return Promise.reject(error)
-      }
-    }))
+    const results = await Promise.allSettled(
+      callbacks.map(callback => {
+        try {
+          return callback(...callbackArgs)
+        } catch (error: unknown) {
+          // Preserve the listener's exact rejection value; flush is a caller-owned
+          // failure boundary, and Cordis listeners may throw arbitrary values.
+          // oxlint-disable-next-line typescript/prefer-promise-reject-errors
+          return Promise.reject(error)
+        }
+      }),
+    )
     const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
     if (failure !== undefined) throw failure.reason
     return callbacks.length > 0
@@ -1390,7 +1425,7 @@ export class SessionStore extends Service {
       seed,
       inheritedEventCount: SessionLogOffset(resolved === undefined ? 0 : resolved + 1),
       meta: {
-        ...liveSource.header.cwd !== undefined ? { cwd: liveSource.header.cwd } : {},
+        ...(liveSource.header.cwd !== undefined ? { cwd: liveSource.header.cwd } : {}),
         parentSession: liveSource.id,
         isSeeded: true,
       },
@@ -1398,7 +1433,9 @@ export class SessionStore extends Service {
   }
 
   private _forkBoundary(
-    sessionId: SessionId, events: readonly SessionEvent[], requestedBoundary: SessionSeq | undefined,
+    sessionId: SessionId,
+    events: readonly SessionEvent[],
+    requestedBoundary: SessionSeq | undefined,
   ): SessionSeq | undefined {
     const lastEvent = events.at(-1)
     let boundary: SessionSeq
@@ -1446,7 +1483,6 @@ export class SessionStore extends Service {
     if (live !== source) throw new SessionForkError(`session "${source.id}" is not the live store instance`, 'SESSION_NOT_LIVE')
     return source
   }
-
 }
 
 export { decodeSeqRanges, encodeSeqRanges } from './seq-ranges.ts'

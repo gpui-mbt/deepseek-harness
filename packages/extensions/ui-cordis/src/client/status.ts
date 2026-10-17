@@ -1,9 +1,7 @@
 /** Shared status derivation over Host inventory and this page's Client live set. */
 
 import type { DynamicCordisLivePackage } from '@deepseek-ai/dsh-cordis-client-runner/client'
-import type {
-  CordisDynamicPackageId, DynamicCordisInventoryRow,
-} from './events.ts'
+import type { CordisDynamicPackageId, DynamicCordisInventoryRow } from './events.ts'
 
 /** The three product-visible lifecycle readings. */
 export type CordisVisibleStatus = 'idle' | 'client-pending' | 'running'
@@ -37,9 +35,7 @@ export function cordisVisibleStatus(
   if (run === undefined || run.packageId !== packageId) return 'idle'
   const pkg = packageOf(row, packageId)
   if (pkg?.hasClientHalf !== true) return 'running'
-  return loaded.some(live => live.pluginId === row.pluginId
-    && live.packageId === packageId
-    && live.pluginRunId === run.pluginRunId)
+  return loaded.some(live => live.pluginId === row.pluginId && live.packageId === packageId && live.pluginRunId === run.pluginRunId)
     ? 'running'
     : 'client-pending'
 }

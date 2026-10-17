@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { IMAGE_ENTRY_SEEDS } from '../src/rules.ts'
 
 const workerHost = fileURLToPath(new URL('../../webworker-runtime/src/worker-host.ts', import.meta.url))

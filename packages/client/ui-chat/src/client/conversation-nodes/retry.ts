@@ -1,6 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationLocation, ConversationMatch, ConversationNodeDefinition, ModelRetryNode,
+  ConversationLocation,
+  ConversationMatch,
+  ConversationNodeDefinition,
+  ModelRetryNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-llm-retry/types'
 import type { RetryChatData } from '../contract/chat-nodes.ts'
@@ -33,15 +36,17 @@ function scheduledNode(match: ConversationMatch): ModelRetryNode | undefined {
 
 /** A scheduled attempt is cancelled once either owning boundary closes. */
 function isClosed(location: ConversationLocation): boolean {
-  return (location.kind === 'step' && location.step.status === 'closed')
-    || ((location.kind === 'step' || location.kind === 'turn') && location.turn.status === 'closed')
+  return (
+    (location.kind === 'step' && location.step.status === 'closed') ||
+    ((location.kind === 'step' || location.kind === 'turn') && location.turn.status === 'closed')
+  )
 }
 
 /** Producer-correlated model retry chain Definition. */
 export const retryDefinition: ConversationNodeDefinition<RetryState> = {
   kind: 'model-retry',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'llm/retry') {
       const retryId: unknown = event.data.retryId
       if (typeof retryId !== 'string' || retryId === '') return null
@@ -67,20 +72,18 @@ export const retryDefinition: ConversationNodeDefinition<RetryState> = {
     const retry = match.event.data.retry
     return {
       ...context.state,
-      attempts: context.state.attempts.map(attempt =>
-        attempt.retry === retry ? { ...attempt, retryState: 'started' } : attempt),
+      attempts: context.state.attempts.map(attempt => (attempt.retry === retry ? { ...attempt, retryState: 'started' } : attempt)),
     }
   },
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     if (context.state === undefined || context.state.attempts.length === 0) return null
     const location = context.start?.location ?? context.matches[0]?.location ?? { kind: 'unresolved' as const }
     const stateAttempts = context.state.attempts
     const attempts = stateAttempts.map((attempt, index) =>
-      index === stateAttempts.length - 1
-        && attempt.retryState === 'scheduled'
-        && isClosed(location)
+      index === stateAttempts.length - 1 && attempt.retryState === 'scheduled' && isClosed(location)
         ? { ...attempt, retryState: 'cancelled' as const }
-        : attempt)
+        : attempt,
+    )
     const current = attempts.at(-1)
     if (current === undefined) return null
     const data: RetryChatData = { attempts, current }

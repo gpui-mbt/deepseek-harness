@@ -8,7 +8,7 @@
  * them and nothing else, and against the Tab domain, because an open is not
  * complete until the tab knows how it was navigated to.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { LayoutState, PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
@@ -49,8 +49,12 @@ function harness() {
   const pin = vi.fn<(address: string, signal: AbortSignal) => void>()
   const { controller, adopt, show, measure } = createSidebarRightController(tabs, pin, {
     autoFullscreen: () => false,
-    openWithFocus: (_sessionId, open) => { open() },
-    closeWithFocus: (_sessionId, _paneId, close) => { close() },
+    openWithFocus: (_sessionId, open) => {
+      open()
+    },
+    closeWithFocus: (_sessionId, _paneId, close) => {
+      close()
+    },
   })
   const instance = createSidebarRightStore(() => ({ kind: 'guide', title: 'seed' })).create()
   // The runtime mints the Session's store before any seat renders, and the plugin adopts it.
@@ -66,7 +70,9 @@ function harness() {
   const publish = (): (() => void) => {
     show(SESSION)
     measure(SESSION, () => room.allowed)
-    return () => { show(undefined) }
+    return () => {
+      show(undefined)
+    }
   }
   const titles = (): string[] => {
     const surface = instance.getSnapshot().bySession[SESSION]
@@ -79,7 +85,9 @@ function harness() {
   }
   const entries = (): number => instance.getSnapshot().bySession[SESSION]?.history.entries.length ?? 0
   // A surface starts empty; expanding seeds the default guide ('seed').
-  const expand = (): void => { instance.actions.setExpanded(SESSION, true) }
+  const expand = (): void => {
+    instance.actions.setExpanded(SESSION, true)
+  }
   return { controller, adopt, unadopt, show, measure, tabs, instance, pin, publish, titles, tabOf, layout, entries, room, expand }
 }
 
@@ -100,25 +108,45 @@ describe('SidebarRightController — opening', () => {
       h.instance.actions.unfloatPane(SESSION, floating)
       expect(getPane(h.layout(), pane).tabs).toContain(terminals[0]!.id)
       expect(getPane(h.layout(), pane).tabs).toContain(terminals[1]!.id)
-    } finally { release() }
+    } finally {
+      release()
+    }
   })
 
   it('refuses every write while no Session is on screen', () => {
     const { controller } = harness()
-    expect(() => { controller.openResource('dsh-resource://file/session/s-test/a.txt') }).toThrow('no session surface is mounted')
-    expect(() => { controller.openTab('guide') }).toThrow('no session surface is mounted')
-    expect(() => { controller.close('tab1' as TabId) }).toThrow('no session surface is mounted')
-    expect(() => { controller.toggleExpanded() }).toThrow('no session surface is mounted')
-    expect(() => { controller.focus('tab1' as TabId) }).toThrow('no session surface is mounted')
-    expect(() => { controller.split() }).toThrow('no session surface is mounted')
-    expect(() => { controller.float('tab1' as TabId) }).toThrow('no session surface is mounted')
-    expect(() => { controller.dock('pane1' as PaneId) }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.openResource('dsh-resource://file/session/s-test/a.txt')
+    }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.openTab('guide')
+    }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.close('tab1' as TabId)
+    }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.toggleExpanded()
+    }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.focus('tab1' as TabId)
+    }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.split()
+    }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.float('tab1' as TabId)
+    }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.dock('pane1' as PaneId)
+    }).toThrow('no session surface is mounted')
   })
 
   it('publishes the on-screen Session only when it changes', () => {
     const h = harness()
     const seen: (string | undefined)[] = []
-    const unsubscribe = h.controller.mounted.subscribe(() => { seen.push(h.controller.mounted.getSnapshot()) })
+    const unsubscribe = h.controller.mounted.subscribe(() => {
+      seen.push(h.controller.mounted.getSnapshot())
+    })
     try {
       expect(h.controller.mounted.getSnapshot()).toBeUndefined()
       h.show(SESSION)
@@ -130,13 +158,17 @@ describe('SidebarRightController — opening', () => {
       h.show(undefined)
       expect(h.controller.mounted.getSnapshot()).toBeUndefined()
       expect(seen).toEqual([SESSION, undefined])
-    } finally { unsubscribe() }
+    } finally {
+      unsubscribe()
+    }
   })
 
   it('refuses an address no registered type claims, before touching the surface', () => {
     const { controller, publish, titles } = harness()
     publish()
-    expect(() => { controller.openResource('https://example.com') }).toThrow('no registered tab type claims')
+    expect(() => {
+      controller.openResource('https://example.com')
+    }).toThrow('no registered tab type claims')
     expect(titles()).toEqual([])
   })
 
@@ -185,7 +217,9 @@ describe('SidebarRightController — opening', () => {
     publish()
     instance.actions.splitPane(SESSION)
     publish()
-    const [left, right] = Object.values(layout().nodes).filter(node => node.kind === 'pane').map(node => node.id)
+    const [left, right] = Object.values(layout().nodes)
+      .filter(node => node.kind === 'pane')
+      .map(node => node.id)
     if (left === undefined || right === undefined) throw new Error('expected two panes')
     controller.openResource('dsh-resource://file/session/s-test/a.txt', { paneId: left })
     expect(findTabPane(layout(), tabOf('a.txt')).id).toBe(left)
@@ -224,7 +258,7 @@ describe('SidebarRightController — opening', () => {
     expect(getPane(layout(), layout().activePaneId).activeTabId).toBe(tabOf('a.txt'))
   })
 
-  it('takes the replaced tab\'s pane and slot, closes it, and records one entry', () => {
+  it("takes the replaced tab's pane and slot, closes it, and records one entry", () => {
     const { controller, publish, layout, tabOf, entries } = harness()
     publish()
     controller.openResource('dsh-resource://file/session/s-test/a.txt')
@@ -296,16 +330,34 @@ describe('SidebarRightController — opening', () => {
     publish()
     const root = getPane(layout(), layout().rootId).id
     let settled: TabId | undefined
-    instance.actions.openContent(SESSION, {
-      kind: 'guide', contentId: 'sidebar://guide', title: 'seed', paneId: root, revealIfOpened: false,
-    }, (tabId) => { settled = tabId })
+    instance.actions.openContent(
+      SESSION,
+      {
+        kind: 'guide',
+        contentId: 'sidebar://guide',
+        title: 'seed',
+        paneId: root,
+        revealIfOpened: false,
+      },
+      tabId => {
+        settled = tabId
+      },
+    )
     expect(settled).toBe(tabOf('seed'))
     expect(Object.values(layout().tabs).filter(tab => tab.contentId === 'sidebar://guide')).toHaveLength(1)
     // A pane without one gets its own.
     instance.actions.closeTab(SESSION, tabOf('seed'))
-    instance.actions.openContent(SESSION, {
-      kind: 'guide', contentId: 'sidebar://guide', title: 'seed', paneId: root, revealIfOpened: false,
-    }, () => {})
+    instance.actions.openContent(
+      SESSION,
+      {
+        kind: 'guide',
+        contentId: 'sidebar://guide',
+        title: 'seed',
+        paneId: root,
+        revealIfOpened: false,
+      },
+      () => {},
+    )
     expect(Object.values(layout().tabs).filter(tab => tab.contentId === 'sidebar://guide')).toHaveLength(1)
   })
 
@@ -314,7 +366,10 @@ describe('SidebarRightController — opening', () => {
     instance.actions.open(SESSION)
     expand()
     publish()
-    const guides = (): TabId[] => Object.values(layout().tabs).filter(tab => tab.contentId === 'sidebar://guide').map(tab => tab.id)
+    const guides = (): TabId[] =>
+      Object.values(layout().tabs)
+        .filter(tab => tab.contentId === 'sidebar://guide')
+        .map(tab => tab.id)
     // Place: the split's guide dragged into the first pane's strip.
     instance.actions.splitPane(SESSION)
     let [left, right] = dockPaneIds(layout())
@@ -353,10 +408,18 @@ describe('SidebarRightController — opening', () => {
     publish()
     controller.openResource('dsh-resource://file/session/s-test/a.txt', { params: { line: 3 } })
     const occurrence = controller.tabDomain.occurrence(SESSION, { id: tabOf('a.txt') })
-    expect(occurrence.navigation.getSnapshot()).toEqual({ address: 'dsh-resource://file/session/s-test/a.txt', params: { line: 3 }, revision: 1 })
+    expect(occurrence.navigation.getSnapshot()).toEqual({
+      address: 'dsh-resource://file/session/s-test/a.txt',
+      params: { line: 3 },
+      revision: 1,
+    })
     publish()
     controller.openResource('dsh-resource://file/session/s-test/a.txt')
-    expect(occurrence.navigation.getSnapshot()).toEqual({ address: 'dsh-resource://file/session/s-test/a.txt', params: undefined, revision: 2 })
+    expect(occurrence.navigation.getSnapshot()).toEqual({
+      address: 'dsh-resource://file/session/s-test/a.txt',
+      params: undefined,
+      revision: 2,
+    })
   })
 
   it('closes a tab of the mounted session', () => {
@@ -387,9 +450,15 @@ describe('SidebarRightController — the two opens', () => {
     instance.actions.open(SESSION)
     publish()
     const before = entries()
-    expect(() => { controller.openResource('sidebar://guide') }).toThrow('no registered tab type claims')
-    expect(() => { controller.openResource('https://example.com/a.txt') }).toThrow('no registered tab type claims')
-    expect(() => { controller.openResource('dsh-resource://unknown/x') }).toThrow('no registered tab type claims')
+    expect(() => {
+      controller.openResource('sidebar://guide')
+    }).toThrow('no registered tab type claims')
+    expect(() => {
+      controller.openResource('https://example.com/a.txt')
+    }).toThrow('no registered tab type claims')
+    expect(() => {
+      controller.openResource('dsh-resource://unknown/x')
+    }).toThrow('no registered tab type claims')
     expect(entries()).toBe(before)
   })
 
@@ -405,11 +474,13 @@ describe('SidebarRightController — the two opens', () => {
     expect(Object.values(layout().tabs).filter(tab => tab.contentId === 'sidebar://guide')).toHaveLength(1)
     expect(controller.active()?.kind).toBe('guide')
     const before = entries()
-    expect(() => { controller.openTab('nope') }).toThrow('no tab type is registered as "nope"')
+    expect(() => {
+      controller.openTab('nope')
+    }).toThrow('no tab type is registered as "nope"')
     expect(entries()).toBe(before)
   })
 
-  it('replaceTab opens in the named tab\'s place and closes it, as one entry', () => {
+  it("replaceTab opens in the named tab's place and closes it, as one entry", () => {
     const { controller, instance, publish, layout, tabOf, entries, expand } = harness()
     instance.actions.open(SESSION)
     expand()
@@ -512,7 +583,7 @@ describe('SidebarRightController — layout operations', () => {
   })
 })
 
-describe('SidebarRightController — a tab\'s own actions', () => {
+describe("SidebarRightController — a tab's own actions", () => {
   const OTHER = 's-other' as SessionId
   const A_TXT = 'dsh-resource://file/session/s-test/a.txt'
   const B_TXT = 'dsh-resource://file/session/s-test/b.txt'
@@ -657,14 +728,18 @@ describe('SidebarRightController — the on-screen Session', () => {
     const { controller, publish } = harness()
     const release = publish()
     release()
-    expect(() => { controller.toggleExpanded() }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.toggleExpanded()
+    }).toThrow('no session surface is mounted')
     expect(controller.isExpanded()).toBe(false)
   })
 
   it('refuses writes for an on-screen Session whose store the runtime has not minted', () => {
     const { controller, show } = harness()
     show('s-unminted' as SessionId)
-    expect(() => { controller.openResource('dsh-resource://file/session/s-test/a.txt') }).toThrow('no session surface is mounted')
+    expect(() => {
+      controller.openResource('dsh-resource://file/session/s-test/a.txt')
+    }).toThrow('no session surface is mounted')
     expect(controller.active()).toBeUndefined()
   })
 
@@ -679,14 +754,16 @@ describe('SidebarRightController — the on-screen Session', () => {
 })
 
 describe('explicit tab resource cleanup', () => {
-  it.each(['close', 'replace'] as const)('immediately removes the tab after a synchronous cleanup handler during %s', (operation) => {
+  it.each(['close', 'replace'] as const)('immediately removes the tab after a synchronous cleanup handler during %s', operation => {
     const h = harness()
     const release = h.adopt(SESSION, h.instance)
     const unbind = h.publish()
     h.controller.openResource('dsh-resource://file/session/s-test/terminal')
     const tabId = h.tabOf('terminal')
     const original = h.layout().tabs[tabId]
-    const handler = vi.fn(() => { expect(h.layout().tabs[tabId]).toBe(original) })
+    const handler = vi.fn(() => {
+      expect(h.layout().tabs[tabId]).toBe(original)
+    })
     const unregister = h.controller.registerCloseHandler('text', handler)
     try {
       const before = h.entries()
@@ -720,13 +797,15 @@ describe('explicit tab resource cleanup', () => {
     expect(h.layout().tabs[tabId]).toBeDefined()
   })
 
-  it.each(['close', 'replace'] as const)('preserves a tab when its synchronous %s handler throws', (operation) => {
+  it.each(['close', 'replace'] as const)('preserves a tab when its synchronous %s handler throws', operation => {
     const h = harness()
     h.adopt(SESSION, h.instance)
     h.publish()
     h.controller.openResource('dsh-resource://file/session/s-test/terminal')
     const tabId = h.tabOf('terminal')
-    const release = h.controller.registerCloseHandler('text', () => { throw new Error('cannot retain cleanup') })
+    const release = h.controller.registerCloseHandler('text', () => {
+      throw new Error('cannot retain cleanup')
+    })
     const perform = () => {
       if (operation === 'close') h.controller.closeIn(SESSION, tabId)
       else h.controller.openTab('guide', { replaceTab: tabId, revealIfOpened: false })

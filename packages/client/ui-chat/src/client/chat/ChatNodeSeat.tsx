@@ -47,9 +47,25 @@ function turnOf(node: ChatNode | undefined): number | undefined {
  * only seats whose visibility actually changes.
  */
 export const ChatNodeSeat = memo(function ChatNodeSeat({
-  nodeKey, groupPart, useChatNode, useChatNodeProcess, usePresentation,
-  cwd, clockTimeZone, openFile, inspectCall, forkAt,
-  loadImage, fileMentions, useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
+  nodeKey,
+  groupPart,
+  useChatNode,
+  useChatNodeProcess,
+  usePresentation,
+  cwd,
+  clockTimeZone,
+  openFile,
+  inspectCall,
+  forkAt,
+  loadImage,
+  fileMentions,
+  useStore,
+  actions,
+  renderSlot,
+  t,
+  useChatNodeBottom,
+  deferCollapse,
+  useGroupAction,
 }: ChatNodeSeatProps) {
   const bottom = useChatNodeBottom(nodeKey)
   const node = useChatNode(nodeKey)
@@ -57,56 +73,60 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
   const turn = turnOf(routedNode)
   const processPresentation = useChatNodeProcess(nodeKey)
   const processSpec = processPresentation?.spec
-  const storedOpen = useStore(state => processSpec !== undefined
-    && turnProcessOpen(state, processSpec, bottom === true && deferCollapse))
+  const storedOpen = useStore(state => processSpec !== undefined && turnProcessOpen(state, processSpec, bottom === true && deferCollapse))
   const liveProcess = processPresentation !== undefined && !processPresentation.turnClosed
   const interleavedInput = processPresentation?.hasInterleavedInput === true
   const alwaysOpen = liveProcess || interleavedInput || turnProcessAlwaysOpen(routedNode)
   const processOpen = alwaysOpen || storedOpen
-  const setOpen = useCallback((open: boolean) => {
-    if (processSpec !== undefined && !alwaysOpen) {
-      actions.setTurnProcessOpen(processSpec.turn, processSpec.answerStep ?? 0, open)
-    }
-  }, [actions, processSpec, alwaysOpen])
+  const setOpen = useCallback(
+    (open: boolean) => {
+      if (processSpec !== undefined && !alwaysOpen) {
+        actions.setTurnProcessOpen(processSpec.turn, processSpec.answerStep ?? 0, open)
+      }
+    },
+    [actions, processSpec, alwaysOpen],
+  )
   const foldCompleted = usePresentation(policy => policy.foldCompletedTurns)
   // A loaded end makes a partial historical Turn eligible without its start.
-  const processWindowReady = processSpec !== undefined
-    && processPresentation !== undefined
-    && foldCompleted
-    && processPresentation.turn === processSpec.turn
-    && (processPresentation.turnStarted || processPresentation.turnClosed)
-  const processMember = routedNode !== undefined
-    && processWindowReady
-    && !isAtOrOutside(routedNode, 'turn')
-    && routedNode.anchorSeq >= processSpec.processStartSeq
-    && (liveProcess || processSpec.answerAnchorSeq === null || routedNode.anchorSeq < processSpec.answerAnchorSeq
-      || (groupPart === 'reasoning' && routedNode.kind === 'assistant-step' && routedNode.data.step === processSpec.answerStep))
-  const processAnswer = routedNode !== undefined
-    && processWindowReady
-    && !liveProcess
-    && groupPart !== 'reasoning'
-    && routedNode.kind === 'assistant-step'
-    && routedNode.data.step === processSpec.answerStep
+  const processWindowReady =
+    processSpec !== undefined &&
+    processPresentation !== undefined &&
+    foldCompleted &&
+    processPresentation.turn === processSpec.turn &&
+    (processPresentation.turnStarted || processPresentation.turnClosed)
+  const processMember =
+    routedNode !== undefined &&
+    processWindowReady &&
+    !isAtOrOutside(routedNode, 'turn') &&
+    routedNode.anchorSeq >= processSpec.processStartSeq &&
+    (liveProcess ||
+      processSpec.answerAnchorSeq === null ||
+      routedNode.anchorSeq < processSpec.answerAnchorSeq ||
+      (groupPart === 'reasoning' && routedNode.kind === 'assistant-step' && routedNode.data.step === processSpec.answerStep))
+  const processAnswer =
+    routedNode !== undefined &&
+    processWindowReady &&
+    !liveProcess &&
+    groupPart !== 'reasoning' &&
+    routedNode.kind === 'assistant-step' &&
+    routedNode.data.step === processSpec.answerStep
   const ownsDisclosure = routedNode?.kind === 'turn-process' || processAnswer
-  const foldable = processWindowReady
-    && (liveProcess || processMember || ownsDisclosure)
-  const turnProcess = useMemo(() => processSpec === undefined
-    ? undefined
-    : {
-      spec: processSpec,
-      foldable,
-      hasContent: !interleavedInput && (processPresentation?.hasExternalProcess === true || processSpec.inlineReasoning),
-      open: processOpen,
-      setOpen,
-    }, [
-    foldable, interleavedInput, processOpen, processSpec, processPresentation?.hasExternalProcess, setOpen,
-  ])
-  const controllerInactive = routedNode?.kind === 'turn-process'
-    && foldCompleted && !foldable
-  const compactAnswer = processAnswer
-    && foldable
-    && processPresentation.compactAnswer
-    && !processOpen
+  const foldable = processWindowReady && (liveProcess || processMember || ownsDisclosure)
+  const turnProcess = useMemo(
+    () =>
+      processSpec === undefined
+        ? undefined
+        : {
+            spec: processSpec,
+            foldable,
+            hasContent: !interleavedInput && (processPresentation?.hasExternalProcess === true || processSpec.inlineReasoning),
+            open: processOpen,
+            setOpen,
+          },
+    [foldable, interleavedInput, processOpen, processSpec, processPresentation?.hasExternalProcess, setOpen],
+  )
+  const controllerInactive = routedNode?.kind === 'turn-process' && foldCompleted && !foldable
+  const compactAnswer = processAnswer && foldable && processPresentation.compactAnswer && !processOpen
   const processHidden = controllerInactive || (foldable && processMember && !processOpen)
   const revealProcess = useCallback(() => {
     if (processMember) setOpen(true)
@@ -115,29 +135,31 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
   const [disclosureReset] = useState(() => createSnapshotStore(0))
   const turnData = turnDataOf(routedNode)
   const hookContext = useMemo<ChatNodeHookContext>(
-    () => ({ turnData, disclosureReset, useGroupAction }), [turnData, disclosureReset, useGroupAction],
+    () => ({ turnData, disclosureReset, useGroupAction }),
+    [turnData, disclosureReset, useGroupAction],
   )
   useEffect(() => {
     if (processMember && processHidden && wrapperRef.current !== null && hiddenOrCollapsing(wrapperRef.current)) {
       disclosureReset.set(disclosureReset.getSnapshot() + 1)
     }
   }, [processMember, processHidden, wrapperRef, disclosureReset])
-  const owner = useMemo<ChatNodeOwnerProps | null>(() => node === undefined
-    ? null
-    : {
-      ...groupPart === undefined ? {} : { groupPart },
-      cwd,
-      clockTimeZone,
-      openFile,
-      inspectCall,
-      forkAt,
-      loadImage,
-      fileMentions,
-      turnProcess,
-    }, [
-    node, groupPart, cwd, clockTimeZone, openFile, inspectCall, forkAt,
-    loadImage, fileMentions, turnProcess,
-  ])
+  const owner = useMemo<ChatNodeOwnerProps | null>(
+    () =>
+      node === undefined
+        ? null
+        : {
+            ...(groupPart === undefined ? {} : { groupPart }),
+            cwd,
+            clockTimeZone,
+            openFile,
+            inspectCall,
+            forkAt,
+            loadImage,
+            fileMentions,
+            turnProcess,
+          },
+    [node, groupPart, cwd, clockTimeZone, openFile, inspectCall, forkAt, loadImage, fileMentions, turnProcess],
+  )
   if (routedNode === undefined || owner === null) return null
   // Runtime dispatch owns the correlation: every Node's discriminant is the
   // keyed-slot entry passed alongside that same Node. TypeScript does not

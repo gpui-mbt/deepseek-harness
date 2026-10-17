@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { normalizeLlmFailure } from '../src/adapter-failure.ts'
 
 describe('adapter failure normalization', () => {
   it('contains hostile non-Error coercion', () => {
-    const thrown = { [Symbol.toPrimitive]: () => { throw new Error('coercion failed') } }
+    const thrown = {
+      [Symbol.toPrimitive]: () => {
+        throw new Error('coercion failed')
+      },
+    }
     expect(normalizeLlmFailure(thrown)).toEqual({ message: 'LLM adapter failed', code: 'UNKNOWN' })
   })
 
@@ -42,7 +46,9 @@ describe('adapter failure normalization', () => {
     expect(normalizeLlmFailure(hostileCode)).toEqual({ message: 'provider failed', code: 'UNKNOWN' })
 
     const hostileFailure = new Proxy(new Error('provider failed'), {
-      getOwnPropertyDescriptor() { throw new Error('failure descriptor failed') },
+      getOwnPropertyDescriptor() {
+        throw new Error('failure descriptor failed')
+      },
     })
     expect(normalizeLlmFailure(hostileFailure)).toEqual({ message: 'provider failed', code: 'UNKNOWN' })
   })
@@ -55,14 +61,20 @@ describe('adapter failure normalization', () => {
 
     const accessorBacked = new Error('provider failed') as Error & { failure: unknown }
     accessorBacked.failure = Object.defineProperty({}, 'message', {
-      get() { throw new Error('failure getter failed') },
+      get() {
+        throw new Error('failure getter failed')
+      },
     })
     expect(normalizeLlmFailure(accessorBacked)).toEqual({ message: 'provider failed', code: 'UNKNOWN' })
   })
 
   it('falls back when an Error message accessor throws', () => {
     const error = new Error('provider failed')
-    Object.defineProperty(error, 'message', { get() { throw new Error('message getter failed') } })
+    Object.defineProperty(error, 'message', {
+      get() {
+        throw new Error('message getter failed')
+      },
+    })
     expect(normalizeLlmFailure(error)).toEqual({ message: 'LLM adapter failed', code: 'UNKNOWN' })
   })
 })

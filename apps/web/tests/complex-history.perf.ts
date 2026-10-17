@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import type { Browser, CDPSession, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import {
   ToolCallId,
@@ -20,20 +20,10 @@ import {
 } from '@deepseek-ai/dsh-llm'
 import type { ReplayEntry, ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
 import type { SessionEvent, SessionSeq } from '@deepseek-ai/dsh-session'
-import {
-  SESSION_FORMAT_VERSION,
-  Session,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 // Carries the session/title event declaration into the fixture builder.
 import type {} from '@deepseek-ai/dsh-session-title'
-import {
-  launchWebScaffold,
-  seedSession,
-  watchConsole,
-  webSnapshotMode,
-  type WebScaffold,
-} from './scaffold.ts'
+import { launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage } from './support.ts'
 
 const SIDEBAR_SESSION_COUNT = 1_000
@@ -42,7 +32,7 @@ const LONG_SESSION_TITLE = 'LONG_PERF_SENTINEL 500-turn session'
 const LONG_HISTORY_TURNS = 500
 const TOOL_TURN_INTERVAL = 10
 const TOOLS_PER_TOOL_TURN = 10
-const EXPECTED_TOOL_CALLS = LONG_HISTORY_TURNS / TOOL_TURN_INTERVAL * TOOLS_PER_TOOL_TURN
+const EXPECTED_TOOL_CALLS = (LONG_HISTORY_TURNS / TOOL_TURN_INTERVAL) * TOOLS_PER_TOOL_TURN
 const EXPECTED_TRAJECTORY_ROWS = 2_100
 const DEFAULT_HISTORY_TURNS = 24
 const PERF_REPLAY_CONTEXT_WINDOW = 10_000_000
@@ -71,8 +61,8 @@ const LIVE_PROMPT = [
   ...Array.from(
     { length: 48 },
     (_, index) =>
-      `Context ${String(index + 1).padStart(2, '0')}: 用户正在检查长会话中的增量渲染性能。`
-      + ` Preserve item ${String(index)} and compare ${'payload'.repeat(8)}.`,
+      `Context ${String(index + 1).padStart(2, '0')}: 用户正在检查长会话中的增量渲染性能。` +
+      ` Preserve item ${String(index)} and compare ${'payload'.repeat(8)}.`,
   ),
   '```ts',
   ...Array.from(
@@ -132,16 +122,17 @@ interface ContinuedTurnReport {
   readonly kind: 'text' | 'tool'
   readonly promptChars: number
   readonly composerFill: Measurement
-  readonly stream: MutationProbeResult & Measurement & {
-    readonly paceMs: number
-    readonly deltaChunks: number
-    readonly persistedChunks: number
-    readonly toolCalls: number
-    readonly toolResults: number
-    readonly clickToUserEchoMs: number
-    readonly clickToFirstChunkMs: number
-    readonly firstChunkToSettledMs: number
-  }
+  readonly stream: MutationProbeResult &
+    Measurement & {
+      readonly paceMs: number
+      readonly deltaChunks: number
+      readonly persistedChunks: number
+      readonly toolCalls: number
+      readonly toolResults: number
+      readonly clickToUserEchoMs: number
+      readonly clickToFirstChunkMs: number
+      readonly firstChunkToSettledMs: number
+    }
 }
 
 interface ConversationTurnSpec {
@@ -198,11 +189,15 @@ function appendTitle(session: Session, title: string, messageSeq: SessionSeq): v
 }
 
 function appendSystemPrompt(session: Session, turn: number, step: number): void {
-  session.append('system/message', {
-    turn,
-    step,
-    message: createSystemMessage('Synthetic performance system prompt.'),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'system/message',
+    {
+      turn,
+      step,
+      message: createSystemMessage('Synthetic performance system prompt.'),
+    },
+    { surfaceOp: 'append' },
+  )
 }
 
 function appendRequestHeader(session: Session, turn: number, step: number): void {
@@ -214,34 +209,28 @@ function appendRequestHeader(session: Session, turn: number, step: number): void
   })
 }
 
-function appendAssistant(
-  session: Session,
-  turn: number,
-  step: number,
-  body: string,
-): void {
-  session.append('assistant/message', {
-    stream: [],
-    turn,
-    step,
-    message: createAssistantMessage({
-      content: text(body),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-    usage: {
-      inputTokens: 4_000 + turn * 10,
-      outputTokens: 200 + step * 20,
-      cacheReadTokens: turn % 2 === 0 ? 2_000 : 0,
+function appendAssistant(session: Session, turn: number, step: number, body: string): void {
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step,
+      message: createAssistantMessage({
+        content: text(body),
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+      usage: {
+        inputTokens: 4_000 + turn * 10,
+        outputTokens: 200 + step * 20,
+        cacheReadTokens: turn % 2 === 0 ? 2_000 : 0,
+      },
     },
-  }, { surfaceOp: 'append' })
+    { surfaceOp: 'append' },
+  )
 }
 
-function appendToolStep(
-  session: Session,
-  turn: number,
-  step: number,
-  toolCount: number,
-): void {
+function appendToolStep(session: Session, turn: number, step: number, toolCount: number): void {
   const calls = Array.from({ length: toolCount }, (_, index) => {
     const callId = ToolCallId(`perf-call-${String(turn)}-${String(index)}`)
     const args = JSON.stringify({
@@ -252,32 +241,36 @@ function appendToolStep(
     return { callId, index, args }
   })
 
-  session.append('assistant/message', {
-    stream: [],
-    turn,
-    step,
-    message: createAssistantMessage({
-      content: [
-        {
-          type: 'reasoning',
-          text: `Dispatching ${String(toolCount)} synthetic tools for turn ${String(turn)}.`,
-        },
-        ...calls.map(({ callId, args }) => ({
-          type: 'tool-call' as const,
-          id: callId,
-          name: 'synthetic_tool',
-          arguments: args,
-        })),
-      ],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-    usage: {
-      inputTokens: 6_000 + turn * 10,
-      outputTokens: 500,
-      cacheReadTokens: 3_000,
-      reasoningTokens: 50,
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step,
+      message: createAssistantMessage({
+        content: [
+          {
+            type: 'reasoning',
+            text: `Dispatching ${String(toolCount)} synthetic tools for turn ${String(turn)}.`,
+          },
+          ...calls.map(({ callId, args }) => ({
+            type: 'tool-call' as const,
+            id: callId,
+            name: 'synthetic_tool',
+            arguments: args,
+          })),
+        ],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+      usage: {
+        inputTokens: 6_000 + turn * 10,
+        outputTokens: 500,
+        cacheReadTokens: 3_000,
+        reasoningTokens: 50,
+      },
     },
-  }, { surfaceOp: 'append' })
+    { surfaceOp: 'append' },
+  )
 
   const callEvents = calls.map(({ callId, args }) =>
     session.append('tool/call', {
@@ -286,31 +279,31 @@ function appendToolStep(
       callId,
       name: 'synthetic_tool',
       arguments: args,
-    }))
+    }),
+  )
 
   for (const [index, call] of calls.entries()) {
     const source = callEvents[index]
     if (source === undefined) throw new Error(`missing synthetic tool call ${String(index)}`)
-    session.append('tool/result', {
-      turn,
-      step,
-      message: createToolResultMessage({
-        callId: call.callId,
-        content: text(
-          `synthetic result turn=${String(turn)} index=${String(call.index)} ${'r'.repeat(400)}`,
-        ),
-        isError: false,
-      }),
-    }, { surfaceOp: 'append', sourceEventSeqs: [source.seq] })
+    session.append(
+      'tool/result',
+      {
+        turn,
+        step,
+        message: createToolResultMessage({
+          callId: call.callId,
+          content: text(`synthetic result turn=${String(turn)} index=${String(call.index)} ${'r'.repeat(400)}`),
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append', sourceEventSeqs: [source.seq] },
+    )
   }
 }
 
 function fencedCode(turn: number): string {
   if (turn % 25 !== 0) return ''
-  const lines = Array.from(
-    { length: 80 },
-    (_, index) => `const value_${String(index)} = ${String(turn + index)}`,
-  )
+  const lines = Array.from({ length: 80 }, (_, index) => `const value_${String(index)} = ${String(turn + index)}`)
   return `\n\n\`\`\`ts\n${lines.join('\n')}\n\`\`\``
 }
 
@@ -324,11 +317,7 @@ function fixtureLog(session: Session): string {
     isSeeded: false,
     delegationDepth: 0,
   }
-  return [
-    JSON.stringify(header),
-    ...session.snapshotEvents().map(event => JSON.stringify(event)),
-    '',
-  ].join('\n')
+  return [JSON.stringify(header), ...session.snapshotEvents().map(event => JSON.stringify(event)), ''].join('\n')
 }
 
 function smallSidebarFixture(): string {
@@ -336,10 +325,14 @@ function smallSidebarFixture(): string {
   session.append('turn/start', {
     turn: 1,
   })
-  const user = session.append('user/message', createUserMessage({
-    content: text('Inspect this compact synthetic session.'),
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: text('Inspect this compact synthetic session.'),
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   appendTitle(session, 'Synthetic sidebar session', user.seq)
   session.append('step/start', { turn: 1, step: 1 })
   appendSystemPrompt(session, 1, 1)
@@ -360,12 +353,14 @@ function longHistoryFixture(): string {
     session.append('turn/start', {
       turn,
     })
-    const user = session.append('user/message', createUserMessage({
-      content: text(
-        `LONG_PERF_SENTINEL turn ${String(turn)}: analyze payload ${'u'.repeat(200)}`,
-      ),
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const user = session.append(
+      'user/message',
+      createUserMessage({
+        content: text(`LONG_PERF_SENTINEL turn ${String(turn)}: analyze payload ${'u'.repeat(200)}`),
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     if (turn === 1) appendTitle(session, LONG_SESSION_TITLE, user.seq)
 
     session.append('step/start', { turn, step: 1 })
@@ -376,20 +371,10 @@ function longHistoryFixture(): string {
       session.append('step/end', { turn, step: 1 })
       session.append('step/start', { turn, step: 2 })
       appendRequestHeader(session, turn, 2)
-      appendAssistant(
-        session,
-        turn,
-        2,
-        `All synthetic tools completed for turn ${String(turn)}. ${'z'.repeat(320)}${fencedCode(turn)}`,
-      )
+      appendAssistant(session, turn, 2, `All synthetic tools completed for turn ${String(turn)}. ${'z'.repeat(320)}${fencedCode(turn)}`)
       session.append('step/end', { turn, step: 2 })
     } else {
-      appendAssistant(
-        session,
-        turn,
-        1,
-        `Synthetic assistant response for turn ${String(turn)}. ${'a'.repeat(320)}${fencedCode(turn)}`,
-      )
+      appendAssistant(session, turn, 1, `Synthetic assistant response for turn ${String(turn)}. ${'a'.repeat(320)}${fencedCode(turn)}`)
       session.append('step/end', { turn, step: 1 })
     }
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
@@ -424,9 +409,11 @@ function textStream(deltas: readonly string[], inputTokens: number): StreamChunk
 
 function comparisonPrompt(index: number): string {
   if (index === COMPARISON_TURNS) return LIVE_PROMPT
-  return (`${LONG_CONTINUATION_USER_PREFIX}_${String(index)} `
-    + `继续分析这个长会话的第 ${String(index)} 个增量问题，并保留当前滚动和输入响应。 `
-    + 'context '.repeat(80)).trimEnd()
+  return (
+    `${LONG_CONTINUATION_USER_PREFIX}_${String(index)} ` +
+    `继续分析这个长会话的第 ${String(index)} 个增量问题，并保留当前滚动和输入响应。 ` +
+    'context '.repeat(80)
+  ).trimEnd()
 }
 
 function comparisonDeltas(index: number): string[] {
@@ -441,34 +428,26 @@ function comparisonDeltas(index: number): string[] {
 }
 
 function comparisonTurn(index: number): ConversationTurnSpec {
-  const toolResultMarker = index % COMPARISON_TOOL_INTERVAL === 0
-    ? `LONG_CONTINUATION_TOOL_RESULT_${String(index)}`
-    : undefined
+  const toolResultMarker = index % COMPARISON_TOOL_INTERVAL === 0 ? `LONG_CONTINUATION_TOOL_RESULT_${String(index)}` : undefined
   return {
     prompt: comparisonPrompt(index),
     deltas: comparisonDeltas(index),
-    userMarker: index === COMPARISON_TURNS
-      ? LIVE_PROMPT_MARKER
-      : `${LONG_CONTINUATION_USER_PREFIX}_${String(index)}`,
-    firstMarker: index === COMPARISON_TURNS
-      ? STREAM_FIRST_MARKER
-      : `${LONG_CONTINUATION_FIRST_PREFIX}_${String(index)}`,
-    doneMarker: index === COMPARISON_TURNS
-      ? STREAM_DONE_MARKER
-      : `${LONG_CONTINUATION_DONE_PREFIX}_${String(index)}`,
-    ...toolResultMarker === undefined ? {} : { toolResultMarker },
+    userMarker: index === COMPARISON_TURNS ? LIVE_PROMPT_MARKER : `${LONG_CONTINUATION_USER_PREFIX}_${String(index)}`,
+    firstMarker: index === COMPARISON_TURNS ? STREAM_FIRST_MARKER : `${LONG_CONTINUATION_FIRST_PREFIX}_${String(index)}`,
+    doneMarker: index === COMPARISON_TURNS ? STREAM_DONE_MARKER : `${LONG_CONTINUATION_DONE_PREFIX}_${String(index)}`,
+    ...(toolResultMarker === undefined ? {} : { toolResultMarker }),
   }
 }
 
 function soakTurn(index: number): ConversationTurnSpec {
   const suffix = String(index).padStart(3, '0')
-  const toolResultMarker = index % SOAK_TOOL_INTERVAL === 0
-    ? `SOAK_CONVERSATION_TOOL_RESULT_${suffix}`
-    : undefined
+  const toolResultMarker = index % SOAK_TOOL_INTERVAL === 0 ? `SOAK_CONVERSATION_TOOL_RESULT_${suffix}` : undefined
   return {
-    prompt: (`${SOAK_USER_PREFIX}_${suffix} `
-      + `持续对话第 ${String(index)} 轮，检查增量渲染与保留状态。 `
-      + 'context '.repeat(20)).trimEnd(),
+    prompt: (
+      `${SOAK_USER_PREFIX}_${suffix} ` +
+      `持续对话第 ${String(index)} 轮，检查增量渲染与保留状态。 ` +
+      'context '.repeat(20)
+    ).trimEnd(),
     deltas: Array.from({ length: SOAK_DELTA_COUNT }, (_, chunkIndex) => {
       if (chunkIndex === 0) return `${SOAK_FIRST_PREFIX}_${suffix} `
       if (chunkIndex === SOAK_DELTA_COUNT - 1) return `${SOAK_DONE_PREFIX}_${suffix}.`
@@ -477,7 +456,7 @@ function soakTurn(index: number): ConversationTurnSpec {
     userMarker: `${SOAK_USER_PREFIX}_${suffix}`,
     firstMarker: `${SOAK_FIRST_PREFIX}_${suffix}`,
     doneMarker: `${SOAK_DONE_PREFIX}_${suffix}`,
-    ...toolResultMarker === undefined ? {} : { toolResultMarker },
+    ...(toolResultMarker === undefined ? {} : { toolResultMarker }),
   }
 }
 
@@ -506,24 +485,18 @@ function toolStream(index: number, marker: string): StreamChunk[] {
   ]
 }
 
-function performanceReplayOverride(
-  turnCount: number,
-  turnSpec: (index: number) => ConversationTurnSpec,
-): ReplayOverrideDoc {
-  const continuationEntries = Array.from(
-    { length: turnCount },
-    (_, offset): ReplayEntry[] => {
-      const index = offset + 1
-      const spec = turnSpec(index)
-      const finalResponse: ReplayEntry = {
-        kind: 'chunks',
-        chunks: textStream(spec.deltas, Math.ceil(spec.prompt.length / 4)),
-      }
-      return spec.toolResultMarker === undefined
-        ? [finalResponse]
-        : [{ kind: 'chunks', chunks: toolStream(index, spec.toolResultMarker) }, finalResponse]
-    },
-  ).flat()
+function performanceReplayOverride(turnCount: number, turnSpec: (index: number) => ConversationTurnSpec): ReplayOverrideDoc {
+  const continuationEntries = Array.from({ length: turnCount }, (_, offset): ReplayEntry[] => {
+    const index = offset + 1
+    const spec = turnSpec(index)
+    const finalResponse: ReplayEntry = {
+      kind: 'chunks',
+      chunks: textStream(spec.deltas, Math.ceil(spec.prompt.length / 4)),
+    }
+    return spec.toolResultMarker === undefined
+      ? [finalResponse]
+      : [{ kind: 'chunks', chunks: toolStream(index, spec.toolResultMarker) }, finalResponse]
+  }).flat()
   return continuationEntries
 }
 
@@ -536,10 +509,7 @@ async function chromiumMetrics(cdp: CDPSession): Promise<ChromiumMetrics> {
   return Object.fromEntries(payload.metrics.map(metric => [metric.name, metric.value]))
 }
 
-async function retainedBrowserState(
-  cdp: CDPSession,
-  page: Page,
-): Promise<RetainedBrowserState> {
+async function retainedBrowserState(cdp: CDPSession, page: Page): Promise<RetainedBrowserState> {
   await cdp.send('HeapProfiler.collectGarbage')
   const metrics = await chromiumMetrics(cdp)
   return {
@@ -556,36 +526,23 @@ function requiredMetric(metrics: ChromiumMetrics, name: string): number {
   return value
 }
 
-function metricDelta(
-  before: ChromiumMetrics,
-  after: ChromiumMetrics,
-  wallMs: number,
-): Measurement {
+function metricDelta(before: ChromiumMetrics, after: ChromiumMetrics, wallMs: number): Measurement {
   return {
     wallMs: rounded(wallMs),
     taskMs: rounded((requiredMetric(after, 'TaskDuration') - requiredMetric(before, 'TaskDuration')) * 1_000),
     scriptMs: rounded((requiredMetric(after, 'ScriptDuration') - requiredMetric(before, 'ScriptDuration')) * 1_000),
     layoutMs: rounded((requiredMetric(after, 'LayoutDuration') - requiredMetric(before, 'LayoutDuration')) * 1_000),
-    recalcStyleMs: rounded(
-      (requiredMetric(after, 'RecalcStyleDuration') - requiredMetric(before, 'RecalcStyleDuration')) * 1_000,
-    ),
-    devtoolsMs: rounded(
-      (requiredMetric(after, 'DevToolsCommandDuration') - requiredMetric(before, 'DevToolsCommandDuration')) * 1_000,
-    ),
+    recalcStyleMs: rounded((requiredMetric(after, 'RecalcStyleDuration') - requiredMetric(before, 'RecalcStyleDuration')) * 1_000),
+    devtoolsMs: rounded((requiredMetric(after, 'DevToolsCommandDuration') - requiredMetric(before, 'DevToolsCommandDuration')) * 1_000),
     nodesDelta: requiredMetric(after, 'Nodes') - requiredMetric(before, 'Nodes'),
     listenersDelta: requiredMetric(after, 'JSEventListeners') - requiredMetric(before, 'JSEventListeners'),
-    heapDeltaMb: rounded(
-      (requiredMetric(after, 'JSHeapUsedSize') - requiredMetric(before, 'JSHeapUsedSize')) / 1_048_576,
-    ),
+    heapDeltaMb: rounded((requiredMetric(after, 'JSHeapUsedSize') - requiredMetric(before, 'JSHeapUsedSize')) / 1_048_576),
     totalNodes: requiredMetric(after, 'Nodes'),
     heapMb: rounded(requiredMetric(after, 'JSHeapUsedSize') / 1_048_576),
   }
 }
 
-async function measure<T>(
-  cdp: CDPSession,
-  action: () => Promise<T>,
-): Promise<{ measurement: Measurement; value: T }> {
+async function measure<T>(cdp: CDPSession, action: () => Promise<T>): Promise<{ measurement: Measurement; value: T }> {
   const before = await chromiumMetrics(cdp)
   const started = performance.now()
   const value = await action()
@@ -603,7 +560,7 @@ async function startMutationProbe(page: Page): Promise<void> {
       records: 0,
       observer: undefined as MutationObserver | undefined,
     }
-    const observer = new MutationObserver((records) => {
+    const observer = new MutationObserver(records => {
       probe.batches += 1
       probe.records += records.length
     })
@@ -631,14 +588,11 @@ async function stopMutationProbe(page: Page): Promise<MutationProbeResult> {
   })
 }
 
-async function startUserRenderProbe(
-  page: Page,
-  marker: string,
-): Promise<void> {
+async function startUserRenderProbe(page: Page, marker: string): Promise<void> {
   const send = page.getByRole('button', { name: 'Send message', exact: true })
   await send.waitFor({ timeout: 15_000 })
   await expect.poll(() => send.isEnabled(), { timeout: 15_000 }).toBe(true)
-  await page.evaluate((expectedMarker) => {
+  await page.evaluate(expectedMarker => {
     const target = document.querySelector('[data-conversation-scroll]')
     if (target === null) throw new Error('user render probe target is unavailable')
     const probe: {
@@ -663,11 +617,7 @@ async function startUserRenderProbe(
       return false
     }
     const markDomVisible = (): void => {
-      if (
-        probe.sendAt === undefined
-        || probe.domAt !== undefined
-        || !transcriptContainsMarker()
-      ) return
+      if (probe.sendAt === undefined || probe.domAt !== undefined || !transcriptContainsMarker()) return
       probe.domAt = globalThis.performance.now()
       // The second callback runs only after a render opportunity for the DOM
       // insertion observed before the first callback.
@@ -682,7 +632,7 @@ async function startUserRenderProbe(
       markDomVisible()
       if (probe.domAt === undefined) requestAnimationFrame(pollForMarker)
     }
-    const observer = new MutationObserver((records) => {
+    const observer = new MutationObserver(records => {
       if (probe.sendAt === undefined) return
       probe.batches += 1
       probe.records += records.length
@@ -699,16 +649,20 @@ async function startUserRenderProbe(
     })
     Reflect.set(globalThis, '__dshPerfUserRenderProbe', probe)
   }, marker)
-  await send.evaluate((button) => {
-    button.addEventListener('click', (event) => {
-      const probe = Reflect.get(globalThis, '__dshPerfUserRenderProbe') as
-        | { sendAt?: number; trustedClick?: boolean; pollForMarker?: () => void }
-        | undefined
-      if (probe?.pollForMarker === undefined) throw new Error('user render probe was not started')
-      probe.trustedClick = event.isTrusted
-      probe.sendAt = globalThis.performance.now()
-      requestAnimationFrame(probe.pollForMarker)
-    }, { capture: true, once: true })
+  await send.evaluate(button => {
+    button.addEventListener(
+      'click',
+      event => {
+        const probe = Reflect.get(globalThis, '__dshPerfUserRenderProbe') as
+          | { sendAt?: number; trustedClick?: boolean; pollForMarker?: () => void }
+          | undefined
+        if (probe?.pollForMarker === undefined) throw new Error('user render probe was not started')
+        probe.trustedClick = event.isTrusted
+        probe.sendAt = globalThis.performance.now()
+        requestAnimationFrame(probe.pollForMarker)
+      },
+      { capture: true, once: true },
+    )
   })
 }
 
@@ -717,28 +671,27 @@ async function triggerUserRenderProbe(page: Page): Promise<void> {
   await send.click()
 }
 
-async function stopUserRenderProbe(
-  page: Page,
-  marker: string,
-): Promise<UserRenderProbeResult> {
+async function stopUserRenderProbe(page: Page, marker: string): Promise<UserRenderProbeResult> {
   try {
-    await page.waitForFunction(() => {
-      const probe = Reflect.get(globalThis, '__dshPerfUserRenderProbe') as
-        | { paintAt?: number }
-        | undefined
-      return probe?.paintAt !== undefined
-    }, undefined, { timeout: 15_000 })
+    await page.waitForFunction(
+      () => {
+        const probe = Reflect.get(globalThis, '__dshPerfUserRenderProbe') as { paintAt?: number } | undefined
+        return probe?.paintAt !== undefined
+      },
+      undefined,
+      { timeout: 15_000 },
+    )
   } catch (error) {
-    const diagnostic = await page.evaluate((expectedMarker) => {
+    const diagnostic = await page.evaluate(expectedMarker => {
       const probe = Reflect.get(globalThis, '__dshPerfUserRenderProbe') as
         | {
-          sendAt?: number
-          domAt?: number
-          paintAt?: number
-          trustedClick?: boolean
-          batches: number
-          records: number
-        }
+            sendAt?: number
+            domAt?: number
+            paintAt?: number
+            trustedClick?: boolean
+            batches: number
+            records: number
+          }
         | undefined
       const target = document.querySelector('[data-conversation-scroll]')
       let markerOutsideComposer = false
@@ -756,8 +709,7 @@ async function stopUserRenderProbe(
       return {
         probe,
         markerOutsideComposer,
-        markerInComposer: document.querySelector('[data-composer-card]')
-          ?.textContent?.includes(expectedMarker) ?? false,
+        markerInComposer: document.querySelector('[data-composer-card]')?.textContent?.includes(expectedMarker) ?? false,
       }
     }, marker)
     throw new Error(`user render probe timed out: ${JSON.stringify(diagnostic)}`, { cause: error })
@@ -765,21 +717,16 @@ async function stopUserRenderProbe(
   return page.evaluate(() => {
     const probe = Reflect.get(globalThis, '__dshPerfUserRenderProbe') as
       | {
-        sendAt?: number
-        domAt?: number
-        paintAt?: number
-        trustedClick?: boolean
-        batches: number
-        records: number
-      }
+          sendAt?: number
+          domAt?: number
+          paintAt?: number
+          trustedClick?: boolean
+          batches: number
+          records: number
+        }
       | undefined
     Reflect.deleteProperty(globalThis, '__dshPerfUserRenderProbe')
-    if (
-      probe?.trustedClick !== true
-      || probe.sendAt === undefined
-      || probe.domAt === undefined
-      || probe.paintAt === undefined
-    ) {
+    if (probe?.trustedClick !== true || probe.sendAt === undefined || probe.domAt === undefined || probe.paintAt === undefined) {
       throw new Error('user render probe did not observe a trusted click, DOM insertion, and paint')
     }
     return {
@@ -793,11 +740,7 @@ async function stopUserRenderProbe(
   })
 }
 
-async function stableCount(
-  locator: Locator,
-  accepts: (count: number) => boolean,
-  timeoutMs = 60_000,
-): Promise<number> {
+async function stableCount(locator: Locator, accepts: (count: number) => boolean, timeoutMs = 60_000): Promise<number> {
   const deadline = performance.now() + timeoutMs
   let previous = -1
   let stableReads = 0
@@ -819,10 +762,7 @@ async function conversationTurns(page: Page): Promise<number> {
   return stableCount(page.locator('[data-chat-flow-key^="9:turn-tail"]'), count => count > 0)
 }
 
-function retainedDelta(
-  before: RetainedBrowserState,
-  after: RetainedBrowserState,
-): RetainedBrowserState {
+function retainedDelta(before: RetainedBrowserState, after: RetainedBrowserState): RetainedBrowserState {
   return {
     domElements: after.domElements - before.domElements,
     nodes: after.nodes - before.nodes,
@@ -831,9 +771,7 @@ function retainedDelta(
   }
 }
 
-async function launchPerformanceWorld(
-  options: PerformanceWorldOptions,
-): Promise<PerformanceWorld> {
+async function launchPerformanceWorld(options: PerformanceWorldOptions): Promise<PerformanceWorld> {
   const setupStarted = performance.now()
   let replayDir: string | undefined
   let scaffold: WebScaffold | undefined
@@ -876,7 +814,7 @@ async function launchPerformanceWorld(
       tripwire: watchConsole(page),
       sessionEvents,
       setupMs,
-      ...replayDir === undefined ? {} : { replayDir },
+      ...(replayDir === undefined ? {} : { replayDir }),
     }
   } catch (error) {
     const failures: unknown[] = [error]
@@ -911,28 +849,24 @@ async function closePerformanceWorld(world: PerformanceWorld): Promise<void> {
   await world.page.close().catch((error: unknown) => failures.push(error))
   await world.scaffold.close().catch((error: unknown) => failures.push(error))
   if (world.replayDir !== undefined) {
-    await rm(world.replayDir, { recursive: true, force: true })
-      .catch((error: unknown) => failures.push(error))
+    await rm(world.replayDir, { recursive: true, force: true }).catch((error: unknown) => failures.push(error))
   }
   if (failures.length === 1) throw failures[0]
   if (failures.length > 1) throw new AggregateError(failures, 'web performance teardown failed')
 }
 
-async function openPerformancePage(
-  world: PerformanceWorld,
-  expectedSessions: number,
-): Promise<Locator> {
+async function openPerformancePage(world: PerformanceWorld, expectedSessions: number): Promise<Locator> {
   await world.page.goto(world.scaffold.authenticatedUrl, { waitUntil: 'load' })
   await world.page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   const group = world.page.getByRole('treeitem').first()
-  await expect.poll(() => group.textContent(), { timeout: 30_000 })
+  await expect
+    .poll(() => group.textContent(), { timeout: 30_000 })
     .toContain(`${String(expectedSessions)} ${expectedSessions === 1 ? 'session' : 'sessions'}`)
   return group
 }
 
 async function openLongHistory(page: Page): Promise<number> {
-  await page.getByRole('textbox', { name: 'Search name, keywords...', exact: true })
-    .fill('LONG_PERF_SENTINEL')
+  await page.getByRole('textbox', { name: 'Search name, keywords...', exact: true }).fill('LONG_PERF_SENTINEL')
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => results.count(), { timeout: 60_000 }).toBe(1)
   await results.first().click()
@@ -983,20 +917,15 @@ async function continueConversation(
     } else {
       expect(settledSessionId).toBe(liveSessionId)
     }
-    await expect.poll(
-      () => world.page.locator('[data-streaming="true"]').count(),
-      { timeout: 15_000 },
-    ).toBe(0)
+    await expect.poll(() => world.page.locator('[data-streaming="true"]').count(), { timeout: 15_000 }).toBe(0)
     await world.page.getByText(spec.doneMarker, { exact: false }).last().waitFor({ timeout: 15_000 })
     const clickToSettledMs = performance.now() - streamStarted
     const streamAfter = await chromiumMetrics(cdp)
     const mutations = await stopMutationProbe(world.page)
     const turnEvents = world.sessionEvents.slice(eventStart)
-    const chunks = turnEvents.flatMap(event => (
-      event.type === 'assistant/message' || event.type === 'assistant/attempt'
-        ? expandAssistantStream(event.data.stream)
-        : []
-    ))
+    const chunks = turnEvents.flatMap(event =>
+      event.type === 'assistant/message' || event.type === 'assistant/attempt' ? expandAssistantStream(event.data.stream) : [],
+    )
     const toolCalls = turnEvents.filter(event => event.type === 'tool/call')
     const toolResults = turnEvents.filter(event => event.type === 'tool/result')
     const toolTurn = spec.toolResultMarker !== undefined
@@ -1011,21 +940,23 @@ async function continueConversation(
       }
       const message = toolResult.data.message
       expect(message.isError).toBe(false)
-      expect(message.content
-        .filter(block => block.type === 'text')
-        .map(block => block.text)
-        .join('')).toContain(spec.toolResultMarker)
+      expect(
+        message.content
+          .filter(block => block.type === 'text')
+          .map(block => block.text)
+          .join(''),
+      ).toContain(spec.toolResultMarker)
     }
-    const user = turnEvents.find(
-      event => event.type === 'user/message' && event.data.source.kind === 'user',
-    )
+    const user = turnEvents.find(event => event.type === 'user/message' && event.data.source.kind === 'user')
     if (user?.type !== 'user/message') {
       throw new Error(`continued turn ${String(index)} did not log its user message`)
     }
-    expect(user.data.content
-      .filter(block => block.type === 'text')
-      .map(block => block.text)
-      .join('')).toBe(spec.prompt)
+    expect(
+      user.data.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join(''),
+    ).toBe(spec.prompt)
     const resultingTurns = await conversationTurns(world.page)
     expect(resultingTurns).toBe(options.startingTurns + index)
     turns.push({
@@ -1057,9 +988,8 @@ async function continueConversation(
   }
 
   const lastCheckpoint = checkpoints.at(-1)
-  const retainedAfter = lastCheckpoint?.turns === options.startingTurns + options.turnCount
-    ? lastCheckpoint.state
-    : await retainedBrowserState(cdp, world.page)
+  const retainedAfter =
+    lastCheckpoint?.turns === options.startingTurns + options.turnCount ? lastCheckpoint.state : await retainedBrowserState(cdp, world.page)
   if (lastCheckpoint?.turns !== options.startingTurns + options.turnCount) {
     checkpoints.push({ turns: options.startingTurns + options.turnCount, state: retainedAfter })
   }
@@ -1075,10 +1005,7 @@ async function continueConversation(
   }
 }
 
-async function measurePostSoakUserRender(
-  world: PerformanceWorld,
-  cdp: CDPSession,
-): Promise<object> {
+async function measurePostSoakUserRender(world: PerformanceWorld, cdp: CDPSession): Promise<object> {
   const spec = soakTurn(POST_SOAK_RENDER_TURN)
   if (spec.toolResultMarker !== undefined) {
     throw new Error('post-soak render probe must remain a text-only turn')
@@ -1099,34 +1026,25 @@ async function measurePostSoakUserRender(
   await triggerUserRenderProbe(world.page)
   const browserTiming = await stopUserRenderProbe(world.page, spec.userMarker)
   const browserAfter = await chromiumMetrics(cdp)
-  const browserAfterPaintSample = metricDelta(
-    browserBefore,
-    browserAfter,
-    performance.now() - fullTurnStarted,
-  )
+  const browserAfterPaintSample = metricDelta(browserBefore, browserAfter, performance.now() - fullTurnStarted)
   await world.page.getByText(spec.firstMarker, { exact: false }).last().waitFor({ timeout: 15_000 })
   const settledSessionId = await settled
-  await expect.poll(
-    () => world.page.locator('[data-streaming="true"]').count(),
-    { timeout: 15_000 },
-  ).toBe(0)
+  await expect.poll(() => world.page.locator('[data-streaming="true"]').count(), { timeout: 15_000 }).toBe(0)
   await world.page.getByText(spec.doneMarker, { exact: false }).last().waitFor({ timeout: 15_000 })
   const fullTurnMs = performance.now() - fullTurnStarted
 
   const turnEvents = world.sessionEvents.slice(eventStart)
-  const chunks = turnEvents.flatMap(event => (
-    event.type === 'assistant/message' || event.type === 'assistant/attempt'
-      ? expandAssistantStream(event.data.stream)
-      : []
-  ))
-  const user = turnEvents.find(
-    event => event.type === 'user/message' && event.data.source.kind === 'user',
+  const chunks = turnEvents.flatMap(event =>
+    event.type === 'assistant/message' || event.type === 'assistant/attempt' ? expandAssistantStream(event.data.stream) : [],
   )
+  const user = turnEvents.find(event => event.type === 'user/message' && event.data.source.kind === 'user')
   if (user?.type !== 'user/message') throw new Error('post-soak render probe did not log its user message')
-  expect(user.data.content
-    .filter(block => block.type === 'text')
-    .map(block => block.text)
-    .join('')).toBe(spec.prompt)
+  expect(
+    user.data.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join(''),
+  ).toBe(spec.prompt)
   expect(chunks).toHaveLength(spec.deltas.length + 4)
   expect(turnEvents.filter(event => event.type === 'tool/call')).toHaveLength(0)
   expect(turnEvents.filter(event => event.type === 'tool/result')).toHaveLength(0)
@@ -1159,10 +1077,7 @@ function p95(values: readonly number[]): number {
   return sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0
 }
 
-function summarizeTurnWindows(
-  turns: readonly ContinuedTurnReport[],
-  windowSize: number,
-): object[] {
+function summarizeTurnWindows(turns: readonly ContinuedTurnReport[], windowSize: number): object[] {
   const windows: object[] = []
   for (let start = 0; start < turns.length; start += windowSize) {
     const window = turns.slice(start, start + windowSize)
@@ -1225,18 +1140,14 @@ describe('manual web performance: complex workspace and history', () => {
 
       const sidebar = await measure(cdp, async () => {
         await group.click()
-        return stableCount(
-          page.getByRole('treeitem'),
-          count => count === SIDEBAR_SESSION_COUNT + 2,
-        )
+        return stableCount(page.getByRole('treeitem'), count => count === SIDEBAR_SESSION_COUNT + 2)
       })
       expect(sidebar.value).toBe(SIDEBAR_SESSION_COUNT + 2)
       await group.click()
       await expect.poll(() => page.getByRole('treeitem').count()).toBe(1)
 
       const contentSearch = await measure(cdp, async () => {
-        await page.getByRole('textbox', { name: 'Search name, keywords...', exact: true })
-          .fill('LONG_PERF_SENTINEL')
+        await page.getByRole('textbox', { name: 'Search name, keywords...', exact: true }).fill('LONG_PERF_SENTINEL')
         const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
         await expect.poll(() => results.count(), { timeout: 60_000 }).toBe(1)
         await results.first().waitFor({ timeout: 60_000 })
@@ -1274,8 +1185,7 @@ describe('manual web performance: complex workspace and history', () => {
         const previousTurns = turns
         const older = await measure(cdp, async () => {
           await page.getByRole('button', { name: 'Load earlier', exact: true }).click()
-          await expect.poll(() => conversationTurns(page), { timeout: 30_000 })
-            .toBeGreaterThan(previousTurns)
+          await expect.poll(() => conversationTurns(page), { timeout: 30_000 }).toBeGreaterThan(previousTurns)
           return conversationTurns(page)
         })
         turns = older.value
@@ -1293,32 +1203,36 @@ describe('manual web performance: complex workspace and history', () => {
       })
       expect(warmConversation.value).toBe(LONG_HISTORY_TURNS)
 
-      console.info(`WEB_PERF_RESULT ${JSON.stringify({
-        scenario: 'workspace-history-trajectory',
-        fixture: {
-          sidebarSessions: SIDEBAR_SESSION_COUNT,
-          totalSessions: SIDEBAR_SESSION_COUNT + 1,
-          longHistoryTurns: LONG_HISTORY_TURNS,
-          toolCalls: EXPECTED_TOOL_CALLS,
-          trajectoryRows: EXPECTED_TRAJECTORY_ROWS,
-        },
-        setupMs: rounded(world.setupMs),
-        boot: {
-          readyMs: rounded(bootReadyMs),
-          firstContentfulPaintMs: firstContentfulPaintMs === undefined
-            ? null
-            : rounded(firstContentfulPaintMs),
-        },
-        sidebarExpand: sidebar.measurement,
-        contentSearch: contentSearch.measurement,
-        openLongHistory: { initialTurns: opened.value, ...opened.measurement },
-        coldTrajectory: { rows: coldTrajectory.value, ...coldTrajectory.measurement },
-        collapseTurns: { rows: collapseTurns.value, ...collapseTurns.measurement },
-        trajectorySearch: { rows: trajectorySearch.value, ...trajectorySearch.measurement },
-        historyPages,
-        warmTrajectory: { rows: warmTrajectory.value, ...warmTrajectory.measurement },
-        warmConversation: { turns: warmConversation.value, ...warmConversation.measurement },
-      }, null, 2)}`)
+      console.info(
+        `WEB_PERF_RESULT ${JSON.stringify(
+          {
+            scenario: 'workspace-history-trajectory',
+            fixture: {
+              sidebarSessions: SIDEBAR_SESSION_COUNT,
+              totalSessions: SIDEBAR_SESSION_COUNT + 1,
+              longHistoryTurns: LONG_HISTORY_TURNS,
+              toolCalls: EXPECTED_TOOL_CALLS,
+              trajectoryRows: EXPECTED_TRAJECTORY_ROWS,
+            },
+            setupMs: rounded(world.setupMs),
+            boot: {
+              readyMs: rounded(bootReadyMs),
+              firstContentfulPaintMs: firstContentfulPaintMs === undefined ? null : rounded(firstContentfulPaintMs),
+            },
+            sidebarExpand: sidebar.measurement,
+            contentSearch: contentSearch.measurement,
+            openLongHistory: { initialTurns: opened.value, ...opened.measurement },
+            coldTrajectory: { rows: coldTrajectory.value, ...coldTrajectory.measurement },
+            collapseTurns: { rows: collapseTurns.value, ...collapseTurns.measurement },
+            trajectorySearch: { rows: trajectorySearch.value, ...trajectorySearch.measurement },
+            historyPages,
+            warmTrajectory: { rows: warmTrajectory.value, ...warmTrajectory.measurement },
+            warmConversation: { turns: warmConversation.value, ...warmConversation.measurement },
+          },
+          null,
+          2,
+        )}`,
+      )
       expect(world.tripwire.warnings).toEqual([])
       expect(world.tripwire.pageErrors).toEqual([])
     } finally {
@@ -1345,13 +1259,19 @@ describe('manual web performance: complex workspace and history', () => {
         expectedSessionId: SessionId(LONG_SESSION_ID),
       })
       expect(conversation.toolTurns).toBe(2)
-      console.info(`WEB_PERF_RESULT ${JSON.stringify({
-        scenario: 'default-resume-24-plus-8',
-        setupMs: rounded(world.setupMs),
-        replayContextWindow: PERF_REPLAY_CONTEXT_WINDOW,
-        openLongHistory: { turns: opened.value, ...opened.measurement },
-        conversation,
-      }, null, 2)}`)
+      console.info(
+        `WEB_PERF_RESULT ${JSON.stringify(
+          {
+            scenario: 'default-resume-24-plus-8',
+            setupMs: rounded(world.setupMs),
+            replayContextWindow: PERF_REPLAY_CONTEXT_WINDOW,
+            openLongHistory: { turns: opened.value, ...opened.measurement },
+            conversation,
+          },
+          null,
+          2,
+        )}`,
+      )
       expect(world.tripwire.warnings).toEqual([])
       expect(world.tripwire.pageErrors).toEqual([])
     } finally {
@@ -1376,8 +1296,7 @@ describe('manual web performance: complex workspace and history', () => {
         const previousTurns = turns
         const older = await measure(cdp, async () => {
           await world.page.getByRole('button', { name: 'Load earlier', exact: true }).click()
-          await expect.poll(() => conversationTurns(world.page), { timeout: 30_000 })
-            .toBeGreaterThan(previousTurns)
+          await expect.poll(() => conversationTurns(world.page), { timeout: 30_000 }).toBeGreaterThan(previousTurns)
           return conversationTurns(world.page)
         })
         turns = older.value
@@ -1391,13 +1310,19 @@ describe('manual web performance: complex workspace and history', () => {
         expectedSessionId: SessionId(LONG_SESSION_ID),
       })
       expect(conversation.toolTurns).toBe(2)
-      console.info(`WEB_PERF_RESULT ${JSON.stringify({
-        scenario: 'expanded-history-500-plus-8',
-        setupMs: rounded(world.setupMs),
-        replayContextWindow: PERF_REPLAY_CONTEXT_WINDOW,
-        historyPages,
-        conversation,
-      }, null, 2)}`)
+      console.info(
+        `WEB_PERF_RESULT ${JSON.stringify(
+          {
+            scenario: 'expanded-history-500-plus-8',
+            setupMs: rounded(world.setupMs),
+            replayContextWindow: PERF_REPLAY_CONTEXT_WINDOW,
+            historyPages,
+            conversation,
+          },
+          null,
+          2,
+        )}`,
+      )
       expect(world.tripwire.warnings).toEqual([])
       expect(world.tripwire.pageErrors).toEqual([])
     } finally {
@@ -1426,14 +1351,20 @@ describe('manual web performance: complex workspace and history', () => {
       expect(conversation.toolTurns).toBe(SOAK_TURNS / SOAK_TOOL_INTERVAL)
       const postSoakUserRender = await measurePostSoakUserRender(world, cdp)
       const { turns, ...retained } = conversation
-      console.info(`WEB_PERF_RESULT ${JSON.stringify({
-        scenario: 'continuous-100-turn-soak',
-        setupMs: rounded(world.setupMs),
-        replayContextWindow: PERF_REPLAY_CONTEXT_WINDOW,
-        ...retained,
-        windows: summarizeTurnWindows(turns, SOAK_CHECKPOINT_INTERVAL),
-        postSoakUserRender,
-      }, null, 2)}`)
+      console.info(
+        `WEB_PERF_RESULT ${JSON.stringify(
+          {
+            scenario: 'continuous-100-turn-soak',
+            setupMs: rounded(world.setupMs),
+            replayContextWindow: PERF_REPLAY_CONTEXT_WINDOW,
+            ...retained,
+            windows: summarizeTurnWindows(turns, SOAK_CHECKPOINT_INTERVAL),
+            postSoakUserRender,
+          },
+          null,
+          2,
+        )}`,
+      )
       expect(world.tripwire.warnings).toEqual([])
       expect(world.tripwire.pageErrors).toEqual([])
     } catch (error) {
@@ -1444,10 +1375,7 @@ describe('manual web performance: complex workspace and history', () => {
         await closePerformanceWorld(world)
       } catch (cleanupError) {
         if (testFailure === undefined) throw cleanupError
-        throw new AggregateError(
-          [testFailure, cleanupError],
-          'continuous conversation performance test and teardown failed',
-        )
+        throw new AggregateError([testFailure, cleanupError], 'continuous conversation performance test and teardown failed')
       }
     }
   })

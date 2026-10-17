@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import { load } from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const root = resolve(import.meta.dirname, '../..')
 const repository = 'deepseek-harness/deepseek-harness'
@@ -32,9 +32,10 @@ function workflow(file: string): Workflow {
 // This is not an Actions interpreter: string case-folding and general coercion differ.
 // Missing context properties use the Actions empty-string value.
 function evaluate(expression: string, context: Record<string, string | boolean>): unknown {
-  const source = expression.trim().replace(/^\$\{\{|\}\}$/g, '')
-    .replace(/\b(?:github|vars|runner)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)+/g,
-      key => JSON.stringify(context[key] ?? ''))
+  const source = expression
+    .trim()
+    .replace(/^\$\{\{|\}\}$/g, '')
+    .replace(/\b(?:github|vars|runner)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)+/g, key => JSON.stringify(context[key] ?? ''))
   return runInNewContext(source, { fromJSON: JSON.parse }, { timeout: 1000 })
 }
 
@@ -65,7 +66,10 @@ const fallbackCases: Array<[string, Record<string, string | boolean>]> = [
   ['unset switch', { ...trustedPr, 'vars.DSH_CI_FAILOVER_LINUX': '' }],
   ['hosted switch', { ...trustedPr, 'vars.DSH_CI_FAILOVER_LINUX': 'hosted' }],
   ['unknown switch', { ...trustedPr, 'vars.DSH_CI_FAILOVER_LINUX': 'true' }],
-  ['fork PR', { ...trustedPr, 'github.event.pull_request.head.repo.full_name': 'outsider/fork', 'github.event.pull_request.head.repo.fork': true }],
+  [
+    'fork PR',
+    { ...trustedPr, 'github.event.pull_request.head.repo.full_name': 'outsider/fork', 'github.event.pull_request.head.repo.fork': true },
+  ],
   ['different head repository', { ...trustedPr, 'github.event.pull_request.head.repo.full_name': 'outsider/repo' }],
   ['fork flag', { ...trustedPr, 'github.event.pull_request.head.repo.fork': true }],
   ['Dependabot author rerun by maintainer', { ...trustedPr, 'github.event.pull_request.user.login': 'dependabot[bot]' }],
@@ -81,7 +85,10 @@ const fallbackCases: Array<[string, Record<string, string | boolean>]> = [
   ['missing PR payload', { ...trustedPush, 'github.event_name': 'pull_request' }],
 ]
 
-for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['release-vendor.yml', ['pack']]] as const) {
+for (const [file, jobIds] of [
+  ['release.yml', ['dependencies', 'pack']],
+  ['release-vendor.yml', ['pack']],
+] as const) {
   describe(file, () => {
     const release = workflow(file)
     it('preserves the logical jobs, rehearsal events and read-only permission', () => {
@@ -110,18 +117,23 @@ for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['relea
           expect(job.steps[cacheIndex]?.run).toContain('echo "NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache" >> "$GITHUB_ENV"')
           expect(job.steps[cacheIndex]?.run).toContain('echo "npm_config_devdir=${{ runner.temp }}/node-gyp" >> "$GITHUB_ENV"')
           expect(job.steps[cacheIndex]?.run).toContain('echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"')
-          expect(job.steps.find(step => step.uses === 'pnpm/action-setup@v5.0.0')?.with?.dest)
-            .toBe('${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}')
+          expect(job.steps.find(step => step.uses === 'pnpm/action-setup@v5.0.0')?.with?.dest).toBe(
+            '${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}',
+          )
           expect(job.steps.find(step => step.name === 'Install (immutable)')?.run).toBe('pnpm install --frozen-lockfile')
         })
         it('retains the configured shared npm cache', () => {
           expect(JSON.stringify(release)).not.toMatch(/npm_config_cache/i)
         })
         it.each(['', 'store_root="${RUNNER_TEMP%/*}/pnpm-store"', 'store_root="$RUNNER_TEMP/pnpm-store"'])(
-          'rejects missing, runner-private, or job-temporary store placement: %s', (replacement) => {
-            const run = job.steps.find(step => step.name === 'Configure pnpm store path')?.run
-              ?.replace('store_root="$HOME/.local/share/pnpm/store"', replacement)
-            expect(() => { assertSharedPersistentStore(run) }).toThrow()
+          'rejects missing, runner-private, or job-temporary store placement: %s',
+          replacement => {
+            const run = job.steps
+              .find(step => step.name === 'Configure pnpm store path')
+              ?.run?.replace('store_root="$HOME/.local/share/pnpm/store"', replacement)
+            expect(() => {
+              assertSharedPersistentStore(run)
+            }).toThrow()
           },
         )
         it('uses the shared persistent store without remote cache reads or writes on self-hosted', () => {
@@ -137,7 +149,7 @@ for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['relea
           expect(nodeSetup?.with?.['package-manager-cache']).toBe(false)
         })
         it('retains the dependency and pack verification commands', () => {
-          const commands = job.steps.flatMap(step => step.run === undefined ? [] : [step.run])
+          const commands = job.steps.flatMap(step => (step.run === undefined ? [] : [step.run]))
           if (jobId === 'dependencies') {
             expect(commands).toContain('pnpm run verify-package-dependencies')
             expect(commands).toContain('pnpm run verify-npm-install-layout')
@@ -146,13 +158,23 @@ for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['relea
             const output = family === 'dsh' ? 'dist/npm' : 'dist/npm-vendor'
             expect(job.steps[0]?.with?.['fetch-depth']).toBe(0)
             expect(commands).toContain('pnpm run release:verify --family ' + family)
-            expect(commands).toContain(family === 'dsh'
-              ? "${{ github.event_name == 'pull_request' && 'pnpm run build:artifacts --profile official' || 'pnpm run build:official' }}"
-              : "${{ github.event_name == 'pull_request' && 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries' || 'pnpm run build:lib:host' }}")
+            expect(commands).toContain(
+              family === 'dsh'
+                ? "${{ github.event_name == 'pull_request' && 'pnpm run build:artifacts --profile official' || 'pnpm run build:official' }}"
+                : "${{ github.event_name == 'pull_request' && 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries' || 'pnpm run build:lib:host' }}",
+            )
             expect(commands).toContain('pnpm run release:pack --family ' + family + ' --out ' + output + ' --concurrency 8')
-            expect(commands).toContain('pnpm run release:verify-packed-install --family ' + family + ' --from ' + output
-              + (family === 'dsh' ? ' --from dist/npm-vendor --from dist/npm-landlock' : ''))
-            expect(job.steps.at(-1)).toMatchObject({ uses: 'actions/upload-artifact@v7.0.1', with: { path: output + '/*', 'retention-days': 7 } })
+            expect(commands).toContain(
+              'pnpm run release:verify-packed-install --family ' +
+                family +
+                ' --from ' +
+                output +
+                (family === 'dsh' ? ' --from dist/npm-vendor --from dist/npm-landlock' : ''),
+            )
+            expect(job.steps.at(-1)).toMatchObject({
+              uses: 'actions/upload-artifact@v7.0.1',
+              with: { path: output + '/*', 'retention-days': 7 },
+            })
           }
           expect(JSON.stringify(job)).not.toMatch(/secrets\.|release:publish|npm-publish/)
         })
@@ -161,7 +183,7 @@ for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['relea
   })
 }
 
-it.each(['release-publish.yml', 'release-vendor-publish.yml'])('keeps %s manual and entirely hosted', (file) => {
+it.each(['release-publish.yml', 'release-vendor-publish.yml'])('keeps %s manual and entirely hosted', file => {
   const publish = workflow(file)
   expect(Object.keys(publish.on)).toEqual(['workflow_dispatch'])
   for (const job of Object.values(publish.jobs)) expect(job['runs-on']).toBe(hosted)

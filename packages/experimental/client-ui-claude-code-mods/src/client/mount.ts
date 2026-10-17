@@ -38,7 +38,9 @@ class BandStore {
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   set(next: SurfaceSnapshot | undefined): void {
@@ -77,10 +79,13 @@ function watchSession(ctx: Context, sessionId: SessionId, onEnd: () => void): { 
 function registerUi(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'client-ui-claude-code-mods: dictionaries')
   const watches = new Map<SessionId, ReturnType<typeof watchSession>>()
-  ctx.effect(() => () => {
-    for (const watch of watches.values()) watch.dispose()
-    watches.clear()
-  }, 'client-ui-claude-code-mods: band watches')
+  ctx.effect(
+    () => () => {
+      for (const watch of watches.values()) watch.dispose()
+      watches.clear()
+    },
+    'client-ui-claude-code-mods: band watches',
+  )
   const watchOf = (sessionId: SessionId): ReturnType<typeof watchSession> => {
     let watch = watches.get(sessionId)
     if (watch === undefined) {
@@ -92,20 +97,25 @@ function registerUi(ctx: Context): void {
     }
     return watch
   }
-  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-    name: 'conversation.input.dock',
-    id: 'claude-code-mods',
-    order: 20,
-    locale: NS,
-    inject: (sessionId): BandInjected => ({
-      hooks: { band: watchOf(sessionId).store },
-      press: async (generation, actionId) => {
-        const result = await ctx.remote.claudeCodeMods.pressBand(sessionId, generation, actionId)
-        if (!result.ok) throw result.error
-        watchOf(sessionId).store.set(result.value)
+  ctx.slots.inject('conversation.input.dock', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.input.dock',
+        id: 'claude-code-mods',
+        order: 20,
+        locale: NS,
+        inject: (sessionId): BandInjected => ({
+          hooks: { band: watchOf(sessionId).store },
+          press: async (generation, actionId) => {
+            const result = await ctx.remote.claudeCodeMods.pressBand(sessionId, generation, actionId)
+            if (!result.ok) throw result.error
+            watchOf(sessionId).store.set(result.value)
+          },
+        }),
       },
-    }),
-  }, Band))
+      Band,
+    ),
+  )
 }
 
 /**

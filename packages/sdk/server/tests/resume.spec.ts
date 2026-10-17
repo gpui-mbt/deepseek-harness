@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -32,7 +32,9 @@ async function runtime(root: string, persistence = true) {
   ctx.llm.registerAdapter(['mock'], adapter)
   const events: SessionEventNotification[] = []
   const transport: JsonRpcTransportPeer = {
-    request: async () => { throw new Error('unexpected server request') },
+    request: async () => {
+      throw new Error('unexpected server request')
+    },
     notify: (method, params) => {
       if (method === 'session.event') events.push(params as SessionEventNotification)
     },
@@ -60,8 +62,7 @@ describe('SDK persisted session resume', () => {
 
     const second = await runtime(root)
     await second.server.initialize({ cwd: tmpdir(), provider: 'mock', model: 'resumed-model', maxTokens: 123 })
-    await expect(second.server.handleRequest('session/resume', { sessionId: 'saved-session' }))
-      .resolves.toEqual({})
+    await expect(second.server.handleRequest('session/resume', { sessionId: 'saved-session' })).resolves.toEqual({})
     const restored = second.ctx.agents.get(SessionId('saved-session'))!.session
     expect(restored.header.cwd).toBe(root)
     expect(restored.snapshotEvents().slice(0, original.length)).toEqual(original)
@@ -104,13 +105,20 @@ describe('SDK persisted session resume', () => {
     const second = await initialized(root)
     await second.server.resume({ sessionId: 'interrupted' })
     const restored = second.ctx.agents.get(SessionId('interrupted'))!.session
-    expect(restored.snapshotEvents().filter(event => event.type === 'turn/end').at(-1)).toMatchObject({
-      type: 'turn/end', data: { turn: 2, reason: { kind: 'interrupted' } },
+    expect(
+      restored
+        .snapshotEvents()
+        .filter(event => event.type === 'turn/end')
+        .at(-1),
+    ).toMatchObject({
+      type: 'turn/end',
+      data: { turn: 2, reason: { kind: 'interrupted' } },
     })
     await second.server.prompt({ sessionId: 'interrupted', contentBlocks: [{ type: 'text', text: 'continue' }] })
     await second.server.wait({ sessionId: 'interrupted' })
     expect(restored.snapshotEvents().at(-1)).toMatchObject({
-      type: 'turn/end', data: { turn: 3, reason: { kind: 'completed' } },
+      type: 'turn/end',
+      data: { turn: 3, reason: { kind: 'completed' } },
     })
   })
 

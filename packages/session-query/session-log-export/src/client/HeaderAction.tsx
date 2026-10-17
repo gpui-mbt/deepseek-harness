@@ -3,7 +3,13 @@ import type { ReactNode } from 'react'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { Button, IconDownloadOutlineRegular, IconEllipsisOutlineRegular, IconPaperPlaneOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button,
+  IconDownloadOutlineRegular,
+  IconEllipsisOutlineRegular,
+  IconPaperPlaneOutlineRegular,
+  Menu,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import { SessionLogDownloadDialog, type SessionLogDownloadDialogProps } from './Dialog.tsx'
 import type { SessionLogDownloadDialogInjected } from './Dialog.tsx'
 import css from './HeaderAction.module.css'
@@ -39,17 +45,19 @@ export function SessionLogDownloadHeaderAction(props: SessionLogDownloadHeaderPr
         open={open}
         align="end"
         dense
-        onClose={() => { setOpen(false) }}
+        onClose={() => {
+          setOpen(false)
+        }}
         items={[
           { id: 'download', label: t('menu.download'), icon: <IconDownloadOutlineRegular />, disabled: busy },
-          ...feedbackAvailable ? [{ id: 'feedback', label: t('menu.feedback'), icon: <IconPaperPlaneOutlineRegular /> }] : [],
+          ...(feedbackAvailable ? [{ id: 'feedback', label: t('menu.feedback'), icon: <IconPaperPlaneOutlineRegular /> }] : []),
         ]}
-        onSelect={(id) => {
+        onSelect={id => {
           setOpen(false)
           if (id === 'feedback') openFeedback(sessionId)
           else void request(sessionId)
         }}
-        anchor={(
+        anchor={
           <Button
             size="sm"
             className={css.moreButton}
@@ -57,11 +65,13 @@ export function SessionLogDownloadHeaderAction(props: SessionLogDownloadHeaderPr
             aria-haspopup="menu"
             aria-expanded={open}
             aria-busy={busy}
-            onClick={() => { setOpen(value => !value) }}
+            onClick={() => {
+              setOpen(value => !value)
+            }}
           >
             <IconEllipsisOutlineRegular />
           </Button>
-        )}
+        }
       />
       <SessionLogDownloadDialog {...props} />
     </>

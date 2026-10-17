@@ -8,7 +8,7 @@
  * browser features read this attribute, so a stale value misreports the
  * document language rather than merely looking untidy.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -27,7 +27,8 @@ async function bench(preference?: string) {
     ns: LOCALE_SETTINGS_NAMESPACE,
     schema: LocaleSettingsSchema.toJSON(),
     value: stored === undefined ? {} : { preference: stored },
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision,
   })
@@ -87,8 +88,12 @@ describe('document language', () => {
   it('follows an explicit Host preference that overrides browser detection', async () => {
     // Stored preference wins over the zh browser pinned above.
     const { locale } = await bench('en')
-    await vi.waitFor(() => { expect(locale.getLocale().active).toBe('en') })
-    await vi.waitFor(() => { expect(langOf()).toBe('en') })
+    await vi.waitFor(() => {
+      expect(locale.getLocale().active).toBe('en')
+    })
+    await vi.waitFor(() => {
+      expect(langOf()).toBe('en')
+    })
   })
 
   it('uses an external locale definition for the document language', async () => {

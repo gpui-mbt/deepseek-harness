@@ -2,7 +2,7 @@
  * real locale registry, English fallback for uncovered namespaces, and
  * disposal through the plugin fiber. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-locale-ja/client'
 import { DICTIONARIES } from '../src/client/dicts/index.ts'
@@ -20,8 +20,7 @@ describe('locale-ja apply', () => {
   it('registers ja after the shipped pair and answers translations from its dictionaries', async () => {
     const { locale } = await bench()
     expect(locale.getSnapshot().locales.map(entry => entry.id)).toEqual(['zh', 'en', 'ja'])
-    expect(locale.getSnapshot().locales.find(entry => entry.id === 'ja'))
-      .toMatchObject({ label: '日本語', fallback: 'en' })
+    expect(locale.getSnapshot().locales.find(entry => entry.id === 'ja')).toMatchObject({ label: '日本語', fallback: 'en' })
     locale.setLocale('ja')
     expect(locale.bind('common')('cancel')).toBe('キャンセル')
     expect(locale.bind('settings.locale')('language.title')).toBe('言語')

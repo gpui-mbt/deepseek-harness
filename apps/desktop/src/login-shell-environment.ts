@@ -64,8 +64,12 @@ export function resolveDesktopLoginShellConfig(env: NodeJS.ProcessEnv): DesktopL
  */
 export function loginShellCandidates(): readonly string[] {
   let account: string | null = null
-  try { account = userInfo().shell } catch (_error) { /* No account record for this uid: fixed candidates only. */ }
-  return [...new Set([...account === null || account === '' ? [] : [account], ...FALLBACK_SHELLS])]
+  try {
+    account = userInfo().shell
+  } catch (_error) {
+    /* No account record for this uid: fixed candidates only. */
+  }
+  return [...new Set([...(account === null || account === '' ? [] : [account]), ...FALLBACK_SHELLS])]
 }
 
 /**
@@ -103,16 +107,26 @@ export function mergeLoginShellEnvironment(base: NodeJS.ProcessEnv, shell: Reado
 }
 
 function readShell(
-  shell: string, base: NodeJS.ProcessEnv, cwd: string, timeoutMs: number, signal: AbortSignal | undefined,
+  shell: string,
+  base: NodeJS.ProcessEnv,
+  cwd: string,
+  timeoutMs: number,
+  signal: AbortSignal | undefined,
 ): Promise<Record<string, string> | string> {
-  return new Promise((resolve) => {
-    if (signal?.aborted === true) { resolve('aborted'); return }
+  return new Promise(resolve => {
+    if (signal?.aborted === true) {
+      resolve('aborted')
+      return
+    }
     let child: ChildProcessByStdio<null, Readable, null>
     try {
       // Interactive login mode runs ~/.zprofile and ~/.zshrc (or the shell's equivalents); stdin is
       // closed so prompts in rc files read EOF instead of waiting.
       child = spawn(shell, ['-ilc', DUMP], {
-        cwd, env: { ...base, ...PROBE_ENVIRONMENT }, stdio: ['ignore', 'pipe', 'ignore'], detached: true,
+        cwd,
+        env: { ...base, ...PROBE_ENVIRONMENT },
+        stdio: ['ignore', 'pipe', 'ignore'],
+        detached: true,
       })
     } catch (error) {
       resolve(String(error))
@@ -135,13 +149,24 @@ function readShell(
       // An asynchronous spawn failure settles through the error listener before a timer or abort
       // listener can run, so the pid is present here.
       const group = -(child.pid as number)
-      try { process.kill(group, 'SIGKILL') } catch (_error) { /* The group already exited. */ }
+      try {
+        process.kill(group, 'SIGKILL')
+      } catch (_error) {
+        /* The group already exited. */
+      }
     }
     // Members that left the process group can keep stdout open after SIGKILL, so a stopped read
     // resolves without waiting for `close`.
-    const stop = (reason: 'timeout' | 'aborted'): void => { finish(reason); killGroup() }
-    const onAbort = (): void => { stop('aborted') }
-    const timer = setTimeout(() => { stop('timeout') }, timeoutMs)
+    const stop = (reason: 'timeout' | 'aborted'): void => {
+      finish(reason)
+      killGroup()
+    }
+    const onAbort = (): void => {
+      stop('aborted')
+    }
+    const timer = setTimeout(() => {
+      stop('timeout')
+    }, timeoutMs)
     function finish(result: Record<string, string> | string): void {
       clearTimeout(timer)
       signal?.removeEventListener('abort', onAbort)
@@ -152,9 +177,14 @@ function readShell(
     }
     signal?.addEventListener('abort', onAbort, { once: true })
     child.stdout.on('data', onData)
-    child.on('error', (error) => { finish(error.message) })
+    child.on('error', error => {
+      finish(error.message)
+    })
     child.on('close', (code, closeSignal) => {
-      if (code !== 0) { finish(closeSignal ?? `exit ${String(code)}`); return }
+      if (code !== 0) {
+        finish(closeSignal ?? `exit ${String(code)}`)
+        return
+      }
       finish(output())
     })
   })
@@ -170,7 +200,9 @@ function readShell(
  * @returns Host environment and the candidate failures that preceded it.
  */
 export async function readDesktopLoginShellEnvironment(
-  base: NodeJS.ProcessEnv, config: DesktopLoginShellConfig, options: DesktopLoginShellReadOptions = {},
+  base: NodeJS.ProcessEnv,
+  config: DesktopLoginShellConfig,
+  options: DesktopLoginShellReadOptions = {},
 ): Promise<DesktopLoginShellResult> {
   const { platform = process.platform, shells = loginShellCandidates(), signal } = options
   if (platform === 'win32') return { environment: base, failures: [] }

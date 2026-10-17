@@ -7,7 +7,7 @@ import { Arch, Packager, type BeforePackContext, type Configuration } from 'app-
 import { WinPackager } from 'app-builder-lib/out/winPackager.js'
 import { getFileMatchers } from 'app-builder-lib/out/fileMatcher.js'
 import { readAsar } from 'app-builder-lib/out/asar/asar.js'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { prepareWindowsAsarUnpack, verifyWindowsAsarUnpack } from '../scripts/windows-asar-unpack.mjs'
 import { createElectronBuilderConfig } from '../scripts/electron-builder-config.mjs'
 import { verifyRuntimeArchive } from '../scripts/verify-runtime-archive.ts'
@@ -15,27 +15,32 @@ import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import { inventoryDesktopRuntime, type DesktopRuntimeDescriptor } from '../src/runtime-tree.ts'
 
 vi.mock('../scripts/windows-sign.mjs', async importOriginal => ({
-  ...await importOriginal<typeof import('../scripts/windows-sign.mjs')>(),
+  ...(await importOriginal<typeof import('../scripts/windows-sign.mjs')>()),
   createWindowsTokenSigner: () => async () => {},
   installWindowsNsisBootstrapSigner: () => {},
   resolveWindowsUpdatePublisher: () => 'Fixture Publisher',
 }))
 vi.mock('../scripts/windows-runtime-signature.mjs', async importOriginal => ({
-  ...await importOriginal<typeof import('../scripts/windows-runtime-signature.mjs')>(),
+  ...(await importOriginal<typeof import('../scripts/windows-runtime-signature.mjs')>()),
   signWindowsCode: async () => {},
 }))
 // Vite's root-relative IDs also resolve mocked build outputs on a clean checkout.
 vi.mock('/apps/desktop/lib/types/runtime-tree.js', () => ({ verifyDesktopRuntime: async () => {} }))
 vi.mock('/apps/desktop/lib/types/mandatory-update-policy.js', async () => import('../src/mandatory-update-policy.ts'))
 vi.mock('node:crypto', async importOriginal => ({
-  ...await importOriginal<typeof import('node:crypto')>(),
-  X509Certificate: class { fingerprint = 'AA:BB' },
+  ...(await importOriginal<typeof import('node:crypto')>()),
+  X509Certificate: class {
+    fingerprint = 'AA:BB'
+  },
 }))
 
 const require = createRequire(import.meta.url)
 // The locked builder omits declarations for its AsarPackager implementation.
 const { AsarPackager } = require('app-builder-lib/out/asar/asarUtil.js') as {
-  AsarPackager: new (packager: object, configuration: object) => {
+  AsarPackager: new (
+    packager: object,
+    configuration: object,
+  ) => {
     pack(files: { src: string; destination: string; files: string[]; metadata: Map<string, Stats> }[]): Promise<void>
   }
 }
@@ -47,11 +52,17 @@ afterEach(async () => {
 })
 
 function unsignedWindowsConfig(appId: string, source: string) {
-  return createElectronBuilderConfig({
-    DSH_DESKTOP_APP_ID: appId, DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-    DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-    DSH_DESKTOP_UNSIGNED: '1',
-  }, 'win32', 'x64', source)
+  return createElectronBuilderConfig(
+    {
+      DSH_DESKTOP_APP_ID: appId,
+      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+      DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+      DSH_DESKTOP_UNSIGNED: '1',
+    },
+    'win32',
+    'x64',
+    source,
+  )
 }
 
 async function fixture(external: boolean) {
@@ -75,7 +86,14 @@ async function fixture(external: boolean) {
   await writeFile(join(source, 'node_modules', 'foo', 'companion.json'), '{}')
   await writeFile(join(source, 'node_modules', 'foo', '$xarchy.binary'), 'neighbor')
   for (const [name, manifest] of [
-    ['@deepseek-ai/libreoffice-kit', { name: '@deepseek-ai/libreoffice-kit', optionalDependencies: { '@deepseek-ai/libreoffice-kit-win32-x64': '0.0.4' }, dependencies: { 'office-codec': '1' } }],
+    [
+      '@deepseek-ai/libreoffice-kit',
+      {
+        name: '@deepseek-ai/libreoffice-kit',
+        optionalDependencies: { '@deepseek-ai/libreoffice-kit-win32-x64': '0.0.4' },
+        dependencies: { 'office-codec': '1' },
+      },
+    ],
     ['@deepseek-ai/libreoffice-kit-win32-x64', { name: '@deepseek-ai/libreoffice-kit-win32-x64' }],
     ['office-codec', { name: 'office-codec' }],
   ] as const) {
@@ -85,26 +103,39 @@ async function fixture(external: boolean) {
     await writeFile(join(directory, 'cli.js'), 'export {}')
   }
   const config = {
-    files: [{ from: source, to: 'dsh', filter: ['**/*'] },
-      { from: join(source, 'node_modules'), to: 'dsh/node_modules', filter: ['**/*'] }],
+    files: [
+      { from: source, to: 'dsh', filter: ['**/*'] },
+      { from: join(source, 'node_modules'), to: 'dsh/node_modules', filter: ['**/*'] },
+    ],
     asarUnpack: ['**/*.node'],
   } satisfies Configuration
   const info = new Packager({ projectDir: appDir })
   Object.defineProperties(info, {
-    appDir: { value: appDir }, config: { value: config },
+    appDir: { value: appDir },
+    config: { value: config },
     metadata: { value: { name: 'fixture', version: '1.0.0', description: 'Fixture' } },
     framework: { value: { name: 'electron' } },
   })
-  vi.spyOn(info, 'disposeOnBuildFinish').mockImplementation((cleanup) => { cleanups.push(cleanup) })
-  const context: BeforePackContext = { packager: new WinPackager(info), arch: Arch.x64,
-    appOutDir: dirname(resources), outDir: dirname(resources), electronPlatformName: 'win32', targets: [] }
+  vi.spyOn(info, 'disposeOnBuildFinish').mockImplementation(cleanup => {
+    cleanups.push(cleanup)
+  })
+  const context: BeforePackContext = {
+    packager: new WinPackager(info),
+    arch: Arch.x64,
+    appOutDir: dirname(resources),
+    outDir: dirname(resources),
+    electronPlatformName: 'win32',
+    targets: [],
+  }
   return { root, appDir, source, resources, config, context, names }
 }
 
 async function packageFixture(input: Awaited<ReturnType<typeof fixture>>) {
   const destination = join(input.resources, 'app')
   const matchers = getFileMatchers(input.config, 'asarUnpack', destination, {
-    defaultSrc: input.appDir, globalOutDir: dirname(input.resources), customBuildOptions: {},
+    defaultSrc: input.appDir,
+    globalOutDir: dirname(input.resources),
+    customBuildOptions: {},
     macroExpander: value => value.replaceAll('${arch}', 'x64'),
   })!
   const mapping = input.config.files[0]!
@@ -116,16 +147,25 @@ async function packageFixture(input: Awaited<ReturnType<typeof fixture>>) {
       const file = join(directory, name)
       const stat = await lstat(file)
       if (stat.isDirectory()) await visit(file)
-      else { files.push(file); metadata.set(file, stat) }
+      else {
+        files.push(file)
+        metadata.set(file, stat)
+      }
     }
   }
   await visit(mapping.from)
-  await new AsarPackager({ info: { getWorkspaceRoot: async () => input.root } }, {
-    defaultDestination: destination, resourcePath: input.resources, options: {}, unpackPattern: matchers[0]!.createFilter(),
-  }).pack([{ src: mapping.from, destination: join(destination, 'dsh'), files, metadata }])
+  await new AsarPackager(
+    { info: { getWorkspaceRoot: async () => input.root } },
+    {
+      defaultDestination: destination,
+      resourcePath: input.resources,
+      options: {},
+      unpackPattern: matchers[0]!.createFilter(),
+    },
+  ).pack([{ src: mapping.from, destination: join(destination, 'dsh'), files, metadata }])
 }
 
-it.each([false, true])('unpacks PE files through builder source patterns (external=%s)', async (external) => {
+it.each([false, true])('unpacks PE files through builder source patterns (external=%s)', async external => {
   const input = await fixture(external)
   const files = await prepareWindowsAsarUnpack(input.context, input.source)
   await packageFixture(input)
@@ -158,21 +198,28 @@ it('rejects an inline PE even when a neighboring unpacked copy exists', async ()
   await expect(verifyWindowsAsarUnpack(input.source, input.resources, files)).rejects.toThrow('PE must be unpacked')
 })
 
-it.each(['changed', 'missing'] as const)('rejects %s unpacked PE bytes', async (state) => {
+it.each(['changed', 'missing'] as const)('rejects %s unpacked PE bytes', async state => {
   const input = await fixture(false)
   const files = await prepareWindowsAsarUnpack(input.context, input.source)
   await packageFixture(input)
   const path = join(input.resources, 'app.asar.unpacked', 'dsh', files[0]!)
   if (state === 'changed') await writeFile(path, 'changed')
   else await rm(path)
-  await expect(verifyWindowsAsarUnpack(input.source, input.resources, files)).rejects.toThrow(state === 'changed' ? 'PE bytes changed' : 'ENOENT')
+  await expect(verifyWindowsAsarUnpack(input.source, input.resources, files)).rejects.toThrow(
+    state === 'changed' ? 'PE bytes changed' : 'ENOENT',
+  )
 })
 
 it('registers external staging cleanup before a configuration rewrite fails', async () => {
   const input = await fixture(true)
   const files = input.config.files
   // The source still passes PE discovery; a destination mapping setter fails after staging is copied.
-  Object.defineProperty(input.config, 'files', { get: () => files, set: () => { throw new Error('configuration rejected') } })
+  Object.defineProperty(input.config, 'files', {
+    get: () => files,
+    set: () => {
+      throw new Error('configuration rejected')
+    },
+  })
   await expect(prepareWindowsAsarUnpack(input.context, input.source)).rejects.toThrow('configuration rejected')
   const staging = await readdir(join(input.appDir, '.desktop-build'))
   expect(staging).toHaveLength(1)
@@ -181,16 +228,26 @@ it('registers external staging cleanup before a configuration rewrite fails', as
   expect(await readdir(join(input.appDir, '.desktop-build'))).toEqual([])
 })
 
-it.each([true, false])('validates the real builder hook for unsigned=%s', async (unsigned) => {
+it.each([true, false])('validates the real builder hook for unsigned=%s', async unsigned => {
   const input = await fixture(true)
   const certificate = join(input.root, 'certificate.cer')
   await writeFile(certificate, 'fixture public certificate')
-  const config = createElectronBuilderConfig({
-    DSH_DESKTOP_APP_ID: 'com.example.unpack', DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-    DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-    DSH_DESKTOP_TARGET_PLATFORM: 'win32', DSH_DESKTOP_TARGET_ARCH: 'x64', DSH_DESKTOP_UNSIGNED: unsigned ? '1' : '0',
-    DSH_DESKTOP_WINDOWS_CER_FILE: certificate, DOWNLOAD_TEST_ORIGIN: 'https://updates.example.com', DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
-  }, 'win32', 'x64', input.source)
+  const config = createElectronBuilderConfig(
+    {
+      DSH_DESKTOP_APP_ID: 'com.example.unpack',
+      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+      DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+      DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+      DSH_DESKTOP_TARGET_ARCH: 'x64',
+      DSH_DESKTOP_UNSIGNED: unsigned ? '1' : '0',
+      DSH_DESKTOP_WINDOWS_CER_FILE: certificate,
+      DOWNLOAD_TEST_ORIGIN: 'https://updates.example.com',
+      DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
+    },
+    'win32',
+    'x64',
+    input.source,
+  )
   // Qualification replaces files after creating the base configuration; builder owns a separate config object.
   input.config.asarUnpack = [...config.asarUnpack]
   await config.beforePack(input.context)
@@ -206,7 +263,7 @@ it.each([true, false])('validates the real builder hook for unsigned=%s', async 
   }
 })
 
-it.each([false, true])('unpacks platform ripgrep executables with external source=%s', async (external) => {
+it.each([false, true])('unpacks platform ripgrep executables with external source=%s', async external => {
   const input = await fixture(external)
   // Windows rg.exe uses the general executable rule; macOS rg uses the platform-package rule.
   const files = ['ripgrep-darwin-arm64/bin/rg', 'ripgrep-darwin-x64/bin/rg', 'ripgrep-win32-x64/bin/rg.exe']
@@ -227,7 +284,7 @@ it.each([false, true])('unpacks platform ripgrep executables with external sourc
   }
 })
 
-it.each([false, true])('keeps the complete Office engine outside ASAR with external source=%s', async (external) => {
+it.each([false, true])('keeps the complete Office engine outside ASAR with external source=%s', async external => {
   const input = await fixture(external)
   const engine = join('node_modules', '@deepseek-ai', 'libreoffice-kit-win32-x64')
   const files = ['package.json', 'prebuilds.json', 'bin/libreoffice-kit', 'program/registry/main.xcd']
@@ -257,9 +314,15 @@ it.each([false, true])('keeps the complete Office engine outside ASAR with exter
 async function seal(input: Awaited<ReturnType<typeof fixture>>): Promise<DesktopRuntimeDescriptor> {
   const descriptor: DesktopRuntimeDescriptor = {
     schemaVersion: 1,
-    release: { schemaVersion: 1, version: '1.0.0', hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
-      nodeVersion: process.versions.node, pnpmVersion: '11.7.0' },
-    platform: process.platform, arch: process.arch,
+    release: {
+      schemaVersion: 1,
+      version: '1.0.0',
+      hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
+      nodeVersion: process.versions.node,
+      pnpmVersion: '11.7.0',
+    },
+    platform: process.platform,
+    arch: process.arch,
     sharedPackages: [{ name: 'foo', version: '1.0.0', path: 'node_modules/foo' }],
     files: inventoryDesktopRuntime(input.source),
   }
@@ -277,7 +340,7 @@ it('verifies archived bytes against the preparation descriptor', async () => {
   await expect(verifyRuntimeArchive(archive, expected)).rejects.toThrow('ASAR integrity')
 })
 
-it.each(['sharedPackages', 'release', 'files'] as const)('rejects changed archived descriptor %s', async (field) => {
+it.each(['sharedPackages', 'release', 'files'] as const)('rejects changed archived descriptor %s', async field => {
   const input = await fixture(false)
   const expected = await seal(input)
   const changed = { ...expected, [field]: field === 'release' ? { ...expected.release, version: '2.0.0' } : [] }
@@ -286,7 +349,7 @@ it.each(['sharedPackages', 'release', 'files'] as const)('rejects changed archiv
   await expect(verifyRuntimeArchive(join(input.resources, 'app.asar'), expected)).rejects.toThrow('archived descriptor differs')
 })
 
-it.each(['missing', 'extra'] as const)('rejects %s archived files', async (state) => {
+it.each(['missing', 'extra'] as const)('rejects %s archived files', async state => {
   const input = await fixture(false)
   const expected = await seal(input)
   if (state === 'missing') await rm(join(input.source, 'node_modules/foo/companion.json'))
@@ -295,7 +358,7 @@ it.each(['missing', 'extra'] as const)('rejects %s archived files', async (state
   await expect(verifyRuntimeArchive(join(input.resources, 'app.asar'), expected)).rejects.toThrow('ASAR integrity')
 })
 
-it.each(['directory', 'extra'] as const)('rejects an unpacked %s without a matching file record', async (state) => {
+it.each(['directory', 'extra'] as const)('rejects an unpacked %s without a matching file record', async state => {
   const input = await fixture(false)
   const expected = await seal(input)
   await packageFixture(input)

@@ -22,18 +22,18 @@ const IMAGE_MEDIA_TYPES = {
   svg: 'image/svg+xml',
 } as const
 
-type ImageMediaType = typeof IMAGE_MEDIA_TYPES[keyof typeof IMAGE_MEDIA_TYPES]
+type ImageMediaType = (typeof IMAGE_MEDIA_TYPES)[keyof typeof IMAGE_MEDIA_TYPES]
 
 /** Standard document props plus the image renderer's dictionary. */
 export type ImageBodyProps = DocumentPreviewProps & PropsLocale<'sidebarImage'> & PropsStore<ZoomStore> & ZoomInjected
 
 type ImageSource =
   | {
-    readonly kind: 'ready'
-    readonly data: Uint8Array<ArrayBuffer>
-    readonly mediaType: ImageMediaType
-    readonly url: string
-  }
+      readonly kind: 'ready'
+      readonly data: Uint8Array<ArrayBuffer>
+      readonly mediaType: ImageMediaType
+      readonly url: string
+    }
   | { readonly kind: 'failed'; readonly data: Uint8Array<ArrayBuffer>; readonly mediaType: ImageMediaType }
 
 /**
@@ -61,11 +61,16 @@ export function ImageBody(props: ImageBodyProps): ReactNode {
   const mediaType = imageMediaType(path)
   const data = content.kind === 'bytes' ? content.data : undefined
   const [source, setSource] = useState<ImageSource>()
-  const setPreference = useCallback((value: ZoomPreference): void => {
-    props.actions.zoom(tab.id, value)
-  }, [props.actions, tab.id])
+  const setPreference = useCallback(
+    (value: ZoomPreference): void => {
+      props.actions.zoom(tab.id, value)
+    },
+    [props.actions, tab.id],
+  )
 
-  useEffect(() => { props.retainTab(tab.id, tab.signal) }, [props.retainTab, tab.id, tab.signal])
+  useEffect(() => {
+    props.retainTab(tab.id, tab.signal)
+  }, [props.retainTab, tab.id, tab.signal])
 
   useEffect(() => {
     if (data === undefined || mediaType === undefined) return
@@ -82,24 +87,56 @@ export function ImageBody(props: ImageBodyProps): ReactNode {
   }, [data, mediaType])
 
   if (data === undefined || mediaType === undefined) {
-    return <p className={css.status} role="alert">{t('unsupported')}</p>
+    return (
+      <p className={css.status} role="alert">
+        {t('unsupported')}
+      </p>
+    )
   }
   if (source?.data !== data || source.mediaType !== mediaType) {
     return <LoadingIndicator label={t('loading')} />
   }
-  if (source.kind === 'failed') return <p className={css.status} role="alert">{t('failed')}</p>
+  if (source.kind === 'failed')
+    return (
+      <p className={css.status} role="alert">
+        {t('failed')}
+      </p>
+    )
   const { name } = pathPartsOf(path)
   const labels: ZoomLabels = {
-    controls: t('zoomControls'), menu: t('zoomMenu'), out: t('zoomOut'), into: t('zoomIn'),
-    fitWidth: t('zoomFitWidth'), value: percent => t('zoomValue', { percent }),
+    controls: t('zoomControls'),
+    menu: t('zoomMenu'),
+    out: t('zoomOut'),
+    into: t('zoomIn'),
+    fitWidth: t('zoomFitWidth'),
+    value: percent => t('zoomValue', { percent }),
   }
-  return <LoadedImage key={source.url} url={source.url} name={name} preference={preference}
-    onPreference={setPreference} labels={labels} signal={tab.signal}
-    scrollportRef={props.scrollportRef} t={t} />
+  return (
+    <LoadedImage
+      key={source.url}
+      url={source.url}
+      name={name}
+      preference={preference}
+      onPreference={setPreference}
+      labels={labels}
+      signal={tab.signal}
+      scrollportRef={props.scrollportRef}
+      t={t}
+    />
+  )
 }
 
 /** SVG stays in the browser's static image mode because its bytes only reach an img Blob URL. */
-function LoadedImage({ url, name, preference, onPreference, labels, signal, scrollportRef, t }: {
+function LoadedImage({
+  url,
+  name,
+  preference,
+  onPreference,
+  labels,
+  signal,
+  scrollportRef,
+  t,
+}: {
   readonly url: string
   readonly name: string
   readonly preference: ZoomPreference
@@ -111,24 +148,46 @@ function LoadedImage({ url, name, preference, onPreference, labels, signal, scro
 }): ReactNode {
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [width, setWidth] = useState<number>()
-  return <ZoomViewport preference={preference} intrinsicWidth={width} horizontalInset={24}
-    labels={labels} signal={signal} scrollportRef={scrollportRef} onPreference={onPreference}>
-    <div className={css.frame} data-image-preview>
-      {state === 'loading' && <LoadingIndicator label={t('loading')} />}
-      {state === 'failed' && <p className={css.status} role="alert">{t('failed')}</p>}
-      <div className={`${css.surface} ${zoomSurfaceClass}`} data-document-zoom-surface
-        style={{ '--document-zoom-width': `${width ?? 0}px` } as CSSProperties} hidden={state !== 'ready'}>
-        <img
-          className={css.image}
-          src={url}
-          alt={t('preview', { name })}
-          decoding="async"
-          draggable={false}
-          referrerPolicy="no-referrer"
-          onLoad={(event) => { setWidth(event.currentTarget.naturalWidth); setState('ready') }}
-          onError={() => { setState('failed') }}
-        />
+  return (
+    <ZoomViewport
+      preference={preference}
+      intrinsicWidth={width}
+      horizontalInset={24}
+      labels={labels}
+      signal={signal}
+      scrollportRef={scrollportRef}
+      onPreference={onPreference}
+    >
+      <div className={css.frame} data-image-preview>
+        {state === 'loading' && <LoadingIndicator label={t('loading')} />}
+        {state === 'failed' && (
+          <p className={css.status} role="alert">
+            {t('failed')}
+          </p>
+        )}
+        <div
+          className={`${css.surface} ${zoomSurfaceClass}`}
+          data-document-zoom-surface
+          style={{ '--document-zoom-width': `${width ?? 0}px` } as CSSProperties}
+          hidden={state !== 'ready'}
+        >
+          <img
+            className={css.image}
+            src={url}
+            alt={t('preview', { name })}
+            decoding="async"
+            draggable={false}
+            referrerPolicy="no-referrer"
+            onLoad={event => {
+              setWidth(event.currentTarget.naturalWidth)
+              setState('ready')
+            }}
+            onError={() => {
+              setState('failed')
+            }}
+          />
+        </div>
       </div>
-    </div>
-  </ZoomViewport>
+    </ZoomViewport>
+  )
 }

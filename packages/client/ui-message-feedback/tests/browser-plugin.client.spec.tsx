@@ -10,7 +10,7 @@
  * The node half stays inert.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup } from '@testing-library/react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -71,19 +71,24 @@ async function bench(options: { recordResult?: unknown; recordCarrier?: unknown 
   ctx.provide('remote.messageFeedback', messageFeedback)
   ctx.provide('remote.sessionFeedback', sessionFeedback)
   await ctx.plugin(SlotRegistry).await()
-  ctx.slots.register({
-    name: 'root',
-    children: {
-      'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' },
-      'conversation.input.overlay': { kind: 'list', scope: 'session' },
-    },
-  } as never, (() => null) as never)
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' },
+        'conversation.input.overlay': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    (() => null) as never,
+  )
   ctx.provide('locale', new LocaleRuntime(ctx))
   const decorations = new Map<string, CommandDecoration>()
   ctx.provide('commandUi', {
     decorate: (decoration: CommandDecoration) => {
       decorations.set(decoration.name, decoration)
-      return () => { decorations.delete(decoration.name) }
+      return () => {
+        decorations.delete(decoration.name)
+      }
     },
   })
   const fiber = ctx.plugin({ inject: [...inject], apply })
@@ -189,15 +194,22 @@ describe('ui-message-feedback browser plugin', () => {
     decoration.ui.run({ sessionId: sid('s1') })
     dialog.edit({ category: 'service-stability', text: 'timed out' })
     await dialog.submit()
-    expect(b.calls.filter(call => call.method === 'record')[0]?.request)
-      .toEqual({ sessionId: 's1', text: 'timed out', category: 'service-stability' })
+    expect(b.calls.filter(call => call.method === 'record')[0]?.request).toEqual({
+      sessionId: 's1',
+      text: 'timed out',
+      category: 'service-stability',
+    })
     expect(dialog.hooks.dialog.getSnapshot()).toMatchObject({ target: null, toast: 1 })
 
     message.openDialog(MSG, 'positive')
     dialog.edit({ category: 'task-result' })
     await dialog.submit()
     expect(b.calls.filter(call => call.method === 'put')[0]?.request).toMatchObject({
-      sessionId: 's1', messageId: MSG, rating: 'positive', category: 'task-result', ifVersion: 'v1',
+      sessionId: 's1',
+      messageId: MSG,
+      rating: 'positive',
+      category: 'task-result',
+      ifVersion: 'v1',
     })
     expect(dialog.hooks.dialog.getSnapshot().toast).toBe(2)
     dialog.dismissToast(2)
@@ -205,7 +217,9 @@ describe('ui-message-feedback browser plugin', () => {
   })
 
   it('keeps the dialog open with the carrier code when the record call itself fails', async () => {
-    const b = await bench({ recordCarrier: { ok: false as const, error: { code: 'gateway/internal', message: 'socket closed', details: {} } } })
+    const b = await bench({
+      recordCarrier: { ok: false as const, error: { code: 'gateway/internal', message: 'socket closed', details: {} } },
+    })
     await b.fiber.await()
     const dialog = b.dialogEntry()!.inject!(sid('s1'))
     const decoration = b.decorations.get('feedback')
@@ -259,10 +273,7 @@ describe('ui-message-feedback browser plugin', () => {
 
     await one.ensure()
     await two.ensure()
-    expect(b.calls.filter(call => call.method === 'list').map(call => call.request)).toEqual([
-      { sessionId: 's1' },
-      { sessionId: 's2' },
-    ])
+    expect(b.calls.filter(call => call.method === 'list').map(call => call.request)).toEqual([{ sessionId: 's1' }, { sessionId: 's2' }])
   })
 
   it('routes only a matching retraction to the Remote', async () => {
@@ -277,7 +288,8 @@ describe('ui-message-feedback browser plugin', () => {
 
     expect(b.calls.filter(call => call.method === 'put')).toHaveLength(0)
     expect(b.calls.filter(call => call.method === 'delete')[0]?.request).toMatchObject({
-      sessionId: 's1', messageId: MSG,
+      sessionId: 's1',
+      messageId: MSG,
     })
   })
 
@@ -331,6 +343,8 @@ describe('ui-message-feedback browser plugin', () => {
   })
 
   it('the node half applies without host-side behavior', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })

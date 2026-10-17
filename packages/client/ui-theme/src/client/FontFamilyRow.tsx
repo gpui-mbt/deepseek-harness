@@ -22,9 +22,10 @@ export interface FontFamilyRowInjected {
 }
 
 /** Full component props: runtime share + store share + locale seat + injected face. */
-export type FontFamilyRowComponentProps =
-  PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createFontRowStore>>
-  & PropsLocale<'settings.theme'> & FontFamilyRowInjected
+export type FontFamilyRowComponentProps = PropsRuntime<'settings.general.item'> &
+  PropsStore<ReturnType<typeof createFontRowStore>> &
+  PropsLocale<'settings.theme'> &
+  FontFamilyRowInjected
 
 /**
  * Render one font-family row.
@@ -52,9 +53,11 @@ export function FontFamilyRow({ t, role, setFontFamily, useStore }: FontFamilyRo
         aria-label={title}
         spellCheck={false}
         autoComplete="off"
-        onBlur={(event) => { commit(event.currentTarget) }}
+        onBlur={event => {
+          commit(event.currentTarget)
+        }}
         maxLength={200}
-        onKeyDown={(event) => {
+        onKeyDown={event => {
           // oxlint-disable-next-line typescript/no-deprecated -- Some IMEs report composition only through keyCode 229.
           if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
           if (event.key === 'Enter') event.currentTarget.blur()

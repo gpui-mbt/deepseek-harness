@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionSearchCursor, type SessionQueryErrorCode } from '@deepseek-ai/dsh-session-query'
 import {
@@ -31,13 +31,18 @@ describe('SQLite search request normalization', () => {
       eventFilters: [],
       limit: 2,
     })
-    expect(normalizeSessionRequest({
-      query: 'needle',
-      sessionFilters: [{ kind: 'availability', values: ['live'] }],
-      eventFilters: [{ kind: 'surface', values: ['current'] }],
-      limit: 3,
-      cursor: SessionSearchCursor('next'),
-    }, limits)).toEqual({
+    expect(
+      normalizeSessionRequest(
+        {
+          query: 'needle',
+          sessionFilters: [{ kind: 'availability', values: ['live'] }],
+          eventFilters: [{ kind: 'surface', values: ['current'] }],
+          limit: 3,
+          cursor: SessionSearchCursor('next'),
+        },
+        limits,
+      ),
+    ).toEqual({
       query: 'needle',
       sessionFilters: [{ kind: 'availability', values: ['live'] }],
       eventFilters: [{ kind: 'surface', values: ['current'] }],
@@ -50,12 +55,17 @@ describe('SQLite search request normalization', () => {
       filters: [],
       limit: 2,
     })
-    expect(normalizeEventRequest({
-      sessionId: SessionId('s'),
-      query: 'needle',
-      filters: [{ kind: 'seq', from: 1 }],
-      cursor: SessionSearchCursor('next'),
-    }, limits)).toEqual({
+    expect(
+      normalizeEventRequest(
+        {
+          sessionId: SessionId('s'),
+          query: 'needle',
+          filters: [{ kind: 'seq', from: 1 }],
+          cursor: SessionSearchCursor('next'),
+        },
+        limits,
+      ),
+    ).toEqual({
       sessionId: SessionId('s'),
       query: 'needle',
       filters: [{ kind: 'seq', from: 1 }],
@@ -65,37 +75,53 @@ describe('SQLite search request normalization', () => {
   })
 
   it('rejects non-text, blank, non-integer, non-positive, and oversized requests', () => {
-    expect(() => normalizeSessionRequest({ query: 1 as never }, limits))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_QUERY'))
-    expect(() => normalizeSessionRequest({ query: ' \n ' }, limits))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_QUERY'))
-    expect(() => normalizeSessionRequest({ query: 'bad\0query' }, limits))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_QUERY'))
-    expect(() => normalizeEventRequest({ sessionId: 1 as never, query: 'x' }, limits))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
-    expect(() => normalizeEventRequest({
-      sessionId: SessionId('s'),
-      query: 'x',
-      cursor: 1 as never,
-    }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_CURSOR'))
-    expect(() => normalizeSessionRequest({
-      query: 'x',
-      eventFilters: [{ kind: 'text', text: 'x' } as never],
-    }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
-    expect(() => normalizeSessionRequest({
-      query: 'x',
-      eventFilters: [{} as never],
-    }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    expect(() => normalizeSessionRequest({ query: 1 as never }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_QUERY'))
+    expect(() => normalizeSessionRequest({ query: ' \n ' }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_QUERY'))
+    expect(() => normalizeSessionRequest({ query: 'bad\0query' }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_QUERY'))
+    expect(() => normalizeEventRequest({ sessionId: 1 as never, query: 'x' }, limits)).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    expect(() =>
+      normalizeEventRequest(
+        {
+          sessionId: SessionId('s'),
+          query: 'x',
+          cursor: 1 as never,
+        },
+        limits,
+      ),
+    ).toThrow(expectCode('SESSION_QUERY_INVALID_CURSOR'))
+    expect(() =>
+      normalizeSessionRequest(
+        {
+          query: 'x',
+          eventFilters: [{ kind: 'text', text: 'x' } as never],
+        },
+        limits,
+      ),
+    ).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    expect(() =>
+      normalizeSessionRequest(
+        {
+          query: 'x',
+          eventFilters: [{} as never],
+        },
+        limits,
+      ),
+    ).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
     for (const limit of [1.5, 0, 4]) {
-      expect(() => normalizeEventRequest({ sessionId: SessionId('s'), query: 'x', limit }, limits))
-        .toThrow(expectCode('SESSION_QUERY_INVALID_LIMIT'))
+      expect(() => normalizeEventRequest({ sessionId: SessionId('s'), query: 'x', limit }, limits)).toThrow(
+        expectCode('SESSION_QUERY_INVALID_LIMIT'),
+      )
     }
-    expect(() => normalizeEventRequest({
-      sessionId: SessionId('s'),
-      query: 'x',
-      limit: SQLITE_MAX_PAGE_LIMIT + 1,
-    }, { defaultLimit: 1, maxLimit: SQLITE_MAX_PAGE_LIMIT + 1 }))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_LIMIT'))
+    expect(() =>
+      normalizeEventRequest(
+        {
+          sessionId: SessionId('s'),
+          query: 'x',
+          limit: SQLITE_MAX_PAGE_LIMIT + 1,
+        },
+        { defaultLimit: 1, maxLimit: SQLITE_MAX_PAGE_LIMIT + 1 },
+      ),
+    ).toThrow(expectCode('SESSION_QUERY_INVALID_LIMIT'))
   })
 
   it('materializes owned filter values during normalization', () => {
@@ -143,12 +169,14 @@ describe('SQLite search predicate compilation', () => {
       params: [SessionId('p')],
       predicateCount: 1,
     })
-    expect(buildSessionWhere([
-      { kind: 'created-at', from: 1, to: 2 },
-      { kind: 'availability', values: [] },
-      { kind: 'availability', values: ['live', 'live'] },
-      { kind: 'availability', values: ['live', 'persisted'] },
-    ])).toEqual({
+    expect(
+      buildSessionWhere([
+        { kind: 'created-at', from: 1, to: 2 },
+        { kind: 'availability', values: [] },
+        { kind: 'availability', values: ['live', 'live'] },
+        { kind: 'availability', values: ['live', 'persisted'] },
+      ]),
+    ).toEqual({
       sql: 'CAST(created_at AS INTEGER) >= ? AND CAST(created_at AS INTEGER) <= ? AND 0 AND live = 1',
       params: [1, 2],
       predicateCount: 4,
@@ -161,44 +189,42 @@ describe('SQLite search predicate compilation', () => {
   })
 
   it('compiles every event clause and empty lists', () => {
-    expect(buildEventWhere([
-      { kind: 'seq', from: 1 },
-      { kind: 'time', to: 9 },
-      { kind: 'type', values: ['user/message'] },
-      { kind: 'surface', values: ['current', 'log-only'] },
-    ])).toEqual({
+    expect(
+      buildEventWhere([
+        { kind: 'seq', from: 1 },
+        { kind: 'time', to: 9 },
+        { kind: 'type', values: ['user/message'] },
+        { kind: 'surface', values: ['current', 'log-only'] },
+      ]),
+    ).toEqual({
       sql: 'CAST(seq AS INTEGER) >= ? AND CAST(time AS INTEGER) <= ? AND type IN (?) AND surface IN (?, ?)',
       params: [1, 9, 'user/message', 'current', 'log-only'],
       predicateCount: 4,
     })
-    expect(buildEventWhere([
-      { kind: 'type', values: [] },
-      { kind: 'surface', values: [] },
-    ])).toEqual({ sql: '0 AND 0', params: [], predicateCount: 2 })
+    expect(
+      buildEventWhere([
+        { kind: 'type', values: [] },
+        { kind: 'surface', values: [] },
+      ]),
+    ).toEqual({ sql: '0 AND 0', params: [], predicateCount: 2 })
   })
 
   it('rejects predicate builders above the supported FTS5 outer budget', () => {
-    const filters = Array.from(
-      { length: SQLITE_FTS5_OUTER_PREDICATE_LIMIT },
-      () => ({ kind: 'id' as const, values: [SessionId('safe')] }),
-    )
+    const filters = Array.from({ length: SQLITE_FTS5_OUTER_PREDICATE_LIMIT }, () => ({ kind: 'id' as const, values: [SessionId('safe')] }))
 
     expect(buildSessionWhere(filters).predicateCount).toBe(SQLITE_FTS5_OUTER_PREDICATE_LIMIT)
-    expect(() => buildSessionWhere([
-      ...filters,
-      { kind: 'id', values: [SessionId('over')] },
-    ])).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    expect(() => buildSessionWhere([...filters, { kind: 'id', values: [SessionId('over')] }])).toThrow(
+      expectCode('SESSION_QUERY_INVALID_FILTER'),
+    )
   })
 
   it('rejects runtime-unknown filter discriminants in both SQL builders', () => {
-    expect(() => buildSessionWhere([{ kind: 'future' } as never]))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
-    expect(() => buildEventWhere([{ kind: 'future' } as never]))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
-    expect(() => buildSessionWhere([{ kind: 'availability', values: ['future'] } as never]))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
-    expect(() => buildSessionWhere([{} as never]))
-      .toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    expect(() => buildSessionWhere([{ kind: 'future' } as never])).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    expect(() => buildEventWhere([{ kind: 'future' } as never])).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
+    expect(() => buildSessionWhere([{ kind: 'availability', values: ['future'] } as never])).toThrow(
+      expectCode('SESSION_QUERY_INVALID_FILTER'),
+    )
+    expect(() => buildSessionWhere([{} as never])).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
   })
 })
 
@@ -256,7 +282,6 @@ describe('SQLite query identity and presentation', () => {
     expect(makeSnippet(`ab${FTS_HIGHLIGHT_START}c${FTS_HIGHLIGHT_END}defghij`, 3)).toBe('…c…')
     expect(makeSnippet(`abcde${FTS_HIGHLIGHT_START}f${FTS_HIGHLIGHT_END}`, 2)).toBe('…f')
     expect(makeSnippet(`abcde${FTS_HIGHLIGHT_START}f${FTS_HIGHLIGHT_END}`, 5)).toBe('…cdef')
-    expect(makeSnippet(`  x—${FTS_HIGHLIGHT_START}café${FTS_HIGHLIGHT_END}\n y  `, 20))
-      .toBe('x—café y')
+    expect(makeSnippet(`  x—${FTS_HIGHLIGHT_START}café${FTS_HIGHLIGHT_END}\n y  `, 20)).toBe('x—café y')
   })
 })

@@ -1,9 +1,5 @@
 /** Cross-platform native path opener behavior. */
-type ExecFileCallback = (
-  error: (Error & { code?: string | number }) | null,
-  stdout: string,
-  stderr: string,
-) => void
+type ExecFileCallback = (error: (Error & { code?: string | number }) | null, stdout: string, stderr: string) => void
 type ExecFileMock = (
   command: string,
   args: readonly string[],
@@ -16,12 +12,22 @@ const { execFileMock } = vi.hoisted(() => ({ execFileMock: vi.fn<ExecFileMock>()
 vi.mock('node:child_process', () => ({ execFile: execFileMock }))
 
 import { release as osRelease } from 'node:os'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { canOpenNativePath, nativeFileManager, revealNativePath, openNativeAssociatedPath, openNativePath, openNativeTextFile, type PathOpenerRunner } from '../src/index.ts'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import {
+  canOpenNativePath,
+  nativeFileManager,
+  revealNativePath,
+  openNativeAssociatedPath,
+  openNativePath,
+  openNativeTextFile,
+  type PathOpenerRunner,
+} from '../src/index.ts'
 
 const signal = () => new AbortController().signal
 
-beforeEach(() => { execFileMock.mockReset() })
+beforeEach(() => {
+  execFileMock.mockReset()
+})
 
 describe('native path opener', () => {
   it('opens with macOS open(1)', async () => {
@@ -39,7 +45,10 @@ describe('native path opener', () => {
   it('uses the Linux desktop association for text documents', async () => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
     await openNativeTextFile('/tmp/settings.yaml', signal(), {
-      platform: 'linux', osRelease: '6.8.0-generic', env: {}, run,
+      platform: 'linux',
+      osRelease: '6.8.0-generic',
+      env: {},
+      run,
     })
     expect(run).toHaveBeenCalledWith('xdg-open', ['/tmp/settings.yaml'], expect.any(AbortSignal), 'hidden')
   })
@@ -50,11 +59,16 @@ describe('native path opener', () => {
     ['kernel release', {}, '5.15.153.1-microsoft-standard-WSL2'],
   ])('hands WSL text documents to the Windows desktop from the %s', async (_label, env, osRelease) => {
     const requestSignal = signal()
-    const run = vi.fn<PathOpenerRunner>(async command => command === 'wslpath'
-      ? { stdout: '\\\\wsl.localhost\\Ubuntu\\home\\test user\\settings.yaml\r\n', stderr: '' }
-      : { stdout: '', stderr: '' })
+    const run = vi.fn<PathOpenerRunner>(async command =>
+      command === 'wslpath'
+        ? { stdout: '\\\\wsl.localhost\\Ubuntu\\home\\test user\\settings.yaml\r\n', stderr: '' }
+        : { stdout: '', stderr: '' },
+    )
     await openNativeTextFile('/home/test user/settings.yaml', requestSignal, {
-      platform: 'linux', osRelease, env, run,
+      platform: 'linux',
+      osRelease,
+      env,
+      run,
     })
     expect(run.mock.calls).toEqual([
       ['wslpath', ['-w', '/home/test user/settings.yaml'], requestSignal, 'hidden'],
@@ -64,9 +78,14 @@ describe('native path opener', () => {
 
   it('rejects an empty WSL path translation before invoking Windows', async () => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '\r\n', stderr: '' }))
-    await expect(openNativeTextFile('/home/test/settings.yaml', signal(), {
-      platform: 'linux', osRelease: '6.8.0-generic', env: { WSL_DISTRO_NAME: 'Ubuntu' }, run,
-    })).rejects.toThrow('wslpath returned no Windows path')
+    await expect(
+      openNativeTextFile('/home/test/settings.yaml', signal(), {
+        platform: 'linux',
+        osRelease: '6.8.0-generic',
+        env: { WSL_DISTRO_NAME: 'Ubuntu' },
+        run,
+      }),
+    ).rejects.toThrow('wslpath returned no Windows path')
     expect(run).toHaveBeenCalledOnce()
   })
 
@@ -76,9 +95,14 @@ describe('native path opener', () => {
       abort.abort(new Error('closed'))
       return { stdout: '\\\\wsl.localhost\\Ubuntu\\home\\test\\settings.yaml\n', stderr: '' }
     })
-    await expect(openNativeTextFile('/home/test/settings.yaml', abort.signal, {
-      platform: 'linux', osRelease: '6.8.0-generic', env: { WSL_DISTRO_NAME: 'Ubuntu' }, run,
-    })).rejects.toThrow('closed')
+    await expect(
+      openNativeTextFile('/home/test/settings.yaml', abort.signal, {
+        platform: 'linux',
+        osRelease: '6.8.0-generic',
+        env: { WSL_DISTRO_NAME: 'Ubuntu' },
+        run,
+      }),
+    ).rejects.toThrow('closed')
     expect(run).toHaveBeenCalledOnce()
   })
 
@@ -129,59 +153,48 @@ describe('native path opener', () => {
   it('encodes a directory target the same way it encodes a file target', async () => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
     await openNativeAssociatedPath('C:\\work\\dir,comma', signal(), { platform: 'win32', run })
-    expect(run).toHaveBeenCalledWith(
-      'explorer.exe',
-      ['file:///C:/work/dir%2Ccomma'],
-      expect.any(AbortSignal),
-      'visible',
-    )
+    expect(run).toHaveBeenCalledWith('explorer.exe', ['file:///C:/work/dir%2Ccomma'], expect.any(AbortSignal), 'visible')
   })
 
   it('uses the Windows desktop association for text documents', async () => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
     await openNativeTextFile('C:\\work\\settings.yaml', signal(), { platform: 'win32', run })
-    expect(run).toHaveBeenCalledWith(
-      'explorer.exe',
-      ['file:///C:/work/settings.yaml'],
-      expect.any(AbortSignal),
-      'visible',
-    )
+    expect(run).toHaveBeenCalledWith('explorer.exe', ['file:///C:/work/settings.yaml'], expect.any(AbortSignal), 'visible')
   })
 
   it('opens with Linux xdg-open', async () => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
     await openNativePath('/tmp/a.txt', signal(), {
-      platform: 'linux', osRelease: '6.8.0-generic',
-      env: { WSL_DISTRO_NAME: '', WSL_INTEROP: '' }, run,
+      platform: 'linux',
+      osRelease: '6.8.0-generic',
+      env: { WSL_DISTRO_NAME: '', WSL_INTEROP: '' },
+      run,
     })
     expect(run).toHaveBeenCalledWith('xdg-open', ['/tmp/a.txt'], expect.any(AbortSignal), 'hidden')
   })
 
   it('rejects unsupported platforms', async () => {
-    await expect(openNativePath('/x', signal(), { platform: 'freebsd' as NodeJS.Platform }))
-      .rejects.toThrow('unsupported on freebsd')
+    await expect(openNativePath('/x', signal(), { platform: 'freebsd' as NodeJS.Platform })).rejects.toThrow('unsupported on freebsd')
   })
 
   it('uses the current process platform when no platform override is supplied', async () => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
     await openNativePath('/tmp/platform-default.txt', signal(), {
-      osRelease: '6.8.0-generic', env: {}, run,
+      osRelease: '6.8.0-generic',
+      env: {},
+      run,
     })
-    const expected = process.platform === 'win32'
-      ? 'explorer.exe'
-      : process.platform === 'linux'
-        ? 'xdg-open'
-        : 'open'
+    const expected = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'linux' ? 'xdg-open' : 'open'
     expect(run.mock.calls[0]?.[0]).toBe(expected)
   })
 
   it('samples ambient WSL markers and kernel release when no fact overrides are supplied', async () => {
-    const ambientWsl = [process.env.WSL_DISTRO_NAME, process.env.WSL_INTEROP]
-      .some(value => value !== undefined && value !== '')
-      || osRelease().toLowerCase().includes('microsoft')
-    const run = vi.fn<PathOpenerRunner>(async command => command === 'wslpath'
-      ? { stdout: 'C:\\settings.yaml\n', stderr: '' }
-      : { stdout: '', stderr: '' })
+    const ambientWsl =
+      [process.env.WSL_DISTRO_NAME, process.env.WSL_INTEROP].some(value => value !== undefined && value !== '') ||
+      osRelease().toLowerCase().includes('microsoft')
+    const run = vi.fn<PathOpenerRunner>(async command =>
+      command === 'wslpath' ? { stdout: 'C:\\settings.yaml\n', stderr: '' } : { stdout: '', stderr: '' },
+    )
     await openNativePath('/tmp/ambient-facts.yaml', signal(), { platform: 'linux', run })
     expect(run.mock.calls[0]?.[0]).toBe(ambientWsl ? 'wslpath' : 'xdg-open')
   })
@@ -215,8 +228,11 @@ describe('native path opener', () => {
       callback(commandError, 'partial output', 'failure details')
     })
     await expect(openNativePath('/tmp/missing.txt', signal(), { platform: 'darwin' })).rejects.toMatchObject({
-      message: 'open failed', cause: commandError, code: 1,
-      stdout: 'partial output', stderr: 'failure details',
+      message: 'open failed',
+      cause: commandError,
+      code: 1,
+      stdout: 'partial output',
+      stderr: 'failure details',
     })
   })
 })
@@ -292,7 +308,10 @@ describe('browser-renderable documents', () => {
       platform: 'linux',
       osRelease: '6.8.0-generic',
       env: { BROWSER: 'firefox' },
-      run: async (command, args) => { linux.push([command, ...args]); return { stdout: '', stderr: '' } },
+      run: async (command, args) => {
+        linux.push([command, ...args])
+        return { stdout: '', stderr: '' }
+      },
     })
     expect(linux).toEqual([['firefox', '/w/page.html']])
 
@@ -302,7 +321,10 @@ describe('browser-renderable documents', () => {
       platform: 'linux',
       osRelease: '6.8.0-generic',
       env: {},
-      run: async (command, args) => { bare.push([command, ...args]); return { stdout: '', stderr: '' } },
+      run: async (command, args) => {
+        bare.push([command, ...args])
+        return { stdout: '', stderr: '' }
+      },
     })
     expect(bare).toEqual([['xdg-open', '/w/page.html']])
 
@@ -310,7 +332,10 @@ describe('browser-renderable documents', () => {
     const win: string[][] = []
     await openNativePath('C:\\w\\page.html', new AbortController().signal, {
       platform: 'win32',
-      run: async (command, args) => { win.push([command, ...args]); return { stdout: '', stderr: '' } },
+      run: async (command, args) => {
+        win.push([command, ...args])
+        return { stdout: '', stderr: '' }
+      },
     })
     expect(win[0]?.[0]).toBe('explorer.exe')
   })
@@ -349,9 +374,13 @@ describe('canOpenNativePath', () => {
     expect(canOpenNativePath({ ...linux, env: {} })).toBe(false)
     expect(canOpenNativePath({ ...linux, env: { DISPLAY: ':0' } })).toBe(true)
     expect(canOpenNativePath({ ...linux, env: { WAYLAND_DISPLAY: 'wayland-0' } })).toBe(true)
-    expect(canOpenNativePath({
-      platform: 'linux', osRelease: '5.15.153.1-microsoft-standard-WSL2', env: {},
-    })).toBe(true)
+    expect(
+      canOpenNativePath({
+        platform: 'linux',
+        osRelease: '5.15.153.1-microsoft-standard-WSL2',
+        env: {},
+      }),
+    ).toBe(true)
   })
 
   it('answers no on a platform the opener does not support', () => {
@@ -361,8 +390,7 @@ describe('canOpenNativePath', () => {
   it('samples the ambient environment when no override is supplied', () => {
     const env = process.env
     const marked = (value: string | undefined): boolean => value !== undefined && value !== ''
-    const expected = marked(env.WSL_DISTRO_NAME) || marked(env.WSL_INTEROP)
-      || marked(env.DISPLAY) || marked(env.WAYLAND_DISPLAY)
+    const expected = marked(env.WSL_DISTRO_NAME) || marked(env.WSL_INTEROP) || marked(env.DISPLAY) || marked(env.WAYLAND_DISPLAY)
 
     expect(canOpenNativePath({ platform: 'linux', osRelease: '6.8.0-generic' })).toBe(expected)
   })
@@ -374,7 +402,6 @@ describe('canOpenNativePath', () => {
   })
 })
 
-
 describe('native file manager', () => {
   it.each([
     ['darwin', 'finder', '/tmp/my report.txt', 'open', ['-R', '/tmp/my report.txt']],
@@ -385,8 +412,7 @@ describe('native file manager', () => {
     const internals = { platform, env: {}, osRelease: 'generic', run }
     expect(nativeFileManager(internals)).toBe(manager)
     await revealNativePath(path, signal(), internals)
-    expect(run).toHaveBeenCalledExactlyOnceWith(command, args, expect.any(AbortSignal),
-      platform === 'win32' ? 'visible' : 'hidden')
+    expect(run).toHaveBeenCalledExactlyOnceWith(command, args, expect.any(AbortSignal), platform === 'win32' ? 'visible' : 'hidden')
   })
 
   it('selects a translated WSL path in Explorer and never starts a Linux file manager', async () => {
@@ -395,7 +421,8 @@ describe('native file manager', () => {
     expect(nativeFileManager(internals)).toBe('explorer')
     await revealNativePath('/mnt/c/work/报告.txt', signal(), internals)
     expect(run.mock.calls.map(([cmd, args]) => [cmd, args])).toEqual([
-      ['wslpath', ['-w', '/mnt/c/work/报告.txt']], ['explorer.exe', ['/select,', 'file:///C:/work/报告.txt']],
+      ['wslpath', ['-w', '/mnt/c/work/报告.txt']],
+      ['explorer.exe', ['/select,', 'file:///C:/work/报告.txt']],
     ])
   })
 
@@ -404,7 +431,10 @@ describe('native file manager', () => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
     const internals = { platform: 'linux' as const, env: {}, osRelease: 'microsoft', run }
     await expect(revealNativePath('/file', signal(), internals)).rejects.toThrow('no Windows path')
-    run.mockImplementationOnce(async () => { abort.abort(new Error('stopped')); return { stdout: 'C:\\file', stderr: '' } })
+    run.mockImplementationOnce(async () => {
+      abort.abort(new Error('stopped'))
+      return { stdout: 'C:\\file', stderr: '' }
+    })
     await expect(revealNativePath('/file', abort.signal, internals)).rejects.toThrow('stopped')
     expect(run.mock.calls.every(([cmd]) => cmd === 'wslpath')).toBe(true)
   })
@@ -420,26 +450,32 @@ describe('native file manager', () => {
   })
 })
 
-
 it('uses the native runner for a file-manager handoff when none is injected', async () => {
-  execFileMock.mockImplementation((_command, _args, _options, callback) => { callback(null, '', '') })
+  execFileMock.mockImplementation((_command, _args, _options, callback) => {
+    callback(null, '', '')
+  })
   await revealNativePath('/tmp/report.txt', signal())
   expect(execFileMock).toHaveBeenCalled()
 })
 
-
-it.each(['win32', 'linux'] as const)('accepts Explorer delegate exit 1 through the native runner on %s', async (platform) => {
+it.each(['win32', 'linux'] as const)('accepts Explorer delegate exit 1 through the native runner on %s', async platform => {
   execFileMock.mockImplementation((command, _args, _options, callback) => {
     if (command === 'wslpath') callback(null, 'C:\\work\\report.txt', '')
     else callback(Object.assign(new Error('delegated'), { code: 1 }), '', '')
   })
-  await expect(revealNativePath(platform === 'win32' ? 'C:\\work\\report.txt' : '/mnt/c/work/report.txt', signal(),
-    { platform, env: { WSL_DISTRO_NAME: 'Ubuntu' } })).resolves.toBeUndefined()
+  await expect(
+    revealNativePath(platform === 'win32' ? 'C:\\work\\report.txt' : '/mnt/c/work/report.txt', signal(), {
+      platform,
+      env: { WSL_DISTRO_NAME: 'Ubuntu' },
+    }),
+  ).resolves.toBeUndefined()
 })
 
-it.each([2, 'ENOENT', undefined])('preserves Explorer failure %s', async (code) => {
+it.each([2, 'ENOENT', undefined])('preserves Explorer failure %s', async code => {
   const failure = Object.assign(new Error('launch failed'), code === undefined ? {} : { code })
-  execFileMock.mockImplementation((_command, _args, _options, callback) => { callback(failure, '', '') })
+  execFileMock.mockImplementation((_command, _args, _options, callback) => {
+    callback(failure, '', '')
+  })
   await expect(revealNativePath('C:\\file.txt', signal(), { platform: 'win32' })).rejects.toMatchObject({ code })
 })
 
@@ -453,16 +489,19 @@ it('preserves cancellation even when Explorer returns delegate exit 1', async ()
   await expect(revealNativePath('C:\\file.txt', abort.signal, { platform: 'win32', run })).rejects.toBe(reason)
 })
 
-it.each(['win32', 'linux'] as const)('accepts the Explorer delegate exit 1 when opening on %s', async (platform) => {
+it.each(['win32', 'linux'] as const)('accepts the Explorer delegate exit 1 when opening on %s', async platform => {
   // The settings sheet's open gesture must survive the same handoff reveal does.
-  const run = vi.fn<PathOpenerRunner>(async (command) => {
+  const run = vi.fn<PathOpenerRunner>(async command => {
     if (command === 'wslpath') return { stdout: 'C:\\work\\settings.yaml', stderr: '' }
     throw Object.assign(new Error('delegated'), { code: 1 })
   })
-  await expect(openNativePath(
-    platform === 'win32' ? 'C:\\work\\settings.yaml' : '/mnt/c/work/settings.yaml', signal(),
-    { platform, env: { WSL_DISTRO_NAME: 'Ubuntu' }, run },
-  )).resolves.toBeUndefined()
+  await expect(
+    openNativePath(platform === 'win32' ? 'C:\\work\\settings.yaml' : '/mnt/c/work/settings.yaml', signal(), {
+      platform,
+      env: { WSL_DISTRO_NAME: 'Ubuntu' },
+      run,
+    }),
+  ).resolves.toBeUndefined()
 })
 
 it('preserves a non-delegate Explorer failure when opening', async () => {
@@ -480,14 +519,16 @@ it.each([
   expect(run).toHaveBeenCalledWith('explorer.exe', ['/select,', target], expect.any(AbortSignal), 'visible')
 })
 
-
-it.each(['.html', '.svg'])('uses the file association for %s despite a configured browser', async (extension) => {
+it.each(['.html', '.svg'])('uses the file association for %s despite a configured browser', async extension => {
   const path = `/work/report${extension}`
   for (const platform of ['darwin', 'linux'] as const) {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: 'browser bundle', stderr: '' }))
     const lifetime = signal()
     await openNativeAssociatedPath(path, lifetime, {
-      platform, osRelease: '6.8.0-generic', env: { BROWSER: 'custom-browser' }, run,
+      platform,
+      osRelease: '6.8.0-generic',
+      env: { BROWSER: 'custom-browser' },
+      run,
     })
     expect(run.mock.calls).toEqual([[platform === 'darwin' ? 'open' : 'xdg-open', [path], lifetime, 'hidden']])
   }

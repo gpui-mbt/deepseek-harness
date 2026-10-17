@@ -5,7 +5,7 @@
  * `Loader.prototype.unwrapExports`; the `lsp-definition` ACP snapshot owns full app composition.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import * as toolLsp from '@deepseek-ai/dsh-tool-lsp'
 

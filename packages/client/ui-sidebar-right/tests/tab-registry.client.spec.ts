@@ -7,7 +7,7 @@
  * then registration order — and every step is contract: a type shipped from
  * another package relies on each one. So each is asserted, not assumed.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SidebarRightTabRegistry } from '../src/client/tab-registry.ts'
 import type { SidebarRightTabDefinition } from '../src/client/tab-registry.ts'
@@ -29,8 +29,7 @@ function ranked(registry: SidebarRightTabRegistry, address: string): string[] {
 
 describe('SidebarRightTabRegistry — recognition', () => {
   it('rejects default-page resolution when the selected kind is not registered', () => {
-    expect(() => defaultSeed(new SidebarRightTabRegistry(new Context())))
-      .toThrow('default tab kind "guide" is not registered')
+    expect(() => defaultSeed(new SidebarRightTabRegistry(new Context()))).toThrow('default tab kind "guide" is not registered')
   })
 
   it('matches a pattern containing ":" against the whole address', () => {
@@ -76,7 +75,7 @@ describe('SidebarRightTabRegistry — ranking', () => {
     expect(registry.claim('dsh-resource://file/session/s/a.md').kind).toBe('third')
   })
 
-  it('lets a more specific builtin beat the fallback viewer despite the viewer\'s longer pattern', () => {
+  it("lets a more specific builtin beat the fallback viewer despite the viewer's longer pattern", () => {
     const registry = new SidebarRightTabRegistry(new Context())
     registry.register(typeFor('text', ['dsh-resource://file/**'], { priority: 'fallback' }))
     registry.register(typeFor('image', ['*.png'], { priority: 'builtin' }))
@@ -114,19 +113,27 @@ describe('SidebarRightTabRegistry — ranking', () => {
   it('refuses a second registration in the same band, and any meeting a fallback of the kind', () => {
     const registry = new SidebarRightTabRegistry(new Context())
     registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'a/text', priority: 'builtin' }))
-    expect(() => registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'b/text', priority: 'builtin' }))).toThrow('already registered')
+    expect(() => registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'b/text', priority: 'builtin' }))).toThrow(
+      'already registered',
+    )
     registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'c/text' }))
     expect(() => registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'd/text' }))).toThrow('already registered')
-    expect(() => registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'e/text', priority: 'fallback' }))).toThrow('already registered')
+    expect(() => registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'e/text', priority: 'fallback' }))).toThrow(
+      'already registered',
+    )
     registry.register(typeFor('hex', ['dsh-resource://file/**'], { id: 'a/hex', priority: 'fallback' }))
-    expect(() => registry.register(typeFor('hex', ['dsh-resource://file/**'], { id: 'b/hex', priority: 'builtin' }))).toThrow('already registered')
+    expect(() => registry.register(typeFor('hex', ['dsh-resource://file/**'], { id: 'b/hex', priority: 'builtin' }))).toThrow(
+      'already registered',
+    )
     expect(() => registry.register(typeFor('hex', ['dsh-resource://file/**'], { id: 'c/hex' }))).toThrow('already registered')
   })
 
   it('refuses a second registration of an id, whatever its kind', () => {
     const registry = new SidebarRightTabRegistry(new Context())
     const dispose = registry.register(typeFor('text', ['dsh-resource://file/**'], { id: 'pkg/viewer', priority: 'builtin' }))
-    expect(() => registry.register(typeFor('hex', ['*.bin'], { id: 'pkg/viewer' }))).toThrow('tab type id "pkg/viewer" is already registered')
+    expect(() => registry.register(typeFor('hex', ['*.bin'], { id: 'pkg/viewer' }))).toThrow(
+      'tab type id "pkg/viewer" is already registered',
+    )
     dispose()
     expect(() => registry.register(typeFor('hex', ['*.bin'], { id: 'pkg/viewer' }))).not.toThrow()
   })
@@ -170,7 +177,7 @@ describe('SidebarRightTabRegistry — claiming', () => {
     expect(() => registry.claim('dsh-resource://file/session/s/a.txt', 'nope')).toThrow('no tab type is registered as "nope"')
   })
 
-  it('answers with the address as contentId and the type\'s title', () => {
+  it("answers with the address as contentId and the type's title", () => {
     const registry = new SidebarRightTabRegistry(new Context())
     registry.register(typeFor('text', ['dsh-resource://file/**']))
     expect(registry.claim('dsh-resource://file/session/s/a.txt')).toEqual({
@@ -183,7 +190,7 @@ describe('SidebarRightTabRegistry — claiming', () => {
   it('reads the title fresh, so a language change needs no re-registration', () => {
     const registry = new SidebarRightTabRegistry(new Context())
     let language = 'zh'
-    registry.register({ id: 'shipped/guide', kind: 'guide', title: () => language === 'zh' ? '开始' : 'Start' })
+    registry.register({ id: 'shipped/guide', kind: 'guide', title: () => (language === 'zh' ? '开始' : 'Start') })
     expect(registry.get('guide')?.title('sidebar://guide')).toBe('开始')
     language = 'en'
     expect(registry.get('guide')?.title('sidebar://guide')).toBe('Start')
@@ -229,8 +236,7 @@ describe('SidebarRightTabRegistry — lifetime', () => {
   it('refuses a second type for the same kind in the same band', () => {
     const registry = new SidebarRightTabRegistry(new Context())
     registry.register(typeFor('text', ['dsh-resource://file/**']))
-    expect(() => registry.register(typeFor('text', ['other://**'], { id: 'other/text' })))
-      .toThrow('tab kind "text" is already registered')
+    expect(() => registry.register(typeFor('text', ['other://**'], { id: 'other/text' }))).toThrow('tab kind "text" is already registered')
   })
 
   it('drops a type when its owner disposes, and frees the kind again', () => {
@@ -242,7 +248,7 @@ describe('SidebarRightTabRegistry — lifetime', () => {
     expect(() => registry.register(typeFor('text', ['other://**']))).not.toThrow()
   })
 
-  it('drops a type registered inside another plugin\'s effect when that plugin is disposed', async () => {
+  it("drops a type registered inside another plugin's effect when that plugin is disposed", async () => {
     const ctx = new Context()
     const registry = new SidebarRightTabRegistry(ctx)
     const fiber = ctx.plugin({
@@ -256,7 +262,7 @@ describe('SidebarRightTabRegistry — lifetime', () => {
     expect(registry.get('text')).toBeUndefined()
   })
 
-  it('collects every type\'s guide entries in order, reference-stable between changes', () => {
+  it("collects every type's guide entries in order, reference-stable between changes", () => {
     const registry = new SidebarRightTabRegistry(new Context())
     const entry = (order: number) => ({ id: String(order), order, title: () => `#${order}` })
     registry.register(typeFor('files', [], { guide: [entry(10)] }))

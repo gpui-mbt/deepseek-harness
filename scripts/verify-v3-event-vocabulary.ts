@@ -14,11 +14,15 @@ const COMMIT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u
 function sourceAt(root: string, sourceRef: string, path: string): string {
   try {
     return execFileSync('git', ['show', `${sourceRef}:${path}`], {
-      cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, GIT_NO_LAZY_FETCH: '1' },
     })
   } catch (error) {
-    throw new Error(`V3 source ${sourceRef}:${path} is not available locally; prepare the verified source pin before running this check`, { cause: error })
+    throw new Error(`V3 source ${sourceRef}:${path} is not available locally; prepare the verified source pin before running this check`, {
+      cause: error,
+    })
   }
 }
 
@@ -27,7 +31,8 @@ function initializer(source: string, path: string, name: string): ts.Expression 
   const declarations = file.statements.flatMap(statement =>
     ts.isVariableStatement(statement) && statement.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)
       ? statement.declarationList.declarations.filter(declaration => ts.isIdentifier(declaration.name) && declaration.name.text === name)
-      : [])
+      : [],
+  )
   let value = declarations.length === 1 ? declarations[0]?.initializer : undefined
   if (value === undefined) throw new Error(`${path}: expected one initialized export ${name}`)
   while (ts.isAsExpression(value) || ts.isParenthesizedExpression(value)) value = value.expression
@@ -37,11 +42,16 @@ function initializer(source: string, path: string, name: string): ts.Expression 
 function sourceEventTypes(source: string): ReadonlySet<string> {
   const value = initializer(source, EVENTS_PATH, 'KNOWN_SESSION_EVENT_TYPES')
   const entries = ts.isNewExpression(value) && value.arguments?.length === 1 ? value.arguments[0] : undefined
-  if (!ts.isNewExpression(value) || !ts.isIdentifier(value.expression) || value.expression.text !== 'Set'
-    || entries === undefined || !ts.isArrayLiteralExpression(entries)) {
+  if (
+    !ts.isNewExpression(value) ||
+    !ts.isIdentifier(value.expression) ||
+    value.expression.text !== 'Set' ||
+    entries === undefined ||
+    !ts.isArrayLiteralExpression(entries)
+  ) {
     throw new Error(`${EVENTS_PATH}: KNOWN_SESSION_EVENT_TYPES must be a literal Set`)
   }
-  const names = entries.elements.map((element) => {
+  const names = entries.elements.map(element => {
     if (!ts.isStringLiteral(element)) throw new Error(`${EVENTS_PATH}: event names must be string literals`)
     return element.text
   })
@@ -65,17 +75,23 @@ export interface V3EventVocabularyCheck {
  * @throws when the pin is missing, does not write V3, or its event names differ.
  */
 export function verifyV3EventVocabulary(
-  root: string, sourceRef: string, expected: ReadonlySet<string> = RELEASED_V3_EVENT_TYPES,
+  root: string,
+  sourceRef: string,
+  expected: ReadonlySet<string> = RELEASED_V3_EVENT_TYPES,
 ): V3EventVocabularyCheck {
   if (!COMMIT_ID.test(sourceRef)) throw new Error('--source-ref requires a full immutable commit id, not a branch, tag, or abbreviated id')
   let objectType: string
   try {
     objectType = execFileSync('git', ['cat-file', '-t', sourceRef], {
-      cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, GIT_NO_LAZY_FETCH: '1' },
     }).trim()
   } catch (error) {
-    throw new Error(`V3 source commit ${sourceRef} is not available locally; prepare the verified source pin before running this check`, { cause: error })
+    throw new Error(`V3 source commit ${sourceRef} is not available locally; prepare the verified source pin before running this check`, {
+      cause: error,
+    })
   }
   if (objectType !== 'commit') throw new Error('--source-ref must name a commit object')
   const writer = initializer(sourceAt(root, sourceRef, WRITER_PATH), WRITER_PATH, 'SESSION_FORMAT_VERSION')
@@ -86,11 +102,13 @@ export function verifyV3EventVocabulary(
   const missing = [...actual].filter(name => !expected.has(name)).sort()
   const extra = [...expected].filter(name => !actual.has(name)).sort()
   if (missing.length > 0 || extra.length > 0) {
-    throw new Error([
-      `V3 event vocabulary differs from source ${sourceRef}; review source payload conversion before updating the migration-owned set.`,
-      `Missing V3 names: ${missing.join(', ') || '(none)'}`,
-      `Extra migration names: ${extra.join(', ') || '(none)'}`,
-    ].join('\n'))
+    throw new Error(
+      [
+        `V3 event vocabulary differs from source ${sourceRef}; review source payload conversion before updating the migration-owned set.`,
+        `Missing V3 names: ${missing.join(', ') || '(none)'}`,
+        `Extra migration names: ${extra.join(', ') || '(none)'}`,
+      ].join('\n'),
+    )
   }
   return { sourceRef, eventCount: actual.size }
 }
@@ -99,7 +117,9 @@ function main(): void {
   const { values } = parseArgs({ options: { 'source-ref': { type: 'string' } }, allowPositionals: false })
   if (values['source-ref'] === undefined) throw new Error('usage: verify-v3-event-vocabulary --source-ref <full-V3-writer-commit-id>')
   const result = verifyV3EventVocabulary(resolve(process.cwd()), values['source-ref'])
-  console.log(`verify-v3-event-vocabulary: ${result.eventCount} names match V3 writer ${result.sourceRef}; remote freshness was not checked.`)
+  console.log(
+    `verify-v3-event-vocabulary: ${result.eventCount} names match V3 writer ${result.sourceRef}; remote freshness was not checked.`,
+  )
 }
 
 if (isEntry(import.meta.url)) main()

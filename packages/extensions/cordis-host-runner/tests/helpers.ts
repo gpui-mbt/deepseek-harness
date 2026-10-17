@@ -57,7 +57,7 @@ export async function setup(config?: Config): Promise<Harness> {
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRegistry)
   const gateway: Gateway = { events: [] }
-  ctx.on('cordis/request-run', (request) => {
+  ctx.on('cordis/request-run', request => {
     gateway.events.push(['cordis/request-run', request])
     // The fake browser: a request reaches it, and it answers the way the real
     // client runner does — nothing here is a shortcut through the host's own
@@ -73,7 +73,9 @@ export async function setup(config?: Config): Promise<Harness> {
       const half = await runner.runHostHalf(AGENT_A, pluginId, packageId, mode, requestId, false)
       if (!half.ok) {
         await runner.resolveRequestRun(requestId, {
-          ok: false, reason: 'host-half-failed', message: half.message,
+          ok: false,
+          reason: 'host-half-failed',
+          message: half.message,
         })
         return
       }
@@ -91,12 +93,14 @@ export async function setup(config?: Config): Promise<Harness> {
       await runner.resolveRequestRun(requestId, {
         ok: true,
         pluginRunId: source.pluginRunId,
-        ...gateway.clientWaitingFor === undefined ? {} : { waitingFor: gateway.clientWaitingFor },
+        ...(gateway.clientWaitingFor === undefined ? {} : { waitingFor: gateway.clientWaitingFor }),
       })
     })
   })
   for (const name of ['cordis/request-run-resolved', 'cordis/dynamic-package', 'cordis/dynamic-retract'] as const) {
-    ctx.on(name, (payload: unknown) => { gateway.events.push([name, payload]) })
+    ctx.on(name, (payload: unknown) => {
+      gateway.events.push([name, payload])
+    })
   }
   await ctx.plugin(DynamicCordisRunnerService, config)
   const runner = ctx.dynamicCordisRunner
@@ -112,7 +116,8 @@ export async function setup(config?: Config): Promise<Harness> {
  * @returns id/running pairs in define order.
  */
 export function running(runner: DynamicCordisRunnerService, agent: Agent): { id: string; running: boolean }[] {
-  return runner.inventory()
+  return runner
+    .inventory()
     .filter(row => row.agentId === agent.id)
     .map(row => ({ id: String(row.pluginId), running: row.activeRun !== undefined }))
 }
@@ -155,7 +160,10 @@ export function call(ctx: Context, name: string, args: unknown): Promise<ToolExe
 
 /** Concatenated text blocks of one tool result. */
 export function text(result: ToolExecutionResult): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 /** Explicit content-array output declaration for dynamic-tool behavior fixtures. */

@@ -6,8 +6,13 @@
 import type { Fiber } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
-  ApprovalRequestId, CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
-  CordisDynamicRunMode, DynamicCordisRenderFailure, DynamicCordisRunAttempt,
+  ApprovalRequestId,
+  CordisDynamicPackageId,
+  CordisDynamicPluginId,
+  CordisDynamicPluginRunId,
+  CordisDynamicRunMode,
+  DynamicCordisRenderFailure,
+  DynamicCordisRunAttempt,
 } from './types.ts'
 
 /** One Host method exposed to this package's Client half. */
@@ -86,9 +91,7 @@ export interface DynamicCordisDefineRequest {
   /** Session that owns the plugin. */
   sessionId: SessionId
   /** Create a plugin or append to an existing one. */
-  plugin:
-    | { kind: 'new'; idPrefix: string }
-    | { kind: 'existing'; pluginId: CordisDynamicPluginId }
+  plugin: { kind: 'new'; idPrefix: string } | { kind: 'existing'; pluginId: CordisDynamicPluginId }
   /** Package label. */
   name: string
   /** User-facing purpose. */

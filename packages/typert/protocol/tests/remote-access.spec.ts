@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import {
   Remote,
   RemoteScope,
@@ -88,13 +88,19 @@ describe('RemoteAccessResource', () => {
 describe('@Remote resources', () => {
   class Marked {
     @Remote
-    plain(request: { readonly sessionId: string }): string { return request.sessionId }
+    plain(request: { readonly sessionId: string }): string {
+      return request.sessionId
+    }
 
     @Remote({ resources: { 'test-room': agent => agent } })
-    lookup(agent: AccessFixtureAgent): string { return agent.protocolAccessAgentId }
+    lookup(agent: AccessFixtureAgent): string {
+      return agent.protocolAccessAgentId
+    }
 
     @Remote({ name: 'rooms', mode: 'stream', resources: { 'test-room': request => request.rooms } })
-    *watch(request: { readonly rooms: readonly WireSessionId[] }): Iterable<number> { void request }
+    *watch(request: { readonly rooms: readonly WireSessionId[] }): Iterable<number> {
+      void request
+    }
   }
 
   it('records frozen readers on the Remote marker when the Service is constructed', () => {
@@ -112,16 +118,23 @@ describe('@Remote resources', () => {
   it('rejects resources without a reader function at decoration time', () => {
     expect(() => Remote({ resources: {} })).toThrow('Remote resources require at least one reader')
     const notReader: unknown = 'session-id'
-    expect(() => Remote({ resources: { 'test-room': notReader as () => undefined } }))
-      .toThrow('Remote resource reader "test-room" must be a function')
+    expect(() => Remote({ resources: { 'test-room': notReader as () => undefined } })).toThrow(
+      'Remote resource reader "test-room" must be a function',
+    )
   })
 
   it('rejects a second declaration of one method with other readers', () => {
     const initializers: Array<(this: object) => void> = []
     const context = (): ClassMethodDecoratorContext<object, (this: object, ...args: unknown[]) => unknown> => ({
-      kind: 'method', name: 'run', private: false, static: false, metadata: {},
+      kind: 'method',
+      name: 'run',
+      private: false,
+      static: false,
+      metadata: {},
       access: { has: () => true, get: () => () => undefined },
-      addInitializer: (initializer) => { initializers.push(initializer) },
+      addInitializer: initializer => {
+        initializers.push(initializer)
+      },
     })
     const method = function (this: object): void {}
     const first = Remote({ resources: { 'test-room': () => undefined } })
@@ -131,7 +144,9 @@ describe('@Remote resources', () => {
     const service = Object.create({}) as object
     initializers[0]!.call(service)
     initializers[1]!.call(service)
-    expect(() => { initializers[2]!.call(service) }).toThrow('conflicting invocation markers')
+    expect(() => {
+      initializers[2]!.call(service)
+    }).toThrow('conflicting invocation markers')
   })
 
   it('infers each reader argument from the decorated method, mapping lookups to wire identities', () => {
@@ -145,10 +160,22 @@ describe('@Remote resources', () => {
           },
         },
       })
-      both(agent: AccessFixtureAgent, request: { readonly rooms: readonly WireSessionId[] }): void { void agent; void request }
+      both(agent: AccessFixtureAgent, request: { readonly rooms: readonly WireSessionId[] }): void {
+        void agent
+        void request
+      }
 
-      @Remote({ resources: { 'test-room': (agent?) => { expectTypeOf(agent).toEqualTypeOf<WireSessionId | undefined>(); return agent } } })
-      optional(agent?: AccessFixtureAgent): void { void agent }
+      @Remote({
+        resources: {
+          'test-room': (agent?) => {
+            expectTypeOf(agent).toEqualTypeOf<WireSessionId | undefined>()
+            return agent
+          },
+        },
+      })
+      optional(agent?: AccessFixtureAgent): void {
+        void agent
+      }
 
       @Remote({
         mode: 'stream',
@@ -162,32 +189,45 @@ describe('@Remote resources', () => {
       *stream(
         request: { readonly address: { kind: 'room'; roomId: WireSessionId } | { kind: 'child'; childId: string } },
         signal: AbortSignal,
-      ): Iterable<number> { void request; void signal }
+      ): Iterable<number> {
+        void request
+        void signal
+      }
 
       @Remote({
         resources: {
-          'test-room': (request) => {
+          'test-room': request => {
             expectTypeOf(request).toEqualTypeOf<{ readonly roomId: WireSessionId }>()
             return request.roomId
           },
         },
       })
-      fewer(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void { void request; void signal }
+      fewer(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void {
+        void request
+        void signal
+      }
 
       // @ts-expect-error -- `nope` is not a field of the decorated method's request.
       // oxlint-disable-next-line typescript/no-unsafe-return -- the compile error above is the assertion.
       @Remote({ resources: { 'test-room': request => request.nope } })
-      missing(request: { readonly roomId: WireSessionId }): void { void request }
+      missing(request: { readonly roomId: WireSessionId }): void {
+        void request
+      }
 
       // @ts-expect-error -- the decorated method has no second argument.
       // oxlint-disable-next-line typescript/no-confusing-void-expression -- the failed overload resolution above is the assertion.
       @Remote({ resources: { 'test-room': (request, extra: WireSessionId) => extra } })
-      outOfRange(request: { readonly roomId: WireSessionId }): void { void request }
+      outOfRange(request: { readonly roomId: WireSessionId }): void {
+        void request
+      }
 
       // @ts-expect-error -- the decorated method has no parameter after its signal.
       // oxlint-disable-next-line typescript/no-confusing-void-expression -- the failed overload resolution above is the assertion.
       @Remote({ resources: { 'test-room': (request, signal, extra: WireSessionId) => extra } })
-      afterSignal(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void { void request; void signal }
+      afterSignal(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void {
+        void request
+        void signal
+      }
 
       // @ts-expect-error -- a reader for this kind returns its identity type, not a number.
       // oxlint-disable-next-line typescript/no-confusing-void-expression -- the failed overload resolution above is the assertion.
@@ -216,29 +256,39 @@ describe('@RemoteScope resources', () => {
     @RemoteScope('protocolAccessRoom', {
       name: 'move',
       resources: {
-        'test-room': (request) => {
+        'test-room': request => {
           expectTypeOf(request).toEqualTypeOf<{ readonly targetRoomId: WireSessionId }>()
           return request.targetRoomId
         },
       },
     })
-    relocate(request: { readonly targetRoomId: WireSessionId }): void { void request }
+    relocate(request: { readonly targetRoomId: WireSessionId }): void {
+      void request
+    }
 
     // @ts-expect-error -- `nope` is not a field of the decorated method's request.
     // oxlint-disable-next-line typescript/no-unsafe-return -- the compile error above is the assertion.
     @RemoteScope('protocolAccessRoom', { resources: { 'test-room': request => request.nope } })
-    missing(request: { readonly roomId: WireSessionId }): void { void request }
+    missing(request: { readonly roomId: WireSessionId }): void {
+      void request
+    }
 
     // @ts-expect-error -- a reader for this kind returns its identity type, not a number.
     @RemoteScope('protocolAccessRoom', { resources: { 'test-room': () => 7 } })
     wrongIdentity(): void {}
 
     @RemoteScope('protocolAccessRoom', { resources: { 'test-room': request => request.roomId } })
-    fewer(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void { void request; void signal }
+    fewer(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void {
+      void request
+      void signal
+    }
 
     // @ts-expect-error -- the decorated method has no parameter after its signal.
     @RemoteScope('protocolAccessRoom', { resources: { 'test-room': (request, signal, extra: WireSessionId) => extra } })
-    afterSignal(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void { void request; void signal }
+    afterSignal(request: { readonly roomId: WireSessionId }, signal: AbortSignal): void {
+      void request
+      void signal
+    }
 
     // @ts-expect-error -- no package declares this resource kind.
     @RemoteScope('protocolAccessRoom', { resources: { 'protocol-undeclared-kind': () => undefined } })
@@ -260,7 +310,9 @@ describe('@RemoteScope resources', () => {
     // @ts-expect-error -- a Remote Scope method has no stream option.
     expect(() => RemoteScope('protocolAccessRoom', { mode: 'stream' })).toThrow('RemoteScope options require name or resources')
     const empty: object = {}
-    expect(() => RemoteScope('protocolAccessRoom', empty as RemoteScopeOptions<unknown[]>)).toThrow('RemoteScope options require name or resources')
+    expect(() => RemoteScope('protocolAccessRoom', empty as RemoteScopeOptions<unknown[]>)).toThrow(
+      'RemoteScope options require name or resources',
+    )
     expect(() => RemoteScope('protocolAccessRoom', { name: 'bad/name' })).toThrow('export name')
     expect(() => RemoteScope('protocolAccessRoom', { resources: {} })).toThrow('Remote resources require at least one reader')
   })

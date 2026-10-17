@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { DEFAULT_DIFF_MAX_LINES, DiffBlock as LocalizedDiffBlock, type DiffHunk } from '../src/index.ts'
@@ -93,7 +93,7 @@ describe('DiffBlock structure', () => {
 })
 
 describe('DiffBlock local changes', () => {
-  it.each([128, 129])('renders and copies %i replacements with bounded comparison', async (count) => {
+  it.each([128, 129])('renders and copies %i replacements with bounded comparison', async count => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     const oldLines = ['shared context', ...Array.from({ length: count }, (_, i) => `old ${i}`)]
@@ -102,10 +102,19 @@ describe('DiffBlock local changes', () => {
     const total = count === 128 ? count : count + 1
     render(<DiffBlock diffs={diffs} maxLines={1000} />)
     expect(diffTotals(diffs)).toEqual({ added: total, removed: total })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '复制' })) })
-    expect(writeText).toHaveBeenCalledWith(count === 128
-      ? ['large.txt', '  shared context', ...oldLines.slice(1).map(line => `- ${line}`), ...newLines.slice(1).map(line => `+ ${line}`)].join('\n')
-      : ['large.txt', ...oldLines.map(line => `- ${line}`), ...newLines.map(line => `+ ${line}`)].join('\n'))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '复制' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(
+      count === 128
+        ? [
+            'large.txt',
+            '  shared context',
+            ...oldLines.slice(1).map(line => `- ${line}`),
+            ...newLines.slice(1).map(line => `+ ${line}`),
+          ].join('\n')
+        : ['large.txt', ...oldLines.map(line => `- ${line}`), ...newLines.map(line => `+ ${line}`)].join('\n'),
+    )
   })
 
   it('keeps a sparse edit exact in a ten-thousand-line fragment', () => {
@@ -116,8 +125,15 @@ describe('DiffBlock local changes', () => {
     const { container } = render(<DiffBlock diffs={diffs} />)
     expect(diffTotals(diffs)).toEqual({ added: 1, removed: 1 })
     expect(bodyRows(container)).toEqual([
-      'sparse.txt', 'line 4997', 'line 4998', 'line 4999', 'line 5000', 'changed',
-      'line 5001', 'line 5002', 'line 5003',
+      'sparse.txt',
+      'line 4997',
+      'line 4998',
+      'line 4999',
+      'line 5000',
+      'changed',
+      'line 5001',
+      'line 5002',
+      'line 5003',
     ])
   })
 
@@ -129,20 +145,46 @@ describe('DiffBlock local changes', () => {
     expect(screen.getAllByText('start')).toHaveLength(1)
     expect(screen.getAllByText('end')).toHaveLength(1)
     expect(diffTotals(diffs)).toEqual({ added: 1, removed: 1 })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '复制' })) })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '复制' }))
+    })
     expect(writeText).toHaveBeenCalledWith('settings.ts\n  start\n- mode = 1\n+ mode = 2\n  end')
   })
 
   it('keeps three neutral context lines around distant changes and separates hunks', () => {
     const before = Array.from({ length: 50 }, (_, i) => `item ${i}`)
-    const after = before.map((line, i) => i === 10 || i === 40 ? `changed ${i}` : line)
-    const { container } = render(<DiffBlock diffs={[{
-      path: 'items.txt', oldText: before.join('\n'), newText: after.join('\n'),
-    }]} maxLines={100} />)
+    const after = before.map((line, i) => (i === 10 || i === 40 ? `changed ${i}` : line))
+    const { container } = render(
+      <DiffBlock
+        diffs={[
+          {
+            path: 'items.txt',
+            oldText: before.join('\n'),
+            newText: after.join('\n'),
+          },
+        ]}
+        maxLines={100}
+      />,
+    )
     expect(bodyRows(container)).toEqual([
-      'items.txt', 'item 7', 'item 8', 'item 9', 'item 10', 'changed 10',
-      'item 11', 'item 12', 'item 13', '⋯', 'item 37', 'item 38', 'item 39',
-      'item 40', 'changed 40', 'item 41', 'item 42', 'item 43',
+      'items.txt',
+      'item 7',
+      'item 8',
+      'item 9',
+      'item 10',
+      'changed 10',
+      'item 11',
+      'item 12',
+      'item 13',
+      '⋯',
+      'item 37',
+      'item 38',
+      'item 39',
+      'item 40',
+      'changed 40',
+      'item 41',
+      'item 42',
+      'item 43',
     ])
     expect(changeRows(container)).toEqual(['item 10', 'changed 10', 'item 40', 'changed 40'])
   })
@@ -199,11 +241,15 @@ describe('DiffBlock copy', () => {
     ]
     render(<DiffBlock diffs={diffs} />)
     const copy = screen.getByRole('button', { name: '复制' })
-    await act(async () => { fireEvent.click(copy) })
+    await act(async () => {
+      fireEvent.click(copy)
+    })
     // Path header, del/add prefixes, and the same-file gap all reach the clipboard.
     expect(writeText).toHaveBeenCalledWith('a.ts\n- old\n+ new\n⋯\n- p\n+ q')
     expect(screen.getByRole('button', { name: '复制成功' })).toBeTruthy()
-    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
@@ -214,7 +260,9 @@ describe('DiffBlock copy', () => {
     })
     render(<DiffBlock diffs={[{ path: 'a.ts', oldText: null, newText: 'x' }]} />)
     const copy = screen.getByRole('button', { name: '复制' })
-    await act(async () => { fireEvent.click(copy) })
+    await act(async () => {
+      fireEvent.click(copy)
+    })
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
@@ -224,8 +272,12 @@ describe('DiffBlock copy', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<DiffBlock diffs={[{ path: 'a.ts', oldText: null, newText: 'x' }]} />)
     const copy = screen.getByRole('button', { name: '复制' })
-    await act(async () => { fireEvent.click(copy) })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '复制成功' })) })
+    await act(async () => {
+      fireEvent.click(copy)
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '复制成功' }))
+    })
     expect(writeText).toHaveBeenCalledTimes(1)
   })
 })

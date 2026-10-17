@@ -117,7 +117,10 @@ class TimerSet implements TimerHost {
   private readonly running = new Set<Promise<void>>()
   private closed = false
 
-  constructor(private readonly report: (line: string) => void, private readonly owner: string) {}
+  constructor(
+    private readonly report: (line: string) => void,
+    private readonly owner: string,
+  ) {}
 
   after(ms: number, fn: () => unknown): ModTimer {
     if (this.closed) return { cancel() {} }
@@ -127,15 +130,27 @@ class TimerSet implements TimerHost {
     }, ms)
     handle.unref()
     this.active.add(handle)
-    return { cancel: () => { clearTimeout(handle); this.active.delete(handle) } }
+    return {
+      cancel: () => {
+        clearTimeout(handle)
+        this.active.delete(handle)
+      },
+    }
   }
 
   every(ms: number, fn: () => unknown): ModTimer {
     if (this.closed) return { cancel() {} }
-    const handle = setInterval(() => { this.run(fn) }, ms)
+    const handle = setInterval(() => {
+      this.run(fn)
+    }, ms)
     handle.unref()
     this.active.add(handle)
-    return { cancel: () => { clearInterval(handle); this.active.delete(handle) } }
+    return {
+      cancel: () => {
+        clearInterval(handle)
+        this.active.delete(handle)
+      },
+    }
   }
 
   /**
@@ -150,11 +165,18 @@ class TimerSet implements TimerHost {
   }
 
   private run(fn: () => unknown): void {
-    const settled = Promise.resolve().then(fn).then(() => undefined, (error: unknown) => {
-      this.report(`${this.owner}: timer callback failed: ${messageOf(error)}`)
-    })
+    const settled = Promise.resolve()
+      .then(fn)
+      .then(
+        () => undefined,
+        (error: unknown) => {
+          this.report(`${this.owner}: timer callback failed: ${messageOf(error)}`)
+        },
+      )
     this.running.add(settled)
-    void settled.finally(() => { this.running.delete(settled) })
+    void settled.finally(() => {
+      this.running.delete(settled)
+    })
   }
 }
 
@@ -234,7 +256,7 @@ export class ModsEngine<B> {
       catchBudgetMs: this.options.catchBudgetMs,
       signal,
       report: this.options.report,
-      ...options.validateNext === undefined ? {} : { validateNext: options.validateNext },
+      ...(options.validateNext === undefined ? {} : { validateNext: options.validateNext }),
     })
   }
 
@@ -387,7 +409,8 @@ export class ModsEngine<B> {
         return Date.now()
       case 'clock.sleep': {
         const ms = fields.ms
-        if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) throw new TypeError('$.clock.sleep needs a non-negative number of milliseconds')
+        if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0)
+          throw new TypeError('$.clock.sleep needs a non-negative number of milliseconds')
         return sleepUnless(ms, context.signal)
       }
       default:

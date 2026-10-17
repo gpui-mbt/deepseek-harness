@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
 import {
-  createClientModuleSystem, parseBootManifest,
-  type ClientBundleRegistration, type ClientModuleLoader, type ClientModuleLoaderTarget, type WebBootEntry, type WebBootGraph,
+  createClientModuleSystem,
+  parseBootManifest,
+  type ClientBundleRegistration,
+  type ClientModuleLoader,
+  type ClientModuleLoaderTarget,
+  type WebBootEntry,
+  type WebBootGraph,
 } from '@deepseek-ai/dsh-client-modules/client'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { assertEntriesActive, bootClient, type EntryStateLabel } from '../src/boot-client.ts'
 import { FIBER_STATE } from '../src/loader-status.ts'
 
@@ -26,13 +31,17 @@ function modulesOf(graph: WebBootGraph, staticModules: Record<string, unknown>):
   const target: ClientModuleLoaderTarget = {
     mode: 'queue',
     pendingQueue,
-    load: (registration) => { pendingQueue.push(registration) },
+    load: registration => {
+      pendingQueue.push(registration)
+    },
     create: options => createClientModuleSystem(target, { id: BOOTSTRAP_ID, exports: {} }, options),
   }
   const modules = target.create({
     boot: graph,
     staticModules,
-    loadBundle: async (url) => { loaded.push(url) },
+    loadBundle: async url => {
+      loaded.push(url)
+    },
   })
   return { modules, loaded }
 }
@@ -42,7 +51,9 @@ function stateSink(): { states: Map<string, EntryStateLabel[]>; onEntryState: (n
   const states = new Map<string, EntryStateLabel[]>()
   return {
     states,
-    onEntryState: (name, state) => { states.set(name, [...(states.get(name) ?? []), state]) },
+    onEntryState: (name, state) => {
+      states.set(name, [...(states.get(name) ?? []), state])
+    },
   }
 }
 
@@ -50,7 +61,11 @@ describe('bootClient', () => {
   it('activates every seeded row without touching the bundle transport', async () => {
     const graph = graphOf(['provider', 'consumer'])
     const { modules, loaded } = modulesOf(graph, {
-      provider: { apply: (ctx: Context) => { ctx.reflect.provide('x', { marker: 'x' }) } },
+      provider: {
+        apply: (ctx: Context) => {
+          ctx.reflect.provide('x', { marker: 'x' })
+        },
+      },
       consumer: { inject: ['x'], apply: () => {} },
     })
     const ctx = new Context()
@@ -71,9 +86,7 @@ describe('bootClient', () => {
     const { modules } = modulesOf(graph, { orphan: { inject: ['nothing'], apply: () => {} } })
     const ctx = new Context()
 
-    await expect(bootClient({ ctx, modules, manifest: modules.manifest })).rejects.toThrow(
-      'orphan: pending (waiting for service: nothing)',
-    )
+    await expect(bootClient({ ctx, modules, manifest: modules.manifest })).rejects.toThrow('orphan: pending (waiting for service: nothing)')
     await ctx.fiber.dispose()
   })
 
@@ -83,7 +96,9 @@ describe('bootClient', () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
     const error = vi.spyOn(ctx.logger, 'error').mockImplementation(() => {})
-    onTestFinished(() => { error.mockRestore() })
+    onTestFinished(() => {
+      error.mockRestore()
+    })
     const sink = stateSink()
 
     await expect(bootClient({ ctx, modules, manifest, onEntryState: sink.onEntryState })).rejects.toThrow(
@@ -96,13 +111,16 @@ describe('bootClient', () => {
 })
 
 describe('assertEntriesActive', () => {
-  interface FakeEntry { name: string; fiber?: { state: number; inject: Record<string, null> } }
+  interface FakeEntry {
+    name: string
+    fiber?: { state: number; inject: Record<string, null> }
+  }
 
   /** Loader-shaped double: entries with scripted fiber states, services by name. */
   function auditCtx(entries: readonly FakeEntry[], services: Record<string, unknown> = {}): Context {
     return {
       loader: {
-        * entries() {
+        *entries() {
           for (const entry of entries) yield { options: { name: entry.name }, fiber: entry.fiber }
         },
       },
@@ -113,37 +131,54 @@ describe('assertEntriesActive', () => {
   const silent = { importError: () => undefined }
 
   it('passes when every entry is active', () => {
-    expect(() => { assertEntriesActive(auditCtx([{ name: 'a', fiber: { state: FIBER_STATE.ACTIVE, inject: {} } }]), silent) }).not.toThrow()
+    expect(() => {
+      assertEntriesActive(auditCtx([{ name: 'a', fiber: { state: FIBER_STATE.ACTIVE, inject: {} } }]), silent)
+    }).not.toThrow()
   })
 
   it('names import failures, missing services, and other non-active states', () => {
-    const ctx = auditCtx([
-      { name: 'lost' },
-      { name: 'waiting', fiber: { state: FIBER_STATE.PENDING, inject: { present: null, a: null, b: null } } },
-      { name: 'opaque', fiber: { state: FIBER_STATE.PENDING, inject: {} } },
-      { name: 'broken', fiber: { state: FIBER_STATE.FAILED, inject: {} } },
-    ], { present: {} })
+    const ctx = auditCtx(
+      [
+        { name: 'lost' },
+        { name: 'waiting', fiber: { state: FIBER_STATE.PENDING, inject: { present: null, a: null, b: null } } },
+        { name: 'opaque', fiber: { state: FIBER_STATE.PENDING, inject: {} } },
+        { name: 'broken', fiber: { state: FIBER_STATE.FAILED, inject: {} } },
+      ],
+      { present: {} },
+    )
 
-    expect(() => { assertEntriesActive(ctx, silent) }).toThrow([
-      'web boot: 4 entries did not activate',
-      'lost: import failed (see console for the import error)',
-      'waiting: pending (waiting for services: a, b)',
-      'opaque: pending (waiting for services: unknown)',
-      'broken: failed',
-    ].join('\n'))
+    expect(() => {
+      assertEntriesActive(ctx, silent)
+    }).toThrow(
+      [
+        'web boot: 4 entries did not activate',
+        'lost: import failed (see console for the import error)',
+        'waiting: pending (waiting for services: a, b)',
+        'opaque: pending (waiting for services: unknown)',
+        'broken: failed',
+      ].join('\n'),
+    )
   })
 
   it('uses the singular form for one failing entry', () => {
-    expect(() => { assertEntriesActive(auditCtx([{ name: 'lost' }]), silent) }).toThrow('web boot: 1 entry did not activate\n')
+    expect(() => {
+      assertEntriesActive(auditCtx([{ name: 'lost' }]), silent)
+    }).toThrow('web boot: 1 entry did not activate\n')
   })
 
   it('names the recorded import error of a fiberless entry when the module system is supplied', () => {
-    const recorded = new Map([['lost', new Error('client-modules: could not load "lost": plugins/??lost/client.js&rev=0: bundle script failed to load')]])
+    const recorded = new Map([
+      ['lost', new Error('client-modules: could not load "lost": plugins/??lost/client.js&rev=0: bundle script failed to load')],
+    ])
     const modules = { importError: (id: string) => recorded.get(id) }
-    expect(() => { assertEntriesActive(auditCtx([{ name: 'lost' }, { name: 'quiet' }]), modules) }).toThrow([
-      'web boot: 2 entries did not activate',
-      'lost: import failed: client-modules: could not load "lost": plugins/??lost/client.js&rev=0: bundle script failed to load',
-      'quiet: import failed (see console for the import error)',
-    ].join('\n'))
+    expect(() => {
+      assertEntriesActive(auditCtx([{ name: 'lost' }, { name: 'quiet' }]), modules)
+    }).toThrow(
+      [
+        'web boot: 2 entries did not activate',
+        'lost: import failed: client-modules: could not load "lost": plugins/??lost/client.js&rev=0: bundle script failed to load',
+        'quiet: import failed (see console for the import error)',
+      ].join('\n'),
+    )
   })
 })

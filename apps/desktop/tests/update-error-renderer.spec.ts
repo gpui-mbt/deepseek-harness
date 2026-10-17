@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { runInContext } from 'node:vm'
 import { JSDOM } from 'jsdom'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import type { UpdateDialogApi, UpdateDialogView } from '../src/update-dialog.ts'
 import type { MandatoryUpdateApi, MandatoryUpdateView } from '../src/mandatory-update-window.ts'
@@ -18,20 +18,37 @@ function page(name: string) {
     if (result === null) throw new Error(`Missing update element: ${id}`)
     return result
   }
-  const run = (): void => { runInContext(readFileSync(new URL(`../renderer/${name}.js`, import.meta.url), 'utf8'), dom.getInternalVMContext()) }
+  const run = (): void => {
+    runInContext(readFileSync(new URL(`../renderer/${name}.js`, import.meta.url), 'utf8'), dom.getInternalVMContext())
+  }
   return { dom, document, element, run }
 }
 
-it.each(['en', 'zh-CN'])('keeps ordinary diagnostics folded, text-only, and keyboard-accessible: %s', async (language) => {
+it.each(['en', 'zh-CN'])('keeps ordinary diagnostics folded, text-only, and keyboard-accessible: %s', async language => {
   const p = page('update-dialog')
   const locale = resolveDesktopLocale(language)
-  const state: UpdateDialogView = { revision: 1, locale: locale.id, title: locale.messages.updateFailedTitle,
-    message: locale.messages.updateStopFailed, detail: '', buttons: [locale.messages.updateAcknowledge], cancelId: 0,
-    closeLabel: locale.messages.updateClose, technicalDetailsLabel: locale.messages.updateTechnicalDetails,
-    technicalDetails: '<img src=x onerror="window.compromised=true">\nexit 0; shutdown acknowledged false' }
+  const state: UpdateDialogView = {
+    revision: 1,
+    locale: locale.id,
+    title: locale.messages.updateFailedTitle,
+    message: locale.messages.updateStopFailed,
+    detail: '',
+    buttons: [locale.messages.updateAcknowledge],
+    cancelId: 0,
+    closeLabel: locale.messages.updateClose,
+    technicalDetailsLabel: locale.messages.updateTechnicalDetails,
+    technicalDetails: '<img src=x onerror="window.compromised=true">\nexit 0; shutdown acknowledged false',
+  }
   const respond = vi.fn(async () => {})
   let publish!: (view: UpdateDialogView | null) => void
-  const api: UpdateDialogApi = { status: async () => state, respond, subscribe: (listener) => { publish = listener; return () => {} } }
+  const api: UpdateDialogApi = {
+    status: async () => state,
+    respond,
+    subscribe: listener => {
+      publish = listener
+      return () => {}
+    },
+  }
   Object.defineProperty(p.dom.window, 'dshUpdateDialog', { value: api })
   p.run()
   await expect.poll(() => p.element('dialog').hidden).toBe(false)
@@ -78,22 +95,38 @@ it.each(['en', 'zh-CN'])('keeps ordinary diagnostics folded, text-only, and keyb
 it('keeps mandatory diagnostics expandable without clearing the block or authorizing installation', async () => {
   const p = page('mandatory-update')
   const locale = resolveDesktopLocale('zh-CN')
-  const initial: MandatoryUpdateView = { locale, deferred: false, policy: { blocking: true, checking: false },
-    update: { phase: 'error', failedOperation: 'install', preparationFailure: 'stop-failed', version: '0.1.6-nightly.1',
-      message: 'different shell locale', technicalDetails: 'exit 0; shutdown acknowledged false' } }
+  const initial: MandatoryUpdateView = {
+    locale,
+    deferred: false,
+    policy: { blocking: true, checking: false },
+    update: {
+      phase: 'error',
+      failedOperation: 'install',
+      preparationFailure: 'stop-failed',
+      version: '0.1.6-nightly.1',
+      message: 'different shell locale',
+      technicalDetails: 'exit 0; shutdown acknowledged false',
+    },
+  }
   const action = vi.fn(async () => {})
   let publish!: (view: MandatoryUpdateView) => void
   const unsubscribe = vi.fn()
-  const api: MandatoryUpdateApi = { status: async () => initial, action,
-    subscribe: (listener) => { publish = listener; return unsubscribe } }
+  const api: MandatoryUpdateApi = {
+    status: async () => initial,
+    action,
+    subscribe: listener => {
+      publish = listener
+      return unsubscribe
+    },
+  }
   Object.defineProperty(p.dom.window, 'dshMandatoryUpdate', { value: api })
   p.run()
   await expect.poll(() => p.element('error').textContent).toBe(locale.messages.updateStopFailed)
   const disclosure = p.element('technical-details') as HTMLDetailsElement
   expect(disclosure.open).toBe(false)
   expect(disclosure.hidden).toBe(false)
-  expect([p.element('error').textContent, p.element('technical-details-label').textContent,
-    p.element('update').textContent]).toMatchInlineSnapshot(`
+  expect([p.element('error').textContent, p.element('technical-details-label').textContent, p.element('update').textContent])
+    .toMatchInlineSnapshot(`
       [
         "未能安全停止任务，更新尚未安装，请稍后重试。",
         "查看技术详情",
@@ -129,15 +162,33 @@ it('keeps mandatory diagnostics expandable without clearing the block or authori
 
 function mandatoryPage(update: MandatoryUpdateView['update']) {
   const p = page('mandatory-update')
-  const initial: MandatoryUpdateView = { locale: resolveDesktopLocale('zh'), deferred: false,
-    policy: { blocking: true, checking: false, title: '需要更新', page: 'https://downloads.example.com/desktop' }, update }
+  const initial: MandatoryUpdateView = {
+    locale: resolveDesktopLocale('zh'),
+    deferred: false,
+    policy: { blocking: true, checking: false, title: '需要更新', page: 'https://downloads.example.com/desktop' },
+    update,
+  }
   const action = vi.fn(async () => {})
   let publish!: (view: MandatoryUpdateView) => void
-  Object.defineProperty(p.dom.window, 'dshMandatoryUpdate', { value: {
-    status: async () => initial, action, subscribe: (listener: typeof publish) => { publish = listener; return () => {} },
-  } satisfies MandatoryUpdateApi })
+  Object.defineProperty(p.dom.window, 'dshMandatoryUpdate', {
+    value: {
+      status: async () => initial,
+      action,
+      subscribe: (listener: typeof publish) => {
+        publish = listener
+        return () => {}
+      },
+    } satisfies MandatoryUpdateApi,
+  })
   p.run()
-  return { ...p, initial, action, publish: (view: MandatoryUpdateView) => { publish(view) } }
+  return {
+    ...p,
+    initial,
+    action,
+    publish: (view: MandatoryUpdateView) => {
+      publish(view)
+    },
+  }
 }
 
 it('uses client copy and retry when optional policy fields are absent', async () => {
@@ -162,8 +213,11 @@ it('uses the same modal for download, verification, inspected confirmation and t
   p.publish({ ...p.initial, update: { phase: 'verifying', version: '1.0.1-nightly.1' } })
   expect(p.element('status').textContent).toBe('正在校验更新文件…')
   expect(p.element('update').hidden).toBe(true)
-  p.publish({ ...p.initial, update: { phase: 'installing', version: '1.0.1-nightly.1' },
-    confirmation: { active: false, version: '1.0.1-nightly.1', revision: 1 } })
+  p.publish({
+    ...p.initial,
+    update: { phase: 'installing', version: '1.0.1-nightly.1' },
+    confirmation: { active: false, version: '1.0.1-nightly.1', revision: 1 },
+  })
   expect(p.document.activeElement?.id).not.toBe('update')
   expect(p.element('update').textContent).toBe('安装并重启')
   expect((p.element('update') as HTMLButtonElement).disabled).toBe(false)
@@ -216,18 +270,29 @@ it('renders server markup literally in a dedicated safety case', async () => {
   expect(p.element('detail').childElementCount).toBe(0)
 })
 
-it.each(['en', 'zh-CN'])('records mandatory update guidance and actions across its states: %s', async (language) => {
+it.each(['en', 'zh-CN'])('records mandatory update guidance and actions across its states: %s', async language => {
   const p = page('mandatory-update')
   const locale = resolveDesktopLocale(language)
-  const base: MandatoryUpdateView = { locale, deferred: false, policy: { blocking: true, checking: false,
-    page: 'https://example.invalid/download' }, update: { phase: 'available', version: '0.1.7-alpha.2' } }
+  const base: MandatoryUpdateView = {
+    locale,
+    deferred: false,
+    policy: { blocking: true, checking: false, page: 'https://example.invalid/download' },
+    update: { phase: 'available', version: '0.1.7-alpha.2' },
+  }
   let publish!: (view: MandatoryUpdateView) => void
-  const api: MandatoryUpdateApi = { status: async () => base, action: async () => {},
-    subscribe: (listener) => { publish = listener; return () => {} } }
+  const api: MandatoryUpdateApi = {
+    status: async () => base,
+    action: async () => {},
+    subscribe: listener => {
+      publish = listener
+      return () => {}
+    },
+  }
   Object.defineProperty(p.dom.window, 'dshMandatoryUpdate', { value: api })
   p.run()
   await expect.poll(() => p.element('title').textContent).toBe(locale.messages.mandatoryTitle)
-  const states: MandatoryUpdateView[] = [base,
+  const states: MandatoryUpdateView[] = [
+    base,
     { ...base, update: { ...base.update, phase: 'ready' }, confirmation: { active: false, version: '0.1.7-alpha.2', revision: 1 } },
     { ...base, update: { ...base.update, phase: 'ready' }, confirmation: { active: true, version: '0.1.7-alpha.2', revision: 1 } },
     { ...base, update: { ...base.update, phase: 'ready' }, deferred: true },
@@ -235,11 +300,13 @@ it.each(['en', 'zh-CN'])('records mandatory update guidance and actions across i
     { ...base, update: { ...base.update, phase: 'error', failedOperation: 'install' } },
     { ...base, update: { phase: 'idle' }, navigation: { page: 'failed', copy: 'failed' } },
   ]
-  const snapshots = states.map((state) => {
+  const snapshots = states.map(state => {
     publish(state)
-    return Object.fromEntries(['title', 'detail', 'version', 'error', 'update', 'later', 'page', 'browser-message', 'copy-message']
-      .filter(id => !p.element(id).hidden && !p.element(id).closest('[hidden]'))
-      .map(id => [id, p.element(id).textContent]))
+    return Object.fromEntries(
+      ['title', 'detail', 'version', 'error', 'update', 'later', 'page', 'browser-message', 'copy-message']
+        .filter(id => !p.element(id).hidden && !p.element(id).closest('[hidden]'))
+        .map(id => [id, p.element(id).textContent]),
+    )
   })
   await expect(JSON.stringify(snapshots, null, 2) + '\n').toMatchFileSnapshot(`./expected/update-guidance-${language}.json`)
 })

@@ -6,13 +6,10 @@
  * `no-drag` wins over an earlier `drag`, a later `drag` re-adds what an
  * earlier `no-drag` removed) and the edge semantics callers rely on.
  */
-import { describe, expect, it } from 'vitest'
-import {
-  INTERACTIVE_SELECTOR, containsPoint, isDraggableAt, type RegionRect,
-} from '../src/window-drag/regions.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { INTERACTIVE_SELECTOR, containsPoint, isDraggableAt, type RegionRect } from '../src/window-drag/regions.ts'
 
-const box = (x: number, y: number, width: number, height: number, draggable: boolean): RegionRect =>
-  ({ x, y, width, height, draggable })
+const box = (x: number, y: number, width: number, height: number, draggable: boolean): RegionRect => ({ x, y, width, height, draggable })
 
 describe('window drag-region composition', () => {
   it('keeps a point outside every box undraggable', () => {

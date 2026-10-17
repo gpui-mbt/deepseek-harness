@@ -1,5 +1,5 @@
 /** Client-side cron parsing and the localized sentence the Run time card derives from it. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { cronPreview, cronShapeExpression, parseCronExpression, recognizeCronShape } from '../src/client/task-cron.ts'
 import type { CronBuilderState } from '../src/client/task-cron.ts'
@@ -162,15 +162,17 @@ describe('cronPreview', () => {
     // interval is spelled in its lower-case form instead of as a second title.
     ['0 * * * 1', 'Mon every hour', '周一 每小时'],
     ['0 */2 * * 1', 'Mon every 2 hours', '周一 每 2 小时'],
-    ['0-59/1 * * * *', `Every day every hour at minute ${everyMinuteEn}`,
-      `每天 每小时的第 ${everyMinuteZh} 分钟`],
+    ['0-59/1 * * * *', `Every day every hour at minute ${everyMinuteEn}`, `每天 每小时的第 ${everyMinuteZh} 分钟`],
     ['0-30/15 * * * *', 'Every day every hour at minute 0, 15, 30', '每天 每小时的第 0、15、30 分钟'],
     ['5,20,35,50 * * * *', 'Every day every hour at minute 5, 20, 35, 50', '每天 每小时的第 5、20、35、50 分钟'],
     ['0,15,40 * * * *', 'Every day every hour at minute 0, 15, 40', '每天 每小时的第 0、15、40 分钟'],
     ['* 9 * * *', 'Every day every minute during hours 09', '每天 09 点的每分钟'],
     ['0-59/1 9 * * *', `Every day at minute ${everyMinuteEn} of hours 09`, `每天 09 点的第 ${everyMinuteZh} 分钟`],
-    ['5,10,25,40,50 1,7,13 * * *', 'Every day at minute 5, 10, 25, 40, 50 of hours 01, 07, 13',
-      '每天 01、07、13 点的第 5、10、25、40、50 分钟'],
+    [
+      '5,10,25,40,50 1,7,13 * * *',
+      'Every day at minute 5, 10, 25, 40, 50 of hours 01, 07, 13',
+      '每天 01、07、13 点的第 5、10、25、40、50 分钟',
+    ],
     ['*/15 * * 3 *', 'Every day in March every 15 minutes', '每天（三月） 每 15 分钟'],
   ])('describes %s', (expression, english, chinese) => {
     expect(cronPreview(parsed(expression), tEn, 'en')).toBe(english)
@@ -213,14 +215,26 @@ describe('recognizeCronShape', () => {
     ['0 9 15 * *', { kind: 'monthly', days: [15], hour: 9, minute: 0 }],
     ['30 8 1,15 * *', { kind: 'monthly', days: [1, 15], hour: 8, minute: 30 }],
     // A stepped star restricts (DOM_STAR), so it reads as the dates it matches.
-    ['0 9 */2 * *', {
-      kind: 'monthly', days: Array.from({ length: 16 }, (_value, index) => index * 2 + 1), hour: 9, minute: 0,
-    }],
+    [
+      '0 9 */2 * *',
+      {
+        kind: 'monthly',
+        days: Array.from({ length: 16 }, (_value, index) => index * 2 + 1),
+        hour: 9,
+        minute: 0,
+      },
+    ],
     // The written-out full date set stays monthly, mirroring the weekday rule,
     // so the all-dates grid never collapses either.
-    ['0 9 1-31 * *', {
-      kind: 'monthly', days: Array.from({ length: 31 }, (_value, index) => index + 1), hour: 9, minute: 0,
-    }],
+    [
+      '0 9 1-31 * *',
+      {
+        kind: 'monthly',
+        days: Array.from({ length: 31 }, (_value, index) => index + 1),
+        hour: 9,
+        minute: 0,
+      },
+    ],
   ] satisfies readonly [string, CronBuilderState][])('recognizes %s', (expression, state) => {
     expect(recognizeCronShape(parsed(expression))).toEqual(state)
   })
@@ -264,9 +278,15 @@ describe('cronShapeExpression', () => {
     // Date runs compress like weekday runs, and the full set written out still
     // recognizes as monthly, so the all-dates grid round-trips.
     [{ kind: 'monthly', days: [1, 2, 3, 10], hour: 7, minute: 0 }, '0 7 1-3,10 * *'],
-    [{
-      kind: 'monthly', days: Array.from({ length: 31 }, (_value, index) => index + 1), hour: 9, minute: 0,
-    }, '0 9 1-31 * *'],
+    [
+      {
+        kind: 'monthly',
+        days: Array.from({ length: 31 }, (_value, index) => index + 1),
+        hour: 9,
+        minute: 0,
+      },
+      '0 9 1-31 * *',
+    ],
   ] satisfies readonly [CronBuilderState, string][])('writes %j', (state, expression) => {
     expect(cronShapeExpression(state)).toBe(expression)
     // Every generated expression parses back to the shape family it was

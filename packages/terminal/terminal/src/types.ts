@@ -36,9 +36,7 @@ export type TerminalWaitReason = 'stdin_read' | 'inferred_idle' | 'timeout' | 's
 export type TerminalSignal = 'SIGINT' | 'SIGTERM' | 'SIGKILL' | 'SIGTSTP' | 'SIGHUP'
 
 /** Top-level PTY process status, independent of a send's wait reason. */
-export type TerminalSessionStatus =
-  | { kind: 'running' }
-  | { kind: 'exited'; exitCode: number | null; signal: NodeJS.Signals | null }
+export type TerminalSessionStatus = { kind: 'running' } | { kind: 'exited'; exitCode: number | null; signal: NodeJS.Signals | null }
 
 /** Request to create one owner-scoped PTY session. */
 export interface TerminalSpawnRequest {

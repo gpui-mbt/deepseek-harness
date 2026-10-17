@@ -53,12 +53,16 @@ export async function startInspectorWorker(boot: InspectorWorkerBoot<MessagePort
   const cordisDom = new CordisDomBackend(cordisTrees)
   const cordisReader = createCordisRuntimeTreeReader(() => cordisTrees.readTree())
   const queries = new InspectorQueryRouter(cordisReader, boot.config.maxSourceFrameBytes)
-  const unsubscribeQueries = sources.subscribeEvents((event) => {
+  const unsubscribeQueries = sources.subscribeEvents(event => {
     if (event.type === 'closed') queries.disconnect(event.source)
   })
   const hostQueries = queries.open({
-    send: (frame) => { boot.hostSourcePort.postMessage(frame) },
-    close: () => { boot.hostSourcePort.close() },
+    send: frame => {
+      boot.hostSourcePort.postMessage(frame)
+    },
+    close: () => {
+      boot.hostSourcePort.close()
+    },
   })
   const hostConnection: SourceConnection = {
     kind: 'host',
@@ -66,7 +70,9 @@ export async function startInspectorWorker(boot: InspectorWorkerBoot<MessagePort
       boot.hostSourcePort.postMessage(frame)
       if (frame.t === 'source/accepted') hostQueries.accept(frame.sourceId, frame.generation)
     },
-    close: () => { boot.hostSourcePort.close() },
+    close: () => {
+      boot.hostSourcePort.close()
+    },
   }
   boot.hostSourcePort.on('message', (value: unknown) => {
     if (!hostQueries.receive(value)) sources.receive(hostConnection, value)
@@ -77,15 +83,7 @@ export async function startInspectorWorker(boot: InspectorWorkerBoot<MessagePort
   })
   boot.hostSourcePort.start()
 
-  const endpointOwner = new InspectorEndpoint(
-    boot.config,
-    sources,
-    network,
-    realms,
-    cordisDom,
-    cordisReader,
-    queries,
-  )
+  const endpointOwner = new InspectorEndpoint(boot.config, sources, network, realms, cordisDom, cordisReader, queries)
   const endpoint = await endpointOwner.start()
   let closed: Promise<void> | undefined
   return {

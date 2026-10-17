@@ -7,9 +7,7 @@
  * counts the chip as one U+FFFC; see projection.ts.
  */
 import type { JSX } from 'react'
-import type {
-  LexicalEditor, LexicalNode, NodeKey, SerializedLexicalNode, Spread,
-} from 'lexical'
+import type { LexicalEditor, LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical'
 import { $createTextNode, DecoratorNode, ParagraphNode } from 'lexical'
 import { mergeRegister } from '@lexical/utils'
 import type { CommandClaim } from '../../contract/input.ts'
@@ -146,10 +144,10 @@ function $releaseChip(chip: CommandChipNode): void {
  */
 export function registerCommandChipSeat(editor: LexicalEditor): () => void {
   return mergeRegister(
-    editor.registerNodeTransform(CommandChipNode, (chip) => {
+    editor.registerNodeTransform(CommandChipNode, chip => {
       if (chip.getPreviousSibling() !== null || chip.getParentOrThrow().getPreviousSibling() !== null) $releaseChip(chip)
     }),
-    editor.registerNodeTransform(ParagraphNode, (block) => {
+    editor.registerNodeTransform(ParagraphNode, block => {
       const first = block.getFirstChild()
       if ($isCommandChipNode(first) && block.getPreviousSibling() !== null) $releaseChip(first)
     }),

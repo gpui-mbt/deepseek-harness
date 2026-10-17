@@ -8,11 +8,7 @@
  */
 
 import { LspError } from '@deepseek-ai/dsh-lsp'
-import type {
-  LspOperation,
-  LspProviderQuery,
-  LspQueryResult,
-} from '@deepseek-ai/dsh-lsp'
+import type { LspOperation, LspProviderQuery, LspQueryResult } from '@deepseek-ai/dsh-lsp'
 import { deadline } from '@deepseek-ai/dsh-timeout'
 import { abortable, abortError } from './abort.ts'
 import { LspConnection } from './connection.ts'
@@ -60,13 +56,19 @@ export class LspInstance {
    * @param spawner - the subprocess seam's spawn function.
    * @param writer - optional connection writer used by transport conformance tests.
    */
-  constructor(private readonly spec: InstanceSpec, spawner: ConnectionSpawner, writer?: ConnectionWriter) {
+  constructor(
+    private readonly spec: InstanceSpec,
+    spawner: ConnectionSpawner,
+    writer?: ConnectionWriter,
+  ) {
     this.connection = new LspConnection(spec, spawner, (method, params) => this.answerServerRequest(method, params), writer)
     this.ready = this.initialize()
     // A handshake rejection must not surface as an unhandled rejection before the first query awaits
     // it; queries attach the real handler.
     this.ready.catch(() => {})
-    void this.connection.closed.then(() => { this.processClosed = true })
+    void this.connection.closed.then(() => {
+      this.processClosed = true
+    })
   }
 
   /** Synchronous liveness check: true once the process has closed or the instance was disposed. */
@@ -103,12 +105,17 @@ export class LspInstance {
     // Keep the tail alive regardless of this query's outcome so the next caller still serializes. The
     // tail follows the ACTUAL prior work (this.queue), not the abortable view, so a caller giving up
     // on the wait does not deserialize the queue.
-    this.queue = this.queue.then(() => run).then(() => undefined, () => undefined)
+    this.queue = this.queue
+      .then(() => run)
+      .then(
+        () => undefined,
+        () => undefined,
+      )
     return run
   }
 
   private async initialize(): Promise<void> {
-    const initializeResult = await this.connection.request('initialize', {
+    const initializeResult = (await this.connection.request('initialize', {
       // A subprocess provider may run in another PID namespace or machine;
       // the host PID would let the server monitor an unrelated process.
       processId: null,
@@ -116,7 +123,7 @@ export class LspInstance {
       workspaceFolders: [{ uri: this.spec.workspaceUri, name: 'workspace' }],
       capabilities: CLIENT_CAPABILITIES,
       initializationOptions: this.spec.initializationOptions,
-    }) as WireInitializeResult
+    })) as WireInitializeResult
     const capabilities = initializeResult.capabilities
     // An omitted encoding defaults to utf-16; any other value is a protocol error we reject here.
     negotiatePositionEncoding(capabilities.positionEncoding)
@@ -156,9 +163,12 @@ export class LspInstance {
       /* v8 ignore next -- guards an abort landing between the ready wait and didOpen; not deterministically reproducible. */
       if (signal?.aborted) throw abortError(signal)
       try {
-        await abortable(this.connection.notify('textDocument/didOpen', {
-          textDocument: { uri, languageId: request.languageId, version: 1, text: source.text },
-        }), signal)
+        await abortable(
+          this.connection.notify('textDocument/didOpen', {
+            textDocument: { uri, languageId: request.languageId, version: 1, text: source.text },
+          }),
+          signal,
+        )
       } catch (error) {
         // A canceled backpressured write or failed stdin leaves the protocol stream unusable before
         // `opened` can arm the didClose cleanup. Teardown here makes the pool evict the instance.
@@ -221,10 +231,19 @@ export class LspInstance {
         // `settled` is true if the request finished (either outcome) before the grace elapsed.
         const settled = await Promise.race([
           send.then(markSettled, markSettled),
-          new Promise<boolean>((resolve) => {
+          new Promise<boolean>(resolve => {
             /* v8 ignore next -- the cancel-grace deadline signal is freshly armed and not yet aborted here; defensive. */
-            if (grace.signal.aborted) { resolve(false); return }
-            grace.signal.addEventListener('abort', () => { resolve(false) }, { once: true })
+            if (grace.signal.aborted) {
+              resolve(false)
+              return
+            }
+            grace.signal.addEventListener(
+              'abort',
+              () => {
+                resolve(false)
+              },
+              { once: true },
+            )
           }),
         ])
         if (!settled) await this.awaitTeardownAttempt()
@@ -313,19 +332,12 @@ export class LspInstance {
    */
   private async forceTerminate(): Promise<void> {
     this.connection.terminate()
-    await Promise.all([
-      this.connection.closed,
-      this.connection.waitForManagedRangeExit(),
-    ])
+    await Promise.all([this.connection.closed, this.connection.waitForManagedRangeExit()])
   }
 }
 
 /** Server→client request methods this host acknowledges with an empty result (no dynamic registration). */
-const LIFECYCLE_NOOP_METHODS = new Set([
-  'window/workDoneProgress/create',
-  'client/registerCapability',
-  'client/unregisterCapability',
-])
+const LIFECYCLE_NOOP_METHODS = new Set(['window/workDoneProgress/create', 'client/registerCapability', 'client/unregisterCapability'])
 
 /** Mark a settled request in the cancel-grace race (either outcome means the request finished). */
 function markSettled(): boolean {

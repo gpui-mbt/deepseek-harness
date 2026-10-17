@@ -11,7 +11,12 @@ type ReasoningBodyProps = PropsRuntime<'conversation.chat.reasoning.body'> & Pro
  * @param props - display text, streaming state, optional localized labels, and the Factory's locale seat; no Session is required.
  * @returns the standard reasoning content; supplied labels are used without merging defaults.
  */
-export const ReasoningContent = memo(function ReasoningContent({ text, running, labels, t }: FactoryComponentPropsOf<'conversation.chat.reasoning.content'>) {
+export const ReasoningContent = memo(function ReasoningContent({
+  text,
+  running,
+  labels,
+  t,
+}: FactoryComponentPropsOf<'conversation.chat.reasoning.content'>) {
   const resolvedLabels = useMemo(() => labels ?? markdownLabels(t), [labels, t])
   return <MarkdownText text={text} streaming={running} labels={resolvedLabels} variant="compact" />
 })

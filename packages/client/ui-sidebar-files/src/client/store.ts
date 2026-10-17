@@ -94,7 +94,9 @@ export function createFilesStore(): EngineStoreHandle<FilesState, FilesActions> 
   return defineStore({
     init: (): FilesState => ({ byTab: {} }),
     actions: {
-      autoRefresh: (d, tabId: TabId, enabled: boolean) => { bucket(d, tabId).autoRefresh = enabled },
+      autoRefresh: (d, tabId: TabId, enabled: boolean) => {
+        bucket(d, tabId).autoRefresh = enabled
+      },
       /**
        * Seed one tab's tree at its workspace root, with the root expanded.
        * @param d - draft state.
@@ -130,8 +132,9 @@ export function createFilesStore(): EngineStoreHandle<FilesState, FilesActions> 
             if (entry.type !== 'directory' || directories.has(entry.name)) continue
             const removed = `${path.replace(/[/\\]+$/, '')}/${entry.name}`
             state.expanded = state.expanded.filter(value => value !== removed && !value.startsWith(`${removed}/`))
-            state.levels = Object.fromEntries(Object.entries(state.levels)
-              .filter(([key]) => key !== removed && !key.startsWith(`${removed}/`)))
+            state.levels = Object.fromEntries(
+              Object.entries(state.levels).filter(([key]) => key !== removed && !key.startsWith(`${removed}/`)),
+            )
           }
         }
         state.levels[path] = { kind: 'ready', level }
@@ -145,9 +148,7 @@ export function createFilesStore(): EngineStoreHandle<FilesState, FilesActions> 
        */
       failed: (d, tabId: TabId, path: string, failure: RemoteFailure) => {
         const level = bucket(d, tabId).levels[path]
-        bucket(d, tabId).levels[path] = level?.kind === 'ready'
-          ? { ...level, failure }
-          : { kind: 'failed', failure }
+        bucket(d, tabId).levels[path] = level?.kind === 'ready' ? { ...level, failure } : { kind: 'failed', failure }
       },
       /**
        * Open a collapsed directory, or collapse an open one.

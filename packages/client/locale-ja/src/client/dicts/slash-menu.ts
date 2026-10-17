@@ -5,10 +5,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 
 /** `slash.menu` copy in Japanese, complete against the owner's key union. */
 export const ja: LocaleDictOf<'slash.menu'> = {
-  'command': 'コマンド',
-  'skill': 'スキル',
-  'subagent': 'サブエージェント',
-  'loading': '読み込み中…',
+  command: 'コマンド',
+  skill: 'スキル',
+  subagent: 'サブエージェント',
+  loading: '読み込み中…',
   'drill.aria': 'ディレクトリに入る',
   'drill.hint': 'ディレクトリに入る',
   'drill.key': 'Tab',

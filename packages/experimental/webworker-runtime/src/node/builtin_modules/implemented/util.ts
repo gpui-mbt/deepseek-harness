@@ -13,12 +13,13 @@
 export function promisify<A extends unknown[], R>(
   fn: (...args: [...A, (error: unknown, value: R) => void]) => void,
 ): (...args: A) => Promise<R> {
-  return (...args: A) => new Promise<R>((resolve, reject) => {
-    fn(...args, (error: unknown, value: R) => {
-      if (error !== null && error !== undefined) reject(error instanceof Error ? error : new Error(inspect(error)))
-      else resolve(value)
+  return (...args: A) =>
+    new Promise<R>((resolve, reject) => {
+      fn(...args, (error: unknown, value: R) => {
+        if (error !== null && error !== undefined) reject(error instanceof Error ? error : new Error(inspect(error)))
+        else resolve(value)
+      })
     })
-  })
 }
 
 /**
@@ -32,7 +33,14 @@ export function callbackify<A extends unknown[], R>(
   return (...args) => {
     const callback = args.at(-1) as (error: unknown, value?: R) => void
     const rest = args.slice(0, -1) as A
-    fn(...rest).then((value) => { callback(null, value) }, (error: unknown) => { callback(error) })
+    fn(...rest).then(
+      value => {
+        callback(null, value)
+      },
+      (error: unknown) => {
+        callback(error)
+      },
+    )
   }
 }
 
@@ -47,8 +55,9 @@ export function inspect(value: unknown): string {
   try {
     // `JSON.stringify` is typed as returning a string but answers undefined for
     // undefined, functions, and symbols.
-    const rendered = JSON.stringify(value, (_key, item: unknown) =>
-      typeof item === 'bigint' ? item.toString() : item) as string | undefined
+    const rendered = JSON.stringify(value, (_key, item: unknown) => (typeof item === 'bigint' ? item.toString() : item)) as
+      | string
+      | undefined
     return rendered ?? String(value)
   } catch {
     // Cyclic or otherwise unserializable values still need a rendering.
@@ -65,7 +74,7 @@ export function inspect(value: unknown): string {
 export function format(template: unknown, ...args: unknown[]): string {
   if (typeof template !== 'string') return [template, ...args].map(value => inspect(value)).join(' ')
   let index = 0
-  const substituted = template.replaceAll(/%[sdifjoO%]/g, (token) => {
+  const substituted = template.replaceAll(/%[sdifjoO%]/g, token => {
     if (token === '%%') return '%'
     if (index >= args.length) return token
     const value = args[index++]
@@ -95,15 +104,16 @@ export function isDeepStrictEqual(left: unknown, right: unknown): boolean {
   const leftKeys = Object.keys(left)
   const rightKeys = Object.keys(right)
   if (leftKeys.length !== rightKeys.length) return false
-  return leftKeys.every(key => Object.hasOwn(right, key)
-    && isDeepStrictEqual((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]))
+  return leftKeys.every(
+    key => Object.hasOwn(right, key) && isDeepStrictEqual((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]),
+  )
   /* jscpd:ignore-end */
 }
 
 /** Runtime type predicates (`node:util/types`), checked against the Node module of that name. */
 export const types = {
-  isPromise: (value: unknown): value is Promise<unknown> => value instanceof Promise
-    || (typeof value === 'object' && value !== null && typeof (value as { then?: unknown }).then === 'function'),
+  isPromise: (value: unknown): value is Promise<unknown> =>
+    value instanceof Promise || (typeof value === 'object' && value !== null && typeof (value as { then?: unknown }).then === 'function'),
   isDate: (value: unknown): value is Date => value instanceof Date,
   isRegExp: (value: unknown): value is RegExp => value instanceof RegExp,
   // Node counts only the integer and float views, so a DataView answers false.
@@ -173,11 +183,20 @@ export const __esModule = true
  * four predicates in use rather than Node's forty; and `TextDecoder` is the DOM
  * class, whose `decode` input union the Node declaration does not accept.
  */
-type NodeFace = Partial<Omit<typeof import('node:util'), 'promisify' | 'callbackify' | 'inspect' | 'types' | 'TextDecoder'>>
-  & Record<'promisify' | 'callbackify' | 'inspect' | 'types' | 'TextDecoder', unknown>
+type NodeFace = Partial<Omit<typeof import('node:util'), 'promisify' | 'callbackify' | 'inspect' | 'types' | 'TextDecoder'>> &
+  Record<'promisify' | 'callbackify' | 'inspect' | 'types' | 'TextDecoder', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  promisify, callbackify, inspect, format, isDeepStrictEqual, types, parseArgs, deprecate, inherits,
-  TextDecoder: TextDecoderClass, TextEncoder: TextEncoderClass,
+  promisify,
+  callbackify,
+  inspect,
+  format,
+  isDeepStrictEqual,
+  types,
+  parseArgs,
+  deprecate,
+  inherits,
+  TextDecoder: TextDecoderClass,
+  TextEncoder: TextEncoderClass,
 } satisfies NodeFace

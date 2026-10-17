@@ -53,7 +53,11 @@ export function apply(ctx: Context, config: JsonRpcConfig): void {
   /* v8 ignore next -- production stdio wiring; tests always inject the runtime hooks */
   const output = config.output ?? process.stdout
   /* v8 ignore next -- production exit wiring; tests always inject the runtime hooks */
-  const exit = config.exit ?? ((code: number): void => { process.exit(code) })
+  const exit =
+    config.exit ??
+    ((code: number): void => {
+      process.exit(code)
+    })
 
   const transport = new JsonRpcLineTransport(input, output)
   const server = new HarnessSdkJsonRpcServer(ctx, transport, {
@@ -86,7 +90,9 @@ export function apply(ctx: Context, config: JsonRpcConfig): void {
     const result = await server.handleRequest(method, params)
     if (method === 'shutdown') {
       // Run after the handler result is written; the task then flushes, disposes, and exits.
-      setImmediate(() => { void disposeAndExit() })
+      setImmediate(() => {
+        void disposeAndExit()
+      })
     }
     return result
   })

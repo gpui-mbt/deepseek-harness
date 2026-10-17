@@ -73,21 +73,21 @@ interface SessionTitleObservation {
 /** One ordered result from a batch title observation. */
 type SessionTitleObservationResult =
   | {
-    /** Requested session id. */
-    sessionId: SessionId
-    /** Successful atomic header/title observation. */
-    status: 'fulfilled'
-    /** Header and optional latest title from one logical source. */
-    value: SessionTitleObservation
-  }
+      /** Requested session id. */
+      sessionId: SessionId
+      /** Successful atomic header/title observation. */
+      status: 'fulfilled'
+      /** Header and optional latest title from one logical source. */
+      value: SessionTitleObservation
+    }
   | {
-    /** Requested session id. */
-    sessionId: SessionId
-    /** Operational failure isolated to this session. */
-    status: 'rejected'
-    /** Original failure from logical-source resolution or title folding. */
-    reason: unknown
-  }
+      /** Requested session id. */
+      sessionId: SessionId
+      /** Operational failure isolated to this session. */
+      status: 'rejected'
+      /** Original failure from logical-source resolution or title folding. */
+      reason: unknown
+    }
 ```
 
 ```ts type-equiv
@@ -248,17 +248,17 @@ type SessionLineageTrace = {
   descendants: SessionLineageNode[]
 } & (
   | {
-    /** The complete parent chain is present in the logical corpus. */
-    complete: true
-    /** Detached record at the top of the complete lineage. */
-    root: SessionRecord
-  }
+      /** The complete parent chain is present in the logical corpus. */
+      complete: true
+      /** Detached record at the top of the complete lineage. */
+      root: SessionRecord
+    }
   | {
-    /** The parent chain leaves the visible logical corpus. */
-    complete: false
-    /** First parent id that is not present in the logical corpus. */
-    unresolvedParentId: SessionId
-  }
+      /** The parent chain leaves the visible logical corpus. */
+      complete: false
+      /** First parent id that is not present in the logical corpus. */
+      unresolvedParentId: SessionId
+    }
 )
 ```
 
@@ -387,7 +387,7 @@ Exact reads, filters, and traces are backend-independent concrete behavior. A ba
  * @param options - cancellation and projection selection for this read.
  * @returns a caller-owned observation lease.
  */
-observeSession( sessionId: SessionId, options: SessionObservationOptions = {}, ): Promise<SessionObservation>
+observeSession(sessionId: SessionId, options: SessionObservationOptions = {}): Promise<SessionObservation>
 
 /**
  * Search the live-preferred logical corpus and group by session.
@@ -395,7 +395,7 @@ observeSession( sessionId: SessionId, options: SessionObservationOptions = {}, )
  * @param exec - optional cancellation control.
  * @returns session hits ranked by their strongest matching event.
  */
-abstract searchSessions( request: SessionSearchRequest, exec?: SessionSearchExecContext, ): Promise<SessionSearchPage<SessionSearchHit>>
+abstract searchSessions(request: SessionSearchRequest, exec?: SessionSearchExecContext): Promise<SessionSearchPage<SessionSearchHit>>
 
 /**
  * Search events within one live-preferred logical session.
@@ -403,7 +403,7 @@ abstract searchSessions( request: SessionSearchRequest, exec?: SessionSearchExec
  * @param exec - optional cancellation control.
  * @returns matching event hits and their target header from one indexed generation.
  */
-abstract searchEvents( request: SessionEventSearchRequest, exec?: SessionSearchExecContext, ): Promise<SessionEventSearchPage>
+abstract searchEvents(request: SessionEventSearchRequest, exec?: SessionSearchExecContext): Promise<SessionEventSearchPage>
 
 /**
  * List the complete logical corpus using live-preferred records.
@@ -426,7 +426,7 @@ async readSession(sessionId: SessionId): Promise<SessionLogSnapshot>
  * @param signal - optional cancellation for persistence listing.
  * @returns matching cloned records in deterministic newest-first order.
  */
-async filterSessions( filters: readonly SessionResultFilter[], signal?: AbortSignal, ): Promise<SessionRecord[]>
+async filterSessions(filters: readonly SessionResultFilter[], signal?: AbortSignal): Promise<SessionRecord[]>
 
 /**
  * Fold the latest log-backed title from one live-preferred logical session.
@@ -434,7 +434,7 @@ async filterSessions( filters: readonly SessionResultFilter[], signal?: AbortSig
  * @param signal - optional cancellation for source resolution and title folding.
  * @returns latest title snapshot, or `undefined` when the log has no title event.
  */
-async readTitle( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionTitleSnapshot | undefined>
+async readTitle(sessionId: SessionId, signal?: AbortSignal): Promise<SessionTitleSnapshot | undefined>
 
 /**
  * Fold the latest title and return its source header from one corpus observation.
@@ -442,7 +442,7 @@ async readTitle( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionT
  * @param signal - optional cancellation for source resolution and title folding.
  * @returns cloned source header and optional latest title snapshot.
  */
-async readTitleSnapshot( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionTitleObservation>
+async readTitleSnapshot(sessionId: SessionId, signal?: AbortSignal): Promise<SessionTitleObservation>
 
 /**
  * Fold titles for unique sessions from one cancellable corpus observation.
@@ -453,7 +453,7 @@ async readTitleSnapshot( sessionId: SessionId, signal?: AbortSignal, ): Promise<
  * @param signal - optional cancellation shared by all source reads.
  * @returns one fulfilled or rejected result per unique requested id.
  */
-async readTitleSnapshots( sessionIds: readonly SessionId[], signal?: AbortSignal, ): Promise<SessionTitleObservationResult[]>
+async readTitleSnapshots(sessionIds: readonly SessionId[], signal?: AbortSignal): Promise<SessionTitleObservationResult[]>
 
 /**
  * List lightweight raw-log event records for one logical session.
@@ -468,7 +468,7 @@ async listEvents(sessionId: SessionId): Promise<SessionEventRecord[]>
  * @param filters - ANDed metadata and literal-text predicates.
  * @returns matching semantic documents in ascending seq order.
  */
-async filterEvents( sessionId: SessionId, filters: readonly SessionEventResultFilter[], ): Promise<SessionEventSearchDocument[]>
+async filterEvents(sessionId: SessionId, filters: readonly SessionEventResultFilter[]): Promise<SessionEventSearchDocument[]>
 
 /**
  * Read one session's complete current model surface from one corpus observation.

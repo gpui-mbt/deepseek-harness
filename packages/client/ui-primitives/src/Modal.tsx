@@ -20,10 +20,7 @@ interface ModalBaseProps {
   backdropBlur?: boolean
 }
 
-type ModalProps = ModalBaseProps & (
-  | { headless: true; closeLabel?: never }
-  | { headless?: false; closeLabel: string }
-)
+type ModalProps = ModalBaseProps & ({ headless: true; closeLabel?: never } | { headless?: false; closeLabel: string })
 
 /**
  * Render a centered, body-portaled modal over a blurred page mask.
@@ -46,15 +43,26 @@ type ModalProps = ModalBaseProps & (
  * @returns null when closed; otherwise the overlay tree.
  */
 export function Modal({
-  open, onClose, title, closeLabel, description, children, footer, className, contentClassName,
-  onKeyDownCapture, headless = false, backdropBlur = true, shortcutModal,
+  open,
+  onClose,
+  title,
+  closeLabel,
+  description,
+  children,
+  footer,
+  className,
+  contentClassName,
+  onKeyDownCapture,
+  headless = false,
+  backdropBlur = true,
+  shortcutModal,
 }: ModalProps) {
   const dialog = useRef<HTMLDivElement>(null)
   useModalLayer(dialog, open, onClose)
 
   if (!open) return null
 
-  return createPortal((
+  return createPortal(
     <div className={css.root} role="presentation" onKeyDownCapture={onKeyDownCapture}>
       <div className={css.mask} style={backdropBlur ? undefined : { backdropFilter: 'none' }} aria-hidden="true" onClick={onClose} />
       <div
@@ -66,26 +74,25 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
       >
-        {headless
-          ? children
-          : (
-            <>
-              <div className={clsx(css.content, contentClassName)}>
-                <div className={css.header}>
-                  <h2 className={css.title}>{title}</h2>
-                  <button type="button" className={css.close} aria-label={closeLabel} onClick={onClose}>
-                    <IconCloseOutlineRegular size={14} />
-                  </button>
-                </div>
-                {description !== undefined && description !== '' && (
-                  <p className={css.description}>{description}</p>
-                )}
-                {children !== undefined && <div className={css.body}>{children}</div>}
+        {headless ? (
+          children
+        ) : (
+          <>
+            <div className={clsx(css.content, contentClassName)}>
+              <div className={css.header}>
+                <h2 className={css.title}>{title}</h2>
+                <button type="button" className={css.close} aria-label={closeLabel} onClick={onClose}>
+                  <IconCloseOutlineRegular size={14} />
+                </button>
               </div>
-              {footer !== undefined && <div className={css.footer}>{footer}</div>}
-            </>
-          )}
+              {description !== undefined && description !== '' && <p className={css.description}>{description}</p>}
+              {children !== undefined && <div className={css.body}>{children}</div>}
+            </div>
+            {footer !== undefined && <div className={css.footer}>{footer}</div>}
+          </>
+        )}
       </div>
-    </div>
-  ), document.body)
+    </div>,
+    document.body,
+  )
 }

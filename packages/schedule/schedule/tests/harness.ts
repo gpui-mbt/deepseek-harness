@@ -9,8 +9,8 @@ import Storage, { type KvUnit, type KvUnitDescriptor, type StorageBackend } from
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { vi } from 'vite-plus/test'
+import type { Mock } from 'vite-plus/test'
 import { MemoryMediaPool, MemoryStorageBackend } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 import ScheduleService, { type Config } from '../src/index.ts'
 
@@ -61,14 +61,16 @@ export function gatedScheduleBackend(
  * @param options - Optional durable or live state present before service activation.
  * @returns Context, durable storage, service, and delivery observations.
  */
-export async function harness(options: {
-  beforeService?: (ctx: Context, facility: DomainFacility) => Promise<void>
-  onContext?: (ctx: Context) => void
-  pool?: MemoryMediaPool
-  backend?: StorageBackend
-  direct?: true
-  config?: Config
-} = {}) {
+export async function harness(
+  options: {
+    beforeService?: (ctx: Context, facility: DomainFacility) => Promise<void>
+    onContext?: (ctx: Context) => void
+    pool?: MemoryMediaPool
+    backend?: StorageBackend
+    direct?: true
+    config?: Config
+  } = {},
+) {
   const ctx = new Context()
   options.onContext?.(ctx)
   await ctx.plugin(SessionStore)
@@ -79,14 +81,21 @@ export async function harness(options: {
   const pool = options.pool ?? new MemoryMediaPool()
   const backend = options.backend ?? new MemoryStorageBackend(pool)
   ctx.effect(() => ctx.storage.backend.register('fixture', backend))
-  ctx.effect(() => async () => { await backend.close() })
+  ctx.effect(() => async () => {
+    await backend.close()
+  })
   const facility = new DomainFacility(ctx, { backend: 'fixture' })
   ctx.effect(() => {
     const unmount = ctx.storage.mount('domain', facility)
     ctx.provide('storageDomain', facility)
-    return async () => { await facility.closeAll(); unmount() }
+    return async () => {
+      await facility.closeAll()
+      unmount()
+    }
   })
-  const resolve = vi.fn<Context['sessionController']['resolveAgent']>(async () => { throw new Error('missing Session') })
+  const resolve = vi.fn<Context['sessionController']['resolveAgent']>(async () => {
+    throw new Error('missing Session')
+  })
   ctx.provide('sessionController', { resolveAgent: resolve } as never)
   const flush = vi.fn(async () => {})
   ctx.on('session/flush', flush)
@@ -125,8 +134,18 @@ export interface HarnessAgent extends Agent {
 export function agentFor(ctx: Context, id = 'original', meta?: CreateSessionOptions['meta']): HarnessAgent {
   const session = ctx.sessions.create(SessionId(id), meta === undefined ? undefined : { meta })
   return {
-    id: session.id, session, ctx: ctx.extend(), options: {}, status: 'idle', inbox: unsupportedInbox(),
-    send() {}, followup: vi.fn<(message: UserMessage) => void>(), steer() {}, inject() {}, cancel() {},
-    whenIdle: async () => {}, runMaintenance: operation => operation(new AbortController().signal),
+    id: session.id,
+    session,
+    ctx: ctx.extend(),
+    options: {},
+    status: 'idle',
+    inbox: unsupportedInbox(),
+    send() {},
+    followup: vi.fn<(message: UserMessage) => void>(),
+    steer() {},
+    inject() {},
+    cancel() {},
+    whenIdle: async () => {},
+    runMaintenance: operation => operation(new AbortController().signal),
   }
 }

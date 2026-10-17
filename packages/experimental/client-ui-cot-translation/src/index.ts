@@ -33,9 +33,14 @@ export default class CotTranslationController extends TypertRemoteService {
     targetLanguage: z.string().pattern(LANGUAGE_PREFERENCE_PATTERN).default('auto').volatile(),
   })
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'cotTranslation', { namespace: 'cotTranslation' })
-    ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+    ctx.inject(['settings'], child => {
+      child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+    })
   }
 
   /**
@@ -48,8 +53,11 @@ export default class CotTranslationController extends TypertRemoteService {
     signal.throwIfAborted()
     const availableProviders = await this.ctx.translator.availableProviders(signal)
     signal.throwIfAborted()
-    return { maxTextChars: this.ctx.translator.maxTextChars,
-      preferences: { provider: this.config.provider.get(), targetLanguage: this.config.targetLanguage.get() }, availableProviders }
+    return {
+      maxTextChars: this.ctx.translator.maxTextChars,
+      preferences: { provider: this.config.provider.get(), targetLanguage: this.config.targetLanguage.get() },
+      availableProviders,
+    }
   }
 
   /**
@@ -68,15 +76,19 @@ export default class CotTranslationController extends TypertRemoteService {
       try {
         return await this.ctx.translator.translate(spec, signal)
       } catch (error) {
-        if (!(error instanceof TranslationError) || error.code !== 'TRANSLATION_SESSION_INACTIVE' || spec.sessionId === undefined) throw error
+        if (!(error instanceof TranslationError) || error.code !== 'TRANSLATION_SESSION_INACTIVE' || spec.sessionId === undefined)
+          throw error
       }
       signal.throwIfAborted()
-      const activation = this.ctx.sessionController.resolveAgent(spec.sessionId).then((result) => {
-        if ('error' in result) throw result.error
-      }).catch((error: unknown) => {
-        if (signal.aborted) this.ctx.logger.warn('Reasoning translation Session activation failed after cancellation')
-        throw error
-      })
+      const activation = this.ctx.sessionController
+        .resolveAgent(spec.sessionId)
+        .then(result => {
+          if ('error' in result) throw result.error
+        })
+        .catch((error: unknown) => {
+          if (signal.aborted) this.ctx.logger.warn('Reasoning translation Session activation failed after cancellation')
+          throw error
+        })
       const cancelled = Promise.withResolvers<never>()
       using _listener = addAbortListener(signal, () => {
         // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Preserve the caller's arbitrary cancellation reason.

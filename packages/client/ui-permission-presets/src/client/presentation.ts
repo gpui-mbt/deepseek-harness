@@ -7,10 +7,7 @@ export const FULL_ACCESS_PRESET = 'danger-full-access'
 export const AUTO_REVIEW_PRESET = 'auto'
 
 /** Locale dictionary key for a built-in permission preset label. */
-export type PermissionPresetLabelKey =
-  | 'preset.readOnly'
-  | 'preset.workspaceWrite'
-  | 'preset.fullAccess'
+export type PermissionPresetLabelKey = 'preset.readOnly' | 'preset.workspaceWrite' | 'preset.fullAccess'
 
 const PRESET_LABEL_KEYS = new Map<string, PermissionPresetLabelKey>([
   ['read-only', 'preset.readOnly'],
@@ -31,7 +28,10 @@ const DEFAULT_PRESET_LABELS: Record<PermissionPresetLabelKey, string> = {
  */
 export function displayPresetName(name: string): string {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return name
-  return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+  return name
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 /**
@@ -41,11 +41,7 @@ export function displayPresetName(name: string): string {
  * @param t - optional locale dictionary lookup for built-in product labels.
  * @returns the built-in product label or the conventional display name.
  */
-export function displayPermissionPreset(
-  value: string,
-  name: string,
-  t?: (key: PermissionPresetLabelKey) => string,
-): string {
+export function displayPermissionPreset(value: string, name: string, t?: (key: PermissionPresetLabelKey) => string): string {
   const key = PRESET_LABEL_KEYS.get(value)
   if (key !== undefined && (name === value || name === DEFAULT_PRESET_LABELS[key])) {
     return t?.(key) ?? DEFAULT_PRESET_LABELS[key]

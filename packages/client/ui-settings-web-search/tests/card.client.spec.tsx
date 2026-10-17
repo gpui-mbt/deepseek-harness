@@ -2,7 +2,7 @@
 /** The web-search page as the Plugins page renders it: the provider selector, its key control, its fields, and their resets. */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SettingsFieldState, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -90,7 +90,7 @@ describe('WebSearchCard', () => {
     expect(screen.getByLabelText(en.baseUrl)).toHaveProperty('disabled', false)
   })
 
-  it('shows the selected provider\'s default endpoint faintly while the field is empty', () => {
+  it("shows the selected provider's default endpoint faintly while the field is empty", () => {
     renderWebSearch()
 
     expect(screen.getByLabelText(en.baseUrl)).toHaveProperty('placeholder', 'https://api.deepseek.com/anthropic/v1/messages')

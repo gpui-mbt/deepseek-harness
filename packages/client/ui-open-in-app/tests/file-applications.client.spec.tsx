@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Shared association reads retain one native request until the last control leaves. */
 import { act, cleanup, renderHook } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SessionWorkspacePathApplication } from '@deepseek-ai/dsh-api-session-controller/types'
 import { useFileApplications } from '../src/client/file-applications.ts'
 
@@ -16,7 +16,9 @@ it('shares the initial read and publishes a menu refresh to both controls', asyn
   expect(query).toHaveBeenCalledOnce()
   expect(first.result.current.apps).toBe(second.result.current.apps)
   query.mockResolvedValueOnce([{ id: 'player', name: 'Player', default: true, icon: null }])
-  await act(async () => { second.result.current.refresh() })
+  await act(async () => {
+    second.result.current.refresh()
+  })
   expect(query).toHaveBeenCalledTimes(2)
   expect(first.result.current.apps[0]?.id).toBe('player')
   expect(second.result.current.apps).toBe(first.result.current.apps)
@@ -32,7 +34,9 @@ it('cancels only after the last consumer leaves and discards the released result
   expect(signal.aborted).toBe(false)
   second.unmount()
   expect(signal.aborted).toBe(true)
-  await act(async () => { pending.resolve(music) })
+  await act(async () => {
+    pending.resolve(music)
+  })
   const next = renderHook(() => useFileApplications('/file.mp3', query, true))
   expect(query).toHaveBeenCalledTimes(2)
   await act(async () => {})
@@ -42,12 +46,16 @@ it('cancels only after the last consumer leaves and discards the released result
 it('keeps disabled controls out of the query and permits refresh only while retained', async () => {
   const query = vi.fn(async () => music)
   const view = renderHook(({ enabled }) => useFileApplications('/file.mp3', query, enabled), { initialProps: { enabled: false } })
-  act(() => { view.result.current.refresh() })
+  act(() => {
+    view.result.current.refresh()
+  })
   expect(query).not.toHaveBeenCalled()
   view.rerender({ enabled: true })
   await act(async () => {})
   expect(view.result.current.apps).toEqual(music)
   view.rerender({ enabled: false })
-  act(() => { view.result.current.refresh() })
+  act(() => {
+    view.result.current.refresh()
+  })
   expect(query).toHaveBeenCalledOnce()
 })

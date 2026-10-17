@@ -10,8 +10,8 @@
 
 import { tmpdir } from 'node:os'
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'
-import { describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import type { Mock } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import { grantWrite, revokeWrite, withPathLock } from '../src/acl.ts'
@@ -33,15 +33,23 @@ function aclApi(overrides: Partial<Win32Bindings> = {}): Win32Bindings {
     lockFileEx: vi.fn(() => 1),
     unlockFileEx: vi.fn(() => 1),
     closeHandle: vi.fn(() => 1),
-    getNamedSecurityInfoW: vi.fn((
-      _path: unknown, _type: unknown, _info: unknown, _owner: unknown, _group: unknown,
-      dacl: NativePtr, sacl: NativePtr, descriptor: NativePtr,
-    ) => {
-      koffi.encode(dacl, PVOID, 0n) // no explicit DACL: the merge builds one
-      koffi.encode(sacl, PVOID, 0n) // no mandatory label either
-      koffi.encode(descriptor, PVOID, 0n)
-      return 0
-    }),
+    getNamedSecurityInfoW: vi.fn(
+      (
+        _path: unknown,
+        _type: unknown,
+        _info: unknown,
+        _owner: unknown,
+        _group: unknown,
+        dacl: NativePtr,
+        sacl: NativePtr,
+        descriptor: NativePtr,
+      ) => {
+        koffi.encode(dacl, PVOID, 0n) // no explicit DACL: the merge builds one
+        koffi.encode(sacl, PVOID, 0n) // no mandatory label either
+        koffi.encode(descriptor, PVOID, 0n)
+        return 0
+      },
+    ),
     setEntriesInAclW: vi.fn((_count: unknown, _entries: unknown, _old: unknown, newAcl: NativePtr) => {
       koffi.encode(newAcl, PVOID, 9n)
       return 0
@@ -94,9 +102,7 @@ function writeAce(
   koffi.encode(acl, offset + 2, 'uint16', 16)
   koffi.encode(acl, offset + 4, 'uint32', mask)
   for (let byte = 0; byte < 8; byte++) {
-    koffi.encode(acl, offset + 8 + byte, 'uint8', match
-      ? koffi.decode(sid, byte, 'uint8') as number
-      : byte === 0 ? 9 : 0)
+    koffi.encode(acl, offset + 8 + byte, 'uint8', match ? (koffi.decode(sid, byte, 'uint8') as number) : byte === 0 ? 9 : 0)
   }
 }
 
@@ -161,15 +167,23 @@ function craftAclWithLabel(sid: NativePtr, match: boolean): NativePtr {
 
 /** Encode a security-info read whose DACL and label ACL are the given pointers. */
 function readStub(dacl: NativePtr | null, label: NativePtr | null, descriptor: bigint | null) {
-  return vi.fn((
-    _path: unknown, _type: unknown, _info: unknown, _owner: unknown, _group: unknown,
-    daclSlot: NativePtr, saclSlot: NativePtr, descriptorSlot: NativePtr,
-  ) => {
-    koffi.encode(daclSlot, PVOID, dacl === null ? 0n : ptrAddress(dacl))
-    koffi.encode(saclSlot, PVOID, label === null ? 0n : ptrAddress(label))
-    koffi.encode(descriptorSlot, PVOID, descriptor ?? 0n)
-    return 0
-  })
+  return vi.fn(
+    (
+      _path: unknown,
+      _type: unknown,
+      _info: unknown,
+      _owner: unknown,
+      _group: unknown,
+      daclSlot: NativePtr,
+      saclSlot: NativePtr,
+      descriptorSlot: NativePtr,
+    ) => {
+      koffi.encode(daclSlot, PVOID, dacl === null ? 0n : ptrAddress(dacl))
+      koffi.encode(saclSlot, PVOID, label === null ? 0n : ptrAddress(label))
+      koffi.encode(descriptorSlot, PVOID, descriptor ?? 0n)
+      return 0
+    },
+  )
 }
 
 describe('withPathLock failure paths', () => {
@@ -395,10 +409,7 @@ describe('mergeAndApply failure paths', () => {
   it('reports a failed label-ACL LocalFree after a successful apply', () => {
     // Every free succeeds until the label ACL's: descriptor and merged ACL
     // return null, the label ACL returns a stale pointer.
-    const localFree = vi.fn()
-      .mockReturnValueOnce(0n)
-      .mockReturnValueOnce(0n)
-      .mockReturnValue(1n)
+    const localFree = vi.fn().mockReturnValueOnce(0n).mockReturnValueOnce(0n).mockReturnValue(1n)
     const api = aclApi({
       getNamedSecurityInfoW: readStub(null, null, 6n),
       localFree,
@@ -524,9 +535,7 @@ describe('revokeWrite label handling', () => {
     const setNamedSecurityInfoW = vi.fn(() => 0)
     const api = aclApi({
       // The directory carries the deny plus a grant for a DIFFERENT SID.
-      getNamedSecurityInfoW: readStub(
-        craftPair(otherSid, world, abi.ACCESS_DENIED_ACE_TYPE, abi.FILE_DELETE_CHILD, true, true), null, 6n,
-      ),
+      getNamedSecurityInfoW: readStub(craftPair(otherSid, world, abi.ACCESS_DENIED_ACE_TYPE, abi.FILE_DELETE_CHILD, true, true), null, 6n),
       setNamedSecurityInfoW,
     })
     expect(revokeWrite(api, 'C:\\granted', sid)).toBe(true)
@@ -643,7 +652,9 @@ describe('the exact-ACE/exact-label skip and ACL-walk defenses', () => {
     const setNamedSecurityInfoW = vi.fn(() => 0)
     const api = aclApi({
       getNamedSecurityInfoW: readStub(
-        craftPair(sid, world, abi.ACCESS_DENIED_ACE_TYPE, abi.FILE_DELETE_CHILD, false, true), craftAclWithLabel(lowSid, true), 6n,
+        craftPair(sid, world, abi.ACCESS_DENIED_ACE_TYPE, abi.FILE_DELETE_CHILD, false, true),
+        craftAclWithLabel(lowSid, true),
+        6n,
       ),
       setNamedSecurityInfoW,
     })
@@ -658,7 +669,9 @@ describe('the exact-ACE/exact-label skip and ACL-walk defenses', () => {
     const setNamedSecurityInfoW = vi.fn(() => 0)
     const api = aclApi({
       getNamedSecurityInfoW: readStub(
-        craftPair(sid, world, abi.ACCESS_DENIED_ACE_TYPE, abi.GRANT_MASK, true, true), craftAclWithLabel(lowSid, true), 6n,
+        craftPair(sid, world, abi.ACCESS_DENIED_ACE_TYPE, abi.GRANT_MASK, true, true),
+        craftAclWithLabel(lowSid, true),
+        6n,
       ),
       setNamedSecurityInfoW,
     })
@@ -673,7 +686,9 @@ describe('the exact-ACE/exact-label skip and ACL-walk defenses', () => {
     const setNamedSecurityInfoW = vi.fn(() => 0)
     const api = aclApi({
       getNamedSecurityInfoW: readStub(
-        craftPair(sid, world, abi.ACCESS_ALLOWED_ACE_TYPE, abi.FILE_DELETE_CHILD, true, true), craftAclWithLabel(lowSid, true), 6n,
+        craftPair(sid, world, abi.ACCESS_ALLOWED_ACE_TYPE, abi.FILE_DELETE_CHILD, true, true),
+        craftAclWithLabel(lowSid, true),
+        6n,
       ),
       setNamedSecurityInfoW,
     })

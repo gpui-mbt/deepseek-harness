@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ScheduleDeliveryRecord, ScheduleId } from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -22,11 +22,17 @@ const records: ScheduleDeliveryRecord[] = Array.from({ length: 45 }, (_, index) 
   prompt: `Saved instruction ${index}\n<img src=x onerror=alert(1)>`,
 }))
 function result(start = 0, end = 20, legacy = false): Result {
-  return { ok: true, value: {
-    id, records: records.slice(start, end), earlierRecordsUnavailable: legacy,
-    earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-    ...(end < records.length ? { nextBefore: records[end - 1]!.messageId } : {}),
-  } }
+  return {
+    ok: true,
+    value: {
+      id,
+      records: records.slice(start, end),
+      earlierRecordsUnavailable: legacy,
+      earlierRecordsPruned: false,
+      retention: { days: 30, records: 200 },
+      ...(end < records.length ? { nextBefore: records[end - 1]!.messageId } : {}),
+    },
+  }
 }
 function failure(code: 'schedule_not_found' | 'delivery_cursor_not_found'): Result {
   return { ok: true, value: { id, code } }
@@ -39,14 +45,19 @@ function mount(dictionary: typeof en | typeof zh = en) {
   return { loadHistory, props, view }
 }
 async function resolve(pending: ReturnType<typeof Promise.withResolvers<Result>>, value: Result): Promise<void> {
-  await act(async () => { pending.resolve(value); await pending.promise })
+  await act(async () => {
+    pending.resolve(value)
+    await pending.promise
+  })
 }
 async function reject(pending: ReturnType<typeof Promise.withResolvers<Result>>): Promise<void> {
-  await act(async () => { pending.reject(new Error('Private rejected detail')); await pending.promise.catch(() => {}) })
+  await act(async () => {
+    pending.reject(new Error('Private rejected detail'))
+    await pending.promise.catch(() => {})
+  })
 }
 function occurrences(dictionary: typeof en | typeof zh = en): string[] {
-  return screen.queryAllByRole('region', { name: dictionary['delivery.label'] })
-    .map(region => region.querySelector('time')?.dateTime ?? '')
+  return screen.queryAllByRole('region', { name: dictionary['delivery.label'] }).map(region => region.querySelector('time')?.dateTime ?? '')
 }
 /** Whether `later` follows `earlier` in document order. */
 function follows(earlier: Element, later: Element): boolean {
@@ -70,7 +81,7 @@ const RUNNER_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone
 const SAMPLED_INSTANT = records[0]!.scheduledAt
 const TASK_ZONE = zoneDifferingFrom(SAMPLED_INSTANT, RUNNER_ZONE)
 
-describe.each([en, zh])('saved delivery records', (dictionary) => {
+describe.each([en, zh])('saved delivery records', dictionary => {
   it('renders multiple saved instructions and exact times with escaped HTML and no legacy notice', async () => {
     const h = mount(dictionary)
     expect(screen.queryByText(dictionary['delivery.empty'])).toBeNull()
@@ -204,14 +215,20 @@ describe.each([en, zh])('saved delivery records', (dictionary) => {
   it('reads legacy unavailability without inventing a prompt or a notice', async () => {
     const pending = Promise.withResolvers<Result>()
     const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>(() => pending.promise)
-    render(<DeliveryHistory
-      id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(dictionary)}
-    />)
+    render(
+      <DeliveryHistory id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(dictionary)} />,
+    )
     const { prompt: _prompt, ...receipt } = records[0]!
-    await resolve(pending, { ok: true, value: {
-      id, records: [receipt], earlierRecordsUnavailable: true,
-      earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-    } })
+    await resolve(pending, {
+      ok: true,
+      value: {
+        id,
+        records: [receipt],
+        earlierRecordsUnavailable: true,
+        earlierRecordsPruned: false,
+        retention: { days: 30, records: 200 },
+      },
+    })
     const region = screen.getByRole('region', { name: dictionary['delivery.label'] })
     expect(region.querySelector(`.${css.savedPrompt}`)).toBeNull()
     expect(region.querySelectorAll('p')).toHaveLength(0)
@@ -225,13 +242,14 @@ describe.each([en, zh])('saved delivery records', (dictionary) => {
     const last = result(20, 45)
     if (!first.ok || !last.ok || 'code' in first.value || 'code' in last.value) throw new Error('Expected saved pages')
     const policy = { earlierRecordsPruned: true, retention: { days: 7, records: 25 } }
-    const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>()
+    const loadHistory = vi
+      .fn<DeliveryHistoryInjected['loadHistory']>()
       .mockResolvedValueOnce({ ok: true, value: { ...first.value, ...policy } })
       .mockResolvedValueOnce(transportFailure)
       .mockResolvedValueOnce({ ok: true, value: { ...last.value, ...policy } })
-    render(<DeliveryHistory
-      id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(dictionary)}
-    />)
+    render(
+      <DeliveryHistory id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(dictionary)} />,
+    )
     await screen.findByRole('button', { name: dictionary['delivery.loadMore'] })
     expect(screen.queryByText(dictionary['delivery.pruned'])).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: dictionary['delivery.loadMore'] }))
@@ -250,53 +268,81 @@ describe.each([en, zh])('saved delivery records', (dictionary) => {
     expect(info.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it.each([false, true])('keeps empty history free of pruning notices with pruned=%s', async (earlierRecordsPruned) => {
+  it.each([false, true])('keeps empty history free of pruning notices with pruned=%s', async earlierRecordsPruned => {
     const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>().mockResolvedValue({
-      ok: true, value: { id, records: [], earlierRecordsUnavailable: true, earlierRecordsPruned, retention: { days: 30, records: 200 } },
+      ok: true,
+      value: { id, records: [], earlierRecordsUnavailable: true, earlierRecordsPruned, retention: { days: 30, records: 200 } },
     })
-    render(<DeliveryHistory
-      id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(dictionary)}
-    />)
+    render(
+      <DeliveryHistory id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(dictionary)} />,
+    )
     await screen.findByText(dictionary['delivery.empty'])
     expect(screen.queryByText(dictionary['delivery.pruned'])).toBeNull()
   })
 
-  it.each(['remote', 'throw', 'reject', 'missing', 'cursor'] as const)('never treats %s failure as empty and retries the first page', async (mode) => {
-    const pending = Promise.withResolvers<Result>()
-    const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>(() => pending.promise)
-    if (mode === 'throw') loadHistory.mockImplementationOnce(() => { throw new Error('Private thrown detail') })
-    render(<DeliveryHistory
-      id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(dictionary)}
-    />)
-    if (mode === 'reject') await reject(pending)
-    else if (mode !== 'throw') await resolve(pending, mode === 'remote' ? transportFailure : failure(mode === 'missing' ? 'schedule_not_found' : 'delivery_cursor_not_found'))
-    const key = mode === 'missing' ? 'delivery.notFound' : mode === 'cursor' ? 'delivery.cursorError' : 'delivery.error'
-    // Nothing was loaded, so the staleness caveat about shown records is absent.
-    expect(screen.getByRole('alert').textContent).toBe(dictionary[key])
-    expect(screen.queryByText(dictionary['delivery.empty'])).toBeNull()
-    expect(document.body.textContent).not.toContain('Private')
-    loadHistory.mockResolvedValueOnce({ ok: true, value: {
-      id, records: [], earlierRecordsUnavailable: false,
-      earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-    } })
-    fireEvent.click(screen.getByRole('button', { name: dictionary[mode === 'cursor' ? 'delivery.refresh' : 'delivery.retry'] }))
-    await screen.findByText(dictionary['delivery.empty'])
-    expect(loadHistory).toHaveBeenLastCalledWith({ id, sessionId, limit: 20 })
-    expect(screen.queryByRole('alert')).toBeNull()
-  })
+  it.each(['remote', 'throw', 'reject', 'missing', 'cursor'] as const)(
+    'never treats %s failure as empty and retries the first page',
+    async mode => {
+      const pending = Promise.withResolvers<Result>()
+      const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>(() => pending.promise)
+      if (mode === 'throw')
+        loadHistory.mockImplementationOnce(() => {
+          throw new Error('Private thrown detail')
+        })
+      render(
+        <DeliveryHistory
+          id={id}
+          sessionId={sessionId}
+          latestMessageId={undefined}
+          loadHistory={loadHistory}
+          t={makeTranslate(dictionary)}
+        />,
+      )
+      if (mode === 'reject') await reject(pending)
+      else if (mode !== 'throw')
+        await resolve(
+          pending,
+          mode === 'remote' ? transportFailure : failure(mode === 'missing' ? 'schedule_not_found' : 'delivery_cursor_not_found'),
+        )
+      const key = mode === 'missing' ? 'delivery.notFound' : mode === 'cursor' ? 'delivery.cursorError' : 'delivery.error'
+      // Nothing was loaded, so the staleness caveat about shown records is absent.
+      expect(screen.getByRole('alert').textContent).toBe(dictionary[key])
+      expect(screen.queryByText(dictionary['delivery.empty'])).toBeNull()
+      expect(document.body.textContent).not.toContain('Private')
+      loadHistory.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id,
+          records: [],
+          earlierRecordsUnavailable: false,
+          earlierRecordsPruned: false,
+          retention: { days: 30, records: 200 },
+        },
+      })
+      fireEvent.click(screen.getByRole('button', { name: dictionary[mode === 'cursor' ? 'delivery.refresh' : 'delivery.retry'] }))
+      await screen.findByText(dictionary['delivery.empty'])
+      expect(loadHistory).toHaveBeenLastCalledWith({ id, sessionId, limit: 20 })
+      expect(screen.queryByRole('alert')).toBeNull()
+    },
+  )
 
   it('renders each saved occurrence in the task zone rather than the browser zone', async () => {
     const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>().mockResolvedValue(result())
-    render(<DeliveryHistory
-      id={id} sessionId={sessionId} latestMessageId={records[0]!.messageId}
-      timeZone={TASK_ZONE} loadHistory={loadHistory} t={makeTranslate(dictionary)}
-    />)
+    render(
+      <DeliveryHistory
+        id={id}
+        sessionId={sessionId}
+        latestMessageId={records[0]!.messageId}
+        timeZone={TASK_ZONE}
+        loadHistory={loadHistory}
+        t={makeTranslate(dictionary)}
+      />,
+    )
     const region = (await screen.findAllByRole('region', { name: dictionary['delivery.label'] }))[0]!
     const occurrence = region.querySelector<HTMLTimeElement>(`.${css.deliveryTime}`)!
     // Precondition: the two zones hold different offsets at this instant, so the
     // task-zone render cannot coincide with the browser-zone render.
-    expect(zoneOffsetMinutes(TASK_ZONE, SAMPLED_INSTANT))
-      .not.toBe(zoneOffsetMinutes(RUNNER_ZONE, SAMPLED_INSTANT))
+    expect(zoneOffsetMinutes(TASK_ZONE, SAMPLED_INSTANT)).not.toBe(zoneOffsetMinutes(RUNNER_ZONE, SAMPLED_INSTANT))
     const taskZone = formatScheduleNextRun(SAMPLED_INSTANT, dictionary['time.locale'], TASK_ZONE)
     expect(occurrence.textContent).toBe(taskZone)
     // The runner's own zone formats this instant differently.
@@ -307,16 +353,13 @@ describe.each([en, zh])('saved delivery records', (dictionary) => {
 it('picks a task zone by the offset it holds at the sampled instant', () => {
   // Two zones that keep one offset year round: naming a "different" zone proves
   // nothing about the wall clock, which is why the fixture compares offsets.
-  expect(zoneOffsetMinutes('Asia/Shanghai', SAMPLED_INSTANT))
-    .toBe(zoneOffsetMinutes('Asia/Taipei', SAMPLED_INSTANT))
-  expect(zoneOffsetMinutes('America/New_York', SAMPLED_INSTANT))
-    .toBe(zoneOffsetMinutes('America/Toronto', SAMPLED_INSTANT))
+  expect(zoneOffsetMinutes('Asia/Shanghai', SAMPLED_INSTANT)).toBe(zoneOffsetMinutes('Asia/Taipei', SAMPLED_INSTANT))
+  expect(zoneOffsetMinutes('America/New_York', SAMPLED_INSTANT)).toBe(zoneOffsetMinutes('America/Toronto', SAMPLED_INSTANT))
 
   // A runner holding Asia/Shanghai's offset gets a zone that differs at this
   // instant, and never the same-offset Asia/Taipei that a name check would admit.
   const chosen = zoneDifferingFrom(SAMPLED_INSTANT, 'Asia/Shanghai')
-  expect(zoneOffsetMinutes(chosen, SAMPLED_INSTANT))
-    .not.toBe(zoneOffsetMinutes('Asia/Shanghai', SAMPLED_INSTANT))
+  expect(zoneOffsetMinutes(chosen, SAMPLED_INSTANT)).not.toBe(zoneOffsetMinutes('Asia/Shanghai', SAMPLED_INSTANT))
   expect(chosen).not.toBe('Asia/Taipei')
 })
 
@@ -362,9 +405,9 @@ it('offers the instruction toggle only while the collapsed instruction overflows
   vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(() => lines * 22)
   try {
     const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>().mockResolvedValue(result(0, 1))
-    const view = render(<DeliveryHistory
-      id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(en)}
-    />)
+    const view = render(
+      <DeliveryHistory id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(en)} />,
+    )
     const region = await screen.findByRole('region', { name: en['delivery.label'] })
     const prompt = region.querySelector<HTMLElement>(`.${css.savedPrompt}`)!
     expect(within(region).queryByRole('button')).toBeNull()
@@ -372,7 +415,9 @@ it('offers the instruction toggle only while the collapsed instruction overflows
     expect(collapsed.observe).toHaveBeenCalledWith(prompt)
     // A narrower panel wraps the instruction onto a third line.
     lines = 3
-    act(() => { collapsed.fire() })
+    act(() => {
+      collapsed.fire()
+    })
     fireEvent.click(within(region).getByRole('button', { name: en['delivery.expand'] }))
     // The expanded instruction is not measured; its toggle stays until collapsed.
     expect(collapsed.disconnect).toHaveBeenCalledTimes(1)
@@ -395,7 +440,10 @@ it('appends real-sized pages stably without duplicate IDs and contains overlappi
   const pending = Promise.withResolvers<Result>()
   h.loadHistory.mockReturnValueOnce(pending.promise)
   const more = screen.getByRole('button', { name: en['delivery.loadMore'] })
-  act(() => { more.click(); more.click() })
+  act(() => {
+    more.click()
+    more.click()
+  })
   expect(h.loadHistory).toHaveBeenCalledTimes(2)
   expect(h.loadHistory).toHaveBeenLastCalledWith({ id, sessionId, limit: 20, before: records[19]!.messageId })
   expect(more.hasAttribute('disabled')).toBe(true)
@@ -409,26 +457,42 @@ it('appends real-sized pages stably without duplicate IDs and contains overlappi
   expect(screen.queryByRole('button', { name: en['delivery.loadMore'] })).toBeNull()
 })
 
-it.each(['remote', 'reject', 'cursor', 'missing'] as const)('preserves records on an older-page %s failure with the correct retry cursor', async (mode) => {
-  const h = mount()
-  await screen.findByText(formatScheduleNextRun(records[0]!.scheduledAt, en['time.locale']))
-  const pending = Promise.withResolvers<Result>()
-  h.loadHistory.mockReturnValueOnce(pending.promise)
-  fireEvent.click(screen.getByRole('button', { name: en['delivery.loadMore'] }))
-  if (mode === 'reject') await reject(pending)
-  else await resolve(pending, mode === 'remote' ? transportFailure : failure(mode === 'cursor' ? 'delivery_cursor_not_found' : 'schedule_not_found'))
-  expect(occurrences()).toEqual(records.slice(0, 20).map(record => record.scheduledAt))
-  expect(screen.getByRole('alert').textContent).toBe(en[mode === 'cursor' ? 'delivery.cursorError' : mode === 'missing' ? 'delivery.notFound' : 'delivery.error'])
-  expect(screen.queryByText(en['delivery.empty'])).toBeNull()
-  h.loadHistory.mockResolvedValueOnce(mode === 'remote' || mode === 'reject' ? result(20, 40) : result(0, 20))
-  fireEvent.click(screen.getByRole('button', { name: en[mode === 'cursor' ? 'delivery.refresh' : 'delivery.retry'] }))
-  await act(async () => { await h.loadHistory.mock.results[2]!.value })
-  expect(h.loadHistory).toHaveBeenLastCalledWith({ id, sessionId, limit: 20, ...(mode === 'remote' || mode === 'reject' ? { before: records[19]!.messageId } : {}) })
-  expect(occurrences()).toHaveLength(mode === 'remote' || mode === 'reject' ? 40 : 20)
-  expect(screen.queryByRole('alert')).toBeNull()
-})
+it.each(['remote', 'reject', 'cursor', 'missing'] as const)(
+  'preserves records on an older-page %s failure with the correct retry cursor',
+  async mode => {
+    const h = mount()
+    await screen.findByText(formatScheduleNextRun(records[0]!.scheduledAt, en['time.locale']))
+    const pending = Promise.withResolvers<Result>()
+    h.loadHistory.mockReturnValueOnce(pending.promise)
+    fireEvent.click(screen.getByRole('button', { name: en['delivery.loadMore'] }))
+    if (mode === 'reject') await reject(pending)
+    else
+      await resolve(
+        pending,
+        mode === 'remote' ? transportFailure : failure(mode === 'cursor' ? 'delivery_cursor_not_found' : 'schedule_not_found'),
+      )
+    expect(occurrences()).toEqual(records.slice(0, 20).map(record => record.scheduledAt))
+    expect(screen.getByRole('alert').textContent).toBe(
+      en[mode === 'cursor' ? 'delivery.cursorError' : mode === 'missing' ? 'delivery.notFound' : 'delivery.error'],
+    )
+    expect(screen.queryByText(en['delivery.empty'])).toBeNull()
+    h.loadHistory.mockResolvedValueOnce(mode === 'remote' || mode === 'reject' ? result(20, 40) : result(0, 20))
+    fireEvent.click(screen.getByRole('button', { name: en[mode === 'cursor' ? 'delivery.refresh' : 'delivery.retry'] }))
+    await act(async () => {
+      await h.loadHistory.mock.results[2]!.value
+    })
+    expect(h.loadHistory).toHaveBeenLastCalledWith({
+      id,
+      sessionId,
+      limit: 20,
+      ...(mode === 'remote' || mode === 'reject' ? { before: records[19]!.messageId } : {}),
+    })
+    expect(occurrences()).toHaveLength(mode === 'remote' || mode === 'reject' ? 40 : 20)
+    expect(screen.queryByRole('alert')).toBeNull()
+  },
+)
 
-it.each(['success', 'rejection'] as const)('refreshes the newest page while ignoring an older-page late %s', async (outcome) => {
+it.each(['success', 'rejection'] as const)('refreshes the newest page while ignoring an older-page late %s', async outcome => {
   const h = mount()
   await screen.findByText(formatScheduleNextRun(records[0]!.scheduledAt, en['time.locale']))
   const older = Promise.withResolvers<Result>()
@@ -464,12 +528,12 @@ it('preserves loaded records on failed receipt refresh and retries newest rather
   expect(occurrences()).toHaveLength(5)
 })
 
-it.each(['success', 'rejection'] as const)('ignores a late %s after view unmount', async (outcome) => {
+it.each(['success', 'rejection'] as const)('ignores a late %s after view unmount', async outcome => {
   const pending = Promise.withResolvers<Result>()
   const loadHistory = vi.fn<DeliveryHistoryInjected['loadHistory']>(() => pending.promise)
-  const view = render(<DeliveryHistory
-    id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(en)}
-  />)
+  const view = render(
+    <DeliveryHistory id={id} sessionId={sessionId} latestMessageId={undefined} loadHistory={loadHistory} t={makeTranslate(en)} />,
+  )
   view.unmount()
   if (outcome === 'success') await resolve(pending, result())
   else await reject(pending)

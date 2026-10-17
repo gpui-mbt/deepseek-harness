@@ -8,7 +8,7 @@ import type { SubprocessTerminalForeground, SubprocessTerminalHandle } from '@de
 import type { TerminalSendOperation, TerminalSendRequest, TerminalWaitReason } from '@deepseek-ai/dsh-terminal'
 import { CONTROLLED_PROMPT, TerminalSanitizer } from '@deepseek-ai/dsh-terminal-bash/src/sanitize.ts'
 import type { SanitizedChunk } from '@deepseek-ai/dsh-terminal-bash/src/sanitize.ts'
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 
 /** First line of the formatted timeline; a failure message carrying it needs no second print. */
 export const TIMELINE_HEADER = 'readiness timeline (ms since the case started; s<n> = terminal session in spawn order)'
@@ -87,13 +87,18 @@ const SHOWN_HEAD_CHUNKS = 2
 const SHOWN_TAIL_CHUNKS = 6
 
 function escapeControl(text: string): string {
-  return text.replace(/[\\\x00-\x1f\x7f]/g, (char) => {
+  return text.replace(/[\\\x00-\x1f\x7f]/g, char => {
     switch (char) {
-      case '\\': return '\\\\'
-      case '\n': return '\\n'
-      case '\r': return '\\r'
-      case '\x1b': return '\\e'
-      default: return `\\x${char.charCodeAt(0).toString(16).padStart(2, '0')}`
+      case '\\':
+        return '\\\\'
+      case '\n':
+        return '\\n'
+      case '\r':
+        return '\\r'
+      case '\x1b':
+        return '\\e'
+      default:
+        return `\\x${char.charCodeAt(0).toString(16).padStart(2, '0')}`
     }
   })
 }
@@ -252,9 +257,12 @@ export class ReadinessTimeline {
    */
   track(operation: TerminalSendOperation, request: TerminalSendRequest): void {
     this.labelUses += 1
-    const label = this.currentLabel === undefined
-      ? `send#${this.sends.length + 1}`
-      : this.labelUses === 1 ? this.currentLabel : `${this.currentLabel}/${this.labelUses}`
+    const label =
+      this.currentLabel === undefined
+        ? `send#${this.sends.length + 1}`
+        : this.labelUses === 1
+          ? this.currentLabel
+          : `${this.currentLabel}/${this.labelUses}`
     const window: SendWindow = {
       label,
       input: `${request.text}${request.submit ? '\r' : ''}`,
@@ -270,7 +278,14 @@ export class ReadinessTimeline {
       window.endSeq = this.seq
       window.outcome = outcome
     }
-    void operation.done.then((settled) => { close(settled.waitReason) }, () => { close('rejected') })
+    void operation.done.then(
+      settled => {
+        close(settled.waitReason)
+      },
+      () => {
+        close('rejected')
+      },
+    )
   }
 
   /**
@@ -280,13 +295,19 @@ export class ReadinessTimeline {
    */
   format(): string {
     this.hostFactsText ??= this.hostFacts()
-    const lines: string[] = [TIMELINE_HEADER, ...this.hostFactsText.length > 0 ? [this.hostFactsText] : []]
+    const lines: string[] = [TIMELINE_HEADER, ...(this.hostFactsText.length > 0 ? [this.hostFactsText] : [])]
     let cursor = 0
     let cursorAt = 0
     const windows: { title: string; from: number; fromAt: number; to: number; send: SendWindow | undefined }[] = []
     this.sends.forEach((send, index) => {
       if (send.startSeq > cursor) {
-        windows.push({ title: index === 0 ? 'before the first send' : 'between sends', from: cursor, fromAt: cursorAt, to: send.startSeq, send: undefined })
+        windows.push({
+          title: index === 0 ? 'before the first send' : 'between sends',
+          from: cursor,
+          fromAt: cursorAt,
+          to: send.startSeq,
+          send: undefined,
+        })
       }
       const to = send.endSeq ?? this.seq
       windows.push({ title: `#${index + 1} ${send.label}`, from: send.startSeq, fromAt: send.startedAt, to, send })
@@ -304,15 +325,17 @@ export class ReadinessTimeline {
 
   private formatWindow(title: string, from: number, send: SendWindow | undefined, events: TimelineEvent[]): string[] {
     const lines: string[] = []
-    const outcome = send === undefined
-      ? ''
-      : send.settledAt === undefined
-        ? ` → still pending after ${this.now() - send.startedAt} ms`
-        : ` → ${send.outcome} after ${send.settledAt - send.startedAt} ms`
+    const outcome =
+      send === undefined
+        ? ''
+        : send.settledAt === undefined
+          ? ` → still pending after ${this.now() - send.startedAt} ms`
+          : ` → ${send.outcome} after ${send.settledAt - send.startedAt} ms`
     lines.push(`${title} (from +${from} ms)${outcome}`)
     for (const event of events) {
       if (event.kind === 'spawn') lines.push(`  +${event.at} spawn s${event.session} pid ${event.pid}`)
-      if (event.kind === 'write') lines.push(`  +${event.at} write s${event.session} ${event.units} units (${event.input ? 'input' : 'reply'})`)
+      if (event.kind === 'write')
+        lines.push(`  +${event.at} write s${event.session} ${event.units} units (${event.input ? 'input' : 'reply'})`)
     }
     const polls = events.filter((event): event is PollEvent => event.kind === 'poll')
     if (polls.length > 0) {
@@ -339,14 +362,18 @@ export class ReadinessTimeline {
           lines.push(`  … ${elided} chunks elided …`)
           elided = 0
         }
-        lines.push(`  +${chunk.at} s${chunk.session} ${chunk.units}u text=${chunk.textLength} marker=${chunk.prompt ? 'YES' : 'no'} tail=${tail(chunk.promptTail)} ${quoted(chunk.sample)}`)
+        lines.push(
+          `  +${chunk.at} s${chunk.session} ${chunk.units}u text=${chunk.textLength} marker=${chunk.prompt ? 'YES' : 'no'} tail=${tail(chunk.promptTail)} ${quoted(chunk.sample)}`,
+        )
       }
       if (send !== undefined) {
         // Readiness evidence resets at the send's input write; terminal-protocol replies the
         // emulator writes back do not reset it, so the replay starts at the last input write.
         const lastInput = events.filter((event): event is WriteEvent => event.kind === 'write' && event.input).at(-1)
         const evidence = replayPromptEvidence(chunks.filter(chunk => lastInput === undefined || chunk.seq > lastInput.seq))
-        lines.push(`  replayed evidence at settle: promptSeen=${evidence.promptSeen} promptTail=${tail(evidence.promptTail)} promptTextSeen=${evidence.promptTextSeen}`)
+        lines.push(
+          `  replayed evidence at settle: promptSeen=${evidence.promptSeen} promptTail=${tail(evidence.promptTail)} promptTextSeen=${evidence.promptTextSeen}`,
+        )
       }
     }
     return lines

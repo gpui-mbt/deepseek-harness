@@ -12,7 +12,16 @@ for (let path = resolve(root); ; path = dirname(path)) {
   if (existsSync(path) && lstatSync(path).isSymbolicLink()) throw new Error('Packaging root ancestors cannot be links')
   if (path === dirname(path)) break
 }
-for (const relative of ['', 'packaging', 'packaging/presets', 'packaging/secrets', 'packaging/certificates', 'runner', 'cache', 'cache/macos-signatures']) {
+for (const relative of [
+  '',
+  'packaging',
+  'packaging/presets',
+  'packaging/secrets',
+  'packaging/certificates',
+  'runner',
+  'cache',
+  'cache/macos-signatures',
+]) {
   const path = join(root, relative)
   if (!existsSync(path) && mode !== '--check') mkdirSync(path, { recursive: true, mode: 0o700 })
   const info = lstatSync(path)
@@ -21,13 +30,20 @@ for (const relative of ['', 'packaging', 'packaging/presets', 'packaging/secrets
   }
 }
 if (mode !== '--check') {
-  for (const [name, directory] of [['test', 'presets'], ['production', 'presets'], ['macos-signing', 'secrets']]) {
+  for (const [name, directory] of [
+    ['test', 'presets'],
+    ['production', 'presets'],
+    ['macos-signing', 'secrets'],
+  ]) {
     const destination = join(root, 'packaging', directory, `${name}.env.example`)
     if (!existsSync(destination)) {
       const template = readFileSync(resolve(import.meta.dirname, '../config/macos-packaging', `${name}.env.example`), 'utf8')
       const cache = join(root, 'cache/macos-signatures')
-      writeFileSync(destination, template.replace('# DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR=',
-        `DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR='${cache}'`), { flag: 'wx', mode: 0o600 })
+      writeFileSync(
+        destination,
+        template.replace('# DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR=', `DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR='${cache}'`),
+        { flag: 'wx', mode: 0o600 },
+      )
     }
   }
 }

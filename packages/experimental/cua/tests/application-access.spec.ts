@@ -4,39 +4,70 @@ import { Context } from '@deepseek-ai/cordis'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import UserQuestions, { UserQuestionError, type AskUserQuestionAnswer } from '@deepseek-ai/dsh-user-questions'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { ApplicationAuthorizationResult, ApplicationAccess } from '../src/application-access.ts'
 import type { CuaApplicationGrant } from '../src/application-types.ts'
 import type { CuaAppHandle } from '../src/types.ts'
 import { NativeClient } from '../src/native-client.ts'
 
-const native = vi.hoisted(() => ({ instances: [] as Array<{
-  disposed: boolean
-  request: ReturnType<typeof vi.fn>
-  dispose: ReturnType<typeof vi.fn>
-}> }))
+const native = vi.hoisted(() => ({
+  instances: [] as Array<{
+    disposed: boolean
+    request: ReturnType<typeof vi.fn>
+    dispose: ReturnType<typeof vi.fn>
+  }>,
+}))
 
 vi.mock('../src/native-client.ts', async original => ({
-  ...await original<typeof import('../src/native-client.ts')>(),
+  ...(await original<typeof import('../src/native-client.ts')>()),
   NativeClient: class {
     disposed = false
-    request = vi.fn(async (method: string) => method === 'openPermissionSettings' ? { opened: true }
-      : { accessibility: false, screenRecording: false, helper: { pid: 9 }, parent: { pid: 8 } })
-    invalidate() { this.disposed = true }
-    dispose = vi.fn(async () => { this.disposed = true })
-    constructor() { native.instances.push(this) }
+    request = vi.fn(async (method: string) =>
+      method === 'openPermissionSettings'
+        ? { opened: true }
+        : { accessibility: false, screenRecording: false, helper: { pid: 9 }, parent: { pid: 8 } },
+    )
+    invalidate() {
+      this.disposed = true
+    }
+    dispose = vi.fn(async () => {
+      this.disposed = true
+    })
+    constructor() {
+      native.instances.push(this)
+    }
   },
 }))
 
-const unusedConnector = () => { throw new Error('Mocked native client does not connect') }
+const unusedConnector = () => {
+  throw new Error('Mocked native client does not connect')
+}
 
-const nativeConfig = { helperPath: '/fixture', cwd: '/', timeoutMs: 1000, connectTimeoutMs: 5000, screenshotTimeoutMs: 5000, axTimeoutMs: 100,
-  maxRequestBytes: 4096, maxResponseBytes: 4096, graceMs: 100, textEventIntervalMs: 1 }
-const identity = ApplicationAuthorizationResult.parse({ id: 'a'.repeat(64), name: 'Test application', executablePath: '/Applications/Fixture.app/Contents/MacOS/Fixture', persistable: true })
+const nativeConfig = {
+  helperPath: '/fixture',
+  cwd: '/',
+  timeoutMs: 1000,
+  connectTimeoutMs: 5000,
+  screenshotTimeoutMs: 5000,
+  axTimeoutMs: 100,
+  maxRequestBytes: 4096,
+  maxResponseBytes: 4096,
+  graceMs: 100,
+  textEventIntervalMs: 1,
+}
+const identity = ApplicationAuthorizationResult.parse({
+  id: 'a'.repeat(64),
+  name: 'Test application',
+  executablePath: '/Applications/Fixture.app/Contents/MacOS/Fixture',
+  persistable: true,
+})
 const handle = 'fixture-app' as CuaAppHandle
 const signal = new AbortController().signal
 
-async function setup(choice = 'Allow for this task', options: { writable?: boolean; questions?: boolean; initial?: readonly CuaApplicationGrant[] } = {}) {
+async function setup(
+  choice = 'Allow for this task',
+  options: { writable?: boolean; questions?: boolean; initial?: readonly CuaApplicationGrant[] } = {},
+) {
   native.instances.length = 0
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
@@ -47,12 +78,29 @@ async function setup(choice = 'Allow for this task', options: { writable?: boole
   const answer = vi.fn<() => Promise<AskUserQuestionAnswer>>(async () => ({ answers: [{ id: 'cua-app-access', selected: [choice] }] }))
   ctx.on('user-questions/request', answer)
   let grants: readonly CuaApplicationGrant[] = options.initial ?? []
-  const save = vi.fn(async (next: readonly CuaApplicationGrant[]) => { grants = next })
+  const save = vi.fn(async (next: readonly CuaApplicationGrant[]) => {
+    grants = next
+  })
   let writable = options.writable !== false
-  const access = new ApplicationAccess(ctx, { grants: () => grants, get save() { return writable ? save : undefined } })
+  const access = new ApplicationAccess(ctx, {
+    grants: () => grants,
+    get save() {
+      return writable ? save : undefined
+    },
+  })
   const client = new NativeClient(ctx, nativeConfig, unusedConnector)
-  return { ctx, owner, agent: owner.agent, answer, save, access, client, grants: () => grants,
-    setWritable(value: boolean) { writable = value },
+  return {
+    ctx,
+    owner,
+    agent: owner.agent,
+    answer,
+    save,
+    access,
+    client,
+    grants: () => grants,
+    setWritable(value: boolean) {
+      writable = value
+    },
   }
 }
 
@@ -124,7 +172,7 @@ it.each([
   { answers: [{ id: 'cua-app-access', selected: ['Allow for this task', 'Deny'] }] },
   { answers: [{ id: 'cua-app-access', selected: [], custom: 'Always allow' }] },
   { answers: [{ id: 'cua-app-access', selected: ['Allow for this task'], custom: 'different scope' }] },
-])('does not interpret an incomplete or free-text answer as consent: %j', async (answer) => {
+])('does not interpret an incomplete or free-text answer as consent: %j', async answer => {
   const f = await setup()
   f.answer.mockResolvedValueOnce(answer)
   await expect(f.access.select(f.agent, f.client, handle, identity, signal)).rejects.toThrow('APP_ACCESS_DENIED')
@@ -143,7 +191,10 @@ it('merges a concurrently saved decision using the latest grant list', async () 
   const f = await setup('Always allow')
   const answer = Promise.withResolvers<AskUserQuestionAnswer>()
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
-  f.answer.mockImplementationOnce(() => { entered.resolve(); return answer.promise })
+  f.answer.mockImplementationOnce(() => {
+    entered.resolve()
+    return answer.promise
+  })
   const selected = f.access.select(f.agent, f.client, handle, identity, signal)
   await entered.promise
   await f.save([{ id: identity.id, name: 'Old label', executablePath: '/old' }])
@@ -156,14 +207,21 @@ it('refuses queued persistence when the profile writer disappears', async () => 
   const f = await setup('Always allow')
   const saving: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
-  onTestFinished(() => { release.resolve() })
-  f.save.mockImplementationOnce(async () => { saving.resolve(); await release.promise })
+  onTestFinished(() => {
+    release.resolve()
+  })
+  f.save.mockImplementationOnce(async () => {
+    saving.resolve()
+    await release.promise
+  })
   const first = f.access.select(f.agent, f.client, handle, identity, signal)
   await saving.promise
   const other = { ...identity, id: 'b'.repeat(64) as typeof identity.id }
   const second = f.access.select(f.agent, f.client, 'second' as CuaAppHandle, other, signal)
   const refused = expect(second).rejects.toThrow('cannot be saved')
-  await vi.waitFor(() => { expect(f.answer).toHaveBeenCalledTimes(2) })
+  await vi.waitFor(() => {
+    expect(f.answer).toHaveBeenCalledTimes(2)
+  })
   await setImmediate()
   f.setWritable(false)
   release.resolve()
@@ -176,8 +234,13 @@ it('serializes duplicate application questions and rejects every waiting selecti
   const f = await setup()
   const answer = Promise.withResolvers<AskUserQuestionAnswer>()
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
-  onTestFinished(() => { answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] }) })
-  f.answer.mockImplementationOnce(() => { entered.resolve(); return answer.promise })
+  onTestFinished(() => {
+    answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] })
+  })
+  f.answer.mockImplementationOnce(() => {
+    entered.resolve()
+    return answer.promise
+  })
   const first = f.access.select(f.agent, f.client, handle, identity, signal)
   await entered.promise
   const second = f.access.select(f.agent, f.client, handle, identity, signal)
@@ -195,8 +258,13 @@ it('reuses one accepted question for duplicate selections', async () => {
   const f = await setup()
   const answer = Promise.withResolvers<AskUserQuestionAnswer>()
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
-  onTestFinished(() => { answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] }) })
-  f.answer.mockImplementationOnce(() => { entered.resolve(); return answer.promise })
+  onTestFinished(() => {
+    answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] })
+  })
+  f.answer.mockImplementationOnce(() => {
+    entered.resolve()
+    return answer.promise
+  })
   const first = f.access.select(f.agent, f.client, handle, identity, signal)
   await entered.promise
   const second = f.access.select(f.agent, f.client, handle, identity, signal)
@@ -238,9 +306,15 @@ it('cancels native work when saved consent is removed from configuration', async
   const f = await setup('Always allow')
   await f.access.select(f.agent, f.client, handle, identity, signal)
   const entered = Promise.withResolvers<undefined>()
-  const pending = f.access.run(f.client, handle, signal, async (operationSignal) => {
+  const pending = f.access.run(f.client, handle, signal, async operationSignal => {
     const done = Promise.withResolvers<null>()
-    operationSignal.addEventListener('abort', () => { done.reject(new Error('native cancelled')) }, { once: true })
+    operationSignal.addEventListener(
+      'abort',
+      () => {
+        done.reject(new Error('native cancelled'))
+      },
+      { once: true },
+    )
     entered.resolve(undefined)
     return done.promise
   })
@@ -273,8 +347,13 @@ it('rejects an answer for a helper that exits while the human question is pendin
   const f = await setup()
   const answer = Promise.withResolvers<AskUserQuestionAnswer>()
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
-  onTestFinished(() => { answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] }) })
-  f.answer.mockImplementationOnce(() => { entered.resolve(); return answer.promise })
+  onTestFinished(() => {
+    answer.resolve({ answers: [{ id: 'cua-app-access', selected: ['Deny'] }] })
+  })
+  f.answer.mockImplementationOnce(() => {
+    entered.resolve()
+    return answer.promise
+  })
   const selected = f.access.select(f.agent, f.client, handle, identity, signal)
   const rejected = expect(selected).rejects.toThrow('NATIVE_CLOSED')
   await entered.promise
@@ -302,7 +381,7 @@ it('keeps an active task operation running when a different task denies the same
   await f.access.select(f.agent, f.client, handle, identity, signal)
   const entered = Promise.withResolvers<AbortSignal>()
   const release = Promise.withResolvers<null>()
-  const pending = f.access.run(f.client, handle, signal, async (operationSignal) => {
+  const pending = f.access.run(f.client, handle, signal, async operationSignal => {
     entered.resolve(operationSignal)
     return release.promise
   })
@@ -315,5 +394,8 @@ it('keeps an active task operation running when a different task denies the same
     expect(operationSignal.aborted).toBe(false)
     release.resolve(null)
     await expect(pending).resolves.toBeNull()
-  } finally { release.resolve(null); await pending }
+  } finally {
+    release.resolve(null)
+    await pending
+  }
 })

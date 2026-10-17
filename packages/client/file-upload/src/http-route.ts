@@ -9,9 +9,9 @@ import type { FileUploadValue } from './types.ts'
 type FileUploadHttpResult =
   | { readonly ok: true; readonly value: FileUploadValue }
   | {
-    readonly ok: false
-    readonly error: { readonly code: string; readonly message: string; readonly details: object }
-  }
+      readonly ok: false
+      readonly error: { readonly code: string; readonly message: string; readonly details: object }
+    }
 
 /**
  * Handle one authenticated raw-byte upload.
@@ -48,13 +48,14 @@ export async function handleFileUploadHttp(service: FileUploads, request: Reques
     const failure = remoteErrorOf(error)
     result = {
       ok: false,
-      error: failure !== undefined
-        ? { code: failure.code, message: failure.message, details: failure.details }
-        : {
-          code: 'gateway/internal',
-          message: error instanceof Error ? error.message : String(error),
-          details: {},
-        },
+      error:
+        failure !== undefined
+          ? { code: failure.code, message: failure.message, details: failure.details }
+          : {
+              code: 'gateway/internal',
+              message: error instanceof Error ? error.message : String(error),
+              details: {},
+            },
     }
   }
   return new Response(JSON.stringify(result), {

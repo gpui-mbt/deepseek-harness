@@ -1,11 +1,6 @@
 import { TypertRemoteService, Remote, RemoteScope } from '@deepseek-ai/dsh-typert-protocol'
 import type { Agent } from '@fixture/domain'
-import type {
-  CreateGoalRequest,
-  CreateGoalResult,
-  RenameGoalRequest,
-  RenameGoalResult,
-} from './types.ts'
+import type { CreateGoalRequest, CreateGoalResult, RenameGoalRequest, RenameGoalResult } from './types.ts'
 
 /** Remote-only business Service with no Cordis declaration merge. */
 export class GoalService extends TypertRemoteService {
@@ -31,9 +26,4 @@ export class GoalService extends TypertRemoteService {
   }
 }
 
-export type {
-  CreateGoalRequest,
-  CreateGoalResult,
-  RenameGoalRequest,
-  RenameGoalResult,
-} from './types.ts'
+export type { CreateGoalRequest, CreateGoalResult, RenameGoalRequest, RenameGoalResult } from './types.ts'

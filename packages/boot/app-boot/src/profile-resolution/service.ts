@@ -5,12 +5,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type { PluginLocalizedMeta } from '@deepseek-ai/dsh-package-manifest'
-import {
-  barePackageName,
-  installRuntimeInterception,
-  registerWorkerResolution,
-  type RuntimeInterception,
-} from './resolver.ts'
+import { barePackageName, installRuntimeInterception, registerWorkerResolution, type RuntimeInterception } from './resolver.ts'
 import { ProfileRuntimeResolution, type RuntimeResolution } from '../profile.ts'
 import { readPluginMeta } from '../package-meta.ts'
 
@@ -70,10 +65,13 @@ export class PluginPackages extends Service {
     const interception = installRuntimeInterception(config.resolution)
     this.disposeWorkerResolution = registerWorkerResolution(config.resolution)
     this.interception = interception
-    ctx.effect(() => () => {
-      this.disposeWorkerResolution?.()
-      interception.dispose()
-    }, 'profile package resolution')
+    ctx.effect(
+      () => () => {
+        this.disposeWorkerResolution?.()
+        interception.dispose()
+      },
+      'profile package resolution',
+    )
   }
 
   /** The published runtime resolution, or `undefined` when Node resolves packages alone. */
@@ -119,9 +117,7 @@ export class PluginPackages extends Service {
   packageOf(specifier: string, parentURL: string): PluginPackage | undefined {
     const name = barePackageName(specifier)
     if (name === undefined) return undefined
-    const dir = this.interception === undefined
-      ? packageDirFromParent(name, parentURL)
-      : this.interception.packageDir(name, parentURL)
+    const dir = this.interception === undefined ? packageDirFromParent(name, parentURL) : this.interception.packageDir(name, parentURL)
     if (dir === undefined) return undefined
     const key = JSON.stringify({ dir, name })
     if (!this.packages.has(key)) this.packages.set(key, readPackage(dir, name))

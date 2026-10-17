@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { FileReference, FolderReference } from '../src/client/FileReference.tsx'
 import { en } from '../src/client/locales.ts'
@@ -13,7 +13,10 @@ type Props = ComponentProps<typeof FileReference>
 function props(openFile: Props['openFile']): Props {
   return {
     node: { id: 'file', start: 0, end: 14, data: { path: 'docs/a b.md', label: 'a b.md' } },
-    raw: '@"docs/a b.md"', interactive: true, openFile, t: makeTranslate(en),
+    raw: '@"docs/a b.md"',
+    interactive: true,
+    openFile,
+    t: makeTranslate(en),
   } as Props
 }
 
@@ -28,19 +31,35 @@ describe('FileReference', () => {
     view.rerender(<FileReference {...input} interactive={false} />)
     expect(view.getByText('a b.md').getAttribute('title')).toBe('@"docs/a b.md"')
     expect(view.queryByRole('button')).toBeNull()
-    view.rerender(<FolderReference {...input} node={{
-      id: 'folder', start: 0, end: 6, data: { path: 'docs/', label: 'docs' },
-    }} raw="@docs/" />)
+    view.rerender(
+      <FolderReference
+        {...input}
+        node={{
+          id: 'folder',
+          start: 0,
+          end: 6,
+          data: { path: 'docs/', label: 'docs' },
+        }}
+        raw="@docs/"
+      />,
+    )
     expect(view.getByText('docs').getAttribute('title')).toBe('@docs/')
     expect(view.queryByRole('button')).toBeNull()
   })
 
   it('keeps a navigation failure local and retries or closes without losing the reference', () => {
-    const openFile = vi.fn()
-      .mockImplementationOnce(() => { throw new Error('unavailable') })
-      .mockImplementationOnce(() => { throw new Error('still unavailable') })
+    const openFile = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('unavailable')
+      })
+      .mockImplementationOnce(() => {
+        throw new Error('still unavailable')
+      })
       .mockImplementationOnce(() => {})
-      .mockImplementationOnce(() => { throw new Error('unavailable again') })
+      .mockImplementationOnce(() => {
+        throw new Error('unavailable again')
+      })
     const view = render(<FileReference {...props(openFile)} />)
     fireEvent.click(view.getByRole('button', { name: 'a b.md' }))
     expect(view.getByRole('dialog', { name: 'Couldn’t open file' }).textContent).toContain('Couldn’t open “docs/a b.md”')

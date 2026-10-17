@@ -1,18 +1,18 @@
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { buildGates, parseBuildArguments } from './build.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
 const artifactGraph = {
-  'native': [],
+  native: [],
   'host-src': ['native'],
   'host-bundle': ['host-src'],
   'desktop-bundle': ['host-bundle'],
   'client-src': ['desktop-bundle'],
   'client-bundle': ['client-src'],
-  'web': ['client-bundle'],
+  web: ['client-bundle'],
 }
 
 function graph(gates: ReturnType<typeof buildGates>): Record<string, string[] | undefined> {
@@ -32,11 +32,10 @@ describe('repository build CLI', () => {
   })
 
   it('rejects the removed artifacts-only flag before any build step', () => {
-    const result = spawnSync(
-      process.execPath,
-      ['--import', 'tsx/esm', resolve(root, 'scripts/build.ts'), '--artifacts-only'],
-      { cwd: root, encoding: 'utf8' },
-    )
+    const result = spawnSync(process.execPath, ['--import', 'tsx/esm', resolve(root, 'scripts/build.ts'), '--artifacts-only'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
     expect(result.status).not.toBe(0)
     expect(result.stderr).toContain("Unknown option '--artifacts-only'")
   })

@@ -39,7 +39,12 @@ import { HarnessError, INVALID_CREDENTIAL_CODE } from './error.ts'
 import { normalizeLlmFailure } from './adapter-failure.ts'
 import { normalizeApiKey } from './api-key.ts'
 import {
-  contentHasFile, contentHasImage, fileHandleText, projectFilesToText, projectImagesForTextModel, projectToolUpdates,
+  contentHasFile,
+  contentHasImage,
+  fileHandleText,
+  projectFilesToText,
+  projectImagesForTextModel,
+  projectToolUpdates,
 } from './content.ts'
 import type { FileAttachmentRef, ImageAttachmentRef, ImageRequestTarget } from '@deepseek-ai/dsh-attachment'
 
@@ -75,7 +80,6 @@ declare module '@deepseek-ai/cordis' {
      * @mode waterfall
      */
     'llm/stream'(this: LlmRuntime, options: GenerateOptions, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk>
-
   }
 }
 
@@ -107,16 +111,16 @@ export class LlmError extends HarnessError {
   constructor(message: string, code: string, options?: LlmErrorOptions) {
     if (typeof message !== 'string' || message.length === 0) throw new Error('LlmError message must be a non-empty string')
     if (typeof code !== 'string' || code.length === 0) throw new Error('LlmError code must be a non-empty string')
-    if (options?.status !== undefined
-      && (!Number.isInteger(options.status) || options.status < 100 || options.status > 599)) {
+    if (options?.status !== undefined && (!Number.isInteger(options.status) || options.status < 100 || options.status > 599)) {
       throw new Error('LlmError status must be an integer from 100 through 599')
     }
-    if (options?.providerRetryAfterMs !== undefined
-      && (!Number.isFinite(options.providerRetryAfterMs) || options.providerRetryAfterMs <= 0)) {
+    if (
+      options?.providerRetryAfterMs !== undefined &&
+      (!Number.isFinite(options.providerRetryAfterMs) || options.providerRetryAfterMs <= 0)
+    ) {
       throw new Error('LlmError providerRetryAfterMs must be a positive finite number')
     }
-    if (options?.requestId !== undefined
-      && (typeof options.requestId !== 'string' || options.requestId.length === 0)) {
+    if (options?.requestId !== undefined && (typeof options.requestId !== 'string' || options.requestId.length === 0)) {
       throw new Error('LlmError requestId must be a non-empty string')
     }
     super(message, code, options)
@@ -124,10 +128,10 @@ export class LlmError extends HarnessError {
     this.failure = Object.freeze({
       message,
       code,
-      ...options?.status === undefined ? {} : { status: options.status },
-      ...options?.providerRetryAfterMs === undefined ? {} : { providerRetryAfterMs: options.providerRetryAfterMs },
-      ...options?.requestId === undefined ? {} : { requestId: options.requestId },
-      ...options?.offloadImages === undefined ? {} : { offloadImages: options.offloadImages },
+      ...(options?.status === undefined ? {} : { status: options.status }),
+      ...(options?.providerRetryAfterMs === undefined ? {} : { providerRetryAfterMs: options.providerRetryAfterMs }),
+      ...(options?.requestId === undefined ? {} : { requestId: options.requestId }),
+      ...(options?.offloadImages === undefined ? {} : { offloadImages: options.offloadImages }),
     })
   }
 }
@@ -159,10 +163,10 @@ export function assertUsableApiKey(raw: string, pkg: string, ref: string): strin
   // user to a page that deployment does not serve would be a dead end.
   throw new LlmError(
     checked.reason === 'empty'
-      ? `${pkg}: the API key resolved from ${ref} is blank; set ${ref} to the raw key`
-        + ' (the web Models page writes it) or export it in the launching environment'
-      : `${pkg}: the API key resolved from ${ref} contains characters no HTTP header can carry;`
-        + ` set ${ref} to the raw key alone (the web Models page writes it)`,
+      ? `${pkg}: the API key resolved from ${ref} is blank; set ${ref} to the raw key` +
+          ' (the web Models page writes it) or export it in the launching environment'
+      : `${pkg}: the API key resolved from ${ref} contains characters no HTTP header can carry;` +
+          ` set ${ref} to the raw key alone (the web Models page writes it)`,
     INVALID_CREDENTIAL_CODE,
   )
 }
@@ -272,11 +276,7 @@ export abstract class LlmAdapter {
    *   implementations must settle promptly after it aborts.
    * @returns provider/model identity plus any context, call-default, and reasoning metadata.
    */
-  resolveModel(
-    provider: string,
-    model: string,
-    _signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo> {
+  resolveModel(provider: string, model: string, _signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({ provider, id: model, name: model })
   }
 
@@ -407,16 +407,19 @@ export class LlmRuntime extends TypertRemoteService {
     // The disposer has run: `owned` being empty cannot say so on its own,
     // because `replace([])` legally leaves a live registration holding none.
     let released = false
-    const dispose = this.ctx.effect(function* (this: LlmRuntime) {
-      if (providers.length === 0) throw new LlmError('an adapter must register at least one provider', 'INVALID_ADAPTER')
-      this.commitRoutes(owned, this.prepareRoutes(providers, adapter, owned))
-      yield () => {
-        released = true
-        for (const provider of owned) this.adapters.delete(provider)
-        owned.clear()
-        this.emitAdaptersUpdated()
-      }
-    }.bind(this), 'llm.registerAdapter()')
+    const dispose = this.ctx.effect(
+      function* (this: LlmRuntime) {
+        if (providers.length === 0) throw new LlmError('an adapter must register at least one provider', 'INVALID_ADAPTER')
+        this.commitRoutes(owned, this.prepareRoutes(providers, adapter, owned))
+        yield () => {
+          released = true
+          for (const provider of owned) this.adapters.delete(provider)
+          owned.clear()
+          this.emitAdaptersUpdated()
+        }
+      }.bind(this),
+      'llm.registerAdapter()',
+    )
     // ctx.effect's disposer returns Promise<void>; our disposer API is
     // synchronous fire-and-forget — discard the (always-resolved) promise.
     const handle = (() => void dispose()) as AdapterRegistrationHandle
@@ -449,8 +452,7 @@ export class LlmRuntime extends TypertRemoteService {
         throw new LlmError(`adapter metadata for provider "${provider}" must preserve its id and have a non-empty name`, 'INVALID_ADAPTER')
       }
       unique.add(provider)
-      const retryPolicy = adapter.providerRetryPolicy(provider)
-        ?? resolveRetryPolicy(undefined, `llm: provider "${provider}" retryPolicy`)
+      const retryPolicy = adapter.providerRetryPolicy(provider) ?? resolveRetryPolicy(undefined, `llm: provider "${provider}" retryPolicy`)
       registrations.push({
         adapter,
         provider: { id: info.id, name: info.name },
@@ -514,8 +516,7 @@ export class LlmRuntime extends TypertRemoteService {
         if (entry.settingsPath.some(segment => segment.length === 0)) {
           throw new LlmError(`configurable provider "${entry.provider}" has an empty settingsPath segment`, 'INVALID_DIRECTORY')
         }
-        if ((this.directory.has(entry.provider) && !own.has(entry.provider))
-          || detached.some(seen => seen.provider === entry.provider)) {
+        if ((this.directory.has(entry.provider) && !own.has(entry.provider)) || detached.some(seen => seen.provider === entry.provider)) {
           throw new LlmError(`configurable provider "${entry.provider}" is already declared`, 'DUPLICATE_DIRECTORY')
         }
         detached.push(detachDirectoryEntry(entry))
@@ -526,18 +527,21 @@ export class LlmRuntime extends TypertRemoteService {
       this.emitAdaptersUpdated()
     }
 
-    const dispose = this.ctx.effect(function* (this: LlmRuntime) {
-      if (entries.length === 0) {
-        throw new LlmError('a configurable-provider registration must declare at least one provider', 'INVALID_DIRECTORY')
-      }
-      commit(entries)
-      yield () => {
-        disposed = true
-        for (const entry of held) this.directory.delete(entry.provider)
-        held = []
-        this.emitAdaptersUpdated()
-      }
-    }.bind(this), 'llm.registerConfigurableProviders()')
+    const dispose = this.ctx.effect(
+      function* (this: LlmRuntime) {
+        if (entries.length === 0) {
+          throw new LlmError('a configurable-provider registration must declare at least one provider', 'INVALID_DIRECTORY')
+        }
+        commit(entries)
+        yield () => {
+          disposed = true
+          for (const entry of held) this.directory.delete(entry.provider)
+          held = []
+          this.emitAdaptersUpdated()
+        }
+      }.bind(this),
+      'llm.registerConfigurableProviders()',
+    )
 
     const handle = ((): void => void dispose()) as DirectoryRegistrationHandle
     handle.replace = (next: readonly LlmConfigurableProvider[]): void => {
@@ -570,23 +574,23 @@ export class LlmRuntime extends TypertRemoteService {
    */
   registerModelDiscovery(
     settingsNs: string,
-    discover: (
-      request: LlmModelDiscoveryRequest,
-      signal?: AbortSignal,
-    ) => Promise<readonly LlmDiscoveredModel[]>,
+    discover: (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>,
   ): () => void {
-    const dispose = this.ctx.effect(function* (this: LlmRuntime) {
-      if (settingsNs.length === 0) {
-        throw new LlmError('model discovery needs a non-empty settings namespace', 'INVALID_DISCOVERY')
-      }
-      if (this.discoveries.has(settingsNs)) {
-        throw new LlmError(`model discovery for "${settingsNs}" is already registered`, 'DUPLICATE_DISCOVERY')
-      }
-      this.discoveries.set(settingsNs, discover)
-      yield () => {
-        this.discoveries.delete(settingsNs)
-      }
-    }.bind(this), 'llm.registerModelDiscovery()')
+    const dispose = this.ctx.effect(
+      function* (this: LlmRuntime) {
+        if (settingsNs.length === 0) {
+          throw new LlmError('model discovery needs a non-empty settings namespace', 'INVALID_DISCOVERY')
+        }
+        if (this.discoveries.has(settingsNs)) {
+          throw new LlmError(`model discovery for "${settingsNs}" is already registered`, 'DUPLICATE_DISCOVERY')
+        }
+        this.discoveries.set(settingsNs, discover)
+        yield () => {
+          this.discoveries.delete(settingsNs)
+        }
+      }.bind(this),
+      'llm.registerModelDiscovery()',
+    )
     return () => void dispose()
   }
 
@@ -600,11 +604,7 @@ export class LlmRuntime extends TypertRemoteService {
    * @param signal - caller cancellation.
    * @returns the advertised models, deduplicated in endpoint order.
    */
-  async discoverModels(
-    settingsNs: string,
-    request: LlmModelDiscoveryRequest,
-    signal?: AbortSignal,
-  ): Promise<LlmDiscoveredModel[]> {
+  async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<LlmDiscoveredModel[]> {
     const discover = this.discoveries.get(settingsNs)
     if (discover === undefined) {
       throw new LlmError(`no model discovery is registered for "${settingsNs}"`, 'NO_DISCOVERY')
@@ -614,9 +614,7 @@ export class LlmRuntime extends TypertRemoteService {
     if ((request.provider ?? '').length === 0 && (request.baseURL ?? '').length === 0) {
       throw new LlmError('model discovery needs a provider route or a baseURL', 'INVALID_DISCOVERY')
     }
-    const discovered = signal === undefined
-      ? await discover(request)
-      : await discover(request, signal)
+    const discovered = signal === undefined ? await discover(request) : await discover(request, signal)
     const seen = new Set<string>()
     const models: LlmDiscoveredModel[] = []
     for (const model of discovered) {
@@ -624,10 +622,10 @@ export class LlmRuntime extends TypertRemoteService {
       seen.add(model.id)
       models.push({
         id: model.id,
-        ...model.name === undefined ? {} : { name: model.name },
-        ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
-        ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
-        ...model.inputModalities === undefined ? {} : { inputModalities: [...model.inputModalities] },
+        ...(model.name === undefined ? {} : { name: model.name }),
+        ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
+        ...(model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens }),
+        ...(model.inputModalities === undefined ? {} : { inputModalities: [...model.inputModalities] }),
       })
     }
     return models
@@ -642,11 +640,7 @@ export class LlmRuntime extends TypertRemoteService {
    * @throws RemoteError with `llm/model-discovery-rejected` when discovery refuses or fails.
    */
   @Remote('discoverModels')
-  async remoteDiscoverModels(
-    settingsNs: string,
-    request: LlmModelDiscoveryRequest,
-    signal: AbortSignal,
-  ): Promise<LlmDiscoveredModel[]> {
+  async remoteDiscoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal): Promise<LlmDiscoveredModel[]> {
     try {
       return await this.discoverModels(settingsNs, request, signal)
     } catch (error: unknown) {
@@ -655,7 +649,7 @@ export class LlmRuntime extends TypertRemoteService {
         error instanceof Error ? error.message : String(error),
         {
           settingsNs,
-          ...request.baseURL === undefined ? {} : { baseURL: request.baseURL },
+          ...(request.baseURL === undefined ? {} : { baseURL: request.baseURL }),
         },
         { cause: error },
       )
@@ -730,17 +724,21 @@ export class LlmRuntime extends TypertRemoteService {
     // keeps the detached copy's element type, and its validation, declared.
     const windows: readonly LlmRoutingWindow[] = routing.windows
     return {
-      windows: windows.map((entry) => {
-        if (typeof entry.from !== 'string' || typeof entry.to !== 'string'
-          || typeof entry.provider !== 'string' || entry.provider.length === 0
-          || (entry.timeZone !== undefined && typeof entry.timeZone !== 'string')) {
+      windows: windows.map(entry => {
+        if (
+          typeof entry.from !== 'string' ||
+          typeof entry.to !== 'string' ||
+          typeof entry.provider !== 'string' ||
+          entry.provider.length === 0 ||
+          (entry.timeZone !== undefined && typeof entry.timeZone !== 'string')
+        ) {
           throw new LlmError(`adapter returned invalid routing window for ${subject}`, code)
         }
         return {
           from: entry.from,
           to: entry.to,
           provider: entry.provider,
-          ...entry.timeZone === undefined ? {} : { timeZone: entry.timeZone },
+          ...(entry.timeZone === undefined ? {} : { timeZone: entry.timeZone }),
         }
       }),
     }
@@ -757,16 +755,16 @@ export class LlmRuntime extends TypertRemoteService {
     const adapter = this.registration(provider).adapter
     const models = await adapter.listModels(provider)
     const seen = new Set<string>()
-    return models.map((model) => {
+    return models.map(model => {
       if (
-        typeof model.provider !== 'string'
-        || model.provider !== provider
-        || typeof model.id !== 'string'
-        || model.id.length === 0
-        || typeof model.name !== 'string'
-        || model.name.length === 0
-        || (model.description !== undefined && typeof model.description !== 'string')
-        || seen.has(model.id)
+        typeof model.provider !== 'string' ||
+        model.provider !== provider ||
+        typeof model.id !== 'string' ||
+        model.id.length === 0 ||
+        typeof model.name !== 'string' ||
+        model.name.length === 0 ||
+        (model.description !== undefined && typeof model.description !== 'string') ||
+        seen.has(model.id)
       ) {
         throw new LlmError(`adapter returned invalid or duplicate model metadata for provider "${provider}"`, 'INVALID_CATALOG')
       }
@@ -777,9 +775,9 @@ export class LlmRuntime extends TypertRemoteService {
         provider: model.provider,
         id: model.id,
         name: model.name,
-        ...model.description === undefined ? {} : { description: model.description },
-        ...inputModalities === undefined ? {} : { inputModalities },
-        ...routing === undefined ? {} : { routing },
+        ...(model.description === undefined ? {} : { description: model.description }),
+        ...(inputModalities === undefined ? {} : { inputModalities }),
+        ...(routing === undefined ? {} : { routing }),
       }
     })
   }
@@ -793,59 +791,37 @@ export class LlmRuntime extends TypertRemoteService {
    * @param signal - optional cancellation for adapter-owned asynchronous lookup.
    * @returns exact model identity plus available context and reasoning metadata.
    */
-  async resolveModelInfo(
-    provider: string,
-    model: string,
-    signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo> {
+  async resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
     return this.resolveModelInfoFor(this.registration(provider), model, signal)
   }
 
-  private async resolveModelInfoFor(
-    registration: AdapterRegistration,
-    model: string,
-    signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo> {
+  private async resolveModelInfoFor(registration: AdapterRegistration, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
     const resolved = await registration.adapter.resolveModel(registration.provider.id, model, signal)
     return this.normalizeModelInfo(registration, model, resolved)
   }
 
   /** Validate and detach one adapter-returned exact model result. */
-  private normalizeModelInfo(
-    registration: AdapterRegistration,
-    model: string,
-    resolved: LlmResolvedModelInfo,
-  ): LlmResolvedModelInfo {
+  private normalizeModelInfo(registration: AdapterRegistration, model: string, resolved: LlmResolvedModelInfo): LlmResolvedModelInfo {
     const provider = registration.provider.id
     if (
-      typeof resolved.provider !== 'string'
-      || resolved.provider !== provider
-      || typeof resolved.id !== 'string'
-      || resolved.id !== model
-      || typeof resolved.name !== 'string'
-      || resolved.name.length === 0
-      || (resolved.description !== undefined && typeof resolved.description !== 'string')
+      typeof resolved.provider !== 'string' ||
+      resolved.provider !== provider ||
+      typeof resolved.id !== 'string' ||
+      resolved.id !== model ||
+      typeof resolved.name !== 'string' ||
+      resolved.name.length === 0 ||
+      (resolved.description !== undefined && typeof resolved.description !== 'string')
     ) {
-      throw new LlmError(
-        `adapter returned invalid exact model metadata for provider "${provider}" model "${model}"`,
-        'INVALID_MODEL_INFO',
-      )
+      throw new LlmError(`adapter returned invalid exact model metadata for provider "${provider}" model "${model}"`, 'INVALID_MODEL_INFO')
     }
     const context = resolved.context
     if (context !== undefined && (!Number.isInteger(context.contextWindow) || context.contextWindow <= 0)) {
-      throw new LlmError(
-        `adapter returned invalid context metadata for provider "${provider}" model "${model}"`,
-        'INVALID_MODEL_CONTEXT',
-      )
+      throw new LlmError(`adapter returned invalid context metadata for provider "${provider}" model "${model}"`, 'INVALID_MODEL_CONTEXT')
     }
     // Capability metadata rides through: an explicit modality omission is
     // negative capability downstream preflights act on (image admission).
     const inputModalities = this.detachedModalities(resolved.inputModalities)
-    const routing = this.detachedRouting(
-      resolved.routing,
-      'INVALID_MODEL_INFO',
-      `provider "${provider}" model "${model}"`,
-    )
+    const routing = this.detachedRouting(resolved.routing, 'INVALID_MODEL_INFO', `provider "${provider}" model "${model}"`)
     // Widened: adapters derive this mode from catalog config, so the value is checked as a string.
     const systemPromptUpdate: string | undefined = resolved.systemPromptUpdate
     if (systemPromptUpdate !== undefined && systemPromptUpdate !== 'in-history') {
@@ -857,14 +833,10 @@ export class LlmRuntime extends TypertRemoteService {
     // Widened for the same reason: catalog config supplies the tool update mode as text.
     const toolUpdate: string | undefined = resolved.toolUpdate
     if (toolUpdate !== undefined && toolUpdate !== 'in-history' && toolUpdate !== 'addition-only') {
-      throw new LlmError(
-        `adapter returned invalid tool update mode for provider "${provider}" model "${model}"`,
-        'INVALID_MODEL_INFO',
-      )
+      throw new LlmError(`adapter returned invalid tool update mode for provider "${provider}" model "${model}"`, 'INVALID_MODEL_INFO')
     }
     const defaultMaxTokens = resolved.defaultMaxTokens
-    if (defaultMaxTokens !== undefined
-      && (!Number.isSafeInteger(defaultMaxTokens) || defaultMaxTokens <= 0)) {
+    if (defaultMaxTokens !== undefined && (!Number.isSafeInteger(defaultMaxTokens) || defaultMaxTokens <= 0)) {
       throw new LlmError(
         `adapter returned invalid default maxTokens for provider "${provider}" model "${model}"`,
         'INVALID_MODEL_MAX_TOKENS',
@@ -874,13 +846,13 @@ export class LlmRuntime extends TypertRemoteService {
       provider,
       id: model,
       name: resolved.name,
-      ...resolved.description === undefined ? {} : { description: resolved.description },
-      ...inputModalities === undefined ? {} : { inputModalities },
-      ...routing === undefined ? {} : { routing },
-      ...context === undefined ? {} : { context: { contextWindow: context.contextWindow } },
-      ...defaultMaxTokens === undefined ? {} : { defaultMaxTokens },
-      ...resolved.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: resolved.systemPromptUpdate },
-      ...resolved.toolUpdate === undefined ? {} : { toolUpdate: resolved.toolUpdate },
+      ...(resolved.description === undefined ? {} : { description: resolved.description }),
+      ...(inputModalities === undefined ? {} : { inputModalities }),
+      ...(routing === undefined ? {} : { routing }),
+      ...(context === undefined ? {} : { context: { contextWindow: context.contextWindow } }),
+      ...(defaultMaxTokens === undefined ? {} : { defaultMaxTokens }),
+      ...(resolved.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: resolved.systemPromptUpdate }),
+      ...(resolved.toolUpdate === undefined ? {} : { toolUpdate: resolved.toolUpdate }),
     }
     const reasoning = resolved.reasoning
     if (reasoning === undefined) return info
@@ -891,14 +863,14 @@ export class LlmRuntime extends TypertRemoteService {
       )
     }
     const seen = new Set<string>()
-    const efforts = reasoning.efforts.map((effort) => {
+    const efforts = reasoning.efforts.map(effort => {
       if (
-        typeof effort.id !== 'string'
-        || effort.id.length === 0
-        || typeof effort.name !== 'string'
-        || effort.name.length === 0
-        || (effort.description !== undefined && typeof effort.description !== 'string')
-        || seen.has(effort.id)
+        typeof effort.id !== 'string' ||
+        effort.id.length === 0 ||
+        typeof effort.name !== 'string' ||
+        effort.name.length === 0 ||
+        (effort.description !== undefined && typeof effort.description !== 'string') ||
+        seen.has(effort.id)
       ) {
         throw new LlmError(
           `adapter returned invalid or duplicate reasoning effort metadata for provider "${provider}" model "${model}"`,
@@ -909,7 +881,7 @@ export class LlmRuntime extends TypertRemoteService {
       return {
         id: effort.id,
         name: effort.name,
-        ...effort.description === undefined ? {} : { description: effort.description },
+        ...(effort.description === undefined ? {} : { description: effort.description }),
       }
     })
     if (reasoning.defaultEffort !== undefined && !seen.has(reasoning.defaultEffort)) {
@@ -922,7 +894,7 @@ export class LlmRuntime extends TypertRemoteService {
       ...info,
       reasoning: {
         efforts,
-        ...reasoning.defaultEffort === undefined ? {} : { defaultEffort: reasoning.defaultEffort },
+        ...(reasoning.defaultEffort === undefined ? {} : { defaultEffort: reasoning.defaultEffort }),
       },
     }
   }
@@ -955,9 +927,8 @@ export class LlmRuntime extends TypertRemoteService {
     config: LlmCallConfig,
     info: LlmResolvedModelInfo,
   ): { config: LlmCallConfig; context?: LlmModelContext; modelInfo: LlmResolvedModelInfo } {
-    const defaulted = config.maxTokens === undefined && info.defaultMaxTokens !== undefined
-      ? { ...config, maxTokens: info.defaultMaxTokens }
-      : config
+    const defaulted =
+      config.maxTokens === undefined && info.defaultMaxTokens !== undefined ? { ...config, maxTokens: info.defaultMaxTokens } : config
     const reasoning = info.reasoning
     const requested = defaulted.reasoningEffort
     let resolvedConfig = defaulted
@@ -982,7 +953,7 @@ export class LlmRuntime extends TypertRemoteService {
     }
     return {
       config: resolvedConfig,
-      ...info.context === undefined ? {} : { context: info.context },
+      ...(info.context === undefined ? {} : { context: info.context }),
       modelInfo: info,
     }
   }
@@ -999,54 +970,38 @@ export class LlmRuntime extends TypertRemoteService {
    * @param configure - pure control selection, called once before defaults and validation.
    * @returns a prepared config and its registration-bound stream entry point.
    */
-  async prepareCall(
-    config: LlmCallConfig,
-    signal?: AbortSignal,
-    configure?: ConfigureCall,
-  ): Promise<PreparedLlmCall> {
+  async prepareCall(config: LlmCallConfig, signal?: AbortSignal, configure?: ConfigureCall): Promise<PreparedLlmCall> {
     signal?.throwIfAborted()
     const { provider, model, ...controls } = config
     const registration = this.registration(provider)
     const adapterCall = await registration.adapter.prepareCall(provider, model, signal)
     signal?.throwIfAborted()
     const modelInfo = this.normalizeModelInfo(registration, model, adapterCall.model)
-    const proposed = configure === undefined
-      ? config
-      : { ...configure(deepFreeze(structuredClone(controls)), deepFreeze(modelInfo)), provider, model }
+    const proposed =
+      configure === undefined ? config : { ...configure(deepFreeze(structuredClone(controls)), deepFreeze(modelInfo)), provider, model }
     signal?.throwIfAborted()
     const resolved = this.resolveCallWithInfo(proposed, modelInfo)
     const resolvedConfig = deepFreeze(structuredClone(resolved.config))
-    const context = resolved.context === undefined
-      ? undefined
-      : deepFreeze(structuredClone(resolved.context))
+    const context = resolved.context === undefined ? undefined : deepFreeze(structuredClone(resolved.context))
     const adapterDefaults = deepFreeze<LlmCallConfigAdapterDefaults>({
-      ...proposed.reasoningEffort === undefined && resolvedConfig.reasoningEffort !== undefined
-        ? { reasoningEffort: true }
-        : {},
-      ...proposed.maxTokens === undefined && resolvedConfig.maxTokens !== undefined
-        ? { maxTokens: true }
-        : {},
+      ...(proposed.reasoningEffort === undefined && resolvedConfig.reasoningEffort !== undefined ? { reasoningEffort: true } : {}),
+      ...(proposed.maxTokens === undefined && resolvedConfig.maxTokens !== undefined ? { maxTokens: true } : {}),
     })
     let dispatched = false
     return Object.freeze({
       config: resolvedConfig,
       retryPolicy: registration.retryPolicy,
       adapterDefaults,
-      ...context === undefined ? {} : { context },
-      ...modelInfo.inputModalities === undefined
-        ? {}
-        : { inputModalities: Object.freeze([...modelInfo.inputModalities]) },
-      ...modelInfo.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: modelInfo.systemPromptUpdate },
-      ...modelInfo.toolUpdate === undefined ? {} : { toolUpdate: modelInfo.toolUpdate },
+      ...(context === undefined ? {} : { context }),
+      ...(modelInfo.inputModalities === undefined ? {} : { inputModalities: Object.freeze([...modelInfo.inputModalities]) }),
+      ...(modelInfo.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: modelInfo.systemPromptUpdate }),
+      ...(modelInfo.toolUpdate === undefined ? {} : { toolUpdate: modelInfo.toolUpdate }),
       stream: (options: GenerateOptions): AsyncIterable<StreamChunk> => {
         if (dispatched) {
           throw new LlmError('a prepared LLM call can only be dispatched once', 'INVALID_PREPARED_CALL')
         }
         if (!callConfigEquals(options, resolvedConfig)) {
-          throw new LlmError(
-            'prepared LLM call config changed before adapter dispatch',
-            'INVALID_PREPARED_CALL',
-          )
+          throw new LlmError('prepared LLM call config changed before adapter dispatch', 'INVALID_PREPARED_CALL')
         }
         dispatched = true
         return this.streamWithRegistration(options, {
@@ -1067,7 +1022,7 @@ export class LlmRuntime extends TypertRemoteService {
 
   /** Remove replay state whose historical route is owned by another adapter. */
   private forAdapter(options: GenerateOptions, adapter: LlmAdapter): GenerateOptions {
-    const messages: RequestMessage[] = options.messages.map((message) => {
+    const messages: RequestMessage[] = options.messages.map(message => {
       if (message.role !== 'assistant') return message
       const source = message.source
       if (source.replayState === undefined) return message
@@ -1107,10 +1062,7 @@ export class LlmRuntime extends TypertRemoteService {
    * and iteration failures become one terminal failure chunk. Middleware and
    * downstream consumer failures remain thrown plugin or consumer errors.
    */
-  private async * adapterStream(
-    options: GenerateOptions,
-    prepared?: PreparedDispatch,
-  ): AsyncGenerator<StreamChunk> {
+  private async *adapterStream(options: GenerateOptions, prepared?: PreparedDispatch): AsyncGenerator<StreamChunk> {
     let iterator: AsyncIterator<StreamChunk>
     try {
       const registration = prepared?.registration ?? this.registration(options.provider)
@@ -1129,10 +1081,7 @@ export class LlmRuntime extends TypertRemoteService {
         dispatch = prepared.dispatch
       }
       if (prepared !== undefined && !callConfigEquals(options, resolvedConfig)) {
-        throw new LlmError(
-          'prepared LLM call config changed before adapter dispatch',
-          'INVALID_PREPARED_CALL',
-        )
+        throw new LlmError('prepared LLM call config changed before adapter dispatch', 'INVALID_PREPARED_CALL')
       }
       const resolvedOptions = callConfigEquals(options, resolvedConfig)
         ? options
@@ -1144,9 +1093,11 @@ export class LlmRuntime extends TypertRemoteService {
       if (projectedMessages.some(message => contentHasFile(message.content))) {
         projectedMessages = projectFilesToText(projectedMessages, ref => this.fileReadPath(ref))
       }
-      if (modelInfo.inputModalities !== undefined
-        && !modelInfo.inputModalities.includes('image')
-        && projectedMessages.some(message => contentHasImage(message.content))) {
+      if (
+        modelInfo.inputModalities !== undefined &&
+        !modelInfo.inputModalities.includes('image') &&
+        projectedMessages.some(message => contentHasImage(message.content))
+      ) {
         projectedMessages = projectImagesForTextModel(projectedMessages)
       }
       // Tool changes are logged on every route; the route's declared mode selects what it receives.
@@ -1157,7 +1108,7 @@ export class LlmRuntime extends TypertRemoteService {
         projectedOptions = {
           ...resolvedOptions,
           messages: projectedMessages as RequestMessage[],
-          ...projectedTools.tools === undefined ? {} : { tools: projectedTools.tools as ToolSchema[] },
+          ...(projectedTools.tools === undefined ? {} : { tools: projectedTools.tools as ToolSchema[] }),
         }
         if (Object.isFrozen(resolvedOptions)) deepFreeze(projectedOptions)
       }
@@ -1174,9 +1125,7 @@ export class LlmRuntime extends TypertRemoteService {
         let item: { done: true } | { done: false; value: StreamChunk }
         try {
           const next = await iterator.next()
-          item = next.done
-            ? { done: true }
-            : { done: false, value: next.value }
+          item = next.done ? { done: true } : { done: false, value: next.value }
         } catch (error: unknown) {
           completed = true
           yield adapterFailureChunk(error, options.signal)
@@ -1213,16 +1162,8 @@ export class LlmRuntime extends TypertRemoteService {
     return this.streamWithRegistration(options)
   }
 
-  private streamWithRegistration(
-    options: GenerateOptions,
-    prepared?: PreparedDispatch,
-  ): AsyncIterable<StreamChunk> {
-    return this.ctx.waterfall(
-      this,
-      'llm/stream',
-      options,
-      () => this.adapterStream(options, prepared),
-    )
+  private streamWithRegistration(options: GenerateOptions, prepared?: PreparedDispatch): AsyncIterable<StreamChunk> {
+    return this.ctx.waterfall(this, 'llm/stream', options, () => this.adapterStream(options, prepared))
   }
 }
 
@@ -1231,9 +1172,7 @@ function adapterFailureChunk(error: unknown, signal?: AbortSignal): StreamChunk 
   const failure = normalizeLlmFailure(error)
   return {
     type: 'finish',
-    reason: signal?.aborted || failure.code === 'ABORTED'
-      ? { kind: 'aborted', failure }
-      : { kind: 'error', failure },
+    reason: signal?.aborted || failure.code === 'ABORTED' ? { kind: 'aborted', failure } : { kind: 'error', failure },
   }
 }
 
@@ -1243,7 +1182,7 @@ function detachDirectoryEntry(entry: LlmConfigurableProvider): LlmConfigurablePr
   return {
     ...entry,
     settingsPath: [...entry.settingsPath],
-    ...entry.baseURLEnv === undefined ? {} : { baseURLEnv: [...entry.baseURLEnv] },
+    ...(entry.baseURLEnv === undefined ? {} : { baseURLEnv: [...entry.baseURLEnv] }),
     ...(nativeAuth === undefined ? {} : { nativeAuth: { ...nativeAuth, env: [...nativeAuth.env] } }),
   }
 }

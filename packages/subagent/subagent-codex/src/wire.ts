@@ -18,14 +18,7 @@ type JsonObject = Record<string, unknown>
 /** Product facts owned by the Codex wire after publication. */
 export interface CodexWireFailureFacts {
   readonly stage: 'turn-start' | 'turn'
-  readonly category:
-    | 'limit'
-    | 'access-policy'
-    | 'service'
-    | 'transport'
-    | 'product-error'
-    | 'invalid-result'
-    | 'unknown'
+  readonly category: 'limit' | 'access-policy' | 'service' | 'transport' | 'product-error' | 'invalid-result' | 'unknown'
   readonly httpStatus?: number | undefined
 }
 
@@ -67,12 +60,7 @@ function unattendedDecision(params: JsonObject): 'cancel' | 'decline' {
 }
 
 function numericHttpStatus(value: unknown): number | undefined {
-  return typeof value === 'number'
-    && Number.isInteger(value)
-    && value >= 0
-    && value <= 65_535
-    ? value
-    : undefined
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 65_535 ? value : undefined
 }
 
 interface ParsedFailureInfo {
@@ -97,12 +85,9 @@ function objectFailureInfo(value: JsonObject): ParsedFailureInfo {
     case 'httpConnectionFailed':
     case 'responseStreamConnectionFailed':
     case 'responseStreamDisconnected':
-    case 'responseTooManyFailedAttempts':
-    {
+    case 'responseTooManyFailedAttempts': {
       const httpStatus = numericHttpStatus(fields.httpStatusCode)
-      return httpStatus === undefined
-        ? { category: 'transport' }
-        : { category: 'transport', httpStatus }
+      return httpStatus === undefined ? { category: 'transport' } : { category: 'transport', httpStatus }
     }
     case 'activeTurnNotSteerable':
       return { category: 'product-error' }
@@ -142,14 +127,20 @@ function failureInfo(turn: JsonObject): ParsedFailureInfo {
         return { category: 'unknown' }
     }
   }
-  return info !== null && typeof info === 'object' && !Array.isArray(info)
-    ? objectFailureInfo(info as JsonObject)
-    : { category: 'unknown' }
+  return info !== null && typeof info === 'object' && !Array.isArray(info) ? objectFailureInfo(info as JsonObject) : { category: 'unknown' }
 }
 
 function unattendedDiagnostic(
   mode: CodexPermissionMode,
-  request: 'command approval' | 'file approval' | 'permission grant' | 'user input' | 'MCP elicitation' | 'command execution' | 'file change' | 'sandbox execution',
+  request:
+    | 'command approval'
+    | 'file approval'
+    | 'permission grant'
+    | 'user input'
+    | 'MCP elicitation'
+    | 'command execution'
+    | 'file change'
+    | 'sandbox execution',
   decision: 'cancelled' | 'declined' | 'denied' | 'empty response' | 'failed',
   reason: string,
 ): string {
@@ -162,9 +153,7 @@ function thrown(value: unknown): Error {
 }
 
 function abortError(signal: AbortSignal): Error {
-  return signal.reason instanceof Error
-    ? signal.reason
-    : new Error(`subagent-codex: app-server request aborted: ${String(signal.reason)}`)
+  return signal.reason instanceof Error ? signal.reason : new Error(`subagent-codex: app-server request aborted: ${String(signal.reason)}`)
 }
 
 async function raceAbort<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -173,8 +162,12 @@ async function raceAbort<T>(pending: Promise<T>, signal: AbortSignal): Promise<T
     throw abortError(signal)
   }
   let rejectAbort!: (error: Error) => void
-  const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = reject })
-  const onAbort = (): void => { rejectAbort(abortError(signal)) }
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectAbort = reject
+  })
+  const onAbort = (): void => {
+    rejectAbort(abortError(signal))
+  }
   signal.addEventListener('abort', onAbort, { once: true })
   try {
     return await Promise.race([pending, aborted])
@@ -195,10 +188,12 @@ export class CodexAppServerWire {
   private threadId: string | undefined
   private turnId: string | undefined
   private pendingTurnId: string | undefined
-  private turnCompleted: PromiseWithResolvers<{
-    readonly params: JsonObject
-    readonly order: number
-  }> | undefined
+  private turnCompleted:
+    | PromiseWithResolvers<{
+        readonly params: JsonObject
+        readonly order: number
+      }>
+    | undefined
   private readonly earlyTurnNotifications: Array<{
     readonly method: string
     readonly params: JsonObject
@@ -211,12 +206,14 @@ export class CodexAppServerWire {
   private failure: CodexWireFailureFacts | undefined
   private diagnosticOrder = 0
   private observationOrder = 0
-  private pendingDiagnostic: {
-    readonly order: number
-    readonly request: Parameters<typeof unattendedDiagnostic>[1]
-    readonly decision: Parameters<typeof unattendedDiagnostic>[2]
-    readonly reason: string
-  } | undefined
+  private pendingDiagnostic:
+    | {
+        readonly order: number
+        readonly request: Parameters<typeof unattendedDiagnostic>[1]
+        readonly decision: Parameters<typeof unattendedDiagnostic>[2]
+        readonly reason: string
+      }
+    | undefined
   private inputEnded = false
   private terminalObserved = false
   private closed = false
@@ -266,17 +263,27 @@ export class CodexAppServerWire {
    * @param signal - unpublished-start cancellation.
    */
   async initialize(signal: AbortSignal): Promise<void> {
-    object(await this.guarded(this.transport.request('initialize', {
-      clientInfo: {
-        name: 'deepseek-harness',
-        title: 'DeepSeek Harness',
-        version: '0.0.1',
-      },
-      capabilities: {
-        experimentalApi: false,
-        requestAttestation: false,
-      },
-    }, signal), signal), 'initialize response')
+    object(
+      await this.guarded(
+        this.transport.request(
+          'initialize',
+          {
+            clientInfo: {
+              name: 'deepseek-harness',
+              title: 'DeepSeek Harness',
+              version: '0.0.1',
+            },
+            capabilities: {
+              experimentalApi: false,
+              requestAttestation: false,
+            },
+          },
+          signal,
+        ),
+        signal,
+      ),
+      'initialize response',
+    )
     this.transport.notify('initialized')
     await this.guarded(this.transport.flush(), signal)
   }
@@ -287,12 +294,22 @@ export class CodexAppServerWire {
    * @param signal - unpublished-start cancellation.
    */
   async startThread(cwd: string, signal: AbortSignal): Promise<void> {
-    const response = object(await this.guarded(this.transport.request('thread/start', {
-      cwd,
-      ephemeral: true,
-      ...this.model === undefined ? {} : { model: this.model },
-      ...THREAD_PERMISSION_PARAMS[this.permissionMode],
-    }, signal), signal), 'thread/start response')
+    const response = object(
+      await this.guarded(
+        this.transport.request(
+          'thread/start',
+          {
+            cwd,
+            ephemeral: true,
+            ...(this.model === undefined ? {} : { model: this.model }),
+            ...THREAD_PERMISSION_PARAMS[this.permissionMode],
+          },
+          signal,
+        ),
+        signal,
+      ),
+      'thread/start response',
+    )
     const thread = object(response.thread, 'thread/start thread')
     const id = string(thread.id, 'thread/start thread id')
     if (thread.ephemeral !== true) {
@@ -308,10 +325,7 @@ export class CodexAppServerWire {
    * @param signal - local cancellation for the published run.
    * @returns the shared subagent result.
    */
-  async runTurn(
-    texts: readonly string[],
-    signal: AbortSignal,
-  ): Promise<SubagentResult> {
+  async runTurn(texts: readonly string[], signal: AbortSignal): Promise<SubagentResult> {
     const completion = Promise.withResolvers<{
       readonly params: JsonObject
       readonly order: number
@@ -319,10 +333,20 @@ export class CodexAppServerWire {
     this.turnCompleted = completion
     const threadId = this.threadId as string
     try {
-      const response = object(await this.guarded(this.transport.request('turn/start', {
-        threadId,
-        input: texts.map(text => ({ type: 'text', text, text_elements: [] })),
-      }, signal), signal), 'turn/start response')
+      const response = object(
+        await this.guarded(
+          this.transport.request(
+            'turn/start',
+            {
+              threadId,
+              input: texts.map(text => ({ type: 'text', text, text_elements: [] })),
+            },
+            signal,
+          ),
+          signal,
+        ),
+        'turn/start response',
+      )
       const turn = object(response.turn, 'turn/start turn')
       this.commitTurnId(string(turn.id, 'turn/start turn id'))
     } catch (error: unknown) {
@@ -345,20 +369,17 @@ export class CodexAppServerWire {
     const status = terminal.status
     if (status !== 'completed') {
       const parsed = failureInfo(terminal)
-      this.recordFailure(parsed.httpStatus === undefined
-        ? { stage: 'turn', category: parsed.category }
-        : {
-          stage: 'turn',
-          category: parsed.category,
-          httpStatus: parsed.httpStatus,
-        })
+      this.recordFailure(
+        parsed.httpStatus === undefined
+          ? { stage: 'turn', category: parsed.category }
+          : {
+              stage: 'turn',
+              category: parsed.category,
+              httpStatus: parsed.httpStatus,
+            },
+      )
       if (parsed.sandboxFailure) {
-        this.recordDiagnostic(
-          'sandbox execution',
-          'failed',
-          'Codex reported a sandbox failure',
-          completed.order,
-        )
+        this.recordDiagnostic('sandbox execution', 'failed', 'Codex reported a sandbox failure', completed.order)
       }
       if (parsed.maxTokens) {
         return { output: this.collectOutput(), stopReason: 'max-tokens' }
@@ -380,10 +401,12 @@ export class CodexAppServerWire {
    */
   interrupt(): void {
     if (this.threadId === undefined || this.turnId === undefined || this.closed) return
-    void this.transport.request('turn/interrupt', {
-      threadId: this.threadId,
-      turnId: this.turnId,
-    }).catch(() => {})
+    void this.transport
+      .request('turn/interrupt', {
+        threadId: this.threadId,
+        turnId: this.turnId,
+      })
+      .catch(() => {})
   }
 
   /**
@@ -394,9 +417,7 @@ export class CodexAppServerWire {
    */
   collectOutput(): ContentBlock[] {
     const selected = this.lastFinalAnswer ?? this.lastPartialAnswer ?? this.lastUnphasedAnswer
-    return selected !== undefined && selected.trim().length > 0
-      ? [{ type: 'text', text: selected }]
-      : []
+    return selected !== undefined && selected.trim().length > 0 ? [{ type: 'text', text: selected }] : []
   }
 
   /**
@@ -464,20 +485,11 @@ export class CodexAppServerWire {
     const pendingDiagnostic = this.pendingDiagnostic
     this.pendingDiagnostic = undefined
     if (pendingDiagnostic !== undefined) {
-      this.recordDiagnostic(
-        pendingDiagnostic.request,
-        pendingDiagnostic.decision,
-        pendingDiagnostic.reason,
-        pendingDiagnostic.order,
-      )
+      this.recordDiagnostic(pendingDiagnostic.request, pendingDiagnostic.decision, pendingDiagnostic.reason, pendingDiagnostic.order)
     }
     const notifications = this.earlyTurnNotifications.splice(0)
     for (const notification of notifications) {
-      this.handleNotification(
-        notification.method,
-        notification.params,
-        notification.order,
-      )
+      this.handleNotification(notification.method, notification.params, notification.order)
     }
   }
 
@@ -486,10 +498,7 @@ export class CodexAppServerWire {
    * @returns `true` when the matching turn is still provisional, so the caller
    * defers its diagnostic until `commitTurnId()`.
    */
-  private validateRunIds(
-    params: JsonObject,
-    nullableTurn = false,
-  ): boolean {
+  private validateRunIds(params: JsonObject, nullableTurn = false): boolean {
     if (params.threadId !== this.threadId) {
       throw new Error('subagent-codex: app-server request referenced another thread')
     }
@@ -532,12 +541,7 @@ export class CodexAppServerWire {
   ): void {
     if (order < this.diagnosticOrder) return
     this.diagnosticOrder = order
-    this.diagnostic = unattendedDiagnostic(
-      this.permissionMode,
-      request,
-      decision,
-      reason,
-    )
+    this.diagnostic = unattendedDiagnostic(this.permissionMode, request, decision, reason)
   }
 
   private recordFailure(facts: CodexWireFailureFacts): void {
@@ -551,21 +555,11 @@ export class CodexAppServerWire {
 
   private recordDeclinedItem(item: JsonObject, order?: number): boolean {
     if (item.type === 'commandExecution' && item.status === 'declined') {
-      this.recordDiagnostic(
-        'command execution',
-        'declined',
-        'Codex declined the command under the selected permission mode',
-        order,
-      )
+      this.recordDiagnostic('command execution', 'declined', 'Codex declined the command under the selected permission mode', order)
       return true
     }
     if (item.type === 'fileChange' && item.status === 'declined') {
-      this.recordDiagnostic(
-        'file change',
-        'declined',
-        'Codex declined the file change under the selected permission mode',
-        order,
-      )
+      this.recordDiagnostic('file change', 'declined', 'Codex declined the file change under the selected permission mode', order)
       return true
     }
     return false
@@ -574,8 +568,7 @@ export class CodexAppServerWire {
   private handleServerRequest(method: string, params: JsonObject): Promise<unknown> {
     try {
       switch (method) {
-        case 'item/commandExecution/requestApproval':
-        {
+        case 'item/commandExecution/requestApproval': {
           const provisional = this.validateRunIds(params)
           const decision = unattendedDecision(params)
           this.recordRequestDiagnostic(
@@ -586,8 +579,7 @@ export class CodexAppServerWire {
           )
           return Promise.resolve({ decision })
         }
-        case 'item/fileChange/requestApproval':
-        {
+        case 'item/fileChange/requestApproval': {
           const provisional = this.validateRunIds(params)
           const decision = unattendedDecision(params)
           this.recordRequestDiagnostic(
@@ -632,11 +624,7 @@ export class CodexAppServerWire {
     }
   }
 
-  private handleNotification(
-    method: string,
-    params: JsonObject,
-    order?: number,
-  ): void {
+  private handleNotification(method: string, params: JsonObject, order?: number): void {
     if (method === 'turn/started') {
       const threadId = string(params.threadId, 'turn/started thread id')
       if (threadId !== this.threadId) return
@@ -665,9 +653,12 @@ export class CodexAppServerWire {
       const item = object(params.item, 'item/completed item')
       if (this.recordDeclinedItem(item, order)) return
       if (item.type !== 'agentMessage') return
-      const text = typeof item.text === 'string'
-        ? item.text
-        : (() => { throw new Error('subagent-codex: app-server returned an invalid agent message') })()
+      const text =
+        typeof item.text === 'string'
+          ? item.text
+          : (() => {
+              throw new Error('subagent-codex: app-server returned an invalid agent message')
+            })()
       if (item.phase === 'final_answer') {
         this.lastFinalAnswer = text
       } else if (item.phase === 'partial_answer') {

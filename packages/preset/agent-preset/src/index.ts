@@ -22,9 +22,12 @@ export default class AgentPreset {
     plugins: z.array(z.any()).required(),
   }) as z<Config>
 
-  constructor(private readonly ctx: Context, private readonly config: Config) {}
+  constructor(
+    private readonly ctx: Context,
+    private readonly config: Config,
+  ) {}
 
-  async* [Service.init]() {
+  async *[Service.init]() {
     yield await this.ctx.agentPresets.register(this.config)
   }
 }

@@ -17,11 +17,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execa } from 'execa'
 
-export {
-  runFixtureTurn,
-  type FixtureTurnOptions,
-  type FixtureTurnResult,
-} from './agent-turn.ts'
+export { runFixtureTurn, type FixtureTurnOptions, type FixtureTurnResult } from './agent-turn.ts'
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 30_000
 
@@ -120,9 +116,7 @@ export function resolveExampleLaunch(options: ExampleLaunchOptions): ExampleLaun
     if (options.tsconfigPath === undefined) {
       throw new Error("resolveExampleLaunch: 'src' mode needs tsconfigPath for the workspace paths map.")
     }
-    const tsxLoader = options.sourceImport === 'tsx/esm'
-      ? import.meta.resolve('tsx/esm')
-      : import.meta.resolve('tsx')
+    const tsxLoader = options.sourceImport === 'tsx/esm' ? import.meta.resolve('tsx/esm') : import.meta.resolve('tsx')
     env.TSX_TSCONFIG_PATH = options.tsconfigPath
     return { command: process.execPath, args: ['--import', tsxLoader, options.srcBin, ...configArgs], env }
   }
@@ -170,21 +164,22 @@ interface LoaderSmokeBaseOptions {
  * the harness expands from a prefix and owns, or a caller-provided directory it
  * reuses and leaves in place; the two cannot be combined.
  */
-export type LoaderSmokeOptions = LoaderSmokeBaseOptions & (
-  | {
-    /** Prefix for the isolated temporary process cwd. */
-    readonly tempDirPrefix: string
-    /** Existing parent for the generated cwd; defaults to the platform temporary directory. */
-    readonly tempDirParent?: string
-    readonly cwd?: never
-  }
-  | {
-    /** Existing directory to use as the process cwd; the caller owns its cleanup. */
-    readonly cwd: string
-    readonly tempDirPrefix?: never
-    readonly tempDirParent?: never
-  }
-)
+export type LoaderSmokeOptions = LoaderSmokeBaseOptions &
+  (
+    | {
+        /** Prefix for the isolated temporary process cwd. */
+        readonly tempDirPrefix: string
+        /** Existing parent for the generated cwd; defaults to the platform temporary directory. */
+        readonly tempDirParent?: string
+        readonly cwd?: never
+      }
+    | {
+        /** Existing directory to use as the process cwd; the caller owns its cleanup. */
+        readonly cwd: string
+        readonly tempDirPrefix?: never
+        readonly tempDirParent?: never
+      }
+  )
 
 /** Captured output from a Loader smoke that exited successfully. */
 export interface LoaderSmokeResult {
@@ -195,9 +190,7 @@ export interface LoaderSmokeResult {
 }
 
 /** Whether the options supply the cwd instead of a prefix the harness expands. */
-function hasProvidedCwd(
-  options: LoaderSmokeOptions,
-): options is LoaderSmokeBaseOptions & { readonly cwd: string } {
+function hasProvidedCwd(options: LoaderSmokeOptions): options is LoaderSmokeBaseOptions & { readonly cwd: string } {
   return options.cwd !== undefined
 }
 
@@ -212,9 +205,7 @@ function hasProvidedCwd(
  */
 export async function runLoaderSmoke(options: LoaderSmokeOptions): Promise<LoaderSmokeResult> {
   const providedCwd = hasProvidedCwd(options)
-  const cwd = providedCwd
-    ? options.cwd
-    : await mkdtemp(join(options.tempDirParent ?? tmpdir(), options.tempDirPrefix))
+  const cwd = providedCwd ? options.cwd : await mkdtemp(join(options.tempDirParent ?? tmpdir(), options.tempDirPrefix))
   const processTimeoutMs = options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS
   try {
     await options.prepare?.(cwd)
@@ -222,8 +213,8 @@ export async function runLoaderSmoke(options: LoaderSmokeOptions): Promise<Loade
       srcBin: options.binScript,
       libBin: options.libBinScript,
       configArgs: options.binArgs ?? [options.configPath],
-      ...options.mode !== undefined ? { mode: options.mode } : {},
-      ...options.sourceImport !== undefined ? { sourceImport: options.sourceImport } : {},
+      ...(options.mode !== undefined ? { mode: options.mode } : {}),
+      ...(options.sourceImport !== undefined ? { sourceImport: options.sourceImport } : {}),
       tsconfigPath: options.tsconfigPath,
       env: {
         DSH_HOME: join(cwd, '.dsh'),
@@ -245,11 +236,15 @@ export async function runLoaderSmoke(options: LoaderSmokeOptions): Promise<Loade
       stripFinalNewline: false,
     })
     if (result.timedOut) {
-      throw new Error(`${options.label} did not exit within ${processTimeoutMs / 1_000}s. stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
+      throw new Error(
+        `${options.label} did not exit within ${processTimeoutMs / 1_000}s. stdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+      )
     }
     const expectedExitCode = options.expectedExitCode ?? 0
     if (result.exitCode !== expectedExitCode) {
-      throw new Error(`${options.label} exited ${String(result.exitCode)} (expected ${expectedExitCode}). stdout:\n${result.stdout}\nstderr:\n${result.stderr}`)
+      throw new Error(
+        `${options.label} exited ${String(result.exitCode)} (expected ${expectedExitCode}). stdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+      )
     }
     await options.inspect?.(cwd)
     return { stdout: result.stdout, stderr: result.stderr }

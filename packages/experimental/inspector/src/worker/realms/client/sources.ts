@@ -57,11 +57,7 @@ export class ClientSourceBackend implements SourceBackend {
   }
 
   private async loadCatalog(): Promise<readonly RuntimeScript[]> {
-    const result = expectResult(await this.router.request(
-      this.target.source,
-      this.sessionId,
-      { op: 'list-scripts' },
-    ), 'list-scripts')
+    const result = expectResult(await this.router.request(this.target.source, this.sessionId, { op: 'list-scripts' }), 'list-scripts')
     return result.scripts.map(script => this.register(script))
   }
 
@@ -83,26 +79,28 @@ export class ClientSourceBackend implements SourceBackend {
     return route
   }
 
-  private async read(
-    scriptKey: RuntimeScriptKey,
-    content: 'source' | 'source-map',
-  ): Promise<string | undefined> {
+  private async read(scriptKey: RuntimeScriptKey, content: 'source' | 'source-map'): Promise<string | undefined> {
     const chunks: Uint8Array[] = []
     let offset = 0
     while (true) {
-      const result = expectResult(await this.router.request(this.target.source, this.sessionId, {
-        op: 'get-content-chunk',
-        scriptKey,
-        content,
-        offset,
-        maxBytes: this.router.chunkBytes,
-      }), 'get-content-chunk')
+      const result = expectResult(
+        await this.router.request(this.target.source, this.sessionId, {
+          op: 'get-content-chunk',
+          scriptKey,
+          content,
+          offset,
+          maxBytes: this.router.chunkBytes,
+        }),
+        'get-content-chunk',
+      )
       if (!result.available) return undefined
       const bytes = Buffer.from(result.data, 'base64')
-      if (bytes.byteLength > this.router.chunkBytes
-        || result.nextOffset !== offset + bytes.byteLength
-        || (!result.eof && result.nextOffset === offset)
-        || result.nextOffset > this.router.maxContentBytes) {
+      if (
+        bytes.byteLength > this.router.chunkBytes ||
+        result.nextOffset !== offset + bytes.byteLength ||
+        (!result.eof && result.nextOffset === offset) ||
+        result.nextOffset > this.router.maxContentBytes
+      ) {
         throw new Error('Client source returned an invalid content chunk')
       }
       chunks.push(bytes)

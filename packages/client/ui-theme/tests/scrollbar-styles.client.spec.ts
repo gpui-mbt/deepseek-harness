@@ -10,7 +10,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { atRuleBlock, type CssRule, packageStylesheets, parseRules, varReferences } from './stylesheet-scan.ts'
 
 const STYLES = new URL('../src/styles/', import.meta.url)
@@ -30,17 +30,16 @@ const TOKEN_PREFIX = '--dsw-alias-scrollbar-'
 /** Prefix of the rebindable indirection scrollbar.css owns. */
 const INDIRECTION_PREFIX = '--dsh-scrollbar-'
 /** The elevation-aware colour variables surfaces rebind as one pair. */
-const COLOUR_INDIRECTIONS = new Set([
-  `${INDIRECTION_PREFIX}thumb`,
-  `${INDIRECTION_PREFIX}thumb-hover`,
-])
+const COLOUR_INDIRECTIONS = new Set([`${INDIRECTION_PREFIX}thumb`, `${INDIRECTION_PREFIX}thumb-hover`])
 /** The one non-token rebind value: a surface that draws no thumb at all. */
 const HIDDEN_THUMB = 'transparent'
 /** The elevation rebind, spelled per property: value-wholeness, not token shape. */
-const ELEVATED_REBIND = new Map([
-  ['--dsh-scrollbar-thumb', '--dsw-alias-scrollbar-bg-l2'],
-  ['--dsh-scrollbar-thumb-hover', '--dsw-alias-scrollbar-hover-l2'],
-].map(([property, token]) => [property!, `var(${token!})`]))
+const ELEVATED_REBIND = new Map(
+  [
+    ['--dsh-scrollbar-thumb', '--dsw-alias-scrollbar-bg-l2'],
+    ['--dsh-scrollbar-thumb-hover', '--dsw-alias-scrollbar-hover-l2'],
+  ].map(([property, token]) => [property!, `var(${token!})`]),
+)
 
 /**
  * Tokens a stylesheet reads through its rendering declarations, following its
@@ -202,7 +201,7 @@ for (const file of packageStylesheets()) {
       if (SURFACE_PROPERTIES.includes(property)) ruleSurfaces.push(...varReferences(value))
       for (const token of varReferences(value)) {
         if (!token.startsWith(TOKEN_PREFIX)) continue
-        referencedTokens.set(token, [...referencedTokens.get(token) ?? [], file])
+        referencedTokens.set(token, [...(referencedTokens.get(token) ?? []), file])
       }
     }
     for (const token of ruleSurfaces) {
@@ -282,10 +281,12 @@ describe('scrollbar.css geometry variables', () => {
   const GEOMETRY_VARIABLES = [WIDTH_VARIABLE, THUMB_BORDER_VARIABLE, TRACK_MARGIN_VARIABLE]
 
   it('defines each geometry variable on body as a static length', () => {
-    const definitions = new Map(scrollbarRules
-      .filter(rule => rule.selectors.includes('body'))
-      .flatMap(rule => rule.declarations)
-      .filter(([property]) => GEOMETRY_VARIABLES.includes(property)))
+    const definitions = new Map(
+      scrollbarRules
+        .filter(rule => rule.selectors.includes('body'))
+        .flatMap(rule => rule.declarations)
+        .filter(([property]) => GEOMETRY_VARIABLES.includes(property)),
+    )
     for (const property of GEOMETRY_VARIABLES) {
       expect(definitions.get(property), property).toMatch(/^\d+(?:\.\d+)?px$/)
     }
@@ -350,9 +351,7 @@ describe('scrollbar.css selectors', () => {
   it('defines the indirection where the alias tokens are visible', () => {
     const definesIndirection = ([property, value]: [string, string]): boolean =>
       property.startsWith(INDIRECTION_PREFIX) && value.includes(TOKEN_PREFIX)
-    const hosts = scrollbarRules
-      .filter(rule => rule.declarations.some(definesIndirection))
-      .flatMap(rule => rule.selectors)
+    const hosts = scrollbarRules.filter(rule => rule.declarations.some(definesIndirection)).flatMap(rule => rule.selectors)
     expect(hosts.length).toBeGreaterThan(0)
     for (const selector of hosts) expect(selector, selector).toMatch(/^body\b/)
   })
@@ -386,8 +385,7 @@ describe('scrollbar.css rendering paths', () => {
     // properties silence, and Firefox has no hover pseudo-element at all.
     expect(gate, GATE).toBeDefined()
     for (const property of STANDARD_PROPERTIES) {
-      const offsets = [...withoutComments.matchAll(new RegExp(String.raw`(^|[;{\s])${property}\s*:`, 'g'))]
-        .map(match => match.index)
+      const offsets = [...withoutComments.matchAll(new RegExp(String.raw`(^|[;{\s])${property}\s*:`, 'g'))].map(match => match.index)
       expect(offsets.length, property).toBeGreaterThan(0)
       for (const offset of offsets) {
         expect(offset, `${property} outside ${GATE}`).toBeGreaterThan(gate!.start)
@@ -414,8 +412,9 @@ describe('scrollbar.css rendering paths', () => {
     // The standard path has no hover counterpart — scrollbar-color states one
     // thumb colour and the engine derives its own hover treatment — so the
     // hover indirection has to be read outside the gate or it renders nowhere.
-    const hoverOffsets = [...withoutComments.matchAll(new RegExp(String.raw`var\(\s*${INDIRECTION_PREFIX}thumb-hover`, 'g'))]
-      .map(match => match.index)
+    const hoverOffsets = [...withoutComments.matchAll(new RegExp(String.raw`var\(\s*${INDIRECTION_PREFIX}thumb-hover`, 'g'))].map(
+      match => match.index,
+    )
     expect(hoverOffsets.length).toBeGreaterThan(0)
     for (const offset of hoverOffsets) {
       expect(offset > gate!.start && offset < gate!.end, 'hover indirection read inside the gate').toBe(false)
@@ -470,7 +469,10 @@ describe('elevated surface rebinds', () => {
       const rebinds = rule.declarations.filter(([property]) => COLOUR_INDIRECTIONS.has(property))
       const where = `${file} ${rule.selectors.join(', ')}`
       if (rebinds.every(([, value]) => value === HIDDEN_THUMB)) continue
-      expect(rebinds.some(([, value]) => value === HIDDEN_THUMB), `${where}: mixes ${HIDDEN_THUMB} with an elevation`).toBe(false)
+      expect(
+        rebinds.some(([, value]) => value === HIDDEN_THUMB),
+        `${where}: mixes ${HIDDEN_THUMB} with an elevation`,
+      ).toBe(false)
       for (const [property, value] of rebinds) {
         expect(value, `${where}: ${property}`).toBe(ELEVATED_REBIND.get(property))
       }

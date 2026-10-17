@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vite-plus/test'
 import { createTrajectoryStringWrappingStore } from '../src/client/string-wrapping-store.ts'
 
 const key = 'dsh.trajectory.jsonStringWrapping'

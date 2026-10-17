@@ -7,7 +7,9 @@ export const inject = ['agents', 'loader', 'subagents']
 /** Order parent admission and child completion without elapsed-time assumptions. */
 export function apply(ctx: Context): void {
   const parentClosed = Promise.withResolvers<undefined>()
-  ctx.effect(() => () => { parentClosed.resolve(undefined) })
+  ctx.effect(() => () => {
+    parentClosed.resolve(undefined)
+  })
   ctx.on('session/event', (session, event) => {
     if (session.header.parentSession === undefined && event.type === 'turn/end') parentClosed.resolve(undefined)
   })

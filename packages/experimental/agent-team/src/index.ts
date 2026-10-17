@@ -78,19 +78,20 @@ export class TeamService extends Service {
       maxMembers: positiveLimit('maxMembers', config.maxMembers ?? DEFAULT_MAX_MEMBERS),
       maxTasks: positiveLimit('maxTasks', config.maxTasks ?? DEFAULT_MAX_TASKS),
       maxMessageBytes: positiveLimit('maxMessageBytes', config.maxMessageBytes ?? DEFAULT_MAX_MESSAGE_BYTES),
-      disposalTimeoutMs: positiveLimit(
-        'disposalTimeoutMs',
-        config.disposalTimeoutMs ?? DEFAULT_DISPOSAL_TIMEOUT_MS,
-      ),
+      disposalTimeoutMs: positiveLimit('disposalTimeoutMs', config.disposalTimeoutMs ?? DEFAULT_DISPOSAL_TIMEOUT_MS),
     }
 
     this.activity = new TeamActivity()
     this.lifecycle = new TeamRuntimeLifecycle(this.config.disposalTimeoutMs)
-    this.journal = new TeamJournal(ctx, (root) => { this.activity.notify(TeamId(root.id)) })
+    this.journal = new TeamJournal(ctx, root => {
+      this.activity.notify(TeamId(root.id))
+    })
     this.roster = new TeamRoster(ctx, this.journal, this.lifecycle, this.config.maxMembers)
     this.tasks = new TeamTaskBoard(this.journal, this.config.maxTasks)
 
-    ctx.on('agent/created', ({ agent }) => { this.scheduleRecovery(agent) })
+    ctx.on('agent/created', ({ agent }) => {
+      this.scheduleRecovery(agent)
+    })
     ctx.on('agent/status', ({ agent }) => {
       const membership = this.roster.tryMembership(agent)
       if (membership !== undefined) this.activity.notify(membership.id)
@@ -144,10 +145,12 @@ export class TeamService extends Service {
    */
   async sendMessage(caller: Agent, request: SendTeamMessageRequest): Promise<SendTeamMessageResult> {
     if (this.lifecycle.disposed) throw new TeamError('Agent Teams service is disposing', 'TEAM_DISPOSED')
-    return await this.lifecycle.track(this.sendAdmitted(caller, {
-      ...request,
-      signal: AbortSignal.any([request.signal, this.lifecycle.signal]),
-    }))
+    return await this.lifecycle.track(
+      this.sendAdmitted(caller, {
+        ...request,
+        signal: AbortSignal.any([request.signal, this.lifecycle.signal]),
+      }),
+    )
   }
 
   /**
@@ -227,10 +230,7 @@ export class TeamService extends Service {
     const { root } = membership
     const target = resolveActiveMember(root, this.journal.state(root), request.target)
     if (target.id === caller.id) throw new TeamError('a Team member cannot message itself', 'TEAM_SELF_MESSAGE')
-    const content = [
-      { type: 'text' as const, text: `Team message from ${membership.name}:` },
-      ...structuredClone(request.content),
-    ]
+    const content = [{ type: 'text' as const, text: `Team message from ${membership.name}:` }, ...structuredClone(request.content)]
     if (Buffer.byteLength(JSON.stringify(content), 'utf8') > this.config.maxMessageBytes) {
       throw new TeamError(`team message exceeds ${this.config.maxMessageBytes} bytes`, 'TEAM_MESSAGE_TOO_LARGE')
     }

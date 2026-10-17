@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { JobAppendOptions, JobOutputSource } from '@deepseek-ai/dsh-jobs'
 import { startPump } from '../src/pump.ts'
 import type { PumpSink } from '../src/pump.ts'
@@ -8,8 +8,12 @@ function recorder() {
   const appends: { text: string; options?: JobAppendOptions }[] = []
   const spills: [number, string | undefined][] = []
   const sink: PumpSink = {
-    append: (text, options) => { appends.push({ text, ...options !== undefined ? { options } : {} }) },
-    spill: (index, path) => { spills.push([index, path]) },
+    append: (text, options) => {
+      appends.push({ text, ...(options !== undefined ? { options } : {}) })
+    },
+    spill: (index, path) => {
+      spills.push([index, path])
+    },
   }
   return { appends, spills, sink }
 }
@@ -22,7 +26,7 @@ function scriptedSource(
   const offsets: number[] = []
   let offset = 0
   const source: JobOutputSource = {
-    ...channel !== undefined ? { channel } : {},
+    ...(channel !== undefined ? { channel } : {}),
     read(fromByte) {
       offsets.push(fromByte)
       const next = reads.shift() ?? { text: '' }
@@ -31,7 +35,7 @@ function scriptedSource(
         text: next.text,
         nextOffset: offset,
         lossy: next.lossy ?? false,
-        ...next.spillPath !== undefined ? { spillPath: next.spillPath } : {},
+        ...(next.spillPath !== undefined ? { spillPath: next.spillPath } : {}),
       }
     },
   }
@@ -44,7 +48,9 @@ describe('startPump', () => {
     try {
       const { appends, sink } = recorder()
       let settle!: () => void
-      const until = new Promise<void>((resolve) => { settle = resolve })
+      const until = new Promise<void>(resolve => {
+        settle = resolve
+      })
       const out = scriptedSource([{ text: 'a' }, { text: 'bc' }], 'stdout')
       const err = scriptedSource([{ text: '' }, { text: 'E' }], 'stderr')
       const pump = startPump([out.source, err.source], sink, 50, until)
@@ -79,12 +85,13 @@ describe('startPump', () => {
     try {
       const { appends, spills, sink } = recorder()
       let settle!: () => void
-      const until = new Promise<void>((resolve) => { settle = resolve })
-      const out = scriptedSource([
-        { text: 'tail', lossy: true, spillPath: '/spill/out.log' },
-        { text: 'more', spillPath: '/spill/out.log' },
-        { text: '' },
-      ], 'stdout')
+      const until = new Promise<void>(resolve => {
+        settle = resolve
+      })
+      const out = scriptedSource(
+        [{ text: 'tail', lossy: true, spillPath: '/spill/out.log' }, { text: 'more', spillPath: '/spill/out.log' }, { text: '' }],
+        'stdout',
+      )
       const err = scriptedSource([{ text: '' }, { text: 'E', spillPath: '/spill/err.log' }], 'stderr')
       const pump = startPump([out.source, err.source], sink, 50, until)
 
@@ -99,9 +106,12 @@ describe('startPump', () => {
       ])
       // Every read reports, lossy or clean, empty or not: the third stdout read withdraws the file.
       expect(spills).toEqual([
-        [0, '/spill/out.log'], [1, undefined],
-        [0, '/spill/out.log'], [1, '/spill/err.log'],
-        [0, undefined], [1, undefined],
+        [0, '/spill/out.log'],
+        [1, undefined],
+        [0, '/spill/out.log'],
+        [1, '/spill/err.log'],
+        [0, undefined],
+        [1, undefined],
       ])
     } finally {
       vi.useRealTimers()
@@ -121,7 +131,9 @@ describe('startPump', () => {
       const { sink } = recorder()
       let subscriptions = 0
       let settle!: () => void
-      const settled = new Promise<void>((resolve) => { settle = resolve })
+      const settled = new Promise<void>(resolve => {
+        settle = resolve
+      })
       const counting = (promise: PromiseLike<unknown>): PromiseLike<unknown> => ({
         then<Fulfilled = unknown, Rejected = never>(
           onFulfilled?: ((value: unknown) => Fulfilled | PromiseLike<Fulfilled>) | null,

@@ -11,7 +11,7 @@ import { parseBootManifest } from '@deepseek-ai/dsh-client-modules/client'
 import type { WebBootGraph } from '@deepseek-ai/dsh-client-modules/client'
 import * as uiRenderer from '@deepseek-ai/dsh-client-ui-renderer/client'
 import * as typertRegistry from '@deepseek-ai/dsh-typert-registry/client'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { ClientRoster } from '../src/assembly/index.ts'
 import { MODULES_PACKAGE, createInProcessModules, loadPluginModules } from '../src/assembly/modules.ts'
 
@@ -44,15 +44,14 @@ describe('loadPluginModules', () => {
 
   it('prefixes the package name when a /client import fails', async () => {
     const roster = ClientRoster.of([row(MISSING)])
-    await expect(loadPluginModules({ roster })).rejects.toThrow(
-      new RegExp(`^client-test-runtime: cannot import ${MISSING}/client: .+`),
-    )
+    await expect(loadPluginModules({ roster })).rejects.toThrow(new RegExp(`^client-test-runtime: cannot import ${MISSING}/client: .+`))
   })
 
   it('refuses a provided bootstrap row', async () => {
     const roster = ClientRoster.of([row(MODULES_PACKAGE)])
-    await expect(loadPluginModules({ roster, provide: { [MODULES_PACKAGE]: { apply: () => {} } } }))
-      .rejects.toThrow(`${MODULES_PACKAGE} is the bootstrap module and cannot be provided`)
+    await expect(loadPluginModules({ roster, provide: { [MODULES_PACKAGE]: { apply: () => {} } } })).rejects.toThrow(
+      `${MODULES_PACKAGE} is the bootstrap module and cannot be provided`,
+    )
   })
 })
 
@@ -78,7 +77,10 @@ describe('createInProcessModules', () => {
   it('rejects loudly instead of fetching when a graph row has no loaded module', async () => {
     const system = createInProcessModules(graph(['ghost']), new Map())
     // The module system retries the batch once and then tries the row's one-resource URL; every attempt is refused.
-    const first: unknown = await system.prefetch('ghost').then(() => undefined, (error: unknown) => error)
+    const first: unknown = await system.prefetch('ghost').then(
+      () => undefined,
+      (error: unknown) => error,
+    )
     if (!(first instanceof Error)) throw new Error('prefetch resolved')
     expect(first.message).toContain('in-process modules never load bundles (plugins/all.js)')
     expect(first.message).toContain('in-process modules never load bundles (plugins/ghost/client.js)')

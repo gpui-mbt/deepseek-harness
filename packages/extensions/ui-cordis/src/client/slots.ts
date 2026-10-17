@@ -3,15 +3,16 @@
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  CordisRunActivity, CordisRunFailure, CordisUserRunRequest, DynamicCordisLivePackage,
+  CordisRunActivity,
+  CordisRunFailure,
+  CordisUserRunRequest,
+  DynamicCordisLivePackage,
   DynamicCordisRenderFailure,
 } from '@deepseek-ai/dsh-cordis-client-runner/client'
 import type { CordisActionResult } from './dynamic-port.ts'
 import type { CordisInventory } from './inventory.ts'
 import type { CordisRunCardPointer, CordisRunCardStore } from './run-card-index.ts'
-import type {
-  ApprovalRequestId, CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
-} from './events.ts'
+import type { ApprovalRequestId, CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId } from './events.ts'
 
 /** Owner currency delivered to a dynamic Package's business view. */
 export interface CordisToolViewOwnerProps {

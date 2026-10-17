@@ -45,21 +45,15 @@ export class SqliteKvUnit implements KvUnit {
       // so the physical identifier is safe to interpolate into statement text.
       const physical = recordTableName(descriptor.name, table)
       this.tables.set(table, {
-        upsert: db.prepare(
-          `INSERT INTO "${physical}" (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        ),
+        upsert: db.prepare(`INSERT INTO "${physical}" (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`),
         remove: db.prepare(`DELETE FROM "${physical}" WHERE key = ?`),
         selectAll: db.prepare(`SELECT key, value FROM "${physical}"`),
       })
     }
     this.globalUpsert = descriptor.hasGlobal
-      ? db.prepare(
-        'INSERT INTO unit_globals (unit, value) VALUES (?, ?) ON CONFLICT(unit) DO UPDATE SET value = excluded.value',
-      )
+      ? db.prepare('INSERT INTO unit_globals (unit, value) VALUES (?, ?) ON CONFLICT(unit) DO UPDATE SET value = excluded.value')
       : undefined
-    this.globalSelect = descriptor.hasGlobal
-      ? db.prepare('SELECT value FROM unit_globals WHERE unit = ?')
-      : undefined
+    this.globalSelect = descriptor.hasGlobal ? db.prepare('SELECT value FROM unit_globals WHERE unit = ?') : undefined
   }
 
   loadAll(): Promise<{ tables: Record<string, Record<string, unknown>>; global: unknown }> {
@@ -88,11 +82,7 @@ export class SqliteKvUnit implements KvUnit {
     try {
       return JSON.parse(text)
     } catch (error) {
-      throw new StorageError(
-        'malformed-medium',
-        `kv unit '${this.descriptor.name}' holds unparsable JSON at ${slot}`,
-        { cause: error },
-      )
+      throw new StorageError('malformed-medium', `kv unit '${this.descriptor.name}' holds unparsable JSON at ${slot}`, { cause: error })
     }
   }
 

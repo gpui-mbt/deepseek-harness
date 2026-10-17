@@ -2,7 +2,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { codingHarness, finalText, SYSTEM_PROMPT, waitForIdle } from './harness.ts'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -49,23 +49,39 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('compaction: a long session compa
       },
       persistenceRoot: join(workdir, '.sessions'),
     })
-    const agent = await ctx.agentLoop.create(SessionId('e2e-compaction'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, { cwd: workdir })
+    const agent = await ctx.agentLoop.create(
+      SessionId('e2e-compaction'),
+      { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      { cwd: workdir },
+    )
 
     // Completed read turns cannot collapse into one retained parallel tool group.
     for (let i = 1; i <= 4; i++) {
-      agent.followup(createUserMessage({
-        content: [{
-          type: 'text',
-          text: `Read only file${i}.txt using one bash cat command. Remember its number for my next question.`,
-        }], source: { kind: 'user' } }))
+      agent.followup(
+        createUserMessage({
+          content: [
+            {
+              type: 'text',
+              text: `Read only file${i}.txt using one bash cat command. Remember its number for my next question.`,
+            },
+          ],
+          source: { kind: 'user' },
+        }),
+      )
       await waitForIdle(ctx, agent)
     }
 
-    agent.followup(createUserMessage({
-      content: [{
-        type: 'text',
-        text: 'How many files have you read, and what number was mentioned in file1.txt? Do not read them again.',
-      }], source: { kind: 'user' } }))
+    agent.followup(
+      createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text: 'How many files have you read, and what number was mentioned in file1.txt? Do not read them again.',
+          },
+        ],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, agent)
 
     const events = agent.session.snapshotEvents()
@@ -80,7 +96,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('compaction: a long session compa
     // replace-op user/message (the surface mutation) both landed.
     const summaries = events.filter(e => e.type === 'compaction/summary')
     expect(summaries.length, JSON.stringify(ends.map(event => event.data.error))).toBeGreaterThan(0)
-    const replaceNode = events.find((e) => {
+    const replaceNode = events.find(e => {
       const se = e as { type: string; surfaceOp?: unknown }
       return se.type === 'user/message' && typeof se.surfaceOp === 'object' && se.surfaceOp !== null
     })
@@ -90,10 +106,14 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('compaction: a long session compa
     // message-producing event count).
     const summaryData = summaries[0]!.data as { shadowedSeqs: number[] }
     expect(summaryData.shadowedSeqs.length).toBeGreaterThan(0)
-    expect(events.some(event => event.type === 'tool/result'
-      && summaryData.shadowedSeqs.includes(event.seq)
-      && event.data.message.content.some(block => block.type === 'text'
-        && block.text.includes('This is file number')))).toBe(true)
+    expect(
+      events.some(
+        event =>
+          event.type === 'tool/result' &&
+          summaryData.shadowedSeqs.includes(event.seq) &&
+          event.data.message.content.some(block => block.type === 'text' && block.text.includes('This is file number')),
+      ),
+    ).toBe(true)
 
     // The conversation survived compaction: the agent produced a final answer
     // that reflects the work (it read four files).

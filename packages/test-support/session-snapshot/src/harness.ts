@@ -21,7 +21,7 @@ import { existsSync, realpathSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, delimiter } from 'node:path'
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import {
   PROTOCOL_VERSION,
   type ContentBlock as AcpContentBlock,
@@ -29,17 +29,9 @@ import {
   type RequestPermissionResponse,
   type SessionNotification,
 } from '@agentclientprotocol/sdk'
-import {
-  launchAcpTestAgent,
-  type AcpTestClient,
-  type AgentUnderTest,
-  type LaunchedAcpTestAgent,
-} from './launcher.ts'
+import { launchAcpTestAgent, type AcpTestClient, type AgentUnderTest, type LaunchedAcpTestAgent } from './launcher.ts'
 import { clearedProxyEnv } from '@deepseek-ai/dsh-http-proxy'
-import {
-  assertPersistedSessionVersion,
-  latestPersistedSessionPaths,
-} from './session-files.ts'
+import { assertPersistedSessionVersion, latestPersistedSessionPaths } from './session-files.ts'
 import { captureWorkspaceSnapshot, type WorkspaceSnapshotEntry } from './workspace.ts'
 
 export type { AgentUnderTest } from './launcher.ts'
@@ -87,10 +79,10 @@ export type InputStep =
   | { op: 'promptAndWaitForAgentMessage'; text: string; waitForText: string }
   | { op: 'promptExpectError'; text: string }
   | {
-    op: 'promptAndCancel'
-    text: string
-    waitForFile?: { path: string; timeoutMs?: number }
-  }
+      op: 'promptAndCancel'
+      text: string
+      waitForFile?: { path: string; timeoutMs?: number }
+    }
   | { op: 'waitForFile'; path: string; timeoutMs?: number }
   | { op: 'waitForTurnStart'; minimumTurn?: number; timeoutMs?: number }
   | { op: 'waitForTurnEnd'; timeoutMs?: number }
@@ -219,10 +211,7 @@ export interface RunOptions {
  * @param platform - the host platform, injectable for unit coverage.
  * @returns the root-relative snapshot spill directory.
  */
-export function snapshotSpillRoot(
-  fixtureFile: string,
-  platform: NodeJS.Platform = process.platform,
-): string {
+export function snapshotSpillRoot(fixtureFile: string, platform: NodeJS.Platform = process.platform): string {
   const scenario = basename(dirname(fixtureFile))
   const key = createHash('sha256').update(scenario).digest('hex').slice(0, 9)
   const root = platform === 'win32' ? '/t' : '/tmp'
@@ -275,15 +264,13 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
       DSH_SNAPSHOT_SPILL_LOCATOR_ROOT: snapshotSpillRoot(opts.fixtureFile),
       DSH_HOME: join(cwd, '.dsh'),
       DSH_AGENTS_HOME: join(cwd, '.agents'),
-      ...opts.overrideFile !== undefined ? { DSH_SNAPSHOT_OVERRIDE: opts.overrideFile } : {},
-      ...opts.childFiles !== undefined && opts.childFiles.length > 0
-        ? { DSH_SNAPSHOT_CHILD_FILES: opts.childFiles.join(delimiter) }
-        : {},
+      ...(opts.overrideFile !== undefined ? { DSH_SNAPSHOT_OVERRIDE: opts.overrideFile } : {}),
+      ...(opts.childFiles !== undefined && opts.childFiles.length > 0 ? { DSH_SNAPSHOT_CHILD_FILES: opts.childFiles.join(delimiter) } : {}),
     }
 
     // Permission answers are consumed FIFO across the whole run; exhaustion
     // falls back to `cancelled` so approval-free scenarios keep the plain stub.
-    const permissionQueue = [...input.permissionAnswers ?? []]
+    const permissionQueue = [...(input.permissionAnswers ?? [])]
     // A scenario bug detected inside a client callback (a scripted permission
     // kind the agent never offered). It cannot fail the run from in there: a
     // callback throw only becomes a JSON-RPC error RESPONSE to the agent, and
@@ -295,7 +282,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
     launched = launchAcpTestAgent({
       agent: opts.agent,
       cwd,
-      ...opts.configPath !== undefined ? { configPath: opts.configPath } : {},
+      ...(opts.configPath !== undefined ? { configPath: opts.configPath } : {}),
       env,
       requestPermission(params: RequestPermissionRequest): Promise<RequestPermissionResponse> {
         const answer = permissionQueue.shift()
@@ -306,8 +293,8 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
           // bug. Captured (last one wins; same bug class either way) and
           // answered `cancelled`; the step loop rejects the run on it.
           scriptError = new Error(
-            `snapshot-harness: scripted permission answer ${answer.kind} not among `
-            + `the offered options [${params.options.map(o => o.kind).join(', ')}]`,
+            `snapshot-harness: scripted permission answer ${answer.kind} not among ` +
+              `the offered options [${params.options.map(o => o.kind).join(', ')}]`,
           )
           return Promise.resolve({ outcome: { outcome: 'cancelled' } })
         }
@@ -325,7 +312,9 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
         cwd,
         match => active.waitForUpdate(match),
         () => sessionId,
-        (id) => { sessionId = id },
+        id => {
+          sessionId = id
+        },
         (id, timeoutMs, minimumTurn) => waitForPersistedTurnStart(sessionsRoot, id, timeoutMs, minimumTurn),
         (id, timeoutMs) => waitForPersistedTurnEnd(sessionsRoot, id, timeoutMs),
         (child, timeoutMs, minimumTurn) => waitForPersistedChildTurnEnd(sessionsRoot, child, timeoutMs, minimumTurn),
@@ -356,18 +345,19 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
       cwdAliases,
       initialWorkspace,
       finalWorkspace,
-      ...sessionId !== undefined ? { sessionId } : {},
+      ...(sessionId !== undefined ? { sessionId } : {}),
       sessionLogs,
     }
   })().then(
-    value => ({ status: 'fulfilled', value } as const),
+    value => ({ status: 'fulfilled', value }) as const,
     (error: unknown) => {
       const stderr = launched?.stderr() ?? ''
       return {
         status: 'rejected',
-        error: stderr === ''
-          ? error
-          : new Error(`snapshot-harness: scenario failed: ${String(error)}\nagent stderr:\n${stderr}`, { cause: error }),
+        error:
+          stderr === ''
+            ? error
+            : new Error(`snapshot-harness: scenario failed: ${String(error)}\nagent stderr:\n${stderr}`, { cause: error }),
       } as const
     },
   )
@@ -378,7 +368,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
   // outcome hides the other.
   const cleanupResults: PromiseSettledResult<unknown>[] = []
   const cleanup = async (action: () => Promise<unknown>): Promise<void> => {
-    cleanupResults.push(...await Promise.allSettled([action()]))
+    cleanupResults.push(...(await Promise.allSettled([action()])))
   }
   /* v8 ignore next 1 -- launch itself can only throw on a defensive synchronous spawn API failure */
   await cleanup(() => launched?.close('SIGKILL') ?? Promise.resolve())
@@ -393,9 +383,7 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
   if (cleanupFailures.length > 0) {
     throw new AggregateError(
       outcome.status === 'rejected' ? [outcome.error, ...cleanupFailures] : cleanupFailures,
-      outcome.status === 'rejected'
-        ? 'snapshot scenario and cleanup failed'
-        : 'snapshot cleanup failed',
+      outcome.status === 'rejected' ? 'snapshot scenario and cleanup failed' : 'snapshot cleanup failed',
     )
   }
   if (outcome.status === 'rejected') throw outcome.error
@@ -435,14 +423,20 @@ async function runStep(
       // (non-empty additionalDirectories / mcpServers — unimplemented). The SDK
       // surfaces that as a rejected RPC; swallow it so the run completes and the
       // error frame is captured in the transcript.
-      await client.newSession({
-        cwd,
-        mcpServers: [],
-        ...step.additionalDirectories !== undefined ? { additionalDirectories: step.additionalDirectories } : {},
-      }).then(
-        () => { throw new Error('snapshot-harness: expected session/new to be rejected but it succeeded') },
-        () => { /* expected: the bridge rejected the unsupported workspace scope */ },
-      )
+      await client
+        .newSession({
+          cwd,
+          mcpServers: [],
+          ...(step.additionalDirectories !== undefined ? { additionalDirectories: step.additionalDirectories } : {}),
+        })
+        .then(
+          () => {
+            throw new Error('snapshot-harness: expected session/new to be rejected but it succeeded')
+          },
+          () => {
+            /* expected: the bridge rejected the unsupported workspace scope */
+          },
+        )
       return
     }
     case 'prompt': {
@@ -460,8 +454,10 @@ async function runStep(
     case 'promptAndWaitForAgentMessage': {
       const sessionId = getSessionId()
       if (sessionId === undefined) throw new Error('snapshot-harness: promptAndWaitForAgentMessage before newSession')
-      const updateDone = waitForUpdate(update => update.sessionUpdate === 'agent_message_chunk'
-        && update.content.type === 'text' && update.content.text === step.waitForText)
+      const updateDone = waitForUpdate(
+        update =>
+          update.sessionUpdate === 'agent_message_chunk' && update.content.type === 'text' && update.content.text === step.waitForText,
+      )
       await client.prompt({ sessionId, prompt: [{ type: 'text', text: step.text }] })
       await updateDone
       return
@@ -473,9 +469,14 @@ async function runStep(
       // answers the prompt with a JSON-RPC error and the SDK rejects. That
       // rejection IS the expected protocol result — swallow it so the run
       // completes and the stdout transcript (the error frame) is captured.
-      await client.prompt({ sessionId, prompt: [{ type: 'text', text: step.text }] })
-        .then(() => { throw new Error('snapshot-harness: expected the prompt to fail but it succeeded') },
-          () => { /* expected: the turn failed and the bridge returned an error */ })
+      await client.prompt({ sessionId, prompt: [{ type: 'text', text: step.text }] }).then(
+        () => {
+          throw new Error('snapshot-harness: expected the prompt to fail but it succeeded')
+        },
+        () => {
+          /* expected: the turn failed and the bridge returned an error */
+        },
+      )
       return
     }
     case 'promptAndCancel': {
@@ -561,22 +562,25 @@ async function waitForPersistedTurnStart(
   const detail = minimumTurn === undefined ? 'turn/start' : `turn/start at or beyond turn ${minimumTurn}`
   const message = `snapshot-harness: session "${sessionId}" did not persist ${detail} within ${timeoutMs}ms`
   try {
-    await vi.waitFor(async () => {
-      const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
-      let openTurn: number | undefined
-      try {
-        openTurn = log === undefined ? undefined : latestOpenTurn(log.content)
-      } catch (error) {
-        // A malformed persisted record is a scenario bug, not a not-yet state:
-        // vi.waitFor retries every callback throw, so capture the validation
-        // failure, resolve the wait, and rethrow immediately below.
-        invalidRecord = { error }
-        return
-      }
-      if (openTurn === undefined || (minimumTurn !== undefined && openTurn < minimumTurn)) {
-        throw new Error(message)
-      }
-    }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+    await vi.waitFor(
+      async () => {
+        const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
+        let openTurn: number | undefined
+        try {
+          openTurn = log === undefined ? undefined : latestOpenTurn(log.content)
+        } catch (error) {
+          // A malformed persisted record is a scenario bug, not a not-yet state:
+          // vi.waitFor retries every callback throw, so capture the validation
+          // failure, resolve the wait, and rethrow immediately below.
+          invalidRecord = { error }
+          return
+        }
+        if (openTurn === undefined || (minimumTurn !== undefined && openTurn < minimumTurn)) {
+          throw new Error(message)
+        }
+      },
+      { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+    )
   } catch (cause) {
     throw new Error(message, { cause })
   }
@@ -589,17 +593,16 @@ async function waitForPersistedTurnStart(
  * reaches quiescence, so cancellation snapshots use this external boundary to
  * keep subprocess disposal from changing an `aborted` turn into `disposed`.
  */
-async function waitForPersistedTurnEnd(
-  root: string,
-  sessionId: string,
-  timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
-): Promise<void> {
+async function waitForPersistedTurnEnd(root: string, sessionId: string, timeoutMs = DEFAULT_WAIT_TIMEOUT_MS): Promise<void> {
   const message = `snapshot-harness: session "${sessionId}" did not persist turn/end within ${timeoutMs}ms`
   try {
-    await vi.waitFor(async () => {
-      const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
-      if (log === undefined || !latestTurnIsClosed(log.content)) throw new Error(message)
-    }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+    await vi.waitFor(
+      async () => {
+        const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
+        if (log === undefined || !latestTurnIsClosed(log.content)) throw new Error(message)
+      },
+      { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+    )
   } catch (cause) {
     // The deadline can precede the first harvest, before the callback names the missing turn.
     throw new Error(message, { cause })
@@ -622,14 +625,20 @@ async function waitForPersistedChildTurnEnd(
 ): Promise<void> {
   const message = `snapshot-harness: subagent child #${child} did not persist closed turn ${minimumTurn} within ${timeoutMs}ms`
   try {
-    await vi.waitFor(async () => {
-      const log = (await harvestSessionLogs(root))[child]
-      if (log === undefined || !latestTurnIsClosed(log.content)
-        || !hasRequestHeaderAfterDescriptor(log.content)
-        || !hasClosedTurn(log.content, minimumTurn)) {
-        throw new Error(message)
-      }
-    }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+    await vi.waitFor(
+      async () => {
+        const log = (await harvestSessionLogs(root))[child]
+        if (
+          log === undefined ||
+          !latestTurnIsClosed(log.content) ||
+          !hasRequestHeaderAfterDescriptor(log.content) ||
+          !hasClosedTurn(log.content, minimumTurn)
+        ) {
+          throw new Error(message)
+        }
+      },
+      { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+    )
   } catch (cause) {
     // The deadline can precede the first harvest, before the callback names the missing turn.
     throw new Error(message, { cause })
@@ -638,10 +647,13 @@ async function waitForPersistedChildTurnEnd(
 
 /** Whether a raw session log contains the requested closed turn. */
 function hasClosedTurn(content: string, turn: number): boolean {
-  return content.split('\n').filter(Boolean).some((line) => {
-    const event = JSON.parse(line) as { type?: unknown; data?: { turn?: unknown } }
-    return event.type === 'turn/end' && event.data?.turn === turn
-  })
+  return content
+    .split('\n')
+    .filter(Boolean)
+    .some(line => {
+      const event = JSON.parse(line) as { type?: unknown; data?: { turn?: unknown } }
+      return event.type === 'turn/end' && event.data?.turn === turn
+    })
 }
 
 /** Wait until the latest durable goal snapshot reaches one phase. */
@@ -653,14 +665,21 @@ async function waitForPersistedGoalPhase(
 ): Promise<void> {
   const message = `snapshot-harness: session "${sessionId}" did not persist goal phase "${phase}" within ${timeoutMs}ms`
   try {
-    await vi.waitFor(async () => {
-      const content = (await harvestSessionLogs(root)).find(log => log.id === sessionId)?.content
-      const matched = content?.split('\n').filter(Boolean).some((line) => {
-        const event = JSON.parse(line) as { type?: unknown; data?: { goal?: { phase?: unknown } } }
-        return event.type === 'goal/change' && event.data?.goal?.phase === phase
-      }) ?? false
-      if (!matched) throw new Error(message)
-    }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+    await vi.waitFor(
+      async () => {
+        const content = (await harvestSessionLogs(root)).find(log => log.id === sessionId)?.content
+        const matched =
+          content
+            ?.split('\n')
+            .filter(Boolean)
+            .some(line => {
+              const event = JSON.parse(line) as { type?: unknown; data?: { goal?: { phase?: unknown } } }
+              return event.type === 'goal/change' && event.data?.goal?.phase === phase
+            }) ?? false
+        if (!matched) throw new Error(message)
+      },
+      { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+    )
   } catch (cause) {
     throw new Error(message, { cause })
   }
@@ -675,20 +694,27 @@ async function waitForPersistedInboxMessage(
 ): Promise<void> {
   const message = `snapshot-harness: session "${sessionId}" did not persist expected inbox message within ${timeoutMs}ms`
   try {
-    await vi.waitFor(async () => {
-      const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
-      const matched = log?.content.split('\n').some((line) => {
-        if (line.length === 0) return false
-        const record = JSON.parse(line) as {
-          type?: unknown
-          data?: { inserted?: Array<{ content?: Array<{ type?: unknown; text?: unknown }> }> }
-        }
-        return record.type === 'agent/inbox/spliced' && record.data?.inserted?.some(message =>
-          message.content?.some(block => block.type === 'text'
-            && typeof block.text === 'string' && block.text.includes(text))) === true
-      }) ?? false
-      if (!matched) throw new Error(message)
-    }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+    await vi.waitFor(
+      async () => {
+        const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
+        const matched =
+          log?.content.split('\n').some(line => {
+            if (line.length === 0) return false
+            const record = JSON.parse(line) as {
+              type?: unknown
+              data?: { inserted?: Array<{ content?: Array<{ type?: unknown; text?: unknown }> }> }
+            }
+            return (
+              record.type === 'agent/inbox/spliced' &&
+              record.data?.inserted?.some(message =>
+                message.content?.some(block => block.type === 'text' && typeof block.text === 'string' && block.text.includes(text)),
+              ) === true
+            )
+          }) ?? false
+        if (!matched) throw new Error(message)
+      },
+      { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+    )
   } catch (cause) {
     throw new Error(message, { cause })
   }
@@ -696,27 +722,26 @@ async function waitForPersistedInboxMessage(
 
 /** Whether a child log contains model work after its own descriptor event. */
 function hasRequestHeaderAfterDescriptor(content: string): boolean {
-  const events = content.slice(0, content.lastIndexOf('\n') + 1)
+  const events = content
+    .slice(0, content.lastIndexOf('\n') + 1)
     .split('\n')
     .filter(line => line.length > 0)
     .map(line => JSON.parse(line) as { type?: unknown })
   const descriptor = events.findLastIndex(event => event.type === 'subagent/descriptor')
-  return descriptor >= 0
-    && events.slice(descriptor + 1).some(event => event.type === 'request/header')
+  return descriptor >= 0 && events.slice(descriptor + 1).some(event => event.type === 'request/header')
 }
 
 /** Wait until a complete provider or fallback title record follows the latest closed turn. */
-async function waitForPersistedTitleAfterTurnEnd(
-  root: string,
-  sessionId: string,
-  timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
-): Promise<void> {
+async function waitForPersistedTitleAfterTurnEnd(root: string, sessionId: string, timeoutMs = DEFAULT_WAIT_TIMEOUT_MS): Promise<void> {
   const message = `snapshot-harness: session "${sessionId}" did not persist session/title after turn/end within ${timeoutMs}ms`
   try {
-    await vi.waitFor(async () => {
-      const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
-      if (log === undefined || !latestTitleFollowsTurnEnd(log.content)) throw new Error(message)
-    }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+    await vi.waitFor(
+      async () => {
+        const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
+        if (log === undefined || !latestTitleFollowsTurnEnd(log.content)) throw new Error(message)
+      },
+      { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+    )
   } catch (cause) {
     throw new Error(message, { cause })
   }
@@ -731,34 +756,35 @@ async function waitForPersistedEventAfterTurnEnd(
 ): Promise<void> {
   const message = `snapshot-harness: session "${sessionId}" did not persist ${type} after turn/end within ${timeoutMs}ms`
   try {
-    await vi.waitFor(async () => {
-      const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
-      if (log === undefined || !latestEventFollowsTurnEnd(log.content, type)) throw new Error(message)
-    }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+    await vi.waitFor(
+      async () => {
+        const log = (await harvestSessionLogs(root)).find(candidate => candidate.id === sessionId)
+        if (log === undefined || !latestEventFollowsTurnEnd(log.content, type)) throw new Error(message)
+      },
+      { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+    )
   } catch (cause) {
     throw new Error(message, { cause })
   }
 }
 
 /** Wait for a cwd-relative marker proving an external action reached readiness. */
-async function waitForWorkspaceFile(
-  cwd: string,
-  path: string,
-  timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
-): Promise<void> {
+async function waitForWorkspaceFile(cwd: string, path: string, timeoutMs = DEFAULT_WAIT_TIMEOUT_MS): Promise<void> {
   const target = join(cwd, path)
-  await vi.waitFor(() => {
-    if (!existsSync(target)) {
-      throw new Error(`snapshot-harness: workspace file "${path}" did not appear within ${timeoutMs}ms`)
-    }
-  }, { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs })
+  await vi.waitFor(
+    () => {
+      if (!existsSync(target)) {
+        throw new Error(`snapshot-harness: workspace file "${path}" did not appear within ${timeoutMs}ms`)
+      }
+    },
+    { interval: WAIT_POLL_INTERVAL_MS, timeout: timeoutMs },
+  )
 }
 
 /** Return whether the last complete raw-JSONL turn boundary closes its turn. */
 function latestTurnIsClosed(content: string): boolean {
   const complete = content.slice(0, content.lastIndexOf('\n') + 1)
-  return complete.lastIndexOf('\n{"type":"turn/end",')
-    > complete.lastIndexOf('\n{"type":"turn/start",')
+  return complete.lastIndexOf('\n{"type":"turn/end",') > complete.lastIndexOf('\n{"type":"turn/start",')
 }
 
 /** Return whether the last complete title record occurs after the last complete turn end. */
@@ -817,7 +843,7 @@ async function harvestSessionLogs(root: string): Promise<HarvestedLog[]> {
     logs.push({
       id: typeof header.id === 'string' ? header.id : '',
       createdAt: typeof header.createdAt === 'number' ? header.createdAt : 0,
-      ...typeof header.parentSession === 'string' ? { parentSession: header.parentSession } : {},
+      ...(typeof header.parentSession === 'string' ? { parentSession: header.parentSession } : {}),
       content,
     })
   }

@@ -5,12 +5,16 @@ import type { SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/cl
 import type { FileUploadReceiptId } from '@deepseek-ai/dsh-client-file-upload/client'
 import type { ImageLightboxLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { MaybeSnapshotSelectorHook, ObservableSnapshot, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-store'
 import type {
-  MaybeSnapshotSelectorHook, ObservableSnapshot, SnapshotSelectorHook,
-} from '@deepseek-ai/dsh-client-store'
-import type {
-  FactoryComponentPropsOf, FactoryLocalComponentPropsOf,
-  InjectFace, PropsLocale, PropsRenderFactories, PropsRenderSlots, PropsRuntime, PropsStore,
+  FactoryComponentPropsOf,
+  FactoryLocalComponentPropsOf,
+  InjectFace,
+  PropsLocale,
+  PropsRenderFactories,
+  PropsRenderSlots,
+  PropsRuntime,
+  PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionPendingInteraction } from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -84,21 +88,21 @@ export interface ComposerAttachmentsOwnerProps {
  */
 export type MessageImageSource =
   | {
-    readonly attachment: ImageAttachmentRef
-    /** Presentation-only name for the thumbnail and lightbox; loading uses the original reference. */
-    readonly label?: string
-  }
-  | {
-    readonly preview: {
-      /** Browser-owned preview URL (lifecycle stays with the submitter). */
-      readonly url: string
-      readonly name?: string
-      /** Intrinsic pixel width, when the intake probe has resolved it. */
-      readonly width?: number
-      /** Intrinsic pixel height, when the intake probe has resolved it. */
-      readonly height?: number
+      readonly attachment: ImageAttachmentRef
+      /** Presentation-only name for the thumbnail and lightbox; loading uses the original reference. */
+      readonly label?: string
     }
-  }
+  | {
+      readonly preview: {
+        /** Browser-owned preview URL (lifecycle stays with the submitter). */
+        readonly url: string
+        readonly name?: string
+        /** Intrinsic pixel width, when the intake probe has resolved it. */
+        readonly width?: number
+        /** Intrinsic pixel height, when the intake probe has resolved it. */
+        readonly height?: number
+      }
+    }
 
 /** Durable image loader with an optional synchronous cache read. */
 export type MessageImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {
@@ -164,8 +168,7 @@ export interface UserTextNodeOwnerProps {
 }
 
 /** Complete props for the selected business node, including its Session scope. */
-export type UserTextNodeProps<Id extends UserTextId = UserTextId> =
-  PropsRuntime<'conversation.user.text.node', Id>
+export type UserTextNodeProps<Id extends UserTextId = UserTextId> = PropsRuntime<'conversation.user.text.node', Id>
 
 /** Selector hook over the current Session's assembled Conversation. */
 export type UseConversation = SnapshotSelectorHook<ConversationSnapshot>
@@ -495,17 +498,20 @@ export interface InputActivityOwnerProps extends InputControlOwnerProps {
 }
 
 /** Full props of the resident composer bar. */
-export type ComposerBarProps =
-  PropsRuntime<'conversation.composer.bar'>
-  & PropsRenderSlots<
-    | 'conversation.input.attachments' | 'conversation.input.overlay'
+export type ComposerBarProps = PropsRuntime<'conversation.composer.bar'> &
+  PropsRenderSlots<
+    | 'conversation.input.attachments'
+    | 'conversation.input.overlay'
     | 'conversation.input.permission'
-    | 'conversation.input.left' | 'conversation.input.plan'
-    | 'conversation.input.right' | 'conversation.input.model' | 'conversation.input.activity'
+    | 'conversation.input.left'
+    | 'conversation.input.plan'
+    | 'conversation.input.right'
+    | 'conversation.input.model'
+    | 'conversation.input.activity'
     | 'conversation.composer.dock'
-  >
-  & InjectFace<ComposerBarInjected>
-  & PropsLocale<'conversation'>
+  > &
+  InjectFace<ComposerBarInjected> &
+  PropsLocale<'conversation'>
 
 /** Owner values used to elect a composer takeover. */
 export interface ComposerChainProps {
@@ -526,10 +532,7 @@ export interface HeroBrandMarkOwnerProps {
 }
 
 /** Full props of the resident optional-Session Conversation shell. */
-export type ConversationSlotProps =
-  PropsRuntime<'main.conversation'>
-  & PropsRenderSlots<'conversation.header'>
-  & PropsRenderFactories
+export type ConversationSlotProps = PropsRuntime<'main.conversation'> & PropsRenderSlots<'conversation.header'> & PropsRenderFactories
 
 /** Inputs shared by main and embedded Conversation content occurrences. */
 export interface ConversationContentInputProps {
@@ -556,37 +559,32 @@ export type ConversationStore = ReturnType<typeof createConversationStore>
 export type ConversationViewsProps = FactoryLocalComponentPropsOf<'conversation.content', 'views'>
 
 /** Full props of the Factory's caller-selected width-control position. */
-export type ConversationWidthControlsProps =
-  FactoryLocalComponentPropsOf<'conversation.content', 'widthControls'>
+export type ConversationWidthControlsProps = FactoryLocalComponentPropsOf<'conversation.content', 'widthControls'>
 
 /** Full props of the strict Session body. */
-export type ConversationSessionSlotProps =
-  PropsRuntime<'conversation.session'>
-  & PropsRenderSlots<'conversation.view'>
-  & PropsStore<ConversationStore>
-  & InjectFace<ConversationSessionInjected>
+export type ConversationSessionSlotProps = PropsRuntime<'conversation.session'> &
+  PropsRenderSlots<'conversation.view'> &
+  PropsStore<ConversationStore> &
+  InjectFace<ConversationSessionInjected>
 
 /** Full props of the resident navigation header. */
-export type ConversationHeaderProps =
-  PropsRuntime<'conversation.header'>
-  & PropsRenderSlots<'conversation.header.leading' | 'conversation.session.header'>
+export type ConversationHeaderProps = PropsRuntime<'conversation.header'> &
+  PropsRenderSlots<'conversation.header.leading' | 'conversation.session.header'>
 
 /** Full props of the strict Session header. */
-export type ConversationSessionHeaderSlotProps =
-  PropsRuntime<'conversation.session.header'>
-  & PropsRenderSlots<
-    'conversation.session.header.lineage'
+export type ConversationSessionHeaderSlotProps = PropsRuntime<'conversation.session.header'> &
+  PropsRenderSlots<
+    | 'conversation.session.header.lineage'
     | 'conversation.session.header.actions'
     | 'conversation.session.header.utilities'
     | 'conversation.session.header.corner'
-  >
-  & PropsStore<ConversationStore>
-  & InjectFace<ConversationSessionHeaderInjected>
-  & PropsLocale<'conversation'>
+  > &
+  PropsStore<ConversationStore> &
+  InjectFace<ConversationSessionHeaderInjected> &
+  PropsLocale<'conversation'>
 
 /** Full props of the draft-attachment renderer. */
-export type ComposerAttachmentsProps =
-  PropsRuntime<'conversation.input.attachments'> & PropsLocale<'conversation'>
+export type ComposerAttachmentsProps = PropsRuntime<'conversation.input.attachments'> & PropsLocale<'conversation'>
 
 /** Owner share common to blank-session Workspace pickers. */
 export interface EmptyWorkspaceOwnerProps {

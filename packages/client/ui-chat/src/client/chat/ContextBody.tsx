@@ -21,9 +21,7 @@ type Translate = ChatViewSlotProps['t']
 
 /** One durable source narrowed to the readable-record shape; null for anything else. */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
 
 /** One run of the model-facing content: adjacent text, or one unknown block. */
@@ -55,14 +53,12 @@ function contentRuns(content: ContextMessageNode['content']): ContentRun[] {
 
 /** Only the blocks this UI version does not know, for bodies that replace the text. */
 function unknownBlocks(content: ContextMessageNode['content']): unknown[] {
-  return contentRuns(content).flatMap(run => 'block' in run ? [run.block] : [])
+  return contentRuns(content).flatMap(run => ('block' in run ? [run.block] : []))
 }
 
 /** The model-facing text, truncated to the display bound. */
 function boundedText(text: string, t: Translate): string {
-  return text.length > MAX_CHARS
-    ? `${text.slice(0, MAX_CHARS)}\n${t('json.truncated', { total: text.length })}`
-    : text
+  return text.length > MAX_CHARS ? `${text.slice(0, MAX_CHARS)}\n${t('json.truncated', { total: text.length })}` : text
 }
 
 /**
@@ -71,9 +67,8 @@ function boundedText(text: string, t: Translate): string {
  * producer may record an arbitrarily large string or array.
  */
 function fieldValue(value: unknown, t: Translate): string {
-  const text = typeof value === 'string'
-    ? value
-    : typeof value === 'number' || typeof value === 'boolean' ? String(value) : JSON.stringify(value)
+  const text =
+    typeof value === 'string' ? value : typeof value === 'number' || typeof value === 'boolean' ? String(value) : JSON.stringify(value)
   return boundedText(text, t)
 }
 
@@ -85,11 +80,7 @@ function fieldValue(value: unknown, t: Translate): string {
  * that is the one place a form this version cannot present would otherwise
  * disappear from the UI entirely.
  */
-function SourceFields({ source, formRendered, t }: {
-  source: unknown
-  formRendered: boolean
-  t: Translate
-}): ReactNode {
+function SourceFields({ source, formRendered, t }: { source: unknown; formRendered: boolean; t: Translate }): ReactNode {
   const record = asRecord(source)
   if (record === null) return null
   const hidden = formRendered ? ['kind', 'form'] : ['kind']
@@ -118,12 +109,7 @@ function UnknownBlocks({ blocks, t }: { blocks: readonly unknown[]; t: Translate
   return (
     <>
       {blocks.map((block, index) => (
-        <JsonBlock
-          key={index}
-          label={t('message.unknownBlock')}
-          payload={block}
-          truncatedLabel={total => t('json.truncated', { total })}
-        />
+        <JsonBlock key={index} label={t('message.unknownBlock')} payload={block} truncatedLabel={total => t('json.truncated', { total })} />
       ))}
     </>
   )
@@ -136,24 +122,25 @@ function UnknownBlocks({ blocks, t }: { blocks: readonly unknown[]; t: Translate
  * @param props - Durable content and the locale seat.
  * @returns The content blocks as the model received them.
  */
-function ModelFacingContent({ content, t }: {
-  content: ContextMessageNode['content']
-  t: Translate
-}): ReactNode {
+function ModelFacingContent({ content, t }: { content: ContextMessageNode['content']; t: Translate }): ReactNode {
   return (
     <>
-      {contentRuns(content).map((run, index) => ('text' in run
-        ? run.text !== '' && (
-          <pre key={index} className={css.text} data-context-text>{boundedText(run.text, t)}</pre>
-        )
-        : (
+      {contentRuns(content).map((run, index) =>
+        'text' in run ? (
+          run.text !== '' && (
+            <pre key={index} className={css.text} data-context-text>
+              {boundedText(run.text, t)}
+            </pre>
+          )
+        ) : (
           <JsonBlock
             key={index}
             label={t('message.unknownBlock')}
             payload={run.block}
             truncatedLabel={total => t('json.truncated', { total })}
           />
-        )))}
+        ),
+      )}
     </>
   )
 }
@@ -165,11 +152,7 @@ function ModelFacingContent({ content, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The opaque context body.
  */
-export function OpaqueBody({ content, source, t }: {
-  content: ContextMessageNode['content']
-  source: unknown
-  t: Translate
-}): ReactNode {
+export function OpaqueBody({ content, source, t }: { content: ContextMessageNode['content']; source: unknown; t: Translate }): ReactNode {
   return (
     <>
       <ModelFacingContent content={content} t={t} />
@@ -212,7 +195,7 @@ function instructionChanges(source: unknown): InstructionChange[] | null {
     const digest = change['digest']
     if (seen.has(path)) continue
     seen.add(path)
-    changes.push({ action, path, ...typeof digest === 'string' ? { digest } : {} })
+    changes.push({ action, path, ...(typeof digest === 'string' ? { digest } : {}) })
   }
   return changes.length === 0 ? null : changes
 }
@@ -228,8 +211,11 @@ function instructionChanges(source: unknown): InstructionChange[] | null {
 function instructionAction(
   action: InstructionChange['action'],
   baseline: boolean,
-): 'message.context.instructions.removed' | 'message.context.instructions.loaded'
-  | 'message.context.instructions.added' | 'message.context.instructions.updated' {
+):
+  | 'message.context.instructions.removed'
+  | 'message.context.instructions.loaded'
+  | 'message.context.instructions.added'
+  | 'message.context.instructions.updated' {
   if (action === 'remove') return 'message.context.instructions.removed'
   if (baseline) return 'message.context.instructions.loaded'
   return action === 'set' ? 'message.context.instructions.added' : 'message.context.instructions.updated'
@@ -244,7 +230,11 @@ function instructionAction(
  * @returns The instructions context body, or the opaque body when the change
  * list is unreadable.
  */
-export function InstructionsBody({ content, source, t }: {
+export function InstructionsBody({
+  content,
+  source,
+  t,
+}: {
   content: ContextMessageNode['content']
   source: unknown
   t: Translate
@@ -258,9 +248,7 @@ export function InstructionsBody({ content, source, t }: {
         {changes.map(change => (
           <li key={change.path} className={css.file} title={change.digest}>
             <span className={css.filePath}>{change.path}</span>
-            <span className={css.fileAction}>
-              {t(instructionAction(change.action, baseline))}
-            </span>
+            <span className={css.fileAction}>{t(instructionAction(change.action, baseline))}</span>
           </li>
         ))}
       </ul>
@@ -309,11 +297,7 @@ function catalogEntries(source: unknown): CatalogEntry[] | null {
  * @returns The catalog context body, or the opaque body when the entry list is
  * unreadable.
  */
-export function CatalogBody({ content, source, t }: {
-  content: ContextMessageNode['content']
-  source: unknown
-  t: Translate
-}): ReactNode {
+export function CatalogBody({ content, source, t }: { content: ContextMessageNode['content']; source: unknown; t: Translate }): ReactNode {
   const entries = catalogEntries(source)
   if (entries === null) return <OpaqueBody content={content} source={source} t={t} />
   const update = asRecord(source)?.['update'] === true
@@ -323,7 +307,11 @@ export function CatalogBody({ content, source, t }: {
   const rest = unknownBlocks(content)
   return (
     <>
-      {update && <p className={css.catalogNotice} data-context-catalog-update>{t('message.context.catalog.replaced')}</p>}
+      {update && (
+        <p className={css.catalogNotice} data-context-catalog-update>
+          {t('message.context.catalog.replaced')}
+        </p>
+      )}
       <ul className={css.entries} data-context-entries>
         {shown.map((entry, index) => (
           // Index key: a hand-edited or foreign log may repeat a name, and a
@@ -385,11 +373,7 @@ function snapshotSections(source: unknown): SnapshotSection[] | null {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The snapshot context body, or the opaque body when unreadable.
  */
-export function SnapshotBody({ content, source, t }: {
-  content: ContextMessageNode['content']
-  source: unknown
-  t: Translate
-}): ReactNode {
+export function SnapshotBody({ content, source, t }: { content: ContextMessageNode['content']; source: unknown; t: Translate }): ReactNode {
   const sections = snapshotSections(source)
   /* v8 ignore next -- contextBody reads the sections before choosing this body. */
   if (sections === null) return <OpaqueBody content={content} source={source} t={t} />
@@ -418,11 +402,7 @@ export function SnapshotBody({ content, source, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The notice context body.
  */
-export function NoticeBody({ content, t }: {
-  content: ContextMessageNode['content']
-  source: unknown
-  t: Translate
-}): ReactNode {
+export function NoticeBody({ content, t }: { content: ContextMessageNode['content']; source: unknown; t: Translate }): ReactNode {
   return <ModelFacingContent content={content} t={t} />
 }
 
@@ -434,11 +414,7 @@ export function NoticeBody({ content, t }: {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The relay context body.
  */
-export function RelayBody({ content, source, t }: {
-  content: ContextMessageNode['content']
-  source: unknown
-  t: Translate
-}): ReactNode {
+export function RelayBody({ content, source, t }: { content: ContextMessageNode['content']; source: unknown; t: Translate }): ReactNode {
   const sender = relaySender(source)
   /* v8 ignore next -- contextBody resolves the sender before choosing this body. */
   if (sender === null) return <OpaqueBody content={content} source={source} t={t} />
@@ -482,9 +458,14 @@ function recalledSessions(source: unknown): RecalledSession[] | null {
     // Completeness is the fact this card exists to report, so a reference that
     // cannot state it is not a readable recall — showing the label alone would
     // present a confident card over unknown loss.
-    if (typeof label !== 'string' || label === ''
-      || typeof retained !== 'number' || typeof omitted !== 'number'
-      || typeof truncated !== 'boolean') return null
+    if (
+      typeof label !== 'string' ||
+      label === '' ||
+      typeof retained !== 'number' ||
+      typeof omitted !== 'number' ||
+      typeof truncated !== 'boolean'
+    )
+      return null
     sessions.push({ label, retained, omitted, truncated })
   }
   return sessions.length === 0 ? null : sessions
@@ -500,11 +481,7 @@ function recalledSessions(source: unknown): RecalledSession[] | null {
  * @param props - Durable content, its source, and the locale seat.
  * @returns The recall context body, or the opaque body when unreadable.
  */
-export function RecallBody({ content, source, t }: {
-  content: ContextMessageNode['content']
-  source: unknown
-  t: Translate
-}): ReactNode {
+export function RecallBody({ content, source, t }: { content: ContextMessageNode['content']; source: unknown; t: Translate }): ReactNode {
   const sessions = recalledSessions(source)
   if (sessions === null) return <OpaqueBody content={content} source={source} t={t} />
   return (
@@ -519,9 +496,7 @@ export function RecallBody({ content, source, t }: {
                 omitted: session.omitted,
               })}
             </span>
-            {session.truncated && (
-              <span className={css.recallCounts}>{t('message.context.recall.truncated')}</span>
-            )}
+            {session.truncated && <span className={css.recallCounts}>{t('message.context.recall.truncated')}</span>}
           </li>
         ))}
       </ul>
@@ -559,27 +534,17 @@ export function contextBody(
         ? opaque
         : { rendered: 'instructions', summary: null, body: <InstructionsBody {...props} /> }
     case 'catalog':
-      return catalogEntries(props.source) === null
-        ? opaque
-        : { rendered: 'catalog', summary: null, body: <CatalogBody {...props} /> }
+      return catalogEntries(props.source) === null ? opaque : { rendered: 'catalog', summary: null, body: <CatalogBody {...props} /> }
     case 'snapshot':
-      return snapshotSections(props.source) === null
-        ? opaque
-        : { rendered: 'snapshot', summary: null, body: <SnapshotBody {...props} /> }
+      return snapshotSections(props.source) === null ? opaque : { rendered: 'snapshot', summary: null, body: <SnapshotBody {...props} /> }
     case 'notice': {
       const summary = noticeSummary(props.source)
-      return summary === null
-        ? opaque
-        : { rendered: 'notice', summary, body: <NoticeBody {...props} /> }
+      return summary === null ? opaque : { rendered: 'notice', summary, body: <NoticeBody {...props} /> }
     }
     case 'relay':
-      return relaySender(props.source) === null
-        ? opaque
-        : { rendered: 'relay', summary: null, body: <RelayBody {...props} /> }
+      return relaySender(props.source) === null ? opaque : { rendered: 'relay', summary: null, body: <RelayBody {...props} /> }
     case 'recall':
-      return recalledSessions(props.source) === null
-        ? opaque
-        : { rendered: 'recall', summary: null, body: <RecallBody {...props} /> }
+      return recalledSessions(props.source) === null ? opaque : { rendered: 'recall', summary: null, body: <RecallBody {...props} /> }
     case null:
       return opaque
     /* v8 ignore next 4 -- closed-union backstop; the compiler rejects a new

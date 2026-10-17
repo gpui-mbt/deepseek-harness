@@ -24,7 +24,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
@@ -47,7 +47,9 @@ function sourceFiles(): string[] {
 
 /** Immediate subdirectory names, or none when the path is not a directory. */
 function directories(dir: string): string[] {
-  return readEntries(dir).filter(entry => entry.isDirectory()).map(entry => entry.name)
+  return readEntries(dir)
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
 }
 
 /**
@@ -146,21 +148,25 @@ function dictionariesIn(file: string): Dictionary[] {
       const callee = node.expression
       const name = ts.isPropertyAccessExpression(callee)
         ? callee.name.text
-        : ts.isIdentifier(callee) && callee.text === 'register' ? 'register' : undefined
+        : ts.isIdentifier(callee) && callee.text === 'register'
+          ? 'register'
+          : undefined
       if (name === 'register' && node.arguments.length >= 3) {
         const [ns, tag, dict] = node.arguments
         if (ns === undefined || tag === undefined || !ts.isStringLiteral(tag)) return
         if (tag.text !== 'zh' && tag.text !== 'en') return
         const raw = unwrap(dict)
-        const literal = raw !== undefined && ts.isIdentifier(raw)
-          ? (() => {
-            const resolved = moduleConsts.get(raw.text)
-            return resolved === undefined ? undefined : unwrap(resolved)
-          })()
-          : raw
-        const why = raw !== undefined && ts.isIdentifier(raw)
-          ? `third argument ${raw.text} does not resolve to an inline or module-scope object literal`
-          : 'third argument is neither an object literal nor a resolvable dictionary variable'
+        const literal =
+          raw !== undefined && ts.isIdentifier(raw)
+            ? (() => {
+                const resolved = moduleConsts.get(raw.text)
+                return resolved === undefined ? undefined : unwrap(resolved)
+              })()
+            : raw
+        const why =
+          raw !== undefined && ts.isIdentifier(raw)
+            ? `third argument ${raw.text} does not resolve to an inline or module-scope object literal`
+            : 'third argument is neither an object literal nor a resolvable dictionary variable'
         if (literal === undefined || !ts.isObjectLiteralExpression(literal)) {
           // The dictionary argument must resolve to an object literal; the
           // gate refuses rather than skips, so the symmetry it verifies never
@@ -206,8 +212,8 @@ function keysOf(literal: ts.ObjectLiteralExpression): string[] {
 function unwrap(node: ts.Expression | undefined): ts.Expression | undefined {
   let current = node
   while (
-    current !== undefined
-    && (ts.isSatisfiesExpression(current) || ts.isAsExpression(current) || ts.isParenthesizedExpression(current))
+    current !== undefined &&
+    (ts.isSatisfiesExpression(current) || ts.isAsExpression(current) || ts.isParenthesizedExpression(current))
   ) {
     current = current.expression
   }
@@ -270,11 +276,9 @@ describe('shipped locale dictionaries', () => {
       for (const dict of dicts) {
         const parsed = localeOf(dict.name)
         if (parsed === undefined) continue
-        const sameFileCounterpart = dicts.some((other) => {
+        const sameFileCounterpart = dicts.some(other => {
           const otherParsed = localeOf(other.name)
-          return otherParsed !== undefined
-            && otherParsed.pair === parsed.pair
-            && otherParsed.locale !== parsed.locale
+          return otherParsed !== undefined && otherParsed.pair === parsed.pair && otherParsed.locale !== parsed.locale
         })
         // Same-file pairs key by file so two pairs in one directory stay
         // distinct; split pairs key by directory so siblings meet.

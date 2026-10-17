@@ -17,11 +17,11 @@ import type { InputSubmitMode, MessageSubmission } from './composer-submission.t
 /** Attachment payload passed to a claimed command submission. */
 export type SubmitAttachment =
   | {
-    readonly type: 'image'
-    readonly mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
-    readonly data: string
-    readonly name?: string
-  }
+      readonly type: 'image'
+      readonly mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+      readonly data: string
+      readonly name?: string
+    }
   | { readonly type: 'file'; readonly receiptId: string }
 
 /** Command serialization result for one ordered attachment draft. */
@@ -75,9 +75,7 @@ export interface InsertReferenceRequest {
 
 /** Scoped request to consume a command token after business settlement. */
 export interface ConsumeTokenRequest {
-  readonly guard:
-    | { readonly kind: 'span'; readonly span: TokenSpan }
-    | { readonly kind: 'bare-token'; readonly token: string }
+  readonly guard: { readonly kind: 'span'; readonly span: TokenSpan } | { readonly kind: 'bare-token'; readonly token: string }
 }
 
 /** Scoped request to insert ordinary completion text. */
@@ -101,12 +99,7 @@ export interface InputTriggerController {
   readonly launcher: ObservableSnapshot<string | null>
   readonly lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
   /** @param draft - current draft. @param caret - caret offset. @param guard - availability tier. @param draftRev - input revision. */
-  track(
-    draft: string,
-    caret: number,
-    guard: { readonly tier: 'plain' | 'claimed' | 'frozen' },
-    draftRev: number,
-  ): void
+  track(draft: string, caret: number, guard: { readonly tier: 'plain' | 'claimed' | 'frozen' }, draftRev: number): void
   /** @param key - intercepted key. @param composing - whether IME composition is active. @returns routing result. */
   arbitrate(key: ArbitrateKey, composing: boolean): ArbitrateOutcome
   /** @returns whether Space applied a trigger result. */
@@ -114,11 +107,7 @@ export interface InputTriggerController {
   /** @param source - reference source. @param ref - source-local id. @param signal - submit cancellation. @returns model text. */
   serializeReference(source: string, ref: string, signal: AbortSignal): Promise<string>
   /** @param line - trimmed draft. @param signal - submit cancellation. @param envelope - attachment count. @returns winning result. */
-  adjudicate(
-    line: string,
-    signal: AbortSignal,
-    envelope: { readonly attachments: number },
-  ): Promise<PickOutcome>
+  adjudicate(line: string, signal: AbortSignal, envelope: { readonly attachments: number }): Promise<PickOutcome>
   /**
    * Resolve the claim a persisted command chip names without acting on it.
    * @param token - command spelling without its argument separator, e.g. '/goal'.
@@ -330,15 +319,21 @@ export type InputEvent =
   | { readonly type: 'adjudication-failed'; readonly attempt: SubmitAttempt; readonly message: string }
   /** Settlement carries the leading command chip's claim, which the claim follows after a failure. */
   | {
-    readonly type: 'submit-settled'
-    readonly attempt: SubmitAttempt
-    readonly ok: boolean
-    readonly command: CommandClaim | undefined
-    readonly outcome?: SubmitOutcome
-    readonly message?: string
-  }
+      readonly type: 'submit-settled'
+      readonly attempt: SubmitAttempt
+      readonly ok: boolean
+      readonly command: CommandClaim | undefined
+      readonly outcome?: SubmitOutcome
+      readonly message?: string
+    }
   /** Settlement of one optimistic default send, independent of the frozen command slot. */
-  | { readonly type: 'sink-settled'; readonly attempt: SubmitAttempt; readonly ok: boolean; readonly outcome?: SubmitOutcome; readonly message?: string }
+  | {
+      readonly type: 'sink-settled'
+      readonly attempt: SubmitAttempt
+      readonly ok: boolean
+      readonly outcome?: SubmitOutcome
+      readonly message?: string
+    }
   /** Commit an attachment-only send whose empty draft did not need an attempt. */
   | { readonly type: 'send-committed' }
   | { readonly type: 'release' }
@@ -352,11 +347,11 @@ export type InputEffect =
   | { readonly type: 'begin-submit'; readonly attempt: SubmitAttempt; readonly claim: CommandClaim; readonly args: string }
   /** Detached default send; the shell captures its editor projection before the following commit effect. */
   | {
-    readonly type: 'default-sink'
-    readonly attempt: SubmitAttempt
-    readonly draft: string
-    readonly mode: InputSubmitMode
-  }
+      readonly type: 'default-sink'
+      readonly attempt: SubmitAttempt
+      readonly draft: string
+      readonly mode: InputSubmitMode
+    }
   | { readonly type: 'notice'; readonly level: 'info' | 'error'; readonly text: string }
   /**
    * Clear the committed draft in the editor and cut undo history. A string

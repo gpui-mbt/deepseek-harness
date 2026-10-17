@@ -1,9 +1,7 @@
 /** Browser-safe request, result, and lifecycle vocabulary for the Session Remote service. */
 import type { NativeFileApplication } from '@deepseek-ai/dsh-native-command/types'
 
-import type {
-  AttachmentIdType, ImageAttachmentLimits, ImageAttachmentRef, ImageMediaType,
-} from '@deepseek-ai/dsh-attachment'
+import type { AttachmentIdType, ImageAttachmentLimits, ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { LlmAttemptId, MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { LlmModelRouting, TextBlock } from '@deepseek-ai/dsh-llm'
@@ -79,8 +77,7 @@ export interface SessionProjectionBaseline {
 }
 
 /** Typed known projections plus JSON-safe values contributed outside this compilation face. */
-export type SessionProjectionValues = Partial<SessionProjectionMap>
-  & Readonly<Record<string, SessionProjectionValue>>
+export type SessionProjectionValues = Partial<SessionProjectionMap> & Readonly<Record<string, SessionProjectionValue>>
 
 /**
  * Browser-submitted prompt content; the Host promotes image bytes to durable
@@ -90,11 +87,11 @@ export type SessionProjectionValues = Partial<SessionProjectionMap>
 export type PromptContentPart =
   | { readonly type: 'text'; readonly text: string }
   | {
-    readonly type: 'image'
-    readonly mediaType: ImageMediaType
-    readonly data: string
-    readonly name?: string
-  }
+      readonly type: 'image'
+      readonly mediaType: ImageMediaType
+      readonly data: string
+      readonly name?: string
+    }
   | { readonly type: 'file'; readonly receiptId: Branded<'file-upload-receipt-id'> }
 
 /** Complete model selection for one Session. */
@@ -169,10 +166,10 @@ export interface ModelCatalog {
 /** One client-requested mutation of a still-pending queue item. */
 export type QueueAction =
   | {
-    readonly kind: 'edit'
-    /** Non-empty text-only replacement content. */
-    readonly content: readonly TextBlock[]
-  }
+      readonly kind: 'edit'
+      /** Non-empty text-only replacement content. */
+      readonly content: readonly TextBlock[]
+    }
   | { readonly kind: 'remove' }
   | { readonly kind: 'steer' }
 
@@ -425,11 +422,11 @@ declare module '@deepseek-ai/dsh-llm' {
 export type SessionAddress =
   | { readonly kind: 'session'; readonly sessionId: SessionId }
   | {
-    readonly kind: 'subagent'
-    readonly parentSessionId: SessionId
-    readonly childSessionId: SessionId
-    readonly mode: 'one-shot' | 'continuable' | 'unknown'
-  }
+      readonly kind: 'subagent'
+      readonly parentSessionId: SessionId
+      readonly childSessionId: SessionId
+      readonly mode: 'one-shot' | 'continuable' | 'unknown'
+    }
 
 /** One non-activating Session projection read. */
 export interface SessionProjectionsRequest {
@@ -463,9 +460,7 @@ export interface SessionWireHeader {
 }
 
 /** Browser wire surface operation; replacement endpoints are earlier event seqs in surface order. */
-export type SessionWireSurfaceOp =
-  | 'append'
-  | { readonly op: 'replace'; readonly startSeq: number; readonly endSeq: number }
+export type SessionWireSurfaceOp = 'append' | { readonly op: 'replace'; readonly startSeq: number; readonly endSeq: number }
 
 /** One history-page record with compact Assistant streams embedded inside events. */
 export type SessionHistoryRecord = SessionEventEntry
@@ -532,35 +527,35 @@ export interface SessionAssistantStreamBaseline {
 /** Browser wire form of one process-local assistant frame. */
 export type SessionAssistantStreamFrame =
   | {
-    readonly type: 'start'
-    readonly attemptId: LlmAttemptId
-    readonly revision: number
-    readonly startedAfterSeq: SessionSeqCursor
-    readonly turn: number
-    readonly step: number
-  }
+      readonly type: 'start'
+      readonly attemptId: LlmAttemptId
+      readonly revision: number
+      readonly startedAfterSeq: SessionSeqCursor
+      readonly turn: number
+      readonly step: number
+    }
   | {
-    readonly type: 'chunk'
-    readonly attemptId: LlmAttemptId
-    readonly revision: number
-    readonly index: number
-    readonly time: number
-    readonly chunk: JsonValue
-  }
+      readonly type: 'chunk'
+      readonly attemptId: LlmAttemptId
+      readonly revision: number
+      readonly index: number
+      readonly time: number
+      readonly chunk: JsonValue
+    }
   | {
-    readonly type: 'end'
-    readonly attemptId: LlmAttemptId
-    readonly revision: number
-    /** Number of chunk frames represented by this terminal marker. */
-    readonly index: number
-    readonly outcome:
-      | {
-        readonly kind: 'committed'
-        readonly eventType: 'assistant/message' | 'assistant/attempt'
-        readonly seq: number
-      }
-      | { readonly kind: 'abandoned' }
-  }
+      readonly type: 'end'
+      readonly attemptId: LlmAttemptId
+      readonly revision: number
+      /** Number of chunk frames represented by this terminal marker. */
+      readonly index: number
+      readonly outcome:
+        | {
+            readonly kind: 'committed'
+            readonly eventType: 'assistant/message' | 'assistant/attempt'
+            readonly seq: number
+          }
+        | { readonly kind: 'abandoned' }
+    }
 
 /** One contiguous backwards page of a Session log. */
 export interface SessionPage {
@@ -571,14 +566,14 @@ export interface SessionPage {
 /** Complete opening window followed by ordered durable events and opted-in assistant frames. */
 export type SessionFollowFrame =
   | {
-    readonly type: 'snapshot'
-    readonly header: SessionWireHeader
-    readonly cursor: number
-    readonly records: readonly SessionHistoryRecord[]
-    readonly hasMore: boolean
-    readonly projections: SessionProjectionBaseline
-    readonly assistantStream?: SessionAssistantStreamBaseline
-  }
+      readonly type: 'snapshot'
+      readonly header: SessionWireHeader
+      readonly cursor: number
+      readonly records: readonly SessionHistoryRecord[]
+      readonly hasMore: boolean
+      readonly projections: SessionProjectionBaseline
+      readonly assistantStream?: SessionAssistantStreamBaseline
+    }
   | SessionEventEntry
   | { readonly type: 'assistant-stream'; readonly frame: SessionAssistantStreamFrame }
 

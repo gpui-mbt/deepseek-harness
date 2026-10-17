@@ -28,11 +28,7 @@ export type SubagentDescendantListEntry = SubagentListEntry & {
  * @returns direct-child rows in parent catalog event order.
  * @throws {@link SubagentError} when query or catalog projection is unavailable.
  */
-export async function listChildren(
-  ctx: Context,
-  parentSessionId: SessionId,
-  signal?: AbortSignal,
-): Promise<SubagentCatalogEntry[]> {
+export async function listChildren(ctx: Context, parentSessionId: SessionId, signal?: AbortSignal): Promise<SubagentCatalogEntry[]> {
   const query = ctx.get('sessionQuery')
   if (query === undefined) {
     throw new SubagentError(
@@ -41,7 +37,7 @@ export async function listChildren(
     )
   }
   using parent = await query.observeSession(parentSessionId, {
-    ...signal === undefined ? {} : { signal },
+    ...(signal === undefined ? {} : { signal }),
   })
   const entries = parent.projections?.values.subagentCatalog
   if (entries === undefined) {
@@ -85,9 +81,7 @@ export async function listDescendants(
     assertListingNotCancelled(signal)
     return children
   }
-  const stack = (await readChildren(rootSessionId))
-    .map(entry => ({ entry, parentId: rootSessionId, depth: 1 }))
-    .reverse()
+  const stack = (await readChildren(rootSessionId)).map(entry => ({ entry, parentId: rootSessionId, depth: 1 })).reverse()
   const visited = new Set<SessionId>([rootSessionId])
   const result: SubagentDescendantListEntry[] = []
   for (let position = stack.pop(); position !== undefined; position = stack.pop()) {
@@ -101,9 +95,11 @@ export async function listDescendants(
       if (error instanceof SubagentError) throw error
       const code = error instanceof Error && 'code' in error ? error.code : undefined
       result.push({
-        kind: 'diagnostic', id: entry.id, parentId, depth,
-        reason: code === 'SESSION_QUERY_CORRUPT_SESSION' || code === 'SESSION_QUERY_SOURCE_CONFLICT'
-          ? 'corrupt' : 'unavailable',
+        kind: 'diagnostic',
+        id: entry.id,
+        parentId,
+        depth,
+        reason: code === 'SESSION_QUERY_CORRUPT_SESSION' || code === 'SESSION_QUERY_SOURCE_CONFLICT' ? 'corrupt' : 'unavailable',
       })
       continue
     }
@@ -112,7 +108,10 @@ export async function listDescendants(
     } else {
       const { createdAt: _createdAt, ...identity } = entry
       result.push({
-        ...identity, kind: 'child', parentId, depth,
+        ...identity,
+        kind: 'child',
+        parentId,
+        depth,
         activity: sessions.get(entry.id) === undefined ? 'inactive' : 'running',
         hasChildren: children.length > 0,
       })

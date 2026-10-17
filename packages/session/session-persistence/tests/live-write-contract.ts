@@ -10,7 +10,7 @@
  * @module @deepseek-ai/dsh-session-persistence/tests/live-write-contract
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { appendPluginRecord, pluginRecordOf, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -46,11 +46,7 @@ async function readAll(persistence: SessionPersistence, id: ReturnType<typeof Se
  * @param make - factory producing one fresh mounted backend per test; every
  *   created context is disposed by the test that made it.
  */
-export function runLiveWritePathContract(
-  name: string,
-  batchDelayMs: number,
-  make: () => Promise<LiveWriteBackend>,
-): void {
+export function runLiveWritePathContract(name: string, batchDelayMs: number, make: () => Promise<LiveWriteBackend>): void {
   describe(`live session write path: ${name}`, () => {
     it('routes published events into the active write handle within one batching window', async ({ task, signal }) => {
       const { ctx } = await make()
@@ -69,15 +65,20 @@ export function runLiveWritePathContract(
         vi.useRealTimers()
       }
       // The deadline started a background write; wait for its durability.
-      await expect.poll(async () => {
-        signal.throwIfAborted()
-        const events = await readAll(ctx.sessionPersistence, session.id)
-        signal.throwIfAborted()
-        return events.map(event => [event.type, event.seq])
-      }, { timeout: task.timeout }).toEqual([
-        ['turn/start', 0],
-        ['turn/end', 1],
-      ])
+      await expect
+        .poll(
+          async () => {
+            signal.throwIfAborted()
+            const events = await readAll(ctx.sessionPersistence, session.id)
+            signal.throwIfAborted()
+            return events.map(event => [event.type, event.seq])
+          },
+          { timeout: task.timeout },
+        )
+        .toEqual([
+          ['turn/start', 0],
+          ['turn/end', 1],
+        ])
       await handle.close()
       await ctx.fiber.dispose()
     })
@@ -122,7 +123,8 @@ export function runLiveWritePathContract(
       const failure = new Error('backend write refused')
       // Inject at the service's storage primitive: the routed drain writes
       // through the handle's internal chain, not the public append.
-      const persist = vi.spyOn(ctx.sessionPersistence as unknown as { persistBatch: () => Promise<void> }, 'persistBatch')
+      const persist = vi
+        .spyOn(ctx.sessionPersistence as unknown as { persistBatch: () => Promise<void> }, 'persistBatch')
         .mockRejectedValue(failure)
 
       vi.useFakeTimers()
@@ -155,8 +157,9 @@ export function runLiveWritePathContract(
       }
       const original = service.persistBatch.bind(service)
       const failure = new Error('backend write refused')
-      const persist = vi.spyOn(service, 'persistBatch').mockImplementation((header, ...rest) =>
-        header.id === failing.id ? Promise.reject(failure) : original(header, ...rest))
+      const persist = vi
+        .spyOn(service, 'persistBatch')
+        .mockImplementation((header, ...rest) => (header.id === failing.id ? Promise.reject(failure) : original(header, ...rest)))
 
       vi.useFakeTimers()
       try {
@@ -164,8 +167,9 @@ export function runLiveWritePathContract(
         failing.append('turn/start', { turn: 1 })
         // No batching window elapses: the service barrier itself drains both
         // buffers and reports the one failure without abandoning the sweep.
-        await expect(ctx.sessionPersistence.flush()).rejects.toSatisfy((error: unknown) =>
-          error instanceof AggregateError && error.errors.length === 1 && error.errors[0] === failure)
+        await expect(ctx.sessionPersistence.flush()).rejects.toSatisfy(
+          (error: unknown) => error instanceof AggregateError && error.errors.length === 1 && error.errors[0] === failure,
+        )
       } finally {
         vi.useRealTimers()
       }
@@ -183,9 +187,14 @@ export function runLiveWritePathContract(
     it('session/disposed drains buffered events and closes the handle', async () => {
       const { ctx } = await make()
       let session: ReturnType<Context['sessions']['create']> | undefined
-      const owner = await ctx.plugin(Object.assign((inner: Context) => {
-        session = inner.sessions.create(SessionId('disposed-drains'))
-      }, { inject: ['sessions'] }))
+      const owner = await ctx.plugin(
+        Object.assign(
+          (inner: Context) => {
+            session = inner.sessions.create(SessionId('disposed-drains'))
+          },
+          { inject: ['sessions'] },
+        ),
+      )
       if (session === undefined) throw new Error('session was not created')
       const handle = await ctx.sessionPersistence.create(session.header)
       session.append('turn/start', { turn: 1 })
@@ -201,9 +210,14 @@ export function runLiveWritePathContract(
     it('a failing final drain on disposal is warned, not thrown', async () => {
       const { ctx } = await make()
       let session: ReturnType<Context['sessions']['create']> | undefined
-      const owner = await ctx.plugin(Object.assign((inner: Context) => {
-        session = inner.sessions.create(SessionId('disposed-drain-fails'))
-      }, { inject: ['sessions'] }))
+      const owner = await ctx.plugin(
+        Object.assign(
+          (inner: Context) => {
+            session = inner.sessions.create(SessionId('disposed-drain-fails'))
+          },
+          { inject: ['sessions'] },
+        ),
+      )
       if (session === undefined) throw new Error('session was not created')
       const handle = await ctx.sessionPersistence.create(session.header)
       const warned = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
@@ -237,8 +251,7 @@ export function runLiveWritePathContract(
       const session = ctx.sessions.create(SessionId('close-drain-fails'))
       const handle = await ctx.sessionPersistence.create(session.header)
       const failure = new Error('storage refused the drain')
-      vi.spyOn(ctx.sessionPersistence as unknown as { persistBatch: () => Promise<void> }, 'persistBatch')
-        .mockRejectedValue(failure)
+      vi.spyOn(ctx.sessionPersistence as unknown as { persistBatch: () => Promise<void> }, 'persistBatch').mockRejectedValue(failure)
       session.append('turn/start', { turn: 1 })
       await expect(handle.close()).rejects.toBe(failure)
       // Ownership was released despite the failed drain: the id is claimable.

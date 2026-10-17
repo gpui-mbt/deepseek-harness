@@ -31,7 +31,9 @@ export function createOfficeStore(): EngineStoreHandle<OfficeState, OfficeAction
     init: (): OfficeState => ({ byTab: {} }),
     actions: {
       /** @param state - draft. @param tab - owning tab. @param revision - new content revision. */
-      loading(state, tab: TabId, revision: number) { state.byTab[tab] = { revision } },
+      loading(state, tab: TabId, revision: number) {
+        state.byTab[tab] = { revision }
+      },
       /** @param state - draft. @param tab - owning tab. @param revision - completed revision. @param file - borrowed PDF bytes. */
       complete(state, tab: TabId, revision: number, file: OfficeFileBytes) {
         state.byTab[tab] = { revision, file }

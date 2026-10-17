@@ -6,7 +6,11 @@ export const DEVTOOLS_NPM_VERSION = '1.0.1638082'
 /** Upstream commit recorded by that npm release. */
 export const DEVTOOLS_SOURCE_REVISION = '0e1186138ed519d9659c1874bf6375eca4483c72'
 
-interface Edit { start: number; end: number; text: string }
+interface Edit {
+  start: number
+  end: number
+  text: string
+}
 
 /**
  * Preserve original module-relative resource URLs after bundling into chunks.
@@ -22,8 +26,12 @@ export function restoreModuleUrls(path: string, source: string): string {
   const edits: Edit[] = []
   const isMeta = (node: ts.Node): boolean => ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
-      && isMeta(node.expression.expression) && node.expression.name.text === 'resolve') {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      isMeta(node.expression.expression) &&
+      node.expression.name.text === 'resolve'
+    ) {
       if (node.arguments.length !== 1) throw new Error(`DevTools ${path}: import.meta.resolve must have one argument`)
       edits.push({ start: node.getStart(file), end: node.end, text: `new URL(${node.arguments[0]?.getText(file)}, ${moduleUrl}).href` })
       return
@@ -46,10 +54,12 @@ export function restoreModuleUrls(path: string, source: string): string {
  */
 export function configureHostPerformanceSource(path: string, source: string): string {
   if (path !== 'panels/timeline/TimelinePanel.ts') return source
-  return replaceOnce(replaceOnce(source,
-    '#isNode = Root.Runtime.Runtime.isNode();', '#isNode = true;', path),
-  'SDK.TargetManager.TargetManager.instance().targets().find(target => target.type() === SDK.Target.Type.NODE)',
-  'SDK.TargetManager.TargetManager.instance().primaryPageTarget()', path)
+  return replaceOnce(
+    replaceOnce(source, '#isNode = Root.Runtime.Runtime.isNode();', '#isNode = true;', path),
+    'SDK.TargetManager.TargetManager.instance().targets().find(target => target.type() === SDK.Target.Type.NODE)',
+    'SDK.TargetManager.TargetManager.instance().primaryPageTarget()',
+    path,
+  )
 }
 
 /**
@@ -57,7 +67,9 @@ export function configureHostPerformanceSource(path: string, source: string): st
  * @param source - Unmodified stylesheet text.
  * @returns An ESM default export containing the same text.
  */
-export function cssTextModule(source: string): string { return `export default ${JSON.stringify(source)};` }
+export function cssTextModule(source: string): string {
+  return `export default ${JSON.stringify(source)};`
+}
 
 /**
  * Select the standalone browser branch of legacy CodeMirror UMD wrappers used by formatter Workers.

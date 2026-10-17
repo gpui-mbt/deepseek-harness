@@ -58,9 +58,7 @@ export function useStatDialog(): StatDialogSeat {
       if (e.key === 'Escape') setOpen(false)
     }
     const onClick = (e: MouseEvent): void => {
-      if (e.target instanceof Node
-        && rootRef.current?.contains(e.target) !== true
-        && panelRef.current?.contains(e.target) !== true) {
+      if (e.target instanceof Node && rootRef.current?.contains(e.target) !== true && panelRef.current?.contains(e.target) !== true) {
         setOpen(false)
       }
     }

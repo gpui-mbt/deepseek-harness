@@ -2,9 +2,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import {
-  apply as applyHost,
-} from './host/plugin.ts'
+import { apply as applyHost } from './host/plugin.ts'
 import { resolveInspectorOptions, type InspectorOptions } from './host/bridge/controller.ts'
 import type { CordisRuntimeTreeReader } from './shared/cordis/reader.ts'
 import type { InspectorJsonValue } from './shared/json.ts'
@@ -22,18 +20,9 @@ export type {
   CordisRuntimeTree,
 } from './shared/cordis/model.ts'
 export type { InspectorClientBootstrap } from './shared/bridge/messages/control.ts'
-export type {
-  InspectorRecordInput,
-  InspectorSourceDescriptor,
-  InspectorSourceKind,
-} from './shared/bridge/messages/observation.ts'
+export type { InspectorRecordInput, InspectorSourceDescriptor, InspectorSourceKind } from './shared/bridge/messages/observation.ts'
 export type { InspectorJsonObject, InspectorJsonPrimitive, InspectorJsonValue } from './shared/json.ts'
-export type {
-  CordisContextTreeNode,
-  CordisFiberTreeNode,
-  CordisTreeNode,
-  CordisTreeSnapshot,
-} from './shared/cordis/snapshot.ts'
+export type { CordisContextTreeNode, CordisFiberTreeNode, CordisTreeNode, CordisTreeSnapshot } from './shared/cordis/snapshot.ts'
 
 /** Shared Host/Client service façade over the realm's source publisher. */
 export interface InspectorService {

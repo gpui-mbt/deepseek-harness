@@ -1,7 +1,7 @@
 /** The optional Developer Tools bundle enables both inspectors, including fetch capture. */
 
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import * as yaml from 'js-yaml'
 
@@ -18,14 +18,22 @@ describe('Inspector profile bundle', () => {
       '@deepseek-ai/dsh-experimental-inspector': 'workspace:*',
       '@deepseek-ai/dsh-experimental-session-inspector': 'workspace:*',
     })
-    expect(yaml.load(readFileSync(new URL(`../${manifest.dsh.bundle.patch}`, import.meta.url), 'utf8'), {
-      schema: entryListSchema,
-    })).toEqual([{ insert: [
+    expect(
+      yaml.load(readFileSync(new URL(`../${manifest.dsh.bundle.patch}`, import.meta.url), 'utf8'), {
+        schema: entryListSchema,
+      }),
+    ).toEqual([
       {
-        id: 'experimental-inspector', name: '@deepseek-ai/dsh-experimental-inspector',
-        disabled: false, config: { captureFetch: true },
+        insert: [
+          {
+            id: 'experimental-inspector',
+            name: '@deepseek-ai/dsh-experimental-inspector',
+            disabled: false,
+            config: { captureFetch: true },
+          },
+          { id: 'session-inspector', name: '@deepseek-ai/dsh-experimental-session-inspector' },
+        ],
       },
-      { id: 'session-inspector', name: '@deepseek-ai/dsh-experimental-session-inspector' },
-    ] }])
+    ])
   })
 })

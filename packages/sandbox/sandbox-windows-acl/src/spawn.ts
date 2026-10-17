@@ -1,15 +1,7 @@
 /** Restricted-token adapters over the shared Win32 process owner. */
 
-import {
-  spawnInheritedJobProcess,
-  spawnPipedProcess,
-  waitForProcessExit,
-} from '@deepseek-ai/dsh-win32-process'
-import type {
-  NativePtr,
-  SpawnedJobProcess,
-  SpawnedPipedProcess,
-} from '@deepseek-ai/dsh-win32-process'
+import { spawnInheritedJobProcess, spawnPipedProcess, waitForProcessExit } from '@deepseek-ai/dsh-win32-process'
+import type { NativePtr, SpawnedJobProcess, SpawnedPipedProcess } from '@deepseek-ai/dsh-win32-process'
 import type { Win32Bindings } from './ffi.ts'
 
 export { drainPipe } from '@deepseek-ai/dsh-win32-process'

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Image Blob ownership, media types, pane-contained rendering, and failure states. */
 import { useSyncExternalStore } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
@@ -26,7 +26,9 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  try { cleanup() } finally {
+  try {
+    cleanup()
+  } finally {
     if (createDescriptor === undefined) Reflect.deleteProperty(URL, 'createObjectURL')
     else Object.defineProperty(URL, 'createObjectURL', createDescriptor)
     if (revokeDescriptor === undefined) Reflect.deleteProperty(URL, 'revokeObjectURL')
@@ -35,8 +37,12 @@ afterEach(() => {
   }
 })
 
-function props(path = 'asset.png', data: Uint8Array<ArrayBuffer> = new Uint8Array([1, 2, 3]),
-  instance = createZoomStore().create(), controller = new AbortController()): ImageBodyProps {
+function props(
+  path = 'asset.png',
+  data: Uint8Array<ArrayBuffer> = new Uint8Array([1, 2, 3]),
+  instance = createZoomStore().create(),
+  controller = new AbortController(),
+): ImageBodyProps {
   const subscribe = (listener: () => void) => instance.subscribe(listener)
   const snapshot = () => instance.getSnapshot()
   function useStore<T>(selector: (state: ZoomState) => T): T {
@@ -55,8 +61,9 @@ function props(path = 'asset.png', data: Uint8Array<ArrayBuffer> = new Uint8Arra
     scrollportRef: vi.fn(),
     t: (key, params) => {
       const value = translations.get(key) ?? key
-      return params === undefined ? value : Object.entries(params)
-        .reduce((text, [name, replacement]) => text.replace(`{${name}}`, String(replacement)), value)
+      return params === undefined
+        ? value
+        : Object.entries(params).reduce((text, [name, replacement]) => text.replace(`{${name}}`, String(replacement)), value)
     },
   } as ImageBodyProps
 }
@@ -108,7 +115,9 @@ describe('ImageBody', () => {
     view.rerender(<ImageBody {...changed} />)
     await screen.findByRole('img', { hidden: true })
     expect(revoke).toHaveBeenCalledWith('blob:https://preview.invalid/1')
-    create.mockImplementationOnce(() => { throw new Error('Blob unavailable') })
+    create.mockImplementationOnce(() => {
+      throw new Error('Blob unavailable')
+    })
     view.rerender(<ImageBody {...props('changed.png', new Uint8Array([7]))} />)
     expect((await screen.findByRole('alert')).textContent).toBe(en.failed)
     view.unmount()
@@ -143,7 +152,9 @@ describe('ImageBody', () => {
     expect(instance.getSnapshot().byTab['image-tab' as TabId]).toEqual({ kind: 'fixed', scale: 1.5 })
     expect(screen.getByRole('img')).toBe(image)
     expect(create).toHaveBeenCalledOnce()
-    view.rerender(<ImageBody {...props('diagram.svg', initial.content.kind === 'bytes' ? initial.content.data : new Uint8Array(), instance)} />)
+    view.rerender(
+      <ImageBody {...props('diagram.svg', initial.content.kind === 'bytes' ? initial.content.data : new Uint8Array(), instance)} />,
+    )
     expect(screen.getByRole('img')).toBe(image)
     expect(screen.getByRole('button', { name: 'Choose zoom' }).textContent).toContain('150%')
     fireEvent.click(screen.getByRole('button', { name: 'Choose zoom' }))

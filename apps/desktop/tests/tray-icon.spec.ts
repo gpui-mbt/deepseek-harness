@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { packIco, TRAY_ICON_PATHS, TRAY_ICON_SIZES, unpackIco, type IcoEntry } from '../scripts/render-tray-icon.ts'
 
 /** Smallest valid-looking PNG stream: signature plus an IHDR chunk declaring the given edge. */
@@ -15,7 +15,10 @@ function pngStub(width: number, height = width): Buffer {
 
 describe('tray icon packaging', () => {
   it('packs PNG entries into a Vista-style ICO directory and reads them back', () => {
-    const entries: IcoEntry[] = [{ size: 16, png: pngStub(16) }, { size: 256, png: pngStub(256) }]
+    const entries: IcoEntry[] = [
+      { size: 16, png: pngStub(16) },
+      { size: 256, png: pngStub(256) },
+    ]
     const ico = packIco(entries)
     expect(ico.readUInt16LE(2)).toBe(1)
     expect(ico.readUInt16LE(4)).toBe(2)

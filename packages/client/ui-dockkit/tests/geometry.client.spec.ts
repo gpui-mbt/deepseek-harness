@@ -2,10 +2,17 @@
  * Drag geometry: point tests, dock-zone resolution against a real rectangle,
  * tab-strip insertion slots, the drag threshold, and divider arithmetic.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
-  containsPoint, dividerSizes, DRAG_THRESHOLD, floatRectAt, insertionIndex, movedRect,
-  passedThreshold, resizedRect, zoneInRect,
+  containsPoint,
+  dividerSizes,
+  DRAG_THRESHOLD,
+  floatRectAt,
+  insertionIndex,
+  movedRect,
+  passedThreshold,
+  resizedRect,
+  zoneInRect,
 } from '../src/engine/geometry.ts'
 import type { PaneMeasure, Rect } from '../src/engine/geometry.ts'
 import { halvesFit, SPLIT_MINIMUMS } from '../src/engine/geometry.ts'
@@ -91,10 +98,8 @@ describe('floating rectangles', () => {
   })
 
   it('resizes from the origin and honours the minimum', () => {
-    expect(resizedRect(rect, 40, 30, FLOAT_MIN_SIZE))
-      .toEqual({ x: 100, y: 80, width: 340, height: 230 })
-    expect(resizedRect(rect, -1000, -1000, FLOAT_MIN_SIZE))
-      .toEqual({ x: 100, y: 80, ...FLOAT_MIN_SIZE })
+    expect(resizedRect(rect, 40, 30, FLOAT_MIN_SIZE)).toEqual({ x: 100, y: 80, width: 340, height: 230 })
+    expect(resizedRect(rect, -1000, -1000, FLOAT_MIN_SIZE)).toEqual({ x: 100, y: 80, ...FLOAT_MIN_SIZE })
   })
 
   it('places a new panel with its header under the drop point', () => {
@@ -117,7 +122,7 @@ describe('halvesFit — the room rule', () => {
     expect(halvesFit(measure(0, 0, 104))).toEqual({ row: true, column: true })
   })
 
-  it('needs each half to hold the strip\'s fixed controls plus one minimum chip', () => {
+  it("needs each half to hold the strip's fixed controls plus one minimum chip", () => {
     // 520px: halves of 258px inside the borders, against 104 + 100.
     expect(halvesFit(measure(520, 600, 104)).row).toBe(true)
     // 208px: halves of 102px, short of 204.
@@ -136,7 +141,7 @@ describe('halvesFit — the room rule', () => {
     expect(halvesFit(measure(420, 171, 104)).column).toBe(false)
   })
 
-  it('takes the minimums it is given, and the stylesheet\'s by default', () => {
+  it("takes the minimums it is given, and the stylesheet's by default", () => {
     expect(SPLIT_MINIMUMS).toEqual({ divider: 0, chip: 100, body: 48 })
     expect(halvesFit(measure(208, 600, 104), { divider: 0, chip: 0, body: 0 }).row).toBe(false)
     expect(halvesFit(measure(220, 600, 104), { divider: 0, chip: 0, body: 0 }).row).toBe(true)

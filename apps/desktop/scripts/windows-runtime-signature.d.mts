@@ -18,12 +18,15 @@ export function inspectWindowsRuntimeSignature(path: string): Promise<WindowsRun
  * @param options Prepared and copied runtime roots with retained audit directory.
  * @returns True for a verified runtime copy; false for targets outside that directory.
  */
-export function preserveWindowsRuntimeSignature(path: string, options: {
-  sourceRoot: string
-  destinationRoot: string
-  runDirectory: string
-  inspect?: typeof inspectWindowsRuntimeSignature
-}): Promise<boolean>
+export function preserveWindowsRuntimeSignature(
+  path: string,
+  options: {
+    sourceRoot: string
+    destinationRoot: string
+    runDirectory: string
+    inspect?: typeof inspectWindowsRuntimeSignature
+  },
+): Promise<boolean>
 
 /** Supervised signing dependencies shared by all Windows release trees. */
 export interface WindowsCodeSigningOptions {

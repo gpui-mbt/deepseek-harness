@@ -1,8 +1,6 @@
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-tools/types'
-import type {
-  ConversationNode, RunningToolCall, ToolCallBlock, ToolResultNode,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationNode, RunningToolCall, ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 
 interface ProjectedBlock {
@@ -14,12 +12,8 @@ interface ProjectedBlock {
 /** Fixed wire-safety ceiling for every recursive Tool call consumer. */
 export const MAX_TOOL_CALL_TREE_DEPTH = 256
 
-function sameReferences<T>(
-  left: readonly T[],
-  right: readonly T[],
-): boolean {
-  return left.length === right.length
-    && left.every((block, index) => block === right[index])
+function sameReferences<T>(left: readonly T[], right: readonly T[]): boolean {
+  return left.length === right.length && left.every((block, index) => block === right[index])
 }
 
 /**
@@ -98,9 +92,7 @@ export class ToolCallTree {
     }
     this.childrenByParent.set(
       data.parentCallId,
-      at === -1
-        ? [...siblings, settled]
-        : siblings.map((sub, index) => index === at ? settled : sub),
+      at === -1 ? [...siblings, settled] : siblings.map((sub, index) => (index === at ? settled : sub)),
     )
     this.revision++
     return true
@@ -142,16 +134,12 @@ export class ToolCallTree {
   private projectBlock(block: ToolCallBlock): ToolCallBlock {
     const children = this.childrenByParent.get(block.callId) ?? block.subCalls
     const projectedChildren = children.map(child => this.projectBlock(child))
-    const childValue = sameReferences(children, projectedChildren)
-      ? children
-      : projectedChildren
+    const childValue = sameReferences(children, projectedChildren) ? children : projectedChildren
     const cached = this.projectedByCall.get(block.callId)
     if (cached?.source === block && sameReferences(cached.children, childValue)) {
       return cached.value
     }
-    const value: ToolCallBlock = block.subCalls === childValue
-      ? block
-      : { ...block, subCalls: childValue }
+    const value: ToolCallBlock = block.subCalls === childValue ? block : { ...block, subCalls: childValue }
     this.projectedByCall.set(block.callId, {
       source: block,
       children: childValue,
@@ -167,15 +155,15 @@ export class ToolCallTree {
    */
   private acceptEdge(parentCallId: string, subCallId: string): boolean {
     if (this.wouldCreateCycle(parentCallId, subCallId)) return false
-    const pending = [{
-      callId: subCallId,
-      depth: (this.depthByCall.get(parentCallId) ?? 1) + 1,
-    }]
+    const pending = [
+      {
+        callId: subCallId,
+        depth: (this.depthByCall.get(parentCallId) ?? 1) + 1,
+      },
+    ]
     const updates = new Map<string, number>()
     for (const candidate of pending) {
-      const knownDepth = updates.get(candidate.callId)
-        ?? this.depthByCall.get(candidate.callId)
-        ?? 1
+      const knownDepth = updates.get(candidate.callId) ?? this.depthByCall.get(candidate.callId) ?? 1
       if (candidate.depth <= knownDepth) continue
       if (candidate.depth > MAX_TOOL_CALL_TREE_DEPTH) return false
       updates.set(candidate.callId, candidate.depth)

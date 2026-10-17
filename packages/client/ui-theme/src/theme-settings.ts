@@ -15,7 +15,7 @@ export const THEME_PREFERENCE_FIELD = 'preference'
 export const FONT_SIZE_FIELD = 'fontSize'
 
 /** Theme preference persisted by the product Appearance row. */
-export type ThemePreference = typeof THEME_PREFERENCES[number]
+export type ThemePreference = (typeof THEME_PREFERENCES)[number]
 
 /** Default preference when the user-settings document has no override. */
 export const DEFAULT_PREFERENCE: ThemePreference = 'system'
@@ -33,7 +33,7 @@ export const DEFAULT_FONT_SIZE = 14
 export const FONT_ROLES = ['text', 'code', 'terminal'] as const
 
 /** One configurable font role: interface text, code, or the sidebar terminal. */
-export type FontRole = typeof FONT_ROLES[number]
+export type FontRole = (typeof FONT_ROLES)[number]
 
 /** Settings field, body variable, and accepted integer px range of one role's font size. */
 export interface FontSizeSpec {
@@ -65,7 +65,9 @@ export type FontSizes = Readonly<Record<FontRole, number>>
 
 /** Default font sizes by role. */
 export const DEFAULT_FONT_SIZES: FontSizes = Object.freeze({
-  text: FONT_SIZE_SPECS.text.default, code: FONT_SIZE_SPECS.code.default, terminal: FONT_SIZE_SPECS.terminal.default,
+  text: FONT_SIZE_SPECS.text.default,
+  code: FONT_SIZE_SPECS.code.default,
+  terminal: FONT_SIZE_SPECS.terminal.default,
 })
 
 /** Settings field carrying each role's font-family list. */
@@ -148,8 +150,21 @@ export const ThemeSettingsSchema: z<ThemeSettings> = z.object({
 
 /** CSS Fonts generic and system family keywords, which must stay unquoted. */
 const GENERIC_FAMILIES = new Set([
-  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif',
-  'ui-monospace', 'ui-rounded', 'emoji', 'math', 'fangsong', '-apple-system', 'blinkmacsystemfont',
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
+  'emoji',
+  'math',
+  'fangsong',
+  '-apple-system',
+  'blinkmacsystemfont',
 ])
 
 /**
@@ -161,10 +176,16 @@ const GENERIC_FAMILIES = new Set([
  * @returns the normalized list, or `''` when no family name remains.
  */
 export function normalizeFontFamily(value: string): string {
-  return value.split(',')
-    .map(name => name.replace(/["'\\<>\u0000-\u001f\u007f]/gu, '').replace(/\s+/gu, ' ').trim())
+  return value
+    .split(',')
+    .map(name =>
+      name
+        .replace(/["'\\<>\u0000-\u001f\u007f]/gu, '')
+        .replace(/\s+/gu, ' ')
+        .trim(),
+    )
     .filter(name => name !== '')
-    .map(name => GENERIC_FAMILIES.has(name.toLowerCase()) ? name : `"${name}"`)
+    .map(name => (GENERIC_FAMILIES.has(name.toLowerCase()) ? name : `"${name}"`))
     .join(', ')
 }
 

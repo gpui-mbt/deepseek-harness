@@ -64,8 +64,11 @@ async function main() {
       return
     }
     overlay.destroy()
-    const released = { filter: await filter(), showListenersRestored: parent.listenerCount('show') === initialShowListeners,
-      keyboardListeners: parent.webContents.listenerCount('before-input-event') }
+    const released = {
+      filter: await filter(),
+      showListenersRestored: parent.listenerCount('show') === initialShowListeners,
+      keyboardListeners: parent.webContents.listenerCount('before-input-event'),
+    }
     parent.hide()
     parent.show()
     cases.push({ initiallyVisible, loaded, restored, released })
@@ -91,4 +94,7 @@ async function main() {
   }
 }
 
-void main().catch(error => { console.error(error); app.exit(1) })
+void main().catch(error => {
+  console.error(error)
+  app.exit(1)
+})

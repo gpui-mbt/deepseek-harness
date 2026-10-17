@@ -1,28 +1,59 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { runLoggedNotarytool } from '../scripts/logged-notarytool.mjs'
 import { createPackagingRun } from '../scripts/packaging-run.mjs'
 
 const id = '11111111-2222-3333-4444-555555555555'
-const args = ['submit', '/fixture/app.zip', '--apple-id', 'private@example.test', '--password', 'secret-value', '--team-id', 'TEAM', '--wait', '--output-format', 'json']
+const args = [
+  'submit',
+  '/fixture/app.zip',
+  '--apple-id',
+  'private@example.test',
+  '--password',
+  'secret-value',
+  '--team-id',
+  'TEAM',
+  '--wait',
+  '--output-format',
+  'json',
+]
 async function fixture(action: (directory: string) => Promise<void>) {
   const root = await mkdtemp(join(tmpdir(), 'notary-log-'))
-  try { await action(createPackagingRun(root, {}).directory) } finally { await rm(root, { recursive: true, force: true }) }
+  try {
+    await action(createPackagingRun(root, {}).directory)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 }
 
 it('finishes submission before starting wait and records the ID and separate timings', async () => {
-  await fixture(async (directory) => {
+  await fixture(async directory => {
     const uploaded = Promise.withResolvers<string>()
-    const execute = vi.fn(async (command: readonly string[]) => command[0] === 'submit' ? uploaded.promise : JSON.stringify({ id, status: 'Accepted' }))
+    const execute = vi.fn(async (command: readonly string[]) =>
+      command[0] === 'submit' ? uploaded.promise : JSON.stringify({ id, status: 'Accepted' }),
+    )
     const work = runLoggedNotarytool(args, directory, execute)
     try {
       expect(execute).toHaveBeenCalledExactlyOnceWith(args.filter(arg => arg !== '--wait').concat('--no-wait'))
       expect(await readFile(join(directory, 'events.jsonl'), 'utf8')).not.toContain('notarytool:wait')
-    } finally { uploaded.resolve(JSON.stringify({ id })) }
+    } finally {
+      uploaded.resolve(JSON.stringify({ id }))
+    }
     expect(JSON.parse(await work)).toEqual({ id, status: 'Accepted' })
-    expect(execute.mock.calls[1]![0]).toEqual(['wait', id, '--apple-id', 'private@example.test', '--password', 'secret-value', '--team-id', 'TEAM', '--output-format', 'json'])
+    expect(execute.mock.calls[1]![0]).toEqual([
+      'wait',
+      id,
+      '--apple-id',
+      'private@example.test',
+      '--password',
+      'secret-value',
+      '--team-id',
+      'TEAM',
+      '--output-format',
+      'json',
+    ])
     const log = await readFile(join(directory, 'events.jsonl'), 'utf8')
     expect(log).toContain('notary-submission')
     expect(log).toContain('notarytool:upload:app.zip')
@@ -34,8 +65,10 @@ it('finishes submission before starting wait and records the ID and separate tim
 })
 
 it('records a redacted upload error without starting wait', async () => {
-  await fixture(async (directory) => {
-    const execute = vi.fn(async () => { throw new Error('rejected secret-value private@example.test') })
+  await fixture(async directory => {
+    const execute = vi.fn(async () => {
+      throw new Error('rejected secret-value private@example.test')
+    })
     await expect(runLoggedNotarytool(args, directory, execute)).rejects.toThrow('rejected')
     expect(execute).toHaveBeenCalledOnce()
     const log = await readFile(join(directory, 'events.jsonl'), 'utf8')
@@ -45,9 +78,9 @@ it('records a redacted upload error without starting wait', async () => {
   })
 })
 
-it.each(['Invalid', 'Rejected'])('preserves %s for electron-notarize rejection handling', async (status) => {
+it.each(['Invalid', 'Rejected'])('preserves %s for electron-notarize rejection handling', async status => {
   const execute = vi.fn(async (command: readonly string[]) => JSON.stringify(command[0] === 'submit' ? { id } : { id, status }))
-  await fixture(async (directory) => {
+  await fixture(async directory => {
     expect(JSON.parse(await runLoggedNotarytool(args, directory, execute))).toEqual({ id, status })
     const log = await readFile(join(directory, 'events.jsonl'), 'utf8')
     expect(log).toContain('\"success\":false')
@@ -57,7 +90,11 @@ it.each(['Invalid', 'Rejected'])('preserves %s for electron-notarize rejection h
 
 it('rejects missing submission IDs and mismatched wait results', async () => {
   await expect(runLoggedNotarytool(args, undefined, async () => '{}')).rejects.toThrow('submission ID')
-  await expect(runLoggedNotarytool(args, undefined, async command => JSON.stringify(command[0] === 'submit' ? { id } : { id: 'other', status: 'Accepted' }))).rejects.toThrow('different submission ID')
+  await expect(
+    runLoggedNotarytool(args, undefined, async command =>
+      JSON.stringify(command[0] === 'submit' ? { id } : { id: 'other', status: 'Accepted' }),
+    ),
+  ).rejects.toThrow('different submission ID')
 })
 
 it.each([
@@ -70,7 +107,7 @@ it.each([
 })
 
 it('retains redacted Apple diagnostics and passes the original result to electron-notarize', async () => {
-  await fixture(async (directory) => {
+  await fixture(async directory => {
     const output = 'diagnostic for private@example.test'
     const command = ['log', id, '--apple-id', 'private@example.test']
     expect(await runLoggedNotarytool(command, directory, async () => output)).toBe(output)

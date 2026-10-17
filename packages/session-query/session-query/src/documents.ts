@@ -13,10 +13,7 @@ import { extractSessionEventText } from './extraction.ts'
  * @param events - complete contiguous raw event log.
  * @returns one record per event in ascending seq order.
  */
-export function buildSessionEventRecords(
-  sessionId: SessionId,
-  events: readonly SessionEvent[],
-): SessionEventRecord[] {
+export function buildSessionEventRecords(sessionId: SessionId, events: readonly SessionEvent[]): SessionEventRecord[] {
   const surfaceBySeq = classifySurface(events)
   return events.map(event => ({
     sessionId,
@@ -33,10 +30,7 @@ export function buildSessionEventRecords(
  * @param events - complete contiguous raw event log.
  * @returns searchable documents in ascending seq order; structural events are omitted.
  */
-export function buildSessionEventSearchDocuments(
-  sessionId: SessionId,
-  events: readonly SessionEvent[],
-): SessionEventSearchDocument[] {
+export function buildSessionEventSearchDocuments(sessionId: SessionId, events: readonly SessionEvent[]): SessionEventSearchDocument[] {
   const surfaceBySeq = classifySurface(events)
   const documents: SessionEventSearchDocument[] = []
   for (const event of events) {

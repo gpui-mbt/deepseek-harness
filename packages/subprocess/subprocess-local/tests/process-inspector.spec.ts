@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   createProcessInspector,
   linuxProcessGroupHasLiveMembers,
@@ -26,7 +26,10 @@ function stat(
 function syscall(number: number, ...args: number[]): string {
   const six = [...args]
   while (six.length < 6) six.push(0)
-  return `${number} ${six.slice(0, 6).map(value => `0x${value.toString(16)}`).join(' ')}`
+  return `${number} ${six
+    .slice(0, 6)
+    .map(value => `0x${value.toString(16)}`)
+    .join(' ')}`
 }
 
 function fakeInternals() {
@@ -74,25 +77,41 @@ function fakeInternals() {
       if (source === undefined) throw new Error('missing memory')
       return source.copy(buffer, 0, position, Math.min(source.length, position + length))
     },
-    close(fd) { fds.delete(fd) },
+    close(fd) {
+      fds.delete(fd)
+    },
     exec(_file, args) {
       if (args.includes('tpgid=')) return tpgid
       return ps
     },
-    kill(pid, signal) { kills.push([pid, signal]) },
+    kill(pid, signal) {
+      kills.push([pid, signal])
+    },
   }
   return {
-    internals, files, dirs, links, devices, memories, kills,
-    setPs(value: string) { ps = value },
-    setTpgid(value: string) { tpgid = value },
+    internals,
+    files,
+    dirs,
+    links,
+    devices,
+    memories,
+    kills,
+    setPs(value: string) {
+      ps = value
+    },
+    setTpgid(value: string) {
+      tpgid = value
+    },
   }
 }
 
 describe('Linux process inspector', () => {
-  it.each(['EACCES', 'EMFILE'])('refuses to publish an empty snapshot when /proc enumeration fails with %s', (code) => {
+  it.each(['EACCES', 'EMFILE'])('refuses to publish an empty snapshot when /proc enumeration fails with %s', code => {
     const fake = fakeInternals()
     const readDir = fake.internals.readDir.bind(fake.internals)
-    fake.internals.readDir = () => { throw Object.assign(new Error('Enumeration failed'), { code }) }
+    fake.internals.readDir = () => {
+      throw Object.assign(new Error('Enumeration failed'), { code })
+    }
     const inspector = createProcessInspector('linux', 'x64', fake.internals)
     expect(() => inspector.snapshot()).toThrow('/proc directory is unreadable')
     fake.internals.readDir = readDir
@@ -133,7 +152,16 @@ describe('Linux process inspector', () => {
     expect(parseProcStat('1 () ')).toBeUndefined()
     expect(parseProcStat('1 () S')).toBeUndefined()
     expect(parseProcStat(stat(10, 20, 30, 40, '500', 1, 'SS'))).toBeUndefined()
-    expect(parseProcStat(stat(10, 20, 30, 40, '500'))).toEqual({ pid: 10, parentPid: 1, pgrp: 20, session: 30, state: 'S', ttyDevice: 99, tpgid: 40, started: '500' })
+    expect(parseProcStat(stat(10, 20, 30, 40, '500'))).toEqual({
+      pid: 10,
+      parentPid: 1,
+      pgrp: 20,
+      session: 30,
+      state: 'S',
+      ttyDevice: 99,
+      tpgid: 40,
+      started: '500',
+    })
 
     const fake = fakeInternals()
     fake.dirs.set('/proc', ['x', '10', '11', '12', '13', '14'])
@@ -164,14 +192,20 @@ describe('Linux process inspector', () => {
     inspector.signalGroup(40, 'SIGINT')
     inspector.signalProcess({ pid: 10, started: '500' }, 'SIGTERM')
     inspector.signalProcess({ pid: 10, started: 'old' }, 'SIGKILL')
-    expect(fake.kills).toEqual([[-40, 'SIGINT'], [10, 'SIGTERM']])
+    expect(fake.kills).toEqual([
+      [-40, 'SIGINT'],
+      [10, 'SIGTERM'],
+    ])
     fake.files.set('/proc/10/stat', stat(10, 20, 30, 40, '500', 1, 'Z'))
     // A zombie is present in the table but never signallable; both the batch
     // view and the signal fence report it quiescent once the state changes.
     expect(inspector.snapshot().alive({ pid: 10, started: '500' })).toBe(false)
     expect(inspector.isAlive({ pid: 10, started: '500' })).toBe(false)
     inspector.signalProcess({ pid: 10, started: '500' }, 'SIGKILL')
-    expect(fake.kills).toEqual([[-40, 'SIGINT'], [10, 'SIGTERM']])
+    expect(fake.kills).toEqual([
+      [-40, 'SIGINT'],
+      [10, 'SIGTERM'],
+    ])
   })
 
   it('detects supported kernel ABI waits across non-leader threads', () => {
@@ -309,7 +343,9 @@ describe('macOS process inspector', () => {
   it('reads tpgid and process trees, contains cycles, and identity-fences signals', () => {
     const fake = fakeInternals()
     fake.setTpgid('55\n')
-    fake.setPs(' 10 1 Mon Jul 21 10:00:00 2026\n 11 10 Mon Jul 21 10:00:01 2026\n 12 11 Mon Jul 21 10:00:02 2026\n 13 99 Mon Jul 21 10:00:03 2026\nmalformed\n')
+    fake.setPs(
+      ' 10 1 Mon Jul 21 10:00:00 2026\n 11 10 Mon Jul 21 10:00:01 2026\n 12 11 Mon Jul 21 10:00:02 2026\n 13 99 Mon Jul 21 10:00:03 2026\nmalformed\n',
+    )
     const inspector = createProcessInspector('darwin', 'arm64', fake.internals)
     expect(inspector.foregroundPgid(10)).toBe(55)
     expect(inspector.isStdinWaiting(55, 10)).toBe(false)
@@ -325,7 +361,10 @@ describe('macOS process inspector', () => {
     inspector.signalGroup(55, 'SIGTSTP')
     inspector.signalProcess({ pid: 11, started: 'Mon Jul 21 10:00:01 2026' }, 'SIGKILL')
     inspector.signalProcess({ pid: 12, started: 'missing' }, 'SIGTERM')
-    expect(fake.kills).toEqual([[-55, 'SIGTSTP'], [11, 'SIGKILL']])
+    expect(fake.kills).toEqual([
+      [-55, 'SIGTSTP'],
+      [11, 'SIGKILL'],
+    ])
 
     fake.setPs(' 10 11 Mon Jul 21 10:00:00 2026\n 11 10 Mon Jul 21 10:00:01 2026\n')
     expect(inspector.snapshot().tree(10)).toEqual([
@@ -352,7 +391,9 @@ describe('macOS process inspector', () => {
     const fake = fakeInternals()
     fake.setTpgid('-1')
     expect(createProcessInspector('darwin', 'arm64', fake.internals).foregroundPgid(1)).toBeUndefined()
-    fake.internals.exec = () => { throw new Error('gone') }
+    fake.internals.exec = () => {
+      throw new Error('gone')
+    }
     expect(createProcessInspector('darwin', 'arm64', fake.internals).foregroundPgid(1)).toBeUndefined()
     expect(createProcessInspector('win32', 'x64', fake.internals)).toBeInstanceOf(WindowsProcessInspector)
     expect(() => createProcessInspector('freebsd', 'x64', fake.internals)).toThrow('unsupported on platform freebsd')

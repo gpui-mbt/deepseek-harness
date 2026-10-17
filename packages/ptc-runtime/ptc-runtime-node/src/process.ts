@@ -22,7 +22,8 @@ export interface ProgramProcess {
  * @returns After control output flushes and host shutdown is observed, or transport failure closes the channel.
  */
 export async function runNodeMain(stream: Duplex, maxMessageBytes: number, processState: ProgramProcess): Promise<void> {
-  if (!Number.isSafeInteger(maxMessageBytes) || maxMessageBytes <= 0 || maxMessageBytes > 0xffff_ffff) throw new Error('invalid control message limit')
+  if (!Number.isSafeInteger(maxMessageBytes) || maxMessageBytes <= 0 || maxMessageBytes > 0xffff_ffff)
+    throw new Error('invalid control message limit')
   clearProgramEnvironment(processState)
   const boot = Promise.withResolvers<ProgramBootData>()
   const listeners: Array<(message: ReplyMessage) => void> = []
@@ -30,48 +31,66 @@ export async function runNodeMain(stream: Duplex, maxMessageBytes: number, proce
   let failed = false
   let terminalSent = false
   const hostClosed = Promise.withResolvers<void>()
-  const onClose = (): void => { hostClosed.resolve() }
+  const onClose = (): void => {
+    hostClosed.resolve()
+  }
   stream.once('close', onClose)
-  const channel = new JsonChannel(stream, maxMessageBytes, (raw) => {
-    if (!started) {
-      started = true
-      if (typeof raw !== 'object' || raw === null || (raw as { type?: unknown }).type !== 'boot') {
-        boot.reject(new Error('expected program boot frame'))
+  const channel = new JsonChannel(
+    stream,
+    maxMessageBytes,
+    raw => {
+      if (!started) {
+        started = true
+        if (typeof raw !== 'object' || raw === null || (raw as { type?: unknown }).type !== 'boot') {
+          boot.reject(new Error('expected program boot frame'))
+          return
+        }
+        boot.resolve((raw as { data: ProgramBootData }).data)
         return
       }
-      boot.resolve((raw as { data: ProgramBootData }).data)
-      return
-    }
-    if (terminalSent) return
-    for (const listener of listeners) listener(raw as ReplyMessage)
-  }, (error, kind) => {
-    if (!terminalSent || kind === 'protocol') {
-      failed = true
-      boot.reject(error)
-      channel.close()
-      processState.exitCode = 1
-    }
-    hostClosed.resolve()
-  })
+      if (terminalSent) return
+      for (const listener of listeners) listener(raw as ReplyMessage)
+    },
+    (error, kind) => {
+      if (!terminalSent || kind === 'protocol') {
+        failed = true
+        boot.reject(error)
+        channel.close()
+        processState.exitCode = 1
+      }
+      hostClosed.resolve()
+    },
+  )
   const pending = new Set<Promise<void>>()
   const send = (message: ProgramToHost): void => {
     if (terminalSent) return
     if (message.type === 'done') terminalSent = true
-    const task = channel.send(message).catch(() => {
-      failed = true
-      channel.close()
-      processState.exitCode = 1
-      hostClosed.resolve()
-    }).finally(() => { pending.delete(task) })
+    const task = channel
+      .send(message)
+      .catch(() => {
+        failed = true
+        channel.close()
+        processState.exitCode = 1
+        hostClosed.resolve()
+      })
+      .finally(() => {
+        pending.delete(task)
+      })
     pending.add(task)
   }
   try {
     await channel.send({ type: 'ready' })
     const data = await boot.promise
-    await runProgram({
-      postMessage: send,
-      on: (_event, listener) => { listeners.push(listener) },
-    }, data, { stdout: processState.stdout, stderr: processState.stderr })
+    await runProgram(
+      {
+        postMessage: send,
+        on: (_event, listener) => {
+          listeners.push(listener)
+        },
+      },
+      data,
+      { stdout: processState.stdout, stderr: processState.stderr },
+    )
     while (pending.size > 0) await Promise.all(pending)
     await channel.drain()
     // Host binding replies can race the terminal frame; the host owns channel shutdown.

@@ -36,18 +36,18 @@ interface WorkspaceGitRepository {
  */
 export type WorkspaceGitStatus =
   | (WorkspaceGitRepository & {
-    /** A branch is checked out. */
-    readonly kind: 'branch'
-    /** The branch's short name (`main`, `feature/x`). */
-    readonly name: string
-  })
+      /** A branch is checked out. */
+      readonly kind: 'branch'
+      /** The branch's short name (`main`, `feature/x`). */
+      readonly name: string
+    })
   | (WorkspaceGitRepository & {
-    /** HEAD is detached from every branch. */
-    readonly kind: 'detached'
-    /** Short commit id git reports at HEAD. */
-    readonly head: string
-  })
+      /** HEAD is detached from every branch. */
+      readonly kind: 'detached'
+      /** Short commit id git reports at HEAD. */
+      readonly head: string
+    })
   | {
-    /** The directory is outside a repository, git is unavailable, or the workspace is gone. */
-    readonly kind: 'none'
-  }
+      /** The directory is outside a repository, git is unavailable, or the workspace is gone. */
+      readonly kind: 'none'
+    }

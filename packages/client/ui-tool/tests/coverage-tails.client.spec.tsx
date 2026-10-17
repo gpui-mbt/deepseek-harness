@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, render } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -36,8 +36,13 @@ function listStore() {
 
 function bashProps(block: StartedToolCall | ToolResultNode): BashRowProps {
   return {
-    useDisclosure, callId: 'c1', toolName: 'bash', ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(),
-    sessionId: SID, useSessions: bindSnapshotSelector(listStore()),
+    useDisclosure,
+    callId: 'c1',
+    toolName: 'bash',
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    openFile: vi.fn(),
+    sessionId: SID,
+    useSessions: bindSnapshotSelector(listStore()),
     t,
   } as BashRowProps
 }
@@ -45,8 +50,15 @@ function bashProps(block: StartedToolCall | ToolResultNode): BashRowProps {
 describe('Tool presentation tails', () => {
   it('ToolRow stopped state retains the business icon and shows a warning summary', () => {
     const view = render(
-      <ToolRow useDisclosure={useDisclosure} t={t} variant="bash" icon={<i data-testid="icon" />}
-        title="Bash" summary="s" state="stopped" />,
+      <ToolRow
+        useDisclosure={useDisclosure}
+        t={t}
+        variant="bash"
+        icon={<i data-testid="icon" />}
+        title="Bash"
+        summary="s"
+        state="stopped"
+      />,
     )
     expect(view.queryByTestId('icon')).not.toBeNull()
     const summary = view.getByText('s')
@@ -55,15 +67,27 @@ describe('Tool presentation tails', () => {
 
   it('a settled others-variant row renders the sparkle icon in the leading slot', () => {
     const settled: ToolResultNode = {
-      kind: 'tool-result', seq: 2, time: 2_000, callId: 'c5',
-      name: 'todo_write', args: PartialArguments.fromText('{"note":"x"}'),
+      kind: 'tool-result',
+      seq: 2,
+      time: 2_000,
+      callId: 'c5',
+      name: 'todo_write',
+      args: PartialArguments.fromText('{"note":"x"}'),
       call: { name: 'todo_write', argsRaw: '{"note":"x"}' },
       callTime: 1_000,
-      content: [], isError: false, subCalls: [],
+      content: [],
+      isError: false,
+      subCalls: [],
     }
     const props: GenericToolCardProps = {
       loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
-      useDisclosure, callId: 'c5', toolName: 'todo_write', phase: 'result' as const, block: settled, openFile: vi.fn(), t,
+      useDisclosure,
+      callId: 'c5',
+      toolName: 'todo_write',
+      phase: 'result' as const,
+      block: settled,
+      openFile: vi.fn(),
+      t,
     }
     const view = render(<GenericToolCard {...props} />)
     expect(view.container.querySelector('[data-variant="others"] svg')).not.toBeNull()
@@ -72,11 +96,17 @@ describe('Tool presentation tails', () => {
 
   it('BashRow summarizes the description without a row click target', () => {
     const settled: ToolResultNode = {
-      kind: 'tool-result', seq: 3, time: 3_000, callId: 'c1',
-      name: 'bash', args: PartialArguments.fromText('{"command":"make build","description":"Build"}'),
+      kind: 'tool-result',
+      seq: 3,
+      time: 3_000,
+      callId: 'c1',
+      name: 'bash',
+      args: PartialArguments.fromText('{"command":"make build","description":"Build"}'),
       call: { name: 'bash', argsRaw: '{"command":"make build","description":"Build"}' },
       callTime: 2_000,
-      content: [], isError: false, subCalls: [],
+      content: [],
+      isError: false,
+      subCalls: [],
     }
     const view = render(<BashRow {...bashProps(settled)} />)
     const row = view.container.querySelector('[data-sample="bash"]')!
@@ -87,15 +117,28 @@ describe('Tool presentation tails', () => {
 
   it('BashRow retains its business icon for failed and stopped states', () => {
     const running: StartedToolCall = {
-      phase: 'start' as const, args: PartialArguments.fromText('{"command":"ls","description":"List"}'), callId: 'c1', name: 'bash', argsRaw: '{"command":"ls","description":"List"}',
-      turn: 1, step: 1, time: 1_000, subCalls: [],
+      phase: 'start' as const,
+      args: PartialArguments.fromText('{"command":"ls","description":"List"}'),
+      callId: 'c1',
+      name: 'bash',
+      argsRaw: '{"command":"ls","description":"List"}',
+      turn: 1,
+      step: 1,
+      time: 1_000,
+      subCalls: [],
     }
     const errorResult: ToolResultNode = {
-      kind: 'tool-result', seq: 1, time: 1_000, callId: 'c1',
-      name: 'bash', args: PartialArguments.fromText('{"command":"boom"}'),
+      kind: 'tool-result',
+      seq: 1,
+      time: 1_000,
+      callId: 'c1',
+      name: 'bash',
+      args: PartialArguments.fromText('{"command":"boom"}'),
       call: { name: 'bash', argsRaw: '{"command":"boom"}' },
       callTime: 500,
-      content: [], isError: true, subCalls: [],
+      content: [],
+      isError: true,
+      subCalls: [],
     }
     const stoppedResult: ToolResultNode = {
       ...errorResult,

@@ -1,7 +1,7 @@
 /** An explicit New Session the Host refuses reports through the Workspace notice in the shipped Web composition. */
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { saveFailureShot } from './support.ts'
 

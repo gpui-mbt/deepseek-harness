@@ -6,10 +6,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
-import {
-  SessionQueryError,
-  type SessionQueryErrorCode,
-} from '@deepseek-ai/dsh-session-query'
+import { SessionQueryError, type SessionQueryErrorCode } from '@deepseek-ai/dsh-session-query'
 
 interface ModelSafeServiceFailure {
   readonly code: SessionQueryErrorCode | 'SESSION_QUERY_TOOL_FAILED'
@@ -90,18 +87,10 @@ const SAFE_SESSION_QUERY_FAILURES = {
 } satisfies Record<SessionQueryErrorCode, ModelSafeServiceFailure>
 
 function unauthorizedTarget(): HarnessError {
-  return new HarnessError(
-    'session target is outside the caller workspace',
-    'SESSION_QUERY_TOOL_UNAUTHORIZED',
-  )
+  return new HarnessError('session target is outside the caller workspace', 'SESSION_QUERY_TOOL_UNAUTHORIZED')
 }
 
-async function call<Value>(
-  ctx: Context,
-  signal: AbortSignal,
-  operation: string,
-  invoke: () => Promise<Value>,
-): Promise<Value> {
+async function call<Value>(ctx: Context, signal: AbortSignal, operation: string, invoke: () => Promise<Value>): Promise<Value> {
   signal.throwIfAborted()
   try {
     const value = await invoke()
@@ -113,20 +102,17 @@ async function call<Value>(
   }
 }
 
-function sanitizeError(
-  ctx: Context,
-  operation: string,
-  error: unknown,
-): HarnessError {
+function sanitizeError(ctx: Context, operation: string, error: unknown): HarnessError {
   const generic = genericFailure()
   const diagnostic = fullError(error)
   try {
     ctx.logger.warn(`tool-session-query: ${operation} failed: ${diagnostic}`)
     if (error instanceof SessionQueryError) {
       const code: unknown = error.code
-      const failure = typeof code === 'string' && Object.hasOwn(SAFE_SESSION_QUERY_FAILURES, code)
-        ? SAFE_SESSION_QUERY_FAILURES[code as SessionQueryErrorCode]
-        : undefined
+      const failure =
+        typeof code === 'string' && Object.hasOwn(SAFE_SESSION_QUERY_FAILURES, code)
+          ? SAFE_SESSION_QUERY_FAILURES[code as SessionQueryErrorCode]
+          : undefined
       if (failure !== undefined && failure.code !== 'SESSION_QUERY_TOOL_FAILED') {
         return new SessionQueryError(failure.message, failure.code)
       }
@@ -141,10 +127,7 @@ function sanitizeError(
 }
 
 function genericFailure(): HarnessError {
-  return new HarnessError(
-    'session query operation failed',
-    'SESSION_QUERY_TOOL_FAILED',
-  )
+  return new HarnessError('session query operation failed', 'SESSION_QUERY_TOOL_FAILED')
 }
 
 function fullError(error: unknown): string {

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 const root = resolve(import.meta.dirname, '../..')
 const roots: string[] = []
@@ -18,7 +18,7 @@ describe.skipIf(process.platform === 'win32')('packed-install npm cache', () => 
   // The verifier starts npm, lifecycle scripts, and the installed entry serially.
   it.each(['success', 'install failure', 'entry failure'] as const)(
     'owns cache writes and removes them after %s',
-    (outcome) => {
+    outcome => {
       const directory = mkdtempSync(join(tmpdir(), 'dsh-packed-cache-test-'))
       roots.push(directory)
       const source = join(directory, 'package')
@@ -42,11 +42,14 @@ fs.writeFileSync(process.env.CACHE_EVIDENCE, JSON.stringify({ consumer, files })
 `
       writeFileSync(join(source, 'probe.cjs'), probe + (outcome === 'install failure' ? '\nprocess.exit(37)\n' : ''))
       writeFileSync(join(source, 'lib/bin.js'), outcome === 'entry failure' ? 'process.exit(37)\n' : 'console.log("0.0.1")\n')
-      writeFileSync(join(source, 'package.json'), JSON.stringify({
-        name: '@deepseek-ai/dsh',
-        version: '0.0.1',
-        scripts: { postinstall: 'node probe.cjs' },
-      }))
+      writeFileSync(
+        join(source, 'package.json'),
+        JSON.stringify({
+          name: '@deepseek-ai/dsh',
+          version: '0.0.1',
+          scripts: { postinstall: 'node probe.cjs' },
+        }),
+      )
       const archive = spawnSync('tar', ['-czf', join(packed, 'dsh.tgz'), '-C', directory, 'package'], { encoding: 'utf8', timeout: 30_000 })
       expect(archive.error).toBeUndefined()
       expect(archive.signal).toBeNull()
@@ -62,9 +65,11 @@ fs.writeFileSync(process.env.CACHE_EVIDENCE, JSON.stringify({ consumer, files })
         TMP: temporary,
         TEMP: temporary,
       })
-      const result = spawnSync(process.execPath, [
-        '--import', 'tsx', 'scripts/release/verify-packed-install.ts', '--family', 'dsh', '--from', packed,
-      ], { cwd: root, env: environment, encoding: 'utf8', timeout: 120_000 })
+      const result = spawnSync(
+        process.execPath,
+        ['--import', 'tsx', 'scripts/release/verify-packed-install.ts', '--family', 'dsh', '--from', packed],
+        { cwd: root, env: environment, encoding: 'utf8', timeout: 120_000 },
+      )
       expect(result.error).toBeUndefined()
       expect(result.signal).toBeNull()
       expect(result.status, result.stdout + result.stderr).toBe(outcome === 'success' ? 0 : 1)

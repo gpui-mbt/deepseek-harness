@@ -45,11 +45,7 @@ export type TabFactory = (id: TabId) => TabRecord
  * @param mode - starting presentation; the embedder's product default.
  * @returns the collapsed single-pane starting state.
  */
-export function createInitialState(
-  minter: IdMinter,
-  makeInitialTab?: TabFactory,
-  mode: DockMode = 'push',
-): LayoutState {
+export function createInitialState(minter: IdMinter, makeInitialTab?: TabFactory, mode: DockMode = 'push'): LayoutState {
   const paneId: PaneId = minter.next('pane')
   const initial = makeInitialTab?.(minter.next('tab'))
   return {

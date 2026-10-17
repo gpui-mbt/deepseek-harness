@@ -1,6 +1,6 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { typertPlugin } from '../src/tsdown-plugin.ts'
 import { WorkspaceTypertGenerator } from '../src/workspace.ts'
 
@@ -20,8 +20,7 @@ describe('typertPlugin workspace Worker Thread', { timeout: 120_000 }, () => {
     plugin.buildStart({ cwd: join(root, 'packages/host') })
     await plugin.writeBundle({ dir: join(root, 'packages/client/lib') })
 
-    expect(expected.map(artifact => `${artifact.package}:${artifact.face}`))
-      .toEqual(['@fixture/host:host', '@fixture/client:client'])
+    expect(expected.map(artifact => `${artifact.package}:${artifact.face}`)).toEqual(['@fixture/host:host', '@fixture/client:client'])
     for (const artifact of expected) {
       const output = join(root, artifact.packageRoot, 'lib')
       expect(readFileSync(join(output, `typert.${artifact.face}.js`), 'utf8')).toBe(artifact.js)
@@ -36,8 +35,9 @@ describe('typertPlugin workspace Worker Thread', { timeout: 120_000 }, () => {
     manifest.files = ['lib/typert.host.d.ts']
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
 
-    await expect(typertPlugin({ mode: 'workspace', faces: ['host'] }).writeBundle({ dir: join(root, 'packages/host/lib') }))
-      .rejects.toThrow(/failed: TypertAnalysisError: typert\(host\): @fixture\/host package files must include lib\/typert\.host\.js$/)
+    await expect(
+      typertPlugin({ mode: 'workspace', faces: ['host'] }).writeBundle({ dir: join(root, 'packages/host/lib') }),
+    ).rejects.toThrow(/failed: TypertAnalysisError: typert\(host\): @fixture\/host package files must include lib\/typert\.host\.js$/)
   })
 })
 

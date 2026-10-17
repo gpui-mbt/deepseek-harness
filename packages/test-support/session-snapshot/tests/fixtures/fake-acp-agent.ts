@@ -69,9 +69,8 @@ interface Behavior {
 
 const sessionsRoot = process.env.DSH_SNAPSHOT_SESSIONS_ROOT ?? ''
 const fixtureFile = process.env.DSH_SNAPSHOT_FILE ?? ''
-const behavior: Behavior = fixtureFile === ''
-  ? {}
-  : JSON.parse(readFileSync(join(dirname(fixtureFile), 'behavior.json'), 'utf8')) as Behavior
+const behavior: Behavior =
+  fixtureFile === '' ? {} : (JSON.parse(readFileSync(join(dirname(fixtureFile), 'behavior.json'), 'utf8')) as Behavior)
 
 if (behavior.stderrNote !== undefined) process.stderr.write(`${behavior.stderrNote}\n`)
 if (behavior.failOnBoot === true) process.exit(7)
@@ -127,11 +126,14 @@ function instantiate(value: unknown): unknown {
 function persistParkedTurnStart(): void {
   parkedTurnLog = join(sessionsRoot, 'ready', sessionId, 'session.jsonl')
   mkdirSync(dirname(parkedTurnLog), { recursive: true })
-  writeFileSync(parkedTurnLog, [
-    JSON.stringify({ type: 'session', version: 0, id: sessionId, createdAt: 1, cwd: sessionCwd, delegationDepth: 0 }),
-    JSON.stringify({ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } }),
-    '',
-  ].join('\n'))
+  writeFileSync(
+    parkedTurnLog,
+    [
+      JSON.stringify({ type: 'session', version: 0, id: sessionId, createdAt: 1, cwd: sessionCwd, delegationDepth: 0 }),
+      JSON.stringify({ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } }),
+      '',
+    ].join('\n'),
+  )
 }
 
 /** Remove the transient open-turn log before publishing any scripted final logs. */
@@ -144,21 +146,23 @@ function clearParkedTurnStart(): void {
 async function handlePrompt(id: number | string): Promise<void> {
   chunk('thinking about it')
   if (behavior.echoEnv === true) {
-    chunk(`env:${JSON.stringify({
-      mode: process.env.DSH_SNAPSHOT,
-      override: process.env.DSH_SNAPSHOT_OVERRIDE ?? null,
-      childFiles: process.env.DSH_SNAPSHOT_CHILD_FILES ?? null,
-      spillRoot: process.env.DSH_SNAPSHOT_SPILL_ROOT ?? null,
-      // Scenario-supplied deployment env (the `Scenario.env` layering hook).
-      permissionMode: process.env.DSH_PERMISSION_MODE ?? null,
-    })}`)
+    chunk(
+      `env:${JSON.stringify({
+        mode: process.env.DSH_SNAPSHOT,
+        override: process.env.DSH_SNAPSHOT_OVERRIDE ?? null,
+        childFiles: process.env.DSH_SNAPSHOT_CHILD_FILES ?? null,
+        spillRoot: process.env.DSH_SNAPSHOT_SPILL_ROOT ?? null,
+        // Scenario-supplied deployment env (the `Scenario.env` layering hook).
+        permissionMode: process.env.DSH_PERMISSION_MODE ?? null,
+      })}`,
+    )
   }
   if (behavior.echoWorkspace === true) {
     chunk(`workspace:${readdirSync(process.cwd()).sort().join(',')}`)
   }
   if (behavior.permissionProbe === true) {
     const requestId = nextOutboundId++
-    const result = await new Promise<unknown>((resolve) => {
+    const result = await new Promise<unknown>(resolve => {
       pendingOutbound.set(requestId, resolve)
       send({
         id: requestId,
@@ -276,8 +280,10 @@ function flushLogsAndExit(): void {
 }
 
 const rl = createInterface({ input: process.stdin })
-rl.on('line', (line) => {
+rl.on('line', line => {
   if (line.trim().length === 0) return
   handleFrame(JSON.parse(line) as Record<string, unknown>)
 })
-rl.on('close', () => { flushLogsAndExit() })
+rl.on('close', () => {
+  flushLogsAndExit()
+})

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 /**
  * Keyless built-artifact smoke: plain Node imports the package by name through its exports map,
@@ -12,8 +12,9 @@ import { describe, expect, it } from 'vitest'
  */
 
 const pkgDir = fileURLToPath(new URL('..', import.meta.url))
-const built = ['lib/index.js', 'lib/process.js'].every(file => existsSync(join(pkgDir, file)))
-  && existsSync(join(pkgDir, '../ptc-runtime/lib/index.js'))
+const built =
+  ['lib/index.js', 'lib/process.js'].every(file => existsSync(join(pkgDir, file))) &&
+  existsSync(join(pkgDir, '../ptc-runtime/lib/index.js'))
 
 describe.skipIf(!built)('built lib real load path (plain node)', () => {
   it('runs a TypeScript program with a binding through lib/index.js and its lib/process.js entry', async () => {

@@ -3,8 +3,7 @@ import type { PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-
 import css from './GeneralSection.module.css'
 
 /** Full component props: section owner share plus item render share. */
-export type GeneralSectionComponentProps =
-  PropsRuntime<'settings.section'> & PropsRenderSlots<'settings.general.item'>
+export type GeneralSectionComponentProps = PropsRuntime<'settings.section'> & PropsRenderSlots<'settings.general.item'>
 
 /**
  * Render the General section content column.
@@ -12,9 +11,5 @@ export type GeneralSectionComponentProps =
  * @returns the section element tree.
  */
 export function GeneralSection({ renderSlot }: GeneralSectionComponentProps) {
-  return (
-    <div className={css.section}>
-      {renderSlot('settings.general.item', {})}
-    </div>
-  )
+  return <div className={css.section}>{renderSlot('settings.general.item', {})}</div>
 }

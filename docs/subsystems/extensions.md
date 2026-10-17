@@ -58,7 +58,7 @@ async query( platform: CordisInspectPlatform, providerId: string, methodName: st
  * @param resolution - Client provider result or failure.
  * @returns acknowledgement with accepted true only for a success that settles the query; only the first failure diagnostic is retained.
  */
-resolveClientQuery( agent: Agent, requestId: CordisInspectRequestId, resolution: CordisInspectQueryResolution, ): CordisInspectResolveAck
+resolveClientQuery(agent: Agent, requestId: CordisInspectRequestId, resolution: CordisInspectQueryResolution): CordisInspectResolveAck
 ```
 
 Types: [Agent](core.md)
@@ -126,7 +126,7 @@ async run( agent: Agent, pluginId: CordisDynamicPluginId, packageId: CordisDynam
  * @param pluginRunId - Exact active run authorized to receive source.
  * @returns Client source and its Plugin, Package, and run identities.
  */
-@Remote('getClientCode') getClientCode( agent: Agent, pluginId: CordisDynamicPluginId, pluginRunId: CordisDynamicPluginRunId, ): DynamicCordisClientSource
+@Remote('getClientCode') getClientCode(agent: Agent, pluginId: CordisDynamicPluginId, pluginRunId: CordisDynamicPluginRunId): DynamicCordisClientSource
 
 /**
  * Resolve one model-driven Client activation request.
@@ -134,7 +134,7 @@ async run( agent: Agent, pluginId: CordisDynamicPluginId, packageId: CordisDynam
  * @param resolution - Browser refusal or exact Client activation result.
  * @returns Whether the still-pending request accepted this resolution.
  */
-@Remote('resolveRequestRun') async resolveRequestRun( requestId: ApprovalRequestId, resolution: DynamicCordisRunResolution, ): Promise<DynamicCordisResolveAck>
+@Remote('resolveRequestRun') async resolveRequestRun(requestId: ApprovalRequestId, resolution: DynamicCordisRunResolution): Promise<DynamicCordisResolveAck>
 
 /**
  * Settle a direct panel run after this page loaded or failed its Client half.
@@ -176,7 +176,7 @@ async stop(agent: Agent, pluginId: CordisDynamicPluginId): Promise<DynamicCordis
  * @returns acknowledgement with accepted true only for a valid success that settles the query;
  * pending-query failures return { accepted: false } and retain only the first diagnostic.
  */
-@Remote('resolveInspectQuery') resolveInspectQuery( agent: Agent, requestId: CordisInspectRequestId, resolution: CordisInspectQueryResolution, ): CordisInspectResolveAck
+@Remote('resolveInspectQuery') resolveInspectQuery(agent: Agent, requestId: CordisInspectRequestId, resolution: CordisInspectQueryResolution): CordisInspectResolveAck
 
 /**
  * Frame-wide inventory, grouped as one row per stable Plugin.
@@ -221,7 +221,7 @@ inspectPlugin(agent: Agent, pluginId: CordisDynamicPluginId): DynamicCordisPlugi
  * @param packageId - Exact immutable Package identity to inspect.
  * @returns Package metadata, source, and the Plugin's lifecycle pointers.
  */
-inspectPackage( agent: Agent, pluginId: CordisDynamicPluginId, packageId: CordisDynamicPackageId, ): DynamicCordisPackageInspection
+inspectPackage(agent: Agent, pluginId: CordisDynamicPluginId, packageId: CordisDynamicPackageId): DynamicCordisPackageInspection
 
 /**
  * Record a post-load render failure for the exact active run.

@@ -13,14 +13,9 @@ const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
  * @param {string} hostArch - Build-host architecture used when no target override exists.
  * @returns {'mac-arm64' | 'mac-x64' | 'win-x64'} Supported Desktop target name.
  */
-export function resolveDesktopBuildTarget(
-  env = process.env,
-  hostPlatform = process.platform,
-  hostArch = process.arch,
-) {
+export function resolveDesktopBuildTarget(env = process.env, hostPlatform = process.platform, hostArch = process.arch) {
   const platform = env.DSH_DESKTOP_TARGET_PLATFORM ?? env.npm_config_platform ?? hostPlatform
-  const arch = env.DSH_DESKTOP_TARGET_ARCH ?? env.npm_config_arch
-    ?? (platform === 'win32' || platform === 'win' ? 'x64' : hostArch)
+  const arch = env.DSH_DESKTOP_TARGET_ARCH ?? env.npm_config_arch ?? (platform === 'win32' || platform === 'win' ? 'x64' : hostArch)
   const os = platform === 'darwin' ? 'mac' : platform === 'win32' || platform === 'win' ? 'win' : platform
   const target = `${os}-${arch}`
   if (!SUPPORTED_TARGETS.has(target)) {
@@ -82,11 +77,7 @@ export function desktopTargetPlatform(target) {
  * @param {string} hostArch - Build-host architecture used when no target override exists.
  * @returns {ReturnType<typeof desktopTargetBuildPaths>} Selected target paths.
  */
-export function resolveDesktopTargetBuildPaths(
-  env = process.env,
-  hostPlatform = process.platform,
-  hostArch = process.arch,
-) {
+export function resolveDesktopTargetBuildPaths(env = process.env, hostPlatform = process.platform, hostArch = process.arch) {
   return desktopTargetBuildPaths(resolveDesktopBuildTarget(env, hostPlatform, hostArch))
 }
 
@@ -99,11 +90,7 @@ export function resolveDesktopTargetBuildPaths(
  * @param {string} hostArch - Build-host architecture used when no target override exists.
  * @returns {string} Primary-runtime directory prepared for the selected target.
  */
-export function developmentRuntimeDirectory(
-  env = process.env,
-  hostPlatform = process.platform,
-  hostArch = process.arch,
-) {
+export function developmentRuntimeDirectory(env = process.env, hostPlatform = process.platform, hostArch = process.arch) {
   return join(resolveDesktopTargetBuildPaths(env, hostPlatform, hostArch).runtime, 'primary-runtime')
 }
 

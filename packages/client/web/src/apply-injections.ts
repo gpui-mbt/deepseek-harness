@@ -15,14 +15,11 @@ function assertNever(row: never): never {
  * @param rows - Injection table from the boot payload.
  * @param loadScript - Executes one script-src row through the page owner's asset transport.
  */
-export async function applyIndexInjections(
-  rows: readonly IndexInjection[],
-  loadScript: (src: string) => Promise<void>,
-): Promise<void> {
+export async function applyIndexInjections(rows: readonly IndexInjection[], loadScript: (src: string) => Promise<void>): Promise<void> {
   for (const row of rows) {
     switch (row.kind) {
       case 'global':
-        (globalThis as Record<string, unknown>)[row.name] = row.value
+        ;(globalThis as Record<string, unknown>)[row.name] = row.value
         break
       case 'script': {
         const el = document.createElement('script')
@@ -43,7 +40,7 @@ export async function applyIndexInjections(
         break
       }
       case 'html':
-        (row.placement === 'head' ? document.head : document.body).insertAdjacentHTML('beforeend', row.html)
+        ;(row.placement === 'head' ? document.head : document.body).insertAdjacentHTML('beforeend', row.html)
         break
       default:
         assertNever(row)

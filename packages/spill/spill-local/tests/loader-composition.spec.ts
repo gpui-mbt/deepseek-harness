@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -42,13 +42,12 @@ describe('spill-local real Loader composition through cordis.yml', () => {
     await utimes(fresh, (now - DAY_MS) / 1000, (now - DAY_MS) / 1000)
 
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-spill-local'",
-      '  config:',
-      `    root: ${JSON.stringify(root)}`,
-      '    cleanupPeriodDays: 30',
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      ["- name: '@deepseek-ai/dsh-spill-local'", '  config:', `    root: ${JSON.stringify(root)}`, '    cleanupPeriodDays: 30', ''].join(
+        '\n',
+      ),
+    )
 
     context = new Context()
     context.baseUrl = pathToFileURL(root).href + '/'

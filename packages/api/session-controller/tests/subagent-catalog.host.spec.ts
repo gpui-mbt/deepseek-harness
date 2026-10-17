@@ -5,12 +5,8 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionSeq, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  createSessionTestController,
-  installSessionReadTestServices,
-  testSessionPersistence,
-} from './test-remote.ts'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { createSessionTestController, installSessionReadTestServices, testSessionPersistence } from './test-remote.ts'
 
 const defaults = {
   defaultModelSelection: () => ({ provider: 'fixture', model: 'fixture-model' }),
@@ -26,18 +22,20 @@ const header: SessionHeader = {
   isSeeded: false,
   cwd: '/workspace',
 }
-const events: SessionEvent[] = [{
-  type: 'subagent/catalog',
-  seq: SessionSeq(0),
-  time: 1,
-  data: {
-    version: 0,
-    childId: CHILD,
-    childCreatedAt: 2,
-    mode: 'continuable',
-    label: 'worker',
+const events: SessionEvent[] = [
+  {
+    type: 'subagent/catalog',
+    seq: SessionSeq(0),
+    time: 1,
+    data: {
+      version: 0,
+      childId: CHILD,
+      childCreatedAt: 2,
+      mode: 'continuable',
+      label: 'worker',
+    },
   },
-}]
+]
 
 const contexts: Context[] = []
 afterEach(async () => {
@@ -50,12 +48,13 @@ async function bench() {
   contexts.push(ctx)
   await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
-  ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
-    list: () => Promise.resolve([header]),
-    inspect: (sessionId: SessionId) => Promise.resolve(
-      sessionId === PARENT ? { meta: header, events } : undefined,
-    ),
-  }) as never)
+  ctx.provide(
+    'sessionPersistence',
+    testSessionPersistence(ctx, {
+      list: () => Promise.resolve([header]),
+      inspect: (sessionId: SessionId) => Promise.resolve(sessionId === PARENT ? { meta: header, events } : undefined),
+    }) as never,
+  )
   installSessionReadTestServices(ctx)
   provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SubagentRuntime)
@@ -72,35 +71,51 @@ describe('SessionController subagent catalog', () => {
       await stream.next()
       const parent = ctx.sessions.create(PARENT, { meta: { createdAt: 7, cwd: '/workspace' } })
       parent.append('subagent/catalog', {
-        version: 0, childId: CHILD, childCreatedAt: 8, mode: 'continuable', label: 'worker',
+        version: 0,
+        childId: CHILD,
+        childCreatedAt: 8,
+        mode: 'continuable',
+        label: 'worker',
       })
       let frame = await stream.next()
-      while (!frame.done && !(frame.value.type === 'projection' && frame.value.key === 'subagentCatalog'
-        && Array.isArray(frame.value.value) && frame.value.value.length === 1)) {
+      while (
+        !frame.done &&
+        !(
+          frame.value.type === 'projection' &&
+          frame.value.key === 'subagentCatalog' &&
+          Array.isArray(frame.value.value) &&
+          frame.value.value.length === 1
+        )
+      ) {
         frame = await stream.next()
       }
-      expect(frame.value).toMatchObject({ type: 'projection', sessionId: PARENT, key: 'subagentCatalog',
-        value: [{ id: CHILD, createdAt: 8, mode: 'continuable', label: 'worker' }] })
+      expect(frame.value).toMatchObject({
+        type: 'projection',
+        sessionId: PARENT,
+        key: 'subagentCatalog',
+        value: [{ id: CHILD, createdAt: 8, mode: 'continuable', label: 'worker' }],
+      })
     } finally {
       signal.abort()
       await stream.return?.()
     }
   })
 
-  it.each([false, true])('reads an uncached parent catalog without loading an Agent (explicit current format: %s)', async (withFormat) => {
+  it.each([false, true])('reads an uncached parent catalog without loading an Agent (explicit current format: %s)', async withFormat => {
     const { ctx, controller } = await bench()
     const stored = await ctx.sessionPersistence.stat(PARENT)
     if (stored === undefined) throw new Error('parent fixture is missing')
-    const stat = vi.spyOn(ctx.sessionPersistence, 'stat').mockResolvedValueOnce(withFormat
-      ? { ...stored, formatStatus: 'current' }
-      : stored)
+    const stat = vi
+      .spyOn(ctx.sessionPersistence, 'stat')
+      .mockResolvedValueOnce(withFormat ? { ...stored, formatStatus: 'current' } : stored)
     const observe = vi.spyOn(ctx.sessionQuery, 'observeSession')
     const open = vi.spyOn(ctx.sessionPersistence, 'open')
     const resume = vi.spyOn(ctx.agents, 'resume').mockRejectedValue(new Error('unexpected Agent resume'))
     const signal = new AbortController().signal
 
     await expect(controller.projections({ sessionId: PARENT }, signal)).resolves.toMatchObject({
-      kind: 'sequenced', values: { subagentCatalog: [{ id: CHILD, mode: 'continuable', label: 'worker' }] },
+      kind: 'sequenced',
+      values: { subagentCatalog: [{ id: CHILD, mode: 'continuable', label: 'worker' }] },
     })
     expect(stat).toHaveBeenCalledWith(PARENT, { signal })
     expect(observe).toHaveBeenCalledWith(PARENT, { signal })
@@ -122,8 +137,10 @@ describe('SessionController subagent catalog', () => {
     const open = vi.spyOn(ctx.sessionPersistence, 'open')
 
     expect(stored.header.version).toBe(SESSION_FORMAT_VERSION)
-    await expect(controller.projections({ sessionId: PARENT }, new AbortController().signal))
-      .resolves.toEqual({ kind: 'migration-required', values: {} })
+    await expect(controller.projections({ sessionId: PARENT }, new AbortController().signal)).resolves.toEqual({
+      kind: 'migration-required',
+      values: {},
+    })
 
     expect(observe).not.toHaveBeenCalled()
     expect(open).not.toHaveBeenCalled()
@@ -146,11 +163,18 @@ describe('SessionController subagent catalog', () => {
     const hydrate = vi.spyOn(ctx.sessionProjections, 'hydrate')
 
     const result = await controller.projections({ sessionId: PARENT }, new AbortController().signal)
-    expect(result).toMatchObject({ kind: 'sequenced', values: { subagentCatalog: [{
-      id: CHILD,
-      mode: 'one-shot',
-      label: 'live worker',
-    }] } })
+    expect(result).toMatchObject({
+      kind: 'sequenced',
+      values: {
+        subagentCatalog: [
+          {
+            id: CHILD,
+            mode: 'one-shot',
+            label: 'live worker',
+          },
+        ],
+      },
+    })
     expect(snapshot).toHaveBeenCalledWith(parent)
     expect(hydrate).not.toHaveBeenCalled()
   })
@@ -159,10 +183,15 @@ describe('SessionController subagent catalog', () => {
     const { ctx, controller } = await bench()
     const parent = ctx.sessions.create(PARENT, { meta: { createdAt: 1, cwd: '/workspace' } })
     parent.append('subagent/catalog', {
-      version: 0, childId: CHILD, childCreatedAt: 8, mode: 'one-shot',
+      version: 0,
+      childId: CHILD,
+      childCreatedAt: 8,
+      mode: 'one-shot',
     })
     const summaries: boolean[] = []
-    ctx.on('api-session/added', (summary) => { summaries.push(summary.agentAvailable) })
+    ctx.on('api-session/added', summary => {
+      summaries.push(summary.agentAvailable)
+    })
     const dispose = ctx.agents.register({ id: PARENT, session: parent, status: 'idle', ctx } as Agent)
     await dispose
     expect(summaries).toEqual([true])
@@ -173,7 +202,11 @@ describe('SessionController subagent catalog', () => {
     const unavailable = await controller.list({}, new AbortController().signal)
     expect(unavailable.items.find(item => item.sessionId === PARENT)?.agentAvailable).toBe(false)
     const result = await controller.projections({ sessionId: PARENT }, new AbortController().signal)
-    expect(result).toMatchObject({ kind: 'sequenced', asOfSeq: 0, values: { subagentCatalog: [{ id: CHILD, createdAt: 8, mode: 'one-shot' }] } })
+    expect(result).toMatchObject({
+      kind: 'sequenced',
+      asOfSeq: 0,
+      values: { subagentCatalog: [{ id: CHILD, createdAt: 8, mode: 'one-shot' }] },
+    })
   })
 
   it('does not republish a Session when its Agent outlives the Session registration', async () => {
@@ -199,8 +232,10 @@ describe('SessionController subagent catalog', () => {
     const session = ctx.sessions.create(PARENT, { meta: { cwd: '/workspace' } })
     const expected = ctx.sessionProjections.snapshot(session)
     expect(expected.values.subagentCatalog).toBeUndefined()
-    await expect(controller.projections({ sessionId: PARENT }, new AbortController().signal))
-      .resolves.toEqual({ kind: 'sequenced', ...expected })
+    await expect(controller.projections({ sessionId: PARENT }, new AbortController().signal)).resolves.toEqual({
+      kind: 'sequenced',
+      ...expected,
+    })
     expect(ctx.agents.get(PARENT)).toBeUndefined()
   })
 

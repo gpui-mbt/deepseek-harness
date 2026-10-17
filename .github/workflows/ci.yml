@@ -481,7 +481,7 @@ jobs:
       # changes with the Node version, so this belongs to the version matrix
       # rather than to every commit's checks.
       - name: Check Loader internal shape detection
-        run: pnpm exec vitest run packages/boot/app-boot/tests/loader-shape.compat.spec.ts
+        run: pnpm exec vp test --config vitest.config.ts packages/boot/app-boot/tests/loader-shape.compat.spec.ts
 
   python-sdk:
     if: github.event_name == 'pull_request'
@@ -718,7 +718,7 @@ jobs:
       - name: Run Windows-specific native tests
         shell: pwsh
         run: >-
-          pnpm exec vitest run
+          pnpm exec vp test --config vitest.config.ts
           --no-file-parallelism
           --testTimeout 90000
           packages/shell/tool-pwsh/tests/loader.spec.ts

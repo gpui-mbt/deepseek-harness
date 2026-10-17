@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SegmentedTabs } from '../src/SegmentedTabs.tsx'
 
 afterEach(cleanup)
@@ -35,7 +35,11 @@ describe('SegmentedTabs', () => {
     const onKeyDown = vi.fn()
     function Harness() {
       const [value, setValue] = useState<string>('details')
-      return <div onKeyDown={onKeyDown}><SegmentedTabs items={items} value={value} onChange={setValue} label="Help" /></div>
+      return (
+        <div onKeyDown={onKeyDown}>
+          <SegmentedTabs items={items} value={value} onChange={setValue} label="Help" />
+        </div>
+      )
     }
     render(<Harness />)
     const details = screen.getByRole('tab', { name: 'Details' })

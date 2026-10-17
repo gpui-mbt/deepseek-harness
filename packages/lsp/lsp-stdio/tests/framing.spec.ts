@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { encodeMessage, MessageDecoder } from '@deepseek-ai/dsh-lsp-stdio'
 
 /** Frame a message the way a server would, for decoder round-trips. */

@@ -22,11 +22,7 @@ const NAME = 'dsh'
  * @param fromDefaultProfile - shipped template that replaces the profile before loading it.
  * @returns after collection and output, with diagnostics also written to stderr.
  */
-export async function runDumpConfigSchema(
-  profile: string,
-  patches: readonly string[],
-  fromDefaultProfile?: string,
-): Promise<void> {
+export async function runDumpConfigSchema(profile: string, patches: readonly string[], fromDefaultProfile?: string): Promise<void> {
   const loaded = prepareProfile(profile, true, fromDefaultProfile)
   const layers = collectConfigDumpLayers(loaded, false, patches)
   // oxlint-disable-next-line typescript/unbound-method -- Saved only for exact restoration, never called unbound.
@@ -35,7 +31,11 @@ export async function runDumpConfigSchema(
   // Trusted module diagnostics must not precede the JSON document on stdout.
   process.stdout.write = process.stderr.write.bind(process.stderr)
   try {
-    dump = await generateConfigSchema(loaded, layers.map(layer => layer.patches), INSTALL_ANCHOR)
+    dump = await generateConfigSchema(
+      loaded,
+      layers.map(layer => layer.patches),
+      INSTALL_ANCHOR,
+    )
   } finally {
     process.stdout.write = stdoutWrite
   }

@@ -24,9 +24,14 @@ export const goalCommandReferenceRule: UserTextRule<'command'> = {
     const commands = context.read('commands')
     let best: UserTextNode<'command'> | undefined
     for (const { start, end, name } of commands ?? []) {
-      if (start < from || end > text.length || text.slice(start, end) !== `/${name}`
-        || (start !== 0 && !/\s/u.test(text.slice(start - 1, start)))
-        || (end !== text.length && !/\s/u.test(text.slice(end, end + 1)))) continue
+      if (
+        start < from ||
+        end > text.length ||
+        text.slice(start, end) !== `/${name}` ||
+        (start !== 0 && !/\s/u.test(text.slice(start - 1, start))) ||
+        (end !== text.length && !/\s/u.test(text.slice(end, end + 1)))
+      )
+        continue
       if (best === undefined || start < best.start || (start === best.start && end > best.end)) {
         best = { id: 'command', start, end, data: { name } }
       }

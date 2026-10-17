@@ -27,39 +27,87 @@ export function installStopShortcut(
     unwatch()
     unwatch = () => {}
   })
-  const reset = (): void => { sequence.reset() }
-  const off = shortcuts.observeFixedInput((input) => {
-    if (input.type === 'reset') { reset(); return }
+  const reset = (): void => {
+    sequence.reset()
+  }
+  const off = shortcuts.observeFixedInput(input => {
+    if (input.type === 'reset') {
+      reset()
+      return
+    }
     const { gesture, context } = input
-    if (gesture.code !== 'Escape' || gesture.repeat || gesture.composing || gesture.defaultPrevented
-      || gesture.control || gesture.alt || gesture.shift || gesture.meta || context.modal !== null
-      || context.region === 'terminal' || context.target === null) { reset(); return }
+    if (
+      gesture.code !== 'Escape' ||
+      gesture.repeat ||
+      gesture.composing ||
+      gesture.defaultPrevented ||
+      gesture.control ||
+      gesture.alt ||
+      gesture.shift ||
+      gesture.meta ||
+      context.modal !== null ||
+      context.region === 'terminal' ||
+      context.target === null
+    ) {
+      reset()
+      return
+    }
     const target = context.target
     const occurrence = target.closest<HTMLElement>('[data-conversation-session]')
     const region = target.closest('[data-conversation-region]')
-    if (occurrence === null || region === null || !occurrence.contains(region)
-      || target.closest('[data-approval-key], iframe, .xterm, [inert]') !== null) { reset(); return }
+    if (
+      occurrence === null ||
+      region === null ||
+      !occurrence.contains(region) ||
+      target.closest('[data-approval-key], iframe, .xterm, [inert]') !== null
+    ) {
+      reset()
+      return
+    }
     const sessionId = occurrence.dataset.conversationSession as SessionId
     const binding = sessions.binding(sessionId)
-    if (binding === undefined) { reset(); return }
+    if (binding === undefined) {
+      reset()
+      return
+    }
     const turnSource = openTurn(binding)
     const currentTurn = (): number | undefined => {
       const session = binding.session.getSnapshot()
-      if (!session.running || session.removed
-        || (session.subagent !== null && session.subagent.address.mode !== 'continuable')
-        || uiSession.sessionStatus.getSnapshot().get(sessionId)?.pendingInteraction !== undefined) return undefined
+      if (
+        !session.running ||
+        session.removed ||
+        (session.subagent !== null && session.subagent.address.mode !== 'continuable') ||
+        uiSession.sessionStatus.getSnapshot().get(sessionId)?.pendingInteraction !== undefined
+      )
+        return undefined
       return turnSource.getSnapshot()
     }
     const turn = currentTurn()
-    if (turn === undefined) { reset(); return }
+    if (turn === undefined) {
+      reset()
+      return
+    }
     input.consume()
-    const stopped = sequence.press({ sessionId, turn, generation: binding, region, cancel: () => { cancel(sessionId) } })
+    const stopped = sequence.press({
+      sessionId,
+      turn,
+      generation: binding,
+      region,
+      cancel: () => {
+        cancel(sessionId)
+      },
+    })
     if (stopped) return
     const changed = (): void => {
       if (sessions.binding(sessionId) !== binding || currentTurn() !== turn) reset()
     }
     const disposers = [turnSource.subscribe(changed), binding.session.subscribe(changed), uiSession.sessionStatus.subscribe(changed)]
-    unwatch = () => { for (const dispose of disposers) dispose() }
+    unwatch = () => {
+      for (const dispose of disposers) dispose()
+    }
   })
-  return () => { off(); reset() }
+  return () => {
+    off()
+    reset()
+  }
 }

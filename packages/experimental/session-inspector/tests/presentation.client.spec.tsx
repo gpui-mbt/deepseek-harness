@@ -2,7 +2,7 @@
 /** The single Inspector switches sources and navigates object references inside folded table groups. */
 
 import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector, makeTranslate, sessionSnapshot } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -14,24 +14,37 @@ import { mainChatRoot } from '../src/client/views/chat-node/dom.ts'
 import { InspectorChatPicker } from '../src/client/views/chat-node/picker.ts'
 import { installInspectorTableGeometry } from './table-geometry.client.ts'
 
-beforeEach(() => { installInspectorTableGeometry() })
+beforeEach(() => {
+  installInspectorTableGeometry()
+})
 afterEach(cleanup)
 
 it('switches presentation in one table and follows a linked node through its collapsed parent', async () => {
   vi.stubGlobal('matchMedia', () => ({ matches: true }))
-  onTestFinished(() => { cleanup(); vi.unstubAllGlobals() })
+  onTestFinished(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
   const step = { text: 'step content' }
   const turn = { step }
   const target = { text: 'linked content', turn }
   const source = { linked: target }
   const references = new WeakMap<object, InspectorObjectReference>()
-  const linked: InspectorObjectReference = { id: 'node:target', kind: 'node', identity: 'target',
-    rowKey: 'target', target: { nodeKey: 'target' }, read: () => target }
+  const linked: InspectorObjectReference = {
+    id: 'node:target',
+    kind: 'node',
+    identity: 'target',
+    rowKey: 'target',
+    target: { nodeKey: 'target' },
+    read: () => target,
+  }
   references.set(target, linked)
   references.set(turn, { id: 'turn:1', kind: 'turn', identity: '1', target: { turn: 1 }, read: () => turn })
   references.set(step, { id: 'step:1/1', kind: 'step', identity: '1/1', target: { turn: 1, step: 1 }, read: () => step })
   const rows = createSnapshotStore<readonly InspectorRow[]>([
-    { key: 'source', depth: 0 }, { key: 'group', depth: 0 }, { key: 'target', parent: 'group', depth: 1 },
+    { key: 'source', depth: 0 },
+    { key: 'group', depth: 0 },
+    { key: 'target', parent: 'group', depth: 1 },
   ])
   const records = new Map<string, InspectorRecord>([
     ['source', { type: 'source-type', identity: 'source', location: '', value: source }],
@@ -40,22 +53,31 @@ it('switches presentation in one table and follows a linked node through its col
   ])
   const log = createSnapshotStore<readonly InspectorRow[]>([{ key: 'event', depth: 0 }])
   const props: SessionInspectorProps = {
-    useChatRows: bindSnapshotSelector(rows), useLogRows: bindSnapshotSelector(log),
-    useChatRecord: ((key: string) => records.get(key)),
-    useLogRecord: (() => ({ type: 'session/event', identity: '1', location: '', value: { text: 'log data' } })),
+    useChatRows: bindSnapshotSelector(rows),
+    useLogRows: bindSnapshotSelector(log),
+    useChatRecord: (key: string) => records.get(key),
+    useLogRecord: () => ({ type: 'session/event', identity: '1', location: '', value: { text: 'log data' } }),
     useSession: bindSnapshotSelector(createSnapshotStore(sessionSnapshot('presentation-session' as SessionId))),
-    objects: { sessionId: 'presentation-session' as SessionId, updates: createSnapshotStore<object>({}), reference: value => references.get(value),
-      row: key => key === 'target' ? linked : undefined },
-    pickRow: vi.fn((_target, mode) => mode === 'chat-node' ? 'target' : 'event'),
-    recordType: (key, mode) => mode === 'chat-node' ? records.get(key)?.type : 'session/event',
+    objects: {
+      sessionId: 'presentation-session' as SessionId,
+      updates: createSnapshotStore<object>({}),
+      reference: value => references.get(value),
+      row: key => (key === 'target' ? linked : undefined),
+    },
+    pickRow: vi.fn((_target, mode) => (mode === 'chat-node' ? 'target' : 'event')),
+    recordType: (key, mode) => (mode === 'chat-node' ? records.get(key)?.type : 'session/event'),
     logChatTarget: vi.fn(() => ({ nodeKey: 'target', turn: 1, step: 1 })),
-    chatRoot: mainChatRoot, resolveChatTargets: vi.fn((target: InspectorChatTarget) => [target]),
+    chatRoot: mainChatRoot,
+    resolveChatTargets: vi.fn((target: InspectorChatTarget) => [target]),
     pickChat: (owner, picked, cancelled) => {
       const picker = new InspectorChatPicker(mainChatRoot, owner, picked, cancelled, () => {})
       if (!picker.start()) return undefined
-      return () => { picker.dispose() }
+      return () => {
+        picker.dispose()
+      }
     },
-    loadOlder: async () => {}, t: makeTranslate(en),
+    loadOlder: async () => {},
+    t: makeTranslate(en),
   }
   const ui = render(<SessionInspectorView {...props} />)
   expect(ui.getAllByRole('table')).toHaveLength(1)
@@ -73,8 +95,11 @@ it('switches presentation in one table and follows a linked node through its col
   fireEvent.click(ui.getByRole('button', { name: '↗ Turn · 1' }))
   fireEvent.click(ui.getByRole('button', { name: '↗ Step · 1/1' }))
   const trail = () => within(ui.getByRole('navigation', { name: 'Raw data navigation' }))
-  expect(trail().getAllByRole('button').map(button => button.textContent))
-    .toEqual(['source-type · source', 'Node · target', 'Turn · 1', 'Step · 1/1'])
+  expect(
+    trail()
+      .getAllByRole('button')
+      .map(button => button.textContent),
+  ).toEqual(['source-type · source', 'Node · target', 'Turn · 1', 'Step · 1/1'])
   expect(ui.getByText('"step content"')).toBeTruthy()
   fireEvent.click(trail().getByRole('button', { name: 'Turn · 1' }))
   expect(trail().queryByRole('button', { name: 'Step · 1/1' })).toBeNull()
@@ -87,7 +112,11 @@ it('switches presentation in one table and follows a linked node through its col
   expect(ui.getByRole('button', { name: 'source-type' }).closest('tr')?.getAttribute('aria-selected')).toBe('true')
   expect(ui.queryByRole('button', { name: 'Return to selected row' })).toBeNull()
   fireEvent.click(ui.getByRole('button', { name: 'target-type' }))
-  expect(trail().getAllByRole('button').map(button => button.textContent)).toEqual(['target-type · target'])
+  expect(
+    trail()
+      .getAllByRole('button')
+      .map(button => button.textContent),
+  ).toEqual(['target-type · target'])
   fireEvent.change(ui.getByRole('combobox', { name: 'Presentation' }), { target: { value: 'session-log' } })
   expect(ui.queryByRole('navigation', { name: 'Raw data navigation' })).toBeNull()
   expect(ui.getAllByRole('table')).toHaveLength(1)
@@ -113,8 +142,13 @@ it('switches presentation in one table and follows a linked node through its col
   const picked = document.createElement('button')
   picked.dataset.chatNodeKey = 'target'
   picked.scrollIntoView = vi.fn()
-  flow.append(picked); view.append(flow); chat.append(view); document.body.append(chat)
-  onTestFinished(() => { chat.remove() })
+  flow.append(picked)
+  view.append(flow)
+  chat.append(view)
+  document.body.append(chat)
+  onTestFinished(() => {
+    chat.remove()
+  })
   const hitTest = Object.getOwnPropertyDescriptor(document, 'elementsFromPoint')
   Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: () => [picked] })
   onTestFinished(() => {
@@ -137,7 +171,9 @@ it('switches presentation in one table and follows a linked node through its col
   const before = vi.mocked(props.pickRow).mock.calls.length
   fireEvent.click(picked)
   expect(vi.mocked(props.pickRow).mock.calls).toHaveLength(before)
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: en['filter.title'] })) })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: en['filter.title'] }))
+  })
   expect(ui.getByRole('option', { name: 'target-type' })).toBeTruthy()
   fireEvent.click(ui.getByRole('option', { name: 'target-type' }))
   vi.mocked(props.pickRow).mockReturnValueOnce(undefined)

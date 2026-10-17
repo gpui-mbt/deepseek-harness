@@ -1,11 +1,6 @@
 /** Run publint over the exact manifest-declared publication view of every package. */
 
-import {
-  globSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-} from 'node:fs'
+import { globSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, posix, relative, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { publint, type Message, type PackFile } from 'publint'
@@ -35,25 +30,25 @@ interface PackageManifest {
 
 type PublintResult =
   | {
-    path: string
-    status: 'passed'
-    messages: Message[]
-    closureViolations: string[]
-    manifest: Record<string, unknown>
-  }
+      path: string
+      status: 'passed'
+      messages: Message[]
+      closureViolations: string[]
+      manifest: Record<string, unknown>
+    }
   | {
-    path: string
-    status: 'failed'
-    messages: Message[]
-    closureViolations: string[]
-    manifest: Record<string, unknown>
-    failure?: string
-  }
+      path: string
+      status: 'failed'
+      messages: Message[]
+      closureViolations: string[]
+      manifest: Record<string, unknown>
+      failure?: string
+    }
 
 function workspacePackages(): PackageTarget[] {
   return globSync('packages/*/*/package.json', { cwd: packagesRoot })
     .sort()
-    .map((manifestPath) => {
+    .map(manifestPath => {
       const absoluteManifestPath = resolve(packagesRoot, manifestPath)
       const manifest = JSON.parse(readFileSync(absoluteManifestPath, 'utf8')) as PackageManifest
       return { path: dirname(manifestPath), directory: dirname(absoluteManifestPath), manifest }
@@ -81,27 +76,16 @@ function publicationFiles(target: PackageTarget): PackFile[] {
   const declared = Array.isArray(target.manifest.files)
     ? target.manifest.files.filter((value): value is string => typeof value === 'string')
     : []
-  for (const pattern of [
-    ...declared,
-    'README*',
-    'LICENSE*',
-    'LICENCE*',
-    'CHANGELOG*',
-    'CHANGES*',
-    'HISTORY*',
-    'NOTICE*',
-  ]) {
+  for (const pattern of [...declared, 'README*', 'LICENSE*', 'LICENCE*', 'CHANGELOG*', 'CHANGES*', 'HISTORY*', 'NOTICE*']) {
     for (const match of globSync(pattern, { cwd: target.directory })) {
       addPath(resolve(target.directory, match), paths)
     }
   }
 
-  return [...paths]
-    .sort()
-    .map(path => ({
-      name: `package/${relative(target.directory, path).split(sep).join('/')}`,
-      data: readFileSync(path),
-    }))
+  return [...paths].sort().map(path => ({
+    name: `package/${relative(target.directory, path).split(sep).join('/')}`,
+    data: readFileSync(path),
+  }))
 }
 
 function addPath(path: string, paths: Set<string>): void {
@@ -135,9 +119,9 @@ function publicationClosureViolations(target: PackageTarget, files: readonly Pac
       const resolved = posix.normalize(posix.join(posix.dirname(file.name), imported.specifier))
       if (resolutionCandidates(resolved).some(candidate => published.has(candidate))) continue
       violations.push(
-        `${target.path}/${file.name.slice('package/'.length)}:${String(imported.line)}`
-        + ` imports ${JSON.stringify(imported.specifier)}, but ${target.manifest.name ?? target.path}`
-        + ` does not publish ${JSON.stringify(resolved.slice('package/'.length))}`,
+        `${target.path}/${file.name.slice('package/'.length)}:${String(imported.line)}` +
+          ` imports ${JSON.stringify(imported.specifier)}, but ${target.manifest.name ?? target.path}` +
+          ` does not publish ${JSON.stringify(resolved.slice('package/'.length))}`,
       )
     }
   }
@@ -147,10 +131,7 @@ function publicationClosureViolations(target: PackageTarget, files: readonly Pac
 /** Paths a relative JavaScript module request can resolve to in a published package. */
 function resolutionCandidates(target: string): string[] {
   const base = target.replace(/\/+$/, '')
-  return [
-    target,
-    ...['.js', '.mjs', '.cjs', '/index.js', '/index.mjs', '/index.cjs'].map(suffix => base + suffix),
-  ]
+  return [target, ...['.js', '.mjs', '.cjs', '/index.js', '/index.mjs', '/index.cjs'].map(suffix => base + suffix)]
 }
 
 /** Extract relative static imports, re-exports, dynamic imports, and requires. */
@@ -167,9 +148,10 @@ function relativeImports(file: string, sourceText: string): RelativeImport[] {
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
       record(node, node.moduleSpecifier)
-    } else if (ts.isCallExpression(node)
-      && (node.expression.kind === ts.SyntaxKind.ImportKeyword
-        || ts.isIdentifier(node.expression) && node.expression.text === 'require')) {
+    } else if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))
+    ) {
       record(node, node.arguments[0])
     }
     ts.forEachChild(node, visit)
@@ -206,15 +188,17 @@ async function runPublint(target: PackageTarget): Promise<PublintResult> {
 async function runAll(targets: PackageTarget[], concurrency: number): Promise<PublintResult[]> {
   let next = 0
   const results: Array<PublintResult | undefined> = []
-  await Promise.all(Array.from({ length: concurrency }, async () => {
-    for (;;) {
-      const index = next
-      next += 1
-      const target = targets[index]
-      if (target === undefined) return
-      results[index] = await runPublint(target)
-    }
-  }))
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      for (;;) {
+        const index = next
+        next += 1
+        const target = targets[index]
+        if (target === undefined) return
+        results[index] = await runPublint(target)
+      }
+    }),
+  )
 
   return targets.map((target, index) => {
     const result = results[index]

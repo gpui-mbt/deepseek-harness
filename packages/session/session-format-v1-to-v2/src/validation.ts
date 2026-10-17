@@ -70,14 +70,10 @@ function validateReleasedV2Artifact(
     const installed = knownEventTypes?.has(type) === true
     const ignorableUnknown = disposition === undefined && record['ignorable'] === true
     if (mode === 'current' && disposition === undefined && !installed && !ignorableUnknown) {
-      throw new SessionFormatUnsupportedMigrationError(
-        `format v2 contains unknown event type ${JSON.stringify(type)} at seq ${index}`,
-      )
+      throw new SessionFormatUnsupportedMigrationError(`format v2 contains unknown event type ${JSON.stringify(type)} at seq ${index}`)
     }
     const surface = disposition !== undefined && SURFACE_TYPES.has(type)
-    const optional = mode === 'physical' || disposition === undefined
-      ? SURFACE_OPTIONAL
-      : surface ? SURFACE_OPTIONAL : LOG_OPTIONAL
+    const optional = mode === 'physical' || disposition === undefined ? SURFACE_OPTIONAL : surface ? SURFACE_OPTIONAL : LOG_OPTIONAL
     assertReleasedV2Keys(record, EVENT_REQUIRED, optional, `format v2 event ${index}`)
     if (record['seq'] !== index) throw new SessionFormatError(`format v2 event ${index} is not dense`)
     sessionFormatSafeInteger(record['time'], `format v2 event ${index} time`)
@@ -96,9 +92,13 @@ function validateReleasedV2Artifact(
     throw new SessionFormatError('format v2 unseeded Session contains an inherited end-seed marker')
   }
   if (mode === 'current') {
-    assertReleasedArtifactRelationships({
-      ...artifact, header: { ...artifact.header, version: relationshipHeaderVersion },
-    }, RELEASED_V2_RELATIONSHIP_EXTENSIONS)
+    assertReleasedArtifactRelationships(
+      {
+        ...artifact,
+        header: { ...artifact.header, version: relationshipHeaderVersion },
+      },
+      RELEASED_V2_RELATIONSHIP_EXTENSIONS,
+    )
   }
 }
 
@@ -108,10 +108,7 @@ function validateReleasedV2Artifact(
  * @param label - diagnostic subject.
  * @returns the narrowed object.
  */
-export function releasedV2Record(
-  value: SessionFormatJsonValue | undefined,
-  label: string,
-): SessionFormatJsonObject {
+export function releasedV2Record(value: SessionFormatJsonValue | undefined, label: string): SessionFormatJsonObject {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new SessionFormatError(`${label} must be an object`)
   }

@@ -28,14 +28,15 @@ export default class CoverageFileTimesReporter implements Reporter {
    * @returns after the compact timing report has been written.
    */
   public async onTestRunEnd(testModules: readonly Pick<TestModule, 'moduleId' | 'diagnostic'>[]): Promise<void> {
-    const records = testModules.map((module) => {
+    const records = testModules.map(module => {
       const diagnostic = module.diagnostic()
       const file = relative(this.root, module.moduleId).split(sep).join('/')
-      const duration = diagnostic.environmentSetupDuration
-        + diagnostic.prepareDuration
-        + diagnostic.setupDuration
-        + diagnostic.collectDuration
-        + diagnostic.duration
+      const duration =
+        diagnostic.environmentSetupDuration +
+        diagnostic.prepareDuration +
+        diagnostic.setupDuration +
+        diagnostic.collectDuration +
+        diagnostic.duration
       return { file, duration }
     })
     await writeFile(this.outputFile, `${JSON.stringify(records)}\n`, 'utf8')

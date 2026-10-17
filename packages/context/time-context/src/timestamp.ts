@@ -29,9 +29,7 @@ export function createTimestampFormatter(timeZone?: string): Intl.DateTimeFormat
  * @returns The durable timestamp text.
  */
 export function formatTimestamp(now: number, formatter: Intl.DateTimeFormat, timeZone: string): string {
-  const parts = Object.fromEntries(
-    formatter.formatToParts(now).map(part => [part.type, part.value]),
-  ) as Record<TimestampPart, string>
+  const parts = Object.fromEntries(formatter.formatToParts(now).map(part => [part.type, part.value])) as Record<TimestampPart, string>
   const offset = parts.timeZoneName.replace(/^GMT$/, 'GMT+00:00').slice(3)
   return `${parts['year']}-${parts['month']}-${parts['day']}T${parts['hour']}:${parts['minute']}:${parts['second']}${offset}[${timeZone}]`
 }

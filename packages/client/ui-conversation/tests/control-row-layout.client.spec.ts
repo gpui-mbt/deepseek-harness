@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import './control-row-dom.ts'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { observeControlRow } from '../src/client/skeleton/control-row-layout.ts'
 
-afterEach(() => { document.body.replaceChildren() })
+afterEach(() => {
+  document.body.replaceChildren()
+})
 
 function fixture() {
   const row = document.createElement('div')
@@ -19,19 +21,34 @@ function fixture() {
   const sizes = { row: 400, tools: 180, trailing: 220 }
   row.getBoundingClientRect = () => new DOMRect(0, 0, sizes.row, 36)
   tools.getBoundingClientRect = () => new DOMRect(0, 0, tools.hidden ? 0 : sizes.tools, 28)
-  trailing.getBoundingClientRect = () => new DOMRect(0, 0,
-    row.hasAttribute('data-model-compact') ? 70 : sizes.trailing, 28)
+  trailing.getBoundingClientRect = () => new DOMRect(0, 0, row.hasAttribute('data-model-compact') ? 70 : sizes.trailing, 28)
   const observe = vi.fn()
   const disconnect = vi.fn()
   let resized: () => void = () => {}
-  vi.stubGlobal('ResizeObserver', class {
-    constructor(callback: () => void) { resized = callback }
-    observe = observe
-    disconnect = disconnect
-  })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resized = callback
+      }
+      observe = observe
+      disconnect = disconnect
+    },
+  )
   const dispose = observeControlRow(row)
   onTestFinished(dispose)
-  return { row, tools, label, sizes, observe, disconnect, dispose, resize: () => { resized() } }
+  return {
+    row,
+    tools,
+    label,
+    sizes,
+    observe,
+    disconnect,
+    dispose,
+    resize: () => {
+      resized()
+    },
+  }
 }
 
 describe('composer control row measurement', () => {

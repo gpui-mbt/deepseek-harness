@@ -1,7 +1,7 @@
 /** Live/persisted logical-corpus resolution for session-query. */
 
 import type { Context, Fiber } from '@deepseek-ai/cordis'
-import type { Session, SessionEvent, SessionHeader, SessionId , SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionHeader, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type SessionPersistence from '@deepseek-ai/dsh-session-persistence'
 import type { SessionPersistenceSnapshot } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionRecord } from './types.ts'
@@ -44,10 +44,13 @@ export class SessionCorpus {
     this._optionalPersistenceFiber = _ctx.inject(['sessionPersistence'], (childCtx: Context) => {
       const service = childCtx.sessionPersistence
       this._persistence = service
-      childCtx.effect(() => () => {
-        /* v8 ignore next -- a stale optional-service disposer cannot clear a replacement */
-        if (this._persistence === service) this._persistence = undefined
-      }, 'sessionQuery.persistenceBinding')
+      childCtx.effect(
+        () => () => {
+          /* v8 ignore next -- a stale optional-service disposer cannot clear a replacement */
+          if (this._persistence === service) this._persistence = undefined
+        },
+        'sessionQuery.persistenceBinding',
+      )
     })
     _ctx.effect(() => {
       return () => this._optionalPersistenceFiber.dispose()
@@ -179,9 +182,12 @@ export class SessionCorpus {
       const listed = persistedById.get(sessionId)
       if (listed === undefined) {
         const attached = this._ctx.sessions.get(sessionId)
-        resolved.set(sessionId, attached === undefined
-          ? { sessionId, status: 'rejected', reason: notFound(sessionId) }
-          : projectSource(sessionId, sourceLive(attached), project, signal))
+        resolved.set(
+          sessionId,
+          attached === undefined
+            ? { sessionId, status: 'rejected', reason: notFound(sessionId) }
+            : projectSource(sessionId, sourceLive(attached), project, signal),
+        )
         return
       }
       try {
@@ -194,10 +200,18 @@ export class SessionCorpus {
           return
         }
         assertSessionHeadersCompatible(loaded.header, listed)
-        resolved.set(sessionId, projectSource(sessionId, {
-          header: loaded.header,
-          events: loaded.events,
-        }, project, signal))
+        resolved.set(
+          sessionId,
+          projectSource(
+            sessionId,
+            {
+              header: loaded.header,
+              events: loaded.events,
+            },
+            project,
+            signal,
+          ),
+        )
       } catch (error: unknown) {
         if (signal?.aborted) signal.throwIfAborted()
         resolved.set(sessionId, { sessionId, status: 'rejected', reason: error })
@@ -214,9 +228,7 @@ export class SessionCorpus {
       }
     }
     const workerCount = Math.min(this._persistedReadConcurrency, unresolved.length)
-    const settlements = await Promise.allSettled(
-      Array.from({ length: workerCount }, () => worker()),
-    )
+    const settlements = await Promise.allSettled(Array.from({ length: workerCount }, () => worker()))
     if (signal?.aborted) signal.throwIfAborted()
     /* v8 ignore start -- per-id failures settle inside resolvePersisted; workers reject only on abort above */
     for (const settlement of settlements) {
@@ -261,37 +273,26 @@ function orderedResults<Value>(
   return ids.map(sessionId => resolved.get(sessionId) as LogicalProjectionResult<Value>)
 }
 
-async function listPersisted(
-  persistence: SessionPersistence,
-  signal?: AbortSignal,
-): Promise<readonly SessionPersistenceSnapshot[]> {
+async function listPersisted(persistence: SessionPersistence, signal?: AbortSignal): Promise<readonly SessionPersistenceSnapshot[]> {
   try {
     return await persistence.list(signal === undefined ? undefined : { signal })
   } catch (error: unknown) {
     if (signal?.aborted) signal.throwIfAborted()
-    throw new SessionQueryError(
-      `session persistence listing failed: ${errorMessage(error)}`,
-      'SESSION_QUERY_PERSISTENCE_FAILED',
-      { cause: error },
-    )
+    throw new SessionQueryError(`session persistence listing failed: ${errorMessage(error)}`, 'SESSION_QUERY_PERSISTENCE_FAILED', {
+      cause: error,
+    })
   }
 }
 
-async function inspectPersisted(
-  persistence: SessionPersistence,
-  sessionId: SessionId,
-  signal?: AbortSignal,
-): Promise<ColdSessionLog> {
+async function inspectPersisted(persistence: SessionPersistence, sessionId: SessionId, signal?: AbortSignal): Promise<ColdSessionLog> {
   try {
     return await readColdSessionLog(persistence, sessionId, signal)
   } catch (error: unknown) {
     if (signal?.aborted) signal.throwIfAborted()
     if (error instanceof Error && error.name === 'SessionPersistenceCorruptionError') {
-      throw new SessionQueryError(
-        `stored session "${sessionId}" is corrupt: ${errorMessage(error)}`,
-        'SESSION_QUERY_CORRUPT_SESSION',
-        { cause: error },
-      )
+      throw new SessionQueryError(`stored session "${sessionId}" is corrupt: ${errorMessage(error)}`, 'SESSION_QUERY_CORRUPT_SESSION', {
+        cause: error,
+      })
     }
     throw new SessionQueryError(
       `failed to read stored session "${sessionId}": ${errorMessage(error)}`,

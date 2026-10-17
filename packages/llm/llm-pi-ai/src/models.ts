@@ -44,7 +44,7 @@ export function createProvider(input: StaticProviderOptions): Provider {
   return {
     id: input.id,
     name: input.name,
-    ...input.baseUrl === undefined ? {} : { baseUrl: input.baseUrl },
+    ...(input.baseUrl === undefined ? {} : { baseUrl: input.baseUrl }),
     auth: input.auth,
     getModels: () => input.models,
     stream: (model, context, options) => input.api.stream(model, context, options),
@@ -59,7 +59,7 @@ export function createProvider(input: StaticProviderOptions): Provider {
  */
 export function getSupportedThinkingLevels(model: Model<Api>): ModelThinkingLevel[] {
   if (!model.reasoning) return ['off']
-  return THINKING_LEVELS.filter((level) => {
+  return THINKING_LEVELS.filter(level => {
     const mapped = model.thinkingLevelMap?.[level]
     if (mapped === null) return false
     if (level === 'xhigh' || level === 'max') return mapped !== undefined
@@ -74,18 +74,17 @@ export function getSupportedThinkingLevels(model: Model<Api>): ModelThinkingLeve
  */
 export function conversationUpdates(model: Model<Api>): Pick<LlmResolvedModelInfo, 'systemPromptUpdate' | 'toolUpdate'> {
   const compat = model.compat
-  if (compat === undefined || !('supportsMidConvoSystemMessages' in compat)
-    || !compat.supportsMidConvoSystemMessages) return {}
+  if (compat === undefined || !('supportsMidConvoSystemMessages' in compat) || !compat.supportsMidConvoSystemMessages) return {}
   const updates: Pick<LlmResolvedModelInfo, 'systemPromptUpdate' | 'toolUpdate'> = { systemPromptUpdate: 'in-history' }
-  if (model.api === 'anthropic-messages'
-    && 'supportsMidConvoToolChanges' in compat && compat.supportsMidConvoToolChanges) {
+  if (model.api === 'anthropic-messages' && 'supportsMidConvoToolChanges' in compat && compat.supportsMidConvoToolChanges) {
     updates.toolUpdate = 'in-history'
-  } else if (model.api === 'openai-completions'
-    && 'supportsMidConvoToolAdditions' in compat && compat.supportsMidConvoToolAdditions) {
+  } else if (model.api === 'openai-completions' && 'supportsMidConvoToolAdditions' in compat && compat.supportsMidConvoToolAdditions) {
     updates.toolUpdate = 'addition-only'
-  } else if ((model.api === 'openai-responses' || model.api === 'azure-openai-responses' || model.api === 'openai-codex-responses')
-    && (('supportsAdditionalTools' in compat && compat.supportsAdditionalTools)
-      || ('supportsToolSearch' in compat && compat.supportsToolSearch))) {
+  } else if (
+    (model.api === 'openai-responses' || model.api === 'azure-openai-responses' || model.api === 'openai-codex-responses') &&
+    (('supportsAdditionalTools' in compat && compat.supportsAdditionalTools) ||
+      ('supportsToolSearch' in compat && compat.supportsToolSearch))
+  ) {
     updates.toolUpdate = 'addition-only'
   }
   return updates

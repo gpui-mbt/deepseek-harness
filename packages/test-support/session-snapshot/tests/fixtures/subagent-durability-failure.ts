@@ -44,7 +44,7 @@ export function apply(ctx: Context): void {
   const agents = ctx.agents
   const create = agents.create.bind(agents)
 
-  agents.create = async (options) => {
+  agents.create = async options => {
     const handle = await create(options)
     if (!publishedFailure || options.meta?.parentSession === undefined) return handle
     handle.agent.followup = () => {
@@ -65,12 +65,15 @@ export function apply(ctx: Context): void {
     if (id === UNKNOWN_CHILD_ID) await followupsAccepted.promise
     return stat(id, options)
   }
-  ctx.effect(() => () => {
-    agents.create = create
-    persistence.stat = stat
-    followupsAccepted.resolve(undefined)
-    parentTurnClosed.resolve(undefined)
-  }, 'subagent snapshot ordering')
+  ctx.effect(
+    () => () => {
+      agents.create = create
+      persistence.stat = stat
+      followupsAccepted.resolve(undefined)
+      parentTurnClosed.resolve(undefined)
+    },
+    'subagent snapshot ordering',
+  )
 
   // The manager's settlement notice races whatever the parent is doing when the
   // child's Activation ends, and this transcript pins it as the parent's own
@@ -92,20 +95,21 @@ export function apply(ctx: Context): void {
   let realChildId: string | undefined
   const subagents = ctx.subagents as unknown as {
     sendMessage: (authority: unknown, childId: SessionId, content: unknown, options: unknown) => Promise<unknown>
-    prompt: (request: {
-      requestId: SubagentPromptRequestId
-      parentSessionId: SessionId
-      childSessionId: SessionId
-      mode: 'continuable'
-      delivery: 'steer'
-      content: readonly [{ readonly type: 'text'; readonly text: string }]
-    }, signal: AbortSignal) => Promise<unknown>
+    prompt: (
+      request: {
+        requestId: SubagentPromptRequestId
+        parentSessionId: SessionId
+        childSessionId: SessionId
+        mode: 'continuable'
+        delivery: 'steer'
+        content: readonly [{ readonly type: 'text'; readonly text: string }]
+      },
+      signal: AbortSignal,
+    ) => Promise<unknown>
   }
   const deliver = subagents.sendMessage.bind(subagents)
   subagents.sendMessage = (authority, childId, content, options) => {
-    const mapped = childId === PLACEHOLDER_CHILD_ID && realChildId !== undefined
-      ? SessionId(realChildId)
-      : childId
+    const mapped = childId === PLACEHOLDER_CHILD_ID && realChildId !== undefined ? SessionId(realChildId) : childId
     return deliver(authority, mapped, content, options)
   }
 
@@ -125,14 +129,17 @@ export function apply(ctx: Context): void {
     await followupsAccepted.promise
     if (humanSteer && !steering) {
       steering = true
-      await subagents.prompt({
-        requestId: 'snapshot-human-steer' as SubagentPromptRequestId,
-        parentSessionId: agent.session.header.parentSession,
-        childSessionId: SessionId(agent.session.header.id),
-        mode: 'continuable',
-        delivery: 'steer',
-        content: [{ type: 'text', text: 'Human priority: keep the requested exact reply.' }],
-      }, new AbortController().signal)
+      await subagents.prompt(
+        {
+          requestId: 'snapshot-human-steer' as SubagentPromptRequestId,
+          parentSessionId: agent.session.header.parentSession,
+          childSessionId: SessionId(agent.session.header.id),
+          mode: 'continuable',
+          delivery: 'steer',
+          content: [{ type: 'text', text: 'Human priority: keep the requested exact reply.' }],
+        },
+        new AbortController().signal,
+      )
     }
     // The published-failure variant's child never reaches a step (its follow-up
     // throws), and its parent turn awaits that child, so only the continuable
@@ -149,7 +156,7 @@ export function apply(ctx: Context): void {
     if (session.header.parentSession === undefined || event.type !== 'turn/start') return
     childTurn.set(session, event.data.turn)
   })
-  ctx.on('session/flush', (session) => {
+  ctx.on('session/flush', session => {
     if (session.header.parentSession === undefined) return
     if (childTurn.get(session) === FAILED_CHECKPOINT_TURN) throw new Error('snapshot disk full')
   })

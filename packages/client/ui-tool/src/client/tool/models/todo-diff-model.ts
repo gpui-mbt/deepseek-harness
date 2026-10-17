@@ -24,9 +24,16 @@ export function todoDiffModel(
   const call = parsedToolCall(block)
   const current = call?.name === 'todo_write' ? todosDetail(call.args, t) : null
   if (current === null) return null
-  const previous: ToolDetailsModel | null = baseline?.todos === undefined ? null : { items: baseline.todos.map(todo => ({
-    title: todo.content, status: { value: todo.status, label: t(`detail.todo.${todo.status}`) }, fields: [],
-  })) }
+  const previous: ToolDetailsModel | null =
+    baseline?.todos === undefined
+      ? null
+      : {
+          items: baseline.todos.map(todo => ({
+            title: todo.content,
+            status: { value: todo.status, label: t(`detail.todo.${todo.status}`) },
+            fields: [],
+          })),
+        }
   if (baseline === undefined || (previous === null && hasMore)) {
     return { details: { ...current, caption: t('todo.diff.unavailable') }, summary: null }
   }
@@ -51,7 +58,7 @@ export function todoDiffModel(
         updated++
         items.push({
           ...item,
-          ...statusChanged && before.status !== undefined ? { previousStatus: before.status.label } : {},
+          ...(statusChanged && before.status !== undefined ? { previousStatus: before.status.label } : {}),
           change: { value: 'updated', label: t(statusChanged ? 'todo.diff.updatedItem' : 'todo.diff.movedItem') },
         })
       } else {
@@ -66,14 +73,16 @@ export function todoDiffModel(
     added > 0 ? t('todo.diff.added', { count: added }) : null,
     updated > 0 ? t('todo.diff.updated', { count: updated }) : null,
     previousByTitle.size > 0 ? t('todo.diff.removed', { count: previousByTitle.size }) : null,
-  ].filter(part => part !== null).join(' · ')
+  ]
+    .filter(part => part !== null)
+    .join(' · ')
   return {
     summary: summary || t('todo.diff.noChanges'),
     details: {
       items,
       caption: t(previous === null ? 'todo.diff.initial' : 'todo.diff.compare'),
       empty: current.items.length === 0 && previous === null ? t('detail.todo.empty') : t('todo.diff.noChanges'),
-      ...unchanged.length === 0 ? {} : { unchanged: { label: t('todo.diff.unchanged', { count: unchanged.length }), items: unchanged } },
+      ...(unchanged.length === 0 ? {} : { unchanged: { label: t('todo.diff.unchanged', { count: unchanged.length }), items: unchanged } }),
     },
   }
 }

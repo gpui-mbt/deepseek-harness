@@ -28,13 +28,11 @@ interface RowSnapshot {
 }
 
 function sameRows(previous: AnimatedRowsProps, next: AnimatedRowsProps): boolean {
-  return previous.rowKeys.length === next.rowKeys.length
-    && previous.rowKeys.every((key, index) => key === next.rowKeys[index])
+  return previous.rowKeys.length === next.rowKeys.length && previous.rowKeys.every((key, index) => key === next.rowKeys[index])
 }
 
 function intersects(row: DOMRect, viewport: DOMRect): boolean {
-  return row.bottom > viewport.top && row.top < viewport.bottom
-    && row.right > viewport.left && row.left < viewport.right
+  return row.bottom > viewport.top && row.top < viewport.bottom && row.right > viewport.left && row.left < viewport.right
 }
 
 /**
@@ -51,10 +49,17 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
 
   override getSnapshotBeforeUpdate(previous: AnimatedRowsProps): RowSnapshot | null {
     const list = this.list.current
-    if (!this.armed || sameRows(previous, this.props) || previous.resetKey !== this.props.resetKey
-      || !previous.ready || !this.props.ready || list === null
-      || typeof list.animate !== 'function'
-      || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null
+    if (
+      !this.armed ||
+      sameRows(previous, this.props) ||
+      previous.resetKey !== this.props.resetKey ||
+      !previous.ready ||
+      !this.props.ready ||
+      list === null ||
+      typeof list.animate !== 'function' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      return null
 
     const viewport = list.getBoundingClientRect()
     const positions = this.readPositions()
@@ -65,9 +70,7 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
       const clone = row.element.cloneNode(true) as HTMLElement
       clone.removeAttribute('data-row-key')
       clone.inert = true
-      clone.style.setProperty(
-        '--dsh-workspace-indent', getComputedStyle(row.element).getPropertyValue('--dsh-workspace-indent'),
-      )
+      clone.style.setProperty('--dsh-workspace-indent', getComputedStyle(row.element).getPropertyValue('--dsh-workspace-indent'))
       removed.set(key, { ...row, element: clone })
     }
     return { positions, removed }
@@ -75,8 +78,7 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
 
   override componentDidUpdate(previous: AnimatedRowsProps, _state: unknown, snapshot: RowSnapshot | null): void {
     if (snapshot === null) {
-      if (!sameRows(previous, this.props) || previous.resetKey !== this.props.resetKey
-        || previous.ready !== this.props.ready) this.clear()
+      if (!sameRows(previous, this.props) || previous.resetKey !== this.props.resetKey || previous.ready !== this.props.ready) this.clear()
       return
     }
 
@@ -90,8 +92,7 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
     for (const [key, row] of positions) {
       this.removeExit(key)
       const previousRow = snapshot.positions.get(key)
-      if (!intersects(row.rect, viewport)
-        && (previousRow === undefined || !intersects(previousRow.rect, viewport))) continue
+      if (!intersects(row.rect, viewport) && (previousRow === undefined || !intersects(previousRow.rect, viewport))) continue
       if (previousRow === undefined) {
         this.move(row.element, [{ opacity: 0 }, { opacity: 1 }], ROW_FADE_MS)
         continue
@@ -99,27 +100,39 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
       const dx = previousRow.rect.left - row.rect.left
       const dy = previousRow.rect.top - row.rect.top
       if (dx === 0 && dy === 0 && previousRow.opacity === 1) continue
-      this.move(row.element, [
-        { transform: `translate(${String(dx)}px, ${String(dy)}px)`, opacity: previousRow.opacity },
-        { transform: 'translate(0, 0)', opacity: 1 },
-      ], ROW_GLIDE_MS)
+      this.move(
+        row.element,
+        [
+          { transform: `translate(${String(dx)}px, ${String(dy)}px)`, opacity: previousRow.opacity },
+          { transform: 'translate(0, 0)', opacity: 1 },
+        ],
+        ROW_GLIDE_MS,
+      )
     }
 
     for (const [key, row] of snapshot.removed) {
       const { element } = row
       this.removeExit(key)
       Object.assign(element.style, {
-        position: 'absolute', margin: '0', transform: 'none', boxSizing: 'border-box',
+        position: 'absolute',
+        margin: '0',
+        transform: 'none',
+        boxSizing: 'border-box',
         left: `${String(row.rect.left - origin.left)}px`,
         top: `${String(row.rect.top - origin.top)}px`,
-        width: `${String(row.rect.width)}px`, height: `${String(row.rect.height)}px`,
+        width: `${String(row.rect.width)}px`,
+        height: `${String(row.rect.height)}px`,
       })
       overlay.append(element)
       const animation = element.animate([{ opacity: row.opacity }, { opacity: 0 }], {
-        duration: ROW_FADE_MS, easing: 'ease-out', fill: 'forwards',
+        duration: ROW_FADE_MS,
+        easing: 'ease-out',
+        fill: 'forwards',
       })
       this.exits.set(key, { element, animation })
-      animation.onfinish = () => { this.removeExit(key) }
+      animation.onfinish = () => {
+        this.removeExit(key)
+      }
     }
   }
 
@@ -130,17 +143,25 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
   private readPositions(): Map<string, RowPosition> {
     const list = this.list.current as HTMLDivElement
     const rows = list.querySelectorAll<HTMLElement>('[data-row-key]')
-    return new Map(Array.from(rows, element => [element.dataset.rowKey as string, {
-      element,
-      rect: element.getBoundingClientRect(),
-      opacity: this.movements.has(element) ? Number(getComputedStyle(element).opacity) : 1,
-    }]))
+    return new Map(
+      Array.from(rows, element => [
+        element.dataset.rowKey as string,
+        {
+          element,
+          rect: element.getBoundingClientRect(),
+          opacity: this.movements.has(element) ? Number(getComputedStyle(element).opacity) : 1,
+        },
+      ]),
+    )
   }
 
   private move(element: HTMLElement, keyframes: Keyframe[], duration: number): void {
     const animation = element.animate(keyframes, { duration, easing: 'ease-out' })
     this.movements.set(element, animation)
-    animation.onfinish = () => { this.movements.delete(element); animation.cancel() }
+    animation.onfinish = () => {
+      this.movements.delete(element)
+      animation.cancel()
+    }
   }
 
   private cancelMovements(): void {
@@ -166,18 +187,24 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
   }
 
   override render(): ReactNode {
-    return <>
-      <div
-        ref={this.list}
-        className={this.props.className}
-        role="tree"
-        aria-label={this.props.label}
-        onPointerDownCapture={() => { this.armed = true }}
-        onKeyDownCapture={() => { this.armed = true }}
-      >
-        {this.props.children}
-      </div>
-      <div ref={this.overlay} className={css.exits} aria-hidden="true" />
-    </>
+    return (
+      <>
+        <div
+          ref={this.list}
+          className={this.props.className}
+          role="tree"
+          aria-label={this.props.label}
+          onPointerDownCapture={() => {
+            this.armed = true
+          }}
+          onKeyDownCapture={() => {
+            this.armed = true
+          }}
+        >
+          {this.props.children}
+        </div>
+        <div ref={this.overlay} className={css.exits} aria-hidden="true" />
+      </>
+    )
   }
 }

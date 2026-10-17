@@ -11,7 +11,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const DSH_SOURCE_BIN = join(REPO_ROOT, 'apps/cli/src/bin.ts')
@@ -41,7 +41,7 @@ async function freePort(): Promise<number> {
   })
   const port = (server.address() as AddressInfo).port
   await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
+    server.close(error => {
       if (error === undefined) resolve()
       else reject(error)
     })
@@ -50,8 +50,7 @@ async function freePort(): Promise<number> {
 }
 
 function cleanEnvironment(root: string, dshHome: string): NodeJS.ProcessEnv {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
-    !/(?:KEY|SECRET|TOKEN|PASSWORD)/iu.test(name)))
+  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/(?:KEY|SECRET|TOKEN|PASSWORD)/iu.test(name)))
   return {
     ...env,
     DSH_AGENTS_HOME: join(root, '.agents'),
@@ -66,13 +65,7 @@ function cleanEnvironment(root: string, dshHome: string): NodeJS.ProcessEnv {
 
 /** Start the public source CLI and wait for its authenticated readiness URL. */
 async function startWeb(root: string, dshHome: string, port: number): Promise<RunningWeb> {
-  const child = spawn(process.execPath, [
-    '--import', TSX_LOADER,
-    DSH_SOURCE_BIN,
-    'web',
-    '--no-open',
-    '--port', String(port),
-  ], {
+  const child = spawn(process.execPath, ['--import', TSX_LOADER, DSH_SOURCE_BIN, 'web', '--no-open', '--port', String(port)], {
     cwd: root,
     env: cleanEnvironment(root, dshHome),
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -99,10 +92,10 @@ async function startWeb(root: string, dshHome: string, port: number): Promise<Ru
     }
     child.stdout?.on('data', append)
     child.stderr?.on('data', append)
-    child.once('error', (error) => {
+    child.once('error', error => {
       fail(error)
     })
-    child.once('exit', (code) => {
+    child.once('exit', code => {
       fail(new Error(`dsh web exited before readiness (${String(code)}):\n${redact(output)}`))
     })
   })
@@ -111,9 +104,15 @@ async function startWeb(root: string, dshHome: string, port: number): Promise<Ru
 
 async function stopWeb(running: RunningWeb): Promise<void> {
   if (running.child.exitCode !== null) return
-  const exited = new Promise<void>((resolve) => { running.child.once('exit', () => { resolve() }) })
+  const exited = new Promise<void>(resolve => {
+    running.child.once('exit', () => {
+      resolve()
+    })
+  })
   running.child.kill('SIGTERM')
-  const forced = setTimeout(() => { running.child.kill('SIGKILL') }, 10_000)
+  const forced = setTimeout(() => {
+    running.child.kill('SIGKILL')
+  }, 10_000)
   forced.unref()
   await exited
   clearTimeout(forced)
@@ -128,24 +127,29 @@ function describeSettings(port: number, host: string, cookie?: string): Promise<
     payload: { args: {} },
   })
   return new Promise((resolve, reject) => {
-    const req = httpRequest({
-      hostname: '127.0.0.1',
-      port,
-      path: '/api/settings/describe',
-      method: 'POST',
-      headers: {
-        host,
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(body),
-        ...cookie === undefined ? {} : { cookie },
+    const req = httpRequest(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path: '/api/settings/describe',
+        method: 'POST',
+        headers: {
+          host,
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+          ...(cookie === undefined ? {} : { cookie }),
+        },
       },
-    }, (res) => {
-      const chunks: Uint8Array[] = []
-      res.on('data', (chunk: Buffer) => { chunks.push(chunk) })
-      res.on('end', () => {
-        resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8') })
-      })
-    })
+      res => {
+        const chunks: Uint8Array[] = []
+        res.on('data', (chunk: Buffer) => {
+          chunks.push(chunk)
+        })
+        res.on('end', () => {
+          resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8') })
+        })
+      },
+    )
     req.once('error', reject)
     req.end(body)
   })

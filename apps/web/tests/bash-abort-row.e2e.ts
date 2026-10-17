@@ -6,10 +6,17 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandTurnProcesses, newEnglishPage, saveFailureShot, WEB_FIXTURE_TIME } from './support.ts'
 
@@ -68,8 +75,7 @@ describe.skipIf(MODE === 'record')('web e2e: cancelled Bash row disclosure', () 
     await call.getByText('setInterval(() => {}, 1000)', { exact: false }).waitFor()
     await expect.poll(() => call.getByText('Error: tool call aborted', { exact: true }).count()).toBe(2)
 
-    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
+    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

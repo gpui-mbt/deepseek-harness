@@ -1,7 +1,14 @@
 /** Linked catalog regressions for transitive changes and shared definitions. */
 
-import { describe, expect, it } from 'vitest'
-import { canonicalizeSchema, schemaDigest, type PersistenceRoot, type PersistenceSchemaInventory, type PersistenceType, type SchemaNode } from './persistence-schema-model.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import {
+  canonicalizeSchema,
+  schemaDigest,
+  type PersistenceRoot,
+  type PersistenceSchemaInventory,
+  type PersistenceType,
+  type SchemaNode,
+} from './persistence-schema-model.ts'
 import { renderPersistenceSchemaDefinitions, renderPersistenceSchemaIndex } from './render-persistence-schema.ts'
 import { render } from './gen-persistence-catalog.ts'
 import { classifyPersistenceChange } from './persistence-changes.ts'
@@ -33,16 +40,24 @@ function recursiveFixture(sources: readonly string[] = []): PersistenceSchemaInv
 
 function fixture(optional = true): PersistenceSchemaInventory {
   const types = new Map<string, PersistenceType>()
-  const roots = ['first/event', 'second/event'].map((event) => {
+  const roots = ['first/event', 'second/event'].map(event => {
     const nodes: SchemaNode[] = [
-      { kind: 'object', properties: [{ name: 'type', type: 1, optional: false }, { name: 'data', type: 2, optional: false }], indices: [] },
+      {
+        kind: 'object',
+        properties: [
+          { name: 'type', type: 1, optional: false },
+          { name: 'data', type: 2, optional: false },
+        ],
+        indices: [],
+      },
       { kind: 'literal', value: event },
       { kind: 'object', properties: [{ name: 'error', type: 3, optional: true }], indices: [] },
       { kind: 'object', properties: [{ name: 'reason', type: 4, optional }], indices: [] },
       { kind: 'primitive', type: 'string' },
     ]
     return eventRoot(event, nodes, types, index => ({
-      names: index === 3 ? ['ErrorInfo'] : [], sources: index === 3 ? ['packages/core/example/src/types.ts:8'] : [],
+      names: index === 3 ? ['ErrorInfo'] : [],
+      sources: index === 3 ? ['packages/core/example/src/types.ts:8'] : [],
     }))
   })
   return { formatVersion: 1, roots, types: [...types.values()] }
@@ -73,7 +88,10 @@ describe('persistence schema catalog', () => {
 
   it('renders historical source paths and nested headings within their reference section', () => {
     const current = fixture()
-    const inventory = { ...current, types: current.types.map(type => ({ ...type, sources: type.sources.map(source => source.replace(/:\d+$/u, '')) })) }
+    const inventory = {
+      ...current,
+      types: current.types.map(type => ({ ...type, sources: type.sources.map(source => source.replace(/:\d+$/u, '')) })),
+    }
     const definitions = renderPersistenceSchemaDefinitions(inventory, 'en', () => undefined, 3)
     expect(definitions).toContain('Sources: `packages/core/example/src/types.ts`')
     expect(definitions).not.toContain('types.ts:8')
@@ -84,7 +102,9 @@ describe('persistence schema catalog', () => {
     expect(index).toContain('[Historical schema](v0.schema.json)')
     expect(index).toContain('### Persistence type fingerprints')
     expect(index).not.toContain('(persistence-schema.json)')
-    expect(renderPersistenceSchemaDefinitions(current)).toContain('[`packages/core/example/src/types.ts:8`](../packages/core/example/src/types.ts)')
+    expect(renderPersistenceSchemaDefinitions(current)).toContain(
+      '[`packages/core/example/src/types.ts:8`](../packages/core/example/src/types.ts)',
+    )
   })
 
   it('refuses a current inventory that omits a referenced definition', () => {
@@ -114,9 +134,16 @@ describe('persistence schema catalog', () => {
 
 function producerFixture(kinds: readonly string[], events: readonly string[]): PersistenceSchemaInventory {
   const types = new Map<string, PersistenceType>()
-  const roots = events.map((event) => {
+  const roots = events.map(event => {
     const nodes: SchemaNode[] = [
-      { kind: 'object', properties: [{ name: 'type', type: 1, optional: false }, { name: 'data', type: 2, optional: false }], indices: [] },
+      {
+        kind: 'object',
+        properties: [
+          { name: 'type', type: 1, optional: false },
+          { name: 'data', type: 2, optional: false },
+        ],
+        indices: [],
+      },
       { kind: 'literal', value: event },
       { kind: 'object', properties: [{ name: 'source', type: 3, optional: false }], indices: [] },
       { kind: 'union', types: kinds.map((_, index) => 4 + index * 2) },
@@ -126,7 +153,8 @@ function producerFixture(kinds: readonly string[], events: readonly string[]): P
       ]),
     ]
     return eventRoot(event, nodes, types, index => ({
-      names: index >= 4 && index % 2 === 0 ? [`event:${event}.data.source[${String((index - 4) / 2)}]`] : [], sources: [],
+      names: index >= 4 && index % 2 === 0 ? [`event:${event}.data.source[${String((index - 4) / 2)}]`] : [],
+      sources: [],
     }))
   })
   return { formatVersion: 1, roots, types: [...types.values()] }
@@ -166,10 +194,40 @@ describe('current persistence schema anchors', () => {
     const nodes: SchemaNode[] = [
       { kind: 'union', types: [1, 2, 3, 4, 5] },
       { kind: 'object', properties: [{ name: 'kind', type: 6, optional: false }], indices: [] },
-      { kind: 'object', properties: [{ name: 'kind', type: 6, optional: false }, { name: 'form', type: 7, optional: false }, { name: 'summary', type: 8, optional: false }], indices: [] },
-      { kind: 'object', properties: [{ name: 'kind', type: 6, optional: false }, { name: 'form', type: 7, optional: false }, { name: 'other', type: 8, optional: false }], indices: [] },
-      { kind: 'object', properties: [{ name: 'kind', type: 6, optional: false }, { name: 'form', type: 8, optional: true }], indices: [] },
-      { kind: 'object', properties: [{ name: 'kind', type: 6, optional: false }, { name: 'form', type: 9, optional: false }], indices: [{ key: 8, value: 8 }] },
+      {
+        kind: 'object',
+        properties: [
+          { name: 'kind', type: 6, optional: false },
+          { name: 'form', type: 7, optional: false },
+          { name: 'summary', type: 8, optional: false },
+        ],
+        indices: [],
+      },
+      {
+        kind: 'object',
+        properties: [
+          { name: 'kind', type: 6, optional: false },
+          { name: 'form', type: 7, optional: false },
+          { name: 'other', type: 8, optional: false },
+        ],
+        indices: [],
+      },
+      {
+        kind: 'object',
+        properties: [
+          { name: 'kind', type: 6, optional: false },
+          { name: 'form', type: 8, optional: true },
+        ],
+        indices: [],
+      },
+      {
+        kind: 'object',
+        properties: [
+          { name: 'kind', type: 6, optional: false },
+          { name: 'form', type: 9, optional: false },
+        ],
+        indices: [{ key: 8, value: 8 }],
+      },
       { kind: 'literal', value: 'hook|"quoted' },
       { kind: 'literal', value: 'notice' },
       { kind: 'primitive', type: 'string' },
@@ -220,7 +278,14 @@ describe('current persistence schema anchors', () => {
 
   it('labels empty objects without padding while preserving structural links and historical labels', () => {
     const nodes: SchemaNode[] = [
-      { kind: 'object', properties: [{ name: 'type', type: 1, optional: false }, { name: 'data', type: 2, optional: false }], indices: [] },
+      {
+        kind: 'object',
+        properties: [
+          { name: 'type', type: 1, optional: false },
+          { name: 'data', type: 2, optional: false },
+        ],
+        indices: [],
+      },
       { kind: 'literal', value: 'empty/event' },
       { kind: 'array', element: 3 },
       { kind: 'object', properties: [], indices: [] },
@@ -245,10 +310,13 @@ describe('current persistence schema anchors', () => {
   it('keeps anonymous producer references when siblings and the first owning root change', () => {
     const before = producerFixture(['alpha', 'beta'], ['second/event'])
     const after = producerFixture(['new', 'beta', 'alpha'], ['first/event', 'second/event'])
-    const alphaSchema = canonicalizeSchema([
-      { kind: 'object', properties: [{ name: 'kind', type: 1, optional: false }], indices: [] },
-      { kind: 'literal', value: 'alpha' },
-    ], 0)
+    const alphaSchema = canonicalizeSchema(
+      [
+        { kind: 'object', properties: [{ name: 'kind', type: 1, optional: false }], indices: [] },
+        { kind: 'literal', value: 'alpha' },
+      ],
+      0,
+    )
     const alphaDigest = schemaDigest(alphaSchema)
     const link = '[`{ kind: "alpha" }`](#persistence-type-sha256-' + alphaDigest + ')'
     expect(currentDefinitions(before)).toContain(link)
@@ -278,9 +346,12 @@ describe('current persistence schema anchors', () => {
     const complete = fixture()
     const first = complete.types[0] as PersistenceType
     const second = complete.types[1] as PersistenceType
-    const inventory = { ...complete, types: complete.types.map(type => type === first
-      ? { ...type, names: ['A.B', 'sha256-' + second.digest] }
-      : type === second ? { ...type, names: ['AB'] } : type) }
+    const inventory = {
+      ...complete,
+      types: complete.types.map(type =>
+        type === first ? { ...type, names: ['A.B', 'sha256-' + second.digest] } : type === second ? { ...type, names: ['AB'] } : type,
+      ),
+    }
     const definitions = currentDefinitions(inventory)
     expect(definitions).not.toContain('<a id="persistence-type-ab"></a>')
     expect(definitions).toContain('<a id="persistence-type-sha256-' + first.digest + '"></a>')
@@ -306,23 +377,45 @@ describe('current persistence schema anchors', () => {
   })
 
   it('shows recorded source policies only in the current catalog and preserves their fields', () => {
-    const schema = canonicalizeSchema([
-      { kind: 'object', properties: [{ name: 'source', type: 1, optional: false, compatibility: {
-        version: 1, policy: 'session-source-attribution', binding: 'session.user-message.source',
-        discriminator: 'kind', unknownKinds: 'preserve', attributionKinds: ['build-context'],
-      } }], indices: [] },
-      { kind: 'object', properties: [{ name: 'kind', type: 2, optional: false }], indices: [] },
-      { kind: 'literal', value: 'build-context' },
-    ], 0)
+    const schema = canonicalizeSchema(
+      [
+        {
+          kind: 'object',
+          properties: [
+            {
+              name: 'source',
+              type: 1,
+              optional: false,
+              compatibility: {
+                version: 1,
+                policy: 'session-source-attribution',
+                binding: 'session.user-message.source',
+                discriminator: 'kind',
+                unknownKinds: 'preserve',
+                attributionKinds: ['build-context'],
+              },
+            },
+          ],
+          indices: [],
+        },
+        { kind: 'object', properties: [{ name: 'kind', type: 2, optional: false }], indices: [] },
+        { kind: 'literal', value: 'build-context' },
+      ],
+      0,
+    )
     const types = schema.nodes.map((_, index) => {
       const nested = canonicalizeSchema(schema.nodes, index)
       return { digest: schemaDigest(nested), schema: nested, names: [], sources: [] }
     })
     const inventory: PersistenceSchemaInventory = { formatVersion: 2, roots: [], types }
     const saved = JSON.stringify(inventory)
-    expect(currentDefinitions(inventory)).toContain('Source compatibility: `source` — `session-source-attribution` v1; `session.user-message.source`; `kind`; `preserve`.')
+    expect(currentDefinitions(inventory)).toContain(
+      'Source compatibility: `source` — `session-source-attribution` v1; `session.user-message.source`; `kind`; `preserve`.',
+    )
     expect(currentDefinitions(inventory)).toContain('Attribution-only additions: `build-context`.')
-    expect(renderPersistenceSchemaDefinitions(inventory, 'zh', undefined, 2, 'current')).toContain('仅表示归属的新增 kind：`build-context`.')
+    expect(renderPersistenceSchemaDefinitions(inventory, 'zh', undefined, 2, 'current')).toContain(
+      '仅表示归属的新增 kind：`build-context`.',
+    )
     expect(renderPersistenceSchemaDefinitions(inventory)).not.toContain('Source compatibility:')
     expect(JSON.stringify(inventory)).toBe(saved)
   })
@@ -330,20 +423,37 @@ describe('current persistence schema anchors', () => {
   it('keeps the captured historical Markdown byte-for-byte in both historical call forms', () => {
     const inventory = recursiveFixture(['packages/core/example/src/types.ts'])
     const expected = [
-      '### Persistence type fingerprints', '', 'Frozen reference.', '',
-      '| Root | Kind | SHA-256 | Resolved type |', '|---|---|---|---|',
-      '| `SessionHeader` | header | `c900da63847d1d27572277817e727f3a471d08f0abaf0b61b4984c32ffc6a332` | [`Recursive`](#persistence-type-recursive) |', '',
-      '### Resolved persistence types', '',
-      'Each definition appears once. References preserve sharing and recursion; the digest beside a definition includes its complete reachable structure. Source names and locations identify its declarations but are excluded from its digest.', '',
-      '<a id="persistence-type-recursive"></a>', '', '#### `Recursive`', '',
-      'SHA-256: `c900da63847d1d27572277817e727f3a471d08f0abaf0b61b4984c32ffc6a332`', '',
-      'Sources: `packages/core/example/src/types.ts`', '',
-      '| Property | Presence | Type |', '|---|---|---|',
-      '| `next` | optional | [`Recursive`](#persistence-type-recursive) |', '',
+      '### Persistence type fingerprints',
+      '',
+      'Frozen reference.',
+      '',
+      '| Root | Kind | SHA-256 | Resolved type |',
+      '|---|---|---|---|',
+      '| `SessionHeader` | header | `c900da63847d1d27572277817e727f3a471d08f0abaf0b61b4984c32ffc6a332` | [`Recursive`](#persistence-type-recursive) |',
+      '',
+      '### Resolved persistence types',
+      '',
+      'Each definition appears once. References preserve sharing and recursion; the digest beside a definition includes its complete reachable structure. Source names and locations identify its declarations but are excluded from its digest.',
+      '',
+      '<a id="persistence-type-recursive"></a>',
+      '',
+      '#### `Recursive`',
+      '',
+      'SHA-256: `c900da63847d1d27572277817e727f3a471d08f0abaf0b61b4984c32ffc6a332`',
+      '',
+      'Sources: `packages/core/example/src/types.ts`',
+      '',
+      '| Property | Presence | Type |',
+      '|---|---|---|',
+      '| `next` | optional | [`Recursive`](#persistence-type-recursive) |',
+      '',
     ].join('\n')
     const index = renderPersistenceSchemaIndex(inventory, 'en', ['Frozen reference.'], 3)
     expect(index + '\n' + renderPersistenceSchemaDefinitions(inventory, 'en', () => undefined, 3)).toBe(expected)
-    expect(renderPersistenceSchemaIndex(inventory, 'en', ['Frozen reference.'], 3, 'historical') + '\n'
-      + renderPersistenceSchemaDefinitions(inventory, 'en', () => undefined, 3, 'historical')).toBe(expected)
+    expect(
+      renderPersistenceSchemaIndex(inventory, 'en', ['Frozen reference.'], 3, 'historical') +
+        '\n' +
+        renderPersistenceSchemaDefinitions(inventory, 'en', () => undefined, 3, 'historical'),
+    ).toBe(expected)
   })
 })

@@ -13,12 +13,7 @@ interface CompactionCommandCardProps extends CommandRowOwnerProps {
 export function CompactionCommandCard({ node, compaction, t }: CompactionCommandCardProps) {
   if (compaction !== undefined) {
     return (
-      <CompactionItem
-        node={compaction}
-        title={t('message.compaction.commandTitle')}
-        fallbackSummary={node.outcome?.text ?? null}
-        t={t}
-      />
+      <CompactionItem node={compaction} title={t('message.compaction.commandTitle')} fallbackSummary={node.outcome?.text ?? null} t={t} />
     )
   }
   if (node.outcome !== null) return <GenericCommandCard node={node} t={t} />

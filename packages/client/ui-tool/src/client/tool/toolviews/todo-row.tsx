@@ -65,8 +65,11 @@ export function TodoRow({ toolName, block, inspect, useDisclosure, useTodoHistor
       icon={<IconChecklistOutlineRegular />}
       title={t(model.titleKey)}
       summary={summary.text}
-      summarySuffix={[diff?.summary, summary.extra > 0 ? `+${summary.extra}` : null]
-        .filter((part): part is string => part !== null && part !== undefined).join(' · ') || null}
+      summarySuffix={
+        [diff?.summary, summary.extra > 0 ? `+${summary.extra}` : null]
+          .filter((part): part is string => part !== null && part !== undefined)
+          .join(' · ') || null
+      }
       bodyRaw={model.bodyRaw}
       output={model.output}
       details={diff?.details}
@@ -84,11 +87,17 @@ export const todoToolview = {
   apply(ctx: Context): void {
     registerTodoHistory(ctx)
     ctx.slots.inject('tool.call.toolview', () =>
-      ctx.slots.register({
-        name: 'tool.call.toolview', key: 'todo_write', locale: NS,
-        inject: (sessionId): TodoHistoryInjected => ({
-          hooks: { todoHistory: ctx.uiConversation.binding(sessionId).target('tool-todo-history') },
-        }),
-      }, TodoRow))
+      ctx.slots.register(
+        {
+          name: 'tool.call.toolview',
+          key: 'todo_write',
+          locale: NS,
+          inject: (sessionId): TodoHistoryInjected => ({
+            hooks: { todoHistory: ctx.uiConversation.binding(sessionId).target('tool-todo-history') },
+          }),
+        },
+        TodoRow,
+      ),
+    )
   },
 }

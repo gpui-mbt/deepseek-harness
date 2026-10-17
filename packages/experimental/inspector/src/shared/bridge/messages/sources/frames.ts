@@ -1,11 +1,6 @@
 /** Versioned envelopes for Client source catalog operations. */
 
-import type {
-  ClientSourceRequestId,
-  ClientSourceSessionId,
-  InspectorSourceGeneration,
-  InspectorSourceId,
-} from '../../ids.ts'
+import type { ClientSourceRequestId, ClientSourceSessionId, InspectorSourceGeneration, InspectorSourceId } from '../../ids.ts'
 import { isPlainObject } from '../../../json.ts'
 import { exactKeys, exactObject, wireId } from '../../../validation.ts'
 import { INSPECTOR_PROTOCOL_VERSION } from '../../version.ts'
@@ -36,9 +31,7 @@ export interface ClientSourceResponseFrame {
   readonly generation: InspectorSourceGeneration
   readonly sessionId: ClientSourceSessionId
   readonly requestId: ClientSourceRequestId
-  readonly outcome:
-    | { readonly ok: true; readonly result: ClientSourceResult }
-    | { readonly ok: false; readonly error: ClientSourceError }
+  readonly outcome: { readonly ok: true; readonly result: ClientSourceResult } | { readonly ok: false; readonly error: ClientSourceError }
 }
 
 /** One-way cleanup for in-flight operations owned by a closed DevTools session. */
@@ -139,5 +132,9 @@ function parseOutcome(value: unknown): ClientSourceResponseFrame['outcome'] {
 }
 
 const ERROR_CODES = new Set<ClientSourceError['code']>([
-  'invalid-request', 'script-not-found', 'load-failed', 'result-too-large', 'internal-error',
+  'invalid-request',
+  'script-not-found',
+  'load-failed',
+  'result-too-large',
+  'internal-error',
 ])

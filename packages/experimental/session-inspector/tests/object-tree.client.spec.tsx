@@ -3,7 +3,7 @@
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
 import { ConversationLocationIndex } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -60,7 +60,7 @@ it('updates JSON values while retaining collapsed fields and renders an undefine
   expect(ui.getByText('undefined')).toBeTruthy()
 })
 
-it.each(['turn', 'step'] as const)('refreshes expanded %s Data after an in-place publication without losing disclosure state', (kind) => {
+it.each(['turn', 'step'] as const)('refreshes expanded %s Data after an in-place publication without losing disclosure state', kind => {
   const index = new ConversationLocationIndex()
   index.appendBoundary({ seq: SessionSeq(1), time: 1, type: 'turn/start', data: { turn: 1 } })
   index.appendBoundary({ seq: SessionSeq(2), time: 2, type: 'step/start', data: { turn: 1, step: 1 } })
@@ -79,10 +79,11 @@ it.each(['turn', 'step'] as const)('refreshes expanded %s Data after an in-place
   }
   expect(ui.getByText('"before"')).toBeTruthy()
   const expanded = [...ui.container.querySelectorAll('details[open]')]
-  index.applyData([{ owner: 'tree-probe', previous: null,
-    next: { ...target, key: 'tree-probe', value: { status: 'after' } } }])
+  index.applyData([{ owner: 'tree-probe', previous: null, next: { ...target, key: 'tree-probe', value: { status: 'after' } } }])
   index.publishData()
-  act(() => { props.updates.set({}) })
+  act(() => {
+    props.updates.set({})
+  })
   ui.rerender(<InspectorObjectTree {...props} value={data} />)
   expect(ui.getByText('"after"')).toBeTruthy()
   expect(ui.queryByText('"before"')).toBeNull()
@@ -92,8 +93,12 @@ it.each(['turn', 'step'] as const)('refreshes expanded %s Data after an in-place
 function fixture() {
   const index = new WeakMap<object, InspectorObjectReference>()
   const updates = createSnapshotStore<object>({})
-  const objects: InspectorObjects = { sessionId: 'tree-session' as SessionId,
-    updates, reference: value => index.get(value), row: () => undefined }
+  const objects: InspectorObjects = {
+    sessionId: 'tree-session' as SessionId,
+    updates,
+    reference: value => index.get(value),
+    row: () => undefined,
+  }
   return { index, objects, updates, navigate: vi.fn(), t: makeTranslate(en) }
 }
 
@@ -101,7 +106,10 @@ it('keeps collection enumeration bounded and reuses it across UI-only renders', 
   let visited = 0
   class CountedMap extends Map<number, string> {
     override *[Symbol.iterator](): MapIterator<[number, string]> {
-      for (const entry of super[Symbol.iterator]()) { visited++; yield entry }
+      for (const entry of super[Symbol.iterator]()) {
+        visited++
+        yield entry
+      }
     }
   }
   const values = new CountedMap(Array.from({ length: 10_000 }, (_, index) => [index, `value-${index}`]))
@@ -109,7 +117,9 @@ it('keeps collection enumeration bounded and reuses it across UI-only renders', 
   const props = fixture()
   const ui = render(<InspectorObjectTree {...props} value={value} />)
   expect(visited).toBe(0)
-  act(() => { props.updates.set({}) })
+  act(() => {
+    props.updates.set({})
+  })
   expect(visited).toBe(0)
   const branch = [...ui.container.querySelectorAll('details')][1]!
   branch.open = true
@@ -117,7 +127,9 @@ it('keeps collection enumeration bounded and reuses it across UI-only renders', 
   expect(visited).toBe(51)
   for (let count = 0; count < 20; count++) ui.rerender(<InspectorObjectTree {...props} value={value} navigate={vi.fn()} />)
   expect(visited).toBe(51)
-  act(() => { props.updates.set({}) })
+  act(() => {
+    props.updates.set({})
+  })
   expect(visited).toBe(102)
   expect(branch.open).toBe(true)
 })
@@ -139,8 +151,13 @@ it('expands Node Data inline but keeps its title navigable and cyclic references
   const props = fixture()
   const data: Record<string, unknown> = { text: 'inline node data' }
   data.self = data
-  const reference: InspectorObjectReference = { id: 'node-data:1', kind: 'nodeData', identity: '1',
-    target: { nodeKey: 'node-1' }, read: () => data }
+  const reference: InspectorObjectReference = {
+    id: 'node-data:1',
+    kind: 'nodeData',
+    identity: '1',
+    target: { nodeKey: 'node-1' },
+    read: () => data,
+  }
   props.index.set(data, reference)
   const ui = render(<InspectorObjectTree {...props} value={{ data }} />)
   const link = ui.getByRole('button', { name: '↗ Node Data · 1' })
@@ -181,8 +198,15 @@ it('expands Maps, bounds collection pages, and terminates unregistered cycles', 
   expect(ui.getByText('74:')).toBeTruthy()
 })
 
-it.each([new Error('object unavailable'), 'object unavailable'])('contains object enumeration failures: %s', (error) => {
-  const value = new Proxy({}, { ownKeys() { throw error } })
+it.each([new Error('object unavailable'), 'object unavailable'])('contains object enumeration failures: %s', error => {
+  const value = new Proxy(
+    {},
+    {
+      ownKeys() {
+        throw error
+      },
+    },
+  )
   const ui = render(<InspectorObjectTree {...fixture()} value={value} />)
   expect(ui.getByRole('alert').textContent).toContain('object unavailable')
 })

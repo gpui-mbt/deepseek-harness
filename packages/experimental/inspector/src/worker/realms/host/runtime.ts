@@ -29,7 +29,9 @@ export class HostRuntimeBackend implements RuntimeBackend {
   private readonly unsubscribe: () => void
 
   constructor(private readonly target: HostInspectorSession) {
-    this.unsubscribe = target.subscribe((message) => { this.observeContext(message) })
+    this.unsubscribe = target.subscribe(message => {
+      this.observeContext(message)
+    })
   }
 
   async enable(): Promise<void> {
@@ -42,23 +44,25 @@ export class HostRuntimeBackend implements RuntimeBackend {
   }
 
   async evaluate(request: Parameters<RuntimeBackend['evaluate']>[0]): ReturnType<RuntimeBackend['evaluate']> {
-    return this.completion(await this.target.request('Runtime.evaluate', {
-      expression: request.expression,
-      ...nativeContext(request.context, 'contextId'),
-      ...optionalNativeField('objectGroup', request.objectGroup),
-      ...optionalNativeField('includeCommandLineAPI', request.includeCommandLineAPI),
-      ...optionalNativeField('silent', request.silent),
-      ...optionalNativeField('returnByValue', request.returnByValue),
-      ...optionalNativeField('generatePreview', request.generatePreview),
-      ...optionalNativeField('userGesture', request.userGesture),
-      ...optionalNativeField('awaitPromise', request.awaitPromise),
-      ...optionalNativeField('disableBreaks', request.disableBreaks),
-      ...optionalNativeField('replMode', request.replMode),
-      ...optionalNativeField('allowUnsafeEvalBlockedByCSP', request.allowUnsafeEvalBlockedByCSP),
-      ...optionalNativeField('throwOnSideEffect', request.throwOnSideEffect),
-      ...optionalNativeField('serializationOptions', request.serializationOptions),
-      ...optionalNativeField('timeout', request.timeoutMs),
-    }))
+    return this.completion(
+      await this.target.request('Runtime.evaluate', {
+        expression: request.expression,
+        ...nativeContext(request.context, 'contextId'),
+        ...optionalNativeField('objectGroup', request.objectGroup),
+        ...optionalNativeField('includeCommandLineAPI', request.includeCommandLineAPI),
+        ...optionalNativeField('silent', request.silent),
+        ...optionalNativeField('returnByValue', request.returnByValue),
+        ...optionalNativeField('generatePreview', request.generatePreview),
+        ...optionalNativeField('userGesture', request.userGesture),
+        ...optionalNativeField('awaitPromise', request.awaitPromise),
+        ...optionalNativeField('disableBreaks', request.disableBreaks),
+        ...optionalNativeField('replMode', request.replMode),
+        ...optionalNativeField('allowUnsafeEvalBlockedByCSP', request.allowUnsafeEvalBlockedByCSP),
+        ...optionalNativeField('throwOnSideEffect', request.throwOnSideEffect),
+        ...optionalNativeField('serializationOptions', request.serializationOptions),
+        ...optionalNativeField('timeout', request.timeoutMs),
+      }),
+    )
   }
 
   async getProperties(request: Parameters<RuntimeBackend['getProperties']>[0]): ReturnType<RuntimeBackend['getProperties']> {
@@ -74,33 +78,36 @@ export class HostRuntimeBackend implements RuntimeBackend {
 
   async callFunction(request: Parameters<RuntimeBackend['callFunction']>[0]): ReturnType<RuntimeBackend['callFunction']> {
     const receiver = request.receiver
-    const context = receiver === undefined
-      ? nativeContext(request.context ?? defaultContext(this.defaultContextId), 'executionContextId')
-      : undefined
+    const context =
+      receiver === undefined ? nativeContext(request.context ?? defaultContext(this.defaultContextId), 'executionContextId') : undefined
     if (receiver === undefined && context === undefined) {
       throw new Error('Host Runtime default execution context is unavailable')
     }
-    return this.completion(await this.target.request('Runtime.callFunctionOn', {
-      functionDeclaration: request.functionDeclaration,
-      ...(receiver === undefined ? context : { objectId: receiver }),
-      ...(request.arguments === undefined ? {} : { arguments: request.arguments.map(toNativeArgument) }),
-      ...optionalNativeField('objectGroup', request.objectGroup),
-      ...optionalNativeField('silent', request.silent),
-      ...optionalNativeField('returnByValue', request.returnByValue),
-      ...optionalNativeField('generatePreview', request.generatePreview),
-      ...optionalNativeField('userGesture', request.userGesture),
-      ...optionalNativeField('awaitPromise', request.awaitPromise),
-      ...optionalNativeField('throwOnSideEffect', request.throwOnSideEffect),
-      ...optionalNativeField('serializationOptions', request.serializationOptions),
-    }))
+    return this.completion(
+      await this.target.request('Runtime.callFunctionOn', {
+        functionDeclaration: request.functionDeclaration,
+        ...(receiver === undefined ? context : { objectId: receiver }),
+        ...(request.arguments === undefined ? {} : { arguments: request.arguments.map(toNativeArgument) }),
+        ...optionalNativeField('objectGroup', request.objectGroup),
+        ...optionalNativeField('silent', request.silent),
+        ...optionalNativeField('returnByValue', request.returnByValue),
+        ...optionalNativeField('generatePreview', request.generatePreview),
+        ...optionalNativeField('userGesture', request.userGesture),
+        ...optionalNativeField('awaitPromise', request.awaitPromise),
+        ...optionalNativeField('throwOnSideEffect', request.throwOnSideEffect),
+        ...optionalNativeField('serializationOptions', request.serializationOptions),
+      }),
+    )
   }
 
   async awaitPromise(request: Parameters<RuntimeBackend['awaitPromise']>[0]): ReturnType<RuntimeBackend['awaitPromise']> {
-    return this.completion(await this.target.request('Runtime.awaitPromise', {
-      promiseObjectId: request.promise,
-      ...optionalNativeField('returnByValue', request.returnByValue),
-      ...optionalNativeField('generatePreview', request.generatePreview),
-    }))
+    return this.completion(
+      await this.target.request('Runtime.awaitPromise', {
+        promiseObjectId: request.promise,
+        ...optionalNativeField('returnByValue', request.returnByValue),
+        ...optionalNativeField('generatePreview', request.generatePreview),
+      }),
+    )
   }
 
   async globalLexicalScopeNames(context?: RuntimeExecutionContext): Promise<readonly string[]> {
@@ -134,9 +141,7 @@ export class HostRuntimeBackend implements RuntimeBackend {
   async completion(value: Readonly<Record<string, unknown>>): Promise<RuntimeCompletion<RuntimeBackendObjectHandle>> {
     return {
       result: await this.remoteObject(value.result),
-      ...(value.exceptionDetails === undefined
-        ? {}
-        : { exceptionDetails: await this.exceptionDetails(value.exceptionDetails) }),
+      ...(value.exceptionDetails === undefined ? {} : { exceptionDetails: await this.exceptionDetails(value.exceptionDetails) }),
     }
   }
 
@@ -144,23 +149,15 @@ export class HostRuntimeBackend implements RuntimeBackend {
     if (!Array.isArray(value.result)) throw new Error('Host Runtime returned invalid properties')
     return {
       properties: await Promise.all(value.result.map(item => this.property(item))),
-      ...(value.internalProperties === undefined
-        ? {}
-        : { internalProperties: await this.internalProperties(value.internalProperties) }),
-      ...(value.privateProperties === undefined
-        ? {}
-        : { privateProperties: await this.privateProperties(value.privateProperties) }),
-      ...(value.exceptionDetails === undefined
-        ? {}
-        : { exceptionDetails: await this.exceptionDetails(value.exceptionDetails) }),
+      ...(value.internalProperties === undefined ? {} : { internalProperties: await this.internalProperties(value.internalProperties) }),
+      ...(value.privateProperties === undefined ? {} : { privateProperties: await this.privateProperties(value.privateProperties) }),
+      ...(value.exceptionDetails === undefined ? {} : { exceptionDetails: await this.exceptionDetails(value.exceptionDetails) }),
     }
   }
 
   private async property(value: unknown): Promise<RuntimePropertyDescriptor<RuntimeBackendObjectHandle>> {
     const record = requireNativeRecord(value, 'Host Runtime property descriptor')
-    if (typeof record.name !== 'string'
-      || typeof record.configurable !== 'boolean'
-      || typeof record.enumerable !== 'boolean') {
+    if (typeof record.name !== 'string' || typeof record.configurable !== 'boolean' || typeof record.enumerable !== 'boolean') {
       throw new Error('Host Runtime returned invalid property descriptor')
     }
     return {
@@ -177,28 +174,32 @@ export class HostRuntimeBackend implements RuntimeBackend {
 
   private async internalProperties(value: unknown): Promise<RuntimeInternalPropertyDescriptor<RuntimeBackendObjectHandle>[]> {
     if (!Array.isArray(value)) throw new Error('Host Runtime returned invalid internal properties')
-    return Promise.all(value.map(async (item) => {
-      const record = requireNativeRecord(item, 'Host Runtime internal property')
-      if (typeof record.name !== 'string') throw new Error('Host Runtime returned invalid internal property')
-      return {
-        name: record.name,
-        ...(record.value === undefined ? {} : { value: await this.remoteObject(record.value) }),
-      }
-    }))
+    return Promise.all(
+      value.map(async item => {
+        const record = requireNativeRecord(item, 'Host Runtime internal property')
+        if (typeof record.name !== 'string') throw new Error('Host Runtime returned invalid internal property')
+        return {
+          name: record.name,
+          ...(record.value === undefined ? {} : { value: await this.remoteObject(record.value) }),
+        }
+      }),
+    )
   }
 
   private async privateProperties(value: unknown): Promise<RuntimePrivatePropertyDescriptor<RuntimeBackendObjectHandle>[]> {
     if (!Array.isArray(value)) throw new Error('Host Runtime returned invalid private properties')
-    return Promise.all(value.map(async (item) => {
-      const record = requireNativeRecord(item, 'Host Runtime private property')
-      if (typeof record.name !== 'string') throw new Error('Host Runtime returned invalid private property')
-      return {
-        name: record.name,
-        ...(record.value === undefined ? {} : { value: await this.remoteObject(record.value) }),
-        ...(record.get === undefined ? {} : { get: await this.remoteObject(record.get) }),
-        ...(record.set === undefined ? {} : { set: await this.remoteObject(record.set) }),
-      }
-    }))
+    return Promise.all(
+      value.map(async item => {
+        const record = requireNativeRecord(item, 'Host Runtime private property')
+        if (typeof record.name !== 'string') throw new Error('Host Runtime returned invalid private property')
+        return {
+          name: record.name,
+          ...(record.value === undefined ? {} : { value: await this.remoteObject(record.value) }),
+          ...(record.get === undefined ? {} : { get: await this.remoteObject(record.get) }),
+          ...(record.set === undefined ? {} : { set: await this.remoteObject(record.set) }),
+        }
+      }),
+    )
   }
 
   /**
@@ -208,9 +209,7 @@ export class HostRuntimeBackend implements RuntimeBackend {
    */
   async exceptionDetails(value: unknown): Promise<RuntimeExceptionDetails<RuntimeBackendObjectHandle>> {
     const record = requireNativeRecord(value, 'Host Runtime exception details')
-    if (typeof record.text !== 'string'
-      || !Number.isSafeInteger(record.lineNumber)
-      || !Number.isSafeInteger(record.columnNumber)) {
+    if (typeof record.text !== 'string' || !Number.isSafeInteger(record.lineNumber) || !Number.isSafeInteger(record.columnNumber)) {
       throw new Error('Host Runtime returned invalid exception details')
     }
     return {
@@ -253,19 +252,19 @@ export class HostRuntimeBackend implements RuntimeBackend {
     if (!Array.isArray(record.callFrames)) throw new Error('Host Runtime returned an invalid stack trace')
     return {
       ...(typeof record.description === 'string' ? { description: record.description } : {}),
-      callFrames: record.callFrames.map((frame) => {
+      callFrames: record.callFrames.map(frame => {
         const fields = requireNativeRecord(frame, 'Host Runtime call frame')
-        if (typeof fields.functionName !== 'string'
-          || typeof fields.url !== 'string'
-          || !Number.isSafeInteger(fields.lineNumber)
-          || !Number.isSafeInteger(fields.columnNumber)) {
+        if (
+          typeof fields.functionName !== 'string' ||
+          typeof fields.url !== 'string' ||
+          !Number.isSafeInteger(fields.lineNumber) ||
+          !Number.isSafeInteger(fields.columnNumber)
+        ) {
           throw new Error('Host Runtime returned an invalid call frame')
         }
         return {
           functionName: fields.functionName,
-          ...(typeof fields.scriptId === 'string'
-            ? { scriptKey: hostScriptKey(fields.scriptId) }
-            : {}),
+          ...(typeof fields.scriptId === 'string' ? { scriptKey: hostScriptKey(fields.scriptId) } : {}),
           url: fields.url,
           lineNumber: fields.lineNumber as number,
           columnNumber: fields.columnNumber as number,
@@ -297,9 +296,7 @@ export class HostRuntimeBackend implements RuntimeBackend {
         silent: true,
       })
       if (response.exceptionDetails !== undefined || !isNativeRecord(response.result)) return undefined
-      return response.result.value === undefined
-        ? undefined
-        : parseInspectorObjectReference(response.result.value)
+      return response.result.value === undefined ? undefined : parseInspectorObjectReference(response.result.value)
     } catch {
       // Semantic recognition is optional metadata; preserve the Runtime value on failure.
       return undefined
@@ -321,11 +318,16 @@ function nativeContext(
 
 function toNativeArgument(value: RuntimeCallArgument<RuntimeBackendObjectHandle>): Readonly<Record<string, unknown>> {
   switch (value.kind) {
-    case 'value': return { value: value.value }
-    case 'unserializable': return { unserializableValue: value.value }
-    case 'object': return { objectId: value.handle }
-    case 'undefined': return {}
-    default: return assertNever(value)
+    case 'value':
+      return { value: value.value }
+    case 'unserializable':
+      return { unserializableValue: value.value }
+    case 'object':
+      return { objectId: value.handle }
+    case 'undefined':
+      return {}
+    default:
+      return assertNever(value)
   }
 }
 

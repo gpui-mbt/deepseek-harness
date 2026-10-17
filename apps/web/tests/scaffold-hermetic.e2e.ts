@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import type {} from '@deepseek-ai/dsh-skill'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry'
@@ -10,13 +10,16 @@ import { launchWebScaffold, type WebScaffold } from './scaffold.ts'
 async function writeSkill(root: string, name: string): Promise<void> {
   const bundle = join(root, name)
   await mkdir(bundle, { recursive: true })
-  await writeFile(join(bundle, 'SKILL.md'), `---
+  await writeFile(
+    join(bundle, 'SKILL.md'),
+    `---
 name: ${name}
 description: Must not enter the Web replay scaffold
 ---
 
 Ambient host state.
-`)
+`,
+  )
 }
 
 it('isolates replay skill discovery from every ambient host root', async () => {

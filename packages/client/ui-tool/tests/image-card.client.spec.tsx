@@ -11,7 +11,7 @@
 // renders through the tool-owned `tool.call.images` slot, and an empty slot must
 // still leave the path and image size visible.
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
@@ -61,8 +61,16 @@ const withImage = (attachment: unknown) => [
 const running = (over?: Partial<StartedToolCall>): StartedToolCall => {
   const argsRaw = over?.argsRaw ?? ARGS
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'c1', name: 'read_image', argsRaw,
-    turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'c1',
+    name: 'read_image',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 1_000,
+    subCalls: [],
+    ...over,
   }
 }
 
@@ -74,8 +82,12 @@ const running = (over?: Partial<StartedToolCall>): StartedToolCall => {
 const settled = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'read_image', argsRaw: ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
     content: [
@@ -83,7 +95,9 @@ const settled = (over?: Partial<ToolResultNode>): ToolResultNode => {
       { type: 'image', attachment: sampleImage },
     ],
     isError: false,
-    meta: imageMeta(), subCalls: [], ...over,
+    meta: imageMeta(),
+    subCalls: [],
+    ...over,
   }
 }
 
@@ -93,19 +107,18 @@ const settled = (over?: Partial<ToolResultNode>): ToolResultNode => {
  * `MessageImageSource` is a union of a durable attachment arm and a
  * submission-echo preview arm, so the stub renders both.
  */
-const stubRenderSlot = (): PropsRenderSlots<'tool.call.images'>['renderSlot'] => (
+const stubRenderSlot = (): PropsRenderSlots<'tool.call.images'>['renderSlot'] =>
   vi.fn((_key: 'tool.call.images', owner: ToolImagesOwnerProps) => (
     <div data-images>
-      {owner.images.map((image, index) => (
+      {owner.images.map((image, index) =>
         'attachment' in image ? (
           <span key={image.attachment.attachmentId} data-image-id={image.attachment.attachmentId} />
         ) : (
           <span key={index} data-preview-url={image.preview.url} />
-        )
-      ))}
+        ),
+      )}
     </div>
   )) as unknown as PropsRenderSlots<'tool.call.images'>['renderSlot']
-)
 
 /** Session-authorized loader stand-in; the stub gallery never resolves it. */
 const loadImage: MessageImageLoader = vi.fn(() => Promise.reject(new Error('not used')))
@@ -127,8 +140,7 @@ describe('imageCardModel', () => {
   })
 
   it('keeps the recorded path unshortened', () => {
-    expect(imageCardModel(settled({ meta: imageMeta({ path: 'G:\\breeze\\shots\\card.png' }) }))?.path)
-      .toBe('G:\\breeze\\shots\\card.png')
+    expect(imageCardModel(settled({ meta: imageMeta({ path: 'G:\\breeze\\shots\\card.png' }) }))?.path).toBe('G:\\breeze\\shots\\card.png')
   })
 
   it('accepts any non-empty attachment id, because the shape is provider-owned', () => {
@@ -136,8 +148,9 @@ describe('imageCardModel', () => {
     // representation, so pattern-checking the local content-address form would
     // reject a legitimate id minted by an alternative store.
     for (const id of ['b3:0123456789abcdef', 'blake3-xof:zzz', 'opaque-provider-token']) {
-      expect(imageCardModel(settled({ content: withImage({ ...sampleImage, attachmentId: id }) } as never))
-        ?.images[0]?.attachment.attachmentId).toBe(id)
+      expect(
+        imageCardModel(settled({ content: withImage({ ...sampleImage, attachmentId: id }) } as never))?.images[0]?.attachment.attachmentId,
+      ).toBe(id)
     }
   })
 
@@ -146,14 +159,16 @@ describe('imageCardModel', () => {
     // post-execute hook rewrites: appended text and image blocks must stay
     // visible under the gallery, not be silently dropped.
     const appended = { ...sampleImage, attachmentId: 'sha256:appended-extra', name: 'appended.png' }
-    const model = imageCardModel(settled({
-      content: [
-        { type: 'text', text: ENVELOPE },
-        { type: 'image', attachment: sampleImage },
-        { type: 'text', text: 'analysis: the card area is empty' },
-        { type: 'image', attachment: appended },
-      ],
-    } as never))
+    const model = imageCardModel(
+      settled({
+        content: [
+          { type: 'text', text: ENVELOPE },
+          { type: 'image', attachment: sampleImage },
+          { type: 'text', text: 'analysis: the card area is empty' },
+          { type: 'image', attachment: appended },
+        ],
+      } as never),
+    )
     expect(model?.extraText).toBe('analysis: the card area is empty')
     expect(model?.images).toEqual([{ attachment: sampleImage }, { attachment: appended }])
   })
@@ -180,8 +195,10 @@ describe('imageCardModel', () => {
     // The store records input dimensions when normalization downsampled the
     // image; the card must carry them through to the gallery renderer.
     const withDims = { ...sampleImage, originalDimensions: { width: 3000, height: 2000 } }
-    expect(imageCardModel(settled({ content: withImage(withDims) } as never))
-      ?.images[0]?.attachment.originalDimensions).toEqual({ width: 3000, height: 2000 })
+    expect(imageCardModel(settled({ content: withImage(withDims) } as never))?.images[0]?.attachment.originalDimensions).toEqual({
+      width: 3000,
+      height: 2000,
+    })
     for (const bad of [
       { ...sampleImage, originalDimensions: null },
       { ...sampleImage, originalDimensions: 'big' },
@@ -211,7 +228,9 @@ describe('imageCardModel', () => {
     // The reference is read from the result's own image block, which is wire data
     // like every other field.
     const bad: unknown[] = [
-      null, 'ref', [],
+      null,
+      'ref',
+      [],
       {},
       { ...sampleImage, attachmentId: '' },
       { ...sampleImage, attachmentId: 7 },
@@ -265,24 +284,34 @@ describe('imageCardModel', () => {
 })
 
 describe('ReadImageRow keyed toolview', () => {
-  const list = () => createSnapshotStore<SessionListState>({
-    ids: [SID],
-    byId: { [SID]: { id: SID, displayTitle: 'r', running: false, blank: false, updatedAt: 0, cwd: '/w/app' } },
-    current: SID,
-    phase: 'ready',
-    projectionsBySession: {}, jobsBySession: {},
-    currentAddress: undefined,
-  } as unknown as SessionListState)
+  const list = () =>
+    createSnapshotStore<SessionListState>({
+      ids: [SID],
+      byId: { [SID]: { id: SID, displayTitle: 'r', running: false, blank: false, updatedAt: 0, cwd: '/w/app' } },
+      current: SID,
+      phase: 'ready',
+      projectionsBySession: {},
+      jobsBySession: {},
+      currentAddress: undefined,
+    } as unknown as SessionListState)
 
   const rowProps = (
     block: StartedToolCall | ToolResultNode,
     renderSlot?: PropsRenderSlots<'tool.call.images'>['renderSlot'],
     loader: MessageImageLoader = loadImage,
-  ): Parameters<typeof ReadImageRow>[0] => ({
-    useDisclosure, callId: 'c1', toolName: 'read_image', ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), renderSlot, loadImage: loader,
-    sessionId: SID, useSessions: bindSnapshotSelector(list()),
-    t,
-  } as Parameters<typeof ReadImageRow>[0])
+  ): Parameters<typeof ReadImageRow>[0] =>
+    ({
+      useDisclosure,
+      callId: 'c1',
+      toolName: 'read_image',
+      ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+      openFile: vi.fn(),
+      renderSlot,
+      loadImage: loader,
+      sessionId: SID,
+      useSessions: bindSnapshotSelector(list()),
+      t,
+    }) as Parameters<typeof ReadImageRow>[0]
 
   const toggleRow = (view: { container: HTMLElement }) => {
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
@@ -342,9 +371,16 @@ describe('ReadImageRow keyed toolview', () => {
   })
 
   it('keeps appended non-envelope text under the picture', () => {
-    const view = render(<ReadImageRow {...rowProps(settled({
-      content: [...settled().content, { type: 'text', text: 'analysis: empty card' }],
-    } as never), stubRenderSlot())} />)
+    const view = render(
+      <ReadImageRow
+        {...rowProps(
+          settled({
+            content: [...settled().content, { type: 'text', text: 'analysis: empty card' }],
+          } as never),
+          stubRenderSlot(),
+        )}
+      />,
+    )
     toggleRow(view)
     expect(view.container.textContent).toContain('analysis: empty card')
   })
@@ -377,11 +413,18 @@ describe('ReadImageRow keyed toolview', () => {
     // read_image refuses a text-only route, a missing attachment service, and an
     // unreadable file. Claiming the key means this row owns those shapes too.
     const renderSlot = stubRenderSlot()
-    const view = render(<ReadImageRow {...rowProps(settled({
-      isError: true,
-      meta: undefined,
-      content: [{ type: 'text', text: 'Error: model "x" does not declare image input' }],
-    } as never), renderSlot)} />)
+    const view = render(
+      <ReadImageRow
+        {...rowProps(
+          settled({
+            isError: true,
+            meta: undefined,
+            content: [{ type: 'text', text: 'Error: model "x" does not declare image input' }],
+          } as never),
+          renderSlot,
+        )}
+      />,
+    )
     expect(view.container.querySelector('[data-images]')).toBeNull()
     expect(renderSlot).not.toHaveBeenCalled()
     expect(view.container.textContent).toContain('does not declare image input')
@@ -389,20 +432,24 @@ describe('ReadImageRow keyed toolview', () => {
 
   it('registers under the read_image key of the keyed toolview slot, declaring the image slot', () => {
     const registered: { name: unknown; key?: unknown; children?: unknown }[] = []
-    const ctx = { slots: {
-      inject: (_name: string, callback: () => () => void) => callback(),
-      register: (options: { name: unknown; key?: unknown; children?: unknown }) => {
-        registered.push(options)
-        return () => undefined
+    const ctx = {
+      slots: {
+        inject: (_name: string, callback: () => () => void) => callback(),
+        register: (options: { name: unknown; key?: unknown; children?: unknown }) => {
+          registered.push(options)
+          return () => undefined
+        },
       },
-    } } as unknown as Context
+    } as unknown as Context
     readImageToolview.apply(ctx)
-    expect(registered).toEqual([{
-      name: 'tool.call.toolview',
-      key: 'read_image',
-      locale: 'conversation',
-      children: { 'tool.call.images': { kind: 'single', scope: 'session' } },
-    }])
+    expect(registered).toEqual([
+      {
+        name: 'tool.call.toolview',
+        key: 'read_image',
+        locale: 'conversation',
+        children: { 'tool.call.images': { kind: 'single', scope: 'session' } },
+      },
+    ])
     expect(readImageToolview.inject).toEqual(['slots'])
   })
 })

@@ -1,10 +1,6 @@
 /** Request normalization, parameterized predicates, and result presentation. */
 
-import {
-  SessionQueryError,
-  materializeSessionEventResultFilters,
-  materializeSessionResultFilters,
-} from '@deepseek-ai/dsh-session-query'
+import { SessionQueryError, materializeSessionEventResultFilters, materializeSessionResultFilters } from '@deepseek-ai/dsh-session-query'
 import type {
   SessionAvailability,
   SessionEventMetadataFilter,
@@ -97,10 +93,7 @@ export interface SqlWhere {
  * @param limits - configured default and maximum page sizes.
  * @returns normalized request with explicit arrays and limit.
  */
-export function normalizeSessionRequest(
-  request: SessionSearchRequest,
-  limits: QueryLimits,
-): NormalizedSessionRequest {
+export function normalizeSessionRequest(request: SessionSearchRequest, limits: QueryLimits): NormalizedSessionRequest {
   const sessionFilters = materializeSessionResultFilters(request.sessionFilters ?? [])
   const eventFilters = materializeMetadataFilters(request.eventFilters ?? [])
   const cursor = materializeCursor(request.cursor)
@@ -109,7 +102,7 @@ export function normalizeSessionRequest(
     sessionFilters,
     eventFilters,
     limit: normalizeLimit(request.limit, limits),
-    ...cursor === undefined ? {} : { cursor },
+    ...(cursor === undefined ? {} : { cursor }),
   }
 }
 
@@ -119,10 +112,7 @@ export function normalizeSessionRequest(
  * @param limits - configured default and maximum page sizes.
  * @returns normalized request with an explicit filter array and limit.
  */
-export function normalizeEventRequest(
-  request: SessionEventSearchRequest,
-  limits: QueryLimits,
-): NormalizedEventRequest {
+export function normalizeEventRequest(request: SessionEventSearchRequest, limits: QueryLimits): NormalizedEventRequest {
   if (typeof request.sessionId !== 'string') {
     throw new SessionQueryError('session-search session id must be text', 'SESSION_QUERY_INVALID_FILTER')
   }
@@ -133,7 +123,7 @@ export function normalizeEventRequest(
     query: normalizeQuery(request.query),
     filters,
     limit: normalizeLimit(request.limit, limits),
-    ...cursor === undefined ? {} : { cursor },
+    ...(cursor === undefined ? {} : { cursor }),
   }
 }
 
@@ -230,10 +220,7 @@ export function quoteFtsData(query: string): string {
  * @returns text with reserved noncharacters mapped to replacement characters.
  */
 export function sanitizeFtsText(text: string): string {
-  return text
-    .replaceAll('\0', '\uFFFD')
-    .replaceAll(FTS_HIGHLIGHT_START, '\uFFFD')
-    .replaceAll(FTS_HIGHLIGHT_END, '\uFFFD')
+  return text.replaceAll('\0', '\uFFFD').replaceAll(FTS_HIGHLIGHT_START, '\uFFFD').replaceAll(FTS_HIGHLIGHT_END, '\uFFFD')
 }
 
 /**
@@ -321,16 +308,10 @@ function normalizeQuery(value: string): string {
   }
   const query = value.trim().replace(/\s+/gu, ' ')
   if (query.length === 0) {
-    throw new SessionQueryError(
-      'session-search query must contain non-whitespace text',
-      'SESSION_QUERY_INVALID_QUERY',
-    )
+    throw new SessionQueryError('session-search query must contain non-whitespace text', 'SESSION_QUERY_INVALID_QUERY')
   }
   if (query.includes('\0')) {
-    throw new SessionQueryError(
-      'session-search query must not contain NUL',
-      'SESSION_QUERY_INVALID_QUERY',
-    )
+    throw new SessionQueryError('session-search query must not contain NUL', 'SESSION_QUERY_INVALID_QUERY')
   }
   return sanitizeFtsText(query)
 }
@@ -343,9 +324,7 @@ function materializeCursor(cursor: SessionSearchCursor | undefined): SessionSear
   return cursor
 }
 
-function materializeMetadataFilters(
-  filters: readonly SessionEventMetadataFilter[],
-): SessionEventMetadataFilter[] {
+function materializeMetadataFilters(filters: readonly SessionEventMetadataFilter[]): SessionEventMetadataFilter[] {
   const candidates: readonly SessionEventResultFilter[] = filters
   for (const filter of candidates) {
     switch (filter.kind) {
@@ -355,10 +334,7 @@ function materializeMetadataFilters(
       case 'surface':
         break
       case 'text':
-        throw new SessionQueryError(
-          'session-search metadata filters do not accept text clauses',
-          'SESSION_QUERY_INVALID_FILTER',
-        )
+        throw new SessionQueryError('session-search metadata filters do not accept text clauses', 'SESSION_QUERY_INVALID_FILTER')
       default:
         unknownFilter(filter)
     }
@@ -369,25 +345,13 @@ function materializeMetadataFilters(
 function normalizeLimit(value: number | undefined, limits: QueryLimits): number {
   const limit = value ?? limits.defaultLimit
   const maxLimit = Math.min(limits.maxLimit, SQLITE_MAX_PAGE_LIMIT)
-  if (
-    !Number.isSafeInteger(limit)
-    || limit < 1
-    || limit > maxLimit
-  ) {
-    throw new SessionQueryError(
-      `session-search limit must be an integer between 1 and ${maxLimit}`,
-      'SESSION_QUERY_INVALID_LIMIT',
-    )
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > maxLimit) {
+    throw new SessionQueryError(`session-search limit must be an integer between 1 and ${maxLimit}`, 'SESSION_QUERY_INVALID_LIMIT')
   }
   return limit
 }
 
-function addList(
-  clauses: string[],
-  params: Array<string | number>,
-  column: string,
-  values: readonly (string | number)[],
-): void {
+function addList(clauses: string[], params: Array<string | number>, column: string, values: readonly (string | number)[]): void {
   if (values.length === 0) {
     clauses.push('0')
     return
@@ -395,12 +359,7 @@ function addList(
   clauses.push(`${column} IN (${appendListBindings(params, values)})`)
 }
 
-function addNullableList(
-  clauses: string[],
-  params: Array<string | number>,
-  column: string,
-  values: readonly (string | null)[],
-): void {
+function addNullableList(clauses: string[], params: Array<string | number>, column: string, values: readonly (string | null)[]): void {
   if (values.length === 0) {
     clauses.push('0')
     return
@@ -414,12 +373,7 @@ function addNullableList(
   clauses.push(`(${parts.join(' OR ')})`)
 }
 
-function addRange(
-  clauses: string[],
-  params: Array<string | number>,
-  column: string,
-  range: { from?: number; to?: number },
-): void {
+function addRange(clauses: string[], params: Array<string | number>, column: string, range: { from?: number; to?: number }): void {
   if (range.from !== undefined) {
     assertPortableBindingCount(params.length + 1)
     clauses.push(`CAST(${column} AS INTEGER) >= ?`)
@@ -432,26 +386,25 @@ function addRange(
   }
 }
 
-function appendListBindings(
-  params: Array<string | number>,
-  values: readonly (string | number)[],
-): string {
+function appendListBindings(params: Array<string | number>, values: readonly (string | number)[]): string {
   assertPortableBindingCount(params.length + values.length)
   for (const value of values) params.push(value)
   return values.map(() => '?').join(', ')
 }
 
 function canonicalFilters(filters: readonly (SessionResultFilter | SessionEventMetadataFilter)[]): unknown[] {
-  return filters.map((filter) => {
-    if ('values' in filter) {
-      return { ...filter, values: [...filter.values].sort(compareNullable) }
-    }
-    return {
-      kind: filter.kind,
-      from: filter.from ?? null,
-      to: filter.to ?? null,
-    }
-  }).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  return filters
+    .map(filter => {
+      if ('values' in filter) {
+        return { ...filter, values: [...filter.values].sort(compareNullable) }
+      }
+      return {
+        kind: filter.kind,
+        from: filter.from ?? null,
+        to: filter.to ?? null,
+      }
+    })
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
 }
 
 function compareNullable(a: string | null, b: string | null): number {
@@ -462,10 +415,7 @@ function compareNullable(a: string | null, b: string | null): number {
 }
 
 function unknownAvailability(value: never): never {
-  throw new SessionQueryError(
-    `session availability filter contains unknown value "${String(value)}"`,
-    'SESSION_QUERY_INVALID_FILTER',
-  )
+  throw new SessionQueryError(`session availability filter contains unknown value "${String(value)}"`, 'SESSION_QUERY_INVALID_FILTER')
 }
 
 function unknownFilter(filter: never): never {

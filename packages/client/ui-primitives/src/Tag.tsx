@@ -31,12 +31,20 @@ export type TagTone =
  * @param props.children - the localized label, owned by the render site.
  * @returns the tag element.
  */
-export function Tag({ tone = 'outline', className, children }: {
+export function Tag({
+  tone = 'outline',
+  className,
+  children,
+}: {
   tone?: TagTone
   // `| undefined` so a caller can forward an optional class straight through
   // under exactOptionalPropertyTypes (a CSS-module lookup is string|undefined).
   className?: string | undefined
   children?: ReactNode
 }) {
-  return <span className={clsx(css.tag, className)} data-tone={tone}>{children}</span>
+  return (
+    <span className={clsx(css.tag, className)} data-tone={tone}>
+      {children}
+    </span>
+  )
 }

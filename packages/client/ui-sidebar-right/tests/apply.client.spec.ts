@@ -8,7 +8,7 @@
  * on-screen Session — and that every registration is gone after dispose, which
  * is what makes a reload safe. The seats' components have their own specs.
  */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -51,7 +51,9 @@ async function boot(shortcuts: Partial<Shortcuts> = {}) {
     register: vi.fn((options: Omit<Recorded, 'component'>, component: unknown) => {
       const entry: Recorded = { ...options, component }
       registered.push(entry)
-      return () => { registered.splice(registered.indexOf(entry), 1) }
+      return () => {
+        registered.splice(registered.indexOf(entry), 1)
+      }
     }),
   }
   const dictionaries = new Map<string, unknown>()
@@ -60,19 +62,26 @@ async function boot(shortcuts: Partial<Shortcuts> = {}) {
     bind: vi.fn(() => (key: string) => key),
     register: vi.fn((ns: string, dicts: unknown) => {
       dictionaries.set(ns, dicts)
-      return () => { dictionaries.delete(ns) }
+      return () => {
+        dictionaries.delete(ns)
+      }
     }),
   }
   const layout = {
-    openRightbar: vi.fn(), closeRightbar: vi.fn(),
+    openRightbar: vi.fn(),
+    closeRightbar: vi.fn(),
     panelInfo: createSnapshotStore<{ activePanelId: string | null }>({ activePanelId: null }),
   }
   const current = createSnapshotStore<{ key: SessionId | undefined }>({ key: undefined })
   const resources = { pin: vi.fn<(address: string, signal: AbortSignal) => void>() }
   ctx.provide('slots', slots as never)
   ctx.provide('locale', locale as never)
-  ctx.provide('shortcuts', { runtime: 'web', register: () => () => {},
-    catalog: { getSnapshot: () => SHORTCUT_CATALOG, subscribe: () => () => {} }, ...shortcuts } as never)
+  ctx.provide('shortcuts', {
+    runtime: 'web',
+    register: () => () => {},
+    catalog: { getSnapshot: () => SHORTCUT_CATALOG, subscribe: () => () => {} },
+    ...shortcuts,
+  } as never)
   ctx.provide('layout', layout as never)
   ctx.provide('resources', resources as never)
   ctx.provide('sessions', { retain: vi.fn(() => ({ ready: Promise.resolve(), release: vi.fn() })) } as never)
@@ -97,14 +106,25 @@ describe('ui-sidebar-right apply', () => {
   })
 
   it('routes native close through the shortcut service and contains bridge rejections', async () => {
-    onTestFinished(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+    onTestFinished(() => {
+      vi.unstubAllGlobals()
+      vi.restoreAllMocks()
+    })
     const closeWindow = vi.fn<() => Promise<void>>().mockResolvedValue()
     const commands = new Map<string, ShortcutCommand>()
-    const h = await boot({ runtime: 'desktop',
+    const h = await boot({
+      runtime: 'desktop',
       closeWindow,
-      register: (command) => { commands.set(command.id, command); return () => { commands.delete(command.id) } },
+      register: command => {
+        commands.set(command.id, command)
+        return () => {
+          commands.delete(command.id)
+        }
+      },
     })
-    onTestFinished(async () => { await h.ctx.fiber.dispose() })
+    onTestFinished(async () => {
+      await h.ctx.fiber.dispose()
+    })
     const close = commands.get('page.close')!.resolve({ region: 'page', modal: null, target: null })
     expect(close.status).toBe('handled')
     if (close.status !== 'handled') throw new Error('Expected native close')
@@ -114,7 +134,9 @@ describe('ui-sidebar-right apply', () => {
     closeWindow.mockRejectedValueOnce(failure)
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     close.run()
-    await vi.waitFor(() => { expect(error).toHaveBeenCalledExactlyOnceWith('Window close failed', failure) })
+    await vi.waitFor(() => {
+      expect(error).toHaveBeenCalledExactlyOnceWith('Window close failed', failure)
+    })
   })
 
   it('provides both faces, and registers the guide through the same two-stage path as any other type', async () => {
@@ -139,7 +161,9 @@ describe('ui-sidebar-right apply', () => {
     ])
     // The panel declares the extension seats; the guide declares its chain child.
     expect(Object.keys(seat('rightbar.session').children as object)).toEqual([
-      'sidebar.right.pane.tab', 'sidebar.right.pane.tab.title', 'sidebar.right.tab.menu.item',
+      'sidebar.right.pane.tab',
+      'sidebar.right.pane.tab.title',
+      'sidebar.right.tab.menu.item',
     ])
     expect(seat('sidebar.right.pane.tab').children).toMatchObject({ 'sidebar.right.tab.guide': { kind: 'chain', scope: 'session' } })
     // Both seats read one store: the button only needs to know whether the panel is expanded.
@@ -186,7 +210,9 @@ describe('ui-sidebar-right apply', () => {
     handle.create().clearPersisted()
     const instance = handle.create(SESSION)
     vi.stubGlobal('document', { activeElement: null, querySelectorAll: () => [] })
-    onTestFinished(() => { vi.unstubAllGlobals() })
+    onTestFinished(() => {
+      vi.unstubAllGlobals()
+    })
     injected.toggleFullscreen()
     expect(injectedOf(seat('conversation.session.header.corner'))).toHaveProperty('hooks.shortcuts')
     current.set({ key: SESSION })
@@ -215,10 +241,12 @@ describe('ui-sidebar-right apply', () => {
     expect(layoutOf()?.mode).toBe('push')
     // A global panel takes the Conversation's place: no Session is on screen.
     layout.panelInfo.set({ activePanelId: 'plugins' })
-    expect(() => { ctx.sidebarRight.toggleExpanded() }).toThrow('no session surface is mounted')
+    expect(() => {
+      ctx.sidebarRight.toggleExpanded()
+    }).toThrow('no session surface is mounted')
   })
 
-  it('adopts each session\'s store instance as the runtime mints it, so a tab\'s own actions land with no seat bound', async () => {
+  it("adopts each session's store instance as the runtime mints it, so a tab's own actions land with no seat bound", async () => {
     const { ctx, resources, seat } = await boot()
     const handle = seat('rightbar.session').store as ReturnType<typeof createSidebarRightStore>
     // Both seats declare the same wrapped handle, so either minting adopts.
@@ -244,7 +272,7 @@ describe('ui-sidebar-right apply', () => {
   it('releases replaced store adoptions once and keeps the latest store for each Session', async () => {
     const originalFactory = sidebarStores.createSidebarRightStore
     const stops: Array<ReturnType<typeof vi.fn<() => void>>> = []
-    const factory = vi.spyOn(sidebarStores, 'createSidebarRightStore').mockImplementation((seed) => {
+    const factory = vi.spyOn(sidebarStores, 'createSidebarRightStore').mockImplementation(seed => {
       const handle = originalFactory(seed)
       return {
         ...handle,
@@ -275,8 +303,7 @@ describe('ui-sidebar-right apply', () => {
       expect(stops.map(stop => stop.mock.calls.length)).toEqual([1, 1, 1, 1, 0, 0])
       current.actions.setExpanded(SESSION, true)
       currentOther.actions.setExpanded(other, true)
-      expect(new Set(b.ctx.sidebarRight.openTabs.getSnapshot().map(tab => tab.sessionId)))
-        .toEqual(new Set([SESSION, other]))
+      expect(new Set(b.ctx.sidebarRight.openTabs.getSnapshot().map(tab => tab.sessionId))).toEqual(new Set([SESSION, other]))
       await b.fiber.dispose()
       expect(stops.map(stop => stop.mock.calls.length)).toEqual([1, 1, 1, 1, 1, 1])
     } finally {
@@ -285,9 +312,11 @@ describe('ui-sidebar-right apply', () => {
     }
   })
 
-  it('hands the guide body the registry\'s entry boxes, observable', async () => {
+  it("hands the guide body the registry's entry boxes, observable", async () => {
     const { ctx, seat, injectedOf } = await boot()
-    const { hooks: { guideEntries } } = injectedOf(seat('sidebar.right.pane.tab')) as GuideInjected
+    const {
+      hooks: { guideEntries },
+    } = injectedOf(seat('sidebar.right.pane.tab')) as GuideInjected
     expect(guideEntries.getSnapshot()).toEqual([])
     const seen = vi.fn()
     guideEntries.subscribe(seen)

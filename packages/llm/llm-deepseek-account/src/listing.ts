@@ -54,15 +54,16 @@ export interface ModelListing {
 type Fields = Readonly<Record<string, unknown>>
 
 function fieldsOf(value: unknown): Fields | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Fields : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Fields) : undefined
 }
 
 /** Listed modalities this build sends, in listing order without repeats; `undefined` when the value is not an array. */
 function knownModalities(value: unknown): ModelModality[] | undefined {
   if (!Array.isArray(value)) return undefined
   const listed: readonly unknown[] = value
-  return LISTED_MODALITIES.filter(modality => listed.includes(modality))
-    .toSorted((left, right) => listed.indexOf(left) - listed.indexOf(right))
+  return LISTED_MODALITIES.filter(modality => listed.includes(modality)).toSorted(
+    (left, right) => listed.indexOf(left) - listed.indexOf(right),
+  )
 }
 
 /** A declared capacity: `undefined` when absent, `false` when not a positive safe integer. */
@@ -102,9 +103,9 @@ function capabilitiesOf(entry: Fields): ListedCapabilities {
     usable: true,
     facts: {
       inputModalities: inputs,
-      ...contextWindow === undefined ? {} : { contextWindow },
-      ...maxOutputTokens === undefined ? {} : { maxOutputTokens },
-      ...update === undefined ? {} : { systemPromptUpdate: update === 'in-history' ? 'in-history' : 'leading-only' },
+      ...(contextWindow === undefined ? {} : { contextWindow }),
+      ...(maxOutputTokens === undefined ? {} : { maxOutputTokens }),
+      ...(update === undefined ? {} : { systemPromptUpdate: update === 'in-history' ? 'in-history' : 'leading-only' }),
     },
   }
 }
@@ -128,7 +129,7 @@ export function parseModelListing(body: unknown): ModelListing {
     seen.add(id)
     entries.push({
       id,
-      ...typeof entry.name === 'string' && entry.name.length > 0 ? { name: entry.name } : {},
+      ...(typeof entry.name === 'string' && entry.name.length > 0 ? { name: entry.name } : {}),
       requirement: requirementOf(entry),
       capabilities: capabilitiesOf(entry),
     })
@@ -148,13 +149,17 @@ export function parseModelListing(body: unknown): ModelListing {
  *   and `INVALID_RESPONSE` for a body that is not a JSON listing.
  */
 export async function requestModelListing(
-  url: string, headers: Readonly<Record<string, string>>, signal: AbortSignal,
+  url: string,
+  headers: Readonly<Record<string, string>>,
+  signal: AbortSignal,
 ): Promise<ModelListing> {
   let response: Response
   let text: string
   try {
     response = await fetch(url, {
-      method: 'GET', redirect: 'error', signal,
+      method: 'GET',
+      redirect: 'error',
+      signal,
       headers: { ...attributionHeaders(), accept: 'application/json', ...headers },
     })
     text = await response.text()

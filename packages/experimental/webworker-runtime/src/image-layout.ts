@@ -60,6 +60,4 @@ export const LOWERING_VERSION = 'dsh-worker-transform/1'
  * wraps bodies it never parses: the packer emits against these names and the
  * worker binds them, with no compiler in the worker bundle to agree with.
  */
-export const WRAPPER_PARAMS = [
-  'exports', 'require', 'module', '__filename', '__dirname', '__dsh$meta', '__als',
-] as const
+export const WRAPPER_PARAMS = ['exports', 'require', 'module', '__filename', '__dirname', '__dsh$meta', '__als'] as const

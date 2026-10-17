@@ -154,7 +154,10 @@ export function resolveInspectorOptions(options: InspectorOptions = {}): Inspect
     clientRuntimeTimeoutMs: natural(options.clientRuntimeTimeoutMs ?? DEFAULT_CLIENT_RUNTIME_TIMEOUT_MS, 'clientRuntimeTimeoutMs'),
     queryTimeoutMs: natural(options.queryTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS, 'queryTimeoutMs'),
     maxClientRuntimeObjects: natural(options.maxClientRuntimeObjects ?? DEFAULT_MAX_CLIENT_RUNTIME_OBJECTS, 'maxClientRuntimeObjects'),
-    maxClientRuntimeProperties: natural(options.maxClientRuntimeProperties ?? DEFAULT_MAX_CLIENT_RUNTIME_PROPERTIES, 'maxClientRuntimeProperties'),
+    maxClientRuntimeProperties: natural(
+      options.maxClientRuntimeProperties ?? DEFAULT_MAX_CLIENT_RUNTIME_PROPERTIES,
+      'maxClientRuntimeProperties',
+    ),
     maxClientSourceBytes: natural(options.maxClientSourceBytes ?? DEFAULT_MAX_CLIENT_SOURCE_BYTES, 'maxClientSourceBytes'),
     maxCordisNodes: natural(options.maxCordisNodes ?? DEFAULT_MAX_CORDIS_NODES, 'maxCordisNodes'),
     maxDisconnectedCordisTrees: natural(
@@ -251,10 +254,10 @@ export async function startInspector(options: InspectorOptions = {}): Promise<In
   try {
     fetchObserver = spec.captureFetch
       ? installFetchObserver(source, {
-        maxRequestBodyBytes: spec.maxRequestBodyBytes,
-        maxResponseBodyBytes: spec.maxResponseBodyBytes,
-        maxChunkBytes: spec.maxBodyChunkBytes,
-      })
+          maxRequestBodyBytes: spec.maxRequestBodyBytes,
+          maxResponseBodyBytes: spec.maxResponseBodyBytes,
+          maxChunkBytes: spec.maxBodyChunkBytes,
+        })
       : undefined
   } catch (error) {
     source.close()
@@ -262,7 +265,7 @@ export async function startInspector(options: InspectorOptions = {}): Promise<In
     throw error
   }
 
-  lifecycle.markRunning((error) => {
+  lifecycle.markRunning(error => {
     try {
       source.close()
     } catch (closeError) {

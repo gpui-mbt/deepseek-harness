@@ -23,11 +23,10 @@ import type { createSidebarRightStore } from '../stores.ts'
 import css from './ExpandButton.module.css'
 
 /** The button's props: the header corner seat, the shared store, and copy. */
-export type ExpandButtonProps =
-  & PropsRuntime<'conversation.session.header.corner'>
-  & PropsStore<ReturnType<typeof createSidebarRightStore>>
-  & PropsLocale<'sidebarRight'>
-  & InjectFace<{ hooks: { shortcuts: HostObservable<readonly ShortcutCatalogEntry[]> } }>
+export type ExpandButtonProps = PropsRuntime<'conversation.session.header.corner'> &
+  PropsStore<ReturnType<typeof createSidebarRightStore>> &
+  PropsLocale<'sidebarRight'> &
+  InjectFace<{ hooks: { shortcuts: HostObservable<readonly ShortcutCatalogEntry[]> } }>
 
 /** The expand control while the panel is collapsed; nothing while it is shown. */
 export function ExpandButton({ sessionId, useStore, actions, t, useShortcuts }: ExpandButtonProps): ReactNode {
@@ -44,7 +43,9 @@ export function ExpandButton({ sessionId, useStore, actions, t, useShortcuts }: 
         aria-label={t('chrome.expandAria')}
         aria-keyshortcuts={shortcut?.aria}
         data-sidebar-right-expand
-        onClick={() => { actions.setExpanded(sessionId, true) }}
+        onClick={() => {
+          actions.setExpanded(sessionId, true)
+        }}
       >
         <IconPanelLeftOutlineRegular className={css.icon} />
       </Button>

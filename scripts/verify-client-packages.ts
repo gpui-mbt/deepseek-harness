@@ -117,11 +117,13 @@ function importCarriesRuntimeValue(node: ts.ImportDeclaration): boolean {
   if (clause === undefined) return true
   if (clause.phaseModifier === ts.SyntaxKind.TypeKeyword) return false
   const bindings = clause.namedBindings
-  return clause.name !== undefined
-    || bindings === undefined
-    || ts.isNamespaceImport(bindings)
-    || bindings.elements.length === 0
-    || bindings.elements.some(element => !element.isTypeOnly)
+  return (
+    clause.name !== undefined ||
+    bindings === undefined ||
+    ts.isNamespaceImport(bindings) ||
+    bindings.elements.length === 0 ||
+    bindings.elements.some(element => !element.isTypeOnly)
+  )
 }
 
 function exportCarriesRuntimeValue(node: ts.ExportDeclaration): boolean {
@@ -142,7 +144,7 @@ function collectSourceFileUses(
   const add = (specifier: ts.Expression | undefined): void => {
     if (specifier === undefined || !ts.isStringLiteralLike(specifier)) return
     if (key === 'local') {
-      if (specifier.text.startsWith('.') || includeRootRelative && specifier.text.startsWith('/')) uses.add(specifier.text)
+      if (specifier.text.startsWith('.') || (includeRootRelative && specifier.text.startsWith('/'))) uses.add(specifier.text)
       return
     }
     if (!isBareSpecifier(specifier.text)) return
@@ -157,14 +159,14 @@ function collectSourceFileUses(
       if (!runtimeOnly || !node.isTypeOnly) add(node.moduleReference.expression)
     } else if (!runtimeOnly && ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
       add(node.argument.literal)
-    } else if (ts.isCallExpression(node)
-      && (node.expression.kind === ts.SyntaxKind.ImportKeyword
-        || ts.isIdentifier(node.expression) && node.expression.text === 'require')) {
+    } else if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))
+    ) {
       add(node.arguments[0])
     } else if (!runtimeOnly && key !== 'local' && ts.isModuleDeclaration(node) && ts.isStringLiteral(node.name)) {
       add(node.name)
-    } else if (key !== 'local'
-      && (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node))) {
+    } else if (key !== 'local' && (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node))) {
       uses.add('react')
     }
     ts.forEachChild(node, visit)
@@ -194,11 +196,9 @@ export function readClientDeclarations(root: string): ClientDeclarations {
  * @returns Stable self-contained diagnostics.
  */
 export function collectClientPackageViolations(facts: ClientPackageFacts): string[] {
-  return [
-    ...facts.malformed,
-    ...collectModeViolations(facts),
-    ...collectModuleViolations(facts),
-  ].sort((left, right) => left.localeCompare(right))
+  return [...facts.malformed, ...collectModeViolations(facts), ...collectModuleViolations(facts)].sort((left, right) =>
+    left.localeCompare(right),
+  )
 }
 
 interface ManifestDocument {
@@ -234,26 +234,22 @@ export function fixClientPackageManifests(root: string, facts: ClientPackageFact
     const client = isRecord(dsh?.client) ? dsh.client : undefined
     if (client === undefined) continue
     target.changed = normalizeClientArray(client, 'inject', () => false) || target.changed
-    target.changed = normalizeClientArray(
-      client,
-      'external',
-      value => baseline.has(value) || rowPackageOf(value, new Set([declaration.name])) === declaration.name,
-    ) || target.changed
+    target.changed =
+      normalizeClientArray(
+        client,
+        'external',
+        value => baseline.has(value) || rowPackageOf(value, new Set([declaration.name])) === declaration.name,
+      ) || target.changed
   }
 
-  const changed = [...documents.values()].filter(target => target.changed).sort((left, right) =>
-    left.path.localeCompare(right.path))
+  const changed = [...documents.values()].filter(target => target.changed).sort((left, right) => left.path.localeCompare(right.path))
   for (const target of changed) {
     writeFileSync(resolve(root, target.path), JSON.stringify(target.manifest, null, 2) + '\n')
   }
   return changed.map(target => target.path)
 }
 
-function normalizeClientArray(
-  client: Record<string, unknown>,
-  field: 'external' | 'inject',
-  remove: (value: string) => boolean,
-): boolean {
+function normalizeClientArray(client: Record<string, unknown>, field: 'external' | 'inject', remove: (value: string) => boolean): boolean {
   const value = client[field]
   if (!Array.isArray(value) || value.some(entry => typeof entry !== 'string')) return false
   const seen = new Set<string>()
@@ -277,13 +273,15 @@ function collectModeViolations(facts: ClientPackageFacts): string[] {
   for (const pkg of facts.packages) {
     if (pkg.dynamic && pkg.staticLinked) {
       violations.push(
-        pkg.manifest + ': ' + pkg.name + ' declares dsh.client and uses the staticLinked preset;'
-        + ' a client package must be dynamic or statically linked, not both',
+        pkg.manifest +
+          ': ' +
+          pkg.name +
+          ' declares dsh.client and uses the staticLinked preset;' +
+          ' a client package must be dynamic or statically linked, not both',
       )
     } else if (!pkg.dynamic && !pkg.staticLinked) {
       violations.push(
-        pkg.manifest + ': ' + pkg.name + ' has no supported client package mode;'
-        + ' declare dsh.client or use the staticLinked preset',
+        pkg.manifest + ': ' + pkg.name + ' has no supported client package mode;' + ' declare dsh.client or use the staticLinked preset',
       )
     }
   }
@@ -293,23 +291,27 @@ function collectModeViolations(facts: ClientPackageFacts): string[] {
     const owner = packageNameOf(specifier)
     if (!workspaceNames.has(owner) || owner === CORDIS || facts.staticLinkedPackages.has(owner)) continue
     violations.push(
-      PLATFORM_SOURCE + ': seeded workspace module ' + JSON.stringify(specifier)
-      + ' belongs to ' + owner + ', whose build does not use the staticLinked preset',
+      PLATFORM_SOURCE +
+        ': seeded workspace module ' +
+        JSON.stringify(specifier) +
+        ' belongs to ' +
+        owner +
+        ', whose build does not use the staticLinked preset',
     )
   }
 
   const rows = rowNames(facts.declarations)
   for (const specifier of facts.preloadedExternals) {
     if (rowPackageOf(specifier, rows) === undefined) {
-      violations.push(
-        PLATFORM_SOURCE + ': parser-preloaded external ' + JSON.stringify(specifier)
-        + ' has no dynamic dsh.client row',
-      )
+      violations.push(PLATFORM_SOURCE + ': parser-preloaded external ' + JSON.stringify(specifier) + ' has no dynamic dsh.client row')
     }
     if (!facts.parserPreloadIds.includes(stripClientSuffix(specifier))) {
       violations.push(
-        PLATFORM_SOURCE + ': parser-preloaded external ' + JSON.stringify(specifier)
-        + ' has no matching PARSER_PRELOAD_IDS row in ' + PARSER_PRELOAD_SOURCE,
+        PLATFORM_SOURCE +
+          ': parser-preloaded external ' +
+          JSON.stringify(specifier) +
+          ' has no matching PARSER_PRELOAD_IDS row in ' +
+          PARSER_PRELOAD_SOURCE,
       )
     }
   }
@@ -345,8 +347,7 @@ function collectModuleViolations(facts: ClientPackageFacts): string[] {
       if (specifier === '') continue
       if (baseline.has(specifier)) {
         violations.push(
-          pkg.manifest + ': dsh.client.external repeats baseline module ' + JSON.stringify(specifier)
-          + '; remove the explicit declaration',
+          pkg.manifest + ': dsh.client.external repeats baseline module ' + JSON.stringify(specifier) + '; remove the explicit declaration',
         )
         continue
       }
@@ -356,15 +357,19 @@ function collectModuleViolations(facts: ClientPackageFacts): string[] {
       } else if (supplier !== undefined) {
         if (pkg.manifest.startsWith('packages/client/')) {
           violations.push(
-            pkg.manifest + ': client feature package requests runtime external ' + JSON.stringify(specifier)
-            + '; import shared types only or call an injected Cordis service',
+            pkg.manifest +
+              ': client feature package requests runtime external ' +
+              JSON.stringify(specifier) +
+              '; import shared types only or call an injected Cordis service',
           )
           continue
         }
         if (pkg.runtimeSourceSpecifiers[specifier] === undefined) {
           violations.push(
-            pkg.manifest + ': dsh.client.external ' + JSON.stringify(specifier)
-            + ' has no runtime import or re-export in production source; remove the stale declaration',
+            pkg.manifest +
+              ': dsh.client.external ' +
+              JSON.stringify(specifier) +
+              ' has no runtime import or re-export in production source; remove the stale declaration',
           )
           continue
         }
@@ -372,11 +377,13 @@ function collectModuleViolations(facts: ClientPackageFacts): string[] {
       } else {
         const owner = stripClientSuffix(specifier)
         violations.push(
-          pkg.manifest + ': dsh.client.external ' + JSON.stringify(specifier) + ' has no supplier;'
-          + (byName.has(owner)
-            ? ' workspace package ' + owner
-              + ' declares no dynamic dsh.client row and the shell does not seed this specifier'
-            : ' no dynamic row or PLATFORM_MODULES entry answers it'),
+          pkg.manifest +
+            ': dsh.client.external ' +
+            JSON.stringify(specifier) +
+            ' has no supplier;' +
+            (byName.has(owner)
+              ? ' workspace package ' + owner + ' declares no dynamic dsh.client row and the shell does not seed this specifier'
+              : ' no dynamic row or PLATFORM_MODULES entry answers it'),
         )
       }
     }
@@ -386,13 +393,10 @@ function collectModuleViolations(facts: ClientPackageFacts): string[] {
   return violations
 }
 
-function collectModuleCycles(
-  edges: readonly ModuleEdge[],
-  byName: ReadonlyMap<string, ClientDeclaration>,
-): string[] {
+function collectModuleCycles(edges: readonly ModuleEdge[], byName: ReadonlyMap<string, ClientDeclaration>): string[] {
   const outgoing = new Map<string, ModuleEdge[]>()
   for (const edge of [...edges].sort((left, right) => left.specifier.localeCompare(right.specifier))) {
-    outgoing.set(edge.from, [...outgoing.get(edge.from) ?? [], edge])
+    outgoing.set(edge.from, [...(outgoing.get(edge.from) ?? []), edge])
   }
   const finished = new Set<string>()
   const onPath = new Set<string>()
@@ -430,13 +434,10 @@ function cycleKey(cycle: readonly ModuleEdge[]): string {
   return [...labels.slice(offset), ...labels.slice(0, offset)].join(' -> ')
 }
 
-function formatCycle(
-  cycle: readonly ModuleEdge[],
-  byName: ReadonlyMap<string, ClientDeclaration>,
-): string {
+function formatCycle(cycle: readonly ModuleEdge[], byName: ReadonlyMap<string, ClientDeclaration>): string {
   const entry = cycle[0]
   const chain = cycle.map(edge => edge.from + ' --(' + edge.specifier + ')-->').join(' ')
-  const manifest = entry === undefined ? 'packages/client' : byName.get(entry.from)?.manifest ?? entry.from
+  const manifest = entry === undefined ? 'packages/client' : (byName.get(entry.from)?.manifest ?? entry.from)
   return manifest + ': synchronous dsh.client.external cycle: ' + chain + ' ' + (entry?.from ?? '')
 }
 
@@ -448,26 +449,32 @@ interface Manifest {
   devDependencies?: Record<string, string>
 }
 
-function readDeclaration(
-  root: string,
-  manifestPath: string,
-  malformed: string[],
-): ClientDeclaration | undefined {
+function readDeclaration(root: string, manifestPath: string, malformed: string[]): ClientDeclaration | undefined {
   const manifest = JSON.parse(readFileSync(resolve(root, manifestPath), 'utf8')) as Manifest
   if (typeof manifest.name !== 'string') return undefined
   const dsh = isRecord(manifest.dsh) ? manifest.dsh : undefined
   const rawClient = dsh?.client
   if (rawClient === undefined) {
     return {
-      name: manifest.name, manifest: manifestPath, dynamic: false, external: [], inject: [],
-      runtimeSourceUses: {}, runtimeSourceSpecifiers: {},
+      name: manifest.name,
+      manifest: manifestPath,
+      dynamic: false,
+      external: [],
+      inject: [],
+      runtimeSourceUses: {},
+      runtimeSourceSpecifiers: {},
     }
   }
   if (!isRecord(rawClient)) {
     malformed.push(manifestPath + ': ' + manifest.name + ' dsh.client must be an object')
     return {
-      name: manifest.name, manifest: manifestPath, dynamic: false, external: [], inject: [],
-      runtimeSourceUses: {}, runtimeSourceSpecifiers: {},
+      name: manifest.name,
+      manifest: manifestPath,
+      dynamic: false,
+      external: [],
+      inject: [],
+      runtimeSourceUses: {},
+      runtimeSourceSpecifiers: {},
     }
   }
   return {
@@ -481,13 +488,7 @@ function readDeclaration(
   }
 }
 
-function stringArray(
-  value: unknown,
-  packageName: string,
-  manifestPath: string,
-  field: string,
-  malformed: string[],
-): readonly string[] {
+function stringArray(value: unknown, packageName: string, manifestPath: string, field: string, malformed: string[]): readonly string[] {
   if (value === undefined) return []
   if (!Array.isArray(value) || value.some(entry => typeof entry !== 'string')) {
     malformed.push(manifestPath + ': ' + packageName + ' dsh.client.' + field + ' must be a string array')
@@ -498,22 +499,20 @@ function stringArray(
 
 async function readStaticLinkedRoster(root: string): Promise<Set<string>> {
   const presetUrl = pathToFileURL(resolve(import.meta.dirname, '..', STATIC_PRESET_SOURCE)).href
-  const preset = await import(presetUrl) as { isStaticLinkedConfig?: unknown }
+  const preset = (await import(presetUrl)) as { isStaticLinkedConfig?: unknown }
   if (typeof preset.isStaticLinkedConfig !== 'function') {
     throw new Error(GATE + ': ' + STATIC_PRESET_SOURCE + ' exports no isStaticLinkedConfig')
   }
   const predicate = preset.isStaticLinkedConfig as (configs: readonly unknown[]) => boolean
   const roster = new Set<string>()
   for (const configPath of globSync(CONFIG_GLOB, { cwd: root }).map(normalizePath).sort()) {
-    const loaded = await import(pathToFileURL(resolve(root, configPath)).href) as { default?: unknown }
+    const loaded = (await import(pathToFileURL(resolve(root, configPath)).href)) as { default?: unknown }
     if (typeof loaded.default !== 'function') continue
     const configs = (loaded.default as (input: { env: Record<string, string> }) => unknown)({
       env: { DSH_BUILD_FACE: 'client' },
     })
     if (!Array.isArray(configs) || !predicate(configs)) continue
-    const manifest = JSON.parse(
-      readFileSync(resolve(root, configPath.replace(/tsdown\.config\.ts$/, 'package.json')), 'utf8'),
-    ) as Manifest
+    const manifest = JSON.parse(readFileSync(resolve(root, configPath.replace(/tsdown\.config\.ts$/, 'package.json')), 'utf8')) as Manifest
     if (typeof manifest.name === 'string') roster.add(manifest.name)
   }
   return roster
@@ -547,7 +546,7 @@ function readStringLiteralArray(root: string, sourcePath: string, name: string):
       if (expression === undefined || !ts.isArrayLiteralExpression(expression)) {
         throw new Error(GATE + ': ' + name + ' in ' + sourcePath + ' must be an array literal')
       }
-      return expression.elements.map((element) => {
+      return expression.elements.map(element => {
         const value = unwrapExpression(element)
         if (ts.isStringLiteral(value)) return value.text
         if (ts.isIdentifier(value) && constants.has(value.text)) return constants.get(value.text) as string
@@ -585,11 +584,13 @@ async function readFacts(root: string): Promise<ClientPackageFacts> {
     return {
       ...declaration,
       runtimeSourceUses: Object.fromEntries(
-        [...runtimeSourceUses].sort(([left], [right]) => left.localeCompare(right))
+        [...runtimeSourceUses]
+          .sort(([left], [right]) => left.localeCompare(right))
           .map(([name, locations]) => [name, [...locations].sort()]),
       ),
       runtimeSourceSpecifiers: Object.fromEntries(
-        [...runtimeSourceSpecifiers].sort(([left], [right]) => left.localeCompare(right))
+        [...runtimeSourceSpecifiers]
+          .sort(([left], [right]) => left.localeCompare(right))
           .map(([specifier, locations]) => [specifier, [...locations].sort()]),
       ),
     }
@@ -625,11 +626,11 @@ async function readFacts(root: string): Promise<ClientPackageFacts> {
       ...declaration,
       staticLinked: staticLinkedPackages.has(declaration.name),
       sourceUses: Object.fromEntries(
-        [...sourceUses].sort(([left], [right]) => left.localeCompare(right))
-          .map(([name, locations]) => [name, [...locations].sort()]),
+        [...sourceUses].sort(([left], [right]) => left.localeCompare(right)).map(([name, locations]) => [name, [...locations].sort()]),
       ),
       runtimeSourceUses: Object.fromEntries(
-        [...runtimeSourceUses].sort(([left], [right]) => left.localeCompare(right))
+        [...runtimeSourceUses]
+          .sort(([left], [right]) => left.localeCompare(right))
           .map(([name, locations]) => [name, [...locations].sort()]),
       ),
       dependencies: manifest.dependencies ?? {},
@@ -702,9 +703,16 @@ async function main(): Promise<void> {
   const dynamic = facts.packages.filter(pkg => pkg.dynamic).length
   const requests = facts.declarations.reduce((total, pkg) => total + pkg.external.length, 0)
   console.log(
-    GATE + ': ' + String(facts.packages.length) + ' client packages (' + String(dynamic) + ' dynamic, '
-    + String(facts.packages.length - dynamic) + ' statically linked) satisfy package-mode and module-request rules; '
-    + String(requests) + ' explicit external request(s).',
+    GATE +
+      ': ' +
+      String(facts.packages.length) +
+      ' client packages (' +
+      String(dynamic) +
+      ' dynamic, ' +
+      String(facts.packages.length - dynamic) +
+      ' statically linked) satisfy package-mode and module-request rules; ' +
+      String(requests) +
+      ' explicit external request(s).',
   )
 }
 

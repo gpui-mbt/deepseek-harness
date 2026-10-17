@@ -159,11 +159,7 @@ export function passedThreshold(startX: number, startY: number, x: number, y: nu
  * @param delta - pointer travel along the split axis, as a fraction of the split's extent.
  * @returns new fractions; the two neighbours absorb the whole change.
  */
-export function dividerSizes(
-  sizes: readonly number[],
-  index: number,
-  delta: number,
-): number[] {
+export function dividerSizes(sizes: readonly number[], index: number, delta: number): number[] {
   const before = sizes[index]
   const after = sizes[index + 1]
   if (before === undefined || after === undefined) return [...sizes]

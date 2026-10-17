@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as yaml from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 
 function packageName(specifier: string): string {
@@ -19,10 +19,9 @@ describe('dsh-sdk-minimal bundle', () => {
       dsh?: { bundle?: { patch?: string } }
     }
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
-    const patches = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
-      { schema: entryListSchema },
-    ) as Array<{ insert?: Array<{ id?: string; inject?: string[]; name?: string; config?: Record<string, unknown>; disabled?: unknown }> }>
+    const patches = yaml.load(readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'), { schema: entryListSchema }) as Array<{
+      insert?: Array<{ id?: string; inject?: string[]; name?: string; config?: Record<string, unknown>; disabled?: unknown }>
+    }>
     expect(patches).toHaveLength(1)
     const rows = patches[0]?.insert ?? []
     expect(rows.map(row => [row.id, row.name])).toEqual([
@@ -88,7 +87,14 @@ describe('dsh-sdk-minimal bundle', () => {
       config: { shellDialect: 'pwsh', timeoutMs: 300000 },
     })
     expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(
-      [...new Set(rows.map(row => row.name).filter((name): name is string => name !== undefined).map(packageName))].sort(),
+      [
+        ...new Set(
+          rows
+            .map(row => row.name)
+            .filter((name): name is string => name !== undefined)
+            .map(packageName),
+        ),
+      ].sort(),
     )
   })
 })

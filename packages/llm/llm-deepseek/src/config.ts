@@ -9,7 +9,19 @@ import type { LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environm
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type { DeepSeekCatalogModel, DeepSeekConnectionOptions } from './types.ts'
 import { DEFAULT_MODELS } from './models.ts'
-import { DEFAULT_STREAM_IDLE_TIMEOUT_MS, DEFAULT_CONTEXT_WINDOW, DEFAULT_MAX_TOKENS, DEFAULT_MAX_INLINE_REQUEST_IMAGE_BYTES, DEFAULT_IMAGE_OFFLOAD_BYTE_QUANTUM, DEFAULT_INLINE_IMAGE_OFFLOAD_BYTE_QUANTUM, DEFAULT_IMAGE_OFFLOAD_COUNT_QUANTUM, DEFAULT_FILE_EXPIRY_SECONDS, DEFAULT_FILE_REFRESH_MARGIN_SECONDS, DEFAULT_FILE_QUOTA_CLEANUP_BATCH, DEFAULT_FILES_API_TIMEOUT_MS } from './defaults.ts'
+import {
+  DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+  DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_MAX_TOKENS,
+  DEFAULT_MAX_INLINE_REQUEST_IMAGE_BYTES,
+  DEFAULT_IMAGE_OFFLOAD_BYTE_QUANTUM,
+  DEFAULT_INLINE_IMAGE_OFFLOAD_BYTE_QUANTUM,
+  DEFAULT_IMAGE_OFFLOAD_COUNT_QUANTUM,
+  DEFAULT_FILE_EXPIRY_SECONDS,
+  DEFAULT_FILE_REFRESH_MARGIN_SECONDS,
+  DEFAULT_FILE_QUOTA_CLEANUP_BATCH,
+  DEFAULT_FILES_API_TIMEOUT_MS,
+} from './defaults.ts'
 import { DEFAULT_MAX_IMAGES_PER_REQUEST, DEFAULT_MAX_REQUEST_FILES_BYTES, DEFAULT_REQUEST_IMAGE_MAX_BYTES } from './request-pricing.ts'
 
 const MODEL_MODALITIES = ['text', 'image'] as const satisfies readonly ModelModality[]
@@ -123,7 +135,7 @@ export type ResolvedDeepSeekOptions = DeepSeekConnectionOptions
 /** Resolve, validate, and detach the advisory model catalog. */
 function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): DeepSeekCatalogModel[] {
   const seen = new Set<string>()
-  return (models ?? DEFAULT_MODELS).map((model) => {
+  return (models ?? DEFAULT_MODELS).map(model => {
     if (Object.hasOwn(model, 'imageDetail')) {
       throw new Error('llm-deepseek: catalog model imageDetail is no longer supported; use imagePixelBudget')
     }
@@ -131,26 +143,18 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
     if (model.name !== undefined && model.name.length === 0) {
       throw new Error(`llm-deepseek: catalog model "${model.id}" has an empty name`)
     }
-    if (model.contextWindow !== undefined
-      && (!Number.isInteger(model.contextWindow) || model.contextWindow <= 0)) {
-      throw new Error(
-        `llm-deepseek: catalog model "${model.id}" contextWindow must be a positive integer`,
-      )
+    if (model.contextWindow !== undefined && (!Number.isInteger(model.contextWindow) || model.contextWindow <= 0)) {
+      throw new Error(`llm-deepseek: catalog model "${model.id}" contextWindow must be a positive integer`)
     }
-    if (model.maxTokens !== undefined
-      && (!Number.isInteger(model.maxTokens) || model.maxTokens <= 0)) {
-      throw new Error(
-        `llm-deepseek: catalog model "${model.id}" maxTokens must be a positive integer`,
-      )
+    if (model.maxTokens !== undefined && (!Number.isInteger(model.maxTokens) || model.maxTokens <= 0)) {
+      throw new Error(`llm-deepseek: catalog model "${model.id}" maxTokens must be a positive integer`)
     }
     const inputModalities = model.inputModalities ?? ['text']
     if (inputModalities.length === 0) {
       throw new Error(`llm-deepseek: catalog model "${model.id}" inputModalities must not be empty`)
     }
     if (inputModalities.some(modality => !MODEL_MODALITIES.includes(modality))) {
-      throw new Error(
-        `llm-deepseek: catalog model "${model.id}" inputModalities must contain only "text" and "image"`,
-      )
+      throw new Error(`llm-deepseek: catalog model "${model.id}" inputModalities must contain only "text" and "image"`)
     }
     if (new Set(inputModalities).size !== inputModalities.length) {
       throw new Error(`llm-deepseek: catalog model "${model.id}" inputModalities must not contain duplicates`)
@@ -159,13 +163,14 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
     if (!hasImage && (model.imagePixelBudget !== undefined || model.imageMaxBytes !== undefined)) {
       throw new Error(`llm-deepseek: text-only catalog model "${model.id}" cannot declare image request limits`)
     }
-    if (model.imagePixelBudget !== undefined
-      && model.imagePixelBudget !== 'low'
-      && (!Number.isSafeInteger(model.imagePixelBudget) || model.imagePixelBudget <= 0)) {
+    if (
+      model.imagePixelBudget !== undefined &&
+      model.imagePixelBudget !== 'low' &&
+      (!Number.isSafeInteger(model.imagePixelBudget) || model.imagePixelBudget <= 0)
+    ) {
       throw new Error(`llm-deepseek: catalog model "${model.id}" imagePixelBudget must be "low" or a positive safe integer`)
     }
-    if (model.imageMaxBytes !== undefined
-      && (!Number.isSafeInteger(model.imageMaxBytes) || model.imageMaxBytes <= 0)) {
+    if (model.imageMaxBytes !== undefined && (!Number.isSafeInteger(model.imageMaxBytes) || model.imageMaxBytes <= 0)) {
       throw new Error(`llm-deepseek: catalog model "${model.id}" imageMaxBytes must be a positive safe integer`)
     }
     // Widened: a dynamic config update reaches this check without schema validation.
@@ -181,19 +186,19 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
     seen.add(model.id)
     return {
       id: model.id,
-      ...model.name === undefined ? {} : { name: model.name },
-      ...model.description === undefined ? {} : { description: model.description },
-      ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
-      ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
-      ...model.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: model.systemPromptUpdate },
-      ...model.toolUpdate === undefined ? {} : { toolUpdate: model.toolUpdate },
+      ...(model.name === undefined ? {} : { name: model.name }),
+      ...(model.description === undefined ? {} : { description: model.description }),
+      ...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
+      ...(model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens }),
+      ...(model.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: model.systemPromptUpdate }),
+      ...(model.toolUpdate === undefined ? {} : { toolUpdate: model.toolUpdate }),
       inputModalities: [...inputModalities],
-      ...hasImage
+      ...(hasImage
         ? {
-          ...model.imagePixelBudget === undefined ? {} : { imagePixelBudget: model.imagePixelBudget },
-          imageMaxBytes: model.imageMaxBytes ?? DEFAULT_REQUEST_IMAGE_MAX_BYTES,
-        }
-        : {},
+            ...(model.imagePixelBudget === undefined ? {} : { imagePixelBudget: model.imagePixelBudget }),
+            imageMaxBytes: model.imageMaxBytes ?? DEFAULT_REQUEST_IMAGE_MAX_BYTES,
+          }
+        : {}),
     }
   })
 }
@@ -216,26 +221,18 @@ export function resolveAdapterOptions(config: Options, environment?: LaunchEnvir
   if (Object.hasOwn(config, 'protocol')) {
     throw new Error('llm-deepseek: protocol is not configurable; remove it and use a Messages-compatible baseURL')
   }
-  if (config.thinking === 'disabled'
-    && config.reasoningEffort !== undefined
-    && config.reasoningEffort !== 'off') {
+  if (config.thinking === 'disabled' && config.reasoningEffort !== undefined && config.reasoningEffort !== 'off') {
     throw new Error('llm-deepseek: only reasoningEffort "off" can be configured when thinking is disabled')
   }
-  if (config.defaultContextWindow !== undefined
-    && (!Number.isInteger(config.defaultContextWindow) || config.defaultContextWindow <= 0)) {
+  if (config.defaultContextWindow !== undefined && (!Number.isInteger(config.defaultContextWindow) || config.defaultContextWindow <= 0)) {
     throw new Error('llm-deepseek: defaultContextWindow must be a positive integer')
   }
-  if (config.maxTokens !== undefined
-    && (!Number.isSafeInteger(config.maxTokens) || config.maxTokens <= 0)) {
+  if (config.maxTokens !== undefined && (!Number.isSafeInteger(config.maxTokens) || config.maxTokens <= 0)) {
     throw new Error('llm-deepseek: maxTokens must be a positive safe integer')
   }
   const streamIdleTimeoutMs = config.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
-  if (!Number.isFinite(streamIdleTimeoutMs)
-    || streamIdleTimeoutMs <= 0
-    || streamIdleTimeoutMs > MAX_TIMER_DELAY_MS) {
-    throw new Error(
-      `llm-deepseek: streamIdleTimeoutMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`,
-    )
+  if (!Number.isFinite(streamIdleTimeoutMs) || streamIdleTimeoutMs <= 0 || streamIdleTimeoutMs > MAX_TIMER_DELAY_MS) {
+    throw new Error(`llm-deepseek: streamIdleTimeoutMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`)
   }
   const maxRequestFilesBytes = config.maxRequestFilesBytes ?? DEFAULT_MAX_REQUEST_FILES_BYTES
   if (!Number.isSafeInteger(maxRequestFilesBytes) || maxRequestFilesBytes <= 0) {
@@ -256,8 +253,7 @@ export function resolveAdapterOptions(config: Options, environment?: LaunchEnvir
   if (imageOffloadByteQuantum > maxRequestFilesBytes) {
     throw new Error('llm-deepseek: imageOffloadByteQuantum must not exceed maxRequestFilesBytes')
   }
-  const inlineImageOffloadByteQuantum = config.inlineImageOffloadByteQuantum
-    ?? DEFAULT_INLINE_IMAGE_OFFLOAD_BYTE_QUANTUM
+  const inlineImageOffloadByteQuantum = config.inlineImageOffloadByteQuantum ?? DEFAULT_INLINE_IMAGE_OFFLOAD_BYTE_QUANTUM
   if (!Number.isSafeInteger(inlineImageOffloadByteQuantum) || inlineImageOffloadByteQuantum <= 0) {
     throw new Error('llm-deepseek: inlineImageOffloadByteQuantum must be a positive safe integer')
   }
@@ -272,29 +268,23 @@ export function resolveAdapterOptions(config: Options, environment?: LaunchEnvir
     throw new Error('llm-deepseek: imageOffloadCountQuantum must not exceed maxImagesPerRequest')
   }
   const filesApiTimeoutMs = config.filesApiTimeoutMs ?? DEFAULT_FILES_API_TIMEOUT_MS
-  if (!Number.isFinite(filesApiTimeoutMs)
-    || filesApiTimeoutMs <= 0
-    || filesApiTimeoutMs > MAX_TIMER_DELAY_MS) {
-    throw new Error(
-      `llm-deepseek: filesApiTimeoutMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`,
-    )
+  if (!Number.isFinite(filesApiTimeoutMs) || filesApiTimeoutMs <= 0 || filesApiTimeoutMs > MAX_TIMER_DELAY_MS) {
+    throw new Error(`llm-deepseek: filesApiTimeoutMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`)
   }
   const fileExpiresAfterSeconds = config.fileExpiresAfterSeconds ?? DEFAULT_FILE_EXPIRY_SECONDS
-  if (!Number.isSafeInteger(fileExpiresAfterSeconds)
-    || fileExpiresAfterSeconds < 3_600
-    || fileExpiresAfterSeconds > 2_592_000) {
+  if (!Number.isSafeInteger(fileExpiresAfterSeconds) || fileExpiresAfterSeconds < 3_600 || fileExpiresAfterSeconds > 2_592_000) {
     throw new Error('llm-deepseek: fileExpiresAfterSeconds must be an integer from 3600 through 2592000')
   }
   const fileRefreshMarginSeconds = config.fileRefreshMarginSeconds ?? DEFAULT_FILE_REFRESH_MARGIN_SECONDS
-  if (!Number.isSafeInteger(fileRefreshMarginSeconds)
-    || fileRefreshMarginSeconds < 0
-    || fileRefreshMarginSeconds >= fileExpiresAfterSeconds) {
+  if (
+    !Number.isSafeInteger(fileRefreshMarginSeconds) ||
+    fileRefreshMarginSeconds < 0 ||
+    fileRefreshMarginSeconds >= fileExpiresAfterSeconds
+  ) {
     throw new Error('llm-deepseek: fileRefreshMarginSeconds must be a non-negative integer below fileExpiresAfterSeconds')
   }
   const fileQuotaCleanupBatch = config.fileQuotaCleanupBatch ?? DEFAULT_FILE_QUOTA_CLEANUP_BATCH
-  if (!Number.isSafeInteger(fileQuotaCleanupBatch)
-    || fileQuotaCleanupBatch < 1
-    || fileQuotaCleanupBatch > 1_000) {
+  if (!Number.isSafeInteger(fileQuotaCleanupBatch) || fileQuotaCleanupBatch < 1 || fileQuotaCleanupBatch > 1_000) {
     throw new Error('llm-deepseek: fileQuotaCleanupBatch must be an integer from 1 through 1000')
   }
   const baseURL = config.baseURL ?? environment?.get(BASE_URL_ENV)?.value ?? PUBLIC_BASE_URL

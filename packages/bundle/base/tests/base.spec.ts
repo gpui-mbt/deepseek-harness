@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import * as yaml from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { evaluate } from '@deepseek-ai/cordis-plugin-loader'
@@ -14,17 +14,12 @@ import { evaluate } from '@deepseek-ai/cordis-plugin-loader'
 describe('dsh-base bundle', () => {
   it('declares a parseable patch list through the dsh.bundle.patch manifest field', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
-    const manifest = JSON.parse(
-      readFileSync(resolve(root, 'package.json'), 'utf8'),
-    ) as {
+    const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
       dsh?: { bundle?: { patch?: string } }
     }
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
-    const parsed = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
-      { schema: entryListSchema },
-    )
+    const parsed = yaml.load(readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'), { schema: entryListSchema })
     expect(Array.isArray(parsed)).toBe(true)
     // The base layer is one insert list over the empty profile root.
     const rows = (parsed as { insert?: { id?: string; config?: Record<string, unknown>; disabled?: boolean }[] }[]).flatMap(
@@ -56,15 +51,10 @@ describe('dsh-base bundle', () => {
 
   it('gates each shell stack by platform with a symmetric disabled expression', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
-    const parsed = yaml.load(
-      readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8'),
-      { schema: entryListSchema },
-    )
+    const parsed = yaml.load(readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8'), { schema: entryListSchema })
     if (!Array.isArray(parsed)) throw new TypeError('base patch must parse to a patch list')
     const rows = parsed.flatMap((patch): Record<string, unknown>[] =>
-      typeof patch === 'object' && patch !== null
-        ? (patch as { insert?: Record<string, unknown>[] }).insert ?? []
-        : [],
+      typeof patch === 'object' && patch !== null ? ((patch as { insert?: Record<string, unknown>[] }).insert ?? []) : [],
     )
     // Symmetric gating: each stack's executor and tool rows carry the same
     // platform fact, inverted between the bash and pwsh twins, so exactly one

@@ -4,10 +4,20 @@ import type { SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Locale keys the page renders. */
 export type ShellSettingsLocaleKey =
-  | 'title' | 'description'
-  | 'timeoutMs' | 'timeoutMsHint' | 'maxOutputBytes' | 'maxOutputBytesHint'
-  | 'overridden' | 'reset' | 'readOnly' | 'unavailable'
-  | 'save' | 'saving' | 'saveFailed' | 'invalidNumber'
+  | 'title'
+  | 'description'
+  | 'timeoutMs'
+  | 'timeoutMsHint'
+  | 'maxOutputBytes'
+  | 'maxOutputBytesHint'
+  | 'overridden'
+  | 'reset'
+  | 'readOnly'
+  | 'unavailable'
+  | 'save'
+  | 'saving'
+  | 'saveFailed'
+  | 'invalidNumber'
 
 /** English copy. */
 export const en: Record<ShellSettingsLocaleKey, string> = {

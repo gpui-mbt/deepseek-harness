@@ -5,11 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Webhooks } from '@octokit/webhooks'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
-import {
-  WebhookDeliveryId,
-  WebhookSourceId,
-  type VerifiedWebhookDelivery,
-} from '@deepseek-ai/dsh-webhook'
+import { WebhookDeliveryId, WebhookSourceId, type VerifiedWebhookDelivery } from '@deepseek-ai/dsh-webhook'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { readBoundedUtf8Body, WebhookHttpError } from './body.ts'
 import type { GitHubJsonObject } from './types.ts'
@@ -75,10 +71,7 @@ function parsePayload(body: string): GitHubJsonObject {
  * @param config - validated source, credential reference, and body ceiling.
  * @returns an HTTP handler that answers after in-memory dispatch, never rule settlement.
  */
-export function createGitHubWebhookHandler(
-  ctx: Context,
-  config: GitHubWebhookHandlerConfig,
-): WebRoute['handler'] {
+export function createGitHubWebhookHandler(ctx: Context, config: GitHubWebhookHandlerConfig): WebRoute['handler'] {
   return async (request, response) => {
     try {
       if (request.method !== 'POST') {

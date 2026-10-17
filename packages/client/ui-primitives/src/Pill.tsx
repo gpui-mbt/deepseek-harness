@@ -13,7 +13,13 @@ import css from './Pill.module.css'
  * @param props.active - selected/active visual state.
  * @returns pill element.
  */
-export function Pill({ active = false, className, children, onClick, ...rest }: {
+export function Pill({
+  active = false,
+  className,
+  children,
+  onClick,
+  ...rest
+}: {
   active?: boolean
   // `| undefined` so a caller can forward an optional class straight through
   // under exactOptionalPropertyTypes (a CSS-module lookup is string|undefined).
@@ -24,12 +30,7 @@ export function Pill({ active = false, className, children, onClick, ...rest }: 
     return <span className={clsx(css.pill, active && css.active, className)}>{children}</span>
   }
   return (
-    <button
-      type="button"
-      className={clsx(css.pill, css.interactive, active && css.active, className)}
-      onClick={onClick}
-      {...rest}
-    >
+    <button type="button" className={clsx(css.pill, css.interactive, active && css.active, className)} onClick={onClick} {...rest}>
       {children}
     </button>
   )

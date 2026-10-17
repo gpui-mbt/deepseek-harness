@@ -41,22 +41,42 @@ export function followPointer(element: HTMLElement, pointerId: number, followers
   const controller = new AbortController()
   const { signal } = controller
   element.dataset.dockkitPointer = String(pointerId)
-  signal.addEventListener('abort', () => {
-    if (element.dataset.dockkitPointer === String(pointerId)) delete element.dataset.dockkitPointer
-  }, { once: true })
+  signal.addEventListener(
+    'abort',
+    () => {
+      if (element.dataset.dockkitPointer === String(pointerId)) delete element.dataset.dockkitPointer
+    },
+    { once: true },
+  )
   const own = (event: PointerEvent): boolean => event.pointerId === pointerId
-  window.addEventListener('pointermove', (event) => { if (own(event)) followers.move(event) }, { signal })
-  window.addEventListener('pointerup', (event) => {
-    if (!own(event)) return
+  window.addEventListener(
+    'pointermove',
+    event => {
+      if (own(event)) followers.move(event)
+    },
+    { signal },
+  )
+  window.addEventListener(
+    'pointerup',
+    event => {
+      if (!own(event)) return
+      controller.abort()
+      followers.up(event)
+    },
+    { signal },
+  )
+  window.addEventListener(
+    'pointercancel',
+    event => {
+      if (!own(event)) return
+      controller.abort()
+      followers.cancel()
+    },
+    { signal },
+  )
+  return () => {
     controller.abort()
-    followers.up(event)
-  }, { signal })
-  window.addEventListener('pointercancel', (event) => {
-    if (!own(event)) return
-    controller.abort()
-    followers.cancel()
-  }, { signal })
-  return () => { controller.abort() }
+  }
 }
 
 /** What one gesture does while it lasts and when it settles. */
@@ -84,7 +104,12 @@ export type BeginGesture = (element: HTMLElement, pointerId: number, followers: 
  */
 export function useGesture(reset: () => void): BeginGesture {
   const inFlight = useRef<{ readonly stop: () => void; readonly end: () => void } | undefined>(undefined)
-  useEffect(() => () => { inFlight.current?.stop() }, [])
+  useEffect(
+    () => () => {
+      inFlight.current?.stop()
+    },
+    [],
+  )
   return (element, pointerId, followers) => {
     inFlight.current?.end()
     const settle = (): void => {
@@ -93,7 +118,7 @@ export function useGesture(reset: () => void): BeginGesture {
     }
     const stop = followPointer(element, pointerId, {
       move: followers.move,
-      up: (event) => {
+      up: event => {
         settle()
         followers.up(event)
       },

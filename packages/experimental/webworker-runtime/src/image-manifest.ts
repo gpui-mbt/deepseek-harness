@@ -43,15 +43,17 @@ export interface ImageManifest {
 }
 
 function recordOf(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
 
 /** A relative path made of non-empty segments without traversal. */
 function isRelativePath(value: unknown): value is string {
-  return typeof value === 'string' && value !== '' && !value.startsWith('/')
-    && value.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..')
+  return (
+    typeof value === 'string' &&
+    value !== '' &&
+    !value.startsWith('/') &&
+    value.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..')
+  )
 }
 
 function isCount(value: unknown): value is number {
@@ -69,12 +71,21 @@ export function parseImageManifest(value: unknown, path: string): ImageManifest 
   const record = recordOf(value)
   if (record === undefined) throw new Error(`webworker host: ${path} does not hold an object`)
   if (record.lowered !== LOWERING_VERSION) {
-    throw new Error(`webworker host: image was lowered by ${String(record.lowered)}, this build runs ${LOWERING_VERSION}; rebuild the image`)
+    throw new Error(
+      `webworker host: image was lowered by ${String(record.lowered)}, this build runs ${LOWERING_VERSION}; rebuild the image`,
+    )
   }
   const { root, profile, installation, javascriptEntries, visitedEntries, rewrittenEntries, lazy } = record
-  if (typeof root !== 'string' || typeof profile !== 'string' || profile === ''
-    || (installation !== undefined && (typeof installation !== 'string' || installation === ''))
-    || !isCount(javascriptEntries) || !isCount(visitedEntries) || !isCount(rewrittenEntries) || !Array.isArray(lazy)) {
+  if (
+    typeof root !== 'string' ||
+    typeof profile !== 'string' ||
+    profile === '' ||
+    (installation !== undefined && (typeof installation !== 'string' || installation === '')) ||
+    !isCount(javascriptEntries) ||
+    !isCount(visitedEntries) ||
+    !isCount(rewrittenEntries) ||
+    !Array.isArray(lazy)
+  ) {
     throw new Error(`webworker host: ${path} lacks a valid root, profile, installation, entry count, or lazy archive list`)
   }
   const archives: ImageLazyArchive[] = []
@@ -100,7 +111,13 @@ export function parseImageManifest(value: unknown, path: string): ImageManifest 
     archives.push({ archive: name, files: parsed })
   }
   return {
-    root, profile, ...installation === undefined ? {} : { installation }, lowered: LOWERING_VERSION,
-    javascriptEntries, visitedEntries, rewrittenEntries, lazy: archives,
+    root,
+    profile,
+    ...(installation === undefined ? {} : { installation }),
+    lowered: LOWERING_VERSION,
+    javascriptEntries,
+    visitedEntries,
+    rewrittenEntries,
+    lazy: archives,
   }
 }

@@ -1,40 +1,65 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createInstalledUpdateRun } from '../scripts/installed-update-qualification.ts'
-import { assertInstalledUpdateSigningClear, installedUpdatePackagingEnvironment, packageInstalledUpdate } from '../scripts/installed-update-packaging.ts'
+import {
+  assertInstalledUpdateSigningClear,
+  installedUpdatePackagingEnvironment,
+  packageInstalledUpdate,
+} from '../scripts/installed-update-packaging.ts'
 
-const state = vi.hoisted(() => ({ home: '', settings: {} as NodeJS.ProcessEnv, loads: 0,
-  sourceCommit: 'a'.repeat(40), dirtyFiles: '' }))
+const state = vi.hoisted(() => ({ home: '', settings: {} as NodeJS.ProcessEnv, loads: 0, sourceCommit: 'a'.repeat(40), dirtyFiles: '' }))
 // Other test processes create workspace probes; only this fixture controls its recorded Git inputs.
-vi.mock('node:child_process', async (original) => {
+vi.mock('node:child_process', async original => {
   const actual = await original<typeof import('node:child_process')>()
-  return { ...actual, execFileSync: (...args: Parameters<typeof actual.execFileSync>) => {
-    if (args[0] !== 'git') return actual.execFileSync(...args)
-    const command = args[1]?.join(' ')
-    if (command === 'rev-parse HEAD') return state.sourceCommit
-    if (command === 'status --porcelain=v1 --untracked-files=normal') return state.dirtyFiles
-    throw new Error(`unexpected fixture Git command: ${String(command)}`)
-  } }
+  return {
+    ...actual,
+    execFileSync: (...args: Parameters<typeof actual.execFileSync>) => {
+      if (args[0] !== 'git') return actual.execFileSync(...args)
+      const command = args[1]?.join(' ')
+      if (command === 'rev-parse HEAD') return state.sourceCommit
+      if (command === 'status --porcelain=v1 --untracked-files=normal') return state.dirtyFiles
+      throw new Error(`unexpected fixture Git command: ${String(command)}`)
+    },
+  }
 })
-vi.mock('node:os', async original => ({ ...await original<typeof import('node:os')>(), homedir: () => state.home }))
+vi.mock('node:os', async original => ({ ...(await original<typeof import('node:os')>()), homedir: () => state.home }))
 vi.mock('../scripts/desktop-package-environment.mjs', () => ({
-  loadDesktopPackageEnvironment: () => { state.loads++; return state.settings },
+  loadDesktopPackageEnvironment: () => {
+    state.loads++
+    return state.settings
+  },
   validateDesktopPackageEnvironment: () => undefined,
 }))
 vi.mock('../scripts/installed-update-builder.ts', () => ({ createInstalledUpdateBuilderConfig: async () => ({}) }))
-vi.mock('../scripts/packaging-run.mjs', async (original) => {
+vi.mock('../scripts/packaging-run.mjs', async original => {
   const actual = await original<typeof import('../scripts/packaging-run.mjs')>()
-  return { ...actual, createPackagingRun: (...args: Parameters<typeof actual.createPackagingRun>) => {
-    const record = actual.createPackagingRun(...args)
-    return { ...record, run: (stage: string, executable: string, argv: readonly string[], options: {
-      cwd: string
-      env: NodeJS.ProcessEnv
-      timeoutMs?: number
-    }) => record.run(stage, executable,
-      [resolve(import.meta.dirname, 'fixtures/installed-update-packaging.mjs'), ...argv.slice(-2)], options) }
-  } }
+  return {
+    ...actual,
+    createPackagingRun: (...args: Parameters<typeof actual.createPackagingRun>) => {
+      const record = actual.createPackagingRun(...args)
+      return {
+        ...record,
+        run: (
+          stage: string,
+          executable: string,
+          argv: readonly string[],
+          options: {
+            cwd: string
+            env: NodeJS.ProcessEnv
+            timeoutMs?: number
+          },
+        ) =>
+          record.run(
+            stage,
+            executable,
+            [resolve(import.meta.dirname, 'fixtures/installed-update-packaging.mjs'), ...argv.slice(-2)],
+            options,
+          ),
+      }
+    },
+  }
 })
 
 const versions = ['0.1.6-nightly.20260914.1', '0.1.6-nightly.20260914.2'] as const
@@ -54,12 +79,18 @@ async function fixture(body: (manifest: string, root: string) => Promise<void>):
     await writeFile(join(run.root, 'application/result.json'), '{}')
     await mkdir(join(run.root, versions[0], 'dsh'), { recursive: true })
     await writeFile(join(run.root, versions[0], 'dsh/desktop-runtime.json'), '{}')
-    state.settings = { ...Object.fromEntries(Object.entries(process.env)
-      .filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$/iu.test(name))),
-    DSH_DESKTOP_WINDOWS_CER_FILE: certificate, DSH_DESKTOP_WINDOWS_SIGNTOOL: tool,
-    DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'fixture-secret-pin', DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'fixture-container' }
+    state.settings = {
+      ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$/iu.test(name))),
+      DSH_DESKTOP_WINDOWS_CER_FILE: certificate,
+      DSH_DESKTOP_WINDOWS_SIGNTOOL: tool,
+      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'fixture-secret-pin',
+      DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'fixture-container',
+    }
     await body(join(run.root, 'run.json'), root)
-  } finally { Object.assign(state, previous); await rm(root, { recursive: true, force: true }) }
+  } finally {
+    Object.assign(state, previous)
+    await rm(root, { recursive: true, force: true })
+  }
 }
 
 describe('operator-driven packaging entry', () => {
@@ -79,26 +110,44 @@ describe('operator-driven packaging entry', () => {
   })
 
   it('strips unrelated secrets and preload overrides while retaining signing inputs and the Windows archive filter', () => {
-    expect(installedUpdatePackagingEnvironment({ DSH_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path',
-      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin', DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
-      DEEPSEEK_API_KEY: 'llm', DOWNLOAD_TEST_COS_SECRET_KEY: 'cos', NODE_OPTIONS: 'preload', NODE_PATH: 'injected' }))
-      .toEqual({ DSH_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path', DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin',
-        DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container', DSH_DESKTOP_UNSIGNED: '0', ELECTRON_BUILDER_7Z_FILTER: 'BCJ' })
+    expect(
+      installedUpdatePackagingEnvironment({
+        DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+        PATH: 'tool-path',
+        DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin',
+        DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
+        DEEPSEEK_API_KEY: 'llm',
+        DOWNLOAD_TEST_COS_SECRET_KEY: 'cos',
+        NODE_OPTIONS: 'preload',
+        NODE_PATH: 'injected',
+      }),
+    ).toEqual({
+      DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+      PATH: 'tool-path',
+      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'pin',
+      DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
+      DSH_DESKTOP_UNSIGNED: '0',
+      ELECTRON_BUILDER_7Z_FILTER: 'BCJ',
+    })
   })
 
   it('checks without confirmation or allocating a packaging directory', async () => {
-    await fixture(async (manifest) => {
+    await fixture(async manifest => {
       const confirm = vi.fn(async () => true)
-      expect(await packageInstalledUpdate(manifest, versions[0], { execute: false, confirm }))
-        .toMatchObject({ mode: 'check', childLaunched: false, signed: false })
+      expect(await packageInstalledUpdate(manifest, versions[0], { execute: false, confirm })).toMatchObject({
+        mode: 'check',
+        childLaunched: false,
+        signed: false,
+      })
       expect(confirm).not.toHaveBeenCalled()
       expect(await readdir(join(manifest, '..', versions[0]))).toEqual(['dsh'])
     })
   })
 
   it.runIf(process.platform === 'win32' && process.arch === 'x64').each([true, false])(
-    'supervises an inert child with failure=%s, retains redaction and refuses reuse', async (failure) => {
-      await fixture(async (manifest) => {
+    'supervises an inert child with failure=%s, retains redaction and refuses reuse',
+    async failure => {
+      await fixture(async manifest => {
         state.settings.DSH_TEST_PACKAGING_FAIL = failure ? '1' : '0'
         const result = packageInstalledUpdate(manifest, versions[0], { execute: true, confirm: async () => true })
         if (failure) await expect(result).rejects.toThrow('signed-installer failed')
@@ -117,32 +166,47 @@ describe('operator-driven packaging entry', () => {
     },
   )
 
-  it.runIf(process.platform === 'win32' && process.arch === 'x64')('does not allocate a build after declined confirmation or an intervening interlock', async () => {
-    await fixture(async (manifest, root) => {
-      await expect(packageInstalledUpdate(manifest, versions[0], { execute: true, confirm: async () => false }))
-        .rejects.toThrow('did not confirm')
-      await expect(packageInstalledUpdate(manifest, versions[0], { execute: true, confirm: async () => {
-        await mkdir(join(root, '.dsh-desktop-signing'))
-        await writeFile(join(root, '.dsh-desktop-signing/attempt.json'), 'another operation acquired the token')
-        return true
-      } })).rejects.toThrow('interlock exists')
-      expect(await readdir(join(manifest, '..', versions[0]))).toEqual(['dsh'])
-    })
-  })
+  it.runIf(process.platform === 'win32' && process.arch === 'x64')(
+    'does not allocate a build after declined confirmation or an intervening interlock',
+    async () => {
+      await fixture(async (manifest, root) => {
+        await expect(packageInstalledUpdate(manifest, versions[0], { execute: true, confirm: async () => false })).rejects.toThrow(
+          'did not confirm',
+        )
+        await expect(
+          packageInstalledUpdate(manifest, versions[0], {
+            execute: true,
+            confirm: async () => {
+              await mkdir(join(root, '.dsh-desktop-signing'))
+              await writeFile(join(root, '.dsh-desktop-signing/attempt.json'), 'another operation acquired the token')
+              return true
+            },
+          }),
+        ).rejects.toThrow('interlock exists')
+        expect(await readdir(join(manifest, '..', versions[0]))).toEqual(['dsh'])
+      })
+    },
+  )
 
   it.runIf(process.platform === 'win32' && process.arch === 'x64').each(['output', 'source', 'git-head', 'git-status'] as const)(
-    'refuses an intervening %s change before launching the builder', async (change) => {
+    'refuses an intervening %s change before launching the builder',
+    async change => {
       await fixture(async (manifest, root) => {
-        await expect(packageInstalledUpdate(manifest, versions[0], { execute: true, confirm: async () => {
-          if (change === 'source') await writeFile(join(root, 'certificate.cer'), 'changed certificate bytes')
-          else if (change === 'git-head') state.sourceCommit = 'b'.repeat(40)
-          else if (change === 'git-status') state.dirtyFiles = ' M apps/desktop/package.json'
-          else {
-            await mkdir(join(manifest, '..', versions[0], 'installer'))
-            await writeFile(join(manifest, '..', versions[0], 'installer/owner.txt'), 'preserve')
-          }
-          return true
-        } })).rejects.toThrow(change === 'output' ? 'EEXIST' : 'recorded source or tool inputs changed before packaging')
+        await expect(
+          packageInstalledUpdate(manifest, versions[0], {
+            execute: true,
+            confirm: async () => {
+              if (change === 'source') await writeFile(join(root, 'certificate.cer'), 'changed certificate bytes')
+              else if (change === 'git-head') state.sourceCommit = 'b'.repeat(40)
+              else if (change === 'git-status') state.dirtyFiles = ' M apps/desktop/package.json'
+              else {
+                await mkdir(join(manifest, '..', versions[0], 'installer'))
+                await writeFile(join(manifest, '..', versions[0], 'installer/owner.txt'), 'preserve')
+              }
+              return true
+            },
+          }),
+        ).rejects.toThrow(change === 'output' ? 'EEXIST' : 'recorded source or tool inputs changed before packaging')
         const parent = join(manifest, '..', versions[0], 'packaging')
         const record = join(parent, (await readdir(parent))[0]!)
         expect(await readFile(join(record, 'events.jsonl'), 'utf8')).not.toContain('stage-spawn')

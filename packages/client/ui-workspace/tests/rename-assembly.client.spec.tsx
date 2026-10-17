@@ -14,7 +14,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
  * (session.spec.ts#rename), the entries' own arms with
  * session-actions.client.spec, the row's list rendering with rows.client.spec.
  */
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -32,7 +32,9 @@ usePinnedBrowserLanguages('zh-CN')
 const SID = 's1' as SessionId
 
 afterEach(cleanup)
-beforeEach(() => { localStorage.clear() })
+beforeEach(() => {
+  localStorage.clear()
+})
 
 /** Runtime with the locale face installed (the browser entry declares `locale:` — zh default backs the t seat). */
 async function createRuntime(): Promise<SlotTestRuntime> {
@@ -74,11 +76,17 @@ async function declareFrame(runtime: SlotTestRuntime): Promise<void> {
 
 /** One Workspace holding the fixture Session. */
 async function seedWorkspace(runtime: SlotTestRuntime): Promise<void> {
-  await runtime.workspaces.update((draft) => {
-    draft.items = [{
-      workspaceId: 'w1' as WorkspaceId, title: 'alpha', path: '/w/alpha',
-      sessionIds: [SID], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
-    }] as never
+  await runtime.workspaces.update(draft => {
+    draft.items = [
+      {
+        workspaceId: 'w1' as WorkspaceId,
+        title: 'alpha',
+        path: '/w/alpha',
+        sessionIds: [SID],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ] as never
   })
 }
 
@@ -101,10 +109,13 @@ describe('session rename through the assembled browser', () => {
         ({ sessionId, displayTitle, useMenuOpenState }: PropsRuntime<'sidebar.workspaces.session.menu.item'>) => {
           const [, setMenuOpen] = useMenuOpenState()
           return (
-            <MenuItemButton separatorBefore={order === 500} onSelect={() => {
-              setMenuOpen(false)
-              selected(id, sessionId, displayTitle)
-            }}>
+            <MenuItemButton
+              separatorBefore={order === 500}
+              onSelect={() => {
+                setMenuOpen(false)
+                selected(id, sessionId, displayTitle)
+              }}
+            >
               {label}
             </MenuItemButton>
           )
@@ -123,7 +134,13 @@ describe('session rename through the assembled browser', () => {
     const trigger = within(row as HTMLElement).getByLabelText('会话“Persisted title”的操作')
     fireEvent.click(trigger)
     expect(view.getAllByRole('menuitem').map(item => item.textContent)).toEqual([
-      '置顶会话', '重命名', '分叉会话', '归档会话', '复制 Session ID', 'Export action', 'Last action',
+      '置顶会话',
+      '重命名',
+      '分叉会话',
+      '归档会话',
+      '复制 Session ID',
+      'Export action',
+      'Last action',
     ])
     expect(view.getAllByRole('separator')).toHaveLength(1)
     const last = view.getByRole('menuitem', { name: 'Last action' })
@@ -138,7 +155,9 @@ describe('session rename through the assembled browser', () => {
     // The plugin row dismissed the menu through the bound open-state hook;
     // the list returns focus to the trigger.
     expect(view.queryByRole('menu')).toBeNull()
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(document.activeElement).toBe(trigger)
     const writeText = vi.fn(async () => {})
     const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
@@ -158,7 +177,8 @@ describe('session rename through the assembled browser', () => {
   it('renames via the row menu: binding.session.rename fires, the dialog closes, the row re-labels from the list', async () => {
     const runtime = await createRuntime()
     const rename = vi.fn<ISession['rename']>(async title => ({
-      ok: true, value: { title: title.trim().replace(/\s+/g, ' '), seq: SessionSeq(7) },
+      ok: true,
+      value: { title: title.trim().replace(/\s+/g, ' '), seq: SessionSeq(7) },
     }))
     await runtime.sessions.add({
       id: SID,
@@ -179,16 +199,20 @@ describe('session rename through the assembled browser', () => {
     expect(view.queryByRole('menu')).toBeNull()
 
     // The dialog seeds from the current title; submit a padded value.
-    const input = await view.findByLabelText('会话名称') as HTMLInputElement
+    const input = (await view.findByLabelText('会话名称')) as HTMLInputElement
     expect(input.value).toBe('旧标题')
     fireEvent.change(input, { target: { value: '  分叉  实验记录  ' } })
     fireEvent.click(view.getByRole('button', { name: '重命名' }))
 
     // The injected hop reached the session face with the edge-trimmed draft
     // (the dialog trims edges; interior normalization is host-side).
-    await waitFor(() => { expect(rename).toHaveBeenCalledWith('分叉  实验记录') })
+    await waitFor(() => {
+      expect(rename).toHaveBeenCalledWith('分叉  实验记录')
+    })
     // Acceptance closes the dialog without any push-frame wait.
-    await waitFor(() => { expect(view.queryByLabelText('会话名称')).toBeNull() })
+    await waitFor(() => {
+      expect(view.queryByLabelText('会话名称')).toBeNull()
+    })
     // The manager lands the unary echo in the list store (its own package
     // tests own that hop); the row re-labels from list state alone.
     await runtime.sessions.updateSummary(SID, { displayTitle: '分叉 实验记录', title: '分叉 实验记录' })
@@ -200,7 +224,8 @@ describe('session rename through the assembled browser', () => {
   it('a rejected rename keeps the dialog open with the error surfaced', async () => {
     const runtime = await createRuntime()
     const rename = vi.fn<ISession['rename']>(async () => ({
-      ok: false, error: new RemoteError('gateway/internal', 'title write failed', {}),
+      ok: false,
+      error: new RemoteError('gateway/internal', 'title write failed', {}),
     }))
     await runtime.sessions.add({
       id: SID,

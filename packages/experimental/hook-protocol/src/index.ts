@@ -6,13 +6,7 @@
  * @module @deepseek-ai/dsh-hook-protocol
  */
 
-export type {
-  CommandHook,
-  HookDialect,
-  HookOutput,
-  MatcherGroup,
-  MatcherMode,
-} from './types.ts'
+export type { CommandHook, HookDialect, HookOutput, MatcherGroup, MatcherMode } from './types.ts'
 export { matcherDiagnostic, matchesMatcher, selectHookGroups } from './matcher.ts'
 export { parseHookOutput } from './codec.ts'
 export { DEFAULT_HOOK_TIMEOUT_MS, runHook } from './runner.ts'

@@ -17,7 +17,9 @@ function magic(path: string): string {
   try {
     const header = Buffer.alloc(4)
     return readSync(descriptor, header, 0, 4, 0) === 4 ? header.toString('hex') : ''
-  } finally { closeSync(descriptor) }
+  } finally {
+    closeSync(descriptor)
+  }
 }
 
 async function primaryRuntimeFiles(root: string): Promise<string[]> {
@@ -43,7 +45,11 @@ async function primaryRuntimeFiles(root: string): Promise<string[]> {
  * @returns Number of signed native files.
  */
 export async function signMacOSRuntime(
-  root: string, appId: string, expected: MacOSSigningEnvironment, arch: 'arm64' | 'x64', cacheDirectory?: string,
+  root: string,
+  appId: string,
+  expected: MacOSSigningEnvironment,
+  arch: 'arm64' | 'x64',
+  cacheDirectory?: string,
   kind: 'desktop' | 'primary' = 'desktop',
 ): Promise<number> {
   const inventory = kind === 'primary' ? await primaryRuntimeFiles(root) : inventoryDesktopRuntime(root).map(file => file.path)
@@ -58,10 +64,8 @@ export async function signMacOSRuntime(
       if (path === undefined) return
       const identifier = `${appId}.runtime.${createHash('sha256').update(path).digest('hex')}`
       const isNode = path === 'dependencies/node/bin/node'
-      const needsJit = isNode
-        || /^node_modules\/@deepseek-ai\/libreoffice-kit-darwin-(?:arm64|x64)\/bin\/libreoffice-kit$/u.test(path)
-      const entitlementsFile = isNode && arch === 'x64'
-        ? 'node-x64-entitlements.plist' : 'jit-entitlements.plist'
+      const needsJit = isNode || /^node_modules\/@deepseek-ai\/libreoffice-kit-darwin-(?:arm64|x64)\/bin\/libreoffice-kit$/u.test(path)
+      const entitlementsFile = isNode && arch === 'x64' ? 'node-x64-entitlements.plist' : 'jit-entitlements.plist'
       const entitlements = needsJit ? join(import.meta.dirname, entitlementsFile) : undefined
       const file = join(root, path)
       const thin = ['cefaedfe', 'cffaedfe', 'feedface', 'feedfacf'].includes(magic(file))

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatConversationViewNode } from '../src/client/contract/chat-nodes.ts'
 import { isAtOrOutside, type ChatGroupTree } from '../src/client/contract/group-tree.ts'
@@ -6,14 +6,24 @@ import { GroupTreeSegments } from '../src/client/conversation-nodes/group-tree-s
 
 function turn(index: number): TurnLocation {
   return {
-    turn: index, start: undefined, end: undefined, status: 'closed', steps: [],
+    turn: index,
+    start: undefined,
+    end: undefined,
+    status: 'closed',
+    steps: [],
     data: { get: () => undefined, source: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }) },
   }
 }
 
 function node(key: string, owner: number | undefined, groupTree?: ChatGroupTree): ChatConversationViewNode {
   return {
-    key, id: key, kind: 'user', target: 'chat', anchorSeq: 0, visibility: 'hidden', groupTree,
+    key,
+    id: key,
+    kind: 'user',
+    target: 'chat',
+    anchorSeq: 0,
+    visibility: 'hidden',
+    groupTree,
     location: owner === undefined ? { kind: 'session' } : { kind: 'turn', turn: turn(owner) },
     data: null,
   }
@@ -25,8 +35,8 @@ function members(segments: GroupTreeSegments, turns: readonly number[]): number[
 
 describe('Chat group tree', () => {
   it('orders positions from the outermost exchange inward', () => {
-    const at = (groupTree?: ChatGroupTree) => (['exchange', 'input', 'turn', 'process'] as const)
-      .map(position => isAtOrOutside({ groupTree }, position))
+    const at = (groupTree?: ChatGroupTree) =>
+      (['exchange', 'input', 'turn', 'process'] as const).map(position => isAtOrOutside({ groupTree }, position))
     expect(at('exchange')).toEqual([true, true, true, true])
     expect(at('input')).toEqual([false, true, true, true])
     expect(at('turn')).toEqual([false, false, true, true])

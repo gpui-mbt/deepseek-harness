@@ -37,7 +37,9 @@ export function parseSources(text: string): Source[] {
         source = { kind: 'npm', line, name: line }
       }
     } catch (error) {
-      throw new Error(`line ${index + 1}: not an npm package name or an https Git repository URL (${(error as MarketIndexError).reason}): ${line}`)
+      throw new Error(
+        `line ${index + 1}: not an npm package name or an https Git repository URL (${(error as MarketIndexError).reason}): ${line}`,
+      )
     }
     const key = source.kind === 'npm' ? `npm:${source.name}` : `git:${source.url}`
     if (seen.has(key)) continue

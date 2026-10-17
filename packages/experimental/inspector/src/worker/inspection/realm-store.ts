@@ -23,7 +23,9 @@ export class InspectorRealmRegistry {
     private readonly clientSources: ClientSourceRouter,
   ) {
     for (const target of clients.targets()) this.openClient(target)
-    this.unsubscribeClients = clients.subscribe((event) => { this.receiveClient(event) })
+    this.unsubscribeClients = clients.subscribe(event => {
+      this.receiveClient(event)
+    })
   }
 
   /**
@@ -76,7 +78,9 @@ export class InspectorRealmRegistry {
    */
   subscribe(listener: (event: InspectorRealmEvent) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /** Stop observing Client targets and clear registry listeners. */

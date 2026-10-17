@@ -5,8 +5,12 @@
  */
 import type { WebSearchProvider, WebSearchRequest, WebSearchResult } from '@deepseek-ai/dsh-web'
 import {
-  dispatchDeepSeekWeb, hasDeepSeekWebCredential, invalidResponse, isRecord,
-  type DeepSeekWebAuth, type DeepSeekWebGuidance,
+  dispatchDeepSeekWeb,
+  hasDeepSeekWebCredential,
+  invalidResponse,
+  isRecord,
+  type DeepSeekWebAuth,
+  type DeepSeekWebGuidance,
 } from './transport.ts'
 
 /** Stable id the Search API provider registers under in the search registry. */
@@ -23,7 +27,10 @@ const ORIGINAL_QUESTION_MAX_CHARS = 128
 
 /** Settings named by endpoint failures of either API in this package. */
 export const DEEPSEEK_WEB_API_GUIDANCE: Omit<DeepSeekWebGuidance, 'subject'> = {
-  plugin: 'web-deepseek-api', field: 'baseURL', label: 'Search / Fetch API base URL', page: 'Web search',
+  plugin: 'web-deepseek-api',
+  field: 'baseURL',
+  label: 'Search / Fetch API base URL',
+  page: 'Web search',
 }
 
 /** Authentication, endpoint, and result settings snapshotted for one search. */
@@ -45,14 +52,20 @@ export interface DeepSeekSearchApiOptions extends DeepSeekWebAuth {
 export function mapSearchResponse(response: unknown): WebSearchResult {
   if (!isRecord(response) || !Array.isArray(response.results)) throw invalidResponse()
   const sources = response.results.map((item: unknown) => {
-    if (!isRecord(item) || typeof item.url !== 'string' || item.url.length === 0
-      || typeof item.title !== 'string' || typeof item.snippet !== 'string'
-      || (item.date !== null && typeof item.date !== 'string')) throw invalidResponse()
+    if (
+      !isRecord(item) ||
+      typeof item.url !== 'string' ||
+      item.url.length === 0 ||
+      typeof item.title !== 'string' ||
+      typeof item.snippet !== 'string' ||
+      (item.date !== null && typeof item.date !== 'string')
+    )
+      throw invalidResponse()
     return {
       url: item.url,
-      ...item.title.length > 0 ? { title: item.title } : {},
-      ...item.snippet.length > 0 ? { snippet: item.snippet } : {},
-      ...item.date !== null && item.date.length > 0 ? { publishedAt: item.date } : {},
+      ...(item.title.length > 0 ? { title: item.title } : {}),
+      ...(item.snippet.length > 0 ? { snippet: item.snippet } : {}),
+      ...(item.date !== null && item.date.length > 0 ? { publishedAt: item.date } : {}),
     }
   })
   return { sources, truncated: false }
@@ -79,17 +92,21 @@ export class DeepSeekSearchApiProvider implements WebSearchProvider {
   search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
     const options = this.resolveOptions()
     const question = boundedQuestion(options.originalQuestion?.())
-    return dispatchDeepSeekWeb(options, {
-      endpoint: `${options.baseURL.replace(/\/+$/u, '')}/search`,
-      body: {
-        query: request.query,
-        count: Math.min(options.count, request.maxResults ?? options.count),
-        need_content: false,
-        ...question === undefined ? {} : { ori_question: question },
+    return dispatchDeepSeekWeb(
+      options,
+      {
+        endpoint: `${options.baseURL.replace(/\/+$/u, '')}/search`,
+        body: {
+          query: request.query,
+          count: Math.min(options.count, request.maxResults ?? options.count),
+          need_content: false,
+          ...(question === undefined ? {} : { ori_question: question }),
+        },
+        decode: mapSearchResponse,
+        guidance: { subject: 'Search', ...DEEPSEEK_WEB_API_GUIDANCE },
       },
-      decode: mapSearchResponse,
-      guidance: { subject: 'Search', ...DEEPSEEK_WEB_API_GUIDANCE },
-    }, signal)
+      signal,
+    )
   }
 }
 

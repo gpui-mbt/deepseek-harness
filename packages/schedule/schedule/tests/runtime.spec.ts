@@ -1,25 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { ScheduleRuntime, MAX_TIMER_DELAY_MS } from '../src/runtime.ts'
 import {
-  createAfterScheduleRecord, createAtScheduleRecord, createDailyScheduleRecord, createEveryScheduleRecord, ScheduleId,
+  createAfterScheduleRecord,
+  createAtScheduleRecord,
+  createDailyScheduleRecord,
+  createEveryScheduleRecord,
+  ScheduleId,
 } from '../src/domain.ts'
 import type { ScheduleTask } from '../src/storage.ts'
 import { harness, agentFor } from './harness.ts'
 
 const tests: Awaited<ReturnType<typeof harness>>[] = []
 const runtimes: ScheduleRuntime[] = []
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-16T00:00:00Z')) })
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-09-16T00:00:00Z'))
+})
 afterEach(async () => {
   await Promise.all(runtimes.splice(0).map(runtime => runtime.dispose()))
   await Promise.all(tests.splice(0).map(test => test.ctx.fiber.dispose()))
   vi.useRealTimers()
 })
 async function setup(tasks: ScheduleTask[]) {
-  const test = await harness(); tests.push(test)
+  const test = await harness()
+  tests.push(test)
   const agent = agentFor(test.ctx)
   const followup = vi.fn<Agent['followup']>()
   agent.followup = followup
@@ -28,7 +36,13 @@ async function setup(tasks: ScheduleTask[]) {
     const index = tasks.findIndex(current => current.record.id === task.record.id)
     tasks[index] = task
   })
-  const runtime = new ScheduleRuntime(test.ctx, () => tasks, work => work(), commit, { days: 30, records: 200 })
+  const runtime = new ScheduleRuntime(
+    test.ctx,
+    () => tasks,
+    work => work(),
+    commit,
+    { days: 30, records: 200 },
+  )
   runtimes.push(runtime)
   return { ...test, agent, followup, runtime, commit }
 }
@@ -38,23 +52,33 @@ function task(record: ScheduleTask['record']): ScheduleTask {
 
 it('seeds legacy history only from its actual receipt and appends through wall-clock rollback', async () => {
   const previous = {
-    scheduledAt: '2026-09-15T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:01.000Z',
+    scheduledAt: '2026-09-15T00:00:00.000Z',
+    deliveredAt: '2026-09-16T00:00:01.000Z',
     messageId: MessageId('actual-legacy-message'),
   }
-  const record = createEveryScheduleRecord(
-    ScheduleId('legacy-history'), 'Current prompt', 300, Date.now() - 300_000, 'Current prompt',
-  )
+  const record = createEveryScheduleRecord(ScheduleId('legacy-history'), 'Current prompt', 300, Date.now() - 300_000, 'Current prompt')
   const original: ScheduleTask = { ...task(record), lastDelivery: previous }
   const tasks = [original]
   const test = await setup(tasks)
-  test.flush.mockImplementationOnce(async () => { vi.setSystemTime(new Date('2026-09-15T23:59:59.000Z')) })
+  test.flush.mockImplementationOnce(async () => {
+    vi.setSystemTime(new Date('2026-09-15T23:59:59.000Z'))
+  })
   test.runtime.requestDrive()
   await vi.advanceTimersByTimeAsync(0)
   expect(original).toEqual({ ...task(record), lastDelivery: previous })
-  expect(tasks[0]?.deliveryHistory).toEqual({ earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [previous, {
-    scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-15T23:59:59.000Z',
-    messageId: test.followup.mock.calls[0]![0].id, prompt: 'Current prompt',
-  }] })
+  expect(tasks[0]?.deliveryHistory).toEqual({
+    earlierRecordsUnavailable: true,
+    earlierRecordsPruned: false,
+    records: [
+      previous,
+      {
+        scheduledAt: '2026-09-16T00:00:00.000Z',
+        deliveredAt: '2026-09-15T23:59:59.000Z',
+        messageId: test.followup.mock.calls[0]![0].id,
+        prompt: 'Current prompt',
+      },
+    ],
+  })
   expect(tasks[0]?.deliveryHistory?.records[0]).not.toHaveProperty('prompt')
 })
 
@@ -70,18 +94,30 @@ describe('Host Schedule timer', () => {
     expect(test.followup).toHaveBeenCalledWith(expect.objectContaining({ source: { kind: 'schedule' } }))
     expect(test.flush).toHaveBeenCalled()
     expect(test.commit).toHaveBeenCalledTimes(1)
-    expect(tasks).toEqual([{
-      sessionId: SessionId('original'), status: 'inactive',
-      record: createAfterScheduleRecord(ScheduleId('once'), 'Remember', 2, Date.now() - 2000, 'Remember'),
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '2026-09-16T00:00:02.000Z', deliveredAt: '2026-09-16T00:00:02.000Z',
-        messageId: test.followup.mock.calls[0]![0].id, prompt: 'Remember',
-      }] },
-      lastDelivery: {
-        scheduledAt: '2026-09-16T00:00:02.000Z', deliveredAt: '2026-09-16T00:00:02.000Z',
-        messageId: test.followup.mock.calls[0]![0].id,
+    expect(tasks).toEqual([
+      {
+        sessionId: SessionId('original'),
+        status: 'inactive',
+        record: createAfterScheduleRecord(ScheduleId('once'), 'Remember', 2, Date.now() - 2000, 'Remember'),
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '2026-09-16T00:00:02.000Z',
+              deliveredAt: '2026-09-16T00:00:02.000Z',
+              messageId: test.followup.mock.calls[0]![0].id,
+              prompt: 'Remember',
+            },
+          ],
+        },
+        lastDelivery: {
+          scheduledAt: '2026-09-16T00:00:02.000Z',
+          deliveredAt: '2026-09-16T00:00:02.000Z',
+          messageId: test.followup.mock.calls[0]![0].id,
+        },
       },
-    }])
+    ])
     expect(vi.getTimerCount()).toBe(0)
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(86_400_000)
@@ -95,9 +131,11 @@ describe('Host Schedule timer', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(test.followup).toHaveBeenCalledTimes(1)
     expect(tasks[0]).toMatchObject({
-      status: 'active', record: { scheduledAt: '2026-09-16T00:05:00.000Z' },
+      status: 'active',
+      record: { scheduledAt: '2026-09-16T00:05:00.000Z' },
       lastDelivery: {
-        scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z',
+        scheduledAt: '2026-09-16T00:00:00.000Z',
+        deliveredAt: '2026-09-16T00:00:00.000Z',
         messageId: test.followup.mock.calls[0]![0].id,
       },
     })
@@ -105,12 +143,13 @@ describe('Host Schedule timer', () => {
     await vi.advanceTimersByTimeAsync(300_000)
     expect(test.followup).toHaveBeenCalledTimes(2)
     expect(tasks[0]?.lastDelivery).toEqual({
-      scheduledAt: '2026-09-16T00:05:00.000Z', deliveredAt: '2026-09-16T00:05:00.000Z',
+      scheduledAt: '2026-09-16T00:05:00.000Z',
+      deliveredAt: '2026-09-16T00:05:00.000Z',
       messageId: test.followup.mock.calls[1]![0].id,
     })
   })
 
-  it.each(['returned', 'rejected'] as const)('rearms a future target after clock rollback and %s restoration failure', async (mode) => {
+  it.each(['returned', 'rejected'] as const)('rearms a future target after clock rollback and %s restoration failure', async mode => {
     const start = Date.now()
     const tasks = [task(createAfterScheduleRecord(ScheduleId('rollback-failure'), 'Later', 2, start, 'Later'))]
     const test = await setup(tasks)
@@ -134,12 +173,24 @@ describe('Host Schedule timer', () => {
   it('keeps an advanced task armed when another task in its batch cannot be persisted', async () => {
     const tasks = [
       task(createEveryScheduleRecord(ScheduleId('advanced'), 'Regular check', 300, Date.now() - 300_000, 'Regular check')),
-      task(createDailyScheduleRecord(ScheduleId('uncommitted'), 'Daily check', {
-        time: '00:00:00', time_zone: 'UTC',
-      }, Date.now() - 1000, 'Daily check')),
+      task(
+        createDailyScheduleRecord(
+          ScheduleId('uncommitted'),
+          'Daily check',
+          {
+            time: '00:00:00',
+            time_zone: 'UTC',
+          },
+          Date.now() - 1000,
+          'Daily check',
+        ),
+      ),
     ]
     const test = await setup(tasks)
-    test.commit.mockImplementationOnce(async (updated) => { tasks[0] = updated })
+    test.commit
+      .mockImplementationOnce(async updated => {
+        tasks[0] = updated
+      })
       .mockRejectedValueOnce(new Error('second task write failed'))
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(0)
@@ -155,9 +206,16 @@ describe('Host Schedule timer', () => {
   })
 
   it('keeps the daily task identity and rule across two deliveries with distinct message receipts', async () => {
-    const record = createDailyScheduleRecord(ScheduleId('daily'), 'Morning check', {
-      time: '08:00:02', time_zone: 'Asia/Shanghai',
-    }, Date.now(), 'Morning check')
+    const record = createDailyScheduleRecord(
+      ScheduleId('daily'),
+      'Morning check',
+      {
+        time: '08:00:02',
+        time_zone: 'Asia/Shanghai',
+      },
+      Date.now(),
+      'Morning check',
+    )
     const tasks = [task(record)]
     const test = await setup(tasks)
     test.runtime.requestDrive()
@@ -165,45 +223,74 @@ describe('Host Schedule timer', () => {
     expect(test.followup).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
     const firstMessage = test.followup.mock.calls[0]![0]
-    expect(tasks).toEqual([{
-      sessionId: SessionId('original'), status: 'active',
-      record: { ...record, scheduledAt: '2026-09-17T00:00:02.000Z' },
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '2026-09-16T00:00:02.000Z', deliveredAt: '2026-09-16T00:00:02.000Z',
-        messageId: firstMessage.id, prompt: 'Morning check',
-      }] },
-      lastDelivery: {
-        scheduledAt: '2026-09-16T00:00:02.000Z', deliveredAt: '2026-09-16T00:00:02.000Z',
-        messageId: firstMessage.id,
+    expect(tasks).toEqual([
+      {
+        sessionId: SessionId('original'),
+        status: 'active',
+        record: { ...record, scheduledAt: '2026-09-17T00:00:02.000Z' },
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '2026-09-16T00:00:02.000Z',
+              deliveredAt: '2026-09-16T00:00:02.000Z',
+              messageId: firstMessage.id,
+              prompt: 'Morning check',
+            },
+          ],
+        },
+        lastDelivery: {
+          scheduledAt: '2026-09-16T00:00:02.000Z',
+          deliveredAt: '2026-09-16T00:00:02.000Z',
+          messageId: firstMessage.id,
+        },
       },
-    }])
+    ])
     await vi.advanceTimersByTimeAsync(86_400_000)
     expect(test.followup).toHaveBeenCalledTimes(2)
     expect(test.resolve.mock.calls).toEqual([[SessionId('original')], [SessionId('original')]])
     const secondMessage = test.followup.mock.calls[1]![0]
     expect(secondMessage.id).not.toBe(firstMessage.id)
-    expect(tasks).toEqual([{
-      sessionId: SessionId('original'), status: 'active',
-      record: { ...record, scheduledAt: '2026-09-18T00:00:02.000Z' },
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '2026-09-16T00:00:02.000Z', deliveredAt: '2026-09-16T00:00:02.000Z',
-        messageId: firstMessage.id, prompt: 'Morning check',
-      }, {
-        scheduledAt: '2026-09-17T00:00:02.000Z', deliveredAt: '2026-09-17T00:00:02.000Z',
-        messageId: secondMessage.id, prompt: 'Morning check',
-      }] },
-      lastDelivery: {
-        scheduledAt: '2026-09-17T00:00:02.000Z', deliveredAt: '2026-09-17T00:00:02.000Z',
-        messageId: secondMessage.id,
+    expect(tasks).toEqual([
+      {
+        sessionId: SessionId('original'),
+        status: 'active',
+        record: { ...record, scheduledAt: '2026-09-18T00:00:02.000Z' },
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '2026-09-16T00:00:02.000Z',
+              deliveredAt: '2026-09-16T00:00:02.000Z',
+              messageId: firstMessage.id,
+              prompt: 'Morning check',
+            },
+            {
+              scheduledAt: '2026-09-17T00:00:02.000Z',
+              deliveredAt: '2026-09-17T00:00:02.000Z',
+              messageId: secondMessage.id,
+              prompt: 'Morning check',
+            },
+          ],
+        },
+        lastDelivery: {
+          scheduledAt: '2026-09-17T00:00:02.000Z',
+          deliveredAt: '2026-09-17T00:00:02.000Z',
+          messageId: secondMessage.id,
+        },
       },
-    }])
+    ])
     expect(test.commit).toHaveBeenCalledTimes(2)
   })
 
   it('keeps a failed enqueue without a retry timer', async () => {
     const tasks = [task(createAfterScheduleRecord(ScheduleId('failed'), 'Retry on restart', 1, Date.now() - 2000, 'Retry on restart'))]
     const test = await setup(tasks)
-    vi.mocked(test.followup).mockImplementation(() => { throw new Error('unavailable') })
+    vi.mocked(test.followup).mockImplementation(() => {
+      throw new Error('unavailable')
+    })
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(0)
     expect(test.commit).not.toHaveBeenCalled()
@@ -223,14 +310,22 @@ describe('Host Schedule timer', () => {
     expect(tasks).toHaveLength(1)
   })
 
-  it.each(['flush', 'commit'] as const)('preserves the previous daily target, status, and receipt when %s fails', async (failure) => {
-    const record = createDailyScheduleRecord(ScheduleId('daily-failure'), 'Keep previous delivery', {
-      time: '08:00:00', time_zone: 'Asia/Shanghai',
-    }, Date.now() - 1000, 'Keep previous delivery')
+  it.each(['flush', 'commit'] as const)('preserves the previous daily target, status, and receipt when %s fails', async failure => {
+    const record = createDailyScheduleRecord(
+      ScheduleId('daily-failure'),
+      'Keep previous delivery',
+      {
+        time: '08:00:00',
+        time_zone: 'Asia/Shanghai',
+      },
+      Date.now() - 1000,
+      'Keep previous delivery',
+    )
     const original: ScheduleTask = {
       ...task(record),
       lastDelivery: {
-        scheduledAt: '2026-09-15T00:00:00.000Z', deliveredAt: '2026-09-15T00:00:01.000Z',
+        scheduledAt: '2026-09-15T00:00:00.000Z',
+        deliveredAt: '2026-09-15T00:00:01.000Z',
         messageId: MessageId('previous-daily-message'),
       },
     }
@@ -251,14 +346,24 @@ describe('Host Schedule timer', () => {
   })
 
   it('publishes a daily advance only after the Session flush completes', async () => {
-    const record = createDailyScheduleRecord(ScheduleId('daily-flush'), 'Await persistence', {
-      time: '08:00:00', time_zone: 'Asia/Shanghai',
-    }, Date.now() - 1000, 'Await persistence')
+    const record = createDailyScheduleRecord(
+      ScheduleId('daily-flush'),
+      'Await persistence',
+      {
+        time: '08:00:00',
+        time_zone: 'Asia/Shanghai',
+      },
+      Date.now() - 1000,
+      'Await persistence',
+    )
     const records = [task(record)]
     const test = await setup(records)
     const entered = Promise.withResolvers<undefined>()
     const flushed = Promise.withResolvers<undefined>()
-    test.flush.mockImplementationOnce(() => { entered.resolve(undefined); return flushed.promise })
+    test.flush.mockImplementationOnce(() => {
+      entered.resolve(undefined)
+      return flushed.promise
+    })
     test.runtime.requestDrive()
     await entered.promise
     try {
@@ -270,17 +375,29 @@ describe('Host Schedule timer', () => {
       flushed.resolve(undefined)
     }
     await vi.advanceTimersByTimeAsync(0)
-    expect(records).toEqual([{
-      ...task(record), record: { ...record, scheduledAt: '2026-09-17T00:00:00.000Z' },
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:03.000Z',
-        messageId: test.followup.mock.calls[0]![0].id, prompt: 'Await persistence',
-      }] },
-      lastDelivery: {
-        scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:03.000Z',
-        messageId: test.followup.mock.calls[0]![0].id,
+    expect(records).toEqual([
+      {
+        ...task(record),
+        record: { ...record, scheduledAt: '2026-09-17T00:00:00.000Z' },
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '2026-09-16T00:00:00.000Z',
+              deliveredAt: '2026-09-16T00:00:03.000Z',
+              messageId: test.followup.mock.calls[0]![0].id,
+              prompt: 'Await persistence',
+            },
+          ],
+        },
+        lastDelivery: {
+          scheduledAt: '2026-09-16T00:00:00.000Z',
+          deliveredAt: '2026-09-16T00:00:03.000Z',
+          messageId: test.followup.mock.calls[0]![0].id,
+        },
       },
-    }])
+    ])
   })
 
   it('drains an in-flight resolution on disposal without enqueueing after stop', async () => {
@@ -313,7 +430,11 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     const records: ScheduleTask[] = [
       task(createEveryScheduleRecord(ScheduleId('a'), 'First', 300, Date.now() - 900_000, 'First')),
       task(createEveryScheduleRecord(ScheduleId('b'), 'Second', 600, Date.now() - 1_860_000, 'Second')),
-      { sessionId: SessionId('other'), status: 'active', record: createEveryScheduleRecord(ScheduleId('c'), 'Third', 300, Date.now() - 900_000, 'Third') },
+      {
+        sessionId: SessionId('other'),
+        status: 'active',
+        record: createEveryScheduleRecord(ScheduleId('c'), 'Third', 300, Date.now() - 900_000, 'Third'),
+      },
       task(createAfterScheduleRecord(ScheduleId('future-a'), 'Later A', 10, Date.now(), 'Later A')),
       task(createAfterScheduleRecord(ScheduleId('future-b'), 'Later B', 20, Date.now(), 'Later B')),
     ]
@@ -336,12 +457,17 @@ describe('Schedule dispatch failures and concurrent changes', () => {
   })
 
   it('batches daily and fixed-rate occurrences in one Session after downtime', async () => {
-    const daily = createDailyScheduleRecord(ScheduleId('daily-batch'), 'Daily check', {
-      time: '07:59:00', time_zone: 'Asia/Shanghai',
-    }, Date.parse('2026-09-13T00:00:00.000Z'), 'Daily check')
-    const every = createEveryScheduleRecord(
-      ScheduleId('every-batch'), 'Interval check', 300, Date.now() - 900_000, 'Interval check',
+    const daily = createDailyScheduleRecord(
+      ScheduleId('daily-batch'),
+      'Daily check',
+      {
+        time: '07:59:00',
+        time_zone: 'Asia/Shanghai',
+      },
+      Date.parse('2026-09-13T00:00:00.000Z'),
+      'Daily check',
     )
+    const every = createEveryScheduleRecord(ScheduleId('every-batch'), 'Interval check', 300, Date.now() - 900_000, 'Interval check')
     const records = [task(daily), task(every)]
     const test = await setup(records)
     test.runtime.requestDrive()
@@ -355,40 +481,66 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     expect(JSON.stringify(message.content)).toContain('Interval check')
     expect(records).toEqual([
       {
-        sessionId: SessionId('original'), status: 'active',
+        sessionId: SessionId('original'),
+        status: 'active',
         record: { ...daily, scheduledAt: '2026-09-16T23:59:00.000Z' },
-        deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-          scheduledAt: '2026-09-15T23:59:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z',
-          messageId: message.id, prompt: 'Daily check',
-        }] },
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '2026-09-15T23:59:00.000Z',
+              deliveredAt: '2026-09-16T00:00:00.000Z',
+              messageId: message.id,
+              prompt: 'Daily check',
+            },
+          ],
+        },
         lastDelivery: {
-          scheduledAt: '2026-09-15T23:59:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z', messageId: message.id,
+          scheduledAt: '2026-09-15T23:59:00.000Z',
+          deliveredAt: '2026-09-16T00:00:00.000Z',
+          messageId: message.id,
         },
       },
       {
-        sessionId: SessionId('original'), status: 'active',
+        sessionId: SessionId('original'),
+        status: 'active',
         record: { ...every, scheduledAt: '2026-09-16T00:05:00.000Z' },
-        deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-          scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z',
-          messageId: message.id, prompt: 'Interval check',
-        }] },
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '2026-09-16T00:00:00.000Z',
+              deliveredAt: '2026-09-16T00:00:00.000Z',
+              messageId: message.id,
+              prompt: 'Interval check',
+            },
+          ],
+        },
         lastDelivery: {
-          scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z', messageId: message.id,
+          scheduledAt: '2026-09-16T00:00:00.000Z',
+          deliveredAt: '2026-09-16T00:00:00.000Z',
+          messageId: message.id,
         },
       },
     ])
   })
 
-  it.each(['after', 'at'] as const)('rearms a %s task when the clock rolls back during Session resolution', async (kind) => {
+  it.each(['after', 'at'] as const)('rearms a %s task when the clock rolls back during Session resolution', async kind => {
     const target = '2026-09-16T00:00:00.000Z'
-    const record = kind === 'after'
-      ? createAfterScheduleRecord(ScheduleId('rollback-once'), 'Wait for target', 1, Date.now() - 1000, 'Wait for target')
-      : createAtScheduleRecord(ScheduleId('rollback-once'), 'Wait for target', target, Date.now() - 1000, 'Wait for target')
+    const record =
+      kind === 'after'
+        ? createAfterScheduleRecord(ScheduleId('rollback-once'), 'Wait for target', 1, Date.now() - 1000, 'Wait for target')
+        : createAtScheduleRecord(ScheduleId('rollback-once'), 'Wait for target', target, Date.now() - 1000, 'Wait for target')
     const records = [task(record)]
     const test = await setup(records)
     const entered = Promise.withResolvers<undefined>()
     const resolved = Promise.withResolvers<{ agent: Agent }>()
-    test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return resolved.promise })
+    test.resolve.mockImplementationOnce(() => {
+      entered.resolve(undefined)
+      return resolved.promise
+    })
     test.runtime.requestDrive()
     await entered.promise
     vi.setSystemTime(new Date('2026-09-15T23:59:59.000Z'))
@@ -404,26 +556,44 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     expect(test.resolve).toHaveBeenCalledTimes(2)
     expect(test.followup).toHaveBeenCalledTimes(1)
     expect(records[0]).toEqual({
-      ...task(record), status: 'inactive',
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: target, deliveredAt: target, messageId: test.followup.mock.calls[0]![0].id, prompt: 'Wait for target',
-      }] },
+      ...task(record),
+      status: 'inactive',
+      deliveryHistory: {
+        earlierRecordsUnavailable: true,
+        earlierRecordsPruned: false,
+        records: [
+          {
+            scheduledAt: target,
+            deliveredAt: target,
+            messageId: test.followup.mock.calls[0]![0].id,
+            prompt: 'Wait for target',
+          },
+        ],
+      },
       lastDelivery: { scheduledAt: target, deliveredAt: target, messageId: test.followup.mock.calls[0]![0].id },
     })
   })
 
   it('delivers only still-due members of a mixed batch and rearms its future member after clock rollback', async () => {
-    const every = createEveryScheduleRecord(
-      ScheduleId('rollback-every'), 'Future interval', 300, Date.now() - 300_000, 'Future interval',
+    const every = createEveryScheduleRecord(ScheduleId('rollback-every'), 'Future interval', 300, Date.now() - 300_000, 'Future interval')
+    const daily = createDailyScheduleRecord(
+      ScheduleId('rollback-daily'),
+      'Due daily',
+      {
+        time: '07:59:30',
+        time_zone: 'Asia/Shanghai',
+      },
+      Date.parse('2026-09-15T23:59:00.000Z'),
+      'Due daily',
     )
-    const daily = createDailyScheduleRecord(ScheduleId('rollback-daily'), 'Due daily', {
-      time: '07:59:30', time_zone: 'Asia/Shanghai',
-    }, Date.parse('2026-09-15T23:59:00.000Z'), 'Due daily')
     const records = [task(every), task(daily)]
     const test = await setup(records)
     const entered = Promise.withResolvers<undefined>()
     const resolved = Promise.withResolvers<{ agent: Agent }>()
-    test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return resolved.promise })
+    test.resolve.mockImplementationOnce(() => {
+      entered.resolve(undefined)
+      return resolved.promise
+    })
     test.runtime.requestDrive()
     await entered.promise
     vi.setSystemTime(new Date('2026-09-15T23:59:45.000Z'))
@@ -437,13 +607,24 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     expect(JSON.stringify(dailyMessage.content)).not.toContain('Future interval')
     expect(records[0]).toEqual(task(every))
     expect(records[1]).toEqual({
-      ...task(daily), record: { ...daily, scheduledAt: '2026-09-16T23:59:30.000Z' },
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '2026-09-15T23:59:30.000Z', deliveredAt: '2026-09-15T23:59:45.000Z',
-        messageId: dailyMessage.id, prompt: 'Due daily',
-      }] },
+      ...task(daily),
+      record: { ...daily, scheduledAt: '2026-09-16T23:59:30.000Z' },
+      deliveryHistory: {
+        earlierRecordsUnavailable: true,
+        earlierRecordsPruned: false,
+        records: [
+          {
+            scheduledAt: '2026-09-15T23:59:30.000Z',
+            deliveredAt: '2026-09-15T23:59:45.000Z',
+            messageId: dailyMessage.id,
+            prompt: 'Due daily',
+          },
+        ],
+      },
       lastDelivery: {
-        scheduledAt: '2026-09-15T23:59:30.000Z', deliveredAt: '2026-09-15T23:59:45.000Z', messageId: dailyMessage.id,
+        scheduledAt: '2026-09-15T23:59:30.000Z',
+        deliveredAt: '2026-09-15T23:59:45.000Z',
+        messageId: dailyMessage.id,
       },
     })
     await vi.advanceTimersByTimeAsync(14_999)
@@ -454,29 +635,48 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     expect(JSON.stringify(everyMessage.content)).toContain('Future interval')
     expect(JSON.stringify(everyMessage.content)).not.toContain('Due daily')
     expect(records[0]).toEqual({
-      ...task(every), record: { ...every, scheduledAt: '2026-09-16T00:05:00.000Z' },
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z',
-        messageId: everyMessage.id, prompt: 'Future interval',
-      }] },
+      ...task(every),
+      record: { ...every, scheduledAt: '2026-09-16T00:05:00.000Z' },
+      deliveryHistory: {
+        earlierRecordsUnavailable: true,
+        earlierRecordsPruned: false,
+        records: [
+          {
+            scheduledAt: '2026-09-16T00:00:00.000Z',
+            deliveredAt: '2026-09-16T00:00:00.000Z',
+            messageId: everyMessage.id,
+            prompt: 'Future interval',
+          },
+        ],
+      },
       lastDelivery: {
-        scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z', messageId: everyMessage.id,
+        scheduledAt: '2026-09-16T00:00:00.000Z',
+        deliveredAt: '2026-09-16T00:00:00.000Z',
+        messageId: everyMessage.id,
       },
     })
   })
 
   it('rearms a mixed batch without enqueue or commit when every member becomes future during resolution', async () => {
-    const daily = createDailyScheduleRecord(ScheduleId('future-daily'), 'Daily later', {
-      time: '08:00:00', time_zone: 'Asia/Shanghai',
-    }, Date.now() - 1000, 'Daily later')
-    const every = createEveryScheduleRecord(
-      ScheduleId('future-every'), 'Interval later', 300, Date.now() - 300_000, 'Interval later',
+    const daily = createDailyScheduleRecord(
+      ScheduleId('future-daily'),
+      'Daily later',
+      {
+        time: '08:00:00',
+        time_zone: 'Asia/Shanghai',
+      },
+      Date.now() - 1000,
+      'Daily later',
     )
+    const every = createEveryScheduleRecord(ScheduleId('future-every'), 'Interval later', 300, Date.now() - 300_000, 'Interval later')
     const records = [task(daily), task(every)]
     const test = await setup(records)
     const entered = Promise.withResolvers<undefined>()
     const resolved = Promise.withResolvers<{ agent: Agent }>()
-    test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return resolved.promise })
+    test.resolve.mockImplementationOnce(() => {
+      entered.resolve(undefined)
+      return resolved.promise
+    })
     test.runtime.requestDrive()
     await entered.promise
     vi.setSystemTime(new Date('2026-09-15T23:59:59.000Z'))
@@ -495,12 +695,14 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     const message = test.followup.mock.calls[0]![0]
     expect(JSON.stringify(message.content)).toContain('Daily later')
     expect(JSON.stringify(message.content)).toContain('Interval later')
-    expect(records.map(item => item.record.scheduledAt)).toEqual([
-      '2026-09-17T00:00:00.000Z', '2026-09-16T00:05:00.000Z',
-    ])
-    expect(records.map(item => item.lastDelivery)).toEqual([0, 1].map(() => ({
-      scheduledAt: '2026-09-16T00:00:00.000Z', deliveredAt: '2026-09-16T00:00:00.000Z', messageId: message.id,
-    })))
+    expect(records.map(item => item.record.scheduledAt)).toEqual(['2026-09-17T00:00:00.000Z', '2026-09-16T00:05:00.000Z'])
+    expect(records.map(item => item.lastDelivery)).toEqual(
+      [0, 1].map(() => ({
+        scheduledAt: '2026-09-16T00:00:00.000Z',
+        deliveredAt: '2026-09-16T00:00:00.000Z',
+        messageId: message.id,
+      })),
+    )
   })
 
   it('keeps a task when the Session controller returns a declared resolution error', async () => {
@@ -532,33 +734,51 @@ describe('Schedule dispatch failures and concurrent changes', () => {
   })
 
   it('retires a recurring task after the final representable occurrence', async () => {
-    const records = [task(createEveryScheduleRecord(ScheduleId('last'), 'Last', 300,
-      Date.parse('9999-12-31T23:49:59.999Z'), 'Last'))]
+    const records = [task(createEveryScheduleRecord(ScheduleId('last'), 'Last', 300, Date.parse('9999-12-31T23:49:59.999Z'), 'Last'))]
     const original = records[0]!
     vi.setSystemTime(new Date('9999-12-31T23:59:59.999Z'))
     const test = await setup(records)
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(0)
     expect(test.commit).toHaveBeenCalledTimes(1)
-    expect(records).toEqual([{
-      ...original, status: 'inactive',
-      record: { ...original.record, scheduledAt: '9999-12-31T23:59:59.999Z' },
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '9999-12-31T23:59:59.999Z', deliveredAt: '9999-12-31T23:59:59.999Z',
-        messageId: test.followup.mock.calls[0]![0].id, prompt: 'Last',
-      }] },
-      lastDelivery: {
-        scheduledAt: '9999-12-31T23:59:59.999Z', deliveredAt: '9999-12-31T23:59:59.999Z',
-        messageId: test.followup.mock.calls[0]![0].id,
+    expect(records).toEqual([
+      {
+        ...original,
+        status: 'inactive',
+        record: { ...original.record, scheduledAt: '9999-12-31T23:59:59.999Z' },
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '9999-12-31T23:59:59.999Z',
+              deliveredAt: '9999-12-31T23:59:59.999Z',
+              messageId: test.followup.mock.calls[0]![0].id,
+              prompt: 'Last',
+            },
+          ],
+        },
+        lastDelivery: {
+          scheduledAt: '9999-12-31T23:59:59.999Z',
+          deliveredAt: '9999-12-31T23:59:59.999Z',
+          messageId: test.followup.mock.calls[0]![0].id,
+        },
       },
-    }])
+    ])
     expect(vi.getTimerCount()).toBe(0)
   })
 
   it('retains the final daily occurrence as the ended target without rearming', async () => {
-    const record = createDailyScheduleRecord(ScheduleId('daily-last'), 'Last daily', {
-      time: '23:59:59.999', time_zone: 'UTC',
-    }, Date.parse('9999-12-29T00:00:00.000Z'), 'Last daily')
+    const record = createDailyScheduleRecord(
+      ScheduleId('daily-last'),
+      'Last daily',
+      {
+        time: '23:59:59.999',
+        time_zone: 'UTC',
+      },
+      Date.parse('9999-12-29T00:00:00.000Z'),
+      'Last daily',
+    )
     const records = [task(record)]
     vi.setSystemTime(new Date('9999-12-31T23:59:59.999Z'))
     const test = await setup(records)
@@ -566,18 +786,30 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(test.followup).toHaveBeenCalledTimes(1)
     expect(test.commit).toHaveBeenCalledTimes(1)
-    expect(records).toEqual([{
-      ...task(record), status: 'inactive',
-      record: { ...record, scheduledAt: '9999-12-31T23:59:59.999Z' },
-      deliveryHistory: { earlierRecordsUnavailable: true, earlierRecordsPruned: false, records: [{
-        scheduledAt: '9999-12-31T23:59:59.999Z', deliveredAt: '9999-12-31T23:59:59.999Z',
-        messageId: test.followup.mock.calls[0]![0].id, prompt: 'Last daily',
-      }] },
-      lastDelivery: {
-        scheduledAt: '9999-12-31T23:59:59.999Z', deliveredAt: '9999-12-31T23:59:59.999Z',
-        messageId: test.followup.mock.calls[0]![0].id,
+    expect(records).toEqual([
+      {
+        ...task(record),
+        status: 'inactive',
+        record: { ...record, scheduledAt: '9999-12-31T23:59:59.999Z' },
+        deliveryHistory: {
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          records: [
+            {
+              scheduledAt: '9999-12-31T23:59:59.999Z',
+              deliveredAt: '9999-12-31T23:59:59.999Z',
+              messageId: test.followup.mock.calls[0]![0].id,
+              prompt: 'Last daily',
+            },
+          ],
+        },
+        lastDelivery: {
+          scheduledAt: '9999-12-31T23:59:59.999Z',
+          deliveredAt: '9999-12-31T23:59:59.999Z',
+          messageId: test.followup.mock.calls[0]![0].id,
+        },
       },
-    }])
+    ])
     expect(vi.getTimerCount()).toBe(0)
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(0)
@@ -604,14 +836,18 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     expect(test.followup).toHaveBeenCalledTimes(1)
   })
 
-  describe.each(['every', 'daily'] as const)('%s timer ownership', (kind) => {
-    it.each(['resolution', 'flush'] as const)('keeps one timer after wakes during %s and none after disposal', async (stage) => {
-      const record = kind === 'every'
-        ? createEveryScheduleRecord(ScheduleId('recurring-wake'), 'Repeat', 300, Date.now() - 300_000, 'Repeat')
-        : createDailyScheduleRecord(
-          ScheduleId('recurring-wake'), 'Repeat', { time: '00:00:00', time_zone: 'UTC' },
-          Date.parse('2026-09-15T00:00:00Z'), 'Repeat',
-        )
+  describe.each(['every', 'daily'] as const)('%s timer ownership', kind => {
+    it.each(['resolution', 'flush'] as const)('keeps one timer after wakes during %s and none after disposal', async stage => {
+      const record =
+        kind === 'every'
+          ? createEveryScheduleRecord(ScheduleId('recurring-wake'), 'Repeat', 300, Date.now() - 300_000, 'Repeat')
+          : createDailyScheduleRecord(
+              ScheduleId('recurring-wake'),
+              'Repeat',
+              { time: '00:00:00', time_zone: 'UTC' },
+              Date.parse('2026-09-15T00:00:00Z'),
+              'Repeat',
+            )
       const records = [task(record)]
       const test = await setup(records)
       const entered = Promise.withResolvers<undefined>()
@@ -649,12 +885,13 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     })
   })
 
-  it.each([1, 2])('stops between committed tasks without arming a new timer (%i due tasks)', async (count) => {
+  it.each([1, 2])('stops between committed tasks without arming a new timer (%i due tasks)', async count => {
     const records = Array.from({ length: count }, (_, index) =>
-      task(createAfterScheduleRecord(ScheduleId(`stop-${index}`), 'Stop', 1, Date.now() - 2000, 'Stop')))
+      task(createAfterScheduleRecord(ScheduleId(`stop-${index}`), 'Stop', 1, Date.now() - 2000, 'Stop')),
+    )
     const test = await setup(records)
     let stopped: Promise<void> | undefined
-    test.commit.mockImplementationOnce(async (ended) => {
+    test.commit.mockImplementationOnce(async ended => {
       records[0] = ended
       stopped = test.runtime.dispose()
     })
@@ -671,12 +908,21 @@ describe('Schedule dispatch failures and concurrent changes', () => {
   it('logs a rejected serialization operation and honors a wake requested before retirement', async () => {
     const test = await setup([])
     const failed = Promise.withResolvers<undefined>()
-    const transaction = vi.fn<(work: () => Promise<void>) => Promise<void>>()
+    const transaction = vi
+      .fn<(work: () => Promise<void>) => Promise<void>>()
       .mockReturnValueOnce(failed.promise)
       .mockImplementation(work => work())
-    const runtime = new ScheduleRuntime(test.ctx, () => [], transaction, async () => {}, { days: 30, records: 200 })
+    const runtime = new ScheduleRuntime(
+      test.ctx,
+      () => [],
+      transaction,
+      async () => {},
+      { days: 30, records: 200 },
+    )
     runtimes.push(runtime)
-    const warning = vi.spyOn(test.ctx.logger, 'warn').mockImplementationOnce(() => { runtime.requestDrive() })
+    const warning = vi.spyOn(test.ctx.logger, 'warn').mockImplementationOnce(() => {
+      runtime.requestDrive()
+    })
     runtime.requestDrive()
     failed.reject(new Error('serialization unavailable'))
     await vi.advanceTimersByTimeAsync(0)
@@ -695,7 +941,13 @@ describe('Schedule dispatch failures and concurrent changes', () => {
       entered.resolve(undefined)
       await released.promise
     })
-    const runtime = new ScheduleRuntime(test.ctx, () => records, transaction, async () => {}, { days: 30, records: 200 })
+    const runtime = new ScheduleRuntime(
+      test.ctx,
+      () => records,
+      transaction,
+      async () => {},
+      { days: 30, records: 200 },
+    )
     runtimes.push(runtime)
     test.ctx.effect(() => () => runtime.dispose())
     const stop = vi.spyOn(runtime, 'dispose')
@@ -739,7 +991,13 @@ describe('Schedule dispatch failures and concurrent changes', () => {
   it('drains a rejected serialization promise during disposal', async () => {
     const test = await setup([])
     const transaction = Promise.withResolvers<undefined>()
-    const runtime = new ScheduleRuntime(test.ctx, () => [], () => transaction.promise, async () => {}, { days: 30, records: 200 })
+    const runtime = new ScheduleRuntime(
+      test.ctx,
+      () => [],
+      () => transaction.promise,
+      async () => {},
+      { days: 30, records: 200 },
+    )
     runtimes.push(runtime)
     runtime.requestDrive()
     const stopped = runtime.dispose()

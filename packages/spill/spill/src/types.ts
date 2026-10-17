@@ -43,21 +43,23 @@ export interface SpillOwner {
  * session references identify the captured source session instead. Descriptive
  * source description only, never access control.
  */
-export type SpillSource = {
-  kind: 'tool'
-  /** The tool whose result was spilled (e.g. `web_fetch`). */
-  toolName: string
-  /** The model-issued call id the result belongs to. */
-  callId: ToolCallId
-  /** A short human label for the artifact (e.g. `result`). */
-  label: string
-} | {
-  kind: 'session-reference'
-  /** Session whose projected conversation was captured. */
-  sessionId: SessionId
-  /** Host-provided label for the referenced session. */
-  label: string
-}
+export type SpillSource =
+  | {
+      kind: 'tool'
+      /** The tool whose result was spilled (e.g. `web_fetch`). */
+      toolName: string
+      /** The model-issued call id the result belongs to. */
+      callId: ToolCallId
+      /** A short human label for the artifact (e.g. `result`). */
+      label: string
+    }
+  | {
+      kind: 'session-reference'
+      /** Session whose projected conversation was captured. */
+      sessionId: SessionId
+      /** Host-provided label for the referenced session. */
+      label: string
+    }
 
 /** One request to persist text to a spill artifact. */
 export interface SaveTextSpill {

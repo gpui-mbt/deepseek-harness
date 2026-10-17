@@ -48,10 +48,7 @@ export function wireId<Role extends string>(value: unknown, label: string): Insp
  * @param key - Field name.
  * @returns An empty object or the validated field.
  */
-export function optionalString<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): { readonly [Property in Key]?: string } {
+export function optionalString<Key extends string>(value: Record<string, unknown>, key: Key): { readonly [Property in Key]?: string } {
   const item = value[key]
   if (item === undefined) return {}
   if (typeof item !== 'string') throw new Error(`inspector protocol: ${key} must be a string`)
@@ -64,10 +61,7 @@ export function optionalString<Key extends string>(
  * @param key - Field name.
  * @returns An empty object or the validated field.
  */
-export function optionalBoolean<Key extends string>(
-  value: Record<string, unknown>,
-  key: Key,
-): { readonly [Property in Key]?: boolean } {
+export function optionalBoolean<Key extends string>(value: Record<string, unknown>, key: Key): { readonly [Property in Key]?: boolean } {
   const item = value[key]
   if (item === undefined) return {}
   if (typeof item !== 'boolean') throw new Error(`inspector protocol: ${key} must be a boolean`)

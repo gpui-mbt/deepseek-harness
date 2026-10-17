@@ -4,7 +4,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { absoluteFileAddress, sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceFileStat } from '../src/types.ts'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { ChangeFeed } from '../src/client/change-feed.ts'
 import { createFileResourceProvider } from '../src/client/provider.ts'
 import { FakeRemote } from './fake-remote.client.ts'
@@ -137,8 +137,14 @@ describe('file provider — the address', () => {
     const other = await remote.waitForStat(1)
     other.resolve({ ok: true, value: { absolutePath: '/two/a.txt', version: 's2-v0' } })
     await expect(second).resolves.toEqual({ done: false, value: { ok: true, value: { absolutePath: '/two/a.txt', version: 's2-v0' } } })
-    expect(remote.opened.map(watch => [watch.sessionId, watch.path])).toEqual([[S1, 'a.txt'], [S2, 'a.txt']])
-    expect(remote.stats.map(pending => [pending.sessionId, pending.path])).toEqual([[S1, 'a.txt'], [S2, 'a.txt']])
+    expect(remote.opened.map(watch => [watch.sessionId, watch.path])).toEqual([
+      [S1, 'a.txt'],
+      [S2, 'a.txt'],
+    ])
+    expect(remote.stats.map(pending => [pending.sessionId, pending.path])).toEqual([
+      [S1, 'a.txt'],
+      [S2, 'a.txt'],
+    ])
   })
 })
 
@@ -159,7 +165,7 @@ describe('file provider — the opening stat', () => {
     const { remote, changes, it, controller } = opened()
     const observer = changes.follow(S1, REL_PATH, controller.signal)
     // Register this readiness reaction before the provider awaits the shared acknowledgement.
-    const cancelled = observer.ready.then((acknowledged) => {
+    const cancelled = observer.ready.then(acknowledged => {
       if (acknowledged) controller.abort()
       return acknowledged
     })

@@ -1,12 +1,14 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { UserTextRule } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/user-text-registry.ts'
 import { skillReferenceRule } from '../src/client/user-text-rules.ts'
 
 function setup(rule: UserTextRule = skillReferenceRule) {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   const registry = new UserTextRegistry(ctx)
   registry.register(rule)
   return registry.createEvaluator()
@@ -15,9 +17,14 @@ function setup(rule: UserTextRule = skillReferenceRule) {
 describe('skillReferenceRule', () => {
   it('does not read names or rerun when text has no slash-token candidate', () => {
     const read = vi.fn()
-    const match = vi.fn<UserTextRule<'skill'>['match']>((text, from, context) => skillReferenceRule.match(text, from, {
-      read: (key) => { read(key); return context.read(key) },
-    }))
+    const match = vi.fn<UserTextRule<'skill'>['match']>((text, from, context) =>
+      skillReferenceRule.match(text, from, {
+        read: key => {
+          read(key)
+          return context.read(key)
+        },
+      }),
+    )
     const evaluate = setup({ ...skillReferenceRule, match })
     const text = 'plain text /review.md /path/to/file'
     const before = evaluate({ text, facts: {} })
@@ -44,7 +51,8 @@ describe('skillReferenceRule', () => {
     const input = Object.freeze({ text, facts: Object.freeze({ skillNames: Object.freeze(['review', 'test-skill', 'review']) }) })
     const nodes = evaluate(input)
     expect(nodes.filter(node => node.id === 'skill').map(node => ({ raw: text.slice(node.start, node.end), data: node.data }))).toEqual([
-      { raw: '/review', data: { name: 'review' } }, { raw: '/test-skill', data: { name: 'test-skill' } },
+      { raw: '/review', data: { name: 'review' } },
+      { raw: '/test-skill', data: { name: 'test-skill' } },
       { raw: '/review', data: { name: 'review' } },
     ])
     expect(JSON.parse(JSON.stringify(nodes))).toEqual(nodes)
@@ -57,7 +65,8 @@ describe('skillReferenceRule', () => {
     const text = '/x /x.md /x/path /path /x。 /x, (/x) prefix/x\t/x\n/x'
     const nodes = evaluate({ text, facts: { skillNames: ['x'] } })
     expect(nodes.filter(node => node.id === 'skill').map(node => [node.start, node.end, text.slice(node.start, node.end)])).toEqual([
-      [0, 2, '/x'], [text.indexOf('\t/x') + 1, text.indexOf('\t/x') + 3, '/x'],
+      [0, 2, '/x'],
+      [text.indexOf('\t/x') + 1, text.indexOf('\t/x') + 3, '/x'],
       [text.lastIndexOf('/x'), text.length, '/x'],
     ])
     for (const input of [

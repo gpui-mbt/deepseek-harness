@@ -12,7 +12,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { hasClass, installAssembledBootEnv, mountAssembledApp, REFRESHING_GOLDEN } from './assembled-boot.ts'
 
 const EXPECTED = join(process.cwd(), 'apps/web/tests/expected/max-tokens-notice/history-turn.expected.txt')
@@ -39,12 +39,16 @@ describe('assembled max-tokens turn-end notice', () => {
     // The truncated answer itself stays in the flow: the notice supplements the
     // partial output, it never replaces it.
     await screen.findByText(/条目 3：这一条写到一半被/, undefined, { timeout: 10_000 })
-    const row = await waitFor(() => {
-      const found = [...document.querySelectorAll('[role="status"]')]
-        .find(candidate => [...candidate.querySelectorAll('*')].some(el => hasClass(el, 'maxTokensTitle')))
-      expect(found).not.toBeUndefined()
-      return found!
-    }, { timeout: 10_000 })
+    const row = await waitFor(
+      () => {
+        const found = [...document.querySelectorAll('[role="status"]')].find(candidate =>
+          [...candidate.querySelectorAll('*')].some(el => hasClass(el, 'maxTokensTitle')),
+        )
+        expect(found).not.toBeUndefined()
+        return found!
+      },
+      { timeout: 10_000 },
+    )
 
     const shape = noticeShape(row)
     if (REFRESHING_GOLDEN) {

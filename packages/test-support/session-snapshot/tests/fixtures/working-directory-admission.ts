@@ -28,7 +28,10 @@ export function apply(ctx: Context): void {
     const old = `Current working directory: ${JSON.stringify(agent.session.header.cwd)}.`
     const snapshots = request.messages.filter(message => message.role === 'user' && message.source?.kind === 'runtime-context')
     assert.equal(snapshots.length, 1)
-    const text = snapshots.flatMap(message => message.content).flatMap(block => block.type === 'text' ? [block.text] : []).join('')
+    const text = snapshots
+      .flatMap(message => message.content)
+      .flatMap(block => (block.type === 'text' ? [block.text] : []))
+      .join('')
     assert(text.includes(current), 'first admitted request omits the selected directory')
     assert(!text.includes(old), 'first admitted request retains the previous directory')
     return next()

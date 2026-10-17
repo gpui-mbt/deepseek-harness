@@ -8,7 +8,7 @@
  * the sequence's ends, plus the seed's timing: a surface starts empty, and the
  * default page arrives with the expansion that would otherwise show nothing.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { LayoutState, PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { dockPaneIds, findTabPane, getPane, getSplit } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { createSidebarRightStore } from '../src/client/stores.ts'
@@ -32,17 +32,25 @@ function harness() {
     return seeded.id
   }
   // The surface starts empty; expanding seeds the default guide.
-  const expand = (): void => { instance.actions.setExpanded(SESSION, true) }
+  const expand = (): void => {
+    instance.actions.setExpanded(SESSION, true)
+  }
   return { instance, actions: instance.actions, surface, layout, entries, guide, expand }
 }
 
 describe('createSidebarRightStore — the sequence', () => {
-  it.each(['left', 'right'] as const)('splits one pane at its %s edge and records the tab move as one reversible intent', (zone) => {
+  it.each(['left', 'right'] as const)('splits one pane at its %s edge and records the tab move as one reversible intent', zone => {
     const { actions, layout, entries, guide, expand } = harness()
     expand()
-    actions.openContent(SESSION, {
-      kind: 'text', contentId: 'dsh-resource://file/session/s-test/a.txt', title: 'a',
-    }, () => {})
+    actions.openContent(
+      SESSION,
+      {
+        kind: 'text',
+        contentId: 'dsh-resource://file/session/s-test/a.txt',
+        title: 'a',
+      },
+      () => {},
+    )
     const text = Object.values(layout().tabs).find(tab => tab.kind === 'text')
     if (text === undefined) throw new Error('expected the text tab')
     const before = layout()
@@ -69,7 +77,7 @@ describe('createSidebarRightStore — the sequence', () => {
     expect(layout()).toEqual(dropped)
   })
 
-  it('splits on a sole tab\'s own edge drop, backfilling the vacated pane with the default page', () => {
+  it("splits on a sole tab's own edge drop, backfilling the vacated pane with the default page", () => {
     const { actions, layout, entries, guide, expand } = harness()
     expand()
     const dragged = guide()
@@ -100,7 +108,7 @@ describe('createSidebarRightStore — the sequence', () => {
     expect(Object.values(layout().tabs)).toHaveLength(1)
   })
 
-  it.each([false, true])('does not split an empty collapsed pane after close=%s', (afterClose) => {
+  it.each([false, true])('does not split an empty collapsed pane after close=%s', afterClose => {
     const { actions, layout, surface } = harness()
     if (afterClose) {
       actions.openContent(SESSION, { kind: 'text', contentId: 'file:a', title: 'a' }, () => {})
@@ -115,7 +123,7 @@ describe('createSidebarRightStore — the sequence', () => {
     expect(Object.keys(layout().tabs)).toHaveLength(0)
   })
 
-  it.each(['guide', 'files'])('opens %s in the requested pane and merges a moved duplicate there', (kind) => {
+  it.each(['guide', 'files'])('opens %s in the requested pane and merges a moved duplicate there', kind => {
     const { actions, layout } = harness()
     const address = pageAddress(kind)
     actions.openContent(SESSION, { kind, contentId: address, title: kind }, () => {})
@@ -203,7 +211,9 @@ describe('createSidebarRightStore — the sequence', () => {
     expect(layout().tabs[tab.id]).toBeUndefined()
     const recorded = entries()
     // A racing callback closing what the user already closed.
-    expect(() => { actions.closeTab(SESSION, tab.id) }).not.toThrow()
+    expect(() => {
+      actions.closeTab(SESSION, tab.id)
+    }).not.toThrow()
     expect(entries()).toBe(recorded)
   })
 
@@ -223,7 +233,7 @@ describe('createSidebarRightStore — the sequence', () => {
 })
 
 describe('createSidebarRightStore — the last docked tab', () => {
-  it('refuses to close the guide standing as the docked surface\'s only tab, recording nothing', () => {
+  it("refuses to close the guide standing as the docked surface's only tab, recording nothing", () => {
     const { actions, surface, layout, entries, guide } = harness()
     actions.setExpanded(SESSION, true)
     const before = surface()
@@ -340,7 +350,7 @@ describe('createSidebarRightStore — floating panels and dividers', () => {
     expect(entries()).toBe(recorded + 1)
   })
 
-  it('records a divider drag as the split\'s new fractions', () => {
+  it("records a divider drag as the split's new fractions", () => {
     const { actions, layout, entries, expand } = harness()
     expand()
     actions.splitPane(SESSION)

@@ -21,22 +21,20 @@ class RouteEchoAdapter extends LlmAdapter {
     })
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     const failure = process.env.DSH_TEST_CHILD_FAILURE === '1'
-    const dynamicRoute = options.provider === 'mock'
-      && options.model === 'mock-routed'
-      && options.reasoningEffort === 'max'
-      && options.maxTokens === 777
-    const diagnosticRoute = failure
-      && options.provider === 'mock'
-      && options.model === 'mock-echo'
+    const dynamicRoute =
+      options.provider === 'mock' && options.model === 'mock-routed' && options.reasoningEffort === 'max' && options.maxTokens === 777
+    const diagnosticRoute = failure && options.provider === 'mock' && options.model === 'mock-echo'
     if (!dynamicRoute && !diagnosticRoute) {
-      throw new Error(`unexpected child route: ${JSON.stringify({
-        provider: options.provider,
-        model: options.model,
-        reasoningEffort: options.reasoningEffort,
-        maxTokens: options.maxTokens,
-      })}`)
+      throw new Error(
+        `unexpected child route: ${JSON.stringify({
+          provider: options.provider,
+          model: options.model,
+          reasoningEffort: options.reasoningEffort,
+          maxTokens: options.maxTokens,
+        })}`,
+      )
     }
     const ready = process.env.FAKE_INIT_READY
     const release = process.env.FAKE_INIT_GO
@@ -48,9 +46,7 @@ class RouteEchoAdapter extends LlmAdapter {
         await setTimeout(10)
       }
     }
-    const reply = failure
-      ? 'partial child loader answer'
-      : `child route: mock/mock-routed/max/777; cwd: ${process.cwd()}`
+    const reply = failure ? 'partial child loader answer' : `child route: mock/mock-routed/max/777; cwd: ${process.cwd()}`
     yield { type: 'block-start', index: 0, blockType: 'text' }
     yield { type: 'text-delta', index: 0, text: reply }
     yield { type: 'block-end', index: 0, block: { type: 'text', text: reply } }

@@ -48,8 +48,7 @@ const PRIMITIVES: Record<string, number> = {
   str16: 8,
 }
 
-const token = (label: string, size: number, alignment = Math.min(size, 8) || 1): KoffiType =>
-  ({ __dshKoffiType: label, size, alignment })
+const token = (label: string, size: number, alignment = Math.min(size, 8) || 1): KoffiType => ({ __dshKoffiType: label, size, alignment })
 
 const typeOf = (target: unknown): KoffiType => {
   if (typeof target === 'string') {
@@ -65,7 +64,7 @@ const typeOf = (target: unknown): KoffiType => {
 }
 
 const describe = (target: unknown): string =>
-  typeof target === 'string' ? target : (target as KoffiType | undefined)?.__dshKoffiType ?? 'anonymous'
+  typeof target === 'string' ? target : ((target as KoffiType | undefined)?.__dshKoffiType ?? 'anonymous')
 
 /**
  * Pointer type descriptor.
@@ -85,7 +84,7 @@ function pointer(target: unknown): KoffiType {
  * @returns the descriptor token.
  */
 function struct(name: unknown, fields?: Record<string, unknown>): KoffiType {
-  const members = (typeof name === 'string' ? fields : name as Record<string, unknown>) ?? {}
+  const members = (typeof name === 'string' ? fields : (name as Record<string, unknown>)) ?? {}
   let offset = 0
   let alignment = 1
   for (const member of Object.values(members)) {
@@ -118,10 +117,13 @@ function opaque(name?: string): KoffiType {
 }
 
 /** Primitive type table; members carry their x64 sizes. */
-const types: Record<string, KoffiType> = new Proxy({}, {
-  get: (_target, property) => typeOf(String(property)),
-  has: property => typeof property === 'string' && property in PRIMITIVES,
-})
+const types: Record<string, KoffiType> = new Proxy(
+  {},
+  {
+    get: (_target, property) => typeOf(String(property)),
+    has: property => typeof property === 'string' && property in PRIMITIVES,
+  },
+)
 
 /** The koffi face its consumers read; every call refuses. */
 const koffi = {

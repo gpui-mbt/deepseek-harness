@@ -12,13 +12,19 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { ToolCallId, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { ReplayEntry } from '@deepseek-ai/dsh-llm-replay'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, launchWebScaffold, readPersistedEvents,
-  watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  readPersistedEvents,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
@@ -58,7 +64,10 @@ function script(): ReplayEntry[] {
     { type: 'usage', usage: { inputTokens: 10, outputTokens: 5 } },
     { type: 'finish', reason: { kind: 'stop' } },
   ]
-  return [{ kind: 'chunks', chunks: first }, { kind: 'chunks', chunks: second }]
+  return [
+    { kind: 'chunks', chunks: first },
+    { kind: 'chunks', chunks: second },
+  ]
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -81,7 +90,9 @@ async function heartbeats(cwd: string): Promise<number> {
 /** Whether the Bash child is still beating: its file grows across one settle window. */
 async function childAlive(cwd: string): Promise<boolean> {
   const before = await heartbeats(cwd)
-  await new Promise((resolve) => { setTimeout(resolve, HEARTBEAT_MS * 6) })
+  await new Promise(resolve => {
+    setTimeout(resolve, HEARTBEAT_MS * 6)
+  })
   return (await heartbeats(cwd)) > before
 }
 
@@ -101,10 +112,15 @@ describe.skipIf(MODE === 'record')('web e2e: archiving a running Session stops i
    */
   async function clickHoverAction(row: Locator, name: string): Promise<void> {
     const button = row.getByRole('button', { name })
-    await expect.poll(async () => {
-      await row.hover()
-      return await button.isVisible()
-    }, { timeout: 10_000 }).toBe(true)
+    await expect
+      .poll(
+        async () => {
+          await row.hover()
+          return await button.isVisible()
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
     await button.click()
   }
 
@@ -145,10 +161,10 @@ describe.skipIf(MODE === 'record')('web e2e: archiving a running Session stops i
     const cwd = join(scaffold.workspaceCwd, 'workspace')
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
-    sessionId = await page.evaluate(() => {
+    sessionId = (await page.evaluate(() => {
       const selected = JSON.parse(localStorage.getItem('dsh.sessions.current')!) as { sessionId: string }
       return selected.sessionId
-    }) as SessionId
+    })) as SessionId
     await writeComposerDraft(page, input, PROMPT)
     await page.getByRole('button', { name: 'Send message', exact: true }).click()
     await expect.poll(() => exists(join(cwd, 'started.txt')), { timeout: 20_000 }).toBe(true)
@@ -161,7 +177,8 @@ describe.skipIf(MODE === 'record')('web e2e: archiving a running Session stops i
     await dialog.waitFor({ timeout: 10_000 })
     // A foreground Bash command is a registered job from its start, so the
     // Host reports it beside the turn; stopping the turn kills it.
-    await expect.poll(() => dialog.getByRole('list', { name: 'Work that will be stopped' }).locator('li').allTextContents())
+    await expect
+      .poll(() => dialog.getByRole('list', { name: 'Work that will be stopped' }).locator('li').allTextContents())
       .toEqual(['The turn in progress', `1 background job: ${WAIT_COMMAND}`])
     // Asking is not archiving: the Host set is untouched, the turn and its
     // Bash child keep running, and the row stays in the sidebar.
@@ -190,12 +207,12 @@ describe.skipIf(MODE === 'record')('web e2e: archiving a running Session stops i
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Stop and archive', exact: true }).click()
 
-    await expect.poll(() => [...scaffold.ctx.workspaceRegistry.archivedSessionIds].map(String), { timeout: 10_000 })
+    await expect
+      .poll(() => [...scaffold.ctx.workspaceRegistry.archivedSessionIds].map(String), { timeout: 10_000 })
       .toEqual([String(sessionId)])
     await expect.poll(() => page.getByRole('dialog').count()).toBe(0)
     await expect.poll(() => sessionRow().count(), { timeout: 10_000 }).toBe(0)
-    await expect.poll(() => page.getByText('Session stopped and archived.', { exact: false }).count(), { timeout: 10_000 })
-      .toBe(1)
+    await expect.poll(() => page.getByText('Session stopped and archived.', { exact: false }).count(), { timeout: 10_000 }).toBe(1)
 
     // The stop is the user's cancel: the Bash child dies, the turn settles as
     // cancelled, and the log closes every open call before the turn ends.

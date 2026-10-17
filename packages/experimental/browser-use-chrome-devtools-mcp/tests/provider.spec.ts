@@ -1,11 +1,11 @@
 import { existsSync } from 'node:fs'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { mountSessionMcp } from '@deepseek-ai/dsh-experimental-browser-use-runtime/mcp'
 import * as Provider from '../src/index.ts'
 
 vi.mock('@deepseek-ai/dsh-experimental-browser-use-runtime/mcp', async importOriginal => ({
-  ...await importOriginal<typeof import('@deepseek-ai/dsh-experimental-browser-use-runtime/mcp')>(),
+  ...(await importOriginal<typeof import('@deepseek-ai/dsh-experimental-browser-use-runtime/mcp')>()),
   mountSessionMcp: vi.fn(),
 }))
 afterEach(() => vi.clearAllMocks())
@@ -32,6 +32,8 @@ it.each([
 })
 
 it('rejects trailing endpoint garbage before mounting any browser resources', () => {
-  expect(() => { Provider.apply(new Context(), Provider.Config({ mode: 'attach', endpoint: 'http://localhost trailing-junk' })) }).toThrow('browser endpoint')
+  expect(() => {
+    Provider.apply(new Context(), Provider.Config({ mode: 'attach', endpoint: 'http://localhost trailing-junk' }))
+  }).toThrow('browser endpoint')
   expect(mountSessionMcp).not.toHaveBeenCalled()
 })

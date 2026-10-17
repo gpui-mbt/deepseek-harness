@@ -23,11 +23,14 @@ export class FeedbackSurface {
    * @param ctx - the browser plugin context carrying both feedback Remotes.
    * @param sessionId - Session owning the transcript and the remark.
    */
-  constructor(private readonly ctx: ClientContext, private readonly sessionId: SessionId) {
+  constructor(
+    private readonly ctx: ClientContext,
+    private readonly sessionId: SessionId,
+  ) {
     this.feedback = new MessageFeedbackController(ctx.remote.messageFeedback, sessionId)
-    this.dialog = new FeedbackDialogController((target, entry) => target.kind === 'message'
-      ? this.feedback.rate(target.messageId, target.rating, entry)
-      : this.recordSession(entry))
+    this.dialog = new FeedbackDialogController((target, entry) =>
+      target.kind === 'message' ? this.feedback.rate(target.messageId, target.rating, entry) : this.recordSession(entry),
+    )
   }
 
   /** Record one Session-level remark through the sessionFeedback Remote. */

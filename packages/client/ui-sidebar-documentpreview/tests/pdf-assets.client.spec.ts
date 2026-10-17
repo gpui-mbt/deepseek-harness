@@ -1,8 +1,10 @@
 /** PDF binary resources are exact-name, local data with independent transferable buffers. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createPdfBinaryDataFactory, type PdfAssetMap } from '../src/client/pdf/assets.ts'
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('PDF binary assets', () => {
   const assets: PdfAssetMap = {
@@ -29,7 +31,7 @@ describe('PDF binary assets', () => {
     expect(Array.from(await factory.fetch({ kind: 'cMapUrl', filename: 'sample.bcmap' }))).toEqual([1, 2, 3])
   })
 
-  it.each(['../font.pfb', 'missing.bcmap', 'toString'])('rejects unbundled filename %s without fetching', async (filename) => {
+  it.each(['../font.pfb', 'missing.bcmap', 'toString'])('rejects unbundled filename %s without fetching', async filename => {
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
     const Factory = createPdfBinaryDataFactory(assets)

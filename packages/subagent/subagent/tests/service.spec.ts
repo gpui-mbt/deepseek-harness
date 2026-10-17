@@ -1,5 +1,5 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
-import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -30,11 +30,15 @@ function fakeParent(id = 'parent-1'): Agent {
 }
 
 const ALL_CAPS: SubagentCapabilities = {
-  agentOptions: true, agentPreset: true, outputSchema: true,
+  agentOptions: true,
+  agentPreset: true,
+  outputSchema: true,
   depthLimit: true,
 }
 const NO_CAPS: SubagentCapabilities = {
-  agentOptions: false, agentPreset: false, outputSchema: false,
+  agentOptions: false,
+  agentPreset: false,
+  outputSchema: false,
   depthLimit: false,
 }
 
@@ -93,13 +97,21 @@ async function service(withAgents = true): Promise<{ ctx: Context; subagents: Su
 }
 
 /** Start through the managed API with a real parent owned by the fixture. */
-async function start(subagents: SubagentRuntime, provider: string, request: SubagentStartRequest, delivery: 'parent' | 'caller' = 'caller'): Promise<SubagentActivation> {
+async function start(
+  subagents: SubagentRuntime,
+  provider: string,
+  request: SubagentStartRequest,
+  delivery: 'parent' | 'caller' = 'caller',
+): Promise<SubagentActivation> {
   const ctx = contexts.get(subagents)!
-  const parent = ctx.agents.get(request.parent.id)
-    ?? (await ctx.agents.create({ sessionId: request.parent.id })).agent
+  const parent = ctx.agents.get(request.parent.id) ?? (await ctx.agents.create({ sessionId: request.parent.id })).agent
   const { label, signal, ...options } = request
   return subagents.startActivation({
-    provider, label: label ?? provider, request: { ...options, parent }, signal, delivery,
+    provider,
+    label: label ?? provider,
+    request: { ...options, parent },
+    signal,
+    delivery,
   })
 }
 
@@ -151,18 +163,22 @@ describe('SubagentRuntime', () => {
 
   it('rolls registration back when provider-added throws', async () => {
     const { ctx, subagents } = await service()
-    ctx.on('subagent/provider-added', () => { throw new Error('added boom') })
-    expect(() => { subagents.registerProvider(new StubProvider('alpha')) }).toThrow('added boom')
+    ctx.on('subagent/provider-added', () => {
+      throw new Error('added boom')
+    })
+    expect(() => {
+      subagents.registerProvider(new StubProvider('alpha'))
+    }).toThrow('added boom')
     expect(subagents.getProvider('alpha')).toBeUndefined()
   })
 
   it('rejects duplicate and absent provider names with typed errors', async () => {
     const { subagents } = await service()
     subagents.registerProvider(new StubProvider('dup'))
-    expect(() => { subagents.registerProvider(new StubProvider('dup')) })
-      .toThrow(expect.objectContaining({ code: 'DUPLICATE_PROVIDER' }))
-    await expect(start(subagents, 'missing', baseRequest()))
-      .rejects.toMatchObject({ code: 'NO_PROVIDER' })
+    expect(() => {
+      subagents.registerProvider(new StubProvider('dup'))
+    }).toThrow(expect.objectContaining({ code: 'DUPLICATE_PROVIDER' }))
+    await expect(start(subagents, 'missing', baseRequest())).rejects.toMatchObject({ code: 'NO_PROVIDER' })
   })
 
   it('forwards external execution options and exposes no provider continuation operations', async () => {
@@ -197,40 +213,43 @@ describe('SubagentRuntime', () => {
     const { subagents } = await service(false)
     // Without a continuation manager no live Activation can exist, so there is
     // nothing to stop and nothing to authorize against.
-    expect(() => { subagents.interrupt(SessionId('child'), {
-      kind: 'user',
-      parentSessionId: SessionId('parent-1'),
-    }) }).not.toThrow()
+    expect(() => {
+      subagents.interrupt(SessionId('child'), {
+        kind: 'user',
+        parentSessionId: SessionId('parent-1'),
+      })
+    }).not.toThrow()
   })
 
   it('rejects continuable operations when their runtime services are absent', async () => {
     const { subagents } = await service(false)
-    await expect(subagents.startActivation({
-      delivery: 'parent',
-      provider: 'unused',
-      label: 'unused child',
-      request: baseRequest(),
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'NO_PROVIDER' })
-    await expect(subagents.sendMessage(
-      fakeParent(),
-      SessionId('child'),
-      [{ type: 'text', text: 'hello' }],
-      { signal: new AbortController().signal },
-    )).rejects.toMatchObject({ code: 'CONTINUATION_UNAVAILABLE' })
+    await expect(
+      subagents.startActivation({
+        delivery: 'parent',
+        provider: 'unused',
+        label: 'unused child',
+        request: baseRequest(),
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toMatchObject({ code: 'NO_PROVIDER' })
+    await expect(
+      subagents.sendMessage(fakeParent(), SessionId('child'), [{ type: 'text', text: 'hello' }], { signal: new AbortController().signal }),
+    ).rejects.toMatchObject({ code: 'CONTINUATION_UNAVAILABLE' })
   })
 
   it('reports an unavailable runtime before checking the parent of a registered provider', async () => {
     const { subagents } = await service(false)
     const provider = new StubProvider('external')
     subagents.registerProvider(provider)
-    await expect(subagents.startActivation({
-      provider: provider.name,
-      label: 'Unavailable runtime',
-      request: baseRequest(),
-      signal: new AbortController().signal,
-      delivery: 'caller',
-    })).rejects.toMatchObject({ code: 'CONTINUATION_UNAVAILABLE' })
+    await expect(
+      subagents.startActivation({
+        provider: provider.name,
+        label: 'Unavailable runtime',
+        request: baseRequest(),
+        signal: new AbortController().signal,
+        delivery: 'caller',
+      }),
+    ).rejects.toMatchObject({ code: 'CONTINUATION_UNAVAILABLE' })
     expect(provider.startCount).toBe(0)
   })
 
@@ -242,8 +261,7 @@ describe('SubagentRuntime', () => {
     const { subagents } = await service()
     const provider = new StubProvider('weak', NO_CAPS)
     subagents.registerProvider(provider)
-    await expect(start(subagents, 'weak', baseRequest(override)))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
+    await expect(start(subagents, 'weak', baseRequest(override))).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
     expect(provider.startCount).toBe(0)
   })
 
@@ -252,14 +270,16 @@ describe('SubagentRuntime', () => {
     const provider = new StubProvider('external')
     subagents.registerProvider(provider)
     const { agent: parent } = await ctx.agents.create({ sessionId: SessionId('reserved-parent') })
-    await expect(subagents.startActivation({
-      provider: provider.name,
-      label: 'Reserved team child',
-      childId: SessionId('reserved-child'),
-      request: { parent, prompt: [{ type: 'text', text: 'Work' }] },
-      signal: new AbortController().signal,
-      delivery: 'caller',
-    })).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
+    await expect(
+      subagents.startActivation({
+        provider: provider.name,
+        label: 'Reserved team child',
+        childId: SessionId('reserved-child'),
+        request: { parent, prompt: [{ type: 'text', text: 'Work' }] },
+        signal: new AbortController().signal,
+        delivery: 'caller',
+      }),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
     expect(provider.startCount).toBe(0)
     expect(ctx.agents.get(SessionId('reserved-child'))).toBeUndefined()
   })
@@ -268,12 +288,12 @@ describe('SubagentRuntime', () => {
     const { subagents } = await service()
     const provider = new StubProvider('strong')
     subagents.registerProvider(provider)
-    await expect(start(subagents, 'strong', baseRequest({ maxDepth: -1 })))
-      .rejects.toThrow('non-negative safe integer')
-    await expect(start(subagents, 'strong', baseRequest({ outputSchema: { type: 'string' } as never })))
-      .rejects.toThrow()
+    await expect(start(subagents, 'strong', baseRequest({ maxDepth: -1 }))).rejects.toThrow('non-negative safe integer')
+    await expect(start(subagents, 'strong', baseRequest({ outputSchema: { type: 'string' } as never }))).rejects.toThrow()
     expect(provider.startCount).toBe(0)
-    expect(() => { assertSubagentMaxDepth(undefined) }).not.toThrow()
+    expect(() => {
+      assertSubagentMaxDepth(undefined)
+    }).not.toThrow()
   })
 
   it('publishes lifecycle only after async provider start and keeps parent scope', async () => {
@@ -290,8 +310,16 @@ describe('SubagentRuntime', () => {
     const events: string[] = []
     const keys: unknown[] = []
     const runIds: string[] = []
-    ctx.on('subagent/start', function (info) { events.push('start'); keys.push(carrierKeyOf(this)); runIds.push(info.runId) })
-    ctx.on('subagent/end', function (info) { events.push('end'); keys.push(carrierKeyOf(this)); runIds.push(info.runId) })
+    ctx.on('subagent/start', function (info) {
+      events.push('start')
+      keys.push(carrierKeyOf(this))
+      runIds.push(info.runId)
+    })
+    ctx.on('subagent/end', function (info) {
+      events.push('end')
+      keys.push(carrierKeyOf(this))
+      runIds.push(info.runId)
+    })
 
     const starting = start(subagents, 'deferred', baseRequest({ parent }))
     await Promise.resolve()
@@ -329,7 +357,9 @@ describe('SubagentRuntime', () => {
       name: 'failed',
       capabilities: NO_CAPS,
       inheritsParentContext: false,
-      start: async () => { throw new Error('setup rolled back') },
+      start: async () => {
+        throw new Error('setup rolled back')
+      },
     })
     const lifecycle = vi.fn()
     ctx.on('subagent/start', lifecycle)
@@ -338,7 +368,7 @@ describe('SubagentRuntime', () => {
     expect(lifecycle).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])('handles a rejected external result after catalog failure (disposal fails: %s)', async (failsDisposal) => {
+  it.each([false, true])('handles a rejected external result after catalog failure (disposal fails: %s)', async failsDisposal => {
     const { ctx, subagents } = await service()
     const parent = (await ctx.agents.create({ sessionId: SessionId('catalog-parent') })).agent
     const parentSession = parent.session
@@ -356,19 +386,19 @@ describe('SubagentRuntime', () => {
       name: 'catalog-failure',
       capabilities: NO_CAPS,
       inheritsParentContext: false,
-      start: () => Promise.resolve({
-        id: childId,
-        result: result.promise,
-        dispose,
-      }),
+      start: () =>
+        Promise.resolve({
+          id: childId,
+          result: result.promise,
+          dispose,
+        }),
     })
     const catalogFailure = new Error('catalog unavailable')
     const append = vi.spyOn(parentSession, 'append').mockImplementation(() => {
       throw catalogFailure
     })
 
-    await expect(start(subagents, 'catalog-failure', baseRequest({ parent }), 'parent'))
-      .rejects.toBe(catalogFailure)
+    await expect(start(subagents, 'catalog-failure', baseRequest({ parent }), 'parent')).rejects.toBe(catalogFailure)
     expect(append).toHaveBeenCalledOnce()
     expect(dispose).toHaveBeenCalledOnce()
     expect(warnings).toHaveBeenCalledOnce()
@@ -388,11 +418,13 @@ describe('SubagentRuntime', () => {
     const run = await start(subagents, 'completed', baseRequest())
     await run.result
     await run.dispose()
-    expect(ended).toHaveBeenCalledWith(expect.objectContaining({
-      provider: 'completed',
-      lastAssistantMessage: [{ type: 'text', text: 'answer' }],
-      stopReason: 'completed',
-    }))
+    expect(ended).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'completed',
+        lastAssistantMessage: [{ type: 'text', text: 'answer' }],
+        stopReason: 'completed',
+      }),
+    )
 
     // The lifecycle event omits lastAssistantMessage when output is empty,
     // matching the continuable epoch event.
@@ -426,11 +458,21 @@ describe('SubagentRuntime', () => {
     const warnings: string[] = []
     ctx.logger.warn = ((message: unknown) => void warnings.push(String(message))) as typeof ctx.logger.warn
     const heard: string[] = []
-    ctx.on('subagent/provider-removed', () => { throw new Error('sync boom') })
+    ctx.on('subagent/provider-removed', () => {
+      throw new Error('sync boom')
+    })
     // Runtime listeners may return thenables even though the declaration's observable result is void.
     // oxlint-disable-next-line typescript/no-misused-promises -- exercises rejected-listener containment
-    ctx.on('subagent/provider-removed', async () => { throw new Error('async boom') })
-    ctx.on('subagent/provider-removed', () => { throw { toString: () => { throw new Error('coercion') } } })
+    ctx.on('subagent/provider-removed', async () => {
+      throw new Error('async boom')
+    })
+    ctx.on('subagent/provider-removed', () => {
+      throw {
+        toString: () => {
+          throw new Error('coercion')
+        },
+      }
+    })
     ctx.on('subagent/provider-removed', name => void heard.push(name))
     const dispose = subagents.registerProvider(new StubProvider('contained'))
 
@@ -451,10 +493,11 @@ describe('SubagentRuntime', () => {
 })
 
 describe('subagent descriptors', () => {
-  const event = (data: unknown): SessionEvent<'subagent/descriptor'> => ({
-    type: 'subagent/descriptor',
-    data,
-  } as unknown as SessionEvent<'subagent/descriptor'>)
+  const event = (data: unknown): SessionEvent<'subagent/descriptor'> =>
+    ({
+      type: 'subagent/descriptor',
+      data,
+    }) as unknown as SessionEvent<'subagent/descriptor'>
 
   it('omits absent fields, recovers a complete payload, and rejects unsupported versions', () => {
     expect(foldSubagentDescriptor([])).toBeUndefined()
@@ -464,11 +507,14 @@ describe('subagent descriptors', () => {
       provider: 'spawn',
     }
     expect(foldSubagentDescriptor([event(minimal)])).toEqual(minimal)
-    expect(foldSubagentDescriptor([event({ ...minimal, label: 'child work' })]))
-      .toEqual({ ...minimal, label: 'child work' })
-    expect(snapshotSubagentDescriptor({
-      mode: 'continuable', provider: 'spawn', label: 'child',
-    })).toEqual({ version: SUBAGENT_DESCRIPTOR_VERSION, mode: 'continuable', provider: 'spawn', label: 'child' })
+    expect(foldSubagentDescriptor([event({ ...minimal, label: 'child work' })])).toEqual({ ...minimal, label: 'child work' })
+    expect(
+      snapshotSubagentDescriptor({
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'child',
+      }),
+    ).toEqual({ version: SUBAGENT_DESCRIPTOR_VERSION, mode: 'continuable', provider: 'spawn', label: 'child' })
     const complete = {
       version: SUBAGENT_DESCRIPTOR_VERSION,
       mode: 'continuable' as const,
@@ -480,44 +526,50 @@ describe('subagent descriptors', () => {
       persona: 'reviewer',
       toolFilter: { allow: ['read'], deny: ['bash'] },
     }
-    expect(snapshotSubagentDescriptor({
-      mode: 'continuable',
-      provider: complete.provider,
-      label: complete.label,
-      agentProvider: complete.agentProvider,
-      agentModel: complete.agentModel,
-      agentReasoningEffort: complete.agentReasoningEffort,
-      persona: complete.persona,
-      toolFilter: complete.toolFilter,
-    })).toEqual(complete)
+    expect(
+      snapshotSubagentDescriptor({
+        mode: 'continuable',
+        provider: complete.provider,
+        label: complete.label,
+        agentProvider: complete.agentProvider,
+        agentModel: complete.agentModel,
+        agentReasoningEffort: complete.agentReasoningEffort,
+        persona: complete.persona,
+        toolFilter: complete.toolFilter,
+      }),
+    ).toEqual(complete)
     expect(foldSubagentDescriptor([event(complete)])).toEqual(complete)
-    expect(foldSubagentDescriptor([
-      event({
-        version: SUBAGENT_DESCRIPTOR_VERSION,
+    expect(
+      foldSubagentDescriptor([
+        event({
+          version: SUBAGENT_DESCRIPTOR_VERSION,
+          mode: 'continuable',
+          provider: 'spawn',
+          label: 'l',
+          toolFilter: { allow: ['read'] },
+        }),
+      ]),
+    ).toMatchObject({ toolFilter: { allow: ['read'] } })
+    expect(
+      foldSubagentDescriptor([
+        event({
+          version: SUBAGENT_DESCRIPTOR_VERSION,
+          mode: 'continuable',
+          provider: 'spawn',
+          label: 'l',
+          toolFilter: { deny: ['bash'] },
+        }),
+      ]),
+    ).toMatchObject({ toolFilter: { deny: ['bash'] } })
+    expect(foldSubagentDescriptor([event({ version: SUBAGENT_DESCRIPTOR_VERSION + 1, provider: 'spawn' })])).toBeUndefined()
+    expect(() =>
+      snapshotSubagentDescriptor({
         mode: 'continuable',
         provider: 'spawn',
-        label: 'l',
-        toolFilter: { allow: ['read'] },
+        label: 'bad',
+        toolFilter: { deny: [Symbol('not-json')] as unknown as string[] },
       }),
-    ])).toMatchObject({ toolFilter: { allow: ['read'] } })
-    expect(foldSubagentDescriptor([
-      event({
-        version: SUBAGENT_DESCRIPTOR_VERSION,
-        mode: 'continuable',
-        provider: 'spawn',
-        label: 'l',
-        toolFilter: { deny: ['bash'] },
-      }),
-    ])).toMatchObject({ toolFilter: { deny: ['bash'] } })
-    expect(foldSubagentDescriptor([
-      event({ version: SUBAGENT_DESCRIPTOR_VERSION + 1, provider: 'spawn' }),
-    ])).toBeUndefined()
-    expect(() => snapshotSubagentDescriptor({
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'bad',
-      toolFilter: { deny: [Symbol('not-json')] as unknown as string[] },
-    })).toThrow('not losslessly JSON-serializable')
+    ).toThrow('not losslessly JSON-serializable')
   })
 
   it.each([
@@ -528,105 +580,165 @@ describe('subagent descriptors', () => {
     ['string version', { version: '1', provider: 'spawn' }, 'version must be a number'],
     ['missing mode', { version: SUBAGENT_DESCRIPTOR_VERSION }, 'mode must be "one-shot" or "continuable"'],
     ['invalid mode', { version: SUBAGENT_DESCRIPTOR_VERSION, mode: 'later' }, 'mode must be "one-shot" or "continuable"'],
-    ['unknown one-shot field', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'one-shot',
-      provider: 'spawn',
-      label: 'l',
-      persona: 'reviewer',
-    }, 'payload has unknown field "persona"'],
-    ['invalid one-shot label', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'one-shot',
-      provider: 'spawn',
-      label: 7,
-    }, 'label must be a string'],
-    ['unknown payload field', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      extra: true,
-    }, 'payload has unknown field "extra"'],
+    [
+      'unknown one-shot field',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'one-shot',
+        provider: 'spawn',
+        label: 'l',
+        persona: 'reviewer',
+      },
+      'payload has unknown field "persona"',
+    ],
+    [
+      'invalid one-shot label',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'one-shot',
+        provider: 'spawn',
+        label: 7,
+      },
+      'label must be a string',
+    ],
+    [
+      'unknown payload field',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        extra: true,
+      },
+      'payload has unknown field "extra"',
+    ],
     ['missing provider', { version: SUBAGENT_DESCRIPTOR_VERSION, mode: 'continuable' }, 'provider must be a string'],
-    ['missing label', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-    }, 'label must be a string'],
-    ['invalid label', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 7,
-    }, 'label must be a string'],
-    ['invalid provider', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 7,
-    }, 'provider must be a string'],
-    ['invalid agent provider', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      agentProvider: 7,
-    }, 'agentProvider must be a string'],
-    ['invalid agent model', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      agentModel: [],
-    }, 'agentModel must be a string'],
-    ['invalid agent reasoning effort', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      agentReasoningEffort: 7,
-    }, 'agentReasoningEffort must be a string'],
-    ['invalid persona', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      persona: {},
-    }, 'persona must be a string'],
-    ['non-object tool filter', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      toolFilter: [],
-    }, 'toolFilter must be an object'],
-    ['unknown tool-filter field', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      toolFilter: { except: ['bash'] },
-    }, 'toolFilter has unknown field "except"'],
-    ['empty tool filter', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      toolFilter: {},
-    }, 'toolFilter must declare allow and/or deny'],
-    ['non-array allow list', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      toolFilter: { allow: 'read' },
-    }, 'toolFilter.allow must be an array of strings'],
-    ['non-string deny item', {
-      version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'continuable',
-      provider: 'spawn',
-      label: 'l',
-      toolFilter: { deny: [7] },
-    }, 'toolFilter.deny must be an array of strings'],
+    [
+      'missing label',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+      },
+      'label must be a string',
+    ],
+    [
+      'invalid label',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 7,
+      },
+      'label must be a string',
+    ],
+    [
+      'invalid provider',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 7,
+      },
+      'provider must be a string',
+    ],
+    [
+      'invalid agent provider',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        agentProvider: 7,
+      },
+      'agentProvider must be a string',
+    ],
+    [
+      'invalid agent model',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        agentModel: [],
+      },
+      'agentModel must be a string',
+    ],
+    [
+      'invalid agent reasoning effort',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        agentReasoningEffort: 7,
+      },
+      'agentReasoningEffort must be a string',
+    ],
+    [
+      'invalid persona',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        persona: {},
+      },
+      'persona must be a string',
+    ],
+    [
+      'non-object tool filter',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        toolFilter: [],
+      },
+      'toolFilter must be an object',
+    ],
+    [
+      'unknown tool-filter field',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        toolFilter: { except: ['bash'] },
+      },
+      'toolFilter has unknown field "except"',
+    ],
+    [
+      'empty tool filter',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        toolFilter: {},
+      },
+      'toolFilter must declare allow and/or deny',
+    ],
+    [
+      'non-array allow list',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        toolFilter: { allow: 'read' },
+      },
+      'toolFilter.allow must be an array of strings',
+    ],
+    [
+      'non-string deny item',
+      {
+        version: SUBAGENT_DESCRIPTOR_VERSION,
+        mode: 'continuable',
+        provider: 'spawn',
+        label: 'l',
+        toolFilter: { deny: [7] },
+      },
+      'toolFilter.deny must be an array of strings',
+    ],
   ])('rejects a malformed persisted descriptor: %s', (_case, data, detail) => {
     expect(() => foldSubagentDescriptor([event(data)])).toThrow(detail)
   })
@@ -636,8 +748,9 @@ it('rejects registration when a provider implements neither execution method', a
   const { ctx, subagents } = await service()
   const added = vi.fn()
   ctx.on('subagent/provider-added', added)
-  expect(() => subagents.registerProvider({ name: 'empty', capabilities: NO_CAPS, inheritsParentContext: false }))
-    .toThrow(expect.objectContaining({ code: 'UNSUPPORTED_CAPABILITY' }))
+  expect(() => subagents.registerProvider({ name: 'empty', capabilities: NO_CAPS, inheritsParentContext: false })).toThrow(
+    expect.objectContaining({ code: 'UNSUPPORTED_CAPABILITY' }),
+  )
   expect(subagents.getProvider('empty')).toBeUndefined()
   expect(added).not.toHaveBeenCalled()
 })
@@ -648,9 +761,14 @@ it('rejects a disposed parent before starting provider execution', async () => {
   subagents.registerProvider(provider)
   const handle = await ctx.agents.create({ sessionId: SessionId('disposed-parent') })
   await handle.dispose()
-  await expect(subagents.startActivation({
-    provider: provider.name, label: 'work', delivery: 'caller', signal: new AbortController().signal,
-    request: { parent: handle.agent, prompt: [] },
-  })).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  await expect(
+    subagents.startActivation({
+      provider: provider.name,
+      label: 'work',
+      delivery: 'caller',
+      signal: new AbortController().signal,
+      request: { parent: handle.agent, prompt: [] },
+    }),
+  ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   expect(provider.startCount).toBe(0)
 })

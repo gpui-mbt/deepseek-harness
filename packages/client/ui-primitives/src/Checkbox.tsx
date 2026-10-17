@@ -13,7 +13,14 @@ import css from './Checkbox.module.css'
  * @param props.className - extra class for the label's placement.
  * @returns the label containing its checkbox.
  */
-export function Checkbox({ checked, onChange, label, disabled = false, title, className }: {
+export function Checkbox({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  title,
+  className,
+}: {
   checked: boolean
   onChange: (next: boolean) => void
   label: string
@@ -23,8 +30,14 @@ export function Checkbox({ checked, onChange, label, disabled = false, title, cl
 }) {
   return (
     <label className={clsx(css.checkbox, className)} title={title}>
-      <input type="checkbox" checked={checked} disabled={disabled}
-        onChange={(event) => { onChange(event.target.checked) }} />
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={event => {
+          onChange(event.target.checked)
+        }}
+      />
       <span>{label}</span>
     </label>
   )

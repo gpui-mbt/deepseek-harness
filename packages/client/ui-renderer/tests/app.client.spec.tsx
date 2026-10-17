@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
@@ -30,5 +30,4 @@ describe('buildRenderApp', () => {
     const view = render(<>{b.renderApp()}</>)
     expect(view.getByTestId('frame')).toBeTruthy()
   })
-
 })

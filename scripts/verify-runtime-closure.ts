@@ -69,7 +69,7 @@ export async function verifyRuntimeClosure(
   const failures: string[] = []
   if (includePresets && presetPaths.length === 0) failures.push(`no agent presets matched ${AGENT_PRESET_GLOB}`)
   if (includePresets && targets.length === 0) failures.push('python/sdk-runtime/platforms.json defines no runtime targets')
-  failures.push(...await missingPresetPlugins(root, runtimeDependencies, presetPaths, targets))
+  failures.push(...(await missingPresetPlugins(root, runtimeDependencies, presetPaths, targets)))
   for (let index = 0; index < queue.length; index += 1) {
     const packageName = queue[index]
     if (packageName === undefined) continue
@@ -95,7 +95,11 @@ export async function verifyRuntimeClosure(
 
   return {
     failures,
-    presetCount: (await Promise.all(presetPaths.map(async path => presetDefinitions(loadCordisYaml(await readFile(resolve(root, path), 'utf8'))).length))).reduce((a, b) => a + b, 0),
+    presetCount: (
+      await Promise.all(
+        presetPaths.map(async path => presetDefinitions(loadCordisYaml(await readFile(resolve(root, path), 'utf8'))).length),
+      )
+    ).reduce((a, b) => a + b, 0),
     workspacePackageCount: queue.length,
   }
 }
@@ -139,9 +143,7 @@ async function missingPresetPlugins(
           const version = runtimeDependencies[plugin]
           if (version?.startsWith('workspace:') === true) continue
           const preset = definition.id
-          const declaration = version === undefined
-            ? ''
-            : ` [runtime dependency is ${JSON.stringify(version)}; expected workspace:]`
+          const declaration = version === undefined ? '' : ` [runtime dependency is ${JSON.stringify(version)}; expected workspace:]`
           const key = `${preset} preset -> ${plugin}${declaration}`
           const targets = missing.get(key) ?? new Set<string>()
           targets.add(target)
@@ -150,8 +152,7 @@ async function missingPresetPlugins(
       }
     }
   }
-  failures.push(...[...missing.entries()].map(([chain, targets]) =>
-    `${chain} (${[...targets].sort().join(', ')})`))
+  failures.push(...[...missing.entries()].map(([chain, targets]) => `${chain} (${[...targets].sort().join(', ')})`))
   return failures
 }
 
@@ -222,11 +223,7 @@ async function loadJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, 'utf8')) as T
 }
 
-function formatChain(
-  runtimeName: string,
-  packageName: string,
-  parents: ReadonlyMap<string, string | undefined>,
-): string {
+function formatChain(runtimeName: string, packageName: string, parents: ReadonlyMap<string, string | undefined>): string {
   const chain = [packageName]
   let parent = parents.get(packageName)
   while (parent !== undefined) {

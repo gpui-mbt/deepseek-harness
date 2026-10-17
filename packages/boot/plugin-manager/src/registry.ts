@@ -27,8 +27,11 @@ export const REGISTRY_URL = /^https?:\/\/\S+$/
  */
 export function normalizeRegistry(url: string): string {
   let parsed: URL | undefined
-  try { parsed = new URL(url) }
-  catch { /* named below: only an http(s) URL is a registry */ }
+  try {
+    parsed = new URL(url)
+  } catch {
+    /* named below: only an http(s) URL is a registry */
+  }
   if (parsed === undefined || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
     throw new Error(`a registry must be an http(s) URL: ${url}`)
   }
@@ -56,7 +59,7 @@ export function registryPlan(requested: Registry | undefined, configured: Plugin
   const fallbacks = configured.fallbackRegistries.map(normalizeRegistry)
   const ownIsPublic = own !== null && (own === OFFICIAL_NPM_REGISTRY || fallbacks.includes(own))
   // What a registry is compared as: pnpm's own registry stands for the URL it names, once that is known.
-  const keyOf = (registry: Registry): string | null => registry === null ? own : normalizeRegistry(registry)
+  const keyOf = (registry: Registry): string | null => (registry === null ? own : normalizeRegistry(registry))
   const known: Registry[] = []
   const keys: (string | null)[] = []
   for (const registry of [configured.registry, ...configured.fallbackRegistries]) {

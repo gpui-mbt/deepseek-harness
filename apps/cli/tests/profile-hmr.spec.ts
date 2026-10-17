@@ -2,7 +2,7 @@
 
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { composeEntries, loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 
@@ -26,10 +26,11 @@ describe('YAML-owned profile HMR', () => {
     expect(hmr([bundle('base')]).disabled).not.toBe(true)
   })
 
-  it.each(['headless', 'sdk-app', 'acp-app'] as const)('%s disables HMR with a bundle override', (mode) => {
+  it.each(['headless', 'sdk-app', 'acp-app'] as const)('%s disables HMR with a bundle override', mode => {
     expect(hmr([bundle('base'), bundle(mode)])).toMatchObject({ disabled: true })
     expect(hmr([bundle('base'), bundle(mode), [{ id: 'hmr', disabled: false }]])).toMatchObject({
-      disabled: false, config: { root: [] },
+      disabled: false,
+      config: { root: [] },
     })
   })
 

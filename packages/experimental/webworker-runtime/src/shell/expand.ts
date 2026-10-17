@@ -36,26 +36,39 @@ export function isGlobPattern(word: string): boolean {
  */
 export function readVariable(state: ShellState, name: string): string | undefined {
   switch (name) {
-    case '?': return String(state.lastStatus)
+    case '?':
+      return String(state.lastStatus)
     // The worker host runs the whole tree as pid 1; `$$` reports it verbatim.
-    case '$': return '1'
-    case '0': return 'bash'
+    case '$':
+      return '1'
+    case '0':
+      return 'bash'
     // No positional parameters reach a `bash -c` command line here.
-    case '#': return '0'
-    case '@': case '*': return ''
-    default: return state.variables[name] ?? state.environment[name]
+    case '#':
+      return '0'
+    case '@':
+    case '*':
+      return ''
+    default:
+      return state.variables[name] ?? state.environment[name]
   }
 }
 
 /** Evaluate `$(( … ))`. */
 function arithmetic(expression: ArithmeticExpression, state: ShellState): number {
   switch (expression.type) {
-    case 'number': return expression.value
-    case 'variable': return Number.parseInt(readVariable(state, expression.name) ?? '0', 10) || 0
-    case 'addition': return arithmetic(expression.left, state) + arithmetic(expression.right, state)
-    case 'subtraction': return arithmetic(expression.left, state) - arithmetic(expression.right, state)
-    case 'multiplication': return arithmetic(expression.left, state) * arithmetic(expression.right, state)
-    case 'division': return Math.trunc(arithmetic(expression.left, state) / arithmetic(expression.right, state))
+    case 'number':
+      return expression.value
+    case 'variable':
+      return Number.parseInt(readVariable(state, expression.name) ?? '0', 10) || 0
+    case 'addition':
+      return arithmetic(expression.left, state) + arithmetic(expression.right, state)
+    case 'subtraction':
+      return arithmetic(expression.left, state) - arithmetic(expression.right, state)
+    case 'multiplication':
+      return arithmetic(expression.left, state) * arithmetic(expression.right, state)
+    case 'division':
+      return Math.trunc(arithmetic(expression.left, state) / arithmetic(expression.right, state))
   }
 }
 
@@ -104,7 +117,7 @@ export async function expandGlob(pattern: string, cwd: string, fs: ShellFileSyst
       }
       if (!isGlobPattern(segment)) {
         const path = resolve(entry.path, segment)
-        if (await fs.stat(path) === undefined) continue
+        if ((await fs.stat(path)) === undefined) continue
         next.push({ path, display: `${entry.display}${segment}${last ? '' : '/'}` })
         continue
       }
@@ -154,7 +167,9 @@ export async function expandArgument(argument: ValueArgument, context: Expansion
   // contribute nothing rather than an empty argument.
   let current: string | undefined
 
-  const append = (text: string): void => { current = (current ?? '') + text }
+  const append = (text: string): void => {
+    current = (current ?? '') + text
+  }
   const appendSplit = (text: string): void => {
     const parts = text.split(/\s+/)
     for (const [index, part] of parts.entries()) {
@@ -209,10 +224,7 @@ export async function expandArgument(argument: ValueArgument, context: Expansion
 }
 
 /** Resolve one `${name}` segment, including its `:-` and `:+` alternatives. */
-async function expandVariable(
-  segment: Extract<ArgumentSegment, { type: 'variable' }>,
-  context: ExpansionContext,
-): Promise<string> {
+async function expandVariable(segment: Extract<ArgumentSegment, { type: 'variable' }>, context: ExpansionContext): Promise<string> {
   const value = readVariable(context.state, segment.name)
   const set = value !== undefined && value !== ''
   if (!set && segment.defaultValue !== undefined) return await joinArguments(segment.defaultValue, context)
@@ -223,6 +235,6 @@ async function expandVariable(
 /** Expand a `:-` / `:+` operand, which is itself a list of arguments. */
 async function joinArguments(operand: ValueArgument[], context: ExpansionContext): Promise<string> {
   const parts: string[] = []
-  for (const argument of operand) parts.push(...await expandArgument(argument, context))
+  for (const argument of operand) parts.push(...(await expandArgument(argument, context)))
   return parts.join(' ')
 }

@@ -19,11 +19,7 @@ import { guardedPlugin } from './guard.ts'
  * @param reportGuardFailure - reports post-activation Host guard rejections to the owning Agent.
  * @returns the settled child fiber (possibly pending on unsatisfied `inject`).
  */
-export async function startHostHalf(
-  group: Fiber,
-  plugin: Plugin,
-  reportGuardFailure: (error: Error) => void,
-): Promise<Fiber> {
+export async function startHostHalf(group: Fiber, plugin: Plugin, reportGuardFailure: (error: Error) => void): Promise<Fiber> {
   await group.await()
   const fiber = group.ctx.plugin(guardedPlugin(plugin, reportGuardFailure))
   try {
@@ -35,8 +31,8 @@ export async function startHostHalf(
     // while the old run still holds the name — teach the replace recipe.
     if (message.includes('already registered')) {
       throw new Error(
-        `${message} — to REPLACE something an earlier dynamic package registered, first stop that package through its runner or the Cordis panel `
-        + 'before running the new version.',
+        `${message} — to REPLACE something an earlier dynamic package registered, first stop that package through its runner or the Cordis panel ` +
+          'before running the new version.',
       )
     }
     throw error instanceof Error ? error : new Error(message)

@@ -14,9 +14,11 @@ const ALTERNATE_IOS_BROWSER = /\b(?:CriOS|FxiOS|EdgiOS|OPiOS|OPT|DuckDuckGo|Brav
  * @returns Whether the identity should use the Safari-specific recovery.
  */
 export function isSafariBrowser(identity: BrowserIdentity): boolean {
-  return identity.vendor === 'Apple Computer, Inc.'
-    && /\bVersion\/[\d.]+.*\bSafari\/[\d.]+/.test(identity.userAgent)
-    && !ALTERNATE_IOS_BROWSER.test(identity.userAgent)
+  return (
+    identity.vendor === 'Apple Computer, Inc.' &&
+    /\bVersion\/[\d.]+.*\bSafari\/[\d.]+/.test(identity.userAgent) &&
+    !ALTERNATE_IOS_BROWSER.test(identity.userAgent)
+  )
 }
 
 /**

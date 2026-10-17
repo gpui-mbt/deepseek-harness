@@ -10,7 +10,7 @@ import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deep
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import BasicCompaction from '@deepseek-ai/dsh-compaction-basic'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 class CompactionAdapter extends LlmAdapter {
   readonly conversation: GenerateOptions[] = []
@@ -43,22 +43,38 @@ it('retains required cwd in the first request after proactive compaction with op
   const ctx = new Context()
   try {
     await mountAgentLoopTestDependencies(ctx, {
-      workingDirectory: true, systemPrompt: { includeHarnessIdentity: false, includeRuntimeContext: false },
+      workingDirectory: true,
+      systemPrompt: { includeHarnessIdentity: false, includeRuntimeContext: false },
     })
     await ctx.plugin(TokenMeter)
     const adapter = new CompactionAdapter()
     ctx.llm.registerAdapter(['mock'], adapter)
-    ctx.tools.register(defineContentToolFixture({
-      name: 'work', description: 'Do work.', parameters: {}, async execute() { return [{ type: 'text', text: 'work done' }] },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'work',
+        description: 'Do work.',
+        parameters: {},
+        async execute() {
+          return [{ type: 'text', text: 'work done' }]
+        },
+      }),
+    )
     await ctx.plugin(BasicCompaction, {
-      auto: true, thresholdRatio: 0.5, headroomTokens: 0, retainTokens: 20, maxTokens: 32, compactionRetries: 0,
+      auto: true,
+      thresholdRatio: 0.5,
+      headroomTokens: 0,
+      retainTokens: 20,
+      maxTokens: 32,
+      compactionRetries: 0,
     })
     const harness = await mountAgentLoopTestHarness(ctx)
     const agent = await harness.create(SessionId('compaction-admission'), { provider: 'mock', model: 'mock' }, { cwd: root })
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'Old context evidence. '.repeat(700) + 'Do work once, then finish.' }], source: { kind: 'user' },
-    }))
+    agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'Old context evidence. '.repeat(700) + 'Do work once, then finish.' }],
+        source: { kind: 'user' },
+      }),
+    )
     await agent.whenIdle()
     const events = agent.session.snapshotEvents()
     const summary = events.find(event => event.type === 'compaction/summary')
@@ -68,8 +84,14 @@ it('retains required cwd in the first request after proactive compaction with op
     expect(adapter.summaries).toHaveLength(1)
     expect(adapter.conversation).toHaveLength(2)
     for (const request of adapter.conversation) {
-      expect(request.messages.some(message => message.role === 'user' && message.source?.kind === 'runtime-context'
-        && message.content.some(block => block.type === 'text' && block.text.includes(JSON.stringify(root))))).toBe(true)
+      expect(
+        request.messages.some(
+          message =>
+            message.role === 'user' &&
+            message.source?.kind === 'runtime-context' &&
+            message.content.some(block => block.type === 'text' && block.text.includes(JSON.stringify(root))),
+        ),
+      ).toBe(true)
     }
     expect(events.filter(event => event.type === 'user/message' && event.data.source.kind === 'user')).toHaveLength(1)
     expect(events.findLast(event => event.type === 'turn/end')?.data.reason.kind).toBe('completed')

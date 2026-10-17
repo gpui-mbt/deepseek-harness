@@ -13,11 +13,7 @@ export {
   openNativeAssociatedPath,
   openNativeTextFile,
 } from './path-opener.ts'
-export type {
-  NativeFileManager,
-  PathOpenerInternals,
-  PathOpenerRunner,
-} from './path-opener.ts'
+export type { NativeFileManager, PathOpenerInternals, PathOpenerRunner } from './path-opener.ts'
 
 export { nativeFileApplications, openNativeFileApplication } from './file-applications.ts'
 export type { NativeFileApplication } from './types.ts'

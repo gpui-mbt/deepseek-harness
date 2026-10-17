@@ -1,12 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  clampTimeout,
-  deadline,
-  idleWatchdog,
-  MAX_TIMER_DELAY_MS,
-  timeoutOf,
-  TimeoutReason,
-} from '@deepseek-ai/dsh-timeout'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { clampTimeout, deadline, idleWatchdog, MAX_TIMER_DELAY_MS, timeoutOf, TimeoutReason } from '@deepseek-ai/dsh-timeout'
 
 describe('TimeoutReason', () => {
   it('is an Error carrying the code and elapsed ms', () => {
@@ -39,10 +32,10 @@ describe('clampTimeout', () => {
   })
 
   it('rejects a non-finite hint with the caller-provided name', () => {
-    expect(() => clampTimeout(Number.NaN, 100, 200, 'bash-local: request.timeoutMs'))
-      .toThrow(/bash-local: request\.timeoutMs must be a positive finite number/)
-    expect(() => clampTimeout(Number.POSITIVE_INFINITY, 100, 200))
-      .toThrow(/timeoutMs must be a positive finite number/)
+    expect(() => clampTimeout(Number.NaN, 100, 200, 'bash-local: request.timeoutMs')).toThrow(
+      /bash-local: request\.timeoutMs must be a positive finite number/,
+    )
+    expect(() => clampTimeout(Number.POSITIVE_INFINITY, 100, 200)).toThrow(/timeoutMs must be a positive finite number/)
   })
 
   it('rejects a non-positive hint', () => {
@@ -52,7 +45,9 @@ describe('clampTimeout', () => {
 })
 
 describe('deadline — timeout arm', () => {
-  afterEach(() => { vi.useRealTimers() })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
   it('aborts on timeout with a TimeoutReason after the elapsed ms', () => {
     vi.useFakeTimers()
@@ -76,10 +71,8 @@ describe('deadline — timeout arm', () => {
   })
 
   it('rejects delays that Node would clamp to one millisecond', () => {
-    expect(() => deadline(undefined, MAX_TIMER_DELAY_MS + 1, 'BASH_TIMEOUT'))
-      .toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
-    expect(() => deadline(undefined, Number.POSITIVE_INFINITY, 'BASH_TIMEOUT'))
-      .toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
+    expect(() => deadline(undefined, MAX_TIMER_DELAY_MS + 1, 'BASH_TIMEOUT')).toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
+    expect(() => deadline(undefined, Number.POSITIVE_INFINITY, 'BASH_TIMEOUT')).toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
   })
 })
 
@@ -135,7 +128,9 @@ describe('deadline — fuse with upstream', () => {
 })
 
 describe('deadline — timeoutMs <= 0 (no-timeout sentinel)', () => {
-  afterEach(() => { vi.useRealTimers() })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
   it('arms no timer and forwards only the upstream signal', () => {
     vi.useFakeTimers()
@@ -151,7 +146,9 @@ describe('deadline — timeoutMs <= 0 (no-timeout sentinel)', () => {
   it('returns a never-aborting signal with a no-op disposer when there is no upstream', () => {
     vi.useFakeTimers()
     const d = deadline(undefined, 0, 'BASH_TIMEOUT')
-    expect(() => { d[Symbol.dispose]() }).not.toThrow()
+    expect(() => {
+      d[Symbol.dispose]()
+    }).not.toThrow()
     vi.advanceTimersByTime(1_000_000)
     expect(d.signal.aborted).toBe(false)
     expect(timeoutOf(d.signal)).toBeUndefined()
@@ -198,14 +195,17 @@ describe('deadline — nested deadlines', () => {
 })
 
 describe('idleWatchdog', () => {
-  afterEach(() => { vi.useRealTimers() })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
   it('arms only while next is outstanding and rearms the same signal for later demand', async () => {
     vi.useFakeTimers()
     const first = Promise.withResolvers<IteratorResult<number>>()
     const second = Promise.withResolvers<IteratorResult<number>>()
     const iterator: AsyncIterator<number> = {
-      next: vi.fn()
+      next: vi
+        .fn()
         .mockImplementationOnce(() => first.promise)
         .mockImplementationOnce(() => second.promise),
     }
@@ -274,8 +274,7 @@ describe('idleWatchdog', () => {
     await vi.advanceTimersByTimeAsync(1_000)
     expect(watchdog.signal.aborted).toBe(false)
     pending.resolve({ done: true, value: undefined })
-    await expect(watchdog.next({ next: () => Promise.resolve({ done: true, value: undefined }) }))
-      .rejects.toThrow(/disposed/)
+    await expect(watchdog.next({ next: () => Promise.resolve({ done: true, value: undefined }) })).rejects.toThrow(/disposed/)
     watchdog[Symbol.dispose]()
   })
 
@@ -294,8 +293,7 @@ describe('idleWatchdog', () => {
   it('rejects invalid bounds and concurrent iterator demand', async () => {
     expect(() => idleWatchdog(undefined, 0, 'IDLE')).toThrow(/positive finite/)
     expect(() => idleWatchdog(undefined, Number.NaN, 'IDLE')).toThrow(/positive finite/)
-    expect(() => idleWatchdog(undefined, MAX_TIMER_DELAY_MS + 1, 'IDLE'))
-      .toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
+    expect(() => idleWatchdog(undefined, MAX_TIMER_DELAY_MS + 1, 'IDLE')).toThrow(`no greater than ${MAX_TIMER_DELAY_MS}`)
     const pending = Promise.withResolvers<IteratorResult<number>>()
     using watchdog = idleWatchdog(undefined, 100, 'IDLE')
     const iterator = { next: () => pending.promise }

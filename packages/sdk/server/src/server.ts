@@ -49,14 +49,15 @@ async function durablePromptContent(ctx: Context, blocks: SessionPromptParams['c
   if (images.length === 0) return blocks as ContentBlock[]
   const attachments = ctx.get('attachments')
   if (attachments === undefined) throw new Error('SDK image prompt requires an attachment store')
-  const refs = await admitEncodedImages(attachments, images.map((image): EncodedImageAttachment => ({
-    data: image.data,
-    mediaType: image.mimeType,
-  })))
+  const refs = await admitEncodedImages(
+    attachments,
+    images.map((image): EncodedImageAttachment => ({
+      data: image.data,
+      mediaType: image.mimeType,
+    })),
+  )
   let next = 0
-  return blocks.map(block => encodedImage(block)
-    ? { type: 'image', attachment: refs[next++] as ImageAttachmentRef }
-    : block)
+  return blocks.map(block => (encodedImage(block) ? { type: 'image', attachment: refs[next++] as ImageAttachmentRef } : block))
 }
 
 /** Recover the delegating parent from the service-owned scoped carrier. */
@@ -100,51 +101,63 @@ export class HarnessSdkJsonRpcServer {
     private readonly options: HarnessSdkJsonRpcServerOptions = {},
   ) {
     const serverOptions = this.options
-    this.disposers.push(ctx.on('session/event', (session, event) => {
-      const record = this.sessions.get(session.id)
-      if (event.type === 'turn/end' && record?.handle.agent.session === session
-        && record.failure !== undefined && event.seq >= record.failure.atOffset) {
-        record.failure = undefined
-      }
-      const payload: SessionEventNotification = { sessionId: String(session.id), event }
-      this.transport.notify('session.event', payload)
-    }))
-    this.disposers.push(ctx.on('agent/error', ({ agent, error }) => {
-      const record = this.sessions.get(agent.session.id)
-      if (record?.handle.agent !== agent) return
-      record.failure = { error, atOffset: agent.session.seq }
-    }))
-    this.disposers.push(ctx.on('agent/status', ({ agent, status }) => {
-      this.transport.notify('session.status', { sessionId: String(agent.session.id), status })
-    }))
-    this.disposers.push(ctx.on('session/created', (session) => {
-      const parentSession = session.header.parentSession
-      if (parentSession === undefined) return
-      const payload: SubagentStartedNotification = {
-        parentSessionId: String(parentSession),
-        childSessionId: String(session.id),
-      }
-      this.transport.notify('subagent.started', payload)
-    }))
-    this.disposers.push(ctx.on('subagent/end', function (this: Scoped<SubagentRuntime>, info: SubagentRunEndInfo) {
-      const parent = subagentParentOf(this)
-      // This protocol reports only in-process child sessions. The service
-      // snapshots the provider name and local flag through child disposal;
-      // matching ids or parent lineage alone never establishes locality.
-      if (!info.local) return
-      const payload: SubagentFinishedNotification = {
-        provider: info.provider,
-        agentId: String(info.id),
-        parentSessionId: String(parent.session.id),
-        childSessionId: String(info.id),
-        status: successStatus(info.stopReason, serverOptions),
-        stopReason: info.stopReason,
-        ...(info.lastAssistantMessage === undefined
-          ? {}
-          : { lastAssistantMessage: [...info.lastAssistantMessage] }),
-      }
-      transport.notify('subagent.finished', payload)
-    }))
+    this.disposers.push(
+      ctx.on('session/event', (session, event) => {
+        const record = this.sessions.get(session.id)
+        if (
+          event.type === 'turn/end' &&
+          record?.handle.agent.session === session &&
+          record.failure !== undefined &&
+          event.seq >= record.failure.atOffset
+        ) {
+          record.failure = undefined
+        }
+        const payload: SessionEventNotification = { sessionId: String(session.id), event }
+        this.transport.notify('session.event', payload)
+      }),
+    )
+    this.disposers.push(
+      ctx.on('agent/error', ({ agent, error }) => {
+        const record = this.sessions.get(agent.session.id)
+        if (record?.handle.agent !== agent) return
+        record.failure = { error, atOffset: agent.session.seq }
+      }),
+    )
+    this.disposers.push(
+      ctx.on('agent/status', ({ agent, status }) => {
+        this.transport.notify('session.status', { sessionId: String(agent.session.id), status })
+      }),
+    )
+    this.disposers.push(
+      ctx.on('session/created', session => {
+        const parentSession = session.header.parentSession
+        if (parentSession === undefined) return
+        const payload: SubagentStartedNotification = {
+          parentSessionId: String(parentSession),
+          childSessionId: String(session.id),
+        }
+        this.transport.notify('subagent.started', payload)
+      }),
+    )
+    this.disposers.push(
+      ctx.on('subagent/end', function (this: Scoped<SubagentRuntime>, info: SubagentRunEndInfo) {
+        const parent = subagentParentOf(this)
+        // This protocol reports only in-process child sessions. The service
+        // snapshots the provider name and local flag through child disposal;
+        // matching ids or parent lineage alone never establishes locality.
+        if (!info.local) return
+        const payload: SubagentFinishedNotification = {
+          provider: info.provider,
+          agentId: String(info.id),
+          parentSessionId: String(parent.session.id),
+          childSessionId: String(info.id),
+          status: successStatus(info.stopReason, serverOptions),
+          stopReason: info.stopReason,
+          ...(info.lastAssistantMessage === undefined ? {} : { lastAssistantMessage: [...info.lastAssistantMessage] }),
+        }
+        transport.notify('subagent.finished', payload)
+      }),
+    )
   }
 
   /**
@@ -153,20 +166,16 @@ export class HarnessSdkJsonRpcServer {
    * @returns server identity for the handshake.
    */
   async initialize(params: InitializeParams): Promise<InitializeResult> {
-    if (params.reasoningEffort !== undefined
-      && (typeof params.reasoningEffort !== 'string' || params.reasoningEffort.length === 0)) {
+    if (params.reasoningEffort !== undefined && (typeof params.reasoningEffort !== 'string' || params.reasoningEffort.length === 0)) {
       throw new TypeError('initialize reasoningEffort must be a non-empty string')
     }
-    if (params.maxTokens !== undefined
-      && (!Number.isSafeInteger(params.maxTokens) || params.maxTokens <= 0)) {
+    if (params.maxTokens !== undefined && (!Number.isSafeInteger(params.maxTokens) || params.maxTokens <= 0)) {
       throw new TypeError('initialize maxTokens must be a positive safe integer')
     }
     const cwd = resolve(params.cwd)
     const provider = params.provider
     const model = params.model
-    const reasoningEffort = params.reasoningEffort === undefined
-      ? undefined
-      : ReasoningEffortId(params.reasoningEffort)
+    const reasoningEffort = params.reasoningEffort === undefined ? undefined : ReasoningEffortId(params.reasoningEffort)
     if (!this.hasAdapterFor(provider)) {
       if (provider !== 'deepseek-official') throw new Error(`no adapter registered for provider "${provider}"`)
       this.llmFiber = await this.ctx.plugin(LlmDeepSeek)
@@ -176,8 +185,8 @@ export class HarnessSdkJsonRpcServer {
     await llm.resolveCallConfig({
       provider,
       model,
-      ...reasoningEffort === undefined ? {} : { reasoningEffort },
-      ...params.maxTokens === undefined ? {} : { maxTokens: params.maxTokens },
+      ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+      ...(params.maxTokens === undefined ? {} : { maxTokens: params.maxTokens }),
     })
     this.cwd = cwd
     this.provider = provider
@@ -325,9 +334,11 @@ export class HarnessSdkJsonRpcServer {
       ...(this.llmFiber === undefined ? [] : [Promise.resolve().then(() => this.llmFiber?.dispose())]),
     ])
     this.llmFiber = undefined
-    failures.push(...teardownResults
-      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-      .map(result => result.reason as unknown))
+    failures.push(
+      ...teardownResults
+        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        .map(result => result.reason as unknown),
+    )
     if (failures.length === 1) throw failures[0]
     if (failures.length > 1) throw new AggregateError(failures, 'SDK server teardown failed')
     return {}
@@ -389,8 +400,12 @@ export class HarnessSdkJsonRpcServer {
     const creation = this.createSession(sessionId, resume)
     this.sessionCreations.set(sessionId, creation)
     void creation.then(
-      () => { this.sessionCreations.delete(sessionId) },
-      () => { this.sessionCreations.delete(sessionId) },
+      () => {
+        this.sessionCreations.delete(sessionId)
+      },
+      () => {
+        this.sessionCreations.delete(sessionId)
+      },
     )
     return creation
   }
@@ -403,23 +418,30 @@ export class HarnessSdkJsonRpcServer {
     const agentOptions = {
       provider: this.provider,
       model: this.model,
-      ...this.reasoningEffort === undefined ? {} : { reasoningEffort: this.reasoningEffort },
-      ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
+      ...(this.reasoningEffort === undefined ? {} : { reasoningEffort: this.reasoningEffort }),
+      ...(this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens }),
     }
-    const handle = await (resume ? this.ctx.agents.resume({
-      resumeSessionId: brandString<SessionId>(sessionId),
-      agentOptions,
-    }) : this.ctx.agents.create({
-      sessionId: brandString<SessionId>(sessionId),
-      meta: { cwd: this.cwd },
-      agentOptions,
-    }))
+    const handle = await (resume
+      ? this.ctx.agents.resume({
+          resumeSessionId: brandString<SessionId>(sessionId),
+          agentOptions,
+        })
+      : this.ctx.agents.create({
+          sessionId: brandString<SessionId>(sessionId),
+          meta: { cwd: this.cwd },
+          agentOptions,
+        }))
     const rec: SessionRecord = { handle, failure: undefined }
     this.sessions.set(sessionId, rec)
     return rec
   }
 
   private hasAdapterFor(provider: string): boolean {
-    return this.ctx.get('llm')?.listProviders().some(entry => entry.id === provider) ?? false
+    return (
+      this.ctx
+        .get('llm')
+        ?.listProviders()
+        .some(entry => entry.id === provider) ?? false
+    )
   }
 }

@@ -26,12 +26,15 @@ export interface InstalledUpdatePublicationStore {
    * @param object Local binary or retained feed, with declared integrity and overwrite policy.
    * @returns Public server receipt, never authorization headers or credentials.
    */
-  put(key: string, object: {
-    readonly source: { readonly path: string } | { readonly contents: string }
-    readonly size: number
-    readonly sha512: string
-    readonly forbidOverwrite: boolean
-  }): Promise<{ readonly requestId?: string }>
+  put(
+    key: string,
+    object: {
+      readonly source: { readonly path: string } | { readonly contents: string }
+      readonly size: number
+      readonly sha512: string
+      readonly forbidOverwrite: boolean
+    },
+  ): Promise<{ readonly requestId?: string }>
 }
 
 /** Selected operator action; upload never advertises either version to clients. */
@@ -62,13 +65,21 @@ export async function verifiedInstalledUpdateDistribution(manifest: string, vers
     manifestSha512?: unknown
     distribution?: unknown
   }
-  if (result.schemaVersion !== 1 || result.runId !== run.id || result.version !== version || result.stage !== 'complete' || result.passed !== true
-    || result.contents?.appId !== run.appId || result.contents.version !== version
-    || result.installerSignature?.valid !== true || result.installerSignature.timestamped !== true
-    || result.installerSignature.updaterVerificationInvoked !== true
-    || result.installerSignature.sha512 !== distribution.binaries[0]!.sha512
-    || inputs.manifestSha512 !== await installedUpdateFileHash(manifest)
-    || JSON.stringify(inputs.distribution) !== JSON.stringify(distribution)) {
+  if (
+    result.schemaVersion !== 1 ||
+    result.runId !== run.id ||
+    result.version !== version ||
+    result.stage !== 'complete' ||
+    result.passed !== true ||
+    result.contents?.appId !== run.appId ||
+    result.contents.version !== version ||
+    result.installerSignature?.valid !== true ||
+    result.installerSignature.timestamped !== true ||
+    result.installerSignature.updaterVerificationInvoked !== true ||
+    result.installerSignature.sha512 !== distribution.binaries[0]!.sha512 ||
+    inputs.manifestSha512 !== (await installedUpdateFileHash(manifest)) ||
+    JSON.stringify(inputs.distribution) !== JSON.stringify(distribution)
+  ) {
     throw new Error('installed update: current files do not match successful package verification')
   }
   return { run, distribution, receiptSha512: await installedUpdateFileHash(receipt) }
@@ -88,8 +99,15 @@ async function verifiedUploadReceipt(prepared: Awaited<ReturnType<typeof verifie
     const result: unknown = JSON.parse(await readFile(path, 'utf8'))
     if (typeof result !== 'object' || result === null) continue
     const fields = result as Record<string, unknown>
-    if (fields.schemaVersion !== 1 || fields.success !== true || fields.stage !== 'complete'
-      || fields.action !== 'upload-binaries' || fields.runId !== prepared.run.id || fields.version !== prepared.distribution.version) continue
+    if (
+      fields.schemaVersion !== 1 ||
+      fields.success !== true ||
+      fields.stage !== 'complete' ||
+      fields.action !== 'upload-binaries' ||
+      fields.runId !== prepared.run.id ||
+      fields.version !== prepared.distribution.version
+    )
+      continue
     const planPath = join(directory, 'plan.json')
     const plan: unknown = JSON.parse(await readFile(planPath, 'utf8'))
     if (JSON.stringify(plan) !== JSON.stringify(prepared)) continue
@@ -120,8 +138,12 @@ async function startupEvidence(manifest: string, directory: string | undefined) 
  * @returns Retained operation result path; any error stops subsequent writes and preserves partial evidence.
  */
 export async function executeInstalledUpdatePublication(
-  manifest: string, version: string, receipt: string, action: InstalledUpdatePublicationAction,
-  store: InstalledUpdatePublicationStore, journalDirectory?: string,
+  manifest: string,
+  version: string,
+  receipt: string,
+  action: InstalledUpdatePublicationAction,
+  store: InstalledUpdatePublicationStore,
+  journalDirectory?: string,
 ): Promise<string> {
   const prepared = await verifiedInstalledUpdateDistribution(manifest, version, receipt)
   const { run, distribution } = prepared
@@ -130,8 +152,16 @@ export async function executeInstalledUpdatePublication(
   const lock = join(run.root, 'publication.lock')
   await mkdir(lock)
   let record: string | undefined
-  const result: Record<string, unknown> = { schemaVersion: 1, runId: run.id, version, action, success: false, startup,
-    startedAt: new Date().toISOString(), singlePublisherRequired: true }
+  const result: Record<string, unknown> = {
+    schemaVersion: 1,
+    runId: run.id,
+    version,
+    action,
+    success: false,
+    startup,
+    startedAt: new Date().toISOString(),
+    singlePublisherRequired: true,
+  }
   const stage = (name: string, data: object = {}): void => {
     result.stage = name
     recordPackagingEvent(record!, { type: 'publication-stage', stage: name, ...data })
@@ -149,7 +179,7 @@ export async function executeInstalledUpdatePublication(
       stage('binary-upload-receipt-verified', result.binaryUploadReceipt as object)
     } else {
       stage('bucket-versioning')
-      if (!await store.versioningDisabled()) throw new Error('bucket versioning is not confirmed disabled')
+      if (!(await store.versioningDisabled())) throw new Error('bucket versioning is not confirmed disabled')
     }
     for (const binary of action === 'upload-binaries' ? distribution.binaries : []) {
       stage('binary-origin-read', { key: binary.key })
@@ -161,8 +191,12 @@ export async function executeInstalledUpdatePublication(
           throw new Error('local inputs changed')
         }
         stage('binary-put', { key: binary.key })
-        const response = await store.put(binary.key, { source: { path: binary.path }, size: binary.size,
-          sha512: binary.sha512, forbidOverwrite: true })
+        const response = await store.put(binary.key, {
+          source: { path: binary.path },
+          size: binary.size,
+          sha512: binary.sha512,
+          forbidOverwrite: true,
+        })
         stage('binary-put-response', { key: binary.key, ...response })
       }
       stage('binary-public-read', { key: binary.key })
@@ -172,8 +206,8 @@ export async function executeInstalledUpdatePublication(
       stage('feed-origin-read')
       const previous = await store.read(distribution.feed.key)
       const previousPlan = successor ? await planInstalledUpdateDistribution(manifest, run.versions[0]) : undefined
-      const expectedPrevious = previousPlan === undefined ? null
-        : { sha512: previousPlan.feed.sha512, size: Buffer.byteLength(previousPlan.feed.contents) }
+      const expectedPrevious =
+        previousPlan === undefined ? null : { sha512: previousPlan.feed.sha512, size: Buffer.byteLength(previousPlan.feed.contents) }
       const alreadyPublished = matches(previous, { sha512: distribution.feed.sha512, size: Buffer.byteLength(distribution.feed.contents) })
       if (!alreadyPublished && (expectedPrevious === null ? previous !== null : !matches(previous, expectedPrevious))) {
         throw new Error('unexpected previous feed')
@@ -189,12 +223,21 @@ export async function executeInstalledUpdatePublication(
       result.alreadyPublished = alreadyPublished
       if (!alreadyPublished) {
         stage('feed-put', { key: distribution.feed.key, previous, startedAfterOriginal: successor })
-        result.putResponse = await store.put(distribution.feed.key, { source: { contents: distribution.feed.contents },
-          size: Buffer.byteLength(distribution.feed.contents), sha512: distribution.feed.sha512, forbidOverwrite: !successor })
+        result.putResponse = await store.put(distribution.feed.key, {
+          source: { contents: distribution.feed.contents },
+          size: Buffer.byteLength(distribution.feed.contents),
+          sha512: distribution.feed.sha512,
+          forbidOverwrite: !successor,
+        })
       }
       stage('feed-public-read')
-      if (!matches(await store.publicRead(distribution.feed.url), { sha512: distribution.feed.sha512,
-        size: Buffer.byteLength(distribution.feed.contents) })) throw new Error('public feed differs')
+      if (
+        !matches(await store.publicRead(distribution.feed.url), {
+          sha512: distribution.feed.sha512,
+          size: Buffer.byteLength(distribution.feed.contents),
+        })
+      )
+        throw new Error('public feed differs')
     }
     stage('complete')
     result.success = true
@@ -210,8 +253,13 @@ export async function executeInstalledUpdatePublication(
     throw new Error(`installed update: publication stopped; record: ${record ?? 'not allocated'}`)
   } finally {
     try {
-      if (record !== undefined) await writeFile(join(record, 'result.json'), `${JSON.stringify({ ...result,
-        finishedAt: new Date().toISOString() }, null, 2)}\n`, { flag: 'wx', flush: true })
-    } finally { await rmdir(lock) }
+      if (record !== undefined)
+        await writeFile(join(record, 'result.json'), `${JSON.stringify({ ...result, finishedAt: new Date().toISOString() }, null, 2)}\n`, {
+          flag: 'wx',
+          flush: true,
+        })
+    } finally {
+      await rmdir(lock)
+    }
   }
 }

@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
-import {
-  SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages,
-} from '@deepseek-ai/dsh-client-test-runtime'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import { SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -26,20 +24,20 @@ async function bench(options: { declareConversation?: boolean } = {}) {
   runtime.ctx.provide('locale', locale)
   runtime.slots.installLocale(locale)
   if (options.declareConversation !== false) {
-    await runtime.root.declare({
-      'main': { kind: 'keyed', scope: 'root' },
-      'settings.general.item': { kind: 'list', scope: 'root' },
-    }, (_props: { renderSlot?: unknown }) => null)
+    await runtime.root.declare(
+      {
+        main: { kind: 'keyed', scope: 'root' },
+        'settings.general.item': { kind: 'list', scope: 'root' },
+      },
+      (_props: { renderSlot?: unknown }) => null,
+    )
   }
   const feature = await runtime.mount({ inject: [...inject], apply })
   if (options.declareConversation !== false) runtime.renderRoot()
   return { runtime, feature, developerTools }
 }
 
-function entry(
-  runtime: SlotTestRuntime,
-  key: 'main.conversation' | 'conversation.session' | 'conversation.session.header',
-) {
+function entry(runtime: SlotTestRuntime, key: 'main.conversation' | 'conversation.session' | 'conversation.session.header') {
   return runtime.slots.entries(key)[0] as { store?: unknown } | undefined
 }
 
@@ -51,7 +49,9 @@ describe('target-neutral Conversation apply wiring', () => {
     for (const id of ['chat', 'trajectory', 'probe']) {
       b.runtime.slots.register({ name: 'conversation.view', id, label: id }, (() => null) as never)
     }
-    await vi.waitFor(() => { expect(source.getSnapshot().map(tab => tab.id)).toEqual(['chat', 'trajectory', 'probe']) })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().map(tab => tab.id)).toEqual(['chat', 'trajectory', 'probe'])
+    })
     b.developerTools.set(false)
     expect(source.getSnapshot().map(tab => tab.id)).toEqual(['chat', 'probe'])
     b.developerTools.set(true)
@@ -63,17 +63,18 @@ describe('target-neutral Conversation apply wiring', () => {
     expect(b.runtime.slots.entries('main')).toHaveLength(0)
     expect(b.runtime.slots.entries('main.conversation')).toHaveLength(0)
 
-    await b.runtime.root.declare({
-      'main': { kind: 'keyed', scope: 'root' },
-      'settings.general.item': { kind: 'list', scope: 'root' },
-    }, (_props: { renderSlot?: unknown }) => null)
+    await b.runtime.root.declare(
+      {
+        main: { kind: 'keyed', scope: 'root' },
+        'settings.general.item': { kind: 'list', scope: 'root' },
+      },
+      (_props: { renderSlot?: unknown }) => null,
+    )
     b.runtime.renderRoot()
     expect(b.runtime.slots.entries('main').map(row => row.options.key)).toEqual(['conversation'])
     expect(b.runtime.slots.entries('main.conversation')).toHaveLength(1)
-    expect(b.runtime.slots.spec('main.conversation'))
-      .toEqual({ kind: 'single', scope: 'session-maybe' })
-    expect(b.runtime.factoryOf('conversation.content').slots)
-      .toMatchObject({ views: { scope: 'session' } })
+    expect(b.runtime.slots.spec('main.conversation')).toEqual({ kind: 'single', scope: 'session-maybe' })
+    expect(b.runtime.factoryOf('conversation.content').slots).toMatchObject({ views: { scope: 'session' } })
     expect(b.runtime.slots.entries('conversation.session')).toHaveLength(1)
     expect(b.runtime.slots.entries('conversation.session.header')).toHaveLength(1)
     expect(b.runtime.slots.spec('conversation.header')).toEqual({ kind: 'single', scope: 'session-maybe' })
@@ -98,10 +99,8 @@ describe('target-neutral Conversation apply wiring', () => {
     expect(b.runtime.factoryOf('conversation.content').store).toBeUndefined()
     expect(session?.store).toBeDefined()
     expect(header?.store).toBe(session?.store)
-    expect(b.runtime.slots.spec('conversation.composer'))
-      .toEqual({ kind: 'chain', scope: 'session' })
-    expect(b.runtime.slots.entries('settings.general.item').map(row => row.options.id))
-      .toEqual(['composer-enter'])
+    expect(b.runtime.slots.spec('conversation.composer')).toEqual({ kind: 'chain', scope: 'session' })
+    expect(b.runtime.slots.entries('settings.general.item').map(row => row.options.id)).toEqual(['composer-enter'])
     await b.runtime.dispose()
   })
 
@@ -111,17 +110,24 @@ describe('target-neutral Conversation apply wiring', () => {
     using reference = b.runtime.sessions.retain(SID)
     expect(b.runtime.ctx.uiSession.adapter.bindingSource(reference).getSnapshot().hooks.conversationViews).toBeUndefined()
     const header = b.runtime.slots.entries('conversation.session.header')[0]
-    const source = (header?.inject?.() as {
-      hooks: { conversationViews: ObservableSnapshot<readonly ViewTab[]> }
-    } | undefined)?.hooks.conversationViews
+    const source = (
+      header?.inject?.() as
+        | {
+            hooks: { conversationViews: ObservableSnapshot<readonly ViewTab[]> }
+          }
+        | undefined
+    )?.hooks.conversationViews
     expect(source).toBeDefined()
     expect(source?.getSnapshot()).toBe(source?.getSnapshot())
 
-    const disposeView = b.runtime.slots.register({
-      name: 'conversation.view',
-      id: 'probe',
-      label: () => b.runtime.ctx.locale.getSnapshot().active,
-    }, (() => null) as never)
+    const disposeView = b.runtime.slots.register(
+      {
+        name: 'conversation.view',
+        id: 'probe',
+        label: () => b.runtime.ctx.locale.getSnapshot().active,
+      },
+      (() => null) as never,
+    )
     await vi.waitFor(() => {
       expect(source?.getSnapshot()).toEqual([{ id: 'probe', label: 'zh' }])
     })
@@ -132,7 +138,9 @@ describe('target-neutral Conversation apply wiring', () => {
     expect(source?.getSnapshot()).not.toBe(chinese)
 
     disposeView()
-    await vi.waitFor(() => { expect(source?.getSnapshot()).toEqual([]) })
+    await vi.waitFor(() => {
+      expect(source?.getSnapshot()).toEqual([])
+    })
     await b.runtime.dispose()
   })
 

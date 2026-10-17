@@ -5,5 +5,5 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 
 /** `shortcuts.layout` copy in Japanese, complete against the owner's key union. */
 export const ja: LocaleDictOf<'shortcuts.layout'> = {
-  'toggle': '左サイドバーを開閉',
+  toggle: '左サイドバーを開閉',
 }

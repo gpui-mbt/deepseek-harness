@@ -65,7 +65,9 @@ export class WebProductBundleIsolation {
   }
 
   /** Replace dependency observations whenever Vite transforms a module again. */
-  cssTransform(module: string): void { this.cssInputs.set(module, new Set<string>()) }
+  cssTransform(module: string): void {
+    this.cssInputs.set(module, new Set<string>())
+  }
 
   /** Record the files the actual CSS transform asks Rollup to watch. */
   cssDependency(module: string, file: string): void {
@@ -90,10 +92,14 @@ export class WebProductBundleIsolation {
         dynamicImports: [...item.dynamicImports],
         implicitlyLoadedBefore: [...item.implicitlyLoadedBefore],
         referencedFiles: [...item.referencedFiles],
-        ...(item.viteMetadata === undefined ? {} : { viteMetadata: {
-          importedCss: new Set(item.viteMetadata.importedCss),
-          importedAssets: new Set(item.viteMetadata.importedAssets),
-        } }),
+        ...(item.viteMetadata === undefined
+          ? {}
+          : {
+              viteMetadata: {
+                importedCss: new Set(item.viteMetadata.importedCss),
+                importedAssets: new Set(item.viteMetadata.importedAssets),
+              },
+            }),
       })
     }
   }
@@ -109,15 +115,17 @@ export class WebProductBundleIsolation {
       }
     }
     for (const file of [...Object.keys(bundle), ...entries]) {
-      this.workerInputs.set(file, new Set([...this.workerInputs.get(file) ?? [], ...inputs]))
+      this.workerInputs.set(file, new Set([...(this.workerInputs.get(file) ?? []), ...inputs]))
     }
   }
 
   /** Reject experimental ownership in everything the emitted index page can load. */
   verify(bundle: WebOutputBundle, moduleInfo: (id: string) => WebModuleInfo | null): void {
     const html = bundle['index.html']
-    if (html?.type !== 'asset' || !html.originalFileNames.some(file =>
-      resolve(this.webRoot, file) === resolve(this.webRoot, 'index.html'))) {
+    if (
+      html?.type !== 'asset' ||
+      !html.originalFileNames.some(file => resolve(this.webRoot, file) === resolve(this.webRoot, 'index.html'))
+    ) {
       throw new Error('Web product isolation: emitted index.html is missing its original HTML input')
     }
     const outputs = new Map(Object.entries(bundle))
@@ -136,12 +144,11 @@ export class WebProductBundleIsolation {
         for (const name of item.names) aliases.set(name, item.fileName)
       }
     }
-    const outputName = (name: string): string => outputs.has(name) ? name
-      : aliases.get(name) ?? aliases.get(basename(name)) ?? name
+    const outputName = (name: string): string => (outputs.has(name) ? name : (aliases.get(name) ?? aliases.get(basename(name)) ?? name))
     const references = new Map<string, AssetReference[]>()
     for (const reference of this.references) {
       const host = outputName(reference.host)
-      references.set(host, [...references.get(host) ?? [], reference])
+      references.set(host, [...(references.get(host) ?? []), reference])
     }
     const visitedOutputs = new Set<string>()
     const visitedModules = new Set<string>()
@@ -179,7 +186,7 @@ export class WebProductBundleIsolation {
       else if (item.type === 'chunk') {
         for (const id of Object.keys(item.modules)) checkModule(id)
         queue.push(...item.imports, ...item.dynamicImports, ...item.implicitlyLoadedBefore, ...item.referencedFiles)
-        queue.push(...item.viteMetadata?.importedCss ?? [], ...item.viteMetadata?.importedAssets ?? [])
+        queue.push(...(item.viteMetadata?.importedCss ?? []), ...(item.viteMetadata?.importedAssets ?? []))
       } else if (cssOwners.has(file)) {
         for (const id of cssOwners.get(file) ?? []) checkModule(id)
       } else {
@@ -195,5 +202,4 @@ export class WebProductBundleIsolation {
     }
     if (visitedModules.size === 0) throw new Error('Web product isolation: index.html has no recorded reachable modules')
   }
-
 }

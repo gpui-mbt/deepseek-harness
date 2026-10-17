@@ -30,10 +30,18 @@ export async function readPdf(path: string, limit: number, signal: AbortSignal):
     signal.throwIfAborted()
     if (length > limit) throw new OfficeToPdfError('output-too-large', 'The converted PDF exceeds maxOutputBytes.')
     const pdf = bytes.subarray(0, length)
-    if (length !== info.size || !pdf.subarray(0, 8).toString('ascii').match(/^%PDF-\d\.\d/u)
-      || !pdf.subarray(-1024).toString('ascii').trimEnd().endsWith('%%EOF')) {
+    if (
+      length !== info.size ||
+      !pdf
+        .subarray(0, 8)
+        .toString('ascii')
+        .match(/^%PDF-\d\.\d/u) ||
+      !pdf.subarray(-1024).toString('ascii').trimEnd().endsWith('%%EOF')
+    ) {
       throw new OfficeToPdfError('invalid-output', 'The converter did not produce a complete PDF.')
     }
     return pdf
-  } finally { await file.close() }
+  } finally {
+    await file.close()
+  }
 }

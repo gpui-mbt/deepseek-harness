@@ -7,18 +7,14 @@
  * a rejected retraction surfaces inline without losing the authoritative state.
  */
 import { useSyncExternalStore } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { MessageId } from '@deepseek-ai/dsh-api-remotes/client'
-import type {
-  MessageFeedbackItem, MessageFeedbackRating, MessageFeedbackVersion,
-} from '@deepseek-ai/dsh-message-feedback/types'
+import type { MessageFeedbackItem, MessageFeedbackRating, MessageFeedbackVersion } from '@deepseek-ai/dsh-message-feedback/types'
 import { MessageFeedbackActions } from '../src/client/MessageFeedbackActions.tsx'
-import type {
-  MessageFeedbackActionResult, MessageFeedbackView,
-} from '../src/client/controller.ts'
+import type { MessageFeedbackActionResult, MessageFeedbackView } from '../src/client/controller.ts'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
@@ -38,14 +34,16 @@ function item(overrides: Partial<MessageFeedbackItem> = {}): MessageFeedbackItem
 }
 
 /** Render the controls over a fixed view and recording verbs. */
-function mount(options: {
-  current?: MessageFeedbackItem | undefined
-  /** The controller's committed item when it differs from the rendered view (a cold row). */
-  committed?: MessageFeedbackItem
-  ensureResult?: MessageFeedbackActionResult
-  retractResult?: MessageFeedbackActionResult
-  status?: MessageFeedbackView['status']
-} = {}) {
+function mount(
+  options: {
+    current?: MessageFeedbackItem | undefined
+    /** The controller's committed item when it differs from the rendered view (a cold row). */
+    committed?: MessageFeedbackItem
+    ensureResult?: MessageFeedbackActionResult
+    retractResult?: MessageFeedbackActionResult
+    status?: MessageFeedbackView['status']
+  } = {},
+) {
   const view: MessageFeedbackView = {
     status: options.status ?? 'ready',
     items: new Map(options.current === undefined ? [] : [[MSG, options.current]]),
@@ -53,13 +51,18 @@ function mount(options: {
   }
   const ensure = vi.fn(() => Promise.resolve<MessageFeedbackActionResult>(options.ensureResult ?? { ok: true }))
   const retract = vi.fn((_id: MessageId, _rating: MessageFeedbackRating) =>
-    Promise.resolve<MessageFeedbackActionResult>(options.retractResult ?? { ok: true }))
+    Promise.resolve<MessageFeedbackActionResult>(options.retractResult ?? { ok: true }),
+  )
   const openDialog = vi.fn((_id: MessageId, _rating: MessageFeedbackRating) => {})
   const current = vi.fn((_id: MessageId) => options.committed ?? options.current)
   const useFeedback = (<T,>(select: (v: MessageFeedbackView) => T): T =>
-    useSyncExternalStore(() => () => {}, () => select(view))) as never
-  const props = { messageId: MSG, ensure, current, retract, openDialog, useFeedback, t } as unknown as
-    Parameters<typeof MessageFeedbackActions>[0]
+    useSyncExternalStore(
+      () => () => {},
+      () => select(view),
+    )) as never
+  const props = { messageId: MSG, ensure, current, retract, openDialog, useFeedback, t } as unknown as Parameters<
+    typeof MessageFeedbackActions
+  >[0]
   return { ...render(<MessageFeedbackActions {...props} />), ensure, retract, openDialog }
 }
 
@@ -103,7 +106,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.like']))
 
-    await waitFor(() => { expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'positive') })
+    await waitFor(() => {
+      expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'positive')
+    })
     expect(ui.retract).not.toHaveBeenCalled()
   })
 
@@ -112,7 +117,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.like']))
 
-    await waitFor(() => { expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'positive') })
+    await waitFor(() => {
+      expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'positive')
+    })
     expect(ui.retract).not.toHaveBeenCalled()
   })
 
@@ -121,8 +128,12 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.likeActive']))
 
-    await waitFor(() => { expect(ui.retract).toHaveBeenCalledWith(MSG, 'positive') })
-    await waitFor(() => { expect(ui.getByLabelText(zh['action.likeActive']).hasAttribute('disabled')).toBe(false) })
+    await waitFor(() => {
+      expect(ui.retract).toHaveBeenCalledWith(MSG, 'positive')
+    })
+    await waitFor(() => {
+      expect(ui.getByLabelText(zh['action.likeActive']).hasAttribute('disabled')).toBe(false)
+    })
     expect(ui.openDialog).not.toHaveBeenCalled()
   })
 
@@ -131,7 +142,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.dislike']))
 
-    await waitFor(() => { expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'negative') })
+    await waitFor(() => {
+      expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'negative')
+    })
     expect(ui.retract).not.toHaveBeenCalled()
   })
 
@@ -140,7 +153,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.dislike']))
 
-    await waitFor(() => { expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'negative') })
+    await waitFor(() => {
+      expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'negative')
+    })
     expect(ui.retract).not.toHaveBeenCalled()
   })
 
@@ -149,7 +164,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.dislike']))
 
-    await waitFor(() => { expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'negative') })
+    await waitFor(() => {
+      expect(ui.openDialog).toHaveBeenCalledWith(MSG, 'negative')
+    })
     expect(ui.retract).not.toHaveBeenCalled()
   })
 
@@ -158,7 +175,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.dislike']))
 
-    await waitFor(() => { expect(ui.retract).toHaveBeenCalledWith(MSG, 'negative') })
+    await waitFor(() => {
+      expect(ui.retract).toHaveBeenCalledWith(MSG, 'negative')
+    })
     expect(ui.openDialog).not.toHaveBeenCalled()
   })
 
@@ -167,7 +186,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.dislikeActive']))
 
-    await waitFor(() => { expect(ui.retract).toHaveBeenCalledWith(MSG, 'negative') })
+    await waitFor(() => {
+      expect(ui.retract).toHaveBeenCalledWith(MSG, 'negative')
+    })
     expect(ui.openDialog).not.toHaveBeenCalled()
   })
 
@@ -179,7 +200,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.likeActive']))
 
-    await waitFor(() => { expect(ui.getByText(zh['error.conflict'])).toBeTruthy() })
+    await waitFor(() => {
+      expect(ui.getByText(zh['error.conflict'])).toBeTruthy()
+    })
   })
 
   it('reports any other retraction failure with the generic copy', async () => {
@@ -190,7 +213,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.likeActive']))
 
-    await waitFor(() => { expect(ui.getByText(zh['error.generic'])).toBeTruthy() })
+    await waitFor(() => {
+      expect(ui.getByText(zh['error.generic'])).toBeTruthy()
+    })
   })
 
   it('reports a failed retraction of a recorded Dislike', async () => {
@@ -201,18 +226,25 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.dislikeActive']))
 
-    await waitFor(() => { expect(ui.getByText(zh['error.conflict'])).toBeTruthy() })
+    await waitFor(() => {
+      expect(ui.getByText(zh['error.conflict'])).toBeTruthy()
+    })
   })
 
   it('publishes no state after the row unmounts mid-flight', async () => {
     let release = (): void => {}
-    const gate = new Promise<MessageFeedbackActionResult>((resolve) => {
-      release = () => { resolve({ ok: false, error: { code: 'target-not-found', message: 'gone' } }) }
+    const gate = new Promise<MessageFeedbackActionResult>(resolve => {
+      release = () => {
+        resolve({ ok: false, error: { code: 'target-not-found', message: 'gone' } })
+      }
     })
     const recorded = item({ rating: 'positive' })
     const view: MessageFeedbackView = { status: 'ready', items: new Map([[MSG, recorded]]), error: null }
     const useFeedback = (<T,>(select: (v: MessageFeedbackView) => T): T =>
-      useSyncExternalStore(() => () => {}, () => select(view))) as never
+      useSyncExternalStore(
+        () => () => {},
+        () => select(view),
+      )) as never
     const props = {
       messageId: MSG,
       ensure: vi.fn(() => Promise.resolve<MessageFeedbackActionResult>({ ok: true })),
@@ -224,7 +256,9 @@ describe('MessageFeedbackActions', () => {
     } as unknown as Parameters<typeof MessageFeedbackActions>[0]
     const ui = render(<MessageFeedbackActions {...props} />)
     const errors: unknown[] = []
-    const onError = (event: ErrorEvent): void => { errors.push(event.error) }
+    const onError = (event: ErrorEvent): void => {
+      errors.push(event.error)
+    }
     window.addEventListener('error', onError)
 
     fireEvent.click(ui.getByLabelText(zh['action.likeActive']))
@@ -238,10 +272,17 @@ describe('MessageFeedbackActions', () => {
 
   it('publishes no state after the row unmounts before the seeding read settles', async () => {
     let release = (): void => {}
-    const gate = new Promise<MessageFeedbackActionResult>((resolve) => { release = () => { resolve({ ok: true }) } })
+    const gate = new Promise<MessageFeedbackActionResult>(resolve => {
+      release = () => {
+        resolve({ ok: true })
+      }
+    })
     const view: MessageFeedbackView = { status: 'cold', items: new Map(), error: null }
     const useFeedback = (<T,>(select: (v: MessageFeedbackView) => T): T =>
-      useSyncExternalStore(() => () => {}, () => select(view))) as never
+      useSyncExternalStore(
+        () => () => {},
+        () => select(view),
+      )) as never
     const openDialog = vi.fn()
     const props = {
       messageId: MSG,
@@ -254,7 +295,9 @@ describe('MessageFeedbackActions', () => {
     } as unknown as Parameters<typeof MessageFeedbackActions>[0]
     const ui = render(<MessageFeedbackActions {...props} />)
     const errors: unknown[] = []
-    const onError = (event: ErrorEvent): void => { errors.push(event.error) }
+    const onError = (event: ErrorEvent): void => {
+      errors.push(event.error)
+    }
     window.addEventListener('error', onError)
 
     fireEvent.click(ui.getByLabelText(zh['action.dislike']))
@@ -269,14 +312,21 @@ describe('MessageFeedbackActions', () => {
 
   it('publishes no state after the row unmounts mid-retraction', async () => {
     let release = (): void => {}
-    const gate = new Promise<MessageFeedbackActionResult>((resolve) => {
-      release = () => { resolve({ ok: false, error: { code: 'target-not-found', message: 'gone' } }) }
+    const gate = new Promise<MessageFeedbackActionResult>(resolve => {
+      release = () => {
+        resolve({ ok: false, error: { code: 'target-not-found', message: 'gone' } })
+      }
     })
     const view: MessageFeedbackView = {
-      status: 'ready', items: new Map([[MSG, item({ rating: 'negative' })]]), error: null,
+      status: 'ready',
+      items: new Map([[MSG, item({ rating: 'negative' })]]),
+      error: null,
     }
     const useFeedback = (<T,>(select: (v: MessageFeedbackView) => T): T =>
-      useSyncExternalStore(() => () => {}, () => select(view))) as never
+      useSyncExternalStore(
+        () => () => {},
+        () => select(view),
+      )) as never
     const props = {
       messageId: MSG,
       ensure: vi.fn(() => Promise.resolve<MessageFeedbackActionResult>({ ok: true })),
@@ -288,13 +338,17 @@ describe('MessageFeedbackActions', () => {
     } as unknown as Parameters<typeof MessageFeedbackActions>[0]
     const ui = render(<MessageFeedbackActions {...props} />)
     const errors: unknown[] = []
-    const onError = (event: ErrorEvent): void => { errors.push(event.error) }
+    const onError = (event: ErrorEvent): void => {
+      errors.push(event.error)
+    }
     window.addEventListener('error', onError)
 
     fireEvent.click(ui.getByLabelText(zh['action.dislikeActive']))
     // The retraction starts only after the seeding read settles; unmount
     // while that retraction is in flight.
-    await waitFor(() => { expect(props.retract).toHaveBeenCalledWith(MSG, 'negative') })
+    await waitFor(() => {
+      expect(props.retract).toHaveBeenCalledWith(MSG, 'negative')
+    })
     ui.unmount()
     release()
     await gate
@@ -318,7 +372,9 @@ describe('MessageFeedbackActions', () => {
 
     fireEvent.click(ui.getByLabelText(zh['action.likeActive']))
 
-    await waitFor(() => { expect(ui.getByText(zh['error.generic'])).toBeTruthy() })
+    await waitFor(() => {
+      expect(ui.getByText(zh['error.generic'])).toBeTruthy()
+    })
     expect(ui.queryByText(zh['error.load'])).toBeNull()
   })
 })

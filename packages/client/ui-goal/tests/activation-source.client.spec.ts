@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { GoalActivationChanged, GoalId, GoalProjection, GoalView } from '@deepseek-ai/dsh-goal/client'
@@ -31,17 +31,22 @@ describe('goal activation source', () => {
     const projectionStore = createSnapshotStore<GoalProjection | null | undefined>(projection())
     const session = createSnapshotStore({ running: false })
     let resolveRead!: (value: RemoteResult<GoalView | undefined>) => void
-    const getGoal = vi.fn(() => new Promise<RemoteResult<GoalView | undefined>>((resolve) => {
-      resolveRead = resolve
-    }))
+    const getGoal = vi.fn(
+      () =>
+        new Promise<RemoteResult<GoalView | undefined>>(resolve => {
+          resolveRead = resolve
+        }),
+    )
     let activationListener: ((goal: GoalActivationChanged['goal']) => void) | undefined
     const source = createGoalActivationSource({
       projection: projectionStore,
       session,
       getGoal,
-      subscribeActivation: (listener) => {
+      subscribeActivation: listener => {
         activationListener = listener
-        return () => { activationListener = undefined }
+        return () => {
+          activationListener = undefined
+        }
       },
       subscribeReset: () => () => {},
     })
@@ -58,7 +63,8 @@ describe('goal activation source', () => {
   it('refreshes on the running edge without clearing the last activation', async () => {
     const projectionStore = createSnapshotStore<GoalProjection | null | undefined>(projection())
     const session = createSnapshotStore({ running: false })
-    const getGoal = vi.fn()
+    const getGoal = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true as const, value: goalView('disarmed') })
       .mockImplementationOnce(() => new Promise<RemoteResult<GoalView | undefined>>(() => {}))
     const source = createGoalActivationSource({
@@ -81,10 +87,12 @@ describe('goal activation source', () => {
   it('merges lifecycle edges and releases subscriptions with the last observer', async () => {
     const projectionStore = createSnapshotStore<GoalProjection | null | undefined>(projection())
     const session = createSnapshotStore({ running: false })
-    const getGoal = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: goalView('armed'),
-    }))
+    const getGoal = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: goalView('armed'),
+      }),
+    )
     let emitActivation: ((goal: GoalActivationChanged['goal']) => void) | undefined
     let emitReset: (() => void) | undefined
     const disposeProjection: Array<() => void> = []
@@ -92,26 +100,30 @@ describe('goal activation source', () => {
     const source = createGoalActivationSource({
       projection: {
         getSnapshot: () => projectionStore.getSnapshot(),
-        subscribe: (listener) => {
+        subscribe: listener => {
           disposeProjection.push(listener)
           return projectionStore.subscribe(listener)
         },
       },
       session: {
         getSnapshot: () => session.getSnapshot(),
-        subscribe: (listener) => {
+        subscribe: listener => {
           disposeSession.push(listener)
           return session.subscribe(listener)
         },
       },
       getGoal,
-      subscribeActivation: (listener) => {
+      subscribeActivation: listener => {
         emitActivation = listener
-        return () => { emitActivation = undefined }
+        return () => {
+          emitActivation = undefined
+        }
       },
-      subscribeReset: (listener) => {
+      subscribeReset: listener => {
         emitReset = listener
-        return () => { emitReset = undefined }
+        return () => {
+          emitReset = undefined
+        }
       },
     })
 
@@ -146,10 +158,11 @@ describe('goal activation source', () => {
     const source = createGoalActivationSource({
       projection: projectionStore,
       session,
-      getGoal: () => Promise.resolve({
-        ok: false,
-        error: new RemoteError('gateway/internal', 'no', {}),
-      }),
+      getGoal: () =>
+        Promise.resolve({
+          ok: false,
+          error: new RemoteError('gateway/internal', 'no', {}),
+        }),
       subscribeActivation: () => () => {},
       subscribeReset: () => () => {},
     })
@@ -188,7 +201,9 @@ describe('goal activation source', () => {
     await Promise.resolve()
     await Promise.resolve()
     let notifications = 0
-    const disposeObserver = source.subscribe(() => { notifications++ })
+    const disposeObserver = source.subscribe(() => {
+      notifications++
+    })
     projectionStore.set(projection())
     await Promise.resolve()
     expect(notifications).toBe(0)

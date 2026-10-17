@@ -24,7 +24,7 @@ export type ModelRoutingWindow = ModelRouting['windows'][number]
  */
 function localClock(now: number, timeZone: string | undefined): string {
   return new Intl.DateTimeFormat('en-GB', {
-    ...timeZone === undefined ? {} : { timeZone },
+    ...(timeZone === undefined ? {} : { timeZone }),
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
@@ -39,9 +39,7 @@ function localClock(now: number, timeZone: string | undefined): string {
  * @returns whether the reading is inside the window.
  */
 function inWindow(clock: string, from: string, to: string): boolean {
-  return from <= to
-    ? clock >= from && clock < to
-    : clock >= from || clock < to
+  return from <= to ? clock >= from && clock < to : clock >= from || clock < to
 }
 
 /**

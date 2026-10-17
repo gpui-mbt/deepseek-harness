@@ -26,9 +26,11 @@ export async function preparePrimaryRuntime(options: { deferSmoke?: boolean } = 
 export function smokePrimaryRuntime(root: string): void {
   const manifest = parsePrimaryRuntime(JSON.parse(readFileSync(join(root, 'runtime.json'), 'utf8')))
   if (manifest.platform !== process.platform || manifest.arch !== process.arch) return
-  if (Object.keys(manifest.pythonPackages).length === 0) throw new Error('primary runtime: missing Python distribution versions; prepare the payload before running its smoke checks.')
+  if (Object.keys(manifest.pythonPackages).length === 0)
+    throw new Error('primary runtime: missing Python distribution versions; prepare the payload before running its smoke checks.')
   const entries = workspaceDependencyPaths(root, manifest)
-  if (entries.node === undefined || entries.pnpm === undefined) throw new Error('primary runtime: the Desktop payload must declare node and pnpm components.')
+  if (entries.node === undefined || entries.pnpm === undefined)
+    throw new Error('primary runtime: the Desktop payload must declare node and pnpm components.')
   smokePayload(root, scrubWindowsSigningEnvironment(process.env))
 }
 

@@ -18,8 +18,23 @@ import { getHeapStatistics } from 'node:v8'
 import type { Duplex } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { PtcRuntime, DUNDER_MEMBER, PORTABLE_RESERVED_WORDS, RESERVED_BINDING_GLOBALS, RESERVED_ERROR_MEMBERS } from '@deepseek-ai/dsh-ptc-runtime'
-import type { PtcBindingErrorClass, PtcBindingFunction, PtcJsonValue, PtcRunFailure, PtcRunRequest, PtcRunResult, PtcRunSandbox, PtcRunSpec } from '@deepseek-ai/dsh-ptc-runtime'
+import {
+  PtcRuntime,
+  DUNDER_MEMBER,
+  PORTABLE_RESERVED_WORDS,
+  RESERVED_BINDING_GLOBALS,
+  RESERVED_ERROR_MEMBERS,
+} from '@deepseek-ai/dsh-ptc-runtime'
+import type {
+  PtcBindingErrorClass,
+  PtcBindingFunction,
+  PtcJsonValue,
+  PtcRunFailure,
+  PtcRunRequest,
+  PtcRunResult,
+  PtcRunSandbox,
+  PtcRunSpec,
+} from '@deepseek-ai/dsh-ptc-runtime'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { SandboxUnavailableError, classifyRunnerFailure, isRunnerSpawnFailure } from '@deepseek-ai/dsh-sandbox'
@@ -448,19 +463,19 @@ function pythonEnvironment(): NodeJS.ProcessEnv {
 function validatePythonBin(bin: string): void {
   let output: string
   try {
-    output = execFileSync(bin, [
-      '-I',
-      '-c',
-      'import sys; print(sys.implementation.name, sys.version_info.major, sys.version_info.minor, sys.version_info.micro)',
-    ], {
-      encoding: 'utf8',
-      env: pythonEnvironment(),
-      timeout: PYTHON_PROBE_TIMEOUT_MS,
-      // The configured executable is outside our control. Force-kill it at the
-      // deadline so a wrapper that ignores SIGTERM cannot block plugin load.
-      killSignal: 'SIGKILL',
-      maxBuffer: 1_024,
-    }).trim()
+    output = execFileSync(
+      bin,
+      ['-I', '-c', 'import sys; print(sys.implementation.name, sys.version_info.major, sys.version_info.minor, sys.version_info.micro)'],
+      {
+        encoding: 'utf8',
+        env: pythonEnvironment(),
+        timeout: PYTHON_PROBE_TIMEOUT_MS,
+        // The configured executable is outside our control. Force-kill it at the
+        // deadline so a wrapper that ignores SIGTERM cannot block plugin load.
+        killSignal: 'SIGKILL',
+        maxBuffer: 1_024,
+      },
+    ).trim()
   } catch (error: unknown) {
     throw new Error(`dsh-ptc-runtime-python: config.pythonBin ${JSON.stringify(bin)} failed the CPython version probe: ${messageOf(error)}`)
   }
@@ -475,7 +490,9 @@ function validatePythonBin(bin: string): void {
     throw new Error(`dsh-ptc-runtime-python: config.pythonBin ${JSON.stringify(bin)} must be CPython, got ${implementation}`)
   }
   if (major < MIN_CPYTHON.major || (major === MIN_CPYTHON.major && minor < MIN_CPYTHON.minor)) {
-    throw new Error(`dsh-ptc-runtime-python: config.pythonBin ${JSON.stringify(bin)} must be CPython ${MIN_CPYTHON.major}.${MIN_CPYTHON.minor} or newer, got ${implementation} ${majorText}.${minorText}.${patchText}`)
+    throw new Error(
+      `dsh-ptc-runtime-python: config.pythonBin ${JSON.stringify(bin)} must be CPython ${MIN_CPYTHON.major}.${MIN_CPYTHON.minor} or newer, got ${implementation} ${majorText}.${minorText}.${patchText}`,
+    )
   }
 }
 
@@ -544,7 +561,12 @@ function jsonStringCostUpTo(text: string, maxBytes: number): number | undefined 
  * sequences. Carried on each {@link StrayBuffer} so a multibyte character split
  * across pipe `data` chunks is costed as one character.
  */
-interface Utf8CostState { expected: number; width: number; lowerFirst: number; upperFirst: number }
+interface Utf8CostState {
+  expected: number
+  width: number
+  lowerFirst: number
+  upperFirst: number
+}
 
 /**
  * Accrue the serialized JSON cost of raw pipe bytes `buf`, decoding UTF-8 the way
@@ -756,10 +778,12 @@ export class PythonPtcRuntime extends PtcRuntime {
   readonly language = 'python'
   readonly isolation = 'process'
 
-  override get sandboxMode(): SandboxMode { return this.ctx.sandboxPolicy.defaultMode }
+  override get sandboxMode(): SandboxMode {
+    return this.ctx.sandboxPolicy.defaultMode
+  }
 
   override get executionInstructions(): string {
-    return 'The program is the body of an async Python function. Top-level await and return are supported. Emit output with print(...) or return a lossless JSON value. Only printed values and the returned value become program output. Each call runs in a fresh Python process; variables and imported modules do not persist across calls. Relative paths use the supplied working directory; only TMPDIR is set in the environment. Direct filesystem access follows this execution\'s sandbox policy.'
+    return "The program is the body of an async Python function. Top-level await and return are supported. Emit output with print(...) or return a lossless JSON value. Only printed values and the returned value become program output. Each call runs in a fresh Python process; variables and imported modules do not persist across calls. Relative paths use the supplied working directory; only TMPDIR is set in the environment. Direct filesystem access follows this execution's sandbox policy."
   }
 
   private readonly config: ResolvedConfig
@@ -782,7 +806,9 @@ export class PythonPtcRuntime extends PtcRuntime {
     // and defer the failure to the first run. The asymmetry with the worker
     // backend is intentional: that backend is cross-platform; this one is not.
     if (process.platform === 'win32') {
-      throw new Error('dsh-ptc-runtime-python: this backend requires a Unix platform (POSIX rlimits, fd-3 stdio, process-group signals); it cannot run on Windows')
+      throw new Error(
+        'dsh-ptc-runtime-python: this backend requires a Unix platform (POSIX rlimits, fd-3 stdio, process-group signals); it cannot run on Windows',
+      )
     }
     this.config = config as ResolvedConfig
     for (const [key, value] of Object.entries(this.config)) {
@@ -805,7 +831,9 @@ export class PythonPtcRuntime extends PtcRuntime {
     // -trip: the child sees a different number than was configured. The `+ 1` is
     // what gets checked because that is the larger of the two values sent.
     if (!Number.isSafeInteger(this.config.cpuSeconds + 1)) {
-      throw new Error(`dsh-ptc-runtime-python: config.cpuSeconds must be at most ${Number.MAX_SAFE_INTEGER - 1} (it and its +1 hard limit cross to setrlimit as exact integers), got ${String(this.config.cpuSeconds)}`)
+      throw new Error(
+        `dsh-ptc-runtime-python: config.cpuSeconds must be at most ${Number.MAX_SAFE_INTEGER - 1} (it and its +1 hard limit cross to setrlimit as exact integers), got ${String(this.config.cpuSeconds)}`,
+      )
     }
     // `addressSpaceMb` is multiplied by 1 MiB before it is framed, and a large
     // finite value overflows to `Infinity` there — which `encodeJsonPlain`
@@ -815,7 +843,9 @@ export class PythonPtcRuntime extends PtcRuntime {
     // ordinary. Safe-integer, not merely finite, since the value must survive
     // the JSON round trip exactly.
     if (!Number.isSafeInteger(this.config.addressSpaceMb * 1024 * 1024)) {
-      throw new Error(`dsh-ptc-runtime-python: config.addressSpaceMb must be at most ${Math.floor(Number.MAX_SAFE_INTEGER / (1024 * 1024))} (its byte count crosses the wire as an exact integer), got ${String(this.config.addressSpaceMb)}`)
+      throw new Error(
+        `dsh-ptc-runtime-python: config.addressSpaceMb must be at most ${Math.floor(Number.MAX_SAFE_INTEGER / (1024 * 1024))} (its byte count crosses the wire as an exact integer), got ${String(this.config.addressSpaceMb)}`,
+      )
     }
     // `pythonBin` reaches `spawn` as the executable path, where values the
     // string schema admits fail late and unhelpfully. An empty string makes
@@ -828,7 +858,9 @@ export class PythonPtcRuntime extends PtcRuntime {
     // too. All three are self-contained configuration errors that fail at
     // load.
     if (this.config.pythonBin === '' || this.config.pythonBin.includes('\0')) {
-      throw new Error(`dsh-ptc-runtime-python: config.pythonBin must be a non-empty path without NUL bytes, got ${JSON.stringify(this.config.pythonBin)}`)
+      throw new Error(
+        `dsh-ptc-runtime-python: config.pythonBin must be a non-empty path without NUL bytes, got ${JSON.stringify(this.config.pythonBin)}`,
+      )
     }
     // `maxWallMs` and `graceMs` are armed with setTimeout, which clamps any
     // delay past MAX_TIMER_DELAY_MS to 1 ms without a word — turning a
@@ -836,10 +868,14 @@ export class PythonPtcRuntime extends PtcRuntime {
     // an instant SIGKILL. `graceMs` is checked against the margin the
     // close-deadline adds on top, since that sum is what gets armed.
     if (this.config.maxWallMs > MAX_TIMER_DELAY_MS) {
-      throw new Error(`dsh-ptc-runtime-python: config.maxWallMs must not exceed ${MAX_TIMER_DELAY_MS} (setTimeout clamps a larger delay to 1ms), got ${String(this.config.maxWallMs)}`)
+      throw new Error(
+        `dsh-ptc-runtime-python: config.maxWallMs must not exceed ${MAX_TIMER_DELAY_MS} (setTimeout clamps a larger delay to 1ms), got ${String(this.config.maxWallMs)}`,
+      )
     }
     if (this.config.graceMs + CLOSE_REAP_MARGIN_MS > MAX_TIMER_DELAY_MS) {
-      throw new Error(`dsh-ptc-runtime-python: config.graceMs must not exceed ${MAX_TIMER_DELAY_MS - CLOSE_REAP_MARGIN_MS} (its close deadline adds ${CLOSE_REAP_MARGIN_MS}ms, and setTimeout clamps a larger delay to 1ms), got ${String(this.config.graceMs)}`)
+      throw new Error(
+        `dsh-ptc-runtime-python: config.graceMs must not exceed ${MAX_TIMER_DELAY_MS - CLOSE_REAP_MARGIN_MS} (its close deadline adds ${CLOSE_REAP_MARGIN_MS}ms, and setTimeout clamps a larger delay to 1ms), got ${String(this.config.graceMs)}`,
+      )
     }
     // The output caps are budgets for a payload that has to cross fd 3 inside
     // one frame, and the framing ceiling is fixed. A cap above what a frame can
@@ -872,7 +908,9 @@ export class PythonPtcRuntime extends PtcRuntime {
       // enforcing different public config. Reject the float at load, as the
       // Node backend does for its byte budgets.
       if (!Number.isInteger(this.config[key])) {
-        throw new Error(`dsh-ptc-runtime-python: config.${key} must be a positive integer (the child reads it as an int, so a float diverges from the host), got ${String(this.config[key])}`)
+        throw new Error(
+          `dsh-ptc-runtime-python: config.${key} must be a positive integer (the child reads it as an int, so a float diverges from the host), got ${String(this.config[key])}`,
+        )
       }
       const limit = this.frameParseCapBytes - FRAME_ENVELOPE_BYTES
       if (this.config[key] > limit) {
@@ -882,8 +920,13 @@ export class PythonPtcRuntime extends PtcRuntime {
         // coverage-instrumented, so the note's arm is not schedulable from the
         // instrumented suite (whose heap never binds).
         /* v8 ignore next -- the heap-constrained message arm needs a host heap below the protocol cap. */
-        const heapNote = this.frameParseCapBytes < FRAME_PARSE_CAP_BYTES ? ` — this host's heap limits the parse to ${this.frameParseCapBytes} bytes, so the protocol cap of ${FRAME_PARSE_CAP_BYTES} would be unsafe` : ''
-        throw new Error(`dsh-ptc-runtime-python: config.${key} must not exceed ${limit} (a payload that large cannot cross the fd-3 frame PARSER, which rejects raw frames past ${this.frameParseCapBytes} bytes before decoding to bound host memory${heapNote} — a larger budget would admit a config whose honest child frames the host then rejects as a worker-exit), got ${String(this.config[key])}`)
+        const heapNote =
+          this.frameParseCapBytes < FRAME_PARSE_CAP_BYTES
+            ? ` — this host's heap limits the parse to ${this.frameParseCapBytes} bytes, so the protocol cap of ${FRAME_PARSE_CAP_BYTES} would be unsafe`
+            : ''
+        throw new Error(
+          `dsh-ptc-runtime-python: config.${key} must not exceed ${limit} (a payload that large cannot cross the fd-3 frame PARSER, which rejects raw frames past ${this.frameParseCapBytes} bytes before decoding to bound host memory${heapNote} — a larger budget would admit a config whose honest child frames the host then rejects as a worker-exit), got ${String(this.config[key])}`,
+        )
       }
       // Reject a log budget too small to honor: the truncation marker alone
       // must serialize within the budget, or a marker-only truncated run
@@ -891,7 +934,9 @@ export class PythonPtcRuntime extends PtcRuntime {
       // marker is envelope, so the serialized logs run to
       // `maxLogBytes + marker + envelope`.)
       if (key === 'maxLogBytes' && this.config[key] < MIN_LOG_BYTES) {
-        throw new Error(`dsh-ptc-runtime-python: config.maxLogBytes must be at least ${MIN_LOG_BYTES} (a smaller budget cannot serialize the truncation marker itself, so a marker-only truncated run would return more than the configured cap), got ${String(this.config[key])}`)
+        throw new Error(
+          `dsh-ptc-runtime-python: config.maxLogBytes must be at least ${MIN_LOG_BYTES} (a smaller budget cannot serialize the truncation marker itself, so a marker-only truncated run would return more than the configured cap), got ${String(this.config[key])}`,
+        )
       }
     }
     // The child builds, charges, and frames a `maxLogBytes` log entry or a
@@ -931,12 +976,16 @@ export class PythonPtcRuntime extends PtcRuntime {
     // naming `maxLogBytes` -- pointing the operator at the knob that is not the
     // problem. The baseline is what `addressSpaceMb` must clear here.
     if (budgetableBytes <= 0) {
-      throw new Error(`dsh-ptc-runtime-python: config.addressSpaceMb must exceed the ${INTERPRETER_BASELINE_BYTES}-byte interpreter baseline with room for the output budgets, so the child has address space left to build and encode them; got ${String(this.config.addressSpaceMb)} MiB (${addressSpaceBytes} bytes)`)
+      throw new Error(
+        `dsh-ptc-runtime-python: config.addressSpaceMb must exceed the ${INTERPRETER_BASELINE_BYTES}-byte interpreter baseline with room for the output budgets, so the child has address space left to build and encode them; got ${String(this.config.addressSpaceMb)} MiB (${addressSpaceBytes} bytes)`,
+      )
     }
     const admissibleBudget = Math.ceil(budgetableBytes / OUTPUT_BUDGET_WORST_CASE_ADDRESS_SPACE_MULTIPLE) - 1
     for (const key of ['maxLogBytes', 'maxValueBytes'] as const) {
       if (this.config[key] * OUTPUT_BUDGET_WORST_CASE_ADDRESS_SPACE_MULTIPLE >= budgetableBytes) {
-        throw new Error(`dsh-ptc-runtime-python: config.${key} times the ${OUTPUT_BUDGET_WORST_CASE_ADDRESS_SPACE_MULTIPLE}x worst-case Unicode expansion must fit within the ${budgetableBytes} bytes left after the ${INTERPRETER_BASELINE_BYTES}-byte interpreter baseline within the ${addressSpaceBytes}-byte addressSpaceMb, so a near-budget output truncates rather than breaching RLIMIT_AS as worker-exit; got ${String(this.config[key])} against a limit of ${admissibleBudget}`)
+        throw new Error(
+          `dsh-ptc-runtime-python: config.${key} times the ${OUTPUT_BUDGET_WORST_CASE_ADDRESS_SPACE_MULTIPLE}x worst-case Unicode expansion must fit within the ${budgetableBytes} bytes left after the ${INTERPRETER_BASELINE_BYTES}-byte interpreter baseline within the ${addressSpaceBytes}-byte addressSpaceMb, so a near-budget output truncates rather than breaching RLIMIT_AS as worker-exit; got ${String(this.config[key])} against a limit of ${admissibleBudget}`,
+        )
       }
     }
     // Resolve and validate the executable ONCE, after the pure config checks.
@@ -948,7 +997,9 @@ export class PythonPtcRuntime extends PtcRuntime {
     const pythonBin = resolvePythonBin(this.config.pythonBin)
     if (pythonBin === undefined) {
       const explicit = isAbsolute(this.config.pythonBin) || this.config.pythonBin.includes('/')
-      throw new Error(`dsh-ptc-runtime-python: config.pythonBin ${JSON.stringify(this.config.pythonBin)} ${explicit ? 'is not an executable regular file' : 'does not resolve on PATH'}`)
+      throw new Error(
+        `dsh-ptc-runtime-python: config.pythonBin ${JSON.stringify(this.config.pythonBin)} ${explicit ? 'is not an executable regular file' : 'does not resolve on PATH'}`,
+      )
     }
     validatePythonBin(pythonBin)
     this.pythonBin = pythonBin
@@ -1034,7 +1085,8 @@ export class PythonPtcRuntime extends PtcRuntime {
         const runner = confined.argv[0]
         if (runner === undefined) throw new SandboxUnavailableError(policy.mode, 'sandbox runner argv is empty')
         const executable = resolvePythonBin(runner)
-        if (executable === undefined) throw new SandboxUnavailableError(policy.mode, `sandbox runner is not executable: ${confined.argv[0]}`)
+        if (executable === undefined)
+          throw new SandboxUnavailableError(policy.mode, `sandbox runner is not executable: ${confined.argv[0]}`)
         argv = [executable, ...confined.argv.slice(1)]
         confined = { ...confined, argv }
       }
@@ -1044,8 +1096,10 @@ export class PythonPtcRuntime extends PtcRuntime {
       return await pending
     } catch (error: unknown) {
       return {
-        logs: [], sandbox,
-        error: controller.signal.aborted ? controller.signal.reason as PtcRunFailure
+        logs: [],
+        sandbox,
+        error: controller.signal.aborted
+          ? (controller.signal.reason as PtcRunFailure)
           : { kind: error instanceof SandboxUnavailableError ? 'sandbox-unavailable' : 'worker-exit', message: messageOf(error) },
       }
     } finally {
@@ -1115,7 +1169,9 @@ export class PythonPtcRuntime extends PtcRuntime {
           throw new Error('dsh-ptc-runtime-python: errorClass.memberNameProperty must be a non-empty attribute name')
         }
         if (EXCEPTION_RESERVED_MEMBERS.has(memberNameProperty) || DUNDER.test(memberNameProperty)) {
-          throw new Error(`dsh-ptc-runtime-python: errorClass.memberNameProperty ${JSON.stringify(memberNameProperty)} is a reserved error member and cannot be assigned`)
+          throw new Error(
+            `dsh-ptc-runtime-python: errorClass.memberNameProperty ${JSON.stringify(memberNameProperty)} is a reserved error member and cannot be assigned`,
+          )
         }
         claimGlobal(name, 'errorClass.name')
         validatedErrorClass = { name, memberNameProperty }
@@ -1144,7 +1200,7 @@ export class PythonPtcRuntime extends PtcRuntime {
         const fn = namespace.functions[name]
         if (typeof fn === 'function') functions[name] = fn
       }
-      bindings.set(global, { functions, ...validatedErrorClass ? { errorClass: validatedErrorClass } : {} })
+      bindings.set(global, { functions, ...(validatedErrorClass ? { errorClass: validatedErrorClass } : {}) })
     }
     return bindings
   }
@@ -1175,13 +1231,17 @@ export class PythonPtcRuntime extends PtcRuntime {
       }
     } catch (error: unknown) {
       complete()
-      return Promise.resolve({ logs: [], sandbox, error: {
-        kind: confined !== undefined && isRunnerSpawnFailure(error, argv[0], request.cwd) ? 'sandbox-unavailable' : 'worker-exit',
-        message: `python spawn error: ${messageOf(error)}`,
-      } })
+      return Promise.resolve({
+        logs: [],
+        sandbox,
+        error: {
+          kind: confined !== undefined && isRunnerSpawnFailure(error, argv[0], request.cwd) ? 'sandbox-unavailable' : 'worker-exit',
+          message: `python spawn error: ${messageOf(error)}`,
+        },
+      })
     }
 
-    return new Promise<PtcRunResult>((resolve) => {
+    return new Promise<PtcRunResult>(resolve => {
       let settled = false
       const logs: string[] = []
       // An unterminated line flushed with the `open` flag: the next log frame
@@ -1312,7 +1372,12 @@ export class PythonPtcRuntime extends PtcRuntime {
       // `os.write`s accumulates one Buffer object per write, and the object plus
       // backing-store overhead — which no byte or cost count sees — exhausts the
       // host heap far below the budget. Sealing bounds the live object count.
-      interface StrayBuffer { chunks: Buffer[]; blocks: Buffer[]; cost: number; utf8: Utf8CostState }
+      interface StrayBuffer {
+        chunks: Buffer[]
+        blocks: Buffer[]
+        cost: number
+        utf8: Utf8CostState
+      }
       const strayOut: StrayBuffer = { chunks: [], blocks: [], cost: 0, utf8: { expected: 0, width: 0, lowerFirst: 0, upperFirst: 0 } }
       const strayErr: StrayBuffer = { chunks: [], blocks: [], cost: 0, utf8: { expected: 0, width: 0, lowerFirst: 0, upperFirst: 0 } }
       const captureStray = (stray: StrayBuffer, chunk: Buffer): void => {
@@ -1456,7 +1521,9 @@ export class PythonPtcRuntime extends PtcRuntime {
           admit(full.toString('utf8'))
         }
       }
-      child.stdout.on('data', (chunk: Buffer) => { captureStray(strayOut, chunk) })
+      child.stdout.on('data', (chunk: Buffer) => {
+        captureStray(strayOut, chunk)
+      })
       let runnerStderr = Buffer.alloc(0)
       child.stderr.on('data', (chunk: Buffer) => {
         if (confined !== undefined) {
@@ -1464,8 +1531,12 @@ export class PythonPtcRuntime extends PtcRuntime {
         }
         captureStray(strayErr, chunk)
       })
-      child.stdout.on('end', () => { flushStray(strayOut) })
-      child.stderr.on('end', () => { flushStray(strayErr) })
+      child.stdout.on('end', () => {
+        flushStray(strayOut)
+      })
+      child.stderr.on('end', () => {
+        flushStray(strayErr)
+      })
 
       // Line-framed JSON reader over fd 3. The unframed buffer is bounded: a
       // hostile program can loop `os.write(3, b"A"*4096)` with no newline to
@@ -1507,7 +1578,12 @@ export class PythonPtcRuntime extends PtcRuntime {
             /* v8 ignore next -- the done frame can settle the run between the schedule and this callback. */
             if (settled) return
             if (pendingCalls > MAX_PENDING_REPLIES) {
-              finish({ error: { kind: 'worker-exit', message: `call backlog exceeded ${MAX_PENDING_REPLIES} in-flight binding calls (a binding never settled)` } })
+              finish({
+                error: {
+                  kind: 'worker-exit',
+                  message: `call backlog exceeded ${MAX_PENDING_REPLIES} in-flight binding calls (a binding never settled)`,
+                },
+              })
             }
           })
         }
@@ -1799,14 +1875,20 @@ export class PythonPtcRuntime extends PtcRuntime {
             // MAX_PENDING_REPLIES outstanding calls — a program that returned
             // without awaiting its calls — complete normally.
             if (pendingCalls > MAX_PENDING_REPLIES) {
-              finish({ error: { kind: 'worker-exit', message: `call backlog exceeded ${MAX_PENDING_REPLIES} in-flight binding calls (a binding never settled)` } })
+              finish({
+                error: {
+                  kind: 'worker-exit',
+                  message: `call backlog exceeded ${MAX_PENDING_REPLIES} in-flight binding calls (a binding never settled)`,
+                },
+              })
               return
             }
             if (message.error) {
               if (confined !== undefined) {
                 const failure = message.error
                 sandbox.denied = confined.denialSignatures.some(signature =>
-                  failure.message.toLowerCase().includes(signature.toLowerCase()))
+                  failure.message.toLowerCase().includes(signature.toLowerCase()),
+                )
               }
               finish({ error: { kind: message.error.kind, message: capMessage(message.error.message, this.config.maxValueBytes) } })
               return
@@ -1832,9 +1914,11 @@ export class PythonPtcRuntime extends PtcRuntime {
             // (it came from JSON.parse of the frame), the traversal's precondition.
             const check = checkDoneValue(message.value, this.config.maxValueBytes)
             if (!check.ok) {
-              finish(check.reason === 'over-budget'
-                ? { error: { kind: 'output-limit', message: `completion value exceeded ${this.config.maxValueBytes} bytes` } }
-                : { error: { kind: 'invalid-output', message: 'completion value contained a non-lossless number' } })
+              finish(
+                check.reason === 'over-budget'
+                  ? { error: { kind: 'output-limit', message: `completion value exceeded ${this.config.maxValueBytes} bytes` } }
+                  : { error: { kind: 'invalid-output', message: 'completion value contained a non-lossless number' } },
+              )
               return
             }
             finish({ value: message.value as PtcJsonValue })
@@ -1975,17 +2059,18 @@ export class PythonPtcRuntime extends PtcRuntime {
       // pinned with the closure. `once` plus the manual detach removes every
       // listener whichever event wins, so a long backpressure wait leaves none
       // behind.
-      const waitForDrain = (): Promise<void> => new Promise<void>((resolvePromise) => {
-        const finish = (): void => {
-          proto.off('drain', finish)
-          proto.off('close', finish)
-          proto.off('error', finish)
-          resolvePromise()
-        }
-        proto.once('drain', finish)
-        proto.once('close', finish)
-        proto.once('error', finish)
-      })
+      const waitForDrain = (): Promise<void> =>
+        new Promise<void>(resolvePromise => {
+          const finish = (): void => {
+            proto.off('drain', finish)
+            proto.off('close', finish)
+            proto.off('error', finish)
+            resolvePromise()
+          }
+          proto.once('drain', finish)
+          proto.once('close', finish)
+          proto.once('error', finish)
+        })
       const drainReplies = async (): Promise<void> => {
         if (draining) return
         draining = true
@@ -2052,7 +2137,12 @@ export class PythonPtcRuntime extends PtcRuntime {
         // settle the run as a worker-exit, the same hostile-peer bound the
         // frame cap applies to inbound bytes.
         if (pendingReplies >= MAX_PENDING_REPLIES) {
-          finish({ error: { kind: 'worker-exit', message: `reply queue exceeded ${MAX_PENDING_REPLIES} pending frames on fd 3 (the child stopped consuming its replies)` } })
+          finish({
+            error: {
+              kind: 'worker-exit',
+              message: `reply queue exceeded ${MAX_PENDING_REPLIES} pending frames on fd 3 (the child stopped consuming its replies)`,
+            },
+          })
           return
         }
         pendingReplies += 1
@@ -2126,7 +2216,9 @@ export class PythonPtcRuntime extends PtcRuntime {
         // there), NOT by this timer firing during host lifetime. A setsid-escaped
         // orphan in a FRESH group is the different case `closeDeadline` in finish()
         // covers, since `close` never fires there.
-        graceTimer = setTimeout(() => { killGroup('SIGKILL') }, this.config.graceMs)
+        graceTimer = setTimeout(() => {
+          killGroup('SIGKILL')
+        }, this.config.graceMs)
         graceTimer.unref()
       }
       // True once the group has no members left: a signal-0 probe to the whole
@@ -2289,7 +2381,12 @@ export class PythonPtcRuntime extends PtcRuntime {
       }
 
       child.on('error', (error: Error) => {
-        finish({ error: { kind: confined !== undefined && isRunnerSpawnFailure(error, argv[0], request.cwd) ? 'sandbox-unavailable' : 'worker-exit', message: `python spawn error: ${error.message}` } })
+        finish({
+          error: {
+            kind: confined !== undefined && isRunnerSpawnFailure(error, argv[0], request.cwd) ? 'sandbox-unavailable' : 'worker-exit',
+            message: `python spawn error: ${error.message}`,
+          },
+        })
       })
       let bootstrapWriteFailed = false
       // `close` (not `exit`) is the settlement trigger: it fires only after the
@@ -2302,16 +2399,29 @@ export class PythonPtcRuntime extends PtcRuntime {
         // frame, only SIGXCPU identifies CPU expiry: launchers can remap signals
         // to exit codes that programs can also choose deliberately.
         // The configured ceiling may exceed the inherited effective RLIMIT_CPU.
-        const runnerFailure = confined === undefined ? undefined : classifyRunnerFailure(code, runnerStderr.toString('utf8'), confined.runnerFailureRules)
+        const runnerFailure =
+          confined === undefined ? undefined : classifyRunnerFailure(code, runnerStderr.toString('utf8'), confined.runnerFailureRules)
         // A launcher refusal can close stdin before its fatal stderr reaches the host.
         if (bootstrapWriteFailed && runnerFailure !== undefined) {
           decided = { error: { kind: 'sandbox-unavailable', message: runnerFailure.detail } }
         }
-        finish(runnerFailure !== undefined
-          ? { error: { kind: 'sandbox-unavailable', message: runnerFailure.detail } }
-          : signal === 'SIGXCPU'
-            ? { error: { kind: 'timeout', message: `CPU time exhausted (limit at most the configured ${this.config.cpuSeconds}s; a stricter inherited RLIMIT_CPU can fire sooner)` } }
-            : { error: { kind: 'worker-exit', message: `python exited (code=${String(code)}, signal=${String(signal)}) before completing` } })
+        finish(
+          runnerFailure !== undefined
+            ? { error: { kind: 'sandbox-unavailable', message: runnerFailure.detail } }
+            : signal === 'SIGXCPU'
+              ? {
+                  error: {
+                    kind: 'timeout',
+                    message: `CPU time exhausted (limit at most the configured ${this.config.cpuSeconds}s; a stricter inherited RLIMIT_CPU can fire sooner)`,
+                  },
+                }
+              : {
+                  error: {
+                    kind: 'worker-exit',
+                    message: `python exited (code=${String(code)}, signal=${String(signal)}) before completing`,
+                  },
+                },
+        )
         settle(decided)
       })
 
@@ -2350,7 +2460,7 @@ export class PythonPtcRuntime extends PtcRuntime {
         namespaces: [...bindings].map(([global, namespace]) => ({
           global,
           names: Object.keys(namespace.functions),
-          ...namespace.errorClass ? { errorClass: namespace.errorClass } : {},
+          ...(namespace.errorClass ? { errorClass: namespace.errorClass } : {}),
         })),
       }
       // The run frame is sent only after the child's boot-ack: the seam

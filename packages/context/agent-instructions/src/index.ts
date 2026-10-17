@@ -34,21 +34,12 @@ import { instructionCandidateGroup, instructionScopeKey, scopeForDisplayPath, ty
 export { Config, name }
 /** Services required by workspace instruction projection. */
 export const inject = ['sessionProjections', 'workingDirectory']
-export {
-  discoverBaselineInstructionFiles,
-  loadBaselineInstructions,
-} from './files.ts'
-export type {
-  InstructionFile,
-  LoadedInstructionFile,
-} from './files.ts'
+export { discoverBaselineInstructionFiles, loadBaselineInstructions } from './files.ts'
+export type { InstructionFile, LoadedInstructionFile } from './files.ts'
 export { renderAgentInstructions } from './render.ts'
 export type { RenderedAgentInstructions, TruncatedInstruction } from './render.ts'
 
-function visibleBaselineSource(
-  agent: Agent,
-  authorityMessages: readonly UserMessage[],
-): AgentInstructionSource | undefined {
+function visibleBaselineSource(agent: Agent, authorityMessages: readonly UserMessage[]): AgentInstructionSource | undefined {
   for (const message of authorityMessages.toReversed()) {
     if (message.source.kind === 'agent-instructions' && message.source.baseline === true) {
       return message.source
@@ -57,9 +48,8 @@ function visibleBaselineSource(
   for (const seq of agent.session.surface.nodes.toReversed()) {
     // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
     const event = agent.session.eventAt(seq)
-    if (event?.type === 'user/message'
-      && event.data.source.kind === 'agent-instructions'
-      && event.data.source.baseline === true) return event.data.source
+    if (event?.type === 'user/message' && event.data.source.kind === 'agent-instructions' && event.data.source.baseline === true)
+      return event.data.source
   }
   return undefined
 }
@@ -69,8 +59,7 @@ function isAgentInstructionsMessage(message: UserMessage): boolean {
 }
 
 function sameContextPayload(left: UserMessage, right: UserMessage): boolean {
-  return isDeepStrictEqual(left.content, right.content)
-    && isDeepStrictEqual(left.source, right.source)
+  return isDeepStrictEqual(left.content, right.content) && isDeepStrictEqual(left.source, right.source)
 }
 
 const FILE_TOUCH_TOOL_NAMES = new Set(['read', 'write', 'edit'])
@@ -86,10 +75,13 @@ function filePathFromExecution(exec: ToolExecution): string | undefined {
 export function apply(ctx: Context, config: Config): void {
   const resolved: ResolvedConfig = resolveConfig(config)
   const instructionVersions: InstructionVersionCache = new WeakMap()
-  const baselinePreparations = new WeakMap<Session, {
-    identity: string
-    excludedScopes: ReadonlySet<string>
-  }>()
+  const baselinePreparations = new WeakMap<
+    Session,
+    {
+      identity: string
+      excludedScopes: ReadonlySet<string>
+    }
+  >()
   const projectionLifecycle = new AbortController()
   type ProjectionTouch = { agent: Agent; path: string }
   const executionTouches = new Map<ToolExecutionToken, ProjectionTouch[]>()
@@ -127,31 +119,31 @@ export function apply(ctx: Context, config: Config): void {
     const cwd = await ctx.workingDirectory.ensure(agent, signal)
     const projectRoot = await findProjectRoot(cwd, resolved.projectRootMarkers, fileSystem, signal)
     const identity = workspaceBaselineIdentity(resolved, cwd, projectRoot)
-    if (touchedPaths.length === 0 && pending.length > 0
-      && baselinePreparations.get(agent.session)?.identity === identity) return pending[0]
+    if (touchedPaths.length === 0 && pending.length > 0 && baselinePreparations.get(agent.session)?.identity === identity) return pending[0]
     const visibleBaseline = visibleBaselineSource(agent, authorityMessages)
     const baselinePresent = visibleBaseline !== undefined
     const keepVisibleBaseline = visibleBaseline?.baselineIdentity === identity
     const prepared = baselinePreparations.get(agent.session)
-    let excludedBaselineScopes = keepVisibleBaseline && prepared?.identity === identity
-      ? prepared.excludedScopes
-      : undefined
+    let excludedBaselineScopes = keepVisibleBaseline && prepared?.identity === identity ? prepared.excludedScopes : undefined
     let nextPreparation: { identity: string; excludedScopes: ReadonlySet<string> } | undefined
     if (!baselinePresent || !keepVisibleBaseline || excludedBaselineScopes === undefined) {
       const replacePreviousBaseline = baselinePresent && !keepVisibleBaseline
-      const instructions = await loadBaselineInstructionSet({
-        cwd,
-        dshHome: resolved.dshHome,
-        agentsHome: resolved.agentsHome,
-        projectRootMarkers: resolved.projectRootMarkers,
-        maxBytes: resolved.maxBytes,
-        maxSourceBytes: resolved.maxSourceBytes,
-        instructionFileCandidates: resolved.instructionFileCandidates,
-        localInstructionFileCandidates: resolved.localInstructionFileCandidates,
-        projectRoot,
-        replacePreviousBaseline,
-        signal,
-      }, fileSystem)
+      const instructions = await loadBaselineInstructionSet(
+        {
+          cwd,
+          dshHome: resolved.dshHome,
+          agentsHome: resolved.agentsHome,
+          projectRootMarkers: resolved.projectRootMarkers,
+          maxBytes: resolved.maxBytes,
+          maxSourceBytes: resolved.maxSourceBytes,
+          instructionFileCandidates: resolved.instructionFileCandidates,
+          localInstructionFileCandidates: resolved.localInstructionFileCandidates,
+          projectRoot,
+          replacePreviousBaseline,
+          signal,
+        },
+        fileSystem,
+      )
       const baseline = baselineInstructionState(instructions?.included ?? [])
       const observedBaseline = baselineInstructionState(instructions?.observed ?? [])
       const includedDigestsByGroup = new Map<string, Set<string>>()
@@ -184,43 +176,39 @@ export function apply(ctx: Context, config: Config): void {
         content.push(...baselineContent)
         const replacementScopes = new Set(baseline.changes.keys())
         const replacementRemovals = replacePreviousBaseline
-          ? visibleBaseline.changes.flatMap(change => (
-            change.action === 'remove' || replacementScopes.has(change.scope)
-              ? []
-              : [{ action: 'remove' as const, scope: change.scope, path: change.path }]
-          ))
+          ? visibleBaseline.changes.flatMap(change =>
+              change.action === 'remove' || replacementScopes.has(change.scope)
+                ? []
+                : [{ action: 'remove' as const, scope: change.scope, path: change.path }],
+            )
           : []
         const baselineChanges = [...replacementRemovals, ...baseline.changes.values()]
         changes.push(...baselineChanges)
-        authorityMessages.push(createUserMessage({
-          content: baselineContent,
-          source: {
-            kind: 'agent-instructions',
-            form: 'instructions',
-            baseline: true,
-            baselineIdentity: identity,
-            changes: baselineChanges,
-          },
-        }))
+        authorityMessages.push(
+          createUserMessage({
+            content: baselineContent,
+            source: {
+              kind: 'agent-instructions',
+              form: 'instructions',
+              baseline: true,
+              baselineIdentity: identity,
+              changes: baselineChanges,
+            },
+          }),
+        )
         desiredBaseline = true
       }
     }
-    const update = await reconcileInstructionContext(
-      agent,
-      resolved,
-      instructionVersions,
-      fileSystem,
-      {
-        cwd,
-        authorityMessages,
-        scopeMessages: pending,
-        includeBaselineScopes: keepVisibleBaseline,
-        ...keepVisibleBaseline ? { excludedBaselineScopes } : {},
-        touchedPaths,
-        projectRoot,
-        signal,
-      },
-    )
+    const update = await reconcileInstructionContext(agent, resolved, instructionVersions, fileSystem, {
+      cwd,
+      authorityMessages,
+      scopeMessages: pending,
+      includeBaselineScopes: keepVisibleBaseline,
+      ...(keepVisibleBaseline ? { excludedBaselineScopes } : {}),
+      touchedPaths,
+      projectRoot,
+      signal,
+    })
     if (update !== undefined) {
       content.push(...update.context.content)
       /* v8 ignore next -- reconciliation constructs only agent-instructions contexts. */
@@ -236,8 +224,8 @@ export function apply(ctx: Context, config: Config): void {
       source: {
         kind: 'agent-instructions',
         form: 'instructions',
-        ...desiredBaseline ? { baseline: true } : {},
-        ...desiredBaseline ? { baselineIdentity: identity } : {},
+        ...(desiredBaseline ? { baseline: true } : {}),
+        ...(desiredBaseline ? { baselineIdentity: identity } : {}),
         changes,
       },
     })
@@ -245,14 +233,14 @@ export function apply(ctx: Context, config: Config): void {
 
   const syncInbox = (agent: Agent, claimed: readonly UserMessage[], desired: UserMessage | undefined): void => {
     const pending = agent.inbox.nextStep.filter(isAgentInstructionsMessage)
-    const alreadySupplied = desired !== undefined && (
-      claimed.some(message => sameContextPayload(message, desired))
-      || agent.session.surface.nodes.some((seq) => {
-        // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
-        const event = agent.session.eventAt(seq)
-        return event?.type === 'user/message' && sameContextPayload(event.data, desired)
-      })
-    )
+    const alreadySupplied =
+      desired !== undefined &&
+      (claimed.some(message => sameContextPayload(message, desired)) ||
+        agent.session.surface.nodes.some(seq => {
+          // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
+          const event = agent.session.eventAt(seq)
+          return event?.type === 'user/message' && sameContextPayload(event.data, desired)
+        }))
     if (desired === undefined || alreadySupplied) {
       for (const message of pending) agent.inbox.remove(message.id)
       return
@@ -282,12 +270,10 @@ export function apply(ctx: Context, config: Config): void {
     syncInbox(agent, claimed, desired)
   }
 
-  const queueProjection = (
-    agent: Agent,
-    touchedPath: string,
-  ): void => {
+  const queueProjection = (agent: Agent, touchedPath: string): void => {
     const previous = projectionTails.get(agent) ?? Promise.resolve()
-    const current = previous.then(() => composeAndSync(agent, projectionLifecycle.signal, [], [touchedPath]))
+    const current = previous
+      .then(() => composeAndSync(agent, projectionLifecycle.signal, [], [touchedPath]))
       .catch((error: unknown) => {
         if (!projectionLifecycle.signal.aborted) ctx.logger.warn('workspace instruction refresh failed: %o', error)
       })
@@ -307,9 +293,11 @@ export function apply(ctx: Context, config: Config): void {
     if (boundary === undefined) {
       throw new Error('agent-instructions requires the turnBoundary session projection')
     }
-    return boundary.openTurnStartSeq !== null
-      && boundary.lastStepBoundary?.kind === 'start'
-      && boundary.lastStepBoundary.seq > boundary.openTurnStartSeq
+    return (
+      boundary.openTurnStartSeq !== null &&
+      boundary.lastStepBoundary?.kind === 'start' &&
+      boundary.lastStepBoundary.seq > boundary.openTurnStartSeq
+    )
   }
 
   const projectTouch = (touch: ProjectionTouch): void => {
@@ -331,10 +319,7 @@ export function apply(ctx: Context, config: Config): void {
     for (const touch of pending) queueProjection(touch.agent, touch.path)
   })
 
-  ctx.on('agent/pre-step', async (
-    { agent, messages, step, signal },
-    next,
-  ): Promise<PreStepDecision> => {
+  ctx.on('agent/pre-step', async ({ agent, messages, step, signal }, next): Promise<PreStepDecision> => {
     const decision = await next()
     await waitForProjections(agent)
     const pending = agent.inbox.nextStep.filter(isAgentInstructionsMessage)

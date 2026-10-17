@@ -32,13 +32,9 @@ export interface TrajectoryVirtualRow<T extends VirtualizableTrajectoryRecord> {
  * @param record - Display record whose identity is required.
  * @returns Stable record identity with a suffix for synthetic fold summaries.
  */
-export function trajectoryVirtualRecordKey(
-  record: VirtualizableTrajectoryRecord,
-): string {
+export function trajectoryVirtualRecordKey(record: VirtualizableTrajectoryRecord): string {
   const identity = encodeURIComponent(trajectoryRecordId(record.cell))
-  return record.collapsedSummaryKind === undefined
-    ? identity
-    : `${identity}\u0000summary\u0000${record.collapsedSummaryKind}`
+  return record.collapsedSummaryKind === undefined ? identity : `${identity}\u0000summary\u0000${record.collapsedSummaryKind}`
 }
 
 /**
@@ -64,9 +60,7 @@ export function groupTrajectoryVirtualRows<T extends VirtualizableTrajectoryReco
     pending = []
     rows.push({
       entries,
-      height: record.collapsedSummaryKind === undefined
-        ? CONTENT_ROW_HEIGHT
-        : COLLAPSED_SUMMARY_HEIGHT,
+      height: record.collapsedSummaryKind === undefined ? CONTENT_ROW_HEIGHT : COLLAPSED_SUMMARY_HEIGHT,
       key: trajectoryVirtualRecordKey(record),
     })
   }

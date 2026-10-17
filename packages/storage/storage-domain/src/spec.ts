@@ -72,16 +72,14 @@ export interface DomainSpec {
 }
 
 /** Key type of one declared table, recovered from its phantom carrier. */
-export type TableKeyOf<S extends DomainSpec, N extends keyof S['tables']> =
-  S['tables'][N] extends DomainTableSpec<infer K> ? K : never
+export type TableKeyOf<S extends DomainSpec, N extends keyof S['tables']> = S['tables'][N] extends DomainTableSpec<infer K> ? K : never
 
 /** Value type of one declared table. */
 export type TableValueOf<S extends DomainSpec, N extends keyof S['tables']> =
   S['tables'][N] extends DomainTableSpec<string, infer V> ? V : never
 
 /** Global value type of a spec; `never` when the spec declares no global. */
-export type GlobalValueOf<S extends DomainSpec> =
-  S['global'] extends DomainGlobalSpec<infer G> ? G : never
+export type GlobalValueOf<S extends DomainSpec> = S['global'] extends DomainGlobalSpec<infer G> ? G : never
 
 /**
  * Declare one table.
@@ -139,8 +137,8 @@ export function defineDomain<S extends DomainSpec>(spec: S): S {
   }
   if (spec.global !== undefined && spec.global.schema.safeParse(null).success) {
     throw new Error(
-      `domain '${spec.name}' global schema must not accept null: `
-      + 'null is the medium\'s "never written" sentinel, so a stored null could not round-trip',
+      `domain '${spec.name}' global schema must not accept null: ` +
+        'null is the medium\'s "never written" sentinel, so a stored null could not round-trip',
     )
   }
   return spec
@@ -157,7 +155,7 @@ export function descriptorOf(spec: DomainSpec): KvUnitDescriptor {
     version: spec.version,
     tables: Object.keys(spec.tables),
     hasGlobal: spec.global !== undefined,
-    ...spec.layout === undefined ? {} : { layout: spec.layout },
-    ...spec.compatibleVersions === undefined ? {} : { compatibleVersions: spec.compatibleVersions },
+    ...(spec.layout === undefined ? {} : { layout: spec.layout }),
+    ...(spec.compatibleVersions === undefined ? {} : { compatibleVersions: spec.compatibleVersions }),
   }
 }

@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { officialBundleInstallTarget } from '../src/official-install-target.ts'
 
 const name = '@deepseek-ai/dsh-subagent-codex'
@@ -10,7 +10,9 @@ const version = '0.2.1-alpha.1'
 
 function fixture() {
   const temporary = mkdtempSync(join(tmpdir(), 'official-target-'))
-  onTestFinished(() => { rmSync(temporary, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(temporary, { recursive: true, force: true })
+  })
   const root = realpathSync(temporary)
   const anchor = join(root, 'apps', 'cli', 'package.json')
   mkdirSync(dirname(anchor), { recursive: true })
@@ -18,7 +20,10 @@ function fixture() {
   writeFileSync(anchor, JSON.stringify({ name: '@deepseek-ai/dsh', version, dependencies: { '@deepseek-ai/dsh-app-boot': 'workspace:*' } }))
   const directory = join(root, 'packages', 'relocated', 'native-provider')
   mkdirSync(join(directory, 'lib'), { recursive: true })
-  writeFileSync(join(directory, 'package.json'), JSON.stringify({ name, version, main: 'lib/index.js', dsh: { bundle: { patch: './cordis.patch.yml' } } }))
+  writeFileSync(
+    join(directory, 'package.json'),
+    JSON.stringify({ name, version, main: 'lib/index.js', dsh: { bundle: { patch: './cordis.patch.yml' } } }),
+  )
   writeFileSync(join(directory, 'lib', 'index.js'), 'export function apply() {}\n')
   writeFileSync(join(directory, 'cordis.patch.yml'), '[]\n')
   return { root, anchor, directory }
@@ -49,7 +54,7 @@ it('follows the CLI directory link used by an unpackaged Desktop application', (
   expect(officialBundleInstallTarget(name, join(link, 'package.json'), version)).toEqual({ spec: `link:${directory}`, version })
 })
 
-it.each(['missing', 'wrong-name', 'wrong-location'])('refuses a source CLI with a %s workspace root', (kind) => {
+it.each(['missing', 'wrong-name', 'wrong-location'])('refuses a source CLI with a %s workspace root', kind => {
   const { root, anchor } = fixture()
   if (kind === 'missing') rmSync(join(root, 'package.json'))
   if (kind === 'wrong-name') writeFileSync(join(root, 'package.json'), '{"name":"unrelated"}')
@@ -58,7 +63,7 @@ it.each(['missing', 'wrong-name', 'wrong-location'])('refuses a source CLI with 
   expect(() => officialBundleInstallTarget(name, selected, version)).toThrow('requires its complete workspace checkout')
 })
 
-it.each(['missing', 'duplicate'])('refuses a %s workspace package without offering a registry fallback', (kind) => {
+it.each(['missing', 'duplicate'])('refuses a %s workspace package without offering a registry fallback', kind => {
   const { root, anchor, directory } = fixture()
   if (kind === 'missing') rmSync(directory, { recursive: true })
   else {
@@ -69,16 +74,17 @@ it.each(['missing', 'duplicate'])('refuses a %s workspace package without offeri
   expect(() => officialBundleInstallTarget(name, anchor, version)).toThrow('expected one workspace package')
 })
 
-it.each([
-  { version: '0.1.0' }, { private: true }, { dsh: {} },
-])('refuses a workspace package with invalid release or bundle metadata: %j', (changes) => {
-  const { anchor, directory } = fixture()
-  const file = join(directory, 'package.json')
-  writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), ...changes }))
-  expect(() => officialBundleInstallTarget(name, anchor, version)).toThrow('must declare a public bundle at DSH version')
-})
+it.each([{ version: '0.1.0' }, { private: true }, { dsh: {} }])(
+  'refuses a workspace package with invalid release or bundle metadata: %j',
+  changes => {
+    const { anchor, directory } = fixture()
+    const file = join(directory, 'package.json')
+    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), ...changes }))
+    expect(() => officialBundleInstallTarget(name, anchor, version)).toThrow('must declare a public bundle at DSH version')
+  },
+)
 
-it.each(['missing-main', 'missing-output', 'directory-output'])('refuses an unbuilt workspace package: %s', (kind) => {
+it.each(['missing-main', 'missing-output', 'directory-output'])('refuses an unbuilt workspace package: %s', kind => {
   const { anchor, directory } = fixture()
   if (kind === 'missing-main') {
     const file = join(directory, 'package.json')
@@ -91,7 +97,7 @@ it.each(['missing-main', 'missing-output', 'directory-output'])('refuses an unbu
   expect(() => officialBundleInstallTarget(name, anchor, version)).toThrow('run pnpm install and pnpm run build')
 })
 
-it.each(['missing', 'directory'])('refuses an unavailable bundle patch: %s', (kind) => {
+it.each(['missing', 'directory'])('refuses an unavailable bundle patch: %s', kind => {
   const { anchor, directory } = fixture()
   const patch = join(directory, 'cordis.patch.yml')
   rmSync(patch)

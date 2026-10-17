@@ -76,7 +76,8 @@ export const en: Record<DeliverablesKey, string> = {
   'presented.directoryOpened': 'Requested opening containing folder',
   'presented.revealed': 'Requested display in file manager',
   'presented.revealing': 'Showing in file manager…',
-  'presented.unavailable': 'This Host has no desktop available to open files or folders in external apps. Files can still be previewed in the sidebar.',
+  'presented.unavailable':
+    'This Host has no desktop available to open files or folders in external apps. Files can still be previewed in the sidebar.',
   'presented.retry': 'Retry',
   'presented.hostError': 'Could not read the Host desktop information',
   'presented.preview': 'Preview in sidebar',

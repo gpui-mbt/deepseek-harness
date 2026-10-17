@@ -75,22 +75,12 @@ export class TextRefNode extends TextNode {
  * @param lexiconOf - live per-trigger name-roll accessor (the controller's aggregated store).
  * @returns the unregister disposer.
  */
-export function registerTextRefDecoration(
-  editor: LexicalEditor,
-  lexiconOf: () => ReadonlyMap<'/' | '@', readonly string[]>,
-): () => void {
+export function registerTextRefDecoration(editor: LexicalEditor, lexiconOf: () => ReadonlyMap<'/' | '@', readonly string[]>): () => void {
   const getMatch = (text: string): { start: number; end: number } | null => {
     const range = scanTextRefs(text, lexiconOf())[0]
     return range === undefined ? null : { start: range.start, end: range.end }
   }
-  return mergeRegister(
-    ...registerLexicalTextEntity(
-      editor,
-      getMatch,
-      TextRefNode,
-      node => new TextRefNode(node.getTextContent()),
-    ),
-  )
+  return mergeRegister(...registerLexicalTextEntity(editor, getMatch, TextRefNode, node => new TextRefNode(node.getTextContent())))
 }
 
 /**
@@ -100,7 +90,10 @@ export function registerTextRefDecoration(
  * @param editor - the shell-owned editor.
  */
 export function rescanTextRefs(editor: LexicalEditor): void {
-  editor.update(() => {
-    for (const node of $getRoot().getAllTextNodes()) node.markDirty()
-  }, { tag: HISTORY_MERGE_TAG })
+  editor.update(
+    () => {
+      for (const node of $getRoot().getAllTextNodes()) node.markDirty()
+    },
+    { tag: HISTORY_MERGE_TAG },
+  )
 }

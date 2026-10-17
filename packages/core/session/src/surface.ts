@@ -11,13 +11,7 @@
 import type { Message, ToolSchema } from '@deepseek-ai/dsh-llm'
 import { SessionLogOffset, SessionSeq } from './types.ts'
 import { KNOWN_SESSION_EVENT_TYPES, MESSAGE_PROJECTION_EVENT_TYPES } from './known-event-types.ts'
-import type {
-  SessionEvent,
-  SessionEventType,
-  SessionSeqCursor,
-  SurfaceEvent,
-  SurfaceOp,
-} from './types.ts'
+import type { SessionEvent, SessionEventType, SessionSeqCursor, SurfaceEvent, SurfaceOp } from './types.ts'
 
 /** Readonly history immediately before a message-projection event. */
 export interface SessionMessageProjectionContext {
@@ -47,13 +41,7 @@ export interface SessionMessageProjection<T extends SessionEventType = SessionEv
 }
 
 /** Runtime counterpart of the message-producing event union. */
-const SURFACE_EVENT_TYPES = new Set<string>([
-  'system/message',
-  'developer/message',
-  'user/message',
-  'assistant/message',
-  'tool/result',
-])
+const SURFACE_EVENT_TYPES = new Set<string>(['system/message', 'developer/message', 'user/message', 'assistant/message', 'tool/result'])
 
 /**
  * Whether an event type can join the model-visible surface.
@@ -86,9 +74,7 @@ export function isSurfaceEvent(event: SessionEvent): event is SurfaceEvent {
  * @param event - event to test.
  * @returns true when the event appended to the surface tail.
  */
-export function isAppendSurfaceEvent(
-  event: SessionEvent,
-): event is SurfaceEvent & { surfaceOp: 'append' } {
+export function isAppendSurfaceEvent(event: SessionEvent): event is SurfaceEvent & { surfaceOp: 'append' } {
   return isSurfaceEvent(event) && event.surfaceOp === 'append'
 }
 
@@ -117,10 +103,7 @@ export function isReplacementSurfaceEvent(
  * @param projectedMessages - message projections from the same log prefix's surface fold.
  * @returns the derived message, or null when the event produces none.
  */
-export function deriveEventMessage(
-  event: SessionEvent,
-  projectedMessages?: ReadonlyMap<SessionSeq, Message>,
-): Message | null {
+export function deriveEventMessage(event: SessionEvent, projectedMessages?: ReadonlyMap<SessionSeq, Message>): Message | null {
   const projected = projectedMessages?.get(event.seq)
   if (projected !== undefined) return projected
   // Intentionally non-exhaustive: only message-producing events derive
@@ -163,10 +146,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * @param subject - event location to include in validation errors.
  * @throws when request-header fields, developer roles/content, or tool failure metadata are invalid.
  */
-export function validateSessionEventData(
-  event: Pick<SessionEvent, 'type' | 'data'>,
-  subject: string,
-): void {
+export function validateSessionEventData(event: Pick<SessionEvent, 'type' | 'data'>, subject: string): void {
   const data: unknown = event.data
   if (SURFACE_EVENT_TYPES.has(event.type) && isRecord(data)) {
     const message = event.type === 'user/message' ? data : data['message']
@@ -174,9 +154,13 @@ export function validateSessionEventData(
       if ((event.type === 'developer/message') !== (message['role'] === 'developer')) {
         throw new Error(`${subject} developer/message and developer role must occur together`)
       }
-      if (message['role'] !== 'developer' && Array.isArray(message['content'])
-        && message['content'].some((block: unknown) => isRecord(block)
-          && (block['type'] === 'tool-addition' || block['type'] === 'tool-removal'))) {
+      if (
+        message['role'] !== 'developer' &&
+        Array.isArray(message['content']) &&
+        message['content'].some(
+          (block: unknown) => isRecord(block) && (block['type'] === 'tool-addition' || block['type'] === 'tool-removal'),
+        )
+      ) {
         throw new Error(`${subject} tool-change blocks require developer role`)
       }
       if (event.type === 'developer/message' && Array.isArray(message['content'])) {
@@ -280,22 +264,21 @@ function createFoldState(): SurfaceFoldState {
 
 /** Whether a runtime value is a non-negative safe event sequence. */
 function isEventSeq(value: unknown): value is SessionSeq {
-  return typeof value === 'number'
-    && Number.isSafeInteger(value)
-    && value >= 0
-    && !Object.is(value, -0)
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && !Object.is(value, -0)
 }
 
 /** Whether a runtime value is the exact positional-replacement shape. */
 function isReplaceOp(value: object): value is Extract<SurfaceOp, { op: 'replace' }> {
   const op = value as Record<string, unknown>
-  return Object.keys(op).length === 3
-    && Object.hasOwn(op, 'op')
-    && Object.hasOwn(op, 'startSeq')
-    && Object.hasOwn(op, 'endSeq')
-    && op['op'] === 'replace'
-    && isEventSeq(op['startSeq'])
-    && isEventSeq(op['endSeq'])
+  return (
+    Object.keys(op).length === 3 &&
+    Object.hasOwn(op, 'op') &&
+    Object.hasOwn(op, 'startSeq') &&
+    Object.hasOwn(op, 'endSeq') &&
+    op['op'] === 'replace' &&
+    isEventSeq(op['startSeq']) &&
+    isEventSeq(op['endSeq'])
+  )
 }
 
 /** Validate event-local surface eligibility and return its operation. */
@@ -327,10 +310,7 @@ function surfaceOpOf(event: SessionEvent): SurfaceOp | undefined {
 }
 
 /** Validate cited source-event seqs against prior log entries and the replacement range. */
-function assertSourceEventReferences(
-  event: SessionEvent,
-  shadowedSeqs: readonly SessionSeq[],
-): void {
+function assertSourceEventReferences(event: SessionEvent, shadowedSeqs: readonly SessionSeq[]): void {
   const raw: unknown = event.sourceEventSeqs
   if (event.type === 'assistant/message' && raw !== undefined) {
     throw new Error('assistant/message embeds its source stream and cannot carry sourceEventSeqs')
@@ -365,11 +345,7 @@ function assertSourceEventReferences(
 }
 
 /** Resolve tool additions against their immutable historical request header. */
-function assertDeveloperHeader(
-  event: SessionEvent,
-  events: readonly SessionEvent[],
-  baseSeq: SessionLogOffset,
-): void {
+function assertDeveloperHeader(event: SessionEvent, events: readonly SessionEvent[], baseSeq: SessionLogOffset): void {
   if (event.type !== 'developer/message') return
   validateSessionEventData(event, `developer/message at seq ${event.seq}`)
   if (event.data.headerSeq === undefined) return
@@ -403,8 +379,7 @@ function assertDeveloperHeader(
  */
 export function validateSurfaceMetadata(event: SessionEvent): SurfaceOp | undefined {
   const op = surfaceOpOf(event)
-  if (op !== undefined && op !== 'append'
-    && (op.startSeq >= event.seq || op.endSeq >= event.seq)) {
+  if (op !== undefined && op !== 'append' && (op.startSeq >= event.seq || op.endSeq >= event.seq)) {
     throw new Error(`surface replace at seq ${event.seq}: startSeq and endSeq must reference earlier events`)
   }
   if (op !== undefined) assertSourceEventReferences(event, [])
@@ -499,7 +474,7 @@ function assertSystemHeadRewrite(
   baseSeq: SessionLogOffset,
 ): void {
   if (startIdx !== 0) return
-  const head = events[state.nodes[0] as number - baseSeq]
+  const head = events[(state.nodes[0] as number) - baseSeq]
   if (head?.type !== 'system/message') return
   if (event.type !== 'system/message' || shadowedSeqs.length !== 1) {
     throw new Error('surface replace: node 0 holds the system prompt and may be rewritten only by a system/message over exactly that node')
@@ -522,12 +497,21 @@ function planSurfaceEvent(
   assertDeveloperHeader(event, events, baseSeq)
   const projection = projections.find(item => item.type === event.type)
   if (projection !== undefined) {
-    return { kind: 'project', projection, messages: projection.project(event, {
-      nodes: state.nodes, events, baseSeq, messages: state.projectedMessages,
-    }) }
+    return {
+      kind: 'project',
+      projection,
+      messages: projection.project(event, {
+        nodes: state.nodes,
+        events,
+        baseSeq,
+        messages: state.projectedMessages,
+      }),
+    }
   }
   if (MESSAGE_PROJECTION_EVENT_TYPES.has(event.type)) {
-    throw new Error(`session event "${event.type}" requires a message projection; load its owning plugin or supply its projection definition`)
+    throw new Error(
+      `session event "${event.type}" requires a message projection; load its owning plugin or supply its projection definition`,
+    )
   }
   if (surfaceOp === undefined) return
   if (surfaceOp === 'append') {
@@ -560,10 +544,7 @@ function applySurfaceEvent(
 }
 
 /** Commit one previously validated surface transition. */
-function applySurfacePlan(
-  state: SurfaceFoldState,
-  plan: SurfacePlan | undefined,
-): SurfaceFoldReplacement | undefined {
+function applySurfacePlan(state: SurfaceFoldState, plan: SurfacePlan | undefined): SurfaceFoldReplacement | undefined {
   if (plan?.kind === 'append') {
     state.nodes.push(plan.seq)
   } else if (plan?.kind === 'replace') {
@@ -595,14 +576,7 @@ export function foldSurface(events: readonly SessionEvent[], projections: readon
   const state = createFoldState()
   const replacements: SurfaceFoldReplacement[] = []
   for (const [index, event] of events.entries()) {
-    const replacement = applySurfaceEvent(
-      state,
-      event,
-      SessionSeq(index),
-      events,
-      SessionLogOffset(0),
-      projections,
-    )
+    const replacement = applySurfaceEvent(state, event, SessionSeq(index), events, SessionLogOffset(0), projections)
     if (replacement !== undefined) replacements.push(replacement)
   }
   return { nodes: [...state.nodes], replacements, projectedMessages: new Map(state.projectedMessages) }
@@ -698,14 +672,14 @@ export class SurfaceManager implements SessionSurface {
   /** Cached messages cannot outlive the definitions that interpreted their log. */
   private _assertProjections(): void {
     const candidate = this._pendingPlan
-    const pending = candidate !== undefined && this.log[candidate.expectedSeq - this.baseSeq] === candidate.event
-      ? candidate.plan : undefined
-    const required = pending?.kind === 'project'
-      ? [...this._state.projections, pending.projection]
-      : this._state.projections
+    const pending =
+      candidate !== undefined && this.log[candidate.expectedSeq - this.baseSeq] === candidate.event ? candidate.plan : undefined
+    const required = pending?.kind === 'project' ? [...this._state.projections, pending.projection] : this._state.projections
     for (const projection of required) {
       if (!this.projections.includes(projection)) {
-        throw new Error(`session message projection "${projection.type}" was removed or replaced; restore the session with its owning plugin`)
+        throw new Error(
+          `session message projection "${projection.type}" was removed or replaced; restore the session with its owning plugin`,
+        )
       }
     }
   }

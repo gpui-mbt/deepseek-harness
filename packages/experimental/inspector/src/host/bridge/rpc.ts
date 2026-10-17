@@ -6,7 +6,10 @@ import { InspectorQueryConnection, type InspectorQueryConnectionOptions } from '
 
 /** Owns query correlation for one Host source generation. */
 export class HostBridgeRpc extends InspectorQueryConnection {
-  constructor(private readonly port: MessagePort, options: InspectorQueryConnectionOptions) {
+  constructor(
+    private readonly port: MessagePort,
+    options: InspectorQueryConnectionOptions,
+  ) {
     super(options)
   }
 
@@ -16,7 +19,9 @@ export class HostBridgeRpc extends InspectorQueryConnection {
    */
   connectPort(source: InspectorSourceDescriptor): void {
     this.connect(source.sourceId, source.generation, {
-      send: (frame) => { this.port.postMessage(frame) },
+      send: frame => {
+        this.port.postMessage(frame)
+      },
     })
   }
 }

@@ -21,31 +21,50 @@ app.setAppPath(application)
 app.setPath('userData', join(root, 'electron'))
 const entry = pathToFileURL(join(application, 'lib/main.js')).href
 const adapters = new URL('./workspace-update-adapters.mjs', import.meta.url).href
-const hooks = registerHooks({ resolve(specifier, context, next) {
-  if (context.parentURL === entry && ['./update-coordinator.js', './host-process.js', './update-error.js'].includes(specifier)) {
-    return { url: adapters, shortCircuit: true }
-  }
-  return next(specifier, context)
-} })
+const hooks = registerHooks({
+  resolve(specifier, context, next) {
+    if (context.parentURL === entry && ['./update-coordinator.js', './host-process.js', './update-error.js'].includes(specifier)) {
+      return { url: adapters, shortCircuit: true }
+    }
+    return next(specifier, context)
+  },
+})
 const server = await createUpdateServer()
 server.select('healthy', '0.1.6-nightly.1')
 process.env.DSH_DESKTOP_APP_ID = 'com.deepseek.qualification'
-process.env.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG = JSON.stringify({ origin: new URL(server.url).origin,
-  allowedPageOrigins: ['https://downloads.example.com'], intervalMs: 600_000, timeoutMs: 5000, maxBackoffMs: 600_000, jitter: 0 })
+process.env.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG = JSON.stringify({
+  origin: new URL(server.url).origin,
+  allowedPageOrigins: ['https://downloads.example.com'],
+  intervalMs: 600_000,
+  timeoutMs: 5000,
+  maxBackoffMs: 600_000,
+  jitter: 0,
+})
 const config = join(root, 'app-update.yml')
 await writeFile(config, 'updaterCacheDirName: private-workspace-cache\n')
-const forbidden = () => { throw new Error('Qualification must not quit or relaunch through updater') }
+const forbidden = () => {
+  throw new Error('Qualification must not quit or relaunch through updater')
+}
 const updater = new updaterModule.NsisUpdater(undefined, {
-  version: '0.1.5-rc.1', name: 'workspace-update-qualification', isPackaged: true,
-  appUpdateConfigPath: config, userDataPath: root, baseCachePath: root,
-  whenReady: () => app.whenReady(), quit: forbidden, relaunch: forbidden, onQuit: forbidden,
+  version: '0.1.5-rc.1',
+  name: 'workspace-update-qualification',
+  isPackaged: true,
+  appUpdateConfigPath: config,
+  userDataPath: root,
+  baseCachePath: root,
+  whenReady: () => app.whenReady(),
+  quit: forbidden,
+  relaunch: forbidden,
+  onQuit: forbidden,
 })
 updater.logger = null
 updater.httpExecutor = new DesktopUpdateHttpExecutor(interactive ? 600_000 : 10_000)
 updater.disableDifferentialDownload = true
 updater.disableWebInstaller = true
 updater.setFeedURL({ provider: 'generic', url: server.url, channel: 'nightly' })
-updater.quitAndInstall = (...args) => { fixture.installations.push(args) }
+updater.quitAndInstall = (...args) => {
+  fixture.installations.push(args)
+}
 fixture.updater = updater
 
 async function observed(window, subject, operation) {
@@ -57,9 +76,12 @@ async function observed(window, subject, operation) {
   contents.setBackgroundThrottling(false)
   let timer
   try {
-    const result = await Promise.race([operation(), new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`Renderer operation timed out: ${subject}`)), 20_000)
-    })])
+    const result = await Promise.race([
+      operation(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Renderer operation timed out: ${subject}`)), 20_000)
+      }),
+    ])
     await record({ phase: 'done' })
     return result
   } catch (error) {
@@ -68,14 +90,22 @@ async function observed(window, subject, operation) {
       Object.assign(state, { visible: window.isVisible(), focused: window.isFocused(), enabled: window.isEnabled() })
       let diagnosticTimer
       try {
-        state.renderer = await Promise.race([window.webContents.executeJavaScript(`({
+        state.renderer = await Promise.race([
+          window.webContents.executeJavaScript(`({
           visibility: document.visibilityState, focused: document.hasFocus(),
           animations: document.getAnimations().map(animation => ({ playState: animation.playState,
             pending: animation.pending, currentTime: animation.currentTime, playbackRate: animation.playbackRate,
             timing: animation.effect?.getComputedTiming() }))
-        })`), new Promise((_, reject) => { diagnosticTimer = setTimeout(() => reject(new Error('Renderer diagnostics timed out')), 2000) })])
-      } catch (diagnosticError) { state.diagnosticError = String(diagnosticError) }
-      finally { clearTimeout(diagnosticTimer) }
+        })`),
+          new Promise((_, reject) => {
+            diagnosticTimer = setTimeout(() => reject(new Error('Renderer diagnostics timed out')), 2000)
+          }),
+        ])
+      } catch (diagnosticError) {
+        state.diagnosticError = String(diagnosticError)
+      } finally {
+        clearTimeout(diagnosticTimer)
+      }
     }
     await record({ phase: 'failed', error: String(error), state })
     throw error
@@ -89,12 +119,14 @@ async function observed(window, subject, operation) {
 }
 
 async function documentReady(window, expression) {
-  return observed(window, `document: ${expression}`, () => window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+  return observed(window, `document: ${expression}`, () =>
+    window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
     const test = () => { if (${expression}) { observer.disconnect(); clearTimeout(timer); resolve(true); } };
     const observer = new MutationObserver(test);
     const timer = setTimeout(() => { observer.disconnect(); reject(new Error(${JSON.stringify(`Document condition timed out: ${expression}`)})); }, 20000);
     observer.observe(document, { childList: true, subtree: true, attributes: true }); test();
-  })`))
+  })`),
+  )
 }
 async function windowAt(url) {
   if (process.platform === 'win32' && url === 'dsh-app://shell/mandatory-update.html') {
@@ -104,43 +136,66 @@ async function windowAt(url) {
   if (existing) return existing
   return new Promise((resolve, reject) => {
     const watched = []
-    const cleanup = () => { clearTimeout(timer); app.off('browser-window-created', watch); for (const [contents, check] of watched) contents.off('did-finish-load', check) }
+    const cleanup = () => {
+      clearTimeout(timer)
+      app.off('browser-window-created', watch)
+      for (const [contents, check] of watched) contents.off('did-finish-load', check)
+    }
     const watch = (_event, window) => {
       const contents = window.webContents
-      const check = () => { if (contents.getURL() === url) { cleanup(); resolve(window) } }
-      watched.push([contents, check]); contents.on('did-finish-load', check); check()
+      const check = () => {
+        if (contents.getURL() === url) {
+          cleanup()
+          resolve(window)
+        }
+      }
+      watched.push([contents, check])
+      contents.on('did-finish-load', check)
+      check()
     }
-    const timer = setTimeout(() => { cleanup(); reject(new Error(`Window did not load ${url}`)) }, 25000)
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error(`Window did not load ${url}`))
+    }, 25000)
     app.on('browser-window-created', watch)
     for (const window of BrowserWindow.getAllWindows()) watch(undefined, window)
   })
 }
 async function control(action) {
   const { url } = JSON.parse(await readFile(join(root, 'host-control.json'), 'utf8'))
-  const response = await fetch(`${url}/${action}`, { method: 'POST', headers: { 'x-qualification-token': process.env.DSH_WORKSPACE_UPDATE_TOKEN } })
+  const response = await fetch(`${url}/${action}`, {
+    method: 'POST',
+    headers: { 'x-qualification-token': process.env.DSH_WORKSPACE_UPDATE_TOKEN },
+  })
   assert.equal(response.status, 200, response.status === 200 ? undefined : await response.text())
   return response.json()
 }
 async function screenshot(window, name) {
-  await observed(window, `screenshot layout: ${name}`, () => window.webContents.executeJavaScript(`(async () => {
+  await observed(window, `screenshot layout: ${name}`, () =>
+    window.webContents.executeJavaScript(`(async () => {
     await new Promise(resolve => requestAnimationFrame(resolve));
     const finite = document.getAnimations().filter(animation => animation.effect
       && Number.isFinite(animation.effect.getComputedTiming().endTime));
     await Promise.all(finite.map(animation => animation.finished));
-  })()`))
+  })()`),
+  )
   await writeFile(join(root, name), (await observed(window, `capture: ${name}`, () => window.webContents.capturePage())).toPNG())
 }
 async function waitFor(check, subject) {
   const deadline = Date.now() + 20_000
-  while (!await check()) {
+  while (!(await check())) {
     if (Date.now() >= deadline) throw new Error(`Timed out waiting for ${subject}`)
     await new Promise(resolve => setTimeout(resolve, 50))
   }
 }
 async function press(window, expression) {
   window.focus()
-  await documentReady(window, `(() => { const target = ${expression}; return target && !target.disabled && target.getClientRects().length > 0; })()`)
-  const point = await observed(window, `click layout: ${expression}`, () => window.webContents.executeJavaScript(`(async () => {
+  await documentReady(
+    window,
+    `(() => { const target = ${expression}; return target && !target.disabled && target.getClientRects().length > 0; })()`,
+  )
+  const point = await observed(window, `click layout: ${expression}`, () =>
+    window.webContents.executeJavaScript(`(async () => {
     const target = ${expression};
     const movements = document.getAnimations().filter(animation => animation.effect instanceof KeyframeEffect
       && animation.effect.target instanceof Element && animation.effect.target.contains(target)
@@ -150,7 +205,8 @@ async function press(window, expression) {
     const point = { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) };
     if (!target.contains(document.elementFromPoint(point.x, point.y))) throw new Error('Click target is obscured');
     return point;
-  })()`))
+  })()`),
+  )
   await window.webContents.sendInputEvent({ type: 'mouseMove', ...point })
   await window.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...point })
   await window.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...point })
@@ -158,8 +214,11 @@ async function press(window, expression) {
 async function clickText(window, label) {
   const title = await window.webContents.executeJavaScript("document.getElementById('title').textContent")
   await press(window, `[...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(label)})`)
-  await waitFor(async () => window.isDestroyed()
-    || await window.webContents.executeJavaScript("document.getElementById('title').textContent") !== title, `dialog response: ${label}`)
+  await waitFor(
+    async () =>
+      window.isDestroyed() || (await window.webContents.executeJavaScript("document.getElementById('title').textContent")) !== title,
+    `dialog response: ${label}`,
+  )
 }
 async function dialogWith(message) {
   let found
@@ -167,9 +226,16 @@ async function dialogWith(message) {
     for (const window of BrowserWindow.getAllWindows()) {
       if (window.webContents.getURL() !== 'dsh-app://shell/update-dialog.html') continue
       try {
-        const ready = await window.webContents.executeJavaScript(`document.getElementById('title')?.textContent === ${JSON.stringify(message)} && !!document.querySelector('#actions button')`)
-        if (ready) { found = window; return true }
-      } catch (error) { if (!window.isDestroyed()) throw error }
+        const ready = await window.webContents.executeJavaScript(
+          `document.getElementById('title')?.textContent === ${JSON.stringify(message)} && !!document.querySelector('#actions button')`,
+        )
+        if (ready) {
+          found = window
+          return true
+        }
+      } catch (error) {
+        if (!window.isDestroyed()) throw error
+      }
     }
     return false
   }, `dialog: ${message}`)
@@ -188,9 +254,9 @@ async function qualify() {
     console.log('workspace qualification: workspace document ready')
     const acknowledgeNotice = `[...document.querySelectorAll('button')].find(button => button.textContent.trim() === '继续')`
     await press(mainWindow, acknowledgeNotice)
-    await waitFor(async () => !await mainWindow.webContents.executeJavaScript(`!!(${acknowledgeNotice})`), 'first-run notice dismissal')
+    await waitFor(async () => !(await mainWindow.webContents.executeJavaScript(`!!(${acknowledgeNotice})`)), 'first-run notice dismissal')
     console.log('workspace qualification: first-run notice dismissed')
-    await waitFor(async () => !await fixture.host.updateTasks('inspect'), 'workspace startup API requests to settle')
+    await waitFor(async () => !(await fixture.host.updateTasks('inspect')), 'workspace startup API requests to settle')
     console.log('workspace qualification: startup API requests settled')
     const messages = resolveDesktopLocale(app.getLocale()).messages
     await screenshot(mainWindow, 'workspace.png')
@@ -198,10 +264,17 @@ async function qualify() {
     if (process.platform === 'win32') {
       const popup = Menu.prototype.popup
       try {
-        Menu.prototype.popup = function (options) { menu = this.items; options.callback?.() }
-        await mainWindow.webContents.executeJavaScript("document.querySelector('[data-windows-menu]').shadowRoot.querySelector('button').click()")
+        Menu.prototype.popup = function (options) {
+          menu = this.items
+          options.callback?.()
+        }
+        await mainWindow.webContents.executeJavaScript(
+          "document.querySelector('[data-windows-menu]').shadowRoot.querySelector('button').click()",
+        )
         await waitFor(() => menu !== undefined, 'Windows application menu')
-      } finally { Menu.prototype.popup = popup }
+      } finally {
+        Menu.prototype.popup = popup
+      }
     } else menu = Menu.getApplicationMenu().items[0].submenu.items
     const checkMenu = menu.find(item => item.label === messages.checkUpdatesMenu)
     assert.ok(checkMenu)
@@ -233,7 +306,10 @@ async function qualify() {
     await waitFor(() => fixture.coordinator.state.phase === 'error', 'checksum failure')
     const downloadError = await dialogWith(messages.updateDownloadFailed)
     assert.equal(await downloadError.webContents.executeJavaScript("document.getElementById('technical-details').open"), false)
-    assert.equal(await downloadError.webContents.executeJavaScript("document.getElementById('technical-details-content').textContent"), fixture.coordinator.state.message)
+    assert.equal(
+      await downloadError.webContents.executeJavaScript("document.getElementById('technical-details-content').textContent"),
+      fixture.coordinator.state.message,
+    )
     await screenshot(downloadError, 'download-error.png')
     await clickText(downloadError, messages.updateAcknowledge)
     await documentReady(mainWindow, `document.querySelector('button[data-error="true"]')`)
@@ -249,7 +325,10 @@ async function qualify() {
     await press(mainWindow, `document.querySelector('button[data-error="true"]')`)
     await server.arrived()
     await documentReady(mainWindow, `document.querySelector('button[aria-disabled="true"]')`)
-    assert.equal(BrowserWindow.getAllWindows().some(window => window.webContents.getURL() === 'dsh-app://shell/update-dialog.html'), false)
+    assert.equal(
+      BrowserWindow.getAllWindows().some(window => window.webContents.getURL() === 'dsh-app://shell/update-dialog.html'),
+      false,
+    )
     await screenshot(mainWindow, 'downloading.png')
     server.release()
     const confirmation = desktopUpdateReadyConfirmation(messages, '0.1.6-nightly.1', process.platform)
@@ -308,7 +387,10 @@ async function qualify() {
     await screenshot(mandatory, 'mandatory-block.png')
     server.policy('failure')
     checkMenu.click()
-    await waitFor(async () => (await mandatory.webContents.executeJavaScript('window.dshMandatoryUpdate.status()')).policy.error === 'unavailable', 'retained policy failure')
+    await waitFor(
+      async () => (await mandatory.webContents.executeJavaScript('window.dshMandatoryUpdate.status()')).policy.error === 'unavailable',
+      'retained policy failure',
+    )
     assert.equal(await mandatory.webContents.executeJavaScript("document.getElementById('error').hidden"), true)
     assert.equal((await control('status')).queued, 1)
     await screenshot(mandatory, 'mandatory-retained-error.png')
@@ -319,12 +401,18 @@ async function qualify() {
     assert.equal(fixture.installations.length, 0)
     cases.push('mandatory-main-entry-block-retains-real-work-through-failure-and-clearance')
 
-    await press(mainWindow, `[...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(messages.installAndRestart)})`)
+    await press(
+      mainWindow,
+      `[...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(messages.installAndRestart)})`,
+    )
     const stop = await dialogWith(messages.updateActiveTasks)
     const stoppedHost = fixture.host
     await control('hold-shutdown')
     await clickText(stop, messages.updateStopTasks)
-    await documentReady(mainWindow, `[...document.querySelectorAll('button')].some(button => button.textContent.trim() === ${JSON.stringify(messages.updateInstalling)})`)
+    await documentReady(
+      mainWindow,
+      `[...document.querySelectorAll('button')].some(button => button.textContent.trim() === ${JSON.stringify(messages.updateInstalling)})`,
+    )
     assert.equal(await mainWindow.webContents.executeJavaScript("document.body.innerText.includes('重新连接中')"), false)
     await screenshot(mainWindow, 'installing-before-host-exit.png')
     await waitFor(() => fixture.coordinator.state.phase === 'error', 'unclean Host stop rejection')
@@ -335,8 +423,11 @@ async function qualify() {
     await screenshot(failedStop, 'stop-failure.png')
     cases.push('actual-host-teardown-timeout-refuses-installer')
     await clickText(failedStop, messages.updateAcknowledge)
-    await waitFor(() => fixture.host !== stoppedHost && fixture.readyHosts.has(fixture.host), 'replacement Host after non-graceful shutdown')
-    await waitFor(async () => !await fixture.host.updateTasks('inspect'), 'replacement Host ready without active work')
+    await waitFor(
+      () => fixture.host !== stoppedHost && fixture.readyHosts.has(fixture.host),
+      'replacement Host after non-graceful shutdown',
+    )
+    await waitFor(async () => !(await fixture.host.updateTasks('inspect')), 'replacement Host ready without active work')
     await press(mainWindow, `document.querySelector('button[data-error="true"]')`)
     const retryInstall = await dialogWith(confirmation.message)
     assert.equal(fixture.installations.length, 0)
@@ -353,7 +444,10 @@ async function qualify() {
     await waitFor(() => mainWindow.isEnabled(), 'ordinary modal releases the main window for recovery')
     await press(forcedRecovery, `document.getElementById('update')`)
     await documentReady(forcedRecovery, `document.getElementById('update')?.textContent === ${JSON.stringify(messages.installAndRestart)}`)
-    assert.equal(BrowserWindow.getAllWindows().some(window => window.webContents.getURL() === 'dsh-app://shell/update-dialog.html'), false)
+    assert.equal(
+      BrowserWindow.getAllWindows().some(window => window.webContents.getURL() === 'dsh-app://shell/update-dialog.html'),
+      false,
+    )
     const forcedHost = fixture.host
     await control('hold-shutdown')
     await press(forcedRecovery, `document.getElementById('update')`)
@@ -380,32 +474,62 @@ async function qualify() {
     checkMenu.click()
     await waitFor(() => forcedRecovery.isDestroyed(), 'mandatory recovery policy clearance')
     cases.push('mandatory-stop-recovery-preserves-block-and-requires-fresh-install-confirmation')
-    await writeFile(join(root, 'result.json'), JSON.stringify({ realElectron: true, realHostProcess: true,
-      realPreload: true, compiledMainEntry: true, installerExecuted: false, cases,
-      menu: menu.map(item => item.label), phases: fixture.states.map(state => state.phase) }, null, 2) + '\n')
+    await writeFile(
+      join(root, 'result.json'),
+      JSON.stringify(
+        {
+          realElectron: true,
+          realHostProcess: true,
+          realPreload: true,
+          compiledMainEntry: true,
+          installerExecuted: false,
+          cases,
+          menu: menu.map(item => item.label),
+          phases: fixture.states.map(state => state.phase),
+        },
+        null,
+        2,
+      ) + '\n',
+    )
   } catch (error) {
     await writeFile(join(root, 'failure.txt'), String(error.stack ?? error))
     await writeFile(join(root, 'failure-update-state.json'), JSON.stringify(fixture.coordinator?.state, null, 2))
     await writeFile(join(root, 'task-queries.json'), JSON.stringify(fixture.taskQueries, null, 2))
-    try { await writeFile(join(root, 'failure-host-state.json'), JSON.stringify(await control('status'), null, 2)) }
-    catch (diagnosticError) { await writeFile(join(root, 'failure-host-state.txt'), String(diagnosticError)) }
+    try {
+      await writeFile(join(root, 'failure-host-state.json'), JSON.stringify(await control('status'), null, 2))
+    } catch (diagnosticError) {
+      await writeFile(join(root, 'failure-host-state.txt'), String(diagnosticError))
+    }
     const windows = []
     for (const window of BrowserWindow.getAllWindows()) {
       const state = { url: window.webContents.getURL(), visible: window.isVisible(), title: window.getTitle() }
       try {
-        state.document = await observed(window, 'failure window content', () => window.webContents.executeJavaScript(`({
+        state.document = await observed(window, 'failure window content', () =>
+          window.webContents.executeJavaScript(`({
           title: document.getElementById('title')?.textContent,
           buttons: [...document.querySelectorAll('button')].map(button => button.textContent),
-        })`))
-      } catch (diagnosticError) { state.error = String(diagnosticError) }
+        })`),
+        )
+      } catch (diagnosticError) {
+        state.error = String(diagnosticError)
+      }
       windows.push(state)
     }
     await writeFile(join(root, 'failure-windows.json'), JSON.stringify(windows, null, 2))
     if (mainWindow && !mainWindow.isDestroyed()) {
       try {
-        await writeFile(join(root, 'failure-buttons.json'), JSON.stringify(await observed(mainWindow, 'failure buttons', () =>
-          mainWindow.webContents.executeJavaScript(
-            `[...document.querySelectorAll('button')].map(button => ({ text: button.textContent, aria: button.getAttribute('aria-label') }))`)), null, 2))
+        await writeFile(
+          join(root, 'failure-buttons.json'),
+          JSON.stringify(
+            await observed(mainWindow, 'failure buttons', () =>
+              mainWindow.webContents.executeJavaScript(
+                `[...document.querySelectorAll('button')].map(button => ({ text: button.textContent, aria: button.getAttribute('aria-label') }))`,
+              ),
+            ),
+            null,
+            2,
+          ),
+        )
         await screenshot(mainWindow, 'failure-workspace.png')
       } catch (diagnosticError) {
         await writeFile(join(root, 'failure-artifact-error.txt'), String(diagnosticError.stack ?? diagnosticError))
@@ -418,7 +542,10 @@ async function qualify() {
     app.quit()
   }
 }
-const fail = error => { console.error(error); app.exit(1) }
+const fail = error => {
+  console.error(error)
+  app.exit(1)
+}
 process.on('uncaughtException', fail)
 process.on('unhandledRejection', fail)
 void qualify().catch(fail)

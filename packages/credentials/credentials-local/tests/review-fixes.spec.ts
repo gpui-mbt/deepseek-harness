@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -29,7 +29,9 @@ async function tempDir(): Promise<string> {
 async function boot(config: ConstructorParameters<typeof LocalCredentialProvider>[1]): Promise<Context> {
   const ctx = new Context()
   const fiber = ctx.plugin(LocalCredentialProvider, config)
-  cleanups.push(async () => { await fiber.dispose() })
+  cleanups.push(async () => {
+    await fiber.dispose()
+  })
   await fiber
   return ctx
 }
@@ -40,7 +42,9 @@ describe('read-modify-write', () => {
     const path = join(dir, '.credentials.yaml')
     const ctx = await boot({ path, watch: false })
     const seen: string[] = []
-    ctx.on('credentials/reference-updated', (ref) => { seen.push(ref) })
+    ctx.on('credentials/reference-updated', ref => {
+      seen.push(ref)
+    })
     await ctx.credentials.set(ALPHA, 'one')
     // The external edit has landed on disk but no watcher reported it (watch
     // is off — the same blind spot as a debounce window or a missed event).
@@ -60,8 +64,12 @@ describe('read-modify-write', () => {
     const first = await boot({ path, watch: false })
     const second = await boot({ path, watch: false })
     await Promise.all([
-      (async () => { for (const value of ['1', '2', '3'] as const) await first.credentials.set(ALPHA, value) })(),
-      (async () => { for (const value of ['1', '2', '3'] as const) await second.credentials.set(BETA, value) })(),
+      (async () => {
+        for (const value of ['1', '2', '3'] as const) await first.credentials.set(ALPHA, value)
+      })(),
+      (async () => {
+        for (const value of ['1', '2', '3'] as const) await second.credentials.set(BETA, value)
+      })(),
     ])
     const third = await boot({ path, watch: false })
     expect(await third.credentials.resolve(ALPHA)).toEqual({ value: '3', source: 'file' })
@@ -96,10 +104,7 @@ describe('read-modify-write', () => {
     // The other two writer paths — a reference write and a record delete —
     // share that file and that lock, so they must wait the refresh out rather
     // than fail at the file-work default.
-    await Promise.all([
-      contender.credentials.set(ALPHA, 'waited'),
-      contender.credentials.deleteRecord(doomed),
-    ])
+    await Promise.all([contender.credentials.set(ALPHA, 'waited'), contender.credentials.deleteRecord(doomed)])
     await slow
     const reread = await boot({ path, watch: false })
     expect(await reread.credentials.resolve(ALPHA)).toEqual({ value: 'waited', source: 'file' })
@@ -132,7 +137,6 @@ describe('contained update fan-out', () => {
     await expect(ctx.credentials.set(ALPHA, 'one')).resolves.toBeUndefined()
     await new Promise(resolve => setTimeout(resolve, 10))
   })
-
 })
 
 describe('document editor', () => {
@@ -143,10 +147,8 @@ describe('document editor', () => {
     await writeCredentials(path, wrapped)
     const ctx = await boot({ path, watch: false })
     await ctx.credentials.set(ALPHA, 'b')
-    expect(await readFile(path, 'utf8'))
-      .toBe(`version: 1\nrefs:\n  DSH_REVIEW_WRAPPED: |-\n    line1\n    line2\n  ${ALPHA}: b\n`)
-    expect(await ctx.credentials.resolve(credentialRef('DSH_REVIEW_WRAPPED')))
-      .toEqual({ value: 'line1\nline2', source: 'file' })
+    expect(await readFile(path, 'utf8')).toBe(`version: 1\nrefs:\n  DSH_REVIEW_WRAPPED: |-\n    line1\n    line2\n  ${ALPHA}: b\n`)
+    expect(await ctx.credentials.resolve(credentialRef('DSH_REVIEW_WRAPPED'))).toEqual({ value: 'line1\nline2', source: 'file' })
   })
 
   it('stores a value that looks like another entry without creating one', async () => {

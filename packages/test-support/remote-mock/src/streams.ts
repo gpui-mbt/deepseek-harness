@@ -30,8 +30,7 @@ type StreamItem<Method> = Method extends (...args: never[]) => RemoteStreamHandl
 export function streamMethod<Method extends (...args: never[]) => RemoteStreamHandle<unknown, unknown>>(
   method: (...args: Parameters<Method>) => AsyncIterable<StreamItem<Method>>,
 ): Method {
-  const lifted = (...args: Parameters<Method>): RemoteStreamHandle<StreamItem<Method>, unknown> =>
-    streamHandle(method(...args))
+  const lifted = (...args: Parameters<Method>): RemoteStreamHandle<StreamItem<Method>, unknown> => streamHandle(method(...args))
   return lifted as Method
 }
 
@@ -95,7 +94,9 @@ export class MockStream implements StreamHandle, AsyncIterable<unknown> {
   readonly signal = this.cancellation.signal
 
   /** Consumer cancellation listener; attached while the stream is open, removed when it settles or cancels. */
-  private readonly onAbort = (): void => { this.cancel(this.sourceSignal.reason) }
+  private readonly onAbort = (): void => {
+    this.cancel(this.sourceSignal.reason)
+  }
 
   /** Items pushed but not yet pulled by the consumer. */
   get queued(): number {
@@ -156,7 +157,10 @@ export class MockStream implements StreamHandle, AsyncIterable<unknown> {
       this.fail(toError(error))
       return
     }
-    if (outcome instanceof Promise) void outcome.catch((error: unknown) => { this.fail(toError(error)) })
+    if (outcome instanceof Promise)
+      void outcome.catch((error: unknown) => {
+        this.fail(toError(error))
+      })
   }
 
   /**
@@ -166,7 +170,9 @@ export class MockStream implements StreamHandle, AsyncIterable<unknown> {
    */
   drained(): Promise<void> {
     if (this.isDrained()) return Promise.resolve()
-    return new Promise<void>((resolve) => { this.drainWaiters.push(resolve) })
+    return new Promise<void>(resolve => {
+      this.drainWaiters.push(resolve)
+    })
   }
 
   [Symbol.asyncIterator](): AsyncIterator<unknown> {
@@ -190,7 +196,9 @@ export class MockStream implements StreamHandle, AsyncIterable<unknown> {
     if (this.settled !== undefined) return this.finish(this.settled)
     if (this.record.state === 'cancelled') return Promise.resolve({ value: undefined, done: true })
     if (this.waiting !== undefined) return Promise.reject(new Error(`remote-mock: ${this.record.endpoint} stream has one consumer`))
-    return new Promise((resolve, reject) => { this.waiting = { resolve, reject } })
+    return new Promise((resolve, reject) => {
+      this.waiting = { resolve, reject }
+    })
   }
 
   private finish(settled: Settled): Promise<IteratorResult<unknown>> {
@@ -281,7 +289,9 @@ export class HandleUplink implements AsyncIterable<unknown> {
       next: () => {
         if (this.items.length > 0) return Promise.resolve({ value: this.items.shift(), done: false })
         if (this.done) return Promise.resolve({ value: undefined, done: true })
-        return new Promise((resolve) => { this.waiter = resolve })
+        return new Promise(resolve => {
+          this.waiter = resolve
+        })
       },
       return: () => {
         this.close()
@@ -304,7 +314,10 @@ export class MockClientStream implements RemoteStreamHandle<unknown, unknown> {
    * @param stream - the script-side stream.
    * @param uplink - the uplink this handle feeds; absent when the carrier supplied one.
    */
-  constructor(private readonly stream: MockStream, private readonly uplink: HandleUplink | undefined) {}
+  constructor(
+    private readonly stream: MockStream,
+    private readonly uplink: HandleUplink | undefined,
+  ) {}
 
   send(item: unknown): void {
     if (this.uplink === undefined) {

@@ -20,10 +20,7 @@ export interface OpenInAppActionInjected {
 }
 
 /** Directory path, installed applications, and launch operations for the split button. */
-export type OpenInAppActionProps =
-  PropsLocale<typeof NS>
-  & InjectFace<OpenInAppActionInjected>
-  & { absolutePath: string }
+export type OpenInAppActionProps = PropsLocale<typeof NS> & InjectFace<OpenInAppActionInjected> & { absolutePath: string }
 
 /**
  * Adapt the installed directory catalog to the shared opening control.
@@ -36,7 +33,7 @@ export function OpenInAppAction(props: OpenInAppActionProps): React.JSX.Element 
   const choice = useOpenInAppChoice(id => id)
   const operation = props.useOpenInAppLaunch(value => value)
   const shortcut = props.useShortcuts(rows => rows.find(row => row.id === 'workspace.openLocal'))
-  const apps = (available ?? []).flatMap((id) => {
+  const apps = (available ?? []).flatMap(id => {
     const key = APP_LABEL_KEY[id]
     return key === undefined ? [] : [{ id, name: t(key), icon: props.iconUrl(id) }]
   })
@@ -44,9 +41,15 @@ export function OpenInAppAction(props: OpenInAppActionProps): React.JSX.Element 
   if (preferred === undefined) return null
   return (
     <OpenTargetButton
-      key={absolutePath} kind="directory" applications={apps} defaultId={preferred.id} failed={false} t={t}
-      busy={operation.phase === 'busy'} shortcut={shortcut}
-      execute={async (operation) => {
+      key={absolutePath}
+      kind="directory"
+      applications={apps}
+      defaultId={preferred.id}
+      failed={false}
+      t={t}
+      busy={operation.phase === 'busy'}
+      shortcut={shortcut}
+      execute={async operation => {
         const id = operation.kind === 'application' ? operation.id : preferred.id
         try {
           await props.launch(id, absolutePath)

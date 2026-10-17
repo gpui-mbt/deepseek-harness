@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Config, apply } from '../src/index.ts'
 
 it('validates positive sequence timing and publishes it through the product page injection', async () => {
@@ -13,5 +13,7 @@ it('validates positive sequence timing and publishes it through the product page
     const table: IndexInjection[] = []
     await ctx.parallel('webserver/index-inject', table)
     expect(table).toEqual([{ kind: 'global', name: '__DSH_SHORTCUTS_CONFIG__', value: { stopSequenceMs: 800 } }])
-  } finally { await ctx.fiber.dispose() }
+  } finally {
+    await ctx.fiber.dispose()
+  }
 })

@@ -3,7 +3,7 @@ import { updateVolatile } from '@deepseek-ai/cosmokit'
 import { getDshRuntimeVersion } from '@deepseek-ai/dsh-app-boot'
 import type { BundleInfo } from '@deepseek-ai/dsh-plugin-manager/types'
 import { remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import PluginMarket, { type Config, type MarketQuery } from '../src/index.ts'
 import { parseIndexBody } from '../src/parse.ts'
 
@@ -18,10 +18,24 @@ vi.mock('../src/parse-thread.ts', () => ({
 const URL_A = 'https://market.example/index.json'
 const URL_B = 'https://other.example/index.json'
 
-afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 function bundle(name: string, fields: Partial<BundleInfo>): BundleInfo {
-  return { name, official: false, availability: 'profile', enabled: true, installed: true, optional: false, removable: true, rows: [], overrides: [], ...fields }
+  return {
+    name,
+    official: false,
+    availability: 'profile',
+    enabled: true,
+    installed: true,
+    optional: false,
+    removable: true,
+    rows: [],
+    overrides: [],
+    ...fields,
+  }
 }
 
 function index(plugins: unknown[] = []): unknown {
@@ -32,29 +46,46 @@ function release(version: string, fields: Record<string, unknown> = {}): Record<
   return { version, publishTimestamp: 1, source: { type: 'npm' }, ...fields }
 }
 
-function entry(name: string, fields: Record<string, unknown> = {}, versions: Record<string, unknown>[] = [release('1.0.0')]): Record<string, unknown> {
+function entry(
+  name: string,
+  fields: Record<string, unknown> = {},
+  versions: Record<string, unknown>[] = [release('1.0.0')],
+): Record<string, unknown> {
   return { name, versions, ...fields }
 }
 
-async function mount(config: Partial<{ indexes: string[]; fetchTimeoutMs: number; maxBytes: number; cacheTtlMs: number }> = {}, options: {
-  bundles?: BundleInfo[]
-  exemptions?: Record<string, string[]>
-  settings?: (ns: string, patch: object) => Promise<void>
-  entryId?: boolean
-} = {}) {
+async function mount(
+  config: Partial<{ indexes: string[]; fetchTimeoutMs: number; maxBytes: number; cacheTtlMs: number }> = {},
+  options: {
+    bundles?: BundleInfo[]
+    exemptions?: Record<string, string[]>
+    settings?: (ns: string, patch: object) => Promise<void>
+    entryId?: boolean
+  } = {},
+) {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   class Manager extends Service {
-    constructor(inner: Context) { super(inner, 'pluginManager') }
-    listBundles() { return Promise.resolve(options.bundles ?? []) }
-    listVersionExemptions() { return { exemptions: options.exemptions ?? {}, warnings: [] } }
+    constructor(inner: Context) {
+      super(inner, 'pluginManager')
+    }
+    listBundles() {
+      return Promise.resolve(options.bundles ?? [])
+    }
+    listVersionExemptions() {
+      return { exemptions: options.exemptions ?? {}, warnings: [] }
+    }
   }
   await ctx.plugin(Manager)
   if (options.settings !== undefined) {
     const update = options.settings
     class Settings extends Service {
-      constructor(inner: Context) { super(inner, 'settings') }
-      update(ns: string, patch: object) { return update(ns, patch) }
+      constructor(inner: Context) {
+        super(inner, 'settings')
+      }
+      update(ns: string, patch: object) {
+        return update(ns, patch)
+      }
     }
     await ctx.plugin(Settings)
   }
@@ -93,38 +124,69 @@ function read(market: PluginMarket, url: string, refresh = false) {
 }
 
 async function failure(promise: Promise<unknown>) {
-  return remoteErrorOf(await promise.then(() => { throw new Error('resolved') }, (error: unknown) => error))
+  return remoteErrorOf(
+    await promise.then(
+      () => {
+        throw new Error('resolved')
+      },
+      (error: unknown) => error,
+    ),
+  )
 }
 
 it('reads an index with installation status, compatibility, and install arguments', async () => {
   const runtime = getDshRuntimeVersion()
-  const fetch = serve(json(index([
-    entry('absent', { icon: 'a.svg', author: 'Jane' }),
-    entry('same', {}, [release('1.0.0', { engines: { dsh: runtime } })]),
-    entry('older', {}, [release('2.0.0')]),
-    entry('newer'),
-    entry('unknown'),
-    entry('unparsed'),
-    entry('shipped'),
-    entry('catalog'),
-    entry('incompatible', {}, [release('1.0.0', { engines: { dsh: '0.0.1' } })]),
-    entry('exempted', {}, [release('1.0.0', { engines: { dsh: '0.0.1' }, source: { type: 'npm', registry: 'https://r.example/' } })]),
-  ])))
-  const { market } = await mount({}, {
-    bundles: [
-      bundle('same', { version: '1.0.0' }), bundle('older', { version: '1.5.0' }), bundle('newer', { version: '3.0.0' }),
-      bundle('unknown', {}), bundle('unparsed', { version: 'local' }), bundle('shipped', { installed: false, optional: true, availability: 'installation', version: '1.0.0' }),
-      bundle('catalog', { installed: false, official: true, availability: 'missing', installTarget: { spec: 'catalog@1.0.0', version: '1.0.0' } }),
-      bundle('incompatible', { version: '0.9.0' }),
-    ],
-    exemptions: { 'exempted@1.0.0': [runtime] },
-  })
+  const fetch = serve(
+    json(
+      index([
+        entry('absent', { icon: 'a.svg', author: 'Jane' }),
+        entry('same', {}, [release('1.0.0', { engines: { dsh: runtime } })]),
+        entry('older', {}, [release('2.0.0')]),
+        entry('newer'),
+        entry('unknown'),
+        entry('unparsed'),
+        entry('shipped'),
+        entry('catalog'),
+        entry('incompatible', {}, [release('1.0.0', { engines: { dsh: '0.0.1' } })]),
+        entry('exempted', {}, [release('1.0.0', { engines: { dsh: '0.0.1' }, source: { type: 'npm', registry: 'https://r.example/' } })]),
+      ]),
+    ),
+  )
+  const { market } = await mount(
+    {},
+    {
+      bundles: [
+        bundle('same', { version: '1.0.0' }),
+        bundle('older', { version: '1.5.0' }),
+        bundle('newer', { version: '3.0.0' }),
+        bundle('unknown', {}),
+        bundle('unparsed', { version: 'local' }),
+        bundle('shipped', { installed: false, optional: true, availability: 'installation', version: '1.0.0' }),
+        bundle('catalog', {
+          installed: false,
+          official: true,
+          availability: 'missing',
+          installTarget: { spec: 'catalog@1.0.0', version: '1.0.0' },
+        }),
+        bundle('incompatible', { version: '0.9.0' }),
+      ],
+      exemptions: { 'exempted@1.0.0': [runtime] },
+    },
+  )
   const listing = await read(market, URL_A)
   expect(fetch).toHaveBeenCalledWith(URL_A, expect.objectContaining({ redirect: 'error' }))
-  expect(listing).toMatchObject({ url: URL_A, title: { en: 'Market', zh: '市场' }, description: 'Bundles', metadata: { categories: {}, labels: {}, sortKeys: {} } })
+  expect(listing).toMatchObject({
+    url: URL_A,
+    title: { en: 'Market', zh: '市场' },
+    description: 'Bundles',
+    metadata: { categories: {}, labels: {}, sortKeys: {} },
+  })
   const by = Object.fromEntries(listing.entries.map(item => [item.name, item]))
   expect(by.absent).toMatchObject({
-    icon: 'https://market.example/a.svg', author: 'Jane', defaultVersion: '1.0.0', installation: { status: 'not-installed' },
+    icon: 'https://market.example/a.svg',
+    author: 'Jane',
+    defaultVersion: '1.0.0',
+    installation: { status: 'not-installed' },
     versions: [{ version: '1.0.0', engines: {}, install: { spec: 'absent@1.0.0' }, compatibility: { compatible: true } }],
   })
   expect(by.same?.installation).toEqual({ status: 'installed', installedVersion: '1.0.0' })
@@ -136,17 +198,29 @@ it('reads an index with installation status, compatibility, and install argument
   expect(by.catalog?.installation).toEqual({ status: 'not-installed' })
   expect(by.incompatible?.defaultVersion).toBeUndefined()
   expect(by.incompatible?.installation).toEqual({ status: 'update-available', installedVersion: '0.9.0' })
-  expect(by.incompatible?.versions[0]?.compatibility).toEqual({ compatible: false, runtimeVersion: runtime, requirements: { 'engines.dsh': '0.0.1' }, exempted: false })
-  expect(by.exempted?.versions[0]).toMatchObject({ install: { spec: 'exempted@1.0.0', registry: 'https://r.example/' }, compatibility: { compatible: false, exempted: true } })
+  expect(by.incompatible?.versions[0]?.compatibility).toEqual({
+    compatible: false,
+    runtimeVersion: runtime,
+    requirements: { 'engines.dsh': '0.0.1' },
+    exempted: false,
+  })
+  expect(by.exempted?.versions[0]).toMatchObject({
+    install: { spec: 'exempted@1.0.0', registry: 'https://r.example/' },
+    compatibility: { compatible: false, exempted: true },
+  })
   expect(market.listIndexes()).toEqual([{ url: URL_A, title: { en: 'Market', zh: '市场' }, description: 'Bundles' }])
 })
 
 it('defaults to the highest compatible stable version, or the highest compatible prerelease without a stable one', async () => {
-  serve(json(index([
-    entry('mixed', {}, [release('2.0.0-rc.1'), release('1.0.0'), release('1.1.0', { engines: { dsh: '0.0.1' } })]),
-    entry('previews', {}, [release('1.0.0-beta.1'), release('1.0.0-rc.1', { engines: { dsh: '0.0.1' } })]),
-    entry('only-preview-stable', {}, [release('2.0.0-rc.1'), release('1.0.0', { engines: { dsh: '0.0.1' } })]),
-  ])))
+  serve(
+    json(
+      index([
+        entry('mixed', {}, [release('2.0.0-rc.1'), release('1.0.0'), release('1.1.0', { engines: { dsh: '0.0.1' } })]),
+        entry('previews', {}, [release('1.0.0-beta.1'), release('1.0.0-rc.1', { engines: { dsh: '0.0.1' } })]),
+        entry('only-preview-stable', {}, [release('2.0.0-rc.1'), release('1.0.0', { engines: { dsh: '0.0.1' } })]),
+      ]),
+    ),
+  )
   const { market } = await mount({}, { bundles: [bundle('mixed', { version: '1.0.0' })] })
   const by = Object.fromEntries((await read(market, URL_A)).entries.map(item => [item.name, item]))
   expect(by.mixed?.versions.map(version => version.version)).toEqual(['2.0.0-rc.1', '1.1.0', '1.0.0'])
@@ -191,7 +265,10 @@ it('refuses an unconfigured URL without fetching', async () => {
 it('reports fetch failures and records the last error', async () => {
   const { market } = await mount({ maxBytes: 10 })
   serve(new TypeError('fetch failed', { cause: new Error('connect ECONNREFUSED') }))
-  expect(await failure(read(market, URL_A))).toMatchObject({ code: 'plugin-market/fetch-failed', details: { reason: 'fetch failed: connect ECONNREFUSED' } })
+  expect(await failure(read(market, URL_A))).toMatchObject({
+    code: 'plugin-market/fetch-failed',
+    details: { reason: 'fetch failed: connect ECONNREFUSED' },
+  })
   const cyclic = new Error('loop')
   cyclic.cause = cyclic
   serve(cyclic)
@@ -205,8 +282,34 @@ it.each([
   ['an HTTP failure', () => Promise.resolve(new Response('missing', { status: 404 })), 'HTTP 404'],
   ['a declared oversized body', () => Promise.resolve(new Response('x', { headers: { 'content-length': '11' } })), 'body exceeds 10 bytes'],
   ['a streamed oversized body', () => Promise.resolve(new Response('{"format":1,"x":"long"}')), 'body exceeds 10 bytes'],
-  ['a body stream error', () => Promise.resolve(new Response(new ReadableStream({ start(controller) { controller.error(new Error('reset')) } }))), 'reset'],
-  ['a non-Error body stream error', () => Promise.resolve(new Response(new ReadableStream({ start(controller) { controller.error('torn') } }))), 'torn'],
+  [
+    'a body stream error',
+    () =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.error(new Error('reset'))
+            },
+          }),
+        ),
+      ),
+    'reset',
+  ],
+  [
+    'a non-Error body stream error',
+    () =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.error('torn')
+            },
+          }),
+        ),
+      ),
+    'torn',
+  ],
 ])('refuses %s', async (_label, respond, reason) => {
   vi.stubGlobal('fetch', vi.fn(respond))
   const { market } = await mount({ maxBytes: 10 })
@@ -214,20 +317,33 @@ it.each([
 })
 
 it('reads an empty body as invalid JSON', async () => {
-  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(null))))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve(new Response(null))),
+  )
   const { market } = await mount()
-  expect(await failure(read(market, URL_A))).toMatchObject({ code: 'plugin-market/invalid-index', details: { path: '$', reason: expect.stringMatching(/^must be JSON: /) as string } })
+  expect(await failure(read(market, URL_A))).toMatchObject({
+    code: 'plugin-market/invalid-index',
+    details: { path: '$', reason: expect.stringMatching(/^must be JSON: /) as string },
+  })
 })
 
 it('reports invalid encodings, JSON, and format violations with their JSON path', async () => {
   const { market } = await mount()
   serve(new Response(new Uint8Array([0xff, 0xfe])))
-  expect(await failure(read(market, URL_A))).toMatchObject({ code: 'plugin-market/invalid-index', details: { path: '$', reason: 'must be UTF-8' } })
+  expect(await failure(read(market, URL_A))).toMatchObject({
+    code: 'plugin-market/invalid-index',
+    details: { path: '$', reason: 'must be UTF-8' },
+  })
   serve(new Response('{'))
-  expect(await failure(read(market, URL_A))).toMatchObject({ code: 'plugin-market/invalid-index', details: { path: '$', reason: expect.stringMatching(/^must be JSON: /) as string } })
+  expect(await failure(read(market, URL_A))).toMatchObject({
+    code: 'plugin-market/invalid-index',
+    details: { path: '$', reason: expect.stringMatching(/^must be JSON: /) as string },
+  })
   serve(json(index([entry('x', {}, [release('latest')])])))
   expect(await failure(read(market, URL_A))).toMatchObject({
-    code: 'plugin-market/invalid-index', details: { url: URL_A, path: '$.plugins[0].versions[0].version', reason: 'must be an exact SemVer version' },
+    code: 'plugin-market/invalid-index',
+    details: { url: URL_A, path: '$.plugins[0].versions[0].version', reason: 'must be an exact SemVer version' },
   })
 })
 
@@ -309,7 +425,10 @@ it.each([
 
 it('refuses a repeated index URL', async () => {
   const { market } = await mount({}, { settings: () => Promise.resolve() })
-  expect(await failure(market.setIndexes([URL_A, `${URL_A} `]))).toMatchObject({ code: 'plugin-market/invalid-index-url', details: { url: URL_A, reason: 'duplicate' } })
+  expect(await failure(market.setIndexes([URL_A, `${URL_A} `]))).toMatchObject({
+    code: 'plugin-market/invalid-index-url',
+    details: { url: URL_A, reason: 'duplicate' },
+  })
 })
 
 it('refuses to save without Settings or a profile entry', async () => {
@@ -328,20 +447,30 @@ it('lists configured URLs it cannot use with their refusal, never fetches them, 
     { url: plain, error: `Index URLs carry no credentials or fragment: ${plain}` },
     { url: padded, error: 'Index URL is not in canonical form; use https://market.example/index.json' },
   ])
-  expect(await failure(read(market, plain))).toMatchObject({ code: 'plugin-market/invalid-index-url', details: { url: plain, reason: 'configured' } })
+  expect(await failure(read(market, plain))).toMatchObject({
+    code: 'plugin-market/invalid-index-url',
+    details: { url: plain, reason: 'configured' },
+  })
   expect(await failure(read(market, padded))).toMatchObject({ code: 'plugin-market/invalid-index-url' })
   expect(fetch).not.toHaveBeenCalled()
 })
 
 it('aborts an in-flight fetch on disposal', async () => {
   let signal: AbortSignal | undefined
-  serve(init => new Promise<Response>((_resolve, reject) => {
-    signal = init.signal ?? undefined
-    signal?.addEventListener('abort', () => { reject(signal?.reason as Error) })
-  }))
+  serve(
+    init =>
+      new Promise<Response>((_resolve, reject) => {
+        signal = init.signal ?? undefined
+        signal?.addEventListener('abort', () => {
+          reject(signal?.reason as Error)
+        })
+      }),
+  )
   const { ctx, market } = await mount()
   const pending = read(market, URL_A).catch((error: unknown) => error)
-  await vi.waitFor(() => { expect(signal).toBeDefined() })
+  await vi.waitFor(() => {
+    expect(signal).toBeDefined()
+  })
   await ctx.fiber.dispose()
   expect(signal?.aborted).toBe(true)
   expect(remoteErrorOf(await pending)).toMatchObject({ code: 'plugin-market/fetch-failed', details: { reason: 'Plugin market disposed' } })
@@ -356,15 +485,26 @@ const SEARCHABLE = {
     sortKeys: { downloads: { title: 'Downloads', order: 'desc' } },
   },
   plugins: [
-    entry('dsh-weather', {
-      description: { en: 'Shows the forecast without review', ja: '天気予報を表示' }, author: 'Kim',
-      metadata: { category: 'fun', labels: ['ui'], sortKeys: { downloads: 10 } },
-    }, [release('1.0.0', { publishTimestamp: 30 })]),
-    entry('dsh-auto-review', {
-      title: { en: 'Automatic review', zh: '自动代码审查' },
-      metadata: { category: 'work', labels: ['official', 'ui'], keywords: ['lint'], sortKeys: { downloads: 50 } },
-    }, [release('2.0.0', { publishTimestamp: 10 }), release('1.0.0', { publishTimestamp: 40 })]),
-    entry('dsh-notes', { description: 'Keep a review checklist', metadata: { category: 'work', labels: ['official'] } }, [release('1.0.0', { publishTimestamp: 20 })]),
+    entry(
+      'dsh-weather',
+      {
+        description: { en: 'Shows the forecast without review', ja: '天気予報を表示' },
+        author: 'Kim',
+        metadata: { category: 'fun', labels: ['ui'], sortKeys: { downloads: 10 } },
+      },
+      [release('1.0.0', { publishTimestamp: 30 })],
+    ),
+    entry(
+      'dsh-auto-review',
+      {
+        title: { en: 'Automatic review', zh: '自动代码审查' },
+        metadata: { category: 'work', labels: ['official', 'ui'], keywords: ['lint'], sortKeys: { downloads: 50 } },
+      },
+      [release('2.0.0', { publishTimestamp: 10 }), release('1.0.0', { publishTimestamp: 40 })],
+    ),
+    entry('dsh-notes', { description: 'Keep a review checklist', metadata: { category: 'work', labels: ['official'] } }, [
+      release('1.0.0', { publishTimestamp: 20 }),
+    ]),
   ],
 }
 
@@ -418,7 +558,11 @@ it('orders by latest publish time or a sort key, placing plugins without the key
   const names = await searching()
   expect(await names({ sort: { kind: 'published', direction: 'desc' } })).toEqual(['dsh-auto-review', 'dsh-weather', 'dsh-notes'])
   expect(await names({ sort: { kind: 'published', direction: 'asc' } })).toEqual(['dsh-notes', 'dsh-weather', 'dsh-auto-review'])
-  expect(await names({ sort: { kind: 'key', id: 'downloads', direction: 'desc' } })).toEqual(['dsh-auto-review', 'dsh-weather', 'dsh-notes'])
+  expect(await names({ sort: { kind: 'key', id: 'downloads', direction: 'desc' } })).toEqual([
+    'dsh-auto-review',
+    'dsh-weather',
+    'dsh-notes',
+  ])
   expect(await names({ sort: { kind: 'key', id: 'downloads', direction: 'asc' } })).toEqual(['dsh-weather', 'dsh-auto-review', 'dsh-notes'])
   expect(await names({ sort: { kind: 'key', id: 'missing', direction: 'asc' } })).toEqual(['dsh-weather', 'dsh-auto-review', 'dsh-notes'])
 })
@@ -429,11 +573,18 @@ it('pages matches with their total, and annotates only the returned page', async
   const listBundles = vi.spyOn(ctx.pluginManager, 'listBundles')
   const first = await market.search(URL_A, { sort: { kind: 'index' }, offset: 0, limit: 2 })
   expect(first).toMatchObject({ url: URL_A, title: 'Market', total: 3, nextOffset: 2, metadata: SEARCHABLE.metadata })
-  expect(first.entries.map(item => [item.name, item.defaultVersion])).toEqual([['dsh-weather', '1.0.0'], ['dsh-auto-review', '2.0.0']])
+  expect(first.entries.map(item => [item.name, item.defaultVersion])).toEqual([
+    ['dsh-weather', '1.0.0'],
+    ['dsh-auto-review', '2.0.0'],
+  ])
   const last = await market.search(URL_A, { sort: { kind: 'index' }, offset: 2, limit: 2 })
   expect(last).toMatchObject({ total: 3, nextOffset: null, fetchedAt: first.fetchedAt })
   expect(last.entries.map(item => item.name)).toEqual(['dsh-notes'])
-  expect(await market.search(URL_A, { sort: { kind: 'index' }, offset: 5, limit: 2 })).toMatchObject({ entries: [], total: 3, nextOffset: null })
+  expect(await market.search(URL_A, { sort: { kind: 'index' }, offset: 5, limit: 2 })).toMatchObject({
+    entries: [],
+    total: 3,
+    nextOffset: null,
+  })
   expect(listBundles).toHaveBeenCalledTimes(3)
 })
 
@@ -456,15 +607,21 @@ it.each([
 ])('refuses the page %j without fetching', async (page, field) => {
   const fetch = serve()
   const { market } = await mount()
-  expect(await failure(market.search(URL_A, { sort: { kind: 'index' }, offset: 0, limit: 10, ...page })))
-    .toMatchObject({ code: 'plugin-market/invalid-query', details: { field, reason: 'range' } })
+  expect(await failure(market.search(URL_A, { sort: { kind: 'index' }, offset: 0, limit: 10, ...page }))).toMatchObject({
+    code: 'plugin-market/invalid-query',
+    details: { field, reason: 'range' },
+  })
   expect(fetch).not.toHaveBeenCalled()
 })
 
 it('reads one plugin by name from the cached document', async () => {
   const fetch = serve(json(SEARCHABLE))
   const { market } = await mount({}, { bundles: [bundle('dsh-notes', { version: '1.0.0' })] })
-  expect(await market.entry(URL_A, 'dsh-notes')).toMatchObject({ name: 'dsh-notes', defaultVersion: '1.0.0', installation: { status: 'installed' } })
+  expect(await market.entry(URL_A, 'dsh-notes')).toMatchObject({
+    name: 'dsh-notes',
+    defaultVersion: '1.0.0',
+    installation: { status: 'installed' },
+  })
   expect(await market.entry(URL_A, 'dsh-missing')).toBeUndefined()
   expect(fetch).toHaveBeenCalledOnce()
   expect(await failure(market.entry(URL_B, 'dsh-notes'))).toMatchObject({ code: 'plugin-market/unknown-index' })
@@ -474,7 +631,10 @@ it('keeps index order among equal sort-key values and among plugins without one'
   const valued = (name: string, downloads?: number) => entry(name, { metadata: { sortKeys: downloads === undefined ? {} : { downloads } } })
   serve(json({ ...SEARCHABLE, plugins: [valued('a'), valued('b', 1), valued('c'), valued('d', 2), valued('e', 1)] }))
   const { market } = await mount()
-  for (const [direction, expected] of [['asc', ['b', 'e', 'd', 'a', 'c']], ['desc', ['d', 'b', 'e', 'a', 'c']]] as const) {
+  for (const [direction, expected] of [
+    ['asc', ['b', 'e', 'd', 'a', 'c']],
+    ['desc', ['d', 'b', 'e', 'a', 'c']],
+  ] as const) {
     const result = await market.search(URL_A, { sort: { kind: 'key', id: 'downloads', direction }, offset: 0, limit: 10 })
     expect(result.entries.map(item => item.name)).toEqual(expected)
   }
@@ -495,21 +655,23 @@ it.each([
   ['a long word two edits away', 'internaxionalizatiox', ['p-full']],
   ['a long word three edits away', 'internaxionalixatiox', []],
 ])('splits and normalizes text: %s', async (_label, text, expected) => {
-  serve(json({
-    format: 1,
-    title: 'Scripts',
-    plugins: [
-      entry('p-md', { description: '支持Markdown预览' }),
-      entry('p-vue', { title: 'Vue插件' }),
-      entry('p-coffee', { title: 'コーヒーサーバー' }),
-      entry('p-sasaki', { author: '佐々木' }),
-      entry('p-full', { title: 'ＡＢＣ Tools', metadata: { keywords: ['internationalization'] } }),
-      entry('p-cafe', { description: 'cafe\u0301 menu' }),
-      entry('p-hangul', { title: '한국어'.normalize('NFD') }),
-      entry('p-kana', { title: 'ﾊﾟｿｺﾝ' }),
-      entry('p-kabu', { author: '株' }),
-    ],
-  }))
+  serve(
+    json({
+      format: 1,
+      title: 'Scripts',
+      plugins: [
+        entry('p-md', { description: '支持Markdown预览' }),
+        entry('p-vue', { title: 'Vue插件' }),
+        entry('p-coffee', { title: 'コーヒーサーバー' }),
+        entry('p-sasaki', { author: '佐々木' }),
+        entry('p-full', { title: 'ＡＢＣ Tools', metadata: { keywords: ['internationalization'] } }),
+        entry('p-cafe', { description: 'cafe\u0301 menu' }),
+        entry('p-hangul', { title: '한국어'.normalize('NFD') }),
+        entry('p-kana', { title: 'ﾊﾟｿｺﾝ' }),
+        entry('p-kabu', { author: '株' }),
+      ],
+    }),
+  )
   const { market } = await mount()
   const result = await market.search(URL_A, { text, sort: { kind: 'index' }, offset: 0, limit: 10 })
   expect(result.entries.map(item => item.name)).toEqual(expected)

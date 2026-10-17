@@ -11,8 +11,12 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { githubSlug } from './verify-md-links.ts'
 import {
-  annotateSurface, collectEventEnvelopeTypes, collectLogEvents, collectSurfaceEventTypes,
-  type AnnotatedLogEventEntry, type EventEnvelopeTypeEntry,
+  annotateSurface,
+  collectEventEnvelopeTypes,
+  collectLogEvents,
+  collectSurfaceEventTypes,
+  type AnnotatedLogEventEntry,
+  type EventEnvelopeTypeEntry,
 } from './persistence-catalog-source.ts'
 import { extractPersistenceSchema } from './persistence-schema.ts'
 import { persistenceCatalogText, type PersistenceCatalogLocale } from './persistence-catalog-text.ts'
@@ -66,7 +70,9 @@ function typeLinks(payload: string, locale: PersistenceCatalogLocale): string {
     if (new RegExp(`\\b${name}\\b`).test(payload)) seen.add(name)
   }
   if (seen.size === 0) return ''
-  const links = Object.entries(LINK_MAP).filter(([name]) => seen.has(name)).sort(([left], [right]) => left.localeCompare(right))
+  const links = Object.entries(LINK_MAP)
+    .filter(([name]) => seen.has(name))
+    .sort(([left], [right]) => left.localeCompare(right))
     .map(([name, path]) => {
       return `[${name}](${locale === 'zh' ? path.replace(/\.md$/u, '.zh.md') : path})`
     })
@@ -86,8 +92,13 @@ function renderEvent(e: AnnotatedLogEventEntry, locale: PersistenceCatalogLocale
 
 /** Escape a source annotation as inline table code, including template literals and unions. */
 function recordCode(value: string): string {
-  return `<code>${value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('|', '&#124;').replaceAll('`', '&#96;').replace(/\r?\n/gu, '<br>')}</code>`
+  return `<code>${value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('|', '&#124;')
+    .replaceAll('`', '&#96;')
+    .replace(/\r?\n/gu, '<br>')}</code>`
 }
 
 /**
@@ -104,9 +115,7 @@ export function renderPluginRecordCatalog(records: readonly PluginRecordEntry[],
     '',
     `# ${text.pluginRecords}`,
     '',
-    locale === 'en'
-      ? 'English | [中文](experimental-persistence-catalog.zh.md)'
-      : '[English](experimental-persistence-catalog.md) | 中文',
+    locale === 'en' ? 'English | [中文](experimental-persistence-catalog.zh.md)' : '[English](experimental-persistence-catalog.md) | 中文',
     '',
     text.pluginRecordsIntro,
     '',
@@ -119,7 +128,9 @@ export function renderPluginRecordCatalog(records: readonly PluginRecordEntry[],
   lines.push(text.pluginRecordColumns, '|---|---|---|---|')
   for (const record of [...records].sort((left, right) => left.owner.localeCompare(right.owner) || left.name.localeCompare(right.name))) {
     const doc = record.doc.replaceAll('|', '\\|').replace(/\s*\n\s*/gu, ' ')
-    lines.push(`| \`${record.name}\` | \`${record.owner}\` | ${doc} | ${recordCode(record.payload)} · [\`${record.source}\`](../${record.source}) |`)
+    lines.push(
+      `| \`${record.name}\` | \`${record.owner}\` | ${doc} | ${recordCode(record.payload)} · [\`${record.source}\`](../${record.source}) |`,
+    )
   }
   return [...lines, ''].join('\n')
 }
@@ -189,7 +200,7 @@ export function renderKnownEventTypes(events: AnnotatedLogEventEntry[]): string 
     ' * Every `SessionEventMap` member declared in this repository — the event',
     ' * vocabulary this build understands. The persistence read path refuses to',
     ' * interpret a log containing a type outside this set unless the event',
-    ' * carries the envelope\'s `ignorable` marker (see `SessionEvent.ignorable`',
+    " * carries the envelope's `ignorable` marker (see `SessionEvent.ignorable`",
     ' * in `./types.ts`): such a log was likely written by a newer harness, and',
     ' * silently skipping a required event would reconstruct a wrong session.',
     ' * Downstream (out-of-repo) plugin events are outside this list by',
@@ -205,7 +216,10 @@ export function renderKnownEventTypes(events: AnnotatedLogEventEntry[]): string 
     '',
     '/** Event types whose model-visible effects require an explicit pure interpreter. */',
     'export const MESSAGE_PROJECTION_EVENT_TYPES: ReadonlySet<string> = new Set([',
-    ...events.filter(event => event.messageProjection).map(event => `  '${event.name}',`).sort(),
+    ...events
+      .filter(event => event.messageProjection)
+      .map(event => `  '${event.name}',`)
+      .sort(),
     '])',
     '',
   ].join('\n')
@@ -223,7 +237,12 @@ export function persistenceCatalogArtifacts(scanRoot: string, schema: Persistenc
   const pluginRecords = collectPluginRecords(scanRoot)
   return [
     ...renderPersistencePair(scanRoot, OUT, render(events, envelope, schema), render(events, envelope, schema, 'zh')),
-    ...renderPersistencePair(scanRoot, OUT_PLUGIN_RECORDS, renderPluginRecordCatalog(pluginRecords), renderPluginRecordCatalog(pluginRecords, 'zh')),
+    ...renderPersistencePair(
+      scanRoot,
+      OUT_PLUGIN_RECORDS,
+      renderPluginRecordCatalog(pluginRecords),
+      renderPluginRecordCatalog(pluginRecords, 'zh'),
+    ),
     { path: OUT_RUNTIME_TYPES, content: renderKnownEventTypes(events) },
     { path: OUT_SCHEMA, content: `${JSON.stringify(persistenceSchemaSnapshot(schema), null, 2)}\n` },
   ]
@@ -236,7 +255,7 @@ function main(): void {
   const schema = extractPersistenceSchema(root)
   const artifacts = persistenceCatalogArtifacts(root, schema)
   if (process.argv.includes('--check')) {
-    const stale = artifacts.filter((artifact) => {
+    const stale = artifacts.filter(artifact => {
       let committed: string | null = null
       try {
         committed = readFileSync(resolve(root, artifact.path), 'utf8')
@@ -252,7 +271,9 @@ function main(): void {
       console.log(`gen-persistence-catalog: ${artifacts.map(a => a.path).join(', ')} are up to date.`)
       process.exit(0)
     }
-    console.error(`gen-persistence-catalog: ${stale.map(a => a.path).join(', ')} stale. Run \`pnpm run gen-persistence-catalog\` and commit the result.`)
+    console.error(
+      `gen-persistence-catalog: ${stale.map(a => a.path).join(', ')} stale. Run \`pnpm run gen-persistence-catalog\` and commit the result.`,
+    )
     process.exit(1)
   }
 

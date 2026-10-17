@@ -164,12 +164,12 @@ export type MessageFeedbackListResult =
 export type MessageFeedbackPutResult =
   | MessageFeedbackSuccess<MessageFeedbackItem>
   | MessageFeedbackRejected<
-    | MessageFeedbackSessionNotFound
-    | MessageFeedbackTargetNotFound
-    | MessageFeedbackVersionConflict
-    | MessageFeedbackNoteBlank
-    | MessageFeedbackNoteTooLarge
-  >
+      | MessageFeedbackSessionNotFound
+      | MessageFeedbackTargetNotFound
+      | MessageFeedbackVersionConflict
+      | MessageFeedbackNoteBlank
+      | MessageFeedbackNoteTooLarge
+    >
 
 /** Result returned by the message-feedback `delete` operation. */
 export type MessageFeedbackDeleteResult =

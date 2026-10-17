@@ -1,7 +1,5 @@
 /** Automatic fit or an explicit actual-size scale selected by the reader. */
-export type ZoomPreference =
-  | { readonly kind: 'fit-width' }
-  | { readonly kind: 'fixed'; readonly scale: number }
+export type ZoomPreference = { readonly kind: 'fit-width' } | { readonly kind: 'fixed'; readonly scale: number }
 
 /** Default preference for a newly opened zoomable preview. */
 export const FIT_WIDTH: ZoomPreference = { kind: 'fit-width' }

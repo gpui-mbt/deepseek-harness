@@ -6,7 +6,9 @@ import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base'
 import type { EventLogReporter, OTelEventRecord, OTelEventScalar } from '@deepseek-ai/dsh-otel'
 
 declare module '@deepseek-ai/cordis' {
-  interface Context { productTelemetry: ProductTelemetry }
+  interface Context {
+    productTelemetry: ProductTelemetry
+  }
 }
 
 /** Caller-selected ordinary analytics record. */
@@ -84,16 +86,24 @@ export default class ProductTelemetry extends Service {
     super(ctx, 'productTelemetry')
     const reporter = ctx.otel.createEventReporter({
       exporter: {
-        url: config.endpoint, headers: { 'x-channel': config.channel }, timeoutMillis: config.timeoutMillis,
-        ...(config.compression === undefined ? {} : { compression: config.compression === 'gzip' ? CompressionAlgorithm.GZIP : CompressionAlgorithm.NONE }),
+        url: config.endpoint,
+        headers: { 'x-channel': config.channel },
+        timeoutMillis: config.timeoutMillis,
+        ...(config.compression === undefined
+          ? {}
+          : { compression: config.compression === 'gzip' ? CompressionAlgorithm.GZIP : CompressionAlgorithm.NONE }),
       },
       resourceAttributes: { 'service.name': config.serviceName, 'service.version': config.serviceVersion },
       scope: { name: '@deepseek-ai/dsh-host-product-telemetry-otel' },
       processor: {
-        maxExportBatchSize: config.maxExportBatchSize, maxQueueSize: config.maxQueueSize,
-        scheduledDelayMillis: config.scheduledDelayMillis, exportTimeoutMillis: config.exportTimeoutMillis,
+        maxExportBatchSize: config.maxExportBatchSize,
+        maxQueueSize: config.maxQueueSize,
+        scheduledDelayMillis: config.scheduledDelayMillis,
+        exportTimeoutMillis: config.exportTimeoutMillis,
       },
-      onFailure: (message, error) => { ctx.logger.warn(message, error) },
+      onFailure: (message, error) => {
+        ctx.logger.warn(message, error)
+      },
     })
     this.reporter = reporter
     ctx.effect(() => async () => {

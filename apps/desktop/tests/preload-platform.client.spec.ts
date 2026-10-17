@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { DESKTOP_IPC } from '../src/ipc.ts'
 import { syncWindowFullscreen } from '../src/preload-platform.ts'
 
@@ -12,13 +12,13 @@ afterEach(() => {
   on.mockClear()
 })
 
-it.each(['linux'] as const)('subscribes no fullscreen channel on %s', (platform) => {
+it.each(['linux'] as const)('subscribes no fullscreen channel on %s', platform => {
   vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
   syncWindowFullscreen()
   expect(on).not.toHaveBeenCalled()
 })
 
-it.each(['darwin', 'win32'] as const)('mirrors the sent fullscreen state onto html[data-fullscreen] on %s', (platform) => {
+it.each(['darwin', 'win32'] as const)('mirrors the sent fullscreen state onto html[data-fullscreen] on %s', platform => {
   vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
   syncWindowFullscreen()
   expect(on).toHaveBeenCalledExactlyOnceWith(DESKTOP_IPC.windowFullscreen, expect.any(Function))

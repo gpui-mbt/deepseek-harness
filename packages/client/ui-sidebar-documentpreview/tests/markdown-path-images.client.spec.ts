@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { markdownImageUrl } from '../src/client/markdown/path-images.ts'
 
 const BASE = 'https://example.test/tools/dsh/'
@@ -31,21 +31,31 @@ describe('Markdown preview image URLs', () => {
     expect(new URL(markdownImageUrl(BASE, undefined, '/tmp/a.png')!).searchParams.get('path')).toBe('/tmp/a.png')
   })
 
-  it.each(['', '#figure', '?size=2', '//cdn.test/a.png', '\\\\server\\a.png', 'file:///tmp/a.png',
-    'javascript:alert(1)', 'data:image/png;base64,AAAA', 'https://example.test/a.png', 'C:a.png', '%ZZ.png', 'a%00.png',
-  ])('does not rewrite unsupported destination %j', (destination) => {
+  it.each([
+    '',
+    '#figure',
+    '?size=2',
+    '//cdn.test/a.png',
+    '\\\\server\\a.png',
+    'file:///tmp/a.png',
+    'javascript:alert(1)',
+    'data:image/png;base64,AAAA',
+    'https://example.test/a.png',
+    'C:a.png',
+    '%ZZ.png',
+    'a%00.png',
+  ])('does not rewrite unsupported destination %j', destination => {
     expect(markdownImageUrl(BASE, '/work/notes.md', destination)).toBeUndefined()
   })
 
-  it.each(['about:blank', 'dsh-app://shell/', 'file:///app', 'ws://localhost/'])(
-    'keeps the file route unavailable for %s', (base) => {
-      expect(markdownImageUrl(base, '/work/notes.md', 'a.png')).toBeUndefined()
-    },
-  )
+  it.each(['about:blank', 'dsh-app://shell/', 'file:///app', 'ws://localhost/'])('keeps the file route unavailable for %s', base => {
+    expect(markdownImageUrl(base, '/work/notes.md', 'a.png')).toBeUndefined()
+  })
 
   it('retains the deployment prefix when the base includes an HTML filename', () => {
-    expect(markdownImageUrl(`${BASE}index.html`, '/work/notes.md', 'a.png'))
-      .toBe(`${BASE}api/file?path=${encodeURIComponent('/work/a.png')}`)
+    expect(markdownImageUrl(`${BASE}index.html`, '/work/notes.md', 'a.png')).toBe(
+      `${BASE}api/file?path=${encodeURIComponent('/work/a.png')}`,
+    )
   })
 
   it('resolves relative and absolute images through the Desktop file route', () => {

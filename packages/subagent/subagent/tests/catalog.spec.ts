@@ -1,19 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import {
-  SessionLogOffset,
-  SessionSeq,
-  SESSION_FORMAT_VERSION,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
+import { SessionLogOffset, SessionSeq, SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
-import {
-  establishExternalCatalogChild,
-  subagentCatalogProjectionDefinition,
-} from '../src/catalog.ts'
+import { establishExternalCatalogChild, subagentCatalogProjectionDefinition } from '../src/catalog.ts'
 import type { SubagentCatalogState } from '../src/catalog.ts'
 
 const header: SessionHeader = {
@@ -34,9 +26,7 @@ function fact(
   seq: number,
   childId: string,
   childCreatedAt: number,
-  descriptor:
-    | { readonly mode: 'one-shot'; readonly label?: string }
-    | { readonly mode: 'continuable'; readonly label: string },
+  descriptor: { readonly mode: 'one-shot'; readonly label?: string } | { readonly mode: 'continuable'; readonly label: string },
 ): SessionEvent<'subagent/catalog'> {
   return {
     type: 'subagent/catalog',
@@ -87,9 +77,7 @@ describe('subagent catalog projection', () => {
 
       parent.append('subagent/catalog', fact(0, 'first', 1, { mode: 'one-shot' }).data)
       const first = ctx.sessionProjections.snapshot(parent)
-      expect(first.values.subagentCatalog).toEqual([
-        { id: SessionId('first'), createdAt: 1, mode: 'one-shot' },
-      ])
+      expect(first.values.subagentCatalog).toEqual([{ id: SessionId('first'), createdAt: 1, mode: 'one-shot' }])
       changes.mockClear()
       parent.append('session/title', { title: 'Parent', messageSeqs: [], source: { kind: 'user' } })
       expect(changes).not.toHaveBeenCalled()
@@ -106,31 +94,35 @@ describe('subagent catalog projection', () => {
   })
 
   it('preserves event order across chunk rollover and checkpoint restoration', () => {
-    const first = fold(Array.from({ length: 64 }, (_, i) =>
-      fact(i, `child-${i}`, 130 - i, { mode: 'one-shot' })))
+    const first = fold(Array.from({ length: 64 }, (_, i) => fact(i, `child-${i}`, 130 - i, { mode: 'one-shot' })))
     const checkpoint = JSON.stringify(first)
     let state = first
     for (let i = 64; i < 130; i += 1) {
-      state = subagentCatalogProjectionDefinition.apply(
-        state, fact(i, `child-${i}`, 130 - i, { mode: 'one-shot' }),
-      )
+      state = subagentCatalogProjectionDefinition.apply(state, fact(i, `child-${i}`, 130 - i, { mode: 'one-shot' }))
     }
-    const restored = subagentCatalogProjectionDefinition.stateSchema.parse(
-      JSON.parse(JSON.stringify(state)),
-    )
+    const restored = subagentCatalogProjectionDefinition.stateSchema.parse(JSON.parse(JSON.stringify(state)))
 
     expect(JSON.stringify(first)).toBe(checkpoint)
     expect(subagentCatalogProjectionDefinition.wire.view(first)).toHaveLength(64)
-    expect(subagentCatalogProjectionDefinition.wire.view(restored).map(entry => entry.id))
-      .toEqual(Array.from({ length: 130 }, (_, i) => SessionId(`child-${i}`)))
+    expect(subagentCatalogProjectionDefinition.wire.view(restored).map(entry => entry.id)).toEqual(
+      Array.from({ length: 130 }, (_, i) => SessionId(`child-${i}`)),
+    )
   })
 
-  it.each([0, 1] as const)('reads known catalog modes at payload version %s', (version) => {
+  it.each([0, 1] as const)('reads known catalog modes at payload version %s', version => {
     const events: SessionEvent[] = [
-      { type: 'subagent/catalog', seq: SessionSeq(0), time: 0,
-        data: { version, childId: SessionId('once'), childCreatedAt: 1, mode: 'one-shot' } },
-      { type: 'subagent/catalog', seq: SessionSeq(1), time: 0,
-        data: { version, childId: SessionId('ongoing'), childCreatedAt: 2, mode: 'continuable', label: 'child' } },
+      {
+        type: 'subagent/catalog',
+        seq: SessionSeq(0),
+        time: 0,
+        data: { version, childId: SessionId('once'), childCreatedAt: 1, mode: 'one-shot' },
+      },
+      {
+        type: 'subagent/catalog',
+        seq: SessionSeq(1),
+        time: 0,
+        data: { version, childId: SessionId('ongoing'), childCreatedAt: 2, mode: 'continuable', label: 'child' },
+      },
     ]
     expect(subagentCatalogProjectionDefinition.wire.view(fold(events))).toEqual([
       { id: SessionId('once'), createdAt: 1, mode: 'one-shot' },
@@ -143,18 +135,19 @@ describe('subagent catalog projection', () => {
       fact(0, 'child-b', 1, { mode: 'one-shot' }),
       fact(1, 'child-a', 1, { mode: 'one-shot', label: 'once' }),
       fact(2, 'child-d', 3, { mode: 'continuable', label: 'later' }),
-      { type: 'subagent/catalog', seq: SessionSeq(3), time: 0,
-        data: { version: 1, childId: SessionId('unreadable'), childCreatedAt: 4, mode: 'unknown' } },
+      {
+        type: 'subagent/catalog',
+        seq: SessionSeq(3),
+        time: 0,
+        data: { version: 1, childId: SessionId('unreadable'), childCreatedAt: 4, mode: 'unknown' },
+      },
     ]
     const state = fold(events)
 
-    expect(subagentCatalogProjectionDefinition.stateSchema.parse(JSON.parse(JSON.stringify(state))))
-      .toEqual(state)
+    expect(subagentCatalogProjectionDefinition.stateSchema.parse(JSON.parse(JSON.stringify(state)))).toEqual(state)
     const view = subagentCatalogProjectionDefinition.wire.view(state)
     expect(subagentCatalogProjectionDefinition.wire.viewSchema.parse(JSON.parse(JSON.stringify(view)))).toEqual(view)
-    expect(() => subagentCatalogProjectionDefinition.wire.viewSchema.parse([
-      { id: 'bad', createdAt: 1, mode: 'continuable' },
-    ])).toThrow()
+    expect(() => subagentCatalogProjectionDefinition.wire.viewSchema.parse([{ id: 'bad', createdAt: 1, mode: 'continuable' }])).toThrow()
     expect(view).toEqual([
       { id: SessionId('child-b'), createdAt: 1, mode: 'one-shot' },
       { id: SessionId('child-a'), createdAt: 1, mode: 'one-shot', label: 'once' },
@@ -167,12 +160,12 @@ describe('subagent catalog projection', () => {
     const seededHeader = { ...header, isSeeded: true }
     const initial = subagentCatalogProjectionDefinition.init(seededHeader, SessionLogOffset(2))
     const unrelated = subagentCatalogProjectionDefinition.apply(initial, {
-      type: 'turn/start', seq: SessionSeq(2), time: 0, data: { turn: 1 },
+      type: 'turn/start',
+      seq: SessionSeq(2),
+      time: 0,
+      data: { turn: 1 },
     })
-    const inherited = subagentCatalogProjectionDefinition.apply(
-      unrelated,
-      fact(1, 'inherited', 1, { mode: 'one-shot' }),
-    )
+    const inherited = subagentCatalogProjectionDefinition.apply(unrelated, fact(1, 'inherited', 1, { mode: 'one-shot' }))
 
     expect(unrelated).toBe(initial)
     expect(inherited).toBe(initial)
@@ -191,7 +184,7 @@ describe('subagent catalog projection', () => {
     { version: 9, childId: 'child', childCreatedAt: 0, mode: 'one-shot' },
     { version: 0, childId: 'child', childCreatedAt: 0, mode: 'continuable' },
     { version: 0, childId: 'child', childCreatedAt: -1, mode: 'one-shot' },
-  ])('refuses to restore a catalog containing an invalid fact: %j', async (data) => {
+  ])('refuses to restore a catalog containing an invalid fact: %j', async data => {
     const ctx = new Context()
     try {
       await ctx.plugin(SessionStore)
@@ -208,15 +201,18 @@ describe('subagent catalog projection', () => {
   })
 })
 
-
 describe('external catalog membership', () => {
   it('restores external leaves alongside local and unknown children', () => {
     const entry: SessionEvent<'subagent/catalog'> = {
-      type: 'subagent/catalog', seq: SessionSeq(0), time: 0,
+      type: 'subagent/catalog',
+      seq: SessionSeq(0),
+      time: 0,
       data: { version: 2, childId: SessionId('external'), childCreatedAt: 1, mode: 'external', label: 'Review' },
     }
     const unknown: SessionEvent<'subagent/catalog'> = {
-      type: 'subagent/catalog', seq: SessionSeq(3), time: 0,
+      type: 'subagent/catalog',
+      seq: SessionSeq(3),
+      time: 0,
       data: { version: 1, childId: SessionId('unreadable'), childCreatedAt: 3, mode: 'unknown' },
     }
     const state = fold([entry, fact(1, 'local', 2, { mode: 'continuable', label: 'Implement' }), unknown])
@@ -229,6 +225,9 @@ describe('external catalog membership', () => {
     expect(subagentCatalogProjectionDefinition.wire.view(fold([entry]))[0]).toMatchObject({ mode: 'external' })
     const view = subagentCatalogProjectionDefinition.wire.view(restored)
     expect(subagentCatalogProjectionDefinition.wire.viewSchema.parse(view)).toEqual(view)
-    expect(subagentCatalogProjectionDefinition.wire.viewSchema.safeParse([{ id: 'external', createdAt: 1, mode: 'external', external: true }]).success).toBe(false)
+    expect(
+      subagentCatalogProjectionDefinition.wire.viewSchema.safeParse([{ id: 'external', createdAt: 1, mode: 'external', external: true }])
+        .success,
+    ).toBe(false)
   })
 })

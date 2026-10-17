@@ -38,9 +38,7 @@ const ls: ShellProgram = async (argv, io, state, fs) => {
     }
     const entries = (await fs.list(path)).filter(entry => options.flags.has('a') || !entry.name.startsWith('.'))
     for (const entry of entries) {
-      const shown = options.flags.has('l')
-        ? longEntry(await fs.stat(resolve(path, entry.name)), entry.name)
-        : entry.name
+      const shown = options.flags.has('l') ? longEntry(await fs.stat(resolve(path, entry.name)), entry.name) : entry.name
       io.out(`${shown}\n`)
     }
   }
@@ -57,9 +55,21 @@ const find: ShellProgram = async (argv, io, state, fs) => {
   const words = argv.slice(1)
   for (let index = 0; index < words.length; index += 1) {
     const word = words[index] as string
-    if (word === '-name') { index += 1; namePattern = words[index]; continue }
-    if (word === '-type') { index += 1; kind = words[index]; continue }
-    if (word === '-maxdepth') { index += 1; maxDepth = Number.parseInt(words[index] ?? '', 10); continue }
+    if (word === '-name') {
+      index += 1
+      namePattern = words[index]
+      continue
+    }
+    if (word === '-type') {
+      index += 1
+      kind = words[index]
+      continue
+    }
+    if (word === '-maxdepth') {
+      index += 1
+      maxDepth = Number.parseInt(words[index] ?? '', 10)
+      continue
+    }
     if (word.startsWith('-')) {
       io.err(`find: unsupported predicate ${word}\n`)
       return 2
@@ -75,8 +85,7 @@ const find: ShellProgram = async (argv, io, state, fs) => {
       status = 1
       return
     }
-    const selected = (matches === undefined || matches(basename(display)))
-      && (kind === undefined || (kind === 'd') === stats.directory)
+    const selected = (matches === undefined || matches(basename(display))) && (kind === undefined || (kind === 'd') === stats.directory)
     if (selected) io.out(`${display}\n`)
     if (!stats.directory || depth >= maxDepth) return
     for (const entry of await fs.list(path)) {
@@ -227,7 +236,7 @@ const touch: ShellProgram = async (argv, io, state, fs) => {
     const path = resolveIn(state.cwd, operand)
     try {
       // Rewriting the existing bytes is what advances the VFS timestamp.
-      await fs.writeText(path, await fs.stat(path) === undefined ? '' : await fs.readText(path))
+      await fs.writeText(path, (await fs.stat(path)) === undefined ? '' : await fs.readText(path))
     } catch (error) {
       io.err(`${describeFailure('touch', operand, error)}\n`)
       status = 1
@@ -268,10 +277,12 @@ const basenameProgram: ShellProgram = (argv, io) => {
 }
 
 /** Refuse a utility whose effect the VFS cannot represent at all. */
-const unavailable = (name: string): ShellProgram => (_argv, io) => {
-  io.err(`${name}: not available in the worker host\n`)
-  return 127
-}
+const unavailable =
+  (name: string): ShellProgram =>
+  (_argv, io) => {
+    io.err(`${name}: not available in the worker host\n`)
+    return 127
+  }
 
 /** The file utilities, keyed by the name a command line uses. */
 export const FILE_PROGRAMS: Readonly<Record<string, ShellProgram>> = {

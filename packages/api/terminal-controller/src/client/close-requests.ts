@@ -22,14 +22,18 @@ export class TerminalCloseRequests {
         const key = localStorage.key(index)
         if (key?.startsWith(PREFIX)) this.load(key)
       }
-    } catch (error) { console.error('Terminal cleanup recovery failed:', error) }
+    } catch (error) {
+      console.error('Terminal cleanup recovery failed:', error)
+    }
   }
 
   /**
    * Read cleanup work still awaiting Host confirmation.
    * @returns unfinished requests owned by this browser instance.
    */
-  pending(): readonly TerminalCloseRequest[] { return [...this.requests.values()] }
+  pending(): readonly TerminalCloseRequest[] {
+    return [...this.requests.values()]
+  }
 
   /**
    * Retain cleanup across reload before removing a tab.
@@ -39,7 +43,9 @@ export class TerminalCloseRequests {
     this.requests.set(request.id, request)
     try {
       if (typeof localStorage !== 'undefined') localStorage.setItem(PREFIX + request.id, JSON.stringify(request))
-    } catch (error) { console.error('Terminal cleanup persistence failed:', error) }
+    } catch (error) {
+      console.error('Terminal cleanup persistence failed:', error)
+    }
   }
 
   /**
@@ -50,7 +56,9 @@ export class TerminalCloseRequests {
     this.requests.delete(id)
     try {
       if (typeof localStorage !== 'undefined') localStorage.removeItem(PREFIX + id)
-    } catch (error) { console.error('Terminal cleanup persistence failed:', error) }
+    } catch (error) {
+      console.error('Terminal cleanup persistence failed:', error)
+    }
   }
 
   private load(key: string): void {
@@ -60,14 +68,20 @@ export class TerminalCloseRequests {
       const parsed: unknown = JSON.parse(raw)
       if (!isRequest(parsed) || key !== PREFIX + parsed.id) throw new Error('Invalid terminal cleanup request')
       this.requests.set(parsed.id, parsed)
-    } catch (error) { console.error('Terminal cleanup recovery failed:', error) }
+    } catch (error) {
+      console.error('Terminal cleanup recovery failed:', error)
+    }
   }
 }
 
 function isRequest(value: unknown): value is TerminalCloseRequest {
   if (typeof value !== 'object' || value === null) return false
   const request = value as Record<string, unknown>
-  return typeof request.sessionId === 'string' && request.sessionId.length > 0
-    && typeof request.id === 'string' && /^[\w-]{1,128}$/u.test(request.id)
-    && typeof request.title === 'string'
+  return (
+    typeof request.sessionId === 'string' &&
+    request.sessionId.length > 0 &&
+    typeof request.id === 'string' &&
+    /^[\w-]{1,128}$/u.test(request.id) &&
+    typeof request.title === 'string'
+  )
 }

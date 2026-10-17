@@ -2,18 +2,8 @@
 // generated through Session so pagination exercises the same event shapes as
 // persisted conversations, while unique markers identify semantic rows
 // without depending on CSS-module names or virtualizer DOM positions.
-import {
-  ToolCallId,
-  createAssistantMessage,
-  createSystemMessage,
-  createToolResultMessage,
-  createUserMessage,
-} from '@deepseek-ai/dsh-llm'
-import {
-  SESSION_FORMAT_VERSION,
-  Session,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
+import { ToolCallId, createAssistantMessage, createSystemMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 // Carries the session/title event declaration into this fixture builder.
 import type {} from '@deepseek-ai/dsh-session-title'
 
@@ -66,11 +56,15 @@ function markerHelpers(prefix: string): ChatScrollMarkers {
 }
 
 function appendSystemPrompt(session: Session, turn: number, step: number): void {
-  session.append('system/message', {
-    turn,
-    step,
-    message: createSystemMessage('Synthetic chat-scroll system prompt.'),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'system/message',
+    {
+      turn,
+      step,
+      message: createSystemMessage('Synthetic chat-scroll system prompt.'),
+    },
+    { surfaceOp: 'append' },
+  )
 }
 
 function appendRequestHeader(session: Session, turn: number, step: number): void {
@@ -83,19 +77,23 @@ function appendRequestHeader(session: Session, turn: number, step: number): void
 }
 
 function appendAssistant(session: Session, turn: number, step: number, body: string): void {
-  session.append('assistant/message', {
-    stream: [],
-    turn,
-    step,
-    message: createAssistantMessage({
-      content: text(body),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-    usage: {
-      inputTokens: 2_000 + turn * 7,
-      outputTokens: 180 + step * 20,
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step,
+      message: createAssistantMessage({
+        content: text(body),
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+      usage: {
+        inputTokens: 2_000 + turn * 7,
+        outputTokens: 180 + step * 20,
+      },
     },
-  }, { surfaceOp: 'append' })
+    { surfaceOp: 'append' },
+  )
 }
 
 function codeBlock(turn: number): string {
@@ -107,12 +105,8 @@ function codeBlock(turn: number): string {
   return `\n\n\`\`\`ts\n${lines.join('\n')}\n\`\`\``
 }
 
-function appendToolStep(
-  session: Session,
-  markers: ChatScrollMarkers,
-  turn: number,
-): void {
-  const calls = [1, 2].map((index) => {
+function appendToolStep(session: Session, markers: ChatScrollMarkers, turn: number): void {
+  const calls = [1, 2].map(index => {
     const marker = markers.tool(turn, index)
     const callId = ToolCallId(`chat-scroll-${suffix(turn)}-${String(index)}`)
     const args = JSON.stringify({
@@ -122,24 +116,28 @@ function appendToolStep(
     return { args, callId, marker }
   })
 
-  session.append('assistant/message', {
-    stream: [],
-    turn,
-    step: 1,
-    message: createAssistantMessage({
-      content: [
-        { type: 'reasoning', text: `Inspecting two scroll fixtures for turn ${String(turn)}.` },
-        ...calls.map(call => ({
-          type: 'tool-call' as const,
-          id: call.callId,
-          name: 'bash',
-          arguments: call.args,
-        })),
-      ],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-    usage: { inputTokens: 2_000 + turn * 7, outputTokens: 240, reasoningTokens: 30 },
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step: 1,
+      message: createAssistantMessage({
+        content: [
+          { type: 'reasoning', text: `Inspecting two scroll fixtures for turn ${String(turn)}.` },
+          ...calls.map(call => ({
+            type: 'tool-call' as const,
+            id: call.callId,
+            name: 'bash',
+            arguments: call.args,
+          })),
+        ],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+      usage: { inputTokens: 2_000 + turn * 7, outputTokens: 240, reasoningTokens: 30 },
+    },
+    { surfaceOp: 'append' },
+  )
 
   for (const call of calls) {
     const source = session.append('tool/call', {
@@ -149,18 +147,21 @@ function appendToolStep(
       name: 'bash',
       arguments: call.args,
     })
-    session.append('tool/result', {
-      turn,
-      step: 1,
-      message: createToolResultMessage({
-        callId: call.callId,
-        content: text(Array.from(
-          { length: 12 },
-          (_, line) => `${call.marker} output line ${String(line + 1).padStart(2, '0')}`,
-        ).join('\n')),
-        isError: false,
-      }),
-    }, { surfaceOp: 'append', sourceEventSeqs: [source.seq] })
+    session.append(
+      'tool/result',
+      {
+        turn,
+        step: 1,
+        message: createToolResultMessage({
+          callId: call.callId,
+          content: text(
+            Array.from({ length: 12 }, (_, line) => `${call.marker} output line ${String(line + 1).padStart(2, '0')}`).join('\n'),
+          ),
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append', sourceEventSeqs: [source.seq] },
+    )
   }
 }
 
@@ -199,13 +200,17 @@ export function createChatScrollFixture(options: ChatScrollFixtureOptions): Chat
     session.append('step/start', { turn, step: 1 })
     // Native V3 installs the protected system head before any user surface.
     if (turn === 1) appendSystemPrompt(session, turn, 1)
-    const user = session.append('user/message', createUserMessage({
-      content: text(
-        `${markers.user(turn)} Review the long-running conversation state for turn ${String(turn)}. `
-        + 'Keep the visible message stable while history, tools, and new output change around it.',
-      ),
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const user = session.append(
+      'user/message',
+      createUserMessage({
+        content: text(
+          `${markers.user(turn)} Review the long-running conversation state for turn ${String(turn)}. ` +
+            'Keep the visible message stable while history, tools, and new output change around it.',
+        ),
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     if (turn === 1) {
       session.append('session/title', {
         title: options.title,
@@ -224,8 +229,8 @@ export function createChatScrollFixture(options: ChatScrollFixtureOptions): Chat
         session,
         turn,
         2,
-        `${markers.assistant(turn)} Both tool results are accounted for. `
-        + `This settled response keeps turn ${String(turn)} identifiable after paging.${codeBlock(turn)}`,
+        `${markers.assistant(turn)} Both tool results are accounted for. ` +
+          `This settled response keeps turn ${String(turn)} identifiable after paging.${codeBlock(turn)}`,
       )
       session.append('step/end', { turn, step: 2 })
     } else {
@@ -233,10 +238,10 @@ export function createChatScrollFixture(options: ChatScrollFixtureOptions): Chat
         session,
         turn,
         1,
-        `${markers.assistant(turn)} The conversation remains readable after several paragraphs.\n\n`
-        + `Turn ${String(turn)} deliberately carries enough prose to wrap at narrower viewport widths. `
-        + 'The semantic marker stays near the start so geometry probes can find the same rendered row.\n\n'
-        + `The closing paragraph makes this a realistic assistant response rather than a one-line list item.${codeBlock(turn)}`,
+        `${markers.assistant(turn)} The conversation remains readable after several paragraphs.\n\n` +
+          `Turn ${String(turn)} deliberately carries enough prose to wrap at narrower viewport widths. ` +
+          'The semantic marker stays near the start so geometry probes can find the same rendered row.\n\n' +
+          `The closing paragraph makes this a realistic assistant response rather than a one-line list item.${codeBlock(turn)}`,
       )
       session.append('step/end', { turn, step: 1 })
     }

@@ -31,14 +31,18 @@ import { dirname, extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import type { Browser, Page } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { OPTIONAL_BUNDLES } from '@deepseek-ai/dsh-app-boot'
+import { packPreviewFixture, packRepositoryImage, previewFixtures, WRAPPER_CONTRACT } from '@deepseek-ai/dsh-experimental-webworker-packer'
 import {
-  packPreviewFixture, packRepositoryImage, previewFixtures, WRAPPER_CONTRACT,
-} from '@deepseek-ai/dsh-experimental-webworker-packer'
-import {
-  IMAGE_FILE_NAME, IMAGE_MANIFEST_PATH, parseImageManifest, parseTar, PREVIEW_FIXTURE_MANIFEST_FILE,
-  PREVIEW_FIXTURE_MANIFEST_VERSION, type ImageManifest, type PreviewFixtureManifest,
+  IMAGE_FILE_NAME,
+  IMAGE_MANIFEST_PATH,
+  parseImageManifest,
+  parseTar,
+  PREVIEW_FIXTURE_MANIFEST_FILE,
+  PREVIEW_FIXTURE_MANIFEST_VERSION,
+  type ImageManifest,
+  type PreviewFixtureManifest,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime'
 import {
   VFS_EXAMPLE_SESSION_IDS,
@@ -182,11 +186,9 @@ function requireVfsAssets(): PreviewAssets {
   const cacheDirectory = join(directory, 'current-projection-cache')
   mkdirSync(cacheDirectory, { recursive: true })
   writeFileSync(join(cacheDirectory, 'session_projcache.json'), currentCache)
-  const fixtures = fixtureDefinitions.map((fixture) => {
+  const fixtures = fixtureDefinitions.map(fixture => {
     const relativePath = `preview/fixtures/${fixture.id}.tar.gz`
-    const trees = fixture.id === 'vfs-example'
-      ? [...fixture.trees, { mount: 'home/storages', directory: cacheDirectory }]
-      : fixture.trees
+    const trees = fixture.id === 'vfs-example' ? [...fixture.trees, { mount: 'home/storages', directory: cacheDirectory }] : fixture.trees
     writeAsset(relativePath, packPreviewFixture(trees).image)
     return {
       id: fixture.id,
@@ -201,7 +203,13 @@ function requireVfsAssets(): PreviewAssets {
     fixtures,
   }
   writeAsset(`preview/${PREVIEW_FIXTURE_MANIFEST_FILE}`, `${JSON.stringify(fixtureManifest, null, 2)}\n`)
-  return { overrides, manifest, cleanup: () => { rmSync(directory, { recursive: true, force: true }) } }
+  return {
+    overrides,
+    manifest,
+    cleanup: () => {
+      rmSync(directory, { recursive: true, force: true })
+    },
+  }
 }
 
 /**
@@ -240,7 +248,9 @@ async function respond(
  */
 async function serveDist(overrides: ReadonlyMap<string, string>): Promise<Site> {
   const served: string[] = []
-  const server = createServer((request, response) => { void respond(request, response, overrides, served) })
+  const server = createServer((request, response) => {
+    void respond(request, response, overrides, served)
+  })
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   const address = server.address()
@@ -251,7 +261,7 @@ async function serveDist(overrides: ReadonlyMap<string, string>): Promise<Site> 
     close: async () => {
       server.closeAllConnections()
       await new Promise<void>((closed, reject) => {
-        server.close((error) => {
+        server.close(error => {
           if (error === undefined) closed()
           else reject(error)
         })
@@ -273,7 +283,11 @@ async function within<T>(work: Promise<T>, ms: number, stalled: string): Promise
   try {
     return await Promise.race([
       work,
-      new Promise<never>((_, reject) => { timer = setTimeout(() => { reject(new Error(stalled)) }, ms) }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(stalled))
+        }, ms)
+      }),
     ])
   } finally {
     clearTimeout(timer)
@@ -312,11 +326,13 @@ async function bootPreview(site: Site, manifest: ImageManifest, browser: Browser
   const page = await newEnglishPage(browser)
   const pageErrors: Error[] = []
   const consoleErrors: string[] = []
-  page.on('pageerror', (error) => { pageErrors.push(error) })
+  page.on('pageerror', error => {
+    pageErrors.push(error)
+  })
   // Registered before navigation: the worker reports its tree long before the
   // tunnel serves the client, so a listener added later would miss the line.
-  const treeActive = new Promise<string>((reported) => {
-    page.on('console', (message) => {
+  const treeActive = new Promise<string>(reported => {
+    page.on('console', message => {
       const text = message.text()
       if (text.includes(TREE_ACTIVE)) reported(text)
       if (message.type() === 'error' || message.type() === 'warning') consoleErrors.push(text)
@@ -352,116 +368,125 @@ async function bootPreview(site: Site, manifest: ImageManifest, browser: Browser
     const configureLater = page.getByRole('button', { name: 'Configure later' })
     await configureLater.waitFor({ timeout: 30_000 })
     await configureLater.click()
-    await page.locator('[data-composer-input][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]')
+    await page
+      .locator('[data-composer-input][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]')
       .waitFor({ timeout: 30_000 })
 
-    const exercised = await page.evaluate(async ({ seededSessionId, seededSessionTitle }) => {
-      type Result<T> = { result: { ok: true; value: T } | { ok: false; error: { code: string; message: string } } }
-      interface PreviewTransport {
-        fetch(input: string, init: RequestInit): Promise<Response>
-      }
-      const transport = (globalThis as typeof globalThis & { __DSH_TRANSPORT__?: PreviewTransport }).__DSH_TRANSPORT__
-      if (transport === undefined) throw new Error('preview transport is absent after boot')
-      const response = await transport.fetch('/api/session/list', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          type: 'client-request', rpcId: 'preview-session-list', method: 'session/list',
-          payload: { args: { _request: {} } },
-        }),
-      })
-      const sessions = await response.json() as Result<{ items: Array<{ sessionId: string }> }>
-      if (!sessions.result.ok) throw new Error(`session/list failed: ${sessions.result.error.message}`)
-      const sessionId = sessions.result.value.items[0]?.sessionId
-      if (sessionId === undefined) throw new Error('workspace adoption created no Session')
-
-      // Remote namespaces answer over the same unary carrier; the args object
-      // keys every wire parameter by its name.
-      const remote = async <T>(endpoint: string, args: object): Promise<T> => {
-        const answered = await transport.fetch(`/api/${endpoint}`, {
+    const exercised = await page.evaluate(
+      async ({ seededSessionId, seededSessionTitle }) => {
+        type Result<T> = { result: { ok: true; value: T } | { ok: false; error: { code: string; message: string } } }
+        interface PreviewTransport {
+          fetch(input: string, init: RequestInit): Promise<Response>
+        }
+        const transport = (globalThis as typeof globalThis & { __DSH_TRANSPORT__?: PreviewTransport }).__DSH_TRANSPORT__
+        if (transport === undefined) throw new Error('preview transport is absent after boot')
+        const response = await transport.fetch('/api/session/list', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            type: 'client-request', rpcId: `preview-${endpoint.replace('/', '-')}`,
-            method: endpoint, payload: { args },
+            type: 'client-request',
+            rpcId: 'preview-session-list',
+            method: 'session/list',
+            payload: { args: { _request: {} } },
           }),
         })
-        const body = await answered.json() as Result<T>
-        if (!body.result.ok) throw new Error(`${endpoint} failed: ${body.result.error.message}`)
-        return body.result.value
-      }
-      // Keep the fixture title stable for later UI assertions; increasing seqs
-      // prove that the cold Session acquired its write lease and appended.
-      const firstRename = await remote<{ title: string; seq: number }>('session/rename', {
-        request: { sessionId: seededSessionId, title: seededSessionTitle },
-      })
-      const secondRename = await remote<{ title: string; seq: number }>('session/rename', {
-        request: { sessionId: seededSessionId, title: seededSessionTitle },
-      })
-      const skills = await remote<{ skills: Array<{ name: string }> }>(
-        'skills/list', { request: { sessionId } },
-      )
-      const createDirectory = async (path: string, name: string): Promise<void> => {
-        await remote<string>('directoryPicker/createDirectory', { path, name })
-        await new Promise((resolve) => { setTimeout(resolve, 250) })
-        await remote<{ skills: Array<{ name: string }> }>(
-          'skills/list', { request: { sessionId } },
-        )
-      }
-      await createDirectory('/dsh/workspace/.agents/skills', 'runtime-created')
-      // Settings and credentials both answer over the Remote carrier, so this
-      // half of the sweep posts the generated endpoints directly like the
-      // session read above.
-      interface Setting { ns: string; revision: number; value: Record<string, unknown>; user: Record<string, unknown> }
-      const settings = await remote<{ writable: boolean; namespaces: Setting[] }>(
-        'settings/describe', {},
-      )
-      const shell = settings.namespaces.find(namespace => namespace.ns === 'bash-sandbox')
-      if (shell === undefined) throw new Error('settings/describe omitted the bash-sandbox namespace')
-      const saved = await remote<Setting>('settings/update', {
-        ns: 'bash-sandbox',
-        patch: { timeoutMs: 61_000 },
-        expectedRevision: shell.revision,
-      })
-      const reread = await remote<{ namespaces: Setting[] }>('settings/describe', {})
-      const reset = await remote<Setting>('settings/mutate', {
-        ns: 'bash-sandbox', ops: [{ op: 'unset', path: ['timeoutMs'] }], expectedRevision: saved.revision,
-      })
-      await remote('settings/update', { ns: 'ui-theme', patch: { fontSize: 17 } })
-      await remote('credentials/set', { ref: 'PREVIEW_TEST_SECRET', value: 'worker-only' })
-      const credentials = await remote<Record<string, { configured: boolean }>>(
-        'credentials/describe',
-        { refs: ['PREVIEW_TEST_SECRET'] },
-      )
-      await remote('credentials/unset', { ref: 'PREVIEW_TEST_SECRET' })
-      await new Promise((resolve) => { setTimeout(resolve, 250) })
-      return {
-        settingsWritable: settings.writable,
-        settingIds: settings.namespaces.map(namespace => namespace.ns),
-        savedTimeout: saved.value.timeoutMs,
-        rereadTimeout: reread.namespaces.find(namespace => namespace.ns === 'bash-sandbox')?.value.timeoutMs,
-        resetTimeout: reset.value.timeoutMs,
-        initialTimeout: shell.value.timeoutMs,
-        resetOverrides: reset.user,
-        renamedTitle: secondRename.title,
-        renameAdvanced: secondRename.seq > firstRename.seq,
-        skillCount: skills.skills.length,
-        credentialConfigured: credentials.PREVIEW_TEST_SECRET?.configured,
-      }
-    }, {
-      seededSessionId: VFS_EXAMPLE_SESSION_IDS.main,
-      seededSessionTitle: SHOWCASE_TITLE,
-    })
+        const sessions = (await response.json()) as Result<{ items: Array<{ sessionId: string }> }>
+        if (!sessions.result.ok) throw new Error(`session/list failed: ${sessions.result.error.message}`)
+        const sessionId = sessions.result.value.items[0]?.sessionId
+        if (sessionId === undefined) throw new Error('workspace adoption created no Session')
+
+        // Remote namespaces answer over the same unary carrier; the args object
+        // keys every wire parameter by its name.
+        const remote = async <T>(endpoint: string, args: object): Promise<T> => {
+          const answered = await transport.fetch(`/api/${endpoint}`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              type: 'client-request',
+              rpcId: `preview-${endpoint.replace('/', '-')}`,
+              method: endpoint,
+              payload: { args },
+            }),
+          })
+          const body = (await answered.json()) as Result<T>
+          if (!body.result.ok) throw new Error(`${endpoint} failed: ${body.result.error.message}`)
+          return body.result.value
+        }
+        // Keep the fixture title stable for later UI assertions; increasing seqs
+        // prove that the cold Session acquired its write lease and appended.
+        const firstRename = await remote<{ title: string; seq: number }>('session/rename', {
+          request: { sessionId: seededSessionId, title: seededSessionTitle },
+        })
+        const secondRename = await remote<{ title: string; seq: number }>('session/rename', {
+          request: { sessionId: seededSessionId, title: seededSessionTitle },
+        })
+        const skills = await remote<{ skills: Array<{ name: string }> }>('skills/list', { request: { sessionId } })
+        const createDirectory = async (path: string, name: string): Promise<void> => {
+          await remote<string>('directoryPicker/createDirectory', { path, name })
+          await new Promise(resolve => {
+            setTimeout(resolve, 250)
+          })
+          await remote<{ skills: Array<{ name: string }> }>('skills/list', { request: { sessionId } })
+        }
+        await createDirectory('/dsh/workspace/.agents/skills', 'runtime-created')
+        // Settings and credentials both answer over the Remote carrier, so this
+        // half of the sweep posts the generated endpoints directly like the
+        // session read above.
+        interface Setting {
+          ns: string
+          revision: number
+          value: Record<string, unknown>
+          user: Record<string, unknown>
+        }
+        const settings = await remote<{ writable: boolean; namespaces: Setting[] }>('settings/describe', {})
+        const shell = settings.namespaces.find(namespace => namespace.ns === 'bash-sandbox')
+        if (shell === undefined) throw new Error('settings/describe omitted the bash-sandbox namespace')
+        const saved = await remote<Setting>('settings/update', {
+          ns: 'bash-sandbox',
+          patch: { timeoutMs: 61_000 },
+          expectedRevision: shell.revision,
+        })
+        const reread = await remote<{ namespaces: Setting[] }>('settings/describe', {})
+        const reset = await remote<Setting>('settings/mutate', {
+          ns: 'bash-sandbox',
+          ops: [{ op: 'unset', path: ['timeoutMs'] }],
+          expectedRevision: saved.revision,
+        })
+        await remote('settings/update', { ns: 'ui-theme', patch: { fontSize: 17 } })
+        await remote('credentials/set', { ref: 'PREVIEW_TEST_SECRET', value: 'worker-only' })
+        const credentials = await remote<Record<string, { configured: boolean }>>('credentials/describe', { refs: ['PREVIEW_TEST_SECRET'] })
+        await remote('credentials/unset', { ref: 'PREVIEW_TEST_SECRET' })
+        await new Promise(resolve => {
+          setTimeout(resolve, 250)
+        })
+        return {
+          settingsWritable: settings.writable,
+          settingIds: settings.namespaces.map(namespace => namespace.ns),
+          savedTimeout: saved.value.timeoutMs,
+          rereadTimeout: reread.namespaces.find(namespace => namespace.ns === 'bash-sandbox')?.value.timeoutMs,
+          resetTimeout: reset.value.timeoutMs,
+          initialTimeout: shell.value.timeoutMs,
+          resetOverrides: reset.user,
+          renamedTitle: secondRename.title,
+          renameAdvanced: secondRename.seq > firstRename.seq,
+          skillCount: skills.skills.length,
+          credentialConfigured: credentials.PREVIEW_TEST_SECRET?.configured,
+        }
+      },
+      {
+        seededSessionId: VFS_EXAMPLE_SESSION_IDS.main,
+        seededSessionTitle: SHOWCASE_TITLE,
+      },
+    )
     expect(exercised.settingsWritable).toBe(true)
-    expect(exercised.settingIds).toEqual(expect.arrayContaining([
-      'bash-sandbox', 'locale', 'ui-theme', 'ui-chat', 'ui-conversation', 'ui-settings', 'ui-settings-general',
-    ]))
+    expect(exercised.settingIds).toEqual(
+      expect.arrayContaining(['bash-sandbox', 'locale', 'ui-theme', 'ui-chat', 'ui-conversation', 'ui-settings', 'ui-settings-general']),
+    )
     expect(exercised.savedTimeout).toBe(61_000)
     expect(exercised.rereadTimeout).toBe(61_000)
     expect(exercised.resetTimeout).toBe(exercised.initialTimeout)
     expect(exercised.resetOverrides).not.toHaveProperty('timeoutMs')
-    await expect.poll(() => page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size')))
-      .toBe('17px')
+    await expect.poll(() => page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size'))).toBe('17px')
     expect(exercised.renamedTitle).toBe(SHOWCASE_TITLE)
     expect(exercised.renameAdvanced).toBe(true)
     expect(exercised.skillCount).toBeGreaterThan(0)
@@ -501,11 +526,13 @@ async function bootPreview(site: Site, manifest: ImageManifest, browser: Browser
     const terminal = wrappedCall.locator('[data-terminal]')
     const originalWidth = await terminal.evaluate(element => element.style.width)
     try {
-      await terminal.evaluate((element) => { element.style.width = '380px' })
+      await terminal.evaluate(element => {
+        element.style.width = '380px'
+      })
       const commands = terminal.locator('[data-command-text]')
       expect(await commands.allTextContents()).toEqual(VFS_EXAMPLE_WRAPPED_COMMAND.slice(0, -1).split('\n'))
       await commands.first().scrollIntoViewIfNeeded()
-      const geometry = await commands.first().evaluate((element) => {
+      const geometry = await commands.first().evaluate(element => {
         const prompt = element.parentElement!
         const header = element.closest('[class*="_header_"]')!
         header.scrollTop = 0
@@ -519,8 +546,11 @@ async function bootPreview(site: Site, manifest: ImageManifest, browser: Browser
         return {
           wrapped: new Set(lines.map(rect => Math.round(rect.top))).size > 1,
           whitespace: getComputedStyle(element).whiteSpace,
-          alignmentError: Math.abs(marker.top + marker.height / 2
-            - (prompt.getBoundingClientRect().top + Number.parseFloat(getComputedStyle(prompt).lineHeight) / 2)),
+          alignmentError: Math.abs(
+            marker.top +
+              marker.height / 2 -
+              (prompt.getBoundingClientRect().top + Number.parseFloat(getComputedStyle(prompt).lineHeight) / 2),
+          ),
           visible: marker.top >= viewport.top && marker.bottom <= viewport.bottom,
         }
       })
@@ -530,7 +560,9 @@ async function bootPreview(site: Site, manifest: ImageManifest, browser: Browser
       expect(geometry.visible).toBe(true)
       expect(await terminal.locator('[data-state="done"]').count()).toBe(1)
     } finally {
-      await terminal.evaluate((element, width) => { element.style.width = width }, originalWidth)
+      await terminal.evaluate((element, width) => {
+        element.style.width = width
+      }, originalWidth)
     }
 
     await page.getByRole('button', { name: 'Parent workspace guide:1–8', exact: true }).click()
@@ -554,14 +586,16 @@ async function bootPreview(site: Site, manifest: ImageManifest, browser: Browser
     await toggleOptionalBundles(page)
     await openSessionInspector(page)
     expect(pageErrors.map(error => error.message)).toEqual([])
-    expect(consoleErrors.filter(line =>
-      /watchFile|failed to watch|node-addon-system\.probe|sandbox backend is usable|SANDBOX_UNAVAILABLE|cannot be nested|config reload at/i
-        .test(line))).toEqual([])
+    expect(
+      consoleErrors.filter(line =>
+        /watchFile|failed to watch|node-addon-system\.probe|sandbox backend is usable|SANDBOX_UNAVAILABLE|cannot be nested|config reload at/i.test(
+          line,
+        ),
+      ),
+    ).toEqual([])
   } catch (error) {
     await saveFailureShot(page, 'preview-boot')
-    throw pageErrors.length === 0
-      ? error
-      : new AggregateError([error, ...pageErrors], 'preview boot failed, with uncaught page errors')
+    throw pageErrors.length === 0 ? error : new AggregateError([error, ...pageErrors], 'preview boot failed, with uncaught page errors')
   }
 }
 
@@ -577,20 +611,23 @@ async function requestLazyChunk(page: Page, site: Site, manifest: ImageManifest)
   if (archive === undefined) throw new Error(`preview boot: the image registers no lazy archive for ${TERMINAL_CHUNK}`)
   const fetched = (): number => site.served.filter(path => path === `preview/${archive}`).length
   expect(fetched()).toBe(0)
-  const chunk = await page.evaluate(async ({ id }) => {
-    const transport = (globalThis as typeof globalThis & {
-      __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
-      __DSH_BOOT__?: { entries: Array<{ id: string; rev: string }> }
-    })
-    const row = transport.__DSH_BOOT__?.entries.find(entry => entry.id === id)
-    if (transport.__DSH_TRANSPORT__ === undefined || row === undefined) throw new Error(`no boot graph row for ${id}`)
-    const results: Array<{ status: number; size: number }> = []
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const response = await transport.__DSH_TRANSPORT__.fetch(`/plugins/${id}/client.terminal.js?rev=${row.rev}`, { method: 'GET' })
-      results.push({ status: response.status, size: (await response.text()).length })
-    }
-    return results
-  }, { id: TERMINAL_PACKAGE })
+  const chunk = await page.evaluate(
+    async ({ id }) => {
+      const transport = globalThis as typeof globalThis & {
+        __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
+        __DSH_BOOT__?: { entries: Array<{ id: string; rev: string }> }
+      }
+      const row = transport.__DSH_BOOT__?.entries.find(entry => entry.id === id)
+      if (transport.__DSH_TRANSPORT__ === undefined || row === undefined) throw new Error(`no boot graph row for ${id}`)
+      const results: Array<{ status: number; size: number }> = []
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await transport.__DSH_TRANSPORT__.fetch(`/plugins/${id}/client.terminal.js?rev=${row.rev}`, { method: 'GET' })
+        results.push({ status: response.status, size: (await response.text()).length })
+      }
+      return results
+    },
+    { id: TERMINAL_PACKAGE },
+  )
   expect(chunk.map(result => result.status)).toEqual([200, 200])
   expect(chunk[0]!.size).toBeGreaterThan(0)
   // Two chunk requests, one archive fetch: the Worker filesystem keeps what arrived.
@@ -613,17 +650,24 @@ async function toggleOptionalBundles(page: Page): Promise<void> {
   expect(listed.filter(name => name !== null && OPTIONAL_BUNDLES.includes(name)).length).toBeGreaterThan(0)
   const result = await page.evaluate(async () => {
     type Result<T> = { result: { ok: true; value: T } | { ok: false; error: { message: string } } }
-    const transport = (globalThis as typeof globalThis & {
-      __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
-    }).__DSH_TRANSPORT__
+    const transport = (
+      globalThis as typeof globalThis & {
+        __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
+      }
+    ).__DSH_TRANSPORT__
     if (transport === undefined) throw new Error('preview transport is absent after boot')
     const remote = async <T>(endpoint: string, args: object): Promise<T> => {
       const answered = await transport.fetch(`/api/${endpoint}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ type: 'client-request', rpcId: `preview-${endpoint.replace('/', '-')}`, method: endpoint, payload: { args } }),
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: `preview-${endpoint.replace('/', '-')}`,
+          method: endpoint,
+          payload: { args },
+        }),
       })
-      const body = await answered.json() as Result<T>
+      const body = (await answered.json()) as Result<T>
       if (!body.result.ok) throw new Error(`${endpoint} failed: ${body.result.error.message}`)
       return body.result.value
     }
@@ -635,8 +679,15 @@ async function toggleOptionalBundles(page: Page): Promise<void> {
       error?: unknown
       meta?: { title?: unknown; icon?: unknown; error?: unknown }
     }
-    interface Plugin { entryId: string; moduleName: string; enabled: boolean; fiberPhase: string | null }
-    interface Inventory { entries: Array<{ moduleName: string; meta?: { error?: unknown } }> }
+    interface Plugin {
+      entryId: string
+      moduleName: string
+      enabled: boolean
+      fiberPhase: string | null
+    }
+    interface Inventory {
+      entries: Array<{ moduleName: string; meta?: { error?: unknown } }>
+    }
     const bundles = await remote<Bundle[]>('pluginManager/listBundles', {})
     const inventory = await remote<Inventory>('pluginInventory/list', {})
     const stateOf = (plugin: Plugin): string => `${plugin.moduleName} ${String(plugin.enabled)} ${String(plugin.fiberPhase)}`
@@ -654,7 +705,10 @@ async function toggleOptionalBundles(page: Page): Promise<void> {
       restored: boolean
     }> = []
     for (const entry of bundles.filter(candidate => candidate.optional)) {
-      const enable = await remote<{ application: string; error?: unknown }>('pluginManager/setBundleEnabled', { name: entry.name, enabled: true })
+      const enable = await remote<{ application: string; error?: unknown }>('pluginManager/setBundleEnabled', {
+        name: entry.name,
+        enabled: true,
+      })
       const plugins = await remote<Plugin[]>('pluginManager/listPlugins', {})
       const disable = await remote<{ application: string }>('pluginManager/setBundleEnabled', { name: entry.name, enabled: false })
       const after = await remote<Plugin[]>('pluginManager/listPlugins', {})
@@ -671,11 +725,19 @@ async function toggleOptionalBundles(page: Page): Promise<void> {
       })
     }
     return {
-      optional: bundles.filter(entry => entry.optional).map(entry => ({
-        name: entry.name, enabled: entry.enabled, availability: entry.availability, error: entry.error ?? null,
-        title: typeof entry.meta?.title, icon: typeof entry.meta?.icon, metaError: entry.meta?.error ?? null,
-      })),
-      inventoryErrors: inventory.entries.filter(row => row.meta?.error !== undefined)
+      optional: bundles
+        .filter(entry => entry.optional)
+        .map(entry => ({
+          name: entry.name,
+          enabled: entry.enabled,
+          availability: entry.availability,
+          error: entry.error ?? null,
+          title: typeof entry.meta?.title,
+          icon: typeof entry.meta?.icon,
+          metaError: entry.meta?.error ?? null,
+        })),
+      inventoryErrors: inventory.entries
+        .filter(row => row.meta?.error !== undefined)
         .map(row => ({ moduleName: row.moduleName, error: row.meta?.error })),
       toggles,
     }
@@ -685,28 +747,41 @@ async function toggleOptionalBundles(page: Page): Promise<void> {
   // Metadata resolves through the Worker's Node internal modules: every optional bundle shows its title and icon.
   expect(result.optional.filter(entry => entry.metaError !== null || entry.title !== 'object' || entry.icon !== 'string')).toEqual([])
   expect(result.inventoryErrors).toEqual([])
-  console.info(`preview boot: optional bundle toggles ${JSON.stringify(result.toggles.map(({ name, enable, disable, error }) => ({ name, enable, disable, error })))}`)
-  expect(result.toggles.filter(toggle => toggle.enable !== 'applied' || toggle.disable !== 'applied')
-    .map(({ name, enable, disable }) => ({ name, enable, disable }))).toEqual([])
+  console.info(
+    `preview boot: optional bundle toggles ${JSON.stringify(result.toggles.map(({ name, enable, disable, error }) => ({ name, enable, disable, error })))}`,
+  )
+  expect(
+    result.toggles
+      .filter(toggle => toggle.enable !== 'applied' || toggle.disable !== 'applied')
+      .map(({ name, enable, disable }) => ({ name, enable, disable })),
+  ).toEqual([])
   // Each bundle changes Loader rows, every enabled row it changes runs, and switching it off restores the prior rows.
-  expect(result.toggles.filter(toggle => toggle.changed === 0 || toggle.inactive.length > 0 || !toggle.restored)
-    .map(({ name, changed, inactive, restored }) => ({ name, changed, inactive, restored }))).toEqual([])
+  expect(
+    result.toggles
+      .filter(toggle => toggle.changed === 0 || toggle.inactive.length > 0 || !toggle.restored)
+      .map(({ name, changed, inactive, restored }) => ({ name, changed, inactive, restored })),
+  ).toEqual([])
   const pluginsWith = (bundle: string): Array<{ moduleName: string; enabled: boolean; fiberPhase: string | null }> =>
     result.toggles.find(toggle => toggle.name === bundle)?.plugins ?? []
   // The bundle layer applies after the base layers: its disable of the base title row takes effect.
-  expect(pluginsWith(SESSION_TITLES_BUNDLE).filter(plugin => plugin.moduleName === BASE_TITLE_MODULE).map(plugin => plugin.enabled))
-    .toEqual([false])
-  expect(pluginsWith(SESSION_TITLES_BUNDLE).filter(plugin => plugin.moduleName === BUNDLE_TITLE_MODULE).map(plugin => plugin.enabled))
-    .toEqual([true])
+  expect(
+    pluginsWith(SESSION_TITLES_BUNDLE)
+      .filter(plugin => plugin.moduleName === BASE_TITLE_MODULE)
+      .map(plugin => plugin.enabled),
+  ).toEqual([false])
+  expect(
+    pluginsWith(SESSION_TITLES_BUNDLE)
+      .filter(plugin => plugin.moduleName === BUNDLE_TITLE_MODULE)
+      .map(plugin => plugin.enabled),
+  ).toEqual([true])
   // Session Inspector runs; NodeJS Inspector starts without its Worker on this platform.
   const inspectorRows = pluginsWith(INSPECTOR_BUNDLE)
     .filter(plugin => plugin.moduleName === SESSION_INSPECTOR_MODULE || plugin.moduleName === INSPECTOR_MODULE)
     .map(({ moduleName, enabled, fiberPhase }) => ({ moduleName, enabled, fiberPhase }))
-  expect(inspectorRows.sort((a, b) => a.moduleName.localeCompare(b.moduleName)))
-    .toEqual([
-      { moduleName: INSPECTOR_MODULE, enabled: true, fiberPhase: 'active' },
-      { moduleName: SESSION_INSPECTOR_MODULE, enabled: true, fiberPhase: 'active' },
-    ])
+  expect(inspectorRows.sort((a, b) => a.moduleName.localeCompare(b.moduleName))).toEqual([
+    { moduleName: INSPECTOR_MODULE, enabled: true, fiberPhase: 'active' },
+    { moduleName: SESSION_INSPECTOR_MODULE, enabled: true, fiberPhase: 'active' },
+  ])
 }
 
 /**
@@ -717,23 +792,31 @@ async function toggleOptionalBundles(page: Page): Promise<void> {
  * @returns The plugin manager's application result.
  */
 async function setBundle(page: Page, bundle: string, enabled: boolean): Promise<string> {
-  return await page.evaluate(async ({ name, enabled }) => {
-    const transport = (globalThis as typeof globalThis & {
-      __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
-    }).__DSH_TRANSPORT__
-    if (transport === undefined) throw new Error('preview transport is absent after boot')
-    const answered = await transport.fetch('/api/pluginManager/setBundleEnabled', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        type: 'client-request', rpcId: 'preview-set-bundle', method: 'pluginManager/setBundleEnabled', payload: { args: { name, enabled } },
-      }),
-    })
-    type Answer = { result: { ok: true; value: { application: string } } | { ok: false; error: { message: string } } }
-    const body = await answered.json() as Answer
-    if (!body.result.ok) throw new Error(`setBundleEnabled failed: ${body.result.error.message}`)
-    return body.result.value.application
-  }, { name: bundle, enabled })
+  return await page.evaluate(
+    async ({ name, enabled }) => {
+      const transport = (
+        globalThis as typeof globalThis & {
+          __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
+        }
+      ).__DSH_TRANSPORT__
+      if (transport === undefined) throw new Error('preview transport is absent after boot')
+      const answered = await transport.fetch('/api/pluginManager/setBundleEnabled', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: 'preview-set-bundle',
+          method: 'pluginManager/setBundleEnabled',
+          payload: { args: { name, enabled } },
+        }),
+      })
+      type Answer = { result: { ok: true; value: { application: string } } | { ok: false; error: { message: string } } }
+      const body = (await answered.json()) as Answer
+      if (!body.result.ok) throw new Error(`setBundleEnabled failed: ${body.result.error.message}`)
+      return body.result.value.application
+    },
+    { name: bundle, enabled },
+  )
 }
 
 /**
@@ -758,12 +841,14 @@ async function bootEmptyPreview(origin: string, browser: Browser): Promise<void>
   const pageErrors: Error[] = []
   const consoleErrors: string[] = []
   const failedResponses: string[] = []
-  page.on('pageerror', (error) => { pageErrors.push(error) })
-  page.on('response', (response) => {
+  page.on('pageerror', error => {
+    pageErrors.push(error)
+  })
+  page.on('response', response => {
     if (response.status() >= 400) failedResponses.push(new URL(response.url()).pathname)
   })
-  const treeActive = new Promise<string>((reported) => {
-    page.on('console', (message) => {
+  const treeActive = new Promise<string>(reported => {
+    page.on('console', message => {
       const text = message.text()
       if (text.includes(TREE_ACTIVE)) reported(text)
       if (message.type() === 'error' || message.type() === 'warning') consoleErrors.push(text)
@@ -772,28 +857,28 @@ async function bootEmptyPreview(origin: string, browser: Browser): Promise<void>
   try {
     await page.goto(`${origin}/preview.html?preview-fixture=none`, { waitUntil: 'domcontentloaded' })
     expect(await page.getByRole('heading', { name: '选择 Preview 数据源' }).count()).toBe(0)
-    const bootLine = await within(
-      treeActive,
-      BOOT_TIMEOUT_MS,
-      `empty preview boot: the worker never reported "${TREE_ACTIVE}"`,
-    )
+    const bootLine = await within(treeActive, BOOT_TIMEOUT_MS, `empty preview boot: the worker never reported "${TREE_ACTIVE}"`)
     expect(bootLine).toContain(`image lowering=${WRAPPER_CONTRACT}`)
     expect(bootLine).toContain('data overlays=0')
     await page.getByRole('textbox', { name: 'Choose workspace' }).waitFor({ timeout: HERO_TIMEOUT_MS })
     const sessionCount = await page.evaluate(async () => {
-      const transport = (globalThis as typeof globalThis & {
-        __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
-      }).__DSH_TRANSPORT__
+      const transport = (
+        globalThis as typeof globalThis & {
+          __DSH_TRANSPORT__?: { fetch(input: string, init: RequestInit): Promise<Response> }
+        }
+      ).__DSH_TRANSPORT__
       if (transport === undefined) throw new Error('empty preview transport is absent after boot')
       const response = await transport.fetch('/api/session/list', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          type: 'client-request', rpcId: 'empty-preview-session-list', method: 'session/list',
+          type: 'client-request',
+          rpcId: 'empty-preview-session-list',
+          method: 'session/list',
           payload: { args: { _request: {} } },
         }),
       })
-      const body = await response.json() as {
+      const body = (await response.json()) as {
         result: { ok: true; value: { items: unknown[] } } | { ok: false; error: { message: string } }
       }
       if (!body.result.ok) throw new Error(`empty session/list failed: ${body.result.error.message}`)
@@ -807,8 +892,7 @@ async function bootEmptyPreview(origin: string, browser: Browser): Promise<void>
     // client graph event stream travels through the tunnel.
     expect([...failedResponses]).toEqual(['/open-in-app/apps'])
     // HMR recomposes configuration against the Worker's empty ES module cache without asking for a restart.
-    expect(consoleErrors.filter(line => !line.includes('Failed to load resource: the server responded with a status of 404')))
-      .toEqual([])
+    expect(consoleErrors.filter(line => !line.includes('Failed to load resource: the server responded with a status of 404'))).toEqual([])
   } catch (error) {
     await saveFailureShot(page, 'preview-boot-empty')
     throw pageErrors.length === 0

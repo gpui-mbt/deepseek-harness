@@ -6,7 +6,11 @@
  * by kind. `builtin` is the ordinary band for a type shipped with the product.
  */
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
-import type { SidebarRightTabDefinition, SidebarRightTabParamsMap, SidebarRightNavigationParams } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
+import type {
+  SidebarRightTabDefinition,
+  SidebarRightTabParamsMap,
+  SidebarRightNavigationParams,
+} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { ScheduleId } from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
@@ -45,9 +49,7 @@ export function scheduleTaskDefinition(t: TranslateNS<'schedule.manager'>): Side
  * @param params - the tab record's navigation parameters.
  * @returns the Session and task the tab shows, or undefined for another type's parameters.
  */
-export function scheduleTaskParams(
-  params: SidebarRightNavigationParams,
-): SidebarRightTabParamsMap['scheduleTask'] | undefined {
+export function scheduleTaskParams(params: SidebarRightNavigationParams): SidebarRightTabParamsMap['scheduleTask'] | undefined {
   if (params === undefined || !('sessionId' in params) || !('id' in params)) return undefined
   return { sessionId: params.sessionId, id: params.id }
 }

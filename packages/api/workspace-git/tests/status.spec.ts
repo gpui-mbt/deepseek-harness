@@ -2,7 +2,7 @@
 
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { git, openHarness, repoOnTopic, type Harness } from './harness.ts'
 
 const signal = (): AbortSignal => new AbortController().signal

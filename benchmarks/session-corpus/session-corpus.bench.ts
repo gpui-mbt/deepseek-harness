@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { availableParallelism, cpus, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { PERFORMANCE_BUDGET_HEADROOM } from '../support/calibration.ts'
 import { recordPeakMemory, recordTimings, type BenchmarkCase, type Timing } from '../support/scaling-report.ts'
@@ -122,8 +122,10 @@ async function run<Report extends SessionCorpusReport>(args: readonly string[]):
   const outcome = await runBuiltBenchmarkWorker<Report>({ worker: WORKER, args, timeoutMs: WORKER_TIMEOUT_MS, exposeGc: true })
   if (outcome.report === undefined) {
     const stderr = outcome.stderr.trim().split('\n').slice(-20).join('\n')
-    throw new Error(`session-corpus worker ${args[1] ?? ''} failed: exit=${String(outcome.exitCode)}, `
-      + `signal=${String(outcome.signal)}, timedOut=${String(outcome.timedOut)}\n${stderr}`)
+    throw new Error(
+      `session-corpus worker ${args[1] ?? ''} failed: exit=${String(outcome.exitCode)}, ` +
+        `signal=${String(outcome.signal)}, timedOut=${String(outcome.timedOut)}\n${stderr}`,
+    )
   }
   return outcome.report
 }
@@ -134,10 +136,11 @@ async function run<Report extends SessionCorpusReport>(args: readonly string[]):
  */
 function anchorGroups(): number[][] {
   const groups = Array.from({ length: PREPARATION_PROCESSES }, () => ({ bytes: 0, anchors: [] as number[] }))
-  const bySize = Array.from({ length: ANCHOR_COUNT }, (_, anchor) => anchor)
-    .sort((left, right) => anchorShape(right).logicalBytes - anchorShape(left).logicalBytes)
+  const bySize = Array.from({ length: ANCHOR_COUNT }, (_, anchor) => anchor).sort(
+    (left, right) => anchorShape(right).logicalBytes - anchorShape(left).logicalBytes,
+  )
   for (const anchor of bySize) {
-    const group = groups.reduce((smallest, candidate) => candidate.bytes < smallest.bytes ? candidate : smallest)
+    const group = groups.reduce((smallest, candidate) => (candidate.bytes < smallest.bytes ? candidate : smallest))
     group.bytes += anchorShape(anchor).logicalBytes
     group.anchors.push(anchor)
   }
@@ -191,10 +194,10 @@ describe('Session corpus workload', () => {
 
   it('accepts every recorded hosted median and rejects one a quarter above its expectation', () => {
     const endpoints = [
-      ...(Object.keys(EXPECTED_CI_MS) as (keyof typeof EXPECTED_CI_MS)[])
-        .map(key => [RECORDED_CI_MS[key], EXPECTED_CI_MS[key]] as const),
-      ...(Object.keys(EXPECTED_CI_PEAK_RSS_MB) as (keyof typeof EXPECTED_CI_PEAK_RSS_MB)[])
-        .map(key => [RECORDED_CI_PEAK_RSS_MB[key], EXPECTED_CI_PEAK_RSS_MB[key]] as const),
+      ...(Object.keys(EXPECTED_CI_MS) as (keyof typeof EXPECTED_CI_MS)[]).map(key => [RECORDED_CI_MS[key], EXPECTED_CI_MS[key]] as const),
+      ...(Object.keys(EXPECTED_CI_PEAK_RSS_MB) as (keyof typeof EXPECTED_CI_PEAK_RSS_MB)[]).map(
+        key => [RECORDED_CI_PEAK_RSS_MB[key], EXPECTED_CI_PEAK_RSS_MB[key]] as const,
+      ),
     ]
     expect(endpoints).toHaveLength(11)
     for (const [recorded, expected] of endpoints) {
@@ -215,8 +218,9 @@ describe('Session corpus operations', () => {
     started = performance.now()
     scratch = await mkdtemp(join(tmpdir(), 'dsh-session-corpus-bench-'))
     const prepared = await Promise.all(anchorGroups().map(group => run<AnchorsReport>([scratch, 'anchors', ...group.map(String)])))
-    seeded = await Promise.all((Object.keys(CORPUS) as CorpusName[])
-      .map(name => run<SeedReport>([scratch, 'seed', name, String(CORPUS[name])])))
+    seeded = await Promise.all(
+      (Object.keys(CORPUS) as CorpusName[]).map(name => run<SeedReport>([scratch, 'seed', name, String(CORPUS[name])])),
+    )
     console.log(JSON.stringify({ benchmark: 'session-corpus/seed', prepared, seeded, environment: environment() }))
   }, serialDeadline(2))
 
@@ -236,96 +240,123 @@ describe('Session corpus operations', () => {
     }
   })
 
-  it(`lists ${String(CORPUS.list)} Sessions after a cold Host boot`, async () => {
-    const budgets = {
-      bootMs: budget(EXPECTED_CI_MS.listBoot),
-      firstMs: budget(EXPECTED_CI_MS.listFirst),
-      repeatMs: budget(EXPECTED_CI_MS.listRepeat),
-      peakRssMb: budget(EXPECTED_CI_PEAK_RSS_MB.list),
-    }
-    const reports: ListReport[] = []
-    for (let attempt = 0; attempt < ATTEMPTS.list; attempt++) {
-      reports.push(await run<ListReport>([root('list'), 'list', String(CORPUS.list)]))
-    }
-    const samples = {
-      bootMs: rounded(reports.map(report => report.bootMs)),
-      firstMs: rounded(reports.map(report => report.firstMs)),
-      repeatMs: rounded(reports.map(report => report.repeatMs)),
-      peakRssMb: reports.map(report => report.memory.peakRssMb),
-      heapUsedMb: reports.map(report => report.memory.heapUsedMb),
-    }
-    console.log(JSON.stringify({ benchmark: `session-corpus/list-${String(CORPUS.list)}`, samples, budgets, environment: environment() }))
-    recordTimings(CASES.list, phaseTimings(samples, reports.map(report => report.cpu)),
-      { bootMs: budgets.bootMs, firstMs: budgets.firstMs, repeatMs: budgets.repeatMs })
-    recordPeakMemory(CASES.list, { peakRssMb: Math.max(...samples.peakRssMb) })
-    for (const report of reports) expect(report.itemsWithProjections).toBe(CORPUS.list)
-    expectWithinBudget(median(samples.bootMs), budgets.bootMs)
-    expectWithinBudget(median(samples.firstMs), budgets.firstMs)
-    expectWithinBudget(median(samples.repeatMs), budgets.repeatMs)
-    expectWithinBudget(median(samples.peakRssMb), budgets.peakRssMb)
-  }, serialDeadline(ATTEMPTS.list))
-
-  it(`searches ${String(CORPUS.search)} Sessions with a cold and then a built content index`, async () => {
-    const budgets = {
-      firstMs: budget(EXPECTED_CI_MS.searchFirst),
-      repeatMs: budget(EXPECTED_CI_MS.searchRepeat),
-      peakRssMb: budget(EXPECTED_CI_PEAK_RSS_MB.search),
-    }
-    // One sample: the cold index build dominates this file's time.
-    const report = await run<SearchReport>([root('search'), 'search'])
-    console.log(JSON.stringify({ benchmark: 'session-corpus/search', report, budgets, environment: environment() }))
-    recordTimings(CASES.search, {
-      firstMs: { ms: report.firstMs, cpuMs: report.cpu.firstMs },
-      repeatMs: { ms: report.repeatMs, cpuMs: report.cpu.repeatMs },
-    }, { firstMs: budgets.firstMs, repeatMs: budgets.repeatMs })
-    recordPeakMemory(CASES.search, { peakRssMb: report.memory.peakRssMb })
-    expectWithinBudget(report.firstMs, budgets.firstMs)
-    expectWithinBudget(report.repeatMs, budgets.repeatMs)
-    expectWithinBudget(report.memory.peakRssMb, budgets.peakRssMb)
-  }, serialDeadline(1))
-
-  it(`forks Sessions across the length distribution of ${String(CORPUS.fork)} Sessions`, async () => {
-    const budgets = {
-      stratumMedianMs: budget(EXPECTED_CI_MS.forkStratumMedian),
-      p99Ms: budget(EXPECTED_CI_MS.forkP99),
-      longestMs: budget(EXPECTED_CI_MS.forkLongest),
-      peakRssMb: budget(EXPECTED_CI_PEAK_RSS_MB.fork),
-    }
-    const reports: ForkReport[] = []
-    for (let attempt = 0; attempt < ATTEMPTS.fork; attempt++) {
-      reports.push(await run<ForkReport>([root('fork'), 'fork', ...[...FORK_STRATA, FORK_P99_RANK].map(String)]))
-    }
-    const longest = await run<ForkReport>([root('fork'), 'fork', String(FORK_LONGEST_RANK)])
-    const forkEntry = (report: ForkReport, rank: number): ForkReport['forks'][number] => {
-      const fork = report.forks.find(entry => entry.rank === rank)
-      if (fork === undefined) throw new Error(`fork report omits rank ${String(rank)}`)
-      return fork
-    }
-    const forkMs = (report: ForkReport, rank: number): number => forkEntry(report, rank).forkMs
-    const forkCpuMs = (report: ForkReport, rank: number): number => forkEntry(report, rank).forkCpuMs
-    const samples = {
-      stratumMedianMs: rounded(reports.map(report => median(FORK_STRATA.map(rank => forkMs(report, rank))))),
-      p99Ms: rounded(reports.map(report => forkMs(report, FORK_P99_RANK))),
-      longestMs: Math.round(forkMs(longest, FORK_LONGEST_RANK) * 10) / 10,
-      perRank: reports.map(report => report.forks.map(({ rank, sourceEvents, forkMs }) => ({ rank, sourceEvents, forkMs: Math.round(forkMs) }))),
-      peakRssMb: [...reports, longest].map(report => report.memory.peakRssMb),
-    }
-    console.log(JSON.stringify({ benchmark: 'session-corpus/fork', samples, budgets, environment: environment() }))
-    recordTimings(CASES.fork, {
-      stratumMedianMs: {
-        ms: median(samples.stratumMedianMs),
-        cpuMs: median(reports.map(report => median(FORK_STRATA.map(rank => forkCpuMs(report, rank))))),
-      },
-      p99Ms: { ms: median(samples.p99Ms), cpuMs: median(reports.map(report => forkCpuMs(report, FORK_P99_RANK))) },
-      longestMs: { ms: samples.longestMs, cpuMs: forkCpuMs(longest, FORK_LONGEST_RANK) },
+  it(
+    `lists ${String(CORPUS.list)} Sessions after a cold Host boot`,
+    async () => {
+      const budgets = {
+        bootMs: budget(EXPECTED_CI_MS.listBoot),
+        firstMs: budget(EXPECTED_CI_MS.listFirst),
+        repeatMs: budget(EXPECTED_CI_MS.listRepeat),
+        peakRssMb: budget(EXPECTED_CI_PEAK_RSS_MB.list),
+      }
+      const reports: ListReport[] = []
+      for (let attempt = 0; attempt < ATTEMPTS.list; attempt++) {
+        reports.push(await run<ListReport>([root('list'), 'list', String(CORPUS.list)]))
+      }
+      const samples = {
+        bootMs: rounded(reports.map(report => report.bootMs)),
+        firstMs: rounded(reports.map(report => report.firstMs)),
+        repeatMs: rounded(reports.map(report => report.repeatMs)),
+        peakRssMb: reports.map(report => report.memory.peakRssMb),
+        heapUsedMb: reports.map(report => report.memory.heapUsedMb),
+      }
+      console.log(JSON.stringify({ benchmark: `session-corpus/list-${String(CORPUS.list)}`, samples, budgets, environment: environment() }))
+      recordTimings(
+        CASES.list,
+        phaseTimings(
+          samples,
+          reports.map(report => report.cpu),
+        ),
+        { bootMs: budgets.bootMs, firstMs: budgets.firstMs, repeatMs: budgets.repeatMs },
+      )
+      recordPeakMemory(CASES.list, { peakRssMb: Math.max(...samples.peakRssMb) })
+      for (const report of reports) expect(report.itemsWithProjections).toBe(CORPUS.list)
+      expectWithinBudget(median(samples.bootMs), budgets.bootMs)
+      expectWithinBudget(median(samples.firstMs), budgets.firstMs)
+      expectWithinBudget(median(samples.repeatMs), budgets.repeatMs)
+      expectWithinBudget(median(samples.peakRssMb), budgets.peakRssMb)
     },
-      { stratumMedianMs: budgets.stratumMedianMs, p99Ms: budgets.p99Ms, longestMs: budgets.longestMs })
-    recordPeakMemory(CASES.fork, { peakRssMb: Math.max(...samples.peakRssMb) })
-    expectWithinBudget(median(samples.stratumMedianMs), budgets.stratumMedianMs)
-    expectWithinBudget(median(samples.p99Ms), budgets.p99Ms)
-    expectWithinBudget(samples.longestMs, budgets.longestMs)
-    expectWithinBudget(Math.max(...samples.peakRssMb), budgets.peakRssMb)
-  }, serialDeadline(ATTEMPTS.fork + 1))
+    serialDeadline(ATTEMPTS.list),
+  )
+
+  it(
+    `searches ${String(CORPUS.search)} Sessions with a cold and then a built content index`,
+    async () => {
+      const budgets = {
+        firstMs: budget(EXPECTED_CI_MS.searchFirst),
+        repeatMs: budget(EXPECTED_CI_MS.searchRepeat),
+        peakRssMb: budget(EXPECTED_CI_PEAK_RSS_MB.search),
+      }
+      // One sample: the cold index build dominates this file's time.
+      const report = await run<SearchReport>([root('search'), 'search'])
+      console.log(JSON.stringify({ benchmark: 'session-corpus/search', report, budgets, environment: environment() }))
+      recordTimings(
+        CASES.search,
+        {
+          firstMs: { ms: report.firstMs, cpuMs: report.cpu.firstMs },
+          repeatMs: { ms: report.repeatMs, cpuMs: report.cpu.repeatMs },
+        },
+        { firstMs: budgets.firstMs, repeatMs: budgets.repeatMs },
+      )
+      recordPeakMemory(CASES.search, { peakRssMb: report.memory.peakRssMb })
+      expectWithinBudget(report.firstMs, budgets.firstMs)
+      expectWithinBudget(report.repeatMs, budgets.repeatMs)
+      expectWithinBudget(report.memory.peakRssMb, budgets.peakRssMb)
+    },
+    serialDeadline(1),
+  )
+
+  it(
+    `forks Sessions across the length distribution of ${String(CORPUS.fork)} Sessions`,
+    async () => {
+      const budgets = {
+        stratumMedianMs: budget(EXPECTED_CI_MS.forkStratumMedian),
+        p99Ms: budget(EXPECTED_CI_MS.forkP99),
+        longestMs: budget(EXPECTED_CI_MS.forkLongest),
+        peakRssMb: budget(EXPECTED_CI_PEAK_RSS_MB.fork),
+      }
+      const reports: ForkReport[] = []
+      for (let attempt = 0; attempt < ATTEMPTS.fork; attempt++) {
+        reports.push(await run<ForkReport>([root('fork'), 'fork', ...[...FORK_STRATA, FORK_P99_RANK].map(String)]))
+      }
+      const longest = await run<ForkReport>([root('fork'), 'fork', String(FORK_LONGEST_RANK)])
+      const forkEntry = (report: ForkReport, rank: number): ForkReport['forks'][number] => {
+        const fork = report.forks.find(entry => entry.rank === rank)
+        if (fork === undefined) throw new Error(`fork report omits rank ${String(rank)}`)
+        return fork
+      }
+      const forkMs = (report: ForkReport, rank: number): number => forkEntry(report, rank).forkMs
+      const forkCpuMs = (report: ForkReport, rank: number): number => forkEntry(report, rank).forkCpuMs
+      const samples = {
+        stratumMedianMs: rounded(reports.map(report => median(FORK_STRATA.map(rank => forkMs(report, rank))))),
+        p99Ms: rounded(reports.map(report => forkMs(report, FORK_P99_RANK))),
+        longestMs: Math.round(forkMs(longest, FORK_LONGEST_RANK) * 10) / 10,
+        perRank: reports.map(report =>
+          report.forks.map(({ rank, sourceEvents, forkMs }) => ({ rank, sourceEvents, forkMs: Math.round(forkMs) })),
+        ),
+        peakRssMb: [...reports, longest].map(report => report.memory.peakRssMb),
+      }
+      console.log(JSON.stringify({ benchmark: 'session-corpus/fork', samples, budgets, environment: environment() }))
+      recordTimings(
+        CASES.fork,
+        {
+          stratumMedianMs: {
+            ms: median(samples.stratumMedianMs),
+            cpuMs: median(reports.map(report => median(FORK_STRATA.map(rank => forkCpuMs(report, rank))))),
+          },
+          p99Ms: { ms: median(samples.p99Ms), cpuMs: median(reports.map(report => forkCpuMs(report, FORK_P99_RANK))) },
+          longestMs: { ms: samples.longestMs, cpuMs: forkCpuMs(longest, FORK_LONGEST_RANK) },
+        },
+        { stratumMedianMs: budgets.stratumMedianMs, p99Ms: budgets.p99Ms, longestMs: budgets.longestMs },
+      )
+      recordPeakMemory(CASES.fork, { peakRssMb: Math.max(...samples.peakRssMb) })
+      expectWithinBudget(median(samples.stratumMedianMs), budgets.stratumMedianMs)
+      expectWithinBudget(median(samples.p99Ms), budgets.p99Ms)
+      expectWithinBudget(samples.longestMs, budgets.longestMs)
+      expectWithinBudget(Math.max(...samples.peakRssMb), budgets.peakRssMb)
+    },
+    serialDeadline(ATTEMPTS.fork + 1),
+  )
 
   it(`completes within ${String(FILE_LIMIT_MS / 60_000)} minutes`, () => {
     const elapsedMs = performance.now() - started

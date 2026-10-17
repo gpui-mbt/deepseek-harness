@@ -22,11 +22,7 @@ interface GoalRef {
 
 ```ts type-equiv
 /** Durable continuation phase. Activation is process-local and separate. */
-type GoalPhase =
-  | 'active'
-  | 'paused'
-  | 'blocked'
-  | 'complete'
+type GoalPhase = 'active' | 'paused' | 'blocked' | 'complete'
 ```
 
 阻塞是唯一表示「因问题而停止」的持久状态。由策略负责的阻塞原因会携带一个用于路由、稳定且采用 lower-kebab-case 的代码，以及一段供人和模型阅读的自由文本说明。

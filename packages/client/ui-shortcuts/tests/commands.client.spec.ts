@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, onTestFinished, vi } from 'vitest'
+import { describe, expect, onTestFinished, vi } from 'vite-plus/test'
 import { createElement, Fragment, useSyncExternalStore } from 'react'
 import { act, cleanup, render } from '@testing-library/react'
 import { createClientTest, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
@@ -19,12 +19,18 @@ describe('assembled shortcut command owners', () => {
     const shortcuts = client.ctx.shortcuts
     const overlay = client.ctx.slots.entries('shell.overlay').find(entry => entry.options.id === 'shortcuts')!
     const injected: Partial<ReferenceInjected> | undefined = overlay.inject?.()
-    if (injected?.hooks === undefined || injected.describeBinding === undefined
-      || injected.recording === undefined || injected.edit === undefined) {
+    if (
+      injected?.hooks === undefined ||
+      injected.describeBinding === undefined ||
+      injected.recording === undefined ||
+      injected.edit === undefined
+    ) {
       throw new Error('expected the shortcut reference actions')
     }
     expect(injected.hooks.catalog).toBe(shortcuts.catalog)
-    await vi.waitFor(() => { expect(shortcuts.config.getSnapshot().status).toBe('ready') })
+    await vi.waitFor(() => {
+      expect(shortcuts.config.getSnapshot().status).toBe('ready')
+    })
     expect(injected.describeBinding(null).keys).toEqual([])
     await injected.recording(false)
     const shortcut = shortcuts.catalog.getSnapshot().find(row => row.id === 'shortcuts.open')!
@@ -34,13 +40,23 @@ describe('assembled shortcut command owners', () => {
     expect(rowInjected?.hooks?.catalog).toBe(shortcuts.catalog)
     const ownerIds = ['settings.open', 'shortcuts.open', 'sidebar.left.toggle']
     const ownedRows = () => shortcuts.catalog.getSnapshot().filter(row => ownerIds.includes(row.id))
-    expect(ownedRows().map(row => row.id).sort()).toEqual(ownerIds)
-    expect(ownedRows().filter(row => row.keys.length > 0).map(row => row.id)).toEqual(['shortcuts.open'])
+    expect(
+      ownedRows()
+        .map(row => row.id)
+        .sort(),
+    ).toEqual(ownerIds)
+    expect(
+      ownedRows()
+        .filter(row => row.keys.length > 0)
+        .map(row => row.id),
+    ).toEqual(['shortcuts.open'])
     const conversationIds = ['fixed.send', 'fixed.newline', 'fixed.complementary', 'fixed.slash', 'fixed.mention', 'response.stop']
     const fixedIds = () => shortcuts.fixedCatalog.getSnapshot().map(row => row.id)
     expect(fixedIds()).toEqual(expect.arrayContaining(conversationIds))
-    expect(shortcuts.fixedCatalog.getSnapshot().find(row => row.id === 'response.stop'))
-      .toMatchObject({ group: 'input', keys: ['Esc', 'Esc'] })
+    expect(shortcuts.fixedCatalog.getSnapshot().find(row => row.id === 'response.stop')).toMatchObject({
+      group: 'input',
+      keys: ['Esc', 'Esc'],
+    })
     await client.unload('@deepseek-ai/dsh-client-ui-shortcuts')
     expect(fixedIds()).toEqual(expect.arrayContaining(conversationIds))
     expect(fixedIds()).not.toContain('fixed.move')
@@ -56,7 +72,12 @@ describe('assembled shortcut command owners', () => {
     const previousBridge = Object.getOwnPropertyDescriptor(window, 'dshDesktop')
     const listeners = new Set<(input: DesktopShortcutInput) => void>()
     const keyboard: DesktopKeyboardApi = {
-      subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+      subscribe: listener => {
+        listeners.add(listener)
+        return () => {
+          listeners.delete(listener)
+        }
+      },
       closeWindow: async () => {},
     }
     Object.defineProperty(window, 'dshDesktop', { configurable: true, value: { keyboard } })
@@ -75,22 +96,55 @@ describe('assembled shortcut command owners', () => {
     const client = await start()
     const shortcuts = client.ctx.shortcuts
     const settings = (client.ctx.slots.entries('sidebar.settings')[0]!.store as ReturnType<typeof createSettingsShellStore>).create()
-    const reference = (client.ctx.slots.entries('shell.overlay').find(entry => entry.options.id === 'shortcuts')!.store as ReturnType<typeof createShortcutsStore>).create()
+    const reference = (
+      client.ctx.slots.entries('shell.overlay').find(entry => entry.options.id === 'shortcuts')!.store as ReturnType<
+        typeof createShortcutsStore
+      >
+    ).create()
     const layout = (client.ctx.slots.entries('root')[0]!.store as ReturnType<typeof createLayoutStore>).create()
     function Dialogs() {
-      const settingsState = useSyncExternalStore(listener => settings.subscribe(listener), () => settings.getSnapshot())
-      const referenceState = useSyncExternalStore(listener => reference.subscribe(listener), () => reference.getSnapshot())
-      return createElement(Fragment, null,
-        createElement(Modal, { open: settingsState.open, title: 'Settings', closeLabel: 'Close settings',
-          shortcutModal: 'settings', onClose: settings.actions.close }),
-        createElement(Modal, { open: referenceState.open, title: 'Shortcuts', closeLabel: 'Close shortcuts',
-          shortcutModal: 'shortcuts', onClose: reference.actions.close }))
+      const settingsState = useSyncExternalStore(
+        listener => settings.subscribe(listener),
+        () => settings.getSnapshot(),
+      )
+      const referenceState = useSyncExternalStore(
+        listener => reference.subscribe(listener),
+        () => reference.getSnapshot(),
+      )
+      return createElement(
+        Fragment,
+        null,
+        createElement(Modal, {
+          open: settingsState.open,
+          title: 'Settings',
+          closeLabel: 'Close settings',
+          shortcutModal: 'settings',
+          onClose: settings.actions.close,
+        }),
+        createElement(Modal, {
+          open: referenceState.open,
+          title: 'Shortcuts',
+          closeLabel: 'Close shortcuts',
+          shortcutModal: 'shortcuts',
+          onClose: reference.actions.close,
+        }),
+      )
     }
     render(createElement(Dialogs))
     const press = (code: string, repeat = false): void => {
       act(() => {
-        for (const listener of listeners) listener({ kind: 'keyboard', revision: shortcuts.config.getSnapshot().revision,
-          frameName: '', code, control: false, alt: false, shift: false, meta: true, repeat })
+        for (const listener of listeners)
+          listener({
+            kind: 'keyboard',
+            revision: shortcuts.config.getSnapshot().revision,
+            frameName: '',
+            code,
+            control: false,
+            alt: false,
+            shift: false,
+            meta: true,
+            repeat,
+          })
       })
     }
     press('Comma')
@@ -101,11 +155,15 @@ describe('assembled shortcut command owners', () => {
     press('Comma')
     expect(settings.getSnapshot().open).toBe(false)
     press('Comma')
-    act(() => { settings.actions.select('general') })
+    act(() => {
+      settings.actions.select('general')
+    })
     const selected = settings.getSnapshot()
     press('Slash')
     expect(reference.getSnapshot().open).toBe(true)
-    act(() => { reference.actions.search('session') })
+    act(() => {
+      reference.actions.search('session')
+    })
     const searched = reference.getSnapshot()
     press('Slash', true)
     press('Comma')

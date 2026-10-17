@@ -8,18 +8,26 @@ import { exactKeys, optionalBoolean, optionalString } from '../../../../shared/v
  * @param params - Untrusted CDP parameters.
  * @returns The common call-frame evaluation request.
  */
-export function parseCallFrameEvaluation(
-  params: Readonly<Record<string, unknown>>,
-): RuntimeCallFrameEvaluationRequest {
-  exactKeys(params, [
-    'callFrameId', 'expression', 'objectGroup', 'includeCommandLineAPI', 'silent', 'returnByValue',
-    'generatePreview', 'throwOnSideEffect', 'timeout',
-  ], 'Debugger.evaluateOnCallFrame parameters')
+export function parseCallFrameEvaluation(params: Readonly<Record<string, unknown>>): RuntimeCallFrameEvaluationRequest {
+  exactKeys(
+    params,
+    [
+      'callFrameId',
+      'expression',
+      'objectGroup',
+      'includeCommandLineAPI',
+      'silent',
+      'returnByValue',
+      'generatePreview',
+      'throwOnSideEffect',
+      'timeout',
+    ],
+    'Debugger.evaluateOnCallFrame parameters',
+  )
   if (typeof params.callFrameId !== 'string' || typeof params.expression !== 'string') {
     throw new Error('Debugger.evaluateOnCallFrame requires callFrameId and expression')
   }
-  if (params.timeout !== undefined
-    && (typeof params.timeout !== 'number' || !Number.isFinite(params.timeout) || params.timeout < 0)) {
+  if (params.timeout !== undefined && (typeof params.timeout !== 'number' || !Number.isFinite(params.timeout) || params.timeout < 0)) {
     throw new Error('Debugger.evaluateOnCallFrame timeout must be a non-negative number')
   }
   return {

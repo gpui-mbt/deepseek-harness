@@ -103,10 +103,10 @@ export interface StreamableHttpConfig {
 /** Configuration for one stdio or Streamable HTTP MCP server. */
 export type Config = StdioConfig | StreamableHttpConfig
 
-type StdioConfigInput = Omit<StdioConfig, 'args' | 'env' | 'cwd' | 'toolCallTimeoutMs' | 'failOnStartupError'>
-  & Partial<Pick<StdioConfig, 'args' | 'env' | 'cwd' | 'toolCallTimeoutMs' | 'failOnStartupError'>>
-type StreamableHttpConfigInput = Omit<StreamableHttpConfig, 'headers' | 'toolCallTimeoutMs' | 'failOnStartupError'>
-  & Partial<Pick<StreamableHttpConfig, 'headers' | 'toolCallTimeoutMs' | 'failOnStartupError'>>
+type StdioConfigInput = Omit<StdioConfig, 'args' | 'env' | 'cwd' | 'toolCallTimeoutMs' | 'failOnStartupError'> &
+  Partial<Pick<StdioConfig, 'args' | 'env' | 'cwd' | 'toolCallTimeoutMs' | 'failOnStartupError'>>
+type StreamableHttpConfigInput = Omit<StreamableHttpConfig, 'headers' | 'toolCallTimeoutMs' | 'failOnStartupError'> &
+  Partial<Pick<StreamableHttpConfig, 'headers' | 'toolCallTimeoutMs' | 'failOnStartupError'>>
 type ConfigInput = StdioConfigInput | StreamableHttpConfigInput
 
 const Reconnect: z<ReconnectConfig> = z.object({
@@ -181,14 +181,18 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const connection = startConnection(ctx, config, reconnect)
   registerServerContext(ctx, config.serverName, connection)
   let stopping: Promise<void> | undefined
-  const dispose = (): Promise<void> => stopping ??= connection.dispose()
+  const dispose = (): Promise<void> => (stopping ??= connection.dispose())
   // Cordis announces unload before awaiting an unfinished apply(). Closing
   // the transport here releases startup requests that are still awaiting a reply.
-  // oxlint-disable-next-line typescript/no-misused-promises -- Cordis contains observer failures; the effect also awaits this promise.
-  ctx.on('internal/plugin', (fiber) => {
-    if (fiber !== ctx.fiber || fiber.uid !== null) return
-    return dispose()
-  }, { global: true })
+  ctx.on(
+    'internal/plugin',
+    // oxlint-disable-next-line typescript/no-misused-promises -- Cordis contains observer failures; the effect also awaits this promise.
+    fiber => {
+      if (fiber !== ctx.fiber || fiber.uid !== null) return
+      return dispose()
+    },
+    { global: true },
+  )
   ctx.effect(() => dispose, 'mcp-client.connection')
 
   // Block plugin activation on the initial connection + tool discovery so

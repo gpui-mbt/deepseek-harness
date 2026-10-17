@@ -28,8 +28,11 @@ import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
  */
 export const checkpointRow = z.object({
   ver: z.number().int().nonnegative(),
-  seq: z.number().int().gte(-1).transform((value): SessionSeqCursor =>
-    value === -1 ? -1 : SessionSeq(value)),
+  seq: z
+    .number()
+    .int()
+    .gte(-1)
+    .transform((value): SessionSeqCursor => (value === -1 ? -1 : SessionSeq(value))),
   val: z.custom<JsonValue>(isJsonValue, { message: 'checkpoint state must be losslessly JSON-serializable' }),
 })
 

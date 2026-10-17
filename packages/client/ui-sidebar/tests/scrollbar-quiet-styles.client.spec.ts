@@ -6,7 +6,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module.css', import.meta.url)), 'utf8')
 /** Declarations only: the sheet's prose names the properties it explains. */
@@ -18,11 +18,12 @@ describe('SidebarRoot.module.css quiet column', () => {
     // painting its base-surface colour the moment the pointer reaches the bar.
     const rule = /\.root\.quietBars\s*\{([^{}]*)\}/.exec(declarationText)
     expect(rule).not.toBeNull()
-    const declarations = (rule![1] ?? '').split(';').map(part => part.trim()).filter(Boolean).sort()
-    expect(declarations).toEqual([
-      '--dsh-scrollbar-thumb-hover: transparent',
-      '--dsh-scrollbar-thumb: transparent',
-    ].sort())
+    const declarations = (rule![1] ?? '')
+      .split(';')
+      .map(part => part.trim())
+      .filter(Boolean)
+      .sort()
+    expect(declarations).toEqual(['--dsh-scrollbar-thumb-hover: transparent', '--dsh-scrollbar-thumb: transparent'].sort())
   })
 
   it('leaves the gutter reservation to the scrolling region', () => {

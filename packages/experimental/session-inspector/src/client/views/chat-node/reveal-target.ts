@@ -13,19 +13,23 @@ function nearest(nodes: readonly ChatConversationViewNode[], seq: number): ChatC
 
 function primaryTarget(target: InspectorChatTarget, visible: readonly ChatConversationViewNode[]): InspectorChatTarget {
   if (target.nodeKey !== undefined || target.anchorSeq === undefined) return target
-  const inTurn = target.turn === undefined ? visible : visible.filter(node =>
-    (node.location.kind === 'turn' || node.location.kind === 'step') && node.location.turn.turn === target.turn)
-  const inStep = target.step === undefined ? inTurn
-    : inTurn.filter(node => node.location.kind === 'step' && node.location.step.step === target.step)
+  const inTurn =
+    target.turn === undefined
+      ? visible
+      : visible.filter(node => (node.location.kind === 'turn' || node.location.kind === 'step') && node.location.turn.turn === target.turn)
+  const inStep =
+    target.step === undefined ? inTurn : inTurn.filter(node => node.location.kind === 'step' && node.location.step.step === target.step)
   const rootCallId = target.rootCallId ?? target.callId
-  const tool = rootCallId === undefined ? undefined
-    : visible.find(node => node.kind === 'tool-call' && (node.data as ToolChatData).root.callId === rootCallId)
+  const tool =
+    rootCallId === undefined
+      ? undefined
+      : visible.find(node => node.kind === 'tool-call' && (node.data as ToolChatData).root.callId === rootCallId)
   const exact = inStep.find(node => node.anchorSeq === target.anchorSeq)
   const kind = target.nodeKind === undefined ? undefined : inStep.find(node => node.kind === target.nodeKind)
   const node = tool ?? exact ?? kind ?? nearest(inStep, target.anchorSeq) ?? nearest(inTurn, target.anchorSeq)
   if (node === undefined) return target
   const turn = target.turn ?? (node.location.kind === 'turn' || node.location.kind === 'step' ? node.location.turn.turn : undefined)
-  return { ...target, nodeKey: node.key, ...turn === undefined ? {} : { turn } }
+  return { ...target, nodeKey: node.key, ...(turn === undefined ? {} : { turn }) }
 }
 
 function nodeTarget(node: ChatConversationViewNode) {
@@ -33,15 +37,22 @@ function nodeTarget(node: ChatConversationViewNode) {
   return {
     nodeKey: node.key,
     anchorSeq: node.anchorSeq,
-    ...location.kind === 'turn' || location.kind === 'step' ? { turn: location.turn.turn } : {},
-    ...location.kind === 'step' ? { step: location.step.step } : {},
+    ...(location.kind === 'turn' || location.kind === 'step' ? { turn: location.turn.turn } : {}),
+    ...(location.kind === 'step' ? { step: location.step.step } : {}),
   }
 }
 
 function targetKey(target: InspectorChatTarget): string {
   return JSON.stringify([
-    target.anchorSeq, target.callId, target.rootCallId, target.nodeKey, target.nodeKind,
-    target.groupKey, target.groupPart, target.turn, target.step,
+    target.anchorSeq,
+    target.callId,
+    target.rootCallId,
+    target.nodeKey,
+    target.nodeKind,
+    target.groupKey,
+    target.groupPart,
+    target.turn,
+    target.step,
   ])
 }
 
@@ -64,20 +75,24 @@ export function resolveChatRevealTargets(
   const referenceSeq = target.anchorSeq ?? position?.anchorSeq
   const turn = target.turn ?? position?.turn
   const step = target.step ?? position?.step
-  const primary = position === undefined ? primaryTarget(target, visible) : {
-    ...target,
-    anchorSeq: target.anchorSeq ?? position.anchorSeq,
-    ...turn === undefined ? {} : { turn },
-    ...step === undefined ? {} : { step },
-  }
+  const primary =
+    position === undefined
+      ? primaryTarget(target, visible)
+      : {
+          ...target,
+          anchorSeq: target.anchorSeq ?? position.anchorSeq,
+          ...(turn === undefined ? {} : { turn }),
+          ...(step === undefined ? {} : { step }),
+        }
   if (referenceSeq === undefined) return [primary]
   const rank = (candidate: ReturnType<typeof nodeTarget>): number => {
     const sameTurn = turn === undefined || candidate.turn === turn
     if (sameTurn && step !== undefined && candidate.step === step) return 0
     return sameTurn && turn !== undefined ? 1 : 2
   }
-  const neighbors = visible.map(nodeTarget).sort((left, right) =>
-    rank(left) - rank(right) || Math.abs(left.anchorSeq - referenceSeq) - Math.abs(right.anchorSeq - referenceSeq))
+  const neighbors = visible
+    .map(nodeTarget)
+    .sort((left, right) => rank(left) - rank(right) || Math.abs(left.anchorSeq - referenceSeq) - Math.abs(right.anchorSeq - referenceSeq))
   const candidates = [primary]
   const seen = new Set([targetKey(primary)])
   for (const candidate of neighbors) {

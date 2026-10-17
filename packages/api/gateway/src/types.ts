@@ -53,9 +53,7 @@ export interface TypertRemoteEventContext {
 }
 
 /** Result returned from a Client waterfall, or delegation back to the Host chain. */
-export type TypertRemoteEventOutcome =
-  | { readonly kind: 'result'; readonly value: unknown }
-  | { readonly kind: 'next' }
+export type TypertRemoteEventOutcome = { readonly kind: 'result'; readonly value: unknown } | { readonly kind: 'next' }
 
 /**
  * One scoped waterfall invocation yielded by the application event source.
@@ -84,9 +82,7 @@ export type TypertRemoteEventDispatch = TypertRemoteEventFrame | TypertRemoteEve
  * @param signal - cancellation shared with the Client stream and registration.
  * @returns the long-lived stream of notifications and scoped waterfall invocations.
  */
-export type TypertRemoteEventSource = (
-  signal: AbortSignal,
-) => AsyncIterable<TypertRemoteEventDispatch>
+export type TypertRemoteEventSource = (signal: AbortSignal) => AsyncIterable<TypertRemoteEventDispatch>
 
 /** Carrier-facing access to decoded Remote streams and their stable failures. */
 export interface TypertGatewayWireStream {
@@ -161,10 +157,7 @@ export interface TypertGateway {
    * @param host - stable Host facts included in each Client generation's opening frame.
    * @returns disposer removing this exact source and cancelling its active streams.
    */
-  registerRemoteEvents(
-    source: TypertRemoteEventSource,
-    host: RemoteEventHostInfo,
-  ): () => Promise<void>
+  registerRemoteEvents(source: TypertRemoteEventSource, host: RemoteEventHostInfo): () => Promise<void>
 
   /**
    * Invoke one live Remote method without assuming a carrier or response envelope.

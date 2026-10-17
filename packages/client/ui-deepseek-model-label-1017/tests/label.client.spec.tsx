@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionId } from '@deepseek-ai/dsh-session/types'

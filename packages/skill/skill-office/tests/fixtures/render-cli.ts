@@ -12,7 +12,10 @@ import { fileURLToPath } from 'node:url'
  * @returns Path to the wrapper and its operation log.
  */
 export async function renderCliFixture(
-  cwd: string, python: string, blank: boolean, calls = join(cwd, '.fixture', 'calls.jsonl'),
+  cwd: string,
+  python: string,
+  blank: boolean,
+  calls = join(cwd, '.fixture', 'calls.jsonl'),
 ): Promise<{ cli: string; calls: string }> {
   const cli = join(cwd, '.fixture', 'cli.js')
   const kit = fileURLToPath(import.meta.resolve('@deepseek-ai/libreoffice-kit/cli'))
@@ -36,7 +39,9 @@ export async function renderCliFixture(
     'print(str(all_blank).lower())',
   ].join('\n')
   await mkdir(dirname(cli))
-  await writeFile(cli, `
+  await writeFile(
+    cli,
+    `
 const { spawnSync } = require('node:child_process');
 const { appendFileSync } = require('node:fs');
 const args = process.argv.slice(2);
@@ -56,6 +61,7 @@ appendFileSync(${JSON.stringify(calls)}, JSON.stringify({ args, status: result.s
 process.stdout.write(result.stdout);
 process.stderr.write(result.stderr);
 process.exitCode = result.status ?? 1;
-`)
+`,
+  )
   return { cli, calls }
 }

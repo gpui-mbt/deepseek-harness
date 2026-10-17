@@ -132,12 +132,14 @@ interface ResolvedWatchConfig {
 /** Register the local filesystem skill provider on `ctx.skills`. */
 export function apply(ctx: Context, config: Config = {}): void {
   let provider!: FileSystemSkillProvider
-  ctx.skills.registerProvider((control) => {
+  ctx.skills.registerProvider(control => {
     provider = new FileSystemSkillProvider(ctx, control, config)
     return provider
   })
   ctx.effect(function* () {
-    yield async () => { await provider.dispose() }
+    yield async () => {
+      await provider.dispose()
+    }
   }, 'skill-filesystem watcher')
   ctx.on('fs/observed', (target, _observation, actor) => {
     if (mutationToolName(actor) === undefined) return
@@ -167,12 +169,17 @@ export class FileSystemSkillProvider implements SkillProvider {
     this.agentsHome = resolveAgentsHome(config.agentsHome)
     this.customSkillDirs = (config.customSkillDirs ?? []).map(root => resolve(root))
     this.watchManager = new SkillWatchManager(ctx, control.invalidate, resolveWatchConfig(config))
-    control.signal.addEventListener('abort', () => { void this.dispose() }, { once: true })
+    control.signal.addEventListener(
+      'abort',
+      () => {
+        void this.dispose()
+      },
+      { once: true },
+    )
     // The environment bundled root is a default root: an isolated provider
     // must see only its explicit roots, or every such provider would
     // re-discover the app's bundled skills under its own provider name.
-    const bundledSkillDir = config.bundledSkillDir
-      ?? (this.includeDefaultRoots ? process.env.DSH_BUNDLED_SKILL_DIR : undefined)
+    const bundledSkillDir = config.bundledSkillDir ?? (this.includeDefaultRoots ? process.env.DSH_BUNDLED_SKILL_DIR : undefined)
     this.bundledSkillDir = bundledSkillDir === undefined ? undefined : resolve(bundledSkillDir)
   }
 
@@ -213,13 +220,13 @@ export class FileSystemSkillProvider implements SkillProvider {
     return {
       name: parsed.name,
       description: parsed.description,
-      ...parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {},
+      ...(parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {}),
       invocation: parsed.invocation,
       source: candidate.source,
       provider: this.name,
       resourceBase: { kind: 'directory', path: locator.directory },
       path: parsed.path,
-      ...parsed.metadata !== undefined ? { metadata: parsed.metadata } : {},
+      ...(parsed.metadata !== undefined ? { metadata: parsed.metadata } : {}),
       content: parsed.content,
     }
   }
@@ -266,9 +273,7 @@ export class FileSystemSkillProvider implements SkillProvider {
 
 type SkillWatchEvent = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir'
 
-type RootWatchMode =
-  | { kind: 'root'; anchor: string }
-  | { kind: 'ancestor'; anchor: string; nextPath: string }
+type RootWatchMode = { kind: 'root'; anchor: string } | { kind: 'ancestor'; anchor: string; nextPath: string }
 
 interface RootWatchState {
   root: SkillRoot
@@ -345,12 +350,14 @@ class SkillWatchManager {
     const states = [...this.roots.values()]
     this.roots.clear()
     this.projects.clear()
-    await Promise.all(states.map(async (state) => {
-      await settleWatcherOpening(state.opening)
-      const watcher = state.watcher
-      state.watcher = undefined
-      if (watcher !== undefined) await this.closeWatcher(watcher)
-    }))
+    await Promise.all(
+      states.map(async state => {
+        await settleWatcherOpening(state.opening)
+        const watcher = state.watcher
+        state.watcher = undefined
+        if (watcher !== undefined) await this.closeWatcher(watcher)
+      }),
+    )
   }
 
   private async retainRoot(root: SkillRoot, owner: string): Promise<void> {
@@ -439,9 +446,7 @@ class SkillWatchManager {
   private async openStableWatcher(state: RootWatchState): Promise<WatchHandle | undefined> {
     while (!this.closing && state.owners.size > 0) {
       const mode = await resolveRootWatchMode(state.root.path, this.config.followSymlinks)
-      const watcher = mode.kind === 'ancestor'
-        ? this.openAncestorWatcher(state, mode)
-        : await this.openRootWatcher(state, mode)
+      const watcher = mode.kind === 'ancestor' ? this.openAncestorWatcher(state, mode) : await this.openRootWatcher(state, mode)
       const current = await resolveRootWatchMode(state.root.path, this.config.followSymlinks)
       /* v8 ignore else -- A host path transition between the two probes is timing-dependent. */
       if (sameWatchMode(mode, current)) return watcher
@@ -456,10 +461,14 @@ class SkillWatchManager {
     const listener = (_current: Stats, _previous: Stats): void => {
       void this.handleAncestorWatchEvent(state, mode)
     }
-    watchFile(mode.nextPath, {
-      persistent: false,
-      interval: this.config.pollIntervalMs,
-    }, listener)
+    watchFile(
+      mode.nextPath,
+      {
+        persistent: false,
+        interval: this.config.pollIntervalMs,
+      },
+      listener,
+    )
     return {
       mode,
       close() {
@@ -468,10 +477,7 @@ class SkillWatchManager {
     }
   }
 
-  private async handleAncestorWatchEvent(
-    state: RootWatchState,
-    mode: Extract<RootWatchMode, { kind: 'ancestor' }>,
-  ): Promise<void> {
+  private async handleAncestorWatchEvent(state: RootWatchState, mode: Extract<RootWatchMode, { kind: 'ancestor' }>): Promise<void> {
     let current: RootWatchMode
     try {
       current = await resolveRootWatchMode(state.root.path, this.config.followSymlinks)
@@ -529,7 +535,9 @@ class SkillWatchManager {
       await this.closeWatcher(handle)
       signal.throwIfAborted()
     }
-    const onAbort = (): void => { readiness.reject(signal.reason) }
+    const onAbort = (): void => {
+      readiness.reject(signal.reason)
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     watcher.on('error', onError)
     watcher.once('ready', () => {
@@ -537,7 +545,9 @@ class SkillWatchManager {
       readiness.resolve(undefined)
     })
     for (const event of ['add', 'addDir', 'change', 'unlink', 'unlinkDir'] as const) {
-      watcher.on(event, (path) => { this.handleWatchEvent(state, mode, event, path) })
+      watcher.on(event, path => {
+        this.handleWatchEvent(state, mode, event, path)
+      })
     }
     try {
       await readiness.promise
@@ -639,9 +649,7 @@ async function resolveRootWatchMode(root: string, followSymlinks: boolean): Prom
     try {
       const info = await stat(candidate)
       if (info.isDirectory()) {
-        const preserveRootLink = candidate === root
-          && !followSymlinks
-          && (await lstat(candidate)).isSymbolicLink()
+        const preserveRootLink = candidate === root && !followSymlinks && (await lstat(candidate)).isSymbolicLink()
         const anchor = preserveRootLink ? resolve(candidate) : await canonicalizeWatchPath(candidate)
         if (candidate === root) return { kind: 'root', anchor }
         const firstSegment = relative(candidate, root).split(sep)[0]
@@ -661,16 +669,14 @@ async function resolveRootWatchMode(root: string, followSymlinks: boolean): Prom
 }
 
 function sameWatchMode(left: RootWatchMode, right: RootWatchMode): boolean {
-  return left.kind === right.kind
-    && left.anchor === right.anchor
-    && (left.kind === 'root' || (right.kind === 'ancestor' && left.nextPath === right.nextPath))
+  return (
+    left.kind === right.kind &&
+    left.anchor === right.anchor &&
+    (left.kind === 'root' || (right.kind === 'ancestor' && left.nextPath === right.nextPath))
+  )
 }
 
-function isRelevantWatchEvent(
-  root: SkillRoot,
-  event: SkillWatchEvent,
-  path: string,
-): boolean {
+function isRelevantWatchEvent(root: SkillRoot, event: SkillWatchEvent, path: string): boolean {
   const segments = containedSegments(root.path, path)
   if (segments === undefined) return false
   if (segments.length === 0) return event === 'addDir' || event === 'unlinkDir'
@@ -679,19 +685,14 @@ function isRelevantWatchEvent(
     if (event === 'addDir' || event === 'unlinkDir') return true
     return segments[0]?.endsWith('.md') === true
   }
-  return segments.length === 2
-    && segments[1] === 'SKILL.md'
-    && event !== 'addDir'
-    && event !== 'unlinkDir'
+  return segments.length === 2 && segments[1] === 'SKILL.md' && event !== 'addDir' && event !== 'unlinkDir'
 }
 
 function isPotentialSkillPath(root: SkillRoot, path: string): boolean {
   const segments = containedSegments(root.path, path)
   if (segments === undefined || segments.length === 0 || segments.length > 2) return false
   if (root.skipSystem === true && segments[0] === '.system') return false
-  return segments.length === 1
-    ? segments[0]?.endsWith('.md') === true
-    : segments[1] === 'SKILL.md'
+  return segments.length === 1 ? segments[0]?.endsWith('.md') === true : segments[1] === 'SKILL.md'
 }
 
 function containedSegments(root: string, path: string): string[] | undefined {
@@ -718,9 +719,7 @@ function isAbsentPathError(error: unknown): boolean {
 }
 
 function isAbsentSkillPathError(error: unknown): boolean {
-  return isAbsentPathError(error)
-    || hasErrorCode(error, 'FS_NOT_FOUND')
-    || hasErrorCode(error, 'FS_NOT_DIRECTORY')
+  return isAbsentPathError(error) || hasErrorCode(error, 'FS_NOT_FOUND') || hasErrorCode(error, 'FS_NOT_DIRECTORY')
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
@@ -732,18 +731,19 @@ async function discoverRoot(root: SkillRoot, ctx: Context, provider: string): Pr
   const entries = await listSkillRootEntries(root, ctx)
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     if (root.skipSystem && entry.name === '.system') continue
-    const locator = entry.type === 'directory'
-      ? { path: join(entry.path, 'SKILL.md'), directory: entry.path }
-      : entry.type === 'file' && entry.name.endsWith('.md')
-        ? { path: entry.path, directory: root.path }
-        : undefined
+    const locator =
+      entry.type === 'directory'
+        ? { path: join(entry.path, 'SKILL.md'), directory: entry.path }
+        : entry.type === 'file' && entry.name.endsWith('.md')
+          ? { path: entry.path, directory: root.path }
+          : undefined
     if (locator === undefined) continue
     const parsed = await parseSkillFile(locator.path, ctx, undefined, root.trustedHost === true)
     if (parsed === undefined) continue
     skills.push({
       name: parsed.name,
       description: parsed.description,
-      ...parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {},
+      ...(parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {}),
       invocation: parsed.invocation,
       provider,
       source: root.source,
@@ -751,7 +751,7 @@ async function discoverRoot(root: SkillRoot, ctx: Context, provider: string): Pr
       locator,
       resourceBase: { kind: 'directory', path: locator.directory },
       path: parsed.path,
-      ...parsed.metadata !== undefined ? { metadata: parsed.metadata } : {},
+      ...(parsed.metadata !== undefined ? { metadata: parsed.metadata } : {}),
     })
   }
   return skills
@@ -867,7 +867,10 @@ async function readSkillText(ctx: Context, path: string, signal?: AbortSignal, t
 }
 
 async function readSkillTextFromFileSystem(
-  ctx: Context, fs: FileSystem, path: string, signal?: AbortSignal,
+  ctx: Context,
+  fs: FileSystem,
+  path: string,
+  signal?: AbortSignal,
 ): Promise<SkillText | undefined> {
   // A missing or temporarily inaccessible skill file is not fatal to discovery.
   signal?.throwIfAborted()
@@ -903,7 +906,11 @@ function fsReadErrorMessage(target: FsTarget, error: unknown): string {
   return `failed to read text file at ${target.displayPath}: ${errorMessage(error)}`
 }
 
-async function nodeEntryKind(fullPath: string, entry: { isDirectory(): boolean; isFile(): boolean; isSymbolicLink(): boolean }, ctx: Context): Promise<'directory' | 'file' | undefined> {
+async function nodeEntryKind(
+  fullPath: string,
+  entry: { isDirectory(): boolean; isFile(): boolean; isSymbolicLink(): boolean },
+  ctx: Context,
+): Promise<'directory' | 'file' | undefined> {
   if (entry.isDirectory()) return 'directory'
   if (entry.isFile()) return 'file'
   /* v8 ignore next -- Non-file directory entries such as FIFOs are platform-specific and intentionally skipped. */
@@ -977,7 +984,7 @@ async function pathExistsInFileSystem(path: string, fs: FileSystem): Promise<boo
     return false
   }
   try {
-    return await fs.stat(target) !== undefined
+    return (await fs.stat(target)) !== undefined
   } catch {
     // Transient stat failures make only this git-root candidate unusable.
     return false

@@ -1,5 +1,5 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,7 +33,7 @@ class GatedAdapter extends LlmAdapter {
     super()
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     const entry = this.script.shift()
     if (!entry) throw new Error('GatedAdapter: script exhausted')
@@ -80,38 +80,40 @@ async function setup(script: ConstructorParameters<typeof MockAdapter>[0]) {
 }
 
 function text(result: { content: readonly { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 let calls = 0
-function callTool(
-  ctx: Context,
-  name: string,
-  args: unknown,
-  agent?: unknown,
-  signal: AbortSignal = testToolSignal,
-) {
+function callTool(ctx: Context, name: string, args: unknown, agent?: unknown, signal: AbortSignal = testToolSignal) {
   return ctx.tools.execute({
     signal,
     callId: ToolCallId(`call-${++calls}`),
     name,
     arguments: args,
-    ...agent !== undefined ? { agent: agent as never } : {},
+    ...(agent !== undefined ? { agent: agent as never } : {}),
   })
 }
 
 /** Wait until a continuable child released its current Activation. */
 async function waitNoActivation(ctx: Context, childId: SessionId): Promise<void> {
-  await vi.waitFor(() => {
-    expect(ctx.agents.get(childId)).toBeUndefined()
-  }, { timeout: 5_000 })
+  await vi.waitFor(
+    () => {
+      expect(ctx.agents.get(childId)).toBeUndefined()
+    },
+    { timeout: 5_000 },
+  )
 }
 
 describe('dsh-tool-subagent-control/list-agents', () => {
   it('lists a settled caller-delivery local child in both scopes', async () => {
     const { ctx, parent } = await setup([textResponse('private result')])
     const started = await ctx.subagents.startActivation({
-      delivery: 'caller', provider: 'spawn', label: 'workflow child',
+      delivery: 'caller',
+      provider: 'spawn',
+      label: 'workflow child',
       request: { prompt: [{ type: 'text', text: 'child task' }], parent },
       signal: testToolSignal,
     })
@@ -121,17 +123,22 @@ describe('dsh-tool-subagent-control/list-agents', () => {
     for (const scope of ['children', 'descendants']) {
       const result = await callTool(ctx, 'list_agents', { scope }, parent)
       expect(result.isError).toBe(false)
-      expect(text(result)).toBe(scope === 'children'
-        ? `${started.childId} [inactive] — workflow child`
-        : `${started.childId} [inactive] parent=${parent.id} depth=1 — workflow child`)
+      expect(text(result)).toBe(
+        scope === 'children'
+          ? `${started.childId} [inactive] — workflow child`
+          : `${started.childId} [inactive] parent=${parent.id} depth=1 — workflow child`,
+      )
     }
   })
 
   it('omits external leaves from direct and recursive listings without diagnostics', async () => {
     const { ctx, parent } = await setup([])
     parent.session.append('subagent/catalog', {
-      version: 2, childId: SessionId('external-child'), childCreatedAt: 1,
-      mode: 'external', label: 'external child',
+      version: 2,
+      childId: SessionId('external-child'),
+      childCreatedAt: 1,
+      mode: 'external',
+      label: 'external child',
     })
     for (const scope of ['children', 'descendants']) {
       const result = await callTool(ctx, 'list_agents', { scope }, parent)
@@ -165,7 +172,8 @@ describe('dsh-tool-subagent-control/list-agents', () => {
 
   it('renders direct children in array order with registry statuses', async () => {
     const { ctx, parent } = await setup([textResponse('done')])
-    const started = await ctx.subagents.startActivation({ delivery: 'parent',
+    const started = await ctx.subagents.startActivation({
+      delivery: 'parent',
       provider: 'spawn',
       label: 'real child',
       request: { prompt: [{ type: 'text', text: 'child task' }], parent },
@@ -202,9 +210,12 @@ describe('dsh-tool-subagent-control/list-agents', () => {
       },
     ]
     ctx.subagents.listChildren = () => Promise.resolve(entries)
-    const agents = new Map<string, {
-      status: 'running' | 'idle'
-    }>([
+    const agents = new Map<
+      string,
+      {
+        status: 'running' | 'idle'
+      }
+    >([
       ['running-child', { status: 'running' }],
       ['waiting-child', { status: 'idle' }],
     ])
@@ -212,9 +223,9 @@ describe('dsh-tool-subagent-control/list-agents', () => {
     const result = await callTool(ctx, 'list_agents', {}, parent)
     expect(result.isError).toBe(false)
     expect(text(result)).toBe(
-      `${started.childId} [inactive] — real child\n`
-      + 'running-child [running] — still working\n'
-      + 'waiting-child [inactive] — waiting on descendants',
+      `${started.childId} [inactive] — real child\n` +
+        'running-child [running] — still working\n' +
+        'waiting-child [inactive] — waiting on descendants',
     )
   })
 
@@ -232,10 +243,14 @@ describe('dsh-tool-subagent-control/list-agents', () => {
   it('lists a real settled continuable child and omits a historical one-shot sibling', async () => {
     const { ctx, parent } = await setup([textResponse('done')])
     parent.session.append('subagent/catalog', {
-      version: 1, childId: SessionId('historical-one-shot'), childCreatedAt: 1,
-      mode: 'one-shot', label: 'finished once',
+      version: 1,
+      childId: SessionId('historical-one-shot'),
+      childCreatedAt: 1,
+      mode: 'one-shot',
+      label: 'finished once',
     })
-    const started = await ctx.subagents.startActivation({ delivery: 'parent',
+    const started = await ctx.subagents.startActivation({
+      delivery: 'parent',
       provider: 'spawn',
       label: 'summarize the doc',
       request: { prompt: [{ type: 'text', text: 'child task' }], parent },
@@ -296,33 +311,42 @@ describe('dsh-tool-subagent-control/list-agents', () => {
       { chunks: textResponse('grandchild'), gate: releaseGrandchild.promise },
     ])
     const { ctx, parent } = await setupWith(adapter)
-    const started = await ctx.subagents.startActivation({ delivery: 'parent',
+    const started = await ctx.subagents.startActivation({
+      delivery: 'parent',
       provider: 'spawn',
       label: 'waiting branch',
       request: { prompt: [{ type: 'text', text: 'branch work' }], parent },
       signal: testToolSignal,
     })
-    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(adapter.requests).toHaveLength(1)
+    })
     const child = ctx.agents.get(started.childId)!
-    const grandchild = await ctx.subagents.startActivation({ delivery: 'parent',
+    const grandchild = await ctx.subagents.startActivation({
+      delivery: 'parent',
       provider: 'spawn',
       label: 'nested leaf',
       request: { prompt: [{ type: 'text', text: 'leaf work' }], parent: child },
       signal: testToolSignal,
     })
-    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(2) })
+    await vi.waitFor(() => {
+      expect(adapter.requests).toHaveLength(2)
+    })
     // The branch finishes its own turn but stays resident waiting on the
     // grandchild it owns: the live-registry `idle` status.
     releaseChild.resolve(undefined)
-    await vi.waitFor(() => {
-      expect(ctx.agents.get(started.childId)?.status).toBe('idle')
-    }, { timeout: 5_000 })
+    await vi.waitFor(
+      () => {
+        expect(ctx.agents.get(started.childId)?.status).toBe('idle')
+      },
+      { timeout: 5_000 },
+    )
 
     const result = await callTool(ctx, 'list_agents', { scope: 'descendants' }, parent)
     expect(result.isError).toBe(false)
     expect(text(result)).toBe(
-      `${started.childId} [inactive] parent=${parent.id} depth=1 — waiting branch\n`
-      + `${grandchild.childId} [running] parent=${started.childId} depth=2 — nested leaf`,
+      `${started.childId} [inactive] parent=${parent.id} depth=1 — waiting branch\n` +
+        `${grandchild.childId} [running] parent=${started.childId} depth=2 — nested leaf`,
     )
 
     releaseGrandchild.resolve(undefined)
@@ -334,40 +358,41 @@ describe('dsh-tool-subagent-control/list-agents', () => {
     const { ctx, parent } = await setup([])
     // Deterministic service rows: a one-shot intermediate owning a continuable
     // leaf, plus a positioned diagnostic. The tool filters only the one-shot.
-    ctx.subagents.listDescendants = () => Promise.resolve([
-      {
-        kind: 'child',
-        id: SessionId('one-shot-mid'),
-        label: 'one-shot intermediate',
-        mode: 'one-shot',
-        activity: 'inactive',
-        hasChildren: true,
-        parentId: parent.id,
-        depth: 1,
-      },
-      {
-        kind: 'child',
-        id: SessionId('deep-leaf'),
-        label: 'deep leaf',
-        mode: 'continuable',
-        activity: 'inactive',
-        hasChildren: false,
-        parentId: SessionId('one-shot-mid'),
-        depth: 2,
-      },
-      {
-        kind: 'diagnostic',
-        id: SessionId('broken-node'),
-        reason: 'unavailable',
-        parentId: parent.id,
-        depth: 1,
-      },
-    ])
+    ctx.subagents.listDescendants = () =>
+      Promise.resolve([
+        {
+          kind: 'child',
+          id: SessionId('one-shot-mid'),
+          label: 'one-shot intermediate',
+          mode: 'one-shot',
+          activity: 'inactive',
+          hasChildren: true,
+          parentId: parent.id,
+          depth: 1,
+        },
+        {
+          kind: 'child',
+          id: SessionId('deep-leaf'),
+          label: 'deep leaf',
+          mode: 'continuable',
+          activity: 'inactive',
+          hasChildren: false,
+          parentId: SessionId('one-shot-mid'),
+          depth: 2,
+        },
+        {
+          kind: 'diagnostic',
+          id: SessionId('broken-node'),
+          reason: 'unavailable',
+          parentId: parent.id,
+          depth: 1,
+        },
+      ])
     const result = await callTool(ctx, 'list_agents', { scope: 'descendants' }, parent)
     expect(result.isError).toBe(false)
     expect(text(result)).toBe(
-      'deep-leaf [inactive] parent=one-shot-mid depth=2 — deep leaf\n'
-      + `broken-node [diagnostic: unavailable] parent=${parent.id} depth=1`,
+      'deep-leaf [inactive] parent=one-shot-mid depth=2 — deep leaf\n' +
+        `broken-node [diagnostic: unavailable] parent=${parent.id} depth=1`,
     )
   })
 

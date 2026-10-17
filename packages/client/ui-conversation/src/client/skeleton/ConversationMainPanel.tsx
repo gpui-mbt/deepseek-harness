@@ -14,11 +14,9 @@ export function ConversationMainPanel(props: ConversationSlotProps) {
   const { sessionId, useSession, useSessions, useConversation, renderSlot, renderFactorySlot } = props
   const session = useSession(s => s)
   const conversation = useConversation(s => s)
-  const shellPhase = session === undefined || conversation === undefined
-    ? 'blank'
-    : conversationPhase(session, conversation)
+  const shellPhase = session === undefined || conversation === undefined ? 'blank' : conversationPhase(session, conversation)
   const openState = session?.openState
-  const summaryBlank = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.blank)
+  const summaryBlank = useSessions(s => (sessionId === undefined ? undefined : s.byId[sessionId]?.blank))
 
   // While a session is still replaying (loading + blank) the hero/docked
   // choice is unknowable — render the composer hidden instead of flashing
@@ -32,26 +30,26 @@ export function ConversationMainPanel(props: ConversationSlotProps) {
   // A restored continuable subagent waits for a Host summary to establish
   // parent availability. This keeps the composer
   // hidden instead of briefly rendering the parent-offline takeover.
-  const parentAvailabilityPending = session?.subagent?.address.mode === 'continuable'
-    && session.subagent.parentAvailable === undefined
-  const settling = sessionId !== undefined && (
-    (shellPhase === 'blank' && openState === 'loading' && summaryBlank !== true)
-    || parentAvailabilityPending
-  )
-  const hero = sessionId === undefined
-    || (shellPhase === 'blank' && (openState === 'open' || summaryBlank === true))
+  const parentAvailabilityPending = session?.subagent?.address.mode === 'continuable' && session.subagent.parentAvailable === undefined
+  const settling =
+    sessionId !== undefined && ((shellPhase === 'blank' && openState === 'loading' && summaryBlank !== true) || parentAvailabilityPending)
+  const hero = sessionId === undefined || (shellPhase === 'blank' && (openState === 'open' || summaryBlank === true))
   const phase = settling ? 'settling' : hero ? 'hero' : 'active'
 
   return (
     <div className={css.root} data-phase={phase}>
       {renderSlot('conversation.header', {})}
-      {renderFactorySlot('conversation.content', {
-        variant: 'main',
-        phase,
-        hero,
-      }, {
-        slots: CONTENT_SLOTS,
-      })}
+      {renderFactorySlot(
+        'conversation.content',
+        {
+          variant: 'main',
+          phase,
+          hero,
+        },
+        {
+          slots: CONTENT_SLOTS,
+        },
+      )}
     </div>
   )
 }

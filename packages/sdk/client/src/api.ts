@@ -74,18 +74,15 @@ export class DeepSeekHarness implements AsyncDisposable {
           cwd: this.cwd,
           provider: this.provider,
           model: this.model,
-          ...this.reasoningEffort === undefined ? {} : { reasoningEffort: this.reasoningEffort },
-          ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
+          ...(this.reasoningEffort === undefined ? {} : { reasoningEffort: this.reasoningEffort }),
+          ...(this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens }),
         })
       } catch (error) {
         this.initialized = undefined
         try {
           await this.clientInstance.close()
         } catch (cleanupError: unknown) {
-          throw new AggregateError(
-            [error, cleanupError],
-            'DeepSeek Harness initialization and cleanup failed',
-          )
+          throw new AggregateError([error, cleanupError], 'DeepSeek Harness initialization and cleanup failed')
         }
         if (!this.closed) this.clientInstance = this.createClient()
         throw error
@@ -146,18 +143,15 @@ export class DeepSeekHarness implements AsyncDisposable {
 }
 
 /** Construct the high-level API against a generic process for package-local fake-runtime tests. */
-export function createProcessDeepSeekHarness(
-  runtime: RuntimeProcessOptions,
-  options: DeepSeekHarnessOptions = {},
-): DeepSeekHarness {
-  const Constructor = DeepSeekHarness as new (
-    publicOptions: DeepSeekHarnessOptions,
-    clientFactory: () => HarnessClient,
-  ) => DeepSeekHarness
-  return new Constructor({
-    ...runtime.cwd === undefined ? {} : { processCwd: runtime.cwd },
-    ...options,
-  }, () => createProcessHarnessClient(runtime))
+export function createProcessDeepSeekHarness(runtime: RuntimeProcessOptions, options: DeepSeekHarnessOptions = {}): DeepSeekHarness {
+  const Constructor = DeepSeekHarness as new (publicOptions: DeepSeekHarnessOptions, clientFactory: () => HarnessClient) => DeepSeekHarness
+  return new Constructor(
+    {
+      ...(runtime.cwd === undefined ? {} : { processCwd: runtime.cwd }),
+      ...options,
+    },
+    () => createProcessHarnessClient(runtime),
+  )
 }
 
 /** Per-run options: target session and streaming observer. */
@@ -176,7 +170,10 @@ export class HarnessSession {
    * @param harness - the owning harness (supplies the client and handshake).
    * @param id - the wire session id this handle runs on.
    */
-  constructor(readonly harness: DeepSeekHarness, readonly id: string) {}
+  constructor(
+    readonly harness: DeepSeekHarness,
+    readonly id: string,
+  ) {}
 
   /**
    * Read the effective directory and recover a missing directory to the Session origin.
@@ -232,15 +229,17 @@ export class HarnessSession {
       while (true) {
         const notification = await subscription.next()
         if (!received) {
-          if (notification.method !== 'session.event'
-            || notification.params.sessionId !== this.id
-            || !isInboxReceipt(notification.params.event, messageId)) continue
+          if (
+            notification.method !== 'session.event' ||
+            notification.params.sessionId !== this.id ||
+            !isInboxReceipt(notification.params.event, messageId)
+          )
+            continue
           received = true
         }
         collect(notification)
-        if (notification.method === 'session.status'
-          && notification.params.sessionId === this.id
-          && notification.params.status === 'idle') break
+        if (notification.method === 'session.status' && notification.params.sessionId === this.id && notification.params.status === 'idle')
+          break
       }
     } finally {
       subscription.close()

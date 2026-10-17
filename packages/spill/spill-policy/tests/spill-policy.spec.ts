@@ -8,7 +8,7 @@
  * result without an `isError`.
  */
 
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -33,12 +33,14 @@ import SessionProjections from '@deepseek-ai/dsh-session-projection'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
 async function mountRuntime(ctx: Context, config: NodeRuntimeConfig = {}): Promise<void> {
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   if (!ctx.get('sessions')) await ctx.plugin(SessionStore)
   provideWorkingDirectoryFixture(ctx)
   if (!ctx.get('fs')) await ctx.plugin(FileSystem)
@@ -51,7 +53,9 @@ async function mountRuntime(ctx: Context, config: NodeRuntimeConfig = {}): Promi
 
 function observedAgent(ctx: Context, id: string, observe: (type: string, data: unknown) => void) {
   const session = ctx.sessions.create(SessionId(id), { meta: { cwd: process.cwd() } })
-  ctx.on('session/event', (owner, event) => { if (owner === session) observe(event.type, event.data) })
+  ctx.on('session/event', (owner, event) => {
+    if (owner === session) observe(event.type, event.data)
+  })
   return { ctx, session }
 }
 
@@ -82,7 +86,9 @@ function textTool(name: string, text: string) {
     name,
     description: name,
     parameters: {},
-    async execute(): Promise<ContentBlock[]> { return [{ type: 'text', text }] },
+    async execute(): Promise<ContentBlock[]> {
+      return [{ type: 'text', text }]
+    },
   })
 }
 
@@ -112,12 +118,15 @@ async function setup(
   }
   beforePolicy?.(ctx)
   const fiber = await ctx.plugin(SpillPolicy, config)
-  return { ctx, fiber, ...spill ? { spill } : {} }
+  return { ctx, fiber, ...(spill ? { spill } : {}) }
 }
 
 /** Flatten a result's text blocks. */
 function textOf(content: ContentBlock[]): string {
-  return content.filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('')
+  return content
+    .filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 describe('disabled mode', () => {
@@ -153,7 +162,6 @@ describe('config validation', () => {
   it('rejects a fractional maxInlineTokens at load', async () => {
     await expect(setup({ maxInlineTokens: 1.5 })).rejects.toThrow(/non-negative integer/)
   })
-
 })
 
 describe('oversized plain-text replacement', () => {
@@ -204,14 +212,19 @@ describe('oversized plain-text replacement', () => {
 
   it('leaves a result with a non-text block unchanged', async () => {
     const { ctx, spill } = await setup({ maxInlineTokens: 5 })
-    ctx.tools.register(defineContentToolFixture({
-      name: 'mixed',
-      description: 'mixed',
-      parameters: {},
-      async execute(): Promise<ContentBlock[]> {
-        return [{ type: 'text', text: 'x'.repeat(100) }, { type: 'reasoning', text: 'why' }]
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'mixed',
+        description: 'mixed',
+        parameters: {},
+        async execute(): Promise<ContentBlock[]> {
+          return [
+            { type: 'text', text: 'x'.repeat(100) },
+            { type: 'reasoning', text: 'why' },
+          ]
+        },
+      }),
+    )
     const result = await ctx.tools.execute(exec('mixed'))
     expect(spill?.saves).toHaveLength(0)
     expect(result.content).toHaveLength(2)
@@ -227,7 +240,9 @@ describe('outer PTC mode failure capture', () => {
     await ctx.plugin(SpillPolicy, { maxInlineTokens: 64 })
     await mountRuntime(ctx, { maxOutputBytes: 500 })
     const events: unknown[] = []
-    const agent = observedAgent(ctx, 'code-spill', (_type: string, data: unknown) => { events.push(data) })
+    const agent = observedAgent(ctx, 'code-spill', (_type: string, data: unknown) => {
+      events.push(data)
+    })
 
     const result = await ctx.tools.execute({
       signal: testToolSignal,
@@ -271,7 +286,9 @@ describe('the durable dispatch-log arm', () => {
     await ctx.plugin(SpillPolicy, { maxInlineTokens })
     await mountRuntime(ctx, {})
     const events: { type: string; data: unknown }[] = []
-    const agent = observedAgent(ctx, 'dispatch-spill', (type: string, data: unknown) => { events.push({ type, data }) })
+    const agent = observedAgent(ctx, 'dispatch-spill', (type: string, data: unknown) => {
+      events.push({ type, data })
+    })
     ctx.tools.register(textTool('huge_read', 'H'.repeat(2_000)))
     ctx.tools.register(textTool('small_read', 'tiny'))
     for (const tool of extraTools) ctx.tools.register(tool)
@@ -286,8 +303,7 @@ describe('the durable dispatch-log arm', () => {
   }
 
   it('bounds the tool/ptc-dispatch copy of an oversized sub-result while the program value stays whole', async () => {
-    const { result, events, spill } = await runCodeWith(
-      'const blocks = await tools.huge_read({});\nreturn blocks[0].text.length', 200)
+    const { result, events, spill } = await runCodeWith('const blocks = await tools.huge_read({});\nreturn blocks[0].text.length', 200)
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected success')
     // The program received the COMPLETE text (length 2000), untouched by spill.
@@ -309,26 +325,28 @@ describe('the durable dispatch-log arm', () => {
   })
 
   it('leaves a non-text sub-result log unchanged (flatten declines)', async () => {
-    const { events, spill } = await runCodeWith(
-      'return await tools.mixed_read({})', 5, [defineContentToolFixture({
+    const { events, spill } = await runCodeWith('return await tools.mixed_read({})', 5, [
+      defineContentToolFixture({
         name: 'mixed_read',
         description: 'mixed_read',
         parameters: {},
         async execute(): Promise<ContentBlock[]> {
-          return [{ type: 'text', text: 'x'.repeat(100) }, { type: 'reasoning', text: 'why' }]
+          return [
+            { type: 'text', text: 'x'.repeat(100) },
+            { type: 'reasoning', text: 'why' },
+          ]
         },
-      })])
+      }),
+    ])
     const settle = events.find(event => event.type === 'tool/ptc-dispatch')
     expect((settle!.data as { content: unknown[] }).content).toHaveLength(2)
     expect(spill.saves.filter(entry => entry.source.label === 'dispatch')).toHaveLength(0)
   })
 
   it('leaves a within-cap sub-result log untouched and saves nothing for it', async () => {
-    const { events, spill } = await runCodeWith(
-      'return await tools.small_read({})', 200)
+    const { events, spill } = await runCodeWith('return await tools.small_read({})', 200)
     const settle = events.find(event => event.type === 'tool/ptc-dispatch')
-    expect((settle!.data as { content: { type: string; text: string }[] }).content)
-      .toEqual([{ type: 'text', text: 'tiny' }])
+    expect((settle!.data as { content: { type: string; text: string }[] }).content).toEqual([{ type: 'text', text: 'tiny' }])
     expect(spill.saves.filter(entry => entry.source.label === 'dispatch')).toHaveLength(0)
   })
 
@@ -344,7 +362,7 @@ describe('the durable dispatch-log arm', () => {
     const smallStarted = Promise.withResolvers<undefined>()
     const store = ctx.spillStore as StubStore
     const realSave = store.saveText.bind(store)
-    store.saveText = async (input) => {
+    store.saveText = async input => {
       saveStarted.resolve(undefined)
       await saveGate.promise
       return realSave(input)
@@ -367,11 +385,15 @@ describe('the durable dispatch-log arm', () => {
       },
       agent: agent as never,
     })
-    onTestFinished(() => { saveGate.resolve(undefined) })
+    onTestFinished(() => {
+      saveGate.resolve(undefined)
+    })
     try {
       await Promise.race([
         Promise.all([saveStarted.promise, smallStarted.promise]),
-        runPromise.then(() => { throw new Error('run finished before the blocked save and later dispatch overlapped') }),
+        runPromise.then(() => {
+          throw new Error('run finished before the blocked save and later dispatch overlapped')
+        }),
       ])
       saveGate.resolve(undefined)
       const result = await runPromise
@@ -400,7 +422,7 @@ describe('the durable dispatch-log arm', () => {
     let saves = 0
     store.gate = () => {
       if (!gateNewSaves) return Promise.resolve()
-      return new Promise<void>((resolve) => {
+      return new Promise<void>(resolve => {
         releases.push(resolve)
         if (++saves === 2) secondSaveStarted.resolve(undefined)
       })
@@ -413,11 +435,14 @@ describe('the durable dispatch-log arm', () => {
     const events: { type: string; data: unknown }[] = []
     const agent = observedAgent(ctx, 'dispatch-spill-bound', (type: string, data: unknown) => {
       events.push({ type, data })
-      if (type === 'tool/ptc-dispatch-start' && (data as { subCallId: string }).subCallId.endsWith(':ptc:3')) thirdStarted.resolve(undefined)
+      if (type === 'tool/ptc-dispatch-start' && (data as { subCallId: string }).subCallId.endsWith(':ptc:3'))
+        thirdStarted.resolve(undefined)
     })
     ctx.tools.register(textTool('huge_read', 'H'.repeat(2_000)))
-    const started = (n: number): boolean => events.some(event => event.type === 'tool/ptc-dispatch-start'
-      && (event.data as { subCallId: string }).subCallId.endsWith(`:ptc:${n}`))
+    const started = (n: number): boolean =>
+      events.some(
+        event => event.type === 'tool/ptc-dispatch-start' && (event.data as { subCallId: string }).subCallId.endsWith(`:ptc:${n}`),
+      )
     const runPromise = ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('parent-bound'),
@@ -433,14 +458,18 @@ describe('the durable dispatch-log arm', () => {
     try {
       await Promise.race([
         secondSaveStarted.promise,
-        runPromise.then(() => { throw new Error('run finished before two spill saves were blocked') }),
+        runPromise.then(() => {
+          throw new Error('run finished before two spill saves were blocked')
+        }),
       ])
       expect(started(2)).toBe(true)
       expect(started(3)).toBe(false)
       releases.shift()!()
       await Promise.race([
         thirdStarted.promise,
-        runPromise.then(() => { throw new Error('run finished before the third dispatch started') }),
+        runPromise.then(() => {
+          throw new Error('run finished before the third dispatch started')
+        }),
       ])
       releaseSaves()
       const result = await runPromise
@@ -462,7 +491,9 @@ describe('the durable dispatch-log arm', () => {
     ;(ctx.spillStore as StubStore).fail = true
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     const events: { type: string; data: unknown }[] = []
-    const agent = observedAgent(ctx, 'dispatch-spill-fail', (type: string, data: unknown) => { events.push({ type, data }) })
+    const agent = observedAgent(ctx, 'dispatch-spill-fail', (type: string, data: unknown) => {
+      events.push({ type, data })
+    })
     ctx.tools.register(textTool('huge_read', 'H'.repeat(2_000)))
     const result = await ctx.tools.execute({
       signal: testToolSignal,
@@ -528,7 +559,7 @@ describe('best-effort fallback', () => {
 describe('composition', () => {
   it('wraps an earlier tool-owned projection before applying the generic cap', async () => {
     let downstreamDecision: PostToolDecision | undefined
-    const { ctx, spill } = await setup({ maxInlineTokens: 64 }, true, (target) => {
+    const { ctx, spill } = await setup({ maxInlineTokens: 64 }, true, target => {
       target.on('tools/post-execute', async (_exec, _result, next): Promise<PostToolDecision> => {
         downstreamDecision = await next()
         return {
@@ -550,8 +581,7 @@ describe('composition', () => {
     const { ctx, spill } = await setup({ maxInlineTokens: 64 })
     // A later-registered listener replaces the (small) tool result with a big one;
     // the policy delegated via next(), so it bounds the replacement.
-    ctx.on('tools/post-execute', async (_e, _r, _next) =>
-      ({ kind: 'accept', content: [{ type: 'text', text: 'z'.repeat(500) }] }))
+    ctx.on('tools/post-execute', async (_e, _r, _next) => ({ kind: 'accept', content: [{ type: 'text', text: 'z'.repeat(500) }] }))
     ctx.tools.register(textTool('small', 'tiny'))
     const result = await ctx.tools.execute(exec('small'))
     expect(spill?.saves[0]?.content).toBe('z'.repeat(500))
@@ -564,8 +594,7 @@ describe('composition', () => {
       content: [{ type: 'text' as const, text: 'note' }],
       source: { kind: 'test' as const },
     })
-    ctx.on('tools/post-execute', async (_e, _r, _next) =>
-      ({ kind: 'accept', additionalContexts: [context] }))
+    ctx.on('tools/post-execute', async (_e, _r, _next) => ({ kind: 'accept', additionalContexts: [context] }))
     ctx.tools.register(textTool('big', 'x'.repeat(1000)))
     const result = await ctx.tools.execute(exec('big'))
     expect(textOf(result.content)).toContain('Full formatted result stored at')

@@ -10,7 +10,7 @@
  * arrive one at a time, which the single-byte case below feeds deliberately.
  */
 import { gzipSync } from 'node:zlib'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { inflateImage, inflateImageStream } from '../../src/storage/image-gzip.ts'
 import { loadVfsImage } from '../../src/storage/memory.ts'
 import { packTar } from '../../src/storage/tar.ts'
@@ -19,10 +19,11 @@ const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
 /** A two-entry archive, as the packer would lay one out under the virtual root. */
-const archive = (): Uint8Array => packTar({
-  'config/cordis.yml': encoder.encode('- id: subject\n'),
-  'node_modules/@scope/pkg/lib/index.js': encoder.encode('exports.answer = 42\n'),
-})
+const archive = (): Uint8Array =>
+  packTar({
+    'config/cordis.yml': encoder.encode('- id: subject\n'),
+    'node_modules/@scope/pkg/lib/index.js': encoder.encode('exports.answer = 42\n'),
+  })
 
 /** The bytes as a body delivered `size` bytes at a time, the way a transport may. */
 const chunked = (bytes: Uint8Array, size: number): ReadableStream<Uint8Array> => {
@@ -65,14 +66,15 @@ describe('image gzip envelope', () => {
     )
   })
 
-  it('refuses a page served in the image\'s place, quoting what it read', async () => {
+  it("refuses a page served in the image's place, quoting what it read", async () => {
     const page = encoder.encode('<!doctype html><title>404</title>')
     await expect(inflateImage(page, 'the image bytes')).rejects.toThrow(/read 3c 21 64 6f 63 74 79 70/)
   })
 
   it('refuses a body that ends before the header, one byte at a time', async () => {
-    await expect(inflateImageStream(chunked(new Uint8Array([0x1f]), 1), 'the spec image'))
-      .rejects.toThrow(/expected a member starting 1f 8b, read 1f/)
+    await expect(inflateImageStream(chunked(new Uint8Array([0x1f]), 1), 'the spec image')).rejects.toThrow(
+      /expected a member starting 1f 8b, read 1f/,
+    )
   })
 
   it('refuses an empty body as such', async () => {

@@ -7,7 +7,7 @@
  * exercised through the real registry, because "fallback" means whatever the
  * registry's ranking means by it.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { parseFileAddress, sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import { SidebarRightTabRegistry } from '@deepseek-ai/dsh-client-ui-sidebar-right/src/client/tab-registry.ts'
@@ -75,7 +75,7 @@ describe('text type in the registry', () => {
     'C:/workspace/../AGENTS.md',
     '//host/share/workspace/../AGENTS.md',
     '',
-  ])('claims unresolved Session paths without rewriting their identity: %s', (path) => {
+  ])('claims unresolved Session paths without rewriting their identity: %s', path => {
     const tabs = registry()
     const address = sessionFileAddress('s-1', path)
     expect(tabs.claim(address)).toEqual({ kind: TEXTPREVIEW_KIND, contentId: address, title: basenameOf(address) })
@@ -104,7 +104,7 @@ describe('text type in the registry', () => {
     'dsh-resource://file/session/s-1/../%ZZ.md',
     'DSH-RESOURCE://file/session/s-1/../a.md',
     'dsh-resource://File/session/s-1/../a.md',
-  ])('keeps the Session parser veto after matching a file prefix: %s', (address) => {
+  ])('keeps the Session parser veto after matching a file prefix: %s', address => {
     const tabs = registry()
     expect(tabs.candidates(address)).toEqual([])
     expect(() => tabs.claim(address)).toThrow('no registered tab type claims')
@@ -115,7 +115,7 @@ describe('text type in the registry', () => {
     'dsh-resource://file/shared/team/notes.md',
     'dsh-resource://file/absolute/home/me/notes.md',
     'dsh-resource://file/absolute/C:/w/notes.md',
-  ])('refuses a file address without a Session at claim time, named or ranked: %s', (shared) => {
+  ])('refuses a file address without a Session at claim time, named or ranked: %s', shared => {
     const tabs = registry()
     expect(tabs.candidates(shared)).toEqual([])
     expect(() => tabs.claim(shared)).toThrow('no registered tab type claims')
@@ -131,17 +131,26 @@ describe('text type in the registry', () => {
     expect(tabs.candidates('dsh-resource://file/session/s-1/w/logo.png').map(type => type.kind)).toEqual(['image', TEXTPREVIEW_KIND])
   })
 
-  it.each(['builtin', 'extension'] as const)('yields parent paths to the %s band and honors its veto', (priority) => {
+  it.each(['builtin', 'extension'] as const)('yields parent paths to the %s band and honors its veto', priority => {
     const tabs = registry()
     const address = sessionFileAddress('s-1', '../AGENTS.md')
     const release = tabs.register({
-      id: 'test/markdown', kind: 'markdown', patterns: ['*.md'], priority, title: () => 'Markdown',
+      id: 'test/markdown',
+      kind: 'markdown',
+      patterns: ['*.md'],
+      priority,
+      title: () => 'Markdown',
     })
     expect(tabs.candidates(address).map(type => type.kind)).toEqual(['markdown', TEXTPREVIEW_KIND])
     expect(tabs.claim(address)).toEqual({ kind: 'markdown', contentId: address, title: 'Markdown' })
     release()
     tabs.register({
-      id: 'test/markdown', kind: 'markdown', patterns: ['*.md'], priority, canOpen: () => false, title: () => 'Markdown',
+      id: 'test/markdown',
+      kind: 'markdown',
+      patterns: ['*.md'],
+      priority,
+      canOpen: () => false,
+      title: () => 'Markdown',
     })
     expect(tabs.claim(address).kind).toBe(TEXTPREVIEW_KIND)
   })
@@ -149,10 +158,18 @@ describe('text type in the registry', () => {
   it('ranks the file declaration by its literal length within the fallback band', () => {
     const tabs = registry()
     tabs.register({
-      id: 'test/shorter', kind: 'shorter', patterns: ['dsh-resource://file/**/*.*'], priority: 'fallback', title: () => 'Shorter',
+      id: 'test/shorter',
+      kind: 'shorter',
+      patterns: ['dsh-resource://file/**/*.*'],
+      priority: 'fallback',
+      title: () => 'Shorter',
     })
     const releaseLonger = tabs.register({
-      id: 'test/longer', kind: 'longer', patterns: ['dsh-resource://file/session/**/*.md'], priority: 'fallback', title: () => 'Longer',
+      id: 'test/longer',
+      kind: 'longer',
+      patterns: ['dsh-resource://file/session/**/*.md'],
+      priority: 'fallback',
+      title: () => 'Longer',
     })
     tabs.register({ ...textDefinition(), id: 'test/tied', kind: 'tied' })
     const address = sessionFileAddress('s-1', 'AGENTS.md')

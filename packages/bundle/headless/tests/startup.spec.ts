@@ -12,12 +12,8 @@ import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import { internals as cmdlineInternals, provideCmdline } from '@deepseek-ai/dsh-cmdline'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  apply,
-  HEADLESS_STARTUP_SERVICE,
-  type HeadlessStartupValues,
-} from '../src/startup.ts'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { apply, HEADLESS_STARTUP_SERVICE, type HeadlessStartupValues } from '../src/startup.ts'
 import { internals as startupInternals } from '../src/startup-internals.ts'
 
 /** What one boot of the fixture tree observed. */
@@ -58,28 +54,42 @@ async function bootStartup(
   const dir = mkdtempSync(join(tmpdir(), 'dsh-headless-startup-'))
   tempDirs.push(dir)
   const observed: Observed = { exits: [], out: '', err: '' }
-  writeFileSync(join(dir, 'row.mjs'), 'export function apply(_ctx, config) { globalThis.__headlessStartupObserved.runnerConfig = config }\n')
+  writeFileSync(
+    join(dir, 'row.mjs'),
+    'export function apply(_ctx, config) { globalThis.__headlessStartupObserved.runnerConfig = config }\n',
+  )
   // Loader imports through Node's resolver, so this fixture delegates to the
   // source-plane plugin already imported by the test.
-  writeFileSync(join(dir, 'startup.mjs'), `
+  writeFileSync(
+    join(dir, 'startup.mjs'),
+    `
 export const name = 'headless-startup'
 export const inject = ['cmdlineArgs']
 export const apply = ctx => globalThis.__headlessStartupApply(ctx)
-`)
+`,
+  )
   const rowUrl = pathToFileURL(join(dir, 'row.mjs')).href
-  writeFileSync(join(dir, 'cordis.yml'), [
-    '- id: headless-runner',
-    `  name: ${rowUrl}`,
-    `  inject: [${HEADLESS_STARTUP_SERVICE}]`,
-    '  config:',
-    '    task: !!js ctx.headlessStartup.task',
-    '    sessionId: !!js ctx.headlessStartup.sessionId',
-    '    json: !!js ctx.headlessStartup.json',
-    '- id: headless-startup',
-    `  name: ${pathToFileURL(join(dir, 'startup.mjs')).href}`,
-    '',
-  ].join('\n'))
-  const observing = { write: (chunk: string) => { observed.out += chunk; return true } }
+  writeFileSync(
+    join(dir, 'cordis.yml'),
+    [
+      '- id: headless-runner',
+      `  name: ${rowUrl}`,
+      `  inject: [${HEADLESS_STARTUP_SERVICE}]`,
+      '  config:',
+      '    task: !!js ctx.headlessStartup.task',
+      '    sessionId: !!js ctx.headlessStartup.sessionId',
+      '    json: !!js ctx.headlessStartup.json',
+      '- id: headless-startup',
+      `  name: ${pathToFileURL(join(dir, 'startup.mjs')).href}`,
+      '',
+    ].join('\n'),
+  )
+  const observing = {
+    write: (chunk: string) => {
+      observed.out += chunk
+      return true
+    },
+  }
   // Commander's own output keeps landing in `out` so existing assertions see
   // the full transcript, while `err` isolates what stderr actually carried.
   const observingErr = {
@@ -106,7 +116,9 @@ export const apply = ctx => globalThis.__headlessStartupApply(ctx)
   provideCmdline(ctx, { args, exit: code => void observed.exits.push(code) })
   await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(join(dir, 'cordis.yml')).href } })
   await ctx.loader.await()
-  disposers.push(async () => { await ctx.fiber.dispose() })
+  disposers.push(async () => {
+    await ctx.fiber.dispose()
+  })
   return {
     task: ctx.get(HEADLESS_STARTUP_SERVICE) as HeadlessStartupValues | undefined,
     observed,
@@ -227,7 +239,9 @@ describe('headless command-line provider', () => {
   })
 
   it('fails loud without the launcher command line and exit request', () => {
-    expect(() => { apply(new Context()) }).toThrow('the launcher must provide ctx.cmdlineArgs and ctx.appExit')
+    expect(() => {
+      apply(new Context())
+    }).toThrow('the launcher must provide ctx.cmdlineArgs and ctx.appExit')
   })
 
   it('prints its own help and leaves the runner pending', async () => {

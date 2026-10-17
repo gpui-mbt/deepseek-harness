@@ -26,12 +26,16 @@ async function probeBindableAddress(candidates: string[], description: string): 
       refused.push(`${address}: ${error instanceof Error ? error.message : String(error)}`)
       continue
     }
-    await new Promise<void>((resolve) => { server.close(() => { resolve() }) })
+    await new Promise<void>(resolve => {
+      server.close(() => {
+        resolve()
+      })
+    })
     return address
   }
   console.info(
-    `${description} coverage skipped: no bindable ${description} address`
-    + ` (${candidates.length === 0 ? 'this host reports none' : `refused ${refused.join('; ')}`})`,
+    `${description} coverage skipped: no bindable ${description} address` +
+      ` (${candidates.length === 0 ? 'this host reports none' : `refused ${refused.join('; ')}`})`,
   )
   return undefined
 }

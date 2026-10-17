@@ -48,7 +48,8 @@ export function apply(ctx: ClientContext): void {
           if (version !== tabsVersion || revision !== tabsRevision) {
             tabsVersion = version
             tabsRevision = revision
-            tabs = ctx.slots.entries('settings.plugins.tab')
+            tabs = ctx.slots
+              .entries('settings.plugins.tab')
               .map(entry => ({
                 /* v8 ignore next -- list-slot registration requires id */
                 id: entry.options.id ?? '',
@@ -59,7 +60,7 @@ export function apply(ctx: ClientContext): void {
           }
           return tabs
         },
-        subscribe: (listener) => {
+        subscribe: listener => {
           const offLedger = ctx.slots.subscribe('settings.plugins.tab', listener)
           const offLocale = ctx.locale.subscribe(listener)
           return () => {
@@ -73,13 +74,18 @@ export function apply(ctx: ClientContext): void {
 
   // This package owns the one Built-in plugins navigation entry and the tab
   // chrome; feature plugins contribute pages without competing for Settings nav rows.
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
-    id: 'plugins',
-    order: 15,
-    label: () => t('nav'),
-    locale: NS,
-    inject: sectionInjected,
-    children: { 'settings.plugins.tab': { kind: 'list', scope: 'root' } },
-  }, PluginsSettingsSection))
+  ctx.slots.inject('settings.section', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.section',
+        id: 'plugins',
+        order: 15,
+        label: () => t('nav'),
+        locale: NS,
+        inject: sectionInjected,
+        children: { 'settings.plugins.tab': { kind: 'list', scope: 'root' } },
+      },
+      PluginsSettingsSection,
+    ),
+  )
 }

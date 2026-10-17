@@ -11,7 +11,7 @@
  * refusing symbol without listing it here leaves it unproven, and listing one
  * that starts answering fails.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { notAvailableError, notImplementedFail } from '../../src/node/notImplementedFail.ts'
 import * as childProcess from '../../src/node/builtin_modules/implemented/child_process.ts'
 import * as dnsPromises from '../../src/node/builtin_modules/mock/dns/promises.ts'
@@ -37,7 +37,9 @@ import { DSH_HOME, DSH_TMP } from '../../src/storage/paths.ts'
 const PLATFORM_UNAVAILABLE = 'ERR_FEATURE_UNAVAILABLE_ON_PLATFORM'
 
 /** Every refusal writes its message to the console before throwing; keep the run quiet. */
-const quiet = (): void => { vi.spyOn(console, 'error').mockImplementation(() => {}) }
+const quiet = (): void => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+}
 
 /** Symbols that refuse when called. */
 const CALLED: [string, Record<string, unknown>, readonly string[]][] = [
@@ -53,10 +55,20 @@ const CALLED: [string, Record<string, unknown>, readonly string[]][] = [
   ['node-pty', nodePty, ['spawn', 'open']],
   ['execa', execa, ['execa']],
   ['got', got.default, ['post']],
-  ['@deepseek-ai/pi-ai', piAi, [
-    'createProvider', 'createModels', 'openAICompletionsApi', 'openAIResponsesApi', 'anthropicMessagesApi',
-    'isContextOverflow', 'getSupportedThinkingLevels', 'builtinModels',
-  ]],
+  [
+    '@deepseek-ai/pi-ai',
+    piAi,
+    [
+      'createProvider',
+      'createModels',
+      'openAICompletionsApi',
+      'openAIResponsesApi',
+      'anthropicMessagesApi',
+      'isContextOverflow',
+      'getSupportedThinkingLevels',
+      'builtinModels',
+    ],
+  ],
 ]
 
 /** Classes that refuse when constructed. */
@@ -127,7 +139,9 @@ describe('constructible-but-inert fakes', () => {
     expect(() => server.handleUpgrade()).toThrow(/WebSocketServer.handleUpgrade is not available/)
     expect(() => server.emit()).toThrow(/WebSocketServer.emit is not available/)
     let closed = false
-    server.close(() => { closed = true })
+    server.close(() => {
+      closed = true
+    })
     expect(closed).toBe(true)
   })
 })
@@ -167,7 +181,9 @@ describe('node:net address predicates', () => {
     expect(() => socket.write()).toThrow(/Socket.write is not available/)
     expect(() => socket.end()).toThrow(/Socket.end is not available/)
     // Disposal paths run against sockets that were never connected.
-    expect(() => { socket.destroy() }).not.toThrow()
+    expect(() => {
+      socket.destroy()
+    }).not.toThrow()
   })
 })
 

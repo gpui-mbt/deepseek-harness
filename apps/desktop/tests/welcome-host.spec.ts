@@ -1,5 +1,5 @@
 /** Native onboarding reuses authenticated Web RPC and never reads credential values. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { connectDesktopWelcome } from '../src/welcome-backend.ts'
 
 function transport(preference?: string) {
@@ -17,7 +17,8 @@ function transport(preference?: string) {
       payload: { args: { ref: string; value: string; refs: string[] } }
     }
     let value: unknown
-    if (method === 'account/getState') value = { links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null }
+    if (method === 'account/getState')
+      value = { links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null }
     else if (method === 'settings/describe') value = { namespaces }
     else if (method === 'llm/listConfigurableProviders') value = [{ settingsNs: 'llm-pi-ai', settingsPath: ['profiles', 'example'] }]
     else if (method === 'productAnalytics/enabled') value = true
@@ -76,7 +77,7 @@ describe('desktop welcome Web operations', () => {
     expect(host.keys.has('undefined')).toBe(false)
   })
 
-  it.each(['', 'bad key', 'key\n'])('rejects malformed keys without contacting a provider: %s', async (value) => {
+  it.each(['', 'bad key', 'key\n'])('rejects malformed keys without contacting a provider: %s', async value => {
     const host = transport()
     const backend = await connectDesktopWelcome(url, host.send)
     host.send.mockClear()
@@ -92,7 +93,6 @@ describe('desktop welcome Web operations', () => {
     host.send.mockResolvedValueOnce(Response.json({ type: 'server-response', rpcId: 'other', result: { ok: true } }))
     await expect(backend.read()).rejects.toThrow('Web RPC failed')
   })
-
 
   it('submits native analytics through authenticated RPC with a bounded request', async () => {
     const host = transport()

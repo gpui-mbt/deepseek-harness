@@ -30,10 +30,20 @@ export function apply(ctx: Context, config: { cwd: string }): void {
   if (ready === undefined || exit === undefined) throw new Error('Source tool driver requires appReady and appExit')
   const events: SourceToolEvidence['events'] = []
   const errors: string[] = []
-  ctx.on('session/event', (_session, event) => {
-    if (event.type === 'tool/call' || event.type === 'tool/result' || event.type === 'turn/end') events.push(event)
-  }, { global: true })
-  ctx.on('agent/error', ({ error }) => { errors.push(error instanceof Error ? error.message : String(error)) }, { global: true })
+  ctx.on(
+    'session/event',
+    (_session, event) => {
+      if (event.type === 'tool/call' || event.type === 'tool/result' || event.type === 'turn/end') events.push(event)
+    },
+    { global: true },
+  )
+  ctx.on(
+    'agent/error',
+    ({ error }) => {
+      errors.push(error instanceof Error ? error.message : String(error))
+    },
+    { global: true },
+  )
 
   const run = async (): Promise<void> => {
     const handle = await ctx.agents.create({
@@ -42,10 +52,12 @@ export function apply(ctx: Context, config: { cwd: string }): void {
       agentOptions: { provider: 'cli-mock', model: 'cli-mock' },
     })
     try {
-      handle.agent.followup(createUserMessage({
-        source: { kind: 'user' },
-        content: [{ type: 'text', text: 'Run the shell smoke command once.' }],
-      }))
+      handle.agent.followup(
+        createUserMessage({
+          source: { kind: 'user' },
+          content: [{ type: 'text', text: 'Run the shell smoke command once.' }],
+        }),
+      )
       await handle.agent.whenIdle()
       const internal = ctx.loader.internal
       if (internal === undefined) throw new Error('Source tool driver requires Node module-cache introspection')
@@ -62,10 +74,14 @@ export function apply(ctx: Context, config: { cwd: string }): void {
     exit(errors.length === 0 ? 0 : 1)
   }
 
-  ctx.effect(() => ready.onReady(() => {
-    void run().catch((error: unknown) => {
-      process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`)
-      exit(1)
-    })
-  }), 'source tool driver')
+  ctx.effect(
+    () =>
+      ready.onReady(() => {
+        void run().catch((error: unknown) => {
+          process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`)
+          exit(1)
+        })
+      }),
+    'source tool driver',
+  )
 }

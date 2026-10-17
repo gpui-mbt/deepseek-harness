@@ -89,7 +89,9 @@ try {
   const baseline = readBaselineManifest(baselineRef)
   errors.push(...validateArchiveManifestExtension(baseline, manifest))
 } catch (error: unknown) {
-  errors.push(`archived/manifest.json: cannot read baseline ${JSON.stringify(baselineRef)}: ${error instanceof Error ? error.message : String(error)}`)
+  errors.push(
+    `archived/manifest.json: cannot read baseline ${JSON.stringify(baselineRef)}: ${error instanceof Error ? error.message : String(error)}`,
+  )
 }
 
 const extended = extendArchiveManifest(manifest, artifacts)

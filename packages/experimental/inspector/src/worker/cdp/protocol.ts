@@ -27,12 +27,14 @@ export interface CdpTransport {
  * @returns The validated request envelope.
  */
 export function parseCdpRequest(value: unknown): CdpRequest {
-  if (!isPlainObject(value)
-    || !Number.isSafeInteger(value.id)
-    || (value.id as number) < 0
-    || typeof value.method !== 'string'
-    || value.method.length === 0
-    || (value.params !== undefined && !isPlainObject(value.params))) {
+  if (
+    !isPlainObject(value) ||
+    !Number.isSafeInteger(value.id) ||
+    (value.id as number) < 0 ||
+    typeof value.method !== 'string' ||
+    value.method.length === 0 ||
+    (value.params !== undefined && !isPlainObject(value.params))
+  ) {
     throw new Error('inspector CDP: invalid request')
   }
   return {
@@ -70,13 +72,13 @@ export function sendCdpFailure(transport: CdpTransport, request: CdpRequest, err
  * @param request - Request supplying the response id.
  * @param operation - Domain operation that produces the result.
  */
-export function respondToCdpRequest(
-  transport: CdpTransport,
-  request: CdpRequest,
-  operation: () => Promise<object>,
-): void {
+export function respondToCdpRequest(transport: CdpTransport, request: CdpRequest, operation: () => Promise<object>): void {
   void operation().then(
-    (result) => { transport.send({ id: request.id, result }) },
-    (error: unknown) => { sendCdpFailure(transport, request, error) },
+    result => {
+      transport.send({ id: request.id, result })
+    },
+    (error: unknown) => {
+      sendCdpFailure(transport, request, error)
+    },
   )
 }

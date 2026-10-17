@@ -1,8 +1,14 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createSessionFormatCatalogWithChildren, historicalSessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { isSessionFormatJsonObject, type SessionFormatArtifact, type SessionFormatEvent, type SessionFormatJsonObject, type SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
+import {
+  isSessionFormatJsonObject,
+  type SessionFormatArtifact,
+  type SessionFormatEvent,
+  type SessionFormatJsonObject,
+  type SessionFormatJsonValue,
+} from '@deepseek-ai/dsh-session-format'
 import { historicalChildCatalogSource } from '../src/index.ts'
 import { mapEventMessages, rewritePluginSource } from '../src/sources.ts'
 import { liftToolResult } from '../src/tool-role.ts'
@@ -10,12 +16,19 @@ import { liftToolResult } from '../src/tool-role.ts'
 const root = resolve(import.meta.dirname, '../../../..')
 
 function restoreFixture(path: string): SessionFormatArtifact {
-  const records = readFileSync(join(root, path), 'utf8').trim().split('\n').map(line => JSON.parse(line) as Record<string, SessionFormatJsonValue>)
+  const records = readFileSync(join(root, path), 'utf8')
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line) as Record<string, SessionFormatJsonValue>)
   const header = records.shift()!
   if (typeof header['cwd'] === 'string' && header['cwd'].startsWith('{{cwd}}')) header['cwd'] = resolve('snapshot-cwd')
   const restore = historicalSessionFormatCatalog.createRestore(header, { recovery: 'strict', validation: 'current' })
   for (const [seq, record] of records.entries()) {
-    if (record['type'] === 'request/header' && isSessionFormatJsonObject(record['data']) && isSessionFormatJsonObject(record['data']['header'])) {
+    if (
+      record['type'] === 'request/header' &&
+      isSessionFormatJsonObject(record['data']) &&
+      isSessionFormatJsonObject(record['data']['header'])
+    ) {
       const request = { ...record['data']['header'] }
       record['data'] = { ...record['data'], header: request }
       if (request['tools'] === '{{tools}}') delete request['tools']
@@ -29,15 +42,19 @@ function restoreFixture(path: string): SessionFormatArtifact {
 }
 
 function migrate(parent: SessionFormatArtifact, children: SessionFormatArtifact[]) {
-  const restore = createSessionFormatCatalogWithChildren(children.map(historicalChildCatalogSource)).createRestore({ type: 'session', ...parent.header }, {
-    recovery: 'strict', validation: 'current',
-  })
+  const restore = createSessionFormatCatalogWithChildren(children.map(historicalChildCatalogSource)).createRestore(
+    { type: 'session', ...parent.header },
+    {
+      recovery: 'strict',
+      validation: 'current',
+    },
+  )
   for (const event of parent.events) restore.decodeRow(event)
   return restore.finish()
 }
 
 function migrateEvent(event: SessionFormatEvent): SessionFormatEvent {
-  const rewritten = mapEventMessages(event, (message) => {
+  const rewritten = mapEventMessages(event, message => {
     const source = message['source']
     if (!isSessionFormatJsonObject(source) || source['kind'] !== 'plugin') return message
     return { ...message, source: rewritePluginSource(source, event.seq, message['role']) }
@@ -57,12 +74,18 @@ it('refuses recorded parent/child clock conflicts and migrates consistent copies
       if (names.length < 2) continue
       const logs = names.map(name => ({ path: `${base}/${dir.name}/${name}`, artifact: restoreFixture(`${base}/${dir.name}/${name}`) }))
       for (const parent of logs) {
-        const children = logs.filter(child => child.artifact.header.origin === 'subagent' && child.artifact.header.parentSession === parent.artifact.header.id)
+        const children = logs.filter(
+          child => child.artifact.header.origin === 'subagent' && child.artifact.header.parentSession === parent.artifact.header.id,
+        )
         if (children.length === 0) continue
         pairs += children.length
-        const catalogs = parent.artifact.events.filter(event => event.type === 'subagent/catalog' && event.seq >= parent.artifact.inheritedEventCount)
-        const aligned = children.map((child) => {
-          const catalog = catalogs.find(event => isSessionFormatJsonObject(event.data) && event.data['childId'] === child.artifact.header.id)?.data
+        const catalogs = parent.artifact.events.filter(
+          event => event.type === 'subagent/catalog' && event.seq >= parent.artifact.inheritedEventCount,
+        )
+        const aligned = children.map(child => {
+          const catalog = catalogs.find(
+            event => isSessionFormatJsonObject(event.data) && event.data['childId'] === child.artifact.header.id,
+          )?.data
           expect(isSessionFormatJsonObject(catalog), child.path).toBe(true)
           const createdAt = (catalog as SessionFormatJsonObject)['childCreatedAt'] as number
           if (createdAt !== child.artifact.header.createdAt) conflicts.push(child.path)
@@ -71,11 +94,22 @@ it('refuses recorded parent/child clock conflicts and migrates consistent copies
           return { ...child.artifact, header: { ...child.artifact.header, createdAt } }
         })
         if (children.some(child => conflicts.includes(child.path))) {
-          expect(() => migrate(parent.artifact, children.map(child => child.artifact)), parent.path).toThrow('conflicts with its parent catalog')
+          expect(
+            () =>
+              migrate(
+                parent.artifact,
+                children.map(child => child.artifact),
+              ),
+            parent.path,
+          ).toThrow('conflicts with its parent catalog')
         } else {
-          expect(migrate(parent.artifact, children.map(child => child.artifact)).events, parent.path).toEqual(
-            parent.artifact.events.map(migrateEvent),
-          )
+          expect(
+            migrate(
+              parent.artifact,
+              children.map(child => child.artifact),
+            ).events,
+            parent.path,
+          ).toEqual(parent.artifact.events.map(migrateEvent))
         }
         expect(migrate(parent.artifact, aligned), parent.path).toEqual({
           ...parent.artifact,

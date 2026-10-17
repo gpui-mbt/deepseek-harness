@@ -1,7 +1,7 @@
 /** Controlled conversion completions pin shared cancellation, freshness, and bounded binary reuse. */
 import type { OfficeToPdfGeneration } from '@deepseek-ai/dsh-office-to-pdf/types'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionFile } from '../src/client/rpc.ts'
 import type { ReadOfficeDocument } from '../src/client/office/cache.ts'
@@ -9,12 +9,21 @@ import { OfficePreviewCache } from '../src/client/office/cache.ts'
 
 const file = { sessionId: 's1' as SessionId, path: 'report.docx' }
 const result = (version = 'v1', text = 'pdf!', generation = 'renderer'): Awaited<ReturnType<ReadOfficeDocument>> => ({
-  ok: true, value: { absolutePath: '/report.docx', version, offset: 0, eof: true, missingFonts: [], data: new TextEncoder().encode(text), generation: (generation as OfficeToPdfGeneration) },
+  ok: true,
+  value: {
+    absolutePath: '/report.docx',
+    version,
+    offset: 0,
+    eof: true,
+    missingFonts: [],
+    data: new TextEncoder().encode(text),
+    generation: generation as OfficeToPdfGeneration,
+  },
 })
 function harness(entries = 2, bytes = 32, pending = 8, readers = 32) {
   const stat = vi.fn().mockResolvedValue({ ok: true, value: { absolutePath: '/report.docx', version: 'v1' } })
   const convert = vi.fn<import('../src/client/office/cache.ts').ReadOfficeBytes>().mockResolvedValue(result())
-  const generation = vi.fn().mockResolvedValue({ ok: true, value: ('renderer' as OfficeToPdfGeneration) })
+  const generation = vi.fn().mockResolvedValue({ ok: true, value: 'renderer' as OfficeToPdfGeneration })
   const cache = new OfficePreviewCache(stat, convert, entries, bytes, pending, readers, generation, () => new Error('busy'))
   return { stat, convert, cache, generation, read: (signal = new AbortController().signal) => cache.read(file, signal) }
 }
@@ -23,13 +32,18 @@ it('shares a pending conversion between readers and reauthorizes cached reads', 
   const h = harness()
   const started = Promise.withResolvers<AbortSignal>()
   const completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
-  h.convert.mockImplementation((_file, signal) => { started.resolve(signal); return completed.promise })
+  h.convert.mockImplementation((_file, signal) => {
+    started.resolve(signal)
+    return completed.promise
+  })
   const background = new AbortController()
   const first = h.read(background.signal)
   const aborted = expect(first).rejects.toMatchObject({ name: 'AbortError' })
   const conversionSignal = await started.promise
   const second = h.read()
-  await vi.waitFor(() => { expect(h.stat).toHaveBeenCalledTimes(2) })
+  await vi.waitFor(() => {
+    expect(h.stat).toHaveBeenCalledTimes(2)
+  })
   background.abort()
   await aborted
   expect(conversionSignal.aborted).toBe(false)
@@ -59,7 +73,10 @@ it('discards a cancelled conversion that finishes late without replacing a newer
   const h = harness()
   const started = Promise.withResolvers<undefined>()
   const late = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
-  h.convert.mockImplementationOnce(() => { started.resolve(undefined); return late.promise })
+  h.convert.mockImplementationOnce(() => {
+    started.resolve(undefined)
+    return late.promise
+  })
   const caller = new AbortController()
   const pending = h.read(caller.signal)
   const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
@@ -109,19 +126,32 @@ it('reuses the borrowed binary PDF at the exact byte budget without copying', as
     expect(cached.value.data).toBe(converted.value.data)
     expect(cached.value.data.byteLength).toBe(4)
     expect(h.convert).toHaveBeenCalledOnce()
-  } finally { await h.cache.dispose() }
+  } finally {
+    await h.cache.dispose()
+  }
 })
 
 it('does not retain a different canonical source even when its version token matches', async () => {
   const h = harness()
-  h.convert.mockResolvedValue({ ok: true, value: {
-    absolutePath: '/replacement.docx', version: 'v1', offset: 0, eof: true, missingFonts: [], generation: 'renderer' as OfficeToPdfGeneration, data: new Uint8Array([1]),
-  } })
+  h.convert.mockResolvedValue({
+    ok: true,
+    value: {
+      absolutePath: '/replacement.docx',
+      version: 'v1',
+      offset: 0,
+      eof: true,
+      missingFonts: [],
+      generation: 'renderer' as OfficeToPdfGeneration,
+      data: new Uint8Array([1]),
+    },
+  })
   try {
     await h.read()
     await h.read()
     expect(h.convert).toHaveBeenCalledTimes(2)
-  } finally { await h.cache.dispose() }
+  } finally {
+    await h.cache.dispose()
+  }
 })
 
 it('cancels before source authorization and after a delayed stat without starting conversion', async () => {
@@ -138,42 +168,60 @@ it('cancels before source authorization and after a delayed stat without startin
     metadata.resolve({ ok: true, value: { absolutePath: '/report.docx', version: 'v1' } })
     await rejected
     expect(h.convert).not.toHaveBeenCalled()
-  } finally { await h.cache.dispose() }
-})
-
-it.each([new Error('transport'), 'transport'])('retries rejected conversions (%s) and waits for cancelled Host work when disposed', async (failure) => {
-  const h = harness()
-  const started = Promise.withResolvers<AbortSignal>()
-  const completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
-  try {
-    h.convert.mockRejectedValueOnce(failure)
-    await expect(h.read()).rejects.toMatchObject(failure instanceof Error ? { message: 'transport' } : {
-      message: 'Office preview failed', cause: failure,
-    })
-    h.convert.mockImplementation((_file, signal) => { started.resolve(signal); return completed.promise })
-    const pending = h.read()
-    const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
-    const signal = await started.promise
-    let disposed = false
-    const disposing = h.cache.dispose().then(() => { disposed = true })
-    await rejected
-    expect(signal.aborted).toBe(true)
-    expect(disposed).toBe(false)
-    completed.resolve(result())
-    await disposing
-    await expect(h.read()).rejects.toMatchObject({ name: 'AbortError' })
   } finally {
-    completed.resolve(result())
     await h.cache.dispose()
   }
 })
+
+it.each([new Error('transport'), 'transport'])(
+  'retries rejected conversions (%s) and waits for cancelled Host work when disposed',
+  async failure => {
+    const h = harness()
+    const started = Promise.withResolvers<AbortSignal>()
+    const completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
+    try {
+      h.convert.mockRejectedValueOnce(failure)
+      await expect(h.read()).rejects.toMatchObject(
+        failure instanceof Error
+          ? { message: 'transport' }
+          : {
+              message: 'Office preview failed',
+              cause: failure,
+            },
+      )
+      h.convert.mockImplementation((_file, signal) => {
+        started.resolve(signal)
+        return completed.promise
+      })
+      const pending = h.read()
+      const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+      const signal = await started.promise
+      let disposed = false
+      const disposing = h.cache.dispose().then(() => {
+        disposed = true
+      })
+      await rejected
+      expect(signal.aborted).toBe(true)
+      expect(disposed).toBe(false)
+      completed.resolve(result())
+      await disposing
+      await expect(h.read()).rejects.toMatchObject({ name: 'AbortError' })
+    } finally {
+      completed.resolve(result())
+      await h.cache.dispose()
+    }
+  },
+)
 
 it('preserves an AbortSignal cancellation reason while waiting for the shared conversion to settle', async () => {
   const h = harness()
   const caller = new AbortController()
   const started = Promise.withResolvers<undefined>()
   const completion = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
-  h.convert.mockImplementation(() => { started.resolve(undefined); return completion.promise })
+  h.convert.mockImplementation(() => {
+    started.resolve(undefined)
+    return completion.promise
+  })
   const pending = h.read(caller.signal)
   const rejected = expect(pending).rejects.toMatchObject({ message: 'Office preview cancelled', cause: 'left document' })
   try {
@@ -190,19 +238,25 @@ it('clears Client reuse when the Host renderer generation changes', async () => 
   const h = harness()
   try {
     await h.read()
-    h.generation.mockResolvedValue({ ok: true, value: ('replacement' as OfficeToPdfGeneration) })
+    h.generation.mockResolvedValue({ ok: true, value: 'replacement' as OfficeToPdfGeneration })
     h.convert.mockResolvedValue(result('v1', 'pdf!', 'replacement'))
     await h.read()
     expect(h.convert).toHaveBeenCalledTimes(2)
     await h.read()
     expect(h.convert).toHaveBeenCalledTimes(2)
-  } finally { await h.cache.dispose() }
+  } finally {
+    await h.cache.dispose()
+  }
 })
 
 it('bounds metadata readers and unsettled conversion RPCs including cancellation teardown', async () => {
   const h = harness(2, 32, 1, 2)
-  const entered = Promise.withResolvers<undefined>(), completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return completed.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return completed.promise
+  })
   const caller = new AbortController()
   const first = expect(h.read(caller.signal)).rejects.toMatchObject({ name: 'AbortError' })
   await entered.promise
@@ -211,20 +265,33 @@ it('bounds metadata readers and unsettled conversion RPCs including cancellation
   try {
     await expect(h.read()).rejects.toThrow('busy')
     expect(h.convert).toHaveBeenCalledOnce()
-  } finally { completed.resolve(result()); await h.cache.dispose() }
+  } finally {
+    completed.resolve(result())
+    await h.cache.dispose()
+  }
 })
 
 it('sends foreground intent to the Host when joining an in-flight prewarm', async () => {
   const h = harness()
-  const entered = Promise.withResolvers<undefined>(), completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
-  h.convert.mockImplementation(() => { entered.resolve(undefined); return completed.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
+  h.convert.mockImplementation(() => {
+    entered.resolve(undefined)
+    return completed.promise
+  })
   const prewarm = h.cache.read(file, new AbortController().signal, 'background')
   await entered.promise
   const foreground = h.cache.read(file, new AbortController().signal, 'foreground')
   try {
-    await vi.waitFor(() => { expect(h.convert).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(h.convert).toHaveBeenCalledTimes(2)
+    })
     expect(h.convert.mock.calls.map(call => call[2])).toEqual(['background', 'foreground'])
-  } finally { completed.resolve(result()); await Promise.all([prewarm, foreground]); await h.cache.dispose() }
+  } finally {
+    completed.resolve(result())
+    await Promise.all([prewarm, foreground])
+    await h.cache.dispose()
+  }
 })
 
 it('counts unresolved renderer metadata against the reader limit and joins it on disposal', async () => {
@@ -235,9 +302,11 @@ it('counts unresolved renderer metadata against the reader limit and joins it on
   await expect(h.read()).rejects.toThrow('busy')
   expect(h.generation).toHaveBeenCalledOnce()
   let disposed = false
-  const closing = h.cache.dispose().then(() => { disposed = true })
+  const closing = h.cache.dispose().then(() => {
+    disposed = true
+  })
   expect(disposed).toBe(false)
-  completed.resolve({ ok: true, value: ('renderer' as OfficeToPdfGeneration) })
+  completed.resolve({ ok: true, value: 'renderer' as OfficeToPdfGeneration })
   await first
   await closing
   expect(h.stat).not.toHaveBeenCalled()
@@ -253,13 +322,15 @@ it('passes renderer discovery failures through before source authorization and a
     expect(h.convert).not.toHaveBeenCalled()
     expect(await h.read()).toEqual(result())
     expect(h.convert).toHaveBeenCalledOnce()
-  } finally { await h.cache.dispose() }
+  } finally {
+    await h.cache.dispose()
+  }
 })
 
 it('restarts a stale generation query without invalidating the current renderer', async () => {
   const h = harness()
-  const current = { ok: true as const, value: ('current' as OfficeToPdfGeneration) }
-  const stale = { ok: true as const, value: ('stale' as OfficeToPdfGeneration) }
+  const current = { ok: true as const, value: 'current' as OfficeToPdfGeneration }
+  const stale = { ok: true as const, value: 'stale' as OfficeToPdfGeneration }
   const converted = result('v1', 'pdf!', 'current')
   h.convert.mockResolvedValue(converted)
   const firstQuery = Promise.withResolvers<typeof current>()
@@ -289,7 +360,13 @@ it('restarts a pending conversion when a newer renderer generation is accepted',
   const entered = Promise.withResolvers<AbortSignal>()
   const completed = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
   h.convert.mockImplementationOnce((_file, signal) => {
-    signal.addEventListener('abort', () => { completed.reject(signal.reason) }, { once: true })
+    signal.addEventListener(
+      'abort',
+      () => {
+        completed.reject(signal.reason)
+      },
+      { once: true },
+    )
     entered.resolve(signal)
     return completed.promise
   })
@@ -298,7 +375,7 @@ it('restarts a pending conversion when a newer renderer generation is accepted',
   const restarted = expect(previous).resolves.toEqual(converted)
   try {
     const signal = await entered.promise
-    h.generation.mockResolvedValue({ ok: true, value: ('replacement' as OfficeToPdfGeneration) })
+    h.generation.mockResolvedValue({ ok: true, value: 'replacement' as OfficeToPdfGeneration })
     h.convert.mockResolvedValue(converted)
     expect(await h.read()).toEqual(converted)
     await restarted
@@ -317,13 +394,16 @@ it('reauthorizes source metadata that completes after the renderer generation ch
   const entered = Promise.withResolvers<undefined>()
   const metadata = { ok: true, value: { absolutePath: '/report.docx', version: 'v1' } }
   const completed = Promise.withResolvers<typeof metadata>()
-  h.stat.mockImplementationOnce(() => { entered.resolve(undefined); return completed.promise })
+  h.stat.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return completed.promise
+  })
   const previous = h.read()
   const converted = result('v1', 'pdf!', 'replacement')
   const restarted = expect(previous).resolves.toEqual(converted)
   try {
     await entered.promise
-    h.generation.mockResolvedValue({ ok: true, value: ('replacement' as OfficeToPdfGeneration) })
+    h.generation.mockResolvedValue({ ok: true, value: 'replacement' as OfficeToPdfGeneration })
     h.convert.mockResolvedValue(converted)
     expect(await h.read()).toEqual(converted)
     completed.resolve(metadata)
@@ -335,29 +415,47 @@ it('reauthorizes source metadata that completes after the renderer generation ch
   }
 })
 
-it.each([[1, 32], [8, 1]])('leaves foreground admission available when pending/readers are %i/%i', async (pending, readers) => {
+it.each([
+  [1, 32],
+  [8, 1],
+])('leaves foreground admission available when pending/readers are %i/%i', async (pending, readers) => {
   const h = harness(2, 32, pending, readers)
   try {
     await expect(h.cache.read(file, new AbortController().signal, 'background')).rejects.toThrow('busy')
     expect(h.convert).not.toHaveBeenCalled()
     expect(await h.read()).toEqual(result())
-  } finally { await h.cache.dispose() }
+  } finally {
+    await h.cache.dispose()
+  }
 })
 
-it.each([[2, 32], [8, 2]])('reserves the final pending/reader slot for foreground promotion with %i/%i', async (pending, readers) => {
+it.each([
+  [2, 32],
+  [8, 2],
+])('reserves the final pending/reader slot for foreground promotion with %i/%i', async (pending, readers) => {
   const h = harness(2, 32, pending, readers)
   h.stat.mockImplementation(async (requested: SessionFile) => ({ ok: true, value: { absolutePath: `/${requested.path}`, version: 'v1' } }))
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
-  h.convert.mockImplementation(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<Awaited<ReturnType<ReadOfficeDocument>>>()
+  h.convert.mockImplementation(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const prewarm = h.cache.read(file, new AbortController().signal, 'background')
   await entered.promise
   let foreground: ReturnType<typeof h.read> | undefined
   try {
     await expect(h.cache.read({ ...file, path: 'other.docx' }, new AbortController().signal, 'background')).rejects.toThrow('busy')
     foreground = h.read()
-    await vi.waitFor(() => { expect(h.convert).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(h.convert).toHaveBeenCalledTimes(2)
+    })
     expect(h.convert.mock.calls.map(call => call[2])).toEqual(['background', 'foreground'])
-  } finally { complete.resolve(result()); await Promise.all([prewarm, foreground]); await h.cache.dispose() }
+  } finally {
+    complete.resolve(result())
+    await Promise.all([prewarm, foreground])
+    await h.cache.dispose()
+  }
 })
 
 it('reports repeated generation supersession through the localized capacity failure', async () => {
@@ -369,16 +467,18 @@ it('reports repeated generation supersession through the localized capacity fail
   try {
     await h.read()
     h.generation.mockReturnValueOnce(retry.promise)
-    first.resolve({ ok: true, value: ('obsolete' as OfficeToPdfGeneration) })
-    await vi.waitFor(() => { expect(h.generation).toHaveBeenCalledTimes(3) })
-    h.generation.mockResolvedValue({ ok: true, value: ('replacement' as OfficeToPdfGeneration) })
+    first.resolve({ ok: true, value: 'obsolete' as OfficeToPdfGeneration })
+    await vi.waitFor(() => {
+      expect(h.generation).toHaveBeenCalledTimes(3)
+    })
+    h.generation.mockResolvedValue({ ok: true, value: 'replacement' as OfficeToPdfGeneration })
     await h.read()
-    retry.resolve({ ok: true, value: ('renderer' as OfficeToPdfGeneration) })
+    retry.resolve({ ok: true, value: 'renderer' as OfficeToPdfGeneration })
     await work
     expect(h.generation).toHaveBeenCalledTimes(4)
   } finally {
-    first.resolve({ ok: true, value: ('renderer' as OfficeToPdfGeneration) })
-    retry.resolve({ ok: true, value: ('replacement' as OfficeToPdfGeneration) })
+    first.resolve({ ok: true, value: 'renderer' as OfficeToPdfGeneration })
+    retry.resolve({ ok: true, value: 'replacement' as OfficeToPdfGeneration })
     await h.cache.dispose()
   }
 })
@@ -391,5 +491,7 @@ it('does not retain a PDF returned by a generation newer than the preceding meta
     expect(await h.read()).toBe(converted)
     expect(await h.read()).toBe(converted)
     expect(h.convert).toHaveBeenCalledTimes(2)
-  } finally { await h.cache.dispose() }
+  } finally {
+    await h.cache.dispose()
+  }
 })

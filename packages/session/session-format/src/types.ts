@@ -2,10 +2,7 @@
 export type SessionFormatJsonPrimitive = null | boolean | number | string
 
 /** Lossless JSON value admitted at the durable Session boundary. */
-export type SessionFormatJsonValue =
-  | SessionFormatJsonPrimitive
-  | readonly SessionFormatJsonValue[]
-  | SessionFormatJsonObject
+export type SessionFormatJsonValue = SessionFormatJsonPrimitive | readonly SessionFormatJsonValue[] | SessionFormatJsonObject
 
 /** Lossless JSON object admitted at the durable Session boundary. */
 export interface SessionFormatJsonObject {
@@ -105,10 +102,7 @@ export interface SessionFormatArtifactDecoder {
   /** Inherited cut known before body decoding; current formats may derive it at EOF. */
   readonly headerInheritedEventCount?: number
   /** Decode one physical row and synchronously emit its events or compact run. */
-  decodeRow(
-    rowValue: unknown,
-    context: SessionFormatMigrationContext,
-  ): void
+  decodeRow(rowValue: unknown, context: SessionFormatMigrationContext): void
   /** Finish row validation and return the exact inherited cut. */
   finish(context: SessionFormatMigrationContext): number
 }
@@ -143,15 +137,9 @@ export interface SessionFormatMigrationStage {
   /** Target inherited cut when it is unchanged and known before EOF. */
   readonly headerInheritedEventCount?: number
   /** Transform one source event and synchronously emit every settled target item. */
-  transformEvent(
-    event: SessionFormatEvent,
-    context: SessionFormatMigrationContext,
-  ): void
+  transformEvent(event: SessionFormatEvent, context: SessionFormatMigrationContext): void
   /** Transform one compact source run without requiring an intermediate expansion array. */
-  transformRun(
-    run: SessionFormatEventRun,
-    context: SessionFormatMigrationContext,
-  ): void
+  transformRun(run: SessionFormatEventRun, context: SessionFormatMigrationContext): void
   /** Emit trailing target items and return the exact target inherited cut. */
   finish(context: SessionFormatMigrationContext): number
 }
@@ -166,24 +154,24 @@ export interface SessionFormatMigrationStream extends SessionFormatMigrationCont
 /** Header-only classification that never inspects event rows. */
 export type SessionFormatHeaderReadResult =
   | {
-    readonly status: 'current' | 'migration-required'
-    readonly storedVersion: number
-    readonly targetVersion: number
-    /** Latest logical header. The exact inherited cut requires a body read. */
-    readonly header: SessionFormatHeader
-  }
+      readonly status: 'current' | 'migration-required'
+      readonly storedVersion: number
+      readonly targetVersion: number
+      /** Latest logical header. The exact inherited cut requires a body read. */
+      readonly header: SessionFormatHeader
+    }
   | {
-    readonly status: 'unsupported'
-    readonly storedVersion: number
-    readonly targetVersion: number
-    readonly reason: string
-  }
+      readonly status: 'unsupported'
+      readonly storedVersion: number
+      readonly targetVersion: number
+      readonly reason: string
+    }
   | {
-    readonly status: 'malformed'
-    readonly storedVersion?: number
-    readonly targetVersion: number
-    readonly reason: string
-  }
+      readonly status: 'malformed'
+      readonly storedVersion?: number
+      readonly targetVersion: number
+      readonly reason: string
+    }
 
 /** Inputs for a build-static physical codec and migration catalog. */
 export interface SessionFormatCatalogOptions extends SessionFormatChainOptions {

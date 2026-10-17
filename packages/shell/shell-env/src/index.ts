@@ -112,39 +112,43 @@ export class ShellEnvRegistry extends Service {
    * @returns the disposer that unregisters the contribution.
    */
   register(contributor: BashEnvContributor): () => void {
-    const dispose = this.ctx.effect(function* (this: ShellEnvRegistry) {
-      if (contributor.name.trim().length === 0) {
-        throw new Error('bash env contributor name must be non-empty')
-      }
-      if (this.contributors.has(contributor.name)) {
-        throw new Error(`bash env contributor "${contributor.name}" is already registered`)
-      }
+    const dispose = this.ctx.effect(
+      function* (this: ShellEnvRegistry) {
+        if (contributor.name.trim().length === 0) {
+          throw new Error('bash env contributor name must be non-empty')
+        }
+        if (this.contributors.has(contributor.name)) {
+          throw new Error(`bash env contributor "${contributor.name}" is already registered`)
+        }
 
-      const variables = Object.entries(contributor.variables) as [DshEnvironmentKey, BashEnvVariable][]
-      for (const [key, variable] of variables) {
-        if (!key.startsWith(DSH_ENV_PREFIX)
-          || !BASH_ENV_KEY_SUFFIX.test(key.slice(DSH_ENV_PREFIX.length))) {
-          throw new Error(`bash env contributor "${contributor.name}" declared invalid key "${key}"`)
+        const variables = Object.entries(contributor.variables) as [DshEnvironmentKey, BashEnvVariable][]
+        for (const [key, variable] of variables) {
+          if (!key.startsWith(DSH_ENV_PREFIX) || !BASH_ENV_KEY_SUFFIX.test(key.slice(DSH_ENV_PREFIX.length))) {
+            throw new Error(`bash env contributor "${contributor.name}" declared invalid key "${key}"`)
+          }
+          if (RESERVED_BASH_ENV_KEYS.has(key)) {
+            throw new Error(`bash env contributor "${contributor.name}" cannot own reserved key "${key}"`)
+          }
+          if (variable.description.trim().length === 0) {
+            throw new Error(`bash env contributor "${contributor.name}" must describe "${key}"`)
+          }
+          const owner = this.keyOwners.get(key)
+          if (owner !== undefined) {
+            throw new Error(
+              `bash env key "${key}" is already owned by contributor "${owner}"; contributor "${contributor.name}" cannot also own it`,
+            )
+          }
         }
-        if (RESERVED_BASH_ENV_KEYS.has(key)) {
-          throw new Error(`bash env contributor "${contributor.name}" cannot own reserved key "${key}"`)
-        }
-        if (variable.description.trim().length === 0) {
-          throw new Error(`bash env contributor "${contributor.name}" must describe "${key}"`)
-        }
-        const owner = this.keyOwners.get(key)
-        if (owner !== undefined) {
-          throw new Error(`bash env key "${key}" is already owned by contributor "${owner}"; contributor "${contributor.name}" cannot also own it`)
-        }
-      }
 
-      this.contributors.set(contributor.name, contributor)
-      for (const [key] of variables) this.keyOwners.set(key, contributor.name)
-      yield () => {
-        this.contributors.delete(contributor.name)
-        for (const [key] of variables) this.keyOwners.delete(key)
-      }
-    }.bind(this), 'bashEnv.register()')
+        this.contributors.set(contributor.name, contributor)
+        for (const [key] of variables) this.keyOwners.set(key, contributor.name)
+        yield () => {
+          this.contributors.delete(contributor.name)
+          for (const [key] of variables) this.keyOwners.delete(key)
+        }
+      }.bind(this),
+      'bashEnv.register()',
+    )
     return () => void dispose()
   }
 
@@ -192,11 +196,13 @@ export class ShellEnvRegistry extends Service {
    */
   list(): BashEnvVariableInfo[] {
     return [...this.contributors.values()]
-      .flatMap(contributor => Object.entries(contributor.variables).map(([key, variable]) => ({
-        contributor: contributor.name,
-        description: variable.description,
-        key: key as DshEnvironmentKey,
-      })))
+      .flatMap(contributor =>
+        Object.entries(contributor.variables).map(([key, variable]) => ({
+          contributor: contributor.name,
+          description: variable.description,
+          key: key as DshEnvironmentKey,
+        })),
+      )
       .sort((left, right) => left.key.localeCompare(right.key))
   }
 }

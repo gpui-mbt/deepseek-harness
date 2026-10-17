@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   consumeTranslationResponse,
   parseTranslationResponse,
@@ -17,15 +17,43 @@ const terminology = '| English | 中文 |\n|---|---|\n| agent | agent |'
 
 const retainedExamples = [
   ['### Colloquial verb → Professional verb', 'The repo pins pnpm@11.7.0 in package.json', '该仓库在 package.json 中固定使用 pnpm@11.7.0'],
-  ['### Run-on sentence → Natural phrasing with pause', 'Read docs/architecture.md before changing anything under packages/.', '在修改 packages/ 目录下的任何内容之前，请先阅读 docs/architecture.md。'],
-  ['### Stiff passive voice → Active and natural', 'a green gate means the pair was confirmed consistent at these exact contents, not that the confirmation was sound.', '门禁通过意味着这组文档在当前内容上的一致性得到了确认，不代表确认本身正确可靠。'],
-  ['### Invented word → Natural expression', 'A sidecar record of both blob hashes makes consistency checkable', '伴随记录保存两侧 blob hash，使一致性可检查'],
+  [
+    '### Run-on sentence → Natural phrasing with pause',
+    'Read docs/architecture.md before changing anything under packages/.',
+    '在修改 packages/ 目录下的任何内容之前，请先阅读 docs/architecture.md。',
+  ],
+  [
+    '### Stiff passive voice → Active and natural',
+    'a green gate means the pair was confirmed consistent at these exact contents, not that the confirmation was sound.',
+    '门禁通过意味着这组文档在当前内容上的一致性得到了确认，不代表确认本身正确可靠。',
+  ],
+  [
+    '### Invented word → Natural expression',
+    'A sidecar record of both blob hashes makes consistency checkable',
+    '伴随记录保存两侧 blob hash，使一致性可检查',
+  ],
   ['### Em-dash → Colon/period', 'FIXME — an issue that should block a new release.', 'FIXME：应当阻塞新版本发布的问题。'],
-  ['### Overly literal → Meaningful rendering', 'awkward phrasing is easier to notice when you read the translation without comparing it with the source', '不对照原文阅读译文时，更容易察觉别扭的表达'],
-  ['### Terminology — do not translate what should be kept in English', 'typed service seams, and explicit extension points', '类型化的服务 seam 与显式扩展点'],
-  ['### Slang/jargon → Professional phrasing', 'The committed agent workflow lives in .agents/skills/dsh-translate-docs', '仓库内置的 agent 工作流见 .agents/skills/dsh-translate-docs'],
+  [
+    '### Overly literal → Meaningful rendering',
+    'awkward phrasing is easier to notice when you read the translation without comparing it with the source',
+    '不对照原文阅读译文时，更容易察觉别扭的表达',
+  ],
+  [
+    '### Terminology — do not translate what should be kept in English',
+    'typed service seams, and explicit extension points',
+    '类型化的服务 seam 与显式扩展点',
+  ],
+  [
+    '### Slang/jargon → Professional phrasing',
+    'The committed agent workflow lives in .agents/skills/dsh-translate-docs',
+    '仓库内置的 agent 工作流见 .agents/skills/dsh-translate-docs',
+  ],
   ['### "For humans" — translate the intent, not the word', 'For humans, start with the development guide', '面向开发者：请先阅读开发指南'],
-  ['### Code block comments — NEVER translate', '# full-screen TUI coding agent (needs DEEPSEEK_API_KEY)', 'keep exactly as-is, byte-for-byte'],
+  [
+    '### Code block comments — NEVER translate',
+    '# full-screen TUI coding agent (needs DEEPSEEK_API_KEY)',
+    'keep exactly as-is, byte-for-byte',
+  ],
   ['### Language switcher — flip direction', 'English | [中文](README.zh.md)', '[English](README.md) | 中文'],
 ]
 
@@ -67,19 +95,25 @@ describe('translation prompt rendering', () => {
 
   it('rejects a template with unknown or missing placeholders', () => {
     const alien = document.replaceAll('{{terminology}}', '{{terms_prompt}}')
-    expect(() => renderTranslationPrompt(alien, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })).toThrow(/unsupported placeholder/)
+    expect(() => renderTranslationPrompt(alien, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })).toThrow(
+      /unsupported placeholder/,
+    )
     const missing = document.replaceAll('{{terminology}}', '')
-    expect(() => renderTranslationPrompt(missing, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })).toThrow(/required placeholder/)
+    expect(() => renderTranslationPrompt(missing, { sourceLanguage: 'English', sourceFilename: 'guide.md', terminology })).toThrow(
+      /required placeholder/,
+    )
   })
 
   it('rejects unmatched placeholder delimiters', () => {
     for (const delimiter of ['{{', '}}']) {
       const malformed = document.replace('Your task is to translate', `Your task ${delimiter} is to translate`)
-      expect(() => renderTranslationPrompt(malformed, {
-        sourceLanguage: 'English',
-        sourceFilename: 'guide.md',
-        terminology,
-      })).toThrow(/malformed placeholder syntax/)
+      expect(() =>
+        renderTranslationPrompt(malformed, {
+          sourceLanguage: 'English',
+          sourceFilename: 'guide.md',
+          terminology,
+        }),
+      ).toThrow(/malformed placeholder syntax/)
     }
   })
 
@@ -152,8 +186,9 @@ describe('translation response sections', () => {
     expect(() => parseTranslationResponse('<translation>\nA')).toThrow(/missing or unterminated <translation>/)
     const dup = '<translation>\nA\n</translation>\n<review>\nR\n</review>\n<final>\nF\n</final>\n<final>\nG\n</final>'
     expect(() => parseTranslationResponse(dup)).toThrow(/duplicate <final>/)
-    expect(() => parseTranslationResponse(`${renderTranslationResponse({ translation: 'A', review: 'R', final: 'F' })}\nstray`))
-      .toThrow(/content is not allowed outside/)
+    expect(() => parseTranslationResponse(`${renderTranslationResponse({ translation: 'A', review: 'R', final: 'F' })}\nstray`)).toThrow(
+      /content is not allowed outside/,
+    )
   })
 
   it('inserts or corrects the target switcher after parsing a new-pair response', () => {
@@ -162,42 +197,20 @@ describe('translation response sections', () => {
       review: '- 无修正',
       final: '# 指南\n\nEnglish | [中文](guide.zh.md)\n\n定稿。',
     })
-    expect(consumeTranslationResponse(response, { sourceLanguage: 'English', sourceFilename: 'guide.md' }).final).toBe([
-      '# 指南',
-      '',
-      '[English](guide.md) | 中文',
-      '',
-      '定稿。',
-      '',
-    ].join('\n'))
+    expect(consumeTranslationResponse(response, { sourceLanguage: 'English', sourceFilename: 'guide.md' }).final).toBe(
+      ['# 指南', '', '[English](guide.md) | 中文', '', '定稿。', ''].join('\n'),
+    )
   })
 
   it('preserves YAML frontmatter before inserting the target switcher', () => {
     const response = renderTranslationResponse({
       translation: '# 指南\n\n初稿。',
       review: '- 无修正',
-      final: [
-        '---',
-        'layout: home',
-        '---',
-        '',
-        '# 指南',
-        '',
-        '定稿。',
-      ].join('\n'),
+      final: ['---', 'layout: home', '---', '', '# 指南', '', '定稿。'].join('\n'),
     })
-    expect(consumeTranslationResponse(response, { sourceLanguage: 'English', sourceFilename: 'guide.md' }).final).toBe([
-      '---',
-      'layout: home',
-      '---',
-      '',
-      '# 指南',
-      '',
-      '[English](guide.md) | 中文',
-      '',
-      '定稿。',
-      '',
-    ].join('\n'))
+    expect(consumeTranslationResponse(response, { sourceLanguage: 'English', sourceFilename: 'guide.md' }).final).toBe(
+      ['---', 'layout: home', '---', '', '# 指南', '', '[English](guide.md) | 中文', '', '定稿。', ''].join('\n'),
+    )
   })
 
   it('rejects unterminated YAML frontmatter before the target H1', () => {
@@ -206,18 +219,22 @@ describe('translation response sections', () => {
       review: '- 无修正',
       final: '---\nlayout: home\n\n# 指南\n\n定稿。',
     })
-    expect(() => consumeTranslationResponse(response, {
-      sourceLanguage: 'English',
-      sourceFilename: 'guide.md',
-    })).toThrow(/unterminated YAML frontmatter/)
+    expect(() =>
+      consumeTranslationResponse(response, {
+        sourceLanguage: 'English',
+        sourceFilename: 'guide.md',
+      }),
+    ).toThrow(/unterminated YAML frontmatter/)
   })
 
   it('rejects a source filename that contradicts the translation direction', () => {
-    expect(() => renderTranslationPrompt(document, {
-      sourceLanguage: 'Chinese',
-      sourceFilename: 'guide.md',
-      terminology,
-    })).toThrow(/does not match source language Chinese/)
+    expect(() =>
+      renderTranslationPrompt(document, {
+        sourceLanguage: 'Chinese',
+        sourceFilename: 'guide.md',
+        terminology,
+      }),
+    ).toThrow(/does not match source language Chinese/)
   })
 
   it('inserts the English target switcher for a Chinese source', () => {
@@ -226,9 +243,11 @@ describe('translation response sections', () => {
       review: '- [None] No corrections.',
       final: '# Guide\n\nFinal.',
     })
-    expect(consumeTranslationResponse(response, {
-      sourceLanguage: 'Chinese',
-      sourceFilename: 'guide.zh.md',
-    }).final).toContain('\n\nEnglish | [中文](guide.zh.md)\n\n')
+    expect(
+      consumeTranslationResponse(response, {
+        sourceLanguage: 'Chinese',
+        sourceFilename: 'guide.zh.md',
+      }).final,
+    ).toContain('\n\nEnglish | [中文](guide.zh.md)\n\n')
   })
 })

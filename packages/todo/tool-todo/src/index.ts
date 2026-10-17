@@ -43,14 +43,12 @@ export const Config: z<Config> = z.object({
 })
 
 const DESCRIPTION_HEAD =
-  'Record and update a task list to plan multi-step work and show progress; skip it for trivial '
-  + 'single-step tasks. Add one todo per concrete step before you start. '
+  'Record and update a task list to plan multi-step work and show progress; skip it for trivial ' +
+  'single-step tasks. Add one todo per concrete step before you start. '
 
-const DESCRIPTION_PARALLEL =
-  'While work remains, keep the todos being worked on `in_progress`, several only when work runs in parallel. '
+const DESCRIPTION_PARALLEL = 'While work remains, keep the todos being worked on `in_progress`, several only when work runs in parallel. '
 
-const DESCRIPTION_SINGLE =
-  'While work remains, keep exactly one todo `in_progress`. '
+const DESCRIPTION_SINGLE = 'While work remains, keep exactly one todo `in_progress`. '
 
 const DESCRIPTION_TAIL = 'Mark each todo `completed` as soon as it is done.'
 
@@ -61,9 +59,7 @@ const DESCRIPTION_TAIL = 'Mark each todo `completed` as soon as it is done.'
  * @returns the composed tool description.
  */
 function describe(allowParallel: boolean): string {
-  return DESCRIPTION_HEAD
-    + (allowParallel ? DESCRIPTION_PARALLEL : DESCRIPTION_SINGLE)
-    + DESCRIPTION_TAIL
+  return DESCRIPTION_HEAD + (allowParallel ? DESCRIPTION_PARALLEL : DESCRIPTION_SINGLE) + DESCRIPTION_TAIL
 }
 
 /**
@@ -101,10 +97,12 @@ function toTodoList(raw: { content: string; status: string }[], allowParallel: b
 
 /** Wire payload schema of the `todos` projection (whole list or pre-first-write null). */
 const todosProjectionSchema: ZodType<TodoItem[] | null> = zod.union([
-  zod.array(zod.object({
-    content: zod.string(),
-    status: zod.union([zod.literal('pending'), zod.literal('in_progress'), zod.literal('completed')]),
-  })),
+  zod.array(
+    zod.object({
+      content: zod.string(),
+      status: zod.union([zod.literal('pending'), zod.literal('in_progress'), zod.literal('completed')]),
+    }),
+  ),
   zod.null(),
 ])
 
@@ -132,81 +130,85 @@ export function apply(ctx: Context, config: Config): void {
     wire: { viewSchema: todosProjectionSchema, view: state => state },
     stateVersion: 2,
   })
-  ctx.tools.register(defineTool({
-    name: 'todo_write',
-    description: describe(allowParallel),
-    parameters: {
-      todos: {
-        type: 'array',
-        required: true,
-        description: 'The COMPLETE task list, replacing any previous list.',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            content: { type: 'string', required: true, description: 'What the task is — a short imperative line.' },
-            status: {
-              type: 'string',
-              required: true,
-              enum: [...STATUSES],
-              description: 'pending (not started) | in_progress (now) | completed (done).',
-            },
-          },
-        },
-      },
-    },
-    output: {
-      schema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          todos: {
-            type: 'array',
-            required: true,
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              properties: {
-                content: { type: 'string', required: true },
-                status: { type: 'string', required: true, enum: [...STATUSES] },
+  ctx.tools.register(
+    defineTool({
+      name: 'todo_write',
+      description: describe(allowParallel),
+      parameters: {
+        todos: {
+          type: 'array',
+          required: true,
+          description: 'The COMPLETE task list, replacing any previous list.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              content: { type: 'string', required: true, description: 'What the task is — a short imperative line.' },
+              status: {
+                type: 'string',
+                required: true,
+                enum: [...STATUSES],
+                description: 'pending (not started) | in_progress (now) | completed (done).',
               },
             },
           },
-          counts: {
-            type: 'object',
-            additionalProperties: false,
-            required: true,
-            properties: {
-              pending: { type: 'integer', required: true },
-              inProgress: { type: 'integer', required: true },
-              completed: { type: 'integer', required: true },
+        },
+      },
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            todos: {
+              type: 'array',
+              required: true,
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  content: { type: 'string', required: true },
+                  status: { type: 'string', required: true, enum: [...STATUSES] },
+                },
+              },
+            },
+            counts: {
+              type: 'object',
+              additionalProperties: false,
+              required: true,
+              properties: {
+                pending: { type: 'integer', required: true },
+                inProgress: { type: 'integer', required: true },
+                completed: { type: 'integer', required: true },
+              },
             },
           },
         },
+        render: (_args, value) => [
+          {
+            type: 'text',
+            text: `Updated todo list: ${value.counts.pending} pending, ${value.counts.inProgress} in progress, ${value.counts.completed} completed.`,
+          },
+        ],
       },
-      render: (_args, value) => [{
-        type: 'text',
-        text: `Updated todo list: ${value.counts.pending} pending, ${value.counts.inProgress} in progress, ${value.counts.completed} completed.`,
-      }],
-    },
-    execute(args, exec) {
-      const todos = toTodoList(args.todos, allowParallel)
-      if (!exec.agent) {
-        // The list is per-agent-session state; a non-agent caller (no owning
-        // session) has nowhere to write it. Reject rather than silently no-op.
-        throw new Error('todo_write requires an owning agent session')
-      }
-      exec.agent.session.append('todo/write', { todos })
-      const count = (status: TodoItem['status']): number => todos.filter(t => t.status === status).length
-      return Promise.resolve({
-        todos: todos.map(todo => ({ content: todo.content, status: todo.status })),
-        counts: {
-          pending: count('pending'),
-          inProgress: count('in_progress'),
-          completed: count('completed'),
-        },
-      })
-    },
-    presentCall: args => ({ card: 'generic', title: 'Update todo list', kind: 'other', rawInput: args.todos }),
-  }))
+      execute(args, exec) {
+        const todos = toTodoList(args.todos, allowParallel)
+        if (!exec.agent) {
+          // The list is per-agent-session state; a non-agent caller (no owning
+          // session) has nowhere to write it. Reject rather than silently no-op.
+          throw new Error('todo_write requires an owning agent session')
+        }
+        exec.agent.session.append('todo/write', { todos })
+        const count = (status: TodoItem['status']): number => todos.filter(t => t.status === status).length
+        return Promise.resolve({
+          todos: todos.map(todo => ({ content: todo.content, status: todo.status })),
+          counts: {
+            pending: count('pending'),
+            inProgress: count('in_progress'),
+            completed: count('completed'),
+          },
+        })
+      },
+      presentCall: args => ({ card: 'generic', title: 'Update todo list', kind: 'other', rawInput: args.todos }),
+    }),
+  )
 }

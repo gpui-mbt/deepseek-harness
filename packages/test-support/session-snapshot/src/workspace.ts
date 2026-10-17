@@ -86,13 +86,11 @@ export async function captureWorkspaceSnapshot(
       const absolute = join(directory, entry.name)
       if (entry.isDirectory()) {
         const children = await visit(absolute, childSegments)
-        captured.push(...children.length === 0 ? [{ path, kind: 'empty-directory' as const }] : children)
+        captured.push(...(children.length === 0 ? [{ path, kind: 'empty-directory' as const }] : children))
       } else if (entry.isFile()) {
         const bytes = await readFile(absolute)
         const content = textContent(bytes)
-        captured.push(content === undefined
-          ? { path, kind: 'binary', base64: bytes.toString('base64') }
-          : { path, kind: 'text', content })
+        captured.push(content === undefined ? { path, kind: 'binary', base64: bytes.toString('base64') } : { path, kind: 'text', content })
       } else {
         captured.push({ path, kind: 'symlink', target: await readlink(absolute) })
       }

@@ -7,7 +7,7 @@
  * child's own request — rather than the join that produces it.
  */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
@@ -45,15 +45,24 @@ async function setupPresetHost(
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(AgentPresets, { default: 'coding' })
   const unregister = new Map<string, () => Promise<void>>()
-  for (const [id, tool] of [['coding', 'preset_only'], ['reviewing', 'reviewing_only']] as const) {
-    unregister.set(id, await ctx.agentPresets.register({ id, plugins: [{ name: pathToFileURL(join(FIXTURES, 'plugins/preset-tool.js')).href, config: { tool } }] }))
+  for (const [id, tool] of [
+    ['coding', 'preset_only'],
+    ['reviewing', 'reviewing_only'],
+  ] as const) {
+    unregister.set(
+      id,
+      await ctx.agentPresets.register({
+        id,
+        plugins: [{ name: pathToFileURL(join(FIXTURES, 'plugins/preset-tool.js')).href, config: { tool } }],
+      }),
+    )
   }
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
   const handle = await ctx.agents.create({
     sessionId: SessionId('parent'),
     agentOptions: { provider: 'mock', model: 'mock' },
-    setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'coding'),
+    setup: async (agentCtx: Context) => void (await ctx.agentPresets.mount(agentCtx, 'coding')),
   })
   return { ctx, adapter, parent: handle.agent, unregister }
 }
@@ -69,7 +78,7 @@ function spawnRequest(parent: Agent) {
 }
 
 describe('a child agent composed in-process', () => {
-  it('reaches the model with its parent\'s preset tools', async () => {
+  it("reaches the model with its parent's preset tools", async () => {
     const { adapter, parent } = await setupPresetHost()
 
     const run = await startPreparedActivation(spawnRequest(parent), {})
@@ -80,15 +89,17 @@ describe('a child agent composed in-process', () => {
     await run.dispose()
   })
 
-  it('carries its parent\'s prompt sections', async () => {
+  it("carries its parent's prompt sections", async () => {
     const { parent } = await setupPresetHost()
 
     const run = await startPreparedActivation(spawnRequest(parent), {})
     await run.result
 
-    expect(run.localAgent?.session.snapshotEvents().some(event =>
-      event.type === 'system/message'
-      && JSON.stringify(event.data.message.content).includes('section for preset_only'))).toBe(true)
+    expect(
+      run.localAgent?.session
+        .snapshotEvents()
+        .some(event => event.type === 'system/message' && JSON.stringify(event.data.message.content).includes('section for preset_only')),
+    ).toBe(true)
     await run.dispose()
   })
 
@@ -120,9 +131,7 @@ describe('a child agent composed in-process', () => {
   })
 
   it('registers runtime result tools alongside an independently selected preset', async () => {
-    const { adapter, parent } = await setupPresetHost([
-      toolCallResponse('submit-result', 'structured_output', { answer: 42 }),
-    ])
+    const { adapter, parent } = await setupPresetHost([toolCallResponse('submit-result', 'structured_output', { answer: 42 })])
     const run = await startPreparedActivation({
       ...spawnRequest(parent),
       agentPreset: 'reviewing',
@@ -152,8 +161,7 @@ describe('a child agent composed in-process', () => {
     await selected.result
     const inherited = await startPreparedActivation(spawnRequest(parent))
     await inherited.result
-    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name)))
-      .toEqual([['new_preset_only'], ['preset_only']])
+    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name))).toEqual([['new_preset_only'], ['preset_only']])
     expect(ctx.tools.schemas(parent).map(tool => tool.name)).toEqual(['preset_only'])
     await selected.dispose()
     await inherited.dispose()

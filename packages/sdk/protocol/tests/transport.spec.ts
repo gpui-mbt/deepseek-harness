@@ -1,6 +1,6 @@
 import { once } from 'node:events'
 import { PassThrough, Writable } from 'node:stream'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { JsonRpcLineTransport, JsonRpcResponseError } from '../src/index.ts'
 
 function transportPair() {
@@ -50,7 +50,9 @@ describe('JsonRpcLineTransport', () => {
     b.start()
 
     const failure = await b.request('explode', {}).then(
-      () => { throw new Error('request unexpectedly succeeded') },
+      () => {
+        throw new Error('request unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     expect(failure).toBeInstanceOf(JsonRpcResponseError)
@@ -93,7 +95,9 @@ describe('JsonRpcLineTransport', () => {
     aToB.write(`${JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: 7, message: 'structured', data: { detail: 'x' } } })}\n`)
 
     const failure = await pending.then(
-      () => { throw new Error('request unexpectedly succeeded') },
+      () => {
+        throw new Error('request unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     expect(failure).toBeInstanceOf(JsonRpcResponseError)
@@ -174,7 +178,9 @@ describe('JsonRpcLineTransport', () => {
     const output = new PassThrough()
     const transport = new JsonRpcLineTransport(input, output)
     const notifications: Record<string, unknown>[] = []
-    transport.onNotification((method, params) => { notifications.push({ method, params }) })
+    transport.onNotification((method, params) => {
+      notifications.push({ method, params })
+    })
     transport.start()
 
     const frame = Buffer.from(`${JSON.stringify({ jsonrpc: '2.0', method: 'message', params: { text: '你好' } })}\n`)
@@ -206,12 +212,7 @@ describe('JsonRpcLineTransport', () => {
     transport.notify('tick')
     await transport.flush()
 
-    expect(events).toEqual([
-      'start:frame',
-      'finish:frame',
-      'start:barrier',
-      'finish:barrier',
-    ])
+    expect(events).toEqual(['start:frame', 'finish:frame', 'start:barrier', 'finish:barrier'])
     transport.close()
   })
 

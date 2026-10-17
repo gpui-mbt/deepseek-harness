@@ -6,7 +6,7 @@
  * `dsh-fs-observation-policy`, so it is not exercised here.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { constants as bufferConstants } from 'node:buffer'
 import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, unlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -66,10 +66,7 @@ describe('registration', () => {
   })
 
   it('rejects non-positive, fractional, unsafe, or unallocatable diff-basis limits', async () => {
-    const maxDiffBasisBytes = Math.min(
-      bufferConstants.MAX_LENGTH,
-      bufferConstants.MAX_STRING_LENGTH,
-    )
+    const maxDiffBasisBytes = Math.min(bufferConstants.MAX_LENGTH, bufferConstants.MAX_STRING_LENGTH)
     const valid = new Context()
     const validFiber = await valid.plugin(LocalFileSystem, { diffBasisMaxBytes: maxDiffBasisBytes })
     expect((valid.fs as LocalFileSystem).config.diffBasisMaxBytes).toBe(maxDiffBasisBytes)
@@ -209,7 +206,7 @@ describe('metadata cancellation', () => {
     const lstatRelease = Promise.withResolvers<undefined>()
     let isolatedCtx: Context | undefined
     vi.resetModules()
-    vi.doMock('node:fs/promises', async (importOriginal) => {
+    vi.doMock('node:fs/promises', async importOriginal => {
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
@@ -332,7 +329,7 @@ describe('readByteRange', () => {
   it('shortens a window the file ends inside and empties one at or past the end', async () => {
     await writeFile(join(dir, 'ramp.bin'), ramp)
     const target = await fs.resolve('ramp.bin')
-    expect([...await fs.readByteRange(target, { offset: 253, length: 10 })]).toEqual([253, 254, 255])
+    expect([...(await fs.readByteRange(target, { offset: 253, length: 10 }))]).toEqual([253, 254, 255])
     expect((await fs.readByteRange(target, { offset: 256, length: 10 })).length).toBe(0)
     expect((await fs.readByteRange(target, { offset: 1000, length: 10 })).length).toBe(0)
   })
@@ -354,7 +351,9 @@ describe('readByteRange', () => {
     await writeFile(join(dir, 'a.bin'), 'data')
     const controller = new AbortController()
     controller.abort()
-    await expect(fs.readByteRange(await fs.resolve('a.bin'), { offset: 0, length: 1 }, controller.signal)).rejects.toMatchObject({ code: 'FS_ABORTED' })
+    await expect(fs.readByteRange(await fs.resolve('a.bin'), { offset: 0, length: 1 }, controller.signal)).rejects.toMatchObject({
+      code: 'FS_ABORTED',
+    })
   })
 })
 
@@ -379,8 +378,9 @@ describe('listDir', () => {
       join(dir, 'skills', 'zeta.md'),
     ])
     const materializedEntries = entries.filter(entry => entry.version !== undefined)
-    expect(materializedEntries.map(entry => entry.target.targetKey))
-      .toEqual(await Promise.all(materializedEntries.map(entry => realpath(entry.target.displayPath))))
+    expect(materializedEntries.map(entry => entry.target.targetKey)).toEqual(
+      await Promise.all(materializedEntries.map(entry => realpath(entry.target.displayPath))),
+    )
     expect(entries.find(entry => entry.name === 'alpha.md')?.size).toBe(5)
     expect(typeof entries.find(entry => entry.name === 'alpha.md')?.version).toBe('string')
     expect(entries.find(entry => entry.name === 'broken-link')?.version).toBeUndefined()
@@ -413,18 +413,18 @@ describe('writeText', () => {
   it('createIfAbsent rejects an existing file as FS_NOT_OBSERVED', async () => {
     await writeFile(join(dir, 'a.txt'), 'old')
     const target = await fs.resolve('a.txt')
-    await expect(fs.writeText(target, 'new', { kind: 'createIfAbsent' }))
-      .rejects.toMatchObject({ code: 'FS_NOT_OBSERVED' })
+    await expect(fs.writeText(target, 'new', { kind: 'createIfAbsent' })).rejects.toMatchObject({ code: 'FS_NOT_OBSERVED' })
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('old')
   })
 
   it('createIfAbsent preserves a competitor created after the initial probe', async () => {
     const path = join(dir, 'a.txt')
     const target = await fs.resolve('a.txt')
-    fs.internals.inspectTemp = async () => { await writeFile(path, 'competitor') }
+    fs.internals.inspectTemp = async () => {
+      await writeFile(path, 'competitor')
+    }
 
-    await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' }))
-      .rejects.toMatchObject({ code: 'FS_NOT_OBSERVED' })
+    await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' })).rejects.toMatchObject({ code: 'FS_NOT_OBSERVED' })
     expect(await readFile(path, 'utf8')).toBe('competitor')
   })
 
@@ -434,7 +434,9 @@ describe('writeText', () => {
     await mkdir(realDirectory)
     await symlink(realDirectory, linkedDirectory, process.platform === 'win32' ? 'junction' : 'dir')
     const target = await fs.resolve('linked-workspace/a.txt')
-    fs.internals.inspectTemp = async () => { await writeFile(join(realDirectory, 'a.txt'), 'competitor') }
+    fs.internals.inspectTemp = async () => {
+      await writeFile(join(realDirectory, 'a.txt'), 'competitor')
+    }
 
     await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' })).rejects.toMatchObject({
       code: 'FS_NOT_OBSERVED',
@@ -446,10 +448,11 @@ describe('writeText', () => {
   it('createIfAbsent rejects a competing directory as not a regular file', async () => {
     const path = join(dir, 'a.txt')
     const target = await fs.resolve('a.txt')
-    fs.internals.inspectTemp = async () => { await mkdir(path) }
+    fs.internals.inspectTemp = async () => {
+      await mkdir(path)
+    }
 
-    await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' }))
-      .rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
+    await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' })).rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
     expect((await stat(path)).isDirectory()).toBe(true)
   })
 
@@ -458,8 +461,7 @@ describe('writeText', () => {
     await symlink(join(dir, 'missing-target'), path)
     const target = await fs.resolve('dangling')
 
-    await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' }))
-      .rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
+    await expect(fs.writeText(target, 'ours', { kind: 'createIfAbsent' })).rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
     await expect(readFile(path, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
@@ -476,8 +478,9 @@ describe('writeText', () => {
     const target = await fs.resolve('a.txt')
     const stale = await versionOf(target)
     await writeFile(join(dir, 'a.txt'), 'changed-externally')
-    await expect(fs.writeText(target, 'v2', { kind: 'replaceIfVersion', version: stale }))
-      .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
+    await expect(fs.writeText(target, 'v2', { kind: 'replaceIfVersion', version: stale })).rejects.toMatchObject({
+      code: 'FS_STALE_VERSION',
+    })
   })
 
   it('replaceIfVersion rejects a deleted target as stale, without recreating it', async () => {
@@ -486,15 +489,13 @@ describe('writeText', () => {
     const target = await fs.resolve('a.txt')
     const version = await versionOf(target)
     await unlink(path)
-    await expect(fs.writeText(target, 'v2', { kind: 'replaceIfVersion', version }))
-      .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
+    await expect(fs.writeText(target, 'v2', { kind: 'replaceIfVersion', version })).rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
     await expect(stat(path)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('rejects writing onto a directory', async () => {
     const target = await fs.resolve('.')
-    await expect(fs.writeText(target, 'x', { kind: 'createIfAbsent' }))
-      .rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
+    await expect(fs.writeText(target, 'x', { kind: 'createIfAbsent' })).rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
   })
 
   it('unconditionally creates a new file with no expectation (bare provider)', async () => {
@@ -616,8 +617,7 @@ describe('writeText', () => {
     const target = await fs.resolve('a.txt')
     await fs.writeText(target, 'created', { kind: 'createIfAbsent' })
     expect(lockCount(fs)).toBe(0)
-    await expect(fs.writeText(target, 'again', { kind: 'createIfAbsent' }))
-      .rejects.toMatchObject({ code: 'FS_NOT_OBSERVED' })
+    await expect(fs.writeText(target, 'again', { kind: 'createIfAbsent' })).rejects.toMatchObject({ code: 'FS_NOT_OBSERVED' })
     expect(lockCount(fs)).toBe(0)
   })
 
@@ -632,8 +632,7 @@ describe('writeText', () => {
 
   it('honors a pre-aborted signal without creating the file', async () => {
     const target = await fs.resolve('aborted.txt')
-    await expect(fs.writeText(target, 'x', undefined, AbortSignal.abort()))
-      .rejects.toMatchObject({ code: 'FS_ABORTED' })
+    await expect(fs.writeText(target, 'x', undefined, AbortSignal.abort())).rejects.toMatchObject({ code: 'FS_ABORTED' })
     await expect(stat(join(dir, 'aborted.txt'))).rejects.toMatchObject({ code: 'ENOENT' })
     expect(lockCount(fs)).toBe(0)
   })
@@ -658,7 +657,11 @@ describe('editText', () => {
   it('applies a literal edit at the matching version', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
     const target = await fs.resolve('a.txt')
-    const outcome = await fs.editText(target, { oldString: 'world', newString: 'there', replaceAll: false }, { version: await versionOf(target) })
+    const outcome = await fs.editText(
+      target,
+      { oldString: 'world', newString: 'there', replaceAll: false },
+      { version: await versionOf(target) },
+    )
     expect(outcome.after).toBe('hello there')
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('hello there')
   })
@@ -680,8 +683,9 @@ describe('editText', () => {
     const stale = await versionOf(target)
     // Change the file so 'world' is gone — a stale edit must report STALE, not NOT_FOUND.
     await writeFile(join(dir, 'a.txt'), 'goodbye')
-    await expect(fs.editText(target, { oldString: 'world', newString: 'there', replaceAll: false }, { version: stale }))
-      .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
+    await expect(
+      fs.editText(target, { oldString: 'world', newString: 'there', replaceAll: false }, { version: stale }),
+    ).rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
   })
 
   it('unconditionally edits the current content with no expectation (bare provider)', async () => {
@@ -695,15 +699,17 @@ describe('editText', () => {
 
   it('reports a missing target as FS_STALE_VERSION even with no expectation (bare provider)', async () => {
     const target = await fs.resolve('missing.txt')
-    await expect(fs.editText(target, { oldString: 'a', newString: 'b', replaceAll: false }))
-      .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
+    await expect(fs.editText(target, { oldString: 'a', newString: 'b', replaceAll: false })).rejects.toMatchObject({
+      code: 'FS_STALE_VERSION',
+    })
   })
 
   it('still reports literal-match codes with no expectation (FS_EDIT_NOT_FOUND, unrelated to freshness)', async () => {
     await writeFile(join(dir, 'a.txt'), 'hello world')
     const target = await fs.resolve('a.txt')
-    await expect(fs.editText(target, { oldString: 'absent', newString: 'x', replaceAll: false }))
-      .rejects.toMatchObject({ code: 'FS_EDIT_NOT_FOUND' })
+    await expect(fs.editText(target, { oldString: 'absent', newString: 'x', replaceAll: false })).rejects.toMatchObject({
+      code: 'FS_EDIT_NOT_FOUND',
+    })
   })
 
   it('rejects a deleted target as stale (before matching)', async () => {
@@ -711,24 +717,28 @@ describe('editText', () => {
     const target = await fs.resolve('a.txt')
     const version = await versionOf(target)
     await unlink(join(dir, 'a.txt'))
-    await expect(fs.editText(target, { oldString: 'hello', newString: 'bye', replaceAll: false }, { version }))
-      .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
+    await expect(fs.editText(target, { oldString: 'hello', newString: 'bye', replaceAll: false }, { version })).rejects.toMatchObject({
+      code: 'FS_STALE_VERSION',
+    })
   })
 
   it('rejects a non-regular target', async () => {
     const target = await fs.resolve('.')
-    await expect(fs.editText(target, { oldString: 'a', newString: 'b', replaceAll: false }, { version: FsVersion('v') }))
-      .rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
+    await expect(
+      fs.editText(target, { oldString: 'a', newString: 'b', replaceAll: false }, { version: FsVersion('v') }),
+    ).rejects.toMatchObject({ code: 'FS_NOT_REGULAR_FILE' })
   })
 
   it('rejects zero matches and ambiguous matches at the right version', async () => {
     await writeFile(join(dir, 'a.txt'), 'a a a')
     const target = await fs.resolve('a.txt')
     const version = await versionOf(target)
-    await expect(fs.editText(target, { oldString: 'z', newString: 'X', replaceAll: false }, { version }))
-      .rejects.toMatchObject({ code: 'FS_EDIT_NOT_FOUND' })
-    await expect(fs.editText(target, { oldString: 'a', newString: 'X', replaceAll: false }, { version }))
-      .rejects.toMatchObject({ code: 'FS_AMBIGUOUS_EDIT' })
+    await expect(fs.editText(target, { oldString: 'z', newString: 'X', replaceAll: false }, { version })).rejects.toMatchObject({
+      code: 'FS_EDIT_NOT_FOUND',
+    })
+    await expect(fs.editText(target, { oldString: 'a', newString: 'X', replaceAll: false }, { version })).rejects.toMatchObject({
+      code: 'FS_AMBIGUOUS_EDIT',
+    })
   })
 
   it('replaces all matches with replaceAll', async () => {
@@ -745,8 +755,9 @@ describe('editText', () => {
     await writeFile(path, bytes)
     const target = await fs.resolve('bad.txt')
     const version = await versionOf(target)
-    await expect(fs.editText(target, { oldString: 'h', newString: 'H', replaceAll: false }, { version }))
-      .rejects.toMatchObject({ code: 'FS_NOT_TEXT' })
+    await expect(fs.editText(target, { oldString: 'h', newString: 'H', replaceAll: false }, { version })).rejects.toMatchObject({
+      code: 'FS_NOT_TEXT',
+    })
     expect(await readFile(path)).toEqual(bytes)
   })
 
@@ -768,8 +779,9 @@ describe('editText', () => {
   it('honors a pre-aborted signal without rewriting the file', async () => {
     await writeFile(join(dir, 'a.txt'), 'keep')
     const target = await fs.resolve('a.txt')
-    await expect(fs.editText(target, { oldString: 'keep', newString: 'x', replaceAll: false }, undefined, AbortSignal.abort()))
-      .rejects.toMatchObject({ code: 'FS_ABORTED' })
+    await expect(
+      fs.editText(target, { oldString: 'keep', newString: 'x', replaceAll: false }, undefined, AbortSignal.abort()),
+    ).rejects.toMatchObject({ code: 'FS_ABORTED' })
     expect(await readFile(join(dir, 'a.txt'), 'utf8')).toBe('keep')
     expect(lockCount(fs)).toBe(0)
   })
@@ -821,8 +833,9 @@ describe('symlink targetKey identity', () => {
     const stale = await versionOf(viaReal)
     await writeFile(join(dir, 'real.txt'), 'changed')
     const viaLink = await fs.resolve('link.txt')
-    await expect(fs.editText(viaLink, { oldString: 'hello', newString: 'bye', replaceAll: false }, { version: stale }))
-      .rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
+    await expect(
+      fs.editText(viaLink, { oldString: 'hello', newString: 'bye', replaceAll: false }, { version: stale }),
+    ).rejects.toMatchObject({ code: 'FS_STALE_VERSION' })
   })
 })
 

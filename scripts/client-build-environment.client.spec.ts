@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import yaml from 'js-yaml'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   assertClientBuildEnvironment,
   clientBuildEnvironmentDefines,
@@ -26,14 +26,7 @@ const COMMIT_HASH = '0123456789abcdef0123456789abcdef01234567'
 const PROBE_KEY = `process.env.${PROBE_NAME}`
 const originalProbe = process.env[PROBE_NAME]
 const roots: string[] = []
-const dshBuildWorkflows = [
-  'build-exe-for-python-sdk.yml',
-  'ci.yml',
-  'e2e.yml',
-  'release.yml',
-  'release-publish.yml',
-  'sandbox.yml',
-]
+const dshBuildWorkflows = ['build-exe-for-python-sdk.yml', 'ci.yml', 'e2e.yml', 'release.yml', 'release-publish.yml', 'sandbox.yml']
 
 afterEach(() => {
   if (originalProbe === undefined) Reflect.deleteProperty(process.env, PROBE_NAME)
@@ -87,9 +80,15 @@ describe('client build environment', () => {
       DSH_CLIENT_VERSION: '1.2.3',
     } as const
 
-    expect(() => { assertClientBuildEnvironment({ PATH: '/bin', ...expected }, expected) }).not.toThrow()
-    expect(() => { assertClientBuildEnvironment({}, expected) }).toThrow(/DSH_CLIENT_TITLE/)
-    expect(() => { assertClientBuildEnvironment({ DSH_CLIENT_TITLE: 'Other' }, expected) }).toThrow(/DSH_CLIENT_TITLE/)
+    expect(() => {
+      assertClientBuildEnvironment({ PATH: '/bin', ...expected }, expected)
+    }).not.toThrow()
+    expect(() => {
+      assertClientBuildEnvironment({}, expected)
+    }).toThrow(/DSH_CLIENT_TITLE/)
+    expect(() => {
+      assertClientBuildEnvironment({ DSH_CLIENT_TITLE: 'Other' }, expected)
+    }).toThrow(/DSH_CLIENT_TITLE/)
     expect(() => {
       assertClientBuildEnvironment({ ...expected, DSH_CLIENT_UNDECLARED: 'value' }, expected)
     }).toThrow(/DSH_CLIENT_UNDECLARED/)
@@ -125,13 +124,17 @@ describe('client build environment', () => {
         DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       })
     }).toThrow(/DSH_CLIENT_VERSION/)
-    expect(() => { resolveClientBuildEnvironment({}, 'unknown') }).toThrow(/unknown client build profile/)
-    expect(clientBuildProcessEnvironment(parent, {
-      DSH_CLIENT_BUILD_PROFILE: 'official',
-      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
-      DSH_CLIENT_TITLE: 'DeepSeek Harness',
-      DSH_CLIENT_VERSION: '1.2.3',
-    })).toEqual({
+    expect(() => {
+      resolveClientBuildEnvironment({}, 'unknown')
+    }).toThrow(/unknown client build profile/)
+    expect(
+      clientBuildProcessEnvironment(parent, {
+        DSH_CLIENT_BUILD_PROFILE: 'official',
+        DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
+        DSH_CLIENT_TITLE: 'DeepSeek Harness',
+        DSH_CLIENT_VERSION: '1.2.3',
+      }),
+    ).toEqual({
       PATH: '/bin',
       DSH_CLIENT_BUILD_PROFILE: 'official',
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
@@ -147,12 +150,14 @@ describe('client build environment', () => {
 
     expect(repositoryVersion(fixtureRoot)).toBe('1.2.3-rc.4')
     expect(repositoryGitDirty(fixtureRoot)).toBe(false)
-    expect(repositoryClientBuildEnvironment(fixtureRoot, {
-      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
-      DSH_CLIENT_EXTRA: 'preserved',
-      DSH_CLIENT_GIT_DIRTY: 'true',
-      DSH_CLIENT_VERSION: 'spoofed',
-    })).toEqual({
+    expect(
+      repositoryClientBuildEnvironment(fixtureRoot, {
+        DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
+        DSH_CLIENT_EXTRA: 'preserved',
+        DSH_CLIENT_GIT_DIRTY: 'true',
+        DSH_CLIENT_VERSION: 'spoofed',
+      }),
+    ).toEqual({
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       DSH_CLIENT_EXTRA: 'preserved',
       DSH_CLIENT_VERSION: '1.2.3-rc.4',
@@ -184,9 +189,11 @@ describe('client build environment', () => {
 
     write(join(fixtureRoot, 'untracked.txt'), 'untracked\n')
     expect(repositoryGitDirty(fixtureRoot)).toBe(true)
-    expect(repositoryClientBuildEnvironment(fixtureRoot, {
-      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
-    })).toEqual({
+    expect(
+      repositoryClientBuildEnvironment(fixtureRoot, {
+        DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
+      }),
+    ).toEqual({
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       DSH_CLIENT_GIT_DIRTY: 'true',
       DSH_CLIENT_VERSION: '1.2.3-rc.4',
@@ -207,10 +214,12 @@ describe('client build environment', () => {
     write(join(fixtureRoot, 'package.json'), '{"version":"2.0.0"}\n')
 
     expect(repositoryGitDirty(fixtureRoot)).toBeUndefined()
-    expect(repositoryClientBuildEnvironment(fixtureRoot, {
-      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
-      DSH_CLIENT_GIT_DIRTY: 'true',
-    })).toEqual({
+    expect(
+      repositoryClientBuildEnvironment(fixtureRoot, {
+        DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
+        DSH_CLIENT_GIT_DIRTY: 'true',
+      }),
+    ).toEqual({
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       DSH_CLIENT_VERSION: '2.0.0',
     })
@@ -236,9 +245,9 @@ describe('client build environment', () => {
   it('feeds the same build-process value to dynamic tsdown bundles, their Node faces, and the Vite shell', async () => {
     process.env[PROBE_NAME] = 'shared-value'
 
-    const configs = clientBundle(join(import.meta.dirname, '../packages/client/ui-sidebar'), [
-      'lib/types/index.js',
-    ])({ env: { DSH_BUILD_FACE: 'client' } })
+    const configs = clientBundle(join(import.meta.dirname, '../packages/client/ui-sidebar'), ['lib/types/index.js'])({
+      env: { DSH_BUILD_FACE: 'client' },
+    })
     if (!Array.isArray(configs)) throw new TypeError('client bundle config must be an array')
     const dynamic = configs.find(config => config.name === '@deepseek-ai/dsh-client-ui-sidebar/client')
     expect(dynamic?.define).toMatchObject({
@@ -276,22 +285,34 @@ describe('client build environment', () => {
     const defaultBuild = buildFixture({})
 
     expect(readClientBuildRecord(official, officialEnvironment).environment).toEqual(officialEnvironment)
-    expect(() => { readClientBuildRecord(defaultBuild, officialEnvironment) }).toThrow(/DSH_CLIENT_/)
-    expect(() => { readClientBuildRecord(join(defaultBuild, 'missing')) }).toThrow(/record.*missing/)
+    expect(() => {
+      readClientBuildRecord(defaultBuild, officialEnvironment)
+    }).toThrow(/DSH_CLIENT_/)
+    expect(() => {
+      readClientBuildRecord(join(defaultBuild, 'missing'))
+    }).toThrow(/record.*missing/)
 
     write(join(official, 'apps/web/dist/index.html'), '<main>changed</main>')
-    expect(() => { readClientBuildRecord(official) }).toThrow(/artifacts differ/)
+    expect(() => {
+      readClientBuildRecord(official)
+    }).toThrow(/artifacts differ/)
 
     const chunked = buildFixture(officialEnvironment)
     write(join(chunked, 'packages/client/example/lib/client.pdf.js'), 'module.exports = {}\n')
-    expect(() => { readClientBuildRecord(chunked) }).toThrow(/artifacts differ/)
+    expect(() => {
+      readClientBuildRecord(chunked)
+    }).toThrow(/artifacts differ/)
 
     const dual = buildFixture(officialEnvironment)
     write(join(dual, 'packages/client/example/lib/client.node.js'), 'export const node = true\n')
     write(join(dual, 'packages/client/example/lib/client.node.helper.js'), 'export const helper = true\n')
-    expect(() => { readClientBuildRecord(dual) }).not.toThrow()
+    expect(() => {
+      readClientBuildRecord(dual)
+    }).not.toThrow()
     write(join(dual, 'packages/client/example/lib/client.browser.js'), 'module.exports = { browser: true }\n')
-    expect(() => { readClientBuildRecord(dual) }).toThrow(/artifacts differ/)
+    expect(() => {
+      readClientBuildRecord(dual)
+    }).toThrow(/artifacts differ/)
   })
 
   it('keeps public client values out of workflow-wide environments', () => {

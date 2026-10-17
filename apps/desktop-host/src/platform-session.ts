@@ -8,7 +8,7 @@ import type { PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
  * @param publish - Synchronous private IPC delivery; never forwards credentials to the renderer.
  */
 export function installPlatformSessionPublisher(ctx: Context, publish: (session: PlatformSession | null) => void): void {
-  ctx.inject(['deepseekAccount'], (accountCtx) => {
+  ctx.inject(['deepseekAccount'], accountCtx => {
     const account = accountCtx.deepseekAccount
     accountCtx.effect(() => {
       const lifetime = new AbortController()

@@ -1,15 +1,21 @@
 // @vitest-environment jsdom
 /** DOM cursor contrast without writing escape sequences or replacing the palette. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import type { Terminal } from '@xterm/xterm'
 import { observeTerminalCursor } from '../src/client/terminal-cursor.ts'
 
 it('tracks actual cell backgrounds and restores the cursor marker after measuring', () => {
   let update: () => void = () => {}
   const dispose = vi.fn()
-  const terminal = { onRender: (listener: () => void) => { update = listener; return { dispose } } } as unknown as Terminal
+  const terminal = {
+    onRender: (listener: () => void) => {
+      update = listener
+      return { dispose }
+    },
+  } as unknown as Terminal
   const node = document.createElement('div')
-  node.innerHTML = '<div class="xterm-scrollable-element" style="background: white"><span class="xterm-cursor" style="color: cyan"></span></div>'
+  node.innerHTML =
+    '<div class="xterm-scrollable-element" style="background: white"><span class="xterm-cursor" style="color: cyan"></span></div>'
   document.body.append(node)
   try {
     const cursor = node.querySelector<HTMLElement>('span')!
@@ -47,5 +53,7 @@ it('tracks actual cell backgrounds and restores the cursor marker after measurin
     update()
     listener.dispose()
     expect(dispose).toHaveBeenCalledOnce()
-  } finally { node.remove() }
+  } finally {
+    node.remove()
+  }
 })

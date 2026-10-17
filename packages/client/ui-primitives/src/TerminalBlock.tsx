@@ -115,11 +115,7 @@ function promptLabel(cwd: string, home: string | undefined): string {
  * @param labels - display copy for the pill text.
  * @returns the pill text, or undefined for a clean exit.
  */
-function statusText(
-  exitCode: number | null | undefined,
-  signal: string | undefined,
-  labels: TerminalBlockLabels,
-): string | undefined {
+function statusText(exitCode: number | null | undefined, signal: string | undefined, labels: TerminalBlockLabels): string | undefined {
   if (signal !== undefined) return labels.signal(signal)
   if (exitCode === null) return labels.noExitCode
   if (exitCode !== undefined && exitCode !== 0) return labels.exitCode(exitCode)
@@ -160,9 +156,15 @@ function runState(
  * @returns the line's children.
  */
 function renderLine(line: AnsiLine) {
-  return line.map((span, index) => span.style === undefined
-    ? span.text
-    : <span key={index} style={span.style}>{span.text}</span>)
+  return line.map((span, index) =>
+    span.style === undefined ? (
+      span.text
+    ) : (
+      <span key={index} style={span.style}>
+        {span.text}
+      </span>
+    ),
+  )
 }
 
 /**
@@ -197,8 +199,7 @@ export function TerminalBlock({
   const lines = useMemo(() => {
     const parsed = parseAnsiLines(text)
     const last = parsed[parsed.length - 1]
-    const terminated = parsed.length > 1 && last !== undefined
-      && last.every(span => span.text === '')
+    const terminated = parsed.length > 1 && last !== undefined && last.every(span => span.text === '')
     return terminated ? parsed.slice(0, -1) : parsed
   }, [text])
   const [expanded, setExpanded] = useState(false)
@@ -206,7 +207,9 @@ export function TerminalBlock({
   // prompt line and the status pill are chrome the user did not run.
   const { copied, onCopy } = useCopyFeedback(copyText ?? text)
 
-  const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
+  const onToggle = useCallback(() => {
+    setExpanded(value => !value)
+  }, [])
 
   const status = background ? undefined : statusText(exitCode, signal, copy)
   const state = runState(running, exitCode, signal, copy)
@@ -230,12 +233,7 @@ export function TerminalBlock({
   const body = !background && (!running || !empty)
 
   return (
-    <div
-      className={clsx(css.block, className)}
-      data-terminal=""
-      data-running={running ? '' : undefined}
-      data-body={body ? '' : undefined}
-    >
+    <div className={clsx(css.block, className)} data-terminal="" data-running={running ? '' : undefined} data-body={body ? '' : undefined}>
       <div className={css.header}>
         <div className={css.prompt}>
           {showState && <span className={css.runStateLabel}>{state.label}</span>}
@@ -252,9 +250,7 @@ export function TerminalBlock({
                   command is enough), so repeating the label down the rows would
                   assert a directory per line that nothing here knows. Later
                   rows keep a bare `$` to stay aligned as prompts. */}
-              <span className={css.cwd}>
-                {index > 0 || cwd === undefined ? '$' : promptLabel(cwd, home)}
-              </span>
+              <span className={css.cwd}>{index > 0 || cwd === undefined ? '$' : promptLabel(cwd, home)}</span>
               <CommandText className={css.command} text={line} label={copy.commandLine(index + 1)} />
             </div>
           ))}
@@ -266,12 +262,15 @@ export function TerminalBlock({
           </button>
         )}
       </div>
-      {body && (empty
-        ? <div className={css.empty}>{copy.noOutput}</div>
-        : (
+      {body &&
+        (empty ? (
+          <div className={css.empty}>{copy.noOutput}</div>
+        ) : (
           <div className={css.output}>
             {(capped ? lines.slice(0, headLines) : lines).map((line, index) => (
-              <div key={index} className={css.line}>{renderLine(line)}</div>
+              <div key={index} className={css.line}>
+                {renderLine(line)}
+              </div>
             ))}
             {hidden > 0 && (
               <button
@@ -284,9 +283,12 @@ export function TerminalBlock({
                 {expanded ? copy.collapse : copy.expand(hidden)}
               </button>
             )}
-            {capped && lines.slice(lines.length - tailLines).map((line, index) => (
-              <div key={index} className={css.line}>{renderLine(line)}</div>
-            ))}
+            {capped &&
+              lines.slice(lines.length - tailLines).map((line, index) => (
+                <div key={index} className={css.line}>
+                  {renderLine(line)}
+                </div>
+              ))}
           </div>
         ))}
     </div>

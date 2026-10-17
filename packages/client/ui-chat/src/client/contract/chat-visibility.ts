@@ -8,9 +8,10 @@ import type { ChatNode } from './chat-nodes.ts'
  * @returns whether the node contributes a visible Chat row.
  */
 export function isVisibleChatNode(node: ChatNode): boolean {
-  return node.visibility === 'visible'
-    && node.kind !== 'system-prompt'
-    && (node.kind !== 'context'
-      || node.data.content.some(block => block.type === 'tool-addition' || block.type === 'tool-removal'))
-    && !(node.kind === 'command' && node.data.name === 'permission')
+  return (
+    node.visibility === 'visible' &&
+    node.kind !== 'system-prompt' &&
+    (node.kind !== 'context' || node.data.content.some(block => block.type === 'tool-addition' || block.type === 'tool-removal')) &&
+    !(node.kind === 'command' && node.data.name === 'permission')
+  )
 }

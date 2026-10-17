@@ -12,12 +12,7 @@ import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import type {} from '@deepseek-ai/dsh-web'
-import {
-  OLLAMA_DEFAULT_API_KEY_ENV,
-  OLLAMA_DEFAULT_BASE_URL,
-  OLLAMA_DEFAULT_MAX_RESULTS,
-  OllamaSearchProvider,
-} from './provider.ts'
+import { OLLAMA_DEFAULT_API_KEY_ENV, OLLAMA_DEFAULT_BASE_URL, OLLAMA_DEFAULT_MAX_RESULTS, OllamaSearchProvider } from './provider.ts'
 import type { OllamaSearchProviderOptions } from './provider.ts'
 
 export {
@@ -74,15 +69,11 @@ export const WEB_SEARCH_OLLAMA_SETTINGS_NAMESPACE = 'web-search-ollama'
  * @param config - the currently authoritative section.
  * @returns options for one search.
  */
-function resolveOptions(
-  ctx: Context, config: { [K in keyof Config]: ReturnType<Config[K]['get']> },
-): OllamaSearchProviderOptions {
+function resolveOptions(ctx: Context, config: { [K in keyof Config]: ReturnType<Config[K]['get']> }): OllamaSearchProviderOptions {
   const apiKeyEnv = credentialRef(config.apiKeyEnv)
-  const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0
-    ? config.apiKey
-    : undefined
+  const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0 ? config.apiKey : undefined
   return {
-    ...literalApiKey === undefined ? {} : { apiKey: literalApiKey },
+    ...(literalApiKey === undefined ? {} : { apiKey: literalApiKey }),
     resolveApiKey: async () => {
       const credentials = ctx.get('credentials')
       if (credentials !== undefined) return (await credentials.resolve(apiKeyEnv))?.value
@@ -91,16 +82,21 @@ function resolveOptions(
       return ambient !== undefined && ambient.value.length > 0 ? ambient.value : undefined
     },
     apiKeyEnv,
-    baseURL: config.baseURL
-      ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value
-      ?? OLLAMA_DEFAULT_BASE_URL,
+    baseURL: config.baseURL ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value ?? OLLAMA_DEFAULT_BASE_URL,
     maxResults: config.maxResults,
   }
 }
 
 /** Register the Ollama Cloud search provider with `ctx.web`. */
 export function apply(ctx: Context, config: Config): void {
-  ctx.web.registerSearchProvider(new OllamaSearchProvider(() => resolveOptions(ctx, {
-    apiKey: config.apiKey.get(), apiKeyEnv: config.apiKeyEnv.get(), baseURL: config.baseURL.get(), maxResults: config.maxResults.get(),
-  })))
+  ctx.web.registerSearchProvider(
+    new OllamaSearchProvider(() =>
+      resolveOptions(ctx, {
+        apiKey: config.apiKey.get(),
+        apiKeyEnv: config.apiKeyEnv.get(),
+        baseURL: config.baseURL.get(),
+        maxResults: config.maxResults.get(),
+      }),
+    ),
+  )
 }

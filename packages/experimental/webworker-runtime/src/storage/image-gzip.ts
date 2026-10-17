@@ -23,8 +23,7 @@ const GZIP_MAGIC = [0x1f, 0x8b] as const
 /** Bytes of a refused body quoted in the failure, enough to recognize text served in its place. */
 const QUOTED_BYTES = 8
 
-const hex = (bytes: Uint8Array): string =>
-  [...bytes.slice(0, QUOTED_BYTES)].map(byte => byte.toString(16).padStart(2, '0')).join(' ')
+const hex = (bytes: Uint8Array): string => [...bytes.slice(0, QUOTED_BYTES)].map(byte => byte.toString(16).padStart(2, '0')).join(' ')
 
 /**
  * A pass-through that refuses a body which is not a gzip member.
@@ -39,12 +38,13 @@ const hex = (bytes: Uint8Array): string =>
 function requireGzipMember(source: string): TransformStream<Uint8Array, Uint8Array> {
   let head: Uint8Array = new Uint8Array(0)
   let judged = false
-  const refuse = (read: Uint8Array): Error => new Error(
-    `webworker image: ${source} is not the gzip-compressed tar this deployment serves as its image `
-    + `(expected a member starting 1f 8b, read ${read.byteLength === 0 ? 'an empty body' : hex(read)}); `
-    + 'a host that answered with a Content-Encoding the transport already decoded, or a build that wrote '
-    + 'the archive uncompressed, arrives exactly this way',
-  )
+  const refuse = (read: Uint8Array): Error =>
+    new Error(
+      `webworker image: ${source} is not the gzip-compressed tar this deployment serves as its image ` +
+        `(expected a member starting 1f 8b, read ${read.byteLength === 0 ? 'an empty body' : hex(read)}); ` +
+        'a host that answered with a Content-Encoding the transport already decoded, or a build that wrote ' +
+        'the archive uncompressed, arrives exactly this way',
+    )
   return new TransformStream<Uint8Array, Uint8Array>({
     transform: (chunk, controller): void => {
       if (judged) {

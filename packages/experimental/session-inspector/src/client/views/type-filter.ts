@@ -16,7 +16,10 @@ export class InspectorTypeFilter {
 
   /** @param query - Type fragment; empty text or only stars clears filtering. */
   constructor(query: string) {
-    this.query = query.trim().replace(/^\*+|\*+$/g, '').trim()
+    this.query = query
+      .trim()
+      .replace(/^\*+|\*+$/g, '')
+      .trim()
     this.needle = this.query.toLowerCase()
   }
 
@@ -24,7 +27,9 @@ export class InspectorTypeFilter {
    * Distinguish a type restriction from an empty or all-stars query.
    * @returns Whether this filter restricts the table.
    */
-  get active(): boolean { return this.needle !== '' }
+  get active(): boolean {
+    return this.needle !== ''
+  }
 
   /**
    * Match a type by case-insensitive containment, accepting all types when filtering is inactive.
@@ -58,10 +63,15 @@ export class InspectorTypeFilter {
       const parent = byKey.get(key)?.parent
       if (parent !== undefined) branches.add(parent)
     }
-    return { matches, rows: rows.filter(row => retained.has(row.key)).map((row) => {
-      const { disclosure: _disclosure, ...plain } = row
-      return branches.has(row.key) ? { ...plain, disclosure: 'open' as const } : plain
-    }) }
+    return {
+      matches,
+      rows: rows
+        .filter(row => retained.has(row.key))
+        .map(row => {
+          const { disclosure: _disclosure, ...plain } = row
+          return branches.has(row.key) ? { ...plain, disclosure: 'open' as const } : plain
+        }),
+    }
   }
 
   /**

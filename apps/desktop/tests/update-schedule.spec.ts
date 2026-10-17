@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { AppUpdater } from 'electron-updater'
 import type { DesktopUpdateState } from '../src/ipc.ts'
 import { DesktopUpdateSchedule, resolveDesktopUpdateScheduleConfig } from '../src/update-schedule.ts'
@@ -9,7 +9,9 @@ vi.mock('electron-updater', () => ({ default: { autoUpdater: {} } }))
 const { DesktopUpdateCoordinator } = await import('../src/update-coordinator.ts')
 
 const cleanup: (() => void)[] = []
-beforeEach(() => { vi.useFakeTimers() })
+beforeEach(() => {
+  vi.useFakeTimers()
+})
 afterEach(() => {
   for (const dispose of cleanup.splice(0)) dispose()
   vi.useRealTimers()
@@ -25,10 +27,21 @@ function fixture(jitter = 0, random = () => 0.5) {
   })
   const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall: vi.fn() }) as unknown as AppUpdater
   const states: DesktopUpdateState[] = []
-  const coordinator = new DesktopUpdateCoordinator((state) => { states.push(state); return state }, async () => true,
-    updater, () => true, () => '1.0.0')
+  const coordinator = new DesktopUpdateCoordinator(
+    state => {
+      states.push(state)
+      return state
+    },
+    async () => true,
+    updater,
+    () => true,
+    () => '1.0.0',
+  )
   const schedule = new DesktopUpdateSchedule(coordinator, { intervalMs: 10_000, maxBackoffMs: 40_000, jitter }, random)
-  cleanup.push(() => { schedule.dispose(); coordinator.dispose() })
+  cleanup.push(() => {
+    schedule.dispose()
+    coordinator.dispose()
+  })
   return { schedule, coordinator, states, checkForUpdates, downloadUpdate }
 }
 
@@ -38,7 +51,11 @@ describe('ordinary update polling', () => {
     f.checkForUpdates.mockRejectedValue(new Error('offline'))
     await f.schedule.check()
     expect(f.checkForUpdates).toHaveBeenCalledTimes(1)
-    for (const [delay, calls] of [[20_000, 2], [40_000, 3], [40_000, 4]] as const) {
+    for (const [delay, calls] of [
+      [20_000, 2],
+      [40_000, 3],
+      [40_000, 4],
+    ] as const) {
       await vi.advanceTimersByTimeAsync(delay - 1)
       await f.schedule.check()
       expect(f.checkForUpdates).toHaveBeenCalledTimes(calls - 1)
@@ -55,23 +72,25 @@ describe('ordinary update polling', () => {
     expect(f.downloadUpdate).not.toHaveBeenCalled()
   })
 
-  it.each([[0, 8_000, 32_000], [0.5, 10_000, 36_000], [0.9999, 12_000, 39_999]])(
-    'samples jitter %s without exceeding the final backoff cap', async (sample, healthyDelay, cappedDelay) => {
-      const f = fixture(0.2, () => sample)
-      await f.schedule.check()
-      await vi.advanceTimersByTimeAsync(healthyDelay - 1)
-      expect(f.checkForUpdates).toHaveBeenCalledTimes(1)
-      await vi.advanceTimersByTimeAsync(1)
-      expect(f.checkForUpdates).toHaveBeenCalledTimes(2)
-      f.checkForUpdates.mockRejectedValue(new Error('offline'))
-      await f.schedule.check(true)
-      await f.schedule.check(true)
-      await vi.advanceTimersByTimeAsync(cappedDelay - 1)
-      expect(f.checkForUpdates).toHaveBeenCalledTimes(4)
-      await vi.advanceTimersByTimeAsync(1)
-      expect(f.checkForUpdates).toHaveBeenCalledTimes(5)
-    },
-  )
+  it.each([
+    [0, 8_000, 32_000],
+    [0.5, 10_000, 36_000],
+    [0.9999, 12_000, 39_999],
+  ])('samples jitter %s without exceeding the final backoff cap', async (sample, healthyDelay, cappedDelay) => {
+    const f = fixture(0.2, () => sample)
+    await f.schedule.check()
+    await vi.advanceTimersByTimeAsync(healthyDelay - 1)
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(2)
+    f.checkForUpdates.mockRejectedValue(new Error('offline'))
+    await f.schedule.check(true)
+    await f.schedule.check(true)
+    await vi.advanceTimersByTimeAsync(cappedDelay - 1)
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(4)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(f.checkForUpdates).toHaveBeenCalledTimes(5)
+  })
 
   it('starts the delay at completion and joins a manual caller without hiding its failure', async () => {
     const f = fixture()
@@ -140,7 +159,10 @@ describe('ordinary update polling', () => {
     expect(vi.getTimerCount()).toBe(1)
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof f.checkForUpdates>>>()
     const started = Promise.withResolvers<undefined>()
-    f.checkForUpdates.mockImplementationOnce(() => { started.resolve(undefined); return pending.promise })
+    f.checkForUpdates.mockImplementationOnce(() => {
+      started.resolve(undefined)
+      return pending.promise
+    })
     const checking = f.schedule.check(true)
     try {
       await started.promise
@@ -172,14 +194,23 @@ describe('ordinary update polling disposal', () => {
 describe('ordinary update polling configuration', () => {
   it('resolves defaults and supports an explicit interval longer than the default backoff cap', () => {
     expect(resolveDesktopUpdateScheduleConfig({})).toEqual({ intervalMs: 600_000, maxBackoffMs: 3_600_000, jitter: 0.2 })
-    expect(resolveDesktopUpdateScheduleConfig({ DSH_DESKTOP_UPDATE_CHECK_INTERVAL_MS: '7200000' }))
-      .toEqual({ intervalMs: 7_200_000, maxBackoffMs: 7_200_000, jitter: 0.2 })
+    expect(resolveDesktopUpdateScheduleConfig({ DSH_DESKTOP_UPDATE_CHECK_INTERVAL_MS: '7200000' })).toEqual({
+      intervalMs: 7_200_000,
+      maxBackoffMs: 7_200_000,
+      jitter: 0.2,
+    })
   })
 
   it.each([
-    ['INTERVAL_MS', '0'], ['INTERVAL_MS', '1.5'], ['INTERVAL_MS', '2147483648'], ['INTERVAL_MS', ''],
-    ['MAX_BACKOFF_MS', '1000'], ['MAX_BACKOFF_MS', 'Infinity'],
-    ['JITTER', '-0.1'], ['JITTER', '1.1'], ['JITTER', 'NaN'],
+    ['INTERVAL_MS', '0'],
+    ['INTERVAL_MS', '1.5'],
+    ['INTERVAL_MS', '2147483648'],
+    ['INTERVAL_MS', ''],
+    ['MAX_BACKOFF_MS', '1000'],
+    ['MAX_BACKOFF_MS', 'Infinity'],
+    ['JITTER', '-0.1'],
+    ['JITTER', '1.1'],
+    ['JITTER', 'NaN'],
   ])('rejects invalid %s=%s at configuration load', (suffix, value) => {
     expect(() => resolveDesktopUpdateScheduleConfig({ [`DSH_DESKTOP_UPDATE_CHECK_${suffix}`]: value })).toThrow()
   })

@@ -16,7 +16,13 @@ import type {} from '@deepseek-ai/dsh-plugin-manager'
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {
-  MarketCompatibility, MarketIndexSummary, MarketInstallation, MarketListingEntry, MarketListingVersion, MarketQuery, MarketSearchResult,
+  MarketCompatibility,
+  MarketIndexSummary,
+  MarketInstallation,
+  MarketListingEntry,
+  MarketListingVersion,
+  MarketQuery,
+  MarketSearchResult,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -76,9 +82,15 @@ export default class PluginMarket extends TypertRemoteService {
   static inject = ['pluginManager']
 
   static Config = z.object({
-    indexes: z.array(z.string().pattern(/^https?:\/\/\S+$/u)).default([]).volatile(),
+    indexes: z
+      .array(z.string().pattern(/^https?:\/\/\S+$/u))
+      .default([])
+      .volatile(),
     fetchTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(15000),
-    maxBytes: z.natural().min(1).default(128 * 1024 * 1024),
+    maxBytes: z
+      .natural()
+      .min(1)
+      .default(128 * 1024 * 1024),
     cacheTtlMs: z.natural().default(600000),
   })
 
@@ -88,11 +100,14 @@ export default class PluginMarket extends TypertRemoteService {
   private readonly errors = new Map<string, string>()
   private readonly entryId: string | undefined
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'pluginMarket')
     this.entryId = ctx.fiber.entry?.options.id
     ctx.on('loader/volatile-update', () => {
-      const configured = new Set(this.sources().flatMap(source => source.error === undefined ? [source.url] : []))
+      const configured = new Set(this.sources().flatMap(source => (source.error === undefined ? [source.url] : [])))
       for (const url of [...this.cache.keys(), ...this.errors.keys()]) {
         if (!configured.has(url)) {
           this.cache.delete(url)
@@ -118,8 +133,10 @@ export default class PluginMarket extends TypertRemoteService {
       const error = invalid ?? this.errors.get(url)
       return {
         url,
-        ...index === undefined ? {} : { title: index.title, ...index.description === undefined ? {} : { description: index.description } },
-        ...error === undefined ? {} : { error },
+        ...(index === undefined
+          ? {}
+          : { title: index.title, ...(index.description === undefined ? {} : { description: index.description }) }),
+        ...(error === undefined ? {} : { error }),
       }
     })
   }
@@ -135,12 +152,15 @@ export default class PluginMarket extends TypertRemoteService {
   @Remote
   async setIndexes(urls: string[]): Promise<void> {
     const configured = new Set(this.config.indexes.get())
-    const normalized = urls.map(url => configured.has(url) ? url : normalizeIndexUrl(url))
+    const normalized = urls.map(url => (configured.has(url) ? url : normalizeIndexUrl(url)))
     // A kept URL compares by its canonical form when it has one, so a new spelling of it counts as a repeat.
-    const keys = normalized.map(url => URL.canParse(url) ? new URL(url).href : url)
+    const keys = normalized.map(url => (URL.canParse(url) ? new URL(url).href : url))
     const repeated = normalized.find((_url, position) => keys.indexOf(keys[position] as string) !== position)
     if (repeated !== undefined) {
-      throw new RemoteError('plugin-market/invalid-index-url', `Index source listed twice: ${repeated}`, { url: repeated, reason: 'duplicate' })
+      throw new RemoteError('plugin-market/invalid-index-url', `Index source listed twice: ${repeated}`, {
+        url: repeated,
+        reason: 'duplicate',
+      })
     }
     const settings = this.ctx.get('settings')
     if (settings === undefined || this.entryId === undefined) {
@@ -166,7 +186,10 @@ export default class PluginMarket extends TypertRemoteService {
       throw new RemoteError('plugin-market/invalid-query', 'offset must be a non-negative integer', { field: 'offset', reason: 'range' })
     }
     if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > MAX_LIMIT) {
-      throw new RemoteError('plugin-market/invalid-query', `limit must be an integer from 1 to ${String(MAX_LIMIT)}`, { field: 'limit', reason: 'range' })
+      throw new RemoteError('plugin-market/invalid-query', `limit must be an integer from 1 to ${String(MAX_LIMIT)}`, {
+        field: 'limit',
+        reason: 'range',
+      })
     }
     const document = await this.document(url, query.refresh === true, query.fetchedAt)
     const matching = await document.search.select(query)
@@ -177,7 +200,7 @@ export default class PluginMarket extends TypertRemoteService {
     return {
       url,
       title: index.title,
-      ...index.description === undefined ? {} : { description: index.description },
+      ...(index.description === undefined ? {} : { description: index.description }),
       metadata: index.metadata,
       fetchedAt: document.fetchedAt,
       entries: page.map(listing),
@@ -225,11 +248,13 @@ export default class PluginMarket extends TypertRemoteService {
    */
   private sources(): { readonly url: string; readonly error?: string }[] {
     const seen = new Set<string>()
-    return this.config.indexes.get().flatMap((url) => {
+    return this.config.indexes.get().flatMap(url => {
       if (seen.has(url)) return []
       seen.add(url)
       try {
-        return normalizeIndexUrl(url) === url ? [{ url }] : [{ url, error: `Index URL is not in canonical form; use ${normalizeIndexUrl(url)}` }]
+        return normalizeIndexUrl(url) === url
+          ? [{ url }]
+          : [{ url, error: `Index URL is not in canonical form; use ${normalizeIndexUrl(url)}` }]
       } catch (error) {
         return [{ url, error: messageOf(error) }]
       }
@@ -243,19 +268,26 @@ export default class PluginMarket extends TypertRemoteService {
   private fetchShared(url: string): Promise<IndexDocument> {
     let pending = this.pending.get(url)
     if (pending === undefined) {
-      pending = this.fetchIndex(url).then((index) => {
-        // Distinct per URL even when two fetches finish within one millisecond.
-        const fetchedAt = Math.max(Date.now(), (this.cache.get(url)?.document.fetchedAt ?? 0) + 1)
-        const document = { index, fetchedAt, search: new MarketSearch(index) }
-        if (this.configured(url)) {
-          this.cache.set(url, { document, expiresAt: Date.now() + this.config.cacheTtlMs })
-          this.errors.delete(url)
-        }
-        return document
-      }, (error: unknown) => {
-        if (this.configured(url)) this.errors.set(url, messageOf(error))
-        throw error
-      }).finally(() => { this.pending.delete(url) })
+      pending = this.fetchIndex(url)
+        .then(
+          index => {
+            // Distinct per URL even when two fetches finish within one millisecond.
+            const fetchedAt = Math.max(Date.now(), (this.cache.get(url)?.document.fetchedAt ?? 0) + 1)
+            const document = { index, fetchedAt, search: new MarketSearch(index) }
+            if (this.configured(url)) {
+              this.cache.set(url, { document, expiresAt: Date.now() + this.config.cacheTtlMs })
+              this.errors.delete(url)
+            }
+            return document
+          },
+          (error: unknown) => {
+            if (this.configured(url)) this.errors.set(url, messageOf(error))
+            throw error
+          },
+        )
+        .finally(() => {
+          this.pending.delete(url)
+        })
       this.pending.set(url, pending)
     }
     return pending
@@ -314,7 +346,10 @@ export default class PluginMarket extends TypertRemoteService {
 }
 
 function listingOf(
-  plugin: MarketPlugin, bundles: readonly BundleInfo[], exemptions: Readonly<Record<string, readonly string[]>>, runtimeVersion: string,
+  plugin: MarketPlugin,
+  bundles: readonly BundleInfo[],
+  exemptions: Readonly<Record<string, readonly string[]>>,
+  runtimeVersion: string,
 ): MarketListingEntry {
   const versions = plugin.versions.map((version): MarketListingVersion => ({
     ...version,
@@ -329,7 +364,7 @@ function listingOf(
   return {
     ...plugin,
     versions,
-    ...defaultVersion === undefined ? {} : { defaultVersion },
+    ...(defaultVersion === undefined ? {} : { defaultVersion }),
     installation: installationOf(plugin.name, measured, bundles),
   }
 }
@@ -338,7 +373,7 @@ function installationOf(name: string, version: string, bundles: readonly BundleI
   const bundle = bundles.find(candidate => candidate.name === name)
   // An on-demand catalog entry is listed before the profile installs it.
   if (bundle === undefined || (!bundle.installed && bundle.availability !== 'installation')) return { status: 'not-installed' }
-  if (!bundle.installed) return { status: 'provided', ...bundle.version === undefined ? {} : { installedVersion: bundle.version } }
+  if (!bundle.installed) return { status: 'provided', ...(bundle.version === undefined ? {} : { installedVersion: bundle.version }) }
   if (bundle.version === undefined) return { status: 'different-version' }
   const installedVersion = bundle.version
   if (installedVersion === version) return { status: 'installed', installedVersion }
@@ -347,9 +382,16 @@ function installationOf(name: string, version: string, bundles: readonly BundleI
 }
 
 function compatibilityOf(
-  name: string, version: MarketVersion, exemptions: Readonly<Record<string, readonly string[]>>, runtimeVersion: string,
+  name: string,
+  version: MarketVersion,
+  exemptions: Readonly<Record<string, readonly string[]>>,
+  runtimeVersion: string,
 ): MarketCompatibility {
-  const manifest = { name, version: version.version, ...version.engines.dsh === undefined ? {} : { engines: { dsh: version.engines.dsh } } }
+  const manifest = {
+    name,
+    version: version.version,
+    ...(version.engines.dsh === undefined ? {} : { engines: { dsh: version.engines.dsh } }),
+  }
   const issue = evaluatePluginCompatibility(manifest, exemptions, runtimeVersion)
   if (issue === undefined) return { compatible: true }
   return { compatible: false, runtimeVersion: issue.runtimeVersion, requirements: issue.requirements, exempted: issue.exempted }

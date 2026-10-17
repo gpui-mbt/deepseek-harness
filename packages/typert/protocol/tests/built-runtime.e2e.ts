@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 it.each(['../lib/index.js', '../lib/types/remote-info.js'])(
   'keeps the published protocol entry %s free of Zod runtime imports',
-  async (entry) => {
+  async entry => {
     const source = await readFile(new URL(entry, import.meta.url), 'utf8')
     expect(source).not.toMatch(/\b(?:from|import|require)\s*(?:\(\s*)?['"]zod(?:\/[^'"]*)?['"]/)
   },
@@ -53,9 +53,27 @@ it('recognizes source and built Cordis Contexts in an active built RemoteAccess 
     timeout: 15_000,
   })
   expect(JSON.parse(output)).toEqual([
-    { copy: 'source', sameConstructor: false, recognized: true, active: true, accessor: true,
-      outside: null, allowsOutside: true, preservedGuest: true, allowsGuest: false },
-    { copy: 'built', sameConstructor: true, recognized: true, active: true, accessor: true,
-      outside: null, allowsOutside: true, preservedGuest: true, allowsGuest: false },
+    {
+      copy: 'source',
+      sameConstructor: false,
+      recognized: true,
+      active: true,
+      accessor: true,
+      outside: null,
+      allowsOutside: true,
+      preservedGuest: true,
+      allowsGuest: false,
+    },
+    {
+      copy: 'built',
+      sameConstructor: true,
+      recognized: true,
+      active: true,
+      accessor: true,
+      outside: null,
+      allowsOutside: true,
+      preservedGuest: true,
+      allowsGuest: false,
+    },
   ])
 })

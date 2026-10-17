@@ -15,7 +15,7 @@ export const COLLAPSE_TIMING_FIELD = 'collapseTiming'
 export const COLLAPSE_TIMINGS = ['completion', 'next-input'] as const
 
 /** When a completed Turn returns to its historical presentation. */
-export type CollapseTiming = typeof COLLAPSE_TIMINGS[number]
+export type CollapseTiming = (typeof COLLAPSE_TIMINGS)[number]
 
 /** Preserve completion-time folding when no timing preference is saved. */
 export const DEFAULT_COLLAPSE_TIMING: CollapseTiming = 'completion'
@@ -27,7 +27,7 @@ export const CLOCK_TIME_ZONE_FIELD = 'clockTimeZone'
 export const TRANSCRIPT_VIEW_MODES = ['compact', 'standard', 'detailed', 'verbose'] as const
 
 /** Work-details presentation mode. */
-export type TranscriptViewMode = typeof TRANSCRIPT_VIEW_MODES[number]
+export type TranscriptViewMode = (typeof TRANSCRIPT_VIEW_MODES)[number]
 
 /**
  * Saved value from the two-mode generation of this setting. Read as `detailed`;
@@ -40,7 +40,9 @@ export const LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE = 'expanded'
 
 /** Every value the durable field accepts: current modes plus legacy saved values. */
 const TRANSCRIPT_VIEW_SETTING_VALUES = [
-  ...TRANSCRIPT_VIEW_MODES, LEGACY_TRANSCRIPT_VIEW_MODE, LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE,
+  ...TRANSCRIPT_VIEW_MODES,
+  LEGACY_TRANSCRIPT_VIEW_MODE,
+  LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE,
 ] as const
 
 /** Default work details for non-Desktop Web clients. */
@@ -50,7 +52,7 @@ export const DEFAULT_TRANSCRIPT_VIEW_MODE: TranscriptViewMode = 'detailed'
 export const PERFORMANCE_USAGE_MODES = ['compact', 'detailed'] as const
 
 /** Performance and usage presentation. */
-export type PerformanceUsageMode = typeof PERFORMANCE_USAGE_MODES[number]
+export type PerformanceUsageMode = (typeof PERFORMANCE_USAGE_MODES)[number]
 
 /** Preserve detailed accounting for users without an explicit preference. */
 export const DEFAULT_PERFORMANCE_USAGE: PerformanceUsageMode = 'detailed'
@@ -65,7 +67,7 @@ export const DEFAULT_LINK_OPENING: LinkOpening = 'sidebar'
 export const CLOCK_TIME_ZONES = ['local', 'jst', 'utc'] as const
 
 /** Zone message clocks read. */
-export type ClockTimeZone = typeof CLOCK_TIME_ZONES[number]
+export type ClockTimeZone = (typeof CLOCK_TIME_ZONES)[number]
 
 /** Follow the device zone for users without an explicit preference. */
 export const DEFAULT_CLOCK_TIME_ZONE: ClockTimeZone = 'local'

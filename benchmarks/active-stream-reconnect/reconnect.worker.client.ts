@@ -31,7 +31,11 @@ const nextIndex = deltas + 1
 const baseline: SessionAssistantStreamBaseline = {
   revision: nextIndex + 1,
   activeAttempt: {
-    attemptId, startedAfterSeq: -1, turn: 1, step: 1, nextIndex,
+    attemptId,
+    startedAfterSeq: -1,
+    turn: 1,
+    step: 1,
+    nextIndex,
     stream: JSON.parse(JSON.stringify(accumulator.snapshot())) as NonNullable<SessionAssistantStreamBaseline['activeAttempt']>['stream'],
   },
 }
@@ -44,6 +48,20 @@ const visible = client.replace([], baseline)
 const replaceMs = performance.now() - start
 globalThis.gc()
 const retainedMb = (process.memoryUsage().heapUsed - before) / 1048576
-const next = client.acceptFrame({ type: 'chunk', attemptId, revision: nextIndex + 2, index: nextIndex, time: 1700000000001 + deltas, chunk: { type: 'reasoning-delta', index: 0, text: 'suffix' } })
-const report: ReconnectReport = { deltas, records: baseline.activeAttempt!.stream.length, entries: visible.length, replaceMs, retainedMb, nextFrame: next?.type }
+const next = client.acceptFrame({
+  type: 'chunk',
+  attemptId,
+  revision: nextIndex + 2,
+  index: nextIndex,
+  time: 1700000000001 + deltas,
+  chunk: { type: 'reasoning-delta', index: 0, text: 'suffix' },
+})
+const report: ReconnectReport = {
+  deltas,
+  records: baseline.activeAttempt!.stream.length,
+  entries: visible.length,
+  replaceMs,
+  retainedMb,
+  nextFrame: next?.type,
+}
 process.stdout.write(JSON.stringify(report) + '\n')

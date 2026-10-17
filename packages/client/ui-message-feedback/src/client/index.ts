@@ -28,14 +28,9 @@ import type { FeedbackDialogInjected, MessageFeedbackInjected } from './slots.ts
 import { FeedbackSurface } from './surface.ts'
 import { en, zh } from './locales.ts'
 
-export type {
-  MessageFeedbackActionFailure, MessageFeedbackActionResult, MessageFeedbackStatus,
-  MessageFeedbackView,
-} from './controller.ts'
+export type { MessageFeedbackActionFailure, MessageFeedbackActionResult, MessageFeedbackStatus, MessageFeedbackView } from './controller.ts'
 export type { FeedbackDialogState, FeedbackDialogTarget, FeedbackSubmit } from './dialog.ts'
-export type {
-  FeedbackDialogInjected, FeedbackDialogProps, MessageFeedbackActionProps, MessageFeedbackInjected,
-} from './slots.ts'
+export type { FeedbackDialogInjected, FeedbackDialogProps, MessageFeedbackActionProps, MessageFeedbackInjected } from './slots.ts'
 export type { MessageFeedbackKey } from './locales.ts'
 
 /** Opens the existing Session feedback form without submitting feedback. */
@@ -77,13 +72,18 @@ export function apply(ctx: ClientContext): void {
     }
     return surface
   }
-  ctx.effect(() => () => {
-    for (const surface of surfaces.values()) surface.dispose()
-    surfaces.clear()
-  }, 'ui-message-feedback: per-session surfaces')
+  ctx.effect(
+    () => () => {
+      for (const surface of surfaces.values()) surface.dispose()
+      surfaces.clear()
+    },
+    'ui-message-feedback: per-session surfaces',
+  )
 
   const feedbackUi: FeedbackUi = {
-    openSession: (sessionId) => { surfaceFor(sessionId).dialog.open({ kind: 'session' }) },
+    openSession: sessionId => {
+      surfaceFor(sessionId).dialog.open({ kind: 'session' })
+    },
   }
   ctx.provide('feedbackUi', feedbackUi)
 
@@ -95,48 +95,77 @@ export function apply(ctx: ClientContext): void {
     }
   })
 
-  ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
-    name: 'conversation.chat.assistant-actions',
-    id: 'feedback',
-    order: 10,
-    locale: NS,
-    inject: (sessionId): MessageFeedbackInjected => {
-      const { feedback, dialog } = surfaceFor(sessionId)
-      return {
-        hooks: { feedback },
-        ensure: () => feedback.ensure(),
-        current: messageId => feedback.getSnapshot().items.get(messageId),
-        retract: (messageId, rating) => feedback.retract(messageId, rating),
-        openDialog: (messageId, rating) => { dialog.open({ kind: 'message', messageId, rating }) },
-      }
-    },
-  }, MessageFeedbackActions))
+  ctx.slots.inject('conversation.chat.assistant-actions', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.assistant-actions',
+        id: 'feedback',
+        order: 10,
+        locale: NS,
+        inject: (sessionId): MessageFeedbackInjected => {
+          const { feedback, dialog } = surfaceFor(sessionId)
+          return {
+            hooks: { feedback },
+            ensure: () => feedback.ensure(),
+            current: messageId => feedback.getSnapshot().items.get(messageId),
+            retract: (messageId, rating) => feedback.retract(messageId, rating),
+            openDialog: (messageId, rating) => {
+              dialog.open({ kind: 'message', messageId, rating })
+            },
+          }
+        },
+      },
+      MessageFeedbackActions,
+    ),
+  )
 
-  ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
-    name: 'conversation.input.overlay',
-    id: 'feedback-dialog',
-    order: 2,
-    locale: NS,
-    inject: (sessionId): FeedbackDialogInjected => {
-      const { dialog } = surfaceFor(sessionId)
-      return {
-        hooks: { dialog: dialog.state },
-        edit: (draft) => { dialog.edit(draft) },
-        submit: () => dialog.submitDraft(),
-        dismiss: () => { dialog.dismiss() },
-        dismissFailure: () => { dialog.dismissFailure() },
-        dismissToast: (seq) => { dialog.dismissToast(seq) },
-      }
-    },
-  }, FeedbackDialog))
+  ctx.slots.inject('conversation.input.overlay', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.input.overlay',
+        id: 'feedback-dialog',
+        order: 2,
+        locale: NS,
+        inject: (sessionId): FeedbackDialogInjected => {
+          const { dialog } = surfaceFor(sessionId)
+          return {
+            hooks: { dialog: dialog.state },
+            edit: draft => {
+              dialog.edit(draft)
+            },
+            submit: () => dialog.submitDraft(),
+            dismiss: () => {
+              dialog.dismiss()
+            },
+            dismissFailure: () => {
+              dialog.dismissFailure()
+            },
+            dismissToast: seq => {
+              dialog.dismissToast(seq)
+            },
+          }
+        },
+      },
+      FeedbackDialog,
+    ),
+  )
 
   // The Host keeps `/feedback <text>` for a typed remark; a bare invocation
   // from the menu or the composer opens the dialog instead.
   ctx.inject(['commandUi'], (scope: ClientContext) => {
-    scope.effect(() => scope.commandUi.decorate({
-      name: 'feedback',
-      available: () => true,
-      ui: { kind: 'action', run: (session) => { feedbackUi.openSession(session.sessionId) } },
-    }), 'ui-message-feedback: /feedback decoration')
+    scope.effect(
+      () =>
+        scope.commandUi.decorate({
+          name: 'feedback',
+          available: () => true,
+          ui: {
+            kind: 'action',
+            run: session => {
+              feedbackUi.openSession(session.sessionId)
+            },
+          },
+        }),
+      'ui-message-feedback: /feedback decoration',
+    )
   })
 }

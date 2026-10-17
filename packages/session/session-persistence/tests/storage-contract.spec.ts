@@ -3,7 +3,7 @@
  * stable error vocabulary.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import {
@@ -47,15 +47,20 @@ function userMessage(seq: number): SessionEvent {
 describe('assertStoredId', () => {
   it('accepts a bound header and names both ids on a mismatch', () => {
     const m = meta('bound')
-    expect(() => { assertStoredId(m.id, m) }).not.toThrow()
-    expect(() => { assertStoredId(SessionId('requested'), m) })
-      .toThrow('stored session identity mismatch: requested "requested", header contains "bound"')
+    expect(() => {
+      assertStoredId(m.id, m)
+    }).not.toThrow()
+    expect(() => {
+      assertStoredId(SessionId('requested'), m)
+    }).toThrow('stored session identity mismatch: requested "requested", header contains "bound"')
   })
 })
 
 describe('assertVersion', () => {
   it('accepts the current format version', () => {
-    expect(() => { assertVersion(meta('current')) }).not.toThrow()
+    expect(() => {
+      assertVersion(meta('current'))
+    }).not.toThrow()
   })
 
   it('refuses a newer version with the upgrade direction and the artifact location', () => {
@@ -90,20 +95,19 @@ describe('assertVersion', () => {
 
 describe('sessionFormatVersionRefusal', () => {
   it('states the direction for newer and older stored versions', () => {
-    expect(sessionFormatVersionRefusal('s', SESSION_FORMAT_VERSION + 1))
-      .toBe(`session "s" uses log format v${SESSION_FORMAT_VERSION + 1}, but this harness reads only v${SESSION_FORMAT_VERSION}: the log was written by a newer harness — upgrade the harness to open it`)
-    expect(sessionFormatVersionRefusal('s', SESSION_FORMAT_VERSION - 1))
-      .toBe(`session "s" uses log format v${SESSION_FORMAT_VERSION - 1}, older than the supported v${SESSION_FORMAT_VERSION}, and this build ships no upgrade path for it`)
+    expect(sessionFormatVersionRefusal('s', SESSION_FORMAT_VERSION + 1)).toBe(
+      `session "s" uses log format v${SESSION_FORMAT_VERSION + 1}, but this harness reads only v${SESSION_FORMAT_VERSION}: the log was written by a newer harness — upgrade the harness to open it`,
+    )
+    expect(sessionFormatVersionRefusal('s', SESSION_FORMAT_VERSION - 1)).toBe(
+      `session "s" uses log format v${SESSION_FORMAT_VERSION - 1}, older than the supported v${SESSION_FORMAT_VERSION}, and this build ships no upgrade path for it`,
+    )
   })
 })
 
 describe('validateStoredEvents', () => {
   it('adopts and freezes the events in place, returning the same array', () => {
     const m = meta('adopted')
-    const events = [
-      { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
-      userMessage(1),
-    ] as SessionEvent[]
+    const events = [{ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } }, userMessage(1)] as SessionEvent[]
     const validated = validateStoredEvents(m, events)
     expect(validated).toBe(events)
     expect(Object.isFrozen(validated[1]!.data)).toBe(true)
@@ -120,9 +124,7 @@ describe('validateStoredEvents', () => {
 
   it('refuses an unknown event type before adopting anything', () => {
     const m = meta('unknown-type')
-    const events = [
-      { type: 'mystery/event', seq: 0, time: 1, data: {} },
-    ] as unknown as SessionEvent[]
+    const events = [{ type: 'mystery/event', seq: 0, time: 1, data: {} }] as unknown as SessionEvent[]
     expect(() => validateStoredEvents(m, events)).toThrow(SessionFormatUnsupportedError)
     expect(() => validateStoredEvents(m, events)).toThrow(
       'session "unknown-type" contains event type "mystery/event" (seq 0) unknown to this harness',
@@ -140,9 +142,7 @@ describe('validateStoredEvents', () => {
 
   it('retains an unknown event type its writer marked ignorable', () => {
     const m = meta('ignorable-unknown')
-    const events = [
-      { type: 'foreign/telemetry', seq: 0, time: 1, data: {}, ignorable: true },
-    ] as unknown as SessionEvent[]
+    const events = [{ type: 'foreign/telemetry', seq: 0, time: 1, data: {}, ignorable: true }] as unknown as SessionEvent[]
     expect(validateStoredEvents(m, events)).toBe(events)
     expect(events[0]).toMatchObject({ type: 'foreign/telemetry', ignorable: true })
   })
@@ -217,9 +217,7 @@ describe('validateStoredEvents', () => {
 
 describe('materializeAppendBatch', () => {
   it('returns a detached lossless-JSON snapshot of the batch', () => {
-    const original = [
-      { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
-    ] as SessionEvent[]
+    const original = [{ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } }] as SessionEvent[]
     const batch = materializeAppendBatch(original)
     expect(batch).not.toBe(original)
     expect(batch).toEqual(original)
@@ -236,18 +234,16 @@ describe('materializeAppendBatch', () => {
     const cyclic: Record<string, unknown> = { type: 'text', text: 'x' }
     cyclic['self'] = cyclic
     const badValues: unknown[] = [
-      1n,                  // BigInt
-      undefined,           // dropped by JSON.stringify
-      Infinity,            // → null
-      () => 0,             // function
-      Symbol('s'),         // symbol
-      new Map(),           // exotic object
-      cyclic,              // circular ref
+      1n, // BigInt
+      undefined, // dropped by JSON.stringify
+      Infinity, // → null
+      () => 0, // function
+      Symbol('s'), // symbol
+      new Map(), // exotic object
+      cyclic, // circular ref
     ]
     for (const bad of badValues) {
-      const events = [
-        { type: 'turn/start', seq: 0, time: 1, data: { turn: 1, extra: bad } },
-      ] as unknown as SessionEvent[]
+      const events = [{ type: 'turn/start', seq: 0, time: 1, data: { turn: 1, extra: bad } }] as unknown as SessionEvent[]
       expect(() => materializeAppendBatch(events)).toThrow(TypeError)
       expect(() => materializeAppendBatch(events)).toThrow(/losslessly JSON-serializable/)
     }
@@ -260,23 +256,27 @@ describe('assertContiguous', () => {
       { type: 'turn/start', seq: 6, time: 1, data: { turn: 2 } },
       { type: 'turn/end', seq: 7, time: 2, data: { turn: 2, reason: { kind: 'completed' } } },
     ] as SessionEvent[]
-    expect(() => { assertContiguous(SessionId('ok'), events, 6) }).not.toThrow()
-    expect(() => { assertContiguous(SessionId('ok'), [], 6) }).not.toThrow()
+    expect(() => {
+      assertContiguous(SessionId('ok'), events, 6)
+    }).not.toThrow()
+    expect(() => {
+      assertContiguous(SessionId('ok'), [], 6)
+    }).not.toThrow()
   })
 
   it('names the expected seq for a stale batch and for a mid-batch gap', () => {
-    const stale = [
-      { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
-    ] as SessionEvent[]
-    expect(() => { assertContiguous(SessionId('stale'), stale, 6) })
-      .toThrow('append seq mismatch for "stale": expected 6 at index 0, got 0')
+    const stale = [{ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } }] as SessionEvent[]
+    expect(() => {
+      assertContiguous(SessionId('stale'), stale, 6)
+    }).toThrow('append seq mismatch for "stale": expected 6 at index 0, got 0')
 
     const gapped = [
       { type: 'turn/start', seq: 6, time: 1, data: { turn: 2 } },
       { type: 'turn/end', seq: 8, time: 2, data: { turn: 2, reason: { kind: 'completed' } } },
     ] as SessionEvent[]
-    expect(() => { assertContiguous(SessionId('gapped'), gapped, 6) })
-      .toThrow('append seq mismatch for "gapped": expected 7 at index 1, got 8')
+    expect(() => {
+      assertContiguous(SessionId('gapped'), gapped, 6)
+    }).toThrow('append seq mismatch for "gapped": expected 7 at index 1, got 8')
   })
 })
 

@@ -66,7 +66,9 @@ if (env.FAKE_IGNORE_EOF !== undefined) {
   // Simulate a runtime that never quiesces from EOF so the dispose ladder
   // must escalate; record which rung fired.
   process.stdin.resume()
-  process.stdin.on('end', () => { setInterval(() => {}, 1_000) })
+  process.stdin.on('end', () => {
+    setInterval(() => {}, 1_000)
+  })
   process.on('SIGTERM', () => {
     if (env.FAKE_SIGTERM_FILE !== undefined) writeFileSync(env.FAKE_SIGTERM_FILE, 'sigterm\n')
     if (env.FAKE_TRAP_SIGTERM === undefined) process.exit(0)
@@ -180,7 +182,8 @@ function runTurn(sessionId: string): void {
     if (!Array.isArray(scripted)) throw new Error('FAKE_SESSION_EVENTS must be a JSON event array')
     const events: unknown[] = scripted
     for (const value of events) {
-      if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('FAKE_SESSION_EVENTS contains a non-object event')
+      if (value === null || typeof value !== 'object' || Array.isArray(value))
+        throw new Error('FAKE_SESSION_EVENTS contains a non-object event')
       notify('session.event', { sessionId, event: { ...value, seq: seq++, time: 0 } })
     }
   }
@@ -190,24 +193,26 @@ function runTurn(sessionId: string): void {
       notify('session.event', { sessionId, event: { type: 'turn/end', seq: seq++, time: 0 } })
       return
     }
-    const reason = env.FAKE_MALFORMED_REASON === 'aborted'
-      ? { kind: 'aborted' }
-      : env.FAKE_MALFORMED_REASON === 'abort-unknown'
-        ? { kind: 'aborted', reason: { kind: 'future' } }
-        : env.FAKE_MALFORMED_REASON === 'hook'
-          ? { kind: 'aborted', reason: { kind: 'hook' } }
-          : env.FAKE_MALFORMED_REASON !== undefined
-            ? 'not-a-reason-envelope'
-            : reasonKind === 'aborted'
-              ? {
-                kind: 'aborted',
-                reason: env.FAKE_ABORT_REASON_KIND === 'hook'
-                  ? { kind: 'hook', reason: 'scripted hook abort' }
-                  : { kind: env.FAKE_ABORT_REASON_KIND ?? 'user' },
-              }
-              : reasonKind === 'error'
-                ? { kind: 'error', error: { message: 'scripted child error', code: 'UNKNOWN' } }
-                : { kind: reasonKind }
+    const reason =
+      env.FAKE_MALFORMED_REASON === 'aborted'
+        ? { kind: 'aborted' }
+        : env.FAKE_MALFORMED_REASON === 'abort-unknown'
+          ? { kind: 'aborted', reason: { kind: 'future' } }
+          : env.FAKE_MALFORMED_REASON === 'hook'
+            ? { kind: 'aborted', reason: { kind: 'hook' } }
+            : env.FAKE_MALFORMED_REASON !== undefined
+              ? 'not-a-reason-envelope'
+              : reasonKind === 'aborted'
+                ? {
+                    kind: 'aborted',
+                    reason:
+                      env.FAKE_ABORT_REASON_KIND === 'hook'
+                        ? { kind: 'hook', reason: 'scripted hook abort' }
+                        : { kind: env.FAKE_ABORT_REASON_KIND ?? 'user' },
+                  }
+                : reasonKind === 'error'
+                  ? { kind: 'error', error: { message: 'scripted child error', code: 'UNKNOWN' } }
+                  : { kind: reasonKind }
     event(sessionId, 'turn/end', { turn: 0, reason })
   }
   if (env.FAKE_SUBAGENT !== undefined) {
@@ -243,11 +248,13 @@ function sessionIdOf(params: Record<string, unknown> | undefined): string {
 
 const reader = createInterface({ input: process.stdin })
 const settledSessions = new Set<string>()
-reader.on('line', (line) => {
+reader.on('line', line => {
   if (line.trim().length === 0) return
   const frame = JSON.parse(line) as { id?: string | number; method?: string; params?: Record<string, unknown> }
   if (frame.method === undefined || frame.id === undefined) return
-  const respond = (result: object): void => { write({ jsonrpc: '2.0', id: frame.id, result }) }
+  const respond = (result: object): void => {
+    write({ jsonrpc: '2.0', id: frame.id, result })
+  }
   switch (frame.method) {
     case 'initialize':
       if (typeof frame.params?.cwd === 'string') originCwd = frame.params.cwd
@@ -298,9 +305,7 @@ reader.on('line', (line) => {
       }
       const sessionId = sessionIdOf(frame.params)
       const previous = workingDirectories.get(sessionId) ?? originCwd
-      const cwd = frame.method === 'session/working-directory/set'
-        ? resolve(previous, String(frame.params?.path))
-        : previous
+      const cwd = frame.method === 'session/working-directory/set' ? resolve(previous, String(frame.params?.path)) : previous
       workingDirectories.set(sessionId, cwd)
       respond({ cwd })
       return
@@ -311,12 +316,14 @@ reader.on('line', (line) => {
       event(sessionId, 'agent/inbox/spliced', {
         target: 'next-turn',
         start: 0,
-        inserted: [{
-          id: messageId,
-          role: 'user',
-          content: [],
-          source: { kind: 'user' },
-        }],
+        inserted: [
+          {
+            id: messageId,
+            role: 'user',
+            content: [],
+            source: { kind: 'user' },
+          },
+        ],
       })
       notify('session.status', { sessionId, status: 'running' })
       if (env.FAKE_STREAM_THEN_MALFORMED !== undefined) {
@@ -343,7 +350,9 @@ reader.on('line', (line) => {
           stream: textStream(partial),
           interrupted: true,
         })
-        setImmediate(() => { process.exit(17) })
+        setImmediate(() => {
+          process.exit(17)
+        })
         return
       }
       if (env.FAKE_HANG_PROMPT !== undefined) return

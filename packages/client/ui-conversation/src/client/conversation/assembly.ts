@@ -1,22 +1,13 @@
 /** Per-Session target-neutral Conversation assembly. */
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type {
-  ISessions, SessionBinding, SessionEventSource, SessionEventWindow,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ISessions, SessionBinding, SessionEventSource, SessionEventWindow } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 import { WeakMapWithValues } from '@deepseek-ai/dsh-util-values'
-import {
-  createSnapshotStore, type ObservableSnapshot, type SnapshotStore,
-} from '@deepseek-ai/dsh-client-store'
-import type {
-  ConversationPublication, ConversationViewSnapshotMap,
-  ConversationViewSnapshotStore,
-} from '../contract/conversation.ts'
+import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { ConversationPublication, ConversationViewSnapshotMap, ConversationViewSnapshotStore } from '../contract/conversation.ts'
 import type { ConversationSnapshot } from '../contract/snapshot.ts'
-import type {
-  ConversationPromptSnapshot, RequestPromptInspection, SystemPromptNode,
-} from '../contract/request-inspection.ts'
+import type { ConversationPromptSnapshot, RequestPromptInspection, SystemPromptNode } from '../contract/request-inspection.ts'
 import { inspectRequestPrompt } from '../contract/request-inspection.ts'
 import { inspectSystemPrompt, type SystemPromptState } from '../contract/system-prompt.ts'
 import { ConversationNodeAssembler } from './assembler.ts'
@@ -81,7 +72,7 @@ class BoundConversation implements ConversationBinding {
       const views = this.viewStore as { get(key: string): unknown }
       source = {
         getSnapshot: () => views.get(target),
-        subscribe: (listener) => {
+        subscribe: listener => {
           const unsubscribe = this.snapshot.subscribe(listener)
           this.activate(target)
           return unsubscribe
@@ -97,7 +88,9 @@ class BoundConversation implements ConversationBinding {
     this.openTurn.set(this.assembler.openTurn())
   }
 
-  rebuild(): void { this.publish(this.assembler.rebuildRegistry()) }
+  rebuild(): void {
+    this.publish(this.assembler.rebuildRegistry())
+  }
 
   dispose(): void {
     this.cancelFrame()
@@ -130,10 +123,7 @@ class BoundConversation implements ConversationBinding {
         return
       }
       case 'settle-assistant':
-        this.publish(this.assembler.settleAssistant(
-          window.change.attemptId,
-          window.change.entry,
-        ))
+        this.publish(this.assembler.settleAssistant(window.change.attemptId, window.change.entry))
         return
     }
   }
@@ -200,7 +190,10 @@ export class UiConversation extends Service {
    * @param ctx - owning Client context.
    * @param sessions - Session Controller object layer.
    */
-  constructor(ctx: Context, private readonly sessions: ISessions) {
+  constructor(
+    ctx: Context,
+    private readonly sessions: ISessions,
+  ) {
     super(ctx, 'uiConversation')
     this.events = new ConversationEventRegistry(ctx)
     this.views = new ConversationViewRegistry(ctx)
@@ -247,17 +240,18 @@ export class UiConversation extends Service {
     }
     const current = this.bindings.get(owner)
     if (current !== undefined) return current.binding
-    const binding = new BoundConversation(
-      owner.eventSource,
-      new ConversationNodeAssembler(this.events, this.views, this.groups),
-    )
+    const binding = new BoundConversation(owner.eventSource, new ConversationNodeAssembler(this.events, this.views, this.groups))
     const record: BindingRecord = { source: owner, binding, disposeScope: () => {} }
     this.bindings.set(owner, record)
     const disposeScope = owner.ctx.effect(
-      () => () => { this.drop(record, false) },
+      () => () => {
+        this.drop(record, false)
+      },
       'ui-conversation binding',
     )
-    record.disposeScope = () => { void disposeScope() }
+    record.disposeScope = () => {
+      void disposeScope()
+    }
     return binding
   }
 

@@ -35,8 +35,10 @@ function isExported(stmt: ts.Statement): boolean {
 
 function isNonPublic(member: ts.ClassElement): boolean {
   const mods = ts.canHaveModifiers(member) ? ts.getModifiers(member) : undefined
-  return (mods?.some(m => m.kind === ts.SyntaxKind.PrivateKeyword || m.kind === ts.SyntaxKind.ProtectedKeyword) ?? false)
-    || ('name' in member && ts.isPrivateIdentifier(member.name))
+  return (
+    (mods?.some(m => m.kind === ts.SyntaxKind.PrivateKeyword || m.kind === ts.SyntaxKind.ProtectedKeyword) ?? false) ||
+    ('name' in member && ts.isPrivateIdentifier(member.name))
+  )
 }
 
 function isStatic(member: ts.ClassElement): boolean {
@@ -58,9 +60,13 @@ function thisReceiver(p: ts.ParameterDeclaration): boolean {
 function unwrapExpression(e: ts.Expression): ts.Expression {
   let inner = e
   while (
-    ts.isParenthesizedExpression(inner) || ts.isAsExpression(inner) || ts.isSatisfiesExpression(inner)
-    || ts.isNonNullExpression(inner) || ts.isTypeAssertionExpression(inner)
-  ) inner = inner.expression
+    ts.isParenthesizedExpression(inner) ||
+    ts.isAsExpression(inner) ||
+    ts.isSatisfiesExpression(inner) ||
+    ts.isNonNullExpression(inner) ||
+    ts.isTypeAssertionExpression(inner)
+  )
+    inner = inner.expression
   return inner
 }
 
@@ -180,7 +186,10 @@ function checkFunctionLike(
   returnsWaived: boolean,
   w: Walk,
 ): void {
-  if (!raw) { w.violations.push(`${where} has no JSDoc.`); return }
+  if (!raw) {
+    w.violations.push(`${where} has no JSDoc.`)
+    return
+  }
   if (!parseJsDoc(raw).doc) w.violations.push(`${where} has no description prose above its block tags.`)
   const { params, returns } = parseTags(raw)
   checkParams(where, 'exported', parameters, params, w.sf, thisReceiver, w.violations)
@@ -226,8 +235,7 @@ function checkClass(cls: ts.ClassDeclaration, name: string, w: Walk): void {
         const inBase = (p: ts.ParameterDeclaration): boolean =>
           base !== null && ts.isIdentifier(p.name) && base.has(p.name.text.replace(/^_+/, ''))
         if (base !== null && m.parameters.some(p => !thisReceiver(p) && !inBase(p))) {
-          checkParams(where, 'exported', m.parameters, parseTags(raw).params, w.sf,
-            p => thisReceiver(p) || inBase(p), w.violations)
+          checkParams(where, 'exported', m.parameters, parseTags(raw).params, w.sf, p => thisReceiver(p) || inBase(p), w.violations)
         }
         // A void base return carried no @returns duty, so an override growing a concrete result
         // documents it itself.
@@ -235,7 +243,9 @@ function checkClass(cls: ts.ClassDeclaration, name: string, w: Walk): void {
           if (m.type !== undefined) {
             checkReturns(where, m.type, parseTags(raw).returns, w.sf, w.violations)
           } else if (!inferredReturnIsVoidish(m, w.checker)) {
-            w.violations.push(`${where} returns a non-void result its heritage declaration does not document; annotate the return type and add @returns.`)
+            w.violations.push(
+              `${where} returns a non-void result its heritage declaration does not document; annotate the return type and add @returns.`,
+            )
           }
         }
         continue
@@ -277,8 +287,7 @@ function checkDecl(
     const name = stmt.name?.text ?? 'default'
     if (prefix === '' && PROTOCOL_EXPORTS.has(name)) return // cordis plugin-protocol slot
     if (stmt.body && overloadSigs.has(name)) return // overload implementation: the signatures carry the docs
-    checkFunctionLike(`exported function '${prefix}${name}'${at(stmt)}`, rawJsDoc(w.text, stmt),
-      stmt.parameters, stmt.type, false, w)
+    checkFunctionLike(`exported function '${prefix}${name}'${at(stmt)}`, rawJsDoc(w.text, stmt), stmt.parameters, stmt.type, false, w)
     return
   }
   if (ts.isClassDeclaration(stmt)) {
@@ -335,15 +344,17 @@ function checkDecl(
     if (!merged) checkDescribed(`exported namespace '${prefix}${stmt.name.text}'${at(stmt)}`, rawJsDoc(w.text, stmt), w)
     let body = stmt.body
     let nsPrefix = `${prefix}${stmt.name.text}.`
-    while (body !== undefined && ts.isModuleDeclaration(body)) { // dotted `namespace A.B`
+    while (body !== undefined && ts.isModuleDeclaration(body)) {
+      // dotted `namespace A.B`
       nsPrefix += `${body.name.getText(w.sf)}.`
       body = body.body
     }
     // In an ambient (`declare`) namespace body, members are implicitly
     // exported — no `export` modifier required — so the recursion must treat
     // every statement as exported API.
-    const declared = ambient
-      || ((ts.canHaveModifiers(stmt) ? ts.getModifiers(stmt) : undefined)?.some(m => m.kind === ts.SyntaxKind.DeclareKeyword) ?? false)
+    const declared =
+      ambient ||
+      ((ts.canHaveModifiers(stmt) ? ts.getModifiers(stmt) : undefined)?.some(m => m.kind === ts.SyntaxKind.DeclareKeyword) ?? false)
     if (body !== undefined && ts.isModuleBlock(body)) checkScope(body.statements, nsPrefix, w, declared)
     return
   }
@@ -355,11 +366,12 @@ function checkDecl(
     const sym = w.checker.getSymbolAtLocation(stmt.name)
     const target = sym !== undefined && (sym.flags & ts.SymbolFlags.Alias) !== 0 ? w.checker.getAliasedSymbol(sym) : sym
     const RICH_TARGETS = ts.SymbolFlags.Function | ts.SymbolFlags.Class | ts.SymbolFlags.ValueModule | ts.SymbolFlags.NamespaceModule
-    const rich = target === undefined
-      || (target.flags & RICH_TARGETS) !== 0
-      || w.checker.getTypeOfSymbol(target).getCallSignatures().length > 0
+    const rich =
+      target === undefined || (target.flags & RICH_TARGETS) !== 0 || w.checker.getTypeOfSymbol(target).getCallSignatures().length > 0
     if (rich) {
-      w.violations.push(`${where} aliases a callable, class, or namespace target whose signature/member contract the alias cannot carry; export the declaration directly instead.`)
+      w.violations.push(
+        `${where} aliases a callable, class, or namespace target whose signature/member contract the alias cannot carry; export the declaration directly instead.`,
+      )
       return
     }
     checkDescribed(where, rawJsDoc(w.text, stmt), w)
@@ -396,8 +408,12 @@ function checkScope(
     if (ts.isFunctionDeclaration(stmt)) {
       if (stmt.name) add(stmt.name.text, stmt)
       if (!stmt.body && stmt.name) overloadSigs.add(stmt.name.text)
-    } else if (ts.isClassDeclaration(stmt) || ts.isInterfaceDeclaration(stmt)
-      || ts.isTypeAliasDeclaration(stmt) || ts.isEnumDeclaration(stmt)) {
+    } else if (
+      ts.isClassDeclaration(stmt) ||
+      ts.isInterfaceDeclaration(stmt) ||
+      ts.isTypeAliasDeclaration(stmt) ||
+      ts.isEnumDeclaration(stmt)
+    ) {
       if (stmt.name) add(stmt.name.text, stmt)
     } else if (ts.isModuleDeclaration(stmt) && ts.isIdentifier(stmt.name)) {
       add(stmt.name.text, stmt)
@@ -418,8 +434,7 @@ function checkScope(
     requested.set(stmt, prior === undefined ? new Set([name]) : prior.add(name))
   }
   for (const stmt of statements) {
-    if (ts.isModuleDeclaration(stmt)
-      && (ts.isStringLiteral(stmt.name) || (stmt.flags & ts.NodeFlags.GlobalAugmentation) !== 0)) {
+    if (ts.isModuleDeclaration(stmt) && (ts.isStringLiteral(stmt.name) || (stmt.flags & ts.NodeFlags.GlobalAugmentation) !== 0)) {
       continue // `declare module '…'` / `declare global` augmentation: not an export of this package
     }
     if (ts.isExportDeclaration(stmt)) {
@@ -438,7 +453,9 @@ function checkScope(
       if (stmt.isExportEquals) {
         // `export =` has no ESM consumer API in this repo and the walk
         // cannot classify its operand's type; refuse rather than fail open.
-        w.violations.push(`export-equals assignment (${pointer(w.rel, w.sf, stmt)}) is not a gate-supported export form; use ESM named exports.`)
+        w.violations.push(
+          `export-equals assignment (${pointer(w.rel, w.sf, stmt)}) is not a gate-supported export form; use ESM named exports.`,
+        )
         continue
       }
       const where = `default export (${pointer(w.rel, w.sf, stmt)})`
@@ -511,10 +528,14 @@ function restrictedPublicNames(
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { exports?: Record<string, unknown> }
     if (!manifest.exports || manifest.exports['./src/*'] !== undefined) continue
     restrictedPackages.add(packageDir)
-    const entries = new Set(Object.values(manifest.exports).flatMap(exportedTargets).flatMap((target) => {
-      const entry = sourceEntry(target)
-      return entry ? [`${packageDir}/${entry}`] : []
-    }))
+    const entries = new Set(
+      Object.values(manifest.exports)
+        .flatMap(exportedTargets)
+        .flatMap(target => {
+          const entry = sourceEntry(target)
+          return entry ? [`${packageDir}/${entry}`] : []
+        }),
+    )
     for (const entry of entries) {
       const source = program.getSourceFile(resolve(scanRoot, entry))
       const moduleSymbol = source && checker.getSymbolAtLocation(source)
@@ -569,7 +590,10 @@ export function collectExportJsdocViolations(scanRoot: string = root): string[] 
   const rels = globSync('packages/*/*/src/**/*.ts', { cwd: scanRoot })
     .map(path => path.split(sep).join('/'))
     .sort()
-  const program = ts.createProgram(rels.map(rel => resolve(scanRoot, rel)), loadCompilerOptions(scanRoot))
+  const program = ts.createProgram(
+    rels.map(rel => resolve(scanRoot, rel)),
+    loadCompilerOptions(scanRoot),
+  )
   const checker = program.getTypeChecker()
   const { restrictedPackages, namesByFile } = restrictedPublicNames(scanRoot, rels, program, checker)
   for (const rel of rels) {
@@ -578,7 +602,7 @@ export function collectExportJsdocViolations(scanRoot: string = root): string[] 
     // A script-style declaration file (no imports/exports) is one big ambient
     // scope; a module-style .d.ts still honors explicit export modifiers.
     const packageDir = rel.split('/').slice(0, 3).join('/')
-    const allowedNames = restrictedPackages.has(packageDir) ? namesByFile.get(rel) ?? new Set<string>() : undefined
+    const allowedNames = restrictedPackages.has(packageDir) ? (namesByFile.get(rel) ?? new Set<string>()) : undefined
     checkScope(
       sf.statements,
       '',

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { PiAiPeakProvider, PiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
 import { Config, resolveProfiles } from '../src/config.ts'
@@ -63,75 +63,77 @@ describe('peak configuration validation', () => {
   })
 
   it('accepts a window over an installed catalog provider', () => {
-    const profiles = resolveProfiles(base([
-      { from: '21:00', to: '03:00', timeZone: 'Asia/Tokyo', providers: [{ provider: 'opencode-go' }] },
-    ]))
+    const profiles = resolveProfiles(
+      base([{ from: '21:00', to: '03:00', timeZone: 'Asia/Tokyo', providers: [{ provider: 'opencode-go' }] }]),
+    )
     expect(profiles.get('opencode')?.peak.get('deepseek-v4.1-flash')).toHaveLength(1)
   })
 
   it('refuses a malformed clock time', () => {
-    expect(() => resolveProfiles(base([
-      { from: '9:00', to: '03:00', providers: [{ provider: 'opencode-go' }] },
-    ]))).toThrow(/from .* must be a 24-hour HH:mm time/)
+    expect(() => resolveProfiles(base([{ from: '9:00', to: '03:00', providers: [{ provider: 'opencode-go' }] }]))).toThrow(
+      /from .* must be a 24-hour HH:mm time/,
+    )
   })
 
   it('refuses an unknown time zone', () => {
-    expect(() => resolveProfiles(base([
-      { from: '21:00', to: '03:00', timeZone: 'Mars/Olympus', providers: [{ provider: 'opencode-go' }] },
-    ]))).toThrow(/is not a known IANA zone/)
+    expect(() =>
+      resolveProfiles(base([{ from: '21:00', to: '03:00', timeZone: 'Mars/Olympus', providers: [{ provider: 'opencode-go' }] }])),
+    ).toThrow(/is not a known IANA zone/)
   })
 
   it('refuses a candidate the installed catalog does not describe', () => {
-    expect(() => resolveProfiles(base([
-      { from: '21:00', to: '03:00', providers: [{ provider: 'not-a-provider' }] },
-    ]))).toThrow(/is not an installed pi-ai catalog provider/)
+    expect(() => resolveProfiles(base([{ from: '21:00', to: '03:00', providers: [{ provider: 'not-a-provider' }] }]))).toThrow(
+      /is not an installed pi-ai catalog provider/,
+    )
   })
 
   it('refuses a candidate that does not serve the model', () => {
-    expect(() => resolveProfiles(base([
-      { from: '21:00', to: '03:00', providers: [{ provider: 'openai' }] },
-    ]))).toThrow(/does not serve that model/)
+    expect(() => resolveProfiles(base([{ from: '21:00', to: '03:00', providers: [{ provider: 'openai' }] }]))).toThrow(
+      /does not serve that model/,
+    )
   })
 
   it('refuses a window that names no providers', () => {
-    expect(() => resolveProfiles(base([
-      { from: '21:00', to: '03:00', providers: [] },
-    ]))).toThrow(/names no providers/)
+    expect(() => resolveProfiles(base([{ from: '21:00', to: '03:00', providers: [] }]))).toThrow(/names no providers/)
   })
 
   it('survives schema validation and resolves against the bundled route', () => {
-    const parsed = Config({ providers: {
-      'ollama-cloud': {
-        apiKeyEnv: 'OLLAMA_CLOUD_API_KEY',
-        models: [{
-          id: 'deepseek-v4.1-flash',
-          name: 'DeepSeek V4.1 Flash',
-          contextWindow: 1_048_576,
-          maxTokens: 384_000,
-          input: ['text', 'image'],
-          peak: [{
-            from: '21:00',
-            to: '03:00',
-            timeZone: 'Asia/Tokyo',
-            providers: [{ provider: 'opencode-go', apiKeyEnv: 'OPENCODE_GO_API_KEY' }],
-          }],
-        }],
+    const parsed = Config({
+      providers: {
+        'ollama-cloud': {
+          apiKeyEnv: 'OLLAMA_CLOUD_API_KEY',
+          models: [
+            {
+              id: 'deepseek-v4.1-flash',
+              name: 'DeepSeek V4.1 Flash',
+              contextWindow: 1_048_576,
+              maxTokens: 384_000,
+              input: ['text', 'image'],
+              peak: [
+                {
+                  from: '21:00',
+                  to: '03:00',
+                  timeZone: 'Asia/Tokyo',
+                  providers: [{ provider: 'opencode-go', apiKeyEnv: 'OPENCODE_GO_API_KEY' }],
+                },
+              ],
+            },
+          ],
+        },
       },
-    } }).providers.get()
+    }).providers.get()
     const profiles = resolveProfiles(parsed as Record<string, PiAiProviderProfile>)
     expect(profiles.get('ollama-cloud')?.peak.get('deepseek-v4.1-flash')).toHaveLength(1)
   })
 
   it('refuses a malformed end time', () => {
-    expect(() => resolveProfiles(base([
-      { from: '21:00', to: '24:00', providers: [{ provider: 'opencode-go' }] },
-    ]))).toThrow(/to .* must be a 24-hour HH:mm time/)
+    expect(() => resolveProfiles(base([{ from: '21:00', to: '24:00', providers: [{ provider: 'opencode-go' }] }]))).toThrow(
+      /to .* must be a 24-hour HH:mm time/,
+    )
   })
 
   it('refuses an empty candidate id', () => {
-    expect(() => resolveProfiles(base([
-      { from: '21:00', to: '03:00', providers: [{ provider: '' }] },
-    ]))).toThrow(/has an empty provider/)
+    expect(() => resolveProfiles(base([{ from: '21:00', to: '03:00', providers: [{ provider: '' }] }]))).toThrow(/has an empty provider/)
   })
 })
 
@@ -142,15 +144,19 @@ describe('peak request routing', () => {
       opencode: {
         apiKeyEnv: 'PI_TEST_KEY',
         baseURL: primaryURL,
-        models: [{
-          id: 'deepseek-v4.1-flash',
-          peak: [{
-            from: '21:00',
-            to: '03:00',
-            timeZone: 'Asia/Tokyo',
-            providers: [{ provider: 'opencode-go', apiKeyEnv: 'PI_TEST_KEY' }],
-          }],
-        }],
+        models: [
+          {
+            id: 'deepseek-v4.1-flash',
+            peak: [
+              {
+                from: '21:00',
+                to: '03:00',
+                timeZone: 'Asia/Tokyo',
+                providers: [{ provider: 'opencode-go', apiKeyEnv: 'PI_TEST_KEY' }],
+              },
+            ],
+          },
+        ],
       },
       'opencode-go': { apiKeyEnv: 'PI_TEST_KEY', baseURL: alternateURL },
     }
@@ -162,12 +168,20 @@ describe('peak request routing', () => {
     const routes_ = routes(primary.url, alternate.url)
 
     const night = Date.UTC(2026, 0, 1, 12, 0) // 21:00 JST
-    await drain(adapter(routes_, () => night), 'opencode', 'deepseek-v4.1-flash')
+    await drain(
+      adapter(routes_, () => night),
+      'opencode',
+      'deepseek-v4.1-flash',
+    )
     expect(alternate.requests).toHaveLength(1)
     expect(primary.requests).toHaveLength(0)
 
     const day = Date.UTC(2026, 0, 1, 0, 0) // 09:00 JST
-    await drain(adapter(routes_, () => day), 'opencode', 'deepseek-v4.1-flash')
+    await drain(
+      adapter(routes_, () => day),
+      'opencode',
+      'deepseek-v4.1-flash',
+    )
     expect(primary.requests).toHaveLength(1)
     expect(alternate.requests).toHaveLength(1)
   })
@@ -187,10 +201,12 @@ describe('peak request routing', () => {
     const providers: Record<string, PiAiProviderProfile> = {
       opencode: {
         apiKeyEnv: 'PI_TEST_KEY',
-        models: [{
-          id: 'deepseek-v4.1-flash',
-          peak: [{ from: '21:00', to: '03:00', providers: [{ provider: 'opencode-go' }] }],
-        }],
+        models: [
+          {
+            id: 'deepseek-v4.1-flash',
+            peak: [{ from: '21:00', to: '03:00', providers: [{ provider: 'opencode-go' }] }],
+          },
+        ],
       },
     }
     const [listed] = await adapter(providers, () => Date.UTC(2026, 0, 1, 12, 0)).listModels('opencode')
@@ -210,16 +226,20 @@ describe('peak request routing', () => {
     const providers: Record<string, PiAiProviderProfile> = {
       opencode: {
         apiKeyEnv: 'PI_TEST_KEY',
-        models: [{
-          id: 'deepseek-v4.1-flash',
-          name: 'Primary Name',
-          peak: [{
-            from: '21:00',
-            to: '03:00',
-            timeZone: 'Asia/Tokyo',
-            providers: [{ provider: 'opencode-go' }],
-          }],
-        }],
+        models: [
+          {
+            id: 'deepseek-v4.1-flash',
+            name: 'Primary Name',
+            peak: [
+              {
+                from: '21:00',
+                to: '03:00',
+                timeZone: 'Asia/Tokyo',
+                providers: [{ provider: 'opencode-go' }],
+              },
+            ],
+          },
+        ],
       },
     }
     const night = adapter(providers, () => Date.UTC(2026, 0, 1, 12, 0))
@@ -233,39 +253,40 @@ describe('peak request routing', () => {
     const providers: Record<string, PiAiProviderProfile> = {
       opencode: {
         apiKeyEnv: 'PI_TEST_KEY',
-        models: [{
-          id: 'deepseek-v4.1-flash',
-          peak: [
-            { from: '00:00', to: '12:00', timeZone: 'Asia/Tokyo', providers: [{ provider: 'opencode-go' }] },
-            { from: '12:00', to: '00:00', timeZone: 'Asia/Tokyo', providers: [{ provider: 'opencode-go' }] },
-          ],
-        }],
+        models: [
+          {
+            id: 'deepseek-v4.1-flash',
+            peak: [
+              { from: '00:00', to: '12:00', timeZone: 'Asia/Tokyo', providers: [{ provider: 'opencode-go' }] },
+              { from: '12:00', to: '00:00', timeZone: 'Asia/Tokyo', providers: [{ provider: 'opencode-go' }] },
+            ],
+          },
+        ],
       },
     }
-    const prepared = await adapter(providers, () => Date.UTC(2026, 0, 1, 12, 0))
-      .prepareCall('opencode', 'deepseek-v4.1-flash')
+    const prepared = await adapter(providers, () => Date.UTC(2026, 0, 1, 12, 0)).prepareCall('opencode', 'deepseek-v4.1-flash')
     expect(prepared.model.name).toBe('DeepSeek V4.1 Flash')
   })
 
   /** A primary route whose window names `opencode-go`, itself configured with its own credential. */
-  function credentialRoutes(
-    primaryURL: string,
-    alternateURL: string,
-    candidate: PiAiPeakProvider,
-  ): Record<string, PiAiProviderProfile> {
+  function credentialRoutes(primaryURL: string, alternateURL: string, candidate: PiAiPeakProvider): Record<string, PiAiProviderProfile> {
     return {
       opencode: {
         apiKeyEnv: 'PI_TEST_KEY',
         baseURL: primaryURL,
-        models: [{
-          id: 'deepseek-v4.1-flash',
-          peak: [{
-            from: '21:00',
-            to: '03:00',
-            timeZone: 'Asia/Tokyo',
-            providers: [candidate],
-          }],
-        }],
+        models: [
+          {
+            id: 'deepseek-v4.1-flash',
+            peak: [
+              {
+                from: '21:00',
+                to: '03:00',
+                timeZone: 'Asia/Tokyo',
+                providers: [candidate],
+              },
+            ],
+          },
+        ],
       },
       'opencode-go': { apiKeyEnv: 'PI_ALT_KEY', baseURL: alternateURL },
     }
@@ -294,10 +315,13 @@ describe('peak request routing', () => {
     const alternate = await mockServer([{ events: textEvents }])
     const refs: string[] = []
     const pi = new PiAiAdapter({
-      profiles: () => resolveProfiles(credentialRoutes(primary.url, alternate.url, {
-        provider: 'opencode-go',
-        apiKeyEnv: 'PI_PEAK_KEY',
-      })),
+      profiles: () =>
+        resolveProfiles(
+          credentialRoutes(primary.url, alternate.url, {
+            provider: 'opencode-go',
+            apiKeyEnv: 'PI_PEAK_KEY',
+          }),
+        ),
       resolveApiKey: (_provider, ref) => {
         if (ref !== undefined) refs.push(ref)
         return Promise.resolve('test-key')

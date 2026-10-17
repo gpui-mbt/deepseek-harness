@@ -5,8 +5,18 @@ import type { SchemaNode, SchemaProperty, SourceCompatibility } from './persiste
 // Reserve role and shared-consumer identities, frozen rename targets, and request-only producer identities against reuse.
 // Existing kinds outside this set also reject retroactive qualification during comparison.
 const RESERVED_SOURCE_KINDS = new Set([
-  'user', 'model', 'tool', 'system-prompt', 'compact-checkpoint', 'dsh-session-title-llm', 'tool-registry', 'runtime-context', 'plugin',
-  'auto-review', 'compact-basic', 'ptc-mode',
+  'user',
+  'model',
+  'tool',
+  'system-prompt',
+  'compact-checkpoint',
+  'dsh-session-title-llm',
+  'tool-registry',
+  'runtime-context',
+  'plugin',
+  'auto-review',
+  'compact-basic',
+  'ptc-mode',
 ])
 
 /**
@@ -24,7 +34,8 @@ export function sourceKindGroups(nodes: readonly SchemaNode[], index: number): M
     if (node?.kind !== 'object') return undefined
     const property = node.properties.find(property => property.name === 'kind')
     const kind = property === undefined ? undefined : nodes[property.type]
-    if (property?.optional !== false || kind?.kind !== 'literal' || typeof kind.value !== 'string' || kind.value.length === 0) return undefined
+    if (property?.optional !== false || kind?.kind !== 'literal' || typeof kind.value !== 'string' || kind.value.length === 0)
+      return undefined
     const group = groups.get(kind.value) ?? []
     group.push(alternative)
     groups.set(kind.value, group)
@@ -39,16 +50,20 @@ export function sourceKindGroups(nodes: readonly SchemaNode[], index: number): M
  * @param property - bound source property.
  * @returns whether the metadata authorizes source-group comparison.
  */
-export function validSourceCompatibility(
-  nodes: readonly SchemaNode[], owner: SchemaNode, property: SchemaProperty,
-): boolean {
+export function validSourceCompatibility(nodes: readonly SchemaNode[], owner: SchemaNode, property: SchemaProperty): boolean {
   const policy = property.compatibility
   if (policy === undefined || property.name !== 'source' || property.optional || owner.kind !== 'object') return false
   const roleProperty = owner.properties.find(property => property.name === 'role')
   const role = roleProperty === undefined ? undefined : nodes[roleProperty.type]
-  if (roleProperty?.optional !== false || role?.kind !== 'literal'
-    || !(role.value === 'user' && policy.binding === 'session.user-message.source'
-      || role.value === 'developer' && policy.binding === 'session.developer-message.source')) return false
+  if (
+    roleProperty?.optional !== false ||
+    role?.kind !== 'literal' ||
+    !(
+      (role.value === 'user' && policy.binding === 'session.user-message.source') ||
+      (role.value === 'developer' && policy.binding === 'session.developer-message.source')
+    )
+  )
+    return false
   const groups = sourceKindGroups(nodes, property.type)
   return groups !== undefined && policy.attributionKinds.every(kind => groups.has(kind) && !RESERVED_SOURCE_KINDS.has(kind))
 }
@@ -62,8 +77,12 @@ export function validSourceCompatibility(
  * @returns whether the additive rule applies to this transition.
  */
 export function matchingSourceCompatibility(
-  before: SourceCompatibility, after: SourceCompatibility, existingKinds: Iterable<string>,
+  before: SourceCompatibility,
+  after: SourceCompatibility,
+  existingKinds: Iterable<string>,
 ): boolean {
-  return before.binding === after.binding
-    && [...existingKinds].every(kind => before.attributionKinds.includes(kind) === after.attributionKinds.includes(kind))
+  return (
+    before.binding === after.binding &&
+    [...existingKinds].every(kind => before.attributionKinds.includes(kind) === after.attributionKinds.includes(kind))
+  )
 }

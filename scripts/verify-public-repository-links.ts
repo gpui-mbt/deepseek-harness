@@ -29,7 +29,8 @@ export function canonicalReferenceText(source: string): string {
     .normalize('NFKC')
     .replaceAll('\\/', '/')
     .replace(/\\(?:u([\da-f]{4})|x([\da-f]{2}))/gi, (_match, unicode: string | undefined, byte: string | undefined) =>
-      String.fromCodePoint(Number.parseInt(unicode ?? byte ?? '', 16)))
+      String.fromCodePoint(Number.parseInt(unicode ?? byte ?? '', 16)),
+    )
     .replace(/%([\da-f]{2})/gi, (_match, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
     .replace(/&#(?:(\d+)|x([\da-f]+));/gi, (entity, decimal: string | undefined, hexadecimal: string | undefined) => {
       const code = Number.parseInt(decimal ?? hexadecimal ?? '', decimal === undefined ? 16 : 10)

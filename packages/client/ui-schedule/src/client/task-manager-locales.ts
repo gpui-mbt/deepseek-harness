@@ -3,8 +3,8 @@ import { frequencyEn, frequencyZh } from './frequency-locales.ts'
 
 /** English task-manager dictionary and key domain. */
 export const en = {
-  'panel': 'Automation tasks',
-  'title': 'Automation tasks',
+  panel: 'Automation tasks',
+  title: 'Automation tasks',
   'new.action': 'New',
   'list.label': 'Task catalog',
   'list.nextPrefix': 'Next scheduled time: ',
@@ -42,7 +42,8 @@ export const en = {
   'delivery.pruned': 'Earlier delivery records have been cleared',
   'delivery.retention': 'Retention rules',
   'delivery.retentionBounds': 'Each task keeps up to {records} delivery records from the last {days} days.',
-  'delivery.retentionExplanation': 'When a new record is saved, older records outside these limits are cleared automatically. Clearing records does not stop the task.',
+  'delivery.retentionExplanation':
+    'When a new record is saved, older records outside these limits are cleared automatically. Clearing records does not stop the task.',
   'detail.name': 'Automation task name',
   'detail.instruction': 'Automation task instruction',
   'detail.status': 'Status',
@@ -76,13 +77,17 @@ export const en = {
   'timing.unit.hour': 'hours',
   'timing.unit.minute': 'minutes',
   'timing.unit.second': 'seconds',
-  'timing.intervalHint.hour': 'At least 1 hour. The interval counts from task creation or the last rule change and is independent of time zones.',
-  'timing.intervalHint.minute': 'At least 1 minute. The interval counts from task creation or the last rule change and is independent of time zones.',
-  'timing.intervalHint.second': 'At least 60 seconds. The interval counts from task creation or the last rule change and is independent of time zones.',
-  'timing.zoneNoStored': 'A one-time task stores only its target moment, not a time zone. The date and time are interpreted in the selected time zone.',
+  'timing.intervalHint.hour':
+    'At least 1 hour. The interval counts from task creation or the last rule change and is independent of time zones.',
+  'timing.intervalHint.minute':
+    'At least 1 minute. The interval counts from task creation or the last rule change and is independent of time zones.',
+  'timing.intervalHint.second':
+    'At least 60 seconds. The interval counts from task creation or the last rule change and is independent of time zones.',
+  'timing.zoneNoStored':
+    'A one-time task stores only its target moment, not a time zone. The date and time are interpreted in the selected time zone.',
   'timing.inactive': 'Inactive tasks are read-only. Their timing cannot be edited.',
-  'timing.conflict': 'This task changed while you were editing. Your draft is retained. '
-    + 'Cancel and reopen after refresh to edit the latest rule.',
+  'timing.conflict':
+    'This task changed while you were editing. Your draft is retained. ' + 'Cancel and reopen after refresh to edit the latest rule.',
   'timing.notFound': 'This task is no longer available. Your draft is retained; cancel to close the editor.',
   'timing.subagentSession': 'This session belongs to a sub-agent, which never receives delivered reminders.',
   'timing.invalid': 'Enter a valid date and time, or check the timing fields.',
@@ -128,8 +133,9 @@ export const en = {
   'rule.error.unknown': 'Could not confirm the rule update. The row shows the saved rule.',
   'delete.action': 'Delete task',
   'delete.title': 'Delete this task?',
-  'delete.description': 'This stops the task from triggering and deletes it together with its saved delivery records. '
-    + 'The original session and its messages remain; queued messages are not withdrawn.',
+  'delete.description':
+    'This stops the task from triggering and deletes it together with its saved delivery records. ' +
+    'The original session and its messages remain; queued messages are not withdrawn.',
   'delete.confirm': 'Confirm deletion',
   'delete.cancel': 'Cancel',
   'delete.close': 'Close deletion confirmation',
@@ -147,8 +153,8 @@ export type TaskManagerKey = keyof typeof en
 
 /** Simplified Chinese dictionary with the same keys as English. */
 export const zh: Record<TaskManagerKey, string> = {
-  'panel': '自动化任务',
-  'title': '自动化任务',
+  panel: '自动化任务',
+  title: '自动化任务',
   'new.action': '新建',
   'list.label': '任务列表',
   'list.nextPrefix': '下次计划时间：',

@@ -5,16 +5,23 @@ let responding = false
 function respond(index) {
   if (responding || view === undefined) return
   responding = true
-  void api.respond(view.revision, index).catch(() => { responding = false })
+  void api.respond(view.revision, index).catch(() => {
+    responding = false
+  })
 }
-document.getElementById('close').addEventListener('click', () => { respond(view.cancelId) })
+document.getElementById('close').addEventListener('click', () => {
+  respond(view.cancelId)
+})
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && view !== undefined) { event.preventDefault(); respond(view.cancelId) }
+  if (event.key === 'Escape' && view !== undefined) {
+    event.preventDefault()
+    respond(view.cancelId)
+  }
   if (event.key !== 'Tab') return
   const controls = [...document.querySelectorAll('button, details:not([hidden]) > summary, details[open]:not([hidden]) > pre')]
   const current = controls.indexOf(document.activeElement)
-  const next = current < 0 ? (event.shiftKey ? controls.length - 1 : 0)
-    : (current + (event.shiftKey ? -1 : 1) + controls.length) % controls.length
+  const next =
+    current < 0 ? (event.shiftKey ? controls.length - 1 : 0) : (current + (event.shiftKey ? -1 : 1) + controls.length) % controls.length
   event.preventDefault()
   controls[next].focus()
 })
@@ -43,7 +50,9 @@ function render(state) {
     button.type = 'button'
     button.textContent = label
     button.className = index === 0 ? 'primary' : 'secondary'
-    button.addEventListener('click', () => { respond(index) })
+    button.addEventListener('click', () => {
+      respond(index)
+    })
     document.getElementById('actions').append(button)
   }
   document.querySelector('main').hidden = false
@@ -52,6 +61,11 @@ function render(state) {
   document.getElementById('dialog').focus()
 }
 let received = false
-const unsubscribe = api.subscribe(state => { received = true; render(state) })
+const unsubscribe = api.subscribe(state => {
+  received = true
+  render(state)
+})
 window.addEventListener('pagehide', unsubscribe, { once: true })
-void api.status().then(state => { if (!received) render(state) })
+void api.status().then(state => {
+  if (!received) render(state)
+})

@@ -15,11 +15,16 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  fixtureUserPrompts, launchWebScaffold, seedSession, webSnapshotMode,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  seedSession,
+  webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
@@ -38,10 +43,10 @@ const MODE = webSnapshotMode()
 // resolution (Program Files installs on Windows are found even when bare
 // `pwsh` is not on PATH), the same judgment the tool-pwsh tests reuse; record
 // mode skips the lane anyway, so the probe stays inert there.
-const HAS_PWSH = MODE === 'record' ? false : spawnSync(
-  resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'],
-  { encoding: 'utf8' },
-).status === 0
+const HAS_PWSH =
+  MODE === 'record'
+    ? false
+    : spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
 
 describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bash terminal-card layout', () => {
   let scaffold: WebScaffold
@@ -71,7 +76,7 @@ describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bas
     // search index covers the seeded log deterministically. Search is a
     // collapsed header action; expand it so the input is actionable.
     const searchButton = page.getByRole('button', { name: 'Search sessions' })
-    if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
+    if ((await searchButton.getAttribute('aria-expanded')) !== 'true') await searchButton.click()
     const search = page.getByPlaceholder('Search session names', { exact: false })
     await search.fill('Run a PowerShell command')
     const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
@@ -83,7 +88,7 @@ describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bas
     const row = page.locator('[data-tool="pwsh"]').first()
     await expandOwningTurnProcess(page, row)
     await row.waitFor({ timeout: 15_000 })
-    if (await row.getAttribute('aria-expanded') !== 'true') await row.click()
+    if ((await row.getAttribute('aria-expanded')) !== 'true') await row.click()
     const card = page.locator('[data-terminal]').first()
     await card.waitFor({ timeout: 15_000 })
     // The parsed exit pill replaces the `[exit code: 1]` marker in the output
@@ -96,8 +101,10 @@ describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bas
       // normalizeAria collapses the workspace basename with a '/' split, which
       // misses Windows temp paths; collapse it here too (a no-op on POSIX) so
       // the golden is platform-independent.
-      .split(scaffold.workspaceCwd.split(/[\\/]/).pop()!).join('{{workspace}}')
-      .split(SEED_ID).join('{{seededId}}')
+      .split(scaffold.workspaceCwd.split(/[\\/]/).pop()!)
+      .join('{{workspace}}')
+      .split(SEED_ID)
+      .join('{{seededId}}')
     await compareOrRefreshGolden(TERMINAL_EXPECTED, snapshot, MODE)
   }, 60_000)
 

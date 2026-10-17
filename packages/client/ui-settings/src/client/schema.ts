@@ -7,12 +7,15 @@ import Schema from '@deepseek-ai/schemastery'
 export type SchemaNode = Schema
 
 function cloneContainer(container: unknown, key: string): Record<string, unknown> | unknown[] {
-  if (Array.isArray(container)) return [...container as unknown[]]
-  if (typeof container === 'object' && container !== null) return { ...container as Record<string, unknown> }
+  if (Array.isArray(container)) return [...(container as unknown[])]
+  if (typeof container === 'object' && container !== null) return { ...(container as Record<string, unknown>) }
   return /^\d+$/.test(key) ? [] : {}
 }
 
-function cloneSpine(root: Record<string, unknown>, path: readonly string[]): {
+function cloneSpine(
+  root: Record<string, unknown>,
+  path: readonly string[],
+): {
   result: Record<string, unknown>
   parent: Record<string, unknown> | unknown[]
   leaf: string
@@ -21,10 +24,7 @@ function cloneSpine(root: Record<string, unknown>, path: readonly string[]): {
   let target: Record<string, unknown> | unknown[] = result
   for (let index = 0; index < path.length - 1; index++) {
     const key = path[index] as string
-    const child = cloneContainer(
-      Array.isArray(target) ? target[Number(key)] : target[key],
-      path[index + 1] as string,
-    )
+    const child = cloneContainer(Array.isArray(target) ? target[Number(key)] : target[key], path[index + 1] as string)
     if (Array.isArray(target)) target[Number(key)] = child
     else target[key] = child
     target = child

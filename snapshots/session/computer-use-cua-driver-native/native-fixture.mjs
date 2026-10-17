@@ -5,13 +5,12 @@ export const name = 'computer-use-native-fixture'
 export const inject = ['computerUse', 'tools', 'systemPrompt']
 
 export async function apply(ctx) {
-  const fixture = new URL('../../../packages/experimental/computer-use-cua-driver-native/tests/fixtures/cua-driver.ts', import.meta.url).href
+  const fixture = new URL('../../../packages/experimental/computer-use-cua-driver-native/tests/fixtures/cua-driver.ts', import.meta.url)
+    .href
   ctx.effect(() => {
     const hooks = registerHooks({
       resolve(specifier, context, nextResolve) {
-        return specifier === '@trycua/cua-driver'
-          ? { url: fixture, shortCircuit: true }
-          : nextResolve(specifier, context)
+        return specifier === '@trycua/cua-driver' ? { url: fixture, shortCircuit: true } : nextResolve(specifier, context)
       },
     })
     return () => hooks.deregister()

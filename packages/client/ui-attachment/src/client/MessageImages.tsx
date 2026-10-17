@@ -12,11 +12,17 @@ type MessageImagesProps = MessageImagesOwnerProps & PropsRenderFactories
  * @param props - image sources, authorized loader, layout hints, optional labels, and Factory locale seat.
  * @returns the official gallery; no Session binding is needed by this component.
  */
-export function MessageImagesContent({ images, loadImage, align, compact = false, thumbnail = false, labels, t }:
-FactoryComponentPropsOf<'conversation.images.content'>) {
+export function MessageImagesContent({
+  images,
+  loadImage,
+  align,
+  compact = false,
+  thumbnail = false,
+  labels,
+  t,
+}: FactoryComponentPropsOf<'conversation.images.content'>) {
   const resolved = useMemo(() => labels ?? messageImageLabels(t), [labels, t])
-  return <ImageGallery images={images} load={loadImage} align={align}
-    compact={compact} thumbnail={thumbnail} labels={resolved} />
+  return <ImageGallery images={images} load={loadImage} align={align} compact={compact} thumbnail={thumbnail} labels={resolved} />
 }
 
 /**
@@ -26,8 +32,10 @@ FactoryComponentPropsOf<'conversation.images.content'>) {
  */
 export function MessageImages({ images, loadImage, align, compact, thumbnail, renderFactorySlot }: MessageImagesProps) {
   return renderFactorySlot('conversation.images.content', {
-    images, loadImage, align,
-    ...compact === undefined ? {} : { compact },
-    ...thumbnail === undefined ? {} : { thumbnail },
+    images,
+    loadImage,
+    align,
+    ...(compact === undefined ? {} : { compact }),
+    ...(thumbnail === undefined ? {} : { thumbnail }),
   })
 }

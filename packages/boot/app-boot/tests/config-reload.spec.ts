@@ -3,7 +3,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Include } from '@deepseek-ai/cordis-plugin-include'
 import { boot } from '../src/index.ts'
@@ -41,17 +41,19 @@ function entryConfig(ctx: Context, id: string): unknown {
 
 describe('include refresh with an invalid file', () => {
   it('writes and activates initial entries when an included file is missing', async () => {
-    const { ctx, dir } = await bootTree([
-      '- id: initialized',
-      "  name: 'cordis:include'",
-      '  config:',
-      '    path: ./created.yml',
-      '    initial:',
-      '      - id: noop',
-      '        name: ./noop.mjs',
-      '        config: { value: initial }',
-      '',
-    ].join('\n'))
+    const { ctx, dir } = await bootTree(
+      [
+        '- id: initialized',
+        "  name: 'cordis:include'",
+        '  config:',
+        '    path: ./created.yml',
+        '    initial:',
+        '      - id: noop',
+        '        name: ./noop.mjs',
+        '        config: { value: initial }',
+        '',
+      ].join('\n'),
+    )
     try {
       expect(entryConfig(ctx, 'noop')).toEqual({ value: 'initial' })
       expect(readFileSync(join(dir, 'created.yml'), 'utf8')).toContain('id: noop')
@@ -91,21 +93,24 @@ describe('include refresh with overlay patches', () => {
     tempRoots.push(dir)
     writeFileSync(join(dir, 'noop.mjs'), NOOP_PLUGIN)
     writeFileSync(join(dir, 'base.yml'), '- id: noop\n  name: ./noop.mjs\n  config:\n    value: base\n')
-    writeFileSync(join(dir, 'cordis.yml'), [
-      '- id: base',
-      "  name: 'cordis:include'",
-      '  config:',
-      '    path: ./base.yml',
-      '    patches:',
-      '      - id: noop',
-      '        name: ./noop.mjs',
-      '        config:',
-      '          value: patched',
-      '      - insert:',
-      '          - id: extra',
-      '            name: ./noop.mjs',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      join(dir, 'cordis.yml'),
+      [
+        '- id: base',
+        "  name: 'cordis:include'",
+        '  config:',
+        '    path: ./base.yml',
+        '    patches:',
+        '      - id: noop',
+        '        name: ./noop.mjs',
+        '        config:',
+        '          value: patched',
+        '      - insert:',
+        '          - id: extra',
+        '            name: ./noop.mjs',
+        '',
+      ].join('\n'),
+    )
     const ctx = await boot(NAME, join(dir, 'cordis.yml'))
     try {
       const entry = [...ctx.loader.entries()].find(candidate => candidate.options.id === 'base')
@@ -157,31 +162,34 @@ describe('include patches layered over one base', () => {
     tempRoots.push(dir)
     writeFileSync(join(dir, 'noop.mjs'), NOOP_PLUGIN)
     writeFileSync(join(dir, 'base.yml'), '- id: shared\n  name: ./noop.mjs\n  config:\n    value: base\n')
-    writeFileSync(join(dir, 'cordis.yml'), [
-      '- id: base',
-      "  name: 'cordis:include'",
-      '  config:',
-      '    path: ./base.yml',
-      '    patches:',
-      // Layer 1 (a bundle layer): patch a base row and add two of its own.
-      '      - id: shared',
-      '        config:',
-      '          value: bundle',
-      '      - insert:',
-      '          - id: bundle-kept',
-      '            name: ./noop.mjs',
-      '            config:',
-      '              value: bundle-default',
-      '          - id: bundle-dropped',
-      '            name: ./noop.mjs',
-      // Layer 2 (the user): reconfigure one inserted row and disable the other.
-      '      - id: bundle-kept',
-      '        config:',
-      '          value: user',
-      '      - id: bundle-dropped',
-      '        disabled: true',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      join(dir, 'cordis.yml'),
+      [
+        '- id: base',
+        "  name: 'cordis:include'",
+        '  config:',
+        '    path: ./base.yml',
+        '    patches:',
+        // Layer 1 (a bundle layer): patch a base row and add two of its own.
+        '      - id: shared',
+        '        config:',
+        '          value: bundle',
+        '      - insert:',
+        '          - id: bundle-kept',
+        '            name: ./noop.mjs',
+        '            config:',
+        '              value: bundle-default',
+        '          - id: bundle-dropped',
+        '            name: ./noop.mjs',
+        // Layer 2 (the user): reconfigure one inserted row and disable the other.
+        '      - id: bundle-kept',
+        '        config:',
+        '          value: user',
+        '      - id: bundle-dropped',
+        '        disabled: true',
+        '',
+      ].join('\n'),
+    )
     const ctx = await boot(NAME, join(dir, 'cordis.yml'))
     try {
       expect(entryConfig(ctx, 'shared')).toEqual({ value: 'bundle' })
@@ -199,12 +207,16 @@ describe('best-effort config failure recovery', () => {
   it.each([
     ['import', undefined, undefined],
     ['sync apply', 'export function apply(_ctx, config) { if (config.fail) throw new Error("reload sync failure") }\n', 3],
-    ['async apply', 'export async function apply(_ctx, config) { await Promise.resolve(); if (config.fail) throw new Error("reload async failure") }\n', 3],
+    [
+      'async apply',
+      'export async function apply(_ctx, config) { await Promise.resolve(); if (config.fail) throw new Error("reload async failure") }\n',
+      3,
+    ],
     ['dependency', 'export const inject = ["reloadMissing"]\nexport function apply() {}\n', 0],
   ] as const)('keeps siblings after a required-id %s failure during HMR', async (_kind, source, state) => {
     const base = '- id: good\n  name: ./noop.mjs\n'
     const { ctx, dir, include } = await bootTree(base, {
-      ...source === undefined ? {} : { 'failure.mjs': source },
+      ...(source === undefined ? {} : { 'failure.mjs': source }),
       'provider.mjs': 'export function apply(ctx) { ctx.provide("reloadMissing", true) }\n',
     })
     try {
@@ -230,7 +242,8 @@ describe('best-effort config failure recovery', () => {
   })
 
   it('keeps the previous fiber config after schema rejection and retries a valid edit', async () => {
-    const config = (value: number | string): string => `- id: webserver\n  name: ./schema.mjs\n  config: { value: ${JSON.stringify(value)} }\n`
+    const config = (value: number | string): string =>
+      `- id: webserver\n  name: ./schema.mjs\n  config: { value: ${JSON.stringify(value)} }\n`
     const { ctx, dir, include } = await bootTree(config(1), {
       'schema.mjs': [
         'export const Config = { "~standard": { version: 1, vendor: "app-boot-test", validate(config) {',
@@ -267,24 +280,29 @@ describe('shipped builtins', () => {
     // `@deepseek-ai/cordis-plugin-group` by name — gives a provider and its consumer one
     // named realm so the service stays out of the root realm while remaining
     // visible to the rows that need it.
-    const { ctx } = await bootTree([
-      '- id: realm',
-      '  name: cordis:group',
-      '  isolate:',
-      '    demoRealmSvc: true',
-      '  config:',
-      '    - id: provider',
-      '      name: ./provider.mjs',
-      '    - id: consumer',
-      '      name: ./consumer.mjs',
-      '',
-    ].join('\n'), {
-      'provider.mjs': 'export const name = "provider"\n'
-        + 'export function apply(ctx) { ctx.effect(() => ctx.reflect.provide("demoRealmSvc", { tag: "realm" })) }\n',
-      'consumer.mjs': 'export const name = "consumer"\n'
-        + 'export const inject = ["demoRealmSvc"]\n'
-        + 'export function apply(ctx) { globalThis.__REALM_SEEN__ = ctx.get("demoRealmSvc").tag }\n',
-    })
+    const { ctx } = await bootTree(
+      [
+        '- id: realm',
+        '  name: cordis:group',
+        '  isolate:',
+        '    demoRealmSvc: true',
+        '  config:',
+        '    - id: provider',
+        '      name: ./provider.mjs',
+        '    - id: consumer',
+        '      name: ./consumer.mjs',
+        '',
+      ].join('\n'),
+      {
+        'provider.mjs':
+          'export const name = "provider"\n' +
+          'export function apply(ctx) { ctx.effect(() => ctx.reflect.provide("demoRealmSvc", { tag: "realm" })) }\n',
+        'consumer.mjs':
+          'export const name = "consumer"\n' +
+          'export const inject = ["demoRealmSvc"]\n' +
+          'export function apply(ctx) { globalThis.__REALM_SEEN__ = ctx.get("demoRealmSvc").tag }\n',
+      },
+    )
     try {
       expect((globalThis as { __REALM_SEEN__?: string }).__REALM_SEEN__).toBe('realm')
       // `provide` mints the root symbol unconditionally (cordis `reflect.ts`),

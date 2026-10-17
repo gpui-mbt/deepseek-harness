@@ -4,11 +4,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import type { PeerId, PeerScope, Principal } from '@deepseek-ai/dsh-typert-protocol'
 import type { ConnectionInteractions } from './connect-protocol.ts'
-import {
-  RpcId,
-  type ClientRequest,
-  type RpcId as RpcIdType,
-} from './rpc.ts'
+import { RpcId, type ClientRequest, type RpcId as RpcIdType } from './rpc.ts'
 import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isRemoteAuthority, isTrustedApiRequest } from './api-request-trust.ts'
@@ -92,12 +88,15 @@ export class HostConnectionService extends Service implements HostConnectionHand
     super(ctx, 'connection')
     this.owner = ctx
     this.browserPeer = new Peer(ctx, { principal: { kind: 'owner' } })
-    ctx.effect(() => async () => {
-      this.disposed = true
-      const peers = [this.browserPeer, ...Array.from(this.peers.values(), record => record.peer)]
-      this.peers.clear()
-      await Promise.all(peers.map(peer => peer.dispose()))
-    }, 'client-connection: Peer scopes')
+    ctx.effect(
+      () => async () => {
+        this.disposed = true
+        const peers = [this.browserPeer, ...Array.from(this.peers.values(), record => record.peer)]
+        this.peers.clear()
+        await Promise.all(peers.map(peer => peer.dispose()))
+      },
+      'client-connection: Peer scopes',
+    )
     this.allowsRemoteAuthorities = trustedHosts.some(isRemoteAuthority)
   }
 
@@ -106,8 +105,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     const owner = this.ctx
     return {
       handle: (channel, handler) => this.register(owner, channel, handler),
-      intercept: (channel, matches, handler) =>
-        this.registerInterceptor(owner, channel, matches, handler),
+      intercept: (channel, matches, handler) => this.registerInterceptor(owner, channel, matches, handler),
     }
   }
 
@@ -183,8 +181,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
       response.end(this.disposed ? 'unauthorized' : 'forbidden')
       return
     }
-    this.browserAuth.authorizeConnect(request, response,
-      this.owner.get('webServer')?.protocol === 'https:', interactions => this.publishPeer(interactions))
+    this.browserAuth.authorizeConnect(request, response, this.owner.get('webServer')?.protocol === 'https:', interactions =>
+      this.publishPeer(interactions),
+    )
   }
 
   /**
@@ -204,9 +203,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param channel - shared channel mounted by Connection.
    * @returns Fetch handler that selects one owner or returns 404.
    */
-  createSharedFetchHandler(
-    channel: '/api',
-  ): ConnectionFetchHandler {
+  createSharedFetchHandler(channel: '/api'): ConnectionFetchHandler {
     return {
       requestBodyMode: ({ method, url }) => {
         const route = this.fetchRoutes.get(url.pathname)
@@ -231,10 +228,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     }
   }
 
-  private registerFetchRoute(
-    owner: Context,
-    route: ConnectionFetchRoute,
-  ): () => Promise<void> {
+  private registerFetchRoute(owner: Context, route: ConnectionFetchRoute): () => Promise<void> {
     assertFetchRoute(route)
     const registered: RegisteredFetchRoute = {
       methods: new Set(route.methods),
@@ -246,15 +240,13 @@ export class HostConnectionService extends Service implements HostConnectionHand
         throw new Error(`connection: exact Fetch route ${JSON.stringify(route.path)} is already registered`)
       }
       this.fetchRoutes.set(route.path, registered)
-      return () => { this.fetchRoutes.delete(route.path) }
+      return () => {
+        this.fetchRoutes.delete(route.path)
+      }
     }, `client-connection: ${route.path} Fetch route`)
   }
 
-  private register(
-    owner: Context,
-    channel: string,
-    handler: ConnectionRpcHandler,
-  ): () => Promise<void> {
+  private register(owner: Context, channel: string, handler: ConnectionRpcHandler): () => Promise<void> {
     assertChannel(channel)
     const fetchHandler = rpcFetchHandler(channel, handler)
     const route: WebRoute = {
@@ -270,10 +262,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
         await bridge(req, res, fetchHandler, admission.peer)
       },
     }
-    return owner.effect(
-      () => owner.webServer.register(route),
-      `client-connection: ${channel} rpc channel`,
-    )
+    return owner.effect(() => owner.webServer.register(route), `client-connection: ${channel} rpc channel`)
   }
 
   private registerInterceptor(
@@ -301,10 +290,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
   }
 }
 
-function rpcFetchHandler(
-  channel: string,
-  handler: ConnectionRpcHandler,
-): ConnectionFetchHandler {
+function rpcFetchHandler(channel: string, handler: ConnectionRpcHandler): ConnectionFetchHandler {
   return {
     requestBodyMode: () => 'buffered',
     async fetch(request: Request, peer: PeerScope): Promise<Response> {
@@ -362,8 +348,7 @@ function endpointFromPath(channel: string, pathname: string): string | undefined
   if (!pathname.startsWith(`${channel}/`)) return undefined
   const endpoint = pathname.slice(channel.length + 1)
   const segments = endpoint.split('/')
-  if (segments.some(segment =>
-    segment === '' || segment === '.' || segment === '..' || !ENDPOINT_SEGMENT_PATTERN.test(segment))) {
+  if (segments.some(segment => segment === '' || segment === '.' || segment === '..' || !ENDPOINT_SEGMENT_PATTERN.test(segment))) {
     return undefined
   }
   return endpoint

@@ -3,7 +3,12 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-experimental-speech-to-text'
-import type { SpeechPreparationOptions, SpeechProviderId, SpeechSelectionPatch, Transcript } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
+import type {
+  SpeechPreparationOptions,
+  SpeechProviderId,
+  SpeechSelectionPatch,
+  Transcript,
+} from '@deepseek-ai/dsh-experimental-speech-to-text/types'
 import type { SpeechCatalog, TranscriptionRequest } from './types.ts'
 import { validateWave } from '@deepseek-ai/dsh-experimental-speech-to-text/wave'
 
@@ -28,11 +33,17 @@ export interface Config {
 export default class SpeechController extends TypertRemoteService {
   static inject = ['speechToText', 'typert']
   static Config: z<Config> = z.object({
-    maxAudioBytes: z.natural().min(46).default(4 * 1024 * 1024),
+    maxAudioBytes: z
+      .natural()
+      .min(46)
+      .default(4 * 1024 * 1024),
     maxDurationSeconds: z.number().min(1).default(120),
   })
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'speechController', { namespace: 'speech' })
   }
 
@@ -61,7 +72,9 @@ export default class SpeechController extends TypertRemoteService {
    * @returns after preferences are saved.
    */
   @Remote
-  configure(patch: SpeechSelectionPatch): Promise<void> { return this.ctx.speechToText.configure(patch) }
+  configure(patch: SpeechSelectionPatch): Promise<void> {
+    return this.ctx.speechToText.configure(patch)
+  }
 
   /**
    * Start or join one Host-owned preparation task.
@@ -69,7 +82,9 @@ export default class SpeechController extends TypertRemoteService {
    * @param options - task-local source selection validated by the provider.
    */
   @Remote
-  prepare(providerId: SpeechProviderId, options?: SpeechPreparationOptions): void { this.ctx.speechToText.prepare(providerId, options) }
+  prepare(providerId: SpeechProviderId, options?: SpeechPreparationOptions): void {
+    this.ctx.speechToText.prepare(providerId, options)
+  }
 
   /**
    * Explicitly cancel resource preparation.
@@ -77,7 +92,9 @@ export default class SpeechController extends TypertRemoteService {
    * @returns after the preparation task settles.
    */
   @Remote
-  cancelPreparation(providerId: SpeechProviderId): Promise<void> { return this.ctx.speechToText.cancelPreparation(providerId) }
+  cancelPreparation(providerId: SpeechProviderId): Promise<void> {
+    return this.ctx.speechToText.cancelPreparation(providerId)
+  }
 
   /**
    * Validate and transcribe one recording through the explicit provider selection.
@@ -97,9 +114,10 @@ export default class SpeechController extends TypertRemoteService {
       if (audio.toString('base64') !== encoded) throw new Error('Audio must use canonical base64 encoding')
       if (audio.length > this.config.maxAudioBytes) throw new Error('Audio exceeds the configured byte limit')
       validateWave(audio, this.config.maxDurationSeconds)
-      const spec = this.ctx.speechToText.resolve({ audio,
-        ...request.providerId === undefined ? {} : { providerId: request.providerId },
-        ...request.language === undefined ? {} : { language: request.language },
+      const spec = this.ctx.speechToText.resolve({
+        audio,
+        ...(request.providerId === undefined ? {} : { providerId: request.providerId }),
+        ...(request.language === undefined ? {} : { language: request.language }),
       })
       return await this.ctx.speechToText.transcribe(spec, signal)
     } catch (error) {

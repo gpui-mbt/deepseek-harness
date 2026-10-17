@@ -1,12 +1,16 @@
 /** Index body parsing as the parse Worker runs it. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { parseIndexBody } from '../src/parse.ts'
 
 const URL_A = 'https://market.example/index.json'
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text)
 
 it('validates a body and resolves relative icons against the index URL', () => {
-  const body = { format: 1, title: 'M', plugins: [{ name: 'p', icon: 'p.svg', versions: [{ version: '1.0.0', publishTimestamp: 1, source: { type: 'npm' } }] }] }
+  const body = {
+    format: 1,
+    title: 'M',
+    plugins: [{ name: 'p', icon: 'p.svg', versions: [{ version: '1.0.0', publishTimestamp: 1, source: { type: 'npm' } }] }],
+  }
   const result = parseIndexBody(bytes(JSON.stringify(body)), URL_A)
   expect(result.ok && result.index.plugins[0]?.icon).toBe('https://market.example/p.svg')
 })

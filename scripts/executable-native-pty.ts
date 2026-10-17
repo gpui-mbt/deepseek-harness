@@ -9,17 +9,12 @@ import { join } from 'node:path'
  * @param arch - Linux target architecture.
  * @returns the existing addon path.
  */
-export function resolveLinuxNodePtyAddon(
-  packageDirectory: string,
-  arch: 'x64' | 'arm64',
-): string {
+export function resolveLinuxNodePtyAddon(packageDirectory: string, arch: 'x64' | 'arm64'): string {
   const built = join(packageDirectory, 'build', 'Release', 'pty.node')
   if (existsSync(built)) return built
   const prebuilt = join(packageDirectory, 'prebuilds', `linux-${arch}`, 'pty.node')
   if (existsSync(prebuilt)) return prebuilt
-  throw new Error(
-    `executable-native-pty: node-pty addon is absent from both ${built} and ${prebuilt}.`,
-  )
+  throw new Error(`executable-native-pty: node-pty addon is absent from both ${built} and ${prebuilt}.`)
 }
 
 /**
@@ -28,15 +23,9 @@ export function resolveLinuxNodePtyAddon(
  * @param arch - Windows target architecture.
  * @returns the existing addon paths in load order.
  */
-export function resolveWindowsNodePtyAddons(
-  packageDirectory: string,
-  arch: 'x64',
-): string[] {
+export function resolveWindowsNodePtyAddons(packageDirectory: string, arch: 'x64'): string[] {
   const directory = join(packageDirectory, 'prebuilds', `win32-${arch}`)
-  const addons = [
-    join(directory, 'conpty.node'),
-    join(directory, 'conpty_console_list.node'),
-  ]
+  const addons = [join(directory, 'conpty.node'), join(directory, 'conpty_console_list.node')]
   const missing = addons.filter(path => !existsSync(path))
   if (missing.length > 0) {
     throw new Error(`executable-native-pty: Windows node-pty addons are missing: ${missing.join(', ')}.`)

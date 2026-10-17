@@ -13,23 +13,32 @@ import { desktopPublishQualificationError } from './desktop-publish-qualificatio
  * @returns {string} Exact attempt for subsequent routing.
  */
 export function preflightDesktopPublish(repository, inputs, api) {
-  if (!/^[\w.-]+\/[\w.-]+$/u.test(repository) || !/^[1-9]\d*$/u.test(inputs.package_run_id)
-    || (inputs.package_run_attempt && !/^[1-9]\d*$/u.test(inputs.package_run_attempt))) {
+  if (
+    !/^[\w.-]+\/[\w.-]+$/u.test(repository) ||
+    !/^[1-9]\d*$/u.test(inputs.package_run_id) ||
+    (inputs.package_run_attempt && !/^[1-9]\d*$/u.test(inputs.package_run_attempt))
+  ) {
     throw new Error('desktop publish: repository, package_run_id and package_run_attempt must identify a valid packaging attempt')
   }
   const base = `repos/${repository}/actions/runs/${inputs.package_run_id}`
   const latest = inputs.package_run_attempt ? undefined : api(base)
-  const attempt = inputs.package_run_attempt || String(latest && typeof latest === 'object' && 'run_attempt' in latest ? latest.run_attempt : '')
+  const attempt =
+    inputs.package_run_attempt || String(latest && typeof latest === 'object' && 'run_attempt' in latest ? latest.run_attempt : '')
   if (!/^[1-9]\d*$/u.test(attempt)) throw new Error('desktop publish: GitHub returned an invalid attempt')
   const pages = api(`${base}/artifacts?per_page=100`, true)
-  if (!Array.isArray(pages) || pages.some(page => !Array.isArray(page.artifacts)
-    || page.artifacts.some(artifact => typeof artifact.name !== 'string'))) {
+  if (
+    !Array.isArray(pages) ||
+    pages.some(page => !Array.isArray(page.artifacts) || page.artifacts.some(artifact => typeof artifact.name !== 'string'))
+  ) {
     throw new Error('desktop publish: GitHub returned invalid artifact metadata')
   }
   for (const { name } of pages.flatMap(page => page.artifacts)) {
     if (!name.endsWith(`-${inputs.package_run_id}-${attempt}`)) continue
-    const qualification = name.startsWith('windows-x64-unsigned-') ? 'unsigned'
-      : name.startsWith('macos-arm64-unnotarized-debug-') ? 'unnotarized' : ''
+    const qualification = name.startsWith('windows-x64-unsigned-')
+      ? 'unsigned'
+      : name.startsWith('macos-arm64-unnotarized-debug-')
+        ? 'unnotarized'
+        : ''
     const diagnostic = desktopPublishQualificationError(qualification)
     if (diagnostic) throw new Error(diagnostic)
   }
@@ -41,7 +50,13 @@ if (process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.fi
   if (!env.GITHUB_EVENT_PATH || !env.GITHUB_REPOSITORY || !env.GITHUB_OUTPUT) throw new Error('desktop publish: Actions context required')
   const event = JSON.parse(await readFile(env.GITHUB_EVENT_PATH, 'utf8'))
   const attempt = preflightDesktopPublish(env.GITHUB_REPOSITORY, event.inputs, (path, paginate) =>
-    JSON.parse(execFileSync('gh', ['api', ...(paginate ? ['--paginate', '--slurp'] : []), path],
-      { encoding: 'utf8', timeout: 60_000, maxBuffer: 8 * 1024 * 1024 })))
+    JSON.parse(
+      execFileSync('gh', ['api', ...(paginate ? ['--paginate', '--slurp'] : []), path], {
+        encoding: 'utf8',
+        timeout: 60_000,
+        maxBuffer: 8 * 1024 * 1024,
+      }),
+    ),
+  )
   await appendFile(env.GITHUB_OUTPUT, `attempt=${attempt}\n`)
 }

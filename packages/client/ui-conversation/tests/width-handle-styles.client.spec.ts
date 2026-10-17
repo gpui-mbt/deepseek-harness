@@ -1,11 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
-const conversationCss = readFileSync(fileURLToPath(new URL(
-  '../src/client/skeleton/ConversationRoot.module.css',
-  import.meta.url,
-)), 'utf8')
+const conversationCss = readFileSync(fileURLToPath(new URL('../src/client/skeleton/ConversationRoot.module.css', import.meta.url)), 'utf8')
 
 /** Return one stylesheet rule body for an exact class selector. */
 function rule(css: string, selector: string): string {

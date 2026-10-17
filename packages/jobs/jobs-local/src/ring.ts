@@ -29,7 +29,7 @@ function utf8Tail(text: string, maxBytes: number): { text: string; bytes: number
   let start = raw.length - maxBytes
   // The loop bound proves the index is in range; the assertion only
   // discharges noUncheckedIndexedAccess.
-  while (start < raw.length && ((raw[start] as number) & 0xC0) === 0x80) start += 1
+  while (start < raw.length && ((raw[start] as number) & 0xc0) === 0x80) start += 1
   const tail = raw.subarray(start)
   return { text: tail.toString('utf8'), bytes: tail.length }
 }
@@ -59,8 +59,8 @@ export class OutputRing {
       at: this.total,
       text,
       bytes,
-      ...options?.channel !== undefined ? { channel: options.channel } : {},
-      ...options?.gapBefore !== undefined ? { gapBefore: options.gapBefore } : {},
+      ...(options?.channel !== undefined ? { channel: options.channel } : {}),
+      ...(options?.gapBefore !== undefined ? { gapBefore: options.gapBefore } : {}),
     })
     this.total += bytes
     this.retainedBytes += bytes
@@ -104,8 +104,8 @@ export class OutputRing {
       chunks.push({
         at: chunk.at,
         text: chunk.text,
-        ...chunk.channel !== undefined ? { channel: chunk.channel } : {},
-        ...chunk.gapBefore !== undefined ? { gapBefore: chunk.gapBefore } : {},
+        ...(chunk.channel !== undefined ? { channel: chunk.channel } : {}),
+        ...(chunk.gapBefore !== undefined ? { gapBefore: chunk.gapBefore } : {}),
       })
     }
     return { chunks, next: this.total, lossy: from < this.earliest }

@@ -90,12 +90,12 @@ export class SessionTelemetryCoordinator {
     private readonly options: SessionTelemetryCaptureOptions = {},
   ) {
     if ((options.capture ?? 'live') === 'live') {
-      ctx.on('session/created', (session) => {
+      ctx.on('session/created', session => {
         this.adopt(session)
       })
       // Capture the shutdown marker at the session's own termination edge,
       // then retire the only strong reference owned by this coordinator.
-      ctx.on('session/disposed', (session) => {
+      ctx.on('session/disposed', session => {
         this.contain(() => {
           if (!this.adopted.delete(session)) return
           this.deliver(session, { record: this.redact(shutdownRecord(session)) })
@@ -108,7 +108,7 @@ export class SessionTelemetryCoordinator {
       })
       // Parallel listeners are awaited by the loop at turn end; returning void
       // (not the SDK's flush promise) is the turn-latency contract.
-      ctx.on('session/flush', (session) => {
+      ctx.on('session/flush', session => {
         this.contain(() => {
           this.hintFlush(session)
         })
@@ -122,20 +122,23 @@ export class SessionTelemetryCoordinator {
         this.adopt(session)
       }
     }
-    ctx.effect(() => async () => {
-      // Sessions still adopted here are alive through whole-application
-      // teardown, so capture the marker before the backend quiesces.
-      for (const session of this.adopted) {
-        this.contain(() => {
-          this.deliver(session, { record: this.redact(shutdownRecord(session)) })
-        })
-      }
-      try {
-        await this.backend.shutdown()
-      } catch (error) {
-        this.ctx.logger.warn(`telemetry: backend shutdown failed: ${String(error)}`)
-      }
-    }, 'telemetry capture')
+    ctx.effect(
+      () => async () => {
+        // Sessions still adopted here are alive through whole-application
+        // teardown, so capture the marker before the backend quiesces.
+        for (const session of this.adopted) {
+          this.contain(() => {
+            this.deliver(session, { record: this.redact(shutdownRecord(session)) })
+          })
+        }
+        try {
+          await this.backend.shutdown()
+        } catch (error) {
+          this.ctx.logger.warn(`telemetry: backend shutdown failed: ${String(error)}`)
+        }
+      },
+      'telemetry capture',
+    )
   }
 
   /**
@@ -150,8 +153,7 @@ export class SessionTelemetryCoordinator {
    */
   captureSession(session: Session, throughSeq?: SessionSeqType): void {
     const start = session.firstLifecycleSeq
-    const cursor = handoffCursor.get(session)
-      ?? (this.options.includeHistory === true || start === 0 ? -1 : SessionSeq(start - 1))
+    const cursor = handoffCursor.get(session) ?? (this.options.includeHistory === true || start === 0 ? -1 : SessionSeq(start - 1))
     // Containment is PER EVENT: one rejected record is withheld fail-closed
     // while the rest of the historical replay proceeds.
     // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.

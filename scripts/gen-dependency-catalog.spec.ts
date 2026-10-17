@@ -3,11 +3,14 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { runCommandWithTimeout } from './benchmark-npm-resolution.ts'
 import {
-  collectDependencies, computeDependencyCatalog, createNpmResolutionEnvironment,
-  deduplicateDependencies, isDependencyCatalogCurrent,
+  collectDependencies,
+  computeDependencyCatalog,
+  createNpmResolutionEnvironment,
+  deduplicateDependencies,
+  isDependencyCatalogCurrent,
 } from './gen-dependency-catalog.ts'
 
 const roots: string[] = []
@@ -21,14 +24,17 @@ function lockfile() {
     packages: {
       '': { dependencies: { '@deepseek-ai/dsh': 'latest' } },
       'node_modules/@deepseek-ai/dsh': {
-        version: '1.0.0', dependencies: { library: '^2.0.0', alias: 'npm:original@1.0.0' },
+        version: '1.0.0',
+        dependencies: { library: '^2.0.0', alias: 'npm:original@1.0.0' },
         optionalDependencies: { unavailable: '1.0.0' },
       },
       'node_modules/library': { version: '1.0.0' },
       'node_modules/@deepseek-ai/dsh/node_modules/library': { version: '2.0.0', dependencies: { plugin: '*' } },
       'node_modules/alias': { name: 'original', version: '1.0.0' },
       'node_modules/plugin': {
-        version: '1.0.0', dependencies: { library: '^1.0.0' }, peerDependencies: { peer: '*' },
+        version: '1.0.0',
+        dependencies: { library: '^1.0.0' },
+        peerDependencies: { peer: '*' },
         optionalDependencies: { 'native-linux': '*', 'native-helper': '*' },
       },
       'node_modules/peer': { version: '3.0.0', peer: true },
@@ -48,10 +54,18 @@ function fixture(): string {
   roots.push(root)
   mkdirSync(join(root, 'scripts/dependency-catalog'), { recursive: true })
   writeFileSync(join(root, 'scripts/dependency-catalog/package-lock.json'), JSON.stringify(lockfile()))
-  writeFileSync(join(root, 'scripts/dependency-catalog/resolution.json'), JSON.stringify({
-    capturedAt: '2026-09-12T00:00:00.000Z', npm: '11.17.0', node: '24.19.0',
-    platform: 'darwin', arch: 'arm64', registry: 'https://registry.npmjs.org/', installStrategy: 'hoisted',
-  }))
+  writeFileSync(
+    join(root, 'scripts/dependency-catalog/resolution.json'),
+    JSON.stringify({
+      capturedAt: '2026-09-12T00:00:00.000Z',
+      npm: '11.17.0',
+      node: '24.19.0',
+      platform: 'darwin',
+      arch: 'arm64',
+      registry: 'https://registry.npmjs.org/',
+      installStrategy: 'hoisted',
+    }),
+  )
   return root
 }
 
@@ -61,11 +75,15 @@ describe('published npm dependency catalog', () => {
     expect(version).toBe('1.0.0')
     expect(rows).toHaveLength(7)
     expect(rows.filter(row => row.direct).map(row => [row.name, row.version])).toEqual([
-      ['library', '2.0.0'], ['original', '1.0.0'],
+      ['library', '2.0.0'],
+      ['original', '1.0.0'],
     ])
     expect(rows.find(row => row.name === 'peer')).toMatchObject({ peer: true, optional: false })
     expect(rows.find(row => row.name === 'native-linux')).toMatchObject({
-      optional: true, os: ['linux'], cpu: ['arm64'], libc: ['glibc'],
+      optional: true,
+      os: ['linux'],
+      cpu: ['arm64'],
+      libc: ['glibc'],
     })
     expect(rows.find(row => row.name === 'native-helper')).toMatchObject({ optional: true })
     expect(rows.map(row => row.name)).not.toContain('test-only')
@@ -92,7 +110,8 @@ describe('published npm dependency catalog', () => {
     expect(collectDependencies(reordered)).toEqual(collectDependencies(input))
     Object.assign(input.packages, {
       'node_modules/plugin/node_modules/library': {
-        version: '1.0.0', resolved: 'https://registry.npmjs.org/library/-/library-1.0.0.tgz',
+        version: '1.0.0',
+        resolved: 'https://registry.npmjs.org/library/-/library-1.0.0.tgz',
       },
     })
     expect(collectDependencies(input).rows.filter(row => row.name === 'library' && row.version === '1.0.0')).toHaveLength(2)
@@ -102,7 +121,9 @@ describe('published npm dependency catalog', () => {
     const input = lockfile()
     Object.assign(input.packages, {
       'node_modules/plugin/node_modules/library': {
-        version: '1.0.0', optional: true, resolved: 'https://registry.npmjs.org/library/-/library-1.0.0.tgz',
+        version: '1.0.0',
+        optional: true,
+        resolved: 'https://registry.npmjs.org/library/-/library-1.0.0.tgz',
       },
     })
     const rows = collectDependencies(input).rows
@@ -166,16 +187,23 @@ describe('published npm dependency catalog', () => {
     const before = await runCommandWithTimeout(npm, args, { cwd: root, env: inherited, timeoutMs: 30_000 })
     expect(before).toMatchObject({ status: 0, signal: null, timedOut: false })
     expect(JSON.parse(before.output)).toMatchObject({
-      '@deepseek-ai:registry': 'https://user-override.invalid/', 'install-strategy': 'nested',
+      '@deepseek-ai:registry': 'https://user-override.invalid/',
+      'install-strategy': 'nested',
     })
     const isolated = createNpmResolutionEnvironment(root, inherited)
     const after = await runCommandWithTimeout(npm, args, { cwd: root, env: isolated, timeoutMs: 30_000 })
     expect(after).toMatchObject({ status: 0, signal: null, timedOut: false })
     const settings = JSON.parse(after.output) as Record<string, unknown>
     expect(settings).toMatchObject({
-      registry: 'https://registry.npmjs.org/', '@deepseek-ai:registry': 'https://registry.npmjs.org/',
-      'install-strategy': 'hoisted', 'strict-peer-deps': false, 'prefer-dedupe': false, offline: false,
-      cache: join(root, '.npm-cache'), userconfig: join(root, '.npmrc-user'), globalconfig: join(root, '.npmrc-global'),
+      registry: 'https://registry.npmjs.org/',
+      '@deepseek-ai:registry': 'https://registry.npmjs.org/',
+      'install-strategy': 'hoisted',
+      'strict-peer-deps': false,
+      'prefer-dedupe': false,
+      offline: false,
+      cache: join(root, '.npm-cache'),
+      userconfig: join(root, '.npmrc-user'),
+      globalconfig: join(root, '.npmrc-global'),
     })
     expect(settings['@other:registry']).toBeUndefined()
     expect(isolated['NPM_CONFIG_USER_AGENT']).toBeUndefined()

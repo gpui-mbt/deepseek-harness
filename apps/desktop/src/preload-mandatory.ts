@@ -8,9 +8,13 @@ const api: MandatoryUpdateApi = {
   action: (action, version, confirmationRevision) =>
     ipcRenderer.invoke(MANDATORY_IPC.action, action, version, confirmationRevision) as Promise<void>,
   subscribe(listener) {
-    const handle = (_event: Electron.IpcRendererEvent, state: MandatoryUpdateView): void => { listener(state) }
+    const handle = (_event: Electron.IpcRendererEvent, state: MandatoryUpdateView): void => {
+      listener(state)
+    }
     ipcRenderer.on(MANDATORY_IPC.state, handle)
-    return () => { ipcRenderer.off(MANDATORY_IPC.state, handle) }
+    return () => {
+      ipcRenderer.off(MANDATORY_IPC.state, handle)
+    }
   },
 }
 if (location.href === 'dsh-app://shell/mandatory-update.html') contextBridge.exposeInMainWorld('dshMandatoryUpdate', api)

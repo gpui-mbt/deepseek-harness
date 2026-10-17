@@ -3,9 +3,7 @@
  * failure mapping; zone interpretation belongs to the Host.
  */
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import type {
-  ScheduleRecord, ScheduleUpdateRequest, ScheduleUpdateResult,
-} from '@deepseek-ai/dsh-schedule/client'
+import type { ScheduleRecord, ScheduleUpdateRequest, ScheduleUpdateResult } from '@deepseek-ai/dsh-schedule/client'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { TaskManagerKey } from './task-manager-locales.ts'
 
@@ -43,16 +41,29 @@ export function timingSnapshot(record: ScheduleRecord): ScheduleRecord {
     scheduledAt: record.scheduledAt,
   }
   switch (record.kind) {
-    case 'at': return { ...common, kind: record.kind }
-    case 'after': return { ...common, kind: record.kind, afterSeconds: record.afterSeconds }
-    case 'every': return { ...common, kind: record.kind, everySeconds: record.everySeconds }
-    case 'daily': return { ...common, kind: record.kind, time: record.time, timeZone: record.timeZone }
-    case 'weekly': return {
-      ...common, kind: record.kind, time: record.time, timeZone: record.timeZone, weekdays: [...record.weekdays],
-    }
-    case 'cron': return {
-      ...common, kind: record.kind, expression: record.expression, timeZone: record.timeZone,
-    }
+    case 'at':
+      return { ...common, kind: record.kind }
+    case 'after':
+      return { ...common, kind: record.kind, afterSeconds: record.afterSeconds }
+    case 'every':
+      return { ...common, kind: record.kind, everySeconds: record.everySeconds }
+    case 'daily':
+      return { ...common, kind: record.kind, time: record.time, timeZone: record.timeZone }
+    case 'weekly':
+      return {
+        ...common,
+        kind: record.kind,
+        time: record.time,
+        timeZone: record.timeZone,
+        weekdays: [...record.weekdays],
+      }
+    case 'cron':
+      return {
+        ...common,
+        kind: record.kind,
+        expression: record.expression,
+        timeZone: record.timeZone,
+      }
   }
   /* v8 ignore next -- Exhaustiveness guard for the closed ScheduleRecord union. */
   return assertNever(record)
@@ -104,12 +115,21 @@ export function zonedWallClock(instant: string, zone: string): string {
   const at = new Date(instant)
   if (Number.isNaN(at.getTime())) return ''
   try {
-    const fields = new Map(new Intl.DateTimeFormat('en-US', {
-      timeZone: zone,
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3,
-      hourCycle: 'h23',
-    }).formatToParts(at).map(part => [part.type, part.value]))
+    const fields = new Map(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        fractionalSecondDigits: 3,
+        hourCycle: 'h23',
+      })
+        .formatToParts(at)
+        .map(part => [part.type, part.value]),
+    )
     const date = `${fields.get('year')}-${fields.get('month')}-${fields.get('day')}`
     const clock = `${fields.get('hour')}:${fields.get('minute')}:${fields.get('second')}.${fields.get('fractionalSecond')}`
     return `${date}T${clock}`
@@ -143,10 +163,13 @@ export function timingDraft(record: ScheduleRecord): TimingDraft {
         timeZone: zone,
       }
     }
-    case 'every': return { ...draft, seconds: String(record.everySeconds) }
+    case 'every':
+      return { ...draft, seconds: String(record.everySeconds) }
     case 'daily':
-    case 'weekly': return { ...draft, time: record.time, timeZone: record.timeZone }
-    case 'cron': return { ...draft, expression: record.expression, timeZone: record.timeZone }
+    case 'weekly':
+      return { ...draft, time: record.time, timeZone: record.timeZone }
+    case 'cron':
+      return { ...draft, expression: record.expression, timeZone: record.timeZone }
   }
   /* v8 ignore next -- Exhaustiveness guard for the closed ScheduleRecord union. */
   return assertNever(record)
@@ -186,18 +209,27 @@ export function secondPrecision(time: string): string {
  */
 export function timingError(code: Extract<ScheduleUpdateResult, { code: string }>['code']): TaskManagerKey {
   switch (code) {
-    case 'schedule_conflict': return 'timing.conflict'
-    case 'schedule_ended': return 'timing.inactive'
-    case 'schedule_not_found': return 'timing.notFound'
-    case 'subagent_session': return 'timing.subagentSession'
-    case 'invalid_time_zone': return 'timing.invalidZone'
-    case 'not_future': return 'timing.notFuture'
-    case 'frequency_too_high': return 'timing.invalidInterval'
+    case 'schedule_conflict':
+      return 'timing.conflict'
+    case 'schedule_ended':
+      return 'timing.inactive'
+    case 'schedule_not_found':
+      return 'timing.notFound'
+    case 'subagent_session':
+      return 'timing.subagentSession'
+    case 'invalid_time_zone':
+      return 'timing.invalidZone'
+    case 'not_future':
+      return 'timing.notFuture'
+    case 'frequency_too_high':
+      return 'timing.invalidInterval'
     case 'invalid_prompt':
     case 'invalid_selector':
     case 'invalid_rule':
-    case 'time_out_of_range': return 'timing.invalid'
-    case 'internal_error': return 'timing.error'
+    case 'time_out_of_range':
+      return 'timing.invalid'
+    case 'internal_error':
+      return 'timing.error'
   }
   /* v8 ignore next -- Exhaustiveness guard for the closed ScheduleUpdateResult error-code union. */
   return assertNever(code)

@@ -135,9 +135,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
   // The initial sync uses 'throw' when failOnStartupError is configured, so
   // a registration conflict propagates to the startup-await path. Re-syncs
   // and reconnect syncs always contain conflicts.
-  const startupOpts: ToolBridgeOptions = config.failOnStartupError
-    ? { ...opts, registrationFailure: 'throw' }
-    : opts
+  const startupOpts: ToolBridgeOptions = config.failOnStartupError ? { ...opts, registrationFailure: 'throw' } : opts
 
   let disposed = false
   const maxInstructionBytes = config.maxInstructionBytes ?? DEFAULT_MAX_INSTRUCTION_BYTES
@@ -190,7 +188,9 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
     if (!quiesced) {
       client = undefined
       closeClient = undefined
-      ctx.logger.error(`${label}: failed generation could not confirm transport closure — reconnect stopped to avoid overlapping server processes; reload the plugin or restart the Host to retry`)
+      ctx.logger.error(
+        `${label}: failed generation could not confirm transport closure — reconnect stopped to avoid overlapping server processes; reload the plugin or restart the Host to retry`,
+      )
       return
     }
     generationDown(generation)
@@ -198,8 +198,10 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
 
   /** Wait for the transport-owned close signal without letting a broken transport wedge teardown forever. */
   function waitForClose(closed: Promise<void>): Promise<boolean> {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => { resolve(false) }, GENERATION_CLOSE_TIMEOUT_MS)
+    return new Promise(resolve => {
+      const timeout = setTimeout(() => {
+        resolve(false)
+      }, GENERATION_CLOSE_TIMEOUT_MS)
       timeout.unref()
       void closed.then(() => {
         clearTimeout(timeout)
@@ -230,7 +232,9 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
         disposers = new Map()
         serverInstructions = ''
       })
-      ctx.logger.error(`${label}: giving up after ${policy.maxAttempts} consecutive failed reconnect attempts — tools unregistered; reload the plugin or restart the Host to reconnect`)
+      ctx.logger.error(
+        `${label}: giving up after ${policy.maxAttempts} consecutive failed reconnect attempts — tools unregistered; reload the plugin or restart the Host to reconnect`,
+      )
       return
     }
     const delayMs = Math.min(policy.maxDelayMs, policy.initialDelayMs * 2 ** (failedAttempts - 1))
@@ -264,7 +268,9 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
           tools: {
             autoRefresh: false,
             debounceMs: 0,
-            onChanged: () => { void refreshTools() },
+            onChanged: () => {
+              void refreshTools()
+            },
           },
         },
       },
@@ -291,7 +297,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
       } catch (_error) {
         if (!attached) return hasClosed()
       }
-      return !attached || hasClosed() || await waitForClose(closed.promise)
+      return !attached || hasClosed() || (await waitForClose(closed.promise))
     }
     async function refreshTools(): Promise<void> {
       if (!isCurrent(generation)) return
@@ -312,7 +318,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
         return
       }
       if (!isCurrent(generation)) {
-        if (!await closeGeneration()) ctx.logger.error(incompleteDisposalMessage)
+        if (!(await closeGeneration())) ctx.logger.error(incompleteDisposalMessage)
         return
       }
       const serverText = generation.getInstructions()?.trimEnd() ?? ''
@@ -370,15 +376,17 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
         const options = { signal: exec.signal, timeout: config.toolCallTimeoutMs }
         switch (request.method) {
           case 'resources/list':
-            return await generation.listResources(
-              request.cursor === undefined ? undefined : { cursor: request.cursor }, options,
-            ) as JsonValue
+            return (await generation.listResources(
+              request.cursor === undefined ? undefined : { cursor: request.cursor },
+              options,
+            )) as JsonValue
           case 'resources/templates/list':
-            return await generation.listResourceTemplates(
-              request.cursor === undefined ? undefined : { cursor: request.cursor }, options,
-            ) as JsonValue
+            return (await generation.listResourceTemplates(
+              request.cursor === undefined ? undefined : { cursor: request.cursor },
+              options,
+            )) as JsonValue
           case 'resources/read':
-            return await generation.readResource({ uri: request.uri }, options) as JsonValue
+            return (await generation.readResource({ uri: request.uri }, options)) as JsonValue
           /* v8 ignore next 2 -- resource requests are the closed, typed tool operation union */
           default:
             return assertNever(request)
@@ -395,7 +403,7 @@ export function startConnection(ctx: Context, config: Config, policy: ResolvedRe
       const close = closeClient
       client = undefined
       closeClient = undefined
-      if (close !== undefined && !await close()) {
+      if (close !== undefined && !(await close())) {
         ctx.logger.error(incompleteDisposalMessage)
       }
       // Quiesce, don't just request it: the in-flight attempt enqueues its

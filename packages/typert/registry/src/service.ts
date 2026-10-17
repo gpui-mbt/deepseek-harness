@@ -93,7 +93,9 @@ class ChangeSource {
     const { listeners } = this
     return ctx.effect(function* () {
       listeners.add(listener)
-      yield () => { listeners.delete(listener) }
+      yield () => {
+        listeners.delete(listener)
+      }
     }, 'typert registry subscription')
   }
 
@@ -205,15 +207,18 @@ class RemoteStore {
     this.descriptors.validate(contribution.descriptors)
     const owner = {}
     const { packages, descriptors } = this
-    return ctx.effect(function* () {
-      packages.set(contribution.package, owner)
-      descriptors.commit(owner, contribution.descriptors)
-      yield () => {
-        /* v8 ignore else -- duplicate package registration is rejected, so this effect remains the package's unique owner. */
-        if (packages.get(contribution.package) === owner) packages.delete(contribution.package)
-        descriptors.withdraw(owner, contribution.descriptors)
-      }
-    }, `typert.remotes.register(${JSON.stringify(contribution.package)})`)
+    return ctx.effect(
+      function* () {
+        packages.set(contribution.package, owner)
+        descriptors.commit(owner, contribution.descriptors)
+        yield () => {
+          /* v8 ignore else -- duplicate package registration is rejected, so this effect remains the package's unique owner. */
+          if (packages.get(contribution.package) === owner) packages.delete(contribution.package)
+          descriptors.withdraw(owner, contribution.descriptors)
+        }
+      },
+      `typert.remotes.register(${JSON.stringify(contribution.package)})`,
+    )
   }
 }
 
@@ -231,17 +236,11 @@ class LookupStore {
     return {
       register: <K extends Extract<keyof TypertLookupMap, string>>(
         key: K,
-        provider: TypertLookupProvider<
-          TypertLookupHost<TypertLookupMap[K]>,
-          TypertLookupWire<TypertLookupMap[K]>
-        >,
+        provider: TypertLookupProvider<TypertLookupHost<TypertLookupMap[K]>, TypertLookupWire<TypertLookupMap[K]>>,
       ) => this.register(ctx, key, provider),
       configure: <K extends Extract<keyof TypertLookupMap, string>>(
         key: K,
-        resolver: TypertLookupResolver<
-          TypertLookupHost<TypertLookupMap[K]>,
-          TypertLookupWire<TypertLookupMap[K]>
-        >,
+        resolver: TypertLookupResolver<TypertLookupHost<TypertLookupMap[K]>, TypertLookupWire<TypertLookupMap[K]>>,
       ) => this.configure(ctx, key, resolver),
       get: key => this.get(key),
       definitions: () => [...this.definitions.values()],
@@ -259,18 +258,14 @@ class LookupStore {
       parameter: provider.parameter,
       wire: provider.wire,
       // oxlint-disable-next-line typescript/no-unnecessary-condition -- domain packages merge resource kinds into TypertResourceMap.
-      ...provider.resource === undefined ? {} : { resource: provider.resource },
+      ...(provider.resource === undefined ? {} : { resource: provider.resource }),
       hostTypeSymbol: provider.hostTypeSymbol,
       wireTypeSymbol: provider.wireTypeSymbol,
       resolve: id => resolver.resolve(id),
     }
   }
 
-  private configure<Host, Wire>(
-    ctx: Context,
-    key: string,
-    resolver: TypertLookupResolver<Host, Wire>,
-  ): TypertDisposer {
+  private configure<Host, Wire>(ctx: Context, key: string, resolver: TypertLookupResolver<Host, Wire>): TypertDisposer {
     validateSegment('lookup key', key)
     if (this.resolvers.has(key)) throw new Error(`typert: lookup "${key}" resolver is already configured`)
     const owner = {}
@@ -281,16 +276,19 @@ class LookupStore {
       owner,
     }
     const { resolvers, changes } = this
-    return ctx.effect(function* () {
-      resolvers.set(key, entry)
-      changes.emit({ kind: 'lookup', key })
-      yield () => {
-        /* v8 ignore next -- duplicate configuration is rejected, so this effect remains the key's unique owner. */
-        if (resolvers.get(key) !== entry) return
-        resolvers.delete(key)
+    return ctx.effect(
+      function* () {
+        resolvers.set(key, entry)
         changes.emit({ kind: 'lookup', key })
-      }
-    }, `typert.lookups.configure(${JSON.stringify(key)})`)
+        yield () => {
+          /* v8 ignore next -- duplicate configuration is rejected, so this effect remains the key's unique owner. */
+          if (resolvers.get(key) !== entry) return
+          resolvers.delete(key)
+          changes.emit({ kind: 'lookup', key })
+        }
+      },
+      `typert.lookups.configure(${JSON.stringify(key)})`,
+    )
   }
 
   private register<Host, Wire>(ctx: Context, key: string, provider: TypertLookupProvider<Host, Wire>): TypertDisposer {
@@ -314,17 +312,20 @@ class LookupStore {
     const owner = {}
     const entry: ProviderEntry<TypertLookupProvider> = { provider, owner }
     const { definitions, providers, changes } = this
-    return ctx.effect(function* () {
-      definitions.set(key, definition)
-      providers.set(key, entry)
-      changes.emit({ kind: 'lookup', key })
-      yield () => {
-        /* v8 ignore next -- duplicate registration is rejected, so this effect remains the key's unique owner. */
-        if (providers.get(key) !== entry) return
-        providers.delete(key)
+    return ctx.effect(
+      function* () {
+        definitions.set(key, definition)
+        providers.set(key, entry)
         changes.emit({ kind: 'lookup', key })
-      }
-    }, `typert.lookups.register(${JSON.stringify(key)})`)
+        yield () => {
+          /* v8 ignore next -- duplicate registration is rejected, so this effect remains the key's unique owner. */
+          if (providers.get(key) !== entry) return
+          providers.delete(key)
+          changes.emit({ kind: 'lookup', key })
+        }
+      },
+      `typert.lookups.register(${JSON.stringify(key)})`,
+    )
   }
 }
 
@@ -333,10 +334,12 @@ interface LookupResolverEntry {
 }
 
 function lookupDefinitionEquals(left: TypertLookupDefinition, right: TypertLookupDefinition): boolean {
-  return left.parameter === right.parameter
-    && left.wire === right.wire
-    && left.hostTypeSymbol === right.hostTypeSymbol
-    && left.wireTypeSymbol === right.wireTypeSymbol
+  return (
+    left.parameter === right.parameter &&
+    left.wire === right.wire &&
+    left.hostTypeSymbol === right.hostTypeSymbol &&
+    left.wireTypeSymbol === right.wireTypeSymbol
+  )
 }
 
 class ContextStore {
@@ -378,16 +381,12 @@ class ContextStore {
       wire: adapter.wire,
       wireTypeSymbol: adapter.wireTypeSymbol,
       // oxlint-disable-next-line typescript/no-unnecessary-condition -- domain packages merge resource kinds into TypertResourceMap.
-      ...adapter.resource === undefined ? {} : { resource: adapter.resource },
+      ...(adapter.resource === undefined ? {} : { resource: adapter.resource }),
       resolve: id => resolver.resolve(id),
     }
   }
 
-  private configureHost<Wire>(
-    ctx: Context,
-    key: string,
-    resolver: TypertHostContextResolver<Wire>,
-  ): TypertDisposer {
+  private configureHost<Wire>(ctx: Context, key: string, resolver: TypertHostContextResolver<Wire>): TypertDisposer {
     validateSegment('Context key', key)
     if (this.hostResolvers.has(key)) throw new Error(`typert: host-context "${key}" resolver is already configured`)
     const entry: ProviderEntry<HostContextResolverEntry> = {
@@ -395,16 +394,19 @@ class ContextStore {
       owner: {},
     }
     const { hostResolvers, changes } = this
-    return ctx.effect(function* () {
-      hostResolvers.set(key, entry)
-      changes.emit({ kind: 'host-context', key })
-      yield () => {
-        /* v8 ignore next -- duplicate configuration is rejected, so this effect remains the key's unique owner. */
-        if (hostResolvers.get(key) !== entry) return
-        hostResolvers.delete(key)
+    return ctx.effect(
+      function* () {
+        hostResolvers.set(key, entry)
         changes.emit({ kind: 'host-context', key })
-      }
-    }, `typert.contexts.configureHost(${JSON.stringify(key)})`)
+        yield () => {
+          /* v8 ignore next -- duplicate configuration is rejected, so this effect remains the key's unique owner. */
+          if (hostResolvers.get(key) !== entry) return
+          hostResolvers.delete(key)
+          changes.emit({ kind: 'host-context', key })
+        }
+      },
+      `typert.contexts.configureHost(${JSON.stringify(key)})`,
+    )
   }
 
   private registerHost<Wire>(ctx: Context, key: string, adapter: TypertHostContextAdapter<Wire>): TypertDisposer {
@@ -429,16 +431,19 @@ class ContextStore {
     if (table.has(key)) throw new Error(`typert: ${kind} provider "${key}" is already registered`)
     const entry: ProviderEntry<Provider> = { provider, owner: {} }
     const { changes } = this
-    return ctx.effect(function* () {
-      table.set(key, entry)
-      changes.emit({ kind, key })
-      yield () => {
-        /* v8 ignore next -- duplicate registration is rejected, so this effect remains the key's unique owner. */
-        if (table.get(key) !== entry) return
-        table.delete(key)
+    return ctx.effect(
+      function* () {
+        table.set(key, entry)
         changes.emit({ kind, key })
-      }
-    }, `typert.contexts.register(${JSON.stringify(key)})`)
+        yield () => {
+          /* v8 ignore next -- duplicate registration is rejected, so this effect remains the key's unique owner. */
+          if (table.get(key) !== entry) return
+          table.delete(key)
+          changes.emit({ kind, key })
+        }
+      },
+      `typert.contexts.register(${JSON.stringify(key)})`,
+    )
   }
 }
 
@@ -475,16 +480,19 @@ class ResourceStore {
     if (this.declarations.has(kind)) throw new Error(`typert: resource kind "${kind}" is already registered`)
     const entry: ProviderEntry<TypertResourceDeclaration> = { provider: { field: declaration.field }, owner: {} }
     const { declarations, changes } = this
-    return ctx.effect(function* () {
-      declarations.set(kind, entry)
-      changes.emit({ kind: 'resource', key: kind })
-      yield () => {
-        /* v8 ignore next -- duplicate registration is rejected, so this effect remains the kind's unique owner. */
-        if (declarations.get(kind) !== entry) return
-        declarations.delete(kind)
+    return ctx.effect(
+      function* () {
+        declarations.set(kind, entry)
         changes.emit({ kind: 'resource', key: kind })
-      }
-    }, `typert.resources.register(${JSON.stringify(kind)})`)
+        yield () => {
+          /* v8 ignore next -- duplicate registration is rejected, so this effect remains the kind's unique owner. */
+          if (declarations.get(kind) !== entry) return
+          declarations.delete(kind)
+          changes.emit({ kind: 'resource', key: kind })
+        }
+      },
+      `typert.resources.register(${JSON.stringify(kind)})`,
+    )
   }
 }
 
@@ -696,7 +704,7 @@ interface TypertSchemaFactoryRecord extends TypertSchemaFactory {
 }
 
 function materializeSchema(record: TypertSchemaFactoryRecord): TypertSchemaRecord {
-  const schema = record.value ??= record.create()
+  const schema = (record.value ??= record.create())
   return {
     name: record.name,
     schema,
@@ -710,8 +718,7 @@ function matches(
   record: { readonly package: string; readonly face: TypertFace },
   filter: { readonly package?: string; readonly face?: TypertFace },
 ): boolean {
-  return (filter.package === undefined || record.package === filter.package)
-    && (filter.face === undefined || record.face === filter.face)
+  return (filter.package === undefined || record.package === filter.package) && (filter.face === undefined || record.face === filter.face)
 }
 
 function validateInvocation(descriptor: InvocationDescriptor): void {
@@ -761,11 +768,8 @@ function validateInvocation(descriptor: InvocationDescriptor): void {
     validateWireName('scope wire field', descriptor.scope.wire)
     const lookups = descriptor.parameters.filter(candidate => candidate.source === 'lookup')
     const parameter = lookups.length === 1 ? lookups[0] : undefined
-    if (parameter === undefined || parameter.wire !== descriptor.scope.wire
-      || parameter.lookup !== descriptor.scope.context) {
-      throw new Error(
-        `typert: invocation "${descriptor.id}" scope wire "${descriptor.scope.wire}" must select its only lookup parameter`,
-      )
+    if (parameter === undefined || parameter.wire !== descriptor.scope.wire || parameter.lookup !== descriptor.scope.context) {
+      throw new Error(`typert: invocation "${descriptor.id}" scope wire "${descriptor.scope.wire}" must select its only lookup parameter`)
     }
   }
   if (descriptor.invocation.kind === 'context') {

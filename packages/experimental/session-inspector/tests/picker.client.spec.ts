@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The Inspector mask hit-tests underlying Chat identities and owns the selection gesture. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { matchChatElement, matchChatNodeRow } from '../src/client/views/chat-node/pick-match.ts'
 import { mainChatRoot } from '../src/client/views/chat-node/dom.ts'
 import { InspectorChatPicker } from '../src/client/views/chat-node/picker.ts'
@@ -27,8 +27,14 @@ function fixture() {
   call.dataset.chatCallId = 'call'
   const action = document.createElement('button')
   action.textContent = 'Original action'
-  call.append(action); node.append(call); group.append(node); root.append(group)
-  view.append(root); main.append(view); container.append(owner, main); document.body.append(container)
+  call.append(action)
+  node.append(call)
+  group.append(node)
+  root.append(group)
+  view.append(root)
+  main.append(view)
+  container.append(owner, main)
+  document.body.append(container)
   root.getBoundingClientRect = () => new DOMRect(0, 0, 400, 300)
   call.getBoundingClientRect = () => new DOMRect(10, 20, 200, 80)
   const mask = () => document.querySelector<HTMLElement>('[data-session-inspector-picker]')
@@ -43,15 +49,37 @@ function fixture() {
     if (descriptor === undefined) Reflect.deleteProperty(document, 'elementsFromPoint')
     else Object.defineProperty(document, 'elementsFromPoint', descriptor)
   })
-  return { container, owner, main, view, root, group, node, call, action, mask, setHit: (element: Element) => { hit = element } }
+  return {
+    container,
+    owner,
+    main,
+    view,
+    root,
+    group,
+    node,
+    call,
+    action,
+    mask,
+    setHit: (element: Element) => {
+      hit = element
+    },
+  }
 }
 
 it('uses existing Slot/Chat markers and excludes hidden, nested, and Sidebar occurrences', () => {
   const { container, root, node, group, call, action } = fixture()
   expect(mainChatRoot()).toBe(root)
-  expect(matchChatElement(action, root)).toEqual({ element: call, target: {
-    callId: 'call', nodeKey: 'node', groupPart: 'reasoning', nodeKind: 'assistant-step', groupKey: 'group', turn: 3,
-  } })
+  expect(matchChatElement(action, root)).toEqual({
+    element: call,
+    target: {
+      callId: 'call',
+      nodeKey: 'node',
+      groupPart: 'reasoning',
+      nodeKind: 'assistant-step',
+      groupKey: 'group',
+      turn: 3,
+    },
+  })
   expect(matchChatElement(group, root)).toEqual({ element: group, target: { groupKey: 'group', turn: 3 } })
   expect(matchChatElement(node, document.createElement('div'))).toBeUndefined()
   container.dataset.sidebarRightSession = 'sidebar'
@@ -64,7 +92,8 @@ it('uses existing Slot/Chat markers and excludes hidden, nested, and Sidebar occ
   const nested = document.createElement('div')
   nested.dataset.slot = 'conversation.view'
   const child = document.createElement('span')
-  nested.append(child); node.append(nested)
+  nested.append(child)
+  node.append(nested)
   expect(matchChatElement(child, root)).toBeUndefined()
   container.style.display = 'none'
   expect(mainChatRoot()).toBeUndefined()
@@ -90,7 +119,9 @@ it('hit-tests below the mask, keeps the hover preview, and consumes selection on
   const picked = vi.fn(() => true)
   const cancelled = vi.fn()
   const picker = new InspectorChatPicker(mainChatRoot, owner, picked, cancelled, vi.fn())
-  onTestFinished(() => { picker.dispose() })
+  onTestFinished(() => {
+    picker.dispose()
+  })
   const activated = vi.fn()
   action.addEventListener('click', activated)
   expect(picker.start()).toBe(true)
@@ -122,7 +153,9 @@ it('keeps unmatched picks active, cancels with Escape, and leaves outside contro
   const picked = vi.fn(() => false)
   const cancelled = vi.fn()
   const picker = new InspectorChatPicker(mainChatRoot, owner, picked, cancelled, vi.fn())
-  onTestFinished(() => { picker.dispose() })
+  onTestFinished(() => {
+    picker.dispose()
+  })
   picker.start()
   const outside = vi.fn()
   owner.addEventListener('click', outside)
@@ -132,7 +165,8 @@ it('keeps unmatched picks active, cancels with Escape, and leaves outside contro
   mask()!.click()
   expect(picked).not.toHaveBeenCalled()
   setHit(action)
-  mask()!.click(); mask()!.click()
+  mask()!.click()
+  mask()!.click()
   expect(picked).toHaveBeenCalledTimes(2)
   document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
   expect(cancelled).toHaveBeenCalledOnce()
@@ -146,12 +180,15 @@ it('forwards wheel movement to the underlying Chat scrollport', () => {
   const scroller = document.createElement('div')
   scroller.dataset.conversationScroll = ''
   scroller.getBoundingClientRect = () => new DOMRect(0, 0, 400, 300)
-  view.replaceChild(scroller, root); scroller.append(root)
+  view.replaceChild(scroller, root)
+  scroller.append(root)
   Object.defineProperties(scroller, { clientHeight: { value: 300 }, scrollHeight: { value: 1000 } })
   const scrollBy = vi.fn()
   scroller.scrollBy = scrollBy
   const picker = new InspectorChatPicker(mainChatRoot, owner, () => false, vi.fn(), vi.fn())
-  onTestFinished(() => { picker.dispose() })
+  onTestFinished(() => {
+    picker.dispose()
+  })
   picker.start()
   mask()!.dispatchEvent(new WheelEvent('wheel', { deltaY: 50, cancelable: true }))
   expect(scrollBy).toHaveBeenCalledWith({ top: 50, left: 0, behavior: 'instant' })
@@ -161,7 +198,9 @@ it('releases its mask when the Inspector is hidden', async () => {
   const { container, owner, mask } = fixture()
   const cancelled = vi.fn()
   const picker = new InspectorChatPicker(mainChatRoot, owner, () => true, cancelled, vi.fn())
-  onTestFinished(() => { picker.dispose() })
+  onTestFinished(() => {
+    picker.dispose()
+  })
   picker.start()
   const mounted = mask()!
   container.hidden = true
@@ -174,8 +213,16 @@ it('refuses a missing Chat and cancels when the current Session no longer owns i
   const { owner, mask } = fixture()
   let current = false
   const cancelled = vi.fn()
-  const picker = new InspectorChatPicker(() => current ? mainChatRoot() : undefined, owner, () => true, cancelled, vi.fn())
-  onTestFinished(() => { picker.dispose() })
+  const picker = new InspectorChatPicker(
+    () => (current ? mainChatRoot() : undefined),
+    owner,
+    () => true,
+    cancelled,
+    vi.fn(),
+  )
+  onTestFinished(() => {
+    picker.dispose()
+  })
   expect(picker.start()).toBe(false)
   expect(mask()).toBeNull()
   current = true
@@ -191,7 +238,9 @@ it('reuses hover previews, ignores non-primary clicks, and cancels when the Chat
   const picked = vi.fn(() => false)
   const cancelled = vi.fn()
   const picker = new InspectorChatPicker(mainChatRoot, owner, picked, cancelled, vi.fn())
-  onTestFinished(() => { picker.dispose() })
+  onTestFinished(() => {
+    picker.dispose()
+  })
   root.getBoundingClientRect = () => new DOMRect(0, 2000, 400, 300)
   expect(picker.start()).toBe(false)
   root.getBoundingClientRect = () => new DOMRect(0, 0, 400, 300)
@@ -217,21 +266,31 @@ it('reuses hover previews, ignores non-primary clicks, and cancels when the Chat
   expect(mask()).toBeNull()
 })
 
-it.each(['cancel', 'dispose'] as const)('ignores saved pointer and observer callbacks after %s', (ending) => {
+it.each(['cancel', 'dispose'] as const)('ignores saved pointer and observer callbacks after %s', ending => {
   const { owner, mask } = fixture()
   const registrations = vi.spyOn(EventTarget.prototype, 'addEventListener')
   const windowRegistrations = vi.spyOn(window, 'addEventListener')
   const mutations: MutationCallback[] = []
   vi.stubGlobal('ResizeObserver', undefined)
-  vi.stubGlobal('MutationObserver', class {
-    constructor(callback: MutationCallback) { mutations.push(callback) }
-    observe() {}
-    disconnect() {}
-  })
+  vi.stubGlobal(
+    'MutationObserver',
+    class {
+      constructor(callback: MutationCallback) {
+        mutations.push(callback)
+      }
+      observe() {}
+      disconnect() {}
+    },
+  )
   const cancelled = vi.fn()
   const picked = vi.fn(() => true)
   const picker = new InspectorChatPicker(mainChatRoot, owner, picked, cancelled, vi.fn())
-  onTestFinished(() => { picker.dispose(); windowRegistrations.mockRestore(); registrations.mockRestore(); vi.unstubAllGlobals() })
+  onTestFinished(() => {
+    picker.dispose()
+    windowRegistrations.mockRestore()
+    registrations.mockRestore()
+    vi.unstubAllGlobals()
+  })
   picker.start()
   const mounted = mask()!
   const callbacks = [...registrations.mock.calls, ...windowRegistrations.mock.calls].map(([type, callback]) => ({ type, callback }))
@@ -264,9 +323,14 @@ it.each([
   const scroller = document.createElement('div')
   scroller.dataset.conversationScroll = ''
   scroller.getBoundingClientRect = () => new DOMRect(0, 0, 400, 300)
-  view.replaceChild(scroller, root); scroller.append(root)
-  Object.defineProperties(scroller, { clientHeight: { value: 300 }, scrollHeight: { value: 1000 },
-    clientWidth: { value: 400 }, scrollWidth: { value: 800 } })
+  view.replaceChild(scroller, root)
+  scroller.append(root)
+  Object.defineProperties(scroller, {
+    clientHeight: { value: 300 },
+    scrollHeight: { value: 1000 },
+    clientWidth: { value: 400 },
+    scrollWidth: { value: 800 },
+  })
   scroller.scrollTop = top
   scroller.scrollLeft = left
   scroller.style.lineHeight = lineHeight
@@ -274,7 +338,9 @@ it.each([
   const scroll = vi.fn()
   scroller.scrollBy = scroll
   const picker = new InspectorChatPicker(mainChatRoot, owner, () => false, vi.fn(), vi.fn())
-  onTestFinished(() => { picker.dispose() })
+  onTestFinished(() => {
+    picker.dispose()
+  })
   picker.start()
   mask()!.dispatchEvent(new WheelEvent('wheel', { deltaX, deltaY, deltaMode: mode, cancelable: true }))
   if (expected === undefined) expect(scroll).not.toHaveBeenCalled()

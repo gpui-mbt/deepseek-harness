@@ -1,19 +1,21 @@
 /** Direct one-shot Agent driving, exact Session adoption, machine-readable projection, and exit mapping. */
 
 import { Readable } from 'node:stream'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
-import type {
-  Agent,
-  AgentHandle,
-  AssistantStreamFrame,
-  CreateAgentOptions,
-  ResumeAgentOptions,
-} from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentHandle, AssistantStreamFrame, CreateAgentOptions, ResumeAgentOptions } from '@deepseek-ai/dsh-agent'
 import AgentDefaultModelConfig from '@deepseek-ai/dsh-agent-default-model'
-import { LlmAttemptId, ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage, type MessageId, type StreamChunk } from '@deepseek-ai/dsh-llm'
+import {
+  LlmAttemptId,
+  ToolCallId,
+  createAssistantMessage,
+  createToolResultMessage,
+  createUserMessage,
+  type MessageId,
+  type StreamChunk,
+} from '@deepseek-ai/dsh-llm'
 import SessionStore from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { Session, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
@@ -24,7 +26,9 @@ import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import { internals } from '../src/runner-internals.ts'
 
 const originalInternals = { ...internals }
-afterEach(() => { Object.assign(internals, originalInternals) })
+afterEach(() => {
+  Object.assign(internals, originalInternals)
+})
 
 interface Script {
   before?(session: Session): void
@@ -70,7 +74,11 @@ function startFrames(agent: Agent, turn = 1, step = 1): void {
   agent.ctx.emit('agent/assistant-stream', {
     agent,
     frame: {
-      type: 'start', attemptId: state.attemptId, revision: state.revision, turn, step,
+      type: 'start',
+      attemptId: state.attemptId,
+      revision: state.revision,
+      turn,
+      step,
     },
   })
 }
@@ -79,39 +87,39 @@ function emitChunk(agent: Agent, chunk: StreamChunk): void {
   const state = frameStates.get(agent)
   if (state === undefined) throw new Error('test Assistant frames have not started')
   const frame: AssistantStreamFrame = {
-    type: 'chunk', attemptId: state.attemptId, revision: ++state.revision,
-    index: state.index++, time: Date.now(), chunk,
+    type: 'chunk',
+    attemptId: state.attemptId,
+    revision: ++state.revision,
+    index: state.index++,
+    time: Date.now(),
+    chunk,
   }
   agent.ctx.emit('agent/assistant-stream', { agent, frame })
 }
 
-function appendTurn(
-  session: Session,
-  turn: number,
-  message: UserMessage,
-  text: string | undefined,
-  completed: boolean,
-): void {
+function appendTurn(session: Session, turn: number, message: UserMessage, text: string | undefined, completed: boolean): void {
   session.append('turn/start', { turn })
   session.append('step/start', { turn, step: 1 })
   session.append('user/message', message, { surfaceOp: 'append' })
   if (text !== undefined) {
-    session.append('assistant/message', {
-      stream: [],
-      turn,
-      step: 1,
-      message: createAssistantMessage({
-        content: [{ type: 'text', text }],
-        source: { provider: 'test-provider', model: 'test-model' },
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn,
+        step: 1,
+        message: createAssistantMessage({
+          content: [{ type: 'text', text }],
+          source: { provider: 'test-provider', model: 'test-model' },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
   }
   session.append('step/end', { turn, step: 1 })
   session.append('turn/end', {
     turn,
-    reason: completed
-      ? { kind: 'completed' }
-      : { kind: 'aborted', reason: { kind: 'user' } },
+    reason: completed ? { kind: 'completed' } : { kind: 'aborted', reason: { kind: 'user' } },
   })
 }
 
@@ -122,7 +130,10 @@ function selectPreset(session: Session, agentPreset: string): void {
 }
 
 /** Mount the real registries around a small scripted Agent factory. */
-async function bench(script: Script, options: BenchOptions = {}): Promise<{
+async function bench(
+  script: Script,
+  options: BenchOptions = {},
+): Promise<{
   ctx: Context
   output(): { out: string; err: string; order: string[] }
   run(): Promise<{ code: number; out: string; err: string; order: string[] }>
@@ -140,11 +151,7 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
   let err = ''
   const order: string[] = []
 
-  const mount = async (
-    ownerCtx: Context,
-    session: Session,
-    createOptions: CreateAgentOptions | ResumeAgentOptions,
-  ): Promise<Agent> => {
+  const mount = async (ownerCtx: Context, session: Session, createOptions: CreateAgentOptions | ResumeAgentOptions): Promise<Agent> => {
     const inbox = createInboxStub()
     let idle = Promise.resolve()
     let running = false
@@ -153,7 +160,9 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
       options: createOptions.agentOptions ?? {},
       session,
       inbox,
-      get status() { return running ? 'running' : 'idle' },
+      get status() {
+        return running ? 'running' : 'idle'
+      },
       ctx: ownerCtx,
       cancel: () => {},
       runMaintenance: () => Promise.reject(new Error('not used')),
@@ -161,14 +170,20 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
       followup: (message: UserMessage) => {
         agent.inbox.append('next-turn', message)
         running = true
-        idle = Promise.resolve().then(() => script.afterPrompt(session, message, agent)).finally(() => { running = false })
+        idle = Promise.resolve()
+          .then(() => script.afterPrompt(session, message, agent))
+          .finally(() => {
+            running = false
+          })
       },
       steer: () => {},
       inject: () => {},
       whenIdle: async () => {
         options.onWhenIdle?.(agent)
         let activity: Promise<void>
-        do { await (activity = idle) } while (activity !== idle)
+        do {
+          await (activity = idle)
+        } while (activity !== idle)
         options.afterIdle?.()
       },
     }
@@ -184,7 +199,7 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
   ctx.agents.setFactory({
     async createAgent(ownerCtx: Context, createOptions: CreateAgentOptions): Promise<AgentHandle> {
       const session = ctx.sessions.create(createOptions.sessionId, {
-        ...createOptions.meta === undefined ? {} : { meta: createOptions.meta },
+        ...(createOptions.meta === undefined ? {} : { meta: createOptions.meta }),
       })
       script.before?.(session)
       const agent = await mount(ownerCtx, session, createOptions)
@@ -208,12 +223,27 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
     ctx,
     output: () => ({ out, err, order: [...order] }),
     run: async () => {
-      ctx.on('session/flush', () => { order.push('flush') })
-      internals.stdout = { write: (chunk: string) => { out += chunk; return true } }
-      internals.stderr = { write: (chunk: string) => { err += chunk; return true } }
+      ctx.on('session/flush', () => {
+        order.push('flush')
+      })
+      internals.stdout = {
+        write: (chunk: string) => {
+          out += chunk
+          return true
+        },
+      }
+      internals.stderr = {
+        write: (chunk: string) => {
+          err += chunk
+          return true
+        },
+      }
       if (options.readStdin !== undefined) internals.readStdin = options.readStdin
-      const exited = new Promise<number>((resolve) => {
-        ctx.provide('appExit', (code: number) => { order.push('exit'); resolve(code) })
+      const exited = new Promise<number>(resolve => {
+        ctx.provide('appExit', (code: number) => {
+          order.push('exit')
+          resolve(code)
+        })
       })
       if (options.prelive === true || options.preliveMeta !== undefined) {
         await ctx.agents.create({
@@ -222,9 +252,9 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
         })
       }
       apply(ctx, {
-        ...options.useStdin === true ? {} : { task: options.task ?? 'do the thing' },
-        ...options.sessionId === undefined ? {} : { sessionId: options.sessionId },
-        ...options.json === undefined ? {} : { json: options.json },
+        ...(options.useStdin === true ? {} : { task: options.task ?? 'do the thing' }),
+        ...(options.sessionId === undefined ? {} : { sessionId: options.sessionId }),
+        ...(options.json === undefined ? {} : { json: options.json }),
       })
       return { code: await exited, out, err, order }
     },
@@ -238,33 +268,47 @@ describe('headless runner', () => {
     const finalTurn = Promise.withResolvers<undefined>()
     const parentWait = Promise.withResolvers<undefined>()
     let turns = 0
-    const test = await bench({
-      async afterPrompt(session, message, parent) {
-        turns += 1
-        if (turns === 1) {
-          await test.ctx.subagents.startActivation({
-            provider: 'external', label: 'work', delivery: 'parent', signal: new AbortController().signal,
-            request: { parent, prompt: [] },
-          })
-          await cleaning.promise
-          appendTurn(session, 1, message, 'waiting for child', true)
-        } else {
-          await finalTurn.promise
-          appendTurn(session, 2, message, 'child result incorporated', true)
-        }
+    const test = await bench(
+      {
+        async afterPrompt(session, message, parent) {
+          turns += 1
+          if (turns === 1) {
+            await test.ctx.subagents.startActivation({
+              provider: 'external',
+              label: 'work',
+              delivery: 'parent',
+              signal: new AbortController().signal,
+              request: { parent, prompt: [] },
+            })
+            await cleaning.promise
+            appendTurn(session, 1, message, 'waiting for child', true)
+          } else {
+            await finalTurn.promise
+            appendTurn(session, 2, message, 'child result incorporated', true)
+          }
+        },
       },
-    }, {
-      afterIdle: () => { if (turns === 1) cleanup.resolve(undefined) },
-      onWhenIdle: () => { if (turns === 2) parentWait.resolve(undefined) },
-    })
+      {
+        afterIdle: () => {
+          if (turns === 1) cleanup.resolve(undefined)
+        },
+        onWhenIdle: () => {
+          if (turns === 2) parentWait.resolve(undefined)
+        },
+      },
+    )
     await test.ctx.plugin(SubagentRuntime)
     test.ctx.subagents.registerProvider({
-      name: 'external', inheritsParentContext: false,
+      name: 'external',
+      inheritsParentContext: false,
       capabilities: { agentOptions: false, agentPreset: false, outputSchema: false, depthLimit: false },
       start: async () => ({
         id: brandString<SessionId>('settlement-child'),
         result: Promise.resolve({ output: [{ type: 'text' as const, text: 'child answer' }], stopReason: 'completed' as const }),
-        dispose: () => { cleaning.resolve(undefined); return cleanup.promise },
+        dispose: () => {
+          cleaning.resolve(undefined)
+          return cleanup.promise
+        },
       }),
     })
     try {
@@ -298,7 +342,9 @@ describe('headless runner', () => {
         if (batch === 2) return false
         waiting[batch]!.resolve(undefined)
         await released[batch]!.promise
-        parent.followup(createUserMessage({ content: [{ type: 'text', text: `child batch ${batch + 1} complete` }], source: { kind: 'user' } }))
+        parent.followup(
+          createUserMessage({ content: [{ type: 'text', text: `child batch ${batch + 1} complete` }], source: { kind: 'user' } }),
+        )
         return true
       },
     } as never)
@@ -348,44 +394,73 @@ describe('headless runner', () => {
 
   it('records a fresh Session in the filesystem provider working directory', async () => {
     const cwd = '/remote/workspace'
-    const test = await bench({
-      before(session) { expect(session.header.cwd).toBe(cwd) },
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'remote answer', true) },
-    }, { filesystemCwd: cwd })
-    try { expect(await test.run()).toMatchObject({ code: 0, out: 'remote answer\n' }) }
-    finally { await test.ctx.fiber.dispose() }
+    const test = await bench(
+      {
+        before(session) {
+          expect(session.header.cwd).toBe(cwd)
+        },
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'remote answer', true)
+        },
+      },
+      { filesystemCwd: cwd },
+    )
+    try {
+      expect(await test.run()).toMatchObject({ code: 0, out: 'remote answer\n' })
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
   })
 
   it('reports the provider cwd in its opening JSON event', async () => {
     const cwd = '/remote/workspace'
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'remote answer', true) },
-    }, { filesystemCwd: cwd, json: true })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'remote answer', true)
+        },
+      },
+      { filesystemCwd: cwd, json: true },
+    )
     try {
       const result = await test.run()
       expect(result.code).toBe(0)
       expect(JSON.parse(result.out.split('\n')[0] as string)).toMatchObject({ type: 'session', cwd })
-    } finally { await test.ctx.fiber.dispose() }
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
   })
 
   it('resumes against the provider cwd instead of the host launch directory', async () => {
     const cwd = '/remote/workspace'
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'remote resumed', true) },
-    }, {
-      filesystemCwd: cwd, sessionId: 'session-exact',
-      observe: async () => ({ header: { cwd, origin: 'user' }, events: [], [Symbol.dispose]() {} }),
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'remote resumed', true)
+        },
+      },
+      {
+        filesystemCwd: cwd,
+        sessionId: 'session-exact',
+        observe: async () => ({ header: { cwd, origin: 'user' }, events: [], [Symbol.dispose]() {} }),
+      },
+    )
     test.ctx.sessions.create(brandString<SessionId>('session-exact'), { meta: { cwd } })
-    try { expect(await test.run()).toMatchObject({ code: 0, out: 'remote resumed\n' }) }
-    finally { await test.ctx.fiber.dispose() }
+    try {
+      expect(await test.run()).toMatchObject({ code: 0, out: 'remote resumed\n' })
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
   })
 
   it('aggregates the final text across the complete idle-to-idle interval and flushes before exit', async () => {
     const test = await bench({
       before(session) {
         const setupMessage = {
-          role: 'user', content: [{ type: 'text', text: 'setup' }], source: { kind: 'user' }, id: brandString<MessageId>('setup'),
+          role: 'user',
+          content: [{ type: 'text', text: 'setup' }],
+          source: { kind: 'user' },
+          id: brandString<MessageId>('setup'),
         } satisfies UserMessage
         appendTurn(session, 0, setupMessage, 'pre-task noise', true)
       },
@@ -457,15 +532,19 @@ describe('headless runner', () => {
         emitChunk(agent, { type: 'block-start', index: 2, blockType: 'text' })
         emitChunk(agent, { type: 'text-delta', index: 2, text: 'done' })
         emitChunk(agent, { type: 'block-end', index: 2, block: { type: 'text', text: 'done' } })
-        session.append('assistant/message', {
-          stream: [],
-          turn: 1,
-          step: 1,
-          message: createAssistantMessage({
-            content: [{ type: 'text', text: 'done' }],
-            source: { provider: 'test-provider', model: 'test-model' },
-          }),
-        }, { surfaceOp: 'append' })
+        session.append(
+          'assistant/message',
+          {
+            stream: [],
+            turn: 1,
+            step: 1,
+            message: createAssistantMessage({
+              content: [{ type: 'text', text: 'done' }],
+              source: { provider: 'test-provider', model: 'test-model' },
+            }),
+          },
+          { surfaceOp: 'append' },
+        )
         session.append('step/end', { turn: 1, step: 1 })
         session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
       },
@@ -478,8 +557,12 @@ describe('headless runner', () => {
     test.ctx.emit('agent/assistant-stream', {
       agent: { session: other } as Agent,
       frame: {
-        type: 'chunk', attemptId: LlmAttemptId('other'), revision: 1,
-        index: 0, time: Date.now(), chunk: { type: 'reasoning-delta', index: 0, text: 'other session' },
+        type: 'chunk',
+        attemptId: LlmAttemptId('other'),
+        revision: 1,
+        index: 0,
+        time: Date.now(),
+        chunk: { type: 'reasoning-delta', index: 0, text: 'other session' },
       },
     })
     const streamed = test.output()
@@ -518,15 +601,19 @@ describe('headless runner', () => {
         agent.ctx.emit('agent/assistant-stream', {
           agent,
           frame: {
-            type: 'end', attemptId: state.attemptId, revision: ++state.revision,
-            index: state.index, outcome: { kind: 'abandoned' },
+            type: 'end',
+            attemptId: state.attemptId,
+            revision: ++state.revision,
+            index: state.index,
+            outcome: { kind: 'abandoned' },
           },
         })
         ended.resolve(undefined)
         await finish.promise
         session.append('step/end', { turn: 1, step: 1 })
         session.append('turn/end', {
-          turn: 1, reason: { kind: 'aborted', reason: { kind: 'user' } },
+          turn: 1,
+          reason: { kind: 'aborted', reason: { kind: 'user' } },
         })
       },
     })
@@ -545,7 +632,9 @@ describe('headless runner', () => {
 
   it('exits 1 when the final turn does not complete', async () => {
     const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, undefined, false) },
+      afterPrompt(session, message) {
+        appendTurn(session, 1, message, undefined, false)
+      },
     })
     expect(await test.run()).toMatchObject({ code: 1, out: '\n', err: '' })
     await test.ctx.fiber.dispose()
@@ -621,21 +710,29 @@ describe('headless runner', () => {
   })
 
   it('reads the task from stdin when the invocation omits one', async () => {
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'stdin answer', true) },
-    }, {
-      useStdin: true,
-      readStdin: () => Promise.resolve('task from stdin'),
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'stdin answer', true)
+        },
+      },
+      {
+        useStdin: true,
+        readStdin: () => Promise.resolve('task from stdin'),
+      },
+    )
     expect(await test.run()).toMatchObject({ code: 0, out: 'stdin answer\n', err: '' })
     await test.ctx.fiber.dispose()
   })
 
   it('rejects an empty stdin task', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      useStdin: true,
-      readStdin: () => Promise.resolve('   \n'),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        useStdin: true,
+        readStdin: () => Promise.resolve('   \n'),
+      },
+    )
     expect(await test.run()).toMatchObject({
       code: 1,
       err: 'dsh: a task is required, for example: dsh --profile headless "run the tests"\n',
@@ -657,27 +754,35 @@ describe('headless runner', () => {
   })
 
   it('treats a bare dash positional as the stdin marker', async () => {
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'dash answer', true) },
-    }, {
-      task: '-',
-      readStdin: () => Promise.resolve('piped dash task'),
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'dash answer', true)
+        },
+      },
+      {
+        task: '-',
+        readStdin: () => Promise.resolve('piped dash task'),
+      },
+    )
     expect(await test.run()).toMatchObject({ code: 0, out: 'dash answer\n', err: '' })
     await test.ctx.fiber.dispose()
   })
 
   it('rejects --session-id when the query reports the id missing', async () => {
     const seen: string[] = []
-    const test = await bench({
-      afterPrompt(session, message) {
-        seen.push(session.id)
-        appendTurn(session, 1, message, 'created', true)
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          seen.push(session.id)
+          appendTurn(session, 1, message, 'created', true)
+        },
       },
-    }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.reject(new SessionQueryError('missing', 'SESSION_QUERY_SESSION_NOT_FOUND')),
-    })
+      {
+        sessionId: 'session-exact',
+        observe: () => Promise.reject(new SessionQueryError('missing', 'SESSION_QUERY_SESSION_NOT_FOUND')),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('session "session-exact" does not exist; omit --session-id to start a new Session')
@@ -687,13 +792,18 @@ describe('headless runner', () => {
   })
 
   it('rejects --session-id when persistence is not mounted', async () => {
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'created', true) },
-    }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.reject(new SessionQueryError('missing', 'SESSION_QUERY_SESSION_NOT_FOUND')),
-      omitPersistence: true,
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'created', true)
+        },
+      },
+      {
+        sessionId: 'session-exact',
+        observe: () => Promise.reject(new SessionQueryError('missing', 'SESSION_QUERY_SESSION_NOT_FOUND')),
+        omitPersistence: true,
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('requires the sessionPersistence service')
@@ -702,13 +812,18 @@ describe('headless runner', () => {
   })
 
   it('rejects adopting a live Session when persistence is not mounted', async () => {
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'live', true) },
-    }, {
-      sessionId: 'session-exact',
-      prelive: true,
-      omitPersistence: true,
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'live', true)
+        },
+      },
+      {
+        sessionId: 'session-exact',
+        prelive: true,
+        omitPersistence: true,
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('requires the sessionPersistence service')
@@ -717,19 +832,28 @@ describe('headless runner', () => {
   })
 
   it('resumes the persisted Session when the query finds it', async () => {
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'resumed answer', true) },
-    }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd(), origin: 'user' },
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'resumed answer', true)
+        },
+      },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd(), origin: 'user' },
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const session = test.ctx.sessions.create(brandString<SessionId>('session-exact'), { meta: { cwd: process.cwd() } })
     const history = {
-      role: 'user', content: [{ type: 'text', text: 'earlier' }], source: { kind: 'user' }, id: brandString<MessageId>('history'),
+      role: 'user',
+      content: [{ type: 'text', text: 'earlier' }],
+      source: { kind: 'user' },
+      id: brandString<MessageId>('history'),
     } satisfies UserMessage
     appendTurn(session, 0, history, 'earlier answer', true)
     const before = session.seq
@@ -739,14 +863,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a persisted Session recorded in another working directory', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: '/somewhere/else', origin: 'user' },
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: '/somewhere/else', origin: 'user' },
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('was recorded in "/somewhere/else"')
@@ -754,14 +882,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a persisted Session created under an agent preset', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd(), agentPreset: 'minimal' },
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd(), agentPreset: 'minimal' },
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('runs under agent preset "minimal"')
@@ -769,14 +901,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a persisted Session that switched to an agent preset after creation', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd() },
-        events: [{ type: 'agent-preset/selected', data: { agentPreset: 'minimal' } }],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd() },
+            events: [{ type: 'agent-preset/selected', data: { agentPreset: 'minimal' } }],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('runs under agent preset "minimal"')
@@ -784,14 +920,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a persisted Session whose preset record names no preset', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd() },
-        events: [{ type: 'agent-preset/selected', data: {} }],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd() },
+            events: [{ type: 'agent-preset/selected', data: {} }],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('malformed agent-preset/selected event')
@@ -799,14 +939,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a persisted Session that recorded no working directory', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: {},
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: {},
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('recorded no working directory')
@@ -814,14 +958,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a persisted Session owned by a subagent', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd(), origin: 'subagent' },
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd(), origin: 'subagent' },
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('is a subagent or forked session')
@@ -837,13 +985,18 @@ describe('headless runner', () => {
   })
 
   it('requires the Session query service even when a live Agent holds the identity', async () => {
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'live', true) },
-    }, {
-      sessionId: 'session-exact',
-      prelive: true,
-      omitSessionQuery: true,
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'live', true)
+        },
+      },
+      {
+        sessionId: 'session-exact',
+        prelive: true,
+        omitSessionQuery: true,
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('requires the sessionQuery service')
@@ -861,12 +1014,17 @@ describe('headless runner', () => {
   })
 
   it('refuses a live Agent identity it cannot own exclusively', async () => {
-    const test = await bench({
-      afterPrompt(session, message) { appendTurn(session, 1, message, 'live answer', true) },
-    }, {
-      sessionId: 'session-exact',
-      prelive: true,
-    })
+    const test = await bench(
+      {
+        afterPrompt(session, message) {
+          appendTurn(session, 1, message, 'live answer', true)
+        },
+      },
+      {
+        sessionId: 'session-exact',
+        prelive: true,
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('is live in this process, so the one-shot runner cannot own an exclusive run interval')
@@ -875,10 +1033,13 @@ describe('headless runner', () => {
   })
 
   it('rejects a live Agent recorded in another working directory', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      preliveMeta: { cwd: '/somewhere/else' },
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        preliveMeta: { cwd: '/somewhere/else' },
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('was recorded in "/somewhere/else"')
@@ -886,10 +1047,13 @@ describe('headless runner', () => {
   })
 
   it('rejects a live Agent owned by a subagent', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      preliveMeta: { origin: 'subagent' },
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        preliveMeta: { origin: 'subagent' },
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('is a subagent or forked session')
@@ -897,10 +1061,13 @@ describe('headless runner', () => {
   })
 
   it('rejects a live Agent created under an agent preset', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      preliveMeta: { agentPreset: 'minimal' },
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        preliveMeta: { agentPreset: 'minimal' },
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('runs under agent preset "minimal"')
@@ -908,19 +1075,25 @@ describe('headless runner', () => {
   })
 
   it('rejects a live Agent that switched to an agent preset while blank', async () => {
-    const test = await bench({
-      before(session) {
-        const history = {
-          role: 'user', content: [{ type: 'text', text: 'earlier' }], source: { kind: 'user' }, id: brandString<MessageId>('history'),
-        } satisfies UserMessage
-        appendTurn(session, 0, history, 'earlier answer', true)
-        selectPreset(session, 'minimal')
+    const test = await bench(
+      {
+        before(session) {
+          const history = {
+            role: 'user',
+            content: [{ type: 'text', text: 'earlier' }],
+            source: { kind: 'user' },
+            id: brandString<MessageId>('history'),
+          } satisfies UserMessage
+          appendTurn(session, 0, history, 'earlier answer', true)
+          selectPreset(session, 'minimal')
+        },
+        afterPrompt: () => {},
       },
-      afterPrompt: () => {},
-    }, {
-      sessionId: 'session-exact',
-      prelive: true,
-    })
+      {
+        sessionId: 'session-exact',
+        prelive: true,
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('runs under agent preset "minimal"')
@@ -928,14 +1101,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a preset appended after the observation snapshot was taken', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd() },
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd() },
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const session = test.ctx.sessions.create(brandString<SessionId>('session-exact'), { meta: { cwd: process.cwd() } })
     selectPreset(session, 'minimal')
     const result = await test.run()
@@ -945,15 +1122,21 @@ describe('headless runner', () => {
   })
 
   it('rejects a preset an overlay appends while the runner awaits idle', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd() },
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-      onWhenIdle: (agent) => { selectPreset(agent.session, 'minimal') },
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd() },
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+        onWhenIdle: agent => {
+          selectPreset(agent.session, 'minimal')
+        },
+      },
+    )
     test.ctx.sessions.create(brandString<SessionId>('session-exact'), { meta: { cwd: process.cwd() } })
     const result = await test.run()
     expect(result.code).toBe(1)
@@ -964,20 +1147,26 @@ describe('headless runner', () => {
 
   it('fails when a live event below the captured Session length cannot be read', async () => {
     let capturedLength = 0
-    const test = await bench({
-      before(session) {
-        const history = {
-          role: 'user', content: [{ type: 'text', text: 'earlier' }], source: { kind: 'user' }, id: brandString<MessageId>('history'),
-        } satisfies UserMessage
-        appendTurn(session, 0, history, 'earlier answer', true)
-        capturedLength = session.seq
-        Object.defineProperty(session, 'eventAt', { value: () => undefined })
+    const test = await bench(
+      {
+        before(session) {
+          const history = {
+            role: 'user',
+            content: [{ type: 'text', text: 'earlier' }],
+            source: { kind: 'user' },
+            id: brandString<MessageId>('history'),
+          } satisfies UserMessage
+          appendTurn(session, 0, history, 'earlier answer', true)
+          capturedLength = session.seq
+          Object.defineProperty(session, 'eventAt', { value: () => undefined })
+        },
+        afterPrompt: () => {},
       },
-      afterPrompt: () => {},
-    }, {
-      sessionId: 'session-exact',
-      prelive: true,
-    })
+      {
+        sessionId: 'session-exact',
+        prelive: true,
+      },
+    )
     const result = await test.run()
     expect(capturedLength).toBeGreaterThan(0)
     expect(result.code).toBe(1)
@@ -986,11 +1175,14 @@ describe('headless runner', () => {
   })
 
   it('bounds the error event message in --json mode', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      json: true,
-      observe: () => Promise.reject(new SessionQueryError('x'.repeat(9 * 1024), 'SESSION_QUERY_CORRUPT_SESSION')),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        json: true,
+        observe: () => Promise.reject(new SessionQueryError('x'.repeat(9 * 1024), 'SESSION_QUERY_CORRUPT_SESSION')),
+      },
+    )
     const result = await test.run()
     const event = JSON.parse(result.out.trim()) as { message: string; truncated?: boolean }
     expect(event.truncated).toBe(true)
@@ -999,14 +1191,18 @@ describe('headless runner', () => {
   })
 
   it('rejects a persisted Session linked to a parent', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.resolve({
-        header: { cwd: process.cwd(), origin: 'user', parentSession: 'parent-1' },
-        events: [],
-        [Symbol.dispose]() {},
-      }),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () =>
+          Promise.resolve({
+            header: { cwd: process.cwd(), origin: 'user', parentSession: 'parent-1' },
+            events: [],
+            [Symbol.dispose]() {},
+          }),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toContain('is a subagent or forked session')
@@ -1014,10 +1210,13 @@ describe('headless runner', () => {
   })
 
   it('propagates a Session query failure that is not a missing log', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      sessionId: 'session-exact',
-      observe: () => Promise.reject(new SessionQueryError('log is corrupt', 'SESSION_QUERY_CORRUPT_SESSION')),
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        sessionId: 'session-exact',
+        observe: () => Promise.reject(new SessionQueryError('log is corrupt', 'SESSION_QUERY_CORRUPT_SESSION')),
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(result.err).toBe('dsh: log is corrupt\n')
@@ -1025,50 +1224,76 @@ describe('headless runner', () => {
   })
 
   it('projects the run as ordered newline-delimited events in --json mode', async () => {
-    const test = await bench({
-      afterPrompt(session, message, agent) {
-        session.append('turn/start', { turn: 1 })
-        session.append('step/start', { turn: 1, step: 1 })
-        session.append('user/message', message, { surfaceOp: 'append' })
-        startFrames(agent)
-        // A live attempt that never commits must not reach the projection.
-        emitChunk(agent, { type: 'reasoning-delta', index: 0, text: 'discarded attempt' })
-        emitChunk(agent, { type: 'text-delta', index: 0, text: 'discarded answer' })
-        session.append('assistant/message', {
-          stream: [],
-          turn: 1,
-          step: 1,
-          usage: { inputTokens: 3, outputTokens: 4 },
-          message: createAssistantMessage({
-            content: [
-              { type: 'reasoning', text: 'thinking hard' },
-              { type: 'text', text: 'answer' },
-              { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{"command":"ls"}' },
-            ],
-            source: { provider: 'test-provider', model: 'test-model' },
-          }),
-        }, { surfaceOp: 'append' })
-        session.append('tool/call', {
-          turn: 1, step: 1, callId: ToolCallId('call-1'), name: 'bash', arguments: '{"command":"ls"}',
-        })
-        session.append('tool/result', {
-          turn: 1,
-          step: 1,
-          message: createToolResultMessage({
+    const test = await bench(
+      {
+        afterPrompt(session, message, agent) {
+          session.append('turn/start', { turn: 1 })
+          session.append('step/start', { turn: 1, step: 1 })
+          session.append('user/message', message, { surfaceOp: 'append' })
+          startFrames(agent)
+          // A live attempt that never commits must not reach the projection.
+          emitChunk(agent, { type: 'reasoning-delta', index: 0, text: 'discarded attempt' })
+          emitChunk(agent, { type: 'text-delta', index: 0, text: 'discarded answer' })
+          session.append(
+            'assistant/message',
+            {
+              stream: [],
+              turn: 1,
+              step: 1,
+              usage: { inputTokens: 3, outputTokens: 4 },
+              message: createAssistantMessage({
+                content: [
+                  { type: 'reasoning', text: 'thinking hard' },
+                  { type: 'text', text: 'answer' },
+                  { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{"command":"ls"}' },
+                ],
+                source: { provider: 'test-provider', model: 'test-model' },
+              }),
+            },
+            { surfaceOp: 'append' },
+          )
+          session.append('tool/call', {
+            turn: 1,
+            step: 1,
             callId: ToolCallId('call-1'),
-            content: [{ type: 'text', text: 'a.txt' }],
-            isError: false,
-          }),
-        }, { surfaceOp: 'append' })
-        session.append('step/end', { turn: 1, step: 1 })
-        session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+            name: 'bash',
+            arguments: '{"command":"ls"}',
+          })
+          session.append(
+            'tool/result',
+            {
+              turn: 1,
+              step: 1,
+              message: createToolResultMessage({
+                callId: ToolCallId('call-1'),
+                content: [{ type: 'text', text: 'a.txt' }],
+                isError: false,
+              }),
+            },
+            { surfaceOp: 'append' },
+          )
+          session.append('step/end', { turn: 1, step: 1 })
+          session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+        },
       },
-    }, { json: true })
+      { json: true },
+    )
     const result = await test.run()
-    const events = result.out.trim().split('\n').map(line => JSON.parse(line) as Record<string, unknown>)
+    const events = result.out
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line) as Record<string, unknown>)
     expect(events.map(event => event.type)).toEqual([
-      'session', 'status', 'status', 'thinking', 'text',
-      'tool_call', 'tool_result', 'status', 'status', 'final',
+      'session',
+      'status',
+      'status',
+      'thinking',
+      'text',
+      'tool_call',
+      'tool_result',
+      'status',
+      'status',
+      'final',
     ])
     expect(events[0]).toMatchObject({ type: 'session', cwd: process.cwd() })
     expect(typeof events[0]?.sessionId).toBe('string')
@@ -1087,11 +1312,14 @@ describe('headless runner', () => {
   })
 
   it('reports a direct failure as an error event in --json mode', async () => {
-    const test = await bench({ afterPrompt: () => {} }, {
-      useStdin: true,
-      readStdin: () => Promise.resolve(''),
-      json: true,
-    })
+    const test = await bench(
+      { afterPrompt: () => {} },
+      {
+        useStdin: true,
+        readStdin: () => Promise.resolve(''),
+        json: true,
+      },
+    )
     const result = await test.run()
     expect(result.code).toBe(1)
     expect(JSON.parse(result.out.trim())).toMatchObject({ type: 'error' })
@@ -1103,8 +1331,13 @@ describe('headless runner', () => {
     const ctx = new Context()
     let err = ''
     internals.stdout = { write: () => true }
-    internals.stderr = { write: (chunk: string) => { err += chunk; return true } }
-    const exited = new Promise<number>((resolve) => {
+    internals.stderr = {
+      write: (chunk: string) => {
+        err += chunk
+        return true
+      },
+    }
+    const exited = new Promise<number>(resolve => {
       ctx.provide('appExit', resolve)
     })
     ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'p', model: 'm' }) } as never)
@@ -1120,8 +1353,13 @@ describe('headless runner', () => {
     const ctx = new Context()
     let err = ''
     internals.stdout = { write: () => true }
-    internals.stderr = { write: (chunk: string) => { err += chunk; return true } }
-    const exited = new Promise<number>((resolve) => {
+    internals.stderr = {
+      write: (chunk: string) => {
+        err += chunk
+        return true
+      },
+    }
+    const exited = new Promise<number>(resolve => {
       ctx.provide('appExit', resolve)
     })
     ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'p', model: 'm' }) } as never)
@@ -1143,7 +1381,9 @@ describe('headless runner', () => {
     let exited = false
     internals.stdout = { write: () => true }
     internals.stderr = { write: () => true }
-    ctx.provide('appExit', () => { exited = true })
+    ctx.provide('appExit', () => {
+      exited = true
+    })
     const services = ctx.plugin((child: Context) => {
       child.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'p', model: 'm' }) } as never)
       child.provide('sessions', {} as never)
@@ -1151,7 +1391,9 @@ describe('headless runner', () => {
     })
     await services
     let release: () => void
-    const settlement = new Promise<void>((resolve) => { release = resolve })
+    const settlement = new Promise<void>(resolve => {
+      release = resolve
+    })
     ctx.provide('loader', { await: () => settlement } as never)
     apply(ctx, { task: 't' })
     await services.dispose()
@@ -1163,12 +1405,13 @@ describe('headless runner', () => {
 
   it('fails loud without the launcher-provided exit request', () => {
     const ctx = new Context()
-    expect(() => { apply(ctx, { task: 't' }) }).toThrow('must provide ctx.appExit')
+    expect(() => {
+      apply(ctx, { task: 't' })
+    }).toThrow('must provide ctx.appExit')
   })
 
   it('validates config: the task and run options are optional', () => {
     expect(new Config({})).toEqual({})
-    expect(new Config({ task: 'x', sessionId: 'session-x', json: true }))
-      .toEqual({ task: 'x', sessionId: 'session-x', json: true })
+    expect(new Config({ task: 'x', sessionId: 'session-x', json: true })).toEqual({ task: 'x', sessionId: 'session-x', json: true })
   })
 })

@@ -15,12 +15,16 @@ export function apply(ctx: Context): void {
     if (result.isError) return downstream
     switch (exec.name) {
       case 'read':
-        removeTool = ctx.tools.register(defineContentToolFixture({
-          name: 'snapshot_ping',
-          description: 'Return pong once.',
-          parameters: {},
-          async execute() { return [{ type: 'text', text: 'pong' }] },
-        }))
+        removeTool = ctx.tools.register(
+          defineContentToolFixture({
+            name: 'snapshot_ping',
+            description: 'Return pong once.',
+            parameters: {},
+            async execute() {
+              return [{ type: 'text', text: 'pong' }]
+            },
+          }),
+        )
         break
       case 'snapshot_ping':
         removeTool?.()
@@ -31,13 +35,15 @@ export function apply(ctx: Context): void {
   ctx.on('llm/stream', (options, next) => {
     requests++
     assert.ok(options.toolHistory)
-    assert.equal(options.toolHistory.tools.some(tool => tool.name === 'snapshot_ping'), false)
+    assert.equal(
+      options.toolHistory.tools.some(tool => tool.name === 'snapshot_ping'),
+      false,
+    )
     assert.equal(options.toolHistory.updates.length, requests - 1)
     for (const mode of ['in-history', 'addition-only'] as const) {
       const projected = projectToolUpdates(options.messages, options.tools, mode, options.toolHistory)
       const declaration = projected.tools?.find(tool => tool.name === 'snapshot_ping')
-      const updates = projected.messages.filter(message => message.role === 'developer')
-        .flatMap(message => message.content)
+      const updates = projected.messages.filter(message => message.role === 'developer').flatMap(message => message.content)
       switch (requests) {
         case 1:
           assert.equal(declaration, undefined)

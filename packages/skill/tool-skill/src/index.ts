@@ -48,10 +48,7 @@ declare module '@deepseek-ai/dsh-llm' {
 }
 
 /** Durable entry list mirroring the rendered catalog lines, for non-model consumers. */
-function catalogSourceEntries(
-  skills: SkillSummary[],
-  descriptionMaxLength: number,
-): SkillCatalogSource['entries'] {
+function catalogSourceEntries(skills: SkillSummary[], descriptionMaxLength: number): SkillCatalogSource['entries'] {
   return skills.map(skill => ({
     name: skill.name,
     description: catalogDescription(skill.description, descriptionMaxLength),
@@ -81,7 +78,8 @@ export function apply(ctx: Context, config: Config = {}): void {
 
   const skillTool = defineTool({
     name: 'skill',
-    description: 'Load the full instructions for a skill. Call it before acting on a task that names or clearly matches a skill in the session skill catalog.',
+    description:
+      'Load the full instructions for a skill. Call it before acting on a task that names or clearly matches a skill in the session skill catalog.',
     parameters: {
       name: { type: 'string', required: true, description: 'The exact skill name from the available skills list.' },
     },
@@ -150,9 +148,11 @@ export function apply(ctx: Context, config: Config = {}): void {
       return {
         name: skill.name,
         provider: skill.provider,
-        ...skill.resourceBase !== undefined ? {
-          resourceBase: { ...skill.resourceBase },
-        } : {},
+        ...(skill.resourceBase !== undefined
+          ? {
+              resourceBase: { ...skill.resourceBase },
+            }
+          : {}),
         content: skill.content,
       }
     },
@@ -176,10 +176,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   // namespace, resolved client-side before a line ever becomes a prompt).
   // This is the only entry point for `disable-model-invocation` skills; the
   // catalog and the `skill` tool below never see them.
-  ctx.on('agent/pre-step', async (
-    { agent, messages, signal },
-    next,
-  ): Promise<PreStepDecision> => {
+  ctx.on('agent/pre-step', async ({ agent, messages, signal }, next): Promise<PreStepDecision> => {
     const decision = await next()
     if (decision.kind === 'reject') return decision
     const names = invokedSkillNames(messages)
@@ -196,10 +193,12 @@ export function apply(ctx: Context, config: Config = {}): void {
       // actually injected.
       if (skill === undefined || !isUserInvocable(skill)) continue
       const source: SkillInvocationSource = { kind: 'skill-invocation', name, form: 'instructions' }
-      injections.push(createUserMessage({
-        content: [{ type: 'text', text: renderSkillContent(skill) }],
-        source,
-      }))
+      injections.push(
+        createUserMessage({
+          content: [{ type: 'text', text: renderSkillContent(skill) }],
+          source,
+        }),
+      )
     }
     if (injections.length === 0) return decision
     return { ...decision, messages: [...decision.messages, ...injections] }
@@ -212,10 +211,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   // a lookup of its own name: `register()` files into the CALLING context's
   // scope, so a plugin mounted inside an agent preset registers for that agent
   // alone and an unscoped lookup correctly finds nothing.
-  ctx.on('agent/pre-step', async (
-    { agent, signal },
-    next,
-  ): Promise<PreStepDecision> => {
+  ctx.on('agent/pre-step', async ({ agent, signal }, next): Promise<PreStepDecision> => {
     const decision = await next()
     if (decision.kind === 'reject') return decision
     signal.throwIfAborted()
@@ -241,35 +237,36 @@ export function apply(ctx: Context, config: Config = {}): void {
         ? decision
         : { ...decision, messages: decision.messages.filter(message => message.id !== existing.message.id) }
     }
-    const catalog = history.published
-      ? renderCatalogUpdate(entries)
-      : renderCatalogMessage(entries)
+    const catalog = history.published ? renderCatalogUpdate(entries) : renderCatalogMessage(entries)
     return {
       ...decision,
-      messages: existing === undefined
-        ? [...decision.messages, catalog]
-        : decision.messages.map(message => message.id === existing.message.id ? catalog : message),
+      messages:
+        existing === undefined
+          ? [...decision.messages, catalog]
+          : decision.messages.map(message => (message.id === existing.message.id ? catalog : message)),
     }
   })
 }
 
 function renderCatalogMessage(entries: SkillCatalogSource['entries']): UserMessage {
   return createUserMessage({
-    content: [{
-      type: 'text',
-      text: [
-        '<system-reminder>',
-        'A skill is a reusable set of task-specific instructions. The following skills are available in this session:',
-        '',
-        '<available_skills>',
-        ...renderCatalogEntries(entries),
-        '</available_skills>',
-        '',
-        "If the user names a skill, or the task clearly matches a skill's description, call the `skill` tool with the exact skill name before taking task actions. Load all applicable skills, then follow their full instructions. This catalog contains summaries only; do not infer or follow a skill's instructions until it has been loaded.",
-        'A user may also invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the `skill` tool again for that skill.',
-        '</system-reminder>',
-      ].join('\n'),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: [
+          '<system-reminder>',
+          'A skill is a reusable set of task-specific instructions. The following skills are available in this session:',
+          '',
+          '<available_skills>',
+          ...renderCatalogEntries(entries),
+          '</available_skills>',
+          '',
+          "If the user names a skill, or the task clearly matches a skill's description, call the `skill` tool with the exact skill name before taking task actions. Load all applicable skills, then follow their full instructions. This catalog contains summaries only; do not infer or follow a skill's instructions until it has been loaded.",
+          'A user may also invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the `skill` tool again for that skill.',
+          '</system-reminder>',
+        ].join('\n'),
+      },
+    ],
     source: {
       kind: 'skill-catalog',
       form: 'catalog',
@@ -279,30 +276,33 @@ function renderCatalogMessage(entries: SkillCatalogSource['entries']): UserMessa
 }
 
 function renderCatalogUpdate(entries: SkillCatalogSource['entries']): UserMessage {
-  const availability = entries.length === 0
-    ? [
-      'No skills are currently available through the `skill` tool. Do not use names from earlier skill catalogs.',
-      'A user may still invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the `skill` tool for it.',
-    ]
-    : [
-      'Use only names in this replacement catalog. If the user names a listed skill, or the task clearly matches its description, call the `skill` tool with the exact name before acting.',
-      'A user may also invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the `skill` tool again for that skill.',
-    ]
+  const availability =
+    entries.length === 0
+      ? [
+          'No skills are currently available through the `skill` tool. Do not use names from earlier skill catalogs.',
+          'A user may still invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the `skill` tool for it.',
+        ]
+      : [
+          'Use only names in this replacement catalog. If the user names a listed skill, or the task clearly matches its description, call the `skill` tool with the exact name before acting.',
+          'A user may also invoke a skill directly; its <skill_content> block then appears in this conversation. Follow it, and do not call the `skill` tool again for that skill.',
+        ]
   return createUserMessage({
-    content: [{
-      type: 'text',
-      text: [
-        '<system-reminder>',
-        'The available skill catalog changed. This complete catalog replaces every earlier available-skills list in this session:',
-        '',
-        '<available_skills>',
-        ...renderCatalogEntries(entries),
-        '</available_skills>',
-        '',
-        ...availability,
-        '</system-reminder>',
-      ].join('\n'),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: [
+          '<system-reminder>',
+          'The available skill catalog changed. This complete catalog replaces every earlier available-skills list in this session:',
+          '',
+          '<available_skills>',
+          ...renderCatalogEntries(entries),
+          '</available_skills>',
+          '',
+          ...availability,
+          '</system-reminder>',
+        ].join('\n'),
+      },
+    ],
     source: {
       kind: 'skill-catalog',
       form: 'catalog',
@@ -331,9 +331,7 @@ function digestCatalogEntries(entries: SkillCatalogSource['entries']): string {
   // JSON per entry rather than a separator character: every separator is itself
   // a legal description character, so only quoting makes the boundary exact.
   const canonical = entries.map(entry => JSON.stringify([entry.name, entry.description])).join('\n')
-  return createHash('sha256')
-    .update(canonical)
-    .digest('hex')
+  return createHash('sha256').update(canonical).digest('hex')
 }
 
 /**
@@ -379,9 +377,7 @@ function catalogHistory(agent: Agent): { visibleDigest?: string; published: bool
   return { published }
 }
 
-function catalogMessage(
-  messages: readonly UserMessage[],
-): { message: UserMessage; entries: SkillCatalogSource['entries'] } | undefined {
+function catalogMessage(messages: readonly UserMessage[]): { message: UserMessage; entries: SkillCatalogSource['entries'] } | undefined {
   for (const message of messages) {
     if (message.source.kind !== 'skill-catalog') continue
     const entries = readCatalogEntries(message.source)

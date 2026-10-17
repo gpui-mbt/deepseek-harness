@@ -1,15 +1,16 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationLocation, ConversationNodeContext, ConversationNodeDefinition, TurnLocation,
+  ConversationLocation,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
+  TurnLocation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-llm-retry/types'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-tools/types'
 import { hasAssistantReplyContent } from '../contract/assistant-content.ts'
 import type { AssistantChatData, ChatNode, FinalAssistantChatData } from '../contract/chat-nodes.ts'
-import {
-  isSubagentDelegationTool, sameTurnProcessSpec, type TurnProcessSpec,
-} from '../contract/turn-process.ts'
+import { isSubagentDelegationTool, sameTurnProcessSpec, type TurnProcessSpec } from '../contract/turn-process.ts'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
 import { toAssistantBlocks } from './event-projection.ts'
 
@@ -48,9 +49,7 @@ function eventTurn(event: ConversationEvent): number | undefined {
 function visibleChunk(chunk: StreamChunk): boolean {
   if (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta') return chunk.text.trim() !== ''
   if (chunk.type === 'block-start') {
-    return chunk.blockType !== 'text'
-        && chunk.blockType !== 'reasoning'
-        && chunk.blockType !== 'tool-call'
+    return chunk.blockType !== 'text' && chunk.blockType !== 'reasoning' && chunk.blockType !== 'tool-call'
   }
   if (chunk.type !== 'block-end') return false
   const block = chunk.block
@@ -62,13 +61,15 @@ function visibleChunk(chunk: StreamChunk): boolean {
 function visibleAssistantEvent(event: ConversationEvent): boolean {
   if (event.type === 'assistant/live-chunk') return visibleChunk(event.data.chunk)
   if (event.type === 'assistant/attempt') return false
-  return event.type === 'assistant/message'
-    && event.surfaceOp === 'append'
-    && toAssistantBlocks(event.data.message.content).some((block) => {
+  return (
+    event.type === 'assistant/message' &&
+    event.surfaceOp === 'append' &&
+    toAssistantBlocks(event.data.message.content).some(block => {
       if (block.kind === 'tool-call') return false
       if (block.kind === 'text' || block.kind === 'reasoning') return block.text.trim() !== ''
       return true
     })
+  )
 }
 
 type ProcessEvidence =
@@ -77,14 +78,11 @@ type ProcessEvidence =
 
 function processEvidence(event: ConversationEvent): ProcessEvidence | undefined {
   if (visibleAssistantEvent(event)) {
-    if (event.type !== 'assistant/live-chunk'
-      && event.type !== 'assistant/message'
-      && event.type !== 'assistant/attempt') return undefined
+    if (event.type !== 'assistant/live-chunk' && event.type !== 'assistant/message' && event.type !== 'assistant/attempt') return undefined
     return { kind: 'assistant', seq: event.seq, step: event.data.step }
   }
-  if (event.type === 'tool/call'
-    || (event.type === 'tool/result' && event.surfaceOp === 'append')
-    || event.type === 'llm/retry') return { kind: 'other', seq: event.seq }
+  if (event.type === 'tool/call' || (event.type === 'tool/result' && event.surfaceOp === 'append') || event.type === 'llm/retry')
+    return { kind: 'other', seq: event.seq }
   return undefined
 }
 
@@ -108,9 +106,7 @@ function fallbackState(context: ConversationNodeContext<TurnProcessState>): Turn
   return state
 }
 
-function isFinalAssistant(
-  data: Readonly<AssistantChatData> | undefined,
-): data is Readonly<FinalAssistantChatData> {
+function isFinalAssistant(data: Readonly<AssistantChatData> | undefined): data is Readonly<FinalAssistantChatData> {
   return data?.finalNode !== undefined
 }
 
@@ -126,11 +122,10 @@ function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSp
   if (controlAnchorSeq === undefined) return null
   const answer = latestAnswer(turn)
   const counts = {
-    messageCount: answer === null
-      ? state.messageCount
-      : [...state.messageCountByStep]
-        .filter(([step]) => step < answer.step)
-        .reduce((total, [, count]) => total + count, 0),
+    messageCount:
+      answer === null
+        ? state.messageCount
+        : [...state.messageCountByStep].filter(([step]) => step < answer.step).reduce((total, [, count]) => total + count, 0),
     toolCallCount: state.toolCallCount,
     subagentCount: state.subagentCount,
   }
@@ -146,20 +141,12 @@ function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSp
     }
   }
   const inlineReasoning = answer.blocks.some(block => block.kind === 'reasoning' && block.text.trim() !== '')
-  const earlierAssistantSeq = Math.min(
-    ...[...state.assistantStartByStep]
-      .filter(([step]) => step < answer.step)
-      .map(([, seq]) => seq),
-  )
-  const externalProcessSeq = Math.min(
-    state.otherStartSeq ?? Number.POSITIVE_INFINITY,
-    earlierAssistantSeq,
-  )
+  const earlierAssistantSeq = Math.min(...[...state.assistantStartByStep].filter(([step]) => step < answer.step).map(([, seq]) => seq))
+  const externalProcessSeq = Math.min(state.otherStartSeq ?? Number.POSITIVE_INFINITY, earlierAssistantSeq)
   return {
     turn: turn.turn,
     controlAnchorSeq,
-    processStartSeq: turn.start?.seq
-      ?? (Number.isFinite(externalProcessSeq) ? externalProcessSeq : answer.finalNode.seq),
+    processStartSeq: turn.start?.seq ?? (Number.isFinite(externalProcessSeq) ? externalProcessSeq : answer.finalNode.seq),
     answerAnchorSeq: answer.finalNode.seq,
     answerStep: answer.step,
     inlineReasoning,
@@ -169,9 +156,11 @@ function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSp
 
 function updateProcessState(state: TurnProcessState, event: ConversationEvent): TurnProcessState {
   let current = state
-  if (event.type === 'assistant/message'
-    && event.surfaceOp === 'append'
-    && hasAssistantReplyContent(toAssistantBlocks(event.data.message.content))) {
+  if (
+    event.type === 'assistant/message' &&
+    event.surfaceOp === 'append' &&
+    hasAssistantReplyContent(toAssistantBlocks(event.data.message.content))
+  ) {
     const messageCountByStep = new Map(current.messageCountByStep)
     messageCountByStep.set(event.data.step, (messageCountByStep.get(event.data.step) ?? 0) + 1)
     current = { ...current, messageCountByStep, messageCount: current.messageCount + 1 }
@@ -189,10 +178,10 @@ function updateProcessState(state: TurnProcessState, event: ConversationEvent): 
   if (evidence.kind === 'other') {
     return current.otherStartSeq === undefined
       ? {
-        ...current,
-        otherStartSeq: evidence.seq,
-        controlAnchorSeq: Math.min(current.controlAnchorSeq ?? Number.POSITIVE_INFINITY, evidence.seq),
-      }
+          ...current,
+          otherStartSeq: evidence.seq,
+          controlAnchorSeq: Math.min(current.controlAnchorSeq ?? Number.POSITIVE_INFINITY, evidence.seq),
+        }
       : current
   }
   if (current.assistantStartByStep.has(evidence.step)) return current
@@ -209,18 +198,20 @@ function updateProcessState(state: TurnProcessState, event: ConversationEvent): 
 export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState> = {
   kind: 'turn-process',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
     const turn = eventTurn(event)
     if (turn === undefined) return null
-    if (event.type === 'assistant/live-chunk'
-      || event.type === 'assistant/message'
-      || event.type === 'tool/call'
-      || event.type === 'tool/result'
-      || event.type === 'llm/retry'
-      || event.type === 'step/start'
-      || event.type === 'step/end'
-      || event.type === 'turn/end') {
+    if (
+      event.type === 'assistant/live-chunk' ||
+      event.type === 'assistant/message' ||
+      event.type === 'tool/call' ||
+      event.type === 'tool/result' ||
+      event.type === 'llm/retry' ||
+      event.type === 'step/start' ||
+      event.type === 'step/end' ||
+      event.type === 'turn/end'
+    ) {
       return { id: String(turn), role: 'update' }
     }
     return null
@@ -237,7 +228,7 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
     }
   },
   update: (context, match) => updateProcessState(context.state, match.event),
-  publication: (match) => {
+  publication: match => {
     if (match.event.type === 'assistant/live-chunk') {
       const type = match.event.data.chunk.type
       return type === 'usage' || type === 'finish' ? 'none' : 'animation-frame'
@@ -252,22 +243,28 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
     if (turn === undefined) return null
     const current = context.current.get('chat') as ChatNode | null | undefined
     const latestStep = turn.steps.at(-1)
-    if (previous?.kind === 'turn'
-      && previous.key === 'turn-process'
-      && current?.kind === 'turn-process'
-      && current.data.answerAnchorSeq === null
-      && current.data.controlAnchorSeq === state.controlAnchorSeq
-      && current.data.messageCount === state.messageCount
-      && current.data.toolCallCount === state.toolCallCount
-      && current.data.subagentCount === state.subagentCount
-      && turn.status !== 'closed'
-      && latestStep?.status !== 'closed') return previous
+    if (
+      previous?.kind === 'turn' &&
+      previous.key === 'turn-process' &&
+      current?.kind === 'turn-process' &&
+      current.data.answerAnchorSeq === null &&
+      current.data.controlAnchorSeq === state.controlAnchorSeq &&
+      current.data.messageCount === state.messageCount &&
+      current.data.toolCallCount === state.toolCallCount &&
+      current.data.subagentCount === state.subagentCount &&
+      turn.status !== 'closed' &&
+      latestStep?.status !== 'closed'
+    )
+      return previous
     const spec = processSpec(state, turn)
     if (spec === null) return null
-    if (previous?.kind === 'turn'
-      && previous.turn === spec.turn
-      && previous.key === 'turn-process'
-      && sameTurnProcessSpec(previous.value, spec)) return previous
+    if (
+      previous?.kind === 'turn' &&
+      previous.turn === spec.turn &&
+      previous.key === 'turn-process' &&
+      sameTurnProcessSpec(previous.value, spec)
+    )
+      return previous
     return {
       kind: 'turn',
       turn: turn.turn,
@@ -275,29 +272,26 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
       value: spec,
     }
   },
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     const turn = turnLocation(context)
     const data = turn?.data.get('turn-process')
     if (turn === undefined || data === undefined) return null
     const current = context.current.get('chat') as ChatNode | null | undefined
     const state = context.state
-    if (current?.kind === 'turn-process'
-      && state !== undefined
-      && current.data.answerAnchorSeq === null
-      && current.data.controlAnchorSeq === state.controlAnchorSeq
-      && current.data.messageCount === state.messageCount
-      && current.data.toolCallCount === state.toolCallCount
-      && current.data.subagentCount === state.subagentCount
-      && turn.status !== 'closed'
-      && turn.steps.at(-1)?.status !== 'closed'
-      && current.location === (context.start?.location ?? context.matches[0]?.location)) return current
-    return chatNode(
-      context,
-      'turn-process',
-      data.controlAnchorSeq + CHAT_SYNTHETIC_SEQ_OFFSETS.processControl,
-      data,
-      { groupTree: 'turn' },
+    if (
+      current?.kind === 'turn-process' &&
+      state !== undefined &&
+      current.data.answerAnchorSeq === null &&
+      current.data.controlAnchorSeq === state.controlAnchorSeq &&
+      current.data.messageCount === state.messageCount &&
+      current.data.toolCallCount === state.toolCallCount &&
+      current.data.subagentCount === state.subagentCount &&
+      turn.status !== 'closed' &&
+      turn.steps.at(-1)?.status !== 'closed' &&
+      current.location === (context.start?.location ?? context.matches[0]?.location)
     )
+      return current
+    return chatNode(context, 'turn-process', data.controlAnchorSeq + CHAT_SYNTHETIC_SEQ_OFFSETS.processControl, data, { groupTree: 'turn' })
   },
 }
 

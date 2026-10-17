@@ -23,7 +23,9 @@ interface SigningPreflightOptions {
 async function compileProbe(compiler: string, source: string, output: string, environment: NodeJS.ProcessEnv): Promise<void> {
   const { NODE_OPTIONS: _options, NODE_PATH: _path, ...safeEnvironment } = scrubWindowsSigningEnvironment(environment)
   await promisify(execFile)(compiler, ['/nologo', '/target:exe', '/platform:x64', `/out:${output}`, source], {
-    env: safeEnvironment, windowsHide: true, timeout: 30_000,
+    env: safeEnvironment,
+    windowsHide: true,
+    timeout: 30_000,
   })
 }
 
@@ -34,7 +36,9 @@ async function compileProbe(compiler: string, source: string, output: string, en
  */
 export async function preflightWindowsSigning(options: SigningPreflightOptions): Promise<void> {
   const { environment, runDirectory } = options
-  const record = (event: object): void => { recordPackagingEvent(runDirectory, event) }
+  const record = (event: object): void => {
+    recordPackagingEvent(runDirectory, event)
+  }
   const signer = createWindowsTokenSigner({
     certificateFile: environment.DSH_DESKTOP_WINDOWS_CER_FILE,
     signTool: environment.DSH_DESKTOP_WINDOWS_SIGNTOOL,
@@ -48,8 +52,9 @@ export async function preflightWindowsSigning(options: SigningPreflightOptions):
   const compiler = join(environment.SystemRoot ?? 'C:\\Windows', 'Microsoft.NET/Framework64/v4.0.30319/csc.exe')
   await access(join(runDirectory, 'run.json'))
   for (const path of [join(runDirectory, 'fatal.json'), lock]) {
-    try { await lstat(path) }
-    catch (error) {
+    try {
+      await lstat(path)
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
       throw error
     }
@@ -67,29 +72,49 @@ export async function preflightWindowsSigning(options: SigningPreflightOptions):
   const source = join(directory, 'probe.cs')
   const output = join(directory, 'probe.exe')
   await writeFile(source, PROBE_SOURCE, { flag: 'wx', flush: true })
-  record({ type: 'signing-preflight-static', compiler,
-    compilerSha256: createHash('sha256').update(await readFile(compiler)).digest('hex'),
-    signToolSha256: createHash('sha256').update(await readFile(environment.DSH_DESKTOP_WINDOWS_SIGNTOOL!)).digest('hex'),
-    certificateSha256: createHash('sha256').update(certificate).digest('hex') })
+  record({
+    type: 'signing-preflight-static',
+    compiler,
+    compilerSha256: createHash('sha256')
+      .update(await readFile(compiler))
+      .digest('hex'),
+    signToolSha256: createHash('sha256')
+      .update(await readFile(environment.DSH_DESKTOP_WINDOWS_SIGNTOOL!))
+      .digest('hex'),
+    certificateSha256: createHash('sha256').update(certificate).digest('hex'),
+  })
   await (options.compile ?? compileProbe)(compiler, source, output, environment)
   const inspect = options.inspect ?? inspectWindowsRuntimeSignature
   if ((await inspect(output)).status !== 'NotSigned') throw new Error('Windows signing preflight requires a new unsigned probe')
-  record({ type: 'signing-preflight-probe', path: output, sha256: createHash('sha256').update(await readFile(output)).digest('hex') })
+  record({
+    type: 'signing-preflight-probe',
+    path: output,
+    sha256: createHash('sha256')
+      .update(await readFile(output))
+      .digest('hex'),
+  })
   await (options.sign ?? signer)({ path: output, hash: 'sha256', isNest: false })
   const signature = await inspect(output)
   if (signature.status !== 'Valid' || !signature.timestamped || signature.thumbprint?.toUpperCase() !== thumbprint.toUpperCase()) {
     throw new Error('Windows signing preflight verification failed: expected the configured certificate and a valid timestamp')
   }
-  record({ type: 'signing-preflight-success', ...signature,
-    sha256: createHash('sha256').update(await readFile(output)).digest('hex'), probeExecuted: false })
+  record({
+    type: 'signing-preflight-success',
+    ...signature,
+    sha256: createHash('sha256')
+      .update(await readFile(output))
+      .digest('hex'),
+    probeExecuted: false,
+  })
 }
 
 async function main(): Promise<void> {
   if (process.platform !== 'win32') throw new Error('Windows signing preflight requires Windows')
   const runDirectory = process.env.DSH_DESKTOP_PACKAGING_RUN_DIR
   if (!runDirectory) throw new Error('Windows signing preflight requires a supervised packaging run')
-  try { await preflightWindowsSigning({ runDirectory, environment: process.env }) }
-  catch (error) {
+  try {
+    await preflightWindowsSigning({ runDirectory, environment: process.env })
+  } catch (error) {
     failPackagingRun(runDirectory, 'windows-signing-preflight-failed')
     throw error
   }

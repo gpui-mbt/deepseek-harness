@@ -16,21 +16,10 @@ export interface MacOSAppUpdateConfig {
 export function resolveMacOSAppUpdateFeed(publish: unknown): MacOSAppUpdateFeed
 
 /** Create the electron-updater configuration embedded before code signing. */
-export function createMacOSAppUpdateConfig(
-  update: MacOSAppUpdateFeed,
-  updaterCacheDirName: string,
-): MacOSAppUpdateConfig
+export function createMacOSAppUpdateConfig(update: MacOSAppUpdateFeed, updaterCacheDirName: string): MacOSAppUpdateConfig
 
 /** Write the updater configuration into an assembled App before signing. */
-export function writeMacOSAppUpdateConfig(
-  resourcesDir: string,
-  update: MacOSAppUpdateFeed,
-  updaterCacheDirName: string,
-): Promise<void>
+export function writeMacOSAppUpdateConfig(resourcesDir: string, update: MacOSAppUpdateFeed, updaterCacheDirName: string): Promise<void>
 
 /** Verify the updater configuration inside an assembled macOS App. */
-export function verifyMacOSAppUpdateConfig(
-  appPath: string,
-  update: MacOSAppUpdateFeed,
-  updaterCacheDirName?: string,
-): Promise<void>
+export function verifyMacOSAppUpdateConfig(appPath: string, update: MacOSAppUpdateFeed, updaterCacheDirName?: string): Promise<void>

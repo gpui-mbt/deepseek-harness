@@ -15,10 +15,7 @@ export function consoleBridgeCapability(): ClientConsoleCapability {
 }
 
 /** Receives one Console event whose object handles belong to the given session. */
-export type ClientConsoleSink = (
-  sessionId: ClientRuntimeSessionId,
-  event: RuntimeConsoleBackendEvent<ClientRemoteObjectHandle>,
-) => void
+export type ClientConsoleSink = (sessionId: ClientRuntimeSessionId, event: RuntimeConsoleBackendEvent<ClientRemoteObjectHandle>) => void
 
 const METHODS = [
   ['log', 'log'],
@@ -41,7 +38,7 @@ const METHODS = [
   ['timeEnd', 'timeEnd'],
 ] as const satisfies readonly (readonly [string, RuntimeConsoleType])[]
 
-type ConsoleMethodName = typeof METHODS[number][0]
+type ConsoleMethodName = (typeof METHODS)[number][0]
 
 interface InstalledMethod {
   readonly name: ConsoleMethodName
@@ -101,7 +98,9 @@ export class ClientConsoleObserver {
       const candidate: unknown = Reflect.get(console, name)
       if (typeof candidate !== 'function') continue
       const original = candidate as (...args: unknown[]) => unknown
-      const capture = (values: readonly unknown[]): void => { this.captureConsole(type, values) }
+      const capture = (values: readonly unknown[]): void => {
+        this.captureConsole(type, values)
+      }
       const replacement = function (this: unknown, ...args: unknown[]): unknown {
         const result = Reflect.apply(original, this, args)
         const values = name === 'assert' ? args.slice(1) : args

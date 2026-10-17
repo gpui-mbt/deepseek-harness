@@ -24,7 +24,7 @@ export interface AgentPresetSectionState {
   view: PresetView | null
 }
 const INITIAL: AgentPresetSectionState = { status: 'idle', error: null, saving: false, rows: [], view: null }
-const message = (error: unknown): string => error instanceof Error ? error.message : String(error)
+const message = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 /** Loads the roster, writes the default, and reads one composition at a time. */
 export class AgentPresetSectionController {
@@ -35,20 +35,26 @@ export class AgentPresetSectionController {
   private viewRequest = 0
   constructor(private readonly ctx: Context) {}
 
-  private set(patch: Partial<AgentPresetSectionState>): void { this.store.set({ ...this.store.getSnapshot(), ...patch }) }
+  private set(patch: Partial<AgentPresetSectionState>): void {
+    this.store.set({ ...this.store.getSnapshot(), ...patch })
+  }
 
   /** Refresh the roster; concurrent calls share one read.
    * @returns Once the roster read settles.
    */
   load(): Promise<void> {
-    return this.loading ??= this.readRoster().finally(() => { this.loading = undefined })
+    return (this.loading ??= this.readRoster().finally(() => {
+      this.loading = undefined
+    }))
   }
   private async readRoster(): Promise<void> {
     try {
       const result = await this.ctx.remote.agentPresets.list()
       if (!result.ok) throw new Error(result.error.message)
       this.set({ status: 'ready', error: null, rows: result.value.presets })
-    } catch (error) { this.set({ status: 'error', error: message(error) }) }
+    } catch (error) {
+      this.set({ status: 'error', error: message(error) })
+    }
   }
 
   /** Open one preset's declared composition in the viewer.
@@ -64,10 +70,15 @@ export class AgentPresetSectionController {
       if (!result.ok) throw new Error(result.error.message)
       const { name, content } = result.value
       this.set({ view: { id, title: name ?? id, content } })
-    } catch (error) { if (request === this.viewRequest) this.set({ error: message(error) }) }
+    } catch (error) {
+      if (request === this.viewRequest) this.set({ error: message(error) })
+    }
   }
   /** Close the viewer. */
-  closeView(): void { this.viewRequest++; this.set({ view: null }) }
+  closeView(): void {
+    this.viewRequest++
+    this.set({ view: null })
+  }
 
   /** Set the default and synchronize the current blank task when supplied.
    * @param id Selected default.
@@ -112,8 +123,9 @@ export class AgentPresetSectionController {
         const error = await sync?.(selected.id)
         if (error !== undefined) throw new Error(error)
       }
-    } catch (error) { this.set({ error: message(error) }) }
-    finally {
+    } catch (error) {
+      this.set({ error: message(error) })
+    } finally {
       this.pendingSave = undefined
       this.set({ saving: false })
       completion.resolve()

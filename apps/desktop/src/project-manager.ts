@@ -14,17 +14,11 @@ import {
   writeSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import {
-  DESKTOP_HOST_PACKAGE,
-  desktopCorePackageOverrides,
-  verifyDesktopCorePackageSet,
-} from './core-package-set.ts'
+import { DESKTOP_HOST_PACKAGE, desktopCorePackageOverrides, verifyDesktopCorePackageSet } from './core-package-set.ts'
 import type { DesktopPaths } from './paths.ts'
 import type { DesktopRelease } from './release.ts'
 import { readDesktopRuntime } from './runtime-tree.ts'
-import {
-  initProfile, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate,
-} from '@deepseek-ai/dsh-app-boot'
+import { initProfile, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate } from '@deepseek-ai/dsh-app-boot'
 
 const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
@@ -37,14 +31,14 @@ function writeJson(path: string, value: unknown): void {
 
 function workspaceFile(overrides: Readonly<Record<string, string>> = {}): string {
   const entries = Object.entries(overrides).sort(([left], [right]) => left.localeCompare(right))
-  const overrideSection = entries.length === 0
-    ? ''
-    : `overrides:\n${entries.map(([name, spec]) => `  ${JSON.stringify(name)}: ${JSON.stringify(spec)}`).join('\n')}\n`
+  const overrideSection =
+    entries.length === 0
+      ? ''
+      : `overrides:\n${entries.map(([name, spec]) => `  ${JSON.stringify(name)}: ${JSON.stringify(spec)}`).join('\n')}\n`
   if (entries.length === 0) return `packages:\n  - .\n\n${WORKSPACE_SETTINGS}`
   const coreBuildSpec = overrides[CORE_BUILD_PACKAGE]
-  const coreBuildKey = coreBuildSpec === undefined
-    ? CORE_BUILD_PACKAGE
-    : `${CORE_BUILD_PACKAGE}@${coreBuildSpec.replace('file:./', 'file:')}`
+  const coreBuildKey =
+    coreBuildSpec === undefined ? CORE_BUILD_PACKAGE : `${CORE_BUILD_PACKAGE}@${coreBuildSpec.replace('file:./', 'file:')}`
   return `packages:\n  - .\n\n${overrideSection}${WORKSPACE_SETTINGS}allowBuilds:\n  node-pty: true\n  koffi: true\n  fs-ext: true\n  ${JSON.stringify(coreBuildKey)}: true\n  '@google/genai': false\n  protobufjs: false\n  node-addon-require-builtin: false\n`
 }
 
@@ -142,11 +136,7 @@ export function createRuntimeProjectMetadata(projectDir: string, release: Deskto
     dsh: { profile: { bundles: [...WEB_PROFILE.bundles] } },
   }
   writeJson(join(projectDir, 'package.json'), manifest)
-  writeFileSync(
-    join(projectDir, 'pnpm-workspace.yaml'),
-    workspaceFile(desktopCorePackageOverrides(packageSet)),
-    { mode: 0o600 },
-  )
+  writeFileSync(join(projectDir, 'pnpm-workspace.yaml'), workspaceFile(desktopCorePackageOverrides(packageSet)), { mode: 0o600 })
 }
 
 /**

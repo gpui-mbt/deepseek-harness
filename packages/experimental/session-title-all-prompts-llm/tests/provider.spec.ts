@@ -1,14 +1,11 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import LlmRuntime, { createUserMessage, LlmAdapter, ReasoningEffortId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
-import SessionTitleService, {
-  SessionTitleProviderId,
-  type SessionTitleUserMessage,
-} from '@deepseek-ai/dsh-session-title'
+import SessionTitleService, { SessionTitleProviderId, type SessionTitleUserMessage } from '@deepseek-ai/dsh-session-title'
 import * as providerPlugin from '@deepseek-ai/dsh-session-title-all-prompts-llm'
 
 class RecordingAdapter extends LlmAdapter {
@@ -28,15 +25,15 @@ class RecordingAdapter extends LlmAdapter {
       provider,
       id: model,
       name: model,
-      ...efforts === undefined || floor === undefined
+      ...(efforts === undefined || floor === undefined
         ? {}
-        : { reasoning: { efforts: efforts.map(id => ({ id: ReasoningEffortId(id), name: id })) } },
+        : { reasoning: { efforts: efforts.map(id => ({ id: ReasoningEffortId(id), name: id })) } }),
     })
   }
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
-    yield * this.script
+    yield* this.script
   }
 }
 
@@ -101,10 +98,14 @@ async function harness(
 }
 
 function appendHumanPrompt(session: Session, text: string) {
-  return session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  return session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 async function settle(): Promise<void> {
@@ -133,9 +134,7 @@ describe('all-messages LLM title provider', () => {
     const fallbackMessage = appendHumanPrompt(fallbackSession, '阳台种番茄和罗勒')
     await ctx.sessionTitle.refresh(fallbackSession)
     const fallbackOptions = adapter.requests.at(-1)!
-    expect(textOf(fallbackOptions)).toBe(initialInput([
-      { seq: fallbackMessage.seq, text: '阳台种番茄和罗勒' },
-    ]))
+    expect(textOf(fallbackOptions)).toBe(initialInput([{ seq: fallbackMessage.seq, text: '阳台种番茄和罗勒' }]))
     expect(fallbackOptions.system).toBe(SYSTEM_BASE)
 
     const userSession = ctx.sessions.create(SessionId('all-source-user'))
@@ -148,9 +147,9 @@ describe('all-messages LLM title provider', () => {
 
     await ctx.sessionTitle.refresh(fallbackSession)
     const revisionOptions = adapter.requests.at(-1)!
-    expect(textOf(revisionOptions)).toBe(revisionInput('All messages model title', [
-      { seq: fallbackMessage.seq, text: '阳台种番茄和罗勒' },
-    ]))
+    expect(textOf(revisionOptions)).toBe(
+      revisionInput('All messages model title', [{ seq: fallbackMessage.seq, text: '阳台种番茄和罗勒' }]),
+    )
     expect(revisionOptions.system).toBe(SYSTEM_WITH_TITLE)
 
     const foreignSession = ctx.sessions.create(SessionId('all-source-foreign'))
@@ -162,20 +161,25 @@ describe('all-messages LLM title provider', () => {
     })
     await ctx.sessionTitle.refresh(foreignSession)
     const foreignOptions = adapter.requests.at(-1)!
-    expect(textOf(foreignOptions)).toBe(revisionInput('前一个提供方标题', [
-      { seq: foreignMessage.seq, text: '阳台种番茄和罗勒' },
-    ]))
+    expect(textOf(foreignOptions)).toBe(revisionInput('前一个提供方标题', [{ seq: foreignMessage.seq, text: '阳台种番茄和罗勒' }]))
     expect(foreignOptions.system).toBe(SYSTEM_WITH_TITLE)
   })
 
   it('includes seeded history and the latest prompt while inheriting the logged request route', async () => {
     const seeded = Session.create(SessionId('seed-source'))
     seeded.append('turn/start', { turn: 1 })
-    const inherited = seeded.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'inherited prompt' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const inherited = seeded.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'inherited prompt' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     seeded.append('session/title', {
-      title: 'Inherited fallback', messageSeqs: [inherited.seq], source: { kind: 'fallback' },
+      title: 'Inherited fallback',
+      messageSeqs: [inherited.seq],
+      source: { kind: 'fallback' },
     })
     seeded.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
@@ -186,21 +190,29 @@ describe('all-messages LLM title provider', () => {
       meta: { parentSession: seeded.id, isSeeded: true },
     })
     session.append('turn/start', { turn: 2 })
-    const latest = session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'latest prompt' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const latest = session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'latest prompt' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     await settle()
     session.append('request/header', {
-      header: { config: { provider: 'title-route', model: 'title-model' } }, reason: 'resume',
+      header: { config: { provider: 'title-route', model: 'title-model' } },
+      reason: 'resume',
     })
     await settle()
 
     expect(adapter.requests[0]).toMatchObject({ provider: 'title-route', model: 'title-model' })
     const options = adapter.requests[0]!
-    expect(textOf(options)).toBe(initialInput([
-      { seq: inherited.seq, text: 'inherited prompt' },
-      { seq: latest.seq, text: 'latest prompt' },
-    ]))
+    expect(textOf(options)).toBe(
+      initialInput([
+        { seq: inherited.seq, text: 'inherited prompt' },
+        { seq: latest.seq, text: 'latest prompt' },
+      ]),
+    )
     expect(options.system).toBe(SYSTEM_BASE)
     expect(ctx.sessionTitle.get(session)).toMatchObject({
       title: 'All messages model title',
@@ -304,12 +316,15 @@ describe('all-messages LLM title provider', () => {
   it('requires positive target settings and rejects unknown configuration keys', () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
-    expect(() => { providerPlugin.apply(ctx, { ...LLM_CONFIG, targetWords: 0 }) })
-      .toThrow(/targetWords.*positive integer/)
-    expect(() => { providerPlugin.apply(ctx, { ...LLM_CONFIG, targetCjkCharacters: 1.5 }) })
-      .toThrow(/targetCjkCharacters.*positive integer/)
-    expect(() => { providerPlugin.apply(ctx, { ...LLM_CONFIG, extra: true } as never) })
-      .toThrow(/unknown config key "extra"/)
+    expect(() => {
+      providerPlugin.apply(ctx, { ...LLM_CONFIG, targetWords: 0 })
+    }).toThrow(/targetWords.*positive integer/)
+    expect(() => {
+      providerPlugin.apply(ctx, { ...LLM_CONFIG, targetCjkCharacters: 1.5 })
+    }).toThrow(/targetCjkCharacters.*positive integer/)
+    expect(() => {
+      providerPlugin.apply(ctx, { ...LLM_CONFIG, extra: true } as never)
+    }).toThrow(/unknown config key "extra"/)
   })
 
   it('preserves an accepted title unchanged when the model returns it verbatim', async () => {

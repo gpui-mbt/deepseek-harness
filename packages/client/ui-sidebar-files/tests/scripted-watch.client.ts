@@ -1,5 +1,5 @@
 /** Target-scoped watch streams with explicit delivery and asynchronous release barriers. */
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WatchWorkspaceDirectory } from '../src/client/face.ts'
 
@@ -16,12 +16,16 @@ export class DirectoryWatch implements AsyncIterable<Event> {
   private wake: (() => void) | undefined
   private releaseGate: PromiseWithResolvers<undefined> | undefined
 
-  constructor(readonly sessionId: SessionId, readonly path: string, readonly signal: AbortSignal) {
+  constructor(
+    readonly sessionId: SessionId,
+    readonly path: string,
+    readonly signal: AbortSignal,
+  ) {
     this.lifetime = AbortSignal.any([signal, this.controller.signal])
   }
 
   deliver(value: Event): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.queue.push({ kind: 'event', value, delivered: resolve })
       this.wake?.()
     })
@@ -33,7 +37,7 @@ export class DirectoryWatch implements AsyncIterable<Event> {
   }
 
   holdRelease(): PromiseWithResolvers<undefined> {
-    return this.releaseGate ??= Promise.withResolvers<undefined>()
+    return (this.releaseGate ??= Promise.withResolvers<undefined>())
   }
 
   stop(): void {
@@ -42,13 +46,17 @@ export class DirectoryWatch implements AsyncIterable<Event> {
   }
 
   async *[Symbol.asyncIterator](): AsyncIterator<Event> {
-    const abort = (): void => { this.wake?.() }
+    const abort = (): void => {
+      this.wake?.()
+    }
     this.lifetime.addEventListener('abort', abort, { once: true })
     try {
       while (!this.lifetime.aborted) {
         const next = this.queue.shift()
         if (next === undefined) {
-          await new Promise<void>((resolve) => { this.wake = resolve })
+          await new Promise<void>(resolve => {
+            this.wake = resolve
+          })
           this.wake = undefined
           continue
         }
@@ -84,7 +92,7 @@ export class DirectoryWatches {
     const current = (): DirectoryWatch | undefined => this.opened.filter(stream => stream.path === path)[occurrence]
     const stream = current()
     if (stream !== undefined) return Promise.resolve(stream)
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const wait = (): void => {
         const stream = current()
         if (stream === undefined) return

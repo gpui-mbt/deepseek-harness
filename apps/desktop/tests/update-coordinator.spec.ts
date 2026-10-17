@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { AppUpdater } from 'electron-updater'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import { parseDesktopRelease } from '../src/release.ts'
@@ -16,13 +16,15 @@ const { DesktopUpdateCoordinator } = await import('../src/update-coordinator.ts'
 
 describe('desktop release metadata', () => {
   it('accepts one exact release identity for Electron and dsh', () => {
-    expect(parseDesktopRelease({
-      schemaVersion: 1,
-      version: '1.2.3',
-      hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
-      nodeVersion: '24.17.0',
-      pnpmVersion: '11.7.0',
-    })).toEqual({
+    expect(
+      parseDesktopRelease({
+        schemaVersion: 1,
+        version: '1.2.3',
+        hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
+        nodeVersion: '24.17.0',
+        pnpmVersion: '11.7.0',
+      }),
+    ).toEqual({
       schemaVersion: 1,
       version: '1.2.3',
       hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
@@ -45,7 +47,9 @@ describe('desktop release metadata', () => {
 })
 
 const coordinators: InstanceType<typeof DesktopUpdateCoordinator>[] = []
-afterEach(() => { for (const item of coordinators.splice(0)) item.dispose() })
+afterEach(() => {
+  for (const item of coordinators.splice(0)) item.dispose()
+})
 
 function fixture(channel: 'nightly' | 'latest' = 'nightly', version = '1.1.0-alpha.1') {
   const events = new EventEmitter()
@@ -65,8 +69,16 @@ function fixture(channel: 'nightly' | 'latest' = 'nightly', version = '1.1.0-alp
   const states: DesktopUpdateState[] = []
   const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }) as unknown as AppUpdater
   const coordinator = new DesktopUpdateCoordinator(
-    (state) => { states.push(state); return state },
-    beforeRestart, updater, () => true, () => version, downloadResult, channel,
+    state => {
+      states.push(state)
+      return state
+    },
+    beforeRestart,
+    updater,
+    () => true,
+    () => version,
+    downloadResult,
+    channel,
   )
   coordinators.push(coordinator)
   return { coordinator, updater, events, states, checkForUpdates, downloadUpdate, quitAndInstall, beforeRestart, downloadResult }
@@ -77,10 +89,17 @@ describe('desktop update coordinator', () => {
     const f = fixture()
     await f.coordinator.check()
     await f.coordinator.download('1.1.0-rc.2')
-    f.beforeRestart.mockRejectedValueOnce(new DesktopUpdatePreparationError('stop-failed', zh.updateStopFailed, 'exit 0; shutdown acknowledged false'))
-    expect(await f.coordinator.install('1.1.0-rc.2')).toEqual({ phase: 'error', version: '1.1.0-rc.2',
-      failedOperation: 'install', preparationFailure: 'stop-failed', message: zh.updateStopFailed,
-      technicalDetails: 'exit 0; shutdown acknowledged false' })
+    f.beforeRestart.mockRejectedValueOnce(
+      new DesktopUpdatePreparationError('stop-failed', zh.updateStopFailed, 'exit 0; shutdown acknowledged false'),
+    )
+    expect(await f.coordinator.install('1.1.0-rc.2')).toEqual({
+      phase: 'error',
+      version: '1.1.0-rc.2',
+      failedOperation: 'install',
+      preparationFailure: 'stop-failed',
+      message: zh.updateStopFailed,
+      technicalDetails: 'exit 0; shutdown acknowledged false',
+    })
     expect(f.quitAndInstall).not.toHaveBeenCalled()
     f.beforeRestart.mockResolvedValueOnce(false)
     expect(await f.coordinator.install('1.1.0-rc.2')).toEqual({ phase: 'ready', version: '1.1.0-rc.2' })
@@ -111,7 +130,10 @@ describe('desktop update coordinator', () => {
     try {
       expect(f.coordinator.state.phase).not.toBe('ready')
       await expect(f.coordinator.install('1.1.0-rc.2')).rejects.toThrow(/not ready/u)
-    } finally { prepared.resolve(['verified']); await downloading }
+    } finally {
+      prepared.resolve(['verified'])
+      await downloading
+    }
     expect(f.coordinator.state.phase).toBe('ready')
   })
 
@@ -141,12 +163,13 @@ describe('desktop update coordinator', () => {
     await f.coordinator.install('1.1.0-rc.2')
     expect(f.beforeRestart).toHaveBeenCalledOnce()
     expect(f.quitAndInstall).toHaveBeenCalledWith(true, true)
-    expect(f.states.map(state => state.phase)).toEqual([
-      'available', 'downloading', 'downloading', 'verifying', 'ready', 'installing',
-    ])
+    expect(f.states.map(state => state.phase)).toEqual(['available', 'downloading', 'downloading', 'verifying', 'ready', 'installing'])
     expect(f.updater).toMatchObject({
-      autoDownload: false, autoInstallOnAppQuit: false, channel: 'nightly',
-      allowPrerelease: true, allowDowngrade: false,
+      autoDownload: false,
+      autoInstallOnAppQuit: false,
+      channel: 'nightly',
+      allowPrerelease: true,
+      allowDowngrade: false,
     })
   })
 
@@ -177,7 +200,7 @@ describe('desktop update coordinator', () => {
     expect(f.downloadUpdate).not.toHaveBeenCalled()
   })
 
-  it.each(['1.0.0', '1.1.0-alpha.1', 'invalid'])('does not download or install inapplicable version %s', async (version) => {
+  it.each(['1.0.0', '1.1.0-alpha.1', 'invalid'])('does not download or install inapplicable version %s', async version => {
     const f = fixture()
     f.checkForUpdates.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version } })
     await f.coordinator.check()
@@ -224,7 +247,6 @@ describe('desktop update coordinator', () => {
   })
 })
 
-
 it('reports one download result when callers share an operation and none for cached readiness', async () => {
   const f = fixture()
   await f.coordinator.check()
@@ -233,16 +255,20 @@ it('reports one download result when callers share an operation and none for cac
   expect(f.downloadResult).toHaveBeenCalledExactlyOnceWith(true)
 })
 
-
-it.each([new DesktopUpdatePreparationError('stop-failed', 'private diagnostic'), new Error('private URL')])('reports safe download failure classification: %s', async (error) => {
-  const f = fixture()
-  await f.coordinator.check()
-  f.downloadUpdate.mockRejectedValueOnce(error)
-  await f.coordinator.download('1.1.0-rc.2')
-  expect(f.downloadResult).toHaveBeenCalledExactlyOnceWith(false, error instanceof DesktopUpdatePreparationError ? 'stop-failed' : 'download_failed')
-  expect(JSON.stringify(f.downloadResult.mock.calls)).not.toContain('private')
-})
-
+it.each([new DesktopUpdatePreparationError('stop-failed', 'private diagnostic'), new Error('private URL')])(
+  'reports safe download failure classification: %s',
+  async error => {
+    const f = fixture()
+    await f.coordinator.check()
+    f.downloadUpdate.mockRejectedValueOnce(error)
+    await f.coordinator.download('1.1.0-rc.2')
+    expect(f.downloadResult).toHaveBeenCalledExactlyOnceWith(
+      false,
+      error instanceof DesktopUpdatePreparationError ? 'stop-failed' : 'download_failed',
+    )
+    expect(JSON.stringify(f.downloadResult.mock.calls)).not.toContain('private')
+  },
+)
 
 it('keeps a stable-version nightly installation on nightly and rejects prereleases on latest', async () => {
   const nightly = fixture('nightly', '1.0.0')

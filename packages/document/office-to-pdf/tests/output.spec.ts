@@ -2,11 +2,11 @@
 import { appendFile, mkdtemp, rm, stat, writeFile, type FileHandle } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { readPdf } from '../src/output.ts'
 
 const io = vi.hoisted(() => ({ opened: undefined as ((file: FileHandle) => Promise<void>) | undefined }))
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
@@ -18,7 +18,10 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   }
 })
 
-afterEach(() => { io.opened = undefined; vi.restoreAllMocks() })
+afterEach(() => {
+  io.opened = undefined
+  vi.restoreAllMocks()
+})
 
 const pdf = Buffer.from('%PDF-1.7\npreview\n%%EOF\n')
 
@@ -26,8 +29,11 @@ async function output(): Promise<{ directory: string; path: string; handles: Fil
   const directory = await mkdtemp(join(tmpdir(), 'dsh-office-to-pdf-output-'))
   const handles: FileHandle[] = []
   onTestFinished(async () => {
-    try { await Promise.all(handles.map(file => file.close())) }
-    finally { await rm(directory, { recursive: true, force: true }) }
+    try {
+      await Promise.all(handles.map(file => file.close()))
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
   const path = join(directory, 'preview.pdf')
   await writeFile(path, pdf)
@@ -37,7 +43,7 @@ async function output(): Promise<{ directory: string; path: string; handles: Fil
 it('closes an opened output that is not a regular file despite earlier path metadata', async () => {
   const { directory, path, handles } = await output()
   const directoryInfo = await stat(directory)
-  io.opened = async (file) => {
+  io.opened = async file => {
     handles.push(file)
     // Directory handles cannot be opened on Windows; fstat supplies the same rejection input.
     vi.spyOn(file, 'stat').mockResolvedValueOnce(directoryInfo)
@@ -49,7 +55,7 @@ it('closes an opened output that is not a regular file despite earlier path meta
 
 it('rejects output that grows past the limit after opened-file metadata is read', async () => {
   const { path, handles } = await output()
-  io.opened = async (file) => {
+  io.opened = async file => {
     handles.push(file)
     const inspect = file.stat.bind(file)
     vi.spyOn(file, 'stat').mockImplementationOnce(async () => {

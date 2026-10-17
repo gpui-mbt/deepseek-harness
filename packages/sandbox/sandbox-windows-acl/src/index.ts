@@ -52,7 +52,14 @@ import { allocPtrSlot, decodePtr, isNullPtr, throwLastError, win32 } from './ffi
 import type { NativePtr, Win32Bindings } from './ffi.ts'
 import { assertPrivateTempDisjoint } from './path-boundary.ts'
 import { drainPipe, spawnSandboxed, spawnSandboxedInherited, waitForExit } from './spawn.ts'
-import { createRestrictedToken, findLogonSid, makeWellKnownSid, openCurrentProcessToken, restrictTokenIntegrity, setTokenDefaultDaclGrant } from './token.ts'
+import {
+  createRestrictedToken,
+  findLogonSid,
+  makeWellKnownSid,
+  openCurrentProcessToken,
+  restrictTokenIntegrity,
+  setTokenDefaultDaclGrant,
+} from './token.ts'
 import * as abi from './win32-abi.ts'
 
 export { AclWriteGrant } from './grant.ts'
@@ -136,12 +143,7 @@ export interface AclSandboxChild {
 }
 
 /** Free one optional SID while retaining a failure for best-effort sibling cleanup. */
-function freeSidBestEffort(
-  api: Win32Bindings,
-  sidPtr: NativePtr | undefined,
-  label: string,
-  failures: unknown[],
-): void {
+function freeSidBestEffort(api: Win32Bindings, sidPtr: NativePtr | undefined, label: string, failures: unknown[]): void {
   if (sidPtr === undefined) return
   try {
     const freed = api.localFree(sidPtr)
@@ -183,7 +185,7 @@ export class AclSandbox {
   constructor(options: AclSandboxOptions) {
     this.mode = options.mode
     this.manageDacls = options.manageDacls ?? true
-    this.writableDirs = options.writableDirs.map((directory) => {
+    this.writableDirs = options.writableDirs.map(directory => {
       const absolute = resolve(directory)
       if (!existsSync(absolute) || !statSync(absolute).isDirectory()) {
         throw new Error(`AclSandbox writable dir does not exist or is not a directory: ${absolute}`)
@@ -282,11 +284,7 @@ export class AclSandbox {
       const logonSid = findLogonSid(api, currentToken)
       this.sidAllocations.push(logonSid)
       const writeSids = [this.writeSidPtr, this.tempWriteSidPtr].filter((sid): sid is NativePtr => sid !== undefined)
-      restrictedToken = createRestrictedToken(
-        api, currentToken, logonSid, writeSids,
-        { world: worldSid },
-        this.mode,
-      )
+      restrictedToken = createRestrictedToken(api, currentToken, logonSid, writeSids, { world: worldSid }, this.mode)
       restrictTokenIntegrity(api, restrictedToken, lowLabelSid)
       this.token = restrictedToken
       // The restricted token's default DACL still names only the user's
@@ -324,7 +322,10 @@ export class AclSandbox {
           cleanupFailures.push(cleanupError)
         }
       }
-      for (const [label, sidPtr] of [['workspace write SID', this.writeSidPtr], ['temp write SID', this.tempWriteSidPtr]] as const) {
+      for (const [label, sidPtr] of [
+        ['workspace write SID', this.writeSidPtr],
+        ['temp write SID', this.tempWriteSidPtr],
+      ] as const) {
         freeSidBestEffort(api, sidPtr, label, cleanupFailures)
       }
       for (const sidPtr of this.sidAllocations.splice(0)) {
@@ -367,8 +368,10 @@ export class AclSandbox {
 
     if (options.stdio === 'inherit') {
       const native = spawnSandboxedInherited(api, token, {
-        command: options.command, args, cwd,
-        ...options.controlFileDescriptor === undefined ? {} : { controlFileDescriptor: options.controlFileDescriptor },
+        command: options.command,
+        args,
+        cwd,
+        ...(options.controlFileDescriptor === undefined ? {} : { controlFileDescriptor: options.controlFileDescriptor }),
       })
       let exitCodePromise: Promise<number> | undefined
       return {
@@ -419,7 +422,10 @@ export class AclSandbox {
         }
       }
     }
-    for (const [label, sidPtr] of [['workspace write SID', this.writeSidPtr], ['temp write SID', this.tempWriteSidPtr]] as const) {
+    for (const [label, sidPtr] of [
+      ['workspace write SID', this.writeSidPtr],
+      ['temp write SID', this.tempWriteSidPtr],
+    ] as const) {
       freeSidBestEffort(api, sidPtr, label, failures)
     }
     const token = this.token

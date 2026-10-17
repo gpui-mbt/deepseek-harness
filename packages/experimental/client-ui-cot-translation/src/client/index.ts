@@ -10,7 +10,9 @@ export type { TranslationBodyInjected, TranslationBodyProps } from './Translatio
 export type { TranslationFormInjected, TranslationFormState } from './preferences-form.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
-  interface LocaleNamespaceMap { cotTranslation: import('./locales.ts').CotTranslationKey }
+  interface LocaleNamespaceMap {
+    cotTranslation: import('./locales.ts').CotTranslationKey
+  }
 }
 
 /**
@@ -18,4 +20,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
  * @param ctx - browser plugin context.
  * @returns disposer joining UI and Remote withdrawal.
  */
-export async function apply(ctx: Context): Promise<() => Promise<void>> { return await mountTranslation(ctx, remote) }
+export async function apply(ctx: Context): Promise<() => Promise<void>> {
+  return await mountTranslation(ctx, remote)
+}

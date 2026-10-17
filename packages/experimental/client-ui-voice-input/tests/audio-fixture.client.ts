@@ -1,5 +1,5 @@
 /** Controlled browser audio devices with real Recording ownership and conversion. */
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import { Recording } from '../src/client/audio.ts'
 
 /**
@@ -8,7 +8,9 @@ import { Recording } from '../src/client/audio.ts'
  * @returns the recording, device controls, and resource observations.
  */
 export function captureFixture(options: { empty?: boolean; recorderError?: boolean; constructError?: boolean } = {}) {
-  const trackStop = vi.fn(), close = vi.fn(async () => {}), disposed = vi.fn()
+  const trackStop = vi.fn<() => void>(),
+    close = vi.fn(async () => {}),
+    disposed = vi.fn<() => void>()
   const decoding = vi.fn(async (_data: ArrayBuffer) => ({ duration: 2 }))
   const rendering = vi.fn(async () => ({ getChannelData: () => new Float32Array([0.5, -0.5]) }))
   let failRecorder: () => void
@@ -20,9 +22,13 @@ export function captureFixture(options: { empty?: boolean; recorderError?: boole
     onerror?: () => void
     constructor() {
       if (options.constructError) throw new Error('recorder unavailable')
-      failRecorder = () => { this.onerror!() }
+      failRecorder = () => {
+        this.onerror!()
+      }
     }
-    start() { this.state = 'recording' }
+    start() {
+      this.state = 'recording'
+    }
     stop() {
       this.state = 'inactive'
       queueMicrotask(() => {
@@ -37,17 +43,43 @@ export function captureFixture(options: { empty?: boolean; recorderError?: boole
     return { destination: {}, createBufferSource: () => ({ buffer: null, connect() {}, start() {} }), startRendering: rendering }
   })
   const track = new EventTarget()
-  const audioTrack = Object.assign(track, { stop: trackStop, label: 'Fixture microphone',
-    getSettings: (): MediaTrackSettings => ({ groupId: 'fixture-input' }) })
+  const audioTrack = Object.assign(track, {
+    stop: trackStop,
+    label: 'Fixture microphone',
+    getSettings: (): MediaTrackSettings => ({ groupId: 'fixture-input' }),
+  })
   const stream = { getTracks: () => [audioTrack], getAudioTracks: () => [audioTrack] }
   const getUserMedia = vi.fn(async (_constraints: MediaStreamConstraints) => stream)
   vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
   vi.stubGlobal('MediaRecorder', Recorder)
-  vi.stubGlobal('AudioContext', function Audio() { return { state: 'running', close, decodeAudioData: decoding,
-    createMediaStreamSource: () => ({ connect: vi.fn() }),
-    createAnalyser: () => ({ fftSize: 256, getFloatTimeDomainData: (buffer: Float32Array) => { buffer.fill(0.25) } }),
-  } })
+  vi.stubGlobal('AudioContext', function Audio() {
+    return {
+      state: 'running',
+      close,
+      decodeAudioData: decoding,
+      createMediaStreamSource: () => ({ connect: vi.fn<() => void>() }),
+      createAnalyser: () => ({
+        fftSize: 256,
+        getFloatTimeDomainData: (buffer: Float32Array) => {
+          buffer.fill(0.25)
+        },
+      }),
+    }
+  })
   vi.stubGlobal('OfflineAudioContext', offline)
-  return { recording: new Recording(disposed), getUserMedia, stream, track, trackStop, close, disposed, decoding, rendering, offline,
-    failRecorder: () => { failRecorder() } }
+  return {
+    recording: new Recording(disposed),
+    getUserMedia,
+    stream,
+    track,
+    trackStop,
+    close,
+    disposed,
+    decoding,
+    rendering,
+    offline,
+    failRecorder: () => {
+      failRecorder()
+    },
+  }
 }

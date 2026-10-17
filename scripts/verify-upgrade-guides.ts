@@ -22,27 +22,33 @@ const SEMVER = String.raw`(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9
 const GUIDE_PATH = new RegExp(`^v${SEMVER}/[a-z0-9]+(?:-[a-z0-9]+)*/(guide\\.md|guide\\.zh\\.md|guide\\.i18n\\.yaml)$`, 'u')
 
 /** Return one guide's frontmatter and structure violations. */
-function guideViolations(source: string, language: typeof LANGUAGES[keyof typeof LANGUAGES]): string[] {
+function guideViolations(source: string, language: (typeof LANGUAGES)[keyof typeof LANGUAGES]): string[] {
   const violations: string[] = []
   const words = source.split(/\s+/u).filter(Boolean).length
-  if (language.maxWords !== undefined && words > language.maxWords) violations.push(`${String(words)} words exceeds the ${String(language.maxWords)}-word ceiling`)
+  if (language.maxWords !== undefined && words > language.maxWords)
+    violations.push(`${String(words)} words exceeds the ${String(language.maxWords)}-word ceiling`)
 
   const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/u.exec(source)
   if (frontmatter === null) return [...violations, 'must start with YAML frontmatter']
   const metadata = load(frontmatter[1] as string, { schema: JSON_SCHEMA })
-  if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata)) return [...violations, 'frontmatter must be a YAML object']
+  if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata))
+    return [...violations, 'frontmatter must be a YAML object']
   const fields = metadata as Record<string, unknown>
   const keys = Object.keys(fields).sort()
-  if (keys.join() !== FRONTMATTER_KEYS.join()) violations.push(`frontmatter keys must be exactly ${FRONTMATTER_KEYS.join(', ')}; got ${keys.join(', ') || 'none'}`)
+  if (keys.join() !== FRONTMATTER_KEYS.join())
+    violations.push(`frontmatter keys must be exactly ${FRONTMATTER_KEYS.join(', ')}; got ${keys.join(', ') || 'none'}`)
   if (fields.kind !== 'upgrade-guide') violations.push('kind must be upgrade-guide')
   if (typeof fields.description !== 'string' || fields.description.trim() === '') violations.push('description must be a non-empty string')
 
   const body = source.slice(frontmatter[0].length)
-  const outline = fromMarkdown(body).children
-    .flatMap(node => node.type === 'heading' && node.depth <= 2 ? [body.slice(node.position?.start.offset, node.position?.end.offset)] : [])
+  const outline = fromMarkdown(body).children.flatMap(node =>
+    node.type === 'heading' && node.depth <= 2 ? [body.slice(node.position?.start.offset, node.position?.end.offset)] : [],
+  )
   const expected = language.sections.map(section => `## ${section}`)
   if (outline.length !== expected.length + 1 || !outline[0]?.startsWith('# ') || outline.slice(1).join('\n') !== expected.join('\n')) {
-    violations.push(`headings must be one "#" title followed by ${expected.map(heading => `"${heading}"`).join(', ')}; got ${outline.map(heading => `"${heading}"`).join(', ') || 'none'}`)
+    violations.push(
+      `headings must be one "#" title followed by ${expected.map(heading => `"${heading}"`).join(', ')}; got ${outline.map(heading => `"${heading}"`).join(', ') || 'none'}`,
+    )
   }
   return violations
 }
@@ -58,7 +64,11 @@ export function collectUpgradeGuideViolations(root: string): string[] {
   const violations: string[] = []
   const files = readdirSync(directory, { recursive: true, withFileTypes: true })
     .filter(entry => !entry.isDirectory())
-    .map(entry => join(entry.parentPath, entry.name).slice(directory.length + 1).replaceAll('\\', '/'))
+    .map(entry =>
+      join(entry.parentPath, entry.name)
+        .slice(directory.length + 1)
+        .replaceAll('\\', '/'),
+    )
     .sort()
   for (const file of files) {
     const path = `${GUIDE_ROOT}/${file}`
@@ -68,7 +78,8 @@ export function collectUpgradeGuideViolations(root: string): string[] {
       continue
     }
     if (name === 'guide.md' || name === 'guide.zh.md') {
-      for (const violation of guideViolations(readFileSync(join(directory, file), 'utf8'), LANGUAGES[name])) violations.push(`${path}: ${violation}`)
+      for (const violation of guideViolations(readFileSync(join(directory, file), 'utf8'), LANGUAGES[name]))
+        violations.push(`${path}: ${violation}`)
     }
   }
   return violations

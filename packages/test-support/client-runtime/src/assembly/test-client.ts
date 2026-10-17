@@ -7,10 +7,7 @@
 import { Context, type Plugin } from '@deepseek-ai/cordis'
 import type { Entry } from '@deepseek-ai/cordis-plugin-loader'
 import { tearDownEntryFiber } from '@deepseek-ai/dsh-client-modules/client'
-import {
-  installConnection,
-  type ConnectionHandle,
-} from '@deepseek-ai/dsh-client-connection/client'
+import { installConnection, type ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { bootClient } from '@deepseek-ai/dsh-client-web/src/boot-client.ts'
 import { mountClient } from '@deepseek-ai/dsh-client-web/src/mount.ts'
 import type { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
@@ -97,8 +94,7 @@ function installJsdomShims(): () => void {
   const globals = globalThis as Record<string, unknown>
   const installed = Object.keys(JSDOM_SHIMS).filter(name => globals[name] === undefined)
   for (const name of installed) globals[name] = JSDOM_SHIMS[name]
-  const fontDocument: { readonly fonts?: EventTarget } | undefined =
-    typeof document === 'undefined' ? undefined : document
+  const fontDocument: { readonly fonts?: EventTarget } | undefined = typeof document === 'undefined' ? undefined : document
   const shimFonts = fontDocument !== undefined && fontDocument.fonts === undefined
   const fontsDescriptor = fontDocument === undefined ? undefined : Object.getOwnPropertyDescriptor(fontDocument, 'fonts')
   if (shimFonts) Object.defineProperty(fontDocument, 'fonts', { configurable: true, value: new EventTarget() })
@@ -153,7 +149,9 @@ async function settle(fn: () => Promise<void>): Promise<void> {
     await fn()
     return
   }
-  await act(async () => { await fn() })
+  await act(async () => {
+    await fn()
+  })
 }
 
 async function awaitConnected(ctx: Context, mock: RemoteMock, timeoutMs: number): Promise<void> {
@@ -164,10 +162,12 @@ async function awaitConnected(ctx: Context, mock: RemoteMock, timeoutMs: number)
       unsubscribe()
       const unmatched = mock.log.unmatched().map(row => `${row.mode} ${row.endpoint}`)
       const streams = mock.log.streams().map(row => `${row.endpoint} (${row.state})`)
-      reject(new Error(
-        `client-test-runtime: connection state is ${String(state.getSnapshot())} after ${timeoutMs}ms; `
-        + `unmatched: [${unmatched.join(', ')}]; streams: [${streams.join(', ')}]`,
-      ))
+      reject(
+        new Error(
+          `client-test-runtime: connection state is ${String(state.getSnapshot())} after ${timeoutMs}ms; ` +
+            `unmatched: [${unmatched.join(', ')}]; streams: [${streams.join(', ')}]`,
+        ),
+      )
     }, timeoutMs)
     const unsubscribe = state.subscribe(() => {
       if (state.getSnapshot() !== 'connected') return
@@ -203,11 +203,7 @@ export class TestClient {
    * @param options - mount and readiness options.
    * @returns the booted client.
    */
-  static async start(
-    plan: AssemblyPlan,
-    mock: RemoteMock,
-    options: TestClientOptions = {},
-  ): Promise<TestClient> {
+  static async start(plan: AssemblyPlan, mock: RemoteMock, options: TestClientOptions = {}): Promise<TestClient> {
     assertPlan(plan)
     for (const name of GENERATED_REMOTE_PACKAGES) {
       if (plan.provide?.[name] !== undefined) {
@@ -217,9 +213,7 @@ export class TestClient {
     const generated = GENERATED_REMOTE_PACKAGES.filter(name => plan.roster.rows.some(row => row.name === name))
     const roster = generated.length > 0 ? plan.roster.without(generated) : plan.roster
     const ctx = new Context()
-    const pageLocation = typeof location === 'undefined'
-      ? undefined
-      : { hostname: location.hostname }
+    const pageLocation = typeof location === 'undefined' ? undefined : { hostname: location.hostname }
     let mountPoint: MountPoint = { element: undefined, owned: false }
     let release: (() => void) | undefined
     const restore = (): void => {
@@ -232,7 +226,7 @@ export class TestClient {
       if (connection !== undefined && plan.provide?.[CONNECTION_PACKAGE] === undefined) {
         modules.set(CONNECTION_PACKAGE, {
           ...connection,
-          apply: (connectionCtx) => {
+          apply: connectionCtx => {
             installConnection(connectionCtx, {
               interactions: 'answer',
               transport: { rpc: mock.rpc },
@@ -348,7 +342,9 @@ export class TestClient {
     try {
       this.mock.assertNoUnmatched()
     } catch (unmatched) {
-      throw new Error(`${messageOf(unmatched)}\nclient-test-runtime: the plugin tree also failed to dispose: ${failure.message}`, { cause: failure })
+      throw new Error(`${messageOf(unmatched)}\nclient-test-runtime: the plugin tree also failed to dispose: ${failure.message}`, {
+        cause: failure,
+      })
     }
     throw failure
   }
@@ -357,9 +353,7 @@ export class TestClient {
     const entries = [...this.ctx.loader.entries()]
     const entry = entries.find(candidate => candidate.options.name === name)
     if (entry === undefined) {
-      throw new Error(
-        `client-test-runtime: no Loader entry named ${name}; entries: ${entries.map(row => row.options.name).join(', ')}`,
-      )
+      throw new Error(`client-test-runtime: no Loader entry named ${name}; entries: ${entries.map(row => row.options.name).join(', ')}`)
     }
     return entry
   }

@@ -10,12 +10,18 @@ if (process.platform !== 'win32') throw new Error('Local NSIS updater qualificat
 const root = await mkdtemp(join(tmpdir(), 'dsh-local-updater-'))
 let timedOut = false
 try {
-  const environment = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
-    !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^ELECTRON_RUN_AS_NODE$/iu.test(name)))
+  const environment = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^ELECTRON_RUN_AS_NODE$/iu.test(name)),
+  )
   const child = spawn(electron, [fileURLToPath(new URL('../tests/fixtures/local-updater.mjs', import.meta.url))], {
-    env: { ...environment, DSH_LOCAL_UPDATE_TEST_ROOT: root }, stdio: 'inherit', windowsHide: true,
+    env: { ...environment, DSH_LOCAL_UPDATE_TEST_ROOT: root },
+    stdio: 'inherit',
+    windowsHide: true,
   })
-  const timeout = setTimeout(() => { timedOut = true; child.kill() }, 120_000)
+  const timeout = setTimeout(() => {
+    timedOut = true
+    child.kill()
+  }, 120_000)
   try {
     const result = await new Promise((resolve, reject) => {
       child.once('error', reject)
@@ -32,7 +38,9 @@ try {
     if (report.screenshot.captured) await copyFile(join(root, 'mandatory-update.png'), join(evidence, 'mandatory-update.png'))
     for (const name of report.dialogScreenshots) await copyFile(join(root, name), join(evidence, name))
     console.log(`Local updater evidence: ${evidence}`)
-  } finally { clearTimeout(timeout) }
+  } finally {
+    clearTimeout(timeout)
+  }
 } finally {
   await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

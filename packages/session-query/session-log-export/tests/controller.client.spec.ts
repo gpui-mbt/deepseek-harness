@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import {
-  downloadUrl, SessionLogDownloadController, sessionLogZipFilename,
-} from '../src/client/controller.ts'
+import { downloadUrl, SessionLogDownloadController, sessionLogZipFilename } from '../src/client/controller.ts'
 
 const SID = 'session-export-controller' as SessionId
 
@@ -25,12 +23,11 @@ describe('SessionLogDownloadController', () => {
     expect(route).toBe(`api/session.export?sessionId=${SID}&includeDescendants=true`)
     expect(init.method).toBe('HEAD')
     expect(init.signal).toBeInstanceOf(AbortSignal)
-    expect(save).toHaveBeenCalledWith(
-      route,
-      'dsh-session-session-export-controller.zip',
-    )
+    expect(save).toHaveBeenCalledWith(route, 'dsh-session-session-export-controller.zip')
     expect(controller.store.getSnapshot().bySession[SID]).toEqual({
-      open: true, status: 'success', error: null,
+      open: true,
+      status: 'success',
+      error: null,
     })
   })
 
@@ -52,9 +49,7 @@ describe('SessionLogDownloadController', () => {
   })
 
   it('publishes HTTP and transport failures without leaking rejections', async () => {
-    const http = new SessionLogDownloadController(
-      async () => new Response('backend unavailable', { status: 500 }), vi.fn(),
-    )
+    const http = new SessionLogDownloadController(async () => new Response('backend unavailable', { status: 500 }), vi.fn())
     await http.download(SID)
     expect(http.store.getSnapshot().bySession[SID]).toEqual({
       open: true,
@@ -62,16 +57,23 @@ describe('SessionLogDownloadController', () => {
       error: 'Export failed: HTTP 500 backend unavailable',
     })
 
-    const transport = new SessionLogDownloadController(async () => { throw 'offline' }, vi.fn())
+    const transport = new SessionLogDownloadController(async () => {
+      throw 'offline'
+    }, vi.fn())
     await transport.download(SID)
     expect(transport.store.getSnapshot().bySession[SID]?.error).toBe('offline')
 
     transport.dismiss('absent' as SessionId)
 
     const emptyDetail = new SessionLogDownloadController(
-      async () => ({
-        ok: false, status: 503, text: async () => { throw new Error('body unavailable') },
-      }) as unknown as Response,
+      async () =>
+        ({
+          ok: false,
+          status: 503,
+          text: async () => {
+            throw new Error('body unavailable')
+          },
+        }) as unknown as Response,
       vi.fn(),
     )
     await emptyDetail.download(SID)
@@ -80,12 +82,19 @@ describe('SessionLogDownloadController', () => {
 
   it('aborts active fetches on disposal and rejects later requests', async () => {
     let signal: AbortSignal | undefined
-    const fetcher = vi.fn((_input: string | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
-      signal = init?.signal ?? undefined
-      signal?.addEventListener('abort', () => {
-        reject(signal?.reason instanceof Error ? signal.reason : new Error('aborted'))
-      }, { once: true })
-    }))
+    const fetcher = vi.fn(
+      (_input: string | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          signal = init?.signal ?? undefined
+          signal?.addEventListener(
+            'abort',
+            () => {
+              reject(signal?.reason instanceof Error ? signal.reason : new Error('aborted'))
+            },
+            { once: true },
+          )
+        }),
+    )
     const controller = new SessionLogDownloadController(fetcher, vi.fn())
     const pending = controller.download(SID)
 

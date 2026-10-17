@@ -122,9 +122,7 @@ Both `writeText` and `editText` take their version guard OPTIONALLY: omit it for
  * `FS_STALE_VERSION`. Omitting the intent from `writeText` means unconditional
  * create-or-overwrite, not a third union arm.
  */
-type FsWriteIntent =
-  | { kind: 'createIfAbsent' }
-  | { kind: 'replaceIfVersion'; version: FsVersion }
+type FsWriteIntent = { kind: 'createIfAbsent' } | { kind: 'replaceIfVersion'; version: FsVersion }
 ```
 
 ```ts type-equiv
@@ -190,9 +188,7 @@ interface FsEditOutcome {
  * version used by guarded replacement; an absent observation authorizes only a
  * guarded create, never an edit.
  */
-type FsObservation =
-  | { readonly kind: 'present'; readonly version: FsVersion }
-  | { readonly kind: 'absent' }
+type FsObservation = { readonly kind: 'present'; readonly version: FsVersion } | { readonly kind: 'absent' }
 ```
 
 ## Execution context (policy plugin)
@@ -482,7 +478,7 @@ Single-slot decision for the next FileSystem.editText. Calling `next()` yields a
  * @param actor - the opaque tool-execution context the decider keys off.
  * @mode waterfall
  */
-'fs/edit-intent'(target: FsTarget, actor: object | undefined, next: () => { version: FsVersion } | undefined | Promise<{ version: FsVersion } | undefined>): Promise<{ version: FsVersion } | undefined>
+'fs/edit-intent'( target: FsTarget, actor: object | undefined, next: () => { version: FsVersion } | undefined | Promise<{ version: FsVersion } | undefined>, ): Promise<{ version: FsVersion } | undefined>
 ```
 
 Source: [`packages/fs/fs/src/index.ts`](../../packages/fs/fs/src/index.ts)
@@ -523,7 +519,7 @@ Single-slot decision for the next FileSystem.writeText. Calling `next()` yields 
  * @param actor - the opaque tool-execution context the decider keys off.
  * @mode waterfall
  */
-'fs/write-intent'(target: FsTarget, actor: object | undefined, next: () => FsWriteIntent | undefined | Promise<FsWriteIntent | undefined>): Promise<FsWriteIntent | undefined>
+'fs/write-intent'( target: FsTarget, actor: object | undefined, next: () => FsWriteIntent | undefined | Promise<FsWriteIntent | undefined>, ): Promise<FsWriteIntent | undefined>
 ```
 
 Source: [`packages/fs/fs/src/index.ts`](../../packages/fs/fs/src/index.ts)

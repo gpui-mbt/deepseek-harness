@@ -6,7 +6,7 @@
  * @module
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { KvUnitDescriptor, StorageBackend } from '../src/backend.ts'
 
 /** One conformance run: a fresh backend plus a way to reopen the same medium (crash simulation). */

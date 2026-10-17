@@ -11,11 +11,18 @@ import { ElectronWebviewPresentation } from './ElectronWebviewPresentation.ts'
  * @param workspace - storage account resolver.
  * @returns separate navigation and presentation faces.
  */
-export function createElectronPage(options: BrowserPageOptions, bridge: DesktopBrowserBridge,
-  workspace: (signal: AbortSignal) => Promise<string>): BrowserPage {
+export function createElectronPage(
+  options: BrowserPageOptions,
+  bridge: DesktopBrowserBridge,
+  workspace: (signal: AbortSignal) => Promise<string>,
+): BrowserPage {
   const presentation = new ElectronWebviewPresentation({
-    mounted: () => { frame.attach() },
-    unmounted: () => { frame.detach() },
+    mounted: () => {
+      frame.attach()
+    },
+    unmounted: () => {
+      frame.detach()
+    },
   })
   const frame = new ElectronWebViewImpl(options, bridge, workspace, presentation)
   return { frame, presentation }

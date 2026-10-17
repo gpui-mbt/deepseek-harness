@@ -88,15 +88,15 @@ export type ContextFormed =
   | { readonly form: 'instructions' }
   | { readonly form: 'catalog' }
   | {
-    readonly form: 'snapshot'
-    /** The named contributions this snapshot assembled, in order. */
-    readonly sections: readonly ContextSnapshotSection[]
-  }
+      readonly form: 'snapshot'
+      /** The named contributions this snapshot assembled, in order. */
+      readonly sections: readonly ContextSnapshotSection[]
+    }
   | {
-    readonly form: 'notice'
-    /** One-line account of what happened, shown without expanding the row. */
-    readonly summary: string
-  }
+      readonly form: 'notice'
+      /** One-line account of what happened, shown without expanding the row. */
+      readonly summary: string
+    }
   | { readonly form: 'relay' }
   | { readonly form: 'recall' }
 
@@ -127,9 +127,7 @@ export const CONTEXT_SUMMARY_MAX_CHARS = 120
  * @returns the account, ellipsized when it exceeds the bound.
  */
 export function boundContextSummary(summary: string): string {
-  return summary.length <= CONTEXT_SUMMARY_MAX_CHARS
-    ? summary
-    : `${summary.slice(0, CONTEXT_SUMMARY_MAX_CHARS - 1)}…`
+  return summary.length <= CONTEXT_SUMMARY_MAX_CHARS ? summary : `${summary.slice(0, CONTEXT_SUMMARY_MAX_CHARS - 1)}…`
 }
 
 /** Any known message source, derived from {@link MessageSourceMap}; switch on `kind` and fall through unknowns (merge-extensible). */
@@ -218,13 +216,13 @@ export function freezeMessage<T extends Message>(message: T): T {
  * @param input - complete role, content, and source for a new message.
  * @returns an immutable message with a fresh stable identity.
  */
-export function createMessage<T extends NewMessage>(
-  input: T & { readonly id?: never },
-): T & Pick<Message, 'id'> {
-  return deepFreeze(structuredClone({
-    ...input,
-    id: brandString<MessageId>(randomUUID()),
-  }))
+export function createMessage<T extends NewMessage>(input: T & { readonly id?: never }): T & Pick<Message, 'id'> {
+  return deepFreeze(
+    structuredClone({
+      ...input,
+      id: brandString<MessageId>(randomUUID()),
+    }),
+  )
 }
 
 /**
@@ -257,9 +255,7 @@ export function createUserMessage<T extends NewUserMessage>(
  * @param input - complete content plus the provider, model, and optional replay state for a new assistant message.
  * @returns an immutable assistant message with fixed role/source tags and a fresh stable identity.
  */
-export function createAssistantMessage(
-  input: NewAssistantMessage & { readonly id?: never; readonly role?: never },
-): AssistantMessage {
+export function createAssistantMessage(input: NewAssistantMessage & { readonly id?: never; readonly role?: never }): AssistantMessage {
   return createMessage({
     role: 'assistant',
     content: input.content,

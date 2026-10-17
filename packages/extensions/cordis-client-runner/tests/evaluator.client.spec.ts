@@ -6,14 +6,9 @@
  * the style bookkeeping whose disposal the runner owns.
  */
 import * as React from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { CordisDynamicPluginId } from '@deepseek-ai/dsh-api-remotes/client'
-import {
-  DynamicCordisStyles,
-  DYNAMIC_CLIENT_REDIRECTS,
-  evaluateClientHalf,
-  isDynamicCordisPlugin,
-} from '../src/client/evaluator.ts'
+import { DynamicCordisStyles, DYNAMIC_CLIENT_REDIRECTS, evaluateClientHalf, isDynamicCordisPlugin } from '../src/client/evaluator.ts'
 import type { DynamicCordisClosureEnv, DynamicCordisEvaluatedPlugin } from '../src/client/evaluator.ts'
 
 const ID = 'dyn-1' as CordisDynamicPluginId
@@ -27,7 +22,10 @@ function env(overrides: Partial<DynamicCordisClosureEnv> = {}): DynamicCordisClo
 }
 
 /** Evaluate one source with fresh style bookkeeping. */
-async function run(source: string, closure: DynamicCordisClosureEnv = env()): Promise<{
+async function run(
+  source: string,
+  closure: DynamicCordisClosureEnv = env(),
+): Promise<{
   plugin: DynamicCordisEvaluatedPlugin | ((ctx: unknown) => unknown)
   styles: DynamicCordisStyles
 }> {
@@ -58,8 +56,7 @@ describe('evaluateClientHalf', () => {
   it('redirects browser timers to the ctx facade', async () => {
     for (const timer of ['setTimeout', 'setInterval', 'clearTimeout', 'clearInterval'] as const) {
       const { plugin } = await run(`return () => ${timer}(() => {}, 1)`)
-      expect(() => (plugin as (ctx: unknown) => unknown)({}))
-        .toThrow(DYNAMIC_CLIENT_REDIRECTS[timer])
+      expect(() => (plugin as (ctx: unknown) => unknown)({})).toThrow(DYNAMIC_CLIENT_REDIRECTS[timer])
     }
   })
 
@@ -72,8 +69,7 @@ describe('evaluateClientHalf', () => {
 
   it('teaches the half split on any harness access', async () => {
     const { plugin } = await run('return () => harness.handle("m", () => {})')
-    expect(() => (plugin as (ctx: unknown) => unknown)({}))
-      .toThrow(/harness\.handle belongs to the HOST half/)
+    expect(() => (plugin as (ctx: unknown) => unknown)({})).toThrow(/harness\.handle belongs to the HOST half/)
   })
 
   it('routes host.call to the runner invoke seam', async () => {
@@ -107,7 +103,9 @@ describe('evaluateClientHalf', () => {
     const boom = new TypeError('engine refused')
     // The constructor is the only failure seam before evaluation; a
     // non-SyntaxError must not be reinterpreted as a source problem.
-    vi.stubGlobal('Function', function stub(): never { throw boom })
+    vi.stubGlobal('Function', function stub(): never {
+      throw boom
+    })
     try {
       await expect(run('return () => {}')).rejects.toBe(boom)
     } finally {
@@ -123,14 +121,17 @@ describe('tagged console', () => {
     const closure = env({ noteError: message => seen.push(message) })
     const circular: Record<string, unknown> = {}
     circular.self = circular
-    const { plugin } = await run(`
+    const { plugin } = await run(
+      `
       return { apply: (ctx) => {
         console.log('quiet')
         console.warn('also quiet')
         console.error('text', new Error('boom'), { a: 1 }, undefined, ctx.circular)
         console.debug('quiet too')
       } }
-    `, closure)
+    `,
+      closure,
+    )
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})

@@ -6,7 +6,16 @@ import type { DefaultTheme, PageData, SiteConfig } from 'vitepress'
 import type { ViteDevServer } from 'vite'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { codeGroupFallbackHead, isolateCodeGroupRadios } from './code-groups.ts'
-import { landingLink, localeCollections, orderedPages, routeLink, sectionSpec, type DocsLocale, type DocsPage, type DocsSidebar } from '../docs.ts'
+import {
+  landingLink,
+  localeCollections,
+  orderedPages,
+  routeLink,
+  sectionSpec,
+  type DocsLocale,
+  type DocsPage,
+  type DocsSidebar,
+} from '../docs.ts'
 import { docsSourceFiles, emitRawMarkdownPages, llmsTxt, projectDocs } from '../../scripts/project-doc-site.ts'
 import { rawMarkdownMiddleware } from '../raw-markdown.ts'
 
@@ -107,7 +116,7 @@ function moduleNav(locale: DocsLocale): DefaultTheme.NavItem[] {
 function watchCanonicalDocs(server: ViteDevServer): void {
   const sources = docsSourceFiles()
   server.watcher.add(sources)
-  server.watcher.on('change', (changed) => {
+  server.watcher.on('change', changed => {
     if (!sources.includes(changed)) return
     projectDocs()
   })
@@ -157,9 +166,7 @@ const sharedTheme: Pick<DefaultTheme.Config, 'search' | 'socialLinks' | 'editLin
       },
     },
   },
-  socialLinks: [
-    { icon: 'github', link: 'https://github.com/deepseek-ai/deepseek-harness' },
-  ],
+  socialLinks: [{ icon: 'github', link: 'https://github.com/deepseek-ai/deepseek-harness' }],
   editLink: {
     pattern: ({ frontmatter }: PageData) => {
       const data: unknown = frontmatter
@@ -288,10 +295,7 @@ export default withMermaid({
       lang: 'zh-CN',
       themeConfig: {
         siteTitle: siteTitle('技术预览'),
-        nav: [
-          { text: '入门', link: landingLink('root', guideModules.root.guide), activeMatch: '^/guide/' },
-          ...moduleNav('root'),
-        ],
+        nav: [{ text: '入门', link: landingLink('root', guideModules.root.guide), activeMatch: '^/guide/' }, ...moduleNav('root')],
         sidebar: {
           '/guide/': guideSidebar('root'),
           '/develop/': sidebar('root', 'zh-develop'),
@@ -314,10 +318,7 @@ export default withMermaid({
       link: '/en/',
       themeConfig: {
         siteTitle: siteTitle('Preview'),
-        nav: [
-          { text: 'Guide', link: landingLink('en', guideModules.en.guide), activeMatch: '^/en/guide/' },
-          ...moduleNav('en'),
-        ],
+        nav: [{ text: 'Guide', link: landingLink('en', guideModules.en.guide), activeMatch: '^/en/guide/' }, ...moduleNav('en')],
         sidebar: {
           '/en/guide/': guideSidebar('en'),
           '/en/develop/': sidebar('en', 'en-develop'),

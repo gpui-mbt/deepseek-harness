@@ -21,8 +21,9 @@ export function displayed(element: HTMLElement): boolean {
  * @returns The current Chat column, or undefined while another View is selected.
  */
 export function mainChatRoot(): HTMLElement | undefined {
-  return [...document.querySelectorAll<HTMLElement>('[data-slot="main.conversation"] [data-slot="conversation.view"] [data-chat-flow]')]
-    .find(element => element.closest('[data-sidebar-right-session], [data-step-process-body]') === null && displayed(element))
+  return [
+    ...document.querySelectorAll<HTMLElement>('[data-slot="main.conversation"] [data-slot="conversation.view"] [data-chat-flow]'),
+  ].find(element => element.closest('[data-sidebar-right-session], [data-step-process-body]') === null && displayed(element))
 }
 
 /**
@@ -32,8 +33,11 @@ export function mainChatRoot(): HTMLElement | undefined {
  * @returns Whether the candidate belongs to that occurrence.
  */
 export function inChat(element: Element, root: HTMLElement): boolean {
-  return root.contains(element) && element.closest('[data-sidebar-right-session]') === null
-    && element.closest('[data-slot="conversation.view"]') === root.closest('[data-slot="conversation.view"]')
+  return (
+    root.contains(element) &&
+    element.closest('[data-sidebar-right-session]') === null &&
+    element.closest('[data-slot="conversation.view"]') === root.closest('[data-slot="conversation.view"]')
+  )
 }
 
 /**
@@ -45,10 +49,14 @@ export function inChat(element: Element, root: HTMLElement): boolean {
 export function findChatTargets(root: HTMLElement, targets: readonly InspectorChatTarget[]): readonly HTMLElement[] {
   const fields = ['chatCallId', 'chatNodeKey', 'chatGroupKey', 'chatTurn'] as const
   const indexed = {
-    chatCallId: new Map<string, HTMLElement[]>(), chatNodeKey: new Map<string, HTMLElement[]>(),
-    chatGroupKey: new Map<string, HTMLElement[]>(), chatTurn: new Map<string, HTMLElement[]>(),
+    chatCallId: new Map<string, HTMLElement[]>(),
+    chatNodeKey: new Map<string, HTMLElement[]>(),
+    chatGroupKey: new Map<string, HTMLElement[]>(),
+    chatTurn: new Map<string, HTMLElement[]>(),
   }
-  for (const element of root.querySelectorAll<HTMLElement>('[data-chat-call-id], [data-chat-node-key], [data-chat-group-key], [data-chat-turn]')) {
+  for (const element of root.querySelectorAll<HTMLElement>(
+    '[data-chat-call-id], [data-chat-node-key], [data-chat-group-key], [data-chat-turn]',
+  )) {
     if (!inChat(element, root)) continue
     for (const field of fields) {
       const value = element.dataset[field]
@@ -59,7 +67,7 @@ export function findChatTargets(root: HTMLElement, targets: readonly InspectorCh
     }
   }
   const found = new Set<HTMLElement>()
-  const add = (field: typeof fields[number], value: string | undefined, part?: string): void => {
+  const add = (field: (typeof fields)[number], value: string | undefined, part?: string): void => {
     if (value === undefined) return
     for (const element of indexed[field].get(value) ?? []) {
       if (part === undefined || element.dataset.chatGroupPart === part) found.add(element)

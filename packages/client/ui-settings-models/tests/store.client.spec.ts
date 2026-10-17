@@ -1,5 +1,5 @@
 /** Page-store join: directory × namespaces × credentials, with last-good rows on failure. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { RpcResponse } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -19,32 +19,72 @@ it.each([
 
 it('carries the endpoint and native authentication the adapter reports onto the row', () => {
   const nativeAuth = { env: ['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'], oauth: true }
-  expect(joinProviderDirectory([], [{
-    provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'],
-    defaultBaseURL: 'https://api.anthropic.com', baseURLEnv: ['ENDPOINT'], nativeAuth,
-  }])).toEqual([{
-    provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'],
-    active: false, defaultBaseURL: 'https://api.anthropic.com', baseURLEnv: ['ENDPOINT'], nativeAuth,
-  }])
+  expect(
+    joinProviderDirectory(
+      [],
+      [
+        {
+          provider: 'anthropic',
+          displayName: 'anthropic',
+          settingsNs: 'llm-pi-ai',
+          settingsPath: ['providers', 'anthropic'],
+          defaultBaseURL: 'https://api.anthropic.com',
+          baseURLEnv: ['ENDPOINT'],
+          nativeAuth,
+        },
+      ],
+    ),
+  ).toEqual([
+    {
+      provider: 'anthropic',
+      displayName: 'anthropic',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'anthropic'],
+      active: false,
+      defaultBaseURL: 'https://api.anthropic.com',
+      baseURLEnv: ['ENDPOINT'],
+      nativeAuth,
+    },
+  ])
 })
 
-it.each([false, true])('retains configuration diagnostics when the route is active: %s', (active) => {
-  expect(joinProviderDirectory(active ? [{ id: 'openai', name: 'openai' }] : [], [{
-    provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'],
-    error: 'catalog unavailable',
-  }])).toEqual([{
-    provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'],
-    active, error: 'catalog unavailable',
-  }])
+it.each([false, true])('retains configuration diagnostics when the route is active: %s', active => {
+  expect(
+    joinProviderDirectory(active ? [{ id: 'openai', name: 'openai' }] : [], [
+      {
+        provider: 'openai',
+        displayName: 'openai',
+        settingsNs: 'llm-pi-ai',
+        settingsPath: ['providers', 'openai'],
+        error: 'catalog unavailable',
+      },
+    ]),
+  ).toEqual([
+    {
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'openai'],
+      active,
+      error: 'catalog unavailable',
+    },
+  ])
 })
 
 it('places account and official before third-party providers', () => {
   const providers = ['custom', 'deepseek-official', 'deepseek-account', 'openai']
   const directory = providers.map(provider => ({
-    provider, displayName: provider, settingsNs: 'fixture', settingsPath: [],
+    provider,
+    displayName: provider,
+    settingsNs: 'fixture',
+    settingsPath: [],
   }))
-  expect(joinProviderDirectory([], directory).map(row => row.provider))
-    .toEqual(['deepseek-account', 'deepseek-official', 'custom', 'openai'])
+  expect(joinProviderDirectory([], directory).map(row => row.provider)).toEqual([
+    'deepseek-account',
+    'deepseek-official',
+    'custom',
+    'openai',
+  ])
   expect(directory.map(row => row.provider)).toEqual(providers)
 })
 
@@ -57,9 +97,7 @@ function fail<T>(message: string): RpcResponse<T> {
 }
 
 /** Answers over the Remote carrier, which has no envelope. */
-type RemoteAnswer<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: RemoteError }
+type RemoteAnswer<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: RemoteError }
 function remoteOk<T>(value: T): RemoteAnswer<T> {
   return { ok: true, value }
 }
@@ -80,7 +118,8 @@ const NAMESPACES = [
     schema: {},
     value: { apiKeyEnv: 'DEEPSEEK_API_KEY', baseURL: 'https://base' },
     base: { baseURL: 'https://base' },
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision: 0,
   },
@@ -89,7 +128,8 @@ const NAMESPACES = [
     schema: {},
     value: { baseURL: 'https://base' },
     base: { baseURL: 'https://base' },
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision: 0,
   },
@@ -98,19 +138,22 @@ const NAMESPACES = [
     schema: {},
     value: { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } },
     user: { providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } },
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision: 0,
   },
 ]
 
-function api(overrides: {
-  accountAvailable?: boolean
-  providers?: () => Promise<RpcResponse<{ providers: typeof DIRECTORY }>>
-  describeSettings?: () => Promise<RemoteAnswer<{ writable: boolean; hasDocument: boolean; namespaces: typeof NAMESPACES }>>
-  describeCredentials?: (refs: readonly string[]) => Promise<RemoteAnswer<Record<string, unknown>>>
-  catalog?: () => Promise<RemoteAnswer<{ groups: readonly { id: string; models: readonly { id: string }[] }[] }>>
-} = {}) {
+function api(
+  overrides: {
+    accountAvailable?: boolean
+    providers?: () => Promise<RpcResponse<{ providers: typeof DIRECTORY }>>
+    describeSettings?: () => Promise<RemoteAnswer<{ writable: boolean; hasDocument: boolean; namespaces: typeof NAMESPACES }>>
+    describeCredentials?: (refs: readonly string[]) => Promise<RemoteAnswer<Record<string, unknown>>>
+    catalog?: () => Promise<RemoteAnswer<{ groups: readonly { id: string; models: readonly { id: string }[] }[] }>>
+  } = {},
+) {
   const seenRefs: string[][] = []
   const providers = overrides.providers ?? (() => Promise.resolve(ok({ providers: DIRECTORY })))
   let providerBatch: Promise<RpcResponse<{ providers: typeof DIRECTORY }>> | undefined
@@ -122,39 +165,39 @@ function api(overrides: {
     if (providerBatchReads % 2 === 0) providerBatch = undefined
     return current
   }
-  const mapProviderBatch = async <T>(
-    project: (rows: typeof DIRECTORY) => T,
-  ): Promise<RemoteAnswer<T>> => {
+  const mapProviderBatch = async <T>(project: (rows: typeof DIRECTORY) => T): Promise<RemoteAnswer<T>> => {
     const response = await readProviderBatch()
-    return response.result.ok
-      ? remoteOk(project(response.result.value.providers))
-      : remoteFail(response.result.error.message)
+    return response.result.ok ? remoteOk(project(response.result.value.providers)) : remoteFail(response.result.error.message)
   }
   const face = {
     session: {
-      modelCatalog: overrides.catalog ?? (async () => remoteOk({ groups: overrides.accountAvailable
-        ? [{ id: 'deepseek-account', models: [{ id: 'deepseek-flash' }] }] : [] })),
+      modelCatalog:
+        overrides.catalog ??
+        (async () =>
+          remoteOk({ groups: overrides.accountAvailable ? [{ id: 'deepseek-account', models: [{ id: 'deepseek-flash' }] }] : [] })),
     },
     llm: {
-      listProviders: () => mapProviderBatch(rows => rows
-        .filter(row => row.active)
-        .map(row => ({ id: row.provider, name: row.displayName }))),
-      listConfigurableProviders: () => mapProviderBatch(rows => rows
-        .filter(row => row.settingsNs !== '')
-        .map(({ active: _active, ...row }) => row)),
+      listProviders: () =>
+        mapProviderBatch(rows => rows.filter(row => row.active).map(row => ({ id: row.provider, name: row.displayName }))),
+      listConfigurableProviders: () =>
+        mapProviderBatch(rows => rows.filter(row => row.settingsNs !== '').map(({ active: _active, ...row }) => row)),
       discoverModels: () => Promise.resolve(remoteOk([])),
     },
     settings: {
-      describe: overrides.describeSettings
-        ?? (() => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES }))),
+      describe:
+        overrides.describeSettings ?? (() => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES }))),
       mutate: () => Promise.resolve(remoteFail('the store spec issues no writes')),
     },
     credentials: {
       describe: (refs: readonly string[]) => {
         seenRefs.push([...refs])
-        return (overrides.describeCredentials ?? (asked => Promise.resolve(remoteOk(
-          Object.fromEntries(asked.map(ref => [ref, { configured: ref === 'OPENAI_API_KEY', writable: true }])),
-        ))))(refs)
+        return (
+          overrides.describeCredentials ??
+          (asked =>
+            Promise.resolve(
+              remoteOk(Object.fromEntries(asked.map(ref => [ref, { configured: ref === 'OPENAI_API_KEY', writable: true }]))),
+            ))
+        )(refs)
       },
       set: () => Promise.resolve(remoteOk(undefined)),
       unset: () => Promise.resolve(remoteOk(undefined)),
@@ -168,7 +211,11 @@ function api(overrides: {
 describe('ModelsSettingsStore', () => {
   it('describes native variables without exposing secret values and respects the 64-reference limit', async () => {
     const providers = Array.from({ length: 65 }, (_, index) => ({
-      provider: `fixture-${index}`, displayName: 'fixture', settingsNs: 'llm-pi-ai', settingsPath: ['providers', `fixture-${index}`], active: false,
+      provider: `fixture-${index}`,
+      displayName: 'fixture',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', `fixture-${index}`],
+      active: false,
       nativeAuth: { env: [`NATIVE_${index}`], oauth: false },
     }))
     const { ctx, mirror, seenRefs } = api({ providers: () => Promise.resolve(ok({ providers })) })
@@ -176,8 +223,7 @@ describe('ModelsSettingsStore', () => {
     await store.load()
     expect(seenRefs.map(refs => refs.length)).toEqual([64, 64, 2])
     expect(seenRefs.flat()).toContain('NATIVE_64')
-    expect(store.store.getSnapshot().rows[64]!.credentialChecks)
-      .toEqual({ NATIVE_64: { configured: false, writable: true } })
+    expect(store.store.getSnapshot().rows[64]!.credentialChecks).toEqual({ NATIVE_64: { configured: false, writable: true } })
   })
 
   it('joins rows with configured, removable, and credential state', async () => {
@@ -235,16 +281,19 @@ describe('ModelsSettingsStore', () => {
 
   it('surfaces a configurable-provider directory failure', async () => {
     const { ctx, face, mirror } = api()
-    const llm = (face as unknown as {
-      llm: { listConfigurableProviders: () => Promise<RemoteAnswer<never>> }
-    }).llm
+    const llm = (
+      face as unknown as {
+        llm: { listConfigurableProviders: () => Promise<RemoteAnswer<never>> }
+      }
+    ).llm
     llm.listConfigurableProviders = () => Promise.resolve(remoteFail<never>('configuration directory down'))
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
 
     await store.load()
 
     expect(store.store.getSnapshot()).toMatchObject({
-      status: 'error', error: 'configuration directory down',
+      status: 'error',
+      error: 'configuration directory down',
     })
   })
 
@@ -262,14 +311,18 @@ describe('ModelsSettingsStore', () => {
       apiKeyEnv: undefined,
       credential: undefined,
     })
-    expect(routingProviderOptions(
-      [row('opencode-go', true), row('declared-only', false), row('no-catalog', true)],
-      [{
-        id: 'opencode-go',
-        name: 'OpenCode Go',
-        models: [{ id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash' }],
-      }],
-    )).toEqual([
+    expect(
+      routingProviderOptions(
+        [row('opencode-go', true), row('declared-only', false), row('no-catalog', true)],
+        [
+          {
+            id: 'opencode-go',
+            name: 'OpenCode Go',
+            models: [{ id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash' }],
+          },
+        ],
+      ),
+    ).toEqual([
       { id: 'opencode-go', name: 'opencode-go', models: ['deepseek-v4.1-flash'] },
       { id: 'no-catalog', name: 'no-catalog', models: [] },
     ])
@@ -277,35 +330,35 @@ describe('ModelsSettingsStore', () => {
 
   it('keeps the last good catalog groups when a catalog read fails', async () => {
     let calls = 0
-    const { ctx, mirror } = api({ catalog: () => {
-      calls += 1
-      return calls === 1
-        ? Promise.resolve(remoteOk({ groups: [{ id: 'opencode-go', models: [{ id: 'deepseek-v4.1-flash' }] }] }))
-        : Promise.resolve(remoteFail('catalog down'))
-    } })
+    const { ctx, mirror } = api({
+      catalog: () => {
+        calls += 1
+        return calls === 1
+          ? Promise.resolve(remoteOk({ groups: [{ id: 'opencode-go', models: [{ id: 'deepseek-v4.1-flash' }] }] }))
+          : Promise.resolve(remoteFail('catalog down'))
+      },
+    })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     await store.load()
-    expect(store.store.getSnapshot().catalogGroups).toEqual([
-      { id: 'opencode-go', models: [{ id: 'deepseek-v4.1-flash' }] },
-    ])
+    expect(store.store.getSnapshot().catalogGroups).toEqual([{ id: 'opencode-go', models: [{ id: 'deepseek-v4.1-flash' }] }])
     await store.load()
-    expect(store.store.getSnapshot().catalogGroups).toEqual([
-      { id: 'opencode-go', models: [{ id: 'deepseek-v4.1-flash' }] },
-    ])
+    expect(store.store.getSnapshot().catalogGroups).toEqual([{ id: 'opencode-go', models: [{ id: 'deepseek-v4.1-flash' }] }])
   })
 
   it('drops a stale catalog response after a newer load finished', async () => {
     const firstCatalog = Promise.withResolvers<RemoteAnswer<{ groups: readonly { id: string; models: readonly { id: string }[] }[] }>>()
     const firstStarted = Promise.withResolvers<undefined>()
     let calls = 0
-    const { ctx, mirror } = api({ catalog: () => {
-      calls += 1
-      if (calls === 1) {
-        firstStarted.resolve(undefined)
-        return firstCatalog.promise
-      }
-      return Promise.resolve(remoteOk({ groups: [] }))
-    } })
+    const { ctx, mirror } = api({
+      catalog: () => {
+        calls += 1
+        if (calls === 1) {
+          firstStarted.resolve(undefined)
+          return firstCatalog.promise
+        }
+        return Promise.resolve(remoteOk({ groups: [] }))
+      },
+    })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     const first = store.load()
     await firstStarted.promise
@@ -318,7 +371,9 @@ describe('ModelsSettingsStore', () => {
 
   it('lets the newest load win over a stale slow response', async () => {
     let release: (() => void) | undefined
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
     let call = 0
     const { ctx, mirror } = api({
       providers: async () => {
@@ -344,22 +399,31 @@ describe('ModelsSettingsStore', () => {
     const firstStarted = Promise.withResolvers<undefined>()
     const latestStarted = Promise.withResolvers<undefined>()
     let calls = 0
-    const { ctx, mirror } = api({ describeCredentials: () => {
-      calls += 1
-      if (calls === 1) { firstStarted.resolve(undefined); return firstRead.promise }
-      latestStarted.resolve(undefined)
-      return latestRead.promise
-    } })
+    const { ctx, mirror } = api({
+      describeCredentials: () => {
+        calls += 1
+        if (calls === 1) {
+          firstStarted.resolve(undefined)
+          return firstRead.promise
+        }
+        latestStarted.resolve(undefined)
+        return latestRead.promise
+      },
+    })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     let firstSettled = false
-    const first = store.load().then(() => { firstSettled = true })
+    const first = store.load().then(() => {
+      firstSettled = true
+    })
     await firstStarted.promise
     const latest = store.load()
     await latestStarted.promise
     try {
       firstRead.resolve(remoteOk({}))
       await firstRead.promise
-      await new Promise<void>((resolve) => { setImmediate(resolve) })
+      await new Promise<void>(resolve => {
+        setImmediate(resolve)
+      })
       expect(firstSettled).toBe(false)
       expect(store.store.getSnapshot().status).toBe('loading')
       latestRead.resolve(remoteOk({}))
@@ -379,27 +443,38 @@ describe('ModelsSettingsStore', () => {
     const obsoleteStarted = Promise.withResolvers<undefined>()
     const latestStarted = Promise.withResolvers<undefined>()
     let calls = 0
-    const { ctx, mirror } = api({ describeCredentials: () => {
-      calls += 1
-      if (calls === 1) { obsoleteStarted.resolve(undefined); return obsoleteRead.promise }
-      latestStarted.resolve(undefined)
-      return latestRead.promise
-    } })
+    const { ctx, mirror } = api({
+      describeCredentials: () => {
+        calls += 1
+        if (calls === 1) {
+          obsoleteStarted.resolve(undefined)
+          return obsoleteRead.promise
+        }
+        latestStarted.resolve(undefined)
+        return latestRead.promise
+      },
+    })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     let obsoleteSettled = false
-    const obsolete = store.load().then(() => { obsoleteSettled = true })
+    const obsolete = store.load().then(() => {
+      obsoleteSettled = true
+    })
     await obsoleteStarted.promise
     const latest = store.load()
     await latestStarted.promise
     try {
       latestRead.resolve(remoteFail('latest credentials unavailable'))
       await latest
-      await new Promise<void>((resolve) => { setImmediate(resolve) })
+      await new Promise<void>(resolve => {
+        setImmediate(resolve)
+      })
       expect(obsoleteSettled).toBe(true)
       expect(store.store.getSnapshot()).toMatchObject({ status: 'ready', credentialError: 'latest credentials unavailable' })
       obsoleteRead.reject(new Error('obsolete transport unavailable'))
       await Promise.allSettled([obsoleteRead.promise])
-      await new Promise<void>((resolve) => { setImmediate(resolve) })
+      await new Promise<void>(resolve => {
+        setImmediate(resolve)
+      })
       expect(store.store.getSnapshot()).toMatchObject({ status: 'ready', credentialError: 'latest credentials unavailable' })
     } finally {
       obsoleteRead.resolve(remoteOk({}))
@@ -414,16 +489,23 @@ describe('ModelsSettingsStore', () => {
     const obsoleteStarted = Promise.withResolvers<undefined>()
     const latestStarted = Promise.withResolvers<undefined>()
     let calls = 0
-    const { ctx, mirror } = api({ describeCredentials: () => {
-      calls += 1
-      if (calls === 1) { obsoleteStarted.resolve(undefined); return obsoleteRead.promise }
-      latestStarted.resolve(undefined)
-      return latestRead.promise
-    } })
+    const { ctx, mirror } = api({
+      describeCredentials: () => {
+        calls += 1
+        if (calls === 1) {
+          obsoleteStarted.resolve(undefined)
+          return obsoleteRead.promise
+        }
+        latestStarted.resolve(undefined)
+        return latestRead.promise
+      },
+    })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     let firstSettlement: PromiseSettledResult<void> | undefined
     const first = store.load()
-    const firstObserved = Promise.allSettled([first]).then(([settlement]) => { firstSettlement = settlement })
+    const firstObserved = Promise.allSettled([first]).then(([settlement]) => {
+      firstSettlement = settlement
+    })
     await obsoleteStarted.promise
     const second = store.load()
     await latestStarted.promise
@@ -432,11 +514,15 @@ describe('ModelsSettingsStore', () => {
     try {
       latestRead.reject(rejection)
       expect(await latestSettlement).toEqual([{ status: 'rejected', reason: rejection }])
-      await new Promise<void>((resolve) => { setImmediate(resolve) })
+      await new Promise<void>(resolve => {
+        setImmediate(resolve)
+      })
       expect(firstSettlement).toEqual({ status: 'rejected', reason: rejection })
       obsoleteRead.reject(new Error('obsolete transport unavailable'))
       await Promise.allSettled([obsoleteRead.promise])
-      await new Promise<void>((resolve) => { setImmediate(resolve) })
+      await new Promise<void>(resolve => {
+        setImmediate(resolve)
+      })
       expect(store.store.getSnapshot().status).toBe('loading')
     } finally {
       obsoleteRead.resolve(remoteOk({}))
@@ -446,22 +532,25 @@ describe('ModelsSettingsStore', () => {
     }
   })
 
-  it.each(['loading', 'ready', 'error'] as const)('waits for a refresh started by a %s subscriber', async (phase) => {
+  it.each(['loading', 'ready', 'error'] as const)('waits for a refresh started by a %s subscriber', async phase => {
     const heldRead = Promise.withResolvers<RemoteAnswer<Record<string, unknown>>>()
     const heldStarted = Promise.withResolvers<undefined>()
     let calls = 0
     let providerReads = 0
-    const { ctx, mirror } = api({ providers: () => {
-      providerReads += 1
-      return Promise.resolve(phase === 'error' && providerReads === 1 ? fail('first directory refused') : ok({ providers: DIRECTORY }))
-    }, describeCredentials: () => {
-      calls += 1
-      if ((phase !== 'ready' && calls === 1) || (phase === 'ready' && calls === 2)) {
-        heldStarted.resolve(undefined)
-        return heldRead.promise
-      }
-      return Promise.resolve(remoteOk({}))
-    } })
+    const { ctx, mirror } = api({
+      providers: () => {
+        providerReads += 1
+        return Promise.resolve(phase === 'error' && providerReads === 1 ? fail('first directory refused') : ok({ providers: DIRECTORY }))
+      },
+      describeCredentials: () => {
+        calls += 1
+        if ((phase !== 'ready' && calls === 1) || (phase === 'ready' && calls === 2)) {
+          heldStarted.resolve(undefined)
+          return heldRead.promise
+        }
+        return Promise.resolve(remoteOk({}))
+      },
+    })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     let followup: Promise<void> | undefined
     let triggered = false
@@ -472,10 +561,14 @@ describe('ModelsSettingsStore', () => {
       }
     })
     let settled = false
-    const first = store.load().then(() => { settled = true })
+    const first = store.load().then(() => {
+      settled = true
+    })
     try {
       await heldStarted.promise
-      await new Promise<void>((resolve) => { setImmediate(resolve) })
+      await new Promise<void>(resolve => {
+        setImmediate(resolve)
+      })
       expect(settled).toBe(false)
       expect(store.store.getSnapshot().status).toBe('loading')
       heldRead.resolve(remoteOk({}))
@@ -494,23 +587,32 @@ describe('ModelsSettingsStore', () => {
 describe('edge joins', () => {
   it('treats a non-object profile as having no credential reference', async () => {
     const { ctx, mirror } = api({
-      describeSettings: () => Promise.resolve(remoteOk({
-        writable: true,
-        hasDocument: false,
-        namespaces: [{
-          ns: 'llm-pi-ai',
-          schema: {},
-          value: { providers: { weird: 'oops' } },
-          autoGenerate: true, applies: 'live' as const,
-          secrets: [],
-          revision: 0,
-        }] as never,
-      })),
-      providers: () => Promise.resolve(ok({
-        providers: [
-          { provider: 'weird', displayName: 'weird', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'weird'], active: false },
-        ] as never,
-      })),
+      describeSettings: () =>
+        Promise.resolve(
+          remoteOk({
+            writable: true,
+            hasDocument: false,
+            namespaces: [
+              {
+                ns: 'llm-pi-ai',
+                schema: {},
+                value: { providers: { weird: 'oops' } },
+                autoGenerate: true,
+                applies: 'live' as const,
+                secrets: [],
+                revision: 0,
+              },
+            ] as never,
+          }),
+        ),
+      providers: () =>
+        Promise.resolve(
+          ok({
+            providers: [
+              { provider: 'weird', displayName: 'weird', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'weird'], active: false },
+            ] as never,
+          }),
+        ),
     })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     await store.load()
@@ -521,19 +623,40 @@ describe('edge joins', () => {
 
   it('describes the derived reference for a row whose profile names none', async () => {
     const { ctx, mirror, seenRefs } = api({
-      describeSettings: () => Promise.resolve(remoteOk({
-        writable: true,
-        hasDocument: false,
-        namespaces: [{ ns: 'llm-pi-ai', schema: {}, value: { providers: {} }, autoGenerate: true, applies: 'live' as const, secrets: [], revision: 0 }] as never,
-      })),
-      providers: () => Promise.resolve(ok({
-        providers: [
-          { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], active: false },
-        ] as never,
-      })),
-      describeCredentials: refs => Promise.resolve(remoteOk(
-        Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
-      )),
+      describeSettings: () =>
+        Promise.resolve(
+          remoteOk({
+            writable: true,
+            hasDocument: false,
+            namespaces: [
+              {
+                ns: 'llm-pi-ai',
+                schema: {},
+                value: { providers: {} },
+                autoGenerate: true,
+                applies: 'live' as const,
+                secrets: [],
+                revision: 0,
+              },
+            ] as never,
+          }),
+        ),
+      providers: () =>
+        Promise.resolve(
+          ok({
+            providers: [
+              {
+                provider: 'anthropic',
+                displayName: 'anthropic',
+                settingsNs: 'llm-pi-ai',
+                settingsPath: ['providers', 'anthropic'],
+                active: false,
+              },
+            ] as never,
+          }),
+        ),
+      describeCredentials: refs =>
+        Promise.resolve(remoteOk(Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])))),
     })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     await store.load()
@@ -549,9 +672,10 @@ describe('edge joins', () => {
   it('recovers the provider directory when an initial settings failure is retried', async () => {
     let settingsCall = 0
     const { ctx, mirror } = api({
-      describeSettings: () => Promise.resolve(++settingsCall === 1
-        ? remoteFail('settings down')
-        : remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES })),
+      describeSettings: () =>
+        Promise.resolve(
+          ++settingsCall === 1 ? remoteFail('settings down') : remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES }),
+        ),
     })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
     await store.load()
@@ -571,9 +695,11 @@ describe('edge joins', () => {
     const { ctx, mirror } = api({
       describeSettings: () => {
         settingsCall += 1
-        return Promise.resolve(settingsCall === 1
-          ? remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES })
-          : remoteFail('settings refresh down'))
+        return Promise.resolve(
+          settingsCall === 1
+            ? remoteOk({ writable: true, hasDocument: false, namespaces: NAMESPACES })
+            : remoteFail('settings refresh down'),
+        )
       },
     })
     const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
@@ -587,7 +713,9 @@ describe('edge joins', () => {
 
   it('drops a stale successful response after a newer load finished', async () => {
     let release: (() => void) | undefined
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
     let call = 0
     const { ctx, mirror } = api({
       providers: async () => {
@@ -610,11 +738,22 @@ describe('edge joins', () => {
   })
 })
 
-
-it.each([false, true])('uses account availability without asking for an API key: %s', async (accountAvailable) => {
-  const { ctx, mirror, seenRefs } = api({ accountAvailable, providers: async () => ok({ providers: [{
-    provider: 'deepseek-account', displayName: 'DeepSeek Account', settingsNs: 'llm-deepseek-account', settingsPath: [], active: true,
-  }] }) })
+it.each([false, true])('uses account availability without asking for an API key: %s', async accountAvailable => {
+  const { ctx, mirror, seenRefs } = api({
+    accountAvailable,
+    providers: async () =>
+      ok({
+        providers: [
+          {
+            provider: 'deepseek-account',
+            displayName: 'DeepSeek Account',
+            settingsNs: 'llm-deepseek-account',
+            settingsPath: [],
+            active: true,
+          },
+        ],
+      }),
+  })
   const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
   await store.load()
   const rows = store.store.getSnapshot().rows
@@ -628,9 +767,22 @@ it.each([false, true])('uses account availability without asking for an API key:
 })
 
 it('removes the account row after sign-out and restores it after sign-in', async () => {
-  const overrides = { accountAvailable: true, providers: async () => ok({ providers: [{
-    provider: 'deepseek-account', displayName: 'DeepSeek Account', settingsNs: 'llm-deepseek-account', settingsPath: [], active: true,
-  }, ...DIRECTORY] }) }
+  const overrides = {
+    accountAvailable: true,
+    providers: async () =>
+      ok({
+        providers: [
+          {
+            provider: 'deepseek-account',
+            displayName: 'DeepSeek Account',
+            settingsNs: 'llm-deepseek-account',
+            settingsPath: [],
+            active: true,
+          },
+          ...DIRECTORY,
+        ],
+      }),
+  }
   const { ctx, mirror } = api(overrides)
   const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
   await store.load()

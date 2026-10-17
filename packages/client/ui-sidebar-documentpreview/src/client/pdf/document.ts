@@ -22,7 +22,10 @@ export interface PdfPageSize {
 }
 
 /** Optional DOM text rendering that shares the canvas page's cleanup barrier. */
-export type RenderPdfText = (page: PDFPageProxy, viewport: PageViewport) => {
+export type RenderPdfText = (
+  page: PDFPageProxy,
+  viewport: PageViewport,
+) => {
   readonly promise: Promise<void>
   cancel(): void
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { credentialRef, isCredentialKeySegment } from '../src/index.ts'
 import type { CredentialRef } from '../src/index.ts'

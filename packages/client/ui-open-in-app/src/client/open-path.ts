@@ -19,7 +19,8 @@ export interface OpenInAppPathRemote {
     canOpenWorkspacePath(): Promise<RemoteResult<boolean>>
     /** Current registered file handlers and their default selection. */
     workspacePathApplications(
-      request: { path: string }, signal?: AbortSignal,
+      request: { path: string },
+      signal?: AbortSignal,
     ): Promise<RemoteResult<readonly SessionWorkspacePathApplication[]>>
     /** Open one Host path in its default application, or reveal it in the file manager. */
     openWorkspacePath(request: SessionOpenWorkspacePathRequest, signal?: AbortSignal): Promise<RemoteResult<unknown>>
@@ -54,7 +55,8 @@ export class OpenInAppPathController {
    * @returns the failure kind to announce, or `null` once the Host acknowledged.
    */
   async openPath(path: string, action: OpenInAppPathAction, application?: string): Promise<OpenInAppPathFailure | null> {
-    const request: SessionOpenWorkspacePathRequest = action === 'reveal' ? { path, action } : { path, ...(application === undefined ? {} : { application }) }
+    const request: SessionOpenWorkspacePathRequest =
+      action === 'reveal' ? { path, action } : { path, ...(application === undefined ? {} : { application }) }
     let ok = false
     try {
       ok = (await this.remote.session.openWorkspacePath(request)).ok

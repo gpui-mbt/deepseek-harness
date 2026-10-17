@@ -3,14 +3,20 @@
 import assert from 'node:assert/strict'
 import type { PanzoomOptions } from '@panzoom/panzoom'
 import { getByRole, queryAllByRole, queryByRole, waitFor } from '@testing-library/dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { MediaViewer } from '../.vitepress/theme/media-viewer.ts'
 import { installMermaidViewer, type MermaidViewer } from '../.vitepress/theme/mermaid-viewer.ts'
 
 const panzoom = vi.hoisted(() => ({
   create: vi.fn<(element: HTMLElement, options: PanzoomOptions) => unknown>(),
-  destroy: vi.fn(), setOptions: vi.fn(), zoom: vi.fn(), pan: vi.fn(),
-  zoomIn: vi.fn(), zoomOut: vi.fn(), zoomWithWheel: vi.fn(), getScale: vi.fn<() => number>(),
+  destroy: vi.fn(),
+  setOptions: vi.fn(),
+  zoom: vi.fn(),
+  pan: vi.fn(),
+  zoomIn: vi.fn(),
+  zoomOut: vi.fn(),
+  zoomWithWheel: vi.fn(),
+  getScale: vi.fn<() => number>(),
 }))
 vi.mock('@panzoom/panzoom', () => ({ default: panzoom.create }))
 
@@ -21,9 +27,9 @@ let resize: (() => void) | undefined
 let viewportWidth = 1032
 let viewportHeight = 632
 const disconnect = vi.fn()
-const dialogMethods = new Map(['showModal', 'close'].map(name => [
-  name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name),
-]))
+const dialogMethods = new Map(
+  ['showModal', 'close'].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]),
+)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -43,19 +49,30 @@ beforeEach(() => {
   })
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => viewportWidth)
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(() => viewportHeight)
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
-    this.open = true
-    this.querySelector<HTMLButtonElement>('[autofocus]')?.focus()
-  } })
-  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) {
-    this.open = false
-    this.dispatchEvent(new Event('close'))
-  } })
-  vi.stubGlobal('ResizeObserver', class {
-    constructor(callback: () => void) { resize = callback }
-    observe(): void {}
-    disconnect = disconnect
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true
+      this.querySelector<HTMLButtonElement>('[autofocus]')?.focus()
+    },
   })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false
+      this.dispatchEvent(new Event('close'))
+    },
+  })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resize = callback
+      }
+      observe(): void {}
+      disconnect = disconnect
+    },
+  )
 })
 
 afterEach(() => {
@@ -124,7 +141,9 @@ describe('documentation Mermaid viewer', () => {
     expect(required(document.querySelector('.mermaid')).firstElementChild?.tagName).toBe('BUTTON')
     const trigger = getByRole(document.body, 'button', { name: 'View diagram fullscreen' })
     expect(trigger.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
-    await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+    await new Promise<void>(resolve => {
+      queueMicrotask(resolve)
+    })
     expect(getByRole(document.body, 'button', { name: 'View diagram fullscreen' })).toBe(trigger)
   })
 
@@ -218,7 +237,7 @@ describe('documentation Mermaid viewer', () => {
     expect(scale.textContent).toBe('75%')
   })
 
-  it.each(['button', 'cancel', 'refresh', 'dispose'] as const)('releases resources on %s and restores focus and scrolling', (method) => {
+  it.each(['button', 'cancel', 'refresh', 'dispose'] as const)('releases resources on %s and restores focus and scrolling', method => {
     render()
     viewer = installMermaidViewer(document, () => locale, media)
     const trigger = getByRole(document.body, 'button')
@@ -268,7 +287,9 @@ describe('documentation Mermaid viewer', () => {
     viewer.dispose()
     required(document.querySelector('main')).innerHTML = '<div class="mermaid"></div>'
     render()
-    await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+    await new Promise<void>(resolve => {
+      queueMicrotask(resolve)
+    })
     expect(queryAllByRole(document.body, 'button')).toHaveLength(0)
   })
 })

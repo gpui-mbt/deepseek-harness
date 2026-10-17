@@ -4,14 +4,17 @@ import { join } from 'node:path'
 import { setImmediate } from 'node:timers/promises'
 import { Context } from '@deepseek-ai/cordis'
 import type { PtcBindingFunction, PtcRunRequest } from '@deepseek-ai/dsh-ptc-runtime'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { Config } from '../src/index.ts'
 import { mountRuntime } from './setup.ts'
 
 async function setup(config: Config = {}) {
   const cwd = await mkdtemp(join(tmpdir(), 'dsh-persistent-ptc-'))
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose(); await rm(cwd, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+    await rm(cwd, { recursive: true, force: true })
+  })
   const { runtime, fiber } = await mountRuntime(ctx, { ...config, executionMode: 'persistent-in-memory' })
   const owner = {}
   const run = (program: string, options: Partial<PtcRunRequest> = {}) =>
@@ -24,24 +27,34 @@ function bindings(value: PtcBindingFunction) {
 }
 
 describe('persistent Node REPL', () => {
-  it.each([
-    'function f() {', '(', '[', '`unfinished',
-    'const x = await Promise.resolve(1); return x',
-  ])('reports an incomplete or top-level-return program before starting a process: %s', async (program) => {
-    const { ctx, run } = await setup()
-    const spawn = vi.spyOn(ctx.subprocess, 'spawn')
-    onTestFinished(() => { spawn.mockRestore() })
-    const result = await run(program)
-    expect(result.error?.kind).toBe('exception')
-    expect(result.error?.message.trim().length).toBeGreaterThan(0)
-    if (program.includes('return x')) expect(result.error?.message).toMatch(/return/i)
-    expect(spawn).not.toHaveBeenCalled()
-  })
+  it.each(['function f() {', '(', '[', '`unfinished', 'const x = await Promise.resolve(1); return x'])(
+    'reports an incomplete or top-level-return program before starting a process: %s',
+    async program => {
+      const { ctx, run } = await setup()
+      const spawn = vi.spyOn(ctx.subprocess, 'spawn')
+      onTestFinished(() => {
+        spawn.mockRestore()
+      })
+      const result = await run(program)
+      expect(result.error?.kind).toBe('exception')
+      expect(result.error?.message.trim().length).toBeGreaterThan(0)
+      if (program.includes('return x')) expect(result.error?.message).toMatch(/return/i)
+      expect(spawn).not.toHaveBeenCalled()
+    },
+  )
 
   it('retains declarations, closures, object identity, and imports across evaluations', async () => {
     const { run, cwd } = await setup()
-    expect(await run('const box: { count: number } = { count: 1 }; let alias = box; function increment() { return ++box.count }; const path = await import("node:path");')).toMatchObject({ logs: [] })
-    expect(await run('console.log("second call"); ({ count: increment(), same: box === alias, dir: path.basename(process.cwd()), env: Object.keys(process.env) })')).toMatchObject({ logs: ['second call'], value: { count: 2, same: true, dir: cwd.split(/[\\/]/).at(-1), env: [] } })
+    expect(
+      await run(
+        'const box: { count: number } = { count: 1 }; let alias = box; function increment() { return ++box.count }; const path = await import("node:path");',
+      ),
+    ).toMatchObject({ logs: [] })
+    expect(
+      await run(
+        'console.log("second call"); ({ count: increment(), same: box === alias, dir: path.basename(process.cwd()), env: Object.keys(process.env) })',
+      ),
+    ).toMatchObject({ logs: ['second call'], value: { count: 2, same: true, dir: cwd.split(/[\\/]/).at(-1), env: [] } })
   })
 
   it('retains implicit REPL globals and does not attribute a completed callback exception to a later evaluation', async () => {
@@ -61,11 +74,20 @@ describe('persistent Node REPL', () => {
     const { run } = await setup()
     const first = vi.fn(async () => 'old')
     const second = vi.fn(async () => 'new')
-    expect((await run('const saved = tools.value; async function query() { return await saved({}) }; await query()', { bindings: bindings(first) })).value).toBe('old')
+    expect(
+      (
+        await run('const saved = tools.value; async function query() { return await saved({}) }; await query()', {
+          bindings: bindings(first),
+        })
+      ).value,
+    ).toBe('old')
     expect((await run('await query()', { bindings: bindings(second) })).value).toBe('new')
     expect(first).toHaveBeenCalledTimes(1)
     expect(second).toHaveBeenCalledTimes(1)
-    expect((await run('let failure; try { await query() } catch (error) { console.log(error.toolName); failure = "unavailable" }; failure')).value).toBe('unavailable')
+    expect(
+      (await run('let failure; try { await query() } catch (error) { console.log(error.toolName); failure = "unavailable" }; failure'))
+        .value,
+    ).toBe('unavailable')
     expect(second).toHaveBeenCalledTimes(1)
   })
 
@@ -80,35 +102,52 @@ describe('persistent Node REPL', () => {
 
   it('uses the current error descriptor through a saved binding and retains matching constructor identity', async () => {
     const { run } = await setup()
-    const fail = async () => { throw new Error('rejected') }
-    const first = { bindings: [{ global: 'tools', functions: { value: fail },
-      errorClass: { name: 'FirstError', memberNameProperty: 'firstMember' } }] }
-    const second = { bindings: [{ global: 'tools', functions: { value: fail },
-      errorClass: { name: 'SecondError', memberNameProperty: 'secondMember' } }] }
+    const fail = async () => {
+      throw new Error('rejected')
+    }
+    const first = {
+      bindings: [{ global: 'tools', functions: { value: fail }, errorClass: { name: 'FirstError', memberNameProperty: 'firstMember' } }],
+    }
+    const second = {
+      bindings: [{ global: 'tools', functions: { value: fail }, errorClass: { name: 'SecondError', memberNameProperty: 'secondMember' } }],
+    }
     await run('const saved = tools.value; const initialClass = FirstError;', first)
     expect((await run('FirstError === initialClass', first)).value).toBe(true)
-    const observed = await run(`
+    const observed = await run(
+      `
       let observed;
       try { await saved({}) } catch (error) {
         observed = { name: error.name, member: error.secondMember, first: 'firstMember' in error,
           current: error instanceof SecondError, previous: error instanceof initialClass };
       }
       observed
-    `, second)
+    `,
+      second,
+    )
     expect(observed.value).toEqual({ name: 'SecondError', member: 'value', first: false, current: true, previous: false })
-    const plain = await run(`
+    const plain = await run(
+      `
       let plain;
       try { await saved({}) } catch (error) { plain = { name: error.name, member: 'secondMember' in error }; }
       plain
-    `, { bindings: [{ global: 'tools', functions: { value: fail } }] })
+    `,
+      { bindings: [{ global: 'tools', functions: { value: fail } }] },
+    )
     expect(plain.value).toEqual({ name: 'Error', member: false })
   })
 
   it('settles an asynchronous exception once while a later evaluation awaits a tool', async () => {
     const { run } = await setup()
-    const failed = await run('let retained = 17; let resume; const paused = new Promise(resolve => { resume = resolve }); setImmediate(() => { throw new Error("async failure") }); await paused; retained')
+    const failed = await run(
+      'let retained = 17; let resume; const paused = new Promise(resolve => { resume = resolve }); setImmediate(() => { throw new Error("async failure") }); await paused; retained',
+    )
     expect(failed.error?.message).toContain('async failure')
-    const next = await run('resume(); await tools.value({})', { bindings: bindings(async () => { await setImmediate(); return 42 }) })
+    const next = await run('resume(); await tools.value({})', {
+      bindings: bindings(async () => {
+        await setImmediate()
+        return 42
+      }),
+    })
     expect(next).toMatchObject({ logs: [], value: 42 })
     expect((await run('retained')).value).toBe(17)
   })
@@ -117,17 +156,27 @@ describe('persistent Node REPL', () => {
     const { run } = await setup()
     const called = vi.fn(async () => 42)
     const options = { bindings: bindings(called) }
-    await run('let retained = 17; let trigger; let rejection; const expired = new Promise(resolve => { trigger = resolve }); void expired.then(async () => { try { await tools.value({}) } catch (error) { rejection = error.message } });', options)
-    expect((await run('trigger(); await new Promise(resolve => setImmediate(resolve)); rejection', options)).value).toContain('evaluation has ended')
+    await run(
+      'let retained = 17; let trigger; let rejection; const expired = new Promise(resolve => { trigger = resolve }); void expired.then(async () => { try { await tools.value({}) } catch (error) { rejection = error.message } });',
+      options,
+    )
+    expect((await run('trigger(); await new Promise(resolve => setImmediate(resolve)); rejection', options)).value).toContain(
+      'evaluation has ended',
+    )
     expect(called).not.toHaveBeenCalled()
-    expect(await run('({ retained, answer: await tools.value({}) })', options)).toMatchObject({ logs: [], value: { retained: 17, answer: 42 } })
+    expect(await run('({ retained, answer: await tools.value({}) })', options)).toMatchObject({
+      logs: [],
+      value: { retained: 17, answer: 42 },
+    })
     expect(called).toHaveBeenCalledTimes(1)
   })
 
   it('captures inherited child stdout and stderr without losing retained variables', async () => {
     const { run } = await setup()
     const childProgram = 'process.stdout.write("stdout marker"); process.stderr.write("stderr marker")'
-    const result = await run(`let retained = 17; const child = await import("node:child_process"); child.execFileSync(process.execPath, ["-e", ${JSON.stringify(childProgram)}], { stdio: "inherit" }); retained`)
+    const result = await run(
+      `let retained = 17; const child = await import("node:child_process"); child.execFileSync(process.execPath, ["-e", ${JSON.stringify(childProgram)}], { stdio: "inherit" }); retained`,
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(17)
     expect(result.logs.join('')).toContain('stdout marker')
@@ -183,7 +232,10 @@ describe('persistent Node REPL', () => {
     const controller = new AbortController()
     const pending = run('let app = {}; await tools.value({}); while (true) {}', {
       signal: controller.signal,
-      bindings: bindings(async () => { entered.resolve(true); return null }),
+      bindings: bindings(async () => {
+        entered.resolve(true)
+        return null
+      }),
     })
     await entered.promise
     controller.abort()
@@ -204,20 +256,32 @@ describe('persistent Node REPL', () => {
     const { run } = await setup()
     const entered = Promise.withResolvers<true>()
     const proceed = Promise.withResolvers<null>()
-    const pending = run('await tools.value({})', { bindings: bindings(async () => { entered.resolve(true); return await proceed.promise }) })
+    const pending = run('await tools.value({})', {
+      bindings: bindings(async () => {
+        entered.resolve(true)
+        return await proceed.promise
+      }),
+    })
     try {
       await entered.promise
       await expect(run('1')).rejects.toThrow('concurrent runs')
       await expect(run('const =')).rejects.toThrow('concurrent runs')
       expect((await run('2', { stateOwner: {} })).value).toBe(2)
-    } finally { proceed.resolve(null) }
+    } finally {
+      proceed.resolve(null)
+    }
     expect((await pending).value).toBeNull()
   })
 
   it('disposes in-flight execution and removes the service on plugin unload', async () => {
     const { run, fiber, ctx, runtime } = await setup()
     const entered = Promise.withResolvers<true>()
-    const pending = run('await tools.value({}); await new Promise(() => {})', { bindings: bindings(async () => { entered.resolve(true); return null }) })
+    const pending = run('await tools.value({}); await new Promise(() => {})', {
+      bindings: bindings(async () => {
+        entered.resolve(true)
+        return null
+      }),
+    })
     await entered.promise
     await fiber.dispose()
     expect((await pending).error?.kind).toBe('abort')
@@ -231,7 +295,10 @@ describe('persistent Node REPL', () => {
     expect(runtime.sandboxMode).toBe('danger-full-access')
     expect(runtime.programFormat).toBe('repl')
     expect(runtime.timeout).toEqual({ defaultMs: 120_000, maxMs: 600_000 })
-    expect(runtime.resolve({ program: '1', bindings: [], sandboxPolicy: { mode: 'read-only', workspaceRoot: process.cwd() } }).sandboxPolicy?.mode).toBe('read-only')
+    expect(
+      runtime.resolve({ program: '1', bindings: [], sandboxPolicy: { mode: 'read-only', workspaceRoot: process.cwd() } }).sandboxPolicy
+        ?.mode,
+    ).toBe('read-only')
     expect(() => runtime.resolve({ program: '1', bindings: [], cwd: 'relative' })).toThrow('absolute')
     expect(() => runtime.resolve({ program: '1', bindings: [], timeoutMs: 0 })).toThrow()
     await expect(run('1', { bindings: [{ global: 'console', functions: {} }] })).rejects.toThrow('reserved')
@@ -239,16 +306,19 @@ describe('persistent Node REPL', () => {
     expect((await run('42', { timeoutMs: null })).value).toBe(42)
   })
 
-  it.each(['throw new Error("long diagnostic ".repeat(1000))', '"large completion".repeat(1000)'])('clears retained state after a final output overflow: %s', async (program) => {
-    const { run } = await setup({ maxOutputBytes: 100 })
-    await run('let retained = true;')
-    const result = await run(program)
-    expect(result.error?.kind).toBe('output-limit')
-    expect(result.error?.message).toContain('retained variables were cleared')
-    const outputBytes = Buffer.byteLength(JSON.stringify(result.logs)) + Buffer.byteLength(JSON.stringify(result.error?.message))
-    expect(outputBytes).toBeLessThanOrEqual(100)
-    expect((await run('typeof retained')).value).toBe('undefined')
-  })
+  it.each(['throw new Error("long diagnostic ".repeat(1000))', '"large completion".repeat(1000)'])(
+    'clears retained state after a final output overflow: %s',
+    async program => {
+      const { run } = await setup({ maxOutputBytes: 100 })
+      await run('let retained = true;')
+      const result = await run(program)
+      expect(result.error?.kind).toBe('output-limit')
+      expect(result.error?.message).toContain('retained variables were cleared')
+      const outputBytes = Buffer.byteLength(JSON.stringify(result.logs)) + Buffer.byteLength(JSON.stringify(result.error?.message))
+      expect(outputBytes).toBeLessThanOrEqual(100)
+      expect((await run('typeof retained')).value).toBe('undefined')
+    },
+  )
 
   it('bounds type-stripping diagnostics and clears the owner after a parse-output overflow', async () => {
     const { run } = await setup({ maxOutputBytes: 32 })
@@ -265,7 +335,9 @@ describe('persistent Node REPL', () => {
     try {
       Object.defineProperty(process, 'pkg', { configurable: true, value: {} })
       await expect(setup()).rejects.toThrow('requires a node-script launch')
-      const { runtime } = await setup({ launch: { kind: 'node-script', executable: process.execPath, bootstrapPath: join(process.cwd(), 'persistent-process.js') } })
+      const { runtime } = await setup({
+        launch: { kind: 'node-script', executable: process.execPath, bootstrapPath: join(process.cwd(), 'persistent-process.js') },
+      })
       expect(runtime.programFormat).toBe('repl')
     } finally {
       if (previous === undefined) Reflect.deleteProperty(process, 'pkg')
@@ -280,7 +352,7 @@ describe('persistent Node REPL', () => {
   })
 })
 
-it.each(['_', '_error'])('keeps %s assignments and subsequent tools in the active evaluation', async (name) => {
+it.each(['_', '_error'])('keeps %s assignments and subsequent tools in the active evaluation', async name => {
   const { run } = await setup()
   const called = vi.fn(async () => 7)
   expect(await run(`${name} = 42; await tools.value({}); ${name}`, { bindings: bindings(called) })).toMatchObject({ logs: [], value: 42 })
@@ -294,13 +366,24 @@ it('rejects a new run until cancellation cleanup has completed for its owner', a
   const cleanup = Promise.withResolvers<true>()
   const released = Promise.withResolvers<boolean>()
   const spawn = ctx.subprocess.spawn.bind(ctx.subprocess)
-  const intercepted = vi.spyOn(ctx.subprocess, 'spawn').mockImplementationOnce((spec) => {
+  const intercepted = vi.spyOn(ctx.subprocess, 'spawn').mockImplementationOnce(spec => {
     const handle = spawn(spec)
-    return { ...handle, waitForExit: async () => { await handle.waitForExit(); cleanup.resolve(true); return released.promise } }
+    return {
+      ...handle,
+      waitForExit: async () => {
+        await handle.waitForExit()
+        cleanup.resolve(true)
+        return released.promise
+      },
+    }
   })
   const abort = new AbortController()
   const pending = run('await tools.value({}); await new Promise(() => {})', {
-    signal: abort.signal, bindings: bindings(async () => { entered.resolve(true); return null }),
+    signal: abort.signal,
+    bindings: bindings(async () => {
+      entered.resolve(true)
+      return null
+    }),
   })
   try {
     await entered.promise
@@ -311,5 +394,9 @@ it('rejects a new run until cancellation cleanup has completed for its owner', a
     released.resolve(true)
     expect((await pending).error?.kind).toBe('abort')
     expect((await run('42')).value).toBe(42)
-  } finally { released.resolve(true); await pending; intercepted.mockRestore() }
+  } finally {
+    released.resolve(true)
+    await pending
+    intercepted.mockRestore()
+  }
 })

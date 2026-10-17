@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { installWindowsMenu } from '../src/preload-menu.ts'
 import { DESKTOP_IPC } from '../src/ipc.ts'
 
@@ -21,12 +21,16 @@ it('keeps caption menus absent until the application frame replaces loading', as
   const loading = document.createElement('div')
   loading.dataset.dshBoot = ''
   document.body.append(loading)
-  await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+  await new Promise<void>(resolve => {
+    queueMicrotask(resolve)
+  })
   expect(document.querySelector('[data-windows-menu]')).toBeNull()
   const appSeat = document.createElement('div')
   appSeat.dataset.shellOverlay = ''
   loading.replaceWith(appSeat)
-  await vi.waitFor(() => { expect(document.querySelector('[data-windows-menu]')).not.toBeNull() })
+  await vi.waitFor(() => {
+    expect(document.querySelector('[data-windows-menu]')).not.toBeNull()
+  })
 })
 
 it('does not mount menus after a loading document is disposed', async () => {
@@ -36,7 +40,9 @@ it('does not mount menus after a loading document is disposed', async () => {
   const appSeat = document.createElement('div')
   appSeat.dataset.shellOverlay = ''
   document.body.append(appSeat)
-  await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+  await new Promise<void>(resolve => {
+    queueMicrotask(resolve)
+  })
   expect(document.querySelector('[data-windows-menu]')).toBeNull()
 })
 afterEach(() => {
@@ -64,7 +70,12 @@ it('localizes caption entries and removes the menu on disposal', () => {
 
 it('opens native menus without stealing pointer focus and resets popup state when closed', async () => {
   let close!: () => void
-  invoke.mockImplementation(() => new Promise<void>((resolve) => { close = resolve }))
+  invoke.mockImplementation(
+    () =>
+      new Promise<void>(resolve => {
+        close = resolve
+      }),
+  )
   menu = installWindowsMenu()
   const button = document.querySelector('[data-windows-menu]')!.shadowRoot!.querySelector('button')!
   vi.spyOn(button, 'getBoundingClientRect').mockReturnValue(new DOMRect(48, 6, 90, 28))
@@ -78,7 +89,9 @@ it('opens native menus without stealing pointer focus and resets popup state whe
   expect(invoke).toHaveBeenCalledExactlyOnceWith(DESKTOP_IPC.windowsMenu, 'application', 48, 34)
   expect(button.getAttribute('aria-expanded')).toBe('true')
   close()
-  await vi.waitFor(() => { expect(button.getAttribute('aria-expanded')).toBe('false') })
+  await vi.waitFor(() => {
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+  })
 })
 
 it('moves between menu entries with arrow keys and opens the focused entry with ArrowDown', () => {
@@ -104,7 +117,9 @@ it('restores a text input and its selection before opening a keyboard menu', asy
   button.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }))
   expect(document.activeElement).toBe(input)
   expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 6, 'backward'])
-  await vi.waitFor(() => { expect(button.getAttribute('aria-expanded')).toBe('false') })
+  await vi.waitFor(() => {
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+  })
 })
 
 it('reports a failed popup request and clears the active menu', async () => {
@@ -114,7 +129,9 @@ it('reports a failed popup request and clears the active menu', async () => {
   menu = installWindowsMenu()
   const button = document.querySelector('[data-windows-menu]')!.shadowRoot!.querySelector('button')!
   button.click()
-  await vi.waitFor(() => { expect(log).toHaveBeenCalledWith('Desktop caption menu failed', error) })
+  await vi.waitFor(() => {
+    expect(log).toHaveBeenCalledWith('Desktop caption menu failed', error)
+  })
   expect(button.getAttribute('aria-expanded')).toBe('false')
 })
 
@@ -139,5 +156,7 @@ it('restores a contenteditable selection before opening Edit with the keyboard',
   buttons[1]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }))
   expect(document.activeElement).toBe(editor)
   expect(document.getSelection()!.toString()).toBe('itable')
-  await vi.waitFor(() => { expect(buttons[1]!.getAttribute('aria-expanded')).toBe('false') })
+  await vi.waitFor(() => {
+    expect(buttons[1]!.getAttribute('aria-expanded')).toBe('false')
+  })
 })

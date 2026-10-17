@@ -2,23 +2,33 @@ import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createInstalledUpdateRun } from '../scripts/installed-update-qualification.ts'
 import { planInstalledUpdateDistribution } from '../scripts/installed-update-distribution.ts'
 import { installedUpdateFileHash } from '../scripts/installed-update-signature.mjs'
-import { executeInstalledUpdatePublication, verifiedInstalledUpdateDistribution,
-  type InstalledUpdatePublicationStore } from '../scripts/installed-update-publication.ts'
+import {
+  executeInstalledUpdatePublication,
+  verifiedInstalledUpdateDistribution,
+  type InstalledUpdatePublicationStore,
+} from '../scripts/installed-update-publication.ts'
 
 const digest = (bytes: Buffer) => ({ sha512: createHash('sha512').update(bytes).digest('base64'), size: bytes.length })
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 class Store implements InstalledUpdatePublicationStore {
   readonly objects = new Map<string, Buffer>()
   readonly writes: { key: string; immutable: boolean }[] = []
   disabled = true
   failure: 'none' | 'write' | 'public' = 'none'
-  async versioningDisabled() { return this.disabled }
-  async read(key: string) { const value = this.objects.get(key); return value === undefined ? null : digest(value) }
+  async versioningDisabled() {
+    return this.disabled
+  }
+  async read(key: string) {
+    const value = this.objects.get(key)
+    return value === undefined ? null : digest(value)
+  }
   async publicRead(url: string) {
     if (this.failure === 'public') return digest(Buffer.from('stale public bytes'))
     expect(url).not.toContain('?')
@@ -35,18 +45,23 @@ class Store implements InstalledUpdatePublicationStore {
   }
 }
 
-async function fixture(body: (context: {
-  manifest: string
-  versions: readonly [string, string]
-  receipts: string[]
-  journals: string
-  store: Store
-}) => Promise<void>): Promise<void> {
+async function fixture(
+  body: (context: {
+    manifest: string
+    versions: readonly [string, string]
+    receipts: string[]
+    journals: string
+    store: Store
+  }) => Promise<void>,
+): Promise<void> {
   const parent = await mkdtemp(join(tmpdir(), 'dsh-publication-'))
   try {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
-    const run = await createInstalledUpdateRun(parent, ['0.1.6-nightly.20260914.1', '0.1.6-nightly.20260914.2'],
-      { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] })
+    const run = await createInstalledUpdateRun(parent, ['0.1.6-nightly.20260914.1', '0.1.6-nightly.20260914.2'], {
+      version: '0.1.5-rc.2',
+      commit: 'a'.repeat(40),
+      dirtyFiles: [],
+    })
     const manifest = join(run.root, 'run.json')
     const receipts: string[] = []
     for (const version of run.versions) {
@@ -61,19 +76,34 @@ async function fixture(body: (context: {
       await mkdir(check, { recursive: true })
       const receipt = join(check, 'result.json')
       const distribution = await planInstalledUpdateDistribution(manifest, version)
-      await writeFile(receipt, JSON.stringify({ schemaVersion: 1, runId: run.id, version, passed: true, stage: 'complete',
-        contents: { appId: run.appId, version }, installerSignature: { valid: true, timestamped: true,
-          updaterVerificationInvoked: true, sha512: digest(bytes).sha512 } }))
+      await writeFile(
+        receipt,
+        JSON.stringify({
+          schemaVersion: 1,
+          runId: run.id,
+          version,
+          passed: true,
+          stage: 'complete',
+          contents: { appId: run.appId, version },
+          installerSignature: { valid: true, timestamped: true, updaterVerificationInvoked: true, sha512: digest(bytes).sha512 },
+        }),
+      )
       await writeFile(join(check, 'inputs.json'), JSON.stringify({ manifestSha512: await installedUpdateFileHash(manifest), distribution }))
       receipts.push(receipt)
     }
     const journals = join(parent, 'dsh-update-qualification', run.id, 'journals')
     await mkdir(journals, { recursive: true })
     const time = new Date(Date.now() - 60_000).toISOString()
-    await writeFile(join(journals, '1-00000000-0000-0000-0000-000000000000.jsonl'), ['started', 'workspace-ready']
-      .map((event, sequence) => JSON.stringify({ schemaVersion: 1, pid: 1, version: run.versions[0], event, sequence, time })).join('\n') + '\n')
+    await writeFile(
+      join(journals, '1-00000000-0000-0000-0000-000000000000.jsonl'),
+      ['started', 'workspace-ready']
+        .map((event, sequence) => JSON.stringify({ schemaVersion: 1, pid: 1, version: run.versions[0], event, sequence, time }))
+        .join('\n') + '\n',
+    )
     await body({ manifest, versions: run.versions, receipts, journals, store: new Store() })
-  } finally { await rm(parent, { recursive: true, force: true }) }
+  } finally {
+    await rm(parent, { recursive: true, force: true })
+  }
 }
 
 describe('qualification publication sequencing', () => {
@@ -113,7 +143,7 @@ describe('qualification publication sequencing', () => {
     })
   })
 
-  it.each(['failed', 'wrong-version', 'different-plan'])('refuses a %s upload receipt without reading binaries', async (failure) => {
+  it.each(['failed', 'wrong-version', 'different-plan'])('refuses a %s upload receipt without reading binaries', async failure => {
     await fixture(async ({ manifest, versions, receipts, store }) => {
       const resultPath = await executeInstalledUpdatePublication(manifest, versions[0], receipts[0]!, 'upload-binaries', store)
       if (failure === 'different-plan') {
@@ -127,7 +157,9 @@ describe('qualification publication sequencing', () => {
       const read = vi.spyOn(store, 'read')
       const publicRead = vi.spyOn(store, 'publicRead')
       store.writes.length = 0
-      await expect(executeInstalledUpdatePublication(manifest, versions[0], receipts[0]!, 'publish-feed', store)).rejects.toThrow('publication stopped')
+      await expect(executeInstalledUpdatePublication(manifest, versions[0], receipts[0]!, 'publish-feed', store)).rejects.toThrow(
+        'publication stopped',
+      )
       expect(read).not.toHaveBeenCalled()
       expect(publicRead).not.toHaveBeenCalled()
       expect(store.writes).toHaveLength(0)
@@ -135,7 +167,8 @@ describe('qualification publication sequencing', () => {
   })
 
   it.each(['versioning', 'existing-object', 'write', 'public', 'missing-binary', 'wrong-feed'])(
-    'stops on %s and retains a failed operation without leaking adapter errors', async (failure) => {
+    'stops on %s and retains a failed operation without leaking adapter errors',
+    async failure => {
       await fixture(async ({ manifest, versions, receipts, store }) => {
         const { distribution } = await verifiedInstalledUpdateDistribution(manifest, versions[0], receipts[0]!)
         if (failure === 'versioning') store.disabled = false
@@ -147,7 +180,9 @@ describe('qualification publication sequencing', () => {
           store.objects.set(distribution.feed.key, Buffer.from('foreign feed'))
         }
         const action = ['missing-binary', 'wrong-feed'].includes(failure) ? 'publish-feed' : 'upload-binaries'
-        await expect(executeInstalledUpdatePublication(manifest, versions[0], receipts[0]!, action, store)).rejects.toThrow('publication stopped')
+        await expect(executeInstalledUpdatePublication(manifest, versions[0], receipts[0]!, action, store)).rejects.toThrow(
+          'publication stopped',
+        )
         expect(store.writes).toHaveLength(['write', 'public'].includes(failure) ? 1 : 0)
         const records = join(manifest, '../publication-records')
         const paths = await readdir(records)
@@ -158,10 +193,12 @@ describe('qualification publication sequencing', () => {
         expect(record).not.toContain('fixture-secret')
         expect(await readdir(join(manifest, '..'))).not.toContain('publication.lock')
       })
-    })
+    },
+  )
 
   it.each(['missing-journal', 'wrong-journal-directory', 'changed-binary', 'failed-receipt', 'lock'])(
-    'rejects %s before remote writes', async (failure) => {
+    'rejects %s before remote writes',
+    async failure => {
       await fixture(async ({ manifest, versions, receipts, journals, store }) => {
         if (failure === 'missing-journal') await rm(journals, { recursive: true })
         if (failure === 'wrong-journal-directory') journals = join(journals, '..')
@@ -171,9 +208,12 @@ describe('qualification publication sequencing', () => {
         }
         if (failure === 'failed-receipt') await writeFile(receipts[1]!, '{"passed":false}')
         if (failure === 'lock') await mkdir(join(manifest, '../publication.lock'))
-        await expect(executeInstalledUpdatePublication(manifest, versions[1], receipts[1]!, 'publish-feed', store, journals)).rejects.toThrow()
+        await expect(
+          executeInstalledUpdatePublication(manifest, versions[1], receipts[1]!, 'publish-feed', store, journals),
+        ).rejects.toThrow()
         expect(store.writes).toHaveLength(0)
         if (failure === 'lock') expect(await readdir(join(manifest, '..'))).toContain('publication.lock')
       })
-    })
+    },
+  )
 })

@@ -32,22 +32,21 @@ export async function verifyRuntimeArchive(archivePath: string, expected: Deskto
     if (path === 'desktop-runtime.json') return
     const body = await archive.readFile(name)
     // ASAR stores only owner-execute; group/other-only executable files fail the inventory comparison.
-    const executable = process.platform !== 'win32' && (physical !== undefined
-      ? (physical.mode & 0o111) !== 0
-      : node.executable === true)
+    const executable = process.platform !== 'win32' && (physical !== undefined ? (physical.mode & 0o111) !== 0 : node.executable === true)
     files.push({ path, bytes: body.byteLength, sha256: createHash('sha256').update(body).digest('hex'), executable })
   }
   await visit(archive.getFile('dsh', false), '')
-  const entries = await readdir(join(`${archivePath}.unpacked`, 'dsh'), { recursive: true, withFileTypes: true })
-    .catch((error: NodeJS.ErrnoException) => {
+  const entries = await readdir(join(`${archivePath}.unpacked`, 'dsh'), { recursive: true, withFileTypes: true }).catch(
+    (error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT' && unpacked.size === 0) return []
       throw error
-    })
+    },
+  )
   for (const entry of entries) {
     if (entry.isDirectory()) continue
     const path = join(entry.parentPath, entry.name)
     if (!entry.isFile() || !unpacked.has(path)) throw new Error(`desktop runtime: unexpected unpacked entry ${path}`)
   }
-  files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
+  files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
   if (JSON.stringify(files) !== JSON.stringify(expected.files)) throw new Error('desktop runtime: ASAR integrity verification failed')
 }

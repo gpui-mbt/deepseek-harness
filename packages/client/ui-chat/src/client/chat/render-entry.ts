@@ -9,8 +9,11 @@ import { assertNever } from '@deepseek-ai/dsh-util-values'
  */
 export function chatRenderKey(entry: RenderEntry): string {
   switch (entry.kind) {
-    case 'node': return JSON.stringify(['node', entry.key, entry.groupPart ?? null])
-    case 'group': return JSON.stringify(['group', entry.key])
-    default: return assertNever(entry)
+    case 'node':
+      return JSON.stringify(['node', entry.key, entry.groupPart ?? null])
+    case 'group':
+      return JSON.stringify(['group', entry.key])
+    default:
+      return assertNever(entry)
   }
 }

@@ -2,7 +2,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { SubprocessExecutableNotFoundError } from '@deepseek-ai/dsh-subprocess'
 import { RemoteOperationError } from '@deepseek-ai/dsh-ssh/protocol'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshSubprocessRuntime } from '../src/index.ts'
 
@@ -31,7 +31,9 @@ it('validates remote shell facts and distinguishes a lookup miss from transport 
     await expect(runtime.resolveExecutable('bash')).rejects.toBe(failure)
     failure = new Error('SSH disconnected')
     await expect(runtime.resolveExecutable('bash')).rejects.toBe(failure)
-  } finally { await ctx.fiber.dispose() }
+  } finally {
+    await ctx.fiber.dispose()
+  }
 })
 
 it.skipIf(process.platform === 'win32')('queries the real helper and resizes its PTY without replacing the shell', async () => {
@@ -43,9 +45,19 @@ it.skipIf(process.platform === 'win32')('queries the real helper and resizes its
   try {
     expect(await runtime.terminalEnvironment()).toMatchObject({ platform: 'posix' })
     await expect(runtime.resolveExecutable(`${helper.root}/absent`)).rejects.toBeInstanceOf(SubprocessExecutableNotFoundError)
-    const terminal = await runtime.spawnTerminal({ argv: ['/bin/sh', '-i'], cwd: helper.root, cols: 80, rows: 24, terminalType: 'xterm-256color', graceMs: 100, shellActivity: true })
+    const terminal = await runtime.spawnTerminal({
+      argv: ['/bin/sh', '-i'],
+      cwd: helper.root,
+      cols: 80,
+      rows: 24,
+      terminalType: 'xterm-256color',
+      graceMs: 100,
+      shellActivity: true,
+    })
     let output = ''
-    terminal.output.on('data', (chunk: Buffer) => { output += chunk.toString() })
+    terminal.output.on('data', (chunk: Buffer) => {
+      output += chunk.toString()
+    })
     expect((await terminal.inspectActivity()).state).toBe('unknown')
     await terminal.resize(120, 40)
     await terminal.write('printf "REMOTE_TERM:%s\\n" "$TERM"; stty size\n')
@@ -54,6 +66,10 @@ it.skipIf(process.platform === 'win32')('queries the real helper and resizes its
     await terminal.terminate()
     await terminal.done
   } finally {
-    try { await ctx.fiber.dispose() } finally { await helper.close() }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      await helper.close()
+    }
   }
 })

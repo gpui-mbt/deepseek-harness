@@ -1,7 +1,7 @@
 /** Sidebar shell style contracts shared with its slot-owned controls. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module.css', import.meta.url)), 'utf8')
 
@@ -13,12 +13,24 @@ const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module
 function declarations(selector: string): Map<string, string> | undefined {
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
   for (const [, selectorList = '', body = ''] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!selectorList.split(',').map(value => value.trim()).includes(selector)) continue
+    if (
+      !selectorList
+        .split(',')
+        .map(value => value.trim())
+        .includes(selector)
+    )
+      continue
     const found = new Map<string, string>()
     for (const part of body.split(';')) {
       const colon = part.indexOf(':')
       if (colon === -1) continue
-      found.set(part.slice(0, colon).trim(), part.slice(colon + 1).trim().replace(/\s+/g, ' '))
+      found.set(
+        part.slice(0, colon).trim(),
+        part
+          .slice(colon + 1)
+          .trim()
+          .replace(/\s+/g, ' '),
+      )
     }
     return found
   }
@@ -32,9 +44,7 @@ describe('SidebarRoot.module.css', () => {
     expect(root?.get('padding')).toBe('6px var(--dsh-sidebar-inline-padding)')
     expect(declarations('.regionArea')?.get('margin-left')).toBe('-4px')
     expect(declarations('.regionArea')?.get('padding-left')).toBe('4px')
-    expect(declarations('.regionArea')?.get('margin-right')).toBe(
-      'calc(-1 * var(--dsh-sidebar-inline-padding))',
-    )
+    expect(declarations('.regionArea')?.get('margin-right')).toBe('calc(-1 * var(--dsh-sidebar-inline-padding))')
     expect(declarations('.collapsed .regionArea')?.get('margin-left')).toBe('0')
     expect(declarations('.collapsed .regionArea')?.get('padding-left')).toBe('0')
     expect(declarations('.collapsed .regionArea')?.get('margin-right')).toBe('0')
@@ -42,19 +52,11 @@ describe('SidebarRoot.module.css', () => {
 
   it('moves the four upper controls while the settings seat only fades', () => {
     const animation = 'rail-in 150ms var(--ds-ease-in-out) backwards'
-    for (const selector of [
-      '.railIn .iconButton',
-      '.railIn .newSession',
-      '.railIn .regionArea',
-    ]) {
+    for (const selector of ['.railIn .iconButton', '.railIn .newSession', '.railIn .regionArea']) {
       expect(declarations(selector)?.get('animation')).toBe(animation)
     }
-    expect(declarations('.railIn .footArea')?.get('animation')).toBe(
-      'rail-fade-in 150ms var(--ds-ease-in-out) backwards',
-    )
-    expect(css).toMatch(
-      /@keyframes rail-in\s*\{\s*from\s*\{\s*opacity: 0;\s*transform: translateX\(49px\);\s*}\s*}/,
-    )
+    expect(declarations('.railIn .footArea')?.get('animation')).toBe('rail-fade-in 150ms var(--ds-ease-in-out) backwards')
+    expect(css).toMatch(/@keyframes rail-in\s*\{\s*from\s*\{\s*opacity: 0;\s*transform: translateX\(49px\);\s*}\s*}/)
     expect(css).toMatch(/@keyframes rail-fade-in\s*\{\s*from\s*\{\s*opacity: 0;\s*}\s*}/)
   })
 

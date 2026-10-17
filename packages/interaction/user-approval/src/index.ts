@@ -70,9 +70,11 @@ export type ApprovalPolicy = 'ask' | 'never'
 export const APPROVAL_POLICIES: readonly ApprovalPolicy[] = ['ask', 'never']
 
 /** Model-facing statement for the deterministic `'never'` policy. */
-const NEVER_SENTENCE = 'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
+const NEVER_SENTENCE =
+  'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
 /** Model-facing statement for an interactive policy that may still fail closed. */
-const ASK_SENTENCE = 'Approval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed.'
+const ASK_SENTENCE =
+  'Approval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed.'
 
 /**
  * Whether the log currently sits inside an open turn (a `turn/start` not yet
@@ -152,7 +154,10 @@ export class ApprovalService extends Service {
     policy: z.union(['ask', 'never'] as const).default('ask'),
   })
 
-  constructor(ctx: Context, public config: Config) {
+  constructor(
+    ctx: Context,
+    public config: Config,
+  ) {
     super(ctx, 'approval')
 
     const effective = (agent: Agent): ApprovalPolicy => this.effectivePolicy(agent.session)
@@ -163,7 +168,7 @@ export class ApprovalService extends Service {
       scope.systemPrompt.context({
         name: 'approval:policy',
         order: scope.systemPrompt.getContextOrder('APPROVAL_POLICY'),
-        text: (context) => {
+        text: context => {
           const agent = context.agent
           // A bare assemble() (tests, diagnostics) has no session to state.
           if (agent === undefined) return ''
@@ -185,13 +190,17 @@ export class ApprovalService extends Service {
     const previous = this.effectivePolicy(agent.session)
     if (previous === policy) return
     setApprovalPolicy(agent.session, policy)
-    agent.inject(createUserMessage({
-      content: [{
-        type: 'text',
-        text: `The approval policy changed from "${previous}" to "${policy}" (changed by the user).`,
-      }],
-      source: { kind: 'user-approval' },
-    }))
+    agent.inject(
+      createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text: `The approval policy changed from "${previous}" to "${policy}" (changed by the user).`,
+          },
+        ],
+        source: { kind: 'user-approval' },
+      }),
+    )
   }
 
   /**
@@ -216,17 +225,17 @@ export class ApprovalService extends Service {
     const session = req.agent.session
     if (!hasOpenTurn(session)) {
       throw new Error(
-        'approval.request() outside an open turn: the approval/asked + approval/decided audit pair '
-        + 'must be turn-enclosed (a bare event between turns is crash-tail garbage on reload). '
-        + 'Ask from inside the turn that needs the decision.',
+        'approval.request() outside an open turn: the approval/asked + approval/decided audit pair ' +
+          'must be turn-enclosed (a bare event between turns is crash-tail garbage on reload). ' +
+          'Ask from inside the turn that needs the decision.',
       )
     }
     const id = ApprovalRequestId(randomUUID())
     session.append('approval/asked', {
       id,
       toolName: req.toolName,
-      ...req.callId !== undefined ? { callId: req.callId } : {},
-      ...req.reason !== undefined ? { reason: req.reason } : {},
+      ...(req.callId !== undefined ? { callId: req.callId } : {}),
+      ...(req.reason !== undefined ? { reason: req.reason } : {}),
     })
     const outcome = await this.decide(req, session)
     session.append('approval/decided', { id, outcome })
@@ -277,27 +286,28 @@ export class ApprovalService extends Service {
     // SYNCHRONOUSLY (before its first await) must land in the same rejection
     // path as an async one — `Promise.resolve(call())` would let it escape
     // the containment into the caller.
-    const answer: Promise<ApprovalOutcome> = Promise.resolve().then(
-      () => this.ctx.waterfall(
-        scopeTarget(req.agent, req.agent), 'approval/request', req,
-        () => Promise.resolve<ApprovalOutcome>('unavailable'),
-      ),
-    ).then(
-      // Normalize a rogue (non-vocabulary) answerer return to the fail-closed
-      // outcome instead of leaking it into callers' closed-union switches.
-      outcome => OUTCOMES.includes(outcome) ? outcome : 'unavailable',
-      // A throwing answerer must fail the QUESTION closed, not the caller's
-      // tool call open — the seam contains its callbacks.
-      () => 'unavailable',
-    )
+    const answer: Promise<ApprovalOutcome> = Promise.resolve()
+      .then(() =>
+        this.ctx.waterfall(scopeTarget(req.agent, req.agent), 'approval/request', req, () =>
+          Promise.resolve<ApprovalOutcome>('unavailable'),
+        ),
+      )
+      .then(
+        // Normalize a rogue (non-vocabulary) answerer return to the fail-closed
+        // outcome instead of leaking it into callers' closed-union switches.
+        outcome => (OUTCOMES.includes(outcome) ? outcome : 'unavailable'),
+        // A throwing answerer must fail the QUESTION closed, not the caller's
+        // tool call open — the seam contains its callbacks.
+        () => 'unavailable',
+      )
     if (signal === undefined) return answer
-    return await new Promise<ApprovalOutcome>((resolve) => {
+    return await new Promise<ApprovalOutcome>(resolve => {
       const onAbort = () => {
         signal.removeEventListener('abort', onAbort)
         resolve('cancelled')
       }
       signal.addEventListener('abort', onAbort, { once: true })
-      void answer.then((outcome) => {
+      void answer.then(outcome => {
         signal.removeEventListener('abort', onAbort)
         // After an abort won the race this resolve is a settled-promise no-op:
         // the late answer is discarded by construction.

@@ -51,10 +51,9 @@ export interface SessionPendingInteractionBase {
 export interface SessionPendingInteractionMap {}
 
 /** Union of every pending-interaction value contributed by the assembled Client. */
-export type SessionPendingInteraction =
-  [keyof SessionPendingInteractionMap] extends [never]
-    ? SessionPendingInteractionBase
-    : SessionPendingInteractionMap[keyof SessionPendingInteractionMap]
+export type SessionPendingInteraction = [keyof SessionPendingInteractionMap] extends [never]
+  ? SessionPendingInteractionBase
+  : SessionPendingInteractionMap[keyof SessionPendingInteractionMap]
 
 /** Independent UI status facts for one Session identity. */
 export interface SessionStatus {
@@ -97,10 +96,7 @@ export interface UseSessionRetainInfo {
    * @param equal - optional selected-value equality.
    * @returns selected value.
    */
-  <Selected>(
-    selector: (value: SessionRetainInfo | undefined) => Selected,
-    equal?: (left: Selected, right: Selected) => boolean,
-  ): Selected
+  <Selected>(selector: (value: SessionRetainInfo | undefined) => Selected, equal?: (left: Selected, right: Selected) => boolean): Selected
 }
 
 /** Publish one pending interaction and define how plugin teardown delegates it. */
@@ -202,8 +198,9 @@ declare module '@deepseek-ai/cordis' {
 type SessionSourceRoster = readonly string[] | undefined
 type StandardMemberKind = 'hook' | 'keyed hook' | 'prop'
 
-type SessionSourceRecord<Roster extends SessionSourceRoster, Value> =
-  Roster extends readonly string[] ? Readonly<Record<Roster[number], Value>> : never
+type SessionSourceRecord<Roster extends SessionSourceRoster, Value> = Roster extends readonly string[]
+  ? Readonly<Record<Roster[number], Value>>
+  : never
 
 /** Bare values produced by one Session-scoped source contribution. */
 export interface SessionSourceContribution<
@@ -230,11 +227,7 @@ export interface SessionSourceDescriptor<
    * @param binding - Controller-owned Session binding.
    * @returns all declared bare sources and stable props.
    */
-  resolve(binding: SessionBinding): SessionSourceContribution<
-    NoInfer<Hooks>,
-    NoInfer<KeyedHooks>,
-    NoInfer<Props>
-  >
+  resolve(binding: SessionBinding): SessionSourceContribution<NoInfer<Hooks>, NoInfer<KeyedHooks>, NoInfer<Props>>
 }
 
 interface RuntimeSessionSourceContribution {
@@ -272,17 +265,11 @@ const BUILTIN_SOURCE = {
     keyedHooks: { projection: key => binding.session.projections.faceOf(key) },
     props: { sessionId: binding.sessionId },
   }),
-} satisfies SessionSourceDescriptor<
-  readonly ['session'],
-  readonly ['projection'],
-  readonly ['sessionId']
->
+} satisfies SessionSourceDescriptor<readonly ['session'], readonly ['projection'], readonly ['sessionId']>
 
 /** Session-scoped source roster and renderer adapter. */
 export class UiSession extends Service {
-  private readonly descriptors: RuntimeSessionSourceDescriptor[] = [
-    BUILTIN_SOURCE,
-  ]
+  private readonly descriptors: RuntimeSessionSourceDescriptor[] = [BUILTIN_SOURCE]
   private readonly bindings = new WeakMapWithValues<SessionBinding, MaterializedBinding>()
   private readonly absent: BindingSource
   private readonly current: BindingSource
@@ -298,9 +285,11 @@ export class UiSession extends Service {
   /** Root source combining running, pending-interaction, and completion-reminder facts. */
   readonly sessionStatus: HostObservable<SessionStatusSnapshot> = {
     getSnapshot: () => this.statusSnapshot,
-    subscribe: (listener) => {
+    subscribe: listener => {
       this.statusListeners.add(listener)
-      return () => { this.statusListeners.delete(listener) }
+      return () => {
+        this.statusListeners.delete(listener)
+      }
     },
   }
   /** Renderer-facing adapter for `session` and `session-maybe` scopes. */
@@ -324,8 +313,12 @@ export class UiSession extends Service {
     }
 
     ctx.effect(() => {
-      const disposeList = sessions.list.subscribe(() => { this.publishMain() })
-      const disposeStatus = sessions.list.subscribe(() => { this.reconcileStatus() })
+      const disposeList = sessions.list.subscribe(() => {
+        this.publishMain()
+      })
+      const disposeStatus = sessions.list.subscribe(() => {
+        this.reconcileStatus()
+      })
       const disposeRemoteStatus = ctx.remote.$on('api-session/status', (sessionId, running) => {
         this.observeRunning(sessionId, running)
       })
@@ -385,7 +378,9 @@ export class UiSession extends Service {
         this.rebuildBindings()
       }
     }, 'uiSession.provide()')
-    return () => { void dispose() }
+    return () => {
+      void dispose()
+    }
   }
 
   /**
@@ -443,11 +438,8 @@ export class UiSession extends Service {
     if (!this.active) return
     const byId = this.sessions.list.getSnapshot().byId
     const currentId = this.current.value.key as SessionId | undefined
-    const currentIsMain = currentId !== undefined
-      && (this.sessions.retainInfo(currentId).getSnapshot().retainedBy.mainView ?? 0) > 0
-    const nextId = currentIsMain
-      ? currentId
-      : Object.values(byId).find(candidate => (candidate.retainedBy.mainView ?? 0) > 0)?.id
+    const currentIsMain = currentId !== undefined && (this.sessions.retainInfo(currentId).getSnapshot().retainedBy.mainView ?? 0) > 0
+    const nextId = currentIsMain ? currentId : Object.values(byId).find(candidate => (candidate.retainedBy.mainView ?? 0) > 0)?.id
     this.watchMainRetention(nextId)
     const owner = nextId === undefined ? undefined : this.sessions.binding(nextId)
     const value = owner === undefined ? this.absent.value : this.sourceFor(owner).value
@@ -460,16 +452,22 @@ export class UiSession extends Service {
     if (sessionId === this.mainRetainId) return
     this.disposeMainRetain()
     this.mainRetainId = sessionId
-    this.disposeMainRetain = sessionId === undefined
-      ? () => {}
-      : this.sessions.retainInfo(sessionId).subscribe(() => { this.publishMain() })
+    this.disposeMainRetain =
+      sessionId === undefined
+        ? () => {}
+        : this.sessions.retainInfo(sessionId).subscribe(() => {
+            this.publishMain()
+          })
   }
 
   private publishPendingInteractions(): void {
-    const next = new Map<SessionId, {
-      interaction: SessionPendingInteractionBase
-      precedence: number
-    }>()
+    const next = new Map<
+      SessionId,
+      {
+        interaction: SessionPendingInteractionBase
+        precedence: number
+      }
+    >()
     for (const domain of this.pendingDomains) {
       for (const interaction of domain.valuesSnapshot()) {
         const precedence = domain.precedence(interaction)
@@ -479,9 +477,7 @@ export class UiSession extends Service {
         }
       }
     }
-    const projected = new Map(
-      [...next].map(([sessionId, value]) => [sessionId, value.interaction] as const),
-    )
+    const projected = new Map([...next].map(([sessionId, value]) => [sessionId, value.interaction] as const))
     if (samePendingInteractions(this.pendingSnapshot, projected)) return
     this.pendingSnapshot = projected
     this.publishStatus()
@@ -492,8 +488,8 @@ export class UiSession extends Service {
     const beforeBaseline = this.sessions.list.getSnapshot().phase === 'pending'
     this.running.set(sessionId, running)
     if (running) this.completionUnread.delete(sessionId)
-    else if ((previous === true || (previous === undefined && beforeBaseline))
-      && !this.isMain(sessionId)) this.completionUnread.add(sessionId)
+    else if ((previous === true || (previous === undefined && beforeBaseline)) && !this.isMain(sessionId))
+      this.completionUnread.add(sessionId)
     this.publishStatus()
   }
 
@@ -548,16 +544,21 @@ export class UiSession extends Service {
     const value = this.materialize(owner)
     this.ctx.slots.bindStoreScope(value)
     const source = createBindingSource(value)
-    const releaseEffect = owner.ctx.effect(() => () => {
-      if (this.bindings.get(owner) === record) this.bindings.delete(owner)
-      source.value = this.absent.value
-      notifySubscribers(source.listeners, '[ui-session] Session binding')
-      this.publishMain()
-    }, `ui-session: binding ${owner.sessionId}`)
+    const releaseEffect = owner.ctx.effect(
+      () => () => {
+        if (this.bindings.get(owner) === record) this.bindings.delete(owner)
+        source.value = this.absent.value
+        notifySubscribers(source.listeners, '[ui-session] Session binding')
+        this.publishMain()
+      },
+      `ui-session: binding ${owner.sessionId}`,
+    )
     const record: MaterializedBinding = {
       owner,
       source,
-      release: () => { void releaseEffect() },
+      release: () => {
+        void releaseEffect()
+      },
     }
     return record
   }
@@ -603,18 +604,17 @@ function createBindingSource(value: StandardSourceBinding): BindingSource {
     value,
     listeners: new Set(),
     getSnapshot: () => source.value,
-    subscribe: (listener) => {
+    subscribe: listener => {
       source.listeners.add(listener)
-      return () => { source.listeners.delete(listener) }
+      return () => {
+        source.listeners.delete(listener)
+      }
     },
   }
   return source
 }
 
-function validateContribution(
-  descriptor: RuntimeSessionSourceDescriptor,
-  contribution: RuntimeSessionSourceContribution,
-): void {
+function validateContribution(descriptor: RuntimeSessionSourceDescriptor, contribution: RuntimeSessionSourceContribution): void {
   rejectUndeclared('hook', descriptor.hooks, contribution.hooks)
   rejectUndeclared('keyed hook', descriptor.keyedHooks, contribution.keyedHooks)
   rejectUndeclared('prop', descriptor.props, contribution.props)
@@ -683,9 +683,7 @@ export function apply(ctx: Context): void {
     },
     keyedHooks: {
       sessionRetainInfo: key => ctx.sessions.retainInfo(key as SessionId),
-      sessionAccess: (sessionId, action) => action === undefined
-        ? undefined
-        : ctx.remoteAccess.source('session', sessionId, action),
+      sessionAccess: (sessionId, action) => (action === undefined ? undefined : ctx.remoteAccess.source('session', sessionId, action)),
     },
   } satisfies RootStandardSourceContribution)
   ctx.slots.installScope('session', service.adapter)
@@ -701,10 +699,13 @@ function sameSessionStatus(left: SessionStatusSnapshot, right: SessionStatusSnap
   if (left.size !== right.size) return false
   for (const [id, status] of left) {
     const candidate = right.get(id)
-    if (candidate === undefined
-      || candidate.running !== status.running
-      || candidate.pendingInteraction !== status.pendingInteraction
-      || candidate.completionUnread !== status.completionUnread) return false
+    if (
+      candidate === undefined ||
+      candidate.running !== status.running ||
+      candidate.pendingInteraction !== status.pendingInteraction ||
+      candidate.completionUnread !== status.completionUnread
+    )
+      return false
   }
   return true
 }

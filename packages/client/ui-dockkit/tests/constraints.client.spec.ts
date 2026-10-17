@@ -2,10 +2,17 @@
  * Interaction limits: the four-pane cap, the five dock regions, and divider
  * clamping. The model itself stays unbounded; these rules gate dispatch.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { applyOp } from '../src/engine/operations.ts'
 import {
-  canSplit, clampSizes, DOCK_ZONES, dockPaneCount, MAX_DOCK_PANES, MIN_PANE_FRACTION, zoneAt, zoneSplit,
+  canSplit,
+  clampSizes,
+  DOCK_ZONES,
+  dockPaneCount,
+  MAX_DOCK_PANES,
+  MIN_PANE_FRACTION,
+  zoneAt,
+  zoneSplit,
 } from '../src/engine/constraints.ts'
 import { createIdMinter, createInitialState } from '../src/engine/initial.ts'
 import { seedTab } from './fixtures.client.ts'
@@ -44,7 +51,10 @@ describe('pane cap', () => {
     const guideTabId = getPane(state, state.rootId).tabs[0]
     if (guideTabId === undefined) throw new Error('fixture: no guide tab')
     const floated = applyOp(state, {
-      type: 'float', tabId: guideTabId, newPaneId: minter.next('float'), rect: { x: 0, y: 0, width: 10, height: 10 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: minter.next('float'),
+      rect: { x: 0, y: 0, width: 10, height: 10 },
     }).state
     expect(floated.floats).toHaveLength(1)
     expect(dockPaneCount(floated)).toBe(1)
@@ -70,8 +80,8 @@ describe('dock regions', () => {
   })
 
   it('takes the closest edge in a corner', () => {
-    expect(zoneAt(0.02, 0.10)).toBe('left')
-    expect(zoneAt(0.10, 0.02)).toBe('top')
+    expect(zoneAt(0.02, 0.1)).toBe('left')
+    expect(zoneAt(0.1, 0.02)).toBe('top')
   })
 
   it('maps regions to the split they create', () => {
@@ -83,7 +93,7 @@ describe('dock regions', () => {
 })
 
 describe('divider clamping', () => {
-  it('honours an embedder\'s twenty-percent minimum', () => {
+  it("honours an embedder's twenty-percent minimum", () => {
     expect(clampSizes([0.01, 0.99], 0.2)).toEqual([0.2, 0.8])
     expect(clampSizes([0.99, 0.01], 0.2)).toEqual([0.8, 0.2])
     expect(clampSizes([0.5, 0.5], 0.2)).toEqual([0.5, 0.5])

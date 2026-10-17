@@ -1,6 +1,6 @@
 /** Type-specific row previews preserve the original payload data. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { inspectorPreview } from '../src/client/views/format.ts'
 
 it('shows only tool-call argument deltas without mutating the raw chunk', () => {
@@ -15,9 +15,9 @@ it('hides the reasoning index without changing other delta types', () => {
 })
 
 it('applies delta field selection to nested data while hiding generic type and sequence fields', () => {
-  expect(inspectorPreview({ type: 'event', seq: 1, sequence: 2,
-    data: { type: 'tool-call-delta', index: 0, id: 'call', argumentsDelta: '}' },
-  })).toBe('}')
+  expect(
+    inspectorPreview({ type: 'event', seq: 1, sequence: 2, data: { type: 'tool-call-delta', index: 0, id: 'call', argumentsDelta: '}' } }),
+  ).toBe('}')
 })
 
 it.each([
@@ -31,15 +31,13 @@ it.each([
 })
 
 it('keeps field names when more than one field remains', () => {
-  expect(inspectorPreview({ type: 'message', role: 'assistant', content: 'answer' }))
-    .toBe('role: assistant · content: answer')
+  expect(inspectorPreview({ type: 'message', role: 'assistant', content: 'answer' })).toBe('role: assistant · content: answer')
 })
 
 it('hides top-level time without removing nested time values', () => {
   expect(inspectorPreview({ time: 123, text: 'message' })).toBe('message')
   expect(inspectorPreview({ Time: 123, role: 'assistant' })).toBe('assistant')
-  expect(inspectorPreview({ time: 123, data: { time: 456, text: 'nested' } }))
-    .toBe('time: 456 · text: nested')
+  expect(inspectorPreview({ time: 123, data: { time: 456, text: 'nested' } })).toBe('time: 456 · text: nested')
 })
 
 it('omits Chat identity columns from previews without hiding nested business keys', () => {

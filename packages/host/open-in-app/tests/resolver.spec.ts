@@ -8,13 +8,22 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { NativeCommandRunner } from '@deepseek-ai/dsh-native-command'
 import { OPEN_IN_APP_CATALOG, type OpenInAppApp } from '../src/catalog.ts'
 import {
-  execCommand, launchDetachedApp, launchResolved, parseDesktopEntry, parseRegistryDump, resolveInternals,
-  resolveLaunch, resolveOpenInAppApps, xdgDataDirectories,
-  type OpenInAppInternals, type OpenInAppLauncher, type OpenInAppResolvedLaunch,
+  execCommand,
+  launchDetachedApp,
+  launchResolved,
+  parseDesktopEntry,
+  parseRegistryDump,
+  resolveInternals,
+  resolveLaunch,
+  resolveOpenInAppApps,
+  xdgDataDirectories,
+  type OpenInAppInternals,
+  type OpenInAppLauncher,
+  type OpenInAppResolvedLaunch,
 } from '../src/resolver.ts'
 
 const TIMEOUT_MS = 5_000
@@ -63,12 +72,15 @@ function linuxEnv(home: string): Readonly<Record<string, string>> {
 }
 
 describe('resolveOpenInAppApps', () => {
-  it.each(['darwin', 'win32', 'linux'] as const)('offers no applications over SSH on %s without probing', async (platform) => {
+  it.each(['darwin', 'win32', 'linux'] as const)('offers no applications over SSH on %s without probing', async platform => {
     const run = vi.fn<NativeCommandRunner>()
     const resolveExecutable = vi.fn(pathTable({ code: '/usr/bin/code' }))
     const facts = {
-      platform, ssh: true, env: { DISPLAY: ':0', VSCODE_IPC_HOOK_CLI: '/tmp/vscode.sock' },
-      run, resolveExecutable,
+      platform,
+      ssh: true,
+      env: { DISPLAY: ':0', VSCODE_IPC_HOOK_CLI: '/tmp/vscode.sock' },
+      run,
+      resolveExecutable,
     }
     await expect(resolveOpenInAppApps(TIMEOUT_MS, facts)).resolves.toEqual(new Map())
     await expect(resolveLaunch(byId('vscode'), TIMEOUT_MS, facts)).resolves.toBeNull()
@@ -77,22 +89,25 @@ describe('resolveOpenInAppApps', () => {
   })
 
   it('keeps local applications available regardless of flattened SSH markers', async () => {
-    const map = await resolveOpenInAppApps(TIMEOUT_MS, bare({
-      platform: 'darwin', applicationRoots: [], env: { SSH_CONNECTION: 'stale-value' },
-    }))
+    const map = await resolveOpenInAppApps(
+      TIMEOUT_MS,
+      bare({
+        platform: 'darwin',
+        applicationRoots: [],
+        env: { SSH_CONNECTION: 'stale-value' },
+      }),
+    )
     expect([...map.keys()]).toEqual(['finder', 'terminal'])
   })
 
   it('fails loud when the PATH resolver is not supplied', async () => {
-    await expect(resolveOpenInAppApps(TIMEOUT_MS, { platform: 'linux' }))
-      .rejects.toThrow(/resolveExecutable is required/)
+    await expect(resolveOpenInAppApps(TIMEOUT_MS, { platform: 'linux' })).rejects.toThrow(/resolveExecutable is required/)
   })
 
   it('resolves as empty on a platform without entries, touching no command or PATH lookup', async () => {
     const run = vi.fn<NativeCommandRunner>()
     const resolveExecutable = vi.fn(pathTable())
-    await expect(resolveOpenInAppApps(TIMEOUT_MS, { platform: 'aix', run, resolveExecutable }))
-      .resolves.toEqual(new Map())
+    await expect(resolveOpenInAppApps(TIMEOUT_MS, { platform: 'aix', run, resolveExecutable })).resolves.toEqual(new Map())
     expect(run).not.toHaveBeenCalled()
     expect(resolveExecutable).not.toHaveBeenCalled()
   })
@@ -104,9 +119,13 @@ describe('resolveOpenInAppApps', () => {
     const zed = join(applications, 'Zed Preview.app')
     await mkdir(cursor, { recursive: true })
     await mkdir(zed, { recursive: true })
-    const map = await resolveOpenInAppApps(TIMEOUT_MS, bare({
-      platform: 'darwin', applicationRoots: [applications],
-    }))
+    const map = await resolveOpenInAppApps(
+      TIMEOUT_MS,
+      bare({
+        platform: 'darwin',
+        applicationRoots: [applications],
+      }),
+    )
     // finder and terminal ship with the OS (fixed); cursor and the Zed
     // Preview spelling resolve from the injected application root.
     expect([...map.keys()]).toEqual(['finder', 'cursor', 'zed', 'terminal'])
@@ -121,7 +140,10 @@ describe('resolveOpenInAppApps', () => {
     const home = await tempRoot()
     const run = vi.fn<NativeCommandRunner>()
     const map = await resolveOpenInAppApps(TIMEOUT_MS, {
-      platform: 'linux', home, env: { ...linuxEnv(home), DISPLAY: ':0' }, run,
+      platform: 'linux',
+      home,
+      env: { ...linuxEnv(home), DISPLAY: ':0' },
+      run,
       resolveExecutable: pathTable({ 'xdg-open': '/usr/bin/xdg-open', code: '/usr/bin/code', ghostty: '/usr/bin/ghostty' }),
     })
     expect([...map.keys()]).toEqual(['filemanager', 'vscode', 'ghostty'])
@@ -132,12 +154,30 @@ describe('resolveOpenInAppApps', () => {
   it('does not offer the Linux file manager without a desktop session', async () => {
     const home = await tempRoot()
     const resolveExecutable = pathTable({ 'xdg-open': '/usr/bin/xdg-open' })
-    await expect(resolveLaunch(byId('filemanager'), TIMEOUT_MS, bare({
-      platform: 'linux', home, env: linuxEnv(home), resolveExecutable,
-    }))).resolves.toBeNull()
-    await expect(resolveLaunch(byId('filemanager'), TIMEOUT_MS, bare({
-      platform: 'linux', home, env: { ...linuxEnv(home), WAYLAND_DISPLAY: 'wayland-0' }, resolveExecutable,
-    }))).resolves.toEqual({ launch: { kind: 'argv', command: '/usr/bin/xdg-open', args: [] }, icon: undefined })
+    await expect(
+      resolveLaunch(
+        byId('filemanager'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'linux',
+          home,
+          env: linuxEnv(home),
+          resolveExecutable,
+        }),
+      ),
+    ).resolves.toBeNull()
+    await expect(
+      resolveLaunch(
+        byId('filemanager'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'linux',
+          home,
+          env: { ...linuxEnv(home), WAYLAND_DISPLAY: 'wayland-0' },
+          resolveExecutable,
+        }),
+      ),
+    ).resolves.toEqual({ launch: { kind: 'argv', command: '/usr/bin/xdg-open', args: [] }, icon: undefined })
   })
 
   it('reads the Windows registry at most once per pass, sharing the view across entries', async () => {
@@ -179,44 +219,58 @@ describe('resolveOpenInAppApps', () => {
 describe('resolveLaunch locators', () => {
   it('fixed entries expand their icon source and survive without one', async () => {
     const systemRoot = 'C:/Windows'
-    await expect(resolveLaunch(byId('explorer'), TIMEOUT_MS, bare({
-      platform: 'win32', env: { SystemRoot: systemRoot },
-    }))).resolves.toEqual({
+    await expect(
+      resolveLaunch(
+        byId('explorer'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'win32',
+          env: { SystemRoot: systemRoot },
+        }),
+      ),
+    ).resolves.toEqual({
       launch: { kind: 'shell-open' },
       icon: { kind: 'executable', path: `${systemRoot}/explorer.exe` },
     })
     // An unset ${SystemRoot} drops the icon claim, not the entry.
-    await expect(resolveLaunch(byId('explorer'), TIMEOUT_MS, bare({ platform: 'win32', env: {} })))
-      .resolves.toMatchObject({ launch: { kind: 'shell-open' }, icon: undefined })
+    await expect(resolveLaunch(byId('explorer'), TIMEOUT_MS, bare({ platform: 'win32', env: {} }))).resolves.toMatchObject({
+      launch: { kind: 'shell-open' },
+      icon: undefined,
+    })
     // macOS fixed entries trust their OS-shipped bundle path.
-    await expect(resolveLaunch(byId('finder'), TIMEOUT_MS, bare({ platform: 'darwin', env: {} })))
-      .resolves.toEqual({
-        launch: { kind: 'shell-open' },
-        icon: { kind: 'app-bundle', path: '/System/Library/CoreServices/Finder.app' },
-      })
+    await expect(resolveLaunch(byId('finder'), TIMEOUT_MS, bare({ platform: 'darwin', env: {} }))).resolves.toEqual({
+      launch: { kind: 'shell-open' },
+      icon: { kind: 'app-bundle', path: '/System/Library/CoreServices/Finder.app' },
+    })
   })
 
   it('derives the Xcode bundle from xcode-select with the open -a fallback, rejecting non-bundle answers', async () => {
     const home = await tempRoot()
     const bundle = join(home, 'Xcode-beta.app')
     await mkdir(join(bundle, 'Contents', 'Developer'), { recursive: true })
-    const run = runner(command => command === 'xcode-select' ? `${join(bundle, 'Contents', 'Developer')}\n` : null)
-    await expect(resolveLaunch(byId('xcode'), TIMEOUT_MS, bare({ platform: 'darwin', run })))
-      .resolves.toEqual({
-        launch: { kind: 'argv', command: 'xed', args: [] },
-        fallbackLaunch: { kind: 'argv', command: 'open', args: ['-a', bundle] },
-        icon: { kind: 'app-bundle', path: bundle },
-      })
-    const rootAnswer = runner(command => command === 'xcode-select' ? '/\n' : null)
-    await expect(resolveLaunch(byId('xcode'), TIMEOUT_MS, bare({ platform: 'darwin', run: rootAnswer })))
-      .resolves.toBeNull()
+    const run = runner(command => (command === 'xcode-select' ? `${join(bundle, 'Contents', 'Developer')}\n` : null))
+    await expect(resolveLaunch(byId('xcode'), TIMEOUT_MS, bare({ platform: 'darwin', run }))).resolves.toEqual({
+      launch: { kind: 'argv', command: 'xed', args: [] },
+      fallbackLaunch: { kind: 'argv', command: 'open', args: ['-a', bundle] },
+      icon: { kind: 'app-bundle', path: bundle },
+    })
+    const rootAnswer = runner(command => (command === 'xcode-select' ? '/\n' : null))
+    await expect(resolveLaunch(byId('xcode'), TIMEOUT_MS, bare({ platform: 'darwin', run: rootAnswer }))).resolves.toBeNull()
     await expect(resolveLaunch(byId('xcode'), TIMEOUT_MS, bare({ platform: 'darwin' }))).resolves.toBeNull()
   })
 
   it('marks a resolved Windows CLI as its own icon source', async () => {
-    await expect(resolveLaunch(byId('windowsterminal'), TIMEOUT_MS, bare({
-      platform: 'win32', env: {}, resolveExecutable: pathTable({ wt: 'C:\\WA\\wt.exe' }),
-    }))).resolves.toEqual({
+    await expect(
+      resolveLaunch(
+        byId('windowsterminal'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'win32',
+          env: {},
+          resolveExecutable: pathTable({ wt: 'C:\\WA\\wt.exe' }),
+        }),
+      ),
+    ).resolves.toEqual({
       launch: { kind: 'argv', command: 'C:\\WA\\wt.exe', args: ['-d'] },
       icon: { kind: 'executable', path: 'C:\\WA\\wt.exe' },
     })
@@ -233,14 +287,19 @@ describe('resolveLaunch locators', () => {
     await mkdir(join(programFiles, 'Microsoft VS Code'), { recursive: true })
     await writeFile(code, 'exe')
     // LOCALAPPDATA is set but holds no install; the ProgramFiles candidate wins.
-    const found = await resolveLaunch(byId('vscode'), TIMEOUT_MS, bare({
-      platform: 'win32', env: { LOCALAPPDATA: local, ProgramFiles: programFiles }, run: runner(() => ''),
-    }))
+    const found = await resolveLaunch(
+      byId('vscode'),
+      TIMEOUT_MS,
+      bare({
+        platform: 'win32',
+        env: { LOCALAPPDATA: local, ProgramFiles: programFiles },
+        run: runner(() => ''),
+      }),
+    )
     expect(found?.launch).toEqual({ kind: 'argv', command: code, args: [] })
     expect(found?.icon).toEqual({ kind: 'executable', path: code })
     // An unset ${LOCALAPPDATA} skips Cursor's only file candidate entirely.
-    await expect(resolveLaunch(byId('cursor'), TIMEOUT_MS, bare({ platform: 'win32', env: {}, run: runner(() => '') })))
-      .resolves.toBeNull()
+    await expect(resolveLaunch(byId('cursor'), TIMEOUT_MS, bare({ platform: 'win32', env: {}, run: runner(() => '') }))).resolves.toBeNull()
   })
 
   it('expands ~/ against the injected home for Toolbox scripts, with no Windows icon claim on Linux', async () => {
@@ -248,8 +307,10 @@ describe('resolveLaunch locators', () => {
     const script = join(home, '.local', 'share', 'JetBrains', 'Toolbox', 'scripts', 'idea')
     await mkdir(join(home, '.local', 'share', 'JetBrains', 'Toolbox', 'scripts'), { recursive: true })
     await writeFile(script, '#!/bin/sh')
-    await expect(resolveLaunch(byId('intellij'), TIMEOUT_MS, bare({ platform: 'linux', home, env: linuxEnv(home) })))
-      .resolves.toEqual({ launch: { kind: 'argv', command: script, args: [] }, icon: undefined })
+    await expect(resolveLaunch(byId('intellij'), TIMEOUT_MS, bare({ platform: 'linux', home, env: linuxEnv(home) }))).resolves.toEqual({
+      launch: { kind: 'argv', command: script, args: [] },
+      icon: undefined,
+    })
   })
 
   it('scans versioned installs newest-first, skipping versions without the launcher', async () => {
@@ -263,9 +324,12 @@ describe('resolveLaunch locators', () => {
     const found = await resolveLaunch(byId('pycharm'), TIMEOUT_MS, internals)
     expect(found?.launch).toEqual({ kind: 'argv', command: kept, args: [] })
     // A scan root that does not exist resolves nothing.
-    await expect(resolveLaunch(byId('webstorm'), TIMEOUT_MS, {
-      ...internals, env: { ProgramFiles: join(root, 'nonesuch') },
-    })).resolves.toBeNull()
+    await expect(
+      resolveLaunch(byId('webstorm'), TIMEOUT_MS, {
+        ...internals,
+        env: { ProgramFiles: join(root, 'nonesuch') },
+      }),
+    ).resolves.toBeNull()
     // An unset scan-root variable resolves nothing.
     await expect(resolveLaunch(byId('webstorm'), TIMEOUT_MS, { ...internals, env: {} })).resolves.toBeNull()
     // Numeric-aware ordering: '2024.1.10' outranks '2024.1.9'.
@@ -292,26 +356,35 @@ describe('resolveLaunch locators', () => {
       if (!key.includes('App Paths')) return ''
       // The fixture value uses '/' so the expanded path exists on the POSIX
       // test host; expansion is string substitution either way.
-      return [
-        `${key}\\Cursor.exe`,
-        '    (Default)    REG_EXPAND_SZ    %INSTALL_BASE%/Cursor.exe',
-        '',
-      ].join('\r\n')
+      return [`${key}\\Cursor.exe`, '    (Default)    REG_EXPAND_SZ    %INSTALL_BASE%/Cursor.exe', ''].join('\r\n')
     })
     // %INSTALL_BASE% expands against the injected environment.
-    const found = await resolveLaunch(byId('cursor'), TIMEOUT_MS, bare({
-      platform: 'win32', env: { INSTALL_BASE: root }, run,
-    }))
+    const found = await resolveLaunch(
+      byId('cursor'),
+      TIMEOUT_MS,
+      bare({
+        platform: 'win32',
+        env: { INSTALL_BASE: root },
+        run,
+      }),
+    )
     expect(found?.launch).toMatchObject({ kind: 'argv', command: `${root}/Cursor.exe` })
     expect(found?.icon).toEqual({ kind: 'executable', path: `${root}/Cursor.exe` })
     // An unexpandable registered target falls through, and the remaining
     // locators (Uninstall records, file candidates) also miss here.
-    await expect(resolveLaunch(byId('cursor'), TIMEOUT_MS, bare({
-      platform: 'win32', env: {}, run,
-    }))).resolves.toBeNull()
+    await expect(
+      resolveLaunch(
+        byId('cursor'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'win32',
+          env: {},
+          run,
+        }),
+      ),
+    ).resolves.toBeNull()
     // Unreadable registry roots (reg.exe rejects) contribute nothing.
-    await expect(resolveLaunch(byId('cursor'), TIMEOUT_MS, bare({ platform: 'win32', env: {} })))
-      .resolves.toBeNull()
+    await expect(resolveLaunch(byId('cursor'), TIMEOUT_MS, bare({ platform: 'win32', env: {} }))).resolves.toBeNull()
   })
 
   it('verifies Uninstall records through InstallLocation and falls back to the DisplayIcon executable', async () => {
@@ -370,9 +443,16 @@ describe('resolveLaunch locators', () => {
     await writeFile(executable, 'exe')
     await writeFile(cli, 'cli')
 
-    await expect(resolveLaunch(byId('github'), TIMEOUT_MS, bare({
-      platform: 'win32', env: { LOCALAPPDATA: localAppData },
-    }))).resolves.toEqual({
+    await expect(
+      resolveLaunch(
+        byId('github'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'win32',
+          env: { LOCALAPPDATA: localAppData },
+        }),
+      ),
+    ).resolves.toEqual({
       launch: {
         kind: 'argv',
         command: executable,
@@ -384,12 +464,26 @@ describe('resolveLaunch locators', () => {
     })
 
     await rm(cli)
-    await expect(resolveLaunch(byId('github'), TIMEOUT_MS, bare({
-      platform: 'win32', env: { LOCALAPPDATA: localAppData },
-    }))).resolves.toBeNull()
-    await expect(resolveLaunch(byId('github'), TIMEOUT_MS, bare({
-      platform: 'win32', env: { LOCALAPPDATA: join(localAppData, 'missing') },
-    }))).resolves.toBeNull()
+    await expect(
+      resolveLaunch(
+        byId('github'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'win32',
+          env: { LOCALAPPDATA: localAppData },
+        }),
+      ),
+    ).resolves.toBeNull()
+    await expect(
+      resolveLaunch(
+        byId('github'),
+        TIMEOUT_MS,
+        bare({
+          platform: 'win32',
+          env: { LOCALAPPDATA: join(localAppData, 'missing') },
+        }),
+      ),
+    ).resolves.toBeNull()
   })
 
   it('falls back to the desktop entry when the CLI is off PATH, honoring TryExec and quoted Exec', async () => {
@@ -399,42 +493,46 @@ describe('resolveLaunch locators', () => {
     const kittyBin = join(home, 'bin', 'kitty')
     await mkdir(join(home, 'bin'), { recursive: true })
     await writeFile(kittyBin, 'bin')
-    await writeFile(join(applications, 'kitty.desktop'), [
-      '[Desktop Entry]',
-      `TryExec=${kittyBin}`,
-      'Exec=kitty --start-as normal %U',
-      'Icon=kitty',
-      '',
-    ].join('\n'))
+    await writeFile(
+      join(applications, 'kitty.desktop'),
+      ['[Desktop Entry]', `TryExec=${kittyBin}`, 'Exec=kitty --start-as normal %U', 'Icon=kitty', ''].join('\n'),
+    )
     const found = await resolveLaunch(byId('kitty'), TIMEOUT_MS, bare({ platform: 'linux', home, env: linuxEnv(home) }))
     expect(found?.launch).toEqual({ kind: 'argv', command: kittyBin, args: ['--directory'] })
 
     // A quoted absolute Exec command verifies on disk through its first token.
     const gnomeBin = join(home, 'bin', 'gnome-terminal-bin')
     await writeFile(gnomeBin, 'bin')
-    await writeFile(join(applications, 'org.gnome.Terminal.desktop'), [
-      '[Desktop Entry]',
-      `Exec="${gnomeBin}" --window %U`,
-      '',
-    ].join('\n'))
-    const viaExec = await resolveLaunch(byId('gnometerminal'), TIMEOUT_MS, bare({
-      platform: 'linux', home, env: linuxEnv(home),
-    }))
+    await writeFile(join(applications, 'org.gnome.Terminal.desktop'), ['[Desktop Entry]', `Exec="${gnomeBin}" --window %U`, ''].join('\n'))
+    const viaExec = await resolveLaunch(
+      byId('gnometerminal'),
+      TIMEOUT_MS,
+      bare({
+        platform: 'linux',
+        home,
+        env: linuxEnv(home),
+      }),
+    )
     expect(viaExec?.launch).toEqual({ kind: 'argv', command: gnomeBin, args: ['--working-directory={path}'] })
 
     // A bare Exec name resolves through the in-process PATH resolver;
     // XDG_DATA_HOME takes precedence over the home-derived default.
     const dataHome = join(home, 'xdg-data')
     await mkdir(join(dataHome, 'applications'), { recursive: true })
-    await writeFile(join(dataHome, 'applications', 'org.kde.konsole.desktop'), [
-      '[Desktop Entry]',
-      'Exec=konsole-launcher --hold',
-      '',
-    ].join('\n'))
-    const viaPath = await resolveLaunch(byId('konsole'), TIMEOUT_MS, bare({
-      platform: 'linux', home, env: { ...linuxEnv(home), XDG_DATA_HOME: dataHome },
-      resolveExecutable: pathTable({ 'konsole-launcher': '/usr/bin/konsole-launcher' }),
-    }))
+    await writeFile(
+      join(dataHome, 'applications', 'org.kde.konsole.desktop'),
+      ['[Desktop Entry]', 'Exec=konsole-launcher --hold', ''].join('\n'),
+    )
+    const viaPath = await resolveLaunch(
+      byId('konsole'),
+      TIMEOUT_MS,
+      bare({
+        platform: 'linux',
+        home,
+        env: { ...linuxEnv(home), XDG_DATA_HOME: dataHome },
+        resolveExecutable: pathTable({ 'konsole-launcher': '/usr/bin/konsole-launcher' }),
+      }),
+    )
     expect(viaPath?.launch).toEqual({ kind: 'argv', command: '/usr/bin/konsole-launcher', args: ['--workdir'] })
   })
 
@@ -446,11 +544,7 @@ describe('resolveLaunch locators', () => {
     // No desktop entry at all.
     await expect(resolveLaunch(byId('konsole'), TIMEOUT_MS, internals)).resolves.toBeNull()
     // A TryExec absent from disk.
-    await writeFile(join(applications, 'org.kde.konsole.desktop'), [
-      '[Desktop Entry]',
-      `TryExec=${join(home, 'gone')}`,
-      '',
-    ].join('\n'))
+    await writeFile(join(applications, 'org.kde.konsole.desktop'), ['[Desktop Entry]', `TryExec=${join(home, 'gone')}`, ''].join('\n'))
     await expect(resolveLaunch(byId('konsole'), TIMEOUT_MS, internals)).resolves.toBeNull()
     // An empty TryExec with no Exec proves nothing.
     await writeFile(join(applications, 'org.kde.konsole.desktop'), '[Desktop Entry]\nTryExec=\n')
@@ -482,18 +576,22 @@ describe('registry and desktop parsing', () => {
   })
 
   it('reads only the [Desktop Entry] section and tolerates comment and malformed lines', () => {
-    expect(parseDesktopEntry([
-      '# comment',
-      '[Desktop Action new-window]',
-      'Exec=ignored --new-window',
-      '[Desktop Entry]',
-      'no separator line',
-      'Name=Kitty',
-      'Exec=kitty %U',
-      'TryExec=/usr/bin/kitty',
-      'Icon=kitty',
-      '',
-    ].join('\n'))).toEqual({ exec: 'kitty %U', tryExec: '/usr/bin/kitty', icon: 'kitty' })
+    expect(
+      parseDesktopEntry(
+        [
+          '# comment',
+          '[Desktop Action new-window]',
+          'Exec=ignored --new-window',
+          '[Desktop Entry]',
+          'no separator line',
+          'Name=Kitty',
+          'Exec=kitty %U',
+          'TryExec=/usr/bin/kitty',
+          'Icon=kitty',
+          '',
+        ].join('\n'),
+      ),
+    ).toEqual({ exec: 'kitty %U', tryExec: '/usr/bin/kitty', icon: 'kitty' })
   })
 
   it('takes an Exec command as its quoted or bare first token, and none from blank text', () => {
@@ -507,18 +605,18 @@ describe('registry and desktop parsing', () => {
     const completed = { env: {}, home: '/h', resolveExecutable: pathTable() }
     // The home default goes through join(), so the expectation does too —
     // the Windows lane runs this unit over win32 separators.
-    expect(xdgDataDirectories(resolveInternals(completed)))
-      .toEqual([join('/h', '.local', 'share'), '/usr/local/share', '/usr/share'])
-    expect(xdgDataDirectories(resolveInternals({ ...completed, env: { XDG_DATA_HOME: '/x', XDG_DATA_DIRS: '/a::/b' } })))
-      .toEqual(['/x', '/a', '/b'])
+    expect(xdgDataDirectories(resolveInternals(completed))).toEqual([join('/h', '.local', 'share'), '/usr/local/share', '/usr/share'])
+    expect(xdgDataDirectories(resolveInternals({ ...completed, env: { XDG_DATA_HOME: '/x', XDG_DATA_DIRS: '/a::/b' } }))).toEqual([
+      '/x',
+      '/a',
+      '/b',
+    ])
   })
 })
 
 describe('launchResolved', () => {
   /** Launcher recording calls; entries in `outcomes` control each command's fate. */
-  function launcher(
-    calls: unknown[][], outcomes: Readonly<Record<string, 'ok' | 'fail' | 'enoent'>> = {},
-  ): OpenInAppLauncher {
+  function launcher(calls: unknown[][], outcomes: Readonly<Record<string, 'ok' | 'fail' | 'enoent'>> = {}): OpenInAppLauncher {
     return (command, args, options) => {
       calls.push([command, ...args, options])
       const outcome = outcomes[command] ?? 'ok'
@@ -536,14 +634,17 @@ describe('launchResolved', () => {
 
   it('appends the directory or substitutes {path} in place', async () => {
     const calls: unknown[][] = []
-    await expect(launchResolved(
-      { launch: { kind: 'argv', command: 'git-bash', args: ['--cd={path}'] } }, 'C:\\w\\dir', TIMEOUT_MS,
-      bare({ launch: launcher(calls) }),
-    )).resolves.toBe('launched')
-    await expect(launchResolved(
-      { launch: { kind: 'argv', command: 'code', args: [] } }, '/w/dir', TIMEOUT_MS,
-      bare({ launch: launcher(calls) }),
-    )).resolves.toBe('launched')
+    await expect(
+      launchResolved(
+        { launch: { kind: 'argv', command: 'git-bash', args: ['--cd={path}'] } },
+        'C:\\w\\dir',
+        TIMEOUT_MS,
+        bare({ launch: launcher(calls) }),
+      ),
+    ).resolves.toBe('launched')
+    await expect(
+      launchResolved({ launch: { kind: 'argv', command: 'code', args: [] } }, '/w/dir', TIMEOUT_MS, bare({ launch: launcher(calls) })),
+    ).resolves.toBe('launched')
     expect(calls).toEqual([
       ['git-bash', '--cd=C:\\w\\dir', { watchMs: TIMEOUT_MS }],
       ['code', '/w/dir', { watchMs: TIMEOUT_MS }],
@@ -552,90 +653,159 @@ describe('launchResolved', () => {
 
   it('passes adapter-specific environment and Windows visibility policy', async () => {
     const calls: unknown[][] = []
-    await expect(launchResolved({
-      launch: {
-        kind: 'argv',
-        command: 'GitHubDesktop.exe',
-        args: ['cli.js', 'open'],
-        env: { ELECTRON_RUN_AS_NODE: '1' },
-        windowsHide: true,
-      },
-    }, 'C:\\w\\repo', TIMEOUT_MS, bare({ launch: launcher(calls) }))).resolves.toBe('launched')
-    expect(calls).toEqual([[
-      'GitHubDesktop.exe', 'cli.js', 'open', 'C:\\w\\repo',
-      { watchMs: TIMEOUT_MS, env: { ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true },
-    ]])
+    await expect(
+      launchResolved(
+        {
+          launch: {
+            kind: 'argv',
+            command: 'GitHubDesktop.exe',
+            args: ['cli.js', 'open'],
+            env: { ELECTRON_RUN_AS_NODE: '1' },
+            windowsHide: true,
+          },
+        },
+        'C:\\w\\repo',
+        TIMEOUT_MS,
+        bare({ launch: launcher(calls) }),
+      ),
+    ).resolves.toBe('launched')
+    expect(calls).toEqual([
+      [
+        'GitHubDesktop.exe',
+        'cli.js',
+        'open',
+        'C:\\w\\repo',
+        { watchMs: TIMEOUT_MS, env: { ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true },
+      ],
+    ])
   })
 
   it('opens a shell-open launch through the OS path opener, not a detached spawn', async () => {
     const spawns: unknown[][] = []
     const commands: string[][] = []
-    await expect(launchResolved(
-      { launch: { kind: 'shell-open' } }, 'C:\\w\\dir', TIMEOUT_MS,
-      bare({
-        platform: 'win32',
-        launch: launcher(spawns),
-        run: async (command, args) => {
-          commands.push([command, ...args])
-          return { stdout: '', stderr: '' }
-        },
-      }),
-    )).resolves.toBe('launched')
+    await expect(
+      launchResolved(
+        { launch: { kind: 'shell-open' } },
+        'C:\\w\\dir',
+        TIMEOUT_MS,
+        bare({
+          platform: 'win32',
+          launch: launcher(spawns),
+          run: async (command, args) => {
+            commands.push([command, ...args])
+            return { stdout: '', stderr: '' }
+          },
+        }),
+      ),
+    ).resolves.toBe('launched')
     // The opener is the shipped Explorer channel; the detached spawner never runs.
     expect(spawns).toEqual([])
-    expect(commands).toEqual([
-      ['explorer.exe', 'file:///C:/w/dir'],
-    ])
+    expect(commands).toEqual([['explorer.exe', 'file:///C:/w/dir']])
   })
 
   it('counts a shell-open opener that outlives the watch window as launched, and a fast failure as failed', async () => {
     // A cold shell opener can outlive the window: still-running counts launched.
-    await expect(launchResolved(
-      { launch: { kind: 'shell-open' } }, '/w/dir', 25,
-      bare({ platform: 'darwin', run: () => new Promise(() => {}) }),
-    )).resolves.toBe('launched')
+    await expect(
+      launchResolved({ launch: { kind: 'shell-open' } }, '/w/dir', 25, bare({ platform: 'darwin', run: () => new Promise(() => {}) })),
+    ).resolves.toBe('launched')
     // A failure inside the window is the outcome.
-    await expect(launchResolved(
-      { launch: { kind: 'shell-open' } }, '/w/dir', TIMEOUT_MS,
-      bare({ platform: 'darwin', run: async () => { throw new Error('opener failed') } }),
-    )).resolves.toBe('failed')
+    await expect(
+      launchResolved(
+        { launch: { kind: 'shell-open' } },
+        '/w/dir',
+        TIMEOUT_MS,
+        bare({
+          platform: 'darwin',
+          run: async () => {
+            throw new Error('opener failed')
+          },
+        }),
+      ),
+    ).resolves.toBe('failed')
     // A vanished opener marks the resolution stale, like an argv launcher.
-    await expect(launchResolved(
-      { launch: { kind: 'shell-open' } }, '/w/dir', TIMEOUT_MS,
-      bare({ platform: 'darwin', run: async () => {
-        throw Object.assign(new Error('spawn open ENOENT'), { code: 'ENOENT' })
-      } }),
-    )).resolves.toBe('missing')
+    await expect(
+      launchResolved(
+        { launch: { kind: 'shell-open' } },
+        '/w/dir',
+        TIMEOUT_MS,
+        bare({
+          platform: 'darwin',
+          run: async () => {
+            throw Object.assign(new Error('spawn open ENOENT'), { code: 'ENOENT' })
+          },
+        }),
+      ),
+    ).resolves.toBe('missing')
     // A late failure after the window settles nothing (already launched).
     let rejectLate: ((error: Error) => void) | undefined
-    await expect(launchResolved(
-      { launch: { kind: 'shell-open' } }, '/w/dir', 25,
-      bare({ platform: 'darwin', run: () => new Promise((_resolve, reject) => { rejectLate = reject }) }),
-    )).resolves.toBe('launched')
+    await expect(
+      launchResolved(
+        { launch: { kind: 'shell-open' } },
+        '/w/dir',
+        25,
+        bare({
+          platform: 'darwin',
+          run: () =>
+            new Promise((_resolve, reject) => {
+              rejectLate = reject
+            }),
+        }),
+      ),
+    ).resolves.toBe('launched')
     rejectLate?.(new Error('late opener failure'))
   })
 
   it('tries the fallback when the primary fails and classifies the ways an attempt ends', async () => {
     const calls: unknown[][] = []
-    await expect(launchResolved(withFallback, '/w/dir', TIMEOUT_MS, bare({
-      launch: launcher(calls, { primary: 'fail' }),
-    }))).resolves.toBe('launched')
+    await expect(
+      launchResolved(
+        withFallback,
+        '/w/dir',
+        TIMEOUT_MS,
+        bare({
+          launch: launcher(calls, { primary: 'fail' }),
+        }),
+      ),
+    ).resolves.toBe('launched')
     expect(calls.map(call => call[0])).toEqual(['primary', 'fallback'])
 
-    await expect(launchResolved(resolved, '/w/dir', TIMEOUT_MS, bare({ launch: launcher([], { primary: 'fail' }) })))
-      .resolves.toBe('failed')
-    await expect(launchResolved(resolved, '/w/dir', TIMEOUT_MS, bare({ launch: launcher([], { primary: 'enoent' }) })))
-      .resolves.toBe('missing')
+    await expect(launchResolved(resolved, '/w/dir', TIMEOUT_MS, bare({ launch: launcher([], { primary: 'fail' }) }))).resolves.toBe(
+      'failed',
+    )
+    await expect(launchResolved(resolved, '/w/dir', TIMEOUT_MS, bare({ launch: launcher([], { primary: 'enoent' }) }))).resolves.toBe(
+      'missing',
+    )
     // Either tried launcher having vanished reports missing.
-    await expect(launchResolved(withFallback, '/w/dir', TIMEOUT_MS, bare({
-      launch: launcher([], { primary: 'enoent', fallback: 'fail' }),
-    }))).resolves.toBe('missing')
-    await expect(launchResolved(withFallback, '/w/dir', TIMEOUT_MS, bare({
-      launch: launcher([], { primary: 'fail', fallback: 'enoent' }),
-    }))).resolves.toBe('missing')
-    await expect(launchResolved(withFallback, '/w/dir', TIMEOUT_MS, bare({
-      launch: launcher([], { primary: 'fail', fallback: 'fail' }),
-    }))).resolves.toBe('failed')
+    await expect(
+      launchResolved(
+        withFallback,
+        '/w/dir',
+        TIMEOUT_MS,
+        bare({
+          launch: launcher([], { primary: 'enoent', fallback: 'fail' }),
+        }),
+      ),
+    ).resolves.toBe('missing')
+    await expect(
+      launchResolved(
+        withFallback,
+        '/w/dir',
+        TIMEOUT_MS,
+        bare({
+          launch: launcher([], { primary: 'fail', fallback: 'enoent' }),
+        }),
+      ),
+    ).resolves.toBe('missing')
+    await expect(
+      launchResolved(
+        withFallback,
+        '/w/dir',
+        TIMEOUT_MS,
+        bare({
+          launch: launcher([], { primary: 'fail', fallback: 'fail' }),
+        }),
+      ),
+    ).resolves.toBe('failed')
   })
 })
 
@@ -643,25 +813,23 @@ describe('launchDetachedApp', () => {
   const node = process.execPath
 
   it('resolves when the child exits 0 inside the watch window', async () => {
-    await expect(launchDetachedApp(node, ['-e', ''], { watchMs: TIMEOUT_MS }))
-      .resolves.toBeUndefined()
+    await expect(launchDetachedApp(node, ['-e', ''], { watchMs: TIMEOUT_MS })).resolves.toBeUndefined()
   })
 
   it('rejects a nonzero exit inside the window', async () => {
-    await expect(launchDetachedApp(node, ['-e', 'process.exit(3)'], { watchMs: TIMEOUT_MS }))
-      .rejects.toThrow(/launcher exited with/)
+    await expect(launchDetachedApp(node, ['-e', 'process.exit(3)'], { watchMs: TIMEOUT_MS })).rejects.toThrow(/launcher exited with/)
   })
 
   it('rejects a signal-terminated child with the signal name', async () => {
-    await expect(launchDetachedApp(
-      node, ['-e', 'process.kill(process.pid, "SIGKILL"); setTimeout(() => {}, 5000)'],
-      { watchMs: TIMEOUT_MS },
-    )).rejects.toThrow(/launcher exited with/)
+    await expect(
+      launchDetachedApp(node, ['-e', 'process.kill(process.pid, "SIGKILL"); setTimeout(() => {}, 5000)'], { watchMs: TIMEOUT_MS }),
+    ).rejects.toThrow(/launcher exited with/)
   })
 
   it('rejects a spawn failure, carrying the ENOENT code', async () => {
-    await expect(launchDetachedApp('dsh-definitely-missing-launcher', [], { watchMs: TIMEOUT_MS }))
-      .rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(launchDetachedApp('dsh-definitely-missing-launcher', [], { watchMs: TIMEOUT_MS })).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
   })
 
   it('hands the child a credential-scrubbed environment with explicit adapter entries', async () => {
@@ -670,13 +838,17 @@ describe('launchDetachedApp', () => {
     process.env.OPEN_IN_APP_SPEC_API_KEY = 'leak'
     process.env.OPEN_IN_APP_SPEC_PLAIN = 'visible'
     try {
-      await launchDetachedApp(node, [
-        '-e',
-        'require("node:fs").writeFileSync(process.argv[1], JSON.stringify(['
-        + 'process.env.OPEN_IN_APP_SPEC_API_KEY ?? null, process.env.OPEN_IN_APP_SPEC_PLAIN ?? null, '
-        + 'process.env.ELECTRON_RUN_AS_NODE ?? null]))',
-        witness,
-      ], { watchMs: TIMEOUT_MS, env: { OPEN_IN_APP_SPEC_PLAIN: 'overridden', ELECTRON_RUN_AS_NODE: '1' } })
+      await launchDetachedApp(
+        node,
+        [
+          '-e',
+          'require("node:fs").writeFileSync(process.argv[1], JSON.stringify([' +
+            'process.env.OPEN_IN_APP_SPEC_API_KEY ?? null, process.env.OPEN_IN_APP_SPEC_PLAIN ?? null, ' +
+            'process.env.ELECTRON_RUN_AS_NODE ?? null]))',
+          witness,
+        ],
+        { watchMs: TIMEOUT_MS, env: { OPEN_IN_APP_SPEC_PLAIN: 'overridden', ELECTRON_RUN_AS_NODE: '1' } },
+      )
     } finally {
       delete process.env.OPEN_IN_APP_SPEC_API_KEY
       delete process.env.OPEN_IN_APP_SPEC_PLAIN

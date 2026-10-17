@@ -7,8 +7,9 @@
  * @returns settlement of the new query, independent of the older query's outcome.
  */
 export async function refreshAfterReturn(pending: Promise<void> | undefined, refresh: () => Promise<void>): Promise<void> {
-  try { await pending }
-  catch (_error) {
+  try {
+    await pending
+  } catch (_error) {
     // A failed pre-return query must not prevent the user's post-operation refresh.
   }
   await refresh()

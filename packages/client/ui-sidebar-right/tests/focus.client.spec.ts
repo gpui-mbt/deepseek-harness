@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Focus ownership remains separate from layout selection and validates captured lifetimes. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createElement } from 'react'
 import { cleanup, render } from '@testing-library/react'
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -20,26 +20,43 @@ import { observeSidebarFocus, sidebarTargetFromElement } from '../src/client/foc
 
 const SESSION = 'focus-session' as SessionId
 const releases: Array<() => void> = []
-afterEach(() => { cleanup(); for (const release of releases.splice(0).reverse()) release(); document.body.replaceChildren() })
+afterEach(() => {
+  cleanup()
+  for (const release of releases.splice(0).reverse()) release()
+  document.body.replaceChildren()
+})
 
 function harness() {
   const ctx = new Context()
   const tabs = new SidebarRightTabRegistry(ctx)
   for (const kind of ['guide', 'files', 'terminal']) tabs.register({ id: kind, kind, title: () => kind, multiple: kind === 'terminal' })
   const room = { allowed: true, autoFullscreen: false }
-  const { controller, adopt, show: showSession, measure } = createSidebarRightController(tabs, vi.fn(), {
+  const {
+    controller,
+    adopt,
+    show: showSession,
+    measure,
+  } = createSidebarRightController(tabs, vi.fn(), {
     autoFullscreen: () => room.autoFullscreen,
-    openWithFocus: (_sessionId, open) => { open() },
-    closeWithFocus: (_sessionId, _paneId, close) => { close() },
+    openWithFocus: (_sessionId, open) => {
+      open()
+    },
+    closeWithFocus: (_sessionId, _paneId, close) => {
+      close()
+    },
   })
   const store = createSidebarRightStore(() => ({ kind: 'guide', title: 'guide' })).create()
-  releases.push(adopt(SESSION, store), () => { controller.tabDomain.dispose() })
+  releases.push(adopt(SESSION, store), () => {
+    controller.tabDomain.dispose()
+  })
   store.actions.setExpanded(SESSION, true)
   /** Put a Session on screen the way the plugin does, with the room rule its seat reports. */
   const show = (sessionId = SESSION) => {
     showSession(sessionId)
     measure(sessionId, () => room.allowed)
-    return () => { if (controller.mounted.getSnapshot() === sessionId) showSession(undefined) }
+    return () => {
+      if (controller.mounted.getSnapshot() === sessionId) showSession(undefined)
+    }
   }
   releases.push(show())
   const layout = () => store.getSnapshot().bySession[SESSION]!.layout
@@ -77,9 +94,11 @@ describe('sidebar focus targets', () => {
   })
 
   it('does not restore a removed editor over focus captured by another component', async () => {
-    const h = harness(), pane = h.paneElement()
+    const h = harness(),
+      pane = h.paneElement()
     pane.parentElement!.setAttribute('data-sidebar-right-open', '')
-    const input = document.createElement('input'), outside = document.createElement('button')
+    const input = document.createElement('input'),
+      outside = document.createElement('button')
     pane.append(input)
     document.body.append(outside)
     releases.push(observeSidebarFocus(document))
@@ -88,7 +107,13 @@ describe('sidebar focus targets', () => {
     await Promise.resolve()
     expect(document.activeElement).toBe(input)
     input.remove()
-    document.addEventListener('focusin', (event) => { event.stopImmediatePropagation() }, { capture: true, once: true })
+    document.addEventListener(
+      'focusin',
+      event => {
+        event.stopImmediatePropagation()
+      },
+      { capture: true, once: true },
+    )
     outside.focus()
     await Promise.resolve()
     expect(document.activeElement).toBe(outside)
@@ -324,7 +349,7 @@ describe('sidebar focus targets', () => {
     expect(document.activeElement).toBe(selectedPane)
   })
 
-  it.each(['input', 'iframe'] as const)('retains the owning pane after its focused %s is remounted', async (kind) => {
+  it.each(['input', 'iframe'] as const)('retains the owning pane after its focused %s is remounted', async kind => {
     const h = harness()
     const pane = h.paneElement()
     pane.parentElement!.setAttribute('data-sidebar-right-open', '')
@@ -338,42 +363,59 @@ describe('sidebar focus targets', () => {
     expect(document.activeElement).toBe(pane)
   })
 
-  it.each(['outside-pointer', 'other-focus', 'blur', 'hidden', 'session-change', 'dispose'] as const)('does not reclaim focus after %s', async (reason) => {
-    const h = harness()
-    const pane = h.paneElement()
-    const owner = pane.parentElement!
-    owner.setAttribute('data-sidebar-right-open', '')
-    const input = document.createElement('input')
-    pane.append(input)
-    const outside = document.createElement('button')
-    document.body.append(outside)
-    const release = observeSidebarFocus(document)
-    releases.push(release)
-    input.focus()
-    if (reason === 'outside-pointer') outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
-    else if (reason === 'other-focus') outside.focus()
-    else if (reason === 'blur') input.blur()
-    else if (reason === 'hidden') owner.removeAttribute('data-sidebar-right-open')
-    else if (reason === 'session-change') owner.dataset.sidebarRightSession = 'different-session'
-    else release()
-    input.remove()
-    await Promise.resolve()
-    expect(document.activeElement).toBe(reason === 'other-focus' ? outside : document.body)
-  })
+  it.each(['outside-pointer', 'other-focus', 'blur', 'hidden', 'session-change', 'dispose'] as const)(
+    'does not reclaim focus after %s',
+    async reason => {
+      const h = harness()
+      const pane = h.paneElement()
+      const owner = pane.parentElement!
+      owner.setAttribute('data-sidebar-right-open', '')
+      const input = document.createElement('input')
+      pane.append(input)
+      const outside = document.createElement('button')
+      document.body.append(outside)
+      const release = observeSidebarFocus(document)
+      releases.push(release)
+      input.focus()
+      if (reason === 'outside-pointer') outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+      else if (reason === 'other-focus') outside.focus()
+      else if (reason === 'blur') input.blur()
+      else if (reason === 'hidden') owner.removeAttribute('data-sidebar-right-open')
+      else if (reason === 'session-change') owner.dataset.sidebarRightSession = 'different-session'
+      else release()
+      input.remove()
+      await Promise.resolve()
+      expect(document.activeElement).toBe(reason === 'other-focus' ? outside : document.body)
+    },
+  )
 })
-
 
 describe('sidebar keyboard commands', () => {
   it('refuses Web close without focus and drops a refresh captured before replacement', () => {
-    const h = harness(), commands = new Map<string, ShortcutCommand>()
-    releases.push(registerSidebarShortcuts({ runtime: 'web', register: (command) => {
-      commands.set(command.id, command); return () => { commands.delete(command.id) }
-    } }, h.controller, makeTranslate(en), vi.fn()))
+    const h = harness(),
+      commands = new Map<string, ShortcutCommand>()
+    releases.push(
+      registerSidebarShortcuts(
+        {
+          runtime: 'web',
+          register: command => {
+            commands.set(command.id, command)
+            return () => {
+              commands.delete(command.id)
+            }
+          },
+        },
+        h.controller,
+        makeTranslate(en),
+        vi.fn(),
+      ),
+    )
     const context = { target: null, region: 'page', modal: null } as const
     expect(commands.get('page.close')!.resolve(context)).toMatchObject({ status: 'blocked', reason: en['command.noFocus'] })
     h.controller.openTab('files')
     const id = h.controller.active()!.id
-    const target = h.tabElement(id), refresh = vi.fn()
+    const target = h.tabElement(id),
+      refresh = vi.fn()
     const occurrence = h.controller.tabDomain.occurrence(SESSION, { id })
     const off = occurrence.tabActions.bindCommands({ refresh })
     const pending = commands.get('page.refresh')!.resolve({ ...context, target })
@@ -384,10 +426,25 @@ describe('sidebar keyboard commands', () => {
   })
 
   it('closes the Desktop window only while its captured empty pane remains current', () => {
-    const h = harness(), commands = new Map<string, ShortcutCommand>(), closeWindow = vi.fn()
-    releases.push(registerSidebarShortcuts({ runtime: 'desktop', register: (command) => {
-      commands.set(command.id, command); return () => { commands.delete(command.id) }
-    } }, h.controller, makeTranslate(en), closeWindow))
+    const h = harness(),
+      commands = new Map<string, ShortcutCommand>(),
+      closeWindow = vi.fn()
+    releases.push(
+      registerSidebarShortcuts(
+        {
+          runtime: 'desktop',
+          register: command => {
+            commands.set(command.id, command)
+            return () => {
+              commands.delete(command.id)
+            }
+          },
+        },
+        h.controller,
+        makeTranslate(en),
+        closeWindow,
+      ),
+    )
     h.controller.openTabFromTarget('files', h.controller.commandTarget(null)!)
     h.controller.close(h.controller.active()!.id)
     const surface = h.store.getSnapshot().bySession[SESSION]!
@@ -402,14 +459,28 @@ describe('sidebar keyboard commands', () => {
     pending.run()
     expect(closeWindow).toHaveBeenCalledOnce()
   })
-  it.each(['macos', 'windows'] as const)('uses the effective %s binding, blocks collapsed splits and consumes repeats', (platform) => {
+  it.each(['macos', 'windows'] as const)('uses the effective %s binding, blocks collapsed splits and consumes repeats', platform => {
     const h = harness()
     const registry = new ShortcutRegistry('desktop', platform)
-    releases.push(registerSidebarShortcuts({ register: command => registry.register(command),
-      runtime: registry.runtime }, h.controller, makeTranslate(en), vi.fn()))
+    releases.push(
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: registry.runtime },
+        h.controller,
+        makeTranslate(en),
+        vi.fn(),
+      ),
+    )
     const consume = vi.fn()
-    const gesture = { code: 'KeyB', meta: platform === 'macos', control: platform === 'windows', alt: true,
-      shift: false, repeat: false, composing: false, defaultPrevented: false }
+    const gesture = {
+      code: 'KeyB',
+      meta: platform === 'macos',
+      control: platform === 'windows',
+      alt: true,
+      shift: false,
+      repeat: false,
+      composing: false,
+      defaultPrevented: false,
+    }
     const context = { target: null, region: 'editable' as const, modal: null }
     expect(registry.dispatch(gesture, context, consume).status).toBe('handled')
     expect(h.layout().expanded).toBe(false)
@@ -434,13 +505,27 @@ describe('sidebar keyboard commands', () => {
   it('toggles the current Session while a collapsed pane still owns DOM focus', () => {
     const h = harness()
     const registry = new ShortcutRegistry('desktop', 'windows')
-    releases.push(registerSidebarShortcuts({ register: command => registry.register(command),
-      runtime: registry.runtime }, h.controller, makeTranslate(en), vi.fn()))
+    releases.push(
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: registry.runtime },
+        h.controller,
+        makeTranslate(en),
+        vi.fn(),
+      ),
+    )
     const pane = h.paneElement()
     pane.focus()
     const context = { target: pane, region: 'page' as const, modal: null }
-    const gesture = { code: 'KeyB', control: true, meta: false, alt: true, shift: false,
-      repeat: false, composing: false, defaultPrevented: false }
+    const gesture = {
+      code: 'KeyB',
+      control: true,
+      meta: false,
+      alt: true,
+      shift: false,
+      repeat: false,
+      composing: false,
+      defaultPrevented: false,
+    }
     expect(registry.dispatch(gesture, context, vi.fn()).status).toBe('handled')
     expect(h.layout().expanded).toBe(false)
     expect(document.activeElement).toBe(pane)
@@ -451,10 +536,22 @@ describe('sidebar keyboard commands', () => {
   it('refuses commands without a current eligible pane and captured commands after Session replacement', () => {
     const h = harness()
     const commands = new Map<string, ShortcutCommand>()
-    releases.push(registerSidebarShortcuts({ runtime: 'desktop', register: (command) => {
-      commands.set(command.id, command)
-      return () => { commands.delete(command.id) }
-    } }, h.controller, makeTranslate(en), vi.fn()))
+    releases.push(
+      registerSidebarShortcuts(
+        {
+          runtime: 'desktop',
+          register: command => {
+            commands.set(command.id, command)
+            return () => {
+              commands.delete(command.id)
+            }
+          },
+        },
+        h.controller,
+        makeTranslate(en),
+        vi.fn(),
+      ),
+    )
     const split = commands.get('pane.split')!
     const fullscreen = commands.get('pane.fullscreen.toggle')!
     const toggle = commands.get('sidebar.right.toggle')!
@@ -494,24 +591,49 @@ describe('sidebar keyboard commands', () => {
   ] as const)('publishes the Web defaults and unbound commands on $platform', ({ platform, keys }) => {
     const h = harness()
     const registry = new ShortcutRegistry('web', platform)
-    releases.push(registerSidebarShortcuts({ register: command => registry.register(command),
-      runtime: registry.runtime }, h.controller, makeTranslate(en), vi.fn()))
+    releases.push(
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: registry.runtime },
+        h.controller,
+        makeTranslate(en),
+        vi.fn(),
+      ),
+    )
     expect(registry.catalog.getSnapshot().map(row => row.id)).toEqual([
-      'sidebar.right.toggle', 'pane.split', 'pane.fullscreen.toggle', 'page.close', 'page.refresh',
+      'sidebar.right.toggle',
+      'pane.split',
+      'pane.fullscreen.toggle',
+      'page.close',
+      'page.refresh',
     ])
     expect(registry.catalog.getSnapshot().map(row => row.aria)).toEqual(keys)
   })
 })
 
 describe('page close and refresh', () => {
-  it.each(['macos', 'windows'] as const)('closes two guide panes without closing the window on %s', (platform) => {
+  it.each(['macos', 'windows'] as const)('closes two guide panes without closing the window on %s', platform => {
     const h = harness()
     h.controller.split()
     const registry = new ShortcutRegistry('desktop', platform)
     const closeWindow = vi.fn()
-    releases.push(registerSidebarShortcuts({ register: command => registry.register(command), runtime: 'desktop' }, h.controller, makeTranslate(en), closeWindow))
-    const gesture = { code: 'KeyW', meta: platform === 'macos', control: platform === 'windows', alt: false,
-      shift: false, repeat: false, composing: false, defaultPrevented: false }
+    releases.push(
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: 'desktop' },
+        h.controller,
+        makeTranslate(en),
+        closeWindow,
+      ),
+    )
+    const gesture = {
+      code: 'KeyW',
+      meta: platform === 'macos',
+      control: platform === 'windows',
+      alt: false,
+      shift: false,
+      repeat: false,
+      composing: false,
+      defaultPrevented: false,
+    }
     const first = Object.values(h.layout().tabs)[0]!
     const element = h.tabElement(first.id)
     registry.dispatch(gesture, { target: element, region: 'page', modal: null }, vi.fn())
@@ -525,19 +647,34 @@ describe('page close and refresh', () => {
     expect(h.layout().tabs[remaining.id]).toBeDefined()
   })
 
-  it.each(['macos', 'windows'] as const)('refreshes and closes the focused occurrence on %s without closing behind a modal', (platform) => {
+  it.each(['macos', 'windows'] as const)('refreshes and closes the focused occurrence on %s without closing behind a modal', platform => {
     const h = harness()
     const registry = new ShortcutRegistry('desktop', platform)
     const closeWindow = vi.fn()
-    releases.push(registerSidebarShortcuts({ register: command => registry.register(command), runtime: 'desktop' }, h.controller, makeTranslate(en), closeWindow))
+    releases.push(
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: 'desktop' },
+        h.controller,
+        makeTranslate(en),
+        closeWindow,
+      ),
+    )
     h.controller.openTab('files')
     const files = h.controller.active()!.id
     const element = h.tabElement(files)
     const occurrence = h.controller.tabDomain.occurrence(SESSION, { id: files })
     const refresh = vi.fn()
     const release = occurrence.tabActions.bindCommands({ refresh })
-    const gesture = { code: 'KeyR', meta: platform === 'macos', control: platform === 'windows', alt: false,
-      shift: false, repeat: false, composing: false, defaultPrevented: false }
+    const gesture = {
+      code: 'KeyR',
+      meta: platform === 'macos',
+      control: platform === 'windows',
+      alt: false,
+      shift: false,
+      repeat: false,
+      composing: false,
+      defaultPrevented: false,
+    }
     const context = { target: element, region: 'page' as const, modal: null }
     const consume = vi.fn()
     registry.dispatch(gesture, context, consume)
@@ -546,10 +683,15 @@ describe('page close and refresh', () => {
     expect(consume).toHaveBeenCalledTimes(2)
     release()
     expect(registry.dispatch(gesture, context, consume).status).toBe('blocked')
-    expect(registry.dispatch(gesture, { ...context, modal: 'settings' }, consume)).toMatchObject({ status: 'blocked', reason: en['command.noRefresh'] })
+    expect(registry.dispatch(gesture, { ...context, modal: 'settings' }, consume)).toMatchObject({
+      status: 'blocked',
+      reason: en['command.noRefresh'],
+    })
     expect(h.layout().tabs[files]).toBeDefined()
     expect(registry.dispatch(gesture, { ...context, region: 'terminal' }, consume).status).toBe('blocked')
-    expect(registry.dispatch({ ...gesture, code: 'KeyW' }, { ...context, region: 'terminal', modal: 'settings' }, consume).status).toBe('handled')
+    expect(registry.dispatch({ ...gesture, code: 'KeyW' }, { ...context, region: 'terminal', modal: 'settings' }, consume).status).toBe(
+      'handled',
+    )
     expect(h.layout().tabs[files]).toBeDefined()
     registry.dispatch({ ...gesture, code: 'KeyW' }, { ...context, region: 'terminal' }, consume)
     expect(h.layout().tabs[files]).toBeUndefined()
@@ -560,15 +702,31 @@ describe('page close and refresh', () => {
     expect(closeWindow).toHaveBeenCalledTimes(1)
   })
 
-  it.each(['macos', 'windows', 'linux'] as const)('routes the close binding and native menu to the foreground modal on %s', (platform) => {
+  it.each(['macos', 'windows', 'linux'] as const)('routes the close binding and native menu to the foreground modal on %s', platform => {
     const h = harness()
     const registry = new ShortcutRegistry('desktop', platform)
-    const closeWindow = vi.fn(), closeModal = vi.fn()
-    releases.push(registerSidebarShortcuts({ register: command => registry.register(command), runtime: 'desktop' }, h.controller, makeTranslate(en), closeWindow))
+    const closeWindow = vi.fn(),
+      closeModal = vi.fn()
+    releases.push(
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: 'desktop' },
+        h.controller,
+        makeTranslate(en),
+        closeWindow,
+      ),
+    )
     render(createElement(Modal, { open: true, title: 'Settings', shortcutModal: 'settings', closeLabel: 'Close', onClose: closeModal }))
     const context = { target: document.activeElement, region: 'page' as const, modal: 'settings' }
-    const gesture = { code: 'KeyW', meta: platform === 'macos', control: platform !== 'macos', alt: false,
-      shift: false, repeat: false, composing: false, defaultPrevented: false }
+    const gesture = {
+      code: 'KeyW',
+      meta: platform === 'macos',
+      control: platform !== 'macos',
+      alt: false,
+      shift: false,
+      repeat: false,
+      composing: false,
+      defaultPrevented: false,
+    }
     registry.dispatch({ ...gesture, composing: true }, context, vi.fn())
     registry.dispatch({ ...gesture, repeat: true }, context, vi.fn())
     expect(closeModal).not.toHaveBeenCalled()
@@ -586,11 +744,22 @@ describe('page close and refresh', () => {
     const tab = h.controller.active()!.id
     const closeWindow = vi.fn()
     const registry = new ShortcutRegistry('desktop', 'macos')
-    releases.push(registerSidebarShortcuts({ register: command => registry.register(command), runtime: 'desktop' }, h.controller, makeTranslate(en), closeWindow))
-    const off = h.controller.registerCloseHandler('terminal', () => { throw new Error('cleanup failed') })
+    releases.push(
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: 'desktop' },
+        h.controller,
+        makeTranslate(en),
+        closeWindow,
+      ),
+    )
+    const off = h.controller.registerCloseHandler('terminal', () => {
+      throw new Error('cleanup failed')
+    })
     releases.push(off)
     const context = { target: h.tabElement(tab), region: 'page' as const, modal: null }
-    expect(() =>{  registry.invoke('page.close' as ShortcutCommandId, context) }).toThrow('cleanup failed')
+    expect(() => {
+      registry.invoke('page.close' as ShortcutCommandId, context)
+    }).toThrow('cleanup failed')
     expect(h.layout().tabs[tab]).toBeDefined()
     expect(closeWindow).not.toHaveBeenCalled()
     off()

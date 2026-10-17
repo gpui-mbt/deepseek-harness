@@ -31,7 +31,7 @@ export async function apply(ctx: Context): Promise<void> {
       })
     },
   })
-  ctx.on('session/flush', async (session) => {
+  ctx.on('session/flush', async session => {
     if (triggered || !session.snapshotEvents().some(event => event.type === 'turn/end')) return
     const provider = [...ctx.loader.entries()].find(entry => entry.options.id === 'session-persistence-jsonl')
     if (provider?.fiber === undefined) throw new Error('Snapshot persistence provider is missing')
@@ -40,11 +40,15 @@ export async function apply(ctx: Context): Promise<void> {
     await ctx.sessions.flush(session)
     live = session
     let finished = false
-    const unloading = provider.fiber.dispose().then(() => { finished = true })
+    const unloading = provider.fiber.dispose().then(() => {
+      finished = true
+    })
     try {
       await Promise.race([
         entered.promise,
-        unloading.then(() => { throw new Error('Persistence unloaded before its consumer cleanup') }),
+        unloading.then(() => {
+          throw new Error('Persistence unloaded before its consumer cleanup')
+        }),
       ])
       await scheduler.yield()
       if (finished) throw new Error('Persistence did not await its consumer cleanup')

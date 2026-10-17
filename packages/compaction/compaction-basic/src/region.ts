@@ -48,9 +48,10 @@ interface PreparedCompaction extends SurfaceSelection {
   readonly input: SummarizationInput
 }
 
-type SummarizedCompaction = PreparedCompaction & SummaryResult & {
-  readonly checkpointMessage: UserMessage
-}
+type SummarizedCompaction = PreparedCompaction &
+  SummaryResult & {
+    readonly checkpointMessage: UserMessage
+  }
 
 interface CompactionTransactionOptions {
   /** `current-turn` derives a numbered owner; `null` writes a standalone bracket. */
@@ -77,11 +78,7 @@ interface CompactionEntryState {
 class SurfaceChangedError extends Error {}
 
 /** Whether the summary may still replace the span it was built from. */
-type StabilityCheck = (
-  dependencies: RegionDependencies,
-  session: Session,
-  prepared: PreparedCompaction,
-) => void
+type StabilityCheck = (dependencies: RegionDependencies, session: Session, prepared: PreparedCompaction) => void
 
 /** Failure captured after `compaction/start` has committed. */
 interface TransactionFailure {
@@ -123,8 +120,7 @@ export function selectCompactableRange(
   if (pricedNodes.length === 0) return null
 
   const surfaceNodes = session.surface.nodes
-  if (surfaceNodes.length !== pricedNodes.length
-    || surfaceNodes.some((seq, index) => seq !== pricedNodes[index]?.seq)) {
+  if (surfaceNodes.length !== pricedNodes.length || surfaceNodes.some((seq, index) => seq !== pricedNodes[index]?.seq)) {
     throw new Error('compaction: token-meter surface does not match the current session surface')
   }
   // oxlint-disable-next-line typescript/no-non-null-assertion
@@ -182,11 +178,7 @@ export async function compactSurfaceRegion(
   if (options.owner === null) signal?.throwIfAborted()
   const selection = validateSurfaceRegion(session, start, end)
   const entryState = inspectCompactionEntryState(session)
-  assertCompactionInactive(
-    entryState.unmatchedCompactionStart,
-    entryState.latestEndSeedSeq,
-    'compaction',
-  )
+  assertCompactionInactive(entryState.unmatchedCompactionStart, entryState.latestEndSeedSeq, 'compaction')
 
   let owner: number | null
   if (options.owner === null) {
@@ -204,13 +196,11 @@ export async function compactSurfaceRegion(
   const compactionId = CompactionId(randomUUID())
   const lifecycle = {
     compactionId,
-    ...options.sourceCommandId === undefined ? {} : { sourceCommandId: options.sourceCommandId },
+    ...(options.sourceCommandId === undefined ? {} : { sourceCommandId: options.sourceCommandId }),
     turn: owner,
   }
   const startEvent = session.append('compaction/start', lifecycle)
-  const assertStable: StabilityCheck = options.stability === 'whole-surface'
-    ? assertWholeSurfaceUnchanged
-    : assertSelectedSpanStable
+  const assertStable: StabilityCheck = options.stability === 'whole-surface' ? assertWholeSurfaceUnchanged : assertSelectedSpanStable
   let failure: TransactionFailure | undefined
   let flushFailure: unknown
   let result: CompactionResult | undefined
@@ -220,15 +210,7 @@ export async function compactSurfaceRegion(
 
   try {
     const prepared = prepareCompaction(dependencies, session, selection)
-    const summarized = await summarizeCompaction(
-      dependencies,
-      prepared,
-      agent,
-      compactionId,
-      options.sourceCommandId,
-      assertStable,
-      signal,
-    )
+    const summarized = await summarizeCompaction(dependencies, prepared, agent, compactionId, options.sourceCommandId, assertStable, signal)
     if (options.owner === null) signal?.throwIfAborted()
     assertStable(dependencies, session, summarized)
     stage = 'commit'
@@ -264,11 +246,7 @@ export async function compactSurfaceRegion(
     throw failure.error
   }
   if (flushFailure !== undefined) {
-    throw new ManualCompactionError(
-      'persistence',
-      'manual compaction durability checkpoint failed',
-      { cause: flushFailure },
-    )
+    throw new ManualCompactionError('persistence', 'manual compaction durability checkpoint failed', { cause: flushFailure })
   }
   /* v8 ignore next -- every path without a result records and throws a failure above. */
   if (result === undefined) throw new Error('compaction committed without a result')
@@ -278,24 +256,12 @@ export async function compactSurfaceRegion(
 /** Classify one closed manual attempt without weakening cancellation precedence. */
 function throwManualFailure(failure: TransactionFailure): never {
   if (failure.stage === 'commit') {
-    throw new ManualCompactionError(
-      'commit',
-      'manual compaction did not commit cleanly',
-      { cause: failure.error },
-    )
+    throw new ManualCompactionError('commit', 'manual compaction did not commit cleanly', { cause: failure.error })
   }
   if (failure.error instanceof SurfaceChangedError) {
-    throw new ManualCompactionError(
-      'changed',
-      'the compacted history changed during manual compaction',
-      { cause: failure.error },
-    )
+    throw new ManualCompactionError('changed', 'the compacted history changed during manual compaction', { cause: failure.error })
   }
-  throw new ManualCompactionError(
-    'summary',
-    'manual compaction could not produce a smaller summary',
-    { cause: failure.error },
-  )
+  throw new ManualCompactionError('summary', 'manual compaction could not produce a smaller summary', { cause: failure.error })
 }
 
 /**
@@ -310,13 +276,8 @@ function assertCompactionInactive(
   latestEndSeedSeq: SessionSeq | undefined,
   stage: string,
 ): void {
-  if (unmatchedCompactionStart === undefined
-    || (latestEndSeedSeq !== undefined
-      && latestEndSeedSeq > unmatchedCompactionStart.seq)) return
-  throw new ManualCompactionError(
-    'busy',
-    `${stage}: compaction already in progress; the session compaction lock is already active`,
-  )
+  if (unmatchedCompactionStart === undefined || (latestEndSeedSeq !== undefined && latestEndSeedSeq > unmatchedCompactionStart.seq)) return
+  throw new ManualCompactionError('busy', `${stage}: compaction already in progress; the session compaction lock is already active`)
 }
 
 /**
@@ -326,11 +287,7 @@ function assertCompactionInactive(
  */
 export function assertNoActiveCompaction(session: Session, stage: string): void {
   const entryState = inspectCompactionEntryState(session)
-  assertCompactionInactive(
-    entryState.unmatchedCompactionStart,
-    entryState.latestEndSeedSeq,
-    stage,
-  )
+  assertCompactionInactive(entryState.unmatchedCompactionStart, entryState.latestEndSeedSeq, stage)
 }
 
 /** Validate one requested surface-position span before asynchronous work begins. */
@@ -341,9 +298,7 @@ function validateSurfaceRegion(session: Session, start: SessionSeq, end: Session
   if (startIdx === -1) throw new Error(`compactRegion: start seq ${start} not found in surface`)
   if (endIdx === -1) throw new Error(`compactRegion: end seq ${end} not found in surface`)
   if (startIdx > endIdx) {
-    throw new Error(
-      `compactRegion: start seq ${start} (position ${startIdx}) is after end seq ${end} (position ${endIdx}) on the surface`,
-    )
+    throw new Error(`compactRegion: start seq ${start} (position ${startIdx}) is after end seq ${end} (position ${endIdx}) on the surface`)
   }
   // oxlint-disable-next-line typescript/no-non-null-assertion
   if (!toolPairingBalancedBefore(session, nodes[startIdx]!)) {
@@ -358,15 +313,13 @@ function validateSurfaceRegion(session: Session, start: SessionSeq, end: Session
 }
 
 /** Snapshot pricing and replay input for a validated surface range. */
-function prepareCompaction(
-  dependencies: RegionDependencies,
-  session: Session,
-  selection: SurfaceSelection,
-): PreparedCompaction {
+function prepareCompaction(dependencies: RegionDependencies, session: Session, selection: SurfaceSelection): PreparedCompaction {
   const measurement = dependencies.meter.measure(session)
   const selectedNodes = measurement.nodes.slice(selection.startIdx, selection.endIdx + 1)
-  if (selectedNodes.length !== selection.shadowedSeqs.length
-    || selectedNodes.some((node, index) => node.seq !== selection.shadowedSeqs[index])) {
+  if (
+    selectedNodes.length !== selection.shadowedSeqs.length ||
+    selectedNodes.some((node, index) => node.seq !== selection.shadowedSeqs[index])
+  ) {
     throw new SurfaceChangedError('compaction: selected surface changed before summarization began')
   }
   return {
@@ -403,8 +356,7 @@ async function summarizeCompaction(
       if (signal?.aborted === true) throw error
       assertStable(dependencies, agent.session, prepared)
       if (!dependencies.recover(error, agent, prepared.shadowedSeqs, signal)) throw error
-      prepared = prepareCompaction(dependencies, agent.session,
-        validateSurfaceRegion(agent.session, prepared.start, prepared.end))
+      prepared = prepareCompaction(dependencies, agent.session, validateSurfaceRegion(agent.session, prepared.start, prepared.end))
     }
   }
   const checkpointMessage = createUserMessage({
@@ -428,11 +380,7 @@ async function summarizeCompaction(
 }
 
 /** Reject a summary prepared against any earlier surface generation. */
-function assertWholeSurfaceUnchanged(
-  dependencies: RegionDependencies,
-  session: Session,
-  prepared: PreparedCompaction,
-): void {
+function assertWholeSurfaceUnchanged(dependencies: RegionDependencies, session: Session, prepared: PreparedCompaction): void {
   const current = dependencies.meter.measure(session)
   if (!isDeepStrictEqual(current.nodes, prepared.measurement.nodes)) {
     throw new SurfaceChangedError('compaction: session surface changed during summarization')
@@ -444,19 +392,12 @@ function assertWholeSurfaceUnchanged(
  * equally priced, balanced replacement target. Nodes added outside it remain
  * visible and do not invalidate the summary.
  */
-function assertSelectedSpanStable(
-  dependencies: RegionDependencies,
-  session: Session,
-  prepared: PreparedCompaction,
-): void {
+function assertSelectedSpanStable(dependencies: RegionDependencies, session: Session, prepared: PreparedCompaction): void {
   let current: SurfaceSelection
   try {
     current = validateSurfaceRegion(session, prepared.start, prepared.end)
   } catch (error: unknown) {
-    throw new SurfaceChangedError(
-      'compaction: the selected span is no longer a valid replacement target',
-      { cause: error },
-    )
+    throw new SurfaceChangedError('compaction: the selected span is no longer a valid replacement target', { cause: error })
   }
   if (!isDeepStrictEqual([...current.shadowedSeqs], [...prepared.shadowedSeqs])) {
     throw new SurfaceChangedError('compaction: the selected span changed during summarization')
@@ -473,26 +414,16 @@ function commitCompactionBody(
   startEvent: SessionEvent<'compaction/start'>,
   summarized: SummarizedCompaction,
 ): Omit<CompactionResult, 'endSeq'> {
-  const {
-    start,
-    end,
-    shadowedSeqs,
-    shadowedTokenCount,
-    summary,
-    provider,
-    model,
-    maxTokens,
-    usage,
-    checkpointMessage,
-  } = summarized
-  const callRecord = summarized.llmStreamCall === true
-    ? { rawOutput: summarized.rawOutput, llmStreamCall: true as const }
-    : summarized.rawOutput === undefined ? {} : { rawOutput: summarized.rawOutput }
+  const { start, end, shadowedSeqs, shadowedTokenCount, summary, provider, model, maxTokens, usage, checkpointMessage } = summarized
+  const callRecord =
+    summarized.llmStreamCall === true
+      ? { rawOutput: summarized.rawOutput, llmStreamCall: true as const }
+      : summarized.rawOutput === undefined
+        ? {}
+        : { rawOutput: summarized.rawOutput }
   const summaryEvent = session.append('compaction/summary', {
     compactionId: startEvent.data.compactionId,
-    ...startEvent.data.sourceCommandId === undefined
-      ? {}
-      : { sourceCommandId: startEvent.data.sourceCommandId },
+    ...(startEvent.data.sourceCommandId === undefined ? {} : { sourceCommandId: startEvent.data.sourceCommandId }),
     summary,
     ...callRecord,
     shadowedRange: { start, end },
@@ -500,8 +431,8 @@ function commitCompactionBody(
     shadowedTokenCount,
     provider,
     model,
-    ...maxTokens === undefined ? {} : { maxTokens },
-    ...usage === undefined ? {} : { usage },
+    ...(maxTokens === undefined ? {} : { maxTokens }),
+    ...(usage === undefined ? {} : { usage }),
   })
   session.append('user/message', checkpointMessage, {
     surfaceOp: { op: 'replace', startSeq: start, endSeq: end },
@@ -509,9 +440,7 @@ function commitCompactionBody(
   })
   return {
     compactionId: startEvent.data.compactionId,
-    ...startEvent.data.sourceCommandId === undefined
-      ? {}
-      : { sourceCommandId: startEvent.data.sourceCommandId },
+    ...(startEvent.data.sourceCommandId === undefined ? {} : { sourceCommandId: startEvent.data.sourceCommandId }),
     startSeq: startEvent.seq,
     summarySeq: summaryEvent.seq,
     summary,
@@ -522,10 +451,7 @@ function commitCompactionBody(
 }
 
 /** Attach the successfully appended close event to a pending result. */
-function completeCompaction(
-  pending: Omit<CompactionResult, 'endSeq'>,
-  endEvent: SessionEvent<'compaction/end'>,
-): CompactionResult {
+function completeCompaction(pending: Omit<CompactionResult, 'endSeq'>, endEvent: SessionEvent<'compaction/end'>): CompactionResult {
   return { ...pending, endSeq: endEvent.seq }
 }
 
@@ -541,10 +467,7 @@ function completeCompaction(
  * @param shadowedSeqs - the surface-node seqs, in order, being compacted.
  * @returns the replayed conversation prefix to condense.
  */
-function buildSummarizationInput(
-  session: Session,
-  shadowedSeqs: readonly SessionSeq[],
-): SummarizationInput {
+function buildSummarizationInput(session: Session, shadowedSeqs: readonly SessionSeq[]): SummarizationInput {
   const header = session.requestHeader()
   // shadowedSeqs are current surface seqs, so the surface has a node 0.
   // oxlint-disable-next-line typescript/no-non-null-assertion
@@ -557,7 +480,7 @@ function buildSummarizationInput(
     .map(seq => session.deriveEventMessage(session.eventAt(seq)!))
     .filter((message): message is Message => message !== null)
   return {
-    ...header?.tools === undefined ? {} : { tools: header.tools },
+    ...(header?.tools === undefined ? {} : { tools: header.tools }),
     messages: system === null ? regionMessages : [system, ...regionMessages],
   }
 }
@@ -592,9 +515,7 @@ function inspectCompactionEntryState(session: Session): CompactionEntryState {
         openTurnStateKnown = true
       }
     }
-    if (openTurnStateKnown
-      && compactionEntryStateKnown
-      && latestEndSeedSeq !== undefined) break
+    if (openTurnStateKnown && compactionEntryStateKnown && latestEndSeedSeq !== undefined) break
   }
   return { openTurn, unmatchedCompactionStart, latestEndSeedSeq }
 }

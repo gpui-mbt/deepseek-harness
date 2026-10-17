@@ -12,8 +12,11 @@ export function recoverLocalImages(root: Root, source: string): Root {
   const visit = (node: Root | RootContent): void => {
     if (node.type === 'paragraph' && node.children.length === 1) {
       const [child] = node.children as [PhrasingContent]
-      if (child.type === 'text' && child.position !== undefined
-        && source.slice(child.position.start.offset, child.position.end.offset) === child.value) {
+      if (
+        child.type === 'text' &&
+        child.position !== undefined &&
+        source.slice(child.position.start.offset, child.position.end.offset) === child.value
+      ) {
         const pattern = /^!\[([^\]\n]*)\]\(((?:\/(?!\/)|\.{1,2}\/|[a-z]:[\\/])[^\n<>()[\]"']+\.[a-z\d]+)\)$/iu
         const match = pattern.exec(child.value) as [string, string, string] | null
         if (match !== null && match[2].includes(' ') && classifyFileType(match[2]) === 'image') {

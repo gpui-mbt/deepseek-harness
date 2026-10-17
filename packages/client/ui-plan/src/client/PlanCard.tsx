@@ -40,21 +40,37 @@ export interface PlanReviewOpenInjected {
  * @param props - Logged plan, localized copy, and Session-bound navigation.
  * @returns keyboard-accessible plan cards, or null for a Turn without plans.
  */
-export function PlanCards({ turn, usePlans, openPlan, t }: PropsRuntime<'conversation.chat.turnTail'> & InjectFace<PlanCardsInjected> & PropsLocale<'plan'>) {
+export function PlanCards({
+  turn,
+  usePlans,
+  openPlan,
+  t,
+}: PropsRuntime<'conversation.chat.turnTail'> & InjectFace<PlanCardsInjected> & PropsLocale<'plan'>) {
   const plans = usePlans(String(turn.turn))
   if (plans === undefined || plans.length === 0) return null
   return (
     <div className={css.cards} data-plan-artifacts>
-      {plans.map(plan => <button key={plan.callId} type="button" className={css.card} data-plan-card={plan.callId}
-        aria-label={t('preview.openNamed', { title: plan.title })}
-        onClick={() => { openPlan(plan.callId) }}>
-        <span className={css.cardIcon}><FileTypeIcon kind="markdown" size={20} /></span>
-        <span className={css.cardDetails}>
-          <span className={css.cardTitle}>{plan.title}</span>
-          <span className={css.cardDescription}>{t('preview.document')}</span>
-        </span>
-        <span className={css.cardOpen}>{t('preview.action')}</span>
-      </button>)}
+      {plans.map(plan => (
+        <button
+          key={plan.callId}
+          type="button"
+          className={css.card}
+          data-plan-card={plan.callId}
+          aria-label={t('preview.openNamed', { title: plan.title })}
+          onClick={() => {
+            openPlan(plan.callId)
+          }}
+        >
+          <span className={css.cardIcon}>
+            <FileTypeIcon kind="markdown" size={20} />
+          </span>
+          <span className={css.cardDetails}>
+            <span className={css.cardTitle}>{plan.title}</span>
+            <span className={css.cardDescription}>{t('preview.document')}</span>
+          </span>
+          <span className={css.cardOpen}>{t('preview.action')}</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -69,7 +85,18 @@ export function PlanCards({ turn, usePlans, openPlan, t }: PropsRuntime<'convers
  * @param props - Review identity, Session store, localized copy, and navigation.
  * @returns an opener for either logged or temporary plan text.
  */
-export function PlanReviewOpen({ review, requestKey, openReview, useSidebarMounted, t, useStore, actions }: PropsRuntime<'conversation.plan-review.actions'> & InjectFace<PlanReviewOpenInjected> & PropsLocale<'plan'> & PropsStore<ReturnType<typeof createPlanReviewStore>>) {
+export function PlanReviewOpen({
+  review,
+  requestKey,
+  openReview,
+  useSidebarMounted,
+  t,
+  useStore,
+  actions,
+}: PropsRuntime<'conversation.plan-review.actions'> &
+  InjectFace<PlanReviewOpenInjected> &
+  PropsLocale<'plan'> &
+  PropsStore<ReturnType<typeof createPlanReviewStore>>) {
   const identity = review.callId === undefined ? `review:${requestKey}` : `call:${review.callId}`
   const opened = useStore(state => state.opened[identity] === true)
   const mounted = useSidebarMounted(session => session !== undefined)
@@ -78,6 +105,18 @@ export function PlanReviewOpen({ review, requestKey, openReview, useSidebarMount
     openReview(review, requestKey)
     actions.markOpened(identity)
   }, [identity, opened, mounted, openReview, review, requestKey, actions])
-  return <button type="button" className={css.reviewLink} title={t('preview.open')} aria-label={t('preview.open')}
-    onClick={() => { openReview(review, requestKey) }}>{t('preview.full')}<IconChevronRightOutlineRegular size={14} /></button>
+  return (
+    <button
+      type="button"
+      className={css.reviewLink}
+      title={t('preview.open')}
+      aria-label={t('preview.open')}
+      onClick={() => {
+        openReview(review, requestKey)
+      }}
+    >
+      {t('preview.full')}
+      <IconChevronRightOutlineRegular size={14} />
+    </button>
+  )
 }

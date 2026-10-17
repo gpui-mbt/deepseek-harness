@@ -1,6 +1,6 @@
 /** Raw requests must not replace Vite's page-module responses. */
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { rawMarkdownRoute } from '../../scripts/project-doc-site.ts'
 import { rawMarkdownMiddleware } from '../raw-markdown.ts'
 
@@ -15,11 +15,13 @@ function request(url: string | undefined, destination?: string, method = 'GET', 
 }
 
 beforeEach(() => {
-  vi.mocked(rawMarkdownRoute).mockReset().mockImplementation(path => path === 'en/reference/index.md' ? '# Reference\n' : undefined)
+  vi.mocked(rawMarkdownRoute)
+    .mockReset()
+    .mockImplementation(path => (path === 'en/reference/index.md' ? '# Reference\n' : undefined))
 })
 
 describe('raw Markdown development middleware', () => {
-  it.each([undefined, 'document', 'empty'])('serves an explicit raw fetch with destination %s', (destination) => {
+  it.each([undefined, 'document', 'empty'])('serves an explicit raw fetch with destination %s', destination => {
     const { res, next } = request('/deepseek-harness/en/reference/index.md?dsh-raw=1#section', destination, 'GET', '/deepseek-harness/')
     expect(rawMarkdownRoute).toHaveBeenCalledWith('en/reference/index.md')
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/markdown; charset=utf-8')
@@ -27,7 +29,7 @@ describe('raw Markdown development middleware', () => {
     expect(next).not.toHaveBeenCalled()
   })
 
-  it.each([undefined, 'document'])('retains ordinary raw navigation with destination %s', (destination) => {
+  it.each([undefined, 'document'])('retains ordinary raw navigation with destination %s', destination => {
     expect(request('/en/reference/index.md', destination).res.end).toHaveBeenCalledWith('# Reference\n')
   })
 
@@ -45,7 +47,7 @@ describe('raw Markdown development middleware', () => {
     expect(rawMarkdownRoute).not.toHaveBeenCalled()
   })
 
-  it.each(['/missing.md', '/en/reference.md'])('returns 404 for explicit unpublished route %s', (url) => {
+  it.each(['/missing.md', '/en/reference.md'])('returns 404 for explicit unpublished route %s', url => {
     const { res, next } = request(`${url}?dsh-raw=1`, 'empty')
     expect(res.statusCode).toBe(404)
     expect(res.end).toHaveBeenCalledExactlyOnceWith()
@@ -63,13 +65,16 @@ describe('raw Markdown development middleware', () => {
 
   it('delegates missing paths, unrelated routes, other bases and non-read methods', () => {
     for (const { next } of [
-      request(undefined), request('/missing.md'), request('/guide.html'),
+      request(undefined),
+      request('/missing.md'),
+      request('/guide.html'),
       request('/en/reference/index.md?dsh-raw=1', 'empty', 'GET', '/deepseek-harness/'),
       request('/en/reference/index.md?dsh-raw=1', 'empty', 'POST'),
-    ]) expect(next).toHaveBeenCalledExactlyOnceWith()
+    ])
+      expect(next).toHaveBeenCalledExactlyOnceWith()
   })
 
-  it.each(['http://[', 'http://[::1'])('delegates an unparseable request target %s', (url) => {
+  it.each(['http://[', 'http://[::1'])('delegates an unparseable request target %s', url => {
     const { res, next } = request(url, 'empty')
     expect(next).toHaveBeenCalledExactlyOnceWith()
     expect(res.end).not.toHaveBeenCalled()
@@ -77,7 +82,9 @@ describe('raw Markdown development middleware', () => {
   })
 
   it('does not turn a projection error into a successful raw response', () => {
-    vi.mocked(rawMarkdownRoute).mockImplementation(() => { throw new Error('Source missing') })
+    vi.mocked(rawMarkdownRoute).mockImplementation(() => {
+      throw new Error('Source missing')
+    })
     expect(() => request('/en/reference/index.md?dsh-raw=1', 'empty')).toThrow('Source missing')
   })
 })

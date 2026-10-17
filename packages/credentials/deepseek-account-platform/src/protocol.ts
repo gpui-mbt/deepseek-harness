@@ -5,12 +5,16 @@ import type { AccountBonusOrderId, SignInErrorCode } from '@deepseek-ai/dsh-deep
 /** Protocol errors expose a stable code, never a response body or authorization URL. */
 export class PlatformAuthError extends Error {
   /** @param code - safe error classification. */
-  constructor(readonly code: SignInErrorCode) { super(`account: ${code}`) }
+  constructor(readonly code: SignInErrorCode) {
+    super(`account: ${code}`)
+  }
 }
 
 /** An authenticated Platform request was rejected with HTTP 401 or code 40003. */
 export class AccountUnauthorizedError extends PlatformAuthError {
-  constructor() { super('expired') }
+  constructor() {
+    super('expired')
+  }
 }
 
 /**
@@ -22,8 +26,14 @@ export class AccountUnauthorizedError extends PlatformAuthError {
 export function platformOrigin(value: string, allowLoopbackHttp: boolean): string {
   const url = new URL(value)
   const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash
-    || !(url.protocol === 'https:' || (allowLoopbackHttp && loopback && url.protocol === 'http:'))) {
+  if (
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash ||
+    !(url.protocol === 'https:' || (allowLoopbackHttp && loopback && url.protocol === 'http:'))
+  ) {
     throw new Error('account: platformOrigin must be an HTTPS origin or explicitly enabled loopback HTTP origin')
   }
   return url.origin
@@ -39,15 +49,20 @@ export function platformOrigin(value: string, allowLoopbackHttp: boolean): strin
  */
 export function browserUrl(value: string, origin: string, path: string, rewriteOrigin = false): string {
   let url: URL
-  try { url = new URL(value) } catch {
+  try {
+    url = new URL(value)
+  } catch {
     console.error('[deepseek-account] browser URL rejected', { path, reason: 'invalid-url' })
     throw new PlatformAuthError('protocol')
   }
   const allowedOrigin = url.origin === origin || (rewriteOrigin && url.protocol === 'https:')
   if (!allowedOrigin || url.pathname !== path || url.username || url.password || url.hash) {
     console.error('[deepseek-account] browser URL rejected', {
-      path, originMismatch: !allowedOrigin, pathMismatch: url.pathname !== path,
-      hasCredentials: Boolean(url.username || url.password), hasFragment: Boolean(url.hash),
+      path,
+      originMismatch: !allowedOrigin,
+      pathMismatch: url.pathname !== path,
+      hasCredentials: Boolean(url.username || url.password),
+      hasFragment: Boolean(url.hash),
     })
     throw new PlatformAuthError('protocol')
   }
@@ -64,11 +79,17 @@ export function platformHeaders(values: Record<string, string>): Record<string, 
   const names = new Set<string>()
   for (const [name, value] of Object.entries(values)) {
     const key = name.toLowerCase()
-    if (['authorization', 'x-dsh-auth-token', 'host', 'content-length', 'transfer-encoding', 'connection', 'content-type'].includes(key)
-      || names.has(key)) throw new Error('account: requestHeaders contains a reserved or duplicate header')
+    if (
+      ['authorization', 'x-dsh-auth-token', 'host', 'content-length', 'transfer-encoding', 'connection', 'content-type'].includes(key) ||
+      names.has(key)
+    )
+      throw new Error('account: requestHeaders contains a reserved or duplicate header')
     names.add(key)
-    try { headers.set(name, value) }
-    catch { throw new Error('account: requestHeaders contains an invalid header') }
+    try {
+      headers.set(name, value)
+    } catch {
+      throw new Error('account: requestHeaders contains an invalid header')
+    }
   }
   return Object.fromEntries(headers)
 }
@@ -76,7 +97,9 @@ export function platformHeaders(values: Record<string, string>): Record<string, 
 const envelope = z.object({ code: z.literal(0), data: z.object({ biz_code: z.number().int(), biz_data: z.unknown() }) })
 /** Successful initialization response. */
 export const initialization = z.object({
-  authorize_url: z.url(), authorize_id: z.string().min(1), expires_in: z.number().positive(),
+  authorize_url: z.url(),
+  authorize_id: z.string().min(1),
+  expires_in: z.number().positive(),
 })
 /** Successful code exchange response. */
 export const exchange = z.object({ token: z.string().regex(/^[\x21-\x7e]+$/), authorized_url: z.url(), user: z.unknown().optional() })
@@ -90,11 +113,22 @@ export const exchange = z.object({ token: z.string().regex(/^[\x21-\x7e]+$/), au
  * @param headers - validated deployment headers for this origin.
  * @returns successful business payload, validated by its caller.
  */
-export async function requestPlatform(origin: string, method: string, body: unknown,
-  signal: AbortSignal, headers: Record<string, string>): Promise<unknown> {
-  return platformRequest(`${origin}/auth-api/v0/dsh/${method}`, {
-    method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body),
-  }, signal)
+export async function requestPlatform(
+  origin: string,
+  method: string,
+  body: unknown,
+  signal: AbortSignal,
+  headers: Record<string, string>,
+): Promise<unknown> {
+  return platformRequest(
+    `${origin}/auth-api/v0/dsh/${method}`,
+    {
+      method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    signal,
+  )
 }
 
 /**
@@ -106,9 +140,13 @@ export async function requestPlatform(origin: string, method: string, body: unkn
  * @param headers - validated deployment headers for this origin.
  * @returns successful business payload.
  */
-export function requestAccount(origin: string, path: '/auth-api/v0/users/current' | '/api/v0/users/get_user_summary',
+export function requestAccount(
+  origin: string,
+  path: '/auth-api/v0/users/current' | '/api/v0/users/get_user_summary',
   token: string,
-  signal: AbortSignal, headers: Record<string, string>): Promise<unknown> {
+  signal: AbortSignal,
+  headers: Record<string, string>,
+): Promise<unknown> {
   return platformRequest(`${origin}${path}`, { method: 'GET', headers: accountHeaders(headers, token) }, signal)
 }
 
@@ -120,10 +158,17 @@ export function requestAccount(origin: string, path: '/auth-api/v0/users/current
  * @param headers - deployment and client identity headers for this origin.
  * @returns successful business payload holding the unnotified bonus list.
  */
-export function requestUnnotifiedBonuses(origin: string, token: string,
-  signal: AbortSignal, headers: Record<string, string>): Promise<unknown> {
-  return platformRequest(`${origin}/api/v0/users/get_unnotified_bonuses`,
-    { method: 'GET', headers: accountHeaders(headers, token) }, signal)
+export function requestUnnotifiedBonuses(
+  origin: string,
+  token: string,
+  signal: AbortSignal,
+  headers: Record<string, string>,
+): Promise<unknown> {
+  return platformRequest(
+    `${origin}/api/v0/users/get_unnotified_bonuses`,
+    { method: 'GET', headers: accountHeaders(headers, token) },
+    signal,
+  )
 }
 
 /**
@@ -135,12 +180,22 @@ export function requestUnnotifiedBonuses(origin: string, token: string,
  * @param headers - deployment and client identity headers for this origin.
  * @returns successful business payload, which carries no data.
  */
-export function requestBonusNotified(origin: string, token: string, orderId: AccountBonusOrderId,
-  signal: AbortSignal, headers: Record<string, string>): Promise<unknown> {
-  return platformRequest(`${origin}/api/v0/users/ack_bonus_notified`, {
-    method: 'POST', headers: { ...accountHeaders(headers, token), 'content-type': 'application/json' },
-    body: JSON.stringify({ order_id: orderId }),
-  }, signal)
+export function requestBonusNotified(
+  origin: string,
+  token: string,
+  orderId: AccountBonusOrderId,
+  signal: AbortSignal,
+  headers: Record<string, string>,
+): Promise<unknown> {
+  return platformRequest(
+    `${origin}/api/v0/users/ack_bonus_notified`,
+    {
+      method: 'POST',
+      headers: { ...accountHeaders(headers, token), 'content-type': 'application/json' },
+      body: JSON.stringify({ order_id: orderId }),
+    },
+    signal,
+  )
 }
 
 // The grant is provider-owned; deployment requestHeaders cannot override it or the client identity.
@@ -156,11 +211,15 @@ function accountHeaders(headers: Record<string, string>, token: string): Record<
  * @param headers - validated deployment headers for this origin.
  * @returns after Platform confirms logout.
  */
-export async function logoutAccount(origin: string, token: string,
-  signal: AbortSignal, headers: Record<string, string>): Promise<void> {
-  await platformRequest(`${origin}/auth-api/v0/users/logout`, {
-    method: 'POST', headers: { ...headers, 'x-dsh-auth-token': token },
-  }, signal)
+export async function logoutAccount(origin: string, token: string, signal: AbortSignal, headers: Record<string, string>): Promise<void> {
+  await platformRequest(
+    `${origin}/auth-api/v0/users/logout`,
+    {
+      method: 'POST',
+      headers: { ...headers, 'x-dsh-auth-token': token },
+    },
+    signal,
+  )
 }
 
 /** Caller cancellation stays silent; standard TimeoutError aborts remain failures. */
@@ -175,16 +234,19 @@ async function platformRequest(url: string, init: RequestInit, signal: AbortSign
   try {
     response = await fetch(url, { ...init, redirect: 'error', signal })
   } catch {
-    if (!callerCancelled(signal)) console.error('[deepseek-account] request failed', { path, errorCode: 'no-response', aborted: signal.aborted })
+    if (!callerCancelled(signal))
+      console.error('[deepseek-account] request failed', { path, errorCode: 'no-response', aborted: signal.aborted })
     throw new PlatformAuthError('no-response')
   }
   if (response.status === 401 && new Headers(init.headers).has('x-dsh-auth-token')) {
-    if (!callerCancelled(signal)) console.error('[deepseek-account] request failed', { path, status: response.status, errorCode: 'expired' })
+    if (!callerCancelled(signal))
+      console.error('[deepseek-account] request failed', { path, status: response.status, errorCode: 'expired' })
     await response.body?.cancel()
     throw new AccountUnauthorizedError()
   }
   if (!response.ok || response.body === null) {
-    if (!callerCancelled(signal)) console.error('[deepseek-account] request failed', { path, status: response.status, errorCode: 'network' })
+    if (!callerCancelled(signal))
+      console.error('[deepseek-account] request failed', { path, status: response.status, errorCode: 'network' })
     await response.body?.cancel()
     throw new PlatformAuthError('network')
   }
@@ -227,11 +289,16 @@ async function platformRequest(url: string, init: RequestInit, signal: AbortSign
     }
     return parsed.data.data.biz_data
   } catch (error) {
-    if (!callerCancelled(signal)) console.error('[deepseek-account] response rejected', {
-      path, status: response.status, stage, code: codes?.code, bizCode: codes?.data?.biz_code,
-      issues: validationError?.issues.map(issue => ({ path: issue.path, code: issue.code })),
-      errorCode: error instanceof PlatformAuthError ? error.code : 'protocol',
-    })
+    if (!callerCancelled(signal))
+      console.error('[deepseek-account] response rejected', {
+        path,
+        status: response.status,
+        stage,
+        code: codes?.code,
+        bizCode: codes?.data?.biz_code,
+        issues: validationError?.issues.map(issue => ({ path: issue.path, code: issue.code })),
+        errorCode: error instanceof PlatformAuthError ? error.code : 'protocol',
+      })
     if (error instanceof PlatformAuthError) throw error
     throw new PlatformAuthError('protocol')
   } finally {
@@ -247,11 +314,23 @@ async function platformRequest(url: string, init: RequestInit, signal: AbortSign
  */
 export function loginOrigin(value: string): string {
   let url: URL
-  try { url = new URL(value) } catch { throw new PlatformAuthError('protocol') }
+  try {
+    url = new URL(value)
+  } catch {
+    throw new PlatformAuthError('protocol')
+  }
   const explicitPort = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):([0-9]+)\/?$/i.exec(value)?.[1]
-  if (explicitPort === undefined || Number(explicitPort) === 0
-    || url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-    || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+  if (
+    explicitPort === undefined ||
+    Number(explicitPort) === 0 ||
+    url.protocol !== 'http:' ||
+    !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  ) {
     throw new PlatformAuthError('protocol')
   }
   return `${url.protocol}//${url.hostname}:${Number(explicitPort)}`

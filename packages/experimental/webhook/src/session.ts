@@ -69,8 +69,7 @@ function resolveRequest(ctx: Context, input: WebhookSessionRequest): ResolvedWeb
     const provider = requiredString(modelRecord, 'provider')
     const modelId = requiredString(modelRecord, 'model')
     const maxTokens = modelRecord['maxTokens']
-    if (maxTokens !== undefined
-      && (typeof maxTokens !== 'number' || !Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
+    if (maxTokens !== undefined && (typeof maxTokens !== 'number' || !Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
       throw new TypeError('webhook Session request model.maxTokens must be a positive safe integer')
     }
     agentOptions = {
@@ -92,13 +91,12 @@ function reportRollbackFailure(ctx: Context, subject: string, error: unknown): v
 function installInitialModelSelection(agentCtx: Context, selection: ModelSelection): void {
   agentCtx.on('agent/request', async ({ agent }, next): Promise<LlmCallConfig> => {
     const resolved = await next()
-    if (agent.session.requestHeader() !== undefined
-      || resolved.provider !== selection.provider
-      || resolved.model !== selection.model) return resolved
+    if (agent.session.requestHeader() !== undefined || resolved.provider !== selection.provider || resolved.model !== selection.model)
+      return resolved
     const { reasoningEffort: _inheritedEffort, ...withoutInheritedEffort } = resolved
     return {
       ...withoutInheritedEffort,
-      ...selection.reasoningEffort === undefined ? {} : { reasoningEffort: selection.reasoningEffort },
+      ...(selection.reasoningEffort === undefined ? {} : { reasoningEffort: selection.reasoningEffort }),
     }
   })
 }
@@ -136,7 +134,7 @@ export async function createWebhookSession(
     signal,
     meta: { cwd: workspace.path, agentPreset: preset.id },
     agentOptions: resolved.agentOptions,
-    setup: async (agentCtx) => {
+    setup: async agentCtx => {
       await ctx.agentPresets.mount(agentCtx, preset.id)
       installInitialModelSelection(agentCtx, resolved.modelSelection)
     },
@@ -150,18 +148,20 @@ export async function createWebhookSession(
     signal.throwIfAborted()
     ctx.permissionPresets.set(handle.agent.session, resolved.permissionPreset)
     ctx.sessionTitle.rename(handle.agent.session, resolved.title)
-    handle.agent.followup(createUserMessage({
-      content: [{ type: 'text', text: resolved.prompt }],
-      source: {
-        kind: 'webhook',
-        provider: delivery.kind,
-        source: delivery.source,
-        deliveryId: delivery.deliveryId,
-        ruleId,
-        form: 'notice',
-        summary: boundContextSummary(`${delivery.kind} webhook handled by ${ruleId}`),
-      },
-    }))
+    handle.agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: resolved.prompt }],
+        source: {
+          kind: 'webhook',
+          provider: delivery.kind,
+          source: delivery.source,
+          deliveryId: delivery.deliveryId,
+          ruleId,
+          form: 'notice',
+          summary: boundContextSummary(`${delivery.kind} webhook handled by ${ruleId}`),
+        },
+      }),
+    )
   } catch (error: unknown) {
     if (attached) {
       try {

@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ChatSettings } from '../src/chat-settings.ts'
 import { TranscriptViewPolicy } from '../src/client/transcript-view.ts'
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('TranscriptViewPolicy', () => {
   it('defaults to completion and persists explicit timing without reading or writing browser storage', () => {
@@ -48,11 +50,25 @@ describe('TranscriptViewPolicy', () => {
 
   it('restores both saved preferences in each new instance', () => {
     const host = stubConfigForm<ChatSettings>()
-    host.publish({ status: 'ready', value: { linkOpening: 'sidebar', transcriptView: 'standard', performanceUsage: 'detailed', clockTimeZone: 'local' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: { linkOpening: 'sidebar', transcriptView: 'standard', performanceUsage: 'detailed', clockTimeZone: 'local' },
+      revision: 1,
+      writable: true,
+    })
     const first = new TranscriptViewPolicy(host.scope)
     try {
       first.setCollapseTiming('next-input')
-      host.publish({ value: { linkOpening: 'sidebar', transcriptView: 'standard', performanceUsage: 'detailed', collapseTiming: 'next-input', clockTimeZone: 'local' }, revision: 2 })
+      host.publish({
+        value: {
+          linkOpening: 'sidebar',
+          transcriptView: 'standard',
+          performanceUsage: 'detailed',
+          collapseTiming: 'next-input',
+          clockTimeZone: 'local',
+        },
+        revision: 2,
+      })
       const second = new TranscriptViewPolicy(host.scope)
       try {
         expect(first.collapseTiming.getSnapshot()).toBe('next-input')
@@ -73,13 +89,27 @@ describe('TranscriptViewPolicy', () => {
     const policy = new TranscriptViewPolicy(host.scope)
     try {
       policy.setCollapseTiming('next-input')
-      host.publish({ status: 'ready', value: { linkOpening: 'sidebar', transcriptView: 'compact', performanceUsage: 'detailed', collapseTiming: 'next-input', clockTimeZone: 'local' }, revision: 1, writable: true })
+      host.publish({
+        status: 'ready',
+        value: {
+          linkOpening: 'sidebar',
+          transcriptView: 'compact',
+          performanceUsage: 'detailed',
+          collapseTiming: 'next-input',
+          clockTimeZone: 'local',
+        },
+        revision: 1,
+        writable: true,
+      })
       expect(policy.mode.getSnapshot()).toBe('compact')
       expect(policy.collapseTiming.getSnapshot()).toBe('next-input')
       policy.setMode('verbose')
       expect(policy.collapseTiming.getSnapshot()).toBe('next-input')
       expect(host.set).toHaveBeenNthCalledWith(2, 'transcriptView', 'verbose')
-      host.publish({ value: { linkOpening: 'sidebar', transcriptView: 'standard', performanceUsage: 'detailed', clockTimeZone: 'local' }, revision: 2 })
+      host.publish({
+        value: { linkOpening: 'sidebar', transcriptView: 'standard', performanceUsage: 'detailed', clockTimeZone: 'local' },
+        revision: 2,
+      })
       expect(policy.mode.getSnapshot()).toBe('standard')
       expect(policy.collapseTiming.getSnapshot()).toBe('completion')
       expect(host.set).toHaveBeenCalledTimes(2)
@@ -110,7 +140,7 @@ describe('TranscriptViewPolicy', () => {
     policy.dispose()
   })
 
-  it.each(['standard', 'detailed'] as const)('uses %s for missing preferences without writing a default', (defaultMode) => {
+  it.each(['standard', 'detailed'] as const)('uses %s for missing preferences without writing a default', defaultMode => {
     const host = stubConfigForm<ChatSettings>()
     const policy = new TranscriptViewPolicy(host.scope, defaultMode)
     expect(policy.mode.getSnapshot()).toBe(defaultMode)
@@ -124,11 +154,16 @@ describe('TranscriptViewPolicy', () => {
     policy.dispose()
   })
 
-  it.each(['normal', 'expanded'] as const)('reads a later Host %s setting as Detailed without writing it back', (mode) => {
+  it.each(['normal', 'expanded'] as const)('reads a later Host %s setting as Detailed without writing it back', mode => {
     const host = stubConfigForm<ChatSettings>()
     const policy = new TranscriptViewPolicy(host.scope, 'standard')
 
-    host.publish({ status: 'ready', value: { linkOpening: 'sidebar', transcriptView: mode, performanceUsage: 'detailed', clockTimeZone: 'local' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: { linkOpening: 'sidebar', transcriptView: mode, performanceUsage: 'detailed', clockTimeZone: 'local' },
+      revision: 1,
+      writable: true,
+    })
     expect(policy.mode.getSnapshot()).toBe('detailed')
     expect(host.set).not.toHaveBeenCalled()
     policy.setMode('detailed')
@@ -138,23 +173,36 @@ describe('TranscriptViewPolicy', () => {
     expect(policy.mode.getSnapshot()).toBe('standard')
     expect(host.set).toHaveBeenCalledExactlyOnceWith('transcriptView', 'standard')
 
-    host.publish({ value: { linkOpening: 'sidebar', transcriptView: 'compact', performanceUsage: 'detailed', clockTimeZone: 'local' }, revision: 2 })
+    host.publish({
+      value: { linkOpening: 'sidebar', transcriptView: 'compact', performanceUsage: 'detailed', clockTimeZone: 'local' },
+      revision: 2,
+    })
     expect(policy.mode.getSnapshot()).toBe('compact')
     policy.dispose()
   })
 
-  it.each(['normal', 'expanded'] as const)('reads an initial Host %s setting as Detailed without writing it back', (mode) => {
+  it.each(['normal', 'expanded'] as const)('reads an initial Host %s setting as Detailed without writing it back', mode => {
     const host = stubConfigForm<ChatSettings>()
-    host.publish({ status: 'ready', value: { linkOpening: 'sidebar', transcriptView: mode, performanceUsage: 'detailed', clockTimeZone: 'local' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: { linkOpening: 'sidebar', transcriptView: mode, performanceUsage: 'detailed', clockTimeZone: 'local' },
+      revision: 1,
+      writable: true,
+    })
     const policy = new TranscriptViewPolicy(host.scope, 'standard')
     expect(policy.mode.getSnapshot()).toBe('detailed')
     expect(host.set).not.toHaveBeenCalled()
     policy.dispose()
   })
 
-  it.each(['compact', 'standard', 'detailed', 'verbose'] as const)('preserves an explicit %s setting without migration writes', (mode) => {
+  it.each(['compact', 'standard', 'detailed', 'verbose'] as const)('preserves an explicit %s setting without migration writes', mode => {
     const host = stubConfigForm<ChatSettings>()
-    host.publish({ status: 'ready', value: { linkOpening: 'sidebar', transcriptView: mode, performanceUsage: 'detailed', clockTimeZone: 'local' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: { linkOpening: 'sidebar', transcriptView: mode, performanceUsage: 'detailed', clockTimeZone: 'local' },
+      revision: 1,
+      writable: true,
+    })
     const policy = new TranscriptViewPolicy(host.scope)
     expect(policy.mode.getSnapshot()).toBe(mode)
     expect(host.set).not.toHaveBeenCalled()

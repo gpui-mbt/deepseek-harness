@@ -102,11 +102,15 @@ class AccessFollower {
    * @returns true when stale; false once cancelled.
    */
   async changed(signal: AbortSignal): Promise<boolean> {
-    const abort = (): void => { this.wake?.() }
+    const abort = (): void => {
+      this.wake?.()
+    }
     signal.addEventListener('abort', abort, { once: true })
     try {
       while (!this.dirty && !signal.aborted) {
-        await new Promise<void>((resolve) => { this.wake = resolve })
+        await new Promise<void>(resolve => {
+          this.wake = resolve
+        })
         this.wake = undefined
       }
     } finally {
@@ -133,10 +137,15 @@ export class RemoteAccessService extends TypertRemoteService {
   /** @param ctx - owning Host plugin Context. */
   constructor(ctx: Context) {
     super(ctx, 'remoteAccess')
-    ctx.effect(() => () => { this.lifetime.abort() }, 'remoteAccess: snapshot generations')
+    ctx.effect(
+      () => () => {
+        this.lifetime.abort()
+      },
+      'remoteAccess: snapshot generations',
+    )
     // Every index the webServer renders belongs to the owner; snapshotFor documents non-owner pages.
-    ctx.inject(['webServer'], (webCtx) => {
-      webCtx.on('webserver/index-inject', (table) => {
+    ctx.inject(['webServer'], webCtx => {
+      webCtx.on('webserver/index-inject', table => {
         table.push({ kind: 'global', name: REMOTE_ACCESS_SNAPSHOT_KEY, value: OWNER_BASELINE })
       })
     })
@@ -154,15 +163,20 @@ export class RemoteAccessService extends TypertRemoteService {
     const policies = this.policies
     if (policies.has(kind)) throw new Error(`remote access: principal kind ${JSON.stringify(kind)} already has a policy`)
     const entry: PolicyEntry = { kind, policy }
-    const dispose = this.ctx.effect(() => {
-      policies.set(kind, entry)
-      this.invalidate()
-      return () => {
-        policies.delete(kind)
+    const dispose = this.ctx.effect(
+      () => {
+        policies.set(kind, entry)
         this.invalidate()
-      }
-    }, `remoteAccess.registerPolicy(${JSON.stringify(kind)})`)
-    return () => { void dispose() }
+        return () => {
+          policies.delete(kind)
+          this.invalidate()
+        }
+      },
+      `remoteAccess.registerPolicy(${JSON.stringify(kind)})`,
+    )
+    return () => {
+      void dispose()
+    }
   }
 
   /**
@@ -381,7 +395,8 @@ export class RemoteAccessService extends TypertRemoteService {
     if (this.reported.has(entry)) return
     this.reported.add(entry)
     this.ctx.logger.warn(
-      `remote access: the ${JSON.stringify(entry.kind)} policy failed to ${action}; its further failures are not logged until access state changes`)
+      `remote access: the ${JSON.stringify(entry.kind)} policy failed to ${action}; its further failures are not logged until access state changes`,
+    )
     this.ctx.logger.warn(error)
   }
 }
@@ -415,9 +430,16 @@ function sameActions(left: readonly string[], right: readonly string[]): boolean
 }
 
 function abortion(signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     if (signal.aborted) resolve()
-    else signal.addEventListener('abort', () => { resolve() }, { once: true })
+    else
+      signal.addEventListener(
+        'abort',
+        () => {
+          resolve()
+        },
+        { once: true },
+      )
   })
 }
 

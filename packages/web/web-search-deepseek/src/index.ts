@@ -96,16 +96,12 @@ export const WEB_SEARCH_DEEPSEEK_SETTINGS_NAMESPACE = 'web-search-deepseek'
  * @param config - the currently authoritative section.
  * @returns options for one search.
  */
-function resolveOptions(
-  ctx: Context, config: { [K in keyof Config]: ReturnType<Config[K]['get']> },
-): DeepSeekSearchProviderOptions {
+function resolveOptions(ctx: Context, config: { [K in keyof Config]: ReturnType<Config[K]['get']> }): DeepSeekSearchProviderOptions {
   const apiKeyEnv = credentialRef(config.apiKeyEnv)
-  const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0
-    ? config.apiKey
-    : undefined
+  const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0 ? config.apiKey : undefined
   return {
-    ...literalApiKey === undefined ? {} : { apiKey: literalApiKey },
-    resolveAccountToken: async (endpoint) => {
+    ...(literalApiKey === undefined ? {} : { apiKey: literalApiKey }),
+    resolveAccountToken: async endpoint => {
       // The latest request context names the route that served the model
       // request which called this search, as account sign-out reads it.
       const provider = ctx.get('agents')?.currentInitiator()?.session.requestContext()?.provider
@@ -120,26 +116,30 @@ function resolveOptions(
       return ambient !== undefined && ambient.value.length > 0 ? ambient.value : undefined
     },
     apiKeyEnv,
-    baseURL: config.baseURL
-      ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value
-      ?? DEEPSEEK_DEFAULT_BASE_URL,
+    baseURL: config.baseURL ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value ?? DEEPSEEK_DEFAULT_BASE_URL,
     model: config.model,
     apiVersion: config.apiVersion,
     maxTokens: config.maxTokens,
     maxUses: config.maxUses,
-    recordRequest: (request) => {
-      ctx.get('agents')?.currentInitiator()?.session.append(
-        'web/deepseek-search-llm-request',
-        request,
-      )
+    recordRequest: request => {
+      ctx.get('agents')?.currentInitiator()?.session.append('web/deepseek-search-llm-request', request)
     },
   }
 }
 
 /** Register the DeepSeek search provider with `ctx.web`. */
 export function apply(ctx: Context, config: Config): void {
-  ctx.web.registerSearchProvider(new DeepSeekSearchProvider(() => resolveOptions(ctx, {
-    apiKey: config.apiKey.get(), apiKeyEnv: config.apiKeyEnv.get(), baseURL: config.baseURL.get(), model: config.model.get(),
-    apiVersion: config.apiVersion.get(), maxTokens: config.maxTokens.get(), maxUses: config.maxUses.get(),
-  })))
+  ctx.web.registerSearchProvider(
+    new DeepSeekSearchProvider(() =>
+      resolveOptions(ctx, {
+        apiKey: config.apiKey.get(),
+        apiKeyEnv: config.apiKeyEnv.get(),
+        baseURL: config.baseURL.get(),
+        model: config.model.get(),
+        apiVersion: config.apiVersion.get(),
+        maxTokens: config.maxTokens.get(),
+        maxUses: config.maxUses.get(),
+      }),
+    ),
+  )
 }

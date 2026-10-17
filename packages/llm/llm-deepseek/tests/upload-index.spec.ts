@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import { DeepSeekFileId } from '../src/file-id.ts'
 import { deepSeekFileScope, DeepSeekUploadIndex } from '../src/upload-index.ts'
@@ -17,8 +17,7 @@ afterEach(async () => {
 
 describe('DeepSeekUploadIndex', () => {
   it('normalizes trailing endpoint slashes in the credential scope', () => {
-    expect(deepSeekFileScope('https://api.deepseek.com///', 'key'))
-      .toBe(deepSeekFileScope('https://api.deepseek.com', 'key'))
+    expect(deepSeekFileScope('https://api.deepseek.com///', 'key')).toBe(deepSeekFileScope('https://api.deepseek.com', 'key'))
   })
 
   it('isolates API-key namespaces and reuses only records above the refresh margin', async () => {
@@ -49,8 +48,13 @@ describe('DeepSeekUploadIndex', () => {
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     const scope = deepSeekFileScope('https://api.deepseek.com', 'key')
     const first = {
-      scope, attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: DeepSeekFileId('file-api-first'), bytes: 3, createdAt: 1, expiresAt: 10_000,
+      scope,
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: DeepSeekFileId('file-api-first'),
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 10_000,
     }
     const duplicate = { ...first, fileId: DeepSeekFileId('file-api-duplicate') }
     await index.commit(first, 1, 1)
@@ -68,8 +72,13 @@ describe('DeepSeekUploadIndex', () => {
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     const scope = deepSeekFileScope('https://api.deepseek.com', 'key')
     const record = (digest: string) => ({
-      scope, attachmentId: ATTACHMENT, variantId: ImageVariantId(`sha256:${digest.repeat(64)}`),
-      fileId: DeepSeekFileId(`file-api-${digest}`), bytes: 3, createdAt: 1, expiresAt: 10_000,
+      scope,
+      attachmentId: ATTACHMENT,
+      variantId: ImageVariantId(`sha256:${digest.repeat(64)}`),
+      fileId: DeepSeekFileId(`file-api-${digest}`),
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 10_000,
     })
     const first = record('b')
     const second = record('c')
@@ -120,54 +129,102 @@ describe('DeepSeekUploadIndex', () => {
     '{"formatVersion":3,"records":[[]]}',
     '{"formatVersion":3,"records":[{}]}',
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'x'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: 'file-api-one', bytes: 3, createdAt: 1, expiresAt: 10_000,
+      scope: 'x'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: 'wrong', variantId: VARIANT,
-      fileId: 'file-api-one', bytes: 3, createdAt: 1, expiresAt: 10_000,
+      scope: 'a'.repeat(64),
+      attachmentId: 'wrong',
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: 'wrong',
-      fileId: 'file-api-one', bytes: 3, createdAt: 1, expiresAt: 10_000,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: 'wrong',
+      fileId: 'file-api-one',
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: '', bytes: 3, createdAt: 1, expiresAt: 10_000,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: '',
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: 'file-api-one', bytes: -1, createdAt: 1, expiresAt: 10_000,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: -1,
+      createdAt: 1,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: 'file-api-one', bytes: 1.5, createdAt: 1, expiresAt: 10_000,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: 1.5,
+      createdAt: 1,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: 'file-api-one', bytes: 3, createdAt: -1, expiresAt: 10_000,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: 3,
+      createdAt: -1,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: 'file-api-one', bytes: 3, createdAt: 1.5, expiresAt: 10_000,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: 3,
+      createdAt: 1.5,
+      expiresAt: 10_000,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: 'file-api-one', bytes: 3, createdAt: 1, expiresAt: -1,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: -1,
     })}]}`,
     `{"formatVersion":3,"records":[${JSON.stringify({
-      scope: 'a'.repeat(64), attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: 'file-api-one', bytes: 3, createdAt: 1, expiresAt: 1.5,
+      scope: 'a'.repeat(64),
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: 'file-api-one',
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 1.5,
     })}]}`,
-  ])('treats an invalid persisted index as empty %#', async (text) => {
+  ])('treats an invalid persisted index as empty %#', async text => {
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
     roots.push(dir)
     const path = join(dir, 'index.json')
     await writeFile(path, text, 'utf8')
     const index = new DeepSeekUploadIndex(path)
-    await expect(index.get(
-      deepSeekFileScope('https://api.deepseek.com', 'key'), VARIANT, 1, 1,
-    )).resolves.toBeUndefined()
+    await expect(index.get(deepSeekFileScope('https://api.deepseek.com', 'key'), VARIANT, 1, 1)).resolves.toBeUndefined()
   })
 
   it('rejects duplicate persisted mappings as a corrupt cache', async () => {
@@ -176,8 +233,13 @@ describe('DeepSeekUploadIndex', () => {
     const path = join(dir, 'index.json')
     const scope = deepSeekFileScope('https://api.deepseek.com', 'key')
     const record = {
-      scope, attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: DeepSeekFileId('file-api-one'), bytes: 3, createdAt: 1, expiresAt: 10_000,
+      scope,
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: DeepSeekFileId('file-api-one'),
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 10_000,
     }
     await writeFile(path, JSON.stringify({ formatVersion: 3, records: [record, record] }), 'utf8')
     const index = new DeepSeekUploadIndex(path)
@@ -191,11 +253,19 @@ describe('DeepSeekUploadIndex', () => {
     const first = deepSeekFileScope('https://api.deepseek.com', 'first')
     const second = deepSeekFileScope('https://api.deepseek.com', 'second')
     const expired = {
-      scope: first, attachmentId: ATTACHMENT, variantId: VARIANT,
-      fileId: DeepSeekFileId('file-api-expired'), bytes: 3, createdAt: 1, expiresAt: 2,
+      scope: first,
+      attachmentId: ATTACHMENT,
+      variantId: VARIANT,
+      fileId: DeepSeekFileId('file-api-expired'),
+      bytes: 3,
+      createdAt: 1,
+      expiresAt: 2,
     }
     const live = {
-      ...expired, scope: second, fileId: DeepSeekFileId('file-api-live'), expiresAt: 10_000,
+      ...expired,
+      scope: second,
+      fileId: DeepSeekFileId('file-api-live'),
+      expiresAt: 10_000,
     }
     await index.commit(expired, 0, 0)
     await index.commit(live, 3, 1)
@@ -211,8 +281,6 @@ describe('DeepSeekUploadIndex', () => {
     const path = join(dir, 'directory')
     await mkdir(path)
     const index = new DeepSeekUploadIndex(path)
-    await expect(index.get(
-      deepSeekFileScope('https://api.deepseek.com', 'key'), VARIANT, 1, 1,
-    )).rejects.toBeInstanceOf(Error)
+    await expect(index.get(deepSeekFileScope('https://api.deepseek.com', 'key'), VARIANT, 1, 1)).rejects.toBeInstanceOf(Error)
   })
 })

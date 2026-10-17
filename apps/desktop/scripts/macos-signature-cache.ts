@@ -1,9 +1,23 @@
 /** Reuse verified standalone signatures by file content and complete signing policy. */
 import { createHash } from 'node:crypto'
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 
-function digest(bytes: Buffer | string): string { return createHash('sha256').update(bytes).digest('hex') }
+function digest(bytes: Buffer | string): string {
+  return createHash('sha256').update(bytes).digest('hex')
+}
 function regular(path: string): void {
   if (!lstatSync(path).isFile()) throw new Error(`macOS signature cache: expected regular file ${path}`)
 }
@@ -13,8 +27,11 @@ function directory(path: string): void {
 function ensureDirectory(path: string): void {
   if (dirname(path) !== path) ensureDirectory(dirname(path))
   if (!existsSync(path)) {
-    try { mkdirSync(path, { mode: 0o700 }) }
-    catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error }
+    try {
+      mkdirSync(path, { mode: 0o700 })
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
+    }
   }
   directory(path)
 }
@@ -23,7 +40,8 @@ function readEntry(entry: string, key: string): { payload: string; sha256: strin
   directory(entry)
   const record = join(entry, 'record.json')
   const payload = join(entry, 'code')
-  regular(record); regular(payload)
+  regular(record)
+  regular(payload)
   const metadata = JSON.parse(readFileSync(record, 'utf8')) as { key?: unknown; sha256?: unknown }
   if (metadata.key !== key || typeof metadata.sha256 !== 'string') throw new Error(`macOS signature cache: invalid record ${entry}`)
   if (digest(readFileSync(payload)) !== metadata.sha256) throw new Error(`macOS signature cache: damaged payload ${entry}`)
@@ -82,19 +100,28 @@ export async function cachedMacOSSignature(path: string, cacheRoot: string, sign
       try {
         copyFileSync(candidate, join(staging, 'code'))
         if (digest(readFileSync(join(staging, 'code'))) !== signed) throw new Error('macOS signature cache: staged payload changed')
-        writeFileSync(join(staging, 'record.json'), `${JSON.stringify({ key, sha256: signed })}\n`, { mode: 0o600, flag: 'wx', flush: true })
-        try { renameSync(staging, entry) }
-        catch (error) {
+        writeFileSync(join(staging, 'record.json'), `${JSON.stringify({ key, sha256: signed })}\n`, {
+          mode: 0o600,
+          flag: 'wx',
+          flush: true,
+        })
+        try {
+          renameSync(staging, entry)
+        } catch (error) {
           if (!(error instanceof Error && 'code' in error && ['ENOTEMPTY', 'EEXIST'].includes(String(error.code)))) throw error
           const winner = readEntry(entry, key)
           signer.verify(winner.payload)
         }
-      } finally { rmSync(staging, { recursive: true, force: true }) }
+      } finally {
+        rmSync(staging, { recursive: true, force: true })
+      }
     }
     unchanged()
     renameSync(candidate, path)
     return hit
-  } finally { rmSync(work, { recursive: true, force: true }) }
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
 }
 
 /**
@@ -105,14 +132,17 @@ export async function cachedMacOSSignature(path: string, cacheRoot: string, sign
 export function pruneMacOSSignatureCache(root: string): void {
   if (!existsSync(root)) return
   directory(root)
-  const entries = readdirSync(root).filter(name => /^[a-f0-9]{64}$/u.test(name)).map((name) => {
-    const path = join(root, name)
-    directory(path)
-    const payload = join(path, 'code')
-    regular(payload)
-    const stat = lstatSync(payload)
-    return { path, bytes: stat.size, time: stat.mtimeMs }
-  }).sort((a, b) => b.time - a.time)
+  const entries = readdirSync(root)
+    .filter(name => /^[a-f0-9]{64}$/u.test(name))
+    .map(name => {
+      const path = join(root, name)
+      directory(path)
+      const payload = join(path, 'code')
+      regular(payload)
+      const stat = lstatSync(payload)
+      return { path, bytes: stat.size, time: stat.mtimeMs }
+    })
+    .sort((a, b) => b.time - a.time)
   let bytes = 0
   for (const entry of entries) {
     bytes += entry.bytes

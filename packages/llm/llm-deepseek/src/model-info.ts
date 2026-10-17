@@ -47,7 +47,7 @@ export function catalogModelInfo(provider: string, model: DeepSeekCatalogModel):
     provider,
     id: model.id,
     name: model.name ?? model.id,
-    ...model.description === undefined ? {} : { description: model.description },
+    ...(model.description === undefined ? {} : { description: model.description }),
     inputModalities: model.inputModalities ?? ['text'],
   }
 }
@@ -58,43 +58,39 @@ export function catalogModelInfo(provider: string, model: DeepSeekCatalogModel):
  * @param model - requested wire model id.
  * @returns effective model metadata for this operation.
  */
-export function modelInfo(
-  connection: DeepSeekConnectionOptions,
-  provider: string,
-  model: string,
-): LlmResolvedModelInfo {
+export function modelInfo(connection: DeepSeekConnectionOptions, provider: string, model: string): LlmResolvedModelInfo {
   const configured = connection.models.find(entry => entry.id === model)
-  const contextWindow = configured?.contextWindow
-    ?? connection.defaultContextWindow
+  const contextWindow = configured?.contextWindow ?? connection.defaultContextWindow
   return {
     // An uncatalogued endpoint is safely treated as text-only. Declaring an
     // unverified image capability would let the host persist input that the
     // endpoint may reject on every later turn.
-    ...configured === undefined
+    ...(configured === undefined
       ? { provider, id: model, name: model, inputModalities: ['text' as const] }
-      : catalogModelInfo(provider, configured),
+      : catalogModelInfo(provider, configured)),
     context: { contextWindow },
     defaultMaxTokens: configured?.maxTokens ?? connection.maxTokens,
-    ...configured?.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: configured.systemPromptUpdate },
-    ...configured?.toolUpdate === undefined ? {} : { toolUpdate: configured.toolUpdate },
-    ...connection.defaults.thinking === 'disabled'
+    ...(configured?.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: configured.systemPromptUpdate }),
+    ...(configured?.toolUpdate === undefined ? {} : { toolUpdate: configured.toolUpdate }),
+    ...(connection.defaults.thinking === 'disabled'
       ? {
-        reasoning: {
-          efforts: OFF_ONLY_REASONING_EFFORTS,
-          defaultEffort: OFF_REASONING_EFFORT,
-        },
-      }
+          reasoning: {
+            efforts: OFF_ONLY_REASONING_EFFORTS,
+            defaultEffort: OFF_REASONING_EFFORT,
+          },
+        }
       : {
-        reasoning: {
-          efforts: REASONING_EFFORTS,
-          defaultEffort: connection.defaults.reasoningEffort === 'off'
-            ? OFF_REASONING_EFFORT
-            : connection.defaults.reasoningEffort === 'low'
-              ? LOW_REASONING_EFFORT
-              : connection.defaults.reasoningEffort === 'max'
-                ? MAX_REASONING_EFFORT
-                : HIGH_REASONING_EFFORT,
-        },
-      },
+          reasoning: {
+            efforts: REASONING_EFFORTS,
+            defaultEffort:
+              connection.defaults.reasoningEffort === 'off'
+                ? OFF_REASONING_EFFORT
+                : connection.defaults.reasoningEffort === 'low'
+                  ? LOW_REASONING_EFFORT
+                  : connection.defaults.reasoningEffort === 'max'
+                    ? MAX_REASONING_EFFORT
+                    : HIGH_REASONING_EFFORT,
+          },
+        }),
   }
 }

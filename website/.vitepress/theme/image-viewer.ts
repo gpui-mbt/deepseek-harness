@@ -32,10 +32,14 @@ export class ImageViewer {
     private readonly viewer: Pick<MediaViewer, 'open'>,
   ) {
     const root = doc.querySelector('#VPContent') ?? doc.body
-    const scan = (): void => { this.#scan() }
+    const scan = (): void => {
+      this.#scan()
+    }
     this.#observer = new MutationObserver(scan)
     this.#observer.observe(root, {
-      childList: true, subtree: true, attributes: true,
+      childList: true,
+      subtree: true,
+      attributes: true,
       attributeFilter: ['src', 'srcset', 'alt', 'role', 'aria-hidden', 'data-no-zoom'],
     })
     const options = { capture: true, signal: this.#events.signal }
@@ -74,16 +78,28 @@ export class ImageViewer {
   }
 
   #scan(): void {
-    const images = new Set(Array.from(this.doc.querySelectorAll<HTMLImageElement>('.vp-doc p > img')).filter((image) => {
-      const entry = this.#entries.get(image)
-      return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0 && image.alt.trim()
-        && !image.closest('a, button, .mermaid, [data-no-zoom], [aria-hidden="true"], [role="presentation"], [role="none"]')
-        && Array.from(image.parentNode?.childNodes ?? []).every(node => node === image || node === entry?.button
-          || (node.nodeType === 3 && !node.textContent?.trim()))
-    }))
+    const images = new Set(
+      Array.from(this.doc.querySelectorAll<HTMLImageElement>('.vp-doc p > img')).filter(image => {
+        const entry = this.#entries.get(image)
+        return (
+          image.complete &&
+          image.naturalWidth > 0 &&
+          image.naturalHeight > 0 &&
+          image.alt.trim() &&
+          !image.closest('a, button, .mermaid, [data-no-zoom], [aria-hidden="true"], [role="presentation"], [role="none"]') &&
+          Array.from(image.parentNode?.childNodes ?? []).every(
+            node => node === image || node === entry?.button || (node.nodeType === 3 && !node.textContent?.trim()),
+          )
+        )
+      }),
+    )
     for (const [image, entry] of this.#entries) {
-      if (!images.has(image) || image.parentElement !== entry.container || !entry.button.isConnected
-        || entry.source !== (image.currentSrc || image.src)) {
+      if (
+        !images.has(image) ||
+        image.parentElement !== entry.container ||
+        !entry.button.isConnected ||
+        entry.source !== (image.currentSrc || image.src)
+      ) {
         this.#remove(image, entry)
       }
     }
@@ -107,13 +123,20 @@ export class ImageViewer {
         content.src = image.currentSrc || image.src
         content.alt = image.alt
         content.draggable = false
-        this.#close = this.viewer.open({
-          element: content, width: image.naturalWidth, height: image.naturalHeight,
-          title: image.alt, originalSize: true,
-        }, button, () => {
-          this.#close = undefined
-          this.#active = undefined
-        })
+        this.#close = this.viewer.open(
+          {
+            element: content,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+            title: image.alt,
+            originalSize: true,
+          },
+          button,
+          () => {
+            this.#close = undefined
+            this.#active = undefined
+          },
+        )
         this.#active = image
       }
       button.addEventListener('click', open, { signal: events.signal })

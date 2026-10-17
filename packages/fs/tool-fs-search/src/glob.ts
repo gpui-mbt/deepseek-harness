@@ -71,7 +71,7 @@ export interface GlobInput {
 export function parseGlobArgs(args: { pattern: string; path?: string }): GlobInput {
   if (args.pattern.trim().length === 0) throw new Error('pattern must be a non-empty string')
   if (args.path !== undefined && args.path.trim().length === 0) throw new Error('path must be a non-empty string when given')
-  return { pattern: args.pattern, ...args.path !== undefined ? { path: args.path } : {} }
+  return { pattern: args.pattern, ...(args.path !== undefined ? { path: args.path } : {}) }
 }
 
 /**
@@ -97,10 +97,7 @@ export function buildGlobCommand(input: GlobInput): string[] {
     // during traversal; the /** form still excludes the contents when the
     // search root is AT or INSIDE the directory (where the bare form,
     // matched against root-prefixed paths, never fires).
-    ...GLOB_VCS_EXCLUDES.flatMap(name => [
-      `--glob=!**/${name}`,
-      `--glob=!**/${name}/**`,
-    ]),
+    ...GLOB_VCS_EXCLUDES.flatMap(name => [`--glob=!**/${name}`, `--glob=!**/${name}/**`]),
   ]
   if (input.path !== undefined) parts.push('--', input.path)
   return parts
@@ -211,19 +208,21 @@ export function sampleAcrossTopLevel(paths: readonly string[], maxItems: number,
  * @returns the model-facing text.
  */
 export function formatGlobOutput(sample: GlobSample, seen: number, spillRef: SpillRef | undefined): string {
-  const basis = sample.total === seen
-    ? '.'
-    : `, sampled across ${sample.shown} of the ${sample.total} top-level entries this pattern matched instead of taken in modification-time order.`
-      + (sample.shown < sample.total ? ' Narrow path to inspect a specific subtree.' : '')
+  const basis =
+    sample.total === seen
+      ? '.'
+      : `, sampled across ${sample.shown} of the ${sample.total} top-level entries this pattern matched instead of taken in modification-time order.` +
+        (sample.shown < sample.total ? ' Narrow path to inspect a specific subtree.' : '')
   return formatGlobPage(sample.items, seen, spillRef, basis)
 }
 
 /** Format one bounded page and the recovery path for its complete sorted result. */
 function formatGlobPage(items: readonly string[], seen: number, spillRef: SpillRef | undefined, basis: string): string {
   const body = items.join('\n')
-  const recovery = spillRef !== undefined
-    ? `Full sorted result stored at: ${spillRef.locator}. ${spillRef.retrievalHint}`
-    : 'The complete result could not be saved; narrow pattern or path to see more.'
+  const recovery =
+    spillRef !== undefined
+      ? `Full sorted result stored at: ${spillRef.locator}. ${spillRef.retrievalHint}`
+      : 'The complete result could not be saved; narrow pattern or path to see more.'
   return `${body}\n\n(Showing ${items.length} of ${seen} paths${basis} ${recovery})`
 }
 
@@ -297,25 +296,29 @@ export function applyGlobTool(ctx: Context, caps: GlobToolCaps): void {
   ctx.systemPrompt.section({
     name: 'tool:glob',
     order: ctx.systemPrompt.getSectionOrder('TOOL_GLOB'),
-    text: ({ scope }) => ctx.tools.get('glob', scope) === undefined
-      ? ''
-      : 'Use the glob tool — not shell find — to discover files by path pattern.',
+    text: ({ scope }) =>
+      ctx.tools.get('glob', scope) === undefined ? '' : 'Use the glob tool — not shell find — to discover files by path pattern.',
   })
 
   const overCapDescription = caps.sampleOverCapGlobResults ? 'is sampled across top-level entries' : 'keeps the first paths'
   const tool = defineTool({
     name: 'glob',
-    description: 'Find files, not directories, whose paths match a glob pattern, including hidden and ignored files. '
-      + `Returns up to ${caps.maxResults} paths in modification-time order; a larger result ${overCapDescription} `
-      + 'and reports where the complete list was saved.',
+    description:
+      'Find files, not directories, whose paths match a glob pattern, including hidden and ignored files. ' +
+      `Returns up to ${caps.maxResults} paths in modification-time order; a larger result ${overCapDescription} ` +
+      'and reports where the complete list was saved.',
     parameters: {
       pattern: {
         type: 'string',
         required: true,
-        description: 'Glob pattern to match file paths against (e.g. "**/*.ts", "src/**/*.test.js"). '
-          + 'A pattern with no "/" matches the basename at any depth, so "*" and "*.ts" both search the whole tree; include a separator to anchor the depth.',
+        description:
+          'Glob pattern to match file paths against (e.g. "**/*.ts", "src/**/*.test.js"). ' +
+          'A pattern with no "/" matches the basename at any depth, so "*" and "*.ts" both search the whole tree; include a separator to anchor the depth.',
       },
-      path: { type: 'string', description: 'Directory to search in. Defaults to the session workspace; a relative path resolves against it.' },
+      path: {
+        type: 'string',
+        description: 'Directory to search in. Defaults to the session workspace; a relative path resolves against it.',
+      },
     },
     timeoutMs: caps.timeoutMs,
     output: {
@@ -362,7 +365,7 @@ export function applyGlobTool(ctx: Context, caps: GlobToolCaps): void {
     return {
       kind: 'accept',
       content: [{ type: 'text', text: renderGlobPaths(paths, caps, value.root, spillRef) }],
-      ...decision.additionalContexts !== undefined ? { additionalContexts: decision.additionalContexts } : {},
+      ...(decision.additionalContexts !== undefined ? { additionalContexts: decision.additionalContexts } : {}),
     }
   })
 }

@@ -56,20 +56,20 @@ export interface WorkspaceDiffHunk {
 /** The comparison of one listed file's turn-start and turn-end contents, computed when asked for. */
 export type WorkspaceFileDiff =
   | {
-    kind: 'text'
-    /** The listed file's `path`. */
-    path: string
-    /** The listed file's `display`. */
-    display: string
-    /** Whether the file existed at turn start. */
-    before: boolean
-    /** Whether the file existed at turn end. */
-    after: boolean
-    /** Hunks in file order; empty when both sides hold the same lines. */
-    hunks: WorkspaceDiffHunk[]
-    /** True when the line comparison exceeded the plugin's `diffTimeoutMs` and every line is shown as replaced. */
-    coarse: boolean
-  }
+      kind: 'text'
+      /** The listed file's `path`. */
+      path: string
+      /** The listed file's `display`. */
+      display: string
+      /** Whether the file existed at turn start. */
+      before: boolean
+      /** Whether the file existed at turn end. */
+      after: boolean
+      /** Hunks in file order; empty when both sides hold the same lines. */
+      hunks: WorkspaceDiffHunk[]
+      /** True when the line comparison exceeded the plugin's `diffTimeoutMs` and every line is shown as replaced. */
+      coarse: boolean
+    }
   /** A side git reported as binary or that holds a NUL byte; no lines are served. */
   | { kind: 'binary'; path: string; display: string }
   /** A side larger than the plugin's `maxFileBytes`; no lines are served. */

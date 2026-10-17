@@ -1,7 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  ConversationNodeDefinition, ConversationPreviousContext,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationNodeDefinition, ConversationPreviousContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 interface InboxIdentity {
   readonly id: string
@@ -57,10 +55,7 @@ function materializePending(state: PendingState): InboxIdentity[] {
   return pending
 }
 
-function withoutInserted(
-  claimed: ReadonlySet<string>,
-  inserted: readonly InboxIdentity[],
-): ReadonlySet<string> {
+function withoutInserted(claimed: ReadonlySet<string>, inserted: readonly InboxIdentity[]): ReadonlySet<string> {
   let next: Set<string> | undefined
   for (const { id } of inserted) {
     if (!claimed.has(id)) continue
@@ -76,11 +71,7 @@ function withoutInserted(
  * rejected claim logs no messages, so only the current claim can classify a
  * later `user/message`.
  */
-function applySplice(
-  previous: ConversationPreviousContext<InboxState> | undefined,
-  splice: InboxSplice,
-  seq: number,
-): InboxState {
+function applySplice(previous: ConversationPreviousContext<InboxState> | undefined, splice: InboxSplice, seq: number): InboxState {
   const priorPending = previous?.state.pending ?? EMPTY_PENDING
   const inserted = splice.inserted
   const removedCount = splice.removedCount ?? 0
@@ -94,10 +85,7 @@ function applySplice(
       claimedHuman: removed.some(message => message.source.kind === 'user'),
     }
   }
-  const currentClaimed = withoutInserted(
-    previous?.state.currentClaimed ?? EMPTY_CURRENT_CLAIMED,
-    inserted,
-  )
+  const currentClaimed = withoutInserted(previous?.state.currentClaimed ?? EMPTY_CURRENT_CLAIMED, inserted)
   return {
     pending: {
       kind: 'splice',
@@ -116,8 +104,8 @@ function inboxDefinition(target: 'next-step' | 'next-turn'): ConversationNodeDef
   const kind = `inbox-${target}`
   return {
     kind,
-    match: event => event.type === 'agent/inbox/spliced' && event.data.target === target
-      ? { id: String(event.seq), role: 'start' } : null,
+    match: event =>
+      event.type === 'agent/inbox/spliced' && event.data.target === target ? { id: String(event.seq), role: 'start' } : null,
     start: (_context, match, reader) => {
       if (match.event.type !== 'agent/inbox/spliced') throw new Error('inbox start requires agent/inbox/spliced')
       return applySplice(reader.previous<InboxState>(kind), match.event.data, match.event.seq)

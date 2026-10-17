@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { mountLocalActivations, startTestActivation as start } from '../../subagent/tests/local-activation.ts'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -34,7 +34,10 @@ async function setup(script: Script) {
 }
 
 function text(blocks: readonly { type: string; text?: string }[]): string {
-  return blocks.filter(b => b.type === 'text').map(b => b.text).join('')
+  return blocks
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 describe('multi-subagent coexistence (spawn + fork on one context)', () => {
@@ -76,7 +79,12 @@ describe('multi-subagent coexistence (spawn + fork on one context)', () => {
     expect(spawnChild.session.header.parentSession).toBe(parent.session.header.id)
     expect(forkChild.session.header.parentSession).toBe(parent.session.header.id)
     // The fork child inherited the parent's prefix; the spawn child did not.
-    expect(forkChild.session.snapshotEvents().slice(0, parentPrefixLen).some(e => e.type === 'user/message')).toBe(true)
+    expect(
+      forkChild.session
+        .snapshotEvents()
+        .slice(0, parentPrefixLen)
+        .some(e => e.type === 'user/message'),
+    ).toBe(true)
 
     await spawnRun.dispose()
     await forkRun.dispose()

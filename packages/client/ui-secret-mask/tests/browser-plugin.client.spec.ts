@@ -1,6 +1,6 @@
 /** Plugin registration: the credential matcher and its keyed node renderer leave with the plugin fiber. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
@@ -21,22 +21,25 @@ describe('apply', () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
     ctx.provide('locale', new LocaleRuntime(ctx))
-    const sessions = new TestSessions(async (action) => { await action() }, ctx)
+    const sessions = new TestSessions(async action => {
+      await action()
+    }, ctx)
     onTestFinished(() => sessions.disposeScopes())
     ctx.provide('sessions', sessions)
     new UiConversation(ctx, sessions)
     await ctx.plugin(SlotRegistry).await()
-    ctx.slots.register({
-      name: 'root',
-      children: { 'conversation.user.text.node': { kind: 'keyed', scope: 'session' } },
-    }, TextSlotDeclaration)
+    ctx.slots.register(
+      {
+        name: 'root',
+        children: { 'conversation.user.text.node': { kind: 'keyed', scope: 'session' } },
+      },
+      TextSlotDeclaration,
+    )
 
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(ctx.uiConversation.userText.entries().map(rule => rule.id)).toEqual(['secret'])
-    expect(ctx.slots.entries('conversation.user.text.node')).toMatchObject([
-      { options: { key: 'secret' }, component: SecretText },
-    ])
+    expect(ctx.slots.entries('conversation.user.text.node')).toMatchObject([{ options: { key: 'secret' }, component: SecretText }])
     expect(ctx.locale.bind(NS)('secret.reveal')).toBe('Show secret')
 
     await fiber.dispose()
@@ -45,6 +48,8 @@ describe('apply', () => {
   })
 
   it('the node half applies without host-side behavior', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })

@@ -4,7 +4,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ACL_DIAGNOSIS_SKILL, registerAclDiagnosisSkill } from '../src/acl-skill.ts'
 
 describe('bundled Windows ACL diagnosis skill', () => {
@@ -15,7 +15,9 @@ describe('bundled Windows ACL diagnosis skill', () => {
       const fiber = await ctx.plugin({
         name: 'acl-skill-registration',
         inject: ['skills'],
-        apply: (inner: Context) => { registerAclDiagnosisSkill(inner) },
+        apply: (inner: Context) => {
+          registerAclDiagnosisSkill(inner)
+        },
       })
 
       const catalog = await ctx.skills.list()
@@ -33,8 +35,9 @@ describe('bundled Windows ACL diagnosis skill', () => {
       expect(loaded?.resourceBase).toMatchObject({ kind: 'directory' })
       if (loaded?.resourceBase?.kind !== 'directory') throw new Error('Missing physical skill resource directory')
       const resourceDirectory = loaded.resourceBase.path
-      expect(readFileSync(join(resourceDirectory, 'scripts/diagnose-windows-sandbox-acl.ps1'), 'utf8'))
-        .toBe(readFileSync(new URL('../assets/diagnose-windows-sandbox-acl/scripts/diagnose-windows-sandbox-acl.ps1', import.meta.url), 'utf8'))
+      expect(readFileSync(join(resourceDirectory, 'scripts/diagnose-windows-sandbox-acl.ps1'), 'utf8')).toBe(
+        readFileSync(new URL('../assets/diagnose-windows-sandbox-acl/scripts/diagnose-windows-sandbox-acl.ps1', import.meta.url), 'utf8'),
+      )
       // The body names the bundled script — the repair path the model must use
       // instead of editing ACLs by hand.
       expect(loaded?.content).toContain('scripts\\diagnose-windows-sandbox-acl.ps1')

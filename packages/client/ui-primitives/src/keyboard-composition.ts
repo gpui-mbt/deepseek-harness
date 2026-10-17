@@ -11,16 +11,26 @@ export function observeComposition(document: Document): {
 } {
   let composing = false
   let ended = false
-  const start = (): void => { composing = true }
-  const end = (): void => { composing = false; ended = true }
-  const release = (): void => { ended = false }
-  const blur = (): void => { composing = false; ended = false }
+  const start = (): void => {
+    composing = true
+  }
+  const end = (): void => {
+    composing = false
+    ended = true
+  }
+  const release = (): void => {
+    ended = false
+  }
+  const blur = (): void => {
+    composing = false
+    ended = false
+  }
   document.addEventListener('compositionstart', start, true)
   document.addEventListener('compositionend', end, true)
   document.addEventListener('keyup', release, true)
   document.defaultView?.addEventListener('blur', blur)
   return {
-    guards: (event) => {
+    guards: event => {
       // oxlint-disable-next-line typescript/no-deprecated -- IME 229 covers engines without isComposing.
       const guarded = composing || ended || event.isComposing || event.keyCode === 229
       ended = false

@@ -6,7 +6,7 @@
  * surfaces as a per-call `SEARCH_FAILED` — not a composition-load failure.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
@@ -14,11 +14,18 @@ import { resolveRgPath, runRipgrep } from '@deepseek-ai/dsh-tool-fs-search'
 
 // Any access to the mocked module's surface throws — the shape a missing
 // platform package produces at module evaluation.
-vi.mock('@vscode/ripgrep', () => new Proxy({}, {
-  get() {
-    throw new Error('platform package @vscode/ripgrep-win32-x64 is not installed')
-  },
-}))
+vi.mock(
+  '@vscode/ripgrep',
+  () =>
+    new Proxy(
+      {},
+      {
+        get() {
+          throw new Error('platform package @vscode/ripgrep-win32-x64 is not installed')
+        },
+      },
+    ),
+)
 
 describe('lazy packaged-ripgrep resolution', () => {
   it('fails the first search call with SEARCH_FAILED instead of failing module load', async () => {
@@ -26,8 +33,10 @@ describe('lazy packaged-ripgrep resolution', () => {
     const controller = new AbortController()
     const exec = { signal: controller.signal, name: 'glob', callId: ToolCallId('missing-platform-package') } as unknown as ToolExecution
 
-    await expect(runRipgrep(new Context(), exec, 'glob', ['--files'], 1_000_000, 3_000, 64 * 1024))
-      .rejects.toMatchObject({ name: 'SearchError', code: 'SEARCH_FAILED' })
+    await expect(runRipgrep(new Context(), exec, 'glob', ['--files'], 1_000_000, 3_000, 64 * 1024)).rejects.toMatchObject({
+      name: 'SearchError',
+      code: 'SEARCH_FAILED',
+    })
   })
 
   it('keeps failing every subsequent call (the resolution is memoized)', async () => {

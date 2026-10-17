@@ -1,7 +1,7 @@
 /** Additional spreadsheet formats retain layout and literal delimited fields. */
 import { readFileSync } from 'node:fs'
 import { utils, write } from 'xlsx'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { excelFormat } from '../src/client/excel/format.ts'
@@ -11,7 +11,7 @@ import { legacyWorkbook, xlsFixture } from './xls-fixture.ts'
 const limits = Config({}).excel
 const encode = (text: string) => new TextEncoder().encode(text)
 
-it.each(['xlsx', 'xls', 'csv', 'tsv'] as const)('resolves mixed-case %s paths and enforces byte limits', async (format) => {
+it.each(['xlsx', 'xls', 'csv', 'tsv'] as const)('resolves mixed-case %s paths and enforces byte limits', async format => {
   expect(excelFormat(`/dir.name/sheet.${format.toUpperCase()}`)).toBe(format)
   await expect(convertExcel(new Uint8Array(2), format, { ...limits, maxBytes: 1 })).rejects.toMatchObject({ code: 'tooLarge' })
 })
@@ -20,9 +20,13 @@ it('rejects unsupported filename suffixes', () => {
   expect(() => excelFormat('file.xlsm')).toThrow('invalid')
 })
 
-it.each([false, true])('reads BIFF values, formulas, merges, layout, and dates with 1904 epoch %s', async (date1904) => {
+it.each([false, true])('reads BIFF values, formulas, merges, layout, and dates with 1904 epoch %s', async date1904 => {
   const { sheets, missingResults } = await convertExcel(xlsFixture(legacyWorkbook(date1904)), 'xls', limits)
-  expect(sheets.map(sheet => [sheet.name, sheet.hide, sheet.status])).toEqual([['预算', 0, 1], ['明细', 0, 0], ['隐藏', 1, 0]])
+  expect(sheets.map(sheet => [sheet.name, sheet.hide, sheet.status])).toEqual([
+    ['预算', 0, 1],
+    ['明细', 0, 0],
+    ['隐藏', 1, 0],
+  ])
   const first = sheets[0]!
   const cell = (r: number, c: number) => first.celldata!.find(cell => cell.r === r && cell.c === c)!.v!
   expect(cell(0, 0)).toMatchObject({ v: '旧版预算', mc: { r: 0, c: 0, rs: 1, cs: 3 } })
@@ -63,13 +67,20 @@ it('maps optional row metadata, empty formula caches, errors, and Date values', 
 })
 
 it('rejects damaged, renamed, hidden-only, and oversized legacy workbooks', async () => {
-  for (const bytes of [encode('a,b\n1,2'), encode('<html>not a workbook</html>'), new Uint8Array([9, 8, 0]), new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])]) {
+  for (const bytes of [
+    encode('a,b\n1,2'),
+    encode('<html>not a workbook</html>'),
+    new Uint8Array([9, 8, 0]),
+    new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+  ]) {
     await expect(convertExcel(bytes, 'xls', limits)).rejects.toMatchObject({ code: 'invalid' })
   }
   const workbook = legacyWorkbook()
   const metadata = workbook.Workbook?.Sheets
   if (metadata === undefined) throw new Error('legacy fixture has no workbook sheet metadata')
-  metadata.forEach((sheet) => { sheet.Hidden = 1 })
+  metadata.forEach(sheet => {
+    sheet.Hidden = 1
+  })
   await expect(convertExcel(xlsFixture(workbook), 'xls', limits)).rejects.toMatchObject({ code: 'invalid' })
   await expect(convertExcel(xlsFixture(), 'xls', { ...limits, maxCells: 10 })).rejects.toMatchObject({ code: 'tooLarge' })
   const sparse = utils.book_new()
@@ -96,11 +107,17 @@ it('opens raw BIFF and empty legacy worksheets', async () => {
   expect(mapXlsWorkbook(workbook, limits).sheets[0]!.celldata![0]!.v!.v).toBe(12)
 })
 
-it.each(['csv', 'tsv'] as const)('preserves %s strings, quoted separators, newlines, empty fields, and ragged rows', async (format) => {
+it.each(['csv', 'tsv'] as const)('preserves %s strings, quoted separators, newlines, empty fields, and ragged rows', async format => {
   const delimiter = format === 'csv' ? ',' : '\t'
-  const text = ['编号', '说明', '值'].join(delimiter) + '\r\n'
-    + ['00123', `"中文${delimiter}字段\n第二行 ""引号"""`, '=SUM(1,2)'].map((field, index) => index === 2 ? '"' + field + '"' : field).join(delimiter) + '\r\n'
-    + ['2024-03-01', '', 'TRUE', '99999999999999999999'].join(delimiter) + '\r\nshort\r\n\r\n'
+  const text =
+    ['编号', '说明', '值'].join(delimiter) +
+    '\r\n' +
+    ['00123', `"中文${delimiter}字段\n第二行 ""引号"""`, '=SUM(1,2)']
+      .map((field, index) => (index === 2 ? '"' + field + '"' : field))
+      .join(delimiter) +
+    '\r\n' +
+    ['2024-03-01', '', 'TRUE', '99999999999999999999'].join(delimiter) +
+    '\r\nshort\r\n\r\n'
   const result = await convertExcel(encode(text), format, limits)
   const sheet = result.sheets[0]!
   const cell = (r: number, c: number) => sheet.celldata!.find(cell => cell.r === r && cell.c === c)!.v!
@@ -119,7 +136,7 @@ it.each(['csv', 'tsv'] as const)('preserves %s strings, quoted separators, newli
   expect(result.missingResults).toBe(0)
 })
 
-it.each(['utf8', 'le', 'be'] as const)('decodes BOM-marked %s text', async (encoding) => {
+it.each(['utf8', 'le', 'be'] as const)('decodes BOM-marked %s text', async encoding => {
   const text = '\ufeff名称,编号\n中文,001'
   const bytes = encoding === 'utf8' ? encode(text) : new Uint8Array(Buffer.from(text, 'utf16le'))
   if (encoding === 'be') for (let i = 0; i < bytes.length; i += 2) [bytes[i], bytes[i + 1]] = [bytes[i + 1]!, bytes[i]!]

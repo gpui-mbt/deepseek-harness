@@ -58,7 +58,8 @@ export interface ProductUseResult {
  * @returns Default/optional reachability and every undeclared or stale package-policy violation.
  */
 export function verifyProductUse(
-  root: string, policy: Readonly<Record<string, ProductPackagePolicy>> = PRODUCT_PACKAGE_POLICY,
+  root: string,
+  policy: Readonly<Record<string, ProductPackagePolicy>> = PRODUCT_PACKAGE_POLICY,
 ): ProductUseResult {
   const failures: string[] = []
   const display = (path: string): string => relative(root, path).replaceAll('\\', '/')
@@ -69,13 +70,14 @@ export function verifyProductUse(
   const optional: Reachability = { packages: new Set(), sources: new Set() }
   const config = ts.readConfigFile(resolve(root, 'tsconfig.base.json'), path => ts.sys.readFile(path))
   if (config.error !== undefined) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
-  const converted = ts.convertCompilerOptionsFromJson(
-    (config.config as { compilerOptions?: unknown }).compilerOptions, root,
-  )
-  if (converted.errors.length > 0) throw new Error(converted.errors.map(error => ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'))
+  const converted = ts.convertCompilerOptionsFromJson((config.config as { compilerOptions?: unknown }).compilerOptions, root)
+  if (converted.errors.length > 0)
+    throw new Error(converted.errors.map(error => ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'))
   const host: ts.ModuleResolutionHost = { ...ts.sys, getCurrentDirectory: () => root }
   const resolutionCache = ts.createModuleResolutionCache(root, path => path, converted.options)
-  for (const path of globSync(['apps/*/package.json', 'packages/*/*/package.json', 'vendor/*/package.json'], { cwd: root }).map(path => path.replaceAll('\\', '/')).sort()) {
+  for (const path of globSync(['apps/*/package.json', 'packages/*/*/package.json', 'vendor/*/package.json'], { cwd: root })
+    .map(path => path.replaceAll('\\', '/'))
+    .sort()) {
     const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as {
       name: string
       exports?: Record<string, unknown>
@@ -84,10 +86,14 @@ export function verifyProductUse(
     if (typeof manifest.name !== 'string' || manifest.name === '') throw new Error(`${path}: missing package name`)
     if (packages.has(manifest.name)) throw new Error(`${path}: duplicate package name ${manifest.name}`)
     const remote = manifest.exports?.['./remote']
-    const pkg: Package = { directory: dirname(path), name: manifest.name, client: manifest.dsh?.client !== undefined,
-      generatedRemote: isRecord(remote) && remote.default === './lib/typert.remote-client.js'
-        && remote.types === './lib/typert.remote-client.d.ts',
-      ...(manifest.dsh?.bundle === undefined ? {} : { bundle: manifest.dsh.bundle }) }
+    const pkg: Package = {
+      directory: dirname(path),
+      name: manifest.name,
+      client: manifest.dsh?.client !== undefined,
+      generatedRemote:
+        isRecord(remote) && remote.default === './lib/typert.remote-client.js' && remote.types === './lib/typert.remote-client.d.ts',
+      ...(manifest.dsh?.bundle === undefined ? {} : { bundle: manifest.dsh.bundle }),
+    }
     packages.set(pkg.name, pkg)
     directories.set(resolve(root, pkg.directory), pkg)
   }
@@ -108,15 +114,17 @@ export function verifyProductUse(
   }
   const scanSource = (path: string, reach: Reachability): void => {
     if (reach.sources.has(path)) return
-    if (!existsSync(path)) { failures.push(`${display(path)}: missing product source entry`); return }
+    if (!existsSync(path)) {
+      failures.push(`${display(path)}: missing product source entry`)
+      return
+    }
     reach.sources.add(path)
     const owner = ownerOf(path)
     if (owner !== undefined) reach.packages.add(owner.directory)
     const source = readFileSync(path, 'utf8')
     for (const specifier of collectRuntimeSourceSpecifiers(path, source)) reference(specifier, path, reach)
     for (const specifier of collectRuntimeLocalSourceSpecifiers(path, source, true)) {
-      const resolved = specifier.startsWith('/')
-        ? sourceFile(resolve(root, 'apps/web', `.${specifier}`)) : resolveModule(specifier, path)
+      const resolved = specifier.startsWith('/') ? sourceFile(resolve(root, 'apps/web', `.${specifier}`)) : resolveModule(specifier, path)
       if (resolved !== undefined) scanSource(resolved, reach)
       else if (/\.[cm]?[jt]sx?$/.test(specifier)) failures.push(`${display(path)}: source import ${specifier} does not resolve to source`)
     }
@@ -125,8 +133,12 @@ export function verifyProductUse(
       if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'URL') {
         const first = node.arguments?.[0]
         const base = node.arguments?.[1]
-        if (first !== undefined && ts.isStringLiteralLike(first) && first.text.startsWith('.')
-          && base?.getText(file) === 'import.meta.url') {
+        if (
+          first !== undefined &&
+          ts.isStringLiteralLike(first) &&
+          first.text.startsWith('.') &&
+          base?.getText(file) === 'import.meta.url'
+        ) {
           const target = sourceFile(resolve(dirname(path), first.text))
           if (target !== undefined) scanSource(target, reach)
         }
@@ -168,18 +180,27 @@ export function verifyProductUse(
     for (const row of entries) {
       if (!isRecord(row) || row.disabled === true) continue
       if (typeof row.name === 'string') mount(row.name, from, reach)
-      if (isCordisGroupEntry(row) || row.name === 'cordis:group' && Array.isArray(row.config)) {
+      if (isCordisGroupEntry(row) || (row.name === 'cordis:group' && Array.isArray(row.config))) {
         scanEntries(row.config as unknown[], from, reach, stack)
       }
       if (isAgentPresetEntry(row)) scanEntries(row.config.plugins, from, reach, stack)
       if ((row.name !== '@deepseek-ai/cordis-plugin-include' && row.name !== 'cordis:include') || !isRecord(row.config)) continue
       const path = row.config.path
-      if (typeof path !== 'string') { failures.push(`${display(from)}: Include path must be a literal string`); continue }
+      if (typeof path !== 'string') {
+        failures.push(`${display(from)}: Include path must be a literal string`)
+        continue
+      }
       const filename = path.startsWith('file:') ? fileURLToPath(path) : resolve(dirname(from), path)
-      if (stack.has(filename)) { failures.push(`${display(from)}: cyclic Include ${display(filename)}`); continue }
+      if (stack.has(filename)) {
+        failures.push(`${display(from)}: cyclic Include ${display(filename)}`)
+        continue
+      }
       const content: unknown = existsSync(filename) ? loadCordisYaml(readFileSync(filename, 'utf8')) : row.config.initial
       configs.add(filename)
-      if (!Array.isArray(content)) { failures.push(`${display(filename)}: Include requires an entry array or initial entries`); continue }
+      if (!Array.isArray(content)) {
+        failures.push(`${display(filename)}: Include requires an entry array or initial entries`)
+        continue
+      }
       const entries = applyEntryPatches(content as EntryOptions[], row.config.patches as PatchOptions[] | undefined, () => {})
       scanEntries(entries, filename, reach, new Set([...stack, filename]))
     }
@@ -196,19 +217,28 @@ export function verifyProductUse(
   ]
   if (!isRecord(templates)) throw new Error(`${PROFILE_SOURCE}: PROFILE_TEMPLATES must be a literal object`)
   for (const name of PROFILES) if (!isRecord(templates[name])) failures.push(`${PROFILE_SOURCE}: missing shipped ${name} profile`)
-  const layers = (names: readonly string[], reach: Reachability): PatchOptions[][] => names.flatMap((name) => {
-    const pkg = packages.get(name)
-    if (pkg?.bundle === undefined) { failures.push(`${PROFILE_SOURCE}: ${name} must declare dsh.bundle.patch`); return [] }
-    reach.packages.add(pkg.directory)
-    return [bundlePatchPaths(resolve(root, pkg.directory), pkg.bundle).flatMap((path) => {
-      configs.add(path)
-      return loadOverlayPatches('verify-product-use', path)
-    })]
-  })
-  const profiles = [...Object.entries(templates).map(([name, value]) => {
-    if (!isRecord(value)) throw new Error(`${PROFILE_SOURCE}: invalid ${name} profile`)
-    return stringList(value.bundles, `${PROFILE_SOURCE} ${name}`)
-  }), fallback]
+  const layers = (names: readonly string[], reach: Reachability): PatchOptions[][] =>
+    names.flatMap(name => {
+      const pkg = packages.get(name)
+      if (pkg?.bundle === undefined) {
+        failures.push(`${PROFILE_SOURCE}: ${name} must declare dsh.bundle.patch`)
+        return []
+      }
+      reach.packages.add(pkg.directory)
+      return [
+        bundlePatchPaths(resolve(root, pkg.directory), pkg.bundle).flatMap(path => {
+          configs.add(path)
+          return loadOverlayPatches('verify-product-use', path)
+        }),
+      ]
+    })
+  const profiles = [
+    ...Object.entries(templates).map(([name, value]) => {
+      if (!isRecord(value)) throw new Error(`${PROFILE_SOURCE}: invalid ${name} profile`)
+      return stringList(value.bundles, `${PROFILE_SOURCE} ${name}`)
+    }),
+    fallback,
+  ]
   for (const names of profiles) {
     if (names.length === 0) failures.push(`${PROFILE_SOURCE}: shipped profile has no bundles`)
     scanEntries(composeEntries(layers(names, defaults)), profilePath, defaults)
@@ -230,7 +260,9 @@ export function verifyProductUse(
         failures.push('apps/web/index.html: product module entries must name local source files')
       } else scanSource(resolve(root, 'apps/web', path.replace(/^\//, '')), defaults)
     }
-  } finally { dom.window.close() }
+  } finally {
+    dom.window.close()
+  }
   for (const [path, entry] of Object.entries(policy)) {
     const pkg = directories.get(resolve(root, path))
     if (!/^packages\/[^/]+\/[^/]+$/.test(path) || path.startsWith('packages/experimental/') || pkg === undefined) {
@@ -249,31 +281,46 @@ export function verifyProductUse(
   for (const pkg of packages.values()) {
     if (!pkg.directory.startsWith('packages/') || pkg.directory.startsWith('packages/experimental/')) continue
     if (!defaults.packages.has(pkg.directory) && !optional.packages.has(pkg.directory) && policy[pkg.directory] === undefined) {
-      failures.push(`${pkg.directory} (${pkg.name}): no product runtime use; mount it, declare its maintained role, or move it to experimental`)
+      failures.push(
+        `${pkg.directory} (${pkg.name}): no product runtime use; mount it, declare its maintained role, or move it to experimental`,
+      )
     }
   }
-  return { failures: [...new Set(failures)].sort(), defaultPackages: [...defaults.packages].sort(),
-    optionalPackages: [...optional.packages].filter(path => !defaults.packages.has(path)).sort(), packageCount: packages.size,
-    sourceCount: new Set([...defaults.sources, ...optional.sources]).size, configCount: configs.size }
+  return {
+    failures: [...new Set(failures)].sort(),
+    defaultPackages: [...defaults.packages].sort(),
+    optionalPackages: [...optional.packages].filter(path => !defaults.packages.has(path)).sort(),
+    packageCount: packages.size,
+    sourceCount: new Set([...defaults.sources, ...optional.sources]).size,
+    configCount: configs.size,
+  }
 }
 
 function validCategory(path: string, category: ProductPackagePolicy['category']): boolean {
   switch (category) {
-    case 'optional': return !path.startsWith('packages/test-support/')
-    case 'test': return path.startsWith('packages/test-support/')
-    case 'sdk': return path === 'packages/sdk/client'
-    case 'build': return path === 'packages/typert/generator'
-    case 'web-distribution': return path === 'packages/client/web' || path === 'packages/client/ui-dockkit'
-    case 'declarations': return path === 'packages/util/package-manifest'
-    default: return assertNever(category)
+    case 'optional':
+      return !path.startsWith('packages/test-support/')
+    case 'test':
+      return path.startsWith('packages/test-support/')
+    case 'sdk':
+      return path === 'packages/sdk/client'
+    case 'build':
+      return path === 'packages/typert/generator'
+    case 'web-distribution':
+      return path === 'packages/client/web' || path === 'packages/client/ui-dockkit'
+    case 'declarations':
+      return path === 'packages/util/package-manifest'
+    default:
+      return assertNever(category)
   }
 }
 
 function sourceFile(path: string): string | undefined {
   if (!/\.[cm]?[jt]sx?$/.test(path)) return undefined
   const stem = path.slice(0, -extname(path).length)
-  return [path, `${stem}.ts`, `${stem}.tsx`, `${stem}.mts`, `${stem}.cts`]
-    .find(candidate => existsSync(candidate) && statSync(candidate).isFile() && !candidate.endsWith('.d.ts'))
+  return [path, `${stem}.ts`, `${stem}.tsx`, `${stem}.mts`, `${stem}.cts`].find(
+    candidate => existsSync(candidate) && statSync(candidate).isFile() && !candidate.endsWith('.d.ts'),
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -281,7 +328,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function stringList(value: unknown, origin: string): string[] {
-  if (!Array.isArray(value) || !value.every((item: unknown) => typeof item === 'string')) throw new Error(`${origin}: expected a literal package list`)
+  if (!Array.isArray(value) || !value.every((item: unknown) => typeof item === 'string'))
+    throw new Error(`${origin}: expected a literal package list`)
   return value
 }
 
@@ -289,12 +337,15 @@ function literalDeclaration(file: ts.SourceFile, name: string): unknown {
   const read = (node: ts.Expression): unknown => {
     if (ts.isStringLiteralLike(node)) return node.text
     if (ts.isArrayLiteralExpression(node)) return node.elements.map(read)
-    if (ts.isObjectLiteralExpression(node)) return Object.fromEntries(node.properties.map((property) => {
-      if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.name) && !ts.isStringLiteralLike(property.name)) {
-        throw new Error(`${file.fileName}: ${name} requires literal properties`)
-      }
-      return [property.name.text, read(property.initializer)]
-    }))
+    if (ts.isObjectLiteralExpression(node))
+      return Object.fromEntries(
+        node.properties.map(property => {
+          if (!ts.isPropertyAssignment(property) || (!ts.isIdentifier(property.name) && !ts.isStringLiteralLike(property.name))) {
+            throw new Error(`${file.fileName}: ${name} requires literal properties`)
+          }
+          return [property.name.text, read(property.initializer)]
+        }),
+      )
     if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isParenthesizedExpression(node)) return read(node.expression)
     throw new Error(`${file.fileName}: ${name} requires literal package declarations`)
   }
@@ -313,5 +364,8 @@ if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(
   const result = verifyProductUse(resolve(dirname(fileURLToPath(import.meta.url)), '..'))
   for (const failure of result.failures) console.error(failure)
   if (result.failures.length > 0) process.exitCode = 1
-  else console.log(`Product use: ${String(result.defaultPackages.length)} default, ${String(result.optionalPackages.length)} optional packages; ${String(result.sourceCount)} source modules.`)
+  else
+    console.log(
+      `Product use: ${String(result.defaultPackages.length)} default, ${String(result.optionalPackages.length)} optional packages; ${String(result.sourceCount)} source modules.`,
+    )
 }

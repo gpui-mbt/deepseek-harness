@@ -42,9 +42,9 @@ function webSources(value: unknown): WebSource[] | null {
     if (publishedAt !== undefined && typeof publishedAt !== 'string') return null
     sources.push({
       url,
-      ...title === undefined ? {} : { title },
-      ...snippet === undefined ? {} : { snippet },
-      ...publishedAt === undefined ? {} : { publishedAt },
+      ...(title === undefined ? {} : { title }),
+      ...(snippet === undefined ? {} : { snippet }),
+      ...(publishedAt === undefined ? {} : { publishedAt }),
     })
   }
   return sources

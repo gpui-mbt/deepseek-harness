@@ -6,13 +6,16 @@ import { classifyCharacter } from 'micromark-util-classify-character'
 import { codes, constants } from 'micromark-util-symbol'
 import type { Construct, Extension, State, Tokenizer } from 'micromark-util-types'
 
-const cjkCharacter = new RegExp([
-  '\\p{Script_Extensions=Han}',
-  '\\p{Script_Extensions=Hiragana}',
-  '\\p{Script_Extensions=Katakana}',
-  '\\p{Script_Extensions=Hangul}',
-  '\\p{Script_Extensions=Bopomofo}',
-].join('|'), 'u')
+const cjkCharacter = new RegExp(
+  [
+    '\\p{Script_Extensions=Han}',
+    '\\p{Script_Extensions=Hiragana}',
+    '\\p{Script_Extensions=Katakana}',
+    '\\p{Script_Extensions=Hangul}',
+    '\\p{Script_Extensions=Bopomofo}',
+  ].join('|'),
+  'u',
+)
 
 function isCjkCharacter(code: number | null): boolean {
   return code !== null && code >= 0 && cjkCharacter.test(String.fromCodePoint(code))
@@ -46,15 +49,11 @@ const tokenizeCjkFriendlyAttention: Tokenizer = function (effects, ok, nok) {
 
     const token = effects.exit('attentionSequence')
     const after = classifyCharacter(code)
-    const open = !after || (after === constants.characterGroupPunctuation && Boolean(before))
-      || attentionMarkers.includes(code)
-    const commonMarkClose = !before
-      || (before === constants.characterGroupPunctuation && Boolean(after))
-      || attentionMarkers.includes(previous)
+    const open = !after || (after === constants.characterGroupPunctuation && Boolean(before)) || attentionMarkers.includes(code)
+    const commonMarkClose =
+      !before || (before === constants.characterGroupPunctuation && Boolean(after)) || attentionMarkers.includes(previous)
     const markerCount = token.end.offset - token.start.offset
-    const cjkStrongClose = markerCount >= 2
-      && unicodePunctuation(previous)
-      && isCjkCharacter(code)
+    const cjkStrongClose = markerCount >= 2 && unicodePunctuation(previous) && isCjkCharacter(code)
     const close = commonMarkClose || cjkStrongClose
 
     token._open = open

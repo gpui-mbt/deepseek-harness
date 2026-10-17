@@ -3,13 +3,19 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold, readPersistedEvents,
-  seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  readPersistedEvents,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace } from './support.ts'
 
@@ -37,19 +43,24 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     page = await context.newPage()
     // OS application discovery and launch are the external boundary; the command and HTTP carrier stay real.
     await page.route('**/open-in-app/apps', route => route.fulfill({ json: { apps: ['finder', 'vscode'] } }))
-    await page.route('**/open-in-app/open', async (route) => {
+    await page.route('**/open-in-app/open', async route => {
       launched.push(route.request().postDataJSON() as { app: string; path: string })
       await route.fulfill({ json: { ok: true } })
     })
     const startup = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     const group = page.getByRole('treeitem').first()
-    await group.waitFor({ timeout: 10_000 }).catch((error: unknown) => { throw new Error(JSON.stringify(startup), { cause: error }) })
-    if (await group.getAttribute('aria-expanded') !== 'true') await group.click()
+    await group.waitFor({ timeout: 10_000 }).catch((error: unknown) => {
+      throw new Error(JSON.stringify(startup), { cause: error })
+    })
+    if ((await group.getAttribute('aria-expanded')) !== 'true') await group.click()
     await page.getByRole('treeitem').nth(1).click()
     await page.getByText('DONE', { exact: true }).waitFor()
   })
-  afterAll(async () => { await browser?.close(); await scaffold?.close() })
+  afterAll(async () => {
+    await browser?.close()
+    await scaffold?.close()
+  })
 
   async function bind(label: string): Promise<void> {
     await page.keyboard.press('Meta+Slash')
@@ -88,7 +99,11 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     await rename.getByLabel('Session name').fill('T4 source')
     await rename.getByRole('button', { name: 'Rename', exact: true }).click()
     await rename.waitFor({ state: 'hidden' })
-    await expect.poll(async () => (await readPersistedEvents(scaffold, sourceId)).some(event => event.type === 'session/title' && event.data.title === 'T4 source')).toBe(true)
+    await expect
+      .poll(async () =>
+        (await readPersistedEvents(scaffold, sourceId)).some(event => event.type === 'session/title' && event.data.title === 'T4 source'),
+      )
+      .toBe(true)
 
     await bind('Fork session')
     const original = await readPersistedEvents(scaffold, sourceId)
@@ -97,7 +112,13 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     await expect.poll(() => scaffold.ctx.agents.list().find(agent => agent.session.header.parentSession === sourceId)).toBeDefined()
     const child = scaffold.ctx.agents.list().find(agent => agent.session.header.parentSession === sourceId)!
     const childId = child.session.header.id
-    await expect.poll(async () => (await readPersistedEvents(scaffold, childId)).some(event => event.type === 'session/title' && event.data.title === 'T4 source (1)')).toBe(true)
+    await expect
+      .poll(async () =>
+        (await readPersistedEvents(scaffold, childId)).some(
+          event => event.type === 'session/title' && event.data.title === 'T4 source (1)',
+        ),
+      )
+      .toBe(true)
     const copied = await readPersistedEvents(scaffold, childId)
     expect(copied.slice(0, lastEnd + 1)).toEqual(original.slice(0, lastEnd + 1))
     const sourceRow = page.getByRole('treeitem').filter({ has: page.getByText('T4 source', { exact: true }) })
@@ -105,8 +126,11 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     await childRow.waitFor()
     expect(await sourceRow.getAttribute('aria-selected')).toBe('true')
     expect(await childRow.getAttribute('aria-selected')).toBe('false')
-    await compareOrRefreshGolden(join(root, 'fork.expected.md'),
-      await captureStableAria(page, '[data-slot="sidebar.workspaces"]', scaffold.workspaceCwd), mode)
+    await compareOrRefreshGolden(
+      join(root, 'fork.expected.md'),
+      await captureStableAria(page, '[data-slot="sidebar.workspaces"]', scaffold.workspaceCwd),
+      mode,
+    )
 
     await childRow.click()
     await expect.poll(() => childRow.getAttribute('aria-selected')).toBe('true')
@@ -114,8 +138,11 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     await sourceRow.hover()
     await page.getByRole('button', { name: 'Session actions for T4 source', exact: true }).click()
     await page.getByRole('menu').waitFor()
-    await compareOrRefreshGolden(join(root, 'session-menu.expected.md'),
-      await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd), mode)
+    await compareOrRefreshGolden(
+      join(root, 'session-menu.expected.md'),
+      await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd),
+      mode,
+    )
     expect(await page.getByRole('menuitem', { name: /^Archive session/ }).getAttribute('aria-keyshortcuts')).toBe('Shift+Meta+,')
     await page.keyboard.press('Escape')
     await page.getByRole('menu').waitFor({ state: 'hidden' })
@@ -140,8 +167,7 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     const workspace = (await scaffold.ctx.workspaceRegistry.resolveByPath(join(scaffold.workspaceCwd, 'keyboard-project')))!
 
     const workspaceLabel = basename(workspace.path)
-    const workspaceRow = page.locator('[role="treeitem"][aria-expanded]')
-      .filter({ has: page.getByText(workspaceLabel, { exact: true }) })
+    const workspaceRow = page.locator('[role="treeitem"][aria-expanded]').filter({ has: page.getByText(workspaceLabel, { exact: true }) })
     const details = page.getByRole('button', { name: `Copy: ${workspace.path}`, exact: true })
     await workspaceRow.getByText(workspaceLabel, { exact: true }).hover()
     await details.waitFor()
@@ -149,8 +175,9 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     const newSessionTooltip = page.getByRole('tooltip').filter({ hasText: 'New Session' })
     await newSessionTooltip.waitFor()
     expect(await details.isVisible()).toBe(true)
-    expect(await newSessionTooltip.evaluate(element => Number(getComputedStyle(element).zIndex)))
-      .toBeGreaterThan(await details.evaluate(element => Number(getComputedStyle(element).zIndex)))
+    expect(await newSessionTooltip.evaluate(element => Number(getComputedStyle(element).zIndex))).toBeGreaterThan(
+      await details.evaluate(element => Number(getComputedStyle(element).zIndex)),
+    )
     await workspaceRow.getByText(workspaceLabel, { exact: true }).hover()
     await details.waitFor()
     await page.mouse.move(700, 100)
@@ -160,7 +187,7 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     const newSessionCreated = page.waitForResponse('**/api/session/create')
     await page.keyboard.press('Meta+Shift+Comma')
     const newSessionResponse = await newSessionCreated
-    const newSessionBody = await newSessionResponse.json() as { result: { ok: boolean; value: { sessionId: string } } }
+    const newSessionBody = (await newSessionResponse.json()) as { result: { ok: boolean; value: { sessionId: string } } }
     expect(newSessionBody.result.ok).toBe(true)
     const newSessionId = newSessionBody.result.value.sessionId
     expect(previousSessionIds).not.toContain(newSessionId)
@@ -178,21 +205,31 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     await files.locator('[data-files-row="empty"]').waitFor()
     const opener = files.locator('[data-open-target="directory"]')
     await opener.getByRole('button', { name: 'Open in VS Code', exact: true }).click()
-    await expect.poll(() => launched).toEqual([
-      { app: 'vscode', path: workspace.path }, { app: 'vscode', path: workspace.path },
-    ])
+    await expect
+      .poll(() => launched)
+      .toEqual([
+        { app: 'vscode', path: workspace.path },
+        { app: 'vscode', path: workspace.path },
+      ])
     await opener.getByRole('button', { name: 'More ways to open', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Finder', exact: true }).click()
     await expect.poll(() => launched.at(-1)).toEqual({ app: 'finder', path: workspace.path })
     await opener.getByRole('button', { name: 'Open in Finder', exact: true }).waitFor()
     await page.keyboard.press('Meta+Shift+Comma')
-    await expect.poll(() => launched).toEqual([
-      { app: 'vscode', path: workspace.path }, { app: 'vscode', path: workspace.path },
-      { app: 'finder', path: workspace.path }, { app: 'finder', path: workspace.path },
-    ])
+    await expect
+      .poll(() => launched)
+      .toEqual([
+        { app: 'vscode', path: workspace.path },
+        { app: 'vscode', path: workspace.path },
+        { app: 'finder', path: workspace.path },
+        { app: 'finder', path: workspace.path },
+      ])
     await expect.poll(() => opener.getAttribute('data-state')).toBe('idle')
-    await compareOrRefreshGolden(join(root, 'files-open.expected.md'),
-      await captureStableAria(page, '[data-files-state="tree"]', scaffold.workspaceCwd), mode)
+    await compareOrRefreshGolden(
+      join(root, 'files-open.expected.md'),
+      await captureStableAria(page, '[data-files-state="tree"]', scaffold.workspaceCwd),
+      mode,
+    )
     await opener.getByRole('button', { name: 'More ways to open', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Finder (default)', exact: true }).waitFor()
     await page.keyboard.press('Escape')
@@ -207,20 +244,29 @@ it.skipIf(mode === 'record')('explains a first-turn fork refusal and retries fro
   try {
     browser = await chromium.launch()
     const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 1000 } })
-    await context.addInitScript(() => { Object.defineProperty(navigator, 'platform', { value: 'MacIntel' }) })
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'platform', { value: 'MacIntel' })
+    })
     const page = await context.newPage()
     const tripwire = watchConsole(page)
     const forkWarnings: string[] = []
-    page.on('console', (message) => { if (message.text().startsWith('session fork rejected:')) forkWarnings.push(message.text()) })
+    page.on('console', message => {
+      if (message.text().startsWith('session fork rejected:')) forkWarnings.push(message.text())
+    })
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     const before = new Set(scaffold.ctx.agents.list().map(agent => agent.id))
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
     const source = scaffold.ctx.agents.list().find(agent => !before.has(agent.id))
     if (source === undefined) throw new Error('The workspace did not create a Session')
     source.session.append('turn/start', { turn: 1 })
-    const user = source.session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'The first turn has not ended.' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const user = source.session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'The first turn has not ended.' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     source.session.append('session/title', { title: 'First turn', messageSeqs: [user.seq], source: { kind: 'fallback' } })
     await scaffold.ctx.sessions.flush(source.session)
     await page.getByText('The first turn has not ended.', { exact: true }).waitFor()
@@ -236,8 +282,7 @@ it.skipIf(mode === 'record')('explains a first-turn fork refusal and retries fro
     await page.keyboard.press('Meta+Shift+Comma')
     const unavailable = page.getByRole('alert').filter({ hasText: 'This session has no completed turn' })
     await unavailable.waitFor()
-    await compareOrRefreshGolden(join(root, 'fork-unavailable.expected.md'),
-      await unavailable.ariaSnapshot(), mode)
+    await compareOrRefreshGolden(join(root, 'fork-unavailable.expected.md'), await unavailable.ariaSnapshot(), mode)
     expect(await selected.textContent()).toContain('First turn')
     expect(scaffold.ctx.agents.list().filter(agent => agent.session.header.parentSession === source.id)).toHaveLength(0)
     expect(forkWarnings).toEqual([])
@@ -245,9 +290,14 @@ it.skipIf(mode === 'record')('explains a first-turn fork refusal and retries fro
     source.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     const completed = source.session.snapshotEvents()
     source.session.append('turn/start', { turn: 2 })
-    source.session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'The second turn has not ended.' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    source.session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'The second turn has not ended.' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     await scaffold.ctx.sessions.flush(source.session)
     await page.getByText('The second turn has not ended.', { exact: true }).waitFor()
     await page.keyboard.press('Meta+Shift+Comma')
@@ -270,113 +320,155 @@ it.skipIf(mode === 'record')('explains a first-turn fork refusal and retries fro
 it.skipIf(mode === 'record').each([
   { platform: 'Win32', primary: 'Control', file: '../shortcuts/en-US', custom: 'Control+Alt+Shift+Meta+J' },
   { platform: 'MacIntel', primary: 'Meta', file: 'macos-defaults', custom: 'Meta+Alt+Shift+J' },
-])('runs $platform defaults over recorded history and restores them after a multi-modifier binding', async ({ platform, primary, file, custom }) => {
-  const scaffold = await launchWebScaffold({ developerTools: false })
-  let browser: Browser | undefined
-  try {
-    await seedSession(scaffold, await readFile(seed, 'utf8'), SessionId('shortcut-defaults-source'))
-    browser = await chromium.launch()
-    const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 1000 } })
-    await context.addInitScript((value) => { Object.defineProperty(navigator, 'platform', { value }) }, platform)
-    const page = await context.newPage()
-    const console = watchConsole(page)
-    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    const group = page.getByRole('treeitem').first()
-    await group.waitFor()
-    if (await group.getAttribute('aria-expanded') !== 'true') await group.click()
-    await page.getByRole('treeitem').nth(1).click()
-    await page.getByText('DONE', { exact: true }).waitFor()
-    // Synthetic input observes browser ownership without navigating the fixture away.
-    expect(await page.evaluate((primary) => {
-      return [{ key: 'R', code: 'KeyR', shiftKey: true }, { key: ',', code: 'Comma', shiftKey: false }].map((key) => {
-        const event = new KeyboardEvent('keydown', { ...key,
-          metaKey: primary === 'Meta', ctrlKey: primary === 'Control', bubbles: true, cancelable: true })
-        document.activeElement!.dispatchEvent(event)
-        return event.defaultPrevented
+])(
+  'runs $platform defaults over recorded history and restores them after a multi-modifier binding',
+  async ({ platform, primary, file, custom }) => {
+    const scaffold = await launchWebScaffold({ developerTools: false })
+    let browser: Browser | undefined
+    try {
+      await seedSession(scaffold, await readFile(seed, 'utf8'), SessionId('shortcut-defaults-source'))
+      browser = await chromium.launch()
+      const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 1000 } })
+      await context.addInitScript(value => {
+        Object.defineProperty(navigator, 'platform', { value })
+      }, platform)
+      const page = await context.newPage()
+      const console = watchConsole(page)
+      await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+      const group = page.getByRole('treeitem').first()
+      await group.waitFor()
+      if ((await group.getAttribute('aria-expanded')) !== 'true') await group.click()
+      await page.getByRole('treeitem').nth(1).click()
+      await page.getByText('DONE', { exact: true }).waitFor()
+      // Synthetic input observes browser ownership without navigating the fixture away.
+      expect(
+        await page.evaluate(primary => {
+          return [
+            { key: 'R', code: 'KeyR', shiftKey: true },
+            { key: ',', code: 'Comma', shiftKey: false },
+          ].map(key => {
+            const event = new KeyboardEvent('keydown', {
+              ...key,
+              metaKey: primary === 'Meta',
+              ctrlKey: primary === 'Control',
+              bubbles: true,
+              cancelable: true,
+            })
+            document.activeElement!.dispatchEvent(event)
+            return event.defaultPrevented
+          })
+        }, primary),
+      ).toEqual([false, false])
+      expect(await page.getByRole('dialog').count()).toBe(0)
+      const rename = page.getByRole('dialog', { name: 'Rename session', exact: true })
+      expect(await rename.count()).toBe(0)
+      await page.keyboard.press(`${primary}+Alt+G`)
+      await rename.getByLabel('Session name').waitFor()
+      await page.keyboard.press('Escape')
+      await rename.waitFor({ state: 'hidden' })
+      await page.keyboard.press(`${primary}+Alt+Comma`)
+      const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
+      await settings.waitFor()
+      await page.keyboard.press(`${primary}+Alt+G`)
+      expect(await rename.count()).toBe(0)
+      await page.keyboard.press('Escape')
+      await settings.waitFor({ state: 'hidden' })
+      await page.keyboard.press(`${primary}+Slash`)
+      const reference = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true })
+      await reference.waitFor()
+      await compareOrRefreshGolden(
+        join(root, `${file}.expected.md`),
+        await captureStableAria(page, '[data-shortcut-modal="shortcuts"]', scaffold.workspaceCwd),
+        mode,
+      )
+      await page.keyboard.press('Escape')
+      await reference.waitFor({ state: 'hidden' })
+      await page.keyboard.press(`${primary}+Alt+K`)
+      const search = page.getByPlaceholder('Search session names', { exact: true })
+      await expect.poll(() => search.evaluate(element => element === document.activeElement)).toBe(true)
+      const searchAppearance = await search.evaluate(element => {
+        const input = getComputedStyle(element)
+        const surface = getComputedStyle(element.parentElement!)
+        return {
+          outline: input.outlineStyle,
+          shadow: input.boxShadow,
+          surfaceOutline: surface.outlineStyle,
+          surfaceShadow: surface.boxShadow,
+        }
       })
-    }, primary)).toEqual([false, false])
-    expect(await page.getByRole('dialog').count()).toBe(0)
-    const rename = page.getByRole('dialog', { name: 'Rename session', exact: true })
-    expect(await rename.count()).toBe(0)
-    await page.keyboard.press(`${primary}+Alt+G`)
-    await rename.getByLabel('Session name').waitFor()
-    await page.keyboard.press('Escape')
-    await rename.waitFor({ state: 'hidden' })
-    await page.keyboard.press(`${primary}+Alt+Comma`)
-    const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.waitFor()
-    await page.keyboard.press(`${primary}+Alt+G`)
-    expect(await rename.count()).toBe(0)
-    await page.keyboard.press('Escape')
-    await settings.waitFor({ state: 'hidden' })
-    await page.keyboard.press(`${primary}+Slash`)
-    const reference = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true })
-    await reference.waitFor()
-    await compareOrRefreshGolden(join(root, `${file}.expected.md`),
-      await captureStableAria(page, '[data-shortcut-modal="shortcuts"]', scaffold.workspaceCwd), mode)
-    await page.keyboard.press('Escape')
-    await reference.waitFor({ state: 'hidden' })
-    await page.keyboard.press(`${primary}+Alt+K`)
-    const search = page.getByPlaceholder('Search session names', { exact: true })
-    await expect.poll(() => search.evaluate(element => element === document.activeElement)).toBe(true)
-    const searchAppearance = await search.evaluate((element) => {
-      const input = getComputedStyle(element)
-      const surface = getComputedStyle(element.parentElement!)
-      return { outline: input.outlineStyle, shadow: input.boxShadow,
-        surfaceOutline: surface.outlineStyle, surfaceShadow: surface.boxShadow }
-    })
-    expect(searchAppearance).toEqual({ outline: 'none', shadow: 'none', surfaceOutline: 'none', surfaceShadow: 'none' })
-    await page.keyboard.press('Escape')
-    expect(await search.evaluate(element => getComputedStyle(element).boxShadow)).toBe(searchAppearance.shadow)
-    await page.keyboard.press(`${primary}+Alt+B`)
-    await page.getByRole('button', { name: 'Open sidebar', exact: true }).waitFor()
-    await page.keyboard.press(`${primary}+Alt+B`)
-    await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).waitFor()
-    await page.keyboard.press(`${primary}+Slash`)
-    await reference.getByRole('button', { name: 'Edit shortcut for Toggle left sidebar', exact: true }).click()
-    await page.keyboard.press(custom)
-    await reference.getByRole('group').waitFor({ state: 'hidden' })
-    await page.keyboard.press('Escape')
-    await page.keyboard.press(custom)
-    await page.getByRole('button', { name: 'Open sidebar', exact: true }).waitFor()
-    await page.keyboard.press(custom)
-    await page.keyboard.press(`${primary}+Slash`)
-    await reference.getByRole('button', { name: 'Edit shortcut for Toggle left sidebar', exact: true }).click()
-    await reference.getByRole('button', { name: 'Restore default', exact: true }).click()
-    await reference.getByRole('group').waitFor({ state: 'hidden' })
-    await page.keyboard.press('Escape')
-    expect(await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).getAttribute('aria-keyshortcuts')).toBe(primary === 'Meta' ? 'Alt+Meta+B' : 'Control+Alt+B')
-    if (platform === 'MacIntel') {
-      await page.keyboard.press('Meta+Slash')
-      await reference.getByRole('button', { name: 'Edit shortcut for New Session', exact: true }).click()
-      const recorder = reference.getByRole('button', { name: 'Press a shortcut', exact: true })
-      // Reproduce the macOS Dead-key payload through the real recorder and command owners.
-      expect(await recorder.evaluate((element) => {
-        const event = new KeyboardEvent('keydown', { key: 'Dead', code: 'KeyN', metaKey: true, altKey: true, bubbles: true, cancelable: true })
-        element.dispatchEvent(event)
-        element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Meta', code: 'MetaLeft', bubbles: true }))
-        return event.defaultPrevented
-      })).toBe(true)
+      expect(searchAppearance).toEqual({ outline: 'none', shadow: 'none', surfaceOutline: 'none', surfaceShadow: 'none' })
+      await page.keyboard.press('Escape')
+      expect(await search.evaluate(element => getComputedStyle(element).boxShadow)).toBe(searchAppearance.shadow)
+      await page.keyboard.press(`${primary}+Alt+B`)
+      await page.getByRole('button', { name: 'Open sidebar', exact: true }).waitFor()
+      await page.keyboard.press(`${primary}+Alt+B`)
+      await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).waitFor()
+      await page.keyboard.press(`${primary}+Slash`)
+      await reference.getByRole('button', { name: 'Edit shortcut for Toggle left sidebar', exact: true }).click()
+      await page.keyboard.press(custom)
       await reference.getByRole('group').waitFor({ state: 'hidden' })
       await page.keyboard.press('Escape')
-      const composer = page.locator('[data-composer-input]').first()
-      await composer.focus()
-      expect(await composer.evaluate((element) => {
-        const event = new KeyboardEvent('keydown', { key: 'Dead', code: 'KeyN', metaKey: true, altKey: true, bubbles: true, cancelable: true })
-        element.dispatchEvent(event)
-        return event.defaultPrevented
-      })).toBe(true)
-    } else {
-      await page.keyboard.press(`${primary}+Alt+N`)
+      await page.keyboard.press(custom)
+      await page.getByRole('button', { name: 'Open sidebar', exact: true }).waitFor()
+      await page.keyboard.press(custom)
+      await page.keyboard.press(`${primary}+Slash`)
+      await reference.getByRole('button', { name: 'Edit shortcut for Toggle left sidebar', exact: true }).click()
+      await reference.getByRole('button', { name: 'Restore default', exact: true }).click()
+      await reference.getByRole('group').waitFor({ state: 'hidden' })
+      await page.keyboard.press('Escape')
+      expect(await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).getAttribute('aria-keyshortcuts')).toBe(
+        primary === 'Meta' ? 'Alt+Meta+B' : 'Control+Alt+B',
+      )
+      if (platform === 'MacIntel') {
+        await page.keyboard.press('Meta+Slash')
+        await reference.getByRole('button', { name: 'Edit shortcut for New Session', exact: true }).click()
+        const recorder = reference.getByRole('button', { name: 'Press a shortcut', exact: true })
+        // Reproduce the macOS Dead-key payload through the real recorder and command owners.
+        expect(
+          await recorder.evaluate(element => {
+            const event = new KeyboardEvent('keydown', {
+              key: 'Dead',
+              code: 'KeyN',
+              metaKey: true,
+              altKey: true,
+              bubbles: true,
+              cancelable: true,
+            })
+            element.dispatchEvent(event)
+            element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Meta', code: 'MetaLeft', bubbles: true }))
+            return event.defaultPrevented
+          }),
+        ).toBe(true)
+        await reference.getByRole('group').waitFor({ state: 'hidden' })
+        await page.keyboard.press('Escape')
+        const composer = page.locator('[data-composer-input]').first()
+        await composer.focus()
+        expect(
+          await composer.evaluate(element => {
+            const event = new KeyboardEvent('keydown', {
+              key: 'Dead',
+              code: 'KeyN',
+              metaKey: true,
+              altKey: true,
+              bubbles: true,
+              cancelable: true,
+            })
+            element.dispatchEvent(event)
+            return event.defaultPrevented
+          }),
+        ).toBe(true)
+      } else {
+        await page.keyboard.press(`${primary}+Alt+N`)
+      }
+      await page.getByText('DONE', { exact: true }).waitFor({ state: 'hidden' })
+      await expect.poll(() => page.getByRole('treeitem', { selected: true }).count()).toBe(0)
+      await page.locator('[data-composer-input]').first().waitFor()
+      await page.keyboard.press(`${primary}+Alt+G`)
+      expect(await rename.count()).toBe(0)
+      expect(console.pageErrors).toEqual([])
+    } finally {
+      await browser?.close()
+      await scaffold.close()
     }
-    await page.getByText('DONE', { exact: true }).waitFor({ state: 'hidden' })
-    await expect.poll(() => page.getByRole('treeitem', { selected: true }).count()).toBe(0)
-    await page.locator('[data-composer-input]').first().waitFor()
-    await page.keyboard.press(`${primary}+Alt+G`)
-    expect(await rename.count()).toBe(0)
-    expect(console.pageErrors).toEqual([])
-  } finally {
-    await browser?.close()
-    await scaffold.close()
-  }
-})
+  },
+)

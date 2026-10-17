@@ -4,7 +4,7 @@ import { once } from 'node:events'
 import { lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { withFileLock, writeFileAtomic } from '../src/index.ts'
 
 const state = vi.hoisted(() => ({
@@ -18,11 +18,11 @@ const state = vi.hoisted(() => ({
   renameFailures: [] as string[],
 }))
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
-    rename: (async (...args: Parameters<typeof actual.rename>) => {
+    rename: async (...args: Parameters<typeof actual.rename>) => {
       state.renameAttempts += 1
       const code = state.renameFailures.shift()
       if (code !== undefined) {
@@ -30,8 +30,8 @@ vi.mock('node:fs/promises', async (importOriginal) => {
         throw Object.assign(new Error(`${code}: injected rename failure`), { code })
       }
       return actual.rename(...args)
-    }),
-    rm: (async (...args: Parameters<typeof actual.rm>) => {
+    },
+    rm: async (...args: Parameters<typeof actual.rm>) => {
       if (state.claimRemovalFails && String(args[0]).includes('.lock.takeover-')) {
         throw Object.assign(new Error('EBUSY: injected claim removal failure'), { code: 'EBUSY' })
       }
@@ -39,7 +39,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
         throw Object.assign(new Error('EBUSY: injected lock removal failure'), { code: 'EBUSY' })
       }
       return actual.rm(...args)
-    }),
+    },
     writeFile: (async (path: unknown, ...rest: never[]) => {
       if (String(path).includes('.lock.takeover-')) {
         if (state.claimFailure !== undefined) {
@@ -72,12 +72,16 @@ afterEach(async () => {
   state.releaseLockBeforeProbe = false
   state.renameAttempts = 0
   state.renameFailures.length = 0
-  await Promise.all(scratchDirs.splice(0).map(dir => rm(dir, {
-    force: true,
-    maxRetries: 10,
-    recursive: true,
-    retryDelay: 20,
-  })))
+  await Promise.all(
+    scratchDirs.splice(0).map(dir =>
+      rm(dir, {
+        force: true,
+        maxRetries: 10,
+        recursive: true,
+        retryDelay: 20,
+      }),
+    ),
+  )
 })
 
 async function scratch(): Promise<string> {
@@ -170,7 +174,9 @@ describe('writeFileAtomic', () => {
     state.renameFailures.push('EACCES', 'EBUSY', 'EPERM')
 
     const replacement = writeFileAtomic(target, 'new', { mode: 0o600 })
-    await vi.waitFor(() => { expect(state.renameAttempts).toBeGreaterThan(0) })
+    await vi.waitFor(() => {
+      expect(state.renameAttempts).toBeGreaterThan(0)
+    })
     await vi.runAllTimersAsync()
     await replacement
 
@@ -188,7 +194,9 @@ describe('writeFileAtomic', () => {
     state.renameFailures.push(...Array.from({ length: 9 }, () => 'EPERM'))
 
     const replacement = writeFileAtomic(target, 'new', { mode: 0o600 })
-    await vi.waitFor(() => { expect(state.renameAttempts).toBeGreaterThan(0) })
+    await vi.waitFor(() => {
+      expect(state.renameAttempts).toBeGreaterThan(0)
+    })
     await vi.runAllTimersAsync()
     await expect(replacement).rejects.toMatchObject({ code: 'EPERM' })
 
@@ -224,7 +232,10 @@ describe('withFileLock', () => {
     const target = join(await scratch(), 'document')
     const release: PromiseWithResolvers<void> = Promise.withResolvers()
     const entered: PromiseWithResolvers<void> = Promise.withResolvers()
-    const holder = withFileLock(target, async () => { entered.resolve(); await release.promise })
+    const holder = withFileLock(target, async () => {
+      entered.resolve()
+      await release.promise
+    })
     await entered.promise
     const controller = new AbortController()
     const operation = vi.fn(async () => {})
@@ -236,7 +247,10 @@ describe('withFileLock', () => {
       expect(operation).not.toHaveBeenCalled()
       expect(await readFile(`${target}.lock`, 'utf8')).toBe(record(process.pid))
       await expect(withFileLock(target, operation, { signal: controller.signal })).rejects.toThrow()
-    } finally { release.resolve(); await holder }
+    } finally {
+      release.resolve()
+      await holder
+    }
     await expect(stat(`${target}.lock`)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
@@ -245,19 +259,23 @@ describe('withFileLock', () => {
     const target = join(dir, 'document')
     const lockPath = `${target}.lock`
     await writeFile(lockPath, 'holder\n')
-    const release = setTimeout(() => { void rm(lockPath, { force: true }) }, 50)
+    const release = setTimeout(() => {
+      void rm(lockPath, { force: true })
+    }, 50)
     state.lockPermissionFailures = 1
     let called = false
 
     try {
-      await withFileLock(target, async () => { called = true })
+      await withFileLock(target, async () => {
+        called = true
+      })
     } finally {
       clearTimeout(release)
     }
     expect(called).toBe(true)
   })
 
-  it.each(['win32', 'linux'] as const)('preserves persistent EPERM on %s when no lock path exists', async (platform) => {
+  it.each(['win32', 'linux'] as const)('preserves persistent EPERM on %s when no lock path exists', async platform => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
     const dir = await scratch()
     const operation = vi.fn(async () => {})
@@ -287,9 +305,11 @@ describe('withFileLock', () => {
     await writeFile(parent, 'occupied')
     let called = false
 
-    await expect(withFileLock(join(parent, 'document'), async () => {
-      called = true
-    })).rejects.toThrow(/ENOENT|ENOTDIR|not a directory/i)
+    await expect(
+      withFileLock(join(parent, 'document'), async () => {
+        called = true
+      }),
+    ).rejects.toThrow(/ENOENT|ENOTDIR|not a directory/i)
     expect(called).toBe(false)
   })
 
@@ -299,8 +319,9 @@ describe('withFileLock', () => {
     const target = join(dir, 'document')
     await writeFile(`${target}.lock`, record(EXITED_PID))
 
-    await expect(withFileLock(target, async () => await readFile(`${target}.lock`, 'utf8'), { waitMs: 0 }))
-      .resolves.toBe(record(process.pid))
+    await expect(withFileLock(target, async () => await readFile(`${target}.lock`, 'utf8'), { waitMs: 0 })).resolves.toBe(
+      record(process.pid),
+    )
     expect(await readdir(dir)).toEqual([])
   })
 
@@ -323,12 +344,20 @@ describe('withFileLock', () => {
     let active = 0
     let overlapped = false
 
-    await Promise.all(Array.from({ length: 8 }, () => withFileLock(target, async () => {
-      active += 1
-      overlapped ||= active > 1
-      await new Promise(resolve => setTimeout(resolve, 5))
-      active -= 1
-    }, { waitMs: 10_000 })))
+    await Promise.all(
+      Array.from({ length: 8 }, () =>
+        withFileLock(
+          target,
+          async () => {
+            active += 1
+            overlapped ||= active > 1
+            await new Promise(resolve => setTimeout(resolve, 5))
+            active -= 1
+          },
+          { waitMs: 10_000 },
+        ),
+      ),
+    )
     expect(overlapped).toBe(false)
     expect(await readdir(dir)).toEqual([])
   })
@@ -373,7 +402,13 @@ describe('withFileLock', () => {
     const dir = await scratch()
     const target = join(dir, 'document')
     let release = (): void => {}
-    const holder = withFileLock(target, () => new Promise<void>((resolve) => { release = resolve }))
+    const holder = withFileLock(
+      target,
+      () =>
+        new Promise<void>(resolve => {
+          release = resolve
+        }),
+    )
     await waitForLock(`${target}.lock`)
 
     await expect(withFileLock(target, async () => {}, { waitMs: 50 })).rejects.toThrow(/timed out waiting for the writer lock/)
@@ -397,7 +432,7 @@ describe('withFileLock', () => {
     expect(await readFile(`${target}.lock`, 'utf8')).toBe(held)
   })
 
-  it('waits when the exited holder\'s lock cannot be removed', async () => {
+  it("waits when the exited holder's lock cannot be removed", async () => {
     probeExited()
     const dir = await scratch()
     const target = join(dir, 'document')
@@ -417,7 +452,7 @@ describe('withFileLock', () => {
     await expect(withFileLock(target, async () => {}, { waitMs: 50 })).rejects.toThrow(/timed out waiting for the writer lock/)
   })
 
-  it('leaves an exited holder\'s lock to the contender that claimed its record', async () => {
+  it("leaves an exited holder's lock to the contender that claimed its record", async () => {
     const dir = await scratch()
     const target = join(dir, 'document')
     probeExited()
@@ -452,7 +487,9 @@ describe('withFileLock', () => {
     const target = join(dir, 'document')
     await writeFile(`${target}.lock`, record(EXITED_PID))
     state.claimFailure = 'EPERM'
-    setTimeout(() => { state.claimFailure = undefined }, 30)
+    setTimeout(() => {
+      state.claimFailure = undefined
+    }, 30)
 
     await expect(withFileLock(target, async () => 'acquired', { waitMs: 10_000 })).resolves.toBe('acquired')
   })
@@ -488,7 +525,9 @@ describe('withFileLock', () => {
     const dir = await scratch()
     const target = join(dir, 'document')
     let release = (): void => {}
-    const held = new Promise<void>((resolve) => { release = resolve })
+    const held = new Promise<void>(resolve => {
+      release = resolve
+    })
     const holder = withFileLock(target, () => held)
     // The holder owns the lock once its lockfile exists; contending before
     // that would measure nothing.
@@ -498,8 +537,7 @@ describe('withFileLock', () => {
     // the ignored argument: without it the contender simply waits out the
     // protocol default and fails with the same message.
     const startedAt = Date.now()
-    await expect(withFileLock(target, async () => 'impatient', { waitMs: 50 }))
-      .rejects.toThrow(/timed out waiting for the writer lock/)
+    await expect(withFileLock(target, async () => 'impatient', { waitMs: 50 })).rejects.toThrow(/timed out waiting for the writer lock/)
     expect(Date.now() - startedAt).toBeLessThan(1_000)
 
     const patient = withFileLock(target, async () => 'patient', { waitMs: 10_000 })

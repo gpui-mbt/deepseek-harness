@@ -1,5 +1,5 @@
 /** Output followers drain on process exit and discard queued data on detach. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { TerminalFollower } from '../src/stream.ts'
 import type { TerminalFrame } from '../src/types.ts'
 
@@ -18,7 +18,10 @@ describe('TerminalFollower', () => {
       follower.push({ ...frame, sequence: 2 })
       expect(await stream.next()).toEqual({ done: false, value: frame })
       expect(await stream.next()).toEqual({ done: true, value: undefined })
-    } finally { follower.close(); await stream.return?.() }
+    } finally {
+      follower.close()
+      await stream.return?.()
+    }
   })
 
   it('fails accumulated overflow using encoded byte size', async () => {
@@ -54,7 +57,10 @@ describe('TerminalFollower', () => {
       const finishing = stream.next()
       follower.finish()
       expect(await finishing).toEqual({ done: true, value: undefined })
-    } finally { follower.close(); await stream.return?.() }
+    } finally {
+      follower.close()
+      await stream.return?.()
+    }
   })
 
   it('wakes a waiting reader on cancellation', async () => {
@@ -65,7 +71,10 @@ describe('TerminalFollower', () => {
       const reading = stream.next()
       abort.abort()
       expect(await reading).toEqual({ done: true, value: undefined })
-    } finally { follower.close(); await stream.return?.() }
+    } finally {
+      follower.close()
+      await stream.return?.()
+    }
   })
 
   it('closes the follower when its consumer returns before EOF', async () => {

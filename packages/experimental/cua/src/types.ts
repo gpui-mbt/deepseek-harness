@@ -2,7 +2,16 @@
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { z } from 'zod'
-import type { ActionResult, CapabilitiesResult, FoundAppsResult, HoverResult, Request, ScreenshotResult, ShowResult, WindowsResult } from './protocol.ts'
+import type {
+  ActionResult,
+  CapabilitiesResult,
+  FoundAppsResult,
+  HoverResult,
+  Request,
+  ScreenshotResult,
+  ShowResult,
+  WindowsResult,
+} from './protocol.ts'
 
 /** Helper-issued application selection; public app objects bind it to one process lifetime. */
 export type CuaAppHandle = Branded<'CuaAppHandle'>
@@ -31,7 +40,9 @@ export interface CuaObservationSink {
   image(screenshot: CuaScreenshot): void | Promise<void>
 }
 /** Observations emit by default. Returned values are unaffected by this option. */
-export interface CuaObservationOptions { emit?: boolean }
+export interface CuaObservationOptions {
+  emit?: boolean
+}
 /** Full observations of the requested content; each read replaces this surface's indices. */
 export interface CuaAxOptions extends CuaObservationOptions {
   /** Reserved compatibility option; observations are never diffs. */
@@ -77,7 +88,10 @@ export type CuaSelectTextOptions = Pick<CuaParameters<'selectText'>, 'prefix' | 
 /** Positive deltas reveal content above/left; each axis is an integer from -10 to 10. */
 export type CuaScrollOptions = Pick<CuaParameters<'scroll'>, 'x' | 'y' | 'deltaLinesX' | 'deltaLinesY'> & CuaCoordinateOptions
 /** An observed AX tree and independently captured image; capture is not atomic. */
-export interface CuaObservation { state: string; screenshot: CuaScreenshot }
+export interface CuaObservation {
+  state: string
+  screenshot: CuaScreenshot
+}
 /**
  * App-wide or explicitly scoped window observations and actions.
  * Capture and pointer delivery reject known AX/display frame conflicts with WINDOW_CHANGED.
@@ -163,7 +177,9 @@ export interface CuaSurface {
   drag(from: readonly [number, number], to: readonly [number, number], options?: CuaDragOptions): Promise<CuaActionResult>
 }
 /** One explicit window; keyboard operations remain app-scoped because they follow focus. */
-export interface CuaWindow extends CuaSurface { readonly windowId: number }
+export interface CuaWindow extends CuaSurface {
+  readonly windowId: number
+}
 /**
  * Native app handle supporting direct observations and actions without window enumeration.
  * Screenshots and coordinates reuse the latest AX observation's focused on-screen,

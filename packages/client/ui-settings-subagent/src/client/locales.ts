@@ -4,22 +4,41 @@ import type { SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Locale keys the page renders. */
 export type SubagentSettingsLocaleKey =
-  | 'overridden' | 'reset' | 'readOnly' | 'unavailable'
-  | 'save' | 'saving' | 'saveFailed'
-  | 'subagentTitle' | 'subagentDescription' | 'subagentLimitsTitle'
+  | 'overridden'
+  | 'reset'
+  | 'readOnly'
+  | 'unavailable'
+  | 'save'
+  | 'saving'
+  | 'saveFailed'
+  | 'subagentTitle'
+  | 'subagentDescription'
+  | 'subagentLimitsTitle'
   | 'subagentMaxDepth'
-  | 'subagentDepthHelpLabel' | 'subagentDepthHelp'
-  | 'subagentDepthZero' | 'subagentDepthOne' | 'subagentDepthOverride'
+  | 'subagentDepthHelpLabel'
+  | 'subagentDepthHelp'
+  | 'subagentDepthZero'
+  | 'subagentDepthOne'
+  | 'subagentDepthOverride'
   | 'subagentMaxActive'
-  | 'subagentCapacityHelpLabel' | 'subagentCapacityHelp'
+  | 'subagentCapacityHelpLabel'
+  | 'subagentCapacityHelp'
   | 'subagentDepthInvalid'
   | 'subagentCapacityInvalid'
   | 'subagentModelSelectionTitle'
-  | 'subagentModelSelectionToggle' | 'subagentModelSelectionChoose' | 'subagentModelSelectionAllowed'
-  | 'subagentModelSelectionLoading' | 'subagentModelSelectionLoadFailed' | 'subagentModelSelectionRetry'
-  | 'subagentModelSelectionPartial' | 'subagentModelSelectionUnavailable'
-  | 'subagentModelSelectionUnavailableGroup' | 'subagentModelSelectionEmpty'
-  | 'subagentModelSelectionRequired' | 'subagentModelSelectionConflict' | 'subagentModelSelectionOff'
+  | 'subagentModelSelectionToggle'
+  | 'subagentModelSelectionChoose'
+  | 'subagentModelSelectionAllowed'
+  | 'subagentModelSelectionLoading'
+  | 'subagentModelSelectionLoadFailed'
+  | 'subagentModelSelectionRetry'
+  | 'subagentModelSelectionPartial'
+  | 'subagentModelSelectionUnavailable'
+  | 'subagentModelSelectionUnavailableGroup'
+  | 'subagentModelSelectionEmpty'
+  | 'subagentModelSelectionRequired'
+  | 'subagentModelSelectionConflict'
+  | 'subagentModelSelectionOff'
 
 /** English copy. */
 export const en: Record<SubagentSettingsLocaleKey, string> = {
@@ -41,12 +60,14 @@ export const en: Record<SubagentSettingsLocaleKey, string> = {
   subagentDepthOverride: 'If a tool defines its own maximum recursion depth, that setting takes precedence.',
   subagentMaxActive: 'Subagent parallelism limit',
   subagentCapacityHelpLabel: 'About the Subagent parallelism limit',
-  subagentCapacityHelp: 'Total live Subagents under the same main Agent, across all recursion levels. The main Agent is excluded. New start requests are rejected when the limit is reached.',
+  subagentCapacityHelp:
+    'Total live Subagents under the same main Agent, across all recursion levels. The main Agent is excluded. New start requests are rejected when the limit is reached.',
   subagentDepthInvalid: 'Enter a whole number of 0 or more.',
   subagentCapacityInvalid: 'Enter a whole number of 1 or more.',
   subagentModelSelectionTitle: 'Model selection',
   subagentModelSelectionToggle: 'Allow agents to choose models for Subagents',
-  subagentModelSelectionChoose: 'When enabled, agents can choose a provider, model, and reasoning effort for each Subagent from the authorized models below. Applies only to new sessions.',
+  subagentModelSelectionChoose:
+    'When enabled, agents can choose a provider, model, and reasoning effort for each Subagent from the authorized models below. Applies only to new sessions.',
   subagentModelSelectionAllowed: 'Models agents may choose',
   subagentModelSelectionLoading: 'Loading models…',
   subagentModelSelectionLoadFailed: 'Models could not be loaded.',
@@ -57,7 +78,7 @@ export const en: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionEmpty: 'No model provider currently advertises a model.',
   subagentModelSelectionRequired: 'Select at least one model before saving.',
   subagentModelSelectionConflict: 'Settings changed elsewhere. Discard your draft and try again.',
-  subagentModelSelectionOff: 'Subagents use configured defaults or inherit the parent agent\'s model. Saved model choices are retained.',
+  subagentModelSelectionOff: "Subagents use configured defaults or inherit the parent agent's model. Saved model choices are retained.",
 }
 
 /** Simplified Chinese copy. */

@@ -18,9 +18,13 @@ export function parseFileLink(value: string): { path: string; line?: number } | 
     // Malformed percent escapes cannot identify a file unambiguously.
     return undefined
   }
-  if (path.length === 0 || /[\u0000-\u001f\u007f]/.test(path)
-    || /^[\\/]{2}/.test(path)
-    || (/^[a-z][a-z\d+.-]*:/i.test(path) && !/^[a-z]:[\\/]/i.test(path))) return undefined
+  if (
+    path.length === 0 ||
+    /[\u0000-\u001f\u007f]/.test(path) ||
+    /^[\\/]{2}/.test(path) ||
+    (/^[a-z][a-z\d+.-]*:/i.test(path) && !/^[a-z]:[\\/]/i.test(path))
+  )
+    return undefined
   if (hash < 0) return { path }
   const fragment = value.slice(hash + 1)
   const match = /^L([1-9]\d*)(?:-L([1-9]\d*))?$/.exec(fragment)

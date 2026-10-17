@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 import { createProcessInspector } from '../src/process-inspector.ts'
 import type { ProcessIdentity, ProcessInspector } from '../src/process-inspector.ts'
@@ -11,7 +11,10 @@ import { taskkillProcessTree } from '../src/spawn.ts'
 
 type ExitTrigger = 'direct' | 'uncaught-exception' | 'unhandled-rejection' | 'dispose'
 type ManagedKind = 'ordinary' | 'terminal'
-interface TreeState { root: number; descendant: number }
+interface TreeState {
+  root: number
+  descendant: number
+}
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 const hostScript = fileURLToPath(new URL('./fixtures/process-exit-host.ts', import.meta.url))
@@ -29,30 +32,51 @@ function processExists(pid: number): boolean {
 }
 
 async function readTree(path: string): Promise<TreeState> {
-  return vi.waitFor(async () => {
-    const text = await readFile(path, 'utf8')
-    const state = JSON.parse(text) as Partial<TreeState>
-    if (!Number.isSafeInteger(state.root) || !Number.isSafeInteger(state.descendant)
-      || (state.root ?? 0) <= 0 || (state.descendant ?? 0) <= 0 || state.root === state.descendant) {
-      throw new Error(`invalid managed-tree state: ${text}`)
-    }
-    return state as TreeState
-  }, { interval: 10, timeout: scenarioTimeoutMs })
+  return vi.waitFor(
+    async () => {
+      const text = await readFile(path, 'utf8')
+      const state = JSON.parse(text) as Partial<TreeState>
+      if (
+        !Number.isSafeInteger(state.root) ||
+        !Number.isSafeInteger(state.descendant) ||
+        (state.root ?? 0) <= 0 ||
+        (state.descendant ?? 0) <= 0 ||
+        state.root === state.descendant
+      ) {
+        throw new Error(`invalid managed-tree state: ${text}`)
+      }
+      return state as TreeState
+    },
+    { interval: 10, timeout: scenarioTimeoutMs },
+  )
 }
 
 async function captureIdentities(inspector: ProcessInspector, state: TreeState): Promise<ProcessIdentity[]> {
-  return vi.waitFor(() => {
-    const expected = new Set([state.root, state.descendant])
-    const identities = inspector.snapshot().tree(state.root).filter(identity => expected.has(identity.pid))
-    if (identities.length !== expected.size) throw new Error('managed tree is not fully observable yet')
-    return identities
-  }, { interval: 10, timeout: scenarioTimeoutMs })
+  return vi.waitFor(
+    () => {
+      const expected = new Set([state.root, state.descendant])
+      const identities = inspector
+        .snapshot()
+        .tree(state.root)
+        .filter(identity => expected.has(identity.pid))
+      if (identities.length !== expected.size) throw new Error('managed tree is not fully observable yet')
+      return identities
+    },
+    { interval: 10, timeout: scenarioTimeoutMs },
+  )
 }
 
 async function waitForGone(state: TreeState): Promise<void> {
-  await Promise.all([state.root, state.descendant].map(pid => vi.waitFor(() => {
-    if (processExists(pid)) throw new Error(`managed pid ${pid} is still alive`)
-  }, { interval: 25, timeout: 10_000 })))
+  await Promise.all(
+    [state.root, state.descendant].map(pid =>
+      vi.waitFor(
+        () => {
+          if (processExists(pid)) throw new Error(`managed pid ${pid} is still alive`)
+        },
+        { interval: 25, timeout: 10_000 },
+      ),
+    ),
+  )
 }
 
 function cleanupTree(state: TreeState | undefined, identities: ProcessIdentity[]): void {
@@ -116,13 +140,14 @@ async function runScenario(kind: ManagedKind, trigger: ExitTrigger) {
     settled = true
     await waitForGone(state)
     treeGone = true
-    const disposeCounts = trigger === 'dispose'
-      ? JSON.parse(await readFile(join(root, 'dispose.json'), 'utf8')) as {
-        ownedListenersAfterLoad: number
-        ownedListenersAfterDispose: number
-        unrelatedListenerPreserved: boolean
-      }
-      : undefined
+    const disposeCounts =
+      trigger === 'dispose'
+        ? (JSON.parse(await readFile(join(root, 'dispose.json'), 'utf8')) as {
+            ownedListenersAfterLoad: number
+            ownedListenersAfterDispose: number
+            unrelatedListenerPreserved: boolean
+          })
+        : undefined
     return { outcome, disposeCounts }
   } finally {
     if (!settled) {
@@ -142,11 +167,7 @@ describe('synchronous cleanup on host exit', () => {
     { trigger: 'direct' as const, expectedCode: 23, diagnostic: undefined },
     { trigger: 'uncaught-exception' as const, expectedCode: 1, diagnostic: 'host-exit-uncaught-exception' },
     { trigger: 'unhandled-rejection' as const, expectedCode: 1, diagnostic: 'host-exit-unhandled-rejection' },
-  ])('removes an ordinary managed tree after $trigger', { timeout: testTimeoutMs }, async ({
-    trigger,
-    expectedCode,
-    diagnostic,
-  }) => {
+  ])('removes an ordinary managed tree after $trigger', { timeout: testTimeoutMs }, async ({ trigger, expectedCode, diagnostic }) => {
     const { outcome } = await runScenario('ordinary', trigger)
     expect(outcome.exitCode).toBe(expectedCode)
     expect(outcome.signal).toBeUndefined()

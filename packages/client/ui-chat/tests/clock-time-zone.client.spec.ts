@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ChatSettings } from '../src/chat-settings.ts'
 import { ClockTimeZonePolicy } from '../src/client/clock-time-zone.ts'

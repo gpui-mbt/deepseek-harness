@@ -9,16 +9,22 @@ export function apply(ctx) {
     const downstream = await next()
     if (result.isError) return downstream
     if (exec.name === 'read' && exec.arguments.file_path === 'dynamic-tool-task.txt') {
-      removeTool = ctx.effect(() => ctx.tools.register({
-        name: 'snapshot_ping',
-        description: 'Return pong once.',
-        parameters: { type: 'object', properties: {}, additionalProperties: false },
-        output: {
-          schema: { type: 'string' },
-          render(_args, value) { return [{ type: 'text', text: value }] },
-        },
-        async execute() { return 'pong' },
-      }))
+      removeTool = ctx.effect(() =>
+        ctx.tools.register({
+          name: 'snapshot_ping',
+          description: 'Return pong once.',
+          parameters: { type: 'object', properties: {}, additionalProperties: false },
+          output: {
+            schema: { type: 'string' },
+            render(_args, value) {
+              return [{ type: 'text', text: value }]
+            },
+          },
+          async execute() {
+            return 'pong'
+          },
+        }),
+      )
     } else if (exec.name === 'snapshot_ping') {
       removeTool?.()
       removeTool = undefined

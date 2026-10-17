@@ -56,7 +56,8 @@ export function parse(text: string, descriptor: KvUnitDescriptor): UnitState {
   }
   const { unit, global: globalValue, tables } = document as Record<string, unknown>
   if (
-    typeof unit !== 'object' || unit === null ||
+    typeof unit !== 'object' ||
+    unit === null ||
     (unit as Record<string, unknown>)['name'] !== descriptor.name ||
     typeof (unit as Record<string, unknown>)['version'] !== 'number'
   ) {
@@ -64,10 +65,7 @@ export function parse(text: string, descriptor: KvUnitDescriptor): UnitState {
   }
   const version = (unit as Record<string, unknown>)['version'] as number
   if (version !== descriptor.version) {
-    throw new StorageError(
-      'version-mismatch',
-      `unit '${descriptor.name}': stored version ${version} != expected ${descriptor.version}`,
-    )
+    throw new StorageError('version-mismatch', `unit '${descriptor.name}': stored version ${version} != expected ${descriptor.version}`)
   }
   // `typeof` alone admits an array: reading one as a table map reports every
   // declared table as absent, and the next publish replaces the file with that

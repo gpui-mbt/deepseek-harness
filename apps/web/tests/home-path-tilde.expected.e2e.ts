@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { installAssembledBootEnv, mountAssembledApp, REFRESHING_GOLDEN } from './assembled-boot.ts'
 
 const EXPECTED = join(process.cwd(), 'apps/web/tests/expected/home-path-tilde/workspace-hover.expected.txt')
@@ -23,23 +23,25 @@ describe('assembled POSIX home-path display', () => {
     if (group == null) throw new Error('home-descendant Workspace group missing')
 
     fireEvent.pointerEnter(group.parentElement as HTMLElement)
-    const hoverPath = await waitFor(() => {
-      const found = screen.getByText('~/Documents/project')
-      expect(found).toBeTruthy()
-      return found
-    }, { timeout: 2_000 })
+    const hoverPath = await waitFor(
+      () => {
+        const found = screen.getByText('~/Documents/project')
+        expect(found).toBeTruthy()
+        return found
+      },
+      { timeout: 2_000 },
+    )
     expect(screen.queryByText('/home/fixture/Documents/project')).toBeNull()
     const copy = screen.getByRole('button', { name: 'Copy: /home/fixture/Documents/project' })
 
-    const shape = [
-      `hover=${hoverPath.textContent}`,
-      `copy=${copy.getAttribute('aria-label')}`,
-    ].join('\n') + '\n'
+    const shape = [`hover=${hoverPath.textContent}`, `copy=${copy.getAttribute('aria-label')}`].join('\n') + '\n'
     if (REFRESHING_GOLDEN) {
       mkdirSync(dirname(EXPECTED), { recursive: true })
       writeFileSync(EXPECTED, shape)
     }
     await expect(shape).toMatchFileSnapshot(EXPECTED)
-    act(() => { fireEvent.pointerLeave(group.parentElement as HTMLElement) })
+    act(() => {
+      fireEvent.pointerLeave(group.parentElement as HTMLElement)
+    })
   })
 })

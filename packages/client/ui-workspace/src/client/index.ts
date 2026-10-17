@@ -20,7 +20,11 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ISessions, SessionForkError } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {
-  IWorkspaces, SessionActivity, WorkspaceArchiveError, WorkspaceId, WorkspaceSnapshot,
+  IWorkspaces,
+  SessionActivity,
+  WorkspaceArchiveError,
+  WorkspaceId,
+  WorkspaceSnapshot,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { RemoteEndpoint } from '@deepseek-ai/dsh-api-remote-access/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -38,10 +42,20 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 // Type-only: pulls the Session root standard-hook merge.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import {
-  type ArchiveSessionInjected, type ForkSessionInjected, menuOpenStateFactory, type PinSessionInjected,
-  type SessionArchiveConfirmInjected, type SessionArchiveConfirmRequest,
-  type RenameSessionInjected, type RowToast, type RowToastInjected, type RowToastState, type SessionRenameDialogInjected,
-  type SessionIdInjected, type WorkspaceBrowserInjected, type WorkspacePickerInjected,
+  type ArchiveSessionInjected,
+  type ForkSessionInjected,
+  menuOpenStateFactory,
+  type PinSessionInjected,
+  type SessionArchiveConfirmInjected,
+  type SessionArchiveConfirmRequest,
+  type RenameSessionInjected,
+  type RowToast,
+  type RowToastInjected,
+  type RowToastState,
+  type SessionRenameDialogInjected,
+  type SessionIdInjected,
+  type WorkspaceBrowserInjected,
+  type WorkspacePickerInjected,
 } from './contract/slots.ts'
 import { createWorkspaceShortcutControls, installWorkspaceShortcuts } from './shortcuts.ts'
 import { UiWorkspaceService } from './navigation.ts'
@@ -60,11 +74,20 @@ import { en, zh, type WorkspaceKey } from './locales.ts'
 
 export type { StartSessionOptions, UiWorkspace } from './navigation.ts'
 export type {
-  DirectoryFlowOwnerProps, DirectoryFlowSlotName, DirectoryPickingHooks, DirectoryPickingInjected,
-  MenuOpenState, RowToast, SessionRenameTarget, SessionRowOwnerProps, UseMenuOpenState, WorkspaceBrowserInjected,
+  DirectoryFlowOwnerProps,
+  DirectoryFlowSlotName,
+  DirectoryPickingHooks,
+  DirectoryPickingInjected,
+  MenuOpenState,
+  RowToast,
+  SessionRenameTarget,
+  SessionRowOwnerProps,
+  UseMenuOpenState,
+  WorkspaceBrowserInjected,
   SessionRowScheduleOwnerProps,
   WorkspaceBrowserProps,
-  WorkspacePickerInjected, WorkspacePickerProps,
+  WorkspacePickerInjected,
+  WorkspacePickerProps,
 } from './contract/slots.ts'
 export type { WorkspaceKey } from './locales.ts'
 
@@ -100,7 +123,15 @@ const NS = 'workspace'
  * declaration through `slots.inject()` instead of assuming order.
  */
 export const inject = [
-  'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout', 'shortcuts', 'remoteAccess',
+  'slots',
+  'sessions',
+  'workspaces',
+  'locale',
+  'remote',
+  'remote.directoryPicker',
+  'layout',
+  'shortcuts',
+  'remoteAccess',
 ]
 
 /**
@@ -120,16 +151,15 @@ export function apply(ctx: Context): void {
   const viewStore: typeof viewHandle = { ...viewHandle, create: () => viewInstance }
   const rowToast = createSnapshotStore<RowToastState | null>(null)
   let toastSeq = 0
-  const notify = (toast: RowToast): void => { rowToast.set({ ...toast, seq: ++toastSeq }) }
-  const uiWorkspace = new UiWorkspaceService(
-    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify,
-  )
+  const notify = (toast: RowToast): void => {
+    rowToast.set({ ...toast, seq: ++toastSeq })
+  }
+  const uiWorkspace = new UiWorkspaceService(ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify)
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
     keyedHooks: {
-      workspaceAccess: (workspaceId, action) => action === undefined
-        ? undefined
-        : ctx.remoteAccess.source('workspace', workspaceId, action),
+      workspaceAccess: (workspaceId, action) =>
+        action === undefined ? undefined : ctx.remoteAccess.source('workspace', workspaceId, action),
     },
   })
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
@@ -153,7 +183,7 @@ export function apply(ctx: Context): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const pickerFlowSource = flowSource('conversation.hero.workspace.directoryFlow')
-  const openSession: WorkspaceBrowserInjected['open'] = (sessionId) => {
+  const openSession: WorkspaceBrowserInjected['open'] = sessionId => {
     uiWorkspace.openSession(sessionId)
   }
   // Registry-global sets as Sets, rebuilt only when the Workspace snapshot changes.
@@ -172,22 +202,22 @@ export function apply(ctx: Context): void {
     })
   }
   const renameSession: SessionRenameDialogInjected['renameSession'] = async (sessionId, title) => {
-    const result = await sessions.using(
-      sessionId,
-      { source: 'workspaceOperation' },
-      reference => reference.binding.session.rename(title),
-    )
+    const result = await sessions.using(sessionId, { source: 'workspaceOperation' }, reference => reference.binding.session.rename(title))
     if (!result.ok) throw new Error(result.error.message)
   }
   const pinInjected = (): PinSessionInjected => ({
     hooks: { pinned: pinnedSet, archived: archivedSet },
     // Pin failures surface as a notice: nothing else on the surface moves, so
     // a silent failure would read as a dead action.
-    pinSession: (sessionId) => {
-      uiWorkspace.pinSession(sessionId).catch(() => { notify({ kind: 'pinFailed' }) })
+    pinSession: sessionId => {
+      uiWorkspace.pinSession(sessionId).catch(() => {
+        notify({ kind: 'pinFailed' })
+      })
     },
-    unpinSession: (sessionId) => {
-      uiWorkspace.unpinSession(sessionId).catch(() => { notify({ kind: 'unpinFailed' }) })
+    unpinSession: sessionId => {
+      uiWorkspace.unpinSession(sessionId).catch(() => {
+        notify({ kind: 'unpinFailed' })
+      })
     },
   })
   const archiveInjected = (): ArchiveSessionInjected => ({
@@ -196,45 +226,62 @@ export function apply(ctx: Context): void {
     // needs no confirmation; the notice offers undo and the archived filter.
     // The Host's refusal for running work is the one case that asks first:
     // the confirmation names that work and offers to stop it.
-    archiveSession: (sessionId) => {
-      uiWorkspace.archiveSession(sessionId).then(() => {
-        notify({ kind: 'archived', sessionId })
-      }).catch((reason: unknown) => {
-        const activity = activeSessionRefusal(reason)
-        if (activity === undefined) {
-          console.warn('session archive rejected:', reason)
-          return
-        }
-        const displayTitle = sessions.list.getSnapshot().byId[sessionId]?.displayTitle ?? sessionId
-        archiveRequest.set({ sessionId, displayTitle, activity })
-      })
+    archiveSession: sessionId => {
+      uiWorkspace
+        .archiveSession(sessionId)
+        .then(() => {
+          notify({ kind: 'archived', sessionId })
+        })
+        .catch((reason: unknown) => {
+          const activity = activeSessionRefusal(reason)
+          if (activity === undefined) {
+            console.warn('session archive rejected:', reason)
+            return
+          }
+          const displayTitle = sessions.list.getSnapshot().byId[sessionId]?.displayTitle ?? sessionId
+          archiveRequest.set({ sessionId, displayTitle, activity })
+        })
     },
     unarchiveSession,
   })
-  installWorkspaceShortcuts(ctx, uiWorkspace, shortcutControls, archiveInjected().archiveSession,
-    (reason) => { notify({ kind: 'shortcutForkFailed', reason }) })
+  installWorkspaceShortcuts(ctx, uiWorkspace, shortcutControls, archiveInjected().archiveSession, reason => {
+    notify({ kind: 'shortcutForkFailed', reason })
+  })
   const archiveConfirmInjected = (): SessionArchiveConfirmInjected => ({
     hooks: { archiveRequest },
-    settleSessionArchive: () => { archiveRequest.set(null) },
-    stopAndArchiveSession: async (sessionId) => {
+    settleSessionArchive: () => {
+      archiveRequest.set(null)
+    },
+    stopAndArchiveSession: async sessionId => {
       await uiWorkspace.archiveSession(sessionId, { stopActivity: true })
       notify({ kind: 'stoppedAndArchived', sessionId })
     },
   })
   const forkInjected = (): ForkSessionInjected => ({
-    forkSession: (sessionId) => {
-      uiWorkspace.forkSession(sessionId, (childId) => {
-        ctx.get('productAnalytics')?.track('branch_session_click', { session_id: childId, parent_session_id: sessionId, click_position: 'sidebar' })
-      }, { allowMigration: false }).catch((error: unknown) => {
-        if (error instanceof Error && error.name === 'SessionForkError'
-          && (error as SessionForkError).rpcError.code === 'session/migration-required') {
-          notify({ kind: 'forkRequiresOpen', sessionId })
-        }
-      })
+    forkSession: sessionId => {
+      uiWorkspace
+        .forkSession(
+          sessionId,
+          childId => {
+            ctx
+              .get('productAnalytics')
+              ?.track('branch_session_click', { session_id: childId, parent_session_id: sessionId, click_position: 'sidebar' })
+          },
+          { allowMigration: false },
+        )
+        .catch((error: unknown) => {
+          if (
+            error instanceof Error &&
+            error.name === 'SessionForkError' &&
+            (error as SessionForkError).rpcError.code === 'session/migration-required'
+          ) {
+            notify({ kind: 'forkRequiresOpen', sessionId })
+          }
+        })
     },
   })
   const sessionIdInjected = (): SessionIdInjected => ({
-    copySessionId: async (sessionId) => {
+    copySessionId: async sessionId => {
       const copied = await writeClipboard(sessionId)
       notify({ kind: copied ? 'sessionIdCopied' : 'sessionIdCopyFailed' })
     },
@@ -247,7 +294,9 @@ export function apply(ctx: Context): void {
   })
   const toastActions = {
     undoArchive: unarchiveSession,
-    showArchived: () => { viewInstance.actions.setArchivedFilter('show') },
+    showArchived: () => {
+      viewInstance.actions.setArchivedFilter('show')
+    },
     openForkSource: (sessionId: SessionId) => {
       if (workspaces.list.getSnapshot().archivedSessionIds.includes(sessionId)) {
         notify({ kind: 'archivedNotOpenable' })
@@ -259,23 +308,35 @@ export function apply(ctx: Context): void {
   registerToasts(ctx, viewStore, toastActions)
   const rowToastInjected = (): Pick<RowToastInjected, 'hooks' | 'dismissToast'> => ({
     hooks: { toast: rowToast },
-    dismissToast: () => { rowToast.set(null) },
+    dismissToast: () => {
+      rowToast.set(null)
+    },
   })
   const browserInjected = (): WorkspaceBrowserInjected => ({
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
-    startSession: (workspaceId, options) => { uiWorkspace.startSession(workspaceId, options) },
+    startSession: (workspaceId, options) => {
+      uiWorkspace.startSession(workspaceId, options)
+    },
     open: openSession,
     searchSessions,
     searchResultLimit: sessions.searchResultLimit,
     requestSessionRename,
-    notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
-    renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
-    deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },
+    notifyArchivedNotOpenable: () => {
+      notify({ kind: 'archivedNotOpenable' })
+    },
+    renameWorkspace: async (workspaceId, title) => {
+      await workspaces.rename(workspaceId, title)
+    },
+    deleteWorkspace: async workspaceId => {
+      await workspaces.delete(workspaceId)
+    },
     insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
       await workspaces.insertBefore(workspaceId, beforeWorkspaceId)
     },
-    unarchiveSession: async (sessionId) => { await uiWorkspace.unarchiveSession(sessionId) },
+    unarchiveSession: async sessionId => {
+      await uiWorkspace.unarchiveSession(sessionId)
+    },
     createWorkspace: input => workspaces.create(input),
     requestSearch: shortcutControls.search,
     requestAddWorkspace: shortcutControls.add,
@@ -289,64 +350,108 @@ export function apply(ctx: Context): void {
   })
   // Each registration declares its owned children in the same call; slot
   // injection follows both the owner and declaration HMR lifetimes.
-  ctx.slots.inject('sidebar.workspaces', () => ctx.slots.register(
-    {
-      name: 'sidebar.workspaces',
-      children: {
-        'sidebar.workspaces.directoryFlow': { kind: 'single', scope: 'root' },
-        // Every row entry reads the menu's open state through a hook bound
-        // from the row's render occurrence (the owner passes the state pair
-        // as hookContext).
-        'sidebar.workspaces.session.menu.item': {
-          kind: 'list', scope: 'root', inject: { hooks: { menuOpenState: menuOpenStateFactory, shortcuts: ctx.shortcuts.catalog } },
+  ctx.slots.inject('sidebar.workspaces', () =>
+    ctx.slots.register(
+      {
+        name: 'sidebar.workspaces',
+        children: {
+          'sidebar.workspaces.directoryFlow': { kind: 'single', scope: 'root' },
+          // Every row entry reads the menu's open state through a hook bound
+          // from the row's render occurrence (the owner passes the state pair
+          // as hookContext).
+          'sidebar.workspaces.session.menu.item': {
+            kind: 'list',
+            scope: 'root',
+            inject: { hooks: { menuOpenState: menuOpenStateFactory, shortcuts: ctx.shortcuts.catalog } },
+          },
+          'sidebar.workspaces.session.row.action': { kind: 'list', scope: 'root' },
+          'sidebar.session.row.leading': { kind: 'list', scope: 'root' },
+          'sidebar.session.row.hover': { kind: 'list', scope: 'root' },
         },
-        'sidebar.workspaces.session.row.action': { kind: 'list', scope: 'root' },
-        'sidebar.session.row.leading': { kind: 'list', scope: 'root' },
-        'sidebar.session.row.hover': { kind: 'list', scope: 'root' },
+        store: viewStore,
+        inject: browserInjected,
+        locale: NS,
       },
-      store: viewStore,
-      inject: browserInjected,
-      locale: NS,
-    },
-    WorkspaceBrowser,
-  ))
+      WorkspaceBrowser,
+    ),
+  )
   // The shipped row actions take the same route as a plugin's: `slots.inject`
   // waits for the browser registration above to declare each list, and the
   // entries leave with it. Explicit orders leave room for plugin entries.
   ctx.slots.inject('sidebar.workspaces.session.menu.item', function* () {
-    yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'pin', order: 100, locale: NS, inject: pinInjected }, PinSessionMenuItem)
-    yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'rename', order: 200, locale: NS, inject: renameInjected }, RenameSessionMenuItem)
-    yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'fork', order: 300, locale: NS, inject: forkInjected }, ForkSessionMenuItem)
-    yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'archive', order: 400, locale: NS, inject: archiveInjected }, ArchiveSessionMenuItem)
-    yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'session-id', order: 450, locale: NS, inject: sessionIdInjected }, SessionIdMenuItem)
+    yield ctx.slots.register(
+      { name: 'sidebar.workspaces.session.menu.item', id: 'pin', order: 100, locale: NS, inject: pinInjected },
+      PinSessionMenuItem,
+    )
+    yield ctx.slots.register(
+      { name: 'sidebar.workspaces.session.menu.item', id: 'rename', order: 200, locale: NS, inject: renameInjected },
+      RenameSessionMenuItem,
+    )
+    yield ctx.slots.register(
+      { name: 'sidebar.workspaces.session.menu.item', id: 'fork', order: 300, locale: NS, inject: forkInjected },
+      ForkSessionMenuItem,
+    )
+    yield ctx.slots.register(
+      { name: 'sidebar.workspaces.session.menu.item', id: 'archive', order: 400, locale: NS, inject: archiveInjected },
+      ArchiveSessionMenuItem,
+    )
+    yield ctx.slots.register(
+      { name: 'sidebar.workspaces.session.menu.item', id: 'session-id', order: 450, locale: NS, inject: sessionIdInjected },
+      SessionIdMenuItem,
+    )
   })
   ctx.slots.inject('sidebar.workspaces.session.row.action', function* () {
-    yield ctx.slots.register({ name: 'sidebar.workspaces.session.row.action', id: 'archive', order: 100, locale: NS, inject: archiveInjected }, ArchiveSessionRowButton)
-    yield ctx.slots.register({ name: 'sidebar.workspaces.session.row.action', id: 'pin', order: 200, locale: NS, inject: pinInjected }, PinSessionRowButton)
+    yield ctx.slots.register(
+      { name: 'sidebar.workspaces.session.row.action', id: 'archive', order: 100, locale: NS, inject: archiveInjected },
+      ArchiveSessionRowButton,
+    )
+    yield ctx.slots.register(
+      { name: 'sidebar.workspaces.session.row.action', id: 'pin', order: 200, locale: NS, inject: pinInjected },
+      PinSessionRowButton,
+    )
   })
   // The surfaces the actions raise live in the frame-wide layer: they must
   // outlive the row menu the action sat in.
   ctx.slots.inject('shell.overlay', function* () {
-    yield ctx.slots.register({
-      name: 'shell.overlay', id: 'workspace.session-rename', locale: NS, inject: renameDialogInjected,
-    }, SessionRenameDialog)
-    yield ctx.slots.register({
-      name: 'shell.overlay', id: 'workspace.session-archive', locale: NS, inject: archiveConfirmInjected,
-    }, SessionArchiveConfirmDialog)
-    yield ctx.slots.register({
-      name: 'shell.overlay', id: 'workspace.row-toast', inject: rowToastInjected,
-      children: { 'workspace.toast': { kind: 'keyed', scope: 'root' } },
-    }, RowActionToast)
+    yield ctx.slots.register(
+      {
+        name: 'shell.overlay',
+        id: 'workspace.session-rename',
+        locale: NS,
+        inject: renameDialogInjected,
+      },
+      SessionRenameDialog,
+    )
+    yield ctx.slots.register(
+      {
+        name: 'shell.overlay',
+        id: 'workspace.session-archive',
+        locale: NS,
+        inject: archiveConfirmInjected,
+      },
+      SessionArchiveConfirmDialog,
+    )
+    yield ctx.slots.register(
+      {
+        name: 'shell.overlay',
+        id: 'workspace.row-toast',
+        inject: rowToastInjected,
+        children: { 'workspace.toast': { kind: 'keyed', scope: 'root' } },
+      },
+      RowActionToast,
+    )
   })
-  ctx.slots.inject('conversation.hero.workspace', () => ctx.slots.register(
-    {
-      name: 'conversation.hero.workspace',
-      children: { 'conversation.hero.workspace.directoryFlow': { kind: 'single', scope: 'root' } },
-      inject: pickerInjected,
-      locale: NS,
-    },
-    WorkspacePicker,
-  ))
+  ctx.slots.inject('conversation.hero.workspace', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.hero.workspace',
+        children: { 'conversation.hero.workspace.directoryFlow': { kind: 'single', scope: 'root' } },
+        inject: pickerInjected,
+        locale: NS,
+      },
+      WorkspacePicker,
+    ),
+  )
 }
 
 /**

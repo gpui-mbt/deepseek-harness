@@ -15,11 +15,25 @@ export function parseClientRuntimeCommand(value: unknown): ClientRuntimeCommand 
   }
   switch (value.op) {
     case 'evaluate': {
-      exactKeys(value, [
-        'op', 'expression', 'objectGroup', 'includeCommandLineAPI', 'silent', 'returnByValue',
-        'generatePreview', 'userGesture', 'awaitPromise', 'disableBreaks', 'replMode',
-        'allowUnsafeEvalBlockedByCSP', 'timeoutMs',
-      ], 'evaluate command')
+      exactKeys(
+        value,
+        [
+          'op',
+          'expression',
+          'objectGroup',
+          'includeCommandLineAPI',
+          'silent',
+          'returnByValue',
+          'generatePreview',
+          'userGesture',
+          'awaitPromise',
+          'disableBreaks',
+          'replMode',
+          'allowUnsafeEvalBlockedByCSP',
+          'timeoutMs',
+        ],
+        'evaluate command',
+      )
       if (typeof value.expression !== 'string') throw new Error('inspector protocol: evaluate expression must be a string')
       return {
         op: 'evaluate',
@@ -38,9 +52,11 @@ export function parseClientRuntimeCommand(value: unknown): ClientRuntimeCommand 
       }
     }
     case 'get-properties':
-      exactKeys(value, [
-        'op', 'handle', 'ownProperties', 'accessorPropertiesOnly', 'generatePreview', 'nonIndexedPropertiesOnly',
-      ], 'get-properties command')
+      exactKeys(
+        value,
+        ['op', 'handle', 'ownProperties', 'accessorPropertiesOnly', 'generatePreview', 'nonIndexedPropertiesOnly'],
+        'get-properties command',
+      )
       return {
         op: 'get-properties',
         handle: wireId<'ClientRemoteObjectHandle'>(value.handle, 'handle'),
@@ -78,10 +94,22 @@ export function parseClientRuntimeCommand(value: unknown): ClientRuntimeCommand 
 }
 
 function parseCallFunction(value: Record<string, unknown>): ClientRuntimeCallFunctionCommand {
-  exactKeys(value, [
-    'op', 'functionDeclaration', 'receiver', 'arguments', 'objectGroup', 'silent', 'returnByValue',
-    'generatePreview', 'userGesture', 'awaitPromise',
-  ], 'call-function command')
+  exactKeys(
+    value,
+    [
+      'op',
+      'functionDeclaration',
+      'receiver',
+      'arguments',
+      'objectGroup',
+      'silent',
+      'returnByValue',
+      'generatePreview',
+      'userGesture',
+      'awaitPromise',
+    ],
+    'call-function command',
+  )
   if (typeof value.functionDeclaration !== 'string') {
     throw new Error('inspector protocol: functionDeclaration must be a string')
   }
@@ -93,9 +121,7 @@ function parseCallFunction(value: Record<string, unknown>): ClientRuntimeCallFun
   return {
     op: 'call-function',
     functionDeclaration: value.functionDeclaration,
-    ...(value.receiver === undefined
-      ? {}
-      : { receiver: wireId<'ClientRemoteObjectHandle'>(value.receiver, 'receiver') }),
+    ...(value.receiver === undefined ? {} : { receiver: wireId<'ClientRemoteObjectHandle'>(value.receiver, 'receiver') }),
     ...(args === undefined ? {} : { arguments: args }),
     ...optionalString(value, 'objectGroup'),
     ...optionalBoolean(value, 'silent'),

@@ -89,7 +89,6 @@ export interface SidebarRightGuideBox extends SidebarRightGuideEntry {
   readonly kind: string
 }
 
-
 /** One registered tab type: its static face, and nothing else. */
 export interface SidebarRightTabDefinition {
   /**
@@ -212,8 +211,8 @@ function matcherFor(pattern: string): (address: string) => boolean {
   // `basename: true` is what makes `*.md` match at any depth; it applies only to
   // patterns without a separator, which is exactly the path case.
   const whole = pattern.includes(':')
-  const match = picomatch(pattern, { nocase: true, dot: true, ...whole ? {} : { basename: true } })
-  return (address) => {
+  const match = picomatch(pattern, { nocase: true, dot: true, ...(whole ? {} : { basename: true }) })
+  return address => {
     if (whole) return match(address)
     const path = pathOf(address)
     return path !== undefined && match(path)
@@ -253,7 +252,8 @@ export class SidebarRightTabRegistry {
   register(definition: SidebarRightTabDefinition): () => void {
     const { id, kind } = definition
     const entries = definition.guide ?? []
-    if (new Set(entries.map(entry => entry.id)).size !== entries.length) throw new Error(`sidebarRight: duplicate guide entry id in "${id}"`)
+    if (new Set(entries.map(entry => entry.id)).size !== entries.length)
+      throw new Error(`sidebarRight: duplicate guide entry id in "${id}"`)
     const band = definition.priority ?? DEFAULT_BAND
     if (this.ids.has(id)) throw new Error(`sidebarRight: tab type id "${id}" is already registered`)
     const held = this.kinds.get(kind)
@@ -267,17 +267,22 @@ export class SidebarRightTabRegistry {
       matchers: (definition.patterns ?? []).map(pattern => ({ pattern, test: matcherFor(pattern) })),
       order: this.registrations,
     }
-    const dispose = this.ctx.effect(() => {
-      this.ids.add(id)
-      const slot = this.enter(kind, entry)
-      this.refresh()
-      return () => {
-        this.ids.delete(id)
-        this.leave(kind, slot, entry)
+    const dispose = this.ctx.effect(
+      () => {
+        this.ids.add(id)
+        const slot = this.enter(kind, entry)
         this.refresh()
-      }
-    }, `sidebarRight.tabs.register(${JSON.stringify(id)})`)
-    return () => { void dispose() }
+        return () => {
+          this.ids.delete(id)
+          this.leave(kind, slot, entry)
+          this.refresh()
+        }
+      },
+      `sidebarRight.tabs.register(${JSON.stringify(id)})`,
+    )
+    return () => {
+      void dispose()
+    }
   }
 
   /** Add a registration to its kind's slot, the higher band in force; `coexists` has already admitted it. */
@@ -358,8 +363,7 @@ export class SidebarRightTabRegistry {
       if (definition.canOpen !== undefined && !definition.canOpen(address)) continue
       ranked.push({ definition, rank: RANKS[band], length, order })
     }
-    ranked.sort((left, right) =>
-      right.rank - left.rank || right.length - left.length || left.order - right.order)
+    ranked.sort((left, right) => right.rank - left.rank || right.length - left.length || left.order - right.order)
     return ranked.map(entry => entry.definition)
   }
 
@@ -401,7 +405,9 @@ export class SidebarRightTabRegistry {
    */
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   private refresh(): void {

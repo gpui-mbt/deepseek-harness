@@ -100,21 +100,22 @@ function browserLockManager(): LockManager | undefined {
   return navigator.locks
 }
 
-function tryClaimSourceId(
-  locks: LockManager,
-  sourceId: InspectorSourceDescriptor['sourceId'],
-): Promise<(() => void) | undefined> {
+function tryClaimSourceId(locks: LockManager, sourceId: InspectorSourceDescriptor['sourceId']): Promise<(() => void) | undefined> {
   return new Promise((resolve, reject) => {
     let release!: () => void
-    const held = new Promise<void>((released) => { release = released })
-    void locks.request(`${CLIENT_SOURCE_LOCK_PREFIX}${sourceId}`, { ifAvailable: true }, async (lock) => {
-      if (lock === null) {
-        resolve(undefined)
-        return
-      }
-      resolve(release)
-      await held
-    }).catch(reject)
+    const held = new Promise<void>(released => {
+      release = released
+    })
+    void locks
+      .request(`${CLIENT_SOURCE_LOCK_PREFIX}${sourceId}`, { ifAvailable: true }, async lock => {
+        if (lock === null) {
+          resolve(undefined)
+          return
+        }
+        resolve(release)
+        await held
+      })
+      .catch(reject)
   })
 }
 

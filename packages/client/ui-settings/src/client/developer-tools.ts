@@ -14,7 +14,7 @@ export class DeveloperToolsPreference {
   constructor(private readonly scope: ConfigForm<DeveloperToolsSettings>) {
     this.enabled = {
       getSnapshot: () => scope.getSnapshot().value?.enabled ?? false,
-      subscribe: (listener) => {
+      subscribe: listener => {
         let previous = this.enabled.getSnapshot()
         return scope.subscribe(() => {
           const next = this.enabled.getSnapshot()
@@ -32,6 +32,6 @@ export class DeveloperToolsPreference {
    * @returns settlement after Host acceptance; rejects after a refused write recovers.
    */
   async setEnabled(enabled: boolean): Promise<void> {
-    if (!await this.scope.set('enabled', enabled)) throw new Error('Developer tools preference was not saved')
+    if (!(await this.scope.set('enabled', enabled))) throw new Error('Developer tools preference was not saved')
   }
 }

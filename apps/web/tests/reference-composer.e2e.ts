@@ -7,15 +7,10 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
-import {
-  SESSION_FORMAT_VERSION,
-  Session,
-  SessionId,
-  SessionSeq,
-} from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-reference/types'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
@@ -39,10 +34,7 @@ const SOURCE_SESSION_ID = 'reference-source-session'
 const TARGET_SESSION_ID = 'reference-order-target-session'
 
 async function settledSourceOption(menu: Locator): Promise<Locator> {
-  await expect.poll(
-    () => menu.getByRole('option', { name: new RegExp(TARGET_SESSION_ID) }).count(),
-    { timeout: 15_000 },
-  ).toBe(0)
+  await expect.poll(() => menu.getByRole('option', { name: new RegExp(TARGET_SESSION_ID) }).count(), { timeout: 15_000 }).toBe(0)
   const source = menu.getByRole('option', { name: new RegExp(SOURCE_SESSION_ID) })
   await expect.poll(() => source.count(), { timeout: 15_000 }).toBe(1)
   return source
@@ -63,10 +55,14 @@ function sourceSessionFixture(): string {
   session.append('turn/start', {
     turn: 1,
   })
-  const user = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'Research context for the reference menu.' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'Research context for the reference menu.' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('session/title', {
     title: 'Research notes',
     messageSeqs: [user.seq],
@@ -92,30 +88,40 @@ function sourceSessionFixture(): string {
 function targetSessionFixture(): string {
   const session = Session.create(SessionId(TARGET_SESSION_ID))
   session.append('turn/start', { turn: 1 })
-  const user = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: '@Research notes what changed?' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: '## Referenced sessions\n\n<referenced-sessions>snapshot</referenced-sessions>' }],
-    source: {
-      kind: 'session-reference',
-      form: 'recall',
-      version: 1,
-      references: [{
-        sessionId: SOURCE_SESSION_ID,
-        label: 'Research notes',
-        capturedThroughSeq: SessionSeq(4),
-        compacted: false,
-        originalMessages: 2,
-        retainedMessages: 2,
-        omittedMessages: 0,
-        omittedBytes: 0,
-        truncated: false,
-        inputIndex: 0,
-      }],
-    },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: '@Research notes what changed?' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: '## Referenced sessions\n\n<referenced-sessions>snapshot</referenced-sessions>' }],
+      source: {
+        kind: 'session-reference',
+        form: 'recall',
+        version: 1,
+        references: [
+          {
+            sessionId: SOURCE_SESSION_ID,
+            label: 'Research notes',
+            capturedThroughSeq: SessionSeq(4),
+            compacted: false,
+            originalMessages: 2,
+            retainedMessages: 2,
+            omittedMessages: 0,
+            omittedBytes: 0,
+            truncated: false,
+            inputIndex: 0,
+          },
+        ],
+      },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('session/title', {
     title: 'Reference order target',
     messageSeqs: [user.seq],
@@ -183,12 +189,10 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await expect.poll(() => menu.getByRole('option').count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
     // Session rows are dated from the live Host list, so their age bucket
     // advances while the suite runs.
-    const snapshot = await captureStableAria(
-      page, '[role="listbox"]', scaffold.workspaceCwd, {
-        normalizeAge: true,
-        replacements: [[abbreviateHomePath(scaffold.workspaceCwd, homedir()), '{{cwd}}']],
-      },
-    )
+    const snapshot = await captureStableAria(page, '[role="listbox"]', scaffold.workspaceCwd, {
+      normalizeAge: true,
+      replacements: [[abbreviateHomePath(scaffold.workspaceCwd, homedir()), '{{cwd}}']],
+    })
     await compareOrRefreshGolden(MENU_EXPECTED, snapshot, MODE)
     expect(snapshot).toContain('Files & folders')
     expect(snapshot).toContain('Sessions')
@@ -329,12 +333,12 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await row.getByRole('button', { name: 'Browse folder' }).click()
     await expect.poll(() => input.textContent()).toBe('@folderx/')
     await menu.getByRole('option', { name: /child\.txt/ }).waitFor()
-    await expect.poll(() => page.getByRole('navigation', { name: 'Folder navigation' })
-      .getByRole('button').allTextContents()).toEqual(['Workspace', 'folderx'])
+    await expect
+      .poll(() => page.getByRole('navigation', { name: 'Folder navigation' }).getByRole('button').allTextContents())
+      .toEqual(['Workspace', 'folderx'])
     // The listing knows it was drilled into, so its rows drop the location the
     // header already carries.
-    await expect.poll(() => menu.getByRole('option', { name: /child\.txt/ }).textContent())
-      .toBe('child.txt')
+    await expect.poll(() => menu.getByRole('option', { name: /child\.txt/ }).textContent()).toBe('child.txt')
     await page.keyboard.press('Escape')
 
     expect(tripwire.pageErrors).toEqual([])
@@ -358,13 +362,11 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await page.keyboard.press('Tab')
     await menu.getByRole('option', { name: /child\.txt/ }).waitFor()
     await crumbs.waitFor()
-    await expect.poll(() => crumbs.getByRole('button').allTextContents())
-      .toEqual(['Workspace', 'folderx'])
+    await expect.poll(() => crumbs.getByRole('button').allTextContents()).toEqual(['Workspace', 'folderx'])
     // The listed folder is where the menu already is: its crumb is inert, and
     // the rows drop the location the header now carries.
     await expect.poll(() => crumbs.getByRole('button', { name: 'folderx' }).isDisabled()).toBe(true)
-    await expect.poll(() => menu.getByRole('option', { name: /child\.txt/ }).textContent())
-      .toBe('child.txt')
+    await expect.poll(() => menu.getByRole('option', { name: /child\.txt/ }).textContent()).toBe('child.txt')
 
     // A crumb above the current step re-lists that directory and keeps the
     // header, which now names the step it returned to.
@@ -374,12 +376,10 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     await nested.waitFor()
     await nested.getByRole('button', { name: 'Browse folder' }).click()
     await expect.poll(() => input.textContent()).toBe('@folderx/nested/')
-    await expect.poll(() => crumbs.getByRole('button').allTextContents())
-      .toEqual(['Workspace', 'folderx', 'nested'])
+    await expect.poll(() => crumbs.getByRole('button').allTextContents()).toEqual(['Workspace', 'folderx', 'nested'])
     await crumbs.getByRole('button', { name: 'folderx' }).click()
     await expect.poll(() => input.textContent()).toBe('@folderx/')
-    await expect.poll(() => crumbs.getByRole('button').allTextContents())
-      .toEqual(['Workspace', 'folderx'])
+    await expect.poll(() => crumbs.getByRole('button').allTextContents()).toEqual(['Workspace', 'folderx'])
 
     // Clicking the root crumb rewrites the token back to a bare trigger.
     await crumbs.getByRole('button', { name: 'Workspace' }).click()
@@ -396,7 +396,7 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     onTestFailed(() => saveFailureShot(page, 'web-e2e-reference-order'))
     const group = page.getByRole('treeitem', { name: /Ungrouped/ })
     await group.waitFor({ timeout: 15_000 })
-    if (await group.getAttribute('aria-expanded') !== 'true') await group.click()
+    if ((await group.getAttribute('aria-expanded')) !== 'true') await group.click()
     // Both logs were written behind the running Host and have no cache rows, so
     // cold listing uses their shared Workspace fallback. Explicit creation
     // times keep the target first without opening either body for a title.
@@ -413,7 +413,8 @@ describe.skipIf(MODE === 'record')('web e2e: file and session references through
     expect(await page.locator('[data-chat-flow-kind="context"]').count()).toBe(0)
 
     const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(TARGET_SESSION_ID).join('{{targetId}}')
+      .split(TARGET_SESSION_ID)
+      .join('{{targetId}}')
     await compareOrRefreshGolden(ORDER_EXPECTED, snapshot, MODE)
     expect(snapshot).toContain('Research notes what changed?')
     expect(snapshot).not.toContain('Session recall Research notes')

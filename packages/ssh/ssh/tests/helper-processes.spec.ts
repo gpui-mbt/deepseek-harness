@@ -5,14 +5,14 @@ import { createConnection, type Socket } from 'node:net'
 import { PassThrough } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteProcesses } from '../src/helper-processes.ts'
 import type { SshProcessId, SshStreamEndpoint } from '../src/schemas.ts'
 import { authenticateStream } from '../src/stream-security.ts'
 import { SshRpcPeer } from '../src/protocol.ts'
 import { outputSnapshotSchema } from '../src/schemas.ts'
 
-vi.mock('node:fs/promises', async (original) => {
+vi.mock('node:fs/promises', async original => {
   const actual = await original<typeof import('node:fs/promises')>()
   return { ...actual, chmod: vi.fn(actual.chmod), rm: vi.fn(actual.rm) }
 })
@@ -49,7 +49,11 @@ async function harness() {
   }
   const close = async () => {
     for (const socket of [...sockets].reverse()) socket.destroy()
-    try { await owner.close() } finally { await rm(root, { recursive: true, force: true }) }
+    try {
+      await owner.close()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   }
   return { root, owner, resolve, spawn, spawnTerminal, prepare, close }
 }
@@ -60,11 +64,26 @@ function ordinary(control = false) {
   const stdout = new PassThrough()
   const stderr = new PassThrough()
   const channel = control ? new PassThrough() : undefined
-  const finish = () => { stdout.end(); stderr.end(); channel?.end(); completion.resolve(outcome) }
+  const finish = () => {
+    stdout.end()
+    stderr.end()
+    channel?.end()
+    completion.resolve(outcome)
+  }
   const terminate = vi.fn(finish)
-  const waitForExit = vi.fn(async () => { await completion.promise; return true })
+  const waitForExit = vi.fn(async () => {
+    await completion.promise
+    return true
+  })
   const handle: SubprocessHandle = {
-    stdin, stdout, stderr, control: channel, collected: {}, done: completion.promise, terminate, waitForExit,
+    stdin,
+    stdout,
+    stderr,
+    control: channel,
+    collected: {},
+    done: completion.promise,
+    terminate,
+    waitForExit,
   }
   return { handle, finish, completion, stdin, stdout, stderr, channel, terminate, waitForExit }
 }
@@ -75,11 +94,21 @@ function terminal() {
   const write = vi.fn(async (_data: string) => {})
   const inspectForeground = vi.fn<SubprocessTerminalHandle['inspectForeground']>(async () => undefined)
   const signalForeground = vi.fn(async () => 42)
-  const terminate = vi.fn(async () => { output.end(); completion.resolve(outcome) })
+  const terminate = vi.fn(async () => {
+    output.end()
+    completion.resolve(outcome)
+  })
   const resize = vi.fn(async (_cols: number, _rows: number) => {})
   const handle: SubprocessTerminalHandle = {
-    resize, inspectActivity: async () => ({ state: 'unknown', revision: 0 }),
-    pid: 42, output, done: completion.promise, write, inspectForeground, signalForeground, terminate,
+    resize,
+    inspectActivity: async () => ({ state: 'unknown', revision: 0 }),
+    pid: 42,
+    output,
+    done: completion.promise,
+    write,
+    inspectForeground,
+    signalForeground,
+    terminate,
   }
   return { handle, completion, output, write, resize, inspectForeground, signalForeground, terminate }
 }
@@ -110,13 +139,17 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
         expect(child.signalForeground).toHaveBeenCalledWith('SIGINT')
         expect(await test.owner.wait(run.id)).toBe(true)
         await expect(test.owner.done(run.id)).resolves.toEqual({ outcome, spills: {}, collected: {} })
-        await vi.waitFor(async () => { expect(await readdir(test.root)).toEqual([]) })
+        await vi.waitFor(async () => {
+          expect(await readdir(test.root)).toEqual([])
+        })
         expect(await test.owner.done(run.id)).toEqual({ outcome, spills: {}, collected: {} })
         expect(await test.owner.wait(run.id)).toBe(true)
         await test.owner.terminate(run.id)
       }
       await expect(test.owner.done(ids[0]!)).rejects.toThrow('Unknown or expired')
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('joins a terminal allocated after its start request is cancelled', async () => {
@@ -124,7 +157,10 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
     const allocated = Promise.withResolvers<SubprocessTerminalHandle>()
     const entered = Promise.withResolvers<undefined>()
     const child = terminal()
-    test.spawnTerminal.mockImplementation(() => { entered.resolve(undefined); return allocated.promise })
+    test.spawnTerminal.mockImplementation(() => {
+      entered.resolve(undefined)
+      return allocated.promise
+    })
     try {
       const run = await test.prepare(terminalRequest)
       const controller = new AbortController()
@@ -137,7 +173,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       expect(child.terminate).toHaveBeenCalledOnce()
       await test.owner.terminate(run.id)
       expect(child.terminate).toHaveBeenCalledOnce()
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('pipes stdin bytes and distinguishes an unstarted reservation from a completed process', async () => {
@@ -145,24 +183,34 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
     const child = ordinary()
     test.spawn.mockReturnValue(child.handle)
     try {
-      const run = await test.prepare({ ...ordinaryRequest, env: { VALUE: 'kept', REMOVED: null }, stdio: { ...ordinaryRequest.stdio, stdin: 'pipe' } })
+      const run = await test.prepare({
+        ...ordinaryRequest,
+        env: { VALUE: 'kept', REMOVED: null },
+        stdio: { ...ordinaryRequest.stdio, stdin: 'pipe' },
+      })
       await expect(test.owner.done(run.id)).rejects.toThrow('has not started')
       await expect(test.owner.wait(run.id)).rejects.toThrow('was not started')
       await expect(test.owner.resizeTerminal(run.id, 80, 24)).rejects.toThrow('does not own a terminal')
       const bytes: Buffer[] = []
-      child.stdin.on('data', (chunk: Buffer) => { bytes.push(Buffer.from(chunk)) })
+      child.stdin.on('data', (chunk: Buffer) => {
+        bytes.push(Buffer.from(chunk))
+      })
       const ended = once(child.stdin, 'end')
       await test.owner.start(run.id)
       expect(test.spawn).toHaveBeenCalledWith(expect.objectContaining({ env: { VALUE: 'kept', REMOVED: undefined } }))
-      run.channels.stdout!.end(); run.channels.stdout!.resume()
-      run.channels.stderr!.end(); run.channels.stderr!.resume()
+      run.channels.stdout!.end()
+      run.channels.stdout!.resume()
+      run.channels.stderr!.end()
+      run.channels.stderr!.resume()
       run.channels.stdin!.end('stdin bytes')
       await ended
       expect(Buffer.concat(bytes).toString()).toBe('stdin bytes')
       await test.owner.terminate(run.id)
       expect(await test.owner.done(run.id)).toEqual({ outcome, spills: {}, collected: {} })
       expect(child.waitForExit).toHaveBeenCalled()
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('rejects a missing native control descriptor and still reaps the native process', async () => {
@@ -179,11 +227,15 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       await test.owner.terminate(run.id)
       expect(child.terminate).toHaveBeenCalled()
       expect(child.waitForExit).toHaveBeenCalled()
-      await vi.waitFor(async () => { expect(await readdir(test.root)).toEqual([]) })
+      await vi.waitFor(async () => {
+        expect(await readdir(test.root)).toEqual([])
+      })
       await expect(test.owner.done(run.id)).rejects.toThrow('did not establish fd 7')
       const next = await test.owner.prepare(ordinaryRequest)
       await test.owner.terminate(next.id)
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('closes an unpublished listener when filesystem permissions cannot be established', async () => {
@@ -195,7 +247,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       const run = await test.prepare(ordinaryRequest)
       await test.owner.terminate(run.id)
       expect(await readdir(test.root)).toEqual([])
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('rolls back a listener path that exceeds the operating system socket limit', async () => {
@@ -205,7 +259,10 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
     const owner = new RemoteProcesses(new Context(), longRoot, 1, 5000)
     try {
       await expect(owner.prepare(ordinaryRequest)).rejects.toThrow()
-    } finally { await owner.close(); await rm(root, { recursive: true, force: true }) }
+    } finally {
+      await owner.close()
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   it('continues collecting while a live snapshot waits for acknowledgement', async () => {
@@ -224,16 +281,25 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
         await release.promise
         return null
       })
-      run.channels.stderr!.end(); run.channels.stderr!.resume()
+      run.channels.stderr!.end()
+      run.channels.stderr!.resume()
       await test.owner.start(run.id)
       child.stdout.write('first')
       await entered.promise
       child.stdout.write('second')
       child.finish()
-      expect(await test.owner.done(run.id)).toMatchObject({ collected: { stdout: { totalBytes: 11, tail: Buffer.from('firstsecond').toString('base64') } } })
+      expect(await test.owner.done(run.id)).toMatchObject({
+        collected: { stdout: { totalBytes: 11, tail: Buffer.from('firstsecond').toString('base64') } },
+      })
       release.resolve(undefined)
-      await vi.waitFor(async () => { expect(await readdir(test.root)).toEqual([]) })
-    } finally { release.resolve(undefined); peer?.close(); await test.close() }
+      await vi.waitFor(async () => {
+        expect(await readdir(test.root)).toEqual([])
+      })
+    } finally {
+      release.resolve(undefined)
+      peer?.close()
+      await test.close()
+    }
   })
 
   it('keeps final capture available after the live snapshot transport closes', async () => {
@@ -252,16 +318,26 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
     try {
       const run = await test.prepare({ ...ordinaryRequest, stdio: { ...ordinaryRequest.stdio, stdout: { maxBytes: 64 } } })
       peer = new SshRpcPeer(run.channels.stdout!, run.channels.stdout!, 4096, 1, async () => null)
-      run.channels.stderr!.end(); run.channels.stderr!.resume()
+      run.channels.stderr!.end()
+      run.channels.stderr!.resume()
       await test.owner.start(run.id)
       peer.close()
       await remoteClosed.promise
       child.stdout.write('after channel loss')
       child.finish()
-      expect(await test.owner.done(run.id)).toMatchObject({ collected: { stdout: {
-        totalBytes: 18, tail: Buffer.from('after channel loss').toString('base64'),
-      } } })
-    } finally { peer?.close(); observeClose.mockRestore(); await test.close() }
+      expect(await test.owner.done(run.id)).toMatchObject({
+        collected: {
+          stdout: {
+            totalBytes: 18,
+            tail: Buffer.from('after channel loss').toString('base64'),
+          },
+        },
+      })
+    } finally {
+      peer?.close()
+      observeClose.mockRestore()
+      await test.close()
+    }
   })
 
   it('reports a native cleanup failure instead of claiming quiescence', async () => {
@@ -274,7 +350,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       await test.owner.start(run.id)
       await expect(test.owner.close()).rejects.toThrow('SSH remote process cleanup failed')
       expect(child.terminate).toHaveBeenCalled()
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('expires an unused reservation and prevents launch during helper shutdown', async () => {
@@ -283,7 +361,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
     try {
       const unused = await test.owner.prepare(ordinaryRequest)
       await vi.advanceTimersByTimeAsync(5000)
-      await vi.waitFor(async () => { expect(await readdir(test.root)).toEqual([]) })
+      await vi.waitFor(async () => {
+        expect(await readdir(test.root)).toEqual([])
+      })
       await expect(test.owner.start(unused.id)).rejects.toThrow('Unknown or expired')
       const run = await test.prepare(ordinaryRequest)
       const started = test.owner.start(run.id)
@@ -291,7 +371,10 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       await test.owner.close()
       await rejected
       expect(test.spawn).not.toHaveBeenCalled()
-    } finally { await test.close(); vi.useRealTimers() }
+    } finally {
+      await test.close()
+      vi.useRealTimers()
+    }
   })
 
   it('reaps a terminal after its driver rejects completion', async () => {
@@ -307,14 +390,18 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       await done
       await test.owner.terminate(run.id)
       expect(child.terminate).toHaveBeenCalled()
-      await vi.waitFor(async () => { expect(await readdir(test.root)).toEqual([]) })
+      await vi.waitFor(async () => {
+        expect(await readdir(test.root)).toEqual([])
+      })
       await expect(test.owner.done(run.id)).rejects.toThrow('terminal driver disconnected')
       const next = await test.owner.prepare(terminalRequest)
       await test.owner.terminate(next.id)
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
-  it.each(['terminate', 'close'] as const)('joins a live terminal during %s', async (operation) => {
+  it.each(['terminate', 'close'] as const)('joins a live terminal during %s', async operation => {
     const test = await harness()
     const child = terminal()
     test.spawnTerminal.mockResolvedValue(child.handle)
@@ -324,7 +411,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       if (operation === 'terminate') await test.owner.terminate(run.id)
       else await test.owner.close()
       expect(child.terminate).toHaveBeenCalled()
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('retains a failed terminal whose native owner cannot confirm cleanup', async () => {
@@ -341,7 +430,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       await expect(test.owner.wait(run.id)).rejects.toThrow('terminal cleanup is unknown')
       await expect(test.owner.prepare(ordinaryRequest)).rejects.toThrow('capacity unavailable')
       await expect(test.owner.close()).rejects.toThrow('SSH remote process cleanup failed')
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('preserves an ordinary driver failure through direct-result and cleanup observations', async () => {
@@ -353,10 +444,13 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       await test.owner.start(run.id)
       const failed = expect(test.owner.done(run.id)).rejects.toThrow('ordinary driver disconnected')
       child.completion.reject(new Error('ordinary driver disconnected'))
-      child.stdout.end(); child.stderr.end()
+      child.stdout.end()
+      child.stderr.end()
       await failed
       await expect(test.owner.close()).rejects.toThrow('SSH remote process cleanup failed')
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('observes an expired reservation cleanup error without an unhandled rejection', async () => {
@@ -366,28 +460,39 @@ describe.skipIf(process.platform === 'win32')('SSH helper process settlement', (
       const run = await test.owner.prepare(ordinaryRequest)
       vi.mocked(rm).mockClear().mockRejectedValueOnce(new Error('temporary directory became unavailable'))
       await vi.advanceTimersByTimeAsync(5000)
-      await vi.waitFor(() => { expect(rm).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(rm).toHaveBeenCalledOnce()
+      })
       await expect(test.owner.start(run.id)).rejects.toThrow('Unknown or expired')
-    } finally { await test.close(); vi.useRealTimers() }
+    } finally {
+      await test.close()
+      vi.useRealTimers()
+    }
   })
 
-  it.each(['control', 'socket'] as const)('destroys the other control endpoint after a %s failure', async (failed) => {
+  it.each(['control', 'socket'] as const)('destroys the other control endpoint after a %s failure', async failed => {
     const test = await harness()
     const child = ordinary(true)
     test.spawn.mockReturnValue(child.handle)
     try {
       const run = await test.prepare({ ...ordinaryRequest, stdio: { ...ordinaryRequest.stdio, stdin: 'pipe', control: 'pipe' } })
       await test.owner.start(run.id)
-      run.channels.stdout!.end(); run.channels.stdout!.resume()
-      run.channels.stderr!.end(); run.channels.stderr!.resume()
+      run.channels.stdout!.end()
+      run.channels.stdout!.resume()
+      run.channels.stderr!.end()
+      run.channels.stderr!.resume()
       child.stdin.destroy(new Error('native input pipe closed'))
       child.stdout.destroy(new Error('native output pipe closed'))
       if (failed === 'control') child.channel!.destroy(new Error('native control failed'))
       else run.channels.control!.destroy(new Error('forwarded control failed'))
-      await vi.waitFor(() => { expect(child.channel!.destroyed).toBe(true) })
+      await vi.waitFor(() => {
+        expect(child.channel!.destroyed).toBe(true)
+      })
       await test.owner.terminate(run.id)
       await expect(test.owner.done(run.id)).resolves.toMatchObject({ outcome })
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 })
 
@@ -408,5 +513,7 @@ it.skipIf(process.platform === 'win32')('keeps opted-in terminal reservations af
     await test.owner.terminate(run.id)
     expect(child.terminate).toHaveBeenCalledOnce()
     await expect.poll(async () => await readdir(test.root)).toEqual([])
-  } finally { await test.close() }
+  } finally {
+    await test.close()
+  }
 })

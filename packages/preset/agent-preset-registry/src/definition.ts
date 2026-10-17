@@ -17,9 +17,7 @@ export interface PresetDefinition {
  */
 export function entryListProblem(rows: unknown, at = ''): string | undefined {
   if (!Array.isArray(rows)) {
-    return at === ''
-      ? 'the composition must be a top-level list of plugin rows'
-      : `group ${at} must hold a list of plugin rows`
+    return at === '' ? 'the composition must be a top-level list of plugin rows' : `group ${at} must hold a list of plugin rows`
   }
   for (const [index, row] of rows.entries()) {
     const label = at === '' ? `row ${String(index + 1)}` : `${at} row ${String(index + 1)}`

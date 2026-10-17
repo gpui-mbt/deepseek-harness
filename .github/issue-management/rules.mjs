@@ -4,14 +4,7 @@ import config from './config.json' with { type: 'json' }
 
 const TYPES = new Set(['Idea', 'Feature', 'Bug', 'Research', 'Task'])
 const PRIORITIES = ['p0', 'p1', 'p2', 'p3']
-const PR_KINDS = new Set([
-  'kind/feature',
-  'kind/bug-fix',
-  'kind/doc',
-  'kind/testing',
-  'kind/cleanup',
-  'kind/dependency',
-])
+const PR_KINDS = new Set(['kind/feature', 'kind/bug-fix', 'kind/doc', 'kind/testing', 'kind/cleanup', 'kind/dependency'])
 // Retired label aliases stay reserved so they cannot be recreated.
 const LEGACY_LABELS = new Set([
   'kind/bug',
@@ -28,12 +21,8 @@ const LEGACY_LABELS = new Set([
   'web-search',
 ])
 const TERMINAL_STATUSES = new Set(['Done', 'No action'])
-const ACTIVE_STATUS_ORDER = config.statuses.filter((status) => !TERMINAL_STATUSES.has(status))
-const IMPLEMENTATION_PULL_REQUEST_ACTIONS = new Set([
-  'opened',
-  'edited',
-  'reopened',
-])
+const ACTIVE_STATUS_ORDER = config.statuses.filter(status => !TERMINAL_STATUSES.has(status))
+const IMPLEMENTATION_PULL_REQUEST_ACTIONS = new Set(['opened', 'edited', 'reopened'])
 
 for (const status of ['In progress', 'In review']) {
   if (!ACTIVE_STATUS_ORDER.includes(status)) throw new Error(`config.statuses 缺少 ${status}`)
@@ -57,12 +46,7 @@ Intl.DateTimeFormat('en-US', { timeZone: config.projectTimeZone })
  * @param {{isDraft: boolean, authorType: string, reviewRequestCount: number, reviewCount: number}} input PR state.
  * @returns {boolean} Whether the PR policy is mandatory.
  */
-export function requiresPullRequestPolicy({
-  isDraft,
-  authorType,
-  reviewRequestCount,
-  reviewCount,
-}) {
+export function requiresPullRequestPolicy({ isDraft, authorType, reviewRequestCount, reviewCount }) {
   const automated = authorType === 'Bot' || authorType === 'App'
   return !isDraft && !automated && (reviewRequestCount > 0 || reviewCount > 0)
 }
@@ -79,11 +63,7 @@ export function resolvingIssueStatusCommand(eventName, event) {
     if (event.action === 'review_requested') return 'review-requested'
     return IMPLEMENTATION_PULL_REQUEST_ACTIONS.has(event.action) ? 'implementation' : null
   }
-  if (
-    eventName === 'pull_request_review' &&
-    event.action === 'submitted' &&
-    event.review?.state?.toLowerCase() === 'changes_requested'
-  ) {
+  if (eventName === 'pull_request_review' && event.action === 'submitted' && event.review?.state?.toLowerCase() === 'changes_requested') {
     return 'changes-requested'
   }
   return null
@@ -104,11 +84,7 @@ export function nextResolvingIssueStatus(currentStatus, command, currentStatusAc
 
   const currentIndex = ACTIVE_STATUS_ORDER.indexOf(currentStatus)
   const targetIndex = ACTIVE_STATUS_ORDER.indexOf(target)
-  if (
-    command === 'changes-requested' &&
-    currentStatus === 'In review' &&
-    currentStatusActor === config.lifecycleActor
-  ) {
+  if (command === 'changes-requested' && currentStatus === 'In review' && currentStatusActor === config.lifecycleActor) {
     return target
   }
   return currentIndex >= 0 && currentIndex < targetIndex ? target : null
@@ -131,8 +107,8 @@ export function projectDate(timestamp, timeZone = config.projectTimeZone) {
       day: '2-digit',
     })
       .formatToParts(instant)
-      .filter((part) => part.type !== 'literal')
-      .map((part) => [part.type, part.value]),
+      .filter(part => part.type !== 'literal')
+      .map(part => [part.type, part.value]),
   )
   return `${parts.year}-${parts.month}-${parts.day}`
 }
@@ -184,7 +160,7 @@ export function parseReferences({ body, repository }) {
   return {
     all: [...all].sort((left, right) => left - right),
     resolving: [...resolving].sort((left, right) => left - right),
-    related: [...all].filter((number) => !resolving.has(number)).sort((a, b) => a - b),
+    related: [...all].filter(number => !resolving.has(number)).sort((a, b) => a - b),
   }
 }
 
@@ -196,9 +172,9 @@ export function parseReferences({ body, repository }) {
  */
 export function retainIssueReferences(references, issues) {
   return {
-    all: references.all.filter((number) => issues.has(number)),
-    resolving: references.resolving.filter((number) => issues.has(number)),
-    related: references.related.filter((number) => issues.has(number)),
+    all: references.all.filter(number => issues.has(number)),
+    resolving: references.resolving.filter(number => issues.has(number)),
+    related: references.related.filter(number => issues.has(number)),
   }
 }
 
@@ -223,10 +199,7 @@ export function validateIssue(issue) {
   if (status === 'Done' && (issue.state !== 'closed' || issue.stateReason !== 'completed')) {
     errors.push('Done 必须对应 Completed 关闭原因')
   }
-  if (
-    status === 'No action' &&
-    (issue.state !== 'closed' || issue.stateReason !== 'not_planned')
-  ) {
+  if (status === 'No action' && (issue.state !== 'closed' || issue.stateReason !== 'not_planned')) {
     errors.push('No action 必须对应 Not planned 关闭原因')
   }
   if (!['Done', 'No action'].includes(status ?? '') && issue.state !== 'open') {
@@ -252,14 +225,12 @@ export function isInvalidIssueLabel(label) {
 export function validatePullRequest(input) {
   if (!requiresPullRequestPolicy(input)) return []
   const errors = []
-  const kinds = input.labels.filter((label) => PR_KINDS.has(label))
-  const unknownKinds = input.labels.filter(
-    (label) => label.startsWith('kind/') && !PR_KINDS.has(label) && !LEGACY_LABELS.has(label),
-  )
-  const legacyLabels = input.labels.filter((label) => LEGACY_LABELS.has(label))
-  const sourceLabels = input.labels.filter((label) => label.startsWith('source/'))
-  const priorities = input.labels.filter((label) => PRIORITIES.includes(label))
-  const areas = input.labels.filter((label) => label.startsWith('area/'))
+  const kinds = input.labels.filter(label => PR_KINDS.has(label))
+  const unknownKinds = input.labels.filter(label => label.startsWith('kind/') && !PR_KINDS.has(label) && !LEGACY_LABELS.has(label))
+  const legacyLabels = input.labels.filter(label => LEGACY_LABELS.has(label))
+  const sourceLabels = input.labels.filter(label => label.startsWith('source/'))
+  const priorities = input.labels.filter(label => PRIORITIES.includes(label))
+  const areas = input.labels.filter(label => label.startsWith('area/'))
 
   if (input.references.all.length === 0) {
     errors.push('PR 正文必须引用至少一个同仓库 Issue；PR 编号（包括堆叠依赖 PR）不算 Issue 引用')
@@ -278,25 +249,17 @@ export function validatePullRequest(input) {
     if (!input.issues.has(number)) errors.push(`#${number} 不是同仓库 Issue`)
   }
 
-  const resolving = input.references.resolving
-    .map((number) => [number, input.issues.get(number)])
-    .filter((entry) => entry[1])
+  const resolving = input.references.resolving.map(number => [number, input.issues.get(number)]).filter(entry => entry[1])
   if (resolving.length === 0) return errors
 
-  const issuePriorities = resolving
-    .map(([, issue]) => issue.priority?.toLowerCase())
-    .filter((priority) => PRIORITIES.includes(priority))
+  const issuePriorities = resolving.map(([, issue]) => issue.priority?.toLowerCase()).filter(priority => PRIORITIES.includes(priority))
   if (priorities.length === 0 && issuePriorities.length > 0) {
-    const highest = issuePriorities.sort(
-      (left, right) => PRIORITIES.indexOf(left) - PRIORITIES.indexOf(right),
-    )[0]
+    const highest = issuePriorities.sort((left, right) => PRIORITIES.indexOf(left) - PRIORITIES.indexOf(right))[0]
     errors.push(`PR Priority 应为 ${highest}`)
   } else if (priorities.length === 1 && issuePriorities.length !== resolving.length) {
     errors.push('有 Priority 的解决型 PR 要求每个被解决 Issue 都设置 Priority')
   } else if (priorities.length === 1) {
-    const highest = issuePriorities.sort(
-      (left, right) => PRIORITIES.indexOf(left) - PRIORITIES.indexOf(right),
-    )[0]
+    const highest = issuePriorities.sort((left, right) => PRIORITIES.indexOf(left) - PRIORITIES.indexOf(right))[0]
     if (priorities[0] !== highest) errors.push(`PR Priority 应为 ${highest}`)
   }
   return errors

@@ -141,7 +141,7 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
     if (this.inFlight !== undefined) this.rerun = true
     if (before.view === undefined) return
     const namespaces = before.view.namespaces.some(row => row.ns === view.ns)
-      ? before.view.namespaces.map(row => row.ns === view.ns ? view : row)
+      ? before.view.namespaces.map(row => (row.ns === view.ns ? view : row))
       : [...before.view.namespaces, view]
     this.store.set({ ...before, view: { ...before.view, namespaces } })
   }
@@ -173,9 +173,7 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
         let outcome: { view: SettingsDescribeView } | { failure: string }
         try {
           const response = await this.ctx.remote.settings.describe()
-          outcome = response.ok
-            ? { view: response.value }
-            : { failure: response.error.message }
+          outcome = response.ok ? { view: response.value } : { failure: response.error.message }
         } catch (error) {
           outcome = { failure: error instanceof Error ? error.message : String(error) }
         }

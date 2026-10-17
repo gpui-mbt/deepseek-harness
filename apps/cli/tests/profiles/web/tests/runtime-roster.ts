@@ -65,12 +65,14 @@ export function runtimeRoster(ctx: Context): RuntimeRoster {
   for (const path of Object.keys(createRequire(import.meta.url).cache)) modules.add(pathToFileURL(path).href)
   return {
     entries: [...ctx.loader.entries()].map(entry => ({ id: entry.id, name: entry.options.name, state: entry.fiber?.state })),
-    plugins: [...ctx.registry.values()].flatMap(runtime => [...runtime.fibers].map(fiber => ({
-      name: runtime.name ?? runtime.callback.name,
-      owner: fiber.entry?.options.name,
-      state: fiber.state,
-      modules: callbacks.get(runtime.callback) ?? [],
-    }))),
+    plugins: [...ctx.registry.values()].flatMap(runtime =>
+      [...runtime.fibers].map(fiber => ({
+        name: runtime.name ?? runtime.callback.name,
+        owner: fiber.entry?.options.name,
+        state: fiber.state,
+        modules: callbacks.get(runtime.callback) ?? [],
+      })),
+    ),
     modules: [...modules].sort(),
     client: ctx.clientModules.graph(),
   }

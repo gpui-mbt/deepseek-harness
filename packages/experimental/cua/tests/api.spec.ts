@@ -1,6 +1,6 @@
 /** App and window behavior over a fixture operation dispatcher, without desktop access. */
 import { Buffer } from 'node:buffer'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { createCuaApi } from '../src/api.ts'
 import type { CuaApp, CuaOperation, CuaScreenshot } from '../src/types.ts'
@@ -9,7 +9,14 @@ const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG
 const bounds = { x: -640, y: 100, width: 640, height: 480 }
 const selected = { appHandle: 'app-17', pid: 17, name: 'Editor', bundleId: 'test.editor' }
 const delivered = { dispatched: true, verified: false }
-const capabilities = { platform: 'macos', sessionLocked: false, permissions: { accessibility: true, screenRecording: false }, methods: ['getState', 'click'], coordinateSpace: 'screenshot-pixels', browser: false }
+const capabilities = {
+  platform: 'macos',
+  sessionLocked: false,
+  permissions: { accessibility: true, screenRecording: false },
+  methods: ['getState', 'click'],
+  coordinateSpace: 'screenshot-pixels',
+  browser: false,
+}
 
 function windowInfo(windowId: number) {
   return { windowId, pid: 17, appName: 'Editor', title: `Document ${windowId}`, bounds, isOnScreen: true, onCurrentSpace: null }
@@ -21,44 +28,92 @@ function fixture(withSink = true) {
   const sink = { text: vi.fn<(value: string) => void>(), image: vi.fn<(screenshot: CuaScreenshot) => void>() }
   const dispatch = vi.fn(async ({ method, params }: CuaOperation): Promise<JsonValue> => {
     switch (method) {
-      case 'getCapabilities': return capabilities
-      case 'listApps': return [selected, { pid: 18, name: 'Utility' }]
-      case 'getApp': return selected
-      case 'listWindows': return windows
-      case 'hover': return { ...delivered, hoverRoute: 'accessibility', systemPointerMoved: false }
-      case 'show': return { ...delivered, windowId: params.windowId ?? 23, foregroundChanged: false }
-      case 'getState': return {
-        appHandle: selected.appHandle, pid: 17, windowId: params.windowId ?? null,
-        snapshotId: `snapshot-${++generation}`, tree: `Tree ${generation}`, truncated: false,
-        windows: params.windowId === undefined ? windows : windows.filter(window => window.windowId === params.windowId),
-      }
-      case 'screenshot': return { mimeType: 'image/png', data: PNG, pixelWidth: 1, pixelHeight: 1, windowId: params.windowId, bounds, coordinateSpace: 'screenshot-pixels' }
-      default: return delivered
+      case 'getCapabilities':
+        return capabilities
+      case 'listApps':
+        return [selected, { pid: 18, name: 'Utility' }]
+      case 'getApp':
+        return selected
+      case 'listWindows':
+        return windows
+      case 'hover':
+        return { ...delivered, hoverRoute: 'accessibility', systemPointerMoved: false }
+      case 'show':
+        return { ...delivered, windowId: params.windowId ?? 23, foregroundChanged: false }
+      case 'getState':
+        return {
+          appHandle: selected.appHandle,
+          pid: 17,
+          windowId: params.windowId ?? null,
+          snapshotId: `snapshot-${++generation}`,
+          tree: `Tree ${generation}`,
+          truncated: false,
+          windows: params.windowId === undefined ? windows : windows.filter(window => window.windowId === params.windowId),
+        }
+      case 'screenshot':
+        return {
+          mimeType: 'image/png',
+          data: PNG,
+          pixelWidth: 1,
+          pixelHeight: 1,
+          windowId: params.windowId,
+          bounds,
+          coordinateSpace: 'screenshot-pixels',
+        }
+      default:
+        return delivered
     }
   })
   return {
-    dispatch, sink, api: createCuaApi(dispatch, withSink ? sink : undefined),
-    setWindows: (ids: number[]) => { windows = ids.map(windowInfo) },
-    setWindowRecords: (records: ReturnType<typeof windowInfo>[]) => { windows = records },
+    dispatch,
+    sink,
+    api: createCuaApi(dispatch, withSink ? sink : undefined),
+    setWindows: (ids: number[]) => {
+      windows = ids.map(windowInfo)
+    },
+    setWindowRecords: (records: ReturnType<typeof windowInfo>[]) => {
+      windows = records
+    },
   }
 }
 
 function state(overrides: Record<string, JsonValue> = {}): JsonValue {
-  return { appHandle: selected.appHandle, pid: 17, windowId: null, snapshotId: 'changed', tree: 'Changed tree', windows: [windowInfo(23)], truncated: false, ...overrides }
+  return {
+    appHandle: selected.appHandle,
+    pid: 17,
+    windowId: null,
+    snapshotId: 'changed',
+    tree: 'Changed tree',
+    windows: [windowInfo(23)],
+    truncated: false,
+    ...overrides,
+  }
 }
 
 function screenshot(overrides: Record<string, JsonValue> = {}): JsonValue {
-  return { mimeType: 'image/png', data: PNG, pixelWidth: 1, pixelHeight: 1, windowId: 23, bounds, coordinateSpace: 'screenshot-pixels', ...overrides }
+  return {
+    mimeType: 'image/png',
+    data: PNG,
+    pixelWidth: 1,
+    pixelHeight: 1,
+    windowId: 23,
+    bounds,
+    coordinateSpace: 'screenshot-pixels',
+    ...overrides,
+  }
 }
 
 describe('application discovery', () => {
   it('reports permissions and discovers both bundle and PID selectors without activating an app', async () => {
     const f = fixture()
     expect(await f.api.getCapabilities()).toEqual(capabilities)
-    expect(await f.api.getState()).toEqual({ apps: [
-      { id: 'test.editor', displayName: 'Editor', isRunning: true, pid: 17 },
-      { id: '18', displayName: 'Utility', isRunning: true, pid: 18 },
-    ], browsers: [] })
+    expect(await f.api.getState()).toEqual({
+      apps: [
+        { id: 'test.editor', displayName: 'Editor', isRunning: true, pid: 17 },
+        { id: '18', displayName: 'Utility', isRunning: true, pid: 18 },
+      ],
+      browsers: [],
+    })
     expect(f.dispatch.mock.calls.map(([operation]) => operation.method)).toEqual(['getCapabilities', 'listApps'])
     const emitted = f.sink.text.mock.calls.map(([text]): unknown => JSON.parse(text))
     expect(emitted).toEqual([capabilities, await f.api.getState({ emit: false })])
@@ -72,9 +127,19 @@ describe('application discovery', () => {
     const app = await f.api.getApp('Editor')
     expect(app.pid).toBe(17)
     expect(app.appHandle).toBe('app-17')
-    expect(await app.getScreenshot()).toEqual({ bytes: Uint8Array.from(Buffer.from(PNG, 'base64')), mimeType: 'image/png', pixelWidth: 1, pixelHeight: 1, windowId: 23 })
+    expect(await app.getScreenshot()).toEqual({
+      bytes: Uint8Array.from(Buffer.from(PNG, 'base64')),
+      mimeType: 'image/png',
+      pixelWidth: 1,
+      pixelHeight: 1,
+      windowId: 23,
+    })
     expect(f.dispatch.mock.calls.map(([operation]) => operation.method)).toEqual([
-      'getCapabilities', 'listApps', 'getApp', 'getState', 'screenshot',
+      'getCapabilities',
+      'listApps',
+      'getApp',
+      'getState',
+      'screenshot',
     ])
     expect(await app.getWindows()).toEqual([windowInfo(23)])
     expect(f.sink.text).not.toHaveBeenCalled()
@@ -94,9 +159,12 @@ describe('application discovery', () => {
     await expect(f.api.findApps('   ')).rejects.toThrow()
   })
 
-  it.each(['', '   '])('names the invalid search parameter without exposing schema internals: %j', async (query) => {
+  it.each(['', '   '])('names the invalid search parameter without exposing schema internals: %j', async query => {
     const f = fixture()
-    await expect(f.api.findApps(query)).rejects.toMatchObject({ name: 'Error', message: 'findApps query: Expected a non-empty search string' })
+    await expect(f.api.findApps(query)).rejects.toMatchObject({
+      name: 'Error',
+      message: 'findApps query: Expected a non-empty search string',
+    })
     expect(f.dispatch).not.toHaveBeenCalled()
   })
 
@@ -126,7 +194,7 @@ describe('background window restoration', () => {
     ])
   })
 
-  it.each([true, null])('preserves foreground change evidence %j without switching focus back', async (foregroundChanged) => {
+  it.each([true, null])('preserves foreground change evidence %j without switching focus back', async foregroundChanged => {
     const f = fixture()
     const app = await f.api.getApp('Editor')
     f.dispatch.mockClear()
@@ -161,9 +229,16 @@ describe('hover across observations', () => {
     ])
     const window = await app.getWindow(24)
     await window.hover([5, 6])
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'hover', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-3', windowId: 24, x: 5, y: 6,
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'hover',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-3',
+        windowId: 24,
+        x: 5,
+        y: 6,
+      },
+    })
     f.dispatch.mockRejectedValueOnce(new Error('WINDOW_CHANGED'))
     await expect(window.hover([5, 6])).rejects.toThrow('WINDOW_CHANGED')
     expect(f.dispatch).toHaveBeenCalledTimes(7)
@@ -175,19 +250,45 @@ describe('pointer buttons and modifiers', () => {
     const f = fixture()
     const app = await f.api.getApp('Editor')
     await app.click(0, { mouseButton: 'middle', modifiers: ['shift'] })
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'click', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-1', elementIndex: 0, mouseButton: 'middle', modifiers: ['shift'],
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'click',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-1',
+        elementIndex: 0,
+        mouseButton: 'middle',
+        modifiers: ['shift'],
+      },
+    })
     await app.click([10, 20], { modifiers: ['command'] })
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'click', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 10, y: 20,
-      mouseButton: 'left', clickCount: 1, modifiers: ['command'],
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'click',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-1',
+        windowId: 23,
+        x: 10,
+        y: 20,
+        mouseButton: 'left',
+        clickCount: 1,
+        modifiers: ['command'],
+      },
+    })
     await app.drag([10, 20], [30, 40], { mouseButton: 'middle', modifiers: ['shift', 'option'] })
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'drag', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, fromX: 10, fromY: 20, toX: 30, toY: 40,
-      mouseButton: 'middle', modifiers: ['shift', 'option'],
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'drag',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-1',
+        windowId: 23,
+        fromX: 10,
+        fromY: 20,
+        toX: 30,
+        toY: 40,
+        mouseButton: 'middle',
+        modifiers: ['shift', 'option'],
+      },
+    })
     const count = f.dispatch.mock.calls.length
     await expect(app.click(0, { mouseButton: 'middle', clickCount: 2 })).rejects.toThrow('Only left double-click')
     expect(f.dispatch).toHaveBeenCalledTimes(count)
@@ -199,14 +300,28 @@ describe('text selections', () => {
     const f = fixture()
     const app = await f.api.getApp('Editor')
     await app.selectText(1, 'target')
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'selectText', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-1', elementIndex: 1, text: 'target',
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'selectText',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-1',
+        elementIndex: 1,
+        text: 'target',
+      },
+    })
     await app.selectText(1, 'target', { prefix: 'second ', suffix: '.', selectionType: 'cursor_after' })
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'selectText', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-1', elementIndex: 1, text: 'target',
-      prefix: 'second ', suffix: '.', selectionType: 'cursor_after',
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'selectText',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-1',
+        elementIndex: 1,
+        text: 'target',
+        prefix: 'second ',
+        suffix: '.',
+        selectionType: 'cursor_after',
+      },
+    })
     const calls = f.dispatch.mock.calls.length
     await expect(app.selectText(1, '')).rejects.toThrow()
     expect(f.dispatch).toHaveBeenCalledTimes(calls)
@@ -234,7 +349,10 @@ describe('application and window observations', () => {
     expect(f.sink.text.mock.calls.map(([text]) => text)).toEqual(['Tree 1', 'Tree 2', 'Tree 3'])
     await expect(second.getAXState({ emit: false, disableDiffing: true })).resolves.toBe('Tree 4')
     await second.click(3)
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'click', params: { appHandle: 'app-17', snapshotId: 'snapshot-4', elementIndex: 3 } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'click',
+      params: { appHandle: 'app-17', snapshotId: 'snapshot-4', elementIndex: 3 },
+    })
     expect(f.sink.text).toHaveBeenCalledTimes(3)
   })
 
@@ -244,7 +362,13 @@ describe('application and window observations', () => {
     f.dispatch.mockResolvedValueOnce(state({ windowId: 23, snapshotId: 'axless', tree: '', elements: [] }))
     const window = await app.getWindow(23)
     expect(f.sink.text).toHaveBeenLastCalledWith('')
-    await expect(window.getScreenshot()).resolves.toEqual({ bytes: Uint8Array.from(Buffer.from(PNG, 'base64')), mimeType: 'image/png', pixelWidth: 1, pixelHeight: 1, windowId: 23 })
+    await expect(window.getScreenshot()).resolves.toEqual({
+      bytes: Uint8Array.from(Buffer.from(PNG, 'base64')),
+      mimeType: 'image/png',
+      pixelWidth: 1,
+      pixelHeight: 1,
+      windowId: 23,
+    })
     await window.click([10, 20])
     await window.scroll({ x: 10, y: 20, deltaLinesX: 0, deltaLinesY: -1 })
     await window.drag([10, 20], [30, 40])
@@ -254,15 +378,18 @@ describe('application and window observations', () => {
     }
   })
 
-  it.each(['WINDOW_UNAVAILABLE', 'PERMISSION_DENIED', 'STALE_APP', 'SESSION_LOCKED'])('propagates %s while selecting a window without attempting image or input fallback', async (code) => {
-    const f = fixture()
-    const app = await f.api.getApp('Editor')
-    const failure = new Error(code)
-    f.dispatch.mockRejectedValueOnce(failure)
-    const calls = f.dispatch.mock.calls.length
-    await expect(app.getWindow(23)).rejects.toBe(failure)
-    expect(f.dispatch.mock.calls.slice(calls).map(([operation]) => operation.method)).toEqual(['getState'])
-  })
+  it.each(['WINDOW_UNAVAILABLE', 'PERMISSION_DENIED', 'STALE_APP', 'SESSION_LOCKED'])(
+    'propagates %s while selecting a window without attempting image or input fallback',
+    async code => {
+      const f = fixture()
+      const app = await f.api.getApp('Editor')
+      const failure = new Error(code)
+      f.dispatch.mockRejectedValueOnce(failure)
+      const calls = f.dispatch.mock.calls.length
+      await expect(app.getWindow(23)).rejects.toBe(failure)
+      expect(f.dispatch.mock.calls.slice(calls).map(([operation]) => operation.method)).toEqual(['getState'])
+    },
+  )
 
   it.each([{ ids: [] }, { ids: [23, 24] }])('requires an explicit window when discovery yields $ids', async ({ ids }) => {
     const f = fixture()
@@ -288,14 +415,32 @@ describe('application and window observations', () => {
     await app.getScreenshot()
     expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'screenshot', params: { appHandle: 'app-17', windowId: 23 } })
     await app.click([10, 20])
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'click', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 10, y: 20, mouseButton: 'left', clickCount: 1,
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'click',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-1',
+        windowId: 23,
+        x: 10,
+        y: 20,
+        mouseButton: 'left',
+        clickCount: 1,
+      },
+    })
     const hidden = await app.getWindow(25)
     await hidden.click([10, 20])
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'click', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-2', windowId: 25, x: 10, y: 20, mouseButton: 'left', clickCount: 1,
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'click',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-2',
+        windowId: 25,
+        x: 10,
+        y: 20,
+        mouseButton: 'left',
+        clickCount: 1,
+      },
+    })
   })
 
   it('requires explicit selection when every window is hidden or has zero size', async () => {
@@ -327,10 +472,8 @@ describe('application and window observations', () => {
     await expect(app.getScreenshot()).rejects.toThrow('Select a window')
   })
 
-  const identityMismatches: Record<string, JsonValue>[] = [
-    { appHandle: 'another-app' }, { pid: 18 }, { windowId: 24 },
-  ]
-  it.each(identityMismatches)('rejects a snapshot belonging to another identity: %j', async (identity) => {
+  const identityMismatches: Record<string, JsonValue>[] = [{ appHandle: 'another-app' }, { pid: 18 }, { windowId: 24 }]
+  it.each(identityMismatches)('rejects a snapshot belonging to another identity: %j', async identity => {
     const f = fixture()
     const app = await f.api.getApp('Editor')
     f.dispatch.mockResolvedValueOnce(state(identity))
@@ -375,7 +518,13 @@ describe('screenshots', () => {
     f.sink.text.mockClear()
     const observation = await window.getAXStateAndScreenshot()
     expect(observation.state).toBe('Tree 3')
-    expect(observation.screenshot).toEqual({ bytes: Uint8Array.from(Buffer.from(PNG, 'base64')), mimeType: 'image/png', pixelWidth: 1, pixelHeight: 1, windowId: 24 })
+    expect(observation.screenshot).toEqual({
+      bytes: Uint8Array.from(Buffer.from(PNG, 'base64')),
+      mimeType: 'image/png',
+      pixelWidth: 1,
+      pixelHeight: 1,
+      windowId: 24,
+    })
     expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'screenshot', params: { appHandle: 'app-17', windowId: 24 } })
     expect(f.sink.text).toHaveBeenCalledWith('Tree 3')
     expect(f.sink.image).toHaveBeenCalledWith(observation.screenshot)
@@ -392,16 +541,24 @@ describe('screenshots', () => {
     expect(f.sink.image).not.toHaveBeenCalled()
   })
 
-  it.each(['image/jpeg', 'image/webp', 'image/gif'])('preserves Host-admitted %s bytes and metadata in the return value and image sink', async (mimeType) => {
-    const f = fixture()
-    const app = await f.api.getApp('Editor')
-    const data = Buffer.from('admitted request image').toString('base64')
-    f.dispatch.mockResolvedValueOnce(screenshot({ mimeType, data, pixelWidth: 320, pixelHeight: 240 }))
-    const image = await app.getScreenshot()
-    expect(image).toEqual({ bytes: Uint8Array.from(Buffer.from(data, 'base64')), mimeType, pixelWidth: 320, pixelHeight: 240, windowId: 23 })
-    expect(f.sink.image).toHaveBeenCalledExactlyOnceWith(image)
-  })
-
+  it.each(['image/jpeg', 'image/webp', 'image/gif'])(
+    'preserves Host-admitted %s bytes and metadata in the return value and image sink',
+    async mimeType => {
+      const f = fixture()
+      const app = await f.api.getApp('Editor')
+      const data = Buffer.from('admitted request image').toString('base64')
+      f.dispatch.mockResolvedValueOnce(screenshot({ mimeType, data, pixelWidth: 320, pixelHeight: 240 }))
+      const image = await app.getScreenshot()
+      expect(image).toEqual({
+        bytes: Uint8Array.from(Buffer.from(data, 'base64')),
+        mimeType,
+        pixelWidth: 320,
+        pixelHeight: 240,
+        windowId: 23,
+      })
+      expect(f.sink.image).toHaveBeenCalledExactlyOnceWith(image)
+    },
+  )
 })
 
 describe('input actions', () => {
@@ -427,15 +584,29 @@ describe('input actions', () => {
     const app = await f.api.getApp('Editor')
     const window = await app.getWindow(23)
     const options = {
-      x: 10, y: 20, deltaLinesX: 0, deltaLinesY: 1,
-      appHandle: 'another-app', snapshotId: 'another-snapshot', windowId: 24,
+      x: 10,
+      y: 20,
+      deltaLinesX: 0,
+      deltaLinesY: 1,
+      appHandle: 'another-app',
+      snapshotId: 'another-snapshot',
+      windowId: 24,
     }
 
     await window.scroll(options)
 
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'scroll', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-2', windowId: 23, x: 10, y: 20, deltaLinesX: 0, deltaLinesY: 1,
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'scroll',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-2',
+        windowId: 23,
+        x: 10,
+        y: 20,
+        deltaLinesX: 0,
+        deltaLinesY: 1,
+      },
+    })
   })
 
   it('dispatches window-point gestures and reports delivery without claiming the action succeeded', async () => {
@@ -446,9 +617,18 @@ describe('input actions', () => {
     expect(await app.scroll({ x: 10, y: 20, deltaLinesX: -2, deltaLinesY: 3 })).toEqual(delivered)
     expect(await app.drag([1, 2], [30, 40])).toEqual(delivered)
     expect(f.dispatch.mock.calls.slice(-4).map(([operation]) => operation)).toEqual([
-      { method: 'click', params: { appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 10, y: 20, mouseButton: 'right', clickCount: 1 } },
-      { method: 'click', params: { appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 11, y: 21, mouseButton: 'left', clickCount: 2 } },
-      { method: 'scroll', params: { appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 10, y: 20, deltaLinesX: -2, deltaLinesY: 3 } },
+      {
+        method: 'click',
+        params: { appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 10, y: 20, mouseButton: 'right', clickCount: 1 },
+      },
+      {
+        method: 'click',
+        params: { appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 11, y: 21, mouseButton: 'left', clickCount: 2 },
+      },
+      {
+        method: 'scroll',
+        params: { appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, x: 10, y: 20, deltaLinesX: -2, deltaLinesY: 3 },
+      },
       { method: 'drag', params: { appHandle: 'app-17', snapshotId: 'snapshot-1', windowId: 23, fromX: 1, fromY: 2, toX: 30, toY: 40 } },
     ])
   })
@@ -541,9 +721,15 @@ describe('input actions', () => {
     const app = await f.api.getApp('Editor')
     const window = await app.getWindow(23)
     await window.performSecondaryAction(2, 'raise')
-    expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'performSecondaryAction', params: {
-      appHandle: 'app-17', snapshotId: 'snapshot-2', elementIndex: 2, action: 'raise',
-    } })
+    expect(f.dispatch).toHaveBeenLastCalledWith({
+      method: 'performSecondaryAction',
+      params: {
+        appHandle: 'app-17',
+        snapshotId: 'snapshot-2',
+        elementIndex: 2,
+        action: 'raise',
+      },
+    })
     await expect(window.performSecondaryAction(2, '')).rejects.toThrow()
   })
 
@@ -582,7 +768,13 @@ it('expands menu contents and details only for the requested observation', async
   const f = fixture()
   const app = await f.api.getApp('Editor')
   await app.getAXState({ includeMenus: true, details: true, emit: false })
-  expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'getState', params: { appHandle: selected.appHandle, includeMenus: true, details: true } })
+  expect(f.dispatch).toHaveBeenLastCalledWith({
+    method: 'getState',
+    params: { appHandle: selected.appHandle, includeMenus: true, details: true },
+  })
   await app.getAXState({ includeMenus: false, details: false })
-  expect(f.dispatch).toHaveBeenLastCalledWith({ method: 'getState', params: { appHandle: selected.appHandle, includeMenus: false, details: false } })
+  expect(f.dispatch).toHaveBeenLastCalledWith({
+    method: 'getState',
+    params: { appHandle: selected.appHandle, includeMenus: false, details: false },
+  })
 })

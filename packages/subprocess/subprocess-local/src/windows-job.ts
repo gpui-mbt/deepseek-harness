@@ -6,10 +6,7 @@ import { closeSync, openSync } from 'node:fs'
 import { devNull } from 'node:os'
 import type { Readable, Writable } from 'node:stream'
 import type { SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import {
-  loadWin32ProcessBindings,
-  probeCurrentTokenJobSupport,
-} from '@deepseek-ai/dsh-win32-process'
+import { loadWin32ProcessBindings, probeCurrentTokenJobSupport } from '@deepseek-ai/dsh-win32-process'
 import type { BoundProcessOwner, ManagedProcessLaunch } from './managed-owner.ts'
 import {
   type SerializedRunnerError,
@@ -42,11 +39,13 @@ type RunnerProcess = Omit<ReturnType<typeof spawn>, 'send' | 'stdio'> & {
 }
 
 function isWindowsStartCancellationError(error: SerializedRunnerError): boolean {
-  return error.name === 'Error'
-    && error.message === 'subprocess target start was cancelled'
-    && error.code === undefined
-    && error.syscall === undefined
-    && error.path === undefined
+  return (
+    error.name === 'Error' &&
+    error.message === 'subprocess target start was cancelled' &&
+    error.code === undefined &&
+    error.syscall === undefined &&
+    error.path === undefined
+  )
 }
 
 /**
@@ -56,8 +55,7 @@ function isWindowsStartCancellationError(error: SerializedRunnerError): boolean 
  */
 export function probeWindowsJob(internals: WindowsJobInternals = {}): boolean {
   try {
-    const invocation = internals.runnerInvocation
-      ?? (internals.resolveRunnerInvocation ?? spawnRunnerInvocation)()
+    const invocation = internals.runnerInvocation ?? (internals.resolveRunnerInvocation ?? spawnRunnerInvocation)()
     if (!(internals.runnerAvailable ?? runnerInvocationAvailable)(invocation)) return false
     const api = (internals.loadWin32ProcessBindings ?? loadWin32ProcessBindings)()
     ;(internals.probeCurrentTokenJobSupport ?? probeCurrentTokenJobSupport)(api)
@@ -89,7 +87,7 @@ class WindowsJobOwner implements BoundProcessOwner {
     if (this.terminationSent || !this.runner.connected) return
     this.terminationSent = true
     try {
-      this.runner.send?.({ type: 'terminate' }, (error) => {
+      this.runner.send?.({ type: 'terminate' }, error => {
         if (error === null || this.directResultType() !== undefined) return
         this.failInfrastructure(error)
         this.terminateForHostExit()
@@ -101,9 +99,7 @@ class WindowsJobOwner implements BoundProcessOwner {
   }
 
   mapStartFailure(failure: unknown, serialized: SerializedRunnerError): unknown {
-    return this.cancellationReasonSet && isWindowsStartCancellationError(serialized)
-      ? this.cancellationReason
-      : failure
+    return this.cancellationReasonSet && isWindowsStartCancellationError(serialized) ? this.cancellationReason : failure
   }
 
   async waitForExit(): Promise<void> {
@@ -111,7 +107,11 @@ class WindowsJobOwner implements BoundProcessOwner {
   }
 
   terminateForHostExit(): void {
-    try { this.runner.kill('SIGKILL') } catch { /* Host exit continues with other live runners. */ }
+    try {
+      this.runner.kill('SIGKILL')
+    } catch {
+      /* Host exit continues with other live runners. */
+    }
   }
 }
 
@@ -132,11 +132,7 @@ export function launchWindowsJob(
   const ignoredStdinFd = spec.stdio.stdin === 'ignore' ? openSync(devNull, 'r') : undefined
   let child: RunnerProcess
   try {
-    child = (internals.spawn ?? spawn)(command, [
-      ...prefix,
-      '--',
-      ...spec.argv,
-    ], {
+    child = (internals.spawn ?? spawn)(command, [...prefix, '--', ...spec.argv], {
       cwd: process.cwd(),
       windowsHide: true,
       env: runnerEnvironment(WINDOWS_RUNNER_SELECTION, invocation),
@@ -168,20 +164,11 @@ export function launchWindowsJob(
       // The private IPC result may arrive after the process-exit notification.
       if (!ipcDisconnected) return
     }
-    const status = signal !== null
-      ? `signal ${signal}`
-      : exitCode === null ? 'without an exit status' : `exit code ${String(exitCode)}`
-    failInfrastructure(new Error(
-      `subprocess-local: Windows Job runner exited with ${status} before proving its managed range empty`,
-    ))
+    const status = signal !== null ? `signal ${signal}` : exitCode === null ? 'without an exit status' : `exit code ${String(exitCode)}`
+    failInfrastructure(new Error(`subprocess-local: Windows Job runner exited with ${status} before proving its managed range empty`))
   }
 
-  const owner = new WindowsJobOwner(
-    child,
-    rangeExit.promise,
-    () => directResultType,
-    failInfrastructure,
-  )
+  const owner = new WindowsJobOwner(child, rangeExit.promise, () => directResultType, failInfrastructure)
   child.on('message', (value: unknown) => {
     if (directResultType !== undefined) {
       const error = new Error('subprocess-local: Windows runner emitted more than one direct result')
@@ -209,17 +196,20 @@ export function launchWindowsJob(
     runnerSpawned = true
     try {
       if (child.send === undefined) throw new Error('subprocess-local: Windows runner has no IPC channel')
-      child.send({ type: 'start', cwd: spec.cwd, env: targetEnv, ...spec.stdio.control === undefined ? {} : { control: spec.stdio.control } }, (error) => {
-        if (error === null) return
-        failInfrastructure(error)
-        owner.terminateForHostExit()
-      })
+      child.send(
+        { type: 'start', cwd: spec.cwd, env: targetEnv, ...(spec.stdio.control === undefined ? {} : { control: spec.stdio.control }) },
+        error => {
+          if (error === null) return
+          failInfrastructure(error)
+          owner.terminateForHostExit()
+        },
+      )
     } catch (error) {
       failInfrastructure(error)
       owner.terminateForHostExit()
     }
   })
-  child.once('error', (error) => {
+  child.once('error', error => {
     if (!runnerSpawned) {
       direct.reject(error)
       rangeExit.resolve()

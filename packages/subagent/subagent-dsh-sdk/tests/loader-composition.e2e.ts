@@ -12,7 +12,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { type SessionEvent } from '@deepseek-ai/dsh-session'
 import { runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 
@@ -25,11 +25,13 @@ const repoTsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.m
 
 async function jsonlFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
-  const paths = await Promise.all(entries.map(async (entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return jsonlFiles(path)
-    return entry.isFile() && entry.name.endsWith('.jsonl') ? [path] : []
-  }))
+  const paths = await Promise.all(
+    entries.map(async entry => {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) return jsonlFiles(path)
+      return entry.isFile() && entry.name.endsWith('.jsonl') ? [path] : []
+    }),
+  )
   return paths.flat()
 }
 
@@ -41,15 +43,15 @@ async function sessionEvents(log: string): Promise<SessionEvent[]> {
 function settlementText(events: SessionEvent[]): string[] {
   const results = events.filter(event => event.type === 'tool/result')
   expect(results).toHaveLength(1)
-  const notices = events.filter(event => event.type === 'user/message'
-    && event.data.source.kind === 'subagent-settled')
+  const notices = events.filter(event => event.type === 'user/message' && event.data.source.kind === 'subagent-settled')
   expect(notices).toHaveLength(1)
   const notice = notices[0]!
   if (notice.type !== 'user/message' || notice.data.source.kind !== 'subagent-settled') throw new Error('missing completion notice')
-  expect(results[0]!.data.message.content).toEqual([
-    { type: 'text', text: `started subagent ${notice.data.source.senderSessionId}` },
-  ])
-  return notice.data.content.slice(1).filter(block => block.type === 'text').map(block => block.text)
+  expect(results[0]!.data.message.content).toEqual([{ type: 'text', text: `started subagent ${notice.data.source.senderSessionId}` }])
+  return notice.data.content
+    .slice(1)
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
 }
 
 async function childLaunch(failure = false): Promise<{
@@ -58,8 +60,10 @@ async function childLaunch(failure = false): Promise<{
 }> {
   const childHome = await mkdtemp(join(tmpdir(), 'dsh-sdk-subagent-home-'))
   const childPatch = join(childHome, 'child.patch.yml')
-  await writeFile(childPatch, (await readFile(childConfigPath, 'utf8'))
-    .replace("'./child-mock-llm.ts'", JSON.stringify(pathToFileURL(childMockPath).href)))
+  await writeFile(
+    childPatch,
+    (await readFile(childConfigPath, 'utf8')).replace("'./child-mock-llm.ts'", JSON.stringify(pathToFileURL(childMockPath).href)),
+  )
   return {
     childHome,
     env: {
@@ -94,7 +98,7 @@ describe('SDK subagent routing and diagnostics through the production profile', 
           DSH_TEST_CHILD_DEFAULT_ROUTE: '1',
           DSH_TEST_PARENT_MODEL_RECORD: '.parent-model-routes',
         },
-        inspect: async (cwd) => {
+        inspect: async cwd => {
           // The child reports realpaths; canonicalize the temp workspace to match.
           workspace = realpathSync(cwd)
           const parentLogs = await jsonlFiles(join(cwd, '.sessions'))
@@ -150,7 +154,7 @@ describe('SDK subagent routing and diagnostics through the production profile', 
         tsconfigPath: repoTsconfig,
         processTimeoutMs: 120_000,
         env: child.env,
-        inspect: async (cwd) => {
+        inspect: async cwd => {
           const parentLogs = await jsonlFiles(join(cwd, '.sessions'))
           expect(parentLogs).toHaveLength(1)
           events = await sessionEvents(parentLogs[0] as string)

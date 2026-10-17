@@ -4,7 +4,10 @@ import type { ClientRuntimeError } from '../../shared/bridge/messages/runtime/in
 
 /** Failure returned through the typed Client Runtime error outcome. */
 export class ClientRuntimeExecutionError extends Error {
-  constructor(readonly code: ClientRuntimeError['code'], message: string) {
+  constructor(
+    readonly code: ClientRuntimeError['code'],
+    message: string,
+  ) {
     super(message)
   }
 }

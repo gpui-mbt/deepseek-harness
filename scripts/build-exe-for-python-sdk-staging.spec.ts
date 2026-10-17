@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { createRequire } from 'node:module'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { deduplicateStagedWorkspacePackages, materializeStagedLinks } from './build-exe-for-python-sdk-staging.ts'
 
 const temporaryDirectories: string[] = []
@@ -22,12 +22,14 @@ async function fixture(prefix: string) {
 /** List every symbolic link below a directory. */
 async function listSymlinks(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true })
-  const nested = await Promise.all(entries.map(async (entry) => {
-    const path = join(directory, entry.name)
-    if (entry.isSymbolicLink()) return [path]
-    if (entry.isDirectory()) return listSymlinks(path)
-    return []
-  }))
+  const nested = await Promise.all(
+    entries.map(async entry => {
+      const path = join(directory, entry.name)
+      if (entry.isSymbolicLink()) return [path]
+      if (entry.isDirectory()) return listSymlinks(path)
+      return []
+    }),
+  )
   return nested.flat()
 }
 
@@ -61,8 +63,7 @@ it('copies workspace package links as files and removes command shims', async ()
   await materializeStagedLinks(staging)
 
   expect(existsSync(join(staging, 'node_modules', '.bin'))).toBe(false)
-  await expect(readFile(join(staging, 'node_modules', '@deepseek-ai', 'dsh-base', 'lib', 'index.js'), 'utf8'))
-    .resolves.toBe('export {}\n')
+  await expect(readFile(join(staging, 'node_modules', '@deepseek-ai', 'dsh-base', 'lib', 'index.js'), 'utf8')).resolves.toBe('export {}\n')
   expect(await listSymlinks(staging)).toEqual([])
 })
 
@@ -80,11 +81,16 @@ it('shares an identical workspace package while retaining different peers and th
     await writeFile(join(directory, 'index.js'), 'exports.scheduler = Symbol("scheduler")\n')
   }
   const locations = (paths: string[]) => paths.map(path => relative(workspace, path))
-  await writeFile(join(modules, '.modules.yaml'), JSON.stringify({ hoistedLocations: {
-    '@fixture/tools@file:packages/tools(peer@1)': locations([root, duplicate]),
-    '@fixture/tools@file:packages/tools(peer@2)': locations([differentPeers]),
-    'external@1.0.0(@fixture/tools@file:packages/tools)': locations([external, externalCopy]),
-  } }))
+  await writeFile(
+    join(modules, '.modules.yaml'),
+    JSON.stringify({
+      hoistedLocations: {
+        '@fixture/tools@file:packages/tools(peer@1)': locations([root, duplicate]),
+        '@fixture/tools@file:packages/tools(peer@2)': locations([differentPeers]),
+        'external@1.0.0(@fixture/tools@file:packages/tools)': locations([external, externalCopy]),
+      },
+    }),
+  )
 
   await deduplicateStagedWorkspacePackages(staging, workspace)
 

@@ -28,8 +28,8 @@ export function apply(ctx: Context, config: Config): void {
       if (ambient !== undefined && ambient.value.length > 0) return assertUsableApiKey(ambient.value, 'llm-deepseek', ref)
     }
     throw new LlmError(
-      `llm-deepseek: no API key for provider route "${PROVIDER}"; store ${ref} through the credentials`
-      + ` service (the web Models page writes it), or export ${ref} in the launching environment`,
+      `llm-deepseek: no API key for provider route "${PROVIDER}"; store ${ref} through the credentials` +
+        ` service (the web Models page writes it), or export ${ref} in the launching environment`,
       'MISSING_CREDENTIAL',
     )
   }
@@ -37,12 +37,14 @@ export function apply(ctx: Context, config: Config): void {
     { provider: PROVIDER, displayName: 'DeepSeek', settingsNs: ctx.fiber.entry?.options.id ?? name, settingsPath: [] },
   ])
   registerDeepSeekProvider(ctx, PROVIDER, {
-    options, providerName: 'DeepSeek',
+    options,
+    providerName: 'DeepSeek',
     resolveAuth: async connection => ({ headers: { 'x-api-key': await resolveApiKey(connection) } }),
-    discoverModels: async (provider) => {
+    discoverModels: async provider => {
       const connection = options()
-      try { await resolveApiKey(connection) }
-      catch (error) {
+      try {
+        await resolveApiKey(connection)
+      } catch (error) {
         if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') return []
         throw error
       }

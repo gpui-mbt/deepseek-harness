@@ -26,9 +26,7 @@ import type { ReactNode } from 'react'
 import type { CredentialInfo, LlmNativeAuth, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import {
-  DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels,
-} from './DeepSeekModelsEditor.tsx'
+import { DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
 import type { DeepSeekModelsValidationFailure } from './DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
@@ -46,8 +44,6 @@ import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
 type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
-
-
 
 /** Props of {@link ProviderEditor}. */
 export interface ProviderEditorProps {
@@ -114,11 +110,7 @@ export interface ProviderEditorProps {
 }
 
 /** A user-section subtree as a plain draft object (absent → empty). */
-function draftAt(
-  schema: SettingsSchemaOperations,
-  namespace: SettingsNamespaceView,
-  path: readonly string[],
-): Record<string, unknown> {
+function draftAt(schema: SettingsSchemaOperations, namespace: SettingsNamespaceView, path: readonly string[]): Record<string, unknown> {
   const subtree = schema.getPath(namespace.user, path)
   if (typeof subtree !== 'object' || subtree === null || Array.isArray(subtree)) return {}
   return structuredClone(subtree) as Record<string, unknown>
@@ -134,14 +126,8 @@ function draftAt(
  * @param after - the subtree as edited.
  * @returns ordered set/unset ops; empty when nothing changed.
  */
-export function pathOps(
-  base: readonly string[],
-  before: unknown,
-  after: Record<string, unknown>,
-): SettingsPathOpView[] {
-  const previous = typeof before === 'object' && before !== null && !Array.isArray(before)
-    ? before as Record<string, unknown>
-    : {}
+export function pathOps(base: readonly string[], before: unknown, after: Record<string, unknown>): SettingsPathOpView[] {
+  const previous = typeof before === 'object' && before !== null && !Array.isArray(before) ? (before as Record<string, unknown>) : {}
   const ops: SettingsPathOpView[] = []
   for (const [key, value] of Object.entries(after)) {
     if (JSON.stringify(previous[key]) === JSON.stringify(value)) continue
@@ -161,16 +147,9 @@ function layoutOf(ns: string): EditorLayout {
 }
 
 /** The credential reference this profile resolves keys through. */
-function refFor(
-  schema: SettingsSchemaOperations,
-  namespace: SettingsNamespaceView,
-  path: readonly string[],
-  provider: string,
-): string {
+function refFor(schema: SettingsSchemaOperations, namespace: SettingsNamespaceView, path: readonly string[], provider: string): string {
   const profile = schema.getPath(namespace.value, path)
-  const named = typeof profile === 'object' && profile !== null
-    ? (profile as { apiKeyEnv?: unknown }).apiKeyEnv
-    : undefined
+  const named = typeof profile === 'object' && profile !== null ? (profile as { apiKeyEnv?: unknown }).apiKeyEnv : undefined
   return typeof named === 'string' && named.length > 0 ? named : deriveKeyRef(provider)
 }
 
@@ -186,14 +165,14 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const [busy, setBusy] = useState(false)
   const [listBusy, setListBusy] = useState(false)
   const { onBusyChange } = props
-  useEffect(() => { onBusyChange?.(busy || listBusy) }, [busy, listBusy, onBusyChange])
+  useEffect(() => {
+    onBusyChange?.(busy || listBusy)
+  }, [busy, listBusy, onBusyChange])
   const [failure, setFailure] = useState<string | undefined>(undefined)
   // A settings success advances both retry baselines immediately. Keeping the
   // derived fields in the draft prevents a pushed namespace refresh from
   // turning them into deletions when the following credential write is retried.
-  const [committedOriginal, setCommittedOriginal] = useState<unknown>(
-    () => schema.getPath(namespace.user, settingsPath),
-  )
+  const [committedOriginal, setCommittedOriginal] = useState<unknown>(() => schema.getPath(namespace.user, settingsPath))
   const [expectedRevision, setExpectedRevision] = useState(() => namespace.revision)
   const root = useMemo(() => schema.rehydrate(namespace.schema), [namespace.schema, schema])
   const node = useMemo(() => schema.nodeAtPath(root, settingsPath), [root, schema, settingsPath])
@@ -205,10 +184,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   // and there cannot drift apart: both come from the adapter's own `Config`.
   // Only the pi-ai layout has a per-route protocol for the read to find, and
   // it rehydrates the whole section schema, so the other layouts skip it.
-  const protocols = useMemo(
-    () => layout === 'pi-ai' ? protocolChoices(namespace, schema) : [],
-    [layout, namespace, schema],
-  )
+  const protocols = useMemo(() => (layout === 'pi-ai' ? protocolChoices(namespace, schema) : []), [layout, namespace, schema])
 
   const stringAt = (source: unknown, key: string): string | undefined => {
     const value = schema.getPath(source, [key])
@@ -220,9 +196,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     // while the draft still carried the spaces into `cordis.patch.yml`, where
     // both adapters would accept that non-empty string as a real value.
     const value = next === undefined || next.trim().length === 0 ? undefined : next
-    setDraft(current => value === undefined
-      ? schema.deletePath(current, [key])
-      : schema.setPath(current, [key], value))
+    setDraft(current => (value === undefined ? schema.deletePath(current, [key]) : schema.setPath(current, [key], value)))
   }
 
   // The model list is validated by the same per-row checker for both families,
@@ -231,7 +205,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   // model list with no installed catalog behind it — so only there are the
   // levels read and the declarations checked.
   const reasoningLevels = useMemo(
-    () => layout === 'pi-ai' && props.declared === true ? reasoningLevelChoices(namespace, schema) : [],
+    () => (layout === 'pi-ai' && props.declared === true ? reasoningLevelChoices(namespace, schema) : []),
     [layout, props.declared, namespace, schema],
   )
   const editsReasoning = reasoningLevels.length > 0
@@ -244,10 +218,8 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   // as "no key supplied" rather than as a key — that is how a card whose
   // provider already has a stored key is edited without re-entering it.
   const keyValue = keyDraft.trim()
-  const credentialRequiredFailure = props.credentialRequired === true
-    && keyDraft.length > 0 && keyValue.length === 0
-    ? 'keyRequired' as const
-    : undefined
+  const credentialRequiredFailure =
+    props.credentialRequired === true && keyDraft.length > 0 && keyValue.length === 0 ? ('keyRequired' as const) : undefined
   const shownKeyFailure = credentialRequiredFailure ?? keyFailure
   // What the form currently shows, which is what an interrogation must ask:
   // an edited-but-unsaved endpoint, and a key typed but not yet stored.
@@ -258,9 +230,9 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     // Naming the route lets an adapter that already describes it answer from
     // its own registry — better metadata, no network call, no endpoint needed.
     provider: props.provider,
-    ...probeBaseURL === undefined ? {} : { baseURL: probeBaseURL },
-    ...probeApi === undefined ? {} : { api: probeApi },
-    ...keyValue.length === 0 ? {} : { apiKey: keyValue },
+    ...(probeBaseURL === undefined ? {} : { baseURL: probeBaseURL }),
+    ...(probeApi === undefined ? {} : { api: probeApi }),
+    ...(keyValue.length === 0 ? {} : { apiKey: keyValue }),
   }
   /**
    * The write for this card, or a failure message. Every edit travels as
@@ -272,10 +244,13 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     const ns = namespace.ns
     // A pi-ai profile names the conventional reference only when this page is
     // about to store a key. Otherwise the provider keeps its native auth path.
-    const next = layout === 'pi-ai' && stringAt(draft, 'apiKeyEnv') === undefined
-      && stringAt(fallback, 'apiKeyEnv') === undefined && keyValue.length > 0
-      ? schema.setPath(draft, ['apiKeyEnv'], keyRef)
-      : draft
+    const next =
+      layout === 'pi-ai' &&
+      stringAt(draft, 'apiKeyEnv') === undefined &&
+      stringAt(fallback, 'apiKeyEnv') === undefined &&
+      keyValue.length > 0
+        ? schema.setPath(draft, ['apiKeyEnv'], keyRef)
+        : draft
     if (props.credentialOnly !== true) {
       // The same checker gates the submit button, so a card cannot reach this
       // with a bad row; it stays because the schema check below would refuse
@@ -292,15 +267,14 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       const sectionError = schema.validate(node, next)
       if (sectionError !== undefined) return sectionError
     }
-    const materializesNativeProfile = layout === 'pi-ai'
-      && fallback === undefined
-      && committedOriginal === undefined
-      && Object.keys(next).length === 0
-    const ops: SettingsPathOpView[] = props.credentialOnly === true
-      ? []
-      : materializesNativeProfile
-        ? [{ op: 'set', path: [...settingsPath], value: {} }]
-        : pathOps(settingsPath, committedOriginal, next)
+    const materializesNativeProfile =
+      layout === 'pi-ai' && fallback === undefined && committedOriginal === undefined && Object.keys(next).length === 0
+    const ops: SettingsPathOpView[] =
+      props.credentialOnly === true
+        ? []
+        : materializesNativeProfile
+          ? [{ op: 'set', path: [...settingsPath], value: {} }]
+          : pathOps(settingsPath, committedOriginal, next)
     if (ops.length > 0) {
       const written = await operations.writeSettings(ns, ops, expectedRevision)
       if (written.kind !== 'written') return written.kind === 'conflict' ? t('conflict') : written.message
@@ -334,7 +308,11 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   if (node === undefined) {
     // A directory entry addressing a position its schema cannot resolve is a
     // host-side inconsistency; showing it beats a blank card.
-    return <p className={styles['error']}>{props.provider}: {props.t('settingsPathUnresolvable')}</p>
+    return (
+      <p className={styles['error']}>
+        {props.provider}: {props.t('settingsPathUnresolvable')}
+      </p>
+    )
   }
 
   /**
@@ -367,44 +345,56 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     const defaultInput = schema.getPath(fallback, ['defaultInput'])
     const baseURL = stringAt(fallback, 'baseURL') ?? props.defaultBaseURL
     const endpointEnv = props.baseURLEnv ?? []
-    const endpointHint = family === 'deepseek' ? t('deepSeekEndpointHint')
-      : baseURL === undefined && endpointEnv.length > 0 ? t('baseUrlEnvironment').replace('{env}', () => endpointEnv.join(', ')) : undefined
+    const endpointHint =
+      family === 'deepseek'
+        ? t('deepSeekEndpointHint')
+        : baseURL === undefined && endpointEnv.length > 0
+          ? t('baseUrlEnvironment').replace('{env}', () => endpointEnv.join(', '))
+          : undefined
     // A named reference is the only credential the adapter reads for this
     // route. Without one, a catalog route authenticates the way the directory
     // reports, and a declared route sends no key at all.
     const namedRef = stringAt(fallback, 'apiKeyEnv')
     const nativeAuth = namedRef === undefined ? props.nativeAuth : undefined
     // Display method-neutral references without changing the adapter's lookup.
-    const authRefs = namedRef === undefined
-      ? (nativeAuth?.env ?? []).filter(ref => !endpointEnv.includes(ref)) : [namedRef]
+    const authRefs = namedRef === undefined ? (nativeAuth?.env ?? []).filter(ref => !endpointEnv.includes(ref)) : [namedRef]
     const visibleRefs = authRefs.filter(ref => !ref.toLowerCase().includes('oauth'))
     const keyHint = visibleRefs[0]
-    const checkedRefs = authRefs.map(ref => [
-      ref, props.credentialChecks?.[ref] ?? (ref === namedRef ? props.credential : undefined),
-    ] as const)
+    const checkedRefs = authRefs.map(
+      ref => [ref, props.credentialChecks?.[ref] ?? (ref === namedRef ? props.credential : undefined)] as const,
+    )
     const detected = checkedRefs.find(([, info]) => info?.configured === true)
     const detectedRef = detected?.[0]
     const detectedVisibleRef = detectedRef === undefined || !visibleRefs.includes(detectedRef) ? undefined : detectedRef
     const missingRefs = checkedRefs.length > 0 && checkedRefs.every(([, info]) => info?.configured === false)
     const savedCredential = detected?.[1]?.source === 'file'
-    const credentialHint = keyDraft.length > 0 || savedCredential || keyHint === undefined || props.credentialRequired === true
-      ? undefined
-      : t(detectedRef === undefined ? missingRefs ? 'keyFallbackMissing' : 'keyFallbackUnchecked'
-        : detectedVisibleRef === undefined ? 'keyFallbackDetectedHidden' : 'keyFallbackDetected')
-        .replace('{hint}', () => detectedVisibleRef ?? keyHint)
-    const keyHelp = visibleRefs.length === 0
-      ? undefined
-      : t('keyHelp').replace('{env}', () => visibleRefs.join(' / '))
-    const authHelp = keyHelp === undefined ? null : (
-      <Tooltip label={keyHelp} side="right" delayMs={0} focusDelayMs={0} portal openOnClick>
-        <button type="button" className={styles['helpButton']} aria-label={t('authHelp')}>?</button>
-      </Tooltip>
-    )
+    const credentialHint =
+      keyDraft.length > 0 || savedCredential || keyHint === undefined || props.credentialRequired === true
+        ? undefined
+        : t(
+            detectedRef === undefined
+              ? missingRefs
+                ? 'keyFallbackMissing'
+                : 'keyFallbackUnchecked'
+              : detectedVisibleRef === undefined
+                ? 'keyFallbackDetectedHidden'
+                : 'keyFallbackDetected',
+          ).replace('{hint}', () => detectedVisibleRef ?? keyHint)
+    const keyHelp = visibleRefs.length === 0 ? undefined : t('keyHelp').replace('{env}', () => visibleRefs.join(' / '))
+    const authHelp =
+      keyHelp === undefined ? null : (
+        <Tooltip label={keyHelp} side="right" delayMs={0} focusDelayMs={0} portal openOnClick>
+          <button type="button" className={styles['helpButton']} aria-label={t('authHelp')}>
+            ?
+          </button>
+        </Tooltip>
+      )
     // A provider with no native key authentication has no key for this field to store.
     const keylessNativeAuth = nativeAuth?.env.length === 0 && nativeAuth.oauth
-    const keyPlaceholder = keyHint === undefined || props.credentialRequired === true
-      ? t('keyPlaceholder')
-      : t(savedCredential ? 'keyPlaceholderSaved' : 'keyPlaceholderFallback').replace('{hint}', () => keyHint)
+    const keyPlaceholder =
+      keyHint === undefined || props.credentialRequired === true
+        ? t('keyPlaceholder')
+        : t(savedCredential ? 'keyPlaceholderSaved' : 'keyPlaceholderFallback').replace('{hint}', () => keyHint)
     /** What both family editors take: the rows, whose layer owns them, and the two writes. */
     const catalogProps = {
       models,
@@ -414,13 +404,14 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       onChange: (next: Record<string, unknown>[]) => {
         setDraft(current => schema.setPath(current, ['models'], next))
       },
-      onReset: () => { setDraft(current => schema.deletePath(current, ['models'])) },
+      onReset: () => {
+        setDraft(current => schema.deletePath(current, ['models']))
+      },
     }
     return (
       <>
-        {keylessNativeAuth
-          ? null
-          : <div className={styles['field']}>
+        {keylessNativeAuth ? null : (
+          <div className={styles['field']}>
             <span className={styles['fieldLabel']}>
               {t('keyInput')}
               {authHelp}
@@ -435,19 +426,29 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
               required={props.credentialRequired === true}
               autoFocus={props.autoFocusCredential === true}
               disabled={disabled}
-              onChange={(event) => { setKeyDraft(event.target.value) }}
+              onChange={event => {
+                setKeyDraft(event.target.value)
+              }}
             />
-            {credentialHint === undefined ? null : <p id={`${props.provider}-credential-hint`} className={styles[missingRefs ? 'notice' : detectedRef === undefined ? 'advancedHint' : 'savedNotice']}>{credentialHint}</p>}
+            {credentialHint === undefined ? null : (
+              <p
+                id={`${props.provider}-credential-hint`}
+                className={styles[missingRefs ? 'notice' : detectedRef === undefined ? 'advancedHint' : 'savedNotice']}
+              >
+                {credentialHint}
+              </p>
+            )}
             {shownKeyFailure === undefined ? null : <p className={styles['error']}>{t(shownKeyFailure)}</p>}
-          </div>}
-        {props.credentialOnly === true ? null : <details className={styles['customized']}>
-          <summary className={styles['customizedSummary']}>{t('customized')}</summary>
-          <div className={styles['customizedBody']}>
-            {/* The name and the protocol are the create card's two remaining
+          </div>
+        )}
+        {props.credentialOnly === true ? null : (
+          <details className={styles['customized']}>
+            <summary className={styles['customizedSummary']}>{t('customized')}</summary>
+            <div className={styles['customizedBody']}>
+              {/* The name and the protocol are the create card's two remaining
                 profile fields; a route the adapter ships defaults both from
                 its catalog entry and neither belongs on its card. */}
-            {ownsIdentity
-              ? (
+              {ownsIdentity ? (
                 <div className={styles['field']}>
                   <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
                   <input
@@ -461,38 +462,44 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                     // the answer the route id. Reading the effective value
                     // instead would echo the stored override back as the
                     // thing clearing restores.
-                    placeholder={stringAt(schema.getPath(namespace.base, settingsPath), 'displayName')
-                      ?? props.provider}
+                    placeholder={stringAt(schema.getPath(namespace.base, settingsPath), 'displayName') ?? props.provider}
                     aria-label={t('customDisplayName')}
                     disabled={disabled}
-                    onChange={(event) => { setField('displayName', event.target.value) }}
+                    onChange={event => {
+                      setField('displayName', event.target.value)
+                    }}
                   />
                 </div>
-              )
-              : null}
-            <div className={styles['field']}>
-              <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
-              <input
-                className={styles['input']}
-                type="text"
-                value={stringAt(draft, 'baseURL') ?? ''}
-                placeholder={family === 'deepseek'
-                  ? t('deepSeekBaseUrl')
-                  : baseURL === undefined ? t(endpointEnv.length > 0 ? 'baseUrlConfigured' : 'baseUrlDefault')
-                    : t('baseUrlPlaceholder').replace('{url}', () => baseURL)}
-                aria-describedby={endpointHint === undefined ? undefined : `${props.provider}-endpoint-hint`}
-                aria-label={t('baseUrl')}
-                disabled={disabled}
-                onChange={(event) => {
-                  setField('baseURL', event.target.value === '' ? undefined : event.target.value)
-                }}
-              />
-              {endpointHint === undefined ? null : <span id={`${props.provider}-endpoint-hint`} className={styles['advancedHint']}>{endpointHint}</span>}
-            </div>
-            {/* The protocol sits beside the endpoint it describes, as it does
+              ) : null}
+              <div className={styles['field']}>
+                <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
+                <input
+                  className={styles['input']}
+                  type="text"
+                  value={stringAt(draft, 'baseURL') ?? ''}
+                  placeholder={
+                    family === 'deepseek'
+                      ? t('deepSeekBaseUrl')
+                      : baseURL === undefined
+                        ? t(endpointEnv.length > 0 ? 'baseUrlConfigured' : 'baseUrlDefault')
+                        : t('baseUrlPlaceholder').replace('{url}', () => baseURL)
+                  }
+                  aria-describedby={endpointHint === undefined ? undefined : `${props.provider}-endpoint-hint`}
+                  aria-label={t('baseUrl')}
+                  disabled={disabled}
+                  onChange={event => {
+                    setField('baseURL', event.target.value === '' ? undefined : event.target.value)
+                  }}
+                />
+                {endpointHint === undefined ? null : (
+                  <span id={`${props.provider}-endpoint-hint`} className={styles['advancedHint']}>
+                    {endpointHint}
+                  </span>
+                )}
+              </div>
+              {/* The protocol sits beside the endpoint it describes, as it does
                 on the create card. */}
-            {ownsIdentity
-              ? (
+              {ownsIdentity ? (
                 <div className={styles['field']}>
                   <span className={styles['fieldLabel']}>{t('customApi')}</span>
                   <select
@@ -500,7 +507,9 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                     value={probeApi ?? ''}
                     aria-label={t('customApi')}
                     disabled={disabled}
-                    onChange={(event) => { setField('api', event.target.value) }}
+                    onChange={event => {
+                      setField('api', event.target.value)
+                    }}
                   >
                     {/* A profile naming no protocol — hand-written into
                         cordis.patch.yml with no model to need one — selects
@@ -509,28 +518,27 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                         reader announces it either way, and an empty one is
                         announced as a choice with no identity. */}
                     {probeApi === undefined ? <option value="">{t('customApiUnset')}</option> : null}
-                    {protocols.map(choice => <option key={choice} value={choice}>{protocolLabel(t, choice)}</option>)}
+                    {protocols.map(choice => (
+                      <option key={choice} value={choice}>
+                        {protocolLabel(t, choice)}
+                      </option>
+                    ))}
                   </select>
                 </div>
-              )
-              : null}
-            {/* Both families edit the same rows through the same contract; only
+              ) : null}
+              {/* Both families edit the same rows through the same contract; only
                 the extras differ — DeepSeek's inherited capacities, pi-ai's
                 endpoint interrogation. */}
-            {family === 'deepseek'
-              ? (
+              {family === 'deepseek' ? (
                 <DeepSeekModelsEditor
                   {...catalogProps}
-                  defaultContextWindow={typeof defaultContextWindow === 'number'
-                    ? defaultContextWindow
-                    : undefined}
+                  defaultContextWindow={typeof defaultContextWindow === 'number' ? defaultContextWindow : undefined}
                   defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
                 />
-              )
-              : (
+              ) : (
                 <ModelListEditor
                   {...catalogProps}
-                  {...props.routingProviders === undefined ? {} : { routingProviders: props.routingProviders }}
+                  {...(props.routingProviders === undefined ? {} : { routingProviders: props.routingProviders })}
                   catalogProvider={props.declared === true ? undefined : props.provider}
                   reasoningLevels={reasoningLevels}
                   defaultInput={Array.isArray(defaultInput) ? defaultInput : undefined}
@@ -540,47 +548,46 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                   onBusyChange={setListBusy}
                 />
               )}
-          </div>
-        </details>}
+            </div>
+          </details>
+        )}
       </>
     )
   }
 
   return (
     <div className={props.credentialOnly === true ? styles['addBlock'] : styles['editor']}>
-      {props.hideTitle === true
-        ? null
-        : (
-          <div className={styles['editorHeader']}>
-            <span className={styles['editorTitle']}>{props.displayName}</span>
-            {props.provider !== props.displayName
-              ? <span className={styles['editorRoute']}>{props.provider}</span>
-              : null}
-          </div>
-        )}
-      {layout === 'unknown'
-        ? <p className={styles['advancedHint']}>{`${t('advancedHint')} (${namespace.ns})`}</p>
-        : curatedFields(layout)}
+      {props.hideTitle === true ? null : (
+        <div className={styles['editorHeader']}>
+          <span className={styles['editorTitle']}>{props.displayName}</span>
+          {props.provider !== props.displayName ? <span className={styles['editorRoute']}>{props.provider}</span> : null}
+        </div>
+      )}
+      {layout === 'unknown' ? <p className={styles['advancedHint']}>{`${t('advancedHint')} (${namespace.ns})`}</p> : curatedFields(layout)}
       {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
-      {props.credentialOnly === true || modelFailure === undefined
-        ? null
-        : (
-          <p className={styles['advancedHint']}>
-            {`${t('model')} ${String(modelFailure.index + 1)}: ${t(modelFailure.key)}`}
-          </p>
-        )}
+      {props.credentialOnly === true || modelFailure === undefined ? null : (
+        <p className={styles['advancedHint']}>{`${t('model')} ${String(modelFailure.index + 1)}: ${t(modelFailure.key)}`}</p>
+      )}
       <EditorFooter
         t={t}
         busy={busy}
-        submitDisabled={disabled || layout === 'unknown'
-          || (props.credentialOnly !== true && modelFailure !== undefined)
-          || shownKeyFailure !== undefined
-          || (props.credentialRequired === true && keyValue.length === 0)}
+        submitDisabled={
+          disabled ||
+          layout === 'unknown' ||
+          (props.credentialOnly !== true && modelFailure !== undefined) ||
+          shownKeyFailure !== undefined ||
+          (props.credentialRequired === true && keyValue.length === 0)
+        }
         submitLabelKey={props.submitLabelKey ?? 'apply'}
         submitBusyLabelKey={props.submitBusyLabelKey ?? 'applying'}
-        {...props.cancelLabelKey === undefined ? {} : { cancelLabelKey: props.cancelLabelKey }}
-        onCancel={() => { props.onClose(false) }}
-        onSubmit={() => { props.onSubmitCredential?.(); void apply() }}
+        {...(props.cancelLabelKey === undefined ? {} : { cancelLabelKey: props.cancelLabelKey })}
+        onCancel={() => {
+          props.onClose(false)
+        }}
+        onSubmit={() => {
+          props.onSubmitCredential?.()
+          void apply()
+        }}
       />
     </div>
   )

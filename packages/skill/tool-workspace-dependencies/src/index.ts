@@ -69,8 +69,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isDistributionMap(value: unknown): value is Readonly<Record<string, string>> {
-  return isRecord(value) && Object.entries(value).every(([name, version]) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(name)
-    && typeof version === 'string' && /^\d[\w.!+-]*$/u.test(version))
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([name, version]) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(name) && typeof version === 'string' && /^\d[\w.!+-]*$/u.test(version),
+    )
+  )
 }
 
 /**
@@ -89,14 +93,19 @@ export function parsePrimaryRuntime(value: unknown): PrimaryRuntimeManifest {
   const { desktopVersion, platform, arch, payloadDigest } = value
   const { python, node, pnpm } = versions
   const pythonPackages = value.pythonPackages === undefined && legacy ? {} : value.pythonPackages
-  if (typeof desktopVersion !== 'string' || desktopVersion.length === 0
-    || typeof platform !== 'string' || !PLATFORMS.includes(platform)
-    || typeof arch !== 'string' || !['x64', 'arm64'].includes(arch)
-    || !isVersion(python)
-    || (node !== undefined && !isVersion(node))
-    || (pnpm !== undefined && (!isVersion(pnpm) || node === undefined))
-    || (payloadDigest !== undefined && (typeof payloadDigest !== 'string' || !/^[a-f0-9]{64}$/u.test(payloadDigest)))
-    || !isDistributionMap(pythonPackages)) {
+  if (
+    typeof desktopVersion !== 'string' ||
+    desktopVersion.length === 0 ||
+    typeof platform !== 'string' ||
+    !PLATFORMS.includes(platform) ||
+    typeof arch !== 'string' ||
+    !['x64', 'arm64'].includes(arch) ||
+    !isVersion(python) ||
+    (node !== undefined && !isVersion(node)) ||
+    (pnpm !== undefined && (!isVersion(pnpm) || node === undefined)) ||
+    (payloadDigest !== undefined && (typeof payloadDigest !== 'string' || !/^[a-f0-9]{64}$/u.test(payloadDigest))) ||
+    !isDistributionMap(pythonPackages)
+  ) {
     throw new Error('primary runtime: invalid metadata')
   }
   const entries = Object.entries(pythonPackages)
@@ -113,7 +122,9 @@ export function parsePrimaryRuntime(value: unknown): PrimaryRuntimeManifest {
     }
   }
   return {
-    desktopVersion, platform, arch,
+    desktopVersion,
+    platform,
+    arch,
     ...(payloadDigest === undefined ? {} : { payloadDigest }),
     python,
     ...(node === undefined ? {} : { node }),
@@ -146,13 +157,14 @@ export async function primaryRuntimePythonAliases(root: string, manifest: Primar
   for (const name of ['python', 'python3']) {
     const path = `dependencies/python/bin/${name}`
     let entry
-    try { entry = await lstat(join(root, path)) } catch (error) {
+    try {
+      entry = await lstat(join(root, path))
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
       throw error
     }
     if (!entry.isSymbolicLink()) continue
-    if (await readlink(join(root, path)) !== interpreter
-      || !(await lstat(join(root, 'dependencies/python/bin', interpreter))).isFile()) {
+    if ((await readlink(join(root, path))) !== interpreter || !(await lstat(join(root, 'dependencies/python/bin', interpreter))).isFile()) {
       throw new Error(`primary runtime: invalid Python alias ${path}`)
     }
     aliases.set(path, interpreter)
@@ -183,24 +195,35 @@ export async function copyPrimaryRuntime(source: string, destination: string, ma
 export function workspaceDependencyPaths(root: string, manifest: PrimaryRuntimeManifest): WorkspaceDependencies {
   const dependencies = join(root, 'dependencies')
   const windows = manifest.platform === 'win32'
-  const node = manifest.node === undefined ? {} : {
-    node: join(dependencies, 'node', 'bin', windows ? 'node.exe' : 'node'),
-    nodePackages: join(dependencies, 'node', 'node_modules'),
-  }
+  const node =
+    manifest.node === undefined
+      ? {}
+      : {
+          node: join(dependencies, 'node', 'bin', windows ? 'node.exe' : 'node'),
+          nodePackages: join(dependencies, 'node', 'node_modules'),
+        }
   const pnpm = manifest.pnpm === undefined ? {} : { pnpm: join(dependencies, 'pnpm', 'bin', 'pnpm.mjs') }
   return {
     python: join(dependencies, 'python', ...(windows ? ['python.exe'] : ['bin', 'python3'])),
     ...node,
     ...pnpm,
-    pythonPackages: join(dependencies, 'python', ...(windows ? ['Lib'] : ['lib', `python${manifest.python.split('.').slice(0, 2).join('.')}`]), 'site-packages'),
+    pythonPackages: join(
+      dependencies,
+      'python',
+      ...(windows ? ['Lib'] : ['lib', `python${manifest.python.split('.').slice(0, 2).join('.')}`]),
+      'site-packages',
+    ),
     pythonDistributions: manifest.pythonPackages,
   }
 }
 
 async function validatePayloadEntries(paths: WorkspaceDependencies): Promise<void> {
   for (const [path, kind] of [
-    [paths.python, 'file'], [paths.node, 'file'], [paths.pnpm, 'file'],
-    [paths.pythonPackages, 'directory'], [paths.nodePackages, 'directory'],
+    [paths.python, 'file'],
+    [paths.node, 'file'],
+    [paths.pnpm, 'file'],
+    [paths.pythonPackages, 'directory'],
+    [paths.nodePackages, 'directory'],
   ] as const) {
     if (path === undefined) continue
     const entry = await stat(path)
@@ -222,7 +245,8 @@ async function exists(path: string): Promise<boolean> {
 
 async function compatibleManifest(source: string): Promise<PrimaryRuntimeManifest> {
   const manifest = await readPrimaryRuntime(source)
-  if (manifest.platform !== process.platform || manifest.arch !== process.arch) throw new Error('primary runtime: incompatible platform or architecture')
+  if (manifest.platform !== process.platform || manifest.arch !== process.arch)
+    throw new Error('primary runtime: incompatible platform or architecture')
   return manifest
 }
 
@@ -252,7 +276,7 @@ export async function installPrimaryRuntime(source: string, root: string): Promi
   const previousExists = await exists(previous)
   const rootExists = await exists(root)
   if (!rootExists && previousExists) await rename(previous, root)
-  if (await exists(join(root, 'runtime.json')) && JSON.stringify(await readPrimaryRuntime(root)) === JSON.stringify(manifest)) {
+  if ((await exists(join(root, 'runtime.json'))) && JSON.stringify(await readPrimaryRuntime(root)) === JSON.stringify(manifest)) {
     await primaryRuntimePythonAliases(root, manifest)
     const paths = workspaceDependencyPaths(root, manifest)
     await validatePayloadEntries(paths)
@@ -266,7 +290,9 @@ export async function installPrimaryRuntime(source: string, root: string): Promi
     await rm(previous, { recursive: true, force: true })
     const replacing = await exists(root)
     if (replacing) await rename(root, previous)
-    try { await rename(staging, root) } catch (error) {
+    try {
+      await rename(staging, root)
+    } catch (error) {
       if (replacing) await rename(previous, root)
       throw error
     }
@@ -291,32 +317,42 @@ export function apply(ctx: Context, config: Config): void {
     // Tool execution reports preparation failures; disposal only waits for filesystem work to settle.
     await preparation?.catch(() => undefined)
   })
-  ctx.tools.register(defineTool({
-    name: 'load_workspace_dependencies',
-    description: 'Get absolute paths to bundled Python and library directories, plus bundled Python distribution versions. Node.js and pnpm paths are included when the payload provides them. Python includes numpy, pandas, python-docx, python-pptx, openpyxl, Pillow, lxml, and XlsxWriter. Use these libraries for Office files unless the user or workspace instructions select another environment. When Node.js and pnpm paths are returned, run pnpm with that Node executable and pnpm script path. This does not change PATH or package-manager settings.',
-    parameters: {},
-    output: {
-      schema: {
-        type: 'object', additionalProperties: false,
-        properties: {
-          python: { type: 'string', required: true },
-          node: { type: 'string', description: 'Absent when the payload ships no Node.js.' },
-          pnpm: { type: 'string', description: 'Absent when the payload ships no pnpm.' },
-          pythonPackages: { type: 'string', required: true },
-          nodePackages: { type: 'string', description: 'Absent when the payload ships no Node.js.' },
-          pythonDistributions: { type: 'object', additionalProperties: true, required: true, description: 'Bundled distribution names and versions recorded in runtime.json; excludes user-installed additions.' },
+  ctx.tools.register(
+    defineTool({
+      name: 'load_workspace_dependencies',
+      description:
+        'Get absolute paths to bundled Python and library directories, plus bundled Python distribution versions. Node.js and pnpm paths are included when the payload provides them. Python includes numpy, pandas, python-docx, python-pptx, openpyxl, Pillow, lxml, and XlsxWriter. Use these libraries for Office files unless the user or workspace instructions select another environment. When Node.js and pnpm paths are returned, run pnpm with that Node executable and pnpm script path. This does not change PATH or package-manager settings.',
+      parameters: {},
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            python: { type: 'string', required: true },
+            node: { type: 'string', description: 'Absent when the payload ships no Node.js.' },
+            pnpm: { type: 'string', description: 'Absent when the payload ships no pnpm.' },
+            pythonPackages: { type: 'string', required: true },
+            nodePackages: { type: 'string', description: 'Absent when the payload ships no Node.js.' },
+            pythonDistributions: {
+              type: 'object',
+              additionalProperties: true,
+              required: true,
+              description: 'Bundled distribution names and versions recorded in runtime.json; excludes user-installed additions.',
+            },
+          },
         },
+        render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, undefined, 2) }],
       },
-      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, undefined, 2) }],
-    },
-    execute: () => {
-      preparation ??= (config.root === undefined ? resolvePrimaryRuntime(config.source) : installPrimaryRuntime(config.source, config.root))
-        .catch((error: unknown) => {
+      execute: () => {
+        preparation ??= (
+          config.root === undefined ? resolvePrimaryRuntime(config.source) : installPrimaryRuntime(config.source, config.root)
+        ).catch((error: unknown) => {
           preparation = undefined
           throw error
         })
-      return preparation
-    },
-    presentCall: () => ({ card: 'generic', title: 'Load workspace dependencies', kind: 'read' }),
-  }))
+        return preparation
+      },
+      presentCall: () => ({ card: 'generic', title: 'Load workspace dependencies', kind: 'read' }),
+    }),
+  )
 }

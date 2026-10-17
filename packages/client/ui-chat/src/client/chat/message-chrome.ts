@@ -7,8 +7,7 @@ import type { ClockTimeZone } from '../../chat-settings.ts'
 export type ClockTranslate = Translate<'clock.zoned' | 'clock.zone.jst' | 'clock.zone.utc'>
 
 /** Elapsed-duration share of the conversation dictionary. */
-export type RunDurationTranslate =
-  Translate<'duration.secondUnit' | 'duration.minuteUnit' | 'duration.hourUnit'>
+export type RunDurationTranslate = Translate<'duration.secondUnit' | 'duration.minuteUnit' | 'duration.hourUnit'>
 
 /** Refresh interval for whole-second live run clocks. */
 export const LIVE_RUN_CLOCK_INTERVAL_MS = 1000
@@ -49,14 +48,22 @@ function fieldsIn(ms: number, zone: ClockTimeZone): ClockFields {
   if (zone === 'local') {
     const d = new Date(ms)
     return {
-      year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(),
-      hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds(),
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+      day: d.getDate(),
+      hour: d.getHours(),
+      minute: d.getMinutes(),
+      second: d.getSeconds(),
     }
   }
   const d = new Date(ms + (zone === 'jst' ? JST_OFFSET_MS : 0))
   return {
-    year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate(),
-    hour: d.getUTCHours(), minute: d.getUTCMinutes(), second: d.getUTCSeconds(),
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+    hour: d.getUTCHours(),
+    minute: d.getUTCMinutes(),
+    second: d.getUTCSeconds(),
   }
 }
 
@@ -105,14 +112,9 @@ export function formatTokensPerSecond(tps: number): string {
  * @param zone - Zone the clock reads; `local` follows the device.
  * @returns Zoned clock string (24-hour, zero-padded fields).
  */
-export function formatMessageClock(
-  time: number,
-  t: ClockTranslate,
-  zone: ClockTimeZone = 'local',
-): string {
+export function formatMessageClock(time: number, t: ClockTranslate, zone: ClockTimeZone = 'local'): string {
   const at = fieldsIn(time, zone)
-  const clock = `${at.year}-${pad2(at.month)}-${pad2(at.day)}`
-    + `T${pad2(at.hour)}:${pad2(at.minute)}:${pad2(at.second)}`
+  const clock = `${at.year}-${pad2(at.month)}-${pad2(at.day)}` + `T${pad2(at.hour)}:${pad2(at.minute)}:${pad2(at.second)}`
   const labelKey = ZONE_LABEL_KEY[zone]
   return labelKey === undefined ? clock : t('clock.zoned', { time: clock, zone: t(labelKey) })
 }

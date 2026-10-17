@@ -6,7 +6,7 @@
 // incremental fence-highlight decision, so `*.streaming.txt` fixtures with
 // fenced code pin shiki span trees where react-markdown had the plain arm.
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { MarkdownText } from './markdown-test-components.tsx'
 
 afterEach(cleanup)
@@ -175,7 +175,7 @@ const CORPUS: Record<string, string> = {
     '',
     '[![linked badge](https://example.com/badge.png)](https://example.com/target) image-only anchors carry no leading glyph.',
   ].join('\n'),
-  'images': [
+  images: [
     '![https image](https://example.com/secure.png "img title")',
     '',
     '![http image](http://example.com/plain.png)',
@@ -196,7 +196,7 @@ const CORPUS: Record<string, string> = {
     '[shortcut]: https://example.com/shortcut',
     '[imgref]: https://example.com/ref.png',
   ].join('\n'),
-  'footnotes': [
+  footnotes: [
     'First use[^a] and reuse[^a] and another[^b].',
     '',
     '[^a]: Footnote a body with [link](https://example.com).',

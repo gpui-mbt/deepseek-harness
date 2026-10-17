@@ -2,16 +2,13 @@
 import { spawn } from 'node:child_process'
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
-const serialFiles = [
-  'apps/web/tests/hmr-live.e2e.ts',
-  'apps/web/tests/client-plugin-live.e2e.ts',
-]
+const serialFiles = ['apps/web/tests/hmr-live.e2e.ts', 'apps/web/tests/client-plugin-live.e2e.ts']
 const workerRaw = process.env.DSH_WEB_SNAPSHOT_WORKERS
 const workers = Number.parseInt(workerRaw ?? '', 10)
 if (!Number.isSafeInteger(workers) || workers < 1 || String(workers) !== workerRaw) {
   throw new Error(`DSH_WEB_SNAPSHOT_WORKERS must be a positive integer, got ${JSON.stringify(workerRaw)}.`)
 }
-const invocation = pnpmInvocation(['exec', 'vitest', 'run', '--config', 'vitest.web.config.ts'])
+const invocation = pnpmInvocation(['exec', 'vp', 'test', '--config', 'vitest.web.config.ts'])
 let serialStatus = 0
 for (const file of serialFiles) {
   serialStatus = await run(invocation.command, [...invocation.args, file])

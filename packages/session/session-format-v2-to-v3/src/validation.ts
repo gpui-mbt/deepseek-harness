@@ -54,7 +54,8 @@ export function restoreReleasedV3Artifact(artifact: SessionFormatArtifact, known
       }
     } else if (SURFACE_TYPES.has(event.type) && event['surfaceOp'] !== 'append') {
       const replace = record(event['surfaceOp'], 'surface replacement')
-      if (replace['startSeq'] === head || replace['endSeq'] === head) throw new SessionFormatError('surface replacement cannot shadow the protected system head')
+      if (replace['startSeq'] === head || replace['endSeq'] === head)
+        throw new SessionFormatError('surface replacement cannot shadow the protected system head')
     }
     if (event.type === 'compaction/prune' || event.type === 'compaction/summary') {
       const data = record(event.data, event.type)
@@ -79,8 +80,7 @@ export function restoreReleasedV3Artifact(artifact: SessionFormatArtifact, known
  * @param event - event envelope whose type and ignorable admission markers are available.
  */
 export function assertV3EventAdmission(event: SessionFormatEvent): void {
-  if ((event.type === 'tool/code-dispatch-start' || event.type === 'tool/code-dispatch')
-    && event['ignorable'] !== true) {
+  if ((event.type === 'tool/code-dispatch-start' || event.type === 'tool/code-dispatch') && event['ignorable'] !== true) {
     throw new SessionFormatUnsupportedMigrationError(
       'format v3 contains unknown event type ' + JSON.stringify(event.type) + ' at seq ' + String(event.seq),
     )

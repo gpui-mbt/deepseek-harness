@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { DEFAULT_SEARCH_MAX_LINES, SearchBlock as LocalizedSearchBlock } from '../src/index.ts'
-import type {
-  SearchFileGroup, SearchMatchesBlockProps, SearchPathsBlockProps,
-} from '../src/index.ts'
+import type { SearchFileGroup, SearchMatchesBlockProps, SearchPathsBlockProps } from '../src/index.ts'
 import { searchBlockLabels } from './labels.client.ts'
 
-type SearchBlockProps =
-  | Omit<SearchMatchesBlockProps, 'labels'>
-  | Omit<SearchPathsBlockProps, 'labels'>
+type SearchBlockProps = Omit<SearchMatchesBlockProps, 'labels'> | Omit<SearchPathsBlockProps, 'labels'>
 
 function SearchMatchesBlock(props: Omit<SearchMatchesBlockProps, 'labels'>) {
   return <LocalizedSearchBlock {...props} labels={searchBlockLabels} />
@@ -21,9 +17,7 @@ function SearchPathsBlock(props: Omit<SearchPathsBlockProps, 'labels'>) {
 }
 
 function SearchBlock(props: SearchBlockProps) {
-  return props.kind === 'matches'
-    ? <SearchMatchesBlock {...props} />
-    : <SearchPathsBlock {...props} />
+  return props.kind === 'matches' ? <SearchMatchesBlock {...props} /> : <SearchPathsBlock {...props} />
 }
 
 afterEach(cleanup)
@@ -49,10 +43,23 @@ function group(path: string, count: number, from = 1): SearchFileGroup {
 
 describe('SearchBlock matches kind', () => {
   it('renders each file as a header group with its matched lines', () => {
-    const view = render(<SearchBlock kind="matches" truncated={false} total={3} files={[
-      { path: 'a.ts', matches: [{ lineNumber: 12, line: 'const a = 1' }, { lineNumber: 40, line: 'return a' }] },
-      { path: 'b.ts', matches: [{ lineNumber: 7, line: 'const b = 2' }] },
-    ]} />)
+    const view = render(
+      <SearchBlock
+        kind="matches"
+        truncated={false}
+        total={3}
+        files={[
+          {
+            path: 'a.ts',
+            matches: [
+              { lineNumber: 12, line: 'const a = 1' },
+              { lineNumber: 40, line: 'return a' },
+            ],
+          },
+          { path: 'b.ts', matches: [{ lineNumber: 7, line: 'const b = 2' }] },
+        ]}
+      />,
+    )
     expect(fileHeaders(view.container)).toEqual(['a.ts2', 'b.ts1'])
     expect(lines(view.container)).toEqual(['12: const a = 1', '40: return a', '7: const b = 2'])
     // The summary counts matches and files, with no folded pre-cap total below the cap.
@@ -61,10 +68,17 @@ describe('SearchBlock matches kind', () => {
   })
 
   it('collapses and re-expands a single file group without touching the others', () => {
-    const view = render(<SearchBlock kind="matches" truncated={false} total={3} files={[
-      { path: 'a.ts', matches: [{ lineNumber: 1, line: 'x' }] },
-      { path: 'b.ts', matches: [{ lineNumber: 2, line: 'y' }] },
-    ]} />)
+    const view = render(
+      <SearchBlock
+        kind="matches"
+        truncated={false}
+        total={3}
+        files={[
+          { path: 'a.ts', matches: [{ lineNumber: 1, line: 'x' }] },
+          { path: 'b.ts', matches: [{ lineNumber: 2, line: 'y' }] },
+        ]}
+      />,
+    )
     const [headerA] = view.container.querySelectorAll('[class^="_fileHeader_"]')
     expect(headerA!.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(headerA!)
@@ -113,8 +127,7 @@ describe('SearchBlock empty arm', () => {
 
 describe('SearchBlock height cap', () => {
   it('renders every row and no expand control under the cap', () => {
-    const view = render(<SearchBlock kind="paths" truncated={false} total={4}
-      paths={['a', 'b', 'c', 'd']} maxLines={4} />)
+    const view = render(<SearchBlock kind="paths" truncated={false} total={4} paths={['a', 'b', 'c', 'd']} maxLines={4} />)
     expect(lines(view.container)).toHaveLength(4)
     expect(view.container.querySelector('[aria-label^="展开"]')).toBeNull()
   })
@@ -136,8 +149,7 @@ describe('SearchBlock height cap', () => {
 
   it('counts a file header as one capped row alongside its matches', () => {
     // One file with 10 matches → 11 rows (header + 10). Cap 4: head 2, tail 2.
-    const view = render(<SearchBlock kind="matches" truncated={false} total={10}
-      files={[group('a.ts', 10)]} maxLines={4} />)
+    const view = render(<SearchBlock kind="matches" truncated={false} total={10} files={[group('a.ts', 10)]} maxLines={4} />)
     // Head takes the header then the first match; tail takes the last two matches.
     expect(lines(view.container)).toEqual(['1: hit 1', '9: hit 9', '10: hit 10'])
     expect(fileHeaders(view.container)).toEqual(['a.ts10'])
@@ -145,8 +157,7 @@ describe('SearchBlock height cap', () => {
   })
 
   it('renders the head slice alone when the cap leaves no tail', () => {
-    const view = render(<SearchBlock kind="paths" truncated={false} total={5}
-      paths={['a', 'b', 'c', 'd', 'e']} maxLines={1} />)
+    const view = render(<SearchBlock kind="paths" truncated={false} total={5} paths={['a', 'b', 'c', 'd', 'e']} maxLines={1} />)
     expect(lines(view.container)).toEqual(['a'])
     expect(view.getByRole('button', { name: '展开其余 4 行结果' })).toBeTruthy()
   })
@@ -156,14 +167,11 @@ describe('SearchBlock height cap', () => {
     // matches), tail 4. The tail begins mid-b.ts, so its header is restored —
     // and, being a row itself, it consumes one tail slot rather than pushing the
     // card to 9 rows: the tail keeps its last 3 matches, total visible = 8.
-    const view = render(<SearchBlock kind="matches" truncated={false} total={20} maxLines={8} files={[
-      group('a.ts', 10), group('b.ts', 10, 11),
-    ]} />)
+    const view = render(
+      <SearchBlock kind="matches" truncated={false} total={20} maxLines={8} files={[group('a.ts', 10), group('b.ts', 10, 11)]} />,
+    )
     expect(fileHeaders(view.container)).toEqual(['a.ts10', 'b.ts10'])
-    expect(lines(view.container)).toEqual([
-      '1: hit 1', '2: hit 2', '3: hit 3',
-      '18: hit 18', '19: hit 19', '20: hit 20',
-    ])
+    expect(lines(view.container)).toEqual(['1: hit 1', '2: hit 2', '3: hit 3', '18: hit 18', '19: hit 19', '20: hit 20'])
     // Visible rows hold at maxLines (2 headers + 6 matches = 8), so the hidden
     // count stays exact: 22 − 8 = 14.
     expect(view.getByRole('button', { name: '展开其余 14 行结果' })).toBeTruthy()
@@ -182,15 +190,31 @@ describe('SearchBlock copy', () => {
     vi.useFakeTimers()
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
-    const view = render(<SearchBlock kind="matches" truncated total={9} maxLines={2} files={[
-      { path: 'a.ts', matches: [{ lineNumber: 1, line: 'x' }, { lineNumber: 2, line: 'y' }] },
-      { path: 'b.ts', matches: [{ lineNumber: 3, line: 'z' }] },
-    ]} />)
+    const view = render(
+      <SearchBlock
+        kind="matches"
+        truncated
+        total={9}
+        maxLines={2}
+        files={[
+          {
+            path: 'a.ts',
+            matches: [
+              { lineNumber: 1, line: 'x' },
+              { lineNumber: 2, line: 'y' },
+            ],
+          },
+          { path: 'b.ts', matches: [{ lineNumber: 3, line: 'z' }] },
+        ]}
+      />,
+    )
     // Collapse a group and leave the cap in place: the clipboard still gets it all.
     fireEvent.click(view.container.querySelector('[class^="_fileHeader_"]')!)
     fireEvent.click(screen.getByRole('button', { name: '复制' }))
     expect(writeText).toHaveBeenCalledWith('a.ts\n1: x\n2: y\n\nb.ts\n3: z')
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(screen.getByRole('button', { name: '复制成功' })).toBeTruthy()
     // A second click while the ok label shows is a no-op.
     fireEvent.click(screen.getByRole('button', { name: '复制成功' }))
@@ -210,11 +234,14 @@ describe('SearchBlock copy', () => {
 
   it('does not claim success when the host refuses the write', async () => {
     Object.defineProperty(navigator, 'clipboard', {
-      configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
     })
     render(<SearchBlock kind="paths" truncated={false} total={1} paths={['a']} />)
     fireEvent.click(screen.getByRole('button', { name: '复制' }))
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: '复制成功' })).toBeNull()
   })

@@ -42,11 +42,7 @@ export interface EditGoalRequest {
 }
 
 /** Durable continuation phase. Activation is process-local and separate. */
-export type GoalPhase =
-  | 'active'
-  | 'paused'
-  | 'blocked'
-  | 'complete'
+export type GoalPhase = 'active' | 'paused' | 'blocked' | 'complete'
 
 /** Machine-routable and human-readable explanation for a blocked goal. */
 export interface GoalBlockReason {

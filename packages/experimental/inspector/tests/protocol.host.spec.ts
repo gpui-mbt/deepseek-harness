@@ -1,30 +1,38 @@
 /** Worker and shared protocol behavior. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { INSPECTOR_PROTOCOL_VERSION, parseSourceFrame, parseWorkerSourceFrame } from '../src/shared/bridge/messages/observation.ts'
 import { InspectorSourceRegistry, type InspectorRecordConsumer, type SourceConnection } from '../src/worker/bridge/hub.ts'
 
 describe('Inspector source protocol', () => {
   it('rebuilds a valid source frame and rejects non-JSON payloads', () => {
-    const frame = parseSourceFrame({
-      v: INSPECTOR_PROTOCOL_VERSION,
-      t: 'source/append',
-      sourceId: 'host-1',
-      generation: 'generation-1',
-      firstSequence: 1,
-      droppedBefore: 0,
-      records: [{ monotonicMs: 12, topic: 'probe', payload: { ok: true } }],
-    }, 4)
+    const frame = parseSourceFrame(
+      {
+        v: INSPECTOR_PROTOCOL_VERSION,
+        t: 'source/append',
+        sourceId: 'host-1',
+        generation: 'generation-1',
+        firstSequence: 1,
+        droppedBefore: 0,
+        records: [{ monotonicMs: 12, topic: 'probe', payload: { ok: true } }],
+      },
+      4,
+    )
     expect(frame.t).toBe('source/append')
-    expect(() => parseSourceFrame({
-      v: INSPECTOR_PROTOCOL_VERSION,
-      t: 'source/append',
-      sourceId: 'host-1',
-      generation: 'generation-1',
-      firstSequence: 1,
-      droppedBefore: 0,
-      records: [{ monotonicMs: 12, topic: 'probe', payload: { bad: undefined } }],
-    }, 4)).toThrow('lossless JSON object')
+    expect(() =>
+      parseSourceFrame(
+        {
+          v: INSPECTOR_PROTOCOL_VERSION,
+          t: 'source/append',
+          sourceId: 'host-1',
+          generation: 'generation-1',
+          firstSequence: 1,
+          droppedBefore: 0,
+          records: [{ monotonicMs: 12, topic: 'probe', payload: { bad: undefined } }],
+        },
+        4,
+      ),
+    ).toThrow('lossless JSON object')
   })
 
   it('isolates generations and reports sequence gaps', () => {
@@ -38,7 +46,9 @@ describe('Inspector source protocol', () => {
       close,
     }
     const replies: unknown[] = []
-    const send = vi.fn((frame: unknown) => { replies.push(frame) })
+    const send = vi.fn((frame: unknown) => {
+      replies.push(frame)
+    })
     const closeConnection = vi.fn()
     const connection: SourceConnection = {
       kind: 'host',
@@ -120,71 +130,87 @@ describe('Inspector source protocol', () => {
       command: { op: 'call-function', receiver: 'object-1', returnByValue: true },
     })
     if (request.t !== 'client-runtime/request') throw new Error('unexpected frame type')
-    expect(() => parseWorkerSourceFrame({
-      ...request,
-      command: { ...request.command, unversionedExtension: true },
-    })).toThrow('unknown field')
+    expect(() =>
+      parseWorkerSourceFrame({
+        ...request,
+        command: { ...request.command, unversionedExtension: true },
+      }),
+    ).toThrow('unknown field')
 
-    expect(parseWorkerSourceFrame({
-      v: 0,
-      t: 'client-runtime/response-acknowledged',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'session-1',
-      requestId: 'request-1',
-    })).toMatchObject({ t: 'client-runtime/response-acknowledged', requestId: 'request-1' })
+    expect(
+      parseWorkerSourceFrame({
+        v: 0,
+        t: 'client-runtime/response-acknowledged',
+        sourceId: 'client-1',
+        generation: 'g-1',
+        sessionId: 'session-1',
+        requestId: 'request-1',
+      }),
+    ).toMatchObject({ t: 'client-runtime/response-acknowledged', requestId: 'request-1' })
   })
 
   it('rejects invalid RemoteObject representations', () => {
-    expect(() => parseSourceFrame({
-      v: 0,
-      t: 'client-runtime/response',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'session-1',
-      requestId: 'request-1',
-      outcome: {
-        ok: true,
-        result: {
-          op: 'evaluate',
-          completion: {
+    expect(() =>
+      parseSourceFrame(
+        {
+          v: 0,
+          t: 'client-runtime/response',
+          sourceId: 'client-1',
+          generation: 'g-1',
+          sessionId: 'session-1',
+          requestId: 'request-1',
+          outcome: {
+            ok: true,
             result: {
-              descriptor: { type: 'number', value: 1 },
-              object: { handle: 'object-1' },
+              op: 'evaluate',
+              completion: {
+                result: {
+                  descriptor: { type: 'number', value: 1 },
+                  object: { handle: 'object-1' },
+                },
+              },
             },
           },
         },
-      },
-    }, 4)).toThrow('invalid number RemoteObject representation')
+        4,
+      ),
+    ).toThrow('invalid number RemoteObject representation')
   })
 
   it('decodes exact Client Console lifecycle and event frames', () => {
-    expect(parseWorkerSourceFrame({
-      v: 0,
-      t: 'client-console/enable',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'session-1',
-    })).toMatchObject({ t: 'client-console/enable', sessionId: 'session-1' })
+    expect(
+      parseWorkerSourceFrame({
+        v: 0,
+        t: 'client-console/enable',
+        sourceId: 'client-1',
+        generation: 'g-1',
+        sessionId: 'session-1',
+      }),
+    ).toMatchObject({ t: 'client-console/enable', sessionId: 'session-1' })
 
-    const frame = parseSourceFrame({
-      v: 0,
-      t: 'client-console/event',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'session-1',
-      event: {
-        type: 'console-api',
+    const frame = parseSourceFrame(
+      {
+        v: 0,
+        t: 'client-console/event',
+        sourceId: 'client-1',
+        generation: 'g-1',
+        sessionId: 'session-1',
         event: {
-          type: 'log',
-          arguments: [{
-            descriptor: { type: 'object', className: 'Object', description: 'Object' },
-            object: { handle: 'object-1' },
-          }],
-          timestamp: 12,
+          type: 'console-api',
+          event: {
+            type: 'log',
+            arguments: [
+              {
+                descriptor: { type: 'object', className: 'Object', description: 'Object' },
+                object: { handle: 'object-1' },
+              },
+            ],
+            timestamp: 12,
+          },
         },
       },
-    }, 4)
+      4,
+    )
     expect(frame).toMatchObject({
       t: 'client-console/event',
       sessionId: 'session-1',
@@ -194,81 +220,95 @@ describe('Inspector source protocol', () => {
       },
     })
 
-    expect(() => parseWorkerSourceFrame({
-      v: 0,
-      t: 'client-console/disable',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'session-1',
-      extra: true,
-    })).toThrow('unknown field')
+    expect(() =>
+      parseWorkerSourceFrame({
+        v: 0,
+        t: 'client-console/disable',
+        sourceId: 'client-1',
+        generation: 'g-1',
+        sessionId: 'session-1',
+        extra: true,
+      }),
+    ).toThrow('unknown field')
   })
 
   it('decodes bounded Client source commands and responses', () => {
-    expect(parseWorkerSourceFrame({
-      v: 0,
-      t: 'client-sources/request',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'source-session-1',
-      requestId: 'source-request-1',
-      command: {
-        op: 'get-content-chunk',
-        scriptKey: 'bundle',
-        content: 'source',
-        offset: 0,
-        maxBytes: 1024,
-      },
-    })).toMatchObject({
+    expect(
+      parseWorkerSourceFrame({
+        v: 0,
+        t: 'client-sources/request',
+        sourceId: 'client-1',
+        generation: 'g-1',
+        sessionId: 'source-session-1',
+        requestId: 'source-request-1',
+        command: {
+          op: 'get-content-chunk',
+          scriptKey: 'bundle',
+          content: 'source',
+          offset: 0,
+          maxBytes: 1024,
+        },
+      }),
+    ).toMatchObject({
       t: 'client-sources/request',
       command: { op: 'get-content-chunk', maxBytes: 1024 },
     })
 
-    expect(parseSourceFrame({
-      v: 0,
-      t: 'client-sources/response',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'source-session-1',
-      requestId: 'source-request-1',
-      outcome: {
-        ok: true,
-        result: {
-          op: 'get-content-chunk',
-          scriptKey: 'bundle',
-          content: 'source',
-          available: true,
-          offset: 0,
-          nextOffset: 3,
-          data: 'YWJj',
-          eof: true,
+    expect(
+      parseSourceFrame(
+        {
+          v: 0,
+          t: 'client-sources/response',
+          sourceId: 'client-1',
+          generation: 'g-1',
+          sessionId: 'source-session-1',
+          requestId: 'source-request-1',
+          outcome: {
+            ok: true,
+            result: {
+              op: 'get-content-chunk',
+              scriptKey: 'bundle',
+              content: 'source',
+              available: true,
+              offset: 0,
+              nextOffset: 3,
+              data: 'YWJj',
+              eof: true,
+            },
+          },
         },
-      },
-    }, 4)).toMatchObject({
+        4,
+      ),
+    ).toMatchObject({
       t: 'client-sources/response',
       outcome: { ok: true, result: { data: 'YWJj', eof: true } },
     })
 
-    expect(() => parseSourceFrame({
-      v: 0,
-      t: 'client-sources/response',
-      sourceId: 'client-1',
-      generation: 'g-1',
-      sessionId: 'source-session-1',
-      requestId: 'source-request-1',
-      outcome: {
-        ok: true,
-        result: {
-          op: 'get-content-chunk',
-          scriptKey: 'bundle',
-          content: 'source',
-          available: true,
-          offset: 0,
-          nextOffset: 3,
-          data: 'not base64',
-          eof: true,
+    expect(() =>
+      parseSourceFrame(
+        {
+          v: 0,
+          t: 'client-sources/response',
+          sourceId: 'client-1',
+          generation: 'g-1',
+          sessionId: 'source-session-1',
+          requestId: 'source-request-1',
+          outcome: {
+            ok: true,
+            result: {
+              op: 'get-content-chunk',
+              scriptKey: 'bundle',
+              content: 'source',
+              available: true,
+              offset: 0,
+              nextOffset: 3,
+              data: 'not base64',
+              eof: true,
+            },
+          },
         },
-      },
-    }, 4)).toThrow('chunk data')
+        4,
+      ),
+    ).toThrow('chunk data')
   })
 })

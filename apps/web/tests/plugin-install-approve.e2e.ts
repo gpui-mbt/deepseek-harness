@@ -5,8 +5,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
-import { launchWebScaffold, captureStableAria, compareOrRefreshGolden, webSnapshotMode, watchConsole, type WebScaffold } from './scaffold.ts'
+import { expect, it } from 'vite-plus/test'
+import {
+  launchWebScaffold,
+  captureStableAria,
+  compareOrRefreshGolden,
+  webSnapshotMode,
+  watchConsole,
+  type WebScaffold,
+} from './scaffold.ts'
 import { ZH_BROWSER_LOCALE } from './support.ts'
 
 it('offers approval for blocked install scripts and installs once they are allowed', async () => {
@@ -22,8 +29,13 @@ it('offers approval for blocked install scripts and installs once they are allow
       const policyPath = join(profile, 'pnpm-workspace.yaml')
       // Node stands in for pnpm: `view` answers the check, and `add` first leaves the script undecided in the
       // profile policy the way pnpm 11 does and fails; once the policy allows it, the same `add` installs the package.
-      await writeFile(join(profile, 'view'), 'console.log(JSON.stringify({ name: "native-package", version: "1.0.0", dsh: { bundle: { patch: "./cordis.patch.yml" } } }))\n')
-      await writeFile(join(profile, 'add'), `
+      await writeFile(
+        join(profile, 'view'),
+        'console.log(JSON.stringify({ name: "native-package", version: "1.0.0", dsh: { bundle: { patch: "./cordis.patch.yml" } } }))\n',
+      )
+      await writeFile(
+        join(profile, 'add'),
+        `
         import('node:fs').then(fs => {
         const policy = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
         if (!/native-package: true/.test(policy)) {
@@ -41,12 +53,13 @@ it('offers approval for blocked install scripts and installs once they are allow
         fs.writeFileSync('package.json', JSON.stringify({ ...JSON.parse(fs.readFileSync('package.json', 'utf8')), dependencies: { 'native-package': '1.0.0' } }));
         console.log('Built native-package');
         });
-      `)
+      `,
+      )
       const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: ZH_BROWSER_LOCALE })
       const tripwire = watchConsole(page)
       await page.goto(scaffold.authenticatedUrl)
       await page.waitForSelector('[class*="frame"]')
-      if (await page.getByRole('dialog', { name: '设置' }).count() > 0) await page.keyboard.press('Escape')
+      if ((await page.getByRole('dialog', { name: '设置' }).count()) > 0) await page.keyboard.press('Escape')
       await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true }).click()
       const panel = page.locator('[data-plugin-panel]')
       await panel.getByRole('button', { name: '添加插件', exact: true }).click()
@@ -60,17 +73,27 @@ it('offers approval for blocked install scripts and installs once they are allow
       expect(await dialog.getByRole('button', { name: '重试', exact: true }).count()).toBe(0)
       expect(await readFile(policyPath, 'utf8')).toContain('native-package: set this to true or false')
       const snapshot = (await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd))
-        .split(process.execPath).join('{{node}}')
-        .split(scaffold.harnessHome).join('{{harnessHome}}')
-      await compareOrRefreshGolden(fileURLToPath(new URL('./expected/plugin-install-approve/blocked.expected.md', import.meta.url)), snapshot, webSnapshotMode())
+        .split(process.execPath)
+        .join('{{node}}')
+        .split(scaffold.harnessHome)
+        .join('{{harnessHome}}')
+      await compareOrRefreshGolden(
+        fileURLToPath(new URL('./expected/plugin-install-approve/blocked.expected.md', import.meta.url)),
+        snapshot,
+        webSnapshotMode(),
+      )
       await approval.getByRole('button', { name: '允许这些脚本并重试', exact: true }).click()
       // The Host saved the permission before running pnpm again, and the installed screen says so.
       await dialog.getByRole('button', { name: '立即启用', exact: true }).waitFor({ timeout: 20_000 })
       await dialog.getByText('已允许运行安装脚本：native-package', { exact: true }).waitFor()
       expect(await readFile(policyPath, 'utf8')).toMatch(/native-package: true/)
-      expect(JSON.parse(await readFile(join(profile, 'package.json'), 'utf8'))).toMatchObject({ dependencies: { 'native-package': '1.0.0' } })
+      expect(JSON.parse(await readFile(join(profile, 'package.json'), 'utf8'))).toMatchObject({
+        dependencies: { 'native-package': '1.0.0' },
+      })
       expect(tripwire.pageErrors).toEqual([])
-    } finally { await browser.close() }
+    } finally {
+      await browser.close()
+    }
   } finally {
     await scaffold?.close()
     await rm(scratch, { recursive: true, force: true })

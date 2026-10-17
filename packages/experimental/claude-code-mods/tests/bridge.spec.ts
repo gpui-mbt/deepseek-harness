@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { join, resolve } from 'node:path'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context, type Fiber } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -65,13 +65,18 @@ async function importRegister(path: string): Promise<ModRegister> {
 async function writeMod(name: string, body: string, userConfig?: Record<string, string>): Promise<ModPlugin> {
   const path = join(scratch(), `${name}.mjs`)
   writeFileSync(path, body)
-  return defineMod({ name, version: '0.0.1', ...userConfig === undefined ? {} : { userConfig }, register: await importRegister(path) })
+  return defineMod({ name, version: '0.0.1', ...(userConfig === undefined ? {} : { userConfig }), register: await importRegister(path) })
 }
 
 /** A fixture mod under `tests/fixtures/<name>.mjs`, wrapped as a plugin with the fixture's `userConfig`. */
 async function fixtureMod(name: string): Promise<ModPlugin> {
   const userConfig = name === 'first-mod' ? { greeting: 'Claude has made' } : undefined
-  return defineMod({ name, version: '0.1.0', ...userConfig === undefined ? {} : { userConfig }, register: await importRegister(join(FIXTURES, `${name}.mjs`)) })
+  return defineMod({
+    name,
+    version: '0.1.0',
+    ...(userConfig === undefined ? {} : { userConfig }),
+    register: await importRegister(join(FIXTURES, `${name}.mjs`)),
+  })
 }
 
 interface HarnessOptions {
@@ -120,7 +125,12 @@ async function harness(
   }
   ctx.llm.registerAdapter(['mock'], adapter)
   return {
-    ctx, adapter, workspace, mods, info, warn,
+    ctx,
+    adapter,
+    workspace,
+    mods,
+    info,
+    warn,
     agent: id => ctx.agentLoop.create(SessionId(id ?? 'a1'), { provider: 'mock', model: 'mock' }, { cwd: workspace }),
     async turn(agent, text) {
       agent.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }))
@@ -137,19 +147,21 @@ function toolResult(agent: Agent): { isError: boolean; text: string } | undefine
   const event = events(agent).find(e => e.type === 'tool/result')
   if (event?.type !== 'tool/result') return undefined
   const { message } = event.data
-  return { isError: message.isError === true, text: message.content.map(block => block.type === 'text' ? block.text : '').join('') }
+  return { isError: message.isError === true, text: message.content.map(block => (block.type === 'text' ? block.text : '')).join('') }
 }
 
 /** A mock model whose route advertises a context window, so the token meter can report pressure against it. */
 class WindowedAdapter extends MockAdapter {
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    return { ...await super.resolveModel(provider, model), context: { contextWindow: 1000 } }
+    return { ...(await super.resolveModel(provider, model)), context: { contextWindow: 1000 } }
   }
 }
 
 function echoTool(name: string, ran: string[] = []) {
   return defineContentToolFixture({
-    name, description: 'echoes its command', parameters: { command: { type: 'string' } },
+    name,
+    description: 'echoes its command',
+    parameters: { command: { type: 'string' } },
     async execute(args) {
       ran.push(String(args.command))
       return [{ type: 'text', text: `ran ${String(args.command)}` }]
@@ -166,22 +178,26 @@ async function waitFor(predicate: () => boolean, timeout = 5000): Promise<void> 
 }
 
 describe('first-mod: the tutorial mod on the real loop', () => {
-  it('registers /tally at session start, counts the turn\'s tool calls, prints the count without a model turn, and unregisters on dispose', async () => {
+  it("registers /tally at session start, counts the turn's tool calls, prints the count without a model turn, and unregisters on dispose", async () => {
     const adapter = new MockAdapter([toolCallResponse('c1', 'echo', { command: 'ls' }), textResponse('done')])
     const h = await harness(['first-mod'], adapter)
     h.ctx.tools.register(echoTool('echo'))
     const agent = await h.agent()
     expect(h.ctx.commands.list(agent).map(command => command.name)).toEqual(['tally'])
     expect(h.info).toHaveBeenCalledWith(
-      'claude-code-mods: hooks module first-mod@inline loaded (tier user); '
-      + 'events: session.start, tool.call, command.run{command=tally}, ui.render{component=Spinner}',
+      'claude-code-mods: hooks module first-mod@inline loaded (tier user); ' +
+        'events: session.start, tool.call, command.run{command=tally}, ui.render{component=Spinner}',
     )
 
     await h.turn(agent, 'list the files here')
     expect(adapter.requests).toHaveLength(2)
     const run = await h.ctx.commands.execute(agent, '/tally', [], new AbortController().signal)
     expect(run?.result).toEqual({ kind: 'success', text: 'first-mod: Claude has made 1 tool calls since this mod loaded' })
-    expect(events(agent).filter(e => e.type === 'command/run' || e.type === 'command/done').map(e => e.type)).toEqual(['command/run', 'command/done'])
+    expect(
+      events(agent)
+        .filter(e => e.type === 'command/run' || e.type === 'command/done')
+        .map(e => e.type),
+    ).toEqual(['command/run', 'command/done'])
 
     // The command is scoped to the agent that started the session, not global.
     const other = await h.agent('a2')
@@ -236,14 +252,17 @@ describe('ticket-mod: a mod-registered tool, prompt context, and a turn.complete
     const h = await harness(['ticket-mod'], adapter)
     const agent = await h.agent()
     const schema = h.ctx.tools.schemas(scopeOf(agent.ctx)).find(tool => tool.name === 'mcp__ticket-mod__ticket')
-    expect(schema).toMatchObject({ description: 'Look up a ticket by its id and return its title and status', parameters: { type: 'object', required: ['id'] } })
+    expect(schema).toMatchObject({
+      description: 'Look up a ticket by its id and return its title and status',
+      parameters: { type: 'object', required: ['id'] },
+    })
     await h.turn(agent, 'what is T-1 about?')
     expect(toolResult(agent)).toEqual({ isError: false, text: 'Login button does nothing (open)' })
     expect(adapter.requests[0]?.tools?.map(tool => tool.name)).toContain('mcp__ticket-mod__ticket')
     await waitFor(() => h.info.mock.calls.some(call => call[0] === 'claude-code-mods: Done in some ms'))
   })
 
-  it('appends prompt.submit context as blocks after the prompt as typed, inside the user\'s own message', async () => {
+  it("appends prompt.submit context as blocks after the prompt as typed, inside the user's own message", async () => {
     const adapter = new MockAdapter([textResponse('ok')])
     const h = await harness(['ticket-mod'], adapter)
     const agent = await h.agent()
@@ -261,7 +280,9 @@ describe('ticket-mod: a mod-registered tool, prompt context, and a turn.complete
 
 describe('prompt.submit: rewrite and drop', () => {
   it('rewrites the prompt text the model sees and drops a prompt with a reason', async () => {
-    const mod = writeMod('prompt-mod', `
+    const mod = writeMod(
+      'prompt-mod',
+      `
       const origins = []
       let submitted = false
       export function register(on) {
@@ -288,12 +309,18 @@ describe('prompt.submit: rewrite and drop', () => {
           return next({ ...e, text: e.text.trim().toUpperCase() })
         })
       }
-    `)
+    `,
+    )
     const adapter = new MockAdapter([textResponse('ok'), textResponse('junk ok'), textResponse('reached'), textResponse('mod prompt ok')])
     const h = await harness([mod], adapter)
     const agent = await h.agent()
     // Injected context alone is not a prompt: no prompt.submit is raised for it.
-    agent.inject(createUserMessage({ content: [{ type: 'text', text: 'injected only' }], source: { kind: 'user-question-reply', callId: ToolCallIdOf('q0'), outcome: 'answered' } }))
+    agent.inject(
+      createUserMessage({
+        content: [{ type: 'text', text: 'injected only' }],
+        source: { kind: 'user-question-reply', callId: ToolCallIdOf('q0'), outcome: 'answered' },
+      }),
+    )
     await h.turn(agent, '  hello there  ')
     const entered = events(agent).find(e => e.type === 'user/message' && e.data.source.kind === 'user')
     expect(entered?.type === 'user/message' && entered.data.content).toEqual([{ type: 'text', text: 'HELLO THERE' }])
@@ -301,14 +328,19 @@ describe('prompt.submit: rewrite and drop', () => {
 
     await h.turn(agent, 'tell me the secret')
     expect(adapter.requests).toHaveLength(1)
-    const turns = events(agent).filter(e => e.type === 'turn/end').map(e => e.type === 'turn/end' && e.data.reason.kind)
+    const turns = events(agent)
+      .filter(e => e.type === 'turn/end')
+      .map(e => e.type === 'turn/end' && e.data.reason.kind)
     expect(turns).toEqual(['completed', 'blocked'])
     expect(h.info).toHaveBeenCalledWith('claude-code-mods: prompt dropped: secrets stay out')
 
     // A result with the wrong types keeps the original text and only the string context lines.
     await h.turn(agent, 'some junk')
     const last = adapter.requests[1]?.messages.filter(message => message.role === 'user') ?? []
-    expect(last.at(-1)?.content).toEqual([{ type: 'text', text: 'some junk' }, { type: 'text', text: 'kept context' }])
+    expect(last.at(-1)?.content).toEqual([
+      { type: 'text', text: 'some junk' },
+      { type: 'text', text: 'kept context' },
+    ])
 
     await h.turn(agent, 'reach past the host')
     const reached = adapter.requests[2]?.messages.filter(message => message.role === 'user') ?? []
@@ -325,14 +357,20 @@ describe('prompt.submit: rewrite and drop', () => {
     await agent.whenIdle()
     const origins = await h.ctx.commands.execute(agent, '/origins', [], signal)
     expect(JSON.parse(String(origins?.result.text).replace(/^prompt-mod: /u, ''))).toEqual([
-      { kind: 'composer' }, { kind: 'composer' }, { kind: 'composer' }, { kind: 'composer' }, { kind: 'plugin', name: 'prompt-mod' },
+      { kind: 'composer' },
+      { kind: 'composer' },
+      { kind: 'composer' },
+      { kind: 'composer' },
+      { kind: 'plugin', name: 'prompt-mod' },
     ])
   })
 })
 
 describe('tool.call: answers and rewrites', () => {
   it('answers a built-in tool by its output schema, keeps a rewritten result through post-execute, and skips a hook that rewrote arguments', async () => {
-    const mod = writeMod('answer-mod', `
+    const mod = writeMod(
+      'answer-mod',
+      `
       export function register(on) {
         on('tool.call', { tool: 'greet' }, async ($, e) => ({ result: 'hello from answer-mod' }))
         on('tool.call', { tool: 'echo' }, async ($, e, next) => {
@@ -355,30 +393,45 @@ describe('tool.call: answers and rewrites', () => {
           return next(e)
         })
       }
-    `)
+    `,
+    )
     // A second mod, so its first skip report is the reroute (a hook's reports are one per failure kind).
-    const rerouter = writeMod('reroute-mod', `
+    const rerouter = writeMod(
+      'reroute-mod',
+      `
       export function register(on) {
         on('tool.call', { tool: 'echo' }, ($, e, next) => e.command === 'reroute' ? next({ ...e, tool: 'Read', file_path: 'x' }) : next(e))
       }
-    `)
+    `,
+    )
     const ran: string[] = []
     const adapter = new MockAdapter([
-      toolCallResponse('c1', 'echo', { command: 'skip' }), textResponse('one'),
-      toolCallResponse('c5', 'greet', {}), textResponse('hi'),
-      toolCallResponse('c2', 'echo', { command: 'redact' }), textResponse('two'),
-      toolCallResponse('c3', 'echo', { command: 'redact' }), textResponse('three'),
-      toolCallResponse('c4', 'echo', { command: 'fail' }), textResponse('four'),
-      toolCallResponse('c6', 'echo', { command: 'tweak' }), textResponse('five'),
-      toolCallResponse('c7', 'echo', { command: 'empty' }), textResponse('six'),
-      toolCallResponse('c8', 'echo', { command: 'error' }), textResponse('seven'),
-      toolCallResponse('c9', 'echo', { command: 'reroute' }), textResponse('eight'),
+      toolCallResponse('c1', 'echo', { command: 'skip' }),
+      textResponse('one'),
+      toolCallResponse('c5', 'greet', {}),
+      textResponse('hi'),
+      toolCallResponse('c2', 'echo', { command: 'redact' }),
+      textResponse('two'),
+      toolCallResponse('c3', 'echo', { command: 'redact' }),
+      textResponse('three'),
+      toolCallResponse('c4', 'echo', { command: 'fail' }),
+      textResponse('four'),
+      toolCallResponse('c6', 'echo', { command: 'tweak' }),
+      textResponse('five'),
+      toolCallResponse('c7', 'echo', { command: 'empty' }),
+      textResponse('six'),
+      toolCallResponse('c8', 'echo', { command: 'error' }),
+      textResponse('seven'),
+      toolCallResponse('c9', 'echo', { command: 'reroute' }),
+      textResponse('eight'),
     ])
     const h = await harness([mod, rerouter], adapter)
     h.ctx.tools.register(echoTool('echo', ran))
     // A tool whose output schema admits a string: a mod's string answer is its ordinary result.
     h.ctx.tools.register({
-      name: 'greet', description: 'greets', parameters: {},
+      name: 'greet',
+      description: 'greets',
+      parameters: {},
       output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: `rendered ${value as string}` }] },
       execute: () => Promise.resolve('never runs'),
     })
@@ -400,7 +453,8 @@ describe('tool.call: answers and rewrites', () => {
     await h.turn(agent, 'reroute it')
     // The rewrite is refused: the hook is skipped once per kind and the call runs with its logged arguments.
     expect(ran).toEqual(['redact', 'redact', 'fail', 'tweak', 'reroute'])
-    const results = events(agent).filter(e => e.type === 'tool/result')
+    const results = events(agent)
+      .filter(e => e.type === 'tool/result')
       .map(e => e.type === 'tool/result' && [e.data.message.isError === true, e.data.message.content[0]])
     expect(results.slice(1)).toEqual([
       [false, { type: 'text', text: 'rendered hello from answer-mod' }],
@@ -416,7 +470,12 @@ describe('tool.call: answers and rewrites', () => {
       'claude-code-mods: reroute-mod: tool.call hook skipped: rerouted the call from echo to Read; the logged call runs the tool it named',
     )
     // A call without an agent (a host-side execute) is answered by the same schema rule.
-    const direct = await h.ctx.tools.execute({ callId: ToolCallIdOf('direct'), name: 'greet', arguments: {}, signal: new AbortController().signal })
+    const direct = await h.ctx.tools.execute({
+      callId: ToolCallIdOf('direct'),
+      name: 'greet',
+      arguments: {},
+      signal: new AbortController().signal,
+    })
     expect(direct.isError).toBe(false)
     expect(direct.content).toEqual([{ type: 'text', text: 'rendered hello from answer-mod' }])
     const refusals = h.warn.mock.calls.map(call => String(call[0])).filter(line => line.includes('rewrote the arguments of echo'))
@@ -440,7 +499,9 @@ describe('tool.call: answers and rewrites', () => {
 
 describe('the mods API over harness services', () => {
   it('serves files, processes, session facts, the store, env, http, commands, and tools', async () => {
-    const mod = writeMod('api-mod', `
+    const mod = writeMod(
+      'api-mod',
+      `
       export function register(on) {
         on('command.run', { command: 'probe' }, async ($, e) => {
           const out = {}
@@ -487,7 +548,8 @@ describe('the mods API over harness services', () => {
           return next(e)
         })
       }
-    `)
+    `,
+    )
     const server = createServer((request, response) => {
       if (request.url === '/big') {
         response.end(Buffer.alloc(4 * 1024 * 1024 + 1, 120))
@@ -499,7 +561,9 @@ describe('the mods API over harness services', () => {
         return
       }
       let body = ''
-      request.on('data', (chunk: Buffer) => { body += chunk.toString() })
+      request.on('data', (chunk: Buffer) => {
+        body += chunk.toString()
+      })
       request.on('end', () => {
         response.setHeader('x-echo', `${request.method} ${request.headers['x-mod']} ${body}`)
         response.end('pong')
@@ -533,12 +597,20 @@ describe('the mods API over harness services', () => {
       expect(out.run).toEqual({ exitCode: 3, stdout: 'out', stderr: 'err' })
       expect(out.timeout).toMatch(/did not exit within 200 ms/)
       expect(out.session).toEqual({
-        id: 'a1', cwd: h.workspace, root: h.workspace, model: 'mock', turns: 1,
+        id: 'a1',
+        cwd: h.workspace,
+        root: h.workspace,
+        model: 'mock',
+        turns: 1,
         version: MODS_API_VERSION,
         usage: { startedAt: agent.session.header.createdAt, context: { window: 0 }, rateLimits: [] },
         messages: [
           { role: 'user', text: 'hello', toolUses: [] },
-          { role: 'user', text: `Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: ${JSON.stringify(h.workspace)}.`, toolUses: [] },
+          {
+            role: 'user',
+            text: `Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: ${JSON.stringify(h.workspace)}.`,
+            toolUses: [],
+          },
           { role: 'assistant', text: 'ok', toolUses: [] },
         ],
       })
@@ -562,14 +634,20 @@ describe('the mods API over harness services', () => {
       expect(h.info).toHaveBeenCalledWith('api-mod (status): busy')
       expect(h.info).toHaveBeenCalledWith('api-mod (status): (cleared)')
     } finally {
-      await new Promise<void>((resolve) => { server.close(() => { resolve() }) })
+      await new Promise<void>(resolve => {
+        server.close(() => {
+          resolve()
+        })
+      })
     }
   })
 })
 
 describe('$.ui.ask through the user-questions answerer', () => {
   function askMod(): Promise<ModPlugin> {
-    return writeMod('ask-mod', `
+    return writeMod(
+      'ask-mod',
+      `
       export function register(on) {
         on('tool.call', { tool: 'echo' }, async ($, e, next) => {
           let answer
@@ -580,27 +658,38 @@ describe('$.ui.ask through the user-questions answerer', () => {
           return { deny: 'The user declined: ' + answer }
         })
       }
-    `)
+    `,
+    )
   }
 
   it('holds the call until the answerer settles and maps selections, typed answers, and dismissals', async () => {
     const ran: string[] = []
     const answers: string[][] = []
     const adapter = new MockAdapter([
-      toolCallResponse('c1', 'echo', { command: 'first' }), textResponse('one'),
-      toolCallResponse('c2', 'echo', { command: 'second' }), textResponse('two'),
-      toolCallResponse('c3', 'echo', { command: 'plain' }), textResponse('three'),
-      toolCallResponse('c4', 'echo', { command: 'multi' }), textResponse('four'),
-      toolCallResponse('c5', 'echo', { command: 'dismissed' }), textResponse('five'),
+      toolCallResponse('c1', 'echo', { command: 'first' }),
+      textResponse('one'),
+      toolCallResponse('c2', 'echo', { command: 'second' }),
+      textResponse('two'),
+      toolCallResponse('c3', 'echo', { command: 'plain' }),
+      textResponse('three'),
+      toolCallResponse('c4', 'echo', { command: 'multi' }),
+      textResponse('four'),
+      toolCallResponse('c5', 'echo', { command: 'dismissed' }),
+      textResponse('five'),
     ])
     const seen: unknown[] = []
     const h = await harness([askMod()], adapter, {
-      services: async (ctx) => {
+      services: async ctx => {
         await ctx.plugin(UserQuestionService)
-        ctx.on('user-questions/request', (request) => {
+        ctx.on('user-questions/request', request => {
           seen.push(request.questions[0])
           const next = answers.shift() ?? []
-          return Promise.resolve({ answers: next.length === 0 && request.questions[0]?.question === 'Run dismissed?' ? [] : [{ id: 'answer', selected: next, ...next.length === 0 ? { custom: 'typed yes' } : {} }] })
+          return Promise.resolve({
+            answers:
+              next.length === 0 && request.questions[0]?.question === 'Run dismissed?'
+                ? []
+                : [{ id: 'answer', selected: next, ...(next.length === 0 ? { custom: 'typed yes' } : {}) }],
+          })
         })
       },
     })
@@ -613,18 +702,30 @@ describe('$.ui.ask through the user-questions answerer', () => {
     await h.turn(agent, 'multi')
     await h.turn(agent, 'dismissed')
     expect(ran).toEqual(['second', 'plain', 'multi', 'dismissed'])
-    const results = events(agent).filter(e => e.type === 'tool/result').map(e => e.type === 'tool/result' && e.data.message.content[0])
+    const results = events(agent)
+      .filter(e => e.type === 'tool/result')
+      .map(e => e.type === 'tool/result' && e.data.message.content[0])
     expect(results[0]).toEqual({ type: 'text', text: 'Error: The user declined: Refuse' })
     expect(seen[0]).toEqual({ id: 'answer', question: 'Run first?', options: [{ label: 'Run it' }, { label: 'Refuse' }] })
     expect(seen[2]).toEqual({ id: 'answer', question: 'Run it?' })
-    expect(seen[3]).toEqual({ id: 'answer', question: 'Pick', header: 'Choices', options: [{ label: 'a' }, { label: 'b' }, { label: 'c' }], multiSelect: true })
-    expect(h.warn).toHaveBeenCalledWith('claude-code-mods: ask-mod: tool.call hook skipped: threw Error: $.ui.ask: the user dismissed the question')
+    expect(seen[3]).toEqual({
+      id: 'answer',
+      question: 'Pick',
+      header: 'Choices',
+      options: [{ label: 'a' }, { label: 'b' }, { label: 'c' }],
+      multiSelect: true,
+    })
+    expect(h.warn).toHaveBeenCalledWith(
+      'claude-code-mods: ask-mod: tool.call hook skipped: threw Error: $.ui.ask: the user dismissed the question',
+    )
   })
 })
 
 describe('commands and prompts raised by a mod', () => {
   it('runs commands, submits prompts framed or as the user, and reports a command the mod forgot to answer', async () => {
-    const mod = writeMod('driver-mod', `
+    const mod = writeMod(
+      'driver-mod',
+      `
       export function register(on) {
         on('session.start', async ($, e, next) => {
           await $.command.register({ name: 'nudge', description: 'Submit a prompt from the mod' })
@@ -651,7 +752,8 @@ describe('commands and prompts raised by a mod', () => {
           return { text: JSON.stringify(await $.command.run({ command: 'nudge', args: 'user' })) }
         })
       }
-    `)
+    `,
+    )
     const adapter = new MockAdapter([textResponse('one'), textResponse('two'), textResponse('three')])
     const h = await harness([mod], adapter)
     h.ctx.commands.register({ name: 'fail', description: 'always fails', handler: () => ({ kind: 'error', text: 'nope' }) })
@@ -673,19 +775,26 @@ describe('commands and prompts raised by a mod', () => {
     expect(last?.role === 'user' && last.content).toEqual([{ type: 'text', text: 'as the user' }])
 
     const silent = await h.ctx.commands.execute(agent, '/relay silent', [], signal)
-    expect(silent?.result.text).toBe("driver-mod: driver-mod: driver-mod registered /silent but no command.run hook answered it; add on('command.run', { command: 'silent' }, hook)")
+    expect(silent?.result.text).toBe(
+      "driver-mod: driver-mod: driver-mod registered /silent but no command.run hook answered it; add on('command.run', { command: 'silent' }, hook)",
+    )
     const missing = await h.ctx.commands.execute(agent, '/relay missing', [], signal)
     expect(missing?.result.text).toBe('driver-mod: /nope is not a command')
     expect((await h.ctx.commands.execute(agent, '/relay fail', [], signal))?.result.text).toBe('driver-mod: failed: nope')
     expect((await h.ctx.commands.execute(agent, '/relay mute', [], signal))?.result.text).toBe('driver-mod: {}')
     expect((await h.ctx.commands.execute(agent, '/quiet', [], signal))?.result).toEqual({ kind: 'success' })
-    expect(h.info).toHaveBeenCalledWith('driver-mod: call-echo/plugin,fail/builtin,mute/builtin,nudge/plugin,quiet/plugin,relay/plugin,silent/plugin')
+    expect(h.info).toHaveBeenCalledWith(
+      'driver-mod: call-echo/plugin,fail/builtin,mute/builtin,nudge/plugin,quiet/plugin,relay/plugin,silent/plugin',
+    )
 
     // Guidance a tool defers to the next request still reaches the model when the mod made the call.
     h.ctx.tools.register(echoTool('echo'))
     h.ctx.on('tools/post-execute', async (_exec, _result, next) => {
       const downstream = await next()
-      return { ...downstream, additionalContexts: [createUserMessage({ content: [{ type: 'text', text: 'deferred guidance' }], source: { kind: 'user' } })] }
+      return {
+        ...downstream,
+        additionalContexts: [createUserMessage({ content: [{ type: 'text', text: 'deferred guidance' }], source: { kind: 'user' } })],
+      }
     })
     expect((await h.ctx.commands.execute(agent, '/call-echo hi', [], signal))?.result.text).toBe('driver-mod: {"result":"ran hi"}')
     await h.turn(agent, 'next prompt')
@@ -695,7 +804,9 @@ describe('commands and prompts raised by a mod', () => {
 
 describe('mod tools: registration errors and unanswered calls', () => {
   it('fails an invalid registration inside $.tool.register and reports a call no hook answered as a tool error', async () => {
-    const mod = writeMod('tools-mod', `
+    const mod = writeMod(
+      'tools-mod',
+      `
       export function register(on) {
         on('session.start', async ($, e, next) => {
           await $.tool.register({ name: 'orphan', description: 'No hook answers this tool' })
@@ -711,11 +822,15 @@ describe('mod tools: registration errors and unanswered calls', () => {
           return next(e)
         })
       }
-    `)
+    `,
+    )
     const adapter = new MockAdapter([
-      toolCallResponse('c1', 'mcp__tools-mod__orphan', { mode: 'pass' }), textResponse('one'),
-      toolCallResponse('c2', 'mcp__tools-mod__orphan', { mode: 'object' }), textResponse('two'),
-      toolCallResponse('c3', 'mcp__tools-mod__orphan', { mode: 'empty' }), textResponse('three'),
+      toolCallResponse('c1', 'mcp__tools-mod__orphan', { mode: 'pass' }),
+      textResponse('one'),
+      toolCallResponse('c2', 'mcp__tools-mod__orphan', { mode: 'object' }),
+      textResponse('two'),
+      toolCallResponse('c3', 'mcp__tools-mod__orphan', { mode: 'empty' }),
+      textResponse('three'),
     ])
     const h = await harness([mod], adapter)
     const agent = await h.agent()
@@ -724,16 +839,26 @@ describe('mod tools: registration errors and unanswered calls', () => {
     await h.turn(agent, 'one')
     await h.turn(agent, 'two')
     await h.turn(agent, 'three')
-    const results = events(agent).filter(e => e.type === 'tool/result').map(e => e.type === 'tool/result' && [e.data.message.isError, e.data.message.content[0]])
-    expect(results[0]).toEqual([true, { type: 'text', text: "Error: tools-mod registered mcp__tools-mod__orphan but no tool.call hook answered it; add on('tool.call', { tool: 'mcp__tools-mod__orphan' }, hook)" }])
+    const results = events(agent)
+      .filter(e => e.type === 'tool/result')
+      .map(e => e.type === 'tool/result' && [e.data.message.isError, e.data.message.content[0]])
+    expect(results[0]).toEqual([
+      true,
+      {
+        type: 'text',
+        text: "Error: tools-mod registered mcp__tools-mod__orphan but no tool.call hook answered it; add on('tool.call', { tool: 'mcp__tools-mod__orphan' }, hook)",
+      },
+    ])
     expect(results[1]).toEqual([false, { type: 'text', text: '{"structured":true}' }])
     expect(results[2]).toEqual([false, { type: 'text', text: '' }])
   })
 })
 
 describe('subagents, programmatic calls, and malformed tool arguments', () => {
-  it('marks a child agent\'s events with agentId, skips session.start for it, and reads an unparsable tool input as empty', async () => {
-    const mod = writeMod('watch-mod', `
+  it("marks a child agent's events with agentId, skips session.start for it, and reads an unparsable tool input as empty", async () => {
+    const mod = writeMod(
+      'watch-mod',
+      `
       export function register(on) {
         on('session.start', async ($, e, next) => { $.ui.log('session.start ' + await $.session.id()); return next(e) })
         on('session.end', async ($, e, next) => { $.ui.log('session.end ' + e.sessionId); return next(e) })
@@ -755,22 +880,32 @@ describe('subagents, programmatic calls, and malformed tool arguments', () => {
           return next(e)
         })
       }
-    `)
+    `,
+    )
     const malformedCall = [
       { type: 'block-start' as const, index: 0, blockType: 'tool-call' as const },
       { type: 'tool-call-delta' as const, index: 0, id: ToolCallIdOf('m1'), name: 'echo', argumentsDelta: '{bad json' },
-      { type: 'block-end' as const, index: 0, block: { type: 'tool-call' as const, id: ToolCallIdOf('m1'), name: 'echo', arguments: '{bad json' } },
+      {
+        type: 'block-end' as const,
+        index: 0,
+        block: { type: 'tool-call' as const, id: ToolCallIdOf('m1'), name: 'echo', arguments: '{bad json' },
+      },
       { type: 'finish' as const, reason: { kind: 'tool-calls' as const } },
     ]
     const adapter = new MockAdapter([
-      toolCallResponse('c1', 'echo', { command: 'child' }), textResponse('child done'),
-      malformedCall, textResponse('root done'),
+      toolCallResponse('c1', 'echo', { command: 'child' }),
+      textResponse('child done'),
+      malformedCall,
+      textResponse('root done'),
     ])
     const h = await harness([mod], adapter)
     h.ctx.tools.register(echoTool('echo'))
     const root = await h.agent()
     const child = await h.ctx.agentLoop.createAgent(h.ctx, {
-      sessionId: SessionId('child-1'), parentAgent: root, agentOptions: { provider: 'mock', model: 'mock' }, meta: { cwd: h.workspace, origin: 'subagent' },
+      sessionId: SessionId('child-1'),
+      parentAgent: root,
+      agentOptions: { provider: 'mock', model: 'mock' },
+      meta: { cwd: h.workspace, origin: 'subagent' },
     })
     await h.turn(child.agent, 'child task')
     await child.dispose()
@@ -786,7 +921,12 @@ describe('subagents, programmatic calls, and malformed tool arguments', () => {
       'watch-mod: tool.call echo agent=root n=1',
       'watch-mod: turn.complete agent=root inputs=[{}]',
     ])
-    const direct = await h.ctx.tools.execute({ callId: ToolCallIdOf('direct'), name: 'echo', arguments: { command: 'direct' }, signal: new AbortController().signal })
+    const direct = await h.ctx.tools.execute({
+      callId: ToolCallIdOf('direct'),
+      name: 'echo',
+      arguments: { command: 'direct' },
+      signal: new AbortController().signal,
+    })
     expect(direct.isError).toBe(false)
     // The nested `$.tool.call` reaches only mods loaded before watch-mod, so its own hook is not re-entered.
     expect(h.info).toHaveBeenCalledWith('watch-mod: direct saw echo and {"result":"ran nested"}')
@@ -796,14 +936,17 @@ describe('subagents, programmatic calls, and malformed tool arguments', () => {
 
 describe('turn.complete reasons and sessions the bridge did not follow from the start', () => {
   it('reports aborted and error turns, folds only the open turn, and ignores a session without a live agent', async () => {
-    const mod = writeMod('ends-mod', `
+    const mod = writeMod(
+      'ends-mod',
+      `
       export function register(on) {
         on('turn.complete', async ($, e, next) => {
           $.ui.log('turn.complete ' + e.turnId + ' ' + e.reason + ' aborted=' + e.isAborted + ' answer=' + JSON.stringify(e.answer) + ' usage=' + (e.usage ? e.usage.model : 'none'))
           return next(e)
         })
       }
-    `)
+    `,
+    )
     const adapter = new MockAdapter([textResponse('fine'), 'hang'])
     const h = await harness([mod], adapter)
     const agent = await h.agent()
@@ -829,27 +972,41 @@ describe('turn.complete reasons and sessions the bridge did not follow from the 
     expect(lines()).toHaveLength(4)
   })
 
-  it('forgets a session\'s state and raises session.end when its agent is disposed', async () => {
-    const mod = writeMod('end-mod', `
+  it("forgets a session's state and raises session.end when its agent is disposed", async () => {
+    const mod = writeMod(
+      'end-mod',
+      `
       export function register(on) {
         on('session.end', async ($, e, next) => { $.ui.log('ended ' + e.sessionId + ' ' + e.reason); return next(e) })
       }
-    `)
+    `,
+    )
     const h = await harness([mod], new MockAdapter([]))
-    const handle = await h.ctx.agentLoop.createAgent(h.ctx, { sessionId: SessionId('ends'), agentOptions: { provider: 'mock', model: 'mock' } })
+    const handle = await h.ctx.agentLoop.createAgent(h.ctx, {
+      sessionId: SessionId('ends'),
+      agentOptions: { provider: 'mock', model: 'mock' },
+    })
     // An assistant message outside any turn the bridge follows is left alone.
-    handle.agent.session.append('assistant/message', {
-      turn: 0, step: 0, stream: [],
-      message: createAssistantMessage({ content: [{ type: 'text', text: 'stray' }], source: { provider: 'mock', model: 'mock' } }),
-    }, { surfaceOp: 'append' })
+    handle.agent.session.append(
+      'assistant/message',
+      {
+        turn: 0,
+        step: 0,
+        stream: [],
+        message: createAssistantMessage({ content: [{ type: 'text', text: 'stray' }], source: { provider: 'mock', model: 'mock' } }),
+      },
+      { surfaceOp: 'append' },
+    )
     await handle.dispose()
     await waitFor(() => h.info.mock.calls.some(call => call[0] === 'end-mod: ended ends other'))
   })
 })
 
 describe('$.session.usage with the token meter', () => {
-  it('reports the provider-measured prompt size against the route\'s context window', async () => {
-    const mod = writeMod('usage-mod', `
+  it("reports the provider-measured prompt size against the route's context window", async () => {
+    const mod = writeMod(
+      'usage-mod',
+      `
       export function register(on) {
         on('turn.complete', async ($, e, next) => {
           const usage = await $.session.usage()
@@ -857,9 +1014,14 @@ describe('$.session.usage with the token meter', () => {
           return next(e)
         })
       }
-    `)
+    `,
+    )
     const adapter = new WindowedAdapter([textResponse('ok')])
-    const h = await harness([mod], adapter, { services: async (ctx) => { await ctx.plugin(TokenMeter) } })
+    const h = await harness([mod], adapter, {
+      services: async ctx => {
+        await ctx.plugin(TokenMeter)
+      },
+    })
     const agent = await h.agent()
     await h.turn(agent, 'measure me')
     await waitFor(() => h.info.mock.calls.some(call => String(call[0]).startsWith('usage-mod: usage ')))
@@ -879,20 +1041,28 @@ describe('loading diagnostics and configuration', () => {
     expect(h.info).toHaveBeenCalledWith('claude-code-mods: hooks module quiet-mod@inline loaded (tier user); events: (none)')
 
     const broken = await writeMod('broken-mod', "export function register(on) { on('tool.calls', () => ({})) }")
-    await expect(h.ctx.claudeCodeMods.add(broken.definition))
-      .rejects.toThrow(/broken-mod: hooks module did not load: register threw .*"tool.calls" is not an event/)
-    await expect(h.ctx.claudeCodeMods.add({ name: 'bad name!', register: () => {} }))
-      .rejects.toThrow(/a plugin name uses letters, digits, _ and - only/)
-    await expect(h.ctx.claudeCodeMods.add({ name: 'quiet-mod', register: () => {} }))
-      .rejects.toThrow(/another mod of that name is already loaded/)
+    await expect(h.ctx.claudeCodeMods.add(broken.definition)).rejects.toThrow(
+      /broken-mod: hooks module did not load: register threw .*"tool.calls" is not an event/,
+    )
+    await expect(h.ctx.claudeCodeMods.add({ name: 'bad name!', register: () => {} })).rejects.toThrow(
+      /a plugin name uses letters, digits, _ and - only/,
+    )
+    await expect(h.ctx.claudeCodeMods.add({ name: 'quiet-mod', register: () => {} })).rejects.toThrow(
+      /another mod of that name is already loaded/,
+    )
 
     // A hook on an event this host never raises registers, and the load reports it.
-    const one = await h.ctx.claudeCodeMods.add({ name: 'one-unserved', register: (on) => { on('turn.step', () => ({})) } })
+    const one = await h.ctx.claudeCodeMods.add({
+      name: 'one-unserved',
+      register: on => {
+        on('turn.step', () => ({}))
+      },
+    })
     expect(h.warn).toHaveBeenCalledWith('claude-code-mods: one-unserved: on("turn.step") registered, but this host never raises that event')
     await one()
     const dispose = await h.ctx.claudeCodeMods.add({
       name: 'unserved-mod',
-      register: (on) => {
+      register: on => {
         on('tool.check', () => ({ decision: 'allow' }))
         on('turn.step', () => ({}))
         on('tool.check', { tool: 'Bash' }, () => ({ decision: 'allow' }))
@@ -918,14 +1088,17 @@ describe('loading diagnostics and configuration', () => {
   })
 
   it('disposes while a timer callback waits inside a $ call: the wait is cancelled and disposal settles', async () => {
-    const mod = writeMod('sleeper-mod', `
+    const mod = writeMod(
+      'sleeper-mod',
+      `
       export function register(on) {
         on('session.start', async ($, e, next) => {
           $.clock.after(1, async () => { await $.clock.sleep(60_000) })
           return next(e)
         })
       }
-    `)
+    `,
+    )
     const h = await harness([mod], new MockAdapter([]))
     await h.agent()
     await new Promise(resolve => setTimeout(resolve, 20))
@@ -938,7 +1111,11 @@ describe('loading diagnostics and configuration', () => {
   it('mounts a mod plugin through the Loader-visible plugin shape and unmounts it with its hooks', async () => {
     const adapter = new MockAdapter([])
     const h = await harness([], adapter)
-    const plugin = await writeMod('late-mod', "export function register(on, options) { on('turn.start', ($, e, next) => next(e)); globalThis.lateOptions = options }", { greeting: 'hi' })
+    const plugin = await writeMod(
+      'late-mod',
+      "export function register(on, options) { on('turn.start', ($, e, next) => next(e)); globalThis.lateOptions = options }",
+      { greeting: 'hi' },
+    )
     expect(plugin.name).toBe('claude-code-mod-late-mod')
     expect(plugin.inject).toEqual(['claudeCodeMods'])
     const fiber = await h.ctx.plugin(plugin, { greeting: 'hello', extra: 2 })
@@ -960,7 +1137,9 @@ describe('loading diagnostics and configuration', () => {
 
 describe('post-execute interplay and prompt rewrites with images', () => {
   it('keeps a downstream block, carries downstream contexts onto a replaced result, and rewrites only text blocks', async () => {
-    const mod = writeMod('rewrite-mod', `
+    const mod = writeMod(
+      'rewrite-mod',
+      `
       export function register(on) {
         on('tool.call', { tool: 'echo' }, async ($, e, next) => {
           const r = await next(e)
@@ -968,11 +1147,15 @@ describe('post-execute interplay and prompt rewrites with images', () => {
         })
         on('prompt.submit', ($, e, next) => next({ ...e, text: 'rewritten: ' + e.text }))
       }
-    `)
+    `,
+    )
     const adapter = new MockAdapter([
-      toolCallResponse('c1', 'echo', { command: 'a' }), textResponse('one'),
-      toolCallResponse('c2', 'echo', { command: 'b' }), textResponse('two'),
-      textResponse('three'), textResponse('four'),
+      toolCallResponse('c1', 'echo', { command: 'a' }),
+      textResponse('one'),
+      toolCallResponse('c2', 'echo', { command: 'b' }),
+      textResponse('two'),
+      textResponse('three'),
+      textResponse('four'),
     ])
     const h = await harness([mod], adapter)
     h.ctx.tools.register(echoTool('echo'))
@@ -980,22 +1163,40 @@ describe('post-execute interplay and prompt rewrites with images', () => {
     h.ctx.on('tools/post-execute', async (_exec, _result, next) => {
       if (block) return { kind: 'block', feedback: [{ type: 'text', text: 'blocked downstream' }] }
       const downstream = await next()
-      return { ...downstream, additionalContexts: [createUserMessage({ content: [{ type: 'text', text: 'downstream context' }], source: { kind: 'user' } })] }
+      return {
+        ...downstream,
+        additionalContexts: [createUserMessage({ content: [{ type: 'text', text: 'downstream context' }], source: { kind: 'user' } })],
+      }
     })
     const agent = await h.agent()
-    const image = { type: 'image' as const, attachment: { attachmentId: 'att-1', mediaType: 'image/png', bytes: 1, width: 1, height: 1 } as ImageAttachmentRef }
+    const image = {
+      type: 'image' as const,
+      attachment: { attachmentId: 'att-1', mediaType: 'image/png', bytes: 1, width: 1, height: 1 } as ImageAttachmentRef,
+    }
     // Injected context from another plugin is claimed with the waking prompt; only the human's message is the prompt.
-    agent.inject(createUserMessage({ content: [{ type: 'text', text: 'injected by a plugin' }], source: { kind: 'user-question-reply', callId: ToolCallIdOf('q1'), outcome: 'answered' } }))
-    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'first' }, image, { type: 'text', text: 'second' }], source: { kind: 'user' } }))
+    agent.inject(
+      createUserMessage({
+        content: [{ type: 'text', text: 'injected by a plugin' }],
+        source: { kind: 'user-question-reply', callId: ToolCallIdOf('q1'), outcome: 'answered' },
+      }),
+    )
+    agent.followup(
+      createUserMessage({ content: [{ type: 'text', text: 'first' }, image, { type: 'text', text: 'second' }], source: { kind: 'user' } }),
+    )
     await agent.whenIdle()
-    const entered = () => events(agent).filter(e => e.type === 'user/message').map(e => e.type === 'user/message' && e.data.content)
+    const entered = () =>
+      events(agent)
+        .filter(e => e.type === 'user/message')
+        .map(e => e.type === 'user/message' && e.data.content)
     expect(entered()).toContainEqual([{ type: 'text', text: 'injected by a plugin' }])
     expect(entered()).toContainEqual([{ type: 'text', text: 'rewritten: firstsecond' }, image])
     expect(toolResult(agent)).toEqual({ isError: true, text: 'blocked downstream' })
 
     block = false
     await h.turn(agent, 'again')
-    const results = events(agent).filter(e => e.type === 'tool/result').map(e => e.type === 'tool/result' && e.data.message.content[0])
+    const results = events(agent)
+      .filter(e => e.type === 'tool/result')
+      .map(e => e.type === 'tool/result' && e.data.message.content[0])
     expect(results[1]).toEqual({ type: 'text', text: 'REPLACED' })
     expect(JSON.stringify(adapter.requests[3]?.messages)).toContain('downstream context')
 
@@ -1003,23 +1204,33 @@ describe('post-execute interplay and prompt rewrites with images', () => {
     agent.followup(createUserMessage({ content: [image], source: { kind: 'user' } }))
     await agent.whenIdle()
     expect(entered().at(-1)).toEqual([image, { type: 'text', text: 'rewritten: ' }])
-    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'from a plugin' }], source: { kind: 'user-question-reply', callId: ToolCallIdOf('q2'), outcome: 'answered' } }))
+    agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'from a plugin' }],
+        source: { kind: 'user-question-reply', callId: ToolCallIdOf('q2'), outcome: 'answered' },
+      }),
+    )
     await agent.whenIdle()
     expect(entered().at(-1)).toEqual([{ type: 'text', text: 'from a plugin' }])
   })
 })
 
-describe('a mod\'s $.tool.call reaches the mods loaded before it', () => {
-  it('runs the earlier mod\'s tool.call hook once, attributed to the caller, and never the caller\'s own', async () => {
-    const observer = writeMod('observer-mod', `
+describe("a mod's $.tool.call reaches the mods loaded before it", () => {
+  it("runs the earlier mod's tool.call hook once, attributed to the caller, and never the caller's own", async () => {
+    const observer = writeMod(
+      'observer-mod',
+      `
       export function register(on) {
         on('tool.call', async ($, e, next) => {
           $.ui.log('saw ' + e.tool + ' from ' + next.origin.plugin + '/' + next.origin.tier + ' id=' + (e.tool_use_id.startsWith('mod-') ? 'mod' : 'model'))
           return next(e)
         })
       }
-    `)
-    const caller = writeMod('caller-mod', `
+    `,
+    )
+    const caller = writeMod(
+      'caller-mod',
+      `
       export function register(on) {
         on('session.start', async ($, e, next) => {
           await $.command.register({ name: 'nest', description: 'Call a tool from the mod' })
@@ -1034,7 +1245,8 @@ describe('a mod\'s $.tool.call reaches the mods loaded before it', () => {
           return { text: JSON.stringify(result) }
         })
       }
-    `)
+    `,
+    )
     const h = await harness([observer, caller], new MockAdapter([]))
     h.ctx.tools.register(echoTool('echo'))
     const agent = await h.agent()
@@ -1046,11 +1258,16 @@ describe('a mod\'s $.tool.call reaches the mods loaded before it', () => {
 })
 
 describe('the band above the prompt', () => {
-  it('draws Token Weather from session facts, redraws on the state it read, and resolves a Blast Radius hold by a press', { timeout: 30_000 }, async () => {
-    const tokenWeather = (await import('../examples/token-weather/index.ts')).default
-    const blastRadius = (await import('../examples/blast-radius/index.ts')).default
-    // Loaded outermost: draws a button that throws once armed, to show a failing onPress is reported, not fatal.
-    const boom = writeMod('boom-mod', `
+  it(
+    'draws Token Weather from session facts, redraws on the state it read, and resolves a Blast Radius hold by a press',
+    { timeout: 30_000 },
+    async () => {
+      const tokenWeather = (await import('../examples/token-weather/index.ts')).default
+      const blastRadius = (await import('../examples/blast-radius/index.ts')).default
+      // Loaded outermost: draws a button that throws once armed, to show a failing onPress is reported, not fatal.
+      const boom = writeMod(
+        'boom-mod',
+        `
       let armed = false
       export function register(on) {
         on('session.start', async ($, e, next) => { await $.command.register({ name: 'arm-boom', description: 'arm' }); return next(e) })
@@ -1061,82 +1278,89 @@ describe('the band above the prompt', () => {
           return Button({ label: 'Boom', onPress: () => { armed = false; throw new Error('nope') } })
         })
       }
-    `)
-    const ran: string[] = []
-    const adapter = new WindowedAdapter([
-      textResponse('first answer'),
-      toolCallResponse('c1', 'bash', { command: 'git reset --hard' }), textResponse('held'),
-      toolCallResponse('c2', 'bash', { command: 'git clean -fd' }), textResponse('ran'),
-    ])
-    // One band instance, consulted in load order: the guard that yields when idle goes before the readout that always draws.
-    const h = await harness([boom, blastRadius, tokenWeather], adapter, {
-      config: { bandColumns: 100, bandRows: 6 },
-      services: async (ctx, workspace) => {
-        await ctx.plugin(TokenMeter)
-        await ctx.plugin(LocalFileSystem, { cwd: workspace })
-        await ctx.plugin(LocalSubprocessRuntime)
-      },
-    })
-    // Windows does not provide the POSIX sleep executable; other subprocesses run normally.
-    const spawn = h.ctx.subprocess.spawn.bind(h.ctx.subprocess)
-    const withoutSleep = vi.spyOn(h.ctx.subprocess, 'spawn').mockImplementation((spec) => {
-      if (spec.argv[0] === 'sleep') throw new Error('spawn sleep ENOENT')
-      return spawn(spec)
-    })
-    onTestFinished(() => { withoutSleep.mockRestore() })
-    h.ctx.tools.register(echoTool('bash', ran))
-    const agent = await h.agent()
-    const mods = h.ctx.claudeCodeMods
-    const seen: unknown[] = []
-    const watching = new AbortController()
-    const watcher = (async () => {
-      for await (const snapshot of mods.watchBand(agent, watching.signal)) seen.push(snapshot)
-    })()
-    // Before a turn, Token Weather has no reading and Blast Radius holds nothing: the band is empty.
-    await waitFor(() => seen.length === 1)
-    expect(seen[0]).toEqual({ generation: 1, tree: null })
-    await h.turn(agent, 'hello')
-    // turn.complete wrote the reading Token Weather's render reads: the band redraws without an invalidate.
-    await waitFor(() => JSON.stringify(seen.at(-1)).includes('of context'))
-    expect(h.warn).not.toHaveBeenCalledWith(expect.stringMatching(/ui.render hook skipped/))
+    `,
+      )
+      const ran: string[] = []
+      const adapter = new WindowedAdapter([
+        textResponse('first answer'),
+        toolCallResponse('c1', 'bash', { command: 'git reset --hard' }),
+        textResponse('held'),
+        toolCallResponse('c2', 'bash', { command: 'git clean -fd' }),
+        textResponse('ran'),
+      ])
+      // One band instance, consulted in load order: the guard that yields when idle goes before the readout that always draws.
+      const h = await harness([boom, blastRadius, tokenWeather], adapter, {
+        config: { bandColumns: 100, bandRows: 6 },
+        services: async (ctx, workspace) => {
+          await ctx.plugin(TokenMeter)
+          await ctx.plugin(LocalFileSystem, { cwd: workspace })
+          await ctx.plugin(LocalSubprocessRuntime)
+        },
+      })
+      // Windows does not provide the POSIX sleep executable; other subprocesses run normally.
+      const spawn = h.ctx.subprocess.spawn.bind(h.ctx.subprocess)
+      const withoutSleep = vi.spyOn(h.ctx.subprocess, 'spawn').mockImplementation(spec => {
+        if (spec.argv[0] === 'sleep') throw new Error('spawn sleep ENOENT')
+        return spawn(spec)
+      })
+      onTestFinished(() => {
+        withoutSleep.mockRestore()
+      })
+      h.ctx.tools.register(echoTool('bash', ran))
+      const agent = await h.agent()
+      const mods = h.ctx.claudeCodeMods
+      const seen: unknown[] = []
+      const watching = new AbortController()
+      const watcher = (async () => {
+        for await (const snapshot of mods.watchBand(agent, watching.signal)) seen.push(snapshot)
+      })()
+      // Before a turn, Token Weather has no reading and Blast Radius holds nothing: the band is empty.
+      await waitFor(() => seen.length === 1)
+      expect(seen[0]).toEqual({ generation: 1, tree: null })
+      await h.turn(agent, 'hello')
+      // turn.complete wrote the reading Token Weather's render reads: the band redraws without an invalidate.
+      await waitFor(() => JSON.stringify(seen.at(-1)).includes('of context'))
+      expect(h.warn).not.toHaveBeenCalledWith(expect.stringMatching(/ui.render hook skipped/))
 
-    // A risky command holds; the hook polls with real sleeps while the band offers Proceed and Cancel.
-    const holding = h.turn(agent, 'reset it')
-    await waitFor(() => JSON.stringify(seen.at(-1)).includes('Cancel'))
-    const drawn = seen.at(-1) as { generation: number; tree: unknown }
-    const buttonId = (tree: unknown, label: string): string | undefined =>
-      [...JSON.stringify(tree).matchAll(/"label":"(\w+)","hotkey":"\d"\},"children":\[\],"actionId":"(a\d+)"/gu)]
-        .find(match => match[1] === label)?.[2]
-    const cancelId = buttonId(drawn.tree, 'Cancel')
-    expect(cancelId).toBeDefined()
-    await mods.pressBand(agent, drawn.generation, cancelId ?? '')
-    await holding
-    expect(h.warn).not.toHaveBeenCalledWith(expect.stringMatching(/tool.call hook skipped/))
-    expect(ran).toEqual([])
-    expect(toolResult(agent)?.text).toMatch(/Blast Radius held this command: the user pressed Cancel/)
-    await waitFor(() => !JSON.stringify(seen.at(-1)).includes('Cancel'))
+      // A risky command holds; the hook polls with real sleeps while the band offers Proceed and Cancel.
+      const holding = h.turn(agent, 'reset it')
+      await waitFor(() => JSON.stringify(seen.at(-1)).includes('Cancel'))
+      const drawn = seen.at(-1) as { generation: number; tree: unknown }
+      const buttonId = (tree: unknown, label: string): string | undefined =>
+        [...JSON.stringify(tree).matchAll(/"label":"(\w+)","hotkey":"\d"\},"children":\[\],"actionId":"(a\d+)"/gu)].find(
+          match => match[1] === label,
+        )?.[2]
+      const cancelId = buttonId(drawn.tree, 'Cancel')
+      expect(cancelId).toBeDefined()
+      await mods.pressBand(agent, drawn.generation, cancelId ?? '')
+      await holding
+      expect(h.warn).not.toHaveBeenCalledWith(expect.stringMatching(/tool.call hook skipped/))
+      expect(ran).toEqual([])
+      expect(toolResult(agent)?.text).toMatch(/Blast Radius held this command: the user pressed Cancel/)
+      await waitFor(() => !JSON.stringify(seen.at(-1)).includes('Cancel'))
 
-    // Proceed lets the next risky command run.
-    const proceeding = h.turn(agent, 'clean it')
-    await waitFor(() => JSON.stringify(seen.at(-1)).includes('Proceed'))
-    const second = seen.at(-1) as { generation: number; tree: unknown }
-    const proceedId = buttonId(second.tree, 'Proceed')
-    await mods.pressBand(agent, second.generation, proceedId ?? '')
-    await proceeding
-    expect(ran).toEqual(['git clean -fd'])
-    // A stale press is ignored and reported, not applied.
-    await mods.pressBand(agent, second.generation, proceedId ?? '')
-    expect(h.warn).toHaveBeenCalledWith(expect.stringMatching(/band press ignored/))
+      // Proceed lets the next risky command run.
+      const proceeding = h.turn(agent, 'clean it')
+      await waitFor(() => JSON.stringify(seen.at(-1)).includes('Proceed'))
+      const second = seen.at(-1) as { generation: number; tree: unknown }
+      const proceedId = buttonId(second.tree, 'Proceed')
+      await mods.pressBand(agent, second.generation, proceedId ?? '')
+      await proceeding
+      expect(ran).toEqual(['git clean -fd'])
+      // A stale press is ignored and reported, not applied.
+      await mods.pressBand(agent, second.generation, proceedId ?? '')
+      expect(h.warn).toHaveBeenCalledWith(expect.stringMatching(/band press ignored/))
 
-    // A button whose onPress throws is reported and the band redraws.
-    await h.ctx.commands.execute(agent, '/arm-boom', [], new AbortController().signal)
-    await waitFor(() => JSON.stringify(seen.at(-1)).includes('Boom'))
-    const armed = seen.at(-1) as { generation: number; tree: unknown }
-    const boomId = [...JSON.stringify(armed.tree).matchAll(/"actionId":"(a\d+)"/gu)][0]?.[1]
-    await mods.pressBand(agent, armed.generation, boomId ?? '')
-    expect(h.warn).toHaveBeenCalledWith("claude-code-mods: a button's onPress failed: nope")
-    await waitFor(() => !JSON.stringify(seen.at(-1)).includes('Boom'))
-    watching.abort()
-    await watcher
-  })
+      // A button whose onPress throws is reported and the band redraws.
+      await h.ctx.commands.execute(agent, '/arm-boom', [], new AbortController().signal)
+      await waitFor(() => JSON.stringify(seen.at(-1)).includes('Boom'))
+      const armed = seen.at(-1) as { generation: number; tree: unknown }
+      const boomId = [...JSON.stringify(armed.tree).matchAll(/"actionId":"(a\d+)"/gu)][0]?.[1]
+      await mods.pressBand(agent, armed.generation, boomId ?? '')
+      expect(h.warn).toHaveBeenCalledWith("claude-code-mods: a button's onPress failed: nope")
+      await waitFor(() => !JSON.stringify(seen.at(-1)).includes('Boom'))
+      watching.abort()
+      await watcher
+    },
+  )
 })

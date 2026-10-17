@@ -8,7 +8,7 @@
  * denied write leaves no file on disk.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -40,7 +40,9 @@ async function boot(mode: SandboxMode): Promise<void> {
 beforeEach(async ({ onTestFinished }) => {
   // Both siblings must be outside automatic temp grants for containment denials to be meaningful.
   const directory = await mkdtemp(join(outsideTempWorkspaceParent(), '.dsh-fssbx-'))
-  onTestFinished(async () => { await rm(directory, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await rm(directory, { recursive: true, force: true })
+  })
   base = directory
   assertWorkspaceOutsideTemp(base)
   workspace = join(base, 'ws')
@@ -76,8 +78,9 @@ describe('read-only', () => {
   it('denies edit of an existing file (the content is unchanged)', async () => {
     const path = join(workspace, 'file.txt')
     await writeFile(path, 'original')
-    await expect(fs.editText(await target(path), { oldString: 'original', newString: 'changed', replaceAll: false }))
-      .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    await expect(fs.editText(await target(path), { oldString: 'original', newString: 'changed', replaceAll: false })).rejects.toMatchObject(
+      { code: 'FS_SANDBOX_DENIED' },
+    )
     expect(await readFile(path, 'utf8')).toBe('original')
   })
 
@@ -139,8 +142,9 @@ describe('workspace-write containment', () => {
   it('an edit outside the workspace is denied; the original is untouched', async () => {
     const path = join(outside, 'file.txt')
     await writeFile(path, 'original')
-    await expect(fs.editText(await target(path), { oldString: 'original', newString: 'x', replaceAll: false }))
-      .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    await expect(fs.editText(await target(path), { oldString: 'original', newString: 'x', replaceAll: false })).rejects.toMatchObject({
+      code: 'FS_SANDBOX_DENIED',
+    })
     expect(await readFile(path, 'utf8')).toBe('original')
   })
 
@@ -209,8 +213,7 @@ describe('the per-call policy override (escalation)', () => {
     await fs.writeText(await target(path), 'granted', undefined, undefined, { mode: 'workspace-write', workspaceRoot: workspace })
     expect(await readFile(path, 'utf8')).toBe('granted')
     // A neighboring plain call still runs under the read-only default.
-    await expect(fs.writeText(await target(join(workspace, 'plain.txt')), 'x'))
-      .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    await expect(fs.writeText(await target(join(workspace, 'plain.txt')), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
   })
 
   it('a danger-full-access stamp bypasses the fence for that call', async () => {

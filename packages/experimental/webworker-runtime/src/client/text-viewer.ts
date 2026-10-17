@@ -72,10 +72,14 @@ export function showTextViewer(path: string, text: string): void {
     close.type = 'button'
     close.textContent = 'Close'
     const shown = dialog
-    close.addEventListener('click', () => { shown.close() })
+    close.addEventListener('click', () => {
+      shown.close()
+    })
     // The app's modal layers own Escape and Tab through document listeners;
     // keys pressed in this top-layer dialog belong to its native handling.
-    dialog.addEventListener('keydown', (event) => { event.stopPropagation() })
+    dialog.addEventListener('keydown', event => {
+      event.stopPropagation()
+    })
     header.append(title, close)
     dialog.append(header, document.createElement('pre'))
     document.body.append(dialog)

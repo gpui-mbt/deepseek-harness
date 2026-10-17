@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Content identity isolates terminal bindings across browser windows and Session scopes. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WebTerminalId } from '../src/types.ts'
 import { TerminalBindings } from '../src/client/bindings.ts'
@@ -8,7 +8,11 @@ import { TerminalBindings } from '../src/client/bindings.ts'
 const session = 'session' as SessionId
 const first = 'first' as WebTerminalId
 const second = 'second' as WebTerminalId
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); localStorage.clear() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+  localStorage.clear()
+})
 
 it('preserves other windows records through interleaved writes, closes and reloads', () => {
   const a = new TerminalBindings()
@@ -27,7 +31,7 @@ it('preserves other windows records through interleaved writes, closes and reloa
   expect(new TerminalBindings().get('session.with.dot' as SessionId, 'b')).toBe(first)
 })
 
-it.each(['{broken', 'null', '42', '"not/a/terminal"'])('rejects malformed saved identity %s', (value) => {
+it.each(['{broken', 'null', '42', '"not/a/terminal"'])('rejects malformed saved identity %s', value => {
   const bindings = new TerminalBindings()
   bindings.set(session, 'content', first)
   const key = localStorage.key(0)!
@@ -37,11 +41,17 @@ it.each(['{broken', 'null', '42', '"not/a/terminal"'])('rejects malformed saved 
 
 it('keeps current-window values usable when storage is absent or inaccessible', () => {
   const a = new TerminalBindings()
-  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Storage blocked') })
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('Storage blocked')
+  })
   expect(a.get(session, 'missing')).toBeUndefined()
   vi.spyOn(console, 'error').mockImplementation(() => {})
-  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Storage full') })
-  vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('Storage blocked') })
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('Storage full')
+  })
+  vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+    throw new Error('Storage blocked')
+  })
   a.set(session, 'a', first)
   expect(a.get(session, 'a')).toBe(first)
   a.delete(session, 'a')

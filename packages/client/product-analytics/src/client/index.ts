@@ -18,21 +18,34 @@ class DesktopAnalytics extends Service {
 
   constructor(ctx: Context) {
     super(ctx, 'productAnalytics')
-    this.submit = async (event) => {
-      try { await ctx.remote.productAnalytics.report(event) } catch (_error) {
+    this.submit = async event => {
+      try {
+        await ctx.remote.productAnalytics.report(event)
+      } catch (_error) {
         // Missing or disconnected Remote services must not interrupt the interaction.
       }
     }
     if (!('dshDesktop' in globalThis)) return
     const stream = ctx.remote.$stream<boolean>({
-      name: 'product analytics policy', open: signal => ctx.remote.productAnalytics.watchPolicy(signal),
+      name: 'product analytics policy',
+      open: signal => ctx.remote.productAnalytics.watchPolicy(signal),
       ended: () => new Error('product analytics policy stream ended'),
-      carrierFailed: () => { this.collecting = false },
+      carrierFailed: () => {
+        this.collecting = false
+      },
     })
-    ctx.effect(() => () => { this.collecting = false; return stream.dispose() })
+    ctx.effect(() => () => {
+      this.collecting = false
+      return stream.dispose()
+    })
     void (async () => {
-      for await (const frame of stream) { this.collecting = frame.value; frame.accept() }
-    })().catch(() => { this.collecting = false })
+      for await (const frame of stream) {
+        this.collecting = frame.value
+        frame.accept()
+      }
+    })().catch(() => {
+      this.collecting = false
+    })
   }
 
   /** Whether the synchronized Host configuration currently permits collection. */
@@ -57,4 +70,6 @@ class DesktopAnalytics extends Service {
 export const inject = ['remote', 'remote.productAnalytics']
 
 /** @param ctx - browser application context. */
-export function apply(ctx: Context): void { ctx.plugin(DesktopAnalytics) }
+export function apply(ctx: Context): void {
+  ctx.plugin(DesktopAnalytics)
+}

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { fileSizeText } from '../src/file-size.ts'
 
 describe('fileSizeText', () => {

@@ -25,37 +25,45 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
 const tokenCount = z.number().int().nonnegative()
 const sessionSeq = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq)
 
-const breakdownSchema = z.object({
-  systemTokens: tokenCount,
-  toolsTokens: tokenCount,
-  messageTokens: tokenCount,
-}).strict()
+const breakdownSchema = z
+  .object({
+    systemTokens: tokenCount,
+    toolsTokens: tokenCount,
+    messageTokens: tokenCount,
+  })
+  .strict()
 
 /** One surviving `system/message` node and its heuristic price. */
-const systemNodeSchema = z.object({
-  seq: sessionSeq,
-  tokens: tokenCount,
-}).strict()
+const systemNodeSchema = z
+  .object({
+    seq: sessionSeq,
+    tokens: tokenCount,
+  })
+  .strict()
 
 /**
  * Shadow price armed by the `compaction/summary` or `compaction/prune` event
  * immediately before a replacement: the replaced range, its heuristic price,
  * and the surviving system prompts inside it.
  */
-const claimSchema = z.object({
-  start: sessionSeq,
-  end: sessionSeq,
-  tokens: tokenCount,
-  systemSeqs: z.array(sessionSeq),
-}).strict()
+const claimSchema = z
+  .object({
+    start: sessionSeq,
+    end: sessionSeq,
+    tokens: tokenCount,
+    systemSeqs: z.array(sessionSeq),
+  })
+  .strict()
 
 /** Plain-JSON checkpoint: surviving system prompts in surface order, the surface total, and an armed claim. */
-const contextBreakdownStateSchema = z.object({
-  systems: z.array(systemNodeSchema),
-  surfaceTokens: tokenCount,
-  claim: claimSchema.optional(),
-  breakdown: breakdownSchema,
-}).strict()
+const contextBreakdownStateSchema = z
+  .object({
+    systems: z.array(systemNodeSchema),
+    surfaceTokens: tokenCount,
+    claim: claimSchema.optional(),
+    breakdown: breakdownSchema,
+  })
+  .strict()
 type ContextBreakdownState = z.infer<typeof contextBreakdownStateSchema>
 type SystemNode = ContextBreakdownState['systems'][number]
 type BreakdownClaim = z.infer<typeof claimSchema>
@@ -91,14 +99,14 @@ function placeSurfaceEvent(
   if (claim !== undefined) {
     if (claim.start !== op.startSeq || claim.end !== op.endSeq) {
       throw new Error(
-        `context breakdown: replace at seq ${event.seq} over range ${op.startSeq}-${op.endSeq} has no adjacent shadow price`
-        + ` (armed claim covers ${claim.start}-${claim.end})`,
+        `context breakdown: replace at seq ${event.seq} over range ${op.startSeq}-${op.endSeq} has no adjacent shadow price` +
+          ` (armed claim covers ${claim.start}-${claim.end})`,
       )
     }
     if (isSystem) {
       throw new Error(
-        `context breakdown: replace at seq ${event.seq} puts a system message in place of a metered range;`
-        + ' its order among the surviving system prompts is unknown',
+        `context breakdown: replace at seq ${event.seq} puts a system message in place of a metered range;` +
+          ' its order among the surviving system prompts is unknown',
       )
     }
     const shadowed = new Set<number>(claim.systemSeqs)
@@ -125,9 +133,10 @@ function withTotals(state: ContextBreakdownState, totals: SurfaceTotals): Contex
   const surfaceTokens = Math.max(0, totals.surfaceTokens)
   const systemTokens = totals.systems.findLast(system => system.tokens > 0)?.tokens ?? 0
   const messageTokens = Math.max(0, surfaceTokens - systemTokens)
-  const breakdown = systemTokens === state.breakdown.systemTokens && messageTokens === state.breakdown.messageTokens
-    ? state.breakdown
-    : { systemTokens, toolsTokens: state.breakdown.toolsTokens, messageTokens }
+  const breakdown =
+    systemTokens === state.breakdown.systemTokens && messageTokens === state.breakdown.messageTokens
+      ? state.breakdown
+      : { systemTokens, toolsTokens: state.breakdown.toolsTokens, messageTokens }
   return { ...state, systems: totals.systems, surfaceTokens, breakdown }
 }
 

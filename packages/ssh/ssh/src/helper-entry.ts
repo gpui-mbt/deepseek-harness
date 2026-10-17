@@ -7,15 +7,19 @@ import { runSshHelper } from './helper.ts'
 /** Serve one helper request; every failure is reported on stderr with exit code 127. */
 async function main(): Promise<void> {
   const controller = new AbortController()
-  const stop = (): void => { controller.abort(new Error('SSH helper process terminated')) }
+  const stop = (): void => {
+    controller.abort(new Error('SSH helper process terminated'))
+  }
   for (const signal of ['SIGTERM', 'SIGHUP', 'SIGINT'] as const) process.once(signal, stop)
   try {
     if (process.argv.length !== 2) throw new Error('SSH helper accepts no command arguments')
     const packaged = isSea()
     await runSshHelper({
-      input: process.stdin, output: process.stdout,
+      input: process.stdin,
+      output: process.stdout,
       entryPath: packaged ? process.execPath : fileURLToPath(import.meta.url),
-      kind: packaged ? 'executable' : 'node-script', signal: controller.signal,
+      kind: packaged ? 'executable' : 'node-script',
+      signal: controller.signal,
     })
   } catch (error) {
     process.stderr.write(`dsh-ssh-sandbox: ${error instanceof Error ? error.message : String(error)}\n`)

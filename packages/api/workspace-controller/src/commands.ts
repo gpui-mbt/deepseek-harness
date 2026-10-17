@@ -76,13 +76,8 @@ export class WorkspaceCommands {
     return this.enqueue(async () => {
       const workspace = this.requireWorkspace(request.workspaceId)
       if (title !== workspace.title) {
-        if (this.ctx.workspaceRegistry.list().some(candidate =>
-          candidate.id !== workspace.id && candidate.title === title)) {
-          throw new RemoteError(
-            'workspace/name-conflict',
-            `Workspace name '${title}' is already in use`,
-            { name: title },
-          )
+        if (this.ctx.workspaceRegistry.list().some(candidate => candidate.id !== workspace.id && candidate.title === title)) {
+          throw new RemoteError('workspace/name-conflict', `Workspace name '${title}' is already in use`, { name: title })
         }
         await workspace.setTitle(title)
       }
@@ -97,7 +92,7 @@ export class WorkspaceCommands {
    */
   delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
     return this.enqueue(async () => {
-      if (!await this.ctx.workspaceRegistry.delete(WorkspaceId(request.workspaceId))) {
+      if (!(await this.ctx.workspaceRegistry.delete(WorkspaceId(request.workspaceId)))) {
         throw workspaceNotFound(request.workspaceId)
       }
       return { deleted: true }
@@ -113,9 +108,7 @@ export class WorkspaceCommands {
     try {
       const workspaceIds = await this.ctx.workspaceRegistry.insertBefore(
         WorkspaceId(request.workspaceId),
-        request.beforeWorkspaceId === undefined
-          ? undefined
-          : WorkspaceId(request.beforeWorkspaceId),
+        request.beforeWorkspaceId === undefined ? undefined : WorkspaceId(request.beforeWorkspaceId),
       )
       return { workspaceIds: [...workspaceIds] }
     } catch (error) {
@@ -141,9 +134,7 @@ export class WorkspaceCommands {
         {
           workspaceId: request.workspaceId,
           sessionId: request.sessionId,
-          ...request.beforeSessionId === undefined
-            ? {}
-            : { beforeSessionId: request.beforeSessionId },
+          ...(request.beforeSessionId === undefined ? {} : { beforeSessionId: request.beforeSessionId }),
         },
         { cause: error },
       )
@@ -161,10 +152,7 @@ export class WorkspaceCommands {
    */
   async archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
     try {
-      await this.ctx.workspaceRegistry.archiveSession(
-        request.sessionId,
-        request.stopActivity === true ? { stopActivity: true } : {},
-      )
+      await this.ctx.workspaceRegistry.archiveSession(request.sessionId, request.stopActivity === true ? { stopActivity: true } : {})
     } catch (error) {
       if (error instanceof WorkspaceUnknownSessionError) {
         throw new RemoteError('session/not-found', error.message, { sessionId: request.sessionId }, { cause: error })
@@ -234,17 +222,16 @@ export class WorkspaceCommands {
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.operationTail.then(operation)
-    this.operationTail = result.then(() => undefined, () => undefined)
+    this.operationTail = result.then(
+      () => undefined,
+      () => undefined,
+    )
     return result
   }
 }
 
 function workspaceNotFound(workspaceId: WorkspaceId): RemoteError<'workspace/not-found'> {
-  return new RemoteError(
-    'workspace/not-found',
-    `Workspace "${workspaceId}" not found`,
-    { workspaceId },
-  )
+  return new RemoteError('workspace/not-found', `Workspace "${workspaceId}" not found`, { workspaceId })
 }
 
 function errorMessage(error: unknown): string {

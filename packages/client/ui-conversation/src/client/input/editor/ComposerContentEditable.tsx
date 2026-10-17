@@ -29,7 +29,9 @@ export function ComposerContentEditable({ editor, editable, ...rest }: ComposerC
     const el = ref.current
     if (editor === null || el === null) return
     editor.setRootElement(el)
-    return () => { editor.setRootElement(null) }
+    return () => {
+      editor.setRootElement(null)
+    }
   }, [editor])
   useLayoutEffect(() => {
     if (editor !== null) editor.setEditable(editable)

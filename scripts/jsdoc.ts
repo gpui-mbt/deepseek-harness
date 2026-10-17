@@ -60,24 +60,51 @@ export function parseJsDoc(raw: string): { doc: string; mode: Mode | null; hasMo
   for (const line of inner) {
     const tagLine = line.trimStart()
     const m = /^@mode\s+(emit|waterfall|parallel|serial|bail)\s*$/.exec(tagLine)
-    if (m) { mode = m[1] as Mode; hasMode = true; flushPara(); inTags = true; continue }
-    if (/^@mode\b/.test(tagLine)) { hasMode = true; flushPara(); inTags = true; continue }
-    if (tagLine.startsWith('@')) { flushPara(); inTags = true; continue }
+    if (m) {
+      mode = m[1] as Mode
+      hasMode = true
+      flushPara()
+      inTags = true
+      continue
+    }
+    if (/^@mode\b/.test(tagLine)) {
+      hasMode = true
+      flushPara()
+      inTags = true
+      continue
+    }
+    if (tagLine.startsWith('@')) {
+      flushPara()
+      inTags = true
+      continue
+    }
     if (inTags) continue // block-tag territory: continuations are never prose
-    if (line.trim() === '') { flushPara(); continue }
+    if (line.trim() === '') {
+      flushPara()
+      continue
+    }
     if (/^-\s+/.test(line)) {
       // A list item starts: a pending paragraph (e.g. an intro line directly
       // above the list, no blank between) flushes FIRST so it renders above.
       flushItem()
-      if (para.length) { blocks.push(join(para)); para = [] }
+      if (para.length) {
+        blocks.push(join(para))
+        para = []
+      }
       item.push(line)
       continue
     }
-    if (item.length) { item.push(line); continue } // continuation of current item
+    if (item.length) {
+      item.push(line)
+      continue
+    } // continuation of current item
     para.push(line)
   }
   flushPara()
-  const doc = blocks.join('\n\n').replace(/\{@link\s+([^}]+)\}/g, '$1').trim()
+  const doc = blocks
+    .join('\n\n')
+    .replace(/\{@link\s+([^}]+)\}/g, '$1')
+    .trim()
   return { doc, mode, hasMode }
 }
 
@@ -103,17 +130,26 @@ export function parseTags(raw: string): { params: Map<string, string>; returns: 
       const name = (param[1] ?? '').replace(/^\[|\]$/g, '')
       let acc = param[2] ?? ''
       params.set(name, acc)
-      sink = (t) => { acc = acc ? `${acc} ${t}` : t; params.set(name, acc) }
+      sink = t => {
+        acc = acc ? `${acc} ${t}` : t
+        params.set(name, acc)
+      }
       continue
     }
     const ret = /^@returns?(?:\s+[-—–]?\s*(.*))?$/.exec(line)
     if (ret) {
       let acc = ret[1] ?? ''
       returns = acc
-      sink = (t) => { acc = acc ? `${acc} ${t}` : t; returns = acc }
+      sink = t => {
+        acc = acc ? `${acc} ${t}` : t
+        returns = acc
+      }
       continue
     }
-    if (line.startsWith('@') || line.trim() === '') { sink = null; continue }
+    if (line.startsWith('@') || line.trim() === '') {
+      sink = null
+      continue
+    }
     sink?.(line.trim())
   }
   return { params, returns }
@@ -142,7 +178,9 @@ export function checkParams(
 ): void {
   for (const p of parameters) {
     if (!ts.isIdentifier(p.name)) {
-      violations.push(`${where}: parameter '${p.name.getText(sf)}' is a binding pattern; the ${apiKind} API needs simple identifier parameters so @param can name them.`)
+      violations.push(
+        `${where}: parameter '${p.name.getText(sf)}' is a binding pattern; the ${apiKind} API needs simple identifier parameters so @param can name them.`,
+      )
       continue
     }
     if (isExempt(p)) continue
@@ -195,7 +233,6 @@ export function checkReturns(
 export function reportViolations(gate: string, violations: string[]): void {
   if (violations.length === 0) return
   throw new Error(
-    `${gate}: ${violations.length} JSDoc completeness violation(s) (see AGENTS.md):\n`
-    + violations.map(v => `  ${v}`).join('\n'),
+    `${gate}: ${violations.length} JSDoc completeness violation(s) (see AGENTS.md):\n` + violations.map(v => `  ${v}`).join('\n'),
   )
 }

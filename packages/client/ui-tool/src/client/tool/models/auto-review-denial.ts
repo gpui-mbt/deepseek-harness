@@ -24,10 +24,7 @@ export function normalizeAutoReviewReason(reason: string | null): string | null 
  * @param t - conversation-namespace translator.
  * @returns localized summary and output text for the Tool row.
  */
-export function localizeAutoReviewDenial(
-  denial: AutoReviewDenial,
-  t: TranslateNS<'conversation'>,
-): AutoReviewDenialPresentation {
+export function localizeAutoReviewDenial(denial: AutoReviewDenial, t: TranslateNS<'conversation'>): AutoReviewDenialPresentation {
   const reason = normalizeAutoReviewReason(denial.reason) ?? t('tool.autoReviewReasonFallback')
   return {
     summary: t('tool.autoReviewRejected'),

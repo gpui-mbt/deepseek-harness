@@ -43,13 +43,16 @@ function preview(parts: Iterable<string>, limit: number): string {
 
 function promptText(node: ChatNode): string {
   if (node.kind !== 'user') return ''
-  return preview(node.data.content.flatMap(block => block.type === 'text' ? [block.text] : []), PROMPT_PREVIEW_LIMIT)
+  return preview(
+    node.data.content.flatMap(block => (block.type === 'text' ? [block.text] : [])),
+    PROMPT_PREVIEW_LIMIT,
+  )
 }
 
 function responseText(node: ChatNode): string {
   if (node.kind !== 'assistant-step') return ''
   return preview(
-    node.data.blocks.flatMap(block => block.kind === 'text' ? [block.text] : []),
+    node.data.blocks.flatMap(block => (block.kind === 'text' ? [block.text] : [])),
     RESPONSE_PREVIEW_LIMIT,
   )
 }
@@ -60,13 +63,9 @@ function responseText(node: ChatNode): string {
  * @param right - freshly derived item, when the Turn still has one.
  * @returns whether both sides describe the same mark.
  */
-export function sameTurnNavigationItem(
-  left: TurnNavigationItem | undefined,
-  right: TurnNavigationItem | undefined,
-): boolean {
+export function sameTurnNavigationItem(left: TurnNavigationItem | undefined, right: TurnNavigationItem | undefined): boolean {
   if (left === undefined || right === undefined) return left === right
-  return left.turn === right.turn && left.anchorKey === right.anchorKey
-    && left.prompt === right.prompt && left.response === right.response
+  return left.turn === right.turn && left.anchorKey === right.anchorKey && left.prompt === right.prompt && left.response === right.response
 }
 
 /**
@@ -76,12 +75,9 @@ export function sameTurnNavigationItem(
  * @param nodes - live Chat node store.
  * @returns the item, or undefined when the Turn has no visible loaded node.
  */
-export function turnNavigationItem(
-  turn: number,
-  locations: ChatLocationNodeIndex,
-  nodes: ChatNodeStore,
-): TurnNavigationItem | undefined {
-  const loaded = locations.getTurn(turn)
+export function turnNavigationItem(turn: number, locations: ChatLocationNodeIndex, nodes: ChatNodeStore): TurnNavigationItem | undefined {
+  const loaded = locations
+    .getTurn(turn)
     .map(key => nodes.get(key))
     .filter((node): node is ChatNode => node !== undefined && isVisibleChatNode(node as ChatNode))
   const user = loaded.find(node => node.kind === 'user')

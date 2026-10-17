@@ -1,11 +1,7 @@
 /** Physical WebSocket selection and Host mount resolution. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  openConnectionWebSocket,
-  type ConnectionWebSocket,
-  type ConnectionWebSocketFactory,
-} from '../src/client/socket.ts'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { openConnectionWebSocket, type ConnectionWebSocket, type ConnectionWebSocketFactory } from '../src/client/socket.ts'
 
 function socketProbe(): ConnectionWebSocket {
   return {
@@ -17,15 +13,18 @@ function socketProbe(): ConnectionWebSocket {
   }
 }
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('Connection WebSocket carrier', () => {
   it('requires an explicit Host base outside a document before opening a socket', () => {
     const factory = vi.fn<ConnectionWebSocketFactory>()
 
     expect(typeof document).toBe('undefined')
-    expect(() => openConnectionWebSocket('/api/remote.mux', factory))
-      .toThrow('connection: WebSocket carrier requires streamBaseUrl outside a document')
+    expect(() => openConnectionWebSocket('/api/remote.mux', factory)).toThrow(
+      'connection: WebSocket carrier requires streamBaseUrl outside a document',
+    )
     expect(factory).not.toHaveBeenCalled()
   })
 
@@ -42,7 +41,9 @@ describe('Connection WebSocket carrier', () => {
 
   it('uses the browser WebSocket and document base when no carrier is supplied', () => {
     const socket = socketProbe()
-    const browserSocket = vi.fn(function (_url: string) { return socket })
+    const browserSocket = vi.fn(function (_url: string) {
+      return socket
+    })
     vi.stubGlobal('document', { baseURI: 'https://browser.example/mounted/' } satisfies Pick<Document, 'baseURI'>)
     vi.stubGlobal('WebSocket', browserSocket)
     try {

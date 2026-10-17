@@ -11,14 +11,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { GoalId, GoalRef, GoalSnapshot, GoalView } from './types.ts'
 
 /** Goal state-changing verbs recorded in the durable source change. */
-export type GoalOperation =
-  | 'create'
-  | 'edit'
-  | 'pause'
-  | 'resume'
-  | 'complete'
-  | 'block'
-  | 'clear'
+export type GoalOperation = 'create' | 'edit' | 'pause' | 'resume' | 'complete' | 'block' | 'clear'
 
 /** Full-snapshot goal mutation committed by a durable `goal/change` event. */
 export interface GoalSnapshotChangeMeta {

@@ -68,10 +68,7 @@ export interface MarkdownDestination {
 
 /** Whether a Markdown URL is external, repository-root absolute, or purely in-page. */
 export function isExternalOrAbsoluteMarkdownUrl(url: string): boolean {
-  return url.startsWith('#')
-    || url.startsWith('//')
-    || url.startsWith('/')
-    || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)
+  return url.startsWith('#') || url.startsWith('//') || url.startsWith('/') || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)
 }
 
 /** Split one Markdown URL without normalizing its query or fragment suffix. */
@@ -159,7 +156,7 @@ export function markdownDestination(source: string, node: MarkdownDestinationNod
 export function markdownFences(source: string): MarkdownFence[] {
   const lines = source.split('\n')
   const fences: MarkdownFence[] = []
-  visitMarkdown(parseMarkdown(source), (node) => {
+  visitMarkdown(parseMarkdown(source), node => {
     if (node.type !== 'code' || node.position === undefined) return
     const lang = node.lang ?? null
     const meta = node.meta ?? ''
@@ -189,7 +186,7 @@ function renderedText(node: Nodes): string {
 export function markdownHeadingLines(source: string, tree: Nodes = parseMarkdown(source)): MarkdownHeadingLine[] {
   const rawLines = source.split('\n')
   const headings: MarkdownHeadingLine[] = []
-  visitMarkdown(tree, (node) => {
+  visitMarkdown(tree, node => {
     if (node.type !== 'heading' || node.position === undefined) return
     headings.push({
       depth: node.depth,
@@ -207,7 +204,7 @@ type OffsetRange = readonly [start: number, end: number]
 /** Source-column ranges occupied by parsed HTML comments, keyed by source line. */
 function htmlCommentRanges(tree: Nodes, rawLines: readonly string[]): Map<number, ColumnRange[]> {
   const comments: OffsetRange[] = []
-  visitMarkdown(tree, (node) => {
+  visitMarkdown(tree, node => {
     if (node.type !== 'html' || node.position?.start.offset === undefined) return
     let cursor = 0
     while (true) {
@@ -262,7 +259,7 @@ export function markdownProseLines(source: string, tree: Nodes = parseMarkdown(s
   const rawLines = source.split('\n')
   const comments = htmlCommentRanges(tree, rawLines)
   const fenced = new Set<number>()
-  visitMarkdown(tree, (node) => {
+  visitMarkdown(tree, node => {
     if (node.type !== 'code' || node.position === undefined) return
     for (let line = node.position.start.line; line <= node.position.end.line; line += 1) fenced.add(line)
   })

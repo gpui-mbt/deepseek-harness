@@ -2,7 +2,7 @@
  * locale service, declaration-aware Appearance row registration, snapshot
  * projection into the row store, and HMR collapse recovery. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
@@ -13,7 +13,13 @@ import { THEME_SETTINGS_NAMESPACE, ThemeSettingsSchema, type ThemeSettings } fro
 import { AppearanceRow } from '../src/client/AppearanceRow.tsx'
 import type { createAppearanceRowStore, createFontRowStore } from '../src/client/settings-store.ts'
 import { FontSettingsGroup } from '../src/client/FontSettingsGroup.tsx'
-import type { Shortcuts, ShortcutContext, ShortcutFixedInput, ShortcutGesture, ShortcutPlatform } from '@deepseek-ai/dsh-client-shortcuts/client'
+import type {
+  Shortcuts,
+  ShortcutContext,
+  ShortcutFixedInput,
+  ShortcutGesture,
+  ShortcutPlatform,
+} from '@deepseek-ai/dsh-client-shortcuts/client'
 import { bindingKey, normalizeBinding, presentBinding } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import { ShortcutRegistry } from '../../shortcuts/src/client/registry.ts'
 
@@ -25,7 +31,9 @@ const SLOT = 'settings.general.item'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((done) => { resolve = done })
+  const promise = new Promise<T>(done => {
+    resolve = done
+  })
   return { promise, resolve }
 }
 
@@ -35,19 +43,30 @@ async function bench(isLoopback = true) {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const section: Record<string, unknown> = { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+  const section: Record<string, unknown> = {
+    preference: 'system',
+    fontSize: 14,
+    codeFontSize: 11,
+    terminalFontSize: 13,
+    textFontFamily: '',
+    codeFontFamily: '',
+    terminalFontFamily: '',
+  }
   const namespace = () => ({
     ns: THEME_SETTINGS_NAMESPACE,
     schema: ThemeSettingsSchema.toJSON(),
     value: { ...section },
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision: 0,
   })
-  const describe = vi.fn(() => Promise.resolve({
-    ok: true as const,
-    value: { writable: true, hasDocument: true, namespaces: [namespace()] },
-  }))
+  const describe = vi.fn(() =>
+    Promise.resolve({
+      ok: true as const,
+      value: { writable: true, hasDocument: true, namespaces: [namespace()] },
+    }),
+  )
   const mutate = vi.fn((_ns: string, ops: { path: string[]; value: unknown }[]) => {
     for (const op of ops) section[op.path[0]!] = op.value
     return Promise.resolve({ ok: true as const, value: namespace() })
@@ -56,17 +75,21 @@ async function bench(isLoopback = true) {
   events.$host = { home: undefined, isLoopback }
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return {
-    ctx, slots: ctx.get('slots') as SlotRegistry, locale, describe, mutate, events,
-    setHostSection: (next: Record<string, unknown>) => { Object.assign(section, next) },
+    ctx,
+    slots: ctx.get('slots') as SlotRegistry,
+    locale,
+    describe,
+    mutate,
+    events,
+    setHostSection: (next: Record<string, unknown>) => {
+      Object.assign(section, next)
+    },
   }
 }
 
 /** Stand in for the settings shell: declare the General item slot from root. */
 function declareItems(slots: SlotRegistry): () => void {
-  return slots.register(
-    { name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never,
-    () => null,
-  )
+  return slots.register({ name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never, () => null)
 }
 
 /** Mirror the framework's inject choreography: bake a real instance from the
@@ -93,15 +116,18 @@ function fontKeyboard(ctx: Context, runtime: Shortcuts['runtime'] = 'desktop', p
   const registry = new ShortcutRegistry(runtime, platform)
   const listeners = new Set<(input: ShortcutFixedInput) => void>()
   const shortcuts: Pick<Shortcuts, 'runtime' | 'platform' | 'registerFixed' | 'describeBinding' | 'observeFixedInput'> = {
-    runtime, platform,
+    runtime,
+    platform,
     registerFixed: command => registry.registerFixed(command),
-    describeBinding: (candidate) => {
+    describeBinding: candidate => {
       const binding = candidate === null ? null : normalizeBinding(candidate, platform)
       return { binding, keys: presentBinding(binding, platform).keys, issue: null, conflicts: [] }
     },
-    observeFixedInput: (listener) => {
+    observeFixedInput: listener => {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
   }
   ctx.provide('shortcuts', shortcuts)
@@ -109,15 +135,28 @@ function fontKeyboard(ctx: Context, runtime: Shortcuts['runtime'] = 'desktop', p
     registry,
     press: (gesture: Partial<ShortcutGesture> = {}, context: Partial<ShortcutContext> = {}) => {
       const consume = vi.fn()
-      for (const listener of listeners) listener({
-        type: 'keydown', consume,
-        gesture: { code: 'Equal', meta: platform === 'macos', control: platform !== 'macos', alt: false,
-          shift: false, repeat: false, composing: false, defaultPrevented: false, ...gesture },
-        context: { region: 'page', modal: null, target: null, ...context },
-      })
+      for (const listener of listeners)
+        listener({
+          type: 'keydown',
+          consume,
+          gesture: {
+            code: 'Equal',
+            meta: platform === 'macos',
+            control: platform !== 'macos',
+            alt: false,
+            shift: false,
+            repeat: false,
+            composing: false,
+            defaultPrevented: false,
+            ...gesture,
+          },
+          context: { region: 'page', modal: null, target: null, ...context },
+        })
       return consume
     },
-    reset: () => { for (const listener of listeners) listener({ type: 'reset' }) },
+    reset: () => {
+      for (const listener of listeners) listener({ type: 'reset' })
+    },
   }
 }
 
@@ -127,10 +166,16 @@ async function keyboardTheme(host = stubConfigForm<ThemeSettings>()) {
   ctx.provide('locale', new LocaleRuntime(ctx))
   const keyboard = fontKeyboard(ctx)
   const events: ThemeSnapshot[] = []
-  ctx.on('theme/change', (snapshot) => { events.push(snapshot) })
-  await ctx.plugin({ apply: (scope) => {
-    scope.provide('theme', new ThemeRuntime(scope, host.scope))
-  } }).await()
+  ctx.on('theme/change', snapshot => {
+    events.push(snapshot)
+  })
+  await ctx
+    .plugin({
+      apply: scope => {
+        scope.provide('theme', new ThemeRuntime(scope, host.scope))
+      },
+    })
+    .await()
   return { theme: ctx.get('theme') as ThemeRuntime, keyboard, events, host }
 }
 
@@ -156,9 +201,7 @@ describe('ui-theme apply', () => {
     theme.setFontSize('terminal', 20)
     keyboard.press()
     expect(theme.getTheme().fontSizes).toEqual({ text: 22, code: 11, terminal: 20 })
-    expect(host.mutate).toHaveBeenCalledExactlyOnceWith([
-      { op: 'set', path: ['codeFontSize'], value: 11 },
-    ])
+    expect(host.mutate).toHaveBeenCalledExactlyOnceWith([{ op: 'set', path: ['codeFontSize'], value: 11 }])
     keyboard.press({ code: 'Minus' })
     expect(theme.getTheme().fontSizes).toEqual({ text: 21, code: 10, terminal: 19 })
     keyboard.press({ code: 'Minus' })
@@ -171,8 +214,15 @@ describe('ui-theme apply', () => {
 
   it('adopts all durable font sizes together after a refused batch settles', async () => {
     const host = stubConfigForm<ThemeSettings>()
-    const section: ThemeSettings = { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13,
-      textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+    const section: ThemeSettings = {
+      preference: 'system',
+      fontSize: 14,
+      codeFontSize: 11,
+      terminalFontSize: 13,
+      textFontFamily: '',
+      codeFontFamily: '',
+      terminalFontFamily: '',
+    }
     host.publish({ status: 'ready', value: section, revision: 1, writable: true })
     const { theme, keyboard } = await keyboardTheme(host)
     const write = Promise.withResolvers<boolean>()
@@ -181,49 +231,60 @@ describe('ui-theme apply', () => {
     host.publish({ value: section, revision: 2 })
     expect(theme.getTheme().fontSizes).toEqual({ text: 15, code: 12, terminal: 14 })
     write.resolve(false)
-    await vi.waitFor(() => { expect(theme.getTheme().fontSizes).toEqual({ text: 14, code: 11, terminal: 13 }) })
+    await vi.waitFor(() => {
+      expect(theme.getTheme().fontSizes).toEqual({ text: 14, code: 11, terminal: 13 })
+    })
   })
 
-  it.each(['macos', 'windows', 'linux'] as const)('shares %s font shortcuts with the settings control and durable values', async (platform) => {
-    const b = await bench()
-    const keyboard = fontKeyboard(b.ctx, 'desktop', platform)
-    declareItems(b.slots)
-    const fiber = b.ctx.plugin({ inject: [...inject], apply })
-    await fiber.await()
-    const theme = b.ctx.get('theme') as ThemeRuntime
-    const { instance, face } = fontSettingsFaceOf(b.slots)
+  it.each(['macos', 'windows', 'linux'] as const)(
+    'shares %s font shortcuts with the settings control and durable values',
+    async platform => {
+      const b = await bench()
+      const keyboard = fontKeyboard(b.ctx, 'desktop', platform)
+      declareItems(b.slots)
+      const fiber = b.ctx.plugin({ inject: [...inject], apply })
+      await fiber.await()
+      const theme = b.ctx.get('theme') as ThemeRuntime
+      const { instance, face } = fontSettingsFaceOf(b.slots)
 
-    expect(keyboard.press()).toHaveBeenCalledOnce()
-    expect(theme.getTheme().fontSizes).toEqual({ text: 15, code: 12, terminal: 14 })
-    keyboard.press({ shift: true }, { region: 'editable' })
-    expect(instance.getSnapshot().fontSizes).toEqual({ text: 16, code: 13, terminal: 15 })
-    keyboard.press({ code: 'Minus' })
-    expect(instance.getSnapshot().fontSizes).toEqual({ text: 15, code: 12, terminal: 14 })
-    face.setFontSize('text', 20)
-    keyboard.press()
-    expect(theme.getTheme().fontSizes).toEqual({ text: 21, code: 13, terminal: 15 })
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(5) })
-    expect(b.mutate.mock.calls.at(-1)?.[1]).toEqual([
-      { op: 'set', path: ['fontSize'], value: 21 },
-      { op: 'set', path: ['codeFontSize'], value: 13 },
-      { op: 'set', path: ['terminalFontSize'], value: 15 },
-    ])
-    expect(theme.getTheme().fontSizes).toEqual({ text: 21, code: 13, terminal: 15 })
+      expect(keyboard.press()).toHaveBeenCalledOnce()
+      expect(theme.getTheme().fontSizes).toEqual({ text: 15, code: 12, terminal: 14 })
+      keyboard.press({ shift: true }, { region: 'editable' })
+      expect(instance.getSnapshot().fontSizes).toEqual({ text: 16, code: 13, terminal: 15 })
+      keyboard.press({ code: 'Minus' })
+      expect(instance.getSnapshot().fontSizes).toEqual({ text: 15, code: 12, terminal: 14 })
+      face.setFontSize('text', 20)
+      keyboard.press()
+      expect(theme.getTheme().fontSizes).toEqual({ text: 21, code: 13, terminal: 15 })
+      await vi.waitFor(() => {
+        expect(b.mutate).toHaveBeenCalledTimes(5)
+      })
+      expect(b.mutate.mock.calls.at(-1)?.[1]).toEqual([
+        { op: 'set', path: ['fontSize'], value: 21 },
+        { op: 'set', path: ['codeFontSize'], value: 13 },
+        { op: 'set', path: ['terminalFontSize'], value: 15 },
+      ])
+      expect(theme.getTheme().fontSizes).toEqual({ text: 21, code: 13, terminal: 15 })
 
-    await fiber.dispose()
-    expect(keyboard.registry.fixedCatalog.getSnapshot()).toEqual([])
-    expect(keyboard.press()).not.toHaveBeenCalled()
-    expect(theme.getTheme().fontSizes.text).toBe(21)
-    await b.ctx.fiber.dispose()
-  })
+      await fiber.dispose()
+      expect(keyboard.registry.fixedCatalog.getSnapshot()).toEqual([])
+      expect(keyboard.press()).not.toHaveBeenCalled()
+      expect(theme.getTheme().fontSizes.text).toBe(21)
+      await b.ctx.fiber.dispose()
+    },
+  )
 
   it('presents both desktop font actions with their accepted physical combinations', async () => {
     const b = await bench()
     const keyboard = fontKeyboard(b.ctx)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(keyboard.registry.fixedCatalog.getSnapshot().map(row => ({
-      label: row.label, keys: row.keys, bindings: row.bindings.map(bindingKey),
-    }))).toMatchInlineSnapshot(`
+    expect(
+      keyboard.registry.fixedCatalog.getSnapshot().map(row => ({
+        label: row.label,
+        keys: row.keys,
+        bindings: row.bindings.map(bindingKey),
+      })),
+    ).toMatchInlineSnapshot(`
       [
         {
           "bindings": [
@@ -259,13 +320,17 @@ describe('ui-theme apply', () => {
     theme.setFontSize('text', 22)
     theme.setFontSize('code', 16)
     theme.setFontSize('terminal', 20)
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(3) })
+    await vi.waitFor(() => {
+      expect(b.mutate).toHaveBeenCalledTimes(3)
+    })
     expect(keyboard.press()).toHaveBeenCalledOnce()
     expect(keyboard.press({ shift: true })).toHaveBeenCalledOnce()
     theme.setFontSize('text', 10)
     theme.setFontSize('code', 10)
     theme.setFontSize('terminal', 10)
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(6) })
+    await vi.waitFor(() => {
+      expect(b.mutate).toHaveBeenCalledTimes(6)
+    })
     expect(keyboard.press({ code: 'Minus' })).toHaveBeenCalledOnce()
     expect(theme.getTheme().fontSizes).toEqual({ text: 10, code: 10, terminal: 10 })
     expect(b.mutate).toHaveBeenCalledTimes(6)
@@ -284,9 +349,16 @@ describe('ui-theme apply', () => {
     const keyboard = fontKeyboard(b.ctx)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     for (const gesture of [
-      { composing: true }, { defaultPrevented: true }, { repeat: true }, { alt: true },
-      { meta: false }, { control: true }, { code: 'KeyA' }, { code: 'Minus', shift: true },
-    ]) expect(keyboard.press(gesture)).not.toHaveBeenCalled()
+      { composing: true },
+      { defaultPrevented: true },
+      { repeat: true },
+      { alt: true },
+      { meta: false },
+      { control: true },
+      { code: 'KeyA' },
+      { code: 'Minus', shift: true },
+    ])
+      expect(keyboard.press(gesture)).not.toHaveBeenCalled()
     expect(keyboard.press({}, { region: 'terminal' })).not.toHaveBeenCalled()
     keyboard.reset()
     expect((b.ctx.get('theme') as ThemeRuntime).getTheme().fontSizes.text).toBe(14)
@@ -339,7 +411,9 @@ describe('ui-theme apply', () => {
     face.setTheme('system')
     expect(theme.getTheme().preference).toBe('system')
     expect(instance.getSnapshot().preference).toBe('system')
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(b.mutate).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('projects font-size snapshots into its row store and routes face writes back', async () => {
@@ -357,7 +431,9 @@ describe('ui-theme apply', () => {
     face.setFontSize('text', 12)
     expect(theme.getTheme().fontSizes.text).toBe(12)
     expect(instance.getSnapshot().fontSizes.text).toBe(12)
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(b.mutate).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('projects font snapshots into the shared font store and routes group writes by role', async () => {
@@ -374,7 +450,9 @@ describe('ui-theme apply', () => {
     group.face.setFontSize('terminal', 16)
     expect(theme.getTheme().fontFamilies).toEqual({ text: '', code: '"Iosevka"', terminal: '"MesloLGS NF"' })
     expect(group.instance.getSnapshot().fontSizes.terminal).toBe(16)
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(3) })
+    await vi.waitFor(() => {
+      expect(b.mutate).toHaveBeenCalledTimes(3)
+    })
   })
 
   it('loads Host settings at boot, refreshes its namespace, and persists for a trusted remote page', async () => {
@@ -386,19 +464,27 @@ describe('ui-theme apply', () => {
     declareItems(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const theme = b.ctx.get('theme') as ThemeRuntime
-    await vi.waitFor(() => { expect(theme.getTheme().preference).toBe('dark') })
+    await vi.waitFor(() => {
+      expect(theme.getTheme().preference).toBe('dark')
+    })
     expect(theme.getTheme().fontSizes.text).toBe(17)
     // The mirror refreshes on every document commit (ns-agnostic); the scope's
     // derived value only moves when its own namespace changed.
     b.events.emit('settings/document-updated', ['unrelated', 0])
-    await vi.waitFor(() => { expect(b.describe).toHaveBeenCalledTimes(3) })
+    await vi.waitFor(() => {
+      expect(b.describe).toHaveBeenCalledTimes(3)
+    })
     expect(theme.getTheme().preference).toBe('dark')
     b.setHostSection({ preference: 'light' })
     b.events.emit('settings/document-updated', [THEME_SETTINGS_NAMESPACE, 0])
-    await vi.waitFor(() => { expect(theme.getTheme().preference).toBe('light') })
+    await vi.waitFor(() => {
+      expect(theme.getTheme().preference).toBe('light')
+    })
     b.setHostSection({ preference: 'dark' })
     b.ctx.emit('connection/reset')
-    await vi.waitFor(() => { expect(theme.getTheme().preference).toBe('dark') })
+    await vi.waitFor(() => {
+      expect(theme.getTheme().preference).toBe('dark')
+    })
 
     // A non-loopback page persists through the same path as loopback.
     const remote = await bench(false)
@@ -425,7 +511,9 @@ describe('ui-theme apply', () => {
     const theme = b.ctx.get('theme') as ThemeRuntime
     expect(theme.getTheme().preference).toBe('system')
     pending.resolve(await describe())
-    await vi.waitFor(() => { expect(theme.getTheme().preference).toBe('dark') })
+    await vi.waitFor(() => {
+      expect(theme.getTheme().preference).toBe('dark')
+    })
     await fiber.dispose()
   })
 
@@ -435,7 +523,9 @@ describe('ui-theme apply', () => {
     b.events.emit('settings/document-updated', [THEME_SETTINGS_NAMESPACE, 0])
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const theme = b.ctx.get('theme') as ThemeRuntime
-    await vi.waitFor(() => { expect(b.describe).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(b.describe).toHaveBeenCalledTimes(2)
+    })
     expect(theme.getTheme().preference).toBe('system')
   })
 

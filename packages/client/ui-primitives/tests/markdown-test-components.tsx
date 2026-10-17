@@ -12,14 +12,8 @@ type MarkdownTextProps = Omit<ComponentProps<typeof LocalizedMarkdownText>, 'lab
   codeLabels?: MarkdownCodeLabels
 }
 
-export function MarkdownText({
-  labels,
-  codeLabels,
-  ...props
-}: MarkdownTextProps) {
-  const resolved = labels ?? (codeLabels === undefined
-    ? defaultMarkdownLabels
-    : { ...defaultMarkdownLabels, code: codeLabels })
+export function MarkdownText({ labels, codeLabels, ...props }: MarkdownTextProps) {
+  const resolved = labels ?? (codeLabels === undefined ? defaultMarkdownLabels : { ...defaultMarkdownLabels, code: codeLabels })
   return <LocalizedMarkdownText {...props} labels={resolved} />
 }
 
@@ -28,10 +22,5 @@ type JsonBlockProps = Omit<ComponentProps<typeof LocalizedJsonBlock>, 'truncated
 }
 
 export function JsonBlock({ truncatedLabel, ...props }: JsonBlockProps) {
-  return (
-    <LocalizedJsonBlock
-      {...props}
-      truncatedLabel={truncatedLabel ?? (total => `… 已截断，共 ${total} 字符`)}
-    />
-  )
+  return <LocalizedJsonBlock {...props} truncatedLabel={truncatedLabel ?? (total => `… 已截断，共 ${total} 字符`)} />
 }

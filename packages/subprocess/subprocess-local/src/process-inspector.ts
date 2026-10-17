@@ -146,7 +146,10 @@ export function parseProcStat(text: string): ProcStat | undefined {
   const close = text.lastIndexOf(')')
   if (open <= 0 || close <= open) return undefined
   const pid = Number(text.slice(0, open).trim())
-  const rest = text.slice(close + 2).trim().split(/\s+/)
+  const rest = text
+    .slice(close + 2)
+    .trim()
+    .split(/\s+/)
   const state = rest[0] || ''
   const parentPid = Number(rest[1])
   const pgrp = Number(rest[2])
@@ -154,8 +157,8 @@ export function parseProcStat(text: string): ProcStat | undefined {
   const ttyDevice = Number(rest[4])
   const tpgid = Number(rest[5])
   const started = rest[19]
-  if (![pid, parentPid, pgrp, session, ttyDevice, tpgid].every(Number.isSafeInteger)
-    || state.length !== 1 || started === undefined) return undefined
+  if (![pid, parentPid, pgrp, session, ttyDevice, tpgid].every(Number.isSafeInteger) || state.length !== 1 || started === undefined)
+    return undefined
   return { pid, parentPid, pgrp, session, state, ttyDevice, tpgid, started }
 }
 
@@ -175,12 +178,7 @@ function linuxDeviceNumber(value: number): number {
 
 // `/dev/tty` reports the alias device instead of the selected PTY through stat,
 // so its owning process's tty_nr is the only comparable terminal identity.
-function readLinuxTerminalDevice(
-  internals: ProcessInspectorInternals,
-  pid: number,
-  ttyDevice: number,
-  tid?: number,
-): number | undefined {
+function readLinuxTerminalDevice(internals: ProcessInspectorInternals, pid: number, ttyDevice: number, tid?: number): number | undefined {
   const terminalDevice = linuxDeviceNumber(ttyDevice)
   if (terminalDevice === 0) return undefined
   const path = tid === undefined ? `/proc/${pid}/fd/0` : `/proc/${pid}/task/${tid}/fd/0`
@@ -188,9 +186,7 @@ function readLinuxTerminalDevice(
     const target = internals.readLink(path)
     if (target === '/dev/tty') return terminalDevice
     const status = internals.stat(path)
-    return status.isCharacterDevice() && linuxDeviceNumber(status.rdev) === terminalDevice
-      ? terminalDevice
-      : undefined
+    return status.isCharacterDevice() && linuxDeviceNumber(status.rdev) === terminalDevice ? terminalDevice : undefined
   } catch (_unreadableStdinDevice) {
     return undefined
   }
@@ -227,7 +223,10 @@ export function linuxProcessGroupHasLiveMembers(
 
 function numericEntries(internals: ProcessInspectorInternals, path: string): number[] | undefined {
   try {
-    return internals.readDir(path).filter(entry => /^\d+$/.test(entry)).map(Number)
+    return internals
+      .readDir(path)
+      .filter(entry => /^\d+$/.test(entry))
+      .map(Number)
   } catch (_unreadableProcDirectory) {
     return undefined
   }
@@ -252,12 +251,7 @@ function readSyscall(internals: ProcessInspectorInternals, pid: number, tid: num
   }
 }
 
-function readMemory(
-  internals: ProcessInspectorInternals,
-  pid: number,
-  address: number,
-  length: number,
-): Buffer | undefined {
+function readMemory(internals: ProcessInspectorInternals, pid: number, address: number, length: number): Buffer | undefined {
   let fd: number | undefined
   try {
     fd = internals.open(`/proc/${pid}/mem`)
@@ -275,12 +269,7 @@ function fdSetHasStdin(internals: ProcessInspectorInternals, pid: number, addres
   return address !== 0 && (readMemory(internals, pid, address, 8)?.[0] ?? 0) % 2 === 1
 }
 
-function pollHasStdin(
-  internals: ProcessInspectorInternals,
-  pid: number,
-  address: number,
-  count: number,
-): boolean {
+function pollHasStdin(internals: ProcessInspectorInternals, pid: number, address: number, count: number): boolean {
   if (address === 0 || count <= 0) return false
   const memory = readMemory(internals, pid, address, Math.min(count, 1024) * 8)
   if (memory === undefined) return false
@@ -292,7 +281,8 @@ function pollHasStdin(
 
 function epollHasStdin(internals: ProcessInspectorInternals, pid: number, tid: number, epfd: number): boolean {
   try {
-    return internals.readFile(`/proc/${pid}/task/${tid}/fdinfo/${epfd}`)
+    return internals
+      .readFile(`/proc/${pid}/task/${tid}/fdinfo/${epfd}`)
       .split('\n')
       .some(line => /^tfd:\s+0\b/.test(line.trim()))
   } catch (_unreadableFdInfo) {
@@ -386,7 +376,10 @@ function quiescent(state: string | undefined): boolean {
 class PosixProcessSnapshot implements ProcessSnapshot {
   private readonly byPid: Map<number, ProcessRow>
 
-  constructor(private readonly rows: ProcessRow[], readonly complete: boolean) {
+  constructor(
+    private readonly rows: ProcessRow[],
+    readonly complete: boolean,
+  ) {
     this.byPid = new Map(rows.map(row => [row.pid, row]))
   }
 
@@ -395,8 +388,7 @@ class PosixProcessSnapshot implements ProcessSnapshot {
   }
 
   session(sessionId: number): ProcessIdentity[] {
-    return this.rows.flatMap(row =>
-      row.session === sessionId ? [{ pid: row.pid, started: row.started }] : [])
+    return this.rows.flatMap(row => (row.session === sessionId ? [{ pid: row.pid, started: row.started }] : []))
   }
 
   alive(identity: ProcessIdentity): boolean {
@@ -452,9 +444,12 @@ class LinuxProcessInspector extends PosixProcessInspector {
       if (process?.pgrp !== pgid) continue
       for (const tid of numericEntries(this.internals, `/proc/${pid}/task`) ?? []) {
         const syscall = readSyscall(this.internals, pid, tid)
-        if (syscall !== undefined
-          && syscallWaitsOnStdin(this.internals, pid, tid, syscall, tables)
-          && readLinuxTerminalDevice(this.internals, pid, process.ttyDevice, tid) === terminalDevice) return true
+        if (
+          syscall !== undefined &&
+          syscallWaitsOnStdin(this.internals, pid, tid, syscall, tables) &&
+          readLinuxTerminalDevice(this.internals, pid, process.ttyDevice, tid) === terminalDevice
+        )
+          return true
       }
     }
     return false
@@ -469,40 +464,48 @@ class LinuxProcessInspector extends PosixProcessInspector {
     const pids = numericEntries(this.internals, '/proc')
     if (pids === undefined) throw new Error('Cannot inspect processes: /proc directory is unreadable')
     let complete = true
-    const rows = pids.flatMap((pid) => {
+    const rows = pids.flatMap(pid => {
       const stat = readLinuxStat(this.internals, pid)
       if (stat === undefined) complete = false
-      return stat === undefined ? [] : [{
-        pid,
-        parentPid: stat.parentPid,
-        started: stat.started,
-        session: stat.session,
-        state: stat.state,
-      }]
+      return stat === undefined
+        ? []
+        : [
+            {
+              pid,
+              parentPid: stat.parentPid,
+              started: stat.started,
+              session: stat.session,
+              state: stat.state,
+            },
+          ]
     })
     return new PosixProcessSnapshot(rows, complete)
   }
-
 }
 
 // `ps` exposes neither the session id nor a state column in this format, so a
 // macOS row can answer presence and parentage but never session membership.
 function macProcessTable(internals: ProcessInspectorInternals): { rows: ProcessRow[]; complete: boolean } {
   let complete = true
-  const rows = internals.exec('/bin/ps', ['-axo', 'pid=,ppid=,lstart=']).split('\n').flatMap((line) => {
-    const match = /^\s*(\d+)\s+(\d+)\s+(.+?)\s*$/.exec(line)
-    if (match?.[1] === undefined || match[2] === undefined || match[3] === undefined) {
-      if (line.trim().length > 0) complete = false
-      return []
-    }
-    return [{
-      pid: Number(match[1]),
-      parentPid: Number(match[2]),
-      started: match[3],
-      session: undefined,
-      state: undefined,
-    }]
-  })
+  const rows = internals
+    .exec('/bin/ps', ['-axo', 'pid=,ppid=,lstart='])
+    .split('\n')
+    .flatMap(line => {
+      const match = /^\s*(\d+)\s+(\d+)\s+(.+?)\s*$/.exec(line)
+      if (match?.[1] === undefined || match[2] === undefined || match[3] === undefined) {
+        if (line.trim().length > 0) complete = false
+        return []
+      }
+      return [
+        {
+          pid: Number(match[1]),
+          parentPid: Number(match[2]),
+          started: match[3],
+          session: undefined,
+          state: undefined,
+        },
+      ]
+    })
   return { rows, complete }
 }
 
@@ -521,15 +524,13 @@ class MacProcessInspector extends PosixProcessInspector {
   }
 
   isAlive(identity: ProcessIdentity): boolean {
-    return macProcessTable(this.internals).rows
-      .some(entry => entry.pid === identity.pid && entry.started === identity.started)
+    return macProcessTable(this.internals).rows.some(entry => entry.pid === identity.pid && entry.started === identity.started)
   }
 
   snapshot(): ProcessSnapshot {
     const table = macProcessTable(this.internals)
     return new PosixProcessSnapshot(table.rows, table.complete)
   }
-
 }
 
 /**

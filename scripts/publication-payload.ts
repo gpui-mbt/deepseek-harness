@@ -12,13 +12,15 @@ export function hasTypertRemoteNavigation(manifest: unknown): boolean {
   const remote = (exportsField as Record<string, unknown>)['./remote']
   if (remote === null || typeof remote !== 'object' || Array.isArray(remote)) return false
   const entry = remote as Record<string, unknown>
-  return entry.types === './lib/typert.remote-client.d.ts'
-    && entry.default === './lib/typert.remote-client.js'
+  return entry.types === './lib/typert.remote-client.d.ts' && entry.default === './lib/typert.remote-client.js'
 }
 
 /** Normalize a package manifest path or npm tarball member to its payload-relative path. */
 function payloadPath(file: string): string {
-  const normalized = file.replaceAll('\\', '/').replace(/^\.\/+/, '').replace(/\/+$/, '')
+  const normalized = file
+    .replaceAll('\\', '/')
+    .replace(/^\.\/+/, '')
+    .replace(/\/+$/, '')
   return normalized.startsWith('package/') ? normalized.slice('package/'.length) : normalized
 }
 
@@ -32,10 +34,7 @@ function payloadPath(file: string): string {
  */
 export function isForbiddenPublicationFile(file: string): boolean {
   const normalized = payloadPath(file)
-  return normalized === 'src'
-    || normalized.startsWith('src/')
-    || normalized.endsWith('.d.ts.map')
-    || normalized.endsWith('.js.map')
+  return normalized === 'src' || normalized.startsWith('src/') || normalized.endsWith('.d.ts.map') || normalized.endsWith('.js.map')
 }
 
 /**

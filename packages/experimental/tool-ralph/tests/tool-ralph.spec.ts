@@ -1,5 +1,5 @@
 import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -28,7 +28,9 @@ class StubEngine extends WorkflowEngine {
   start(request: WorkflowStartRequest): WorkflowRun {
     if (this.startError !== undefined) throw this.startError
     this.requests.push(request)
-    const result = new Promise<WorkflowResult>((resolve) => { this.settle = resolve })
+    const result = new Promise<WorkflowResult>(resolve => {
+      this.settle = resolve
+    })
     this.onStart?.()
     return {
       id: WorkflowRunId(`ralph-${this.requests.length}`),
@@ -39,7 +41,7 @@ class StubEngine extends WorkflowEngine {
         this.settle({
           value: null,
           stopReason: 'cancelled',
-          ...reason === undefined ? {} : { error: reason },
+          ...(reason === undefined ? {} : { error: reason }),
           agentsStarted: 0,
         })
       },
@@ -83,7 +85,7 @@ async function setup(options?: SetupOptions) {
   await ctx.plugin(SessionProjectionRegistry)
   provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SubagentRuntime)
-  const provider = options?.provider === false ? undefined : options?.provider ?? new StubProvider()
+  const provider = options?.provider === false ? undefined : (options?.provider ?? new StubProvider())
   if (provider !== undefined) ctx.subagents.registerProvider(provider)
   await ctx.plugin(StubEngine)
   const config: toolRalph.Config = { subagentProvider: 'fresh' }
@@ -96,17 +98,13 @@ async function setup(options?: SetupOptions) {
   return { ctx, engine: ctx.workflowEngine as StubEngine, parent, fiber }
 }
 
-function execute(
-  ctx: Context,
-  args: unknown,
-  extra?: { agent?: Agent; signal?: AbortSignal },
-): Promise<ToolExecutionResult> {
+function execute(ctx: Context, args: unknown, extra?: { agent?: Agent; signal?: AbortSignal }): Promise<ToolExecutionResult> {
   return ctx.tools.execute({
     signal: extra?.signal ?? testToolSignal,
     callId: ToolCallId('ralph-call'),
     name: 'ralph',
     arguments: args,
-    ...extra?.agent === undefined ? {} : { agent: extra.agent },
+    ...(extra?.agent === undefined ? {} : { agent: extra.agent }),
   })
 }
 
@@ -140,7 +138,9 @@ async function settleCompleted(
   value: unknown,
   agentsStarted = 1,
 ): Promise<ToolExecutionResult> {
-  await vi.waitFor(() => { expect(engine.requests.length).toBeGreaterThan(0) })
+  await vi.waitFor(() => {
+    expect(engine.requests.length).toBeGreaterThan(0)
+  })
   engine.settle({ value, stopReason: 'completed', agentsStarted })
   return pending
 }
@@ -149,7 +149,9 @@ describe('dsh-tool-ralph', () => {
   it('starts the fixed workflow through the configured fresh provider and renders completion', async () => {
     const { ctx, engine, parent } = await setup({ config: { maxRounds: 9, maxHandoffChars: 9000 } })
     const pending = execute(ctx, { objective: '  Finish the migration.  ', maxRounds: 4 }, { agent: parent })
-    await vi.waitFor(() => { expect(engine.requests).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(engine.requests).toHaveLength(1)
+    })
     expect(engine.requests[0]).toMatchObject({
       meta: { name: 'ralph-loop' },
       args: { objective: 'Finish the migration.', maxRounds: 4, maxHandoffChars: 9000 },
@@ -170,8 +172,7 @@ describe('dsh-tool-ralph', () => {
       agentsStarted: 1,
       result: { status: 'complete', roundsStarted: 1, report: COMPLETE },
     })
-    expect((result.content[0] as { text: string }).text)
-      .toContain('Ralph worker reported completion after 1 round.')
+    expect((result.content[0] as { text: string }).text).toContain('Ralph worker reported completion after 1 round.')
     expect((result.content[0] as { text: string }).text).toContain('All required gates pass.')
     expect(engine.disposed).toBe(1)
   })
@@ -179,23 +180,35 @@ describe('dsh-tool-ralph', () => {
   it('renders blocked and budget-limited terminal outcomes as bounded successful results', async () => {
     const { ctx, engine, parent } = await setup({ config: { maxRounds: 2 } })
     const blocked = execute(ctx, { objective: 'Ship it.' }, { agent: parent })
-    const blockedResult = await settleCompleted(engine, blocked, {
-      status: 'blocked',
-      roundsStarted: 2,
-      report: BLOCKED,
-    }, 2)
-    expect((blockedResult.content[0] as { text: string }).text)
-      .toContain('Ralph worker reported a blocker after 2 rounds.')
+    const blockedResult = await settleCompleted(
+      engine,
+      blocked,
+      {
+        status: 'blocked',
+        roundsStarted: 2,
+        report: BLOCKED,
+      },
+      2,
+    )
+    expect((blockedResult.content[0] as { text: string }).text).toContain('Ralph worker reported a blocker after 2 rounds.')
 
     const limited = execute(ctx, { objective: 'Ship it.' }, { agent: parent })
-    await vi.waitFor(() => { expect(engine.requests).toHaveLength(2) })
-    const limitedResult = await settleCompleted(engine, limited, {
-      status: 'budget-limited',
-      roundsStarted: 2,
-      report: CONTINUE,
-    }, 2)
-    expect((limitedResult.content[0] as { text: string }).text)
-      .toContain('Ralph reached its 2 rounds limit; the worker reported work remaining.')
+    await vi.waitFor(() => {
+      expect(engine.requests).toHaveLength(2)
+    })
+    const limitedResult = await settleCompleted(
+      engine,
+      limited,
+      {
+        status: 'budget-limited',
+        roundsStarted: 2,
+        report: CONTINUE,
+      },
+      2,
+    )
+    expect((limitedResult.content[0] as { text: string }).text).toContain(
+      'Ralph reached its 2 rounds limit; the worker reported work remaining.',
+    )
   })
 
   it('bounds the complete parent result and labels worker-reported completion', async () => {
@@ -248,23 +261,30 @@ describe('dsh-tool-ralph', () => {
   it('maps workflow error and cancellation reasons to tool errors and always disposes', async () => {
     const { ctx, engine, parent } = await setup()
     const failed = execute(ctx, { objective: 'Work.' }, { agent: parent })
-    await vi.waitFor(() => { expect(engine.requests).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(engine.requests).toHaveLength(1)
+    })
     engine.settle({ value: null, stopReason: 'error', error: 'child report malformed', agentsStarted: 1 })
-    expect(((await failed).content[0] as { text: string }).text)
-      .toContain('Ralph workflow failed: child report malformed')
+    expect(((await failed).content[0] as { text: string }).text).toContain('Ralph workflow failed: child report malformed')
 
     const unknown = execute(ctx, { objective: 'Work.' }, { agent: parent })
-    await vi.waitFor(() => { expect(engine.requests).toHaveLength(2) })
+    await vi.waitFor(() => {
+      expect(engine.requests).toHaveLength(2)
+    })
     engine.settle({ value: null, stopReason: 'error', agentsStarted: 0 })
     expect(((await unknown).content[0] as { text: string }).text).toContain('unknown error')
 
     const cancelled = execute(ctx, { objective: 'Work.' }, { agent: parent })
-    await vi.waitFor(() => { expect(engine.requests).toHaveLength(3) })
+    await vi.waitFor(() => {
+      expect(engine.requests).toHaveLength(3)
+    })
     engine.settle({ value: null, stopReason: 'cancelled', error: 'user stopped', agentsStarted: 0 })
     expect(((await cancelled).content[0] as { text: string }).text).toContain('cancelled (user stopped)')
 
     const bare = execute(ctx, { objective: 'Work.' }, { agent: parent })
-    await vi.waitFor(() => { expect(engine.requests).toHaveLength(4) })
+    await vi.waitFor(() => {
+      expect(engine.requests).toHaveLength(4)
+    })
     engine.settle({ value: null, stopReason: 'cancelled', agentsStarted: 0 })
     expect(((await bare).content[0] as { text: string }).text).toMatch(/cancelled$/)
     expect(engine.disposed).toBe(4)
@@ -274,7 +294,9 @@ describe('dsh-tool-ralph', () => {
     const { ctx, engine, parent } = await setup()
     const controller = new AbortController()
     const pending = execute(ctx, { objective: 'Work.' }, { agent: parent, signal: controller.signal })
-    await vi.waitFor(() => { expect(engine.requests).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(engine.requests).toHaveLength(1)
+    })
     controller.abort()
     expect((await pending).isError).toBe(true)
 
@@ -290,7 +312,9 @@ describe('dsh-tool-ralph', () => {
   it('bridges cancellation that arrives while the workflow is starting', async () => {
     const { ctx, engine, parent } = await setup()
     const controller = new AbortController()
-    engine.onStart = () => { controller.abort() }
+    engine.onStart = () => {
+      controller.abort()
+    }
 
     const result = await execute(ctx, { objective: 'Work.' }, { agent: parent, signal: controller.signal })
 
@@ -314,24 +338,35 @@ describe('dsh-tool-ralph', () => {
 
   it('rejects missing, unstructured, and parent-context-inheriting provider routes', async () => {
     const missing = await setup({ provider: false })
-    expect(((await execute(missing.ctx, { objective: 'Work.' }, { agent: missing.parent })).content[0] as { text: string }).text)
-      .toContain('is not registered')
+    expect(((await execute(missing.ctx, { objective: 'Work.' }, { agent: missing.parent })).content[0] as { text: string }).text).toContain(
+      'is not registered',
+    )
     expect(missing.engine.requests).toHaveLength(0)
 
     const unstructured = await setup({ provider: new StubProvider({ outputSchema: false }) })
-    expect(((await execute(unstructured.ctx, { objective: 'Work.' }, { agent: unstructured.parent })).content[0] as { text: string }).text)
-      .toContain('does not support structured output')
+    expect(
+      ((await execute(unstructured.ctx, { objective: 'Work.' }, { agent: unstructured.parent })).content[0] as { text: string }).text,
+    ).toContain('does not support structured output')
 
     const inherited = await setup({ provider: new StubProvider({ inheritsParentContext: true }) })
-    expect(((await execute(inherited.ctx, { objective: 'Work.' }, { agent: inherited.parent })).content[0] as { text: string }).text)
-      .toContain('inherits parent context')
+    expect(
+      ((await execute(inherited.ctx, { objective: 'Work.' }, { agent: inherited.parent })).content[0] as { text: string }).text,
+    ).toContain('inherits parent context')
   })
 
   it('rejects invalid direct-apply config before touching injected services', () => {
-    expect(() => { toolRalph.apply(new Context(), { subagentProvider: ' ' }) }).toThrow('non-empty normalized')
-    expect(() => { toolRalph.apply(new Context(), { maxRounds: 0 }) }).toThrow('positive safe integer')
-    expect(() => { toolRalph.apply(new Context(), { maxHandoffChars: 1.5 }) }).toThrow('positive safe integer')
-    expect(() => { toolRalph.apply(new Context(), { maxResultChars: 0 }) }).toThrow('positive safe integer')
+    expect(() => {
+      toolRalph.apply(new Context(), { subagentProvider: ' ' })
+    }).toThrow('non-empty normalized')
+    expect(() => {
+      toolRalph.apply(new Context(), { maxRounds: 0 })
+    }).toThrow('positive safe integer')
+    expect(() => {
+      toolRalph.apply(new Context(), { maxHandoffChars: 1.5 })
+    }).toThrow('positive safe integer')
+    expect(() => {
+      toolRalph.apply(new Context(), { maxResultChars: 0 })
+    }).toThrow('positive safe integer')
   })
 
   it('turns malformed fixed-workflow terminal values and reports into errors', async () => {
@@ -340,28 +375,54 @@ describe('dsh-tool-ralph', () => {
       { value: { status: 'complete', roundsStarted: 0, report: COMPLETE }, message: 'malformed terminal result' },
       { value: { status: 'complete', roundsStarted: 3, report: COMPLETE }, message: 'malformed terminal result', config: { maxRounds: 2 } },
       { value: { status: 'mystery', roundsStarted: 1, report: COMPLETE }, message: 'unknown terminal status' },
-      { value: { status: 'budget-limited', roundsStarted: 1, report: CONTINUE }, message: 'before the round limit', config: { maxRounds: 2 } },
+      {
+        value: { status: 'budget-limited', roundsStarted: 1, report: CONTINUE },
+        message: 'before the round limit',
+        config: { maxRounds: 2 },
+      },
       { value: { status: 'complete', roundsStarted: 1, report: null }, message: 'malformed round report' },
       { value: { status: 'complete', roundsStarted: 1, report: COMPLETE, extra: true }, message: 'malformed terminal result' },
       { value: { status: 'blocked', roundsStarted: 1, report: BLOCKED, extra: true }, message: 'malformed terminal result' },
-      { value: { status: 'budget-limited', roundsStarted: 1, report: CONTINUE, extra: true }, message: 'malformed terminal result', config: { maxRounds: 1 } },
+      {
+        value: { status: 'budget-limited', roundsStarted: 1, report: CONTINUE, extra: true },
+        message: 'malformed terminal result',
+        config: { maxRounds: 1 },
+      },
       { value: { status: 'complete', roundsStarted: 1, report: { ...COMPLETE, status: 'continue' } }, message: 'malformed round report' },
-      { value: { status: 'budget-limited', roundsStarted: 1, report: { ...CONTINUE, nextSteps: [] } }, message: 'invalid continuing report', config: { maxRounds: 1 } },
+      {
+        value: { status: 'budget-limited', roundsStarted: 1, report: { ...CONTINUE, nextSteps: [] } },
+        message: 'invalid continuing report',
+        config: { maxRounds: 1 },
+      },
       { value: { status: 'complete', roundsStarted: 1, report: { ...COMPLETE, evidence: [] } }, message: 'invalid completion report' },
       { value: { status: 'blocked', roundsStarted: 1, report: { ...BLOCKED, blocker: '' } }, message: 'invalid blocked report' },
-      { value: { status: 'complete', roundsStarted: 1, report: { ...COMPLETE, summary: 'x'.repeat(500) } }, message: 'oversized handoff', config: { maxHandoffChars: 100 } },
+      {
+        value: { status: 'complete', roundsStarted: 1, report: { ...COMPLETE, summary: 'x'.repeat(500) } },
+        message: 'oversized handoff',
+        config: { maxHandoffChars: 100 },
+      },
       { value: { status: 'round-failed', roundsStarted: 1 }, message: 'malformed terminal result' },
       { value: { status: 'round-failed', roundsStarted: 1, lastReport: CONTINUE }, message: 'invalid first-round failure' },
-      { value: { status: 'round-failed', roundsStarted: 2, lastReport: null }, message: 'without its last handoff', config: { maxRounds: 2 } },
-      { value: { status: 'round-failed', roundsStarted: 2, lastReport: { ...CONTINUE, nextSteps: [] } }, message: 'invalid continuing report', config: { maxRounds: 2 } },
+      {
+        value: { status: 'round-failed', roundsStarted: 2, lastReport: null },
+        message: 'without its last handoff',
+        config: { maxRounds: 2 },
+      },
+      {
+        value: { status: 'round-failed', roundsStarted: 2, lastReport: { ...CONTINUE, nextSteps: [] } },
+        message: 'invalid continuing report',
+        config: { maxRounds: 2 },
+      },
     ]
     for (const testCase of cases) {
-      const { ctx, engine, parent } = await setup(
-        testCase.config === undefined ? undefined : { config: testCase.config },
-      )
+      const { ctx, engine, parent } = await setup(testCase.config === undefined ? undefined : { config: testCase.config })
       const result = await settleCompleted(
         engine,
-        execute(ctx, { objective: 'Work.', ...testCase.config?.maxRounds === undefined ? {} : { maxRounds: testCase.config.maxRounds } }, { agent: parent }),
+        execute(
+          ctx,
+          { objective: 'Work.', ...(testCase.config?.maxRounds === undefined ? {} : { maxRounds: testCase.config.maxRounds }) },
+          { agent: parent },
+        ),
         testCase.value,
       )
       expect(result.isError).toBe(true)

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import type { PanzoomOptions } from '@panzoom/panzoom'
 import { getByRole, queryAllByRole, queryByRole, waitFor } from '@testing-library/dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ImageViewer } from '../.vitepress/theme/image-viewer.ts'
 import { MediaViewer } from '../.vitepress/theme/media-viewer.ts'
 import { installMermaidViewer, type MermaidViewer } from '../.vitepress/theme/mermaid-viewer.ts'
@@ -13,8 +13,14 @@ vi.mock('@panzoom/panzoom', () => ({ default: panzoom.create }))
 
 function controller(scale: number) {
   return {
-    destroy: vi.fn(), setOptions: vi.fn(), zoom: vi.fn(), pan: vi.fn(),
-    zoomIn: vi.fn(), zoomOut: vi.fn(), zoomWithWheel: vi.fn(), getScale: vi.fn(() => scale),
+    destroy: vi.fn(),
+    setOptions: vi.fn(),
+    zoom: vi.fn(),
+    pan: vi.fn(),
+    zoomIn: vi.fn(),
+    zoomOut: vi.fn(),
+    zoomWithWheel: vi.fn(),
+    getScale: vi.fn(() => scale),
   }
 }
 
@@ -25,9 +31,9 @@ let language = 'en-US'
 let overflow: string
 const controllers: ReturnType<typeof controller>[] = []
 const disconnects: ReturnType<typeof vi.fn>[] = []
-const dialogMethods = new Map(['showModal', 'close'].map(name => [
-  name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name),
-]))
+const dialogMethods = new Map(
+  ['showModal', 'close'].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]),
+)
 
 beforeEach(() => {
   panzoom.create.mockReset().mockImplementation((_element, options) => {
@@ -42,19 +48,30 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1032)
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(632)
   vi.spyOn(SVGSVGElement.prototype, 'viewBox', 'get').mockReturnValue({ baseVal: { width: 2000, height: 3000 } } as SVGAnimatedRect)
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
-    this.open = true
-    this.querySelector<HTMLButtonElement>('[autofocus]')?.focus()
-  } })
-  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) {
-    this.open = false
-    this.dispatchEvent(new Event('close'))
-  } })
-  vi.stubGlobal('ResizeObserver', class {
-    disconnect = vi.fn()
-    constructor() { disconnects.push(this.disconnect) }
-    observe(): void {}
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true
+      this.querySelector<HTMLButtonElement>('[autofocus]')?.focus()
+    },
   })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false
+      this.dispatchEvent(new Event('close'))
+    },
+  })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      disconnect = vi.fn()
+      constructor() {
+        disconnects.push(this.disconnect)
+      }
+      observe(): void {}
+    },
+  )
   media = new MediaViewer(document, () => language)
 })
 
@@ -127,7 +144,9 @@ describe('documentation image viewer', () => {
     image.dispatchEvent(new Event('load'))
     const trigger = entry()
     required(viewer).refresh()
-    await waitFor(() => { expect(queryAllByRole(document.body, 'button')).toHaveLength(1) })
+    await waitFor(() => {
+      expect(queryAllByRole(document.body, 'button')).toHaveLength(1)
+    })
     expect(entry()).toBe(trigger)
     state.width = 0
     image.dispatchEvent(new Event('error'))
@@ -188,8 +207,9 @@ describe('documentation image viewer', () => {
     expect(clone.draggable).toBe(false)
     expect(panzoom.create.mock.calls[0]?.[1]).toMatchObject({ startScale: 0.625, minScale: 0.3125 })
     expect(document.body.style.overflow).toBe('hidden')
-    await expect(`${button.outerHTML}\n${dialog.outerHTML}\n${clone.outerHTML}\n`)
-      .toMatchFileSnapshot(`./expected/image-viewer.${locale}.html`)
+    await expect(`${button.outerHTML}\n${dialog.outerHTML}\n${clone.outerHTML}\n`).toMatchFileSnapshot(
+      `./expected/image-viewer.${locale}.html`,
+    )
     dialog.dispatchEvent(new Event('cancel', { cancelable: true }))
     expect(queryByRole(document.body, 'dialog')).toBeNull()
     expect(document.activeElement).toBe(button)
@@ -225,9 +245,12 @@ describe('documentation image viewer', () => {
     }
   })
 
-  it.each(['image', 'diagram'])('replaces an active %s view without leaking its controls or scroll lock', (first) => {
+  it.each(['image', 'diagram'])('replaces an active %s view without leaking its controls or scroll lock', first => {
     render()
-    required(document.querySelector('main')).insertAdjacentHTML('beforeend', '<div class="mermaid"><svg viewBox="0 0 2000 3000"></svg></div>')
+    required(document.querySelector('main')).insertAdjacentHTML(
+      'beforeend',
+      '<div class="mermaid"><svg viewBox="0 0 2000 3000"></svg></div>',
+    )
     install()
     mermaid = installMermaidViewer(document, () => language, media)
     const imageTrigger = entry()
@@ -258,7 +281,7 @@ describe('documentation image viewer', () => {
     expect(required(disconnects[1])).toHaveBeenCalledOnce()
   })
 
-  it.each(['src', 'srcset'])('closes stale content after %s changes and opens the replacement', async (attribute) => {
+  it.each(['src', 'srcset'])('closes stale content after %s changes and opens the replacement', async attribute => {
     const { image, state } = render()
     install()
     const oldTrigger = entry()
@@ -266,7 +289,9 @@ describe('documentation image viewer', () => {
     const replacement = 'https://docs.example/replacement.png'
     if (attribute === 'srcset') state.currentSrc = replacement
     image.setAttribute(attribute, attribute === 'srcset' ? `${replacement} 2x` : replacement)
-    await waitFor(() => { expect(queryByRole(document.body, 'dialog')).toBeNull() })
+    await waitFor(() => {
+      expect(queryByRole(document.body, 'dialog')).toBeNull()
+    })
     expect(document.body.style.overflow).toBe('auto')
     expect(required(controllers[0]).destroy).toHaveBeenCalledOnce()
     oldTrigger.click()
@@ -283,7 +308,9 @@ describe('documentation image viewer', () => {
     const dialog = open()
     const replacement = 'https://docs.example/provider@2x.png'
     image.srcset = `${replacement} 2x`
-    await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+    await new Promise<void>(resolve => {
+      queueMicrotask(resolve)
+    })
     expect(getByRole(document.body, 'dialog')).toBe(dialog)
     expect(enlarged(dialog).src).toBe(state.currentSrc)
 
@@ -298,7 +325,7 @@ describe('documentation image viewer', () => {
     expect(enlarged(open()).src).toBe(replacement)
   })
 
-  it.each(['refresh', 'dispose', 'remove', 'error'] as const)('releases an open image on %s', async (action) => {
+  it.each(['refresh', 'dispose', 'remove', 'error'] as const)('releases an open image on %s', async action => {
     const { image, container, state } = render()
     install()
     const trigger = entry()
@@ -309,7 +336,9 @@ describe('documentation image viewer', () => {
       state.width = 0
       image.dispatchEvent(new Event('error'))
     } else required(viewer)[action]()
-    await waitFor(() => { expect(queryByRole(document.body, 'dialog')).toBeNull() })
+    await waitFor(() => {
+      expect(queryByRole(document.body, 'dialog')).toBeNull()
+    })
     expect(document.body.style.overflow).toBe('auto')
     expect(required(controllers[0]).destroy).toHaveBeenCalledOnce()
     expect(required(disconnects[0])).toHaveBeenCalledOnce()
@@ -340,7 +369,9 @@ describe('documentation image viewer', () => {
     pending.state.complete = true
     pending.image.dispatchEvent(new Event('load'))
     render()
-    await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+    await new Promise<void>(resolve => {
+      queueMicrotask(resolve)
+    })
     expect(queryAllByRole(document.body, 'button')).toHaveLength(0)
     ready.image.click()
     pending.image.click()

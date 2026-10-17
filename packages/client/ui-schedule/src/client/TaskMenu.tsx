@@ -10,9 +10,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
-import {
-  IconCheckOutlineRegular, useAnchoredPosition, useDismissOnOutsidePointer,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCheckOutlineRegular, useAnchoredPosition, useDismissOnOutsidePointer } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './TaskMenu.module.css'
 
 /** Selectable row of a {@link TaskMenu}. */
@@ -120,7 +118,19 @@ function isLabel(entry: TaskMenuEntry): entry is TaskMenuLabel {
  * @param props.listClassName - extra class on the dropdown card itself.
  * @returns the anchor wrapper with the conditional list.
  */
-export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClose, align = 'start', portal = false, header, className, listClassName }: TaskMenuProps) {
+export function TaskMenu({
+  open,
+  anchor,
+  items = [],
+  selectedId,
+  onSelect,
+  onClose,
+  align = 'start',
+  portal = false,
+  header,
+  className,
+  listClassName,
+}: TaskMenuProps) {
   const rootRef = useRef<HTMLSpanElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   /** Index the arrow walk last focused, the resume point when focus left the rows. */
@@ -132,10 +142,17 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
   /** Latest close callback, so the document listeners bind once per open. */
   const closeRef = useRef(onClose)
   closeRef.current = onClose
-  const dismiss = useCallback(() => { closeRef.current() }, [])
+  const dismiss = useCallback(() => {
+    closeRef.current()
+  }, [])
 
   const position = useAnchoredPosition({
-    open: open && portal, anchorRef: rootRef, panelRef: listRef, align, gap: ANCHOR_GAP, margin: VIEWPORT_MARGIN,
+    open: open && portal,
+    anchorRef: rootRef,
+    panelRef: listRef,
+    align,
+    gap: ANCHOR_GAP,
+    margin: VIEWPORT_MARGIN,
   })
   useDismissOnOutsidePointer(rootRef, open, dismiss, listRef)
 
@@ -255,10 +272,16 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
       if (buttons.length === 0) return
       const index = buttons.indexOf(focused as HTMLButtonElement)
       const from = index >= 0 ? index : walkIndex.current
-      const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1
-        : from === null
-          ? (e.key === 'ArrowDown' ? 0 : buttons.length - 1)
-          : (from + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+      const next =
+        e.key === 'Home'
+          ? 0
+          : e.key === 'End'
+            ? buttons.length - 1
+            : from === null
+              ? e.key === 'ArrowDown'
+                ? 0
+                : buttons.length - 1
+              : (from + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
       e.preventDefault()
       walkIndex.current = next
       buttons[next]?.focus()
@@ -285,7 +308,11 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
       return <div key={entry.id} className={css.separator} role="separator" />
     }
     if (isLabel(entry)) {
-      return <div key={entry.id} className={css.label} role="presentation">{entry.text}</div>
+      return (
+        <div key={entry.id} className={css.label} role="presentation">
+          {entry.text}
+        </div>
+      )
     }
     /* jscpd:ignore-end */
     const selected = entry.id === selectedId
@@ -296,7 +323,9 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
           role="menuitem"
           className={clsx(css.item, selected && css.selected, entry.danger === true && css.danger)}
           disabled={entry.disabled}
-          onClick={() => { onSelect(entry.id) }}
+          onClick={() => {
+            onSelect(entry.id)
+          }}
         >
           {/* jscpd:ignore-start -- schedule-local copy of the shared ui-primitives Menu; the two owners change independently. */}
           {entry.icon !== undefined && <span className={css.itemIcon}>{entry.icon}</span>}
@@ -316,21 +345,25 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
     <div
       ref={listRef}
       className={clsx(css.list, listClassName, css.scrollable, portal && css.portal, align === 'end' && !portal && css.alignEnd)}
-      style={portal ? position ?? MEASURE_STYLE : undefined}
+      style={portal ? (position ?? MEASURE_STYLE) : undefined}
       role="menu"
       // React portals bubble synthetic events through the React tree: without
       // this stop, an item click re-fires an owner handler above the anchor.
       // The same bubble is where every row's activation lands, so the
       // post-selection focus return is decided once here, after the row's own
       // handler ran; a click on the card's own padding decides nothing.
-      onClick={(e) => {
+      onClick={e => {
         e.stopPropagation()
         /* v8 ignore next -- React dispatches a click from an element target. */
         const row = e.target instanceof Element ? e.target.closest('button[role="menuitem"]') : null
         if (row !== null) refocusAfterSelection()
       }}
     >
-      {header !== undefined && <div className={css.header} role="presentation">{header}</div>}
+      {header !== undefined && (
+        <div className={css.header} role="presentation">
+          {header}
+        </div>
+      )}
       <div className={css.viewport} role="presentation">
         {items.map(renderEntry)}
       </div>
@@ -340,7 +373,7 @@ export function TaskMenu({ open, anchor, items = [], selectedId, onSelect, onClo
   return (
     <span ref={rootRef} className={clsx(css.root, className)}>
       {anchor}
-      {portal ? (list !== false && createPortal(list, document.body)) : list}
+      {portal ? list !== false && createPortal(list, document.body) : list}
     </span>
   )
 }

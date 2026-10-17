@@ -7,7 +7,7 @@
  * (HMR safety), and the service satisfies the frozen CommandUiContract.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { TestSessions } from '@deepseek-ai/dsh-client-test-runtime'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -25,10 +25,14 @@ async function bench() {
   ctx.provide('inputTriggers', {
     registerSource(src: InputTriggerSource) {
       sources.set(`${src.trigger} ${src.name}`, src)
-      return () => { sources.delete(`${src.trigger} ${src.name}`) }
+      return () => {
+        sources.delete(`${src.trigger} ${src.name}`)
+      }
     },
   })
-  const sessions = new TestSessions(async (action) => { await action() }, ctx)
+  const sessions = new TestSessions(async action => {
+    await action()
+  }, ctx)
   onTestFinished(async () => {
     await sessions.disposeScopes()
     await ctx.fiber.dispose()
@@ -44,9 +48,13 @@ async function bench() {
   ctx.provide('remote', { commands: commandsRemote, $on: () => () => {} })
   ctx.provide('remote.commands', commandsRemote)
   await ctx.plugin(SlotRegistry).await()
-  ctx.slots.register({
-    name: 'root', children: { 'conversation.input.overlay': { kind: 'list', scope: 'session' } },
-  } as never, (() => null) as never)
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: { 'conversation.input.overlay': { kind: 'list', scope: 'session' } },
+    } as never,
+    (() => null) as never,
+  )
   ctx.provide('locale', new LocaleRuntime(ctx))
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()

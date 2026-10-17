@@ -70,12 +70,13 @@ export function validateDesktopBuildVersion(buildVersion, productVersion) {
     throw new Error(`desktop build version: ${buildVersion} must extend product version ${productVersion}`)
   }
   const required = requiredFields(product)
-  const extendsProduct = build.prerelease.length > required.length
-    && required.every((field, index) => build.prerelease[index] === field)
+  const extendsProduct = build.prerelease.length > required.length && required.every((field, index) => build.prerelease[index] === field)
   if (!extendsProduct) {
-    throw new Error(`desktop build version: ${buildVersion} must extend ${productVersion} as ${
-      desktopBuildVersionPrefix(productVersion)}<date>.<sequence> or ${
-      desktopBuildVersionPrefix(productVersion)}<date>.<run>.<attempt>`)
+    throw new Error(
+      `desktop build version: ${buildVersion} must extend ${productVersion} as ${desktopBuildVersionPrefix(
+        productVersion,
+      )}<date>.<sequence> or ${desktopBuildVersionPrefix(productVersion)}<date>.<run>.<attempt>`,
+    )
   }
   return build.version
 }

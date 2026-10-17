@@ -40,15 +40,11 @@ export interface TaskTabTargetResolution {
  * @param taskBindings - provider-owned binding store for restored task tabs.
  * @returns the navigation, the recovered binding, and the task to show.
  */
-export function useTaskTabTarget(
-  sessionId: SessionId,
-  tab: TaskTabSource,
-  taskBindings: TaskTabBindings,
-): TaskTabTargetResolution {
+export function useTaskTabTarget(sessionId: SessionId, tab: TaskTabSource, taskBindings: TaskTabBindings): TaskTabTargetResolution {
   const navigation = scheduleTaskParams(tab.navigation.params)
   const navigated = tab.navigation.params !== undefined
   const recovered = useMemo(
-    () => navigated ? undefined : taskBindings.read(sessionId, { id: tab.id, kind: tab.kind, contentId: tab.contentId }),
+    () => (navigated ? undefined : taskBindings.read(sessionId, { id: tab.id, kind: tab.kind, contentId: tab.contentId })),
     [taskBindings, sessionId, tab.id, tab.kind, tab.contentId, navigated, tab.navigation.revision],
   )
   // A read is pure, so the drop of an entry that records another kind or

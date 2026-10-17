@@ -8,22 +8,23 @@
  * as one U+FFFC instead; see projection.ts.
  */
 import type { JSX } from 'react'
-import type {
-  EditorConfig, LexicalNode, NodeKey, SerializedLexicalNode, Spread,
-} from 'lexical'
+import type { EditorConfig, LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical'
 import { DecoratorNode } from 'lexical'
 import type { ReferenceInsert } from '../../contract/draft-editor.ts'
 import { ReferenceChip } from './ReferenceChip.tsx'
 
 /** JSON form of one chip (Lexical node serialization contract). */
-export type SerializedReferenceChipNode = Spread<{
-  source: string
-  ref: string
-  label: string
-  appearance?: ReferenceInsert['appearance']
-  clipboardText: string
-  invalid: boolean
-}, SerializedLexicalNode>
+export type SerializedReferenceChipNode = Spread<
+  {
+    source: string
+    ref: string
+    label: string
+    appearance?: ReferenceInsert['appearance']
+    clipboardText: string
+    invalid: boolean
+  },
+  SerializedLexicalNode
+>
 
 /** One inline reference occurrence as an atomic decorator node. */
 export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
@@ -87,7 +88,11 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
    * @param invalid - owner-resolution failure bit (defaults valid).
    * @param key - Lexical clone-path key; absent for fresh nodes.
    */
-  constructor(insert: Omit<ReferenceInsert, 'appearance'> & { appearance?: ReferenceInsert['appearance'] }, invalid = false, key?: NodeKey) {
+  constructor(
+    insert: Omit<ReferenceInsert, 'appearance'> & { appearance?: ReferenceInsert['appearance'] },
+    invalid = false,
+    key?: NodeKey,
+  ) {
     super(key)
     this.__source = insert.source
     this.__ref = insert.ref
@@ -185,13 +190,7 @@ export class ReferenceChipNode extends DecoratorNode<JSX.Element> {
 
   /** React face rendered into the host element by the decorator portal. */
   override decorate(): JSX.Element {
-    return (
-      <ReferenceChip
-        label={this.__label}
-        appearance={this.__appearance}
-        invalid={this.__invalid}
-      />
-    )
+    return <ReferenceChip label={this.__label} appearance={this.__appearance} invalid={this.__invalid} />
   }
 }
 

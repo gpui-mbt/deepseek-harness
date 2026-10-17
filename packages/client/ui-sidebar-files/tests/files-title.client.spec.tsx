@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The chip title: the folder sheet, then the type's label. */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { FilesTitle } from '../src/client/FilesTitle.tsx'

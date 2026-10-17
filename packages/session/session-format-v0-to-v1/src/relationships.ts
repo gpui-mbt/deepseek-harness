@@ -67,8 +67,11 @@ export function assertReleasedArtifactRelationships(
     if (RELEASED_V0_EVENT_DISPOSITIONS[event.type] === undefined && !extensionStepEvent) continue
     const data = releasedV0Record(event.data, `${event.type} ${event.seq} data`)
     if (SURFACE_TYPES.has(event.type)) surface = applySurface(surface, event)
-    if ((event.type === 'turn/start' || event.type === 'turn/end')
-      && openCompaction !== undefined && !staleCompactionStarts.has(openCompaction.startSeq)) {
+    if (
+      (event.type === 'turn/start' || event.type === 'turn/end') &&
+      openCompaction !== undefined &&
+      !staleCompactionStarts.has(openCompaction.startSeq)
+    ) {
       throw new SessionFormatError(`${event.type} crosses an open compaction`)
     }
     if (extensionStepEvent) {
@@ -79,16 +82,16 @@ export function assertReleasedArtifactRelationships(
     switch (event.type) {
       case 'turn/start': {
         const previous = artifact.events[event.seq - 1]
-        if (extensions.legacyInterruptedTurnRestart === true
-          && openTurn !== null
-          && openStep === null
-          && data['turn'] === openTurn + 1
-          && nextTurn === openTurn
-          && previous?.type === 'agent/inbox/spliced') {
+        if (
+          extensions.legacyInterruptedTurnRestart === true &&
+          openTurn !== null &&
+          openStep === null &&
+          data['turn'] === openTurn + 1 &&
+          nextTurn === openTurn &&
+          previous?.type === 'agent/inbox/spliced'
+        ) {
           const splice = releasedV0Record(previous.data, `agent/inbox/spliced ${previous.seq} data`)
-          if (splice['target'] === 'next-turn'
-            && Array.isArray(splice['inserted'])
-            && splice['inserted'].length > 0) {
+          if (splice['target'] === 'next-turn' && Array.isArray(splice['inserted']) && splice['inserted'].length > 0) {
             openTurn = null
             nextTurn += 1
           }
@@ -151,8 +154,12 @@ export function assertReleasedArtifactRelationships(
         requireOpenStep(event, data, openTurn, openStep)
         const callId = data['callId'] as string
         const lifecycle = toolLifecycles.get(callId)
-        if (lifecycle === undefined || lifecycle.state !== 'advertised'
-          || lifecycle.name !== data['name'] || lifecycle.arguments !== data['arguments']) {
+        if (
+          lifecycle === undefined ||
+          lifecycle.state !== 'advertised' ||
+          lifecycle.name !== data['name'] ||
+          lifecycle.arguments !== data['arguments']
+        ) {
           throw new SessionFormatError(`tool/call ${callId} does not match one advertised tool call`)
         }
         lifecycle.state = 'started'
@@ -180,7 +187,9 @@ export function assertReleasedArtifactRelationships(
         break
       case 'request/header':
         if (openTurn === null) throw new SessionFormatError(`${event.type} is outside an open turn`)
-        openStepProvider = (((data['header'] as Record<string, SessionFormatJsonValue>)['config'] as Record<string, SessionFormatJsonValue>)['provider']) as string
+        openStepProvider = ((data['header'] as Record<string, SessionFormatJsonValue>)['config'] as Record<string, SessionFormatJsonValue>)[
+          'provider'
+        ] as string
         break
       case 'request/context':
         if (openTurn === null) throw new SessionFormatError(`${event.type} is outside an open turn`)
@@ -208,8 +217,12 @@ export function assertReleasedArtifactRelationships(
         } else {
           const start = ptcStarts.get(child)
           if (start === undefined || start.settled) throw new SessionFormatError('tool/code-dispatch has no unique start')
-          if (start.root !== root || start.parent !== parent || start.name !== data['name']
-            || !deepEqualJson(start.arguments, data['arguments'])) {
+          if (
+            start.root !== root ||
+            start.parent !== parent ||
+            start.name !== data['name'] ||
+            !deepEqualJson(start.arguments, data['arguments'])
+          ) {
             throw new SessionFormatError('tool/code-dispatch does not match its start')
           }
           start.settled = true
@@ -218,9 +231,7 @@ export function assertReleasedArtifactRelationships(
         break
       }
       case 'llm/retry':
-        if (openTurn !== data['turn']
-          || data['step'] !== (openStep ?? nextStep - 1)
-          || openTurn === null) {
+        if (openTurn !== data['turn'] || data['step'] !== (openStep ?? nextStep - 1) || openTurn === null) {
           throw new SessionFormatError('llm/retry does not match the current turn and step')
         }
         if (data['provider'] !== openStepProvider) {
@@ -230,7 +241,7 @@ export function assertReleasedArtifactRelationships(
         retries.push(event)
         break
       case 'llm/retry-started': {
-        const scheduled = retries.find((candidate) => {
+        const scheduled = retries.find(candidate => {
           const prior = candidate.data as Record<string, SessionFormatJsonValue>
           return prior['retryId'] === data['retryId'] && prior['retry'] === data['retry']
         })
@@ -246,12 +257,7 @@ export function assertReleasedArtifactRelationships(
       }
       case 'session/title':
       case 'session/title-llm-request':
-        assertTitleSources(
-          artifact.events,
-          event,
-          data,
-          extensions.preservedSourceTitleRequestText !== true,
-        )
+        assertTitleSources(artifact.events, event, data, extensions.preservedSourceTitleRequestText !== true)
         break
       case 'command/run': {
         const id = data['commandId'] as string
@@ -340,23 +346,25 @@ function inheritedOrphanCompactionStarts(events: readonly SessionFormatEvent[]):
   return stale
 }
 
-function assertRetryChain(
-  retries: readonly SessionFormatEvent[],
-  data: Record<string, SessionFormatJsonValue>,
-): void {
-  const prior = [...retries].reverse().find((candidate) => {
+function assertRetryChain(retries: readonly SessionFormatEvent[], data: Record<string, SessionFormatJsonValue>): void {
+  const prior = [...retries].reverse().find(candidate => {
     const value = candidate.data as Record<string, SessionFormatJsonValue>
-    return value['turn'] === data['turn'] && value['step'] === data['step']
-      && value['provider'] === data['provider'] && value['policyKey'] === data['policyKey']
+    return (
+      value['turn'] === data['turn'] &&
+      value['step'] === data['step'] &&
+      value['provider'] === data['provider'] &&
+      value['policyKey'] === data['policyKey']
+    )
   })
-  const expected = ((prior?.data as Record<string, SessionFormatJsonValue> | undefined)?.['retry'] as number | undefined ?? 0) + 1
+  const expected = (((prior?.data as Record<string, SessionFormatJsonValue> | undefined)?.['retry'] as number | undefined) ?? 0) + 1
   if (data['retry'] !== expected) throw new SessionFormatError(`llm/retry must use retry ${expected}`)
-  if (prior !== undefined
-    && (prior.data as Record<string, SessionFormatJsonValue>)['retryId'] !== data['retryId']) {
+  if (prior !== undefined && (prior.data as Record<string, SessionFormatJsonValue>)['retryId'] !== data['retryId']) {
     throw new SessionFormatError('llm/retry must preserve retryId across one policy chain')
   }
-  if (prior === undefined && retries.some(candidate =>
-    (candidate.data as Record<string, SessionFormatJsonValue>)['retryId'] === data['retryId'])) {
+  if (
+    prior === undefined &&
+    retries.some(candidate => (candidate.data as Record<string, SessionFormatJsonValue>)['retryId'] === data['retryId'])
+  ) {
     throw new SessionFormatError(`llm/retry reuses retryId ${JSON.stringify(data['retryId'])} across policy chains`)
   }
 }
@@ -390,15 +398,16 @@ function isExactToolNotStartedRepair(
   const callId = source['callId'] as string
   const block = content[0]
   const repairContent = block?.['content'] as readonly Record<string, SessionFormatJsonValue>[] | undefined
-  return error?.['name'] === 'ToolNotStartedError'
-    && error['code'] === 'TOOL_NOT_STARTED'
-    && event['sourceEventSeqs'] === undefined
-    && message['id'] === `interrupted-tool-result-${callId}-${event.seq}`
-    && block?.['isError'] === true
-    && repairContent?.length === 1
-    && repairContent[0]?.['type'] === 'text'
-    && repairContent[0]['text']
-      === 'The tool call was interrupted before the Harness recorded it as started. Retry it if it is still needed.'
+  return (
+    error?.['name'] === 'ToolNotStartedError' &&
+    error['code'] === 'TOOL_NOT_STARTED' &&
+    event['sourceEventSeqs'] === undefined &&
+    message['id'] === `interrupted-tool-result-${callId}-${event.seq}` &&
+    block?.['isError'] === true &&
+    repairContent?.length === 1 &&
+    repairContent[0]?.['type'] === 'text' &&
+    repairContent[0]['text'] === 'The tool call was interrupted before the Harness recorded it as started. Retry it if it is still needed.'
+  )
 }
 
 function applySurface(surface: readonly number[], event: SessionFormatEvent): number[] {
@@ -410,7 +419,7 @@ function applySurface(surface: readonly number[], event: SessionFormatEvent): nu
   const end = surface.indexOf(replace.end)
   if (start < 0 || end < start) throw new SessionFormatError(`${event.type} replacement range is not on the current surface`)
   const shadowed = surface.slice(start, end + 1)
-  const sources = new Set(Array.isArray(event['sourceEventSeqs']) ? event['sourceEventSeqs'] as readonly number[] : [])
+  const sources = new Set(Array.isArray(event['sourceEventSeqs']) ? (event['sourceEventSeqs'] as readonly number[]) : [])
   if (shadowed.some(seq => !sources.has(seq))) {
     throw new SessionFormatError(`${event.type} replacement sourceEventSeqs omit a shadowed surface node`)
   }
@@ -444,7 +453,7 @@ function assertTitleSources(
     const content = sourceData['content'] as readonly Record<string, SessionFormatJsonValue>[]
     selected.push({
       seq,
-      text: content.flatMap(block => block['type'] === 'text' && typeof block['text'] === 'string' ? [block['text']] : []).join('\n'),
+      text: content.flatMap(block => (block['type'] === 'text' && typeof block['text'] === 'string' ? [block['text']] : [])).join('\n'),
     })
   }
   if (event.type === 'session/title-llm-request') {
@@ -453,23 +462,23 @@ function assertTitleSources(
     const message = messages[0]
     const content = message?.['content'] as readonly Record<string, SessionFormatJsonValue>[] | undefined
     const source = message === undefined ? undefined : releasedV0Record(message['source'], 'session/title-llm-request message source')
-    if (messages.length !== 1 || message?.['role'] !== 'user' || content?.length !== 1
-      || source?.['kind'] !== 'plugin' || source['plugin'] !== 'dsh-session-title-llm') {
+    if (
+      messages.length !== 1 ||
+      message?.['role'] !== 'user' ||
+      content?.length !== 1 ||
+      source?.['kind'] !== 'plugin' ||
+      source['plugin'] !== 'dsh-session-title-llm'
+    ) {
       throw new SessionFormatError('session/title-llm-request messages do not represent messageSeqs')
     }
     const framed = content[0]
-    if (framed === undefined || framed['type'] !== 'text'
-      || validateFramedText && framed['text'] !== expected) {
+    if (framed === undefined || framed['type'] !== 'text' || (validateFramedText && framed['text'] !== expected)) {
       throw new SessionFormatError('session/title-llm-request messages do not represent messageSeqs')
     }
   }
 }
 
-function assertCompactionOwner(
-  open: CompactionState | undefined,
-  data: Record<string, SessionFormatJsonValue>,
-  type: string,
-): void {
+function assertCompactionOwner(open: CompactionState | undefined, data: Record<string, SessionFormatJsonValue>, type: string): void {
   if (open === undefined || data['compactionId'] !== open.id || data['sourceCommandId'] !== open.sourceCommandId) {
     throw new SessionFormatError(`${type} has no matching compaction/start`)
   }
@@ -481,11 +490,7 @@ function assertCompactionTurn(owner: number | null, openTurn: number | null, typ
   }
 }
 
-function assertCurrentSurfaceSpan(
-  surface: readonly number[],
-  data: Record<string, SessionFormatJsonValue>,
-  type: string,
-): void {
+function assertCurrentSurfaceSpan(surface: readonly number[], data: Record<string, SessionFormatJsonValue>, type: string): void {
   const range = data['shadowedRange'] as { readonly start: number; readonly end: number }
   const seqs = data['shadowedSeqs'] as readonly number[]
   const start = surface.indexOf(range.start)

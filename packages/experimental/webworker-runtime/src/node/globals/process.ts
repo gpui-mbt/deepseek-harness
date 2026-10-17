@@ -89,10 +89,12 @@ export interface ProcessShim {
  */
 export function installProcessGlobal(options: ProcessShimOptions): ProcessShim {
   const start = performance.now()
-  const write = (target: 'log' | 'error') => (chunk: string): boolean => {
-    console[target](chunk.replace(/\n$/, ''))
-    return true
-  }
+  const write =
+    (target: 'log' | 'error') =>
+    (chunk: string): boolean => {
+      console[target](chunk.replace(/\n$/, ''))
+      return true
+    }
   const shim: ProcessShim = {
     env: { ...options.env },
     argv: [...(options.argv ?? [EXEC_PATH])],
@@ -126,7 +128,11 @@ export function installProcessGlobal(options: ProcessShimOptions): ProcessShim {
       }
       return signalProcess(pid, signal)
     },
-    nextTick: (callback, ...args) => { queueMicrotask(() => { callback(...args) }) },
+    nextTick: (callback, ...args) => {
+      queueMicrotask(() => {
+        callback(...args)
+      })
+    },
     stdout: { write: write('log') },
     stderr: { write: write('error') },
     on: () => shim,
@@ -142,7 +148,9 @@ export function installProcessGlobal(options: ProcessShimOptions): ProcessShim {
     emit: () => false,
     hrtime: { bigint: () => BigInt(Math.round((performance.now() - start) * 1e6)) },
     uptime: () => (performance.now() - start) / 1000,
-    exit: (code?: number) => { console.warn(`webworker process: exit(${String(code ?? 0)}) requested; the worker keeps running`) },
+    exit: (code?: number) => {
+      console.warn(`webworker process: exit(${String(code ?? 0)}) requested; the worker keeps running`)
+    },
   }
   ;(globalThis as { process?: unknown }).process = shim
   return shim

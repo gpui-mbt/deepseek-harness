@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
-import { createUserMessage, ToolCallId, type StreamChunk  } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
@@ -8,7 +8,7 @@ import { makeBridgeHarness, textResponse, type BridgeHarness } from './harness.t
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -35,17 +35,21 @@ describe('ACP automation output boundary', () => {
 
   it('emits committed reasoning, generic tool lifecycle, usage, and final text in order', async () => {
     harness = await makeBridgeHarness({ script: [toolCallResponse(), textResponse('done')] })
-    harness.ctx.tools.register(defineContentToolFixture({
-      name: 'echo',
-      description: 'Return a deterministic result.',
-      parameters: {},
-      execute: () => Promise.resolve([{ type: 'text', text: 'tool result' }]),
-    }))
+    harness.ctx.tools.register(
+      defineContentToolFixture({
+        name: 'echo',
+        description: 'Return a deterministic result.',
+        parameters: {},
+        execute: () => Promise.resolve([{ type: 'text', text: 'tool result' }]),
+      }),
+    )
     await harness.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     const { sessionId } = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
     await harness.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] })
 
-    await vi.waitFor(() => { expect(harness!.updates.at(-1)?.sessionUpdate).toBe('usage_update') })
+    await vi.waitFor(() => {
+      expect(harness!.updates.at(-1)?.sessionUpdate).toBe('usage_update')
+    })
     expect(harness.updates.map(update => update.sessionUpdate)).toEqual([
       'agent_thought_chunk',
       'usage_update',
@@ -107,7 +111,9 @@ describe('ACP automation output boundary', () => {
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'test' } }))
     await agent.whenIdle()
-    await vi.waitFor(() => { expect(harness!.updates.at(-1)?.sessionUpdate).toBe('usage_update') })
+    await vi.waitFor(() => {
+      expect(harness!.updates.at(-1)?.sessionUpdate).toBe('usage_update')
+    })
 
     expect(harness.updates[0]).toMatchObject({
       sessionUpdate: 'agent_message_chunk',
@@ -117,24 +123,28 @@ describe('ACP automation output boundary', () => {
   })
 
   it('contains output conversion failure outside an ACP prompt', async () => {
-    harness = await makeBridgeHarness({ script: [[
-      { type: 'block-start', index: 0, blockType: 'image' },
-      {
-        type: 'block-end',
-        index: 0,
-        block: {
-          type: 'image',
-          attachment: {
-            attachmentId: `sha256:${'a'.repeat(64)}` as never,
-            mediaType: 'image/png',
-            bytes: 1,
-            width: 1,
-            height: 1,
+    harness = await makeBridgeHarness({
+      script: [
+        [
+          { type: 'block-start', index: 0, blockType: 'image' },
+          {
+            type: 'block-end',
+            index: 0,
+            block: {
+              type: 'image',
+              attachment: {
+                attachmentId: `sha256:${'a'.repeat(64)}` as never,
+                mediaType: 'image/png',
+                bytes: 1,
+                width: 1,
+                height: 1,
+              },
+            },
           },
-        },
-      },
-      { type: 'finish', reason: { kind: 'stop' } },
-    ]] })
+          { type: 'finish', reason: { kind: 'stop' } },
+        ],
+      ],
+    })
     const warn = vi.spyOn(harness.ctx.logger, 'warn')
     await harness.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     const { sessionId } = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
@@ -142,7 +152,9 @@ describe('ACP automation output boundary', () => {
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'test' } }))
     await agent.whenIdle()
-    await vi.waitFor(() => { expect(warn).toHaveBeenCalledWith(expect.stringContaining('output conversion failed')) })
+    await vi.waitFor(() => {
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('output conversion failed'))
+    })
     expect(harness.updates).toEqual([])
   })
 
@@ -155,7 +167,6 @@ describe('ACP automation output boundary', () => {
     await harness.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     const { sessionId } = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
     harness.onSessionUpdateError = () => {}
-    await expect(harness.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] }))
-      .resolves.toEqual({ stopReason: 'end_turn' })
+    await expect(harness.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] })).resolves.toEqual({ stopReason: 'end_turn' })
   })
 })

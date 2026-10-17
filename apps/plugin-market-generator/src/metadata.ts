@@ -46,7 +46,13 @@ type Fields = { title?: string; description?: string }
 
 const LANGUAGE_ID = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u
 const MAX_ICON_BYTES = 256 * 1024
-const ICON_TYPES = new Map([['.svg', 'image/svg+xml'], ['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.webp', 'image/webp']])
+const ICON_TYPES = new Map([
+  ['.svg', 'image/svg+xml'],
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.webp', 'image/webp'],
+])
 
 /** One segment of a package directory, as the index format accepts it; keep it equal to the parser's rule. */
 const PATH_SEGMENT = /^[A-Za-z0-9._@+-]+$/u
@@ -108,9 +114,13 @@ async function dictionaries(files: PackageFiles, manifest: Manifest, warn: (mess
     const language = name.slice(0, -5)
     const path = resource(manifest, `./locale/${name}`)
     const bytes = path === undefined || posix.dirname(path) !== dir ? undefined : await files.read(path)
-    const fields = !LANGUAGE_ID.test(language) ? 'its name is not a language id'
-      : result.has(language.toLowerCase()) ? `duplicates locale ${language.toLowerCase()}`
-        : bytes === undefined ? `./locale/${name} does not resolve into ${dir}` : localeFields(bytes)
+    const fields = !LANGUAGE_ID.test(language)
+      ? 'its name is not a language id'
+      : result.has(language.toLowerCase())
+        ? `duplicates locale ${language.toLowerCase()}`
+        : bytes === undefined
+          ? `./locale/${name} does not resolve into ${dir}`
+          : localeFields(bytes)
     if (typeof fields === 'string') warn(`locale file ${posix.join(dir, name)} ignored: ${fields}`)
     else result.set(language.toLowerCase(), fields)
   }
@@ -122,7 +132,7 @@ async function dictionaries(files: PackageFiles, manifest: Manifest, warn: (mess
  * The format requires English text, so translations without an English value or manifest fallback are dropped.
  */
 function localized(field: keyof Fields, locales: Map<string, Fields>, fallback: string | undefined): LocalizedText | undefined {
-  const translated = [...locales].flatMap(([language, fields]) => fields[field] === undefined ? [] : [[language, fields[field]] as const])
+  const translated = [...locales].flatMap(([language, fields]) => (fields[field] === undefined ? [] : [[language, fields[field]] as const]))
   if (translated.length === 0) return fallback
   const english = locales.get('en')?.[field] ?? fallback
   if (english === undefined) return undefined
@@ -154,7 +164,7 @@ function repositoryUrl(declared: string): string | undefined {
 /** The repository a manifest declares, or why it is omitted; a directory the format cannot hold is dropped with a warning. */
 function readRepository(value: unknown, warn: (message: string) => void): MarketRepository | undefined {
   if (value === undefined) return undefined
-  const object = typeof value === 'object' && value !== null ? value as { url?: unknown; directory?: unknown } : undefined
+  const object = typeof value === 'object' && value !== null ? (value as { url?: unknown; directory?: unknown }) : undefined
   const declared = text(object === undefined ? value : object.url)?.trim()
   const url = declared === undefined ? undefined : repositoryUrl(declared)
   if (url === undefined) {
@@ -162,14 +172,17 @@ function readRepository(value: unknown, warn: (message: string) => void): Market
     return undefined
   }
   const directory = text(object?.directory)?.replace(/^\.\/|\/$/gu, '')
-  const valid = directory !== undefined && directory.split('/').every(segment => segment !== '.' && segment !== '..' && PATH_SEGMENT.test(segment))
-  if (object?.directory !== undefined && !valid) warn(`package.json repository.directory ${JSON.stringify(object.directory)} is not a relative directory; it is omitted`)
-  return { url, ...valid ? { directory } : {} }
+  const valid =
+    directory !== undefined && directory.split('/').every(segment => segment !== '.' && segment !== '..' && PATH_SEGMENT.test(segment))
+  if (object?.directory !== undefined && !valid)
+    warn(`package.json repository.directory ${JSON.stringify(object.directory)} is not a relative directory; it is omitted`)
+  return { url, ...(valid ? { directory } : {}) }
 }
 
 /** The icon a package declares, or why it is not used: the manifest `icon` takes priority over the `./icon` export. */
 async function readIcon(
-  files: PackageFiles, manifest: Manifest,
+  files: PackageFiles,
+  manifest: Manifest,
 ): Promise<{ type: string; path: string; bytes: Buffer } | string | undefined> {
   let path: string | undefined
   if (manifest.icon === undefined) {
@@ -203,26 +216,35 @@ async function readIcon(
  * @returns the display fields, and the icon file to write when the icon is too large to inline.
  */
 export async function readDisplayMetadata(
-  files: PackageFiles, manifest: Manifest, options: DisplayOptions,
+  files: PackageFiles,
+  manifest: Manifest,
+  options: DisplayOptions,
 ): Promise<{ display: Display; iconFile?: IconFile }> {
   const locales = await dictionaries(files, manifest, options.warn)
   const title = localized('title', locales, text(manifest.name))
   const description = localized('description', locales, text(manifest.description))
   // npm's person string is `Name <email> (url)`; only the name is published, so no address spreads into the index.
-  const person = typeof manifest.author === 'object' && manifest.author !== null ? (manifest.author as { name?: unknown }).name : manifest.author
+  const person =
+    typeof manifest.author === 'object' && manifest.author !== null ? (manifest.author as { name?: unknown }).name : manifest.author
   const author = text(typeof person === 'string' ? person.replace(/<[^>]*>|\([^)]*\)/gu, '').trim() : person)
   const homepage = text(manifest.homepage)
   const linkable = homepage !== undefined && URL.canParse(homepage) && ['https:', 'http:'].includes(new URL(homepage).protocol)
-  if (homepage !== undefined && !linkable) options.warn(`package.json homepage ${JSON.stringify(homepage)} is not an http(s) URL; it is omitted`)
+  if (homepage !== undefined && !linkable)
+    options.warn(`package.json homepage ${JSON.stringify(homepage)} is not an http(s) URL; it is omitted`)
   const repository = readRepository(manifest.repository, options.warn)
-  const keywords = Array.isArray(manifest.keywords) && manifest.keywords.every((keyword): keyword is string => typeof keyword === 'string')
-    ? manifest.keywords : undefined
-  if (manifest.keywords !== undefined && keywords === undefined) options.warn('package.json keywords must be an array of strings; it is omitted')
+  const keywords =
+    Array.isArray(manifest.keywords) && manifest.keywords.every((keyword): keyword is string => typeof keyword === 'string')
+      ? manifest.keywords
+      : undefined
+  if (manifest.keywords !== undefined && keywords === undefined)
+    options.warn('package.json keywords must be an array of strings; it is omitted')
   const display = {
-    ...title === undefined ? {} : { title }, ...description === undefined ? {} : { description }, ...author === undefined ? {} : { author },
-    ...linkable ? { homepage } : {},
-    ...repository === undefined ? {} : { repository },
-    ...keywords === undefined ? {} : { metadata: { keywords } },
+    ...(title === undefined ? {} : { title }),
+    ...(description === undefined ? {} : { description }),
+    ...(author === undefined ? {} : { author }),
+    ...(linkable ? { homepage } : {}),
+    ...(repository === undefined ? {} : { repository }),
+    ...(keywords === undefined ? {} : { metadata: { keywords } }),
   }
   const icon = await readIcon(files, manifest)
   if (typeof icon === 'string') options.warn(`${icon}; the icon is omitted`)

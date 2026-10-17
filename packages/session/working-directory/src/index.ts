@@ -75,7 +75,7 @@ export class WorkingDirectoryService extends Service {
       stateVersion: 1,
       stateSchema: directorySchema,
       init: header => header.cwd ?? null,
-      apply: (state, event) => event.type === 'working-directory/change' ? event.data.cwd : state,
+      apply: (state, event) => (event.type === 'working-directory/change' ? event.data.cwd : state),
       wire: { viewSchema: directorySchema, view: state => state },
     })
     ctx.systemPrompt.context({
@@ -83,22 +83,26 @@ export class WorkingDirectoryService extends Service {
       order: ctx.systemPrompt.getContextOrder('WORKING_DIRECTORY'),
       required: true,
       interpolate: false,
-      text: context => context.agent === undefined ? '' : this.contextText(context.agent.session),
+      text: context => (context.agent === undefined ? '' : this.contextText(context.agent.session)),
     })
-    ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
-      if (context.agent === undefined) return next()
-      await this.ensure(context.agent, context.signal)
-      const assembly = await next()
-      this.lifecycle.signal.throwIfAborted()
-      const text = this.contextText(context.agent.session)
-      const contribution = assembly.contexts.find(entry => entry.name === 'working-directory:current')
-      if (contribution === undefined) assembly.contexts.unshift({ name: 'working-directory:current', text, interpolate: false })
-      else {
-        contribution.text = text
-        contribution.interpolate = false
-      }
-      return assembly
-    }, { prepend: true })
+    ctx.on(
+      'system-prompt/assemble',
+      async (_assembly, context, next) => {
+        if (context.agent === undefined) return next()
+        await this.ensure(context.agent, context.signal)
+        const assembly = await next()
+        this.lifecycle.signal.throwIfAborted()
+        const text = this.contextText(context.agent.session)
+        const contribution = assembly.contexts.find(entry => entry.name === 'working-directory:current')
+        if (contribution === undefined) assembly.contexts.unshift({ name: 'working-directory:current', text, interpolate: false })
+        else {
+          contribution.text = text
+          contribution.interpolate = false
+        }
+        return assembly
+      },
+      { prepend: true },
+    )
     ctx.effect(() => async () => {
       this.lifecycle.abort(new Error('working-directory service disposed'))
       await Promise.allSettled(this.operations)
@@ -123,7 +127,7 @@ export class WorkingDirectoryService extends Service {
    * @throws when the original project is also unavailable.
    */
   ensure(agent: Agent, signal?: AbortSignal): Promise<string> {
-    return this.serialize(agent, signal, async (control) => {
+    return this.serialize(agent, signal, async control => {
       const current = this.get(agent.session)
       const target = await this.ctx.fs.resolve(current, { signal: control })
       const info = await this.ctx.fs.stat(target, control)
@@ -152,7 +156,7 @@ export class WorkingDirectoryService extends Service {
    * @throws when the requested path is not an existing directory.
    */
   set(agent: Agent, path: string, signal?: AbortSignal): Promise<string> {
-    return this.serialize(agent, signal, async (control) => {
+    return this.serialize(agent, signal, async control => {
       if (path.length === 0) throw new Error('working-directory: cd must not be empty')
       const directory = await this.directory(path, this.get(agent.session), control)
       this.commit(agent, directory, false, control)
@@ -181,12 +185,14 @@ export class WorkingDirectoryService extends Service {
     if (previous === directory) return
     agent.session.append('working-directory/change', { cwd: directory })
     const notice = createUserMessage({
-      content: [{
-        type: 'text',
-        text: recovered
-          ? `The working directory ${JSON.stringify(previous)} is unavailable. The working directory is now ${JSON.stringify(directory)}.`
-          : `The working directory changed from ${JSON.stringify(previous)} to ${JSON.stringify(directory)}.`,
-      }],
+      content: [
+        {
+          type: 'text',
+          text: recovered
+            ? `The working directory ${JSON.stringify(previous)} is unavailable. The working directory is now ${JSON.stringify(directory)}.`
+            : `The working directory changed from ${JSON.stringify(previous)} to ${JSON.stringify(directory)}.`,
+        },
+      ],
       source: { kind: 'working-directory' },
     })
     try {
@@ -198,9 +204,7 @@ export class WorkingDirectoryService extends Service {
 
   private serialize<T>(agent: Agent, signal: AbortSignal | undefined, action: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const session = agent.session
-    const control = signal === undefined
-      ? this.lifecycle.signal
-      : AbortSignal.any([this.lifecycle.signal, signal])
+    const control = signal === undefined ? this.lifecycle.signal : AbortSignal.any([this.lifecycle.signal, signal])
     const operation = (this.pending.get(session) ?? Promise.resolve()).then(() => {
       control.throwIfAborted()
       agent.ctx.fiber.assertActive()
@@ -208,7 +212,13 @@ export class WorkingDirectoryService extends Service {
     })
     const settled = operation.finally(() => this.operations.delete(settled))
     this.operations.add(settled)
-    this.pending.set(session, settled.then(() => {}, () => {}))
+    this.pending.set(
+      session,
+      settled.then(
+        () => {},
+        () => {},
+      ),
+    )
     return settled
   }
 }

@@ -68,7 +68,8 @@ function parseSource(source: unknown, label: string): PersistenceFormatSource {
     return { tag }
   }
   const pullRequest = fields(source, ['pullRequest'], `${label} source`).pullRequest
-  if (!Number.isSafeInteger(pullRequest) || (pullRequest as number) <= 0) throw new Error(`${label}: source pullRequest must be a positive integer`)
+  if (!Number.isSafeInteger(pullRequest) || (pullRequest as number) <= 0)
+    throw new Error(`${label}: source pullRequest must be a positive integer`)
   return { pullRequest: pullRequest as number }
 }
 
@@ -77,11 +78,16 @@ function parseRecord(block: string, version: number): PersistenceFormatRecord {
   const record = fields(load(block, { schema: JSON_SCHEMA }), ['schemaVersion', 'sessionFormatVersion', 'source', 'roots'], label)
   if (record.schemaVersion !== 1) throw new Error(`${label}: unsupported persistence format record schema version`)
   if (record.sessionFormatVersion !== version) throw new Error(`${label}: record sessionFormatVersion must match its filename`)
-  if (record.roots === null || typeof record.roots !== 'object' || Array.isArray(record.roots)) throw new Error(`${label}: roots must be a mapping`)
+  if (record.roots === null || typeof record.roots !== 'object' || Array.isArray(record.roots))
+    throw new Error(`${label}: roots must be a mapping`)
   const roots = new Map<string, string>()
   for (const [key, digest] of Object.entries(record.roots)) {
-    if (!/^(?:SessionHeader|JsonlHeaderLine|SessionEventEnvelope|event:.+)$/u.test(key)
-      || typeof digest !== 'string' || !/^[a-f0-9]{64}$/u.test(digest)) throw new Error(`${label}: invalid recorded root ${key}`)
+    if (
+      !/^(?:SessionHeader|JsonlHeaderLine|SessionEventEnvelope|event:.+)$/u.test(key) ||
+      typeof digest !== 'string' ||
+      !/^[a-f0-9]{64}$/u.test(digest)
+    )
+      throw new Error(`${label}: invalid recorded root ${key}`)
     roots.set(key, digest)
   }
   return { source: parseSource(record.source, label), roots }
@@ -97,13 +103,14 @@ function validateInventory(inventory: PersistenceSchemaInventory, version: numbe
     const field = node?.kind === 'object' ? node.properties.find(property => property.name === 'version') : undefined
     const type = field === undefined ? undefined : root.schema.nodes[field.type]
     const legacyNumber = !(current && key === 'SessionHeader') && type?.kind === 'primitive' && type.type === 'number'
-    if (field?.optional !== false || !(legacyNumber || type?.kind === 'literal' && type.value === version)) {
+    if (field?.optional !== false || !(legacyNumber || (type?.kind === 'literal' && type.value === version))) {
       throw new Error(`${label}: ${key}.version must match the ${current ? 'current writer' : 'recorded format'} version`)
     }
   }
   if (!inventory.roots.some(root => root.kind === 'event')) throw new Error(`${label}: complete inventory must include an event root`)
-  const reachable = new Set(inventory.roots.flatMap(root => root.schema.nodes
-    .map((_, index) => schemaDigest(canonicalizeSchema(root.schema.nodes, index)))))
+  const reachable = new Set(
+    inventory.roots.flatMap(root => root.schema.nodes.map((_, index) => schemaDigest(canonicalizeSchema(root.schema.nodes, index)))),
+  )
   const remaining = new Set(reachable)
   const listed = new Set<string>()
   for (const type of inventory.types) {
@@ -118,7 +125,11 @@ function validateInventory(inventory: PersistenceSchemaInventory, version: numbe
 }
 
 function validateDocument(
-  document: string, schemaName: string, inventory: PersistenceSchemaInventory, label: string, current: boolean,
+  document: string,
+  schemaName: string,
+  inventory: PersistenceSchemaInventory,
+  label: string,
+  current: boolean,
 ): void {
   if (!document.includes(`](${schemaName})`)) throw new Error(`${label}: missing link to ${schemaName}`)
   if (!current) return
@@ -163,14 +174,17 @@ export function loadPersistenceFormats(root: string): PersistenceFormats {
     let record: PersistenceFormatRecord | undefined
     if (!current) {
       const block = machineBlock(english, document)
-      if (block !== machineBlock(chinese, document.replace(/\.md$/u, '.zh.md'))) throw new Error(`v${version}: bilingual machine records differ`)
+      if (block !== machineBlock(chinese, document.replace(/\.md$/u, '.zh.md')))
+        throw new Error(`v${version}: bilingual machine records differ`)
       record = parseRecord(block, version)
     }
     const inventory = (current ? parsePersistenceSnapshot : parseHistoricalPersistenceSnapshot)(JSON.parse(read(schemaPath)))
     validateInventory(inventory, version, current)
     const recordedRoots = record?.roots
-    if (recordedRoots !== undefined && (recordedRoots.size !== inventory.roots.length
-      || inventory.roots.some(root => recordedRoots.get(root.key) !== root.digest))) {
+    if (
+      recordedRoots !== undefined &&
+      (recordedRoots.size !== inventory.roots.length || inventory.roots.some(root => recordedRoots.get(root.key) !== root.digest))
+    ) {
       throw new Error(`v${version}: recorded roots do not match the complete schema inventory`)
     }
     const schemaName = current ? 'persistence-schema.json' : `v${version}.schema.json`
@@ -205,19 +219,28 @@ function archiveCurrentInventory(root: string, requestedVersion: string): string
  * @returns the created schema path or verified format count and refreshed artifact count.
  */
 export function runPersistenceFormats(args: readonly string[], root = resolve(import.meta.dirname, '..')): string {
-  const { values } = parseArgs({ args: [...args], options: { root: { type: 'string' }, write: { type: 'boolean' }, archive: { type: 'string' } } })
+  const { values } = parseArgs({
+    args: [...args],
+    options: { root: { type: 'string' }, write: { type: 'boolean' }, archive: { type: 'string' } },
+  })
   root = resolve(values.root ?? root)
   if (values.archive !== undefined) {
     if (values.write) throw new Error('--archive and --write cannot be combined')
     return archiveCurrentInventory(root, values.archive)
   }
   const formats = loadPersistenceFormats(root)
-  const changed = persistenceFormatFactArtifacts(root, formats).filter(artifact => !existsSync(join(root, artifact.path))
-    || readFileSync(join(root, artifact.path), 'utf8') !== artifact.content)
-  if (!values.write && changed.length > 0) throw new Error(`Stale persistence format facts: ${changed.map(artifact => artifact.path).join(', ')}. Run pnpm run verify-persistence-formats --write.`)
+  const changed = persistenceFormatFactArtifacts(root, formats).filter(
+    artifact => !existsSync(join(root, artifact.path)) || readFileSync(join(root, artifact.path), 'utf8') !== artifact.content,
+  )
+  if (!values.write && changed.length > 0)
+    throw new Error(
+      `Stale persistence format facts: ${changed.map(artifact => artifact.path).join(', ')}. Run pnpm run verify-persistence-formats --write.`,
+    )
   if (values.write) for (const artifact of changed) writeFileSync(join(root, artifact.path), artifact.content)
-  return `Persistence formats: v0 through v${formats.currentVersion} verified (${formats.entries.length} complete reference${formats.entries.length === 1 ? '' : 's'}).`
-    + (values.write ? ` Refreshed ${changed.length} file${changed.length === 1 ? '' : 's'}.` : '')
+  return (
+    `Persistence formats: v0 through v${formats.currentVersion} verified (${formats.entries.length} complete reference${formats.entries.length === 1 ? '' : 's'}).` +
+    (values.write ? ` Refreshed ${changed.length} file${changed.length === 1 ? '' : 's'}.` : '')
+  )
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename) {

@@ -75,11 +75,7 @@ export const SEARCH_META_MAX_BYTES = 65_536
  * `SEARCH_ABORTED` — the cooperative tool timeout or caller cancellation cut
  * the search short.
  */
-export type SearchErrorCode =
-  | 'SEARCH_INVALID_PATTERN'
-  | 'SEARCH_FAILED'
-  | 'SEARCH_RAW_OUTPUT_OVERFLOW'
-  | 'SEARCH_ABORTED'
+export type SearchErrorCode = 'SEARCH_INVALID_PATTERN' | 'SEARCH_FAILED' | 'SEARCH_RAW_OUTPUT_OVERFLOW' | 'SEARCH_ABORTED'
 
 /**
  * Typed search failure. Extends {@link HarnessError} so it carries a stable
@@ -171,14 +167,10 @@ let rgPathPromise: Promise<string> | undefined
 export function resolveRgPath(): Promise<string> {
   rgPathPromise ??= Promise.resolve().then(async () => {
     const executable = parse(process.execPath)
-    const executableSidecar = process.platform === 'win32'
-      ? join(executable.dir, `${executable.name}-rg.exe`)
-      : `${process.execPath}-rg`
+    const executableSidecar = process.platform === 'win32' ? join(executable.dir, `${executable.name}-rg.exe`) : `${process.execPath}-rg`
     if ('pkg' in process && existsSync(executableSidecar)) return executableSidecar
     const dependency = (await import('@vscode/ripgrep')).rgPath
-    return process.versions.electron === undefined
-      ? dependency
-      : dependency.replace(/\.asar(?=[\\/])/u, '.asar.unpacked')
+    return process.versions.electron === undefined ? dependency : dependency.replace(/\.asar(?=[\\/])/u, '.asar.unpacked')
   })
   return rgPathPromise
 }
@@ -231,9 +223,7 @@ export async function runRipgrep(
   if (exec.signal.aborted) {
     throw new SearchError(`${toolName} was aborted before completion (tool timeout or caller cancellation)`, 'SEARCH_ABORTED')
   }
-  const workdir = exec.agent === undefined
-    ? process.cwd()
-    : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
+  const workdir = exec.agent === undefined ? process.cwd() : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
   let handle: SubprocessHandle
   try {
     handle = ctx.subprocess.spawn({
@@ -263,7 +253,9 @@ export async function runRipgrep(
   try {
     outcome = await handle.done
   } catch (error: unknown) {
-    throw new SearchError(`${toolName} subprocess failed before reporting an outcome (ripgrep provider failure)`, 'SEARCH_FAILED', { cause: error })
+    throw new SearchError(`${toolName} subprocess failed before reporting an outcome (ripgrep provider failure)`, 'SEARCH_FAILED', {
+      cause: error,
+    })
   }
   const stdout = handle.collected.stdout?.readFrom(0)
   const stderr = handle.collected.stderr?.readFrom(0)

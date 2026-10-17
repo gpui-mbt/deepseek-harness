@@ -21,10 +21,7 @@ export function captureClientConsoleStack(resolveScript: ClientScriptKeyResolver
  * @param resolveScript - Resolver for Client catalog script keys.
  * @returns Parsed call frames when the value has a recognized stack string.
  */
-export function clientErrorStack(
-  value: unknown,
-  resolveScript: ClientScriptKeyResolver = () => undefined,
-): RuntimeStackTrace | undefined {
+export function clientErrorStack(value: unknown, resolveScript: ClientScriptKeyResolver = () => undefined): RuntimeStackTrace | undefined {
   if (typeof value !== 'object' || value === null) return undefined
   let stack: unknown
   try {

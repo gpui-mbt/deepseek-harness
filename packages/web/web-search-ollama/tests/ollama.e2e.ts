@@ -1,15 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import {
-  OLLAMA_DEFAULT_BASE_URL,
-  OLLAMA_DEFAULT_MAX_RESULTS,
-  OllamaSearchProvider,
-} from '@deepseek-ai/dsh-web-search-ollama'
+import { describe, expect, it } from 'vite-plus/test'
+import { OLLAMA_DEFAULT_BASE_URL, OLLAMA_DEFAULT_MAX_RESULTS, OllamaSearchProvider } from '@deepseek-ai/dsh-web-search-ollama'
 
 /** Construct the provider over a fixed options value; production passes a live thunk. */
 import type { OllamaSearchProviderOptions } from '@deepseek-ai/dsh-web-search-ollama'
 
-const searchProvider = (options: OllamaSearchProviderOptions): OllamaSearchProvider =>
-  new OllamaSearchProvider(() => options)
+const searchProvider = (options: OllamaSearchProviderOptions): OllamaSearchProvider => new OllamaSearchProvider(() => options)
 
 /**
  * Disabled real-API probe for the Ollama search provider. Its body remains

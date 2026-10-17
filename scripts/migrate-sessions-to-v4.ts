@@ -11,7 +11,12 @@ import { Context } from '@deepseek-ai/cordis'
 import { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import { encodeSegment, generationLogFilename, parseGenerationLogFilename, type JsonlCompression } from '../packages/session/session-persistence-jsonl/src/format.ts'
+import {
+  encodeSegment,
+  generationLogFilename,
+  parseGenerationLogFilename,
+  type JsonlCompression,
+} from '../packages/session/session-persistence-jsonl/src/format.ts'
 import { JsonlGenerationSourceChangedError } from '../packages/session/session-persistence-jsonl/src/generation.ts'
 import { classifyMigrationFailure, type MigrationFailureDiagnostic } from './migration-failure-summary.ts'
 
@@ -61,34 +66,49 @@ function summarizeFailures(failures: readonly Failure[]): FailureGroup[] {
   const groups = new Map<string, FailureGroup>()
   for (const { sourceVersion, ...item } of failures) {
     const key = JSON.stringify([
-      String(sourceVersion), item.reason, item.errorName, item.eventType ?? null, item.member ?? null, item.child ?? false,
+      String(sourceVersion),
+      item.reason,
+      item.errorName,
+      item.eventType ?? null,
+      item.member ?? null,
+      item.child ?? false,
     ])
     let group = groups.get(key)
     if (group === undefined) {
       group = {
-        sourceVersion, reason: item.reason, errorName: item.errorName,
-        ...item.eventType === undefined ? {} : { eventType: item.eventType },
-        ...item.member === undefined ? {} : { member: item.member },
-        ...item.child === undefined ? {} : { child: item.child },
-        count: 0, items: [],
+        sourceVersion,
+        reason: item.reason,
+        errorName: item.errorName,
+        ...(item.eventType === undefined ? {} : { eventType: item.eventType }),
+        ...(item.member === undefined ? {} : { member: item.member }),
+        ...(item.child === undefined ? {} : { child: item.child }),
+        count: 0,
+        items: [],
       }
       groups.set(key, group)
     }
     group.count += 1
     group.items.push(item)
   }
-  return [...groups].sort(([left], [right]) => left.localeCompare(right)).map(([, group]) => ({
-    ...group, items: group.items.sort((left, right) => left.inputPath.localeCompare(right.inputPath)),
-  }))
+  return [...groups]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, group]) => ({
+      ...group,
+      items: group.items.sort((left, right) => left.inputPath.localeCompare(right.inputPath)),
+    }))
 }
 
 async function inspectDirectory(directory: string): Promise<Candidate> {
   try {
     const entries = await readdir(directory)
-    const generations = entries.flatMap(filename => (['none', 'zstd'] as const).flatMap((compression) => {
-      const version = parseGenerationLogFilename(filename, compression)
-      return version === undefined ? [] : [{ filename, version, compression }]
-    })).sort((left, right) => right.version - left.version || left.filename.localeCompare(right.filename))
+    const generations = entries
+      .flatMap(filename =>
+        (['none', 'zstd'] as const).flatMap(compression => {
+          const version = parseGenerationLogFilename(filename, compression)
+          return version === undefined ? [] : [{ filename, version, compression }]
+        }),
+      )
+      .sort((left, right) => right.version - left.version || left.filename.localeCompare(right.filename))
     const selected = generations[0]
     if (selected === undefined) return { directory }
     const metadata = await stat(join(directory, selected.filename))
@@ -177,7 +197,7 @@ async function migrate(root: string, jobs: number): Promise<number> {
   const bySourceVersion: Record<string, OutcomeCounts> = {}
   const recordOutcome = (version: SourceVersion, outcome: keyof OutcomeCounts): void => {
     totals[outcome] += 1
-    const counts = bySourceVersion[String(version)] ??= emptyCounts()
+    const counts = (bySourceVersion[String(version)] ??= emptyCounts())
     counts[outcome] += 1
   }
   const failures: Failure[] = []
@@ -215,7 +235,9 @@ async function migrate(root: string, jobs: number): Promise<number> {
         const { directory, source } = candidate
         const label = `[${index + 1}/${candidates.length}] ${JSON.stringify(relative(root, directory))}`
         const started = performance.now()
-        write(`${label} ${retry ? 'RETRY' : 'START'} ${source === undefined ? 'inspect entry' : `${source.filename} (V${source.version}, ${source.bytes} bytes)`}`)
+        write(
+          `${label} ${retry ? 'RETRY' : 'START'} ${source === undefined ? 'inspect entry' : `${source.filename} (V${source.version}, ${source.bytes} bytes)`}`,
+        )
         const finish = (status: string): void => {
           completed += 1
           write(`${label} ${status}; completed=${completed}/${candidates.length}`)
@@ -233,7 +255,9 @@ async function migrate(root: string, jobs: number): Promise<number> {
           const handle = await ctx.sessionPersistence.open(id, source.version === 4 ? 'read' : 'write')
           await handle.close()
           recordOutcome(source.version, source.version === 4 ? 'alreadyV4' : 'converted')
-          finish(`${source.version === 4 ? 'already V4 (opened successfully)' : `V${source.version} -> V4: ${generationLogFilename(4, source.compression)}`} (${((performance.now() - started) / 1000).toFixed(2)}s)`)
+          finish(
+            `${source.version === 4 ? 'already V4 (opened successfully)' : `V${source.version} -> V4: ${generationLogFilename(4, source.compression)}`} (${((performance.now() - started) / 1000).toFixed(2)}s)`,
+          )
         } catch (error: unknown) {
           if (!retry && error instanceof JsonlGenerationSourceChangedError) {
             write(`${label} DEFERRED: ${error.message}; retry once after initial jobs finish`)
@@ -258,22 +282,26 @@ async function migrate(root: string, jobs: number): Promise<number> {
         for (const failure of failures) write(`- ${JSON.stringify(failure.inputPath)}: ${failure.message}`)
       }
       write(`Full log: ${logPath}`)
-      const summary = JSON.stringify({
-        schemaVersion: 1,
-        targetVersion: 4,
-        sessionRoot: root,
-        inputCount,
-        jobs,
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        checkoutCommit,
-        runtime: { node: process.version, platform: process.platform, arch: process.arch },
-        textLogPath: logPath,
-        summaryPath,
-        totals,
-        bySourceVersion,
-        failureGroups: summarizeFailures(failures),
-      }, null, 2)
+      const summary = JSON.stringify(
+        {
+          schemaVersion: 1,
+          targetVersion: 4,
+          sessionRoot: root,
+          inputCount,
+          jobs,
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          checkoutCommit,
+          runtime: { node: process.version, platform: process.platform, arch: process.arch },
+          textLogPath: logPath,
+          summaryPath,
+          totals,
+          bySourceVersion,
+          failureGroups: summarizeFailures(failures),
+        },
+        null,
+        2,
+      )
       writeFileSync(summaryPath, `${summary}\n`, { flag: 'wx', mode: 0o600 })
       write(`JSON summary: ${summaryPath}`)
       write(summary)
@@ -286,7 +314,10 @@ async function migrate(root: string, jobs: number): Promise<number> {
 
 if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(import.meta.filename)) {
   try {
-    const { values } = parseArgs({ options: { 'sessions-dir': { type: 'string' }, jobs: { type: 'string' }, help: { type: 'boolean' } }, strict: true })
+    const { values } = parseArgs({
+      options: { 'sessions-dir': { type: 'string' }, jobs: { type: 'string' }, help: { type: 'boolean' } },
+      strict: true,
+    })
     if (values.help) console.log(usage)
     else {
       const jobs = values.jobs === undefined ? Math.min(availableParallelism(), 16) : Number(values.jobs)

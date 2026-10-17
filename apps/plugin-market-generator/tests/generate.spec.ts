@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { c as createTar } from 'tar'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { main } from '../src/cli.ts'
 import { generate, type GenerateOptions } from '../src/generate.ts'
 import { onCleanup, scratch } from './support.ts'
@@ -47,30 +47,55 @@ async function registry(packages: Packages) {
       return void response.end()
     }
     const name = url.replace(/^\/(?:mirror\/)?/u, '')
-    const versions = url.startsWith('/mirror/') ? 503 : packages[name] ?? 404
+    const versions = url.startsWith('/mirror/') ? 503 : (packages[name] ?? 404)
     if (typeof versions === 'number') return void response.writeHead(versions).end()
-    response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
-      'dist-tags': { latest: Object.keys(versions).at(-1) },
-      time: Object.fromEntries(Object.entries(versions).flatMap(([version, { time }]) => time === undefined ? [] : [[version, time]])),
-      // A package without versions has a registry document without a `versions` member.
-      ...Object.keys(versions).length === 0 ? {} : { versions: Object.fromEntries(Object.entries(versions).map(([version, published]) => {
-        const bytes = published.tarball
-        const integrity = published.integrity ?? (Buffer.isBuffer(bytes) ? `sha512-${createHash('sha512').update(bytes).digest('base64')}` : undefined)
-        return [version, {
-          name, version, ...published.manifest,
-          dist: { tarball: `${base}/tarballs/${encodeURIComponent(name)}/${version}.tgz`, ...integrity === undefined ? {} : { integrity } },
-        }]
-      })) },
-    }))
+    response.writeHead(200, { 'content-type': 'application/json' }).end(
+      JSON.stringify({
+        'dist-tags': { latest: Object.keys(versions).at(-1) },
+        time: Object.fromEntries(Object.entries(versions).flatMap(([version, { time }]) => (time === undefined ? [] : [[version, time]]))),
+        // A package without versions has a registry document without a `versions` member.
+        ...(Object.keys(versions).length === 0
+          ? {}
+          : {
+              versions: Object.fromEntries(
+                Object.entries(versions).map(([version, published]) => {
+                  const bytes = published.tarball
+                  const integrity =
+                    published.integrity ??
+                    (Buffer.isBuffer(bytes) ? `sha512-${createHash('sha512').update(bytes).digest('base64')}` : undefined)
+                  return [
+                    version,
+                    {
+                      name,
+                      version,
+                      ...published.manifest,
+                      dist: {
+                        tarball: `${base}/tarballs/${encodeURIComponent(name)}/${version}.tgz`,
+                        ...(integrity === undefined ? {} : { integrity }),
+                      },
+                    },
+                  ]
+                }),
+              ),
+            }),
+      }),
+    )
   })
-  await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve) })
+  await new Promise<void>(resolve => {
+    server.listen(0, '127.0.0.1', resolve)
+  })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('no port')
   const base = `http://127.0.0.1:${address.port}`
-  onCleanup(() => new Promise<void>((resolve) => {
-    server.close(() => { resolve() })
-    server.closeAllConnections()
-  }))
+  onCleanup(
+    () =>
+      new Promise<void>(resolve => {
+        server.close(() => {
+          resolve()
+        })
+        server.closeAllConnections()
+      }),
+  )
   return { url: `${base}/`, tarballs }
 }
 
@@ -81,9 +106,17 @@ const bundleManifest = (name: string, version: string, extra: object = {}) => JS
 function options(registryUrl: string, cacheDir: string, lines: string[], warnings: string[]): GenerateOptions {
   return {
     sources: lines.map(name => ({ kind: 'npm' as const, line: name, name })),
-    cacheDir, registry: registryUrl, recordRegistry: true, title: 'Test Market', description: 'For tests',
-    inlineIconBytes: 64, limits: { timeoutMs: 10000, maxTarballBytes: 1 << 20 }, concurrency: 2,
-    warn: (message) => { warnings.push(message) },
+    cacheDir,
+    registry: registryUrl,
+    recordRegistry: true,
+    title: 'Test Market',
+    description: 'For tests',
+    inlineIconBytes: 64,
+    limits: { timeoutMs: 10000, maxTarballBytes: 1 << 20 },
+    concurrency: 2,
+    warn: message => {
+      warnings.push(message)
+    },
   }
 }
 
@@ -91,22 +124,40 @@ it('lists every non-deprecated bundle version from the registry document and rea
   const packages: Packages = {
     'dsh-a': {
       '0.9.0': { time: '2026-01-01T00:00:00.000Z' },
-      '1.0.0': { time: '2026-02-01T00:00:00.000Z', manifest: { ...BUNDLE, keywords: ['old'], engines: { dsh: '>=0.2.0' }, peerDependencies: { '@deepseek-ai/dsh': '9' } } },
+      '1.0.0': {
+        time: '2026-02-01T00:00:00.000Z',
+        manifest: { ...BUNDLE, keywords: ['old'], engines: { dsh: '>=0.2.0' }, peerDependencies: { '@deepseek-ai/dsh': '9' } },
+      },
       '1.1.0': { time: '2026-03-01T00:00:00.000Z', manifest: { ...BUNDLE, deprecated: 'broken' } },
       '1.2.0': {
         time: '2026-04-01T00:00:00.000Z',
         manifest: {
-          ...BUNDLE, deprecated: '',
-          peerDependencies: { '@deepseek-ai/dsh': '>=0.2.0', '@deepseek-ai/dsh-agent': '>=0.2.0', '@deepseek-ai/dsh-tools': '^0.2.0 || ^0.3.0', react: '18' },
+          ...BUNDLE,
+          deprecated: '',
+          peerDependencies: {
+            '@deepseek-ai/dsh': '>=0.2.0',
+            '@deepseek-ai/dsh-agent': '>=0.2.0',
+            '@deepseek-ai/dsh-tools': '^0.2.0 || ^0.3.0',
+            react: '18',
+          },
         },
       },
-      '1.3.0': { time: '2026-05-01T00:00:00.000Z', manifest: { ...BUNDLE, peerDependencies: { '@deepseek-ai/dsh-agent': 'workspace:>=1' } } },
+      '1.3.0': {
+        time: '2026-05-01T00:00:00.000Z',
+        manifest: { ...BUNDLE, peerDependencies: { '@deepseek-ai/dsh-agent': 'workspace:>=1' } },
+      },
       '1.4.0': { manifest: BUNDLE },
       '2.0.0-rc.1': {
         time: '2026-06-01T00:00:00.000Z',
         manifest: { ...BUNDLE, author: { name: 'Jane Doe', email: 'jane@example.com' } },
         tarball: await pack({
-          'package.json': bundleManifest('dsh-a', '2.0.0-rc.1', { author: { name: 'Jane Doe' }, icon: 'icon.png', homepage: 'https://example.com/dsh-a', repository: { type: 'git', url: 'git+https://github.com/jane/plugins.git', directory: 'packages/a' }, keywords: ['alpha', '', 'alpha'] }),
+          'package.json': bundleManifest('dsh-a', '2.0.0-rc.1', {
+            author: { name: 'Jane Doe' },
+            icon: 'icon.png',
+            homepage: 'https://example.com/dsh-a',
+            repository: { type: 'git', url: 'git+https://github.com/jane/plugins.git', directory: 'packages/a' },
+            keywords: ['alpha', '', 'alpha'],
+          }),
           'locale/en.json': JSON.stringify({ meta: { title: 'Alpha' } }),
           'locale/zh.json': JSON.stringify({ meta: { title: '甲' } }),
           'locale/x_y.json': '{}',
@@ -115,13 +166,38 @@ it('lists every non-deprecated bundle version from the registry document and rea
         }),
       },
     },
-    'dsh-b': { '1.0.0': { time: '2026-06-02T00:00:00.000Z', manifest: { ...BUNDLE, author: 'Bob' }, tarball: await pack({ 'package.json': bundleManifest('dsh-b', '1.0.0') }) } },
+    'dsh-b': {
+      '1.0.0': {
+        time: '2026-06-02T00:00:00.000Z',
+        manifest: { ...BUNDLE, author: 'Bob' },
+        tarball: await pack({ 'package.json': bundleManifest('dsh-b', '1.0.0') }),
+      },
+    },
     'plain-lib': { '1.0.0': { time: '2026-06-01T00:00:00.000Z' } },
-    'dsh-imposter': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball: await pack({ 'package.json': bundleManifest('dsh-other', '1.0.0') }) } },
-    'dsh-tampered': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball: await pack({ 'package.json': bundleManifest('dsh-tampered', '1.0.0') }), integrity: 'sha512-AAAA' } },
+    'dsh-imposter': {
+      '1.0.0': {
+        time: '2026-06-01T00:00:00.000Z',
+        manifest: BUNDLE,
+        tarball: await pack({ 'package.json': bundleManifest('dsh-other', '1.0.0') }),
+      },
+    },
+    'dsh-tampered': {
+      '1.0.0': {
+        time: '2026-06-01T00:00:00.000Z',
+        manifest: BUNDLE,
+        tarball: await pack({ 'package.json': bundleManifest('dsh-tampered', '1.0.0') }),
+        integrity: 'sha512-AAAA',
+      },
+    },
     'dsh-unsigned': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE } },
     'dsh-huge': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball: 'oversized', integrity: 'sha512-AAAA' } },
-    'dsh-bomb': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball: await pack({ 'package.json': bundleManifest('dsh-bomb', '1.0.0'), 'zeros.bin': new Uint8Array(2 << 20) }) } },
+    'dsh-bomb': {
+      '1.0.0': {
+        time: '2026-06-01T00:00:00.000Z',
+        manifest: BUNDLE,
+        tarball: await pack({ 'package.json': bundleManifest('dsh-bomb', '1.0.0'), 'zeros.bin': new Uint8Array(2 << 20) }),
+      },
+    },
     'dsh-no-tarball': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, integrity: 'sha512-AAAA' } },
     'dsh-unpublished': {},
     'dsh-missing': 404,
@@ -129,13 +205,29 @@ it('lists every non-deprecated bundle version from the registry document and rea
   const server = await registry(packages)
   const cacheDir = scratch()
   const warnings: string[] = []
-  const lines = ['dsh-a', 'dsh-b', 'plain-lib', 'dsh-imposter', 'dsh-tampered', 'dsh-unsigned', 'dsh-huge', 'dsh-bomb', 'dsh-no-tarball', 'dsh-unpublished', 'dsh-missing']
+  const lines = [
+    'dsh-a',
+    'dsh-b',
+    'plain-lib',
+    'dsh-imposter',
+    'dsh-tampered',
+    'dsh-unsigned',
+    'dsh-huge',
+    'dsh-bomb',
+    'dsh-no-tarball',
+    'dsh-unpublished',
+    'dsh-missing',
+  ]
   const first = await generate(options(server.url, cacheDir, lines, warnings))
   const npm = { type: 'npm', registry: server.url }
   expect(first.index).toMatchObject({ format: 1, title: 'Test Market', description: 'For tests' })
   expect(first.index.plugins).toEqual([
     {
-      name: 'dsh-a', title: { en: 'Alpha', zh: '甲' }, icon: expect.stringMatching(/^icons\/[0-9a-f]{16}\.png$/u) as string, author: 'Jane Doe', homepage: 'https://example.com/dsh-a',
+      name: 'dsh-a',
+      title: { en: 'Alpha', zh: '甲' },
+      icon: expect.stringMatching(/^icons\/[0-9a-f]{16}\.png$/u) as string,
+      author: 'Jane Doe',
+      homepage: 'https://example.com/dsh-a',
       repository: { url: 'https://github.com/jane/plugins', directory: 'packages/a' },
       metadata: { keywords: ['alpha', '', 'alpha'] },
       versions: [
@@ -157,12 +249,14 @@ it('lists every non-deprecated bundle version from the registry document and rea
     'dsh-no-tarball: dsh-no-tarball@1.0.0: tarball answered HTTP 404',
     'dsh-missing: dsh-missing: registry answered HTTP 404',
   ])
-  expect(warnings).toEqual(expect.arrayContaining([
-    'dsh-a: dsh-a@1.3.0 skipped: DSH range "workspace:>=1" is not a valid SemVer range',
-    'dsh-a@2.0.0-rc.1: locale file locale/x_y.json ignored: its name is not a language id',
-    'plain-lib: no published version declares dsh.bundle',
-    'dsh-unpublished: no published version declares dsh.bundle',
-  ]))
+  expect(warnings).toEqual(
+    expect.arrayContaining([
+      'dsh-a: dsh-a@1.3.0 skipped: DSH range "workspace:>=1" is not a valid SemVer range',
+      'dsh-a@2.0.0-rc.1: locale file locale/x_y.json ignored: its name is not a language id',
+      'plain-lib: no published version declares dsh.bundle',
+      'dsh-unpublished: no published version declares dsh.bundle',
+    ]),
+  )
 
   // Unchanged version lists come from the cache; a failing source keeps its last result for the same registry only.
   packages['dsh-b'] = 500
@@ -182,16 +276,36 @@ it('keeps packages with absent or invalid keywords and preserves empty keywords 
     { name: 'dsh-mixed', fields: { keywords: ['valid', 1] }, metadata: undefined },
     { name: 'dsh-nonarray', fields: { keywords: 'search' }, metadata: undefined },
   ]
-  const packages: Packages = Object.fromEntries(await Promise.all(cases.map(async ({ name, fields }) => [name, {
-    '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball: await pack({ 'package.json': bundleManifest(name, '1.0.0', fields) }) },
-  }] as const)))
+  const packages: Packages = Object.fromEntries(
+    await Promise.all(
+      cases.map(
+        async ({ name, fields }) =>
+          [
+            name,
+            {
+              '1.0.0': {
+                time: '2026-06-01T00:00:00.000Z',
+                manifest: BUNDLE,
+                tarball: await pack({ 'package.json': bundleManifest(name, '1.0.0', fields) }),
+              },
+            },
+          ] as const,
+      ),
+    ),
+  )
   const server = await registry(packages)
   const warnings: string[] = []
-  const opts = options(server.url, scratch(), cases.map(({ name }) => name), warnings)
+  const opts = options(
+    server.url,
+    scratch(),
+    cases.map(({ name }) => name),
+    warnings,
+  )
   const first = await generate(opts)
   expect(first.failures).toEqual([])
-  expect(first.index.plugins.map(({ name, metadata }) => ({ name, metadata })))
-    .toEqual(cases.map(({ name, metadata }) => ({ name, metadata })))
+  expect(first.index.plugins.map(({ name, metadata }) => ({ name, metadata }))).toEqual(
+    cases.map(({ name, metadata }) => ({ name, metadata })),
+  )
   for (const plugin of first.index.plugins) {
     if (plugin.name !== 'dsh-empty') expect(plugin).not.toHaveProperty('metadata')
   }
@@ -207,7 +321,15 @@ it('keeps packages with absent or invalid keywords and preserves empty keywords 
 })
 
 it('rebuilds a cached record the index format rejects', async () => {
-  const server = await registry({ 'dsh-a': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball: await pack({ 'package.json': bundleManifest('dsh-a', '1.0.0') }) } } })
+  const server = await registry({
+    'dsh-a': {
+      '1.0.0': {
+        time: '2026-06-01T00:00:00.000Z',
+        manifest: BUNDLE,
+        tarball: await pack({ 'package.json': bundleManifest('dsh-a', '1.0.0') }),
+      },
+    },
+  })
   const cacheDir = scratch()
   const first = await generate(options(server.url, cacheDir, ['dsh-a'], []))
   const results = join(cacheDir, 'results')
@@ -223,14 +345,24 @@ it('keeps the first source of a repeated package name', async () => {
   const server = await registry({ 'dsh-a': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball } } })
   const warnings: string[] = []
   const source = { kind: 'npm' as const, line: 'dsh-a', name: 'dsh-a' }
-  const result = await generate({ ...options(server.url, scratch(), [], warnings), recordRegistry: false, sources: [source, { ...source, line: 'dsh-a ' }] })
+  const result = await generate({
+    ...options(server.url, scratch(), [], warnings),
+    recordRegistry: false,
+    sources: [source, { ...source, line: 'dsh-a ' }],
+  })
   expect(result.index.plugins.map(entry => [entry.name, entry.versions[0]?.source])).toEqual([['dsh-a', { type: 'npm' }]])
   expect(warnings).toEqual(['dsh-a: listed by more than one source; keeping the first'])
 })
 
 it('writes the index and icons once, keeps the cache beside the input, and removes only stale generated icon files', async () => {
   const server = await registry({
-    'dsh-a': { '1.0.0': { time: '2026-06-01T00:00:00.000Z', manifest: BUNDLE, tarball: await pack({ 'package.json': bundleManifest('dsh-a', '1.0.0', { icon: 'i.png' }), 'i.png': new Uint8Array(20000) }) } },
+    'dsh-a': {
+      '1.0.0': {
+        time: '2026-06-01T00:00:00.000Z',
+        manifest: BUNDLE,
+        tarball: await pack({ 'package.json': bundleManifest('dsh-a', '1.0.0', { icon: 'i.png' }), 'i.png': new Uint8Array(20000) }),
+      },
+    },
   })
   const lists = scratch()
   const out = join(scratch(), 'site')
@@ -247,11 +379,31 @@ it('writes the index and icons once, keeps the cache beside the input, and remov
   mkdirSync(join(out, 'icons', 'fedcba9876543210.svg'))
   expect(await main(args)).toBe(0)
   expect(readFileSync(join(out, 'index.json'), 'utf8')).toBe(written)
-  expect(['0123456789abcdef.png', 'keep.txt', 'fedcba9876543210.svg', icon.slice('icons/'.length)].map(name => existsSync(join(out, 'icons', name))))
-    .toEqual([false, true, true, true])
+  expect(
+    ['0123456789abcdef.png', 'keep.txt', 'fedcba9876543210.svg', icon.slice('icons/'.length)].map(name =>
+      existsSync(join(out, 'icons', name)),
+    ),
+  ).toEqual([false, true, true, true])
   writeFileSync(list, 'dsh-gone\n')
   const other = join(scratch(), 'index.json')
-  expect(await main(['--input', list, '--output', other, '--title', 'T', '--description', 'D', '--registry', server.url, '--concurrency', '2', '--cache', join(lists, 'other-cache')])).toBe(1)
+  expect(
+    await main([
+      '--input',
+      list,
+      '--output',
+      other,
+      '--title',
+      'T',
+      '--description',
+      'D',
+      '--registry',
+      server.url,
+      '--concurrency',
+      '2',
+      '--cache',
+      join(lists, 'other-cache'),
+    ]),
+  ).toBe(1)
   expect((JSON.parse(readFileSync(other, 'utf8')) as { description: string }).description).toBe('D')
   writeFileSync(list, 'http://example.com/o/r\n')
   expect(await main(['--input', list, '--output', other, '--title', 'T'])).toBe(2)

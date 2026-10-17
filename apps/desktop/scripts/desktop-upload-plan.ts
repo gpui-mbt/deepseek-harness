@@ -20,11 +20,14 @@ const TARGETS = {
   'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
   'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
   'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
-} as const satisfies Record<DesktopPackageTargetName, {
-  readonly platform: NodeJS.Platform
-  readonly arch: string
-  readonly os: string
-}>
+} as const satisfies Record<
+  DesktopPackageTargetName,
+  {
+    readonly platform: NodeJS.Platform
+    readonly arch: string
+    readonly os: string
+  }
+>
 
 /** One local file and its final object metadata. */
 export interface DesktopUploadArtifact {
@@ -97,8 +100,7 @@ async function jsonFile(path: string, label: string): Promise<Record<string, unk
   let parsed: unknown
   try {
     parsed = JSON.parse(await readFile(path, 'utf8'))
-  }
-  catch (error) {
+  } catch (error) {
     throw new Error(`desktop upload: cannot read ${label} at ${path}: ${error instanceof Error ? error.message : String(error)}`)
   }
   return object(parsed, label)
@@ -127,10 +129,7 @@ async function sha512(path: string): Promise<string> {
   return hash.digest('base64')
 }
 
-async function verifyChecksummedArtifact(
-  artifactsRoot: string,
-  info: UpdateFileInfo,
-): Promise<string> {
+async function verifyChecksummedArtifact(artifactsRoot: string, info: UpdateFileInfo): Promise<string> {
   const path = join(artifactsRoot, info.filename)
   const details = await stat(path).catch(() => undefined)
   if (details === undefined || !details.isFile()) {
@@ -155,12 +154,7 @@ async function requireArtifact(artifactsRoot: string, filename: string): Promise
   return path
 }
 
-function uploadArtifact(
-  path: string,
-  keyPrefix: string,
-  contentType: string,
-  channelMetadata = false,
-): DesktopUploadArtifact {
+function uploadArtifact(path: string, keyPrefix: string, contentType: string, channelMetadata = false): DesktopUploadArtifact {
   const filename = basename(path)
   return {
     path,
@@ -189,33 +183,36 @@ export async function createDesktopUploadPlan(
   const repositoryRoot = options.repositoryRoot ?? REPOSITORY_ROOT
   const appRoot = options.appRoot ?? APP_ROOT
   const artifactsRoot = options.artifactsRoot ?? desktopTargetBuildPaths(targetName).artifacts
-  const dshVersion = options.packagedProductVersion ?? await manifestVersion(join(repositoryRoot, 'package.json'), 'dsh package')
-  const desktopVersion = options.packagedProductVersion ?? await manifestVersion(join(appRoot, 'package.json'), 'desktop package')
+  const dshVersion = options.packagedProductVersion ?? (await manifestVersion(join(repositoryRoot, 'package.json'), 'dsh package'))
+  const desktopVersion = options.packagedProductVersion ?? (await manifestVersion(join(appRoot, 'package.json'), 'desktop package'))
   if (dshVersion !== desktopVersion) {
     throw new Error(`desktop upload: desktop version ${desktopVersion} does not match current dsh version ${dshVersion}`)
   }
 
   const update = resolveDesktopUploadConfig(environment, target.platform, target.arch)
-  const buildRecord = await jsonFile(
-    join(artifactsRoot, desktopBuildRecordFilename(targetName)),
-    `${targetName} package completion record`,
-  )
+  const buildRecord = await jsonFile(join(artifactsRoot, desktopBuildRecordFilename(targetName)), `${targetName} package completion record`)
   // Packaging wrote the version it published; reading it back keeps release settings out of shell variables.
   const recordedVersion = stringField(buildRecord.version, `${targetName} package completion record.version`)
   let buildVersion: string
   try {
     buildVersion = validateDesktopBuildVersion(recordedVersion, dshVersion)
+  } catch (error) {
+    throw new Error(
+      `desktop upload: ${targetName} package completion record holds ${recordedVersion}, which is not a build of dsh ${dshVersion}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    )
   }
-  catch (error) {
-    throw new Error(`desktop upload: ${targetName} package completion record holds ${recordedVersion}, which is not a build of dsh ${dshVersion}: ${
-      error instanceof Error ? error.message : String(error)}`)
-  }
-  if (buildRecord.schemaVersion !== 1
-    || buildRecord.target !== targetName
-    || (buildRecord.channel ?? 'nightly') !== update.channel
-    || buildRecord.environment !== update.environment
-    || buildRecord.publicUrl !== update.publicUrl) {
-    throw new Error(`desktop upload: ${targetName} package completion record for ${buildVersion} does not match the ${update.environment} update destination`)
+  if (
+    buildRecord.schemaVersion !== 1 ||
+    buildRecord.target !== targetName ||
+    (buildRecord.channel ?? 'nightly') !== update.channel ||
+    buildRecord.environment !== update.environment ||
+    buildRecord.publicUrl !== update.publicUrl
+  ) {
+    throw new Error(
+      `desktop upload: ${targetName} package completion record for ${buildVersion} does not match the ${update.environment} update destination`,
+    )
   }
 
   if (update.channel === 'latest' && buildVersion.includes('-')) throw new Error('desktop upload: latest requires a stable version')
@@ -224,9 +221,10 @@ export async function createDesktopUploadPlan(
   let metadataValue: unknown
   try {
     metadataValue = load(await readFile(metadataPath, 'utf8'))
-  }
-  catch (error) {
-    throw new Error(`desktop upload: cannot read update metadata at ${metadataPath}: ${error instanceof Error ? error.message : String(error)}`)
+  } catch (error) {
+    throw new Error(
+      `desktop upload: cannot read update metadata at ${metadataPath}: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
   const metadata = object(metadataValue, metadataFilename)
   const metadataVersion = stringField(metadata.version, `${metadataFilename}.version`)
@@ -254,14 +252,9 @@ export async function createDesktopUploadPlan(
       uploadArtifact(updaterPath, binaryPrefix, 'application/zip'),
       uploadArtifact(blockmapPath, binaryPrefix, 'application/octet-stream'),
     )
-  }
-  else {
+  } else {
     const blockmapPath = await requireArtifact(artifactsRoot, `${base}.exe.blockmap`)
-    installerArtifact = uploadArtifact(
-      updaterPath,
-      binaryPrefix,
-      'application/vnd.microsoft.portable-executable',
-    )
+    installerArtifact = uploadArtifact(updaterPath, binaryPrefix, 'application/vnd.microsoft.portable-executable')
     artifacts.push(installerArtifact)
     artifacts.push(uploadArtifact(blockmapPath, binaryPrefix, 'application/octet-stream'))
   }
@@ -288,7 +281,7 @@ export async function createDesktopUploadPlan(
     secretIdEnvName: update.secretIdEnvName,
     secretKeyEnvName: update.secretKeyEnvName,
     artifacts: options.latest ? [{ ...installerArtifact, filename: latestFilename, key: latestKey }] : artifacts,
-    ...typeof buildRecord.commit === 'string' ? { commit: buildRecord.commit } : {},
-    ...typeof buildRecord.dirty === 'boolean' ? { dirty: buildRecord.dirty } : {},
+    ...(typeof buildRecord.commit === 'string' ? { commit: buildRecord.commit } : {}),
+    ...(typeof buildRecord.dirty === 'boolean' ? { dirty: buildRecord.dirty } : {}),
   }
 }

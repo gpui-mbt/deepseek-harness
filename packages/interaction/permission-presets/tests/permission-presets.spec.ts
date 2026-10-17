@@ -1,33 +1,36 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
-import SessionStore, {
-  Session,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
+import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type { ApprovalPolicy } from '@deepseek-ai/dsh-user-approval'
-import PermissionPresetService, {
-  AUTO_PRESET, CUSTOM_PRESET,
-} from '@deepseek-ai/dsh-permission-presets'
+import PermissionPresetService, { AUTO_PRESET, CUSTOM_PRESET } from '@deepseek-ai/dsh-permission-presets'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 
 const configurations = new WeakMap<Context, Awaited<ReturnType<typeof liveConfig>>>()
 
-async function mounted(options: {
-  config?: NonNullable<Parameters<typeof PermissionPresetService.Config>[0]>
-  bashDefault?: SandboxMode | undefined
-  approvalDefault?: ApprovalPolicy | undefined
-  projection?: boolean
-} = {}): Promise<Context> {
+async function mounted(
+  options: {
+    config?: NonNullable<Parameters<typeof PermissionPresetService.Config>[0]>
+    bashDefault?: SandboxMode | undefined
+    approvalDefault?: ApprovalPolicy | undefined
+    projection?: boolean
+  } = {},
+): Promise<Context> {
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   if (options.projection !== false) await ctx.plugin(SessionProjectionRegistry)
   ctx.provide('shell', {
     sandboxMode: 'bashDefault' in options ? options.bashDefault : 'workspace-write',
-    resolve() { throw new Error('permission tests do not execute bash') },
-    run() { throw new Error('permission tests do not execute bash') },
-    start() { throw new Error('permission tests do not execute bash') },
+    resolve() {
+      throw new Error('permission tests do not execute bash')
+    },
+    run() {
+      throw new Error('permission tests do not execute bash')
+    },
+    start() {
+      throw new Error('permission tests do not execute bash')
+    },
   })
   ctx.provide('approval', { config: { policy: 'approvalDefault' in options ? options.approvalDefault : 'ask' } })
   await ctx.plugin(PermissionPresetService, options.config ?? {})
@@ -39,9 +42,14 @@ function freshSession(id: string): Session {
 }
 
 async function mountAuto(ctx: Context, admit: () => void = () => {}) {
-  return ctx.plugin(Object.assign((pluginCtx: Context) => {
-    pluginCtx.permissionPresets.registerAuto(admit)
-  }, { inject: ['permissionPresets'] }))
+  return ctx.plugin(
+    Object.assign(
+      (pluginCtx: Context) => {
+        pluginCtx.permissionPresets.registerAuto(admit)
+      },
+      { inject: ['permissionPresets'] },
+    ),
+  )
 }
 
 async function mountedStore(options: { approvalDefault?: ApprovalPolicy | undefined } = {}): Promise<Context> {
@@ -50,9 +58,15 @@ async function mountedStore(options: { approvalDefault?: ApprovalPolicy | undefi
   await ctx.plugin(SessionProjectionRegistry)
   ctx.provide('shell', {
     sandboxMode: 'workspace-write',
-    resolve() { throw new Error('permission tests do not execute bash') },
-    run() { throw new Error('permission tests do not execute bash') },
-    start() { throw new Error('permission tests do not execute bash') },
+    resolve() {
+      throw new Error('permission tests do not execute bash')
+    },
+    run() {
+      throw new Error('permission tests do not execute bash')
+    },
+    start() {
+      throw new Error('permission tests do not execute bash')
+    },
   })
   ctx.provide('approval', {
     config: { policy: 'approvalDefault' in options ? options.approvalDefault : 'ask' },
@@ -88,8 +102,9 @@ describe('PermissionPresetService', () => {
   it('fails when the permissions projection key is absent', async () => {
     const ctx = await mounted()
     vi.spyOn(ctx.sessionProjections, 'stateOf').mockReturnValue(undefined)
-    expect(() => ctx.permissionPresets.current(freshSession('missing-permission-projection-key')))
-      .toThrow('permission: permissions session projection is not registered')
+    expect(() => ctx.permissionPresets.current(freshSession('missing-permission-projection-key'))).toThrow(
+      'permission: permissions session projection is not registered',
+    )
   })
 
   it('advertises the preset table in declaration order and resolves bundles', async () => {
@@ -104,7 +119,8 @@ describe('PermissionPresetService', () => {
     const fiber = await mountAuto(ctx)
     expect(ctx.permissionPresets.names).toEqual(['workspace-write', 'danger-full-access', AUTO_PRESET])
     expect(ctx.permissionPresets.resolve(AUTO_PRESET)).toEqual({
-      sandbox: 'danger-full-access', approval: 'ask',
+      sandbox: 'danger-full-access',
+      approval: 'ask',
     })
     expect(ctx.permissionPresets.optionOf(AUTO_PRESET)).toEqual({
       value: AUTO_PRESET,
@@ -119,14 +135,15 @@ describe('PermissionPresetService', () => {
   it('rejects a duplicate Auto integration', async () => {
     const ctx = await mounted()
     ctx.permissionPresets.registerAuto(() => {})
-    expect(() => ctx.permissionPresets.registerAuto(() => {}))
-      .toThrow(/already registered/)
+    expect(() => ctx.permissionPresets.registerAuto(() => {})).toThrow(/already registered/)
   })
 
   it('runs Auto admission before any write, including a no-op selection', async () => {
     const ctx = await mounted()
     let admissions = 0
-    await mountAuto(ctx, () => { admissions += 1 })
+    await mountAuto(ctx, () => {
+      admissions += 1
+    })
     const session = freshSession('sess-auto-admit')
 
     ctx.permissionPresets.set(session, AUTO_PRESET)
@@ -155,11 +172,13 @@ describe('PermissionPresetService', () => {
   })
 
   it('switches between Auto and Full access through identity and approval policy', async () => {
-    const config = { presets: {
-      'read-only': { sandbox: 'read-only', approval: 'ask' },
-      'workspace-write': { sandbox: 'workspace-write', approval: 'ask' },
-      'danger-full-access': { sandbox: 'danger-full-access', approval: 'never' },
-    } } satisfies NonNullable<Parameters<typeof PermissionPresetService.Config>[0]>
+    const config = {
+      presets: {
+        'read-only': { sandbox: 'read-only', approval: 'ask' },
+        'workspace-write': { sandbox: 'workspace-write', approval: 'ask' },
+        'danger-full-access': { sandbox: 'danger-full-access', approval: 'never' },
+      },
+    } satisfies NonNullable<Parameters<typeof PermissionPresetService.Config>[0]>
     const ctx = await mounted({ config })
     await mountAuto(ctx)
     const session = freshSession('shared-bundle-switch')
@@ -167,14 +186,24 @@ describe('PermissionPresetService', () => {
     const baselineLength = session.snapshotEvents().length
 
     ctx.permissionPresets.set(session, 'danger-full-access')
-    expect(session.snapshotEvents().slice(baselineLength).map(event => [event.type, event.data])).toEqual([
+    expect(
+      session
+        .snapshotEvents()
+        .slice(baselineLength)
+        .map(event => [event.type, event.data]),
+    ).toEqual([
       ['permission/preset', { preset: 'danger-full-access' }],
       ['approval/policy', { policy: 'never' }],
     ])
     expect(ctx.permissionPresets.current(session)).toBe('danger-full-access')
 
     ctx.permissionPresets.set(session, AUTO_PRESET)
-    expect(session.snapshotEvents().slice(baselineLength + 2).map(event => [event.type, event.data])).toEqual([
+    expect(
+      session
+        .snapshotEvents()
+        .slice(baselineLength + 2)
+        .map(event => [event.type, event.data]),
+    ).toEqual([
       ['permission/preset', { preset: AUTO_PRESET }],
       ['approval/policy', { policy: 'ask' }],
     ])
@@ -212,11 +241,15 @@ describe('PermissionPresetService', () => {
   })
 
   it('the fold breaks bundle ties; a stale fold no longer matching falls back to table order', async () => {
-    const ctx = await mounted({ config: { presets: {
-      'workspace-write': { sandbox: 'workspace-write', approval: 'ask' },
-      agentish: { sandbox: 'workspace-write', approval: 'ask' },
-      'danger-full-access': { sandbox: 'danger-full-access', approval: 'never' },
-    } } })
+    const ctx = await mounted({
+      config: {
+        presets: {
+          'workspace-write': { sandbox: 'workspace-write', approval: 'ask' },
+          agentish: { sandbox: 'workspace-write', approval: 'ask' },
+          'danger-full-access': { sandbox: 'danger-full-access', approval: 'never' },
+        },
+      },
+    })
     const session = freshSession('sess-tie')
     ctx.permissionPresets.set(session, 'agentish')
     expect(ctx.permissionPresets.current(session)).toBe('agentish')
@@ -259,32 +292,40 @@ describe('PermissionPresetService', () => {
   })
 
   it('rejects composition over a non-confining executor at load', async () => {
-    await expect(mounted({ bashDefault: undefined }))
-      .rejects.toThrow(/does not confine/)
+    await expect(mounted({ bashDefault: undefined })).rejects.toThrow(/does not confine/)
   })
 
   it('optionOf() presents shipped labels/descriptions, falls back to the raw key, and fixes custom', async () => {
     const ctx = await mounted()
-    expect(ctx.permissionPresets.optionOf('danger-full-access')).toEqual({ value: 'danger-full-access', name: 'danger-full-access', description: 'Full file access without approval prompts.' })
-    expect(ctx.permissionPresets.optionOf('custom')).toEqual({ value: 'custom', name: 'Custom', description: 'Current sandbox and approval settings do not match a preset.' })
+    expect(ctx.permissionPresets.optionOf('danger-full-access')).toEqual({
+      value: 'danger-full-access',
+      name: 'danger-full-access',
+      description: 'Full file access without approval prompts.',
+    })
+    expect(ctx.permissionPresets.optionOf('custom')).toEqual({
+      value: 'custom',
+      name: 'Custom',
+      description: 'Current sandbox and approval settings do not match a preset.',
+    })
     const bare = await mounted({ config: { presets: { plain: { sandbox: 'workspace-write', approval: 'ask' } } } })
     expect(bare.permissionPresets.optionOf('plain')).toEqual({ value: 'plain', name: 'plain' })
     expect(() => ctx.permissionPresets.optionOf('plan')).toThrow(/unknown preset/)
   })
 
   it('rejects a table entry named custom (reserved for the derived state)', async () => {
-    await expect(mounted({ config: { presets: { custom: { sandbox: 'read-only', approval: 'ask' } } } }))
-      .rejects.toThrow(/reserved for the derived not-a-preset state/)
+    await expect(mounted({ config: { presets: { custom: { sandbox: 'read-only', approval: 'ask' } } } })).rejects.toThrow(
+      /reserved for the derived not-a-preset state/,
+    )
   })
 
   it('reserves auto for an integration contribution instead of configured defaults', async () => {
-    await expect(mounted({ config: { presets: { auto: { sandbox: 'danger-full-access', approval: 'never' } } } }))
-      .rejects.toThrow(/"auto" is reserved/)
+    await expect(mounted({ config: { presets: { auto: { sandbox: 'danger-full-access', approval: 'never' } } } })).rejects.toThrow(
+      /"auto" is reserved/,
+    )
   })
 
   it('requires an explicit default when composition defaults match no preset', async () => {
-    await expect(mounted({ approvalDefault: 'never' }))
-      .rejects.toThrow(/configure defaultPreset explicitly/)
+    await expect(mounted({ approvalDefault: 'never' })).rejects.toThrow(/configure defaultPreset explicitly/)
   })
 
   it('reads a schema-less approval stand-in as the ask default', async () => {
@@ -313,7 +354,9 @@ describe('new-session default', () => {
   it('admits persisted Auto through the live integration without rewriting it', async () => {
     const ctx = await mounted()
     let admissions = 0
-    await mountAuto(ctx, () => { admissions += 1 })
+    await mountAuto(ctx, () => {
+      admissions += 1
+    })
     const source = freshSession('auto-source-present')
     source.append('permission/preset', { preset: AUTO_PRESET })
     source.append('sandbox/mode', { mode: 'danger-full-access' })
@@ -341,9 +384,7 @@ describe('new-session default', () => {
     const second = ctx.sessions.create(SessionId('second'))
     expect(ctx.permissionPresets.current(first)).toBe('workspace-write')
     expect(ctx.permissionPresets.current(second)).toBe('danger-full-access')
-    expect(second.snapshotEvents().map(event => event.type)).toEqual([
-      'permission/preset', 'sandbox/mode', 'approval/policy',
-    ])
+    expect(second.snapshotEvents().map(event => event.type)).toEqual(['permission/preset', 'sandbox/mode', 'approval/policy'])
   })
 
   it('preserves a seeded legacy session instead of applying the latest user default', async () => {
@@ -356,9 +397,12 @@ describe('new-session default', () => {
     legacy.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     const resumed = ctx.sessions.create(SessionId('legacy-resumed'), { seed: legacy.snapshotEvents() })
     expect(ctx.permissionPresets.current(resumed)).toBe('workspace-write')
-    expect(resumed.snapshotEvents().slice(-3).map(event => event.type)).toEqual([
-      'permission/preset', 'sandbox/mode', 'approval/policy',
-    ])
+    expect(
+      resumed
+        .snapshotEvents()
+        .slice(-3)
+        .map(event => event.type),
+    ).toEqual(['permission/preset', 'sandbox/mode', 'approval/policy'])
   })
 
   it('preserves composition defaults when an empty stored session resumes', async () => {
@@ -369,7 +413,10 @@ describe('new-session default', () => {
     const resumed = ctx.sessions.create(SessionId('empty-resumed'), { seed: [] })
     expect(ctx.permissionPresets.current(resumed)).toBe('workspace-write')
     expect(resumed.snapshotEvents().map(event => event.type)).toEqual([
-      'session/end-seed', 'permission/preset', 'sandbox/mode', 'approval/policy',
+      'session/end-seed',
+      'permission/preset',
+      'sandbox/mode',
+      'approval/policy',
     ])
   })
 
@@ -379,18 +426,22 @@ describe('new-session default', () => {
     await ctx.plugin(SessionProjectionRegistry)
     ctx.provide('shell', {
       sandboxMode: 'workspace-write',
-      resolve() { throw new Error('permission tests do not execute bash') },
-      run() { throw new Error('permission tests do not execute bash') },
-      start() { throw new Error('permission tests do not execute bash') },
+      resolve() {
+        throw new Error('permission tests do not execute bash')
+      },
+      run() {
+        throw new Error('permission tests do not execute bash')
+      },
+      start() {
+        throw new Error('permission tests do not execute bash')
+      },
     })
     ctx.provide('approval', { config: { policy: 'ask' } })
     const existing = ctx.sessions.create(SessionId('existing-before-permission'))
     expect(existing.snapshotEvents()).toEqual([])
 
     configurations.set(ctx, await liveConfig(ctx, PermissionPresetService))
-    expect(existing.snapshotEvents().map(event => event.type)).toEqual([
-      'permission/preset', 'sandbox/mode', 'approval/policy',
-    ])
+    expect(existing.snapshotEvents().map(event => event.type)).toEqual(['permission/preset', 'sandbox/mode', 'approval/policy'])
     expect(ctx.permissionPresets.current(existing)).toBe('workspace-write')
   })
 
@@ -400,9 +451,15 @@ describe('new-session default', () => {
     await ctx.plugin(SessionProjectionRegistry)
     ctx.provide('shell', {
       sandboxMode: 'workspace-write',
-      resolve() { throw new Error('permission tests do not execute bash') },
-      run() { throw new Error('permission tests do not execute bash') },
-      start() { throw new Error('permission tests do not execute bash') },
+      resolve() {
+        throw new Error('permission tests do not execute bash')
+      },
+      run() {
+        throw new Error('permission tests do not execute bash')
+      },
+      start() {
+        throw new Error('permission tests do not execute bash')
+      },
     })
     ctx.provide('approval', { config: { policy: 'ask' } })
     const existing = ctx.sessions.create(SessionId('existing-knobs'))
@@ -413,9 +470,7 @@ describe('new-session default', () => {
     // The remount sweep must read the folded knob events instead of treating
     // the session as fresh; no default preset events may overwrite the
     // overrides (read-only + never matches no preset table entry).
-    expect(existing.snapshotEvents().map(event => event.type)).toEqual([
-      'sandbox/mode', 'approval/policy',
-    ])
+    expect(existing.snapshotEvents().map(event => event.type)).toEqual(['sandbox/mode', 'approval/policy'])
     expect(ctx.permissionPresets.current(existing)).toBe(CUSTOM_PRESET)
   })
 

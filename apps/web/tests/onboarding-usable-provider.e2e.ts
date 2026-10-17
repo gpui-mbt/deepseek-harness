@@ -9,10 +9,16 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { openSettings, ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
@@ -67,19 +73,13 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     const pick = settings.getByLabel('提供商', { exact: true })
     await pick.waitFor({ timeout: 10_000 })
     await pick.selectOption('minimax-cn')
-    await expect.poll(
-      async () => settings.getByRole('textbox', { name: 'API 密钥', exact: true }).count(),
-      { timeout: 10_000 },
-    ).toBe(2)
+    await expect.poll(async () => settings.getByRole('textbox', { name: 'API 密钥', exact: true }).count(), { timeout: 10_000 }).toBe(2)
 
     // Cancelling the setup card must not close the independent add-provider
     // draft beside it.
     await settings.getByRole('button', { name: '取消', exact: true }).first().click()
     expect(await settings.getByLabel('提供商', { exact: true }).count()).toBe(1)
-    await expect.poll(
-      async () => settings.getByRole('textbox', { name: 'API 密钥', exact: true }).count(),
-      { timeout: 10_000 },
-    ).toBe(1)
+    await expect.poll(async () => settings.getByRole('textbox', { name: 'API 密钥', exact: true }).count(), { timeout: 10_000 }).toBe(1)
     await settings.getByRole('button', { name: '编辑 DeepSeek (deepseek-official)' }).waitFor({ timeout: 10_000 })
     const dismissed = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(DISMISSED_EXPECTED, dismissed, MODE)
@@ -108,10 +108,7 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     await page.waitForSelector('[class*="frame"]', { timeout: 15_000 })
     // The regression: the step read only the official route's credential, so a
     // fully configured user was taken over on every blank session.
-    await expect.poll(
-      async () => page.getByRole('dialog', { name: CREDENTIAL_STEP }).count(),
-      { timeout: 10_000 },
-    ).toBe(0)
+    await expect.poll(async () => page.getByRole('dialog', { name: CREDENTIAL_STEP }).count(), { timeout: 10_000 }).toBe(0)
     expect(await page.locator('#root').evaluate(root => (root as HTMLElement).inert)).toBe(false)
 
     // The Models page agrees: DeepSeek stays a row rather than reopening its

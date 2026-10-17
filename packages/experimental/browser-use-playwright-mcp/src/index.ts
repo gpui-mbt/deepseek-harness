@@ -29,9 +29,11 @@ export function apply(ctx: Context, config: Config): void {
   const cli = join(dirname(fileURLToPath(import.meta.resolve('@playwright/mcp/package.json'))), 'cli.js')
   // Upstream environment options can otherwise replace the configured browser
   // mode or import an unrelated profile. Empty values mean absent to its parser.
-  const env = Object.fromEntries(Object.keys(process.env)
-    .filter(key => key.toUpperCase().startsWith('PLAYWRIGHT_MCP_'))
-    .map(key => [key, '']))
+  const env = Object.fromEntries(
+    Object.keys(process.env)
+      .filter(key => key.toUpperCase().startsWith('PLAYWRIGHT_MCP_'))
+      .map(key => [key, '']),
+  )
   const args = [cli, '--browser', 'chromium']
   if (config.mode === 'attach') {
     args.push('--cdp-endpoint', config.endpoint)
@@ -46,6 +48,6 @@ export function apply(ctx: Context, config: Config): void {
     command: process.execPath,
     args,
     env,
-    ...config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs },
+    ...(config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs }),
   })
 }

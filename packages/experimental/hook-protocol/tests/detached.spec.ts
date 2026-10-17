@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createDetachedRuns } from '@deepseek-ai/dsh-hook-protocol'
 
 /** A promise settled from outside, so a test controls exactly when a tracked run finishes. */
 function deferred(): { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void } {
   let resolve!: () => void
   let reject!: (error: Error) => void
-  const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej })
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
   return { promise, resolve, reject }
 }
 
@@ -27,7 +30,9 @@ describe('createDetachedRuns', () => {
     const run = deferred()
     detached.track(run.promise)
     let drained = false
-    const draining = detached.drain().then(() => { drained = true })
+    const draining = detached.drain().then(() => {
+      drained = true
+    })
     // Give the drain every chance to (wrongly) resolve before the run settles.
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(drained).toBe(false)
@@ -43,9 +48,13 @@ describe('createDetachedRuns', () => {
     detached.track(first.promise)
     // The late run enters the registry from the first run's own continuation —
     // after drain() snapshotted its first wave.
-    void first.promise.then(() => { detached.track(second.promise) })
+    void first.promise.then(() => {
+      detached.track(second.promise)
+    })
     let drained = false
-    const draining = detached.drain().then(() => { drained = true })
+    const draining = detached.drain().then(() => {
+      drained = true
+    })
     first.resolve()
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(drained).toBe(false)

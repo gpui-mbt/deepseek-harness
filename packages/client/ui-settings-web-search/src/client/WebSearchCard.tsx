@@ -13,10 +13,7 @@ import type { WebSearchCardFace } from './web-search-card-controller.ts'
 import css from './WebSearchCard.module.css'
 
 /** Props the renderer binds for the web-search page. */
-export type WebSearchCardProps =
-  PropsRuntime<'plugins.item'>
-  & PropsLocale<'settings.webSearch'>
-  & InjectFace<WebSearchCardFace>
+export type WebSearchCardProps = PropsRuntime<'plugins.item'> & PropsLocale<'settings.webSearch'> & InjectFace<WebSearchCardFace>
 
 /** Base id of the provider selector; each tab is `<id>-<value>`. */
 const SELECTOR_ID = 'plugin-config-web-search-provider'
@@ -45,7 +42,9 @@ export function WebSearchCard(props: WebSearchCardProps) {
         text={state.apiKey.text}
         configured={state.apiKeyConfigured}
         stateLabel={state.apiKeyConfigured ? t('apiKeySet') : t('apiKeyUnset')}
-        onEdit={(text) => { props.edit('apiKey', text) }}
+        onEdit={text => {
+          props.edit('apiKey', text)
+        }}
       />
       <SettingsValueField
         id="plugin-config-web-search-endpoint"
@@ -57,8 +56,12 @@ export function WebSearchCard(props: WebSearchCardProps) {
         placeholder={state.endpointPlaceholder}
         disabled={disabled}
         {...state.baseURL}
-        onEdit={(text) => { props.edit('baseURL', text) }}
-        onReset={() => { props.resetField('baseURL') }}
+        onEdit={text => {
+          props.edit('baseURL', text)
+        }}
+        onReset={() => {
+          props.resetField('baseURL')
+        }}
       />
       <SettingsValueField
         id="plugin-config-web-search-limit"
@@ -70,39 +73,43 @@ export function WebSearchCard(props: WebSearchCardProps) {
         numeric
         disabled={disabled}
         {...state.limit}
-        onEdit={(text) => { props.edit(state.limitField, text) }}
-        onReset={() => { props.resetField(state.limitField) }}
+        onEdit={text => {
+          props.edit(state.limitField, text)
+        }}
+        onReset={() => {
+          props.resetField(state.limitField)
+        }}
       />
     </>
   )
   return (
     <SettingsForm labels={formLabels(t)} state={state} onSave={props.save} onDiscard={props.discard}>
-      {state.showSelector
-        ? (
-          <div className={css.provider}>
-            <span className={css.label}>{t('providerLabel')}</span>
-            <SegmentedControl
-              id={SELECTOR_ID}
-              label={t('providerLabel')}
-              value={state.selectedProviderId}
-              disabled={!state.selectorWritable}
-              options={state.providers.map(provider => ({ value: provider.value, label: t(provider.labelKey) }))}
-              onChange={(next) => { props.selectProvider(next) }}
-            />
-          </div>
-        )
-        : null}
-      {state.showSelector
-        ? (
-          <div
-            id={`${SELECTOR_ID}-${state.selectedProviderId}-panel`}
-            role="tabpanel"
-            aria-labelledby={`${SELECTOR_ID}-${state.selectedProviderId}`}
-          >
-            {fields}
-          </div>
-        )
-        : fields}
+      {state.showSelector ? (
+        <div className={css.provider}>
+          <span className={css.label}>{t('providerLabel')}</span>
+          <SegmentedControl
+            id={SELECTOR_ID}
+            label={t('providerLabel')}
+            value={state.selectedProviderId}
+            disabled={!state.selectorWritable}
+            options={state.providers.map(provider => ({ value: provider.value, label: t(provider.labelKey) }))}
+            onChange={next => {
+              props.selectProvider(next)
+            }}
+          />
+        </div>
+      ) : null}
+      {state.showSelector ? (
+        <div
+          id={`${SELECTOR_ID}-${state.selectedProviderId}-panel`}
+          role="tabpanel"
+          aria-labelledby={`${SELECTOR_ID}-${state.selectedProviderId}`}
+        >
+          {fields}
+        </div>
+      ) : (
+        fields
+      )}
     </SettingsForm>
   )
 }

@@ -1,7 +1,29 @@
 /** Account Service Definition shared by platform, API, and model consumers. */
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountUserId, AccountView, SignInAttemptId } from './types.ts'
-export type { AccountBonusBatch, AccountBonusNotification, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountProfile, AccountUserId, AccountWallet, AccountLinks, AccountView, SignInAttemptId, SignInAttemptView, SignInErrorCode } from './types.ts'
+import type {
+  AccountBonusBatch,
+  AccountBonusOrderId,
+  AccountClientMetadata,
+  AccountDetails,
+  AccountUserId,
+  AccountView,
+  SignInAttemptId,
+} from './types.ts'
+export type {
+  AccountBonusBatch,
+  AccountBonusNotification,
+  AccountBonusOrderId,
+  AccountClientMetadata,
+  AccountDetails,
+  AccountProfile,
+  AccountUserId,
+  AccountWallet,
+  AccountLinks,
+  AccountView,
+  SignInAttemptId,
+  SignInAttemptView,
+  SignInErrorCode,
+} from './types.ts'
 export { isRunningAccountTask, installAccountTaskCancellation } from './account-tasks.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -31,7 +53,9 @@ export interface PlatformSession {
 /** Account operations; only Host consumers can obtain a request credential. */
 export abstract class DeepSeekAccount extends Service {
   /** @param ctx - context owning this account implementation. */
-  constructor(ctx: Context) { super(ctx, 'deepseekAccount') }
+  constructor(ctx: Context) {
+    super(ctx, 'deepseekAccount')
+  }
   /**
    * Read stored-account presence and the latest login attempt.
    * @returns a snapshot without credentials or PKCE secrets.
@@ -117,7 +141,6 @@ export abstract class DeepSeekAccount extends Service {
   abstract getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }>
 }
 export default DeepSeekAccount
-
 
 /** Merge Cookie header pairs by case-sensitive name, retaining unrelated cookies.
  * @param base - existing request cookies.

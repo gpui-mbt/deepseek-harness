@@ -9,7 +9,11 @@ import { FSWatcher, watch, type ChokidarOptions } from 'chokidar'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import {
-  readProfileManifest, readProfilePatches, recomposeProfile, PROFILE_PATCH_FILENAME, type RuntimeResolution,
+  readProfileManifest,
+  readProfilePatches,
+  recomposeProfile,
+  PROFILE_PATCH_FILENAME,
+  type RuntimeResolution,
 } from '@deepseek-ai/dsh-app-boot'
 import type {} from '@deepseek-ai/dsh-cmdline'
 import { handleError } from './error.ts'
@@ -44,7 +48,9 @@ declare module '@deepseek-ai/cordis' {
 function canonicalPath(filename: string): string {
   // Node's ESM resolver uses the JS realpath implementation; native realpath
   // expands Windows short names differently and would miss its cache keys.
-  try { return realpathSync(filename) } catch (error) {
+  try {
+    return realpathSync(filename)
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     const parent = dirname(filename)
     if (parent === filename) throw error
@@ -93,7 +99,10 @@ export interface Reload {
 class EntryNamespaces {
   private readonly names = new Map<string, Set<unknown>>()
 
-  constructor(private internal: ModuleLoader, private moduleUrls: ReadonlyMap<unknown, string>) {}
+  constructor(
+    private internal: ModuleLoader,
+    private moduleUrls: ReadonlyMap<unknown, string>,
+  ) {}
 
   static getModuleUrls(internal: ModuleLoader): Map<unknown, string> {
     const moduleUrls = new Map<unknown, string>()
@@ -128,8 +137,10 @@ class EntryNamespaces {
   async resolve(name: string, baseUrl: string, moduleNamespace: unknown): Promise<Pick<ResolveResult, 'url'>> {
     if (moduleNamespace === undefined || name.startsWith('cordis:')) {
       switch (this.internal.version) {
-        case 'v1': return await this.internal.resolve(name, baseUrl, {})
-        case 'v2': return this.internal.resolveSync(baseUrl, { specifier: name, attributes: {} })
+        case 'v1':
+          return await this.internal.resolve(name, baseUrl, {})
+        case 'v2':
+          return this.internal.resolveSync(baseUrl, { specifier: name, attributes: {} })
       }
     }
     const url = this.moduleUrls.get(moduleNamespace)
@@ -182,10 +193,10 @@ class ReloadModules {
 
   *getActiveImplementations(ctx: Context, plugin: Plugin, fibers: readonly ReloadFiber[]): Generator<[ReloadFiber, Plugin]> {
     const callbacks = new Set([...this.modules.values()].map(value => ctx.registry.resolve(value.plugin)))
-    const implementations = fibers.map((previousFiber) => {
+    const implementations = fibers.map(previousFiber => {
       if (previousFiber.entry === undefined) return [previousFiber, plugin] as const
       const replacement = this.modules.get(previousFiber.moduleNamespace)
-      const implementation = replacement ? replacement.plugin : ctx.loader.unwrapExports(previousFiber.moduleNamespace) as Plugin
+      const implementation = replacement ? replacement.plugin : (ctx.loader.unwrapExports(previousFiber.moduleNamespace) as Plugin)
       callbacks.add(ctx.registry.resolve(implementation))
       return [previousFiber, implementation] as const
     })
@@ -215,12 +226,7 @@ class Hmr extends Service {
   static Config: z<HmrConfig> = z.object({
     base: z.string(),
     root: z.array(String).role('table').default(['.']),
-    ignored: z.array(String).role('table').default([
-      '**/node_modules',
-      '**/.*',
-      'cache',
-      'data',
-    ]),
+    ignored: z.array(String).role('table').default(['**/node_modules', '**/.*', 'cache', 'data']),
     debounce: z.natural().role('ms').default(100),
   })
 
@@ -291,9 +297,15 @@ class Hmr extends Service {
     if (paths.some(path => this.configPaths.has(path))) throw new Error(`config path already registered: ${filename}`)
     for (const path of paths) this.configPaths.add(path)
     try {
-      const dispose = await this.executing.exit(() => watchExactConfig(
-        this.ownerContext, filename, this.config, () => this.runReload(refresh), () => this.executing.getStore() === true,
-      ))
+      const dispose = await this.executing.exit(() =>
+        watchExactConfig(
+          this.ownerContext,
+          filename,
+          this.config,
+          () => this.runReload(refresh),
+          () => this.executing.getStore() === true,
+        ),
+      )
       return async () => {
         await dispose()
         for (const path of paths) this.configPaths.delete(path)
@@ -304,7 +316,10 @@ class Hmr extends Service {
     }
   }
 
-  constructor(ctx: Context, public config: HmrConfig) {
+  constructor(
+    ctx: Context,
+    public config: HmrConfig,
+  ) {
     super(ctx, 'hmr')
     this.ownerContext = ctx
     if (!this.ctx.loader.internal) {
@@ -335,11 +350,11 @@ class Hmr extends Service {
 
   /** ES module cache keys, empty when this thread keeps no ES module cache. */
   private esmUrls(): string[] {
-    return this.hasEsmCache() ? [...Map.prototype.keys.call(this.internal.loadCache) as Iterable<string>] : []
+    return this.hasEsmCache() ? [...(Map.prototype.keys.call(this.internal.loadCache) as Iterable<string>)] : []
   }
 
   /** ES module cache keys and CommonJS cache filenames as URLs. */
-  private* loadedUrls(): Generator<string> {
+  private *loadedUrls(): Generator<string> {
     yield* this.esmUrls()
     for (const filename of Object.keys(commonJsCache())) yield pathToFileURL(filename).href
   }
@@ -352,10 +367,10 @@ class Hmr extends Service {
     return this.esmJob(pathToFileURL(canonicalPath(resolve(entry))).href)
   }
 
-  async* [Service.init](): AsyncGenerator<() => Promise<void>, void, unknown> {
+  async *[Service.init](): AsyncGenerator<() => Promise<void>, void, unknown> {
     const mainJob = this.mainJob()
     let host: Promise<Set<string>> | undefined
-    this.hostModules = () => host ??= mainJob === undefined ? Promise.resolve(new Set()) : loadDependencies(mainJob, new Set(), true)
+    this.hostModules = () => (host ??= mainJob === undefined ? Promise.resolve(new Set()) : loadDependencies(mainJob, new Set(), true))
     yield async () => {
       this.closing = true
       await this.watcher?.close()
@@ -380,7 +395,11 @@ class Hmr extends Service {
         }
         started.resolve(true)
       })
-      yield () => { unsubscribe(); started.resolve(false); return Promise.resolve() }
+      yield () => {
+        unsubscribe()
+        started.resolve(false)
+        return Promise.resolve()
+      }
       const manifestPath = join(profile.dir, 'package.json')
       const patchFiles = [profile.patchPath, join(profile.home, PROFILE_PATCH_FILENAME)]
       let lastInputs: string | undefined
@@ -388,13 +407,17 @@ class Hmr extends Service {
       const refresh = async (manifestOnly: boolean): Promise<void> => {
         const bundles = JSON.stringify(readProfileManifest('dsh', profile.dir).dsh?.profile?.bundles ?? [])
         if (manifestOnly && bundles === lastBundles) return
-        const inputs = JSON.stringify([bundles, ...patchFiles.map((filename) => {
-          try { return readFileSync(filename, 'utf8') }
-          catch (error) {
-            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
-            throw error
-          }
-        })])
+        const inputs = JSON.stringify([
+          bundles,
+          ...patchFiles.map(filename => {
+            try {
+              return readFileSync(filename, 'utf8')
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+              throw error
+            }
+          }),
+        ])
         if (inputs === lastInputs) return
         const { warnings, pending, restartReason } = await this.reconcileProfile()
         if (restartReason !== undefined) this.ctx.logger.warn('restart required: %s', restartReason)
@@ -436,7 +459,7 @@ class Hmr extends Service {
     const changed = new Set<string>()
     const dispatch = this.ctx.debounce(() => {
       void this.runExclusive(async () => {
-        if (!await this.applicationReady) return
+        if (!(await this.applicationReady)) return
         const batch = [...changed]
         changed.clear()
         const includes = new Set<Include>()
@@ -459,7 +482,8 @@ class Hmr extends Service {
             continue
           }
           if (isManifest) continue
-          const include = [...loader.entries()].map(entry => entry.subtree as Include | undefined)
+          const include = [...loader.entries()]
+            .map(entry => entry.subtree as Include | undefined)
             .find(tree => tree?.filename === filename || tree?.filename === configuredFilename)
           if (include !== undefined) includes.add(include)
           else this.ctx.emit('hmr/change', url)
@@ -471,12 +495,21 @@ class Hmr extends Service {
         }
         for (const include of includes) await include.refresh()
         if (this.stashed.size > 0) {
-          try { await this.partialReload() } finally { this.stashed.clear() }
+          try {
+            await this.partialReload()
+          } finally {
+            this.stashed.clear()
+          }
         }
         await loader.await()
-      }).catch((error: unknown) => { this.ctx.logger.warn(error) })
+      }).catch((error: unknown) => {
+        this.ctx.logger.warn(error)
+      })
     }, this.config.debounce)
-    this.watcher.on('change', (path) => { changed.add(path); dispatch() })
+    this.watcher.on('change', path => {
+      changed.add(path)
+      dispatch()
+    })
 
     const ready = Promise.withResolvers<void>()
     let readyState: 'pending' | 'resolved' | 'rejected' = root.length === 0 ? 'resolved' : 'pending'
@@ -488,7 +521,7 @@ class Hmr extends Service {
         ready.resolve()
       })
     }
-    this.watcher.on('error', (error) => {
+    this.watcher.on('error', error => {
       if (readyState === 'pending') {
         readyState = 'rejected'
         ready.reject(error)
@@ -530,20 +563,24 @@ class Hmr extends Service {
 
     const isExcluded = (url: string) => url.startsWith('node:') || url.includes('/node_modules/')
 
-    await Promise.all([...this.stashed].map(async (url) => {
-      const children = await this.getLinked(url)
-      for (const child of children) {
-        if (this.accepted.has(child) || this.declined.has(child) || isExcluded(child)) continue
-        pending.push(child)
-      }
-    }))
+    await Promise.all(
+      [...this.stashed].map(async url => {
+        const children = await this.getLinked(url)
+        for (const child of children) {
+          if (this.accepted.has(child) || this.declined.has(child) || isExcluded(child)) continue
+          pending.push(child)
+        }
+      }),
+    )
 
     while (pending.length) {
-      let index = 0, hasUpdate = false
+      let index = 0,
+        hasUpdate = false
       while (index < pending.length) {
         const url = pending[index] as string
         const children = await this.getLinked(url)
-        let isDeclined = true, isAccepted = false
+        let isDeclined = true,
+          isAccepted = false
         for (const child of children) {
           if (this.declined.has(child) || isExcluded(child)) continue
           if (this.accepted.has(child)) {
@@ -615,7 +652,7 @@ class Hmr extends Service {
     // Check each pending plugin's dependency tree for accepted files
     for (const [job, plugin] of pending) {
       this.declined.delete(job.url)
-      const dependencies = [...await loadDependencies(job, this.declined)]
+      const dependencies = [...(await loadDependencies(job, this.declined))]
       this.declined.add(job.url)
 
       if (dependencies.length === 0) {
@@ -643,8 +680,9 @@ class Hmr extends Service {
 
     // Attempt to re-import all plugin entry files
     const generations = [...reloads].map(([previous, info]) => ({
-      ...info, previous,
-      fibers: [...info.runtime?.fibers ?? []].map((fiber) => {
+      ...info,
+      previous,
+      fibers: [...(info.runtime?.fibers ?? [])].map(fiber => {
         const entry = fiber.entry?.fiber?.uid === fiber.uid ? fiber.entry : undefined
         const config: unknown = entry === undefined ? fiber._config : entry.options.config
         return { fiber, entry, config, moduleNamespace: entry?.moduleNamespace }
@@ -661,7 +699,9 @@ class Hmr extends Service {
         const moduleNamespace: unknown = await this.ctx.loader.import(generation.filename, this.getOuterStack)
         const replacement = this.ctx.loader.unwrapExports(moduleNamespace) as Plugin
         const replacements = await generation.modules.importRemaining(this.ctx.loader, this.getOuterStack, {
-          filename: generation.filename, moduleNamespace, plugin: replacement,
+          filename: generation.filename,
+          moduleNamespace,
+          plugin: replacement,
         })
         attempts.push({ ...generation, replacement, replacements, activated: [] })
       }
@@ -778,7 +818,7 @@ class Hmr extends Service {
 
   /** Loaded `file:` modules below the given profile roots. */
   private profileModules(roots: readonly string[]): string[] {
-    return [...this.loadedUrls()].filter((url) => {
+    return [...this.loadedUrls()].filter(url => {
       if (!url.startsWith('file:')) return false
       const filename = fileURLToPath(url)
       return roots.some(root => filename.startsWith(root))
@@ -791,9 +831,11 @@ class Hmr extends Service {
     const add = (parent: string, child: string) => {
       importers.set(child, (importers.get(child) ?? new Set()).add(parent))
     }
-    await Promise.all([...moduleJobs(this.internal)].map(async (job) => {
-      for (const child of await linkedJobs(job)) add(job.url, child.url)
-    }))
+    await Promise.all(
+      [...moduleJobs(this.internal)].map(async job => {
+        for (const child of await linkedJobs(job)) add(job.url, child.url)
+      }),
+    )
     for (const [filename, module] of Object.entries(commonJsCache())) {
       // Code that writes `require.cache` directly can store objects that are not Node modules.
       /* v8 ignore next -- Node stores no undefined values in require.cache; the index type admits them */
@@ -819,13 +861,18 @@ class Hmr extends Service {
     const host = await this.hostModules()
     const managed = new Set(this.ctx.loader.entries())
     const plan: ReplacementPlan = {
-      pending: [], evicted: new Set(), manifests: new Set(), plugins: new Set(), fibers: new Set(),
+      pending: [],
+      evicted: new Set(),
+      manifests: new Set(),
+      plugins: new Set(),
+      fibers: new Set(),
     }
     for (const url of stale) {
       const affected = new Set([url])
       for (const module of affected) for (const importer of importers.get(module) ?? []) affected.add(importer)
-      const running = [...new Set([...affected].flatMap(module => this.pluginsOf(module)))]
-        .flatMap(plugin => [...this.ctx.registry.get(plugin)?.fibers ?? []].map(fiber => ({ plugin, fiber })))
+      const running = [...new Set([...affected].flatMap(module => this.pluginsOf(module)))].flatMap(plugin =>
+        [...(this.ctx.registry.get(plugin)?.fibers ?? [])].map(fiber => ({ plugin, fiber })),
+      )
       const affectedFibers = new Set(running.map(({ fiber }) => fiber))
       /** The Loader entry whose own fiber runs an affected plugin and starts this fiber directly or through its ancestors. */
       const owner = (fiber: Fiber): Entry | undefined => {
@@ -837,8 +884,11 @@ class Hmr extends Service {
       }
       const entries = running.flatMap(({ fiber }) => owner(fiber) ?? [])
       // A plugin registered outside a Loader entry has no owner that can start its replacement.
-      const reason = [...affected].some(module => host.has(module)) ? 'host-module'
-        : entries.length < running.length ? 'unmanaged-plugin' : undefined
+      const reason = [...affected].some(module => host.has(module))
+        ? 'host-module'
+        : entries.length < running.length
+          ? 'unmanaged-plugin'
+          : undefined
       if (reason !== undefined) {
         plan.pending.push({ url, reason })
         continue
@@ -890,7 +940,7 @@ class Hmr extends Service {
   private async evictDropped(dropped: readonly string[], kept: ReadonlySet<string>): Promise<void> {
     if (dropped.length === 0) return
     const host = new Set(await this.hostModules())
-    const urls = this.profileModules(dropped).filter((url) => {
+    const urls = this.profileModules(dropped).filter(url => {
       const filename = fileURLToPath(url)
       return !host.has(url) && ![...kept].some(dir => filename.startsWith(dir))
     })
@@ -937,50 +987,75 @@ class Hmr extends Service {
       const patches = readProfilePatches('dsh', profile)
       comparedAt = this.files.now()
       // A failed comparison keeps every record, so the next recomposition compares the same modules again.
-      comparison = await this.contained('comparing loaded modules with disk', () => {
-        const roots = profileRoots(profile.dir)
-        return Promise.resolve({ roots, ...this.files.compare(this.profileModules(roots)) })
-      }, undefined)
+      comparison = await this.contained(
+        'comparing loaded modules with disk',
+        () => {
+          const roots = profileRoots(profile.dir)
+          return Promise.resolve({ roots, ...this.files.compare(this.profileModules(roots)) })
+        },
+        undefined,
+      )
       // Changed modules stay stale until replaced, including when the generation cannot be applied.
-      pending = [...comparison?.stale ?? []].map(url => ({ url, reason: 'module-comparison' }))
+      pending = [...(comparison?.stale ?? [])].map(url => ({ url, reason: 'module-comparison' }))
       const compared = comparison
       const unavailable = !this.hasEsmCache()
       if (!unavailable && compared !== undefined && pending.length > 0) {
-        pending = await this.contained('planning module replacement', async () => {
-          const plan = await this.planReplacement(compared.stale, compared.roots)
-          await this.stopPlanned(plan)
-          return plan.pending
-        }, pending)
+        pending = await this.contained(
+          'planning module replacement',
+          async () => {
+            const plan = await this.planReplacement(compared.stale, compared.roots)
+            await this.stopPlanned(plan)
+            return plan.pending
+          },
+          pending,
+        )
       }
       // Modules whose links or evaluation failed are evicted, so the recomposition retries failed imports against a
       // corrected file or a dependency installed since.
-      await this.contained('expiring failed imports', () => {
-        // Without an ES module cache no failed module is known.
-        if (unavailable) return
-        const roots = compared?.roots ?? [realpathSync(profile.dir) + sep]
-        // A dependency installed since the failed import can sit in a directory Node recorded as having no manifest.
-        for (const root of roots) this.manifests.invalidate(join(root, 'package.json'))
-        // Node keeps a module whose links or evaluation failed.
-        this.evict(this.profileModules(roots).filter((url) => {
-          const job = this.esmJob(url)
-          return job !== undefined && namespaceOf(job) === undefined
-        }))
-      }, undefined)
+      await this.contained(
+        'expiring failed imports',
+        () => {
+          // Without an ES module cache no failed module is known.
+          if (unavailable) return
+          const roots = compared?.roots ?? [realpathSync(profile.dir) + sep]
+          // A dependency installed since the failed import can sit in a directory Node recorded as having no manifest.
+          for (const root of roots) this.manifests.invalidate(join(root, 'package.json'))
+          // Node keeps a module whose links or evaluation failed.
+          this.evict(
+            this.profileModules(roots).filter(url => {
+              const job = this.esmJob(url)
+              return job !== undefined && namespaceOf(job) === undefined
+            }),
+          )
+        },
+        undefined,
+      )
       const result = await recomposeProfile(this.ownerContext.root, patches, 'dsh', { requiredIds, running })
       const restartReason = compared === undefined || unavailable ? 'module-comparison' : result.restartReason
-      return { warnings: result.warnings, pending, ...restartReason === undefined ? {} : { restartReason } }
+      return { warnings: result.warnings, pending, ...(restartReason === undefined ? {} : { restartReason }) }
     } finally {
       const recorded = comparison
-      await this.contained('evicting dropped packages', () => {
-        const kept = mappedDirectories(this.ownerContext.get('pluginPackages')?.resolution)
-        return this.evictDropped([...mapped].filter(dir => !kept.has(dir)), kept)
-      }, undefined)
-      await this.contained('recording loaded module files', () => {
-        if (recorded === undefined) return
-        // Identities read before replacement keep writes made since then detectable.
-        const urls = this.profileModules(recorded.roots)
-        this.files.observe(urls, { seen: recorded.seen, retained: new Set(pending.map(({ url }) => url)), at: comparedAt })
-      }, undefined)
+      await this.contained(
+        'evicting dropped packages',
+        () => {
+          const kept = mappedDirectories(this.ownerContext.get('pluginPackages')?.resolution)
+          return this.evictDropped(
+            [...mapped].filter(dir => !kept.has(dir)),
+            kept,
+          )
+        },
+        undefined,
+      )
+      await this.contained(
+        'recording loaded module files',
+        () => {
+          if (recorded === undefined) return
+          // Identities read before replacement keep writes made since then detectable.
+          const urls = this.profileModules(recorded.roots)
+          this.files.observe(urls, { seen: recorded.seen, retained: new Set(pending.map(({ url }) => url)), at: comparedAt })
+        },
+        undefined,
+      )
     }
   }
 }
@@ -1036,7 +1111,7 @@ function namespaceOf(job: ModuleJob | undefined): unknown {
   if (status === MODULE_ERRORED) return undefined
   try {
     return job.module.getNamespace()
-  /* v8 ignore start -- a cached module still linking in a concurrent import has no namespace yet; tests cannot hold an import there */
+    /* v8 ignore start -- a cached module still linking in a concurrent import has no namespace yet; tests cannot hold an import there */
   } catch (_error) {
     // A module that has not been instantiated exports no running plugin.
     return undefined
@@ -1078,8 +1153,10 @@ function* moduleJobs(internal: ModuleLoader): Generator<ModuleJob> {
 function mappedDirectories(resolution: RuntimeResolution | undefined): Set<string> {
   const directories = new Set<string>()
   if (resolution === undefined) return directories
-  const dirs = [...resolution.entries.filter(entry => entry.scope === 'profile').map(entry => entry.packageDir),
-    ...resolution.linkedRoots.map(root => root.realPath)]
+  const dirs = [
+    ...resolution.entries.filter(entry => entry.scope === 'profile').map(entry => entry.packageDir),
+    ...resolution.linkedRoots.map(root => root.realPath),
+  ]
   for (const dir of dirs) for (const spelling of existsSync(dir) ? realSpellings(dir) : [dir]) directories.add(spelling + sep)
   return directories
 }
@@ -1091,7 +1168,7 @@ function mappedDirectories(resolution: RuntimeResolution | undefined): Set<strin
  */
 function realSpellings(path: string): string[] {
   const native: unknown = Reflect.get(realpathSync, 'native')
-  return [realpathSync(path), ...typeof native === 'function' ? [String(Reflect.apply(native, realpathSync, [path]))] : []]
+  return [realpathSync(path), ...(typeof native === 'function' ? [String(Reflect.apply(native, realpathSync, [path]))] : [])]
 }
 
 /**
@@ -1103,9 +1180,9 @@ function profileRoots(dir: string): string[] {
   const real = realpathSync(dir)
   const modules = join(real, 'node_modules')
   const names = existsSync(modules) ? readdirSync(modules) : []
-  const packages = names.flatMap(name => name.startsWith('@')
-    ? readdirSync(join(modules, name)).map(child => join(modules, name, child))
-    : [join(modules, name)])
+  const packages = names.flatMap(name =>
+    name.startsWith('@') ? readdirSync(join(modules, name)).map(child => join(modules, name, child)) : [join(modules, name)],
+  )
   const linked = packages.filter(path => lstatSync(path).isSymbolicLink() && existsSync(path))
   return [...new Set([dir, ...linked].flatMap(path => realSpellings(path)).map(root => root + sep))]
 }
@@ -1124,8 +1201,6 @@ function packageManifests(url: string, roots: readonly string[]): string[] {
 namespace Hmr {
   /** Cordis-compatible configuration type. */
   export type Config = HmrConfig
-
-
 }
 
 export default Hmr

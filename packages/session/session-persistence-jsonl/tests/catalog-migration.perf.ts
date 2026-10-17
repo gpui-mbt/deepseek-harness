@@ -23,14 +23,26 @@ async function measure(unrelated: number) {
       const child = i > 0 && i <= CHILDREN
       const directory = join(root, '_no-cwd', id)
       await mkdir(directory, { recursive: true })
-      const header = { type: 'session', version: 3, id, createdAt: i + 1, isSeeded: false, delegationDepth: child ? 1 : 0,
-        ...(child ? { origin: 'subagent', parentSession: 'parent' } : {}) }
-      const events = child ? [
-        { type: 'subagent/descriptor', seq: 0, time: 1, data: { version: 3, mode: 'one-shot', provider: 'spawn' } },
-        ...Array.from({ length: CHILD_EVENTS - 1 }, (_, seq) => ({
-          type: 'feedback/record', seq: seq + 1, time: 2, data: { text: 'Synthetic migration observation. '.repeat(4) },
-        })),
-      ] : []
+      const header = {
+        type: 'session',
+        version: 3,
+        id,
+        createdAt: i + 1,
+        isSeeded: false,
+        delegationDepth: child ? 1 : 0,
+        ...(child ? { origin: 'subagent', parentSession: 'parent' } : {}),
+      }
+      const events = child
+        ? [
+            { type: 'subagent/descriptor', seq: 0, time: 1, data: { version: 3, mode: 'one-shot', provider: 'spawn' } },
+            ...Array.from({ length: CHILD_EVENTS - 1 }, (_, seq) => ({
+              type: 'feedback/record',
+              seq: seq + 1,
+              time: 2,
+              data: { text: 'Synthetic migration observation. '.repeat(4) },
+            })),
+          ]
+        : []
       await writeFile(join(directory, 'session.v3.jsonl'), [header, ...events].map(row => JSON.stringify(row) + '\n').join(''))
     }
     await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })
@@ -42,7 +54,11 @@ async function measure(unrelated: number) {
     }
     const read = async (): Promise<void> => {
       const handle = await ctx.sessionPersistence.open(parent, 'read')
-      try { await handle.read() } finally { await handle.close() }
+      try {
+        await handle.read()
+      } finally {
+        await handle.close()
+      }
     }
     const statMs = await timed(() => ctx.sessionPersistence.stat(parent))
     const coldReadMs = await timed(read)
@@ -66,10 +82,12 @@ if (process.argv[2] === '--sample') {
   for (const size of [0, 100, 1_000]) {
     for (let sample = 0; sample < SAMPLES; sample++) {
       const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--sample', String(size)], {
-        encoding: 'utf8', timeout: 60_000,
+        encoding: 'utf8',
+        timeout: 60_000,
       })
       if (result.error !== undefined) throw result.error
-      if (result.signal !== null || result.status !== 0) throw new Error(`measurement failed: ${result.signal ?? result.status}: ${result.stderr}`)
+      if (result.signal !== null || result.status !== 0)
+        throw new Error(`measurement failed: ${result.signal ?? result.status}: ${result.stderr}`)
       samples.push(JSON.parse(result.stdout) as Record<string, number>)
     }
   }

@@ -4,14 +4,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 
 const bin = fileURLToPath(new URL('../lib/bin.js', import.meta.url))
 const version = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version
 
 it('refuses incompatible installation and startup until an exact risk exemption is granted', async () => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-compatibility-cli-'))
-  onTestFinished(() => { rmSync(home, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(home, { recursive: true, force: true })
+  })
   const profile = join(home, 'profiles', 'compatibility')
   const source = join(home, 'fixture-plugin')
   mkdirSync(profile, { recursive: true })
@@ -20,15 +22,28 @@ it('refuses incompatible installation and startup until an exact risk exemption 
   const initial = { name: 'compatibility-profile', private: true, dependencies: {}, dsh: { profile: { bundles: [] } } }
   writeFileSync(profileFile, JSON.stringify(initial))
   writeFileSync(join(profile, 'pnpm-workspace.yaml'), 'packages:\n  - .\nnodeLinker: hoisted\nautoInstallPeers: false\n')
-  writeFileSync(join(source, 'package.json'), JSON.stringify({
-    name: 'compatibility-fixture', version: '1.0.0', type: 'module',
-    peerDependencies: { '@deepseek-ai/dsh': '999.0.0' }, dsh: { bundle: { patch: './cordis.patch.yml' } },
-  }))
+  writeFileSync(
+    join(source, 'package.json'),
+    JSON.stringify({
+      name: 'compatibility-fixture',
+      version: '1.0.0',
+      type: 'module',
+      peerDependencies: { '@deepseek-ai/dsh': '999.0.0' },
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }),
+  )
   writeFileSync(join(source, 'cordis.patch.yml'), '- insert:\n    - id: compatibility-fixture\n      name: ./index.mjs\n')
-  writeFileSync(join(source, 'index.mjs'), 'process.stdout.write("PLUGIN_IMPORTED\\n"); export function apply() { process.stdout.write("PLUGIN_STARTED\\n") }\n')
+  writeFileSync(
+    join(source, 'index.mjs'),
+    'process.stdout.write("PLUGIN_IMPORTED\\n"); export function apply() { process.stdout.write("PLUGIN_STARTED\\n") }\n',
+  )
   const run = async (args: string[]) => {
     const result = await execa(process.execPath, [bin, ...args], {
-      cwd: home, env: { ...process.env, DSH_HOME: home }, extendEnv: false, reject: false, timeout: 60_000,
+      cwd: home,
+      env: { ...process.env, DSH_HOME: home },
+      extendEnv: false,
+      reject: false,
+      timeout: 60_000,
     })
     expect(result.timedOut).toBe(false)
     expect(result.signal).toBeUndefined()
@@ -46,9 +61,14 @@ it('refuses incompatible installation and startup until an exact risk exemption 
 
   // A package installed outside DSH still goes through the independent startup check.
   cpSync(source, join(profile, 'node_modules', 'compatibility-fixture'), { recursive: true })
-  writeFileSync(profileFile, JSON.stringify({ ...initial,
-    dependencies: { 'compatibility-fixture': `file:${source}` }, dsh: { profile: { bundles: ['compatibility-fixture'] } },
-  }))
+  writeFileSync(
+    profileFile,
+    JSON.stringify({
+      ...initial,
+      dependencies: { 'compatibility-fixture': `file:${source}` },
+      dsh: { profile: { bundles: ['compatibility-fixture'] } },
+    }),
+  )
   const deniedStartup = await run(['--profile', 'compatibility'])
   expect(deniedStartup.stdout).not.toContain('PLUGIN_IMPORTED')
   expect(deniedStartup.stderr).toContain('incompatible')

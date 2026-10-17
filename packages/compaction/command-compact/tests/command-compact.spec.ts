@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -55,8 +55,8 @@ class StubCompactionEngine extends CompactionEngine {
     if (this.operation !== undefined) return this.operation()
     return this.failure === undefined
       ? Promise.resolve(this.result === null ? null : this.appendResult(agent, this.result, sourceCommandId))
-      // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- exercise arbitrary backend rejection values.
-      : Promise.reject(this.failure)
+      : // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- exercise arbitrary backend rejection values.
+        Promise.reject(this.failure)
   }
 
   private appendResult(
@@ -66,7 +66,7 @@ class StubCompactionEngine extends CompactionEngine {
   ): CompactionResult {
     const operationIds = {
       compactionId: result.compactionId,
-      ...sourceCommandId === undefined ? {} : { sourceCommandId },
+      ...(sourceCommandId === undefined ? {} : { sourceCommandId }),
     }
     agent.session.append('compaction/start', { ...operationIds, turn: null })
     agent.session.append('compaction/summary', {
@@ -116,12 +116,9 @@ async function run(
 }
 
 /** Assert the executor-owned lifecycle pair and absence from model history. */
-function expectLastLifecycle(
-  test: Harness,
-  args: string,
-  outcome: CommandResult,
-): string {
-  const lifecycle = test.agent.session.snapshotEvents()
+function expectLastLifecycle(test: Harness, args: string, outcome: CommandResult): string {
+  const lifecycle = test.agent.session
+    .snapshotEvents()
     .filter(event => event.type === 'command/run' || event.type === 'command/done')
     .slice(-2)
   const runEvent = lifecycle[0]
@@ -210,7 +207,10 @@ describe('/compact human command', () => {
     ['cancelled', 'Compaction cancelled.'],
     ['changed', 'The history selected for compaction changed before it could be replaced. The attempt is recorded in the session log.'],
     ['summary', 'Compaction could not produce a useful summary. The attempt is recorded in the session log.'],
-    ['commit', 'Compaction did not finish cleanly; some session history may have changed. Inspect the current session state before retrying.'],
+    [
+      'commit',
+      'Compaction did not finish cleanly; some session history may have changed. Inspect the current session state before retrying.',
+    ],
     ['persistence', 'Compaction finished, but the session could not be saved.'],
   ] as const)('maps expected %s failures to direct errors', async (code, text) => {
     const test = await harness()
@@ -263,7 +263,9 @@ describe('/compact human command', () => {
 
     let disposed = false
     const disposal = test.plugin.dispose()
-    void disposal.then(() => { disposed = true })
+    void disposal.then(() => {
+      disposed = true
+    })
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(test.ctx.commands.find(test.agent, 'compact')).toBeUndefined()
     expect(disposed).toBe(false)

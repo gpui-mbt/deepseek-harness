@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseAnsiLines } from '../src/ansi.ts'
 
 const ESC = '\u001b'
@@ -27,11 +27,7 @@ describe('parseAnsiLines: text without SGR state', () => {
   })
 
   it('splits a multi-line run and drops the empty line between two blocks', () => {
-    expect(parseAnsiLines('a\n\nb')).toEqual([
-      [{ text: 'a', style: undefined }],
-      [],
-      [{ text: 'b', style: undefined }],
-    ])
+    expect(parseAnsiLines('a\n\nb')).toEqual([[{ text: 'a', style: undefined }], [], [{ text: 'b', style: undefined }]])
   })
 
   it('keeps tabs, which the terminal surface needs for column layout', () => {
@@ -164,23 +160,15 @@ describe('parseAnsiLines: carriage returns', () => {
     // Verified against a real terminal: `\x1b[31mgone\rkept` paints `kept` RED.
     // A carriage return moves the cursor; it does not reset the graphic state,
     // so the redraw inherits the color the discarded frame was written with.
-    expect(onlySpan(`${ESC}[31mgone\rkept`))
-      .toEqual({ text: 'kept', style: { color: 'var(--dsw-alias-state-error-primary)' } })
+    expect(onlySpan(`${ESC}[31mgone\rkept`)).toEqual({ text: 'kept', style: { color: 'var(--dsw-alias-state-error-primary)' } })
   })
 
   it('preserves both lines of a CRLF pair instead of treating it as a redraw', () => {
-    expect(parseAnsiLines('a\r\r\nb\r\n')).toEqual([
-      [{ text: 'a', style: undefined }],
-      [{ text: 'b', style: undefined }],
-      [],
-    ])
+    expect(parseAnsiLines('a\r\r\nb\r\n')).toEqual([[{ text: 'a', style: undefined }], [{ text: 'b', style: undefined }], []])
   })
 
   it('applies the redraw per line, not across the whole text', () => {
-    expect(parseAnsiLines('one\rtwo\nthree')).toEqual([
-      [{ text: 'two', style: undefined }],
-      [{ text: 'three', style: undefined }],
-    ])
+    expect(parseAnsiLines('one\rtwo\nthree')).toEqual([[{ text: 'two', style: undefined }], [{ text: 'three', style: undefined }]])
   })
 })
 
@@ -191,10 +179,7 @@ describe('parseAnsiLines: backspaces', () => {
   })
 
   it('stops at the line start instead of eating the newline before it', () => {
-    expect(parseAnsiLines(`ab\n${BS}${BS}${BS}cd`)).toEqual([
-      [{ text: 'ab', style: undefined }],
-      [{ text: 'cd', style: undefined }],
-    ])
+    expect(parseAnsiLines(`ab\n${BS}${BS}${BS}cd`)).toEqual([[{ text: 'ab', style: undefined }], [{ text: 'cd', style: undefined }]])
   })
 
   it('treats a trailing backspace as a cursor move, not a delete', () => {
@@ -202,28 +187,29 @@ describe('parseAnsiLines: backspaces', () => {
     // write overwrites; a backspace with nothing after it erases nothing.
     expect(onlySpan(`abc${BS}`)).toEqual({ text: 'abc', style: undefined })
     // Same at a line boundary: the newline ends the line before any overwrite.
-    expect(parseAnsiLines(`abc${BS}\ndef`)).toEqual([
-      [{ text: 'abc', style: undefined }],
-      [{ text: 'def', style: undefined }],
-    ])
+    expect(parseAnsiLines(`abc${BS}\ndef`)).toEqual([[{ text: 'abc', style: undefined }], [{ text: 'def', style: undefined }]])
   })
 
   it('steps over an SGR sequence instead of erasing its bytes', () => {
     // `abc` reset then two backspaces then `XY`: erasing the reset's bytes would
     // corrupt it and repaint the rest of the line with whatever the remainder
     // parses as. The visible result is `aXY`, still red, with the reset intact.
-    expect(parseAnsiLines(`${sgr('31', 'abc')}${BS}${BS}XY`)).toEqual([[
-      { text: 'a', style: { color: 'var(--dsw-alias-state-error-primary)' } },
-      { text: 'XY', style: undefined },
-    ]])
+    expect(parseAnsiLines(`${sgr('31', 'abc')}${BS}${BS}XY`)).toEqual([
+      [
+        { text: 'a', style: { color: 'var(--dsw-alias-state-error-primary)' } },
+        { text: 'XY', style: undefined },
+      ],
+    ])
   })
 
   it('erases across a style boundary without dropping the styles between', () => {
     // The backspace reaches back past the reset to the last printed character.
-    expect(parseAnsiLines(`${sgr('32', 'ok')}${ESC}[31m${BS}bad`)).toEqual([[
-      { text: 'o', style: { color: 'var(--dsw-alias-state-success-primary)' } },
-      { text: 'bad', style: { color: 'var(--dsw-alias-state-error-primary)' } },
-    ]])
+    expect(parseAnsiLines(`${sgr('32', 'ok')}${ESC}[31m${BS}bad`)).toEqual([
+      [
+        { text: 'o', style: { color: 'var(--dsw-alias-state-success-primary)' } },
+        { text: 'bad', style: { color: 'var(--dsw-alias-state-error-primary)' } },
+      ],
+    ])
   })
 
   it('replays a redraw and a trailing backspace as pure cursor moves', () => {
@@ -237,10 +223,12 @@ describe('parseAnsiLines: backspaces', () => {
     // Verified against a real terminal: red `bad`, three backspaces, then `ok`
     // shows `okd` — the cursor returned to column 0 and `ok` overwrote two of
     // the three columns, so the untouched `d` keeps the run's red.
-    expect(parseAnsiLines(`${sgr('31', 'bad')}${BS}${BS}${BS}ok`)).toEqual([[
-      { text: 'ok', style: undefined },
-      { text: 'd', style: { color: 'var(--dsw-alias-state-error-primary)' } },
-    ]])
+    expect(parseAnsiLines(`${sgr('31', 'bad')}${BS}${BS}${BS}ok`)).toEqual([
+      [
+        { text: 'ok', style: undefined },
+        { text: 'd', style: { color: 'var(--dsw-alias-state-error-primary)' } },
+      ],
+    ])
   })
 })
 
@@ -282,9 +270,7 @@ describe('parseAnsiLines: erase and column arithmetic', () => {
   it('does not accumulate a cursor or erase sequence into a cell style', () => {
     // Only SGR carries graphic state. An erase folded into the style string
     // would grow it per redraw and emit boundaries anser has to discard.
-    expect(parseAnsiLines(`${ESC}[31ma\r${ESC}[Kb`)).toEqual([[
-      { text: 'b', style: { color: 'var(--dsw-alias-state-error-primary)' } },
-    ]])
+    expect(parseAnsiLines(`${ESC}[31ma\r${ESC}[Kb`)).toEqual([[{ text: 'b', style: { color: 'var(--dsw-alias-state-error-primary)' } }]])
   })
 })
 
@@ -334,7 +320,7 @@ describe('parseAnsiLines: line-end state and column widths', () => {
     ])
   })
 
-  it('blanks a wide character\'s spacer once its lead cell is overwritten', () => {
+  it("blanks a wide character's spacer once its lead cell is overwritten", () => {
     // Verified in a real terminal: `中x` redrawn with `A` shows `A x` — the wide
     // glyph's second cell becomes a blank rather than closing the gap, so the
     // `x` keeps column 3.
@@ -357,7 +343,7 @@ describe('parseAnsiLines: bounded state and true widths', () => {
     // produce 25 MB and eventually a RangeError. Normalized state keeps
     // the emitted text linear in the number of cells.
     let input = ''
-    for (let index = 0; index < 2000; index += 1) input += `${ESC}[3${index % 6 + 1}mx`
+    for (let index = 0; index < 2000; index += 1) input += `${ESC}[3${(index % 6) + 1}mx`
     const emitted = parseAnsiLines(`${input}\rz`)[0] ?? []
     expect(emitted.reduce((total, span) => total + span.text.length, 0)).toBe(2000)
   })
@@ -367,58 +353,40 @@ describe('parseAnsiLines: bounded state and true widths', () => {
     // appending both left the cell bold and grew the chain.
     // Verified in a real terminal: the `22` closes the bold, so the `x` written
     // after the redraw is PLAIN. Appending both left it bold and grew the chain.
-    expect(parseAnsiLines(`${ESC}[1mbold${ESC}[22mplain\r${ESC}[Kx`)).toEqual([[
-      { text: 'x', style: undefined },
-    ]])
-    expect(parseAnsiLines(`${ESC}[1mA${ESC}[22mB`)).toEqual([[
-      { text: 'A', style: { fontWeight: 700 } },
-      { text: 'B', style: undefined },
-    ]])
+    expect(parseAnsiLines(`${ESC}[1mbold${ESC}[22mplain\r${ESC}[Kx`)).toEqual([[{ text: 'x', style: undefined }]])
+    expect(parseAnsiLines(`${ESC}[1mA${ESC}[22mB`)).toEqual([
+      [
+        { text: 'A', style: { fontWeight: 700 } },
+        { text: 'B', style: undefined },
+      ],
+    ])
   })
 
   it('folds extended colors, backgrounds and every attribute closer', () => {
     // The 256-palette and truecolor forms consume their own arguments, so the
     // fold has to take them whole rather than as separate codes.
-    expect(parseAnsiLines(`${ESC}[38;5;208mA\r${ESC}[KB`)).toEqual([[
-      { text: 'B', style: { color: 'rgb(255, 135, 0)' } },
-    ]])
-    expect(parseAnsiLines(`${ESC}[38;2;10;20;30mA\r${ESC}[KB`)).toEqual([[
-      { text: 'B', style: { color: 'rgb(10, 20, 30)' } },
-    ]])
+    expect(parseAnsiLines(`${ESC}[38;5;208mA\r${ESC}[KB`)).toEqual([[{ text: 'B', style: { color: 'rgb(255, 135, 0)' } }]])
+    expect(parseAnsiLines(`${ESC}[38;2;10;20;30mA\r${ESC}[KB`)).toEqual([[{ text: 'B', style: { color: 'rgb(10, 20, 30)' } }]])
     // A background survives the same way, and `49` closes it.
-    expect(parseAnsiLines(`${ESC}[41mA${ESC}[49mB\r${ESC}[KC`)).toEqual([[
-      { text: 'C', style: undefined },
-    ]])
+    expect(parseAnsiLines(`${ESC}[41mA${ESC}[49mB\r${ESC}[KC`)).toEqual([[{ text: 'C', style: undefined }]])
     // Each closer drops only its own attribute: `4` underline closed by `24`
     // while the italic opened before it stays in force.
-    expect(parseAnsiLines(`${ESC}[3;4mA${ESC}[24mB\r${ESC}[KC`)).toEqual([[
-      { text: 'C', style: { fontStyle: 'italic' } },
-    ]])
+    expect(parseAnsiLines(`${ESC}[3;4mA${ESC}[24mB\r${ESC}[KC`)).toEqual([[{ text: 'C', style: { fontStyle: 'italic' } }]])
     // `39` closes a foreground without touching the background.
-    expect(parseAnsiLines(`${ESC}[31;42mA${ESC}[39mB\r${ESC}[KC`)).toEqual([[
-      { text: 'C', style: { backgroundColor: 'rgb(0, 187, 0)' } },
-    ]])
+    expect(parseAnsiLines(`${ESC}[31;42mA${ESC}[39mB\r${ESC}[KC`)).toEqual([[{ text: 'C', style: { backgroundColor: 'rgb(0, 187, 0)' } }]])
   })
 
   it('folds the remaining SGR shapes the model has to carry', () => {
     // A 48-background in extended form, so the `48` arm and the `2`-span both run.
-    expect(parseAnsiLines(`${ESC}[48;2;1;2;3mA\r${ESC}[KB`)).toEqual([[
-      { text: 'B', style: { backgroundColor: 'rgb(1, 2, 3)' } },
-    ]])
+    expect(parseAnsiLines(`${ESC}[48;2;1;2;3mA\r${ESC}[KB`)).toEqual([[{ text: 'B', style: { backgroundColor: 'rgb(1, 2, 3)' } }]])
     // A bright foreground and a bright background, the 90-97 / 100-107 arms.
-    expect(parseAnsiLines(`${ESC}[91mA\r${ESC}[KB`)).toEqual([[
-      { text: 'B', style: { color: 'var(--dsw-alias-state-error-secondary)' } },
-    ]])
-    expect(parseAnsiLines(`${ESC}[101mA\r${ESC}[KB`)).toEqual([[
-      { text: 'B', style: { backgroundColor: 'rgb(255, 85, 85)' } },
-    ]])
+    expect(parseAnsiLines(`${ESC}[91mA\r${ESC}[KB`)).toEqual([[{ text: 'B', style: { color: 'var(--dsw-alias-state-error-secondary)' } }]])
+    expect(parseAnsiLines(`${ESC}[101mA\r${ESC}[KB`)).toEqual([[{ text: 'B', style: { backgroundColor: 'rgb(255, 85, 85)' } }]])
     // An extended form with no recognized kind byte consumes nothing extra.
     expect(parseAnsiLines(`${ESC}[38mA\r${ESC}[KB`)).toEqual([[{ text: 'B', style: undefined }]])
     // Re-opening an attribute already in force does not duplicate it, and a bare
     // `\x1b[m` resets exactly as `\x1b[0m` does.
-    expect(parseAnsiLines(`${ESC}[1m${ESC}[1mA${ESC}[mB\r${ESC}[KC`)).toEqual([[
-      { text: 'C', style: undefined },
-    ]])
+    expect(parseAnsiLines(`${ESC}[1m${ESC}[1mA${ESC}[mB\r${ESC}[KC`)).toEqual([[{ text: 'C', style: undefined }]])
   })
 
   it('treats a text-presentation symbol as one column', () => {
@@ -489,7 +457,7 @@ describe('parseAnsiLines: SGR across lines', () => {
 })
 
 describe('parseAnsiLines: runs spanning lines', () => {
-  it('carries one run\'s style onto every line it covers', () => {
+  it("carries one run's style onto every line it covers", () => {
     expect(parseAnsiLines(sgr('32', 'first\nsecond'))).toEqual([
       [{ text: 'first', style: { color: 'var(--dsw-alias-state-success-primary)' } }],
       [{ text: 'second', style: { color: 'var(--dsw-alias-state-success-primary)' } }],
@@ -497,10 +465,12 @@ describe('parseAnsiLines: runs spanning lines', () => {
   })
 
   it('keeps several runs of one line in order', () => {
-    expect(parseAnsiLines(`plain${sgr('31', 'red')}tail`)).toEqual([[
-      { text: 'plain', style: undefined },
-      { text: 'red', style: { color: 'var(--dsw-alias-state-error-primary)' } },
-      { text: 'tail', style: undefined },
-    ]])
+    expect(parseAnsiLines(`plain${sgr('31', 'red')}tail`)).toEqual([
+      [
+        { text: 'plain', style: undefined },
+        { text: 'red', style: { color: 'var(--dsw-alias-state-error-primary)' } },
+        { text: 'tail', style: undefined },
+      ],
+    ])
   })
 })

@@ -2,7 +2,15 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button, IconCloseOutlineRegular, IconListPenOutlineRegular, MarkdownText, Modal, SegmentedTabs, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button,
+  IconCloseOutlineRegular,
+  IconListPenOutlineRegular,
+  MarkdownText,
+  Modal,
+  SegmentedTabs,
+  Tag,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AgentPresetSettingsKey } from './locales.ts'
 import css from './PresetGuideDialog.module.css'
 
@@ -17,9 +25,15 @@ interface PresetGuide {
 }
 
 const guides = new Map<string, PresetGuide>([
-  ['standard', { name: 'presetStandardName', intro: 'guideStandardIntro', explanation: 'guideStandardExplanation', usage: 'guideStandardUsage' }],
+  [
+    'standard',
+    { name: 'presetStandardName', intro: 'guideStandardIntro', explanation: 'guideStandardExplanation', usage: 'guideStandardUsage' },
+  ],
   ['ptc', { name: 'presetPtcName', intro: 'guidePtcIntro', explanation: 'guidePtcExplanation', usage: 'guidePtcUsage' }],
-  ['minimal', { name: 'presetMinimalName', intro: 'guideMinimalIntro', explanation: 'guideMinimalExplanation', usage: 'guideMinimalUsage' }],
+  [
+    'minimal',
+    { name: 'presetMinimalName', intro: 'guideMinimalIntro', explanation: 'guideMinimalExplanation', usage: 'guideMinimalUsage' },
+  ],
   ['cordis', { name: 'presetCordisName', intro: 'guideCordisIntro', explanation: 'guideCordisExplanation', usage: 'guideCordisUsage' }],
 ])
 
@@ -38,9 +52,9 @@ export function presetGuide(id: string, trust: string): PresetGuide | undefined 
  */
 export function trapPresetReaderTab(event: KeyboardEvent<HTMLDivElement>): void {
   if (event.key !== 'Tab') return
-  const targets = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
-    'button:not([disabled]):not([tabindex="-1"]), [tabindex="0"]',
-  )).filter(element => !element.closest('[hidden]'))
+  const targets = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]):not([tabindex="-1"]), [tabindex="0"]'),
+  ).filter(element => !element.closest('[hidden]'))
   const first = targets[0]
   const last = targets[targets.length - 1]
   if (event.shiftKey && document.activeElement === first) {
@@ -53,15 +67,16 @@ export function trapPresetReaderTab(event: KeyboardEvent<HTMLDivElement>): void 
 }
 
 /** Curated usage dictionaries contain only level-three example sections. */
-function GuideUsage({ text, t }: {
-  text: string
-  t: TranslateNS<'settings.agentPreset'>
-}): ReactNode {
+function GuideUsage({ text, t }: { text: string; t: TranslateNS<'settings.agentPreset'> }): ReactNode {
   const labels = {
-    code: { copyLabel: t('guideCopy'), copiedLabel: t('guideCopied'), toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') } },
+    code: {
+      copyLabel: t('guideCopy'),
+      copiedLabel: t('guideCopied'),
+      toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') },
+    },
     footnotes: t('guideFootnotes'),
   }
-  return text.split(/(?=^### )/m).map((section) => {
+  return text.split(/(?=^### )/m).map(section => {
     const headingEnd = section.indexOf('\n')
     const title = section.slice(4, headingEnd)
     return (
@@ -84,7 +99,12 @@ function GuideUsage({ text, t }: {
  * @param props - localized guide, initial page, and close callback.
  * @returns the modal reader with independent scroll positions for each page.
  */
-export function PresetGuideDialog({ guide, initialPage, t, onClose }: {
+export function PresetGuideDialog({
+  guide,
+  initialPage,
+  t,
+  onClose,
+}: {
   guide: PresetGuide
   initialPage: PresetGuidePage
   t: TranslateNS<'settings.agentPreset'>
@@ -126,7 +146,12 @@ export function PresetGuideDialog({ guide, initialPage, t, onClose }: {
           value={page}
           onChange={setPage}
           items={[
-            { value: 'explanation', label: t('modeExplanation'), id: `${guideId}-explanation-tab`, panelId: `${guideId}-explanation-panel` },
+            {
+              value: 'explanation',
+              label: t('modeExplanation'),
+              id: `${guideId}-explanation-tab`,
+              panelId: `${guideId}-explanation-panel`,
+            },
             { value: 'usage', label: t('howToUse'), id: `${guideId}-usage-tab`, panelId: `${guideId}-usage-panel` },
           ]}
         />
@@ -141,17 +166,21 @@ export function PresetGuideDialog({ guide, initialPage, t, onClose }: {
             hidden={page !== section}
             tabIndex={0}
           >
-            {section === 'usage'
-              ? <GuideUsage text={t(guide.usage)} t={t} />
-              : (
-                <MarkdownText
-                  text={t(guide.explanation)}
-                  labels={{
-                    code: { copyLabel: t('guideCopy'), copiedLabel: t('guideCopied'), toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') } },
-                    footnotes: t('guideFootnotes'),
-                  }}
-                />
-              )}
+            {section === 'usage' ? (
+              <GuideUsage text={t(guide.usage)} t={t} />
+            ) : (
+              <MarkdownText
+                text={t(guide.explanation)}
+                labels={{
+                  code: {
+                    copyLabel: t('guideCopy'),
+                    copiedLabel: t('guideCopied'),
+                    toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') },
+                  },
+                  footnotes: t('guideFootnotes'),
+                }}
+              />
+            )}
           </div>
         ))}
       </div>

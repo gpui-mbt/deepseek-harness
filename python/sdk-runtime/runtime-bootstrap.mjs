@@ -9,7 +9,10 @@ import { isSea } from 'node:sea'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const platform = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'win' : process.platform
-const resourceDirectory = join(isSea() ? dirname(process.execPath) : dirname(dirname(fileURLToPath(import.meta.url))), `${platform}-${process.arch}`)
+const resourceDirectory = join(
+  isSea() ? dirname(process.execPath) : dirname(dirname(fileURLToPath(import.meta.url))),
+  `${platform}-${process.arch}`,
+)
 let downloads
 let cache
 if (existsSync(join(resourceDirectory, 'downloads.json'))) {
@@ -30,10 +33,15 @@ async function downloadResource(kind) {
     let disposeProxy
     try {
       const { installProxyFromEnvironment } = await import('@deepseek-ai/dsh-http-proxy')
-      disposeProxy = await installProxyFromEnvironment({ get(name) {
-        const value = process.env[name]
-        return value === undefined ? undefined : { value }
-      } }, message => console.error(message))
+      disposeProxy = await installProxyFromEnvironment(
+        {
+          get(name) {
+            const value = process.env[name]
+            return value === undefined ? undefined : { value }
+          },
+        },
+        message => console.error(message),
+      )
       const { downloadNodeRuntime, preparePrimaryRuntime } = await import('./primary-runtime.mjs')
       const archives = join(cache, 'archives')
       if (kind === 'office') {
@@ -41,23 +49,41 @@ async function downloadResource(kind) {
         await downloadNodeRuntime(downloads.target, join(staging, 'node'), archives)
         await downloadOfficeSidecar(downloads.office, staging, archives)
       } else {
-        await preparePrimaryRuntime({ target: downloads.target, output: staging, cache: archives,
-          version: downloads.version, pnpmArchive: downloads.pnpm, skillSource: join(resourceDirectory, 'office-skills') })
+        await preparePrimaryRuntime({
+          target: downloads.target,
+          output: staging,
+          cache: archives,
+          version: downloads.version,
+          pnpmArchive: downloads.pnpm,
+          skillSource: join(resourceDirectory, 'office-skills'),
+        })
       }
       await writeFile(join(staging, 'complete'), downloads.identity)
-      try { await rename(staging, destination) } catch (error) {
-        if (!['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)
-          || await readFile(join(destination, 'complete'), 'utf8') !== downloads.identity) throw error
+      try {
+        await rename(staging, destination)
+      } catch (error) {
+        if (
+          !['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code) ||
+          (await readFile(join(destination, 'complete'), 'utf8')) !== downloads.identity
+        )
+          throw error
       }
     } finally {
-      try { await disposeProxy?.() } finally { await rm(staging, { recursive: true, force: true }) }
+      try {
+        await disposeProxy?.()
+      } finally {
+        await rm(staging, { recursive: true, force: true })
+      }
     }
   }
-  if (await readFile(join(destination, 'complete'), 'utf8') !== downloads.identity) throw new Error(`runtime cache identity mismatch: ${destination}`)
+  if ((await readFile(join(destination, 'complete'), 'utf8')) !== downloads.identity)
+    throw new Error(`runtime cache identity mismatch: ${destination}`)
   return kind === 'primary' ? join(destination, 'primary-runtime') : destination
 }
 
-const office = process.env.DSH_OFFICE_SIDECAR ?? (cache !== undefined && existsSync(join(cache, 'office', 'complete')) ? join(cache, 'office') : undefined)
+const office =
+  process.env.DSH_OFFICE_SIDECAR ??
+  (cache !== undefined && existsSync(join(cache, 'office', 'complete')) ? join(cache, 'office') : undefined)
 if (office !== undefined) {
   if (!isAbsolute(office)) throw new Error('DSH_OFFICE_SIDECAR must be an absolute directory')
   const parentURL = pathToFileURL(join(office, 'package.json')).href
@@ -76,9 +102,8 @@ if (downloads !== undefined) process.env.DSH_BUNDLED_OFFICE_SKILLS = join(resour
 
 const selectorName = 'DSH_SUBPROCESS_RUNNER'
 const selection = process.env[selectorName]
-const aclRunner = process.platform === 'win32'
-  ? fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/runner'))
-  : undefined
+const aclRunner =
+  process.platform === 'win32' ? fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/runner')) : undefined
 
 const resource = process.env.DSH_RUNTIME_DOWNLOAD
 if (resource !== undefined) {

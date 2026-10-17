@@ -58,15 +58,9 @@ function agentMessageSource(sender: Agent): AgentMessageSource {
  * @param content - model-visible message blocks supplied by the sender.
  * @returns the durable user-message representation delivered to the recipient.
  */
-export function createAgentMessage(
-  sender: Agent,
-  content: ContentBlock[],
-): ReturnType<typeof createUserMessage> {
+export function createAgentMessage(sender: Agent, content: ContentBlock[]): ReturnType<typeof createUserMessage> {
   return createUserMessage({
-    content: [
-      { type: 'text' as const, text: `Agent ${sender.id} sent a message: ` },
-      ...content,
-    ],
+    content: [{ type: 'text' as const, text: `Agent ${sender.id} sent a message: ` }, ...content],
     source: agentMessageSource(sender),
   })
 }
@@ -77,20 +71,18 @@ export function createAgentMessage(
  * @param prompt - initial model-visible task blocks.
  * @returns task blocks followed by the continuable return guidance.
  */
-export function withContinuableReturnGuidance(
-  parentId: SessionId,
-  prompt: ContentBlock[],
-): ContentBlock[] {
+export function withContinuableReturnGuidance(parentId: SessionId, prompt: ContentBlock[]): ContentBlock[] {
   const encodedParentId = JSON.stringify(parentId)
   return [
     ...prompt,
     {
       type: 'text',
-      text: `Your parent agent id is ${encodedParentId}. Before you finish, send your result to that agent with `
-        + `send_message({ agent_id: ${encodedParentId}, message: "<self-contained result>" }). The parent shares `
-        + 'your workspace but does not automatically receive your transcript, tool output, or reasoning. Send '
-        + 'earlier messages as well when a finding changes what the parent should do next; sending a message '
-        + 'does not end your turn.',
+      text:
+        `Your parent agent id is ${encodedParentId}. Before you finish, send your result to that agent with ` +
+        `send_message({ agent_id: ${encodedParentId}, message: "<self-contained result>" }). The parent shares ` +
+        'your workspace but does not automatically receive your transcript, tool output, or reasoning. Send ' +
+        'earlier messages as well when a finding changes what the parent should do next; sending a message ' +
+        'does not end your turn.',
     },
   ]
 }
@@ -144,19 +136,17 @@ export function createSettlementMessage(
   // Parent providers receive this notice as a user message and may reject
   // nontext assistant blocks. Keep this conversion local so SDK/UI consumers
   // retain the complete child output.
-  const closingText = terminal.output.flatMap(block =>
-    block.type === 'text' && block.text.length > 0 ? [block] : [],
-  )
+  const closingText = terminal.output.flatMap(block => (block.type === 'text' && block.text.length > 0 ? [block] : []))
   return createUserMessage({
     content: [
       { type: 'text' as const, text: summary },
-      ...closingText.length === 0
+      ...(closingText.length === 0
         ? [{ type: 'text' as const, text: 'It left no closing message.' }]
-        : [{ type: 'text' as const, text: 'Its closing message:' }, ...closingText],
-      ...terminal.structured !== undefined
-        ? [{ type: 'text' as const, text: `Structured result: ${JSON.stringify(terminal.structured)}` }] : [],
-      ...terminal.diagnostic !== undefined
-        ? [{ type: 'text' as const, text: terminal.diagnostic }] : [],
+        : [{ type: 'text' as const, text: 'Its closing message:' }, ...closingText]),
+      ...(terminal.structured !== undefined
+        ? [{ type: 'text' as const, text: `Structured result: ${JSON.stringify(terminal.structured)}` }]
+        : []),
+      ...(terminal.diagnostic !== undefined ? [{ type: 'text' as const, text: terminal.diagnostic }] : []),
     ],
     source: {
       kind: 'subagent-settled' as const,

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { PassThrough } from 'node:stream'
 import { resolve } from 'node:path'
@@ -42,9 +42,21 @@ class RecordingSandbox extends SandboxProvider {
 
 function config(): ResolvedConfig {
   return {
-    backendType: 'shell', shellDialect: 'bash', shellPath: '/bin/bash', shellArgs: [], rows: 24, cols: 80,
-    scrollbackLines: 10, scrollbackMaxBytes: 100, maxReadBytes: 50,
-    pollIntervalMs: 10, exactProbeAfterMs: 20, idleSilenceMs: 50, handoffGraceMs: 10, promptTailGraceMs: 0, timeoutMs: 100,
+    backendType: 'shell',
+    shellDialect: 'bash',
+    shellPath: '/bin/bash',
+    shellArgs: [],
+    rows: 24,
+    cols: 80,
+    scrollbackLines: 10,
+    scrollbackMaxBytes: 100,
+    maxReadBytes: 50,
+    pollIntervalMs: 10,
+    exactProbeAfterMs: 20,
+    idleSilenceMs: 50,
+    handoffGraceMs: 10,
+    promptTailGraceMs: 0,
+    timeoutMs: 100,
     disposeGraceMs: 10,
   }
 }
@@ -52,14 +64,24 @@ function config(): ResolvedConfig {
 function agent(ctx: Context, cwd?: string): Agent {
   const id = SessionId('agent')
   const session = Session.create(id, undefined, {
-    version: SESSION_FORMAT_VERSION, id, createdAt: 0, isSeeded: false, ...cwd === undefined ? {} : { cwd },
+    version: SESSION_FORMAT_VERSION,
+    id,
+    createdAt: 0,
+    isSeeded: false,
+    ...(cwd === undefined ? {} : { cwd }),
   })
   return {
-    id, options: {}, session, inbox: unsupportedInbox(),
+    id,
+    options: {},
+    session,
+    inbox: unsupportedInbox(),
     status: 'idle',
     ctx,
     send: () => {},
-    followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
+    followup: () => {},
+    steer: () => {},
+    inject: () => {},
+    cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -76,14 +98,22 @@ function terminalHandle(): SubprocessTerminalHandle {
     inspectActivity: async () => ({ state: 'unknown' as const, revision: 0 }),
     inspectForeground: async () => ({ processGroupId: 123, inputWaiting: true }),
     signalForeground: async () => 123,
-    terminate: async () => { output.end() },
+    terminate: async () => {
+      output.end()
+    },
   }
 }
 
 class StubSubprocessRuntime extends SubprocessRuntime {
-  async terminalEnvironment() { return { platform: 'posix' as const } }
-  async resolveExecutable(command: string): Promise<string> { return command }
-  spawn(_spec: SubprocessSpawnSpec): SubprocessHandle { throw new Error('unused') }
+  async terminalEnvironment() {
+    return { platform: 'posix' as const }
+  }
+  async resolveExecutable(command: string): Promise<string> {
+    return command
+  }
+  spawn(_spec: SubprocessSpawnSpec): SubprocessHandle {
+    throw new Error('unused')
+  }
   async spawnTerminal(_spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTerminalHandle> {
     return terminalHandle()
   }
@@ -91,8 +121,10 @@ class StubSubprocessRuntime extends SubprocessRuntime {
 
 function spec(owner: Agent, signal?: AbortSignal) {
   return {
-    sessionId: TerminalSessionId('pty-1'), owner, type: 'shell',
-    ...signal !== undefined ? { signal } : {},
+    sessionId: TerminalSessionId('pty-1'),
+    owner,
+    type: 'shell',
+    ...(signal !== undefined ? { signal } : {}),
   }
 }
 
@@ -100,8 +132,12 @@ function stubLocalSession(initialize: () => Promise<void> = () => Promise.resolv
   return {
     motd: '',
     initialize,
-    startSend: () => { throw new Error('unused') },
-    read: () => { throw new Error('unused') },
+    startSend: () => {
+      throw new Error('unused')
+    },
+    read: () => {
+      throw new Error('unused')
+    },
     signal: () => Promise.resolve({ delivered: true, targetPgid: 1 }),
     status: () => ({ kind: 'running' as const }),
     close: () => Promise.resolve(),
@@ -109,13 +145,10 @@ function stubLocalSession(initialize: () => Promise<void> = () => Promise.resolv
 }
 
 function registerStubLocalBackend(ctx: Context, createSession: () => LocalPtySession) {
-  return ctx.inject(['terminals', 'sandbox', 'sandboxPolicy', 'sessionProjections', 'subprocess'], (providerCtx) => {
-    providerCtx.terminals.registerBackend(new BashTerminalBackend(
-      providerCtx,
-      { ...config(), backendType: 'stub' },
-      async () => terminalHandle(),
-      createSession,
-    ))
+  return ctx.inject(['terminals', 'sandbox', 'sandboxPolicy', 'sessionProjections', 'subprocess'], providerCtx => {
+    providerCtx.terminals.registerBackend(
+      new BashTerminalBackend(providerCtx, { ...config(), backendType: 'stub' }, async () => terminalHandle(), createSession),
+    )
   })
 }
 
@@ -154,11 +187,13 @@ describe('BashTerminalBackend startup rollback', () => {
       close: () => Promise.reject(cleanupFailure),
     } as unknown as LocalPtySession
     const aggregate = new BashTerminalBackend(ctx, config(), spawnTerminal, () => doublyFailed)
-    await expect(aggregate.spawn(spec(agent(ctx)))).rejects.toEqual(expect.objectContaining({
-      name: 'TerminalBackendCleanupError',
-      spawnError: startupFailure,
-      cleanupError: cleanupFailure,
-    } satisfies Partial<TerminalBackendCleanupError>))
+    await expect(aggregate.spawn(spec(agent(ctx)))).rejects.toEqual(
+      expect.objectContaining({
+        name: 'TerminalBackendCleanupError',
+        spawnError: startupFailure,
+        cleanupError: cleanupFailure,
+      } satisfies Partial<TerminalBackendCleanupError>),
+    )
   })
 
   it('awaits terminal cleanup when session construction fails', async () => {
@@ -188,8 +223,12 @@ describe('BashTerminalBackend startup rollback', () => {
     expect(terminal.terminate).toHaveBeenCalledOnce()
     let settled = false
     void spawning.then(
-      () => { settled = true },
-      () => { settled = true },
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
     )
     await Promise.resolve()
     expect(settled).toBe(false)
@@ -212,7 +251,12 @@ describe('BashTerminalBackend startup rollback', () => {
       },
       close,
     } as unknown as LocalPtySession
-    const backend = new BashTerminalBackend(ctx, config(), async () => terminalHandle(), () => session)
+    const backend = new BashTerminalBackend(
+      ctx,
+      config(),
+      async () => terminalHandle(),
+      () => session,
+    )
     const controller = new AbortController()
     const reason = new Error('cancel stalled startup')
 
@@ -263,12 +307,7 @@ describe('BashTerminalBackend startup rollback', () => {
     }
     const initialized = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
     const session = { initialize: initialized } as unknown as LocalPtySession
-    const backend = new BashTerminalBackend(
-      ctx,
-      { ...config(), shellArgs: ['-i'] },
-      spawnTerminal,
-      () => session,
-    )
+    const backend = new BashTerminalBackend(ctx, { ...config(), shellArgs: ['-i'] }, spawnTerminal, () => session)
     const previous = process.env.PTY_TEST_SECRET
     process.env.PTY_TEST_SECRET = 'must-not-leak'
     try {
@@ -285,17 +324,25 @@ describe('BashTerminalBackend startup rollback', () => {
       cwd: '/work',
       graceMs: 10,
       env: {
-        TERM: 'dumb', PAGER: 'cat', GIT_PAGER: 'cat', PS1: 'dsh> ', BASH_SILENCE_DEPRECATION_WARNING: '1',
+        TERM: 'dumb',
+        PAGER: 'cat',
+        GIT_PAGER: 'cat',
+        PS1: 'dsh> ',
+        BASH_SILENCE_DEPRECATION_WARNING: '1',
         PROMPT_COMMAND: 'printf "\\033]133;D;%s\\007" "$?"; PS1=\'dsh> \'',
-        DSH_SHELL: '1', DSH_SESSION_ID: 'agent', DSH_PTY_SESSION_ID: 'pty-1',
+        DSH_SHELL: '1',
+        DSH_SESSION_ID: 'agent',
+        DSH_PTY_SESSION_ID: 'pty-1',
       },
     })
     expect(spawned?.env?.PTY_TEST_SECRET).toBeUndefined()
     expect(initialized).toHaveBeenCalledWith(undefined)
-    expect((ctx.sandbox as RecordingSandbox).calls).toEqual([{
-      argv: ['/bin/bash', '-i'],
-      policy: { mode: 'workspace-write', sessionId: 'agent', workspaceRoot: resolve('/workspace') },
-    }])
+    expect((ctx.sandbox as RecordingSandbox).calls).toEqual([
+      {
+        argv: ['/bin/bash', '-i'],
+        policy: { mode: 'workspace-write', sessionId: 'agent', workspaceRoot: resolve('/workspace') },
+      },
+    ])
   })
 
   it('resolves session mode and root together before wrapping the shell', async () => {
@@ -312,12 +359,7 @@ describe('BashTerminalBackend startup rollback', () => {
     }
     const initialized = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
     const session = { initialize: initialized } as unknown as LocalPtySession
-    const backend = new BashTerminalBackend(
-      ctx,
-      { ...config(), shellArgs: ['-i'] },
-      spawnTerminal,
-      () => session,
-    )
+    const backend = new BashTerminalBackend(ctx, { ...config(), shellArgs: ['-i'] }, spawnTerminal, () => session)
     const owner = agent(ctx, '/session-workspace')
     setSandboxMode(owner.session, 'workspace-write')
     expect(await backend.spawn(spec(owner))).toBe(session)
@@ -326,10 +368,12 @@ describe('BashTerminalBackend startup rollback', () => {
       argv: ['/sandbox', '--', '/bin/bash', '-i'],
       cwd: resolve('/session-workspace'),
     })
-    expect((ctx.sandbox as RecordingSandbox).calls).toEqual([{
-      argv: ['/bin/bash', '-i'],
-      policy: { mode: 'workspace-write', sessionId: 'agent', workspaceRoot: resolve('/session-workspace') },
-    }])
+    expect((ctx.sandbox as RecordingSandbox).calls).toEqual([
+      {
+        argv: ['/bin/bash', '-i'],
+        policy: { mode: 'workspace-write', sessionId: 'agent', workspaceRoot: resolve('/session-workspace') },
+      },
+    ])
   })
 
   it('rejects a confined spawn without a sandbox provider', async () => {
@@ -340,7 +384,9 @@ describe('BashTerminalBackend startup rollback', () => {
     const confined = new BashTerminalBackend(
       confinedCtx,
       config(),
-      async () => { throw new Error('terminal spawn must not run') },
+      async () => {
+        throw new Error('terminal spawn must not run')
+      },
       () => stubLocalSession(),
     )
     await expect(confined.spawn(spec(agent(confinedCtx)))).rejects.toThrow(
@@ -360,7 +406,7 @@ describe('BashTerminalBackend startup rollback', () => {
     const published = new BashTerminalBackend(
       ctx,
       config(),
-      async (spawnSpec) => {
+      async spawnSpec => {
         publishedSignal = spawnSpec.signal
         return terminalHandle()
       },
@@ -376,14 +422,15 @@ describe('BashTerminalBackend startup rollback', () => {
     const pending = new BashTerminalBackend(
       ctx,
       config(),
-      async spawnSpec => await new Promise<SubprocessTerminalHandle>((_resolve, reject) => {
-        const setupSignal = spawnSpec.signal as AbortSignal
-        seen.resolve(setupSignal)
-        const onAbort = (): void => {
-          reject(setupSignal.reason instanceof Error ? setupSignal.reason : new Error(String(setupSignal.reason)))
-        }
-        setupSignal.addEventListener('abort', onAbort, { once: true })
-      }),
+      async spawnSpec =>
+        await new Promise<SubprocessTerminalHandle>((_resolve, reject) => {
+          const setupSignal = spawnSpec.signal as AbortSignal
+          seen.resolve(setupSignal)
+          const onAbort = (): void => {
+            reject(setupSignal.reason instanceof Error ? setupSignal.reason : new Error(String(setupSignal.reason)))
+          }
+          setupSignal.addEventListener('abort', onAbort, { once: true })
+        }),
       () => stubLocalSession(),
     )
     const spawning = pending.spawn(spec(agent(ctx), pendingController.signal))
@@ -416,12 +463,10 @@ describe('BashTerminalBackend startup rollback', () => {
         outcome.resolve({ exitCode: null, signal: 'SIGTERM' })
       },
     }
-    queueMicrotask(() => { output.write(Buffer.from('\x1b]133;D;0\x07dsh> ')) })
-    const backend = new BashTerminalBackend(
-      ctx,
-      config(),
-      async () => terminal,
-    )
+    queueMicrotask(() => {
+      output.write(Buffer.from('\x1b]133;D;0\x07dsh> '))
+    })
+    const backend = new BashTerminalBackend(ctx, config(), async () => terminal)
     const session = await backend.spawn(spec(agent(ctx)))
     expect(session.motd).toBe('dsh> ')
     await session.close('test complete')
@@ -441,8 +486,10 @@ describe('BashTerminalBackend startup rollback', () => {
         sent = request
         return {
           done: Promise.resolve({
-            viewport: 'setup-echo dsh> ', waitReason: 'stdin_read' as const,
-            sessionStatus: { kind: 'running' as const }, truncated: false,
+            viewport: 'setup-echo dsh> ',
+            waitReason: 'stdin_read' as const,
+            sessionStatus: { kind: 'running' as const },
+            truncated: false,
           }),
           readOutput: () => ({ delta: '', truncated: false }),
           cancel: () => false,
@@ -453,14 +500,21 @@ describe('BashTerminalBackend startup rollback', () => {
     const backend = new BashTerminalBackend(
       ctx,
       { ...config(), shellDialect: 'pwsh', shellPath: 'pwsh' },
-      async (spec) => { spawned = spec; return terminalHandle() },
+      async spec => {
+        spawned = spec
+        return terminalHandle()
+      },
       () => session,
     )
     expect(await backend.spawn(spec(agent(ctx)))).toBe(session)
     expect(sent).toMatchObject({ text: ENCODING_PREAMBLE + PWSH_PROMPT_SETUP, submit: true })
     expect(session.motd).toBe('setup-echo dsh> ')
     expect(spawned?.env).toMatchObject({
-      TERM: 'dumb', NO_COLOR: '1', DSH_SHELL: '1', DSH_SESSION_ID: 'agent', DSH_PTY_SESSION_ID: 'pty-1',
+      TERM: 'dumb',
+      NO_COLOR: '1',
+      DSH_SHELL: '1',
+      DSH_SESSION_ID: 'agent',
+      DSH_PTY_SESSION_ID: 'pty-1',
     })
     expect(spawned?.env?.PS1).toBeUndefined()
     expect(spawned?.env?.PROMPT_COMMAND).toBeUndefined()
@@ -481,8 +535,9 @@ describe('BashTerminalBackend startup rollback', () => {
         return {
           done: Promise.resolve({
             viewport: second ? 'dsh> ' : "function prompt { 'dsh> ' }\n",
-            waitReason: second ? 'stdin_read' as const : 'inferred_idle' as const,
-            sessionStatus: { kind: 'running' as const }, truncated: false,
+            waitReason: second ? ('stdin_read' as const) : ('inferred_idle' as const),
+            sessionStatus: { kind: 'running' as const },
+            truncated: false,
           }),
           readOutput: () => ({ delta: '', truncated: false }),
           cancel: () => false,
@@ -508,21 +563,34 @@ describe('BashTerminalBackend startup rollback', () => {
     await ctx.plugin(EmptySandbox)
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicyService, { mode: 'danger-full-access', workspaceRoot: '/workspace' })
-    const sessionFor = (waitReason: TerminalWaitReason): LocalPtySession => ({
-      startSend: () => ({
-        done: Promise.resolve({
-          viewport: 'no-prompt', waitReason,
-          sessionStatus: { kind: 'running' as const }, truncated: false,
+    const sessionFor = (waitReason: TerminalWaitReason): LocalPtySession =>
+      ({
+        startSend: () => ({
+          done: Promise.resolve({
+            viewport: 'no-prompt',
+            waitReason,
+            sessionStatus: { kind: 'running' as const },
+            truncated: false,
+          }),
+          readOutput: () => ({ delta: '', truncated: false }),
+          cancel: () => false,
         }),
-        readOutput: () => ({ delta: '', truncated: false }),
-        cancel: () => false,
-      }),
-      read: () => ({ text: '', totalLines: 0, lineBegin: 0, lineEnd: 0, truncated: false }),
-      close: () => Promise.resolve(),
-    }) as unknown as LocalPtySession
-    const exited = new BashTerminalBackend(ctx, { ...config(), shellDialect: 'pwsh' }, async () => terminalHandle(), () => sessionFor('session_exit'))
+        read: () => ({ text: '', totalLines: 0, lineBegin: 0, lineEnd: 0, truncated: false }),
+        close: () => Promise.resolve(),
+      }) as unknown as LocalPtySession
+    const exited = new BashTerminalBackend(
+      ctx,
+      { ...config(), shellDialect: 'pwsh' },
+      async () => terminalHandle(),
+      () => sessionFor('session_exit'),
+    )
     await expect(exited.spawn(spec(agent(ctx)))).rejects.toThrow('PTY shell exited during startup')
-    const timedOut = new BashTerminalBackend(ctx, { ...config(), shellDialect: 'pwsh' }, async () => terminalHandle(), () => sessionFor('timeout'))
+    const timedOut = new BashTerminalBackend(
+      ctx,
+      { ...config(), shellDialect: 'pwsh' },
+      async () => terminalHandle(),
+      () => sessionFor('timeout'),
+    )
     await expect(timedOut.spawn(spec(agent(ctx)))).rejects.toThrow('did not reach readiness before startup timeout')
   })
 
@@ -548,18 +616,27 @@ describe('BashTerminalBackend startup rollback', () => {
         startSend: () => {
           sends += 1
           return {
-            done: sends === 1
-              ? Promise.resolve({
-                viewport: 'setup echo', waitReason: 'inferred_idle' as const,
-                sessionStatus: { kind: 'running' as const }, truncated: false,
-              })
-              : pending.promise,
+            done:
+              sends === 1
+                ? Promise.resolve({
+                    viewport: 'setup echo',
+                    waitReason: 'inferred_idle' as const,
+                    sessionStatus: { kind: 'running' as const },
+                    truncated: false,
+                  })
+                : pending.promise,
             readOutput: () => ({ delta: '', truncated: false }),
-            cancel: () => { cancellations += 1; return true },
+            cancel: () => {
+              cancellations += 1
+              return true
+            },
           }
         },
         read: () => ({ text: '', totalLines: 0, lineBegin: 0, lineEnd: 0, truncated: false }),
-        close: () => { closes += 1; return Promise.resolve() },
+        close: () => {
+          closes += 1
+          return Promise.resolve()
+        },
       } as unknown as LocalPtySession
       const backend = new BashTerminalBackend(
         ctx,
@@ -595,8 +672,10 @@ describe('BashTerminalBackend startup rollback', () => {
         sends.push(request)
         return {
           done: Promise.resolve({
-            viewport: 'dsh> ', waitReason: 'stdin_read' as const,
-            sessionStatus: { kind: 'running' as const }, truncated: false,
+            viewport: 'dsh> ',
+            waitReason: 'stdin_read' as const,
+            sessionStatus: { kind: 'running' as const },
+            truncated: false,
           }),
           readOutput: () => ({ delta: '', truncated: false }),
           cancel: () => false,
@@ -658,7 +737,9 @@ describe('terminal-bash plugin shape', () => {
     expect(() => {
       session.append('turn/start', { turn: 1 })
     }).not.toThrow()
-    expect(() => { setSandboxMode(session, 'read-only') }).not.toThrow()
+    expect(() => {
+      setSandboxMode(session, 'read-only')
+    }).not.toThrow()
   })
 
   it('keeps the owner-lifetime sandbox fence after the local provider unloads', async () => {
@@ -675,11 +756,17 @@ describe('terminal-bash plugin shape', () => {
     const session = ctx.sessions.create(SessionId('mode-owner'))
     const ownerFiber = await ctx.plugin(() => {})
     const owner: Agent = {
-      id: session.id, options: {}, session, inbox: unsupportedInbox(),
+      id: session.id,
+      options: {},
+      session,
+      inbox: unsupportedInbox(),
       status: 'idle',
       ctx: ownerFiber.ctx,
       send: () => {},
-      followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
+      followup: () => {},
+      steer: () => {},
+      inject: () => {},
+      cancel() {},
       runMaintenance: task => task(new AbortController().signal),
       whenIdle: () => Promise.resolve(),
     }
@@ -688,15 +775,21 @@ describe('terminal-bash plugin shape', () => {
     const created = await ctx.terminals.spawn(owner, { type: 'stub' })
 
     const unrelated = ctx.sessions.create(SessionId('unrelated-mode'))
-    expect(() => { setSandboxMode(unrelated, 'read-only') }).not.toThrow()
+    expect(() => {
+      setSandboxMode(unrelated, 'read-only')
+    }).not.toThrow()
     expect(() => {
       session.append('turn/start', { turn: 1 })
     }).not.toThrow()
 
-    expect(() => { setSandboxMode(session, 'danger-full-access') }).not.toThrow()
+    expect(() => {
+      setSandboxMode(session, 'danger-full-access')
+    }).not.toThrow()
     await providerFiber.dispose()
     expect(ctx.terminals.listBackends()).toEqual([])
-    expect(() => { setSandboxMode(session, 'read-only') }).toThrow(
+    expect(() => {
+      setSandboxMode(session, 'read-only')
+    }).toThrow(
       'cannot change sandbox mode from "danger-full-access" to "read-only" while persistent terminal sessions are open or being created; wait for creation to settle and close them first',
     )
     expect(session.snapshotEvents().filter(event => event.type === 'sandbox/mode')).toHaveLength(1)
@@ -704,11 +797,15 @@ describe('terminal-bash plugin shape', () => {
     const replacementFiber = await registerStubLocalBackend(ctx, () => stubLocalSession())
     const second = await ctx.terminals.spawn(owner, { type: 'stub' })
     await replacementFiber.dispose()
-    expect(() => { setSandboxMode(session, 'read-only') }).toThrow('open or being created')
+    expect(() => {
+      setSandboxMode(session, 'read-only')
+    }).toThrow('open or being created')
 
     await ctx.terminals.kill(owner, created.sessionId)
     await ctx.terminals.kill(owner, second.sessionId)
-    expect(() => { setSandboxMode(session, 'read-only') }).not.toThrow()
+    expect(() => {
+      setSandboxMode(session, 'read-only')
+    }).not.toThrow()
     expect(session.snapshotEvents().filter(event => event.type === 'sandbox/mode')).toHaveLength(2)
   })
 
@@ -726,11 +823,17 @@ describe('terminal-bash plugin shape', () => {
     const session = ctx.sessions.create(SessionId('pending-mode-owner'))
     const ownerFiber = await ctx.plugin(() => {})
     const owner: Agent = {
-      id: session.id, options: {}, session, inbox: unsupportedInbox(),
+      id: session.id,
+      options: {},
+      session,
+      inbox: unsupportedInbox(),
       status: 'idle',
       ctx: ownerFiber.ctx,
       send: () => {},
-      followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
+      followup: () => {},
+      steer: () => {},
+      inject: () => {},
+      cancel() {},
       runMaintenance: task => task(new AbortController().signal),
       whenIdle: () => Promise.resolve(),
     }
@@ -740,7 +843,9 @@ describe('terminal-bash plugin shape', () => {
     const spawning = ctx.terminals.spawn(owner, { type: 'stub' })
 
     expect(ctx.terminals.hasOwnerActivity(owner)).toBe(true)
-    expect(() => { setSandboxMode(session, 'read-only') }).toThrow('open or being created')
+    expect(() => {
+      setSandboxMode(session, 'read-only')
+    }).toThrow('open or being created')
     gate.resolve(undefined)
     const created = await spawning
     await ctx.terminals.kill(owner, created.sessionId)

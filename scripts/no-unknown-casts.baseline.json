@@ -82,7 +82,7 @@
   "apps/web/tests/assembled-boot.ts": {
     "203f87d9e4f18ce1f00bf575fe96f724975341cbb67b8c51ea45d4cbb8e60005": 1,
     "56cede35ce34488cdae4b19aec217c9c939377eb891fe68827fbd64cd019170c": 1,
-    "fda84896a47e7f9d046fcd7e10e9096c8b002bc5f1ea0c7753e57abe87528dea": 1
+    "e97b1647ffddd9dcea01dd54c2c19015cdc63b4925007408087eeed337eb9ec4": 1
   },
   "apps/web/tests/onboarding-deepseek-config.e2e.ts": {
     "326597b335539db945b2e3b7c86638d40849d2077c0a5670d064e45486f4e407": 2
@@ -124,8 +124,8 @@
   "packages/acp/acp/tests/content.spec.ts": {
     "45e226235f6b865973de0f0fe92892cfb0007e0596ed4263015df7e4db1e578d": 1,
     "806c78568a3ca86f0863f896ddc033cb78cd927981b012dd1187e1069de3da50": 1,
-    "b6b13437ac831e308dad37dac7d462f90d494864b83060d8259e21b69fbd4428": 1,
-    "ca58113ae0553196569efd2b6322bf8799c4ef365d9f868917428d2529c46891": 1
+    "90e29579bb371102a5a00a52e7467d7ddc4357e8e3f49168156adb4d63f6786a": 1,
+    "c8049a5b29dc0091415f0a7390888249862ea95d6c92d0314d740c159a9be64f": 1
   },
   "packages/acp/acp/tests/harness.ts": {
     "7fe58280287ff63d40e979e72329f975e11015a95e9a8eec207a5a78748d3c89": 2
@@ -135,17 +135,17 @@
     "c8143cf470138c1cff63fe1eed254de749779427c65ed0e635df999c1926ce92": 1
   },
   "packages/acp/acp/tests/model-control.spec.ts": {
-    "2eaef770949ab37a50b7ca061635842999eafbccabd1fb41bb24dabadcf2e851": 1
+    "135350c0a7b83a37617ceb1235239764d47bfee868b5fd49c1691bfa8ddfa6d9": 1
   },
   "packages/acp/acp/tests/updates.spec.ts": {
     "1236c44ff3e9bddee9e26949567c68ea48623c4dbaa594e70dcb32b4fb8e2973": 1,
     "3c5e7f2e3ddae10d67995210f3a3169829681f159d0aeb9c4b285b9e3093b5dc": 3,
-    "6770425e763df5cd99384a405194cdf588f2ff1815ab6c2ed0b8a231a9c15776": 1,
-    "851114a0852473e0906e628282926cb9b638c6ef0ca0f5218ec6b2d46b8c8f2b": 2
+    "851114a0852473e0906e628282926cb9b638c6ef0ca0f5218ec6b2d46b8c8f2b": 2,
+    "e0adbba126f93deb801bcdf88c14cb7f324e5715a0cbc12b3b70d89c226b4434": 1
   },
   "packages/api/gateway/src/index.ts": {
     "099e513016a77c37185ffa1b5b7aab222118f08bcbcfe677d149d9fae4d4b62e": 1,
-    "1b6933acdc52143e31b5f49ed1344cc78e6e407ac200f7e12487b35d3cbccec0": 1
+    "69625d2afd2d3ecd0b9bbeea7f261b509e03a41af393a4ead536481c371e9867": 1
   },
   "packages/api/gateway/src/stream-protocol.ts": {
     "a2efe2c795c1fc987d778bd05509ae0914484e8828a8f82a08b77d08e0496ce0": 1,
@@ -271,7 +271,7 @@
     "7f2d35b6be247c2410599d4b91260905bc2ada88f62507af622fe067a9295f5b": 1
   },
   "packages/api/session-controller/tests/session-pending-submissions.client.spec.ts": {
-    "f35467810e1f7bd9ea7659c947c274c48d310411d0eabcf528366708ea3b7ca1": 1
+    "cf039f3a2beac8e17b8e431c141253824180ae7df03c27f59fae2190e906e6f5": 1
   },
   "packages/api/session-controller/tests/session-presets.host.spec.ts": {
     "c051663ae60f381f30367e71bae4da0ea88c490453bbc1d86230b71c0fde8d6f": 1
@@ -300,8 +300,8 @@
     "9856a29b429bf05e7169c9eed9cffe18cdf17bb663a212615298c9844251dffc": 6
   },
   "packages/api/terminal-controller/tests/retention.client.spec.ts": {
-    "4a17ad415e8556830780e89cee49c549a01e82d90754af288f5b57214d8fca2c": 1,
-    "752fa554afd541f82ac34511802bec5f3cf52967db5ea470ee8160e1ffb0d606": 1
+    "752fa554afd541f82ac34511802bec5f3cf52967db5ea470ee8160e1ffb0d606": 1,
+    "c37327235dd10267bcd8aa80ce7b93b2eef39ea5c8a0ec76820daf2f0966c5db": 1
   },
   "packages/attachment/attachment/tests/admission.spec.ts": {
     "d7dc9c349af8699fefcaffed26377443dd73ef95f1dc985f4de542ec133869f5": 1
@@ -309,9 +309,6 @@
   "packages/boot/app-boot/tests/app-boot.spec.ts": {
     "46749c86ea74f896ecf7a25e5839d4b49f839497cec757f3ef09ad551d99a933": 1,
     "f66725b07f595b27258f0e9fe86618d8c44652052e6150704f0488ecc7d176b9": 1
-  },
-  "packages/boot/app-boot/tests/profile-resolution.spec.ts": {
-    "595612a86672eea9eaae2da6c5e42de22708304549218489fa2b9f851305ac35": 1
   },
   "packages/boot/app-boot/tests/user-patches.spec.ts": {
     "3ce67a64d2a210f22f3d3c4752b1a1db216fb18b1f665241c9c8555b851d3ff8": 1,
@@ -344,6 +341,7 @@
     "e1afcf3bd21c4348c25c31b75c3d96e12710fc3bb3165da6a77a48731cb7e737": 1
   },
   "packages/bundle/headless/tests/json-stream.spec.ts": {
+    "20d069173816627aa2d6e087bfe24e36c87cfecafc49a2d6d184e62216597229": 1,
     "43241b95fdf279db25d6285b371f6b8764ea429ed32385899957ffb13f71ead0": 1,
     "43cfd42d416753e4f45d9fd572019b4e8e2526f7dc6255beed9b0f70b36a639f": 2,
     "457f293a812c58df6e60d643422ee7f8015acc8e32b6de0b5818339d0875b238": 1,
@@ -361,7 +359,6 @@
     "ac97cded408642073f139993e46c9f6e623cd5e8fafb29328d198021178df412": 1,
     "ca82665734ead2dc92140f8e2f04a686295e22f52a33bf1e5911d4004b66a815": 1,
     "cd44bbef29e1085673712dfa0b9650b421e6a843441ef6b02820925bd6bed779": 1,
-    "df9591b571ac9ad402bb79bac149da1173a8e178a2f006948c6995fd72375515": 1,
     "e11af8f82d67df04b1ed39c36f4248ed2e561830f49f0b82a86327a7112e4b91": 1,
     "f47eed958425592fcf7343fd0adc448adfaa04ee86e5b2a7a948f9d7703135ad": 1
   },
@@ -393,12 +390,12 @@
     "df59c4c68576e18a532f9a917fb70176726a28c8600e8909501e42b990e12857": 1
   },
   "packages/client/connection/tests/http-bridge.host.spec.ts": {
-    "0e7046e26d128461a15974d7a6290f49afb4523215d7691910b08aab9dc4c45c": 2,
-    "c80c8a70cdf0ad954bb3634bf6528ba6a53011dbc8b75963d51d5c0a11f1b4a8": 1,
-    "e7f95519c09637d531267d47a19e5bf22918c85ea350dc337c965f5904c1d1bb": 1
+    "7c9918935a3b52e4cbd655b12720b105f606a79c1c4343bc6c3644924210f16c": 2,
+    "82747e1e2a25a97dd14542a29b1e415ab896d4f15e75a15341ab18399f28cd55": 1,
+    "d6fb2a9abcf7a778a9884d20738ce67e0427919e3fedc64df8173c1782db7e15": 1
   },
   "packages/client/connection/tests/node-half.host.spec.ts": {
-    "b7bfb7092ddbfc55e0b0dcf4bf9f0237ce0257e818da21b0141f7a1561fa61fd": 1
+    "cc7a7b079dc89e19aac0e03ebdf9f2af6f575374e6d1a5c04a7fba9677286387": 1
   },
   "packages/client/file-upload/tests/file-upload-http.host.spec.ts": {
     "12a2d457945d43a02ab415318a8f6744ef620abd1fe272e12a164fa4ff476289": 1,
@@ -463,7 +460,7 @@
   },
   "packages/client/ui-chat/tests/chat-view.client.spec.tsx": {
     "6061de0a1e01547eb1abf9d4e1b5fa79fda112fa35dda980775491123413dcce": 3,
-    "6787497d471fc8faaa78ffcbd497c36ceba82c1b8ee16d0d450b405ad4dddc25": 1
+    "73c149676ff121ae7078433eb8638acbc0c431d3772d4683f5af85b14943bab8": 1
   },
   "packages/client/ui-chat/tests/conversation-node-definitions.client.spec.ts": {
     "3c54ebb74328826ee8b48f58e6e66516958545a6a7d4b3b6391dda7b956c69d6": 1,
@@ -507,7 +504,7 @@
   },
   "packages/client/ui-conversation/tests/input-reference-submit.client.spec.ts": {
     "64660ebb9dad7817ede2fd74d80876cae6e57ff62af05f81f6d6cfeee0e297f0": 1,
-    "7a3d6939ca4a1f674a75b7e2be17463224b7dc484c53f3ed7cb0b929db8c64e2": 1,
+    "766143c863ff2e12212f1132b18c18b83f8d895bd46e39ba2e9a974ffe8ef17a": 1,
     "b585faf89fdafeabd09ae294be5f31a6bf0e96247068506f61861a045d1c8d44": 1
   },
   "packages/client/ui-conversation/tests/service-orchestration.client.spec.ts": {
@@ -571,12 +568,12 @@
     "b1db56322d2f3e549d59e65fd4b0a61e7c5d959f9f9bdfa5157a33e3ed1f3e9b": 1
   },
   "packages/client/ui-plan/tests/plan-preview.client.spec.tsx": {
+    "15f4a9a3e3dfb96cdd5cedcbf76890fea55a197d48e1eb7710de6a34c4b29b3b": 2,
     "3b2258b8a75570daf0fa8c497d23f274d8e414f35508a6275932c3806c4c4484": 1,
     "3d9d4fce115bbdf1ad3ed4af51c49b19e7e1bcefefe25c373a7270dec8d73de3": 1,
     "41f50f1679049edf1f4a18e936df5a2ceb2de04f1e43a4fad07d8e93578d2cc6": 1,
     "53f1197af19938d444b06ebf666a8751240d0b5e5ea13edf6100316d1bc5ede2": 5,
-    "9bb8efa3dd59e674ef31f5af43d4aac13ca59d96dd418fe3bf07199c8963c31c": 2,
-    "bd4e8147a13bee681bd192d1558f4a79de23d5edeafb616e8acccd725465ef98": 1,
+    "7f1528f03c0b83f395a758d429d5e7d2565d8082caa47a8fa06232676ef35f53": 1,
     "e01c2c40d53d557b621628de47a0a6677e11b4f151fbefd865c97be99a7b6c48": 1,
     "e69e0ec4368790661e1f7cae5c2059f757c213f0ebb0bd40ec23af982bc73d20": 1
   },
@@ -615,12 +612,12 @@
   },
   "packages/client/ui-settings-plugin-inventory/tests/browser-plugin.client.spec.tsx": {
     "04984a2ce1486250236e638e0197da0a1a840855ed3975c59130a85358c7e5fe": 1,
-    "85f4d0d762126e709ae2178ca656f586dac1ba425eb1d8dd402cb5577d6e8225": 1
+    "d2a2f17e8202c2c1e8bd9dd27d03a80c90d1a24bde31ec51d02125c6a4e54abf": 1
   },
   "packages/client/ui-settings-plugin-inventory/tests/components.client.spec.tsx": {
-    "0d78ec7c8ca39f70a4033ff4d330f8ef26832bb89932f98d1c87d76b4ce16d00": 1,
+    "0988a066728a38d97d776cfc846fc24cd119e7ed340076ae2e9eeb59a1925f85": 1,
     "79c53da50aa08004e201cebca842267ae2650a543b435a7906960f6492c2398b": 1,
-    "a3c1509d552d0102e118f3071a234002a5c83c30ca6923f8a87e9e3733ce0dcf": 1
+    "fbd68794f48655e2bae8c3fa35b34b8ef2497b311a2e8adc8786d912e3e2af54": 1
   },
   "packages/client/ui-settings/tests/schema.client.spec.ts": {
     "0584be4cde4cd33049ef7c02e9d1562a30ec48ef2176f2f22b328b5be2903407": 1
@@ -633,7 +630,7 @@
   },
   "packages/client/ui-sidebar-documentpreview/tests/fixtures.client.ts": {
     "410ac7f98f84d730fc008a23d09f26dd5e8d329c91df6e4d8977255b07935a4c": 1,
-    "5fac996b1dd9ca4a26580c92e56a82ebe711af84cb711042265e4c03d1997a17": 1,
+    "7f78b6f10763a593988a37f32dcd005e5e9e18318cacd1af216b372fc4f02881": 1,
     "bccbd200429e3147b8602a65bc06d46264a54c0318232051adeac835deaa311b": 1
   },
   "packages/client/ui-sidebar-documentpreview/tests/html-body.client.spec.tsx": {
@@ -647,10 +644,10 @@
   },
   "packages/client/ui-sidebar-documentpreview/tests/pdf-document.client.spec.ts": {
     "09acce5c2c2785f021136cb1c978ffa5f510a8ef67fab5b0631c7827eef39e24": 1,
+    "1a0502b3cd6a48f04a406ea042a563c5190b455eee67ac52f77faac0fdd5d9f1": 1,
     "5eaaa9b0cae1c04d2337ddbd27b8c74b7d12135de8f41c15979c806653411f97": 1,
     "69036e0e0cec68ee126ff5959248d79f4fe269928ec0973d08f7ad9efc26e7da": 1,
-    "9f526d0b33661620452eae71880c53105ea9e0b2da019cf8c32db9366edcfed7": 1,
-    "d219680b7bed32e9ed8e9e23797ae4d7640f6bde64226fd6a9c69f3e878fb259": 1
+    "9f526d0b33661620452eae71880c53105ea9e0b2da019cf8c32db9366edcfed7": 1
   },
   "packages/client/ui-sidebar-documentpreview/tests/pdf-smoke.client.spec.ts": {
     "193e777770c611bf1005e2d5ce574b13e1469926c169812107cf091c73772c0b": 1,
@@ -689,10 +686,10 @@
     "2619b64fb6b7aaf380269d12e204e1f44eee31ff48e151313c326dae4ef2887c": 1
   },
   "packages/client/ui-sidebar-terminal/tests/terminal-cursor.client.spec.ts": {
-    "c17c30832b2cde55b57c2c94083562feb1e941ade2d01268f1d49d31a6c6e2ca": 1
+    "f122267b72ea75aa2a4def9fb44aef1fa06bb81e84ab79a8e18572c711c0a413": 1
   },
   "packages/client/ui-sidebar-terminal/tests/terminal-theme.client.spec.ts": {
-    "1fa946c54b497010d85a36dcb586ae0a99991d8eb4eab8ef709eb34af373fdc5": 1
+    "3739663ac888fa8c8ffe63902491eba751cddd63dcd120cb1fd80f45ac291952": 1
   },
   "packages/client/ui-sidebar/src/client/index.ts": {
     "4c73f40f3ce989f285848573d7154fb295886bba707ad829e2c8c089e326aeea": 1
@@ -703,11 +700,11 @@
   "packages/client/ui-subagent/tests/sidebar-chat.client.spec.tsx": {
     "024f8748e8908a495117a23a7673046a871f0d8187f8fe561aceba1269aefa31": 1,
     "6f46259a9f4093d68b3fc7859c263f21b6318197b74aba368e8904321ab5c4f9": 1,
+    "7a847d384a9b9c67c4529aacc488fe92dbab9d9b16e7cd58cb4c727c0142cbba": 1,
     "7eb46f4e5e11cef80bd04f36bf7e9b81b3b3e0811e6a50c8dc0e59b13409ab47": 1,
-    "93043ae394699d6c87db0291ac271884e16d5f5e5f80b8dffd6ec2ccbe0cb774": 1,
     "9fe5203965e5ff62ab3b914bbcbb5229a5146bf9b12839d99684742579b0f30f": 1,
+    "c30ce3e5f52d2b3b3e11649686060809426c257511c5815e44f6e8dbd93f491d": 1,
     "c3f6bb95ba0791435add9be26269aec3bd5cf7bb8a1ffd88913ff8b08b142ed3": 1,
-    "e9abfbf3920ecd6502b74e5eb04d3a1a40b2519f849f5daa193ab7819184ee8b": 1,
     "ffb048df32b10bac91f37b55c618701aa0f9d24c5b5504a3d3f953dc8b7cc7fb": 1
   },
   "packages/client/ui-theme/tests/apply.client.spec.ts": {
@@ -717,12 +714,12 @@
     "6adc289cf963470891b9b4aea9e09db4c98d96d09a245bf41bf679f8f608ba49": 1
   },
   "packages/client/ui-tool/tests/image-card.client.spec.tsx": {
-    "1a5ae4c2528dae3d43a3decbe30410647b6e60104341e070fd4de2c6a668a607": 1,
     "7266b2c682605ac318dad266d9371b6061a73746beac20f2fd94e9391eca5d4a": 1,
-    "a4968fcd795d3444b0896dcd7e9688e84335d4fcc72e138c46f951d157a421c7": 1
+    "76b72d2be2e07323f40335fabc5697457ece6685a2e6e35f17cd9847ab63de24": 1,
+    "ea5acf45042d5c93354de129493c611cdd7641a04a0ba86bd511ab6e6fd6c932": 1
   },
   "packages/client/ui-tool/tests/read-card.client.spec.tsx": {
-    "ad325101d9586299adfd569b444e203060197b4613a9ca3b36671b96a635c569": 1
+    "f55c3e0f03b422c34362ebb34a577b038c0c017f3e5aa1e33f66101cc25cd423": 1
   },
   "packages/client/ui-tool/tests/tool-call-tree.client.spec.tsx": {
     "0579b8a3ceb3401991284810b465c683c710280c41f8e454e41183872b2475d1": 1
@@ -732,7 +729,7 @@
     "f5818e65d60cbb0c16df2dd6ab9b372fbe70ef24b16ddd62737e38f846bdc1c4": 1
   },
   "packages/client/ui-tool/tests/web-card.client.spec.tsx": {
-    "61421a6a2be4d3ea3ad36fcacdc9a6e29c9c2c4f2b29d69cf739123f9dfb4257": 1,
+    "60bf5929e72f53ffbf7feda1dc71d34dc712947de79459030fda9d0d13d47ce7": 1,
     "eda02ef24697e9665ce4c1f6b3d701854bc9083574011e0f3bbd21161206b32b": 1
   },
   "packages/client/ui-trajectory/tests/conversation-definitions.client.spec.ts": {
@@ -747,21 +744,21 @@
     "06d29e11009dc8375c52389c98b08d279b29c6274708bb88030c02ffc1ec2cc5": 1,
     "0ab4c3bca06ea9977590a485910394850a833848aced5af3c5ca7767bb77735c": 1,
     "0fc4a1cacc269719f53d138fb8253a20481116c255c2aa043b77a2061ac68f9a": 1,
-    "189b21b2a9360e0384602b7a81c935ca9a419f9d97d526fb1f6684343486c4fe": 1,
-    "24334994394c1d4336d192b2f38986beadcd0f6b235108370c3a736c34eebe98": 1,
+    "1e3423b7ff614bf0f5b1dfaabbec7ac837ea21ee629b0dfe6383107c97222d17": 1,
     "33e462c9f8d9ef55f1b54a408f047caaa9467facc4fc88887fa5979fdce6c09f": 1,
     "455072902745ebd120bdeaaebf1b00b2d747a300409066715375263bcc4e8a63": 1,
-    "4df26af834cb4f8d55bb6908736ddeb6971b4c4c1cbd5a9ace2f9cfe9c0b94e4": 1,
     "6078d7e1390a0c3c94892edd74526a76e6cbbda8360656bf9f97d367371c0c4c": 1,
+    "6f57b4fa3db36ea611cf22afb35637b406a76cbc0a422e99587093ee48db8d78": 1,
     "71b9c7a18658556ab36c9af394f29dac5885fab402304b0b6f4d5127d6acdeff": 1,
-    "9117562f15005ef8ec18dbad9c29cdc723c4af2c6a9c217af3cd7d8380de999b": 1,
-    "98169406d3c872458f70f3f8f70abdd6eeaca296816ce91cdcf8392cfa6a77bf": 1,
+    "8b69f4ad1179b7ed29a07ae32da890371ed84757c0e8ac4560f99d3c844ddf4a": 1,
+    "91f022d59f9fc06bf2eebbeca788d057a2b80092380c4aa032e17581d316a717": 1,
     "afecf8092cd8de095ffbe00a1df00816897e8205854fd33a9d2beeaee88eca95": 1,
+    "b2fa57a6759ee28281cdb0f33efbf06dcbd5ceb92df99a599384b09fcf96944b": 1,
     "b32e3f8c876615b2607309ee288de85817f0dd0480c4e16dfb3695fb84aa2674": 1,
-    "bc448993c30c4cc92c43cc077a2b00d033ef01a64427c609a8d89b0ba257dfcd": 1,
-    "e888d93b9171a1022992aecebca9c67f8b564ae541bbf0f9129eda3ea423b95c": 1,
+    "d58c358a6a327e0564105170089ef608d743ed507ab446d84ea038c8fdbbfb0e": 1,
+    "d8e3ca87e74a6f614fce6443fd02cc33d8d40f40d919c83bb47c38249bace08a": 1,
     "efed1d00d0f288a0c2716c88ee57ba53ace8f627abba4bd2c20de596755b5bad": 1,
-    "f37cbef85628f8df72f3d455868ac0715105f463a9bd858f10e2cb5f984baefb": 1
+    "fcba42e20b4266d6fda5e4f7a0f3dbbb52888724cc075fb3d0c4fa249208648b": 1
   },
   "packages/client/ui-trajectory/tests/views.client.spec.tsx": {
     "958ba19bf4d19e2dd44b271fa784091302bd3a2fdf291db6839fc49da543c5cf": 2
@@ -798,9 +795,9 @@
     "6517a00893f4956fa1670426a26a1e2e6e7fe21136e82bf1b42731394998f221": 1
   },
   "packages/compaction/compaction/tests/tool-pairing.spec.ts": {
-    "14e30710f1223914ed7a6258d232c5082e539f1da8e45a62580b41445bd18686": 1,
     "6aab53b3e5d082179308a888a26c622e8992b1a74f38bd4fee37d337d66c6584": 1,
-    "c387d84f2582ad93b2b123b5a2865127def18cd99d9240d4cdceb9965d0f9ad5": 1,
+    "d10573c428c1f8b73a7341aff1fa6a2aa2357410398198cc750572aa182ddfa2": 1,
+    "d667b595f39e4fdea834f53dd6894ae8a5b4febed5dd9352d215540a88fb0f52": 1,
     "e9cbed9d889ff09b5300f7c8c58aa24096e3804f40280be06b66badd38ac59f5": 1
   },
   "packages/context/agent-instructions/tests/agent-instructions.spec.ts": {
@@ -855,7 +852,7 @@
     "bffcb662f965953221b90492f4393ce17c357275db1a3fbd69c887cb8564610c": 1
   },
   "packages/core/agent-loop/tests/scope-lifecycle.spec.ts": {
-    "109b78894573e5e413a4fe5299144fef9aeeb4b4eba0b7314562794a6c094423": 1
+    "ec0176bbb5cce96269c6975ec0be45fd5b7aa67c1af19520d7c0b8306be8a3a6": 1
   },
   "packages/core/agent/tests/agent.spec.ts": {
     "336d4996145aa5694f6c8fd39fee7d248ba667330de106330224e92fd4511554": 1,
@@ -874,9 +871,9 @@
   "packages/core/session/tests/canonical-envelopes.spec.ts": {
     "23574fdfdba1d085e9d7aa52f76f723732597efdad04ca6b6742c3f5131376d6": 1,
     "476c99eec169317b1861e5377999bb7a14411c14414de3e9a53b699361c83e61": 1,
+    "589c4d3f592365b3250ec1dd20fa1ed7fe4279b440611c7f8cd581935845252a": 1,
     "7c3d5e2e45cbec1c49a61c78a7bed30e5a885d4493c873f4bcf610f728717269": 1,
-    "91c3fb85a86c310091394ecde51f4c014a5d0b502a5cd4b6398b434a375f484a": 1,
-    "9e542140cc76bc6ac92ce797e135cf810faa9ca1f50a6d344b54ebff46d613d0": 1,
+    "96ca1c0ba66bf7f81271b4a2020fcf1ddde6b1c3b3837ea98b508961dc329b46": 1,
     "e112e0b1c4427023e8cccf70d759f93cf3fff2646de4ec4955d3f6163bc0c3c0": 1
   },
   "packages/core/session/tests/fork.spec.ts": {
@@ -893,27 +890,27 @@
   },
   "packages/core/session/tests/session.spec.ts": {
     "02dc83f0514260f323d0690912804aa8d3673cfe1fec33a83b01245dba8f27ad": 1,
-    "1397678f0f2f1defee43826f7050a9b66e34a3f0fee930400c9596bfa8f497cb": 1,
     "262bb08e365f8bca773412420a4fd5a4fdb819987e956cbf8b34baa341a1f0c6": 1,
     "355ffc357b361217f4667ad213af42db47ee04a84e8c7c46f6a0e159ae23b347": 1,
     "4e5137bf6ce2ab38ce4b13df8e8931cbda7d0131fb48fe387b993c9083e75fe3": 1,
     "579f22df01021b39fc0aff9760b55535fbce61a665eee7fafbaae9702dba81a4": 1,
     "5be5d2c76f2e49d96d86adc32640949dd2cb307516d78bc4fb110e7efc69943c": 1,
     "6370792878103b8fe2963dfeb036963572c1da2bb6dd7fcc10681be1c866b490": 2,
+    "716e97a624a626ec7e79a55787faa2b622170d53642d69cbfc19ccd360c828e2": 1,
     "77e1eb133feae6c08a9d7685a9f9c14c175c497fcb5df5c373bae8f10d07e044": 1,
     "78513aa5d7c79ad177457f8902a0d30bd6929ea63fb912944db22a2a7a538b88": 1,
-    "7b822f2ae12329bfaa50160f6de5a5667ad2a7ba039fe44391c948da160a9e60": 1,
     "7f56ad94587e93d43f0ae7a0ef36beed23e4c20a4ae271e92fd905b223d27672": 1,
     "7fdda4e68fbec063d202c2ea756a9585061eefa58754fca3807a23d39460f317": 1,
+    "83364220c7027019bcf9a1da514d35a9de6efdace6a91f2912f6ff5774908eb3": 1,
     "8ebb077e496bb81a77a8a66a59d03e091121a8312efebabf6b22f54ce2a57def": 1,
+    "909a4e65eca52b14969fcda00703349901b5705dad4cf98a84e290e5ff522f0f": 1,
     "971ec45a1146ab52f2fb13f75b782d5d35c0fb2ddba1fb9ccab14cc54f7291d5": 1,
-    "a37a088ead76b34c2e9aa132ea81b80da20aa76a43296cc7e201325b5bde0ea4": 1,
+    "99cde0de271cdfc250e665a5bc127b8a9e30219e88c5099194dc964bd25a3b1d": 1,
     "a402729db21814545a98092a8cd3aaebfad2b9d2973b33953658b26c7cdcc14d": 1,
     "bb5d4ec5f0d96e67d0b47d731fabc4f18068441fb6482612a5cdb8991beead40": 1,
-    "c40664224b50c42e77adb16fdaa8e058b96b0c3ca64785725fca8f0717861268": 1,
+    "c44770358f763149428bbe8de37bb0b148a2057da281098fc950fb27a4d09770": 1,
     "cebb1e4982e694fd234572dc591485302a9f87ea5568391096fb9f0650cdab4b": 1,
     "ef00cac1ac0e2c3345a0544f4eb182a6a053597984a02e4fe85459b407e2aaae": 1,
-    "ef1e666245f423755111a69ca5831fabb22c585cb609acad382e00db204896b9": 1,
     "f8eeee3c0555f23527df241d66c02971134cc2a873bd17279c8cffe689d17ec3": 1
   },
   "packages/core/session/tests/surface.spec.ts": {
@@ -922,8 +919,8 @@
     "4a4e8e8fda161b478937d2924e959057afcd318f9488e3ef459807faf2a975eb": 1,
     "579f22df01021b39fc0aff9760b55535fbce61a665eee7fafbaae9702dba81a4": 1,
     "6002d949ecb960253ad5158281df97e82d6b1a3bef1a6f599064f482e6d8213c": 2,
+    "66ecc1f73e561dddf31573de26eaa0b7eb21f4abd8d8360f57c8c3c65d6d1c98": 1,
     "830683f7835043e32a07badf2de533dc8c7a87cfd617d609d2f1409a2c1ab917": 1,
-    "9c778420b42b63ce03eb35c8105c06f1232f9934cfc00d4f624add8633797ebf": 1,
     "d2607c1e7b3b435e2b435bd02ab2d1197ec4a4ffab65422fcc8dc0a07d145e64": 1,
     "dcdf72d1bcc53d3868977a16e129c5df351c368e009f810c33ab9e36e63df198": 1,
     "e45cff8ca88d996ff7e8eefdf86db1a9976b85de0811c136d662a3b313832fdf": 1
@@ -938,8 +935,8 @@
     "62870121f1e1644b67c62606e94a375bb40f880cc88edf7cd6baab0249e9da46": 1
   },
   "packages/core/tools/src/testing.ts": {
-    "5be3dd49608bd752ae1371aae8c8d748a07158f7a597e2506af79a621f74f0b3": 1,
-    "6fe9024d30e0d4757a348b83d246925b3f5aeaf2e79a0eff4bf12f3c9fb5826b": 1
+    "6fe9024d30e0d4757a348b83d246925b3f5aeaf2e79a0eff4bf12f3c9fb5826b": 1,
+    "df71acb4bf3c8d3e7b3ef0060df6ae303d699446599ce2a100c8e902a91321f9": 1
   },
   "packages/core/tools/tests/execution-mode.spec.ts": {
     "33dec0693f265044c830377981b51852b773e1a8a765e0b3398a4542c646537b": 1,
@@ -985,11 +982,11 @@
     "52faf4558fcd91bd27dbdfa7e497843e8eeb75ea5f68ee231335018d5b3f2053": 3,
     "5f6d08ed871880dcddd15768fbcfc50fb890dcc03e896717cdc790864ec68e4d": 1,
     "715e2436dfd24ab6cf35498cea087cd13f75a73a1e888c9d4d10817e75ef87d3": 1,
+    "7333876708e9857faf6bf5725c2dba1c6360bafa26931a7403de93926aaa863c": 1,
     "76ca17d1d0fdc659188745edb645d71d796da36b95648b86d2e20bf9e0878914": 1,
     "aed777355c58f2dc68b012fcad12ba4f75a6c4299062317058f64f7eab3de412": 1,
     "b67917fbaa47b872a2a45eeb9a7e4a9186b06edaedabab2c33920f1c5acdf6c3": 2,
     "c81c76a591071c793e11fbe74421c4a2d4660510d064e5dec3d996589dd4beeb": 1,
-    "d3478c9f3a88906a17d5daa6d19c3694a33618cfc000c7c0ee8f3e16f2697322": 1,
     "f9c9afc4ff66b96c59303ffa5475e26719ef101dc45504fee4b56145ff4be02c": 2
   },
   "packages/core/tools/tests/ts-types.spec.ts": {
@@ -999,10 +996,10 @@
     "d80a3368311f07e812a76ff265125b072175f58b6003d9f96a37d4f3e70e3dec": 1
   },
   "packages/credentials/credentials-local/tests/drain.spec.ts": {
-    "a96f4a3497a1c661f76e47ef5fda3c32d2759a7a5f9c519527fa46801a91bf79": 1
+    "bd6086819382d2a80a07610fb6fdddabfdc48f553f2ca393500a658eda797469": 1
   },
   "packages/credentials/credentials-local/tests/watcher.spec.ts": {
-    "6dfe702b6cb8848eeb1d56c5af6ff723d84841aaa1d96790295db4ed70616c65": 1
+    "8a36b225ae55dfa93913dc20f3f73e78b2c2678c474be0b67f87624163f85252": 1
   },
   "packages/deliverables/tool-present/tests/present.spec.ts": {
     "64ab5463fdb068e88a33f022baff473b7a0da77854c4ecf8e26412763d6dccf6": 1
@@ -1018,9 +1015,9 @@
   },
   "packages/experimental/agent-team/tests/projection-events.spec.ts": {
     "71ffbcca0bb71d3b595143632491d4c5d580aaf6ac384c22116e038995b2f2b5": 1,
-    "a66c8967969859328890e6049a0bd9e90403861eb19ed5d6937da5505aa79c05": 1,
-    "bd3a42d7bc38a7deb366d7ad1364f2ab01be2af077aae04e49b9c8a61b9e1c7d": 1,
-    "d8076a64f8d940fb0a5c3df15e9e1c8fb7ac05e84762a6198dbbfcffcf379821": 1
+    "7a936c10fd7c96898b027ee25da4fceccbb40c4d10e3211b4a25e82a6a5caf69": 1,
+    "99cedaf408fa61db64025fcf03d6f4a62b4dddeebe170288c9770bb393582c54": 1,
+    "ae00f77793306c4646b5159f88b1703f007f8257e765f4907011b67f89bce485": 1
   },
   "packages/experimental/agent-team/tests/team.spec.ts": {
     "3ae979a4364fe22772c89133e79ea216cdb4f3163c7cb02c47eb1a5d4788e661": 3,
@@ -1042,7 +1039,7 @@
     "2bacab667d9b30188705724df1ae681fd51fb4ebc2668d8e062bfd37d6eb54f1": 1
   },
   "packages/experimental/browser-use-stagehand-native/tests/worker.spec.ts": {
-    "019c354b579e6d5cfa63e106e3b3047817fe5a37eee532abd7ab4aa80d28676a": 1,
+    "25e38c5faf39946577add7fe8ca004cf883c553c6fa552eabfa0d678d7f9138b": 1,
     "4777453719b1a12ac03d7405a7cc1662ac1873b8eb0016a08ccd11f27076e803": 1
   },
   "packages/experimental/computer-use-cua-driver-mcp/tests/composition.spec.ts": {
@@ -1063,7 +1060,7 @@
   "packages/experimental/hooks-claude-code/tests/coverage-cases.ts": {
     "38a7cf3dfd5da2f739390f5b233b97731f3bfa1ac3a51fdb8e1594735764bb80": 1,
     "54f541ed10b92b1386306754b4a96741f6d9e40058ddac191f5aed03af30c32a": 1,
-    "593ac2fabae51a87153bf285d326f2de6ddb84bf2581f2ac280083b9bc130188": 1
+    "a7cd09affc59884cc2e58b119aae7e2944dd07d7a38215e42ae4ac13514d26fb": 1
   },
   "packages/experimental/hooks-codex/tests/bridge.spec.ts": {
     "bced8a97654435422589a4bdd1b46b5147d4120cd5b496dcf055c453494ce0ab": 1
@@ -1111,7 +1108,7 @@
     "1ac632125c7236caec63ed82aa837557d2f1f251a140654c830812be3d817b48": 1
   },
   "packages/experimental/inspector/tests/cordis-model.host.spec.ts": {
-    "b7989cffe0567e32b0f861c65eb3ff18a90e2229e51984d863799568fb5b3c85": 1
+    "efcb1139abab181d3219666c26732cf2b21fb6bd7660102187a766187a917cd6": 1
   },
   "packages/experimental/inspector/tests/cordis-query.host.spec.ts": {
     "6fe9024d30e0d4757a348b83d246925b3f5aeaf2e79a0eff4bf12f3c9fb5826b": 1
@@ -1165,9 +1162,9 @@
   },
   "packages/experimental/webhook-github/tests/handler.spec.ts": {
     "171a57417a610abfca8b6ef7c8a8bfe71a2c5cc27f6a52158bb9de709d51c234": 1,
+    "21a748f4873aa5dfaa6ef71c6f4b4c35af85cc6294f0147a8e718995a25627e8": 1,
     "981ca4f4ab5668c2c8d0d0bddf9bff66535bbdd27c8bb47816a83e610b60432f": 1,
-    "e60b9922c7a65986547062e8ce78ac09d83b0c0ac9533030deed3a596d3067b3": 2,
-    "f4fa3c346edf323b9d6e18fa1fc720d828de054c14daf95822308634e0e7fe15": 1
+    "e60b9922c7a65986547062e8ce78ac09d83b0c0ac9533030deed3a596d3067b3": 2
   },
   "packages/experimental/webhook-github/tests/loader-composition.spec.ts": {
     "59c63f734e8bba862325f776e3fcbebd78a84cfb4161f8df41c216950d9bf351": 1
@@ -1225,7 +1222,7 @@
     "c81c76a591071c793e11fbe74421c4a2d4660510d064e5dec3d996589dd4beeb": 1
   },
   "packages/extensions/cordis-client-runner/tests/guard.client.spec.ts": {
-    "2083140d2fd46ed4a2a162c7416e19f086b9b47ae3c6ad075f089e8f21ce5f14": 1
+    "e033178faf3b0d73d4a7d1516b62077416967a8161aad34d11da4048d3531e23": 1
   },
   "packages/extensions/cordis-client-runner/tests/orchestrator.client.spec.ts": {
     "3c509a56de8f1177fe8aed8b1fcf59bb9420f7ee817ea1c5a5440fc63c5cd763": 1
@@ -1234,8 +1231,8 @@
     "2f3ce020f446ca3e9010d0ad7fe1aa5b9fd99614dc19272211056ce39331c8d0": 1
   },
   "packages/extensions/cordis-client-runner/tests/runner.client.spec.ts": {
-    "463dd61bf42165d77fd5d1d62cf689b2d41531528254cd4865f01f4fa1d96092": 1,
     "b19c313a0c91feef6d6d499bdd790e6e78107d1504f24b13a36bc508a9b700d5": 1,
+    "ce1ce2661018a49df62b9da9752fcf48b66b5a7cb8f16dc3e29bbe175728fcf6": 1,
     "d470f11b9753557d36e52dcc1e2ce1157944fe476c3cc0d430cf9575d7bc5305": 1,
     "d513598748767304a49e495ac89be92ab699e22deb9d57e25d3cc8b1d6d19b29": 1,
     "e9ed591c66dcf1bd6eac4a95f1cd595cc54f32eb88c0dc366aa81d1c2c28f947": 1
@@ -1286,7 +1283,7 @@
     "ee6a69cb8786aef3fa36838ba724c3dfe6eb49d8fb82aaae51b520ba6b6beae3": 4
   },
   "packages/goal/goal/src/index.ts": {
-    "09a26f55e58db3477446e73f59bd3cdf678ae76ff8f54d185ec4a0ce0dc7da2d": 1
+    "34de0e6cc040db3df788c7cdd31393b6630d220718602fe18d1c41b9939dd888": 1
   },
   "packages/host/directory-picker-auto/tests/loader-composition.spec.ts": {
     "923a65f07e42e49412ff5a8b2f7ff681e37ed1d07bfbf2187b3672b11685edd1": 1
@@ -1345,7 +1342,7 @@
     "5b1064d0195802d24eaa5155c66eb381da6046a8ccd0cacc3d852336475da7ef": 1
   },
   "packages/llm/llm-pi-ai/src/config.ts": {
-    "3b75d3d9ef1c54f306d105f274846b0cc0ab482aa9b558409db7f231132489ed": 1
+    "4a8d8a8c0fa4a1a6e0cc9521f09646a1ad0e92cfeb961c2e716e50f1d6b01609": 1
   },
   "packages/llm/llm-pi-ai/src/replay.ts": {
     "46197efe57255c9d92d64476470c89d0602c7333bf98ad75509bf43c1b357a3b": 1
@@ -1365,7 +1362,7 @@
   },
   "packages/llm/llm-retry/src/index.ts": {
     "3df219493866b820bfcb24557fc4b067accff5bae81d87ffd15845a748b4e42a": 1,
-    "d7af3e0d46b009805a42e6bbdf136c90aa8506bba0a1a461abb722976dcb30b0": 1
+    "f9d71d792ea3a73c98f4afe344e61c379d130a51808bcc4df4132f941746fd09": 1
   },
   "packages/llm/llm-retry/tests/loader-composition.spec.ts": {
     "59c63f734e8bba862325f776e3fcbebd78a84cfb4161f8df41c216950d9bf351": 1
@@ -1396,7 +1393,7 @@
     "d7a5b4679d56948abe2a2941a5199c4715dac8ad5ecce737195d9a609bb3cf1d": 4
   },
   "packages/llm/plugin-package-inventory-deepseek/tests/inventory.spec.ts": {
-    "52d2065a82de4056b5e5d9ae80a45002dc100a8ce5f0434f73f099dc2bc2427f": 1,
+    "680c6699a9f04c8120fd81395417e01b951af032819d9ef2cb57e14b627019cc": 1,
     "9f6156b070f787b60db69ad515eec1a0fc8ecbbe3742ec5c2c1e109df7992f62": 2,
     "d80d9fb673065fb4761f9c832abd280ed22b8825c65027bb24ca3d70601223ee": 2
   },
@@ -1506,19 +1503,19 @@
   "packages/sdk/server/tests/server.spec.ts": {
     "1305ff452c4a44d797b7183012d24a22dae0d8db51ee4104dd18a9d72471f1b5": 1,
     "1e04616b7ebb8d39f6f8ebe3a37e818dc869ed192904956f4e4409c9403d26ea": 1,
-    "2ebb3092eeca4a2ce280c148caf4c4dc665442292f278d3fe15d9b0471281491": 2,
-    "43ac5cd0dcbc6818e678a5c15173052eaceb5125b1873dd4c2aa245dd9920bc5": 1,
-    "51d0436f82db36e4f96258fd28bfbf1916f2c3c400e6c649144932fbbbc9dd30": 1,
-    "66dc9c6e95154cfee02c5e2f03371b36e5572efe6fbcf3c5b4adbb9440e59008": 1,
+    "358aab2cf7596456ce6188837aa6f09fb6e84749c993076248cb921040aeebb2": 2,
     "71fa45c63f1d2dc12e6a4da1120a9ca227ef1b1ffbce510cd0d8847d85f278c0": 9,
     "80fa2ee81263d11fc1fafe6b7dbb608e8ed6e7c7e8e7fa3e726b600e82425294": 1,
-    "82025e3228e5dab025f1c3434c0303baf066b7f40f30352764abc7374a693928": 1,
     "926edbfe0199937da6ec9d119cfd16f6cbc674a242de8f433980da6e6ea8b13b": 1,
+    "97980cff18500f4a35a498ad317b541b049ea28cc4cbb542e7875e5790a7d71d": 1,
     "9b52ca4ca1a86eb1d34576ca3c210d2e09677553e2a0b0e505675782034c147e": 1,
-    "9c3213cd8f09df05b9aceba2033b68f6b61c1abe2231167622ef3fa462d77424": 1,
+    "a034976a01a82357f962d5e7fc5545437e964a93b010507507391375d729c518": 1,
     "a03ef245e286d905868294bee2e81ac282cfa0a5161a1edd6d8b0aa167932fb6": 1,
     "ae0162b189937f84fb9a162eabbc7496f7e196c00e960aef4fe8e5b3e4b87d8d": 3,
-    "d54d74835af1518a4723a7cc803efc0d4e8e337ebb80b813b6ef76bdb813be17": 1
+    "aec0bbd2be52849b258f368f2240021e297b5c61ee229e6b64e7ce814f716c04": 1,
+    "ca6c6c79a2bae25b3224eb800f3e3649ec1455a5034099b1981b9021b9b18eb8": 1,
+    "deb8870d1e68a8311623bad036aaf03b991c9eabb2ebebf9eade86c956652d99": 1,
+    "f79f13ee1ffac2adf64ad4363c77798339d98b261c43cc83771bc8a94d54fffe": 1
   },
   "packages/session-query/session-log-export/tests/archive.host.spec.ts": {
     "1d9879c5cd7b3171db3efae89c8fd81db13524d63e6816581453edca88e4abda": 1,
@@ -1554,8 +1551,8 @@
   },
   "packages/session-query/session-query-sqlite/src/index.ts": {
     "20bfae3cc1b233176dba57069d0b96692a04c01bc0fff4919513db9df1fcf9f6": 1,
-    "32d63c83e16a78aafcdce18bd5418bb311e22df9e7e1801339d9317483e75201": 1,
-    "67575444382e542a0bc64525e2a376ede2628d0a7e5ce1a4a3778577f9130b72": 1,
+    "af114e095aa555538d14d38021ee16fd1ca82a399a3c769221e59f2cf9b0819f": 1,
+    "c786e92968f2db082cb488bd02837db637b5fa151eb401e76025e13f5768341a": 1,
     "f5a84e5b62dce1061f913a72acdbc36515889dc362e1a3fe42689bbdf32bb152": 1
   },
   "packages/session-query/session-query-sqlite/tests/sqlite.spec.ts": {
@@ -1564,14 +1561,14 @@
   },
   "packages/session-query/session-query/tests/session-query.spec.ts": {
     "2bdad1f3e0357a990cb03d23a59f400ba91a2e03beb997cae9bd20c443ac7ca7": 1,
-    "61e32016eabd1cb73e1f9d9adf79d7438eee12afe8b7773e22308b4c7e84cf7d": 1,
+    "7997938e87bd2a0aa8a5c6cfbf636aeff5ed17a93d6bf03d3b48840f5f0203f3": 1,
     "d4baef9e39ba3c2a9e3fd8d9eb1458d71653ad6f904fd4986873d665bcf222f2": 1,
     "e22c55620a1b2007b048929a55ff55f4fb6f2ee10b24510d8cc486e60b63f590": 1,
     "e2d1ad3ef68f20ad8a3e9cc5c9f6ce3252dd1aa6ef0db1cc3b65bc65d16df14b": 1
   },
   "packages/session-query/session-query/tests/tracing.spec.ts": {
     "09a269bed9b7eb21c5d84c1826987ceed50b4d193728e8cd1d01015088762f08": 1,
-    "4cb55fef1f53567526f153fbdf22f46c3e83bb3f6be77d5b42baddbae0b07344": 1
+    "2c411c22ab9b6894b30eb5b71731fafc7833a1db99ea85ae34cfd3492d248420": 1
   },
   "packages/session/session-format-catalog/src/current.ts": {
     "78513aa5d7c79ad177457f8902a0d30bd6929ea63fb912944db22a2a7a538b88": 1,
@@ -1635,19 +1632,19 @@
     "59c63f734e8bba862325f776e3fcbebd78a84cfb4161f8df41c216950d9bf351": 1
   },
   "packages/session/session-log-deepseek/tests/upload.spec.ts": {
-    "0c25d15bf9489ae7483b0a31a64a047c12174602071e0aa29714e0f9196889c6": 1,
     "119461c1a63f392b4db54f75a86f852f49b72b7f0342c04d1bc1c8d1677f37c1": 3,
     "8a30636ade7868ec84e15057fb67e6d2f4bc204bf7042fd7e40c2ada8da3f01a": 1,
     "908e86b966e23795a88c1adc8a8b0326a1dbbd40f03c48104ca7acb3f4f08157": 1,
-    "b8df9e4faaf4e84b5f44b3db199b6f90ff41a977502cac1265dfc2561b3b8054": 1,
-    "c5d9d403492b031ee858f58dfc1adba2188d72ae057ad1867558e4362d50ac59": 1,
+    "b82b2acc8961645e35074e0302610f52c2f0d3ce01da1abc7bbd39ba3d48a59a": 1,
+    "be3ea0cbe93bf3c8879f9829fd9581572f75127ee917640a96ae96adf56750e0": 1,
     "d9c52534d4ab3c223352eda707579c75e4bd1616d865a44a33c44d7abd54aa53": 1,
     "ded70975f4359c57111a4de10143a2ddb83d1b273b655a1246b577c72faf4414": 1,
-    "e112e0b1c4427023e8cccf70d759f93cf3fff2646de4ec4955d3f6163bc0c3c0": 1
+    "e112e0b1c4427023e8cccf70d759f93cf3fff2646de4ec4955d3f6163bc0c3c0": 1,
+    "e852adc481a4e34f2f4197de9301f2b86b7b6f7f3fdbb87a739386b09de52831": 1
   },
   "packages/session/session-persistence-jsonl/src/format.ts": {
     "00ef977a7fb6b45f6adcc0fb8a651423870859c2acf5187b89256762212c524a": 1,
-    "7cb42fa3ace24d76644659f42b6f72ba3234b6d81cf330dae459fb9c37d63b69": 1,
+    "01d9b8f1ac765f2931afcd4858bcb15d18226cc80a83e8011c7cd3b99c63d5f7": 1,
     "971ec45a1146ab52f2fb13f75b782d5d35c0fb2ddba1fb9ccab14cc54f7291d5": 1,
     "ef4116378fb5517f45dfbaaa41578cf75f6ac22149bb0c9c1d4b92ed25803368": 1
   },
@@ -1655,14 +1652,15 @@
     "c1cb4d27d38bd746057fb10e2fb032f55d4a5541b9b4a3580876a6e9dd4083cc": 1
   },
   "packages/session/session-persistence-jsonl/tests/generation.spec.ts": {
+    "28e0fc93ea230c8b44ec0f9d519f09dc055f291ce1241fc829959716f91c9d3f": 1,
     "2cef494036356ef5678c909bb231ce0b40b987befb3167b4fd33033a1425504b": 1,
     "3b261f9e70cd1db3a4c0ccd8946d6fd56c2581f11066ad76bd8cdd43a7c12c2f": 1,
-    "b93c44ab1091311eb33a6daef3eaa986cc981b5e29bd66eadbd94fad17efc51f": 1,
     "cdd46c8ceda6d5707bc2abfba329351ba06bcc030b314a3c799d72a4971bd5a4": 2,
     "f36c9eb275a387531e7c9c193c1fddf984cc8ff8a8fd3a95474630a737b5f728": 1
   },
   "packages/session/session-persistence-jsonl/tests/jsonl.spec.ts": {
     "1058f7a4a2b920b8693144d4c329875739c05b83bcae4d1378427cc1d5f141a0": 1,
+    "13a7637d73ffe67d05de1da30f922fda8d8de4f8b9c52dafea220523e09b5852": 1,
     "2f28d83ee100961d65baf06b0b57ff95b046c36d1e135dab4195ffbd6420a7fd": 1,
     "a7d8cc8d42e37ad5cc4882241492ac572ed8163c7fb8663180e893c7178e906f": 1,
     "aca72c9c675ac6aab8379d5d137eac122eb59803238c3e652bbea6e3e26da35b": 1,
@@ -1671,7 +1669,6 @@
     "c5d92cfb860759a6a1fd46a250b0c5be0e9b5779224b72f3dbbe0ace562a9f69": 1,
     "cc4c2ee361b8bd0a257383b90983432e1f707057eb6d90935bc023483858aa39": 1,
     "cdd46c8ceda6d5707bc2abfba329351ba06bcc030b314a3c799d72a4971bd5a4": 1,
-    "e2d206e4df81b98095928134c70558ac4d642cfe41184d6a5c06bda9d2942fe1": 1,
     "ef31bd7c393b53eb4da79f4cf8fb5caa4d3628076458dbafd2fdb18ac88df9c9": 1
   },
   "packages/session/session-persistence-jsonl/tests/lease.spec.ts": {
@@ -1689,12 +1686,12 @@
     "b40f3bbda2adba664b54271ea4b552ffb2c78a239d39d8b1e882cca164d21c4f": 3
   },
   "packages/session/session-persistence/tests/contract.ts": {
-    "1a732182a70f9e0e8ea0e11f07e9bc1c8e56b5769056aab5040f3691b21d554c": 1,
-    "1c611f75471ab7c5375e7e0b7c72bb5d5d607f29b4dced335a404f4ccda3e536": 1,
-    "388b17be130294c7f55cbc5c96447e8220c8b90d707110d2c6d26db6929c3e8d": 1,
-    "8d4dd6feb816dcd78c30b429f44633f30615ace594fb7d7915b4ebb47d41f2d3": 1,
-    "99f0255dde94c77c2a1c8fa17af0ce85168bdac1bedce584b6e915c811456078": 1,
-    "f863f076a3f52a9500a87f4bc7de87d247a5176875a4fde248c3992da9064c0a": 1
+    "21e02bd1ffeedd88e81ddf8ffa1bd2b7aa268da6f6b8c3158096b96b04c96715": 1,
+    "2f115fcbc66d9bfae7234fd2cc2f9013a29bd3af47c044f0ffb1c62056daf174": 1,
+    "bba3b9e48b5608c4f3ceef289f5be0f0ddeadd8c995fb71ffd0739bef3cec53c": 1,
+    "d53687f046e83e100605ae828d68aae645a9bd61266f0bd4d1063ae667b6060d": 1,
+    "d6d33cae1e7d59c093dc9dc6ab96865fc4864d4c11c437e57e4f4c1721eb6626": 1,
+    "ede73456ed19bd9a7bbdd93000846eee284692ada4c05e8a9c43be2eace57602": 1
   },
   "packages/session/session-persistence/tests/live-write-contract.ts": {
     "b40f3bbda2adba664b54271ea4b552ffb2c78a239d39d8b1e882cca164d21c4f": 5
@@ -1702,10 +1699,10 @@
   "packages/session/session-persistence/tests/storage-contract.spec.ts": {
     "1fba888e4068c1a19754657dc6d8d0f524a33211420783d4ec826c1b68dc5913": 1,
     "3c4c8a7c9685dc3d82b80a364a10cbb8cd04d9366e19924a25c6f691528f589e": 1,
+    "47b070bbc4eba798174b12489549af482cf618dd19b5c1f3fb361269ea38317f": 1,
     "55c2f7b71f50f90d37cb941196bd7b684ffe1fab297fe384b914b858f6a32881": 1,
-    "7fa6833571f26bb5c24d30ecf2665a2d2ed542c4bf5910436661c8f343460b89": 1,
-    "9c0fcd22288b7bb850ffac4f5c1c858ee8541a3c5401ac337c466a12772e3a33": 1,
-    "a5125fb6ffe7a074b9e1fa095f3b975049295e62e0ed97e8cd34f05cb9d09c43": 1,
+    "6f13624d430b7d5f8b05d55774c99bcb497ed458965a723e2831ac3859a7871c": 1,
+    "9f3a7aa8aeb37d2a7874a504e39e4b211c3b63b6965181b2c290ea7c8cd559c6": 1,
     "c4b4640acc4c60390bda3290c8c9f50fac9677e11f0ba5543891903e5f4212b4": 1,
     "fc6b95a34b3876cbb6d4b502a217144548f33bb5aee3d1496c36ba97f9023958": 1
   },
@@ -1751,16 +1748,16 @@
   "packages/shell/tool-bash/tests/tools.spec.ts": {
     "41338a90589ac4c3f04beabf90e520ebf5ea48cd02afd96ccf8ad48dccce120f": 1,
     "48ae3a6867271a1591bfb51f2707502c2eb515e998a557be49030db67ba41cd4": 1,
-    "5c0beb58563a1b35284f952551e508b73d1644ce50c23e270e6a0bbec398cf07": 1,
+    "61e35ccc0bb6f3881efd10a3c35d84d5adc38c83ef3d957b363383577961b13c": 1,
     "ccb0925e3e1d693b0cf9be6216198f915310da30548609cb81aa7e4246c1246a": 1
   },
   "packages/shell/tool-pwsh-persistent/tests/loader-composition.spec.ts": {
     "59c63f734e8bba862325f776e3fcbebd78a84cfb4161f8df41c216950d9bf351": 1
   },
   "packages/shell/tool-pwsh/tests/tools.spec.ts": {
+    "1a8c83b6f8de6e18d1edb0f4777cc530bebd961dfa9fcb09c8102b3550a72029": 1,
     "3923b6d0f0da525911b77d50d8cf81fc8d5ea805090cb6e46876f27216dd6a65": 1,
-    "5cedcf47f5df159bc794dc2adf05d8b8eeccc56b14993d2fb505b127627c5742": 1,
-    "73c54fafe9b5e31d842b420a12bc4188fae6e222bfb64d6e204172f324c34356": 1
+    "5cedcf47f5df159bc794dc2adf05d8b8eeccc56b14993d2fb505b127627c5742": 1
   },
   "packages/skill/skill/tests/skill.spec.ts": {
     "0166546b07456dbfb8e79af5fd97d72bf4ed2cbe6f6847c06f169967d53d7d9a": 2,
@@ -1856,8 +1853,8 @@
     "764cefa4ddc93e5b865cade70e780d8d471ef51e58148e838681ed4cf0bd7b4a": 1
   },
   "packages/subagent/subagent/tests/service.spec.ts": {
-    "41a1501a36d265ae52c5893b26e9e92eacc1012a379afb2948a31d153bcbac2a": 1,
     "514d368a1007506da97412cee4b14191025685d1693f2c68442bb466b5054e02": 1,
+    "b13e4c7167cfca9ef406c0f85e0cfa4d66978114867a5c4d7eafcb052aacbab8": 1,
     "e770821c1f637aca0a346d5f6e6f0873ca4d7e3b070b557cddf773c160ec599a": 1
   },
   "packages/subagent/tool-subagent/src/index.ts": {
@@ -1889,11 +1886,11 @@
     "87e091600ea13c5066cfed62deca5b76abbb30a995067e37bace8fbf8fb16ef5": 1
   },
   "packages/subprocess/subprocess-local/tests/terminal.spec.ts": {
-    "6061de0a1e01547eb1abf9d4e1b5fa79fda112fa35dda980775491123413dcce": 1,
-    "a1e9d7f53f5f4fe7a62cf59753a297117e3332961bbbcef5adc8516ed4b8b5ce": 1
+    "07bf49ef3d0c147c6c8275a25779b2994a1424b09a193874824b4d6bd2dd7ecf": 1,
+    "6061de0a1e01547eb1abf9d4e1b5fa79fda112fa35dda980775491123413dcce": 1
   },
   "packages/subprocess/win32-process/src/ffi.ts": {
-    "fc73c05ee6f9acfa4a33e3db6263c1f2af3fb298205dab5e8df2d2033f9882ea": 1
+    "d17d6e66363e20e7c763474b4953fb92ab8de033c5dc8af23656775753925b10": 1
   },
   "packages/subprocess/win32-process/tests/ffi.spec.ts": {
     "f667e6322907a6bb5f3faa1ca70e6fc107b1e0fb688dc91dc0353cad16310f0b": 1
@@ -1915,21 +1912,21 @@
     "416427f118cf3c2d67ab698603fe2b07ba78d55a6fb55648839a12ab57f5d221": 1,
     "5c99a7715c482c4ac75609c3770da0be5a6cb3b170c12fd70be19ab0019fcd0e": 1,
     "6a25678b631ac67122d26b6cf13b67adc0190c344a224fd5923c3756fd7b4502": 1,
-    "c7d8f7a40efd6ff31a10617083557b5e652e91686780a6ccdd0ebfcd47642649": 1
+    "8defd987c4f33fed4c64b772b51c6daae3b9a6b04af3154c20d447156be41ea2": 1
   },
   "packages/subprocess/win32-process/tests/process.spec.ts": {
     "0e5e16451a64b77aaf268f7b49fdf757fb1725cbe69901221c1db28689358eff": 1,
     "574bce326cab70f3080b19219844405565d1c4c23df4eec85e7838f9ec1038ed": 1,
-    "f5b7ed19aea21153c86ef4e2596f39d1b667b3b8a1d1ba2b2a2a95bf90869b58": 1
+    "f97a49f39cb3fa43ae58881fece3210266c83dd56337de56753a7dfa12cbf8f3": 1
   },
   "packages/terminal/terminal-bash/tests/index.spec.ts": {
     "2878860b606c2614696f97227e4e580a65b1ae1680b6261f233163cd8b838ee0": 1,
+    "2bfd1ef32b5a54db251cb1b8e0afa1ef6fe378a187e0956695c497d8376a3c87": 1,
     "30c8c859832405858e95a7de1493488b75a9030e3baa8fcaf3647e071bd5bbf1": 1,
     "6d3dc24d166f2c9d373b869b5e9810906741932830e4b7f695014bc121e6ab24": 1,
     "9112a2d5c1256fa954c76768f4135294dd6a6a4ffd13871fab2e54d90a894e90": 1,
     "9890d3018d70b3a93d39d6c12b2a56c3011e77d38cd6b34919e93ba526360c6e": 2,
-    "9f84551b52cab038fe0cb49c70862fcd68d5008c8f32d8f43b8c6bfaea694f66": 1,
-    "ad770543b1406f728aa6a91fc8ede6bf3a6b6a2b76b32870151d77ffd28c6711": 1,
+    "9c31d0708f542d8538aef74585f646ca0d3a16ebb92b79dc31cf8d6aafbf8cd9": 1,
     "b33f57d0f6305110b507b0caa10a49574fa86ed9fcd41992e6a7b9aec8db9769": 1,
     "b35ecf6f26fe1f37a664a8845e319f31d8e53a954f8fa0b882cbca3bbef70f15": 1,
     "cd1ee4add9efb17e75b8490177dbe86cb0c4de4d5db404650376de3841be180a": 1
@@ -1987,7 +1984,7 @@
     "e3b3858336ae260253abe549d2b763f5087ab4e8650f4eb5b323339eff0a6ce4": 1
   },
   "packages/test-support/llm-replay/tests/llm-replay.spec.ts": {
-    "319c99c30d9759513c335590587942a42fd0fae77d4f54fd640212df139215cc": 1,
+    "327e5c44fc316e73fe59eb8c81cc74e3724b1aad156116520d341d8aee82d223": 1,
     "8178817a1e752ac5e742dc7e7552161566cf3fe28de9310253d914985060f1e2": 1,
     "957690a91ec3fbe9b64aecc6baed7c902b93956cd87dcbf2b77ea11dd8d75bfc": 1,
     "9b81e0ea560604a3d52094cf7a261c4a03095ef6a314314b8ff0b2354046d9da": 1,
@@ -1995,8 +1992,8 @@
     "f772961d38eac5032c547a0485c4b941da2faa044c428f788934798230fc389a": 1
   },
   "packages/test-support/loader-smoke/tests/agent-turn.spec.ts": {
-    "432811d8f7105d0bf1934d2b52456aeb8f202b334486810dc1b6c3d87349b5b1": 1,
-    "efbd107cd9aad870467dc06957b0d0298798245cf063c9f8e2a8b46c10cb3189": 1,
+    "1d4a2770bc86e52c31d809c3a76ac0474c36e89432eb6df7ef8073b4114e0d25": 1,
+    "36856f40b2c625e8a614bc3d113abddf55b9cb1833ddde0c23fc95875c2288a8": 1,
     "effb170ab353dc903b037ff2e208a85ba87ff1da08f40306f2e292f78609c6c9": 1
   },
   "packages/test-support/session-snapshot/src/harness.ts": {
@@ -2057,21 +2054,25 @@
     "77a439bbf36ca838c15f459e6dc344ee43d2b999b487bfda6b7e1f1c7c20e4e3": 1
   },
   "packages/web/tool-web/tests/spill.spec.ts": {
-    "ecf3420d023d28e1cbc687d438bb66ee49d55a4ae4cb0828dd0f59b926363903": 1
+    "e6cbbdefdc1d7bd413a0fc85bfbf1f378ee6f9fdbf29bef024b65955a30ba0b6": 1
   },
   "packages/web/web-fetch-http/tests/fetch-http.spec.ts": {
-    "366f13ff1ff2522ad824a1d4333085e2c771c0b7ca22783aa41ca2e23233b259": 1
+    "550ab75ba70f90416fb75149e0f7ca00ff906f12e6662a6a28d6432a15f92391": 1
   },
   "packages/web/web-search-deepseek/tests/deepseek.spec.ts": {
-    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 5,
+    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 6,
     "598014dcfe77101781e3c6a02709097e3b0151a335e909c44719fac08fdea433": 2
   },
   "packages/web/web-search-exa/tests/exa.spec.ts": {
-    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 7,
+    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 8,
+    "598014dcfe77101781e3c6a02709097e3b0151a335e909c44719fac08fdea433": 2
+  },
+  "packages/web/web-search-ollama/tests/ollama.spec.ts": {
+    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 6,
     "598014dcfe77101781e3c6a02709097e3b0151a335e909c44719fac08fdea433": 2
   },
   "packages/web/web-search-perplexity/tests/perplexity.spec.ts": {
-    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 5,
+    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 6,
     "598014dcfe77101781e3c6a02709097e3b0151a335e909c44719fac08fdea433": 2,
     "ed2fec09418bc1a78fde5097fd01d5aabf903166ed1bf480a5e38bccdd3948a6": 1
   },
@@ -2090,7 +2091,7 @@
     "f30cc8d63e02fd6608c2c80f9564bfc17f171581770ba2df4b1a62a8869a3105": 1
   },
   "scripts/gen-tool-catalog.ts": {
-    "86969c58d27d2ec65c0607b449bbb5ab4644717f0627729a5a193937d51f419e": 1,
+    "255b8a785635b058865aa1925b2cea07e8e971001ed15ab467f4d312f6b7721e": 1,
     "ebe146aded1e6f3e71f166a7f88720e560b336bbb92d19cea0b2bdab58c46f8a": 1
   },
   "scripts/persistence-changes.ts": {

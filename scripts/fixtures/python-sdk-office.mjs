@@ -10,7 +10,9 @@ export async function apply(ctx, config) {
   const skill = await ctx.skills.get('office-export-pdf')
   const json = skill?.content.match(/\n(\{\n[\s\S]+)$/u)?.[1]
   if (json === undefined) throw new Error('Office skill did not supply CLI paths')
-  const { libreofficeKit: { node, cli: entry } } = JSON.parse(json)
+  const {
+    libreofficeKit: { node, cli: entry },
+  } = JSON.parse(json)
   async function cli(args) {
     const result = await promisify(execFile)(node, [entry, ...args], { timeout: 120_000, env: { ...process.env, PATH: '' } })
     return JSON.parse(result.stdout)
@@ -23,7 +25,10 @@ export async function apply(ctx, config) {
   try {
     const result = await converter.render({ inputPath: config.input, outputPath: config.output })
     const images = await converter.renderImages({ inputPath: config.imageInput, outputDir: config.imageOutput, pages: [1], dpi: 72 })
-    await writeFile(config.result, JSON.stringify({ ...result, images, capabilities, moduleUrl: import.meta.resolve('@deepseek-ai/libreoffice-kit') }))
+    await writeFile(
+      config.result,
+      JSON.stringify({ ...result, images, capabilities, moduleUrl: import.meta.resolve('@deepseek-ai/libreoffice-kit') }),
+    )
   } finally {
     await converter.dispose()
   }

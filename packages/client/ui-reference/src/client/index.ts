@@ -27,7 +27,10 @@ import { FileReference, FolderReference, type FileReferenceInjected } from './Fi
 import { fileReferenceRule, folderReferenceRule } from './user-text-rules.ts'
 export type {} from './user-text-rules.ts'
 import type {
-  ClientSessionContext, InputTriggerCrumb, InputTriggerServiceContract, InputTriggerSource,
+  ClientSessionContext,
+  InputTriggerCrumb,
+  InputTriggerServiceContract,
+  InputTriggerSource,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
@@ -44,8 +47,15 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
 
 /** Required services: the trigger registry, the Remote namespaces, and the copy. */
 export const inject = [
-  'inputTriggers', 'locale', 'sessions', 'remote', 'remote.fileReferences',
-  'remote.sessionReferenceResolver', 'sidebarRight', 'slots', 'uiConversation',
+  'inputTriggers',
+  'locale',
+  'sessions',
+  'remote',
+  'remote.fileReferences',
+  'remote.sessionReferenceResolver',
+  'sidebarRight',
+  'slots',
+  'uiConversation',
 ]
 
 /**
@@ -59,15 +69,21 @@ export function apply(ctx: ClientContext): void {
   ctx.uiConversation.userText.register(fileReferenceRule)
   ctx.uiConversation.userText.register(folderReferenceRule)
   ctx.slots.inject('conversation.user.text.node', function* () {
-    yield ctx.slots.register({
-      name: 'conversation.user.text.node', key: 'file', priority: 100, locale: NS,
-      inject: (sessionId: UserTextNodeProps<'file'>['sessionId']): FileReferenceInjected => ({
-        openFile: (path) => {
-          const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd
-          ctx.sidebarRight.openResource(fileAddressFor(sessionId, cwd, path))
-        },
-      }),
-    }, FileReference)
+    yield ctx.slots.register(
+      {
+        name: 'conversation.user.text.node',
+        key: 'file',
+        priority: 100,
+        locale: NS,
+        inject: (sessionId: UserTextNodeProps<'file'>['sessionId']): FileReferenceInjected => ({
+          openFile: path => {
+            const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd
+            ctx.sidebarRight.openResource(fileAddressFor(sessionId, cwd, path))
+          },
+        }),
+      },
+      FileReference,
+    )
     yield ctx.slots.register({ name: 'conversation.user.text.node', key: 'folder', priority: 100 }, FolderReference)
   })
   const source: InputTriggerSource = {
@@ -81,18 +97,21 @@ export function apply(ctx: ClientContext): void {
       const [fileItems, sessionItems] = await sessions.using(
         session.sessionId,
         { source: 'referenceCandidates', signal },
-        async (reference) => {
+        async reference => {
           signal.throwIfAborted()
           const state = reference.binding.session.getSnapshot()
           if (state.openState !== 'open') {
             throw state.openError ?? new Error(`session "${session.sessionId}" is not open`)
           }
-          const fileLookup = ctx.remote.fileReferences.list(session.sessionId, query, signal)
-            .then(result => result.ok ? result.value : [])
-          const sessionLookup = quoted === true
-            ? Promise.resolve([] as SessionReferenceMentionCandidate[])
-            : ctx.remote.sessionReferenceResolver.candidates(session.sessionId, query, signal)
-              .then(result => result.ok ? result.value : [])
+          const fileLookup = ctx.remote.fileReferences
+            .list(session.sessionId, query, signal)
+            .then(result => (result.ok ? result.value : []))
+          const sessionLookup =
+            quoted === true
+              ? Promise.resolve([] as SessionReferenceMentionCandidate[])
+              : ctx.remote.sessionReferenceResolver
+                  .candidates(session.sessionId, query, signal)
+                  .then(result => (result.ok ? result.value : []))
           return Promise.all([fileLookup, sessionLookup])
         },
       )
@@ -103,7 +122,7 @@ export function apply(ctx: ClientContext): void {
       const now = Date.now()
       const home = ctx.remote.$host.home
       const listed = sessions.list.getSnapshot().byId
-      const sessionRows = sessionItems.map((candidate) => {
+      const sessionRows = sessionItems.map(candidate => {
         const summary = listed[candidate.sessionId]
         const child = summary?.origin === 'subagent' && summary.parentId === session.sessionId
         return {
@@ -196,20 +215,20 @@ type ReferenceCandidateValue =
  * @param t - the reference dictionary.
  * @returns the crumbs, or undefined when this listing needs no header.
  */
-function crumbsFor(
-  query: string,
-  quoted: boolean,
-  drilled: boolean,
-  t: Translate,
-): readonly InputTriggerCrumb[] | undefined {
+function crumbsFor(query: string, quoted: boolean, drilled: boolean, t: Translate): readonly InputTriggerCrumb[] | undefined {
   if (!drilled) return undefined
   const slash = query.lastIndexOf('/')
   if (slash < 0) return undefined
-  const segments = query.slice(0, slash).split('/').filter(segment => segment !== '')
-  const crumbs: InputTriggerCrumb[] = [{
-    label: t('crumb.root'),
-    value: directoryValue(t('crumb.root'), quoted ? '@"' : '@'),
-  }]
+  const segments = query
+    .slice(0, slash)
+    .split('/')
+    .filter(segment => segment !== '')
+  const crumbs: InputTriggerCrumb[] = [
+    {
+      label: t('crumb.root'),
+      value: directoryValue(t('crumb.root'), quoted ? '@"' : '@'),
+    },
+  ]
   for (const [index, segment] of segments.entries()) {
     const path = segments.slice(0, index + 1).join('/')
     const mention = formatFileMention({ path, kind: 'directory' }, quoted)
@@ -231,12 +250,7 @@ function directoryValue(label: string, mention: string): string {
   return JSON.stringify(value)
 }
 
-function fileCandidate(
-  candidate: FileReferenceCandidate,
-  preserveQuote: boolean,
-  withLocation: boolean,
-  t: Translate,
-) {
+function fileCandidate(candidate: FileReferenceCandidate, preserveQuote: boolean, withLocation: boolean, t: Translate) {
   const mention = formatFileMention(candidate, preserveQuote)
   if (mention === undefined) return []
   const slash = candidate.path.lastIndexOf('/')
@@ -249,16 +263,18 @@ function fileCandidate(
     label: name,
     mention,
   }
-  return [{
-    name: `${name}${directory ? '/' : ''}`,
-    // The location is the parent alone: repeating the name the row already
-    // shows says nothing, and a workspace-root entry has no parent to name.
-    ...(withLocation && parent !== '' ? { description: parent } : {}),
-    icon: directory ? 'folder' as const : 'file' as const,
-    section: t('section.files'),
-    value: JSON.stringify(value),
-    ...(directory ? { drill: true } : {}),
-  }]
+  return [
+    {
+      name: `${name}${directory ? '/' : ''}`,
+      // The location is the parent alone: repeating the name the row already
+      // shows says nothing, and a workspace-root entry has no parent to name.
+      ...(withLocation && parent !== '' ? { description: parent } : {}),
+      icon: directory ? ('folder' as const) : ('file' as const),
+      section: t('section.files'),
+      value: JSON.stringify(value),
+      ...(directory ? { drill: true } : {}),
+    },
+  ]
 }
 
 function sessionCandidate(
@@ -276,7 +292,9 @@ function sessionCandidate(
   // the user something when it is not the workspace they are already in.
   const location = candidate.sameWorkspace
     ? undefined
-    : candidate.cwd === undefined ? t('candidate.noCwd') : abbreviateHomePath(candidate.cwd, home)
+    : candidate.cwd === undefined
+      ? t('candidate.noCwd')
+      : abbreviateHomePath(candidate.cwd, home)
   const value: ReferenceCandidateValue = {
     kind: 'session',
     label,

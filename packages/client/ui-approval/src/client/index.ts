@@ -44,9 +44,7 @@ async function answerApproval(
   if (sessionId === undefined) return next()
   const pending = new PendingApproval(sessionId, {
     toolName: request.toolName,
-    ...(request.callId === undefined
-      ? {}
-      : { callId: request.callId }),
+    ...(request.callId === undefined ? {} : { callId: request.callId }),
     ...(request.reason === undefined ? {} : { reason: request.reason }),
     ...(request.displayReason === undefined ? {} : { displayReason: request.displayReason }),
     ...(request.signal === undefined ? {} : { signal: request.signal }),
@@ -76,31 +74,50 @@ async function answerApproval(
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-approval: dictionaries')
-  ctx.inject(['shortcuts'], (scope) => {
+  ctx.inject(['shortcuts'], scope => {
     const t = ctx.locale.bind(NS)
-    scope.effect(() => scope.shortcuts.registerFixed({
-      id: 'approval.allow' as ShortcutCommandId, label: () => t('allowOnce'), keys: ['Enter'], bindings: [{ code: 'Enter', modifiers: [] }], group: 'approval',
-    }), 'ui-approval: fixed allow reference')
-    scope.effect(() => scope.shortcuts.registerFixed({
-      id: 'approval.reject' as ShortcutCommandId, label: () => t('reject'), keys: ['Esc'], bindings: [{ code: 'Escape', modifiers: [] }], group: 'approval',
-    }), 'ui-approval: fixed reject reference')
+    scope.effect(
+      () =>
+        scope.shortcuts.registerFixed({
+          id: 'approval.allow' as ShortcutCommandId,
+          label: () => t('allowOnce'),
+          keys: ['Enter'],
+          bindings: [{ code: 'Enter', modifiers: [] }],
+          group: 'approval',
+        }),
+      'ui-approval: fixed allow reference',
+    )
+    scope.effect(
+      () =>
+        scope.shortcuts.registerFixed({
+          id: 'approval.reject' as ShortcutCommandId,
+          label: () => t('reject'),
+          keys: ['Esc'],
+          bindings: [{ code: 'Escape', modifiers: [] }],
+          group: 'approval',
+        }),
+      'ui-approval: fixed reject reference',
+    )
   })
-  const registerPendingInteraction = ctx.uiSession.registerPendingInteraction<PendingApproval>(
-    () => 0,
+  const registerPendingInteraction = ctx.uiSession.registerPendingInteraction<PendingApproval>(() => 0)
+  ctx.slots.inject('conversation.composer', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.composer',
+        priority: 1,
+        select: ({ pendingInteraction }: ComposerChainProps): PendingApproval | null =>
+          pendingInteraction instanceof PendingApproval ? pendingInteraction : null,
+        locale: NS,
+        inject: () => ({
+          resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => ctx.locale.resolveText(reason),
+        }),
+        children: {
+          'conversation.approval.detail': { kind: 'single', scope: 'session' },
+        },
+      },
+      ApprovalPanel,
+    ),
   )
-  ctx.slots.inject('conversation.composer', () => ctx.slots.register({
-    name: 'conversation.composer',
-    priority: 1,
-    select: ({ pendingInteraction }: ComposerChainProps): PendingApproval | null =>
-      pendingInteraction instanceof PendingApproval ? pendingInteraction : null,
-    locale: NS,
-    inject: () => ({
-      resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => ctx.locale.resolveText(reason),
-    }),
-    children: {
-      'conversation.approval.detail': { kind: 'single', scope: 'session' },
-    },
-  }, ApprovalPanel))
   ctx.remote.$on('approval/request', function (request, next) {
     return answerApproval(ctx, this, request, next, registerPendingInteraction)
   })

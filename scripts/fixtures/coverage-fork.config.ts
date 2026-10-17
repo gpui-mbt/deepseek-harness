@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite-plus'
 import { coverageForkPool } from '../coverage-fork-diagnostics.ts'
 
 const cacheDir = process.env.DSH_TEST_FORK_CACHE

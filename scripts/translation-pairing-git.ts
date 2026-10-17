@@ -25,10 +25,7 @@ function runGit(root: string, args: string[], operation: string): Buffer {
 /** Every stage-zero path currently present in the Git index. */
 export function gitIndexPaths(root: string): Set<string> {
   const paths = new Set<string>()
-  const entries = runGit(root, ['ls-files', '--stage', '-z'], 'listing Git index paths')
-    .toString('utf8')
-    .split('\0')
-    .filter(Boolean)
+  const entries = runGit(root, ['ls-files', '--stage', '-z'], 'listing Git index paths').toString('utf8').split('\0').filter(Boolean)
   for (const entry of entries) {
     const match = /^\d+ [0-9a-f]+ ([0-3])\t([\s\S]+)$/.exec(entry)
     if (!match?.[1] || match[2] === undefined) throw new Error('git ls-files --stage returned a malformed entry')
@@ -46,11 +43,7 @@ export function gitIndexPaths(root: string): Set<string> {
  * @throws Error when the path is unmerged or its index entries are not a valid merge state.
  */
 export function readGitIndexBlob(root: string, path: string): Buffer | undefined {
-  const output = runGit(
-    root,
-    ['ls-files', '--stage', '-z', '--', path],
-    `git ls-files --stage for ${path}`,
-  ).toString('utf8')
+  const output = runGit(root, ['ls-files', '--stage', '-z', '--', path], `git ls-files --stage for ${path}`).toString('utf8')
   const entries = output.split('\0').filter(Boolean)
   if (entries.length === 0) return undefined
   if (entries.length !== 1) throw new Error(`${path} does not have exactly one resolved index entry`)

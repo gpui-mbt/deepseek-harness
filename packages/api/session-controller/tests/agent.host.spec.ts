@@ -10,13 +10,8 @@ import type { SessionHeader } from '@deepseek-ai/dsh-session'
 import { SessionAlreadyOwnedError } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  ApiSessionAgentController,
-  ApiSessionCwdConflict,
-  ApiSessionNotFound,
-  inspectApiSession,
-} from '../src/agent.ts'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { ApiSessionAgentController, ApiSessionCwdConflict, ApiSessionNotFound, inspectApiSession } from '../src/agent.ts'
 import { installModelSelectionProjection } from '../src/model-selection-projection.ts'
 import { installSessionReadTestServices, testSessionPersistence } from './test-remote.ts'
 
@@ -76,10 +71,8 @@ function unpublishedAgent(ctx: Context, meta: SessionHeader): Agent {
 
 describe('ApiSession identity failures', () => {
   it('describes cwd conflicts with and without a recorded cwd', () => {
-    expect(new ApiSessionCwdConflict(SessionId('missing-cwd'), '/wanted', undefined).message)
-      .toContain('records no cwd')
-    expect(new ApiSessionCwdConflict(SessionId('wrong-cwd'), '/wanted', '/existing').message)
-      .toContain('belongs to "/existing"')
+    expect(new ApiSessionCwdConflict(SessionId('missing-cwd'), '/wanted', undefined).message).toContain('records no cwd')
+    expect(new ApiSessionCwdConflict(SessionId('wrong-cwd'), '/wanted', '/existing').message).toContain('belongs to "/existing"')
   })
 
   it('maps absent and cwd-less point observations to not found', async () => {
@@ -87,8 +80,7 @@ describe('ApiSession identity failures', () => {
     roots.push(ctx)
     await ctx.plugin(SessionStore)
     installSessionReadTestServices(ctx)
-    await expect(inspectApiSession(ctx, SessionId('missing')))
-      .rejects.toBeInstanceOf(ApiSessionNotFound)
+    await expect(inspectApiSession(ctx, SessionId('missing'))).rejects.toBeInstanceOf(ApiSessionNotFound)
 
     const inspect = vi.fn(() => Promise.resolve(undefined))
     const stat = vi.fn(() => Promise.resolve(undefined))
@@ -280,9 +272,7 @@ describe('ApiSession Agent lookup and recovery', () => {
       [Symbol.dispose]: vi.fn(),
     } as unknown as SessionObservation
 
-    expect(() => agents.presetForObservation(observed)).toThrow(
-      'Agent activation requires a projected Session observation',
-    )
+    expect(() => agents.presetForObservation(observed)).toThrow('Agent activation requires a projected Session observation')
   })
 })
 
@@ -315,7 +305,9 @@ describe('ApiSession model selection', () => {
       reasoningEffort: 'high' as never,
     })
     expect(selection.current).toMatchObject({
-      provider: 'selected-provider', model: 'selected-model', reasoningEffort: 'high',
+      provider: 'selected-provider',
+      model: 'selected-model',
+      reasoningEffort: 'high',
     })
     expect(agents.consumeSelection(pending, 'other-provider', 'selected-model', 'high')).toBe(false)
     expect(agents.consumeSelection(pending, 'selected-provider', 'other-model', 'high')).toBe(false)
@@ -356,7 +348,8 @@ describe('ApiSession creation', () => {
     tempDirs.push(parent)
     const file = join(parent, 'file')
     writeFileSync(file, 'not a directory')
-    await expect(agents.createSession({ cwd: join(file, 'child'), reusable: () => true }))
-      .rejects.toThrow('failed to ensure project directory')
+    await expect(agents.createSession({ cwd: join(file, 'child'), reusable: () => true })).rejects.toThrow(
+      'failed to ensure project directory',
+    )
   })
 })

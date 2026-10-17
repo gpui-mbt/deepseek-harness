@@ -33,8 +33,11 @@ export interface OfficeBodyInjected extends OfficeLoadInjected {
 }
 
 /** Office body inputs and its private PDF child. */
-export type OfficeBodyProps = DocumentPreviewProps & PropsStore<OfficeStore> & OfficeBodyInjected
-  & PropsLocale<'sidebarOffice'> & PropsRenderSlots<'sidebar.right.tab.document.office.pdf'>
+export type OfficeBodyProps = DocumentPreviewProps &
+  PropsStore<OfficeStore> &
+  OfficeBodyInjected &
+  PropsLocale<'sidebarOffice'> &
+  PropsRenderSlots<'sidebar.right.tab.document.office.pdf'>
 
 /**
  * Load one Office revision and preserve its result while its tab remains open.
@@ -49,30 +52,48 @@ export function OfficeBody(props: OfficeBodyProps): ReactNode {
   const held = props.useStore(state => state.byTab[tab.id])
   const view = held?.revision === revision ? held : undefined
   const settled = view?.file !== undefined || view?.failure !== undefined
-  useEffect(() => { retainTab(tab.id, tab.signal) }, [retainTab, tab.id, tab.signal])
+  useEffect(() => {
+    retainTab(tab.id, tab.signal)
+  }, [retainTab, tab.id, tab.signal])
   // Metadata may replace callbacks without advancing the content revision.
   useEffect(() => {
     if (request === undefined || settled || tab.signal.aborted) return
     const controller = new AbortController()
     const signal = AbortSignal.any([controller.signal, tab.signal])
     load(tab.id, request.revision, hostFileOf(resourceAddress), signal, request.loaded, request.failed)
-    return () => { controller.abort() }
+    return () => {
+      controller.abort()
+    }
   }, [revision, resourceAddress, tab.id, tab.signal, load, settled])
   const file = view?.file
   if (request === undefined) return null
   if (view?.failure !== undefined) {
     const { name } = pathPartsOf(resourceAddress)
-    return <div className={common.empty} data-textpreview-failed={view.failure.code}>
-      <FileTypeIcon kind={classifyFileType(name)} size={36} />
-      <p className={common.emptyLine}>{view.failure.message}</p>
-      <Button size="sm" onClick={request.reload}>{t('retry')}</Button>
-    </div>
+    return (
+      <div className={common.empty} data-textpreview-failed={view.failure.code}>
+        <FileTypeIcon kind={classifyFileType(name)} size={36} />
+        <p className={common.emptyLine}>{view.failure.message}</p>
+        <Button size="sm" onClick={request.reload}>
+          {t('retry')}
+        </Button>
+      </div>
+    )
   }
   if (file === undefined) return <LoadingIndicator label={t('loading')} />
-  return <div className={css.body}>
-    {props.renderSlot('sidebar.right.tab.document.office.pdf', {
-      resourceAddress, content: { kind: 'bytes', data: file.data }, wrap: props.wrap, scrollportRef: props.scrollportRef,
-      addResource: props.addResource, setResources: props.setResources,
-    }, { entryKey: '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/office', hookContext: props.useTabInfo })}
-  </div>
+  return (
+    <div className={css.body}>
+      {props.renderSlot(
+        'sidebar.right.tab.document.office.pdf',
+        {
+          resourceAddress,
+          content: { kind: 'bytes', data: file.data },
+          wrap: props.wrap,
+          scrollportRef: props.scrollportRef,
+          addResource: props.addResource,
+          setResources: props.setResources,
+        },
+        { entryKey: '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/office', hookContext: props.useTabInfo },
+      )}
+    </div>
+  )
 }

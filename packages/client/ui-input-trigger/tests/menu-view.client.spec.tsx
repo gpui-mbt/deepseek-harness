@@ -7,15 +7,13 @@
  * focus, the highlight is exposed through aria-activedescendant +
  * aria-selected, and the list height clamps to the space above the composer.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { zh } from '../src/client/locales.ts'
-import type {
-  InputTriggerCrumb, MenuState, TriggerHit,
-} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type { InputTriggerCrumb, MenuState, TriggerHit } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { MenuView } from '../src/client/MenuView.tsx'
 
 const hit: TriggerHit = {
@@ -67,15 +65,7 @@ function mount(state: MenuState, crumbs: ReadonlyMap<string, readonly InputTrigg
   const onHover = vi.fn()
   const onDismiss = vi.fn()
   const view = render(
-    <MenuView
-      menu={menu}
-      headers={headers}
-      onPick={onPick}
-      onCrumb={onCrumb}
-      onHover={onHover}
-      onDismiss={onDismiss}
-      t={t}
-    />,
+    <MenuView menu={menu} headers={headers} onPick={onPick} onCrumb={onCrumb} onHover={onHover} onDismiss={onDismiss} t={t} />,
   )
   return { menu, headers, onPick, onCrumb, onHover, onDismiss, view }
 }
@@ -89,17 +79,20 @@ function menuShell(): HTMLElement {
 
 /** The non-interactive group title rows (role=presentation), in document order. */
 function titles(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('div[role="presentation"][data-source]')]
-    .map(el => el.textContent ?? '')
+  return [...container.querySelectorAll('div[role="presentation"][data-source]')].map(el => el.textContent ?? '')
 }
 
 describe('MenuView', () => {
   it('renders null while closed and appears when the store opens', () => {
     const { menu, view } = mount(CLOSED)
     expect(view.container.childElementCount).toBe(0)
-    act(() => { menu.set(openState()) })
+    act(() => {
+      menu.set(openState())
+    })
     expect(screen.queryByRole('listbox')).not.toBeNull()
-    act(() => { menu.set(CLOSED) })
+    act(() => {
+      menu.set(CLOSED)
+    })
     expect(view.container.childElementCount).toBe(0)
   })
 
@@ -116,16 +109,20 @@ describe('MenuView', () => {
 
   it('renders a localized label as the title with the name as its alias, an icon component, and the description', () => {
     const Glyph = ({ size = 16 }: { size?: number | undefined }) => <svg data-glyph="plan" width={size} height={size} />
-    mount(openState({
-      groups: [{
-        source: 'command',
-        status: 'ready',
-        items: [
-          { name: 'plan', label: '计划', description: '进入或退出计划模式', icon: Glyph, section: '添加' },
-          { name: 'file', label: 'File', section: '添加' },
+    mount(
+      openState({
+        groups: [
+          {
+            source: 'command',
+            status: 'ready',
+            items: [
+              { name: 'plan', label: '计划', description: '进入或退出计划模式', icon: Glyph, section: '添加' },
+              { name: 'file', label: 'File', section: '添加' },
+            ],
+          },
         ],
-      }],
-    }))
+      }),
+    )
     const options = screen.getAllByRole('option')
     expect(options.map(o => o.textContent)).toEqual(['计划plan进入或退出计划模式', 'File'])
     expect(options[0]?.querySelector('[data-glyph="plan"]')?.getAttribute('width')).toBe('14')
@@ -135,73 +132,80 @@ describe('MenuView', () => {
   })
 
   it('keeps an opted-out source title hidden while its candidates are pending', () => {
-    mount(openState({
-      groups: [{ source: 'reference', showGroupTitle: false, status: 'pending', items: [] }],
-      highlight: null,
-    }))
+    mount(
+      openState({
+        groups: [{ source: 'reference', showGroupTitle: false, status: 'pending', items: [] }],
+        highlight: null,
+      }),
+    )
     expect(screen.queryByText('reference')).toBeNull()
     expect(screen.getByRole('status', { name: '正在加载…' })).toBeTruthy()
   })
 
   it('renders retained items instead of skeletons while a refinement is pending', () => {
-    mount(openState({
-      groups: [{ source: 'command', status: 'pending', items: [{ name: 'goal' }] }],
-      highlight: null,
-    }))
+    mount(
+      openState({
+        groups: [{ source: 'command', status: 'pending', items: [{ name: 'goal' }] }],
+        highlight: null,
+      }),
+    )
     expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['goal'])
     expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('titles each group with the localized source name, raw name for unknown sources, none for empty ready groups', () => {
-    const { view } = mount(openState({
-      groups: [
-        { source: 'command', status: 'ready', items: [{ name: 'goal' }] },
-        { source: 'hollow', status: 'ready', items: [] },
-        { source: 'mystery', status: 'ready', items: [{ name: 'x' }] },
-        { source: 'skill', status: 'pending', items: [] },
-      ],
-    }))
+    const { view } = mount(
+      openState({
+        groups: [
+          { source: 'command', status: 'ready', items: [{ name: 'goal' }] },
+          { source: 'hollow', status: 'ready', items: [] },
+          { source: 'mystery', status: 'ready', items: [{ name: 'x' }] },
+          { source: 'skill', status: 'pending', items: [] },
+        ],
+      }),
+    )
     expect(titles(view.container)).toEqual(['指令', 'mystery', '技能'])
   })
 
   it('renders contiguous candidate sections once without changing option indexes', () => {
-    const { onPick } = mount(openState({
-      groups: [{
-        source: 'reference',
-        status: 'ready',
-        items: [
-          { name: 'Folder · src/', section: '文件与文件夹' },
-          { name: 'File · README.md', section: '文件与文件夹' },
-          { name: 'Session · Research', section: '对话' },
+    const { onPick } = mount(
+      openState({
+        groups: [
+          {
+            source: 'reference',
+            status: 'ready',
+            items: [
+              { name: 'Folder · src/', section: '文件与文件夹' },
+              { name: 'File · README.md', section: '文件与文件夹' },
+              { name: 'Session · Research', section: '对话' },
+            ],
+          },
         ],
-      }],
-      highlight: { source: 'reference', index: 0 },
-    }))
+        highlight: { source: 'reference', index: 0 },
+      }),
+    )
     expect(screen.queryByText('reference')).toBeNull()
     expect(screen.getAllByText('文件与文件夹')).toHaveLength(1)
     expect(screen.getAllByText('对话')).toHaveLength(1)
     const options = screen.getAllByRole('option')
-    expect(options.map(option => option.textContent)).toEqual([
-      'Folder · src/',
-      'File · README.md',
-      'Session · Research',
-    ])
+    expect(options.map(option => option.textContent)).toEqual(['Folder · src/', 'File · README.md', 'Session · Research'])
     fireEvent.mouseDown(options[2]!)
     expect(onPick).toHaveBeenCalledWith('reference', 2)
   })
 
   it('renders the drill chevron only on drillable rows and routes its own action', () => {
-    const { onPick } = mount(openState({
-      groups: [{
-        source: 'reference',
-        status: 'ready',
-        items: [
-          { name: 'Folder · src/', drill: true },
-          { name: 'File · README.md' },
+    const { onPick } = mount(
+      openState({
+        groups: [
+          {
+            source: 'reference',
+            status: 'ready',
+            items: [{ name: 'Folder · src/', drill: true }, { name: 'File · README.md' }],
+          },
         ],
-      }],
-      highlight: { source: 'reference', index: 0 },
-    }))
+        highlight: { source: 'reference', index: 0 },
+      }),
+    )
     const chevrons = screen.getAllByRole('button', { name: '进入目录' })
     expect(chevrons).toHaveLength(1)
     // The chevron drills; the row body still settles the pick untouched.
@@ -229,7 +233,9 @@ describe('MenuView', () => {
   it('scrolls the highlighted option into view when the highlight moves', () => {
     const { menu } = mount(openState())
     scrollIntoView.mockClear()
-    act(() => { menu.set(openState({ highlight: { source: 'command', index: 1 } })) })
+    act(() => {
+      menu.set(openState({ highlight: { source: 'command', index: 1 } }))
+    })
     const options = screen.getAllByRole('option')
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
     expect(scrollIntoView.mock.instances.at(-1)).toBe(options[1])
@@ -253,7 +259,9 @@ describe('MenuView', () => {
     mount(openState())
     expect(menuShell().style.maxHeight).toBe('400px')
     rect.mockReturnValue({ bottom: 100 } as DOMRect)
-    act(() => { window.dispatchEvent(new Event('resize')) })
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
     expect(menuShell().style.maxHeight).toBe('16px')
   })
 
@@ -317,7 +325,9 @@ describe('MenuView', () => {
 
   it('closing the menu removes the dismiss listener', () => {
     const { menu, onDismiss } = mount(openState())
-    act(() => { menu.set(CLOSED) })
+    act(() => {
+      menu.set(CLOSED)
+    })
     fireEvent.pointerDown(document.body)
     expect(onDismiss).not.toHaveBeenCalled()
   })
@@ -343,23 +353,38 @@ describe('MenuView', () => {
   })
 
   it('renders a source header as a breadcrumb above the list, current step last', () => {
-    mount(openState(), new Map([['command', [
-      { label: 'Workspace', value: 'root' },
-      { label: 'src', value: 'src' },
-      { label: 'module1', value: 'module1', current: true },
-    ]]]))
+    mount(
+      openState(),
+      new Map([
+        [
+          'command',
+          [
+            { label: 'Workspace', value: 'root' },
+            { label: 'src', value: 'src' },
+            { label: 'module1', value: 'module1', current: true },
+          ],
+        ],
+      ]),
+    )
     const nav = screen.getByRole('navigation', { name: '目录导航' })
-    expect([...nav.querySelectorAll('button')].map(button => button.textContent))
-      .toEqual(['Workspace', 'src', 'module1'])
+    expect([...nav.querySelectorAll('button')].map(button => button.textContent)).toEqual(['Workspace', 'src', 'module1'])
     // The listbox holds options alone; the header is its sibling, not a row.
     expect(screen.getByRole('listbox').contains(nav)).toBe(false)
   })
 
   it('mousedown on a crumb routes (source, index) without stealing focus; the current step is inert', () => {
-    const { onCrumb } = mount(openState(), new Map([['command', [
-      { label: 'Workspace', value: 'root' },
-      { label: 'src', value: 'src', current: true },
-    ]]]))
+    const { onCrumb } = mount(
+      openState(),
+      new Map([
+        [
+          'command',
+          [
+            { label: 'Workspace', value: 'root' },
+            { label: 'src', value: 'src', current: true },
+          ],
+        ],
+      ]),
+    )
     const crumbs = screen.getByRole('navigation', { name: '目录导航' }).querySelectorAll('button')
     expect(fireEvent.mouseDown(crumbs[0]!)).toBe(false)
     expect(onCrumb).toHaveBeenCalledWith('command', 0)

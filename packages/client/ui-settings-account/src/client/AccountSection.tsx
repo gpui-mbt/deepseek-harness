@@ -87,8 +87,7 @@ export interface AccountSectionInjected {
   signOut: () => Promise<void>
 }
 /** Composed account section props. */
-export type AccountSectionProps =
-  PropsRuntime<'settings.section'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
+export type AccountSectionProps = PropsRuntime<'settings.section'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 /** @param props - localized actions, account subscription, and the shared Platform page channel. @returns account settings UI. */
 export function AccountSection({ t, useAccount, useTheme, start, cancel, openPlatformPage, avatarFailed }: AccountSectionProps) {
   const { view: state, details, avatar, failed: streamFailed } = useAccount(value => value)
@@ -100,14 +99,20 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const [busy, setBusy] = useState(false)
   const profile = details?.profile?.status === 'ready' ? details.profile.value : undefined
   const wallets = details?.balance?.status === 'ready' ? details.balance.value : undefined
-  const bonusWallets = details?.balance?.status === 'ready'
-    ? details.balance.bonusWallets.filter(wallet => new Big(wallet.balance).gt(0)) : []
+  const bonusWallets =
+    details?.balance?.status === 'ready' ? details.balance.bonusWallets.filter(wallet => new Big(wallet.balance).gt(0)) : []
   const showBonusRow = details?.balance?.status !== 'ready' || bonusWallets.length > 0
   const attempt = state?.attempt
-  const active = attempt !== null && attempt !== undefined
-    && ['initializing', 'waiting-browser', 'exchanging', 'committing'].includes(attempt.phase)
+  const active =
+    attempt !== null && attempt !== undefined && ['initializing', 'waiting-browser', 'exchanging', 'committing'].includes(attempt.phase)
   const signedIn = state?.status === 'credential-stored'
-  useEffect(() => () => { releasePage.current?.(); releasePage.current = undefined }, [])
+  useEffect(
+    () => () => {
+      releasePage.current?.()
+      releasePage.current = undefined
+    },
+    [],
+  )
   useEffect(() => {
     if (signedIn) return
     releasePage.current?.()
@@ -115,19 +120,30 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   }, [signedIn])
   const showPage = (open: PlatformPages['open'], page: PlatformPage) => {
     releasePage.current?.()
-    releasePage.current = open(page, () => { releasePage.current = undefined })
+    releasePage.current = open(page, () => {
+      releasePage.current = undefined
+    })
   }
   const run = async (action: () => Promise<void>) => {
     setBusy(true)
     setFailed(false)
-    try { await action() } catch { setFailed(true) } finally { setBusy(false) }
+    try {
+      await action()
+    } catch {
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
   }
   /**
    * @param event - click on a Platform destination link.
    * @returns nothing; on Desktop the embedded page replaces the pending navigation.
    */
   const openUsage = (event: MouseEvent<HTMLAnchorElement>): void => {
-    if (openPlatformPage !== undefined && signedIn) { event.preventDefault(); showPage(openPlatformPage, 'usage') }
+    if (openPlatformPage !== undefined && signedIn) {
+      event.preventDefault()
+      showPage(openPlatformPage, 'usage')
+    }
   }
   /**
    * The Platform entry the balance rows share with the Usage action: an embedded page on
@@ -139,27 +155,50 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
    * @returns the Platform anchor.
    */
   const platformLink = (label: string, className: string | undefined) => (
-    <a className={className} href={state?.links.usageUrl} aria-disabled={state === undefined}
-      target="_blank" rel="noreferrer" onClick={openUsage}>{label}</a>
+    <a
+      className={className}
+      href={state?.links.usageUrl}
+      aria-disabled={state === undefined}
+      target="_blank"
+      rel="noreferrer"
+      onClick={openUsage}
+    >
+      {label}
+    </a>
   )
-  const status = failed || streamFailed || attempt?.phase === 'failed' ? t('failed')
-    : attempt?.phase === 'expired' ? t('expired')
-      : active ? t(attempt.phase === 'initializing' ? 'initializing' : attempt.phase === 'waiting-browser' ? 'waiting' : 'completing')
-        : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable') : t('signInDescription')
-  if (!signedIn && !active) return (
-    <section className={css.signedOut} aria-label={t('nav')}>
-      <div className={css.signedOutContent}>
-        <div className={css.signedOutCopy}>
-          <span className={css.signedOutTitle}>{t('settingsSignedOutTitle')}</span>
-          <span className={css.signedOutDescription} role="status">
-            {failed || streamFailed ? t('failed') : t('settingsSignedOutDescription')}
-          </span>
+  const status =
+    failed || streamFailed || attempt?.phase === 'failed'
+      ? t('failed')
+      : attempt?.phase === 'expired'
+        ? t('expired')
+        : active
+          ? t(attempt.phase === 'initializing' ? 'initializing' : attempt.phase === 'waiting-browser' ? 'waiting' : 'completing')
+          : signedIn
+            ? (profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable'))
+            : t('signInDescription')
+  if (!signedIn && !active)
+    return (
+      <section className={css.signedOut} aria-label={t('nav')}>
+        <div className={css.signedOutContent}>
+          <div className={css.signedOutCopy}>
+            <span className={css.signedOutTitle}>{t('settingsSignedOutTitle')}</span>
+            <span className={css.signedOutDescription} role="status">
+              {failed || streamFailed ? t('failed') : t('settingsSignedOutDescription')}
+            </span>
+          </div>
+          <Button
+            variant="primary"
+            className={css.signInButton}
+            disabled={busy || state === undefined}
+            onClick={() => {
+              void run(start)
+            }}
+          >
+            {t('signIn')}
+          </Button>
         </div>
-        <Button variant="primary" className={css.signInButton} disabled={busy || state === undefined}
-          onClick={() => { void run(start) }}>{t('signIn')}</Button>
-      </div>
-    </section>
-  )
+      </section>
+    )
   return (
     <section className={css.section} aria-label={t('nav')}>
       <div className={css.card}>
@@ -168,56 +207,93 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
             <AccountAvatar avatar={signedIn ? avatar : undefined} avatarFailed={avatarFailed} />
           </span>
           <div className={css.identityCopy}>
-            <span className={css.name}>{signedIn ? profile?.name ?? t('signedIn') : t('signedOut')}</span>
-            <span className={css.status} role="status">{status}</span>
+            <span className={css.name}>{signedIn ? (profile?.name ?? t('signedIn')) : t('signedOut')}</span>
+            <span className={css.status} role="status">
+              {status}
+            </span>
           </div>
         </div>
-        {signedIn && <a className={css.accountInfo} href={new URL('/', state.links.usageUrl).href} target="_blank" rel="noopener noreferrer">
-          {t('accountInfo')}<IconRightUpOutlineRegular size={12} />
-        </a>}
+        {signedIn && (
+          <a className={css.accountInfo} href={new URL('/', state.links.usageUrl).href} target="_blank" rel="noopener noreferrer">
+            {t('accountInfo')}
+            <IconRightUpOutlineRegular size={12} />
+          </a>
+        )}
       </div>
-      {active && <div className={css.actions}>
-        {attempt.authorizeUrl && <a className={css.linkButton} href={authorizeUrlWithTheme(attempt.authorizeUrl, colorScheme)}
-          target="_blank" rel="noreferrer">
-          {t('open')}
-        </a>}
-        <Button variant="outline" disabled={busy || attempt.phase === 'committing'}
-          onClick={() => { void run(() => cancel(attempt.id)) }}>{t('cancel')}</Button>
-      </div>}
+      {active && (
+        <div className={css.actions}>
+          {attempt.authorizeUrl && (
+            <a className={css.linkButton} href={authorizeUrlWithTheme(attempt.authorizeUrl, colorScheme)} target="_blank" rel="noreferrer">
+              {t('open')}
+            </a>
+          )}
+          <Button
+            variant="outline"
+            disabled={busy || attempt.phase === 'committing'}
+            onClick={() => {
+              void run(() => cancel(attempt.id))
+            }}
+          >
+            {t('cancel')}
+          </Button>
+        </div>
+      )}
       <div className={css.balanceCard}>
         <div className={css.row}>
           <span>{t('balance')}</span>
-          {signedIn && wallets !== undefined && wallets.length > 0
-            ? <span className={css.amount}>{wallets.map(wallet => <span key={wallet.currency}>
-              {formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')}
-            </span>)}</span>
-            : !signedIn || details?.balance === undefined
-              ? <span className={css.unavailable}>{t(!signedIn ? 'balanceSignedOut' : 'loading')}</span>
-              : platformLink(t('balanceUnavailable'), css.unavailableLink)}
-        </div>
-        {signedIn && showBonusRow && <>
-          <div className={css.divider} />
-          <div className={css.row}>
-            <span>{t('bonusBalance')}</span>
-            <span className={css.bonusValue}>
-              {bonusWallets.length > 0
-                ? <span className={css.amount}>{bonusWallets.map(wallet => <span key={wallet.currency}>
-                  {formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')}
-                </span>)}</span>
-                : details?.balance === undefined
-                  ? <span className={css.unavailable}>{t('loading')}</span>
-                  : platformLink(t('balanceUnavailable'), css.unavailableLink)}
+          {signedIn && wallets !== undefined && wallets.length > 0 ? (
+            <span className={css.amount}>
+              {wallets.map(wallet => (
+                <span key={wallet.currency}>{formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')}</span>
+              ))}
             </span>
-          </div>
-        </>}
+          ) : !signedIn || details?.balance === undefined ? (
+            <span className={css.unavailable}>{t(!signedIn ? 'balanceSignedOut' : 'loading')}</span>
+          ) : (
+            platformLink(t('balanceUnavailable'), css.unavailableLink)
+          )}
+        </div>
+        {signedIn && showBonusRow && (
+          <>
+            <div className={css.divider} />
+            <div className={css.row}>
+              <span>{t('bonusBalance')}</span>
+              <span className={css.bonusValue}>
+                {bonusWallets.length > 0 ? (
+                  <span className={css.amount}>
+                    {bonusWallets.map(wallet => (
+                      <span key={wallet.currency}>{formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')}</span>
+                    ))}
+                  </span>
+                ) : details?.balance === undefined ? (
+                  <span className={css.unavailable}>{t('loading')}</span>
+                ) : (
+                  platformLink(t('balanceUnavailable'), css.unavailableLink)
+                )}
+              </span>
+            </div>
+          </>
+        )}
         <div className={css.divider} />
         <div className={css.row}>
           <span className={css.secondary}>{t('more')}</span>
           <div className={css.links}>
             {platformLink(t('usage'), css.linkButton)}
-            <a className={`${css.linkButton} ${css.primary}`} href={state?.links.topUpUrl} aria-disabled={state === undefined}
-              target="_blank" rel="noreferrer"
-              onClick={(event) => { if (openPlatformPage !== undefined && signedIn) { event.preventDefault(); showPage(openPlatformPage, 'top-up') } }}>{t('topUp')}</a>
+            <a
+              className={`${css.linkButton} ${css.primary}`}
+              href={state?.links.topUpUrl}
+              aria-disabled={state === undefined}
+              target="_blank"
+              rel="noreferrer"
+              onClick={event => {
+                if (openPlatformPage !== undefined && signedIn) {
+                  event.preventDefault()
+                  showPage(openPlatformPage, 'top-up')
+                }
+              }}
+            >
+              {t('topUp')}
+            </a>
           </div>
         </div>
       </div>

@@ -38,6 +38,6 @@ export function apply(ctx: Context, config: Config): void {
     exclusive: config.mode === 'attach',
     command: process.execPath,
     args,
-    ...config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs },
+    ...(config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs }),
   })
 }

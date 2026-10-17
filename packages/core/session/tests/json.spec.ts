@@ -1,5 +1,5 @@
 import { runInNewContext } from 'node:vm'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { isJsonValue, snapshotJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
 
 function objectWithForgedIntrinsicPrototype(revoked = false): Record<string, unknown> {

@@ -4,7 +4,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -41,7 +41,7 @@ describe('session-reference real Loader composition', () => {
     const fixture = await readFile(new URL('./fixtures/cordis.yml', import.meta.url), 'utf8')
     const configPath = join(root, 'cordis.yml')
     await writeFile(configPath, fixture.replace('{{spillRoot}}', spillRoot.replaceAll('\\', '/')))
-    const ctx = context = new Context()
+    const ctx = (context = new Context())
     ctx.baseUrl = pathToFileURL(root).href + '/'
     await ctx.plugin(Loader)
     ctx.loader.builtins.include = Include
@@ -71,14 +71,29 @@ describe('session-reference real Loader composition', () => {
     const target = ctx.sessions.create(SessionId('reference-target'))
     const agent = { id: target.id, ctx, session: target } as Agent
     const direct = createUserMessage({
-      content: [{ type: 'text', text: 'Use ' + referencePlugin.formatSessionReferenceMention({
-        sessionId: SessionId('reference-source'), label: 'Research',
-      }) }],
+      content: [
+        {
+          type: 'text',
+          text:
+            'Use ' +
+            referencePlugin.formatSessionReferenceMention({
+              sessionId: SessionId('reference-source'),
+              label: 'Research',
+            }),
+        },
+      ],
       source: { kind: 'user' },
     })
-    const decision = await agentEvents(ctx, agent).waterfall('agent/pre-step', {
-      messages: [direct], turn: 1, step: 1, signal: new AbortController().signal,
-    }, () => Promise.resolve({ kind: 'enter' as const, messages: [direct] }))
+    const decision = await agentEvents(ctx, agent).waterfall(
+      'agent/pre-step',
+      {
+        messages: [direct],
+        turn: 1,
+        step: 1,
+        signal: new AbortController().signal,
+      },
+      () => Promise.resolve({ kind: 'enter' as const, messages: [direct] }),
+    )
     expect(decision.kind).toBe('enter')
     if (decision.kind !== 'enter') throw new Error('Expected admitted reference')
     expect(decision.messages).toHaveLength(2)
@@ -111,7 +126,8 @@ describe('session-reference real Loader composition', () => {
     let totalLines = Infinity
     for (let offset = 1; offset <= totalLines; offset += 7) {
       const read = await ctx.tools.execute({
-        name: 'read', callId: ToolCallId(`read-${offset}`),
+        name: 'read',
+        callId: ToolCallId(`read-${offset}`),
         arguments: { file_path: notice.fullSnapshot.locator, offset, limit: 7 },
         signal: new AbortController().signal,
       })
@@ -122,12 +138,19 @@ describe('session-reference real Loader composition', () => {
       readLines.push(...value.lines.map(line => line.text))
     }
     expect(readLines.join('\n') + '\n').toBe(transcript)
-    const messages = readLines.join('\n').split(/### Message \d+: (?:user|assistant)\n\n/).slice(1)
-      .map(body => body.split('\n').filter(line => line.startsWith('"'))
-        .map(line => JSON.parse(line) as string).join(''))
+    const messages = readLines
+      .join('\n')
+      .split(/### Message \d+: (?:user|assistant)\n\n/)
+      .slice(1)
+      .map(body =>
+        body
+          .split('\n')
+          .filter(line => line.startsWith('"'))
+          .map(line => JSON.parse(line) as string)
+          .join(''),
+      )
     expect(messages).toEqual([
-      'EARLY_SOURCE_FACT\n' + 'Historical detail 界.\n'.repeat(30)
-        + 'x'.repeat(4096) + 'GIANT_LINE_MIDDLE_FACT' + 'y'.repeat(4096),
+      'EARLY_SOURCE_FACT\n' + 'Historical detail 界.\n'.repeat(30) + 'x'.repeat(4096) + 'GIANT_LINE_MIDDLE_FACT' + 'y'.repeat(4096),
       'LATEST_SOURCE_FACT\nThe captured answer is forty-two.',
     ])
     expect(transcript).not.toContain('NESTED_REFERENCE_MUST_NOT_PROPAGATE')
@@ -135,9 +158,14 @@ describe('session-reference real Loader composition', () => {
     expect(await readdir(spillRoot)).toEqual([dirname(notice.fullSnapshot.locator).split(/[\\/]/).at(-1)])
 
     const captured = target.deriveMessages()
-    ctx.sessions.get(SessionId('reference-source'))!.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'LATER_SOURCE_MUTATION' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    ctx.sessions.get(SessionId('reference-source'))!.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'LATER_SOURCE_MUTATION' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     expect(Session.create(SessionId('replayed-target'), target.snapshotEvents()).deriveMessages()).toEqual(captured)
     expect(await readFile(notice.fullSnapshot.locator, 'utf8')).toBe(transcript)
   })

@@ -5,7 +5,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const css = readFileSync(fileURLToPath(new URL('../src/client/rows/WorkspaceBrowser.module.css', import.meta.url)), 'utf8')
 const rowsCss = readFileSync(fileURLToPath(new URL('../src/client/rows/Rows.module.css', import.meta.url)), 'utf8')
@@ -20,11 +20,23 @@ function declarationsFrom(source: string, selector: string): Map<string, string>
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, ' ')
   const found = new Map<string, string>()
   for (const [, selectorList = '', body = ''] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!selectorList.split(',').map(value => value.trim()).includes(selector)) continue
+    if (
+      !selectorList
+        .split(',')
+        .map(value => value.trim())
+        .includes(selector)
+    )
+      continue
     for (const part of body.split(';')) {
       const colon = part.indexOf(':')
       if (colon === -1) continue
-      found.set(part.slice(0, colon).trim(), part.slice(colon + 1).trim().replace(/\s+/g, ' '))
+      found.set(
+        part.slice(0, colon).trim(),
+        part
+          .slice(colon + 1)
+          .trim()
+          .replace(/\s+/g, ' '),
+      )
     }
   }
   return found.size === 0 ? undefined : found
@@ -55,13 +67,15 @@ describe('WorkspaceBrowser.module.css list', () => {
     expect(list?.get('margin-right')).toBe('var(--dsh-session-list-scrollbar-offset)')
     expect(list?.get('margin-left')).toBe('-4px')
     expect(list?.get('padding-left')).toBe('4px')
-    expect(list?.get('padding-right')).toBe([
-      'calc(',
-      'var(--dsh-session-list-edge-inset)',
-      '- var(--dsh-session-list-scrollbar-width)',
-      '- var(--dsh-session-list-scrollbar-offset)',
-      ')',
-    ].join(' '))
+    expect(list?.get('padding-right')).toBe(
+      [
+        'calc(',
+        'var(--dsh-session-list-edge-inset)',
+        '- var(--dsh-session-list-scrollbar-width)',
+        '- var(--dsh-session-list-scrollbar-offset)',
+        ')',
+      ].join(' '),
+    )
     expect(declarations('.list::-webkit-scrollbar')).toBeUndefined()
   })
 
@@ -112,8 +126,7 @@ describe('WorkspaceBrowser.module.css list', () => {
     expect(rowDeclarations('.flatSessionRow')?.get('min-height')).toBe('45px')
     expect(rowDeclarations('.flatCell')?.get('margin')).toBe('0 6px 0 4px')
     expect(rowDeclarations('.searchResultRow')?.get('min-height')).toBe('48px')
-    expect(rowDeclarations('.sessionRow.selected')?.get('background'))
-      .toBe('var(--dsw-alias-interactive-bg-hover)')
+    expect(rowDeclarations('.sessionRow.selected')?.get('background')).toBe('var(--dsw-alias-interactive-bg-hover)')
   })
 
   it('marquees a clipped session title on row hover', () => {
@@ -124,12 +137,13 @@ describe('WorkspaceBrowser.module.css list', () => {
     expect(rowDeclarations('.sessionRow .title')?.get('flex')).toBe('1')
     expect(rowDeclarations('.sessionRow .title')?.get('scroll-behavior')).toBeUndefined()
     expect(rowDeclarations('.sessionRow:hover .title')?.get('text-overflow')).toBe('clip')
-    expect(rowDeclarations('.sessionRow .title[data-scrolled]')?.get('mask-image'))
-      .toBe('linear-gradient(to right, transparent, #000 12px)')
-    expect(rowDeclarations('.sessionRow .title[data-clipped]')?.get('mask-image'))
-      .toBe('linear-gradient(to left, transparent, #000 12px)')
-    expect(rowDeclarations('.sessionRow .title[data-scrolled][data-clipped]')?.get('mask-image'))
-      .toBe('linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent)')
+    expect(rowDeclarations('.sessionRow .title[data-scrolled]')?.get('mask-image')).toBe(
+      'linear-gradient(to right, transparent, #000 12px)',
+    )
+    expect(rowDeclarations('.sessionRow .title[data-clipped]')?.get('mask-image')).toBe('linear-gradient(to left, transparent, #000 12px)')
+    expect(rowDeclarations('.sessionRow .title[data-scrolled][data-clipped]')?.get('mask-image')).toBe(
+      'linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent)',
+    )
   })
 
   it('pins both rail controls to the shared left anchor during the column slide', () => {

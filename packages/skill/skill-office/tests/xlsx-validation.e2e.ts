@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 import { readImageFile } from '@deepseek-ai/dsh-attachment-local'
 import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
@@ -62,7 +62,7 @@ const cases = [
   },
 ] as const
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(['native', 'ptc'])('Excel validation scope (%s)', (mode) => {
+describe.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(['native', 'ptc'])('Excel validation scope (%s)', mode => {
   it.each(mode === 'native' ? cases : cases.filter(({ kind }) => kind === 'layout'))('$name', async ({ task, kind }) => {
     let events: SessionEvent[] = []
     let original: Buffer | undefined
@@ -71,7 +71,8 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(['native', 'ptc'
     const controlRoot = await mkdtemp(join(tmpdir(), 'dsh-xlsx-control-test-'))
     onTestFinished(() => rm(controlRoot, { recursive: true, force: true }))
     const configPath = join(controlRoot, 'office.patch.json')
-    const sessionRoot = join(controlRoot, 'sessions'), imageRoot = join(controlRoot, 'image-store')
+    const sessionRoot = join(controlRoot, 'sessions'),
+      imageRoot = join(controlRoot, 'image-store')
     await runLoaderSmoke({
       label: `Excel ${kind} validation`,
       tempDirPrefix: 'dsh-xlsx-validation-',
@@ -79,7 +80,11 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(['native', 'ptc'
       sourceImport: 'tsx/esm',
       tsconfigPath: join(repo, 'tsconfig.base.json'),
       configPath,
-      binArgs: ['--profile', 'headless', '--patch', configPath,
+      binArgs: [
+        '--profile',
+        'headless',
+        '--patch',
+        configPath,
         `${task} Use input.xlsx and save the finished workbook as result.xlsx. Preserve the Notes sheet and leave input.xlsx unchanged. Respond briefly in English.`,
       ],
       processTimeoutMs: 110_000,
@@ -96,15 +101,29 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(['native', 'ptc'
       async prepare(cwd) {
         await execa(python!, ['-c', seed, kind], { cwd })
         original = await readFile(join(cwd, 'input.xlsx'))
-        const fixture = kind === 'blank' || kind === 'formula'
-          ? await renderCliFixture(controlRoot, python!, kind === 'blank') : undefined
-        await writeFile(configPath, JSON.stringify([
-          { insert: [{ id: 'skill-office', name: '@deepseek-ai/dsh-skill-office', config: { assetRoot, node: process.execPath, ...fixture ? { cli: fixture.cli } : {} } }] },
-          { insert: [{ id: 'workspace-dependencies', name: '@deepseek-ai/dsh-tool-workspace-dependencies', config: { source: runtime! } }] },
-          ...officeModelPatches(),
-          { id: 'attachment-local', config: { dshHome: imageRoot } },
-          { id: 'session-persistence-jsonl', config: { root: sessionRoot, compression: 'none' } },
-        ]))
+        const fixture = kind === 'blank' || kind === 'formula' ? await renderCliFixture(controlRoot, python!, kind === 'blank') : undefined
+        await writeFile(
+          configPath,
+          JSON.stringify([
+            {
+              insert: [
+                {
+                  id: 'skill-office',
+                  name: '@deepseek-ai/dsh-skill-office',
+                  config: { assetRoot, node: process.execPath, ...(fixture ? { cli: fixture.cli } : {}) },
+                },
+              ],
+            },
+            {
+              insert: [
+                { id: 'workspace-dependencies', name: '@deepseek-ai/dsh-tool-workspace-dependencies', config: { source: runtime! } },
+              ],
+            },
+            ...officeModelPatches(),
+            { id: 'attachment-local', config: { dshHome: imageRoot } },
+            { id: 'session-persistence-jsonl', config: { root: sessionRoot, compression: 'none' } },
+          ]),
+        )
       },
       async inspect(cwd) {
         const paths = await readdir(sessionRoot, { recursive: true })
@@ -118,7 +137,11 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(['native', 'ptc'
         }
         events = parseSessionLog(bytes.toString('utf8'))
         expect(await readFile(join(cwd, 'input.xlsx'))).toEqual(original)
-        const verified = await execa(python!, ['-c', `
+        const verified = await execa(
+          python!,
+          [
+            '-c',
+            `
 from openpyxl import load_workbook
 w = load_workbook('result.xlsx', data_only=False)
 s = w['Revenue']
@@ -143,23 +166,34 @@ else:
     else:
         assert s['B4'].value.upper() == '=SUM(B2:B3)'
         assert load_workbook('result.xlsx', data_only=True)['Revenue']['B4'].value == 38
-`], { cwd })
+`,
+          ],
+          { cwd },
+        )
         expect(verified.exitCode).toBe(0)
         if (kind === 'blank' || kind === 'formula') {
-          fixtureCalls = (await readFile(join(controlRoot, '.fixture/calls.jsonl'), 'utf8')).trim().split('\n')
+          fixtureCalls = (await readFile(join(controlRoot, '.fixture/calls.jsonl'), 'utf8'))
+            .trim()
+            .split('\n')
             .map(line => JSON.parse(line) as { args: string[]; status: number | null })
           if (kind === 'blank') expect(fixtureCalls.some(call => call.args[0] === 'convert')).toBe(false)
           else expect(fixtureCalls.some(call => call.args[0] === 'recalculate' && call.status === 0)).toBe(true)
         }
-        const imageBlocks = events.flatMap(event => event.type === 'tool/result'
-          ? event.data.message.content.filter(block => block.type === 'image')
-          : event.type === 'user/message' && event.data.source.kind === 'ptc-mode'
-            ? event.data.content.filter(block => block.type === 'image') : [])
+        const imageBlocks = events.flatMap(event =>
+          event.type === 'tool/result'
+            ? event.data.message.content.filter(block => block.type === 'image')
+            : event.type === 'user/message' && event.data.source.kind === 'ptc-mode'
+              ? event.data.content.filter(block => block.type === 'image')
+              : [],
+        )
         if (kind === 'layout' && imageBlocks.length === 0) {
           const kit = fileURLToPath(import.meta.resolve('@deepseek-ai/libreoffice-kit/cli'))
           const previewDir = join(cwd, '.verification-preview')
-          await execa(process.execPath, [kit, 'render', '--input', join(cwd, 'result.xlsx'),
-            '--output-dir', previewDir, '--sheet', 'Revenue', '--range', 'A1:B3'], { cwd })
+          await execa(
+            process.execPath,
+            [kit, 'render', '--input', join(cwd, 'result.xlsx'), '--output-dir', previewDir, '--sheet', 'Revenue', '--range', 'A1:B3'],
+            { cwd },
+          )
           const pngs = (await readdir(previewDir, { recursive: true })).filter(path => path.endsWith('.png'))
           expect(pngs.length).toBeGreaterThan(0)
           for (const path of pngs) {
@@ -174,18 +208,37 @@ else:
         }
       },
     })
-    const calls = events.flatMap(event => event.type === 'tool/call' ? [event.data] : event.type === 'tool/ptc-dispatch' ? [{ name: event.data.name, arguments: JSON.stringify(event.data.arguments), callId: event.data.rootCallId }] : [])
+    const calls = events.flatMap(event =>
+      event.type === 'tool/call'
+        ? [event.data]
+        : event.type === 'tool/ptc-dispatch'
+          ? [{ name: event.data.name, arguments: JSON.stringify(event.data.arguments), callId: event.data.rootCallId }]
+          : [],
+    )
     const loaded = calls.filter(call => call.name === 'skill').map(call => (JSON.parse(call.arguments) as { name: string }).name)
-    const commands = calls.filter(call => call.name === 'bash' || call.name === 'pwsh')
-      .map(call => (JSON.parse(call.arguments) as { command: string }).command).join('\n')
+    const commands = calls
+      .filter(call => call.name === 'bash' || call.name === 'pwsh')
+      .map(call => (JSON.parse(call.arguments) as { command: string }).command)
+      .join('\n')
     const answer = events.findLast(event => event.type === 'assistant/message')
-    const diagnostic = JSON.stringify({ loadedSkills: loaded,
-      commands: calls.filter(call => call.name === 'bash' || call.name === 'pwsh')
+    const diagnostic = JSON.stringify({
+      loadedSkills: loaded,
+      commands: calls
+        .filter(call => call.name === 'bash' || call.name === 'pwsh')
         .map(call => (JSON.parse(call.arguments) as { command: string }).command.slice(0, 600)),
-      answer: answer?.type === 'assistant/message'
-        ? answer.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n').slice(0, 800) : undefined })
+      answer:
+        answer?.type === 'assistant/message'
+          ? answer.data.message.content
+              .flatMap(block => (block.type === 'text' ? [block.text] : []))
+              .join('\n')
+              .slice(0, 800)
+          : undefined,
+    })
     expect(loaded, diagnostic).toContain('office-xlsx')
-    expect(calls.some(call => call.name === 'load_workspace_dependencies'), diagnostic).toBe(true)
+    expect(
+      calls.some(call => call.name === 'load_workspace_dependencies'),
+      diagnostic,
+    ).toBe(true)
     if (kind === 'formula') {
       expect(loaded, diagnostic).toContain('office-recalculate')
     }
@@ -196,21 +249,30 @@ else:
       expect(commands).toContain('--range')
       expect(commands).not.toMatch(/\sconvert\b/u)
       const reads = calls.filter(call => call.name === 'read_image')
-      const results = events.flatMap(event => event.type === 'tool/result' ? [event.data.message] : [])
+      const results = events.flatMap(event => (event.type === 'tool/result' ? [event.data.message] : []))
       if (previewHasContent) {
         expect(reads.length).toBeGreaterThan(0)
-        const visibleImage = mode === 'native'
-          ? results.some(result => !result.isError && reads.some(call => call.callId === result.toolCallId)
-            && result.content.some(block => block.type === 'image'))
-          : events.some(event => event.type === 'user/message' && event.data.source.kind === 'ptc-mode'
-            && event.data.content.some(block => block.type === 'image'))
+        const visibleImage =
+          mode === 'native'
+            ? results.some(
+                result =>
+                  !result.isError &&
+                  reads.some(call => call.callId === result.toolCallId) &&
+                  result.content.some(block => block.type === 'image'),
+              )
+            : events.some(
+                event =>
+                  event.type === 'user/message' &&
+                  event.data.source.kind === 'ptc-mode' &&
+                  event.data.content.some(block => block.type === 'image'),
+              )
         expect(visibleImage).toBe(true)
       }
       if (kind === 'blank') expect(previewHasContent).toBe(false)
       if (!previewHasContent) {
         const answer = events.findLast(event => event.type === 'assistant/message')
         if (answer?.type !== 'assistant/message') throw new Error('Agent did not finish with an answer')
-        const text = answer.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
+        const text = answer.data.message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')
         expect(text).toMatch(/(?:content|structure)[^.!?]{0,100}pass/iu)
         expect(text).toMatch(/visual (?:inspection|check)[^.!?]{0,100}(?:not completed|incomplete|could not be completed|unverified)/iu)
         expect(text).not.toMatch(/visually (?:verified|validated|confirmed)|visual (?:check|inspection) (?:passed|successful)/iu)
@@ -218,7 +280,10 @@ else:
         if (kind === 'blank') {
           const firstBlank = fixtureCalls.findIndex(call => call.args[0] === 'render' && call.status === 0)
           expect(firstBlank, JSON.stringify(fixtureCalls)).toBeGreaterThanOrEqual(0)
-          expect(fixtureCalls.slice(firstBlank + 1).filter(call => call.args[0] === 'render'), JSON.stringify(fixtureCalls)).toEqual([])
+          expect(
+            fixtureCalls.slice(firstBlank + 1).filter(call => call.args[0] === 'render'),
+            JSON.stringify(fixtureCalls),
+          ).toEqual([])
         }
       }
     } else {
@@ -228,7 +293,7 @@ else:
       expect(commands).not.toMatch(/(?<![\w/.-])(?:render|convert)(?![\w/.-])|\.pdf\b|\.png\b/iu)
       const answer = events.findLast(event => event.type === 'assistant/message')
       if (answer?.type !== 'assistant/message') throw new Error('Agent did not finish with an answer')
-      const text = answer.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
+      const text = answer.data.message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')
       expect(text).not.toMatch(/(?:visual|layout).{0,60}(?:not|skip|omit)|(?:not|skip|omit).{0,60}(?:visual|render)/iu)
     }
   })

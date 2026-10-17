@@ -12,7 +12,10 @@
 import { isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import type {
-  ConversationMatch, ConversationNodeDefinition, ToolResultNode, TurnLocation,
+  ConversationMatch,
+  ConversationNodeDefinition,
+  ToolResultNode,
+  TurnLocation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { scheduleCreateCardModel } from './schedule-create-card.ts'
 
@@ -87,10 +90,7 @@ export function scheduleTasksForClosing(
  * @returns created tasks, or null when the Turn created none.
  */
 export function selectScheduleTasks(owner: ScheduleTurnOwner): ScheduleTurnData | null {
-  const created = scheduleTasksForClosing(
-    owner.turn.data.get('schedule-created'),
-    owner.turn.end?.seq ?? owner.seq,
-  )
+  const created = scheduleTasksForClosing(owner.turn.data.get('schedule-created'), owner.turn.end?.seq ?? owner.seq)
   return created.length === 0 ? null : { created }
 }
 
@@ -127,7 +127,7 @@ function createdTask(match: ConversationMatch, call: ScheduleCall): ToolResultNo
 /** Turn-local `schedule_create` accumulator; it publishes no view Node. */
 export const scheduleTurnDefinition: ConversationNodeDefinition<ScheduleTurnState> = {
   kind: 'schedule-created',
-  match: (event) => {
+  match: event => {
     if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
     if (event.type === 'tool/call') return { id: String(event.data.turn), role: 'update' }
     if (event.type === 'tool/result' && isAppendSurfaceEvent(event)) {
@@ -153,16 +153,17 @@ export const scheduleTurnDefinition: ConversationNodeDefinition<ScheduleTurnStat
     const call = context.state.calls.get(String(match.event.data.message.source.callId))
     if (call?.name !== SCHEDULE_CREATE_TOOL) return context.state
     const block = createdTask(match, call)
-    return block === undefined
-      ? context.state
-      : { ...context.state, created: [...context.state.created, block] }
+    return block === undefined ? context.state : { ...context.state, created: [...context.state.created, block] }
   },
   buildLocationData: (context, scope, previous) => {
     if (scope !== 'turn' || context.state === undefined) return null
-    if (previous?.kind === 'turn'
-      && previous.turn === context.state.turn
-      && previous.key === 'schedule-created'
-      && previous.value.created === context.state.created) return previous
+    if (
+      previous?.kind === 'turn' &&
+      previous.turn === context.state.turn &&
+      previous.key === 'schedule-created' &&
+      previous.value.created === context.state.created
+    )
+      return previous
     return {
       kind: 'turn',
       turn: context.state.turn,

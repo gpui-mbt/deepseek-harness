@@ -5,9 +5,7 @@
 
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
-import {
-  WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_VERSION,
-} from '../onboarding-copy.ts'
+import { WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_VERSION } from '../onboarding-copy.ts'
 
 /** State rendered by the welcome step. */
 export interface WelcomeNoticeState {
@@ -27,9 +25,7 @@ export type WelcomeSection = Record<string, unknown>
  * @returns the section object, or an empty one for non-object values.
  */
 export function decodeWelcomeSection(section: unknown): WelcomeSection {
-  return typeof section === 'object' && section !== null && !Array.isArray(section)
-    ? section as WelcomeSection
-    : {}
+  return typeof section === 'object' && section !== null && !Array.isArray(section) ? (section as WelcomeSection) : {}
 }
 
 /* v8 ignore next 3 -- closed-union default only defends future source widening */
@@ -41,7 +37,9 @@ function assertNever(_value: never): never {
 export class WelcomeNoticeStore {
   /** uSES-safe state source shared by the registered welcome step. */
   readonly store: SnapshotStore<WelcomeNoticeState> = createSnapshotStore<WelcomeNoticeState>({
-    status: 'idle', acknowledged: false, error: null,
+    status: 'idle',
+    acknowledged: false,
+    error: null,
   })
 
   private saving = false
@@ -54,7 +52,9 @@ export class WelcomeNoticeStore {
    * @returns settlement after the current answer is published.
    */
   load(): Promise<void> {
-    this.following ??= this.scope.subscribe(() => { this.derive() })
+    this.following ??= this.scope.subscribe(() => {
+      this.derive()
+    })
     this.derive()
     return Promise.resolve()
   }
@@ -67,7 +67,10 @@ export class WelcomeNoticeStore {
    */
   async acknowledge(): Promise<boolean> {
     this.saving = true
-    this.store.update((state) => { state.status = 'saving'; state.error = null })
+    this.store.update(state => {
+      state.status = 'saving'
+      state.error = null
+    })
     try {
       await this.scope.set(WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_VERSION)
     } finally {
@@ -76,7 +79,7 @@ export class WelcomeNoticeStore {
     this.derive()
     const { acknowledged } = this.store.getSnapshot()
     if (!acknowledged) {
-      this.store.update((state) => {
+      this.store.update(state => {
         state.status = 'error'
         state.error = 'the acknowledgement did not persist'
       })
@@ -95,10 +98,13 @@ export class WelcomeNoticeStore {
     const scope = this.scope.getSnapshot()
     switch (scope.status) {
       case 'loading':
-        this.store.update((state) => { state.status = 'loading'; state.error = null })
+        this.store.update(state => {
+          state.status = 'loading'
+          state.error = null
+        })
         return
       case 'unavailable':
-        this.store.update((state) => {
+        this.store.update(state => {
           state.status = 'error'
           state.acknowledged = false
           state.error = 'welcome acknowledgement settings are unavailable'
@@ -106,7 +112,7 @@ export class WelcomeNoticeStore {
         return
       case 'ready': {
         const acknowledged = scope.value?.[WELCOME_NOTICE_ACK_FIELD] === WELCOME_NOTICE_VERSION
-        this.store.update((state) => {
+        this.store.update(state => {
           state.status = 'ready'
           state.acknowledged = acknowledged
           state.error = null
@@ -114,7 +120,8 @@ export class WelcomeNoticeStore {
         return
       }
       /* v8 ignore next -- every current settings scope status is handled above */
-      default: return assertNever(scope.status)
+      default:
+        return assertNever(scope.status)
     }
   }
 }

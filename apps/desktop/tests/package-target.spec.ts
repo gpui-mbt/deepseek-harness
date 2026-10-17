@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   desktopElectronBuilderArguments,
   desktopElectronBuilderEnvironment,
@@ -11,13 +11,22 @@ import {
 describe('desktop package target', () => {
   it('selects matching runtime and electron-builder architectures', () => {
     expect(resolveDesktopPackageTarget('mac-arm64', 'darwin', 'arm64')).toMatchObject({
-      platform: 'darwin', arch: 'arm64', builderPlatform: '--mac', builderArch: '--arm64',
+      platform: 'darwin',
+      arch: 'arm64',
+      builderPlatform: '--mac',
+      builderArch: '--arm64',
     })
     expect(resolveDesktopPackageTarget('mac-x64', 'darwin', 'x64')).toMatchObject({
-      platform: 'darwin', arch: 'x64', builderPlatform: '--mac', builderArch: '--x64',
+      platform: 'darwin',
+      arch: 'x64',
+      builderPlatform: '--mac',
+      builderArch: '--x64',
     })
     expect(resolveDesktopPackageTarget('win-x64', 'win32', 'x64')).toMatchObject({
-      platform: 'win32', arch: 'x64', builderPlatform: '--win', builderArch: '--x64',
+      platform: 'win32',
+      arch: 'x64',
+      builderPlatform: '--win',
+      builderArch: '--x64',
     })
   })
 
@@ -39,23 +48,28 @@ describe('desktop package target', () => {
     expect(parseDesktopPackageInvocation([], 'darwin', 'arm64').target.name).toBe('mac-arm64')
     expect(parseDesktopPackageInvocation(['--prepare-only'], 'darwin', 'arm64').prepareOnly).toBe(true)
     expect(parseDesktopPackageInvocation(['--check'], 'darwin', 'arm64').check).toBe(true)
-    expect(parseDesktopPackageInvocation(['win-x64', '--check', '--unsigned'], 'win32', 'x64')).toMatchObject({ check: true, unsigned: true })
-    expect(() => parseDesktopPackageInvocation(['mac-arm64', 'mac-x64'], 'darwin', 'arm64'))
-      .toThrow(/at most one target/u)
+    expect(parseDesktopPackageInvocation(['win-x64', '--check', '--unsigned'], 'win32', 'x64')).toMatchObject({
+      check: true,
+      unsigned: true,
+    })
+    expect(() => parseDesktopPackageInvocation(['mac-arm64', 'mac-x64'], 'darwin', 'arm64')).toThrow(/at most one target/u)
   })
 
   it('parses a build version, including the separator a pnpm run script forwards', () => {
     expect(parseDesktopPackageInvocation(['mac-arm64'], 'darwin', 'arm64').requestedBuildVersion).toBeUndefined()
-    expect(parseDesktopPackageInvocation(['mac-arm64', '--build-version', '0.1.6-alpha.2.20260921.1'], 'darwin', 'arm64')
-      .requestedBuildVersion).toBe('0.1.6-alpha.2.20260921.1')
-    expect(parseDesktopPackageInvocation(['mac-arm64', '--build-version', 'auto'], 'darwin', 'arm64')
-      .requestedBuildVersion).toBe('auto')
+    expect(
+      parseDesktopPackageInvocation(['mac-arm64', '--build-version', '0.1.6-alpha.2.20260921.1'], 'darwin', 'arm64').requestedBuildVersion,
+    ).toBe('0.1.6-alpha.2.20260921.1')
+    expect(parseDesktopPackageInvocation(['mac-arm64', '--build-version', 'auto'], 'darwin', 'arm64').requestedBuildVersion).toBe('auto')
     // A run script's preset arguments come first, so pnpm forwards the separator after the target.
-    expect(parseDesktopPackageInvocation(['mac-arm64', '--', '--build-version', 'auto'], 'darwin', 'arm64'))
-      .toMatchObject({ requestedBuildVersion: 'auto', target: { name: 'mac-arm64' } })
+    expect(parseDesktopPackageInvocation(['mac-arm64', '--', '--build-version', 'auto'], 'darwin', 'arm64')).toMatchObject({
+      requestedBuildVersion: 'auto',
+      target: { name: 'mac-arm64' },
+    })
     expect(parseDesktopPackageInvocation(['--', '--check'], 'darwin', 'arm64').check).toBe(true)
-    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--build-version', '  '], 'darwin', 'arm64'))
-      .toThrow(/--build-version requires a value/u)
+    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--build-version', '  '], 'darwin', 'arm64')).toThrow(
+      /--build-version requires a value/u,
+    )
   })
 
   it('keeps electron-builder publishing disabled for the separate validated upload', () => {
@@ -77,14 +91,14 @@ describe('desktop package target', () => {
     expect(parseDesktopPackageInvocation(['win-x64', '--unsigned'], 'win32', 'x64').unsigned).toBe(true)
     expect(parseDesktopPackageInvocation(['win-x64'], 'win32', 'x64').unsigned).toBe(false)
     expect(parseDesktopPackageInvocation(['--unsigned', '--dir'], 'win32', 'x64')).toMatchObject({
-      unsigned: true, directory: true,
+      unsigned: true,
+      directory: true,
     })
     for (const name of ['mac-arm64', 'mac-x64']) {
       expect(parseDesktopPackageInvocation([name, '--unsigned'], 'darwin', 'arm64').unsigned).toBe(true)
       expect(parseDesktopPackageInvocation([name, '--unsigned', '--dir'], 'darwin', 'arm64').directory).toBe(true)
     }
-    expect(() => parseDesktopPackageInvocation(['--unsigned', '--prepare-only'], 'win32', 'x64'))
-      .toThrow(/cannot use --prepare-only/u)
+    expect(() => parseDesktopPackageInvocation(['--unsigned', '--prepare-only'], 'win32', 'x64')).toThrow(/cannot use --prepare-only/u)
   })
 
   it('removes ambient certificate inputs for unsigned builds and overrides an inherited signing mode', () => {
@@ -111,36 +125,52 @@ describe('desktop package target', () => {
     expect(desktopElectronBuilderEnvironment(environment, false)).toEqual({ ...environment, DSH_DESKTOP_UNSIGNED: '0' })
   })
 
-  it.each([false, true])('pins the Windows archive filter for the NSIS decoder (unsigned: %s)', (unsigned) => {
-    expect(desktopElectronBuilderEnvironment({
-      DSH_DESKTOP_TARGET_PLATFORM: 'win32', ELECTRON_BUILDER_7Z_FILTER: 'ARM64',
-    }, unsigned).ELECTRON_BUILDER_7Z_FILTER).toBe('BCJ')
-    expect(desktopElectronBuilderEnvironment({
-      DSH_DESKTOP_TARGET_PLATFORM: 'darwin', ELECTRON_BUILDER_7Z_FILTER: 'ARM',
-    }, unsigned).ELECTRON_BUILDER_7Z_FILTER).toBe('ARM')
+  it.each([false, true])('pins the Windows archive filter for the NSIS decoder (unsigned: %s)', unsigned => {
+    expect(
+      desktopElectronBuilderEnvironment(
+        {
+          DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+          ELECTRON_BUILDER_7Z_FILTER: 'ARM64',
+        },
+        unsigned,
+      ).ELECTRON_BUILDER_7Z_FILTER,
+    ).toBe('BCJ')
+    expect(
+      desktopElectronBuilderEnvironment(
+        {
+          DSH_DESKTOP_TARGET_PLATFORM: 'darwin',
+          ELECTRON_BUILDER_7Z_FILTER: 'ARM',
+        },
+        unsigned,
+      ).ELECTRON_BUILDER_7Z_FILTER,
+    ).toBe('ARM')
   })
 
   it('keeps Windows signing fields out of build and runtime preparation subprocesses', () => {
-    expect(withoutWindowsSigningEnvironment({
-      DSH_DESKTOP_WINDOWS_CER_FILE: 'C:\\release\\server.cer',
-      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
-      DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
-      DSH_DESKTOP_WINDOWS_SIGNTOOL: 'C:\\tools\\signtool.exe',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
-    })).toEqual({ DSH_DESKTOP_AUTO_UPDATE_ENV: 'production' })
+    expect(
+      withoutWindowsSigningEnvironment({
+        DSH_DESKTOP_WINDOWS_CER_FILE: 'C:\\release\\server.cer',
+        DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
+        DSH_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
+        DSH_DESKTOP_WINDOWS_SIGNTOOL: 'C:\\tools\\signtool.exe',
+        DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      }),
+    ).toEqual({ DSH_DESKTOP_AUTO_UPDATE_ENV: 'production' })
   })
 
   it('keeps COS credentials out of every packaging subprocess', () => {
-    expect(withoutDesktopUploadCredentials({
-      DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
-      DOWNLOAD_TEST_COS_BUCKET: 'test-download-bucket',
-      DOWNLOAD_TEST_COS_SECRET_ID: 'test-id',
-      DOWNLOAD_TEST_COS_SECRET_KEY: 'test-key',
-      DOWNLOAD_PROD_COS_BUCKET: 'production-download-bucket',
-      DOWNLOAD_PROD_COS_SECRET_ID: 'production-id',
-      DOWNLOAD_PROD_COS_SECRET_KEY: 'production-key',
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
-    })).toEqual({
+    expect(
+      withoutDesktopUploadCredentials({
+        DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
+        DOWNLOAD_TEST_COS_BUCKET: 'test-download-bucket',
+        DOWNLOAD_TEST_COS_SECRET_ID: 'test-id',
+        DOWNLOAD_TEST_COS_SECRET_KEY: 'test-key',
+        DOWNLOAD_PROD_COS_BUCKET: 'production-download-bucket',
+        DOWNLOAD_PROD_COS_SECRET_ID: 'production-id',
+        DOWNLOAD_PROD_COS_SECRET_KEY: 'production-key',
+        DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      }),
+    ).toEqual({
       DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
       DOWNLOAD_TEST_COS_BUCKET: 'test-download-bucket',
       DOWNLOAD_PROD_COS_BUCKET: 'production-download-bucket',
@@ -153,7 +183,9 @@ it('allows skipping notarization only for signed macOS packages', () => {
   expect(parseDesktopPackageInvocation(['mac-arm64'], 'darwin', 'arm64').skipNotarization).toBe(false)
   expect(parseDesktopPackageInvocation(['mac-arm64', '--skip-notarization'], 'darwin', 'arm64').skipNotarization).toBe(true)
   for (const flag of ['--unsigned', '--prepare-only']) {
-    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--skip-notarization', flag], 'darwin', 'arm64')).toThrow(/requires a signed macOS build/u)
+    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--skip-notarization', flag], 'darwin', 'arm64')).toThrow(
+      /requires a signed macOS build/u,
+    )
   }
   expect(() => parseDesktopPackageInvocation(['win-x64', '--skip-notarization'], 'win32', 'x64')).toThrow(/requires a signed macOS build/u)
 })

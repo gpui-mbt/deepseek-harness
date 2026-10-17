@@ -1,6 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { EventEmitter } from 'node:events'
-import { LogBuffer, makeBindingErrorClasses, makeConsoleShim, makeNamespaces, captureStreamWrites, prepareCompletion, prepareException, runProgram, wireReplies } from '../src/bootstrap.ts'
+import {
+  LogBuffer,
+  makeBindingErrorClasses,
+  makeConsoleShim,
+  makeNamespaces,
+  captureStreamWrites,
+  prepareCompletion,
+  prepareException,
+  runProgram,
+  wireReplies,
+} from '../src/bootstrap.ts'
 import type { BootstrapPort, PatchableStream, PendingCall } from '../src/bootstrap.ts'
 import type { ReplyMessage, ProgramToHost } from '../src/protocol.ts'
 import { decodePtcJsonWire, encodePtcJsonWire } from '../src/json-wire.ts'
@@ -71,7 +81,13 @@ describe('LogBuffer', () => {
   it('streams entries to the sink until the byte budget, then emits one fitting prefix and reports the limit once', () => {
     const seen: string[] = []
     let limits = 0
-    const buffer = new LogBuffer(15, text => seen.push(text), () => { limits += 1 })
+    const buffer = new LogBuffer(
+      15,
+      text => seen.push(text),
+      () => {
+        limits += 1
+      },
+    )
     buffer.push('12345')
     buffer.push('123456')
     buffer.push('dropped')
@@ -105,7 +121,12 @@ describe('captureStreamWrites', () => {
     const seen: string[] = []
     const buffer = new LogBuffer(1_000, text => seen.push(text))
     let underlying = ''
-    const stream: PatchableStream = { write: (chunk: unknown) => { underlying += String(chunk); return true } }
+    const stream: PatchableStream = {
+      write: (chunk: unknown) => {
+        underlying += String(chunk)
+        return true
+      },
+    }
     const restore = captureStreamWrites(buffer, stream)
     stream.write('captured', 'utf8')
     stream.write(Buffer.from('bytes'))
@@ -147,7 +168,9 @@ describe('prepareCompletion', () => {
     const cyclic: Record<string, unknown> = {}
     cyclic.self = cyclic
     const sparse = Array(2)
-    class Exotic { readonly marker = true }
+    class Exotic {
+      readonly marker = true
+    }
     for (const value of [{ fn: () => 1 }, -0, Number.POSITIVE_INFINITY, sparse, cyclic, new Exotic()]) {
       expect(prepareCompletion(value, 1_000)).toEqual({
         error: { kind: 'invalid-output', message: 'program completion must be lossless JSON' },
@@ -169,7 +192,12 @@ describe('prepareCompletion', () => {
   })
 
   it('contains a getter failure as invalid-output', () => {
-    const value = Object.defineProperty({}, 'x', { enumerable: true, get() { throw new Error('getter exploded') } })
+    const value = Object.defineProperty({}, 'x', {
+      enumerable: true,
+      get() {
+        throw new Error('getter exploded')
+      },
+    })
     expect(prepareCompletion(value, 1_000)).toEqual({
       error: { kind: 'invalid-output', message: 'program completion must be lossless JSON' },
     })
@@ -191,7 +219,11 @@ describe('prepareException', () => {
   })
 
   it('contains a thrown value whose string conversion fails', () => {
-    const thrown = { toString() { throw new Error('cannot render') } }
+    const thrown = {
+      toString() {
+        throw new Error('cannot render')
+      },
+    }
     expect(prepareException(thrown, 1_000)).toEqual({
       error: { kind: 'exception', message: 'program threw an unrenderable value' },
     })
@@ -208,19 +240,22 @@ describe('makeNamespaces', () => {
     const port = new FakePort()
     const pending = new Map<number, PendingCall>()
     wireReplies(port, pending)
-    const result = new Promise<unknown>((resolve, reject) => { pending.set(1, { resolve, reject }) })
+    const result = new Promise<unknown>((resolve, reject) => {
+      pending.set(1, { resolve, reject })
+    })
     port.deliver({ type: 'reply', id: 1, ok: true, value: [undefined] as never })
     await expect(result).rejects.toThrow('binding resolution must be lossless JSON')
   })
 
   it('exposes prototype-colliding names as ordinary own properties', async () => {
     const port = new FakePort()
-    port.respond = message => message.type === 'call'
-      ? { type: 'reply', id: message.id, ok: true, value: encodePtcJsonWire(`${message.name}-ok`) }
-      : undefined
+    port.respond = message =>
+      message.type === 'call' ? { type: 'reply', id: message.id, ok: true, value: encodePtcJsonWire(`${message.name}-ok`) } : undefined
     const pending = new Map<number, PendingCall>()
     wireReplies(port, pending)
-    const [tools] = makeNamespaces({ namespaces: [{ global: 'tools', names: ['__proto__', 'constructor', 'toString'] }] }, port, pending, { value: 1 }) as [Record<string, (args: unknown) => Promise<unknown>>]
+    const [tools] = makeNamespaces({ namespaces: [{ global: 'tools', names: ['__proto__', 'constructor', 'toString'] }] }, port, pending, {
+      value: 1,
+    }) as [Record<string, (args: unknown) => Promise<unknown>>]
     expect(Object.getPrototypeOf(tools)).toBeNull()
     await expect(tools['__proto__']?.({})).resolves.toBe('__proto__-ok')
     await expect(tools['constructor']?.({})).resolves.toBe('constructor-ok')
@@ -233,7 +268,10 @@ describe('makeNamespaces', () => {
       // First call throws an Error (the real DataCloneError shape), the
       // second a bare string — the rejection renders both.
       postMessage: () => {
-        if (firstCall) { firstCall = false; throw new Error('DataCloneError-ish') }
+        if (firstCall) {
+          firstCall = false
+          throw new Error('DataCloneError-ish')
+        }
         throw 'raw-clone-failure'
       },
       on: () => {},
@@ -242,13 +280,9 @@ describe('makeNamespaces', () => {
     const data = { namespaces: [toolNamespace(['x'])] }
     const errorClasses = makeBindingErrorClasses(data)
     const ToolCallError = errorClasses.get('tools')
-    const [tools] = makeNamespaces(
-      data,
-      throwingPort,
-      pending,
-      { value: 1 },
-      errorClasses,
-    ) as [Record<string, (args: unknown) => Promise<unknown>>]
+    const [tools] = makeNamespaces(data, throwingPort, pending, { value: 1 }, errorClasses) as [
+      Record<string, (args: unknown) => Promise<unknown>>,
+    ]
     const first = await rejectionOf(tools.x?.({ first: true }) ?? Promise.resolve())
     const second = await rejectionOf(tools.x?.({ second: true }) ?? Promise.resolve())
     expect(first).toMatchObject({ name: 'ToolCallError', toolName: 'x' })
@@ -262,23 +296,32 @@ describe('makeNamespaces', () => {
 
   it('rejects lossy arguments before posting or allocating a call id', async () => {
     let posts = 0
-    const port: BootstrapPort = { postMessage: () => { posts += 1 }, on: () => {} }
+    const port: BootstrapPort = {
+      postMessage: () => {
+        posts += 1
+      },
+      on: () => {},
+    }
     const pending = new Map<number, PendingCall>()
     const nextId = { value: 1 }
-    const [tools] = makeNamespaces(
-      { namespaces: [toolNamespace(['x'])] }, port, pending, nextId,
-    ) as [Record<string, (args: unknown) => Promise<unknown>>]
+    const [tools] = makeNamespaces({ namespaces: [toolNamespace(['x'])] }, port, pending, nextId) as [
+      Record<string, (args: unknown) => Promise<unknown>>,
+    ]
     const decorated = [1]
     Object.defineProperty(decorated, 'extra', { value: true })
     const throwing = Object.defineProperty({}, 'value', {
       enumerable: true,
-      get: () => { throw new Error('getter exploded') },
+      get: () => {
+        throw new Error('getter exploded')
+      },
     })
 
     for (const value of [() => 1, new Date(), decorated, throwing]) {
       const failure = await rejectionOf(tools.x?.(value) ?? Promise.resolve())
       expect(failure).toMatchObject({
-        name: 'ToolCallError', toolName: 'x', message: 'binding arguments must be lossless JSON',
+        name: 'ToolCallError',
+        toolName: 'x',
+        message: 'binding arguments must be lossless JSON',
       })
     }
     expect(posts).toBe(0)
@@ -288,12 +331,13 @@ describe('makeNamespaces', () => {
 
   it('uses ordinary Error for non-tools namespace failures', async () => {
     const deniedPort = new FakePort()
-    deniedPort.respond = message => message.type === 'call'
-      ? { type: 'reply', id: message.id, ok: false, message: 'helper denied' }
-      : undefined
+    deniedPort.respond = message =>
+      message.type === 'call' ? { type: 'reply', id: message.id, ok: false, message: 'helper denied' } : undefined
     const deniedPending = new Map<number, PendingCall>()
     wireReplies(deniedPort, deniedPending)
-    const [helpers] = makeNamespaces({ namespaces: [{ global: 'helpers', names: ['x'] }] }, deniedPort, deniedPending, { value: 1 }) as [Record<string, (args: unknown) => Promise<unknown>>]
+    const [helpers] = makeNamespaces({ namespaces: [{ global: 'helpers', names: ['x'] }] }, deniedPort, deniedPending, { value: 1 }) as [
+      Record<string, (args: unknown) => Promise<unknown>>,
+    ]
     const denied = await rejectionOf(helpers.x?.({}) ?? Promise.resolve())
     expect(denied).toBeInstanceOf(Error)
     expect(denied).toMatchObject({ name: 'Error', message: 'helper denied' })
@@ -303,8 +347,15 @@ describe('makeNamespaces', () => {
     expect(invalid).toBeInstanceOf(Error)
     expect((invalid as Error).message).toBe('binding arguments must be lossless JSON')
 
-    const clonePort: BootstrapPort = { postMessage: () => { throw new Error('clone failed') }, on: () => {} }
-    const [cloneHelpers] = makeNamespaces({ namespaces: [{ global: 'helpers', names: ['x'] }] }, clonePort, new Map(), { value: 1 }) as [Record<string, (args: unknown) => Promise<unknown>>]
+    const clonePort: BootstrapPort = {
+      postMessage: () => {
+        throw new Error('clone failed')
+      },
+      on: () => {},
+    }
+    const [cloneHelpers] = makeNamespaces({ namespaces: [{ global: 'helpers', names: ['x'] }] }, clonePort, new Map(), { value: 1 }) as [
+      Record<string, (args: unknown) => Promise<unknown>>,
+    ]
     const cloneFailure = await rejectionOf(cloneHelpers.x?.({}) ?? Promise.resolve())
     expect(cloneFailure).toBeInstanceOf(Error)
     expect(cloneFailure).not.toHaveProperty('toolName')
@@ -314,27 +365,35 @@ describe('makeNamespaces', () => {
 describe('runProgram', () => {
   it('runs a program end-to-end: bindings, console, return value', async () => {
     const port = new FakePort()
-    port.respond = (message) => {
+    port.respond = message => {
       if (message.type !== 'call') return undefined
       const args = decodePtcJsonWire(message.args) as { n: number }
       return { type: 'reply', id: message.id, ok: true, value: encodePtcJsonWire(args.n * 2) }
     }
-    await runProgram(port, {
-      ...BOOT,
-      code: 'const doubled = await tools.double({ n: 21 }); console.log("got", doubled); return { doubled };',
-      namespaces: [{ global: 'tools', names: ['double'] }],
-    }, fakeStreams())
+    await runProgram(
+      port,
+      {
+        ...BOOT,
+        code: 'const doubled = await tools.double({ n: 21 }); console.log("got", doubled); return { doubled };',
+        namespaces: [{ global: 'tools', names: ['double'] }],
+      },
+      fakeStreams(),
+    )
     expect(port.logs()).toEqual(['got 42'])
     expect(port.doneValue()).toEqual({ doubled: 42 })
   })
 
   it('reports worker-side log capture overflow before completing', async () => {
     const port = new FakePort()
-    await runProgram(port, {
-      maxOutputBytes: 4,
-      code: 'console.log("12345"); return null',
-      namespaces: [],
-    }, fakeStreams())
+    await runProgram(
+      port,
+      {
+        maxOutputBytes: 4,
+        code: 'console.log("12345"); return null',
+        namespaces: [],
+      },
+      fakeStreams(),
+    )
     expect(port.logs()).toEqual([])
     expect(port.sent).toContainEqual({ type: 'output-limit' })
     expect(port.done()).toEqual({
@@ -359,28 +418,40 @@ describe('runProgram', () => {
     expect(rawPort.done()).toEqual({ type: 'done', error: { kind: 'exception', message: 'raw-throw' } })
 
     const barePort = new FakePort()
-    await runProgram(barePort, { ...BOOT, code: 'const e = new Error("bare"); e.stack = undefined; throw e', namespaces: [] }, fakeStreams())
+    await runProgram(
+      barePort,
+      { ...BOOT, code: 'const e = new Error("bare"); e.stack = undefined; throw e', namespaces: [] },
+      fakeStreams(),
+    )
     expect(barePort.done()).toEqual({ type: 'done', error: { kind: 'exception', message: 'bare' } })
   })
 
   it('replaces giant thrown strings and Error stacks before posting the done message', async () => {
     const rawPort = new FakePort()
-    await runProgram(rawPort, {
-      maxOutputBytes: 64,
-      code: 'throw "x".repeat(1_000_000)',
-      namespaces: [],
-    }, fakeStreams())
+    await runProgram(
+      rawPort,
+      {
+        maxOutputBytes: 64,
+        code: 'throw "x".repeat(1_000_000)',
+        namespaces: [],
+      },
+      fakeStreams(),
+    )
     expect(rawPort.done()).toEqual({
       type: 'done',
       error: { kind: 'output-limit', message: 'outer output exceeded 64 bytes' },
     })
 
     const stackPort = new FakePort()
-    await runProgram(stackPort, {
-      maxOutputBytes: 64,
-      code: 'throw new Error("x".repeat(1_000_000))',
-      namespaces: [],
-    }, fakeStreams())
+    await runProgram(
+      stackPort,
+      {
+        maxOutputBytes: 64,
+        code: 'throw new Error("x".repeat(1_000_000))',
+        namespaces: [],
+      },
+      fakeStreams(),
+    )
     expect(stackPort.done()).toEqual({
       type: 'done',
       error: { kind: 'output-limit', message: 'outer output exceeded 64 bytes' },
@@ -389,45 +460,58 @@ describe('runProgram', () => {
 
   it('surfaces a host failure reply as a program-side rejection it can catch', async () => {
     const port = new FakePort()
-    port.respond = message => message.type === 'call' ? { type: 'reply', id: message.id, ok: false, message: 'denied by host' } : undefined
-    await runProgram(port, {
-      ...BOOT,
-      code: 'try { await tools.x({}) } catch (error) { return { caught: error instanceof ToolCallError, name: error.name, toolName: error.toolName, message: error.message } }',
-      namespaces: [toolNamespace(['x'])],
-    }, fakeStreams())
+    port.respond = message =>
+      message.type === 'call' ? { type: 'reply', id: message.id, ok: false, message: 'denied by host' } : undefined
+    await runProgram(
+      port,
+      {
+        ...BOOT,
+        code: 'try { await tools.x({}) } catch (error) { return { caught: error instanceof ToolCallError, name: error.name, toolName: error.toolName, message: error.message } }',
+        namespaces: [toolNamespace(['x'])],
+      },
+      fakeStreams(),
+    )
     expect(port.doneValue()).toEqual({ caught: true, name: 'ToolCallError', toolName: 'x', message: 'denied by host' })
   })
 
   it('materializes a consumer-declared rejection class without knowing the namespace', async () => {
     const port = new FakePort()
-    port.respond = message => message.type === 'call'
-      ? { type: 'reply', id: message.id, ok: false, message: 'helper denied' }
-      : undefined
-    await runProgram(port, {
-      ...BOOT,
-      code: 'try { await helpers.x({}) } catch (error) { return { caught: error instanceof HelperCallError, name: error.name, helperName: error.helperName, message: error.message } }',
-      namespaces: [{
-        global: 'helpers',
-        names: ['x'],
-        errorClass: { name: 'HelperCallError', memberNameProperty: 'helperName' },
-      }],
-    }, fakeStreams())
+    port.respond = message => (message.type === 'call' ? { type: 'reply', id: message.id, ok: false, message: 'helper denied' } : undefined)
+    await runProgram(
+      port,
+      {
+        ...BOOT,
+        code: 'try { await helpers.x({}) } catch (error) { return { caught: error instanceof HelperCallError, name: error.name, helperName: error.helperName, message: error.message } }',
+        namespaces: [
+          {
+            global: 'helpers',
+            names: ['x'],
+            errorClass: { name: 'HelperCallError', memberNameProperty: 'helperName' },
+          },
+        ],
+      },
+      fakeStreams(),
+    )
     expect(port.doneValue()).toEqual({ caught: true, name: 'HelperCallError', helperName: 'x', message: 'helper denied' })
   })
 
   it('ignores replies for unknown pending ids', async () => {
     const port = new FakePort()
-    port.respond = (message) => {
+    port.respond = message => {
       if (message.type !== 'call') return undefined
       // Deliver a stray reply first; the real one follows.
       port.deliver({ type: 'reply', id: 9_999, ok: true, value: encodePtcJsonWire('stray') })
       return { type: 'reply', id: message.id, ok: true, value: encodePtcJsonWire('real') }
     }
-    await runProgram(port, {
-      ...BOOT,
-      code: 'return await tools.x({})',
-      namespaces: [{ global: 'tools', names: ['x'] }],
-    }, fakeStreams())
+    await runProgram(
+      port,
+      {
+        ...BOOT,
+        code: 'return await tools.x({})',
+        namespaces: [{ global: 'tools', names: ['x'] }],
+      },
+      fakeStreams(),
+    )
     expect(port.doneValue()).toBe('real')
   })
 

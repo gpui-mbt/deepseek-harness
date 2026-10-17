@@ -38,7 +38,9 @@ export class ChatNavigation {
    * Adopt committed history availability without starting a request.
    * @param input - history state from the latest committed render.
    */
-  setInput(input: ChatNavigationInput): void { this.input = input }
+  setInput(input: ChatNavigationInput): void {
+    this.input = input
+  }
 
   /** Cancel navigation when opening a Chat view. */
   reset(): void {
@@ -153,7 +155,10 @@ export class ChatNavigation {
     const jump = this.jump
     if (jump === null) return false
     if (jump.landing === 'interrupted') {
-      if (settle) { this.cancel(); return true }
+      if (settle) {
+        this.cancel()
+        return true
+      }
       return false
     }
     const landing = this.viewport.scrollToTurn(jump.turn)
@@ -174,10 +179,11 @@ export class ChatNavigation {
       jump.phase = 'settled'
       this.cancelFrame()
       if (typeof requestAnimationFrame !== 'function') this.reconcile()
-      else this.settleFrame = requestAnimationFrame(() => {
-        this.settleFrame = null
-        if (this.jump === jump) this.reconcile()
-      })
+      else
+        this.settleFrame = requestAnimationFrame(() => {
+          this.settleFrame = null
+          if (this.jump === jump) this.reconcile()
+        })
     }
     void this.input.loadThrough(jump.seq).then(settled, settled)
   }
@@ -196,11 +202,20 @@ export class ChatNavigation {
  * @returns the navigation owner and its visible busy turn.
  */
 export function useChatNavigation(
-  viewport: ChatViewport, reading: ChatReading, input: ChatNavigationInput,
+  viewport: ChatViewport,
+  reading: ChatReading,
+  input: ChatNavigationInput,
 ): { navigation: ChatNavigation; busyTurn: number | null } {
   const [busyTurn, setBusyTurn] = useState<number | null>(null)
   const [navigation] = useState(() => new ChatNavigation(viewport, reading, input, setBusyTurn))
-  useLayoutEffect(() => { navigation.setInput(input) }, [navigation, input])
-  useLayoutEffect(() => () => { navigation.dispose() }, [navigation])
+  useLayoutEffect(() => {
+    navigation.setInput(input)
+  }, [navigation, input])
+  useLayoutEffect(
+    () => () => {
+      navigation.dispose()
+    },
+    [navigation],
+  )
   return { navigation, busyTurn }
 }

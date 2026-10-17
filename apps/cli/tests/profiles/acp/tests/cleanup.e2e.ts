@@ -3,7 +3,7 @@
 import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanupAcpExampleTest } from './cleanup.ts'
 
 let fallbackWorkdir: string | undefined
@@ -19,8 +19,7 @@ describe('cleanupAcpExampleTest', () => {
     const closeFailure = new Error('close failed')
     const spawned = { close: vi.fn().mockRejectedValue(closeFailure) }
 
-    await expect(cleanupAcpExampleTest(spawned, fallbackWorkdir))
-      .rejects.toMatchObject({ errors: [closeFailure] })
+    await expect(cleanupAcpExampleTest(spawned, fallbackWorkdir)).rejects.toMatchObject({ errors: [closeFailure] })
     await expect(access(fallbackWorkdir)).rejects.toThrow()
     fallbackWorkdir = undefined
   })

@@ -2,9 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ReactNode } from 'react'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type {
-  SessionAreaProps, SlotEntryDef, SlotScope, SlotSpec, StoredEntry, StoredFactory, Translate,
-} from './index.ts'
+import type { SessionAreaProps, SlotEntryDef, SlotScope, SlotSpec, StoredEntry, StoredFactory, Translate } from './index.ts'
 
 /**
  * The locale face the render machinery consumes: namespace binding plus an

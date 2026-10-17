@@ -2,8 +2,12 @@
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
-  SettingsFormModel, settingsNumberField,
-  type SettingsFieldState, type SettingsFormActions, type SettingsFormScope, type SettingsFormShell,
+  SettingsFormModel,
+  settingsNumberField,
+  type SettingsFieldState,
+  type SettingsFormActions,
+  type SettingsFormScope,
+  type SettingsFormShell,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Profile entry id of the POSIX shell executor; the base bundle composes it off Windows. */
@@ -63,5 +67,7 @@ export class ShellCardController {
   }
 
   /** Release the form subscription. */
-  dispose(): void { this.form.dispose() }
+  dispose(): void {
+    this.form.dispose()
+  }
 }
