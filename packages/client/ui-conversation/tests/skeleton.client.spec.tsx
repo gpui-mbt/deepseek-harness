@@ -29,7 +29,7 @@ import { ConversationHeader } from '../src/client/skeleton/ConversationHeader.ts
 import { ConversationMainPanel } from '../src/client/skeleton/ConversationMainPanel.tsx'
 import { ConversationSession, ConversationSessionHeader } from '../src/client/skeleton/ConversationSession.tsx'
 import { conversationPhase } from '../src/client/contract/snapshot.ts'
-import { HeroShell } from '../src/client/skeleton/EmptyHero.tsx'
+import { HeroShell, workspaceLabel } from '../src/client/skeleton/EmptyHero.tsx'
 import type { HeroShellProps } from '../src/client/skeleton/EmptyHero.tsx'
 import './control-row-dom.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
@@ -461,6 +461,22 @@ function mount(
 }
 
 describe('Hero chrome', () => {
+  it('echoes a separator-only cwd as the workspace label', () => {
+    expect(workspaceLabel('///')).toBe('///')
+  })
+
+  it('toggles the hero hover state only when motion is allowed', () => {
+    const renderSlot = vi.fn<HeroShellProps['renderSlot']>(() => null)
+    const matchMedia = vi.fn(() => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+    vi.stubGlobal('matchMedia', matchMedia)
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
+    const hitbox = view.container.querySelector('span')
+    if (hitbox === null) throw new Error('hero hitbox missing')
+    fireEvent.mouseEnter(hitbox)
+    fireEvent.mouseLeave(hitbox)
+    expect(matchMedia).toHaveBeenCalled()
+  })
+
   it('renders the English preview badge through the hero locale seat', () => {
     const renderSlot = vi.fn<HeroShellProps['renderSlot']>(() => null)
     const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)

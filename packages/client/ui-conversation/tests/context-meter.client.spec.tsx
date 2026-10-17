@@ -45,6 +45,12 @@ describe('ContextMeter', () => {
     expect(contextOccupancy({ pressureTokens: 300_000, contextWindow: 128_000 })?.percent).toBe(100)
   })
 
+  it('formats million-scale token counts', () => {
+    const view = meter({ contextPressure: { pressureTokens: 1_500_000, contextWindow: 2_000_000 } })
+    fireEvent.click(view.getByRole('button'))
+    expect(view.getByRole('dialog').textContent).toContain(t('number.million', { value: '1.5' }))
+  })
+
   it('renders nothing until both pressure and capacity are known', () => {
     expect(meter({}).container.textContent).toBe('')
     expect(meter({ contextPressure: { pressureTokens: 32_000 } }).container.textContent).toBe('')
