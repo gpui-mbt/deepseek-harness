@@ -17,7 +17,7 @@ Status: implemented
 - `vp test` 从既有 `vitest.*.config.ts` 运行 Vitest 5.0.5。每个配置都为 `vitest`、`@vitest/spy` 与 `vite-plus` 设置 `resolve.dedupe`，让 setup 文件与测试共享同一个 runner 模块图。
 - 根 `vite` devDependency 别名指向 `@voidzero-dev/vite-plus-core` 1.3.0。`apps/web` 为应用构建保留 Vite 6，`website` 保留 Vite 5，因此 `vp` 命令从仓库根目录运行，且不安装 workspace 级的 `vite` override。
 - 包脚本与 CI 调用 `vp test`；直接依赖 `vitest` 5.0.5 仍保留给会启动子进程的诊断脚本。已发布的 test-support harness 将 `vite-plus` 声明为 peer 并导入 `vite-plus/test`，使其声明与仓库共享同一 runner 标识。
-- 自定义 host/client tsdown workspace 构建仍使用 `tsdown`，因为 `vp pack` 尚不能加载 141 个包内 `tsdown.config.ts` 与环境选择的根配置。Vite+ 负责其余工具链命令；在 `vp pack` 能加载 workspace 配置之前，该构建继续使用 `tsdown` 0.22.2。
+- 自定义 host/client tsdown workspace 构建使用 `tsdown` 0.23.1，与 Vite+ 同捆的版本一致。`vp pack` 只读取 `vite.config.ts` 的 `pack` 块，会忽略 141 个包内 `tsdown.config.ts`；实测 `vp pack` 会构建包的默认 `src/index.ts`，而不是配置的入口。因此该构建继续使用 `tsdown`，直到包配置迁入 `pack` 块；其余工具链命令由 Vite+ 负责。
 
 ## Alternatives considered
 
@@ -34,7 +34,7 @@ Status: implemented
 - `apps/web` 与 `website` 保留各自的 Vite 副本。从这些目录运行 `vp` 会触发 Vite+ 的 core 版本检查，因此文档规定从仓库根目录运行 `vp`。
 - test-support 包的发布依赖约定从 `vitest` 改为 `vite-plus` peer；消费方必须安装 Vite+ 才能使用其测试 harness。
 - Oxfmt 格式化已应用到整个仓库。首次改动是机械性的，与行为变更分开。
-- 在 `vp pack` 能在不丢失 host/client 构建 face 的情况下加载 workspace 配置之前，`tsdown` 例外继续存在。
+- 在 `vp pack` 能在不丢失 host/client 构建 face 的情况下加载 workspace 配置之前，`tsdown` 命令例外继续存在；该依赖已与 Vite+ 同捆版本对齐。
 
 ## Verification
 

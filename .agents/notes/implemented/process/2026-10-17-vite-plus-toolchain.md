@@ -17,7 +17,7 @@ Formatting, linting, test execution, and bundling were configured through separa
 - `vp test` runs Vitest 5.0.5 from the existing `vitest.*.config.ts` files. Every configuration sets `resolve.dedupe` for `vitest`, `@vitest/spy`, and `vite-plus` so setup files and tests share one runner module graph.
 - The root `vite` devDependency is aliased to `@voidzero-dev/vite-plus-core` 1.3.0. `apps/web` keeps Vite 6 and `website` keeps Vite 5 for their application builds, so `vp` commands run from the repository root and no workspace-wide `vite` override is installed.
 - Package scripts and CI invoke `vp test`; a direct `vitest` 5.0.5 dependency remains for process-spawning diagnostics. The published test-support harnesses declare `vite-plus` as a peer and import `vite-plus/test`, so their declarations share the repository's runner identity.
-- The custom host/client tsdown workspace build remains on `tsdown` while `vp pack` cannot load the 141 package-local `tsdown.config.ts` files and the environment-selected root config. Vite+ owns the other toolchain commands; `tsdown` remains on 0.22.2 for that build until `vp pack` can load the workspace configuration.
+- The custom host/client tsdown workspace build runs on `tsdown` 0.23.1, the version Vite+ bundles. `vp pack` reads only the `pack` block in `vite.config.ts` and ignores the 141 package-local `tsdown.config.ts` files, so a probe of `vp pack` builds a package's default `src/index.ts` instead of its configured entries. `tsdown` remains for that build until the package configs move into `pack` blocks; Vite+ owns the other toolchain commands.
 
 ## Alternatives considered
 
@@ -34,7 +34,7 @@ Formatting, linting, test execution, and bundling were configured through separa
 - `apps/web` and `website` retain their own Vite copies. Running `vp` from those directories would hit Vite+'s core-version check, so the documented workflow runs `vp` from the repository root.
 - The test-support packages changed their published dependency contract from `vitest` to a `vite-plus` peer; consumers must install Vite+ to use their test harnesses.
 - Oxfmt formatting is applied across the repository. The initial change is mechanical and separate from behavior changes.
-- The `tsdown` exception remains until `vp pack` can load the workspace configuration without losing the host/client build faces.
+- The `tsdown` command exception remains until `vp pack` can load the workspace configuration without losing the host and client build faces; the dependency is aligned with the version Vite+ bundles.
 
 ## Verification
 

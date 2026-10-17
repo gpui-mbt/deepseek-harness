@@ -97,7 +97,21 @@ async function collectClientBundles(
     const dir = dirname(manifestPath)
     const loaded = (await import(pathToFileURL(resolve(dir, 'tsdown.config.ts')).href)) as { default: UserConfigExport }
     const factory = await loaded.default
-    const configured = typeof factory === 'function' ? await factory({ env: {} }, { ci: false }) : factory
+    const configured =
+      typeof factory === 'function'
+        ? await factory(
+            { env: {} },
+            {
+              ci: false,
+              watch: {
+                restart: () => {
+                  throw new Error('browser notices: config watch restart is unavailable')
+                },
+                close: async () => {},
+              },
+            },
+          )
+        : factory
     const configs = Array.isArray(configured) ? configured : [configured]
     const client = configs.find(config => config.name === `${manifest.name}/client`)
     if (client === undefined) throw new Error(`browser notices: ${manifest.name} has no browser build config`)
