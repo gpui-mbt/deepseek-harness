@@ -113,6 +113,10 @@ PR 产物 builder 运行 `build:artifacts`；必需的 Linux 与 Windows 普通�
 
 打包继续使用 `tsdown` 0.23.1，即 Vite+ 同捆的版本。`vp pack` 只读取 `vite.config.ts` 的 `pack` 块，不会加载 141 个包内 `tsdown.config.ts`，也不能复现 `DSH_BUILD_FACE` 的阶段选择。只有当这些配置迁入 `pack` 块后，才能移除对 `tsdown` 的直接依赖。
 
+### Linux 可执行文件产物
+
+手动运行 [build-dsh-linux-exe 工作流](../.github/workflows/build-dsh-linux-exe.yml)，即可通过 [`build-exe-for-python-sdk.ts`](../scripts/build-exe-for-python-sdk.ts) 的单文件流水线构建独立的 `dsh`。触发时选择 `x64` 或 `arm64`，下载 `dsh-linux-<arch>` 产物并解压。归档包含 `dsh` 与其 `dsh-rg` sidecar；运行 `./dsh --version` 验证下载，模型调用前设置 `DEEPSEEK_API_KEY`。产物面向 glibc 2.28 及以上，不包含可选的 Office/Python 运行时资源。
+
 Typert 以 `tsconfig.host.json` 为种子分析 Host 类型，生成 Host 反射产物及 Host-for-Client Remote 投影；Client tsdown 不启动 Typert。Host tsdown 以插件形式运行它，[`generate-typert.ts`](../scripts/generate-typert.ts) 则不打包地执行同一生成，写出逐字节相同的文件。不打包的这一轮只从源码读取工作区包；若 Host program 会载入某个包的 `lib/` 产物，它就失败并指出该 import 及应补的 `paths` 别名，因此可以与 Host 包编译并行。Client 源码 import 生成的 Remote 声明，所以 Client 包编译总在这两种生成之一之后。`pnpm run typecheck` 运行 `build.ts --scope typecheck` 图：Host 包编译与不打包的 Typert 生成并行，之后是 Client 包编译，每个 aggregate 在本 face 的包编译完成后以 build mode（`tsc -b`）检查；它跳过 native addon、所有 bundle、Web 以及 client build record。`lint`、`lint:fix` 与 `doc-typecheck` 读取生成的声明但不依赖 Host aggregate 检查，因此只准备 Host 包编译与不打包的 Typert 生成（`compile-referenced-projects.ts host-contracts`）。这些命令都不写 bundle：可运行的 `lib/` 产物保持上一次 `build:artifacts` 的状态，因此启动或测试构建产物之前先运行 `build:artifacts`。
 
 `pnpm run build` 与 `build:artifacts` 会内联根包版本、七位源码 commit，并在 Git 报告本地变化时内联 dirty 标记；调用方提供的其他 `DSH_CLIENT_*` 值也会被继承。`pnpm run build:official` 是与 CI 和 release 产物构建等价的跨平台本地命令，并省略本地 dirty 标记。每次 `build` 或 `build:artifacts` 成功后都会写入一份被 gitignore 的记录，把精确公开值与 Vite 输出及动态 client bundle 绑定；release 打包和 built Web 测试会拒绝缺少记录或被后续局部构建改动的产物。`pnpm run dev:web` 会先执行 `build:artifacts`（`--skip-build` 则复用现有产物树），再读取一次当前版本和 Git 状态，并在本次会话的所有 watcher stage 之间共享该环境；它不会校验完整构建记录，因为 watcher stage 会重写记录覆盖的产物。

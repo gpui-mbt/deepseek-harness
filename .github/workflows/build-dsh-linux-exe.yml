@@ -1,0 +1,151 @@
+name: Build dsh Linux executable
+
+# Manual carrier for a standalone dsh CLI. The build route and staged closure
+# belong to scripts/build-exe-for-python-sdk.ts; this workflow only selects the
+# Linux target and publishes the resulting executable as an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: Linux architecture to build.
+        type: choice
+        options:
+          - x64
+          - arm64
+        default: x64
+
+concurrency:
+  group: build-dsh-linux-exe-${{ github.ref }}-${{ inputs.arch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+  DSH_BUILD_CLIENT_PROFILE: official
+
+jobs:
+  build:
+    name: linux-${{ inputs.arch }}
+    runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Cache pkg's target Node binary; lockfile changes roll the exact key
+      # while the restore prefix seeds its replacement.
+      - uses: actions/cache@v6.1.0
+        with:
+          path: ~/.pkg-cache
+          key: pkg-fetch-node24-linux-${{ inputs.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pkg-fetch-node24-linux-${{ inputs.arch }}-
+
+      - name: Install (immutable)
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then exit 0; fi
+            [ "$attempt" -lt 3 ] && sleep 10
+          done
+          exit 1
+
+      # The native pty addon must not raise the executable's glibc floor above
+      # the manylinux 2.28 compatibility this target advertises.
+      - name: Rebuild Linux node-pty against manylinux 2.28
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.arch }}" in
+            x64) image=quay.io/pypa/manylinux_2_28_x86_64 ;;
+            arm64) image=quay.io/pypa/manylinux_2_28_aarch64 ;;
+            *) echo "::error::Unsupported architecture ${{ inputs.arch }}"; exit 1 ;;
+          esac
+          addon_dir="$(realpath packages/subprocess/subprocess-local/node_modules/node-pty)"
+          pnpm_setup_root="$(realpath "$(dirname "$(dirname "$PNPM_HOME")")")"
+          # Verification installs would install node-gyp inside the package and package it into the exe.
+          (cd "$addon_dir" && npm_config_build_from_source=true pnpm --config.verifyDepsBeforeRun=false run install)
+          addon="$addon_dir/build/Release/pty.node"
+          [ -f "$addon_dir/build/Makefile" ] || {
+            echo "::error::node-pty install did not generate $addon_dir/build/Makefile"
+            exit 1
+          }
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:$PWD" \
+            -v "$HOME/.cache/node-gyp:$HOME/.cache/node-gyp:ro" \
+            -v "$pnpm_setup_root:$pnpm_setup_root:ro" \
+            -w "$addon_dir" \
+            "$image" \
+            bash -euxo pipefail -c \
+              'rm -rf build/Release && make -C build -j2 BUILDTYPE=Release'
+          [ -f "$addon" ] || { echo "::error::$addon missing after manylinux rebuild"; exit 1; }
+
+      - name: Build official artifacts
+        run: pnpm run build
+
+      - name: Build Linux executable
+        run: >-
+          pnpm exec tsx scripts/build-exe-for-python-sdk.ts
+          --targets=node24-linux-${{ inputs.arch }}
+          --skip-build
+
+      - name: Stage executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="dist-exe/deepseek-harness-sdk-runtime-linux-${{ inputs.arch }}"
+          [ -x "$src" ] || { echo "::error::$src missing or not executable"; exit 1; }
+          [ -f "$src-rg" ] || { echo "::error::$src-rg missing"; exit 1; }
+          mkdir -p dist-dsh
+          cp "$src" dist-dsh/dsh
+          cp "$src-rg" dist-dsh/dsh-rg
+          chmod +x dist-dsh/dsh dist-dsh/dsh-rg
+
+      - name: Smoke-test executable
+        run: |
+          ./dist-dsh/dsh --version
+          ./dist-dsh/dsh --help
+
+      - name: Verify the glibc floor in manylinux 2.28
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.arch }}" in
+            x64) image=quay.io/pypa/manylinux_2_28_x86_64 ;;
+            arm64) image=quay.io/pypa/manylinux_2_28_aarch64 ;;
+          esac
+          docker run --rm \
+            -v "$PWD/dist-dsh:/work:ro" \
+            -w /work \
+            "$image" \
+            ./dsh --version
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="dsh-linux-${{ inputs.arch }}.tar.gz"
+          tar -C dist-dsh -czf "dist-dsh/$archive" dsh dsh-rg
+          (cd dist-dsh && sha256sum "$archive" > SHA256SUMS)
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dsh-linux-${{ inputs.arch }}
+          path: |
+            dist-dsh/dsh-linux-${{ inputs.arch }}.tar.gz
+            dist-dsh/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
