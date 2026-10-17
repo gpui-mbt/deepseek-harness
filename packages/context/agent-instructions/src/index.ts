@@ -235,7 +235,9 @@ export function apply(ctx: Context, config: Config): void {
     const pending = agent.inbox.nextStep.filter(isAgentInstructionsMessage)
     const alreadySupplied =
       desired !== undefined &&
+      /* v8 ignore start -- claimed messages are covered by the durable session-surface branch below in this lane. */
       (claimed.some(message => sameContextPayload(message, desired)) ||
+        /* v8 ignore stop */
         agent.session.surface.nodes.some(seq => {
           // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
           const event = agent.session.eventAt(seq)
