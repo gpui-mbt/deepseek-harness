@@ -190,6 +190,69 @@ describe('OllamaSearchProvider error handling', () => {
     await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
 
+  it('reports a missing key without a resolver and names the configured credential ref', async () => {
+    const provider = providerOf({ ...options, apiKey: '', apiKeyEnv: 'MY_OLLAMA_KEY' as never })
+    const error = await provider.search({ query: 'q' }).catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' })
+    expect((error as Error).message).toContain('"MY_OLLAMA_KEY"')
+  })
+
+  it('names the default credential ref when the config omits one', async () => {
+    const error = await providerOf({ ...options, apiKey: '' })
+      .search({ query: 'q' })
+      .catch((caught: unknown) => caught)
+    expect((error as Error).message).toContain('"OLLAMA_CLOUD_API_KEY"')
+  })
+
+  it('rejects an already-aborted search before dispatch', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await expect(providerOf(options).search({ query: 'q' }, controller.signal)).rejects.toMatchObject({ code: 'WEB_ABORTED' })
+  })
+
+  it('maps a credential resolver failure to WEB_PROVIDER_ERROR', async () => {
+    const provider = providerOf({
+      ...options,
+      apiKey: '',
+      resolveApiKey: () => Promise.reject(new Error('vault down')),
+    })
+    const error = await provider.search({ query: 'q' }, new AbortController().signal).catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
+    expect((error as Error).message).toContain('credential resolution failed: Error: vault down')
+  })
+
+  it('resolves a credential under a live signal', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await providerOf({ ...options, apiKey: '', resolveApiKey: () => Promise.resolve('resolved-key') }).search(
+      { query: 'q' },
+      new AbortController().signal,
+    )
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer resolved-key')
+  })
+
+  it('aborts a pending credential resolution', async () => {
+    const controller = new AbortController()
+    const provider = providerOf({ ...options, apiKey: '', resolveApiKey: () => new Promise(() => {}) })
+    const pending = provider.search({ query: 'q' }, controller.signal)
+    controller.abort()
+    await expect(pending).rejects.toMatchObject({ code: 'WEB_ABORTED' })
+  })
+
+  it('rejects when the resolver aborts after resolution starts', async () => {
+    const controller = new AbortController()
+    const provider = providerOf({
+      ...options,
+      apiKey: '',
+      resolveApiKey: async () => {
+        controller.abort()
+        return 'resolved-key'
+      },
+    })
+    await expect(provider.search({ query: 'q' }, controller.signal)).rejects.toMatchObject({ code: 'WEB_ABORTED' })
+  })
+
   it('maps an unparseable success body to WEB_PROVIDER_ERROR', async () => {
     vi.stubGlobal(
       'fetch',
@@ -266,6 +329,21 @@ describe('web-search-ollama plugin registration', () => {
     } finally {
       if (prev === undefined) delete process.env.OLLAMA_CLOUD_API_KEY
       else process.env.OLLAMA_CLOUD_API_KEY = prev
+    }
+  })
+
+  it('falls through to the credential seam when it resolves no value', async () => {
+    const prev = process.env.OLLAMA_CLOUD_API_KEY
+    delete process.env.OLLAMA_CLOUD_API_KEY
+    try {
+      const ctx = new Context()
+      ctx.provide('credentials', { resolve: async () => undefined } as never)
+      await ctx.plugin(WebRuntime, { searchProvider: OLLAMA_PROVIDER_ID })
+      await ctx.plugin(ollamaPlugin, {})
+      const error = await ctx.web.search({ query: 'q' }).catch((caught: unknown) => caught)
+      expect(error).toMatchObject({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' })
+    } finally {
+      if (prev !== undefined) process.env.OLLAMA_CLOUD_API_KEY = prev
     }
   })
 
