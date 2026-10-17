@@ -1,35 +1,49 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { EVENT_API, queryServiceApi, SERVICE_API } from '../src/client/api-catalog.ts'
 
+/** Catalog signatures are semantically equal under formatter whitespace and trailing commas. */
+const signature = (value: string): string =>
+  value
+    .replace(/\s+/g, ' ')
+    .replace(/\(\s+/g, '(')
+    .replace(/,\s*\)/g, ')')
+    .trim()
+
 describe('Client Cordis inspect catalog', () => {
   it('publishes the split Workspace Controller and UI navigation services', () => {
-    expect(SERVICE_API.find(service => service.key === 'layout')?.methods.map(method => method.signature)).toEqual([
-      'selectPanel(panelId: MainPanelId | null): void',
-      'beginNavigation(): AbortSignal',
-      'toggleSidebar(): void',
-      'openRightbar(track: boolean, fullscreen: boolean): void',
-      'closeRightbar(): void',
-    ])
-    expect(SERVICE_API.find(service => service.key === 'workspaces')?.methods.map(method => method.signature)).toEqual([
-      'create(input: { path: string }): Promise<WorkspaceView>',
-      'rename(workspaceId: WorkspaceId, title: string): Promise<WorkspaceView>',
-      'delete(workspaceId: WorkspaceId): Promise<void>',
-      'archiveSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>',
-      'unarchiveSession(sessionId: SessionId): Promise<void>',
-      'insertSessionBefore( workspaceId: WorkspaceId, sessionId: SessionId, beforeSessionId?: SessionId, ): Promise<WorkspaceView>',
-    ])
-    expect(SERVICE_API.find(service => service.key === 'uiWorkspace')?.methods.map(method => method.signature)).toEqual([
-      'openSession(target: SessionTarget): void',
-      "openWorkspace( workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void, options?: Pick<StartSessionOptions, 'agentPreset'>, ): Promise<void>",
-      "forkSession( sessionId: SessionId, onCreated?: (childId: SessionId) => void, options?: Pick<Parameters<ISessions['fork']>[0], 'allowMigration'>, ): Promise<SessionId>",
-      "connectWorkspace(workspaceId: WorkspaceId, options?: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId>",
-      'startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void',
-      'archiveSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>',
-      'unarchiveSession(sessionId: SessionId): Promise<void>',
-      'pickDirectory(): Promise<string | null>',
-      'listDirectory(path?: string, signal?: AbortSignal): Promise<DirectoryListing>',
-      'createDirectory(path: string, name: string): Promise<string>',
-    ])
+    expect(SERVICE_API.find(service => service.key === 'layout')?.methods.map(method => signature(method.signature))).toEqual(
+      [
+        'selectPanel(panelId: MainPanelId | null): void',
+        'beginNavigation(): AbortSignal',
+        'toggleSidebar(): void',
+        'openRightbar(track: boolean, fullscreen: boolean): void',
+        'closeRightbar(): void',
+      ].map(signature),
+    )
+    expect(SERVICE_API.find(service => service.key === 'workspaces')?.methods.map(method => signature(method.signature))).toEqual(
+      [
+        'create(input: { path: string }): Promise<WorkspaceView>',
+        'rename(workspaceId: WorkspaceId, title: string): Promise<WorkspaceView>',
+        'delete(workspaceId: WorkspaceId): Promise<void>',
+        'archiveSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>',
+        'unarchiveSession(sessionId: SessionId): Promise<void>',
+        'insertSessionBefore( workspaceId: WorkspaceId, sessionId: SessionId, beforeSessionId?: SessionId, ): Promise<WorkspaceView>',
+      ].map(signature),
+    )
+    expect(SERVICE_API.find(service => service.key === 'uiWorkspace')?.methods.map(method => signature(method.signature))).toEqual(
+      [
+        'openSession(target: SessionTarget): void',
+        "openWorkspace( workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void, options?: Pick<StartSessionOptions, 'agentPreset'>, ): Promise<void>",
+        "forkSession( sessionId: SessionId, onCreated?: (childId: SessionId) => void, options?: Pick<Parameters<ISessions['fork']>[0], 'allowMigration'>, ): Promise<SessionId>",
+        "connectWorkspace(workspaceId: WorkspaceId, options?: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId>",
+        'startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void',
+        'archiveSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>',
+        'unarchiveSession(sessionId: SessionId): Promise<void>',
+        'pickDirectory(): Promise<string | null>',
+        'listDirectory(path?: string, signal?: AbortSignal): Promise<DirectoryListing>',
+        'createDirectory(path: string, name: string): Promise<string>',
+      ].map(signature),
+    )
   })
 
   it('contains one entry per visible Client event', () => {
