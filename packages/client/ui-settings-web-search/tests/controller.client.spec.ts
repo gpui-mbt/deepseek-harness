@@ -198,6 +198,18 @@ describe('WebSearchCardController', () => {
 
     face.edit('count', '20')
     expect(bench.state()).toMatchObject({ invalid: false, limit: { text: '20', invalid: false } })
+
+    face.edit('count', '')
+    expect(bench.state()).toMatchObject({ invalid: false, limit: { text: '', invalid: false } })
+  })
+
+  it('treats selecting the active provider as a no-op', () => {
+    const bench = controllerFor([DEEPSEEK, OLLAMA, 'web'], { web: { searchProvider: 'ollama-cloud' } })
+    const face = bench.controller.inject()
+    const web = bench.forms.stubs.get('web')!
+    web.mutate.mockClear()
+    face.selectProvider('ollama-cloud')
+    expect(web.mutate).not.toHaveBeenCalled()
   })
 
   it('discards staged edits when the selected provider changes', () => {
@@ -321,6 +333,20 @@ describe('WebSearchCardController', () => {
 
     await vi.waitFor(() => {
       expect(bench.state()).toMatchObject({ failed: true, dirty: true })
+    })
+  })
+
+  it('defaults an unknown credential view to unwritable-safe values', async () => {
+    const forms = configForms([DEEPSEEK, 'web'])
+    const describe = vi.fn(() => Promise.resolve({ ok: true as const, value: {} }))
+    const ctx = { configForms: forms.service, remote: { credentials: { describe, set: vi.fn() } } } as never
+    const controller = new WebSearchCardController(ctx)
+    await vi.waitFor(() => {
+      expect(describe).toHaveBeenCalled()
+    })
+    expect(controller.inject().hooks.webSearchCard.getSnapshot()).toMatchObject({
+      apiKeyConfigured: false,
+      apiKeyWritable: true,
     })
   })
 

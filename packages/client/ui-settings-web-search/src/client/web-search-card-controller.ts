@@ -233,6 +233,7 @@ class SwitchableScope<T> implements SettingsFormScope<T> {
    */
   constructor(scope: SettingsFormScope<T>) {
     this.current = scope
+    /* v8 ignore next 3 -- switchTo installs the selected scope's subscription during construction, replacing this initial one. */
     this.detach = scope.subscribe(() => {
       this.emit()
     })
