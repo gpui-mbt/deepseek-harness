@@ -284,9 +284,9 @@ export default defineConfig({
         'packages/client/ui-chat/src/client/contract/snapshot.ts',
         'packages/client/ui-chat/src/client/historical-images.ts',
         'packages/client/ui-primitives/src/DisclosureRow.tsx',
-        'packages/client/ui-tool/src/*',
-        'packages/client/ui-slots/src/*',
-        'packages/client/ui-layout/src/*',
+        'packages/client/ui-tool/src/**',
+        'packages/client/ui-slots/src/**',
+        'packages/client/ui-layout/src/**',
         'packages/client/web/src/**',
         'packages/host/webserver/src/*',
         // Linux-only exec/scope implementations cannot be attributed on macOS or
