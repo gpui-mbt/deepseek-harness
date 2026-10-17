@@ -65,9 +65,7 @@ class ObservedStateGate {
   writeIntent(target: FsTarget, actor: object | undefined): FsWriteIntent {
     const owner = this.owner(actor)
     const prior = owner ? this.get(owner, target.targetKey) : undefined
-    return prior?.kind === 'present'
-      ? { kind: 'replaceIfVersion', version: prior.version }
-      : { kind: 'createIfAbsent' }
+    return prior?.kind === 'present' ? { kind: 'replaceIfVersion', version: prior.version } : { kind: 'createIfAbsent' }
   }
 
   /**
@@ -106,12 +104,15 @@ export const name = 'fs-observation-policy'
 export function apply(ctx: Context): void {
   const gate = new ObservedStateGate()
 
-  ctx.effect(() => () => {
-    // Drop all recorded state on disposal so a reloaded plugin starts clean
-    // (HMR safety). The WeakMap itself would be GC'd, but replacing it makes the
-    // release observable and immediate for tests.
-    gate.clear()
-  }, 'fs-observation-policy observed-state teardown')
+  ctx.effect(
+    () => () => {
+      // Drop all recorded state on disposal so a reloaded plugin starts clean
+      // (HMR safety). The WeakMap itself would be GC'd, but replacing it makes the
+      // release observable and immediate for tests.
+      gate.clear()
+    },
+    'fs-observation-policy observed-state teardown',
+  )
 
   // fs/write-intent: occupy the single decision slot — do NOT call next().
   // Deferred through Promise.resolve().then so the declared Promise return type

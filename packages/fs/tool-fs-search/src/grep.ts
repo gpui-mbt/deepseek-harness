@@ -92,8 +92,8 @@ export function parseGrepArgs(args: { pattern: string; path?: string; include?: 
   if (args.include !== undefined) validateInclude(args.include)
   return {
     pattern: args.pattern,
-    ...args.path !== undefined ? { path: args.path } : {},
-    ...args.include !== undefined ? { include: args.include } : {},
+    ...(args.path !== undefined ? { path: args.path } : {}),
+    ...(args.include !== undefined ? { include: args.include } : {}),
   }
 }
 
@@ -120,7 +120,11 @@ export function buildGrepCommand(input: GrepInput): string[] {
  * transport, so missing or invalid response fields cause a search failure, not a partial result.
  */
 function malformedRecord(detail: string, cause?: unknown): SearchError {
-  return new SearchError(`grep received malformed ripgrep --json output (${detail})`, 'SEARCH_FAILED', cause !== undefined ? { cause } : undefined)
+  return new SearchError(
+    `grep received malformed ripgrep --json output (${detail})`,
+    'SEARCH_FAILED',
+    cause !== undefined ? { cause } : undefined,
+  )
 }
 
 /**
@@ -218,9 +222,10 @@ export function formatGrepOutput(retained: RetainedItems<GrepMatch>, spillRef: S
     : `Found ${retained.seen} ${matchNoun(retained.seen)}`
   const body = formatGrepMatches(retained.items)
   if (!retained.truncated) return `${header}\n\n${body}`
-  const recovery = spillRef !== undefined
-    ? `Full grep result stored at: ${spillRef.locator}. ${spillRef.retrievalHint}`
-    : 'The complete result could not be saved; narrow pattern, path, or include to see more.'
+  const recovery =
+    spillRef !== undefined
+      ? `Full grep result stored at: ${spillRef.locator}. ${spillRef.retrievalHint}`
+      : 'The complete result could not be saved; narrow pattern, path, or include to see more.'
   return `${header}\n\n${body}\n\n(${recovery})`
 }
 
@@ -275,20 +280,28 @@ export function applyGrepTool(ctx: Context, caps: GrepToolCaps): void {
   ctx.systemPrompt.section({
     name: 'tool:grep',
     order: ctx.systemPrompt.getSectionOrder('TOOL_GREP'),
-    text: ({ scope }) => ctx.tools.get('grep', scope) === undefined
-      ? ''
-      : 'Use the grep tool — not shell grep or rg — to search file contents.'
-        + (ctx.tools.get('read', scope) === undefined ? '' : ' Use read on a matched file when you need surrounding context.'),
+    text: ({ scope }) =>
+      ctx.tools.get('grep', scope) === undefined
+        ? ''
+        : 'Use the grep tool — not shell grep or rg — to search file contents.' +
+          (ctx.tools.get('read', scope) === undefined ? '' : ' Use read on a matched file when you need surrounding context.'),
   })
 
   const tool = defineTool({
     name: 'grep',
-    description: 'Search file contents with a ripgrep regular expression. Returns matching lines with line numbers, grouped by file. '
-      + `Returns up to ${caps.maxMatches} matches; a larger result reports where the complete match list was saved.`,
+    description:
+      'Search file contents with a ripgrep regular expression. Returns matching lines with line numbers, grouped by file. ' +
+      `Returns up to ${caps.maxMatches} matches; a larger result reports where the complete match list was saved.`,
     parameters: {
       pattern: { type: 'string', required: true, description: 'Regular expression to search for (ripgrep syntax).' },
-      path: { type: 'string', description: 'File or directory to search. Defaults to the session workspace; a relative path resolves against it.' },
-      include: { type: 'string', description: 'One glob filter for which files to search (e.g. "*.ts", "*.{js,jsx}"). Not a list; negation is not supported.' },
+      path: {
+        type: 'string',
+        description: 'File or directory to search. Defaults to the session workspace; a relative path resolves against it.',
+      },
+      include: {
+        type: 'string',
+        description: 'One glob filter for which files to search (e.g. "*.ts", "*.{js,jsx}"). Not a list; negation is not supported.',
+      },
     },
     timeoutMs: caps.timeoutMs,
     output: {
@@ -311,10 +324,12 @@ export function applyGrepTool(ctx: Context, caps: GrepToolCaps): void {
           },
         },
       },
-      render: (_args, value) => [{
-        type: 'text',
-        text: formatRetainedGrep(retainGrepMatches(value.matches, caps.maxMatches, caps.maxLineBytes)),
-      }],
+      render: (_args, value) => [
+        {
+          type: 'text',
+          text: formatRetainedGrep(retainGrepMatches(value.matches, caps.maxMatches, caps.maxLineBytes)),
+        },
+      ],
       presentationMeta: (_args, value) =>
         grepSearchMeta(retainGrepMatches(value.matches, caps.maxMatches, caps.maxLineBytes), caps.maxMetaBytes),
     },
@@ -356,11 +371,13 @@ export function applyGrepTool(ctx: Context, caps: GrepToolCaps): void {
     )
     return {
       kind: 'accept',
-      content: [{
-        type: 'text',
-        text: formatRetainedGrep(retainGrepMatches(matches, caps.maxMatches, caps.maxLineBytes), spillRef),
-      }],
-      ...decision.additionalContexts !== undefined ? { additionalContexts: decision.additionalContexts } : {},
+      content: [
+        {
+          type: 'text',
+          text: formatRetainedGrep(retainGrepMatches(matches, caps.maxMatches, caps.maxLineBytes), spillRef),
+        },
+      ],
+      ...(decision.additionalContexts !== undefined ? { additionalContexts: decision.additionalContexts } : {}),
     }
   })
 }

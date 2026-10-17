@@ -1,7 +1,7 @@
 /** Real packaged DevTools panels against an isolated Web Host. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { afterAll, beforeAll, expect, it, onTestFinished } from 'vitest'
+import { afterAll, beforeAll, expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, type WebScaffold } from './scaffold.ts'
 
 let browser: Browser | undefined
@@ -9,9 +9,15 @@ let scaffold: WebScaffold | undefined
 
 beforeAll(async () => {
   scaffold = await launchWebScaffold({
-    profile: { packages: [{
-      dir: fileURLToPath(new URL('../../../packages/experimental/inspector-profile', import.meta.url)), enabled: true,
-    }], hmr: false },
+    profile: {
+      packages: [
+        {
+          dir: fileURLToPath(new URL('../../../packages/experimental/inspector-profile', import.meta.url)),
+          enabled: true,
+        },
+      ],
+      hmr: false,
+    },
     extraOverlayPath: [
       fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
       fileURLToPath(new URL('./fixtures/shared-inspector.patch.yml', import.meta.url)),
@@ -21,10 +27,14 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  try { await browser?.close() } finally { await scaffold?.close() }
+  try {
+    await browser?.close()
+  } finally {
+    await scaffold?.close()
+  }
 })
 
-it.each(['Elements', 'Memory', 'Performance'] as const)('uses the %s panel against the Host', async (panel) => {
+it.each(['Elements', 'Memory', 'Performance'] as const)('uses the %s panel against the Host', async panel => {
   const page = await browser!.newPage({ locale: 'en-US', viewport: { width: 1440, height: 1000 } })
   onTestFinished(() => page.close())
   const errors: string[] = []
@@ -33,10 +43,10 @@ it.each(['Elements', 'Memory', 'Performance'] as const)('uses the %s panel again
   const completed = new Set<string>()
   let heapChunks = 0
   page.on('pageerror', error => errors.push(error.message))
-  page.on('response', (response) => {
+  page.on('response', response => {
     if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${response.url()}`)
   })
-  page.on('websocket', (socket) => {
+  page.on('websocket', socket => {
     if (!socket.url().includes('/inspector/devtools/cdp')) return
     socket.on('framesent', ({ payload }) => {
       const message = JSON.parse(String(payload)) as { id: number; method: string }
@@ -56,10 +66,17 @@ it.each(['Elements', 'Memory', 'Performance'] as const)('uses the %s panel again
   try {
     await page.getByRole('tab', { name: panel, exact: true }).click()
     if (panel === 'Elements') {
-      const host = page.locator('.webkit-html-tag-name').filter({ hasText: /^host$/u }).first()
+      const host = page
+        .locator('.webkit-html-tag-name')
+        .filter({ hasText: /^host$/u })
+        .first()
       await host.waitFor({ state: 'visible' })
       await host.dblclick()
-      await page.locator('.webkit-html-tag-name').filter({ hasText: /^context$/iu }).first().waitFor({ state: 'visible' })
+      await page
+        .locator('.webkit-html-tag-name')
+        .filter({ hasText: /^context$/iu })
+        .first()
+        .waitFor({ state: 'visible' })
     } else if (panel === 'Memory') {
       await page.getByRole('button', { name: 'Take snapshot', exact: true }).click()
       await page.getByRole('columnheader', { name: /^Constructor/u }).waitFor({ state: 'visible' })
@@ -67,7 +84,10 @@ it.each(['Elements', 'Memory', 'Performance'] as const)('uses the %s panel again
       expect(heapChunks).toBeGreaterThan(0)
       expect(completed.has('HeapProfiler.takeHeapSnapshot')).toBe(true)
     } else {
-      await page.getByRole('button', { name: /^Record(?:$| )/u }).first().click()
+      await page
+        .getByRole('button', { name: /^Record(?:$| )/u })
+        .first()
+        .click()
       await page.getByRole('button', { name: 'Stop', exact: true }).waitFor({ state: 'visible' })
       await expect.poll(() => completed.has('Profiler.start')).toBe(true)
       let value = 0
@@ -78,6 +98,8 @@ it.each(['Elements', 'Memory', 'Performance'] as const)('uses the %s panel again
       expect(completed.has('Profiler.stop')).toBe(true)
     }
   } catch (error) {
-    throw new Error(JSON.stringify({ panel, errors, methods, heapChunks, page: await page.locator('body').ariaSnapshot() }), { cause: error })
+    throw new Error(JSON.stringify({ panel, errors, methods, heapChunks, page: await page.locator('body').ariaSnapshot() }), {
+      cause: error,
+    })
   }
 })

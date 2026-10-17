@@ -16,14 +16,15 @@ export type DocumentTitleProps = Pick<PropsRuntime<'root'>, 'useSessions' | 'use
  */
 export function DocumentTitle({ useSessions, usePanelInfo, productTitle }: DocumentTitleProps): null {
   const showSessionTitle = usePanelInfo(info => info.activePanelId === null)
-  const title = useSessions((state) => {
-    const current = Object.values(state.byId)
-      .find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const title = useSessions(state => {
+    const current = Object.values(state.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
     return !showSessionTitle || current === undefined ? undefined : state.byId[current]?.title
   })
   useEffect(() => {
     document.title = title === undefined ? productTitle : `${title} — ${productTitle}`
-    return () => { document.title = productTitle }
+    return () => {
+      document.title = productTitle
+    }
   }, [productTitle, title])
   return null
 }

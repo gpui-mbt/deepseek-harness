@@ -2,20 +2,9 @@
 
 import { currentSessionMessageProjections } from '@deepseek-ai/dsh-session-format-catalog/message-projections'
 import { foldSurface, isSurfaceEvent, snapshotSessionEvent } from '@deepseek-ai/dsh-session'
-import type {
-  SessionEvent,
-  SessionId,
-  SessionSeq,
-  SurfaceEvent,
-} from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId, SessionSeq, SurfaceEvent } from '@deepseek-ai/dsh-session'
 import { SessionQueryError } from './config.ts'
-import type {
-  SessionEventRecord,
-  SessionEventTrace,
-  SessionLineageNode,
-  SessionLineageTrace,
-  SessionRecord,
-} from './types.ts'
+import type { SessionEventRecord, SessionEventTrace, SessionLineageNode, SessionLineageTrace, SessionRecord } from './types.ts'
 
 interface EventLogAnalysis {
   records: SessionEventRecord[]
@@ -30,10 +19,7 @@ interface EventLogAnalysis {
  * @param events - detached raw event log.
  * @returns lightweight records in ascending log order.
  */
-export function eventRecords(
-  sessionId: SessionId,
-  events: readonly SessionEvent[],
-): SessionEventRecord[] {
+export function eventRecords(sessionId: SessionId, events: readonly SessionEvent[]): SessionEventRecord[] {
   return analyzeEventLog(sessionId, events).records
 }
 
@@ -43,19 +29,13 @@ export function eventRecords(
  * @param events - detached raw event log from one corpus observation.
  * @returns detached current surface events in folded order.
  */
-export function currentSurfaceEvents(
-  sessionId: SessionId,
-  events: readonly SessionEvent[],
-): SurfaceEvent[] {
+export function currentSurfaceEvents(sessionId: SessionId, events: readonly SessionEvent[]): SurfaceEvent[] {
   const analysis = analyzeEventLog(sessionId, events)
-  return analysis.currentSeqs.map((seq) => {
+  return analysis.currentSeqs.map(seq => {
     const event = events[seq]
     /* v8 ignore next 6 -- analyzeEventLog validated contiguous seqs and foldSurface returned only surface-event seqs. */
     if (event === undefined || event.seq !== seq || !isSurfaceEvent(event)) {
-      throw new SessionQueryError(
-        `invalid session surface: current node ${seq} is not a surface event`,
-        'SESSION_QUERY_INVALID_SURFACE',
-      )
+      throw new SessionQueryError(`invalid session surface: current node ${seq} is not a surface event`, 'SESSION_QUERY_INVALID_SURFACE')
     }
     return snapshotSessionEvent(event)
   })
@@ -68,17 +48,10 @@ export function currentSurfaceEvents(
  * @param seq - target event seq.
  * @returns direct surface replacements and relationships to cited source events.
  */
-export function traceEvent(
-  sessionId: SessionId,
-  events: readonly SessionEvent[],
-  seq: SessionSeq,
-): SessionEventTrace {
+export function traceEvent(sessionId: SessionId, events: readonly SessionEvent[], seq: SessionSeq): SessionEventTrace {
   const target = events[seq]
   if (target === undefined || target.seq !== seq) {
-    throw new SessionQueryError(
-      `session "${sessionId}" has no event at seq ${seq}`,
-      'SESSION_QUERY_EVENT_NOT_FOUND',
-    )
+    throw new SessionQueryError(`session "${sessionId}" has no event at seq ${seq}`, 'SESSION_QUERY_EVENT_NOT_FOUND')
   }
 
   const analysis = analyzeEventLog(sessionId, events)
@@ -102,7 +75,7 @@ export function traceEvent(
   const replacedBy = analysis.replacedBy.get(seq)
   return {
     target: targetRecord,
-    ...replacedBy === undefined ? {} : { replacedBy },
+    ...(replacedBy === undefined ? {} : { replacedBy }),
     replacementChain,
     replacedEventSeqs: analysis.replacedEventSeqs.get(seq) ?? [],
     sourceEventSeqs: [...eventSources(target)],
@@ -116,17 +89,11 @@ export function traceEvent(
  * @param sessionId - target session id.
  * @returns complete or explicitly partial lineage.
  */
-export function traceSession(
-  records: readonly SessionRecord[],
-  sessionId: SessionId,
-): SessionLineageTrace {
+export function traceSession(records: readonly SessionRecord[], sessionId: SessionId): SessionLineageTrace {
   const byId = new Map(records.map(record => [record.header.id, record]))
   const target = byId.get(sessionId)
   if (target === undefined) {
-    throw new SessionQueryError(
-      `session "${sessionId}" not found`,
-      'SESSION_QUERY_SESSION_NOT_FOUND',
-    )
+    throw new SessionQueryError(`session "${sessionId}" not found`, 'SESSION_QUERY_SESSION_NOT_FOUND')
   }
 
   const ancestors: SessionRecord[] = []
@@ -135,10 +102,7 @@ export function traceSession(
   let parentId = target.header.parentSession
   while (parentId !== undefined) {
     if (ancestrySeen.has(parentId)) {
-      throw new SessionQueryError(
-        `session lineage contains a cycle at "${parentId}"`,
-        'SESSION_QUERY_INVALID_LINEAGE',
-      )
+      throw new SessionQueryError(`session lineage contains a cycle at "${parentId}"`, 'SESSION_QUERY_INVALID_LINEAGE')
     }
     ancestrySeen.add(parentId)
     const parent = byId.get(parentId)
@@ -178,10 +142,7 @@ export function traceSession(
   }
 }
 
-function analyzeEventLog(
-  sessionId: SessionId,
-  events: readonly SessionEvent[],
-): EventLogAnalysis {
+function analyzeEventLog(sessionId: SessionId, events: readonly SessionEvent[]): EventLogAnalysis {
   let folded: ReturnType<typeof foldSurface>
   try {
     folded = foldSurface(events, currentSessionMessageProjections)
@@ -209,9 +170,7 @@ function analyzeEventLog(
       seq: event.seq,
       type: event.type,
       time: event.time,
-      surface: current.has(event.seq)
-        ? 'current'
-        : replacedBy.has(event.seq) ? 'shadowed' : 'log-only',
+      surface: current.has(event.seq) ? 'current' : replacedBy.has(event.seq) ? 'shadowed' : 'log-only',
     })),
     replacedBy,
     replacedEventSeqs,
@@ -223,10 +182,7 @@ function eventSources(event: SessionEvent): readonly SessionSeq[] {
   return event.sourceEventSeqs ?? []
 }
 
-function buildDescendants(
-  childrenByParent: ReadonlyMap<SessionId, readonly SessionRecord[]>,
-  sessionId: SessionId,
-): SessionLineageNode[] {
+function buildDescendants(childrenByParent: ReadonlyMap<SessionId, readonly SessionRecord[]>, sessionId: SessionId): SessionLineageNode[] {
   const descendants: SessionLineageNode[] = []
   const stack = [{ sessionId, descendants }]
   while (stack.length > 0) {

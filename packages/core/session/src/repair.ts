@@ -31,12 +31,15 @@ export type OpenTurnCloseCause = { readonly kind: 'interrupted' } | { readonly k
 /** Model-visible wording of the synthetic error tool results, keyed by cause. */
 const CLOSER_TEXT = {
   interrupted: {
-    started: 'The tool call was interrupted after it was recorded, but no result was durably recorded. Its outcome is unknown. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.',
+    started:
+      'The tool call was interrupted after it was recorded, but no result was durably recorded. Its outcome is unknown. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.',
     notStarted: 'The tool call was interrupted before the Harness recorded it as started. Retry it if it is still needed.',
   },
   forked: {
-    started: 'The history inherited by this branch records this tool call starting but does not include its result. The parent session may have completed it after the fork point. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.',
-    notStarted: 'The history inherited by this branch has no record of this tool call starting. The parent session may have executed it after the fork point. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.',
+    started:
+      'The history inherited by this branch records this tool call starting but does not include its result. The parent session may have completed it after the fork point. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.',
+    notStarted:
+      'The history inherited by this branch has no record of this tool call starting. The parent session may have executed it after the fork point. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.',
   },
 } as const
 
@@ -136,8 +139,7 @@ export class ToolCallRecovery {
       case 'tool/result': {
         const callId = event.data.message.source.callId
         const entry = this.pendingCalls.get(callId)
-        if (event.surfaceOp === 'append' && entry !== undefined
-          && entry.turn === event.data.turn && entry.step === event.data.step) {
+        if (event.surfaceOp === 'append' && entry !== undefined && entry.turn === event.data.turn && entry.step === event.data.step) {
           this.pendingCalls.delete(callId)
         }
         break
@@ -171,10 +173,12 @@ export class ToolCallRecovery {
         toolCallId: callId,
         isError: true,
         source: { kind: 'tool', callId },
-        content: [{
-          type: 'text',
-          text: started ? text.started : text.notStarted,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: started ? text.started : text.notStarted,
+          },
+        ],
       })
       results.push({
         type: 'tool/result',
@@ -189,7 +193,7 @@ export class ToolCallRecovery {
             : { name: 'ToolNotStartedError', code: TOOL_NOT_STARTED },
         },
         surfaceOp: 'append',
-        ...started ? { sourceEventSeqs: [callSeq] } : {},
+        ...(started ? { sourceEventSeqs: [callSeq] } : {}),
       })
     }
 

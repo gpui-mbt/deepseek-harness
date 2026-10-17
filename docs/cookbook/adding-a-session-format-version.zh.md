@@ -102,7 +102,7 @@ pnpm run test:snapshot snapshots/sdk/sdk.snapshot.ts -t text-turn
 
 ```sh
 pnpm run verify-session-format-catalog
-pnpm exec vitest run scripts/gen-session-format-catalog.spec.ts packages/session/session-format/tests packages/session/session-format-v2-to-v3/tests packages/session/session-format-catalog/tests
+pnpm exec vp test --config vitest.config.ts scripts/gen-session-format-catalog.spec.ts packages/session/session-format/tests packages/session/session-format-v2-to-v3/tests packages/session/session-format-catalog/tests
 pnpm run test:snapshot scripts/session-snapshot-corpus.corpus.ts
 ```
 

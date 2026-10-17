@@ -25,9 +25,8 @@ export const ArchivedSessionGate: Plugin.Object<void> = {
   inject: ['agents', 'sessions', 'workspaceRegistry'],
   apply(ctx: Context): void {
     ctx.on('agent/pre-step', (payload, next) =>
-      underArchivedSession(ctx, payload.agent)
-        ? Promise.resolve({ kind: 'reject' as const })
-        : next())
+      underArchivedSession(ctx, payload.agent) ? Promise.resolve({ kind: 'reject' as const }) : next(),
+    )
   },
 }
 

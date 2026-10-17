@@ -174,12 +174,13 @@ for (let round = 1; round <= args.maxRounds; round += 1) {
 return { status: 'budget-limited', roundsStarted: args.maxRounds, report: previous }
 `
 
-const DESCRIPTION = 'Run a foreground fresh-agent Ralph loop toward one immutable objective. '
-  + 'Use only when the direct human explicitly asks for Ralph or fresh-agent iteration. Each round '
-  + 'opens a new child with no parent conversation or prior child session; the shared workspace is '
-  + 'long-term memory, and only a bounded structured report crosses rounds. The call returns when '
-  + 'a worker reports completion or a concrete blocker, or at the round limit. Ordinary long-running same-session work '
-  + 'belongs to goal tools.'
+const DESCRIPTION =
+  'Run a foreground fresh-agent Ralph loop toward one immutable objective. ' +
+  'Use only when the direct human explicitly asks for Ralph or fresh-agent iteration. Each round ' +
+  'opens a new child with no parent conversation or prior child session; the shared workspace is ' +
+  'long-term memory, and only a bounded structured report crosses rounds. The call returns when ' +
+  'a worker reports completion or a concrete blocker, or at the round limit. Ordinary long-running same-session work ' +
+  'belongs to goal tools.'
 
 /** Validate defaults even when a caller invokes apply() without Loader normalization. */
 function resolveConfig(config: Config): ResolvedConfig {
@@ -243,14 +244,16 @@ function normalizedList(value: unknown): value is string[] {
 
 /** Defensively decode the fixed script's report across a provider boundary. */
 function readReport(value: unknown, expectedStatus: RalphRoundStatus, maxChars: number): RalphRoundReport {
-  if (!isRecord(value)
-    || Object.keys(value).sort().join(',') !== 'blocker,evidence,nextSteps,status,summary'
-    || value['status'] !== expectedStatus
-    || !normalizedText(value['summary'])
-    || !normalizedList(value['evidence'])
-    || !normalizedList(value['nextSteps'])
-    || typeof value['blocker'] !== 'string'
-    || value['blocker'] !== value['blocker'].trim()) {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(',') !== 'blocker,evidence,nextSteps,status,summary' ||
+    value['status'] !== expectedStatus ||
+    !normalizedText(value['summary']) ||
+    !normalizedList(value['evidence']) ||
+    !normalizedList(value['nextSteps']) ||
+    typeof value['blocker'] !== 'string' ||
+    value['blocker'] !== value['blocker'].trim()
+  ) {
     throw new Error('Ralph workflow returned a malformed round report')
   }
   const report: RalphRoundReport = {
@@ -263,8 +266,7 @@ function readReport(value: unknown, expectedStatus: RalphRoundStatus, maxChars: 
   if (expectedStatus === 'continue' && (report.nextSteps.length === 0 || report.blocker !== '')) {
     throw new Error('Ralph workflow returned an invalid continuing report')
   }
-  if (expectedStatus === 'complete'
-    && (report.evidence.length === 0 || report.nextSteps.length !== 0 || report.blocker !== '')) {
+  if (expectedStatus === 'complete' && (report.evidence.length === 0 || report.nextSteps.length !== 0 || report.blocker !== '')) {
     throw new Error('Ralph workflow returned an invalid completion report')
   }
   if (expectedStatus === 'blocked' && !normalizedText(report.blocker)) {
@@ -279,11 +281,13 @@ function readReport(value: unknown, expectedStatus: RalphRoundStatus, maxChars: 
 
 /** Defensively decode the fixed script's terminal value. */
 function readRunResult(value: unknown, maxRounds: number, maxHandoffChars: number): RalphTerminalResult {
-  if (!isRecord(value)
-    || typeof value['roundsStarted'] !== 'number'
-    || !Number.isSafeInteger(value['roundsStarted'])
-    || value['roundsStarted'] < 1
-    || value['roundsStarted'] > maxRounds) {
+  if (
+    !isRecord(value) ||
+    typeof value['roundsStarted'] !== 'number' ||
+    !Number.isSafeInteger(value['roundsStarted']) ||
+    value['roundsStarted'] < 1 ||
+    value['roundsStarted'] > maxRounds
+  ) {
     throw new Error('Ralph workflow returned a malformed terminal result')
   }
   const roundsStarted = value['roundsStarted']
@@ -383,9 +387,10 @@ const RALPH_OUTPUT_PROPERTIES = {
 /** Render an ordinary child failure with the most recent durable handoff. */
 function renderRoundFailure(result: RalphRoundFailure, maxChars: number): string {
   const header = `Ralph round ${result.roundsStarted} child failed before producing a structured report.`
-  const text = result.lastReport === undefined
-    ? `${header}\nNo previous handoff was available.`
-    : `${header}\nLast successful handoff:\n${JSON.stringify(result.lastReport, null, 2)}`
+  const text =
+    result.lastReport === undefined
+      ? `${header}\nNo previous handoff was available.`
+      : `${header}\nLast successful handoff:\n${JSON.stringify(result.lastReport, null, 2)}`
   return boundResult(text, maxChars)
 }
 
@@ -407,71 +412,77 @@ export function apply(ctx: Context, config: Config): void {
     order: ctx.systemPrompt.getSectionOrder('TOOL_RALPH'),
     text: 'Use the ralph tool ONLY when the direct human explicitly asks for a Ralph loop or fresh-agent iterative execution. Each Ralph round starts a fresh child with no conversation seed and uses the shared workspace as durable memory. Completion and blockers are worker reports, not independent evaluation. Use same-session goal tools for ordinary long-running objectives, and plain subagents or workflows for bounded delegation and fan-out.',
   })
-  ctx.tools.register(defineTool({
-    name: 'ralph',
-    description: DESCRIPTION,
-    parameters: {
-      objective: {
-        type: 'string',
-        required: true,
-        description: 'The immutable completion objective for every fresh Ralph round.',
+  ctx.tools.register(
+    defineTool({
+      name: 'ralph',
+      description: DESCRIPTION,
+      parameters: {
+        objective: {
+          type: 'string',
+          required: true,
+          description: 'The immutable completion objective for every fresh Ralph round.',
+        },
+        maxRounds: {
+          type: 'number',
+          description: 'Optional positive safe-integer round cap, bounded by the deployment ceiling.',
+        },
       },
-      maxRounds: {
-        type: 'number',
-        description: 'Optional positive safe-integer round cap, bounded by the deployment ceiling.',
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: RALPH_OUTPUT_PROPERTIES,
+        },
+        render: (_args, value) => [
+          {
+            type: 'text',
+            text: renderResult(value.result as unknown as RalphRunResult, resolved.maxResultChars),
+          },
+        ],
       },
-    },
-    output: {
-      schema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: RALPH_OUTPUT_PROPERTIES,
-      },
-      render: (_args, value) => [{
-        type: 'text',
-        text: renderResult(value.result as unknown as RalphRunResult, resolved.maxResultChars),
-      }],
-    },
-    async execute(args, exec) {
-      const parent = exec.agent
-      if (parent === undefined) {
-        throw new Error('Ralph tool requires a calling agent (exec.agent was undefined)')
-      }
-      const objective = args.objective.trim()
-      if (objective.length === 0) throw new Error('Ralph objective must be a non-empty string')
-      const maxRounds = resolveMaxRounds(args.maxRounds, resolved.maxRounds)
-      void requireFreshProvider(ctx, resolved.subagentProvider)
-
-      const run: WorkflowRun = ctx.workflowEngine.start({
-        script: RALPH_SCRIPT,
-        meta: RALPH_META,
-        args: { objective, maxRounds, maxHandoffChars: resolved.maxHandoffChars },
-        subagentProvider: resolved.subagentProvider,
-        maxTotalAgents: maxRounds,
-        parent,
-        signal: exec.signal,
-      })
-      const onAbort = (): void => { run.cancel('parent step aborted') }
-      exec.signal.addEventListener('abort', onAbort, { once: true })
-      if (exec.signal.aborted) run.cancel('parent step aborted')
-
-      try {
-        const settled = await run.result
-        const error = stopReasonError(settled)
-        if (error !== undefined) throw new Error(error)
-        const value = readRunResult(settled.value, maxRounds, resolved.maxHandoffChars)
-        if (value.status === 'round-failed') throw new Error(renderRoundFailure(value, resolved.maxResultChars))
-        return {
-          runId: run.id,
-          agentsStarted: settled.agentsStarted,
-          result: value as unknown as JsonValue,
+      async execute(args, exec) {
+        const parent = exec.agent
+        if (parent === undefined) {
+          throw new Error('Ralph tool requires a calling agent (exec.agent was undefined)')
         }
-      } finally {
-        exec.signal.removeEventListener('abort', onAbort)
-        await run.dispose()
-      }
-    },
-    presentCall,
-    presentResult,
-  }))
+        const objective = args.objective.trim()
+        if (objective.length === 0) throw new Error('Ralph objective must be a non-empty string')
+        const maxRounds = resolveMaxRounds(args.maxRounds, resolved.maxRounds)
+        void requireFreshProvider(ctx, resolved.subagentProvider)
+
+        const run: WorkflowRun = ctx.workflowEngine.start({
+          script: RALPH_SCRIPT,
+          meta: RALPH_META,
+          args: { objective, maxRounds, maxHandoffChars: resolved.maxHandoffChars },
+          subagentProvider: resolved.subagentProvider,
+          maxTotalAgents: maxRounds,
+          parent,
+          signal: exec.signal,
+        })
+        const onAbort = (): void => {
+          run.cancel('parent step aborted')
+        }
+        exec.signal.addEventListener('abort', onAbort, { once: true })
+        if (exec.signal.aborted) run.cancel('parent step aborted')
+
+        try {
+          const settled = await run.result
+          const error = stopReasonError(settled)
+          if (error !== undefined) throw new Error(error)
+          const value = readRunResult(settled.value, maxRounds, resolved.maxHandoffChars)
+          if (value.status === 'round-failed') throw new Error(renderRoundFailure(value, resolved.maxResultChars))
+          return {
+            runId: run.id,
+            agentsStarted: settled.agentsStarted,
+            result: value as unknown as JsonValue,
+          }
+        } finally {
+          exec.signal.removeEventListener('abort', onAbort)
+          await run.dispose()
+        }
+      },
+      presentCall,
+      presentResult,
+    }),
+  )
 }

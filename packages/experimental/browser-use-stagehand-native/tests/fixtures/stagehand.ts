@@ -7,7 +7,8 @@ import { z } from 'zod'
 export const nativeModel = { modelName: 'openai/gpt-5.4-mini', apiKey: 'fixture-model-key' } as const satisfies ModelConfig
 
 /** Valid PNG for the real attachment admission path. */
-export const screenshotBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC'
+export const screenshotBase64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC'
 
 /** Controllable external operations and acquired browser handles. */
 export const fixture: {
@@ -46,15 +47,34 @@ export function resetFixture(): void {
 /** A browser tab with only the operations exercised by the provider. */
 export class FixturePage {
   currentURL = 'about:blank'
-  constructor(readonly owner: FixtureBrowser, readonly pageId: string) {}
-  async goto(url: string): Promise<void> { this.currentURL = url; await this.owner.track(Promise.resolve(fixture.navigate?.(this))) }
-  async url(): Promise<string> { return this.currentURL }
-  async title(): Promise<string> { return 'Fixture heading' }
+  constructor(
+    readonly owner: FixtureBrowser,
+    readonly pageId: string,
+  ) {}
+  async goto(url: string): Promise<void> {
+    this.currentURL = url
+    await this.owner.track(Promise.resolve(fixture.navigate?.(this)))
+  }
+  async url(): Promise<string> {
+    return this.currentURL
+  }
+  async title(): Promise<string> {
+    return 'Fixture heading'
+  }
   async screenshot(): Promise<Buffer> {
-    await this.owner.track(Promise.race([fixture.screenshot?.(), this.owner.connectionClosed.then(() => { throw new Error('Fixture connection closed') })]))
+    await this.owner.track(
+      Promise.race([
+        fixture.screenshot?.(),
+        this.owner.connectionClosed.then(() => {
+          throw new Error('Fixture connection closed')
+        }),
+      ]),
+    )
     return Buffer.from(screenshotBase64, 'base64')
   }
-  async close(): Promise<void> { this.owner.pages = this.owner.pages.filter(page => page !== this) }
+  async close(): Promise<void> {
+    this.owner.pages = this.owner.pages.filter(page => page !== this)
+  }
 }
 
 /** Acquired browser with independently owned tabs and close state. */
@@ -67,7 +87,7 @@ export class FixtureBrowser {
   connectionClosed: Promise<void> = new Promise(() => {})
   readonly context = {
     pages: async (): Promise<FixturePage[]> => this.pages,
-    activePage: async (): Promise<FixturePage | undefined> => this.pages.includes(this.active) ? this.active : this.pages[0],
+    activePage: async (): Promise<FixturePage | undefined> => (this.pages.includes(this.active) ? this.active : this.pages[0]),
     newPage: async (url?: string): Promise<FixturePage> => {
       const page = new FixturePage(this, `tab-${this.pages.length + 1}`)
       if (url) page.currentURL = url
@@ -75,18 +95,33 @@ export class FixtureBrowser {
       this.active = page
       return page
     },
-    setActivePage: async (page: FixturePage): Promise<void> => { this.active = page },
+    setActivePage: async (page: FixturePage): Promise<void> => {
+      this.active = page
+    },
   }
-  constructor(readonly origin: 'launched' | 'connected', readonly options: unknown) {
+  constructor(
+    readonly origin: 'launched' | 'connected',
+    readonly options: unknown,
+  ) {
     this.active = new FixturePage(this, 'tab-1')
     this.pages.push(this.active)
   }
   track<T>(operation: Promise<T>): Promise<T> {
     this.pending.add(operation)
-    void operation.then(() => { this.pending.delete(operation) }, () => { this.pending.delete(operation) })
+    void operation.then(
+      () => {
+        this.pending.delete(operation)
+      },
+      () => {
+        this.pending.delete(operation)
+      },
+    )
     return operation
   }
-  async close(): Promise<void> { await fixture.browserClose?.(); this.closed = true }
+  async close(): Promise<void> {
+    await fixture.browserClose?.()
+    this.closed = true
+  }
 }
 
 /** Only the external SDK acquisition operations are mocked. */
@@ -108,7 +143,12 @@ export const localBrowser = {
 /** Native wrapper with an independent model and drainable external operations. */
 export class Stagehand {
   private readonly closed: PromiseWithResolvers<void> = Promise.withResolvers()
-  constructor(readonly browser: FixtureBrowser, readonly model: ModelConfig) { browser.connectionClosed = this.closed.promise }
+  constructor(
+    readonly browser: FixtureBrowser,
+    readonly model: ModelConfig,
+  ) {
+    browser.connectionClosed = this.closed.promise
+  }
   static async create(options: { browser: FixtureBrowser; model: ModelConfig }): Promise<Stagehand> {
     fixture.models.push(options.model)
     await fixture.create?.(options.model)
@@ -122,14 +162,20 @@ export class Stagehand {
     this.closed.resolve()
   }
   async extract(_instruction: string, schemaOrOptions: unknown, _options?: unknown): Promise<unknown> {
-    await this.browser.track(Promise.race([
-      Promise.resolve(fixture.inference?.()),
-      (fixture.interrupt ?? this.closed.promise).then(() => { throw new Error('Fixture browser disconnected') }),
-    ]))
+    await this.browser.track(
+      Promise.race([
+        Promise.resolve(fixture.inference?.()),
+        (fixture.interrupt ?? this.closed.promise).then(() => {
+          throw new Error('Fixture browser disconnected')
+        }),
+      ]),
+    )
     const result = fixture.result ?? { extraction: 'Fixture heading' }
     return { data: schemaOrOptions instanceof z.ZodType ? schemaOrOptions.parse(result) : result }
   }
-  async observe(instruction: string, options: unknown): Promise<unknown> { return this.extract(instruction, options) }
+  async observe(instruction: string, options: unknown): Promise<unknown> {
+    return this.extract(instruction, options)
+  }
   async act(instruction: string, options: unknown): Promise<{ data: { success: boolean; message: string } }> {
     await this.extract(instruction, options)
     return { data: fixture.actResult ?? { success: true, message: 'Fixture action completed' } }

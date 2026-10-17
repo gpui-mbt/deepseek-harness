@@ -13,7 +13,16 @@
  * records nothing and notifies nobody.
  */
 import type {
-  DockMode, DockZone, FloatRect, LayoutOp, LayoutState, PaneId, PaneNode, SplitId, TabId, TabRecord,
+  DockMode,
+  DockZone,
+  FloatRect,
+  LayoutOp,
+  LayoutState,
+  PaneId,
+  PaneNode,
+  SplitId,
+  TabId,
+  TabRecord,
 } from '../contract/types.ts'
 import { canSplit, clampSizes, FLOAT_DEFAULT_SIZE, zoneSplit } from './constraints.ts'
 import type { TabFactory } from './initial.ts'
@@ -103,9 +112,7 @@ export function activeDockPaneId(state: LayoutState): PaneId {
 
 /** Send a tab into a docked pane, choosing the operation its current host needs. */
 function tabInto(source: PaneNode, tabId: TabId, toPaneId: PaneId, index: number): LayoutOp {
-  return source.host === 'float'
-    ? { type: 'unfloat', paneId: source.id, toPaneId, index }
-    : { type: 'moveTab', tabId, toPaneId, index }
+  return source.host === 'float' ? { type: 'unfloat', paneId: source.id, toPaneId, index } : { type: 'moveTab', tabId, toPaneId, index }
 }
 
 /**
@@ -136,24 +143,21 @@ export function planSetMode(state: LayoutState, mode: DockMode): readonly Layout
  * @param makePaneTab - builds the seeded tab; omit to leave the new pane empty.
  * @returns the operations, or none when the pane budget is spent.
  */
-export function planSplitPane(
-  state: LayoutState,
-  mint: Mint,
-  paneId?: PaneId,
-  makePaneTab?: TabFactory,
-): readonly LayoutOp[] {
+export function planSplitPane(state: LayoutState, mint: Mint, paneId?: PaneId, makePaneTab?: TabFactory): readonly LayoutOp[] {
   if (!canSplit(state)) return NOTHING
   const target = paneId ?? activeDockPaneId(state)
   if (getPane(state, target).host !== 'dock') return NOTHING
   const newPaneId = mint('pane')
-  const ops: LayoutOp[] = [{
-    type: 'split',
-    paneId: target,
-    axis: 'row',
-    direction: 'after',
-    newPaneId,
-    newSplitId: mint('split'),
-  }]
+  const ops: LayoutOp[] = [
+    {
+      type: 'split',
+      paneId: target,
+      axis: 'row',
+      direction: 'after',
+      newPaneId,
+      newSplitId: mint('split'),
+    },
+  ]
   // Seeding is its own operation inside the same intent: the record keeps the
   // two apart, one step back undoes both — and the factory decides whether
   // there is anything to seat.
@@ -170,12 +174,7 @@ export function planSplitPane(
  * @param makeTab - builds the seeded tab; omit to plan nothing.
  * @returns the operations, or none when there is nothing to seat.
  */
-export function planAddTab(
-  state: LayoutState,
-  mint: Mint,
-  paneId: PaneId,
-  makeTab?: TabFactory,
-): readonly LayoutOp[] {
+export function planAddTab(state: LayoutState, mint: Mint, paneId: PaneId, makeTab?: TabFactory): readonly LayoutOp[] {
   if (makeTab === undefined) return NOTHING
   const pane = getPane(state, paneId)
   if (pane.host !== 'dock') return NOTHING
@@ -190,9 +189,7 @@ export function planAddTab(
  * @returns the operations plus the tab they settle on.
  */
 export function planOpenContent(state: LayoutState, mint: Mint, input: OpenContentInput): PlannedTab {
-  const existing = input.revealIfOpened === false
-    ? undefined
-    : findContentTab(state, input.contentId, input.kind)
+  const existing = input.revealIfOpened === false ? undefined : findContentTab(state, input.contentId, input.kind)
   if (existing !== undefined) return { ops: [{ type: 'focusTab', tabId: existing }], tabId: existing }
   const paneId = input.paneId ?? activeDockPaneId(state)
   const tab: TabRecord = {
@@ -234,12 +231,7 @@ export function planDuplicateTab(state: LayoutState, mint: Mint, tabId: TabId): 
  *   the slot just before or just after it is where it already sits.
  * @returns the operations, or none when the placement changes nothing.
  */
-export function planPlaceTab(
-  state: LayoutState,
-  tabId: TabId,
-  toPaneId: PaneId,
-  index: number,
-): readonly LayoutOp[] {
+export function planPlaceTab(state: LayoutState, tabId: TabId, toPaneId: PaneId, index: number): readonly LayoutOp[] {
   const source = findTabPane(state, tabId)
   if (getPane(state, toPaneId).host !== 'dock') return NOTHING
   if (source.id === toPaneId) {
@@ -289,14 +281,16 @@ export function planDropTab(
   if (vacates && makeTab === undefined) return NOTHING
   if (!canSplit(state)) return NOTHING
   const newPaneId = mint('pane')
-  const ops: LayoutOp[] = [{
-    type: 'split',
-    paneId: targetPaneId,
-    axis: split.axis,
-    direction: split.direction,
-    newPaneId,
-    newSplitId: mint('split'),
-  }]
+  const ops: LayoutOp[] = [
+    {
+      type: 'split',
+      paneId: targetPaneId,
+      axis: split.axis,
+      direction: split.direction,
+      newPaneId,
+      newSplitId: mint('split'),
+    },
+  ]
   // The backfill seats before the move so the moved tab ends focused, as any
   // other drop leaves it.
   if (vacates && makeTab !== undefined) {
@@ -323,17 +317,19 @@ export function planFloatTab(
   const step = state.floats.length * FLOAT_CASCADE_STEP
   const newPaneId = mint('float')
   return {
-    ops: [{
-      type: 'float',
-      tabId,
-      newPaneId,
-      rect: rect ?? {
-        x: FLOAT_ORIGIN.x + step,
-        y: FLOAT_ORIGIN.y + step,
-        width: FLOAT_DEFAULT_SIZE.width,
-        height: FLOAT_DEFAULT_SIZE.height,
+    ops: [
+      {
+        type: 'float',
+        tabId,
+        newPaneId,
+        rect: rect ?? {
+          x: FLOAT_ORIGIN.x + step,
+          y: FLOAT_ORIGIN.y + step,
+          width: FLOAT_DEFAULT_SIZE.width,
+          height: FLOAT_DEFAULT_SIZE.height,
+        },
       },
-    }],
+    ],
     paneId: newPaneId,
   }
 }
@@ -345,11 +341,7 @@ export function planFloatTab(
  * @param toPaneId - destination docked pane; defaults to the active one.
  * @returns the operations.
  */
-export function planUnfloatPane(
-  state: LayoutState,
-  paneId: PaneId,
-  toPaneId?: PaneId,
-): readonly LayoutOp[] {
+export function planUnfloatPane(state: LayoutState, paneId: PaneId, toPaneId?: PaneId): readonly LayoutOp[] {
   const destination = toPaneId ?? activeDockPaneId(state)
   return [{ type: 'unfloat', paneId, toPaneId: destination, index: getPane(state, destination).tabs.length }]
 }
@@ -383,8 +375,7 @@ export function planSettle(state: LayoutState, mint: Mint, makeTab?: TabFactory)
   const ops: LayoutOp[] = []
   let current = state
   for (;;) {
-    const emptied = dockPaneIds(current)
-      .find(id => id !== current.rootId && getPane(current, id).tabs.length === 0)
+    const emptied = dockPaneIds(current).find(id => id !== current.rootId && getPane(current, id).tabs.length === 0)
     if (emptied === undefined) break
     const merge: LayoutOp = { type: 'merge', paneId: emptied }
     ops.push(merge)

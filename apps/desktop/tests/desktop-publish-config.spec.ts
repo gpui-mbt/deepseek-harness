@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { readDesktopPublishConfig, readDesktopUploadCredentials } from '../scripts/desktop-publish-config.ts'
 
 it('reads public settings without opening the absent credential file and requires production App settings', async () => {
@@ -17,7 +17,9 @@ it('reads public settings without opening the absent credential file and require
     await expect(readDesktopPublishConfig(root, 'production')).rejects.toThrow(/GitHub App configuration/u)
     await writeFile(config.credentialsFile, JSON.stringify({ secretId: 'fixture', secretKey: 'fixture-only' }))
     await expect(readDesktopUploadCredentials(selected)).resolves.toEqual({ secretId: 'fixture', secretKey: 'fixture-only' })
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('does not include malformed credential contents in errors', async () => {
@@ -25,17 +27,24 @@ it('does not include malformed credential contents in errors', async () => {
   try {
     const credentialsFile = join(root, 'credentials.json')
     await writeFile(credentialsFile, '{secret-value-should-not-appear')
-    await expect(readDesktopUploadCredentials({ credentialsFile, bucket: 'test-1', origin: 'https://example.com' }))
-      .rejects.not.toThrow(/secret-value/u)
-  } finally { await rm(root, { recursive: true, force: true }) }
+    await expect(readDesktopUploadCredentials({ credentialsFile, bucket: 'test-1', origin: 'https://example.com' })).rejects.not.toThrow(
+      /secret-value/u,
+    )
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('rejects multiline App outputs before writing Actions output fields', async () => {
   const root = await mkdtemp(join(tmpdir(), 'publish-config-'))
   try {
     await mkdir(join(root, 'publishing'))
-    const config = { bucket: 'test-1', origin: 'https://download.deepseek.com', credentialsFile: join(root, 'absent.json'),
-      githubApp: { clientId: 'app-id', privateKeyFile: join(root, 'key.pem') } }
+    const config = {
+      bucket: 'test-1',
+      origin: 'https://download.deepseek.com',
+      credentialsFile: join(root, 'absent.json'),
+      githubApp: { clientId: 'app-id', privateKeyFile: join(root, 'key.pem') },
+    }
     for (const githubApp of [
       { ...config.githubApp, clientId: 'app-id\nother=value' },
       { ...config.githubApp, privateKeyFile: join(root, 'key\nother=value') },
@@ -43,5 +52,7 @@ it('rejects multiline App outputs before writing Actions output fields', async (
       await writeFile(join(root, 'publishing/production.json'), JSON.stringify({ ...config, githubApp }))
       await expect(readDesktopPublishConfig(root, 'production')).rejects.toThrow(/single-line/u)
     }
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })

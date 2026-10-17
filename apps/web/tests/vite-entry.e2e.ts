@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const WEB_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -19,10 +19,12 @@ async function freePort(): Promise<number> {
   })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('port probe returned no address')
-  await new Promise<void>((resolve, reject) => server.close((error) => {
-    if (error === undefined) resolve()
-    else reject(error)
-  }))
+  await new Promise<void>((resolve, reject) =>
+    server.close(error => {
+      if (error === undefined) resolve()
+      else reject(error)
+    }),
+  )
   return address.port
 }
 

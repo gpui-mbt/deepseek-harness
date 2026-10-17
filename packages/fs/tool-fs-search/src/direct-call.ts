@@ -21,8 +21,15 @@ export function acceptedDirectCallValue(
   result: ToolExecutionResult,
   decision: PostToolDecision,
 ): JsonValue | undefined {
-  if (decision.kind !== 'accept' || decision.content !== undefined || Object.hasOwn(decision, 'value')
-    || exec.parent !== undefined || exec.name !== tool.name || result.isError
-    || ctx.tools.get(exec.name, exec.agent) !== tool) return undefined
+  if (
+    decision.kind !== 'accept' ||
+    decision.content !== undefined ||
+    Object.hasOwn(decision, 'value') ||
+    exec.parent !== undefined ||
+    exec.name !== tool.name ||
+    result.isError ||
+    ctx.tools.get(exec.name, exec.agent) !== tool
+  )
+    return undefined
   return result.value
 }

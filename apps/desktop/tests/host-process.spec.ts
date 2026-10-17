@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError, QUIT_INSPECTION_DEADLINE_MS } from '../src/host-process.ts'
 
 const roots: string[] = []
@@ -60,7 +60,10 @@ function projectWithHost(source = HTTP_HOST): string {
 }
 
 function hostProcess(
-  runtime: string, profile = runtime, onFailure?: (error: Error) => void, environment = process.env,
+  runtime: string,
+  profile = runtime,
+  onFailure?: (error: Error) => void,
+  environment = process.env,
 ): DesktopHostProcess {
   const host = new DesktopHostProcess(process.execPath, runtime, profile, undefined, environment, onFailure)
   hosts.push(host)
@@ -77,8 +80,11 @@ describe('desktop host process', () => {
     const host = hostProcess(projectWithHost())
     await expect(host.updateTasks('inspect')).rejects.toThrow('Host is unavailable')
     await host.start()
-    expect(await Promise.all([host.updateTasks('inspect'), host.updateTasks('lock'), host.updateTasks('unlock')]))
-      .toEqual([false, true, false])
+    expect(await Promise.all([host.updateTasks('inspect'), host.updateTasks('lock'), host.updateTasks('unlock')])).toEqual([
+      false,
+      true,
+      false,
+    ])
     await host.stop(true)
     await expect(host.updateTasks('inspect')).rejects.toThrow('Host is unavailable')
   })
@@ -88,32 +94,39 @@ describe('desktop host process', () => {
     await expect(host.inspectQuit()).rejects.toThrow('desktop quit: Host is unavailable')
     await host.start()
     // Request ids 1 and 2: the fixture answers by id parity, so both control kinds share one id space.
-    expect(await Promise.all([host.inspectQuit(), host.updateTasks('inspect')]))
-      .toEqual([{ activeTasks: false, scheduledTasks: true }, false])
+    expect(await Promise.all([host.inspectQuit(), host.updateTasks('inspect')])).toEqual([
+      { activeTasks: false, scheduledTasks: true },
+      false,
+    ])
     const started = Date.now()
     await expect(host.inspectQuit()).rejects.toThrow('desktop quit: inspection timed out')
     expect(Date.now() - started).toBeGreaterThanOrEqual(QUIT_INSPECTION_DEADLINE_MS - 50)
     expect(await host.inspectQuit()).toEqual({ activeTasks: false, scheduledTasks: false })
   }, 15_000)
 
-  it.each([
-    'process.exit(17)',
-    'process.exit(0)',
-  ])('refuses installation when exit lacks successful teardown acknowledgement: %s', async (exit) => {
-    const host = hostProcess(projectWithHost(`
+  it.each(['process.exit(17)', 'process.exit(0)'])(
+    'refuses installation when exit lacks successful teardown acknowledgement: %s',
+    async exit => {
+      const host = hostProcess(
+        projectWithHost(`
       process.send({ type: 'ready', url: 'http://127.0.0.1:3080/' })
       process.on('message', message => {
         if (message.type === 'shutdown') process.stderr.write('token=fixture-secret', () => { ${exit} })
       })
-    `))
-    await host.start()
-    const error = await host.stop(true).then(() => undefined, (error: unknown) => error)
-    expect(error).toBeInstanceOf(DesktopHostUncleanExitError)
-    expect(String(error)).toContain('shutdown acknowledged false')
-    expect(String(error)).toContain('graceful deadline exceeded false')
-    expect(String(error)).not.toContain('fixture-secret')
-    await expect(host.stop()).resolves.toBeUndefined()
-  })
+    `),
+      )
+      await host.start()
+      const error = await host.stop(true).then(
+        () => undefined,
+        (error: unknown) => error,
+      )
+      expect(error).toBeInstanceOf(DesktopHostUncleanExitError)
+      expect(String(error)).toContain('shutdown acknowledged false')
+      expect(String(error)).toContain('graceful deadline exceeded false')
+      expect(String(error)).not.toContain('fixture-secret')
+      await expect(host.stop()).resolves.toBeUndefined()
+    },
+  )
 
   it('returns the Web authentication URL and waits for graceful shutdown', async () => {
     const runtime = projectWithHost()
@@ -130,14 +143,24 @@ describe('desktop host process', () => {
   })
 
   it('passes external dependencies and package-manager paths to the Host', async () => {
-    const runtime = projectWithHost(HTTP_HOST.replace('runtime: process.argv[2]',
-      'pnpm: process.argv[5], nodeBin: process.argv[6], primaryRuntime: process.argv[4], runtime: process.argv[2]'))
+    const runtime = projectWithHost(
+      HTTP_HOST.replace(
+        'runtime: process.argv[2]',
+        'pnpm: process.argv[5], nodeBin: process.argv[6], primaryRuntime: process.argv[4], runtime: process.argv[2]',
+      ),
+    )
     const primaryRuntime = join(runtime, 'external-primary-runtime')
-    const host = new DesktopHostProcess(process.execPath, runtime, runtime, undefined, process.env,
-      undefined, primaryRuntime, { pnpm: join(runtime, 'pnpm.mjs'), nodeBin: join(runtime, 'bin') })
+    const host = new DesktopHostProcess(process.execPath, runtime, runtime, undefined, process.env, undefined, primaryRuntime, {
+      pnpm: join(runtime, 'pnpm.mjs'),
+      nodeBin: join(runtime, 'bin'),
+    })
     hosts.push(host)
     const { url } = await host.start()
-    expect(await (await fetch(url)).json()).toMatchObject({ primaryRuntime, pnpm: join(runtime, 'pnpm.mjs'), nodeBin: join(runtime, 'bin') })
+    expect(await (await fetch(url)).json()).toMatchObject({
+      primaryRuntime,
+      pnpm: join(runtime, 'pnpm.mjs'),
+      nodeBin: join(runtime, 'bin'),
+    })
   })
 
   it('reports a fatal event after readiness once', async () => {
@@ -163,8 +186,12 @@ describe('desktop host process', () => {
   })
 
   it('retains only recent diagnostics from a noisy child', async () => {
-    const runtime = projectWithHost('process.stderr.write(\'discarded-prefix\' + \'x\'.repeat(70_000) + \'recent-failure\', () => { process.exitCode = 7; process.disconnect() })')
-    const failure = await hostProcess(runtime).start().catch((error: unknown) => error)
+    const runtime = projectWithHost(
+      "process.stderr.write('discarded-prefix' + 'x'.repeat(70_000) + 'recent-failure', () => { process.exitCode = 7; process.disconnect() })",
+    )
+    const failure = await hostProcess(runtime)
+      .start()
+      .catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(Error)
     const message = (failure as Error).message
     expect(message).not.toContain('discarded-prefix')
@@ -185,11 +212,23 @@ describe('desktop host process', () => {
     const profile = mkdtempSync(join(tmpdir(), 'desktop-external-profile-'))
     roots.push(profile)
     const host = hostProcess(runtime, profile, undefined, {
-      ...process.env, NODE_OPTIONS: '--no-warnings', NODE_PATH: '/custom', NPM_CONFIG_REGISTRY: 'https://registry.example.test/',
+      ...process.env,
+      NODE_OPTIONS: '--no-warnings',
+      NODE_PATH: '/custom',
+      NPM_CONFIG_REGISTRY: 'https://registry.example.test/',
     })
     const { url } = await host.start()
     const response = await fetch(url)
-    expect(await response.json()).toEqual({ runtime, profile, cwd: realpathSync(profile), nodePath: '/custom', registry: 'https://registry.example.test/', nodeOptions: '--no-warnings', runAsNode: '1', internals: true })
+    expect(await response.json()).toEqual({
+      runtime,
+      profile,
+      cwd: realpathSync(profile),
+      nodePath: '/custom',
+      registry: 'https://registry.example.test/',
+      nodeOptions: '--no-warnings',
+      runAsNode: '1',
+      internals: true,
+    })
   })
 
   it.each([
@@ -202,12 +241,18 @@ describe('desktop host process', () => {
     await expect(host.start()).rejects.toThrow(message)
   })
 
-  it('keeps the Host\'s inspected error separate from the message it reports', async () => {
+  it("keeps the Host's inspected error separate from the message it reports", async () => {
     const diagnostic = "Error: startup failed\\n    at boot (lib/index.js:3:9) {\\n  code: 'ENOENT',\\n  path: '/profile/cordis.yml'\\n}"
     const failures: Error[] = []
-    const host = hostProcess(projectWithHost(
-      `process.send({ type: 'fatal', message: 'startup failed', diagnostic: ${JSON.stringify(diagnostic)} }); process.disconnect()`,
-    ), undefined, (error) => { failures.push(error) })
+    const host = hostProcess(
+      projectWithHost(
+        `process.send({ type: 'fatal', message: 'startup failed', diagnostic: ${JSON.stringify(diagnostic)} }); process.disconnect()`,
+      ),
+      undefined,
+      error => {
+        failures.push(error)
+      },
+    )
     await expect(host.start()).rejects.toThrow('startup failed')
     const [failure] = failures
     expect(failure).toBeInstanceOf(DesktopHostFatalError)
@@ -216,21 +261,37 @@ describe('desktop host process', () => {
   })
 })
 
-it.each([null, 'stable-account'])('carries Platform identity %s over private IPC and clears credentials on shutdown', async (userId) => {
-  const runtime = projectWithHost(HTTP_HOST.replace("process.send({ type: 'ready'", "process.send({ type: 'platform-session', session: { origin: 'https://platform.deepseek.com', userId: " + JSON.stringify(userId) + ", token: 'fixture-secret', embeddedPageDist: 'feat/test' } }); process.send({ type: 'ready'"))
+it.each([null, 'stable-account'])('carries Platform identity %s over private IPC and clears credentials on shutdown', async userId => {
+  const runtime = projectWithHost(
+    HTTP_HOST.replace(
+      "process.send({ type: 'ready'",
+      "process.send({ type: 'platform-session', session: { origin: 'https://platform.deepseek.com', userId: " +
+        JSON.stringify(userId) +
+        ", token: 'fixture-secret', embeddedPageDist: 'feat/test' } }); process.send({ type: 'ready'",
+    ),
+  )
   const changed = vi.fn()
   const host = new DesktopHostProcess(process.execPath, runtime, runtime, undefined, process.env, undefined, undefined, undefined, changed)
   hosts.push(host)
   await host.start()
-  expect(changed).toHaveBeenCalledWith({ origin: 'https://platform.deepseek.com', userId, token: 'fixture-secret', embeddedPageDist: 'feat/test' })
+  expect(changed).toHaveBeenCalledWith({
+    origin: 'https://platform.deepseek.com',
+    userId,
+    token: 'fixture-secret',
+    embeddedPageDist: 'feat/test',
+  })
   await host.stop()
   expect(changed).toHaveBeenLastCalledWith(null)
 })
 
-it.each([undefined, '', 7])('rejects malformed Platform account identity %s on private IPC', async (userId) => {
+it.each([undefined, '', 7])('rejects malformed Platform account identity %s on private IPC', async userId => {
   const session = { origin: 'https://platform.deepseek.com', token: 'fixture-secret', userId }
-  const runtime = projectWithHost(HTTP_HOST.replace("process.send({ type: 'ready'",
-    `process.send({ type: 'platform-session', session: ${JSON.stringify(session)} }); process.send({ type: 'ready'`))
+  const runtime = projectWithHost(
+    HTTP_HOST.replace(
+      "process.send({ type: 'ready'",
+      `process.send({ type: 'platform-session', session: ${JSON.stringify(session)} }); process.send({ type: 'ready'`,
+    ),
+  )
   const changed = vi.fn()
   const host = new DesktopHostProcess(process.execPath, runtime, runtime, undefined, process.env, undefined, undefined, undefined, changed)
   hosts.push(host)

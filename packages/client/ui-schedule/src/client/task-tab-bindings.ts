@@ -207,9 +207,7 @@ export class TaskTabBindings {
    */
   private store(sessionId: SessionId, entries: Map<string, StoredEntry>): void {
     const live = this.liveTabIds?.(sessionId)
-    const kept = live === undefined || live.length === 0
-      ? entries
-      : new Map([...entries].filter(([tabId]) => live.includes(tabId)))
+    const kept = live === undefined || live.length === 0 ? entries : new Map([...entries].filter(([tabId]) => live.includes(tabId)))
     this.memory.set(sessionId, kept)
     if (typeof localStorage === 'undefined') return
     try {

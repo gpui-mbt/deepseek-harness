@@ -16,8 +16,14 @@
  */
 import type { LexicalEditor } from 'lexical'
 import {
-  COMMAND_PRIORITY_CRITICAL, KEY_ARROW_DOWN_COMMAND, KEY_ARROW_UP_COMMAND, KEY_ENTER_COMMAND,
-  KEY_ESCAPE_COMMAND, KEY_SPACE_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND,
+  COMMAND_PRIORITY_CRITICAL,
+  KEY_ARROW_DOWN_COMMAND,
+  KEY_ARROW_UP_COMMAND,
+  KEY_ENTER_COMMAND,
+  KEY_ESCAPE_COMMAND,
+  KEY_SPACE_COMMAND,
+  KEY_TAB_COMMAND,
+  PASTE_COMMAND,
 } from 'lexical'
 import { mergeRegister } from '@lexical/utils'
 import type { ArbitrateKey, ArbitrateOutcome } from '../../contract/draft-editor.ts'
@@ -80,14 +86,16 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
   }
   const recentlyComposing = (): boolean => composing || Date.now() < composingUntil
 
-  const arrow = (key: ArbitrateKey) => (event: KeyboardEvent | null): boolean => {
-    const inComposition = event !== null && isComposingEvent(event, recentlyComposing)
-    if (handlers.arbitrate(key, inComposition) !== 'pass') {
-      event?.preventDefault()
-      return true
+  const arrow =
+    (key: ArbitrateKey) =>
+    (event: KeyboardEvent | null): boolean => {
+      const inComposition = event !== null && isComposingEvent(event, recentlyComposing)
+      if (handlers.arbitrate(key, inComposition) !== 'pass') {
+        event?.preventDefault()
+        return true
+      }
+      return false
     }
-    return false
-  }
 
   return mergeRegister(
     editor.registerRootListener((root, prevRoot) => {
@@ -108,80 +116,98 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
     // native focus traversal; Shift+Tab leaves the menu like Escape whenever it
     // is open, highlight or not, so the two Tab gestures never disagree about
     // consuming the draft.
+    editor.registerCommand(KEY_TAB_COMMAND, event => arrow(event.shiftKey ? 'tabBack' : 'tab')(event), COMMAND_PRIORITY_CRITICAL),
     editor.registerCommand(
-      KEY_TAB_COMMAND,
-      event => arrow(event.shiftKey ? 'tabBack' : 'tab')(event),
+      KEY_ESCAPE_COMMAND,
+      event => {
+        // Escape layering: an open overlay closes; claimed without an overlay
+        // does NOT release (deleting the command chip is the only exit gesture).
+        handlers.dismissPopup()
+        if (handlers.arbitrate('escape', isComposingEvent(event, recentlyComposing)) === 'consumed') {
+          event.preventDefault()
+          return true
+        }
+        return false
+      },
       COMMAND_PRIORITY_CRITICAL,
     ),
-    editor.registerCommand(KEY_ESCAPE_COMMAND, (event) => {
-      // Escape layering: an open overlay closes; claimed without an overlay
-      // does NOT release (deleting the command chip is the only exit gesture).
-      handlers.dismissPopup()
-      if (handlers.arbitrate('escape', isComposingEvent(event, recentlyComposing)) === 'consumed') {
-        event.preventDefault()
-        return true
-      }
-      return false
-    }, COMMAND_PRIORITY_CRITICAL),
-    editor.registerCommand(KEY_SPACE_COMMAND, (event) => {
-      if (isComposingEvent(event, recentlyComposing)) return false
-      const consumed = handlers.space()
-      if (consumed) {
-        event.preventDefault() // the command chip insertion already carries its separator
-        return true
-      }
-      return false
-    }, COMMAND_PRIORITY_CRITICAL),
-    editor.registerCommand(KEY_ENTER_COMMAND, (event) => {
-      // Returning true stops Lexical's fallback line break without consuming
-      // the DOM event that application shortcuts need.
-      if (event !== null && (event.altKey || event.getModifierState('AltGraph')
-        || (event.ctrlKey && event.metaKey) || (event.shiftKey && (event.ctrlKey || event.metaKey)))) return true
-      // Plain Shift+Enter keeps its native line break, including during composition.
-      if (event?.shiftKey === true) return false
-      if (event !== null && isComposingEvent(event, recentlyComposing)) {
-        // The IME consumes this Enter (candidate pick); neither submit nor
-        // break the line. No preventDefault: the browser owns the gesture.
-        return true
-      }
-      // Menu-open Enter picks the highlight through arbitration; a
-      // no-highlight menu passes down to the submit gesture.
-      if (handlers.arbitrate('enter', false) !== 'pass') {
-        event?.preventDefault()
-        return true
-      }
-      event?.preventDefault()
-      if (event?.repeat === true) return true // held-down Enter must not machine-gun sends
-      if (!handlers.canSubmit()) return true
-      handlers.submit(event?.ctrlKey === true || event?.metaKey === true)
-      return true
-    }, COMMAND_PRIORITY_CRITICAL),
-    editor.registerCommand(PASTE_COMMAND, (event) => {
-      // Duck-typed: the payload union includes InputEvent, and test engines
-      // deliver clipboardData on plain events.
-      const clipboardData = (event as ClipboardEvent).clipboardData ?? null
-      if (clipboardData === null) return false
-      const files: File[] = []
-      const directories = new Set<File>()
-      for (const item of clipboardData.items) {
-        if (item.kind !== 'file') continue
-        const file = item.getAsFile()
-        if (file === null) continue
-        files.push(file)
-        if (typeof item.webkitGetAsEntry === 'function' && item.webkitGetAsEntry()?.isDirectory === true) {
-          directories.add(file)
+    editor.registerCommand(
+      KEY_SPACE_COMMAND,
+      event => {
+        if (isComposingEvent(event, recentlyComposing)) return false
+        const consumed = handlers.space()
+        if (consumed) {
+          event.preventDefault() // the command chip insertion already carries its separator
+          return true
         }
-      }
-      if (files.length > 0) handlers.intakeFiles(files, directories.size === 0 ? undefined : directories)
-      const text = clipboardData.getData('text/plain')
-      if (text === '') {
-        if (files.length === 0) return false
-        event.preventDefault()
+        return false
+      },
+      COMMAND_PRIORITY_CRITICAL,
+    ),
+    editor.registerCommand(
+      KEY_ENTER_COMMAND,
+      event => {
+        // Returning true stops Lexical's fallback line break without consuming
+        // the DOM event that application shortcuts need.
+        if (
+          event !== null &&
+          (event.altKey ||
+            event.getModifierState('AltGraph') ||
+            (event.ctrlKey && event.metaKey) ||
+            (event.shiftKey && (event.ctrlKey || event.metaKey)))
+        )
+          return true
+        // Plain Shift+Enter keeps its native line break, including during composition.
+        if (event?.shiftKey === true) return false
+        if (event !== null && isComposingEvent(event, recentlyComposing)) {
+          // The IME consumes this Enter (candidate pick); neither submit nor
+          // break the line. No preventDefault: the browser owns the gesture.
+          return true
+        }
+        // Menu-open Enter picks the highlight through arbitration; a
+        // no-highlight menu passes down to the submit gesture.
+        if (handlers.arbitrate('enter', false) !== 'pass') {
+          event?.preventDefault()
+          return true
+        }
+        event?.preventDefault()
+        if (event?.repeat === true) return true // held-down Enter must not machine-gun sends
+        if (!handlers.canSubmit()) return true
+        handlers.submit(event?.ctrlKey === true || event?.metaKey === true)
         return true
-      }
-      event.preventDefault()
-      handlers.pasteText(text)
-      return true
-    }, COMMAND_PRIORITY_CRITICAL),
+      },
+      COMMAND_PRIORITY_CRITICAL,
+    ),
+    editor.registerCommand(
+      PASTE_COMMAND,
+      event => {
+        // Duck-typed: the payload union includes InputEvent, and test engines
+        // deliver clipboardData on plain events.
+        const clipboardData = (event as ClipboardEvent).clipboardData ?? null
+        if (clipboardData === null) return false
+        const files: File[] = []
+        const directories = new Set<File>()
+        for (const item of clipboardData.items) {
+          if (item.kind !== 'file') continue
+          const file = item.getAsFile()
+          if (file === null) continue
+          files.push(file)
+          if (typeof item.webkitGetAsEntry === 'function' && item.webkitGetAsEntry()?.isDirectory === true) {
+            directories.add(file)
+          }
+        }
+        if (files.length > 0) handlers.intakeFiles(files, directories.size === 0 ? undefined : directories)
+        const text = clipboardData.getData('text/plain')
+        if (text === '') {
+          if (files.length === 0) return false
+          event.preventDefault()
+          return true
+        }
+        event.preventDefault()
+        handlers.pasteText(text)
+        return true
+      },
+      COMMAND_PRIORITY_CRITICAL,
+    ),
   )
 }

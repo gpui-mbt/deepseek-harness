@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { jsonSchemaToPy, renderToolsSdkPy } from '@deepseek-ai/dsh-tools/src/py-types.ts'
 import { parameterSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { ToolSdkSchema } from '@deepseek-ai/dsh-tools/src/ts-types.ts'
@@ -96,8 +96,7 @@ describe('jsonSchemaToPy', () => {
     // the two spellings; the 1e21 case below separates them again on the other
     // failure mode, where `String` gives no integer literal at all.
     expect(jsonSchemaToPy({ type: 'integer', const: 2 ** 60 })).toBe('Literal[1152921504606846976]')
-    expect(jsonSchemaToPy({ type: 'integer', enum: [2 ** 60, -(2 ** 60)] }))
-      .toBe('Literal[1152921504606846976, -1152921504606846976]')
+    expect(jsonSchemaToPy({ type: 'integer', enum: [2 ** 60, -(2 ** 60)] })).toBe('Literal[1152921504606846976, -1152921504606846976]')
     // `String(1e21)` prints `1e+21`, not a Python integer literal at all. The
     // rule keys off the VALUE, not the declared type, so a `number` const that
     // happens to be an integral double is spelled the same exact way (both
@@ -755,7 +754,10 @@ describe('renderToolsSdkPy', () => {
       output: { type: 'string' },
     }
     const lines = renderToolsSdkPy([bash, second]).split('\n')
-    for (const [name, doc] of [['bash', 'Run a shell command.'], ['zzz', 'Second by name.']]) {
+    for (const [name, doc] of [
+      ['bash', 'Run a shell command.'],
+      ['zzz', 'Second by name.'],
+    ]) {
       const signature = lines.findIndex(line => line.startsWith(`${' '.repeat(4)}async def ${name}(`))
       expect(signature).toBeGreaterThan(-1)
       // Ends in `:`, not the `: ...` stub — a docstring IS the whole body.
@@ -850,7 +852,7 @@ describe('renderToolsSdkPy', () => {
     expect(text).toContain('closedEmpty: OpennessArgsClosedEmpty')
   })
 
-  it('renders a deeply nested array schema without exhausting the call stack, capped at CPython\'s bracket limit', () => {
+  it("renders a deeply nested array schema without exhausting the call stack, capped at CPython's bracket limit", () => {
     // The registry supports depth-unbounded schemas; the renderer must not
     // reintroduce a recursion limit during prompt assembly. It must also not
     // emit more open brackets than CPython's tokenizer accepts (200), so the
@@ -909,8 +911,7 @@ describe('renderToolsSdkPy', () => {
     expect(annotation.split('[').length - 1).toBe(181)
     // One array deeper is where the degradation lands, and it lands on the item
     // rather than on another `list[`, so the count cannot grow past that.
-    expect(renderToolsSdkPy([rooted(181)]))
-      .toContain(`async def rooted(self, args: ${'list['.repeat(180)}Any${']'.repeat(180)}) -> str:`)
+    expect(renderToolsSdkPy([rooted(181)])).toContain(`async def rooted(self, args: ${'list['.repeat(180)}Any${']'.repeat(180)}) -> str:`)
     // A union spine reaches the same 182, at any number of arms deep: each arm
     // inherits the enclosing depth because `A | B` opens nothing, so the chain
     // under the innermost one still starts at 0. Three unions here, to pin that
@@ -963,7 +964,12 @@ describe('renderToolsSdkPy', () => {
     for (let i = 0; i < depth; i++) {
       deep = { oneOf: [deep, { type: 'object', additionalProperties: false, properties: {} }] }
     }
-    const tool: ToolSdkSchema = { name: 'deep', description: 'Deep oneOf-object chain.', parameters: { type: 'object', additionalProperties: false, properties: { root: deep }, required: ['root'] }, output: { type: 'string' } }
+    const tool: ToolSdkSchema = {
+      name: 'deep',
+      description: 'Deep oneOf-object chain.',
+      parameters: { type: 'object', additionalProperties: false, properties: { root: deep }, required: ['root'] },
+      output: { type: 'string' },
+    }
     const text = renderToolsSdkPy([tool])
     // No emitted class name exceeds the cap (plus a short collision suffix).
     const longest = [...text.matchAll(/^class (\w+)\(TypedDict\):/gm)].reduce((max, m) => Math.max(max, m[1]?.length ?? 0), 0)

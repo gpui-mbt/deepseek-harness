@@ -8,7 +8,7 @@
 
 import { SESSION_FORMAT_VERSION, SessionSeq } from '@deepseek-ai/dsh-session'
 import { randomBytes } from 'node:crypto'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { unzipSync, strFromU8 } from 'fflate'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
@@ -29,9 +29,7 @@ declare module '@deepseek-ai/dsh-llm' {
 const sid = (id: string): SessionId => id as SessionId
 const exportLogName = SessionLogExport.SESSION_LOG_FILENAME
 const subagentLogName = (id: string): string => `subagents/${id}/${exportLogName}`
-const generationLogName = (version: number): string => version === 0
-  ? 'session.jsonl'
-  : `session.v${version}.jsonl`
+const generationLogName = (version: number): string => (version === 0 ? 'session.jsonl' : `session.v${version}.jsonl`)
 
 function header(id: string, parentSession?: SessionId): SessionHeader {
   return {
@@ -40,7 +38,7 @@ function header(id: string, parentSession?: SessionId): SessionHeader {
     createdAt: 1000,
     isSeeded: false,
     cwd: '/proj',
-    ...parentSession === undefined ? {} : { parentSession },
+    ...(parentSession === undefined ? {} : { parentSession }),
     delegationDepth: parentSession === undefined ? 0 : 1,
   }
 }
@@ -77,7 +75,9 @@ function storedImage(id: string, mediaType: ImageAttachmentRef['mediaType'] = 'i
 /** A user/message event carrying one image reference. */
 function imageEvent(id: string, mediaType: ImageAttachmentRef['mediaType'] = 'image/png'): SessionEvent {
   return {
-    type: 'user/message', seq: SessionSeq(1), time: 1000,
+    type: 'user/message',
+    seq: SessionSeq(1),
+    time: 1000,
     data: { content: [{ type: 'image', attachment: { attachmentId: id, mediaType, bytes: 4, width: 2, height: 2 } }] },
   } as unknown as SessionEvent
 }
@@ -97,7 +97,9 @@ function readHandle(stored: StoredLog): SessionHandle {
 /** A user/message event carrying one generic-file reference. */
 function fileEvent(id: string, name = 'notes.txt', bytes = 5, seq = SessionSeq(1)): SessionEvent {
   return {
-    type: 'user/message', seq, time: 1000,
+    type: 'user/message',
+    seq,
+    time: 1000,
     data: { content: [{ type: 'file', attachment: { attachmentId: id, name, bytes } }] },
   } as unknown as SessionEvent
 }
@@ -115,7 +117,10 @@ async function buildApi(
       flush(session: { readonly id: SessionId }): Promise<boolean>
     }
     open?: (id: SessionId, access: SessionAccess, options?: { signal?: AbortSignal }) => Promise<SessionHandle>
-    traceSession?: (id: SessionId, signal?: AbortSignal) => Promise<{
+    traceSession?: (
+      id: SessionId,
+      signal?: AbortSignal,
+    ) => Promise<{
       target: { header: SessionHeader; live: boolean; persisted: boolean }
       ancestors: readonly SessionLineageNode[]
       complete: boolean
@@ -131,13 +136,15 @@ async function buildApi(
   const persistence = services.persistence ?? true
   if (query) {
     ctx.provide('sessionQuery', {
-      traceSession: services.traceSession ?? (async () => ({
-        target: { header: header('session-root'), live: false, persisted: true },
-        ancestors: [],
-        complete: true,
-        root: { header: header('session-root'), live: false, persisted: true },
-        descendants,
-      })),
+      traceSession:
+        services.traceSession ??
+        (async () => ({
+          target: { header: header('session-root'), live: false, persisted: true },
+          ancestors: [],
+          complete: true,
+          root: { header: header('session-root'), live: false, persisted: true },
+          descendants,
+        })),
     } as never)
   }
   if (persistence) {
@@ -148,44 +155,46 @@ async function buildApi(
         const stored = logs[id]
         return stored === undefined ? undefined : { header: stored.header }
       },
-      open: services.open ?? (async (id: SessionId) => {
-        if (persistence === 'throw') throw new Error('/host/private/session.jsonl')
-        const stored = logs[id]
-        if (stored === undefined) throw new SessionPersistenceNotFoundError(id)
-        return readHandle(stored)
-      }),
+      open:
+        services.open ??
+        (async (id: SessionId) => {
+          if (persistence === 'throw') throw new Error('/host/private/session.jsonl')
+          const stored = logs[id]
+          if (stored === undefined) throw new SessionPersistenceNotFoundError(id)
+          return readHandle(stored)
+        }),
     } as never)
   }
   if (services.attachments !== false) {
-    const readImage = typeof services.attachments === 'function'
-      ? services.attachments
-      : async (ref: ImageAttachmentRef) => storedImage(String(ref.attachmentId), ref.mediaType)
+    const readImage =
+      typeof services.attachments === 'function'
+        ? services.attachments
+        : async (ref: ImageAttachmentRef) => storedImage(String(ref.attachmentId), ref.mediaType)
     ctx.provide('attachments', {
       imageLimits: {} as never,
       validateImage: async () => {},
-      saveImage: async () => { throw new Error('export never saves images') },
+      saveImage: async () => {
+        throw new Error('export never saves images')
+      },
       readImage,
-      readFileStream: services.readFileStream ?? (async function* () {
-        throw new Error('fixture has no files')
-      }),
+      readFileStream:
+        services.readFileStream ??
+        async function* () {
+          throw new Error('fixture has no files')
+        },
     } as never)
   }
   if (services.sessions !== undefined) ctx.provide('sessions', services.sessions as never)
   const connection = new HostConnectionService(ctx, [], {} as BrowserAuth)
   const fiber = ctx.plugin(SessionLogExport, {
-    ...services.compressionLevel === undefined
-      ? {}
-      : { compressionLevel: services.compressionLevel },
+    ...(services.compressionLevel === undefined ? {} : { compressionLevel: services.compressionLevel }),
   })
   await fiber.await()
   const handler = connection.createSharedFetchHandler('/api')
   return {
     fetch: { fetch: (request: Request) => handler.fetch(request, connection.browserPeer) },
     downloads: {
-      sessionLog: (
-        request: { sessionId: SessionId; includeDescendants: boolean },
-        signal: AbortSignal,
-      ): Promise<Response> => {
+      sessionLog: (request: { sessionId: SessionId; includeDescendants: boolean }, signal: AbortSignal): Promise<Response> => {
         const url = new URL(`http://host${SessionLogExport.SESSION_LOG_EXPORT_PATH}`)
         url.searchParams.set('sessionId', request.sessionId)
         url.searchParams.set('includeDescendants', String(request.includeDescendants))
@@ -206,9 +215,21 @@ async function responseBytes(response: Response): Promise<Uint8Array> {
 /** Minimal ready services for the direct streamSessionLogZip chunking tests. */
 function directReady(): SessionLogExport.SessionLogExportReady {
   return {
-    sessionQuery: { traceSession: async () => { throw new Error('unused') } } as never,
-    sessionPersistence: { open: async () => { throw new Error('unused') } } as never,
-    attachments: { readImage: async () => { throw new Error('no media') } } as never,
+    sessionQuery: {
+      traceSession: async () => {
+        throw new Error('unused')
+      },
+    } as never,
+    sessionPersistence: {
+      open: async () => {
+        throw new Error('unused')
+      },
+    } as never,
+    attachments: {
+      readImage: async () => {
+        throw new Error('no media')
+      },
+    } as never,
     sessions: undefined,
   }
 }
@@ -216,7 +237,12 @@ function directReady(): SessionLogExport.SessionLogExportReady {
 /** Consume one directly built zip stream into its unpacked files. */
 async function directZipFiles(rootContent: string): Promise<Record<string, Uint8Array>> {
   const stream = SessionLogExport.streamSessionLogZip(
-    directReady(), rootContent, sid('session-root'), false, 6, new AbortController().signal,
+    directReady(),
+    rootContent,
+    sid('session-root'),
+    false,
+    6,
+    new AbortController().signal,
   )
   return unzipSync(new Uint8Array(await new Response(stream).arrayBuffer()))
 }
@@ -226,10 +252,8 @@ describe('session export compression config', () => {
     expect(SessionLogExport.Config({})).toEqual({
       compressionLevel: 6,
     })
-    expect(SessionLogExport.Config({ compressionLevel: 0 }))
-      .toEqual({ compressionLevel: 0 })
-    expect(SessionLogExport.Config({ compressionLevel: 9 }))
-      .toEqual({ compressionLevel: 9 })
+    expect(SessionLogExport.Config({ compressionLevel: 0 })).toEqual({ compressionLevel: 0 })
+    expect(SessionLogExport.Config({ compressionLevel: 9 })).toEqual({ compressionLevel: 9 })
     for (const value of [-1, 10, 1.5]) {
       expect(() => SessionLogExport.Config({ compressionLevel: value } as never)).toThrow()
     }
@@ -245,8 +269,13 @@ describe('serializeSessionLog', () => {
     const stored = log('session-root')
     expect(logText(stored)).toBe(
       `${JSON.stringify({
-        type: 'session', version: SESSION_FORMAT_VERSION, id: sid('session-root'), createdAt: 1000,
-        cwd: '/proj', isSeeded: false, delegationDepth: 0,
+        type: 'session',
+        version: SESSION_FORMAT_VERSION,
+        id: sid('session-root'),
+        createdAt: 1000,
+        cwd: '/proj',
+        isSeeded: false,
+        delegationDepth: 0,
       })}\n${JSON.stringify(turnStart)}\n`,
     )
   })
@@ -266,17 +295,19 @@ describe('serializeSessionLog', () => {
       { type: 'turn/end', seq: SessionSeq(1), time: 2, data: { turn: 1, reason: { kind: 'completed' } } },
       { type: 'session/end-seed', seq: SessionSeq(2), time: 2, data: { inherited: true } },
     ]
-    expect(SessionLogExport.serializeSessionLog(seeded, events)).toBe(`${JSON.stringify({
-      type: 'session',
-      version: SESSION_FORMAT_VERSION,
-      id: sid('seeded'),
-      createdAt: 1000,
-      parentSession: sid('parent'),
-      isSeeded: true,
-      origin: 'subagent',
-      delegationDepth: 0,
-      agentPreset: 'minimal',
-    })}\n${events.map(event => JSON.stringify(event)).join('\n')}\n`)
+    expect(SessionLogExport.serializeSessionLog(seeded, events)).toBe(
+      `${JSON.stringify({
+        type: 'session',
+        version: SESSION_FORMAT_VERSION,
+        id: sid('seeded'),
+        createdAt: 1000,
+        parentSession: sid('parent'),
+        isSeeded: true,
+        origin: 'subagent',
+        delegationDepth: 0,
+        agentPreset: 'minimal',
+      })}\n${events.map(event => JSON.stringify(event)).join('\n')}\n`,
+    )
   })
 })
 
@@ -289,18 +320,17 @@ describe('readSessionLogText', () => {
         return readHandle(stored)
       },
     } as never
-    await expect(SessionLogExport.readSessionLogText(persistence, sid('session-root')))
-      .resolves.toBe(logText(stored))
-    await expect(SessionLogExport.readSessionLogText(persistence, sid('absent')))
-      .resolves.toBeUndefined()
+    await expect(SessionLogExport.readSessionLogText(persistence, sid('session-root'))).resolves.toBe(logText(stored))
+    await expect(SessionLogExport.readSessionLogText(persistence, sid('absent'))).resolves.toBeUndefined()
   })
 
   it('propagates a non-not-found open failure', async () => {
     const persistence = {
-      open: async () => { throw new Error('EACCES: permission denied') },
+      open: async () => {
+        throw new Error('EACCES: permission denied')
+      },
     } as never
-    await expect(SessionLogExport.readSessionLogText(persistence, sid('session-root')))
-      .rejects.toThrow('EACCES: permission denied')
+    await expect(SessionLogExport.readSessionLogText(persistence, sid('session-root'))).rejects.toThrow('EACCES: permission denied')
   })
 })
 
@@ -308,9 +338,7 @@ describe('session.export download endpoint', () => {
   it('streams a ZIP with the root log serialized as canonical JSONL', async () => {
     const stored = log('session-root')
     const api = await buildApi({ 'session-root': stored })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/zip')
     expect(response.headers.get('content-disposition')).toContain('dsh-session-session-root.zip')
@@ -345,7 +373,9 @@ describe('session.export download endpoint', () => {
 
   it('uses the resolved compression level for ZIP entries', async () => {
     const filler = {
-      type: 'user/message', seq: SessionSeq(1), time: 1000,
+      type: 'user/message',
+      seq: SessionSeq(1),
+      time: 1000,
       data: { content: [{ type: 'text', text: 'compressible '.repeat(32 * 1024) }] },
     } as unknown as SessionEvent
     const stored = log('session-root', undefined, [turnStart, filler])
@@ -367,25 +397,21 @@ describe('session.export download endpoint', () => {
 
   it('includes descendant logs under subagents/<id>/ when requested', async () => {
     const child = log('child-a', sid('session-root'))
-    const api = await buildApi({
-      'session-root': log('session-root'),
-      'child-a': child,
-      'grandchild-a': log('grandchild-a', sid('child-a')),
-    }, [
-      node('child-a', node('grandchild-a')),
-    ])
+    const api = await buildApi(
+      {
+        'session-root': log('session-root'),
+        'child-a': child,
+        'grandchild-a': log('grandchild-a', sid('child-a')),
+      },
+      [node('child-a', node('grandchild-a'))],
+    )
     const response = await toFetchHandler(api).fetch(
       new Request('http://host/api/session.export?sessionId=session-root&includeDescendants=true'),
     )
     expect(response.status).toBe(200)
     const files = unzipSync(await responseBytes(response))
-    expect(Object.keys(files).sort()).toEqual([
-      exportLogName,
-      subagentLogName('child-a'),
-      subagentLogName('grandchild-a'),
-    ])
-    expect(strFromU8(files[subagentLogName('child-a')] as Uint8Array))
-      .toBe(logText(child))
+    expect(Object.keys(files).sort()).toEqual([exportLogName, subagentLogName('child-a'), subagentLogName('grandchild-a')])
+    expect(strFromU8(files[subagentLogName('child-a')] as Uint8Array)).toBe(logText(child))
   })
 
   it('flushes each live root and descendant immediately before reading its log', async () => {
@@ -402,8 +428,8 @@ describe('session.export download endpoint', () => {
     const flushed: SessionId[] = []
     const api = await buildApi(stored, [node('child-a')], {
       sessions: {
-        get: id => durable[id] === undefined ? undefined : { id },
-        flush: async (session) => {
+        get: id => (durable[id] === undefined ? undefined : { id }),
+        flush: async session => {
           const logAfterFlush = durable[session.id]
           if (logAfterFlush === undefined) throw new Error('unexpected session')
           flushed.push(session.id)
@@ -441,18 +467,14 @@ describe('session.export download endpoint', () => {
 
   it('answers 404 for a session the backend does not store', async () => {
     const api = await buildApi({})
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(404)
     expect(await response.text()).toBe('session not found')
   })
 
   it('answers 400 when the sessionId query parameter is absent', async () => {
     const api = await buildApi({ 'session-root': log('session-root') })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?includeDescendants=true'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?includeDescendants=true'))
     expect(response.status).toBe(400)
   })
 
@@ -466,17 +488,18 @@ describe('session.export download endpoint', () => {
 
   it('answers 500 when the deployment mounts no persistence or session-query service', async () => {
     const api = await buildApi({}, [], { query: false, persistence: false })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(500)
     expect(await response.text()).toContain('session-query')
   })
 
   it('fails the whole export when a descendant has no stored log', async () => {
-    const api = await buildApi({
-      'session-root': log('session-root'),
-    }, [node('child-missing')])
+    const api = await buildApi(
+      {
+        'session-root': log('session-root'),
+      },
+      [node('child-missing')],
+    )
     const response = await toFetchHandler(api).fetch(
       new Request('http://host/api/session.export?sessionId=session-root&includeDescendants=true'),
     )
@@ -511,8 +534,15 @@ describe('session.export download endpoint', () => {
 
   it('preserves non-event JSON and absent content carriers without discovering attachment lookalikes', async () => {
     const content = [{ type: 'image', attachment: { attachmentId: 'not-an-occurrence', mediaType: 'image/png' } }]
-    const text = [null, [], false, { type: 'agent/inbox/spliced', data: { content } },
-      { type: 'session/title-llm-request', data: { content } }].map(value => JSON.stringify(value)).join('\n')
+    const text = [
+      null,
+      [],
+      false,
+      { type: 'agent/inbox/spliced', data: { content } },
+      { type: 'session/title-llm-request', data: { content } },
+    ]
+      .map(value => JSON.stringify(value))
+      .join('\n')
     const files = await directZipFiles(text)
     expect(Object.keys(files)).toEqual([exportLogName])
     expect(strFromU8(files[exportLogName] as Uint8Array)).toBe(text)
@@ -520,13 +550,15 @@ describe('session.export download endpoint', () => {
 
   it('waits for response pull capacity before reading the next archive entry', async () => {
     const filler = {
-      type: 'user/message', seq: SessionSeq(2), time: 1000,
+      type: 'user/message',
+      seq: SessionSeq(2),
+      time: 1000,
       data: { content: [{ type: 'text', text: randomBytes(512 * 1024).toString('base64') }] },
     } as unknown as SessionEvent
     const stored = log('session-root', undefined, [imageEvent('after-root'), filler])
     let imageReads = 0
     const api = await buildApi({ 'session-root': stored }, [], {
-      attachments: async (ref) => {
+      attachments: async ref => {
         imageReads += 1
         return storedImage(String(ref.attachmentId), ref.mediaType)
       },
@@ -534,9 +566,7 @@ describe('session.export download endpoint', () => {
     vi.useFakeTimers()
     let response: Response | undefined
     try {
-      response = await toFetchHandler(api).fetch(
-        new Request('http://host/api/session.export?sessionId=session-root'),
-      )
+      response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
       // Exhausting timer turns must not advance a producer whose byte queue is
       // full; only a consumer pull can release it.
       await vi.runAllTimersAsync()
@@ -551,15 +581,15 @@ describe('session.export download endpoint', () => {
   })
 
   it('exports a shared lineage node once (seen-set dedup)', async () => {
-    const api = await buildApi({
-      'session-root': log('session-root'),
-      'child-a': log('child-a', sid('session-root')),
-      'child-b': log('child-b', sid('session-root')),
-      shared: log('shared', sid('child-a')),
-    }, [
-      node('child-a', node('shared')),
-      node('child-b', node('shared')),
-    ])
+    const api = await buildApi(
+      {
+        'session-root': log('session-root'),
+        'child-a': log('child-a', sid('session-root')),
+        'child-b': log('child-b', sid('session-root')),
+        shared: log('shared', sid('child-a')),
+      },
+      [node('child-a', node('shared')), node('child-b', node('shared'))],
+    )
     const response = await toFetchHandler(api).fetch(
       new Request('http://host/api/session.export?sessionId=session-root&includeDescendants=true'),
     )
@@ -574,9 +604,7 @@ describe('session.export download endpoint', () => {
 
   it('answers 500 without leaking the backend error when the root read fails', async () => {
     const api = await buildApi({}, [], { query: true, persistence: 'throw' })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(500)
     const body = await response.text()
     expect(body).toBe('session log export failed to read the stored log')
@@ -587,12 +615,12 @@ describe('session.export download endpoint', () => {
     const api = await buildApi({ 'session-root': log('session-root') }, [], {
       sessions: {
         get: id => ({ id }),
-        flush: async () => { throw new Error('/host/private/flush-state') },
+        flush: async () => {
+          throw new Error('/host/private/flush-state')
+        },
       },
     })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(500)
     const body = await response.text()
     expect(body).toBe('session log export failed to read the stored log')
@@ -605,9 +633,7 @@ describe('session.export download endpoint', () => {
     const api = await buildApi({}, [node('child-a')], {
       open: async (id, _access, options) => {
         reads.push({ id, signal: options?.signal })
-        return readHandle(id === sid('session-root')
-          ? log('session-root')
-          : log('child-a', sid('session-root')))
+        return readHandle(id === sid('session-root') ? log('session-root') : log('child-a', sid('session-root')))
       },
       traceSession: async (_id, signal) => {
         if (signal !== undefined) traces.push(signal)
@@ -621,10 +647,7 @@ describe('session.export download endpoint', () => {
       },
     })
     const controller = new AbortController()
-    const response = await api.downloads.sessionLog(
-      { sessionId: sid('session-root'), includeDescendants: true },
-      controller.signal,
-    )
+    const response = await api.downloads.sessionLog({ sessionId: sid('session-root'), includeDescendants: true }, controller.signal)
     await response.arrayBuffer()
     const rootSignal = reads[0]?.signal
     if (rootSignal === undefined) throw new Error('missing root signal')
@@ -645,15 +668,14 @@ describe('session.export download endpoint', () => {
     const controller = new AbortController()
     const cancellation = new Error('request cancelled')
     controller.abort(cancellation)
-    await expect(api.downloads.sessionLog(
-      { sessionId: sid('session-root'), includeDescendants: false },
-      controller.signal,
-    )).rejects.toBe(cancellation)
+    await expect(api.downloads.sessionLog({ sessionId: sid('session-root'), includeDescendants: false }, controller.signal)).rejects.toBe(
+      cancellation,
+    )
   })
 
   it('aborts descendant work and terminates ZIP production when its reader cancels', async () => {
     let reportDescendantStarted!: (signal: AbortSignal) => void
-    const descendantStarted = new Promise<AbortSignal>((resolve) => {
+    const descendantStarted = new Promise<AbortSignal>(resolve => {
       reportDescendantStarted = resolve
     })
     const api = await buildApi({}, [node('child-a')], {
@@ -663,9 +685,13 @@ describe('session.export download endpoint', () => {
         if (signal === undefined) throw new Error('missing descendant signal')
         reportDescendantStarted(signal)
         return new Promise((_, reject) => {
-          signal.addEventListener('abort', () => {
-            reject(signal.reason as Error)
-          }, { once: true })
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(signal.reason as Error)
+            },
+            { once: true },
+          )
         })
       },
     })
@@ -684,7 +710,7 @@ describe('session.export download endpoint', () => {
 
   it('aborts attachment reads when its reader cancels', async () => {
     let reportAttachmentStarted!: (signal: AbortSignal) => void
-    const attachmentStarted = new Promise<AbortSignal>((resolve) => {
+    const attachmentStarted = new Promise<AbortSignal>(resolve => {
       reportAttachmentStarted = resolve
     })
     const stored = log('session-root', undefined, [imageEvent('slow-img')])
@@ -693,9 +719,13 @@ describe('session.export download endpoint', () => {
         if (signal === undefined) throw new Error('missing attachment signal')
         reportAttachmentStarted(signal)
         return new Promise((_, reject) => {
-          signal.addEventListener('abort', () => {
-            reject(signal.reason as Error)
-          }, { once: true })
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(signal.reason as Error)
+            },
+            { once: true },
+          )
         })
       },
     })
@@ -714,7 +744,7 @@ describe('session.export download endpoint', () => {
 
   it('uses a stable Error reason when its reader cancels without one', async () => {
     let reportDescendantStarted!: (signal: AbortSignal) => void
-    const descendantStarted = new Promise<AbortSignal>((resolve) => {
+    const descendantStarted = new Promise<AbortSignal>(resolve => {
       reportDescendantStarted = resolve
     })
     const api = await buildApi({}, [node('child-a')], {
@@ -724,9 +754,13 @@ describe('session.export download endpoint', () => {
         if (signal === undefined) throw new Error('missing descendant signal')
         reportDescendantStarted(signal)
         return new Promise((_, reject) => {
-          signal.addEventListener('abort', () => {
-            reject(signal.reason as Error)
-          }, { once: true })
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(signal.reason as Error)
+            },
+            { once: true },
+          )
         })
       },
     })
@@ -743,7 +777,7 @@ describe('session.export download endpoint', () => {
 
   it('normalizes a non-Error descendant failure before erroring the stream', async () => {
     const api = await buildApi({}, [node('child-a')], {
-      open: async (id) => {
+      open: async id => {
         if (id === sid('session-root')) return readHandle(log('session-root'))
         throw 'descendant read failed'
       },
@@ -758,9 +792,7 @@ describe('session.export download endpoint', () => {
   it('includes media objects referenced by the root log under media/<id>.<ext>', async () => {
     const stored = log('session-root', undefined, [imageEvent('img-1')])
     const api = await buildApi({ 'session-root': stored })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(200)
     const files = unzipSync(await responseBytes(response))
     expect(Object.keys(files).sort()).toEqual(['media/img-1.png', exportLogName].sort())
@@ -772,22 +804,18 @@ describe('session.export download endpoint', () => {
     const id = `sha256:${digest}`
     const fallbackDigest = 'c'.repeat(64)
     const fallbackId = `sha256:${fallbackDigest}`
-    const root = log('session-root', undefined, [
-      fileEvent(id, 'notes.txt', 5),
-      fileEvent(fallbackId, '.', 5, SessionSeq(2)),
-    ])
+    const root = log('session-root', undefined, [fileEvent(id, 'notes.txt', 5), fileEvent(fallbackId, '.', 5, SessionSeq(2))])
     const reads: Array<{ ref: FileAttachmentRef; signal: AbortSignal | undefined }> = []
     const api = await buildApi({ 'session-root': root }, [], {
-      readFileStream: (ref, signal) => (async function* (): AsyncIterable<Uint8Array> {
-        reads.push({ ref, signal })
-        yield new Uint8Array()
-        yield Uint8Array.of(1, 2)
-        yield Uint8Array.of(3, 4, 5)
-      })(),
+      readFileStream: (ref, signal) =>
+        (async function* (): AsyncIterable<Uint8Array> {
+          reads.push({ ref, signal })
+          yield new Uint8Array()
+          yield Uint8Array.of(1, 2)
+          yield Uint8Array.of(3, 4, 5)
+        })(),
     })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     const files = unzipSync(await responseBytes(response))
     expect(files[`files/aa/${digest}/notes.txt`]).toEqual(Uint8Array.of(1, 2, 3, 4, 5))
     expect(files[`files/cc/${fallbackDigest}/file`]).toEqual(Uint8Array.of(1, 2, 3, 4, 5))
@@ -801,26 +829,32 @@ describe('session.export download endpoint', () => {
     const id = `sha256:${digest}`
     const root = log('session-root', undefined, [fileEvent(id)])
     const api = await buildApi({ 'session-root': root }, [], {
-      readFileStream: () => (async function* (): AsyncIterable<Uint8Array> {
-        yield Uint8Array.of(1)
-        throw new Error('file bytes missing')
-      })(),
+      readFileStream: () =>
+        (async function* (): AsyncIterable<Uint8Array> {
+          yield Uint8Array.of(1)
+          throw new Error('file bytes missing')
+        })(),
     })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     await expect(response.arrayBuffer()).rejects.toThrow('file bytes missing')
   })
 
   it.each([
-    ['system/message', 'message'], ['developer/message', 'message'], ['tool/result', 'message'], ['team/message/queued', 'message'],
+    ['system/message', 'message'],
+    ['developer/message', 'message'],
+    ['tool/result', 'message'],
+    ['team/message/queued', 'message'],
     ['tool/ptc-dispatch', 'content'],
-    ['compaction/summary', 'summary'], ['compaction/summary', 'rawOutput'],
+    ['compaction/summary', 'summary'],
+    ['compaction/summary', 'rawOutput'],
   ] as const)('exports attachments from the declared %s %s content', async (type, field) => {
-    const content = [{ type: 'image', attachment: { attachmentId: 'declared-image', mediaType: 'image/png', bytes: 4, width: 2, height: 2 } }]
-    const message = type === 'tool/result'
-      ? { role: 'tool', toolCallId: 'declared-call', source: { kind: 'tool', callId: 'declared-call' }, content }
-      : { content }
+    const content = [
+      { type: 'image', attachment: { attachmentId: 'declared-image', mediaType: 'image/png', bytes: 4, width: 2, height: 2 } },
+    ]
+    const message =
+      type === 'tool/result'
+        ? { role: 'tool', toolCallId: 'declared-call', source: { kind: 'tool', callId: 'declared-call' }, content }
+        : { content }
     const data = field === 'message' ? { message } : { [field]: content }
     const stored = log('session-root', undefined, [{ type, seq: SessionSeq(1), time: 1000, data } as SessionEvent])
     const api = await buildApi({ 'session-root': stored })
@@ -845,13 +879,27 @@ describe('session.export download endpoint', () => {
   })
 
   it('keeps unrelated event fields and content-block extension fields out of attachment collection', async () => {
-    const content = [{ type: 'image', attachment: { attachmentId: 'not-an-occurrence', mediaType: 'image/png', bytes: 4, width: 2, height: 2 } }]
-    const event = { type: 'user/message', seq: SessionSeq(1), time: 1000, surfaceOp: 'append', data: {
-      id: 'metadata' as UserMessage['id'], role: 'user', source: { kind: 'user' },
-      content: [{ type: 'text', text: 'no image', content }, { type: 'plugin:vendor', data: { content }, content }],
-      message: { content }, inserted: [{ content }],
-      stream: [{ type: 'chunk', chunk: { type: 'block-end', block: content[0] } }],
-    } } as SessionEvent
+    const content = [
+      { type: 'image', attachment: { attachmentId: 'not-an-occurrence', mediaType: 'image/png', bytes: 4, width: 2, height: 2 } },
+    ]
+    const event = {
+      type: 'user/message',
+      seq: SessionSeq(1),
+      time: 1000,
+      surfaceOp: 'append',
+      data: {
+        id: 'metadata' as UserMessage['id'],
+        role: 'user',
+        source: { kind: 'user' },
+        content: [
+          { type: 'text', text: 'no image', content },
+          { type: 'plugin:vendor', data: { content }, content },
+        ],
+        message: { content },
+        inserted: [{ content }],
+        stream: [{ type: 'chunk', chunk: { type: 'block-end', block: content[0] } }],
+      },
+    } as SessionEvent
     const stored = log('session-root', undefined, [event])
     const readImage = vi.fn((ref: ImageAttachmentRef) => Promise.resolve(storedImage(String(ref.attachmentId), ref.mediaType)))
     const api = await buildApi({ 'session-root': stored }, [], { attachments: readImage })
@@ -862,80 +910,117 @@ describe('session.export download endpoint', () => {
     expect(readImage).not.toHaveBeenCalled()
   })
 
-  it.each(['external/image-record', 'session/title-llm-request'])('exports %s without reading attachments from its opaque payload', async (type) => {
-    const image = { type: 'image', attachment: { attachmentId: 'opaque-image', mediaType: 'image/png', bytes: 4, width: 2, height: 2 } }
-    const file = { type: 'file', attachment: { attachmentId: `sha256:${'e'.repeat(64)}`, name: 'opaque.txt', bytes: 5 } }
-    const content = [image, file]
-    const opaque = { type, seq: SessionSeq(1), time: 1000, ignorable: true, data: {
-      content, message: { content }, inserted: [{ content }], messages: [{ content }],
-      stream: [{ type: 'chunk', time: 1000, chunk: { type: 'block-end', index: 0, block: content[0] } }],
-    } } as SessionEvent
-    const stored = log('session-root', undefined, [opaque])
-    const readImage = vi.fn((ref: ImageAttachmentRef) => Promise.resolve(storedImage(String(ref.attachmentId), ref.mediaType)))
-    const readFileStream = vi.fn(async function* (_ref: FileAttachmentRef) { yield new Uint8Array([1]) })
-    const api = await buildApi({ 'session-root': stored }, [], { attachments: readImage, readFileStream })
-    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
-    const files = unzipSync(await responseBytes(response))
-    expect(Object.keys(files)).toEqual([exportLogName])
-    expect(new TextDecoder().decode(files[exportLogName])).toBe(logText(stored))
-    expect(readImage).not.toHaveBeenCalled()
-    expect(readFileStream).not.toHaveBeenCalled()
-  })
+  it.each(['external/image-record', 'session/title-llm-request'])(
+    'exports %s without reading attachments from its opaque payload',
+    async type => {
+      const image = { type: 'image', attachment: { attachmentId: 'opaque-image', mediaType: 'image/png', bytes: 4, width: 2, height: 2 } }
+      const file = { type: 'file', attachment: { attachmentId: `sha256:${'e'.repeat(64)}`, name: 'opaque.txt', bytes: 5 } }
+      const content = [image, file]
+      const opaque = {
+        type,
+        seq: SessionSeq(1),
+        time: 1000,
+        ignorable: true,
+        data: {
+          content,
+          message: { content },
+          inserted: [{ content }],
+          messages: [{ content }],
+          stream: [{ type: 'chunk', time: 1000, chunk: { type: 'block-end', index: 0, block: content[0] } }],
+        },
+      } as SessionEvent
+      const stored = log('session-root', undefined, [opaque])
+      const readImage = vi.fn((ref: ImageAttachmentRef) => Promise.resolve(storedImage(String(ref.attachmentId), ref.mediaType)))
+      const readFileStream = vi.fn(async function* (_ref: FileAttachmentRef) {
+        yield new Uint8Array([1])
+      })
+      const api = await buildApi({ 'session-root': stored }, [], { attachments: readImage, readFileStream })
+      const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
+      const files = unzipSync(await responseBytes(response))
+      expect(Object.keys(files)).toEqual([exportLogName])
+      expect(new TextDecoder().decode(files[exportLogName])).toBe(logText(stored))
+      expect(readImage).not.toHaveBeenCalled()
+      expect(readFileStream).not.toHaveBeenCalled()
+    },
+  )
 
   it('collects media referenced by a flat tool-role result', async () => {
     const callId = 'call' as ToolResultMessage['toolCallId']
     const result: SessionEvent<'tool/result'> = {
-      type: 'tool/result', seq: SessionSeq(2), time: 2000, surfaceOp: 'append',
-      data: { turn: 1, step: 1, message: {
-        id: 'tool-result-message' as ToolResultMessage['id'], role: 'tool', toolCallId: callId, source: { kind: 'tool', callId },
-        content: [{ type: 'image', attachment: storedImage('tool-image', 'image/webp').ref }],
-      } },
+      type: 'tool/result',
+      seq: SessionSeq(2),
+      time: 2000,
+      surfaceOp: 'append',
+      data: {
+        turn: 1,
+        step: 1,
+        message: {
+          id: 'tool-result-message' as ToolResultMessage['id'],
+          role: 'tool',
+          toolCallId: callId,
+          source: { kind: 'tool', callId },
+          content: [{ type: 'image', attachment: storedImage('tool-image', 'image/webp').ref }],
+        },
+      },
     }
     const api = await buildApi({ 'session-root': log('session-root', undefined, [result]) })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     const files = unzipSync(await responseBytes(response))
     expect(Object.keys(files).sort()).toEqual(['media/tool-image.webp', exportLogName].sort())
   })
 
   it('scans wrapped, inserted, and embedded-stream carriers plus non-object content items', async () => {
-    const block = (id: string, mediaType: string): unknown =>
-      ({ type: 'image', attachment: { attachmentId: id, mediaType, bytes: 4, width: 2, height: 2 } })
+    const block = (id: string, mediaType: string): unknown => ({
+      type: 'image',
+      attachment: { attachmentId: id, mediaType, bytes: 4, width: 2, height: 2 },
+    })
     const wrapped = {
-      type: 'assistant/message', seq: SessionSeq(2), time: 2000,
+      type: 'assistant/message',
+      seq: SessionSeq(2),
+      time: 2000,
       data: { message: { role: 'assistant', content: ['noise', block('wrapped-1', 'image/jpeg')] } },
     } as unknown as SessionEvent
     const inserted = {
-      type: 'agent/inbox/spliced', seq: SessionSeq(3), time: 3000,
-      data: { target: 'next-turn', start: 0, inserted: [null, 1, [], { content: [] }, {
-        id: 'inserted-message' as UserMessage['id'], role: 'user', source: { kind: 'user' }, content: [block('inserted-1', 'image/gif')],
-      }] },
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(3),
+      time: 3000,
+      data: {
+        target: 'next-turn',
+        start: 0,
+        inserted: [
+          null,
+          1,
+          [],
+          { content: [] },
+          {
+            id: 'inserted-message' as UserMessage['id'],
+            role: 'user',
+            source: { kind: 'user' },
+            content: [block('inserted-1', 'image/gif')],
+          },
+        ],
+      },
     } as SessionEvent
     const attempt = {
-      type: 'assistant/attempt', seq: SessionSeq(4), time: 4000,
+      type: 'assistant/attempt',
+      seq: SessionSeq(4),
+      time: 4000,
       data: {
         stream: [
           { type: 'text-chunks', time0: 3999, index: 0, dt: [], texts: ['ignored'] },
           { type: 'chunk', time: 4000, chunk: { type: 'finish', reason: { kind: 'stop' } } },
           {
-            type: 'chunk', time: 4000,
+            type: 'chunk',
+            time: 4000,
             chunk: { type: 'block-end', block: block('stream-1', 'image/png') },
           },
         ],
       },
     } as unknown as SessionEvent
     const api = await buildApi({ 'session-root': log('session-root', undefined, [wrapped, inserted, attempt]) })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     const files = unzipSync(await responseBytes(response))
-    expect(Object.keys(files).sort()).toEqual([
-      'media/inserted-1.gif',
-      'media/stream-1.png',
-      'media/wrapped-1.jpg',
-      exportLogName,
-    ])
+    expect(Object.keys(files).sort()).toEqual(['media/inserted-1.gif', 'media/stream-1.png', 'media/wrapped-1.jpg', exportLogName])
   })
 
   it('deduplicates one media object referenced by several included logs', async () => {
@@ -953,9 +1038,7 @@ describe('session.export download endpoint', () => {
   it('includes descendant media only when descendants are requested', async () => {
     const child = log('child-a', sid('session-root'), [imageEvent('child-img')])
     const api = await buildApi({ 'session-root': log('session-root'), 'child-a': child }, [node('child-a')])
-    const without = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const without = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(Object.keys(unzipSync(await responseBytes(without)))).toEqual([exportLogName])
     const withDescendants = await toFetchHandler(api).fetch(
       new Request('http://host/api/session.export?sessionId=session-root&includeDescendants=true'),
@@ -970,20 +1053,18 @@ describe('session.export download endpoint', () => {
   it('fails the whole export when a referenced image cannot be read', async () => {
     const stored = log('session-root', undefined, [imageEvent('gone-img')])
     const api = await buildApi({ 'session-root': stored }, [], {
-      attachments: async () => { throw new Error('attachment bytes missing') },
+      attachments: async () => {
+        throw new Error('attachment bytes missing')
+      },
     })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(200)
     await expect(response.arrayBuffer()).rejects.toThrow('attachment bytes missing')
   })
 
   it('answers 500 when the deployment mounts no attachments service', async () => {
     const api = await buildApi({ 'session-root': log('session-root') }, [], { attachments: false })
-    const response = await toFetchHandler(api).fetch(
-      new Request('http://host/api/session.export?sessionId=session-root'),
-    )
+    const response = await toFetchHandler(api).fetch(new Request('http://host/api/session.export?sessionId=session-root'))
     expect(response.status).toBe(500)
     expect(await response.text()).toContain('attachments')
   })

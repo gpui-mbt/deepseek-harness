@@ -43,7 +43,10 @@ interface QueryGeneration {
 
 /** Failure deliberately returned by the Worker query handler. */
 export class InspectorQueryRemoteError extends Error {
-  constructor(readonly code: InspectorQueryError['code'], message: string) {
+  constructor(
+    readonly code: InspectorQueryError['code'],
+    message: string,
+  ) {
     super(message)
   }
 }
@@ -131,16 +134,11 @@ export class InspectorQueryConnection implements InspectorQueryRequester {
       return true
     }
     if (!frame.outcome.ok) {
-      this.rejectPending(frame.requestId, new InspectorQueryRemoteError(
-        frame.outcome.error.code,
-        frame.outcome.error.message,
-      ))
+      this.rejectPending(frame.requestId, new InspectorQueryRemoteError(frame.outcome.error.code, frame.outcome.error.message))
       return true
     }
     if (frame.outcome.result.op !== pending.op) {
-      this.rejectPending(frame.requestId, new Error(
-        `Inspector query response op ${frame.outcome.result.op} does not match ${pending.op}`,
-      ))
+      this.rejectPending(frame.requestId, new Error(`Inspector query response op ${frame.outcome.result.op} does not match ${pending.op}`))
       return true
     }
     clearTimeout(pending.timer)

@@ -42,11 +42,20 @@ function object(value: unknown): value is Record<string, unknown> {
 }
 
 function requestData(value: unknown): TranslationRequestRecord {
-  if (!object(value) || !['provider', 'text', 'sourceLanguage', 'targetLanguage', 'recipe'].every(key => typeof value[key] === 'string')
-    || (value.metadata !== undefined && !object(value.metadata))) throw invalid()
-  return { provider: String(value.provider), text: String(value.text), sourceLanguage: String(value.sourceLanguage),
-    targetLanguage: String(value.targetLanguage), recipe: String(value.recipe),
-    ...value.metadata === undefined ? {} : { metadata: value.metadata } }
+  if (
+    !object(value) ||
+    !['provider', 'text', 'sourceLanguage', 'targetLanguage', 'recipe'].every(key => typeof value[key] === 'string') ||
+    (value.metadata !== undefined && !object(value.metadata))
+  )
+    throw invalid()
+  return {
+    provider: String(value.provider),
+    text: String(value.text),
+    sourceLanguage: String(value.sourceLanguage),
+    targetLanguage: String(value.targetLanguage),
+    recipe: String(value.recipe),
+    ...(value.metadata === undefined ? {} : { metadata: value.metadata }),
+  }
 }
 
 function identityKey(identity: TranslationIdentity): string {
@@ -59,7 +68,9 @@ export class TranslationStorage {
 
   /** @param ctx - translator context with optional live Sessions and durable persistence. */
   constructor(private readonly ctx: Context) {
-    ctx.effect(() => async () => { await Promise.all(this.translations.values()) })
+    ctx.effect(() => async () => {
+      await Promise.all(this.translations.values())
+    })
   }
 
   /**
@@ -72,8 +83,12 @@ export class TranslationStorage {
    * @returns saved or newly translated text, durably retained. Operation rejection returns without
    * waiting for accepted writes; identical retries and storage disposal wait for those writes to settle.
    */
-  run(id: SessionId, identity: TranslationIdentity, signal: AbortSignal,
-    operation: (log: TranslationLog) => Promise<string>): Promise<string> {
+  run(
+    id: SessionId,
+    identity: TranslationIdentity,
+    signal: AbortSignal,
+    operation: (log: TranslationLog) => Promise<string>,
+  ): Promise<string> {
     const persistence = this.ctx.get('sessionPersistence')
     const key = JSON.stringify([id, identityKey(identity)])
     const writes: Promise<void>[] = []
@@ -86,12 +101,13 @@ export class TranslationStorage {
       }
       try {
         current()
-        if (await persistence.stat(id, { signal }) === undefined) throw required()
+        if ((await persistence.stat(id, { signal })) === undefined) throw required()
         current()
         const cached = await this.lookup(id, identity, persistence, signal, current)
         current()
         if (cached !== undefined) return cached
-        const sessions = this.ctx.get('sessions'), session = sessions?.get(id)
+        const sessions = this.ctx.get('sessions'),
+          session = sessions?.get(id)
         if (sessions === undefined || session === undefined) {
           throw new TranslationError('TRANSLATION_SESSION_INACTIVE', 'Uncached translation requires an active Session')
         }
@@ -99,8 +115,10 @@ export class TranslationStorage {
           current()
           if (this.ctx.get('sessions')?.get(id) !== session) throw required()
         }
-        const append = <K extends 'plugin:translator/request' | 'plugin:translator/result'>(type: K,
-          data: import('@deepseek-ai/dsh-session/types').PluginRecordMap[K]): Promise<SessionSeq> => {
+        const append = <K extends 'plugin:translator/request' | 'plugin:translator/result'>(
+          type: K,
+          data: import('@deepseek-ai/dsh-session/types').PluginRecordMap[K],
+        ): Promise<SessionSeq> => {
           const writing = (async () => {
             try {
               live()
@@ -116,18 +134,28 @@ export class TranslationStorage {
               failure(error, signal)
             }
           })()
-          writes.push(writing.then(() => {}, () => {}))
+          writes.push(
+            writing.then(
+              () => {},
+              () => {},
+            ),
+          )
           return writing
         }
         return await operation({
           request: data => append('plugin:translator/request', data),
-          async result(requestSeq, text) { await append('plugin:translator/result', { requestSeq, text }) },
+          async result(requestSeq, text) {
+            await append('plugin:translator/result', { requestSeq, text })
+          },
         })
       } catch (error) {
         failure(error, signal)
       }
     })
-    const settled = task.then(() => {}, () => {})
+    const settled = task.then(
+      () => {},
+      () => {},
+    )
     const tail = settled.then(async () => {
       await Promise.all(writes)
       if (this.translations.get(key) === tail) this.translations.delete(key)
@@ -136,8 +164,7 @@ export class TranslationStorage {
     return task
   }
 
-  private async read(id: SessionId, persistence: SessionPersistence, signal: AbortSignal,
-    current: () => void, start = 0, count?: number) {
+  private async read(id: SessionId, persistence: SessionPersistence, signal: AbortSignal, current: () => void, start = 0, count?: number) {
     current()
     await using handle = await persistence.open(id, 'read', { signal })
     current()
@@ -146,8 +173,13 @@ export class TranslationStorage {
     return stored.events
   }
 
-  private async lookup(id: SessionId, identity: TranslationIdentity, persistence: SessionPersistence,
-    signal: AbortSignal, current: () => void): Promise<string | undefined> {
+  private async lookup(
+    id: SessionId,
+    identity: TranslationIdentity,
+    persistence: SessionPersistence,
+    signal: AbortSignal,
+    current: () => void,
+  ): Promise<string | undefined> {
     const requests = new Map<SessionSeq, TranslationRequestRecord>()
     const results = new Map<string, string>()
     for (const event of await this.read(id, persistence, signal, current)) {
@@ -155,8 +187,15 @@ export class TranslationStorage {
       if (record?.type === 'plugin:translator/request') requests.set(record.seq, requestData(record.data))
       if (record?.type !== 'plugin:translator/result') continue
       const data = record.data
-      if (!object(data) || typeof data.requestSeq !== 'number' || !Number.isSafeInteger(data.requestSeq)
-        || data.requestSeq < 0 || Object.is(data.requestSeq, -0) || typeof data.text !== 'string') throw invalid()
+      if (
+        !object(data) ||
+        typeof data.requestSeq !== 'number' ||
+        !Number.isSafeInteger(data.requestSeq) ||
+        data.requestSeq < 0 ||
+        Object.is(data.requestSeq, -0) ||
+        typeof data.text !== 'string'
+      )
+        throw invalid()
       const request = requests.get(SessionSeq(data.requestSeq))
       if (request === undefined) throw invalid()
       results.set(identityKey(request), data.text)

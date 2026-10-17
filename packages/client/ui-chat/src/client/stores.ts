@@ -4,12 +4,7 @@ import type { ChatStoreState, TurnProcessViewEntry } from './contract/store.ts'
 import type { TurnProcessSpec } from './contract/turn-process.ts'
 
 type ChatActions = {
-  setTurnProcessOpen: (
-    draft: ChatStoreState,
-    turn: number,
-    answerStep: number,
-    open: boolean,
-  ) => void
+  setTurnProcessOpen: (draft: ChatStoreState, turn: number, answerStep: number, open: boolean) => void
 }
 
 /**
@@ -18,10 +13,7 @@ type ChatActions = {
  * @param turn - owning Turn.
  * @returns the Turn's stored entry, when present.
  */
-export function storedTurnProcessEntry(
-  state: Readonly<ChatStoreState>,
-  turn: number,
-): Readonly<TurnProcessViewEntry> | undefined {
+export function storedTurnProcessEntry(state: Readonly<ChatStoreState>, turn: number): Readonly<TurnProcessViewEntry> | undefined {
   return state.turnProcesses.find(entry => entry.turn === turn)
 }
 

@@ -75,17 +75,26 @@ async function launchElectron(): Promise<void> {
   console.log(`desktop development: userData=${userData}`)
   console.log(`desktop development: inspectors main=${String(mainPort)}, renderer=${String(rendererPort)}, host=${String(hostPort)}`)
   if (process.platform === 'darwin') {
-    const executable = prepareDevelopmentApp({ electron, appRoot: APP_ROOT, directory: DEVELOPMENT_ROOT, home, userData,
-      mainPort, rendererPort, hostPort, openDevtools: environment.DSH_DESKTOP_OPEN_DEVTOOLS! })
+    const executable = prepareDevelopmentApp({
+      electron,
+      appRoot: APP_ROOT,
+      directory: DEVELOPMENT_ROOT,
+      home,
+      userData,
+      mainPort,
+      rendererPort,
+      hostPort,
+      openDevtools: environment.DSH_DESKTOP_OPEN_DEVTOOLS!,
+    })
     await run(executable, [], APP_ROOT, environment)
     return
   }
-  await run(electron, [
-    `--inspect=127.0.0.1:${String(mainPort)}`,
-    `--remote-debugging-port=${String(rendererPort)}`,
-    `--user-data-dir=${userData}`,
+  await run(
+    electron,
+    [`--inspect=127.0.0.1:${String(mainPort)}`, `--remote-debugging-port=${String(rendererPort)}`, `--user-data-dir=${userData}`, APP_ROOT],
     APP_ROOT,
-  ], APP_ROOT, environment)
+    environment,
+  )
 }
 
 async function main(): Promise<void> {
@@ -94,10 +103,7 @@ async function main(): Promise<void> {
     await runPackageScript('build:artifacts', REPOSITORY_ROOT)
     await runPackageScript('build', APP_ROOT)
   }
-  for (const path of [
-    join(APP_ROOT, 'lib', 'main.js'),
-    join(REPOSITORY_ROOT, 'apps', 'desktop-host', 'lib', 'index.js'),
-  ]) {
+  for (const path of [join(APP_ROOT, 'lib', 'main.js'), join(REPOSITORY_ROOT, 'apps', 'desktop-host', 'lib', 'index.js')]) {
     if (!existsSync(path)) throw new Error(`desktop development: missing built artifact ${path}`)
   }
   // These modules reach workspace packages through their built lib/ output, so
@@ -110,8 +116,10 @@ async function main(): Promise<void> {
     schemaVersion: 1,
     version,
     hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
-    nodeVersion: execFileSync(createRequire(import.meta.url)('electron') as string, ['-p', 'process.versions.node'],
-      { encoding: 'utf8', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }).trim(),
+    nodeVersion: execFileSync(createRequire(import.meta.url)('electron') as string, ['-p', 'process.versions.node'], {
+      encoding: 'utf8',
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    }).trim(),
     pnpmVersion,
   }
   prepareDevelopmentProject({

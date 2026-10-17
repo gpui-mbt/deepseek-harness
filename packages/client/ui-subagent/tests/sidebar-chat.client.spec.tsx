@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 import type { ReactNode } from 'react'
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  ISessions, SessionListState, SessionReference, SessionSnapshot,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ISessions, SessionListState, SessionReference, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import { sessionSnapshot } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -13,8 +11,13 @@ import type { SidebarRightTabDefinition } from '@deepseek-ai/dsh-client-ui-sideb
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import {
-  ConversationSlotPanel, FixedChatConversationView, parseSubagentChatAddress,
-  registerSidebarChat, subagentChatAddress, SUBAGENT_CHAT_ID, type SidebarChatTabProps,
+  ConversationSlotPanel,
+  FixedChatConversationView,
+  parseSubagentChatAddress,
+  registerSidebarChat,
+  subagentChatAddress,
+  SUBAGENT_CHAT_ID,
+  type SidebarChatTabProps,
 } from '../src/client/sidebar-chat/index.tsx'
 import { SidebarChatTab } from '../src/client/sidebar-chat/index.tsx'
 
@@ -36,10 +39,8 @@ describe('Sidebar chat address', () => {
     const resource = subagentChatAddress(ADDRESS)
     expect(resource).toBe('dsh-resource://subagentchat/session/child%231?parent=parent%2Fa&mode=continuable')
     expect(parseSubagentChatAddress(resource)).toEqual(ADDRESS)
-    expect(parseSubagentChatAddress(subagentChatAddress({ ...ADDRESS, mode: 'one-shot' })))
-      .toEqual({ ...ADDRESS, mode: 'one-shot' })
-    expect(parseSubagentChatAddress(subagentChatAddress({ ...ADDRESS, mode: 'unknown' })))
-      .toEqual({ ...ADDRESS, mode: 'unknown' })
+    expect(parseSubagentChatAddress(subagentChatAddress({ ...ADDRESS, mode: 'one-shot' }))).toEqual({ ...ADDRESS, mode: 'one-shot' })
+    expect(parseSubagentChatAddress(subagentChatAddress({ ...ADDRESS, mode: 'unknown' }))).toEqual({ ...ADDRESS, mode: 'unknown' })
   })
 
   it.each([
@@ -51,7 +52,7 @@ describe('Sidebar chat address', () => {
     'dsh-resource://subagentchat/session/child?parent=&mode=continuable',
     'dsh-resource://subagentchat/session/child?parent=parent&mode=invalid',
     'dsh-resource://subagentchat/session/%?parent=parent&mode=continuable',
-  ])('rejects %s', (address) => {
+  ])('rejects %s', address => {
     expect(parseSubagentChatAddress(address)).toBeUndefined()
   })
 })
@@ -68,18 +69,19 @@ describe('Sidebar chat registration', () => {
     const retain = vi.fn(() => reference)
     const refreshProjections = vi.fn(() => Promise.resolve())
     const list = {
-      getSnapshot: () => ({
-        ids: [],
-        byId: {
-          [CHILD]: {
-            displayTitle: 'Projected title',
-            projectionValues: { subagent: { mode: 'continuable', label: 'Worker', seq: 1 } },
+      getSnapshot: () =>
+        ({
+          ids: [],
+          byId: {
+            [CHILD]: {
+              displayTitle: 'Projected title',
+              projectionValues: { subagent: { mode: 'continuable', label: 'Worker', seq: 1 } },
+            },
           },
-        },
-        phase: 'ready',
-        projectionsBySession: {},
-        jobsBySession: {},
-      } as unknown as SessionListState),
+          phase: 'ready',
+          projectionsBySession: {},
+          jobsBySession: {},
+        }) as unknown as SessionListState,
       subscribe: () => () => {},
     }
     let provider: ResourceProvider<'subagentchat'> | undefined
@@ -87,8 +89,18 @@ describe('Sidebar chat registration', () => {
     const registrations: { options: Record<string, unknown>; component: unknown }[] = []
     const ctx = {
       sessions: { retain, refreshProjections, list } as unknown as ISessions,
-      resources: { register: (value: ResourceProvider<'subagentchat'>) => { provider = value; return () => {} } },
-      sidebarRightTabs: { register: (value: SidebarRightTabDefinition) => { definition = value; return () => {} } },
+      resources: {
+        register: (value: ResourceProvider<'subagentchat'>) => {
+          provider = value
+          return () => {}
+        },
+      },
+      sidebarRightTabs: {
+        register: (value: SidebarRightTabDefinition) => {
+          definition = value
+          return () => {}
+        },
+      },
       slots: {
         inject: (_name: string, install: () => () => void) => install(),
         register: (options: Record<string, unknown>, component: unknown) => {
@@ -96,10 +108,13 @@ describe('Sidebar chat registration', () => {
           return () => {}
         },
       },
-      effect: (install: () => unknown) => { install(); return () => {} },
+      effect: (install: () => unknown) => {
+        install()
+        return () => {}
+      },
     } as unknown as Context
 
-    registerSidebarChat(ctx, (key: string) => key === 'sidebar.chat' ? 'Chat' : key)
+    registerSidebarChat(ctx, (key: string) => (key === 'sidebar.chat' ? 'Chat' : key))
 
     expect(definition?.id).toBe(SUBAGENT_CHAT_ID)
     expect(definition?.kind).toBe('subagentchat')
@@ -108,10 +123,7 @@ describe('Sidebar chat registration', () => {
     expect(definition?.title(subagentChatAddress(ADDRESS))).toBe('Worker')
     expect(definition?.title(subagentChatAddress({ ...ADDRESS, childSessionId: 'unknown' as SessionId }))).toBe('unknown')
     expect(definition?.title('invalid')).toBe('Chat')
-    expect(registrations.map(entry => entry.options.name)).toEqual([
-      'sidebar.right.pane.tab',
-      'sidebar.chat.conversation',
-    ])
+    expect(registrations.map(entry => entry.options.name)).toEqual(['sidebar.right.pane.tab', 'sidebar.chat.conversation'])
 
     const controller = new AbortController()
     const stream = provider!.open(subagentChatAddress(ADDRESS), { signal: controller.signal })[Symbol.asyncIterator]()
@@ -204,15 +216,24 @@ describe('Sidebar chat components', () => {
   ])('derives the $name embedded phase and fixes the local view to Chat', ({ session: patch, summaryBlank, expected }) => {
     const snapshot = { ...sessionSnapshot(CHILD), ...patch } as SessionSnapshot
     const renderFactorySlot = vi.fn(() => null)
-    render(<ConversationSlotPanel {...({
-      sessionId: CHILD,
-      useSession: (select: (value: SessionSnapshot) => unknown) => select(snapshot),
-      useConversation: (select: (value: { activeTargets: ReadonlySet<string> }) => unknown) => select({ activeTargets: new Set() }),
-      useSessions: (select: (value: SessionListState) => unknown) => select({
-        ids: [], byId: { [CHILD]: { blank: summaryBlank } }, phase: 'ready', projectionsBySession: {}, jobsBySession: {},
-      } as unknown as SessionListState),
-      renderFactorySlot,
-    } as unknown as Parameters<typeof ConversationSlotPanel>[0])} />)
+    render(
+      <ConversationSlotPanel
+        {...({
+          sessionId: CHILD,
+          useSession: (select: (value: SessionSnapshot) => unknown) => select(snapshot),
+          useConversation: (select: (value: { activeTargets: ReadonlySet<string> }) => unknown) => select({ activeTargets: new Set() }),
+          useSessions: (select: (value: SessionListState) => unknown) =>
+            select({
+              ids: [],
+              byId: { [CHILD]: { blank: summaryBlank } },
+              phase: 'ready',
+              projectionsBySession: {},
+              jobsBySession: {},
+            } as unknown as SessionListState),
+          renderFactorySlot,
+        } as unknown as Parameters<typeof ConversationSlotPanel>[0])}
+      />,
+    )
     expect(renderFactorySlot).toHaveBeenCalledWith(
       'conversation.content',
       { variant: 'embedded', ...expected },

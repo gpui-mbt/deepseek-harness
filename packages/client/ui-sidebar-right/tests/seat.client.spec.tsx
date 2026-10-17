@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Sidebar presentation and tab subscriptions through the production slot renderer. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, fireEvent } from '@testing-library/react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { SlotTestRuntime, type SlotView } from '@deepseek-ai/dsh-client-test-runtime'
@@ -58,13 +58,21 @@ function transition(property = 'transform') {
   let state: AnimationPlayState = 'running'
   const animation = {
     transitionProperty: property,
-    get playState() { return state },
+    get playState() {
+      return state
+    },
     finished: done.promise,
   } as CSSTransition
   return {
     animation,
-    finish: () => { state = 'finished'; done.resolve(animation) },
-    cancel: () => { state = 'idle'; done.reject(new DOMException('Transition canceled', 'AbortError')) },
+    finish: () => {
+      state = 'finished'
+      done.resolve(animation)
+    },
+    cancel: () => {
+      state = 'idle'
+      done.reject(new DOMException('Transition canceled', 'AbortError'))
+    },
   }
 }
 
@@ -82,7 +90,7 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0, o
   runtime.slots.installLocale(locale)
   await runtime.declare({
     'sidebar-right.test.opener': { kind: 'single', scope: 'session' },
-    'rightbar': { kind: 'single', scope: 'root' },
+    rightbar: { kind: 'single', scope: 'root' },
     'conversation.session.header.corner': { kind: 'single', scope: 'session' },
   })
   await runtime.sessions.add({ id: SESSION })
@@ -96,7 +104,10 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0, o
   const opened: string[] = []
   function OpenerMount() {
     const { mounted } = runtime.ctx.sidebarRight
-    const seat = useSyncExternalStore(listener => mounted.subscribe(listener), () => mounted.getSnapshot())
+    const seat = useSyncExternalStore(
+      listener => mounted.subscribe(listener),
+      () => mounted.getSnapshot(),
+    )
     useEffect(() => {
       if (seat === undefined) return
       const address = `dsh-resource://file/session/s-test/arrival-${opened.length + 1}.txt`
@@ -109,13 +120,19 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0, o
     const visible = usePanelInfo(info => info.activePanelId === null)
     return armed && visible ? <OpenerMount /> : null
   }
-  let arm = (_armed: boolean): void => { throw new Error('mountSeat(opener = true) renders the opener') }
+  let arm = (_armed: boolean): void => {
+    throw new Error('mountSeat(opener = true) renders the opener')
+  }
   let openerView: SlotView<'sidebar-right.test.opener'> | undefined
   if (opener) {
-    await act(async () => { runtime.slots.register({ name: 'sidebar-right.test.opener' }, Opener) })
+    await act(async () => {
+      runtime.slots.register({ name: 'sidebar-right.test.opener' }, Opener)
+    })
     const view = runtime.renderSlot('sidebar-right.test.opener', { armed: false }, { session: reference })
     openerView = view
-    arm = (armed) => { view.update({ armed }) }
+    arm = armed => {
+      view.update({ armed })
+    }
   }
   const bodies = new Map<string, SidebarRightTabInfo>()
   const titles = new Map<string, SidebarRightTabInfo>()
@@ -136,10 +153,18 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0, o
   }
   await act(async () => {
     runtime.ctx.sidebarRightTabs.register({
-      id: 'test/text', kind: 'text', priority: 'builtin', patterns: ['dsh-resource://file/**'],
+      id: 'test/text',
+      kind: 'text',
+      priority: 'builtin',
+      patterns: ['dsh-resource://file/**'],
       title: address => address.slice(address.lastIndexOf('/') + 1),
       keepMounted,
-      guide: Array.from({ length: entryCount }, (_, order) => ({ id: String(order), order, title: () => 'Test', description: () => 'Test page' })),
+      guide: Array.from({ length: entryCount }, (_, order) => ({
+        id: String(order),
+        order,
+        title: () => 'Test',
+        description: () => 'Test page',
+      })),
     })
     runtime.slots.register({ name: 'sidebar.right.pane.tab', key: 'test/text' }, Body)
     runtime.slots.register({ name: 'sidebar.right.pane.tab.title', key: 'test/text' }, Title)
@@ -153,7 +178,9 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0, o
   const controller = runtime.ctx.sidebarRight
   const layout = () => instance.getSnapshot().bySession[SESSION]!.layout
   const open = (name = 'a.txt', options?: Parameters<typeof controller.openResource>[1]) => {
-    act(() => { controller.openResource(`dsh-resource://file/session/s-test/${name}`, options) })
+    act(() => {
+      controller.openResource(`dsh-resource://file/session/s-test/${name}`, options)
+    })
     return controller.active()!
   }
   const selectSession = (id: SessionId): void => {
@@ -162,8 +189,24 @@ async function mountSeat(viewportWidth = 1440, canShow = true, entryCount = 0, o
     reference = next
   }
   return {
-    runtime, feature, controller, instance, actions: instance.actions, layout,
-    open, selectSession, frame, pin, bodies, titles, hooks, view, arm, opened, registerPage, catalog,
+    runtime,
+    feature,
+    controller,
+    instance,
+    actions: instance.actions,
+    layout,
+    open,
+    selectSession,
+    frame,
+    pin,
+    bodies,
+    titles,
+    hooks,
+    view,
+    arm,
+    opened,
+    registerPage,
+    catalog,
     openerView: () => openerView!,
   }
 }
@@ -174,39 +217,59 @@ it('keeps duplicate Session Tabs independent and preserves a body through dockin
     h.runtime.ctx.sidebarRightTabs.register({ id: 'test/shared', kind: 'shared', keepMounted: true, title: () => 'Shared' })
     h.runtime.slots.register({ name: 'sidebar.right.pane.tab', key: 'test/shared' }, () => <input data-page-input />)
   })
-  act(() => { h.controller.openTab('shared') })
+  act(() => {
+    h.controller.openTab('shared')
+  })
   const tab = h.controller.active()!
   const body = document.querySelector<HTMLInputElement>('[data-page-input]')!
   const cell = body.closest('[data-dockkit-host]')
   const close = vi.fn()
   h.runtime.ctx.effect(() => h.controller.registerCloseHandler('shared', close))
-  act(() => { h.controller.openTab('shared', { replaceTab: tab.id, revealIfOpened: false }) })
+  act(() => {
+    h.controller.openTab('shared', { replaceTab: tab.id, revealIfOpened: false })
+  })
   expect(close).not.toHaveBeenCalled()
   let otherPane: PaneId | undefined
-  act(() => { otherPane = h.controller.split() })
+  act(() => {
+    otherPane = h.controller.split()
+  })
   fireEvent.click(body)
   expect(h.controller.active()?.id).toBe(tab.id)
   expect(otherPane).toBeDefined()
-  act(() => { h.controller.openTab('shared', { paneId: otherPane!, revealIfOpened: false, preferNewPane: true }) })
+  act(() => {
+    h.controller.openTab('shared', { paneId: otherPane!, revealIfOpened: false, preferNewPane: true })
+  })
   expect(h.controller.tabsIn(SESSION).filter(tab => tab.kind === 'shared')).toHaveLength(2)
   const duplicate = h.controller.active()!
   expect(duplicate.id).not.toBe(tab.id)
   expect(document.querySelectorAll('[data-page-input]')).toHaveLength(2)
-  act(() => { h.controller.close(duplicate.id) })
-  act(() => { h.controller.float(tab.id) })
+  act(() => {
+    h.controller.close(duplicate.id)
+  })
+  act(() => {
+    h.controller.float(tab.id)
+  })
   expect(document.querySelector('[data-page-input]')).toBe(body)
   expect(body.closest('[data-dockkit-host]')).toBe(cell)
   const floating = h.controller.focusedTarget(body)!
   expect(floating.host).toBe('float')
-  act(() => { h.actions.setExpanded(SESSION, false) })
+  act(() => {
+    h.actions.setExpanded(SESSION, false)
+  })
   expect(body.closest('[hidden]')).toBeNull()
   expect(body.closest('[aria-hidden="true"]')).toBeNull()
-  act(() => { body.focus() })
+  act(() => {
+    body.focus()
+  })
   expect(h.controller.focusedTarget()?.tabId).toBe(tab.id)
-  act(() => { h.controller.dock(floating.paneId) })
+  act(() => {
+    h.controller.dock(floating.paneId)
+  })
   expect(document.querySelector('[data-page-input]')).toBe(body)
   expect(body.closest('[aria-hidden="true"]')).not.toBeNull()
-  act(() => { h.controller.toggleExpanded() })
+  act(() => {
+    h.controller.toggleExpanded()
+  })
   expect(body.closest('[data-dockkit-host]')).toBe(cell)
 })
 
@@ -221,20 +284,30 @@ it('retains a collapsed Session Tab and remounts an unretained hidden body', asy
     h.runtime.ctx.sidebarRightTabs.register({ id: 'test/retention', kind: 'retention', title: () => 'Retention' })
     h.runtime.slots.register({ name: 'sidebar.right.pane.tab', key: 'test/retention' }, Body)
   })
-  act(() => { h.controller.openTab('retention') })
+  act(() => {
+    h.controller.openTab('retention')
+  })
   const tab = h.controller.active()!
   const body = document.querySelector('[data-retention-parity]')!
   const signal = latest!.tab.signal
-  act(() => { h.controller.toggleExpanded() })
+  act(() => {
+    h.controller.toggleExpanded()
+  })
   expect(body.isConnected).toBe(true)
   expect(latest!.sidebar.expanded).toBe(false)
   expect(latest!.tab.visible).toBe(false)
-  act(() => { h.controller.toggleExpanded() })
+  act(() => {
+    h.controller.toggleExpanded()
+  })
   expect(document.querySelector('[data-retention-parity]')).toBe(body)
-  act(() => { h.controller.openTab('guide') })
+  act(() => {
+    h.controller.openTab('guide')
+  })
   expect(body.isConnected).toBe(false)
   expect(signal.aborted).toBe(false)
-  act(() => { h.controller.focus(tab.id) })
+  act(() => {
+    h.controller.focus(tab.id)
+  })
   expect(document.querySelector('[data-retention-parity]')).not.toBe(body)
   expect(latest!.tab.signal).toBe(signal)
 })
@@ -245,18 +318,32 @@ it('rebinds a restored Session Tab lifetime even when close and undo share one r
   function Body(props: PropsRuntime<'sidebar.right.pane.tab'>) {
     lifetime = props.useTabInfo().tab.signal
     const [count, setCount] = useState(0)
-    return <button data-restored-tab onClick={() => { setCount(value => value + 1) }}>{count}</button>
+    return (
+      <button
+        data-restored-tab
+        onClick={() => {
+          setCount(value => value + 1)
+        }}
+      >
+        {count}
+      </button>
+    )
   }
   await act(async () => {
     h.runtime.ctx.sidebarRightTabs.register({ id: 'test/restored', kind: 'restored', keepMounted: true, title: () => 'Restored' })
     h.runtime.slots.register({ name: 'sidebar.right.pane.tab', key: 'test/restored' }, Body)
   })
-  act(() => { h.controller.openTab('restored') })
+  act(() => {
+    h.controller.openTab('restored')
+  })
   const tab = h.controller.active()!
   const original = document.querySelector('[data-restored-tab]')!
   const before = lifetime!
   fireEvent.click(original)
-  act(() => { h.controller.close(tab.id); h.controller._undo() })
+  act(() => {
+    h.controller.close(tab.id)
+    h.controller._undo()
+  })
   expect(h.controller.active()?.id).toBe(tab.id)
   expect(before.aborted).toBe(true)
   expect(lifetime).not.toBe(before)
@@ -276,8 +363,12 @@ describe('RightbarSeat presentation', () => {
     const h = await mountSeat(1440, true, 0, false, true)
     const tab = h.open('retained.txt')
     const body = element(h.view.container, `[data-tab-body="${tab.id}"]`)
-    await act(async () => { await h.runtime.sessions.add({ id: OTHER }) })
-    act(() => { h.selectSession(OTHER) })
+    await act(async () => {
+      await h.runtime.sessions.add({ id: OTHER })
+    })
+    act(() => {
+      h.selectSession(OTHER)
+    })
     expect(body.isConnected).toBe(true)
     let withdraw = () => {}
     act(() => {
@@ -289,14 +380,18 @@ describe('RightbarSeat presentation', () => {
     expect(element(h.view.container, `[data-tab-body="${tab.id}"]`)).toBe(body)
     act(withdraw)
     expect(element(h.view.container, `[data-tab-body="${tab.id}"]`)).toBe(body)
-    act(() => { h.selectSession(SESSION) })
+    act(() => {
+      h.selectSession(SESSION)
+    })
     expect(element(h.view.container, `[data-tab-body="${tab.id}"]`)).toBe(body)
     expect(h.bodies.get(tab.id)?.tab.signal.aborted).toBe(false)
   })
 
   it('releases the departing editable selection while retaining its draft', async () => {
     const h = await mountSeat()
-    act(() => { h.registerPage('files') })
+    act(() => {
+      h.registerPage('files')
+    })
     const editor = document.createElement('div')
     editor.setAttribute('contenteditable', 'true')
     editor.tabIndex = 0
@@ -308,58 +403,103 @@ describe('RightbarSeat presentation', () => {
     const selection = document.getSelection()!
     selection.selectAllChildren(editor)
     selection.collapseToEnd()
-    act(() => { h.controller.openTabFromTarget('files', h.controller.commandTarget()!) })
+    act(() => {
+      h.controller.openTabFromTarget('files', h.controller.commandTarget()!)
+    })
     expect(document.activeElement?.hasAttribute('data-dockkit-pane')).toBe(true)
     expect(editor.contains(selection.anchorNode)).toBe(false)
     expect(editor.textContent).toBe('unsent draft')
   })
 
-  it.each(['macos', 'windows'] as const)('keeps %s close commands on newly opened, revealed and replaced pages', async (platform) => {
+  it.each(['macos', 'windows'] as const)('keeps %s close commands on newly opened, revealed and replaced pages', async platform => {
     const h = await mountSeat()
-    act(() => { h.registerPage('browser', true); h.registerPage('files'); h.registerPage('terminal', true) })
+    act(() => {
+      h.registerPage('browser', true)
+      h.registerPage('files')
+      h.registerPage('terminal', true)
+    })
     const registry = new ShortcutRegistry('desktop', platform)
     const closeWindow = vi.fn()
-    h.runtime.ctx.effect(() => registerSidebarShortcuts({ register: command => registry.register(command),
-      runtime: 'desktop' }, h.controller, h.runtime.ctx.locale.bind('sidebarRight'), closeWindow))
-    const focusedPane = () => document.activeElement?.getAttribute('data-dockkit-pane')
-      ?? document.activeElement?.getAttribute('data-dockkit-float')
+    h.runtime.ctx.effect(() =>
+      registerSidebarShortcuts(
+        { register: command => registry.register(command), runtime: 'desktop' },
+        h.controller,
+        h.runtime.ctx.locale.bind('sidebarRight'),
+        closeWindow,
+      ),
+    )
+    const focusedPane = () =>
+      document.activeElement?.getAttribute('data-dockkit-pane') ?? document.activeElement?.getAttribute('data-dockkit-float')
     const close = (): void => {
-      act(() => { registry.dispatch({ code: 'KeyW', meta: platform === 'macos', control: platform === 'windows',
-        alt: false, shift: false, repeat: false, composing: false, defaultPrevented: false },
-      { target: document.activeElement, region: 'page', modal: null }, vi.fn()) })
+      act(() => {
+        registry.dispatch(
+          {
+            code: 'KeyW',
+            meta: platform === 'macos',
+            control: platform === 'windows',
+            alt: false,
+            shift: false,
+            repeat: false,
+            composing: false,
+            defaultPrevented: false,
+          },
+          { target: document.activeElement, region: 'page', modal: null },
+          vi.fn(),
+        )
+      })
     }
     const composer = document.createElement('textarea')
     h.view.container.append(composer)
     composer.focus()
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     expect(focusedPane()).toBe(h.layout().activePaneId)
     close()
     expect(h.layout().expanded).toBe(false)
     expect(closeWindow).not.toHaveBeenCalled()
-    act(() => { h.controller.toggleExpanded() })
-    act(() => { h.controller.openTabFromTarget('browser', h.controller.commandTarget()!) })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
+    act(() => {
+      h.controller.openTabFromTarget('browser', h.controller.commandTarget()!)
+    })
     expect(Object.values(h.layout().tabs).map(tab => tab.kind)).toEqual(['browser'])
     expect(focusedPane()).toBe(h.layout().activePaneId)
     const input = document.createElement('input')
     element(h.view.container, '[data-tab-body]').append(input)
     input.focus()
-    act(() => { h.controller.openTabFromTarget('browser', h.controller.commandTarget()!) })
+    act(() => {
+      h.controller.openTabFromTarget('browser', h.controller.commandTarget()!)
+    })
     expect(input.isConnected).toBe(false)
     expect(focusedPane()).toBe(h.layout().activePaneId)
     close()
     expect(Object.values(h.layout().tabs).map(tab => tab.kind)).toEqual(['browser'])
-    act(() => { h.controller.openTabFromTarget('files', h.controller.commandTarget()!) })
+    act(() => {
+      h.controller.openTabFromTarget('files', h.controller.commandTarget()!)
+    })
     const files = h.controller.active()!
-    act(() => { h.controller.openTabFromTarget('browser', h.controller.commandTarget()!) })
-    act(() => { h.controller.openTabFromTarget('files', h.controller.commandTarget()!) })
+    act(() => {
+      h.controller.openTabFromTarget('browser', h.controller.commandTarget()!)
+    })
+    act(() => {
+      h.controller.openTabFromTarget('files', h.controller.commandTarget()!)
+    })
     expect(h.controller.active()?.id).toBe(files.id)
     expect(focusedPane()).toBe(h.layout().activePaneId)
-    act(() => { h.controller.float(files.id) })
+    act(() => {
+      h.controller.float(files.id)
+    })
     const float = document.querySelector<HTMLElement>('[data-dockkit-float]')!
     float.focus()
-    act(() => { h.controller.openTabFromTarget('files', h.controller.commandTarget()!) })
+    act(() => {
+      h.controller.openTabFromTarget('files', h.controller.commandTarget()!)
+    })
     expect(focusedPane()).toBe(float.dataset.dockkitFloat)
-    act(() => { h.controller.openTabFromTarget('terminal', h.controller.commandTarget()!) })
+    act(() => {
+      h.controller.openTabFromTarget('terminal', h.controller.commandTarget()!)
+    })
     expect(document.activeElement?.hasAttribute('data-dockkit-pane')).toBe(true)
     expect(h.controller.active()?.kind).toBe('terminal')
     close()
@@ -377,19 +517,27 @@ describe('RightbarSeat presentation', () => {
     h.open()
     element(h.view.container, '[data-dockkit-tab]').focus()
     let created: PaneId | undefined
-    act(() => { created = h.controller.split() })
+    act(() => {
+      created = h.controller.split()
+    })
     expect(document.activeElement?.getAttribute('data-dockkit-pane')).toBe(created)
   })
 
   it('focuses the dock on expansion while leaving floating focus alone on collapse', async () => {
     const h = await mountSeat()
     const tab = h.open()
-    act(() => { h.controller.float(tab.id) })
+    act(() => {
+      h.controller.float(tab.id)
+    })
     const floating = element(h.view.container, '[data-dockkit-float]')
     floating.focus()
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     expect(document.activeElement).toBe(floating)
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     expect(document.activeElement?.getAttribute('data-dockkit-pane')).toBe(dockPaneIds(h.layout())[0])
   })
 
@@ -399,11 +547,15 @@ describe('RightbarSeat presentation', () => {
     const input = document.createElement('input')
     document.querySelector<HTMLElement>('[data-tab-body]')!.append(input)
     input.focus()
-    await act(async () => { h.controller.float(tab.id) })
+    await act(async () => {
+      h.controller.float(tab.id)
+    })
     expect(document.activeElement).toBe(input)
     const paneId = input.closest<HTMLElement>('[data-dockkit-float]')?.dataset.dockkitFloat as PaneId | undefined
     expect(paneId).toBeDefined()
-    await act(async () => { h.controller.dock(paneId!) })
+    await act(async () => {
+      h.controller.dock(paneId!)
+    })
     expect(document.activeElement).toBe(input)
     expect(input.closest<HTMLElement>('[data-dockkit-pane]')?.dataset.dockkitPane).toBe(h.layout().activePaneId)
   })
@@ -412,11 +564,15 @@ describe('RightbarSeat presentation', () => {
     const h = await mountSeat()
     h.open('retained.txt')
     const retained = h.layout()
-    act(() => { h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId }) })
+    act(() => {
+      h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId })
+    })
     expect(element(h.view.container, '[data-sidebar-right-session]').hidden).toBe(true)
     expect(h.frame.closeRightbar).toHaveBeenCalled()
     expect(h.layout()).toBe(retained)
-    act(() => { h.runtime.panelInfo.set({ activePanelId: null }) })
+    act(() => {
+      h.runtime.panelInfo.set({ activePanelId: null })
+    })
     expect(h.view.container.querySelector('[data-sidebar-right-panel]')).not.toBeNull()
     expect(h.layout()).toBe(retained)
   })
@@ -426,16 +582,22 @@ describe('RightbarSeat presentation', () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(h.controller.mounted.getSnapshot()).toBe(SESSION)
     // Armed while the Session is already on screen: the ordinary case.
-    act(() => { h.arm(true) })
+    act(() => {
+      h.arm(true)
+    })
     expect(h.opened).toHaveLength(1)
     expect(Object.values(h.layout().tabs).map(tab => tab.contentId)).toEqual(h.opened)
     // A global panel takes the Conversation's place and hides the Sidebar.
-    act(() => { h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId }) })
+    act(() => {
+      h.runtime.panelInfo.set({ activePanelId: 'other-panel' as MainPanelId })
+    })
     expect(element(h.view.container, '[data-sidebar-right-session]').hidden).toBe(true)
     expect(h.controller.mounted.getSnapshot()).toBeUndefined()
     // Returning names the Session before the Conversation renders, so the
     // opener's effect in that commit opens into the Session's store.
-    act(() => { h.runtime.panelInfo.set({ activePanelId: null }) })
+    act(() => {
+      h.runtime.panelInfo.set({ activePanelId: null })
+    })
     expect(h.controller.mounted.getSnapshot()).toBe(SESSION)
     expect(h.opened).toHaveLength(2)
     expect(Object.values(h.layout().tabs).map(tab => tab.contentId)).toEqual(h.opened)
@@ -448,7 +610,9 @@ describe('RightbarSeat presentation', () => {
     const h = await mountSeat(1440, true, 0, true)
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     const published: (SessionId | undefined)[] = []
-    const stop = h.controller.mounted.subscribe(() => { published.push(h.controller.mounted.getSnapshot()) })
+    const stop = h.controller.mounted.subscribe(() => {
+      published.push(h.controller.mounted.getSnapshot())
+    })
     try {
       // The opener mounts in the commit that also carries a store commit of the
       // seat, and its effect runs before the seat's own effects.
@@ -460,7 +624,9 @@ describe('RightbarSeat presentation', () => {
       expect(h.opened).toHaveLength(1)
       expect(Object.values(h.layout().tabs).map(tab => tab.contentId)).toContain(h.opened[0])
       expect(errors.mock.calls.map(call => String(call[0])).filter(text => text.includes('slot entry crashed'))).toEqual([])
-    } finally { stop() }
+    } finally {
+      stop()
+    }
   })
 
   it('names the arriving Session before a Conversation opener acts in the commit that switches Sessions', async () => {
@@ -468,9 +634,15 @@ describe('RightbarSeat presentation', () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     // The opener holds its own reference, as the Conversation does for its Session.
     const conversation = h.runtime.sessions.retainFor(h.runtime.ctx, SESSION)
-    act(() => { h.openerView().update({ armed: false }, { session: conversation }) })
-    await act(async () => { await h.runtime.sessions.add({ id: OTHER }) })
-    await act(async () => { h.selectSession(OTHER) })
+    act(() => {
+      h.openerView().update({ armed: false }, { session: conversation })
+    })
+    await act(async () => {
+      await h.runtime.sessions.add({ id: OTHER })
+    })
+    await act(async () => {
+      h.selectSession(OTHER)
+    })
     expect(h.controller.mounted.getSnapshot()).toBe(OTHER)
     // Switching back swaps the seats in the commit that mounts the opener: the
     // departing seat leaves, and the arriving one renders after the opener.
@@ -485,15 +657,19 @@ describe('RightbarSeat presentation', () => {
     conversation.release()
   })
 
-  it.each([0, 1, 2])('selects the default from %i guide entries and protects only a sole guide', async (entryCount) => {
+  it.each([0, 1, 2])('selects the default from %i guide entries and protects only a sole guide', async entryCount => {
     const h = await mountSeat(1440, true, entryCount)
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     const initial = Object.values(h.layout().tabs)[0]!
     expect(initial.kind).toBe(entryCount === 1 ? 'text' : 'guide')
     if (entryCount !== 1) {
       expect(h.view.container.querySelectorAll('[data-dockkit-tab-close]')).toHaveLength(0)
       const before = h.layout()
-      act(() => { h.controller.close(initial.id) })
+      act(() => {
+        h.controller.close(initial.id)
+      })
       expect(h.layout()).toBe(before)
       fireEvent.contextMenu(element(h.view.container, '[data-dockkit-tab]'))
       expect(document.querySelector('[data-dockkit-tab-menu] [role^="menuitem"]')).toBeNull()
@@ -501,11 +677,15 @@ describe('RightbarSeat presentation', () => {
       return
     }
     expect(h.view.container.querySelector(`[data-dockkit-tab-close="${initial.id}"]`)).not.toBeNull()
-    act(() => { h.controller.close(initial.id) })
+    act(() => {
+      h.controller.close(initial.id)
+    })
     expect(h.layout().expanded).toBe(false)
     // The close leaves the layout empty; the next expansion reseeds.
     expect(Object.keys(h.layout().tabs)).toHaveLength(0)
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     const reseeded = Object.values(h.layout().tabs)[0]!
     expect(reseeded.kind).toBe('text')
     expect(reseeded.id).not.toBe(initial.id)
@@ -514,23 +694,31 @@ describe('RightbarSeat presentation', () => {
     expect(h.view.container.querySelector('[data-dockkit-add-tab]')).toBeNull()
     expect(h.view.container.querySelector(`[data-dockkit-tab-close="${reseeded.id}"]`)).not.toBeNull()
     expect(h.view.container.querySelector(`[data-dockkit-tab-close="${guide.id}"]`)).not.toBeNull()
-    act(() => { h.controller.close(reseeded.id) })
+    act(() => {
+      h.controller.close(reseeded.id)
+    })
     expect(h.layout().tabs[reseeded.id]).toBeUndefined()
     expect(h.view.container.querySelector(`[data-dockkit-tab-close="${guide.id}"]`)).toBeNull()
     const preview = h.open('ordinary.txt')
     expect(h.view.container.querySelector(`[data-dockkit-tab-close="${preview.id}"]`)).not.toBeNull()
-    act(() => { h.controller.close(preview.id) })
+    act(() => {
+      h.controller.close(preview.id)
+    })
     expect(h.layout().tabs[preview.id]).toBeUndefined()
     expect(Object.keys(h.layout().tabs)).toEqual([guide.id])
     expect(h.view.container.querySelectorAll('[data-dockkit-tab-close]')).toHaveLength(0)
-    act(() => { h.controller.split() })
+    act(() => {
+      h.controller.split()
+    })
     expect(Object.values(h.layout().tabs).map(tab => tab.kind)).toEqual(['guide', 'text'])
   })
 
   it('offers close for a floating tab while the docked pane keeps its sole tab', async () => {
     const h = await mountSeat()
     const floating = h.open('floating.txt')
-    act(() => { h.controller.float(floating.id) })
+    act(() => {
+      h.controller.float(floating.id)
+    })
     const paneId = getPane(h.layout(), h.layout().floats[0]!).id
     expect(h.view.container.querySelector('[data-dockkit-tab-close]')).toBeNull()
     const close = document.querySelector<HTMLButtonElement>(`[data-dockkit-float-close="${paneId}"]`)
@@ -617,7 +805,9 @@ describe('RightbarSeat presentation', () => {
     expect(h.layout().mode).toBe('push')
     // Widened again, the command switches the recorded mode.
     h.view.update({ width: 420, viewportWidth: 1440, canShow: true })
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     fireEvent.click(element(h.view.container, '[data-sidebar-right-mode]'))
     expect(h.layout().expanded).toBe(true)
     expect(h.layout().mode).toBe('fullscreen')
@@ -653,7 +843,9 @@ describe('RightbarSeat presentation', () => {
 describe('RightbarSeat fullscreen entry', () => {
   it('retains the previous report until its transform finishes, then leaves the track in place on exit', async () => {
     const h = await mountSeat()
-    act(() => { h.actions.setMode(SESSION, 'fullscreen') })
+    act(() => {
+      h.actions.setMode(SESSION, 'fullscreen')
+    })
     const panel = element(h.view.container, '[data-sidebar-right-panel]')
     const slide = transition()
     const unrelated = transition('opacity')
@@ -664,7 +856,10 @@ describe('RightbarSeat fullscreen entry', () => {
     expect(panel.dataset['sidebarRightPanel']).toBe('fullscreen')
     expect(h.frame.openRightbar).not.toHaveBeenCalled()
     expect(h.frame.closeRightbar).not.toHaveBeenCalled()
-    await act(async () => { slide.finish(); await slide.animation.finished })
+    await act(async () => {
+      slide.finish()
+      await slide.animation.finished
+    })
     expect(h.frame.openRightbar).toHaveBeenCalledExactlyOnceWith(true, true)
     fireEvent.click(element(h.view.container, '[data-sidebar-right-mode]'))
     expect(h.frame.openRightbar).toHaveBeenLastCalledWith(true, false)
@@ -673,12 +868,16 @@ describe('RightbarSeat fullscreen entry', () => {
 
   it('reports immediately without a transform transition, including zero-duration and reduced-motion entry', async () => {
     const h = await mountSeat()
-    act(() => { h.actions.setMode(SESSION, 'fullscreen') })
+    act(() => {
+      h.actions.setMode(SESSION, 'fullscreen')
+    })
     const unrelated = transition('opacity')
     const ended = transition()
     ended.finish()
-    vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations')
-      .mockReturnValue([unrelated.animation, ended.animation])
+    vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations').mockReturnValue([
+      unrelated.animation,
+      ended.animation,
+    ])
     h.open()
     expect(h.frame.openRightbar).toHaveBeenCalledExactlyOnceWith(true, true)
     unrelated.finish()
@@ -690,7 +889,10 @@ describe('RightbarSeat fullscreen entry', () => {
     vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations').mockReturnValue([slide.animation])
     h.open()
     expect(h.frame.openRightbar).not.toHaveBeenCalled()
-    await act(async () => { slide.cancel(); await Promise.allSettled([slide.animation.finished]) })
+    await act(async () => {
+      slide.cancel()
+      await Promise.allSettled([slide.animation.finished])
+    })
     expect(h.frame.openRightbar).toHaveBeenCalledExactlyOnceWith(false, true)
   })
 
@@ -698,19 +900,26 @@ describe('RightbarSeat fullscreen entry', () => {
     const h = await mountSeat(767, false)
     const first = transition()
     const replacement = transition()
-    const animations = vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations')
-      .mockReturnValue([first.animation])
+    const animations = vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations').mockReturnValue([first.animation])
     h.open()
     animations.mockReturnValue([replacement.animation])
-    await act(async () => { first.cancel(); await Promise.allSettled([first.animation.finished]) })
+    await act(async () => {
+      first.cancel()
+      await Promise.allSettled([first.animation.finished])
+    })
     expect(h.frame.openRightbar).not.toHaveBeenCalled()
-    await act(async () => { replacement.finish(); await replacement.animation.finished })
+    await act(async () => {
+      replacement.finish()
+      await replacement.animation.finished
+    })
     expect(h.frame.openRightbar).toHaveBeenCalledExactlyOnceWith(false, true)
   })
 
-  it.each(['close', 'push', 'session', 'unmount'])('ignores a late completion after %s', async (change) => {
+  it.each(['close', 'push', 'session', 'unmount'])('ignores a late completion after %s', async change => {
     const h = await mountSeat()
-    act(() => { h.actions.setMode(SESSION, 'fullscreen') })
+    act(() => {
+      h.actions.setMode(SESSION, 'fullscreen')
+    })
     const slide = transition()
     vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations').mockReturnValue([slide.animation])
     h.open()
@@ -719,33 +928,44 @@ describe('RightbarSeat fullscreen entry', () => {
     else if (change === 'push') fireEvent.click(element(h.view.container, '[data-sidebar-right-mode]'))
     else if (change === 'session') {
       await h.runtime.sessions.add({ id: OTHER })
-      act(() => { h.selectSession(OTHER) })
-      act(() => { h.controller.openResource('dsh-resource://file/session/s-other/b.txt') })
+      act(() => {
+        h.selectSession(OTHER)
+      })
+      act(() => {
+        h.controller.openResource('dsh-resource://file/session/s-other/b.txt')
+      })
     } else await h.runtime.dispose()
     const openCalls = [...h.frame.openRightbar.mock.calls]
     const closeCalls = h.frame.closeRightbar.mock.calls.length
-    await act(async () => { slide.finish(); await slide.animation.finished })
+    await act(async () => {
+      slide.finish()
+      await slide.animation.finished
+    })
     expect(h.frame.openRightbar.mock.calls).toEqual(openCalls)
     expect(h.frame.closeRightbar).toHaveBeenCalledTimes(closeCalls)
   })
 
   it('uses the current viewport report when entry crosses the fullscreen breakpoint', async () => {
     const h = await mountSeat()
-    act(() => { h.actions.setMode(SESSION, 'fullscreen') })
+    act(() => {
+      h.actions.setMode(SESSION, 'fullscreen')
+    })
     const slide = transition()
     vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations').mockReturnValue([slide.animation])
     h.open()
     h.view.update({ width: 420, viewportWidth: 500, canShow: false })
     expect(h.frame.openRightbar).not.toHaveBeenCalled()
-    await act(async () => { slide.finish(); await slide.animation.finished })
+    await act(async () => {
+      slide.finish()
+      await slide.animation.finished
+    })
     expect(h.frame.openRightbar).toHaveBeenCalledExactlyOnceWith(false, true)
   })
 
   it('does not delay normal presentation behind its slide', async () => {
     const h = await mountSeat()
     const slide = transition()
-    const animations = vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations')
-      .mockReturnValue([slide.animation])
+    const animations = vi.spyOn(element(h.view.container, '[data-sidebar-right-panel]'), 'getAnimations').mockReturnValue([slide.animation])
     h.open()
     expect(h.frame.openRightbar).toHaveBeenCalledExactlyOnceWith(true, false)
     expect(animations).not.toHaveBeenCalled()
@@ -760,7 +980,9 @@ describe('slot-owned useTabInfo', () => {
     const stored = h.instance.getSnapshot()
     const hook = h.hooks.get(tab.id)
     const signal = h.bodies.get(tab.id)!.tab.signal
-    act(() => { h.controller.tabDomain.navigate(SESSION, tab.id, { address: tab.contentId, params: { line: 7 } }) })
+    act(() => {
+      h.controller.tabDomain.navigate(SESSION, tab.id, { address: tab.contentId, params: { line: 7 } })
+    })
     expect(h.instance.getSnapshot()).toBe(stored)
     expect(h.hooks.get(tab.id)).toBe(hook)
     expect(h.bodies.get(tab.id)?.tab.navigation).toEqual({ address: tab.contentId, params: { line: 7 }, revision: 2 })
@@ -775,22 +997,30 @@ describe('slot-owned useTabInfo', () => {
     const b = h.open('b.txt')
     const bodyB = element(h.view.container, '[data-tab-body]')
     expect(h.titles.get(a.id)?.tab.visible).toBe(true)
-    act(() => { h.actions.focusTab(SESSION, a.id) })
+    act(() => {
+      h.actions.focusTab(SESSION, a.id)
+    })
     const bodyA = element(h.view.container, '[data-tab-body]')
     expect(bodyA.dataset['instance']).not.toBe(bodyB.dataset['instance'])
     expect(bodyA.dataset['tabBody']).toBe(a.id)
     const signal = h.bodies.get(a.id)!.tab.signal
-    act(() => { h.actions.setExpanded(SESSION, false) })
+    act(() => {
+      h.actions.setExpanded(SESSION, false)
+    })
     expect(h.bodies.get(a.id)?.tab.visible).toBe(false)
     expect(h.titles.get(a.id)?.tab.visible).toBe(false)
     expect(h.titles.get(b.id)?.tab.visible).toBe(false)
     expect(element(h.view.container, '[data-tab-body]')).toBe(bodyA)
     expect(signal.aborted).toBe(false)
-    act(() => { h.controller.float(a.id) })
+    act(() => {
+      h.controller.float(a.id)
+    })
     expect(h.bodies.get(a.id)?.tab.visible).toBe(true)
     const paneId = h.bodies.get(a.id)!.panel.id
     expect(h.layout().floats).toContain(paneId)
-    act(() => { h.controller.dock(paneId) })
+    act(() => {
+      h.controller.dock(paneId)
+    })
     expect(h.layout().floats).toHaveLength(0)
     expect(h.bodies.get(a.id)?.tab.signal).toBe(signal)
   })
@@ -803,17 +1033,25 @@ describe('slot-owned useTabInfo', () => {
     await h.runtime.sessions.add({ id: OTHER })
     expect(h.instance.getSnapshot()).toBe(stored)
     expect(info.tab.signal.aborted).toBe(false)
-    act(() => { h.selectSession(OTHER) })
-    act(() => { h.controller.openResource('dsh-resource://file/session/s-other/other.txt', { params: { line: 9 } }) })
+    act(() => {
+      h.selectSession(OTHER)
+    })
+    act(() => {
+      h.controller.openResource('dsh-resource://file/session/s-other/other.txt', { params: { line: 9 } })
+    })
     const otherTab = h.controller.active()!
     expect(otherTab.id).toBe(own.id)
     const otherInfo = h.bodies.get(otherTab.id)!
     expect(otherInfo.tab.signal).not.toBe(info.tab.signal)
-    act(() => { info.tab.actions.openResource('dsh-resource://file/session/s-test/b.txt') })
+    act(() => {
+      info.tab.actions.openResource('dsh-resource://file/session/s-test/b.txt')
+    })
     expect(Object.values(h.layout().tabs).map(tab => tab.title)).toContain('b.txt')
     expect(h.controller.active()?.contentId).toBe(otherTab.contentId)
     expect(h.bodies.get(otherTab.id)?.tab.navigation.params).toEqual({ line: 9 })
-    act(() => { info.tab.actions.close() })
+    act(() => {
+      info.tab.actions.close()
+    })
     expect(info.tab.signal.aborted).toBe(true)
     expect(otherInfo.tab.signal.aborted).toBe(false)
     const remaining = h.bodies.get(h.controller.active()!.id)!
@@ -827,28 +1065,38 @@ describe('slot-owned useTabInfo', () => {
   it('updates guide replacements through the same hook and guide boxes through framework injection', async () => {
     const h = await mountSeat()
     // The first expansion seeds the guide the replacement renders over.
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     let captured: SidebarRightTabInfo | undefined
     await act(async () => {
       h.runtime.ctx.sidebarRightTabs.register({
-        id: 'test/files', kind: 'files', title: () => 'Files',
+        id: 'test/files',
+        kind: 'files',
+        title: () => 'Files',
         guide: [{ id: 'default', order: 1, title: () => 'Files' }],
       })
     })
     expect(h.view.container.querySelector('[data-sidebar-right-guide-entry="files"]')).not.toBeNull()
     await act(async () => {
-      h.runtime.slots.register({ name: 'sidebar.right.tab.guide', select: () => true },
+      h.runtime.slots.register(
+        { name: 'sidebar.right.tab.guide', select: () => true },
         ({ useTabInfo }: PropsRuntime<'sidebar.right.tab.guide'>) => {
           captured = useTabInfo()
           return <span data-guide-replacement={captured.tab.navigation.revision} />
-        })
+        },
+      )
     })
     expect(h.view.container.querySelector('[data-sidebar-right-guide]')).toBeNull()
     expect(captured?.tab.kind).toBe('guide')
-    act(() => { h.controller.openTab('guide') })
+    act(() => {
+      h.controller.openTab('guide')
+    })
     const stored = h.instance.getSnapshot()
     const guide = h.controller.active()!
-    act(() => { h.controller.tabDomain.navigate(SESSION, guide.id, { address: guide.contentId, params: undefined }) })
+    act(() => {
+      h.controller.tabDomain.navigate(SESSION, guide.id, { address: guide.contentId, params: undefined })
+    })
     expect(h.instance.getSnapshot()).toBe(stored)
     expect(captured?.tab.navigation.revision).toBe(2)
     expect(element(h.view.container, '[data-guide-replacement]').dataset['guideReplacement']).toBe('2')
@@ -861,11 +1109,15 @@ describe('slot-owned useTabInfo', () => {
     let release = () => {}
     await act(async () => {
       release = h.runtime.ctx.sidebarRightTabs.register({ id: 'extension/text', kind: 'text', title: () => 'Extension' })
-      h.runtime.slots.register({ name: 'sidebar.right.pane.tab', key: 'extension/text' },
-        ({ useTabInfo }: PropsRuntime<'sidebar.right.pane.tab'>) => <b data-extension>{useTabInfo().tab.title}</b>)
+      h.runtime.slots.register(
+        { name: 'sidebar.right.pane.tab', key: 'extension/text' },
+        ({ useTabInfo }: PropsRuntime<'sidebar.right.pane.tab'>) => <b data-extension>{useTabInfo().tab.title}</b>,
+      )
     })
     expect(element(h.view.container, '[data-extension]').textContent).toBe('a.txt')
-    await act(async () => { release() })
+    await act(async () => {
+      release()
+    })
     expect(h.view.container.querySelector('[data-extension]')).toBeNull()
     expect(h.view.container.querySelector('[data-tab-body]')).not.toBeNull()
   })
@@ -874,24 +1126,37 @@ describe('slot-owned useTabInfo', () => {
     const h = await mountSeat()
     let menu: SidebarRightTabMenuOwnerProps | undefined
     await act(async () => {
-      h.runtime.slots.register({ name: 'sidebar.right.tab.menu.item', id: 'test' },
-        (props: PropsRuntime<'sidebar.right.tab.menu.item'>) => { menu = props; return null })
+      h.runtime.slots.register(
+        { name: 'sidebar.right.tab.menu.item', id: 'test' },
+        (props: PropsRuntime<'sidebar.right.tab.menu.item'>) => {
+          menu = props
+          return null
+        },
+      )
       h.actions.openContent(SESSION, { kind: 'missing', contentId: 'missing://content', title: 'Missing' }, () => {})
     })
     expect(h.view.container.querySelector('[data-sidebar-right-unavailable]')).not.toBeNull()
     const chip = element(h.view.container, '[data-dockkit-tab]')
     fireEvent.contextMenu(chip)
     expect(menu?.tab.id).toBe(chip.getAttribute('data-dockkit-tab'))
-    act(() => { menu?.dismiss() })
+    act(() => {
+      menu?.dismiss()
+    })
     expect(document.querySelector('[data-dockkit-tab-menu]')).toBeNull()
   })
 
   it('keeps the current binding in the disabled split tooltip when it changes or is cleared', async () => {
     const h = await mountSeat()
     const split: ShortcutCatalogEntry = {
-      id: 'pane.split' as ShortcutCommandId, label: 'Split', aliases: [],
-      binding: { code: 'Backslash', modifiers: ['meta'] }, modified: false, conflicts: [], issue: null,
-      keys: ['⌘', '\\'], aria: 'Meta+\\',
+      id: 'pane.split' as ShortcutCommandId,
+      label: 'Split',
+      aliases: [],
+      binding: { code: 'Backslash', modifiers: ['meta'] },
+      modified: false,
+      conflicts: [],
+      issue: null,
+      keys: ['⌘', '\\'],
+      aria: 'Meta+\\',
     }
     act(() => {
       h.runtime.ctx.locale.setLocale('en')
@@ -903,18 +1168,29 @@ describe('slot-owned useTabInfo', () => {
     fireEvent.keyDown(anchor, { key: 'Tab' })
     fireEvent.focus(anchor)
     expect(document.querySelector('[role="tooltip"]')?.getAttribute('aria-label')).toBe('Two panes is the limit ⌘ \\')
-    act(() => { h.catalog.set([{ ...split, binding: { code: 'KeyG', modifiers: ['control'] },
-      keys: ['Ctrl', '+', 'G'], aria: 'Control+G' }]) })
+    act(() => {
+      h.catalog.set([{ ...split, binding: { code: 'KeyG', modifiers: ['control'] }, keys: ['Ctrl', '+', 'G'], aria: 'Control+G' }])
+    })
     expect(document.querySelector('[role="tooltip"]')?.getAttribute('aria-label')).toBe('Two panes is the limit Ctrl + G')
-    act(() => { h.catalog.set([{ ...split, binding: null, keys: [], aria: undefined }]) })
+    act(() => {
+      h.catalog.set([{ ...split, binding: null, keys: [], aria: undefined }])
+    })
     expect(document.querySelector('[role="tooltip"]')?.textContent).toBe('Two panes is the limit')
   })
 
   it('advertises configured pane and page-close controls', async () => {
     const h = await mountSeat()
-    const entry = (id: string): ShortcutCatalogEntry => ({ id: id as ShortcutCommandId,
-      label: id, aliases: [], binding: null, modified: true, conflicts: [], issue: null,
-      keys: ['Ctrl', 'G'], aria: 'Control+G' })
+    const entry = (id: string): ShortcutCatalogEntry => ({
+      id: id as ShortcutCommandId,
+      label: id,
+      aliases: [],
+      binding: null,
+      modified: true,
+      conflicts: [],
+      issue: null,
+      keys: ['Ctrl', 'G'],
+      aria: 'Control+G',
+    })
     act(() => {
       h.catalog.set(['page.close', 'pane.fullscreen.toggle', 'sidebar.right.toggle'].map(entry))
       h.controller.toggleExpanded()
@@ -927,39 +1203,58 @@ describe('slot-owned useTabInfo', () => {
   it('explains the two-pane limit and adds a guide only to a pane without one', async () => {
     const h = await mountSeat()
     // Expanding first seeds the left pane's guide; only the right pane will lack one.
-    act(() => { h.controller.toggleExpanded() })
+    act(() => {
+      h.controller.toggleExpanded()
+    })
     h.open()
     const splitButtons = () => h.view.container.querySelectorAll<HTMLButtonElement>('[data-dockkit-split-button]')
     expect(splitButtons()).toHaveLength(1)
-    act(() => { h.controller.split() })
+    act(() => {
+      h.controller.split()
+    })
     expect(dockPaneIds(h.layout())).toHaveLength(2)
     const stored = h.instance.getSnapshot()
-    act(() => { expect(h.controller.split()).toBeUndefined() })
+    act(() => {
+      expect(h.controller.split()).toBeUndefined()
+    })
     expect(h.instance.getSnapshot()).toBe(stored)
     expect(splitButtons()).toHaveLength(2)
     expect([...splitButtons()].every(button => button.hasAttribute('disabled'))).toBe(true)
     const right = dockPaneIds(h.layout())[1]!
     h.open('right.txt', { paneId: right })
     const guide = getPane(h.layout(), right).tabs.find(id => h.layout().tabs[id]?.kind === 'guide')!
-    act(() => { h.actions.closeTab(SESSION, guide) })
+    act(() => {
+      h.actions.closeTab(SESSION, guide)
+    })
     const add = element(h.view.container, '[data-dockkit-add-tab]')
     expect(add.closest('[data-dockkit-pane]')?.getAttribute('data-dockkit-pane')).toBe(right)
     fireEvent.click(add)
     expect(getPane(h.layout(), right).tabs.filter(id => h.layout().tabs[id]?.kind === 'guide')).toHaveLength(1)
     const closing = [...getPane(h.layout(), right).tabs]
-    act(() => { for (const tabId of closing) h.actions.closeTab(SESSION, tabId) })
+    act(() => {
+      for (const tabId of closing) h.actions.closeTab(SESSION, tabId)
+    })
     expect(dockPaneIds(h.layout())).toHaveLength(1)
     expect(splitButtons()).toHaveLength(1)
     expect(splitButtons()[0]?.disabled).toBe(false)
   })
 })
 
-describe('intentsFor — the kit\'s gestures as one session\'s store actions', () => {
+describe("intentsFor — the kit's gestures as one session's store actions", () => {
   it('binds every intent to the session, and asks the navigation face for a guide on add', () => {
     const actions = {
-      focusTab: vi.fn(), focusPane: vi.fn(), splitPane: vi.fn(), closeTab: vi.fn(), duplicateTab: vi.fn(),
-      floatTab: vi.fn(), unfloatPane: vi.fn(), placeTab: vi.fn(), dropTab: vi.fn(), moveFloat: vi.fn(),
-      resizeFloat: vi.fn(), resizeSplit: vi.fn(),
+      focusTab: vi.fn(),
+      focusPane: vi.fn(),
+      splitPane: vi.fn(),
+      closeTab: vi.fn(),
+      duplicateTab: vi.fn(),
+      floatTab: vi.fn(),
+      unfloatPane: vi.fn(),
+      placeTab: vi.fn(),
+      dropTab: vi.fn(),
+      moveFloat: vi.fn(),
+      resizeFloat: vi.fn(),
+      resizeSplit: vi.fn(),
     }
     const openTab = vi.fn()
     const intents = intentsFor(SESSION, actions as unknown as Parameters<typeof intentsFor>[1], openTab)
@@ -1002,7 +1297,9 @@ it('keeps a resource tab and reports a synchronous cleanup failure from its clos
   const h = await mountSeat()
   const tab = h.open('terminal')
   const failure = new Error('process still running')
-  const release = h.controller.registerCloseHandler('text', () => { throw failure })
+  const release = h.controller.registerCloseHandler('text', () => {
+    throw failure
+  })
   const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
   try {
     fireEvent.click(element(h.view.container, `[data-dockkit-tab-close="${tab.id}"]`))

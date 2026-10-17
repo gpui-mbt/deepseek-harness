@@ -7,7 +7,7 @@
  * removes it (HMR safety). The carrier and framework are exercised unmodified.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -49,10 +49,14 @@ async function harness(withTodoTool: boolean): Promise<Bench> {
 
 /** One paginable message so the tail page is non-degenerate. */
 function seedMessage(session: Session): void {
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'hi' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'hi' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 describe('todos projection provider', () => {

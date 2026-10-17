@@ -37,9 +37,10 @@ function platformView(owner) {
 async function dismissNotice(contents) {
   const clicked = await contents.executeJavaScript(
     `(() => { const button = document.querySelector('button'); if (button === null) return false; button.click(); return true })()`,
-    true)
+    true,
+  )
   if (clicked !== true) throw new Error('notice dismissal control is missing')
-  if (await observe(contents) !== 'hidden') throw new Error('notice stayed visible after dismissal')
+  if ((await observe(contents)) !== 'hidden') throw new Error('notice stayed visible after dismissal')
 }
 
 async function run() {
@@ -71,7 +72,9 @@ async function run() {
     await dismissNotice(platformView(owner).webContents)
     await record('first-got-it')
     await platformView(owner).webContents.executeJavaScript("document.cookie = 'fixture-auth=secret; SameSite=Lax'")
-    await platformView(owner).webContents.executeJavaScript("window.addEventListener('beforeunload', event => { event.preventDefault(); event.returnValue = false })")
+    await platformView(owner).webContents.executeJavaScript(
+      "window.addEventListener('beforeunload', event => { event.preventDefault(); event.returnValue = false })",
+    )
     await platformView(owner).webContents.executeJavaScript(`(async () => {
       await (await caches.open('fixture-auth')).put('/secret', new Response('secret'))
       await new Promise((resolve, reject) => {
@@ -86,7 +89,9 @@ async function run() {
     const cookies = await platformView(owner).webContents.executeJavaScript('document.cookie')
     if (cookies !== '') throw new Error('authentication cookies survived close')
     states.push('reopen-cookies=cleared')
-    const stores = await platformView(owner).webContents.executeJavaScript('(async () => (await caches.keys()).length + (await indexedDB.databases()).length)()')
+    const stores = await platformView(owner).webContents.executeJavaScript(
+      '(async () => (await caches.keys()).length + (await indexedDB.databases()).length)()',
+    )
     if (stores !== 0) throw new Error('nonpreference stores survived close')
     manager.setSession(account('second'))
     await manager.open(owner, 'usage', bounds)
@@ -102,11 +107,11 @@ async function run() {
   const persistedSession = platformView(owner).webContents.session
   manager.setSession(account(null))
   await manager.open(owner, 'usage', bounds)
-  if (await observe(platformView(owner).webContents) !== 'visible') throw new Error('temporary session inherited preferences')
+  if ((await observe(platformView(owner).webContents)) !== 'visible') throw new Error('temporary session inherited preferences')
   await dismissNotice(platformView(owner).webContents)
   manager.close()
   await manager.open(owner, 'usage', bounds)
-  if (await observe(platformView(owner).webContents) !== 'visible') throw new Error('temporary session retained preferences')
+  if ((await observe(platformView(owner).webContents)) !== 'visible') throw new Error('temporary session retained preferences')
   await manager.dispose()
   if (phase === 'first') {
     // Seed residue left by an interrupted process after normal cleanup has completed.
@@ -115,7 +120,7 @@ async function run() {
   }
 
   const lines = `${states.map(state => `state ${state}`).join('\n')}\nPLATFORM_STORAGE_RESULT ${JSON.stringify(states)}\n`
-  await new Promise((resolve, reject) => process.stdout.write(lines, error => error ? reject(error) : resolve()))
+  await new Promise((resolve, reject) => process.stdout.write(lines, error => (error ? reject(error) : resolve())))
   owner.destroy()
   app.quit()
 }

@@ -6,10 +6,7 @@ import { load as parseYaml } from 'js-yaml'
 import { officePackageDirectories } from './libreoffice-packages.mjs'
 
 /** pkg applies these exclusions to dependency `files` as well as root asset globs. */
-export const OFFICE_ASSET_IGNORES = [
-  '**/node_modules/@deepseek-ai/libreoffice-kit/**',
-  '**/node_modules/@deepseek-ai/libreoffice-kit-*/**',
-]
+export const OFFICE_ASSET_IGNORES = ['**/node_modules/@deepseek-ai/libreoffice-kit/**', '**/node_modules/@deepseek-ai/libreoffice-kit-*/**']
 
 /** One npm package at its existing sidecar dependency location. */
 export interface OfficePackageArchive extends RuntimeNpmArchive {
@@ -24,7 +21,11 @@ export interface OfficePackageArchive extends RuntimeNpmArchive {
  * @param lockfile - Workspace lock recording the exact published archive.
  * @returns Locked npm tarball identity; rejects versions without SHA-512 integrity.
  */
-export async function runtimeNpmArchive(name: string, version: string, lockfile = join(import.meta.dirname, '../pnpm-lock.yaml')): Promise<RuntimeNpmArchive> {
+export async function runtimeNpmArchive(
+  name: string,
+  version: string,
+  lockfile = join(import.meta.dirname, '../pnpm-lock.yaml'),
+): Promise<RuntimeNpmArchive> {
   const lock = parseYaml(await readFile(lockfile, 'utf8')) as { packages?: Record<string, { resolution?: { integrity?: string } }> }
   const integrity = lock.packages?.[`${name}@${version}`]?.resolution?.integrity
   if (typeof integrity !== 'string' || !/^sha512-[A-Za-z0-9+/]+={0,2}$/u.test(integrity)) {
@@ -41,10 +42,12 @@ export async function runtimeNpmArchive(name: string, version: string, lockfile 
  */
 export async function officeSidecarArchives(staging: string, target: { platform: string; arch: string }): Promise<OfficePackageArchive[]> {
   const directories = await officePackageDirectories(staging, target)
-  return Promise.all(directories.map(async (directory) => {
-    const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8')) as { name: string; version: string }
-    return { ...await runtimeNpmArchive(manifest.name, manifest.version), directory: relative(staging, directory).split(sep).join('/') }
-  }))
+  return Promise.all(
+    directories.map(async directory => {
+      const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8')) as { name: string; version: string }
+      return { ...(await runtimeNpmArchive(manifest.name, manifest.version)), directory: relative(staging, directory).split(sep).join('/') }
+    }),
+  )
 }
 
 /**
@@ -56,8 +59,12 @@ export async function officeSidecarArchives(staging: string, target: { platform:
  */
 export async function downloadOfficeSidecar(packages: readonly OfficePackageArchive[], destination: string, cache: string): Promise<void> {
   for (const artifact of packages) {
-    if (isAbsolute(artifact.directory) || artifact.directory.split(/[\\/]/u).some(part => part === '..')
-      || !artifact.directory.startsWith('node_modules/')) throw new Error(`Office download: invalid package directory ${artifact.directory}`)
+    if (
+      isAbsolute(artifact.directory) ||
+      artifact.directory.split(/[\\/]/u).some(part => part === '..') ||
+      !artifact.directory.startsWith('node_modules/')
+    )
+      throw new Error(`Office download: invalid package directory ${artifact.directory}`)
     await downloadRuntimeNpmPackage(artifact, join(destination, artifact.directory), cache)
   }
 }

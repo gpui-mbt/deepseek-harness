@@ -44,22 +44,34 @@ export class InspectorTableLayout {
    * @param viewport - Scroll geometry before the current row change.
    * @param anchor - Clicked disclosure row to retain at its measured viewport position.
    */
-  constructor(private readonly hierarchy: InspectorTableHierarchy, previous?: InspectorTableLayout,
-    viewport: InspectorViewport = { offset: 0, height: 0 }, anchor?: InspectorRowAnchor) {
+  constructor(
+    private readonly hierarchy: InspectorTableHierarchy,
+    previous?: InspectorTableLayout,
+    viewport: InspectorViewport = { offset: 0, height: 0 },
+    anchor?: InspectorRowAnchor,
+  ) {
     for (const [rowIndex, row] of hierarchy.rows.entries()) {
       this.rowIndexes.set(row.key, rowIndex)
     }
     this.items = hierarchy.rows.map((row, rowIndex) => ({ key: row.key, rowIndex, row, size: INSPECTOR_ROW_HEIGHT }))
-    this.preservedCollapse = previous !== undefined && hierarchy.rows.length < previous.hierarchy.rows.length
-      && hierarchy.rows.some(row => row.disclosure === 'closed'
-        && previous.hierarchy.rows[previous.rowIndexes.get(row.key) ?? -1]?.disclosure === 'open')
+    this.preservedCollapse =
+      previous !== undefined &&
+      hierarchy.rows.length < previous.hierarchy.rows.length &&
+      hierarchy.rows.some(
+        row => row.disclosure === 'closed' && previous.hierarchy.rows[previous.rowIndexes.get(row.key) ?? -1]?.disclosure === 'open',
+      )
     const anchorIndex = anchor === undefined ? undefined : this.rowIndexes.get(anchor.key)
-    this.scrollOffset = anchor !== undefined && anchorIndex !== undefined
-      ? Math.max(0, (anchorIndex + 1) * INSPECTOR_ROW_HEIGHT - anchor.top)
-      : this.preservedCollapse && previous !== undefined ? this.anchorOffset(previous, viewport.offset) : undefined
+    this.scrollOffset =
+      anchor !== undefined && anchorIndex !== undefined
+        ? Math.max(0, (anchorIndex + 1) * INSPECTOR_ROW_HEIGHT - anchor.top)
+        : this.preservedCollapse && previous !== undefined
+          ? this.anchorOffset(previous, viewport.offset)
+          : undefined
     const natural = (this.items.length + 1) * INSPECTOR_ROW_HEIGHT
-    const minimum = this.scrollOffset === undefined ? previous?.minimumExtent ?? 0
-      : Math.max(this.scrollOffset + viewport.height, (previous?.minimumExtent ?? 0) + this.scrollOffset - viewport.offset)
+    const minimum =
+      this.scrollOffset === undefined
+        ? (previous?.minimumExtent ?? 0)
+        : Math.max(this.scrollOffset + viewport.height, (previous?.minimumExtent ?? 0) + this.scrollOffset - viewport.offset)
     this.minimumExtent = minimum > natural ? minimum : 0
     this.bottomPadding = Math.max(0, this.minimumExtent - natural)
   }

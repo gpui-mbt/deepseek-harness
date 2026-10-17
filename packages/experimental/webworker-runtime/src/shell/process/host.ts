@@ -70,9 +70,12 @@ export function startProcess(options: ProcessStartOptions): RunningProcess {
 /** Serve one filesystem call for a process worker. */
 async function serveFilesystemCall(fs: ShellFileSystem, op: FilesystemOperation, args: readonly unknown[]): Promise<unknown> {
   switch (op) {
-    case 'stat': return await fs.stat(args[0] as string)
-    case 'list': return await fs.list(args[0] as string)
-    case 'readText': return await fs.readText(args[0] as string)
+    case 'stat':
+      return await fs.stat(args[0] as string)
+    case 'list':
+      return await fs.list(args[0] as string)
+    case 'readText':
+      return await fs.readText(args[0] as string)
     case 'writeText':
       await fs.writeText(args[0] as string, args[1] as string, args[2] as boolean)
       return undefined
@@ -118,7 +121,9 @@ function startWorkerProcess(options: ProcessStartOptions): RunningProcess {
       return
     }
     void serveFilesystemCall(fs, frame.op, frame.args).then(
-      (value) => { worker.postMessage({ t: 'fs-reply', id: frame.id, value }) },
+      value => {
+        worker.postMessage({ t: 'fs-reply', id: frame.id, value })
+      },
       (error: unknown) => {
         const failure = {
           code: (error as { code?: string }).code,
@@ -144,10 +149,14 @@ function startWorkerProcess(options: ProcessStartOptions): RunningProcess {
   worker.postMessage(start)
 
   return {
-    interrupt: () => { if (!settled) worker.postMessage({ t: 'shell-signal' }) },
+    interrupt: () => {
+      if (!settled) worker.postMessage({ t: 'shell-signal' })
+    },
     // The reason this whole module exists: a worker dies on command, even
     // mid-loop, so a timeout is enforceable rather than advisory.
-    destroy: () => { settle(130) },
+    destroy: () => {
+      settle(130)
+    },
   }
 }
 
@@ -162,17 +171,19 @@ function startInlineProcess(options: ProcessStartOptions): RunningProcess {
     fs: options.fs ?? hostFileSystem(),
     onOutput: options.onOutput,
   }
-  const run = options.script === undefined
-    ? runShellProgram(options.argv, runOptions)
-    : runShellCommand(options.script, runOptions)
+  const run = options.script === undefined ? runShellProgram(options.argv, runOptions) : runShellCommand(options.script, runOptions)
   void run.then(
-    (outcome) => { options.onExit(outcome.exitCode) },
+    outcome => {
+      options.onExit(outcome.exitCode)
+    },
     (error: unknown) => {
       options.onOutput('stderr', `bash: ${String(error)}\n`)
       options.onExit(1)
     },
   )
-  const stop = (): void => { stopping.abort(new Error('killed by signal')) }
+  const stop = (): void => {
+    stopping.abort(new Error('killed by signal'))
+  }
   return { interrupt: stop, destroy: stop }
 }
 

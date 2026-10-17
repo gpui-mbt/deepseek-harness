@@ -7,7 +7,7 @@
  * and face — and that every registration is gone after dispose, which is what
  * makes a reload safe.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { ShortcutCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
 import { SidebarRightTabRegistry } from '@deepseek-ai/dsh-client-ui-sidebar-right/src/client/tab-registry.ts'
@@ -36,7 +36,9 @@ async function boot() {
     register: vi.fn((options: Omit<Recorded, 'component'>, component: unknown) => {
       const entry: Recorded = { ...options, component }
       registered.push(entry)
-      return () => { registered.splice(registered.indexOf(entry), 1) }
+      return () => {
+        registered.splice(registered.indexOf(entry), 1)
+      }
     }),
   }
   const dictionaries = new Map<string, unknown>()
@@ -45,16 +47,22 @@ async function boot() {
     bind: vi.fn(() => (key: string) => key),
     register: vi.fn((ns: string, dicts: unknown) => {
       dictionaries.set(ns, dicts)
-      return () => { dictionaries.delete(ns) }
+      return () => {
+        dictionaries.delete(ns)
+      }
     }),
   }
   const workspaceFiles = { list: vi.fn() }
   const sidebar = { commandTarget: vi.fn(), openTabFromTarget: vi.fn() }
   const commands: ShortcutCommand[] = []
-  ctx.provide('shortcuts', { register: (command: ShortcutCommand) => {
-    commands.push(command)
-    return () => { commands.splice(commands.indexOf(command), 1) }
-  } } as never)
+  ctx.provide('shortcuts', {
+    register: (command: ShortcutCommand) => {
+      commands.push(command)
+      return () => {
+        commands.splice(commands.indexOf(command), 1)
+      }
+    },
+  } as never)
   ctx.provide('sidebarRight', sidebar as never)
   ctx.provide('sidebarRightTabs', tabs as never)
   ctx.provide('slots', slots as never)
@@ -79,21 +87,24 @@ describe('ui-sidebar-files apply', () => {
       if (result.status !== 'handled') throw new Error('Expected files command to be available')
       result.run()
       expect(h.sidebar.openTabFromTarget).toHaveBeenCalledWith('files', target)
-    } finally { await h.fiber.dispose() }
+    } finally {
+      await h.fiber.dispose()
+    }
     expect(h.commands).toEqual([])
   })
   it('keeps the host Loader entry inert', () => {
     expect(hostApply).not.toThrow()
   })
 
-  it('registers the type, its dictionaries, and the body and title seats under the type\'s id', async () => {
+  it("registers the type, its dictionaries, and the body and title seats under the type's id", async () => {
     const { tabs, registered, dictionaries } = await boot()
     const definition = tabs.get(FILES_KIND)
     expect(definition?.id).toBe(FILES_ID)
     expect(definition?.priority).toBe('builtin')
     expect(definition?.title('sidebar://files')).toBe('type.label')
-    expect(definition?.guide?.map(entry => [entry.order, entry.title(), entry.description?.()]))
-      .toEqual([[10, 'guide.title', 'guide.description']])
+    expect(definition?.guide?.map(entry => [entry.order, entry.title(), entry.description?.()])).toEqual([
+      [10, 'guide.title', 'guide.description'],
+    ])
     expect(dictionaries.get('sidebarFiles')).toEqual({ zh, en })
     // The seat key is the implementation's id, not the kind: an extension may
     // take the kind over, and the seat must still find this body.

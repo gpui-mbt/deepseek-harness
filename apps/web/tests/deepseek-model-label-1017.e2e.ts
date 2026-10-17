@@ -1,9 +1,14 @@
 /** The shipped browser plugin decorates both DeepSeek routes without changing catalog identity. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspaceZh, ZH_BROWSER_LOCALE } from './support.ts'
 
@@ -25,9 +30,14 @@ describe.skipIf(MODE === 'record')('web e2e: temporary DeepSeek release badge', 
       replayProvidersOnly: true,
       replayProviders: [
         { id: 'deepseek-account', name: 'DeepSeek Account', models: [{ id: 'deepseek-flash', name: NAME }] },
-        { id: 'deepseek-official', name: 'DeepSeek', models: [
-          { id: 'deepseek-flash', name: NAME }, { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro' },
-        ] },
+        {
+          id: 'deepseek-official',
+          name: 'DeepSeek',
+          models: [
+            { id: 'deepseek-flash', name: NAME },
+            { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro' },
+          ],
+        },
         { id: 'external', name: 'External', models: [{ id: 'deepseek-flash', name: NAME }] },
       ],
     })
@@ -39,8 +49,11 @@ describe.skipIf(MODE === 'record')('web e2e: temporary DeepSeek release badge', 
   })
 
   afterAll(async () => {
-    try { await browser?.close() }
-    finally { await scaffold?.close() }
+    try {
+      await browser?.close()
+    } finally {
+      await scaffold?.close()
+    }
   })
 
   it('shows the same badge in all placements while preserving the chosen provider and model id', async () => {
@@ -61,7 +74,9 @@ describe.skipIf(MODE === 'record')('web e2e: temporary DeepSeek release badge', 
       expect(await menu.getByRole('group', { name: 'External', exact: true }).getByText('1017', { exact: true }).count()).toBe(0)
       const account = menu.getByRole('group', { name: 'DeepSeek 账号', exact: true })
       await account.getByRole('menuitemradio', { name: `${NAME} 1017`, exact: true }).click()
-      await expect.poll(() => scaffold.ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-account', model: 'deepseek-flash' })
+      await expect
+        .poll(() => scaffold.ctx.agentDefaultModel.currentSelection())
+        .toEqual({ provider: 'deepseek-account', model: 'deepseek-flash' })
       await expect.poll(() => trigger.textContent()).toContain(`${NAME} 1017`)
       const catalog = await scaffold.ctx.llm.listModels('deepseek-account')
       expect(catalog.map(model => ({ id: model.id, name: model.name }))).toEqual([{ id: 'deepseek-flash', name: NAME }])
@@ -83,11 +98,11 @@ describe.skipIf(MODE === 'record')('web e2e: temporary DeepSeek release badge', 
       expect(box).not.toBeNull()
       expect(box!.x).toBeGreaterThanOrEqual(12)
       expect(box!.x + box!.width).toBeLessThanOrEqual(378)
-      const colors = await badge.evaluate((node) => {
+      const colors = await badge.evaluate(node => {
         const body = node.ownerDocument.body
         const previous = body.getAttribute('data-ds-dark-theme')
         try {
-          return [false, true].map((dark) => {
+          return [false, true].map(dark => {
             body.toggleAttribute('data-ds-dark-theme', dark)
             const style = getComputedStyle(node)
             return { color: style.color, background: style.backgroundColor }

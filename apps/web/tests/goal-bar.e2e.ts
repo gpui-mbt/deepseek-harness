@@ -7,11 +7,16 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type {} from '@deepseek-ai/dsh-goal'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, expectTooltipOnTop, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -52,9 +57,11 @@ describe('web e2e: goal bar clear convergence', () => {
     const bar = page.locator('[data-goal-bar]')
     await bar.waitFor({ timeout: 10_000 })
     const pause = bar.getByRole('button', { name: 'Pause goal' })
-    await expect.poll(() => pause.count(), {
-      timeout: 10_000,
-    }).toBe(1)
+    await expect
+      .poll(() => pause.count(), {
+        timeout: 10_000,
+      })
+      .toBe(1)
     await pause.hover()
     const pauseTooltip = page.getByRole('tooltip', { name: 'Pause goal', exact: true })
     await pauseTooltip.waitFor()
@@ -90,14 +97,16 @@ describe('web e2e: goal bar clear convergence', () => {
     const agents = scaffold.ctx.agents.list()
     expect(agents).toHaveLength(1)
     scaffold.ctx.goals.disarm(agents[0]!)
-    await expect.poll(() => bar.getByRole('button', { name: 'Resume goal' }).count(), {
-      timeout: 10_000,
-    }).toBe(1)
+    await expect
+      .poll(() => bar.getByRole('button', { name: 'Resume goal' }).count(), {
+        timeout: 10_000,
+      })
+      .toBe(1)
     const inactive = await captureStableAria(page, '[data-goal-bar]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(INACTIVE_EXPECTED, inactive, MODE)
 
     const clear = bar.getByRole('button', { name: 'Clear goal' })
-    await clear.evaluate((button) => {
+    await clear.evaluate(button => {
       const control = button as HTMLButtonElement
       control.click()
       control.click()

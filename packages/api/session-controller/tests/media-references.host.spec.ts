@@ -1,7 +1,7 @@
 import { appendFile, mkdir, mkdtemp, open, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
@@ -95,8 +95,14 @@ describe('SessionMediaReferences /api/file', () => {
   })
 
   it.each([
-    ['png', 'image/png'], ['svg', 'image/svg+xml'], ['mp4', 'video/mp4'], ['mp3', 'audio/mpeg'],
-    ['txt', 'text/plain'], ['html', 'text/html'], ['bin', 'application/octet-stream'], ['', 'application/octet-stream'],
+    ['png', 'image/png'],
+    ['svg', 'image/svg+xml'],
+    ['mp4', 'video/mp4'],
+    ['mp3', 'audio/mpeg'],
+    ['txt', 'text/plain'],
+    ['html', 'text/html'],
+    ['bin', 'application/octet-stream'],
+    ['', 'application/octet-stream'],
   ])('serves .%s files with their MIME type and response protections', async (extension, mediaType) => {
     const route = await mount()
     const path = join(root, `file${extension === '' ? '' : `.${extension}`}`)
@@ -111,7 +117,7 @@ describe('SessionMediaReferences /api/file', () => {
     expect(await responseBytes(response)).toEqual(PNG_BYTES)
   })
 
-  it.each(['mp4', 'mp3', 'bin'])('applies the attachment byte cap to .%s files', async (extension) => {
+  it.each(['mp4', 'mp3', 'bin'])('applies the attachment byte cap to .%s files', async extension => {
     const route = await mount(PNG_BYTES.length)
     const path = join(root, `file.${extension}`)
     await writeFile(path, PNG_BYTES)
@@ -196,8 +202,12 @@ describe('SessionMediaReferences /api/file', () => {
     expect(await responseBytes(await route.call('/remote/photo.png'))).toEqual(PNG_BYTES)
     expect(read).toHaveBeenCalledWith(target, expect.any(AbortSignal), DEFAULT_LIMIT)
     for (const [code, status] of [
-      ['FS_PERMISSION_DENIED', 403], ['FS_SANDBOX_DENIED', 403], ['FS_NOT_FOUND', 404],
-      ['FS_NOT_REGULAR_FILE', 403], ['FS_TOO_LARGE', 413], ['FS_IO_ERROR', 500],
+      ['FS_PERMISSION_DENIED', 403],
+      ['FS_SANDBOX_DENIED', 403],
+      ['FS_NOT_FOUND', 404],
+      ['FS_NOT_REGULAR_FILE', 403],
+      ['FS_TOO_LARGE', 413],
+      ['FS_IO_ERROR', 500],
     ] as const) {
       read.mockRejectedValueOnce(new FsError('provider rejected read', code))
       expect((await route.call('/remote/photo.png')).status).toBe(status)

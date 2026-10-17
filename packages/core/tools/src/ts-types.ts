@@ -62,9 +62,9 @@ interface TypeDocument {
 function typeDocumentFrom(parts: readonly (string | TypeDocument)[]): TypeDocument {
   return {
     parts,
-    containsUnionOrIntersection: parts.some(part => typeof part === 'string'
-      ? part.includes('|') || part.includes('&')
-      : part.containsUnionOrIntersection),
+    containsUnionOrIntersection: parts.some(part =>
+      typeof part === 'string' ? part.includes('|') || part.includes('&') : part.containsUnionOrIntersection,
+    ),
   }
 }
 
@@ -147,9 +147,7 @@ function renderSupportedSchema(schema: JsonSchemaNode, indent: number): TypeDocu
         const child = frame.childDocuments[0]
         /* v8 ignore next -- array frames always schedule exactly one child. */
         if (child === undefined) throw new Error('missing array item type')
-        finish(child.containsUnionOrIntersection
-          ? typeDocument('(', child, ')[]')
-          : typeDocument(child, '[]'))
+        finish(child.containsUnionOrIntersection ? typeDocument('(', child, ')[]') : typeDocument(child, '[]'))
         continue
       }
 
@@ -166,9 +164,7 @@ function renderSupportedSchema(schema: JsonSchemaNode, indent: number): TypeDocu
       }
       parts.push('\n', `${pad(frame.indent)}}`)
       const declared = typeDocumentFrom(parts)
-      finish(frame.node.additionalProperties === false
-        ? declared
-        : typeDocument(declared, ' & Record<string, JsonValue>'))
+      finish(frame.node.additionalProperties === false ? declared : typeDocument(declared, ' & Record<string, JsonValue>'))
       continue
     }
 
@@ -248,9 +244,10 @@ export function jsonSchemaToTs(schema: unknown, indent = 0): string {
 
 /** Render the argument and call instructions for the selected execution syntax. */
 function renderSdkInstructions(programFormat: 'function-body' | 'repl'): string {
-  const programDescription = programFormat === 'function-body'
-    ? 'the body of an async TypeScript function (erasable syntax only — no `enum` or namespaces; type annotations are advisory, the code runs type-stripped)'
-    : 'the program to execute'
+  const programDescription =
+    programFormat === 'function-body'
+      ? 'the body of an async TypeScript function (erasable syntax only — no `enum` or namespaces; type annotations are advisory, the code runs type-stripped)'
+      : 'the program to execute'
   return `## Writing code for run_code
 
 \`run_code\` takes two required arguments: \`code\`, ${programDescription}, and \`description\`, a short summary of what the program does. The declarations below are SDK bindings for this program. A declaration does not make its name a directly callable tool; only names supplied as separate tool schemas may be called directly.`
@@ -258,9 +255,10 @@ function renderSdkInstructions(programFormat: 'function-body' | 'repl'): string 
 
 /** Render tool execution and output instructions for the selected execution syntax. */
 function renderSdkProgramInstructions(programFormat: 'function-body' | 'repl'): string {
-  const outputInstruction = programFormat === 'function-body'
-    ? 'Emit results with `return` and/or `console.log(...)`. Only what you print or return is program output.'
-    : 'Only values emitted as program output enter the conversation.'
+  const outputInstruction =
+    programFormat === 'function-body'
+      ? 'Emit results with `return` and/or `console.log(...)`. Only what you print or return is program output.'
+      : 'Only values emitted as program output enter the conversation.'
   return `Inside the program:
 
 - Call tools as \`await tools.name(args)\` — quoted access for exotic names: \`tools["my-tool"](args)\`. Every call resolves to the tool's typed canonical JSON value. Tool arguments must be lossless JSON.
@@ -273,9 +271,11 @@ Program-only SDK bindings:`
 
 /** Whether one string schema accepts the literal used by the bash example. */
 function acceptsExampleString(schema: JsonSchemaNode | undefined, value: string): boolean {
-  return schema?.type === 'string'
-    && (schema.const === undefined || schema.const === value)
-    && (schema.enum === undefined || schema.enum.includes(value))
+  return (
+    schema?.type === 'string' &&
+    (schema.const === undefined || schema.const === value) &&
+    (schema.enum === undefined || schema.enum.includes(value))
+  )
 }
 
 /** Render the bash example only when its literal arguments satisfy the current parameter schema. */
@@ -290,9 +290,10 @@ function renderBashExample(schemas: ToolSdkSchema[], programFormat: 'function-bo
   const needsDescription = required.includes('description')
   if (needsDescription && !acceptsExampleString(parameters.properties?.description, 'Show current directory')) return ''
   const description = needsDescription ? "description: 'Show current directory', " : ''
-  const program = programFormat === 'function-body'
-    ? `return await tools.bash({ ${description}command: 'pwd' })`
-    : `console.log(await tools.bash({ ${description}command: 'pwd' }))`
+  const program =
+    programFormat === 'function-body'
+      ? `return await tools.bash({ ${description}command: 'pwd' })`
+      : `console.log(await tools.bash({ ${description}command: 'pwd' }))`
   return ` When no separate \`bash\` schema is supplied, invoke a declared \`bash\` binding inside \`run_code\`:\n\n\`run_code({ code: "${program}", description: "Show current directory" })\``
 }
 
@@ -310,7 +311,7 @@ function renderBashExample(schemas: ToolSdkSchema[], programFormat: 'function-bo
  * @returns the complete section text.
  */
 export function renderToolsSdk(schemas: ToolSdkSchema[], programFormat: 'function-body' | 'repl' = 'function-body'): string {
-  const sorted = [...schemas].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+  const sorted = [...schemas].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
   const argsMembers: string[] = []
   const outputMembers: string[] = []
   for (const schema of sorted) {

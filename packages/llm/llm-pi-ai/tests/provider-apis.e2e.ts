@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { AttachmentId, AttachmentStore, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type {
@@ -37,17 +37,15 @@ const providerCases: ProviderCase[] = [
     provider: 'openai',
     api: 'openai-responses',
     model: process.env.DSH_PI_AI_OPENAI_MODEL ?? 'gpt-5.5',
-    ...azureOpenAIKey
-      ? { apiKey: azureOpenAIKey, headers: { 'api-key': azureOpenAIKey, Authorization: '' } }
-      : {},
-    ...openAIBaseURL ? { baseURL: openAIBaseURL } : {},
+    ...(azureOpenAIKey ? { apiKey: azureOpenAIKey, headers: { 'api-key': azureOpenAIKey, Authorization: '' } } : {}),
+    ...(openAIBaseURL ? { baseURL: openAIBaseURL } : {}),
   },
   {
     provider: 'anthropic',
     api: 'anthropic-messages',
     model: process.env.DSH_PI_AI_ANTHROPIC_MODEL ?? 'claude-opus-4-8',
-    ...anthropicApiKey === undefined ? {} : { apiKey: anthropicApiKey },
-    ...anthropicBaseURL === undefined ? {} : { baseURL: anthropicBaseURL },
+    ...(anthropicApiKey === undefined ? {} : { apiKey: anthropicApiKey }),
+    ...(anthropicBaseURL === undefined ? {} : { baseURL: anthropicBaseURL }),
   },
 ]
 
@@ -58,11 +56,16 @@ async function harness(image?: StoredImageAttachment): Promise<Context> {
   contexts.push(ctx)
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(LlmPiAi, {
-    providers: Object.fromEntries(providerCases.map(profile => [profile.provider, {
-      ...profile.apiKey === undefined ? {} : { apiKey: profile.apiKey },
-      ...profile.baseURL === undefined ? {} : { baseURL: profile.baseURL },
-      ...profile.headers === undefined ? {} : { headers: profile.headers },
-    }])),
+    providers: Object.fromEntries(
+      providerCases.map(profile => [
+        profile.provider,
+        {
+          ...(profile.apiKey === undefined ? {} : { apiKey: profile.apiKey }),
+          ...(profile.baseURL === undefined ? {} : { baseURL: profile.baseURL }),
+          ...(profile.headers === undefined ? {} : { headers: profile.headers }),
+        },
+      ]),
+    ),
   })
   if (image !== undefined) {
     const fixture = image
@@ -119,10 +122,12 @@ afterEach(async () => {
 })
 
 function ask(text: string): Message[] {
-  return [createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-  })]
+  return [
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    }),
+  ]
 }
 
 function textOf(result: AssembledResult): string {
@@ -140,9 +145,7 @@ function expectFinish(result: AssembledResult, expected: 'stop' | 'tool-calls'):
 }
 
 function expectNativeReplay(result: AssembledResult, profile: ProviderCase): PiAiReplayResponse {
-  const replayState = result.message.source.kind === 'model'
-    ? result.message.source.replayState
-    : undefined
+  const replayState = result.message.source.kind === 'model' ? result.message.source.replayState : undefined
   expect(replayState).toMatchObject({
     response: {
       kind: 'pi-ai',
@@ -166,82 +169,79 @@ const lookupTool: ToolSchema = {
 }
 
 for (const profile of providerCases) {
-  describe.skipIf(profile.apiKey === undefined)(
-    `llm-pi-ai ${profile.provider} e2e (${profile.api})`,
-    () => {
-      it('streams text with usage and native replay metadata', async () => {
-        const ctx = await harness()
+  describe.skipIf(profile.apiKey === undefined)(`llm-pi-ai ${profile.provider} e2e (${profile.api})`, () => {
+    it('streams text with usage and native replay metadata', async () => {
+      const ctx = await harness()
+      const result = await assemble(ctx, {
+        provider: profile.provider,
+        model: profile.model,
+        messages: ask('Reply with exactly the word: pong'),
+        maxTokens: 1024,
+      })
+
+      expectFinish(result, 'stop')
+      expect(textOf(result).toLowerCase()).toContain('pong')
+      expect(result.usage?.inputTokens).toBeGreaterThan(0)
+      expect(result.usage?.outputTokens).toBeGreaterThan(0)
+      expect(expectNativeReplay(result, profile).stopReason).toBe('stop')
+    })
+
+    it('round-trips a tool call with provider-native replay metadata', async () => {
+      const ctx = await harness()
+      const prompt = ask('Use lookup_code with code "blue". Do not answer without calling the tool.')
+      const first = await assemble(ctx, {
+        provider: profile.provider,
+        model: profile.model,
+        messages: prompt,
+        tools: [lookupTool],
+        maxTokens: 2048,
+      })
+
+      expectFinish(first, 'tool-calls')
+      const call = first.message.content.find(block => block.type === 'tool-call')
+      expect(call).toBeDefined()
+      expect(call!.name).toBe('lookup_code')
+      expect(JSON.parse(call!.arguments)).toMatchObject({ code: 'blue' })
+      expect(expectNativeReplay(first, profile).stopReason).toBe('toolUse')
+
+      const second = await assemble(ctx, {
+        provider: profile.provider,
+        model: profile.model,
+        messages: [
+          ...prompt,
+          first.message,
+          createToolResultMessage({
+            callId: ToolCallId(call!.id),
+            content: [{ type: 'text', text: 'The code blue means ocean.' }],
+            isError: false,
+          }),
+        ],
+        tools: [lookupTool],
+        maxTokens: 2048,
+      })
+
+      expectFinish(second, 'stop')
+      expect(textOf(second).toLowerCase()).toContain('ocean')
+      expect(expectNativeReplay(second, profile).stopReason).toBe('stop')
+    })
+
+    if (profile.provider === 'anthropic') {
+      it('sends a real image through the authenticated Anthropic visual path', async () => {
+        const data = new Uint8Array(await readFile(new URL('./fixtures/qr-code.png', import.meta.url)))
+        const ref: ImageAttachmentRef = {
+          attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
+          mediaType: 'image/png',
+          bytes: data.byteLength,
+          width: 256,
+          height: 256,
+          name: 'qr-code.png',
+        }
+        const ctx = await harness({ ref, data })
         const result = await assemble(ctx, {
           provider: profile.provider,
           model: profile.model,
-          messages: ask('Reply with exactly the word: pong'),
-          maxTokens: 1024,
-        })
-
-        expectFinish(result, 'stop')
-        expect(textOf(result).toLowerCase()).toContain('pong')
-        expect(result.usage?.inputTokens).toBeGreaterThan(0)
-        expect(result.usage?.outputTokens).toBeGreaterThan(0)
-        expect(expectNativeReplay(result, profile).stopReason).toBe('stop')
-      })
-
-      it('round-trips a tool call with provider-native replay metadata', async () => {
-        const ctx = await harness()
-        const prompt = ask('Use lookup_code with code "blue". Do not answer without calling the tool.')
-        const first = await assemble(ctx, {
-          provider: profile.provider,
-          model: profile.model,
-          messages: prompt,
-          tools: [lookupTool],
-          maxTokens: 2048,
-        })
-
-        expectFinish(first, 'tool-calls')
-        const call = first.message.content.find(block => block.type === 'tool-call')
-        expect(call).toBeDefined()
-        expect(call!.name).toBe('lookup_code')
-        expect(JSON.parse(call!.arguments)).toMatchObject({ code: 'blue' })
-        expect(expectNativeReplay(first, profile).stopReason).toBe('toolUse')
-
-        const second = await assemble(ctx, {
-          provider: profile.provider,
-          model: profile.model,
           messages: [
-            ...prompt,
-            first.message,
-            createToolResultMessage({
-              callId: ToolCallId(call!.id),
-              content: [{ type: 'text', text: 'The code blue means ocean.' }],
-              isError: false,
-            }),
-          ],
-          tools: [lookupTool],
-          maxTokens: 2048,
-        })
-
-        expectFinish(second, 'stop')
-        expect(textOf(second).toLowerCase()).toContain('ocean')
-        expect(expectNativeReplay(second, profile).stopReason).toBe('stop')
-      })
-
-      if (profile.provider === 'anthropic') {
-        it('sends a real image through the authenticated Anthropic visual path', async () => {
-          const data = new Uint8Array(await readFile(
-            new URL('./fixtures/qr-code.png', import.meta.url),
-          ))
-          const ref: ImageAttachmentRef = {
-            attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
-            mediaType: 'image/png',
-            bytes: data.byteLength,
-            width: 256,
-            height: 256,
-            name: 'qr-code.png',
-          }
-          const ctx = await harness({ ref, data })
-          const result = await assemble(ctx, {
-            provider: profile.provider,
-            model: profile.model,
-            messages: [createUserMessage({
+            createUserMessage({
               content: [
                 {
                   type: 'text',
@@ -250,14 +250,14 @@ for (const profile of providerCases) {
                 { type: 'image', attachment: ref },
               ],
               source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-            })],
-            maxTokens: 256,
-          })
-
-          expectFinish(result, 'stop')
-          expect(textOf(result).toLowerCase()).toContain('qr code')
+            }),
+          ],
+          maxTokens: 256,
         })
-      }
-    },
-  )
+
+        expectFinish(result, 'stop')
+        expect(textOf(result).toLowerCase()).toContain('qr code')
+      })
+    }
+  })
 }

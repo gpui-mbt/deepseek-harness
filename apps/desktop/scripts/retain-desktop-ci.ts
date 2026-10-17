@@ -2,7 +2,11 @@
 import { appendFile, readFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { desktopTargetBuildPaths, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
-import { desktopBuildRecordFilename, desktopUpdateMetadataFilename, resolveDesktopUpdateChannel } from './desktop-auto-update-environment.mjs'
+import {
+  desktopBuildRecordFilename,
+  desktopUpdateMetadataFilename,
+  resolveDesktopUpdateChannel,
+} from './desktop-auto-update-environment.mjs'
 import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 import { retainDesktopRelease, type DesktopRetainedSource } from './desktop-release-store.ts'
 import { validateDesktopBuildVersion } from './desktop-build-version.mjs'
@@ -39,38 +43,61 @@ export async function retainDesktopCi(env: NodeJS.ProcessEnv, appRoot = resolve(
   const settings = loadDesktopPackageEnvironment(platform, env, appRoot, { unsigned: true })
   const preset = settings.DSH_PACKAGING_PRESET
   if (preset !== 'test' && preset !== 'production') throw new Error('desktop retention: a machine preset is required')
-  if (windows && !['signed', 'unsigned'].includes(env.PACKAGE_SIGNING ?? '')) throw new Error('desktop retention: invalid signing selection')
-  if (!windows && !['true', 'false'].includes(env.PACKAGE_SKIP_NOTARIZATION ?? '')) throw new Error('desktop retention: invalid notarization selection')
-  const qualification = windows ? (env.PACKAGE_SIGNING === 'signed' ? 'signed' : 'unsigned')
-    : (env.PACKAGE_SKIP_NOTARIZATION === 'true' ? 'unnotarized' : 'notarized')
+  if (windows && !['signed', 'unsigned'].includes(env.PACKAGE_SIGNING ?? ''))
+    throw new Error('desktop retention: invalid signing selection')
+  if (!windows && !['true', 'false'].includes(env.PACKAGE_SKIP_NOTARIZATION ?? ''))
+    throw new Error('desktop retention: invalid notarization selection')
+  const qualification = windows
+    ? env.PACKAGE_SIGNING === 'signed'
+      ? 'signed'
+      : 'unsigned'
+    : env.PACKAGE_SKIP_NOTARIZATION === 'true'
+      ? 'unnotarized'
+      : 'notarized'
   const product: { version: string } = JSON.parse(await readFile(join(appRoot, 'package.json'), 'utf8'))
   const version = validateDesktopBuildVersion(required(env, 'PACKAGE_VERSION'), product.version)
   const source: DesktopRetainedSource = {
-    repository: required(env, 'GITHUB_REPOSITORY'), runId: required(env, 'GITHUB_RUN_ID'),
-    attempt: required(env, 'GITHUB_RUN_ATTEMPT'), commit: required(env, 'PACKAGE_SOURCE_SHA'),
-    workflowCommit: required(env, 'GITHUB_SHA'), sourceRef: required(env, 'PACKAGE_SOURCE_REF'),
+    repository: required(env, 'GITHUB_REPOSITORY'),
+    runId: required(env, 'GITHUB_RUN_ID'),
+    attempt: required(env, 'GITHUB_RUN_ATTEMPT'),
+    commit: required(env, 'PACKAGE_SOURCE_SHA'),
+    workflowCommit: required(env, 'GITHUB_SHA'),
+    sourceRef: required(env, 'PACKAGE_SOURCE_REF'),
     channel: resolveDesktopUpdateChannel(settings),
-    runnerName: required(env, 'RUNNER_NAME'), target, preset, productVersion: product.version, version,
-    testReleaseId: preset === 'test' ? (settings.DOWNLOAD_TEST_RELEASE_ID || null) : null,
+    runnerName: required(env, 'RUNNER_NAME'),
+    target,
+    preset,
+    productVersion: product.version,
+    version,
+    testReleaseId: preset === 'test' ? settings.DOWNLOAD_TEST_RELEASE_ID || null : null,
     qualification,
   }
   const paths = desktopTargetBuildPaths(target)
   // The CLI's checkout owns these paths; alternate app roots are used by fixtures.
   const mode = qualification === 'unsigned' ? 'unsigned-artifacts' : qualification === 'unnotarized' ? 'unnotarized-artifacts' : 'artifacts'
-  const artifacts = appRoot === resolve(import.meta.dirname, '..')
-    ? join(paths.root, mode) : join(appRoot, '.desktop-build', 'targets', target, mode)
+  const artifacts =
+    appRoot === resolve(import.meta.dirname, '..') ? join(paths.root, mode) : join(appRoot, '.desktop-build', 'targets', target, mode)
   const base = `deepseek-harness-${version}-${windows ? 'win-x64' : target}`
   const debugSuffix = qualification === 'unnotarized' ? '-unnotarized' : qualification === 'unsigned' ? '-unsigned' : ''
   const names = windows ? [`${base}${debugSuffix}.exe`] : [`${base}${debugSuffix}.dmg`, `${base}${debugSuffix}.zip`]
   if (qualification === 'signed' || qualification === 'notarized') {
-    names.push(`${base}.${windows ? 'exe' : 'zip'}.blockmap`, desktopBuildRecordFilename(target), desktopUpdateMetadataFilename(version, platform, source.channel))
+    names.push(
+      `${base}.${windows ? 'exe' : 'zip'}.blockmap`,
+      desktopBuildRecordFilename(target),
+      desktopUpdateMetadataFilename(version, platform, source.channel),
+    )
   }
-  const retained = await retainDesktopRelease(desktopReleasesRoot(env), source, names.map(name => join(artifacts, name)))
+  const retained = await retainDesktopRelease(
+    desktopReleasesRoot(env),
+    source,
+    names.map(name => join(artifacts, name)),
+  )
   if (env.GITHUB_OUTPUT) await appendFile(env.GITHUB_OUTPUT, `directory=${retained}\n`)
-  const nextStep = desktopPublishQualificationError(qualification)
-    ?? `Publish separately with package_run_id=${env.GITHUB_RUN_ID} and package_run_attempt=${env.GITHUB_RUN_ATTEMPT}`
-  if (env.GITHUB_STEP_SUMMARY) await appendFile(env.GITHUB_STEP_SUMMARY,
-    `\nRetained package: ${env.GITHUB_RUN_ID}/${env.GITHUB_RUN_ATTEMPT}\n\n${nextStep}\n`)
+  const nextStep =
+    desktopPublishQualificationError(qualification) ??
+    `Publish separately with package_run_id=${env.GITHUB_RUN_ID} and package_run_attempt=${env.GITHUB_RUN_ATTEMPT}`
+  if (env.GITHUB_STEP_SUMMARY)
+    await appendFile(env.GITHUB_STEP_SUMMARY, `\nRetained package: ${env.GITHUB_RUN_ID}/${env.GITHUB_RUN_ATTEMPT}\n\n${nextStep}\n`)
   return retained
 }
 

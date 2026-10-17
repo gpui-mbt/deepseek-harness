@@ -8,17 +8,11 @@
  * @param keyOf - stable identity selector.
  * @returns baseline-valued rows with the established relative order retained.
  */
-export function mergeOrderedBaseline<T>(
-  current: readonly T[],
-  baseline: readonly T[],
-  keyOf: (value: T) => unknown,
-): T[] {
+export function mergeOrderedBaseline<T>(current: readonly T[], baseline: readonly T[], keyOf: (value: T) => unknown): T[] {
   const baselineByKey = new Map<unknown, T>()
   for (const value of baseline) baselineByKey.set(keyOf(value), value)
 
-  const merged = current
-    .map(value => baselineByKey.get(keyOf(value)))
-    .filter((value): value is T => value !== undefined)
+  const merged = current.map(value => baselineByKey.get(keyOf(value))).filter((value): value is T => value !== undefined)
   const mergedKeys = new Set(merged.map(keyOf))
 
   for (let index = 0; index < baseline.length; index++) {

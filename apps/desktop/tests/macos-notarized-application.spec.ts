@@ -1,11 +1,11 @@
 /** Verify application qualification commands without invoking Apple tools. */
 
 import { spawnSync } from 'node:child_process'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { verifyMacOSNotarizedApplication } from '../scripts/verify-macos-signature.mjs'
 
 vi.mock('node:child_process', async importOriginal => ({
-  ...await importOriginal<typeof import('node:child_process')>(),
+  ...(await importOriginal<typeof import('node:child_process')>()),
   spawnSync: vi.fn(),
 }))
 
@@ -18,10 +18,12 @@ const commands = [
   ['/usr/sbin/spctl', ['--assess', '--type', 'execute', '--verbose=4', appPath]],
 ] as const
 
-afterEach(() => { vi.resetAllMocks() })
+afterEach(() => {
+  vi.resetAllMocks()
+})
 
 describe('notarized application qualification', () => {
-  it.each([undefined, 0, 1, 2, 3])('stops at failed command %s or verifies every qualification', (failedCommand) => {
+  it.each([undefined, 0, 1, 2, 3])('stops at failed command %s or verifies every qualification', failedCommand => {
     let index = 0
     vi.mocked(spawnSync).mockImplementation(() => ({
       pid: 1,
@@ -32,9 +34,13 @@ describe('notarized application qualification', () => {
       signal: null,
     }))
     if (failedCommand === undefined) {
-      expect(() => { verifyMacOSNotarizedApplication(appPath, expected) }).not.toThrow()
+      expect(() => {
+        verifyMacOSNotarizedApplication(appPath, expected)
+      }).not.toThrow()
     } else {
-      expect(() => { verifyMacOSNotarizedApplication(appPath, expected) }).toThrow('exited with 1')
+      expect(() => {
+        verifyMacOSNotarizedApplication(appPath, expected)
+      }).toThrow('exited with 1')
     }
     const calledCommands = commands.slice(0, failedCommand === undefined ? commands.length : failedCommand + 1)
     expect(spawnSync).toHaveBeenCalledTimes(calledCommands.length)

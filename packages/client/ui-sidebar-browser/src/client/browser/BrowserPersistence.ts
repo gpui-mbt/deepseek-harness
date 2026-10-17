@@ -39,6 +39,5 @@ export function currentBrowserTarget(state: BrowserTabState | undefined): Browse
  * @returns an address-only checkpoint.
  */
 export function browserAddressCheckpoint(target: BrowserTarget, revision: number): BrowserTabState {
-  return { entries: [target], index: 0, request: { target, revision },
-    navigation: { status: 'known', revision }, failure: undefined }
+  return { entries: [target], index: 0, request: { target, revision }, navigation: { status: 'known', revision }, failure: undefined }
 }

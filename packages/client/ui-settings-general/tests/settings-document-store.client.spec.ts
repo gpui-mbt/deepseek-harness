@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -29,7 +29,9 @@ describe('SettingsDocumentStore', () => {
     const controller = derivedDocumentStore({ settings: { describe, openSettingsDocument: openDocument } })
     await controller.load()
     expect(controller.store.getSnapshot()).toEqual({
-      status: 'ready', opening: false, error: null,
+      status: 'ready',
+      opening: false,
+      error: null,
     })
     await controller.open()
     expect(openDocument).toHaveBeenCalledWith()
@@ -56,13 +58,19 @@ describe('SettingsDocumentStore', () => {
     })
     await rejected.load()
     expect(rejected.store.getSnapshot()).toMatchObject({
-      status: 'unavailable', error: 'provider failed',
+      status: 'unavailable',
+      error: 'provider failed',
     })
   })
 
   it('collapses concurrent open gestures and recovers after a failure', async () => {
     let resolveOpen!: (response: RemoteResult<{ opened: true }>) => void
-    const openDocument = vi.fn(() => new Promise<RemoteResult<{ opened: true }>>((resolve) => { resolveOpen = resolve }))
+    const openDocument = vi.fn(
+      () =>
+        new Promise<RemoteResult<{ opened: true }>>(resolve => {
+          resolveOpen = resolve
+        }),
+    )
     const controller = derivedDocumentStore({
       settings: { describe: () => Promise.resolve(response(true)), openSettingsDocument: openDocument },
     })
@@ -73,7 +81,9 @@ describe('SettingsDocumentStore', () => {
     resolveOpen({ ok: false, error: new RemoteError('gateway/internal', 'no default editor', {}) })
     await Promise.all([first, second])
     expect(controller.store.getSnapshot()).toMatchObject({
-      status: 'ready', opening: false, error: 'no default editor',
+      status: 'ready',
+      opening: false,
+      error: 'no default editor',
     })
   })
 
@@ -83,9 +93,7 @@ describe('SettingsDocumentStore', () => {
     const ctx = {
       remote: {
         settings: {
-          describe: vi.fn()
-            .mockRejectedValueOnce(new Error('offline'))
-            .mockResolvedValueOnce(response(true)),
+          describe: vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(response(true)),
           openSettingsDocument: vi.fn(),
         },
       },

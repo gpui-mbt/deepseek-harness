@@ -1,20 +1,27 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import {
-  contextForm, contextProducer, displayFailure, emptyAssistantBlock, isTokenDelta,
-  toAssistantBlock, toAssistantBlocks,
+  contextForm,
+  contextProducer,
+  displayFailure,
+  emptyAssistantBlock,
+  isTokenDelta,
+  toAssistantBlock,
+  toAssistantBlocks,
 } from '../src/client/trajectory-event-projection.ts'
 
 describe('Trajectory event projection', () => {
   it('projects known, unknown, and unreadable context sources', () => {
-    expect(contextProducer({ kind: 'session-reference', references: [{ label: 'A' }, { label: 'A' }] }))
-      .toEqual({ role: 'recall', label: 'A' })
-    expect(contextProducer({ kind: 'session-reference', references: [] }))
-      .toEqual({ role: 'recall', label: 'session-reference' })
-    expect(contextProducer({ kind: 'agent-instructions', changes: [{ path: 'AGENTS.md' }, null] }))
-      .toEqual({ role: 'inject', label: 'AGENTS.md' })
-    expect(contextProducer({ kind: 'agent-instructions', changes: 'bad' }).label)
-      .toBe('agent-instructions')
+    expect(contextProducer({ kind: 'session-reference', references: [{ label: 'A' }, { label: 'A' }] })).toEqual({
+      role: 'recall',
+      label: 'A',
+    })
+    expect(contextProducer({ kind: 'session-reference', references: [] })).toEqual({ role: 'recall', label: 'session-reference' })
+    expect(contextProducer({ kind: 'agent-instructions', changes: [{ path: 'AGENTS.md' }, null] })).toEqual({
+      role: 'inject',
+      label: 'AGENTS.md',
+    })
+    expect(contextProducer({ kind: 'agent-instructions', changes: 'bad' }).label).toBe('agent-instructions')
     expect(contextProducer({ kind: 'p' }).label).toBe('p')
     expect(contextProducer({ kind: 'plugin', plugin: 1 }).label).toBe('plugin')
     expect(contextProducer({ kind: 'skill-invocation', name: 's' }).label).toBe('s')
@@ -41,16 +48,14 @@ describe('Trajectory event projection', () => {
       { type: 'tool-call', id: 'c', name: 'n', arguments: '{}' },
       { type: 'future' },
     ] as unknown as ContentBlock[]
-    expect(toAssistantBlocks(content).map(block => block.kind))
-      .toEqual(['text', 'reasoning', 'image', 'tool-call', 'other'])
+    expect(toAssistantBlocks(content).map(block => block.kind)).toEqual(['text', 'reasoning', 'image', 'tool-call', 'other'])
     expect(toAssistantBlock(content[0]!)).toEqual({ kind: 'text', text: 'a' })
-    expect(['text', 'reasoning', 'tool-call', 'future'].map(emptyAssistantBlock))
-      .toEqual([
-        { kind: 'text', text: '' },
-        { kind: 'reasoning', text: '' },
-        { kind: 'tool-call', callId: '', name: '', argsRaw: '' },
-        { kind: 'other', block: null },
-      ])
+    expect(['text', 'reasoning', 'tool-call', 'future'].map(emptyAssistantBlock)).toEqual([
+      { kind: 'text', text: '' },
+      { kind: 'reasoning', text: '' },
+      { kind: 'tool-call', callId: '', name: '', argsRaw: '' },
+      { kind: 'other', block: null },
+    ])
   })
 
   it('redacts auth failures and presents other durable values', () => {

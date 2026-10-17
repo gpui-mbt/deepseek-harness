@@ -19,7 +19,12 @@ export function mapEventMessages(
     const message = transform(data)
     return message === data ? event : { ...event, data: message }
   }
-  if (event.type === 'developer/message' || event.type === 'system/message' || event.type === 'assistant/message' || event.type === 'tool/result') {
+  if (
+    event.type === 'developer/message' ||
+    event.type === 'system/message' ||
+    event.type === 'assistant/message' ||
+    event.type === 'tool/result'
+  ) {
     if (!isSessionFormatJsonObject(data['message'])) throw new SessionFormatError(event.type + ' requires a message')
     const message = transform(data['message'])
     return message === data['message'] ? event : { ...event, data: { ...data, message } }
@@ -28,7 +33,7 @@ export function mapEventMessages(
   if (key === undefined) return event
   const messages = data[key]
   if (!Array.isArray(messages)) throw new SessionFormatError(event.type + ' requires message array')
-  const mapped = (messages as readonly SessionFormatJsonValue[]).map((message) => {
+  const mapped = (messages as readonly SessionFormatJsonValue[]).map(message => {
     if (!isSessionFormatJsonObject(message)) throw new SessionFormatError(event.type + ' requires message objects')
     return transform(message)
   })
@@ -37,7 +42,7 @@ export function mapEventMessages(
 
 /** Released V3 plugin names whose current producer kind is not the plugin string. */
 const RENAMED_PRODUCERS: Readonly<Record<string, string>> = Object.freeze({
-  'compact': 'compact-checkpoint',
+  compact: 'compact-checkpoint',
   'tools-code-mode': 'ptc-mode',
   'tools-ptc': 'ptc-mode',
   'dsh-compaction-basic': 'compact-basic',
@@ -46,12 +51,30 @@ const RENAMED_PRODUCERS: Readonly<Record<string, string>> = Object.freeze({
 
 /** First-party V3 plugin identities that intentionally keep their current kind. */
 const RELEASED_SAME_NAME_PRODUCERS: ReadonlySet<string> = new Set([
-  'agent-instructions', 'session-reference', 'team-message', 'goal',
-  'skill-invocation', 'skill-catalog', 'coordinator', 'subagent-report',
-  'subagent-settled', 'webhook', 'agent-message', 'model-selection',
-  'plan-mode', 'time-context', 'tmux-context', 'user-approval',
-  'repeat-tool-reminder', 'tool-cordis', 'cordis-host-runner', 'tool-goal',
-  'tool-jobs', 'hooks-codex', 'hooks-claude-code', 'schedule',
+  'agent-instructions',
+  'session-reference',
+  'team-message',
+  'goal',
+  'skill-invocation',
+  'skill-catalog',
+  'coordinator',
+  'subagent-report',
+  'subagent-settled',
+  'webhook',
+  'agent-message',
+  'model-selection',
+  'plan-mode',
+  'time-context',
+  'tmux-context',
+  'user-approval',
+  'repeat-tool-reminder',
+  'tool-cordis',
+  'cordis-host-runner',
+  'tool-goal',
+  'tool-jobs',
+  'hooks-codex',
+  'hooks-claude-code',
+  'schedule',
   'dsh-session-title-llm',
 ])
 
@@ -78,15 +101,15 @@ export function rewritePluginSource(
 ): SessionFormatJsonObject {
   const plugin = source['plugin']
   if (typeof plugin !== 'string') {
-    throw new SessionFormatError(
-      `plugin source at seq ${seq} is not canonical: plugin requires a string`,
-    )
+    throw new SessionFormatError(`plugin source at seq ${seq} is not canonical: plugin requires a string`)
   }
   const kind = producerKind(plugin, role)
   if (Object.keys(source).length === 2) return { kind }
-  return Object.fromEntries(Object.entries(source)
-    .filter(([key]) => key !== 'plugin')
-    .map(([key, item]) => [key, key === 'kind' ? kind : item]))
+  return Object.fromEntries(
+    Object.entries(source)
+      .filter(([key]) => key !== 'plugin')
+      .map(([key, item]) => [key, key === 'kind' ? kind : item]),
+  )
 }
 
 /**
@@ -97,7 +120,9 @@ export function rewritePluginSource(
  * @returns the converted source with every non-identity field preserved.
  */
 export function rewriteV3MessageSource(
-  source: SessionFormatJsonObject, seq: number, role: SessionFormatJsonValue | undefined,
+  source: SessionFormatJsonObject,
+  seq: number,
+  role: SessionFormatJsonValue | undefined,
 ): SessionFormatJsonObject {
   const kind = source['kind']
   if (typeof kind !== 'string' || kind.length === 0) throw new SessionFormatError(`message source at seq ${seq} requires a nonempty kind`)

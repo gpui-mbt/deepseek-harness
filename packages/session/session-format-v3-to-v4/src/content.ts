@@ -25,7 +25,7 @@ export function migrateV3Content(value: SessionFormatJsonValue | undefined, subj
   if (!Array.isArray(value)) throw new SessionFormatError(`${subject} content must be an array`)
   const blocks = value as readonly SessionFormatJsonValue[]
   const mapped = blocks.map((block, index) => migrateBlock(block, `${subject}[${index}]`))
-  return mapped.every((block, index) => block === value[index]) ? value as SessionFormatJsonValue[] : mapped
+  return mapped.every((block, index) => block === value[index]) ? (value as SessionFormatJsonValue[]) : mapped
 }
 
 function migrateMessage(message: SessionFormatJsonObject, subject: string): SessionFormatJsonObject {

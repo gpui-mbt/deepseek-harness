@@ -1,24 +1,11 @@
 import { EventEmitter } from 'node:events'
 import { spawnSync } from 'node:child_process'
-import {
-  existsSync,
-  mkdtempSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, posix, resolve } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'
-import type {
-  CurrentTokenProcessBindings,
-  NativePtr,
-} from '@deepseek-ai/dsh-win32-process'
+import type { CurrentTokenProcessBindings, NativePtr } from '@deepseek-ai/dsh-win32-process'
 import {
   cleanupLinuxLaunchFiles,
   consumeLinuxLaunchRequest,
@@ -44,10 +31,7 @@ import {
   targetEnvironment,
   WINDOWS_RUNNER_SELECTION,
 } from '../src/runner-launch.ts'
-import {
-  reportSpawnRunnerFailure,
-  runSpawnRunner,
-} from '../src/spawn-runner.ts'
+import { reportSpawnRunnerFailure, runSpawnRunner } from '../src/spawn-runner.ts'
 import type { SpawnRunnerInternals } from '../src/spawn-runner.ts'
 
 const scratch: string[] = []
@@ -71,8 +55,12 @@ class FakeRunnerHost extends EventEmitter {
   sendFailure: Error | undefined
   sendThrown: unknown
 
-  cwd(): string { return this.directory }
-  chdir(path: string): void { this.directory = posix.resolve(this.directory, path) }
+  cwd(): string {
+    return this.directory
+  }
+  chdir(path: string): void {
+    this.directory = posix.resolve(this.directory, path)
+  }
   disconnect(): void {
     if (!this.connected) return
     this.connected = false
@@ -81,7 +69,9 @@ class FakeRunnerHost extends EventEmitter {
   send(message: unknown, callback?: (error: Error | null) => void): boolean {
     if (this.sendThrown !== undefined) throw this.sendThrown
     this.sent.push(message)
-    queueMicrotask(() => { callback?.(this.sendFailure ?? null) })
+    queueMicrotask(() => {
+      callback?.(this.sendFailure ?? null)
+    })
     return true
   }
 }
@@ -92,8 +82,10 @@ function hostArgument(host: FakeRunnerHost): Parameters<typeof runSpawnRunner>[2
 
 function internals(overrides: Partial<SpawnRunnerInternals> = {}): SpawnRunnerInternals {
   return {
-    execve: vi.fn(() => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }) }),
-    loadWin32ProcessBindings: vi.fn(() => ({} as CurrentTokenProcessBindings)),
+    execve: vi.fn(() => {
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    }),
+    loadWin32ProcessBindings: vi.fn(() => ({}) as CurrentTokenProcessBindings),
     spawnCurrentTokenJobProcess: vi.fn(() => ({
       pid: 123,
       process: 10n as NativePtr,
@@ -115,12 +107,7 @@ async function runWindows(
   start: unknown = { type: 'start', cwd: 'C:\\target', env: { TARGET: 'yes', dsh_subprocess_runner: 'restored' } },
   targetArgv: string[] = ['tool.exe', 'literal arg'],
 ): Promise<void> {
-  const running = runSpawnRunner(
-    WINDOWS_RUNNER_SELECTION,
-    ['--', ...targetArgv],
-    hostArgument(host),
-    native,
-  )
+  const running = runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', ...targetArgv], hostArgument(host), native)
   host.emit('message', start)
   await running
 }
@@ -129,8 +116,12 @@ describe('closed runner protocol', () => {
   it('preserves the explicit control request and rejects other transport values', () => {
     const files = track(createLinuxLaunchFiles({ cwd: '/target', env: {}, control: 'pipe' }))
     expect(consumeLinuxLaunchRequest(files.requestPath)).toEqual({ cwd: '/target', env: {}, control: 'pipe' })
-    expect(parseWindowsStartRequest({ type: 'start', cwd: 'C:\\target', env: {}, control: 'pipe' }))
-      .toEqual({ type: 'start', cwd: 'C:\\target', env: {}, control: 'pipe' })
+    expect(parseWindowsStartRequest({ type: 'start', cwd: 'C:\\target', env: {}, control: 'pipe' })).toEqual({
+      type: 'start',
+      cwd: 'C:\\target',
+      env: {},
+      control: 'pipe',
+    })
     const invalid = track(createLinuxLaunchFiles({ cwd: '/target', env: {} }))
     writeFileSync(invalid.requestPath, JSON.stringify({ cwd: '/target', env: {}, control: 'ipc' }))
     expect(() => consumeLinuxLaunchRequest(invalid.requestPath)).toThrow('invalid Linux launch request')
@@ -148,7 +139,12 @@ describe('closed runner protocol', () => {
     expect(existsSync(files.requestPath)).toBe(false)
 
     const failure = Object.assign(new Error('spawn missing'), {
-      name: 'SpawnError', code: 'ENOENT', errno: -2, syscall: 'spawn tool', path: 'tool', spawnargs: ['x'],
+      name: 'SpawnError',
+      code: 'ENOENT',
+      errno: -2,
+      syscall: 'spawn tool',
+      path: 'tool',
+      spawnargs: ['x'],
     })
     writeLinuxStartupError(files, { type: 'error', error: serializeRunnerError(failure) })
     if (process.platform !== 'win32') {
@@ -158,11 +154,19 @@ describe('closed runner protocol', () => {
     expect(result).toEqual({
       type: 'error',
       error: {
-        name: 'SpawnError', message: 'spawn missing', code: 'ENOENT', syscall: 'spawn tool', path: 'tool',
+        name: 'SpawnError',
+        message: 'spawn missing',
+        code: 'ENOENT',
+        syscall: 'spawn tool',
+        path: 'tool',
       },
     })
     expect(deserializeRunnerError(result!.error)).toMatchObject({
-      name: 'SpawnError', message: 'spawn missing', code: 'ENOENT', syscall: 'spawn tool', path: 'tool',
+      name: 'SpawnError',
+      message: 'spawn missing',
+      code: 'ENOENT',
+      syscall: 'spawn tool',
+      path: 'tool',
     })
     cleanupLinuxLaunchFiles(files)
     expect(existsSync(files.directory)).toBe(false)
@@ -194,22 +198,30 @@ describe('closed runner protocol', () => {
     expect(readLinuxStartupError(files.startupErrorPath)).toBeUndefined()
     writeFileSync(files.startupErrorPath, 'null')
     expect(() => readLinuxStartupError(files.startupErrorPath)).toThrow('invalid startup error')
-    writeFileSync(files.startupErrorPath, JSON.stringify({
-      type: 'unknown', error: { name: 'Error', message: 'bad' },
-    }))
+    writeFileSync(
+      files.startupErrorPath,
+      JSON.stringify({
+        type: 'unknown',
+        error: { name: 'Error', message: 'bad' },
+      }),
+    )
     expect(() => readLinuxStartupError(files.startupErrorPath)).toThrow('unknown error result')
 
     expect(parseWindowsStartRequest({ type: 'start', cwd: 'C:\\x', env: { A: '1' } })).toEqual({
-      type: 'start', cwd: 'C:\\x', env: { A: '1' },
+      type: 'start',
+      cwd: 'C:\\x',
+      env: { A: '1' },
     })
     expect(() => parseWindowsStartRequest({ type: 'start', cwd: 'C:\\x', env: {}, extra: 1 })).toThrow()
     expect(isWindowsTerminateRequest({ type: 'terminate' })).toBe(true)
     expect(isWindowsTerminateRequest({ type: 'terminate', reason: 'no' })).toBe(false)
     expect(parseWindowsRunnerResult({ type: 'target-exit', exitCode: 7 })).toEqual({
-      type: 'target-exit', exitCode: 7,
+      type: 'target-exit',
+      exitCode: 7,
     })
     expect(parseWindowsRunnerResult({ type: 'error', error: { name: 'Error', message: 'bad' } })).toEqual({
-      type: 'error', error: { name: 'Error', message: 'bad' },
+      type: 'error',
+      error: { name: 'Error', message: 'bad' },
     })
     for (const invalid of [
       null,
@@ -221,7 +233,8 @@ describe('closed runner protocol', () => {
       { type: 'spawn-error', error: { name: 'Error', message: 'bad' } },
       { type: 'runner-error', error: { name: 'Error', message: 'bad' } },
       { type: 'error', error: { name: 'Error', message: 'bad', cause: {} } },
-    ]) expect(() => parseWindowsRunnerResult(invalid)).toThrow()
+    ])
+      expect(() => parseWindowsRunnerResult(invalid)).toThrow()
   })
 
   it('contains cleanup failures and removes a substituted symlink only', () => {
@@ -277,17 +290,26 @@ describe('runner launch inputs', () => {
     const withControl = { ...spec, stdio: { ...spec.stdio, control: 'pipe' as const } }
     expect(runnerStdio(withControl, false)).toEqual(['pipe', 'pipe', 'inherit', 'ignore', 'ignore', 'ignore', 'ignore', 'overlapped'])
     expect(runnerStdio(withControl, true)).toEqual(['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2, 'overlapped'])
-    expect(runnerStdio(spec, true)).toEqual([
-      'ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2,
-    ])
-    expect(runnerStdio({
-      ...spec,
-      stdio: { stdin: 'ignore', stdout: 'inherit', stderr: 'pipe' },
-    }, false)).toEqual(['ignore', 'inherit', 'pipe'])
-    expect(runnerStdio({
-      ...spec,
-      stdio: { stdin: 'ignore', stdout: 'inherit', stderr: 'pipe' },
-    }, true, 17)).toEqual(['ignore', 'ignore', 'ignore', 'ipc', 17, 1, 'pipe'])
+    expect(runnerStdio(spec, true)).toEqual(['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2])
+    expect(
+      runnerStdio(
+        {
+          ...spec,
+          stdio: { stdin: 'ignore', stdout: 'inherit', stderr: 'pipe' },
+        },
+        false,
+      ),
+    ).toEqual(['ignore', 'inherit', 'pipe'])
+    expect(
+      runnerStdio(
+        {
+          ...spec,
+          stdio: { stdin: 'ignore', stdout: 'inherit', stderr: 'pipe' },
+        },
+        true,
+        17,
+      ),
+    ).toEqual(['ignore', 'ignore', 'ignore', 'ipc', 17, 1, 'pipe'])
   })
 
   it('removes ambient Node and tsx controls from the bootstrap environment only', () => {
@@ -301,8 +323,7 @@ describe('runner launch inputs', () => {
       expect(sourceEnv.NODE_OPTIONS).toBeUndefined()
       expect(sourceEnv.NODE_DEBUG).toBeUndefined()
       expect(sourceEnv.TSX_DISABLE_CACHE).toBeUndefined()
-      expect(sourceEnv.TSX_TSCONFIG_PATH)
-        .toBe(resolve(import.meta.dirname, '../../../..', 'tsconfig.base.json'))
+      expect(sourceEnv.TSX_TSCONFIG_PATH).toBe(resolve(import.meta.dirname, '../../../..', 'tsconfig.base.json'))
       expect(builtEnv.NODE_OPTIONS).toBeUndefined()
       expect(builtEnv.NODE_DEBUG).toBeUndefined()
       expect(builtEnv.TSX_DISABLE_CACHE).toBeUndefined()
@@ -320,8 +341,7 @@ describe('runner launch inputs', () => {
 
   it('validates every Node-baseline NUL location before launch', () => {
     expect(targetEnvironment(spec)).toMatchObject({ EXPLICIT: 'yes' })
-    expect(targetEnvironment({ ...spec, env: { '=C:': 'C:\\target' } }))
-      .toMatchObject({ '=C:': 'C:\\target' })
+    expect(targetEnvironment({ ...spec, env: { '=C:': 'C:\\target' } })).toMatchObject({ '=C:': 'C:\\target' })
     for (const invalid of [
       { ...spec, argv: ['node\0'] },
       { ...spec, argv: ['node', 'a\0'] },
@@ -372,13 +392,22 @@ describe('runner launch inputs', () => {
 
   it('serializes only the private protocol diagnostic fields', () => {
     expect(serializeRunnerError('plain failure')).toMatchObject({
-      name: 'Error', message: 'plain failure',
+      name: 'Error',
+      message: 'plain failure',
     })
     const detailed = Object.assign(new Error('detailed'), {
-      code: 'ENOENT', errno: -2, syscall: 'spawn tool', path: 'tool', spawnargs: ['arg'],
+      code: 'ENOENT',
+      errno: -2,
+      syscall: 'spawn tool',
+      path: 'tool',
+      spawnargs: ['arg'],
     })
     expect(serializeRunnerError(detailed)).toEqual({
-      name: 'Error', message: 'detailed', code: 'ENOENT', syscall: 'spawn tool', path: 'tool',
+      name: 'Error',
+      message: 'detailed',
+      code: 'ENOENT',
+      syscall: 'spawn tool',
+      path: 'tool',
     })
     const minimal = deserializeRunnerError({ name: 'Error', message: 'minimal' })
     expect(minimal).toMatchObject({ name: 'Error', message: 'minimal' })
@@ -393,9 +422,16 @@ describe('runner launch inputs', () => {
       probed.push(candidate)
       return candidate === 'C:\\tools\\git\\bin\\bash.exe'
     }
-    expect(resolveWindowsExecutable('bash', 'C:\\target', {
-      Path: 'relative;"C:\\semi;colon";"C:\\tools\\git\\bin";C:\\later',
-    }, exists)).toBe('C:\\tools\\git\\bin\\bash.exe')
+    expect(
+      resolveWindowsExecutable(
+        'bash',
+        'C:\\target',
+        {
+          Path: 'relative;"C:\\semi;colon";"C:\\tools\\git\\bin";C:\\later',
+        },
+        exists,
+      ),
+    ).toBe('C:\\tools\\git\\bin\\bash.exe')
     expect(probed).toEqual([
       'C:\\target\\bash.com',
       'C:\\target\\bash.exe',
@@ -407,43 +443,80 @@ describe('runner launch inputs', () => {
       'C:\\tools\\git\\bin\\bash.exe',
     ])
 
-    expect(resolveWindowsExecutable('local.exe', 'C:\\target', {}, candidate =>
-      candidate === 'C:\\target\\local.exe')).toBe('C:\\target\\local.exe')
-    expect(resolveWindowsExecutable('tool', 'C:\\target', {
-      PATH: 'C:\\bin',
-    }, candidate => candidate === 'C:\\bin\\tool.com', {
-      NoDefaultCurrentDirectoryInExePath: '1',
-    })).toBe('C:\\bin\\tool.com')
-    expect(resolveWindowsExecutable('tool', 'C:\\target', {
-      PATH: 'D:relative',
-    }, candidate => candidate === 'D:relative\\tool.exe')).toBe('D:relative\\tool.exe')
-    expect(resolveWindowsExecutable('tool.', 'C:\\target', {}, candidate =>
-      candidate === 'C:\\target\\tool.exe')).toBe('C:\\target\\tool.exe')
-    expect(resolveWindowsExecutable('.\\missing', 'C:\\target', {}, () => false))
-      .toBeUndefined()
+    expect(resolveWindowsExecutable('local.exe', 'C:\\target', {}, candidate => candidate === 'C:\\target\\local.exe')).toBe(
+      'C:\\target\\local.exe',
+    )
+    expect(
+      resolveWindowsExecutable(
+        'tool',
+        'C:\\target',
+        {
+          PATH: 'C:\\bin',
+        },
+        candidate => candidate === 'C:\\bin\\tool.com',
+        {
+          NoDefaultCurrentDirectoryInExePath: '1',
+        },
+      ),
+    ).toBe('C:\\bin\\tool.com')
+    expect(
+      resolveWindowsExecutable(
+        'tool',
+        'C:\\target',
+        {
+          PATH: 'D:relative',
+        },
+        candidate => candidate === 'D:relative\\tool.exe',
+      ),
+    ).toBe('D:relative\\tool.exe')
+    expect(resolveWindowsExecutable('tool.', 'C:\\target', {}, candidate => candidate === 'C:\\target\\tool.exe')).toBe(
+      'C:\\target\\tool.exe',
+    )
+    expect(resolveWindowsExecutable('.\\missing', 'C:\\target', {}, () => false)).toBeUndefined()
 
-    expect(resolveWindowsExecutable('tool', 'C:\\target', {
-      PATH: ';;C:\\bin',
-    }, candidate => candidate === 'C:\\bin\\tool.exe')).toBe('C:\\bin\\tool.exe')
-    expect(resolveWindowsExecutable('tool', 'C:\\target', {
-      PATH: '"";C:\\bin',
-    }, candidate => candidate === 'C:\\bin\\tool.exe')).toBe('C:\\bin\\tool.exe')
-    expect(resolveWindowsExecutable('tool', 'C:\\target', {
-      PATH: '"unterminated',
-    }, candidate => candidate === 'C:\\target\\unterminated\\tool.exe'))
-      .toBe('C:\\target\\unterminated\\tool.exe')
-    expect(resolveWindowsExecutable('\\\\server\\share\\tool', 'C:\\target', {}, candidate =>
-      candidate === '\\\\server\\share\\tool.exe')).toBe('\\\\server\\share\\tool.exe')
-    expect(resolveWindowsExecutable('\\tools\\tool', 'C:\\target', {}, candidate =>
-      candidate === 'C:\\tools\\tool.exe')).toBe('C:\\tools\\tool.exe')
-    expect(resolveWindowsExecutable('C:tools\\tool', 'C:\\target', {}, candidate =>
-      candidate === 'C:\\target\\tools\\tool.exe')).toBe('C:\\target\\tools\\tool.exe')
+    expect(
+      resolveWindowsExecutable(
+        'tool',
+        'C:\\target',
+        {
+          PATH: ';;C:\\bin',
+        },
+        candidate => candidate === 'C:\\bin\\tool.exe',
+      ),
+    ).toBe('C:\\bin\\tool.exe')
+    expect(
+      resolveWindowsExecutable(
+        'tool',
+        'C:\\target',
+        {
+          PATH: '"";C:\\bin',
+        },
+        candidate => candidate === 'C:\\bin\\tool.exe',
+      ),
+    ).toBe('C:\\bin\\tool.exe')
+    expect(
+      resolveWindowsExecutable(
+        'tool',
+        'C:\\target',
+        {
+          PATH: '"unterminated',
+        },
+        candidate => candidate === 'C:\\target\\unterminated\\tool.exe',
+      ),
+    ).toBe('C:\\target\\unterminated\\tool.exe')
+    expect(
+      resolveWindowsExecutable('\\\\server\\share\\tool', 'C:\\target', {}, candidate => candidate === '\\\\server\\share\\tool.exe'),
+    ).toBe('\\\\server\\share\\tool.exe')
+    expect(resolveWindowsExecutable('\\tools\\tool', 'C:\\target', {}, candidate => candidate === 'C:\\tools\\tool.exe')).toBe(
+      'C:\\tools\\tool.exe',
+    )
+    expect(resolveWindowsExecutable('C:tools\\tool', 'C:\\target', {}, candidate => candidate === 'C:\\target\\tools\\tool.exe')).toBe(
+      'C:\\target\\tools\\tool.exe',
+    )
 
     const noSearchEnvironment = { NoDefaultCurrentDirectoryInExePath: '1' }
-    expect(resolveWindowsExecutable('missing', 'C:\\target', {}, () => false, noSearchEnvironment))
-      .toBeUndefined()
-    expect(resolveWindowsExecutable('missing.cmd', 'C:\\target', {}, () => false, noSearchEnvironment))
-      .toBeUndefined()
+    expect(resolveWindowsExecutable('missing', 'C:\\target', {}, () => false, noSearchEnvironment)).toBeUndefined()
+    expect(resolveWindowsExecutable('missing.cmd', 'C:\\target', {}, () => false, noSearchEnvironment)).toBeUndefined()
 
     const directory = mkdtempSync(join(tmpdir(), 'dsh-windows-resolver-'))
     scratch.push(directory)
@@ -464,10 +537,12 @@ describe('runner launch inputs', () => {
 
 describe('Linux one-shot exec bootstrap', () => {
   it('uses final cwd/env PATH while preserving the original argv', async () => {
-    const files = track(createLinuxLaunchFiles({
-      cwd: '/final/work',
-      env: { PATH: 'relative::/absolute', [SUBPROCESS_RUNNER_ENV]: 'target-value' },
-    }))
+    const files = track(
+      createLinuxLaunchFiles({
+        cwd: '/final/work',
+        env: { PATH: 'relative::/absolute', [SUBPROCESS_RUNNER_ENV]: 'target-value' },
+      }),
+    )
     const host = new FakeRunnerHost()
     const execve = vi.fn((_file: string, _argv: string[], _env: Record<string, string>) => {
       throw Object.assign(new Error('not found'), { code: 'ENOENT' })
@@ -475,11 +550,7 @@ describe('Linux one-shot exec bootstrap', () => {
     await runSpawnRunner(files.requestPath, ['--', 'tool', 'literal arg'], hostArgument(host), internals({ execve }))
     expect(host.directory).toBe('/final/work')
     expect(host.env[SUBPROCESS_RUNNER_ENV]).toBeUndefined()
-    expect(execve.mock.calls.map(call => call[0])).toEqual([
-      '/final/work/relative/tool',
-      '/final/work/tool',
-      '/absolute/tool',
-    ])
+    expect(execve.mock.calls.map(call => call[0])).toEqual(['/final/work/relative/tool', '/final/work/tool', '/absolute/tool'])
     expect(execve.mock.calls[0]?.[1]).toEqual(['tool', 'literal arg'])
     expect(execve.mock.calls[0]?.[2]).toMatchObject({ [SUBPROCESS_RUNNER_ENV]: 'target-value' })
     expect(readLinuxStartupError(files.startupErrorPath)).toMatchObject({
@@ -503,21 +574,13 @@ describe('Linux one-shot exec bootstrap', () => {
     })
     await runSpawnRunner(files.requestPath, ['--', 'tool'], hostArgument(host), internals({ execve }))
     expect(host.directory).toBe('/base/work')
-    expect(execve.mock.calls.map(call => call[0])).toEqual([
-      '/base/work/bin/tool',
-      '/base/work/tool',
-    ])
+    expect(execve.mock.calls.map(call => call[0])).toEqual(['/base/work/bin/tool', '/base/work/tool'])
 
     const rootFiles = track(createLinuxLaunchFiles({ cwd: '/', env: { PATH: '' } }))
     const rootExecve = vi.fn((): never => {
       throw Object.assign(new Error('not found'), { code: 'ENOENT' })
     })
-    await runSpawnRunner(
-      rootFiles.requestPath,
-      ['--', 'tool'],
-      hostArgument(new FakeRunnerHost()),
-      internals({ execve: rootExecve }),
-    )
+    await runSpawnRunner(rootFiles.requestPath, ['--', 'tool'], hostArgument(new FakeRunnerHost()), internals({ execve: rootExecve }))
     expect(rootExecve).toHaveBeenCalledWith('/tool', ['tool'], { PATH: '' })
   })
 
@@ -539,15 +602,21 @@ describe('Linux one-shot exec bootstrap', () => {
     await runSpawnRunner(files.requestPath, ['--', 'tool'], hostArgument(new FakeRunnerHost()), internals({ execve }))
     expect(execve).toHaveBeenCalledWith(`${cwd}/link/../tool`, ['tool'], { PATH: 'link/..' })
     expect(readLinuxStartupError(files.startupErrorPath)).toMatchObject({
-      type: 'error', error: { code: 'EIO' },
+      type: 'error',
+      error: { code: 'EIO' },
     })
   })
 
-  it.each([undefined, 'pipe'] as const)('retries ENOEXEC through /bin/sh with control %s', async (control) => {
-    const files = track(createLinuxLaunchFiles({ cwd: '/work', env: { PATH: 'bin' }, ...control === undefined ? {} : { control } }))
-    const execve = vi.fn()
-      .mockImplementationOnce(() => { throw Object.assign(new Error('exec format'), { code: 'ENOEXEC' }) })
-      .mockImplementationOnce(() => { throw Object.assign(new Error('shell failed'), { code: 'EIO' }) })
+  it.each([undefined, 'pipe'] as const)('retries ENOEXEC through /bin/sh with control %s', async control => {
+    const files = track(createLinuxLaunchFiles({ cwd: '/work', env: { PATH: 'bin' }, ...(control === undefined ? {} : { control }) }))
+    const execve = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw Object.assign(new Error('exec format'), { code: 'ENOEXEC' })
+      })
+      .mockImplementationOnce(() => {
+        throw Object.assign(new Error('shell failed'), { code: 'EIO' })
+      })
     await runSpawnRunner(
       files.requestPath,
       ['--', 'tool', 'literal arg'],
@@ -555,11 +624,12 @@ describe('Linux one-shot exec bootstrap', () => {
       internals({ execve: execve as never }),
     )
     expect(execve.mock.calls).toEqual([
-      ['/work/bin/tool', ['tool', 'literal arg'], { PATH: 'bin' }, ...control === undefined ? [] : [control]],
-      ['/bin/sh', ['/bin/sh', '/work/bin/tool', 'literal arg'], { PATH: 'bin' }, ...control === undefined ? [] : [control]],
+      ['/work/bin/tool', ['tool', 'literal arg'], { PATH: 'bin' }, ...(control === undefined ? [] : [control])],
+      ['/bin/sh', ['/bin/sh', '/work/bin/tool', 'literal arg'], { PATH: 'bin' }, ...(control === undefined ? [] : [control])],
     ])
     expect(readLinuxStartupError(files.startupErrorPath)).toMatchObject({
-      type: 'error', error: { code: 'EIO', path: 'tool' },
+      type: 'error',
+      error: { code: 'EIO', path: 'tool' },
     })
   })
 
@@ -582,27 +652,48 @@ describe('Linux one-shot exec bootstrap', () => {
     })
 
     const explicit = track(createLinuxLaunchFiles({ cwd: '/work', env: {} }))
-    const fatal = vi.fn(() => { throw Object.assign(new Error('bad executable'), { code: 'EIO' }) })
+    const fatal = vi.fn(() => {
+      throw Object.assign(new Error('bad executable'), { code: 'EIO' })
+    })
     await runSpawnRunner(explicit.requestPath, ['--', './tool'], hostArgument(new FakeRunnerHost()), internals({ execve: fatal }))
     expect(fatal).toHaveBeenCalledOnce()
 
     const stackless = track(createLinuxLaunchFiles({ cwd: '/work', env: {} }))
-    await runSpawnRunner(stackless.requestPath, ['--', './tool'], hostArgument(new FakeRunnerHost()), internals({
-      execve: vi.fn(() => { throw new Error('unclassified failure') }),
-    }))
+    await runSpawnRunner(
+      stackless.requestPath,
+      ['--', './tool'],
+      hostArgument(new FakeRunnerHost()),
+      internals({
+        execve: vi.fn(() => {
+          throw new Error('unclassified failure')
+        }),
+      }),
+    )
     expect(readLinuxStartupError(stackless.startupErrorPath)).toMatchObject({
-      type: 'error', error: { message: 'unclassified failure' },
+      type: 'error',
+      error: { message: 'unclassified failure' },
     })
 
     const searched = track(createLinuxLaunchFiles({ cwd: '/work', env: {} }))
-    const searchedExecve = vi.fn()
-      .mockImplementationOnce(() => { throw Object.assign(new Error('not a directory'), { code: 'ENOTDIR' }) })
-      .mockImplementationOnce(() => { throw Object.assign(new Error('I/O failure'), { code: 'EIO' }) })
-    await runSpawnRunner(searched.requestPath, ['--', 'tool'], hostArgument(new FakeRunnerHost()), internals({
-      execve: searchedExecve as never,
-    }))
+    const searchedExecve = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw Object.assign(new Error('not a directory'), { code: 'ENOTDIR' })
+      })
+      .mockImplementationOnce(() => {
+        throw Object.assign(new Error('I/O failure'), { code: 'EIO' })
+      })
+    await runSpawnRunner(
+      searched.requestPath,
+      ['--', 'tool'],
+      hostArgument(new FakeRunnerHost()),
+      internals({
+        execve: searchedExecve as never,
+      }),
+    )
     expect(readLinuxStartupError(searched.startupErrorPath)).toMatchObject({
-      type: 'error', error: { code: 'EIO' },
+      type: 'error',
+      error: { code: 'EIO' },
     })
   })
 
@@ -615,7 +706,8 @@ describe('Linux one-shot exec bootstrap', () => {
     const early = track(createLinuxLaunchFiles({ cwd: '/work', env: {} }))
     await reportSpawnRunnerFailure(early.requestPath, new Error('delimiter failed'), hostArgument(new FakeRunnerHost()))
     expect(readLinuxStartupError(early.startupErrorPath)).toMatchObject({
-      type: 'error', error: { message: 'delimiter failed' },
+      type: 'error',
+      error: { message: 'delimiter failed' },
     })
   })
 })
@@ -623,7 +715,7 @@ describe('Linux one-shot exec bootstrap', () => {
 describe('Windows Job runner protocol owner', () => {
   it('publishes a Node-shaped path-search miss before loading Win32 bindings', async () => {
     const host = new FakeRunnerHost()
-    const loadWin32ProcessBindings = vi.fn(() => ({} as CurrentTokenProcessBindings))
+    const loadWin32ProcessBindings = vi.fn(() => ({}) as CurrentTokenProcessBindings)
     const native = internals({
       loadWin32ProcessBindings,
       resolveWindowsExecutable: vi.fn(() => undefined),
@@ -631,16 +723,18 @@ describe('Windows Job runner protocol owner', () => {
     await runWindows(host, native)
     expect(loadWin32ProcessBindings).not.toHaveBeenCalled()
     expect(native.spawnCurrentTokenJobProcess).not.toHaveBeenCalled()
-    expect(host.sent).toEqual([{
-      type: 'error',
-      error: {
-        name: 'Error',
-        message: 'spawn tool.exe ENOENT',
-        code: 'ENOENT',
-        syscall: 'spawn tool.exe',
-        path: 'tool.exe',
+    expect(host.sent).toEqual([
+      {
+        type: 'error',
+        error: {
+          name: 'Error',
+          message: 'spawn tool.exe ENOENT',
+          code: 'ENOENT',
+          syscall: 'spawn tool.exe',
+          path: 'tool.exe',
+        },
       },
-    }])
+    ])
     expect(host.exitCode).toBe(0)
   })
 
@@ -655,19 +749,28 @@ describe('Windows Job runner protocol owner', () => {
       [4, 'UNKNOWN', false, 'tool.exe'],
     ] as const) {
       const host = new FakeRunnerHost()
-      await runWindows(host, internals({
-        spawnCurrentTokenJobProcess: vi.fn(() => { throw new Win32Error('CreateProcessW', win32Code) }),
-      }), undefined, [program, 'literal arg'])
+      await runWindows(
+        host,
+        internals({
+          spawnCurrentTokenJobProcess: vi.fn(() => {
+            throw new Win32Error('CreateProcessW', win32Code)
+          }),
+        }),
+        undefined,
+        [program, 'literal arg'],
+      )
       const syscall = enriched ? `spawn ${program}` : 'spawn'
-      expect(host.sent).toMatchObject([{
-        type: 'error',
-        error: {
-          name: 'Error',
-          message: `${syscall} ${code}`,
-          code,
-          syscall,
+      expect(host.sent).toMatchObject([
+        {
+          type: 'error',
+          error: {
+            name: 'Error',
+            message: `${syscall} ${code}`,
+            code,
+            syscall,
+          },
         },
-      }])
+      ])
       const result = parseWindowsRunnerResult(host.sent[0])
       if (result.type !== 'error') throw new Error('expected runner error')
       if (enriched) {
@@ -681,22 +784,12 @@ describe('Windows Job runner protocol owner', () => {
   it('rejects a Windows runner without an initial IPC channel', async () => {
     const disconnected = new FakeRunnerHost()
     disconnected.connected = false
-    await runSpawnRunner(
-      WINDOWS_RUNNER_SELECTION,
-      ['--', 'tool.exe'],
-      hostArgument(disconnected),
-      internals(),
-    )
+    await runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(disconnected), internals())
     expect(disconnected.exitCode).toBe(127)
 
     const missingSend = new FakeRunnerHost()
     Object.defineProperty(missingSend, 'send', { value: undefined })
-    await runSpawnRunner(
-      WINDOWS_RUNNER_SELECTION,
-      ['--', 'tool.exe'],
-      hostArgument(missingSend),
-      internals(),
-    )
+    await runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(missingSend), internals())
     expect(missingSend.exitCode).toBe(127)
   })
 
@@ -713,7 +806,10 @@ describe('Windows Job runner protocol owner', () => {
       { SAFE: 'bootstrap' },
     )
     expect(native.spawnCurrentTokenJobProcess).toHaveBeenCalledWith(expect.anything(), {
-      command: 'tool.exe', applicationName: 'C:\\resolved\\tool.exe', args: ['literal arg'], cwd: 'C:\\target',
+      command: 'tool.exe',
+      applicationName: 'C:\\resolved\\tool.exe',
+      args: ['literal arg'],
+      cwd: 'C:\\target',
       env: { TARGET: 'yes', dsh_subprocess_runner: 'restored' },
       stdio: { stdin: 4, stdout: 5, stderr: 6 },
     })
@@ -728,7 +824,7 @@ describe('Windows Job runner protocol owner', () => {
     expect(host.env).toEqual({ SAFE: 'bootstrap' })
   })
 
-  it.each([undefined, 'pipe'] as const)('closes every target carrier with control %s before the first Windows poll', async (control) => {
+  it.each([undefined, 'pipe'] as const)('closes every target carrier with control %s before the first Windows poll', async control => {
     const events: string[] = []
     const interval = vi.spyOn(globalThis, 'setInterval').mockImplementation((callback: () => void) => {
       events.push('interval')
@@ -738,14 +834,16 @@ describe('Windows Job runner protocol owner', () => {
     try {
       const host = new FakeRunnerHost()
       const native = internals({
-        closeFileDescriptor: vi.fn((fileDescriptor) => { events.push(`close:${String(fileDescriptor)}`) }),
+        closeFileDescriptor: vi.fn(fileDescriptor => {
+          events.push(`close:${String(fileDescriptor)}`)
+        }),
         pollProcessExit: vi.fn(() => {
           events.push('poll')
           return 0
         }),
       })
-      await runWindows(host, native, { type: 'start', cwd: 'C:\\target', env: {}, ...control === undefined ? {} : { control } })
-      expect(events).toEqual(['close:4', 'close:5', 'close:6', ...control === 'pipe' ? ['close:7'] : [], 'interval', 'poll'])
+      await runWindows(host, native, { type: 'start', cwd: 'C:\\target', env: {}, ...(control === undefined ? {} : { control }) })
+      expect(events).toEqual(['close:4', 'close:5', 'close:6', ...(control === 'pipe' ? ['close:7'] : []), 'interval', 'poll'])
       expect(host.sent).toEqual([{ type: 'target-exit', exitCode: 0 }])
       expect(host.exitCode).toBe(0)
     } finally {
@@ -755,16 +853,26 @@ describe('Windows Job runner protocol owner', () => {
 
   it('exhausts target-exit and strict error results, including start cancellation', async () => {
     const spawnHost = new FakeRunnerHost()
-    await runWindows(spawnHost, internals({
-      spawnCurrentTokenJobProcess: vi.fn(() => { throw new Win32Error('CreateProcessW', 2) }),
-    }))
+    await runWindows(
+      spawnHost,
+      internals({
+        spawnCurrentTokenJobProcess: vi.fn(() => {
+          throw new Win32Error('CreateProcessW', 2)
+        }),
+      }),
+    )
     expect(spawnHost.sent).toMatchObject([{ type: 'error', error: { code: 'ENOENT', path: 'tool.exe' } }])
     expect(spawnHost.exitCode).toBe(0)
 
     const runnerHost = new FakeRunnerHost()
-    await runWindows(runnerHost, internals({
-      loadWin32ProcessBindings: vi.fn(() => { throw new Error('binding failed') }),
-    }))
+    await runWindows(
+      runnerHost,
+      internals({
+        loadWin32ProcessBindings: vi.fn(() => {
+          throw new Error('binding failed')
+        }),
+      }),
+    )
     expect(runnerHost.sent).toMatchObject([{ type: 'error', error: { message: 'binding failed' } }])
     expect(runnerHost.exitCode).toBe(127)
 
@@ -774,13 +882,15 @@ describe('Windows Job runner protocol owner', () => {
     cancelledHost.emit('message', { type: 'terminate' })
     cancelledHost.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
     await running
-    expect(cancelledHost.sent).toEqual([{
-      type: 'error',
-      error: {
-        name: 'Error',
-        message: 'subprocess target start was cancelled',
+    expect(cancelledHost.sent).toEqual([
+      {
+        type: 'error',
+        error: {
+          name: 'Error',
+          message: 'subprocess target start was cancelled',
+        },
       },
-    }])
+    ])
     expect(native.spawnCurrentTokenJobProcess).not.toHaveBeenCalled()
   })
 
@@ -791,13 +901,15 @@ describe('Windows Job runner protocol owner', () => {
     host.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
     host.emit('message', { type: 'terminate' })
     await running
-    expect(host.sent).toEqual([{
-      type: 'error',
-      error: {
-        name: 'Error',
-        message: 'subprocess target start was cancelled',
+    expect(host.sent).toEqual([
+      {
+        type: 'error',
+        error: {
+          name: 'Error',
+          message: 'subprocess target start was cancelled',
+        },
       },
-    }])
+    ])
     expect(native.spawnCurrentTokenJobProcess).not.toHaveBeenCalled()
   })
 
@@ -808,7 +920,9 @@ describe('Windows Job runner protocol owner', () => {
     host.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
     host.disconnect()
     await running
-    await new Promise<void>((resolveImmediate) => { setImmediate(resolveImmediate) })
+    await new Promise<void>(resolveImmediate => {
+      setImmediate(resolveImmediate)
+    })
     expect(native.spawnCurrentTokenJobProcess).not.toHaveBeenCalled()
     expect(native.terminateJob).not.toHaveBeenCalled()
     expect(host.exitCode).toBe(127)
@@ -819,7 +933,9 @@ describe('Windows Job runner protocol owner', () => {
     const native = internals({ pollProcessExit: vi.fn(() => undefined), isJobEmpty: vi.fn(() => false) })
     const running = runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(host), native)
     host.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
-    await new Promise<void>((resolveImmediate) => { setImmediate(resolveImmediate) })
+    await new Promise<void>(resolveImmediate => {
+      setImmediate(resolveImmediate)
+    })
     host.disconnect()
     await running
     expect(native.terminateJob).toHaveBeenCalledWith(expect.anything(), 20n, 1)
@@ -832,7 +948,9 @@ describe('Windows Job runner protocol owner', () => {
     const native = internals({ pollProcessExit: vi.fn(() => undefined), isJobEmpty: vi.fn(() => false) })
     const running = runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(host), native)
     host.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
-    await new Promise<void>((resolveImmediate) => { setImmediate(resolveImmediate) })
+    await new Promise<void>(resolveImmediate => {
+      setImmediate(resolveImmediate)
+    })
     host.emit('message', { type: 'terminate' })
     host.emit('message', { type: 'terminate' })
     expect(native.terminateJob).toHaveBeenCalledWith(expect.anything(), 20n, 1)
@@ -844,11 +962,7 @@ describe('Windows Job runner protocol owner', () => {
     const sendFailureNative = internals({ isJobEmpty: vi.fn(() => false) })
     await runWindows(sendFailureHost, sendFailureNative)
     expect(sendFailureNative.terminateJob).toHaveBeenCalledWith(expect.anything(), 20n, 1)
-    expect(sendFailureNative.closeHandleChecked).toHaveBeenCalledWith(
-      expect.anything(),
-      20n,
-      'ordinary process Job cleanup',
-    )
+    expect(sendFailureNative.closeHandleChecked).toHaveBeenCalledWith(expect.anything(), 20n, 'ordinary process Job cleanup')
     expect(sendFailureHost.exitCode).toBe(127)
   })
 
@@ -857,16 +971,15 @@ describe('Windows Job runner protocol owner', () => {
     const failed = internals({
       pollProcessExit: vi.fn(() => undefined),
       isJobEmpty: vi.fn(() => false),
-      terminateJob: vi.fn(() => { throw new Error('terminate Job failed') }),
+      terminateJob: vi.fn(() => {
+        throw new Error('terminate Job failed')
+      }),
     })
-    const failedRun = runSpawnRunner(
-      WINDOWS_RUNNER_SELECTION,
-      ['--', 'tool.exe'],
-      hostArgument(failedHost),
-      failed,
-    )
+    const failedRun = runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(failedHost), failed)
     failedHost.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
-    await new Promise<void>((resolveImmediate) => { setImmediate(resolveImmediate) })
+    await new Promise<void>(resolveImmediate => {
+      setImmediate(resolveImmediate)
+    })
     failedHost.emit('message', { type: 'terminate' })
     await failedRun
     expect(failedHost.sent).toMatchObject([{ type: 'error', error: { message: 'terminate Job failed' } }])
@@ -878,12 +991,7 @@ describe('Windows Job runner protocol owner', () => {
       pollProcessExit: vi.fn().mockReturnValueOnce(0).mockReturnValue(undefined),
       isJobEmpty: vi.fn().mockReturnValueOnce(false).mockReturnValue(true),
     })
-    const running = runSpawnRunner(
-      WINDOWS_RUNNER_SELECTION,
-      ['--', 'tool.exe'],
-      hostArgument(host),
-      native,
-    )
+    const running = runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(host), native)
     host.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
     await running
     expect(host.sent).toEqual([{ type: 'target-exit', exitCode: 0 }])
@@ -892,9 +1000,14 @@ describe('Windows Job runner protocol owner', () => {
 
   it('contains poll failures and queued ticks after disconnect', async () => {
     const failedHost = new FakeRunnerHost()
-    await runWindows(failedHost, internals({
-      pollProcessExit: vi.fn(() => { throw new Error('poll failed') }),
-    }))
+    await runWindows(
+      failedHost,
+      internals({
+        pollProcessExit: vi.fn(() => {
+          throw new Error('poll failed')
+        }),
+      }),
+    )
     expect(failedHost.sent).toMatchObject([{ type: 'error', error: { message: 'poll failed' } }])
 
     let tick: (() => void) | undefined
@@ -905,14 +1018,11 @@ describe('Windows Job runner protocol owner', () => {
     try {
       const host = new FakeRunnerHost()
       const native = internals({ pollProcessExit: vi.fn(() => undefined), isJobEmpty: vi.fn(() => false) })
-      const running = runSpawnRunner(
-        WINDOWS_RUNNER_SELECTION,
-        ['--', 'tool.exe'],
-        hostArgument(host),
-        native,
-      )
+      const running = runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(host), native)
       host.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
-      await new Promise<void>((resolveImmediate) => { setImmediate(resolveImmediate) })
+      await new Promise<void>(resolveImmediate => {
+        setImmediate(resolveImmediate)
+      })
       tick?.()
       host.disconnect()
       await running
@@ -931,21 +1041,16 @@ describe('Windows Job runner protocol owner', () => {
     try {
       const host = new FakeRunnerHost()
       const native = internals({ pollProcessExit: vi.fn(() => undefined), isJobEmpty: vi.fn(() => true) })
-      const running = runSpawnRunner(
-        WINDOWS_RUNNER_SELECTION,
-        ['--', 'tool.exe'],
-        hostArgument(host),
-        native,
-      )
+      const running = runSpawnRunner(WINDOWS_RUNNER_SELECTION, ['--', 'tool.exe'], hostArgument(host), native)
       host.emit('message', { type: 'start', cwd: 'C:\\target', env: {} })
-      await new Promise<void>((resolveImmediate) => { setImmediate(resolveImmediate) })
+      await new Promise<void>(resolveImmediate => {
+        setImmediate(resolveImmediate)
+      })
       tick?.()
       host.emit('message', { type: 'terminate' })
       host.disconnect()
       await running
-      expect(native.closeHandleChecked).toHaveBeenCalledWith(
-        expect.anything(), 10n, 'ordinary direct process cleanup',
-      )
+      expect(native.closeHandleChecked).toHaveBeenCalledWith(expect.anything(), 10n, 'ordinary direct process cleanup')
     } finally {
       interval.mockRestore()
     }

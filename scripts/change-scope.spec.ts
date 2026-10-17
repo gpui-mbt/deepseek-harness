@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 import { renderChangeScope } from './change-scope.ts'
 
@@ -185,20 +185,14 @@ describe('change-scope', () => {
     const entry = Buffer.from(`100644 ${blobSha}\t`, 'ascii')
     const firstPath = Buffer.from([0x80])
     const secondPath = Buffer.from([0x81])
-    gitBytes(root, ['update-index', '-z', '--index-info'], Buffer.concat([
-      entry,
-      firstPath,
-      Buffer.from([0]),
-      entry,
-      secondPath,
-      Buffer.from([0]),
-    ]))
-    expect(gitBytes(root, ['diff', '--cached', '--name-only', '-z', '--'])).toEqual(Buffer.concat([
-      firstPath,
-      Buffer.from([0]),
-      secondPath,
-      Buffer.from([0]),
-    ]))
+    gitBytes(
+      root,
+      ['update-index', '-z', '--index-info'],
+      Buffer.concat([entry, firstPath, Buffer.from([0]), entry, secondPath, Buffer.from([0])]),
+    )
+    expect(gitBytes(root, ['diff', '--cached', '--name-only', '-z', '--'])).toEqual(
+      Buffer.concat([firstPath, Buffer.from([0]), secondPath, Buffer.from([0])]),
+    )
     expect(() => {
       renderChangeScope(['--base', 'HEAD'], root)
     }).toThrow('cannot inspect staged paths: Git path 1 is not valid UTF-8')

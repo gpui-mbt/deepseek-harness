@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { publishDesktopTag } from '../scripts/desktop-publish-tag.ts'
 
 const commit = 'a'.repeat(40)
@@ -54,6 +54,8 @@ it('rejects missing credentials and malformed inputs before any request', async 
 
 it('explains an existing annotated tag without replacing it', async () => {
   const http = transport([{ status: 200, body: { object: { type: 'tag', sha: commit } } }])
-  await expect(publishDesktopTag('owner/repo', '1.2.3', commit, 'fixture-token', http.request)).rejects.toThrow(/not a lightweight commit tag/u)
+  await expect(publishDesktopTag('owner/repo', '1.2.3', commit, 'fixture-token', http.request)).rejects.toThrow(
+    /not a lightweight commit tag/u,
+  )
   expect(http.calls).toHaveLength(1)
 })

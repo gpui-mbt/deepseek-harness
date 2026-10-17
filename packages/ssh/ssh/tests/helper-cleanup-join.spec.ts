@@ -6,17 +6,17 @@ import { createConnection, type Socket } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteProcesses } from '../src/helper-processes.ts'
 import { authenticateStream } from '../src/stream-security.ts'
 
-vi.mock('node:fs/promises', async (original) => {
+vi.mock('node:fs/promises', async original => {
   const actual = await original<typeof import('node:fs/promises')>()
   return { ...actual, rm: vi.fn(actual.rm) }
 })
 
 describe.skipIf(process.platform === 'win32')('SSH completed-process cleanup ownership', () => {
-  it.each(['success', 'failure'] as const)('joins finalization after native %s while retaining the direct result', async (kind) => {
+  it.each(['success', 'failure'] as const)('joins finalization after native %s while retaining the direct result', async kind => {
     const root = await mkdtemp('/tmp/dsh-ssh-final-')
     const ctx = new Context()
     const filesystem = await ctx.plugin(LocalFileSystem, { cwd: root })
@@ -31,7 +31,9 @@ describe.skipIf(process.platform === 'win32')('SSH completed-process cleanup own
     try {
       const prepared = await owner.prepare({
         argv: kind === 'success' ? [process.execPath, '-e', 'process.exit(0)'] : [join(root, 'missing-executable')],
-        cwd: root, graceMs: 50, stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
+        cwd: root,
+        graceMs: 50,
+        stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
       })
       const directory = join(root, prepared.id)
       vi.mocked(rm).mockImplementation(async (path, options) => {
@@ -39,8 +41,11 @@ describe.skipIf(process.platform === 'win32')('SSH completed-process cleanup own
         removalStarted = true
         removing.resolve(undefined)
         await releaseRemoval.promise
-        try { await actual.rm(path, options) }
-        finally { removed.resolve(undefined) }
+        try {
+          await actual.rm(path, options)
+        } finally {
+          removed.resolve(undefined)
+        }
       })
       for (const endpoint of Object.values(prepared.streams)) {
         const raw = createConnection({ path: endpoint.path, allowHalfOpen: true })
@@ -50,24 +55,29 @@ describe.skipIf(process.platform === 'win32')('SSH completed-process cleanup own
         const socket = await authenticateStream(raw, endpoint.capability, 5000)
         socket.on('error', () => {})
         sockets.push(socket)
-        socket.end(); socket.resume()
+        socket.end()
+        socket.resume()
       }
       await owner.start(prepared.id)
       const outcome = await owner.done(prepared.id).then(
-        value => ({ value }), (error: unknown) => ({ error }),
+        value => ({ value }),
+        (error: unknown) => ({ error }),
       )
       if (kind === 'failure') expect(outcome).toMatchObject({ error: { code: 'ENOENT' } })
       else expect(outcome).toMatchObject({ value: { outcome: { exitCode: 0 } } })
       await removing.promise
       let closed = false
-      const close = owner.close().then(() => { closed = true })
+      const close = owner.close().then(() => {
+        closed = true
+      })
       await new Promise(resolve => setImmediate(resolve))
       expect(closed).toBe(false)
       releaseRemoval.resolve(undefined)
       await close
       expect(await readdir(root)).toEqual([])
       const late = await owner.done(prepared.id).then(
-        value => ({ value }), (error: unknown) => ({ error }),
+        value => ({ value }),
+        (error: unknown) => ({ error }),
       )
       expect(late).toEqual(outcome)
       if ('error' in outcome) expect('error' in late && late.error).toBe(outcome.error)

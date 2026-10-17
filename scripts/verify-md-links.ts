@@ -35,8 +35,7 @@ const PATTERNS = [
  * @returns forward-slash source paths relative to scanRoot.
  */
 export function markdownLinkSourcePaths(scanRoot: string = root): string[] {
-  return uniqueRepoFiles(scanRoot, PATTERNS, isArchivedAgentNotePath)
-    .map(file => relative(scanRoot, file.abs).replaceAll('\\', '/'))
+  return uniqueRepoFiles(scanRoot, PATTERNS, isArchivedAgentNotePath).map(file => relative(scanRoot, file.abs).replaceAll('\\', '/'))
 }
 
 /** A broken relative link: a missing target path or a missing anchor on it. */
@@ -106,7 +105,10 @@ function fragmentPart(url: string): string | null {
  * @returns the anchor GitHub assigns the first occurrence of the heading.
  */
 export function githubSlug(heading: string): string {
-  return heading.toLowerCase().replace(/[^\p{L}\p{N}_ -]/gu, '').replaceAll(' ', '-')
+  return heading
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_ -]/gu, '')
+    .replaceAll(' ', '-')
 }
 
 /**
@@ -182,14 +184,14 @@ export function markdownLinkCache(): MarkdownLinkCache {
   const documents = new Map<string, MarkdownLinkDocument>()
   const existence = new Map<string, boolean>()
   return {
-    document: (absPath) => {
+    document: absPath => {
       const hit = documents.get(absPath)
       if (hit) return hit
       const document = markdownLinkDocument(readFileSync(absPath, 'utf8'))
       documents.set(absPath, document)
       return document
     },
-    exists: (absPath) => {
+    exists: absPath => {
       const hit = existence.get(absPath)
       if (hit !== undefined) return hit
       const exists = existsSync(absPath)
@@ -210,11 +212,7 @@ export function markdownLinkCache(): MarkdownLinkCache {
  * @param scanRoot - repository root violations are reported relative to.
  * @returns one entry per broken link, in document order.
  */
-export function findViolations(
-  absPath: string,
-  cache: MarkdownLinkCache = markdownLinkCache(),
-  scanRoot: string = root,
-): Violation[] {
+export function findViolations(absPath: string, cache: MarkdownLinkCache = markdownLinkCache(), scanRoot: string = root): Violation[] {
   const file = relative(scanRoot, absPath)
   const dir = dirname(absPath)
   const out: Violation[] = []

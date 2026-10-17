@@ -8,10 +8,7 @@ import type { ProcessActivitySummary } from '../contract/process-groups.ts'
  * @param t - Chat namespace translator.
  * @returns the secondary disclosure title.
  */
-export function processTitle(
-  summary: ProcessActivitySummary,
-  t: ChatViewSlotProps['t'],
-): string {
+export function processTitle(summary: ProcessActivitySummary, t: ChatViewSlotProps['t']): string {
   const labels = summary.counts.slice(0, 3).map(({ kind }) => t(`message.stepProcess.done.${kind}`))
   const first = labels[0]
   if (first === undefined) return t('message.stepProcess.done.thinking')

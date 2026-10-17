@@ -12,9 +12,16 @@ export async function apply(ctx) {
   await chmod(helper, 0o700)
   const close = await startFixtureHost(helper)
   ctx.effect(() => async () => {
-    try { await close() } finally { await unlink(helper) }
+    try {
+      await close()
+    } finally {
+      await unlink(helper)
+    }
   })
-  ctx.on('user-questions/request', async request => ({ answers: request.questions.map(question => ({
-    id: question.id, selected: ['Allow for this task'],
-  })) }))
+  ctx.on('user-questions/request', async request => ({
+    answers: request.questions.map(question => ({
+      id: question.id,
+      selected: ['Allow for this task'],
+    })),
+  }))
 }

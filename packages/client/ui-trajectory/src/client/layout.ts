@@ -13,10 +13,7 @@ import type {
   ToolResultNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type {
-  TrajectoryCellProps,
-  TrajectorySourceBlock,
-} from './trajectory-record.ts'
+import type { TrajectoryCellProps, TrajectorySourceBlock } from './trajectory-record.ts'
 import type { TrajectoryPartialAssistant, TrajectorySnapshot } from './trajectory-contract.ts'
 import { formatElapsedSeconds } from './trajectory-record.ts'
 import type { TrajectoryTranslate } from './locales.ts'
@@ -75,72 +72,73 @@ interface TurnBucket {
 type AssistantRequestView = Extract<RequestView, { purpose: 'assistant' }>
 type CompactionRequestView = Extract<RequestView, { purpose: 'compaction' }>
 
-type InputNode = Extract<
-  TrajectorySnapshot['eventNodes'][number],
-  { kind: 'user' | 'steering' | 'context' }
->
+type InputNode = Extract<TrajectorySnapshot['eventNodes'][number], { kind: 'user' | 'steering' | 'context' }>
 
 type OrderedLayoutEntry =
   | {
-    kind: 'node'
-    seq: number
-    node: TrajectorySnapshot['eventNodes'][number]
-    nodeIndex: number
-  }
+      kind: 'node'
+      seq: number
+      node: TrajectorySnapshot['eventNodes'][number]
+      nodeIndex: number
+    }
   | {
-    kind: 'compaction'
-    seq: number
-    request: CompactionRequestView
-  }
+      kind: 'compaction'
+      seq: number
+      request: CompactionRequestView
+    }
   | {
-    kind: 'system'
-    seq: number
-    request?: AssistantRequestView
-    systemPrompt?: string
-    change: RequestPromptChange
-  }
+      kind: 'system'
+      seq: number
+      request?: AssistantRequestView
+      systemPrompt?: string
+      change: RequestPromptChange
+    }
   | {
-    kind: 'request'
-    seq: number
-    request: AssistantRequestView
-  }
+      kind: 'request'
+      seq: number
+      request: AssistantRequestView
+    }
 
 function layoutEntryOrder(entry: OrderedLayoutEntry): number {
-  return entry.kind === 'system' && entry.change.kind === 'initial'
-    ? Number.NEGATIVE_INFINITY
-    : entry.seq
+  return entry.kind === 'system' && entry.change.kind === 'initial' ? Number.NEGATIVE_INFINITY : entry.seq
 }
 
-function inputCellDetail(node: InputNode, t: TrajectoryTranslate): Pick<
+function inputCellDetail(
+  node: InputNode,
+  t: TrajectoryTranslate,
+): Pick<
   TrajectoryCellProps,
-  | 'text'
-  | 'previewMarkdown'
-  | 'sourceSeq'
-  | 'messageSource'
-  | 'inputDetail'
-  | 'sourceBlocks'
-  | 'timeSeconds'
-  | 'startedAt'
+  'text' | 'previewMarkdown' | 'sourceSeq' | 'messageSource' | 'inputDetail' | 'sourceBlocks' | 'timeSeconds' | 'startedAt'
 > {
-  if (node.kind === 'context' && node.content.length > 0
-    && node.content.every(block => block.type === 'tool-addition' || block.type === 'tool-removal')) {
-    const added = node.content.flatMap(block => block.type === 'tool-addition' ? [block.toolName] : [])
-    const removed = node.content.flatMap(block => block.type === 'tool-removal' ? [block.toolName] : [])
+  if (
+    node.kind === 'context' &&
+    node.content.length > 0 &&
+    node.content.every(block => block.type === 'tool-addition' || block.type === 'tool-removal')
+  ) {
+    const added = node.content.flatMap(block => (block.type === 'tool-addition' ? [block.toolName] : []))
+    const removed = node.content.flatMap(block => (block.type === 'tool-removal' ? [block.toolName] : []))
     const single = node.content.length === 1 ? node.content[0] : undefined
-    const summary = added.length > 0 && removed.length > 0
-      ? t('layout.toolsChanged', { added: added.length, removed: removed.length })
-      : added.length > 0 ? t('layout.toolsAddedCount', { count: added.length })
-        : t('layout.toolsRemovedCount', { count: removed.length })
+    const summary =
+      added.length > 0 && removed.length > 0
+        ? t('layout.toolsChanged', { added: added.length, removed: removed.length })
+        : added.length > 0
+          ? t('layout.toolsAddedCount', { count: added.length })
+          : t('layout.toolsRemovedCount', { count: removed.length })
     return {
-      text: single !== undefined
-        ? t(single.type === 'tool-addition' ? 'layout.toolAdded' : 'layout.toolRemoved', { name: single.toolName })
-        : `${t('layout.toolUpdateNotice')} · ${summary}`,
+      text:
+        single !== undefined
+          ? t(single.type === 'tool-addition' ? 'layout.toolAdded' : 'layout.toolRemoved', { name: single.toolName })
+          : `${t('layout.toolUpdateNotice')} · ${summary}`,
       sourceSeq: node.seq,
       sourceBlocks: node.content.map(block => ({ type: block.type, content: block.toolName })),
-      ...(single !== undefined ? {} : { inputDetail: [
-        ...added.length > 0 ? [t('layout.toolsAdded', { names: added.join(', ') })] : [],
-        ...removed.length > 0 ? [t('layout.toolsRemoved', { names: removed.join(', ') })] : [],
-      ].join('\n') }),
+      ...(single !== undefined
+        ? {}
+        : {
+            inputDetail: [
+              ...(added.length > 0 ? [t('layout.toolsAdded', { names: added.join(', ') })] : []),
+              ...(removed.length > 0 ? [t('layout.toolsRemoved', { names: removed.join(', ') })] : []),
+            ].join('\n'),
+          }),
       timeSeconds: 0,
       startedAt: finiteTime(node.time),
     }
@@ -150,11 +148,11 @@ function inputCellDetail(node: InputNode, t: TrajectoryTranslate): Pick<
   const images = imageBlockCount(node.content)
   const files = fileBlockCount(node.content)
   const attachmentSummary = [
-    images > 0
-      ? t('layout.imageCount', { count: images })
-      : undefined,
+    images > 0 ? t('layout.imageCount', { count: images }) : undefined,
     files > 0 ? t('layout.fileAttachments', { count: files }) : undefined,
-  ].filter((value): value is string => value !== undefined).join(' · ')
+  ]
+    .filter((value): value is string => value !== undefined)
+    .join(' · ')
   return {
     text: attachmentSummary,
     ...(previewMarkdown === undefined ? {} : { previewMarkdown }),
@@ -173,13 +171,8 @@ function inputCellDetail(node: InputNode, t: TrajectoryTranslate): Pick<
  * @param t - Trajectory locale translator.
  * @returns turns ordered by first appearance.
  */
-export function deriveTrajectoryLayout(
-  input: TrajectoryLayoutInput,
-  t: TrajectoryTranslate,
-): readonly TrajectoryTurnModel[] {
-  const {
-    nodes, eventLocations, partial, runningCalls, requests = [], callSchemas,
-  } = input
+export function deriveTrajectoryLayout(input: TrajectoryLayoutInput, t: TrajectoryTranslate): readonly TrajectoryTurnModel[] {
+  const { nodes, eventLocations, partial, runningCalls, requests = [], callSchemas } = input
   const resultByCall = indexResults(nodes)
   const callById = new Map<string, ToolCallBlock>(resultByCall)
   for (const call of runningCalls) callById.set(call.callId, call)
@@ -259,8 +252,10 @@ export function deriveTrajectoryLayout(
 
   const entries: OrderedLayoutEntry[] = [
     ...(input.systemPrompts ?? []).map(prompt => ({
-      kind: 'system' as const, seq: prompt.seq, systemPrompt: prompt.text,
-      change: { seq: prompt.seq, time: prompt.time, kind: prompt.update ? 'system' as const : 'initial' as const },
+      kind: 'system' as const,
+      seq: prompt.seq,
+      systemPrompt: prompt.text,
+      change: { seq: prompt.seq, time: prompt.time, kind: prompt.update ? ('system' as const) : ('initial' as const) },
     })),
     ...nodes.map((node, nodeIndex) => ({
       kind: 'node' as const,
@@ -269,29 +264,27 @@ export function deriveTrajectoryLayout(
       nodeIndex,
     })),
     ...requests
-      .filter((request): request is CompactionRequestView =>
-        request.purpose === 'compaction')
+      .filter((request): request is CompactionRequestView => request.purpose === 'compaction')
       .map(request => ({
         kind: 'compaction' as const,
         seq: request.startSeq,
         request,
       })),
-    ...requests.flatMap(request => request.purpose !== 'assistant'
-      || request.promptChange === undefined
-      || request.prompt === undefined
-      ? []
-      : [{
-        kind: 'system' as const,
-        seq: request.promptChange.seq,
-        request,
-        change: request.promptChange,
-      }]),
+    ...requests.flatMap(request =>
+      request.purpose !== 'assistant' || request.promptChange === undefined || request.prompt === undefined
+        ? []
+        : [
+            {
+              kind: 'system' as const,
+              seq: request.promptChange.seq,
+              request,
+              change: request.promptChange,
+            },
+          ],
+    ),
     ...requests
-      .filter((request): request is AssistantRequestView =>
-        request.purpose === 'assistant')
-      .filter(request =>
-        !representedRequests.has(`${request.turn}\u0000${request.step}`),
-      )
+      .filter((request): request is AssistantRequestView => request.purpose === 'assistant')
+      .filter(request => !representedRequests.has(`${request.turn}\u0000${request.step}`))
       .map(request => ({
         kind: 'request' as const,
         seq: request.startSeq,
@@ -302,31 +295,27 @@ export function deriveTrajectoryLayout(
   for (const entry of entries) {
     if (entry.kind === 'request') {
       const { request } = entry
-      pushStep(request.turn, request.step, [{
-        absTime: finiteTime(request.startedAt),
-        cell: {
-          index: ++index,
-          kind: 'message',
-          text: '',
-          sourceSeq: request.startSeq,
-          requestOnly: true,
-          timeSeconds: request.completedAt === null
-            ? null
-            : durationSeconds(request.completedAt, request.startedAt),
-          startedAt: finiteTime(request.startedAt),
-          ...(request.status === 'error' ? { isError: true } : {}),
+      pushStep(request.turn, request.step, [
+        {
+          absTime: finiteTime(request.startedAt),
+          cell: {
+            index: ++index,
+            kind: 'message',
+            text: '',
+            sourceSeq: request.startSeq,
+            requestOnly: true,
+            timeSeconds: request.completedAt === null ? null : durationSeconds(request.completedAt, request.startedAt),
+            startedAt: finiteTime(request.startedAt),
+            ...(request.status === 'error' ? { isError: true } : {}),
+          },
         },
-      }])
-      prevAbsTime = finiteTime(request.completedAt)
-        ?? finiteTime(request.startedAt)
-        ?? prevAbsTime
+      ])
+      prevAbsTime = finiteTime(request.completedAt) ?? finiteTime(request.startedAt) ?? prevAbsTime
       continue
     }
     if (entry.kind === 'system') {
       const { change, request } = entry
-      const turn = change.kind === 'initial'
-        ? firstVisibleTurn(nodes, partial)
-        : enclosingPromptTurn(nodes, change.seq, partial)
+      const turn = change.kind === 'initial' ? firstVisibleTurn(nodes, partial) : enclosingPromptTurn(nodes, change.seq, partial)
       pushMessage(turn, {
         absTime: finiteTime(change.time),
         cell: {
@@ -336,9 +325,7 @@ export function deriveTrajectoryLayout(
           sourceSeq: change.seq,
           ...(request?.prompt === undefined ? {} : { promptDetail: request.prompt }),
           ...(entry.systemPrompt === undefined ? {} : { systemPromptDetail: entry.systemPrompt }),
-          ...(change.previous === undefined
-            ? {}
-            : { previousPromptDetail: change.previous }),
+          ...(change.previous === undefined ? {} : { previousPromptDetail: change.previous }),
           timeSeconds: 0,
           startedAt: finiteTime(change.time),
         },
@@ -349,50 +336,47 @@ export function deriveTrajectoryLayout(
     if (entry.kind === 'compaction') {
       const request = entry.request
       const rawOutput = request.rawOutput ?? request.summary
-      const thinkingDetail = rawOutput === undefined
-        ? ''
-        : detailReasoning(rawOutput)
+      const thinkingDetail = rawOutput === undefined ? '' : detailReasoning(rawOutput)
       const cell: TrajectoryCellProps = {
         index: ++index,
         kind: 'compacted',
-        text: request.status === 'running'
-          ? t('layout.compacting')
-          : request.status === 'error'
-            ? request.error === COMPACTION_INTERRUPTED_ERROR
-              ? t('layout.compactionInterrupted')
-              : request.error ?? t('layout.compactionFailed')
-            : request.summary === undefined
-              ? t('layout.compacted')
-              : '',
-        ...(request.status === 'complete' && request.summary !== undefined
-          ? previewContentProperty(request.summary)
-          : {}),
+        text:
+          request.status === 'running'
+            ? t('layout.compacting')
+            : request.status === 'error'
+              ? request.error === COMPACTION_INTERRUPTED_ERROR
+                ? t('layout.compactionInterrupted')
+                : (request.error ?? t('layout.compactionFailed'))
+              : request.summary === undefined
+                ? t('layout.compacted')
+                : '',
+        ...(request.status === 'complete' && request.summary !== undefined ? previewContentProperty(request.summary) : {}),
         sourceSeq: request.startSeq,
         ...(request.summary === undefined
           ? {}
           : {
-            outputDetail: detailContent(request.summary),
-            outputBlocks: request.summary.map(block => sourceBlock(block)),
-          }),
+              outputDetail: detailContent(request.summary),
+              outputBlocks: request.summary.map(block => sourceBlock(block)),
+            }),
         ...(thinkingDetail === '' ? {} : { thinkingDetail }),
-        ...(rawOutput === undefined
-          ? {}
-          : { sourceBlocks: rawOutput.map(block => sourceBlock(block)) }),
+        ...(rawOutput === undefined ? {} : { sourceBlocks: rawOutput.map(block => sourceBlock(block)) }),
         ...(request.status === 'error' ? { isError: true } : {}),
-        timeSeconds: request.completedAt === null
-          ? null
-          : durationSeconds(request.completedAt, request.startedAt),
+        timeSeconds: request.completedAt === null ? null : durationSeconds(request.completedAt, request.startedAt),
         startedAt: finiteTime(request.startedAt),
       }
       attachUsage(cell, request.usage as UsageLike | undefined)
       const compaction: TurnBucket = {
-        groups: [{
-          title: t('group.compaction', { seq: request.startSeq }),
-          laid: [{
-            absTime: finiteTime(request.startedAt),
-            cell,
-          }],
-        }],
+        groups: [
+          {
+            title: t('group.compaction', { seq: request.startSeq }),
+            laid: [
+              {
+                absTime: finiteTime(request.startedAt),
+                cell,
+              },
+            ],
+          },
+        ],
       }
       if (request.turn === null) standaloneCompactions.push(compaction)
       else bucket(request.turn).groups.push(...compaction.groups)
@@ -417,12 +401,7 @@ export function deriveTrajectoryLayout(
       continue
     }
     if (node.kind === 'steering') {
-      const placement = steeringPlacement(
-        followingAssistants[i],
-        partial,
-        lastAssistantTurn,
-        eventLocations?.get(node.seq),
-      )
+      const placement = steeringPlacement(followingAssistants[i], partial, lastAssistantTurn, eventLocations?.get(node.seq))
       const laid = {
         absTime: finiteTime(node.time),
         cell: {
@@ -437,10 +416,7 @@ export function deriveTrajectoryLayout(
       continue
     }
     if (node.kind === 'assistant') {
-      const laidList = withSubCalls(
-        expandAssistant(node, index + 1, prevAbsTime, resultByCall, callStartById, callById, t),
-        t,
-      )
+      const laidList = withSubCalls(expandAssistant(node, index + 1, prevAbsTime, resultByCall, callStartById, callById, t), t)
       if (node.step > 0) pushStep(node.turn, node.step, laidList)
       else for (const laid of laidList) pushMessage(node.turn, laid)
       const last = laidList[laidList.length - 1]
@@ -472,28 +448,28 @@ export function deriveTrajectoryLayout(
       if (!emittedCallIds.has(node.callId)) {
         const toolName = node.call?.name
         const resultPreview = summarizeResult(node, t)
-        const laidList: LaidCell[] = [{
-          absTime: finiteTime(node.callTime ?? node.time),
-          ...(toolName !== undefined ? { toolName } : {}),
-          callId: node.callId,
-          subCalls: node.subCalls,
-          cell: {
-            index: ++index,
-            kind: 'tool',
-            sourceSeq: node.seq,
-            ...(node.call !== null
-              ? summarizeCall(node.call.name, node.call.argsRaw)
-              : resultAsText(resultPreview)),
-            ...(node.call !== null ? { inputDetail: node.call.argsRaw } : {}),
-            outputDetail: detailResult(node, t),
-            outputBlocks: node.content.map(block => sourceBlock(block)),
-            ...resultPreview,
+        const laidList: LaidCell[] = [
+          {
+            absTime: finiteTime(node.callTime ?? node.time),
+            ...(toolName !== undefined ? { toolName } : {}),
             callId: node.callId,
-            isError: node.isError,
-            timeSeconds: durationSeconds(node.time, node.callTime),
-            startedAt: finiteTime(node.callTime),
+            subCalls: node.subCalls,
+            cell: {
+              index: ++index,
+              kind: 'tool',
+              sourceSeq: node.seq,
+              ...(node.call !== null ? summarizeCall(node.call.name, node.call.argsRaw) : resultAsText(resultPreview)),
+              ...(node.call !== null ? { inputDetail: node.call.argsRaw } : {}),
+              outputDetail: detailResult(node, t),
+              outputBlocks: node.content.map(block => sourceBlock(block)),
+              ...resultPreview,
+              callId: node.callId,
+              isError: node.isError,
+              timeSeconds: durationSeconds(node.time, node.callTime),
+              startedAt: finiteTime(node.callTime),
+            },
           },
-        }]
+        ]
         for (const laid of expandSubCalls(node.subCalls, index, t)) {
           laidList.push(laid)
           index = laid.cell.index
@@ -506,19 +482,17 @@ export function deriveTrajectoryLayout(
 
   if (partial !== null) {
     const fake: AssistantMessageNode = {
-      kind: 'assistant', seq: Number.MAX_SAFE_INTEGER, time: 0,
-      turn: partial.turn, step: partial.step, blocks: partial.blocks,
+      kind: 'assistant',
+      seq: Number.MAX_SAFE_INTEGER,
+      time: 0,
+      turn: partial.turn,
+      step: partial.step,
+      blocks: partial.blocks,
     }
-    const laidList = withSubCalls(expandAssistant(
-      fake,
-      index + 1,
-      prevAbsTime,
-      resultByCall,
-      callStartById,
-      callById,
+    const laidList = withSubCalls(
+      expandAssistant(fake, index + 1, prevAbsTime, resultByCall, callStartById, callById, t, { streaming: true, timing: partial.timing }),
       t,
-      { streaming: true, timing: partial.timing },
-    ), t)
+    )
     if (partial.step > 0) pushStep(partial.turn, partial.step, laidList)
     else for (const laid of laidList) pushMessage(partial.turn, laid)
     const last = laidList[laidList.length - 1]
@@ -528,21 +502,23 @@ export function deriveTrajectoryLayout(
   const seenCalls = collectCallIds(turns)
   for (const call of runningCalls) {
     if (call.phase === 'preparing' || seenCalls.has(call.callId)) continue
-    const laidList: LaidCell[] = [{
-      absTime: null,
-      toolName: call.name,
-      callId: call.callId,
-      subCalls: call.subCalls,
-      cell: {
-        index: ++index,
-        kind: 'tool',
-        ...summarizeCall(call.name, call.argsRaw),
-        inputDetail: call.argsRaw,
+    const laidList: LaidCell[] = [
+      {
+        absTime: null,
+        toolName: call.name,
         callId: call.callId,
-        timeSeconds: null,
-        startedAt: finiteTime(call.time),
+        subCalls: call.subCalls,
+        cell: {
+          index: ++index,
+          kind: 'tool',
+          ...summarizeCall(call.name, call.argsRaw),
+          inputDetail: call.argsRaw,
+          callId: call.callId,
+          timeSeconds: null,
+          startedAt: finiteTime(call.time),
+        },
       },
-    }]
+    ]
     for (const laid of expandSubCalls(call.subCalls, index, t)) {
       laidList.push(laid)
       index = laid.cell.index
@@ -588,11 +564,14 @@ export function appendTrajectoryPartialLayout(
   t: TrajectoryTranslate,
 ): readonly TrajectoryTurnModel[] {
   if (partial === null) return turns
-  const partialTurn = deriveTrajectoryLayout({
-    nodes: [],
-    partial,
-    runningCalls: [],
-  }, t).at(0)
+  const partialTurn = deriveTrajectoryLayout(
+    {
+      nodes: [],
+      partial,
+      runningCalls: [],
+    },
+    t,
+  ).at(0)
   if (partialTurn === undefined) return turns
   const streamed: TrajectoryTurnModel = {
     ...partialTurn,
@@ -616,16 +595,11 @@ export function appendTrajectoryPartialLayout(
     const group = groups[groupIndex]
     /* v8 ignore next -- findIndex proved the dense array position exists. */
     if (group === undefined) continue
-    const streamedCallIds = new Set(
-      streamedGroup.cells.flatMap(cell => cell.callId === undefined ? [] : [cell.callId]),
-    )
+    const streamedCallIds = new Set(streamedGroup.cells.flatMap(cell => (cell.callId === undefined ? [] : [cell.callId])))
     groups[groupIndex] = {
       ...streamedGroup,
       cells: [
-        ...group.cells.filter(cell =>
-          cell.requestOnly !== true
-          && (cell.callId === undefined || !streamedCallIds.has(cell.callId)),
-        ),
+        ...group.cells.filter(cell => cell.requestOnly !== true && (cell.callId === undefined || !streamedCallIds.has(cell.callId))),
         ...streamedGroup.cells,
       ],
     }
@@ -635,21 +609,14 @@ export function appendTrajectoryPartialLayout(
   return updated
 }
 
-function attachToolSchema(
-  laid: LaidCell,
-  callSchemas: RequestInspectionSnapshot['callSchemas'] | undefined,
-): void {
+function attachToolSchema(laid: LaidCell, callSchemas: RequestInspectionSnapshot['callSchemas'] | undefined): void {
   if (laid.callId === undefined || callSchemas === undefined) return
   const schema = callSchemas.get(laid.callId)
   if (schema === undefined) return
   laid.cell.schemaDetail = JSON.stringify(schema, null, 2)
 }
 
-function toTurnModel(
-  turn: number | null,
-  entry: TurnBucket,
-  t: TrajectoryTranslate,
-): TrajectoryTurnModel {
+function toTurnModel(turn: number | null, entry: TurnBucket, t: TrajectoryTranslate): TrajectoryTurnModel {
   const groups = entry.groups.map(({ title, laid }): TrajectoryGroupModel => {
     const description = groupDescription(laid, t)
     return {
@@ -663,17 +630,11 @@ function toTurnModel(
 
 /** Chronological section position from the fold's monotonically assigned cell indexes. */
 function firstCellIndex(turn: TrajectoryTurnModel): number {
-  return Math.min(
-    ...turn.groups.flatMap(group => group.cells.map(cell => cell.index)),
-    Number.POSITIVE_INFINITY,
-  )
+  return Math.min(...turn.groups.flatMap(group => group.cells.map(cell => cell.index)), Number.POSITIVE_INFINITY)
 }
 
 /** Wall-span duration + tool histogram, e.g. `1.5 s bash×6`. */
-function groupDescription(
-  laid: readonly LaidCell[],
-  t: TrajectoryTranslate,
-): string | undefined {
+function groupDescription(laid: readonly LaidCell[], t: TrajectoryTranslate): string | undefined {
   const parts: string[] = []
   // Tool rows contribute start (absTime) and end (start + own duration) so a
   // single Tool cell still spans call→result for the group wall clock.
@@ -704,10 +665,7 @@ function groupDescription(
   return parts.length === 0 ? undefined : parts.join(' ')
 }
 
-function formatGroupDuration(
-  seconds: number,
-  t: TrajectoryTranslate,
-): string | undefined {
+function formatGroupDuration(seconds: number, t: TrajectoryTranslate): string | undefined {
   if (!Number.isFinite(seconds)) return undefined
   return formatElapsedSeconds(seconds, t)
 }
@@ -740,31 +698,23 @@ function expandAssistant(
   const streaming = opts?.streaming === true
   const timing = opts?.timing ?? node.timing
   const recordedStart = finiteTime(timing?.stepStartTime)
-  const messageDuration = streaming
-    ? null
-    : durationSeconds(node.time, recordedStart ?? prevAbsTime)
+  const messageDuration = streaming ? null : durationSeconds(node.time, recordedStart ?? prevAbsTime)
   const nodeAbs = streaming ? null : finiteTime(node.time)
   const messageText = node.blocks
     .filter(block => block.kind === 'text' && (!streaming || block.text !== ''))
-    .map(block => block.kind === 'text' ? block.text : '')
+    .map(block => (block.kind === 'text' ? block.text : ''))
     .join('\n\n')
   const thinkingText = node.blocks
     .filter(block => block.kind === 'reasoning' && (!streaming || block.text !== ''))
-    .map(block => block.kind === 'reasoning' ? block.text : '')
+    .map(block => (block.kind === 'reasoning' ? block.text : ''))
     .join('\n\n')
   const message: TrajectoryCellProps = {
     index: ++index,
     recordId: `assistant\u0000${node.turn}\u0000${node.step}`,
     kind: 'message',
     sourceSeq: node.seq,
-    text: messageText !== '' || thinkingText !== ''
-      ? ''
-      : summarizeAssistantActivity(node.blocks, t),
-    ...(messageText !== ''
-      ? { previewMarkdown: messageText }
-      : thinkingText !== ''
-        ? { previewMarkdown: thinkingText }
-        : {}),
+    text: messageText !== '' || thinkingText !== '' ? '' : summarizeAssistantActivity(node.blocks, t),
+    ...(messageText !== '' ? { previewMarkdown: messageText } : thinkingText !== '' ? { previewMarkdown: thinkingText } : {}),
     ...(messageText !== '' ? { outputDetail: messageText } : {}),
     ...(thinkingText !== '' ? { thinkingDetail: thinkingText } : {}),
     sourceBlocks: node.blocks.map(block => assistantSourceBlock(block)),
@@ -779,7 +729,7 @@ function expandAssistant(
     firstTokenTime: timing?.firstTokenTime ?? null,
     completedTime: streaming ? null : finiteTime(node.time),
     usageProvided: usage !== undefined,
-    outputTokens: Number.isFinite(usage?.outputTokens) ? usage?.outputTokens ?? null : null,
+    outputTokens: Number.isFinite(usage?.outputTokens) ? (usage?.outputTokens ?? null) : null,
   }
   out.push({ absTime: nodeAbs, cell: message })
 
@@ -787,9 +737,7 @@ function expandAssistant(
     // Text and reasoning belong to the one Assistant record emitted above.
     if (block.kind !== 'tool-call') continue
     const result = results.get(block.callId)
-    const toolDuration = streaming || result === undefined
-      ? null
-      : durationSeconds(result.time, result.callTime)
+    const toolDuration = streaming || result === undefined ? null : durationSeconds(result.time, result.callTime)
     const callAbs = finiteTime(callStarts.get(block.callId))
     const call = calls.get(block.callId)
     const resultPreview = result === undefined ? undefined : summarizeResult(result, t)
@@ -799,17 +747,18 @@ function expandAssistant(
       callId: block.callId,
       ...(call === undefined ? {} : { subCalls: call.subCalls }),
       cell: {
-        index: ++index, kind: 'tool',
+        index: ++index,
+        kind: 'tool',
         ...summarizeCall(block.name, block.argsRaw),
         inputDetail: block.argsRaw,
         callId: block.callId,
         ...(result !== undefined
           ? {
-            outputDetail: detailResult(result, t),
-            outputBlocks: result.content.map(block => sourceBlock(block)),
-            ...resultPreview,
-            isError: result.isError,
-          }
+              outputDetail: detailResult(result, t),
+              outputBlocks: result.content.map(block => sourceBlock(block)),
+              ...resultPreview,
+              isError: result.isError,
+            }
           : {}),
         timeSeconds: toolDuration,
         startedAt: callAbs,
@@ -819,10 +768,7 @@ function expandAssistant(
   return out
 }
 
-function summarizeAssistantActivity(
-  blocks: readonly AssistantBlock[],
-  t: TrajectoryTranslate,
-): string {
+function summarizeAssistantActivity(blocks: readonly AssistantBlock[], t: TrajectoryTranslate): string {
   const tools = new Map<string, number>()
   for (const block of blocks) {
     if (block.kind !== 'tool-call') continue
@@ -845,16 +791,21 @@ function promptChangeLabel(change: RequestPromptChange, t: TrajectoryTranslate):
 
 function assistantSourceBlock(block: AssistantBlock): TrajectorySourceBlock {
   switch (block.kind) {
-    case 'text': return { type: 'text', content: block.text }
-    case 'reasoning': return { type: 'thinking', content: block.text }
-    case 'tool-call': return {
-      type: 'tool-call',
-      content: block.argsRaw,
-      callId: block.callId,
-      toolName: block.name,
-    }
-    case 'image': return sourceBlock({ type: 'image', attachment: block.attachment })
-    case 'other': return sourceBlock(block.block)
+    case 'text':
+      return { type: 'text', content: block.text }
+    case 'reasoning':
+      return { type: 'thinking', content: block.text }
+    case 'tool-call':
+      return {
+        type: 'tool-call',
+        content: block.argsRaw,
+        callId: block.callId,
+        toolName: block.name,
+      }
+    case 'image':
+      return sourceBlock({ type: 'image', attachment: block.attachment })
+    case 'other':
+      return sourceBlock(block.block)
   }
 }
 
@@ -868,9 +819,10 @@ function sourceBlock(value: unknown): TrajectorySourceBlock {
     return { type: type === 'reasoning' ? 'thinking' : type, content: block.text }
   }
   if (
-    (type === 'image' || type === 'file')
-    && typeof block.attachment === 'object' && block.attachment !== null
-    && typeof (block.attachment as Record<string, unknown>).attachmentId === 'string'
+    (type === 'image' || type === 'file') &&
+    typeof block.attachment === 'object' &&
+    block.attachment !== null &&
+    typeof (block.attachment as Record<string, unknown>).attachmentId === 'string'
   ) {
     // Session-log content is validated into core ContentBlocks by the
     // Conversation node assembly; the `attachmentId` guard only keeps
@@ -878,9 +830,7 @@ function sourceBlock(value: unknown): TrajectorySourceBlock {
     return {
       type,
       content: stringifySourceValue(value),
-      ...(type === 'image'
-        ? { attachment: block.attachment as ImageAttachmentRef }
-        : { file: block.attachment as FileAttachmentRef }),
+      ...(type === 'image' ? { attachment: block.attachment as ImageAttachmentRef } : { file: block.attachment as FileAttachmentRef }),
     }
   }
   return { type, content: stringifySourceValue(value) }
@@ -924,8 +874,7 @@ function steeringPlacement(
     return { turn: location.turn.turn, step: location.step.step }
   }
   const locatedTurn = location?.kind === 'turn' ? location.turn.turn : undefined
-  if (followingAssistant !== undefined
-    && (locatedTurn === undefined || followingAssistant.turn === locatedTurn)) {
+  if (followingAssistant !== undefined && (locatedTurn === undefined || followingAssistant.turn === locatedTurn)) {
     return {
       turn: followingAssistant.turn,
       ...(followingAssistant.step > 0 ? { step: followingAssistant.step } : {}),
@@ -938,9 +887,7 @@ function steeringPlacement(
   return { turn: lastAssistantTurn ?? 1 }
 }
 
-function indexFollowingAssistants(
-  nodes: TrajectorySnapshot['eventNodes'],
-): readonly (AssistantMessageNode | undefined)[] {
+function indexFollowingAssistants(nodes: TrajectorySnapshot['eventNodes']): readonly (AssistantMessageNode | undefined)[] {
   const following = new Array<AssistantMessageNode | undefined>(nodes.length)
   let assistant: AssistantMessageNode | undefined
   for (let index = nodes.length - 1; index >= 0; index--) {
@@ -951,27 +898,15 @@ function indexFollowingAssistants(
   return following
 }
 
-function enclosingPromptTurn(
-  nodes: TrajectorySnapshot['eventNodes'],
-  seq: number,
-  partial: TrajectorySnapshot['partial'],
-): number {
-  const next = nodes.find(node =>
-    node.seq > seq && node.kind === 'assistant' && node.step > 0)
+function enclosingPromptTurn(nodes: TrajectorySnapshot['eventNodes'], seq: number, partial: TrajectorySnapshot['partial']): number {
+  const next = nodes.find(node => node.seq > seq && node.kind === 'assistant' && node.step > 0)
   if (next?.kind === 'assistant') return next.turn
   return partial?.turn ?? 1
 }
 
 /** Earliest raw turn represented by the selected trajectory branch. */
-function firstVisibleTurn(
-  nodes: TrajectorySnapshot['eventNodes'],
-  partial: TrajectorySnapshot['partial'],
-): number {
-  const turns = nodes.flatMap(node =>
-    node.kind === 'assistant' && node.turn > 0
-      ? [node.turn]
-      : [],
-  )
+function firstVisibleTurn(nodes: TrajectorySnapshot['eventNodes'], partial: TrajectorySnapshot['partial']): number {
+  const turns = nodes.flatMap(node => (node.kind === 'assistant' && node.turn > 0 ? [node.turn] : []))
   if (partial !== null && partial.turn > 0) turns.push(partial.turn)
   return turns.length === 0 ? 1 : Math.min(...turns)
 }
@@ -1005,9 +940,7 @@ function indexAssistantCallIds(nodes: TrajectorySnapshot['eventNodes']): Readonl
   return ids
 }
 
-function collectCallIds(
-  turns: Map<number, TurnBucket>,
-): Set<string> {
+function collectCallIds(turns: Map<number, TurnBucket>): Set<string> {
   const ids = new Set<string>()
   for (const entry of turns.values()) {
     for (const group of entry.groups) {
@@ -1018,8 +951,6 @@ function collectCallIds(
   }
   return ids
 }
-
-
 
 /** Interleave each tool cell's nested child calls right after it, reindexing followers. */
 function withSubCalls(laidList: LaidCell[], t: TrajectoryTranslate): LaidCell[] {
@@ -1037,11 +968,7 @@ function withSubCalls(laidList: LaidCell[], t: TrajectoryTranslate): LaidCell[] 
 }
 
 /** Sub-dispatch cells for one run_code parent, in start order (running = null duration). */
-function expandSubCalls(
-  subs: readonly ToolCallBlock[] | undefined,
-  startIndex: number,
-  t: TrajectoryTranslate,
-): LaidCell[] {
+function expandSubCalls(subs: readonly ToolCallBlock[] | undefined, startIndex: number, t: TrajectoryTranslate): LaidCell[] {
   if (subs === undefined || subs.length === 0) return []
   const out: LaidCell[] = []
   let index = startIndex
@@ -1051,34 +978,30 @@ function expandSubCalls(
     const resultPreview = settled ? summarizeResult(sub, t) : undefined
     const laid: LaidCell = {
       absTime: settled ? finiteTime(sub.callTime ?? sub.time) : finiteTime(sub.time),
-      toolName: settled ? sub.call?.name ?? sub.callId : sub.name,
+      toolName: settled ? (sub.call?.name ?? sub.callId) : sub.name,
       callId: sub.callId,
       cell: {
         index: ++index,
         kind: 'subtool',
         callId: sub.callId,
         ...(settled
-          ? (sub.call !== null
+          ? sub.call !== null
             ? summarizeCall(sub.call.name, sub.call.argsRaw)
-            : resultAsText(resultPreview))
+            : resultAsText(resultPreview)
           : summarizeCall(sub.name, sub.argsRaw)),
-        ...(settled
-          ? (sub.call !== null ? { inputDetail: sub.call.argsRaw } : {})
-          : { inputDetail: sub.argsRaw }),
+        ...(settled ? (sub.call !== null ? { inputDetail: sub.call.argsRaw } : {}) : { inputDetail: sub.argsRaw }),
         ...(settled
           ? {
-            outputDetail: detailResult(sub, t),
-            outputBlocks: sub.content.map(block => sourceBlock(block)),
-            ...resultPreview,
-            isError: sub.isError,
-          }
+              outputDetail: detailResult(sub, t),
+              outputBlocks: sub.content.map(block => sourceBlock(block)),
+              ...resultPreview,
+              isError: sub.isError,
+            }
           : {}),
         // The code-dispatch start/settle pair carries per-sub-call wall time;
         // a running (unsettled) or pre-pair log entry shows the em dash.
         timeSeconds: settled ? durationSeconds(sub.time, sub.callTime) : null,
-        startedAt: settled
-          ? finiteTime(sub.callTime)
-          : finiteTime(sub.time),
+        startedAt: settled ? finiteTime(sub.callTime) : finiteTime(sub.time),
       },
     }
     out.push(laid)
@@ -1090,10 +1013,7 @@ function expandSubCalls(
   return out
 }
 
-function summarizeCall(
-  name: string,
-  argsRaw: string,
-): Pick<TrajectoryCellProps, 'text' | 'previewMarkdown' | 'toolName'> {
+function summarizeCall(name: string, argsRaw: string): Pick<TrajectoryCellProps, 'text' | 'previewMarkdown' | 'toolName'> {
   return {
     toolName: name,
     text: name,
@@ -1101,10 +1021,7 @@ function summarizeCall(
   }
 }
 
-function summarizeResult(
-  node: ToolResultNode,
-  t: TrajectoryTranslate,
-): Pick<TrajectoryCellProps, 'result' | 'resultPreviewMarkdown'> {
+function summarizeResult(node: ToolResultNode, t: TrajectoryTranslate): Pick<TrajectoryCellProps, 'result' | 'resultPreviewMarkdown'> {
   if (node.isError) {
     return { result: node.error?.code ?? 'error' }
   }
@@ -1123,30 +1040,26 @@ function resultAsText(
 ): Pick<TrajectoryCellProps, 'text' | 'previewMarkdown'> {
   return {
     text: result?.result ?? '',
-    ...(result?.resultPreviewMarkdown === undefined
-      ? {}
-      : { previewMarkdown: result.resultPreviewMarkdown }),
+    ...(result?.resultPreviewMarkdown === undefined ? {} : { previewMarkdown: result.resultPreviewMarkdown }),
   }
 }
 
 function detailResult(node: ToolResultNode, t: TrajectoryTranslate): string {
   if (node.isError) {
-    return node.error === undefined
-      ? 'error'
-      : `${node.error.name}: ${node.error.code}`
+    return node.error === undefined ? 'error' : `${node.error.name}: ${node.error.code}`
   }
   const text = node.content
     .filter(block => block.type === 'text' && typeof block.text === 'string')
-    .map(block => block.type === 'text' ? block.text : '')
+    .map(block => (block.type === 'text' ? block.text : ''))
     .join('\n')
   if (text !== '') return text
   const images = imageBlockCount(node.content)
   if (images > 0) return t('layout.imageCount', { count: images })
   if (
-    node.content.length === 0
-    || node.content.every(block =>
-      block.type === 'text' && (typeof block.text !== 'string' || block.text === ''))
-  ) return t('record.noOutput')
+    node.content.length === 0 ||
+    node.content.every(block => block.type === 'text' && (typeof block.text !== 'string' || block.text === ''))
+  )
+    return t('record.noOutput')
   return JSON.stringify(node.content, null, 2)
 }
 
@@ -1164,18 +1077,14 @@ function detailReasoning(content: readonly { type: string; text?: string }[]): s
     .join('\n')
 }
 
-function previewContent(
-  content: readonly { type: string; text?: string }[],
-): string | undefined {
+function previewContent(content: readonly { type: string; text?: string }[]): string | undefined {
   for (const block of content) {
     if (block.type === 'text' && typeof block.text === 'string') return block.text
   }
   return undefined
 }
 
-function previewContentProperty(
-  content: readonly { type: string; text?: string }[],
-): Pick<TrajectoryCellProps, 'previewMarkdown'> {
+function previewContentProperty(content: readonly { type: string; text?: string }[]): Pick<TrajectoryCellProps, 'previewMarkdown'> {
   const previewMarkdown = previewContent(content)
   return previewMarkdown === undefined ? {} : { previewMarkdown }
 }

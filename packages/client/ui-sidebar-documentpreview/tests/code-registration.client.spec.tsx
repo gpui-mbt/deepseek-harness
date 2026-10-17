@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Code renderer registration lifetimes through the production document and Slot registries. */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { act } from '@testing-library/react'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -28,9 +28,10 @@ async function boot() {
   rt.slots.installLocale(locale)
   const previews = new DocumentPreviewRegistry()
   rt.ctx.provide('documentPreviews', previews)
-  const declare = () => rt.declare({
-    [SLOT]: { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
-  })
+  const declare = () =>
+    rt.declare({
+      [SLOT]: { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
+    })
   return { rt, locale, previews, declare }
 }
 
@@ -39,7 +40,13 @@ describe('code renderer registration', () => {
     const h = await boot()
     await h.rt.mount(plugin)
     expect(h.previews.getSnapshot()).toHaveLength(1)
-    expect(h.previews.getSnapshot()[0]).toMatchObject({ id: ID, extensions: CODE_HIGHLIGHT_EXTENSIONS, priority: 'builtin', loading: 'text-pages', wrap: true })
+    expect(h.previews.getSnapshot()[0]).toMatchObject({
+      id: ID,
+      extensions: CODE_HIGHLIGHT_EXTENSIONS,
+      priority: 'builtin',
+      loading: 'text-pages',
+      wrap: true,
+    })
     expect(h.rt.slots.entries(SLOT)).toEqual([])
     await h.declare()
     const entries = h.rt.slots.entries(SLOT)
@@ -52,7 +59,10 @@ describe('code renderer registration', () => {
     const h = await boot()
     await h.rt.mount(plugin)
     for (const path of ['config.ini', 'C:\\work\\settings.INI', 'pyproject.toml']) {
-      expect(h.previews.candidates(path).map(item => item.id), path).toEqual([ID])
+      expect(
+        h.previews.candidates(path).map(item => item.id),
+        path,
+      ).toEqual([ID])
     }
     expect(h.previews.candidates('notes.unknown')).toEqual([])
   })
@@ -62,9 +72,13 @@ describe('code renderer registration', () => {
     await h.declare()
     const feature = await h.rt.mount(plugin)
     const definition = h.previews.getSnapshot()[0]
-    await act(async () => { h.locale.setLocale('en') })
+    await act(async () => {
+      h.locale.setLocale('en')
+    })
     expect(definition?.title()).toBe('Code')
-    await act(async () => { h.locale.setLocale('zh') })
+    await act(async () => {
+      h.locale.setLocale('zh')
+    })
     expect(definition?.title()).toBe('代码')
     await feature.dispose()
     expect(h.previews.getSnapshot()).toEqual([])
@@ -76,7 +90,9 @@ describe('code renderer registration', () => {
     const h = await boot()
     await h.declare()
     await h.rt.mount(plugin)
-    await act(async () => { h.rt.root.release() })
+    await act(async () => {
+      h.rt.root.release()
+    })
     expect(h.rt.slots.entries(SLOT)).toEqual([])
     expect(h.previews.getSnapshot()).toHaveLength(1)
     await h.declare()
@@ -86,10 +102,15 @@ describe('code renderer registration', () => {
   it('keeps prior HTML and Markdown builtins ahead of their optional source renderer', async () => {
     const h = await boot()
     for (const extension of ['html', 'md']) {
-      h.rt.ctx.effect(() => h.previews.register({
-        id: `dedicated-${extension}`, extensions: [extension], priority: 'builtin',
-        title: () => extension, loading: extension === 'html' ? 'bytes-complete' : 'text-pages',
-      }))
+      h.rt.ctx.effect(() =>
+        h.previews.register({
+          id: `dedicated-${extension}`,
+          extensions: [extension],
+          priority: 'builtin',
+          title: () => extension,
+          loading: extension === 'html' ? 'bytes-complete' : 'text-pages',
+        }),
+      )
     }
     await h.rt.mount(plugin)
     expect(h.previews.candidates('page.html').map(item => item.id)).toEqual(['dedicated-html', ID])

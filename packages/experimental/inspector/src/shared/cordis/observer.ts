@@ -14,11 +14,7 @@ export type CordisTreeSnapshotListener = (snapshot: CordisTreeSnapshot) => void
  * @param limits - Snapshot node and encoded-byte limits.
  * @returns A disposer that unregisters listeners and releases retained objects.
  */
-export function observeCordisTree(
-  ctx: Context,
-  listener: CordisTreeSnapshotListener,
-  limits: CordisTreeLimits,
-): () => void {
+export function observeCordisTree(ctx: Context, listener: CordisTreeSnapshotListener, limits: CordisTreeLimits): () => void {
   const collector = new CordisTreeCollector(ctx.root, limits)
   let scheduled = false
   let closed = false
@@ -32,10 +28,7 @@ export function observeCordisTree(
     scheduled = true
     queueMicrotask(publish)
   }
-  const disposers = [
-    ctx.on('internal/plugin', schedule, { global: true }),
-    ctx.on('internal/status', schedule, { global: true }),
-  ]
+  const disposers = [ctx.on('internal/plugin', schedule, { global: true }), ctx.on('internal/status', schedule, { global: true })]
   publish()
   return () => {
     if (closed) return

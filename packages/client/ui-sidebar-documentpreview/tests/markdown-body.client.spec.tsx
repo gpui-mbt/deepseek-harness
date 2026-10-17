@@ -1,17 +1,20 @@
 // @vitest-environment jsdom
 /** Markdown preview uses one accumulated document across page arrivals and EOF. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { MarkdownBody, type MarkdownBodyProps } from '../src/client/markdown/MarkdownBody.tsx'
 import { en, zh } from '../src/client/markdown/locales.ts'
 import type { DocumentContent } from '../src/client/document/contract.ts'
 
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 function content(pageTexts: readonly string[], eof: boolean): DocumentContent {
   let offset = 1
-  const pages = pageTexts.map((text) => {
+  const pages = pageTexts.map(text => {
     const lines = text.split('\n').length
     const page = { offset, text, lines }
     offset += lines
@@ -23,7 +26,10 @@ function content(pageTexts: readonly string[], eof: boolean): DocumentContent {
 // Unused framework seats belong to the slot integration tests.
 function props(value: DocumentContent, t: MarkdownBodyProps['t'] = makeTranslate(en), absolutePath?: string): MarkdownBodyProps {
   return {
-    resourceAddress: 'dsh-resource://file/session/markdown/notes.md', content: value, wrap: false, t,
+    resourceAddress: 'dsh-resource://file/session/markdown/notes.md',
+    content: value,
+    wrap: false,
+    t,
     useResource: () => ({
       status: absolutePath === undefined ? 'loading' : 'live',
       value: absolutePath === undefined ? undefined : { absolutePath, version: 'v1' },
@@ -33,12 +39,11 @@ function props(value: DocumentContent, t: MarkdownBodyProps['t'] = makeTranslate
 }
 
 describe('MarkdownBody', () => {
-  it.each(['http://localhost/', 'dsh-app://app/'])('loads document images and failure text under %s', (base) => {
+  it.each(['http://localhost/', 'dsh-app://app/'])('loads document images and failure text under %s', base => {
     vi.spyOn(document, 'baseURI', 'get').mockReturnValue(base)
     const text = '![relative](images/a.png) ![absolute](/tmp/a.png) ![external](https://example.test/a.png)'
     const view = render(<MarkdownBody {...props(content([text], true), undefined, '/work/guide/notes.md')} />)
-    expect(new URL(view.getByAltText('relative').getAttribute('src')!).searchParams.get('path'))
-      .toBe('/work/guide/images/a.png')
+    expect(new URL(view.getByAltText('relative').getAttribute('src')!).searchParams.get('path')).toBe('/work/guide/images/a.png')
     expect(new URL(view.getByAltText('absolute').getAttribute('src')!).searchParams.get('path')).toBe('/tmp/a.png')
     expect(new URL(view.getByAltText('relative').getAttribute('src')!).protocol).toBe(new URL(base).protocol)
     expect(view.getByAltText('external').getAttribute('src')).toBe('https://example.test/a.png')
@@ -56,16 +61,30 @@ describe('MarkdownBody', () => {
     expect(view.container.querySelector('img')).toBeNull()
     for (const directory of ['/work/guide', '/other']) {
       view.rerender(<MarkdownBody {...props(content([first, second], true), undefined, `${directory}/notes.md`)} />)
-      expect(new URL(view.getByAltText('figure').getAttribute('src')!).searchParams.get('path'))
-        .toBe(`${directory}/images/a.png`)
+      expect(new URL(view.getByAltText('figure').getAttribute('src')!).searchParams.get('path')).toBe(`${directory}/images/a.png`)
     }
   })
 
   it('renders GFM headings, tables, task lists, strikeout, and localized code and footnote chrome', () => {
     const text = [
-      '# Notes', '', '| Item | Value |', '| --- | --- |', '| a | 1 |', '',
-      '- [x] Done', '- [ ] Pending', '', '~~Old~~ and **new**.', '',
-      '```ts', 'const answer = 42', '```', '', 'Note[^one].', '', '[^one]: Detail.',
+      '# Notes',
+      '',
+      '| Item | Value |',
+      '| --- | --- |',
+      '| a | 1 |',
+      '',
+      '- [x] Done',
+      '- [ ] Pending',
+      '',
+      '~~Old~~ and **new**.',
+      '',
+      '```ts',
+      'const answer = 42',
+      '```',
+      '',
+      'Note[^one].',
+      '',
+      '[^one]: Detail.',
     ].join('\n')
     const view = render(<MarkdownBody {...props(content([text], true))} />)
     expect(view.getByRole('heading', { name: 'Notes' })).toBeDefined()
@@ -118,7 +137,7 @@ describe('MarkdownBody', () => {
 
   it('updates labels when translations change without replacing the translation function', () => {
     let dictionary = en
-    const t: MarkdownBodyProps['t'] = key => Object.hasOwn(dictionary, key) ? dictionary[key as keyof typeof dictionary] : key
+    const t: MarkdownBodyProps['t'] = key => (Object.hasOwn(dictionary, key) ? dictionary[key as keyof typeof dictionary] : key)
     const text = '```ts\nconst answer = 42\n```\n\nNote[^one].\n\n[^one]: Detail.'
     const value = content([text], true)
     const view = render(<MarkdownBody {...props(value, t)} />)
@@ -131,16 +150,49 @@ describe('MarkdownBody', () => {
 
   it('renders leading YAML frontmatter as fields instead of a heading', async () => {
     const text = [
-      '---', 'name: pdf', 'description: >-', '  Extract text', '  from PDF files.',
-      'metadata:', '  tags: [docs, pdf]', 'anchor: &list [a]', 'copy: *list', 'license:', 'version: 1.0', 'beta: true', '1: one', '? orphan',
-      '---', '', '# Body',
+      '---',
+      'name: pdf',
+      'description: >-',
+      '  Extract text',
+      '  from PDF files.',
+      'metadata:',
+      '  tags: [docs, pdf]',
+      'anchor: &list [a]',
+      'copy: *list',
+      'license:',
+      'version: 1.0',
+      'beta: true',
+      '1: one',
+      '? orphan',
+      '---',
+      '',
+      '# Body',
     ].join('\n')
     const view = render(<MarkdownBody {...props(content([text], true))} />)
     const fields = await vi.waitUntil(() => view.container.querySelector('[data-document-frontmatter] dl'))
-    expect([...fields.querySelectorAll('dt')].map(node => node.textContent))
-      .toEqual(['name', 'description', 'metadata', 'anchor', 'copy', 'license', 'version', 'beta', '1', 'orphan'])
+    expect([...fields.querySelectorAll('dt')].map(node => node.textContent)).toEqual([
+      'name',
+      'description',
+      'metadata',
+      'anchor',
+      'copy',
+      'license',
+      'version',
+      'beta',
+      '1',
+      'orphan',
+    ])
     expect([...fields.querySelectorAll('dd')].map(node => node.textContent)).toEqual([
-      'pdf', 'Extract text from PDF files.', 'tags: [docs, pdf]', '[a]', '*list', '', '1.0', 'true', 'one', '',
+      'pdf',
+      'Extract text from PDF files.',
+      'tags: [docs, pdf]',
+      '[a]',
+      '*list',
+      '',
+      '1.0',
+      'true',
+      'one',
+      '',
     ])
     expect(view.getAllByRole('heading').map(node => node.textContent)).toEqual(['Body'])
   })
@@ -151,7 +203,9 @@ describe('MarkdownBody', () => {
     ['a sequence document', '- first\n- second'],
   ])('shows the verbatim frontmatter source for %s', async (_, source) => {
     const view = render(<MarkdownBody {...props(content([`---\r\n${source}\r\n...\r\nBody.`], true))} />)
-    await act(async () => { await import('../src/client/markdown/frontmatter-fields.tsx') })
+    await act(async () => {
+      await import('../src/client/markdown/frontmatter-fields.tsx')
+    })
     const block = view.container.querySelector('[data-document-frontmatter]')
     expect(block?.querySelector('dl')).toBeNull()
     expect(block?.querySelector('pre')?.textContent).toBe(source)

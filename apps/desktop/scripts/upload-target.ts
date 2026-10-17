@@ -37,8 +37,10 @@ function requiredEnvironmentValue(environment: NodeJS.ProcessEnv, name: string):
  * @returns Release settings with only the selected credential pair replaced.
  */
 export function resolveCredentialUploadEnvironment(
-  fileEnvironment: NodeJS.ProcessEnv, injectedEnvironment: NodeJS.ProcessEnv,
-  selected: 'test' | 'production', bucket: string,
+  fileEnvironment: NodeJS.ProcessEnv,
+  injectedEnvironment: NodeJS.ProcessEnv,
+  selected: 'test' | 'production',
+  bucket: string,
   target: DesktopPackageTargetName,
 ): NodeJS.ProcessEnv {
   const platform = target === 'win-x64' ? 'win32' : 'darwin'
@@ -47,8 +49,10 @@ export function resolveCredentialUploadEnvironment(
   if (destination.environment !== selected || destination.bucket !== bucket) {
     throw new Error('desktop upload: credential launcher deployment or bucket differs from the packaged release destination')
   }
-  if (injectedEnvironment.DSH_DESKTOP_AUTO_UPDATE_ENV !== selected
-    || injectedEnvironment[`${selected === 'test' ? 'DOWNLOAD_TEST' : 'DOWNLOAD_PROD'}_COS_BUCKET`] !== bucket) {
+  if (
+    injectedEnvironment.DSH_DESKTOP_AUTO_UPDATE_ENV !== selected ||
+    injectedEnvironment[`${selected === 'test' ? 'DOWNLOAD_TEST' : 'DOWNLOAD_PROD'}_COS_BUCKET`] !== bucket
+  ) {
     throw new Error('desktop upload: credential launcher environment differs from its explicit arguments')
   }
   return {
@@ -64,10 +68,16 @@ export function resolveCredentialUploadEnvironment(
  * @returns Resolves after upload and any release-tag attempt complete.
  */
 export async function uploadDesktopTarget(args: string[]): Promise<void> {
-  const { positionals, values } = parseArgs({ args, allowPositionals: true, options: {
-    latest: { type: 'boolean' },
-    'credential-launcher': { type: 'boolean' }, environment: { type: 'string' }, bucket: { type: 'string' },
-  } })
+  const { positionals, values } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      latest: { type: 'boolean' },
+      'credential-launcher': { type: 'boolean' },
+      environment: { type: 'string' },
+      bucket: { type: 'string' },
+    },
+  })
   const target = positionals[0]
   if (target === undefined || positionals.length !== 1) {
     throw new Error('desktop upload: expected exactly one target')
@@ -75,8 +85,11 @@ export async function uploadDesktopTarget(args: string[]): Promise<void> {
   const name = targetName(target)
   const fileEnvironment = loadDesktopPackageEnvironment(name === 'win-x64' ? 'win32' : 'darwin')
   const launcher = values['credential-launcher'] === true
-  if (launcher ? values.environment === undefined || values.bucket === undefined
-    : values.environment !== undefined || values.bucket !== undefined) {
+  if (
+    launcher
+      ? values.environment === undefined || values.bucket === undefined
+      : values.environment !== undefined || values.bucket !== undefined
+  ) {
     throw new Error('desktop upload: credential launcher requires an explicit environment and bucket')
   }
   if (values.environment !== undefined && values.environment !== 'test' && values.environment !== 'production') {
@@ -112,7 +125,9 @@ function recordProductionRelease(plan: DesktopUploadPlan): void {
   }
   const result = tagDesktopRelease({ version: plan.version, commit: plan.commit, repositoryRoot: resolve(import.meta.dirname, '../../..') })
   if (result.status === 'failed') {
-    process.stderr.write(`desktop upload: the release is published but ${result.tag} was not recorded: ${result.detail ?? 'unknown error'}\n`)
+    process.stderr.write(
+      `desktop upload: the release is published but ${result.tag} was not recorded: ${result.detail ?? 'unknown error'}\n`,
+    )
     if (result.recovery !== undefined) {
       process.stderr.write(`desktop upload: record it with: ${result.recovery.join(' && ')}\n`)
     }
@@ -123,7 +138,9 @@ function recordProductionRelease(plan: DesktopUploadPlan): void {
 
 if (process.argv[1] !== undefined && import.meta.filename === resolve(process.argv[1])) {
   uploadDesktopTarget(process.argv.slice(2)).catch(() => {
-    process.stderr.write('desktop upload: failed; inspect the printed record directory if allocated. No automatic retry; reconcile remote state before another upload.\n')
+    process.stderr.write(
+      'desktop upload: failed; inspect the printed record directory if allocated. No automatic retry; reconcile remote state before another upload.\n',
+    )
     process.exitCode = 1
   })
 }

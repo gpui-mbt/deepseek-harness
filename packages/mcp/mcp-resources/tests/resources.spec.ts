@@ -1,5 +1,5 @@
 import { setImmediate as nextEventLoopTurn } from 'node:timers/promises'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineTool, type Config as ToolConfig } from '@deepseek-ai/dsh-tools'
@@ -15,7 +15,8 @@ class BindingProbe extends PtcRuntime {
   readonly language = 'typescript'
   readonly isolation = 'in-process-test'
   behavior: (spec: PtcRunSpec) => Promise<PtcRunResult> = async spec => ({
-    logs: [], value: Object.keys(spec.bindings[0]!.functions).sort(),
+    logs: [],
+    value: Object.keys(spec.bindings[0]!.functions).sort(),
   })
 
   resolve(request: PtcRunRequest): PtcRunSpec {
@@ -44,26 +45,35 @@ async function setup(mode: ToolConfig['mode'] = 'native') {
 
 async function resourceScope(ctx: Context, owner: Agent): Promise<Scope> {
   let scoped!: Scope
-  await ctx.plugin({ inject: ['mcpResources', 'tools'], apply(inner: Context) {
-    scoped = createScope(inner, owner)
-  } })
+  await ctx.plugin({
+    inject: ['mcpResources', 'tools'],
+    apply(inner: Context) {
+      scoped = createScope(inner, owner)
+    },
+  })
   return scoped
 }
 
 function visibleResourceTools(ctx: Context, agent?: Agent): string[] {
-  return ctx.tools.schemas(agent).map(tool => tool.name).filter(name => resourceToolNames.includes(name)).sort()
+  return ctx.tools
+    .schemas(agent)
+    .map(tool => tool.name)
+    .filter(name => resourceToolNames.includes(name))
+    .sort()
 }
 
 function call(ctx: Context, name: string, args: unknown, agent?: Agent) {
   return ctx.tools.execute({
-    name, arguments: args, callId: ToolCallId('resource-test'),
+    name,
+    arguments: args,
+    callId: ToolCallId('resource-test'),
     signal: new AbortController().signal,
-    ...agent === undefined ? {} : { agent },
+    ...(agent === undefined ? {} : { agent }),
   })
 }
 
 describe('MCP resource tools', () => {
-  it.each(['native', 'ptc'] as const)('omits every MCP contribution with no servers in %s mode', async (mode) => {
+  it.each(['native', 'ptc'] as const)('omits every MCP contribution with no servers in %s mode', async mode => {
     const ctx = await setup(mode)
     expect(visibleResourceTools(ctx)).toEqual([])
     const assembly = await ctx.systemPrompt.assemble()
@@ -71,24 +81,34 @@ describe('MCP resource tools', () => {
     expect(assembly.tools.map(tool => tool.name).filter(name => resourceToolNames.includes(name))).toEqual([])
     for (const name of resourceToolNames) {
       expect(ctx.tools.get(name)).toBeUndefined()
-      expect(await call(ctx, name, { server: 'missing', uri: 'docs://text' }))
-        .toMatchObject({ isError: true, error: { info: { code: 'UNKNOWN_TOOL' } } })
+      expect(await call(ctx, name, { server: 'missing', uri: 'docs://text' })).toMatchObject({
+        isError: true,
+        error: { info: { code: 'UNKNOWN_TOOL' } },
+      })
     }
     if (mode !== 'native') {
-      expect(await call(ctx, 'run_code', { code: 'inspect bindings', description: 'Inspect bindings' }))
-        .toMatchObject({ isError: false, value: { result: [] } })
+      expect(await call(ctx, 'run_code', { code: 'inspect bindings', description: 'Inspect bindings' })).toMatchObject({
+        isError: false,
+        value: { result: [] },
+      })
     }
   })
 
   it('keeps shared tools until the last provider unloads and accepts a replacement', async () => {
     const ctx = await setup()
     const request = vi.fn<McpResourceProvider['request']>().mockResolvedValue({ resources: [] })
-    const first = await ctx.plugin({ inject: ['mcpResources'], apply(inner: Context) {
-      inner.mcpResources.register('first', { request })
-    } })
-    const second = await ctx.plugin({ inject: ['mcpResources'], apply(inner: Context) {
-      inner.mcpResources.register('second', { request })
-    } })
+    const first = await ctx.plugin({
+      inject: ['mcpResources'],
+      apply(inner: Context) {
+        inner.mcpResources.register('first', { request })
+      },
+    })
+    const second = await ctx.plugin({
+      inject: ['mcpResources'],
+      apply(inner: Context) {
+        inner.mcpResources.register('second', { request })
+      },
+    })
     expect(visibleResourceTools(ctx)).toEqual([...resourceToolNames].sort())
     await first.dispose()
     expect(visibleResourceTools(ctx)).toEqual([...resourceToolNames].sort())
@@ -109,16 +129,21 @@ describe('MCP resource tools', () => {
     expect(visibleResourceTools(ctx)).toEqual([])
   })
 
-  it.each([false, true])('shares scoped tools across independent provider owners (reverse disposal: %s)', async (reverse) => {
+  it.each([false, true])('shares scoped tools across independent provider owners (reverse disposal: %s)', async reverse => {
     const ctx = await setup()
     const owner = {} as Agent
     const request = vi.fn<McpResourceProvider['request']>().mockResolvedValue({ resources: [] })
-    const providers = await Promise.all(['first', 'second'].map(async server => ({
-      server,
-      fiber: await ctx.plugin({ inject: ['mcpResources'], apply(inner: Context) {
-        createScope(inner, owner).ctx.mcpResources.register(server, { request })
-      } }),
-    })))
+    const providers = await Promise.all(
+      ['first', 'second'].map(async server => ({
+        server,
+        fiber: await ctx.plugin({
+          inject: ['mcpResources'],
+          apply(inner: Context) {
+            createScope(inner, owner).ctx.mcpResources.register(server, { request })
+          },
+        }),
+      })),
+    )
     if (reverse) providers.reverse()
     await providers[0]!.fiber.dispose()
     expect(visibleResourceTools(ctx, owner)).toEqual([...resourceToolNames].sort())
@@ -134,18 +159,23 @@ describe('MCP resource tools', () => {
     const cleanupStarted = Promise.withResolvers<undefined>()
     const cleanupGate = Promise.withResolvers<undefined>()
     const disposalOrder: string[] = []
-    const stopObserving = ctx.on('internal/plugin', (fiber) => {
+    const stopObserving = ctx.on('internal/plugin', fiber => {
       if (fiber.name !== 'scope') return
-      fiber.ctx.effect(() => async () => {
-        cleanupStarted.resolve(undefined)
-        await cleanupGate.promise
-        disposalOrder.push('tools disposed')
-      }, 'resource-scope-cleanup')
+      fiber.ctx.effect(
+        () => async () => {
+          cleanupStarted.resolve(undefined)
+          await cleanupGate.promise
+          disposalOrder.push('tools disposed')
+        },
+        'resource-scope-cleanup',
+      )
     })
     scoped.ctx.mcpResources.register('docs', { request: async () => ({ resources: [] }) })
     stopObserving()
     try {
-      const disposed = scoped.dispose().then(() => { disposalOrder.push('provider disposed') })
+      const disposed = scoped.dispose().then(() => {
+        disposalOrder.push('provider disposed')
+      })
       await cleanupStarted.promise
       expect(visibleResourceTools(ctx, owner)).toEqual([])
       // Drain unblocked teardown promise chains before releasing the only asynchronous cleanup.
@@ -175,10 +205,13 @@ describe('MCP resource tools', () => {
     }
     for (const agent of [undefined, sibling]) {
       expect(visibleResourceTools(ctx, agent)).toEqual([])
-      expect(renderPrompt(await ctx.systemPrompt.assemble(agent === undefined ? {} : { scope: agent })))
-        .not.toContain('MCP resource servers')
-      expect(await call(ctx, 'list_mcp_resources', { server: 'docs' }, agent))
-        .toMatchObject({ isError: true, error: { info: { code: 'UNKNOWN_TOOL' } } })
+      expect(renderPrompt(await ctx.systemPrompt.assemble(agent === undefined ? {} : { scope: agent }))).not.toContain(
+        'MCP resource servers',
+      )
+      expect(await call(ctx, 'list_mcp_resources', { server: 'docs' }, agent)).toMatchObject({
+        isError: true,
+        error: { info: { code: 'UNKNOWN_TOOL' } },
+      })
     }
     const removeGlobal = ctx.mcpResources.register('docs', { request: globalRequest })
     removeLocal()
@@ -201,7 +234,7 @@ describe('MCP resource tools', () => {
     const remove = ctx.mcpResources.register('docs', { request })
     expect(renderPrompt(await ctx.systemPrompt.assemble())).toContain('list_mcp_resources:')
     const runtime = ctx.ptcRuntime as BindingProbe
-    runtime.behavior = async (spec) => {
+    runtime.behavior = async spec => {
       const binding = spec.bindings[0]!.functions['list_mcp_resources']!
       expect(await binding({ server: 'docs' })).toEqual({ resources: [] })
       remove()
@@ -213,8 +246,10 @@ describe('MCP resource tools', () => {
     expect(request).toHaveBeenCalledOnce()
     expect(renderPrompt(await ctx.systemPrompt.assemble())).not.toContain('mcp')
     runtime.behavior = async spec => ({ logs: [], value: Object.keys(spec.bindings[0]!.functions) })
-    expect(await call(ctx, 'run_code', { code: 'inspect bindings', description: 'Inspect bindings' }))
-      .toMatchObject({ isError: false, value: { result: [] } })
+    expect(await call(ctx, 'run_code', { code: 'inspect bindings', description: 'Inspect bindings' })).toMatchObject({
+      isError: false,
+      value: { result: [] },
+    })
   })
 
   it('retains tools for a configured provider while its requests fail', async () => {
@@ -226,20 +261,22 @@ describe('MCP resource tools', () => {
     expect(renderPrompt(await ctx.systemPrompt.assemble())).toContain('server argument: ["docs"]')
   })
 
-  it.each([false, true])('rolls back a partial shared-tool registration (scoped: %s)', async (scoped) => {
+  it.each([false, true])('rolls back a partial shared-tool registration (scoped: %s)', async scoped => {
     const ctx = await setup()
     const owner = {} as Agent
     const registrationCtx = scoped ? (await resourceScope(ctx, owner)).ctx : ctx
-    const removeConflict = registrationCtx.tools.register(defineTool({
-      name: 'list_mcp_resource_templates', description: 'Conflicting tool.', parameters: {},
-      output: { schema: { type: 'null' }, render: () => [] },
-      execute: async () => null,
-    }))
-    expect(() => registrationCtx.mcpResources.register('docs', { request: async () => ({ resources: [] }) }))
-      .toThrow('already registered')
+    const removeConflict = registrationCtx.tools.register(
+      defineTool({
+        name: 'list_mcp_resource_templates',
+        description: 'Conflicting tool.',
+        parameters: {},
+        output: { schema: { type: 'null' }, render: () => [] },
+        execute: async () => null,
+      }),
+    )
+    expect(() => registrationCtx.mcpResources.register('docs', { request: async () => ({ resources: [] }) })).toThrow('already registered')
     expect(ctx.tools.get('list_mcp_resources', scoped ? owner : undefined)).toBeUndefined()
-    expect(renderPrompt(await ctx.systemPrompt.assemble(scoped ? { scope: owner } : {})))
-      .not.toContain('MCP resource servers')
+    expect(renderPrompt(await ctx.systemPrompt.assemble(scoped ? { scope: owner } : {}))).not.toContain('MCP resource servers')
     removeConflict()
     registrationCtx.mcpResources.register('docs', { request: async () => ({ resources: [] }) })
     expect(visibleResourceTools(ctx, scoped ? owner : undefined)).toEqual([...resourceToolNames].sort())
@@ -261,19 +298,19 @@ describe('MCP resource tools', () => {
     const other = {} as Agent
     const provider = { request: async () => ({ resources: [] }) }
     const disposeGlobal = ctx.mcpResources.register('docs', provider)
-    const fiber = await ctx.plugin({ inject: ['mcpResources'], apply(inner: Context) {
-      const scope = createScope(inner, owner)
-      scope.ctx.mcpResources.register('docs', provider)
-      scope.ctx.mcpResources.register('private', provider)
-    } })
+    const fiber = await ctx.plugin({
+      inject: ['mcpResources'],
+      apply(inner: Context) {
+        const scope = createScope(inner, owner)
+        scope.ctx.mcpResources.register('docs', provider)
+        scope.ctx.mcpResources.register('private', provider)
+      },
+    })
 
-    expect(renderPrompt(await ctx.systemPrompt.assemble({ scope: owner })))
-      .toContain('server argument: ["docs","private"]')
-    expect(renderPrompt(await ctx.systemPrompt.assemble({ scope: other })))
-      .toContain('server argument: ["docs"]')
+    expect(renderPrompt(await ctx.systemPrompt.assemble({ scope: owner }))).toContain('server argument: ["docs","private"]')
+    expect(renderPrompt(await ctx.systemPrompt.assemble({ scope: other }))).toContain('server argument: ["docs"]')
     await fiber.dispose()
-    expect(renderPrompt(await ctx.systemPrompt.assemble({ scope: owner })))
-      .toContain('server argument: ["docs"]')
+    expect(renderPrompt(await ctx.systemPrompt.assemble({ scope: owner }))).toContain('server argument: ["docs"]')
     disposeGlobal()
     expect(renderPrompt(await ctx.systemPrompt.assemble())).not.toContain('MCP resource servers')
   })
@@ -306,25 +343,32 @@ describe('MCP resource tools', () => {
     expect((await call(ctx, 'read_mcp_resource', { server: 'docs', uri: 'docs://guide' })).isError).toBe(false)
     expect(request.mock.calls[2]?.[0]).toEqual({ method: 'resources/read', uri: 'docs://guide' })
     expect(request.mock.calls[2]?.[1].signal).toBeInstanceOf(AbortSignal)
-    expect((await call(ctx, 'list_mcp_resource_templates', { server: 'docs', cursor: 'template-page' })).isError)
-      .toBe(false)
+    expect((await call(ctx, 'list_mcp_resource_templates', { server: 'docs', cursor: 'template-page' })).isError).toBe(false)
     expect(request.mock.calls[3]?.[0]).toEqual({ method: 'resources/templates/list', cursor: 'template-page' })
   })
 
   it('keeps binary bytes programmatic while projecting text, URI and server attribution', async () => {
     const ctx = await setup()
-    const value = { contents: [
-      { uri: 'docs://text', mimeType: 'text/plain', text: 'Read this guide.' },
-      { uri: 'docs://binary', mimeType: 'application/octet-stream', blob: 'AQIDBA==' },
-    ] }
+    const value = {
+      contents: [
+        { uri: 'docs://text', mimeType: 'text/plain', text: 'Read this guide.' },
+        { uri: 'docs://binary', mimeType: 'application/octet-stream', blob: 'AQIDBA==' },
+      ],
+    }
     ctx.mcpResources.register('docs', { request: async () => value })
     const result = await call(ctx, 'read_mcp_resource', { server: 'docs', uri: 'docs://text' })
     expect(result.isError).toBe(false)
     expect('value' in result && result.value).toEqual(value)
-    expect(result.content).toEqual([{ type: 'text', text: 'MCP server: docs\n'
-      + '{"contents":[{"uri":"docs://text","mimeType":"text/plain","text":"Read this guide."},'
-      + '{"uri":"docs://binary","mimeType":"application/octet-stream","blob":'
-      + '"[binary resource: 8 base64 characters; available to programmatic callers]"}]}' }])
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text:
+          'MCP server: docs\n' +
+          '{"contents":[{"uri":"docs://text","mimeType":"text/plain","text":"Read this guide."},' +
+          '{"uri":"docs://binary","mimeType":"application/octet-stream","blob":' +
+          '"[binary resource: 8 base64 characters; available to programmatic callers]"}]}',
+      },
+    ])
     expect(JSON.stringify(result.content)).not.toContain('AQIDBA==')
   })
 
@@ -345,11 +389,14 @@ describe('MCP resource tools', () => {
     const owner = {} as Agent
     ctx.mcpResources.register('docs', { request: globalRequest })
     let dispose = () => {}
-    await ctx.plugin({ inject: ['mcpResources'], apply(inner: Context) {
-      const scope = createScope(inner, owner)
-      dispose = scope.ctx.mcpResources.register('docs', { request: localRequest })
-      expect(() => scope.ctx.mcpResources.register('docs', { request: localRequest })).toThrow('already registered')
-    } })
+    await ctx.plugin({
+      inject: ['mcpResources'],
+      apply(inner: Context) {
+        const scope = createScope(inner, owner)
+        dispose = scope.ctx.mcpResources.register('docs', { request: localRequest })
+        expect(() => scope.ctx.mcpResources.register('docs', { request: localRequest })).toThrow('already registered')
+      },
+    })
     await call(ctx, 'list_mcp_resources', { server: 'docs' }, owner)
     expect(localRequest).toHaveBeenCalledOnce()
     await call(ctx, 'list_mcp_resources', { server: 'docs' }, other)

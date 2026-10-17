@@ -25,7 +25,7 @@ export class HostInspectorSession {
   private failure: string | undefined
 
   constructor(private readonly contextName: string) {
-    this.session.on('inspectorNotification', (message) => {
+    this.session.on('inspectorNotification', message => {
       const rewritten = this.rewriteContextName(message)
       for (const listener of [...this.listeners]) {
         try {
@@ -44,7 +44,9 @@ export class HostInspectorSession {
    */
   subscribe(listener: (message: HostInspectorNotification) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -122,7 +124,9 @@ export class HostNotificationChannel<Event> {
     private readonly accepts: (message: HostInspectorNotification) => boolean,
     private readonly project: (message: HostInspectorNotification) => Promise<Event | undefined>,
   ) {
-    this.unsubscribe = target.subscribe((message) => { this.receive(message) })
+    this.unsubscribe = target.subscribe(message => {
+      this.receive(message)
+    })
   }
 
   /**
@@ -130,9 +134,12 @@ export class HostNotificationChannel<Event> {
    * @param listener - Consumer invoked in subscription order.
    * @returns A disposer removing the consumer.
    */
+  // oxlint-disable-next-line sonarjs/no-identical-functions -- The projected bridge mirrors the native bridge's listener set while owning a different target and lifecycle.
   subscribe(listener: (event: Event) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /** Release the native notification subscription and all consumers. */
@@ -143,19 +150,21 @@ export class HostNotificationChannel<Event> {
 
   private receive(message: HostInspectorNotification): void {
     if (!this.accepts(message)) return
-    this.delivery = this.delivery.then(async () => {
-      const event = await this.project(message)
-      if (event === undefined) return
-      for (const listener of [...this.listeners]) {
-        try {
-          listener(event)
-        } catch {
-          // One notification consumer cannot prevent delivery to its siblings.
+    this.delivery = this.delivery
+      .then(async () => {
+        const event = await this.project(message)
+        if (event === undefined) return
+        for (const listener of [...this.listeners]) {
+          try {
+            listener(event)
+          } catch {
+            // One notification consumer cannot prevent delivery to its siblings.
+          }
         }
-      }
-    }).catch(() => {
-      // Malformed optional native notifications do not interrupt request handling.
-    })
+      })
+      .catch(() => {
+        // Malformed optional native notifications do not interrupt request handling.
+      })
   }
 }
 

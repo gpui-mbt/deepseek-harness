@@ -9,7 +9,7 @@
  * regressive turn numbers) run against the exported definition directly.
  */
 
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
@@ -36,23 +36,31 @@ async function harness(withOutlinePlugin: boolean): Promise<{ ctx: Context; sess
 
 /** Append one human prompt; returns its seq. */
 function appendPrompt(session: Session, text: string): SessionSeq {
-  return session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' }).seq
+  return session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  ).seq
 }
 
 /** Append one assembled assistant message with a single text block. */
 function appendAssistant(session: Session, turn: number, step: number, text: string): void {
-  session.append('assistant/message', {
-    stream: [],
-    turn,
-    step,
-    message: createAssistantMessage({
-      content: [{ type: 'text', text }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step,
+      message: createAssistantMessage({
+        content: [{ type: 'text', text }],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
 }
 
 function endTurn(session: Session, turn: number): SessionSeq {
@@ -71,8 +79,7 @@ describe('turn outline projection unit', () => {
   it('serves an empty outline before any turn starts', async () => {
     const { ctx, session } = await harness(true)
     expect(outlineOf(ctx, session)).toEqual([])
-    expect(ctx.sessionProjections.checkpoint(session).turnOutline)
-      .toEqual({ ver: 2, seq: -1, val: { turns: [], draft: '' } })
+    expect(ctx.sessionProjections.checkpoint(session).turnOutline).toEqual({ ver: 2, seq: -1, val: { turns: [], draft: '' } })
   })
 
   it('folds each turn with its boundary seq, first prompt, and turn-end response', async () => {
@@ -105,10 +112,14 @@ describe('turn outline projection unit', () => {
   it('reads a bounded slice of one oversized text block instead of the whole payload', async () => {
     const { ctx, session } = await harness(true)
     session.append('turn/start', { turn: 1 })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `giant ${'g'.repeat(500_000)}` }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: `giant ${'g'.repeat(500_000)}` }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     appendAssistant(session, 1, 1, `answer ${'a'.repeat(500_000)}`)
     endTurn(session, 1)
     const entry = outlineOf(ctx, session)[0]
@@ -121,13 +132,17 @@ describe('turn outline projection unit', () => {
   it('collapses whitespace and caps previews at their card budgets with an ellipsis', async () => {
     const { ctx, session } = await harness(true)
     session.append('turn/start', { turn: 1 })
-    session.append('user/message', createUserMessage({
-      content: [
-        { type: 'text', text: `  spaced\n\nprompt\t${'p'.repeat(80)}` },
-        { type: 'text', text: 'never reached past the budget' },
-      ],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [
+          { type: 'text', text: `  spaced\n\nprompt\t${'p'.repeat(80)}` },
+          { type: 'text', text: 'never reached past the budget' },
+        ],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     appendAssistant(session, 1, 1, `answer ${'r'.repeat(200)}`)
     endTurn(session, 1)
     const entry = outlineOf(ctx, session)[0]
@@ -141,13 +156,15 @@ describe('turn outline projection unit', () => {
     const { ctx, session } = await harness(true)
     appendPrompt(session, 'queued before any turn')
     session.append('turn/start', { turn: 1 })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'injected context' }],
-      source: { kind: 'test-injector', form: 'relay' },
-    }), { surfaceOp: 'append' })
-    expect(outlineOf(ctx, session)).toEqual([
-      { turn: 1, seq: 1, prompt: '', response: '' },
-    ])
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'injected context' }],
+        source: { kind: 'test-injector', form: 'relay' },
+      }),
+      { surfaceOp: 'append' },
+    )
+    expect(outlineOf(ctx, session)).toEqual([{ turn: 1, seq: 1, prompt: '', response: '' }])
   })
 
   it('pushes at most three times per turn: boundary, prompt, and settled response', async () => {
@@ -180,12 +197,13 @@ describe('turn outline projection unit', () => {
 
   it('bounds preview reading and keeps repeated or empty drafts quiet (fabricated envelopes)', () => {
     const def = turnOutlineProjectionDefinition
-    const assistant = (blocks: readonly unknown[]): SessionEvent => ({
-      type: 'assistant/message',
-      seq: SessionSeq(9),
-      time: 0,
-      data: { message: { content: blocks } },
-    }) as unknown as SessionEvent
+    const assistant = (blocks: readonly unknown[]): SessionEvent =>
+      ({
+        type: 'assistant/message',
+        seq: SessionSeq(9),
+        time: 0,
+        data: { message: { content: blocks } },
+      }) as unknown as SessionEvent
     const base: TurnOutlineState = { turns: [{ turn: 1, seq: SessionSeq(0), prompt: 'p', response: '' }], draft: '' }
     // Non-text blocks are skipped; whitespace-heavy short blocks cross the raw
     // reading bound early, so the collapsed (short) draft still marks the
@@ -247,31 +265,47 @@ describe('turn outline projection unit', () => {
     const checkpoint = ctx.sessionProjections.checkpoint(session)
     const row = checkpoint.turnOutline
     expect(row).toBeDefined()
-    expect(() => ctx.sessionProjections.restore({
-      ...checkpoint,
-      turnOutline: {
-        ...row!,
-        val: {
-          turns: [
-            { turn: 2, seq: 1, prompt: '', response: '' },
-            { turn: 2, seq: 4, prompt: '', response: '' },
-          ],
-          draft: '',
+    expect(() =>
+      ctx.sessionProjections.restore(
+        {
+          ...checkpoint,
+          turnOutline: {
+            ...row!,
+            val: {
+              turns: [
+                { turn: 2, seq: 1, prompt: '', response: '' },
+                { turn: 2, seq: 4, prompt: '', response: '' },
+              ],
+              draft: '',
+            },
+          },
         },
-      },
-    }, [], SessionLogOffset(0), session.header, session.inheritedEventCount)).toThrow(/strictly increasing/)
-    expect(() => ctx.sessionProjections.restore({
-      ...checkpoint,
-      turnOutline: {
-        ...row!,
-        val: {
-          turns: [
-            { turn: 1, seq: 1, prompt: 'ok', response: 'done' },
-            { turn: 2, seq: 4, prompt: '', response: '' },
-          ],
-          draft: '',
+        [],
+        SessionLogOffset(0),
+        session.header,
+        session.inheritedEventCount,
+      ),
+    ).toThrow(/strictly increasing/)
+    expect(() =>
+      ctx.sessionProjections.restore(
+        {
+          ...checkpoint,
+          turnOutline: {
+            ...row!,
+            val: {
+              turns: [
+                { turn: 1, seq: 1, prompt: 'ok', response: 'done' },
+                { turn: 2, seq: 4, prompt: '', response: '' },
+              ],
+              draft: '',
+            },
+          },
         },
-      },
-    }, [], SessionLogOffset(0), session.header, session.inheritedEventCount)).not.toThrow()
+        [],
+        SessionLogOffset(0),
+        session.header,
+        session.inheritedEventCount,
+      ),
+    ).not.toThrow()
   })
 })

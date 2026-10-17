@@ -49,15 +49,11 @@ export function createQuestionDraftStore(): EngineStoreHandle<QuestionDraftState
         draft.progressByRequest[requestKey] = progress
       },
       clear: (draft, requestKey) => {
-        draft.progressByRequest = Object.fromEntries(
-          Object.entries(draft.progressByRequest).filter(([key]) => key !== requestKey),
-        )
+        draft.progressByRequest = Object.fromEntries(Object.entries(draft.progressByRequest).filter(([key]) => key !== requestKey))
       },
       prune: (draft, keep) => {
         const live = new Set(keep)
-        draft.progressByRequest = Object.fromEntries(
-          Object.entries(draft.progressByRequest).filter(([key]) => live.has(key)),
-        )
+        draft.progressByRequest = Object.fromEntries(Object.entries(draft.progressByRequest).filter(([key]) => live.has(key)))
       },
     },
   })

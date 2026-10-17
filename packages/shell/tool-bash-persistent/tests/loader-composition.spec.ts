@@ -3,7 +3,7 @@ import { provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/d
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -42,7 +42,11 @@ async function agent(ctx: Context, cwd: string): Promise<Agent> {
   const id = SessionId('persistent-bash-loader-agent')
   const scope = ctx.plugin(() => {})
   const session = Session.create(id, [], {
-    version: SESSION_FORMAT_VERSION, id, createdAt: 0, cwd, isSeeded: false,
+    version: SESSION_FORMAT_VERSION,
+    id,
+    createdAt: 0,
+    cwd,
+    isSeeded: false,
   })
   const value: Agent = {
     id,
@@ -64,7 +68,10 @@ async function agent(ctx: Context, cwd: string): Promise<Agent> {
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 const suite = process.platform === 'linux' || process.platform === 'darwin' ? describe : describe.skip
@@ -73,35 +80,38 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
   it('preserves cwd and environment across calls', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-persistent-bash-loader-'))
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-agent'",
-      "- name: '@deepseek-ai/dsh-system-prompt'",
-      "- name: '@deepseek-ai/dsh-tools'",
-      "- name: '@deepseek-ai/dsh-terminal'",
-      "- name: '@deepseek-ai/dsh-test-sandbox'",
-      "- name: '@deepseek-ai/dsh-session-projection'",
-      "- name: '@deepseek-ai/dsh-sandbox-policy'",
-      '  config:',
-      '    mode: danger-full-access',
-      `    workspaceRoot: ${JSON.stringify(root)}`,
-      "- name: '@deepseek-ai/dsh-subprocess-local'",
-      "- name: '@deepseek-ai/dsh-terminal-bash'",
-      '  config:',
-      '    pollIntervalMs: 10',
-      '    exactProbeAfterMs: 20',
-      // The silence tier is pushed beyond the send bound, so no send below can
-      // settle as inferred_idle: every case proves the controlled-prompt fast
-      // path that the production defaults (3.5s silence) would otherwise mask.
-      '    idleSilenceMs: 30000',
-      '    handoffGraceMs: 100',
-      '    scrollbackLines: 20000',
-      '    timeoutMs: 2000',
-      '    disposeGraceMs: 500',
-      "- name: '@deepseek-ai/dsh-tool-bash-persistent'",
-      '  config:',
-      '    timeoutMs: 5000',
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      [
+        "- name: '@deepseek-ai/dsh-agent'",
+        "- name: '@deepseek-ai/dsh-system-prompt'",
+        "- name: '@deepseek-ai/dsh-tools'",
+        "- name: '@deepseek-ai/dsh-terminal'",
+        "- name: '@deepseek-ai/dsh-test-sandbox'",
+        "- name: '@deepseek-ai/dsh-session-projection'",
+        "- name: '@deepseek-ai/dsh-sandbox-policy'",
+        '  config:',
+        '    mode: danger-full-access',
+        `    workspaceRoot: ${JSON.stringify(root)}`,
+        "- name: '@deepseek-ai/dsh-subprocess-local'",
+        "- name: '@deepseek-ai/dsh-terminal-bash'",
+        '  config:',
+        '    pollIntervalMs: 10',
+        '    exactProbeAfterMs: 20',
+        // The silence tier is pushed beyond the send bound, so no send below can
+        // settle as inferred_idle: every case proves the controlled-prompt fast
+        // path that the production defaults (3.5s silence) would otherwise mask.
+        '    idleSilenceMs: 30000',
+        '    handoffGraceMs: 100',
+        '    scrollbackLines: 20000',
+        '    timeoutMs: 2000',
+        '    disposeGraceMs: 500',
+        "- name: '@deepseek-ai/dsh-tool-bash-persistent'",
+        '  config:',
+        '    timeoutMs: 5000',
+        '',
+      ].join('\n'),
+    )
 
     context = new Context()
 
@@ -133,13 +143,14 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
 
     const owner = await agent(context, root)
     const signal = new AbortController().signal
-    const execute = (id: string, command: string) => context!.tools.execute({
-      signal,
-      callId: ToolCallId(id),
-      name: 'bash',
-      arguments: { command },
-      agent: owner,
-    })
+    const execute = (id: string, command: string) =>
+      context!.tools.execute({
+        signal,
+        callId: ToolCallId(id),
+        name: 'bash',
+        arguments: { command },
+        agent: owner,
+      })
 
     expect(context.tools.schemas().map(schema => schema.name)).toEqual(['bash'])
     await execute('state', 'export KEEP=loader; mkdir -p nested; cd nested')
@@ -147,30 +158,20 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
     expect(observed).toContain(`cwd=${join(root, 'nested')} keep=loader`)
     expect(observed).not.toContain('DSH_PERSISTENT_BASH')
 
-    const multiline = text(await execute(
-      'multiline',
-      'value="line one"\nprintf "%s:%s\\n" "$value" "it\'s fine"',
-    ))
+    const multiline = text(await execute('multiline', 'value="line one"\nprintf "%s:%s\\n" "$value" "it\'s fine"'))
     expect(multiline).toBe("line one:it's fine\n[Command finished with exit code 0]")
     expect(multiline).not.toContain('DSH_PERSISTENT_BASH')
 
-    const heredoc = text(await execute(
-      'heredoc',
-      "cat <<'EOF'\nalpha\nbeta\nEOF",
-    ))
+    const heredoc = text(await execute('heredoc', "cat <<'EOF'\nalpha\nbeta\nEOF"))
     expect(heredoc).toBe('alpha\nbeta\n[Command finished with exit code 0]')
 
-    const pipeline = text(await execute(
-      'pipeline',
-      '{ sleep 0.1; printf "delayed\\n"; } | cat',
-    ))
+    const pipeline = text(await execute('pipeline', '{ sleep 0.1; printf "delayed\\n"; } | cat'))
     expect(pipeline).toBe('delayed\n[Command finished with exit code 0]')
 
     // Every trailing newline is dropped before the status trailer.
     const trailing = text(await execute('trailing-newlines', 'printf "tail\\n\\n\\n"'))
     expect(trailing).toBe('tail\n[Command finished with exit code 0]')
-    expect(text(await execute('nonzero', 'exit_code() { return 3; }; exit_code')))
-      .toBe('[Command finished with exit code 3]')
+    expect(text(await execute('nonzero', 'exit_code() { return 3; }; exit_code'))).toBe('[Command finished with exit code 3]')
 
     const large = text(await execute('large-output', 'seq 1 12050'))
     expect(large.startsWith('1\n2\n3\n')).toBe(true)

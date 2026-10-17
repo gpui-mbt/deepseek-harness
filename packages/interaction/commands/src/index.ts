@@ -16,13 +16,7 @@ import type { Session, SessionEvent, SessionEventMap } from '@deepseek-ai/dsh-se
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import { CommandId } from './brand.ts'
 import type { CommandDefinitionId } from './brand.ts'
-import type {
-  CommandDescriptor,
-  CommandExecution,
-  CommandInputDescriptor,
-  CommandResult,
-  CommandSubmitAttachment,
-} from './types.ts'
+import type { CommandDescriptor, CommandExecution, CommandInputDescriptor, CommandResult, CommandSubmitAttachment } from './types.ts'
 
 export { CommandDefinitionId, CommandId } from './brand.ts'
 export type * from './types.ts'
@@ -99,9 +93,14 @@ class CommandLayer implements ScopeLayer {
    * @param scope - the scoped owner, or `undefined` for global registrations.
    */
   constructor(scope: ScopeKey | undefined) {
-    this.commands = new NamedEntries(name => new Error(scope === undefined
-      ? `command "${name}" is already registered (for a per-agent variant, mount a command-injected plugin under that agent's \`agent.ctx\`)`
-      : `command "${name}" is already registered in this scope`))
+    this.commands = new NamedEntries(
+      name =>
+        new Error(
+          scope === undefined
+            ? `command "${name}" is already registered (for a per-agent variant, mount a command-injected plugin under that agent's \`agent.ctx\`)`
+            : `command "${name}" is already registered in this scope`,
+        ),
+    )
   }
 
   /** @returns whether this layer owns no command registrations. */
@@ -161,15 +160,17 @@ function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
     }
     signal.addEventListener('abort', onAbort, { once: true })
     promise.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolve(value)
       },
       (error: unknown) => {
         signal.removeEventListener('abort', onAbort)
-        reject(error instanceof Error
-          ? error
-          : new Error(`command handler rejected with a non-Error value: ${renderThrown(error)}`, { cause: error }))
+        reject(
+          error instanceof Error
+            ? error
+            : new Error(`command handler rejected with a non-Error value: ${renderThrown(error)}`, { cause: error }),
+        )
       },
     )
   })
@@ -192,8 +193,7 @@ function normalizeDefinition(definition: CommandDefinition): RegisteredCommand {
   const rawInput: unknown = definition.input
   let input: CommandInputDescriptor | undefined
   if (rawInput !== undefined) {
-    if (typeof rawInput !== 'object' || rawInput === null || !('hint' in rawInput)
-      || typeof rawInput.hint !== 'string') {
+    if (typeof rawInput !== 'object' || rawInput === null || !('hint' in rawInput) || typeof rawInput.hint !== 'string') {
       throw new TypeError(`command "${definition.name}" input hint must be a string`)
     }
     if (rawInput.hint.trim().length === 0) {
@@ -204,22 +204,22 @@ function normalizeDefinition(definition: CommandDefinition): RegisteredCommand {
     }
     input = Object.freeze({
       hint: rawInput.hint,
-      ...('attachments' in rawInput && rawInput.attachments === true) ? { attachments: true } : {},
+      ...('attachments' in rawInput && rawInput.attachments === true ? { attachments: true } : {}),
     })
   }
   const normalized = Object.freeze({
-    ...definition.definitionId === undefined ? {} : { definitionId: definition.definitionId },
+    ...(definition.definitionId === undefined ? {} : { definitionId: definition.definitionId }),
     name: definition.name,
     description: definition.description,
-    ...input === undefined ? {} : { input },
-    ...definition.recordInput === undefined ? {} : { recordInput: definition.recordInput },
+    ...(input === undefined ? {} : { input }),
+    ...(definition.recordInput === undefined ? {} : { recordInput: definition.recordInput }),
     handler: definition.handler,
   })
   const descriptor = Object.freeze({
-    ...normalized.definitionId === undefined ? {} : { definitionId: normalized.definitionId },
+    ...(normalized.definitionId === undefined ? {} : { definitionId: normalized.definitionId }),
     name: normalized.name,
     description: normalized.description,
-    ...normalized.input === undefined ? {} : { input: normalized.input },
+    ...(normalized.input === undefined ? {} : { input: normalized.input }),
   })
   return { definition: normalized, descriptor }
 }
@@ -234,16 +234,16 @@ function normalizeResult(command: string, value: unknown): CommandResult {
     if (result.text !== undefined && typeof result.text !== 'string') {
       throw new TypeError(`command "${command}" success text must be a string when supplied`)
     }
-    if (result.sourceEventSeq !== undefined
-      && (!Number.isSafeInteger(result.sourceEventSeq)
-        || (result.sourceEventSeq as number) < 0
-        || Object.is(result.sourceEventSeq, -0))) {
+    if (
+      result.sourceEventSeq !== undefined &&
+      (!Number.isSafeInteger(result.sourceEventSeq) || (result.sourceEventSeq as number) < 0 || Object.is(result.sourceEventSeq, -0))
+    ) {
       throw new TypeError(`command "${command}" success sourceEventSeq must be a non-negative safe integer when supplied`)
     }
     return Object.freeze({
       kind: 'success',
-      ...result.text === undefined ? {} : { text: result.text },
-      ...result.sourceEventSeq === undefined ? {} : { sourceEventSeq: SessionSeq(result.sourceEventSeq as number) },
+      ...(result.text === undefined ? {} : { text: result.text }),
+      ...(result.sourceEventSeq === undefined ? {} : { sourceEventSeq: SessionSeq(result.sourceEventSeq as number) }),
     })
   }
   if (result.kind === 'error') {
@@ -263,7 +263,9 @@ function normalizeResult(command: string, value: unknown): CommandResult {
 export class CommandRuntime extends TypertRemoteService {
   private readonly layers = new ScopedLayers(
     scope => new CommandLayer(scope),
-    () => { this.notifyChange() },
+    () => {
+      this.notifyChange()
+    },
   )
 
   /** Monotonic per-instance counter behind {@link mintCommandId}. */
@@ -284,11 +286,9 @@ export class CommandRuntime extends TypertRemoteService {
    */
   register(definition: CommandDefinition): () => void {
     const registered = normalizeDefinition(definition)
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.commands.insert(registered.definition.name, registered),
-      { label: 'commands.register()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.commands.insert(registered.definition.name, registered), {
+      label: 'commands.register()',
+    })
   }
 
   /**
@@ -313,10 +313,12 @@ export class CommandRuntime extends TypertRemoteService {
    */
   @Remote
   list(agent: Agent): readonly CommandDescriptor[] {
-    return Object.freeze([...this.view(agent).values()]
-      .map(command => command.descriptor)
-      // Names are unique in the effective view, so equality is impossible.
-      .sort((left, right) => left.name < right.name ? -1 : 1))
+    return Object.freeze(
+      [...this.view(agent).values()]
+        .map(command => command.descriptor)
+        // Names are unique in the effective view, so equality is impossible.
+        .sort((left, right) => (left.name < right.name ? -1 : 1)),
+    )
   }
 
   /**
@@ -373,16 +375,15 @@ export class CommandRuntime extends TypertRemoteService {
     this.appendLifecycle(agent.session, 'command/run', {
       commandId,
       name: parsed.name,
-      ...command.definition.recordInput === false ? {} : { args: parsed.rawInput },
+      ...(command.definition.recordInput === false ? {} : { args: parsed.rawInput }),
       source: { kind: 'user' },
     })
     const settle = (result: CommandResult): CommandExecution => {
       this.appendLifecycle(agent.session, 'command/done', {
-        commandId, kind: result.kind,
-        ...result.text === undefined ? {} : { text: result.text },
-        ...result.kind === 'success' && result.sourceEventSeq !== undefined
-          ? { sourceEventSeq: result.sourceEventSeq }
-          : {},
+        commandId,
+        kind: result.kind,
+        ...(result.text === undefined ? {} : { text: result.text }),
+        ...(result.kind === 'success' && result.sourceEventSeq !== undefined ? { sourceEventSeq: result.sourceEventSeq } : {}),
       })
       return Object.freeze({ commandId, result: Object.freeze(result) })
     }
@@ -396,10 +397,8 @@ export class CommandRuntime extends TypertRemoteService {
         return settle({ kind: 'error', text: `/${parsed.name}: attachments are unavailable because no attachment store is composed` })
       }
       try {
-        attachments = await admitCommandAttachments(
-          store,
-          submittedAttachments,
-          receiptId => this.fileReceipts.resolver?.(agent, receiptId),
+        attachments = await admitCommandAttachments(store, submittedAttachments, receiptId =>
+          this.fileReceipts.resolver?.(agent, receiptId),
         )
       } catch (error: unknown) {
         if (error instanceof AttachmentError) {
@@ -434,7 +433,8 @@ export class CommandRuntime extends TypertRemoteService {
   private settleThrown(session: Session, command: string, commandId: CommandId, error: unknown): void {
     try {
       this.appendLifecycle(session, 'command/done', {
-        commandId, kind: 'error',
+        commandId,
+        kind: 'error',
         text: error instanceof Error ? error.message : renderThrown(error),
       })
     } catch (appendError: unknown) {
@@ -454,11 +454,7 @@ export class CommandRuntime extends TypertRemoteService {
    * and drains at ordinary checkpoints and teardown, like every other
    * standalone plugin event.
    */
-  private appendLifecycle<T extends 'command/run' | 'command/done'>(
-    session: Session,
-    type: T,
-    data: SessionEventMap[T],
-  ): SessionEvent<T> {
+  private appendLifecycle<T extends 'command/run' | 'command/done'>(session: Session, type: T, data: SessionEventMap[T]): SessionEvent<T> {
     // Both admitted types are log-only (non-surface), but TypeScript does not
     // reduce Session.append's conditional rest parameter through a generic
     // type parameter. Preserve the proven two-argument call shape.
@@ -523,9 +519,12 @@ async function admitCommandAttachments(
       blocks.push(Object.freeze({ type: 'image', attachment: ref }))
       continue
     }
-    blocks.push(Object.freeze({
-      type: 'file', attachment: files.get(attachment.receiptId) as FileAttachmentRef,
-    }))
+    blocks.push(
+      Object.freeze({
+        type: 'file',
+        attachment: files.get(attachment.receiptId) as FileAttachmentRef,
+      }),
+    )
   }
   return Object.freeze(blocks)
 }

@@ -2,7 +2,7 @@
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  'trigger': '设置',
+  trigger: '设置',
   'shortcut.open': '打开设置',
   'desktop.update.available': '新版本',
   'desktop.update.checking': '正在检查更新…',
@@ -22,9 +22,9 @@ export const zh = {
   'desktop.update.stopFailed': '未能安全停止任务，更新尚未安装，请稍后重试。',
   'desktop.update.tasksChanged': '有新任务开始运行，请重新确认是否停止任务并更新。',
   'desktop.update.tasksUnavailable': '无法确认任务状态，请在工作区就绪后重试更新。',
-  'title': '设置',
-  'close': '关闭',
-  'openDocument': '打开配置文件',
+  title: '设置',
+  close: '关闭',
+  openDocument: '打开配置文件',
   'openDocument.error': '无法打开配置文件',
   'general.nav': '通用设置',
   'general.currentVersion': '当前版本：{version}',
@@ -50,7 +50,7 @@ export type SettingsKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
-  'trigger': 'Settings',
+  trigger: 'Settings',
   'shortcut.open': 'Open settings',
   'desktop.update.available': 'Update',
   'desktop.update.checking': 'Checking for updates…',
@@ -70,9 +70,9 @@ export const en = {
   'desktop.update.stopFailed': 'Could not safely stop the tasks. The update has not been installed. Please try again later.',
   'desktop.update.tasksChanged': 'New tasks have started. Confirm again to stop the tasks and update.',
   'desktop.update.tasksUnavailable': 'Task status is unavailable. Try updating again when the workspace is ready.',
-  'title': 'Settings',
-  'close': 'Close',
-  'openDocument': 'Open configuration file',
+  title: 'Settings',
+  close: 'Close',
+  openDocument: 'Open configuration file',
   'openDocument.error': 'Could not open configuration file',
   'general.nav': 'General',
   'general.currentVersion': 'Current version: {version}',

@@ -14,12 +14,7 @@ import type {} from '@deepseek-ai/dsh-working-directory'
  * @param exec - tool execution supplying the agent and cancellation.
  * @returns filesystem resolution options for this call.
  */
-export async function sessionResolveOptions(
-  ctx: Context,
-  exec: ToolExecution,
-): Promise<{ cwd?: string; signal?: AbortSignal }> {
-  const cwd = exec.agent === undefined
-    ? undefined
-    : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
-  return { ...cwd !== undefined ? { cwd } : {}, signal: exec.signal }
+export async function sessionResolveOptions(ctx: Context, exec: ToolExecution): Promise<{ cwd?: string; signal?: AbortSignal }> {
+  const cwd = exec.agent === undefined ? undefined : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
+  return { ...(cwd !== undefined ? { cwd } : {}), signal: exec.signal }
 }

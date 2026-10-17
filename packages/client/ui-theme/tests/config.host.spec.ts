@@ -1,13 +1,10 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import * as HostPlugin from '../src/index.ts'
 import { liveConfig, omitsGeneratedPage } from '../../../settings/settings/tests/live-config.ts'
 import { plainConfig } from '../../../settings/settings/src/schema.ts'
-import {
-  DEFAULT_PREFERENCE, Config, apply,
-} from '@deepseek-ai/dsh-client-ui-theme'
-
+import { DEFAULT_PREFERENCE, Config, apply } from '@deepseek-ai/dsh-client-ui-theme'
 
 /** Collect the injection table the way an index render or boot payload does. */
 function collect(ctx: Context): IndexInjection[] {
@@ -27,9 +24,25 @@ describe('ui-theme host', () => {
     const ctx = new Context()
     const configuration = await liveConfig(ctx, { Config, apply })
     const { fiber } = configuration
-    expect(plainConfig(configuration.fiber.config)).toEqual({ preference: DEFAULT_PREFERENCE, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' })
+    expect(plainConfig(configuration.fiber.config)).toEqual({
+      preference: DEFAULT_PREFERENCE,
+      fontSize: 14,
+      codeFontSize: 11,
+      terminalFontSize: 13,
+      textFontFamily: '',
+      codeFontFamily: '',
+      terminalFontFamily: '',
+    })
     await configuration.update({ preference: 'dark', fontSize: 10, codeFontSize: 16, codeFontFamily: '"Iosevka"' })
-    expect(plainConfig(configuration.fiber.config)).toEqual({ preference: 'dark', fontSize: 10, codeFontSize: 16, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '"Iosevka"', terminalFontFamily: '' })
+    expect(plainConfig(configuration.fiber.config)).toEqual({
+      preference: 'dark',
+      fontSize: 10,
+      codeFontSize: 16,
+      terminalFontSize: 13,
+      textFontFamily: '',
+      codeFontFamily: '"Iosevka"',
+      terminalFontFamily: '',
+    })
     await configuration.update({ fontSize: 22 })
     expect(plainConfig(configuration.fiber.config)).toMatchObject({ preference: 'dark', fontSize: 22 })
     await expect(configuration.update({ preference: 'sepia' })).rejects.toThrow()
@@ -42,7 +55,7 @@ describe('ui-theme host', () => {
 
   it('answers each collection with the current durable preference until disposal', async () => {
     const ctx = new Context()
-    ctx.on('webserver/index-inject', (table) => {
+    ctx.on('webserver/index-inject', table => {
       table.push({ kind: 'script', placement: 'head', text: 'window.afterTheme=true' })
     })
     const configuration = await liveConfig(ctx, { Config, apply })
@@ -71,8 +84,6 @@ describe('ui-theme host', () => {
     await ctx.plugin({ Config, apply }).await()
     expect(rowText(collect(ctx)[1])).toContain('const preference = "system"')
   })
-
-
 })
 
 it('keeps its own instance off the generated Settings pages', () => omitsGeneratedPage(ctx => ctx.plugin(HostPlugin)))

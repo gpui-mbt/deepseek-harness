@@ -36,8 +36,18 @@ import type { LoadedMod } from './chain.ts'
 import type { ModsEngine, OpContext, OpTable } from './engine.ts'
 import type { ToolNameAliases } from './tool-names.ts'
 import type {
-  CommandInfo, CommandRunInput, CommandRunResult, FsEntry, FsStat, HttpResponse, ProcessRunResult, SessionMessage,
-  SessionUsage, SessionVersion, ToolCallResult, ToolInfo,
+  CommandInfo,
+  CommandRunInput,
+  CommandRunResult,
+  FsEntry,
+  FsStat,
+  HttpResponse,
+  ProcessRunResult,
+  SessionMessage,
+  SessionUsage,
+  SessionVersion,
+  ToolCallResult,
+  ToolInfo,
 } from './types.ts'
 
 /** The binding every event of this bridge carries: the agent it belongs to, when one does. */
@@ -111,7 +121,10 @@ function requireAgent(context: OpContext<AgentBinding>, op: string): Agent {
 }
 
 function textOf(content: readonly ContentBlock[]): string {
-  return content.filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text').map(block => block.text).join('')
+  return content
+    .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 /**
@@ -172,7 +185,8 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
   function store(): Promise<Domain<typeof storeDomainSpec>> {
     if (storeDomain !== undefined) return storeDomain
     const domains = ctx.get('storageDomain')
-    if (domains === undefined) throw new Error('$.store needs a storage domain service (dsh-storage-domain), which this deployment did not compose')
+    if (domains === undefined)
+      throw new Error('$.store needs a storage domain service (dsh-storage-domain), which this deployment did not compose')
     const opened = domains.open(storeDomainSpec)
     storeDomain = opened
     ctx.effect(() => () => opened.then(domain => domain.close()), 'claude-code-mods: close store domain')
@@ -181,12 +195,13 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
 
   async function target(path: string, agent: Agent | undefined, signal: AbortSignal): Promise<FsTarget> {
     const cwd = await currentDirectory(agent, signal)
-    return fs().resolve(path, { ...cwd === undefined ? {} : { cwd }, signal })
+    return fs().resolve(path, { ...(cwd === undefined ? {} : { cwd }), signal })
   }
 
   function directories(): WorkingDirectoryService {
     const service = ctx.get('workingDirectory')
-    if (service === undefined) throw new Error('$.session.cwd and session-owned operations need dsh-working-directory, which this deployment did not compose')
+    if (service === undefined)
+      throw new Error('$.session.cwd and session-owned operations need dsh-working-directory, which this deployment did not compose')
     return service
   }
 
@@ -216,7 +231,10 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
   function serializeStore(plugin: string, write: () => Promise<void>): Promise<void> {
     const previous = storeWrites.get(plugin) ?? Promise.resolve()
     const next = previous.then(write, write)
-    storeWrites.set(plugin, next.catch(() => undefined))
+    storeWrites.set(
+      plugin,
+      next.catch(() => undefined),
+    )
     return next
   }
 
@@ -238,35 +256,48 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
       if (to === 'debug') ctx.logger.debug(line)
       else ctx.logger.info(line)
     },
-    'ui.toast': (input, { mod }) => { ctx.logger.info(`${mod.name} (toast): ${requireString(record(input).text, '$.ui.toast text')}`) },
+    'ui.toast': (input, { mod }) => {
+      ctx.logger.info(`${mod.name} (toast): ${requireString(record(input).text, '$.ui.toast text')}`)
+    },
     'ui.status': (input, { mod }) => {
       const { text } = record(input)
       ctx.logger.info(`${mod.name} (status): ${text === undefined ? '(cleared)' : requireString(text, '$.ui.status text')}`)
     },
-    'ui.invalidate': (_input, { binding }) => { redraw(binding.agent) },
+    'ui.invalidate': (_input, { binding }) => {
+      redraw(binding.agent)
+    },
     // No pane is placed: a mod that degrades to the band (`isPlaced: false`) is drawn there after this call.
     'ui.open': (input, { binding }) => {
       redraw(binding.agent)
-      return { id: requireString(record(input).id, '$.ui.open id'), isPlaced: false, reason: 'this host places no panes; draw in AbovePrompt' }
+      return {
+        id: requireString(record(input).id, '$.ui.open id'),
+        isPlaced: false,
+        reason: 'this host places no panes; draw in AbovePrompt',
+      }
     },
-    'ui.close': (_input, { binding }) => { redraw(binding.agent) },
+    'ui.close': (_input, { binding }) => {
+      redraw(binding.agent)
+    },
     'ui.panes': () => [],
     'ui.ask': async (input, context) => {
       const agent = requireAgent(context, 'ui.ask')
       const questions = ctx.get('userQuestions')
-      if (questions === undefined) throw new Error('$.ui.ask needs a user-questions service (dsh-user-questions), which this deployment did not compose')
+      if (questions === undefined)
+        throw new Error('$.ui.ask needs a user-questions service (dsh-user-questions), which this deployment did not compose')
       const { question, options: labels, header, multiSelect } = record(input)
       const choices: AskUserQuestionOption[] | undefined = Array.isArray(labels)
         ? labels.map(label => ({ label: requireString(label, '$.ui.ask option') }))
         : undefined
       const answer = await questions.ask({
-        questions: [{
-          id: 'answer',
-          question: requireString(question, '$.ui.ask question'),
-          ...typeof header === 'string' ? { header } : {},
-          ...choices === undefined ? {} : { options: choices },
-          ...multiSelect === true ? { multiSelect: true } : {},
-        }],
+        questions: [
+          {
+            id: 'answer',
+            question: requireString(question, '$.ui.ask question'),
+            ...(typeof header === 'string' ? { header } : {}),
+            ...(choices === undefined ? {} : { options: choices }),
+            ...(multiSelect === true ? { multiSelect: true } : {}),
+          },
+        ],
         agent,
         signal: context.signal,
       })
@@ -279,23 +310,27 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
     'command.register': (input, { mod, binding, engine }) => {
       const spec = record(input)
       const name = requireString(spec.name, '$.command.register name')
-      if (!REGISTERED_NAME.test(name)) throw new Error(`"/${name}" refused: command names are letters, digits, "_" and "-", up to 64 characters`)
+      if (!REGISTERED_NAME.test(name))
+        throw new Error(`"/${name}" refused: command names are letters, digits, "_" and "-", up to 64 characters`)
       const description = requireString(spec.description, '$.command.register description')
       const registry = (binding.agent?.ctx ?? ctx).get('commands')
-      if (registry === undefined) throw new Error('$.command.register needs a command registry (dsh-commands), which this deployment did not compose')
+      if (registry === undefined)
+        throw new Error('$.command.register needs a command registry (dsh-commands), which this deployment did not compose')
       const lowered = name.toLowerCase()
       const definition: CommandDefinition = {
         name: lowered,
         description,
-        ...typeof spec.argumentHint === 'string' ? { input: { hint: spec.argumentHint } } : {},
-        handler: async (invocation) => {
+        ...(typeof spec.argumentHint === 'string' ? { input: { hint: spec.argumentHint } } : {}),
+        handler: async invocation => {
           const run = await engine.raise<CommandRunInput, CommandRunResult>(
             'command.run',
             { command: lowered, args: invocation.rawInput.trim(), origin: { kind: 'composer' } },
-            () => ({ text: `${mod.name} registered /${lowered} but no command.run hook answered it; add on('command.run', { command: '${lowered}' }, hook)` }),
+            () => ({
+              text: `${mod.name} registered /${lowered} but no command.run hook answered it; add on('command.run', { command: '${lowered}' }, hook)`,
+            }),
             { binding: { agent: invocation.agent }, signal: invocation.signal },
           )
-          return { kind: 'success', ...run.text === undefined ? {} : { text: `${mod.name}: ${run.text}` } }
+          return { kind: 'success', ...(run.text === undefined ? {} : { text: `${mod.name}: ${run.text}` }) }
         },
       }
       const dispose = registry.register(definition)
@@ -305,7 +340,8 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
     'command.run': async (input, context) => {
       const agent = requireAgent(context, 'command.run')
       const registry = ctx.get('commands')
-      if (registry === undefined) throw new Error('$.command.run needs a command registry (dsh-commands), which this deployment did not compose')
+      if (registry === undefined)
+        throw new Error('$.command.run needs a command registry (dsh-commands), which this deployment did not compose')
       const { command, args } = record(input)
       const name = requireString(command, '$.command.run command')
       const line = typeof args === 'string' && args.length > 0 ? `/${name} ${args}` : `/${name}`
@@ -313,7 +349,7 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
       if (execution === undefined) throw new Error(`/${name} is not a command`)
       const { result } = execution
       if (result.kind === 'error') throw new Error(result.text)
-      return { ...result.text === undefined ? {} : { text: result.text } } satisfies CommandRunResult
+      return { ...(result.text === undefined ? {} : { text: result.text }) } satisfies CommandRunResult
     },
     'command.list': (_input, context) => {
       const agent = requireAgent(context, 'command.list')
@@ -330,13 +366,15 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
     'tool.register': (input, { mod, binding }) => {
       const spec = record(input)
       const name = requireString(spec.name, '$.tool.register name')
-      if (!REGISTERED_NAME.test(name)) throw new Error(`tool "${name}" refused: tool names are letters, digits, "_" and "-", up to 64 characters`)
+      if (!REGISTERED_NAME.test(name))
+        throw new Error(`tool "${name}" refused: tool names are letters, digits, "_" and "-", up to 64 characters`)
       const description = requireString(spec.description, '$.tool.register description')
       const inputSchema = spec.inputSchema === undefined ? { type: 'object', properties: {} } : record(spec.inputSchema)
       // The schema reaches the model, so an unsupported keyword fails this call, not a later request.
       assertObjectJsonSchema(inputSchema)
       const registry = (binding.agent?.ctx ?? ctx).get('tools')
-      if (registry === undefined) throw new Error('$.tool.register needs a tool registry (dsh-tools), which this deployment did not compose')
+      if (registry === undefined)
+        throw new Error('$.tool.register needs a tool registry (dsh-tools), which this deployment did not compose')
       const fullName = modToolName(mod.name, name)
       const definition: ToolDefinition = {
         name: fullName,
@@ -348,7 +386,11 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
           render: (_args, value) => [{ type: 'text', text: value as string }],
         },
         execute() {
-          return Promise.reject(new Error(`${mod.name} registered ${fullName} but no tool.call hook answered it; add on('tool.call', { tool: '${fullName}' }, hook)`))
+          return Promise.reject(
+            new Error(
+              `${mod.name} registered ${fullName} but no tool.call hook answered it; add on('tool.call', { tool: '${fullName}' }, hook)`,
+            ),
+          )
         },
       }
       track(registry.register(definition), binding.agent)
@@ -367,7 +409,7 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
           callId,
           name: aliases.toHarness(requireString(tool, '$.tool.call tool')),
           arguments: args,
-          ...agent === undefined ? {} : { agent },
+          ...(agent === undefined ? {} : { agent }),
           signal: context.signal,
         })
         // Guidance a tool defers to the next request still reaches the model when a mod made the call.
@@ -381,7 +423,8 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
       const registry = ctx.get('tools')
       if (registry === undefined) return []
       const agent = context.binding.agent
-      return registry.schemas(agent === undefined ? undefined : scopeOf(agent.ctx))
+      return registry
+        .schemas(agent === undefined ? undefined : scopeOf(agent.ctx))
         .map((schema): ToolInfo => ({ name: aliases.toMod(schema.name), description: schema.description }))
     },
 
@@ -412,7 +455,8 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
     'session.turns': (_input, context) => {
       const agent = requireAgent(context, 'session.turns')
       const boundary = projection(agent.session, 'turnBoundary')
-      if (boundary === undefined) throw new Error('$.session.turns needs the turnBoundary projection, which this deployment did not compose')
+      if (boundary === undefined)
+        throw new Error('$.session.turns needs the turnBoundary projection, which this deployment did not compose')
       return boundary.lastTurn
     },
     'session.messages': (_input, context) => sessionMessages(requireAgent(context, 'session.messages').session.deriveMessages(), aliases),
@@ -424,9 +468,9 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
       return {
         startedAt: agent.session.header.createdAt,
         context: {
-          ...tokens === undefined ? {} : { tokens },
+          ...(tokens === undefined ? {} : { tokens }),
           window,
-          ...tokens === undefined || window === 0 ? {} : { percent: Math.round((tokens / window) * 100) },
+          ...(tokens === undefined || window === 0 ? {} : { percent: Math.round((tokens / window) * 100) }),
         },
         rateLimits: [],
       }
@@ -434,7 +478,8 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
     'session.version': () => MODS_API_VERSION,
 
     // ---- store: one durable JSON object per plugin ----
-    'store.get': async (input, { mod }) => (await store()).table('store').get(mod.name)?.[requireString(record(input).key, '$.store.get key')],
+    'store.get': async (input, { mod }) =>
+      (await store()).table('store').get(mod.name)?.[requireString(record(input).key, '$.store.get key')],
     'store.set': async (input, { mod }) => {
       const { key, value } = record(input)
       const name = requireString(key, '$.store.set key')
@@ -482,7 +527,7 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
     },
     'fs.exists': async (input, context) => {
       const resolved = await target(requireString(record(input).path, '$.fs.exists path'), context.binding.agent, context.signal)
-      return await fs().stat(resolved, context.signal) !== undefined
+      return (await fs().stat(resolved, context.signal)) !== undefined
     },
     'fs.stat': async (input, context) => {
       const path = requireString(record(input).path, '$.fs.stat path')
@@ -491,7 +536,7 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
       if (info === undefined) throw new Error(`$.fs.stat: ${path} does not exist`)
       if (info.type !== 'symlink') return { kind: kindOf(info.type), size: sizeOf(info), mtimeMs: 0, isLink: false } satisfies FsStat
       // A link reports what it points at, as Claude Code's `resolve: true` does; a dangling one is `other`.
-      const resolved = await fs().resolve(path, { ...cwd === undefined ? {} : { cwd }, signal: context.signal })
+      const resolved = await fs().resolve(path, { ...(cwd === undefined ? {} : { cwd }), signal: context.signal })
       const followed = await fs().stat(resolved, context.signal)
       return { kind: kindOf(followed?.type ?? 'other'), size: sizeOf(followed), mtimeMs: 0, isLink: true } satisfies FsStat
     },
@@ -499,15 +544,17 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
     // ---- processes: argv, no shell, collected output ----
     'process.run': async (input, context) => {
       const subprocess = ctx.get('subprocess')
-      if (subprocess === undefined) throw new Error('$.process.run needs a subprocess service (dsh-subprocess), which this deployment did not compose')
+      if (subprocess === undefined)
+        throw new Error('$.process.run needs a subprocess service (dsh-subprocess), which this deployment did not compose')
       const { argv, init } = record(input)
       if (!Array.isArray(argv) || argv.length === 0 || !argv.every(item => typeof item === 'string')) {
         throw new TypeError('$.process.run needs a non-empty argv list of strings')
       }
       const settings = record(init)
       const timeoutMs = typeof settings.timeoutMs === 'number' ? settings.timeoutMs : options.processTimeoutMs
-      const cwd = typeof settings.cwd === 'string' ? settings.cwd : await currentDirectory(context.binding.agent, context.signal) ?? process.cwd()
-      const env = typeof settings.env === 'object' && settings.env !== null ? settings.env as Record<string, string> : undefined
+      const cwd =
+        typeof settings.cwd === 'string' ? settings.cwd : ((await currentDirectory(context.binding.agent, context.signal)) ?? process.cwd())
+      const env = typeof settings.env === 'object' && settings.env !== null ? (settings.env as Record<string, string>) : undefined
       const deadline = AbortSignal.any([context.signal, AbortSignal.timeout(timeoutMs)])
       const handle = subprocess.spawn({
         argv,
@@ -515,7 +562,7 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
         stdio: { stdin: 'ignore', stdout: { maxBytes: PROCESS_OUTPUT_MAX_BYTES }, stderr: { maxBytes: PROCESS_OUTPUT_MAX_BYTES } },
         graceMs: 1000,
         signal: deadline,
-        ...env === undefined ? {} : { env },
+        ...(env === undefined ? {} : { env }),
       })
       const outcome = await handle.done
       if (deadline.aborted) throw new Error(`$.process.run: ${argv[0]} did not exit within ${timeoutMs} ms`)
@@ -534,9 +581,11 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
       const settings = record(init)
       const timeoutMs = typeof settings.timeoutMs === 'number' ? settings.timeoutMs : options.processTimeoutMs
       const response = await fetch(requireString(url, '$.http.fetch url'), {
-        ...typeof settings.method === 'string' ? { method: settings.method } : {},
-        ...typeof settings.headers === 'object' && settings.headers !== null ? { headers: settings.headers as Record<string, string> } : {},
-        ...typeof settings.body === 'string' ? { body: settings.body } : {},
+        ...(typeof settings.method === 'string' ? { method: settings.method } : {}),
+        ...(typeof settings.headers === 'object' && settings.headers !== null
+          ? { headers: settings.headers as Record<string, string> }
+          : {}),
+        ...(typeof settings.body === 'string' ? { body: settings.body } : {}),
         signal: AbortSignal.any([context.signal, AbortSignal.timeout(timeoutMs)]),
       })
       const headers: Record<string, string> = {}
@@ -549,7 +598,7 @@ export function createHostOps(options: HostOpsOptions): OpTable<AgentBinding> {
 
     // ---- environment of this process ----
     'env.get': input => process.env[requireString(record(input).name, '$.env.get name')],
-    'env.set': (input) => {
+    'env.set': input => {
       const { name, value } = record(input)
       const key = requireString(name, '$.env.set name')
       if (value === undefined) Reflect.deleteProperty(process.env, key)

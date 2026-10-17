@@ -54,8 +54,7 @@ export class SessionLogModel implements ObservableSnapshot<readonly InspectorRow
     if (root === undefined) return undefined
     const record = this.records.get(key)?.getSnapshot()
     if (record === undefined) return undefined
-    return { event: root.entry.event,
-      ...root.row.key === key ? {} : { chunk: record.value as StreamChunk } }
+    return { event: root.entry.event, ...(root.row.key === key ? {} : { chunk: record.value as StreamChunk }) }
   }
 
   /**
@@ -69,26 +68,49 @@ export class SessionLogModel implements ObservableSnapshot<readonly InspectorRow
     const entries = window.entries
     const sameStep = (entry: SessionEventLikeEntry): boolean => {
       const data = entry.event.data
-      return target.turn !== undefined && 'turn' in data && data.turn === target.turn
-        && (target.step === undefined || ('step' in data && data.step === target.step))
+      return (
+        target.turn !== undefined &&
+        'turn' in data &&
+        data.turn === target.turn &&
+        (target.step === undefined || ('step' in data && data.step === target.step))
+      )
     }
-    const call = target.callId === undefined ? undefined : entries.find(entry => entry.event.type === 'tool/call'
-      && entry.event.data.callId === target.callId)
+    const call =
+      target.callId === undefined
+        ? undefined
+        : entries.find(entry => entry.event.type === 'tool/call' && entry.event.data.callId === target.callId)
     const anchor = target.anchorSeq === undefined ? undefined : entries.find(entry => entry.event.seq === target.anchorSeq)
-    const assistant = target.nodeKind !== 'assistant-step' ? undefined : entries.findLast(entry => sameStep(entry)
-      && (entry.event.type === 'assistant/message' || entry.event.type === 'assistant/attempt' || entry.type === 'transient'))
+    const assistant =
+      target.nodeKind !== 'assistant-step'
+        ? undefined
+        : entries.findLast(
+            entry =>
+              sameStep(entry) &&
+              (entry.event.type === 'assistant/message' || entry.event.type === 'assistant/attempt' || entry.type === 'transient'),
+          )
     const step = target.step === undefined ? undefined : entries.find(entry => entry.event.type === 'step/start' && sameStep(entry))
-    const turn = target.turn === undefined ? undefined : entries.find(entry => entry.event.type === 'turn/start' && entry.event.data.turn === target.turn)
+    const turn =
+      target.turn === undefined
+        ? undefined
+        : entries.find(entry => entry.event.type === 'turn/start' && entry.event.data.turn === target.turn)
     const entry = call ?? anchor ?? assistant ?? step ?? turn ?? entries.find(sameStep)
     if (entry === undefined) return undefined
-    const key = entry.type === 'transient' ? `attempt:${entry.event.data.attemptId}`
-      : this.settledRoots.get(entry.event.seq) ?? `event:${entry.event.seq}`
+    const key =
+      entry.type === 'transient'
+        ? `attempt:${entry.event.data.attemptId}`
+        : (this.settledRoots.get(entry.event.seq) ?? `event:${entry.event.seq}`)
     if (target.groupPart === 'reasoning') {
-      const block = this.rows.getSnapshot().find((row) => {
+      const block = this.rows.getSnapshot().find(row => {
         if (row.parent !== key) return false
         const value = this.records.get(row.key)?.getSnapshot()?.value
-        return value !== null && typeof value === 'object' && 'type' in value && value.type === 'block-start'
-          && 'blockType' in value && value.blockType === 'reasoning'
+        return (
+          value !== null &&
+          typeof value === 'object' &&
+          'type' in value &&
+          value.type === 'block-start' &&
+          'blockType' in value &&
+          value.blockType === 'reasoning'
+        )
       })
       if (block !== undefined) return block.key
     }
@@ -99,12 +121,17 @@ export class SessionLogModel implements ObservableSnapshot<readonly InspectorRow
   subscribe = (listener: () => void): (() => void) => {
     const stop = this.rows.subscribe(listener)
     if (this.subscribers++ === 0) {
-      this.disconnect = this.source.subscribe(() => { this.accept(this.source.getSnapshot()) })
+      this.disconnect = this.source.subscribe(() => {
+        this.accept(this.source.getSnapshot())
+      })
       this.accept(this.source.getSnapshot())
     }
     return () => {
       stop()
-      if (--this.subscribers === 0) { this.disconnect?.(); this.disconnect = undefined }
+      if (--this.subscribers === 0) {
+        this.disconnect?.()
+        this.disconnect = undefined
+      }
     }
   }
 
@@ -136,7 +163,11 @@ export class SessionLogModel implements ObservableSnapshot<readonly InspectorRow
       if (this.attempts.has(parent)) this.settledRoots.set(window.change.entry.event.seq, parent)
     }
     const append = window.revision === this.revision + 1 && window.change.kind === 'append'
-    if (!append) { this.roots.length = 0; this.attempts.clear(); this.groups = new SessionLogGroups() }
+    if (!append) {
+      this.roots.length = 0
+      this.attempts.clear()
+      this.groups = new SessionLogGroups()
+    }
     const next = append ? this.rows.getSnapshot().slice() : []
     const entries = append ? window.change.entries : window.entries
     for (const entry of entries) this.add(entry, next)
@@ -151,7 +182,10 @@ export class SessionLogModel implements ObservableSnapshot<readonly InspectorRow
       if (!retained.has(key)) this.settledRoots.delete(seq)
     }
     for (const [key, source] of this.records) {
-      if (!retained.has(key)) { source.set(undefined); this.records.delete(key) }
+      if (!retained.has(key)) {
+        source.set(undefined)
+        this.records.delete(key)
+      }
     }
   }
 
@@ -174,8 +208,13 @@ export class SessionLogModel implements ObservableSnapshot<readonly InspectorRow
         this.attempts.set(parent, attempt)
       }
       const chunks = this.addChunk(attempt, rows, event.time, chunk, `${turn}/${step}`)
-      this.put(parent, { type: 'assistant/live', identity: attemptId, location: `${turn}/${step}`, time: event.time,
-        value: { attemptId, turn, step, chunks } })
+      this.put(parent, {
+        type: 'assistant/live',
+        identity: attemptId,
+        location: `${turn}/${step}`,
+        time: event.time,
+        value: { attemptId, turn, step, chunks },
+      })
       return
     }
     const event = entry.event
@@ -188,7 +227,10 @@ export class SessionLogModel implements ObservableSnapshot<readonly InspectorRow
       const root = this.root(key, entry, rows, hierarchy)
       const stream = entry.event.data.stream
       let chunks = this.streams.get(stream)
-      if (chunks === undefined) { chunks = expandAssistantStream(stream); this.streams.set(stream, chunks) }
+      if (chunks === undefined) {
+        chunks = expandAssistantStream(stream)
+        this.streams.set(stream, chunks)
+      }
       for (const item of chunks) {
         this.addChunk(root, rows, item.time, item.chunk, location)
       }

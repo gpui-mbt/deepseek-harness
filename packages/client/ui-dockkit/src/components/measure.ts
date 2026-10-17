@@ -91,13 +91,19 @@ export function measurePaneFits(root: HTMLElement, splitHiddenWhenBlocked = fals
   const minimums: SplitMinimums = { divider: dividerSize(root), chip: chipMinimum(root), body: SPLIT_MINIMUMS.body }
   const fits = new Map<PaneId, HalvesFit>()
   for (const [paneId, pane] of paneElements(root)) {
-    fits.set(paneId, halvesFit({
-      pane: rectOf(pane),
-      strip: rectOf(pane.querySelector('[data-dockkit-strip]')),
-      chipsWidth: rectOf(pane.querySelector('[data-dockkit-strip-tabs]')).width,
-      fillWidth: rectOf(pane.querySelector('[data-dockkit-strip-fill]')).width,
-      splitControlWidth: splitHiddenWhenBlocked ? splitControlFootprint(pane) : 0,
-    }, minimums))
+    fits.set(
+      paneId,
+      halvesFit(
+        {
+          pane: rectOf(pane),
+          strip: rectOf(pane.querySelector('[data-dockkit-strip]')),
+          chipsWidth: rectOf(pane.querySelector('[data-dockkit-strip-tabs]')).width,
+          fillWidth: rectOf(pane.querySelector('[data-dockkit-strip-fill]')).width,
+          splitControlWidth: splitHiddenWhenBlocked ? splitControlFootprint(pane) : 0,
+        },
+        minimums,
+      ),
+    )
   }
   return fits
 }

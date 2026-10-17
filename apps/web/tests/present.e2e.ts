@@ -4,25 +4,33 @@ import { join, delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
 import { unzipSync, strFromU8 } from 'fflate'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test'
 import { tmpdir, release } from 'node:os'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-tool-present/types'
 import {
-  acknowledgeReloadConnectionLoss, assertFinalWorkspaceSnapshot, captureExpandedTurnProcessAria,
-  compareOrRefreshGolden, fixtureUserPrompts, launchWebScaffold, recordFixture,
-  watchConsole, webSnapshotMode, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFinalWorkspaceSnapshot,
+  captureExpandedTurnProcessAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, expandTurnProcesses, newEnglishPage, scrollIntoView } from './support.ts'
 
 const DIR = fileURLToPath(new URL('../../../snapshots/web/present', import.meta.url))
 const FIXTURE = join(DIR, 'session.v3.jsonl')
 const MODE = webSnapshotMode()
-const PROMPT = 'Use one run_code program to do the following in order. Call present for missing.txt and catch its error without creating that file. '
-  + 'Use bash to run exactly `printf "DELIVERED_REPORT\\n" > report.txt; printf "DELIVERED_NOTE\\n" > 说明.txt`. '
-  + 'Call present for report.txt and 说明.txt. After present succeeds, deliberately throw the string "AFTER_PRESENT" (not an Error object) from that same run_code program. '
-  + 'Do not retry the program or create any other files. Finish by mentioning `report.txt` and `说明.txt` in inline code, and put PRESENT_DONE in a separate paragraph.'
+const PROMPT =
+  'Use one run_code program to do the following in order. Call present for missing.txt and catch its error without creating that file. ' +
+  'Use bash to run exactly `printf "DELIVERED_REPORT\\n" > report.txt; printf "DELIVERED_NOTE\\n" > 说明.txt`. ' +
+  'Call present for report.txt and 说明.txt. After present succeeds, deliberately throw the string "AFTER_PRESENT" (not an Error object) from that same run_code program. ' +
+  'Do not retry the program or create any other files. Finish by mentioning `report.txt` and `说明.txt` in inline code, and put PRESENT_DONE in a separate paragraph.'
 
 // The recorded Bash scenario and executable opener fixture require a POSIX host outside WSL.
 describe.skipIf(process.platform === 'win32' || release().toLowerCase().includes('microsoft'))('web e2e: explicit file delivery', () => {
@@ -36,7 +44,11 @@ describe.skipIf(process.platform === 'win32' || release().toLowerCase().includes
   const events: SessionEvent[] = []
   let nativeRoot: string | undefined
   let openLog: string
-  const opened = async (): Promise<Array<{ path: string; content: string | null; action: 'open' | 'reveal' }>> => (await readFile(openLog, 'utf8')).split('\n').filter(Boolean).map(line => JSON.parse(line) as { path: string; content: string | null; action: 'open' | 'reveal' })
+  const opened = async (): Promise<Array<{ path: string; content: string | null; action: 'open' | 'reveal' }>> =>
+    (await readFile(openLog, 'utf8'))
+      .split('\n')
+      .filter(Boolean)
+      .map(line => JSON.parse(line) as { path: string; content: string | null; action: 'open' | 'reveal' })
   const downloads: string[] = []
 
   beforeAll(async () => {
@@ -45,18 +57,25 @@ describe.skipIf(process.platform === 'win32' || release().toLowerCase().includes
     await writeFile(openLog, '')
     // Exercise the built Host through its actual OS command, replacing only the desktop application.
     const command = process.platform === 'darwin' ? 'open' : 'xdg-open'
-    await writeFile(join(nativeRoot, command), `#!${process.execPath}
+    await writeFile(
+      join(nativeRoot, command),
+      `#!${process.execPath}
 const fs = require('node:fs');
 const path = process.argv[2] === '-R' ? process.argv[3] : process.argv[2];
 const action = process.argv[2] === '-R' || fs.statSync(path).isDirectory() ? 'reveal' : 'open';
 fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, content: action === 'open' ? fs.readFileSync(path, 'utf8') : null }) + '\\n');
-`, { mode: 0o700 })
+`,
+      { mode: 0o700 },
+    )
     vi.stubEnv('PATH', `${nativeRoot}${delimiter}${process.env.PATH ?? ''}`)
     await mkdir(DIR, { recursive: true })
     scaffold = await launchWebScaffold({
-      openInAppEnvironment: createLaunchEnvironmentSnapshot([{ source: 'process', values: { SSH_CONNECTION: '10.0.0.2 55000 10.0.0.9 22' } }]),
+      openInAppEnvironment: createLaunchEnvironmentSnapshot([
+        { source: 'process', values: { SSH_CONNECTION: '10.0.0.2 55000 10.0.0.9 22' } },
+      ]),
       extraOverlayPath: fileURLToPath(new URL('./present.overlay.yml', import.meta.url)),
-      agentPresets: { default: 'ptc' }, compareReplaySession: true,
+      agentPresets: { default: 'ptc' },
+      compareReplaySession: true,
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE }),
     })
     // File associations belong to the desktop rather than the recorded Session.
@@ -65,13 +84,22 @@ fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, con
     const nativeQuery: unknown = Reflect.get(controller, 'fileApplications')
     if (typeof nativeQuery !== 'function') throw new Error('present requires native association discovery')
     Reflect.set(controller, 'fileApplications', async () => [{ id: 'test-editor', name: 'Test Editor', default: true, icon: null }])
-    scaffold.ctx.effect(() => () => { Reflect.set(controller, 'fileApplications', nativeQuery) }, 'present: native association fixture')
+    scaffold.ctx.effect(
+      () => () => {
+        Reflect.set(controller, 'fileApplications', nativeQuery)
+      },
+      'present: native association fixture',
+    )
     disposeApproval = scaffold.ctx.on('approval/request', () => Promise.resolve('allowed-once'), { prepend: true })
-    scaffold.ctx.on('session/event', (_session, event) => { events.push(event) })
+    scaffold.ctx.on('session/event', (_session, event) => {
+      events.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    page.on('download', (download) => { downloads.push(download.suggestedFilename()) })
+    page.on('download', download => {
+      downloads.push(download.suggestedFilename())
+    })
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
@@ -104,8 +132,9 @@ fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, con
     if (MODE === 'record') await recordFixture(scaffold, sessionId, FIXTURE)
     await page.getByText(/^PRESENT_DONE\.?$/).waitFor({ timeout: 30_000 })
     await assertFinalWorkspaceSnapshot(DIR, cwd)
-    expect(events.filter(event => event.type === 'deliverables/presented').flatMap(event => event.data.files.map(file => file.path)))
-      .toEqual([join(cwd, 'report.txt'), join(cwd, '说明.txt')])
+    expect(
+      events.filter(event => event.type === 'deliverables/presented').flatMap(event => event.data.files.map(file => file.path)),
+    ).toEqual([join(cwd, 'report.txt'), join(cwd, '说明.txt')])
     for (const event of events) {
       if (event.type === 'deliverables/presented') {
         expect(event.data.files).toEqual([
@@ -135,22 +164,28 @@ fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, con
       const card = row.locator('[data-presented-file]').filter({ hasText: 'report.txt' })
       await card.getByRole('button', { name: 'Open in Test Editor', exact: true }).hover()
       await page.getByRole('tooltip', { name: 'Open in Test Editor', exact: true }).waitFor()
-      expect(await page.getByRole('tooltip').evaluate((tooltip) => {
-        const rect = tooltip.getBoundingClientRect()
-        const previous = tooltip.style.pointerEvents
-        tooltip.style.pointerEvents = 'auto'
-        const visible = document.elementFromPoint(rect.left + rect.width / 2, rect.bottom - 1) === tooltip
-        tooltip.style.pointerEvents = previous
-        return tooltip.parentElement === document.body && visible
-      })).toBe(true)
+      expect(
+        await page.getByRole('tooltip').evaluate(tooltip => {
+          const rect = tooltip.getBoundingClientRect()
+          const previous = tooltip.style.pointerEvents
+          tooltip.style.pointerEvents = 'auto'
+          const visible = document.elementFromPoint(rect.left + rect.width / 2, rect.bottom - 1) === tooltip
+          tooltip.style.pointerEvents = previous
+          return tooltip.parentElement === document.body && visible
+        }),
+      ).toBe(true)
       await page.mouse.move(0, 0)
       const beforePreview = (await opened()).length
       const column = page.locator('[data-rightbar-col]')
-      for (const [name, content] of [['report.txt', 'EDITED_REPORT'], ['说明.txt', 'EDITED_NOTE']] as const) {
+      for (const [name, content] of [
+        ['report.txt', 'EDITED_REPORT'],
+        ['说明.txt', 'EDITED_NOTE'],
+      ] as const) {
         const mention = page.locator('code').getByRole('button', { name: `Open ${join(cwd, name)} in sidebar`, exact: true })
         await mention.click()
         const preview = column.locator('[data-document-preview]')
-        await expect.poll(() => preview.getAttribute('data-textpreview-url'))
+        await expect
+          .poll(() => preview.getAttribute('data-textpreview-url'))
           .toBe(`dsh-resource://file/session/${sessionId}/${encodeURIComponent(name)}`)
         await preview.getByText(content, { exact: true }).waitFor()
         await mention.click()
@@ -160,16 +195,35 @@ fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, con
       expect(downloads).toEqual([])
       await page.getByRole('button', { name: 'Collapse right sidebar', exact: true }).click()
       const beforeReveal = (await opened()).length
-      await row.locator('[data-presented-file]').filter({ hasText: 'report.txt' }).getByRole('button', { name: 'More ways to open', exact: true }).click()
-      const revealResponse = page.waitForResponse(response => response.url().includes('action=reveal') && response.request().method() === 'POST')
+      await row
+        .locator('[data-presented-file]')
+        .filter({ hasText: 'report.txt' })
+        .getByRole('button', { name: 'More ways to open', exact: true })
+        .click()
+      const revealResponse = page.waitForResponse(
+        response => response.url().includes('action=reveal') && response.request().method() === 'POST',
+      )
       await page.getByRole('menuitem', { name: 'Show file location', exact: true }).click()
       expect((await revealResponse).status()).toBe(204)
       await expect.poll(opened).toHaveLength(beforeReveal + 1)
-      expect((await opened()).at(-1)).toEqual({ action: 'reveal', content: null, path: await realpath(process.platform === 'darwin' ? join(cwd, 'report.txt') : cwd) })
-      for (const [name, bytes] of [['report.txt', 'EDITED_REPORT\n'], ['说明.txt', 'EDITED_NOTE\n']] as const) {
+      expect((await opened()).at(-1)).toEqual({
+        action: 'reveal',
+        content: null,
+        path: await realpath(process.platform === 'darwin' ? join(cwd, 'report.txt') : cwd),
+      })
+      for (const [name, bytes] of [
+        ['report.txt', 'EDITED_REPORT\n'],
+        ['说明.txt', 'EDITED_NOTE\n'],
+      ] as const) {
         const count = (await opened()).length
-        const response = page.waitForResponse(response => response.url().includes('/api/present.open?') && response.request().method() === 'POST')
-        await row.locator('[data-presented-file]').filter({ hasText: name }).getByRole('button', { name: 'Open in Test Editor', exact: true }).click()
+        const response = page.waitForResponse(
+          response => response.url().includes('/api/present.open?') && response.request().method() === 'POST',
+        )
+        await row
+          .locator('[data-presented-file]')
+          .filter({ hasText: name })
+          .getByRole('button', { name: 'Open in Test Editor', exact: true })
+          .click()
         expect((await response).status()).toBe(204)
         await page.waitForFunction(() => document.querySelector('[data-presented-files-row] button:disabled') === null)
         expect(await opened()).toHaveLength(count + 1)
@@ -183,7 +237,10 @@ fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, con
     expect(Object.keys(entries)).toHaveLength(1)
     const exported = strFromU8(Object.values(entries)[0]!)
     expect(exported).toContain('deliverables/presented')
-    const declarations = exported.trim().split('\n').map(line => JSON.parse(line) as SessionEvent)
+    const declarations = exported
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line) as SessionEvent)
       .filter(event => event.type === 'deliverables/presented')
     expect(declarations).toHaveLength(1)
     expect(declarations[0]!.data.files).toEqual([
@@ -209,40 +266,28 @@ fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, con
           return value
         }
         const answer = requiredElement(
-          [...document.querySelectorAll<HTMLElement>('[data-chat-flow-kind="assistant-step"]')]
-            .find(element => element.textContent?.includes('PRESENT_DONE')),
+          [...document.querySelectorAll<HTMLElement>('[data-chat-flow-kind="assistant-step"]')].find(element =>
+            element.textContent?.includes('PRESENT_DONE'),
+          ),
           'final answer',
         )
-        const presentedGrid = requiredElement(
-          document.querySelector<HTMLElement>('[data-presented-files-row]'),
-          'presented grid',
-        )
+        const presentedGrid = requiredElement(document.querySelector<HTMLElement>('[data-presented-files-row]'), 'presented grid')
         const presentedRoot = requiredElement(presentedGrid.parentElement, 'presented root')
         const turnTail = requiredElement(presentedRoot.closest<HTMLElement>('[data-turn-tail]'), 'turn tail')
-        const actions = requiredElement(
-          turnTail.querySelector<HTMLButtonElement>('button[aria-label="Copy"]')?.parentElement,
-          'action row',
-        )
-        const clock = requiredElement(
-          turnTail.querySelector<HTMLElement>('[data-message-clock]'),
-          'turn-tail clock',
-        )
+        const actions = requiredElement(turnTail.querySelector<HTMLButtonElement>('button[aria-label="Copy"]')?.parentElement, 'action row')
+        const clock = requiredElement(turnTail.querySelector<HTMLElement>('[data-message-clock]'), 'turn-tail clock')
         const cards = [...presentedGrid.querySelectorAll<HTMLElement>('[data-presented-file]')]
         const report = requiredElement(
           cards.find(card => card.textContent?.includes('report.txt')),
           'report card',
         )
         const title = requiredElement(
-          report.querySelector<HTMLElement>('span[title="report.txt"]')
-            ?? [...report.querySelectorAll<HTMLElement>('span')]
-              .find(element => element.textContent === 'report.txt'),
+          report.querySelector<HTMLElement>('span[title="report.txt"]') ??
+            [...report.querySelectorAll<HTMLElement>('span')].find(element => element.textContent === 'report.txt'),
           'report title',
         )
         const description = requiredElement(report.querySelector<HTMLElement>('[data-presented-description]'), 'report description')
-        const open = requiredElement(
-          report.querySelector<HTMLButtonElement>('[data-open-target] button'),
-          'report open action',
-        )
+        const open = requiredElement(report.querySelector<HTMLButtonElement>('[data-open-target] button'), 'report open action')
         const icon = requiredElement(report.querySelector<SVGElement>('svg'), 'report icon')
         const secondCard = requiredElement(cards[1], 'second card')
         const answerRect = answer.getBoundingClientRect()
@@ -294,9 +339,14 @@ fs.appendFileSync(${JSON.stringify(openLog)}, JSON.stringify({ path, action, con
     }
     const beforeDelete = (await opened()).length
     await unlink(join(cwd, 'report.txt'))
-    const missing = page.waitForResponse(response => response.url().includes('/api/present.open?') && response.request().method() === 'POST')
-    await page.locator('[data-presented-file]').filter({ hasText: 'report.txt' })
-      .getByRole('button', { name: 'Open in Test Editor', exact: true }).click()
+    const missing = page.waitForResponse(
+      response => response.url().includes('/api/present.open?') && response.request().method() === 'POST',
+    )
+    await page
+      .locator('[data-presented-file]')
+      .filter({ hasText: 'report.txt' })
+      .getByRole('button', { name: 'Open in Test Editor', exact: true })
+      .click()
     expect((await missing).status()).toBe(404)
     await page.getByText('Could not open. Click to retry.', { exact: true }).waitFor()
     expect(await opened()).toHaveLength(beforeDelete)

@@ -33,8 +33,12 @@ export function isExactPluginVersion(value: string): boolean {
  */
 export function validatePluginVersionExemption(packageVersion: string, runtimeVersion: string): void {
   const separator = packageVersion.lastIndexOf('@')
-  if (separator <= 0 || !PACKAGE_NAME.test(packageVersion.slice(0, separator))
-    || !isExactPluginVersion(packageVersion.slice(separator + 1)) || !isExactPluginVersion(runtimeVersion)) {
+  if (
+    separator <= 0 ||
+    !PACKAGE_NAME.test(packageVersion.slice(0, separator)) ||
+    !isExactPluginVersion(packageVersion.slice(separator + 1)) ||
+    !isExactPluginVersion(runtimeVersion)
+  ) {
     throw new Error('Version exemptions require an exact npm package-name@version and an exact DSH runtime version')
   }
 }
@@ -61,17 +65,24 @@ export interface ProfileCompatibility {
  */
 export function readProfileCompatibility(profileDir: string): ProfileCompatibility {
   const filename = join(profileDir, PROFILE_COMPATIBILITY_FILENAME)
-  const unreadable = (reason: string): ProfileCompatibility =>
-    ({ exemptions: {}, warnings: [`${filename} ${reason}; treating the profile as having no exemptions`], rewritable: false })
+  const unreadable = (reason: string): ProfileCompatibility => ({
+    exemptions: {},
+    warnings: [`${filename} ${reason}; treating the profile as having no exemptions`],
+    rewritable: false,
+  })
   let text: string
-  try { text = readFileSync(filename, 'utf8') }
-  catch (error) {
+  try {
+    text = readFileSync(filename, 'utf8')
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { exemptions: {}, warnings: [], rewritable: true }
     return unreadable(`cannot be read (${String(error)})`)
   }
   let value: unknown
-  try { value = JSON.parse(text) }
-  catch (error) { return unreadable(`is not valid JSON (${String(error)})`) }
+  try {
+    value = JSON.parse(text)
+  } catch (error) {
+    return unreadable(`is not valid JSON (${String(error)})`)
+  }
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return unreadable('must map exact package@version keys to DSH version lists')
   }
@@ -111,11 +122,17 @@ export function readProfileVersionExemptions(profileDir: string): Record<string,
  * which the user must repair by hand because rewriting it would discard their content.
  */
 export async function setProfileVersionExemption(
-  profileDir: string, packageVersion: string, runtimeVersion: string, enabled: boolean, acceptRisk: boolean,
+  profileDir: string,
+  packageVersion: string,
+  runtimeVersion: string,
+  enabled: boolean,
+  acceptRisk: boolean,
 ): Promise<void> {
   validatePluginVersionExemption(packageVersion, runtimeVersion)
   if (enabled && !acceptRisk) {
-    throw new Error('Incompatible plugins may cause crashes or data loss. To grant this exact-version exemption, explicitly acknowledge the risk with --accept-risk (acceptRisk: true).')
+    throw new Error(
+      'Incompatible plugins may cause crashes or data loss. To grant this exact-version exemption, explicitly acknowledge the risk with --accept-risk (acceptRisk: true).',
+    )
   }
   const current = getDshRuntimeVersion()
   if (enabled && runtimeVersion !== current) {

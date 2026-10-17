@@ -10,7 +10,7 @@
  * paths and occurrence-seeded day shape.
  */
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { allowAllAccess, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -26,75 +26,147 @@ import { zoneOffsetMinutes } from './zone-fixture.ts'
 import css from '../src/client/TaskManagerPage.module.css'
 
 const at: ScheduleCatalogEntry = {
-  id: 'task-at' as ScheduleId, sessionId: 'session-alpha' as SessionId, kind: 'at', status: 'active',
-  title: 'Review release', prompt: 'Review release', scheduledAt: '2026-10-01T09:00:00.000Z',
+  id: 'task-at' as ScheduleId,
+  sessionId: 'session-alpha' as SessionId,
+  kind: 'at',
+  status: 'active',
+  title: 'Review release',
+  prompt: 'Review release',
+  scheduledAt: '2026-10-01T09:00:00.000Z',
 }
 
 const every: ScheduleCatalogEntry = {
-  id: 'task-every' as ScheduleId, sessionId: 'session-beta' as SessionId, kind: 'every', status: 'active',
-  title: 'Check metrics', prompt: 'Check metrics', everySeconds: 301, scheduledAt: '2026-10-01T09:30:00.000Z',
+  id: 'task-every' as ScheduleId,
+  sessionId: 'session-beta' as SessionId,
+  kind: 'every',
+  status: 'active',
+  title: 'Check metrics',
+  prompt: 'Check metrics',
+  everySeconds: 301,
+  scheduledAt: '2026-10-01T09:30:00.000Z',
 }
 
 const daily: ScheduleCatalogEntry = {
-  id: 'task-daily' as ScheduleId, sessionId: 'session-gamma' as SessionId, kind: 'daily', status: 'active',
-  title: 'Daily weather', prompt: 'Daily weather', time: '23:00:00.000', timeZone: 'Asia/Shanghai',
+  id: 'task-daily' as ScheduleId,
+  sessionId: 'session-gamma' as SessionId,
+  kind: 'daily',
+  status: 'active',
+  title: 'Daily weather',
+  prompt: 'Daily weather',
+  time: '23:00:00.000',
+  timeZone: 'Asia/Shanghai',
   scheduledAt: '2026-10-01T15:00:00.000Z',
 }
 
 const weeklyMonday: ScheduleCatalogEntry = {
-  id: 'task-weekly-monday' as ScheduleId, sessionId: 'session-alpha' as SessionId, kind: 'weekly', status: 'active',
-  title: 'Weekly Monday', prompt: 'Weekly Monday', time: '09:30:00.000', timeZone: 'Asia/Shanghai',
-  weekdays: [1], scheduledAt: '2026-10-05T01:30:00.000Z',
+  id: 'task-weekly-monday' as ScheduleId,
+  sessionId: 'session-alpha' as SessionId,
+  kind: 'weekly',
+  status: 'active',
+  title: 'Weekly Monday',
+  prompt: 'Weekly Monday',
+  time: '09:30:00.000',
+  timeZone: 'Asia/Shanghai',
+  weekdays: [1],
+  scheduledAt: '2026-10-05T01:30:00.000Z',
 }
 
 const weekdayRule: ScheduleCatalogEntry = {
-  id: 'task-weekday-rule' as ScheduleId, sessionId: 'session-beta' as SessionId, kind: 'weekly', status: 'active',
-  title: 'Weekday rule', prompt: 'Weekday rule', time: '09:30:00.000', timeZone: 'Asia/Shanghai',
-  weekdays: [1, 2, 3, 4, 5], scheduledAt: '2026-10-05T01:30:00.000Z',
+  id: 'task-weekday-rule' as ScheduleId,
+  sessionId: 'session-beta' as SessionId,
+  kind: 'weekly',
+  status: 'active',
+  title: 'Weekday rule',
+  prompt: 'Weekday rule',
+  time: '09:30:00.000',
+  timeZone: 'Asia/Shanghai',
+  weekdays: [1, 2, 3, 4, 5],
+  scheduledAt: '2026-10-05T01:30:00.000Z',
 }
 
 const sparseWeekdays: ScheduleCatalogEntry = {
-  id: 'task-sparse' as ScheduleId, sessionId: 'session-beta' as SessionId, kind: 'weekly', status: 'active',
-  title: 'Sparse weekdays', prompt: 'Sparse weekdays', time: '09:30:00.000', timeZone: 'Asia/Shanghai',
-  weekdays: [1, 3], scheduledAt: '2026-10-05T01:30:00.000Z',
+  id: 'task-sparse' as ScheduleId,
+  sessionId: 'session-beta' as SessionId,
+  kind: 'weekly',
+  status: 'active',
+  title: 'Sparse weekdays',
+  prompt: 'Sparse weekdays',
+  time: '09:30:00.000',
+  timeZone: 'Asia/Shanghai',
+  weekdays: [1, 3],
+  scheduledAt: '2026-10-05T01:30:00.000Z',
 }
 
 const cron: ScheduleCatalogEntry = {
-  id: 'task-cron' as ScheduleId, sessionId: daily.sessionId, kind: 'cron', status: 'active',
-  title: 'Cron report', prompt: 'Cron report', expression: '0 9 * * 1-5', timeZone: 'UTC',
+  id: 'task-cron' as ScheduleId,
+  sessionId: daily.sessionId,
+  kind: 'cron',
+  status: 'active',
+  title: 'Cron report',
+  prompt: 'Cron report',
+  expression: '0 9 * * 1-5',
+  timeZone: 'UTC',
   scheduledAt: '2026-10-05T01:30:00.000Z',
 }
 
 /** The same `every` task after another client switched its kind to Every day. */
 const movedToDaily: ScheduleCatalogEntry = {
-  id: every.id, sessionId: every.sessionId, kind: 'daily', status: 'active',
-  title: every.title, prompt: every.prompt, time: '09:30:00.000', timeZone: 'UTC',
+  id: every.id,
+  sessionId: every.sessionId,
+  kind: 'daily',
+  status: 'active',
+  title: every.title,
+  prompt: every.prompt,
+  time: '09:30:00.000',
+  timeZone: 'UTC',
   scheduledAt: every.scheduledAt,
 }
 
 const sessions: SessionListState = {
   ids: [at.sessionId, every.sessionId, daily.sessionId],
-  byId: Object.fromEntries([at, every, daily].map(record => [record.sessionId, {
-    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0, retainedBy: {},
-  }] as const)),
-  phase: 'ready', projectionsBySession: {},
+  byId: Object.fromEntries(
+    [at, every, daily].map(
+      record =>
+        [
+          record.sessionId,
+          {
+            id: record.sessionId,
+            displayTitle: record.sessionId,
+            running: false,
+            blank: false,
+            updatedAt: 0,
+            retainedBy: {},
+          },
+        ] as const,
+    ),
+  ),
+  phase: 'ready',
+  projectionsBySession: {},
 }
 
-const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+const workspaces: WorkspaceSnapshot = {
+  items: [],
+  archivedSessionIds: [],
+  pinnedSessionIds: [],
+  state: 'idle',
+  phase: 'ready',
+  error: null,
+}
 
 afterEach(cleanup)
 
 // jsdom has no `scrollIntoView`, which an open clock panel calls on the row that
 // shows the staged value.
-beforeEach(() => { Element.prototype.scrollIntoView = vi.fn() })
+beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn()
+})
 
 /**
  * The Time row's picker trigger, whose text is the staged 24-hour clock.
  * @returns the trigger button.
  */
 function timeField(): HTMLButtonElement {
-  return within(screen.getByRole('region', { name: en['rule.title'] }))
-    .getByLabelText<HTMLButtonElement>(en['timing.time'])
+  return within(screen.getByRole('region', { name: en['rule.title'] })).getByLabelText<HTMLButtonElement>(en['timing.time'])
 }
 
 /**
@@ -103,12 +175,14 @@ function timeField(): HTMLButtonElement {
  * @param status - initial catalog query state; defaults to a settled read.
  * @returns the update callbacks and the timing-update spy.
  */
-function mount(
-  records: readonly ScheduleCatalogEntry[],
-  status: 'loading' | 'ready' | 'error' = 'ready',
-) {
+function mount(records: readonly ScheduleCatalogEntry[], status: 'loading' | 'ready' | 'error' = 'ready') {
   let snapshot: CatalogSnapshot<ScheduleCatalogEntry> = {
-    records, status, deleting: [], settled: status === 'ready', readRequest: 0, readSettled: 0,
+    records,
+    status,
+    deleting: [],
+    settled: status === 'ready',
+    readRequest: 0,
+    readSettled: 0,
   }
   const props: TaskManagerPageProps = {
     useCatalog: select => select(snapshot),
@@ -117,19 +191,26 @@ function mount(
     usePanelInfo: select => select({ activePanelId: null }),
     useSessionStatus: select => select(new Map()),
     useSessionRetainInfo: () => undefined,
-    useResource: () => { throw new Error('The task manager does not load document resources') },
+    useResource: () => {
+      throw new Error('The task manager does not load document resources')
+    },
     ...allowAllAccess,
     onDelete: vi.fn<TaskManagerPageProps['onDelete']>(async () => 'deleted'),
     onRetry: vi.fn(async () => {}),
     onNewTask: vi.fn(),
     onUpdateTiming: vi.fn<TaskManagerPageProps['onUpdateTiming']>(async ({ expected }) => ({
-      ok: true, value: { id: expected.id, updated: false, record: expected },
+      ok: true,
+      value: { id: expected.id, updated: false, record: expected },
     })),
     onOpenSession: vi.fn(),
     loadHistory: vi.fn<TaskManagerPageProps['loadHistory']>(async ({ id }) => ({
-      ok: true, value: {
-        id, records: [], earlierRecordsUnavailable: false,
-        earlierRecordsPruned: false, retention: { days: 30, records: 200 },
+      ok: true,
+      value: {
+        id,
+        records: [],
+        earlierRecordsUnavailable: false,
+        earlierRecordsPruned: false,
+        retention: { days: 30, records: 200 },
       },
     })),
     t: makeTranslate(en),
@@ -157,25 +238,24 @@ function selectTask(name: string): void {
 
 /** The Repeat selector of the shown rule's Run time card. */
 function repeatButton(): HTMLElement {
-  return within(screen.getByRole('region', { name: en['rule.title'] }))
-    .getByRole('button', { name: new RegExp(`^${en['rule.repeat']}`) })
+  return within(screen.getByRole('region', { name: en['rule.title'] })).getByRole('button', { name: new RegExp(`^${en['rule.repeat']}`) })
 }
 
 /** The Time zone selector of the shown rule's Run time card. */
 function zoneButton(): HTMLElement {
-  return within(screen.getByRole('region', { name: en['rule.title'] }))
-    .getByRole('button', { name: new RegExp(`^${en['timing.zone']}`) })
+  return within(screen.getByRole('region', { name: en['rule.title'] })).getByRole('button', { name: new RegExp(`^${en['timing.zone']}`) })
 }
 
 /** The Weekday toggle group of the shown rule's Run time card. */
 function weekdayGroup(): HTMLElement {
-  return within(screen.getByRole('region', { name: en['rule.title'] }))
-    .getByRole('group', { name: en['rule.weekday'] })
+  return within(screen.getByRole('region', { name: en['rule.title'] })).getByRole('group', { name: en['rule.weekday'] })
 }
 
 /** Pressed state of the Weekday group's seven toggles, Monday through Sunday. */
 function weekdayPressed(group: HTMLElement): (string | null)[] {
-  return within(group).getAllByRole('button').map(day => day.getAttribute('aria-pressed'))
+  return within(group)
+    .getAllByRole('button')
+    .map(day => day.getAttribute('aria-pressed'))
 }
 
 /**
@@ -211,9 +291,10 @@ function clickRepeat(key: 'rule.cron' | 'rule.daily' | 'rule.weekdays' | 'rule.w
  */
 function pinSystemZone(timeZone: string): () => void {
   const options = new Intl.DateTimeFormat().resolvedOptions()
-  const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
-    .mockReturnValue({ ...options, timeZone })
-  return () => { spy.mockRestore() }
+  const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({ ...options, timeZone })
+  return () => {
+    spy.mockRestore()
+  }
 }
 
 /** The staged-edit bar's Save changes action. */
@@ -241,8 +322,9 @@ function clickIntervalArrow(key: 'timing.intervalIncrease' | 'timing.intervalDec
 
 /** The Frequency selector of the cron builder's rows. */
 function frequencyButton(): HTMLElement {
-  return within(screen.getByRole('region', { name: en['rule.title'] }))
-    .getByRole('button', { name: new RegExp(`^${en['cronForm.frequency']}`) })
+  return within(screen.getByRole('region', { name: en['rule.title'] })).getByRole('button', {
+    name: new RegExp(`^${en['cronForm.frequency']}`),
+  })
 }
 
 /**
@@ -287,7 +369,9 @@ describe('TaskDetail authoritative refresh', () => {
     expect(screen.getByLabelText<HTMLInputElement>(en['timing.interval']).value).toBe('600')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: every.sessionId, id: every.id, expected: timingSnapshot(refreshed),
+      sessionId: every.sessionId,
+      id: every.id,
+      expected: timingSnapshot(refreshed),
       change: { kind: 'every', every_seconds: 600 },
     })
   })
@@ -332,8 +416,7 @@ describe('TaskDetail authoritative refresh', () => {
     // choice has to stay Weekly: the Weekday row exists only for that choice, and
     // the Repeat value must not read as the choice the kept set does not match.
     h.update([{ ...sparseWeekdays, weekdays: [1, 2, 3, 4, 5] }])
-    expect(weekdayPressed(weekdayGroup()))
-      .toEqual(['true', 'false', 'true', 'false', 'true', 'false', 'false'])
+    expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'false', 'true', 'false', 'true', 'false', 'false'])
     expect(repeatButton().textContent).toContain(en['rule.weekly'])
     expect(repeatButton().textContent).not.toContain(en['rule.weekdays'])
   })
@@ -400,17 +483,19 @@ describe('TaskDetail authoritative refresh', () => {
 type RuleShown = Parameters<typeof mergeRuleDraft>[1]
 
 /** One complete staged value set, with any field replaced by an override. */
-function rule(
-  overrides: Omit<Partial<RuleShown>, 'draft'> & { draft?: Partial<RuleShown['draft']> } = {},
-): RuleShown {
+function rule(overrides: Omit<Partial<RuleShown>, 'draft'> & { draft?: Partial<RuleShown['draft']> } = {}): RuleShown {
   const { draft, ...rest } = overrides
   return {
     title: 'Daily weather',
     prompt: 'Daily weather',
     kind: 'daily',
     draft: {
-      date: '2026-10-01', time: '23:00:00.000', timeZone: 'Asia/Shanghai',
-      seconds: '300', expression: '0 1 * * *', ...draft,
+      date: '2026-10-01',
+      time: '23:00:00.000',
+      timeZone: 'Asia/Shanghai',
+      seconds: '300',
+      expression: '0 1 * * *',
+      ...draft,
     },
     weekdays: [1, 2, 3, 4, 5],
     ...rest,
@@ -422,7 +507,9 @@ describe('mergeRuleDraft', () => {
 
   it('takes every field of the refreshed record while the draft is clean', () => {
     const authoritative = rule({
-      title: 'Remote', prompt: 'Remote prompt', kind: 'weekly',
+      title: 'Remote',
+      prompt: 'Remote prompt',
+      kind: 'weekly',
       draft: { date: '2026-11-02', time: '09:00:00.000', timeZone: 'UTC', seconds: '600', expression: '30 8 * * *' },
       weekdays: [6],
     })
@@ -434,12 +521,16 @@ describe('mergeRuleDraft', () => {
     // refreshed record describes a rule the draft does not: the whole staged rule
     // stays, and no field of it is replaced by the refreshed one.
     const draft = rule({
-      title: 'Edited', prompt: 'Edited prompt', kind: 'cron',
+      title: 'Edited',
+      prompt: 'Edited prompt',
+      kind: 'cron',
       draft: { date: '2026-12-03', time: '08:00:00.000', timeZone: 'Europe/Berlin', seconds: '900', expression: '15 7 * * *' },
       weekdays: [7],
     })
     const authoritative = rule({
-      title: 'Remote', prompt: 'Remote prompt', kind: 'every',
+      title: 'Remote',
+      prompt: 'Remote prompt',
+      kind: 'every',
       draft: { date: '2027-01-04', time: '07:00:00.000', timeZone: 'UTC', seconds: '1200', expression: '45 6 * * *' },
       weekdays: [3, 5],
     })
@@ -449,8 +540,7 @@ describe('mergeRuleDraft', () => {
   it('takes the refreshed timing field the draft left alone', () => {
     const draft = rule({ title: 'Edited', prompt: 'Edited prompt' })
     const authoritative = rule({ title: 'Remote', prompt: 'Remote prompt', draft: { time: '21:15:00.000' } })
-    expect(mergeRuleDraft(authoritative, draft, stored))
-      .toEqual({ ...draft, draft: { ...draft.draft, time: '21:15:00.000' } })
+    expect(mergeRuleDraft(authoritative, draft, stored)).toEqual({ ...draft, draft: { ...draft.draft, time: '21:15:00.000' } })
   })
 
   it('takes a refreshed timing field while the draft edits another of the same kind', () => {
@@ -490,9 +580,7 @@ describe('mergeRuleDraft', () => {
     // clock, so the day set is the only staged difference the merge weighs. The
     // kept set is no longer Monday to Friday, so the choice follows the kept set
     // rather than the refreshed record's.
-    const keptEdit = mergeRuleDraft(
-      widened, rule({ kind: 'weekly', weekdays: [1, 3, 5], draft: { time: '09:00:00.000' } }), storedSparse,
-    )
+    const keptEdit = mergeRuleDraft(widened, rule({ kind: 'weekly', weekdays: [1, 3, 5], draft: { time: '09:00:00.000' } }), storedSparse)
     expect(keptEdit.kind).toBe('weekly')
     expect(keptEdit.weekdays).toEqual([1, 3, 5])
 
@@ -509,7 +597,11 @@ describe('mergeRuleDraft', () => {
     const storedWeekdays = rule({ kind: 'weekdays', weekdays: [1, 2, 3, 4, 5], draft: { time: '09:00:00.000' } })
     const draft = rule({ kind: 'weekly', weekdays: [1, 2, 3, 4, 5], draft: { time: '09:00:00.000' } })
     const renamed = rule({
-      kind: 'weekdays', weekdays: [1, 2, 3, 4, 5], title: 'Renamed', prompt: 'Renamed', draft: { time: '09:00:00.000' },
+      kind: 'weekdays',
+      weekdays: [1, 2, 3, 4, 5],
+      title: 'Renamed',
+      prompt: 'Renamed',
+      draft: { time: '09:00:00.000' },
     })
     const merged = mergeRuleDraft(renamed, draft, storedWeekdays)
     expect(merged.kind).toBe('weekly')
@@ -524,7 +616,11 @@ describe('mergeRuleDraft', () => {
     const storedSparse = rule({ kind: 'weekly', weekdays: [1, 3], draft: { time: '09:00:00.000' } })
     const draft = rule({ kind: 'weekly', weekdays: [1, 2, 3, 4, 5], draft: { time: '09:00:00.000' } })
     const renamed = rule({
-      kind: 'weekly', weekdays: [1, 3], title: 'Renamed', prompt: 'Renamed', draft: { time: '09:00:00.000' },
+      kind: 'weekly',
+      weekdays: [1, 3],
+      title: 'Renamed',
+      prompt: 'Renamed',
+      draft: { time: '09:00:00.000' },
     })
     const merged = mergeRuleDraft(renamed, draft, storedSparse)
     expect(merged.kind).toBe('weekly')
@@ -555,8 +651,11 @@ describe('mergeRuleDraft', () => {
     // name and the instruction are not staged, so the remote values win.
     const storedRule = rule({ kind: 'every', title: 'Stored title', prompt: 'Stored instruction', weekdays: [1] })
     const stagedSwitch = rule({
-      kind: 'weekly', title: 'Stored title', prompt: 'Stored instruction',
-      draft: { time: '23:55:00.000' }, weekdays: [1],
+      kind: 'weekly',
+      title: 'Stored title',
+      prompt: 'Stored instruction',
+      draft: { time: '23:55:00.000' },
+      weekdays: [1],
     })
     const remote = rule({ kind: 'every', title: 'Remote title', prompt: 'Remote instruction', weekdays: [2] })
     const merged = mergeRuleDraft(remote, stagedSwitch, storedRule)
@@ -618,16 +717,14 @@ describe('TaskDetail rule menus', () => {
     // autoFocus on the box cannot take effect; marking it is what makes the menu
     // hand the keyboard over once placement made it focusable (see the primitive
     // case in ui-primitives tests).
-    expect(screen.getByRole('searchbox', { name: en['timing.zoneSearch'] })
-      .hasAttribute('data-menu-field')).toBe(true)
+    expect(screen.getByRole('searchbox', { name: en['timing.zoneSearch'] }).hasAttribute('data-menu-field')).toBe(true)
   })
 
   it('keeps a shared zone row’s own id when a query names several of its ids', () => {
     // Three zones hold one label at any instant, so they render as one row, and
     // the rule already states one of them, whose id that row preserves.
     const restoreSystemZone = pinSystemZone('Asia/Shanghai')
-    const inventory = vi.spyOn(Intl, 'supportedValuesOf')
-      .mockReturnValue(['America/Detroit', 'America/New_York', 'America/Toronto'])
+    const inventory = vi.spyOn(Intl, 'supportedValuesOf').mockReturnValue(['America/Detroit', 'America/New_York', 'America/Toronto'])
     try {
       mount([{ ...daily, timeZone: 'America/Toronto' }])
       selectTask('Daily weather')
@@ -668,9 +765,11 @@ describe('TaskDetail rule menus', () => {
       // instead of the alias a bare row would submit.
       fireEvent.click(screen.getByRole('menuitem'))
       clickSave()
-      expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-        change: { kind: 'daily', daily: { time: '23:00:00.000', time_zone: 'Europe/Athens' } },
-      }))
+      expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          change: { kind: 'daily', daily: { time: '23:00:00.000', time_zone: 'Europe/Athens' } },
+        }),
+      )
     } finally {
       inventory.mockRestore()
       clock.mockRestore()
@@ -691,8 +790,7 @@ describe('TaskDetail rule menus', () => {
     // instant, so they render as one row whose own id is its first alias, Cairo.
     const restoreSystemZone = pinSystemZone('UTC')
     const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-20T12:00:00.000Z'))
-    const inventory = vi.spyOn(Intl, 'supportedValuesOf')
-      .mockReturnValue(['Africa/Cairo', 'Europe/Athens', 'Europe/Bucharest'])
+    const inventory = vi.spyOn(Intl, 'supportedValuesOf').mockReturnValue(['Africa/Cairo', 'Europe/Athens', 'Europe/Bucharest'])
     try {
       const h = mount([{ ...daily, timeZone: 'Africa/Cairo' }])
       selectTask('Daily weather')
@@ -705,9 +803,11 @@ describe('TaskDetail rule menus', () => {
       // the first of them rather than a zone the query never matched.
       fireEvent.click(screen.getByRole('menuitem'))
       clickSave()
-      expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-        change: { kind: 'daily', daily: { time: '23:00:00.000', time_zone: 'Europe/Athens' } },
-      }))
+      expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          change: { kind: 'daily', daily: { time: '23:00:00.000', time_zone: 'Europe/Athens' } },
+        }),
+      )
     } finally {
       inventory.mockRestore()
       clock.mockRestore()
@@ -754,16 +854,14 @@ describe('TaskDetail weekday memory across tasks', () => {
     mount([weekdayRule])
     selectTask('Weekday rule')
     // A stored Monday-to-Friday rule opens on that choice, which lists no Weekday toggles.
-    expect(within(screen.getByRole('region', { name: en['rule.title'] }))
-      .queryByRole('group', { name: en['rule.weekday'] })).toBeNull()
+    expect(within(screen.getByRole('region', { name: en['rule.title'] })).queryByRole('group', { name: en['rule.weekday'] })).toBeNull()
 
     // Every day shows no Weekday row either, and no pill was pressed on the way
     // out: the stored rule still states five days, so its Weekly choice keeps all
     // five instead of collapsing to the one day the carried clock falls on.
     clickRepeat('rule.daily')
     clickRepeat('rule.weekly')
-    expect(weekdayPressed(weekdayGroup()))
-      .toEqual(['true', 'true', 'true', 'true', 'true', 'false', 'false'])
+    expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'true', 'true', 'true', 'true', 'false', 'false'])
   })
 
   it('keeps an edited set through detours of one and of two kinds', () => {
@@ -775,8 +873,7 @@ describe('TaskDetail weekday memory across tasks', () => {
     expect(weekdayOn(5)).toBe('false')
     clickRepeat('rule.daily')
     clickRepeat('rule.weekly')
-    expect(weekdayPressed(weekdayGroup()))
-      .toEqual(['true', 'true', 'true', 'true', 'false', 'false', 'false'])
+    expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'true', 'true', 'true', 'false', 'false', 'false'])
 
     // The same edit through one more kind must answer the same: the stored
     // Monday-to-Friday set only seeds a memory this task has not got yet, so a
@@ -789,8 +886,7 @@ describe('TaskDetail weekday memory across tasks', () => {
     clickRepeat('rule.daily')
     clickRepeat('rule.cron')
     clickRepeat('rule.weekly')
-    expect(weekdayPressed(weekdayGroup()))
-      .toEqual(['true', 'true', 'true', 'true', 'false', 'false', 'false'])
+    expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'true', 'true', 'true', 'false', 'false', 'false'])
   })
 
   it('retires a memory that only mirrors the stored set a refresh replaces', () => {
@@ -805,8 +901,7 @@ describe('TaskDetail weekday memory across tasks', () => {
     clickRepeat('rule.weekly')
     // The refresh retires that seed, so the Weekly choice seeds the refreshed
     // Monday instead of the five days the stored rule held before the refresh.
-    expect(weekdayPressed(weekdayGroup()))
-      .toEqual(['true', 'false', 'false', 'false', 'false', 'false', 'false'])
+    expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'false', 'false', 'false', 'false', 'false', 'false'])
   })
 
   it('keeps an added day through a detour that passes through the cron choice', () => {
@@ -821,8 +916,7 @@ describe('TaskDetail weekday memory across tasks', () => {
     clickRepeat('rule.daily')
     clickRepeat('rule.cron')
     clickRepeat('rule.weekly')
-    expect(weekdayPressed(weekdayGroup()))
-      .toEqual(['true', 'false', 'true', 'false', 'true', 'false', 'false'])
+    expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'false', 'true', 'false', 'true', 'false', 'false'])
   })
 
   it('drops a cancelled set so a later Weekly choice seeds the target day again', () => {
@@ -942,7 +1036,9 @@ describe('TaskDetail records-tab save failure', () => {
     fireEvent.change(intervalField(), { target: { value: '600' } })
     fireEvent.click(recordsTab())
     h.updateTiming.mockRejectedValueOnce(new Error('save response disconnected'))
-    await act(async () => { clickSave() })
+    await act(async () => {
+      clickSave()
+    })
 
     expect(saveFailure()?.textContent).toBe(en['rule.error.unknown'])
   })
@@ -982,7 +1078,9 @@ describe('TaskDetail cron rows', () => {
     expect(timeField().textContent).toBe('01:30')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: minutely.sessionId, id: minutely.id, expected: timingSnapshot(minutely),
+      sessionId: minutely.sessionId,
+      id: minutely.id,
+      expected: timingSnapshot(minutely),
       change: { kind: 'cron', cron: { expression: '30 1 * * *', time_zone: 'UTC' } },
     })
   })

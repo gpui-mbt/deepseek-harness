@@ -125,9 +125,7 @@ function createMathFlow(marker: number, openMarker: number, closeMarker: number,
     const self = this
     let oddBackslashRun = false
     const tail = self.events.at(-1)
-    const initialSize = tail?.[1].type === types.linePrefix
-      ? tail[2].sliceSerialize(tail[1], true).length
-      : 0
+    const initialSize = tail?.[1].type === types.linePrefix ? tail[2].sliceSerialize(tail[1], true).length : 0
 
     return start
 
@@ -156,16 +154,10 @@ function createMathFlow(marker: number, openMarker: number, closeMarker: number,
     function content(code: number | null): State | undefined {
       if (code === codes.eof) return nok(code)
       if (code === marker && (marker !== codes.dollarSign || !oddBackslashRun)) {
-        return effects.attempt(
-          { partial: true, tokenize: tokenizeClosingFence },
-          closed,
-          afterClosingFenceAttempt,
-        )(code)
+        return effects.attempt({ partial: true, tokenize: tokenizeClosingFence }, closed, afterClosingFenceAttempt)(code)
       }
       if (markdownLineEnding(code)) {
-        return multiline
-          ? effects.attempt(nonLazyContinuation, afterContinuation, nok)(code)
-          : nok(code)
+        return multiline ? effects.attempt(nonLazyContinuation, afterContinuation, nok)(code) : nok(code)
       }
       return valueStart(code)
     }
@@ -180,9 +172,7 @@ function createMathFlow(marker: number, openMarker: number, closeMarker: number,
       return effects.attempt(
         { partial: true, tokenize: tokenizeClosingFence },
         closed,
-        initialSize
-          ? factorySpace(effects, content, types.linePrefix, initialSize + 1)
-          : content,
+        initialSize ? factorySpace(effects, content, types.linePrefix, initialSize + 1) : content,
       )(code)
     }
 
@@ -223,11 +213,7 @@ function createMathFlow(marker: number, openMarker: number, closeMarker: number,
       return ok(code)
     }
 
-    function tokenizeClosingFence(
-      closeEffects: Parameters<Tokenizer>[0],
-      closeOk: State,
-      closeNok: State,
-    ): State {
+    function tokenizeClosingFence(closeEffects: Parameters<Tokenizer>[0], closeOk: State, closeNok: State): State {
       return factorySpace(closeEffects, sequenceStart, types.linePrefix, constants.tabSize)
 
       function sequenceStart(code: number | null): State | undefined {
@@ -252,11 +238,7 @@ function createMathFlow(marker: number, openMarker: number, closeMarker: number,
       }
     }
 
-    function tokenizeOpeningFence(
-      openEffects: Parameters<Tokenizer>[0],
-      openOk: State,
-      openNok: State,
-    ): State {
+    function tokenizeOpeningFence(openEffects: Parameters<Tokenizer>[0], openOk: State, openNok: State): State {
       return sequenceStart
 
       function sequenceStart(code: number | null): State | undefined {
@@ -315,19 +297,9 @@ const backslashMathText: Construct = {
   tokenize: tokenizeBackslashMathText,
 }
 
-const backslashMathFlow = createMathFlow(
-  codes.backslash,
-  codes.leftSquareBracket,
-  codes.rightSquareBracket,
-  true,
-)
+const backslashMathFlow = createMathFlow(codes.backslash, codes.leftSquareBracket, codes.rightSquareBracket, true)
 
-const sameLineDollarMathFlow = createMathFlow(
-  codes.dollarSign,
-  codes.dollarSign,
-  codes.dollarSign,
-  false,
-)
+const sameLineDollarMathFlow = createMathFlow(codes.dollarSign, codes.dollarSign, codes.dollarSign, false)
 
 const backslashMath: Extension = {
   flow: {

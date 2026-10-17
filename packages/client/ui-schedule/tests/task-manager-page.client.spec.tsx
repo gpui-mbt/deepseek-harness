@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, isInaccessible, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { allowAllAccess, bindSnapshotSelector, makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -13,8 +13,12 @@ import { TaskManagerPage, type TaskManagerPageProps } from '../src/client/TaskMa
 import { TaskManagerIcon } from '../src/client/TaskManagerIcon.tsx'
 import { createCatalogSource, type CatalogSnapshot } from '../src/client/catalog-source.ts'
 import {
-  FALLBACK_ZONES, formatScheduleAbsolute, formatScheduleFrequency, formatScheduleNextRun,
-  formatScheduleRelative, zoneLabel,
+  FALLBACK_ZONES,
+  formatScheduleAbsolute,
+  formatScheduleFrequency,
+  formatScheduleNextRun,
+  formatScheduleRelative,
+  zoneLabel,
 } from '../src/client/schedule-format.ts'
 import { timingSnapshot } from '../src/client/task-timing.ts'
 import { en, zh } from '../src/client/task-manager-locales.ts'
@@ -46,40 +50,76 @@ function installStyles(selectors: Record<string, string | undefined>): void {
   for (const [name, hashed] of Object.entries(selectors)) {
     if (hashed !== undefined) mapped = mapped.replaceAll(`.${name}`, `.${hashed}`)
   }
-  const layer = readFileSync(resolve(import.meta.dirname, '../../ui-primitives/src/Modal.module.css'), 'utf8')
-    .replaceAll('.root', `.${modalCss.root}`)
+  const layer = readFileSync(resolve(import.meta.dirname, '../../ui-primitives/src/Modal.module.css'), 'utf8').replaceAll(
+    '.root',
+    `.${modalCss.root}`,
+  )
   installedStyles = document.createElement('style')
   installedStyles.textContent = `${mapped}\n${layer}`
   document.head.append(installedStyles)
 }
 
 const at: ScheduleCatalogEntry = {
-  id: 'task-at' as ScheduleId, sessionId: 'session-alpha' as SessionId, kind: 'at', status: 'active',
+  id: 'task-at' as ScheduleId,
+  sessionId: 'session-alpha' as SessionId,
+  kind: 'at',
+  status: 'active',
   title: 'Review release',
   prompt: 'Review release\nCheck risks and <img src=x onerror=alert(1)>',
   scheduledAt: '2026-10-01T09:00:00.000Z',
 }
 const after: ScheduleCatalogEntry = {
-  id: 'task-after' as ScheduleId, sessionId: 'session-beta' as SessionId, kind: 'after', status: 'active',
-  title: 'Send summary', prompt: 'Send summary', afterSeconds: 90, scheduledAt: '2026-10-01T08:00:00.000Z',
+  id: 'task-after' as ScheduleId,
+  sessionId: 'session-beta' as SessionId,
+  kind: 'after',
+  status: 'active',
+  title: 'Send summary',
+  prompt: 'Send summary',
+  afterSeconds: 90,
+  scheduledAt: '2026-10-01T08:00:00.000Z',
 }
 const every: ScheduleCatalogEntry = {
-  id: 'task-every' as ScheduleId, sessionId: 'session-gamma' as SessionId, kind: 'every', status: 'active',
-  title: 'Check metrics', prompt: 'Check metrics', everySeconds: 301, scheduledAt: '2026-10-01T09:30:00.000Z',
+  id: 'task-every' as ScheduleId,
+  sessionId: 'session-gamma' as SessionId,
+  kind: 'every',
+  status: 'active',
+  title: 'Check metrics',
+  prompt: 'Check metrics',
+  everySeconds: 301,
+  scheduledAt: '2026-10-01T09:30:00.000Z',
 }
 const daily: ScheduleCatalogEntry = {
-  id: 'task-daily' as ScheduleId, sessionId: 'session-weather' as SessionId, kind: 'daily', status: 'active',
-  title: 'Daily weather', prompt: 'Daily weather', time: '23:00:00.000', timeZone: 'Asia/Shanghai',
+  id: 'task-daily' as ScheduleId,
+  sessionId: 'session-weather' as SessionId,
+  kind: 'daily',
+  status: 'active',
+  title: 'Daily weather',
+  prompt: 'Daily weather',
+  time: '23:00:00.000',
+  timeZone: 'Asia/Shanghai',
   scheduledAt: '2026-10-01T15:00:00.000Z',
 }
 const weekly = {
-  id: 'task-weekly' as ScheduleId, sessionId: 'session-standup' as SessionId, kind: 'weekly', status: 'active',
-  title: 'Weekly review', prompt: 'Weekly review', time: '09:30:00.000', timeZone: 'Asia/Shanghai', weekdays: [1, 3],
+  id: 'task-weekly' as ScheduleId,
+  sessionId: 'session-standup' as SessionId,
+  kind: 'weekly',
+  status: 'active',
+  title: 'Weekly review',
+  prompt: 'Weekly review',
+  time: '09:30:00.000',
+  timeZone: 'Asia/Shanghai',
+  weekdays: [1, 3],
   scheduledAt: '2026-10-05T01:30:00.000Z',
 } satisfies ScheduleCatalogEntry
 const cron = {
-  id: 'task-cron' as ScheduleId, sessionId: 'session-report' as SessionId, kind: 'cron', status: 'active',
-  title: 'Cron report', prompt: 'Cron report', expression: '0 9 * * 1-5', timeZone: 'Asia/Shanghai',
+  id: 'task-cron' as ScheduleId,
+  sessionId: 'session-report' as SessionId,
+  kind: 'cron',
+  status: 'active',
+  title: 'Cron report',
+  prompt: 'Cron report',
+  expression: '0 9 * * 1-5',
+  timeZone: 'Asia/Shanghai',
   scheduledAt: '2026-10-05T01:00:00.000Z',
 } satisfies ScheduleCatalogEntry
 const delivery: NonNullable<ScheduleCatalogEntry['lastDelivery']> = {
@@ -91,12 +131,33 @@ const ended: ScheduleCatalogEntry = { ...at, status: 'inactive', lastDelivery: d
 const records = [at, every, after]
 const sessions: SessionListState = {
   ids: [...records, daily, weekly].map(record => record.sessionId),
-  byId: Object.fromEntries([...records, daily, weekly].map(record => [record.sessionId, {
-    id: record.sessionId, displayTitle: record.sessionId, running: false, blank: false, updatedAt: 0, retainedBy: {},
-  }] as const)),
-  phase: 'ready', projectionsBySession: {},
+  byId: Object.fromEntries(
+    [...records, daily, weekly].map(
+      record =>
+        [
+          record.sessionId,
+          {
+            id: record.sessionId,
+            displayTitle: record.sessionId,
+            running: false,
+            blank: false,
+            updatedAt: 0,
+            retainedBy: {},
+          },
+        ] as const,
+    ),
+  ),
+  phase: 'ready',
+  projectionsBySession: {},
 }
-const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+const workspaces: WorkspaceSnapshot = {
+  items: [],
+  archivedSessionIds: [],
+  pinnedSessionIds: [],
+  state: 'idle',
+  phase: 'ready',
+  error: null,
+}
 
 /**
  * Session list whose catalog rows carry the given titles.
@@ -106,10 +167,12 @@ const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinne
 function sessionsWithTitles(titles: Partial<Record<SessionId, string>>): SessionListState {
   return {
     ...sessions,
-    byId: Object.fromEntries(Object.entries(sessions.byId).map(([id, summary]) => {
-      const title = titles[id as SessionId]
-      return [id, title === undefined ? summary : { ...summary, title }] as const
-    })),
+    byId: Object.fromEntries(
+      Object.entries(sessions.byId).map(([id, summary]) => {
+        const title = titles[id as SessionId]
+        return [id, title === undefined ? summary : { ...summary, title }] as const
+      }),
+    ),
   }
 }
 
@@ -143,7 +206,9 @@ const DEVICE_ZONE = 'Asia/Shanghai'
 const FIXTURE_NOW = Date.parse('2026-09-18T12:00:00.000Z')
 /** Elements whose `scrollIntoView` the open pickers called, in call order. */
 const scrolledIntoView: Element[] = []
-const scrollIntoView = vi.fn(function (this: Element) { scrolledIntoView.push(this) })
+const scrollIntoView = vi.fn(function (this: Element) {
+  scrolledIntoView.push(this)
+})
 beforeEach(() => {
   vi.spyOn(Date, 'now').mockReturnValue(FIXTURE_NOW)
   pinSystemZone(DEVICE_ZONE)
@@ -164,7 +229,13 @@ function mount(
   overrides: Partial<TaskManagerPageProps> = {},
 ) {
   let snapshot: CatalogSnapshot<ScheduleCatalogEntry> = {
-    records, status: 'ready', deleting: [], settled: true, readRequest: 0, readSettled: 0, ...initial,
+    records,
+    status: 'ready',
+    deleting: [],
+    settled: true,
+    readRequest: 0,
+    readSettled: 0,
+    ...initial,
   }
   const props: TaskManagerPageProps = {
     useCatalog: select => select(snapshot),
@@ -173,28 +244,38 @@ function mount(
     usePanelInfo: select => select({ activePanelId: null }),
     useSessionStatus: select => select(new Map()),
     useSessionRetainInfo: () => undefined,
-    useResource: () => { throw new Error('The task manager does not load document resources') },
+    useResource: () => {
+      throw new Error('The task manager does not load document resources')
+    },
     ...allowAllAccess,
     onDelete: vi.fn<TaskManagerPageProps['onDelete']>(async () => 'deleted'),
     onRetry: vi.fn(async () => {}),
     onNewTask: vi.fn(),
     onUpdateTiming: vi.fn<TaskManagerPageProps['onUpdateTiming']>(async ({ expected }) => ({
-      ok: true, value: { id: expected.id, updated: false, record: expected },
+      ok: true,
+      value: { id: expected.id, updated: false, record: expected },
     })),
     onOpenSession: vi.fn(),
     loadHistory: vi.fn<TaskManagerPageProps['loadHistory']>(async ({ id }) => {
       const receipt = snapshot.records.find(record => record.id === id)?.lastDelivery
-      return { ok: true, value: {
-        id, records: receipt === undefined ? [] : [receipt], earlierRecordsUnavailable: true,
-        earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-      } }
+      return {
+        ok: true,
+        value: {
+          id,
+          records: receipt === undefined ? [] : [receipt],
+          earlierRecordsUnavailable: true,
+          earlierRecordsPruned: false,
+          retention: { days: 30, records: 200 },
+        },
+      }
     }),
     t: makeTranslate(dictionary),
     ...overrides,
   }
   const view = render(<TaskManagerPage {...props} />)
   return {
-    props, view,
+    props,
+    view,
     updateTiming: vi.mocked(props.onUpdateTiming),
     update(next: Partial<CatalogSnapshot<ScheduleCatalogEntry>>) {
       snapshot = { ...snapshot, ...next }
@@ -204,7 +285,8 @@ function mount(
 }
 
 function taskNames(): string[] {
-  return within(screen.getByRole('list', { name: en['list.label'] })).queryAllByRole('button')
+  return within(screen.getByRole('list', { name: en['list.label'] }))
+    .queryAllByRole('button')
     .filter(button => button.closest('li') !== null)
     .map(button => button.getAttribute('aria-label')!)
 }
@@ -217,13 +299,17 @@ function emptyNewTaskButton(dictionary: typeof en | typeof zh = en): HTMLElement
 function detailViewLabels(dictionary: typeof en | typeof zh) {
   return dictionary === en
     ? {
-      tablist: 'Task detail views', rules: 'Rules', records: 'Records',
-      empty: 'No delivery record available',
-    }
+        tablist: 'Task detail views',
+        rules: 'Rules',
+        records: 'Records',
+        empty: 'No delivery record available',
+      }
     : {
-      tablist: '任务详情视图', rules: '规则', records: '任务运行记录',
-      empty: '暂无任务运行记录',
-    }
+        tablist: '任务详情视图',
+        rules: '规则',
+        records: '任务运行记录',
+        empty: '暂无任务运行记录',
+      }
 }
 
 function expectDetailView(dictionary: typeof en | typeof zh, active: 'rules' | 'records'): HTMLElement {
@@ -248,7 +334,9 @@ function expectDetailView(dictionary: typeof en | typeof zh, active: 'rules' | '
 }
 
 function visibleText(root: HTMLElement, text: string): HTMLElement[] {
-  return within(root).queryAllByText(text, { exact: true }).filter(element => !isInaccessible(element))
+  return within(root)
+    .queryAllByText(text, { exact: true })
+    .filter(element => !isInaccessible(element))
 }
 
 /** The detail's non-scrolling linked-Session row, or null when the view has none. */
@@ -341,15 +429,19 @@ function openMore(dictionary: typeof en | typeof zh = en): HTMLElement {
 
 /** Open the shown rule's Repeat menu and choose one recurrence option. */
 function chooseRepeat(label: string, dictionary: typeof en | typeof zh = en): void {
-  fireEvent.click(within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }))
+  fireEvent.click(
+    within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByRole('button', {
+      name: new RegExp(`^${dictionary['rule.repeat']}`),
+    }),
+  )
   fireEvent.click(screen.getByRole('menuitem', { name: label }))
 }
 
 /** The Frequency selector of the cron builder's rows. */
 function cronFrequencyButton(dictionary: typeof en | typeof zh = en): HTMLElement {
-  return within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByRole('button', { name: new RegExp(`^${dictionary['cronForm.frequency']}`) })
+  return within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByRole('button', {
+    name: new RegExp(`^${dictionary['cronForm.frequency']}`),
+  })
 }
 
 /** Open the cron builder's Frequency menu and choose one shape. */
@@ -360,14 +452,16 @@ function chooseCronShape(label: string, dictionary: typeof en | typeof zh = en):
 
 /** The Repeat selector of the shown rule's Run time card. */
 function repeatButton(dictionary: typeof en | typeof zh = en): HTMLElement {
-  return within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) })
+  return within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByRole('button', {
+    name: new RegExp(`^${dictionary['rule.repeat']}`),
+  })
 }
 
 /** The Time zone selector of the shown rule's Run time card. */
 function zoneButton(dictionary: typeof en | typeof zh = en): HTMLElement {
-  return within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByRole('button', { name: new RegExp(`^${dictionary['timing.zone']}`) })
+  return within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByRole('button', {
+    name: new RegExp(`^${dictionary['timing.zone']}`),
+  })
 }
 
 /** Localized offset/name pair produced by the same ICU-backed formatter as the UI. */
@@ -386,8 +480,7 @@ function chooseZone(zone: string, dictionary: typeof en | typeof zh = en): void 
 
 /** The Weekday toggle group of the shown rule's Run time card. */
 function weekdayGroup(dictionary: typeof en | typeof zh = en): HTMLElement {
-  return within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByRole('group', { name: dictionary['rule.weekday'] })
+  return within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByRole('group', { name: dictionary['rule.weekday'] })
 }
 
 /**
@@ -397,20 +490,16 @@ function weekdayGroup(dictionary: typeof en | typeof zh = en): HTMLElement {
  * outside it, so an unscoped lookup would match both while the panel shows.
  */
 function dateButton(dictionary: typeof en | typeof zh = en): HTMLButtonElement {
-  return within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByLabelText<HTMLButtonElement>(dictionary['timing.date'])
+  return within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByLabelText<HTMLButtonElement>(dictionary['timing.date'])
 }
 
 /** The Time row's picker trigger of the shown rule's Run time card, scoped like `dateButton`. */
 function timeButton(dictionary: typeof en | typeof zh = en): HTMLButtonElement {
-  return within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByLabelText<HTMLButtonElement>(dictionary['timing.time'])
+  return within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByLabelText<HTMLButtonElement>(dictionary['timing.time'])
 }
 
 /** One column of the open clock panel, by the row copy that names it. */
-function clockColumn(
-  key: 'timing.hour' | 'timing.minute' | 'timing.second', dictionary: typeof en | typeof zh = en,
-): HTMLElement {
+function clockColumn(key: 'timing.hour' | 'timing.minute' | 'timing.second', dictionary: typeof en | typeof zh = en): HTMLElement {
   return screen.getByRole('listbox', { name: dictionary[key] })
 }
 
@@ -422,12 +511,11 @@ function clockColumn(
  * @param dictionary - active locale.
  * @returns the trigger's text once the picks are staged.
  */
-function chooseClock(
-  hour: string, minute: string, second: string | undefined, dictionary: typeof en | typeof zh = en,
-): string {
+function chooseClock(hour: string, minute: string, second: string | undefined, dictionary: typeof en | typeof zh = en): string {
   const picks: readonly (readonly ['timing.hour' | 'timing.minute' | 'timing.second', string])[] = [
-    ['timing.hour', hour], ['timing.minute', minute],
-    ...second === undefined ? [] : [['timing.second', second] as const],
+    ['timing.hour', hour],
+    ['timing.minute', minute],
+    ...(second === undefined ? [] : [['timing.second', second] as const]),
   ]
   for (const [key, value] of picks) {
     fireEvent.click(within(clockColumn(key, dictionary)).getByRole('option', { name: value }))
@@ -443,9 +531,7 @@ function chooseClock(
  * @param dictionary - active locale.
  * @returns the trigger's text once the picks are staged.
  */
-function chooseTime(
-  hour: string, minute: string, second: string | undefined, dictionary: typeof en | typeof zh = en,
-): string {
+function chooseTime(hour: string, minute: string, second: string | undefined, dictionary: typeof en | typeof zh = en): string {
   if (screen.queryByRole('listbox', { name: dictionary['timing.hour'] }) === null) fireEvent.click(timeButton(dictionary))
   return chooseClock(hour, minute, second, dictionary)
 }
@@ -474,8 +560,7 @@ function dayCell(day: number): HTMLElement {
 
 /** The monthly date toggle group of the shown rule's Run time card. */
 function dateGroup(dictionary: typeof en | typeof zh = en): HTMLElement {
-  return within(screen.getByRole('region', { name: dictionary['rule.title'] }))
-    .getByRole('group', { name: dictionary['cronForm.dates'] })
+  return within(screen.getByRole('region', { name: dictionary['rule.title'] })).getByRole('group', { name: dictionary['cronForm.dates'] })
 }
 
 /** Accessible name of one date toggle. */
@@ -485,14 +570,17 @@ function dateName(day: number, dictionary: typeof en | typeof zh = en): string {
 
 /** Days of the monthly date group whose toggles are pressed. */
 function datesPressed(group: HTMLElement): number[] {
-  return within(group).getAllByRole('button')
+  return within(group)
+    .getAllByRole('button')
     .filter(day => day.getAttribute('aria-pressed') === 'true')
     .map(day => Number(day.textContent))
 }
 
 /** Pressed state of the Weekday group's seven toggles, Monday through Sunday. */
 function weekdayPressed(group: HTMLElement): (string | null)[] {
-  return within(group).getAllByRole('button').map(day => day.getAttribute('aria-pressed'))
+  return within(group)
+    .getAllByRole('button')
+    .map(day => day.getAttribute('aria-pressed'))
 }
 
 /** Accessible name of one English Weekday toggle. */
@@ -533,46 +621,77 @@ function openDelete(dictionary: typeof en | typeof zh = en): HTMLElement {
 }
 
 function remoteCatalog() {
-  const list = vi.fn<() => Promise<RemoteResult<ScheduleCatalogEntry[]>>>()
-    .mockResolvedValue({ ok: true, value: [at] })
-  const remove = vi.fn<(id: ScheduleId) => Promise<RemoteResult<ScheduleDeleteResult>>>()
+  const list = vi.fn<() => Promise<RemoteResult<ScheduleCatalogEntry[]>>>().mockResolvedValue({ ok: true, value: [at] })
+  const remove = vi
+    .fn<(id: ScheduleId) => Promise<RemoteResult<ScheduleDeleteResult>>>()
     .mockResolvedValue({ ok: true, value: { id: at.id, deleted: true } })
   const source = createCatalogSource({
-    list, remove,
+    list,
+    remove,
     subscribeChanged: () => () => {},
     subscribeReset: () => () => {},
   })
   const onDelete = vi.fn(source.onDelete)
   const mounted = mount({}, en, {
-    useCatalog: bindSnapshotSelector(source.hooks.catalog), onDelete, onRetry: source.onRetry,
+    useCatalog: bindSnapshotSelector(source.hooks.catalog),
+    onDelete,
+    onRetry: source.onRetry,
   })
   return { ...mounted, list, remove, onDelete }
 }
 
-describe.each([['English', en], ['Chinese', zh]] as const)('original Session availability in %s', (_name, dictionary) => {
+describe.each([
+  ['English', en],
+  ['Chinese', zh],
+] as const)('original Session availability in %s', (_name, dictionary) => {
   it.each([
-    ['Session list pending', { ...sessions, phase: 'pending' as const }, workspaces, 'Loading original session information.', '正在加载原会话信息'],
-    ['Workspace list pending', sessions, { ...workspaces, phase: 'pending' as const }, 'Loading original session information.', '正在加载原会话信息'],
+    [
+      'Session list pending',
+      { ...sessions, phase: 'pending' as const },
+      workspaces,
+      'Loading original session information.',
+      '正在加载原会话信息',
+    ],
+    [
+      'Workspace list pending',
+      sessions,
+      { ...workspaces, phase: 'pending' as const },
+      'Loading original session information.',
+      '正在加载原会话信息',
+    ],
     ['archived', sessions, { ...workspaces, archivedSessionIds: [at.sessionId] }, 'The original session is archived.', '原会话已归档'],
     ['missing', { ...sessions, ids: [], byId: {} }, workspaces, 'The original session is unavailable.', '原会话当前不可用'],
-    ['archive read failed', sessions, { ...workspaces, state: 'error' as const, error: new RemoteError('gateway/internal', 'Archive unavailable', {}) }, 'The original session is unavailable.', '原会话当前不可用'],
-  ] satisfies [string, SessionListState, WorkspaceSnapshot, string, string][])('disables navigation while %s without hiding the task', (_reason, sessionState, workspaceState, english, chinese) => {
-    const { props } = mount({ records: [ended] }, dictionary, {
-      useSessions: select => select(sessionState), useWorkspaces: select => select(workspaceState),
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
-    const link = screen.getByRole('button', { name: dictionary['detail.openSession'] })
-    expect(link.hasAttribute('disabled')).toBe(true)
-    fireEvent.click(link)
-    expect(props.onOpenSession).not.toHaveBeenCalled()
-    expect(screen.getByText(dictionary === en ? english : chinese)).toBeDefined()
-    expect(within(link).getByText(at.sessionId)).toBeDefined()
-    openMore(dictionary)
-    expect(screen.getByRole('menuitem', { name: dictionary['delete.action'] }).hasAttribute('disabled')).toBe(false)
-  })
+    [
+      'archive read failed',
+      sessions,
+      { ...workspaces, state: 'error' as const, error: new RemoteError('gateway/internal', 'Archive unavailable', {}) },
+      'The original session is unavailable.',
+      '原会话当前不可用',
+    ],
+  ] satisfies [string, SessionListState, WorkspaceSnapshot, string, string][])(
+    'disables navigation while %s without hiding the task',
+    (_reason, sessionState, workspaceState, english, chinese) => {
+      const { props } = mount({ records: [ended] }, dictionary, {
+        useSessions: select => select(sessionState),
+        useWorkspaces: select => select(workspaceState),
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
+      const link = screen.getByRole('button', { name: dictionary['detail.openSession'] })
+      expect(link.hasAttribute('disabled')).toBe(true)
+      fireEvent.click(link)
+      expect(props.onOpenSession).not.toHaveBeenCalled()
+      expect(screen.getByText(dictionary === en ? english : chinese)).toBeDefined()
+      expect(within(link).getByText(at.sessionId)).toBeDefined()
+      openMore(dictionary)
+      expect(screen.getByRole('menuitem', { name: dictionary['delete.action'] }).hasAttribute('disabled')).toBe(false)
+    },
+  )
 })
 
-describe.each([['English', en], ['Chinese', zh]] as const)('linked-Session control naming in %s', (_name, dictionary) => {
+describe.each([
+  ['English', en],
+  ['Chinese', zh],
+] as const)('linked-Session control naming in %s', (_name, dictionary) => {
   it('contains the visible Linked session label when a catalog title names the Session', () => {
     mount({ records: [ended] }, dictionary, {
       useSessions: select => select(sessionsWithTitles({ [ended.sessionId]: 'Planning chat' })),
@@ -684,10 +803,9 @@ describe('Task manager catalog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Release review' }))
     const detail = within(screen.getByRole('complementary'))
     // The detail names the task through the editable name control, not the list row's label.
-    expect((detail.getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] })).value).toBe('Release review')
+    expect(detail.getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] }).value).toBe('Release review')
     // The instruction control still shows the complete stored instruction.
-    expect((detail.getByRole<HTMLTextAreaElement>('textbox', { name: en['detail.instruction'] })).value)
-      .toContain(named.prompt)
+    expect(detail.getByRole<HTMLTextAreaElement>('textbox', { name: en['detail.instruction'] }).value).toContain(named.prompt)
   })
 
   it('uses shared exact frequency units in the list and selected detail', () => {
@@ -702,7 +820,8 @@ describe('Task manager catalog', () => {
   it('describes row frequency and next time without exposing its Session', () => {
     const h = mount({ records: [every] })
     const row = screen.getByRole('button', {
-      name: 'Check metrics', description: /^Every 301 seconds.*Next scheduled time:/,
+      name: 'Check metrics',
+      description: /^Every 301 seconds.*Next scheduled time:/,
     })
     const descriptionId = row.getAttribute('aria-describedby')!
     const metadata = document.getElementById(descriptionId)!
@@ -712,8 +831,7 @@ describe('Task manager catalog', () => {
     // distance in parentheses beside it.
     expect(time.textContent).toBe(absoluteNextRun(every.scheduledAt, en))
     expect(relativeText(metadata)).toBe(relativeNextRun(every.scheduledAt, en))
-    expect(time.parentElement?.textContent)
-      .toBe(`${en['list.nextPrefix']}${time.textContent} ${relativeNextRun(every.scheduledAt, en)}`)
+    expect(time.parentElement?.textContent).toBe(`${en['list.nextPrefix']}${time.textContent} ${relativeNextRun(every.scheduledAt, en)}`)
     expect(metadata.textContent).not.toContain(every.sessionId)
     // Rows carry no Enabled word: every listed task is running unless the line
     // says otherwise, so only the ended state is named.
@@ -721,13 +839,15 @@ describe('Task manager catalog', () => {
     row.focus()
     expect(document.activeElement).toBe(row)
     h.view.rerender(<TaskManagerPage {...h.props} t={makeTranslate(zh)} />)
-    expect(screen.getByRole('button', {
-      name: 'Check metrics', description: /^每 301 秒.*下次计划时间：/,
-    })).toBe(row)
+    expect(
+      screen.getByRole('button', {
+        name: 'Check metrics',
+        description: /^每 301 秒.*下次计划时间：/,
+      }),
+    ).toBe(row)
     expect(time.textContent).toBe(absoluteNextRun(every.scheduledAt, zh))
     expect(relativeText(metadata)).toBe(relativeNextRun(every.scheduledAt, zh))
-    expect(time.parentElement?.textContent)
-      .toBe(`${zh['list.nextPrefix']}${time.textContent} ${relativeNextRun(every.scheduledAt, zh)}`)
+    expect(time.parentElement?.textContent).toBe(`${zh['list.nextPrefix']}${time.textContent} ${relativeNextRun(every.scheduledAt, zh)}`)
   })
 
   it('shortens the stated time remaining as the clock advances', () => {
@@ -738,7 +858,9 @@ describe('Task manager catalog', () => {
       const base = Date.parse('2026-09-18T12:00:00.000Z')
       vi.setSystemTime(base)
       const soon: ScheduleCatalogEntry = {
-        ...at, title: 'Three minutes out', prompt: 'Three minutes out',
+        ...at,
+        title: 'Three minutes out',
+        prompt: 'Three minutes out',
         scheduledAt: new Date(base + 3 * 60_000).toISOString(),
       }
       mount({ records: [soon] })
@@ -749,7 +871,9 @@ describe('Task manager catalog', () => {
       expect(nextRunTime(detail)?.textContent).toBe(absoluteNextRun(soon.scheduledAt, en))
       expect(relativeText(detail)).toBe('(in 3 minutes)')
 
-      act(() => { vi.advanceTimersByTime(121_000) })
+      act(() => {
+        vi.advanceTimersByTime(121_000)
+      })
       expect(relativeText(rowList())).toBe('(in 1 minute)')
       expect(relativeText(detail)).toBe('(in 1 minute)')
       // The absolute stamp names the same instant before and after the tick.
@@ -763,7 +887,9 @@ describe('Task manager catalog', () => {
     // The row and the detail state a duration, not a date: zh reads `2小时后`
     // and en reads `in 2 hours`, and neither renders a clock time for it.
     const soon: ScheduleCatalogEntry = {
-      ...at, title: 'Two hours out', prompt: 'Two hours out',
+      ...at,
+      title: 'Two hours out',
+      prompt: 'Two hours out',
       scheduledAt: new Date(Date.now() + 2 * 3_600_000).toISOString(),
     }
     for (const dictionary of [en, zh]) {
@@ -835,12 +961,14 @@ describe('Task manager catalog', () => {
     expect(taskNames()).toEqual(['Send summary', 'Review release', 'Check metrics'])
   })
 
-  it.each([en, zh])('combines all, active, and inactive status filters with search', (dictionary) => {
+  it.each([en, zh])('combines all, active, and inactive status filters with search', dictionary => {
     mount({ records: [ended, every, after] }, dictionary)
     const list = screen.getByRole('list', { name: dictionary['list.label'] })
-    const names = () => within(list).queryAllByRole('button')
-      .filter(button => button.closest('li') !== null)
-      .map(button => button.getAttribute('aria-label'))
+    const names = () =>
+      within(list)
+        .queryAllByRole('button')
+        .filter(button => button.closest('li') !== null)
+        .map(button => button.getAttribute('aria-label'))
     const statuses = screen.getByRole('group', { name: dictionary['statusFilter.label'] })
     const chooseStatus = (name: string) => fireEvent.click(within(statuses).getByRole('button', { name }))
     expect(names()).toEqual(['Send summary', 'Review release', 'Check metrics'])
@@ -924,7 +1052,10 @@ describe('Task manager catalog', () => {
   })
 })
 
-describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in %s', (_name, dictionary) => {
+describe.each([
+  ['English', en],
+  ['Chinese', zh],
+] as const)('task detail views in %s', (_name, dictionary) => {
   it('opens Rules under the selected task and separates rule fields from saved deliveries', async () => {
     const labels = detailViewLabels(dictionary)
     const h = mount({ records: [{ ...at, lastDelivery: delivery }] }, dictionary)
@@ -939,8 +1070,7 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
     expectDetailOrder(detail, dictionary, 'Review release')
     const rules = expectDetailView(dictionary, 'rules')
     expect(h.props.loadHistory).not.toHaveBeenCalled()
-    expect((within(rules).getByRole<HTMLTextAreaElement>('textbox', { name: dictionary['detail.instruction'] })).value)
-      .toContain(at.prompt)
+    expect(within(rules).getByRole<HTMLTextAreaElement>('textbox', { name: dictionary['detail.instruction'] }).value).toContain(at.prompt)
     // One compact next-run line leads the scrolling area under the name control.
     expect(nextRunTime(detail)?.dateTime).toBe(at.scheduledAt)
     expect(nextRunTime(detail)?.textContent).toBe(absoluteNextRun(at.scheduledAt, dictionary))
@@ -976,7 +1106,13 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
     expect(within(receipt).queryByRole('button')).toBeNull()
     expect(visibleText(recordPanel, labels.empty)).toHaveLength(0)
     expect(within(detail).queryByRole('textbox', { name: dictionary['detail.instruction'] })).toBeNull()
-    for (const text of [dictionary['detail.status'], dictionary['detail.frequency'], dictionary['detail.id'], dictionary['rule.title'], at.id]) {
+    for (const text of [
+      dictionary['detail.status'],
+      dictionary['detail.frequency'],
+      dictionary['detail.id'],
+      dictionary['rule.title'],
+      at.id,
+    ]) {
       expect(visibleText(detail, text)).toHaveLength(0)
     }
     // Delivery records replaces the name control, next-run line, and linked-Session strip.
@@ -1015,7 +1151,7 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
     expect(nextRunTime(detail)?.dateTime).toBe(at.scheduledAt)
   })
 
-  it.each(['active', 'inactive'] as const)('shows the no-record message for a successful empty history of a %s task', async (status) => {
+  it.each(['active', 'inactive'] as const)('shows the no-record message for a successful empty history of a %s task', async status => {
     const labels = detailViewLabels(dictionary)
     mount({ records: [{ ...at, status }] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
@@ -1047,10 +1183,16 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
     fireEvent.click(within(detail).getByRole('button', { name: dictionary['list.retry'] }))
     expect(h.props.onRetry).toHaveBeenCalledOnce()
     await act(async () => {
-      pending.resolve({ ok: true, value: {
-        id: at.id, records: [], earlierRecordsUnavailable: false,
-        earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-      } })
+      pending.resolve({
+        ok: true,
+        value: {
+          id: at.id,
+          records: [],
+          earlierRecordsUnavailable: false,
+          earlierRecordsPruned: false,
+          retention: { days: 30, records: 200 },
+        },
+      })
       await pending.promise
     })
     expect(visibleText(panel, labels.empty)).toHaveLength(1)
@@ -1065,9 +1207,14 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
     const recordTab = screen.getByRole('tab', { name: labels.records })
     rules.focus()
     for (const [key, active] of [
-      ['ArrowRight', 'records'], ['ArrowRight', 'rules'],
-      ['ArrowLeft', 'records'], ['ArrowLeft', 'rules'],
-      ['End', 'records'], ['End', 'records'], ['Home', 'rules'], ['Home', 'rules'],
+      ['ArrowRight', 'records'],
+      ['ArrowRight', 'rules'],
+      ['ArrowLeft', 'records'],
+      ['ArrowLeft', 'rules'],
+      ['End', 'records'],
+      ['End', 'records'],
+      ['Home', 'rules'],
+      ['Home', 'rules'],
     ] as const) {
       expect(fireEvent.keyDown(document.activeElement!, { key })).toBe(false)
       expectDetailView(dictionary, active)
@@ -1085,7 +1232,7 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Review release' }))
   })
 
-  it.each(['altKey', 'ctrlKey', 'metaKey', 'shiftKey'] as const)('preserves modified tab-navigation shortcuts for %s', (modifier) => {
+  it.each(['altKey', 'ctrlKey', 'metaKey', 'shiftKey'] as const)('preserves modified tab-navigation shortcuts for %s', modifier => {
     const labels = detailViewLabels(dictionary)
     mount({ records: [ended] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
@@ -1105,13 +1252,14 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
     fireEvent.click(screen.getByRole('tab', { name: labels.records }))
     expectDetailView(dictionary, 'records')
     fireEvent.click(screen.getByRole('button', { name: 'Check metrics' }))
-    expect((within(expectDetailView(dictionary, 'rules')).getByRole<HTMLTextAreaElement>('textbox', { name: dictionary['detail.instruction'] })).value)
-      .toContain(every.prompt)
+    expect(
+      within(expectDetailView(dictionary, 'rules')).getByRole<HTMLTextAreaElement>('textbox', { name: dictionary['detail.instruction'] })
+        .value,
+    ).toContain(every.prompt)
     fireEvent.click(screen.getByRole('tab', { name: labels.records }))
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     // The reopened task is the ended one, whose instruction is plain text.
-    expect(expectDetailView(dictionary, 'rules').querySelector(`.${css.readonlyPrompt}`)?.textContent)
-      .toBe(at.prompt)
+    expect(expectDetailView(dictionary, 'rules').querySelector(`.${css.readonlyPrompt}`)?.textContent).toBe(at.prompt)
     for (const close of ['button', 'Escape'] as const) {
       fireEvent.click(screen.getByRole('tab', { name: labels.records }))
       if (close === 'button') fireEvent.click(screen.getByRole('button', { name: dictionary['detail.close'] }))
@@ -1175,12 +1323,18 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task detail views in
 })
 
 describe('saved-history task binding', () => {
-  it.each([en, zh])('renders saved prompts rather than the current instruction', async (dictionary) => {
+  it.each([en, zh])('renders saved prompts rather than the current instruction', async dictionary => {
     const savedPrompt = 'Original saved instruction\n<img src=x onerror=alert(1)>'
-    const loadHistory = vi.fn<TaskManagerPageProps['loadHistory']>().mockResolvedValue({ ok: true, value: {
-      id: at.id, records: [{ ...delivery, prompt: savedPrompt }], earlierRecordsUnavailable: false,
-      earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-    } })
+    const loadHistory = vi.fn<TaskManagerPageProps['loadHistory']>().mockResolvedValue({
+      ok: true,
+      value: {
+        id: at.id,
+        records: [{ ...delivery, prompt: savedPrompt }],
+        earlierRecordsUnavailable: false,
+        earlierRecordsPruned: false,
+        retention: { days: 30, records: 200 },
+      },
+    })
     mount({ records: [ended] }, dictionary, { loadHistory })
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     expect(loadHistory).not.toHaveBeenCalled()
@@ -1192,10 +1346,17 @@ describe('saved-history task binding', () => {
     expect(record.querySelector<HTMLElement>(`.${css.savedPrompt}`)?.textContent).toBe(savedPrompt)
   })
 
-  it.each([en, zh])('never substitutes the current instruction for a record without a saved prompt', async (dictionary) => {
-    const loadHistory = vi.fn<TaskManagerPageProps['loadHistory']>().mockResolvedValue({ ok: true, value: {
-      id: at.id, records: [delivery], earlierRecordsUnavailable: false, earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-    } })
+  it.each([en, zh])('never substitutes the current instruction for a record without a saved prompt', async dictionary => {
+    const loadHistory = vi.fn<TaskManagerPageProps['loadHistory']>().mockResolvedValue({
+      ok: true,
+      value: {
+        id: at.id,
+        records: [delivery],
+        earlierRecordsUnavailable: false,
+        earlierRecordsPruned: false,
+        retention: { days: 30, records: 200 },
+      },
+    })
     mount({ records: [ended] }, dictionary, { loadHistory })
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     fireEvent.click(screen.getByRole('tab', { name: dictionary['detail.records'] }))
@@ -1207,15 +1368,22 @@ describe('saved-history task binding', () => {
     expect(within(record).queryByRole('button')).toBeNull()
   })
 
-  it.each(['success', 'rejection'] as const)('ignores old-task late %s and never displays its records in another task', async (outcome) => {
+  it.each(['success', 'rejection'] as const)('ignores old-task late %s and never displays its records in another task', async outcome => {
     const pending = Promise.withResolvers<Awaited<ReturnType<TaskManagerPageProps['loadHistory']>>>()
     const secondMessage = 'other-session-message' as typeof delivery.messageId
-    const loadHistory = vi.fn<TaskManagerPageProps['loadHistory']>().mockReturnValueOnce(pending.promise)
-      .mockResolvedValue({ ok: true, value: {
-        id: every.id, records: [{ ...delivery, messageId: secondMessage, scheduledAt: every.scheduledAt }],
-        earlierRecordsUnavailable: false,
-        earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-      } })
+    const loadHistory = vi
+      .fn<TaskManagerPageProps['loadHistory']>()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue({
+        ok: true,
+        value: {
+          id: every.id,
+          records: [{ ...delivery, messageId: secondMessage, scheduledAt: every.scheduledAt }],
+          earlierRecordsUnavailable: false,
+          earlierRecordsPruned: false,
+          retention: { days: 30, records: 200 },
+        },
+      })
     const h = mount({ records: [ended, every] }, en, { loadHistory })
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     fireEvent.click(screen.getByRole('tab', { name: en['detail.records'] }))
@@ -1226,10 +1394,17 @@ describe('saved-history task binding', () => {
     await screen.findByText(formatScheduleNextRun(every.scheduledAt, en['time.locale']))
     expect(loadHistory).toHaveBeenLastCalledWith({ id: every.id, sessionId: every.sessionId, limit: 20 })
     await act(async () => {
-      if (outcome === 'success') pending.resolve({ ok: true, value: {
-        id: ended.id, records: [delivery], earlierRecordsUnavailable: true,
-        earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-      } })
+      if (outcome === 'success')
+        pending.resolve({
+          ok: true,
+          value: {
+            id: ended.id,
+            records: [delivery],
+            earlierRecordsUnavailable: true,
+            earlierRecordsPruned: false,
+            retention: { days: 30, records: 200 },
+          },
+        })
       else pending.reject(new Error('Old task query failed'))
       await pending.promise.catch(() => {})
     })
@@ -1242,7 +1417,7 @@ describe('saved-history task binding', () => {
     expect(screen.getByRole('menuitem', { name: en['delete.action'] }).hasAttribute('disabled')).toBe(false)
   })
 
-  it.each(['Rules', 'close', 'unmount'] as const)('ignores a pending history failure after %s leaves the records view', async (leave) => {
+  it.each(['Rules', 'close', 'unmount'] as const)('ignores a pending history failure after %s leaves the records view', async leave => {
     const pending = Promise.withResolvers<Awaited<ReturnType<TaskManagerPageProps['loadHistory']>>>()
     const loadHistory = vi.fn<TaskManagerPageProps['loadHistory']>(() => pending.promise)
     const h = mount({ records: [ended] }, en, { loadHistory })
@@ -1251,52 +1426,58 @@ describe('saved-history task binding', () => {
     if (leave === 'Rules') fireEvent.click(screen.getByRole('tab', { name: en['detail.rule'] }))
     else if (leave === 'close') fireEvent.click(screen.getByRole('button', { name: en['detail.close'] }))
     else h.view.unmount()
-    await act(async () => { pending.reject(new Error('Late rejection')); await pending.promise.catch(() => {}) })
+    await act(async () => {
+      pending.reject(new Error('Late rejection'))
+      await pending.promise.catch(() => {})
+    })
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.queryByRole('region', { name: en['delivery.label'] })).toBeNull()
   })
 })
 
 describe('Task manager details', () => {
-  it.each([en, zh])('retains the selected row and detail after an authoritative inactive update with a delivery receipt', async (dictionary) => {
-    const h = mount({ records: [at] }, dictionary)
-    const row = screen.getByRole('button', { name: 'Review release' })
-    fireEvent.click(row)
-    const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
-    expect(nextRunTime(detail)?.dateTime).toBe(at.scheduledAt)
-    expect(within(detail).queryByRole('region', { name: dictionary['delivery.label'] })).toBeNull()
-    h.update({ records: [ended] })
-    expect(screen.getByRole('complementary')).toBe(detail)
-    expect(screen.getByRole('button', { name: 'Review release' })).toBe(row)
-    expect(row.getAttribute('aria-expanded')).toBe('true')
-    expect(row.querySelector('time')).toBeNull()
-    expect(document.getElementById(row.getAttribute('aria-describedby')!)?.textContent).toContain(dictionary['status.inactive'])
-    expect(within(detail).getByText(dictionary['status.inactive'])).toBeDefined()
-    expect(visibleText(detail, dictionary['detail.nextRun'])).toHaveLength(0)
-    expect(nextRunTime(detail)).toBeNull()
-    expect(row.textContent).not.toContain(dictionary['list.nextPrefix'])
-    expect(detail.textContent).not.toMatch(/execution completed|completed successfully|execution succeeded|执行已完成|执行成功/i)
-    // The linked-Session strip belongs to Rules, so open it before switching views.
-    const context = detailContext(detail)!
-    const link = within(context).getByRole('button', { name: dictionary['detail.openSession'] })
-    fireEvent.click(link)
-    expect(h.props.onOpenSession).toHaveBeenCalledExactlyOnceWith(at.sessionId)
-    fireEvent.click(within(detail).getByRole('tab', { name: detailViewLabels(dictionary).records }))
-    const receipt = await within(expectDetailView(dictionary, 'records')).findByRole('region', { name: dictionary['delivery.label'] })
-    const occurrence = receipt.querySelector<HTMLTimeElement>(`.${css.deliveryTime}`)
-    expect(occurrence?.dateTime).toBe(delivery.scheduledAt)
-    expect(occurrence?.textContent).toBe(formatScheduleNextRun(delivery.scheduledAt, dictionary['time.locale']))
-    // The occurrence names its month in the active locale and never shows the
-    // retired zero-padded `MM-DD` pair.
-    expect(occurrence?.textContent ?? '').toMatch(/[A-Za-z]{3,}|月/)
-    expect(occurrence?.textContent ?? '').not.toMatch(/\d{2}-\d{2}/)
-    expect(receipt.querySelector('details')).toBeNull()
-    expect(within(receipt).queryByRole('button')).toBeNull()
-    expect(receipt.querySelectorAll('time')).toHaveLength(1)
-    expect(within(detail).queryByRole('region', { name: /history|历史/i })).toBeNull()
-    expect(detail.querySelector('footer')).toBeNull()
-    expect(h.props.onDelete).not.toHaveBeenCalled()
-  })
+  it.each([en, zh])(
+    'retains the selected row and detail after an authoritative inactive update with a delivery receipt',
+    async dictionary => {
+      const h = mount({ records: [at] }, dictionary)
+      const row = screen.getByRole('button', { name: 'Review release' })
+      fireEvent.click(row)
+      const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
+      expect(nextRunTime(detail)?.dateTime).toBe(at.scheduledAt)
+      expect(within(detail).queryByRole('region', { name: dictionary['delivery.label'] })).toBeNull()
+      h.update({ records: [ended] })
+      expect(screen.getByRole('complementary')).toBe(detail)
+      expect(screen.getByRole('button', { name: 'Review release' })).toBe(row)
+      expect(row.getAttribute('aria-expanded')).toBe('true')
+      expect(row.querySelector('time')).toBeNull()
+      expect(document.getElementById(row.getAttribute('aria-describedby')!)?.textContent).toContain(dictionary['status.inactive'])
+      expect(within(detail).getByText(dictionary['status.inactive'])).toBeDefined()
+      expect(visibleText(detail, dictionary['detail.nextRun'])).toHaveLength(0)
+      expect(nextRunTime(detail)).toBeNull()
+      expect(row.textContent).not.toContain(dictionary['list.nextPrefix'])
+      expect(detail.textContent).not.toMatch(/execution completed|completed successfully|execution succeeded|执行已完成|执行成功/i)
+      // The linked-Session strip belongs to Rules, so open it before switching views.
+      const context = detailContext(detail)!
+      const link = within(context).getByRole('button', { name: dictionary['detail.openSession'] })
+      fireEvent.click(link)
+      expect(h.props.onOpenSession).toHaveBeenCalledExactlyOnceWith(at.sessionId)
+      fireEvent.click(within(detail).getByRole('tab', { name: detailViewLabels(dictionary).records }))
+      const receipt = await within(expectDetailView(dictionary, 'records')).findByRole('region', { name: dictionary['delivery.label'] })
+      const occurrence = receipt.querySelector<HTMLTimeElement>(`.${css.deliveryTime}`)
+      expect(occurrence?.dateTime).toBe(delivery.scheduledAt)
+      expect(occurrence?.textContent).toBe(formatScheduleNextRun(delivery.scheduledAt, dictionary['time.locale']))
+      // The occurrence names its month in the active locale and never shows the
+      // retired zero-padded `MM-DD` pair.
+      expect(occurrence?.textContent ?? '').toMatch(/[A-Za-z]{3,}|月/)
+      expect(occurrence?.textContent ?? '').not.toMatch(/\d{2}-\d{2}/)
+      expect(receipt.querySelector('details')).toBeNull()
+      expect(within(receipt).queryByRole('button')).toBeNull()
+      expect(receipt.querySelectorAll('time')).toHaveLength(1)
+      expect(within(detail).queryByRole('region', { name: /history|历史/i })).toBeNull()
+      expect(detail.querySelector('footer')).toBeNull()
+      expect(h.props.onDelete).not.toHaveBeenCalled()
+    },
+  )
 
   it('preserves the selected detail when its active row becomes ended and is filtered out', () => {
     const h = mount({ records: [at] })
@@ -1325,45 +1506,48 @@ describe('Task manager details', () => {
     expect(panel.querySelector('time')).toBeNull()
   })
 
-  it.each([en, zh])('preserves Delivery records on same-task refresh and replaces the actual latest receipt separately from the next target', async (dictionary) => {
-    const labels = detailViewLabels(dictionary)
-    const h = mount({ records: [{ ...every, lastDelivery: delivery }] }, dictionary)
-    fireEvent.click(screen.getByRole('button', { name: 'Check metrics' }))
-    const detail = screen.getByRole('complementary')
-    const rules = expectDetailView(dictionary, 'rules')
-    expect(nextRunTime(detail)?.dateTime).toBe(every.scheduledAt)
-    expect(within(rules).getByRole('region', { name: dictionary['rule.title'] })).toBeDefined()
-    fireEvent.click(within(detail).getByRole('tab', { name: labels.records }))
-    const firstPanel = expectDetailView(dictionary, 'records')
-    await within(firstPanel).findByRole('region', { name: dictionary['delivery.label'] })
-    within(firstPanel).getByRole('region', { name: dictionary['delivery.label'] })
-    const nextDelivery: NonNullable<ScheduleCatalogEntry['lastDelivery']> = {
-      scheduledAt: every.scheduledAt,
-      deliveredAt: '2026-10-01T09:30:04.000Z',
-      messageId: 'message-metrics-delivery' as typeof delivery.messageId,
-    }
-    h.update({ status: 'loading' })
-    expectDetailView(dictionary, 'records')
-    h.update({ status: 'ready', records: [{ ...every, scheduledAt: '2026-10-01T09:35:01.000Z', lastDelivery: nextDelivery }] })
-    expect(screen.getByRole('complementary')).toBe(detail)
-    const panel = expectDetailView(dictionary, 'records')
-    await within(panel).findByText(formatScheduleNextRun(nextDelivery.scheduledAt, dictionary['time.locale']))
-    const receipt = within(panel).getByRole('region', { name: dictionary['delivery.label'] })
-    expect(within(panel).queryByText(formatScheduleNextRun(delivery.scheduledAt, dictionary['time.locale']))).toBeNull()
-    expect(within(panel).getAllByRole('region', { name: dictionary['delivery.label'] })).toHaveLength(1)
-    expect(receipt.querySelector<HTMLTimeElement>(`.${css.deliveryTime}`)?.dateTime).toBe(nextDelivery.scheduledAt)
-    // The tab strip is the whole header while Delivery records shows; the
-    // next-run line returns with Rules.
-    expect(visibleText(detail, dictionary['detail.nextRun'])).toHaveLength(0)
-    expect(nextRunTime(detail)).toBeNull()
-    fireEvent.click(within(detail).getByRole('tab', { name: labels.rules }))
-    const refreshedRules = expectDetailView(dictionary, 'rules')
-    expect(visibleText(refreshedRules, dictionary['status.active'])).toHaveLength(0)
-    expect(within(refreshedRules).getByRole('region', { name: dictionary['rule.title'] })).toBeDefined()
-    expect(nextRunTime(detail)?.dateTime).toBe('2026-10-01T09:35:01.000Z')
-  })
+  it.each([en, zh])(
+    'preserves Delivery records on same-task refresh and replaces the actual latest receipt separately from the next target',
+    async dictionary => {
+      const labels = detailViewLabels(dictionary)
+      const h = mount({ records: [{ ...every, lastDelivery: delivery }] }, dictionary)
+      fireEvent.click(screen.getByRole('button', { name: 'Check metrics' }))
+      const detail = screen.getByRole('complementary')
+      const rules = expectDetailView(dictionary, 'rules')
+      expect(nextRunTime(detail)?.dateTime).toBe(every.scheduledAt)
+      expect(within(rules).getByRole('region', { name: dictionary['rule.title'] })).toBeDefined()
+      fireEvent.click(within(detail).getByRole('tab', { name: labels.records }))
+      const firstPanel = expectDetailView(dictionary, 'records')
+      await within(firstPanel).findByRole('region', { name: dictionary['delivery.label'] })
+      within(firstPanel).getByRole('region', { name: dictionary['delivery.label'] })
+      const nextDelivery: NonNullable<ScheduleCatalogEntry['lastDelivery']> = {
+        scheduledAt: every.scheduledAt,
+        deliveredAt: '2026-10-01T09:30:04.000Z',
+        messageId: 'message-metrics-delivery' as typeof delivery.messageId,
+      }
+      h.update({ status: 'loading' })
+      expectDetailView(dictionary, 'records')
+      h.update({ status: 'ready', records: [{ ...every, scheduledAt: '2026-10-01T09:35:01.000Z', lastDelivery: nextDelivery }] })
+      expect(screen.getByRole('complementary')).toBe(detail)
+      const panel = expectDetailView(dictionary, 'records')
+      await within(panel).findByText(formatScheduleNextRun(nextDelivery.scheduledAt, dictionary['time.locale']))
+      const receipt = within(panel).getByRole('region', { name: dictionary['delivery.label'] })
+      expect(within(panel).queryByText(formatScheduleNextRun(delivery.scheduledAt, dictionary['time.locale']))).toBeNull()
+      expect(within(panel).getAllByRole('region', { name: dictionary['delivery.label'] })).toHaveLength(1)
+      expect(receipt.querySelector<HTMLTimeElement>(`.${css.deliveryTime}`)?.dateTime).toBe(nextDelivery.scheduledAt)
+      // The tab strip is the whole header while Delivery records shows; the
+      // next-run line returns with Rules.
+      expect(visibleText(detail, dictionary['detail.nextRun'])).toHaveLength(0)
+      expect(nextRunTime(detail)).toBeNull()
+      fireEvent.click(within(detail).getByRole('tab', { name: labels.rules }))
+      const refreshedRules = expectDetailView(dictionary, 'rules')
+      expect(visibleText(refreshedRules, dictionary['status.active'])).toHaveLength(0)
+      expect(within(refreshedRules).getByRole('region', { name: dictionary['rule.title'] })).toBeDefined()
+      expect(nextRunTime(detail)?.dateTime).toBe('2026-10-01T09:35:01.000Z')
+    },
+  )
 
-  it.each([en, zh])('keeps the linked Session entry separate from scrolling details and destructive actions', (dictionary) => {
+  it.each([en, zh])('keeps the linked Session entry separate from scrolling details and destructive actions', dictionary => {
     const h = mount({ records: [at] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
@@ -1567,8 +1751,13 @@ describe('Task manager details', () => {
     mount({ records: [stored] })
     const locale = en['time.locale']
     const ruleZone = new Intl.DateTimeFormat(locale, {
-      timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: false,
+      timeZone: 'America/New_York',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
     }).format(Date.parse(stored.scheduledAt))
     const device = absoluteNextRun(stored.scheduledAt, en)
     // The reader compares the target with their own clock, so the stamp names the
@@ -1589,18 +1778,22 @@ describe('Task manager details', () => {
    * @returns the render result of the clock occupant.
    */
   function renderSidebarGlyph(size: number) {
-    const unread = (): never => { throw new Error('The sidebar icon must not read application state') }
-    return render(<TaskManagerIcon
-      size={size}
-      active={false}
-      usePanelInfo={unread}
-      useSessions={unread}
-      useWorkspaces={unread}
-      useResource={unread}
-      useSessionStatus={unread}
-      useSessionRetainInfo={unread}
-      {...allowAllAccess}
-    />)
+    const unread = (): never => {
+      throw new Error('The sidebar icon must not read application state')
+    }
+    return render(
+      <TaskManagerIcon
+        size={size}
+        active={false}
+        usePanelInfo={unread}
+        useSessions={unread}
+        useWorkspaces={unread}
+        useResource={unread}
+        useSessionStatus={unread}
+        useSessionRetainInfo={unread}
+        {...allowAllAccess}
+      />,
+    )
   }
 
   it('renders the requested sidebar glyph edge on the row icon itself', () => {
@@ -1622,7 +1815,7 @@ describe('Task manager details', () => {
 })
 
 describe('Task detail rule header and run-time card', () => {
-  it.each([en, zh])('shows the heading, one compact next-run line, and an overflow menu with only deletion', (dictionary) => {
+  it.each([en, zh])('shows the heading, one compact next-run line, and an overflow menu with only deletion', dictionary => {
     mount({ records: [at] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
@@ -1664,16 +1857,24 @@ describe('Task detail rule header and run-time card', () => {
     }
     const stylesheet = readFileSync(resolve(import.meta.dirname, '../src/client/TaskManagerPage.module.css'), 'utf8')
     expect(stylesheet).toMatch(/\.ruleControl\s*\{[^}]*margin-right:\s*0;/)
-    expect(stylesheet).toMatch(new RegExp([
-      '\\.ruleRows \\.ruleControl:focus-visible\\s*\\{[^}]*',
-      'outline:\\s*2px solid var\\(--dsw-focus-ring-color, var\\(--dsw-alias-state-business-primary\\)\\);',
-      '[^}]*outline-offset:\\s*1px;',
-    ].join('')))
-    expect(stylesheet).toMatch(new RegExp([
-      '\\.ruleValue:focus-visible \\.ruleValueFace\\s*\\{[^}]*',
-      'outline:\\s*2px solid var\\(--dsw-focus-ring-color, var\\(--dsw-alias-state-business-primary\\)\\);',
-      '[^}]*outline-offset:\\s*1px;',
-    ].join('')))
+    expect(stylesheet).toMatch(
+      new RegExp(
+        [
+          '\\.ruleRows \\.ruleControl:focus-visible\\s*\\{[^}]*',
+          'outline:\\s*2px solid var\\(--dsw-focus-ring-color, var\\(--dsw-alias-state-business-primary\\)\\);',
+          '[^}]*outline-offset:\\s*1px;',
+        ].join(''),
+      ),
+    )
+    expect(stylesheet).toMatch(
+      new RegExp(
+        [
+          '\\.ruleValue:focus-visible \\.ruleValueFace\\s*\\{[^}]*',
+          'outline:\\s*2px solid var\\(--dsw-focus-ring-color, var\\(--dsw-alias-state-business-primary\\)\\);',
+          '[^}]*outline-offset:\\s*1px;',
+        ].join(''),
+      ),
+    )
     expect(stylesheet).toMatch(/\.ruleRows \.ruleValue:focus-visible\s*\{[^}]*outline:\s*none;/)
     // The removed compensation: no value control offsets its box past the row,
     // and the trigger keeps the row's left edge for the label column.
@@ -1744,7 +1945,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at),
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
       change: { kind: 'at', at: { date: '2026-10-01', time: '10:25:30', time_zone: DEVICE_ZONE } },
     })
   })
@@ -1758,7 +1961,9 @@ describe('Task detail rule header and run-time card', () => {
     clickSave()
     // ...while the compare-and-update still carries the ISO text the draft holds.
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at),
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
       change: { kind: 'at', at: { date: '2026-11-02', time: '17:00:00.000', time_zone: DEVICE_ZONE } },
     })
   })
@@ -1770,7 +1975,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at),
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
       change: { kind: 'at', at: { date: '2026-11-02', time: '17:00:00.000', time_zone: DEVICE_ZONE } },
     })
   })
@@ -1784,7 +1991,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(saveNotice()?.textContent).toBe(en['rule.unsaved'])
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at),
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
       change: { kind: 'at', at: { date: '2026-12-24', time: '17:00:00.000', time_zone: DEVICE_ZONE } },
     })
   })
@@ -1798,7 +2007,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: stored.sessionId, id: stored.id, expected: timingSnapshot(stored),
+      sessionId: stored.sessionId,
+      id: stored.id,
+      expected: timingSnapshot(stored),
       change: { kind: 'at', at: { date: '2026-10-01', time: '17:00:15.500', time_zone: 'Europe/Berlin' } },
     })
   })
@@ -1815,7 +2026,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: every.sessionId, id: every.id, expected: timingSnapshot(every),
+      sessionId: every.sessionId,
+      id: every.id,
+      expected: timingSnapshot(every),
       change: { kind: 'every', every_seconds: 600 },
     })
   })
@@ -1833,7 +2046,9 @@ describe('Task detail rule header and run-time card', () => {
     clickSave()
 
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: every.sessionId, id: every.id, expected: timingSnapshot(twoHours),
+      sessionId: every.sessionId,
+      id: every.id,
+      expected: timingSnapshot(twoHours),
       change: { kind: 'every', every_seconds: 5_400 },
     })
   })
@@ -1850,7 +2065,9 @@ describe('Task detail rule header and run-time card', () => {
     fireEvent.change(interval, { target: { value: '20' } })
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: every.sessionId, id: every.id, expected: timingSnapshot(tenMinutes),
+      sessionId: every.sessionId,
+      id: every.id,
+      expected: timingSnapshot(tenMinutes),
       change: { kind: 'every', every_seconds: 1_200 },
     })
   })
@@ -1866,7 +2083,9 @@ describe('Task detail rule header and run-time card', () => {
     fireEvent.change(interval, { target: { value: '2' } })
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'every', every_seconds: 7_200 },
     })
 
@@ -1884,14 +2103,18 @@ describe('Task detail rule header and run-time card', () => {
     fireEvent.change(field, { target: { value: '600' } })
     clickSave()
     expect(seconds.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: every.sessionId, id: every.id, expected: timingSnapshot(every),
+      sessionId: every.sessionId,
+      id: every.id,
+      expected: timingSnapshot(every),
       change: { kind: 'every', every_seconds: 600 },
     })
     expect(h.updateTiming).toHaveBeenCalledOnce()
   })
 
   it.each([
-    ['1.1', 3_960], ['1.5', 5_400], ['3', 10_800],
+    ['1.1', 3_960],
+    ['1.5', 5_400],
+    ['3', 10_800],
   ] as const)('submits whole seconds from a %s-hour entry', (entered, seconds) => {
     const h = mount({ records: [daily] })
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
@@ -1907,7 +2130,9 @@ describe('Task detail rule header and run-time card', () => {
     fireEvent.change(interval, { target: { value: entered } })
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'every', every_seconds: seconds },
     })
   })
@@ -1925,12 +2150,14 @@ describe('Task detail rule header and run-time card', () => {
     expect(interval.validity.valid).toBe(true)
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'every', every_seconds: 5_400 },
     })
   })
 
-  it.each(['59', 'abc'])('rejects an interval below the supported minimum: %s', (value) => {
+  it.each(['59', 'abc'])('rejects an interval below the supported minimum: %s', value => {
     const h = mount({ records: [every] })
     fireEvent.click(screen.getByRole('button', { name: 'Check metrics' }))
     const interval = screen.getByLabelText<HTMLInputElement>(en['timing.interval'])
@@ -1959,39 +2186,40 @@ describe('Task detail rule header and run-time card', () => {
   it.each([
     ['a one-shot date', at, 'Review release', 'no-date', 'timing.date', ''],
     ['a time', daily, 'Daily weather', 'not a clock', 'timing.time', 'not a clock'],
-  ] as const)(
-    'rejects a stored unparsable %s locally without an update',
-    (_case, task, row, broken, field, shown) => {
-      // The pickers only ever stage a complete clock and a real ISO date, so the
-      // locally invalid state the guard exists for is a record the Host stored
-      // with an unreadable value: another edit makes the draft dirty, and Save
-      // must refuse it instead of submitting the broken field.
-      const stored: ScheduleCatalogEntry = field === 'timing.date'
-        ? { ...task, scheduledAt: broken }
-        : { ...task, time: broken }
-      const h = mount({ records: [stored] })
-      fireEvent.click(screen.getByRole('button', { name: row }))
-      // An instant the runtime cannot place drafts empty rows; a stored clock the
-      // rule itself states stays on screen.
-      expect(screen.getByLabelText(en[field]).textContent).toBe(shown)
-      // The picker opens on such a value instead of failing to render it.
-      fireEvent.click(screen.getByLabelText(en[field]))
-      if (field === 'timing.date') expect(screen.getByRole('grid')).toBeDefined()
-      else expect(screen.getByRole('listbox', { name: en['timing.hour'] })).toBeDefined()
-      fireEvent.keyDown(screen.getByRole('dialog', { name: en[field] }), { key: 'Escape' })
-      fireEvent.change(nameField(), { target: { value: 'Renamed while broken' } })
-      expect(h.updateTiming).not.toHaveBeenCalled()
-      clickSave()
-      expect(h.updateTiming).not.toHaveBeenCalled()
-      expect(screen.getByRole('alert').textContent).toBe(en['timing.invalid'])
-    },
-  )
+  ] as const)('rejects a stored unparsable %s locally without an update', (_case, task, row, broken, field, shown) => {
+    // The pickers only ever stage a complete clock and a real ISO date, so the
+    // locally invalid state the guard exists for is a record the Host stored
+    // with an unreadable value: another edit makes the draft dirty, and Save
+    // must refuse it instead of submitting the broken field.
+    const stored: ScheduleCatalogEntry = field === 'timing.date' ? { ...task, scheduledAt: broken } : { ...task, time: broken }
+    const h = mount({ records: [stored] })
+    fireEvent.click(screen.getByRole('button', { name: row }))
+    // An instant the runtime cannot place drafts empty rows; a stored clock the
+    // rule itself states stays on screen.
+    expect(screen.getByLabelText(en[field]).textContent).toBe(shown)
+    // The picker opens on such a value instead of failing to render it.
+    fireEvent.click(screen.getByLabelText(en[field]))
+    if (field === 'timing.date') expect(screen.getByRole('grid')).toBeDefined()
+    else expect(screen.getByRole('listbox', { name: en['timing.hour'] })).toBeDefined()
+    fireEvent.keyDown(screen.getByRole('dialog', { name: en[field] }), { key: 'Escape' })
+    fireEvent.change(nameField(), { target: { value: 'Renamed while broken' } })
+    expect(h.updateTiming).not.toHaveBeenCalled()
+    clickSave()
+    expect(h.updateTiming).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toBe(en['timing.invalid'])
+  })
 
   it.each([
     ['daily', daily, 'Daily weather', { kind: 'daily', daily: { time: '23:00:00.000', time_zone: 'Europe/Berlin' } }],
-    ['weekly', weekly, 'Weekly review', {
-      kind: 'weekly', weekly: { time: '09:30:00.000', time_zone: 'Europe/Berlin', weekdays: [1, 3] },
-    }],
+    [
+      'weekly',
+      weekly,
+      'Weekly review',
+      {
+        kind: 'weekly',
+        weekly: { time: '09:30:00.000', time_zone: 'Europe/Berlin', weekdays: [1, 3] },
+      },
+    ],
   ] as const)('commits a %s Time zone edit and shows the refreshed zone', async (_kind, task, row, change) => {
     const h = mount({ records: [task] })
     const saved: ScheduleCatalogEntry = { ...task, timeZone: 'Europe/Berlin' }
@@ -2002,25 +2230,47 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: task.sessionId, id: task.id, expected: timingSnapshot(task), change,
+      sessionId: task.sessionId,
+      id: task.id,
+      expected: timingSnapshot(task),
+      change,
     })
     // The authoritative refresh reports the record the Host saved.
     h.update({ records: [saved] })
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     expect(zoneButton().textContent).toContain(displayedZone('Europe/Berlin'))
   })
 
   it.each([
-    ['at', at, 'Review release', {
-      kind: 'at', at: { date: '2026-10-01', time: '17:00:00.000', time_zone: 'Europe/Berlin' },
-    }],
-    ['after', after, 'Send summary', {
-      kind: 'at', at: { date: '2026-10-01', time: '16:00:00.000', time_zone: 'Europe/Berlin' },
-    }],
+    [
+      'at',
+      at,
+      'Review release',
+      {
+        kind: 'at',
+        at: { date: '2026-10-01', time: '17:00:00.000', time_zone: 'Europe/Berlin' },
+      },
+    ],
+    [
+      'after',
+      after,
+      'Send summary',
+      {
+        kind: 'at',
+        at: { date: '2026-10-01', time: '16:00:00.000', time_zone: 'Europe/Berlin' },
+      },
+    ],
   ] as const)('commits a %s Time zone edit as an interpreted absolute target', async (_kind, task, row, change) => {
     const h = mount({ records: [task] })
     const savedAt: ScheduleCatalogEntry = {
-      id: task.id, sessionId: task.sessionId, kind: 'at', status: 'active', title: task.title, prompt: task.prompt,
+      id: task.id,
+      sessionId: task.sessionId,
+      kind: 'at',
+      status: 'active',
+      title: task.title,
+      prompt: task.prompt,
       scheduledAt: '2026-10-01T09:00:00.000Z',
     }
     h.updateTiming.mockResolvedValue({ ok: true, value: { id: task.id, updated: true, record: savedAt } })
@@ -2032,14 +2282,19 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: task.sessionId, id: task.id, expected: timingSnapshot(task), change,
+      sessionId: task.sessionId,
+      id: task.id,
+      expected: timingSnapshot(task),
+      change,
     })
     h.update({ records: [savedAt] })
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     expect(zoneButton().textContent).toContain(displayedZone(DEVICE_ZONE))
   })
 
-  it.each([en, zh])('offers IANA zones by offset with the system zone first and marked', (dictionary) => {
+  it.each([en, zh])('offers IANA zones by offset with the system zone first and marked', dictionary => {
     mount({ records: [daily] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     const selector = zoneButton(dictionary)
@@ -2050,7 +2305,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(selector.textContent).toContain(systemLabel)
     fireEvent.click(selector)
     const menu = screen.getByRole('menu')
-    const names = within(menu).getAllByRole('menuitem').map(item => item.textContent)
+    const names = within(menu)
+      .getAllByRole('menuitem')
+      .map(item => item.textContent)
     expect(names[0]).toBe(systemLabel)
     for (const zone of FALLBACK_ZONES) {
       expect(names.some(name => name?.includes(displayedZone(zone, dictionary)))).toBe(true)
@@ -2060,8 +2317,12 @@ describe('Task detail rule header and run-time card', () => {
     expect(names).toContain(displayedZone('Pacific/Auckland', dictionary))
     expect(names.length).toBeGreaterThan(9)
     expect(within(menu).getAllByRole('menuitem')[0]?.querySelector('svg')).not.toBeNull()
-    expect(within(menu).getAllByRole('menuitem')
-      .find(item => item.textContent === displayedZone('Asia/Tokyo', dictionary))?.querySelector('svg')).toBeNull()
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .find(item => item.textContent === displayedZone('Asia/Tokyo', dictionary))
+        ?.querySelector('svg'),
+    ).toBeNull()
   })
 
   it('starts with an unlabeled system-zone and UTC recent block, then promotes a selection', () => {
@@ -2121,7 +2382,7 @@ describe('Task detail rule header and run-time card', () => {
     expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(1)
   })
 
-  it.each([en, zh])('filters zones by hidden IANA id, localized ICU name, and UTC offset', (dictionary) => {
+  it.each([en, zh])('filters zones by hidden IANA id, localized ICU name, and UTC offset', dictionary => {
     mount({ records: [daily] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     fireEvent.click(zoneButton(dictionary))
@@ -2140,9 +2401,7 @@ describe('Task detail rule header and run-time card', () => {
   })
 
   it('collapses identical ICU labels while retaining every hidden IANA search alias', () => {
-    vi.spyOn(Intl, 'supportedValuesOf').mockReturnValue([
-      'America/Anchorage', 'America/Juneau', 'Asia/Shanghai',
-    ])
+    vi.spyOn(Intl, 'supportedValuesOf').mockReturnValue(['America/Anchorage', 'America/Juneau', 'Asia/Shanghai'])
     const stored: ScheduleCatalogEntry = { ...daily, timeZone: 'America/Juneau' }
     mount({ records: [stored] }, zh)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
@@ -2166,8 +2425,9 @@ describe('Task detail rule header and run-time card', () => {
     mount({ records: [daily] })
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     fireEvent.click(zoneButton())
-    expect(within(screen.getByRole('menu')).getAllByRole('menuitem')[0]?.textContent)
-      .toBe(`${displayedZone('Europe/Berlin')}${en['rule.zone.system']}`)
+    expect(within(screen.getByRole('menu')).getAllByRole('menuitem')[0]?.textContent).toBe(
+      `${displayedZone('Europe/Berlin')}${en['rule.zone.system']}`,
+    )
   })
 
   it('marks only the resolved system zone with the localized suffix', () => {
@@ -2179,8 +2439,7 @@ describe('Task detail rule header and run-time card', () => {
     expect(zoneButton(zh).textContent).not.toContain(zh['rule.zone.system'])
     fireEvent.click(zoneButton(zh))
     const items = within(screen.getByRole('menu')).getAllByRole('menuitem')
-    expect(items[0]?.textContent)
-      .toBe(`${displayedZone('Asia/Tokyo', zh)}${zh['rule.zone.system']}`)
+    expect(items[0]?.textContent).toBe(`${displayedZone('Asia/Tokyo', zh)}${zh['rule.zone.system']}`)
     // No later inventory entry picks the suffix up.
     expect(items.filter(item => item.textContent?.includes(zh['rule.zone.system']))).toHaveLength(1)
   })
@@ -2195,7 +2454,7 @@ describe('Task detail rule header and run-time card', () => {
     expect(items.filter(item => item.textContent?.includes(en['rule.zone.system']))).toHaveLength(1)
   })
 
-  it.each([en, zh])('localizes a stored zone outside the minimal fallback', (dictionary) => {
+  it.each([en, zh])('localizes a stored zone outside the minimal fallback', dictionary => {
     const stored: ScheduleCatalogEntry = { ...daily, timeZone: 'Europe/Paris' }
     mount({ records: [stored] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
@@ -2207,8 +2466,7 @@ describe('Task detail rule header and run-time card', () => {
     const items = within(menu).getAllByRole('menuitem')
     const paris = items.filter(item => item.textContent === displayedZone('Europe/Paris', dictionary))
     expect(paris.length).toBeGreaterThan(0)
-    expect(items[0]?.textContent)
-      .toBe(`${displayedZone('Asia/Shanghai', dictionary)}${dictionary['rule.zone.system']}`)
+    expect(items[0]?.textContent).toBe(`${displayedZone('Asia/Shanghai', dictionary)}${dictionary['rule.zone.system']}`)
     expect(paris.filter(item => item.querySelector('svg') !== null)).toHaveLength(1)
   })
 
@@ -2220,7 +2478,8 @@ describe('Task detail rule header and run-time card', () => {
     expect(zoneButton().textContent).toContain(displayedZone('US/Pacific'))
     fireEvent.click(zoneButton())
     const menu = screen.getByRole('menu')
-    const storedItem = within(menu).getAllByRole('menuitem')
+    const storedItem = within(menu)
+      .getAllByRole('menuitem')
       .filter(item => item.textContent === displayedZone('US/Pacific'))
     expect(storedItem.length).toBeGreaterThan(0)
     expect(storedItem.filter(item => item.querySelector('svg') !== null)).toHaveLength(1)
@@ -2232,7 +2491,9 @@ describe('Task detail rule header and run-time card', () => {
     chooseZone('Africa/Lagos')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'daily', daily: { time: '23:00:00.000', time_zone: 'Africa/Lagos' } },
     })
   })
@@ -2262,7 +2523,7 @@ describe('Task detail rule header and run-time card', () => {
     expect(zoneButton().textContent).toContain(`${displayedZone('Europe/Paris')}${en['rule.zone.system']}`)
   })
 
-  it.each([en, zh])('keeps the shown zone when the Time zone menu selects it again', (dictionary) => {
+  it.each([en, zh])('keeps the shown zone when the Time zone menu selects it again', dictionary => {
     const h = mount({ records: [daily] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     chooseZone('Asia/Shanghai', dictionary)
@@ -2271,7 +2532,7 @@ describe('Task detail rule header and run-time card', () => {
     expect(zoneButton(dictionary).textContent).toContain(displayedZone('Asia/Shanghai', dictionary))
   })
 
-  it.each([en, zh])('shows the staged-edit bar only while the draft differs and clears it on Cancel', (dictionary) => {
+  it.each([en, zh])('shows the staged-edit bar only while the draft differs and clears it on Cancel', dictionary => {
     const h = mount({ records: [daily] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     // A clean draft has no save controls at all.
@@ -2279,8 +2540,11 @@ describe('Task detail rule header and run-time card', () => {
     chooseZone('Europe/Berlin', dictionary)
     const footer = saveFooter()!
     expect(footer.querySelector(`.${css.saveNotice}`)?.textContent).toBe(dictionary['rule.unsaved'])
-    expect(within(footer).getAllByRole('button').map(button => button.textContent))
-      .toEqual([dictionary['rule.cancel'], dictionary['rule.save']])
+    expect(
+      within(footer)
+        .getAllByRole('button')
+        .map(button => button.textContent),
+    ).toEqual([dictionary['rule.cancel'], dictionary['rule.save']])
     // Cancel restores the stored values without reaching the Host.
     clickCancel(dictionary)
     expect(h.updateTiming).not.toHaveBeenCalled()
@@ -2345,7 +2609,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: stored.sessionId, id: stored.id, expected: timingSnapshot(stored),
+      sessionId: stored.sessionId,
+      id: stored.id,
+      expected: timingSnapshot(stored),
       change: { kind: 'daily', daily: { time: '23:00:15.500', time_zone: 'Europe/Berlin' } },
     })
   })
@@ -2383,18 +2649,34 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: stored.sessionId, id: stored.id, expected: timingSnapshot(stored),
+      sessionId: stored.sessionId,
+      id: stored.id,
+      expected: timingSnapshot(stored),
       change: { kind: 'daily', daily: { time: '10:23:45', time_zone: 'Asia/Shanghai' } },
     })
   })
 
   it.each([
-    ['daily', daily, 'Daily weather', '2026-10-02T15:00:00.000Z', {
-      kind: 'daily', daily: { time: '10:23:45', time_zone: 'Asia/Shanghai' },
-    }],
-    ['weekly', weekly, 'Weekly review', '2026-10-12T01:30:00.000Z', {
-      kind: 'weekly', weekly: { time: '10:23:45', time_zone: 'Asia/Shanghai', weekdays: [1, 3] },
-    }],
+    [
+      'daily',
+      daily,
+      'Daily weather',
+      '2026-10-02T15:00:00.000Z',
+      {
+        kind: 'daily',
+        daily: { time: '10:23:45', time_zone: 'Asia/Shanghai' },
+      },
+    ],
+    [
+      'weekly',
+      weekly,
+      'Weekly review',
+      '2026-10-12T01:30:00.000Z',
+      {
+        kind: 'weekly',
+        weekly: { time: '10:23:45', time_zone: 'Asia/Shanghai', weekdays: [1, 3] },
+      },
+    ],
   ] as const)(
     'keeps and commits an unsaved %s Time edit when an authoritative refresh changes the stored record',
     async (_kind, task, row, rescheduled, change) => {
@@ -2413,10 +2695,15 @@ describe('Task detail rule header and run-time card', () => {
       expect(h.updateTiming).not.toHaveBeenCalled()
       clickSave()
       expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-        sessionId: task.sessionId, id: task.id, expected: timingSnapshot(refreshed), change,
+        sessionId: task.sessionId,
+        id: task.id,
+        expected: timingSnapshot(refreshed),
+        change,
       })
       h.update({ records: [saved] })
-      await act(async () => { await h.updateTiming.mock.results[0]!.value })
+      await act(async () => {
+        await h.updateTiming.mock.results[0]!.value
+      })
       expect(timeButton().textContent).toBe('10:23:45')
     },
   )
@@ -2448,7 +2735,10 @@ describe('Task detail rule header and run-time card', () => {
     // The delivered record both moves the target and ends the task, so the draft
     // has no stored rule left to differ from and the panel shows the new values.
     const endedAt: ScheduleCatalogEntry = {
-      ...at, status: 'inactive', prompt: 'Revised instruction', scheduledAt: '2026-10-02T08:00:00.000Z',
+      ...at,
+      status: 'inactive',
+      prompt: 'Revised instruction',
+      scheduledAt: '2026-10-02T08:00:00.000Z',
     }
     h.update({ records: [endedAt] })
     const detail = screen.getByRole('complementary', { name: en['detail.label'] })
@@ -2493,7 +2783,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'every', every_seconds: 3_600 },
     })
   })
@@ -2505,7 +2797,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'at', at: { date: '2026-10-01', time: '23:00:00.000', time_zone: DEVICE_ZONE } },
     })
   })
@@ -2516,7 +2810,9 @@ describe('Task detail rule header and run-time card', () => {
     h.updateTiming.mockResolvedValue({ ok: false, error: new RemoteError('gateway/internal', 'Unavailable', {}) })
     chooseTime('10', '23', '00')
     clickSave()
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     expect(screen.getByRole('alert').textContent).toBe(en['rule.error.unknown'])
     // The failed save keeps the draft so the user can retry it.
     expect(timeButton().textContent).toBe('10:23:00')
@@ -2528,7 +2824,9 @@ describe('Task detail rule header and run-time card', () => {
     h.updateTiming.mockResolvedValue({ ok: true, value: { id: daily.id, updated: false, code: 'schedule_ended' } })
     chooseTime('10', '23', '00')
     clickSave()
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     expect(screen.getByRole('alert').textContent).toBe(en['timing.inactive'])
     expect(timeButton().textContent).toBe('10:23:00')
   })
@@ -2542,7 +2840,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'daily', daily: { time: '10:23:00', time_zone: 'Asia/Shanghai' } },
     })
   })
@@ -2560,20 +2860,31 @@ describe('Task detail rule header and run-time card', () => {
     expect(repeatButton().textContent).toContain(en['rule.daily'])
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: every.sessionId, id: every.id, expected: timingSnapshot(every),
+      sessionId: every.sessionId,
+      id: every.id,
+      expected: timingSnapshot(every),
       change: { kind: 'daily', daily: { time: '17:30:00.000', time_zone: DEVICE_ZONE } },
     })
   })
 
-  it.each([en, zh])('offers the mock recurrence choices in the Repeat menu, in order', (dictionary) => {
+  it.each([en, zh])('offers the mock recurrence choices in the Repeat menu, in order', dictionary => {
     mount({ records: [daily] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     fireEvent.click(repeatButton(dictionary))
     const menu = screen.getByRole('menu')
-    expect(within(menu).getAllByRole('menuitem').map(item => item.textContent)).toEqual([
-      dictionary['rule.weekly'], dictionary['rule.weekdays'], dictionary['rule.daily'],
-      dictionary['rule.everyHours'], dictionary['rule.everyMinutes'], dictionary['rule.everySeconds'],
-      dictionary['rule.once'], dictionary['rule.cron'],
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map(item => item.textContent),
+    ).toEqual([
+      dictionary['rule.weekly'],
+      dictionary['rule.weekdays'],
+      dictionary['rule.daily'],
+      dictionary['rule.everyHours'],
+      dictionary['rule.everyMinutes'],
+      dictionary['rule.everySeconds'],
+      dictionary['rule.once'],
+      dictionary['rule.cron'],
     ])
   })
 
@@ -2586,7 +2897,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(repeatButton().textContent).toContain(en['rule.weekdays'])
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'weekly', weekly: { time: '23:00:00.000', time_zone: 'Asia/Shanghai', weekdays: [1, 2, 3, 4, 5] } },
     })
   })
@@ -2609,15 +2922,16 @@ describe('Task detail rule header and run-time card', () => {
     const h = mount({ records: [weekdayRule] })
     fireEvent.click(screen.getByRole('button', { name: weekly.prompt }))
     // The stored set names the Monday-to-Friday choice, which has no Weekday row.
-    expect(within(screen.getByRole('region', { name: en['rule.title'] }))
-      .queryByRole('group', { name: en['rule.weekday'] })).toBeNull()
+    expect(within(screen.getByRole('region', { name: en['rule.title'] })).queryByRole('group', { name: en['rule.weekday'] })).toBeNull()
     chooseRepeat(en['rule.weekly'])
     // Both choices describe the same stored weekly rule, so the day set survives
     // instead of collapsing to the one day the occurrence falls on.
     expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'true', 'true', 'true', 'true', 'false', 'false'])
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: weekly.sessionId, id: weekly.id, expected: timingSnapshot(weekdayRule),
+      sessionId: weekly.sessionId,
+      id: weekly.id,
+      expected: timingSnapshot(weekdayRule),
       change: {
         kind: 'weekly',
         weekly: { time: '09:30:00.000', time_zone: 'Asia/Shanghai', weekdays: [1, 2, 3, 4, 5] },
@@ -2628,8 +2942,16 @@ describe('Task detail rule header and run-time card', () => {
   it('carries the shown clock into a weekly choice and shows its Weekday row', async () => {
     const h = mount({ records: [daily] })
     const seeded: ScheduleCatalogEntry = {
-      id: daily.id, sessionId: daily.sessionId, kind: 'weekly', status: 'active', title: daily.title,
-      prompt: daily.prompt, time: '23:00:00.000', timeZone: 'Asia/Shanghai', weekdays: [4], scheduledAt: daily.scheduledAt,
+      id: daily.id,
+      sessionId: daily.sessionId,
+      kind: 'weekly',
+      status: 'active',
+      title: daily.title,
+      prompt: daily.prompt,
+      time: '23:00:00.000',
+      timeZone: 'Asia/Shanghai',
+      weekdays: [4],
+      scheduledAt: daily.scheduledAt,
     }
     h.updateTiming.mockResolvedValue({ ok: true, value: { id: daily.id, updated: true, record: seeded } })
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
@@ -2637,12 +2959,16 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'weekly', weekly: { time: '23:00:00.000', time_zone: 'Asia/Shanghai', weekdays: [4] } },
     })
     // The authoritative refresh delivers the stored weekly rule the update returned.
     h.update({ records: [seeded] })
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     expect(weekdayPressed(weekdayGroup())).toEqual(['false', 'false', 'false', 'true', 'false', 'false', 'false'])
     expect(timeButton().textContent).toBe('23:00:00')
     expect(zoneButton().textContent).toContain(displayedZone('Asia/Shanghai'))
@@ -2676,8 +3002,12 @@ describe('Task detail rule header and run-time card', () => {
 
   it('seeds a weekly choice with the occurrence weekday in the carried zone', () => {
     const eastDaily: ScheduleCatalogEntry = {
-      ...daily, id: 'task-daily-east' as ScheduleId, title: 'East daily', prompt: 'East daily',
-      time: '01:00:00.000', scheduledAt: '2026-09-30T17:00:00.000Z',
+      ...daily,
+      id: 'task-daily-east' as ScheduleId,
+      title: 'East daily',
+      prompt: 'East daily',
+      time: '01:00:00.000',
+      scheduledAt: '2026-09-30T17:00:00.000Z',
     }
     // That instant is Wednesday in UTC and Thursday 01:00 in Asia/Shanghai, so the
     // weekday row must name the local day the carried clock falls on.
@@ -2689,7 +3019,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(weekdayPressed(weekdayGroup())).toEqual(['false', 'false', 'false', 'true', 'false', 'false', 'false'])
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: eastDaily.sessionId, id: eastDaily.id, expected: timingSnapshot(eastDaily),
+      sessionId: eastDaily.sessionId,
+      id: eastDaily.id,
+      expected: timingSnapshot(eastDaily),
       change: { kind: 'weekly', weekly: { time: '01:00:00.000', time_zone: 'Asia/Shanghai', weekdays: [4] } },
     })
   })
@@ -2704,7 +3036,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(zoneButton().textContent).toContain(displayedZone(DEVICE_ZONE))
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: every.sessionId, id: every.id, expected: timingSnapshot(every),
+      sessionId: every.sessionId,
+      id: every.id,
+      expected: timingSnapshot(every),
       change: { kind: 'weekly', weekly: { time: '17:30:00.000', time_zone: DEVICE_ZONE, weekdays: [4] } },
     })
   })
@@ -2718,15 +3052,21 @@ describe('Task detail rule header and run-time card', () => {
     expect(weekdayPressed(weekdayGroup())).toEqual(['true', 'false', 'true', 'false', 'true', 'false', 'false'])
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: weekly.sessionId, id: weekly.id, expected: timingSnapshot(weekly),
+      sessionId: weekly.sessionId,
+      id: weekly.id,
+      expected: timingSnapshot(weekly),
       change: { kind: 'weekly', weekly: { time: '09:30:00.000', time_zone: 'Asia/Shanghai', weekdays: [1, 3, 5] } },
     })
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     fireEvent.click(within(weekdayGroup()).getByRole('button', { name: weekdayName('frequency.weekday.1') }))
     expect(h.updateTiming).toHaveBeenCalledTimes(1)
     clickSave()
     expect(h.updateTiming).toHaveBeenLastCalledWith({
-      sessionId: weekly.sessionId, id: weekly.id, expected: timingSnapshot(weekly),
+      sessionId: weekly.sessionId,
+      id: weekly.id,
+      expected: timingSnapshot(weekly),
       change: { kind: 'weekly', weekly: { time: '09:30:00.000', time_zone: 'Asia/Shanghai', weekdays: [3] } },
     })
   })
@@ -2737,9 +3077,17 @@ describe('Task detail rule header and run-time card', () => {
     const pending = Promise.withResolvers<RemoteResult<ScheduleUpdateResult>>()
     h.updateTiming.mockReturnValue(pending.promise)
     fireEvent.click(within(weekdayGroup()).getByRole('button', { name: weekdayName('frequency.weekday.5') }))
-    expect(within(weekdayGroup()).getAllByRole('button').every(day => day.hasAttribute('disabled'))).toBe(false)
+    expect(
+      within(weekdayGroup())
+        .getAllByRole('button')
+        .every(day => day.hasAttribute('disabled')),
+    ).toBe(false)
     clickSave()
-    expect(within(weekdayGroup()).getAllByRole('button').every(day => day.hasAttribute('disabled'))).toBe(true)
+    expect(
+      within(weekdayGroup())
+        .getAllByRole('button')
+        .every(day => day.hasAttribute('disabled')),
+    ).toBe(true)
     expect(saveFooter()!.textContent).toContain(en['rule.saving'])
     expect(within(saveFooter()!).getByRole('button', { name: en['rule.saving'] }).hasAttribute('disabled')).toBe(true)
     await act(async () => {
@@ -2759,25 +3107,28 @@ describe('Task detail rule header and run-time card', () => {
     expect(weekdayPressed(weekdayGroup())).toEqual(['false', 'true', 'false', 'false', 'false', 'false', 'false'])
   })
 
-  it.each([en, zh])('renders a catalog weekly rule with its stored weekdays and time, omitting the host zone', (dictionary) => {
+  it.each([en, zh])('renders a catalog weekly rule with its stored weekdays and time, omitting the host zone', dictionary => {
     mount({ records: [weekly] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: weekly.prompt }))
     const card = screen.getByRole('region', { name: dictionary['rule.title'] })
     const t = makeTranslate(dictionary)
     const frequency = formatScheduleFrequency(weekly, t, { system: 'Asia/Shanghai', label: zone => zoneLabel(zone, t) })
     expect(frequency).not.toContain('Asia/Shanghai')
-    expect(within(card).getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }).textContent)
-      .toContain(frequency)
+    expect(within(card).getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }).textContent).toContain(frequency)
     expect(weekdayPressed(weekdayGroup(dictionary))).toEqual(['true', 'false', 'true', 'false', 'false', 'false', 'false'])
     expect(timeButton(dictionary).textContent).toBe('09:30:00')
     expect(zoneButton(dictionary).textContent).toContain(displayedZone('Asia/Shanghai', dictionary))
   })
 
-  it.each([en, zh])('shows an ended weekly rule as read-only', (dictionary) => {
+  it.each([en, zh])('shows an ended weekly rule as read-only', dictionary => {
     mount({ records: [{ ...weekly, status: 'inactive' }] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: weekly.prompt }))
     const card = screen.getByRole('region', { name: dictionary['rule.title'] })
-    expect(within(card).getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }).hasAttribute('disabled')).toBe(true)
+    expect(
+      within(card)
+        .getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) })
+        .hasAttribute('disabled'),
+    ).toBe(true)
     expect(timeButton(dictionary).disabled).toBe(true)
     expect(zoneButton(dictionary).hasAttribute('disabled')).toBe(true)
     for (const day of within(weekdayGroup(dictionary)).getAllByRole('button')) {
@@ -2789,7 +3140,7 @@ describe('Task detail rule header and run-time card', () => {
     expect(saveFooter()).toBeNull()
   })
 
-  it.each([en, zh])('offers a cron Repeat choice that reveals structured rows without a request', (dictionary) => {
+  it.each([en, zh])('offers a cron Repeat choice that reveals structured rows without a request', dictionary => {
     const h = mount({ records: [daily] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     chooseRepeat(dictionary['rule.cron'], dictionary)
@@ -2803,39 +3154,43 @@ describe('Task detail rule header and run-time card', () => {
     // The choice seeds the committed occurrence's clock in the device zone.
     expect(timeButton(dictionary).textContent).toBe('23:00')
     // The described hint carries the sentence the staged expression parses to.
-    expect(document.getElementById(frequency.getAttribute('aria-describedby')!)?.textContent)
-      .toBe(dictionary === en ? 'Every day at 23:00' : '每天 23:00')
+    expect(document.getElementById(frequency.getAttribute('aria-describedby')!)?.textContent).toBe(
+      dictionary === en ? 'Every day at 23:00' : '每天 23:00',
+    )
     expect(saveFooter()).not.toBeNull()
   })
 
-  it.each([en, zh])('renders an unrecognized cron expression as a raw row like its neighbours with its sentence in the card hints', (dictionary) => {
-    // The two-hour list matches no builder shape, so the raw expression row
-    // shows without any raw choice being made.
-    mount({ records: [{ ...cron, expression: '30 9,15 * * *' }] }, dictionary)
-    fireEvent.click(screen.getByRole('button', { name: cron.prompt }))
-    const card = screen.getByRole('region', { name: dictionary['rule.title'] })
-    const expression = within(card).getByLabelText<HTMLInputElement>(dictionary['rule.cronLabel'])
-    const row = expression.parentElement!
-    // The label and the input are the row's only children, so no face wrapper
-    // stacks them and the row keeps the shared one-line row metrics.
-    expect(row.classList.contains(css.ruleRow!)).toBe(true)
-    expect(row.children).toHaveLength(2)
-    expect(row.children[0]?.tagName).toBe('LABEL')
-    expect(row.children[0]?.getAttribute('for')).toBe(expression.id)
-    expect(row.children[1]).toBe(expression)
-    const rows = row.parentElement!
-    expect(rows.classList.contains(css.ruleRows!)).toBe(true)
-    // The sentence is a hint under the bordered rows, in the same element and
-    // place as the zone hint, rather than a second line inside the row.
-    const hint = document.getElementById(expression.getAttribute('aria-describedby')!)!
-    expect(hint.className).toBe(css.ruleHint)
-    expect(row.contains(hint)).toBe(false)
-    expect(hint.parentElement).toBe(rows.parentElement)
-    expect(hint.textContent).toBe(dictionary === en ? 'Every day at 09:30, 15:30' : '每天 09:30、15:30')
-    // The zone row keeps no hint of its own: its picker names the zone it states,
-    // so the row points at nothing.
-    expect(zoneButton(dictionary).getAttribute('aria-describedby')).toBeNull()
-  })
+  it.each([en, zh])(
+    'renders an unrecognized cron expression as a raw row like its neighbours with its sentence in the card hints',
+    dictionary => {
+      // The two-hour list matches no builder shape, so the raw expression row
+      // shows without any raw choice being made.
+      mount({ records: [{ ...cron, expression: '30 9,15 * * *' }] }, dictionary)
+      fireEvent.click(screen.getByRole('button', { name: cron.prompt }))
+      const card = screen.getByRole('region', { name: dictionary['rule.title'] })
+      const expression = within(card).getByLabelText<HTMLInputElement>(dictionary['rule.cronLabel'])
+      const row = expression.parentElement!
+      // The label and the input are the row's only children, so no face wrapper
+      // stacks them and the row keeps the shared one-line row metrics.
+      expect(row.classList.contains(css.ruleRow!)).toBe(true)
+      expect(row.children).toHaveLength(2)
+      expect(row.children[0]?.tagName).toBe('LABEL')
+      expect(row.children[0]?.getAttribute('for')).toBe(expression.id)
+      expect(row.children[1]).toBe(expression)
+      const rows = row.parentElement!
+      expect(rows.classList.contains(css.ruleRows!)).toBe(true)
+      // The sentence is a hint under the bordered rows, in the same element and
+      // place as the zone hint, rather than a second line inside the row.
+      const hint = document.getElementById(expression.getAttribute('aria-describedby')!)!
+      expect(hint.className).toBe(css.ruleHint)
+      expect(row.contains(hint)).toBe(false)
+      expect(hint.parentElement).toBe(rows.parentElement)
+      expect(hint.textContent).toBe(dictionary === en ? 'Every day at 09:30, 15:30' : '每天 09:30、15:30')
+      // The zone row keeps no hint of its own: its picker names the zone it states,
+      // so the row points at nothing.
+      expect(zoneButton(dictionary).getAttribute('aria-describedby')).toBeNull()
+    },
+  )
 
   it('submits the staged cron expression with the complete expected record', () => {
     const h = mount({ records: [daily] })
@@ -2844,7 +3199,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'cron', cron: { expression: '0 23 * * *', time_zone: DEVICE_ZONE } },
     })
   })
@@ -2906,7 +3263,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: cron.sessionId, id: cron.id, expected: timingSnapshot(cron),
+      sessionId: cron.sessionId,
+      id: cron.id,
+      expected: timingSnapshot(cron),
       change: { kind: 'cron', cron: { expression: '0 9 * * 1-5', time_zone: 'Europe/Berlin' } },
     })
   })
@@ -2920,7 +3279,9 @@ describe('Task detail rule header and run-time card', () => {
       target: { value: '*/15 * * * *' },
     })
     clickSave()
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     expect(screen.getByLabelText<HTMLInputElement>(en['rule.cronLabel']).value).toBe('*/15 * * * *')
     // The Host failure takes the hint slot in place of the described sentence.
     const alert = screen.getByRole('alert')
@@ -2946,20 +3307,23 @@ describe('Task detail rule header and run-time card', () => {
       target: { value: '*/15 * * * *' },
     })
     clickSave()
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     // The refusal arrives as an ordinary non-mutating result, so the editor
     // names the reason instead of falling back to `rule.error.unknown`.
     expect(screen.getByRole('alert').textContent).toBe(en['timing.subagentSession'])
   })
 
-  it.each([en, zh])('renders a catalog cron rule with its shape rows, preview, zone, and next run', (dictionary) => {
+  it.each([en, zh])('renders a catalog cron rule with its shape rows, preview, zone, and next run', dictionary => {
     mount({ records: [cron] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: cron.prompt }))
     const card = screen.getByRole('region', { name: dictionary['rule.title'] })
     // The Repeat trigger names the cron choice itself; the rows and the
     // sentence below carry the rule, so no summary repeats there.
-    expect(within(card).getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }).textContent)
-      .toBe(`${dictionary['rule.repeat']}${dictionary['rule.cron']}`)
+    expect(within(card).getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }).textContent).toBe(
+      `${dictionary['rule.repeat']}${dictionary['rule.cron']}`,
+    )
     // The stored Mon-to-Fri expression matches the weekly shape, so the builder
     // shows its rows instead of the raw expression input.
     expect(within(card).queryByLabelText(dictionary['rule.cronLabel'])).toBeNull()
@@ -2973,11 +3337,15 @@ describe('Task detail rule header and run-time card', () => {
     expect(relativeText(detail)).toBe(relativeNextRun(cron.scheduledAt, dictionary))
   })
 
-  it.each([en, zh])('shows an ended cron rule as read-only', (dictionary) => {
+  it.each([en, zh])('shows an ended cron rule as read-only', dictionary => {
     mount({ records: [{ ...cron, status: 'inactive' }] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: cron.prompt }))
     const card = screen.getByRole('region', { name: dictionary['rule.title'] })
-    expect(within(card).getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }).hasAttribute('disabled')).toBe(true)
+    expect(
+      within(card)
+        .getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) })
+        .hasAttribute('disabled'),
+    ).toBe(true)
     expect(cronFrequencyButton(dictionary).hasAttribute('disabled')).toBe(true)
     for (const day of within(weekdayGroup(dictionary)).getAllByRole('button')) {
       expect(day.hasAttribute('disabled')).toBe(true)
@@ -2999,7 +3367,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(screen.getByText('Tue–Sat at 09:00')).toBeDefined()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: cron.sessionId, id: cron.id, expected: timingSnapshot(cron),
+      sessionId: cron.sessionId,
+      id: cron.id,
+      expected: timingSnapshot(cron),
       change: { kind: 'cron', cron: { expression: '0 9 * * 2-6', time_zone: 'Asia/Shanghai' } },
     })
   })
@@ -3021,7 +3391,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(screen.getByText('Mon–Fri at 10:45')).toBeDefined()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: cron.sessionId, id: cron.id, expected: timingSnapshot(cron),
+      sessionId: cron.sessionId,
+      id: cron.id,
+      expected: timingSnapshot(cron),
       change: { kind: 'cron', cron: { expression: '45 10 * * 1-5', time_zone: 'Asia/Shanghai' } },
     })
   })
@@ -3050,7 +3422,9 @@ describe('Task detail rule header and run-time card', () => {
     fireEvent.click(screen.getByRole('button', { name: en['cronForm.minuteDecrease'] }))
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: cron.sessionId, id: cron.id, expected: timingSnapshot(stored),
+      sessionId: cron.sessionId,
+      id: cron.id,
+      expected: timingSnapshot(stored),
       change: { kind: 'cron', cron: { expression: '58 */2 * * *', time_zone: 'Asia/Shanghai' } },
     })
   })
@@ -3063,12 +3437,14 @@ describe('Task detail rule header and run-time card', () => {
     expect(screen.getByLabelText<HTMLInputElement>(en['timing.interval']).value).toBe('5')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: cron.sessionId, id: cron.id, expected: timingSnapshot(cron),
+      sessionId: cron.sessionId,
+      id: cron.id,
+      expected: timingSnapshot(cron),
       change: { kind: 'cron', cron: { expression: '*/5 * * * *', time_zone: 'Asia/Shanghai' } },
     })
   })
 
-  it.each([en, zh])('renders a monthly cron rule as a date grid with its time and preview', (dictionary) => {
+  it.each([en, zh])('renders a monthly cron rule as a date grid with its time and preview', dictionary => {
     mount({ records: [{ ...cron, expression: '30 8 1,15 * *' }] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: cron.prompt }))
     const card = screen.getByRole('region', { name: dictionary['rule.title'] })
@@ -3077,7 +3453,11 @@ describe('Task detail rule header and run-time card', () => {
     const group = dateGroup(dictionary)
     expect(within(group).getAllByRole('button')).toHaveLength(31)
     expect(datesPressed(group)).toEqual([1, 15])
-    expect(within(group).getByRole('button', { name: dateName(15, dictionary) }).getAttribute('aria-pressed')).toBe('true')
+    expect(
+      within(group)
+        .getByRole('button', { name: dateName(15, dictionary) })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
     expect(timeButton(dictionary).textContent).toBe('08:30')
     expect(within(card).getByText(dictionary === en ? 'Day 1, 15 of every month at 08:30' : '每月 1、15 日 08:30')).toBeDefined()
   })
@@ -3093,7 +3473,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(screen.getByText('Day 15, 20 of every month at 08:30')).toBeDefined()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: cron.sessionId, id: cron.id, expected: timingSnapshot(stored),
+      sessionId: cron.sessionId,
+      id: cron.id,
+      expected: timingSnapshot(stored),
       change: { kind: 'cron', cron: { expression: '30 8 15,20 * *', time_zone: 'Asia/Shanghai' } },
     })
   })
@@ -3118,7 +3500,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(timeButton().textContent).toBe('23:00')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'cron', cron: { expression: '0 23 1 * *', time_zone: DEVICE_ZONE } },
     })
   })
@@ -3141,7 +3525,9 @@ describe('Task detail rule header and run-time card', () => {
     expect(timeButton().textContent).toBe('23:00')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'cron', cron: { expression: '0 23 * * *', time_zone: DEVICE_ZONE } },
     })
   })
@@ -3203,8 +3589,9 @@ describe('Task detail rule header and run-time card', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Check metrics' }))
     const pending = Promise.withResolvers<RemoteResult<ScheduleUpdateResult>>()
     h.updateTiming.mockReturnValue(pending.promise)
-    const repeat = within(screen.getByRole('region', { name: en['rule.title'] }))
-      .getByRole('button', { name: new RegExp(`^${en['rule.repeat']}`) })
+    const repeat = within(screen.getByRole('region', { name: en['rule.title'] })).getByRole('button', {
+      name: new RegExp(`^${en['rule.repeat']}`),
+    })
     fireEvent.click(repeat)
     fireEvent.click(screen.getByRole('menuitem', { name: en['rule.daily'] }))
     expect(h.updateTiming).not.toHaveBeenCalled()
@@ -3243,13 +3630,15 @@ describe('Task detail rule header and run-time card', () => {
     expect(zoneButton().hasAttribute('disabled')).toBe(false)
   })
 
-  it.each([en, zh])('keeps both rows and surfaces the localized conflict', async (dictionary) => {
+  it.each([en, zh])('keeps both rows and surfaces the localized conflict', async dictionary => {
     const h = mount({ records: [daily] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     h.updateTiming.mockResolvedValue({ ok: true, value: { id: daily.id, updated: false, code: 'schedule_conflict' } })
     chooseZone('Europe/Berlin', dictionary)
     clickSave(dictionary)
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     // A failed save keeps the draft so the user can retry it.
     expect(zoneButton(dictionary).textContent).toContain(displayedZone('Europe/Berlin', dictionary))
     expect(timeButton(dictionary).textContent).toBe('23:00:00')
@@ -3263,7 +3652,9 @@ describe('Task detail rule header and run-time card', () => {
     h.updateTiming.mockResolvedValue({ ok: true, value: { id: daily.id, updated: false, code: 'schedule_conflict' } })
     chooseTime('10', '23', '00')
     clickSave()
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     // The failed save keeps the draft and its localized error.
     expect(timeButton().textContent).toBe('10:23:00')
     expect(screen.getByRole('alert').textContent).toBe(en['rule.error.conflict'])
@@ -3274,7 +3665,9 @@ describe('Task detail rule header and run-time card', () => {
     chooseZone('Europe/Berlin')
     clickSave()
     expect(h.updateTiming).toHaveBeenLastCalledWith({
-      sessionId: stored.sessionId, id: stored.id, expected: timingSnapshot(stored),
+      sessionId: stored.sessionId,
+      id: stored.id,
+      expected: timingSnapshot(stored),
       change: { kind: 'daily', daily: { time: '23:00:15.500', time_zone: 'Europe/Berlin' } },
     })
   })
@@ -3286,12 +3679,14 @@ describe('Task detail rule header and run-time card', () => {
     chooseTime('10', '23', '00')
     clickSave()
     const attempt = h.updateTiming.mock.results[0]?.value as Promise<unknown> | undefined
-    await act(async () => { await attempt?.catch(() => {}) })
+    await act(async () => {
+      await attempt?.catch(() => {})
+    })
     expect(timeButton().textContent).toBe('10:23:00')
     expect(screen.getByRole('alert').textContent).toBe(en['rule.error.unknown'])
   })
 
-  it.each(['success', 'reject'] as const)('ignores a %s rule response that arrives after another task is shown', async (outcome) => {
+  it.each(['success', 'reject'] as const)('ignores a %s rule response that arrives after another task is shown', async outcome => {
     const h = mount({ records: [daily, every] })
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     const pending = Promise.withResolvers<RemoteResult<ScheduleUpdateResult>>()
@@ -3301,10 +3696,23 @@ describe('Task detail rule header and run-time card', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Check metrics' }))
     await act(async () => {
       if (outcome === 'reject') pending.reject(new Error('late rejection'))
-      else pending.resolve({ ok: true, value: { id: daily.id, updated: true, record: {
-        id: daily.id, title: daily.title, prompt: daily.prompt, kind: 'daily', time: '10:23:00.000',
-        timeZone: 'Asia/Shanghai', scheduledAt: daily.scheduledAt,
-      } } })
+      else
+        pending.resolve({
+          ok: true,
+          value: {
+            id: daily.id,
+            updated: true,
+            record: {
+              id: daily.id,
+              title: daily.title,
+              prompt: daily.prompt,
+              kind: 'daily',
+              time: '10:23:00.000',
+              timeZone: 'Asia/Shanghai',
+              scheduledAt: daily.scheduledAt,
+            },
+          },
+        })
       await pending.promise.catch(() => {})
     })
     expect(nameField().value).toBe('Check metrics')
@@ -3313,7 +3721,7 @@ describe('Task detail rule header and run-time card', () => {
     expect(screen.getByLabelText<HTMLInputElement>(en['timing.interval']).value).toBe('301')
   })
 
-  it.each(['success', 'reject'] as const)('ignores a %s save response that arrives after the detail unmounts', async (outcome) => {
+  it.each(['success', 'reject'] as const)('ignores a %s save response that arrives after the detail unmounts', async outcome => {
     const h = mount({ records: [daily] })
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     const pending = Promise.withResolvers<RemoteResult<ScheduleUpdateResult>>()
@@ -3323,23 +3731,40 @@ describe('Task detail rule header and run-time card', () => {
     h.view.unmount()
     await act(async () => {
       if (outcome === 'reject') pending.reject(new Error('late rejection'))
-      else pending.resolve({ ok: true, value: { id: daily.id, updated: true, record: {
-        id: daily.id, title: daily.title, prompt: daily.prompt, kind: 'daily', time: '10:23:00.000',
-        timeZone: 'Asia/Shanghai', scheduledAt: daily.scheduledAt,
-      } } })
+      else
+        pending.resolve({
+          ok: true,
+          value: {
+            id: daily.id,
+            updated: true,
+            record: {
+              id: daily.id,
+              title: daily.title,
+              prompt: daily.prompt,
+              kind: 'daily',
+              time: '10:23:00.000',
+              timeZone: 'Asia/Shanghai',
+              scheduledAt: daily.scheduledAt,
+            },
+          },
+        })
       await pending.promise.catch(() => {})
     })
     expect(screen.queryByRole('complementary')).toBeNull()
   })
 
-  it.each([en, zh])('shows an ended rule as its ended state with read-only rows', (dictionary) => {
+  it.each([en, zh])('shows an ended rule as its ended state with read-only rows', dictionary => {
     mount({ records: [{ ...daily, status: 'inactive' }] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
     const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
     expect(visibleText(detail, dictionary['status.inactive'])).toHaveLength(1)
     expect(nextRunTime(detail)).toBeNull()
     const card = within(detail).getByRole('region', { name: dictionary['rule.title'] })
-    expect(within(card).getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) }).hasAttribute('disabled')).toBe(true)
+    expect(
+      within(card)
+        .getByRole('button', { name: new RegExp(`^${dictionary['rule.repeat']}`) })
+        .hasAttribute('disabled'),
+    ).toBe(true)
     expect(timeButton(dictionary).disabled).toBe(true)
     expect(zoneButton(dictionary).hasAttribute('disabled')).toBe(true)
     // The disabled rows already read as ended; no standing read-only note.
@@ -3356,9 +3781,15 @@ describe('Task detail rule header and run-time card', () => {
     expect(nextRunTime(detail)?.textContent).toBe(absoluteNextRun(stored.scheduledAt, en))
     expect(relativeText(detail)).toBe(relativeNextRun(stored.scheduledAt, en))
     const t = makeTranslate(en)
-    expect(within(detail).getByText(formatScheduleFrequency(stored, t, {
-      system: 'Asia/Shanghai', label: zone => zoneLabel(zone, t),
-    }), { exact: true })).toBeDefined()
+    expect(
+      within(detail).getByText(
+        formatScheduleFrequency(stored, t, {
+          system: 'Asia/Shanghai',
+          label: zone => zoneLabel(zone, t),
+        }),
+        { exact: true },
+      ),
+    ).toBeDefined()
   })
 
   it('renders a saved record time in the task zone rather than the browser zone', async () => {
@@ -3372,8 +3803,9 @@ describe('Task detail rule header and run-time card', () => {
     const occurrence = record.querySelector<HTMLTimeElement>(`.${css.deliveryTime}`)
     // Precondition: the two zones hold different offsets at this instant, so the
     // task-zone render cannot coincide with the browser-zone render.
-    expect(zoneOffsetMinutes(zone, delivery.scheduledAt))
-      .not.toBe(zoneOffsetMinutes(Intl.DateTimeFormat().resolvedOptions().timeZone, delivery.scheduledAt))
+    expect(zoneOffsetMinutes(zone, delivery.scheduledAt)).not.toBe(
+      zoneOffsetMinutes(Intl.DateTimeFormat().resolvedOptions().timeZone, delivery.scheduledAt),
+    )
     const rendered = formatScheduleNextRun(delivery.scheduledAt, en['time.locale'], zone)
     expect(occurrence?.textContent).toBe(rendered)
     expect(rendered).not.toBe(formatScheduleNextRun(delivery.scheduledAt, en['time.locale']))
@@ -3389,12 +3821,13 @@ describe('Task detail rule header and run-time card', () => {
     expect(repeatButton(dictionary).textContent).not.toContain('Asia/Shanghai')
   })
 
-  it.each([en, zh])('names a non-host stored zone with its ICU label in the frequency line', (dictionary) => {
+  it.each([en, zh])('names a non-host stored zone with its ICU label in the frequency line', dictionary => {
     mount({ records: [{ ...daily, timeZone: 'America/New_York' }] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Daily weather' }))
-    const expected = dictionary === en
-      ? `Daily at 23:00 (${displayedZone('America/New_York', dictionary)})`
-      : `每天 23:00（${displayedZone('America/New_York', dictionary)}）`
+    const expected =
+      dictionary === en
+        ? `Daily at 23:00 (${displayedZone('America/New_York', dictionary)})`
+        : `每天 23:00（${displayedZone('America/New_York', dictionary)}）`
     expect(repeatButton(dictionary).textContent).toContain(expected)
     expect(repeatButton(dictionary).textContent).not.toContain('America/New_York')
   })
@@ -3434,8 +3867,10 @@ describe('Task detail rule header and run-time card', () => {
       }
     }
     vi.stubGlobal('ResizeObserver', FakeResizeObserver)
-    const stripObserver = (): FakeResizeObserver => FakeResizeObserver.made
-      .findLast(observer => observer.observe.mock.calls.some(([target]) => target.getAttribute('role') === 'tablist'))!
+    const stripObserver = (): FakeResizeObserver =>
+      FakeResizeObserver.made.findLast(observer =>
+        observer.observe.mock.calls.some(([target]) => target.getAttribute('role') === 'tablist'),
+      )!
     // The tab list needs 120px; the expanded entry takes 120px and the icon 28px,
     // and the tabs get the rest of the strip.
     let strip = 220
@@ -3481,10 +3916,14 @@ describe('Task detail rule header and run-time card', () => {
 
       // The expanded entry needs 120px beside the tabs' 120px, plus 1px to expand again.
       strip = 240
-      act(() => { stripObserver().fire() })
+      act(() => {
+        stripObserver().fire()
+      })
       expect(compact()).toBe(true)
       strip = 241
-      act(() => { stripObserver().fire() })
+      act(() => {
+        stripObserver().fire()
+      })
       expect(compact()).toBe(false)
       // The same button changes layout, so keyboard focus survives the switch.
       expect(link()).toBe(focused)
@@ -3493,13 +3932,17 @@ describe('Task detail rule header and run-time card', () => {
       expect(tooltip()).toBeUndefined()
       fireEvent.mouseLeave(detailContext(detail)!)
       strip = 240
-      act(() => { stripObserver().fire() })
+      act(() => {
+        stripObserver().fire()
+      })
       expect(compact()).toBe(false)
       expect(within(link()).getByText(en['detail.session'])).toBeDefined()
 
       // A label changed while compact is measured expanded before shrinking again.
       strip = 200
-      act(() => { stripObserver().fire() })
+      act(() => {
+        stripObserver().fire()
+      })
       expect(compact()).toBe(true)
       h.view.rerender(<TaskManagerPage {...h.props} t={makeTranslate(zh)} />)
       expect(compact()).toBe(true)
@@ -3523,7 +3966,7 @@ describe('Task detail rule header and run-time card', () => {
 })
 
 describe('Task detail name and instruction edits', () => {
-  it.each([en, zh])('names both controls through the dictionary and seeds them from the task', (dictionary) => {
+  it.each([en, zh])('names both controls through the dictionary and seeds them from the task', dictionary => {
     mount({ records: [at] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
@@ -3544,7 +3987,10 @@ describe('Task detail name and instruction edits', () => {
     expect(saveNotice()?.textContent).toBe(en['rule.unsaved'])
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at), title: 'Release audit',
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
+      title: 'Release audit',
     })
   })
 
@@ -3556,7 +4002,10 @@ describe('Task detail name and instruction edits', () => {
     expect(h.updateTiming).not.toHaveBeenCalled()
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at), prompt: 'Audit every release',
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
+      prompt: 'Audit every release',
     })
   })
 
@@ -3568,8 +4017,11 @@ describe('Task detail name and instruction edits', () => {
     chooseTime('10', '25', '30')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at),
-      title: 'Release audit', prompt: 'Audit every release',
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
+      title: 'Release audit',
+      prompt: 'Audit every release',
       change: { kind: 'at', at: { date: '2026-10-01', time: '10:25:30', time_zone: DEVICE_ZONE } },
     })
   })
@@ -3602,7 +4054,10 @@ describe('Task detail name and instruction edits', () => {
     fireEvent.change(nameField(), { target: { value: longest } })
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(at), title: longest,
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(at),
+      title: longest,
     })
   })
 
@@ -3616,7 +4071,7 @@ describe('Task detail name and instruction edits', () => {
     expect(instructionField().value).toBe('\n \n')
   })
 
-  it.each([en, zh])('restores the stored name and instruction on Cancel', (dictionary) => {
+  it.each([en, zh])('restores the stored name and instruction on Cancel', dictionary => {
     mount({ records: [at] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     fireEvent.change(nameField(dictionary), { target: { value: 'Draft name' } })
@@ -3636,7 +4091,9 @@ describe('Task detail name and instruction edits', () => {
     fireEvent.change(nameField(), { target: { value: 'Release audit' } })
     fireEvent.change(instructionField(), { target: { value: 'Audit every release' } })
     clickSave()
-    await act(async () => { await h.updateTiming.mock.results[0]!.value })
+    await act(async () => {
+      await h.updateTiming.mock.results[0]!.value
+    })
     expect(screen.getByRole('alert').textContent).toBe(en['rule.error.conflict'])
     expect(nameField().value).toBe('Release audit')
     expect(instructionField().value).toBe('Audit every release')
@@ -3652,11 +4109,14 @@ describe('Task detail name and instruction edits', () => {
     expect(nameField().value).toBe('Release audit')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: at.sessionId, id: at.id, expected: timingSnapshot(refreshed), title: 'Release audit',
+      sessionId: at.sessionId,
+      id: at.id,
+      expected: timingSnapshot(refreshed),
+      title: 'Release audit',
     })
   })
 
-  it.each([en, zh])('renders an ended task name and instruction as plain text with no save bar', (dictionary) => {
+  it.each([en, zh])('renders an ended task name and instruction as plain text with no save bar', dictionary => {
     mount({ records: [ended] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
@@ -3717,8 +4177,7 @@ describe('Mock detail metrics shared with the task list', () => {
   const stylesheet = readFileSync(resolve(import.meta.dirname, '../src/client/TaskManagerPage.module.css'), 'utf8')
   // Anchored so a placement-specific selector that ends in the same class name
   // does not shadow the base rule.
-  const rule = (selector: string): string =>
-    new RegExp(`^\\.${selector}\\s*\\{([^}]*)\\}`, 'm').exec(stylesheet)?.[1] ?? ''
+  const rule = (selector: string): string => new RegExp(`^\\.${selector}\\s*\\{([^}]*)\\}`, 'm').exec(stylesheet)?.[1] ?? ''
 
   it('states the mock notice step on the catalog notices', () => {
     // The mock's `.notice` is 12px/20px; without a stated size the text inherits
@@ -3787,9 +4246,7 @@ describe('Mock detail metrics shared with the task list', () => {
       /\[data-platform='darwin'\][^{]*\.pageHeading\s*\{[^}]*padding-top:\s*calc\(28px \+ var\(--dsh-frame-top-clearance, 0px\)\);/,
     )
     // The column keeps no top inset of its own, on either platform.
-    expect(stylesheet).not.toMatch(
-      /\[data-platform='darwin'\][^{]*\.pageContent\s*\{/,
-    )
+    expect(stylesheet).not.toMatch(/\[data-platform='darwin'\][^{]*\.pageContent\s*\{/)
     // The Plugins toolbar's Add-plugin capsule, repeated by the creation action.
     expect(rule('creationActions')).toMatch(/gap:\s*16px;/)
     const newButton = rule('newButton')
@@ -3819,8 +4276,7 @@ describe('Mock detail metrics shared with the task list', () => {
     expect(field).toMatch(/border:\s*0\.5px solid var\(--dsw-alias-border-l3\);/)
     expect(field).toMatch(/border-radius:\s*12px;/)
     expect(stylesheet).toMatch(/\.searchField:hover\s*\{[^}]*border-color:\s*var\(--dsw-alias-border-l2\);/)
-    expect(stylesheet)
-      .toMatch(/\.searchField:focus-within\s*\{[^}]*border-color:\s*var\(--dsw-alias-state-business-primary\);/)
+    expect(stylesheet).toMatch(/\.searchField:focus-within\s*\{[^}]*border-color:\s*var\(--dsw-alias-state-business-primary\);/)
     expect(stylesheet).toMatch(/\.searchField > :first-child svg\s*\{[^}]*width:\s*14px;/)
     expect(stylesheet).toMatch(/\.searchField input::placeholder\s*\{[^}]*color:\s*var\(--dsw-alias-label-caption\);/)
     expect(stylesheet).toMatch(/\.searchField input::-webkit-search-cancel-button\s*\{[^}]*display:\s*none;/)
@@ -3838,8 +4294,7 @@ describe('Mock detail metrics shared with the task list', () => {
     expect(row).toMatch(/padding:\s*8px;/)
     expect(row).toMatch(/border-radius:\s*12px;/)
     expect(row).not.toMatch(/border(?:-(?!radius)|:)/)
-    expect(stylesheet)
-      .toMatch(/\.row:hover\s*\{[^}]*background:\s*var\(--dsw-alias-interactive-bg-hover\);/)
+    expect(stylesheet).toMatch(/\.row:hover\s*\{[^}]*background:\s*var\(--dsw-alias-interactive-bg-hover\);/)
     expect(rule('selectedRow')).toMatch(/background:\s*var\(--dsw-alias-interactive-bg-hover\);/)
     // The inline glyph on the title line, sized to the 20px leading.
     const glyph = rule('rowGlyph')
@@ -3867,10 +4322,13 @@ describe('Mock detail metrics shared with the task list', () => {
     // to one step. jsdom loads no CSS, so both sheets are installed under their
     // Vite module names and the computed declarations are compared: the Plugins
     // page owns `pageTitle`, and this page's heading has to keep matching it.
-    const ourSheet = readFileSync(resolve(import.meta.dirname, '../src/client/TaskManagerPage.module.css'), 'utf8')
-      .replaceAll('.pageHeading', `.${css.pageHeading}`)
+    const ourSheet = readFileSync(resolve(import.meta.dirname, '../src/client/TaskManagerPage.module.css'), 'utf8').replaceAll(
+      '.pageHeading',
+      `.${css.pageHeading}`,
+    )
     const pluginsSheet = readFileSync(
-      resolve(import.meta.dirname, '../../ui-plugin-manager/src/client/PluginManagerPage.module.css'), 'utf8',
+      resolve(import.meta.dirname, '../../ui-plugin-manager/src/client/PluginManagerPage.module.css'),
+      'utf8',
     ).replaceAll('.pageTitle', `.${pluginsCss.pageTitle}`)
     const sheet = document.createElement('style')
     sheet.textContent = `${ourSheet}\n${pluginsSheet}`
@@ -4011,8 +4469,9 @@ describe('Task manager deletion', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     const pending = Promise.withResolvers<RemoteResult<ScheduleUpdateResult>>()
     h.updateTiming.mockReturnValue(pending.promise)
-    fireEvent.click(within(screen.getByRole('region', { name: en['rule.title'] }))
-      .getByRole('button', { name: new RegExp(`^${en['rule.repeat']}`) }))
+    fireEvent.click(
+      within(screen.getByRole('region', { name: en['rule.title'] })).getByRole('button', { name: new RegExp(`^${en['rule.repeat']}`) }),
+    )
     fireEvent.click(screen.getByRole('menuitem', { name: en['rule.daily'] }))
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledOnce()
@@ -4025,10 +4484,22 @@ describe('Task manager deletion', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(h.props.onDelete).not.toHaveBeenCalled()
     await act(async () => {
-      pending.resolve({ ok: true, value: { id: at.id, updated: true, record: {
-        id: at.id, title: at.title, prompt: at.prompt, kind: 'daily', time: '09:00:00.000', timeZone: 'UTC',
-        scheduledAt: at.scheduledAt,
-      } } })
+      pending.resolve({
+        ok: true,
+        value: {
+          id: at.id,
+          updated: true,
+          record: {
+            id: at.id,
+            title: at.title,
+            prompt: at.prompt,
+            kind: 'daily',
+            time: '09:00:00.000',
+            timeZone: 'UTC',
+            scheduledAt: at.scheduledAt,
+          },
+        },
+      })
       await pending.promise
     })
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -4048,14 +4519,20 @@ describe('Task manager deletion', () => {
     expect(screen.getByRole('menuitem', { name: en['delete.pending'] }).hasAttribute('disabled')).toBe(true)
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
     expect(taskNames()).toEqual(['Review release'])
-    await act(async () => { deletion.resolve({ ok: true, value: { id: at.id, deleted: true } }); await deletion.promise })
+    await act(async () => {
+      deletion.resolve({ ok: true, value: { id: at.id, deleted: true } })
+      await deletion.promise
+    })
     // The row and the open detail both stay on screen, so the refresh that
     // answers the deletion shows no spinner of its own.
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.getByRole('list').getAttribute('aria-busy')).toBe('true')
     expect(screen.getByRole('complementary')).toBeDefined()
     expect(taskNames()).toEqual(['Review release'])
-    await act(async () => { refresh.resolve({ ok: true, value: [] }); await expect(h.onDelete.mock.results[0]!.value).resolves.toBe('deleted') })
+    await act(async () => {
+      refresh.resolve({ ok: true, value: [] })
+      await expect(h.onDelete.mock.results[0]!.value).resolves.toBe('deleted')
+    })
     // The deletion reaches the detail only once the refreshed list reports it:
     // the detail then closes and the page falls back to its empty state.
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -4071,7 +4548,9 @@ describe('Task manager deletion', () => {
     h.remove.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'Unavailable', {}) })
     openDelete()
     fireEvent.click(screen.getByRole('button', { name: en['delete.confirm'] }))
-    await act(async () => { await expect(h.onDelete.mock.results[0]!.value).resolves.toBe('failed') })
+    await act(async () => {
+      await expect(h.onDelete.mock.results[0]!.value).resolves.toBe('failed')
+    })
     // The failure raises no in-place alert: the app-wide toast announces it,
     // and the detail stays open for another attempt.
     expect(screen.queryByRole('alert')).toBeNull()
@@ -4083,7 +4562,9 @@ describe('Task manager deletion', () => {
     h.list.mockResolvedValueOnce({ ok: true, value: [] })
     chooseDelete()
     fireEvent.click(screen.getByRole('button', { name: en['delete.confirm'] }))
-    await act(async () => { await expect(h.onDelete.mock.results[1]!.value).resolves.toBe('deleted') })
+    await act(async () => {
+      await expect(h.onDelete.mock.results[1]!.value).resolves.toBe('deleted')
+    })
     expect(h.remove).toHaveBeenCalledTimes(2)
     // The second attempt is applied, so the detail closes with the removed row.
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -4096,7 +4577,9 @@ describe('Task manager deletion', () => {
     h.list.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'Unavailable', {}) })
     openDelete()
     fireEvent.click(screen.getByRole('button', { name: en['delete.confirm'] }))
-    await act(async () => { await expect(h.onDelete.mock.results[0]!.value).resolves.toBe('deleted') })
+    await act(async () => {
+      await expect(h.onDelete.mock.results[0]!.value).resolves.toBe('deleted')
+    })
     expect(screen.getByRole('alert').textContent).toBe(en['list.error'])
     expect(screen.getByRole('complementary')).toBeDefined()
     expect(taskNames()).toEqual(['Review release'])
@@ -4109,7 +4592,9 @@ describe('Task manager deletion', () => {
     // The successful read reports the row gone, so the detail closes. The panel
     // leaves on the effect that observes the removed row, one commit after the
     // empty list replaces it, so the assertion waits for that commit.
-    await waitFor(() => { expect(screen.queryByRole('complementary')).toBeNull() })
+    await waitFor(() => {
+      expect(screen.queryByRole('complementary')).toBeNull()
+    })
   })
 
   it('keeps the detail on its rule when the confirmed deletion reaches no authoritative removal', () => {
@@ -4135,7 +4620,9 @@ describe('timing pickers', () => {
     fireEvent.click(timeButton())
     // Three columns of the padded clock range, each with one marked option.
     for (const [key, count] of [
-      ['timing.hour', 24], ['timing.minute', 60], ['timing.second', 60],
+      ['timing.hour', 24],
+      ['timing.minute', 60],
+      ['timing.second', 60],
     ] as const) {
       const column = clockColumn(key)
       expect(within(column).getAllByRole('option')).toHaveLength(count)
@@ -4163,7 +4650,9 @@ describe('timing pickers', () => {
     expect(timeButton().textContent).toBe('23:05:00')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: daily.sessionId, id: daily.id, expected: timingSnapshot(daily),
+      sessionId: daily.sessionId,
+      id: daily.id,
+      expected: timingSnapshot(daily),
       change: { kind: 'daily', daily: { time: '23:05:00', time_zone: 'Asia/Shanghai' } },
     })
   })
@@ -4191,9 +4680,12 @@ describe('timing pickers', () => {
     // One focusable row per column, on the value that column shows, and every
     // column brings its row into view as the panel opens.
     for (const [key, shown] of [
-      ['timing.hour', '23'], ['timing.minute', '00'], ['timing.second', '00'],
+      ['timing.hour', '23'],
+      ['timing.minute', '00'],
+      ['timing.second', '00'],
     ] as const) {
-      const tabbable = within(clockColumn(key)).getAllByRole('option')
+      const tabbable = within(clockColumn(key))
+        .getAllByRole('option')
         .filter(option => option.getAttribute('tabindex') === '0')
       expect(tabbable).toHaveLength(1)
       expect(tabbable[0]?.textContent).toBe(shown)
@@ -4249,7 +4741,9 @@ describe('timing pickers', () => {
     chooseZone('Europe/Berlin')
     clickSave()
     expect(h.updateTiming).toHaveBeenCalledExactlyOnceWith({
-      sessionId: stored.sessionId, id: stored.id, expected: timingSnapshot(stored),
+      sessionId: stored.sessionId,
+      id: stored.id,
+      expected: timingSnapshot(stored),
       change: { kind: 'daily', daily: { time: '10:23:00', time_zone: 'Europe/Berlin' } },
     })
   })
@@ -4289,9 +4783,19 @@ describe('timing pickers', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
       fireEvent.click(dateButton())
       const grid = screen.getByRole('grid', { name: 'October 2026' })
-      expect(within(grid).getAllByRole('columnheader').map(header => header.textContent))
-        .toEqual([en['frequency.weekday.1'], en['frequency.weekday.2'], en['frequency.weekday.3'],
-          en['frequency.weekday.4'], en['frequency.weekday.5'], en['frequency.weekday.6'], en['frequency.weekday.7']])
+      expect(
+        within(grid)
+          .getAllByRole('columnheader')
+          .map(header => header.textContent),
+      ).toEqual([
+        en['frequency.weekday.1'],
+        en['frequency.weekday.2'],
+        en['frequency.weekday.3'],
+        en['frequency.weekday.4'],
+        en['frequency.weekday.5'],
+        en['frequency.weekday.6'],
+        en['frequency.weekday.7'],
+      ])
       // The stored day is the selected cell and today carries the date marker.
       expect(within(grid).getByRole('gridcell', { selected: true }).textContent).toBe('1')
       expect(within(grid).getByRole('gridcell', { current: 'date' }).textContent).toBe('14')
@@ -4349,7 +4853,7 @@ describe('timing pickers', () => {
     expect(document.activeElement).toBe(dateButton())
   })
 
-  it.each([en, zh])('names every picker part in %s', (dictionary) => {
+  it.each([en, zh])('names every picker part in %s', dictionary => {
     mount({ records: [at] }, dictionary)
     fireEvent.click(screen.getByRole('button', { name: 'Review release' }))
     fireEvent.click(timeButton(dictionary))

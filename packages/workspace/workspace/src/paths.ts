@@ -13,10 +13,7 @@ import { posix, win32 } from 'node:path'
  * @param platform - Host platform; injectable for deterministic path tests.
  * @returns Whether the path is fully qualified on that platform.
  */
-export function fullyQualifiedWorkspacePath(
-  path: string,
-  platform: NodeJS.Platform = process.platform,
-): boolean {
+export function fullyQualifiedWorkspacePath(path: string, platform: NodeJS.Platform = process.platform): boolean {
   if (platform !== 'win32') return posix.isAbsolute(path)
   const root = win32.parse(path).root
   return win32.isAbsolute(path) && root !== '\\' && root !== '/'
@@ -28,10 +25,7 @@ export function fullyQualifiedWorkspacePath(
  * @param platform - Host platform; injectable for deterministic path tests.
  * @returns The final segment when present, otherwise the complete root spelling.
  */
-export function defaultWorkspaceTitle(
-  path: string,
-  platform: NodeJS.Platform = process.platform,
-): string {
+export function defaultWorkspaceTitle(path: string, platform: NodeJS.Platform = process.platform): string {
   const pathApi = platform === 'win32' ? win32 : posix
   return pathApi.basename(path) || pathApi.parse(path).root
 }

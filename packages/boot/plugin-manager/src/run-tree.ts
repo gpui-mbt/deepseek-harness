@@ -53,7 +53,12 @@ export function treeAlive(tree: RunTree, internals: RunTreeInternals = {}): bool
   const pid = tree.pid
   if (pid === undefined) return false
   const platform = internals.platform ?? process.platform
-  const alive = internals.alive ?? ((target: number) => { process.kill(target, 0); return true })
+  const alive =
+    internals.alive ??
+    ((target: number) => {
+      process.kill(target, 0)
+      return true
+    })
   try {
     return alive(targetOf(pid, tree.grouped, platform))
   } catch {

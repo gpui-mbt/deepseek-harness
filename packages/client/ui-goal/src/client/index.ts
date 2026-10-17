@@ -38,9 +38,7 @@ export type {} from './user-text-rules.ts'
 import { en, zh, type GoalKey } from './locales.ts'
 
 export { GoalBar, GoalDock } from './GoalBar.tsx'
-export type {
-  GoalActionResult, GoalBarActions,
-} from './slots.ts'
+export type { GoalActionResult, GoalBarActions } from './slots.ts'
 export type { GoalKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' {
@@ -72,17 +70,27 @@ export function apply(ctx: ClientContext): void {
   ctx.uiConversation.userText.register(goalCommandReferenceRule)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-goal: dictionaries')
 
-  ctx.slots.inject('conversation.user.text.node', () => ctx.slots.register({
-    name: 'conversation.user.text.node',
-    key: 'command',
-    priority: 100,
-  }, GoalCommandReference))
+  ctx.slots.inject('conversation.user.text.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.user.text.node',
+        key: 'command',
+        priority: 100,
+      },
+      GoalCommandReference,
+    ),
+  )
 
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
-    name: 'conversation.chat.node',
-    key: 'command-input',
-    locale: NS,
-  }, GoalCommandInputView))
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'command-input',
+        locale: NS,
+      },
+      GoalCommandInputView,
+    ),
+  )
 
   const sessions = ctx.sessions
 
@@ -99,57 +107,63 @@ export function apply(ctx: ClientContext): void {
     error: { code: 'no-current-goal', message: 'no current goal to mutate' },
   }
 
-  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-    name: 'conversation.input.dock',
-    id: 'goal',
-    order: 10,
-    locale: NS,
-    inject: (sessionId): GoalBarInjected => {
-      const binding = sessions.binding(sessionId)
-      if (binding === undefined) throw new Error(`ui-goal: session "${sessionId}" is unavailable`)
-      const goalActivation = createGoalActivationSource({
-        projection: binding.session.projections.faceOf('goal') as HostObservable<GoalProjection | null | undefined>,
-        session: binding.session,
-        getGoal: async () => {
-          if (sessions.binding(sessionId) !== binding) {
-            throw new Error(`ui-goal: session "${sessionId}" is unavailable`)
-          }
-          return sessions.using(sessionId, { source: 'goalActivation' }, async (reference) => {
-            const state = reference.binding.session.getSnapshot()
-            if (state.openState !== 'open') {
-              throw state.openError ?? new Error(`session "${sessionId}" is not open`)
-            }
-            return ctx.remote.goals.get(sessionId)
+  ctx.slots.inject('conversation.input.dock', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.input.dock',
+        id: 'goal',
+        order: 10,
+        locale: NS,
+        inject: (sessionId): GoalBarInjected => {
+          const binding = sessions.binding(sessionId)
+          if (binding === undefined) throw new Error(`ui-goal: session "${sessionId}" is unavailable`)
+          const goalActivation = createGoalActivationSource({
+            projection: binding.session.projections.faceOf('goal') as HostObservable<GoalProjection | null | undefined>,
+            session: binding.session,
+            getGoal: async () => {
+              if (sessions.binding(sessionId) !== binding) {
+                throw new Error(`ui-goal: session "${sessionId}" is unavailable`)
+              }
+              return sessions.using(sessionId, { source: 'goalActivation' }, async reference => {
+                const state = reference.binding.session.getSnapshot()
+                if (state.openState !== 'open') {
+                  throw state.openError ?? new Error(`session "${sessionId}" is not open`)
+                }
+                return ctx.remote.goals.get(sessionId)
+              })
+            },
+            subscribeActivation: listener =>
+              ctx.remote.$on('goal/activation-changed', event => {
+                if (event.sessionId === sessionId) listener(event.goal)
+              }),
+            subscribeReset: listener => ctx.on('connection/reset', listener),
           })
+          return {
+            hooks: { goalActivation },
+            onEdit: async objective => {
+              const ref = refOf(sessionId)
+              if (ref === undefined) return noCurrentGoal
+              return await ctx.remote.goals.edit(sessionId, ref, { objective })
+            },
+            onPause: async () => {
+              const ref = refOf(sessionId)
+              if (ref === undefined) return noCurrentGoal
+              return await ctx.remote.goals.pause(sessionId, ref)
+            },
+            onResume: async () => {
+              const ref = refOf(sessionId)
+              if (ref === undefined) return noCurrentGoal
+              return await ctx.remote.goals.resume(sessionId, ref)
+            },
+            onClear: async () => {
+              const ref = refOf(sessionId)
+              if (ref === undefined) return noCurrentGoal
+              return await ctx.remote.goals.clear(sessionId, ref)
+            },
+          }
         },
-        subscribeActivation: listener => ctx.remote.$on('goal/activation-changed', (event) => {
-          if (event.sessionId === sessionId) listener(event.goal)
-        }),
-        subscribeReset: listener => ctx.on('connection/reset', listener),
-      })
-      return {
-        hooks: { goalActivation },
-        onEdit: async (objective) => {
-          const ref = refOf(sessionId)
-          if (ref === undefined) return noCurrentGoal
-          return await ctx.remote.goals.edit(sessionId, ref, { objective })
-        },
-        onPause: async () => {
-          const ref = refOf(sessionId)
-          if (ref === undefined) return noCurrentGoal
-          return await ctx.remote.goals.pause(sessionId, ref)
-        },
-        onResume: async () => {
-          const ref = refOf(sessionId)
-          if (ref === undefined) return noCurrentGoal
-          return await ctx.remote.goals.resume(sessionId, ref)
-        },
-        onClear: async () => {
-          const ref = refOf(sessionId)
-          if (ref === undefined) return noCurrentGoal
-          return await ctx.remote.goals.clear(sessionId, ref)
-        },
-      }
-    },
-  }, GoalDock))
+      },
+      GoalDock,
+    ),
+  )
 }

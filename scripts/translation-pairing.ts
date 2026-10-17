@@ -11,11 +11,7 @@ import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
 import type { Nodes } from 'mdast'
-import {
-  languageSwitcherLinkOffset,
-  semanticTranslationLinkNodeTarget,
-  type TranslationLinkContext,
-} from './translation-links.ts'
+import { languageSwitcherLinkOffset, semanticTranslationLinkNodeTarget, type TranslationLinkContext } from './translation-links.ts'
 
 /** Complete opening marker line: `<!-- BEGIN GENERATED <slug> … -->` (slug captured). */
 const GENERATED_REGION_BEGIN_LINE = /^<!-- BEGIN GENERATED (\S+)(?: [^>]*)? -->$/
@@ -150,21 +146,26 @@ export const TRANSLATION_SCOPE_GLOB_EXCLUDES = [
 /** Whether a repository-relative path belongs to a dependency or generated tree. */
 function isTranslationSourceExcluded(file: string): boolean {
   const segments = file.split('/')
-  return segments.some(segment => NON_SOURCE_DIRECTORIES.has(segment)
-      || segment.startsWith('.doc-typecheck-')
-    || segment.startsWith('.node-next-types-'))
-    || file.startsWith('apps/web/dist/')
-    || file.startsWith('python/sdk-runtime/src/deepseek_harness_runtime/runtime/')
+  return (
+    segments.some(
+      segment => NON_SOURCE_DIRECTORIES.has(segment) || segment.startsWith('.doc-typecheck-') || segment.startsWith('.node-next-types-'),
+    ) ||
+    file.startsWith('apps/web/dist/') ||
+    file.startsWith('python/sdk-runtime/src/deepseek_harness_runtime/runtime/')
+  )
 }
 
 /** Whether one discovered Markdown or sidecar path belongs to the bilingual source corpus. */
 export function isTranslationScopeFile(file: string): boolean {
-  return !file.startsWith('.agents/notes/archived/')
-    && !isTranslationSourceExcluded(file) && (README_ARTIFACT.test(file)
-    || ROOT_PAIRED_DOCUMENT_ARTIFACT.test(file)
-    || file.startsWith('.agents/notes/')
-    || file.startsWith('docs/')
-    || file.startsWith('python/'))
+  return (
+    !file.startsWith('.agents/notes/archived/') &&
+    !isTranslationSourceExcluded(file) &&
+    (README_ARTIFACT.test(file) ||
+      ROOT_PAIRED_DOCUMENT_ARTIFACT.test(file) ||
+      file.startsWith('.agents/notes/') ||
+      file.startsWith('docs/') ||
+      file.startsWith('python/'))
+  )
 }
 
 /** Read the manifest exclusion list or fail before enforcement starts. */
@@ -189,25 +190,21 @@ export function parseTranslationPairingManifest(content: string): TranslationPai
   const record = value as Record<string, unknown>
   const unsupported = Object.keys(record).filter(field => field !== 'excluded')
   if (unsupported.length > 0) {
-    throw new Error(`translation-pairing.manifest.json: unsupported field(s): ${unsupported.join(', ')}; every in-scope document is required`)
+    throw new Error(
+      `translation-pairing.manifest.json: unsupported field(s): ${unsupported.join(', ')}; every in-scope document is required`,
+    )
   }
   return { excluded: excludedField(record) }
 }
 
 /** Whether a manifest entry excludes one exact file or a directory subtree. */
-export function isTranslationPairingManifestExcluded(
-  file: string,
-  manifest: TranslationPairingManifest,
-): boolean {
+export function isTranslationPairingManifestExcluded(file: string, manifest: TranslationPairingManifest): boolean {
   return manifest.excluded.some(entry => (entry.endsWith('/') ? file.startsWith(entry) : file === entry))
 }
 
 /** Build the active bilingual-source predicate shared by every link consumer. */
-export function translationPairSourcePredicate(
-  manifest: TranslationPairingManifest,
-): (sourcePath: string) => boolean {
-  return sourcePath => isTranslationScopeFile(sourcePath)
-    && !isTranslationPairingManifestExcluded(sourcePath, manifest)
+export function translationPairSourcePredicate(manifest: TranslationPairingManifest): (sourcePath: string) => boolean {
+  return sourcePath => isTranslationScopeFile(sourcePath) && !isTranslationPairingManifestExcluded(sourcePath, manifest)
 }
 
 /**
@@ -267,7 +264,9 @@ export function parseTranslationPairingCliArgs(argv: string[]): TranslationPairi
   if (writeMode) {
     if (anchors.length > 0 && allMode) throw new Error('--write takes either pair paths or --all, not both')
     if (anchors.length === 0 && !allMode) {
-      throw new Error('--write requires the pair(s) you confirmed (any file of a pair), or --all to re-record every complete pair; recording pairs you did not review blesses unconfirmed content')
+      throw new Error(
+        '--write requires the pair(s) you confirmed (any file of a pair), or --all to re-record every complete pair; recording pairs you did not review blesses unconfirmed content',
+      )
     }
     return { input: 'worktree', mode: 'write', scope: allMode ? 'corpus' : 'pairs', anchors }
   }
@@ -345,9 +344,8 @@ export function translationStructureSignature(
     if ('children' in node) for (const child of node.children) collectDefinitions(child)
   }
   collectDefinitions(tree)
-  const linkTarget = (node: Extract<Nodes, { type: 'link' | 'definition' }>): string => (
+  const linkTarget = (node: Extract<Nodes, { type: 'link' | 'definition' }>): string =>
     semanticTranslationLinkNodeTarget(node, linkContext.markdown, linkContext)
-  )
   const visit = (node: Nodes): void => {
     switch (node.type) {
       case 'heading':
@@ -360,9 +358,9 @@ export function translationStructureSignature(
         sig.tables.push(`${node.children.length}x${node.children[0]?.children.length ?? 0}`)
         break
       case 'list':
-        sig.lists.push(node.ordered
-          ? `ordered:start=${node.start ?? 1}:items=${node.children.length}`
-          : `bullet:items=${node.children.length}`)
+        sig.lists.push(
+          node.ordered ? `ordered:start=${node.start ?? 1}:items=${node.children.length}` : `bullet:items=${node.children.length}`,
+        )
         break
       case 'link':
         if (node.position?.start.offset !== switcherOffset) {
@@ -394,10 +392,7 @@ function show(value: string | number | undefined): string {
 }
 
 /** Return the first divergence for each structural field; empty means equal. */
-export function translationStructureDiff(
-  source: TranslationStructureSignature,
-  zh: TranslationStructureSignature,
-): string[] {
+export function translationStructureDiff(source: TranslationStructureSignature, zh: TranslationStructureSignature): string[] {
   const out: string[] = []
   const fields: [string, (string | number)[], (string | number)[]][] = [
     ['heading (depth)', source.headings, zh.headings],

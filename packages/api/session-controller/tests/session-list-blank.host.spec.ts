@@ -7,7 +7,7 @@
  * same predicate function (covered by the workspace spec's frame assertion).
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -26,7 +26,7 @@ async function harness(): Promise<{ ctx: Context; remote: TestSessionRemote; att
   return {
     ctx,
     remote: createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' }),
-    attach: async (session) => {
+    attach: async session => {
       await ctx.agents.register({ id: session.id, session, status: 'idle', ctx } as Agent)
     },
   }
@@ -35,12 +35,17 @@ async function harness(): Promise<{ ctx: Context; remote: TestSessionRemote; att
 /** Append the standalone (non-conversation) event family a fresh session can accumulate. */
 function appendStandalone(session: Session): void {
   session.append('command/run', {
-    commandId: CommandId('blank-cmd-1'), name: 'plan', args: '', source: { kind: 'user' },
+    commandId: CommandId('blank-cmd-1'),
+    name: 'plan',
+    args: '',
+    source: { kind: 'user' },
   })
   session.append('plan/mode', { active: true })
   session.append('command/done', { commandId: CommandId('blank-cmd-1'), kind: 'success', text: 'Plan mode on.' })
   session.append('session/title', {
-    title: 'standalone title', messageSeqs: [], source: { kind: 'fallback' },
+    title: 'standalone title',
+    messageSeqs: [],
+    source: { kind: 'fallback' },
   })
   // Permission configuration events from a /permission switch on a fresh session.
   session.append('permission/preset', { preset: 'danger-full-access' })

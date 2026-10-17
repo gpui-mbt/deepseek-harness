@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** PTC source, output, and independent wrapping through the trajectory inspector. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
 import { TrajectoryTable } from '../src/client/TrajectoryTable.tsx'
 import type { TrajectoryCellProps } from '../src/client/trajectory-record.ts'
@@ -15,22 +15,39 @@ afterEach(() => {
 const SOURCE = 'const value = await tools.bash({ command: "pwd" })\nreturn value\n'
 const ARGS = JSON.stringify({ code: SOURCE, description: 'Read the working directory' })
 const CELL: TrajectoryCellProps = {
-  index: 1, kind: 'tool', toolName: 'run_code', text: `run_code · ${ARGS}`, callId: 'code-1',
-  inputDetail: ARGS, outputDetail: 'printed line\n42', result: 'printed line', timeSeconds: 0.5,
+  index: 1,
+  kind: 'tool',
+  toolName: 'run_code',
+  text: `run_code · ${ARGS}`,
+  callId: 'code-1',
+  inputDetail: ARGS,
+  outputDetail: 'printed line\n42',
+  result: 'printed line',
+  timeSeconds: 0.5,
 }
 
-function Harness({ cell = CELL, getDefault = () => false, setDefault = () => {} }: {
+function Harness({
+  cell = CELL,
+  getDefault = () => false,
+  setDefault = () => {},
+}: {
   cell?: TrajectoryCellProps
   getDefault?: () => boolean
   setDefault?: (value: boolean) => void
 }) {
-  return <TrajectoryTable
-    turns={[{ turn: 1, groups: [{ title: 'Step 1', cells: [cell] }] }]}
-    renderSlot={() => null} loadImage={async () => 'blob:unused'} t={t}
-    stringWrapping={{ label: 'Wrap lines', getDefault, setDefault }}
-    collapsedTurns={new Set()} onToggleTurn={() => {}}
-    collapsedAssistants={new Set()} onToggleAssistant={() => {}}
-  />
+  return (
+    <TrajectoryTable
+      turns={[{ turn: 1, groups: [{ title: 'Step 1', cells: [cell] }] }]}
+      renderSlot={() => null}
+      loadImage={async () => 'blob:unused'}
+      t={t}
+      stringWrapping={{ label: 'Wrap lines', getDefault, setDefault }}
+      collapsedTurns={new Set()}
+      onToggleTurn={() => {}}
+      collapsedAssistants={new Set()}
+      onToggleAssistant={() => {}}
+    />
+  )
 }
 
 describe('PTC trajectory inspector', () => {
@@ -57,19 +74,32 @@ describe('PTC trajectory inspector', () => {
     const ui = within(view.container)
     fireEvent.click(ui.getByRole('row', { name: /run_code Read/ }))
     fireEvent.click(ui.getByRole('button', { name: 'Copy code' }))
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith(SOURCE) })
-    await waitFor(() => { expect(ui.getByRole('button', { name: 'Copied' })).toBeTruthy() })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith(SOURCE)
+    })
+    await waitFor(() => {
+      expect(ui.getByRole('button', { name: 'Copied' })).toBeTruthy()
+    })
     fireEvent.click(ui.getByRole('button', { name: 'Copy output' }))
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('printed line\n42') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith('printed line\n42')
+    })
     fireEvent.click(ui.getByRole('tab', { name: 'Code' }))
     fireEvent.click(ui.getByRole('button', { name: 'Original JSON' }))
     fireEvent.click(ui.getByRole('button', { name: 'Copy JSON' }))
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith(ARGS) })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith(ARGS)
+    })
   })
 
   it('samples the last wrapping choice on open without changing another open inspector', () => {
     let preference = false
-    const props = { getDefault: () => preference, setDefault: (value: boolean) => { preference = value } }
+    const props = {
+      getDefault: () => preference,
+      setDefault: (value: boolean) => {
+        preference = value
+      },
+    }
     const first = render(<Harness {...props} />)
     const second = render(<Harness {...props} />)
     const a = within(first.container)

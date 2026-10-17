@@ -378,9 +378,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       const packages = ctx.get('pluginPackages')
       const resolvedPackage = packages?.packageOf(pkgName, baseUrl)
       if (packages !== undefined && resolvedPackage === undefined) throw new Error('package is absent from the active resolver')
-      pkgPath = resolvedPackage === undefined
-        ? require.resolve(`${pkgName}/package.json`)
-        : resolvedPackage.manifestPath
+      pkgPath = resolvedPackage === undefined ? require.resolve(`${pkgName}/package.json`) : resolvedPackage.manifestPath
       pkg = resolvedPackage?.manifest
     } catch (cause) {
       if (configured.has(pkgName)) {
@@ -411,9 +409,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       loading = import(pathToFileURL(path).href).then(
         (mod: Record<string, unknown>) => validateTypertManifest(pkgName, mod.TYPERT),
         (cause: unknown) => {
-          throw new Error(
-            `typert-loader: ${pkgName} exports "${TYPERT_HOST_EXPORT}" but importing ${path} failed: ${String(cause)}`,
-          )
+          throw new Error(`typert-loader: ${pkgName} exports "${TYPERT_HOST_EXPORT}" but importing ${path} failed: ${String(cause)}`)
         },
       )
       manifests.set(pkgName, loading)
@@ -442,14 +438,16 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     if (registered.has(entryName) || pending.has(entryName)) return undefined
     const artifact = resolveArtifact(entryName)
     if (artifact === null) return undefined
-    const task = loadManifest(artifact.packageName, artifact.path).then((manifest) => {
+    const task = loadManifest(artifact.packageName, artifact.path).then(manifest => {
       // The entry may have unmounted (or already re-registered) while the import was in flight.
       if (!active || !qualifies(entryName) || registered.has(entryName)) return
       registered.set(entryName, ctx.typert.register(manifest))
     })
     pending.set(entryName, task)
     // Two-armed settle: a bare .finally() would mint a second, unhandled rejection.
-    const settle = (): void => { pending.delete(entryName) }
+    const settle = (): void => {
+      pending.delete(entryName)
+    }
     void task.then(settle, settle)
     return task
   }
@@ -460,7 +458,12 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       dirty.delete(entryName)
       try {
         const task = processOne(entryName)
-        if (task !== undefined) tasks.push(task.catch((error: unknown) => { onError(toError(error)) }))
+        if (task !== undefined)
+          tasks.push(
+            task.catch((error: unknown) => {
+              onError(toError(error))
+            }),
+          )
       } catch (error) {
         // Steady state: one broken package must not poison the others; the
         // activation pass aggregates these into a loud throw instead.
@@ -473,7 +476,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   // Subscribe before seeding so an entry arriving mid-activation lands in the
   // same dirty set (Set idempotence makes the overlap harmless). An entry-less
   // fiber is a child plugin or a manual mount — never a loader row; O(1) drop.
-  ctx.on('internal/plugin', (fiber) => {
+  ctx.on('internal/plugin', fiber => {
     const entryName = fiber.entry?.options.name
     if (entryName === undefined) return
     dirty.add(entryName)
@@ -482,7 +485,10 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     queueMicrotask(() => {
       flushQueued = false
       if (!active) return
-      for (const task of flush((err) => { ctx.logger.error(err) })) void task
+      for (const task of flush(err => {
+        ctx.logger.error(err)
+      }))
+        void task
     })
   })
 
@@ -492,7 +498,11 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   for (const packageName of configured) dirty.add(packageName)
   for (const entry of ctx.loader.entries()) dirty.add(entry.options.name)
   const failures: Error[] = []
-  await Promise.all(flush((err) => { failures.push(err) }))
+  await Promise.all(
+    flush(err => {
+      failures.push(err)
+    }),
+  )
   if (failures.length > 0) {
     throw new AggregateError(
       failures,

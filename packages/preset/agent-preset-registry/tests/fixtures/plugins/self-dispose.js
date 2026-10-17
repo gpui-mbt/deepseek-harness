@@ -3,7 +3,10 @@
 // the exact path that once truncated a preset file to `[]`.
 export const name = 'self-dispose'
 export function apply(ctx) {
-  globalThis.__SELF_DISPOSED__ = new Promise((resolve) => {
-    setTimeout(() => { ctx.fiber.dispose(); resolve(undefined) }, 0)
+  globalThis.__SELF_DISPOSED__ = new Promise(resolve => {
+    setTimeout(() => {
+      ctx.fiber.dispose()
+      resolve(undefined)
+    }, 0)
   })
 }

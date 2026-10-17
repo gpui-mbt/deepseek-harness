@@ -27,10 +27,13 @@ function acpCommand(): Command {
     .name('dsh --profile acp')
     .description('Serve automation clients over Agent Client Protocol stdio.')
     .helpOption('-h, --help', 'show this help')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Example:
   dsh --profile acp     serve ACP until the client disconnects
-`)
+`,
+    )
 }
 
 /**

@@ -270,9 +270,10 @@ const cssVariablesTheme = createCssVariablesTheme({
  */
 const regexEngine = createJavaScriptRegexEngine({
   forgiving: true,
-  regexConstructor: pattern => defaultJavaScriptRegexConstructor(pattern, {
-    lazyCompileLength: Number.POSITIVE_INFINITY,
-  }),
+  regexConstructor: pattern =>
+    defaultJavaScriptRegexConstructor(pattern, {
+      lazyCompileLength: Number.POSITIVE_INFINITY,
+    }),
 })
 
 /**
@@ -335,7 +336,9 @@ let loadCount = 0
  */
 export function subscribeGrammarLoaded(listener: () => void): () => void {
   listeners.add(listener)
-  return () => { listeners.delete(listener) }
+  return () => {
+    listeners.delete(listener)
+  }
 }
 
 /**
@@ -364,7 +367,7 @@ function ensureGrammar(resolved: string): boolean {
   if (highlighter().getLoadedLanguages().includes(resolved)) return true
   if (!requested.has(resolved)) {
     requested.add(resolved)
-    void load().then((mod) => {
+    void load().then(mod => {
       highlighter().loadLanguageSync(mod.default)
       loadCount += 1
       for (const listener of listeners) listener()
@@ -379,7 +382,9 @@ function ensureGrammar(resolved: string): boolean {
 // boot) instead; the lazy path above stays as the correctness fallback for a
 // fence that renders before the timer fires. `unref` (Node-only) keeps a
 // non-browser import from pinning the event loop.
-const warmupTimer = setTimeout(() => { highlighter() }, 0)
+const warmupTimer = setTimeout(() => {
+  highlighter()
+}, 0)
 ;(warmupTimer as { unref?: () => void }).unref?.()
 
 /**
@@ -397,7 +402,9 @@ export function highlightToHtml(code: string, lang: string | undefined): string 
   if (resolved === undefined) return undefined
   if (!ensureGrammar(resolved)) return undefined
   return highlighter().codeToHtml(code, {
-    lang: resolved, theme: 'css-variables', tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
+    lang: resolved,
+    theme: 'css-variables',
+    tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
   })
 }
 
@@ -413,7 +420,10 @@ export interface HighlightSpan {
 }
 
 /** vscode-textmate FontStyle bits shiki folds into `text-decoration` values. */
-const DECORATION_BITS: readonly (readonly [number, string])[] = [[4, 'underline'], [8, 'line-through']]
+const DECORATION_BITS: readonly (readonly [number, string])[] = [
+  [4, 'underline'],
+  [8, 'line-through'],
+]
 
 /**
  * The inline style shiki's HTML arm assigns one token (`getTokenStyleObject`
@@ -600,7 +610,9 @@ export function highlightLines(code: string, lang: string | undefined): Highligh
   if (resolved === undefined) return undefined
   if (!ensureGrammar(resolved)) return undefined
   const { tokens } = highlighter().codeToTokens(code, {
-    lang: resolved, theme: 'css-variables', tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
+    lang: resolved,
+    theme: 'css-variables',
+    tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
   })
   // shiki tokenizes `a\nb` into two lines; a trailing newline (`a\n`) adds a
   // third, empty line the caller's own line array does not carry. Drop that
@@ -608,8 +620,6 @@ export function highlightLines(code: string, lang: string | undefined): Highligh
   // `last !== undefined` (over `tokens[...]?.length`) keeps a single branch for
   // per-file coverage, matching TerminalBlock's terminator check.
   const last = tokens[tokens.length - 1]
-  const lines = tokens.length > 1 && last !== undefined && last.length === 0
-    ? tokens.slice(0, -1)
-    : tokens
+  const lines = tokens.length > 1 && last !== undefined && last.length === 0 ? tokens.slice(0, -1) : tokens
   return lines.map(line => line.map(token => ({ text: token.content, style: { color: token.color } })))
 }

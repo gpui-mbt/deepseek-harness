@@ -37,19 +37,17 @@ import { DEFAULT_MAX_PARALLEL_TOOL_CALLS } from './constants.ts'
 import type {} from './runtime-context.ts'
 
 /** Fiber states that cannot own or serve a new lifecycle. */
-const INACTIVE_STATES: ReadonlySet<FiberState> = new Set([
-  FiberState.UNLOADING,
-  FiberState.DISPOSED,
-  FiberState.FAILED,
-])
+const INACTIVE_STATES: ReadonlySet<FiberState> = new Set([FiberState.UNLOADING, FiberState.DISPOSED, FiberState.FAILED])
 
 const turnBoundaryProjectionSchema: zod.ZodType<TurnBoundaryProjection> = zod.object({
   openTurnStartSeq: zod.number().int().nonnegative().transform(SessionSeq).nullable(),
   lastStepStartSeq: zod.number().int().nonnegative().transform(SessionSeq).nullable(),
-  lastStepBoundary: zod.object({
-    kind: zod.union([zod.literal('start'), zod.literal('end')]),
-    seq: zod.number().int().nonnegative().transform(SessionSeq),
-  }).nullable(),
+  lastStepBoundary: zod
+    .object({
+      kind: zod.union([zod.literal('start'), zod.literal('end')]),
+      seq: zod.number().int().nonnegative().transform(SessionSeq),
+    })
+    .nullable(),
   lastTurn: zod.number().int().nonnegative(),
 })
 
@@ -122,19 +120,28 @@ class FactoryOwnership {
   /** Track one live agent's shared teardown until it has run. */
   track(dispose: () => Promise<void>): () => void {
     this.liveAgents.add(dispose)
-    return () => { this.liveAgents.delete(dispose) }
+    return () => {
+      this.liveAgents.delete(dispose)
+    }
   }
 
   /** Join config startup work that begins before an agent exists. */
   trackStartup(job: Promise<void>): void {
     this.startupTasks.add(job)
-    const forget = () => { this.startupTasks.delete(job) }
+    const forget = () => {
+      this.startupTasks.delete(job)
+    }
     void job.then(forget, forget)
   }
 
   /** Join one public create/resume continuation; factory dispose awaits its settlement. */
   trackWrapper(job: Promise<unknown>): void {
-    this.trackStartup(job.then(() => undefined, () => undefined))
+    this.trackStartup(
+      job.then(
+        () => undefined,
+        () => undefined,
+      ),
+    )
   }
 
   /** Resolve `task`, or stop waiting when factory teardown begins. */
@@ -146,10 +153,7 @@ class FactoryOwnership {
     this.accepting = false
     this.teardown.abort(new Error('agent loop is not active'))
     this.inactive.resolve()
-    const settlements = await Promise.allSettled([
-      ...[...this.liveAgents].map(dispose => dispose()),
-      ...this.startupTasks,
-    ])
+    const settlements = await Promise.allSettled([...[...this.liveAgents].map(dispose => dispose()), ...this.startupTasks])
     const failures: unknown[] = []
     for (const result of settlements) {
       if (result.status === 'rejected') failures.push(result.reason)
@@ -160,12 +164,13 @@ class FactoryOwnership {
 
 /** Await `operation`, or throw the signal's reason as soon as it aborts. */
 async function raceAbort<T>(operation: PromiseLike<T> | T, signal: AbortSignal, id: SessionId): Promise<T> {
-  const toAbortError = (): Error => signal.reason instanceof Error
-    ? signal.reason
-    : new Error(`agent "${id}" creation aborted`, { cause: signal.reason })
+  const toAbortError = (): Error =>
+    signal.reason instanceof Error ? signal.reason : new Error(`agent "${id}" creation aborted`, { cause: signal.reason })
   if (signal.aborted) throw toAbortError()
   const aborted = Promise.withResolvers<never>()
-  const listener = (): void => { aborted.reject(toAbortError()) }
+  const listener = (): void => {
+    aborted.reject(toAbortError())
+  }
   signal.addEventListener('abort', listener, { once: true })
   try {
     return await Promise.race([Promise.resolve(operation), aborted.promise])
@@ -182,9 +187,7 @@ async function raceAbortCall<T>(
   releaseAbandoned?: (value: T) => void,
 ): Promise<T> {
   if (signal.aborted) {
-    throw signal.reason instanceof Error
-      ? signal.reason
-      : new Error(`agent "${id}" creation aborted`, { cause: signal.reason })
+    throw signal.reason instanceof Error ? signal.reason : new Error(`agent "${id}" creation aborted`, { cause: signal.reason })
   }
   const pending = Promise.resolve().then(operation)
   try {
@@ -200,8 +203,7 @@ async function raceAbortCall<T>(
 
 /** Reject an output-token cap that cannot be represented exactly on the request wire. */
 function assertAgentOptions(options: AgentOptions): void {
-  if (options.maxTokens !== undefined
-    && (!Number.isSafeInteger(options.maxTokens) || options.maxTokens <= 0)) {
+  if (options.maxTokens !== undefined && (!Number.isSafeInteger(options.maxTokens) || options.maxTokens <= 0)) {
     throw new TypeError('agent maxTokens must be a positive safe integer')
   }
 }
@@ -284,18 +286,13 @@ export const CONFIGURED_AGENT_IDENTITIES_KEY = 'configuredAgentIdentities'
  * @param identities - launcher identities keyed by configured agent `id`, or `undefined`.
  * @returns the entries with launcher-owned identities applied.
  */
-function applyLauncherIdentities(
-  agents: Config['agents'],
-  identities: ConfiguredAgentIdentities | undefined,
-): Config['agents'] {
+function applyLauncherIdentities(agents: Config['agents'], identities: ConfiguredAgentIdentities | undefined): Config['agents'] {
   if (identities === undefined) return agents
-  return agents.map((agent) => {
+  return agents.map(agent => {
     const identity = identities[agent.id]
     if (identity === undefined) return agent
     const { sessionId: _sessionId, resumeSessionId: _resumeSessionId, ...rest } = agent
-    return identity.resume
-      ? { ...rest, resumeSessionId: identity.id }
-      : { ...rest, sessionId: identity.id }
+    return identity.resume ? { ...rest, resumeSessionId: identity.id } : { ...rest, sessionId: identity.id }
   })
 }
 
@@ -344,16 +341,20 @@ export class AgentLoop extends Service implements AgentFactory {
   /** Runtime schema for declarative agents. */
   static Config: z<{ agents?: Config['agents']; maxParallelToolCalls?: number }, Config> = z.object({
     maxParallelToolCalls: z.number().step(1).min(1).default(DEFAULT_MAX_PARALLEL_TOOL_CALLS).volatile(),
-    agents: z.array(z.object({
-      id: z.string().required(),
-      sessionId: z.string().min(1),
-      provider: z.string(),
-      model: z.string(),
-      reasoningEffort: z.string().min(1) as z<ReturnType<typeof ReasoningEffortId>>,
-      maxTokens: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
-      cwd: z.string(),
-      resumeSessionId: z.string(),
-    })).default([]),
+    agents: z
+      .array(
+        z.object({
+          id: z.string().required(),
+          sessionId: z.string().min(1),
+          provider: z.string(),
+          model: z.string(),
+          reasoningEffort: z.string().min(1) as z<ReturnType<typeof ReasoningEffortId>>,
+          maxTokens: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
+          cwd: z.string(),
+          resumeSessionId: z.string(),
+        }),
+      )
+      .default([]),
   }) as z<{ agents?: Config['agents']; maxParallelToolCalls?: number }, Config>
 
   /** Validated configuration owned by the agent-loop service. */
@@ -372,7 +373,7 @@ export class AgentLoop extends Service implements AgentFactory {
     validateConfiguredAgents(this.config.agents)
     // Register only after every config validation above has passed, so a
     // rejected constructor leaves no projection unit behind.
-    const ownership = this.ownership = new FactoryOwnership(ctx.fiber)
+    const ownership = (this.ownership = new FactoryOwnership(ctx.fiber))
     this.runtime = { ctx }
     ctx.effect(function* () {
       const unregisterTurnBoundary = ctx.sessionProjections.register(turnBoundaryProjectionDefinition)
@@ -380,10 +381,11 @@ export class AgentLoop extends Service implements AgentFactory {
       const unregisterInbox = ctx.sessionProjections.register(inboxProjectionDefinition)
       yield unregisterInbox
       // Cordis skips later disposers after a rejection; finally still releases projections.
-      yield () => ownership.dispose().finally(() => {
-        unregisterInbox()
-        unregisterTurnBoundary()
-      })
+      yield () =>
+        ownership.dispose().finally(() => {
+          unregisterInbox()
+          unregisterTurnBoundary()
+        })
     }, 'agentLoop.transactions()')
     ctx.effect(() => ctx.agents.setFactory(this), 'agentLoop.setFactory()')
     ctx.systemPrompt.variable('provider', context => context.agent?.options.provider)
@@ -395,9 +397,12 @@ export class AgentLoop extends Service implements AgentFactory {
         const configuredId = sessionId ?? brandString<SessionId>(`${id}-session-${randomUUID()}`)
         const persistence = sessionId === undefined ? undefined : ctx.get('sessionPersistence')
         if (persistence === undefined) {
-          const startup = this.create(configuredId, options, meta).then(() => undefined, (error: unknown) => {
-            this.reportConfiguredStartupFailure(id, 'restore', configuredId, error)
-          })
+          const startup = this.create(configuredId, options, meta).then(
+            () => undefined,
+            (error: unknown) => {
+              this.reportConfiguredStartupFailure(id, 'restore', configuredId, error)
+            },
+          )
           this.ownership.trackStartup(startup)
         } else {
           const startup = this.restoreOrCreateConfigured(ctx, persistence, configuredId, options, meta).catch((error: unknown) => {
@@ -422,12 +427,7 @@ export class AgentLoop extends Service implements AgentFactory {
   }
 
   /** Report a contained declarative-start failure to identity-bound consumers. */
-  private reportConfiguredStartupFailure(
-    configId: string,
-    action: 'restore' | 'resume',
-    sessionId: SessionId,
-    error: unknown,
-  ): void {
+  private reportConfiguredStartupFailure(configId: string, action: 'restore' | 'resume', sessionId: SessionId, error: unknown): void {
     if (!this.ownership.isActive()) return
     this.ctx.logger.warn(`agent "${configId}": config-driven ${action} of "${sessionId}" failed: ${errorChain(error)}`)
     const args: unknown[] = ['agent-loop/config-start-failed', { sessionId, error }]
@@ -477,7 +477,9 @@ export class AgentLoop extends Service implements AgentFactory {
         released.resolve()
       }
     }
-    const disposeAgentListener = ownerCtx.on('agent/disposed', () => { checkReleased() })
+    const disposeAgentListener = ownerCtx.on('agent/disposed', () => {
+      checkReleased()
+    })
     const disposeSessionListener = ownerCtx.on('session/disposed', checkReleased)
     try {
       checkReleased()
@@ -524,11 +526,15 @@ export class AgentLoop extends Service implements AgentFactory {
     // disposer instead of a leak.
     const abort = new AbortController()
     const onCallerAbort = (): void => {
-      abort.abort(callerSignal?.reason instanceof Error
-        ? callerSignal.reason
-        : new Error(`agent "${id}" creation aborted`, { cause: callerSignal?.reason }))
+      abort.abort(
+        callerSignal?.reason instanceof Error
+          ? callerSignal.reason
+          : new Error(`agent "${id}" creation aborted`, { cause: callerSignal?.reason }),
+      )
     }
-    const onFactoryTeardown = (): void => { abort.abort(this.ownership.signal.reason) }
+    const onFactoryTeardown = (): void => {
+      abort.abort(this.ownership.signal.reason)
+    }
     callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
     this.ownership.signal.addEventListener('abort', onFactoryTeardown, { once: true })
 
@@ -541,54 +547,53 @@ export class AgentLoop extends Service implements AgentFactory {
     // Reverse teardown, memoized so every racing owner awaits one quiescence:
     // stop the machine, unwind the scope, drain and close the session's write
     // path, leave the registries, release bookkeeping.
-    const teardown = (): Promise<void> => (disposing ??= (async () => {
-      abort.abort(new Error(this.ownership.isActive()
-        ? `agent "${id}" lifecycle disposed`
-        : 'agent loop is not active'))
-      callerSignal?.removeEventListener('abort', onCallerAbort)
-      this.ownership.signal.removeEventListener('abort', onFactoryTeardown)
-      // Teardown failures are collected, never swallowed: registry, scope,
-      // and ownership cleanup always run to quiescence, then the memoized
-      // disposal rejects with what failed so every racing owner observes it.
-      const failures: unknown[] = []
-      try {
-        // Creation listeners retain the session and scope through their awaits.
-        if (publication !== undefined) await publication.promise
-        // Disposal IS a disposed-cause cancel followed by quiescence. New work
-        // sent after this point is the sender's bug — the registries are about
-        // to drop the agent, so nothing should still hold it.
-        /* v8 ignore next -- Cordis effect teardown waits for synchronous setup before observing the machine slot. */
-        if (machine === undefined) await machineReady.promise
-        /* v8 ignore next -- setup failure untracks this disposer before resolving without a machine. */
-        if (machine !== undefined) {
-          machine.cancel({ kind: 'disposed' })
-          await machine.whenIdle()
+    const teardown = (): Promise<void> =>
+      (disposing ??= (async () => {
+        abort.abort(new Error(this.ownership.isActive() ? `agent "${id}" lifecycle disposed` : 'agent loop is not active'))
+        callerSignal?.removeEventListener('abort', onCallerAbort)
+        this.ownership.signal.removeEventListener('abort', onFactoryTeardown)
+        // Teardown failures are collected, never swallowed: registry, scope,
+        // and ownership cleanup always run to quiescence, then the memoized
+        // disposal rejects with what failed so every racing owner observes it.
+        const failures: unknown[] = []
+        try {
+          // Creation listeners retain the session and scope through their awaits.
+          if (publication !== undefined) await publication.promise
+          // Disposal IS a disposed-cause cancel followed by quiescence. New work
+          // sent after this point is the sender's bug — the registries are about
+          // to drop the agent, so nothing should still hold it.
+          /* v8 ignore next -- Cordis effect teardown waits for synchronous setup before observing the machine slot. */
+          if (machine === undefined) await machineReady.promise
+          /* v8 ignore next -- setup failure untracks this disposer before resolving without a machine. */
+          if (machine !== undefined) {
+            machine.cancel({ kind: 'disposed' })
+            await machine.whenIdle()
+          }
+        } catch (error: unknown) {
+          failures.push(error)
         }
-      } catch (error: unknown) {
-        failures.push(error)
-      }
-      try {
-        await machine?.scope.dispose()
-      } catch (error: unknown) {
-        failures.push(error)
-      }
-      // Close drains events already routed into the handle. The backend's
-      // live-event listeners must stay mounted through driver shutdown to
-      // receive all closing events. A failed final drain is retained here
-      // rather than logged away.
-      try {
-        await handle?.close()
-      } catch (error: unknown) {
-        failures.push(error)
-      }
-      try {
-        detachAgent?.()
-        detachSession?.()
-      } finally {
-        untrack()
-      }
-      throwCollectedFailures(failures, `agent "${id}" disposal failed`)
-    })())
+        try {
+          await machine?.scope.dispose()
+        } catch (error: unknown) {
+          failures.push(error)
+        }
+        // Close drains events already routed into the handle. The backend's
+        // live-event listeners must stay mounted through driver shutdown to
+        // receive all closing events. A failed final drain is retained here
+        // rather than logged away.
+        try {
+          await handle?.close()
+        } catch (error: unknown) {
+          failures.push(error)
+        }
+        try {
+          detachAgent?.()
+          detachSession?.()
+        } finally {
+          untrack()
+        }
+        throwCollectedFailures(failures, `agent "${id}" disposal failed`)
+      })())
     let unfollowScope: (() => Promise<void> | void) | undefined
     let unfollowOwner: () => Promise<void> | void
     const dispose = async (): Promise<void> => {
@@ -601,7 +606,7 @@ export class AgentLoop extends Service implements AgentFactory {
     const untrack = this.ownership.track(dispose)
     try {
       unfollowOwner = ownerCtx.effect(function* () {
-        const created = machine = new ReactLoopAgent(loopCtx, id, options, session)
+        const created = (machine = new ReactLoopAgent(loopCtx, id, options, session))
         machineReady.resolve()
         // Adopt the scope on its original fiber so it cannot unload before teardown.
         // A loop already unloading during minting owns the provisional scope itself.
@@ -647,7 +652,7 @@ export class AgentLoop extends Service implements AgentFactory {
       return {
         agent,
         signal: abort.signal,
-        publish: async (source) => {
+        publish: async source => {
           publication = Promise.withResolvers<void>()
           try {
             assertLive()
@@ -695,10 +700,12 @@ export class AgentLoop extends Service implements AgentFactory {
       await stored?.handle.close().catch(() => {})
       throw error
     }
-    return (await this.initializeAgent(prepared, async () => {
-      await this.appendUnstoredSuffix(stored, preparation.session)
-      return await prepared.publish('startup')
-    })).agent
+    return (
+      await this.initializeAgent(prepared, async () => {
+        await this.appendUnstoredSuffix(stored, preparation.session)
+        return await prepared.publish('startup')
+      })
+    ).agent
   }
 
   /**
@@ -717,7 +724,7 @@ export class AgentLoop extends Service implements AgentFactory {
     if (persistence === undefined) return undefined
     const handle = await persistence.create(session.header, {
       inheritedEventCount: session.inheritedEventCount,
-      ...signal === undefined ? {} : { signal },
+      ...(signal === undefined ? {} : { signal }),
     })
     return { handle, storedCount: 0 }
   }
@@ -748,24 +755,29 @@ export class AgentLoop extends Service implements AgentFactory {
    * @returns the published handle.
    */
   async createAgent(ownerCtx: Context, options: CreateAgentOptions): Promise<AgentHandle> {
-    const preparation = SessionPreparation.create(this.runtime.ctx.sessions.prepare(options.sessionId, {
-      ...options.seed === undefined ? {} : { seed: options.seed },
-      ...options.meta === undefined ? {} : { meta: options.meta },
-      ...options.inheritedEventCount === undefined ? {} : { inheritedEventCount: options.inheritedEventCount },
-    }))
+    const preparation = SessionPreparation.create(
+      this.runtime.ctx.sessions.prepare(options.sessionId, {
+        ...(options.seed === undefined ? {} : { seed: options.seed }),
+        ...(options.meta === undefined ? {} : { meta: options.meta }),
+        ...(options.inheritedEventCount === undefined ? {} : { inheritedEventCount: options.inheritedEventCount }),
+      }),
+    )
     const published = (async () => {
       let stored: StoredSession | undefined
       try {
         // raceAbortCall normalizes a pre-aborted or mid-create abort and
         // closes a handle that finishes creating after abandonment.
-        stored = options.signal === undefined
-          ? await this.createStoredSession(preparation.session)
-          : await raceAbortCall(
-            () => this.createStoredSession(preparation.session, options.signal),
-            options.signal,
-            options.sessionId,
-            (abandoned) => { void abandoned?.handle.close().catch(() => {}) },
-          )
+        stored =
+          options.signal === undefined
+            ? await this.createStoredSession(preparation.session)
+            : await raceAbortCall(
+                () => this.createStoredSession(preparation.session, options.signal),
+                options.signal,
+                options.sessionId,
+                abandoned => {
+                  void abandoned?.handle.close().catch(() => {})
+                },
+              )
       } catch (error: unknown) {
         preparation[Symbol.dispose]()
         throw error
@@ -849,25 +861,20 @@ export class AgentLoop extends Service implements AgentFactory {
   }
 
   /** Resume through an explicit persistence handle used by the deferred config path. */
-  private resumeWith(
-    ownerCtx: Context,
-    persistence: SessionPersistence,
-    options: ResumeAgentOptions,
-  ): Promise<AgentHandle> {
+  private resumeWith(ownerCtx: Context, persistence: SessionPersistence, options: ResumeAgentOptions): Promise<AgentHandle> {
     const id = options.resumeSessionId
     const published = (async () => {
       // The open and read may outlive their owner: race them against caller
       // cancellation, owner-fiber unload, and factory teardown so a
       // never-settling backend cannot pin the identity.
       const ownerAbort = new AbortController()
-      const unfollowOwner = ownerCtx.effect(() => () => {
-        ownerAbort.abort(new Error(`agent "${id}" setup aborted: owner disposed during setup`))
-      }, `agentLoop.resume-load(${id})`)
-      const fused = AbortSignal.any([
-        ...options.signal === undefined ? [] : [options.signal],
-        ownerAbort.signal,
-        this.ownership.signal,
-      ])
+      const unfollowOwner = ownerCtx.effect(
+        () => () => {
+          ownerAbort.abort(new Error(`agent "${id}" setup aborted: owner disposed during setup`))
+        },
+        `agentLoop.resume-load(${id})`,
+      )
+      const fused = AbortSignal.any([...(options.signal === undefined ? [] : [options.signal]), ownerAbort.signal, this.ownership.signal])
       let handle: SessionHandle | undefined
       let stored: StoredSession | undefined
       let preparation: SessionPreparation | undefined
@@ -879,7 +886,9 @@ export class AgentLoop extends Service implements AgentFactory {
             () => persistence.open(id, 'write', { signal: fused }),
             fused,
             id,
-            (abandoned) => { void abandoned.close() },
+            abandoned => {
+              void abandoned.close()
+            },
           )
           // Semantic crash repair is the agent layer's job: persistence hands
           // back the physically valid log; an interrupted final turn receives
@@ -890,12 +899,14 @@ export class AgentLoop extends Service implements AgentFactory {
           const persisted = coldRead.events
           const closers = interruptedTurnClosers(persisted)
           if (closers.length > 0) await handle.append(closers)
-          preparation = SessionPreparation.create(this.runtime.ctx.sessions.prepare(id, {
-            seed: [...persisted, ...closers],
-            meta: structuredClone(handle.header),
-            inheritedEventCount: handle.inheritedEventCount,
-            eventState: coldRead.eventState,
-          }))
+          preparation = SessionPreparation.create(
+            this.runtime.ctx.sessions.prepare(id, {
+              seed: [...persisted, ...closers],
+              meta: structuredClone(handle.header),
+              inheritedEventCount: handle.inheritedEventCount,
+              eventState: coldRead.eventState,
+            }),
+          )
           stored = { handle, storedCount: persisted.length + closers.length }
           await this.appendUnstoredSuffix(stored, preparation.session)
         } finally {

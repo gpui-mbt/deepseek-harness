@@ -1,10 +1,21 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
-import { FileSystem, FsError, FsVersion, type FsDirEntry, type FsEditOutcome, type FsEditRequest, type FsInfo, type FsPathInfo, type FsTarget, type FsWriteOutcome } from '@deepseek-ai/dsh-fs'
+import {
+  FileSystem,
+  FsError,
+  FsVersion,
+  type FsDirEntry,
+  type FsEditOutcome,
+  type FsEditRequest,
+  type FsInfo,
+  type FsPathInfo,
+  type FsTarget,
+  type FsWriteOutcome,
+} from '@deepseek-ai/dsh-fs'
 import * as SkillFileSystem from '../src/index.ts'
 
 /** Every temp dir created by this file, removed after each test. */
@@ -31,7 +42,9 @@ async function writeFlatSkill(root: string, name: string, description: string, b
 }
 
 class TestFileSystem extends FileSystem {
-  override watch(): never { throw new Error('Fixture does not support watching') }
+  override watch(): never {
+    throw new Error('Fixture does not support watching')
+  }
   listDirCalls = 0
   failResolvePaths = new Set<string>()
   failStatPaths = new Set<string>()
@@ -51,9 +64,13 @@ class TestFileSystem extends FileSystem {
     return { targetKey: path as never, displayPath: path }
   }
 
-  override processPath(target: FsTarget): string { return String(target.targetKey) }
+  override processPath(target: FsTarget): string {
+    return String(target.targetKey)
+  }
 
-  override fileUrl(target: FsTarget): string { return `file://${target.targetKey}` }
+  override fileUrl(target: FsTarget): string {
+    return `file://${target.targetKey}`
+  }
 
   override contains(parent: FsTarget, child: FsTarget): boolean {
     return child.targetKey === parent.targetKey || String(child.targetKey).startsWith(`${parent.targetKey}/`)
@@ -201,11 +218,7 @@ describe('FileSystemSkillProvider', () => {
     const ctx = await setupLocal(home, { customSkillDirs: [custom], bundledSkillDir: bundled })
 
     const skills = await ctx.skills.list({ cwd: join(project, 'src') })
-    expect(skills.map(skill => skill.name)).toEqual([
-      'bundled-only',
-      'custom-only',
-      'same',
-    ])
+    expect(skills.map(skill => skill.name)).toEqual(['bundled-only', 'custom-only', 'same'])
     expect(skills.find(skill => skill.name === 'custom-only')?.description).toBe('custom only')
     expect(skills.find(skill => skill.name === 'same')?.description).toBe('project dsh skill')
     expect(skills.find(skill => skill.name === 'same')?.source).toBe('project-dsh')
@@ -250,19 +263,22 @@ describe('FileSystemSkillProvider', () => {
     const home = await tempDir('skill-flat')
     const root = join(home, '.dsh/skills')
     await writeFlatSkill(root, 'flat-skill', 'flat description', 'Flat instructions.')
-    await writeFile(join(root, 'rich-skill.md'), [
-      '---',
-      'name: rich-skill',
-      'description: rich description',
-      'whenToUse: For richer local parsing',
-      'disable-model-invocation: off',
-      'user-invocable: YES',
-      'metadata:',
-      '  owner: tests',
-      '---',
-      '',
-      'Rich body.',
-    ].join('\n'))
+    await writeFile(
+      join(root, 'rich-skill.md'),
+      [
+        '---',
+        'name: rich-skill',
+        'description: rich description',
+        'whenToUse: For richer local parsing',
+        'disable-model-invocation: off',
+        'user-invocable: YES',
+        'metadata:',
+        '  owner: tests',
+        '---',
+        '',
+        'Rich body.',
+      ].join('\n'),
+    )
     await writeFile(join(root, 'bad.md'), '---\nname: Bad_Name\ndescription: bad\n---\n\nbad')
     await writeFile(join(root, 'missing-description.md'), '---\nname: missing-description\n---\n\nbad')
     await writeFile(join(root, 'no-frontmatter.md'), 'No frontmatter.')
@@ -273,9 +289,15 @@ describe('FileSystemSkillProvider', () => {
     await writeFile(join(root, 'notes.txt'), 'ignored')
     await mkdir(join(root, 'not-a-skill'), { recursive: true })
     await writeSkill(root, 'user-only-skill', 'user-only description', 'User-only.')
-    await writeFile(join(root, 'user-only-skill/SKILL.md'), '---\nname: user-only-skill\ndescription: user-only description\ndisable-model-invocation: true\n---\n\nUser-only.\n')
+    await writeFile(
+      join(root, 'user-only-skill/SKILL.md'),
+      '---\nname: user-only-skill\ndescription: user-only description\ndisable-model-invocation: true\n---\n\nUser-only.\n',
+    )
     await writeSkill(root, 'model-only-skill', 'model-only description', 'Model-only.')
-    await writeFile(join(root, 'model-only-skill/SKILL.md'), '---\nname: model-only-skill\ndescription: model-only description\nuser-invocable: false\n---\n\nModel-only.\n')
+    await writeFile(
+      join(root, 'model-only-skill/SKILL.md'),
+      '---\nname: model-only-skill\ndescription: model-only description\nuser-invocable: false\n---\n\nModel-only.\n',
+    )
 
     const ctx = await setupLocal(home)
     const listedBeforeDelete = await ctx.skills.list()
@@ -318,26 +340,18 @@ describe('FileSystemSkillProvider', () => {
     const truthy = ['true', 'TRUE', '"true"', 'yes', 'ON', '1', '"1"']
     const falsy = ['false', 'FALSE', '"false"', 'no', 'OFF', '0', '"0"']
     for (const [index, value] of truthy.entries()) {
-      await writeFile(join(root, `truthy-${index}.md`), [
-        '---',
-        `name: truthy-${index}`,
-        `description: Truthy ${index}`,
-        `disable-model-invocation: ${value}`,
-        '---',
-        '',
-        'Truthy.',
-      ].join('\n'))
+      await writeFile(
+        join(root, `truthy-${index}.md`),
+        ['---', `name: truthy-${index}`, `description: Truthy ${index}`, `disable-model-invocation: ${value}`, '---', '', 'Truthy.'].join(
+          '\n',
+        ),
+      )
     }
     for (const [index, value] of falsy.entries()) {
-      await writeFile(join(root, `falsy-${index}.md`), [
-        '---',
-        `name: falsy-${index}`,
-        `description: Falsy ${index}`,
-        `user-invocable: ${value}`,
-        '---',
-        '',
-        'Falsy.',
-      ].join('\n'))
+      await writeFile(
+        join(root, `falsy-${index}.md`),
+        ['---', `name: falsy-${index}`, `description: Falsy ${index}`, `user-invocable: ${value}`, '---', '', 'Falsy.'].join('\n'),
+      )
     }
 
     const ctx = await setupLocal(home)
@@ -380,25 +394,16 @@ describe('FileSystemSkillProvider', () => {
     const home = await tempDir('skill-frontmatter-crlf')
     const root = join(home, '.dsh/skills')
     await mkdir(root, { recursive: true })
-    await writeFile(join(root, 'crlf-skill.md'), [
-      '---',
-      'name: crlf-skill',
-      'description: CRLF skill',
-      'metadata:',
-      '  marker: "----"',
-      '---',
-      '',
-      'CRLF body.',
-    ].join('\r\n'))
-    await writeFile(join(root, 'block-skill.md'), [
-      '---',
-      'name: block-skill',
-      'description: |',
-      '  Includes a ---- marker that is not a delimiter.',
-      '---',
-      '',
-      'Block body.',
-    ].join('\n'))
+    await writeFile(
+      join(root, 'crlf-skill.md'),
+      ['---', 'name: crlf-skill', 'description: CRLF skill', 'metadata:', '  marker: "----"', '---', '', 'CRLF body.'].join('\r\n'),
+    )
+    await writeFile(
+      join(root, 'block-skill.md'),
+      ['---', 'name: block-skill', 'description: |', '  Includes a ---- marker that is not a delimiter.', '---', '', 'Block body.'].join(
+        '\n',
+      ),
+    )
 
     const ctx = await setupLocal(home)
 
@@ -419,48 +424,56 @@ describe('FileSystemSkillProvider', () => {
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['good-skill'])
   })
 
-  it.each([false, true])('publishes regular-file paths for linked skills while retaining their resource roots (filesystem service: %s)', async (withFileSystem) => {
-    const home = await tempDir('skill-symlink-home')
-    const external = await tempDir('skill-symlink-external')
-    await writeSkill(external, 'linked-dir', 'Linked directory')
-    await writeFlatSkill(external, 'linked-flat', 'Linked flat')
-    await mkdir(join(home, '.dsh/skills'), { recursive: true })
-    await symlink(join(external, 'linked-dir'), join(home, '.dsh/skills/linked-dir'))
-    await symlink(join(external, 'linked-flat.md'), join(home, '.dsh/skills/linked-flat.md'))
-    await symlink(join(external, 'missing'), join(home, '.dsh/skills/broken-link'))
-    await symlink('/dev/null', join(home, '.dsh/skills/device-link'))
+  it.each([false, true])(
+    'publishes regular-file paths for linked skills while retaining their resource roots (filesystem service: %s)',
+    async withFileSystem => {
+      const home = await tempDir('skill-symlink-home')
+      const external = await tempDir('skill-symlink-external')
+      await writeSkill(external, 'linked-dir', 'Linked directory')
+      await writeFlatSkill(external, 'linked-flat', 'Linked flat')
+      await mkdir(join(home, '.dsh/skills'), { recursive: true })
+      await symlink(join(external, 'linked-dir'), join(home, '.dsh/skills/linked-dir'))
+      await symlink(join(external, 'linked-flat.md'), join(home, '.dsh/skills/linked-flat.md'))
+      await symlink(join(external, 'missing'), join(home, '.dsh/skills/broken-link'))
+      await symlink('/dev/null', join(home, '.dsh/skills/device-link'))
 
-    const ctx = new Context()
-    await ctx.plugin(SkillRegistry)
-    if (withFileSystem) {
-      await ctx.plugin(class extends TestFileSystem {
-        override async resolve(path: string): Promise<FsTarget> {
-          return { targetKey: await realpath(path) as never, displayPath: path }
-        }
-      })
-    }
-    const fiber = ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
-    await fiber
-
-    try {
-      const catalog = await ctx.skills.list()
-      expect(catalog.map(skill => skill.name)).toEqual(['linked-dir', 'linked-flat'])
-      for (const name of ['linked-dir', 'linked-flat']) {
-        const path = name === 'linked-dir' ? join(external, name, 'SKILL.md') : join(external, `${name}.md`)
-        expect(catalog.find(skill => skill.name === name)?.path).toBe(path)
-        const loaded = await ctx.skills.get(name)
-        expect(loaded?.path).toBe(path)
-        expect(loaded?.resourceBase).toEqual({ kind: 'directory', path: name === 'linked-dir' ? join(home, '.dsh/skills', name) : join(home, '.dsh/skills') })
-        expect((await lstat(path)).isFile()).toBe(true)
+      const ctx = new Context()
+      await ctx.plugin(SkillRegistry)
+      if (withFileSystem) {
+        await ctx.plugin(
+          class extends TestFileSystem {
+            override async resolve(path: string): Promise<FsTarget> {
+              return { targetKey: (await realpath(path)) as never, displayPath: path }
+            }
+          },
+        )
       }
-      await writeFile(join(external, 'replacement.md'), '---\nname: linked-flat\ndescription: Replacement\n---\n\nReplacement body.\n')
-      await rm(join(home, '.dsh/skills/linked-flat.md'))
-      await symlink(join(external, 'replacement.md'), join(home, '.dsh/skills/linked-flat.md'))
-      expect((await ctx.skills.get('linked-flat'))?.content).toBe('Replacement body.')
-    } finally {
-      await fiber.dispose()
-    }
-  })
+      const fiber = ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
+      await fiber
+
+      try {
+        const catalog = await ctx.skills.list()
+        expect(catalog.map(skill => skill.name)).toEqual(['linked-dir', 'linked-flat'])
+        for (const name of ['linked-dir', 'linked-flat']) {
+          const path = name === 'linked-dir' ? join(external, name, 'SKILL.md') : join(external, `${name}.md`)
+          expect(catalog.find(skill => skill.name === name)?.path).toBe(path)
+          const loaded = await ctx.skills.get(name)
+          expect(loaded?.path).toBe(path)
+          expect(loaded?.resourceBase).toEqual({
+            kind: 'directory',
+            path: name === 'linked-dir' ? join(home, '.dsh/skills', name) : join(home, '.dsh/skills'),
+          })
+          expect((await lstat(path)).isFile()).toBe(true)
+        }
+        await writeFile(join(external, 'replacement.md'), '---\nname: linked-flat\ndescription: Replacement\n---\n\nReplacement body.\n')
+        await rm(join(home, '.dsh/skills/linked-flat.md'))
+        await symlink(join(external, 'replacement.md'), join(home, '.dsh/skills/linked-flat.md'))
+        expect((await ctx.skills.get('linked-flat'))?.content).toBe('Replacement body.')
+      } finally {
+        await fiber.dispose()
+      }
+    },
+  )
 
   it('uses the filesystem service for discovery, reads, and project-root lookup', async () => {
     const home = await tempDir('skill-read-fs')
@@ -473,11 +486,10 @@ describe('FileSystemSkillProvider', () => {
     await writeFlatSkill(root, 'stat-fail', 'Stat fail', 'Stat body.')
     await mkdir(join(root, 'empty-dir'), { recursive: true })
     await mkdir(join(root, 'directory-skill/SKILL.md'), { recursive: true })
-    await writeFile(join(root, 'binary-skill.md'), Buffer.concat([
-      Buffer.from('---\nname: binary-skill\ndescription: Binary skill\n---\n\n'),
-      Buffer.from([0xff]),
-      Buffer.from('\n'),
-    ]))
+    await writeFile(
+      join(root, 'binary-skill.md'),
+      Buffer.concat([Buffer.from('---\nname: binary-skill\ndescription: Binary skill\n---\n\n'), Buffer.from([0xff]), Buffer.from('\n')]),
+    )
     await writeSkill(join(project, '.agents/skills'), 'backend-root', 'Backend root skill')
 
     const ctx = new Context()
@@ -621,10 +633,14 @@ describe('FileSystemSkillProvider', () => {
       if (signal === undefined) throw new Error('expected the skill lookup signal')
       started.resolve(undefined)
       return await new Promise<string>((_resolve, reject) => {
-        signal.addEventListener('abort', () => {
-          const abortReason: unknown = signal.reason
-          reject(abortReason instanceof Error ? abortReason : new Error(String(abortReason)))
-        }, { once: true })
+        signal.addEventListener(
+          'abort',
+          () => {
+            const abortReason: unknown = signal.reason
+            reject(abortReason instanceof Error ? abortReason : new Error(String(abortReason)))
+          },
+          { once: true },
+        )
       })
     }
     const controller = new AbortController()
@@ -669,39 +685,48 @@ describe('FileSystemSkillProvider', () => {
       expect((await ctx.skills.get('watched-skill'))?.content).toBe('Second body.')
 
       await writeFlatSkill(agentsRoot, 'flat-added', 'Flat added')
-      expect(await waitFor(
-        async () => (await ctx.skills.list()).map(skill => skill.name),
-        names => names.includes('flat-added'),
-      )).toEqual(['flat-added', 'watched-skill'])
+      expect(
+        await waitFor(
+          async () => (await ctx.skills.list()).map(skill => skill.name),
+          names => names.includes('flat-added'),
+        ),
+      ).toEqual(['flat-added', 'watched-skill'])
 
       await rename(join(agentsRoot, 'watched-skill'), join(agentsRoot, 'renamed-skill'))
       await writeSkill(agentsRoot, 'renamed-skill', 'Renamed skill')
-      expect(await waitFor(
-        async () => (await ctx.skills.list()).map(skill => skill.name),
-        names => names.includes('renamed-skill') && !names.includes('watched-skill'),
-      )).toEqual(['flat-added', 'renamed-skill'])
+      expect(
+        await waitFor(
+          async () => (await ctx.skills.list()).map(skill => skill.name),
+          names => names.includes('renamed-skill') && !names.includes('watched-skill'),
+        ),
+      ).toEqual(['flat-added', 'renamed-skill'])
 
       await rm(join(agentsRoot, 'renamed-skill'), { recursive: true })
-      expect(await waitFor(
-        async () => (await ctx.skills.list()).map(skill => skill.name),
-        names => !names.includes('renamed-skill'),
-      )).toEqual(['flat-added'])
+      expect(
+        await waitFor(
+          async () => (await ctx.skills.list()).map(skill => skill.name),
+          names => !names.includes('renamed-skill'),
+        ),
+      ).toEqual(['flat-added'])
 
       await rm(join(home, '.agents'), { recursive: true })
-      expect(await waitFor(
-        async () => await ctx.skills.list(),
-        skills => skills.length === 0,
-      )).toEqual([])
+      expect(
+        await waitFor(
+          async () => await ctx.skills.list(),
+          skills => skills.length === 0,
+        ),
+      ).toEqual([])
 
       await writeSkill(agentsRoot, 'recreated-skill', 'Recreated')
-      expect(await waitFor(
-        async () => (await ctx.skills.list()).map(skill => skill.name),
-        names => names.includes('recreated-skill'),
-      )).toEqual(['recreated-skill'])
+      expect(
+        await waitFor(
+          async () => (await ctx.skills.list()).map(skill => skill.name),
+          names => names.includes('recreated-skill'),
+        ),
+      ).toEqual(['recreated-skill'])
     } finally {
       await fiber.dispose()
     }
-
   })
 
   it('uses fs/observed as a synchronous first-party invalidation path without a watcher', async () => {
@@ -710,17 +735,14 @@ describe('FileSystemSkillProvider', () => {
     const ctx = await setupLocal(home)
     expect(await ctx.skills.list()).toEqual([])
     let invalidations = 0
-    ctx.on('skills/change', () => { invalidations += 1 })
+    ctx.on('skills/change', () => {
+      invalidations += 1
+    })
 
     await writeSkill(root, 'observed-skill', 'Observed skill')
     const path = join(root, 'observed-skill/SKILL.md')
     const emitObserved = (displayPath: string, actor?: object): void => {
-      ctx.emit(
-        'fs/observed',
-        { targetKey: displayPath as never, displayPath },
-        { kind: 'present', version: FsVersion('observed') },
-        actor,
-      )
+      ctx.emit('fs/observed', { targetKey: displayPath as never, displayPath }, { kind: 'present', version: FsVersion('observed') }, actor)
     }
     emitObserved(path)
     emitObserved(path, {})
@@ -765,8 +787,9 @@ describe('FileSystemSkillProvider', () => {
       expect((await ctx.skills.list({ cwd: second })).map(skill => skill.name)).toContain('second-project')
       await writeSkill(join(first, '.agents/skills'), 'first-project', 'First project refreshed')
 
-      expect((await ctx.skills.list({ cwd: first })).find(skill => skill.name === 'first-project')?.description)
-        .toBe('First project refreshed')
+      expect((await ctx.skills.list({ cwd: first })).find(skill => skill.name === 'first-project')?.description).toBe(
+        'First project refreshed',
+      )
     } finally {
       await fiber.dispose()
     }
@@ -791,7 +814,7 @@ describe('FileSystemSkillProvider', () => {
     const ctx = new Context()
     await ctx.plugin(SkillRegistry)
     let provider!: SkillFileSystem.FileSystemSkillProvider
-    const disposeProvider = ctx.skills.registerProvider((control) => {
+    const disposeProvider = ctx.skills.registerProvider(control => {
       provider = new SkillFileSystem.FileSystemSkillProvider(ctx, control, {
         dshHome: join(home, '.dsh'),
         agentsHome: join(home, '.agents'),
@@ -803,16 +826,16 @@ describe('FileSystemSkillProvider', () => {
       return provider
     })
     const beforeDisposal = await provider.list({})
-    expect((Array.isArray(beforeDisposal) ? beforeDisposal : beforeDisposal.candidates).map(skill => skill.name))
-      .toEqual(['disposed-skill'])
+    expect((Array.isArray(beforeDisposal) ? beforeDisposal : beforeDisposal.candidates).map(skill => skill.name)).toEqual([
+      'disposed-skill',
+    ])
 
     await provider.dispose()
     await provider.dispose()
     provider.observeHostMutation(join(home, '.agents/skills/disposed-skill/SKILL.md'))
 
     const afterDisposal = await provider.list({})
-    expect((Array.isArray(afterDisposal) ? afterDisposal : afterDisposal.candidates).map(skill => skill.name))
-      .toEqual(['disposed-skill'])
+    expect((Array.isArray(afterDisposal) ? afterDisposal : afterDisposal.candidates).map(skill => skill.name)).toEqual(['disposed-skill'])
     disposeProvider()
   })
 
@@ -897,10 +920,16 @@ describe('FileSystemSkillProvider', () => {
       expect(await empty.skills.list()).toEqual([])
 
       delete process.env.DSH_AGENTS_HOME
-      expect(new SkillFileSystem.FileSystemSkillProvider(empty, {
-        signal: new AbortController().signal,
-        invalidate() {},
-      }, { dshHome: join(envHome, 'empty-dsh') }).name).toBe('filesystem')
+      expect(
+        new SkillFileSystem.FileSystemSkillProvider(
+          empty,
+          {
+            signal: new AbortController().signal,
+            invalidate() {},
+          },
+          { dshHome: join(envHome, 'empty-dsh') },
+        ).name,
+      ).toBe('filesystem')
     } finally {
       if (previousDshHome === undefined) {
         delete process.env.DSH_HOME

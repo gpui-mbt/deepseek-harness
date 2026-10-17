@@ -157,7 +157,8 @@ export const ja: LocaleDictOf<'conversation'> = {
   'queue.remove': 'キュー内メッセージを削除',
   'queue.steer': '割り込み送信',
   'queue.steer.unavailable': '割り込み送信は実行中のみ利用できます',
-  'error.sessionInUse': 'このセッションは既に使用中です（他の dsh web やデスクトップアプリなど、別の DSH が実行中の可能性があります）。他の DSH を終了してから再試行してください',
+  'error.sessionInUse':
+    'このセッションは既に使用中です（他の dsh web やデスクトップアプリなど、別の DSH が実行中の可能性があります）。他の DSH を終了してから再試行してください',
   'queue.editFailed': '編集に失敗しました：このメッセージはすでに送信が開始されている可能性があります。',
   'queue.removeFailed': '削除に失敗しました：このメッセージはすでに送信が開始されている可能性があります。',
   'queue.steerFailed': '割り込み送信に失敗しました。再試行してください。',

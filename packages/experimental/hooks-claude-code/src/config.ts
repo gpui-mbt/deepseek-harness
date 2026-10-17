@@ -8,15 +8,7 @@
 
 import { matcherDiagnostic, type MatcherGroup } from '@deepseek-ai/dsh-hook-protocol'
 
-const CLAUDE_EVENTS = [
-  'SessionStart',
-  'UserPromptSubmit',
-  'PreToolUse',
-  'PostToolUse',
-  'Stop',
-  'SubagentStart',
-  'SubagentStop',
-] as const
+const CLAUDE_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SubagentStart', 'SubagentStop'] as const
 
 /** A parsed CC config: event name → its matcher groups (command hooks only). */
 export type ClaudeCodeHookConfig = Record<string, MatcherGroup[]>
@@ -43,9 +35,7 @@ export interface SubstitutionVars {
 
 /** A plain (non-null, non-array) object, else undefined. */
 function asObject(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
 
 /**
@@ -80,7 +70,7 @@ export function parseClaudeCodeConfig(raw: unknown, vars: SubstitutionVars = {})
   const skipped: SkippedHook[] = []
   // Accept either `{ hooks: { … } }` (a settings file) or the bare event map.
   const root = asObject(raw)
-  const hooksMap = root ? asObject(root.hooks) ?? root : undefined
+  const hooksMap = root ? (asObject(root.hooks) ?? root) : undefined
   if (!hooksMap) return { config, skipped }
 
   for (const event of CLAUDE_EVENTS) {
@@ -102,17 +92,16 @@ export function parseClaudeCodeConfig(raw: unknown, vars: SubstitutionVars = {})
         if (typeof hook.command !== 'string') continue
         commands.push({
           command: substituteCommand(hook.command, vars),
-          ...typeof hook.timeout === 'number' ? { timeoutSec: hook.timeout } : {},
+          ...(typeof hook.timeout === 'number' ? { timeoutSec: hook.timeout } : {}),
         })
       }
       if (commands.length === 0) continue
-      const matcher = event === 'UserPromptSubmit' || event === 'Stop'
-        ? undefined
-        : typeof group.matcher === 'string' ? group.matcher : undefined
+      const matcher =
+        event === 'UserPromptSubmit' || event === 'Stop' ? undefined : typeof group.matcher === 'string' ? group.matcher : undefined
       const diagnostic = matcherDiagnostic(matcher, 'claude-code')
       if (diagnostic !== undefined) throw new SyntaxError(`${diagnostic} on event ${JSON.stringify(event)}`)
       groups.push({
-        ...matcher !== undefined ? { matcher } : {},
+        ...(matcher !== undefined ? { matcher } : {}),
         hooks: commands,
       })
     }

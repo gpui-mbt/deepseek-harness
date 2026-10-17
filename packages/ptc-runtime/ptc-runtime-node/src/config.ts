@@ -49,13 +49,16 @@ export const NodeConfig: z<Config> = z.object({
  */
 export function validateConfig(config: ResolvedConfig): void {
   for (const [key, value] of Object.entries(config)) {
-    if (typeof value === 'number' && (!Number.isFinite(value) || value <= 0)) throw new Error(`ptc-runtime-node: ${key} must be positive and finite`)
+    if (typeof value === 'number' && (!Number.isFinite(value) || value <= 0))
+      throw new Error(`ptc-runtime-node: ${key} must be positive and finite`)
   }
   for (const key of ['timeoutMs', 'maxTimeoutMs', 'graceMs'] as const) {
     if (config[key] > MAX_TIMER_DELAY_MS) throw new Error(`ptc-runtime-node: ${key} exceeds the supported timer range`)
   }
-  if (!Number.isSafeInteger(config.maxOutputBytes) || config.maxOutputBytes < 4) throw new Error('ptc-runtime-node: maxOutputBytes must be an integer of at least 4')
-  if (!Number.isSafeInteger(config.maxMessageBytes) || config.maxMessageBytes > 0xffff_ffff) throw new Error('ptc-runtime-node: maxMessageBytes must fit an unsigned 32-bit frame length')
+  if (!Number.isSafeInteger(config.maxOutputBytes) || config.maxOutputBytes < 4)
+    throw new Error('ptc-runtime-node: maxOutputBytes must be an integer of at least 4')
+  if (!Number.isSafeInteger(config.maxMessageBytes) || config.maxMessageBytes > 0xffff_ffff)
+    throw new Error('ptc-runtime-node: maxMessageBytes must fit an unsigned 32-bit frame length')
   if (!Number.isSafeInteger(config.maxPendingCalls)) throw new Error('ptc-runtime-node: maxPendingCalls must be an integer')
   if (!Number.isSafeInteger(config.maxOldGenerationSizeMb)) throw new Error('ptc-runtime-node: maxOldGenerationSizeMb must be an integer')
 }

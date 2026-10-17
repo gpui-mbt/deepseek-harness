@@ -49,15 +49,27 @@ export function cacheKey(value: string): string {
 export async function npmPackument(registry: string, name: string, limits: FetchLimits): Promise<Packument> {
   const response = await fetch(new URL(name.replace('/', '%2f'), registry), { signal: AbortSignal.timeout(limits.timeoutMs) })
   if (!response.ok) throw new Error(`${name}: registry answered HTTP ${response.status}`)
-  return await response.json() as Packument
+  return (await response.json()) as Packument
 }
 
 /** Whether `bytes` match one supported hash of a subresource-integrity string. */
 function matchesIntegrity(bytes: Uint8Array, integrity: string): boolean {
   const supported = new Set(getHashes())
-  const hashes = integrity.trim().split(/\s+/u).map(token => /^(sha\d+)-([A-Za-z0-9+/=]+)/u.exec(token)).filter(match => match !== null)
+  const hashes = integrity
+    .trim()
+    .split(/\s+/u)
+    .map(token => /^(sha\d+)-([A-Za-z0-9+/=]+)/u.exec(token))
+    .filter(match => match !== null)
   const usable = hashes.filter(([, algorithm]) => supported.has(algorithm as string))
-  return usable.length > 0 && usable.some(([, algorithm, digest]) => createHash(algorithm as string).update(bytes).digest('base64') === digest)
+  return (
+    usable.length > 0 &&
+    usable.some(
+      ([, algorithm, digest]) =>
+        createHash(algorithm as string)
+          .update(bytes)
+          .digest('base64') === digest,
+    )
+  )
 }
 
 /** Unpack the regular files of an npm tarball below its top directory, without `node_modules`, into memory. */
@@ -83,8 +95,12 @@ function unpack(bytes: Uint8Array, label: string, maxBytes: number): Promise<Pac
         files.set(path, { size: contents.length, read: () => Promise.resolve(contents) })
       })
     })
-    parser.on('error', (error: Error) => { reject(new Error(`${label}: ${error.message}`)) })
-    parser.on('end', () => { resolve(new PackageFiles(files)) })
+    parser.on('error', (error: Error) => {
+      reject(new Error(`${label}: ${error.message}`))
+    })
+    parser.on('end', () => {
+      resolve(new PackageFiles(files))
+    })
     parser.end(Buffer.from(bytes))
   })
 }
@@ -98,10 +114,14 @@ function unpack(bytes: Uint8Array, label: string, maxBytes: number): Promise<Pac
  * @returns the package files and its manifest.
  */
 export async function npmTarball(
-  name: string, version: string, dist: { readonly tarball?: unknown; readonly integrity?: unknown } | undefined, limits: FetchLimits,
+  name: string,
+  version: string,
+  dist: { readonly tarball?: unknown; readonly integrity?: unknown } | undefined,
+  limits: FetchLimits,
 ): Promise<{ files: PackageFiles; manifest: Manifest }> {
   const label = `${name}@${version}`
-  if (typeof dist?.tarball !== 'string' || typeof dist.integrity !== 'string') throw new Error(`${label}: registry lists no tarball with integrity`)
+  if (typeof dist?.tarball !== 'string' || typeof dist.integrity !== 'string')
+    throw new Error(`${label}: registry lists no tarball with integrity`)
   const response = await fetch(dist.tarball, { signal: AbortSignal.timeout(limits.timeoutMs) })
   if (!response.ok) throw new Error(`${label}: tarball answered HTTP ${response.status}`)
   const chunks: Uint8Array[] = []
@@ -132,7 +152,9 @@ export interface RemoteRefs {
 
 /** The environment of every Git command: the caller's, without Git overrides, and without prompts or LFS downloads. */
 function gitEnv(): NodeJS.ProcessEnv {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_') || name === 'GIT_SSH' || name === 'GIT_SSH_COMMAND'))
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_') || name === 'GIT_SSH' || name === 'GIT_SSH_COMMAND'),
+  )
   // A user's own ssh program keeps precedence; the default only keeps ssh from waiting for a prompt.
   const ssh = env.GIT_SSH === undefined && env.GIT_SSH_COMMAND === undefined ? { GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' } : {}
   return { ...env, GIT_TERMINAL_PROMPT: '0', GIT_LFS_SKIP_SMUDGE: '1', ...ssh }
@@ -143,13 +165,28 @@ function gitEnv(): NodeJS.ProcessEnv {
  * `url.<base>.insteadOf` in the user's configuration still applies, so an https URL can be routed to ssh.
  */
 function git(
-  args: readonly string[], transports: GitTransports, limits: FetchLimits, cwd?: string, input?: string,
+  args: readonly string[],
+  transports: GitTransports,
+  limits: FetchLimits,
+  cwd?: string,
+  input?: string,
 ): Promise<{ stdout: Buffer }> {
   const safety = [
-    'core.hooksPath=/dev/null', 'core.fsmonitor=false', 'submodule.recurse=false', 'gc.auto=0', 'maintenance.auto=false', 'protocol.allow=never',
+    'core.hooksPath=/dev/null',
+    'core.fsmonitor=false',
+    'submodule.recurse=false',
+    'gc.auto=0',
+    'maintenance.auto=false',
+    'protocol.allow=never',
     ...transports.map(transport => `protocol.${transport}.allow=always`),
   ].flatMap(setting => ['-c', setting])
-  const command = run('git', [...safety, ...args], { cwd, env: gitEnv(), timeout: limits.timeoutMs, encoding: 'buffer', maxBuffer: 256 * 1024 * 1024 })
+  const command = run('git', [...safety, ...args], {
+    cwd,
+    env: gitEnv(),
+    timeout: limits.timeoutMs,
+    encoding: 'buffer',
+    maxBuffer: 256 * 1024 * 1024,
+  })
   // Git may exit before it reads its input; the exit status reports that failure, so the broken pipe is not a
   // second one. Whether the write races the exit depends on scheduling, so no test reaches the handler reliably.
   /* v8 ignore next */
@@ -210,7 +247,11 @@ export interface GitObjects {
  * @returns what `read` returns.
  */
 export async function withGitObjects<T>(
-  url: string, refs: RemoteRefs, transports: GitTransports, limits: FetchLimits, read: (objects: GitObjects) => Promise<T>,
+  url: string,
+  refs: RemoteRefs,
+  transports: GitTransports,
+  limits: FetchLimits,
+  read: (objects: GitObjects) => Promise<T>,
 ): Promise<T> {
   const dir = mkdtempSync(join(tmpdir(), 'plugin-market-git-'))
   const inRepository = (args: readonly string[], input?: string) => git(args, transports, limits, dir, input)
@@ -226,7 +267,10 @@ export async function withGitObjects<T>(
       const fields = /^100(?:644|755) blob (?<blob>[0-9a-f]+) +(?<size>\d+)\t(?<file>.+)$/su.exec(line)?.groups
       if (fields === undefined) continue
       const { blob, size, file } = fields as { blob: string; size: string; file: string }
-      files.set(file.slice(prefix.length), { size: Number(size), read: async () => (await inRepository(['cat-file', 'blob', blob])).stdout })
+      files.set(file.slice(prefix.length), {
+        size: Number(size),
+        read: async () => (await inRepository(['cat-file', 'blob', blob])).stdout,
+      })
     }
     return new PackageFiles(files)
   }
@@ -235,7 +279,8 @@ export async function withGitObjects<T>(
       const wanted = [...new Set(commits)].filter(commit => !fetched.has(commit))
       if (wanted.length === 0) return
       // Targets go through standard input, so any number of commits fits on the command line.
-      const fetch = (targets: readonly string[]) => inRepository(['fetch', '--quiet', '--depth', '1', '--no-tags', '--stdin', '--', url], `${targets.join('\n')}\n`)
+      const fetch = (targets: readonly string[]) =>
+        inRepository(['fetch', '--quiet', '--depth', '1', '--no-tags', '--stdin', '--', url], `${targets.join('\n')}\n`)
       await fetch(wanted).catch((_refused: unknown) => fetch(wanted.map(commit => names.get(commit) as string)))
       for (const commit of wanted) fetched.add(commit)
     },

@@ -2,15 +2,38 @@
 
 import { isDeepStrictEqual } from 'node:util'
 import { SessionFormatError, isSessionFormatJsonObject, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
-import type { SessionFormatArtifact, SessionFormatEvent, SessionFormatJsonObject, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
+import type {
+  SessionFormatArtifact,
+  SessionFormatEvent,
+  SessionFormatJsonObject,
+  SessionFormatJsonValue,
+} from '@deepseek-ai/dsh-session-format'
 
 const SURFACE_TYPES = new Set(['system/message', 'user/message', 'developer/message', 'assistant/message', 'tool/result'])
 const STEP_EVENT_TYPES = new Set(['system/message', 'developer/message', 'assistant/attempt'])
 const RELATIONSHIP_TYPES = new Set([
-  ...SURFACE_TYPES, ...STEP_EVENT_TYPES, 'turn/start', 'turn/end', 'step/start', 'step/end',
-  'tool/call', 'request/header', 'request/context', 'tool/ptc-dispatch-start', 'tool/ptc-dispatch',
-  'llm/retry', 'llm/retry-started', 'session/title', 'session/title-llm-request', 'command/run',
-  'command/done', 'compaction/start', 'compaction/summary', 'compaction/end', 'compaction/prune', 'session/end-seed',
+  ...SURFACE_TYPES,
+  ...STEP_EVENT_TYPES,
+  'turn/start',
+  'turn/end',
+  'step/start',
+  'step/end',
+  'tool/call',
+  'request/header',
+  'request/context',
+  'tool/ptc-dispatch-start',
+  'tool/ptc-dispatch',
+  'llm/retry',
+  'llm/retry-started',
+  'session/title',
+  'session/title-llm-request',
+  'command/run',
+  'command/done',
+  'compaction/start',
+  'compaction/summary',
+  'compaction/end',
+  'compaction/prune',
+  'session/end-seed',
 ])
 
 function record(value: SessionFormatJsonValue | undefined, subject: string): SessionFormatJsonObject {
@@ -65,7 +88,10 @@ class Relationships {
   readonly commands = new Set<string>()
   readonly orphanCompactions = new Set<number>()
 
-  constructor(readonly artifact: SessionFormatArtifact, readonly knownEventTypes: ReadonlySet<string>) {
+  constructor(
+    readonly artifact: SessionFormatArtifact,
+    readonly knownEventTypes: ReadonlySet<string>,
+  ) {
     let start: number | undefined
     for (const event of artifact.events) {
       if (!knownEventTypes.has(event.type)) continue
@@ -108,15 +134,15 @@ class Relationships {
     for (const value of content) {
       if (!isSessionFormatJsonObject(value) || value['type'] !== 'tool-addition') continue
       const toolName = value['toolName'] as string
-      const definitions = Array.isArray(tools)
-        ? tools.filter(tool => isSessionFormatJsonObject(tool) && tool['name'] === toolName)
-        : []
+      const definitions = Array.isArray(tools) ? tools.filter(tool => isSessionFormatJsonObject(tool) && tool['name'] === toolName) : []
       if (definitions.length !== 1) {
         throw new SessionFormatError(`developer/message tool-addition "${toolName}" must name exactly one tool in headerSeq ${headerSeq}`)
       }
       const definition = definitions[0] as SessionFormatJsonObject
       if (typeof definition['description'] !== 'string' || !isSessionFormatJsonObject(definition['parameters'])) {
-        throw new SessionFormatError(`developer/message tool-addition "${toolName}" requires a complete tool definition in headerSeq ${headerSeq}`)
+        throw new SessionFormatError(
+          `developer/message tool-addition "${toolName}" requires a complete tool definition in headerSeq ${headerSeq}`,
+        )
       }
     }
   }
@@ -137,9 +163,11 @@ class Relationships {
     if (first < 0 || last < first) throw new SessionFormatError(`${event.type} replacement range is not on the current surface`)
     const removed = this.surface.slice(first, last + 1)
     const sources = array(event['sourceEventSeqs'], 'replacement sourceEventSeqs')
-    if (removed.some(seq => !sources.includes(seq))) throw new SessionFormatError('replacement sourceEventSeqs omit a shadowed surface node')
+    if (removed.some(seq => !sources.includes(seq)))
+      throw new SessionFormatError('replacement sourceEventSeqs omit a shadowed surface node')
     if (this.protectedHead !== undefined && removed.includes(this.protectedHead)) {
-      if (event.type !== 'system/message' || removed.length !== 1) throw new SessionFormatError('surface replacement cannot shadow the protected system head')
+      if (event.type !== 'system/message' || removed.length !== 1)
+        throw new SessionFormatError('surface replacement cannot shadow the protected system head')
       this.protectedHead = event.seq
     }
     this.surface.splice(first, removed.length, event.seq)
@@ -186,7 +214,8 @@ class Relationships {
     const parent = text(data['parentCallId'], 'PTC parentCallId')
     const existing = this.dispatches.get(id)
     if (existing !== undefined && existing.data['rootCallId'] !== root) throw new SessionFormatError('PTC dispatch changes its rootCallId')
-    if (parent !== root && this.dispatches.get(parent)?.data['rootCallId'] !== root) throw new SessionFormatError('PTC parentCallId does not belong to rootCallId')
+    if (parent !== root && this.dispatches.get(parent)?.data['rootCallId'] !== root)
+      throw new SessionFormatError('PTC parentCallId does not belong to rootCallId')
     if (event.type === 'tool/ptc-dispatch-start') {
       if (existing !== undefined) throw new SessionFormatError('PTC dispatch repeats subCallId')
       this.dispatches.set(id, { data, settled: false })
@@ -205,7 +234,8 @@ class Relationships {
     if (event.type === 'llm/retry-started') {
       const scheduled = this.retries.find(item => item['retryId'] === id && item['retry'] === attempt)
       if (scheduled === undefined) throw new SessionFormatError('llm/retry-started pairs no prior scheduled attempt')
-      if (scheduled['turn'] !== data['turn'] || scheduled['step'] !== data['step']) throw new SessionFormatError('llm/retry-started changes scheduled coordinates')
+      if (scheduled['turn'] !== data['turn'] || scheduled['step'] !== data['step'])
+        throw new SessionFormatError('llm/retry-started changes scheduled coordinates')
       const key = JSON.stringify([id, attempt])
       if (this.startedRetries.has(key)) throw new SessionFormatError('llm/retry-started repeats one scheduled attempt')
       this.startedRetries.add(key)
@@ -216,7 +246,8 @@ class Relationships {
     }
     if (data['provider'] !== this.provider) throw new SessionFormatError('llm/retry provider does not match the open request/header')
     const prior = this.retries.findLast(item => ['turn', 'step', 'provider', 'policyKey'].every(key => item[key] === data[key]))
-    if (attempt !== (prior === undefined ? 1 : sessionFormatCount(prior['retry'], 'prior retry') + 1)) throw new SessionFormatError('llm/retry skips its policy attempt sequence')
+    if (attempt !== (prior === undefined ? 1 : sessionFormatCount(prior['retry'], 'prior retry') + 1))
+      throw new SessionFormatError('llm/retry skips its policy attempt sequence')
     if (prior === undefined ? this.retries.some(item => item['retryId'] === id) : prior['retryId'] !== id) {
       throw new SessionFormatError('llm/retry must keep one retryId per policy chain')
     }
@@ -230,7 +261,13 @@ class Relationships {
       if (this.compaction !== undefined) throw new SessionFormatError('compaction/start overlaps an open compaction')
       const owner = data['turn'] === null ? null : sessionFormatCount(data['turn'], 'compaction turn')
       if (owner !== this.turn) throw new SessionFormatError('compaction/start does not match the open turn')
-      this.compaction = { id: text(data['compactionId'], 'compactionId'), command: data['sourceCommandId'], turn: owner, seq: event.seq, summarized: false }
+      this.compaction = {
+        id: text(data['compactionId'], 'compactionId'),
+        command: data['sourceCommandId'],
+        turn: owner,
+        seq: event.seq,
+        summarized: false,
+      }
       return
     }
     const current = this.compactionOwner(data, event.type)
@@ -246,7 +283,11 @@ class Relationships {
   }
 
   compactionOwner(data: SessionFormatJsonObject, subject: string): Compaction {
-    if (this.compaction === undefined || this.compaction.id !== data['compactionId'] || this.compaction.command !== data['sourceCommandId']) {
+    if (
+      this.compaction === undefined ||
+      this.compaction.id !== data['compactionId'] ||
+      this.compaction.command !== data['sourceCommandId']
+    ) {
       throw new SessionFormatError(`${subject} has no matching compaction/start`)
     }
     return this.compaction
@@ -260,7 +301,8 @@ class Relationships {
     if (start < 0 || end < start || !isDeepStrictEqual(this.surface.slice(start, end + 1), seqs)) {
       throw new SessionFormatError(`${event.type} shadowedSeqs do not name an exact current surface span`)
     }
-    if (this.protectedHead !== undefined && seqs.includes(this.protectedHead)) throw new SessionFormatError('compaction cannot shadow the protected system head')
+    if (this.protectedHead !== undefined && seqs.includes(this.protectedHead))
+      throw new SessionFormatError('compaction cannot shadow the protected system head')
   }
 
   accept(event: SessionFormatEvent): void {
@@ -279,13 +321,15 @@ class Relationships {
         this.tools.clear()
         break
       case 'turn/end':
-        if (this.turn === null || data['turn'] !== this.turn || this.step !== null) throw new SessionFormatError('turn/end does not match the open turn with no open step')
+        if (this.turn === null || data['turn'] !== this.turn || this.step !== null)
+          throw new SessionFormatError('turn/end does not match the open turn with no open step')
         this.closeTools(event.type)
         this.turn = null
         this.nextTurn += 1
         break
       case 'step/start':
-        if (this.turn === null || data['turn'] !== this.turn || this.step !== null || data['step'] !== this.nextStep) throw new SessionFormatError('step/start does not match the open turn and next step')
+        if (this.turn === null || data['turn'] !== this.turn || this.step !== null || data['step'] !== this.nextStep)
+          throw new SessionFormatError('step/start does not match the open turn and next step')
         this.step = this.nextStep
         break
       case 'step/end':
@@ -294,16 +338,33 @@ class Relationships {
         this.step = null
         this.nextStep += 1
         break
-      case 'assistant/message': case 'tool/call': case 'tool/result': this.tool(event, data); break
-      case 'developer/message': this.developer(event, data); break
+      case 'assistant/message':
+      case 'tool/call':
+      case 'tool/result':
+        this.tool(event, data)
+        break
+      case 'developer/message':
+        this.developer(event, data)
+        break
       case 'request/header':
         this.requireTurn(event.type)
         this.provider = record(record(data['header'], 'request header')['config'], 'request config')['provider']
         break
-      case 'request/context': this.requireTurn(event.type); break
-      case 'tool/ptc-dispatch-start': case 'tool/ptc-dispatch': this.dispatch(event, data); break
-      case 'llm/retry': case 'llm/retry-started': this.retry(event, data); break
-      case 'session/title': case 'session/title-llm-request': titleSources(this.artifact.events, event, data, this.knownEventTypes); break
+      case 'request/context':
+        this.requireTurn(event.type)
+        break
+      case 'tool/ptc-dispatch-start':
+      case 'tool/ptc-dispatch':
+        this.dispatch(event, data)
+        break
+      case 'llm/retry':
+      case 'llm/retry-started':
+        this.retry(event, data)
+        break
+      case 'session/title':
+      case 'session/title-llm-request':
+        titleSources(this.artifact.events, event, data, this.knownEventTypes)
+        break
       case 'command/run': {
         const id = text(data['commandId'], 'commandId')
         if (this.commands.has(id)) throw new SessionFormatError(`command/run repeats commandId ${id}`)
@@ -314,26 +375,44 @@ class Relationships {
         if (!this.commands.has(text(data['commandId'], 'commandId'))) throw new SessionFormatError('command/done has no prior command/run')
         if (data['sourceEventSeq'] !== undefined) {
           const source = this.artifact.events[earlier(data['sourceEventSeq'], event.seq, 'command sourceEventSeq')]
-          if (data['kind'] !== 'success' || source?.type === 'command/run' || source?.type === 'command/done') throw new SessionFormatError('command/done has invalid sourceEventSeq')
+          if (data['kind'] !== 'success' || source?.type === 'command/run' || source?.type === 'command/done')
+            throw new SessionFormatError('command/done has invalid sourceEventSeq')
         }
         break
       }
-      case 'compaction/start': case 'compaction/summary': case 'compaction/end': case 'compaction/prune': this.compact(event, data); break
+      case 'compaction/start':
+      case 'compaction/summary':
+      case 'compaction/end':
+      case 'compaction/prune':
+        this.compact(event, data)
+        break
       case 'user/message': {
         const source = record(data['source'], 'user message source')
-        if (event['surfaceOp'] !== 'append' && source['kind'] === 'compact-checkpoint') this.compactionOwner(source, 'compaction checkpoint')
+        if (event['surfaceOp'] !== 'append' && source['kind'] === 'compact-checkpoint')
+          this.compactionOwner(source, 'compaction checkpoint')
         break
       }
-      case 'session/end-seed': this.compaction = undefined; break
+      case 'session/end-seed':
+        this.compaction = undefined
+        break
     }
   }
 }
 
 function notStartedRepair(
-  event: SessionFormatEvent, data: SessionFormatJsonObject, message: SessionFormatJsonObject, callId: string,
+  event: SessionFormatEvent,
+  data: SessionFormatJsonObject,
+  message: SessionFormatJsonObject,
+  callId: string,
 ): boolean {
   const error = record(data['error'], 'not-started error')
-  if (error['name'] !== 'ToolNotStartedError' || error['code'] !== 'TOOL_NOT_STARTED' || message['isError'] !== true || event['sourceEventSeqs'] !== undefined) return false
+  if (
+    error['name'] !== 'ToolNotStartedError' ||
+    error['code'] !== 'TOOL_NOT_STARTED' ||
+    message['isError'] !== true ||
+    event['sourceEventSeqs'] !== undefined
+  )
+    return false
   const id = text(message['id'], 'not-started message id')
   // Fork-specific fields and identity are checked by assertV4ForkResult before relationships.
   if (id.startsWith(`forked-tool-result-${callId}-`)) return true
@@ -341,13 +420,22 @@ function notStartedRepair(
   const suffix = id.slice(prefix.length)
   const content = array(message['content'], 'not-started content')
   const block = content[0]
-  return id.startsWith(prefix) && /^(0|[1-9]\d*)$/.test(suffix) && Number.isSafeInteger(Number(suffix))
-    && content.length === 1 && isSessionFormatJsonObject(block) && block['type'] === 'text'
-    && block['text'] === 'The tool call was interrupted before the Harness recorded it as started. Retry it if it is still needed.'
+  return (
+    id.startsWith(prefix) &&
+    /^(0|[1-9]\d*)$/.test(suffix) &&
+    Number.isSafeInteger(Number(suffix)) &&
+    content.length === 1 &&
+    isSessionFormatJsonObject(block) &&
+    block['type'] === 'text' &&
+    block['text'] === 'The tool call was interrupted before the Harness recorded it as started. Retry it if it is still needed.'
+  )
 }
 
 function titleSources(
-  events: readonly SessionFormatEvent[], event: SessionFormatEvent, data: SessionFormatJsonObject, knownEventTypes: ReadonlySet<string>,
+  events: readonly SessionFormatEvent[],
+  event: SessionFormatEvent,
+  data: SessionFormatJsonObject,
+  knownEventTypes: ReadonlySet<string>,
 ): void {
   const references = array(data['messageSeqs'], 'title messageSeqs')
   if (event.type === 'session/title' && (references.length === 0) !== (record(data['source'], 'title source')['kind'] === 'user')) {
@@ -357,7 +445,12 @@ function titleSources(
   for (const value of references) {
     const seq = earlier(value, event.seq, 'title messageSeqs')
     const source = events[seq]
-    if (seen.has(seq) || source?.type !== 'user/message' || !knownEventTypes.has(source.type) || record(record(source.data, 'title input')['source'], 'title input source')['kind'] !== 'user') {
+    if (
+      seen.has(seq) ||
+      source?.type !== 'user/message' ||
+      !knownEventTypes.has(source.type) ||
+      record(record(source.data, 'title input')['source'], 'title input source')['kind'] !== 'user'
+    ) {
       throw new SessionFormatError(`${event.type} messageSeqs must cite distinct earlier human user/message events`)
     }
     seen.add(seq)
@@ -367,9 +460,15 @@ function titleSources(
   const message = record(messages[0], 'title message')
   const content = array(message['content'], 'title content')
   const block = content[0]
-  if (references.length === 0 || messages.length !== 1 || message['role'] !== 'user'
-    || record(message['source'], 'title source')['kind'] !== 'dsh-session-title-llm'
-    || content.length !== 1 || !isSessionFormatJsonObject(block) || block['type'] !== 'text') {
+  if (
+    references.length === 0 ||
+    messages.length !== 1 ||
+    message['role'] !== 'user' ||
+    record(message['source'], 'title source')['kind'] !== 'dsh-session-title-llm' ||
+    content.length !== 1 ||
+    !isSessionFormatJsonObject(block) ||
+    block['type'] !== 'text'
+  ) {
     throw new SessionFormatError('session/title-llm-request messages do not represent messageSeqs')
   }
 }

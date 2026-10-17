@@ -25,8 +25,14 @@ export async function artifactDigest(file) {
  * @returns {Promise<object>} Feed controls, request evidence, input hashes, and awaited close.
  */
 export async function createArtifactUpdateServer(files) {
-  const artifacts = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([name, file]) =>
-    [name, { file, size: (await stat(file)).size, sha512: await artifactDigest(file) }])))
+  const artifacts = Object.fromEntries(
+    await Promise.all(
+      Object.entries(files).map(async ([name, file]) => [
+        name,
+        { file, size: (await stat(file)).size, sha512: await artifactDigest(file) },
+      ]),
+    ),
+  )
   const requests = []
   const failures = []
   const transfers = new Set()
@@ -43,24 +49,54 @@ export async function createArtifactUpdateServer(files) {
     response.setHeader('Cache-Control', 'no-store')
     if (path === '/nightly.yml') {
       response.setHeader('Content-Type', 'application/yaml')
-      response.end(dump({ version: '1.0.1-nightly.1', files: [{
-        url: `${origin}/payload-1.0.1-nightly.1.exe`, size: artifact.size, sha512: artifact.sha512,
-      }], path: 'payload-1.0.1-nightly.1.exe', sha512: artifact.sha512 }))
+      response.end(
+        dump({
+          version: '1.0.1-nightly.1',
+          files: [
+            {
+              url: `${origin}/payload-1.0.1-nightly.1.exe`,
+              size: artifact.size,
+              sha512: artifact.sha512,
+            },
+          ],
+          path: 'payload-1.0.1-nightly.1.exe',
+          sha512: artifact.sha512,
+        }),
+      )
       return
     }
-    const blockmap = path === '/payload-1.0.0.exe.blockmap' ? artifacts.oldBlockmap
-      : path === '/payload-1.0.1-nightly.1.exe.blockmap' ? artifacts.signedBlockmap : undefined
+    const blockmap =
+      path === '/payload-1.0.0.exe.blockmap'
+        ? artifacts.oldBlockmap
+        : path === '/payload-1.0.1-nightly.1.exe.blockmap'
+          ? artifacts.signedBlockmap
+          : undefined
     if (blockmap && !(fault === 'missing-old-blockmap' && blockmap === artifacts.oldBlockmap)) {
       response.writeHead(200, { 'Content-Length': blockmap.size })
       track(pipeline(createReadStream(blockmap.file), response))
       return
     }
-    if (path !== '/payload-1.0.1-nightly.1.exe') { response.writeHead(404).end(); return }
+    if (path !== '/payload-1.0.1-nightly.1.exe') {
+      response.writeHead(404).end()
+      return
+    }
     const range = request.headers.range
-    if (range && fault === 'reject-ranges') { response.writeHead(416).end(); return }
-    const ranges = range?.replace(/^bytes=/u, '').split(',').map(part => part.trim().split('-').map(Number))
-    if (ranges?.some(([start, end]) => !Number.isSafeInteger(start) || !Number.isSafeInteger(end)
-      || start < 0 || end < start || end >= artifact.size)) { response.writeHead(416).end(); return }
+    if (range && fault === 'reject-ranges') {
+      response.writeHead(416).end()
+      return
+    }
+    const ranges = range
+      ?.replace(/^bytes=/u, '')
+      .split(',')
+      .map(part => part.trim().split('-').map(Number))
+    if (
+      ranges?.some(
+        ([start, end]) => !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end >= artifact.size,
+      )
+    ) {
+      response.writeHead(416).end()
+      return
+    }
     record.bytes = ranges?.reduce((sum, [start, end]) => sum + end - start + 1, 0) ?? artifact.size
     const boundary = 'desktop-update-qualification'
     const headers = { 'Content-Type': 'application/octet-stream', 'Accept-Ranges': 'bytes' }
@@ -68,28 +104,34 @@ export async function createArtifactUpdateServer(files) {
     else if (ranges.length === 1) {
       headers['Content-Range'] = `bytes ${ranges[0][0]}-${ranges[0][1]}/${artifact.size}`
       headers['Content-Length'] = record.bytes
-    }
-    else headers['Content-Type'] = `multipart/byteranges; boundary=${boundary}`
+    } else headers['Content-Type'] = `multipart/byteranges; boundary=${boundary}`
     response.writeHead(ranges ? 206 : 200, headers)
     async function* body() {
       for (const [start, end] of ranges ?? [[0, artifact.size - 1]]) {
-        if (ranges?.length > 1) yield Buffer.from(`--${boundary}\r\nContent-Type: application/octet-stream\r\nContent-Range: bytes ${start}-${end}/${artifact.size}\r\n\r\n`)
+        if (ranges?.length > 1)
+          yield Buffer.from(
+            `--${boundary}\r\nContent-Type: application/octet-stream\r\nContent-Range: bytes ${start}-${end}/${artifact.size}\r\n\r\n`,
+          )
         yield* createReadStream(artifact.file, { start, end })
         if (ranges?.length > 1) yield Buffer.from('\r\n')
       }
       if (ranges?.length > 1) yield Buffer.from(`--${boundary}--\r\n`)
     }
     let first = true
-    const transform = new Transform({ transform(chunk, encoding, callback) {
-      if (damage && first) chunk[0] ^= 1
-      first = false
-      callback(null, chunk)
-    } })
+    const transform = new Transform({
+      transform(chunk, encoding, callback) {
+        if (damage && first) chunk[0] ^= 1
+        first = false
+        callback(null, chunk)
+      },
+    })
     track(pipeline(Readable.from(body()), transform, response))
   })
   function track(promise) {
     const transfer = promise
-      .catch(error => { failures.push(String(error)) })
+      .catch(error => {
+        failures.push(String(error))
+      })
       .finally(() => transfers.delete(transfer))
     transfers.add(transfer)
   }
@@ -98,10 +140,17 @@ export async function createArtifactUpdateServer(files) {
   await listening
   origin = `http://127.0.0.1:${server.address().port}`
   return {
-    url: `${origin}/`, requests, failures, artifacts,
-    select(name, damage = false, failure) { selected = name; corrupt = damage; fault = failure },
+    url: `${origin}/`,
+    requests,
+    failures,
+    artifacts,
+    select(name, damage = false, failure) {
+      selected = name
+      corrupt = damage
+      fault = failure
+    },
     async close() {
-      const closed = new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+      const closed = new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())))
       server.closeAllConnections()
       await Promise.all([closed, ...transfers])
     },

@@ -50,8 +50,13 @@ function record(value: unknown): value is Record<string, unknown> {
  * @returns Absolute resource path.
  */
 export function runtimePath(root: string, path: string): string {
-  if (path === '' || isAbsolute(path) || path.includes('\\') || path.includes(':')
-    || path.split('/').some(part => part === '' || part === '.' || part === '..')) {
+  if (
+    path === '' ||
+    isAbsolute(path) ||
+    path.includes('\\') ||
+    path.includes(':') ||
+    path.split('/').some(part => part === '' || part === '.' || part === '..')
+  ) {
     throw new Error(`desktop runtime: invalid relative path ${JSON.stringify(path)}`)
   }
   return join(root, ...path.split('/'))
@@ -74,9 +79,13 @@ function runtimeFiles(root: string): { path: string; name: string }[] {
 }
 
 function runtimeFile(path: string, name: string, body: Buffer): DesktopRuntimeFile {
-  return { path: name, bytes: body.byteLength, sha256: createHash('sha256').update(body).digest('hex'),
+  return {
+    path: name,
+    bytes: body.byteLength,
+    sha256: createHash('sha256').update(body).digest('hex'),
     // Windows has no portable Unix executable permission bits.
-    executable: process.platform !== 'win32' && (lstatSync(path).mode & 0o111) !== 0 }
+    executable: process.platform !== 'win32' && (lstatSync(path).mode & 0o111) !== 0,
+  }
 }
 
 /**
@@ -85,8 +94,9 @@ function runtimeFile(path: string, name: string, body: Buffer): DesktopRuntimeFi
  * @returns Sorted final-file inventory; executable permissions are false on Windows.
  */
 export function inventoryDesktopRuntime(root: string): DesktopRuntimeFile[] {
-  return runtimeFiles(root).map(({ path, name }) => runtimeFile(path, name, readFileSync(path)))
-    .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
+  return runtimeFiles(root)
+    .map(({ path, name }) => runtimeFile(path, name, readFileSync(path)))
+    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
 }
 
 async function inventoryRuntimeForVerification(root: string): Promise<DesktopRuntimeFile[]> {
@@ -110,7 +120,7 @@ async function inventoryRuntimeForVerification(root: string): Promise<DesktopRun
   // Failure returns only after every outstanding file read has closed its descriptor.
   const results = await Promise.allSettled(workers)
   for (const result of results) if (result.status === 'rejected') throw result.reason
-  return files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
+  return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
 }
 
 /**
@@ -122,10 +132,12 @@ async function inventoryRuntimeForVerification(root: string): Promise<DesktopRun
  * @returns Descriptor written beside the production packages.
  */
 export function writeDesktopRuntime(
-  root: string, release: DesktopRelease, sharedNames: readonly string[],
+  root: string,
+  release: DesktopRelease,
+  sharedNames: readonly string[],
   target: { platform: NodeJS.Platform; arch: string } = process,
 ): DesktopRuntimeDescriptor {
-  const sharedPackages = [...new Set(sharedNames)].sort().map((name) => {
+  const sharedPackages = [...new Set(sharedNames)].sort().map(name => {
     if (!PACKAGE_NAME.test(name)) throw new Error(`desktop runtime: invalid shared package ${name}`)
     const path = `node_modules/${name}`
     const manifest: unknown = JSON.parse(readFileSync(join(runtimePath(root, path), 'package.json'), 'utf8'))
@@ -135,8 +147,12 @@ export function writeDesktopRuntime(
     return { name, version: manifest.version, path }
   })
   const descriptor: DesktopRuntimeDescriptor = {
-    schemaVersion: 1, release, platform: target.platform, arch: target.arch,
-    sharedPackages, files: inventoryDesktopRuntime(root),
+    schemaVersion: 1,
+    release,
+    platform: target.platform,
+    arch: target.arch,
+    sharedPackages,
+    files: inventoryDesktopRuntime(root),
   }
   writeFileSync(join(root, DESKTOP_RUNTIME_FILE), `${JSON.stringify(descriptor, undefined, 2)}\n`)
   return descriptor
@@ -149,18 +165,33 @@ export function writeDesktopRuntime(
  */
 export function readDesktopRuntime(root: string): DesktopRuntimeDescriptor {
   const value: unknown = JSON.parse(readFileSync(join(root, DESKTOP_RUNTIME_FILE), 'utf8'))
-  if (!record(value) || typeof value.platform !== 'string' || typeof value.arch !== 'string'
-    || !Array.isArray(value.sharedPackages) || !Array.isArray(value.files)) {
+  if (
+    !record(value) ||
+    typeof value.platform !== 'string' ||
+    typeof value.arch !== 'string' ||
+    !Array.isArray(value.sharedPackages) ||
+    !Array.isArray(value.files)
+  ) {
     throw new Error('desktop runtime: invalid descriptor')
   }
-  if (!record(value.release) || typeof value.release.version !== 'string'
-    || typeof value.release.nodeVersion !== 'string' || typeof value.release.pnpmVersion !== 'string') {
+  if (
+    !record(value.release) ||
+    typeof value.release.version !== 'string' ||
+    typeof value.release.nodeVersion !== 'string' ||
+    typeof value.release.pnpmVersion !== 'string'
+  ) {
     throw new Error('desktop runtime: invalid release fields')
   }
   const release = value.release as unknown as DesktopRelease
   const sharedPackages = value.sharedPackages.map((entry: unknown): DesktopSharedPackage => {
-    if (!record(entry) || typeof entry.name !== 'string' || !PACKAGE_NAME.test(entry.name)
-      || typeof entry.version !== 'string' || valid(entry.version) === null || entry.path !== `node_modules/${entry.name}`) {
+    if (
+      !record(entry) ||
+      typeof entry.name !== 'string' ||
+      !PACKAGE_NAME.test(entry.name) ||
+      typeof entry.version !== 'string' ||
+      valid(entry.version) === null ||
+      entry.path !== `node_modules/${entry.name}`
+    ) {
       throw new Error('desktop runtime: invalid shared package record')
     }
     return { name: entry.name, version: entry.version, path: entry.path }
@@ -174,8 +205,14 @@ export function readDesktopRuntime(root: string): DesktopRuntimeDescriptor {
       throw new Error(`desktop runtime: missing or mismatched ${name}`)
     }
   }
-  return { schemaVersion: value.schemaVersion as 1, release, platform: value.platform as NodeJS.Platform,
-    arch: value.arch, sharedPackages, files }
+  return {
+    schemaVersion: value.schemaVersion as 1,
+    release,
+    platform: value.platform as NodeJS.Platform,
+    arch: value.arch,
+    sharedPackages,
+    files,
+  }
 }
 
 /**
@@ -187,7 +224,9 @@ export function readDesktopRuntime(root: string): DesktopRuntimeDescriptor {
  * @returns Validated runtime descriptor.
  */
 export async function verifyDesktopRuntime(
-  root: string, expectedVersion: string, target: { platform: NodeJS.Platform; arch: string } = process,
+  root: string,
+  expectedVersion: string,
+  target: { platform: NodeJS.Platform; arch: string } = process,
 ): Promise<DesktopRuntimeDescriptor> {
   const descriptor = readDesktopRuntime(root)
   // readDesktopRuntime preserves the disk schema value without validating release compatibility.
@@ -196,7 +235,8 @@ export async function verifyDesktopRuntime(
     throw new Error('desktop runtime: invalid descriptor or incompatible platform/architecture')
   }
   const release = parseDesktopRelease(descriptor.release)
-  if (release.version !== expectedVersion) throw new Error(`desktop runtime: bundled ${release.version} is not the expected ${expectedVersion}`)
+  if (release.version !== expectedVersion)
+    throw new Error(`desktop runtime: bundled ${release.version} is not the expected ${expectedVersion}`)
   for (const entry of descriptor.sharedPackages) {
     const manifest: unknown = JSON.parse(readFileSync(join(runtimePath(root, entry.path), 'package.json'), 'utf8'))
     if (!record(manifest) || manifest.name !== entry.name || manifest.version !== entry.version) {
@@ -205,8 +245,8 @@ export async function verifyDesktopRuntime(
   }
   const actual = await inventoryRuntimeForVerification(root)
   // Windows has no portable Unix executable permission bits.
-  const comparable = (items: readonly DesktopRuntimeFile[]): unknown => process.platform === 'win32'
-    ? items.map(({ executable: _executable, ...item }) => item) : items
+  const comparable = (items: readonly DesktopRuntimeFile[]): unknown =>
+    process.platform === 'win32' ? items.map(({ executable: _executable, ...item }) => item) : items
   if (JSON.stringify(comparable(descriptor.files)) !== JSON.stringify(comparable(actual))) {
     throw new Error('desktop runtime: integrity verification failed')
   }

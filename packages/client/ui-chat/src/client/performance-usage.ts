@@ -20,7 +20,9 @@ export class PerformanceUsagePolicy {
   }
 
   /** Release the accepted-value subscription. */
-  dispose(): void { this.unsubscribe() }
+  dispose(): void {
+    this.unsubscribe()
+  }
 
   /**
    * Publish a choice immediately and queue its Host write.

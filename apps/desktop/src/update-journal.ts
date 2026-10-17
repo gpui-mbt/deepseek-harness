@@ -5,12 +5,29 @@ import { isAbsolute, join } from 'node:path'
 import type { DesktopUpdateState } from './ipc.ts'
 
 /** User and process milestones that connect update states across application restarts. */
-export type DesktopUpdateJournalAction = 'started' | 'workspace-ready' | 'workspace-failed'
-  | 'check-requested' | 'download-requested' | 'install-confirmed' | 'quit-requested'
-  | 'policy-login-opened' | 'policy-login-returned' | 'policy-login-cancelled' | 'policy-login-failed'
+export type DesktopUpdateJournalAction =
+  | 'started'
+  | 'workspace-ready'
+  | 'workspace-failed'
+  | 'check-requested'
+  | 'download-requested'
+  | 'install-confirmed'
+  | 'quit-requested'
+  | 'policy-login-opened'
+  | 'policy-login-returned'
+  | 'policy-login-cancelled'
+  | 'policy-login-failed'
 
-const ERROR_CODES = ['ETIMEDOUT', 'ENOSPC', 'ERR_INTERNET_DISCONNECTED', 'ERR_CONNECTION_RESET',
-  'ERR_CONNECTION_CLOSED', 'ERR_NAME_NOT_RESOLVED', 'ERR_UPDATER_INVALID_SIGNATURE', 'ERR_UPDATER_CHECKSUM_MISMATCH'] as const
+const ERROR_CODES = [
+  'ETIMEDOUT',
+  'ENOSPC',
+  'ERR_INTERNET_DISCONNECTED',
+  'ERR_CONNECTION_RESET',
+  'ERR_CONNECTION_CLOSED',
+  'ERR_NAME_NOT_RESOLVED',
+  'ERR_UPDATER_INVALID_SIGNATURE',
+  'ERR_UPDATER_CHECKSUM_MISMATCH',
+] as const
 
 /**
  * Whitelist one update state for disk; neither error text nor unexpected object fields survive.
@@ -22,10 +39,12 @@ export function desktopUpdateJournalState(state: DesktopUpdateState): object {
     phase: state.phase,
     ...(state.version !== undefined ? { targetVersion: state.version } : {}),
     ...(state.phase === 'downloading' && state.percent !== undefined ? { percent: Math.floor(state.percent) } : {}),
-    ...(state.phase === 'error' ? {
-      failedOperation: state.failedOperation,
-      errorCode: ERROR_CODES.find(code => state.message?.includes(code)) ?? 'UNCLASSIFIED',
-    } : {}),
+    ...(state.phase === 'error'
+      ? {
+          failedOperation: state.failedOperation,
+          errorCode: ERROR_CODES.find(code => state.message?.includes(code)) ?? 'UNCLASSIFIED',
+        }
+      : {}),
   }
 }
 
@@ -39,7 +58,10 @@ export class DesktopUpdateJournal {
    * @param directory Absolute evidence directory, retained across installs; creation errors stop qualification.
    * @param version Installed application version, not a version supplied by the feed.
    */
-  constructor(directory: string, private readonly version: string) {
+  constructor(
+    directory: string,
+    private readonly version: string,
+  ) {
     if (!isAbsolute(directory)) throw new Error('desktop update journal: directory must be absolute')
     mkdirSync(directory, { recursive: true })
     this.path = join(directory, `${Date.now()}-${randomUUID()}.jsonl`)
@@ -52,7 +74,9 @@ export class DesktopUpdateJournal {
    * @param action Update operation or process milestone; no free-text fields are accepted.
    * @returns Nothing after the record has been flushed.
    */
-  action(action: DesktopUpdateJournalAction): void { this.append({ event: action }) }
+  action(action: DesktopUpdateJournalAction): void {
+    this.append({ event: action })
+  }
 
   /**
    * Retain state changes and integer progress increments without raw errors, URLs, or request data.
@@ -68,7 +92,17 @@ export class DesktopUpdateJournal {
   }
 
   private append(fields: object): void {
-    appendFileSync(this.path, `${JSON.stringify({ schemaVersion: 1, sequence: this.sequence++,
-      time: new Date().toISOString(), pid: process.pid, version: this.version, ...fields })}\n`, { flush: true })
+    appendFileSync(
+      this.path,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        sequence: this.sequence++,
+        time: new Date().toISOString(),
+        pid: process.pid,
+        version: this.version,
+        ...fields,
+      })}\n`,
+      { flush: true },
+    )
   }
 }

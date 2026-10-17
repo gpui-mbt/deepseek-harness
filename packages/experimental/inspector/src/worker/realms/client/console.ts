@@ -20,7 +20,7 @@ export class ClientConsoleBackend implements ConsoleBackend {
   ) {}
 
   subscribe(listener: (event: RuntimeConsoleBackendEvent<RuntimeBackendObjectHandle>) => void): () => void {
-    const dispose = this.router.subscribeConsole(this.target, this.sessionId, (event) => {
+    const dispose = this.router.subscribeConsole(this.target, this.sessionId, event => {
       listener(clientConsoleEvent(event, scriptKey => this.scriptIds.toRuntime(scriptKey)))
     })
     this.disposers.add(dispose)

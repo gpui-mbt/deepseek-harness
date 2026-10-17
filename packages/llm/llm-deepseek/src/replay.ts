@@ -37,7 +37,9 @@ export function replayState(model: string, blocks: ReplayBlock[]): ReplayEnvelop
  * @returns index-aligned metadata, absent for foreign, cross-model or degraded history.
  */
 export function readReplay(message: Message, model: string, onDegrade?: (reason: string) => void): ReplayBlock[] | undefined {
-  try { return validateReplay(message, model) } catch (error) {
+  try {
+    return validateReplay(message, model)
+  } catch (error) {
     /* v8 ignore next -- the validator only throws INVALID_REPLAY_STATE; preserve future non-replay failures. */
     if (!(error instanceof LlmError) || error.code !== 'INVALID_REPLAY_STATE') throw error
     onDegrade?.(error.message)
@@ -47,7 +49,9 @@ export function readReplay(message: Message, model: string, onDegrade?: (reason:
 
 function validateReplay(message: Message, model: string): ReplayBlock[] | undefined {
   if (message.source.kind !== 'model' || message.source.replayState === undefined) return undefined
-  const fail = (detail: string): never => { throw new LlmError(`DeepSeek Messages replay: ${detail}`, 'INVALID_REPLAY_STATE') }
+  const fail = (detail: string): never => {
+    throw new LlmError(`DeepSeek Messages replay: ${detail}`, 'INVALID_REPLAY_STATE')
+  }
   const envelope = object(message.source.replayState, 'INVALID_REPLAY_STATE')
   const response = object(envelope.response, 'INVALID_REPLAY_STATE')
   if (response.kind !== 'deepseek-messages' || response.version !== 1) return fail('unsupported kind or version')
@@ -55,10 +59,11 @@ function validateReplay(message: Message, model: string): ReplayBlock[] | undefi
   if (!Array.isArray(envelope.blocks) || envelope.blocks.length !== message.content.length) return fail('block count mismatch')
   const blocks = envelope.blocks.map((value, index): ReplayBlock => {
     const block = object(value, 'INVALID_REPLAY_STATE')
-    if (block.type !== message.content[index]?.type
-      || (block.type !== 'text' && block.type !== 'reasoning' && block.type !== 'tool-call')) return fail('block type mismatch')
-    if (block.signature !== undefined && (block.type !== 'reasoning' || typeof block.signature !== 'string')) return fail('invalid signature')
-    return { type: block.type, ...typeof block.signature === 'string' ? { signature: block.signature } : {} }
+    if (block.type !== message.content[index]?.type || (block.type !== 'text' && block.type !== 'reasoning' && block.type !== 'tool-call'))
+      return fail('block type mismatch')
+    if (block.signature !== undefined && (block.type !== 'reasoning' || typeof block.signature !== 'string'))
+      return fail('invalid signature')
+    return { type: block.type, ...(typeof block.signature === 'string' ? { signature: block.signature } : {}) }
   })
   return response.model === model ? blocks : undefined
 }

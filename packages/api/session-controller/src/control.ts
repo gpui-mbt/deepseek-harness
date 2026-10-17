@@ -2,16 +2,9 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { Deque } from '@deepseek-ai/dsh-deque'
-import type {
-  Session, SessionId,
-} from '@deepseek-ai/dsh-session'
+import type { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import type {
-  SessionControlBaseline,
-  SessionControlFrame,
-  SessionProjectionBaseline,
-  SessionProjectionValues,
-} from './types.ts'
+import type { SessionControlBaseline, SessionControlFrame, SessionProjectionBaseline, SessionProjectionValues } from './types.ts'
 
 /** Owns the Host-wide Session control stream. */
 export class SessionControlController {
@@ -28,10 +21,13 @@ export class SessionControlController {
         seq,
       })
     })
-    ctx.effect(() => () => {
-      for (const stream of this.streams) stream.end()
-      this.streams.clear()
-    }, 'session-controller.control')
+    ctx.effect(
+      () => () => {
+        for (const stream of this.streams) stream.end()
+        this.streams.clear()
+      },
+      'session-controller.control',
+    )
   }
 
   /**
@@ -59,9 +55,7 @@ export class SessionControlController {
     }
   }
 
-  private projectionBaseline(
-    sessions: readonly Session[],
-  ): Readonly<Record<SessionId, SessionProjectionBaseline>> {
+  private projectionBaseline(sessions: readonly Session[]): Readonly<Record<SessionId, SessionProjectionBaseline>> {
     const blocks = Object.create(null) as Record<SessionId, SessionProjectionBaseline>
     for (const session of sessions) {
       const snapshot = this.ctx.sessionProjections.snapshot(session)
@@ -101,7 +95,9 @@ class ControlQueue {
   }
 
   async *iterate(signal: AbortSignal): AsyncIterable<SessionControlFrame> {
-    const onAbort = (): void => { this.end() }
+    const onAbort = (): void => {
+      this.end()
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     try {
       while (!this.done && !signal.aborted) {
@@ -110,7 +106,9 @@ class ControlQueue {
           yield frame
           continue
         }
-        await new Promise<void>((resolve) => { this.wake = resolve })
+        await new Promise<void>(resolve => {
+          this.wake = resolve
+        })
       }
       while (this.buffer.size > 0 && !signal.aborted) yield this.buffer.popFront() as SessionControlFrame
     } finally {

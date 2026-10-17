@@ -18,7 +18,10 @@ export function desktopEntryFields(text: string): Readonly<Record<string, string
   const fields = new Map<string, string>()
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim()
-    if (trimmed.startsWith('[')) { main = trimmed === '[Desktop Entry]'; continue }
+    if (trimmed.startsWith('[')) {
+      main = trimmed === '[Desktop Entry]'
+      continue
+    }
     if (!main || trimmed.startsWith('#')) continue
     const separator = trimmed.indexOf('=')
     if (separator > 0) fields.set(trimmed.slice(0, separator).trim(), trimmed.slice(separator + 1).trim())
@@ -33,8 +36,10 @@ export function desktopEntryFields(text: string): Readonly<Record<string, string
  * @returns data-home followed by system data directories.
  */
 export function desktopDataDirectories(home: string, env: Readonly<Record<string, string | undefined>>): readonly string[] {
-  return [env.XDG_DATA_HOME ?? join(home, '.local', 'share'),
-    ...(env.XDG_DATA_DIRS ?? '/usr/local/share:/usr/share').split(':').filter(Boolean)]
+  return [
+    env.XDG_DATA_HOME ?? join(home, '.local', 'share'),
+    ...(env.XDG_DATA_DIRS ?? '/usr/local/share:/usr/share').split(':').filter(Boolean),
+  ]
 }
 
 /** Read an installed PNG or SVG icon; absent paths and directories have no pixels. */

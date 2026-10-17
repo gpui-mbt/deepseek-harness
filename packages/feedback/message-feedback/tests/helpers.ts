@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import SessionStore, { SessionLogOffset,
+import SessionStore, {
+  SessionLogOffset,
   SESSION_FORMAT_VERSION,
   Session,
   SessionId,
@@ -44,32 +45,44 @@ export function appendMessageFixture(session: Session): Omit<MessageFixture, 'se
     content: [{ type: 'text', text: 'First answer' }],
     source: { provider: 'test', model: 'test' },
   })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: first,
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: first,
+    },
+    { surfaceOp: 'append' },
+  )
   const second = createAssistantMessage({
     content: [{ type: 'text', text: 'Second answer' }],
     source: { provider: 'test', model: 'test' },
   })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: second,
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: second,
+    },
+    { surfaceOp: 'append' },
+  )
   const empty = createAssistantMessage({
     content: [],
     source: { provider: 'test', model: 'test' },
   })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: empty,
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: empty,
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
@@ -81,10 +94,7 @@ export function appendMessageFixture(session: Session): Omit<MessageFixture, 'se
 }
 
 /** Construct one cold persistence fixture without publishing a live Session. */
-export function messageFixture(
-  rawId: string,
-  options: { readonly createdAt?: number; readonly cwd?: string } = {},
-): MessageFixture {
+export function messageFixture(rawId: string, options: { readonly createdAt?: number; readonly cwd?: string } = {}): MessageFixture {
   const id = SessionId(rawId)
   const header: SessionHeader = {
     version: SESSION_FORMAT_VERSION,
@@ -167,7 +177,7 @@ class TestPersistence extends SessionPersistence {
           events: structuredClone(length === undefined ? events : events.slice(0, length)),
         }
       },
-      append: async (events) => {
+      append: async events => {
         if (closed) throw new SessionHandleClosedError(stored.meta.id, 'append')
         if (access !== 'write') throw new SessionReadOnlyError(stored.meta.id, 'append')
         if (this.appendFailure !== undefined) throw this.appendFailure
@@ -179,8 +189,13 @@ class TestPersistence extends SessionPersistence {
         if (access !== 'write') throw new SessionReadOnlyError(stored.meta.id, 'flush')
         if (this.flushFailure !== undefined) throw this.flushFailure
       },
-      close: async () => { closed = true; this.closeCalls += 1 },
-      [Symbol.asyncDispose]() { return handle.close() },
+      close: async () => {
+        closed = true
+        this.closeCalls += 1
+      },
+      [Symbol.asyncDispose]() {
+        return handle.close()
+      },
     }
     return handle
   }

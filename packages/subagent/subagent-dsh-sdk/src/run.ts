@@ -97,16 +97,15 @@ interface SdkFailureFacts {
 
 /** Fixed safe failure text derived only from provider-owned structured facts. */
 function failureDiagnostic(facts: SdkFailureFacts): string {
-  const fields = [
-    'provider: DSH SDK',
-    `stage: ${facts.stage}`,
-    `category: ${facts.category}`,
-  ]
+  const fields = ['provider: DSH SDK', `stage: ${facts.stage}`, `category: ${facts.category}`]
   return `Subagent failure (${fields.join('; ')})`
 }
 
 class SdkRunFailure extends Error {
-  constructor(readonly facts: SdkFailureFacts, cause: unknown) {
+  constructor(
+    readonly facts: SdkFailureFacts,
+    cause: unknown,
+  ) {
     super(`subagent-dsh-sdk: ${failureDiagnostic(facts)}`, { cause })
     this.name = 'SdkRunFailure'
   }
@@ -128,11 +127,12 @@ export function sdkConfigurationFailure(cause: unknown): Error {
 
 /** Classify one SDK rejection without reading its message or stderr tail. */
 function sdkFailure(error: unknown, stage: SdkFailureStage): SdkRunFailure {
-  const facts: SdkFailureFacts = error instanceof TransportClosedError
-    ? { stage, category: 'transport' }
-    : error instanceof SdkProtocolError || error instanceof JsonRpcResponseError
-      ? { stage, category: 'protocol' }
-      : { stage, category: 'unknown' }
+  const facts: SdkFailureFacts =
+    error instanceof TransportClosedError
+      ? { stage, category: 'transport' }
+      : error instanceof SdkProtocolError || error instanceof JsonRpcResponseError
+        ? { stage, category: 'protocol' }
+        : { stage, category: 'unknown' }
   return new SdkRunFailure(facts, error)
 }
 
@@ -142,9 +142,7 @@ function sdkFailure(error: unknown, stage: SdkFailureStage): SdkRunFailure {
  * `undefined` when it settled without running a turn.
  * @returns the shared stop reason and any additional safe diagnostic.
  */
-export function sdkChildOutcome(
-  reason: TurnEndReason | undefined,
-): Pick<SubagentResult, 'stopReason' | 'diagnostic'> {
+export function sdkChildOutcome(reason: TurnEndReason | undefined): Pick<SubagentResult, 'stopReason' | 'diagnostic'> {
   switch (reason?.kind) {
     case 'completed':
       return { stopReason: 'completed' }
@@ -153,9 +151,9 @@ export function sdkChildOutcome(
     case 'aborted':
       return reason.reason.kind === 'disposed'
         ? {
-          stopReason: 'aborted',
-          diagnostic: failureDiagnostic({ stage: 'session-run', category: 'child-disposed' }),
-        }
+            stopReason: 'aborted',
+            diagnostic: failureDiagnostic({ stage: 'session-run', category: 'child-disposed' }),
+          }
         : { stopReason: 'aborted' }
     case 'blocked':
       return { stopReason: 'refusal' }
@@ -209,10 +207,7 @@ function sdkStartupFailure(spec: SdkRunSpec, error: unknown): Error {
   reportFailure(spec, cleanupError)
   const initializeFailure = sdkFailure(initializeError, 'initialize')
   const cleanupFailure = new SdkRunFailure({ stage: 'shutdown', category: 'unknown' }, cleanupError)
-  return new AggregateError(
-    [initializeFailure, cleanupFailure],
-    `${initializeFailure.message}; ${cleanupFailure.message}`,
-  )
+  return new AggregateError([initializeFailure, cleanupFailure], `${initializeFailure.message}; ${cleanupFailure.message}`)
 }
 
 /**
@@ -235,7 +230,7 @@ export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpe
   const id = brandString<SessionId>(randomUUID())
 
   const harness = internals.createHarness({
-    ...spec.dshBin === undefined ? {} : { dshBin: spec.dshBin },
+    ...(spec.dshBin === undefined ? {} : { dshBin: spec.dshBin }),
     profile: spec.profile,
     patches: spec.patches,
     dshHome: spec.dshHome,
@@ -247,20 +242,24 @@ export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpe
     cwd: spec.originCwd ?? spec.cwd,
     provider: spec.provider,
     model: spec.model,
-    ...spec.reasoningEffort === undefined ? {} : { reasoningEffort: spec.reasoningEffort },
-    ...spec.maxTokens === undefined ? {} : { maxTokens: spec.maxTokens },
+    ...(spec.reasoningEffort === undefined ? {} : { reasoningEffort: spec.reasoningEffort }),
+    ...(spec.maxTokens === undefined ? {} : { maxTokens: spec.maxTokens }),
   })
 
   // Cancellation settles the result without waiting for a cooperative child.
   const flags = { cancelled: false }
   let signalCancelSettled!: () => void
-  const cancelSettled = new Promise<void>((resolve) => { signalCancelSettled = resolve })
+  const cancelSettled = new Promise<void>(resolve => {
+    signalCancelSettled = resolve
+  })
   const requestCancel = (): void => {
     if (flags.cancelled) return
     flags.cancelled = true
     signalCancelSettled()
   }
-  const onAbort = (): void => { requestCancel() }
+  const onAbort = (): void => {
+    requestCancel()
+  }
   request.signal.addEventListener('abort', onAbort, { once: true })
   const cancelledStartup = new Error('subagent cancelled before the SDK child initialized')
 
@@ -269,7 +268,9 @@ export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpe
   try {
     await Promise.race([
       harness.start(),
-      cancelSettled.then((): never => { throw cancelledStartup }),
+      cancelSettled.then((): never => {
+        throw cancelledStartup
+      }),
     ])
     // Defensive: an abort() is a macrotask and no user callback runs inside
     // the microtask drain between handshake fulfillment and this continuation,
@@ -297,8 +298,9 @@ export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpe
   // The child's final answer under the seam's canonical selection rule
   // (`AssistantOutputFold`); a partial answer survives cancel and error paths.
   const fold = new AssistantOutputFold()
-  const subscription = harness.client.subscribe(notification =>
-    notification.method === 'session.event' && notification.params.sessionId === childSessionId)
+  const subscription = harness.client.subscribe(
+    notification => notification.method === 'session.event' && notification.params.sessionId === childSessionId,
+  )
   let lastEnd: TurnEndReason | undefined
   const drainNotifications = (): void => {
     let notification

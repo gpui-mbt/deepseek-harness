@@ -1,10 +1,12 @@
 /** Opt-in native-fetch probes of the actual anonymous browser endpoints. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import Translator from '../src/index.ts'
 
 const contexts: Context[] = []
-afterEach(async () => { await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose())) })
+afterEach(async () => {
+  await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
+})
 
 async function translator() {
   const ctx = new Context()
@@ -29,7 +31,7 @@ describe.skipIf(process.env.DSH_TRANSLATION_LIVE !== '1')('anonymous translation
     expect(await service.translate(spec)).toMatch(/電腦|計算機/u)
   })
 
-  it.each(['zh-Hans', 'zh-Hant'])('uses explicit Google with Chinese tag %s', async (targetLanguage) => {
+  it.each(['zh-Hans', 'zh-Hant'])('uses explicit Google with Chinese tag %s', async targetLanguage => {
     const service = await translator()
     const spec = service.resolve({ text: 'The computer processes data.', targetLanguage, sourceLanguage: 'en', provider: 'google' })
     const result = await service.translate(spec)

@@ -2,15 +2,13 @@
 /** Conversation assembly acceptance independent of Tool presentation. */
 import './control-row-dom.ts'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import {
-  RemoteError, SlotTestRuntime, usePinnedBrowserLanguages, stubConfigForm,
-} from '@deepseek-ai/dsh-client-test-runtime'
+import { RemoteError, SlotTestRuntime, usePinnedBrowserLanguages, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { InputHub } from '../src/client/input/hub.ts'
 import { apply, inject, type EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -19,12 +17,18 @@ import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 // jsdom implements no Range geometry (Lexical's scroll-into-view measures the
 // caret with one once the surface is genuinely contenteditable).
 Range.prototype.getBoundingClientRect = () => ({
-  top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}),
+  top: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
+  width: 0,
+  height: 0,
+  x: 0,
+  y: 0,
+  toJSON: () => ({}),
 })
 
-
 usePinnedBrowserLanguages('zh-CN')
-
 
 const SID = 's1' as SessionId
 
@@ -50,7 +54,7 @@ function AppRoot({ renderSlot }: AppRootProps) {
 }
 
 const LAYOUT_CHILDREN = {
-  'main': { kind: 'keyed', scope: 'root' },
+  main: { kind: 'keyed', scope: 'root' },
 } as const
 
 function provideWorkspaceNavigation(runtime: SlotTestRuntime): (id: SessionId) => void {
@@ -73,7 +77,12 @@ function provideWorkspaceNavigation(runtime: SlotTestRuntime): (id: SessionId) =
 function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
   const [count, setCount] = useState(0)
   return (
-    <button data-testid="workspace-probe" onClick={() => { setCount(value => value + 1) }}>
+    <button
+      data-testid="workspace-probe"
+      onClick={() => {
+        setCount(value => value + 1)
+      }}
+    >
       {String(open)}:{count}
     </button>
   )
@@ -105,7 +114,10 @@ describe('resident composer', () => {
   it('renders the locked view state while no session exists at all', async () => {
     const runtime = await SlotTestRuntime.create()
     provideWorkspaceNavigation(runtime)
-    runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
+    runtime.ctx.provide('configForms', {
+      developerTools: { enabled: createSnapshotStore(true) },
+      get: () => stubConfigForm().scope,
+    } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
     runtime.slots.installLocale(locale)
@@ -132,11 +144,14 @@ describe('resident composer', () => {
   it('keeps the complete Hero tree mounted when the first Workspace session appears', async () => {
     const runtime = await SlotTestRuntime.create()
     const openSession = provideWorkspaceNavigation(runtime)
-    runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
+    runtime.ctx.provide('configForms', {
+      developerTools: { enabled: createSnapshotStore(true) },
+      get: () => stubConfigForm().scope,
+    } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
     runtime.slots.installLocale(locale)
-    await runtime.workspaces.update((draft) => {
+    await runtime.workspaces.update(draft => {
       draft.items = [{ workspaceId: 'w1', title: 'Proj', path: '/proj', sessionIds: [SID] }] as never
     })
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
@@ -179,7 +194,7 @@ describe('resident composer', () => {
 
   it('the textarea survives the blank→active conversion as the same DOM node', async () => {
     const runtime = await bench({ blank: true })
-    await runtime.workspaces.update((draft) => {
+    await runtime.workspaces.update(draft => {
       draft.items = [{ workspaceId: 'w1', title: 'Proj', path: '/proj', sessionIds: [SID] }] as never
     })
     const view = runtime.renderRoot()
@@ -187,7 +202,7 @@ describe('resident composer', () => {
     expect(hero).not.toBeNull()
     expect(hero!.getAttribute('aria-disabled')).not.toBe('true')
 
-    await runtime.sessions.updateSessionSnapshot(SID, (draft) => {
+    await runtime.sessions.updateSessionSnapshot(SID, draft => {
       draft.blank = false
     })
     expect(view.container.querySelector<HTMLDivElement>('[data-composer-input]')).toBe(hero)
@@ -199,7 +214,10 @@ describe('prompt rejection through the assembled composer', () => {
   it('renders the promptError alert strip and keeps the draft in the machine', async () => {
     const runtime = await SlotTestRuntime.create()
     const openSession = provideWorkspaceNavigation(runtime)
-    runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
+    runtime.ctx.provide('configForms', {
+      developerTools: { enabled: createSnapshotStore(true) },
+      get: () => stubConfigForm().scope,
+    } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
     runtime.slots.installLocale(locale)
@@ -222,11 +240,15 @@ describe('prompt rejection through the assembled composer', () => {
     // events carry no value; the resolver is the public draft write path).
     const conversation = runtime.ctx.get('conversation') as { input: unknown }
     const shell = (conversation.input as InputHub).shell(SID)
-    act(() => { shell.setDraft('do not lose this') })
+    act(() => {
+      shell.setDraft('do not lose this')
+    })
     fireEvent.keyDown(composer, { key: 'Enter' })
-    await waitFor(() => { expect(prompt).toHaveBeenCalledOnce() })
+    await waitFor(() => {
+      expect(prompt).toHaveBeenCalledOnce()
+    })
 
-    await runtime.sessions.updateSessionSnapshot(SID, (draft) => {
+    await runtime.sessions.updateSessionSnapshot(SID, draft => {
       draft.promptError = {
         op: 'send',
         error: new RemoteError('session/agent-busy', 'prompt rejected before acceptance', { reason: 'busy' }),

@@ -15,10 +15,7 @@ import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { bundlePatchPaths, composeEntries } from '../packages/boot/app-boot/src/profile.ts'
 import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
 import { isAgentPresetEntry, isCordisGroupEntry, loadCordisYaml } from './cordis-yaml.ts'
-import {
-  collectRuntimeLocalSourceSpecifiers,
-  collectRuntimeSourceSpecifiers,
-} from './verify-client-packages.ts'
+import { collectRuntimeLocalSourceSpecifiers, collectRuntimeSourceSpecifiers } from './verify-client-packages.ts'
 
 import { isExperimentalPackageName } from './experimental-package-policy.ts'
 // The independently published entry package owns platform-engine dependencies.
@@ -63,10 +60,16 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   const packages = new Map<string, Package>()
   const directories = new Map<string, Package>()
   const display = (path: string): string => relative(root, path).replaceAll('\\', '/')
-  for (const path of globSync([
-    'apps/*/package.json', 'packages/*/*/package.json', 'vendor/*/package.json',
-    'native/system/packages/*/package.json', 'python/sdk-runtime/package.json',
-  ], { cwd: root }).sort()) {
+  for (const path of globSync(
+    [
+      'apps/*/package.json',
+      'packages/*/*/package.json',
+      'vendor/*/package.json',
+      'native/system/packages/*/package.json',
+      'python/sdk-runtime/package.json',
+    ],
+    { cwd: root },
+  ).sort()) {
     const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as Manifest
     if (typeof manifest.name !== 'string' || manifest.name === '') throw new Error(`${path}: missing package name`)
     if (packages.has(manifest.name)) throw new Error(`${path}: duplicate package name ${manifest.name}`)
@@ -107,8 +110,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   const sources = new Set<string>()
   const configs = new Set<string>()
   let webPluginCount = 0
-  const isExperimental = (pkg: Package): boolean => isExperimentalPackageName(pkg.manifest.name)
-    || display(pkg.directory).startsWith('packages/experimental/')
+  const isExperimental = (pkg: Package): boolean =>
+    isExperimentalPackageName(pkg.manifest.name) || display(pkg.directory).startsWith('packages/experimental/')
   const add = (pkg: Package, origin: string): void => {
     if (isExperimental(pkg)) {
       failures.push(`${origin} -> ${pkg.manifest.name}: default product must not include experimental packages`)
@@ -129,7 +132,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   }
   const reference = (name: string, origin: string, owner?: Package): void => {
     if (name.startsWith('.') || name.startsWith('/') || /^(?:file|link):/.test(name)) {
-      const target = name.startsWith('file://') ? fileURLToPath(name)
+      const target = name.startsWith('file://')
+        ? fileURLToPath(name)
         : resolve(owner?.directory ?? root, name.replace(/^(?:file|link):/, ''))
       const pkg = directories.get(target) ?? ownerOf(target)
       if (pkg !== undefined) add(pkg, origin)
@@ -159,7 +163,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
     reference(specifier, display(path), owner)
     const name = barePackageName(specifier)
     const range = [...RUNTIME_SECTIONS, 'devDependencies' as const]
-      .map(section => owner.manifest[section]?.[name]).find(value => value !== undefined)
+      .map(section => owner.manifest[section]?.[name])
+      .find(value => value !== undefined)
     if (range !== undefined) dependency(name, range, owner, display(path))
   }
   const scanSource = (path: string, followLocal = false, inlineSource?: string): void => {
@@ -168,9 +173,10 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
     const source = inlineSource ?? readFileSync(path, 'utf8')
     for (const specifier of collectRuntimeSourceSpecifiers(path, source)) sourceReference(specifier, path)
     for (const specifier of runtimeLocalSpecifiers(path, source)) {
-      const local = followLocal && specifier.startsWith('/')
-        ? resolve(root, 'apps/web', `.${specifier.replace(/[?#].*$/, '')}`)
-        : resolve(dirname(path), specifier.replace(/[?#].*$/, ''))
+      const local =
+        followLocal && specifier.startsWith('/')
+          ? resolve(root, 'apps/web', `.${specifier.replace(/[?#].*$/, '')}`)
+          : resolve(dirname(path), specifier.replace(/[?#].*$/, ''))
       const target = resolveSource(local)
       const resolved = target ?? local
       const owner = directories.get(resolved) ?? ownerOf(resolved)
@@ -179,9 +185,7 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       if (followLocal && target !== undefined) scanSource(target, true)
     }
   }
-  const scanEntries = (
-    document: unknown[], path: string, composedWeb = false, includeStack: ReadonlySet<string> = new Set(),
-  ): void => {
+  const scanEntries = (document: unknown[], path: string, composedWeb = false, includeStack: ReadonlySet<string> = new Set()): void => {
     const visit = (entry: unknown): void => {
       if (!isRecord(entry)) return
       if (typeof entry.name === 'string') {
@@ -193,8 +197,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
           if (targetOwner !== undefined) add(targetOwner, display(path))
         } else reference(entry.name, display(path), owner)
       }
-      if (isCordisGroupEntry(entry) || entry.name === 'cordis:group' && Array.isArray(entry.config)) {
-        (entry.config as unknown[]).forEach(visit)
+      if (isCordisGroupEntry(entry) || (entry.name === 'cordis:group' && Array.isArray(entry.config))) {
+        ;(entry.config as unknown[]).forEach(visit)
       }
       if (isAgentPresetEntry(entry)) entry.config.plugins.forEach(visit)
       if (Array.isArray(entry.insert)) entry.insert.forEach(visit)
@@ -248,7 +252,7 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       }
       if (optionalBundles.has(name)) failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must not be a default bundle`)
     }
-    const webLayers = selection.webBundles.flatMap((name) => {
+    const webLayers = selection.webBundles.flatMap(name => {
       const pkg = packages.get(name)
       const bundle = pkg?.manifest.dsh?.bundle
       if (pkg === undefined || bundle === undefined) return []
@@ -294,29 +298,39 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
     for (const section of RUNTIME_SECTIONS) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         const target = packages.get(name)
-        if (pkg === cli && section === 'dependencies' && optionalBundles.has(name) && target !== undefined && isExperimental(target)) continue
+        if (pkg === cli && section === 'dependencies' && optionalBundles.has(name) && target !== undefined && isExperimental(target))
+          continue
         dependency(name, range, pkg, `${manifest.name} ${section}`)
       }
     }
     for (const file of manifest.dsh?.bundle === undefined ? [] : bundlePatchPaths(pkg.directory, manifest.dsh.bundle)) scanConfig(file)
     for (const tree of manifest.dsh?.configTrees ?? []) {
       const treePath = resolve(pkg.directory, tree.path)
-      const files = existsSync(treePath) && statSync(treePath).isDirectory()
-        ? globSync('**/*.{yml,yaml}', { cwd: treePath, exclude: ['**/*.i18n.yaml', '**/preset.yml'] }) : []
+      const files =
+        existsSync(treePath) && statSync(treePath).isDirectory()
+          ? globSync('**/*.{yml,yaml}', { cwd: treePath, exclude: ['**/*.i18n.yaml', '**/preset.yml'] })
+          : []
       if (files.length === 0) failures.push(`${display(treePath)}: declared config tree has no composition files`)
       for (const path of files) scanConfig(resolve(treePath, path))
     }
     if (display(pkg.directory) === 'apps/web') continue
-    const files = globSync('src/**/*.{ts,tsx,mts,cts,js,mjs,cjs}', { cwd: pkg.directory,
-      exclude: ['**/*.spec.*', '**/*.test.*', '**/*.d.ts', '**/tests/**', '**/__tests__/**', '**/node_modules/**'] })
+    const files = globSync('src/**/*.{ts,tsx,mts,cts,js,mjs,cjs}', {
+      cwd: pkg.directory,
+      exclude: ['**/*.spec.*', '**/*.test.*', '**/*.d.ts', '**/tests/**', '**/__tests__/**', '**/node_modules/**'],
+    })
     if (display(pkg.directory) === 'apps/cli' && files.length === 0) failures.push('apps/cli: no default runtime sources')
     for (const path of files) {
       const sourcePath = resolve(pkg.directory, path)
       if (statSync(sourcePath).isFile()) scanSource(sourcePath)
     }
   }
-  return { failures: [...new Set(failures)], packageCount: visited.size,
-    sourceCount: sources.size, configCount: configs.size, webPluginCount }
+  return {
+    failures: [...new Set(failures)],
+    packageCount: visited.size,
+    sourceCount: sources.size,
+    configCount: configs.size,
+    webPluginCount,
+  }
 }
 
 function barePackageName(specifier: string): string {
@@ -325,15 +339,22 @@ function barePackageName(specifier: string): string {
 
 function resolveSource(path: string): string | undefined {
   const extension = extname(path)
-  if (extension !== '' && !/^\.[cm]?[jt]sx?$/.test(extension)
-    && !(existsSync(path) && statSync(path).isDirectory())) return undefined
+  if (extension !== '' && !/^\.[cm]?[jt]sx?$/.test(extension) && !(existsSync(path) && statSync(path).isDirectory())) return undefined
   const extensions = ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx']
-  const typed = extension === '.js' ? [path.replace(/\.js$/, '.ts'), path.replace(/\.js$/, '.tsx')]
-    : extension === '.mjs' ? [path.replace(/\.mjs$/, '.mts')]
-      : extension === '.cjs' ? [path.replace(/\.cjs$/, '.cts')] : []
-  return [path, ...typed, ...extension === '' ? extensions.map(suffix => `${path}${suffix}`) : [],
-    ...extensions.map(suffix => resolve(path, `index${suffix}`))]
-    .find(candidate => existsSync(candidate) && statSync(candidate).isFile())
+  const typed =
+    extension === '.js'
+      ? [path.replace(/\.js$/, '.ts'), path.replace(/\.js$/, '.tsx')]
+      : extension === '.mjs'
+        ? [path.replace(/\.mjs$/, '.mts')]
+        : extension === '.cjs'
+          ? [path.replace(/\.cjs$/, '.cts')]
+          : []
+  return [
+    path,
+    ...typed,
+    ...(extension === '' ? extensions.map(suffix => `${path}${suffix}`) : []),
+    ...extensions.map(suffix => resolve(path, `index${suffix}`)),
+  ].find(candidate => existsSync(candidate) && statSync(candidate).isFile())
 }
 
 function runtimeLocalSpecifiers(path: string, source: string): Set<string> {
@@ -342,8 +363,8 @@ function runtimeLocalSpecifiers(path: string, source: string): Set<string> {
   const visit = (node: ts.Node): void => {
     if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'URL') {
       const first = node.arguments?.[0]
-      if (first !== undefined && ts.isStringLiteralLike(first)
-        && (first.text.startsWith('.') || first.text.startsWith('/'))) specifiers.add(first.text)
+      if (first !== undefined && ts.isStringLiteralLike(first) && (first.text.startsWith('.') || first.text.startsWith('/')))
+        specifiers.add(first.text)
     }
     ts.forEachChild(node, visit)
   }
@@ -368,24 +389,33 @@ function profilePackages(source: string): { packages: string[]; webBundles: stri
       if (path[0] === 'OPTIONAL_BUNDLES') optionalBundles.push(node.text)
       else if (node.text.startsWith('@')) packages.push(node.text)
       if (path.join('.') === 'PROFILE_TEMPLATES.web.bundles') webBundles.push(node.text)
-    } else if (ts.isArrayLiteralExpression(node)) node.elements.forEach((child) => { literals(child, path) })
-    else if (ts.isObjectLiteralExpression(node)) node.properties.forEach((child) => { literals(child, path) })
+    } else if (ts.isArrayLiteralExpression(node))
+      node.elements.forEach(child => {
+        literals(child, path)
+      })
+    else if (ts.isObjectLiteralExpression(node))
+      node.properties.forEach(child => {
+        literals(child, path)
+      })
     else if (ts.isPropertyAssignment(node)) {
       if (!ts.isIdentifier(node.name) && !ts.isStringLiteralLike(node.name)) {
         throw new Error(`${PROFILE_SOURCE}: default profile keys must be literal names`)
       }
       literals(node.initializer, [...path, node.name.text])
-    }
-    else if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isParenthesizedExpression(node)) {
+    } else if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isParenthesizedExpression(node)) {
       literals(node.expression, path)
     } else throw new Error(`${PROFILE_SOURCE}: default profile packages must use static literal lists`)
   }
   for (const statement of file.statements) {
     if (!ts.isVariableStatement(statement)) continue
     for (const declaration of statement.declarationList.declarations) {
-      if (!ts.isIdentifier(declaration.name)
-        || !required.has(declaration.name.text) && declaration.name.text !== 'INSTALLATION_OWNED_PROFILE_TUPLES'
-        && declaration.name.text !== 'OPTIONAL_BUNDLES') continue
+      if (
+        !ts.isIdentifier(declaration.name) ||
+        (!required.has(declaration.name.text) &&
+          declaration.name.text !== 'INSTALLATION_OWNED_PROFILE_TUPLES' &&
+          declaration.name.text !== 'OPTIONAL_BUNDLES')
+      )
+        continue
       if (declaration.initializer === undefined) continue
       if (required.has(declaration.name.text)) found.add(declaration.name.text)
       const before = packages.length
@@ -406,8 +436,10 @@ if (import.meta.main) {
     for (const failure of result.failures) console.error(`verify-default-product-isolation: ${failure}`)
     process.exitCode = 1
   } else {
-    console.log(`verify-default-product-isolation: ${String(result.packageCount)} packages, `
-      + `${String(result.sourceCount)} runtime sources, ${String(result.configCount)} configurations, `
-      + `${String(result.webPluginCount)} composed Web plugins exclude experimental packages.`)
+    console.log(
+      `verify-default-product-isolation: ${String(result.packageCount)} packages, ` +
+        `${String(result.sourceCount)} runtime sources, ${String(result.configCount)} configurations, ` +
+        `${String(result.webPluginCount)} composed Web plugins exclude experimental packages.`,
+    )
   }
 }

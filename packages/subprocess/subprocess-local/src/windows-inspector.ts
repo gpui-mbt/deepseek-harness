@@ -14,7 +14,7 @@ import type { SubprocessTerminalSignal } from '@deepseek-ai/dsh-subprocess'
 import { createLazyRequire } from '@deepseek-ai/dsh-lazy-require'
 import type { ProcessIdentity, ProcessInspector, ProcessSnapshot } from './process-inspector.ts'
 
-type Koffi = typeof import('koffi')['default']
+type Koffi = (typeof import('koffi'))['default']
 type KoffiType = ReturnType<Koffi['pointer']>
 
 const requireKoffi = createLazyRequire<Koffi>('koffi', import.meta.url)
@@ -90,9 +90,7 @@ export function windowsProcessTree(
  * terminal handle as a `\x03` input write and never reaches this layer).
  */
 export class WindowsProcessInspector implements ProcessInspector {
-  constructor(
-    private readonly internals: WindowsProcessInspectorInternals = defaultWindowsProcessInternals(),
-  ) {}
+  constructor(private readonly internals: WindowsProcessInspectorInternals = defaultWindowsProcessInternals()) {}
 
   foregroundPgid(shellPid: number): number {
     return shellPid
@@ -113,11 +111,8 @@ export class WindowsProcessInspector implements ProcessInspector {
     // teardown poll, which asks only for liveness, pays no Toolhelp32 walk.
     let entries: ProcessEntry[] | undefined
     return {
-      tree: rootPid => windowsProcessTree(
-        entries ??= this.internals.snapshot(),
-        rootPid,
-        pid => this.internals.processState(pid)?.started,
-      ),
+      tree: rootPid =>
+        windowsProcessTree((entries ??= this.internals.snapshot()), rootPid, pid => this.internals.processState(pid)?.started),
       // Windows has no POSIX sessions; the shell pid stands in as a pseudo group.
       session: () => [],
       alive: identity => this.isAlive(identity),
@@ -168,7 +163,7 @@ export type NativePtr = bigint & { readonly [nativePtr]: true }
 export function isInvalidHandle(value: NativePtr | null | undefined): boolean {
   if (value === null || value === undefined) return true
   const asBigInt = value as bigint
-  return asBigInt === 0n || asBigInt === 0xFFFFFFFFFFFFFFFFn || asBigInt === -1n
+  return asBigInt === 0n || asBigInt === 0xffffffffffffffffn || asBigInt === -1n
 }
 
 /** The lazy koffi binding table: every Win32 call the Windows inspector uses. */
@@ -177,13 +172,7 @@ interface Win32Bindings {
   process32FirstW(snapshot: NativePtr, entry: NativePtr): number
   process32NextW(snapshot: NativePtr, entry: NativePtr): number
   openProcess(desiredAccess: number, inheritHandle: number, pid: number): NativePtr
-  getProcessTimes(
-    process: NativePtr,
-    creation: NativePtr,
-    exit: NativePtr,
-    kernel: NativePtr,
-    user: NativePtr,
-  ): number
+  getProcessTimes(process: NativePtr, creation: NativePtr, exit: NativePtr, kernel: NativePtr, user: NativePtr): number
   waitForSingleObject(handle: NativePtr, milliseconds: number): number
   closeHandle(handle: NativePtr): number
 }

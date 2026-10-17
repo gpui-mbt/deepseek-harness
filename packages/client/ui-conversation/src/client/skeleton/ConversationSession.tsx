@@ -3,9 +3,7 @@
 import clsx from 'clsx'
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {
-  ConversationSessionHeaderSlotProps, ConversationSessionSlotProps,
-} from '../contract/slots.ts'
+import type { ConversationSessionHeaderSlotProps, ConversationSessionSlotProps } from '../contract/slots.ts'
 import { resolveActiveView } from '../view-selection.ts'
 import { DefaultConversationViews } from './DefaultConversationViews.tsx'
 import css from './ConversationRoot.module.css'
@@ -43,11 +41,13 @@ function deriveAncestry(list: SessionListState, id: SessionId): readonly Breadcr
 }
 
 function equalBreadcrumbs(left: readonly Breadcrumb[], right: readonly Breadcrumb[]): boolean {
-  return left.length === right.length
-    && left.every((item, index) => {
+  return (
+    left.length === right.length &&
+    left.every((item, index) => {
       const other = right.at(index)
       return other !== undefined && item.id === other.id && item.displayTitle === other.displayTitle
     })
+  )
 }
 
 /**
@@ -56,8 +56,15 @@ function equalBreadcrumbs(left: readonly Breadcrumb[], right: readonly Breadcrum
  * @returns Session navigation controls, with title and tabs after conversation starts.
  */
 export function ConversationSessionHeader({
-  sessionId, hideChrome, useSessions, useConversationViews, useStore,
-  renderSlot, open, selectView, t,
+  sessionId,
+  hideChrome,
+  useSessions,
+  useConversationViews,
+  useStore,
+  renderSlot,
+  open,
+  selectView,
+  t,
 }: ConversationSessionHeaderProps) {
   const tabs = useConversationViews(value => value)
   const selectedId = useStore(s => s.view)
@@ -77,60 +84,54 @@ export function ConversationSessionHeader({
                   // rather than a disabled button: on darwin desktop a button
                   // would subtract itself from the header's drag row (ui-web
                   // base.css) and leave the title inert for dragging too.
-                  const title = last
-                    ? (
-                      <span className={clsx(css.crumb, summary.subagent && css.crumbSubagent, css.crumbCurrent)}>
-                        {summary.displayTitle}
-                      </span>
-                    )
-                    : (
-                      <button
-                        type="button"
-                        className={clsx(css.crumb, summary.subagent && css.crumbSubagent)}
-                        onClick={() => { open(summary.id) }}
-                      >
-                        {summary.displayTitle}
-                      </button>
-                    )
+                  const title = last ? (
+                    <span className={clsx(css.crumb, summary.subagent && css.crumbSubagent, css.crumbCurrent)}>{summary.displayTitle}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={clsx(css.crumb, summary.subagent && css.crumbSubagent)}
+                      onClick={() => {
+                        open(summary.id)
+                      }}
+                    >
+                      {summary.displayTitle}
+                    </button>
+                  )
                   const lineage = last || summary.subagent
                   const lineageOwner = {
                     lineageSessionId: summary.id,
                     displayTitle: summary.displayTitle,
-                    ...last ? {} : { openTitle: () => { open(summary.id) } },
+                    ...(last
+                      ? {}
+                      : {
+                          openTitle: () => {
+                            open(summary.id)
+                          },
+                        }),
                   }
                   return (
                     <span key={summary.id} className={css.crumbSeg}>
                       {index > 0 && <span className={css.crumbSep}>/</span>}
-                      {lineage
-                        ? summary.subagent
-                          ? renderSlot(
-                            'conversation.session.header.lineage',
-                            lineageOwner,
-                            { fallback: title },
-                          )
-                          : (
-                            <>
-                              {title}
-                              {renderSlot(
-                                'conversation.session.header.lineage',
-                                lineageOwner,
-                                { fallback: null },
-                              )}
-                            </>
-                          )
-                        : title}
+                      {lineage ? (
+                        summary.subagent ? (
+                          renderSlot('conversation.session.header.lineage', lineageOwner, { fallback: title })
+                        ) : (
+                          <>
+                            {title}
+                            {renderSlot('conversation.session.header.lineage', lineageOwner, { fallback: null })}
+                          </>
+                        )
+                      ) : (
+                        title
+                      )}
                     </span>
                   )
                 })}
                 {ancestry.length === 0 && <span className={css.crumbCurrent}>{sessionId}</span>}
               </nav>
-              <div className={css.headerActions}>
-                {renderSlot('conversation.session.header.actions', {})}
-              </div>
+              <div className={css.headerActions}>{renderSlot('conversation.session.header.actions', {})}</div>
             </div>
-            <div className={css.headerUtilities}>
-              {renderSlot('conversation.session.header.utilities', {})}
-            </div>
+            <div className={css.headerUtilities}>{renderSlot('conversation.session.header.utilities', {})}</div>
           </>
         )}
         <div className={css.headerCorner} data-conversation-header-corner="">
@@ -148,7 +149,9 @@ export function ConversationSessionHeader({
               role="tab"
               aria-selected={viewTab.id === active?.id}
               className={clsx(css.tab, viewTab.id === active?.id && css.tabActive)}
-              onClick={() => { selectView(viewTab.id) }}
+              onClick={() => {
+                selectView(viewTab.id)
+              }}
             >
               {viewTab.label}
             </button>

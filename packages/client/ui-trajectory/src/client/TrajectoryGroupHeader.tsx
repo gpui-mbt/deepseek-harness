@@ -18,9 +18,7 @@ export function TrajectoryGroupHeader({ title, description }: TrajectoryGroupHea
   return (
     <div className={css.root}>
       <span className={css.title}>{title}</span>
-      {description !== undefined && description !== ''
-        ? <span className={css.description}>{description}</span>
-        : null}
+      {description !== undefined && description !== '' ? <span className={css.description}>{description}</span> : null}
     </div>
   )
 }

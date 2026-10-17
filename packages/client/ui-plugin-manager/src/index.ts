@@ -33,7 +33,10 @@ export default class PluginRegistryProbe extends TypertRemoteService {
   private pending: Promise<string | null> | undefined
   private cached: { registry: string | null; expiresAt: number } | undefined
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'pluginRegistryProbe')
     ctx.effect(() => async () => {
       this.lifetime.abort()
@@ -52,7 +55,9 @@ export default class PluginRegistryProbe extends TypertRemoteService {
     this.lifetime.signal.throwIfAborted()
     if (!this.config.registryProbeEnabled) return null
     if (this.cached !== undefined && this.cached.expiresAt > Date.now()) return this.cached.registry
-    this.pending ??= this.probe().finally(() => { this.pending = undefined })
+    this.pending ??= this.probe().finally(() => {
+      this.pending = undefined
+    })
     return this.pending
   }
 
@@ -63,7 +68,7 @@ export default class PluginRegistryProbe extends TypertRemoteService {
       registry: new URL('/', endpoint).href,
       response: await fetch(endpoint, { signal, redirect: 'error' }),
     }))
-    const successful = requests.map(async (request) => {
+    const successful = requests.map(async request => {
       const { registry, response } = await request
       if (!response.ok) throw new Error(`Registry ping returned HTTP ${response.status}`)
       return registry
@@ -76,9 +81,11 @@ export default class PluginRegistryProbe extends TypertRemoteService {
     } finally {
       finished.abort()
       const responses = await Promise.allSettled(requests)
-      await Promise.allSettled(responses.map(async (result) => {
-        if (result.status === 'fulfilled') await result.value.response.body?.cancel()
-      }))
+      await Promise.allSettled(
+        responses.map(async result => {
+          if (result.status === 'fulfilled') await result.value.response.body?.cancel()
+        }),
+      )
     }
     if (!this.lifetime.signal.aborted) this.cached = { registry, expiresAt: Date.now() + this.config.registryProbeCacheTtlMs }
     return registry

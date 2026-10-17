@@ -1,7 +1,7 @@
 /** Enabling the optional Inspector bundle on a running page mounts the bottom DevTools without a reload. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot } from './support.ts'
 
@@ -11,7 +11,11 @@ const BOOTSTRAP_PATH = '/api/experimental-inspector/bootstrap'
 it('opens bottom DevTools after the Developer Tools bundle is enabled on an already loaded page', async () => {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   onTestFinished(async () => {
-    try { await resources.browser?.close() } finally { await resources.scaffold?.close() }
+    try {
+      await resources.browser?.close()
+    } finally {
+      await resources.scaffold?.close()
+    }
   })
   const scaffold = await launchWebScaffold({
     profile: { packages: [{ dir: bundle, enabled: false }], hmr: true },
@@ -27,11 +31,13 @@ it('opens bottom DevTools after the Developer Tools bundle is enabled on an alre
   const tripwire = watchConsole(page)
   onTestFailed(() => saveFailureShot(page, 'web-e2e-inspector-late-enable'))
   const bootstraps: number[] = []
-  page.on('response', (response) => {
+  page.on('response', response => {
     if (new URL(response.url()).pathname === BOOTSTRAP_PATH) bootstraps.push(response.status())
   })
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-  await page.evaluate(() => { Reflect.set(window, '__inspectorLateEnableMarker', 'same-document') })
+  await page.evaluate(() => {
+    Reflect.set(window, '__inspectorLateEnableMarker', 'same-document')
+  })
 
   await page.getByRole('navigation', { name: 'Global panels' }).getByRole('button', { name: 'Plugins', exact: true }).click()
   const plugins = page.locator('[data-plugin-panel]')

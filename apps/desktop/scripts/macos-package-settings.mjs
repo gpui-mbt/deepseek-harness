@@ -4,9 +4,20 @@ function proxy(environment, name, protocols) {
   const value = environment[name]?.trim()
   if (!value) return undefined
   let parsed
-  try { parsed = new URL(value) } catch { throw new Error(`desktop package: ${name} must be a proxy URL`) }
-  if (!protocols.includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password
-    || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+  try {
+    parsed = new URL(value)
+  } catch {
+    throw new Error(`desktop package: ${name} must be a proxy URL`)
+  }
+  if (
+    !protocols.includes(parsed.protocol) ||
+    !parsed.hostname ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== '/' ||
+    parsed.search ||
+    parsed.hash
+  ) {
     throw new Error(`desktop package: ${name} requires an unauthenticated ${protocols.join('/')} proxy origin`)
   }
   return parsed.origin
@@ -38,10 +49,17 @@ export function resolveMacOSPackageSettings(environment) {
 export function macOSDownloadEnvironment(environment, proxyUrl) {
   if (proxyUrl === undefined) return { ...environment }
   return {
-    ...Object.fromEntries(Object.entries(environment).filter(([name]) =>
-      !/^(?:(?:https?|all|no)_proxy|npm_config_(?:https?_proxy|proxy|noproxy)|ELECTRON_GET_USE_PROXY)$/iu.test(name))),
-    HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, http_proxy: proxyUrl, https_proxy: proxyUrl,
-    NO_PROXY: 'localhost,127.0.0.1,::1', no_proxy: 'localhost,127.0.0.1,::1',
+    ...Object.fromEntries(
+      Object.entries(environment).filter(
+        ([name]) => !/^(?:(?:https?|all|no)_proxy|npm_config_(?:https?_proxy|proxy|noproxy)|ELECTRON_GET_USE_PROXY)$/iu.test(name),
+      ),
+    ),
+    HTTP_PROXY: proxyUrl,
+    HTTPS_PROXY: proxyUrl,
+    http_proxy: proxyUrl,
+    https_proxy: proxyUrl,
+    NO_PROXY: 'localhost,127.0.0.1,::1',
+    no_proxy: 'localhost,127.0.0.1,::1',
     ELECTRON_GET_USE_PROXY: '1',
   }
 }

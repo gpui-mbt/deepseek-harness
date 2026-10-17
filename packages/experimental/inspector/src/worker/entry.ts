@@ -10,8 +10,7 @@ if (parentPort === null) throw new Error('experimental inspector: Worker entry l
 const controlPort = parentPort
 
 const bootData: unknown = workerData
-if (!isPlainObject(bootData)
-  || !(bootData.hostSourcePort instanceof MessagePort)) {
+if (!isPlainObject(bootData) || !(bootData.hostSourcePort instanceof MessagePort)) {
   throw new Error('experimental inspector: invalid Worker boot data')
 }
 const boot: InspectorWorkerBoot<MessagePort> = {

@@ -4,7 +4,7 @@
  * settlement from a superseded open closes nothing, and the toast sequence
  * retires only the toast the view finished showing.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { MessageId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { MessageFeedbackActionResult } from '../src/client/controller.ts'
 import { FeedbackDialogController, type FeedbackSubmit } from '../src/client/dialog.ts'
@@ -22,7 +22,12 @@ describe('FeedbackDialogController', () => {
     const { controller } = bench()
 
     expect(controller.state.getSnapshot()).toEqual({
-      target: null, category: null, text: '', submitting: false, failure: null, toast: 0,
+      target: null,
+      category: null,
+      text: '',
+      submitting: false,
+      failure: null,
+      toast: 0,
     })
   })
 
@@ -33,13 +38,17 @@ describe('FeedbackDialogController', () => {
     controller.edit({ category: 'task-result' })
     controller.edit({ text: 'slow' })
     expect(controller.state.getSnapshot()).toMatchObject({
-      target: { kind: 'session' }, category: 'task-result', text: 'slow',
+      target: { kind: 'session' },
+      category: 'task-result',
+      text: 'slow',
     })
 
     controller.dismiss()
     controller.open(MESSAGE_TARGET)
     expect(controller.state.getSnapshot()).toMatchObject({
-      target: MESSAGE_TARGET, category: null, text: '',
+      target: MESSAGE_TARGET,
+      category: null,
+      text: '',
     })
   })
 
@@ -96,8 +105,11 @@ describe('FeedbackDialogController', () => {
     await controller.submitDraft()
 
     expect(controller.state.getSnapshot()).toMatchObject({
-      target: MESSAGE_TARGET, text: 'draft', submitting: false,
-      failure: 'version-conflict', toast: 0,
+      target: MESSAGE_TARGET,
+      text: 'draft',
+      submitting: false,
+      failure: 'version-conflict',
+      toast: 0,
     })
   })
 
@@ -113,7 +125,11 @@ describe('FeedbackDialogController', () => {
 
   it('freezes the draft and refuses a second submit while one is in flight', async () => {
     let release = (): void => {}
-    const gate = new Promise<MessageFeedbackActionResult>((resolve) => { release = () => { resolve({ ok: true }) } })
+    const gate = new Promise<MessageFeedbackActionResult>(resolve => {
+      release = () => {
+        resolve({ ok: true })
+      }
+    })
     const { controller, submit } = bench(() => gate)
     controller.open({ kind: 'session' })
     controller.edit({ text: 'first' })
@@ -132,7 +148,11 @@ describe('FeedbackDialogController', () => {
 
   it('acknowledges a success that lands after a reopen without closing the new draft', async () => {
     let release = (): void => {}
-    const gate = new Promise<MessageFeedbackActionResult>((resolve) => { release = () => { resolve({ ok: true }) } })
+    const gate = new Promise<MessageFeedbackActionResult>(resolve => {
+      release = () => {
+        resolve({ ok: true })
+      }
+    })
     const { controller } = bench(() => gate)
     controller.open({ kind: 'session' })
     const pending = controller.submitDraft()
@@ -143,14 +163,18 @@ describe('FeedbackDialogController', () => {
     await pending
 
     expect(controller.state.getSnapshot()).toMatchObject({
-      target: MESSAGE_TARGET, text: 'new draft', toast: 1,
+      target: MESSAGE_TARGET,
+      text: 'new draft',
+      toast: 1,
     })
   })
 
   it('drops a failure that lands after the draft was dismissed', async () => {
     let release = (): void => {}
-    const gate = new Promise<MessageFeedbackActionResult>((resolve) => {
-      release = () => { resolve({ ok: false, error: { code: 'gateway/internal', message: 'boom' } }) }
+    const gate = new Promise<MessageFeedbackActionResult>(resolve => {
+      release = () => {
+        resolve({ ok: false, error: { code: 'gateway/internal', message: 'boom' } })
+      }
     })
     const { controller } = bench(() => gate)
     controller.open({ kind: 'session' })
@@ -190,7 +214,12 @@ describe('FeedbackDialogController', () => {
     controller.open({ kind: 'session' })
     controller.dispose()
     expect(controller.state.getSnapshot()).toEqual({
-      target: null, category: null, text: '', submitting: false, failure: null, toast: 0,
+      target: null,
+      category: null,
+      text: '',
+      submitting: false,
+      failure: null,
+      toast: 0,
     })
   })
 })

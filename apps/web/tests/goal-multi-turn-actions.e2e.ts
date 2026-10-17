@@ -6,13 +6,20 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterEach, describe, expect, it, onTestFailed } from 'vitest'
+import { afterEach, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-goal'
 import {
-  assertFixtureInventory, captureExpandedTurnProcessAria, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureExpandedTurnProcessAria,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -23,7 +30,8 @@ const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
 const UI_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'ui-expanded.expected.md')
 const MODE = webSnapshotMode()
 
-const PROMPT = '做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的'
+const PROMPT =
+  '做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的'
 const COMMAND = `/goal ${PROMPT}`
 
 const PACKAGE_FILES: Readonly<Record<string, string>> = {
@@ -70,23 +78,21 @@ function whenTurnsSettled(scaffold: WebScaffold, count: number, timeoutMs: numbe
       if (completed !== count) return
       clearTimeout(timer)
       off()
-      scaffold.ctx.sessions.flush(session).then(() => { resolve(session.id) }, reject)
+      scaffold.ctx.sessions.flush(session).then(() => {
+        resolve(session.id)
+      }, reject)
     })
   })
 }
 
 /** Goal-owned round numbers in durable user-message order. */
 function goalRounds(events: readonly SessionEvent[]): number[] {
-  return events.flatMap(event => event.type === 'user/message' && event.data.source.kind === 'goal'
-    ? [event.data.source.round]
-    : [])
+  return events.flatMap(event => (event.type === 'user/message' && event.data.source.kind === 'goal' ? [event.data.source.round] : []))
 }
 
 /** Objective written by each durable Goal creation. */
 function createdObjectives(events: readonly SessionEvent[]): string[] {
-  return events.flatMap(event => event.type === 'goal/change' && event.data.operation === 'create'
-    ? [event.data.goal.objective]
-    : [])
+  return events.flatMap(event => (event.type === 'goal/change' && event.data.operation === 'create' ? [event.data.goal.objective] : []))
 }
 
 describe('web e2e: Goal keeps one assistant action row per completed turn', () => {
@@ -110,11 +116,11 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
   /** Boot the real Web composition and connect a fresh package fixture workspace. */
   async function launch(): Promise<void> {
     sessionEvents = []
-    scaffold = await launchWebScaffold(
-      MODE === 'record' ? {} : { replayFixture: FIXTURE, replayOverride: OVERRIDE },
-    )
+    scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, replayOverride: OVERRIDE })
     await seedPackageInventory(scaffold.workspaceCwd)
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
@@ -133,78 +139,78 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
     return settled
   }
 
-  it.skipIf(MODE !== 'record')('records the two-round Goal through the real model', async () => {
-    await launch()
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-multi-turn-actions-record'))
-    const sessionId = await runGoal(360_000)
-    await recordFixture(scaffold!, sessionId, FIXTURE)
-  }, 380_000)
+  it.skipIf(MODE !== 'record')(
+    'records the two-round Goal through the real model',
+    async () => {
+      await launch()
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-multi-turn-actions-record'))
+      const sessionId = await runGoal(360_000)
+      await recordFixture(scaffold!, sessionId, FIXTURE)
+    },
+    380_000,
+  )
 
-  it.skipIf(MODE === 'record')('keeps actions on both completed Goal turn tails', async () => {
-    const fixtureEvents = parseSessionLog(await readFile(FIXTURE, 'utf8'))
-    expect(createdObjectives(fixtureEvents)).toEqual([PROMPT])
-    expect(goalRounds(fixtureEvents)).toEqual([1, 2])
+  it.skipIf(MODE === 'record')(
+    'keeps actions on both completed Goal turn tails',
+    async () => {
+      const fixtureEvents = parseSessionLog(await readFile(FIXTURE, 'utf8'))
+      expect(createdObjectives(fixtureEvents)).toEqual([PROMPT])
+      expect(goalRounds(fixtureEvents)).toEqual([1, 2])
 
-    await launch()
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-multi-turn-actions'))
-    await runGoal(120_000)
+      await launch()
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-multi-turn-actions'))
+      await runGoal(120_000)
 
-    expect(sessionEvents.flatMap(event => event.type === 'turn/end' ? [event.data.turn] : []))
-      .toEqual([1, 2])
-    expect(goalRounds(sessionEvents)).toEqual([1, 2])
-    expect(sessionEvents.flatMap(event =>
-      event.type === 'request/header' ? [event.data.reason] : [])).toEqual(['initial', 'series'])
-    await expect.poll(() => page.locator('[data-turn-process]').count(), { timeout: 15_000 }).toBe(2)
-    const trigger = page.locator('[data-turn-trigger]').first()
-    const process = page.locator('[data-turn-process]').first()
-    const originalFontSize = await page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size'))
-    await process.click()
-    try {
-      for (const fontSize of [10, 14, 22]) {
-        await scaffold!.ctx.settings.update('ui-theme', { fontSize })
-        await expect.poll(() => page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size')))
-          .toBe(`${String(fontSize)}px`)
-        const group = page.locator('[data-process-activity]:visible').first()
-        const groupFontSize = await group.evaluate(element => getComputedStyle(element).fontSize)
-        expect(groupFontSize).toBe(`${String(fontSize)}px`)
-        expect(await process.evaluate(element => getComputedStyle(element).fontSize)).toBe(groupFontSize)
-        expect(await trigger.getByText('Continuing goal', { exact: true })
-          .evaluate(element => getComputedStyle(element).fontSize)).toBe(groupFontSize)
-        expect(await process.evaluate(element => element.getBoundingClientRect().top))
-          .toBe(await trigger.evaluate(element => element.getBoundingClientRect().bottom) + 16)
-        expect(await group.evaluate(element => element.getBoundingClientRect().top))
-          .toBe(await process.evaluate(element => element.getBoundingClientRect().bottom) + 16)
-      }
-    } finally {
-      await scaffold!.ctx.settings.update('ui-theme', { fontSize: Number.parseFloat(originalFontSize) })
-      await expect.poll(() => page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size')))
-        .toBe(originalFontSize)
+      expect(sessionEvents.flatMap(event => (event.type === 'turn/end' ? [event.data.turn] : []))).toEqual([1, 2])
+      expect(goalRounds(sessionEvents)).toEqual([1, 2])
+      expect(sessionEvents.flatMap(event => (event.type === 'request/header' ? [event.data.reason] : []))).toEqual(['initial', 'series'])
+      await expect.poll(() => page.locator('[data-turn-process]').count(), { timeout: 15_000 }).toBe(2)
+      const trigger = page.locator('[data-turn-trigger]').first()
+      const process = page.locator('[data-turn-process]').first()
+      const originalFontSize = await page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size'))
       await process.click()
-    }
-    expect(await page.getByRole('button', { name: 'System prompt' }).count()).toBe(0)
-    expect(await page.locator(
-      '[data-chat-flow-kind="system-prompt"]',
-    ).count()).toBe(0)
-    const branchButtons = page.getByRole('button', { name: 'Branch into a new conversation' })
-    await expect.poll(() => branchButtons.count(), { timeout: 15_000 }).toBe(2)
-    expect(await branchButtons.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-disabled'))))
-      .toEqual([null, null])
-    await branchButtons.last().focus()
-    const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
-    await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
-    const expanded = await captureExpandedTurnProcessAria(
-      page,
-      '[class*="centerCol"]',
-      scaffold!.workspaceCwd,
-    )
-    await compareOrRefreshGolden(UI_EXPANDED_EXPECTED, expanded, MODE)
-    expect(tripwire.pageErrors).toEqual([])
-    expect(tripwire.warnings).toEqual([])
-  }, 140_000)
+      try {
+        for (const fontSize of [10, 14, 22]) {
+          await scaffold!.ctx.settings.update('ui-theme', { fontSize })
+          await expect
+            .poll(() => page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size')))
+            .toBe(`${String(fontSize)}px`)
+          const group = page.locator('[data-process-activity]:visible').first()
+          const groupFontSize = await group.evaluate(element => getComputedStyle(element).fontSize)
+          expect(groupFontSize).toBe(`${String(fontSize)}px`)
+          expect(await process.evaluate(element => getComputedStyle(element).fontSize)).toBe(groupFontSize)
+          expect(await trigger.getByText('Continuing goal', { exact: true }).evaluate(element => getComputedStyle(element).fontSize)).toBe(
+            groupFontSize,
+          )
+          expect(await process.evaluate(element => element.getBoundingClientRect().top)).toBe(
+            (await trigger.evaluate(element => element.getBoundingClientRect().bottom)) + 16,
+          )
+          expect(await group.evaluate(element => element.getBoundingClientRect().top)).toBe(
+            (await process.evaluate(element => element.getBoundingClientRect().bottom)) + 16,
+          )
+        }
+      } finally {
+        await scaffold!.ctx.settings.update('ui-theme', { fontSize: Number.parseFloat(originalFontSize) })
+        await expect.poll(() => page.evaluate(() => document.body.style.getPropertyValue('--dsh-content-font-size'))).toBe(originalFontSize)
+        await process.click()
+      }
+      expect(await page.getByRole('button', { name: 'System prompt' }).count()).toBe(0)
+      expect(await page.locator('[data-chat-flow-kind="system-prompt"]').count()).toBe(0)
+      const branchButtons = page.getByRole('button', { name: 'Branch into a new conversation' })
+      await expect.poll(() => branchButtons.count(), { timeout: 15_000 }).toBe(2)
+      expect(await branchButtons.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-disabled')))).toEqual([null, null])
+      await branchButtons.last().focus()
+      const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
+      await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
+      const expanded = await captureExpandedTurnProcessAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
+      await compareOrRefreshGolden(UI_EXPANDED_EXPECTED, expanded, MODE)
+      expect(tripwire.pageErrors).toEqual([])
+      expect(tripwire.warnings).toEqual([])
+    },
+    140_000,
+  )
 
   it.skipIf(MODE === 'record')('keeps a closed fixture inventory', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, [
-      'replay.override.json', 'session.v3.jsonl', 'ui.expected.md', 'ui-expanded.expected.md',
-    ])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['replay.override.json', 'session.v3.jsonl', 'ui.expected.md', 'ui-expanded.expected.md'])
   })
 })

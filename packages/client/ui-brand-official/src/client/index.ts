@@ -19,5 +19,6 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.inject('sidebar.brand.name', function* () {
       yield ctx.slots.register({ name: 'sidebar.brand.mark' }, OfficialBrandMark)
       yield ctx.slots.register({ name: 'sidebar.brand.name' }, OfficialBrandName)
-    }))
+    }),
+  )
 }

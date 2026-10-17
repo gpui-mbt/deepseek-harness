@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { absoluteFileAddress, parseFileAddress, sessionFileAddress } from '../src/file-address.ts'
 
 describe('file addresses', () => {
@@ -40,17 +40,16 @@ describe('file addresses', () => {
     '/workspace/../outside/a.txt',
     'C:/workspace/../outside/a.txt',
     '//server/share/workspace/../outside/a.txt',
-  ])('keeps the Session id and the unresolved path %s', (path) => {
+  ])('keeps the Session id and the unresolved path %s', path => {
     expect(parseFileAddress(sessionFileAddress('s 1', path))).toEqual({ scope: 'session', sessionId: 's 1', path })
   })
 
-  it.each([
-    '/workspace/../outside/a.txt',
-    'C:/workspace/../outside/a.txt',
-    '//server/share/workspace/../outside/a.txt',
-  ])('keeps the unresolved absolute path %s without a Session', (path) => {
-    expect(parseFileAddress(absoluteFileAddress(path))).toEqual({ scope: 'absolute', path })
-  })
+  it.each(['/workspace/../outside/a.txt', 'C:/workspace/../outside/a.txt', '//server/share/workspace/../outside/a.txt'])(
+    'keeps the unresolved absolute path %s without a Session',
+    path => {
+      expect(parseFileAddress(absoluteFileAddress(path))).toEqual({ scope: 'absolute', path })
+    },
+  )
 
   it.each([
     ['./a.txt', './a.txt'],
@@ -63,11 +62,17 @@ describe('file addresses', () => {
   })
 
   it.each(['?download=1#section', '#section?download=1', '?ignored=%E0%A4%A', '#ignored=%ZZ'])(
-    'ignores the literal suffix %s without consuming encoded filename characters', (suffix) => {
-      expect(parseFileAddress(`dsh-resource://file/session/s/dir/../a%3Fb%23c%25.txt${suffix}`))
-        .toEqual({ scope: 'session', sessionId: 's', path: 'dir/../a?b#c%.txt' })
-      expect(parseFileAddress(`dsh-resource://file/absolute/workspace/../a%3Fb%23c%25.txt${suffix}`))
-        .toEqual({ scope: 'absolute', path: '/workspace/../a?b#c%.txt' })
+    'ignores the literal suffix %s without consuming encoded filename characters',
+    suffix => {
+      expect(parseFileAddress(`dsh-resource://file/session/s/dir/../a%3Fb%23c%25.txt${suffix}`)).toEqual({
+        scope: 'session',
+        sessionId: 's',
+        path: 'dir/../a?b#c%.txt',
+      })
+      expect(parseFileAddress(`dsh-resource://file/absolute/workspace/../a%3Fb%23c%25.txt${suffix}`)).toEqual({
+        scope: 'absolute',
+        path: '/workspace/../a?b#c%.txt',
+      })
     },
   )
 
@@ -83,7 +88,7 @@ describe('file addresses', () => {
     expect(parseFileAddress(address)).toEqual({ scope: 'absolute', path: 'C:/w/x.ts' })
   })
 
-  it('keeps a UNC path\'s identity in an absolute address', () => {
+  it("keeps a UNC path's identity in an absolute address", () => {
     const address = absoluteFileAddress('\\\\server\\share\\x.ts')
     expect(address).toBe('dsh-resource://file/absolute//server/share/x.ts')
     expect(parseFileAddress(address)).toEqual({ scope: 'absolute', path: '//server/share/x.ts' })

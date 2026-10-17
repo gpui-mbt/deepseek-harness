@@ -59,7 +59,9 @@ export interface AccountWallet {
 /** Independent query outcomes allow profile and balance failures to render separately. */
 export interface AccountDetails {
   readonly profile: { readonly status: 'ready'; readonly value: AccountProfile } | { readonly status: 'failed' }
-  readonly balance: { readonly status: 'ready'; readonly value: readonly AccountWallet[]; readonly bonusWallets: readonly AccountWallet[] } | { readonly status: 'failed' }
+  readonly balance:
+    | { readonly status: 'ready'; readonly value: readonly AccountWallet[]; readonly bonusWallets: readonly AccountWallet[] }
+    | { readonly status: 'failed' }
 }
 
 /** Identity of one granted bonus order; stable across devices and sign-ins. */

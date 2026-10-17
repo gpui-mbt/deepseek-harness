@@ -66,7 +66,9 @@ export class JobEventHub {
     }
     const dispose = ctx.effect(() => {
       this.unscoped.add(subscription)
-      return () => { this.unscoped.delete(subscription) }
+      return () => {
+        this.unscoped.delete(subscription)
+      }
     }, 'jobs.events.subscribe()')
     // oxlint-disable-next-line typescript/no-misused-promises -- exact synchronous disposer preserves Cordis effect identity
     return dispose

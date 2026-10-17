@@ -4,16 +4,8 @@ import { createHash, randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
 import { chmod, link, mkdir, open, readFile, unlink } from 'node:fs/promises'
 import { dirname, join, parse, resolve } from 'node:path'
-import {
-  AttachmentError,
-  AttachmentId,
-} from '@deepseek-ai/dsh-attachment'
-import type {
-  ImageAttachmentLimits,
-  ImageAttachmentRef,
-  SaveImageAttachment,
-  StoredImageAttachment,
-} from '@deepseek-ai/dsh-attachment'
+import { AttachmentError, AttachmentId } from '@deepseek-ai/dsh-attachment'
+import type { ImageAttachmentLimits, ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } from '@deepseek-ai/dsh-attachment'
 import { normalizeImage } from './normalization.ts'
 import type { NormalizationPolicy } from './normalization.ts'
 import { detectImage, probeImage } from './image.ts'
@@ -32,7 +24,10 @@ function displayName(value: string | undefined): string | undefined {
   // ordinary character, so path.basename would keep a Windows client's full
   // local path and leak it into the reference and the session log.
   const leaf = value.slice(Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\')) + 1)
-  const clean = leaf.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 255)
+  const clean = leaf
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim()
+    .slice(0, 255)
   return clean === '' ? undefined : clean
 }
 
@@ -60,7 +55,8 @@ async function inspectMetadata(
 ): Promise<DetectedImage> {
   if (data.byteLength === 0) throw new AttachmentError('Image is empty.', 'INVALID_IMAGE')
   const detected = await detectImage(data, { maxPixels: limits.maxImagePixels, maxDimension: limits.maxImageDimension })
-  if (detected.mediaType !== declaredMediaType) throw new AttachmentError('Declared image type does not match its bytes.', 'IMAGE_TYPE_MISMATCH')
+  if (detected.mediaType !== declaredMediaType)
+    throw new AttachmentError('Declared image type does not match its bytes.', 'IMAGE_TYPE_MISMATCH')
   return detected
 }
 
@@ -118,7 +114,7 @@ export async function prepareImageFile(
       height: normalized.height,
       bytes: normalized.data.byteLength,
       ...(name !== undefined ? { name } : {}),
-      ...downscaled ? { originalDimensions: { width: detected.width, height: detected.height } } : {},
+      ...(downscaled ? { originalDimensions: { width: detected.width, height: detected.height } } : {}),
     },
   }
 }
@@ -188,10 +184,7 @@ async function ensureDurableHome(path: string): Promise<string> {
  * @param prepared - deterministic normalized bytes and reference.
  * @returns durable content-addressed normalized image reference.
  */
-export async function commitPreparedImageFile(
-  root: string,
-  prepared: PreparedImageFile,
-): Promise<ImageAttachmentRef> {
+export async function commitPreparedImageFile(root: string, prepared: PreparedImageFile): Promise<ImageAttachmentRef> {
   const normalized = prepared.data
   const sha256 = ensureReference(prepared.ref)
   if (digest(normalized) !== sha256 || normalized.byteLength !== prepared.ref.bytes) {
@@ -211,15 +204,13 @@ export async function commitPreparedImageFile(
  * @param data - exact object bytes whose digest is `sha256`.
  * @param sha256 - hex digest the stored bytes must match on deduplication.
  */
-export async function publishImmutableObject(
-  root: string,
-  target: string,
-  data: Uint8Array,
-  sha256: string,
-): Promise<void> {
-  const staged = await stageImmutableObject(root, (function* (): Iterable<Uint8Array> {
-    yield data
-  })())
+export async function publishImmutableObject(root: string, target: string, data: Uint8Array, sha256: string): Promise<void> {
+  const staged = await stageImmutableObject(
+    root,
+    (function* (): Iterable<Uint8Array> {
+      yield data
+    })(),
+  )
   if (staged.sha256 !== sha256) {
     await removeTemporary(staged.path)
     throw new AttachmentError('Attachment bytes do not match their publication digest.', 'ATTACHMENT_CORRUPT')
@@ -269,12 +260,7 @@ export async function publishImmutableObjectStream(
  * @param target - new alias below `root`.
  * @param sha256 - expected object digest for an existing-target race.
  */
-export async function publishImmutableAlias(
-  root: string,
-  source: string,
-  target: string,
-  sha256: string,
-): Promise<void> {
+export async function publishImmutableAlias(root: string, source: string, target: string, sha256: string): Promise<void> {
   const parent = dirname(target)
   try {
     const boundary = await ensureDurableHome(dirname(dirname(resolve(root))))
@@ -284,7 +270,7 @@ export async function publishImmutableAlias(
     } catch (error) {
       /* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
       if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
-      if (await digestFile(target) !== sha256) {
+      if ((await digestFile(target)) !== sha256) {
         throw new AttachmentError('Stored attachment failed integrity verification.', 'ATTACHMENT_CORRUPT')
       }
     }
@@ -337,21 +323,18 @@ async function stageImmutableObject(
     return { path: temporary, boundary, sha256: hash.digest('hex'), bytes }
   } catch (error) {
     /* v8 ignore next -- A descriptor remains open only when write, sync, or close fails. */
-    if (handle !== undefined) await handle.close().catch(
-      /* v8 ignore next -- Close failure is superseded by the storage operation that entered cleanup. */
-      () => {},
-    )
+    if (handle !== undefined)
+      await handle.close().catch(
+        /* v8 ignore next -- Close failure is superseded by the storage operation that entered cleanup. */
+        () => {},
+      )
     await removeTemporary(temporary)
     if (error instanceof AttachmentError || signal?.aborted === true) throw error
     throw new AttachmentError('Unable to persist attachment.', 'ATTACHMENT_WRITE_FAILED', { cause: error })
   }
 }
 
-async function publishStagedObject(
-  root: string,
-  target: string,
-  staged: StagedImmutableObject,
-): Promise<void> {
+async function publishStagedObject(root: string, target: string, staged: StagedImmutableObject): Promise<void> {
   const parent = dirname(target)
   try {
     await ensureDurableDirectory(parent, staged.boundary)
@@ -360,7 +343,7 @@ async function publishStagedObject(
     } catch (error) {
       /* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
       if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
-      if (await digestFile(target) !== staged.sha256) {
+      if ((await digestFile(target)) !== staged.sha256) {
         throw new AttachmentError('Stored attachment failed integrity verification.', 'ATTACHMENT_CORRUPT')
       }
     }
@@ -428,11 +411,7 @@ export async function saveImageFile(
  * @returns verified bytes and reference.
  * @throws the signal reason when aborted, or an AttachmentError when verification fails.
  */
-export async function readImageFile(
-  root: string,
-  ref: ImageAttachmentRef,
-  signal?: AbortSignal,
-): Promise<StoredImageAttachment> {
+export async function readImageFile(root: string, ref: ImageAttachmentRef, signal?: AbortSignal): Promise<StoredImageAttachment> {
   signal?.throwIfAborted()
   const sha256 = ensureReference(ref)
   let data: Uint8Array
@@ -440,7 +419,8 @@ export async function readImageFile(
     data = new Uint8Array(await readFile(normalizedImagePath(root, ref), { signal }))
   } catch (error) {
     signal?.throwIfAborted()
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') throw new AttachmentError('Attachment object is missing.', 'ATTACHMENT_NOT_FOUND')
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT')
+      throw new AttachmentError('Attachment object is missing.', 'ATTACHMENT_NOT_FOUND')
     throw new AttachmentError('Unable to read image attachment.', 'ATTACHMENT_READ_FAILED', { cause: error })
   }
   signal?.throwIfAborted()
@@ -450,8 +430,12 @@ export async function readImageFile(
   // per-request pixel amplification on history replay).
   const metadata = await probeImage(data)
   signal?.throwIfAborted()
-  if (metadata.mediaType !== ref.mediaType || data.byteLength !== ref.bytes
-    || metadata.width !== ref.width || metadata.height !== ref.height) {
+  if (
+    metadata.mediaType !== ref.mediaType ||
+    data.byteLength !== ref.bytes ||
+    metadata.width !== ref.width ||
+    metadata.height !== ref.height
+  ) {
     throw new AttachmentError('Stored attachment metadata does not match its reference.', 'ATTACHMENT_CORRUPT')
   }
   return { ref, data }

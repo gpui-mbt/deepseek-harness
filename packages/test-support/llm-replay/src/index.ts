@@ -34,15 +34,22 @@ import type {
   TokenUsage,
   ToolUpdate,
 } from '@deepseek-ai/dsh-llm'
-import { LlmAdapter, LlmError, ReasoningEffortId, expandAssistantStream, offloadedImageText, requestImageHandleText, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
+import {
+  LlmAdapter,
+  LlmError,
+  ReasoningEffortId,
+  expandAssistantStream,
+  offloadedImageText,
+  requestImageHandleText,
+  resolveRetryPolicy,
+} from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 
 const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])
 
 if (sessionFormatCatalog.currentVersion !== SESSION_FORMAT_VERSION) {
   throw new Error(
-    `llm-replay: format catalog v${sessionFormatCatalog.currentVersion} `
-    + `does not match Session v${SESSION_FORMAT_VERSION}`,
+    `llm-replay: format catalog v${sessionFormatCatalog.currentVersion} ` + `does not match Session v${SESSION_FORMAT_VERSION}`,
   )
 }
 
@@ -65,10 +72,10 @@ export type ReplayEntry =
   | { kind: 'chunks'; chunks: StreamChunk[] }
   | { kind: 'throw'; chunks: StreamChunk[]; message: string; code: string; accepted?: boolean }
   | {
-    kind: 'hang'
-    /** Optional marker written after the prefix chunks are consumed and before the stream waits for cancellation. */
-    readyFile?: string
-  }
+      kind: 'hang'
+      /** Optional marker written after the prefix chunks are consumed and before the stream waits for cancellation. */
+      readyFile?: string
+    }
 
 /** One model exposed by a replay-only provider catalog. */
 export interface ReplayModelConfig {
@@ -252,9 +259,7 @@ function parseSessionFixture(text: string): ParsedSessionFixture {
     const hasSeq = Object.hasOwn(record, seqKey)
     const hasTime = Object.hasOwn(record, timeKey)
     if (hasSeq !== hasTime) {
-      throw new Error(
-        `session snapshot line ${lineNumber} must contain both ${seqKey} and ${timeKey}, or neither`,
-      )
+      throw new Error(`session snapshot line ${lineNumber} must contain both ${seqKey} and ${timeKey}, or neither`)
     }
     const currentKind = hasSeq ? 'complete' : 'projected'
     if (bodyKind !== undefined && currentKind !== bodyKind) {
@@ -334,20 +339,20 @@ function restoreProjectedRequestHeader(
 /** Encode one migrated fixture while retaining projected cwd and request-tool tokens. */
 function encodeCurrentSessionSnapshotFixture(text: string, parsed: ParsedSessionFixture): string {
   const header = {
-    ...sessionFormatCatalog.encodeCurrentHeader(
-      parsed.artifact.header,
-      parsed.artifact.inheritedEventCount,
-    ),
+    ...sessionFormatCatalog.encodeCurrentHeader(parsed.artifact.header, parsed.artifact.inheritedEventCount),
   }
   const sourceCwd = parsed.sourceHeader['cwd']
   if (typeof sourceCwd === 'string' && /^\{\{cwd\}\}(?:\/|$)/.test(sourceCwd)) header['cwd'] = sourceCwd
-  const sourceRequests = text.split(/\r?\n/).filter(line => line.trim().length > 0).slice(1)
+  const sourceRequests = text
+    .split(/\r?\n/)
+    .filter(line => line.trim().length > 0)
+    .slice(1)
     .map(line => JSON.parse(line) as Record<string, unknown>)
     .filter(row => row['type'] === 'request/header')
   let requestIndex = 0
   const output = [
     JSON.stringify(header),
-    ...parsed.artifact.events.map((event) => {
+    ...parsed.artifact.events.map(event => {
       const encoded = sessionFormatCatalog.encodeCurrentEvent(event)
       if (event.type !== 'request/header') return JSON.stringify(encoded)
       const source = sourceRequests[requestIndex++] as Record<string, unknown>
@@ -366,11 +371,14 @@ function normalizeProjectedRow(source: Readonly<Record<string, unknown>>): Recor
   const header = (data as Record<string, unknown>)['header']
   if (header === null || typeof header !== 'object' || Array.isArray(header)) return record
   const tools = (header as Record<string, unknown>)['tools']
-  const normalizedHeader = { ...header as Record<string, unknown> }
+  const normalizedHeader = { ...(header as Record<string, unknown>) }
   if (tools === '{{tools}}') {
     delete normalizedHeader['tools']
-  } else if (Array.isArray(tools) && tools.length > 0
-    && tools.every((tool): tool is string => typeof tool === 'string' && tool.length > 0)) {
+  } else if (
+    Array.isArray(tools) &&
+    tools.length > 0 &&
+    tools.every((tool): tool is string => typeof tool === 'string' && tool.length > 0)
+  ) {
     normalizedHeader['tools'] = tools.map(name => ({ name, description: '', parameters: {} }))
   } else {
     return record
@@ -409,13 +417,10 @@ function fixtureFormatError(
   physicalRow?: number,
 ): Error {
   const detail = error instanceof Error ? error.message : String(error)
-  const locationDetail = error instanceof Error && error.cause instanceof Error
-    ? error.cause.message
-    : detail
+  const locationDetail = error instanceof Error && error.cause instanceof Error ? error.cause.message : detail
   const storedRow = /^released Session row (\d+)/.exec(locationDetail)
-  const event = /Session event (\d+)/.exec(locationDetail)
-    ?? / at seq (\d+)/.exec(locationDetail)
-    ?? /inherited Session cut (\d+)/.exec(locationDetail)
+  const event =
+    /Session event (\d+)/.exec(locationDetail) ?? / at seq (\d+)/.exec(locationDetail) ?? /inherited Session cut (\d+)/.exec(locationDetail)
   let line: number
   if (physicalRow !== undefined) line = rowLines[physicalRow] as number
   else if (storedRow !== null) line = rowLines[Number(storedRow[1])] ?? headerLine
@@ -465,8 +470,8 @@ export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
     if (chunks.length === 0) return
     if (chunks[chunks.length - 1]?.type !== 'finish') {
       throw new Error(
-        `llm-replay: model call ${key} ended without a finish chunk (a thrown stream); `
-        + 'this scenario needs a replay.override.json sidecar',
+        `llm-replay: model call ${key} ended without a finish chunk (a thrown stream); ` +
+          'this scenario needs a replay.override.json sidecar',
       )
     }
     script.push({ kind: 'chunks', chunks })
@@ -646,10 +651,7 @@ function materializeSessionTokens(entry: ReplayEntry, liveSessionIds: readonly (
 }
 
 /** Learn a background child id from the stable tool-result text before that child reaches its first model call. */
-function inferStartedSubagents(
-  messages: GenerateOptions['messages'],
-  liveSessionIds: (string | undefined)[],
-): void {
+function inferStartedSubagents(messages: GenerateOptions['messages'], liveSessionIds: (string | undefined)[]): void {
   const leaves: string[] = []
   collectStrings(messages, leaves)
   for (const leaf of leaves) {
@@ -679,9 +681,7 @@ function invalidOverride(file: string, location: string, detail: string): never 
 function readChunks(value: unknown, file: string, location: string): StreamChunk[] {
   if (!Array.isArray(value)) invalidOverride(file, location, 'chunks must be an array')
   for (const [index, chunk] of value.entries()) {
-    if (!isRecord(chunk)
-      || typeof chunk['type'] !== 'string'
-      || !REPLAY_CHUNK_TYPES.has(chunk['type'] as StreamChunk['type'])) {
+    if (!isRecord(chunk) || typeof chunk['type'] !== 'string' || !REPLAY_CHUNK_TYPES.has(chunk['type'] as StreamChunk['type'])) {
       invalidOverride(file, `${location}.chunks[${index}]`, 'must have a known StreamChunk type')
     }
   }
@@ -697,9 +697,7 @@ function readReplayEntry(value: unknown, file: string, location: string): Replay
     }
     case 'throw': {
       const accepted = value['accepted']
-      const keys = accepted === undefined
-        ? ['kind', 'chunks', 'message', 'code']
-        : ['kind', 'chunks', 'message', 'code', 'accepted']
+      const keys = accepted === undefined ? ['kind', 'chunks', 'message', 'code'] : ['kind', 'chunks', 'message', 'code', 'accepted']
       if (!hasExactKeys(value, keys)) {
         invalidOverride(file, location, 'has invalid throw-entry fields')
       }
@@ -774,10 +772,7 @@ function readPrimaryFixture(config: ReplayConfig): ParsedSessionFixture | undefi
 }
 
 /** Resolve an override or derive from one already validated and migrated fixture. */
-function resolveReplayScript(
-  config: ReplayConfig,
-  fixture: ParsedSessionFixture | undefined,
-): ReplayEntry[] {
+function resolveReplayScript(config: ReplayConfig, fixture: ParsedSessionFixture | undefined): ReplayEntry[] {
   if (config.overrideFile !== undefined && existsSync(config.overrideFile)) {
     const doc = readOverrideDoc(JSON.parse(readFileSync(config.overrideFile, 'utf8')) as unknown, config.overrideFile)
     if (Array.isArray(doc)) return doc
@@ -787,8 +782,8 @@ function resolveReplayScript(
     for (const patch of doc.patches) {
       if (patch.at > derivedLength) {
         throw new Error(
-          `llm-replay: override patch index ${String(patch.at)} out of range `
-          + `(derived script has ${derivedLength} call(s); == length appends): ${config.overrideFile}`,
+          `llm-replay: override patch index ${String(patch.at)} out of range ` +
+            `(derived script has ${derivedLength} call(s); == length appends): ${config.overrideFile}`,
         )
       }
       if (seenIndexes.has(patch.at)) {
@@ -825,7 +820,10 @@ export function loadSessionScripts(config: ReplayConfig): SessionScript[] {
   // override-only fixture (header-less) still orders first as the primary.
   const primaryHeader = primaryFixture ?? { id: '', createdAt: 0 }
   const primary: SessionScript = {
-    recordedId: primaryHeader.id, createdAt: primaryHeader.createdAt, entries: primaryEntries, primary: true,
+    recordedId: primaryHeader.id,
+    createdAt: primaryHeader.createdAt,
+    entries: primaryEntries,
+    primary: true,
   }
   const children: SessionScript[] = []
   for (const childFile of config.childFiles ?? []) {
@@ -883,9 +881,12 @@ class ReplayAdapter extends LlmAdapter {
     const visualTokens = configured?.models?.find(candidate => candidate.id === model)?.imageRequestTokens
     if (visualTokens === undefined) return undefined
     return {
-      priceImages: images => images.map(({ attachment: ref, offloaded }) => (offloaded === true
-        ? { visualTokens: 0, text: offloadedImageText(ref) }
-        : { visualTokens, text: requestImageHandleText(ref, { width: ref.width, height: ref.height }) })),
+      priceImages: images =>
+        images.map(({ attachment: ref, offloaded }) =>
+          offloaded === true
+            ? { visualTokens: 0, text: offloadedImageText(ref) }
+            : { visualTokens, text: requestImageHandleText(ref, { width: ref.width, height: ref.height }) },
+        ),
     }
   }
 
@@ -893,13 +894,15 @@ class ReplayAdapter extends LlmAdapter {
     const configured = this.providers.get(provider)
     /* v8 ignore next -- LlmRuntime only asks about routes registered from this same map. */
     if (configured === undefined) return Promise.resolve([])
-    return Promise.resolve((configured.models ?? []).map(model => ({
-      provider,
-      id: model.id,
-      name: model.name ?? model.id,
-      ...model.description === undefined ? {} : { description: model.description },
-      ...model.inputModalities === undefined ? {} : { inputModalities: [...model.inputModalities] },
-    })))
+    return Promise.resolve(
+      (configured.models ?? []).map(model => ({
+        provider,
+        id: model.id,
+        name: model.name ?? model.id,
+        ...(model.description === undefined ? {} : { description: model.description }),
+        ...(model.inputModalities === undefined ? {} : { inputModalities: [...model.inputModalities] }),
+      })),
+    )
   }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
@@ -911,32 +914,22 @@ class ReplayAdapter extends LlmAdapter {
       provider,
       id: model,
       name: configuredModel?.name ?? model,
-      ...configuredModel?.description === undefined ? {} : { description: configuredModel.description },
-      ...configuredModel?.inputModalities === undefined
-        ? {}
-        : { inputModalities: [...configuredModel.inputModalities] },
-      ...configuredModel?.contextWindow === undefined
-        ? {}
-        : { context: { contextWindow: configuredModel.contextWindow } },
-      ...configuredModel?.defaultMaxTokens === undefined
-        ? {}
-        : { defaultMaxTokens: configuredModel.defaultMaxTokens },
-      ...configuredModel?.systemPromptUpdate === undefined
-        ? {}
-        : { systemPromptUpdate: configuredModel.systemPromptUpdate },
-      ...configuredModel?.toolUpdate === undefined
-        ? {}
-        : { toolUpdate: configuredModel.toolUpdate },
-      ...configuredModel?.reasoningEfforts === undefined
+      ...(configuredModel?.description === undefined ? {} : { description: configuredModel.description }),
+      ...(configuredModel?.inputModalities === undefined ? {} : { inputModalities: [...configuredModel.inputModalities] }),
+      ...(configuredModel?.contextWindow === undefined ? {} : { context: { contextWindow: configuredModel.contextWindow } }),
+      ...(configuredModel?.defaultMaxTokens === undefined ? {} : { defaultMaxTokens: configuredModel.defaultMaxTokens }),
+      ...(configuredModel?.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: configuredModel.systemPromptUpdate }),
+      ...(configuredModel?.toolUpdate === undefined ? {} : { toolUpdate: configuredModel.toolUpdate }),
+      ...(configuredModel?.reasoningEfforts === undefined
         ? {}
         : {
-          reasoning: {
-            efforts: configuredModel.reasoningEfforts.map(id => ({ id: ReasoningEffortId(id), name: id })),
-            ...configuredModel.defaultReasoningEffort === undefined
-              ? {}
-              : { defaultEffort: ReasoningEffortId(configuredModel.defaultReasoningEffort) },
-          },
-        },
+            reasoning: {
+              efforts: configuredModel.reasoningEfforts.map(id => ({ id: ReasoningEffortId(id), name: id })),
+              ...(configuredModel.defaultReasoningEffort === undefined
+                ? {}
+                : { defaultEffort: ReasoningEffortId(configuredModel.defaultReasoningEffort) }),
+            },
+          }),
     })
   }
 
@@ -992,8 +985,17 @@ async function* replayEntry(entry: ReplayEntry, signal: AbortSignal | undefined,
       yield { type: 'text-delta', index: 0, text: 'partial' }
       if (entry.readyFile !== undefined) writeFileSync(entry.readyFile, '')
       await new Promise<void>((_resolve, reject) => {
-        if (signal?.aborted) { reject(new Error('aborted')); return }
-        signal?.addEventListener('abort', () => { reject(new Error('aborted')) }, { once: true })
+        if (signal?.aborted) {
+          reject(new Error('aborted'))
+          return
+        }
+        signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('aborted'))
+          },
+          { once: true },
+        )
       })
       /* v8 ignore next -- unreachable: the hang promise only ever rejects (on abort), never resolves; control never reaches here */
       return
@@ -1069,14 +1071,14 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
     return (async function* () {
       if (unrecorded) {
         throw new Error(
-          `llm-replay: a model call arrived from an unrecorded session (#${seenSessions + 1}); `
-          + `the scenario recorded only ${totalScripts} session(s) — re-record it`,
+          `llm-replay: a model call arrived from an unrecorded session (#${seenSessions + 1}); ` +
+            `the scenario recorded only ${totalScripts} session(s) — re-record it`,
         )
       }
       if (entry === undefined) {
         throw new Error(
-          `llm-replay: script exhausted — session requested model call #${index + 1} `
-          + `but its script has only ${boundState.entries.length}; re-record the scenario`,
+          `llm-replay: script exhausted — session requested model call #${index + 1} ` +
+            `but its script has only ${boundState.entries.length}; re-record the scenario`,
         )
       }
       inferStartedSubagents(options.messages, liveSessionIds)
@@ -1089,8 +1091,8 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
             // Replay reproduces post-2xx side effects, not the provider wire body.
             body: { messages: [] },
             signal,
-            ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
-            ...options.purpose === undefined ? {} : { purpose: options.purpose },
+            ...(options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) }),
+            ...(options.purpose === undefined ? {} : { purpose: options.purpose }),
           })
           await prepared.accept()
         }
@@ -1099,9 +1101,13 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
     })()
   }
   const providers = config.providers ?? []
-  const dispose = providers.length > 0
-    ? ctx.llm.registerAdapter(providers.map(provider => provider.id), new ReplayAdapter(providers, replay))
-    : ctx.on('llm/stream', (options: GenerateOptions, _next) => replay(options))
+  const dispose =
+    providers.length > 0
+      ? ctx.llm.registerAdapter(
+          providers.map(provider => provider.id),
+          new ReplayAdapter(providers, replay),
+        )
+      : ctx.on('llm/stream', (options: GenerateOptions, _next) => replay(options))
   return {
     dispose,
     assertConsumed(): void {
@@ -1116,7 +1122,9 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
         }
       }
       if (problems.length > 0) {
-        throw new Error(`llm-replay: fixture not fully consumed — ${problems.join('; ')}; the scenario drove fewer model calls than recorded`)
+        throw new Error(
+          `llm-replay: fixture not fully consumed — ${problems.join('; ')}; the scenario drove fewer model calls than recorded`,
+        )
       }
     },
   }
@@ -1147,42 +1155,37 @@ function validateConfiguredModels(providers: ReplayProviderConfig[] | undefined)
   for (const provider of providers ?? []) {
     for (const model of provider.models ?? []) {
       const modalities: unknown = model.inputModalities
-      if (modalities !== undefined && (!Array.isArray(modalities)
-        || !modalities.every((modality: unknown) => modality === 'text' || modality === 'image'))) {
+      if (
+        modalities !== undefined &&
+        (!Array.isArray(modalities) || !modalities.every((modality: unknown) => modality === 'text' || modality === 'image'))
+      ) {
         throw new Error(
-          `llm-replay: provider "${provider.id}" model "${model.id}" inputModalities `
-          + 'must be an array containing only "text" and "image"',
+          `llm-replay: provider "${provider.id}" model "${model.id}" inputModalities ` +
+            'must be an array containing only "text" and "image"',
         )
       }
       const imageRequestTokens: unknown = model.imageRequestTokens
-      if (imageRequestTokens !== undefined
-        && (!Number.isSafeInteger(imageRequestTokens) || (imageRequestTokens as number) <= 0)) {
-        throw new Error(
-          `llm-replay: provider "${provider.id}" model "${model.id}" imageRequestTokens `
-          + 'must be a positive safe integer',
-        )
+      if (imageRequestTokens !== undefined && (!Number.isSafeInteger(imageRequestTokens) || (imageRequestTokens as number) <= 0)) {
+        throw new Error(`llm-replay: provider "${provider.id}" model "${model.id}" imageRequestTokens ` + 'must be a positive safe integer')
       }
       // A text-only route never sends visual tokens: LlmRuntime substitutes
       // its images with deterministic text before dispatch, so declared
       // visual pricing would contradict the actual request projection.
       if (imageRequestTokens !== undefined && model.inputModalities?.includes('image') !== true) {
         throw new Error(
-          `llm-replay: provider "${provider.id}" model "${model.id}" imageRequestTokens `
-          + 'requires inputModalities to include "image"',
+          `llm-replay: provider "${provider.id}" model "${model.id}" imageRequestTokens ` + 'requires inputModalities to include "image"',
         )
       }
       const systemPromptUpdate: unknown = model.systemPromptUpdate
       if (systemPromptUpdate !== undefined && systemPromptUpdate !== 'in-history') {
         throw new Error(
-          `llm-replay: provider "${provider.id}" model "${model.id}" systemPromptUpdate `
-          + 'must be "in-history" when present',
+          `llm-replay: provider "${provider.id}" model "${model.id}" systemPromptUpdate ` + 'must be "in-history" when present',
         )
       }
       const toolUpdate: unknown = model.toolUpdate
       if (toolUpdate !== undefined && toolUpdate !== 'in-history' && toolUpdate !== 'addition-only') {
         throw new Error(
-          `llm-replay: provider "${provider.id}" model "${model.id}" toolUpdate `
-          + 'must be "in-history" or "addition-only" when present',
+          `llm-replay: provider "${provider.id}" model "${model.id}" toolUpdate ` + 'must be "in-history" or "addition-only" when present',
         )
       }
     }
@@ -1197,13 +1200,12 @@ export function apply(ctx: Context, config: Config = {}): void {
   validateConfiguredModels(config.providers)
   const overrideFile = config.overrideFile ?? process.env.DSH_SNAPSHOT_OVERRIDE
   const childEnv = process.env.DSH_SNAPSHOT_CHILD_FILES
-  const childFiles = config.childFiles
-    ?? (childEnv !== undefined && childEnv.length > 0 ? childEnv.split(pathDelimiter) : [])
+  const childFiles = config.childFiles ?? (childEnv !== undefined && childEnv.length > 0 ? childEnv.split(pathDelimiter) : [])
   installLlmReplay(ctx, {
     file,
-    ...overrideFile !== undefined && overrideFile.length > 0 ? { overrideFile } : {},
-    ...childFiles.length > 0 ? { childFiles } : {},
-    ...config.providers !== undefined ? { providers: config.providers } : {},
-    ...config.paceMs !== undefined ? { paceMs: config.paceMs } : {},
+    ...(overrideFile !== undefined && overrideFile.length > 0 ? { overrideFile } : {}),
+    ...(childFiles.length > 0 ? { childFiles } : {}),
+    ...(config.providers !== undefined ? { providers: config.providers } : {}),
+    ...(config.paceMs !== undefined ? { paceMs: config.paceMs } : {}),
   })
 }

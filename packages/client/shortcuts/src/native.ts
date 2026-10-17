@@ -5,16 +5,20 @@ import type { ShortcutCommandId } from './binding.ts'
 /** Native input carries the accepted configuration identity; frame names identify the focused iframe or browser guest embedding element. */
 export type DesktopShortcutInput = {
   readonly revision: ShortcutRevision
-} & ({ readonly kind: 'menu'; readonly commandId: ShortcutCommandId }
-  | { readonly kind: 'keyboard' | 'iframe' | 'webview'
-    readonly frameName: string
-    readonly code: string
-    readonly secondCode?: string
-    readonly control: boolean
-    readonly alt: boolean
-    readonly shift: boolean
-    readonly meta: boolean
-    readonly repeat: boolean })
+} & (
+  | { readonly kind: 'menu'; readonly commandId: ShortcutCommandId }
+  | {
+      readonly kind: 'keyboard' | 'iframe' | 'webview'
+      readonly frameName: string
+      readonly code: string
+      readonly secondCode?: string
+      readonly control: boolean
+      readonly alt: boolean
+      readonly shift: boolean
+      readonly meta: boolean
+      readonly repeat: boolean
+    }
+)
 
 /** Window-scoped capabilities exposed only to the product main frame. */
 export interface DesktopKeyboardApi {

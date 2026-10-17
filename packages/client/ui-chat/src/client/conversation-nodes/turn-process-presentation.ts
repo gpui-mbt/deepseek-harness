@@ -1,8 +1,6 @@
 import { isVisibleChatNode } from '../contract/chat-visibility.ts'
 import type { ChatNode } from '../contract/chat-nodes.ts'
-import type {
-  ChatLocationNodeIndex, ChatNodeStore, ChatTurnProcessPresentation,
-} from '../contract/snapshot.ts'
+import type { ChatLocationNodeIndex, ChatNodeStore, ChatTurnProcessPresentation } from '../contract/snapshot.ts'
 import { isAtOrOutside } from '../contract/group-tree.ts'
 
 function nodeTurn(node: ChatNode | undefined): number | undefined {
@@ -10,25 +8,22 @@ function nodeTurn(node: ChatNode | undefined): number | undefined {
   return location?.kind === 'turn' || location?.kind === 'step' ? location.turn.turn : undefined
 }
 
-function samePresentation(
-  left: ChatTurnProcessPresentation | undefined,
-  right: ChatTurnProcessPresentation | undefined,
-): boolean {
-  return left === right || (left !== undefined && right !== undefined
-    && left.spec === right.spec
-    && left.turn === right.turn
-    && left.turnStarted === right.turnStarted
-    && left.turnClosed === right.turnClosed
-    && left.hasExternalProcess === right.hasExternalProcess
-    && left.hasInterleavedInput === right.hasInterleavedInput
-    && left.compactAnswer === right.compactAnswer)
+function samePresentation(left: ChatTurnProcessPresentation | undefined, right: ChatTurnProcessPresentation | undefined): boolean {
+  return (
+    left === right ||
+    (left !== undefined &&
+      right !== undefined &&
+      left.spec === right.spec &&
+      left.turn === right.turn &&
+      left.turnStarted === right.turnStarted &&
+      left.turnClosed === right.turnClosed &&
+      left.hasExternalProcess === right.hasExternalProcess &&
+      left.hasInterleavedInput === right.hasInterleavedInput &&
+      left.compactAnswer === right.compactAnswer)
+  )
 }
 
-function derivePresentation(
-  turn: number,
-  locations: ChatLocationNodeIndex,
-  nodes: ChatNodeStore,
-): ChatTurnProcessPresentation | undefined {
+function derivePresentation(turn: number, locations: ChatLocationNodeIndex, nodes: ChatNodeStore): ChatTurnProcessPresentation | undefined {
   const keys = locations.getTurn(turn)
   const control = keys
     .map(key => nodes.get(key) as ChatNode | undefined)
@@ -41,8 +36,11 @@ function derivePresentation(
   let openingHumanAnchor: number | undefined
   for (const key of keys) {
     const node = nodes.get(key) as ChatNode | undefined
-    if (node !== undefined && isAtOrOutside(node, 'input')
-      && (spec.controlAnchorSeq === location.turn.start?.seq || node.anchorSeq < spec.controlAnchorSeq)) {
+    if (
+      node !== undefined &&
+      isAtOrOutside(node, 'input') &&
+      (spec.controlAnchorSeq === location.turn.start?.seq || node.anchorSeq < spec.controlAnchorSeq)
+    ) {
       openingHumanAnchor = Math.max(openingHumanAnchor ?? node.anchorSeq, node.anchorSeq)
     }
   }
@@ -53,14 +51,16 @@ function derivePresentation(
   for (const key of keys) {
     const node = nodes.get(key) as ChatNode | undefined
     if (node === undefined || !isVisibleChatNode(node) || node.kind === 'turn-process') continue
-    if (isAtOrOutside(node, 'input')
-      && (openingHumanAnchor === undefined || node.anchorSeq > openingHumanAnchor)) {
+    if (isAtOrOutside(node, 'input') && (openingHumanAnchor === undefined || node.anchorSeq > openingHumanAnchor)) {
       hasInterleavedInput = true
       if (spec.answerAnchorSeq === null || node.anchorSeq < spec.answerAnchorSeq) compactAnswer = false
     }
-    if (isAtOrOutside(node, 'turn')
-      || node.anchorSeq < spec.processStartSeq
-      || (spec.answerAnchorSeq !== null && node.anchorSeq >= spec.answerAnchorSeq)) continue
+    if (
+      isAtOrOutside(node, 'turn') ||
+      node.anchorSeq < spec.processStartSeq ||
+      (spec.answerAnchorSeq !== null && node.anchorSeq >= spec.answerAnchorSeq)
+    )
+      continue
     if (node.kind !== 'assistant-step' || spec.answerStep === null || node.data.step !== spec.answerStep) {
       hasExternalProcess = true
     }
@@ -97,11 +97,7 @@ export class ChatTurnProcessProjector {
    * @param nodes - current Chat Node store.
    * @returns Turns whose process presentation changed.
    */
-  replace(
-    order: readonly string[],
-    locations: ChatLocationNodeIndex,
-    nodes: ChatNodeStore,
-  ): ReadonlySet<number> {
+  replace(order: readonly string[], locations: ChatLocationNodeIndex, nodes: ChatNodeStore): ReadonlySet<number> {
     const turns = new Set<number>()
     for (const key of order) {
       const turn = nodeTurn(nodes.get(key) as ChatNode | undefined)
@@ -123,11 +119,7 @@ export class ChatTurnProcessProjector {
    * @param nodes - current Chat Node store.
    * @returns Turns whose process presentation changed.
    */
-  update(
-    turns: ReadonlySet<number>,
-    locations: ChatLocationNodeIndex,
-    nodes: ChatNodeStore,
-  ): ReadonlySet<number> {
+  update(turns: ReadonlySet<number>, locations: ChatLocationNodeIndex, nodes: ChatNodeStore): ReadonlySet<number> {
     const changed = new Set<number>()
     for (const turn of turns) {
       if (this.set(turn, derivePresentation(turn, locations, nodes))) changed.add(turn)

@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const repoRoot = fileURLToPath(new URL('../../../../../../', import.meta.url))
 const dshBin = join(repoRoot, 'apps/cli/lib/bin.js')
@@ -29,60 +29,62 @@ function createFixture(): Fixture {
   const stop = join(root, 'stop')
   mkdirSync(home)
   writeFileSync(events, '')
-  writeFileSync(join(root, 'good.mjs'), [
-    "import { appendFileSync, existsSync } from 'node:fs'",
-    'export function apply(ctx, config) {',
-    "  appendFileSync(config.events, 'good apply\\n')",
-    '  let stopping = false',
-    '  const watcher = setInterval(() => {',
-    '    if (stopping || !existsSync(config.stop)) return',
-    '    stopping = true',
-    "    process.emit('SIGTERM')",
-    '  }, 20)',
-    '  ctx.effect(() => () => {',
-    '    clearInterval(watcher)',
-    "    appendFileSync(config.events, 'good dispose\\n')",
-    '  })',
-    '}',
-    '',
-  ].join('\n'))
+  writeFileSync(
+    join(root, 'good.mjs'),
+    [
+      "import { appendFileSync, existsSync } from 'node:fs'",
+      'export function apply(ctx, config) {',
+      "  appendFileSync(config.events, 'good apply\\n')",
+      '  let stopping = false',
+      '  const watcher = setInterval(() => {',
+      '    if (stopping || !existsSync(config.stop)) return',
+      '    stopping = true',
+      "    process.emit('SIGTERM')",
+      '  }, 20)',
+      '  ctx.effect(() => () => {',
+      '    clearInterval(watcher)',
+      "    appendFileSync(config.events, 'good dispose\\n')",
+      '  })',
+      '}',
+      '',
+    ].join('\n'),
+  )
   writeFileSync(join(root, 'sync-failure.mjs'), 'export function apply() { throw new Error("web sync apply failure") }\n')
-  writeFileSync(join(root, 'async-failure.mjs'), [
-    'export async function apply() {',
-    '  await Promise.resolve()',
-    '  throw new Error("web async apply failure")',
-    '}',
-    '',
-  ].join('\n'))
-  writeFileSync(join(root, 'pending.mjs'), [
-    "export const inject = ['webProbeMissingService']",
-    'export function apply() {}',
-    '',
-  ].join('\n'))
+  writeFileSync(
+    join(root, 'async-failure.mjs'),
+    ['export async function apply() {', '  await Promise.resolve()', '  throw new Error("web async apply failure")', '}', ''].join('\n'),
+  )
+  writeFileSync(
+    join(root, 'pending.mjs'),
+    ["export const inject = ['webProbeMissingService']", 'export function apply() {}', ''].join('\n'),
+  )
   const patch = join(root, 'failures.patch.yml')
-  writeFileSync(patch, [
-    '- id: tool-todo',
-    '  disabled: false',
-    '  config: {}',
-    '- insert:',
-    '    - id: web-probe-good',
-    `      name: ${pathToFileURL(join(root, 'good.mjs')).href}`,
-    '      config:',
-    `        events: ${JSON.stringify(events)}`,
-    `        stop: ${JSON.stringify(stop)}`,
-    '    - id: web-probe-import-failure',
-    `      name: ${pathToFileURL(join(root, 'missing.mjs')).href}`,
-    '    - id: web-probe-sync-failure',
-    `      name: ${pathToFileURL(join(root, 'sync-failure.mjs')).href}`,
-    '    - id: web-probe-async-failure',
-    `      name: ${pathToFileURL(join(root, 'async-failure.mjs')).href}`,
-    '    - id: web-probe-pending',
-    `      name: ${pathToFileURL(join(root, 'pending.mjs')).href}`,
-    '    - id: web-probe-disabled-failure',
-    `      name: ${pathToFileURL(join(root, 'good.mjs')).href}`,
-    '      disabled: !!js "JSON.parse(\'invalid\')"',
-    '',
-  ].join('\n'))
+  writeFileSync(
+    patch,
+    [
+      '- id: tool-todo',
+      '  disabled: false',
+      '  config: {}',
+      '- insert:',
+      '    - id: web-probe-good',
+      `      name: ${pathToFileURL(join(root, 'good.mjs')).href}`,
+      '      config:',
+      `        events: ${JSON.stringify(events)}`,
+      `        stop: ${JSON.stringify(stop)}`,
+      '    - id: web-probe-import-failure',
+      `      name: ${pathToFileURL(join(root, 'missing.mjs')).href}`,
+      '    - id: web-probe-sync-failure',
+      `      name: ${pathToFileURL(join(root, 'sync-failure.mjs')).href}`,
+      '    - id: web-probe-async-failure',
+      `      name: ${pathToFileURL(join(root, 'async-failure.mjs')).href}`,
+      '    - id: web-probe-pending',
+      `      name: ${pathToFileURL(join(root, 'pending.mjs')).href}`,
+      '    - id: web-probe-disabled-failure',
+      `      name: ${pathToFileURL(join(root, 'good.mjs')).href}`,
+      '      disabled: !!js "JSON.parse(\'invalid\')"',
+      '',
+    ].join('\n'),
+  )
   return { root, home, patch, events, stop }
 }
 
@@ -122,11 +124,13 @@ async function waitForStartup(
     settled = true
     ready.reject(new Error(`Web profile did not report ready and failed entries\nstdout:\n${stdoutText}\nstderr:\n${stderrText}`))
   }, 60_000)
-  void completion.then((result) => {
+  void completion.then(result => {
     if (settled) return
     settled = true
     clearTimeout(timer)
-    ready.reject(new Error(`Web profile exited before readiness (code ${String(result.exitCode)})\nstdout:\n${stdoutText}\nstderr:\n${stderrText}`))
+    ready.reject(
+      new Error(`Web profile exited before readiness (code ${String(result.exitCode)})\nstdout:\n${stdoutText}\nstderr:\n${stderrText}`),
+    )
   })
   return ready.promise
 }
@@ -134,13 +138,7 @@ async function waitForStartup(
 describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () => {
   it('serves the full Web app while unrelated entries fail to start', async () => {
     const fixture = createFixture()
-    const child = execa(process.execPath, [
-      dshBin,
-      '--profile', 'web',
-      '--patch', fixture.patch,
-      '--no-open',
-      '--port', '0',
-    ], {
+    const child = execa(process.execPath, [dshBin, '--profile', 'web', '--patch', fixture.patch, '--no-open', '--port', '0'], {
       cwd: fixture.root,
       env: {
         ...process.env,
@@ -205,21 +203,12 @@ describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () 
     ['connection', 'disabled expression'],
   ])('fails the full Web profile on required %s %s failure', async (id, failure) => {
     const fixture = createFixture()
-    const patch = failure === 'disabled expression'
-      ? 'disabled: !!js "JSON.parse(\'invalid\')"'
-      : 'inject: [webProbeMissingRequiredService]'
-    const diagnostic = failure === 'disabled expression'
-      ? 'disabled expression failed: SyntaxError'
-      : 'webProbeMissingRequiredService'
+    const patch =
+      failure === 'disabled expression' ? 'disabled: !!js "JSON.parse(\'invalid\')"' : 'inject: [webProbeMissingRequiredService]'
+    const diagnostic = failure === 'disabled expression' ? 'disabled expression failed: SyntaxError' : 'webProbeMissingRequiredService'
     writeFileSync(fixture.patch, `${readFileSync(fixture.patch, 'utf8')}- id: ${id}\n  ${patch}\n`)
     try {
-      const result = await execa(process.execPath, [
-        dshBin,
-        '--profile', 'web',
-        '--patch', fixture.patch,
-        '--no-open',
-        '--port', '0',
-      ], {
+      const result = await execa(process.execPath, [dshBin, '--profile', 'web', '--patch', fixture.patch, '--no-open', '--port', '0'], {
         cwd: fixture.root,
         env: {
           ...process.env,
@@ -247,14 +236,16 @@ describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () 
     }
   })
 
-  it.each([false, true])('fails the full Web profile when its required HTTP server cannot bind (logs blocked: %s)', async (logsBlocked) => {
+  it.each([false, true])('fails the full Web profile when its required HTTP server cannot bind (logs blocked: %s)', async logsBlocked => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-web-required-bind-'))
     const home = join(root, 'home')
     mkdirSync(home)
     if (logsBlocked) writeFileSync(join(home, 'logs'), 'blocked')
     const blocker = createServer()
     await new Promise<void>((resolve, reject) => {
-      const fail = (error: Error): void => { reject(error) }
+      const fail = (error: Error): void => {
+        reject(error)
+      }
       blocker.once('error', fail)
       blocker.listen(0, '127.0.0.1', () => {
         blocker.off('error', fail)
@@ -267,12 +258,7 @@ describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () 
     }
 
     try {
-      const result = await execa(process.execPath, [
-        dshBin,
-        '--profile', 'web',
-        '--no-open',
-        '--port', String(address.port),
-      ], {
+      const result = await execa(process.execPath, [dshBin, '--profile', 'web', '--no-open', '--port', String(address.port)], {
         cwd: root,
         env: {
           ...process.env,
@@ -323,7 +309,10 @@ describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () 
       expect(report).toContain('at auditStartupEntries')
     } finally {
       await new Promise<void>((resolve, reject) => {
-        blocker.close((error) => { if (error === undefined) resolve(); else reject(error) })
+        blocker.close(error => {
+          if (error === undefined) resolve()
+          else reject(error)
+        })
       })
       rmSync(root, { recursive: true, force: true })
     }
@@ -332,28 +321,24 @@ describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () 
   it('fails and cleans up when detached work rejects after application startup', async () => {
     const fixture = createFixture()
     const plugin = join(fixture.root, 'detached.mjs')
-    writeFileSync(plugin, [
-      'export function apply(ctx) {',
-      '  ctx.effect(() => ctx.get("appReady").onReady(() => {',
-      '    void Promise.reject(new Error("detached Web failure"))',
-      '  }))',
-      '}',
-      '',
-    ].join('\n'))
-    writeFileSync(fixture.patch, readFileSync(fixture.patch, 'utf8') + [
-      '- insert:',
-      '    - id: detached-probe',
-      `      name: ${pathToFileURL(plugin).href}`,
-      '',
-    ].join('\n'))
+    writeFileSync(
+      plugin,
+      [
+        'export function apply(ctx) {',
+        '  ctx.effect(() => ctx.get("appReady").onReady(() => {',
+        '    void Promise.reject(new Error("detached Web failure"))',
+        '  }))',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    writeFileSync(
+      fixture.patch,
+      readFileSync(fixture.patch, 'utf8') +
+        ['- insert:', '    - id: detached-probe', `      name: ${pathToFileURL(plugin).href}`, ''].join('\n'),
+    )
     try {
-      const result = await execa(process.execPath, [
-        dshBin,
-        '--profile', 'web',
-        '--patch', fixture.patch,
-        '--no-open',
-        '--port', '0',
-      ], {
+      const result = await execa(process.execPath, [dshBin, '--profile', 'web', '--patch', fixture.patch, '--no-open', '--port', '0'], {
         cwd: fixture.root,
         env: {
           ...process.env,

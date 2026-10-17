@@ -2,7 +2,7 @@
 // plugin count. No model call or replay fixture is involved.
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage } from './support.ts'
 
@@ -29,7 +29,7 @@ describe('startup RPC budget', () => {
     page = await newEnglishPage(browser)
     watchConsole(page)
     const calls: string[] = []
-    page.on('request', (request) => {
+    page.on('request', request => {
       const url = new URL(request.url())
       if (url.pathname.startsWith('/api/')) calls.push(url.pathname.slice('/api/'.length))
     })

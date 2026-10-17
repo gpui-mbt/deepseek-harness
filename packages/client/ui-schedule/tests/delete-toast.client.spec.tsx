@@ -1,15 +1,20 @@
 // @vitest-environment jsdom
 /** The app-wide deletion toast: one outcome store behind one overlay banner. */
 import { act, cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import {
-  createDeleteToastSource, ScheduleDeleteToast,
-  type DeleteToastState, type ScheduleDeleteToastProps,
+  createDeleteToastSource,
+  ScheduleDeleteToast,
+  type DeleteToastState,
+  type ScheduleDeleteToastProps,
 } from '../src/client/DeleteToast.tsx'
 import { en, zh } from '../src/client/task-manager-locales.ts'
 
-afterEach(() => { cleanup(); vi.useRealTimers() })
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 
 function mount(state: DeleteToastState | null, dictionary: typeof en | typeof zh = en) {
   const dismiss = vi.fn()
@@ -60,7 +65,9 @@ describe('ScheduleDeleteToast', () => {
     vi.useFakeTimers()
     const { dismiss } = mount({ kind: 'deleted', seq: 1 })
     expect(screen.getByRole('alert').textContent).toBe(en['toast.deleted'])
-    act(() => { vi.runAllTimers() })
+    act(() => {
+      vi.runAllTimers()
+    })
     expect(dismiss).toHaveBeenCalledOnce()
   })
 

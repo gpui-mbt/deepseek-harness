@@ -19,8 +19,22 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { deadline, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import { JobRegistry, JobId } from '@deepseek-ai/dsh-jobs'
 import type {
-  JobAppendOptions, JobEvent, JobEvents, JobHandle, JobKind, JobOutcome, JobOutputRead, JobOutputSource,
-  JobRead, JobRegisteredData, JobSettleCause, JobSettledData, JobSpec, JobStatus, JobToolCall, JobView,
+  JobAppendOptions,
+  JobEvent,
+  JobEvents,
+  JobHandle,
+  JobKind,
+  JobOutcome,
+  JobOutputRead,
+  JobOutputSource,
+  JobRead,
+  JobRegisteredData,
+  JobSettleCause,
+  JobSettledData,
+  JobSpec,
+  JobStatus,
+  JobToolCall,
+  JobView,
 } from '@deepseek-ai/dsh-jobs'
 import { JobEventHub, JobLayer } from './events.ts'
 import { startPump } from './pump.ts'
@@ -129,26 +143,10 @@ function isTerminal(status: JobStatus): boolean {
  */
 export class LocalJobRegistry extends JobRegistry {
   static Config: z<Config> = z.object({
-    maxConcurrentJobsPerOwner: z.number()
-      .step(1)
-      .min(1)
-      .max(Number.MAX_SAFE_INTEGER)
-      .default(DEFAULT_MAX_CONCURRENT_JOBS_PER_OWNER),
-    retainBytes: z.number()
-      .step(1)
-      .min(1)
-      .max(Number.MAX_SAFE_INTEGER)
-      .default(DEFAULT_RETAIN_BYTES),
-    settledRetainBytes: z.number()
-      .step(1)
-      .min(1)
-      .max(Number.MAX_SAFE_INTEGER)
-      .default(DEFAULT_SETTLED_RETAIN_BYTES),
-    pumpPollMs: z.number()
-      .step(1)
-      .min(1)
-      .max(Number.MAX_SAFE_INTEGER)
-      .default(DEFAULT_PUMP_POLL_MS),
+    maxConcurrentJobsPerOwner: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(DEFAULT_MAX_CONCURRENT_JOBS_PER_OWNER),
+    retainBytes: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(DEFAULT_RETAIN_BYTES),
+    settledRetainBytes: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(DEFAULT_SETTLED_RETAIN_BYTES),
+    pumpPollMs: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(DEFAULT_PUMP_POLL_MS),
   })
 
   /** Schemastery-defaulted active-job limit. */
@@ -173,7 +171,10 @@ export class LocalJobRegistry extends JobRegistry {
    * Layers make both reads owner-relative. Nothing derives a cache from a
    * layer, so change notification is a no-op.
    */
-  private readonly layers = new ScopedLayers<JobLayer>(() => new JobLayer(), () => {})
+  private readonly layers = new ScopedLayers<JobLayer>(
+    () => new JobLayer(),
+    () => {},
+  )
   private readonly hub: JobEventHub
   /** Owner agents with attached scope cleanup, mapped to the exact disposer. */
   private ownerCleanups = new Map<Agent, () => Promise<void> | void>()
@@ -189,7 +190,9 @@ export class LocalJobRegistry extends JobRegistry {
     this.settledRetainBytes = resolved.settledRetainBytes
     this.pumpPollMs = resolved.pumpPollMs
     this.selfCtx = ctx
-    this.hub = new JobEventHub(this.layers, (message) => { ctx.logger.warn(message) })
+    this.hub = new JobEventHub(this.layers, message => {
+      ctx.logger.warn(message)
+    })
     ctx.effect(() => () => this.disposeAll(), 'jobs teardown')
   }
 
@@ -207,12 +210,13 @@ export class LocalJobRegistry extends JobRegistry {
   start(spec: JobSpec): JobId {
     const owner = this.resolveOwner(spec.owner)
     if (!this.servesOwner(owner)) {
-      throw new Error('background jobs unavailable: no job controller serves this agent (load @deepseek-ai/dsh-tool-jobs in its composition)')
+      throw new Error(
+        'background jobs unavailable: no job controller serves this agent (load @deepseek-ai/dsh-tool-jobs in its composition)',
+      )
     }
     if (spec.kind.length === 0) throw new Error('invalid job kind: expected a non-empty string')
     if (spec.label.length === 0) throw new Error('invalid job label: expected a non-empty string')
-    if (spec.outputLimitBytes !== undefined
-      && (!Number.isSafeInteger(spec.outputLimitBytes) || spec.outputLimitBytes <= 0)) {
+    if (spec.outputLimitBytes !== undefined && (!Number.isSafeInteger(spec.outputLimitBytes) || spec.outputLimitBytes <= 0)) {
       throw new Error(`invalid outputLimitBytes: expected a positive safe integer, got ${JSON.stringify(spec.outputLimitBytes)}`)
     }
     if (owner !== undefined) this.ensureOwnerCleanup(owner)
@@ -235,13 +239,19 @@ export class LocalJobRegistry extends JobRegistry {
     const state: ProducerState = { progress: undefined, job: undefined }
     const handle: JobHandle = {
       id,
-      append: (text, options) => { this.appendRing(state, ring, text, options, 'producer') },
-      updateProgress: (line) => { this.updateProgress(state, line) },
+      append: (text, options) => {
+        this.appendRing(state, ring, text, options, 'producer')
+      },
+      updateProgress: line => {
+        this.updateProgress(state, line)
+      },
     }
     const hooks = spec.run(handle)
 
     let markSettled!: () => void
-    const settled = new Promise<void>((resolve) => { markSettled = resolve })
+    const settled = new Promise<void>(resolve => {
+      markSettled = resolve
+    })
     const job: TrackedJob = {
       id,
       toolCall,
@@ -293,8 +303,12 @@ export class LocalJobRegistry extends JobRegistry {
       job.pump = startPump(
         spec.output.map(source => this.guardSource(job, source)),
         {
-          append: (text, options) => { this.appendRing(state, ring, text, options, 'pump') },
-          spill: (index, path) => { job.spillPaths[index] = path },
+          append: (text, options) => {
+            this.appendRing(state, ring, text, options, 'pump')
+          },
+          spill: (index, path) => {
+            job.spillPaths[index] = path
+          },
         },
         this.pumpPollMs,
         Promise.race([producerDone, settled]),
@@ -308,9 +322,7 @@ export class LocalJobRegistry extends JobRegistry {
   }
 
   list(caller?: SessionId): JobView[] {
-    return [...this.store.values()]
-      .filter(job => job.owner === undefined || job.owner.id === caller)
-      .map(job => this.view(job))
+    return [...this.store.values()].filter(job => job.owner === undefined || job.owner.id === caller).map(job => this.view(job))
   }
 
   get(id: JobId, caller?: SessionId): JobView {
@@ -346,11 +358,7 @@ export class LocalJobRegistry extends JobRegistry {
   attachController(name: string): () => void {
     // One token per call keeps duplicate labels independently disposable.
     const token = Symbol(name)
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.controllers.append(token),
-      { label: 'jobs.attachController()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.controllers.append(token), { label: 'jobs.attachController()' })
   }
 
   /**
@@ -381,8 +389,7 @@ export class LocalJobRegistry extends JobRegistry {
    */
   private servesOwner(owner?: Agent): boolean {
     if (!this.layers.global.controllers.isEmpty()) return true
-    return this.layers.chainLayers(owner === undefined ? undefined : scopeOf(owner.ctx))
-      .some(layer => !layer.controllers.isEmpty())
+    return this.layers.chainLayers(owner === undefined ? undefined : scopeOf(owner.ctx)).some(layer => !layer.controllers.isEmpty())
   }
 
   /** Count authoritative active records for one exact owner or the shared unowned bucket. */
@@ -421,17 +428,17 @@ export class LocalJobRegistry extends JobRegistry {
       id: job.id,
       kind: job.kind,
       label: job.label,
-      ...owner !== undefined ? { owner } : {},
-      ...job.outputLimitBytes !== undefined ? { outputLimitBytes: job.outputLimitBytes } : {},
+      ...(owner !== undefined ? { owner } : {}),
+      ...(job.outputLimitBytes !== undefined ? { outputLimitBytes: job.outputLimitBytes } : {}),
       status: job.status,
-      ...job.state.progress !== undefined ? { progress: job.state.progress } : {},
-      ...job.detail !== undefined ? { detail: job.detail } : {},
+      ...(job.state.progress !== undefined ? { progress: job.state.progress } : {}),
+      ...(job.detail !== undefined ? { detail: job.detail } : {}),
       startedAt: job.startedAt,
-      ...job.finishedAt !== undefined ? { finishedAt: job.finishedAt } : {},
+      ...(job.finishedAt !== undefined ? { finishedAt: job.finishedAt } : {}),
       output: {
         total: job.ring.total,
         earliest: job.ring.earliest,
-        ...spillPaths.length > 0 ? { spillPaths } : {},
+        ...(spillPaths.length > 0 ? { spillPaths } : {}),
       },
     }
   }
@@ -449,9 +456,12 @@ export class LocalJobRegistry extends JobRegistry {
     if (owner === undefined) return
     const session = owner.session
     const data: JobRegisteredData = {
-      jobId: job.id, owner: owner.id,
-      kind: job.kind, label: job.label, startedAt: job.startedAt,
-      ...job.toolCall !== undefined ? { toolCall: job.toolCall } : {},
+      jobId: job.id,
+      owner: owner.id,
+      kind: job.kind,
+      label: job.label,
+      startedAt: job.startedAt,
+      ...(job.toolCall !== undefined ? { toolCall: job.toolCall } : {}),
     }
     try {
       if (settlement === undefined) session.append('job/registered', data)
@@ -476,7 +486,7 @@ export class LocalJobRegistry extends JobRegistry {
     return {
       chunks: read.chunks,
       lossy: read.lossy,
-      ...result !== undefined ? { result } : {},
+      ...(result !== undefined ? { result } : {}),
       job: this.view(job),
     }
   }
@@ -558,8 +568,8 @@ export class LocalJobRegistry extends JobRegistry {
   private guardSource(job: TrackedJob, source: JobOutputSource): JobOutputSource {
     let failed = false
     return {
-      ...source.channel !== undefined ? { channel: source.channel } : {},
-      read: (fromByte) => {
+      ...(source.channel !== undefined ? { channel: source.channel } : {}),
+      read: fromByte => {
         if (failed) return { text: '', nextOffset: fromByte, lossy: false }
         try {
           return source.read(fromByte)
@@ -575,7 +585,7 @@ export class LocalJobRegistry extends JobRegistry {
   /** Announce that one job's ring advanced (append or settlement). */
   private emitOutput(job: TrackedJob): void {
     const owner = job.owner?.id
-    this.emit({ type: 'output', id: job.id, ...owner !== undefined ? { owner } : {}, total: job.ring.total }, job.owner)
+    this.emit({ type: 'output', id: job.id, ...(owner !== undefined ? { owner } : {}), total: job.ring.total }, job.owner)
   }
 
   /**
@@ -608,9 +618,7 @@ export class LocalJobRegistry extends JobRegistry {
     // that outran its kill request (settled `completed`/`failed`) keeps the
     // producer detail alone — the reason describes a kill that never landed.
     if (outcome.status === 'killed' && job.killReason !== undefined) {
-      job.detail = outcome.detail !== undefined
-        ? `${outcome.detail}; ${job.killReason}`
-        : job.killReason
+      job.detail = outcome.detail !== undefined ? `${outcome.detail}; ${job.killReason}` : job.killReason
     } else if (outcome.detail !== undefined) {
       job.detail = outcome.detail
     }
@@ -618,8 +626,11 @@ export class LocalJobRegistry extends JobRegistry {
     job.result = outcome.result
     job.finishedAt = Date.now()
     this.recordSessionEvent(job, {
-      finishedAt: job.finishedAt, status: outcome.status, cause, producerReported,
-      ...job.detail !== undefined ? { detail: job.detail } : {},
+      finishedAt: job.finishedAt,
+      status: outcome.status,
+      cause,
+      producerReported,
+      ...(job.detail !== undefined ? { detail: job.detail } : {}),
     })
     // Settlement ends the stream: trim to the settled cap before any observer
     // reads the terminal projection, but never below the bytes the model
@@ -644,10 +655,13 @@ export class LocalJobRegistry extends JobRegistry {
   private ensureOwnerCleanup(owner: Agent): void {
     if (this.ownerCleanups.has(owner)) return
     // Record only after attach succeeds; a disposing scope rejects new effects.
-    const detach = owner.ctx.effect(() => async () => {
-      this.ownerCleanups.delete(owner)
-      await this.disposeOwned(owner)
-    }, 'jobs.ownerCleanup()')
+    const detach = owner.ctx.effect(
+      () => async () => {
+        this.ownerCleanups.delete(owner)
+        await this.disposeOwned(owner)
+      },
+      'jobs.ownerCleanup()',
+    )
     this.ownerCleanups.set(owner, detach)
   }
 
@@ -707,7 +721,9 @@ export class LocalJobRegistry extends JobRegistry {
         this.emit({ type: 'stopping', job: this.view(job) }, job.owner)
       } catch (error: unknown) {
         const detail = `cancel threw during teardown; work may be orphaned: ${String(error)}`
-        this.selfCtx.logger.warn(`jobs: cancel of ${job.id} threw during teardown; job record forced failed and work may be orphaned: ${String(error)}`)
+        this.selfCtx.logger.warn(
+          `jobs: cancel of ${job.id} threw during teardown; job record forced failed and work may be orphaned: ${String(error)}`,
+        )
         this.settle(job, { status: 'failed', detail }, 'teardown', false)
       }
     }

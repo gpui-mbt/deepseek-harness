@@ -22,10 +22,7 @@ export interface TranscriptViewRowInjected {
 }
 
 /** Full Settings-row props. */
-export type TranscriptViewRowProps =
-  PropsRuntime<'settings.general.item'>
-  & PropsLocale<'chat'>
-  & InjectFace<TranscriptViewRowInjected>
+export type TranscriptViewRowProps = PropsRuntime<'settings.general.item'> & PropsLocale<'chat'> & InjectFace<TranscriptViewRowInjected>
 
 const LABELS = {
   compact: 'settings.transcript.compact',
@@ -45,7 +42,11 @@ const COLLAPSE_LABELS = {
  * @returns the preference row.
  */
 export function TranscriptViewRow({
-  useTranscriptView, setTranscriptView, useCollapseTiming, setCollapseTiming, t,
+  useTranscriptView,
+  setTranscriptView,
+  useCollapseTiming,
+  setCollapseTiming,
+  t,
 }: TranscriptViewRowProps) {
   const mode = useTranscriptView(value => value)
   const timing = useCollapseTiming(value => value)
@@ -57,7 +58,9 @@ export function TranscriptViewRow({
         value={mode}
         selectedLabel={t(LABELS[mode])}
         options={TRANSCRIPT_VIEW_MODES.map(id => ({ id, label: t(LABELS[id]) }))}
-        onSelect={(value) => { setTranscriptView(value as TranscriptViewMode) }}
+        onSelect={value => {
+          setTranscriptView(value as TranscriptViewMode)
+        }}
       />
       <PreferenceRow
         title={t('settings.collapse.title')}
@@ -65,7 +68,9 @@ export function TranscriptViewRow({
         value={timing}
         selectedLabel={t(COLLAPSE_LABELS[timing])}
         options={COLLAPSE_TIMINGS.map(id => ({ id, label: t(COLLAPSE_LABELS[id]) }))}
-        onSelect={(value) => { setCollapseTiming(value as CollapseTiming) }}
+        onSelect={value => {
+          setCollapseTiming(value as CollapseTiming)
+        }}
       />
     </>
   )

@@ -18,8 +18,13 @@ function replaceFacts(source: string, name: string, content: string, path: strin
   const end = `<!-- persistence-release-${name}:end -->`
   const opening = source.indexOf(start)
   const closing = source.indexOf(end)
-  if (opening < 0 || closing < opening || source.indexOf(start, opening + start.length) >= 0
-    || source.indexOf(end, closing + end.length) >= 0) throw new Error(`${path}: expected one ${name} factual block`)
+  if (
+    opening < 0 ||
+    closing < opening ||
+    source.indexOf(start, opening + start.length) >= 0 ||
+    source.indexOf(end, closing + end.length) >= 0
+  )
+    throw new Error(`${path}: expected one ${name} factual block`)
   return source.slice(0, opening + start.length) + content + source.slice(closing)
 }
 
@@ -34,11 +39,12 @@ function structuralChanges(entry: PersistenceReleaseEntry, language: Language): 
       ? 'Normalized root types and their transitive digests are unchanged from the preceding tag.'
       : '规范化后的根类型及其传递引用摘要与前一 tag 相同。'
   }
-  const summary = language === 'en'
-    ? `Detected ${count(entry.record.changes.length, 'changed root')} and ${count(entry.differences.length, 'structural difference')}. The review requirement below is calculated using current rules for comparison only; it does not assert historical compliance, migration correctness, or runtime compatibility.`
-    : `检测到 ${entry.record.changes.length} 个根类型变化、${entry.differences.length} 项结构差异。下表的审查要求按当前规则计算，只用于比较；不表示旧版本曾遵守这些规则，也不证明迁移或运行时兼容性。`
+  const summary =
+    language === 'en'
+      ? `Detected ${count(entry.record.changes.length, 'changed root')} and ${count(entry.differences.length, 'structural difference')}. The review requirement below is calculated using current rules for comparison only; it does not assert historical compliance, migration correctness, or runtime compatibility.`
+      : `检测到 ${entry.record.changes.length} 个根类型变化、${entry.differences.length} 项结构差异。下表的审查要求按当前规则计算，只用于比较；不表示旧版本曾遵守这些规则，也不证明迁移或运行时兼容性。`
   const heading = language === 'en' ? '| Path | Change | Review requirement |' : '| 路径 | 变化 | 审查要求 |'
-  const rows = entry.differences.map((change) => {
+  const rows = entry.differences.map(change => {
     const path = change.path.replaceAll('`', '\\`').replaceAll('|', '\\|')
     return `| \`${path}\` | \`${change.kind}\` | \`${change.requiresCompatibilityReview ? 'review-required' : 'not-required'}\` |`
   })
@@ -53,7 +59,7 @@ function structuralChanges(entry: PersistenceReleaseEntry, language: Language): 
 export function persistenceReleaseFactArtifacts(root: string, archive: PersistenceReleases): PersistenceArtifact[] {
   const directory = 'docs/persistence-changes/releases'
   const rootTypes = new Map<string, readonly string[]>()
-  const typeCounts = archive.entries.map((entry) => {
+  const typeCounts = archive.entries.map(entry => {
     const types = new Set<string>()
     for (const root of entry.roots.values()) {
       let digests = rootTypes.get(root.digest)
@@ -67,9 +73,10 @@ export function persistenceReleaseFactArtifacts(root: string, archive: Persisten
   })
   const read = (name: string): string => readFileSync(join(root, directory, name), 'utf8')
   const index = (language: Language): string => {
-    const heading = language === 'en'
-      ? '| Tag | Source date (UTC) | Session version | Roots / types | Changed roots |'
-      : '| Tag | 源码日期（UTC） | Session 版本 | 根 / 类型 | 变化根 |'
+    const heading =
+      language === 'en'
+        ? '| Tag | Source date (UTC) | Session version | Roots / types | Changed roots |'
+        : '| Tag | 源码日期（UTC） | Session 版本 | 根 / 类型 | 变化根 |'
     const rows = archive.entries.map((entry, index) => {
       const tag = entry.release.tag
       const date = new Date(entry.release.sourceDate).toISOString().slice(0, 10)
@@ -77,17 +84,25 @@ export function persistenceReleaseFactArtifacts(root: string, archive: Persisten
     })
     return '\n\n' + [heading, '|---|---|---|---|---|', ...rows].join('\n') + '\n\n'
   }
-  const artifacts = renderPersistencePair(root, `${directory}/README.md`,
+  const artifacts = renderPersistencePair(
+    root,
+    `${directory}/README.md`,
     replaceFacts(read('README.md'), 'index', index('en'), 'README.md'),
-    replaceFacts(read('README.zh.md'), 'index', index('zh'), 'README.zh.md'))
+    replaceFacts(read('README.zh.md'), 'index', index('zh'), 'README.zh.md'),
+  )
   for (const [index, entry] of archive.entries.entries()) {
     const document = (language: Language): string => {
       const path = `${entry.release.tag}${language === 'zh' ? '.zh' : ''}.md`
-      const inventory = language === 'en'
-        ? `${count(entry.roots.size, 'root')} / ${count(typeCounts[index] as number, 'type')}`
-        : `${entry.roots.size} 个根类型 / ${typeCounts[index]} 种类型`
-      return replaceFacts(replaceFacts(read(path), 'inventory', inventory, path),
-        'changes', '\n\n' + structuralChanges(entry, language) + '\n\n', path)
+      const inventory =
+        language === 'en'
+          ? `${count(entry.roots.size, 'root')} / ${count(typeCounts[index] as number, 'type')}`
+          : `${entry.roots.size} 个根类型 / ${typeCounts[index]} 种类型`
+      return replaceFacts(
+        replaceFacts(read(path), 'inventory', inventory, path),
+        'changes',
+        '\n\n' + structuralChanges(entry, language) + '\n\n',
+        path,
+      )
     }
     artifacts.push(...renderPersistencePair(root, `${directory}/${entry.release.tag}.md`, document('en'), document('zh')))
   }

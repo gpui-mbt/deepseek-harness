@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -44,12 +44,15 @@ function callTodo(ctx: Context, args: unknown, over: { agent?: Agent | undefined
     callId: ToolCallId(`call-${++callCounter}`),
     name: 'todo_write',
     arguments: args,
-    ...agent ? { agent } : {},
+    ...(agent ? { agent } : {}),
   })
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
+  return result.content
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 describe('dsh-tool-todo', () => {
@@ -100,10 +103,16 @@ describe('dsh-tool-todo', () => {
     const ctx = await setup(true)
     const agent = agentWithSession('writer-2')
     await callTodo(ctx, { todos: [{ content: 'a', status: 'pending' }] }, { agent })
-    await callTodo(ctx, { todos: [
-      { content: 'a', status: 'completed' },
-      { content: 'b', status: 'in_progress' },
-    ] }, { agent })
+    await callTodo(
+      ctx,
+      {
+        todos: [
+          { content: 'a', status: 'completed' },
+          { content: 'b', status: 'in_progress' },
+        ],
+      },
+      { agent },
+    )
 
     const current = agent.session.snapshotEvents().findLast(e => e.type === 'todo/write')!.data.todos
     expect(current).toEqual([
@@ -188,7 +197,14 @@ describe('dsh-tool-todo', () => {
 
   it.each([
     { label: 'empty content', todos: [{ content: '   ', status: 'pending' }], fragment: 'non-empty' },
-    { label: 'duplicate content', todos: [{ content: 'dup', status: 'pending' }, { content: 'dup', status: 'completed' }], fragment: 'duplicate' },
+    {
+      label: 'duplicate content',
+      todos: [
+        { content: 'dup', status: 'pending' },
+        { content: 'dup', status: 'completed' },
+      ],
+      fragment: 'duplicate',
+    },
     { label: 'unknown item keys', todos: [{ content: 'a', status: 'pending', children: [] }], fragment: 'not a declared property' },
   ])('rejects $label as an isError result', async ({ todos, fragment }) => {
     const ctx = await setup(true)
@@ -263,10 +279,12 @@ describe('todo/write event', () => {
     const session = Session.create(SessionId('t2'))
     session.append('turn/start', { turn: 1 })
     session.append('todo/write', { todos: [{ content: 'first', status: 'pending' }] })
-    session.append('todo/write', { todos: [
-      { content: 'first', status: 'completed' },
-      { content: 'second', status: 'in_progress' },
-    ] })
+    session.append('todo/write', {
+      todos: [
+        { content: 'first', status: 'completed' },
+        { content: 'second', status: 'in_progress' },
+      ],
+    })
 
     const current = session.snapshotEvents().findLast(e => e.type === 'todo/write')!.data.todos
     expect(current).toEqual([
@@ -278,9 +296,14 @@ describe('todo/write event', () => {
   it('does not add a derived message or surface node', () => {
     const session = Session.create(SessionId('t3'))
     session.append('turn/start', { turn: 1 })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'q' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'q' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     const before = session.deriveMessages().length
     session.append('todo/write', { todos: [{ content: 'a task', status: 'pending' }] })
 
@@ -295,8 +318,7 @@ describe('todo/write event', () => {
     original.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     const replayed = Session.create(SessionId('t4-replay'), original.snapshotEvents())
 
-    expect(replayed.snapshotEvents().findLast(e => e.type === 'todo/write')!.data.todos)
-      .toEqual([{ content: 'only', status: 'completed' }])
+    expect(replayed.snapshotEvents().findLast(e => e.type === 'todo/write')!.data.todos).toEqual([{ content: 'only', status: 'completed' }])
     expect(replayed.snapshotEvents(SessionLogOffset(0), original.seq)).toEqual(original.snapshotEvents())
     expect(replayed.firstLiveSeq).toBe(original.seq)
   })

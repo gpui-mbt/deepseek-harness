@@ -1,6 +1,6 @@
 /** Bounded terminal output must not rescan a full retained window on every chunk. */
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { ciTimeBudget } from '../support/calibration.ts'
 import { recordTimings, type BenchmarkCase, type Timing } from '../support/scaling-report.ts'
@@ -32,7 +32,10 @@ function median(values: readonly number[]): number {
 
 async function sample(capacity: number, mode: 'steady' | 'full' | 'tiny' | 'filtered'): Promise<TerminalIoReport> {
   const outcome = await runBuiltBenchmarkWorker<TerminalIoReport>({
-    worker: WORKER, args: [String(capacity), mode], timeoutMs: 120_000, exposeGc: true,
+    worker: WORKER,
+    args: [String(capacity), mode],
+    timeoutMs: 120_000,
+    exposeGc: true,
   })
   if (outcome.timedOut || outcome.signal !== null || outcome.exitCode !== 0 || outcome.report === undefined) {
     throw new Error('terminal I/O worker failed: ' + JSON.stringify(outcome))
@@ -52,10 +55,16 @@ it('bounds steady overflow cost as retained terminal capacity grows 32 times', a
   const completeBudgetMs = ciTimeBudget(EXPECTED_MS.steadyComplete)
   console.log(JSON.stringify({ scenario: 'terminal-steady', small, large, capacityRatio, ingestBudgetMs, completeBudgetMs }))
   const declared = (ms: number): Timing => ({ ms, ioShare: IO_SHARE })
-  recordTimings(STEADY_CASE, {
-    smallIngestMs: declared(median(small.map(row => row.ingestMs))), largeIngestMs: declared(median(large.map(row => row.ingestMs))),
-    smallCompleteMs: declared(median(small.map(row => row.completeMs))), largeCompleteMs: declared(median(large.map(row => row.completeMs))),
-  }, { smallIngestMs: ingestBudgetMs, largeIngestMs: ingestBudgetMs, smallCompleteMs: completeBudgetMs, largeCompleteMs: completeBudgetMs })
+  recordTimings(
+    STEADY_CASE,
+    {
+      smallIngestMs: declared(median(small.map(row => row.ingestMs))),
+      largeIngestMs: declared(median(large.map(row => row.ingestMs))),
+      smallCompleteMs: declared(median(small.map(row => row.completeMs))),
+      largeCompleteMs: declared(median(large.map(row => row.completeMs))),
+    },
+    { smallIngestMs: ingestBudgetMs, largeIngestMs: ingestBudgetMs, smallCompleteMs: completeBudgetMs, largeCompleteMs: completeBudgetMs },
+  )
   expect(capacityRatio).toBeLessThanOrEqual(MAX_CAPACITY_RATIO)
   for (const rows of [small, large]) {
     expect(median(rows.map(row => row.ingestMs))).toBeLessThanOrEqual(ingestBudgetMs)

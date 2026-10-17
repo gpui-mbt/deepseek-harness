@@ -7,7 +7,7 @@ import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import { LocalSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-local'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import type { ShellRunResult } from '@deepseek-ai/dsh-shell'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { SandboxPwshExecutor } from '../src/index.ts'
 
 async function setup() {
@@ -29,30 +29,46 @@ async function setup() {
       return confine(argv, policy, signal)
     }
   }
-  const terminate = vi.fn(() => { completion.resolve({ exitCode: null, signal: 'SIGTERM' }) })
+  const terminate = vi.fn(() => {
+    completion.resolve({ exitCode: null, signal: 'SIGTERM' })
+  })
   const output = { readFrom: () => ({ text: '', nextOffset: 0, lossy: false }) }
   const handle: SubprocessHandle = {
-    stdin: undefined, stdout: undefined, stderr: undefined, control: undefined,
-    collected: { stdout: output, stderr: output }, done: completion.promise,
-    terminate, waitForExit: async () => { await completion.promise; return true },
+    stdin: undefined,
+    stdout: undefined,
+    stderr: undefined,
+    control: undefined,
+    collected: { stdout: output, stderr: output },
+    done: completion.promise,
+    terminate,
+    waitForExit: async () => {
+      await completion.promise
+      return true
+    },
   }
   onTestFinished(async () => {
     prepared.resolve(wrap)
     completion.resolve({ exitCode: 0, signal: null })
     await Promise.allSettled(runs)
     for (const detach of listeners) detach()
-    try { await ctx.fiber.dispose() }
-    finally { vi.restoreAllMocks(); vi.useRealTimers() }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      vi.restoreAllMocks()
+      vi.useRealTimers()
+    }
   })
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SandboxPolicyService, { mode: 'read-only', workspaceRoot: process.cwd() })
   await ctx.plugin(ControlledSandbox)
   await ctx.plugin(LocalSubprocessRuntime)
   await ctx.plugin(SandboxPwshExecutor, { timeoutMs: 100, graceMs: 100 })
-  const spawn = vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
+  const spawn = vi.spyOn(ctx.subprocess, 'spawn').mockImplementation(spec => {
     spawned.resolve(spec)
     spec.signal?.addEventListener('abort', terminate, { once: true })
-    listeners.push(() => { spec.signal?.removeEventListener('abort', terminate) })
+    listeners.push(() => {
+      spec.signal?.removeEventListener('abort', terminate)
+    })
     if (spec.signal?.aborted) terminate()
     return handle
   })
@@ -62,8 +78,14 @@ async function setup() {
     const promise = execution.then(process => process.result())
     runs.push(promise)
     void promise.then(
-      (result) => { observed.done = true; observed.result = result },
-      (error: unknown) => { observed.done = true; observed.error = error },
+      result => {
+        observed.done = true
+        observed.result = result
+      },
+      (error: unknown) => {
+        observed.done = true
+        observed.error = error
+      },
     )
     return { promise, observed, execution }
   }
@@ -71,27 +93,33 @@ async function setup() {
 }
 
 describe('pwsh preparation deadline', () => {
-  it.each([
-    { late: 'success' }, { late: 'rejection' },
-  ] as const)('times out preparation and prevents late $late from spawning', async ({ late }) => {
-    const test = await setup()
-    const run = test.start(10)
-    const signal = await test.entered.promise
-    await vi.advanceTimersByTimeAsync(10)
-    expect(run.observed.done).toBe(true)
-    expect(signal?.aborted).toBe(true)
-    expect(run.observed.result).toEqual({
-      exitCode: null, signal: null, timedOut: true, aborted: false, timeoutMs: 10,
-      stdout: { text: '', truncated: false }, stderr: { text: '', truncated: false },
-      sandbox: { mode: 'read-only', denied: false },
-    })
-    expect(test.spawn).not.toHaveBeenCalled()
-    if (late === 'success') test.prepared.resolve(test.wrap)
-    else test.prepared.reject(new Error('late preparation rejection'))
-    await vi.advanceTimersByTimeAsync(0)
-    expect(test.spawn).not.toHaveBeenCalled()
-    expect(vi.getTimerCount()).toBe(0)
-  })
+  it.each([{ late: 'success' }, { late: 'rejection' }] as const)(
+    'times out preparation and prevents late $late from spawning',
+    async ({ late }) => {
+      const test = await setup()
+      const run = test.start(10)
+      const signal = await test.entered.promise
+      await vi.advanceTimersByTimeAsync(10)
+      expect(run.observed.done).toBe(true)
+      expect(signal?.aborted).toBe(true)
+      expect(run.observed.result).toEqual({
+        exitCode: null,
+        signal: null,
+        timedOut: true,
+        aborted: false,
+        timeoutMs: 10,
+        stdout: { text: '', truncated: false },
+        stderr: { text: '', truncated: false },
+        sandbox: { mode: 'read-only', denied: false },
+      })
+      expect(test.spawn).not.toHaveBeenCalled()
+      if (late === 'success') test.prepared.resolve(test.wrap)
+      else test.prepared.reject(new Error('late preparation rejection'))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(test.spawn).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
 
   it('passes the remaining deadline to native execution instead of restarting it', async () => {
     const test = await setup()
@@ -130,7 +158,13 @@ describe('pwsh preparation deadline', () => {
     const controller = new AbortController()
     const run = test.start(10, controller.signal)
     const signal = await test.entered.promise
-    signal?.addEventListener('abort', () => { controller.abort(new Error('later caller abort')) }, { once: true })
+    signal?.addEventListener(
+      'abort',
+      () => {
+        controller.abort(new Error('later caller abort'))
+      },
+      { once: true },
+    )
     await vi.advanceTimersByTimeAsync(10)
     expect(controller.signal.aborted).toBe(true)
     expect(run.observed.result).toMatchObject({ timedOut: true, aborted: false })

@@ -3,7 +3,7 @@ import { provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/d
 import { mkdtemp, rm, writeFile, symlink, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
@@ -28,7 +28,11 @@ async function agent(ctx: Context, cwd: string | undefined): Promise<Agent> {
   const id = SessionId(`present-owner-${++callNumber}`)
   let scope: Scope
   const session = Session.create(id, [], {
-    version: SESSION_FORMAT_VERSION, id, createdAt: 0, ...cwd === undefined ? {} : { cwd }, isSeeded: false,
+    version: SESSION_FORMAT_VERSION,
+    id,
+    createdAt: 0,
+    ...(cwd === undefined ? {} : { cwd }),
+    isSeeded: false,
   })
   const value: Agent = {
     id,
@@ -36,7 +40,9 @@ async function agent(ctx: Context, cwd: string | undefined): Promise<Agent> {
     session,
     inbox: unsupportedInbox(),
     status: 'idle',
-    get ctx() { return scope.ctx },
+    get ctx() {
+      return scope.ctx
+    },
     send: () => {},
     followup: () => {},
     steer: () => ({ outcome: Promise.resolve({ status: 'rejected' as const }) }),
@@ -45,11 +51,17 @@ async function agent(ctx: Context, cwd: string | undefined): Promise<Agent> {
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
-  await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, value) }, { inject: ['tools'] }))
+  await ctx.plugin(
+    Object.assign(
+      (inner: Context) => {
+        scope = createScope(inner, value)
+      },
+      { inject: ['tools'] },
+    ),
+  )
   await ctx.agents.register(value)
   return value
 }
-
 
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), 'dsh-present-minimal-'))
@@ -67,10 +79,14 @@ async function setup() {
   await fiber
   const owner = await agent(ctx, root)
   owner.session.append('turn/start', { turn: 1 })
-  const execute = (files: unknown) => ctx.tools.execute({
-    signal: new AbortController().signal, callId: ToolCallId(`call-${++callNumber}`),
-    name: 'present', arguments: { files }, agent: owner,
-  })
+  const execute = (files: unknown) =>
+    ctx.tools.execute({
+      signal: new AbortController().signal,
+      callId: ToolCallId(`call-${++callNumber}`),
+      name: 'present',
+      arguments: { files },
+      agent: owner,
+    })
   return { ctx, owner, root, fiber, execute }
 }
 
@@ -95,20 +111,25 @@ describe('present', () => {
 
   it('ignores a different present definition in the calling agent scope', async () => {
     const { owner, execute } = await setup()
-    owner.ctx.tools.register(defineTool({
-      name: 'present', description: 'Scoped replacement.', parameters: {},
-      output: {
-        schema: {
-          type: 'object', additionalProperties: false,
-          properties: {
-            turn: { type: 'integer', required: true },
-            files: { type: 'array', required: true, items: { type: 'string' } },
+    owner.ctx.tools.register(
+      defineTool({
+        name: 'present',
+        description: 'Scoped replacement.',
+        parameters: {},
+        output: {
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              turn: { type: 'integer', required: true },
+              files: { type: 'array', required: true, items: { type: 'string' } },
+            },
           },
+          render: () => [],
         },
-        render: () => [],
-      },
-      execute: async () => ({ turn: 1, files: [] }),
-    }))
+        execute: async () => ({ turn: 1, files: [] }),
+      }),
+    )
     expect((await execute([])).isError).toBe(false)
     expect(owner.session.snapshotEvents().filter(event => event.type === 'deliverables/presented')).toEqual([])
   })
@@ -138,35 +159,51 @@ describe('present', () => {
     const { root, owner, execute } = await setup()
     await writeFile(join(root, 'large'), 'four')
     await symlink(tmpdir(), join(root, 'outside'))
-    for (const files of [[], [{ path: '' }], [{ path: 'missing' }], [{ path: '.' }], [{ path: 'outside' }], [{ path: 'large' }, { path: 'large' }, { path: 'large' }]]) {
+    for (const files of [
+      [],
+      [{ path: '' }],
+      [{ path: 'missing' }],
+      [{ path: '.' }],
+      [{ path: 'outside' }],
+      [{ path: 'large' }, { path: 'large' }, { path: 'large' }],
+    ]) {
       const result = await execute(files)
       expect(result.isError, JSON.stringify(files)).toBe(true)
     }
     expect(owner.session.snapshotEvents().some(event => event.type === 'deliverables/presented')).toBe(false)
   })
-
-
 })
-
 
 it('validates deployment limits before registering the tool', () => {
   for (const config of [{ maxFiles: 0 }, { maxFiles: 1.5 }, { maxFiles: Number.POSITIVE_INFINITY }]) {
-    expect(() => { Present.apply(new Context(), config) }).toThrow('positive integer maxFiles')
+    expect(() => {
+      Present.apply(new Context(), config)
+    }).toThrow('positive integer maxFiles')
   }
 })
 
 it('requires an agent, an open turn, and a workspace', async () => {
   const { ctx, owner, execute } = await setup()
-  const detached = await ctx.tools.execute({ signal: new AbortController().signal, callId: ToolCallId('detached'), name: 'present', arguments: { files: [{ path: 'a' }] } })
+  const detached = await ctx.tools.execute({
+    signal: new AbortController().signal,
+    callId: ToolCallId('detached'),
+    name: 'present',
+    arguments: { files: [{ path: 'a' }] },
+  })
   expect(detached.isError).toBe(true)
   owner.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   expect((await execute([{ path: 'a' }])).isError).toBe(true)
   const noWorkspace = await agent(ctx, undefined)
   noWorkspace.session.append('turn/start', { turn: 1 })
-  const absent = await ctx.tools.execute({ signal: new AbortController().signal, callId: ToolCallId('no-workspace'), name: 'present', arguments: { files: [{ path: 'a' }] }, agent: noWorkspace })
+  const absent = await ctx.tools.execute({
+    signal: new AbortController().signal,
+    callId: ToolCallId('no-workspace'),
+    name: 'present',
+    arguments: { files: [{ path: 'a' }] },
+    agent: noWorkspace,
+  })
   expect(absent.isError).toBe(true)
 })
-
 
 it('declares readable files outside the Session directory using absolute and relative paths', async () => {
   const { root, execute, owner } = await setup()
@@ -176,7 +213,10 @@ it('declares readable files outside the Session directory using absolute and rel
   await writeFile(file, 'external report')
   const files = [{ path: file }, { path: relative(root, file) }]
   expect((await execute(files)).isError).toBe(false)
-  expect(owner.session.snapshotEvents().find(event => event.type === 'deliverables/presented')?.data.files).toEqual([{ path: await realpath(file) }, { path: await realpath(file) }])
+  expect(owner.session.snapshotEvents().find(event => event.type === 'deliverables/presented')?.data.files).toEqual([
+    { path: await realpath(file) },
+    { path: await realpath(file) },
+  ])
 })
 
 it('refuses a final symlink to an ordinary file', async () => {
@@ -185,7 +225,6 @@ it('refuses a final symlink to an ordinary file', async () => {
   await symlink(join(root, 'source'), join(root, 'link'))
   expect((await execute([{ path: 'link' }])).isError).toBe(true)
 })
-
 
 it('refuses a file replaced by a directory after inspecting its final component', async () => {
   const { ctx, root, execute } = await setup()

@@ -2,7 +2,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { fsHarness, waitForIdle } from './harness.ts'
@@ -19,8 +19,9 @@ afterEach(async () => {
   workdir = undefined
 })
 
-const SYSTEM = 'You are a coding assistant. Use the write tool to create files, the read tool to inspect '
-  + 'them, and the edit tool for literal replacements. Read a file before editing it. Keep replies terse.'
+const SYSTEM =
+  'You are a coding assistant. Use the write tool to create files, the read tool to inspect ' +
+  'them, and the edit tool for literal replacements. Read a file before editing it. Keep replies terse.'
 
 describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => {
   it('creates, reads, then edits a file — verified on disk', async () => {
@@ -30,11 +31,20 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
     // (config.cwd = workdir) is the workspace.
     const agent = await ctx.agentLoop.create(SessionId('fs-e2e'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
 
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text:
-      'Create a file named note.txt containing exactly the line: status: draft. '
-      + 'Then read it back, then edit it to replace the literal word draft with final. '
-      + 'Tell me when done.' }], source: { kind: 'user' } }))
+    agent.followup(
+      createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text:
+              'Create a file named note.txt containing exactly the line: status: draft. ' +
+              'Then read it back, then edit it to replace the literal word draft with final. ' +
+              'Tell me when done.',
+          },
+        ],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, agent)
 
     // Assert the filesystem effect independently of the model response.
@@ -43,7 +53,10 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
     expect(content).not.toContain('draft')
 
     // The log records real read/write/edit tool calls (not bash).
-    const calls = agent.session.snapshotEvents().filter(e => e.type === 'tool/call').map(e => e.data.name)
+    const calls = agent.session
+      .snapshotEvents()
+      .filter(e => e.type === 'tool/call')
+      .map(e => e.data.name)
     expect(calls).toContain('write')
     expect(calls).toContain('read')
     expect(calls).toContain('edit')
@@ -63,9 +76,17 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
         meta: { cwd: sessionDir },
         agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
       })
-      handle.agent.followup(createUserMessage({
-        content: [{ type: 'text', text:
-        'Use the write tool to create a file named where.txt containing exactly the line: here. Tell me when done.' }], source: { kind: 'user' } }))
+      handle.agent.followup(
+        createUserMessage({
+          content: [
+            {
+              type: 'text',
+              text: 'Use the write tool to create a file named where.txt containing exactly the line: here. Tell me when done.',
+            },
+          ],
+          source: { kind: 'user' },
+        }),
+      )
       await waitForIdle(ctx, handle.agent)
 
       // The file is in the SESSION dir, not the config dir.

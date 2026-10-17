@@ -1,16 +1,9 @@
 import { createSessionFormatCatalog } from '@deepseek-ai/dsh-session-format'
-import type {
-  SessionFormatArtifact,
-  SessionFormatCurrentEncoder,
-  SessionFormatRecovery,
-} from '@deepseek-ai/dsh-session-format'
+import type { SessionFormatArtifact, SessionFormatCurrentEncoder, SessionFormatRecovery } from '@deepseek-ai/dsh-session-format'
 import { releasedV0SessionFormatCodec, releasedV1SessionFormatCodec } from '../codec.ts'
 import { sessionFormatV0ToV1 } from '../migration.ts'
 import { assertReleasedV1Header } from '../validation.ts'
-import {
-  assertReleasedV1Artifact,
-  assertReleasedV1MigrationSource,
-} from './validation.ts'
+import { assertReleasedV1Artifact, assertReleasedV1MigrationSource } from './validation.ts'
 
 const unusedEncoder: SessionFormatCurrentEncoder = {
   /* v8 ignore next -- this restore-only test facade never encodes a header. */
@@ -72,10 +65,6 @@ export function restoreV0ToV1(
  * @param recovery - strict or recoverable row policy.
  * @returns the restored released v1 artifact.
  */
-export function restoreV1(
-  header: unknown,
-  rows: readonly unknown[],
-  recovery: SessionFormatRecovery = 'strict',
-): SessionFormatArtifact {
+export function restoreV1(header: unknown, rows: readonly unknown[], recovery: SessionFormatRecovery = 'strict'): SessionFormatArtifact {
   return restore(header, rows, recovery, 'current')
 }

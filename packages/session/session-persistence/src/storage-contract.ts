@@ -5,11 +5,7 @@
  * @module @deepseek-ai/dsh-session-persistence/storage-contract
  */
 
-import {
-  adoptSessionEvent,
-  KNOWN_SESSION_EVENT_TYPES,
-  SESSION_FORMAT_VERSION,
-} from '@deepseek-ai/dsh-session'
+import { adoptSessionEvent, KNOWN_SESSION_EVENT_TYPES, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import type { SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import {
@@ -21,10 +17,7 @@ import {
 
 /** Build a format refusal that points at the raw artifact when the backend has one. */
 function unsupported(reason: string, location: SessionLocation | undefined): SessionFormatUnsupportedError {
-  return new SessionFormatUnsupportedError(
-    location === undefined ? reason : `${reason} (raw log: ${location.path})`,
-    location,
-  )
+  return new SessionFormatUnsupportedError(location === undefined ? reason : `${reason} (raw log: ${location.path})`, location)
 }
 
 /**
@@ -43,10 +36,7 @@ export function assertStoredId(id: SessionId, meta: SessionHeader): void {
  * @param meta - the stored header.
  * @param location - the backend's artifact location for the refusal, when one exists.
  */
-export function assertVersion(
-  meta: { readonly id: SessionId; readonly version: number },
-  location?: SessionLocation,
-): void {
+export function assertVersion(meta: { readonly id: SessionId; readonly version: number }, location?: SessionLocation): void {
   if (meta.version !== SESSION_FORMAT_VERSION) {
     throw unsupported(sessionFormatVersionRefusal(meta.id, meta.version), location)
   }
@@ -66,11 +56,7 @@ export function assertVersion(
  * @throws {SessionFormatUnsupportedError} for unknown event types.
  * @throws {SessionPersistenceCorruptionError} for records that fail validation.
  */
-export function validateStoredEvents(
-  meta: SessionHeader,
-  events: SessionEvent[],
-  location?: SessionLocation,
-): SessionEvent[] {
+export function validateStoredEvents(meta: SessionHeader, events: SessionEvent[], location?: SessionLocation): SessionEvent[] {
   for (const event of events) {
     if (!KNOWN_SESSION_EVENT_TYPES.has(event.type) && event.ignorable !== true) {
       throw unsupported(
@@ -82,8 +68,7 @@ export function validateStoredEvents(
     // full-header "fallback" reason. Everything else retired was a whole type.
     if (event.type === 'request/header') {
       const data: unknown = event.data
-      if (typeof data === 'object' && data !== null
-        && (data as Record<string, unknown>)['reason'] === 'fallback') {
+      if (typeof data === 'object' && data !== null && (data as Record<string, unknown>)['reason'] === 'fallback') {
         throw unsupported(
           `session "${meta.id}" contains a request/header event (seq ${event.seq}) with the unsupported legacy reason "fallback"; refusing to interpret the log — it was written by a retired pre-release harness`,
           location,
@@ -95,10 +80,7 @@ export function validateStoredEvents(
     for (const [index, event] of events.entries()) events[index] = adoptSessionEvent(event)
   } catch (error: unknown) {
     if (error instanceof SessionFormatUnsupportedError) throw error
-    throw new SessionPersistenceCorruptionError(
-      `stored session "${meta.id}" failed validation: ${String(error)}`,
-      { cause: error },
-    )
+    throw new SessionPersistenceCorruptionError(`stored session "${meta.id}" failed validation: ${String(error)}`, { cause: error })
   }
   return events
 }

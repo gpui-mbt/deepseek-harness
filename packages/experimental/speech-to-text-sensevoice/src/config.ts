@@ -60,7 +60,9 @@ export const Config: z<Partial<Config>, Config> = z.object({
   vadModelPath: z.union([z.string().min(1), z.const(undefined)]),
   precision: z.union(['int8', 'fp32']).default('int8'),
   modelOrigin: z.union([z.string().pattern(/^https?:\/\/[^/\s?#@]+\/?$/), z.const(undefined)]),
-  modelOrigins: z.array(z.string().pattern(/^https?:\/\/[^/\s?#@]+\/?$/)).min(1)
+  modelOrigins: z
+    .array(z.string().pattern(/^https?:\/\/[^/\s?#@]+\/?$/))
+    .min(1)
     .default(['https://huggingface.co', 'https://hf-mirror.com']),
   modelProbeTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(3000),
   threads: z.natural().min(1).default(2),
@@ -69,13 +71,22 @@ export const Config: z<Partial<Config>, Config> = z.object({
   minSpeechSeconds: z.number().min(0).default(0.25),
   minSilenceSeconds: z.number().min(0.01).default(0.5),
   vadOnsetPaddingSeconds: z.number().min(0).max(1).default(0.3),
-  maxAudioBytes: z.natural().min(46).default(4 * 1024 * 1024),
+  maxAudioBytes: z
+    .natural()
+    .min(46)
+    .default(4 * 1024 * 1024),
   prepareTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(3_600_000),
   inferenceTimeoutMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(120_000),
   idleTimeoutMs: z.natural().max(MAX_TIMER_DELAY_MS).default(300_000),
   maxPending: z.natural().min(1).default(4),
   graceMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(1000),
-  maxLogBytes: z.natural().min(1).default(64 * 1024),
-  maxResponseBytes: z.natural().min(1).default(128 * 1024),
+  maxLogBytes: z
+    .natural()
+    .min(1)
+    .default(64 * 1024),
+  maxResponseBytes: z
+    .natural()
+    .min(1)
+    .default(128 * 1024),
   progressIntervalMs: z.natural().min(1).max(MAX_TIMER_DELAY_MS).default(100),
 })

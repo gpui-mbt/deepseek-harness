@@ -4,7 +4,12 @@ import { RELEASED_V3_EVENT_TYPES } from '@deepseek-ai/dsh-session-format-v3-to-v
 import { createSessionFormatCatalog } from '@deepseek-ai/dsh-session-format'
 import { releasedV0SessionFormatCodec, releasedV1SessionFormatCodec, sessionFormatV0ToV1 } from '@deepseek-ai/dsh-session-format-v0-to-v1'
 import { releasedV2SessionFormatCodec, sessionFormatV1ToV2 } from '@deepseek-ai/dsh-session-format-v1-to-v2'
-import { assertReleasedV3Header, releasedV3SessionFormatCodec, restoreReleasedV3Artifact, sessionFormatV2ToV3 } from '@deepseek-ai/dsh-session-format-v2-to-v3'
+import {
+  assertReleasedV3Header,
+  releasedV3SessionFormatCodec,
+  restoreReleasedV3Artifact,
+  sessionFormatV2ToV3,
+} from '@deepseek-ai/dsh-session-format-v2-to-v3'
 
 /** V0–V3 decoding for historical child identity; never publishes or completes parent catalogs. */
 export const historicalSessionFormatCatalog = createSessionFormatCatalog({

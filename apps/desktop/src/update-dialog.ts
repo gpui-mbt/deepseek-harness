@@ -4,7 +4,11 @@ import type { DesktopLocale } from './locale.ts'
 import type { DesktopUpdateOverlays } from './update-overlay.ts'
 
 /** Channels available only to the isolated update-dialog document. */
-export const UPDATE_DIALOG_IPC = { status: 'dsh-update-dialog:status', changed: 'dsh-update-dialog:changed', respond: 'dsh-update-dialog:respond' } as const
+export const UPDATE_DIALOG_IPC = {
+  status: 'dsh-update-dialog:status',
+  changed: 'dsh-update-dialog:changed',
+  respond: 'dsh-update-dialog:respond',
+} as const
 
 /** Text and choices supplied by the main process, never by product documents. */
 export interface UpdateDialogView {
@@ -46,25 +50,38 @@ export class DesktopUpdateDialog {
   private active: { window: BrowserWindow; view: UpdateDialogView; finish: (index: number, retain?: boolean) => void } | undefined
 
   /** Focus the current explanation or confirmation without replacing it or granting permission. */
-  focus(): void { this.active?.window.focus() }
+  focus(): void {
+    this.active?.window.focus()
+  }
 
   /** Whether a shell prompt is awaiting a response. */
-  get isOpen(): boolean { return this.active !== undefined }
+  get isOpen(): boolean {
+    return this.active !== undefined
+  }
 
   /**
    * @param preload - Bundled isolated preload.
    * @param locale - Shell-owned copy or a reader of the current UI language.
    * @param overlays - Application-owned overlay creation and input tracking.
    */
-  constructor(private readonly preload: string, private readonly locale: DesktopLocale | (() => DesktopLocale),
-    private readonly overlays: Pick<DesktopUpdateOverlays, 'create'>) {
-    ipcMain.handle(UPDATE_DIALOG_IPC.status, (event) => { this.owned(event); return this.active?.view ?? null })
+  constructor(
+    private readonly preload: string,
+    private readonly locale: DesktopLocale | (() => DesktopLocale),
+    private readonly overlays: Pick<DesktopUpdateOverlays, 'create'>,
+  ) {
+    ipcMain.handle(UPDATE_DIALOG_IPC.status, event => {
+      this.owned(event)
+      return this.active?.view ?? null
+    })
     ipcMain.handle(UPDATE_DIALOG_IPC.respond, (event, revision: unknown, index: unknown) => {
       this.owned(event)
       const active = this.active
       if (active === undefined || revision !== active.view.revision) throw new Error('desktop update: stale dialog response')
-      if (typeof index !== 'number' || !Number.isInteger(index)
-        || (index !== active.view.cancelId && (index < 0 || index >= active.view.buttons.length))) {
+      if (
+        typeof index !== 'number' ||
+        !Number.isInteger(index) ||
+        (index !== active.view.cancelId && (index < 0 || index >= active.view.buttons.length))
+      ) {
         throw new Error('desktop update: invalid dialog response')
       }
       active.finish(index)
@@ -83,7 +100,10 @@ export class DesktopUpdateDialog {
     if (this.disposed || options.signal?.aborted === true || parent.isDestroyed()) {
       return Promise.resolve({ response: cancelId, checkboxChecked: false })
     }
-    if (this.parent !== parent) { this.cancel(); this.close() }
+    if (this.parent !== parent) {
+      this.cancel()
+      this.close()
+    }
     this.active?.finish(this.active.view.cancelId, true)
     clearTimeout(this.closing)
     this.closing = undefined
@@ -91,34 +111,59 @@ export class DesktopUpdateDialog {
     const window = existing ?? this.overlays.create(parent, this.preload, options.title ?? locale.messages.updateTitle, false)
     this.window = window
     this.parent = parent
-    const view: UpdateDialogView = { revision: ++this.revision, locale: locale.id, title: options.title ?? '', message: options.message,
-      detail: options.detail ?? '', buttons, cancelId, closeLabel: locale.messages.updateClose,
-      technicalDetails: options.technicalDetails ?? '', technicalDetailsLabel: locale.messages.updateTechnicalDetails }
-    return new Promise((resolve) => {
-      const abort = (): void => { finish(cancelId) }
+    const view: UpdateDialogView = {
+      revision: ++this.revision,
+      locale: locale.id,
+      title: options.title ?? '',
+      message: options.message,
+      detail: options.detail ?? '',
+      buttons,
+      cancelId,
+      closeLabel: locale.messages.updateClose,
+      technicalDetails: options.technicalDetails ?? '',
+      technicalDetailsLabel: locale.messages.updateTechnicalDetails,
+    }
+    return new Promise(resolve => {
+      const abort = (): void => {
+        finish(cancelId)
+      }
       const finish = (response: number, retain = false): void => {
         if (this.active?.view !== view) return
         this.active = undefined
         options.signal?.removeEventListener('abort', abort)
         if (!retain && !window.isDestroyed()) {
           window.webContents.send(UPDATE_DIALOG_IPC.changed, null)
-          this.closing = setTimeout(() => { this.close() }, 150)
+          this.closing = setTimeout(() => {
+            this.close()
+          }, 150)
         }
         resolve({ response, checkboxChecked: false })
       }
       this.active = { window, view, finish }
       options.signal?.addEventListener('abort', abort, { once: true })
-      if (existing !== undefined) { window.webContents.send(UPDATE_DIALOG_IPC.changed, view); return }
-      const failed = (): void => { if (this.window === window) { this.cancel(); this.close() } }
+      if (existing !== undefined) {
+        window.webContents.send(UPDATE_DIALOG_IPC.changed, view)
+        return
+      }
+      const failed = (): void => {
+        if (this.window === window) {
+          this.cancel()
+          this.close()
+        }
+      }
       window.once('closed', failed)
-      window.webContents.on('will-navigate', (event, url) => { if (url !== page) event.preventDefault() })
+      window.webContents.on('will-navigate', (event, url) => {
+        if (url !== page) event.preventDefault()
+      })
       window.webContents.once('render-process-gone', failed)
       void window.loadURL(page).catch(failed)
     })
   }
 
   /** Cancel the displayed prompt without authorizing any operation. */
-  cancel(): void { this.active?.finish(this.active.view.cancelId) }
+  cancel(): void {
+    this.active?.finish(this.active.view.cancelId)
+  }
 
   /** Close the document and detach its private IPC handlers. */
   dispose(): void {
@@ -145,8 +190,12 @@ export class DesktopUpdateDialog {
 
   private owned(event: IpcMainInvokeEvent): void {
     const window = this.window
-    if (window === undefined || event.sender !== window.webContents
-      || event.senderFrame !== window.webContents.mainFrame || event.senderFrame.url !== page) {
+    if (
+      window === undefined ||
+      event.sender !== window.webContents ||
+      event.senderFrame !== window.webContents.mainFrame ||
+      event.senderFrame.url !== page
+    ) {
       throw new Error('desktop update: rejected unowned dialog renderer')
     }
   }

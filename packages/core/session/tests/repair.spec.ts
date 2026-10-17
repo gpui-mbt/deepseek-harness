@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
-import { interruptedTurnClosers as repairInterruptedTurn, SessionSeq, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN, ToolCallRecovery } from '../src/index.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { ToolCallId, createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
+import {
+  interruptedTurnClosers as repairInterruptedTurn,
+  SessionSeq,
+  TOOL_NOT_STARTED,
+  TOOL_OUTCOME_UNKNOWN,
+  ToolCallRecovery,
+} from '../src/index.ts'
 import { openTurnClosers as closeOpenTurn, type OpenTurnCloseCause } from '../src/repair.ts'
 import type { SessionEvent as LogicalSessionEvent, SurfaceEvent } from '../src/index.ts'
 
@@ -31,16 +37,21 @@ function openTurnClosers(events: readonly SessionEvent[], cause: OpenTurnCloseCa
  * rejects the transcript).
  */
 
-const userTurnStart = (turn: number, seq: number): SessionEvent =>
-  ({ type: 'turn/start', seq, time: seq, data: { turn } })
+const userTurnStart = (turn: number, seq: number): SessionEvent => ({ type: 'turn/start', seq, time: seq, data: { turn } })
 
 function liveToolRequests(): LogicalSessionEvent<'assistant/message'> {
   return {
-    type: 'assistant/message', seq: SessionSeq(21), time: 110, surfaceOp: 'append',
+    type: 'assistant/message',
+    seq: SessionSeq(21),
+    time: 110,
+    surfaceOp: 'append',
     data: {
-      turn: 3, step: 2, stream: [],
+      turn: 3,
+      step: 2,
+      stream: [],
       message: createMessage({
-        role: 'assistant', source: { kind: 'model', provider: 'mock', model: 'mock' },
+        role: 'assistant',
+        source: { kind: 'model', provider: 'mock', model: 'mock' },
         content: [
           { type: 'tool-call', id: ToolCallId('started'), name: 'bash', arguments: '{}' },
           { type: 'tool-call', id: ToolCallId('pending'), name: 'bash', arguments: '{}' },
@@ -57,15 +68,24 @@ describe('ToolCallRecovery', () => {
     recovery.observe({ type: 'step/start', seq: SessionSeq(20), time: 100, data: { turn: 3, step: 2 } })
     recovery.observe(liveToolRequests())
     recovery.observe({
-      type: 'tool/call', seq: SessionSeq(22), time: 120,
+      type: 'tool/call',
+      seq: SessionSeq(22),
+      time: 120,
       data: { turn: 3, step: 2, callId: ToolCallId('started'), name: 'bash', arguments: '{}' },
     })
 
     const results = recovery.results()
-    expect(results.map(event => ({
-      seq: event.seq, time: event.time, turn: event.data.turn, step: event.data.step,
-      callId: event.data.message.toolCallId, code: event.data.error?.code, sourceEventSeqs: event.sourceEventSeqs,
-    }))).toEqual([
+    expect(
+      results.map(event => ({
+        seq: event.seq,
+        time: event.time,
+        turn: event.data.turn,
+        step: event.data.step,
+        callId: event.data.message.toolCallId,
+        code: event.data.error?.code,
+        sourceEventSeqs: event.sourceEventSeqs,
+      })),
+    ).toEqual([
       { seq: 23, time: 120, turn: 3, step: 2, callId: 'started', code: TOOL_OUTCOME_UNKNOWN, sourceEventSeqs: [22] },
       { seq: 24, time: 120, turn: 3, step: 2, callId: 'pending', code: TOOL_NOT_STARTED, sourceEventSeqs: undefined },
     ])
@@ -84,23 +104,29 @@ describe('ToolCallRecovery', () => {
     const recovery = new ToolCallRecovery()
     recovery.observe(liveToolRequests())
     recovery.observe({
-      type: 'tool/result', seq: SessionSeq(22), time: 120,
+      type: 'tool/result',
+      seq: SessionSeq(22),
+      time: 120,
       surfaceOp: kind === 'replacement' ? { op: 'replace', startSeq: SessionSeq(10), endSeq: SessionSeq(10) } : 'append',
-      ...kind === 'replacement' ? { sourceEventSeqs: [SessionSeq(10)] } : {},
+      ...(kind === 'replacement' ? { sourceEventSeqs: [SessionSeq(10)] } : {}),
       data: {
-        turn, step,
-        message: createToolResultMessage({ callId: ToolCallId('started'), content: [{ type: 'text', text: 'old result' }], isError: false }),
+        turn,
+        step,
+        message: createToolResultMessage({
+          callId: ToolCallId('started'),
+          content: [{ type: 'text', text: 'old result' }],
+          isError: false,
+        }),
       },
     })
 
     expect(recovery.results().map(event => event.data.message.toolCallId)).toEqual([ToolCallId('started'), ToolCallId('pending')])
   })
-
 })
 
 const causes: OpenTurnCloseCause[] = [{ kind: 'interrupted' }, { kind: 'forked' }]
 
-describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
+describe.each(causes)('openTurnClosers (cause %o)', cause => {
   it('returns nothing for a balanced log (ends on turn/end)', () => {
     const balanced: SessionEvent[] = [
       userTurnStart(1, 0),
@@ -123,10 +149,7 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
   })
 
   it('closes an open step before the turn (step/end then turn/end)', () => {
-    const events: SessionEvent[] = [
-      userTurnStart(1, 0),
-      { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
-    ]
+    const events: SessionEvent[] = [userTurnStart(1, 0), { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } }]
     const closers = openTurnClosers(events, cause)
     expect(closers.map(e => e.type)).toEqual(['step/end', 'turn/end'])
     expect(closers.map(e => e.seq)).toEqual([2, 3])
@@ -136,20 +159,27 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
     const events: SessionEvent[] = [
       userTurnStart(2, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 2, step: 1 } },
-      { type: 'assistant/message', seq: 2, time: 2, surfaceOp: 'append', data: {
-        turn: 2, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'text', text: 'calling a tool' },
-            { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 2,
+        time: 2,
+        surfaceOp: 'append',
+        data: {
+          turn: 2,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [
+              { type: 'text', text: 'calling a tool' },
+              { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' },
+            ],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
     ]
     const closers = openTurnClosers(events, cause)
     // tool/result (for the orphaned call) → step/end → turn/end, contiguous seqs.
@@ -168,38 +198,54 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
       },
       error: { code: TOOL_NOT_STARTED },
     })
-    expect(result.type === 'tool/result' && result.data.message.content).toEqual([{
-      type: 'text', text: cause.kind === 'forked'
-        ? 'The history inherited by this branch has no record of this tool call starting. The parent session may have executed it after the fork point. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.'
-        : 'The tool call was interrupted before the Harness recorded it as started. Retry it if it is still needed.',
-    }])
+    expect(result.type === 'tool/result' && result.data.message.content).toEqual([
+      {
+        type: 'text',
+        text:
+          cause.kind === 'forked'
+            ? 'The history inherited by this branch has no record of this tool call starting. The parent session may have executed it after the fork point. Decide whether to retry from the tool semantics: retry only if the operation is read-only or idempotent; if it may have side effects, first verify external state or ask the user. Do not retry blindly.'
+            : 'The tool call was interrupted before the Harness recorded it as started. Retry it if it is still needed.',
+      },
+    ])
   })
 
   it('does NOT synthesize a result for a tool-call that already has one', () => {
     const events: SessionEvent[] = [
       userTurnStart(2, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 2, step: 1 } },
-      { type: 'assistant/message', seq: 2, time: 2, surfaceOp: 'append', data: {
-        turn: 2, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
-      { type: 'tool/result', seq: 3, time: 3, surfaceOp: 'append', data: {
-        turn: 2, step: 1,
-        message: createToolResultMessage({
-          callId: ToolCallId('call-1'),
-          content: [{ type: 'text', text: 'ok' }],
-          isError: false,
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 2,
+        time: 2,
+        surfaceOp: 'append',
+        data: {
+          turn: 2,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [{ type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' }],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
+      {
+        type: 'tool/result',
+        seq: 3,
+        time: 3,
+        surfaceOp: 'append',
+        data: {
+          turn: 2,
+          step: 1,
+          message: createToolResultMessage({
+            callId: ToolCallId('call-1'),
+            content: [{ type: 'text', text: 'ok' }],
+            isError: false,
+          }),
+        },
+      },
     ]
     // The call is answered, so only the open step + turn need closing.
     const closers = openTurnClosers(events, cause)
@@ -210,26 +256,36 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
     const events: SessionEvent[] = [
       userTurnStart(2, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 2, step: 1 } },
-      { type: 'assistant/message', seq: 2, time: 2, surfaceOp: 'append', data: {
-        turn: 2, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 2,
+        time: 2,
+        surfaceOp: 'append',
+        data: {
+          turn: 2,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [{ type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' }],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
       { type: 'step/end', seq: 3, time: 3, data: { turn: 2, step: 1 } },
     ]
 
     const closers = openTurnClosers(events, cause)
-    expect(closers).toEqual([{
-      type: 'turn/end', seq: 4, time: 3, data: { turn: 2, reason: cause },
-    }])
+    expect(closers).toEqual([
+      {
+        type: 'turn/end',
+        seq: 4,
+        time: 3,
+        data: { turn: 2, reason: cause },
+      },
+    ])
   })
 
   it('synthesizes results only for the still-open turn, not a committed earlier turn', () => {
@@ -238,44 +294,61 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
-      { type: 'assistant/message', seq: 2, time: 2, surfaceOp: 'append', data: {
-        turn: 1, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'tool-call', id: ToolCallId('old-call'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
-      { type: 'tool/result', seq: 3, time: 3, surfaceOp: 'append', data: {
-        turn: 1, step: 1,
-        message: createToolResultMessage({
-          callId: ToolCallId('old-call'),
-          content: [],
-          isError: false,
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 2,
+        time: 2,
+        surfaceOp: 'append',
+        data: {
+          turn: 1,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [{ type: 'tool-call', id: ToolCallId('old-call'), name: 'bash', arguments: '{}' }],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
+      {
+        type: 'tool/result',
+        seq: 3,
+        time: 3,
+        surfaceOp: 'append',
+        data: {
+          turn: 1,
+          step: 1,
+          message: createToolResultMessage({
+            callId: ToolCallId('old-call'),
+            content: [],
+            isError: false,
+          }),
+        },
+      },
       { type: 'step/end', seq: 4, time: 4, data: { turn: 1, step: 1 } },
       { type: 'turn/end', seq: 5, time: 5, data: { turn: 1, reason: { kind: 'completed' } } },
       userTurnStart(2, 6),
       { type: 'step/start', seq: 7, time: 7, data: { turn: 2, step: 1 } },
-      { type: 'assistant/message', seq: 8, time: 8, surfaceOp: 'append', data: {
-        turn: 2, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'tool-call', id: ToolCallId('new-call'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 8,
+        time: 8,
+        surfaceOp: 'append',
+        data: {
+          turn: 2,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [{ type: 'tool-call', id: ToolCallId('new-call'), name: 'bash', arguments: '{}' }],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
     ]
     const closers = openTurnClosers(events, cause)
     expect(closers.map(e => e.type)).toEqual(['tool/result', 'step/end', 'turn/end'])
@@ -287,29 +360,43 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
-      { type: 'assistant/message', seq: 2, time: 2, surfaceOp: 'append', data: {
-        turn: 1, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'tool-call', id: ToolCallId('call-a'), name: 'bash', arguments: '{}' },
-            { type: 'tool-call', id: ToolCallId('call-b'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 2,
+        time: 2,
+        surfaceOp: 'append',
+        data: {
+          turn: 1,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [
+              { type: 'tool-call', id: ToolCallId('call-a'), name: 'bash', arguments: '{}' },
+              { type: 'tool-call', id: ToolCallId('call-b'), name: 'bash', arguments: '{}' },
+            ],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
       // call-a got answered before the cut; call-b did not.
-      { type: 'tool/result', seq: 3, time: 3, surfaceOp: 'append', data: {
-        turn: 1, step: 1,
-        message: createToolResultMessage({
-          callId: ToolCallId('call-a'),
-          content: [],
-          isError: false,
-        }),
-      } },
+      {
+        type: 'tool/result',
+        seq: 3,
+        time: 3,
+        surfaceOp: 'append',
+        data: {
+          turn: 1,
+          step: 1,
+          message: createToolResultMessage({
+            callId: ToolCallId('call-a'),
+            content: [],
+            isError: false,
+          }),
+        },
+      },
     ]
     const closers = openTurnClosers(events, cause)
     expect(closers.map(e => e.type)).toEqual(['tool/result', 'step/end', 'turn/end'])
@@ -321,19 +408,24 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
-      { type: 'assistant/message', seq: 2, time: 2, surfaceOp: 'append', data: {
-        turn: 1, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 2,
+        time: 2,
+        surfaceOp: 'append',
+        data: {
+          turn: 1,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [{ type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' }],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
       { type: 'tool/call', seq: 3, time: 3, data: { turn: 1, step: 1, callId: ToolCallId('call-1'), name: 'bash', arguments: '{}' } },
     ]
     const closers = openTurnClosers(events, cause)
@@ -342,7 +434,8 @@ describe.each(causes)('openTurnClosers (cause %o)', (cause) => {
     expect((result as SurfaceEvent).surfaceOp).toBe('append')
     expect((result as SurfaceEvent).sourceEventSeqs).toEqual([3])
     expect(result.type === 'tool/result' && result.data.error).toEqual({
-      name: 'ToolOutcomeUnknownError', code: TOOL_OUTCOME_UNKNOWN,
+      name: 'ToolOutcomeUnknownError',
+      code: TOOL_OUTCOME_UNKNOWN,
     })
     if (result.type !== 'tool/result' || result.data.message.content[0]?.type !== 'text') {
       throw new Error('expected a text tool result')
@@ -371,22 +464,31 @@ describe('openTurnClosers model-visible wording', () => {
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
-      { type: 'assistant/message', seq: 2, time: 2, data: {
-        turn: 1, step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [
-            { type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' },
-          ],
-          source: {
-            kind: 'model',
-            ...{ provider: 'mock', model: 'mock' },
-          },
-        }),
-      } },
+      {
+        type: 'assistant/message',
+        seq: 2,
+        time: 2,
+        data: {
+          turn: 1,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [{ type: 'tool-call', id: ToolCallId('call-1'), name: 'bash', arguments: '{}' }],
+            source: {
+              kind: 'model',
+              ...{ provider: 'mock', model: 'mock' },
+            },
+          }),
+        },
+      },
     ]
     if (started) {
-      events.push({ type: 'tool/call', seq: 3, time: 3, data: { turn: 1, step: 1, callId: ToolCallId('call-1'), name: 'bash', arguments: '{}' } })
+      events.push({
+        type: 'tool/call',
+        seq: 3,
+        time: 3,
+        data: { turn: 1, step: 1, callId: ToolCallId('call-1'), name: 'bash', arguments: '{}' },
+      })
     }
     return events
   }
@@ -429,11 +531,13 @@ describe('openTurnClosers model-visible wording', () => {
     for (const cause of causes) {
       const notStarted = openTurnClosers(openCall(false), cause)[0]
       expect(notStarted?.type === 'tool/result' && notStarted.data.error).toEqual({
-        name: 'ToolNotStartedError', code: TOOL_NOT_STARTED,
+        name: 'ToolNotStartedError',
+        code: TOOL_NOT_STARTED,
       })
       const started = openTurnClosers(openCall(true), cause)[0]
       expect(started?.type === 'tool/result' && started.data.error).toEqual({
-        name: 'ToolOutcomeUnknownError', code: TOOL_OUTCOME_UNKNOWN,
+        name: 'ToolOutcomeUnknownError',
+        code: TOOL_OUTCOME_UNKNOWN,
       })
     }
   })

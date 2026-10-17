@@ -2,20 +2,20 @@
  * Language row registration, snapshot projection into the row store, and
  * recovery after an HMR collapse of the declaring entry. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
-import {
-  apply, inject, SETTINGS_NS,
-} from '@deepseek-ai/dsh-client-locale/client'
+import { apply, inject, SETTINGS_NS } from '@deepseek-ai/dsh-client-locale/client'
 import type { LanguageRowInjected, LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { LOCALE_SETTINGS_NAMESPACE, LocaleSettingsSchema } from '../src/locale-settings.ts'
 import { LanguageRow } from '../src/client/LanguageRow.tsx'
 import type { createLanguageRowStore } from '../src/client/settings-store.ts'
 
 const SLOT = 'settings.general.item'
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 async function bench(preference?: string) {
   const ctx = new Context()
@@ -25,7 +25,8 @@ async function bench(preference?: string) {
     ns: LOCALE_SETTINGS_NAMESPACE,
     schema: LocaleSettingsSchema.toJSON(),
     value: preference === undefined ? {} : { preference },
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision,
   })
@@ -41,17 +42,21 @@ async function bench(preference?: string) {
   const events = new TestRemote(ctx, { settings: { describe, mutate } })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return {
-    ctx, slots: ctx.get('slots') as SlotRegistry, describe, mutate, events,
-    setHostPreference: (next: string | undefined) => { preference = next; revision += 1 },
+    ctx,
+    slots: ctx.get('slots') as SlotRegistry,
+    describe,
+    mutate,
+    events,
+    setHostPreference: (next: string | undefined) => {
+      preference = next
+      revision += 1
+    },
   }
 }
 
 /** Stand in for the settings shell: declare the General item slot from root. */
 function declareItems(slots: SlotRegistry): () => void {
-  return slots.register(
-    { name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never,
-    () => null,
-  )
+  return slots.register({ name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never, () => null)
 }
 
 /** Mirror the framework's inject choreography: bake a real instance from the
@@ -65,7 +70,7 @@ function faceOf(slots: SlotRegistry) {
 }
 
 describe('locale apply', () => {
-  it.each(['resolve', 'reject'] as const)('contains a late native initialization %s after unloading', async (outcome) => {
+  it.each(['resolve', 'reject'] as const)('contains a late native initialization %s after unloading', async outcome => {
     const b = await bench()
     const ready = Promise.withResolvers<unknown>()
     const read = vi.fn(() => ready.promise)
@@ -73,7 +78,9 @@ describe('locale apply', () => {
     vi.stubGlobal('__DSH_LOCALE__', { read, onChange })
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     try {
-      await vi.waitFor(() => { expect(read).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(read).toHaveBeenCalledOnce()
+      })
       const disposal = fiber.dispose()
       if (outcome === 'resolve') ready.resolve({ languages: ['zh-CN'], preference: null })
       else ready.reject(new Error('native window closed'))
@@ -164,7 +171,9 @@ describe('locale apply', () => {
     expect(locale.getLocale().active).toBe('zh')
     expect(instance.getSnapshot().active).toBe('zh')
     expect(locale.bind(SETTINGS_NS)('language.title')).toBe('语言')
-    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(b.mutate).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('projects external locale registration and disposal into the Language row', async () => {
@@ -175,10 +184,8 @@ describe('locale apply', () => {
 
     const languagePack = b.ctx.plugin({
       inject: ['locale'],
-      apply: packCtx => packCtx.effect(
-        () => packCtx.locale.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' }),
-        'test language pack registration',
-      ),
+      apply: packCtx =>
+        packCtx.effect(() => packCtx.locale.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' }), 'test language pack registration'),
     })
     await languagePack.await()
     expect(instance.getSnapshot().options).toEqual([
@@ -202,16 +209,22 @@ describe('locale apply', () => {
     declareItems(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const locale = b.ctx.get('locale') as LocaleRuntime
-    await vi.waitFor(() => { expect(locale.getLocale().active).toBe('zh') })
+    await vi.waitFor(() => {
+      expect(locale.getLocale().active).toBe('zh')
+    })
     // Cleared preference falls back to the provisional locale.
     b.setHostPreference(undefined)
     b.events.emit('settings/document-updated', [LOCALE_SETTINGS_NAMESPACE, 0])
-    await vi.waitFor(() => { expect(locale.getLocale().active).toBe('en') })
+    await vi.waitFor(() => {
+      expect(locale.getLocale().active).toBe('en')
+    })
     // Re-selecting zh after the clear is an explicit pick of the provisional
     // value and must persist as a written preference.
     b.setHostPreference('zh')
     b.events.emit('settings/document-updated', [LOCALE_SETTINGS_NAMESPACE, 0])
-    await vi.waitFor(() => { expect(locale.getLocale().active).toBe('zh') })
+    await vi.waitFor(() => {
+      expect(locale.getLocale().active).toBe('zh')
+    })
     expect(b.describe).toHaveBeenCalledTimes(4)
   })
 

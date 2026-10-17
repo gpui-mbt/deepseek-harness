@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { AssistantOutputFold, finalAssistantOutput } from '../src/assistant-output.ts'
@@ -37,11 +37,7 @@ function toolResult(text: string): SessionEvent {
 
 describe('finalAssistantOutput', () => {
   it('selects the last non-empty message past a later empty usage-only message', () => {
-    const events = [
-      message([{ type: 'text', text: 'step one' }]),
-      message([{ type: 'text', text: 'step two' }]),
-      message([]),
-    ]
+    const events = [message([{ type: 'text', text: 'step one' }]), message([{ type: 'text', text: 'step two' }]), message([])]
     expect(finalAssistantOutput(events)).toEqual([{ type: 'text', text: 'step two' }])
   })
 
@@ -57,21 +53,11 @@ describe('finalAssistantOutput', () => {
 
   it('treats textless assistant content as a non-empty message', () => {
     const content: ContentBlock[] = [{ type: 'reasoning', text: 'complete reasoning' }]
-    expect(finalAssistantOutput([
-      textDelta('streamed text'),
-      message(content),
-      textDelta('later partial'),
-    ])).toEqual(content)
+    expect(finalAssistantOutput([textDelta('streamed text'), message(content), textDelta('later partial')])).toEqual(content)
   })
 
   it('falls back to text deltas without including reasoning or tool-result content', () => {
-    const events = [
-      reasoningDelta('thinking'),
-      textDelta('partial '),
-      toolResult('tool output'),
-      textDelta('answer'),
-      message([]),
-    ]
+    const events = [reasoningDelta('thinking'), textDelta('partial '), toolResult('tool output'), textDelta('answer'), message([])]
     expect(finalAssistantOutput(events)).toEqual([{ type: 'text', text: 'partial answer' }])
   })
 

@@ -19,18 +19,25 @@ export class PtcCalls {
    * @param ctx - Registry lifecycle and Session events.
    */
   constructor(ctx: Context) {
-    ctx.on('session/event', (session, event) => {
-      if (event.type !== 'sandbox/mode') return
-      for (const call of this.calls.get(session.id) ?? []) {
-        if (call.mode !== event.data.mode) call.controller.abort(new Error('sandbox mode changed'))
-      }
-    }, { global: true })
-    ctx.effect(() => async () => {
-      this.disposed = true
-      const calls = [...this.calls.values()].flatMap(calls => [...calls])
-      for (const call of calls) call.controller.abort(new Error('PTC tool registry disposed'))
-      await Promise.all(calls.map(call => call.done))
-    }, 'PTC calls')
+    ctx.on(
+      'session/event',
+      (session, event) => {
+        if (event.type !== 'sandbox/mode') return
+        for (const call of this.calls.get(session.id) ?? []) {
+          if (call.mode !== event.data.mode) call.controller.abort(new Error('sandbox mode changed'))
+        }
+      },
+      { global: true },
+    )
+    ctx.effect(
+      () => async () => {
+        this.disposed = true
+        const calls = [...this.calls.values()].flatMap(calls => [...calls])
+        for (const call of calls) call.controller.abort(new Error('PTC tool registry disposed'))
+        await Promise.all(calls.map(call => call.done))
+      },
+      'PTC calls',
+    )
   }
 
   /**
@@ -43,7 +50,7 @@ export class PtcCalls {
    */
   async run<T>(sessionId: SessionId, signal: AbortSignal, mode: () => SandboxMode, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
     for (;;) {
-      const pending = [...this.calls.get(sessionId) ?? []].filter(call => call.controller.signal.aborted)
+      const pending = [...(this.calls.get(sessionId) ?? [])].filter(call => call.controller.signal.aborted)
       if (pending.length === 0) break
       await Promise.all(pending.map(call => call.done))
     }
@@ -53,9 +60,11 @@ export class PtcCalls {
     const done = Promise.withResolvers<undefined>()
     const call = { mode: mode(), controller, done: done.promise }
     let calls = this.calls.get(sessionId)
-    if (calls === undefined) this.calls.set(sessionId, calls = new Set())
+    if (calls === undefined) this.calls.set(sessionId, (calls = new Set()))
     calls.add(call)
-    try { return await run(AbortSignal.any([signal, controller.signal])) } finally {
+    try {
+      return await run(AbortSignal.any([signal, controller.signal]))
+    } finally {
       calls.delete(call)
       if (calls.size === 0) this.calls.delete(sessionId)
       done.resolve(undefined)

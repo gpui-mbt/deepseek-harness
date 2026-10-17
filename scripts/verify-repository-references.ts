@@ -12,7 +12,8 @@ const organizationUrl = new RegExp(`\\bgithub\\.com/${organization}(?![a-z0-9-])
 // The independent kit repository owns the engine source and documentation.
 const kitRepositoryUrl = new RegExp(`\\bgithub\\.com/${organization}/libreoffice-kit(?:\\.git)?(?=/|[^a-zA-Z0-9_.-]|$)`, 'g')
 const commitCandidate = /(?<![a-z0-9])[\da-f]{7,40}(?![a-z0-9])/gi
-const excludedPrefixes = ['vendor/', '.agents/notes/archived/']
+// Package-manager lockfiles embed external artifact digests, not repository references.
+const excludedPrefixes = ['vendor/', '.agents/notes/archived/', 'python/sdk/uv.lock']
 const gitOutputLimit = 64 * 1024 * 1024
 // One 41-byte line per object; 1.2 million objects produce about 49 MiB.
 const objectListingLimit = 1024 * 1024 * 1024
@@ -38,11 +39,7 @@ function isMaintained(file: string): boolean {
  * @param commits - Lowercase, unambiguous full or abbreviated commit identifiers.
  * @returns One finding per line and reference kind; digests and other Git object types are accepted.
  */
-export function findRepositoryReferences(
-  file: string,
-  source: string,
-  commits: ReadonlySet<string>,
-): RepositoryReference[] {
+export function findRepositoryReferences(file: string, source: string, commits: ReadonlySet<string>): RepositoryReference[] {
   if (!isMaintained(file)) return []
   const references: RepositoryReference[] = []
   for (const [index, line] of source.split('\n').entries()) {
@@ -61,7 +58,9 @@ function readMaintainedFiles(repoRoot: string): Map<string, string> {
     cwd: repoRoot,
     encoding: 'utf8',
     maxBuffer: gitOutputLimit,
-  }).split('\0').filter(file => file !== '' && isMaintained(file))
+  })
+    .split('\0')
+    .filter(file => file !== '' && isMaintained(file))
   const sources = new Map<string, string>()
   for (const file of files) {
     const path = resolve(repoRoot, file)
@@ -110,8 +109,9 @@ export function uniquePrefixMatch(objects: readonly string[], prefix: string): s
  * @returns Lowercase candidates that name exactly one available object, which is a commit.
  */
 export function repositoryCommits(repoRoot: string, sources: Iterable<string>): Set<string> {
-  const candidates = [...new Set([...sources].flatMap(source =>
-    [...source.matchAll(commitCandidate)].map(match => match[0].toLowerCase())))]
+  const candidates = [
+    ...new Set([...sources].flatMap(source => [...source.matchAll(commitCandidate)].map(match => match[0].toLowerCase()))),
+  ]
   if (candidates.length === 0) return new Set()
   // Git resolves prefixes across all available objects, including unreachable and alternate ones;
   // one listing of those objects replaces one Git prefix lookup per candidate.
@@ -124,10 +124,12 @@ export function repositoryCommits(repoRoot: string, sources: Iterable<string>): 
   }
   if (matches.size === 0) return new Set()
   const matched = [...new Set(matches.values())]
-  const commits = new Set(gitLines(repoRoot, ['cat-file', '--batch-check=%(objectname) %(objecttype)'], gitOutputLimit, `${matched.join('\n')}\n`)
-    .map(line => line.split(' '))
-    .filter(([, type]) => type === 'commit')
-    .map(([object]) => object))
+  const commits = new Set(
+    gitLines(repoRoot, ['cat-file', '--batch-check=%(objectname) %(objecttype)'], gitOutputLimit, `${matched.join('\n')}\n`)
+      .map(line => line.split(' '))
+      .filter(([, type]) => type === 'commit')
+      .map(([object]) => object),
+  )
   return new Set([...matches].filter(([, object]) => commits.has(object)).map(([candidate]) => candidate))
 }
 

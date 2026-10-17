@@ -59,7 +59,10 @@ export class BudgetClock {
    * @param ms - the running-time limit in milliseconds.
    * @param now - monotonic clock in milliseconds.
    */
-  constructor(readonly ms: number, private readonly now: () => number = () => performance.now()) {
+  constructor(
+    readonly ms: number,
+    private readonly now: () => number = () => performance.now(),
+  ) {
     // The deadline only matters while a race awaits it; an unobserved
     // rejection after the hook settled must not surface.
     this.deadline.promise.catch(() => {})
@@ -178,7 +181,8 @@ class NoResultError extends Error {
 /** Classify a failed hook and word the diagnostic line's tail. */
 function failureOf(error: unknown): HookFailure & { readonly line: string } {
   if (error instanceof HookTimeoutError) return { kind: 'timeout', message: error.message, line: `timeout, ${error.message}` }
-  if (error instanceof NoResultError || error instanceof RewriteRefusedError) return { kind: 'throw', message: error.message, line: error.message }
+  if (error instanceof NoResultError || error instanceof RewriteRefusedError)
+    return { kind: 'throw', message: error.message, line: error.message }
   const message = error instanceof Error ? `${error.name}: ${error.message}` : messageOf(error)
   return { kind: 'throw', message, line: `threw ${message}` }
 }
@@ -237,13 +241,20 @@ export async function dispatch<E, R>(request: DispatchRequest<E, R>): Promise<R>
             state.beneathError = { error }
             throw error
           })
-          .finally(() => { clock.resume() })
+          .finally(() => {
+            clock.resume()
+          })
         return state.beneath
       },
       {
         signal: request.signal,
         origin: request.origin,
-        budget: { ms: request.budgetMs, get remainingMs(): number { return clock.remainingMs } },
+        budget: {
+          ms: request.budgetMs,
+          get remainingMs(): number {
+            return clock.remainingMs
+          },
+        },
         to(): Promise<R> {
           return Promise.reject(new Error('next.to is only available to mods in managed prependPlugins or appendPlugins'))
         },
@@ -315,14 +326,23 @@ export async function dispatch<E, R>(request: DispatchRequest<E, R>): Promise<R>
           }
         }
         clock.pause()
-        state.beneath = runFrom(index + 1, e).finally(() => { clock.resume() })
+        state.beneath = runFrom(index + 1, e).finally(() => {
+          clock.resume()
+        })
         return state.beneath
       },
       {
         signal: request.signal,
         origin: request.origin,
-        budget: { ms: request.catchBudgetMs, get remainingMs(): number { return clock.remainingMs } },
-        to(): Promise<R> { return Promise.reject(new Error('next.to is not available in a .catch handler')) },
+        budget: {
+          ms: request.catchBudgetMs,
+          get remainingMs(): number {
+            return clock.remainingMs
+          },
+        },
+        to(): Promise<R> {
+          return Promise.reject(new Error('next.to is not available in a .catch handler'))
+        },
         error: failure,
         called: state.called,
       },
@@ -331,8 +351,9 @@ export async function dispatch<E, R>(request: DispatchRequest<E, R>): Promise<R>
     clock.start()
     try {
       const handler = hook.catchHandler as AnyHook
-      const running = Promise.resolve()
-        .then(() => handler(api, input, next as HookNext<unknown, unknown>) as R | undefined | Promise<R | undefined>)
+      const running = Promise.resolve().then(
+        () => handler(api, input, next as HookNext<unknown, unknown>) as R | undefined | Promise<R | undefined>,
+      )
       running.catch(() => {})
       const result = await Promise.race([running, clock.expired])
       if (typeof result === 'object') return result

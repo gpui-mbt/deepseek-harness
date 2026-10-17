@@ -55,12 +55,14 @@ export function resolveRequestImageTarget(
   source: Pick<ImageAttachmentRef, 'width' | 'height'>,
 ): ImageRequestTarget {
   const budget = model.imagePixelBudget === 'low' ? DEFAULT_LOW_DETAIL_IMAGE_PIXEL_BUDGET : model.imagePixelBudget
-  const projected = budget === undefined
-    ? deepSeekRequestImageDimensions(source.width, source.height)
-    : requestImageDimensions(source.width, source.height, budget)
-  const capped = Math.max(projected.width, projected.height) > REQUEST_IMAGE_MAX_DIMENSION
-    ? longEdgeDimensions(source.width, source.height, REQUEST_IMAGE_MAX_DIMENSION)
-    : projected
+  const projected =
+    budget === undefined
+      ? deepSeekRequestImageDimensions(source.width, source.height)
+      : requestImageDimensions(source.width, source.height, budget)
+  const capped =
+    Math.max(projected.width, projected.height) > REQUEST_IMAGE_MAX_DIMENSION
+      ? longEdgeDimensions(source.width, source.height, REQUEST_IMAGE_MAX_DIMENSION)
+      : projected
   return { ...capped, maxBytes: resolveRequestImageMaxBytes(model) }
 }
 
@@ -97,15 +99,16 @@ export function deepSeekImageRequestPricing(
     return { priceImages: images => images.map(textOnlyPrice) }
   }
   return {
-    priceImages: images => images.map(({ attachment: ref, offloaded }) => {
-      if (offloaded === true) {
-        return { visualTokens: 0, text: offloadedImageText(ref, resolveAccess?.(ref)) }
-      }
-      const target = resolveRequestImageTarget(catalogModel, ref)
-      return {
-        visualTokens: deepSeekImageTokens(target.width, target.height),
-        text: requestImageHandleText(ref, target, resolveAccess?.(ref)),
-      }
-    }),
+    priceImages: images =>
+      images.map(({ attachment: ref, offloaded }) => {
+        if (offloaded === true) {
+          return { visualTokens: 0, text: offloadedImageText(ref, resolveAccess?.(ref)) }
+        }
+        const target = resolveRequestImageTarget(catalogModel, ref)
+        return {
+          visualTokens: deepSeekImageTokens(target.width, target.height),
+          text: requestImageHandleText(ref, target, resolveAccess?.(ref)),
+        }
+      }),
   }
 }

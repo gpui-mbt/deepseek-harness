@@ -1,9 +1,7 @@
 /** Approval composer and optional correlated-detail contracts. */
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {
-  PropsLocale, PropsRenderSlots, PropsRuntime,
-} from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ApprovalKey } from '../locales.ts'
 
 /* jscpd:ignore-start -- Approval and Question intentionally own independent pending-settlement lifecycles. */
@@ -12,9 +10,7 @@ function settlePendingComposer(settle: () => void, failureMessage: string): Prom
     settle()
     return Promise.resolve()
   } catch (error) {
-    return Promise.reject(error instanceof Error
-      ? error
-      : new Error(failureMessage, { cause: error }))
+    return Promise.reject(error instanceof Error ? error : new Error(failureMessage, { cause: error }))
   }
 }
 /* jscpd:ignore-end */
@@ -98,7 +94,10 @@ export class PendingApproval {
    * @param sessionId - Agent/Session identity owning the scoped request.
    * @param request - Host approval request projected through the Remote Event.
    */
-  constructor(readonly sessionId: SessionId, request: ApprovalPresentationRequest) {
+  constructor(
+    readonly sessionId: SessionId,
+    request: ApprovalPresentationRequest,
+  ) {
     this.kind = 'approval'
     nextApprovalKey += 1
     this.key = `approval:${String(nextApprovalKey)}`
@@ -137,14 +136,18 @@ export class PendingApproval {
    */
   answer(outcome: ApprovalDecision): Promise<void> {
     return settlePendingComposer(() => {
-      this.finish(() => { this.#resolve(outcome) })
+      this.finish(() => {
+        this.#resolve(outcome)
+      })
     }, 'pending approval settlement failed')
   }
 
   /** Delegate an unanswered request to the next waterfall listener. */
   delegate(): void {
     if (this.#settled) return
-    this.finish(() => { this.#reject(this.#delegated) })
+    this.finish(() => {
+      this.#reject(this.#delegated)
+    })
   }
 
   /**
@@ -162,7 +165,9 @@ export class PendingApproval {
    */
   abort(reason: unknown): void {
     if (this.#settled) return
-    this.finish(() => { this.#reject(reason) })
+    this.finish(() => {
+      this.#reject(reason)
+    })
   }
 
   private finish(settle: () => void): void {
@@ -186,9 +191,6 @@ export interface ApprovalInjected {
 }
 
 /** Full props of the approval composer takeover. */
-export type ApprovalComposerProps =
-  PropsRuntime<'conversation.composer'>
-  & PropsRenderSlots<'conversation.approval.detail'>
-  & { matched: PendingApproval }
-  & PropsLocale<'approval'>
-  & ApprovalInjected
+export type ApprovalComposerProps = PropsRuntime<'conversation.composer'> &
+  PropsRenderSlots<'conversation.approval.detail'> & { matched: PendingApproval } & PropsLocale<'approval'> &
+  ApprovalInjected

@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { createUserMessage, ToolCallId, LlmError, StreamChunk, errorChain  } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createUserMessage, ToolCallId, LlmError, StreamChunk, errorChain } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId, TurnEndReason } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -14,7 +14,7 @@ import { MockAdapter, textResponse, toolCallResponse } from './mock-adapter.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -36,7 +36,7 @@ async function harness(adapter: MockAdapter) {
 }
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -56,20 +56,26 @@ describe('tool JSON parse', () => {
       // model emits tool-call with malformed arguments (not valid JSON)
       [
         { type: 'block-start' as const, index: 0, blockType: 'tool-call' as const },
-        { type: 'block-end' as const, index: 0, block: { type: 'tool-call' as const, id: ToolCallId('c1'), name: 'echo', arguments: 'not json' } },
+        {
+          type: 'block-end' as const,
+          index: 0,
+          block: { type: 'tool-call' as const, id: ToolCallId('c1'), name: 'echo', arguments: 'not json' },
+        },
         { type: 'finish' as const, reason: { kind: 'tool-calls' as const } },
       ] satisfies StreamChunk[],
       textResponse('done'),
     ])
     const ctx = await harness(adapter)
-    ctx.tools.register(defineContentToolFixture({
-      name: 'echo',
-      description: 'echo tool',
-      parameters: { input: { type: 'string' } },
-      async execute(args: unknown) {
-        return [{ type: 'text', text: typeof args === 'string' ? `raw: ${args}` : JSON.stringify(args) }]
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'echo',
+        description: 'echo tool',
+        parameters: { input: { type: 'string' } },
+        async execute(args: unknown) {
+          return [{ type: 'text', text: typeof args === 'string' ? `raw: ${args}` : JSON.stringify(args) }]
+        },
+      }),
+    )
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'use tool')
@@ -95,14 +101,16 @@ describe('tool JSON parse', () => {
       textResponse('done'),
     ])
     const ctx = await harness(adapter)
-    ctx.tools.register(defineContentToolFixture({
-      name: 'noarg',
-      description: 'no-arg tool',
-      parameters: {},
-      async execute() {
-        return [{ type: 'text', text: 'ran with empty args' }]
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'noarg',
+        description: 'no-arg tool',
+        parameters: {},
+        async execute() {
+          return [{ type: 'text', text: 'ran with empty args' }]
+        },
+      }),
+    )
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'use tool')
@@ -163,9 +171,9 @@ describe('thrown-value propagation', () => {
     send(agent, 'go')
     await waitForIdle(ctx, agent)
     const turnEnd = agent.session.snapshotEvents().find(e => e.type === 'turn/end')
-    expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason.kind === 'error'
-      ? turnEnd.data.reason.error.message
-      : undefined).toBe('[object Object]')
+    expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason.kind === 'error' ? turnEnd.data.reason.error.message : undefined).toBe(
+      '[object Object]',
+    )
   })
 })
 
@@ -203,12 +211,19 @@ describe('disposed vs aborted branching', () => {
     const adapter = new MockAdapter(['hang'])
     const ctx = await harness(adapter)
     let agent!: Agent
-    const fiber = await ctx.plugin(Object.assign(async (inner: Context) => {
-      agent = await inner.agentLoop.create(SessionId('scoped'), { provider: 'mock', model: 'mock' })
-    }, { inject: ['agentLoop'] }))
+    const fiber = await ctx.plugin(
+      Object.assign(
+        async (inner: Context) => {
+          agent = await inner.agentLoop.create(SessionId('scoped'), { provider: 'mock', model: 'mock' })
+        },
+        { inject: ['agentLoop'] },
+      ),
+    )
 
     const reasons: TurnEndReason[] = []
-    ctx.on('session/event', (_s, event) => { if (event.type === 'turn/end') reasons.push(event.data.reason) })
+    ctx.on('session/event', (_s, event) => {
+      if (event.type === 'turn/end') reasons.push(event.data.reason)
+    })
 
     send(agent, 'go')
     await new Promise(r => setTimeout(r, 30))
@@ -225,28 +240,26 @@ describe('structured tool error propagation (the runtime-validation Agent Note, 
     const { HarnessError } = await import('@deepseek-ai/dsh-llm')
     // First model turn calls the tool; second turn (after the tool result is
     // fed back) ends with plain text so the loop settles.
-    const adapter = new MockAdapter([
-      toolCallResponse('c1', 'boom', {}),
-      textResponse('done'),
-    ])
+    const adapter = new MockAdapter([toolCallResponse('c1', 'boom', {}), textResponse('done')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
-    ctx.tools.register(defineContentToolFixture({
-      name: 'boom',
-      description: 'always fails',
-      parameters: {},
-      async execute() {
-        throw new HarnessError('exploded', 'BOOM')
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'boom',
+        description: 'always fails',
+        parameters: {},
+        async execute() {
+          throw new HarnessError('exploded', 'BOOM')
+        },
+      }),
+    )
 
     send(agent, 'go')
     await waitForIdle(ctx, agent)
 
     const toolResult = agent.session.snapshotEvents().find(e => e.type === 'tool/result')
     expect(toolResult?.type === 'tool/result' && toolResult.data.message.isError).toBe(true)
-    expect(toolResult?.type === 'tool/result' && toolResult.data.error)
-      .toEqual({ name: 'HarnessError', code: 'BOOM' })
+    expect(toolResult?.type === 'tool/result' && toolResult.data.error).toEqual({ name: 'HarnessError', code: 'BOOM' })
   })
 })
 
@@ -254,7 +267,9 @@ describe('request-error action edges', () => {
   it('ignores a retry action returned after the turn was aborted', async () => {
     const { LlmError } = await import('@deepseek-ai/dsh-llm')
     const adapter = new MockAdapter([
-      () => { throw new LlmError('busy', 'RATE_LIMIT') },
+      () => {
+        throw new LlmError('busy', 'RATE_LIMIT')
+      },
       textResponse('never used'),
     ])
     const ctx = await harness(adapter)
@@ -276,7 +291,9 @@ describe('request-error action edges', () => {
   it('completed recovery does not retry when cancellation raced the waterfall', async () => {
     const { LlmError } = await import('@deepseek-ai/dsh-llm')
     const adapter = new MockAdapter([
-      () => { throw new LlmError('busy', 'RATE_LIMIT') },
+      () => {
+        throw new LlmError('busy', 'RATE_LIMIT')
+      },
     ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('retry-raced'), { provider: 'mock', model: 'mock' })
@@ -302,7 +319,9 @@ describe('stream failure edges', () => {
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('stream-no-facts'), { provider: 'mock', model: 'mock' })
     let recoveries = 0
-    ctx.on('agent/request-error', async () => { recoveries += 1 })
+    ctx.on('agent/request-error', async () => {
+      recoveries += 1
+    })
     // A pre-commit durable-settlement veto is not an adapter-boundary failure,
     // so it is not offered to request recovery.
     let vetoed = false
@@ -359,7 +378,9 @@ describe('persistent step-close rejection', () => {
       if (event.type === 'step/end') throw new Error('step close permanently rejected')
     })
     const statuses: string[] = []
-    ctx.on('agent/status', ({ agent: subject, status }) => { if (subject === agent) statuses.push(status) })
+    ctx.on('agent/status', ({ agent: subject, status }) => {
+      if (subject === agent) statuses.push(status)
+    })
 
     send(agent, 'go')
     await agent.whenIdle()
@@ -372,25 +393,24 @@ describe('persistent step-close rejection', () => {
 describe('tool result meta persistence', () => {
   it('records a presentationMeta payload on the tool/result event', async () => {
     const { defineTool } = await import('@deepseek-ai/dsh-tools')
-    const adapter = new MockAdapter([
-      toolCallResponse('c1', 'meta-tool', {}),
-      textResponse('done'),
-    ])
+    const adapter = new MockAdapter([toolCallResponse('c1', 'meta-tool', {}), textResponse('done')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('tool-meta'), { provider: 'mock', model: 'mock' })
-    ctx.tools.register(defineTool({
-      name: 'meta-tool',
-      description: 'carries presentation meta',
-      parameters: {},
-      output: {
-        schema: { type: 'string' },
-        render: (_args, value) => [{ type: 'text', text: value }],
-        presentationMeta: () => ({ presentation: 'diff-card' }),
-      },
-      async execute() {
-        return 'ran'
-      },
-    }))
+    ctx.tools.register(
+      defineTool({
+        name: 'meta-tool',
+        description: 'carries presentation meta',
+        parameters: {},
+        output: {
+          schema: { type: 'string' },
+          render: (_args, value) => [{ type: 'text', text: value }],
+          presentationMeta: () => ({ presentation: 'diff-card' }),
+        },
+        async execute() {
+          return 'ran'
+        },
+      }),
+    )
 
     send(agent, 'go')
     await waitForIdle(ctx, agent)
@@ -415,7 +435,9 @@ describe('turn close failure containment', () => {
       }
     })
     const errors: unknown[] = []
-    ctx.on('agent/error', ({ error }) => { errors.push(error) })
+    ctx.on('agent/error', ({ error }) => {
+      errors.push(error)
+    })
 
     send(agent, 'go')
     await agent.whenIdle()
@@ -431,12 +453,16 @@ describe('recovery without a retry action', () => {
   it('a completed recovery that returns no action leaves the failed turn terminal', async () => {
     const { LlmError } = await import('@deepseek-ai/dsh-llm')
     const adapter = new MockAdapter([
-      () => { throw new LlmError('down', 'SERVICE_UNAVAILABLE') },
+      () => {
+        throw new LlmError('down', 'SERVICE_UNAVAILABLE')
+      },
     ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('recovery-no-retry'), { provider: 'mock', model: 'mock' })
     let recoveries = 0
-    ctx.on('agent/request-error', async () => { recoveries += 1 })
+    ctx.on('agent/request-error', async () => {
+      recoveries += 1
+    })
 
     send(agent, 'go')
     await agent.whenIdle()
@@ -457,7 +483,9 @@ describe('unrenderable failure settlement', () => {
         // A hostile message getter makes errorChain collapse to its sentinel;
         // settle() must then fall back to the failure facts alone.
         Object.defineProperty(error, 'message', {
-          get() { throw new Error('hostile accessor') },
+          get() {
+            throw new Error('hostile accessor')
+          },
         })
         throw error
       },
@@ -483,8 +511,7 @@ describe('driver bookkeeping edges', () => {
     const ctx = await harness(new MockAdapter([]))
     const agent = await ctx.agentLoop.create(SessionId('turn-without-reservation'), { provider: 'mock', model: 'mock' })
 
-    await expect((agent as unknown as { turn(): Promise<boolean> }).turn())
-      .rejects.toThrow('turn without driver reservation')
+    await expect((agent as unknown as { turn(): Promise<boolean> }).turn()).rejects.toThrow('turn without driver reservation')
     expect(agent.status).toBe('idle')
   })
 
@@ -498,10 +525,12 @@ describe('driver bookkeeping edges', () => {
       return proposals === 2 ? { kind: 'reject' } : next()
     })
     ctx.on('agent/turn-stopping', ({ agent: subject }) => {
-      subject.inject(createUserMessage({
-        content: [{ type: 'text', text: 'do not enter the next step' }],
-        source: { kind: 'test' },
-      }))
+      subject.inject(
+        createUserMessage({
+          content: [{ type: 'text', text: 'do not enter the next step' }],
+          source: { kind: 'test' },
+        }),
+      )
     })
 
     send(agent, 'go')

@@ -28,10 +28,10 @@ export interface DynamicCordisClosureEnv {
   noteError(message: string): void
 }
 
-const TIMER_REDIRECT
-  = 'browser timer globals are unavailable in dynamic packages. Declare inject: [\'timer\'] on the returned plugin, '
-    + 'query Client Service.listService for the exact API, and close over that plugin ctx. In React, create timers '
-    + 'from an event handler or React.useEffect and return callback-form disposers from the effect cleanup.'
+const TIMER_REDIRECT =
+  "browser timer globals are unavailable in dynamic packages. Declare inject: ['timer'] on the returned plugin, " +
+  'query Client Service.listService for the exact API, and close over that plugin ctx. In React, create timers ' +
+  'from an event handler or React.useEffect and return callback-form disposers from the effect cleanup.'
 
 /**
  * Where each withheld browser global sends the author instead. One home for two
@@ -64,14 +64,17 @@ function closureTraps(): Record<string, () => never> {
 
 /** The `harness` seat exists only host-side; any touch teaches the split. */
 function harnessTrap(): unknown {
-  return new Proxy({}, {
-    get(_target, prop) {
-      throw new Error(
-        `harness.${String(prop)} belongs to the HOST half (\`code\`): register handlers there with harness.handle(method, fn); `
-        + 'the browser half calls them via host.call(method, args).',
-      )
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        throw new Error(
+          `harness.${String(prop)} belongs to the HOST half (\`code\`): register handlers there with harness.handle(method, fn); ` +
+            'the browser half calls them via host.call(method, args).',
+        )
+      },
     },
-  })
+  )
 }
 
 /** Per-package style-tag bookkeeping behind the `styles.insert` symbol. */
@@ -128,11 +131,13 @@ function errorText(arg: unknown): string {
 /** Tagged write-through console; error lines additionally copy into the load report. */
 function taggedConsole(pluginId: CordisDynamicPluginId, noteError: (message: string) => void): Console {
   const tag = `[cordis:${pluginId}]`
-  const forward = (level: 'log' | 'info' | 'warn' | 'error' | 'debug') => (...args: unknown[]): void => {
-    console[level](tag, ...args)
-    if (level !== 'error') return
-    noteError(args.map(errorText).join(' ').slice(0, 500))
-  }
+  const forward =
+    (level: 'log' | 'info' | 'warn' | 'error' | 'debug') =>
+    (...args: unknown[]): void => {
+      console[level](tag, ...args)
+      if (level !== 'error') return
+      noteError(args.map(errorText).join(' ').slice(0, 500))
+    }
   return {
     ...console,
     log: forward('log'),
@@ -150,8 +155,7 @@ function taggedConsole(pluginId: CordisDynamicPluginId, noteError: (message: str
  */
 export function isDynamicCordisPlugin(value: unknown): value is DynamicCordisEvaluatedPlugin | ((ctx: unknown) => unknown) {
   if (typeof value === 'function') return true
-  return typeof value === 'object' && value !== null
-    && typeof (value as { apply?: unknown }).apply === 'function'
+  return typeof value === 'object' && value !== null && typeof (value as { apply?: unknown }).apply === 'function'
 }
 
 /**
@@ -184,8 +188,8 @@ export async function evaluateClientHalf(
     // Engine-divergence fallback: the host precheck already carried the
     // line/caret teaching; browsers give only the message.
     throw new Error(
-      `client half failed to parse in this browser: ${error.message}\n`
-      + 'The browser half is plain JavaScript (no JSX, no TypeScript); build elements with React.createElement.',
+      `client half failed to parse in this browser: ${error.message}\n` +
+        'The browser half is plain JavaScript (no JSX, no TypeScript); build elements with React.createElement.',
     )
   }
   const host = {
@@ -200,7 +204,9 @@ export async function evaluateClientHalf(
   }
   const returned = await closure(
     React,
-    taggedConsole(pluginId, (message) => { env.noteError(message) }),
+    taggedConsole(pluginId, message => {
+      env.noteError(message)
+    }),
     styles,
     host,
     harnessTrap(),
@@ -211,9 +217,9 @@ export async function evaluateClientHalf(
   if (!isDynamicCordisPlugin(returned)) {
     if (returned === undefined) {
       throw new Error(
-        'client half returned `undefined` — did you forget `return`?\n'
-        + '  ✓ return (ctx) => { … }\n'
-        + '  ✓ return { name: \'…\', inject: [\'slots\'], apply(ctx) { … } }',
+        'client half returned `undefined` — did you forget `return`?\n' +
+          '  ✓ return (ctx) => { … }\n' +
+          "  ✓ return { name: '…', inject: ['slots'], apply(ctx) { … } }",
       )
     }
     throw new Error('client half must `return` a plugin: a function, or an object with an `apply(ctx)` method')

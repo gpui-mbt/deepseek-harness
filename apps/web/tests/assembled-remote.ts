@@ -62,10 +62,15 @@ interface ControlBaseline {
     readonly queues: Readonly<Record<string, readonly unknown[]>>
     readonly approvals: readonly unknown[]
     readonly questions: readonly unknown[]
-    readonly projections: Readonly<Record<string, {
-      readonly asOfSeq: number
-      readonly values: Readonly<Record<string, unknown>>
-    }>>
+    readonly projections: Readonly<
+      Record<
+        string,
+        {
+          readonly asOfSeq: number
+          readonly values: Readonly<Record<string, unknown>>
+        }
+      >
+    >
   }
 }
 
@@ -108,29 +113,25 @@ export interface AssembledRemote {
   readonly mock: RemoteMock
 }
 
-const fixtureSource = readFileSync(
-  join(process.cwd(), 'apps/web/tests/fixtures/assembled-remote.fixture.json'),
-  'utf8',
-)
+const fixtureSource = readFileSync(join(process.cwd(), 'apps/web/tests/fixtures/assembled-remote.fixture.json'), 'utf8')
 
 /** Create one isolated RemoteMock world for an assembled built-client case. */
 export function createAssembledRemote(options: AssembledRemoteOptions = {}): AssembledRemote {
   const fixture = JSON.parse(fixtureSource) as CapturedFixture
   const sessions = [...structuredClone(fixture.sessionList.value.items)]
   const workspaces = [...structuredClone(fixture.workspace.value.items)]
-  const records = new Map<string, EventRecord[]>([[
-    'fx-alpha',
-    structuredClone(fixture.follow.records) as EventRecord[],
-  ]])
-  const nextTurns = new Map([...records].map(([sessionId, sessionRecords]) => {
-    let next = 0
-    for (const { event } of sessionRecords) {
-      if (event.type !== 'turn/start' || !isRecord(event.data)) continue
-      const turn = event.data['turn']
-      if (typeof turn === 'number') next = Math.max(next, turn + 1)
-    }
-    return [sessionId, next] as const
-  }))
+  const records = new Map<string, EventRecord[]>([['fx-alpha', structuredClone(fixture.follow.records) as EventRecord[]]])
+  const nextTurns = new Map(
+    [...records].map(([sessionId, sessionRecords]) => {
+      let next = 0
+      for (const { event } of sessionRecords) {
+        if (event.type !== 'turn/start' || !isRecord(event.data)) continue
+        const turn = event.data['turn']
+        if (typeof turn === 'number') next = Math.max(next, turn + 1)
+      }
+      return [sessionId, next] as const
+    }),
+  )
   const attachments = new Map<string, unknown>([['fixture:image', structuredClone(fixture.attachment)]])
   const blankSessionProjections = fixture.control.value.projections['fx-gamma']
   if (blankSessionProjections === undefined) {
@@ -143,11 +144,18 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
     unary: {
       'settings/describe': ok({
         ...fixture.settingsDescribe.value,
-        namespaces: [...fixture.settingsDescribe.value.namespaces, {
-          ns: 'ui-settings',
-          schema: { type: 'object', dict: { enabled: { type: 'boolean' } } },
-          value: { enabled: options.developerTools ?? true }, autoGenerate: false, applies: 'live', secrets: [], revision: 0,
-        }],
+        namespaces: [
+          ...fixture.settingsDescribe.value.namespaces,
+          {
+            ns: 'ui-settings',
+            schema: { type: 'object', dict: { enabled: { type: 'boolean' } } },
+            value: { enabled: options.developerTools ?? true },
+            autoGenerate: false,
+            applies: 'live',
+            secrets: [],
+            revision: 0,
+          },
+        ],
       }),
       'credentials/describe': structuredClone(fixture.credentialsDescribe),
       'session/modelCatalog': structuredClone(fixture.modelCatalog),
@@ -213,7 +221,7 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
       records: structuredClone(sessionRecords),
       hasMore: false,
       projections: structuredClone(blankSessionProjections),
-      ...isAssistantStreamRequested(request) ? { assistantStream: { revision: 0 } } : {},
+      ...(isAssistantStreamRequested(request) ? { assistantStream: { revision: 0 } } : {}),
     })
   })
 
@@ -285,14 +293,16 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
   mock.unary('session/attachment', (request: unknown) => {
     request = recordValue(request, 'request')
     const attachmentId = recordString(request, 'attachmentId')
-    return attachments.get(attachmentId) ?? {
-      ok: false,
-      error: {
-        code: 'session/attachment-invalid',
-        message: `assembled fixture attachment ${attachmentId} is missing`,
-        details: { reason: 'ATTACHMENT_NOT_FOUND' },
-      },
-    }
+    return (
+      attachments.get(attachmentId) ?? {
+        ok: false,
+        error: {
+          code: 'session/attachment-invalid',
+          message: `assembled fixture attachment ${attachmentId} is missing`,
+          details: { reason: 'ATTACHMENT_NOT_FOUND' },
+        },
+      }
+    )
   })
   mock.unary('session/prompt', (request: unknown) => {
     request = recordValue(request, 'request')
@@ -311,19 +321,17 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
     const sessionRecords = records.get(sessionId) ?? []
     const summary = sessions.find(candidate => candidate.sessionId === sessionId)
     if (summary === undefined) throw new Error(`assembled fixture: no Session ${sessionId}`)
-    const content = recordArray(request, 'content').map((part) => {
+    const content = recordArray(request, 'content').map(part => {
       if (!isRecord(part) || part.type !== 'image') return part
       const attachmentId = `assembled:${randomUUID()}`
       const data = recordString(part, 'data')
       const attachment = {
         attachmentId,
         mediaType: recordString(part, 'mediaType'),
-        bytes: Math.max(1, Math.floor(data.length * 3 / 4)),
+        bytes: Math.max(1, Math.floor((data.length * 3) / 4)),
         width: 160,
         height: 90,
-        ...optionalRecordString(part, 'name') === undefined
-          ? {}
-          : { name: optionalRecordString(part, 'name') },
+        ...(optionalRecordString(part, 'name') === undefined ? {} : { name: optionalRecordString(part, 'name') }),
       }
       attachments.set(attachmentId, ok({ attachment, data }))
       return { type: 'image', attachment }
@@ -337,12 +345,17 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
       mock.streams.push('$events', { type: 'emit', event: 'api-session/status', args: [sessionId, true] })
     }
     const turnEvent = eventOf(sessionRecords.length, 'turn/start', { turn })
-    const userEvent = eventOf(sessionRecords.length + 1, 'user/message', {
-      content,
-      source: { kind: 'user', rpcId: requestId },
-      role: 'user',
-      id: randomUUID(),
-    }, 'append')
+    const userEvent = eventOf(
+      sessionRecords.length + 1,
+      'user/message',
+      {
+        content,
+        source: { kind: 'user', rpcId: requestId },
+        role: 'user',
+        id: randomUUID(),
+      },
+      'append',
+    )
     sessionRecords.push(turnEvent, userEvent)
     records.set(sessionId, sessionRecords)
     mock.streams.push('session/follow', turnEvent, follows(sessionId))
@@ -359,7 +372,7 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
       commandId: `assembled-command-${randomUUID()}`,
       result: {
         kind: 'success',
-        ...name === 'echo' ? { text: line.replace(/^\/echo\s*/u, '') } : {},
+        ...(name === 'echo' ? { text: line.replace(/^\/echo\s*/u, '') } : {}),
       },
     })
   })
@@ -367,12 +380,7 @@ export function createAssembledRemote(options: AssembledRemoteOptions = {}): Ass
   return { mock }
 }
 
-function eventOf(
-  seq: number,
-  type: string,
-  data: unknown,
-  surfaceOp?: string,
-): EventRecord {
+function eventOf(seq: number, type: string, data: unknown, surfaceOp?: string): EventRecord {
   return {
     type: 'event',
     event: {
@@ -391,9 +399,7 @@ function follows(sessionId: string): (args: readonly unknown[]) => boolean {
 
 function followedSessionId(value: unknown): string {
   if (!isRecord(value) || !isRecord(value.address)) throw new TypeError('assembled fixture follow request is invalid')
-  return value.address.kind === 'session'
-    ? recordString(value.address, 'sessionId')
-    : recordString(value.address, 'childSessionId')
+  return value.address.kind === 'session' ? recordString(value.address, 'sessionId') : recordString(value.address, 'childSessionId')
 }
 
 function isAssistantStreamRequested(value: unknown): boolean {

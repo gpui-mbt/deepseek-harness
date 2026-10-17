@@ -1,17 +1,25 @@
 // @vitest-environment jsdom
 import { StrictMode, useEffect, useState, type ReactNode } from 'react'
 import { act, fireEvent } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
-  ActionsDecl, FactoryComponentPropsOf, FactoryLocalComponentPropsOf, HostObservable,
-  PropsRenderFactories, PropsRuntime, StoreHandle, StoreInstanceLike,
+  ActionsDecl,
+  FactoryComponentPropsOf,
+  FactoryLocalComponentPropsOf,
+  HostObservable,
+  PropsRenderFactories,
+  PropsRuntime,
+  StoreHandle,
+  StoreInstanceLike,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import { StaleAuthorizationError } from '@deepseek-ai/dsh-client-ui-slots'
 
-interface CounterState { count: number }
+interface CounterState {
+  count: number
+}
 interface CounterActions extends ActionsDecl<CounterState> {
   increment(draft: CounterState): void
 }
@@ -90,7 +98,9 @@ function observable<T>(initial: T) {
     getSnapshot: () => value,
     subscribe: (listener: () => void) => {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
     set: (next: T) => {
       value = next
@@ -103,14 +113,20 @@ function counterHandle(clearPersisted = vi.fn()): CounterStore {
   return {
     spec: {
       init: () => ({ count: 0 }),
-      actions: { increment: (draft) => { draft.count += 1 } },
+      actions: {
+        increment: draft => {
+          draft.count += 1
+        },
+      },
     },
     create: () => {
       const source = observable<CounterState>({ count: 0 })
       return {
         ...source,
         actions: {
-          increment: () => { source.set({ count: source.getSnapshot().count + 1 }) },
+          increment: () => {
+            source.set({ count: source.getSnapshot().count + 1 })
+          },
         },
         clearPersisted,
       } as StoreInstanceLike as ReturnType<CounterStore['create']>
@@ -128,13 +144,25 @@ let defaultMounts = 0
 let customMounts = 0
 
 function DefaultView({ text, tag, t, useSuffix }: LocalProps) {
-  useEffect(() => { defaultMounts += 1 }, [])
-  return <i data-view="default">{text}:{tag}:{useSuffix(value => value)}:{t('word')}</i>
+  useEffect(() => {
+    defaultMounts += 1
+  }, [])
+  return (
+    <i data-view="default">
+      {text}:{tag}:{useSuffix(value => value)}:{t('word')}
+    </i>
+  )
 }
 
 function CustomView({ text, tag, t, useSuffix }: LocalProps) {
-  useEffect(() => { customMounts += 1 }, [])
-  return <i data-view="custom">{text}:{tag}:{useSuffix(value => value)}:{t('word')}</i>
+  useEffect(() => {
+    customMounts += 1
+  }, [])
+  return (
+    <i data-view="custom">
+      {text}:{tag}:{useSuffix(value => value)}:{t('word')}
+    </i>
+  )
 }
 
 function CrashingView(): never {
@@ -155,15 +183,15 @@ function NestedFactoryView({ renderFactorySlot }: LocalProps) {
   return renderFactorySlot('renderer.nested-factory', {}, { slots: { view: CrashingView } })
 }
 
-function FactoryBody({
-  label, crash, useStore, actions, useFactorySlot, renderSlot,
-}: FactoryProps) {
+function FactoryBody({ label, crash, useStore, actions, useFactorySlot, renderSlot }: FactoryProps) {
   if (crash === true) throw new Error(`crash:${label}`)
   const View = useFactorySlot('view', DefaultView)
   return (
     <section data-factory={label}>
       <span data-count>{useStore(state => state.count)}</span>
-      <button type="button" onClick={actions.increment}>increment {label}</button>
+      <button type="button" onClick={actions.increment}>
+        increment {label}
+      </button>
       <View text={label} />
       {renderSlot('renderer.factory.child', {})}
     </section>
@@ -185,15 +213,18 @@ function registerFactory(
   component: (props: FactoryProps) => ReactNode = FactoryBody,
 ): () => void {
   const suffix = observable('suffix')
-  return runtime.slots.registerFactory({
-    name: 'renderer.factory',
-    scope: 'root',
-    children: { 'renderer.factory.child': { kind: 'list', scope: 'root' } },
-    store: storeFactory,
-    inject: () => ({ hooks: { suffix }, tag: 'injected' }),
-    locale: 'renderer-factory',
-    slots: { view: { scope: 'root' } },
-  }, component)
+  return runtime.slots.registerFactory(
+    {
+      name: 'renderer.factory',
+      scope: 'root',
+      children: { 'renderer.factory.child': { kind: 'list', scope: 'root' } },
+      store: storeFactory,
+      inject: () => ({ hooks: { suffix }, tag: 'injected' }),
+      locale: 'renderer-factory',
+      slots: { view: { scope: 'root' } },
+    },
+    component,
+  )
 }
 
 describe('Factory rendering', () => {
@@ -222,7 +253,14 @@ describe('Factory rendering', () => {
       const [revision, setRevision] = useState(0)
       return (
         <>
-          <button type="button" onClick={() => { setRevision(value => value + 1) }}>rerender {revision}</button>
+          <button
+            type="button"
+            onClick={() => {
+              setRevision(value => value + 1)
+            }}
+          >
+            rerender {revision}
+          </button>
           {renderFactorySlot('renderer.factory', { label: 'A' }, { slots: { view: CustomView } })}
           {renderFactorySlot('renderer.factory', { label: 'B' })}
         </>
@@ -255,7 +293,9 @@ describe('Factory rendering', () => {
 
     fireEvent.click(view.getByRole('button', { name: 'increment strict' }))
     expect(view.container.querySelector('[data-count]')?.textContent).toBe('1')
-    await act(async () => { locale.set({ revision: 1 }) })
+    await act(async () => {
+      locale.set({ revision: 1 })
+    })
     expect(view.container.querySelector('[data-count]')?.textContent).toBe('1')
     await runtime.dispose()
   })
@@ -265,24 +305,27 @@ describe('Factory rendering', () => {
     await runtime.sessions.add({ id: 's1' })
     const first = runtime.sessions.retainFor(runtime.ctx, sid('s1'))
     const handles: CounterStore[] = []
-    runtime.slots.registerFactory({
-      name: 'renderer.session-store-factory',
-      scope: 'session',
-      store: () => {
-        const handle = counterHandle()
-        handles.push(handle)
-        return handle
+    runtime.slots.registerFactory(
+      {
+        name: 'renderer.session-store-factory',
+        scope: 'session',
+        store: () => {
+          const handle = counterHandle()
+          handles.push(handle)
+          return handle
+        },
       },
-    }, ({ useStore, sessionId }) => <span>{sessionId}:{useStore(state => state.count)}</span>)
+      ({ useStore, sessionId }) => (
+        <span>
+          {sessionId}:{useStore(state => state.count)}
+        </span>
+      ),
+    )
     let selectReference: ((reference: SessionReference) => void) | undefined
     await runtime.root.declare(SESSION_AREA, ({ renderFactorySlot, SessionProvider }) => {
       const [reference, select] = useState(first)
       selectReference = select
-      return (
-        <SessionProvider session={reference}>
-          {renderFactorySlot('renderer.session-store-factory', {})}
-        </SessionProvider>
-      )
+      return <SessionProvider session={reference}>{renderFactorySlot('renderer.session-store-factory', {})}</SessionProvider>
     })
     const view = runtime.renderRoot()
     expect(view.container.textContent).toBe('s1:0')
@@ -290,7 +333,9 @@ describe('Factory rendering', () => {
 
     await runtime.sessions.add({ id: 's2' })
     const second = runtime.sessions.retainFor(runtime.ctx, sid('s2'))
-    await act(async () => { selectReference?.(second) })
+    await act(async () => {
+      selectReference?.(second)
+    })
     expect(view.container.textContent).toBe('s2:0')
     expect(handles).toHaveLength(2)
     await runtime.dispose()
@@ -300,18 +345,19 @@ describe('Factory rendering', () => {
     const runtime = await SlotTestRuntime.create()
     await runtime.sessions.add({ id: 'nested' })
     const reference = runtime.sessions.retainFor(runtime.ctx, sid('nested'))
-    runtime.slots.registerFactory({
-      name: 'renderer.scoped-local-factory',
-      scope: 'root',
-      slots: { view: { scope: 'session' } },
-    }, ({ useFactorySlot }) => {
-      const View = useFactorySlot('view', ({ sessionId: bound }) => <span>{bound}</span>)
-      return <View />
-    })
+    runtime.slots.registerFactory(
+      {
+        name: 'renderer.scoped-local-factory',
+        scope: 'root',
+        slots: { view: { scope: 'session' } },
+      },
+      ({ useFactorySlot }) => {
+        const View = useFactorySlot('view', ({ sessionId: bound }) => <span>{bound}</span>)
+        return <View />
+      },
+    )
     await runtime.root.declare(SESSION_AREA, ({ renderFactorySlot, SessionProvider }) => (
-      <SessionProvider session={reference}>
-        {renderFactorySlot('renderer.scoped-local-factory', {})}
-      </SessionProvider>
+      <SessionProvider session={reference}>{renderFactorySlot('renderer.scoped-local-factory', {})}</SessionProvider>
     ))
 
     const view = runtime.renderRoot()
@@ -323,22 +369,28 @@ describe('Factory rendering', () => {
     const runtime = await SlotTestRuntime.create()
     let retainedRender: ChainFactoryProps['renderSlot'] | undefined
     let retainedChain: ChainFactoryProps['renderSlotChain'] | undefined
-    const dispose = runtime.slots.registerFactory({
-      name: 'renderer.chain-factory',
-      scope: 'root',
-      children: {
-        'renderer.factory.child': { kind: 'list', scope: 'root' },
-        'renderer.factory.chain': { kind: 'chain', scope: 'root' },
+    const dispose = runtime.slots.registerFactory(
+      {
+        name: 'renderer.chain-factory',
+        scope: 'root',
+        children: {
+          'renderer.factory.child': { kind: 'list', scope: 'root' },
+          'renderer.factory.chain': { kind: 'chain', scope: 'root' },
+        },
       },
-    }, ({ renderSlot, renderSlotChain }) => {
-      retainedRender = renderSlot
-      retainedChain = renderSlotChain
-      return renderSlotChain('renderer.factory.chain', { enabled: true }, { fallback: <i>none</i> })
-    })
-    runtime.slots.register({
-      name: 'renderer.factory.chain',
-      select: owner => owner.enabled ? 'selected' : null,
-    }, ({ matched }) => <span>{matched}</span>)
+      ({ renderSlot, renderSlotChain }) => {
+        retainedRender = renderSlot
+        retainedChain = renderSlotChain
+        return renderSlotChain('renderer.factory.chain', { enabled: true }, { fallback: <i>none</i> })
+      },
+    )
+    runtime.slots.register(
+      {
+        name: 'renderer.factory.chain',
+        select: owner => (owner.enabled ? 'selected' : null),
+      },
+      ({ matched }) => <span>{matched}</span>,
+    )
     await runtime.root.declare({}, ({ renderFactorySlot }: PropsRuntime<'root'> & PropsRenderFactories) => (
       <>{renderFactorySlot('renderer.chain-factory', {})}</>
     ))
@@ -361,27 +413,28 @@ describe('Factory rendering', () => {
     const first = runtime.sessions.retainFor(runtime.ctx, sid('outer-session'))
     const report = vi.fn()
     let mounts = 0
-    runtime.slots.registerFactory({
-      name: 'renderer.session-factory-root-local',
-      scope: 'session',
-      slots: { view: { scope: 'root' } },
-    }, ({ report, sessionId: outerSessionId, useFactorySlot }) => {
-      useEffect(() => { mounts += 1 }, [])
-      const View = useFactorySlot('view', (props) => {
-        props.report(Object.hasOwn(props, 'sessionId'))
-        return <span>{outerSessionId}</span>
-      })
-      return <View report={report} />
-    })
+    runtime.slots.registerFactory(
+      {
+        name: 'renderer.session-factory-root-local',
+        scope: 'session',
+        slots: { view: { scope: 'root' } },
+      },
+      ({ report, sessionId: outerSessionId, useFactorySlot }) => {
+        useEffect(() => {
+          mounts += 1
+        }, [])
+        const View = useFactorySlot('view', props => {
+          props.report(Object.hasOwn(props, 'sessionId'))
+          return <span>{outerSessionId}</span>
+        })
+        return <View report={report} />
+      },
+    )
     let selectReference: ((reference: SessionReference) => void) | undefined
     await runtime.root.declare(SESSION_AREA, ({ renderFactorySlot, SessionProvider }) => {
       const [reference, select] = useState(first)
       selectReference = select
-      return (
-        <SessionProvider session={reference}>
-          {renderFactorySlot('renderer.session-factory-root-local', { report })}
-        </SessionProvider>
-      )
+      return <SessionProvider session={reference}>{renderFactorySlot('renderer.session-factory-root-local', { report })}</SessionProvider>
     })
 
     const view = runtime.renderRoot()
@@ -390,7 +443,9 @@ describe('Factory rendering', () => {
     expect(mounts).toBe(1)
     await runtime.sessions.add({ id: 'second-session' })
     const second = runtime.sessions.retainFor(runtime.ctx, sid('second-session'))
-    await act(async () => { selectReference?.(second) })
+    await act(async () => {
+      selectReference?.(second)
+    })
     expect(view.container.textContent).toBe('second-session')
     expect(mounts).toBe(2)
     await runtime.dispose()
@@ -398,14 +453,17 @@ describe('Factory rendering', () => {
 
   it('fails loud when a strict local Component has no current scope binding', async () => {
     const runtime = await SlotTestRuntime.create()
-    runtime.slots.registerFactory({
-      name: 'renderer.scoped-local-factory',
-      scope: 'root',
-      slots: { view: { scope: 'session' } },
-    }, ({ useFactorySlot }) => {
-      const View = useFactorySlot('view', () => null)
-      return <View />
-    })
+    runtime.slots.registerFactory(
+      {
+        name: 'renderer.scoped-local-factory',
+        scope: 'root',
+        slots: { view: { scope: 'session' } },
+      },
+      ({ useFactorySlot }) => {
+        const View = useFactorySlot('view', () => null)
+        return <View />
+      },
+    )
     await runtime.root.declare({}, ({ renderFactorySlot }: PropsRuntime<'root'> & PropsRenderFactories) => (
       <>{renderFactorySlot('renderer.scoped-local-factory', {})}</>
     ))
@@ -426,9 +484,13 @@ describe('Factory rendering', () => {
     expect(view.container.textContent).toBe('missing')
 
     let dispose = () => {}
-    await act(async () => { dispose = registerFactory(runtime, counterHandle) })
+    await act(async () => {
+      dispose = registerFactory(runtime, counterHandle)
+    })
     expect(view.container.querySelector('[data-factory="A"]')).not.toBeNull()
-    await act(async () => { dispose() })
+    await act(async () => {
+      dispose()
+    })
     expect(view.container.textContent).toBe('missing')
 
     await act(async () => {
@@ -457,9 +519,7 @@ describe('Factory rendering', () => {
 
     expect(view.container.querySelector('[data-factory-error="renderer.factory"]')).not.toBeNull()
     expect(view.container.querySelector('[data-factory="good"]')).not.toBeNull()
-    expect(reported).toHaveBeenCalledWith(
-      'factory:renderer.factory', definition, expect.any(Error), { abdicated: false },
-    )
+    expect(reported).toHaveBeenCalledWith('factory:renderer.factory', definition, expect.any(Error), { abdicated: false })
     await runtime.dispose()
   })
 
@@ -478,9 +538,7 @@ describe('Factory rendering', () => {
     spy.mockRestore()
 
     expect(view.container.querySelector('[data-factory-error="renderer.factory:view"]')).not.toBeNull()
-    expect(reported).toHaveBeenCalledWith(
-      'factory:renderer.factory', caller, expect.any(Error), { abdicated: false },
-    )
+    expect(reported).toHaveBeenCalledWith('factory:renderer.factory', caller, expect.any(Error), { abdicated: false })
     await runtime.dispose()
   })
 
@@ -488,38 +546,36 @@ describe('Factory rendering', () => {
     const runtime = await SlotTestRuntime.create()
     await runtime.sessions.add({ id: 'broken' })
     const broken = runtime.sessions.retainFor(runtime.ctx, sid('broken'))
-    runtime.slots.registerFactory({
-      name: 'renderer.scoped-local-factory',
-      scope: 'root',
-      slots: { view: { scope: 'session' } },
-    }, ({ useFactorySlot }) => {
-      const View = useFactorySlot('view', SessionCrashingView)
-      return <View />
-    })
+    runtime.slots.registerFactory(
+      {
+        name: 'renderer.scoped-local-factory',
+        scope: 'root',
+        slots: { view: { scope: 'session' } },
+      },
+      ({ useFactorySlot }) => {
+        const View = useFactorySlot('view', SessionCrashingView)
+        return <View />
+      },
+    )
     const reported = vi.fn()
     runtime.slots.onEntryError(reported)
     let selectReference: ((reference: SessionReference) => void) | undefined
     await runtime.root.declare(SESSION_AREA, ({ renderFactorySlot, SessionProvider }) => {
       const [reference, select] = useState(broken)
       selectReference = select
-      return (
-        <SessionProvider session={reference}>
-          {renderFactorySlot('renderer.scoped-local-factory', {})}
-        </SessionProvider>
-      )
+      return <SessionProvider session={reference}>{renderFactorySlot('renderer.scoped-local-factory', {})}</SessionProvider>
     })
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const view = runtime.renderRoot()
     const definition = runtime.factoryOf('renderer.scoped-local-factory')
 
     expect(view.container.querySelector('[data-factory-error="renderer.scoped-local-factory:view"]')).not.toBeNull()
-    expect(reported).toHaveBeenCalledWith(
-      'factory:renderer.scoped-local-factory', definition, expect.any(Error),
-      { abdicated: false },
-    )
+    expect(reported).toHaveBeenCalledWith('factory:renderer.scoped-local-factory', definition, expect.any(Error), { abdicated: false })
     await runtime.sessions.add({ id: 'healthy' })
     const healthy = runtime.sessions.retainFor(runtime.ctx, sid('healthy'))
-    await act(async () => { selectReference?.(healthy) })
+    await act(async () => {
+      selectReference?.(healthy)
+    })
     expect(view.container.textContent).toBe('healthy')
     spy.mockRestore()
     await runtime.dispose()
@@ -529,9 +585,14 @@ describe('Factory rendering', () => {
     const runtime = await SlotTestRuntime.create()
     installLocale(runtime)
     registerFactory(runtime, counterHandle)
-    runtime.slots.registerFactory({
-      name: 'renderer.nested-factory', scope: 'root', slots: { view: { scope: 'root' } },
-    }, NestedFactoryBody)
+    runtime.slots.registerFactory(
+      {
+        name: 'renderer.nested-factory',
+        scope: 'root',
+        slots: { view: { scope: 'root' } },
+      },
+      NestedFactoryBody,
+    )
     const reported = vi.fn()
     runtime.slots.onEntryError(reported)
     await runtime.root.declare({}, ({ renderFactorySlot }: PropsRuntime<'root'> & PropsRenderFactories) => (
@@ -542,10 +603,7 @@ describe('Factory rendering', () => {
     runtime.renderRoot()
     spy.mockRestore()
 
-    expect(reported).toHaveBeenCalledWith(
-      'factory:renderer.nested-factory', caller, expect.any(Error),
-      { abdicated: false },
-    )
+    expect(reported).toHaveBeenCalledWith('factory:renderer.nested-factory', caller, expect.any(Error), { abdicated: false })
     await runtime.dispose()
   })
 
@@ -566,7 +624,9 @@ describe('Factory rendering', () => {
 
     expect(view.container.querySelector('[data-factory-error="renderer.factory"]')).not.toBeNull()
     expect(reported).toHaveBeenCalledWith(
-      'factory:renderer.factory', runtime.factoryOf('renderer.factory'), expect.any(StaleAuthorizationError),
+      'factory:renderer.factory',
+      runtime.factoryOf('renderer.factory'),
+      expect.any(StaleAuthorizationError),
       { abdicated: false },
     )
     await runtime.dispose()
@@ -576,20 +636,22 @@ describe('Factory rendering', () => {
     const runtime = await SlotTestRuntime.create()
     await runtime.sessions.add({ id: 'broken' })
     const broken = runtime.sessions.retainFor(runtime.ctx, sid('broken'))
-    runtime.slots.registerFactory({
-      name: 'renderer.session-error-factory', scope: 'session',
-    }, ({ crashIn, sessionId }) => {
-      if (sessionId === crashIn) throw new Error(`crash:${sessionId}`)
-      return <span>{sessionId}</span>
-    })
+    runtime.slots.registerFactory(
+      {
+        name: 'renderer.session-error-factory',
+        scope: 'session',
+      },
+      ({ crashIn, sessionId }) => {
+        if (sessionId === crashIn) throw new Error(`crash:${sessionId}`)
+        return <span>{sessionId}</span>
+      },
+    )
     let selectReference: ((reference: SessionReference) => void) | undefined
     await runtime.root.declare(SESSION_AREA, ({ renderFactorySlot, SessionProvider }) => {
       const [reference, select] = useState(broken)
       selectReference = select
       return (
-        <SessionProvider session={reference}>
-          {renderFactorySlot('renderer.session-error-factory', { crashIn: 'broken' })}
-        </SessionProvider>
+        <SessionProvider session={reference}>{renderFactorySlot('renderer.session-error-factory', { crashIn: 'broken' })}</SessionProvider>
       )
     })
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -598,7 +660,9 @@ describe('Factory rendering', () => {
 
     await runtime.sessions.add({ id: 'healthy' })
     const healthy = runtime.sessions.retainFor(runtime.ctx, sid('healthy'))
-    await act(async () => { selectReference?.(healthy) })
+    await act(async () => {
+      selectReference?.(healthy)
+    })
     expect(view.container.textContent).toBe('healthy')
     spy.mockRestore()
     await runtime.dispose()
@@ -609,15 +673,19 @@ describe('Factory rendering', () => {
     runtime.slots.registerFactory({ name: 'renderer.error-factory', scope: 'root' }, () => {
       throw new Error('broken factory')
     })
-    runtime.slots.registerFactory(
-      { name: 'renderer.healthy-factory', scope: 'root' },
-      () => <span>healthy factory</span>,
-    )
+    runtime.slots.registerFactory({ name: 'renderer.healthy-factory', scope: 'root' }, () => <span>healthy factory</span>)
     await runtime.root.declare({}, ({ renderFactorySlot }: PropsRuntime<'root'> & PropsRenderFactories) => {
       const [name, setName] = useState<'renderer.error-factory' | 'renderer.healthy-factory'>('renderer.error-factory')
       return (
         <>
-          <button type="button" onClick={() => { setName('renderer.healthy-factory') }}>switch factory</button>
+          <button
+            type="button"
+            onClick={() => {
+              setName('renderer.healthy-factory')
+            }}
+          >
+            switch factory
+          </button>
           {renderFactorySlot(name, {})}
         </>
       )
@@ -637,9 +705,15 @@ describe('Factory rendering', () => {
     installLocale(unknownRuntime)
     registerFactory(unknownRuntime, counterHandle)
     await unknownRuntime.root.declare({}, ({ renderFactorySlot }: PropsRuntime<'root'> & PropsRenderFactories) => (
-      <>{renderFactorySlot('renderer.factory', { label: 'A' }, {
-        slots: { unknown: DefaultView } as never,
-      })}</>
+      <>
+        {renderFactorySlot(
+          'renderer.factory',
+          { label: 'A' },
+          {
+            slots: { unknown: DefaultView } as never,
+          },
+        )}
+      </>
     ))
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const unknownView = unknownRuntime.renderRoot()
@@ -649,11 +723,15 @@ describe('Factory rendering', () => {
     await unknownRuntime.dispose()
 
     const recursiveRuntime = await SlotTestRuntime.create()
-    recursiveRuntime.slots.registerFactory({
-      name: 'renderer.recursive-factory', scope: 'root',
-    }, ({ renderFactorySlot }: FactoryComponentPropsOf<'renderer.recursive-factory'>) => (
-      <>{renderFactorySlot('renderer.recursive-factory', {})}</>
-    ))
+    recursiveRuntime.slots.registerFactory(
+      {
+        name: 'renderer.recursive-factory',
+        scope: 'root',
+      },
+      ({ renderFactorySlot }: FactoryComponentPropsOf<'renderer.recursive-factory'>) => (
+        <>{renderFactorySlot('renderer.recursive-factory', {})}</>
+      ),
+    )
     await recursiveRuntime.root.declare({}, ({ renderFactorySlot }: PropsRuntime<'root'> & PropsRenderFactories) => (
       <>{renderFactorySlot('renderer.recursive-factory', {})}</>
     ))
@@ -667,7 +745,7 @@ describe('Factory rendering', () => {
     const staleRuntime = await SlotTestRuntime.create()
     installLocale(staleRuntime)
     let retainedRender: FactoryProps['renderSlot'] | undefined
-    const dispose = registerFactory(staleRuntime, counterHandle, (props) => {
+    const dispose = registerFactory(staleRuntime, counterHandle, props => {
       retainedRender = props.renderSlot
       return null
     })

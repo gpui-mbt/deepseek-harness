@@ -43,7 +43,8 @@ function patchHash(bytes: Buffer): string {
  * @returns Expected patch identities and hashes for lockfile and staged-file verification.
  */
 export function prepareRuntimePatches(
-  projectRoot: string, repositoryRoot: string,
+  projectRoot: string,
+  repositoryRoot: string,
   policy: Readonly<Record<string, DesktopRuntimePatch>> = DESKTOP_RUNTIME_PATCHES,
   overrides: Readonly<Record<string, string>> = DESKTOP_RUNTIME_DEPENDENCY_OVERRIDES,
 ): PreparedRuntimePatches {
@@ -85,10 +86,21 @@ export function prepareRuntimePatches(
   }
   mkdirSync(join(projectRoot, 'patches'), { recursive: true })
   for (const entry of selected) writeFileSync(join(projectRoot, entry.path), entry.bytes)
-  writeFileSync(targetPath, yaml.dump({ ...target, overrides: { ...target.overrides, ...overrides },
-    patchedDependencies: Object.fromEntries(selected.map(entry => [entry.spec, entry.path])), allowUnusedPatches: false }))
-  return { patches: selected.map(({ bytes: _bytes, ...entry }) => entry),
-    workspaceOnly: Object.entries(policy).filter(([, rule]) => rule.scope === 'workspace-only').map(([spec]) => patchIdentity(spec).name) }
+  writeFileSync(
+    targetPath,
+    yaml.dump({
+      ...target,
+      overrides: { ...target.overrides, ...overrides },
+      patchedDependencies: Object.fromEntries(selected.map(entry => [entry.spec, entry.path])),
+      allowUnusedPatches: false,
+    }),
+  )
+  return {
+    patches: selected.map(({ bytes: _bytes, ...entry }) => entry),
+    workspaceOnly: Object.entries(policy)
+      .filter(([, rule]) => rule.scope === 'workspace-only')
+      .map(([spec]) => patchIdentity(spec).name),
+  }
 }
 
 /**

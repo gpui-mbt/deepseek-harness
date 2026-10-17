@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { sandboxDefineTool } from '../src/guard.ts'
 import { syntaxErrorContext } from '../src/sandbox.ts'
 import { AGENT_A, call, CONTENT_OUTPUT_CODE, mount, setup, text, running } from './helpers.ts'
@@ -15,13 +15,19 @@ describe('dynamic tool declaration boundary', () => {
   it.each([
     [42, 'options must be an object'],
     [{ parameters: {} }, 'output must declare { schema, render, presentationMeta? }'],
-    [{ parameters: {}, output: { schema: { type: 'json' } }, execute: async (): Promise<null> => null }, 'output.render must be a function'],
+    [
+      { parameters: {}, output: { schema: { type: 'json' } }, execute: async (): Promise<null> => null },
+      'output.render must be a function',
+    ],
     [{ parameters: {}, output: { schema: { type: 'json' }, render: () => [] }, execute: true }, 'execute must be a function'],
-    [{
-      parameters: {},
-      output: { schema: { type: 'json' }, render: () => [], presentationMeta: true },
-      execute: async (): Promise<null> => null,
-    }, 'output.presentationMeta must be a function'],
+    [
+      {
+        parameters: {},
+        output: { schema: { type: 'json' }, render: () => [], presentationMeta: true },
+        execute: async (): Promise<null> => null,
+      },
+      'output.presentationMeta must be a function',
+    ],
   ])('rejects an invalid dynamic tool declaration before registration: %j', (definition, message) => {
     expect(() => sandboxDefineTool(definition)).toThrow(message)
   })
@@ -44,30 +50,36 @@ describe('dynamic tool declaration boundary', () => {
 describe('sandbox isolation and Node-API traps', () => {
   it('isolates sandbox globals: no process/Buffer, and globalThis writes do not leak to the host', async () => {
     const harness = await setup()
-    await mount(harness, `
+    await mount(
+      harness,
+      `
       globalThis.__cordis_runner_leak = 'leaked'
       return { name: 'probe-' + typeof process + '-' + typeof Buffer, apply(ctx) {} }
-    `)
+    `,
+    )
     expect((globalThis as Record<string, unknown>).__cordis_runner_leak).toBeUndefined()
   })
 
   it.each([
-    ['require(\'fs\')', 'require is not available in the dynamic package sandbox', 'inject: [\'fs\']'],
+    ["require('fs')", 'require is not available in the dynamic package sandbox', "inject: ['fs']"],
     ['setTimeout(() => {}, 5)', 'setTimeout is not available in the dynamic package sandbox', 'ctx.timeout / ctx.interval'],
-    ['fetch(\'https://example.com\')', 'fetch is not available in the dynamic package sandbox', 'ctx.web'],
+    ["fetch('https://example.com')", 'fetch is not available in the dynamic package sandbox', 'ctx.web'],
   ])('traps the Node API call %s with a redirect to the cordis alternative', async (invocation, trapMessage, redirect) => {
     const harness = await setup()
     const failure = await mount(harness, `${invocation}\nreturn (ctx) => {}`).catch((error: unknown) =>
-      error instanceof Error ? error.message : String(error))
+      error instanceof Error ? error.message : String(error),
+    )
     expect(failure).toContain(trapMessage)
     expect(failure).toContain(redirect)
     expect(running(harness.runner, AGENT_A)).toEqual([{ id: 'probe-1', running: false }])
   })
 
-  it('lets a host half schedule through the cordis timer service (inject: [\'timer\'])', async () => {
+  it("lets a host half schedule through the cordis timer service (inject: ['timer'])", async () => {
     const harness = await setup()
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const id = await mount(harness, `
+    const id = await mount(
+      harness,
+      `
       return {
         name: 'ticker',
         inject: ['timer'],
@@ -75,7 +87,8 @@ describe('sandbox isolation and Node-API traps', () => {
           ctx.setTimeout(() => console.log('tick'), 10)
         },
       }
-    `)
+    `,
+    )
     await new Promise(resolve => setTimeout(resolve, 50))
     expect(log).toHaveBeenCalledWith(`[cordis:${id}]`, 'tick')
     vi.restoreAllMocks()
@@ -85,13 +98,16 @@ describe('sandbox isolation and Node-API traps', () => {
     const harness = await setup()
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const id = await mount(harness, `
+    const id = await mount(
+      harness,
+      `
       console.warn('warned')
       console.error('errored')
       const round = atob(btoa('hi'))
       const bytes = new TextEncoder().encode(round)
       return { name: 'codec-' + new TextDecoder().decode(bytes), apply(ctx) { console.log('applied', typeof ctx.on) } }
-    `)
+    `,
+    )
     expect(log).toHaveBeenCalledWith(`[cordis:${id}]`, 'warned')
     expect(log).toHaveBeenCalledWith(`[cordis:${id}]`, 'applied', 'function')
     expect(error).toHaveBeenCalledWith(`[cordis:${id}]`, 'errored')
@@ -103,7 +119,9 @@ describe('sandbox isolation and Node-API traps', () => {
     // Symbol.hasInstance prelude, `args.items instanceof Array` in sandbox code is silently
     // false.
     const harness = await setup()
-    await mount(harness, `
+    await mount(
+      harness,
+      `
       return {
         name: 'probe-instanceof',
         inject: ['tools'],
@@ -125,7 +143,8 @@ describe('sandbox isolation and Node-API traps', () => {
           }))
         },
       }
-    `)
+    `,
+    )
     const probed = await call(harness.ctx, 'probe_instanceof', { items: ['a'] })
     expect(probed.isError).toBe(false)
     expect(JSON.parse(text(probed))).toEqual({ hostArray: true, hostObject: true, vmArray: true, vmObject: true })
@@ -144,11 +163,11 @@ describe('sandbox isolation and Node-API traps', () => {
 
 describe('host-half failures leave nothing running', () => {
   it.each([
-    ['throw new Error(\'boom in sandbox\')', 'boom in sandbox'],
-    ['throw \'plain-string-throw\'', 'plain-string-throw'],
+    ["throw new Error('boom in sandbox')", 'boom in sandbox'],
+    ["throw 'plain-string-throw'", 'plain-string-throw'],
     ['return 42', 'must return a Plugin'],
     ['const plugin = (ctx) => {}', 'did you forget `return`?'],
-    ['return { name: \'broken\', apply(ctx) { throw new Error(\'apply exploded\') } }', 'apply exploded'],
+    ["return { name: 'broken', apply(ctx) { throw new Error('apply exploded') } }", 'apply exploded'],
   ])('refuses %j with a teaching message', async (code, message) => {
     const harness = await setup()
     await expect(mount(harness, code)).rejects.toThrow(message)
@@ -165,13 +184,15 @@ describe('parse failures teach the fix', () => {
   it('answers TypeScript syntax in the plain-JS sandbox with the fix, at define time', async () => {
     const harness = await setup()
     // The precheck runs inside define, so unparseable code never reaches the registry.
-    expect(() => harness.runner.define({
-      sessionId: AGENT_A.id,
-      plugin: { kind: 'new', idPrefix: 'probe' },
-      name: 'ts',
-      purpose: 'p',
-      code: { host: 'return { name: \'ts\' as const, apply(ctx) {} }' },
-    })).toThrow('plain JavaScript, not TypeScript')
+    expect(() =>
+      harness.runner.define({
+        sessionId: AGENT_A.id,
+        plugin: { kind: 'new', idPrefix: 'probe' },
+        name: 'ts',
+        purpose: 'p',
+        code: { host: "return { name: 'ts' as const, apply(ctx) {} }" },
+      }),
+    ).toThrow('plain JavaScript, not TypeScript')
     expect(running(harness.runner, AGENT_A)).toEqual([])
   })
 
@@ -187,7 +208,7 @@ describe('parse failures teach the fix', () => {
         plugin: { kind: 'new', idPrefix: 'probe' },
         name: 'oops',
         purpose: 'p',
-        code: { host: 'const note = \'treat pattern as regex\'\nreturn {\n  name: \'oops\',\n  apply(ctx) {}\n});' },
+        code: { host: "const note = 'treat pattern as regex'\nreturn {\n  name: 'oops',\n  apply(ctx) {}\n});" },
       })
     } catch (error) {
       message = error instanceof Error ? error.message : String(error)
@@ -212,7 +233,6 @@ describe('parse failures teach the fix', () => {
     const harness = await setup()
     // Thrown at RUN time (the define precheck compiles fine), so the evaluator's
     // own SyntaxError branch classifies it.
-    await expect(mount(harness, 'throw new SyntaxError(\'user-crafted\')'))
-      .rejects.toThrow('user-crafted')
+    await expect(mount(harness, "throw new SyntaxError('user-crafted')")).rejects.toThrow('user-crafted')
   })
 })

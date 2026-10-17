@@ -1,5 +1,12 @@
 /** Model catalog and request-local dependencies for DeepSeek Messages. */
-import type { LlmModelInfo, ModelModality, SystemPromptUpdate, ToolUpdate, ResolvedRetryPolicy, ImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
+import type {
+  LlmModelInfo,
+  ModelModality,
+  SystemPromptUpdate,
+  ToolUpdate,
+  ResolvedRetryPolicy,
+  ImageAttachmentAccess,
+} from '@deepseek-ai/dsh-llm'
 import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import type { DeepSeekLlmApiExtensionRequest, PreparedDeepSeekLlmApiExtensions } from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
@@ -124,7 +131,6 @@ export interface DeepSeekAdapterOptions<Connection extends DeepSeekConnectionOpt
   /** Prepare the official API's plugin-contributed top-level fields for one exact wire request. */
   prepareExtensions: (request: DeepSeekLlmApiExtensionRequest) => Promise<PreparedDeepSeekLlmApiExtensions>
 }
-
 
 /** Adapter-level request defaults (from plugin config). */
 export interface RequestDefaults {

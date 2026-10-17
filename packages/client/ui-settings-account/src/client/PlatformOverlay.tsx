@@ -17,7 +17,15 @@ export interface PlatformBridge {
 }
 
 /** @param props - native commands, localized copy, and return action. @returns full-window Platform container. */
-export function PlatformOverlay({ bridge, page, backLabel, loadingLabel, failureLabel, retryLabel, onClose }: {
+export function PlatformOverlay({
+  bridge,
+  page,
+  backLabel,
+  loadingLabel,
+  failureLabel,
+  retryLabel,
+  onClose,
+}: {
   bridge: PlatformBridge
   page: PlatformPage
   backLabel: string
@@ -35,8 +43,9 @@ export function PlatformOverlay({ bridge, page, backLabel, loadingLabel, failure
   // same commit records the restored focus before it takes its own.
   useLayoutEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const background = Array.from(document.body.children).filter((element): element is HTMLElement =>
-      element instanceof HTMLElement && element !== layer.current).map(element => acquireOverlayInert(element))
+    const background = Array.from(document.body.children)
+      .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== layer.current)
+      .map(element => acquireOverlayInert(element))
     back.current?.focus()
     return () => {
       for (const release of background) release()
@@ -45,7 +54,9 @@ export function PlatformOverlay({ bridge, page, backLabel, loadingLabel, failure
   }, [])
   // A retry or a destination change replaces the surface holding focus with the
   // loading state, so the return action takes it back on each attempt.
-  useLayoutEffect(() => { back.current?.focus() }, [page, attempt])
+  useLayoutEffect(() => {
+    back.current?.focus()
+  }, [page, attempt])
   useEffect(() => {
     const element = viewport.current as HTMLDivElement
     let closed = false
@@ -53,10 +64,16 @@ export function PlatformOverlay({ bridge, page, backLabel, loadingLabel, failure
       const rect = element.getBoundingClientRect()
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
     }
-    const fail = () => { if (!closed) setStatus('failed') }
+    const fail = () => {
+      if (!closed) setStatus('failed')
+    }
     setStatus('loading')
-    void bridge.open(page, bounds()).then(() => { if (!closed) setStatus('loaded') }, fail)
-    const observer = new ResizeObserver(() => { void bridge.setBounds(bounds()).catch(fail) })
+    void bridge.open(page, bounds()).then(() => {
+      if (!closed) setStatus('loaded')
+    }, fail)
+    const observer = new ResizeObserver(() => {
+      void bridge.setBounds(bounds()).catch(fail)
+    })
     observer.observe(element)
     return () => {
       closed = true
@@ -66,22 +83,40 @@ export function PlatformOverlay({ bridge, page, backLabel, loadingLabel, failure
       })
     }
   }, [bridge, page, attempt])
-  return createPortal(<div ref={layer} className={css.overlay} role="dialog" aria-modal="true" aria-label={backLabel}>
-    <header className={css.header} data-window-drag>
-      <div className={css.controls}>
-        <span className={css.trafficLights} aria-hidden="true" />
-        <button ref={back} className={css.back} onClick={onClose}>
-          <IconChevronLeftOutlineRegular size={16} />{backLabel}
-        </button>
+  return createPortal(
+    <div ref={layer} className={css.overlay} role="dialog" aria-modal="true" aria-label={backLabel}>
+      <header className={css.header} data-window-drag>
+        <div className={css.controls}>
+          <span className={css.trafficLights} aria-hidden="true" />
+          <button ref={back} className={css.back} onClick={onClose}>
+            <IconChevronLeftOutlineRegular size={16} />
+            {backLabel}
+          </button>
+        </div>
+      </header>
+      <div ref={viewport} className={css.viewport}>
+        {status !== 'loaded' && (
+          <div className={css.status} role="status" aria-label={status === 'loading' ? loadingLabel : undefined}>
+            {status === 'failed' ? (
+              <>
+                <span className={css.failure}>{failureLabel}</span>
+                <Button
+                  variant="outline"
+                  className={css.retry}
+                  onClick={() => {
+                    setAttempt(value => value + 1)
+                  }}
+                >
+                  {retryLabel}
+                </Button>
+              </>
+            ) : (
+              <span className={css.spinner} aria-hidden="true" />
+            )}
+          </div>
+        )}
       </div>
-    </header>
-    <div ref={viewport} className={css.viewport}>
-      {status !== 'loaded' && <div className={css.status} role="status" aria-label={status === 'loading' ? loadingLabel : undefined}>
-        {status === 'failed' ? <>
-          <span className={css.failure}>{failureLabel}</span>
-          <Button variant="outline" className={css.retry} onClick={() => { setAttempt(value => value + 1) }}>{retryLabel}</Button>
-        </> : <span className={css.spinner} aria-hidden="true" />}
-      </div>}
-    </div>
-  </div>, document.body)
+    </div>,
+    document.body,
+  )
 }

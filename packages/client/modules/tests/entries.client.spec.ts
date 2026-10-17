@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apply as provideModules, createClientModuleSystem } from '../src/client/index.ts'
 import type { ClientBundleRegistration, ClientModuleLoaderTarget, WebBootRelease, WebBootEntry, WebBootGraph } from '../src/client/index.ts'
 
@@ -11,21 +11,29 @@ afterEach(async () => {
     await ctx.fiber.dispose()
     await ctx.fiber.await()
   }
-  document.head.querySelectorAll('style').forEach((el) => { el.remove() })
+  document.head.querySelectorAll('style').forEach(el => {
+    el.remove()
+  })
   document.body.replaceChildren()
   vi.restoreAllMocks()
 })
 
 const row = (id: string, rev = 'r0', extra: Partial<WebBootEntry> = {}): WebBootEntry => ({
-  id, rev, url: `/plugins/??${id}/client.js&rev=${rev}`, ...extra,
+  id,
+  rev,
+  url: `/plugins/??${id}/client.js&rev=${rev}`,
+  ...extra,
 })
 const graph = (...entries: WebBootEntry[]): WebBootGraph => ({
-  rev: JSON.stringify(entries), entries,
+  rev: JSON.stringify(entries),
+  entries,
   batches: entries.length === 0 ? [] : [{ phase: 'application', url: '/batch', rev: 'batch', entries: entries.map(row => row.id) }],
 })
 const deferred = () => {
   let resolve!: () => void
-  const promise = new Promise<void>((done) => { resolve = done })
+  const promise = new Promise<void>(done => {
+    resolve = done
+  })
   return { promise, resolve }
 }
 
@@ -34,15 +42,22 @@ async function bench(initial: WebBootGraph, factories: Record<string, ClientBund
   contexts.push(ctx)
   const fetched: string[] = []
   const target: ClientModuleLoaderTarget = {
-    mode: 'queue', pendingQueue: [], load: () => {},
-    create: options => createClientModuleSystem(target, { id: 'bootstrap', exports: { inject: ['loader'], apply: provideModules } }, options),
+    mode: 'queue',
+    pendingQueue: [],
+    load: () => {},
+    create: options =>
+      createClientModuleSystem(target, { id: 'bootstrap', exports: { inject: ['loader'], apply: provideModules } }, options),
   }
   let arrival: (url: string) => Promise<void> = async () => {}
   const modules = target.create({
-    boot: initial, staticModules: {},
-    loadBundle: async (url) => {
+    boot: initial,
+    staticModules: {},
+    loadBundle: async url => {
       fetched.push(url)
-      const ids = url === '/batch' ? initial.entries.map(row => row.id).filter(id => id !== 'bootstrap') : [url.split('??')[1]!.split('/client.js')[0]!]
+      const ids =
+        url === '/batch'
+          ? initial.entries.map(row => row.id).filter(id => id !== 'bootstrap')
+          : [url.split('??')[1]!.split('/client.js')[0]!]
       const registrations = ids.map(id => ({ id, factory: factories[id]! }))
       await arrival(url)
       for (const registration of registrations) target.load(registration)
@@ -51,7 +66,15 @@ async function bench(initial: WebBootGraph, factories: Record<string, ClientBund
   await ctx.plugin(Loader)
   ctx.loader.internal = modules as never
   if (start) await modules.entries.start(ctx.loader, modules.manifest)
-  return { ctx, modules, fetched, target, arrival: (fn: typeof arrival) => { arrival = fn } }
+  return {
+    ctx,
+    modules,
+    fetched,
+    target,
+    arrival: (fn: typeof arrival) => {
+      arrival = fn
+    },
+  }
 }
 
 /** A visible plugin whose style and listener are owned by its factory and fiber respectively. */
@@ -61,22 +84,26 @@ function visible(id: string, effects: { mounted: number; disposed: number; hits:
     style.dataset.plugin = id
     style.textContent = `[data-live="${id}"] { color: rgb(12, 34, 56); }`
     document.head.append(style)
-    return { apply(ctx: Context) {
-      ctx.effect(() => {
-        effects.mounted++
-        const el = document.createElement('div')
-        el.dataset.live = id
-        document.body.append(el)
-        const listener = () => { effects.hits++ }
-        window.addEventListener('live-test', listener)
-        return async () => {
-          window.removeEventListener('live-test', listener)
-          el.remove()
-          await cleanup?.()
-          effects.disposed++
-        }
-      })
-    } }
+    return {
+      apply(ctx: Context) {
+        ctx.effect(() => {
+          effects.mounted++
+          const el = document.createElement('div')
+          el.dataset.live = id
+          document.body.append(el)
+          const listener = () => {
+            effects.hits++
+          }
+          window.addEventListener('live-test', listener)
+          return async () => {
+            window.removeEventListener('live-test', listener)
+            el.remove()
+            await cleanup?.()
+            effects.disposed++
+          }
+        })
+      },
+    }
   }
 }
 
@@ -94,7 +121,9 @@ describe('client manifest entries', () => {
     window.dispatchEvent(new Event('live-test'))
     expect(effects.hits).toBe(1)
     const removing = b.modules.entries.sync(graph())
-    await vi.waitFor(() => { expect(document.querySelector('[data-live=pet]')).toBeNull() })
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-live=pet]')).toBeNull()
+    })
     const readding = b.modules.entries.sync(graph(row('pet')))
     expect(effects.disposed).toBe(0)
     expect(effects.mounted).toBe(1)
@@ -116,7 +145,10 @@ describe('client manifest entries', () => {
     const b = await bench(graph(), { pet: visible('pet', effects) })
     const arrival = deferred()
     const started = deferred()
-    b.arrival(async () => { started.resolve(); await arrival.promise })
+    b.arrival(async () => {
+      started.resolve()
+      await arrival.promise
+    })
     const enabling = b.modules.entries.sync(graph(row('pet')))
     await started.promise
     const disabling = b.modules.entries.sync(graph())
@@ -132,9 +164,15 @@ describe('client manifest entries', () => {
   it('registers dynamic dependencies first and retains one still required by an unmanaged entry', async () => {
     const materialized = vi.fn<(id: string) => void>()
     const b = await bench(graph(row('existing')), {
-      existing: () => { materialized('existing'); return { apply() {} } },
-      dependency: () => { materialized('dependency'); return { apply() {}, value: 42 } },
-      consumer: (require) => {
+      existing: () => {
+        materialized('existing')
+        return { apply() {} }
+      },
+      dependency: () => {
+        materialized('dependency')
+        return { apply() {}, value: 42 }
+      },
+      consumer: require => {
         materialized('consumer')
         expect(require('dependency/client')).toHaveProperty('value', 42)
         return { apply() {} }
@@ -159,9 +197,15 @@ describe('client manifest entries', () => {
     let broken = true
     const b = await bench(graph(row('healthy')), {
       healthy: visible('healthy', effects),
-      bad: () => ({ apply() { if (broken) throw new Error('apply unavailable') } }),
+      bad: () => ({
+        apply() {
+          if (broken) throw new Error('apply unavailable')
+        },
+      }),
     })
-    b.arrival(async () => { throw new Error('download unavailable') })
+    b.arrival(async () => {
+      throw new Error('download unavailable')
+    })
     await b.modules.entries.sync(graph(row('healthy'), row('bad')))
     expect(b.modules.entries.state.getSnapshot().failures[0]?.message).toContain('download unavailable')
     b.arrival(async () => {})
@@ -180,7 +224,9 @@ describe('client manifest entries', () => {
     await b.modules.entries.reload('pet', 'r1')
     await b.modules.entries.sync(graph(row('pet', 'r1')))
     expect(effects).toEqual({ mounted: 2, disposed: 1, hits: 0 })
-    b.arrival(async () => { throw new Error('offline') })
+    b.arrival(async () => {
+      throw new Error('offline')
+    })
     await expect(b.modules.entries.reload('pet', 'r2')).rejects.toThrow('offline')
     expect(effects.mounted).toBe(2)
     b.arrival(async () => {})
@@ -197,12 +243,13 @@ describe('client manifest entries', () => {
   })
 })
 
-
 it('publishes stable local snapshots and contains a failing subscriber', async () => {
   const b = await bench(graph(), {})
   const error = vi.spyOn(console, 'error').mockImplementation(() => {})
   const listener = vi.fn()
-  const removeBad = b.modules.entries.state.subscribe(() => { throw new Error('subscriber') })
+  const removeBad = b.modules.entries.state.subscribe(() => {
+    throw new Error('subscriber')
+  })
   const remove = b.modules.entries.state.subscribe(listener)
   expect(b.modules.entries.state.getSnapshot()).toBe(b.modules.entries.state.getSnapshot())
   await b.modules.entries.retry()
@@ -242,13 +289,15 @@ it('reports reconciliation before startup and missing service activation without
 
 it('retries a materialization failure with the same graph and cleans its partial styles', async () => {
   let broken = true
-  const b = await bench(graph(), { a: () => {
-    const style = document.createElement('style')
-    style.dataset.plugin = 'a'
-    document.head.append(style)
-    if (broken) throw new Error('factory failed')
-    return { apply() {} }
-  } })
+  const b = await bench(graph(), {
+    a: () => {
+      const style = document.createElement('style')
+      style.dataset.plugin = 'a'
+      document.head.append(style)
+      if (broken) throw new Error('factory failed')
+      return { apply() {} }
+    },
+  })
   await b.modules.entries.sync(graph(row('a')))
   expect(b.modules.entries.state.getSnapshot().failures[0]?.message).toContain('factory failed')
   expect(document.querySelectorAll('style[data-plugin=a]')).toHaveLength(0)
@@ -268,7 +317,10 @@ it('does not finish a stale code replacement after download or asynchronous tear
   const b = await bench(graph(row('a')), { a: visible('a', effects, () => cleanup.promise) })
   const download = deferred()
   const started = deferred()
-  b.arrival(async () => { started.resolve(); await download.promise })
+  b.arrival(async () => {
+    started.resolve()
+    await download.promise
+  })
   const rebuilding = b.modules.entries.reload('a', 'r1')
   await started.promise
   const snapshot = b.modules.entries.sync(graph(row('a')))
@@ -276,7 +328,9 @@ it('does not finish a stale code replacement after download or asynchronous tear
   await Promise.all([rebuilding, snapshot])
   expect(effects.mounted).toBe(1)
   const swapping = b.modules.entries.reload('a', 'r2')
-  await vi.waitFor(() => { expect(document.querySelector('[data-live=a]')).toBeNull() })
+  await vi.waitFor(() => {
+    expect(document.querySelector('[data-live=a]')).toBeNull()
+  })
   const disabling = b.modules.entries.sync(graph())
   cleanup.resolve()
   await Promise.all([swapping, disabling])
@@ -289,13 +343,14 @@ it('stops an obsolete multi-entry application after awaiting removal', async () 
   const effects = { mounted: 0, disposed: 0, hits: 0 }
   const b = await bench(graph(row('a')), { a: visible('a', effects, () => cleanup.promise), b: () => ({ apply() {} }) })
   const first = b.modules.entries.sync(graph(row('b')))
-  await vi.waitFor(() => { expect(document.querySelector('[data-live=a]')).toBeNull() })
+  await vi.waitFor(() => {
+    expect(document.querySelector('[data-live=a]')).toBeNull()
+  })
   const latest = b.modules.entries.sync(graph())
   cleanup.resolve()
   await Promise.all([first, latest])
   expect(b.fetched).toEqual(['/batch'])
 })
-
 
 it('keeps bootstrap ownership explicit and diagnoses removal without changing entries', async () => {
   const b = await bench(graph(row('bootstrap')), {})
@@ -309,10 +364,12 @@ it('keeps bootstrap ownership explicit and diagnoses removal without changing en
 it('retains unrelated style tags while reporting a failed replacement', async () => {
   let broken = false
   const effects = { mounted: 0, disposed: 0, hits: 0 }
-  const b = await bench(graph(row('a')), { a: () => {
-    if (broken) throw new Error('changed factory failed')
-    return visible('a', effects)()
-  } })
+  const b = await bench(graph(row('a')), {
+    a: () => {
+      if (broken) throw new Error('changed factory failed')
+      return visible('a', effects)()
+    },
+  })
   const unrelated = document.createElement('style')
   unrelated.dataset.plugin = 'unrelated'
   document.head.append(unrelated)
@@ -322,21 +379,26 @@ it('retains unrelated style tags while reporting a failed replacement', async ()
   expect(unrelated.isConnected).toBe(true)
 })
 
-
 it('keeps unrelated page failures visible when a rebuilt download fails', async () => {
   const b = await bench(graph(row('a'), row('bad')), {
     a: () => ({ apply() {} }),
-    bad: () => ({ apply() { throw new Error('bad apply') } }),
+    bad: () => ({
+      apply() {
+        throw new Error('bad apply')
+      },
+    }),
   })
   await b.modules.entries.retry()
-  b.arrival(async () => { throw new Error('a download') })
+  b.arrival(async () => {
+    throw new Error('a download')
+  })
   await expect(b.modules.entries.reload('a', 'r1')).rejects.toThrow('a download')
   expect(b.modules.entries.state.getSnapshot().failures.map(failure => failure.id)).toEqual(['bad', 'a'])
 })
 
 it('retains a rejected Loader entry for retry instead of creating an orphan sibling', async () => {
   let broken = true
-  const b = await bench(graph(), { a: () => broken ? { default: 'invalid' } : { apply() {} } })
+  const b = await bench(graph(), { a: () => (broken ? { default: 'invalid' } : { apply() {} }) })
   await b.modules.entries.sync(graph(row('a')))
   const entry = [...b.ctx.loader.entries()][0]!
   expect(b.modules.entries.state.getSnapshot().failures[0]?.message).toContain('invalid plugin')
@@ -351,7 +413,8 @@ it('reports Loader import failures and recovers the same entry after the importe
   const b = await bench(graph(), { a: () => ({ apply() {} }) })
   let broken = true
   b.ctx.loader.internal = {
-    version: 'client', import: async (id: string) => {
+    version: 'client',
+    import: async (id: string) => {
       if (broken) throw new Error('Loader import failed')
       return b.modules.import(id)
     },
@@ -367,17 +430,25 @@ it('reports Loader import failures and recovers the same entry after the importe
   expect(b.modules.entries.state.getSnapshot().failures[0]?.id).toBe('a')
 })
 
-it.each([false, true])('does not mount a materialized factory after a newer removal (rebuild: %s)', async (rebuild) => {
+it.each([false, true])('does not mount a materialized factory after a newer removal (rebuild: %s)', async rebuild => {
   let stop: Promise<void> | undefined
   let materializations = 0
   let mounted = 0
-  const factories = { a: () => {
-    materializations++
-    if (materializations === (rebuild ? 2 : 1)) {
-      queueMicrotask(() => { stop = b.modules.entries.sync(graph()) })
-    }
-    return { apply() { mounted++ } }
-  } }
+  const factories = {
+    a: () => {
+      materializations++
+      if (materializations === (rebuild ? 2 : 1)) {
+        queueMicrotask(() => {
+          stop = b.modules.entries.sync(graph())
+        })
+      }
+      return {
+        apply() {
+          mounted++
+        },
+      }
+    },
+  }
   const b = await bench(graph(), factories)
   if (rebuild) {
     // The first materialization remains live until the replacement reaches the import barrier.
@@ -398,7 +469,10 @@ it('coalesces an overlapping graph snapshot with the same rebuilt artifact', asy
   const b = await bench(graph(row('a')), { a: visible('a', effects) })
   const download = deferred()
   const started = deferred()
-  b.arrival(async () => { started.resolve(); await download.promise })
+  b.arrival(async () => {
+    started.resolve()
+    await download.promise
+  })
   const rebuilding = b.modules.entries.reload('a', 'r1')
   await started.promise
   const syncing = b.modules.entries.sync(graph(row('a', 'r1')))
@@ -408,9 +482,13 @@ it('coalesces an overlapping graph snapshot with the same rebuilt artifact', asy
   expect(effects).toEqual({ mounted: 2, disposed: 1, hits: 0 })
 })
 
-it.each(['graph', 'rebuilt'])('replaces a failed factory before entry creation on a new %s revision', async (source) => {
+it.each(['graph', 'rebuilt'])('replaces a failed factory before entry creation on a new %s revision', async source => {
   const effects = { mounted: 0, disposed: 0, hits: 0 }
-  const factories: Record<string, ClientBundleRegistration['factory']> = { a: () => { throw new Error('broken r0 factory') } }
+  const factories: Record<string, ClientBundleRegistration['factory']> = {
+    a: () => {
+      throw new Error('broken r0 factory')
+    },
+  }
   const b = await bench(graph(), factories)
   await b.modules.entries.sync(graph(row('a')))
   expect([...b.ctx.loader.entries()]).toHaveLength(0)
@@ -436,7 +514,12 @@ it('replaces a superseded arrival and its cached dependency before mounting the 
   const b = await bench(graph(), factories)
   const started = deferred()
   const download = deferred()
-  b.arrival(async (url) => { if (url === consumer.url) { started.resolve(); await download.promise } })
+  b.arrival(async url => {
+    if (url === consumer.url) {
+      started.resolve()
+      await download.promise
+    }
+  })
   const old = b.modules.entries.sync(graph(consumer, dependency))
   try {
     await started.promise
@@ -454,7 +537,7 @@ it('replaces a superseded arrival and its cached dependency before mounting the 
   }
 })
 
-it.each(['graph', 'rebuilt'])('preserves bootstrap and dependent fibers when a %s requests new bootstrap code', async (source) => {
+it.each(['graph', 'rebuilt'])('preserves bootstrap and dependent fibers when a %s requests new bootstrap code', async source => {
   const effects = { mounted: 0, disposed: 0, hits: 0 }
   const b = await bench(graph(row('bootstrap'), row('consumer')), {
     consumer: () => ({ ...visible('consumer', effects)(), inject: ['modules'] }),
@@ -476,9 +559,15 @@ it.each(['graph', 'rebuilt'])('preserves bootstrap and dependent fibers when a %
 })
 
 it('discards a failed arrival target when an uncreated entry receives a newer graph', async () => {
-  const b = await bench(graph(), { a: () => { throw new Error('r0 factory') } })
+  const b = await bench(graph(), {
+    a: () => {
+      throw new Error('r0 factory')
+    },
+  })
   await b.modules.entries.sync(graph(row('a')))
-  b.arrival(async () => { throw new Error('offline r1') })
+  b.arrival(async () => {
+    throw new Error('offline r1')
+  })
   await b.modules.entries.reload('a', 'r1')
   expect(b.modules.entries.state.getSnapshot().failures[0]?.message).toContain('offline r1')
   b.arrival(async () => {})
@@ -500,14 +589,16 @@ it('uses the latest desired revision when a rebuild queues before entry creation
 it('cleans styles from a materialized factory superseded before its entry is created', async () => {
   const effects = { mounted: 0, disposed: 0, hits: 0 }
   let latest: Promise<void> | undefined
-  const factories: Record<string, ClientBundleRegistration['factory']> = { a: () => {
-    const old = visible('a', effects)()
-    queueMicrotask(() => {
-      factories.a = visible('a', effects)
-      latest = b.modules.entries.sync(graph(row('a', 'r1')))
-    })
-    return old
-  } }
+  const factories: Record<string, ClientBundleRegistration['factory']> = {
+    a: () => {
+      const old = visible('a', effects)()
+      queueMicrotask(() => {
+        factories.a = visible('a', effects)
+        latest = b.modules.entries.sync(graph(row('a', 'r1')))
+      })
+      return old
+    },
+  }
   const b = await bench(graph(), factories)
   await b.modules.entries.sync(graph(row('a')))
   await latest
@@ -518,7 +609,8 @@ it('cleans styles from a materialized factory superseded before its entry is cre
 
 describe('Host release changes', () => {
   const built = (release: WebBootRelease | undefined, ...entries: WebBootEntry[]): WebBootGraph => ({
-    ...graph(...entries), ...(release === undefined ? {} : { release }),
+    ...graph(...entries),
+    ...(release === undefined ? {} : { release }),
   })
   const r1: WebBootRelease = { version: '1.0.0', commit: 'aaaaaaa' }
   const r2: WebBootRelease = { version: '1.0.0', commit: 'bbbbbbb' }
@@ -646,7 +738,9 @@ describe('Host release changes', () => {
     const b = await bench(built(r1), {})
     const failure = new Error('subscriber')
     const listener = vi.fn()
-    b.modules.entries.releaseChange.subscribe(() => { throw failure })
+    b.modules.entries.releaseChange.subscribe(() => {
+      throw failure
+    })
     b.modules.entries.releaseChange.subscribe(listener)
     await b.modules.entries.sync(built(r2))
     expect(listener).toHaveBeenCalledOnce()

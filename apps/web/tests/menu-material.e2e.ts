@@ -3,14 +3,14 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { chromium, type Locator } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, seedSession, webSnapshotMode } from './scaffold.ts'
 
 const expected = fileURLToPath(new URL('./expected/menu-material', import.meta.url))
 const seed = new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url)
 
 async function material(menu: Locator) {
-  return menu.evaluate((node) => {
+  return menu.evaluate(node => {
     const style = getComputedStyle(node)
     const background = getComputedStyle(node.querySelector(':scope > [aria-hidden="true"]')!)
     return { fill: background.backgroundColor, blur: background.backdropFilter, radius: style.borderRadius, shadow: style.boxShadow }
@@ -35,20 +35,33 @@ it('shares menu transparency and blur across palettes and follows native menu bo
   const masks: Record<string, { fill: string; blur: string }> = {}
   for (const platform of ['web', 'darwin']) {
     for (const dark of [false, true]) {
-      await page.evaluate(({ platform, dark }) => {
-        if (platform === 'darwin') document.documentElement.dataset.platform = platform
-        else delete document.documentElement.dataset.platform
-        document.body.toggleAttribute('data-ds-dark-theme', dark)
-      }, { platform, dark })
+      await page.evaluate(
+        ({ platform, dark }) => {
+          if (platform === 'darwin') document.documentElement.dataset.platform = platform
+          else delete document.documentElement.dataset.platform
+          document.body.toggleAttribute('data-ds-dark-theme', dark)
+        },
+        { platform, dark },
+      )
       const overlayFill = await page.evaluate(() => {
         const overlay = document.createElement('div')
         overlay.style.background = 'var(--dsw-specific-menu)'
         document.body.appendChild(overlay)
-        try { return getComputedStyle(overlay).backgroundColor } finally { overlay.remove() }
+        try {
+          return getComputedStyle(overlay).backgroundColor
+        } finally {
+          overlay.remove()
+        }
       })
-      expect(overlayFill).toBe(platform === 'darwin'
-        ? dark ? 'rgba(48, 49, 54, 0.94)' : 'rgba(248, 249, 250, 0.94)'
-        : dark ? 'rgba(67, 69, 74, 0.45)' : 'rgba(248, 249, 250, 0.58)')
+      expect(overlayFill).toBe(
+        platform === 'darwin'
+          ? dark
+            ? 'rgba(48, 49, 54, 0.94)'
+            : 'rgba(248, 249, 250, 0.94)'
+          : dark
+            ? 'rgba(67, 69, 74, 0.45)'
+            : 'rgba(248, 249, 250, 0.58)',
+      )
       await account.click()
       const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Settings', exact: true }) })
       await menu.waitFor()
@@ -64,13 +77,20 @@ it('shares menu transparency and blur across palettes and follows native menu bo
         await backing.waitFor({ state: 'visible' })
         for (const height of [950, 1000]) {
           await page.setViewportSize({ width: 1440, height })
-          await expect.poll(async () => {
-            const card = await menu.boundingBox()
-            const base = await backing.boundingBox()
-            return card !== null && base !== null
-              && Math.abs(card.x - base.x) < 1 && Math.abs(card.y - base.y) < 1
-              && Math.abs(card.width - base.width) < 1 && Math.abs(card.height - base.height) < 1
-          }).toBe(true)
+          await expect
+            .poll(async () => {
+              const card = await menu.boundingBox()
+              const base = await backing.boundingBox()
+              return (
+                card !== null &&
+                base !== null &&
+                Math.abs(card.x - base.x) < 1 &&
+                Math.abs(card.y - base.y) < 1 &&
+                Math.abs(card.width - base.width) < 1 &&
+                Math.abs(card.height - base.height) < 1
+              )
+            })
+            .toBe(true)
         }
         expect(await backing.evaluate(node => getComputedStyle(node).pointerEvents)).toBe('none')
       } else {
@@ -82,10 +102,13 @@ it('shares menu transparency and blur across palettes and follows native menu bo
       await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
       const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
       await settings.waitFor()
-      const mask = await settings.locator('..').locator(':scope > [aria-hidden="true"]').evaluate((node) => {
-        const style = getComputedStyle(node)
-        return { fill: style.backgroundColor, blur: style.backdropFilter }
-      })
+      const mask = await settings
+        .locator('..')
+        .locator(':scope > [aria-hidden="true"]')
+        .evaluate(node => {
+          const style = getComputedStyle(node)
+          return { fill: style.backgroundColor, blur: style.backdropFilter }
+        })
       expect(mask).toEqual({ fill: dark ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.24)', blur: 'none' })
       masks[`${platform}-${dark ? 'dark' : 'light'}`] = mask
       await page.keyboard.press('Escape')
@@ -98,15 +121,18 @@ it('shares menu transparency and blur across palettes and follows native menu bo
   const ungrouped = page.getByText('Ungrouped', { exact: true })
   const group = ungrouped.locator('xpath=ancestor::*[@aria-expanded][1]')
   await group.waitFor()
-  if (await group.getAttribute('aria-expanded') !== 'true') await ungrouped.click()
+  if ((await group.getAttribute('aria-expanded')) !== 'true') await ungrouped.click()
   const action = page.locator('button[aria-label^="Session actions for "]').first()
   await action.locator('xpath=ancestor::*[@role="treeitem"][1]').hover()
   await action.click()
   const sessionMenu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Rename', exact: true }) })
   await sessionMenu.waitFor()
   expect(await material(sessionMenu)).toEqual(results['darwin-dark'])
-  await compareOrRefreshGolden(join(expected, 'session-menu.expected.md'),
-    await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd), webSnapshotMode())
+  await compareOrRefreshGolden(
+    join(expected, 'session-menu.expected.md'),
+    await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd),
+    webSnapshotMode(),
+  )
   await page.keyboard.press('Escape')
   await expect.poll(() => page.locator('[data-menu-backing]').count()).toBe(0)
 })

@@ -10,7 +10,9 @@
  * @returns Omission reason, or undefined when the entry must be copied.
  */
 export function desktopRuntimeFileExclusion(
-  path: string, target: { platform: NodeJS.Platform; arch: string }, officeEngine: string,
+  path: string,
+  target: { platform: NodeJS.Platform; arch: string },
+  officeEngine: string,
 ): string | undefined {
   const parts = path.split(/[\\/]/u)
   if (parts.some(part => ['.bin', '.pnpm', '.modules.yaml', '.pnpm-workspace-state-v1.json'].includes(part))) {

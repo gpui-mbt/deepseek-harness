@@ -1,11 +1,7 @@
 /** Deterministic execution and cleanup outcomes for parent-notification snapshots. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import {
-  NO_START_CAPABILITIES,
-  type SubagentStartRequest,
-  type SubagentProvider,
-} from '@deepseek-ai/dsh-subagent'
+import { NO_START_CAPABILITIES, type SubagentStartRequest, type SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
 export const name = 'subagent-result-diagnostic'
@@ -52,7 +48,9 @@ class DiagnosticProvider implements SubagentProvider {
           output: [{ type: 'text' as const, text: 'ANSWER_SURVIVES_CLEANUP_FAILURE' }],
           stopReason: 'completed' as const,
         }),
-        dispose: async () => { throw new Error('snapshot cleanup failed') },
+        dispose: async () => {
+          throw new Error('snapshot cleanup failed')
+        },
       }
     }
     const fixture = RESULTS[index]

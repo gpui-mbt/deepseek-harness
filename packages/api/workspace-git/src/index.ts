@@ -68,29 +68,28 @@ export class WorkspaceGit extends TypertRemoteService {
    * @param ctx - Host context carrying the session store and process capability.
    * @param config - deployment deadline for one git invocation.
    */
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'workspaceGit')
     /* jscpd:ignore-start -- deliberate mirror of dsh-api-workspace-files' scope lookup (Agent Note: web-composer-git-branch-chip). */
-    ctx.inject(['sessions', 'typert'], (scope) => {
+    ctx.inject(['sessions', 'typert'], scope => {
       scope.typert.lookups.register('workspaceGitScope', {
         parameter: 'workspaceGitScope',
         wire: 'workspaceGitScopeId',
         hostTypeSymbol: '@deepseek-ai/dsh-api-workspace-git#WorkspaceGitScope',
         wireTypeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
-        resolve: async (sessionId) => {
+        resolve: async sessionId => {
           const live = scope.sessions.get(sessionId)
-          const stored = live === undefined
-            ? await scope.get('sessionPersistence')?.stat(sessionId)
-            : undefined
+          const stored = live === undefined ? await scope.get('sessionPersistence')?.stat(sessionId) : undefined
           const header = live?.header ?? stored?.header
           if (header === undefined) return undefined
           // The Session may have moved since its header was written — the
           // worktree tool enters a linked checkout — so the projected working
           // directory wins over the header, and only a cold Session, whose
           // events are not loaded, falls back to the header.
-          const current = live === undefined
-            ? undefined
-            : scope.get('sessionProjections')?.stateOf(live, 'workingDirectory')
+          const current = live === undefined ? undefined : scope.get('sessionProjections')?.stateOf(live, 'workingDirectory')
           return {
             sessionId,
             workspaceRoot: current ?? header.cwd ?? scope.sandboxPolicy.workspaceRoot,
@@ -119,10 +118,7 @@ export class WorkspaceGit extends TypertRemoteService {
     // The worktree and the remote are independent of the ref answer: a
     // detached HEAD still names its directory, and a bare repository still
     // names its remote.
-    const [worktree, github] = await Promise.all([
-      this.worktreeFacts(workspaceGitScope, signal),
-      this.github(workspaceGitScope, signal),
-    ])
+    const [worktree, github] = await Promise.all([this.worktreeFacts(workspaceGitScope, signal), this.github(workspaceGitScope, signal)])
     const facts = { root: worktree?.root ?? null, worktree: worktree?.worktree ?? null, github }
     if (name !== '') return { kind: 'branch', name, ...facts }
     const head = await this.runGit(workspaceGitScope, ['rev-parse', '--short', 'HEAD'], signal)
@@ -179,11 +175,7 @@ export class WorkspaceGit extends TypertRemoteService {
    * @param signal - caller cancellation, combined with the deployment deadline.
    * @returns stdout on a zero exit, otherwise null.
    */
-  private async runGit(
-    workspaceGitScope: WorkspaceGitScope,
-    argv: readonly string[],
-    signal: AbortSignal,
-  ): Promise<string | null> {
+  private async runGit(workspaceGitScope: WorkspaceGitScope, argv: readonly string[], signal: AbortSignal): Promise<string | null> {
     const executable = await this.gitPath()
     if (executable === null) return null
     const handle = this.ctx.subprocess.spawn({

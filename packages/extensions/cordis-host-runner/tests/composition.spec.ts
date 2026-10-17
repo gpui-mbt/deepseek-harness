@@ -1,9 +1,18 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { CordisDynamicPackageId, CordisDynamicPluginId } from '../src/types.ts'
 import { missingServices } from '../src/lifecycle.ts'
 import {
-  AGENT_A, call, CONSUMER_CODE, CONTENT_OUTPUT_CODE, dummyTool, LISTENER_CODE, mount,
-  PROVIDER_CODE, REVERSE_TOOL_CODE, setup, text,
+  AGENT_A,
+  call,
+  CONSUMER_CODE,
+  CONTENT_OUTPUT_CODE,
+  dummyTool,
+  LISTENER_CODE,
+  mount,
+  PROVIDER_CODE,
+  REVERSE_TOOL_CODE,
+  setup,
+  text,
   running,
 } from './helpers.ts'
 
@@ -77,9 +86,7 @@ describe('cross-package provide/inject', () => {
 
     // The same definition, a new dispatch: the consumer's apply re-runs through
     // a new façade rather than needing its own re-definition.
-    await expect(harness.runner.run(
-      AGENT_A, provider, latestPackage(harness, provider), 'run',
-    )).resolves.toMatchObject({ ok: true })
+    await expect(harness.runner.run(AGENT_A, provider, latestPackage(harness, provider), 'run')).resolves.toMatchObject({ ok: true })
     expect(harness.ctx.tools.get('greet')).toBeDefined()
     expect(text(await call(harness.ctx, 'greet', { name: 'again' }))).toBe('hi again')
   })
@@ -98,7 +105,9 @@ describe('cross-package provide/inject', () => {
 
   it('a primitive (or null) provided value passes through the façade unwrapped, on both read paths', async () => {
     const harness = await setup()
-    await mount(harness, `
+    await mount(
+      harness,
+      `
       return {
         name: 'answer-provider',
         apply(ctx) {
@@ -106,8 +115,11 @@ describe('cross-package provide/inject', () => {
           ctx.provide('nothing', null)
         },
       }
-    `)
-    await mount(harness, `
+    `,
+    )
+    await mount(
+      harness,
+      `
       return {
         name: 'answer-consumer',
         inject: ['answer', 'nothing', 'tools'],
@@ -123,7 +135,8 @@ describe('cross-package provide/inject', () => {
           }))
         },
       }
-    `)
+    `,
+    )
 
     expect(text(await call(harness.ctx, 'answer', {}))).toBe('42/42/null')
   })
@@ -141,7 +154,7 @@ describe('cross-package provide/inject', () => {
 })
 
 describe('stop reaches quiescence', () => {
-  it('the host half\'s listeners have stopped by the time stop returns', async () => {
+  it("the host half's listeners have stopped by the time stop returns", async () => {
     const harness = await setup()
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const id = await mount(harness, LISTENER_CODE)

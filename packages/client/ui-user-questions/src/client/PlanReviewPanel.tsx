@@ -1,13 +1,10 @@
 import { useMemo, useState } from 'react'
-import {
-  Button, extractMarkdownPlainText, IconEditOutlineRegular, StateDot,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, extractMarkdownPlainText, IconEditOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PendingQuestion, PlanReview, QuestionComposerProps } from './contract/slots.ts'
 import css from './PlanReviewPanel.module.css'
 
 /** The panel's own props: the question domain face, the narrowed review, the locale seat, and the strip's render seats. */
-export type PlanReviewPanelProps =
-  { pending: PendingQuestion; review: PlanReview } & Pick<QuestionComposerProps, 't' | 'renderSlot'>
+export type PlanReviewPanelProps = { pending: PendingQuestion; review: PlanReview } & Pick<QuestionComposerProps, 't' | 'renderSlot'>
 
 /**
  * Optional-prop spread for a decision button's tooltip: `title` is optional on
@@ -38,7 +35,9 @@ export function PlanReviewPanel({ pending, review, t, renderSlot }: PlanReviewPa
       .then(() => {
         if (!remote) return
         setBusy(false)
-        void pending.dismiss().catch(() => { setError(t('status.sent')) })
+        void pending.dismiss().catch(() => {
+          setError(t('status.sent'))
+        })
       })
       .catch((cause: unknown) => {
         setBusy(false)
@@ -60,29 +59,36 @@ export function PlanReviewPanel({ pending, review, t, renderSlot }: PlanReviewPa
         <div className={css.strip}>
           <StateDot state={busy ? 'ongoing' : 'warning'} />
           {t('plan.header')}
-          <div className={css.stripLead}>
-            {renderSlot('conversation.question.header.lead', {})}
-          </div>
-          <div className={css.previewActions}>
-            {renderSlot('conversation.plan-review.actions', { review, requestKey: pending.key })}
-          </div>
+          <div className={css.stripLead}>{renderSlot('conversation.question.header.lead', {})}</div>
+          <div className={css.previewActions}>{renderSlot('conversation.plan-review.actions', { review, requestKey: pending.key })}</div>
         </div>
         <div className={css.summary}>
           <h3 className={css.title}>{summary.title}</h3>
           {summary.description !== '' && <p className={css.description}>{summary.description}</p>}
         </div>
         <div className={css.footer}>
-          <div className={css.feedback} role="status">{error}</div>
+          <div className={css.feedback} role="status">
+            {error}
+          </div>
           <div className={css.actions}>
             <Button
-              variant="outline" className={css.discuss} icon={<IconEditOutlineRegular size={14} />}
-              disabled={busy} onClick={() => { settle(() => pending.dismiss()) }}
+              variant="outline"
+              className={css.discuss}
+              icon={<IconEditOutlineRegular size={14} />}
+              disabled={busy}
+              onClick={() => {
+                settle(() => pending.dismiss())
+              }}
             >
               {t('plan.discuss')}
             </Button>
             <Button
-              variant="primary" {...tooltip(review.approve.description)}
-              disabled={busy} onClick={() => { decide(review.approve.label) }}
+              variant="primary"
+              {...tooltip(review.approve.description)}
+              disabled={busy}
+              onClick={() => {
+                decide(review.approve.label)
+              }}
             >
               {t('plan.approve')}
             </Button>

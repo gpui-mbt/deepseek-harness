@@ -10,14 +10,19 @@ import { PM } from 'app-builder-lib/out/node-module-collector/index.js'
 import type { PlatformPackager } from 'app-builder-lib/out/platformPackager.js'
 import type { ResolvedFileSet } from 'app-builder-lib/out/util/appFileCopier.js'
 import { WinPackager } from 'app-builder-lib/out/winPackager.js'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { createElectronBuilderConfig } from '../scripts/electron-builder-config.mjs'
 
 const require = createRequire(import.meta.url)
 // The locked builder exports these packaging operations without declarations.
 const { getNodeModuleFileMatcher } = require('app-builder-lib/out/fileMatcher.js') as {
-  getNodeModuleFileMatcher: (app: string, destination: string, expand: (value: string) => string,
-    options: PlatformSpecificBuildOptions, packager: Packager) => FileMatcher
+  getNodeModuleFileMatcher: (
+    app: string,
+    destination: string,
+    expand: (value: string) => string,
+    options: PlatformSpecificBuildOptions,
+    packager: Packager,
+  ) => FileMatcher
 }
 const { computeNodeModuleFileSets } = require('app-builder-lib/out/util/appFileCopier.js') as {
   computeNodeModuleFileSets: (packager: PlatformPackager<PlatformSpecificBuildOptions>, matcher: FileMatcher) => Promise<ResolvedFileSet[]>
@@ -27,7 +32,9 @@ const { AsarPackager } = require('app-builder-lib/out/asar/asarUtil.js') as {
 }
 
 it.each([
-  ['darwin', 'arm64'], ['darwin', 'x64'], ['win32', 'x64'],
+  ['darwin', 'arm64'],
+  ['darwin', 'x64'],
+  ['win32', 'x64'],
 ] as const)('omits shell build files from %s/%s ASAR while retaining runtime assets', async (platform, arch) => {
   const root = await mkdtemp(join(tmpdir(), 'desktop-shell-files-'))
   onTestFinished(() => rm(root, { recursive: true, force: true }))
@@ -42,12 +49,31 @@ it.each([
     ['node_modules/shell/node_modules/@fixture/shared', { name: '@fixture/shared', version: '1.0.0' }],
   ] as const
   const omitted = [
-    'index.js.map', 'lib/index.cjs.map', 'lib/index.mjs.map', 'lib/index.ts.map',
-    'lib/index.cts.map', 'lib/index.mts.map', 'lib/style.css.map', 'tsconfig.tsbuildinfo', 'lib/types/tsconfig.tsbuildinfo',
+    'index.js.map',
+    'lib/index.cjs.map',
+    'lib/index.mjs.map',
+    'lib/index.ts.map',
+    'lib/index.cts.map',
+    'lib/index.mts.map',
+    'lib/style.css.map',
+    'tsconfig.tsbuildinfo',
+    'lib/types/tsconfig.tsbuildinfo',
   ]
   const retained = [
-    'index.js', 'lib/index.cjs', 'lib/index.mjs', 'lib/index.ts', 'lib/index.cts', 'lib/index.mts',
-    'lib/style.css', 'lib/types/runtime.js', 'data.map', 'lib/data.map', 'lib/addon.node', 'lib/engine.wasm', 'LICENSE', 'NOTICE',
+    'index.js',
+    'lib/index.cjs',
+    'lib/index.mjs',
+    'lib/index.ts',
+    'lib/index.cts',
+    'lib/index.mts',
+    'lib/style.css',
+    'lib/types/runtime.js',
+    'data.map',
+    'lib/data.map',
+    'lib/addon.node',
+    'lib/engine.wasm',
+    'LICENSE',
+    'NOTICE',
   ]
   const originals = new Map<string, Buffer>()
   for (const [directory, metadata] of packages) {
@@ -60,25 +86,31 @@ it.each([
     }
   }
   await writeFile(join(appDir, 'package.json'), JSON.stringify(manifest))
-  const desktopConfig = createElectronBuilderConfig({
-    DSH_DESKTOP_APP_ID: 'com.example.shell-files',
-    DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-    DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-    DSH_DESKTOP_UNSIGNED: platform === 'win32' ? '1' : '0',
-    DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
-    DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
-    APPLE_KEYCHAIN_PROFILE: 'shell-files-test',
-    DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
-    DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
-  }, platform, arch)
+  const desktopConfig = createElectronBuilderConfig(
+    {
+      DSH_DESKTOP_APP_ID: 'com.example.shell-files',
+      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+      DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+      DSH_DESKTOP_UNSIGNED: platform === 'win32' ? '1' : '0',
+      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
+      DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
+      APPLE_KEYCHAIN_PROFILE: 'shell-files-test',
+      DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
+      DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
+    },
+    platform,
+    arch,
+  )
   const config: Configuration = {
-    files: desktopConfig.files.map(file => typeof file === 'string' ? file : { ...file, filter: [...file.filter] }),
+    files: desktopConfig.files.map(file => (typeof file === 'string' ? file : { ...file, filter: [...file.filter] })),
   }
   const info = new Packager({ projectDir: appDir })
   onTestFinished(() => info.tempDirManager.cleanup())
   Object.defineProperties(info, {
-    appDir: { value: appDir }, config: { value: config },
-    metadata: { value: manifest }, originalMetadata: { value: manifest },
+    appDir: { value: appDir },
+    config: { value: config },
+    metadata: { value: manifest },
+    originalMetadata: { value: manifest },
     appInfo: { value: { type: 'commonjs' } },
     framework: { value: { name: 'electron' } },
   })
@@ -88,12 +120,15 @@ it.each([
   const packager = platform === 'darwin' ? new MacPackager(info) : new WinPackager(info)
   const matcher = getNodeModuleFileMatcher(appDir, destination, value => value, packager.platformSpecificBuildOptions, info)
   const fileSets = await computeNodeModuleFileSets(packager, matcher)
-  expect(fileSets.map(set => relative(destination, set.destination).replaceAll('\\', '/')).sort())
-    .toEqual(packages.map(([directory]) => directory).sort())
+  expect(fileSets.map(set => relative(destination, set.destination).replaceAll('\\', '/')).sort()).toEqual(
+    packages.map(([directory]) => directory).sort(),
+  )
   const consoleLog = console.log
   try {
     await new AsarPackager(packager, {
-      defaultDestination: destination, resourcePath: resources, options: { smartUnpack: false },
+      defaultDestination: destination,
+      resourcePath: resources,
+      options: { smartUnpack: false },
     }).pack(fileSets)
   } finally {
     // Builder temporarily intercepts console.log while writing ASAR.

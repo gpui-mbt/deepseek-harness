@@ -6,9 +6,7 @@
  * @returns an Error suitable for promise rejection.
  */
 export function compressionFailure(reason: unknown): Error {
-  return reason instanceof Error
-    ? reason
-    : new Error('Image compression task rejected with a non-Error value.', { cause: reason })
+  return reason instanceof Error ? reason : new Error('Image compression task rejected with a non-Error value.', { cause: reason })
 }
 
 /** FIFO limiter for asynchronous compression work. */
@@ -34,16 +32,18 @@ export class CompressionLimiter {
           this.active -= 1
           this.waiting.shift()?.()
         }
-        void Promise.resolve().then(task).then(
-          (value) => {
-            release()
-            resolve(value)
-          },
-          (error: unknown) => {
-            release()
-            reject(compressionFailure(error))
-          },
-        )
+        void Promise.resolve()
+          .then(task)
+          .then(
+            value => {
+              release()
+              resolve(value)
+            },
+            (error: unknown) => {
+              release()
+              reject(compressionFailure(error))
+            },
+          )
       }
       if (this.active < this.concurrency) start()
       else this.waiting.push(start)

@@ -14,7 +14,7 @@ class HighlightViewport {
       activate()
       return noop
     }
-    this.observer ??= new IntersectionObserver((entries) => {
+    this.observer ??= new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue
         const current = this.activators.get(entry.target)
@@ -52,13 +52,12 @@ const highlightViewport = new HighlightViewport()
  * @param lang - Optional language hint.
  * @returns Whether this component may build highlighted output.
  */
-export function useViewportHighlighting(
-  target: RefObject<Element>,
-  lang: string | undefined,
-): boolean {
+export function useViewportHighlighting(target: RefObject<Element>, lang: string | undefined): boolean {
   const supported = supportsHighlighting(lang)
   const [activated, setActivated] = useState(false)
-  const activate = useCallback(() => { setActivated(true) }, [])
+  const activate = useCallback(() => {
+    setActivated(true)
+  }, [])
 
   useEffect(() => {
     if (activated || !supported) return

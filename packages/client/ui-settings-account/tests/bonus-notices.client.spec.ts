@@ -5,7 +5,7 @@
  * card reports a presented frame, with backoff retry for the rest of the
  * signed-in lifecycle; nothing about a notice survives sign-out or unload.
  */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { AccountBonusBatch, AccountBonusOrderId, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import { createBonusNoticeController, type BonusNotice } from '../src/client/bonus-notices.ts'
 
@@ -20,11 +20,13 @@ const TIMING = { ackRetryDelayMs: 1_000, ackRetryMaxDelayMs: 60_000 }
 function batch(accountId: string, orderId: string, expiresAt = '2099-01-01T00:00:00Z'): AccountBonusBatch {
   return {
     accountId: accountId as AccountUserId,
-    bonuses: [{
-      orderId: orderId as AccountBonusOrderId,
-      expiresAt,
-      message: 'Server copy 5.00',
-    }],
+    bonuses: [
+      {
+        orderId: orderId as AccountBonusOrderId,
+        expiresAt,
+        message: 'Server copy 5.00',
+      },
+    ],
   }
 }
 
@@ -34,14 +36,23 @@ function setup() {
   const stacks: (readonly BonusNotice[])[] = []
   const published: (BonusNotice | null)[] = []
   const controller = createBonusNoticeController({
-    ...TIMING, read, acknowledge, publish: (notices) => { stacks.push(notices); published.push(notices[0] ?? null) },
+    ...TIMING,
+    read,
+    acknowledge,
+    publish: notices => {
+      stacks.push(notices)
+      published.push(notices[0] ?? null)
+    },
   })
   /** @returns the most recently published notice. */
   const latest = (): BonusNotice | null | undefined => published.at(-1)
   return { controller, read, acknowledge, published, latest, stacks }
 }
 
-afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+})
 
 it('reads once when the account becomes active and never on a timer', async () => {
   vi.useFakeTimers()
@@ -62,7 +73,9 @@ it('publishes the server copy for the first unnotified order', async () => {
   const { controller, read, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1', message: 'Server copy 5.00' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1', message: 'Server copy 5.00' })
+  })
   controller.end()
 })
 
@@ -70,14 +83,20 @@ it('acknowledges only after the card reports a presented frame, then keeps the c
   const { controller, read, acknowledge, published, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   expect(acknowledge).not.toHaveBeenCalled()
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledWith('account-a', 'order-1') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledWith('account-a', 'order-1')
+  })
   // A refresh still offering the order must not republish the open card.
   const publishedBefore = published.length
   await controller.refresh()
-  await vi.waitFor(() => { expect(read).toHaveBeenCalledTimes(2) })
+  await vi.waitFor(() => {
+    expect(read).toHaveBeenCalledTimes(2)
+  })
   expect(published.length).toBe(publishedBefore)
   expect(latest()).toMatchObject({ orderId: 'order-1' })
   controller.dismiss('order-1' as AccountBonusOrderId)
@@ -128,7 +147,7 @@ it('keeps the card and its pending acknowledgement when the signed-in session re
   controller.end()
 })
 
-it.each(['aborted', 'null'] as const)("does not adopt the replaced credential's in-flight read when it answers %s", async (answer) => {
+it.each(['aborted', 'null'] as const)("does not adopt the replaced credential's in-flight read when it answers %s", async answer => {
   vi.useFakeTimers()
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
@@ -163,9 +182,14 @@ it('refreshes the copy of the order already on screen when a read offers it agai
   const { controller, read, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1', message: 'Server copy 5.00' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1', message: 'Server copy 5.00' })
+  })
   // The same order arrives with new copy: its card updates in place instead of being replaced.
-  read.mockResolvedValue({ ...batch('account-a', 'order-1'), bonuses: [{ ...batch('account-a', 'order-1').bonuses[0]!, title: 'Updated title', message: 'Updated copy' }] })
+  read.mockResolvedValue({
+    ...batch('account-a', 'order-1'),
+    bonuses: [{ ...batch('account-a', 'order-1').bonuses[0]!, title: 'Updated title', message: 'Updated copy' }],
+  })
   await controller.refresh()
   expect(latest()).toMatchObject({ orderId: 'order-1', title: 'Updated title', message: 'Updated copy' })
   controller.end()
@@ -175,7 +199,9 @@ it('withdraws a card the user never saw when a read offers no bonus', async () =
   const { controller, read, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   // The card never reported a presented frame, so an empty read withdraws it.
   read.mockResolvedValue({ accountId: 'account-a' as AccountUserId, bonuses: [] })
   await controller.refresh()
@@ -187,20 +213,33 @@ it('queues the next shown order behind a settling acknowledgement', async () => 
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   let settle: ((value: boolean) => void) | undefined
-  acknowledge.mockImplementationOnce(() => new Promise<boolean>((resolve) => { settle = resolve }))
+  acknowledge.mockImplementationOnce(
+    () =>
+      new Promise<boolean>(resolve => {
+        settle = resolve
+      }),
+  )
   acknowledge.mockResolvedValue(true)
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+  })
   // A later order replaces the card while the first acknowledgement is still settling.
   read.mockResolvedValue(batch('account-a', 'order-2'))
   await controller.refresh()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-2' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-2' })
+  })
   controller.shown('order-2' as AccountBonusOrderId)
   settle?.(true)
   // The settled order clears and the next one follows without a further display.
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenLastCalledWith('account-a', 'order-2') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenLastCalledWith('account-a', 'order-2')
+  })
   controller.end()
 })
 
@@ -209,7 +248,12 @@ it('ignores an acknowledgement pump that fires while one is already in flight', 
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   let settle: ((value: boolean) => void) | undefined
-  acknowledge.mockImplementation(() => new Promise<boolean>((resolve) => { settle = resolve }))
+  acknowledge.mockImplementation(
+    () =>
+      new Promise<boolean>(resolve => {
+        settle = resolve
+      }),
+  )
   controller.begin()
   await vi.advanceTimersByTimeAsync(0)
   controller.shown('order-1' as AccountBonusOrderId)
@@ -230,19 +274,32 @@ it('stops retrying when the account changes while an acknowledgement is failing'
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   let fail: ((reason: Error) => void) | undefined
-  acknowledge.mockImplementationOnce(() => new Promise<boolean>((_resolve, reject) => { fail = reject }))
+  acknowledge.mockImplementationOnce(
+    () =>
+      new Promise<boolean>((_resolve, reject) => {
+        fail = reject
+      }),
+  )
   acknowledge.mockResolvedValue(true)
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+  })
   // Another account answers before account-a's call fails: its failure must not
   // schedule a retry into the new account's queue.
   read.mockResolvedValue(batch('account-b', 'order-2'))
   await controller.refresh()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-2' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-2' })
+  })
   fail?.(new Error('offline'))
-  await new Promise((resolve) => { setTimeout(resolve, 10) })
+  await new Promise(resolve => {
+    setTimeout(resolve, 10)
+  })
   expect(acknowledge).toHaveBeenCalledTimes(1)
   controller.end()
 })
@@ -251,7 +308,9 @@ it('ignores a dismissal that names an order the card does not show', async () =>
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.dismiss('order-2' as AccountBonusOrderId)
   // The other order's dismissal neither withdraws this card nor queues its acknowledgement.
   expect(latest()).toMatchObject({ orderId: 'order-1' })
@@ -264,15 +323,23 @@ it('keeps one queued acknowledgement when a reported order returns after another
   read.mockResolvedValue(batch('account-a', 'order-1'))
   acknowledge.mockRejectedValue(new Error('offline'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+  })
   read.mockResolvedValue(batch('account-a', 'order-2'))
   await controller.refresh()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-2' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-2' })
+  })
   read.mockResolvedValue(batch('account-a', 'order-1'))
   await controller.refresh()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   // Its acknowledgement was already queued and is still retrying, so no second entry joins it.
   controller.shown('order-1' as AccountBonusOrderId)
   expect(latest()).toMatchObject({ orderId: 'order-1' })
@@ -283,15 +350,21 @@ it('displays an order the server offers again after an earlier sign-in acknowled
   const first = setup()
   first.read.mockResolvedValue(batch('account-a', 'order-1'))
   first.controller.begin()
-  await vi.waitFor(() => { expect(first.latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(first.latest()).toMatchObject({ orderId: 'order-1' })
+  })
   first.controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(first.acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(first.acknowledge).toHaveBeenCalledTimes(1)
+  })
   first.controller.end()
   // Nothing is remembered, so the same order the server still offers displays again.
   const second = setup()
   second.read.mockResolvedValue(batch('account-a', 'order-1'))
   second.controller.begin()
-  await vi.waitFor(() => { expect(second.latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(second.latest()).toMatchObject({ orderId: 'order-1' })
+  })
   second.controller.end()
 })
 
@@ -300,14 +373,20 @@ it('discards the previous account card and retries when a credential is replaced
   read.mockResolvedValue(batch('account-a', 'order-1'))
   acknowledge.mockResolvedValue(false)
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledOnce()
+  })
   // The credential is replaced in place: another signed-in frame arrives, the read
   // names the other account, and no signed-out frame ever describes the switch.
   read.mockResolvedValue(batch('account-b', 'order-2'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-2' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-2' })
+  })
   controller.end()
 })
 
@@ -336,17 +415,27 @@ it('acknowledges a re-offered order once per displayed card', async () => {
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+  })
   // Closing the card withdraws it; the next read of the same order is a new card.
   controller.dismiss('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+  })
   await controller.refresh()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(2) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(2)
+  })
   controller.end()
 })
 
@@ -354,7 +443,9 @@ it('keeps the visible card when a read offers no bonus', async () => {
   const { controller, read, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   // A card the user has already seen keeps its place.
   controller.shown('order-1' as AccountBonusOrderId)
   // A Settings entry whose read returns nothing must not pull the card out from under the user.
@@ -408,46 +499,76 @@ it('ignores an acknowledgement that settles after the lifecycle it belonged to',
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   let settle: ((value: boolean) => void) | undefined
-  acknowledge.mockImplementation(() => new Promise<boolean>((resolve) => { settle = resolve }))
+  acknowledge.mockImplementation(
+    () =>
+      new Promise<boolean>(resolve => {
+        settle = resolve
+      }),
+  )
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+  })
   controller.end()
   // The new sign-in has its own pending queue; the old call settling later must not touch it.
   const next = setup()
   next.read.mockResolvedValue(batch('account-a', 'order-2'))
   next.controller.begin()
-  await vi.waitFor(() => { expect(next.latest()).toMatchObject({ orderId: 'order-2' }) })
+  await vi.waitFor(() => {
+    expect(next.latest()).toMatchObject({ orderId: 'order-2' })
+  })
   next.controller.shown('order-2' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(next.acknowledge).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(next.acknowledge).toHaveBeenCalledTimes(1)
+  })
   settle?.(true)
-  await new Promise((resolve) => { setTimeout(resolve, 5) })
+  await new Promise(resolve => {
+    setTimeout(resolve, 5)
+  })
   expect(next.acknowledge).toHaveBeenCalledTimes(1)
   expect(next.latest()).toMatchObject({ orderId: 'order-2' })
   next.controller.end()
 })
 
-it('does not let an in-flight acknowledgement of one account clear another account\'s queue', async () => {
+it("does not let an in-flight acknowledgement of one account clear another account's queue", async () => {
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   let settleA: ((value: boolean) => void) | undefined
-  acknowledge.mockImplementationOnce(() => new Promise<boolean>((resolve) => { settleA = resolve }))
+  acknowledge.mockImplementationOnce(
+    () =>
+      new Promise<boolean>(resolve => {
+        settleA = resolve
+      }),
+  )
   acknowledge.mockResolvedValue(true)
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledWith('account-a', 'order-1') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledWith('account-a', 'order-1')
+  })
   // Another account answers the same lifecycle before account-a's call settles.
   read.mockResolvedValue(batch('account-b', 'order-2'))
   await controller.refresh()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-2' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-2' })
+  })
   settleA?.(true)
-  await new Promise((resolve) => { setTimeout(resolve, 5) })
+  await new Promise(resolve => {
+    setTimeout(resolve, 5)
+  })
   // The stale answer settled account-a's order, not account-b's retry.
   expect(acknowledge).toHaveBeenCalledTimes(1)
   controller.shown('order-2' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenLastCalledWith('account-b', 'order-2') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenLastCalledWith('account-b', 'order-2')
+  })
   controller.end()
 })
 
@@ -482,10 +603,14 @@ it('withdraws the displayed card when the signed-in account changes', async () =
   const { controller, read, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   read.mockResolvedValue(batch('account-b', 'order-2'))
   await controller.refresh()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-2' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-2' })
+  })
   controller.end()
 })
 
@@ -505,7 +630,9 @@ it('suppresses a bonus that expired before its first presented frame', async () 
   const { controller, read, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1', '2000-01-01T00:00:00Z'))
   controller.begin()
-  await vi.waitFor(() => { expect(read).toHaveBeenCalledTimes(1) })
+  await vi.waitFor(() => {
+    expect(read).toHaveBeenCalledTimes(1)
+  })
   expect(latest()).toBeUndefined()
   controller.end()
 })
@@ -514,7 +641,9 @@ it('does not record a display when the award expired before the card could rende
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1'))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1' })
+  })
   vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2100-01-01T00:00:00Z'))
   // The card refuses to render an expired award, so no display is reported.
   controller.shown('order-1' as AccountBonusOrderId)
@@ -526,9 +655,13 @@ it('displays and acknowledges a notice without expiration', async () => {
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'order-1', ''))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()).toMatchObject({ orderId: 'order-1', expiresAt: '' }) })
+  await vi.waitFor(() => {
+    expect(latest()).toMatchObject({ orderId: 'order-1', expiresAt: '' })
+  })
   controller.shown('order-1' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledWith('account-a', 'order-1') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledWith('account-a', 'order-1')
+  })
   controller.end()
 })
 
@@ -537,39 +670,54 @@ it('publishes every live notice and only acknowledges the foreground as dismissa
   const bonuses = ['first', 'second', 'third'].flatMap(id => batch('account-a', id, '').bonuses)
   read.mockResolvedValue({ accountId: 'account-a' as AccountUserId, bonuses })
   controller.begin()
-  await vi.waitFor(() => { expect(stacks.at(-1)).toEqual(bonuses) })
+  await vi.waitFor(() => {
+    expect(stacks.at(-1)).toEqual(bonuses)
+  })
   controller.shown('second' as AccountBonusOrderId)
   controller.dismiss('third' as AccountBonusOrderId)
   expect(acknowledge).not.toHaveBeenCalled()
   expect(stacks.at(-1)).toEqual(bonuses)
   controller.shown('first' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledExactlyOnceWith('account-a', 'first') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledExactlyOnceWith('account-a', 'first')
+  })
   controller.dismiss('first' as AccountBonusOrderId)
   expect(stacks.at(-1)).toEqual(bonuses.slice(1))
   expect(acknowledge).toHaveBeenCalledTimes(1)
   controller.shown('second' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenLastCalledWith('account-a', 'second') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenLastCalledWith('account-a', 'second')
+  })
   controller.dismiss('second' as AccountBonusOrderId)
   expect(stacks.at(-1)).toEqual(bonuses.slice(2))
   controller.dismiss('third' as AccountBonusOrderId)
   expect(stacks.at(-1)).toEqual([])
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenLastCalledWith('account-a', 'third') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenLastCalledWith('account-a', 'third')
+  })
   controller.end()
 })
 
 it('drops queued notices that expire before promotion without acknowledging them', async () => {
   const { controller, read, acknowledge, stacks } = setup()
-  read.mockResolvedValue({ accountId: 'account-a' as AccountUserId, bonuses: [
-    ...batch('account-a', 'first', '').bonuses,
-    ...batch('account-a', 'expired', '2099-01-01T00:00:00Z').bonuses,
-    ...batch('account-a', 'last', '').bonuses,
-  ] })
+  read.mockResolvedValue({
+    accountId: 'account-a' as AccountUserId,
+    bonuses: [
+      ...batch('account-a', 'first', '').bonuses,
+      ...batch('account-a', 'expired', '2099-01-01T00:00:00Z').bonuses,
+      ...batch('account-a', 'last', '').bonuses,
+    ],
+  })
   controller.begin()
-  await vi.waitFor(() => { expect(stacks.at(-1)).toHaveLength(3) })
+  await vi.waitFor(() => {
+    expect(stacks.at(-1)).toHaveLength(3)
+  })
   vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2100-01-01T00:00:00Z'))
   controller.dismiss('first' as AccountBonusOrderId)
   expect(stacks.at(-1)?.map(notice => notice.orderId)).toEqual(['last'])
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledExactlyOnceWith('account-a', 'first') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledExactlyOnceWith('account-a', 'first')
+  })
   controller.end()
 })
 
@@ -577,11 +725,17 @@ it('publishes a title-only refresh without acknowledging the same card twice', a
   const { controller, read, acknowledge, latest } = setup()
   read.mockResolvedValue(batch('account-a', 'first', ''))
   controller.begin()
-  await vi.waitFor(() => { expect(latest()?.orderId).toBe('first') })
+  await vi.waitFor(() => {
+    expect(latest()?.orderId).toBe('first')
+  })
   controller.shown('first' as AccountBonusOrderId)
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledTimes(1) })
-  read.mockResolvedValue({ accountId: 'account-a' as AccountUserId,
-    bonuses: batch('account-a', 'first', '').bonuses.map(notice => ({ ...notice, title: 'Updated title' })) })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+  })
+  read.mockResolvedValue({
+    accountId: 'account-a' as AccountUserId,
+    bonuses: batch('account-a', 'first', '').bonuses.map(notice => ({ ...notice, title: 'Updated title' })),
+  })
   await controller.refresh()
   expect(latest()?.title).toBe('Updated title')
   controller.shown('first' as AccountBonusOrderId)
@@ -598,15 +752,19 @@ it('does not read or acknowledge when refreshed outside an active account lifecy
 
 it('closes the visible notice when the preceding card expires before its display callback', async () => {
   const { controller, read, acknowledge, stacks } = setup()
-  read.mockResolvedValue({ accountId: 'account-a' as AccountUserId, bonuses: [
-    ...batch('account-a', 'first', '2099-01-01T00:00:00Z').bonuses,
-    ...batch('account-a', 'second', '').bonuses,
-  ] })
+  read.mockResolvedValue({
+    accountId: 'account-a' as AccountUserId,
+    bonuses: [...batch('account-a', 'first', '2099-01-01T00:00:00Z').bonuses, ...batch('account-a', 'second', '').bonuses],
+  })
   controller.begin()
-  await vi.waitFor(() => { expect(stacks.at(-1)).toHaveLength(2) })
+  await vi.waitFor(() => {
+    expect(stacks.at(-1)).toHaveLength(2)
+  })
   vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2100-01-01T00:00:00Z'))
   controller.dismiss('second' as AccountBonusOrderId)
   expect(stacks.at(-1)).toEqual([])
-  await vi.waitFor(() => { expect(acknowledge).toHaveBeenCalledExactlyOnceWith('account-a', 'second') })
+  await vi.waitFor(() => {
+    expect(acknowledge).toHaveBeenCalledExactlyOnceWith('account-a', 'second')
+  })
   controller.end()
 })

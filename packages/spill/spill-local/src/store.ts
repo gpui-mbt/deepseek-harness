@@ -60,9 +60,7 @@ export function encodeSegment(raw: string): string {
   for (let i = 0; i < raw.length; i++) {
     const code = raw.charCodeAt(i)
     const ch = String.fromCharCode(code)
-    out += ch !== '~' && /^[A-Za-z0-9._-]$/.test(ch)
-      ? ch
-      : '~' + code.toString(16).toUpperCase().padStart(4, '0')
+    out += ch !== '~' && /^[A-Za-z0-9._-]$/.test(ch) ? ch : '~' + code.toString(16).toUpperCase().padStart(4, '0')
   }
   return out
 }

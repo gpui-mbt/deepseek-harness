@@ -17,21 +17,23 @@ const commandSchema = z.object({
   token: z.string(),
 })
 
-const snapshotSchema = z.object({
-  text: z.string(),
-  references: z.array(referenceSchema),
-  command: commandSchema.optional(),
-}).refine((draft) => {
-  const spelling = draft.command?.token.trimEnd()
-  if (spelling !== undefined && (!/^\/\S/u.test(spelling) || !draft.text.startsWith(spelling))) return false
-  let end = spelling?.length ?? 0
-  for (const reference of draft.references) {
-    if (reference.offset < end || reference.length !== reference.clipboardText.length) return false
-    end = reference.offset + reference.length
-    if (end > draft.text.length || draft.text.slice(reference.offset, end) !== reference.clipboardText) return false
-  }
-  return true
-}, 'Draft references must identify ordered, non-overlapping text spans after the leading command token')
+const snapshotSchema = z
+  .object({
+    text: z.string(),
+    references: z.array(referenceSchema),
+    command: commandSchema.optional(),
+  })
+  .refine(draft => {
+    const spelling = draft.command?.token.trimEnd()
+    if (spelling !== undefined && (!/^\/\S/u.test(spelling) || !draft.text.startsWith(spelling))) return false
+    let end = spelling?.length ?? 0
+    for (const reference of draft.references) {
+      if (reference.offset < end || reference.length !== reference.clipboardText.length) return false
+      end = reference.offset + reference.length
+      if (end > draft.text.length || draft.text.slice(reference.offset, end) !== reference.clipboardText) return false
+    }
+    return true
+  }, 'Draft references must identify ordered, non-overlapping text spans after the leading command token')
 
 /**
  * Copy input into the semantic draft representation without editor runtime identities.

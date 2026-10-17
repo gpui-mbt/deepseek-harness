@@ -49,9 +49,7 @@ export interface SettingsNamespaceView {
  * value at the path, creating intermediate objects; `unset` removes it. The
  * empty path addresses the section root.
  */
-export type SettingsPathOpView =
-  | { op: 'set'; path: string[]; value: JsonValue }
-  | { op: 'unset'; path: string[] }
+export type SettingsPathOpView = { op: 'set'; path: string[]; value: JsonValue } | { op: 'unset'; path: string[] }
 
 /** Every profile plugin entry with the deployment facts a configuration page renders around them. */
 export interface SettingsDescribeValue {

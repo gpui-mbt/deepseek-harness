@@ -4,7 +4,7 @@
  * the spec owns the frame queue and the per-row box watchers, so every pulse is
  * decided by the test rather than by wall-clock timing.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { DRAG_MARK, RECALL_MARK } from '../src/window-drag/regions.ts'
 import { installWindowDragRecall } from '../src/window-drag/recall.ts'
 
@@ -35,13 +35,13 @@ function harness(): Harness {
       for (const frame of pending) frame()
     },
     watched: () => [...watchers.keys()],
-    resize: (row) => {
+    resize: row => {
       const changed = resizers.get(row)
       if (changed === undefined) throw new Error('the row is not watched')
       changed()
     },
     disposedWatchers: () => disposed,
-    scheduleFrame: (frame) => {
+    scheduleFrame: frame => {
       queue.push(frame)
       return () => {
         const index = queue.indexOf(frame)
@@ -66,7 +66,15 @@ function place(row: Element, box: Box): void {
   Object.defineProperty(row, 'getBoundingClientRect', {
     configurable: true,
     value: () => ({
-      x, y, width, height, top: y, left: x, right: x + width, bottom: y + height, toJSON: () => ({}),
+      x,
+      y,
+      width,
+      height,
+      top: y,
+      left: x,
+      right: x + width,
+      bottom: y + height,
+      toJSON: () => ({}),
     }),
   })
 }
@@ -114,7 +122,9 @@ describe('window drag watcher installation', () => {
     delete document.documentElement.dataset.platform
     const seams = harness()
     const stop = installWindowDragRecall({
-      document, scheduleFrame: seams.scheduleFrame, watchBox: seams.watchBox,
+      document,
+      scheduleFrame: seams.scheduleFrame,
+      watchBox: seams.watchBox,
     })
     const element = row()
     place(element, [0, 10, 100, 52])
@@ -129,7 +139,9 @@ describe('window drag watcher installation', () => {
   it('collects the surface once when it is installed', () => {
     const seams = harness()
     const stop = installWindowDragRecall({
-      document, scheduleFrame: seams.scheduleFrame, watchBox: seams.watchBox,
+      document,
+      scheduleFrame: seams.scheduleFrame,
+      watchBox: seams.watchBox,
     })
     row()
     expect(seams.frames()).toBe(1)
@@ -148,7 +160,9 @@ describe('window drag watcher installation', () => {
     const seams = harness()
     const element = row()
     const stop = installWindowDragRecall({
-      document, scheduleFrame: seams.scheduleFrame, watchBox: seams.watchBox,
+      document,
+      scheduleFrame: seams.scheduleFrame,
+      watchBox: seams.watchBox,
     })
     seams.runFrames()
     seams.runFrames()
@@ -172,7 +186,9 @@ describe('window drag watcher installation', () => {
     const seams = harness()
     const element = row()
     const stop = installWindowDragRecall({
-      document, scheduleFrame: seams.scheduleFrame, watchBox: seams.watchBox,
+      document,
+      scheduleFrame: seams.scheduleFrame,
+      watchBox: seams.watchBox,
     })
     seams.runFrames()
     seams.runFrames()
@@ -189,7 +205,9 @@ describe('window drag watcher installation', () => {
     const element = row()
     const other = row([100, 0, 100, 52])
     const stop = installWindowDragRecall({
-      document, scheduleFrame: seams.scheduleFrame, watchBox: seams.watchBox,
+      document,
+      scheduleFrame: seams.scheduleFrame,
+      watchBox: seams.watchBox,
     })
     seams.runFrames()
     seams.runFrames()
@@ -211,7 +229,9 @@ describe('what re-arms the watcher', () => {
   function installed(): { seams: Harness; stop: () => void } {
     const seams = harness()
     const stop = installWindowDragRecall({
-      document, scheduleFrame: seams.scheduleFrame, watchBox: seams.watchBox,
+      document,
+      scheduleFrame: seams.scheduleFrame,
+      watchBox: seams.watchBox,
     })
     seams.runFrames()
     seams.runFrames()
@@ -219,16 +239,32 @@ describe('what re-arms the watcher', () => {
   }
 
   it.each([
-    ['an attribute on a marked row', (element: HTMLElement) => { element.setAttribute('class', 'elsewhere') }],
-    ['an attribute inside a marked row', (element: HTMLElement) => {
-      const child = document.createElement('span')
-      element.append(child)
-      child.setAttribute('class', 'chip')
-    }],
-    ['a text change inside a marked row', (element: HTMLElement) => { element.firstChild!.textContent = 'renamed' }],
-    ['an attribute on an element holding a marked row', (element: HTMLElement) => {
-      element.parentElement!.setAttribute('class', 'panel-open')
-    }],
+    [
+      'an attribute on a marked row',
+      (element: HTMLElement) => {
+        element.setAttribute('class', 'elsewhere')
+      },
+    ],
+    [
+      'an attribute inside a marked row',
+      (element: HTMLElement) => {
+        const child = document.createElement('span')
+        element.append(child)
+        child.setAttribute('class', 'chip')
+      },
+    ],
+    [
+      'a text change inside a marked row',
+      (element: HTMLElement) => {
+        element.firstChild!.textContent = 'renamed'
+      },
+    ],
+    [
+      'an attribute on an element holding a marked row',
+      (element: HTMLElement) => {
+        element.parentElement!.setAttribute('class', 'panel-open')
+      },
+    ],
   ])('re-arms on %s', async (_name, change) => {
     const { seams, stop } = installed()
     const element = row()
@@ -242,12 +278,20 @@ describe('what re-arms the watcher', () => {
   })
 
   it.each([
-    ['a node that contains a marked row', () => {
-      const wrapper = document.createElement('div')
-      wrapper.append(row())
-      document.body.append(wrapper)
-    }],
-    ['a marked row itself', () => { document.body.append(row()) }],
+    [
+      'a node that contains a marked row',
+      () => {
+        const wrapper = document.createElement('div')
+        wrapper.append(row())
+        document.body.append(wrapper)
+      },
+    ],
+    [
+      'a marked row itself',
+      () => {
+        document.body.append(row())
+      },
+    ],
   ])('re-arms on a child list change adding %s', async (_name, mutate) => {
     const { seams, stop } = installed()
     mutate()
@@ -358,12 +402,23 @@ describe('the shell defaults', () => {
     const resizers: (() => void)[] = []
     let disconnected = 0
     vi.stubGlobal('requestAnimationFrame', (frame: FrameRequestCallback) => frames.push(frame))
-    vi.stubGlobal('cancelAnimationFrame', (handle: number) => { cancelled.push(handle) })
-    vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) { resizers.push(callback) }
-      observe(row: Element): void { observed.push(row) }
-      disconnect(): void { disconnected += 1 }
+    vi.stubGlobal('cancelAnimationFrame', (handle: number) => {
+      cancelled.push(handle)
     })
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          resizers.push(callback)
+        }
+        observe(row: Element): void {
+          observed.push(row)
+        }
+        disconnect(): void {
+          disconnected += 1
+        }
+      },
+    )
 
     const element = row()
     const stop = installWindowDragRecall({ document })
@@ -402,7 +457,7 @@ describe('disposal', () => {
     const stop = installWindowDragRecall({
       document,
       // A seam whose canceller drops the frame on the floor: the frame still runs.
-      scheduleFrame: (frame) => {
+      scheduleFrame: frame => {
         queue.push(frame)
         return () => {}
       },
@@ -424,7 +479,9 @@ describe('disposal', () => {
     const seams = harness()
     const element = row()
     const stop = installWindowDragRecall({
-      document, scheduleFrame: seams.scheduleFrame, watchBox: seams.watchBox,
+      document,
+      scheduleFrame: seams.scheduleFrame,
+      watchBox: seams.watchBox,
     })
     seams.runFrames()
     seams.runFrames()

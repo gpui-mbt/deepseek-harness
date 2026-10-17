@@ -50,12 +50,7 @@ export interface PumpSink {
  * @param until - settles (or rejects, which counts as settlement) when the producer finished; only its `then` is used.
  * @returns the handle whose `done` resolves after the final drain.
  */
-export function startPump(
-  sources: readonly JobOutputSource[],
-  sink: PumpSink,
-  pollMs: number,
-  until: PromiseLike<unknown>,
-): PumpHandle {
+export function startPump(sources: readonly JobOutputSource[], sink: PumpSink, pollMs: number, until: PromiseLike<unknown>): PumpHandle {
   if (!Number.isFinite(pollMs) || pollMs <= 0) {
     throw new Error(`invalid pump pollMs: expected a positive finite number of milliseconds, got ${JSON.stringify(pollMs)}`)
   }
@@ -71,8 +66,8 @@ export function startPump(
         sink.append(read.text)
       } else {
         sink.append(read.text, {
-          ...source.channel !== undefined ? { channel: source.channel } : {},
-          ...read.lossy ? { gapBefore: true as const } : {},
+          ...(source.channel !== undefined ? { channel: source.channel } : {}),
+          ...(read.lossy ? { gapBefore: true as const } : {}),
         })
       }
     }
@@ -93,7 +88,7 @@ export function startPump(
     void until.then(finish, finish)
     while (!settled) {
       drain()
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         wake = resolve
         timer = setTimeout(resolve, pollMs)
       })

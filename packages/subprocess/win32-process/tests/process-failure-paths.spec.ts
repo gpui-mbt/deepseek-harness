@@ -5,16 +5,10 @@
  * Pure stubs — no real Win32 calls, so these run on every platform.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import koffi from 'koffi'
 
-import {
-  Win32Error,
-  drainPipe,
-  spawnInheritedJobProcess,
-  spawnPipedProcess,
-  waitForProcessExit,
-} from '../src/index.ts'
+import { Win32Error, drainPipe, spawnInheritedJobProcess, spawnPipedProcess, waitForProcessExit } from '../src/index.ts'
 import type { NativePtr, Win32ProcessBindings } from '../src/index.ts'
 import * as abi from '../src/abi.ts'
 import { processInformationType } from '../src/ffi.ts'
@@ -62,7 +56,6 @@ describe('spawn failure paths close their handles', () => {
     expect(closeHandle).toHaveBeenCalledTimes(6)
     expect(closed).toEqual([1n, 2n, 3n, 4n, 5n, 6n])
   })
-
 })
 
 /** The stub the pipe-happy path needs: CreatePipe fills both out slots with fresh handles. */
@@ -84,13 +77,24 @@ function pipeOkApi(overrides: Partial<Win32ProcessBindings> = {}): {
       return 1
     }),
     setHandleInformation: vi.fn(() => 1),
-    createProcessAsUserW: vi.fn((
-      _token: unknown, _app: unknown, _cmd: unknown, _pa: unknown, _ta: unknown,
-      _inherit: unknown, _flags: unknown, _env: unknown, _cwd: unknown, _si: unknown, processInfo: NativePtr,
-    ) => {
-      koffi.encode(processInfo, processInformationType(), { hProcess: 200n, hThread: 201n, dwProcessId: 1234, dwThreadId: 5678 })
-      return 1
-    }),
+    createProcessAsUserW: vi.fn(
+      (
+        _token: unknown,
+        _app: unknown,
+        _cmd: unknown,
+        _pa: unknown,
+        _ta: unknown,
+        _inherit: unknown,
+        _flags: unknown,
+        _env: unknown,
+        _cwd: unknown,
+        _si: unknown,
+        processInfo: NativePtr,
+      ) => {
+        koffi.encode(processInfo, processInformationType(), { hProcess: 200n, hThread: 201n, dwProcessId: 1234, dwThreadId: 5678 })
+        return 1
+      },
+    ),
     getLastError: vi.fn(() => 5),
     closeHandle,
     formatMessageW: vi.fn(() => 0),
@@ -148,16 +152,26 @@ describe('spawn pipe failures close their handles', () => {
 
   it('rejects NULL process/thread handles after a successful spawn', () => {
     const { api } = pipeOkApi({
-      createProcessAsUserW: vi.fn((
-        _token: unknown, _app: unknown, _cmd: unknown, _pa: unknown, _ta: unknown,
-        _inherit: unknown, _flags: unknown, _env: unknown, _cwd: unknown, _si: unknown, processInfo: NativePtr,
-      ) => {
-        koffi.encode(processInfo, processInformationType(), { hProcess: null, hThread: null, dwProcessId: 1234, dwThreadId: 5678 })
-        return 1
-      }),
+      createProcessAsUserW: vi.fn(
+        (
+          _token: unknown,
+          _app: unknown,
+          _cmd: unknown,
+          _pa: unknown,
+          _ta: unknown,
+          _inherit: unknown,
+          _flags: unknown,
+          _env: unknown,
+          _cwd: unknown,
+          _si: unknown,
+          processInfo: NativePtr,
+        ) => {
+          koffi.encode(processInfo, processInformationType(), { hProcess: null, hThread: null, dwProcessId: 1234, dwThreadId: 5678 })
+          return 1
+        },
+      ),
     })
-    expect(() => spawnPipedProcess(api, { command: 'probe.exe', args: [], cwd: 'C:\\', token }))
-      .toThrow(/null process\/thread handles/u)
+    expect(() => spawnPipedProcess(api, { command: 'probe.exe', args: [], cwd: 'C:\\', token })).toThrow(/null process\/thread handles/u)
   })
 })
 
@@ -181,13 +195,24 @@ describe('spawnInheritedJobProcess failure paths', () => {
       setInformationJobObject: vi.fn(() => 1),
       getStdHandle: vi.fn(() => std++),
       setHandleInformation: vi.fn(() => 1),
-      createProcessAsUserW: vi.fn((
-        _token: unknown, _app: unknown, _cmd: unknown, _pa: unknown, _ta: unknown,
-        _inherit: unknown, _flags: unknown, _env: unknown, _cwd: unknown, _si: unknown, processInfo: NativePtr,
-      ) => {
-        koffi.encode(processInfo, processInformationType(), { hProcess: 200n, hThread: 201n, dwProcessId: 1234, dwThreadId: 5678 })
-        return 1
-      }),
+      createProcessAsUserW: vi.fn(
+        (
+          _token: unknown,
+          _app: unknown,
+          _cmd: unknown,
+          _pa: unknown,
+          _ta: unknown,
+          _inherit: unknown,
+          _flags: unknown,
+          _env: unknown,
+          _cwd: unknown,
+          _si: unknown,
+          processInfo: NativePtr,
+        ) => {
+          koffi.encode(processInfo, processInformationType(), { hProcess: 200n, hThread: 201n, dwProcessId: 1234, dwThreadId: 5678 })
+          return 1
+        },
+      ),
       assignProcessToJobObject: vi.fn(() => 1),
       resumeThread: vi.fn(() => 0),
       terminateProcess: vi.fn(() => 1),
@@ -239,16 +264,28 @@ describe('spawnInheritedJobProcess failure paths', () => {
 
   it('closes the job and rejects NULL process/thread handles after a successful spawn', () => {
     const { api, closeHandle } = inheritedApi({
-      createProcessAsUserW: vi.fn((
-        _token: unknown, _app: unknown, _cmd: unknown, _pa: unknown, _ta: unknown,
-        _inherit: unknown, _flags: unknown, _env: unknown, _cwd: unknown, _si: unknown, processInfo: NativePtr,
-      ) => {
-        koffi.encode(processInfo, processInformationType(), { hProcess: null, hThread: null, dwProcessId: 1234, dwThreadId: 5678 })
-        return 1
-      }),
+      createProcessAsUserW: vi.fn(
+        (
+          _token: unknown,
+          _app: unknown,
+          _cmd: unknown,
+          _pa: unknown,
+          _ta: unknown,
+          _inherit: unknown,
+          _flags: unknown,
+          _env: unknown,
+          _cwd: unknown,
+          _si: unknown,
+          processInfo: NativePtr,
+        ) => {
+          koffi.encode(processInfo, processInformationType(), { hProcess: null, hThread: null, dwProcessId: 1234, dwThreadId: 5678 })
+          return 1
+        },
+      ),
     })
-    expect(() => spawnInheritedJobProcess(api, { command: 'probe.exe', args: [], cwd: 'C:\\', token }))
-      .toThrow(/null process\/thread handles/u)
+    expect(() => spawnInheritedJobProcess(api, { command: 'probe.exe', args: [], cwd: 'C:\\', token })).toThrow(
+      /null process\/thread handles/u,
+    )
     expect(closeHandle).toHaveBeenCalledWith(100n)
   })
 
@@ -273,7 +310,7 @@ describe('spawnInheritedJobProcess failure paths', () => {
   })
 
   it('closes the assigned child and Job when ResumeThread fails', () => {
-    const { api, closeHandle, closed } = inheritedApi({ resumeThread: vi.fn(() => 0xFFFFFFFF) })
+    const { api, closeHandle, closed } = inheritedApi({ resumeThread: vi.fn(() => 0xffffffff) })
     let caught: unknown
     try {
       spawnInheritedJobProcess(api, { command: 'probe.exe', args: [], cwd: 'C:\\', token })
@@ -338,7 +375,7 @@ describe('drainPipe', () => {
       closeHandle,
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32ProcessBindings
-    return drainPipe(api, 30n as NativePtr).then((buffer) => {
+    return drainPipe(api, 30n as NativePtr).then(buffer => {
       expect(buffer.length).toBe(0)
       expect(closeHandle).toHaveBeenCalledWith(30n)
     })
@@ -352,8 +389,11 @@ describe('drainPipe', () => {
       closeHandle,
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32ProcessBindings
-    return expect(drainPipe(api, 30n as NativePtr)).rejects.toMatchObject({ api: 'PeekNamedPipe' })
-      .then(() => { expect(closeHandle).toHaveBeenCalledWith(30n) })
+    return expect(drainPipe(api, 30n as NativePtr))
+      .rejects.toMatchObject({ api: 'PeekNamedPipe' })
+      .then(() => {
+        expect(closeHandle).toHaveBeenCalledWith(30n)
+      })
   })
 
   it('reports a ReadFile failure after data was reported available', () => {
@@ -388,7 +428,7 @@ describe('drainPipe', () => {
       closeHandle: vi.fn(() => 1),
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32ProcessBindings
-    return drainPipe(api, 30n as NativePtr).then((buffer) => {
+    return drainPipe(api, 30n as NativePtr).then(buffer => {
       expect(buffer.toString('utf8')).toBe('ab')
     })
   })
@@ -398,7 +438,7 @@ describe('waitForProcessExit', () => {
   it('reports a WaitForSingleObject failure', () => {
     const closeHandle = vi.fn(() => 1)
     const api = {
-      waitForSingleObject: vi.fn(() => 0xFFFFFFFF),
+      waitForSingleObject: vi.fn(() => 0xffffffff),
       getLastError: vi.fn(() => 5),
       closeHandle,
       formatMessageW: vi.fn(() => 0),

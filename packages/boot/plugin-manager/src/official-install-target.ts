@@ -24,13 +24,15 @@ function manifestAt(file: string): WorkspaceManifest {
 export function officialBundleInstallTarget(name: string, installAnchor: string, version: string): { spec: string; version: string } {
   const anchor = realpathSync(installAnchor)
   const installation = manifestAt(anchor)
-  const source = installation.name === '@deepseek-ai/dsh'
-    && Object.values(installation.dependencies ?? {}).some(value => value.startsWith('workspace:'))
+  const source =
+    installation.name === '@deepseek-ai/dsh' && Object.values(installation.dependencies ?? {}).some(value => value.startsWith('workspace:'))
   if (!source) return { spec: `${name}@${version}`, version }
   const root = resolve(dirname(anchor), '../..')
-  if (anchor !== join(root, 'apps', 'cli', 'package.json')
-    || !existsSync(join(root, 'package.json'))
-    || manifestAt(join(root, 'package.json')).name !== '@deepseek-ai/dsh-root') {
+  if (
+    anchor !== join(root, 'apps', 'cli', 'package.json') ||
+    !existsSync(join(root, 'package.json')) ||
+    manifestAt(join(root, 'package.json')).name !== '@deepseek-ai/dsh-root'
+  ) {
     throw new Error(`Official bundle ${name}: source DSH installation ${anchor} requires its complete workspace checkout`)
   }
   const matches = globSync('packages/*/*/package.json', { cwd: root })
@@ -38,7 +40,9 @@ export function officialBundleInstallTarget(name: string, installAnchor: string,
     .filter(entry => entry.manifest.name === name)
   const selected = matches[0]
   if (matches.length !== 1 || selected === undefined) {
-    throw new Error(`Official bundle ${name}: expected one workspace package in ${root}, found ${matches.length}; restore the checkout and run pnpm install`)
+    throw new Error(
+      `Official bundle ${name}: expected one workspace package in ${root}, found ${matches.length}; restore the checkout and run pnpm install`,
+    )
   }
   const { file, manifest } = selected
   const directory = realpathSync(dirname(file))

@@ -65,9 +65,9 @@ function solveResizeRatio(height: number, width: number, budget: number): GridRe
   } else {
     const solvedGridWidth = Math.trunc(idealGridWidth)
     const solvedGridHeight = Math.trunc(idealGridHeight)
-    const scale = Math.min(solvedGridWidth * CELL_SIZE / width, solvedGridHeight * CELL_SIZE / height)
-    bestWidth = Math.trunc(width * scale / PATCH_SIZE) * PATCH_SIZE
-    bestHeight = Math.trunc(height * scale / PATCH_SIZE) * PATCH_SIZE
+    const scale = Math.min((solvedGridWidth * CELL_SIZE) / width, (solvedGridHeight * CELL_SIZE) / height)
+    bestWidth = Math.trunc((width * scale) / PATCH_SIZE) * PATCH_SIZE
+    bestHeight = Math.trunc((height * scale) / PATCH_SIZE) * PATCH_SIZE
   }
   const gridHeight = gridCells(bestHeight)
   const gridWidth = gridCells(bestWidth)
@@ -111,11 +111,13 @@ function resizeOnce(width: number, height: number): GridResize {
 }
 
 function sameResize(a: GridResize, b: GridResize): boolean {
-  return a.gridHeight === b.gridHeight
-    && a.gridWidth === b.gridWidth
-    && a.bestHeight === b.bestHeight
-    && a.bestWidth === b.bestWidth
-    && a.numTokens === b.numTokens
+  return (
+    a.gridHeight === b.gridHeight &&
+    a.gridWidth === b.gridWidth &&
+    a.bestHeight === b.bestHeight &&
+    a.bestWidth === b.bestWidth &&
+    a.numTokens === b.numTokens
+  )
 }
 
 /**

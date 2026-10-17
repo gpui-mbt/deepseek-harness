@@ -12,8 +12,11 @@ function inside(root, file) {
 function unpackPattern(path) {
   // Builder removes backslash escapes; brace expansion also ignores character classes.
   // A brace matches one character, so similarly named neighbors may also be unpacked.
-  return path.split(sep).join('/').replace(/[\[\]{}()*?+@#]/gu,
-    character => character === '{' || character === '}' ? '?' : `[${character}]`).replace(/^!/u, '@(!)')
+  return path
+    .split(sep)
+    .join('/')
+    .replace(/[\[\]{}()*?+@#]/gu, character => (character === '{' || character === '}' ? '?' : `[${character}]`))
+    .replace(/^!/u, '@(!)')
 }
 
 /**
@@ -42,8 +45,10 @@ export async function prepareWindowsAsarUnpack(context, sourceRoot) {
     })
   }
   const existing = config.asarUnpack ?? []
-  config.asarUnpack = [...(typeof existing === 'string' ? [existing] : existing),
-    ...files.map(file => unpackPattern(relative(appDir, join(copyRoot, file))))]
+  config.asarUnpack = [
+    ...(typeof existing === 'string' ? [existing] : existing),
+    ...files.map(file => unpackPattern(relative(appDir, join(copyRoot, file)))),
+  ]
   return files
 }
 

@@ -23,9 +23,9 @@ export async function assemble(ctx: Context, options: Omit<GenerateOptions, 'pro
     message: assembler.message({
       provider: request.provider,
       model: request.model,
-      ...assembler.replayState === undefined ? {} : { replayState: assembler.replayState },
+      ...(assembler.replayState === undefined ? {} : { replayState: assembler.replayState }),
     }),
-    ...assembler.usage !== undefined ? { usage: assembler.usage } : {},
+    ...(assembler.usage !== undefined ? { usage: assembler.usage } : {}),
     finish: assembler.finish,
   }
 }

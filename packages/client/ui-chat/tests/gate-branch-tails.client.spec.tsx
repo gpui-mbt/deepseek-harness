@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
@@ -20,14 +20,19 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-
 describe('render branch tails', () => {
   it('AssistantMarkdown reasoning row is ok-state when not the streaming tail', () => {
     const view = render(
-      <AssistantMarkdown renderSlot={() => null} useDisclosure={useDisclosure} useGroupAction={useSearchableHidden}
+      <AssistantMarkdown
+        renderSlot={() => null}
+        useDisclosure={useDisclosure}
+        useGroupAction={useSearchableHidden}
         usePresentation={useDetailedPresentation}
         t={t}
-        blocks={[{ kind: 'reasoning', text: 'done thinking' }, { kind: 'text', text: 'answer' }]}
+        blocks={[
+          { kind: 'reasoning', text: 'done thinking' },
+          { kind: 'text', text: 'answer' },
+        ]}
         streaming
         loadImage={unusedImageLoader}
       />,
@@ -64,7 +69,10 @@ describe('render branch tails', () => {
 
   it('AssistantMarkdown reasoning as the streaming tail renders the running ring', () => {
     const view = render(
-      <AssistantMarkdown renderSlot={() => null} useDisclosure={useDisclosure} useGroupAction={useSearchableHidden}
+      <AssistantMarkdown
+        renderSlot={() => null}
+        useDisclosure={useDisclosure}
+        useGroupAction={useSearchableHidden}
         usePresentation={useDetailedPresentation}
         t={t}
         blocks={[{ kind: 'reasoning', text: 'still thinking' }]}
@@ -74,5 +82,4 @@ describe('render branch tails', () => {
     )
     expect(view.container.querySelector('[data-state="running"]')).not.toBeNull()
   })
-
 })

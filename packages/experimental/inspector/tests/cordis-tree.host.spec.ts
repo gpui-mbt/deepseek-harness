@@ -2,7 +2,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import WebSocket, { type RawData } from 'ws'
-import { afterEach, describe, expect, it, vi, type TestContext } from 'vitest'
+import { afterEach, describe, expect, it, vi, type TestContext } from 'vite-plus/test'
 import { CordisTreeCollector } from '../src/shared/cordis/collector.ts'
 import { observeCordisTree } from '../src/shared/cordis/observer.ts'
 import * as inspectorBridge from '../src/host/bridge/controller.ts'
@@ -49,7 +49,7 @@ class CdpClient {
   readonly events: CdpMessage[] = []
 
   private constructor(private readonly socket: WebSocket) {
-    socket.on('message', (data) => {
+    socket.on('message', data => {
       const message = JSON.parse(rawText(data)) as CdpMessage
       if (message.id !== undefined) this.pending.get(message.id)?.(message)
       else this.events.push(message)
@@ -59,7 +59,9 @@ class CdpClient {
   static async connect(url: string): Promise<CdpClient> {
     const socket = new WebSocket(url)
     await new Promise<void>((resolve, reject) => {
-      socket.once('open', () => { resolve() })
+      socket.once('open', () => {
+        resolve()
+      })
       socket.once('error', reject)
     })
     return new CdpClient(socket)
@@ -68,8 +70,10 @@ class CdpClient {
   call(method: string, params: Record<string, unknown> = {}): Promise<CdpMessage> {
     const id = ++this.nextId
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { reject(new Error(`CDP call timed out: ${method}`)) }, 5_000)
-      this.pending.set(id, (message) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`CDP call timed out: ${method}`))
+      }, 5_000)
+      this.pending.set(id, message => {
         clearTimeout(timer)
         this.pending.delete(id)
         resolve(message)
@@ -80,7 +84,11 @@ class CdpClient {
 
   async close(): Promise<void> {
     if (this.socket.readyState === WebSocket.CLOSED) return
-    const closed = new Promise<void>((resolve) => { this.socket.once('close', () => { resolve() }) })
+    const closed = new Promise<void>(resolve => {
+      this.socket.once('close', () => {
+        resolve()
+      })
+    })
     this.socket.close()
     await closed
   }
@@ -107,13 +115,13 @@ describe('Cordis tree inspection', () => {
   const observers: Array<() => void> = []
   const fibers: Array<{ dispose(): Promise<void> }> = []
 
-  it('closes a late-starting Worker after test cancellation without returning its handle', async (test) => {
+  it('closes a late-starting Worker after test cancellation without returning its handle', async test => {
     const release = Promise.withResolvers<undefined>()
     const controller = new AbortController()
     const cleanups: Array<Parameters<TestContext['onTestFinished']>[0]> = []
     let starting: Promise<InspectorHandle> | undefined
     const start = inspectorBridge.startInspector
-    const spy = vi.spyOn(inspectorBridge, 'startInspector').mockImplementation(async (options) => {
+    const spy = vi.spyOn(inspectorBridge, 'startInspector').mockImplementation(async options => {
       starting = start(options)
       const handle = await starting
       await release.promise
@@ -126,11 +134,16 @@ describe('Cordis tree inspection', () => {
       const [started] = await Promise.allSettled([starting])
       if (started.status === 'fulfilled') await started.value.close()
     })
-    const pending = startTestInspector({ port: 0, captureFetch: false }, {
-      ...test,
-      signal: controller.signal,
-      onTestFinished: (cleanup) => { cleanups.push(cleanup) },
-    })
+    const pending = startTestInspector(
+      { port: 0, captureFetch: false },
+      {
+        ...test,
+        signal: controller.signal,
+        onTestFinished: cleanup => {
+          cleanups.push(cleanup)
+        },
+      },
+    )
     const result = pending.then(
       handle => ({ status: 'fulfilled' as const, handle }),
       (reason: unknown) => ({ status: 'rejected' as const, reason }),
@@ -176,13 +189,17 @@ describe('Cordis tree inspection', () => {
     const fiberNode = nodes.find(node => node.kind === 'fiber' && node.uid === fiber.uid)
     if (fiberNode === undefined) throw new Error('expected child Fiber node')
     expect(nodes.every(node => !('id' in node) && !('parentId' in node))).toBe(true)
-    expect(() => parseCordisTreeSnapshot({
-      ...snapshot,
-      root: { ...snapshot.root, children: [{ ...fiberNode, children: [] }] },
-    }, 100)).toThrow('exactly one Context')
+    expect(() =>
+      parseCordisTreeSnapshot(
+        {
+          ...snapshot,
+          root: { ...snapshot.root, children: [{ ...fiberNode, children: [] }] },
+        },
+        100,
+      ),
+    ).toThrow('exactly one Context')
     const contextNode = fiberNode.children[0]
-    const isolateNode = nodes.find(node => node.kind === 'context'
-      && collector.objects.resolve(node.objectHandle) === parent)
+    const isolateNode = nodes.find(node => node.kind === 'context' && collector.objects.resolve(node.objectHandle) === parent)
 
     expect(snapshot.root.kind).toBe('context')
     expect(nodes.some(node => node.kind === 'fiber' && node.uid === 0)).toBe(false)
@@ -258,8 +275,7 @@ describe('Cordis tree inspection', () => {
     const nestedBound = new CordisTreeCollector(nestedRoot, { maxNodes: 100, maxBytes: nestedBytes - 1 })
     const nestedSnapshot = nestedBound.snapshot()
     expect(nestedSnapshot.truncated).toBe(true)
-    expect(treeNodes(nestedSnapshot.root)
-      .some(node => node.kind === 'fiber' && node.uid === innerFiber.uid)).toBe(false)
+    expect(treeNodes(nestedSnapshot.root).some(node => node.kind === 'fiber' && node.uid === innerFiber.uid)).toBe(false)
     nestedBound.close()
 
     const impossible = new CordisTreeCollector(root, { maxNodes: 0, maxBytes: 1 })
@@ -328,27 +344,31 @@ describe('Cordis tree inspection', () => {
     store.replace(first, [{ sequence: 1, monotonicMs: 1, topic: 'cordis/tree', payload: asJson(snapshot) }])
 
     const object = snapshot.root
-    expect(store.resolveObject(first, {
-      registryId: snapshot.objectRegistryId,
-      handle: object.objectHandle,
-    })).toBeDefined()
+    expect(
+      store.resolveObject(first, {
+        registryId: snapshot.objectRegistryId,
+        handle: object.objectHandle,
+      }),
+    ).toBeDefined()
     store.close(first, 'transport closed')
     expect(store.snapshots()[0]?.connection).toEqual({ state: 'disconnected', reason: 'transport closed' })
-    expect(store.resolveObject(first, {
-      registryId: snapshot.objectRegistryId,
-      handle: object.objectHandle,
-    })).toBeUndefined()
+    expect(
+      store.resolveObject(first, {
+        registryId: snapshot.objectRegistryId,
+        handle: object.objectHandle,
+      }),
+    ).toBeUndefined()
 
     const reconnected = source('client-a', 'generation-2')
-    store.replace(reconnected, [{
-      sequence: 1,
-      monotonicMs: 2,
-      topic: 'cordis/tree',
-      payload: asJson({ ...snapshot, revision: snapshot.revision + 1 }),
-    }])
-    expect(store.snapshots()).toEqual([
-      expect.objectContaining({ source: reconnected, connection: { state: 'connected' } }),
+    store.replace(reconnected, [
+      {
+        sequence: 1,
+        monotonicMs: 2,
+        topic: 'cordis/tree',
+        payload: asJson({ ...snapshot, revision: snapshot.revision + 1 }),
+      },
     ])
+    expect(store.snapshots()).toEqual([expect.objectContaining({ source: reconnected, connection: { state: 'connected' } })])
 
     store.close(reconnected, 'transport closed again')
     const other = source('client-b', 'generation-1')
@@ -365,7 +385,9 @@ describe('Cordis tree inspection', () => {
     const store = new CordisTreeStore({ maxNodes: 100, maxDisconnectedTrees: 1 })
     const backend = new CordisDomBackend(store)
     const changes: CordisDomChange[] = []
-    backend.subscribe((event) => { changes.push(event) })
+    backend.subscribe(event => {
+      changes.push(event)
+    })
     const host = { ...source('host', 'generation-1'), kind: 'host' as const }
     const context = (objectHandle: string, children: unknown[] = []): Record<string, unknown> => ({
       kind: 'context',
@@ -378,13 +400,14 @@ describe('Cordis tree inspection', () => {
       objectHandle,
       children: [context(`${objectHandle}-context`)],
     })
-    const snapshot = (revision: number, children: unknown[]): InspectorJsonValue => ({
-      schemaVersion: 0,
-      revision,
-      objectRegistryId: 'registry',
-      root: context('root', children),
-      truncated: false,
-    }) as InspectorJsonValue
+    const snapshot = (revision: number, children: unknown[]): InspectorJsonValue =>
+      ({
+        schemaVersion: 0,
+        revision,
+        objectRegistryId: 'registry',
+        root: context('root', children),
+        truncated: false,
+      }) as InspectorJsonValue
     const replace = (revision: number, children: unknown[]): void => {
       store.append(host, [{ sequence: revision, monotonicMs: revision, topic: 'cordis/tree', payload: snapshot(revision, children) }])
     }
@@ -397,7 +420,10 @@ describe('Cordis tree inspection', () => {
 
     replace(3, [fiber(2, 'fiber-1')])
     expect(changes).toEqual([
-      expect.objectContaining({ type: 'tree-mutated', mutations: [expect.objectContaining({ type: 'attribute-modified', name: 'uid', value: '2' })] }),
+      expect.objectContaining({
+        type: 'tree-mutated',
+        mutations: [expect.objectContaining({ type: 'attribute-modified', name: 'uid', value: '2' })],
+      }),
     ])
     changes.length = 0
 
@@ -421,13 +447,11 @@ describe('Cordis tree inspection', () => {
 
     changes.length = 0
     replace(8, [{ kind: 'fiber', uid: 3, objectHandle: 'context-a', children: [context('changed-kind')] }])
-    expect(changes).toEqual([
-      expect.objectContaining({ type: 'tree-mutated', mutations: [{ type: 'document-updated' }] }),
-    ])
+    expect(changes).toEqual([expect.objectContaining({ type: 'tree-mutated', mutations: [{ type: 'document-updated' }] })])
     backend.close()
   })
 
-  it('projects Host and Client trees and resolves both node kinds to RemoteObjects', async (test) => {
+  it('projects Host and Client trees and resolves both node kinds to RemoteObjects', async test => {
     inspector = await startTestInspector({ port: 0, captureFetch: false, maxCordisNodes: 100 }, test)
     const host = new Context()
     const hostFiber = host.plugin({ name: 'host-child', apply() {} })
@@ -476,9 +500,7 @@ describe('Cordis tree inspection', () => {
       for (const entityKind of ['context', 'fiber']) {
         const node = realm === undefined ? undefined : walk(realm).find(item => item.localName === entityKind)
         if (node === undefined) throw new Error(`missing ${realmKind} ${entityKind} node`)
-        expect(node.attributes ?? []).toEqual(entityKind === 'fiber'
-          ? ['uid', expect.stringMatching(/^\d+$/u)]
-          : [])
+        expect(node.attributes ?? []).toEqual(entityKind === 'fiber' ? ['uid', expect.stringMatching(/^\d+$/u)] : [])
         expect(node.nodeId).toBeGreaterThan(0)
         expect(node.backendNodeId).toBeGreaterThan(0)
         const objectGroup = `tree-${realmKind}-${entityKind}`
@@ -503,20 +525,26 @@ describe('Cordis tree inspection', () => {
     const hostNode = walk(hostContainer(document)!).find(item => item.localName === 'context')!
     const hostEvaluated = await cdp.call('Runtime.evaluate', { expression: 'globalThis.__cordisHostProbe' })
     expect(hostEvaluated.result?.result).toMatchObject({ type: 'object', subtype: 'node', className: 'Context' })
-    await expect(cdp.call('DOM.requestNode', {
-      objectId: (hostEvaluated.result?.result as Record<string, unknown>).objectId,
-    })).resolves.toMatchObject({ result: { nodeId: hostNode.nodeId } })
+    await expect(
+      cdp.call('DOM.requestNode', {
+        objectId: (hostEvaluated.result?.result as Record<string, unknown>).objectId,
+      }),
+    ).resolves.toMatchObject({ result: { nodeId: hostNode.nodeId } })
     const hostThrown = await cdp.call('Runtime.evaluate', { expression: 'throw globalThis.__cordisHostProbe' })
     const hostException = hostThrown.result?.exceptionDetails as Record<string, unknown>
     const hostExceptionObject = hostException.exception as Record<string, unknown>
     expect(hostExceptionObject).toMatchObject({ subtype: 'node', className: 'Context' })
-    await expect(cdp.call('DOM.requestNode', { objectId: hostExceptionObject.objectId }))
-      .resolves.toMatchObject({ result: { nodeId: hostNode.nodeId } })
+    await expect(cdp.call('DOM.requestNode', { objectId: hostExceptionObject.objectId })).resolves.toMatchObject({
+      result: { nodeId: hostNode.nodeId },
+    })
 
     let clientContextId: number | undefined
     await vi.waitFor(() => {
-      const event = cdp!.events.find(item => item.method === 'Runtime.executionContextCreated'
-        && String((item.params?.context as { name?: string } | undefined)?.name).startsWith('Client'))
+      const event = cdp!.events.find(
+        item =>
+          item.method === 'Runtime.executionContextCreated' &&
+          String((item.params?.context as { name?: string } | undefined)?.name).startsWith('Client'),
+      )
       clientContextId = (event?.params?.context as { id?: number } | undefined)?.id
       expect(clientContextId).toBeTypeOf('number')
     })
@@ -526,9 +554,11 @@ describe('Cordis tree inspection', () => {
       contextId: clientContextId,
     })
     expect(clientEvaluated.result?.result).toMatchObject({ type: 'object', subtype: 'node', className: 'Context' })
-    await expect(cdp.call('DOM.requestNode', {
-      objectId: (clientEvaluated.result?.result as Record<string, unknown>).objectId,
-    })).resolves.toMatchObject({ result: { nodeId: clientNode.nodeId } })
+    await expect(
+      cdp.call('DOM.requestNode', {
+        objectId: (clientEvaluated.result?.result as Record<string, unknown>).objectId,
+      }),
+    ).resolves.toMatchObject({ result: { nodeId: clientNode.nodeId } })
     const clientThrown = await cdp.call('Runtime.evaluate', {
       expression: 'throw globalThis.__cordisClientProbe',
       contextId: clientContextId,
@@ -536,30 +566,35 @@ describe('Cordis tree inspection', () => {
     const clientException = clientThrown.result?.exceptionDetails as Record<string, unknown>
     const clientExceptionObject = clientException.exception as Record<string, unknown>
     expect(clientExceptionObject).toMatchObject({ subtype: 'node', className: 'Context' })
-    await expect(cdp.call('DOM.requestNode', { objectId: clientExceptionObject.objectId }))
-      .resolves.toMatchObject({ result: { nodeId: clientNode.nodeId } })
+    await expect(cdp.call('DOM.requestNode', { objectId: clientExceptionObject.objectId })).resolves.toMatchObject({
+      result: { nodeId: clientNode.nodeId },
+    })
 
     const consoleOffset = cdp.events.length
     await clientSource.logCordis('cordis-client-console')
     let consoleObject: Record<string, unknown> | undefined
     let consoleFiber: Record<string, unknown> | undefined
     await vi.waitFor(() => {
-      const event = cdp!.events.slice(consoleOffset).find((candidate) => {
+      const event = cdp!.events.slice(consoleOffset).find(candidate => {
         const params = candidate.params
-        if (params === undefined
-          || candidate.method !== 'Runtime.consoleAPICalled'
-          || params.executionContextId !== clientContextId
-          || !Array.isArray(params.args)) return false
+        if (
+          params === undefined ||
+          candidate.method !== 'Runtime.consoleAPICalled' ||
+          params.executionContextId !== clientContextId ||
+          !Array.isArray(params.args)
+        )
+          return false
         return params.args.some(argument => (argument as { value?: unknown }).value === 'cordis-client-console')
       })
       const args = event?.params?.args
-      consoleObject = Array.isArray(args) ? args[0] as Record<string, unknown> | undefined : undefined
-      consoleFiber = Array.isArray(args) ? args[1] as Record<string, unknown> | undefined : undefined
+      consoleObject = Array.isArray(args) ? (args[0] as Record<string, unknown> | undefined) : undefined
+      consoleFiber = Array.isArray(args) ? (args[1] as Record<string, unknown> | undefined) : undefined
       expect(consoleObject).toMatchObject({ type: 'object', subtype: 'node', className: 'Context' })
       expect(consoleFiber).toMatchObject({ type: 'object', subtype: 'node', className: 'Fiber' })
     })
-    await expect(cdp.call('DOM.requestNode', { objectId: consoleObject!.objectId }))
-      .resolves.toMatchObject({ result: { nodeId: clientNode.nodeId } })
+    await expect(cdp.call('DOM.requestNode', { objectId: consoleObject!.objectId })).resolves.toMatchObject({
+      result: { nodeId: clientNode.nodeId },
+    })
     const requestedFiber = await cdp.call('DOM.requestNode', { objectId: consoleFiber!.objectId })
     const requestedFiberId = (requestedFiber.result as { nodeId?: number } | undefined)?.nodeId
     const clientFiberNode = walk(clientContainers(document)[0]!).find(node => node.nodeId === requestedFiberId)
@@ -584,8 +619,9 @@ describe('Cordis tree inspection', () => {
     clientSource = undefined
     await vi.waitFor(() => {
       const events = cdp!.events.slice(eventOffset)
-      expect(events.some(event => event.method === 'Runtime.executionContextDestroyed'
-        && event.params?.executionContextId === clientContextId)).toBe(true)
+      expect(
+        events.some(event => event.method === 'Runtime.executionContextDestroyed' && event.params?.executionContextId === clientContextId),
+      ).toBe(true)
       expect(events).toContainEqual({
         method: 'DOM.attributeModified',
         params: { nodeId: clientContainers(document)[0]!.nodeId, name: 'disconnected', value: '' },
@@ -597,20 +633,22 @@ describe('Cordis tree inspection', () => {
     const disconnectedClient = clientContainers(disconnectedDocument)[0]
     expect(disconnectedClient).toBeDefined()
     expect(disconnectedClient?.attributes).toEqual(['disconnected', ''])
-    expect(walk(disconnectedClient!).find(node => node.backendNodeId === clientNode.backendNodeId)?.nodeId)
-      .toBe(clientNode.nodeId)
-    expect((await cdp.call('DOM.resolveNode', { nodeId: clientNode.nodeId })).error?.message)
-      .toContain('Cordis realm is disconnected')
-    expect((await cdp.call('DOM.requestNode', {
-      objectId: (clientEvaluated.result?.result as Record<string, unknown>).objectId,
-    })).error).toBeDefined()
+    expect(walk(disconnectedClient!).find(node => node.backendNodeId === clientNode.backendNodeId)?.nodeId).toBe(clientNode.nodeId)
+    expect((await cdp.call('DOM.resolveNode', { nodeId: clientNode.nodeId })).error?.message).toContain('Cordis realm is disconnected')
+    expect(
+      (
+        await cdp.call('DOM.requestNode', {
+          objectId: (clientEvaluated.result?.result as Record<string, unknown>).objectId,
+        })
+      ).error,
+    ).toBeDefined()
     const disconnectedTree = (await cdp.call('DSHInspector.getCordisTree')).result?.tree as {
       clients: Array<{ connection: { state: string } }>
     }
     expect(disconnectedTree.clients[0]?.connection.state).toBe('disconnected')
   })
 
-  it('emits only node-level DOM changes for Client snapshots', async (test) => {
+  it('emits only node-level DOM changes for Client snapshots', async test => {
     inspector = await startTestInspector({ port: 0, captureFetch: false, maxCordisNodes: 100 }, test)
     cdp = await CdpClient.connect(inspector.endpoint.webSocketDebuggerUrl)
     const initialDocument = (await cdp.call('DOM.getDocument')).result?.root as CdpNode
@@ -650,9 +688,14 @@ describe('Cordis tree inspection', () => {
     const uid = await clientSource.addFiber()
     let insertedNodeId: number | undefined
     await vi.waitFor(() => {
-      const inserted = cdp!.events.slice(offset).find(event => event.method === 'DOM.childNodeInserted'
-        && (event.params?.node as CdpNode | undefined)?.localName === 'fiber'
-        && (event.params?.node as CdpNode | undefined)?.attributes?.includes(String(uid)))
+      const inserted = cdp!.events
+        .slice(offset)
+        .find(
+          event =>
+            event.method === 'DOM.childNodeInserted' &&
+            (event.params?.node as CdpNode | undefined)?.localName === 'fiber' &&
+            (event.params?.node as CdpNode | undefined)?.attributes?.includes(String(uid)),
+        )
       insertedNodeId = (inserted?.params?.node as CdpNode | undefined)?.nodeId
       expect(insertedNodeId).toBeTypeOf('number')
       expect(cdp!.events.slice(offset).some(event => event.method === 'DOM.documentUpdated')).toBe(false)
@@ -668,13 +711,15 @@ describe('Cordis tree inspection', () => {
     })
   })
 
-  it('serves three document levels by default and withheld levels on demand', async (test) => {
+  it('serves three document levels by default and withheld levels on demand', async test => {
     inspector = await startTestInspector({ port: 0, captureFetch: false, maxCordisNodes: 100 }, test)
     const host = new Context()
     let innerFiber: { uid: number | null } | undefined
     const outer = host.plugin({
       name: 'outer',
-      apply(ctx: Context) { innerFiber = ctx.plugin({ name: 'inner', apply() {} }) },
+      apply(ctx: Context) {
+        innerFiber = ctx.plugin({ name: 'inner', apply() {} })
+      },
     })
     fibers.push(outer)
     await outer.await()
@@ -689,8 +734,9 @@ describe('Cordis tree inspection', () => {
     let outerNode: CdpNode | undefined
     await vi.waitFor(async () => {
       const document = (await cdp!.call('DOM.getDocument')).result?.root as CdpNode
-      outerNode = hostContainer(document)?.children?.[0]?.children
-        ?.find(node => node.localName === 'fiber' && node.attributes?.includes(String(outer.uid)))
+      outerNode = hostContainer(document)?.children?.[0]?.children?.find(
+        node => node.localName === 'fiber' && node.attributes?.includes(String(outer.uid)),
+      )
       expect(outerNode).toBeDefined()
     })
     expect(outerNode?.children).toBeUndefined()
@@ -750,9 +796,11 @@ describe('Cordis tree inspection', () => {
     const evaluated = await secondCdp.call('Runtime.evaluate', { expression: 'globalThis.__cordisHostProbe' })
     expect(evaluated.result?.result).toMatchObject({ subtype: 'node', className: 'Fiber' })
     offset = secondCdp.events.length
-    await expect(secondCdp.call('DOM.requestNode', {
-      objectId: (evaluated.result?.result as Record<string, unknown>).objectId,
-    })).resolves.toMatchObject({ result: { nodeId: innerNodeId } })
+    await expect(
+      secondCdp.call('DOM.requestNode', {
+        objectId: (evaluated.result?.result as Record<string, unknown>).objectId,
+      }),
+    ).resolves.toMatchObject({ result: { nodeId: innerNodeId } })
     expect(secondCdp.events.slice(offset).some(event => event.method === 'DOM.setChildNodes')).toBe(false)
   })
 
@@ -763,7 +811,9 @@ describe('Cordis tree inspection', () => {
       const host = new Context()
       const outer = host.plugin({
         name: 'outer',
-        apply(ctx: Context) { ctx.isolate('original').plugin({ name: 'original-child', apply() {} }) },
+        apply(ctx: Context) {
+          ctx.isolate('original').plugin({ name: 'original-child', apply() {} })
+        },
       })
       fibers.push(outer)
       await outer.await()
@@ -772,11 +822,14 @@ describe('Cordis tree inspection', () => {
 
       let outerNode: CdpNode | undefined
       await vi.waitFor(async () => {
-        const document = (await cdp!.call('DOM.getDocument', {
-          depth: delivery === 'getDocument' ? -1 : 3,
-        })).result?.root as CdpNode
-        outerNode = hostContainer(document)?.children?.[0]?.children
-          ?.find(node => node.localName === 'fiber' && node.attributes?.includes(String(outer.uid)))
+        const document = (
+          await cdp!.call('DOM.getDocument', {
+            depth: delivery === 'getDocument' ? -1 : 3,
+          })
+        ).result?.root as CdpNode
+        outerNode = hostContainer(document)?.children?.[0]?.children?.find(
+          node => node.localName === 'fiber' && node.attributes?.includes(String(outer.uid)),
+        )
         expect(outerNode?.attributes).toEqual(['uid', String(outer.uid)])
       })
 
@@ -818,19 +871,23 @@ describe('Cordis tree inspection', () => {
       const second = outer.ctx.plugin({ name: 'second-direct-child', apply() {} })
       await Promise.all([first.await(), second.await()])
       await waitForChildren(3)
-      expect(cdp.events.slice(offset).filter(event => event.method?.startsWith('DOM.'))).toEqual([{
-        method: 'DOM.childNodeCountUpdated',
-        params: { nodeId: parent.nodeId, childNodeCount: 3 },
-      }])
+      expect(cdp.events.slice(offset).filter(event => event.method?.startsWith('DOM.'))).toEqual([
+        {
+          method: 'DOM.childNodeCountUpdated',
+          params: { nodeId: parent.nodeId, childNodeCount: 3 },
+        },
+      ])
       expect(secondCdp.events.filter(event => event.method?.startsWith('DOM.'))).toEqual([])
 
       offset = cdp.events.length
       await first.dispose()
       await waitForChildren(2)
-      expect(cdp.events.slice(offset).filter(event => event.method?.startsWith('DOM.'))).toEqual([{
-        method: 'DOM.childNodeCountUpdated',
-        params: { nodeId: parent.nodeId, childNodeCount: 2 },
-      }])
+      expect(cdp.events.slice(offset).filter(event => event.method?.startsWith('DOM.'))).toEqual([
+        {
+          method: 'DOM.childNodeCountUpdated',
+          params: { nodeId: parent.nodeId, childNodeCount: 2 },
+        },
+      ])
       expect(secondCdp.events.filter(event => event.method?.startsWith('DOM.'))).toEqual([])
 
       offset = cdp.events.length
@@ -844,21 +901,26 @@ describe('Cordis tree inspection', () => {
       offset = cdp.events.length
       await second.dispose()
       await waitForChildren(1)
-      expect(cdp.events.slice(offset).filter(event => event.method?.startsWith('DOM.'))).toEqual([{
-        method: 'DOM.childNodeRemoved',
-        params: { parentNodeId: parent.nodeId, nodeId: children[0]!.nodeId },
-      }])
+      expect(cdp.events.slice(offset).filter(event => event.method?.startsWith('DOM.'))).toEqual([
+        {
+          method: 'DOM.childNodeRemoved',
+          params: { parentNodeId: parent.nodeId, nodeId: children[0]!.nodeId },
+        },
+      ])
     },
   )
 
-  it('restores a disconnected Client tree from a new transport generation', async (test) => {
-    inspector = await startTestInspector({
-      port: 0,
-      captureFetch: false,
-      maxCordisNodes: 100,
-      clientReconnectBaseMs: 10,
-      clientReconnectMaxMs: 20,
-    }, test)
+  it('restores a disconnected Client tree from a new transport generation', async test => {
+    inspector = await startTestInspector(
+      {
+        port: 0,
+        captureFetch: false,
+        maxCordisNodes: 100,
+        clientReconnectBaseMs: 10,
+        clientReconnectMaxMs: 20,
+      },
+      test,
+    )
     clientSource = await InspectorClientFixture.start(inspector.endpoint.client, { label: 'Reconnect Client' })
     cdp = await CdpClient.connect(inspector.endpoint.webSocketDebuggerUrl)
     await cdp.call('Runtime.enable')
@@ -868,8 +930,11 @@ describe('Cordis tree inspection', () => {
     await vi.waitFor(async () => {
       document = (await cdp!.call('DOM.getDocument')).result?.root as CdpNode
       expect(clientContainers(document)).toHaveLength(1)
-      const created = cdp!.events.find(event => event.method === 'Runtime.executionContextCreated'
-        && String((event.params?.context as { name?: string } | undefined)?.name).startsWith('Client'))
+      const created = cdp!.events.find(
+        event =>
+          event.method === 'Runtime.executionContextCreated' &&
+          String((event.params?.context as { name?: string } | undefined)?.name).startsWith('Client'),
+      )
       contextId = (created?.params?.context as { id?: number } | undefined)?.id
       expect(contextId).toBeTypeOf('number')
     })
@@ -883,9 +948,10 @@ describe('Cordis tree inspection', () => {
 
     await vi.waitFor(() => {
       const events = cdp!.events.slice(eventOffset)
-      const destroyed = events.findIndex(event => event.method === 'Runtime.executionContextDestroyed'
-        && event.params?.executionContextId === contextId)
-      const created = events.findIndex((event) => {
+      const destroyed = events.findIndex(
+        event => event.method === 'Runtime.executionContextDestroyed' && event.params?.executionContextId === contextId,
+      )
+      const created = events.findIndex(event => {
         if (event.method !== 'Runtime.executionContextCreated') return false
         const context = event.params?.context as { id?: number } | undefined
         return typeof context?.id === 'number' && context.id !== contextId
@@ -896,11 +962,15 @@ describe('Cordis tree inspection', () => {
       expect(created).toBeGreaterThan(destroyed)
       expect(removed).toBeGreaterThan(created)
       expect(inserted).toBeGreaterThan(removed)
-      expect(events.slice(0, created).filter(event => event.method?.startsWith('DOM.'))).toEqual([{
-        method: 'DOM.attributeModified', params: { nodeId: clientNodeId, name: 'disconnected', value: '' },
-      }])
+      expect(events.slice(0, created).filter(event => event.method?.startsWith('DOM.'))).toEqual([
+        {
+          method: 'DOM.attributeModified',
+          params: { nodeId: clientNodeId, name: 'disconnected', value: '' },
+        },
+      ])
       expect(events).toContainEqual({
-        method: 'DOM.attributeRemoved', params: { nodeId: clientNodeId, name: 'disconnected' },
+        method: 'DOM.attributeRemoved',
+        params: { nodeId: clientNodeId, name: 'disconnected' },
       })
       expect(events.some(event => event.method === 'DOM.documentUpdated')).toBe(false)
     })
@@ -926,7 +996,7 @@ describe('Cordis tree inspection', () => {
 
 describe('Client-scoped Cordis DOM', () => {
   for (const mode of ['full', 'scoped'] as const) {
-    it(`publishes disconnected attributes and removes them on reconnect (${mode})`, async (test) => {
+    it(`publishes disconnected attributes and removes them on reconnect (${mode})`, async test => {
       const h = scopedTreeFixture(test)
       h.publish(h.host, 1001)
       h.publish(h.b, 2002)
@@ -942,13 +1012,18 @@ describe('Client-scoped Cordis DOM', () => {
       expect(wrapper.description).toBe('<client>')
 
       h.store.close(h.a, 'Client closed')
-      expect(events).toEqual([{
-        method: 'DOM.attributeModified', params: { nodeId: client.nodeId, name: 'disconnected', value: '' },
-      }])
+      expect(events).toEqual([
+        {
+          method: 'DOM.attributeModified',
+          params: { nodeId: client.nodeId, name: 'disconnected', value: '' },
+        },
+      ])
       expect((await call('DOM.getAttributes', { nodeId: client.nodeId })).result?.attributes).toEqual(['disconnected', ''])
       expect(backend.document().byBackendId.get(wrapper.backendNodeId)?.description).toBe('<client disconnected>')
-      expect((await call('DOM.describeNode', { nodeId: entity.nodeId })).result?.node)
-        .toMatchObject({ nodeId: entity.nodeId, backendNodeId: entity.backendNodeId })
+      expect((await call('DOM.describeNode', { nodeId: entity.nodeId })).result?.node).toMatchObject({
+        nodeId: entity.nodeId,
+        backendNodeId: entity.backendNodeId,
+      })
       expect((await call('DOM.resolveNode', { nodeId: entity.nodeId })).error?.message).toContain('Cordis realm is disconnected')
       expect(backend.nodeForObject(h.a, h.reference)).toBeUndefined()
       expect(backend.document().root.children[0]!.attributes).toEqual([])
@@ -958,26 +1033,33 @@ describe('Client-scoped Cordis DOM', () => {
 
       events.length = 0
       h.publish(source('scope-a', 'generation-2'), 3004)
-      expect(events.filter(event => event.method?.startsWith('DOM.attribute'))).toEqual([{
-        method: 'DOM.attributeRemoved', params: { nodeId: client.nodeId, name: 'disconnected' },
-      }])
+      expect(events.filter(event => event.method?.startsWith('DOM.attribute'))).toEqual([
+        {
+          method: 'DOM.attributeRemoved',
+          params: { nodeId: client.nodeId, name: 'disconnected' },
+        },
+      ])
       expect(events.some(event => event.method === 'DOM.documentUpdated')).toBe(false)
       expect((await call('DOM.getAttributes', { nodeId: client.nodeId })).result?.attributes).toEqual([])
       expect(backend.document().byBackendId.get(wrapper.backendNodeId)?.description).toBe('<client>')
-      expect((await call('DOM.describeNode', { nodeId: client.nodeId })).result?.node)
-        .toMatchObject({ nodeId: client.nodeId, backendNodeId: client.backendNodeId })
+      expect((await call('DOM.describeNode', { nodeId: client.nodeId })).result?.node).toMatchObject({
+        nodeId: client.nodeId,
+        backendNodeId: client.backendNodeId,
+      })
       expect((await call('DOM.describeNode', { nodeId: entity.nodeId })).error).toBeDefined()
     })
   }
 
-  it('indexes only Host and the selected Client without changing the global backend', (test) => {
+  it('indexes only Host and the selected Client without changing the global backend', test => {
     const h = scopedTreeFixture(test)
     h.publish(h.host, 1001)
     h.publish(h.b, 2002)
     h.publish(h.a, 3003)
     const scoped = h.scope(h.a)
-    const sourceIds = (backend: CordisDomBackend) => new Set([...backend.document().byBackendId.values()]
-      .flatMap(node => node.object === undefined ? [] : [node.object.source.sourceId]))
+    const sourceIds = (backend: CordisDomBackend) =>
+      new Set(
+        [...backend.document().byBackendId.values()].flatMap(node => (node.object === undefined ? [] : [node.object.source.sourceId])),
+      )
     expect(sourceIds(h.global)).toEqual(new Set([h.host.sourceId, h.a.sourceId, h.b.sourceId]))
     expect(sourceIds(scoped)).toEqual(new Set([h.host.sourceId, h.a.sourceId]))
     expect(scoped.document().root.children[1]!.children).toHaveLength(1)
@@ -987,15 +1069,16 @@ describe('Client-scoped Cordis DOM', () => {
     }
     expect(scoped.nodeForObject(h.b, h.reference)).toBeUndefined()
     expect(scoped.nodeForRealm({ ...h.b, realmId: inspectorId<'InspectorRealmId'>('realm-b', 'realmId') }, h.reference)).toBeUndefined()
-    expect(scoped.nodeForRealm({ ...h.a, realmId: inspectorId<'InspectorRealmId'>('realm-a', 'realmId') }, h.reference)?.object?.source)
-      .toBe(h.a)
+    expect(
+      scoped.nodeForRealm({ ...h.a, realmId: inspectorId<'InspectorRealmId'>('realm-a', 'realmId') }, h.reference)?.object?.source,
+    ).toBe(h.a)
     // Registry and handle text are source-local; B intentionally precedes A with the same values.
     expect(h.global.nodeForObjectKind('client', h.reference)?.object?.source).toBe(h.b)
     expect(scoped.nodeForObjectKind('client', h.reference)?.object?.source).toBe(h.a)
     expect(scoped.nodeForObjectKind('host', h.reference)?.object?.source).toBe(h.host)
   })
 
-  it('keeps DOM searches and frontend NodeIds inside the selected projection', async (test) => {
+  it('keeps DOM searches and frontend NodeIds inside the selected projection', async test => {
     const h = scopedTreeFixture(test)
     h.publish(h.host, 1001)
     h.publish(h.b, 2002)
@@ -1006,7 +1089,10 @@ describe('Client-scoped Cordis DOM', () => {
     const root = response.result?.root as CdpNode
     expect(clientContainers(root)).toHaveLength(1)
     const fibers = walk(root).filter(node => node.localName === 'fiber')
-    expect(fibers.map(node => node.attributes)).toEqual([['uid', '1001'], ['uid', '3003']])
+    expect(fibers.map(node => node.attributes)).toEqual([
+      ['uid', '1001'],
+      ['uid', '3003'],
+    ])
     const backendIds = new Set<number>(scoped.document().byBackendId.keys())
     for (const node of walk(root)) expect(backendIds.has(node.backendNodeId)).toBe(true)
     expect((await call('DOM.performSearch', { query: 'uid="2002"' })).result?.resultCount).toBe(0)
@@ -1014,18 +1100,22 @@ describe('Client-scoped Cordis DOM', () => {
     expect(search.result?.resultCount).toBe(1)
     const matches = await call('DOM.getSearchResults', { searchId: search.result?.searchId, fromIndex: 0, toIndex: 1 })
     expect(matches.result?.nodeIds).toEqual([fibers[1]!.nodeId])
-    expect((await call('DOM.describeNode', { nodeId: fibers[1]!.nodeId })).result?.node)
-      .toMatchObject({ localName: 'fiber', attributes: ['uid', '3003'] })
+    expect((await call('DOM.describeNode', { nodeId: fibers[1]!.nodeId })).result?.node).toMatchObject({
+      localName: 'fiber',
+      attributes: ['uid', '3003'],
+    })
   })
 
-  it('suppresses unrelated Client notifications while retaining selected node identities', (test) => {
+  it('suppresses unrelated Client notifications while retaining selected node identities', test => {
     const h = scopedTreeFixture(test)
     h.publish(h.host, 1001)
     h.publish(h.a, 3003)
     const scoped = h.scope(h.a)
     const selectedId = scoped.nodeForObject(h.a, h.reference)!.backendNodeId
     const changes: CordisDomChange[] = []
-    scoped.subscribe((event) => { changes.push(event) })
+    scoped.subscribe(event => {
+      changes.push(event)
+    })
     h.publish(h.b, 2002)
     h.publish(h.b, 2003, 2)
     h.store.close(h.b, 'other Client closed')
@@ -1038,14 +1128,16 @@ describe('Client-scoped Cordis DOM', () => {
     expect(changes).toMatchObject([{ type: 'source-disconnected', source: h.host }])
   })
 
-  it('retains a disconnected Client tree and replaces object routes on reconnect', (test) => {
+  it('retains a disconnected Client tree and replaces object routes on reconnect', test => {
     const h = scopedTreeFixture(test)
     const scoped = h.scope(h.a)
     expect(scoped.nodeForObjectKind('client', h.reference)).toBeUndefined()
     h.publish(h.a, 3003)
     const oldId = scoped.nodeForObject(h.a, h.reference)!.backendNodeId
     const changes: CordisDomChange[] = []
-    scoped.subscribe((event) => { changes.push(event) })
+    scoped.subscribe(event => {
+      changes.push(event)
+    })
     h.store.close(h.a, 'Client closed')
     expect(changes).toMatchObject([
       { type: 'source-disconnected', source: h.a },
@@ -1066,13 +1158,15 @@ describe('Client-scoped Cordis DOM', () => {
     expect(changes).toEqual([])
   })
 
-  it('observes selected snapshot eviction caused by another Client without forwarding its disconnect', (test) => {
+  it('observes selected snapshot eviction caused by another Client without forwarding its disconnect', test => {
     const h = scopedTreeFixture(test)
     h.publish(h.a, 3003)
     const scoped = h.scope(h.a)
     h.store.close(h.a, 'selected Client closed')
     const changes: CordisDomChange[] = []
-    scoped.subscribe((event) => { changes.push(event) })
+    scoped.subscribe(event => {
+      changes.push(event)
+    })
     h.publish(h.b, 2002)
     expect(changes).toEqual([])
     h.store.close(h.b, 'other Client closed')
@@ -1081,7 +1175,7 @@ describe('Client-scoped Cordis DOM', () => {
     expect(h.store.tree().clients.map(tree => tree.source.sourceId)).toEqual([h.b.sourceId])
   })
 
-  it('closes each scoped subscription independently of its parent, siblings, and shared store', (test) => {
+  it('closes each scoped subscription independently of its parent, siblings, and shared store', test => {
     const h = scopedTreeFixture(test)
     h.publish(h.a, 3003)
     h.publish(h.b, 2002)
@@ -1089,7 +1183,9 @@ describe('Client-scoped Cordis DOM', () => {
     const b = h.scope(h.b)
     const closedDocument = a.document()
     const changes: CordisDomChange[] = []
-    a.subscribe((event) => { changes.push(event) })
+    a.subscribe(event => {
+      changes.push(event)
+    })
     a.close()
     a.close()
     h.publish(h.a, 3004, 2)
@@ -1108,17 +1204,26 @@ describe('Client-scoped Cordis DOM', () => {
 function scopedTreeFixture(test: TestContext) {
   const store = new CordisTreeStore({ maxNodes: 100, maxDisconnectedTrees: 1 })
   const global = new CordisDomBackend(store)
-  test.onTestFinished(() => { global.close() })
+  test.onTestFinished(() => {
+    global.close()
+  })
   const snapshot = (uid: number, revision: number): InspectorJsonValue => ({
-    schemaVersion: 0, revision, objectRegistryId: 'shared-registry', truncated: false,
-    root: { kind: 'context', objectHandle: 'root', children: [
-      { kind: 'fiber', uid, objectHandle: 'fiber', children: [{ kind: 'context', objectHandle: 'context', children: [] }] },
-    ] },
+    schemaVersion: 0,
+    revision,
+    objectRegistryId: 'shared-registry',
+    truncated: false,
+    root: {
+      kind: 'context',
+      objectHandle: 'root',
+      children: [{ kind: 'fiber', uid, objectHandle: 'fiber', children: [{ kind: 'context', objectHandle: 'context', children: [] }] }],
+    },
   })
   const parsed = parseCordisTreeSnapshot(snapshot(1, 1), 100)
   return {
-    store, global,
-    a: source('scope-a', 'generation-1'), b: source('scope-b', 'generation-1'),
+    store,
+    global,
+    a: source('scope-a', 'generation-1'),
+    b: source('scope-b', 'generation-1'),
     host: { ...source('scope-host', 'generation-1'), kind: 'host' as const },
     reference: { registryId: parsed.objectRegistryId, handle: parsed.root.objectHandle },
     publish(subject: InspectorSourceDescriptor, uid: number, revision = 1) {
@@ -1126,7 +1231,9 @@ function scopedTreeFixture(test: TestContext) {
     },
     scope(subject: InspectorSourceDescriptor) {
       const backend = global.forClient(subject.sourceId)
-      test.onTestFinished(() => { backend.close() })
+      test.onTestFinished(() => {
+        backend.close()
+      })
       return backend
     },
   }
@@ -1134,34 +1241,55 @@ function scopedTreeFixture(test: TestContext) {
 
 function scopedDomCalls(backend: CordisDomBackend, test: TestContext, events: CdpMessage[] = []) {
   const disposers: (() => void)[] = []
-  test.onTestFinished(() => { for (const dispose of disposers.reverse()) dispose() })
+  test.onTestFinished(() => {
+    for (const dispose of disposers.reverse()) dispose()
+  })
   const sources = new InspectorSourceRegistry([], 16_384, 100)
-  disposers.push(() => { sources.close() })
+  disposers.push(() => {
+    sources.close()
+  })
   const clients = new ClientRuntimeRouter(sources, test.task.timeout)
-  disposers.push(() => { clients.close() })
+  disposers.push(() => {
+    clients.close()
+  })
   const clientSources = new ClientSourceRouter(sources, test.task.timeout, 16_384, 16_384)
-  disposers.push(() => { clientSources.close() })
+  disposers.push(() => {
+    clientSources.close()
+  })
   const registry = new InspectorRealmRegistry(new HostInspectorRealm('Host'), clients, clientSources)
-  disposers.push(() => { registry.close() })
+  disposers.push(() => {
+    registry.close()
+  })
   const realms = new InspectorRealmSessionSet(registry)
-  disposers.push(() => { realms.close() })
+  disposers.push(() => {
+    realms.close()
+  })
   let nextId = 0
   const pending = new Map<number, (response: CdpMessage) => void>()
   const transport = {
     send(payload: unknown) {
       const message = payload as CdpMessage
-      if (message.id !== undefined) { pending.get(message.id)?.(message); pending.delete(message.id) }
-      else events.push(message)
+      if (message.id !== undefined) {
+        pending.get(message.id)?.(message)
+        pending.delete(message.id)
+      } else events.push(message)
     },
     close() {},
   }
   const runtime = new RuntimeDomainSession(transport, realms)
-  disposers.push(() => { runtime.close() })
+  disposers.push(() => {
+    runtime.close()
+  })
   const dom = new CordisDomSession(transport, backend, runtime)
-  disposers.push(() => { dom.close() })
+  disposers.push(() => {
+    dom.close()
+  })
   return (method: string, params: Record<string, unknown> = {}): Promise<CdpMessage> => {
     const id = ++nextId
-    return new Promise((resolve) => { pending.set(id, resolve); dom.handle({ id, method, params }) })
+    return new Promise(resolve => {
+      pending.set(id, resolve)
+      dom.handle({ id, method, params })
+    })
   }
 }
 
@@ -1181,8 +1309,7 @@ function hostContainer(root: CdpNode | undefined): CdpNode | undefined {
 }
 
 function clientContainers(root: CdpNode | undefined): CdpNode[] {
-  return root?.children?.find(node => node.localName === 'clients')?.children
-    ?.filter(node => node.localName === 'client') ?? []
+  return root?.children?.find(node => node.localName === 'clients')?.children?.filter(node => node.localName === 'client') ?? []
 }
 
 function walk(root: CdpNode): CdpNode[] {

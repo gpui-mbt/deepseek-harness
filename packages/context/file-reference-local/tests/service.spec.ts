@@ -5,7 +5,7 @@ import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
@@ -53,7 +53,9 @@ async function stubAgent(
     steer() {},
     inject() {},
     send() {},
-    updateInbox() { return 'not-found' as const },
+    updateInbox() {
+      return 'not-found' as const
+    },
     cancel() {},
     whenIdle: () => Promise.resolve(),
   } as unknown as Agent
@@ -73,9 +75,14 @@ describe('LocalFileReferenceService', () => {
       expect(ctx.agents.get(agent.id)).toBe(agent)
       await ctx.plugin(SystemPrompt, { personaPrefix: '' })
       await ctx.plugin(ToolRegistry)
-      ctx.tools.register(defineContentToolFixture({
-        name: 'read', description: 'read a file', parameters: {}, execute: () => Promise.resolve([]),
-      }))
+      ctx.tools.register(
+        defineContentToolFixture({
+          name: 'read',
+          description: 'read a file',
+          parameters: {},
+          execute: () => Promise.resolve([]),
+        }),
+      )
       expect(renderPrompt(await ctx.systemPrompt.assemble())).toContain(FILE_REFERENCE_PROMPT)
     } finally {
       await ctx.fiber.dispose()
@@ -91,16 +98,19 @@ describe('LocalFileReferenceService', () => {
       excludedDirectories: ['.git'],
     })
     await fiber
-    await expect(ctx.fileReferences.list(agent, 'README', new AbortController().signal))
-      .resolves.toEqual([{ path: 'README.md', kind: 'file' }])
+    await expect(ctx.fileReferences.list(agent, 'README', new AbortController().signal)).resolves.toEqual([
+      { path: 'README.md', kind: 'file' },
+    ])
     expect(renderPrompt(await ctx.systemPrompt.assemble())).not.toContain(FILE_REFERENCE_PROMPT)
 
-    ctx.tools.register(defineContentToolFixture({
-      name: 'read',
-      description: 'read a file',
-      parameters: {},
-      execute: () => Promise.resolve([]),
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'read',
+        description: 'read a file',
+        parameters: {},
+        execute: () => Promise.resolve([]),
+      }),
+    )
     expect(renderPrompt(await ctx.systemPrompt.assemble())).toContain(FILE_REFERENCE_PROMPT)
     await fiber.dispose()
     expect(renderPrompt(await ctx.systemPrompt.assemble())).not.toContain(FILE_REFERENCE_PROMPT)
@@ -150,26 +160,24 @@ describe('LocalFileReferenceService', () => {
     const ctx = await harness()
     await ctx.plugin(LocalFileReferenceService)
     const { agent } = await stubAgent(ctx)
-    await expect(ctx.fileReferences.list(agent, '', new AbortController().signal))
-      .resolves.toEqual([{ path: 'README.md', kind: 'file' }])
+    await expect(ctx.fileReferences.list(agent, '', new AbortController().signal)).resolves.toEqual([{ path: 'README.md', kind: 'file' }])
 
     const badResults = await harness()
     expect(() => new LocalFileReferenceService(badResults, { maxResults: 0 })).toThrow('maxResults')
     const badEntries = await harness()
     expect(() => new LocalFileReferenceService(badEntries, { maxEntries: 1.5 })).toThrow('maxEntries')
     const badExclusion = await harness()
-    expect(() => new LocalFileReferenceService(badExclusion, { excludedDirectories: ['nested/name'] }))
-      .toThrow('excludedDirectories')
+    expect(() => new LocalFileReferenceService(badExclusion, { excludedDirectories: ['nested/name'] })).toThrow('excludedDirectories')
     const fractionalResults = await harness()
     expect(() => new LocalFileReferenceService(fractionalResults, { maxResults: 1.5 })).toThrow('maxResults')
     const zeroEntries = await harness()
     expect(() => new LocalFileReferenceService(zeroEntries, { maxEntries: 0 })).toThrow('maxEntries')
     const emptyExclusion = await harness()
-    expect(() => new LocalFileReferenceService(emptyExclusion, { excludedDirectories: [''] }))
-      .toThrow('excludedDirectories')
+    expect(() => new LocalFileReferenceService(emptyExclusion, { excludedDirectories: [''] })).toThrow('excludedDirectories')
     const backslashExclusion = await harness()
-    expect(() => new LocalFileReferenceService(backslashExclusion, { excludedDirectories: ['nested\\name'] }))
-      .toThrow('excludedDirectories')
+    expect(() => new LocalFileReferenceService(backslashExclusion, { excludedDirectories: ['nested\\name'] })).toThrow(
+      'excludedDirectories',
+    )
   })
 
   it('deduplicates lifecycle announcements and falls back to the process cwd', async () => {
@@ -189,7 +197,8 @@ describe('LocalFileReferenceService', () => {
     const fiber = ctx.plugin(LocalFileReferenceService)
     await fiber
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    const inject = vi.spyOn(ctx, 'inject')
+    const inject = vi
+      .spyOn(ctx, 'inject')
       .mockReturnValueOnce({ dispose: () => Promise.reject(new Error('error cleanup')) } as never)
       // Deliberately proves cleanup tolerates JavaScript callers rejecting non-Error values.
       // oxlint-disable-next-line typescript/prefer-promise-reject-errors

@@ -54,7 +54,8 @@ export const en = {
   'fontFamily.text.title': 'Text font',
   'fontFamily.text.description': 'Used for the interface and conversation text. Separate fonts with commas; leave empty for the default',
   'fontFamily.code.title': 'Code font',
-  'fontFamily.code.description': 'Used for code blocks, inline code, and tool output. Separate fonts with commas; leave empty for the default',
+  'fontFamily.code.description':
+    'Used for code blocks, inline code, and tool output. Separate fonts with commas; leave empty for the default',
   'fontFamily.terminal.title': 'Terminal font',
   'fontFamily.terminal.description': 'Used for the sidebar terminal. Separate fonts with commas; leave empty for the default',
   'fontFamily.placeholder': 'Default',

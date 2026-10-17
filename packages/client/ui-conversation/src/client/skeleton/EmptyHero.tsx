@@ -4,7 +4,11 @@
 import { useState } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import {
-  FISH_LOGO_PATH, FISH_LOGO_VIEWBOX, IconChevronDownOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular,
+  FISH_LOGO_PATH,
+  FISH_LOGO_VIEWBOX,
+  IconChevronDownOutlineRegular,
+  IconFolderCloseRegular,
+  IconFolderOpenRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { ConversationContentProps } from '../contract/slots.ts'
@@ -35,7 +39,13 @@ export function workspaceLabel(cwd: string): string {
  * @param props.onClick - menu toggle.
  * @returns the chip button element.
  */
-export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }: {
+export function WorkspaceChip({
+  buttonRef,
+  label,
+  menuOpen = false,
+  onClick,
+  t,
+}: {
   buttonRef?: RefObject<HTMLButtonElement>
   label?: string | undefined
   menuOpen?: boolean
@@ -52,9 +62,11 @@ export function WorkspaceChip({ buttonRef, label, menuOpen = false, onClick, t }
       aria-expanded={menuOpen}
       onClick={onClick}
     >
-      {label === undefined
-        ? <IconFolderCloseRegular className={css.folder} size={16} />
-        : <IconFolderOpenRegular className={css.folder} size={16} />}
+      {label === undefined ? (
+        <IconFolderCloseRegular className={css.folder} size={16} />
+      ) : (
+        <IconFolderOpenRegular className={css.folder} size={16} />
+      )}
       <span className={css.workspaceLabel}>{label ?? t('hero.chooseWorkspace')}</span>
       <IconChevronDownOutlineRegular className={css.chevron} size={12} />
     </button>
@@ -143,11 +155,17 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
                 setHovering(true)
               }
             }}
-            onMouseLeave={() => { setHovering(false) }}
+            onMouseLeave={() => {
+              setHovering(false)
+            }}
           >
-            {renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
-              fallback: <HeroFish hovering={hovering} />,
-            })}
+            {renderSlot(
+              'conversation.hero.brand.mark',
+              { size: 34, className: css.fish },
+              {
+                fallback: <HeroFish hovering={hovering} />,
+              },
+            )}
           </span>
           <span className={css.titleGroup}>
             {/* Own element: keeps the headline text addressable apart from the badge. */}
@@ -155,9 +173,7 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
             <span className={css.previewBadge}>{t('hero.preview')}</span>
           </span>
         </div>
-        <div className={css.body}>
-          {/* The composer remains mounted outside this component. */}
-        </div>
+        <div className={css.body}>{/* The composer remains mounted outside this component. */}</div>
       </div>
       {children}
     </div>

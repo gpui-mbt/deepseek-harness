@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -22,11 +22,11 @@ import * as Provider from '../src/index.ts'
 import { resetFixture, screenshotBase64 } from './fixtures/stagehand.ts'
 
 vi.mock('@browserbasehq/stagehand', async importActual => ({
-  ...await import('./fixtures/stagehand.ts'),
+  ...(await import('./fixtures/stagehand.ts')),
   StagehandClientCreateConfigSchema: (await importActual<typeof import('@browserbasehq/stagehand')>()).StagehandClientCreateConfigSchema,
 }))
 vi.mock('@puppeteer/browsers', async () => import('./fixtures/chromium.ts'))
-vi.mock('node:worker_threads', async (importActual) => {
+vi.mock('node:worker_threads', async importActual => {
   const actual = await importActual<typeof import('node:worker_threads')>()
   return {
     ...actual,
@@ -45,15 +45,20 @@ class BrowserModel extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text', 'image'] })
   }
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.mainRequests.push(options)
     if (this.mainRequests.length <= 2) {
       const first = this.mainRequests.length === 1
-      yield { type: 'block-end', index: 0, block: {
-        type: 'tool-call', id: ToolCallId(first ? 'extract-heading' : 'screenshot'),
-        name: first ? 'stagehand_extract' : 'stagehand_screenshot',
-        arguments: first ? '{"instruction":"Extract the heading"}' : '{}',
-      } }
+      yield {
+        type: 'block-end',
+        index: 0,
+        block: {
+          type: 'tool-call',
+          id: ToolCallId(first ? 'extract-heading' : 'screenshot'),
+          name: first ? 'stagehand_extract' : 'stagehand_screenshot',
+          arguments: first ? '{"instruction":"Extract the heading"}' : '{}',
+        },
+      }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
       return
     }
@@ -87,12 +92,19 @@ it('loads browser tools from cordis.yml, logs browser results, and admits the sc
     ['@deepseek-ai/dsh-experimental-browser-use-stagehand-native', Provider],
   ])
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [...modules.keys()].flatMap(name => [
-    `- name: '${name}'`,
-    ...name === '@deepseek-ai/dsh-attachment-local' ? ['  config:', `    dshHome: ${JSON.stringify(root)}`] : [],
-    ...name === '@deepseek-ai/dsh-experimental-browser-use-stagehand-native' ? ['  config:', '    mode: launch', '    model:', '      modelName: openai/gpt-5.4-mini', '      apiKey: fixture-model-key'] : [],
-  ]).join('\n') + '\n')
-  const context = ctx = new Context()
+  await writeFile(
+    configPath,
+    [...modules.keys()]
+      .flatMap(name => [
+        `- name: '${name}'`,
+        ...(name === '@deepseek-ai/dsh-attachment-local' ? ['  config:', `    dshHome: ${JSON.stringify(root)}`] : []),
+        ...(name === '@deepseek-ai/dsh-experimental-browser-use-stagehand-native'
+          ? ['  config:', '    mode: launch', '    model:', '      modelName: openai/gpt-5.4-mini', '      apiKey: fixture-model-key']
+          : []),
+      ])
+      .join('\n') + '\n',
+  )
+  const context = (ctx = new Context())
   context.baseUrl = pathToFileURL(root).href + '/'
   await context.plugin(Loader)
   context.loader.builtins.include = Include
@@ -109,7 +121,9 @@ it('loads browser tools from cordis.yml, logs browser results, and admits the sc
   const model = new BrowserModel()
   context.llm.registerAdapter(['fixture'], model)
   const agent = await context.agentLoop.create(SessionId('stagehand-loader'), { provider: 'fixture', model: 'vision' })
-  agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Extract the heading and take a screenshot.' }], source: { kind: 'user' } }))
+  agent.followup(
+    createUserMessage({ content: [{ type: 'text', text: 'Extract the heading and take a screenshot.' }], source: { kind: 'user' } }),
+  )
   await agent.whenIdle()
   expect(model.mainRequests).toHaveLength(3)
   const events = agent.session.snapshotEvents()

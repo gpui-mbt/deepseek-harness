@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { jsonSchemaToTs, renderToolsSdk } from '@deepseek-ai/dsh-tools/src/ts-types.ts'
 import type { ToolSdkSchema } from '@deepseek-ai/dsh-tools/src/ts-types.ts'
 import type { JsonSchemaNode } from '@deepseek-ai/dsh-tools/src/json-schema.ts'
@@ -26,12 +26,15 @@ describe('jsonSchemaToTs', () => {
       [{ type: 'object', additionalProperties: false }, 'Record<string, never>'],
       [{ type: 'object', properties: {} }, 'Record<string, JsonValue>'],
       [{ type: 'object', properties: {}, additionalProperties: false }, 'Record<string, never>'],
-      [{
-        type: 'object',
-        additionalProperties: false,
-        properties: { id: { type: 'integer' }, label: { type: 'string' } },
-        required: ['id'],
-      }, ['{', '  id: number;', '  label?: string;', '}'].join('\n')],
+      [
+        {
+          type: 'object',
+          additionalProperties: false,
+          properties: { id: { type: 'integer' }, label: { type: 'string' } },
+          required: ['id'],
+        },
+        ['{', '  id: number;', '  label?: string;', '}'].join('\n'),
+      ],
       [{}, 'JsonValue'],
     ]
     for (const [schema, expected] of cases) {
@@ -49,16 +52,18 @@ describe('jsonSchemaToTs', () => {
         properties: { deep: { type: 'boolean', required: true } },
       },
     })
-    expect(jsonSchemaToTs(schema)).toBe([
-      '{',
-      '  /** Absolute file path */',
-      '  path: string;',
-      '  limit?: number;',
-      '  opts?: {',
-      '    deep: boolean;',
-      '  } & Record<string, JsonValue>;',
-      '} & Record<string, JsonValue>',
-    ].join('\n'))
+    expect(jsonSchemaToTs(schema)).toBe(
+      [
+        '{',
+        '  /** Absolute file path */',
+        '  path: string;',
+        '  limit?: number;',
+        '  opts?: {',
+        '    deep: boolean;',
+        '  } & Record<string, JsonValue>;',
+        '} & Record<string, JsonValue>',
+      ].join('\n'),
+    )
   })
 
   it('is total: unsupported or hostile constructs degrade to unknown, never throw', () => {
@@ -163,7 +168,9 @@ describe('renderToolsSdk', () => {
     const text = renderToolsSdk([bash])
     expect(text).toContain('A declaration does not make its name a directly callable tool')
     expect(text).toContain('only names supplied as separate tool schemas may be called directly')
-    expect(text).toContain('`run_code({ code: "return await tools.bash({ description: \'Show current directory\', command: \'pwd\' })", description: "Show current directory" })`')
+    expect(text).toContain(
+      '`run_code({ code: "return await tools.bash({ description: \'Show current directory\', command: \'pwd\' })", description: "Show current directory" })`',
+    )
     expect(text).toContain('Program-only SDK bindings:')
     expect(text).not.toContain('The available tools:')
   })
@@ -185,8 +192,7 @@ describe('renderToolsSdk', () => {
         command: { type: 'string', required: true },
       }) as unknown as Record<string, unknown>,
     }
-    expect(renderToolsSdk([commandOnly]))
-      .toContain('tools.bash({ command: \'pwd\' })')
+    expect(renderToolsSdk([commandOnly])).toContain("tools.bash({ command: 'pwd' })")
 
     const incompatible = {
       ...bash,
@@ -219,7 +225,7 @@ describe('renderToolsSdk', () => {
       type: 'object',
       properties: { command: { type: 'string', const: 'pwd', enum: ['pwd'] } },
     })
-    expect(renderToolsSdk([constrained])).toContain('tools.bash({ command: \'pwd\' })')
+    expect(renderToolsSdk([constrained])).toContain("tools.bash({ command: 'pwd' })")
   })
 
   it('uses a returned result in function-body mode', () => {

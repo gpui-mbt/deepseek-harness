@@ -2,7 +2,7 @@
  * Sequence behavior: linear history, exact inverses, the focus-run undo step, and
  * the redo branch a new operation discards.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { replay } from '../src/engine/operations.ts'
 import { createIdMinter, createInitialState } from '../src/engine/initial.ts'
 import { asPane, asTab, fileTab, seedTab } from './fixtures.client.ts'
@@ -81,7 +81,12 @@ describe('stepping back and forward', () => {
     const { sequencer, initial, minter, paneId } = fixture()
     const newPaneId = minter.next('pane')
     sequencer.dispatch({
-      type: 'split', paneId, axis: 'row', direction: 'after', newPaneId, newSplitId: minter.next('split'),
+      type: 'split',
+      paneId,
+      axis: 'row',
+      direction: 'after',
+      newPaneId,
+      newSplitId: minter.next('split'),
     })
     expect(dockPaneIds(sequencer.state)).toHaveLength(2)
     expect(sequencer.undo()).toBe(true)
@@ -129,20 +134,30 @@ describe('stepping back and forward', () => {
     const floatId = minter.next('float')
     sequencer.dispatch({ type: 'setExpanded', expanded: true })
     sequencer.dispatch({
-      type: 'split', paneId, axis: 'row', direction: 'after', newPaneId, newSplitId: minter.next('split'),
+      type: 'split',
+      paneId,
+      axis: 'row',
+      direction: 'after',
+      newPaneId,
+      newSplitId: minter.next('split'),
     })
     sequencer.dispatch({ type: 'moveTab', tabId: guideTabId, toPaneId: newPaneId, index: 0 })
     sequencer.dispatch({
-      type: 'float', tabId: guideTabId, newPaneId: floatId, rect: { x: 5, y: 6, width: 200, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: floatId,
+      rect: { x: 5, y: 6, width: 200, height: 100 },
     })
     sequencer.dispatch({ type: 'moveFloat', paneId: floatId, x: 50, y: 60 })
-    while (sequencer.undo()) { /* step back to the beginning */ }
+    while (sequencer.undo()) {
+      /* step back to the beginning */
+    }
     expect(sequencer.state).toEqual(initial)
     expect(sequencer.cursor).toBe(0)
   })
 })
 
-describe('a floating panel\'s drag as one step', () => {
+describe("a floating panel's drag as one step", () => {
   it('raises and focuses the panel with the move, and steps both back and forward together', () => {
     const { sequencer, minter, paneId, guideTabId } = fixture()
     const tab = fileTab(minter.next('tab'), 'dsh-resource://file/session/s/a.txt', 'a.txt')
@@ -175,7 +190,12 @@ describe('linear history', () => {
     const { sequencer, minter, paneId } = fixture()
     sequencer.dispatch({ type: 'setExpanded', expanded: true })
     sequencer.dispatch({
-      type: 'split', paneId, axis: 'row', direction: 'after', newPaneId: minter.next('pane'), newSplitId: minter.next('split'),
+      type: 'split',
+      paneId,
+      axis: 'row',
+      direction: 'after',
+      newPaneId: minter.next('pane'),
+      newSplitId: minter.next('split'),
     })
     expect(sequencer.undo()).toBe(true)
     expect(sequencer.canRedo).toBe(true)
@@ -190,7 +210,12 @@ describe('linear history', () => {
     const newPaneId = minter.next('pane')
     sequencer.dispatch({ type: 'setExpanded', expanded: true })
     sequencer.dispatch({
-      type: 'split', paneId, axis: 'row', direction: 'after', newPaneId, newSplitId: minter.next('split'),
+      type: 'split',
+      paneId,
+      axis: 'row',
+      direction: 'after',
+      newPaneId,
+      newSplitId: minter.next('split'),
     })
     sequencer.dispatch({ type: 'moveTab', tabId: guideTabId, toPaneId: newPaneId, index: 0 })
     sequencer.dispatch({ type: 'resize', splitId: getSplit(sequencer.state, sequencer.state.rootId).id, sizes: [0.7, 0.3] })

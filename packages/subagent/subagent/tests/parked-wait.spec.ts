@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 /** Host completion races around idle local children with preserved input. */
 import { setImmediate } from 'node:timers/promises'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -39,7 +39,9 @@ async function setup() {
 
   function gate() {
     const deferred = Promise.withResolvers<undefined>()
-    releases.push(() => { deferred.resolve(undefined) })
+    releases.push(() => {
+      deferred.resolve(undefined)
+    })
     return deferred
   }
 
@@ -86,7 +88,7 @@ async function setup() {
   async function dispose() {
     for (const release of releases) release()
     const settled = await Promise.allSettled(starts)
-    await Promise.all(settled.flatMap(result => result.status === 'fulfilled' ? [result.value.dispose()] : []))
+    await Promise.all(settled.flatMap(result => (result.status === 'fulfilled' ? [result.value.dispose()] : [])))
     await Promise.allSettled(pending)
     await ctx.fiber.dispose()
   }
@@ -102,9 +104,18 @@ describe('completion around parked child inboxes', () => {
       const { child: first } = await harness.park()
       const { child: second } = await harness.park()
       const finishMaintenance = gate()
-      const maintenance = track(second.runMaintenance(async () => { await finishMaintenance.promise }))
+      const maintenance = track(
+        second.runMaintenance(async () => {
+          await finishMaintenance.promise
+        }),
+      )
       let settled = false
-      const waiting = track(ctx.subagents.waitForChildren(parent).then((value) => { settled = true; return value }))
+      const waiting = track(
+        ctx.subagents.waitForChildren(parent).then(value => {
+          settled = true
+          return value
+        }),
+      )
       // Drain the already queued idle observations while maintenance stays gated.
       await setImmediate()
 
@@ -136,7 +147,7 @@ describe('completion around parked child inboxes', () => {
     }
   })
 
-  it.each(['publish', 'rollback'] as const)('waits for a parked owner\'s unpublished grandchild to %s', async (outcome) => {
+  it.each(['publish', 'rollback'] as const)("waits for a parked owner's unpublished grandchild to %s", async outcome => {
     const harness = await setup()
     const { ctx, parent, gate, track } = harness
     try {
@@ -167,7 +178,12 @@ describe('completion around parked child inboxes', () => {
       const rejected = outcome === 'rollback' ? expect(started).rejects.toThrow('preparation rejected') : undefined
       await preparing.promise
       let settled = false
-      const waiting = track(ctx.subagents.waitForChildren(parent).then((value) => { settled = true; return value }))
+      const waiting = track(
+        ctx.subagents.waitForChildren(parent).then(value => {
+          settled = true
+          return value
+        }),
+      )
       await setImmediate()
       expect(settled).toBe(false)
       expect(managerState(ctx).resident.size).toBe(1)
@@ -196,7 +212,7 @@ describe('completion around parked child inboxes', () => {
     try {
       const flushing = gate()
       const releaseFlush = gate()
-      ctx.on('session/flush', async (session) => {
+      ctx.on('session/flush', async session => {
         if (session.header.parentSession !== parent.id) return
         flushing.resolve(undefined)
         await releaseFlush.promise
@@ -207,12 +223,14 @@ describe('completion around parked child inboxes', () => {
       const activation = managerState(ctx).resident.get(started.childId)!
       const joinedResult = gate()
       const originalCatch = activation.result.promise.catch.bind(activation.result.promise)
-      const catchSpy = vi.spyOn(activation.result.promise, 'catch').mockImplementation((handler) => {
+      const catchSpy = vi.spyOn(activation.result.promise, 'catch').mockImplementation(handler => {
         joinedResult.resolve(undefined)
         return originalCatch(handler)
       })
       let resultSettled = false
-      void started.result.then(() => { resultSettled = true })
+      void started.result.then(() => {
+        resultSettled = true
+      })
       const waiting = track(ctx.subagents.waitForChildren(parent))
       await joinedResult.promise
       child.inject(message('context for a future turn'))
@@ -227,22 +245,31 @@ describe('completion around parked child inboxes', () => {
     }
   })
 
-  it.each(['published', 'materializing'] as const)('discovers a %s child created during an earlier idle observation', async (phase) => {
+  it.each(['published', 'materializing'] as const)('discovers a %s child created during an earlier idle observation', async phase => {
     const harness = await setup()
     const { ctx, parent, gate, track } = harness
     try {
       const { child: parked } = await harness.park()
       const finishMaintenance = gate()
-      const maintenance = track(parked.runMaintenance(async () => { await finishMaintenance.promise }))
+      const maintenance = track(
+        parked.runMaintenance(async () => {
+          await finishMaintenance.promise
+        }),
+      )
       let settled = false
-      const waiting = track(ctx.subagents.waitForChildren(parent).then((value) => { settled = true; return value }))
+      const waiting = track(
+        ctx.subagents.waitForChildren(parent).then(value => {
+          settled = true
+          return value
+        }),
+      )
       await setImmediate()
 
       const creating = gate()
       const releaseCreate = gate()
       const agents = managerState(ctx).ownerCtx.agents
       const create = agents.create.bind(agents)
-      const createSpy = vi.spyOn(agents, 'create').mockImplementation(async (options) => {
+      const createSpy = vi.spyOn(agents, 'create').mockImplementation(async options => {
         creating.resolve(undefined)
         if (phase === 'materializing') await releaseCreate.promise
         return create(options)

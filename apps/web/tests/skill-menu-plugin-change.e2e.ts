@@ -7,7 +7,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Locator, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot, writeComposerDraft } from './support.ts'
 
@@ -28,15 +28,12 @@ describe('web e2e: the slash menu follows plugin switches', () => {
     // The scaffold pins the skill-filesystem harness home inside its temporary world.
     const directory = join(scaffold.workspaceCwd, '.dsh-home', 'skills', GLOBAL_SKILL)
     await mkdir(directory, { recursive: true })
-    await writeFile(join(directory, 'SKILL.md'), [
-      '---',
-      `name: ${GLOBAL_SKILL}`,
-      'description: Listed whichever plugins are switched on',
-      '---',
-      '',
-      `# ${GLOBAL_SKILL}`,
-      '',
-    ].join('\n'))
+    await writeFile(
+      join(directory, 'SKILL.md'),
+      ['---', `name: ${GLOBAL_SKILL}`, 'description: Listed whichever plugins are switched on', '---', '', `# ${GLOBAL_SKILL}`, ''].join(
+        '\n',
+      ),
+    )
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     plugins = await newEnglishPage(browser)
@@ -66,7 +63,7 @@ describe('web e2e: the slash menu follows plugin switches', () => {
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
     // The skill source answers with one list, so the global entry marks a settled skill group.
     await menu.getByRole('option', { name: new RegExp(`^${GLOBAL_SKILL} `) }).waitFor({ timeout: 10_000 })
-    return await menu.getByRole('option', { name: /^dsh-badge / }).count() === 1
+    return (await menu.getByRole('option', { name: /^dsh-badge / }).count()) === 1
   }
 
   /**
@@ -79,7 +76,7 @@ describe('web e2e: the slash menu follows plugin switches', () => {
     await expect.poll(() => toggle.getAttribute('aria-checked'), { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toBe(String(enabled))
   }
 
-  it('lists a switched bundle\'s skill only while the bundle is on, keeping the global skill', async () => {
+  it("lists a switched bundle's skill only while the bundle is on, keeping the global skill", async () => {
     onTestFailed(async () => {
       await saveFailureShot(page, 'web-e2e-skill-menu-plugin-change')
       await saveFailureShot(plugins, 'web-e2e-skill-menu-plugin-change-plugins')

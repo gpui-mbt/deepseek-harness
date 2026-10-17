@@ -1,19 +1,24 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import {
-  IconAlarmClockOutlineRegular, IconApiOutlineRegular, IconArchiveOutlineRegular, IconFolderCloseRegular,
-  IconGoalOutlineRegular, IconSendOutlineRegular,
+  IconAlarmClockOutlineRegular,
+  IconApiOutlineRegular,
+  IconArchiveOutlineRegular,
+  IconFolderCloseRegular,
+  IconGoalOutlineRegular,
+  IconSendOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 afterEach(cleanup)
 
 // Icon components all share the IconProps signature; the barrel also exports
 // non-icon atoms (different props shapes), so filter by prefix BEFORE typing.
-const icons = Object.fromEntries(
-  Object.entries(primitives).filter(([name]) => name.startsWith('Icon')),
-) as Record<string, (p: primitives.IconProps) => React.JSX.Element>
+const icons = Object.fromEntries(Object.entries(primitives).filter(([name]) => name.startsWith('Icon'))) as Record<
+  string,
+  (p: primitives.IconProps) => React.JSX.Element
+>
 const iconNames = Object.keys(icons)
 
 describe('product icon set', () => {
@@ -23,11 +28,18 @@ describe('product icon set', () => {
     const regular = iconNames.filter(name => name.endsWith('Regular')).map(name => name.slice(0, -'Regular'.length))
     const medium = iconNames.filter(name => name.endsWith('Medium')).map(name => name.slice(0, -'Medium'.length))
     expect(medium.sort()).toEqual(regular.sort())
-    expect(iconNames).toEqual(expect.arrayContaining([
-      'IconMicrophoneOutlineRegular',
-      'IconPlanOutlineRegular', 'IconCompactOutlineRegular', 'IconShieldOutlineRegular', 'IconDeliverDocRegular',
-      'IconWarningTriangleOutlineRegular', 'IconCompareSplitOutlineRegular', 'IconCloseCircleFillRegular',
-    ]))
+    expect(iconNames).toEqual(
+      expect.arrayContaining([
+        'IconMicrophoneOutlineRegular',
+        'IconPlanOutlineRegular',
+        'IconCompactOutlineRegular',
+        'IconShieldOutlineRegular',
+        'IconDeliverDocRegular',
+        'IconWarningTriangleOutlineRegular',
+        'IconCompareSplitOutlineRegular',
+        'IconCloseCircleFillRegular',
+      ]),
+    )
   })
 
   it('draws the circled close as one currentColor knockout path in both weights', () => {
@@ -51,7 +63,7 @@ describe('product icon set', () => {
     expect(container.querySelector('svg')?.getAttribute('stroke-width')).toBe(String(primitives.ICON_REGULAR_STROKE))
   })
 
-  it.each(iconNames)('%s renders an svg with currentColor fills and no hardcoded palette', (name) => {
+  it.each(iconNames)('%s renders an svg with currentColor fills and no hardcoded palette', name => {
     const Icon = icons[name]!
     const { container } = render(<Icon />)
     const svg = container.querySelector('svg')
@@ -117,7 +129,12 @@ describe('product icon set', () => {
   })
 
   it('renders reusable goal glyphs without document-global ids', () => {
-    const { container } = render(<><IconGoalOutlineRegular /><IconGoalOutlineRegular /></>)
+    const { container } = render(
+      <>
+        <IconGoalOutlineRegular />
+        <IconGoalOutlineRegular />
+      </>,
+    )
     expect(container.querySelector('[id]')).toBeNull()
     expect(container.querySelector('[clip-path]')).toBeNull()
   })

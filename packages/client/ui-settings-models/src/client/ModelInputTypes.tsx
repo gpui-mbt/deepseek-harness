@@ -31,7 +31,7 @@ interface ModelInputTypesProps {
  */
 export function ModelInputTypes({ model, field, position, disabled, fallback, t, onChange }: ModelInputTypesProps): ReactNode {
   const modalities = model[field]
-  const selected = Array.isArray(modalities) && modalities.length > 0 ? modalities : fallback ?? ['text']
+  const selected = Array.isArray(modalities) && modalities.length > 0 ? modalities : (fallback ?? ['text'])
   return (
     <fieldset className={styles['modelInputTypes']} aria-label={`${t('modelInputTypes')} ${String(position)}`}>
       <legend className={styles['modelFieldLabel']}>{t('modelInputTypes')}</legend>
@@ -42,9 +42,8 @@ export function ModelInputTypes({ model, field, position, disabled, fallback, t,
             label={t(modality === 'text' ? 'modelInputText' : 'modelInputImage')}
             checked={selected.includes(modality)}
             disabled={disabled || (selected.length === 1 && selected.includes(modality))}
-            onChange={(checked) => {
-              const nextSelected = (['text', 'image'] as const).filter(value =>
-                value === modality ? checked : selected.includes(value))
+            onChange={checked => {
+              const nextSelected = (['text', 'image'] as const).filter(value => (value === modality ? checked : selected.includes(value)))
               const next = { ...model, [field]: nextSelected }
               // DeepSeek rejects image request limits on a text-only model.
               if (field === 'inputModalities' && !nextSelected.includes('image')) {

@@ -86,10 +86,7 @@ function rethrowIfAborted(signal: AbortSignal, error: unknown): void {
  * @param internals - Platform and runner hooks for deterministic tests.
  * @returns the selected path, or null when the user cancels.
  */
-export async function pickNativeDirectory(
-  signal: AbortSignal,
-  internals: DirectoryPickerInternals = {},
-): Promise<string | null> {
+export async function pickNativeDirectory(signal: AbortSignal, internals: DirectoryPickerInternals = {}): Promise<string | null> {
   const platform = internals.platform ?? process.platform
   const run = internals.run ?? runNativeCommand
 
@@ -110,9 +107,7 @@ export async function pickNativeDirectory(
 
   if (platform === 'linux') {
     try {
-      const result = await run('zenity', [
-        '--file-selection', '--directory', `--title=${DIALOG_TITLE}`,
-      ], signal, 'hidden')
+      const result = await run('zenity', ['--file-selection', '--directory', `--title=${DIALOG_TITLE}`], signal, 'hidden')
       return outputPath(result.stdout)
     } catch (error: unknown) {
       rethrowIfAborted(signal, error)
@@ -121,9 +116,7 @@ export async function pickNativeDirectory(
     }
 
     try {
-      const result = await run('kdialog', [
-        '--getexistingdirectory', '.', '--title', DIALOG_TITLE,
-      ], signal, 'hidden')
+      const result = await run('kdialog', ['--getexistingdirectory', '.', '--title', DIALOG_TITLE], signal, 'hidden')
       return outputPath(result.stdout)
     } catch (error: unknown) {
       rethrowIfAborted(signal, error)

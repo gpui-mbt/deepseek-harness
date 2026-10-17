@@ -75,9 +75,15 @@ function runAppleCommandAsync(command, args, label) {
     let spawnError
     child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')
-    child.stdout.on('data', chunk => { stdout += chunk })
-    child.stderr.on('data', chunk => { stderr += chunk })
-    child.once('error', error => { spawnError = error })
+    child.stdout.on('data', chunk => {
+      stdout += chunk
+    })
+    child.stderr.on('data', chunk => {
+      stderr += chunk
+    })
+    child.once('error', error => {
+      spawnError = error
+    })
     child.once('close', (code, signal) => {
       if (spawnError !== undefined) {
         reject(new Error(`desktop macOS signing: could not execute ${label}: ${spawnError.message}`))
@@ -117,16 +123,24 @@ function runCodeSign(args) {
 export async function signMacOSRuntimeCode(path, identifier, expected, entitlements) {
   const keychain = process.env.CSC_KEYCHAIN
   if (!keychain) throw new Error('desktop macOS signing: run through the package command to prepare the signing keychain')
-  await runAppleCommandAsync('/usr/bin/codesign', [
-    '--force',
-    '--sign', expected.signingIdentity,
-    '--keychain', keychain,
-    '--identifier', identifier,
-    '--timestamp',
-    '--options', 'runtime',
-    ...(entitlements === undefined ? [] : ['--entitlements', entitlements]),
-    path,
-  ], 'codesign')
+  await runAppleCommandAsync(
+    '/usr/bin/codesign',
+    [
+      '--force',
+      '--sign',
+      expected.signingIdentity,
+      '--keychain',
+      keychain,
+      '--identifier',
+      identifier,
+      '--timestamp',
+      '--options',
+      'runtime',
+      ...(entitlements === undefined ? [] : ['--entitlements', entitlements]),
+      path,
+    ],
+    'codesign',
+  )
 }
 
 /**

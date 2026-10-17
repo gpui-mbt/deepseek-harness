@@ -4,7 +4,7 @@ import { once } from 'node:events'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it as test, vi } from 'vitest'
+import { expect, it as test, vi } from 'vite-plus/test'
 import { restoreMacOSNotarizationProxy, withMacOSNotarizationProxy } from '../scripts/macos-notarization-proxy.ts'
 
 // System proxy transactions use POSIX flock, which is unavailable on Windows.
@@ -12,7 +12,11 @@ const it = test.skipIf(process.platform === 'win32')
 
 async function fixture(action: (fixture: ReturnType<typeof fakeSystem>, lock: string) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), 'mac-proxy-test-'))
-  try { await action(fakeSystem(), join(root, 'lock')) } finally { await rm(root, { recursive: true, force: true }) }
+  try {
+    await action(fakeSystem(), join(root, 'lock'))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 }
 
 function fakeSystem() {
@@ -27,19 +31,24 @@ function fakeSystem() {
     ownerAlive: vi.fn((_pid: number) => false),
     command: vi.fn((executable: string, args: readonly string[]) => {
       if (executable === '/sbin/route') return '  interface: en9\n'
-      if (args[0] === '-listnetworkserviceorder') return '(1) Ethernet\n(Hardware Port: USB LAN, Device: en9)\n\n(2) Wi-Fi\n(Hardware Port: Wi-Fi, Device: en0)\n'
+      if (args[0] === '-listnetworkserviceorder')
+        return '(1) Ethernet\n(Hardware Port: USB LAN, Device: en9)\n\n(2) Wi-Fi\n(Hardware Port: Wi-Fi, Device: en0)\n'
       expect(args[1]).toBe('Ethernet')
       if (args[0] === '-getautoproxyurl') return `URL: http://pac\nEnabled: ${control.pac ? 'Yes' : 'No'}\n`
       if (args[0] === '-getproxyautodiscovery') return 'Auto Proxy Discovery: Off\n'
       if (args[0] === '-getsocksfirewallproxy') return 'Enabled: No\n'
       const state = args[0]!.includes('secure') ? states.https : states.http
-      if (args[0]!.startsWith('-get')) return `Enabled: ${state.enabled ? 'Yes' : 'No'}\nServer:${control.serverSpace ? ' ' : ''}${state.server}\nPort: ${state.port}\nAuthenticated Proxy Enabled: ${control.authenticated ? '1' : '0'}\n`
+      if (args[0]!.startsWith('-get'))
+        return `Enabled: ${state.enabled ? 'Yes' : 'No'}\nServer:${control.serverSpace ? ' ' : ''}${state.server}\nPort: ${state.port}\nAuthenticated Proxy Enabled: ${control.authenticated ? '1' : '0'}\n`
       control.setCount++
       if (control.setCount === control.failSet) throw new Error('system write failed')
       if (args[0]!.endsWith('state')) {
         if (!(control.ignoreDisable && args[2] === 'off')) state.enabled = args[2] === 'on'
+      } else {
+        state.server = args[2]!
+        state.port = Number(args[3])
+        state.enabled = true
       }
-      else { state.server = args[2]!; state.port = Number(args[3]); state.enabled = true }
       return ''
     }),
   }
@@ -55,17 +64,25 @@ it('preserves the network when no Apple proxy is configured', async () => {
   })
 })
 
-it.each([false, true])('restores both original proxies after settled work (failure=%s)', async (fail) => {
+it.each([false, true])('restores both original proxies after settled work (failure=%s)', async fail => {
   await fixture(async ({ ops, states, original }, lock) => {
     const statuses: string[] = []
-    const work = withMacOSNotarizationProxy('http://localhost:8888', async () => {
-      expect(states.http).toEqual({ enabled: true, server: 'localhost', port: 8888 })
-      expect(states.https).toEqual(states.http)
-      const record = JSON.parse(readFileSync(join(lock, 'original.json'), 'utf8')) as { service: string }
-      expect(record.service).toBe('Ethernet')
-      if (fail) throw new Error('Apple refused')
-      return 42
-    }, lock, ops, (status) => { statuses.push(status) })
+    const work = withMacOSNotarizationProxy(
+      'http://localhost:8888',
+      async () => {
+        expect(states.http).toEqual({ enabled: true, server: 'localhost', port: 8888 })
+        expect(states.https).toEqual(states.http)
+        const record = JSON.parse(readFileSync(join(lock, 'original.json'), 'utf8')) as { service: string }
+        expect(record.service).toBe('Ethernet')
+        if (fail) throw new Error('Apple refused')
+        return 42
+      },
+      lock,
+      ops,
+      status => {
+        statuses.push(status)
+      },
+    )
     if (fail) await expect(work).rejects.toThrow('Apple refused')
     else await expect(work).resolves.toBe(42)
     expect(statuses).toEqual(['restoration-pending', 'enabled', 'restored'])
@@ -74,16 +91,23 @@ it.each([false, true])('restores both original proxies after settled work (failu
   })
 })
 
-it.each([false, true])('disables originally empty proxies without writing empty endpoints (space=%s)', async (space) => {
+it.each([false, true])('disables originally empty proxies without writing empty endpoints (space=%s)', async space => {
   await fixture(async ({ ops, states, control }, lock) => {
     control.serverSpace = space
     states.http = { enabled: false, server: '', port: 0 }
     states.https = { enabled: false, server: '', port: 0 }
-    await expect(withMacOSNotarizationProxy('http://localhost:8888', async () => {
-      expect(states.http.enabled).toBe(true)
-      expect(states.https.enabled).toBe(true)
-      throw new Error('Apple refused')
-    }, lock, ops)).rejects.toThrow('Apple refused')
+    await expect(
+      withMacOSNotarizationProxy(
+        'http://localhost:8888',
+        async () => {
+          expect(states.http.enabled).toBe(true)
+          expect(states.https.enabled).toBe(true)
+          throw new Error('Apple refused')
+        },
+        lock,
+        ops,
+      ),
+    ).rejects.toThrow('Apple refused')
     expect(states.http).toEqual({ enabled: false, server: 'localhost', port: 8888 })
     expect(states.https).toEqual(states.http)
     const setters = ops.command.mock.calls.filter(([, args]) => ['-setwebproxy', '-setsecurewebproxy'].includes(args[0]!))
@@ -127,7 +151,15 @@ it('does not steal a live lock and holds the proxy until concurrent work drains'
   await fixture(async ({ ops, states, original }, lock) => {
     const entered = Promise.withResolvers<undefined>()
     const finish = Promise.withResolvers<undefined>()
-    const running = withMacOSNotarizationProxy('http://localhost:8888', async () => { entered.resolve(undefined); await finish.promise }, lock, ops)
+    const running = withMacOSNotarizationProxy(
+      'http://localhost:8888',
+      async () => {
+        entered.resolve(undefined)
+        await finish.promise
+      },
+      lock,
+      ops,
+    )
     try {
       await entered.promise
       await expect(withMacOSNotarizationProxy('http://localhost:8889', async () => {}, lock, ops)).rejects.toThrow('another run')
@@ -135,7 +167,10 @@ it('does not steal a live lock and holds the proxy until concurrent work drains'
       expect(ops.ownerAlive).not.toHaveBeenCalled()
       expect(states.http.port).toBe(8888)
       expect(existsSync(lock)).toBe(true)
-    } finally { finish.resolve(undefined); await running }
+    } finally {
+      finish.resolve(undefined)
+      await running
+    }
     expect(states).toEqual(original)
   })
 })
@@ -147,22 +182,37 @@ it('excludes both operations across processes and releases ownership after force
     const saved = readFileSync(join(lock, 'original.json'), 'utf8')
     // Coverage builds the addon, but does not emit the package's JavaScript entry.
     const flockSource = new URL('../../../native/system/packages/entry/src/flock.ts', import.meta.url).href
-    const child = spawn(process.execPath, ['--input-type=module', '-e', `
+    const child = spawn(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `
       import { openSync } from 'node:fs';
       import { tryLockExclusive } from ${JSON.stringify(flockSource)};
       const fd = openSync(process.argv[1], 'a', 0o600);
       await tryLockExclusive(fd);
       process.send('locked');
       process.stdin.resume();
-    `, `${lock}.flock`], { stdio: ['pipe', 'ignore', 'pipe', 'ipc'], env: { PATH: process.env.PATH } })
+    `,
+        `${lock}.flock`,
+      ],
+      { stdio: ['pipe', 'ignore', 'pipe', 'ipc'], env: { PATH: process.env.PATH } },
+    )
     const exited = once(child, 'exit')
     const closed = once(child, 'close')
     let stderr = ''
-    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => { stderr = (stderr + chunk).slice(-8192) })
+    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr = (stderr + chunk).slice(-8192)
+    })
     try {
       await Promise.race([
-        once(child, 'message').then(([message]) => { expect(message).toBe('locked') }),
-        closed.then(([code, signal]) => { throw new Error(`lock holder exited before readiness: ${code}/${signal}\n${stderr}`) }),
+        once(child, 'message').then(([message]) => {
+          expect(message).toBe('locked')
+        }),
+        closed.then(([code, signal]) => {
+          throw new Error(`lock holder exited before readiness: ${code}/${signal}\n${stderr}`)
+        }),
       ])
       ops.command.mockClear()
       ops.ownerAlive.mockClear()
@@ -196,7 +246,7 @@ it('restores partial setup and never calls Apple after a system write failure', 
   })
 })
 
-it.each(['pac', 'authenticated'] as const)('rejects unpreservable %s settings before mutation', async (kind) => {
+it.each(['pac', 'authenticated'] as const)('rejects unpreservable %s settings before mutation', async kind => {
   await fixture(async ({ ops, states, original, control }, lock) => {
     control[kind] = true
     const action = vi.fn(async () => {})
@@ -246,7 +296,15 @@ it('defers interruption until work settles and removes its signal listeners afte
     const entered = Promise.withResolvers<undefined>()
     const finish = Promise.withResolvers<undefined>()
     const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
-    const running = withMacOSNotarizationProxy('http://localhost:8888', async () => { entered.resolve(undefined); await finish.promise }, lock, ops)
+    const running = withMacOSNotarizationProxy(
+      'http://localhost:8888',
+      async () => {
+        entered.resolve(undefined)
+        await finish.promise
+      },
+      lock,
+      ops,
+    )
     const result = expect(running).rejects.toThrow('interrupted by SIGTERM')
     try {
       await entered.promise
@@ -255,7 +313,11 @@ it('defers interruption until work settles and removes its signal listeners afte
       listener('SIGTERM')
       expect(states.http.port).toBe(8888)
       expect(existsSync(lock)).toBe(true)
-    } finally { finish.resolve(undefined); await result; stderr.mockRestore() }
+    } finally {
+      finish.resolve(undefined)
+      await result
+      stderr.mockRestore()
+    }
     expect(states).toEqual(original)
     expect(process.listenerCount('SIGTERM')).toBe(before)
   })
@@ -265,7 +327,14 @@ it('retains both the Apple failure and restoration failure', async () => {
   await fixture(async ({ ops, control }, lock) => {
     control.failSet = 5
     const appleError = new Error('Apple refused')
-    const result = withMacOSNotarizationProxy('http://localhost:8888', async () => { throw appleError }, lock, ops)
+    const result = withMacOSNotarizationProxy(
+      'http://localhost:8888',
+      async () => {
+        throw appleError
+      },
+      lock,
+      ops,
+    )
     await expect(result).rejects.toMatchObject({ errors: [appleError, expect.any(AggregateError)] })
     expect(existsSync(join(lock, 'original.json'))).toBe(true)
     await restoreMacOSNotarizationProxy(lock, ops)

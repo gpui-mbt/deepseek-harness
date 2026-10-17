@@ -14,7 +14,14 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { createToolResultMessage, type ToolCallBlock } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionSeq, UserMessage } from '@deepseek-ai/dsh-session'
-import { TOOL_ABORTED_BEFORE_DISPATCH, TOOL_RUNTIME_SCHEDULER, type ToolExecutionInput, type ToolExecutionMode, type ToolExecutionResult, type ToolRunContext } from '@deepseek-ai/dsh-tools'
+import {
+  TOOL_ABORTED_BEFORE_DISPATCH,
+  TOOL_RUNTIME_SCHEDULER,
+  type ToolExecutionInput,
+  type ToolExecutionMode,
+  type ToolExecutionResult,
+  type ToolRunContext,
+} from '@deepseek-ai/dsh-tools'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 
 /** One tool call after argument parsing, ready to schedule. */
@@ -88,9 +95,7 @@ export async function executeToolCalls(
     const first = planned[next]!
     const mode = ctx.tools.executionMode(first.exec).kind
     const group = mode === 'parallel' ? planned.slice(next) : [first]
-    const outcome = await runGroup(
-      ctx, turn, step, group, mode, signal, acceptContext,
-    )
+    const outcome = await runGroup(ctx, turn, step, group, mode, signal, acceptContext)
     next += outcome.consumed
     concluded ||= outcome.concluded
     if (outcome.aborted) {
@@ -172,7 +177,7 @@ async function runGroup(
     switch (prepared.kind) {
       case 'dispatch': {
         const promise = ctx.tools[TOOL_RUNTIME_SCHEDULER].dispatch(prepared.exec).then(
-          (outcome) => {
+          outcome => {
             slots[index] = { exec: prepared.exec, result: outcome.result, needsPost: outcome.kind === 'post-result' }
             return index
           },
@@ -201,8 +206,7 @@ async function runGroup(
       // Re-read later modes after ordered commits so registry changes can create a barrier.
       // oxlint-disable-next-line typescript/no-non-null-assertion -- bounded by the loop condition
       const nextCall = group[nextToStart]!
-      if (nextToStart > 0 && mode === 'parallel'
-        && ctx.tools.executionMode(nextCall.exec).kind !== 'parallel') break
+      if (nextToStart > 0 && mode === 'parallel' && ctx.tools.executionMode(nextCall.exec).kind !== 'parallel') break
       await startCall(nextToStart)
       nextToStart++
       throwSchedulerFailure()
@@ -249,14 +253,21 @@ async function runGroup(
 /** Append the durable call/result pair for a model call skipped after cancellation. */
 function appendSkippedToolCall(session: Session, turn: number, step: number, block: ToolCallBlock): void {
   const callSeq = appendToolCall(session, turn, step, block)
-  appendToolResult(session, turn, step, block, {
-    content: [{ type: 'text', text: 'Error: tool call aborted before dispatch' }],
-    isError: true,
-    error: {
-      message: 'tool call aborted before dispatch',
-      info: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH },
+  appendToolResult(
+    session,
+    turn,
+    step,
+    block,
+    {
+      content: [{ type: 'text', text: 'Error: tool call aborted before dispatch' }],
+      isError: true,
+      error: {
+        message: 'tool call aborted before dispatch',
+        info: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH },
+      },
     },
-  }, callSeq)
+    callSeq,
+  )
 }
 
 /** Append a started call and return the event seq that its result must cite. */
@@ -279,12 +290,17 @@ function appendToolResult(
     content: result.content,
     isError: result.isError,
   })
-  session.append('tool/result', {
-    turn, step,
-    message,
-    ...result.error?.info ? { error: result.error.info } : {},
-    // The tool's private presentation payload (e.g. a result-time diff),
-    // persisted so a UI bridge reproduces the card on replay.
-    ...result.meta !== undefined ? { meta: result.meta } : {},
-  }, { surfaceOp: 'append', sourceEventSeqs: [callSeq] })
+  session.append(
+    'tool/result',
+    {
+      turn,
+      step,
+      message,
+      ...(result.error?.info ? { error: result.error.info } : {}),
+      // The tool's private presentation payload (e.g. a result-time diff),
+      // persisted so a UI bridge reproduces the card on replay.
+      ...(result.meta !== undefined ? { meta: result.meta } : {}),
+    },
+    { surfaceOp: 'append', sourceEventSeqs: [callSeq] },
+  )
 }

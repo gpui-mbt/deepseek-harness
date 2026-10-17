@@ -39,11 +39,7 @@ function isUsableWorkdir(path: string): boolean {
  * @param workdir - the caller-owned spawn cwd, checked independently for usability.
  * @returns whether the rejection has executable-specific runner evidence.
  */
-export function isRunnerSpawnFailure(
-  error: unknown,
-  runnerProgram: string | undefined,
-  workdir: string,
-): boolean {
+export function isRunnerSpawnFailure(error: unknown, runnerProgram: string | undefined, workdir: string): boolean {
   if (runnerProgram === undefined || !isUsableWorkdir(workdir)) return false
   if (typeof error !== 'object' || error === null) return false
   const { code, path, syscall } = error as { code?: unknown; path?: unknown; syscall?: unknown }
@@ -93,9 +89,7 @@ export function classifyRunnerFailure(
     const informationalLines = new Set((rule.informationalLines ?? []).map(line => line.toLowerCase()))
     // An empty or whitespace-only substring is not meaningful runner evidence.
     // Ignore it while keeping any valid signatures beside it active.
-    const fatalSignatures = rule.fatalSignatures
-      .filter(signature => signature.trim().length > 0)
-      .map(signature => signature.toLowerCase())
+    const fatalSignatures = rule.fatalSignatures.filter(signature => signature.trim().length > 0).map(signature => signature.toLowerCase())
     for (const line of lines) {
       const lowered = line.toLowerCase()
       if (informationalLines.has(lowered)) continue

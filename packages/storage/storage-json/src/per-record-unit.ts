@@ -48,11 +48,7 @@ const SAFE_KEY_RE = /^[a-zA-Z0-9_-]+$/
  * @returns the opened unit.
  */
 // oxlint-disable-next-line typescript/require-await -- async keeps both openers' call sites uniform
-export async function openPerRecordUnit(
-  descriptor: KvUnitDescriptor,
-  root: string,
-  onClose: () => void,
-): Promise<KvUnit> {
+export async function openPerRecordUnit(descriptor: KvUnitDescriptor, root: string, onClose: () => void): Promise<KvUnit> {
   return new PerRecordJsonUnit(descriptor, join(root, descriptor.name), onClose)
 }
 
@@ -81,29 +77,34 @@ async function loadPerRecordState(descriptor: KvUnitDescriptor, dir: string): Pr
     // Missing directory = empty unit; the legacy bootstrap below still runs
     // (the fresh-upgrade shape is exactly an absent new tree).
   }
-  const hasNewDocuments = entries === undefined
-    ? false
-    : (await Promise.all(entries.map(async (entry) => {
-      if (entry.isDirectory()) {
-        const records = state.tables.get(entry.name)
-        if (records !== undefined) {
-          return loadTableRecords(records, versions, join(dir, entry.name))
-        }
-      }
-      if (entry.name === 'global.json' && descriptor.hasGlobal) {
-        const global = await readRecord(join(dir, entry.name), versions)
-        if (global !== undefined) state.global = global
-        return true
-      }
-      return false
-    }))).some(Boolean)
+  const hasNewDocuments =
+    entries === undefined
+      ? false
+      : (
+          await Promise.all(
+            entries.map(async entry => {
+              if (entry.isDirectory()) {
+                const records = state.tables.get(entry.name)
+                if (records !== undefined) {
+                  return loadTableRecords(records, versions, join(dir, entry.name))
+                }
+              }
+              if (entry.name === 'global.json' && descriptor.hasGlobal) {
+                const global = await readRecord(join(dir, entry.name), versions)
+                if (global !== undefined) state.global = global
+                return true
+              }
+              return false
+            }),
+          )
+        ).some(Boolean)
   if (!hasNewDocuments) await bootstrapLegacyUnit(descriptor, dir, state)
   return state
 }
 
 /** The version stamps this unit reads as its own: current plus declared compatible versions. */
 function acceptedStamps(descriptor: KvUnitDescriptor): readonly number[] {
-  return [descriptor.version, ...descriptor.compatibleVersions ?? []]
+  return [descriptor.version, ...(descriptor.compatibleVersions ?? [])]
 }
 
 /**
@@ -164,13 +165,15 @@ async function bootstrapLegacyUnit(descriptor: KvUnitDescriptor, dir: string, st
 async function loadTableRecords(records: Map<string, unknown>, versions: readonly number[], dir: string): Promise<boolean> {
   const files = await readdir(dir, { withFileTypes: true })
   const hasDocuments = files.some(file => file.name.endsWith('.json'))
-  const loaded = await Promise.all(files.map(async (file) => {
-    if (!file.name.endsWith('.json')) return
-    const key = file.name.slice(0, -'.json'.length)
-    if (!SAFE_KEY_RE.test(key)) return
-    const record = await readRecord(join(dir, file.name), versions)
-    if (record !== undefined) return [key, record] as const
-  }))
+  const loaded = await Promise.all(
+    files.map(async file => {
+      if (!file.name.endsWith('.json')) return
+      const key = file.name.slice(0, -'.json'.length)
+      if (!SAFE_KEY_RE.test(key)) return
+      const record = await readRecord(join(dir, file.name), versions)
+      if (record !== undefined) return [key, record] as const
+    }),
+  )
   for (const record of loaded) {
     if (record !== undefined) records.set(...record)
   }

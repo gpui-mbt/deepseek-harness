@@ -2,7 +2,7 @@
 /** The shell page as the Plugins page renders it: its one-liner, its two fields, and what a save does. */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SettingsFieldState, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -22,7 +22,10 @@ function field(text: string, rest: Partial<SettingsFieldState> = {}): SettingsFi
 
 function renderCard(state: Partial<ShellCardState> = {}, view: 'summary' | 'page' = 'page') {
   const store = createSnapshotStore<ShellCardState>({
-    ...settled, timeoutMs: field('60000'), maxOutputBytes: field('64000'), ...state,
+    ...settled,
+    timeoutMs: field('60000'),
+    maxOutputBytes: field('64000'),
+    ...state,
   })
   const actions = { edit: vi.fn(), resetField: vi.fn(), save: vi.fn(), discard: vi.fn() }
   const props = { ...actions, view, t, useShellCard: bindSnapshotSelector(store) } as ShellCardProps

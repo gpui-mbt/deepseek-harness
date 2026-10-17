@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import { needsWelcome, WELCOME_IPC } from '../src/welcome-api.ts'
 
@@ -10,7 +10,9 @@ const electron = vi.hoisted(() => ({
 }))
 vi.mock('electron', () => ({
   app: { getAppPath: () => electron.root },
-  BrowserWindow: vi.fn(function (options: unknown) { return electron.create(options) }),
+  BrowserWindow: vi.fn(function (options: unknown) {
+    return electron.create(options)
+  }),
   ipcMain: {
     handle: (name: string, handler: (event: unknown, value?: unknown, attributes?: unknown) => Promise<unknown>) => {
       if (electron.handlers.has(name)) throw new Error(`duplicate IPC handler: ${name}`)
@@ -37,26 +39,46 @@ function createWindow() {
   }
 }
 
-beforeEach(() => { electron.create.mockReset(); electron.handlers.clear() })
+beforeEach(() => {
+  electron.create.mockReset()
+  electron.handlers.clear()
+})
 
 const operations = {
   analyticsEnabled: async () => true,
   takeNotice: async () => undefined,
-  startSignIn: async () => ({ links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out' as const, attempt: null }),
-  cancelSignIn: async () => ({ links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out' as const, attempt: null }),
+  startSignIn: async () => ({
+    links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' },
+    status: 'signed-out' as const,
+    attempt: null,
+  }),
+  cancelSignIn: async () => ({
+    links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' },
+    status: 'signed-out' as const,
+    attempt: null,
+  }),
   copySignInLink: async () => undefined,
   saveApiKey: () => Promise.resolve({ ok: true as const }),
   skip: () => Promise.resolve(),
 }
 
 describe('desktop welcome window', () => {
-  it.each(['darwin', 'win32', 'linux'] as const)('keeps the %s preview fixed-size and sandboxed', (platform) => {
+  it.each(['darwin', 'win32', 'linux'] as const)('keeps the %s preview fixed-size and sandboxed', platform => {
     const options = welcomeWindowOptions(platform, resolveDesktopLocale('zh-CN'))
     expect(options).toMatchObject({
-      width: 600, height: 700, useContentSize: true, center: true, show: false,
-      resizable: false, maximizable: false, fullscreenable: false,
+      width: 600,
+      height: 700,
+      useContentSize: true,
+      center: true,
+      show: false,
+      resizable: false,
+      maximizable: false,
+      fullscreenable: false,
       webPreferences: {
-        nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webSecurity: true,
         additionalArguments: ['--dsh-welcome-locale=zh-CN'],
       },
     })

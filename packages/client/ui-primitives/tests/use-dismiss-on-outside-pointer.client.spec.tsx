@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { useDismissOnOutsidePointer } from '@deepseek-ai/dsh-client-ui-primitives'
 
 afterEach(cleanup)
@@ -17,7 +17,14 @@ function Popover({ portaled }: { portaled: boolean }) {
     <div ref={rootRef} data-testid="root">
       <button type="button">trigger</button>
       {open && !portaled && <div data-testid="surface">surface</div>}
-      {open && portaled && createPortal(<div ref={panelRef} data-testid="surface">surface</div>, document.body)}
+      {open &&
+        portaled &&
+        createPortal(
+          <div ref={panelRef} data-testid="surface">
+            surface
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

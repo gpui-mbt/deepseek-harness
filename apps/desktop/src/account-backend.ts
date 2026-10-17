@@ -9,23 +9,42 @@ export type AccountInvoke = (request: { namespace: string; method: string; args:
 
 /** Decode the UI-safe state received across HTTP or WebSocket. @param value - wire value. @returns account projection. */
 export function accountView(value: unknown): AccountView {
-  if (typeof value !== 'object' || value === null || !('status' in value)
-    || !['signed-out', 'credential-stored'].includes(String(value.status)) || !('attempt' in value)) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('status' in value) ||
+    !['signed-out', 'credential-stored'].includes(String(value.status)) ||
+    !('attempt' in value)
+  ) {
     throw new Error('desktop account: invalid state')
   }
-  if (!('links' in value) || typeof value.links !== 'object' || value.links === null
-    || !('usageUrl' in value.links) || typeof value.links.usageUrl !== 'string'
-    || !('topUpUrl' in value.links) || typeof value.links.topUpUrl !== 'string') {
+  if (
+    !('links' in value) ||
+    typeof value.links !== 'object' ||
+    value.links === null ||
+    !('usageUrl' in value.links) ||
+    typeof value.links.usageUrl !== 'string' ||
+    !('topUpUrl' in value.links) ||
+    typeof value.links.topUpUrl !== 'string'
+  ) {
     throw new Error('desktop account: invalid platform links')
   }
   validateBrowserDestination(value.links.usageUrl)
   validateBrowserDestination(value.links.topUpUrl)
   const attempt = value.attempt
-  if (attempt !== null && (typeof attempt !== 'object' || !('id' in attempt) || typeof attempt.id !== 'string'
-    || !('phase' in attempt) || !['initializing', 'waiting-browser', 'exchanging', 'committing', 'succeeded', 'cancelled', 'expired', 'failed'].includes(String(attempt.phase))
-    || ('authorizeUrl' in attempt && typeof attempt.authorizeUrl !== 'string')
-    || ('expiresAt' in attempt && (typeof attempt.expiresAt !== 'number' || !Number.isFinite(attempt.expiresAt)))
-    || ('errorCode' in attempt && !['no-response', 'network', 'protocol', 'expired', 'storage'].includes(String(attempt.errorCode))))) {
+  if (
+    attempt !== null &&
+    (typeof attempt !== 'object' ||
+      !('id' in attempt) ||
+      typeof attempt.id !== 'string' ||
+      !('phase' in attempt) ||
+      !['initializing', 'waiting-browser', 'exchanging', 'committing', 'succeeded', 'cancelled', 'expired', 'failed'].includes(
+        String(attempt.phase),
+      ) ||
+      ('authorizeUrl' in attempt && typeof attempt.authorizeUrl !== 'string') ||
+      ('expiresAt' in attempt && (typeof attempt.expiresAt !== 'number' || !Number.isFinite(attempt.expiresAt))) ||
+      ('errorCode' in attempt && !['no-response', 'network', 'protocol', 'expired', 'storage'].includes(String(attempt.errorCode))))
+  ) {
     throw new Error('desktop account: invalid attempt')
   }
   if (attempt !== null && 'authorizeUrl' in attempt) {
@@ -35,12 +54,16 @@ export function accountView(value: unknown): AccountView {
   return {
     status: parsed.status,
     links: { usageUrl: parsed.links.usageUrl, topUpUrl: parsed.links.topUpUrl },
-    attempt: parsed.attempt === null ? null : {
-      id: parsed.attempt.id, phase: parsed.attempt.phase,
-      ...parsed.attempt.authorizeUrl === undefined ? {} : { authorizeUrl: parsed.attempt.authorizeUrl },
-      ...parsed.attempt.expiresAt === undefined ? {} : { expiresAt: parsed.attempt.expiresAt },
-      ...parsed.attempt.errorCode === undefined ? {} : { errorCode: parsed.attempt.errorCode },
-    },
+    attempt:
+      parsed.attempt === null
+        ? null
+        : {
+            id: parsed.attempt.id,
+            phase: parsed.attempt.phase,
+            ...(parsed.attempt.authorizeUrl === undefined ? {} : { authorizeUrl: parsed.attempt.authorizeUrl }),
+            ...(parsed.attempt.expiresAt === undefined ? {} : { expiresAt: parsed.attempt.expiresAt }),
+            ...(parsed.attempt.errorCode === undefined ? {} : { errorCode: parsed.attempt.errorCode }),
+          },
   }
 }
 
@@ -71,7 +94,9 @@ export interface DesktopAccountBackend {
    * @returns stream disposer.
    */
   watch(
-    listener: (state: AccountView) => void, failed: () => void, expired: () => void,
+    listener: (state: AccountView) => void,
+    failed: () => void,
+    expired: () => void,
     onAnalyticsEnabledChanged?: (enabled: boolean) => void,
   ): () => void
 }
@@ -89,7 +114,8 @@ export function desktopAccountBackend(origin: string, invoke: AccountInvoke, coo
   return {
     state: () => call('getState'),
     start: client => call('startSignIn', { client, callbackOrigin: new URL(origin).origin, loginSource: 'desktop' }),
-    cancel: attemptId => call('cancelSignIn', { attemptId }), signOut: client => call('signOut', { client }),
+    cancel: attemptId => call('cancelSignIn', { attemptId }),
+    signOut: client => call('signOut', { client }),
     watch(listener, failed, expired, onAnalyticsEnabledChanged) {
       let closed = false
       let socket: WebSocket | undefined
@@ -98,37 +124,73 @@ export function desktopAccountBackend(origin: string, invoke: AccountInvoke, coo
         const streamId = randomUUID()
         const expiryStreamId = randomUUID()
         const analyticsPolicyStreamId = randomUUID()
-        void cookies().then((cookie) => {
-          if (closed) return
-          const url = new URL(REMOTE_STREAM_MUX_PATH, origin)
-          url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-          socket = new WebSocket(url, { headers: { cookie, origin }, maxPayload: 65_536 })
-          socket.on('open', () => {
-            if (onAnalyticsEnabledChanged !== undefined) socket?.send(JSON.stringify({ type: 'open', streamId: analyticsPolicyStreamId, endpoint: 'productAnalytics/watchPolicy', payload: { args: {} } }))
-            socket?.send(JSON.stringify({ type: 'open', streamId: expiryStreamId, endpoint: 'account/watchExpiry', payload: { args: {} } }))
-            socket?.send(JSON.stringify({ type: 'open', streamId, endpoint: 'account/watch', payload: { args: {} } }))
-          })
-          socket.on('message', (data) => {
-            try {
-              const bytes = Array.isArray(data) ? Buffer.concat(data) : Buffer.isBuffer(data) ? data : Buffer.from(data)
-              const frame = parseRemoteStreamServerMessage(bytes.toString('utf8'))
-              if (frame.streamId === analyticsPolicyStreamId) {
-                if (frame.type === 'item' && typeof frame.value === 'boolean') onAnalyticsEnabledChanged?.(frame.value)
-                else onAnalyticsEnabledChanged?.(false)
-                return
+        void cookies()
+          .then(cookie => {
+            if (closed) return
+            const url = new URL(REMOTE_STREAM_MUX_PATH, origin)
+            url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+            socket = new WebSocket(url, { headers: { cookie, origin }, maxPayload: 65_536 })
+            socket.on('open', () => {
+              if (onAnalyticsEnabledChanged !== undefined)
+                socket?.send(
+                  JSON.stringify({
+                    type: 'open',
+                    streamId: analyticsPolicyStreamId,
+                    endpoint: 'productAnalytics/watchPolicy',
+                    payload: { args: {} },
+                  }),
+                )
+              socket?.send(
+                JSON.stringify({ type: 'open', streamId: expiryStreamId, endpoint: 'account/watchExpiry', payload: { args: {} } }),
+              )
+              socket?.send(JSON.stringify({ type: 'open', streamId, endpoint: 'account/watch', payload: { args: {} } }))
+            })
+            socket.on('message', data => {
+              try {
+                const bytes = Array.isArray(data) ? Buffer.concat(data) : Buffer.isBuffer(data) ? data : Buffer.from(data)
+                const frame = parseRemoteStreamServerMessage(bytes.toString('utf8'))
+                if (frame.streamId === analyticsPolicyStreamId) {
+                  if (frame.type === 'item' && typeof frame.value === 'boolean') onAnalyticsEnabledChanged?.(frame.value)
+                  else onAnalyticsEnabledChanged?.(false)
+                  return
+                }
+                if (frame.streamId === expiryStreamId && frame.type === 'item' && frame.value === 'session-expired') {
+                  expired()
+                  return
+                }
+                if (frame.streamId !== streamId) throw new Error('desktop account: unexpected stream')
+                if (frame.type === 'item') listener(accountView(frame.value))
+                else socket?.close()
+              } catch {
+                socket?.close()
               }
-              if (frame.streamId === expiryStreamId && frame.type === 'item' && frame.value === 'session-expired') { expired(); return }
-              if (frame.streamId !== streamId) throw new Error('desktop account: unexpected stream')
-              if (frame.type === 'item') listener(accountView(frame.value))
-              else socket?.close()
-            } catch { socket?.close() }
+            })
+            socket.on('error', () => {
+              socket?.close()
+            })
+            socket.on('close', () => {
+              if (!closed) {
+                onAnalyticsEnabledChanged?.(false)
+                failed()
+                retry = setTimeout(connect, 1000)
+              }
+            })
           })
-          socket.on('error', () => { socket?.close() })
-          socket.on('close', () => { if (!closed) { onAnalyticsEnabledChanged?.(false); failed(); retry = setTimeout(connect, 1000) } })
-        }).catch(() => { if (!closed) { onAnalyticsEnabledChanged?.(false); failed(); retry = setTimeout(connect, 1000) } })
+          .catch(() => {
+            if (!closed) {
+              onAnalyticsEnabledChanged?.(false)
+              failed()
+              retry = setTimeout(connect, 1000)
+            }
+          })
       }
       connect()
-      return () => { closed = true; onAnalyticsEnabledChanged?.(false); clearTimeout(retry); socket?.close() }
+      return () => {
+        closed = true
+        onAnalyticsEnabledChanged?.(false)
+        clearTimeout(retry)
+        socket?.close()
+      }
     },
   }
 }

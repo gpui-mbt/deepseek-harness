@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime from '@deepseek-ai/dsh-web'
 import { ExaSearchProvider, EXA_PROVIDER_ID } from '@deepseek-ai/dsh-web-search-exa'
@@ -17,12 +17,14 @@ afterEach(() => {
 
 describe('Exa result mapping', () => {
   it('maps a full result entry', () => {
-    expect(mapExaResult({
-      url: 'https://a.test',
-      title: 'A',
-      publishedDate: '2026-01-01',
-      highlights: ['salient sentence', 'second'],
-    })).toEqual({ url: 'https://a.test', title: 'A', snippet: 'salient sentence', publishedAt: '2026-01-01' })
+    expect(
+      mapExaResult({
+        url: 'https://a.test',
+        title: 'A',
+        publishedDate: '2026-01-01',
+        highlights: ['salient sentence', 'second'],
+      }),
+    ).toEqual({ url: 'https://a.test', title: 'A', snippet: 'salient sentence', publishedAt: '2026-01-01' })
   })
 
   it('drops a result with no usable highlight', () => {
@@ -32,10 +34,14 @@ describe('Exa result mapping', () => {
   })
 
   it('omits null/empty optional fields rather than emitting them', () => {
-    expect(mapExaResult({ url: 'https://a.test', title: null, publishedDate: null, highlights: ['hi'] }))
-      .toEqual({ url: 'https://a.test', snippet: 'hi' })
-    expect(mapExaResult({ url: 'https://a.test', title: '', publishedDate: '', highlights: ['hi'] }))
-      .toEqual({ url: 'https://a.test', snippet: 'hi' })
+    expect(mapExaResult({ url: 'https://a.test', title: null, publishedDate: null, highlights: ['hi'] })).toEqual({
+      url: 'https://a.test',
+      snippet: 'hi',
+    })
+    expect(mapExaResult({ url: 'https://a.test', title: '', publishedDate: '', highlights: ['hi'] })).toEqual({
+      url: 'https://a.test',
+      snippet: 'hi',
+    })
   })
 
   it('maps a response to a result with no content and filtered sources', () => {
@@ -59,7 +65,6 @@ describe('Exa result mapping', () => {
   it('tolerates a missing results array', () => {
     expect(mapExaResponse({}).sources).toEqual([])
   })
-
 })
 
 describe('ExaSearchProvider availability', () => {
@@ -150,72 +155,104 @@ describe('ExaSearchProvider request mapping', () => {
 
 describe('ExaSearchProvider error handling', () => {
   it('maps an HTTP error to WEB_PROVIDER_ERROR with the provider message', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'bad key' }, { status: 401 })))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR', message: 'bad key' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'bad key' }, { status: 401 })),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(
+      expect.objectContaining({ code: 'WEB_PROVIDER_ERROR', message: 'bad key' }),
+    )
   })
 
   it('keeps a status-line message when the error body is not JSON', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('gateway down', { status: 502 })))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR', message: 'Exa API error (HTTP 502)' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('gateway down', { status: 502 })),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(
+      expect.objectContaining({ code: 'WEB_PROVIDER_ERROR', message: 'Exa API error (HTTP 502)' }),
+    )
   })
 
   it('keeps the status-line message when the JSON error body carries no detail', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, { status: 500 })))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ message: 'Exa API error (HTTP 500)' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({}, { status: 500 })),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(
+      expect.objectContaining({ message: 'Exa API error (HTTP 500)' }),
+    )
   })
 
   it('maps a network failure to WEB_PROVIDER_ERROR', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('connection refused'))))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('connection refused'))),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(
+      expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }),
+    )
   })
 
   it('maps an abort to WEB_ABORTED', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
 
   it('maps an unparseable success body to WEB_PROVIDER_ERROR', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('not json', { status: 200 })))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('not json', { status: 200 })),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(
+      expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }),
+    )
   })
 
   it('maps a well-formed body of the wrong shape to WEB_PROVIDER_ERROR, not a raw TypeError', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ results: {} }, { status: 200 })))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ results: {} }, { status: 200 })),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(
+      expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }),
+    )
   })
 
   it('surfaces an abort during success-body parse as WEB_ABORTED, not provider error', async () => {
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: true, status: 200 }
-    vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => body as unknown as Response),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
 
   it('surfaces an abort during error-body parse as WEB_ABORTED', async () => {
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: false, status: 500 }
-    vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
-    await expect(new ExaSearchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => body as unknown as Response),
+    )
+    await expect(new ExaSearchProvider(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
 })
 
 describe('web-search-exa plugin registration', () => {
   it('registers the provider into ctx.web (HMR-safe)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ results: [] })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ results: [] })),
+    )
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: EXA_PROVIDER_ID })
     const fiber = await ctx.plugin(exaPlugin, { apiKey: 'exa-key' })
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ sources: [], truncated: false })
     await fiber.dispose()
-    await expect(ctx.web.search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CONFIGURED_MISSING' }))
+    await expect(ctx.web.search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CONFIGURED_MISSING' }))
   })
 
   it('has no default export (namespace plugin export shape)', () => {
@@ -230,7 +267,11 @@ describe('web-search-exa plugin registration', () => {
     const fiber = await ctx.plugin(exaPlugin, { apiKey: 'exa-key', searchType: 'keyword', highlightsPerResult: 2, numResults: 9 })
     await ctx.web.search({ query: 'q' })
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(JSON.parse(init.body as string)).toMatchObject({ type: 'keyword', contents: { highlights: { highlightsPerUrl: 2 } }, numResults: 9 })
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      type: 'keyword',
+      contents: { highlights: { highlightsPerUrl: 2 } },
+      numResults: 9,
+    })
     await fiber.dispose()
   })
 
@@ -260,8 +301,7 @@ describe('web-search-exa plugin registration', () => {
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: EXA_PROVIDER_ID })
       await ctx.plugin(exaPlugin, {})
-      await expect(ctx.web.search({ query: 'q' }))
-        .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE' }))
+      await expect(ctx.web.search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE' }))
     } finally {
       if (prev !== undefined) process.env.EXA_API_KEY = prev
     }

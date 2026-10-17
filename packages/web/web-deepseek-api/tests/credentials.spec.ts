@@ -2,7 +2,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local'
@@ -14,9 +14,10 @@ const BASE = 'https://api.deepseek.test/v1/tools'
 
 /** Stub the Search API and read back the bearer credential of every dispatched request. */
 function captureAuthorization(): () => (string | null)[] {
-  const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
-    JSON.stringify({ results: [] }), { status: 200, headers: { 'content-type': 'application/json' } },
-  ))
+  const fetchMock = vi.fn(
+    async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ results: [] }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  )
   vi.stubGlobal('fetch', fetchMock)
   return () => fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers).get('authorization'))
 }
@@ -33,7 +34,9 @@ async function mount(ctx: Context, config: Record<string, unknown>, environment:
   await ctx.plugin(webApiPlugin, { baseURL: BASE, ...config })
 }
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('web-deepseek-api API-key resolution', () => {
   it('resolves the referenced credential for each request, so a stored or rotated key needs no restart', async () => {
@@ -69,7 +72,9 @@ describe('web-deepseek-api API-key resolution', () => {
       await mount(ctx, config, environment)
       await ctx.web.search({ query: 'q' })
       expect(authorization()).toEqual([expected])
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('treats an empty environment value as missing', async () => {
@@ -79,7 +84,9 @@ describe('web-deepseek-api API-key resolution', () => {
       await mount(ctx, {}, { DEEPSEEK_API_KEY: '' })
       await expect(ctx.web.search({ query: 'q' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' })
       expect(authorization()).toEqual([])
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('treats an empty credential value as missing', async () => {
@@ -90,6 +97,8 @@ describe('web-deepseek-api API-key resolution', () => {
       await mount(ctx, {}, {})
       await expect(ctx.web.search({ query: 'q' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' })
       expect(authorization()).toEqual([])
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 })

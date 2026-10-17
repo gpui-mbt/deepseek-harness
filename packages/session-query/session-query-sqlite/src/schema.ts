@@ -78,18 +78,16 @@ export async function openSearchDatabase(path: string, journalMode: JournalMode)
 }
 
 function listUserTables(db: DatabaseSync): string[] {
-  const rows = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT GLOB 'sqlite_*' ORDER BY name",
-  ).all() as Array<{ name: string }>
+  const rows = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT GLOB 'sqlite_*' ORDER BY name").all() as Array<{
+    name: string
+  }>
   return rows.map(row => row.name)
 }
 
 function assertDerivedUserTables(path: string, userTables: readonly string[]): void {
   const unknownTables = userTables.filter(name => !DERIVED_USER_TABLES.has(name))
   if (unknownTables.length > 0) {
-    throw new Error(
-      `session-search database at "${path}" has unrecognized user tables: ${unknownTables.join(', ')}`,
-    )
+    throw new Error(`session-search database at "${path}" has unrecognized user tables: ${unknownTables.join(', ')}`)
   }
 }
 

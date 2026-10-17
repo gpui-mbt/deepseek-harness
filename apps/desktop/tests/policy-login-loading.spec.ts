@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { JSDOM } from 'jsdom'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const file = join(import.meta.dirname, '../renderer/policy-login-loading.html')
 const html = readFileSync(file, 'utf8')

@@ -13,14 +13,23 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, ConsoleMessage, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { deriveReplayScript, parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
-  acknowledgeReloadConnectionLoss, assertFixtureInventory, captureExpandedTurnProcessAria, captureStableAria,
-  compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, recordFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFixtureInventory,
+  captureExpandedTurnProcessAria,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -40,9 +49,10 @@ const MODE = webSnapshotMode()
 // message. The task is deliberately self-contained (nothing to explore in a
 // fresh workspace) so the recorded turn is a plan and its review, and the
 // approved continuation is one word.
-const TASK = 'Plan a small change: add a --greeting flag to a CLI. Do not read or write any files. '
-  + 'Call exit_plan_mode with a short plan of at most five bullet points. '
-  + 'Once the plan is approved, reply with the single word DONE and stop.'
+const TASK =
+  'Plan a small change: add a --greeting flag to a CLI. Do not read or write any files. ' +
+  'Call exit_plan_mode with a short plan of at most five bullet points. ' +
+  'Once the plan is approved, reply with the single word DONE and stop.'
 const LINE = `/plan ${TASK}`
 
 describe('web e2e: plan review takeover round trip', () => {
@@ -55,7 +65,9 @@ describe('web e2e: plan review takeover round trip', () => {
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15, compareReplaySession: true })
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
+    })
     browser = await chromium.launch()
     // English page: the decision copy is the surface under test, and the
     // golden pins one language.
@@ -156,112 +168,153 @@ describe('web e2e: plan review takeover round trip', () => {
     expect(await page.locator('[data-plan-preview]').getByRole('heading', { level: 1 }).textContent()).toContain('--greeting')
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(APPROVED_EXPECTED, snapshot, MODE)
-    const expanded = await captureExpandedTurnProcessAria(
-      page,
-      '[class*="centerCol"]',
-      scaffold.workspaceCwd,
-    )
+    const expanded = await captureExpandedTurnProcessAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(APPROVED_EXPANDED_EXPECTED, expanded, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 200_000)
 
-  it.skipIf(MODE === 'record')('previews an unlogged review automatically and reopens it without deciding', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-plan-review-temporary'))
-    const agent = scaffold.ctx.agents.get(reviewedSession)
-    if (agent === undefined) throw new Error('The reviewed Session has no active agent')
-    const controller = new AbortController()
-    // This public question request has no tool invocation; its detail is the only complete document.
-    const asked = scaffold.ctx.userQuestions.ask({
-      agent, signal: controller.signal,
-      questions: [{ id: 'temporary', question: 'Approve this temporary plan?',
-        detail: '# Temporary review\n\nReview without a tool invocation.\n\n## Implementation\n\n- Keep the complete document readable.\n- Ask before implementation.',
-        options: [{ label: 'Approve' }, { label: 'Keep planning' }], intent: { kind: 'plan-review', approve: 'Approve' },
-      }],
-    })
-    let answered = false
-    const outcome = asked.then((value) => { answered = true; return value }, (error: unknown) => ({ error }))
-    try {
-      const card = page.locator('[data-plan-review-key]')
-      const preview = page.locator('[data-plan-preview^="dsh-resource://plan-review/"]')
-      await preview.waitFor({ state: 'visible' })
-      expect(await preview.getByText('Ask before implementation.').isVisible()).toBe(true)
-      await compareOrRefreshGolden(TEMPORARY_EXPECTED, await captureStableAria(page, '[data-plan-preview^="dsh-resource://plan-review/"]', scaffold.workspaceCwd), MODE)
-      const tab = page.locator('[data-dockkit-tab]').filter({ hasText: 'Temporary review' })
-      await card.getByRole('button', { name: 'Open plan in sidebar' }).click()
-      expect(await tab.count()).toBe(1)
-      await tab.locator('[data-dockkit-tab-close]').click()
-      await preview.waitFor({ state: 'detached' })
-      await card.getByRole('button', { name: 'Open plan in sidebar' }).click()
-      await preview.waitFor({ state: 'visible' })
-      expect(answered).toBe(false)
-      const saved = await page.evaluate(() => Object.keys(localStorage)
-        .filter(key => key.startsWith('dsh.sidebar-right.v1.')).map(key => localStorage.getItem(key)).join('\n'))
-      expect(saved).toContain('dsh-resource://plan-review/')
-      expect(saved).not.toContain('Ask before implementation.')
-      await card.getByRole('button', { name: 'Approve', exact: true }).click()
-      expect(await outcome).toEqual({ answers: [{ id: 'temporary', selected: ['Approve'] }] })
-      await card.waitFor({ state: 'detached' })
-      expect(await preview.getByText('Ask before implementation.').isVisible()).toBe(true)
-      await page.reload({ waitUntil: 'load' })
-      await page.getByText('This temporary plan preview has expired. Reopen it from the pending review card.', { exact: true }).waitFor()
-      expect(tripwire.pageErrors).toEqual([])
-      expect(tripwire.warnings).toEqual([])
-    } finally {
-      controller.abort()
-      await outcome
-    }
-  }, 60_000)
+  it.skipIf(MODE === 'record')(
+    'previews an unlogged review automatically and reopens it without deciding',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-plan-review-temporary'))
+      const agent = scaffold.ctx.agents.get(reviewedSession)
+      if (agent === undefined) throw new Error('The reviewed Session has no active agent')
+      const controller = new AbortController()
+      // This public question request has no tool invocation; its detail is the only complete document.
+      const asked = scaffold.ctx.userQuestions.ask({
+        agent,
+        signal: controller.signal,
+        questions: [
+          {
+            id: 'temporary',
+            question: 'Approve this temporary plan?',
+            detail:
+              '# Temporary review\n\nReview without a tool invocation.\n\n## Implementation\n\n- Keep the complete document readable.\n- Ask before implementation.',
+            options: [{ label: 'Approve' }, { label: 'Keep planning' }],
+            intent: { kind: 'plan-review', approve: 'Approve' },
+          },
+        ],
+      })
+      let answered = false
+      const outcome = asked.then(
+        value => {
+          answered = true
+          return value
+        },
+        (error: unknown) => ({ error }),
+      )
+      try {
+        const card = page.locator('[data-plan-review-key]')
+        const preview = page.locator('[data-plan-preview^="dsh-resource://plan-review/"]')
+        await preview.waitFor({ state: 'visible' })
+        expect(await preview.getByText('Ask before implementation.').isVisible()).toBe(true)
+        await compareOrRefreshGolden(
+          TEMPORARY_EXPECTED,
+          await captureStableAria(page, '[data-plan-preview^="dsh-resource://plan-review/"]', scaffold.workspaceCwd),
+          MODE,
+        )
+        const tab = page.locator('[data-dockkit-tab]').filter({ hasText: 'Temporary review' })
+        await card.getByRole('button', { name: 'Open plan in sidebar' }).click()
+        expect(await tab.count()).toBe(1)
+        await tab.locator('[data-dockkit-tab-close]').click()
+        await preview.waitFor({ state: 'detached' })
+        await card.getByRole('button', { name: 'Open plan in sidebar' }).click()
+        await preview.waitFor({ state: 'visible' })
+        expect(answered).toBe(false)
+        const saved = await page.evaluate(() =>
+          Object.keys(localStorage)
+            .filter(key => key.startsWith('dsh.sidebar-right.v1.'))
+            .map(key => localStorage.getItem(key))
+            .join('\n'),
+        )
+        expect(saved).toContain('dsh-resource://plan-review/')
+        expect(saved).not.toContain('Ask before implementation.')
+        await card.getByRole('button', { name: 'Approve', exact: true }).click()
+        expect(await outcome).toEqual({ answers: [{ id: 'temporary', selected: ['Approve'] }] })
+        await card.waitFor({ state: 'detached' })
+        expect(await preview.getByText('Ask before implementation.').isVisible()).toBe(true)
+        await page.reload({ waitUntil: 'load' })
+        await page.getByText('This temporary plan preview has expired. Reopen it from the pending review card.', { exact: true }).waitFor()
+        expect(tripwire.pageErrors).toEqual([])
+        expect(tripwire.warnings).toEqual([])
+      } finally {
+        controller.abort()
+        await outcome
+      }
+    },
+    60_000,
+  )
 
-  it.skipIf(MODE === 'record')('opens a review that arrives while a global panel is active', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-plan-review-panel-return'))
-    const agent = scaffold.ctx.agents.get(reviewedSession)
-    if (agent === undefined) throw new Error('The reviewed Session has no active agent')
-    // The Plugins panel replaces the Conversation and its right Sidebar. The
-    // review arrives while neither is mounted; returning mounts both in one
-    // commit, and the review's automatic open runs before the Sidebar's own
-    // effects. A crash there retires the opener for the rest of the page.
-    await page.getByRole('button', { name: 'Plugins', exact: true }).click()
-    await expect.poll(() => page.locator('[data-composer-input]').count()).toBe(0)
-    const crashes: string[] = []
-    const onConsole = (message: ConsoleMessage): void => {
-      if (message.type() === 'error' && /slot entry crashed/i.test(message.text())) crashes.push(message.text())
-    }
-    page.on('console', onConsole)
-    const controller = new AbortController()
-    const asked = scaffold.ctx.userQuestions.ask({
-      agent, signal: controller.signal,
-      questions: [{ id: 'off-screen', question: 'Approve this plan?',
-        detail: '# Off-screen review\n\nSubmitted while the Plugins panel was open.',
-        options: [{ label: 'Approve' }, { label: 'Keep planning' }], intent: { kind: 'plan-review', approve: 'Approve' },
-      }],
-    })
-    const outcome = asked.then(value => value, (error: unknown) => ({ error }))
-    try {
-      const row = page.locator('[role="treeitem"]').filter({ has: page.locator('[data-state="warning"]') }).first()
-      await row.waitFor({ timeout: 10_000 })
-      await row.click()
-      const card = page.locator('[data-plan-review-key]')
-      await card.waitFor({ timeout: 10_000 })
-      const preview = page.locator('[data-plan-preview^="dsh-resource://plan-review/"]')
-      await preview.waitFor({ state: 'visible', timeout: 10_000 })
-      expect(await preview.getByText('Submitted while the Plugins panel was open.').isVisible()).toBe(true)
-      expect(await card.getByRole('button', { name: 'Open plan in sidebar' }).count()).toBe(1)
-      expect(await page.locator('[data-slot-error]').count()).toBe(0)
-      expect(crashes).toEqual([])
-      expect(tripwire.pageErrors).toEqual([])
-      expect(tripwire.warnings).toEqual([])
-    } finally {
-      page.off('console', onConsole)
-      controller.abort()
-      await outcome
-    }
-  }, 60_000)
+  it.skipIf(MODE === 'record')(
+    'opens a review that arrives while a global panel is active',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-plan-review-panel-return'))
+      const agent = scaffold.ctx.agents.get(reviewedSession)
+      if (agent === undefined) throw new Error('The reviewed Session has no active agent')
+      // The Plugins panel replaces the Conversation and its right Sidebar. The
+      // review arrives while neither is mounted; returning mounts both in one
+      // commit, and the review's automatic open runs before the Sidebar's own
+      // effects. A crash there retires the opener for the rest of the page.
+      await page.getByRole('button', { name: 'Plugins', exact: true }).click()
+      await expect.poll(() => page.locator('[data-composer-input]').count()).toBe(0)
+      const crashes: string[] = []
+      const onConsole = (message: ConsoleMessage): void => {
+        if (message.type() === 'error' && /slot entry crashed/i.test(message.text())) crashes.push(message.text())
+      }
+      page.on('console', onConsole)
+      const controller = new AbortController()
+      const asked = scaffold.ctx.userQuestions.ask({
+        agent,
+        signal: controller.signal,
+        questions: [
+          {
+            id: 'off-screen',
+            question: 'Approve this plan?',
+            detail: '# Off-screen review\n\nSubmitted while the Plugins panel was open.',
+            options: [{ label: 'Approve' }, { label: 'Keep planning' }],
+            intent: { kind: 'plan-review', approve: 'Approve' },
+          },
+        ],
+      })
+      const outcome = asked.then(
+        value => value,
+        (error: unknown) => ({ error }),
+      )
+      try {
+        const row = page
+          .locator('[role="treeitem"]')
+          .filter({ has: page.locator('[data-state="warning"]') })
+          .first()
+        await row.waitFor({ timeout: 10_000 })
+        await row.click()
+        const card = page.locator('[data-plan-review-key]')
+        await card.waitFor({ timeout: 10_000 })
+        const preview = page.locator('[data-plan-preview^="dsh-resource://plan-review/"]')
+        await preview.waitFor({ state: 'visible', timeout: 10_000 })
+        expect(await preview.getByText('Submitted while the Plugins panel was open.').isVisible()).toBe(true)
+        expect(await card.getByRole('button', { name: 'Open plan in sidebar' }).count()).toBe(1)
+        expect(await page.locator('[data-slot-error]').count()).toBe(0)
+        expect(crashes).toEqual([])
+        expect(tripwire.pageErrors).toEqual([])
+        expect(tripwire.warnings).toEqual([])
+      } finally {
+        page.off('console', onConsole)
+        controller.abort()
+        await outcome
+      }
+    },
+    60_000,
+  )
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.v3.jsonl', 'review.expected.md', 'sidebar.expected.md', 'preview.expected.md',
-      'approved.expected.md', 'approved-expanded.expected.md',
+      'session.v3.jsonl',
+      'review.expected.md',
+      'sidebar.expected.md',
+      'preview.expected.md',
+      'approved.expected.md',
+      'approved-expanded.expected.md',
     ])
   })
 })
@@ -284,7 +337,7 @@ describe.skipIf(MODE === 'record')('web e2e: pending plan review across Sidebar 
     // Expand the Workspace group by its state, not by whether its rows have rendered yet.
     const group = page.locator('[data-row-key^="workspace:"]').first()
     await group.waitFor({ timeout: 15_000 })
-    if (await group.getAttribute('aria-expanded') !== 'true') await group.click()
+    if ((await group.getAttribute('aria-expanded')) !== 'true') await group.click()
     await row(planned).waitFor({ timeout: 15_000 })
   }
 
@@ -311,12 +364,22 @@ describe.skipIf(MODE === 'record')('web e2e: pending plan review across Sidebar 
     if (agent === undefined) throw new Error(`Session ${session} has no live Agent`)
     const controller = new AbortController()
     const asked = scaffold.ctx.userQuestions.ask({
-      agent, signal: controller.signal,
-      questions: [{ id: 'seat-change', question: 'Approve this plan?', detail,
-        options: [{ label: 'Approve' }, { label: 'Keep planning' }], intent: { kind: 'plan-review', approve: 'Approve' },
-      }],
+      agent,
+      signal: controller.signal,
+      questions: [
+        {
+          id: 'seat-change',
+          question: 'Approve this plan?',
+          detail,
+          options: [{ label: 'Approve' }, { label: 'Keep planning' }],
+          intent: { kind: 'plan-review', approve: 'Approve' },
+        },
+      ],
     })
-    const outcome = asked.then(value => value, (error: unknown) => ({ error }))
+    const outcome = asked.then(
+      value => value,
+      (error: unknown) => ({ error }),
+    )
     try {
       await row(session).locator('[data-state="warning"]').waitFor({ timeout: 10_000 })
       await scenario()
@@ -378,7 +441,9 @@ describe.skipIf(MODE === 'record')('web e2e: pending plan review across Sidebar 
     // one, and that store commit lands in the commit where the review opens.
     await open(other)
     const warningStart = tripwire.warnings.length
-    await page.evaluate((session) => { localStorage.removeItem(`dsh.sidebar-right.v1.${session}`) }, planned)
+    await page.evaluate(session => {
+      localStorage.removeItem(`dsh.sidebar-right.v1.${session}`)
+    }, planned)
     await page.reload({ waitUntil: 'load' })
     await showSessions()
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
@@ -400,7 +465,9 @@ describe('web e2e: dismissed plan history', () => {
     const scaffold = await launchWebScaffold({ replayFixture: FIXTURE, replayOverride, compareReplaySession: false, paceMs: 15 })
     let browser: Browser | undefined
     const events: SessionEvent[] = []
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { events.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      events.push(event)
+    })
     try {
       browser = await chromium.launch()
       const page = await newEnglishPage(browser)
@@ -418,8 +485,9 @@ describe('web e2e: dismissed plan history', () => {
       await page.locator('[data-sidebar-right-toggle]').click()
       await review.getByRole('button', { name: 'Request changes', exact: true }).click()
       await settled
-      const call = events.find((event): event is SessionEvent<'tool/call'> =>
-        event.type === 'tool/call' && event.data.name === 'exit_plan_mode')
+      const call = events.find(
+        (event): event is SessionEvent<'tool/call'> => event.type === 'tool/call' && event.data.name === 'exit_plan_mode',
+      )
       expect(call).toBeDefined()
       const results = events.filter(event => event.type === 'tool/result')
       const result = results.find(event => event.data.message.source.callId === call?.data.callId)

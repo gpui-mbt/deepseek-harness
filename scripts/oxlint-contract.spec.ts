@@ -8,11 +8,10 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { flattenDiagnosticMessageText, parseConfigFileTextToJson } from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
+import { default as baseConfig, stagedLintConfig } from './lint-config.ts'
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url))
-const oxlintCli = fileURLToPath(new URL('../node_modules/oxlint/bin/oxlint', import.meta.url))
 const tsxCli = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url))
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -31,21 +30,13 @@ function runRepositoryOxlint(args: readonly string[], env: NodeJS.ProcessEnv = {
   })
 }
 
-function runOxlint(args: readonly string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [oxlintCli, ...args], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    env: { ...process.env, NO_COLOR: '1', ...env },
-  })
-}
-
-function normalizedOutput(result: ReturnType<typeof runOxlint>): string {
+function normalizedOutput(result: ReturnType<typeof runRepositoryOxlint>): string {
   return `${result.stdout}${result.stderr}`.replaceAll('\\', '/')
 }
 
 async function writeContractConfig(suffix: string): Promise<string> {
-  const path = join(repositoryRoot, `.oxlintrc.contract-${suffix}.json`)
-  await writeFile(path, JSON.stringify({ extends: ['./.oxlintrc.json'], ignorePatterns: [] }))
+  const path = join(repositoryRoot, `vite.config.contract-${suffix}.ts`)
+  await writeFile(path, `export default ${JSON.stringify({ lint: { ...baseConfig, ignorePatterns: [] } })}\n`)
   return path
 }
 
@@ -79,14 +70,10 @@ probePromise()
       }
       const clientScript = 'scripts/client-bundle-purity.spec.ts'
 
-      const result = runOxlint([
-        '--config',
-        relative(repositoryRoot, configPath),
-        '--format',
-        'unix',
-        ...paths.map(([, path]) => path),
-        clientScript,
-      ], { OXC_LOG: 'debug' })
+      const result = runRepositoryOxlint(
+        ['--config', relative(repositoryRoot, configPath), '--format', 'unix', ...paths.map(([, path]) => path), clientScript],
+        { OXC_LOG: 'debug' },
+      )
       const output = normalizedOutput(result)
 
       expect(result.error).toBeUndefined()
@@ -105,7 +92,8 @@ probePromise()
     } finally {
       await Promise.all([
         ...probes.map(([, parent, , extension = '.ts']) =>
-          rm(join(repositoryRoot, parent, `oxlint-contract-${suffix}${extension}`), { force: true })),
+          rm(join(repositoryRoot, parent, `oxlint-contract-${suffix}${extension}`), { force: true }),
+        ),
         rm(configPath, { force: true }),
       ])
     }
@@ -130,13 +118,11 @@ export function secondProbe(): number {
 export function hasValue(value: string): boolean {
   return value !== undefined
 }
-
-export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1
 `
 
     try {
       await writeFile(path, source)
-      const result = runOxlint([
+      const result = runRepositoryOxlint([
         '--config',
         relative(repositoryRoot, configPath),
         '--format',
@@ -147,71 +133,43 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
 
       expect(result.error).toBeUndefined()
       expect(result.status, output).toBe(1)
-      expect(output).toContain('@stylistic(max-len)')
       expect(output).toContain('sonarjs(no-identical-functions)')
       expect(output).toContain('typescript(no-unnecessary-condition)')
     } finally {
-      await Promise.all([
-        rm(path, { force: true }),
-        rm(configPath, { force: true }),
-      ])
+      await Promise.all([rm(path, { force: true }), rm(configPath, { force: true })])
     }
   }, 90_000)
 
-  it('keeps the complete stylistic contract in Oxlint', async () => {
-    const oxlintPath = join(repositoryRoot, '.oxlintrc.json')
-    const result = parseConfigFileTextToJson(oxlintPath, await readFile(oxlintPath, 'utf8'))
-    if (result.error !== undefined) {
-      throw new Error(flattenDiagnosticMessageText(result.error.messageText, '\n'))
-    }
-    const parsed: unknown = result.config
-    if (!isRecord(parsed) || !isUnknownArray(parsed.overrides)) {
-      throw new Error('.oxlintrc.json must contain an overrides array')
-    }
-    expect(parsed.ignorePatterns).toEqual(expect.arrayContaining([
-      'packages/typert/generator/tests/fixtures/type-model/**',
-    ]))
-    const stylisticOverride = parsed.overrides.find((value: unknown) =>
-      isRecord(value) && isRecord(value.rules) && '@stylistic/max-len' in value.rules)
-    if (!isRecord(stylisticOverride) || !isRecord(stylisticOverride.rules)) {
-      throw new Error('.oxlintrc.json must contain the @stylistic validator override')
-    }
-    expect(stylisticOverride.rules).toMatchObject({
-      '@stylistic/indent': ['error', 2],
-      '@stylistic/semi': ['error', 'never'],
-      '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
-      '@stylistic/comma-dangle': ['error', 'always-multiline'],
-      '@stylistic/eol-last': ['error', 'always'],
-      '@stylistic/no-trailing-spaces': 'error',
-      '@stylistic/object-curly-spacing': ['error', 'always'],
-      '@stylistic/arrow-parens': ['error', 'as-needed', { requireForBlockBody: true }],
-      '@stylistic/member-delimiter-style': ['error', {
-        multiline: { delimiter: 'none' },
-        singleline: { delimiter: 'semi', requireLast: false },
-      }],
-      '@stylistic/max-len': ['error', { code: 140, ignoreUrls: true, ignoreStrings: true, ignoreTemplateLiterals: true }],
-    })
-    const typeGraphOverride = parsed.overrides.find((value: unknown) =>
-      isRecord(value)
-      && isUnknownArray(value.files)
-      && value.files.includes('packages/typert/generator/tests/fixtures/type-model/packages/host/src/models.ts'))
+  it('keeps formatting in Oxfmt and the remaining rules in Oxlint', async () => {
+    const configText = await readFile(join(repositoryRoot, 'oxlint.config.ts'), 'utf8')
+    expect(configText).not.toContain('@stylistic')
+    expect(configText).not.toContain("jsPlugins: [\n        '@stylistic/eslint-plugin'")
+    expect(baseConfig.ignorePatterns).toEqual(expect.arrayContaining(['packages/typert/generator/tests/fixtures/type-model/**']))
+
+    const typeGraphOverride = baseConfig.overrides.find(
+      (value: unknown) =>
+        isRecord(value) &&
+        isUnknownArray(value.files) &&
+        value.files.includes('packages/typert/generator/tests/fixtures/type-model/**/*.{ts,tsx}'),
+    )
     expect(typeGraphOverride).toMatchObject({
-      rules: { '@stylistic/quotes': 'off' },
+      rules: { 'typescript/no-explicit-any': 'off' },
     })
+
+    const viteConfig = await readFile(join(repositoryRoot, 'vite.config.ts'), 'utf8')
+    expect(viteConfig).toContain('fmt: {')
+    expect(viteConfig).toContain('semi: false')
+    expect(viteConfig).toContain('singleQuote: true')
   })
 
   it('checks preserved TypeGraph syntax without type-aware analysis', () => {
-    const result = runOxlint([
-      '--config',
-      '.oxlintrc.staged.json',
-      'packages/typert/generator/tests/fixtures/type-model',
-    ])
+    const result = runRepositoryOxlint(['--config', 'vite.staged.config.ts', 'packages/typert/generator/tests/fixtures/type-model'])
 
     expect(result.error).toBeUndefined()
     expect(result.status, normalizedOutput(result)).toBe(0)
   }, 90_000)
 
-  it('keeps repository lint workflows Oxlint-only', async () => {
+  it('keeps repository lint workflows on Vite+ Oxlint', async () => {
     const packageJson: unknown = JSON.parse(await readFile(join(repositoryRoot, 'package.json'), 'utf8'))
     if (!isRecord(packageJson) || !isRecord(packageJson.scripts) || !isRecord(packageJson.devDependencies)) {
       throw new Error('package.json must contain scripts and devDependencies objects')
@@ -219,14 +177,16 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
 
     expect(packageJson.scripts['lint:contracts-ready']).toBe('tsx scripts/run-oxlint.ts .')
     expect(packageJson.scripts['lint:fix:contracts-ready']).toBe(
-      'tsx scripts/run-oxlint.ts --config .oxlintrc.staged.json packages/typert/generator/tests/fixtures/type-model --fix && tsx scripts/run-oxlint.ts . --fix',
+      'tsx scripts/run-oxlint.ts --config vite.staged.config.ts packages/typert/generator/tests/fixtures/type-model --fix && tsx scripts/run-oxlint.ts . --fix',
     )
     expect(packageJson.devDependencies).not.toHaveProperty('eslint')
     expect(packageJson.devDependencies).not.toHaveProperty('@typescript-eslint/parser')
+    expect(packageJson.devDependencies).not.toHaveProperty('oxlint')
+    expect(packageJson.devDependencies).toHaveProperty('vite-plus')
     expect(existsSync(join(repositoryRoot, 'eslint.format.config.mjs'))).toBe(false)
 
     const lefthook = await readFile(join(repositoryRoot, 'lefthook.yml'), 'utf8')
-    expect(lefthook).toContain('scripts/run-oxlint.ts --config .oxlintrc.staged.json --fix')
+    expect(lefthook).toContain('scripts/run-oxlint.ts --config vite.staged.config.ts --fix')
     expect(lefthook).not.toContain('node_modules/.bin/eslint')
     expect(lefthook).not.toContain('eslint.format.config.mjs')
   })
@@ -238,7 +198,7 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
 
     try {
       await writeFile(path, '// oxlint-disable-next-line no-console\nexport const value = 1\n')
-      const result = runOxlint([
+      const result = runRepositoryOxlint([
         '--config',
         relative(repositoryRoot, configPath),
         '--format',
@@ -251,28 +211,19 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
       expect(result.status, output).toBe(0)
       expect(output).toContain('Unused oxlint-disable directive')
     } finally {
-      await Promise.all([
-        rm(path, { force: true }),
-        rm(configPath, { force: true }),
-      ])
+      await Promise.all([rm(path, { force: true }), rm(configPath, { force: true })])
     }
   }, 90_000)
 
   it('allows Session history reads only in tests or with existing-call waivers', async () => {
     const suffix = randomUUID()
     const configPath = await writeContractConfig(suffix)
-    const exampleRoot = `examples/oxlint-contract-${suffix}`
-    const examplePath = `${exampleRoot}/tests/reads.ts`
     const testPaths = [
       `packages/core/session/tests/oxlint-contract-${suffix}.ts`,
       `apps/cli/tests/oxlint-contract-${suffix}.ts`,
-      examplePath,
       `scripts/oxlint-contract-${suffix}.spec.ts`,
     ]
-    const productionPaths = [
-      `packages/core/session/src/oxlint-contract-${suffix}.ts`,
-      `scripts/oxlint-contract-${suffix}.ts`,
-    ]
+    const productionPaths = [`packages/core/session/src/oxlint-contract-${suffix}.ts`, `scripts/oxlint-contract-${suffix}.ts`]
     const paths = [...testPaths, ...productionPaths]
     const reads = `import { Session, SessionSeq } from '@deepseek-ai/dsh-session'
 
@@ -303,11 +254,6 @@ export function unrelatedRead(): void {
 `
 
     try {
-      await mkdir(join(repositoryRoot, exampleRoot, 'tests'), { recursive: true })
-      await writeFile(join(repositoryRoot, exampleRoot, 'tsconfig.json'), JSON.stringify({
-        extends: '../../tsconfig.base.json',
-        include: ['tests/**/*.ts'],
-      }))
       await Promise.all([
         ...testPaths.map(path => writeFile(join(repositoryRoot, path), reads)),
         ...productionPaths.map(path => writeFile(join(repositoryRoot, path), existing)),
@@ -334,7 +280,10 @@ export function unrelatedRead(): void {
         expect(reported[0]).toContain('`oldApi` is deprecated')
       }
       for (const path of productionPaths) {
-        expect(diagnostics.filter(line => line.startsWith(`${path}:`)), output).toHaveLength(3)
+        expect(
+          diagnostics.filter(line => line.startsWith(`${path}:`)),
+          output,
+        ).toHaveLength(3)
       }
       for (const method of ['snapshotEvents', 'eventAt', 'ownEvents', 'oldApi']) {
         expect(output).toContain(`\`${method}\` is deprecated`)
@@ -343,16 +292,14 @@ export function unrelatedRead(): void {
         'See the [Agent Note](../../../../.agents/notes/implemented/architecture/2026-09-09-deprecate-synchronous-session-event-reads.md).',
       )
     } finally {
-      await Promise.all([
-        ...paths.filter(path => path !== examplePath).map(path => rm(join(repositoryRoot, path), { force: true })),
-        rm(join(repositoryRoot, exampleRoot), { recursive: true, force: true }),
-        rm(configPath, { force: true }),
-      ])
+      await Promise.all([...paths.map(path => rm(join(repositoryRoot, path), { force: true })), rm(configPath, { force: true })])
     }
   }, 90_000)
 
   it('accepts an ignored-only staged selection', () => {
-    const result = runOxlint([
+    const result = runRepositoryOxlint([
+      '--config',
+      'vite.staged.config.ts',
       '--fix',
       '--no-error-on-unmatched-pattern',
       'scripts/install-lefthook.mjs',
@@ -363,35 +310,21 @@ export function unrelatedRead(): void {
   }, 90_000)
 
   it('keeps staged validation project-free while preserving source rules', async () => {
-    const configPath = join(repositoryRoot, '.oxlintrc.staged.json')
-    const result = parseConfigFileTextToJson(configPath, await readFile(configPath, 'utf8'))
-    if (result.error !== undefined) {
-      throw new Error(flattenDiagnosticMessageText(result.error.messageText, '\n'))
-    }
-    const stagedConfig: unknown = result.config
-    if (!isRecord(stagedConfig)) throw new Error('.oxlintrc.staged.json must contain a config object')
-    expect(stagedConfig).toMatchObject({
-      extends: ['./.oxlintrc.json'],
+    expect(stagedLintConfig).toMatchObject({
       options: { typeAware: false },
     })
-    expect(stagedConfig.ignorePatterns).not.toContain('packages/typert/generator/tests/fixtures/type-model/**')
+    expect(stagedLintConfig.ignorePatterns).not.toContain('packages/typert/generator/tests/fixtures/type-model/**')
 
     const suffix = randomUUID()
     const path = join(repositoryRoot, 'scripts', `staged-lint-probe-${suffix}.ts`)
     try {
-      await writeFile(path, 'export const value={answer:1};\n')
-      const lint = runOxlint([
-        '--config',
-        relative(repositoryRoot, configPath),
-        '--format',
-        'unix',
-        relative(repositoryRoot, path),
-      ])
+      await writeFile(path, 'var value = 1\nexport { value }\n')
+      const lint = runRepositoryOxlint(['--config', 'vite.staged.config.ts', '--format', 'unix', relative(repositoryRoot, path)])
       const output = normalizedOutput(lint)
 
       expect(lint.error).toBeUndefined()
       expect(lint.status, output).toBe(1)
-      expect(output).toContain('@stylistic')
+      expect(output).toContain('no-var')
       expect(output).not.toContain('typescript(')
     } finally {
       await rm(path, { force: true })
@@ -404,14 +337,7 @@ export function unrelatedRead(): void {
 
     try {
       await writeFile(path, '// oxlint-disable-next-line no-console\nexport const value = 1\n')
-      const result = runRepositoryOxlint([
-        '--config',
-        '.oxlintrc.staged.json',
-        '--format',
-        'unix',
-        '--fix',
-        relative(repositoryRoot, path),
-      ])
+      const result = runRepositoryOxlint(['--config', 'vite.staged.config.ts', '--format', 'unix', '--fix', relative(repositoryRoot, path)])
 
       expect(result.error).toBeUndefined()
       expect(result.status, normalizedOutput(result)).toBe(0)
@@ -427,43 +353,60 @@ export function unrelatedRead(): void {
     const path = join(repositoryRoot, 'scripts', `staged-lint-probe-${suffix}.ts`)
 
     try {
-      await writeFile(path, `export const longProbe = ${'1 + '.repeat(80)}1\n`)
-      const result = runRepositoryOxlint([
-        '--config',
-        '.oxlintrc.staged.json',
-        '--format',
-        'unix',
-        '--fix',
-        relative(repositoryRoot, path),
-      ])
+      await writeFile(
+        path,
+        `export function first(values: readonly number[]): number {
+  let total = 0
+  for (const value of values) total += value
+  const scaled = total * 2
+  return scaled + 1
+}
+
+export function second(values: readonly number[]): number {
+  let total = 0
+  for (const value of values) total += value
+  const scaled = total * 2
+  return scaled + 1
+}
+`,
+      )
+      const result = runRepositoryOxlint(['--config', 'vite.staged.config.ts', '--format', 'unix', '--fix', relative(repositoryRoot, path)])
       const output = normalizedOutput(result)
 
       expect(result.error).toBeUndefined()
       expect(result.status, output).toBe(1)
-      expect(output.match(/@stylistic\(max-len\)/g)).toHaveLength(1)
+      expect(output.match(/sonarjs\(no-identical-functions\)/g)).toHaveLength(1)
     } finally {
       await rm(path, { force: true })
     }
   }, 90_000)
 
   it.each(['--fix', '--fix-suggestions', '--fix-dangerously'])(
-    'converges overlapping staged stylistic fixes through Oxlint under %s',
-    async (fixFlag) => {
+    'converges Oxlint fixes under %s',
+    async fixFlag => {
       const suffix = randomUUID()
       const directory = join(repositoryRoot, 'scripts', `.oxlint-contract-${suffix}`)
       const path = join(directory, 'fix.ts')
 
       try {
         await mkdir(directory, { recursive: true })
-        await writeFile(path, 'const value={answer:1};  \nconsole.log(value)\n')
+        await writeFile(path, 'var value = 1\nexport { value }\n')
 
         const relativePath = relative(repositoryRoot, path)
-        const lintResult = runRepositoryOxlint(['--config', '.oxlintrc.staged.json', fixFlag, relativePath])
+        const lintResult = runRepositoryOxlint(['--config', 'vite.staged.config.ts', fixFlag, relativePath])
 
+        const output = normalizedOutput(lintResult)
         expect(lintResult.error).toBeUndefined()
-        expect(lintResult.status, normalizedOutput(lintResult)).toBe(0)
-        expect(normalizedOutput(lintResult)).not.toContain('@stylistic')
-        await expect(readFile(path, 'utf8')).resolves.toBe('const value={ answer:1 }\nconsole.log(value)\n')
+        if (fixFlag === '--fix-suggestions') {
+          // no-var is a safe fix, not a suggestion; the wrapper still exercises the retry path.
+          expect(lintResult.status, output).toBe(1)
+          expect(output).toContain('no-var')
+          await expect(readFile(path, 'utf8')).resolves.toBe('var value = 1\nexport { value }\n')
+        } else {
+          expect(lintResult.status, output).toBe(0)
+          expect(output).not.toContain('no-var')
+          await expect(readFile(path, 'utf8')).resolves.toMatch(/^(?:const|let) value = 1\nexport \{ value \}/u)
+        }
       } finally {
         await rm(directory, { recursive: true, force: true })
       }

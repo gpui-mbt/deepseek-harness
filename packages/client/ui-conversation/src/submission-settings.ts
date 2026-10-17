@@ -12,7 +12,7 @@ export const BUSY_ENTER_FIELD = 'busyEnter'
 export const BUSY_ENTER_BEHAVIORS = ['queue', 'steer'] as const
 
 /** Configurable meaning of plain Enter while the addressed agent is busy. */
-export type BusyEnterBehavior = typeof BUSY_ENTER_BEHAVIORS[number]
+export type BusyEnterBehavior = (typeof BUSY_ENTER_BEHAVIORS)[number]
 
 /** Default preserves Enter-as-Queue for running conversations. */
 export const DEFAULT_BUSY_ENTER_BEHAVIOR: BusyEnterBehavior = 'queue'

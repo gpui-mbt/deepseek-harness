@@ -47,19 +47,21 @@ export { FishLogo, FISH_LOGO_PATH, FISH_LOGO_VIEWBOX } from './FishLogo.tsx'
 export { BrandWordmark } from './BrandWordmark.tsx'
 export type { BrandWordmarkProps } from './BrandWordmark.tsx'
 export {
-  PermissionIconAutoReviewMedium, PermissionIconAutoReviewRegular,
-  PermissionIconFullAccessMedium, PermissionIconFullAccessRegular,
-  PermissionIconReadOnlyMedium, PermissionIconReadOnlyRegular,
-  PermissionIconWorkspaceWriteMedium, PermissionIconWorkspaceWriteRegular,
+  PermissionIconAutoReviewMedium,
+  PermissionIconAutoReviewRegular,
+  PermissionIconFullAccessMedium,
+  PermissionIconFullAccessRegular,
+  PermissionIconReadOnlyMedium,
+  PermissionIconReadOnlyRegular,
+  PermissionIconWorkspaceWriteMedium,
+  PermissionIconWorkspaceWriteRegular,
 } from './PermissionIcon.tsx'
 export { ReferenceIconMedium, ReferenceIconRegular } from './ReferenceIcon.tsx'
 export type { ReferenceIconKind, ReferenceIconProps } from './ReferenceIcon.tsx'
 export { LinkIconMedium, LinkIconRegular, classifyLinkPath } from './LinkIcon.tsx'
 export type { LinkIconKind, LinkIconProps } from './LinkIcon.tsx'
 export { FileTypeIcon, classifyFileType, fileExtension } from './FileTypeIcon.tsx'
-export type {
-  CodeFileType, FileType, FileTypeIconProps, FileTypeKind, FileTypeProjectContext,
-} from './FileTypeIcon.tsx'
+export type { CodeFileType, FileType, FileTypeIconProps, FileTypeKind, FileTypeProjectContext } from './FileTypeIcon.tsx'
 export { UserTextRun, ReferenceChip, type UserTextRunProps, type ReferenceChipProps } from './user-text.tsx'
 export { Tooltip } from './Tooltip.tsx'
 export type { TooltipSide } from './Tooltip.tsx'
@@ -73,8 +75,15 @@ export { SettingsSecretField, SettingsValueField } from './settings-form/fields.
 export type { SettingsFieldProps } from './settings-form/fields.tsx'
 export { SettingsFormModel, settingsNumberField, settingsTextField } from './settings-form/form-model.ts'
 export type {
-  SettingsFieldSpec, SettingsFieldState, SettingsFieldWrite, SettingsFormActions, SettingsFormPathOp, SettingsFormScope,
-  SettingsFormScopeSnapshot, SettingsFormShell, SettingsSecretSpec,
+  SettingsFieldSpec,
+  SettingsFieldState,
+  SettingsFieldWrite,
+  SettingsFormActions,
+  SettingsFormPathOp,
+  SettingsFormScope,
+  SettingsFormScopeSnapshot,
+  SettingsFormShell,
+  SettingsSecretSpec,
 } from './settings-form/form-model.ts'
 export { CODE_HIGHLIGHT_EXTENSIONS, languageForPath, useCodeHighlighter } from './code-highlighting.ts'
 export type { CodeHighlighter, HighlightSpan } from './code-highlighting.ts'
@@ -94,13 +103,15 @@ export { DiffBlock, DEFAULT_DIFF_MAX_LINES, diffTotals } from './DiffBlock.tsx'
 export type { DiffBlockProps, DiffHunk, DiffBlockLabels } from './DiffBlock.tsx'
 export { SearchBlock, DEFAULT_SEARCH_MAX_LINES } from './SearchBlock.tsx'
 export type {
-  SearchBlockProps, SearchMatchesBlockProps, SearchPathsBlockProps, SearchFileGroup, SearchBlockLineMatch,
+  SearchBlockProps,
+  SearchMatchesBlockProps,
+  SearchPathsBlockProps,
+  SearchFileGroup,
+  SearchBlockLineMatch,
   SearchBlockLabels,
 } from './SearchBlock.tsx'
 export { WebBlock } from './WebBlock.tsx'
-export type {
-  WebBlockProps, WebSearchBlockProps, WebFetchBlockProps, WebSourceView, WebBlockLabels,
-} from './WebBlock.tsx'
+export type { WebBlockProps, WebSearchBlockProps, WebFetchBlockProps, WebSourceView, WebBlockLabels } from './WebBlock.tsx'
 export { CodeBlock } from './markdown/CodeBlock.tsx'
 export type { CodeBlockProps } from './markdown/CodeBlock.tsx'
 export { JsonBlock } from './markdown/JsonBlock.tsx'
@@ -112,7 +123,11 @@ export { extractMarkdownPlainText } from './markdown/plain-text.ts'
 export type { MarkdownPlainTextMode, MarkdownPlainTextOptions } from './markdown/plain-text.ts'
 export * from './icons/index.tsx'
 export {
-  PluginArtworkTerminal, PluginArtworkLoop, PluginArtworkSubagent, PluginArtworkSearch, PluginArtworkDefault,
+  PluginArtworkTerminal,
+  PluginArtworkLoop,
+  PluginArtworkSubagent,
+  PluginArtworkSearch,
+  PluginArtworkDefault,
 } from './plugin-artwork.tsx'
 export { GuideArtworkBrowser, GuideArtworkFiles } from './guide-artwork.tsx'
 export { ImageLightbox } from './ImageLightbox.tsx'

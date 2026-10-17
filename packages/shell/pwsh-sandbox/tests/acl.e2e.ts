@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
 import { resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
@@ -25,7 +25,6 @@ import type { ShellExecSpec, ShellExecution, ShellRunResult } from '@deepseek-ai
 async function run(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spec: ShellExecSpec): Promise<ShellRunResult> {
   return (await x.execute(spec)).result()
 }
-
 
 const isWin32 = process.platform === 'win32'
 
@@ -86,10 +85,13 @@ describe.skipIf(!isWin32 || !pwshAvailable())('pwsh-sandbox real ACL confinement
     expect(result.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'partial' })
 
     // A raw failing write must classify as a denial of the ACL dialect.
-    const denied = await run(executor, executor.resolve({
-      command: `Set-Content -Path '${escapeFile}' -Value x`,
-      sandboxPolicy: policy,
-    }))
+    const denied = await run(
+      executor,
+      executor.resolve({
+        command: `Set-Content -Path '${escapeFile}' -Value x`,
+        sandboxPolicy: policy,
+      }),
+    )
     expect(denied.exitCode).not.toBe(0)
     expect(denied.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'partial' })
   }, 60_000)

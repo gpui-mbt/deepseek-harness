@@ -4,7 +4,7 @@ import TypertGateway from '@deepseek-ai/dsh-api-gateway'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
 import type { PeerId, PeerScope } from '@deepseek-ai/dsh-typert-protocol'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import DynamicCordisRunnerService from '../src/index.ts'
 import { CordisInspectRegistryService } from '../src/inspect-registry.ts'
 import type { CordisInspectProviderManifest, CordisInspectQueryRequest, CordisInspectRequestId } from '../src/types.ts'
@@ -13,12 +13,14 @@ import { AGENT_A, AGENT_B } from './helpers.ts'
 const manifest: CordisInspectProviderManifest = {
   id: 'Service',
   description: 'Test Service provider.',
-  methods: [{
-    name: 'listService',
-    description: 'Inspect one service.',
-    inputSchema: { type: 'object', properties: { service: { type: 'string' } }, additionalProperties: false },
-    outputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
-  }],
+  methods: [
+    {
+      name: 'listService',
+      description: 'Inspect one service.',
+      inputSchema: { type: 'object', properties: { service: { type: 'string' } }, additionalProperties: false },
+      outputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+    },
+  ],
 }
 const timeout = 'Error: Service.listService: Client inspect query Service.listService timed out after 100ms. '
 const failure = { ok: false, reason: 'provider-error', message: 'page failed' } as const
@@ -45,8 +47,16 @@ beforeEach(async () => {
   await mounted
   registry = ctx.cordisInspect
   registry.syncClientManifest([manifest])
-  disposers.push(ctx.on('cordis/inspect-query', (request) => { requests.push(request) }))
-  disposers.push(ctx.on('cordis/inspect-query-resolved', (event) => { resolved.push(event.requestId) }))
+  disposers.push(
+    ctx.on('cordis/inspect-query', request => {
+      requests.push(request)
+    }),
+  )
+  disposers.push(
+    ctx.on('cordis/inspect-query-resolved', event => {
+      resolved.push(event.requestId)
+    }),
+  )
 })
 
 afterEach(async () => {
@@ -66,8 +76,14 @@ function start() {
   controllers.push(controller)
   let settled = false
   const result = registry.query('client', 'Service', 'listService', { service: 'remote' }, AGENT_A, controller.signal).then(
-    (value) => { settled = true; return { value } },
-    (error: unknown) => { settled = true; return { error: String(error) } },
+    value => {
+      settled = true
+      return { value }
+    },
+    (error: unknown) => {
+      settled = true
+      return { error: String(error) }
+    },
   )
   results.push(result)
   return { controller, result, request: requests.at(-1)!, settled: () => settled }
@@ -81,11 +97,31 @@ async function connectGatewayClient(): Promise<AbortController> {
   await ctx.plugin(TypertRegistry)
   await ctx.plugin(RemoteAccessService)
   await ctx.plugin(TypertGateway)
-  ctx.effect(() => ctx.typertGateway.registerRemoteEvents(async function* (signal) {
-    await new Promise<void>((resolve) => { signal.addEventListener('abort', () => { resolve() }, { once: true }) })
-  }, { home: '/fixture' }))
+  ctx.effect(() =>
+    ctx.typertGateway.registerRemoteEvents(
+      async function* (signal) {
+        await new Promise<void>(resolve => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve()
+            },
+            { once: true },
+          )
+        })
+      },
+      { home: '/fixture' },
+    ),
+  )
   const connection = new AbortController()
-  const peer: PeerScope = { id: 'inspect-registry-owner' as PeerId, ctx, principal: { kind: 'owner' }, interactions: 'answer', signal: connection.signal, dispose: () => Promise.resolve() }
+  const peer: PeerScope = {
+    id: 'inspect-registry-owner' as PeerId,
+    ctx,
+    principal: { kind: 'owner' },
+    interactions: 'answer',
+    signal: connection.signal,
+    dispose: () => Promise.resolve(),
+  }
   const stream = await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, connection.signal)
   const client = stream[Symbol.asyncIterator]()
   ctx.effect(() => async () => {
@@ -116,7 +152,8 @@ describe('Client inspect completion', () => {
     expect(requests).toEqual([])
     expect(vi.getTimerCount()).toBe(0)
     expect(await query.result).toEqual({
-      error: 'Error: Client inspect query Service.listService has no connected Harness page. Open or reconnect the Harness page, then retry.',
+      error:
+        'Error: Client inspect query Service.listService has no connected Harness page. Open or reconnect the Harness page, then retry.',
     })
     expect(registry.list()).toHaveLength(1)
   })
@@ -137,9 +174,13 @@ describe('Client inspect completion', () => {
 
   it('returns the Client catalog failure at the deadline instead of losing it', async () => {
     const query = start()
-    expect(registry.resolveClientQuery(AGENT_A, query.request.requestId, {
-      ok: false, reason: 'provider-error', message: 'no catalogued Service named "remote"',
-    })).toEqual({ accepted: false })
+    expect(
+      registry.resolveClientQuery(AGENT_A, query.request.requestId, {
+        ok: false,
+        reason: 'provider-error',
+        message: 'no catalogued Service named "remote"',
+      }),
+    ).toEqual({ accepted: false })
     await vi.advanceTimersByTimeAsync(99)
     expect(query.settled()).toBe(false)
     await vi.advanceTimersByTimeAsync(1)
@@ -172,7 +213,10 @@ describe('Client inspect completion', () => {
     const query = start()
     expect(registry.resolveClientQuery(AGENT_A, query.request.requestId, { ok: true, data: {} })).toEqual({ accepted: false })
     await vi.advanceTimersByTimeAsync(100)
-    expect(await query.result).toHaveProperty('error', expect.stringContaining('Client Cordis inspect Service.listService returned invalid output'))
+    expect(await query.result).toHaveProperty(
+      'error',
+      expect.stringContaining('Client Cordis inspect Service.listService returned invalid output'),
+    )
   })
 
   it('accepts valid output after an invalid response', async () => {
@@ -236,10 +280,14 @@ describe('Client inspect completion', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it.each(['timeout', 'disposal'] as const)('contains throwing completion subscribers during %s', async (completion) => {
+  it.each(['timeout', 'disposal'] as const)('contains throwing completion subscribers during %s', async completion => {
     const error = new Error('subscriber failed')
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
-    disposers.push(ctx.on('cordis/inspect-query-resolved', () => { throw error }))
+    disposers.push(
+      ctx.on('cordis/inspect-query-resolved', () => {
+        throw error
+      }),
+    )
     const queries = [start(), start()]
     if (completion === 'timeout') await vi.advanceTimersByTimeAsync(100)
     else await fiber.dispose()
@@ -255,8 +303,9 @@ describe('Client inspect completion', () => {
 
   it('leaves local Host queries outside the Client response deadline', async () => {
     disposers.push(registry.register({ manifest, query: async () => ({ name: 'local' }) }))
-    await expect(registry.query('host', 'Service', 'listService', {}, AGENT_A, new AbortController().signal))
-      .resolves.toEqual({ name: 'local' })
+    await expect(registry.query('host', 'Service', 'listService', {}, AGENT_A, new AbortController().signal)).resolves.toEqual({
+      name: 'local',
+    })
     expect(requests).toEqual([])
     expect(vi.getTimerCount()).toBe(0)
   })
@@ -270,7 +319,7 @@ describe('Client inspect timeout configuration', () => {
     }
   })
 
-  it.each([0, -1, 0.5, Infinity, NaN, 2_147_483_648])('rejects invalid timer budget %s', (clientInspectTimeoutMs) => {
+  it.each([0, -1, 0.5, Infinity, NaN, 2_147_483_648])('rejects invalid timer budget %s', clientInspectTimeoutMs => {
     expect(() => DynamicCordisRunnerService.Config({ clientInspectTimeoutMs })).toThrow()
   })
 })

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -10,7 +10,7 @@ import { LocalCredentialProvider } from '../src/index.ts'
 // write; gating it makes the dispose-versus-queued-write race fully
 // deterministic. The lock helper passes through so the gated operation still
 // runs inside its real acquire/release cycle.
-vi.mock('@deepseek-ai/dsh-atomic-write', async (importOriginal) => {
+vi.mock('@deepseek-ai/dsh-atomic-write', async importOriginal => {
   const actual = await importOriginal<typeof import('@deepseek-ai/dsh-atomic-write')>()
   let gate: Promise<void> = Promise.resolve()
   return {
@@ -23,7 +23,7 @@ vi.mock('@deepseek-ai/dsh-atomic-write', async (importOriginal) => {
 })
 
 async function setGate(next: Promise<void>): Promise<void> {
-  const mocked = await import('@deepseek-ai/dsh-atomic-write') as unknown as { __setGate: (next: Promise<void>) => void }
+  const mocked = (await import('@deepseek-ai/dsh-atomic-write')) as unknown as { __setGate: (next: Promise<void>) => void }
   mocked.__setGate(next)
 }
 
@@ -49,9 +49,11 @@ describe('write-drain teardown', () => {
     const service = ctx.credentials
 
     let release!: () => void
-    await setGate(new Promise<void>((resolveGate) => {
-      release = resolveGate
-    }))
+    await setGate(
+      new Promise<void>(resolveGate => {
+        release = resolveGate
+      }),
+    )
     const first = service.set(KEY, 'one')
     // Let the first task pass its liveness checks and park on the gate, so it
     // is genuinely in-flight when disposal begins.
@@ -80,13 +82,16 @@ describe('write-drain teardown', () => {
     const service = ctx.credentials
 
     let release!: () => void
-    await setGate(new Promise<void>((resolveGate) => {
-      release = resolveGate
-    }))
+    await setGate(
+      new Promise<void>(resolveGate => {
+        release = resolveGate
+      }),
+    )
     const first = service.modifyRecord(RECORD, () => Promise.resolve({ kind: 'grant', payload: { v: 1 } }))
     await new Promise(resolvePause => setTimeout(resolvePause, 5))
-    const queuedModify = expect(service.modifyRecord(OTHER_RECORD, () => Promise.resolve({ kind: 'api-key' })))
-      .rejects.toThrow(/disposed before the queued/)
+    const queuedModify = expect(service.modifyRecord(OTHER_RECORD, () => Promise.resolve({ kind: 'api-key' }))).rejects.toThrow(
+      /disposed before the queued/,
+    )
     const queuedDelete = expect(service.deleteRecord(OTHER_RECORD)).rejects.toThrow(/disposed before the queued/)
     const disposal = fiber.dispose()
     await new Promise(resolvePause => setTimeout(resolvePause, 10))

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
@@ -16,16 +16,18 @@ const silentReader = { readFrom: (fromByte: number) => ({ text: '', nextOffset: 
 const SIGNAL = new AbortController().signal
 
 /** One `#{...}`-joined tmux reading line for the eight queried fields. */
-function tmuxLine(fields: {
-  sessionName?: string
-  windowIndex?: string
-  windowName?: string
-  paneIndex?: string
-  paneId?: string
-  windowActive?: string
-  paneActive?: string
-  windowLayout?: string
-} = {}): string {
+function tmuxLine(
+  fields: {
+    sessionName?: string
+    windowIndex?: string
+    windowName?: string
+    paneIndex?: string
+    paneId?: string
+    windowActive?: string
+    paneActive?: string
+    windowLayout?: string
+  } = {},
+): string {
   return [
     fields.sessionName ?? '0',
     fields.windowIndex ?? '1',
@@ -81,17 +83,14 @@ class FakeBash extends ShellExecutor {
       readOutput: () => ({ delta: '', lossy: false }),
       observed: { stdout: silentReader, stderr: silentReader },
       kill: () => false,
-      result: () => this.runError ? Promise.reject(this.runError) : Promise.resolve(this.result),
+      result: () => (this.runError ? Promise.reject(this.runError) : Promise.resolve(this.result)),
     }
   }
 }
 
 async function mount(config: Config, withBash: true): Promise<{ ctx: Context; bash: FakeBash }>
 async function mount(config?: Config, withBash?: boolean): Promise<{ ctx: Context; bash: FakeBash | undefined }>
-async function mount(
-  config: Config = {},
-  withBash = false,
-): Promise<{ ctx: Context; bash: FakeBash | undefined }> {
+async function mount(config: Config = {}, withBash = false): Promise<{ ctx: Context; bash: FakeBash | undefined }> {
   const ctx = new Context()
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SessionProjectionRegistry)
@@ -115,7 +114,9 @@ function sessionAgent(session: Session, id = 'agent'): Agent {
     send: () => {},
     followup: () => {},
     steer: () => {},
-    inject: () => { throw new Error('tmux-context must append directly to the open step') },
+    inject: () => {
+      throw new Error('tmux-context must append directly to the open step')
+    },
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
@@ -125,34 +126,29 @@ function sessionAgent(session: Session, id = 'agent'): Agent {
 
 function openMessageTurn(session: Session, turn: number): void {
   session.append('turn/start', { turn })
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: `turn ${turn}` }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: `turn ${turn}` }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 function contextTexts(session: Session): string[] {
   const texts: string[] = []
   for (const event of session.snapshotEvents()) {
-    if (event.type === 'user/message'
-      && event.data.source.kind === 'tmux-context') {
+    if (event.type === 'user/message' && event.data.source.kind === 'tmux-context') {
       texts.push(event.data.content.find(block => block.type === 'text')?.text ?? '')
     }
   }
   return texts
 }
 
-async function fire(
-  ctx: Context,
-  agent: Agent,
-  turn: number,
-  step: number,
-  signal: AbortSignal = SIGNAL,
-): Promise<void> {
-  const decision = await agentEvents(ctx, agent).waterfall(
-    'agent/pre-step',
-    { messages: [], turn, step, signal },
-    () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
+async function fire(ctx: Context, agent: Agent, turn: number, step: number, signal: AbortSignal = SIGNAL): Promise<void> {
+  const decision = await agentEvents(ctx, agent).waterfall('agent/pre-step', { messages: [], turn, step, signal }, () =>
+    Promise.resolve({ kind: 'enter' as const, messages: [] }),
   )
   if (decision.kind === 'enter') {
     for (const message of decision.messages) {
@@ -175,10 +171,10 @@ describe('tmux-context injection', () => {
     await fire(ctx, sessionAgent(session), 1, 1)
 
     expect(contextTexts(session)).toEqual([
-      'tmux location (turn 1):\n'
-      + 'session 0, window 1 "node", pane 2 %90\n'
-      + 'window active=1, pane active=0, '
-      + 'layout d517,270x71,0,0{135x71,0,0,87,134x71,136,0[134x35,136,0,90,134x35,136,36,93]}',
+      'tmux location (turn 1):\n' +
+        'session 0, window 1 "node", pane 2 %90\n' +
+        'window active=1, pane active=0, ' +
+        'layout d517,270x71,0,0{135x71,0,0,87,134x71,136,0[134x35,136,0,90,134x35,136,36,93]}',
     ])
     const event = session.snapshotEvents().at(-1)
     if (event?.type !== 'user/message') throw new Error('missing tmux context')
@@ -281,10 +277,14 @@ describe('tmux-context prior-reading resilience', () => {
     const session = Session.create(SessionId('prior-non-text'))
     const agent = sessionAgent(session)
     openMessageTurn(session, 1)
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'reasoning', text: 'not a location' }],
-      source: { kind: 'tmux-context' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'reasoning', text: 'not a location' }],
+        source: { kind: 'tmux-context' },
+      }),
+      { surfaceOp: 'append' },
+    )
 
     await fire(ctx, agent, 1, 1)
 
@@ -297,10 +297,14 @@ describe('tmux-context prior-reading resilience', () => {
     const session = Session.create(SessionId('prior-single-line'))
     const agent = sessionAgent(session)
     openMessageTurn(session, 1)
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'single line, no newline' }],
-      source: { kind: 'tmux-context' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'single line, no newline' }],
+        source: { kind: 'tmux-context' },
+      }),
+      { surfaceOp: 'append' },
+    )
 
     await fire(ctx, agent, 1, 1)
 
@@ -412,14 +416,10 @@ describe('tmux-context no-op paths', () => {
 
 describe('tmux-context configuration', () => {
   it('rejects a negative refresh interval at plugin load', async () => {
-    await expect(mount({ refreshIntervalMs: -1 })).rejects.toThrow(
-      /refreshIntervalMs must be a non-negative safe integer/,
-    )
+    await expect(mount({ refreshIntervalMs: -1 })).rejects.toThrow(/refreshIntervalMs must be a non-negative safe integer/)
   })
 
   it('rejects a non-integer refresh interval at plugin load', async () => {
-    await expect(mount({ refreshIntervalMs: 1.5 })).rejects.toThrow(
-      /refreshIntervalMs must be a non-negative safe integer/,
-    )
+    await expect(mount({ refreshIntervalMs: 1.5 })).rejects.toThrow(/refreshIntervalMs must be a non-negative safe integer/)
   })
 })

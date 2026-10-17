@@ -53,9 +53,7 @@ function isGoalRoundSource(source: MessageSource): source is GoalMessageSource {
 
 /** Compare a source to one reserved identity. */
 function sameRound(source: GoalMessageSource, round: RoundIdentity): boolean {
-  return source.goalId === round.goalId
-    && source.revision === round.revision
-    && source.round === round.round
+  return source.goalId === round.goalId && source.revision === round.revision && source.round === round.round
 }
 
 /** Compare the complete queued record to the driver's reservation. */
@@ -109,11 +107,13 @@ export function apply(ctx: Context): void {
 
   /** Whether this exact lifecycle is quiescent with no competing prompt. */
   function readyToDrive(state: DriverState): boolean {
-    return ctx.fiber.state === FiberState.ACTIVE
-      && !state.stopping
-      && ctx.agents.get(state.agent.id) === state.agent
-      && state.agent.status === 'idle'
-      && !state.competingQueued
+    return (
+      ctx.fiber.state === FiberState.ACTIVE &&
+      !state.stopping &&
+      ctx.agents.get(state.agent.id) === state.agent &&
+      state.agent.status === 'idle' &&
+      !state.competingQueued
+    )
   }
 
   /** Recheck every condition that an awaited checkpoint may have changed. */
@@ -133,11 +133,13 @@ export function apply(ctx: Context): void {
 
   /** Preserve claimed step context when this driver drops only its own round. */
   function restoreOtherClaimed(agent: Agent, messages: UserMessage[], messageId: MessageId): void {
-    const retained = messages.filter(message => message.id !== messageId
-      && !(message.source.kind === 'goal' && message.source.round === 0))
+    const retained = messages.filter(message => message.id !== messageId && !(message.source.kind === 'goal' && message.source.round === 0))
     for (const message of retained.toReversed()) {
-      if (agent.inbox.nextStep.some(candidate => candidate.id === message.id)
-        || agent.inbox.nextTurn.some(candidate => candidate.id === message.id)) continue
+      if (
+        agent.inbox.nextStep.some(candidate => candidate.id === message.id) ||
+        agent.inbox.nextTurn.some(candidate => candidate.id === message.id)
+      )
+        continue
       agent.inbox.prepend('next-step', message)
     }
   }
@@ -210,8 +212,13 @@ export function apply(ctx: Context): void {
       state.attempt = undefined
       ctx.logger.warn(`goal-round-driver: could not queue round ${round} for agent "${agent.id}": ${renderThrown(error)}`)
       const latest = currentGoal(state)
-      if (latest !== undefined && latest.id === goal.id && latest.revision === goal.revision
-        && latest.phase === 'active' && latest.activation === 'armed') {
+      if (
+        latest !== undefined &&
+        latest.id === goal.id &&
+        latest.revision === goal.revision &&
+        latest.phase === 'active' &&
+        latest.activation === 'armed'
+      ) {
         ctx.goals.block(agent, goalRef(latest), {
           code: 'queue-failed',
           message: `Could not queue goal round ${round}: ${renderThrown(error)}`,
@@ -264,7 +271,9 @@ export function apply(ctx: Context): void {
       disarm(state)
     })
 
-    ctx.on('agent/disposed', ({ agent }) => { states.delete(agent) })
+    ctx.on('agent/disposed', ({ agent }) => {
+      states.delete(agent)
+    })
     ctx.on('agent/created', ({ agent }) => {
       const state = stateFor(agent)
       state.attempt = undefined
@@ -280,10 +289,14 @@ export function apply(ctx: Context): void {
         // Fence the pause to the exact dropped attempt's ref. A resume bumps
         // the revision, so a host pause followed by an immediate resume (before
         // the aborted turn converges to idle) must not re-pause the resumed goal.
-        const pause = attempt !== undefined
-          && (attempt.phase === 'queued' || attempt.phase === 'claimed' || attempt.cancelled)
-          && goal !== undefined && goal.phase === 'active' && goal.activation === 'armed'
-          && attempt.goalId === goal.id && attempt.revision === goal.revision
+        const pause =
+          attempt !== undefined &&
+          (attempt.phase === 'queued' || attempt.phase === 'claimed' || attempt.cancelled) &&
+          goal !== undefined &&
+          goal.phase === 'active' &&
+          goal.activation === 'armed' &&
+          attempt.goalId === goal.id &&
+          attempt.revision === goal.revision
         // A reservation still queued when the agent reaches idle cannot run:
         // withdraw it so human input queued behind it is not stranded.
         if (pause || attempt?.phase === 'queued') {
@@ -305,8 +318,7 @@ export function apply(ctx: Context): void {
       // A host-initiated pause stops goal execution: abort the live turn so the
       // model cannot keep acting or resume in the same turn. A model-initiated
       // pause (update_goal inside its own turn) finishes normally.
-      if (change.operation === 'pause' && agent.status === 'running'
-        && ctx.agents.currentInitiator() !== agent) {
+      if (change.operation === 'pause' && agent.status === 'running' && ctx.agents.currentInitiator() !== agent) {
         agent.cancel({ kind: 'user' }, { keepInbox: true })
       }
       requestDrive(state)
@@ -353,8 +365,7 @@ export function apply(ctx: Context): void {
           if (event.data.reason.kind !== 'aborted') return
           if (state.attempt?.phase === 'claimed' || state.attempt?.phase === 'admitted') {
             state.attempt.cancelled = true
-          }
-          else disarm(state)
+          } else disarm(state)
           return
         default:
           return
@@ -362,24 +373,29 @@ export function apply(ctx: Context): void {
     })
 
     /** Fail closed unless the queued prompt still owns the exact live revision. */
-    function validReservation(
-      state: DriverState,
-      content: readonly ContentBlock[],
-      source: GoalMessageSource,
-    ): boolean {
+    function validReservation(state: DriverState, content: readonly ContentBlock[], source: GoalMessageSource): boolean {
       const attempt = state.attempt
       const goal = currentGoal(state)
-      return ctx.fiber.state === FiberState.ACTIVE
-        && !state.stopping && attempt !== undefined && attempt.phase === 'claimed'
-      && !attempt.stale && sameQueued(content, source, attempt)
-      && goal !== undefined && goal.id === source.goalId && goal.revision === source.revision
-      && goal.phase === 'active' && goal.activation === 'armed'
-      && source.round === goal.roundsStarted + 1
+      return (
+        ctx.fiber.state === FiberState.ACTIVE &&
+        !state.stopping &&
+        attempt !== undefined &&
+        attempt.phase === 'claimed' &&
+        !attempt.stale &&
+        sameQueued(content, source, attempt) &&
+        goal !== undefined &&
+        goal.id === source.goalId &&
+        goal.revision === source.revision &&
+        goal.phase === 'active' &&
+        goal.activation === 'armed' &&
+        source.round === goal.roundsStarted + 1
+      )
     }
 
     ctx.on('agent/pre-step', async ({ agent, messages, signal }, next): Promise<PreStepDecision> => {
       const submitted = messages.find((message): message is UserMessage & { source: GoalMessageSource } =>
-        isGoalRoundSource(message.source))
+        isGoalRoundSource(message.source),
+      )
       if (submitted === undefined) return next()
       const { content, source } = submitted
       const state = stateFor(agent)
@@ -419,8 +435,13 @@ export function apply(ctx: Context): void {
       if (decision.kind === 'reject') {
         state.attempt = undefined
         const goal = currentGoal(state)
-        if (goal !== undefined && goal.id === source.goalId && goal.revision === source.revision
-          && goal.phase === 'active' && goal.activation === 'armed') {
+        if (
+          goal !== undefined &&
+          goal.id === source.goalId &&
+          goal.revision === source.revision &&
+          goal.phase === 'active' &&
+          goal.activation === 'armed'
+        ) {
           ctx.goals.block(agent, goalRef(goal), {
             code: 'prompt-rejected',
             message: 'Goal round was rejected before entering its step.',

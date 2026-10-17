@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Storage, { BackendRegistry, storageBackendServiceKey } from '../src/index.ts'
 import type { StorageBackend } from '../src/index.ts'
@@ -73,9 +73,7 @@ expect.extend({
     try {
       received()
     } catch (error) {
-      const pass = Object.entries(expected).every(
-        entry => (error as Record<string, unknown>)[entry[0]] === entry[1],
-      )
+      const pass = Object.entries(expected).every(entry => (error as Record<string, unknown>)[entry[0]] === entry[1])
       return { pass, message: () => `expected thrown error to match ${JSON.stringify(expected)}, got ${String(error)}` }
     }
     return { pass: false, message: () => 'expected function to throw' }
@@ -83,7 +81,7 @@ expect.extend({
 })
 
 declare module 'vitest' {
-  interface Assertion<T> {
-    toThrowMatchingObject(expected: object): T
+  interface Assertion<R extends void | Promise<void> = void, T = unknown> {
+    toThrowMatchingObject(expected: object): R
   }
 }

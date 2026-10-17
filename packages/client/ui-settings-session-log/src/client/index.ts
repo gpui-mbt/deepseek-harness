@@ -31,11 +31,26 @@ export function apply(ctx: Context): void {
   const face = (): UploadInjected => ({
     hooks: { upload: form, mutation: preference.state },
     setEnabled: enabled => preference.setEnabled(enabled),
-    dismiss: () => { preference.dismiss() },
+    dismiss: () => {
+      preference.dismiss()
+    },
   })
-  ctx.effect(() => ctx.configForms.whileServed([namespace], () => ctx.slots.inject('settings.general.item', () =>
-    ctx.slots.register({ name: 'settings.general.item', id: namespace, order: 90, locale, inject: face }, UploadRow))))
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-    name: 'shell.overlay', id: 'session-log-upload-toast', locale, inject: face,
-  }, UploadToast))
+  ctx.effect(() =>
+    ctx.configForms.whileServed([namespace], () =>
+      ctx.slots.inject('settings.general.item', () =>
+        ctx.slots.register({ name: 'settings.general.item', id: namespace, order: 90, locale, inject: face }, UploadRow),
+      ),
+    ),
+  )
+  ctx.slots.inject('shell.overlay', () =>
+    ctx.slots.register(
+      {
+        name: 'shell.overlay',
+        id: 'session-log-upload-toast',
+        locale,
+        inject: face,
+      },
+      UploadToast,
+    ),
+  )
 }

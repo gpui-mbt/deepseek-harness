@@ -27,12 +27,21 @@ export async function qualifyUpdateDialogs(root, fixture) {
   protocol.handle('dsh-app', async request => {
     const name = new URL(request.url).pathname.slice(1)
     assert.ok(['update-dialog.html', 'update-dialog.js', 'update-dialog.css', 'update-close.svg'].includes(name))
-    const mime = name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css'
-      : name.endsWith('.svg') ? 'image/svg+xml' : 'text/html'
+    const mime = name.endsWith('.js')
+      ? 'text/javascript'
+      : name.endsWith('.css')
+        ? 'text/css'
+        : name.endsWith('.svg')
+          ? 'image/svg+xml'
+          : 'text/html'
     return new Response(await readFile(new URL(`../../renderer/${name}`, import.meta.url)), { headers: { 'content-type': mime } })
   })
   const parent = new BrowserWindow({ show: true, width: 900, height: 650 })
-  const dialogs = new DesktopUpdateDialog(fileURLToPath(new URL('../../lib/preload-update-dialog.cjs', import.meta.url)), locale, new DesktopUpdateOverlays())
+  const dialogs = new DesktopUpdateDialog(
+    fileURLToPath(new URL('../../lib/preload-update-dialog.cjs', import.meta.url)),
+    locale,
+    new DesktopUpdateOverlays(),
+  )
   try {
     await parent.loadURL('data:text/html;charset=utf-8,<title>Update dialog qualification</title><h1>Local updater</h1>')
     const f = await fixture()
@@ -45,7 +54,8 @@ export async function qualifyUpdateDialogs(root, fixture) {
         title: messages.updateTitle,
         message: active ? messages.updateActiveTasks : ready.message,
         detail: active ? messages.updateActiveTasksDetail : ready.detail,
-        buttons: active ? [messages.updateStopTasks, messages.updateLater] : [messages.installAndRestart], cancelId: 1,
+        buttons: active ? [messages.updateStopTasks, messages.updateLater] : [messages.installAndRestart],
+        cancelId: 1,
       }
       f.restart(async () => (await dialogs.show(parent, options)).response === 0)
       const created = once(app, 'browser-window-created', { signal: AbortSignal.timeout(10_000) })
@@ -62,16 +72,30 @@ export async function qualifyUpdateDialogs(root, fixture) {
         primary: getComputedStyle(document.querySelector('.primary')).backgroundColor,
         focused: document.activeElement.id, isolated: typeof window.require === 'undefined',
       })`)
-      assert.deepEqual(view, { title: options.message, detail: options.detail, buttons: options.buttons,
-        width: 380, radius: '24px', primary: 'rgb(15, 17, 21)', focused: 'dialog', isolated: true })
+      assert.deepEqual(view, {
+        title: options.message,
+        detail: options.detail,
+        buttons: options.buttons,
+        width: 380,
+        radius: '24px',
+        primary: 'rgb(15, 17, 21)',
+        focused: 'dialog',
+        isolated: true,
+      })
       assert.equal(await parent.webContents.executeJavaScript('getComputedStyle(document.body).filter'), 'none')
       assert.equal(f.installations.length, 0)
-      assert.equal(await window.webContents.executeJavaScript(`
+      assert.equal(
+        await window.webContents.executeJavaScript(`
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', cancelable: true }));
-        document.activeElement.id`), 'close')
-      assert.equal(await window.webContents.executeJavaScript(`
+        document.activeElement.id`),
+        'close',
+      )
+      assert.equal(
+        await window.webContents.executeJavaScript(`
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true }));
-        document.activeElement.textContent`), options.buttons.at(-1))
+        document.activeElement.textContent`),
+        options.buttons.at(-1),
+      )
       await window.webContents.executeJavaScript("document.getElementById('dialog').focus()")
       const name = active ? 'update-active-tasks.png' : 'update-ready.png'
       await writeFile(join(root, name), (await window.webContents.capturePage()).toPNG())
@@ -91,22 +115,36 @@ export async function qualifyUpdateDialogs(root, fixture) {
     assert.deepEqual(f.installations, [[true, true]])
     const created = once(app, 'browser-window-created', { signal: AbortSignal.timeout(10_000) })
     const diagnostics = 'exit 0; shutdown acknowledged false\n' + 'at internal/diagnostic/path\n'.repeat(1000)
-    const pending = dialogs.show(parent, { title: messages.updateFailedTitle, message: messages.updateStopFailed,
-      technicalDetails: diagnostics })
+    const pending = dialogs.show(parent, {
+      title: messages.updateFailedTitle,
+      message: messages.updateStopFailed,
+      technicalDetails: diagnostics,
+    })
     const [, errorWindow] = await created
     await once(errorWindow.webContents, 'did-finish-load', { signal: AbortSignal.timeout(10_000) })
     await rendered(errorWindow)
     assert.equal(await errorWindow.webContents.executeJavaScript("document.getElementById('technical-details').open"), false)
     for (const expanded of [false, true]) {
       if (expanded) {
-        assert.equal(await errorWindow.webContents.executeJavaScript("document.getElementById('technical-details-label').click(); document.getElementById('technical-details').open"), true)
-        assert.equal(await errorWindow.webContents.executeJavaScript("document.getElementById('technical-details-content').textContent"), diagnostics)
-        assert.equal(await errorWindow.webContents.executeJavaScript(`(() => {
+        assert.equal(
+          await errorWindow.webContents.executeJavaScript(
+            "document.getElementById('technical-details-label').click(); document.getElementById('technical-details').open",
+          ),
+          true,
+        )
+        assert.equal(
+          await errorWindow.webContents.executeJavaScript("document.getElementById('technical-details-content').textContent"),
+          diagnostics,
+        )
+        assert.equal(
+          await errorWindow.webContents.executeJavaScript(`(() => {
           const detail = document.getElementById('technical-details-content');
           const button = document.querySelector('.primary').getBoundingClientRect();
           return detail.scrollHeight > detail.clientHeight && detail.getBoundingClientRect().height <= 180
             && button.top >= 0 && button.bottom <= innerHeight;
-        })()`), true)
+        })()`),
+          true,
+        )
       }
       const name = expanded ? 'update-error-expanded.png' : 'update-error-collapsed.png'
       await writeFile(join(root, name), (await errorWindow.webContents.capturePage()).toPNG())
@@ -118,23 +156,33 @@ export async function qualifyUpdateDialogs(root, fixture) {
     dialogs.cancel()
     await once(errorWindow, 'closed', { signal: AbortSignal.timeout(10_000) })
     const markerPath = join(root, 'background-close-confirmed')
-    const notice = new DesktopBackgroundNotice({ markerPath, locale: () => locale,
-      show: options => dialogs.show(parent, options), focus: () => dialogs.focus() })
+    const notice = new DesktopBackgroundNotice({
+      markerPath,
+      locale: () => locale,
+      show: options => dialogs.show(parent, options),
+      focus: () => dialogs.focus(),
+    })
     try {
       for (const confirm of [false, true]) {
         parent.show()
         const createdNotice = once(app, 'browser-window-created', { signal: AbortSignal.timeout(10_000) })
         const hidden = Promise.withResolvers()
-        notice.close(() => { parent.hide(); hidden.resolve() })
+        notice.close(() => {
+          parent.hide()
+          hidden.resolve()
+        })
         const [, noticeWindow] = await createdNotice
         await once(noticeWindow.webContents, 'did-finish-load', { signal: AbortSignal.timeout(10_000) })
         await rendered(noticeWindow)
         assert.equal(parent.isVisible(), true)
-        assert.deepEqual(await noticeWindow.webContents.executeJavaScript(`({
+        assert.deepEqual(
+          await noticeWindow.webContents.executeJavaScript(`({
           message: document.getElementById('title').textContent,
           buttons: [...document.querySelectorAll('#actions button')].map(button => button.textContent),
           detailHidden: document.getElementById('detail').hidden,
-        })`), JSON.parse(await readFile(new URL('../expected/background-close-confirmation.json', import.meta.url), 'utf8')))
+        })`),
+          JSON.parse(await readFile(new URL('../expected/background-close-confirmation.json', import.meta.url), 'utf8')),
+        )
         await assert.rejects(access(markerPath))
         const closedNotice = once(noticeWindow, 'closed', { signal: AbortSignal.timeout(10_000) })
         if (confirm) {
@@ -150,10 +198,14 @@ export async function qualifyUpdateDialogs(root, fixture) {
       }
       await access(markerPath)
       parent.show()
-      notice.close(() => { parent.hide() })
+      notice.close(() => {
+        parent.hide()
+      })
       assert.equal(parent.isVisible(), false)
       assert.equal(dialogs.isOpen, false)
-    } finally { notice.dispose() }
+    } finally {
+      notice.dispose()
+    }
     return screenshots
   } finally {
     dialogs.dispose()

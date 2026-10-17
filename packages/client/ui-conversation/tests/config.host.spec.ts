@@ -1,12 +1,9 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import * as HostPlugin from '../src/index.ts'
 import { liveConfig, omitsGeneratedPage } from '../../../settings/settings/tests/live-config.ts'
 import { plainConfig } from '../../../settings/settings/src/schema.ts'
-import {
-  DEFAULT_BUSY_ENTER_BEHAVIOR, Config, apply,
-} from '@deepseek-ai/dsh-client-ui-conversation'
-
+import { DEFAULT_BUSY_ENTER_BEHAVIOR, Config, apply } from '@deepseek-ai/dsh-client-ui-conversation'
 
 describe('ui-conversation host', () => {
   it('registers, validates, and disposes the durable busy-Enter preference', async () => {

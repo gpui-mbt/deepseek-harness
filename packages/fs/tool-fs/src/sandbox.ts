@@ -13,7 +13,14 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
 import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
-import { ESCALATION_TARGETS, approveEscalation, escalationHintMarker, sandboxDenialMarker, sandboxPermissionsDescription, validateEscalationArgs } from '@deepseek-ai/dsh-sandbox'
+import {
+  ESCALATION_TARGETS,
+  approveEscalation,
+  escalationHintMarker,
+  sandboxDenialMarker,
+  sandboxPermissionsDescription,
+  validateEscalationArgs,
+} from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
 import { FsError } from '@deepseek-ai/dsh-fs'
 
@@ -65,8 +72,9 @@ export class FsSandboxController {
       },
       justification: {
         type: 'string',
-        description: 'Required with sandbox_permissions: one sentence for the user explaining '
-          + 'why this exact file operation needs the wider access. Use the language of the user’s current request.',
+        description:
+          'Required with sandbox_permissions: one sentence for the user explaining ' +
+          'why this exact file operation needs the wider access. Use the language of the user’s current request.',
       },
     }
   }
@@ -86,7 +94,7 @@ export class FsSandboxController {
    */
   async resolvePolicy(toolName: string, args: FsEscalationArgs, exec: ToolExecution): Promise<SandboxExecutionPolicy | undefined> {
     validateEscalationArgs(args.sandbox_permissions, args.justification)
-    const standingPolicy = this.policy?.resolve({ ...exec.agent ? { session: exec.agent.session } : {} })
+    const standingPolicy = this.policy?.resolve({ ...(exec.agent ? { session: exec.agent.session } : {}) })
     if (args.sandbox_permissions === undefined || args.justification === undefined) {
       return standingPolicy
     }

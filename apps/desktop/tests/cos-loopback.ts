@@ -36,8 +36,7 @@ export interface CosLoopback {
  * @param body Complete response body.
  * @param headers Additional response headers.
  */
-export function answer(socket: ServerResponse, status = 200, body: string | Buffer = '',
-  headers: Record<string, string> = {}): void {
+export function answer(socket: ServerResponse, status = 200, body: string | Buffer = '', headers: Record<string, string> = {}): void {
   socket.writeHead(status, { connection: 'close', ...headers })
   socket.end(body)
 }
@@ -58,7 +57,9 @@ export function cosError(code: string, message = 'fixture'): string {
  * @returns Recorded requests, the SDK redirect, and an idempotent close.
  */
 export async function startCosLoopback(
-  responder: CosLoopbackResponder = (_request, response) => { answer(response) },
+  responder: CosLoopbackResponder = (_request, response) => {
+    answer(response)
+  },
 ): Promise<CosLoopback> {
   const requests: CosLoopbackRequest[] = []
   const signedUrls: string[] = []
@@ -83,7 +84,10 @@ export async function startCosLoopback(
   })
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => { server.off('error', reject); resolve() })
+    server.listen(0, '127.0.0.1', () => {
+      server.off('error', reject)
+      resolve()
+    })
   })
   const { port } = server.address() as AddressInfo
   let closed = false
@@ -100,10 +104,12 @@ export async function startCosLoopback(
       if (closed) return
       closed = true
       server.closeAllConnections()
-      await new Promise<void>((resolve, reject) => server.close((error) => {
-        if (error === undefined) resolve()
-        else reject(error)
-      }))
+      await new Promise<void>((resolve, reject) =>
+        server.close(error => {
+          if (error === undefined) resolve()
+          else reject(error)
+        }),
+      )
       if (failures.length > 0) throw failures[0]
     },
   }

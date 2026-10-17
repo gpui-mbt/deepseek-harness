@@ -10,8 +10,10 @@ import { resolveWindowsUpdatePublisher } from './windows-sign.mjs'
 
 assert.equal(process.platform, 'win32', 'Authenticode qualification requires Windows')
 const [certificateFile, signedFile, unsignedFile] = process.argv.slice(2)
-assert.ok(certificateFile && signedFile && unsignedFile,
-  'Usage: node apps/desktop/scripts/test-windows-update-signature.mjs <public.cer> <signed.exe> <unsigned.exe>')
+assert.ok(
+  certificateFile && signedFile && unsignedFile,
+  'Usage: node apps/desktop/scripts/test-windows-update-signature.mjs <public.cer> <signed.exe> <unsigned.exe>',
+)
 const require = createRequire(import.meta.url)
 const { NsisUpdater } = require('electron-updater')
 const { WindowsSignToolManager } = require('app-builder-lib/out/codeSign/windowsSignToolManager.js')
@@ -37,16 +39,21 @@ try {
   const platformSpecificBuildOptions = { signtoolOptions: { publisherName } }
   const manager = new WindowsSignToolManager({ platformSpecificBuildOptions })
   // Keep builder/updater metadata code real; no packaging, key lookup, HTTP, or installer entry runs.
-  const metadata = await getAppUpdatePublishConfiguration({
-    platform: Platform.WINDOWS,
-    platformSpecificBuildOptions,
-    appInfo: { updaterCacheDirName: 'private-signature-qualification' },
-    signingManager: { value: Promise.resolve(manager) },
-    isForceCodeSigningVerification: true,
-    info: {},
-    config: { publish: [{ provider: 'generic', url: 'https://unused.invalid/', channel: 'nightly' }] },
-    expandMacro: value => value,
-  }, null, 1, true)
+  const metadata = await getAppUpdatePublishConfiguration(
+    {
+      platform: Platform.WINDOWS,
+      platformSpecificBuildOptions,
+      appInfo: { updaterCacheDirName: 'private-signature-qualification' },
+      signingManager: { value: Promise.resolve(manager) },
+      isForceCodeSigningVerification: true,
+      info: {},
+      config: { publish: [{ provider: 'generic', url: 'https://unused.invalid/', channel: 'nightly' }] },
+      expandMacro: value => value,
+    },
+    null,
+    1,
+    true,
+  )
   assert.deepEqual(metadata.publisherName, [publisherName])
   for (const [name, file, config, accepted] of [
     ['missing-publisher-negative-control', signed, { ...metadata, publisherName: undefined }, true],
@@ -73,8 +80,7 @@ try {
   assert.equal(await digest(signed), before.signed, 'Signed input changed during verification')
   assert.equal(await digest(unsigned), before.unsigned, 'Unsigned input changed during verification')
   report.passed = true
-}
-finally {
+} finally {
   await writeFile(join(root, 'result.json'), `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx' })
   console.log(`WINDOWS_UPDATE_SIGNATURE_RESULT ${join(root, 'result.json')}`)
 }

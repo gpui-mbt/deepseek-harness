@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Page rendering cancellation is driven by controlled pdfjs promises, not scheduler delays. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { PDFPageProxy } from 'pdfjs-dist'
 import { renderPdfPage } from '../src/client/pdf/document.ts'
 
@@ -14,17 +14,26 @@ describe('PDF canvas rendering', () => {
     const cancelCanvas = vi.fn()
     const page = {
       getViewport: () => ({ width: 100, height: 80 }),
-      render: () => ({ promise: rendered.promise, cancel: cancelCanvas }), cleanup,
+      render: () => ({ promise: rendered.promise, cancel: cancelCanvas }),
+      cleanup,
     } as unknown as PDFPageProxy
-    const pending = renderPdfPage({ numPages: 1, getPage: async () => page }, 1,
-      document.createElement('canvas'), new AbortController().signal, 1, () => {
+    const pending = renderPdfPage(
+      { numPages: 1, getPage: async () => page },
+      1,
+      document.createElement('canvas'),
+      new AbortController().signal,
+      1,
+      () => {
         textStarted.resolve(undefined)
         return { promise: textFailed.promise, cancel: cancelText }
-      })
+      },
+    )
     const failure = expect(pending).rejects.toThrow('text failed')
     await textStarted.promise
     textFailed.reject(new Error('text failed'))
-    await vi.waitFor(() => { expect(cancelText).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(cancelText).toHaveBeenCalledOnce()
+    })
     expect(cancelCanvas).toHaveBeenCalledOnce()
     expect(cleanup).not.toHaveBeenCalled()
     rendered.resolve(undefined)
@@ -44,8 +53,9 @@ describe('PDF canvas rendering', () => {
       },
       cleanup,
     } as unknown as PDFPageProxy
-    await expect(renderPdfPage({ numPages: 1, getPage: async () => page }, 1, document.createElement('canvas'), controller.signal, 1))
-      .rejects.toMatchObject({ name: 'AbortError' })
+    await expect(
+      renderPdfPage({ numPages: 1, getPage: async () => page }, 1, document.createElement('canvas'), controller.signal, 1),
+    ).rejects.toMatchObject({ name: 'AbortError' })
     expect(cancel).toHaveBeenCalledOnce()
     expect(cleanup).toHaveBeenCalledOnce()
   })
@@ -75,7 +85,10 @@ describe('PDF canvas rendering', () => {
     const cancel = vi.fn()
     const page = {
       getViewport: vi.fn(() => ({ width: 100, height: 80 })),
-      render: vi.fn(() => { entered.resolve(undefined); return { promise: running.promise, cancel } }),
+      render: vi.fn(() => {
+        entered.resolve(undefined)
+        return { promise: running.promise, cancel }
+      }),
       cleanup,
     } as unknown as PDFPageProxy
     const pending = renderPdfPage({ numPages: 1, getPage: async () => page }, 1, document.createElement('canvas'), controller.signal, 2)
@@ -98,8 +111,10 @@ describe('PDF canvas rendering', () => {
       cleanup,
     } as unknown as PDFPageProxy
     const canvas = document.createElement('canvas')
-    await expect(renderPdfPage({ numPages: 1, getPage: async () => page }, 1, canvas, new AbortController().signal, 2))
-      .resolves.toEqual({ width: 8192, height: 8192 })
+    await expect(renderPdfPage({ numPages: 1, getPage: async () => page }, 1, canvas, new AbortController().signal, 2)).resolves.toEqual({
+      width: 8192,
+      height: 8192,
+    })
     expect(getViewport).toHaveBeenCalledWith({ scale: 96 / 72 })
     expect(canvas.width * canvas.height).toBe(16_777_216)
     expect(canvas.style.getPropertyValue('--pdf-page-width')).toBe('8192px')

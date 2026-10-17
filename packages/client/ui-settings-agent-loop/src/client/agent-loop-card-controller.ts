@@ -2,8 +2,12 @@
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
-  SettingsFormModel, settingsNumberField,
-  type SettingsFieldState, type SettingsFormActions, type SettingsFormScope, type SettingsFormShell,
+  SettingsFormModel,
+  settingsNumberField,
+  type SettingsFieldState,
+  type SettingsFormActions,
+  type SettingsFormScope,
+  type SettingsFormShell,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /**
@@ -58,6 +62,7 @@ export class AgentLoopCardController {
     return { hooks: { agentLoopCard: this.store }, ...this.form.actions() }
   }
   /** Release accepted-value subscriptions. */
-  dispose(): void { this.form.dispose() }
-
+  dispose(): void {
+    this.form.dispose()
+  }
 }

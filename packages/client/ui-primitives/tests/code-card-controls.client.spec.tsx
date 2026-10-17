@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { CodeBlock } from '../src/markdown/CodeBlock.tsx'
 import { MarkdownText } from '../src/markdown/MarkdownText.tsx'
@@ -18,7 +18,7 @@ afterEach(() => {
 })
 
 describe('code-card controls', () => {
-  it.each([undefined, 'unregistered'])('labels the %s language with the localized code title', (lang) => {
+  it.each([undefined, 'unregistered'])('labels the %s language with the localized code title', lang => {
     render(<CodeBlock code="plain source" lang={lang} {...labels} />)
     expect(screen.getByText('Code block')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy' }).textContent).toBe('')
@@ -30,13 +30,17 @@ describe('code-card controls', () => {
     expect(screen.queryByText('Code block')).toBeNull()
   })
 
-  it.each(['code', 'read', 'diff'] as const)('toggles %s wrapping without changing source text', (kind) => {
+  it.each(['code', 'read', 'diff'] as const)('toggles %s wrapping without changing source text', kind => {
     const code = 'const longName = "a long value whose source must stay intact"'
-    const view = render(kind === 'code'
-      ? <CodeBlock code={code} lang="ts" {...labels} />
-      : kind === 'read'
-        ? <ReadBlock lines={[{ number: 24, text: code }]} totalLines={30} lang="ts" labels={{ ...readBlockLabels, ...toolbarLabels }} />
-        : <DiffBlock diffs={[{ path: 'example.ts', oldText: 'old', newText: code }]} labels={{ ...diffBlockLabels, ...toolbarLabels }} />)
+    const view = render(
+      kind === 'code' ? (
+        <CodeBlock code={code} lang="ts" {...labels} />
+      ) : kind === 'read' ? (
+        <ReadBlock lines={[{ number: 24, text: code }]} totalLines={30} lang="ts" labels={{ ...readBlockLabels, ...toolbarLabels }} />
+      ) : (
+        <DiffBlock diffs={[{ path: 'example.ts', oldText: 'old', newText: code }]} labels={{ ...diffBlockLabels, ...toolbarLabels }} />
+      ),
+    )
     const button = screen.getByRole('button', { name: 'Wrap lines' })
     const wasWrapped = button.getAttribute('aria-pressed') === 'true'
     fireEvent.click(button)
@@ -69,7 +73,9 @@ describe('code-card controls', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     try {
       render(<CodeBlock code={'const x = 1\n'} {...labels} />)
-      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy' })) })
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+      })
       expect(writeText).toHaveBeenCalledWith('const x = 1')
       expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy()
     } finally {
@@ -79,7 +85,9 @@ describe('code-card controls', () => {
   })
 
   it('shows compact Markdown icon actions and preserves custom source controls', () => {
-    const view = render(<MarkdownText text={'```ts\nconst x = 1\n```'} variant="compact" labels={{ code: labels, footnotes: 'Footnotes' }} />)
+    const view = render(
+      <MarkdownText text={'```ts\nconst x = 1\n```'} variant="compact" labels={{ code: labels, footnotes: 'Footnotes' }} />,
+    )
     const wrap = screen.getByRole('button', { name: 'Wrap lines' })
     expect(wrap.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(wrap)
@@ -90,10 +98,15 @@ describe('code-card controls', () => {
   })
 
   it('uses the fallback title for diffs containing different languages', () => {
-    render(<DiffBlock diffs={[
-      { path: 'example.ts', oldText: '', newText: 'export {}' },
-      { path: 'example.py', oldText: '', newText: 'print(1)' },
-    ]} labels={{ ...diffBlockLabels, ...toolbarLabels }} />)
+    render(
+      <DiffBlock
+        diffs={[
+          { path: 'example.ts', oldText: '', newText: 'export {}' },
+          { path: 'example.py', oldText: '', newText: 'print(1)' },
+        ]}
+        labels={{ ...diffBlockLabels, ...toolbarLabels }}
+      />,
+    )
     expect(screen.getByText('Code block')).toBeTruthy()
   })
 })

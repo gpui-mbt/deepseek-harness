@@ -1,40 +1,48 @@
 /** Prompt stability of the harness checkout and Web GUI URL across processes, checkouts, and ports. */
 
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import {
-  createUserMessage, LlmAdapter,
-  type GenerateOptions, type LlmResolvedModelInfo, type StreamChunk, type SystemPromptUpdate,
+  createUserMessage,
+  LlmAdapter,
+  type GenerateOptions,
+  type LlmResolvedModelInfo,
+  type StreamChunk,
+  type SystemPromptUpdate,
 } from '@deepseek-ai/dsh-llm'
 import { SessionId, type Session } from '@deepseek-ai/dsh-session'
 import { renderContextSnapshot, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import * as HarnessDevContext from '../src/index.ts'
 
-const SOURCE_PROMPT = 'The runtime context names the DeepSeek Harness implementation checkout. The checkout location and current working directory are separate values and may differ; never infer the working directory from the checkout path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend DSH itself.'
-const WEB_GUIDANCE = 'When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. '
-  + 'The browser provides no implicit DOM, route, or screenshot context. '
-  + 'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while '
-  + '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. '
-  + 'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. '
-  + 'Starting another server does not update this GUI. '
-  + 'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. '
-  + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
+const SOURCE_PROMPT =
+  'The runtime context names the DeepSeek Harness implementation checkout. The checkout location and current working directory are separate values and may differ; never infer the working directory from the checkout path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend DSH itself.'
+const WEB_GUIDANCE =
+  'When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. ' +
+  'The browser provides no implicit DOM, route, or screenshot context. ' +
+  'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while ' +
+  '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. ' +
+  'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. ' +
+  'Starting another server does not update this GUI. ' +
+  'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. ' +
+  'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
 const WEB_PROMPT = `You are interacting with the user through the DeepSeek Harness Web GUI whose URL the runtime context names. ${WEB_GUIDANCE}`
 
 /** The value-bearing paragraphs earlier releases rendered. */
-const LEGACY_SOURCE = 'The DeepSeek Harness implementation checkout is at /old/checkout/. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend DSH itself.'
+const LEGACY_SOURCE =
+  'The DeepSeek Harness implementation checkout is at /old/checkout/. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend DSH itself.'
 // Frozen as earlier releases rendered it, independent of the current guidance.
-const LEGACY_WEB = 'You are interacting with the user through the DeepSeek Harness Web GUI at http://127.0.0.1:3100. '
-  + 'When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. '
-  + 'The browser provides no implicit DOM, route, or screenshot context. '
-  + 'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while '
-  + '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. '
-  + 'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. '
-  + 'Starting another server does not update this GUI. '
-  + 'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. '
-  + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
+const LEGACY_WEB =
+  'You are interacting with the user through the DeepSeek Harness Web GUI at http://127.0.0.1:3100. ' +
+  'When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. ' +
+  'The browser provides no implicit DOM, route, or screenshot context. ' +
+  'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while ' +
+  '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. ' +
+  'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. ' +
+  'Starting another server does not update this GUI. ' +
+  'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. ' +
+  'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
 
 /** Records every request and answers each with one short text reply. */
 class RecordingAdapter extends LlmAdapter {
@@ -46,12 +54,14 @@ class RecordingAdapter extends LlmAdapter {
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({
-      provider, id: model, name: model,
-      ...this.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: this.systemPromptUpdate },
+      provider,
+      id: model,
+      name: model,
+      ...(this.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: this.systemPromptUpdate }),
     })
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     yield { type: 'block-start', index: 0, blockType: 'text' }
     yield { type: 'text-delta', index: 0, text: 'ok' }
@@ -83,17 +93,27 @@ async function promptLoop(systemPromptUpdate: SystemPromptUpdate | undefined) {
   await ctx.plugin(HarnessDevContext)
   const harness = await mountAgentLoopTestHarness(ctx)
   /** Resume the Session's complete log under a new Agent, as a restarted process does. */
-  const resume = async (session: Session, id: string): Promise<Agent> => (await ctx.agents.create({
-    sessionId: SessionId(id), agentOptions: ROUTE, seed: [...session.snapshotEvents()],
-  })).agent
+  const resume = async (session: Session, id: string): Promise<Agent> =>
+    (
+      await ctx.agents.create({
+        sessionId: SessionId(id),
+        agentOptions: ROUTE,
+        seed: [...session.snapshotEvents()],
+      })
+    ).agent
   /** One turn under an earlier release: the given paragraphs and no value contexts. */
   const earlierSession = async (source = LEGACY_SOURCE, web = LEGACY_WEB): Promise<Agent> => {
     const earlierRelease = ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
       const assembly = await next()
       return {
         ...assembly,
-        sections: assembly.sections.map(section => section.name === 'harness:source' ? { ...section, text: source }
-          : section.name === 'app:web-surface' ? { ...section, text: web } : section),
+        sections: assembly.sections.map(section =>
+          section.name === 'harness:source'
+            ? { ...section, text: source }
+            : section.name === 'app:web-surface'
+              ? { ...section, text: web }
+              : section,
+        ),
         contexts: assembly.contexts.filter(entry => entry.name !== 'harness:source' && entry.name !== 'app:web-surface'),
       }
     })
@@ -112,21 +132,23 @@ async function send(agent: Agent, text: string): Promise<void> {
 
 /** Every committed system prompt version in event order; a cleared version is `''`. */
 function systemPrompts(session: Session): string[] {
-  return session.snapshotEvents().flatMap(event => event.type === 'system/message'
-    ? [event.data.message.content.map(block => block.type === 'text' ? block.text : '').join('')]
-    : [])
+  return session
+    .snapshotEvents()
+    .flatMap(event =>
+      event.type === 'system/message' ? [event.data.message.content.map(block => (block.type === 'text' ? block.text : '')).join('')] : [],
+    )
 }
 
 function latestRuntimeContext(session: Session): string | undefined {
-  const event = session.snapshotEvents().findLast(entry => entry.type === 'user/message'
-    && entry.data.source.kind === 'runtime-context')
+  const event = session.snapshotEvents().findLast(entry => entry.type === 'user/message' && entry.data.source.kind === 'runtime-context')
   const block = event?.type === 'user/message' ? event.data.content[0] : undefined
   return block?.type === 'text' ? block.text : undefined
 }
 
 function requestSystemPrompts(request: GenerateOptions | undefined): string[] {
-  return (request?.messages ?? []).filter(message => message.role === 'system')
-    .flatMap(message => message.content.map(block => block.type === 'text' ? block.text : ''))
+  return (request?.messages ?? [])
+    .filter(message => message.role === 'system')
+    .flatMap(message => message.content.map(block => (block.type === 'text' ? block.text : '')))
 }
 
 describe('harness-dev-context', () => {
@@ -138,8 +160,9 @@ describe('harness-dev-context', () => {
     const fiber = ctx.plugin(HarnessDevContext)
     await fiber
     const assembly = await ctx.systemPrompt.assemble()
-    expect(assembly.sections.filter(entry => entry.name === 'harness:source' || entry.name === 'app:web-surface')
-      .map(entry => entry.text)).toEqual([SOURCE_PROMPT, WEB_PROMPT])
+    expect(
+      assembly.sections.filter(entry => entry.name === 'harness:source' || entry.name === 'app:web-surface').map(entry => entry.text),
+    ).toEqual([SOURCE_PROMPT, WEB_PROMPT])
     expect(renderPrompt(assembly)).not.toContain('127.0.0.1')
     expect(renderContextSnapshot(assembly).split('\n\n').slice(1)).toEqual([
       expect.stringMatching(/^Current DeepSeek Harness implementation checkout: ".+"\.$/u),
@@ -170,8 +193,7 @@ describe('harness-dev-context', () => {
       await send(resumed, `after the upgrade on ${String(port)}`)
       expect(systemPrompts(resumed.session)).toEqual(logged)
       expect(requestSystemPrompts(h.adapter.requests.at(-1))).toEqual(logged)
-      expect(latestRuntimeContext(resumed.session))
-        .toContain(`Current DeepSeek Harness Web GUI URL: "http://127.0.0.1:${String(port)}".`)
+      expect(latestRuntimeContext(resumed.session)).toContain(`Current DeepSeek Harness Web GUI URL: "http://127.0.0.1:${String(port)}".`)
       expect(latestRuntimeContext(resumed.session)).toContain('Current DeepSeek Harness implementation checkout: "')
       session = resumed.session
     }

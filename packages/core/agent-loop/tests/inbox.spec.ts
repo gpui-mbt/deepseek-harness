@@ -4,7 +4,7 @@ import { createUserMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { inboxProjectionDefinition, ReactLoopInbox } from '../src/inbox.ts'
 
 function unsupportedInbox(): Agent['inbox'] {
@@ -12,8 +12,14 @@ function unsupportedInbox(): Agent['inbox'] {
     throw new Error('this test Agent does not support Inbox mutations')
   }
   return {
-    nextTurn: [], nextStep: [], clear: rejectMutation, append: rejectMutation,
-    prepend: rejectMutation, replace: rejectMutation, remove: rejectMutation, splice: rejectMutation,
+    nextTurn: [],
+    nextStep: [],
+    clear: rejectMutation,
+    append: rejectMutation,
+    prepend: rejectMutation,
+    replace: rejectMutation,
+    remove: rejectMutation,
+    splice: rejectMutation,
   }
 }
 
@@ -57,10 +63,7 @@ async function inboxAgent(rawId: string): Promise<{
   return { ctx, session, agent, inbox }
 }
 
-async function reconstructPersistedInbox(
-  rawId: string,
-  populate: (session: Session) => void,
-): Promise<Error> {
+async function reconstructPersistedInbox(rawId: string, populate: (session: Session) => void): Promise<Error> {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(SessionStore)
@@ -92,7 +95,9 @@ describe('ReactLoopInbox', () => {
       source: { kind: 'user' },
     })
     session.append('agent/inbox/spliced', {
-      target: 'next-turn', start: 0, inserted: [pending],
+      target: 'next-turn',
+      start: 0,
+      inserted: [pending],
     })
     const agent = stubAgent('inbox-projection', { ctx, session })
     const dispatch = agentEvents(ctx, agent)
@@ -112,9 +117,12 @@ describe('ReactLoopInbox', () => {
   })
 
   it('rejects invalid durable coordinates and duplicate identities during reconstruction', async () => {
-    const outOfRange = await reconstructPersistedInbox('invalid-inbox-range', (session) => {
+    const outOfRange = await reconstructPersistedInbox('invalid-inbox-range', session => {
       session.append('agent/inbox/spliced', {
-        target: 'next-turn', start: 0, removedCount: 1, inserted: [],
+        target: 'next-turn',
+        start: 0,
+        removedCount: 1,
+        inserted: [],
       })
     })
     expect(outOfRange.message).toBe('invalid persisted inbox splice at session seq 0')
@@ -124,12 +132,16 @@ describe('ReactLoopInbox', () => {
       content: [{ type: 'text', text: 'duplicate' }],
       source: { kind: 'user' },
     })
-    const duplicate = await reconstructPersistedInbox('invalid-inbox-duplicate', (session) => {
+    const duplicate = await reconstructPersistedInbox('invalid-inbox-duplicate', session => {
       session.append('agent/inbox/spliced', {
-        target: 'next-turn', start: 0, inserted: [pending],
+        target: 'next-turn',
+        start: 0,
+        inserted: [pending],
       })
       session.append('agent/inbox/spliced', {
-        target: 'next-step', start: 0, inserted: [pending],
+        target: 'next-step',
+        start: 0,
+        inserted: [pending],
       })
     })
     expect(duplicate.message).toBe('invalid persisted inbox splice at session seq 1')
@@ -163,7 +175,6 @@ describe('ReactLoopInbox', () => {
     })
     childInbox.append('next-turn', own)
     expect(childInbox.nextTurn).toEqual([inherited, own])
-
   })
 
   it('updates the projection cell before session observers run', async () => {
@@ -183,7 +194,8 @@ describe('ReactLoopInbox', () => {
 
     expect(observed).toEqual([pending])
     expect(ctx.sessionProjections.snapshot(session).values.inbox).toEqual({
-      'next-turn': [pending], 'next-step': [],
+      'next-turn': [pending],
+      'next-step': [],
     })
   })
 
@@ -212,18 +224,24 @@ describe('ReactLoopInbox', () => {
     agent.inbox.append('next-turn', original)
     agent.inbox.append('next-step', nextStep)
 
-    expect(agent.inbox.replace(createUserMessage({
-      content: [{ type: 'text', text: 'missing' }],
-      source: { kind: 'user' },
-    }).id, replacement)).toBe(false)
+    expect(
+      agent.inbox.replace(
+        createUserMessage({
+          content: [{ type: 'text', text: 'missing' }],
+          source: { kind: 'user' },
+        }).id,
+        replacement,
+      ),
+    ).toBe(false)
     expect(agent.inbox.replace(original.id, replacement)).toBe(true)
     expect(agent.inbox.replace(nextStep.id, editedStep)).toBe(true)
     expect(agent.inbox.nextTurn).toEqual([replacement])
     expect(agent.inbox.nextStep).toEqual([editedStep])
     expect(discarded).toEqual([original, nextStep])
     expect(inserted).toEqual([original, nextStep, replacement, editedStep])
-    expect(() => { agent.inbox.replace(editedStep.id, replacement) })
-      .toThrow(`message "${replacement.id}" is already pending`)
+    expect(() => {
+      agent.inbox.replace(editedStep.id, replacement)
+    }).toThrow(`message "${replacement.id}" is already pending`)
   })
 
   it('normalizes splice coordinates, rejects duplicate identities, and reports missing removals', async () => {
@@ -247,7 +265,9 @@ describe('ReactLoopInbox', () => {
     agent.inbox.prepend('next-turn', prefixed)
     expect(agent.inbox.nextTurn).toEqual([prefixed, first])
     expect(agent.inbox.remove(second.id)).toBe(false)
-    expect(() => { agent.inbox.append('next-step', first) }).toThrow(`message "${first.id}" is already pending`)
+    expect(() => {
+      agent.inbox.append('next-step', first)
+    }).toThrow(`message "${first.id}" is already pending`)
   })
 
   it('clears both pending lists as durable cancellations', async () => {
@@ -265,9 +285,12 @@ describe('ReactLoopInbox', () => {
     expect(agent.inbox.nextTurn).toEqual([])
     expect(agent.inbox.nextStep).toEqual([])
     expect(discarded).toEqual([nextStep, nextTurn])
-    expect(session.snapshotEvents().slice(beforeClear).map(event => event.type === 'agent/inbox/spliced'
-      ? event.data
-      : event.type)).toEqual([
+    expect(
+      session
+        .snapshotEvents()
+        .slice(beforeClear)
+        .map(event => (event.type === 'agent/inbox/spliced' ? event.data : event.type)),
+    ).toEqual([
       { target: 'next-step', start: 0, removedCount: 1, inserted: [], outcome: 'canceled' },
       { target: 'next-turn', start: 0, removedCount: 1, inserted: [], outcome: 'canceled' },
     ])

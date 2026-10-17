@@ -1,14 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, render, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
-import type {
-  ConversationNodeDefinition, ConversationViewDefinition, UserTextInput,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationNodeDefinition, ConversationViewDefinition, UserTextInput } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { ConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {
-  ChatConversationViewNode, ChatSnapshot,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ChatConversationViewNode, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { PropsRenderFactories } from '@deepseek-ai/dsh-client-ui-slots'
 import { createUserTextFixture } from '../../ui-conversation/tests/user-text-component-fixture.client.tsx'
@@ -17,9 +13,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { commandDefinition } from '@deepseek-ai/dsh-client-ui-chat/src/client/conversation-nodes/command.ts'
 import { chatViewDefinition } from '@deepseek-ai/dsh-client-ui-chat/src/client/conversation-nodes/chat-snapshot-builder.ts'
 import { GoalCommandInputView } from '../src/client/GoalCommandInputView.tsx'
-import {
-  goalCommandInputDefinition, goalCommandText,
-} from '../src/client/goal-command-input.ts'
+import { goalCommandInputDefinition, goalCommandText } from '../src/client/goal-command-input.ts'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
@@ -72,10 +66,15 @@ function node(value: ChatSnapshot, kind: string): ChatConversationViewNode | und
 describe('goal command input projection', () => {
   it('builds a separate input Node before the generic command result and restores it on replay', () => {
     const run = entry(1, 'command/run', {
-      commandId: 'command-goal', name: 'goal', args: ' ', source: { kind: 'user' },
+      commandId: 'command-goal',
+      name: 'goal',
+      args: ' ',
+      source: { kind: 'user' },
     })
     const done = entry(2, 'command/done', {
-      commandId: 'command-goal', kind: 'success', text: 'No goal is currently set.',
+      commandId: 'command-goal',
+      kind: 'success',
+      text: 'No goal is currently set.',
     })
     const value = snapshot([run, done])
 
@@ -85,7 +84,9 @@ describe('goal command input projection', () => {
       data: { commandId: 'command-goal', text: '/goal' },
     })
     expect(node(value, 'command')?.data).toMatchObject({
-      name: 'goal', args: ' ', outcome: { kind: 'success', text: 'No goal is currently set.' },
+      name: 'goal',
+      args: ' ',
+      outcome: { kind: 'success', text: 'No goal is currently set.' },
     })
 
     const doneOnly = snapshot([done], true)
@@ -95,20 +96,27 @@ describe('goal command input projection', () => {
 
   it('ignores other commands and preserves internal multiline arguments', () => {
     const plan = entry(1, 'command/run', {
-      commandId: 'command-plan', name: 'plan', args: '', source: { kind: 'user' },
+      commandId: 'command-plan',
+      name: 'plan',
+      args: '',
+      source: { kind: 'user' },
     })
     const goal = entry(2, 'command/run', {
-      commandId: 'command-goal', name: 'goal', args: '\nfirst line\nsecond line \n', source: { kind: 'user' },
+      commandId: 'command-goal',
+      name: 'goal',
+      args: '\nfirst line\nsecond line \n',
+      source: { kind: 'user' },
     })
 
     expect(goalCommandInputDefinition.match(plan.event)).toBeNull()
-    expect(goalCommandText(goal.event as SessionEvent<'command/run'>))
-      .toBe('/goal\nfirst line\nsecond line')
+    expect(goalCommandText(goal.event as SessionEvent<'command/run'>)).toBe('/goal\nfirst line\nsecond line')
   })
 
   it('keeps the Definition total across required interface and window fallback paths', () => {
     const run = entry(3, 'command/run', {
-      commandId: 'command-goal', name: 'goal', source: { kind: 'user' },
+      commandId: 'command-goal',
+      name: 'goal',
+      source: { kind: 'user' },
     })
     const match = {
       ...run,
@@ -120,14 +128,27 @@ describe('goal command input projection', () => {
     expect(state.text).toBe('/goal')
     expect(goalCommandInputDefinition.update({ state } as never, match)).toBe(state)
     expect(goalCommandInputDefinition.buildViewNode!({ state: undefined } as never)).toBeNull()
-    expect(goalCommandInputDefinition.buildViewNode!({
-      key: 'goal-command-input', id: 'command-goal', state, start: undefined,
-    } as never)).toMatchObject({ location: { kind: 'unresolved' } })
+    expect(
+      goalCommandInputDefinition.buildViewNode!({
+        key: 'goal-command-input',
+        id: 'command-goal',
+        state,
+        start: undefined,
+      } as never),
+    ).toMatchObject({ location: { kind: 'unresolved' } })
 
     const done = entry(4, 'command/done', { commandId: 'command-goal', kind: 'success' })
-    expect(() => goalCommandInputDefinition.start({} as never, {
-      ...done, role: 'start', location: { kind: 'session' },
-    } as never, {} as never)).toThrow('goal-command-input start requires command/run')
+    expect(() =>
+      goalCommandInputDefinition.start(
+        {} as never,
+        {
+          ...done,
+          role: 'start',
+          location: { kind: 'session' },
+        } as never,
+        {} as never,
+      ),
+    ).toThrow('goal-command-input start requires command/run')
   })
 
   it('renders the user-style command bubble without ordinary message actions', () => {
@@ -155,7 +176,9 @@ describe('goal command input projection', () => {
     const props = {
       node: { key: 'goal-command-input:stable', data: { commandId: 'command-goal', text: '/goal ship it', time: 1 } },
       t: makeTranslate(zh, commonZh),
-      renderFactorySlot: textFactories((input) => { commands.push(input.facts.commands) }),
+      renderFactorySlot: textFactories(input => {
+        commands.push(input.facts.commands)
+      }),
     } as Parameters<typeof GoalCommandInputView>[0]
     const view = render(<GoalCommandInputView {...props} />)
     view.rerender(<GoalCommandInputView {...props} node={{ ...props.node }} />)

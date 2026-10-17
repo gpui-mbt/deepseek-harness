@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -33,7 +33,7 @@ afterEach(async () => {
   root = undefined
 })
 
-it('loads from cordis.yml, counts the model\'s tool calls, and answers /tally through the composed command registry', async () => {
+it("loads from cordis.yml, counts the model's tool calls, and answers /tally through the composed command registry", async () => {
   root = await mkdtemp(join(tmpdir(), 'dsh-cc-mods-composition-'))
   const configPath = join(root, 'cordis.yml')
   const modules = new Map<string, unknown>([
@@ -51,14 +51,14 @@ it('loads from cordis.yml, counts the model\'s tool calls, and answers /tally th
   ])
   // A mod is a plugin like any other: here the tutorial mod's `defineMod` wrapper, mounted by file URL after the bridge.
   const firstMod = pathToFileURL(resolve(FIXTURES, 'first-mod.ts')).href
-  await writeFile(configPath, [
-    ...[...modules.keys()].map(name => `- name: '${name}'`),
-    `- name: '${firstMod}'`,
-    '  config:',
-    '    greeting: The model made',
-  ].join('\n') + '\n')
+  await writeFile(
+    configPath,
+    [...[...modules.keys()].map(name => `- name: '${name}'`), `- name: '${firstMod}'`, '  config:', '    greeting: The model made'].join(
+      '\n',
+    ) + '\n',
+  )
 
-  const context = ctx = new Context()
+  const context = (ctx = new Context())
   context.baseUrl = pathToFileURL(root).href + '/'
   await context.plugin(Loader)
   context.loader.builtins.include = Include
@@ -71,10 +71,16 @@ it('loads from cordis.yml, counts the model\'s tool calls, and answers /tally th
 
   const adapter = new MockAdapter([toolCallResponse('c1', 'echo', { command: 'ls' }), textResponse('listed')])
   context.llm.registerAdapter(['mock'], adapter)
-  context.tools.register(defineContentToolFixture({
-    name: 'echo', description: 'echo', parameters: { command: { type: 'string' } },
-    async execute(args) { return [{ type: 'text', text: `ran ${args.command}` }] },
-  }))
+  context.tools.register(
+    defineContentToolFixture({
+      name: 'echo',
+      description: 'echo',
+      parameters: { command: { type: 'string' } },
+      async execute(args) {
+        return [{ type: 'text', text: `ran ${args.command}` }]
+      },
+    }),
+  )
   const agent = await context.agentLoop.create(SessionId('composed'), { provider: 'mock', model: 'mock' })
   expect(context.commands.list(agent).map(command => command.name)).toEqual(['tally'])
   agent.followup(createUserMessage({ content: [{ type: 'text', text: 'list the files here' }], source: { kind: 'user' } }))

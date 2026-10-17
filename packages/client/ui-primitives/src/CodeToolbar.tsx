@@ -1,7 +1,5 @@
 /** Shared language, wrapping, and clipboard controls for code cards. */
-import {
-  IconCheckOutlineRegular, IconCopyOutlineRegular, IconNowrapFillRegular, IconWrapFillRegular,
-} from './icons/index.tsx'
+import { IconCheckOutlineRegular, IconCopyOutlineRegular, IconNowrapFillRegular, IconWrapFillRegular } from './icons/index.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { supportsHighlighting } from './markdown/highlight.ts'
 import css from './CodeCard.module.css'
@@ -42,20 +40,28 @@ export function CodeToolbar({ lang, title, status, labels, copyLabel, copiedLabe
     <div className={css.header} data-code-block-banner>
       <div className={css.heading}>
         <span className={css.language}>{supportsHighlighting(lang) ? lang : labels.codeLabel}</span>
-        {title !== undefined && <span className={css.title} title={title}>{title}</span>}
+        {title !== undefined && (
+          <span className={css.title} title={title}>
+            {title}
+          </span>
+        )}
       </div>
       <div className={css.actions}>
         {status !== undefined && <span className={css.status}>{status}</span>}
-        {onWrap !== undefined && <Tooltip label={wrapLabel} side="top" portal>
-          <button type="button" className={css.action} aria-label={labels.wrapLabel} aria-pressed={wrapped} onClick={onWrap}>
-            {wrapped ? <IconNowrapFillRegular size={14} /> : <IconWrapFillRegular size={14} />}
-          </button>
-        </Tooltip>}
-        {onCopy !== undefined && <Tooltip label={clipboardLabel} side="top" portal>
-          <button type="button" className={css.action} aria-label={clipboardLabel} onClick={onCopy}>
-            {copied ? <IconCheckOutlineRegular size={14} /> : <IconCopyOutlineRegular size={14} />}
-          </button>
-        </Tooltip>}
+        {onWrap !== undefined && (
+          <Tooltip label={wrapLabel} side="top" portal>
+            <button type="button" className={css.action} aria-label={labels.wrapLabel} aria-pressed={wrapped} onClick={onWrap}>
+              {wrapped ? <IconNowrapFillRegular size={14} /> : <IconWrapFillRegular size={14} />}
+            </button>
+          </Tooltip>
+        )}
+        {onCopy !== undefined && (
+          <Tooltip label={clipboardLabel} side="top" portal>
+            <button type="button" className={css.action} aria-label={clipboardLabel} onClick={onCopy}>
+              {copied ? <IconCheckOutlineRegular size={14} /> : <IconCopyOutlineRegular size={14} />}
+            </button>
+          </Tooltip>
+        )}
       </div>
     </div>
   )

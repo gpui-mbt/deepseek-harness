@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { buildCommandLine, quoteArg } from '../src/process.ts'
 
 const isWin32 = process.platform === 'win32'
@@ -20,9 +20,7 @@ describe('quoteArg', () => {
   })
 
   it('builds one CreateProcess command line without shell interpretation', () => {
-    expect(buildCommandLine('C:\\Program Files\\tool.exe', ['a b', 'c'])).toBe(
-      '"C:\\Program Files\\tool.exe" "a b" c',
-    )
+    expect(buildCommandLine('C:\\Program Files\\tool.exe', ['a b', 'c'])).toBe('"C:\\Program Files\\tool.exe" "a b" c')
   })
 })
 
@@ -32,12 +30,7 @@ describe.skipIf(!isWin32)('CommandLineToArgvW round-trip', () => {
     const PVOID = koffi.pointer('void')
     const shell32 = koffi.load('shell32.dll')
     const kernel32 = koffi.load('kernel32.dll')
-    const commandLineToArgvW = shell32.func(
-      '__stdcall',
-      'CommandLineToArgvW',
-      PVOID,
-      ['str16', koffi.pointer('int')],
-    )
+    const commandLineToArgvW = shell32.func('__stdcall', 'CommandLineToArgvW', PVOID, ['str16', koffi.pointer('int')])
     const lstrcpynW = kernel32.func('__stdcall', 'lstrcpynW', PVOID, [PVOID, PVOID, 'int'])
     const lstrlenW = kernel32.func('__stdcall', 'lstrlenW', 'int', [PVOID])
     const localFree = kernel32.func('__stdcall', 'LocalFree', PVOID, [PVOID])

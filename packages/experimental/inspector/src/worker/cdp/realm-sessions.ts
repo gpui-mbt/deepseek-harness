@@ -23,9 +23,14 @@ export class InspectorRealmSessionSet {
   private readonly unsubscribeRealms: () => void
   private closed = false
 
-  constructor(private readonly realms: InspectorRealmRegistry, private readonly clientSourceId?: InspectorSourceId) {
+  constructor(
+    private readonly realms: InspectorRealmRegistry,
+    private readonly clientSourceId?: InspectorSourceId,
+  ) {
     for (const realm of realms.realms()) if (this.includes(realm)) this.open(realm)
-    this.unsubscribeRealms = realms.subscribe((event) => { this.receiveRealm(event) })
+    this.unsubscribeRealms = realms.subscribe(event => {
+      this.receiveRealm(event)
+    })
   }
 
   /**
@@ -33,7 +38,8 @@ export class InspectorRealmSessionSet {
    * @returns Host followed by connected Clients included in this connection.
    */
   all(): InspectorRealmSession[] {
-    return this.realms.realms()
+    return this.realms
+      .realms()
       .map(realm => this.sessions.get(realm.descriptor.realmId))
       .filter((session): session is InspectorRealmSession => session !== undefined)
   }
@@ -85,7 +91,9 @@ export class InspectorRealmSessionSet {
    */
   subscribe(listener: (event: InspectorRealmSessionEvent) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /** Close all realm sessions and stop tracking the registry. */

@@ -7,8 +7,7 @@ import type { ChatViewSlotProps } from '../contract/slots.ts'
  * @returns locale-owned compact display string.
  */
 export function formatTokens(value: number, t: ChatViewSlotProps['t']): string {
-  const scaled = (candidate: number): string =>
-    candidate >= 100 ? String(Math.round(candidate)) : String(Math.round(candidate * 10) / 10)
+  const scaled = (candidate: number): string => (candidate >= 100 ? String(Math.round(candidate)) : String(Math.round(candidate * 10) / 10))
   if (value < 1_000) return String(value)
   if (value < 1_000_000) return t('number.thousand', { value: scaled(value / 1_000) })
   return t('number.million', { value: scaled(value / 1_000_000) })
@@ -41,8 +40,7 @@ function roundedPercentUnits(cacheReadTokens: number, denominator: number, decim
   while (lower < upper) {
     const candidate = Math.floor((lower + upper + 1) / 2)
     const factor = candidate * 2 - 1
-    const threshold = factor * denominatorQuotient
-      + Math.ceil(factor * denominatorRemainder / doubledScale)
+    const threshold = factor * denominatorQuotient + Math.ceil((factor * denominatorRemainder) / doubledScale)
     if (cacheReadTokens >= threshold) lower = candidate
     else upper = candidate - 1
   }
@@ -64,11 +62,7 @@ function displayPercentUnits(units: number, decimalPlaces: 0 | 1): string {
  * round to 100 automatically use enough additional precision to stay honest.
  * @returns percentage text, or null when there was no prompt input.
  */
-export function formatCacheHitPercent(
-  cacheReadTokens: number,
-  promptTokens: number,
-  decimalPlaces: 0 | 1 = 0,
-): string | null {
+export function formatCacheHitPercent(cacheReadTokens: number, promptTokens: number, decimalPlaces: 0 | 1 = 0): string | null {
   if (promptTokens === 0) return null
   const missedInputTokens = promptTokens - cacheReadTokens
   if (missedInputTokens === 0) return '100'
@@ -88,7 +82,7 @@ export function formatCacheHitPercent(
   let roundedLoss = 5
   for (let loss = 1; loss < 5; loss += 1) {
     const factor = loss * 2 + 1
-    const threshold = factor * denominatorTens + Math.floor(factor * denominatorOnes / 10)
+    const threshold = factor * denominatorTens + Math.floor((factor * denominatorOnes) / 10)
     if (scaledDoubleGap <= threshold) {
       roundedLoss = loss
       break

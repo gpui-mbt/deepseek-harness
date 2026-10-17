@@ -23,12 +23,14 @@ export const inject = ['computerUse', 'tools', 'systemPrompt']
 export const Config = Schema.object({})
 
 const ToolCatalog = z.object({
-  tools: z.array(z.object({
-    name: z.string().min(1),
-    description: z.string().optional(),
-    inputSchema: z.record(z.string(), z.unknown()),
-    outputSchema: z.unknown().optional(),
-  })),
+  tools: z.array(
+    z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      inputSchema: z.record(z.string(), z.unknown()),
+      outputSchema: z.unknown().optional(),
+    }),
+  ),
 })
 
 /** DeepSeek's function-name alphabet and maximum length are protocol constants. */
@@ -52,9 +54,13 @@ export async function apply(ctx: Context): Promise<void> {
   const pending = new Set<Promise<unknown>>()
   let driver: NativeDriver | undefined
   // Cordis announces disposal before it awaits asynchronous plugin startup.
-  ctx.on('internal/plugin', (fiber) => {
-    if (fiber === ctx.fiber && fiber.uid === null) lifetime.abort()
-  }, { global: true })
+  ctx.on(
+    'internal/plugin',
+    fiber => {
+      if (fiber === ctx.fiber && fiber.uid === null) lifetime.abort()
+    },
+    { global: true },
+  )
   let ready: Promise<void> = Promise.resolve()
   const dispose = ctx.effect(function* () {
     yield ctx.computerUse.register(ComputerUseProviderName('cua-driver-native'))
@@ -89,7 +95,7 @@ export async function apply(ctx: Context): Promise<void> {
     lifetime.signal.throwIfAborted()
     // The generated constructor returns its class with an owned binding handle,
     // but declares only CuaDriverLike, which omits uniffiDestroy().
-    const activeDriver = driver = CuaDriver.create(undefined) as NativeDriver
+    const activeDriver = (driver = CuaDriver.create(undefined) as NativeDriver)
     const catalog = ToolCatalog.parse(JSON.parse(await activeDriver.listToolsJson({ signal: lifetime.signal })))
     lifetime.signal.throwIfAborted()
     const names = new Set<string>()

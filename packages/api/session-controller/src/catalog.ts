@@ -5,11 +5,7 @@ import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type {} from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo } from '@deepseek-ai/dsh-llm'
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  ModelCatalog,
-  ModelReasoning,
-  ModelSelection,
-} from './types.ts'
+import type { ModelCatalog, ModelReasoning, ModelSelection } from './types.ts'
 
 /**
  * Build the browser model catalog without requiring a Session.
@@ -22,53 +18,55 @@ export async function buildModelCatalog(
   defaultSelection: ModelSelection = ctx.agentDefaultModel.currentSelection(),
 ): Promise<ModelCatalog> {
   const providers = ctx.llm.listProviders()
-  const catalog = await Promise.all(providers.map(async (provider) => {
-    try {
-      const models = await ctx.llm.listModels(provider.id)
-      const entries = await Promise.all(models.map(async (model) => {
-        const resolved = await ctx.llm.resolveModelInfo(provider.id, model.id)
-        const reasoning: ModelReasoning | undefined = resolved.reasoning === undefined
-          ? undefined
-          : {
-            efforts: resolved.reasoning.efforts.map(effort => ({
-              id: effort.id,
-              name: effort.name,
-              ...(effort.description === undefined ? {} : { description: effort.description }),
-            })),
-            ...(resolved.reasoning.defaultEffort === undefined
-              ? {}
-              : { defaultEffort: resolved.reasoning.defaultEffort }),
-          }
+  const catalog = await Promise.all(
+    providers.map(async provider => {
+      try {
+        const models = await ctx.llm.listModels(provider.id)
+        const entries = await Promise.all(
+          models.map(async model => {
+            const resolved = await ctx.llm.resolveModelInfo(provider.id, model.id)
+            const reasoning: ModelReasoning | undefined =
+              resolved.reasoning === undefined
+                ? undefined
+                : {
+                    efforts: resolved.reasoning.efforts.map(effort => ({
+                      id: effort.id,
+                      name: effort.name,
+                      ...(effort.description === undefined ? {} : { description: effort.description }),
+                    })),
+                    ...(resolved.reasoning.defaultEffort === undefined ? {} : { defaultEffort: resolved.reasoning.defaultEffort }),
+                  }
+            return {
+              id: model.id,
+              name: model.name,
+              ...(model.description === undefined ? {} : { description: model.description }),
+              ...(reasoning === undefined ? {} : { reasoning }),
+              ...(resolved.routing === undefined ? {} : { routing: resolved.routing }),
+            }
+          }),
+        )
         return {
-          id: model.id,
-          name: model.name,
-          ...(model.description === undefined ? {} : { description: model.description }),
-          ...(reasoning === undefined ? {} : { reasoning }),
-          ...(resolved.routing === undefined ? {} : { routing: resolved.routing }),
+          kind: 'group' as const,
+          group: { id: provider.id, name: provider.name, models: entries },
         }
-      }))
-      return {
-        kind: 'group' as const,
-        group: { id: provider.id, name: provider.name, models: entries },
+      } catch (error) {
+        return {
+          kind: 'failure' as const,
+          failure: {
+            id: provider.id,
+            name: provider.name,
+            message: error instanceof Error ? error.message : String(error),
+          },
+        }
       }
-    } catch (error) {
-      return {
-        kind: 'failure' as const,
-        failure: {
-          id: provider.id,
-          name: provider.name,
-          message: error instanceof Error ? error.message : String(error),
-        },
-      }
-    }
-  }))
-  const groups = catalog.flatMap(item => item.kind === 'group' ? [item.group] : [])
-    .filter(group => group.models.length > 0)
+    }),
+  )
+  const groups = catalog.flatMap(item => (item.kind === 'group' ? [item.group] : [])).filter(group => group.models.length > 0)
   return {
     default: { ...defaultSelection },
     routableProviders: groups.map(group => group.id),
     groups,
-    failures: catalog.flatMap(item => item.kind === 'failure' ? [item.failure] : []),
+    failures: catalog.flatMap(item => (item.kind === 'failure' ? [item.failure] : [])),
   }
 }
 
@@ -81,11 +79,13 @@ export async function buildModelCatalog(
 export async function modelAvailable(ctx: Context, selection: ModelSelection): Promise<boolean> {
   if (!ctx.llm.listProviders().some(provider => provider.id === selection.provider)) return false
   let models: readonly LlmModelInfo[]
-  try { models = await ctx.llm.listModels(selection.provider) }
-  catch (error) {
-    throw new RemoteError('session/model-unavailable',
-      error instanceof Error ? error.message : String(error),
-      { provider: selection.provider, model: selection.model })
+  try {
+    models = await ctx.llm.listModels(selection.provider)
+  } catch (error) {
+    throw new RemoteError('session/model-unavailable', error instanceof Error ? error.message : String(error), {
+      provider: selection.provider,
+      model: selection.model,
+    })
   }
   return models.some(model => model.id === selection.model)
 }
@@ -110,8 +110,7 @@ export async function hasProviderApiKey(ctx: Context): Promise<boolean> {
     }
     if (typeof profile !== 'object' || profile === null) continue
     const ref: unknown = Reflect.get(profile, 'apiKeyEnv')
-    if (typeof ref === 'string' && ref.length > 0
-      && (await credentials.describe(credentialRef(ref))).configured) return true
+    if (typeof ref === 'string' && ref.length > 0 && (await credentials.describe(credentialRef(ref))).configured) return true
   }
   return false
 }

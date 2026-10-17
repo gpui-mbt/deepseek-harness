@@ -11,14 +11,17 @@ import css from './ApprovalPanel.module.css'
  */
 export function ApprovalPanel(props: ApprovalComposerProps) {
   const approval = props.matched
-  const detail = approval.callId === undefined
-    ? null
-    : props.renderSlot('conversation.approval.detail', { callId: approval.callId })
+  const detail = approval.callId === undefined ? null : props.renderSlot('conversation.approval.detail', { callId: approval.callId })
   const reason = approval.displayReason === undefined ? approval.reason : props.resolveReason(approval.displayReason)
   return <ApprovalFlow key={approval.key} pending={approval} reason={reason} detail={detail} t={props.t} />
 }
 
-function ApprovalFlow({ pending, reason, detail, t }: {
+function ApprovalFlow({
+  pending,
+  reason,
+  detail,
+  t,
+}: {
   pending: PendingApproval
   reason: string | undefined
   detail: ReactNode
@@ -31,7 +34,9 @@ function ApprovalFlow({ pending, reason, detail, t }: {
   const compositionEnded = useRef(false)
   useEffect(() => {
     active.current = true
-    return () => { active.current = false }
+    return () => {
+      active.current = false
+    }
   }, [])
   const answer = (outcome: 'allowed-once' | 'rejected'): void => {
     if (waiting.current || !pending.answerable) return
@@ -45,8 +50,12 @@ function ApprovalFlow({ pending, reason, detail, t }: {
   }
   const keydown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const element = event.target as Element
-    if (event.defaultPrevented || !event.currentTarget.contains(document.activeElement)
-      || element.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]') !== null) return
+    if (
+      event.defaultPrevented ||
+      !event.currentTarget.contains(document.activeElement) ||
+      element.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]') !== null
+    )
+      return
     if (event.key !== 'Enter' && event.key !== 'Escape') return
     if (event.key === 'Enter' && element.closest('button, a[href], [role="button"]') !== null) return
     if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
@@ -57,28 +66,49 @@ function ApprovalFlow({ pending, reason, detail, t }: {
     answer(event.key === 'Enter' ? 'allowed-once' : 'rejected')
   }
   return (
-    <div className={css.root} data-approval-key={pending.key} aria-busy={answered}
+    <div
+      className={css.root}
+      data-approval-key={pending.key}
+      aria-busy={answered}
       onKeyDown={keydown}
-      onKeyUpCapture={() => { compositionEnded.current = false }}
-      onCompositionStartCapture={() => { composing.current = true }}
-      onCompositionEndCapture={() => { composing.current = false; compositionEnded.current = true }}>
+      onKeyUpCapture={() => {
+        compositionEnded.current = false
+      }}
+      onCompositionStartCapture={() => {
+        composing.current = true
+      }}
+      onCompositionEndCapture={() => {
+        composing.current = false
+        compositionEnded.current = true
+      }}
+    >
       <div className={css.card}>
-        <div className={css.strip}><StateDot state={answered ? 'ongoing' : 'warning'} />{t('waiting')}</div>
-        <div
-          className={css.body}
-          data-approval-scroll=""
-          tabIndex={0}
-          role="group"
-          aria-label={t('detail.aria')}
-        >
+        <div className={css.strip}>
+          <StateDot state={answered ? 'ongoing' : 'warning'} />
+          {t('waiting')}
+        </div>
+        <div className={css.body} data-approval-scroll="" tabIndex={0} role="group" aria-label={t('detail.aria')}>
           <div className={css.headline}>{reason ?? t('escalation', { toolName: pending.toolName })}</div>
           {detail !== null && <div className={css.command}>{detail}</div>}
         </div>
         <div className={css.actionRow}>
-          <Button variant="outline" className={css.reject} disabled={answered} onClick={() => { answer('rejected') }}>
+          <Button
+            variant="outline"
+            className={css.reject}
+            disabled={answered}
+            onClick={() => {
+              answer('rejected')
+            }}
+          >
             {t('reject')}
           </Button>
-          <Button variant="primary" disabled={answered} onClick={() => { answer('allowed-once') }}>
+          <Button
+            variant="primary"
+            disabled={answered}
+            onClick={() => {
+              answer('allowed-once')
+            }}
+          >
             {t('allowOnce')}
           </Button>
         </div>

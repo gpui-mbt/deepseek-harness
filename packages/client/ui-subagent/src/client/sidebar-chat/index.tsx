@@ -1,14 +1,10 @@
 /** Right-Sidebar presentation of an existing subagent Conversation. */
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  ISessions, SessionReference,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ISessions, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import type { ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SidebarRightTabDefinition } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {
-  PropsRenderFactories, PropsRenderSlots, PropsRuntime, TranslateNS,
-} from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsRenderFactories, PropsRenderSlots, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { NS } from '../locales.ts'
@@ -90,8 +86,14 @@ export function parseSubagentChatAddress(value: string): SubagentAddress | undef
 
 function waitForAbort(signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve()
-  return new Promise((resolve) => {
-    signal.addEventListener('abort', () => { resolve() }, { once: true })
+  return new Promise(resolve => {
+    signal.addEventListener(
+      'abort',
+      () => {
+        resolve()
+      },
+      { once: true },
+    )
   })
 }
 
@@ -127,29 +129,32 @@ export type ConversationSlotPanelProps = PropsRuntime<'sidebar.chat.conversation
 
 /** Render the shared Conversation content for one explicitly provided child Session. */
 export function ConversationSlotPanel({
-  sessionId, useSession, useConversation, useSessions, renderFactorySlot,
+  sessionId,
+  useSession,
+  useConversation,
+  useSessions,
+  renderFactorySlot,
 }: ConversationSlotPanelProps) {
   const session = useSession(value => value)
   const conversation = useConversation(value => value)
-  const active = conversation.activeTargets.size > 0
-    || (!session.blank && !session.awaitingFirstTurn)
-    || session.running
+  const active = conversation.activeTargets.size > 0 || (!session.blank && !session.awaitingFirstTurn) || session.running
   const shellPhase = active ? 'active' : session.promptAttempted ? 'engaging' : 'blank'
   const summaryBlank = useSessions(state => state.byId[sessionId]?.blank)
-  const parentAvailabilityPending = session.subagent?.address.mode === 'continuable'
-    && session.subagent.parentAvailable === undefined
-  const settling = (shellPhase === 'blank' && session.openState === 'loading' && summaryBlank !== true)
-    || parentAvailabilityPending
+  const parentAvailabilityPending = session.subagent?.address.mode === 'continuable' && session.subagent.parentAvailable === undefined
+  const settling = (shellPhase === 'blank' && session.openState === 'loading' && summaryBlank !== true) || parentAvailabilityPending
   const hero = shellPhase === 'blank' && (session.openState === 'open' || summaryBlank === true)
   const phase = settling ? 'settling' : hero ? 'hero' : 'active'
-  return renderFactorySlot('conversation.content', { variant: 'embedded', phase, hero }, {
-    slots: { views: FixedChatConversationView },
-  })
+  return renderFactorySlot(
+    'conversation.content',
+    { variant: 'embedded', phase, hero },
+    {
+      slots: { views: FixedChatConversationView },
+    },
+  )
 }
 
 /** Props supplied to the parent-Session Sidebar tab body. */
-export type SidebarChatTabProps =
-  PropsRuntime<'sidebar.right.pane.tab'> & PropsRenderSlots<'sidebar.chat.conversation'>
+export type SidebarChatTabProps = PropsRuntime<'sidebar.right.pane.tab'> & PropsRenderSlots<'sidebar.chat.conversation'>
 
 /** Bind a chat resource's child reference around its Conversation slot. */
 export function SidebarChatTab({ useResource, useTabInfo, SessionProvider, renderSlot }: SidebarChatTabProps) {
@@ -157,13 +162,9 @@ export function SidebarChatTab({ useResource, useTabInfo, SessionProvider, rende
   const resource = useResource<'subagentchat'>(tab.contentId)
   return (
     <div className={css.root} data-sidebar-chat="">
-      {resource.value === undefined
-        ? null
-        : (
-          <SessionProvider session={resource.value.reference}>
-            {renderSlot('sidebar.chat.conversation', {})}
-          </SessionProvider>
-        )}
+      {resource.value === undefined ? null : (
+        <SessionProvider session={resource.value.reference}>{renderSlot('sidebar.chat.conversation', {})}</SessionProvider>
+      )}
     </div>
   )
 }
@@ -174,29 +175,48 @@ export function SidebarChatTab({ useResource, useTabInfo, SessionProvider, rende
  * @param t - Chat namespace translator used for fallback tab titles.
  */
 export function registerSidebarChat(ctx: Context, t: TranslateNS<typeof NS>): void {
+  ctx.effect(() => ctx.resources.register(subagentChatResourceProvider(ctx.sessions)), 'ui-subagent: Sidebar chat resources')
   ctx.effect(
-    () => ctx.resources.register(subagentChatResourceProvider(ctx.sessions)),
-    'ui-subagent: Sidebar chat resources',
+    () =>
+      ctx.sidebarRightTabs.register({
+        id: SUBAGENT_CHAT_ID,
+        kind: 'subagentchat',
+        patterns: [`${SUBAGENT_CHAT_ADDRESS}**`],
+        priority: 'builtin',
+        canOpen: address => parseSubagentChatAddress(address) !== undefined,
+        title: address => {
+          const child = parseSubagentChatAddress(address)?.childSessionId
+          return child === undefined
+            ? t('sidebar.chat')
+            : (ctx.sessions.list.getSnapshot().byId[child]?.projectionValues?.subagent?.label ?? child)
+        },
+      } satisfies SidebarRightTabDefinition),
+    'ui-subagent: Sidebar chat type',
   )
-  ctx.effect(() => ctx.sidebarRightTabs.register({
-    id: SUBAGENT_CHAT_ID,
-    kind: 'subagentchat',
-    patterns: [`${SUBAGENT_CHAT_ADDRESS}**`],
-    priority: 'builtin',
-    canOpen: address => parseSubagentChatAddress(address) !== undefined,
-    title: (address) => {
-      const child = parseSubagentChatAddress(address)?.childSessionId
-      return child === undefined
-        ? t('sidebar.chat')
-        : ctx.sessions.list.getSnapshot().byId[child]?.projectionValues?.subagent?.label ?? child
-    },
-  } satisfies SidebarRightTabDefinition), 'ui-subagent: Sidebar chat type')
-  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
-    name: 'sidebar.right.pane.tab',
-    key: SUBAGENT_CHAT_ID,
-    children: { 'sidebar.chat.conversation': { kind: 'single', scope: 'session' } },
-  }, SidebarChatTab)), 'ui-subagent: Sidebar chat body')
-  ctx.effect(() => ctx.slots.inject('sidebar.chat.conversation', () => ctx.slots.register({
-    name: 'sidebar.chat.conversation',
-  }, ConversationSlotPanel)), 'ui-subagent: Sidebar Conversation')
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.right.pane.tab', () =>
+        ctx.slots.register(
+          {
+            name: 'sidebar.right.pane.tab',
+            key: SUBAGENT_CHAT_ID,
+            children: { 'sidebar.chat.conversation': { kind: 'single', scope: 'session' } },
+          },
+          SidebarChatTab,
+        ),
+      ),
+    'ui-subagent: Sidebar chat body',
+  )
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.chat.conversation', () =>
+        ctx.slots.register(
+          {
+            name: 'sidebar.chat.conversation',
+          },
+          ConversationSlotPanel,
+        ),
+      ),
+    'ui-subagent: Sidebar Conversation',
+  )
 }

@@ -1,5 +1,5 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -20,17 +20,22 @@ import { MockAdapter, textResponse } from './mock-adapter.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
 const dirs: string[] = []
-afterEach(async () => { for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true }) })
+afterEach(async () => {
+  for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true })
+})
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
-      if (subject === agent && status === 'idle') { dispose(); resolve() }
+      if (subject === agent && status === 'idle') {
+        dispose()
+        resolve()
+      }
     })
   })
 }
@@ -81,9 +86,11 @@ describe('config-driven session id', () => {
 
   it('rejects an empty exact id before publishing an agent', async () => {
     const ctx = await makeCoreContext()
-    await expect(ctx.plugin(AgentLoop, {
-      agents: [{ id: 'main', sessionId: SessionId(''), model: 'mock' }],
-    })).rejects.toThrow('expected string length >= 1')
+    await expect(
+      ctx.plugin(AgentLoop, {
+        agents: [{ id: 'main', sessionId: SessionId(''), model: 'mock' }],
+      }),
+    ).rejects.toThrow('expected string length >= 1')
     expect(ctx.agents.get(SessionId(''))).toBeUndefined()
     await ctx.fiber.dispose()
   })
@@ -98,14 +105,18 @@ describe('config-driven session id', () => {
     await exact.fiber.dispose()
 
     const conflicting = await makeCoreContext()
-    await expect(conflicting.plugin(AgentLoop, {
-      agents: [{
-        id: 'main',
-        sessionId: SessionId('fresh'),
-        resumeSessionId: SessionId('persisted'),
-        model: 'mock',
-      }],
-    })).rejects.toThrow('sessionId and resumeSessionId are mutually exclusive')
+    await expect(
+      conflicting.plugin(AgentLoop, {
+        agents: [
+          {
+            id: 'main',
+            sessionId: SessionId('fresh'),
+            resumeSessionId: SessionId('persisted'),
+            model: 'mock',
+          },
+        ],
+      }),
+    ).rejects.toThrow('sessionId and resumeSessionId are mutually exclusive')
     await conflicting.fiber.dispose()
   })
 
@@ -115,12 +126,17 @@ describe('config-driven session id', () => {
     const ctx = await makeCoreContext()
     await ctx.plugin(JsonlSessionPersistence, { root })
 
-    const outcome = await ctx.plugin(AgentLoop, {
-      agents: [
-        { id: 'first', sessionId: SessionId('shared'), model: 'mock' },
-        { id: 'second', sessionId: SessionId('shared'), model: 'mock' },
-      ],
-    }).then(() => undefined, (error: unknown) => error)
+    const outcome = await ctx
+      .plugin(AgentLoop, {
+        agents: [
+          { id: 'first', sessionId: SessionId('shared'), model: 'mock' },
+          { id: 'second', sessionId: SessionId('shared'), model: 'mock' },
+        ],
+      })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      )
     const published = ctx.agents.get(SessionId('shared'))
     await ctx.fiber.dispose()
 
@@ -179,14 +195,15 @@ describe('config-driven session id', () => {
     first.followup(createUserMessage({ content: [{ type: 'text', text: 'persist before replacement' }], source: { kind: 'user' } }))
     await idle
     await ctx.sessions.flush(first.session)
-    expect(JSON.stringify(await readStoredEvents(ctx, sessionId)))
-      .toContain('persist before replacement')
+    expect(JSON.stringify(await readStoredEvents(ctx, sessionId))).toContain('persist before replacement')
 
     const firstDisposal = firstLoop.dispose()
     await cleanupStarted.promise
     expect(first.status).toBe('idle')
     const failures: unknown[] = []
-    ctx.on('agent-loop/config-start-failed', ({ error }) => { failures.push(error) })
+    ctx.on('agent-loop/config-start-failed', ({ error }) => {
+      failures.push(error)
+    })
     const secondLoop = await ctx.plugin(AgentLoop, config)
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(ctx.agents.get(sessionId)).toBe(first)
@@ -223,8 +240,7 @@ describe('config-driven session id', () => {
     })
     first.inject(createUserMessage({ content: [{ type: 'text', text: 'persist before cancellation' }], source: { kind: 'test' } }))
     await ctx.sessions.flush(first.session)
-    expect(JSON.stringify(await readStoredEvents(ctx, sessionId)))
-      .toContain('persist before cancellation')
+    expect(JSON.stringify(await readStoredEvents(ctx, sessionId))).toContain('persist before cancellation')
 
     const firstDisposal = firstLoop.dispose()
     await cleanupStarted.promise
@@ -242,7 +258,9 @@ describe('config-driven session id', () => {
   it('contains a configured fresh-create failure without persistence', async () => {
     const ctx = await makeCoreContext()
     const failures: unknown[] = []
-    ctx.on('agent-loop/config-start-failed', ({ error }) => { failures.push(error) })
+    ctx.on('agent-loop/config-start-failed', ({ error }) => {
+      failures.push(error)
+    })
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
 
     // A relative cwd fails session preparation inside the plain create path
@@ -269,7 +287,9 @@ describe('config-driven session id', () => {
     const listenerFailure = new Error('failure observer failed')
     const asyncListenerFailure = new Error('async failure observer failed')
     const failures: { sessionId: SessionId; error: unknown }[] = []
-    ctx.on('agent-loop/config-start-failed', () => { throw listenerFailure })
+    ctx.on('agent-loop/config-start-failed', () => {
+      throw listenerFailure
+    })
     ctx.on('agent-loop/config-start-failed', () => Promise.reject(asyncListenerFailure) as never)
     ctx.on('agent-loop/config-start-failed', ({ sessionId, error }) => {
       failures.push({ sessionId, error })
@@ -281,16 +301,12 @@ describe('config-driven session id', () => {
       agents: [{ id: 'main', sessionId: SessionId('config-exact-failure'), model: 'mock' }],
     })
 
-    await expect.poll(() => warn).toHaveBeenCalledWith(expect.stringContaining(
-      'config-driven restore of "config-exact-failure" failed: persistence index failed',
-    ))
+    await expect
+      .poll(() => warn)
+      .toHaveBeenCalledWith(expect.stringContaining('config-driven restore of "config-exact-failure" failed: persistence index failed'))
     expect(failures).toEqual([{ sessionId: SessionId('config-exact-failure'), error: failure }])
-    expect(warn).toHaveBeenCalledWith(
-      'agent "main": config-start-failed listener threw: failure observer failed',
-    )
-    await expect.poll(() => warn).toHaveBeenCalledWith(
-      'agent "main": config-start-failed listener rejected: async failure observer failed',
-    )
+    expect(warn).toHaveBeenCalledWith('agent "main": config-start-failed listener threw: failure observer failed')
+    await expect.poll(() => warn).toHaveBeenCalledWith('agent "main": config-start-failed listener rejected: async failure observer failed')
     expect(ctx.agents.get(SessionId('config-exact-failure'))).toBeUndefined()
     warn.mockRestore()
     await ctx.fiber.dispose()
@@ -307,11 +323,15 @@ describe('config-driven session id', () => {
       },
     }
     const failures: unknown[] = []
-    ctx.on('agent-loop/config-start-failed', () => { throw unrenderable })
+    ctx.on('agent-loop/config-start-failed', () => {
+      throw unrenderable
+    })
     // Deliberately violate the normal Error-only rejection rule to exercise the unknown boundary.
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors
     ctx.on('agent-loop/config-start-failed', () => Promise.reject(unrenderable) as never)
-    ctx.on('agent-loop/config-start-failed', ({ error }) => { failures.push(error) })
+    ctx.on('agent-loop/config-start-failed', ({ error }) => {
+      failures.push(error)
+    })
     vi.spyOn(ctx.sessionPersistence, 'open').mockRejectedValue(unrenderable)
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
 
@@ -320,51 +340,44 @@ describe('config-driven session id', () => {
     })
 
     await expect.poll(() => failures).toEqual([unrenderable])
-    expect(warn).toHaveBeenCalledWith(
-      'agent "main": config-driven restore of "config-exact-unrenderable" failed: <unrenderable value>',
-    )
-    expect(warn).toHaveBeenCalledWith(
-      'agent "main": config-start-failed listener threw: <unrenderable value>',
-    )
-    await expect.poll(() => warn).toHaveBeenCalledWith(
-      'agent "main": config-start-failed listener rejected: <unrenderable value>',
-    )
+    expect(warn).toHaveBeenCalledWith('agent "main": config-driven restore of "config-exact-unrenderable" failed: <unrenderable value>')
+    expect(warn).toHaveBeenCalledWith('agent "main": config-start-failed listener threw: <unrenderable value>')
+    await expect.poll(() => warn).toHaveBeenCalledWith('agent "main": config-start-failed listener rejected: <unrenderable value>')
     await ctx.fiber.dispose()
   })
 
-  it.each(['resolve', 'reject'] as const)(
-    'abandons an exact-id open that later %ss when AgentLoop disposal starts',
-    async (outcome) => {
-      const root = await mkdtemp(join(tmpdir(), 'dsh-cfg-exact-dispose-'))
-      dirs.push(root)
-      const ctx = await makeCoreContext()
-      await ctx.plugin(JsonlSessionPersistence, { root })
-      const opening = Promise.withResolvers<SessionHandle>()
-      vi.spyOn(ctx.sessionPersistence, 'open').mockReturnValue(opening.promise)
-      const closed = vi.fn(async () => {})
-      const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
-      const failures: unknown[] = []
-      ctx.on('agent-loop/config-start-failed', ({ error }) => { failures.push(error) })
+  it.each(['resolve', 'reject'] as const)('abandons an exact-id open that later %ss when AgentLoop disposal starts', async outcome => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-cfg-exact-dispose-'))
+    dirs.push(root)
+    const ctx = await makeCoreContext()
+    await ctx.plugin(JsonlSessionPersistence, { root })
+    const opening = Promise.withResolvers<SessionHandle>()
+    vi.spyOn(ctx.sessionPersistence, 'open').mockReturnValue(opening.promise)
+    const closed = vi.fn(async () => {})
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
+    const failures: unknown[] = []
+    ctx.on('agent-loop/config-start-failed', ({ error }) => {
+      failures.push(error)
+    })
 
-      const loop = await ctx.plugin(AgentLoop, {
-        agents: [{ id: 'main', sessionId: SessionId('config-exact-dispose'), model: 'mock' }],
-      })
-      await loop.dispose()
-      if (outcome === 'resolve') {
-        opening.resolve({ close: closed } as unknown as SessionHandle)
-      } else {
-        opening.reject(new Error('startup cancelled by teardown'))
-      }
-      await Promise.resolve()
-      // The abandoned handle is closed; the rejected open is silently released.
-      if (outcome === 'resolve') await expect.poll(() => closed).toHaveBeenCalledOnce()
-      expect(ctx.agents.get(SessionId('config-exact-dispose'))).toBeUndefined()
-      expect(failures).toEqual([])
-      expect(warn).not.toHaveBeenCalled()
-      warn.mockRestore()
-      await ctx.fiber.dispose()
-    },
-  )
+    const loop = await ctx.plugin(AgentLoop, {
+      agents: [{ id: 'main', sessionId: SessionId('config-exact-dispose'), model: 'mock' }],
+    })
+    await loop.dispose()
+    if (outcome === 'resolve') {
+      opening.resolve({ close: closed } as unknown as SessionHandle)
+    } else {
+      opening.reject(new Error('startup cancelled by teardown'))
+    }
+    await Promise.resolve()
+    // The abandoned handle is closed; the rejected open is silently released.
+    if (outcome === 'resolve') await expect.poll(() => closed).toHaveBeenCalledOnce()
+    expect(ctx.agents.get(SessionId('config-exact-dispose'))).toBeUndefined()
+    expect(failures).toEqual([])
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+    await ctx.fiber.dispose()
+  })
 
   it('identity-nests the deferred resume fiber under its labeled owner effect', async () => {
     const ctx = new Context()
@@ -464,7 +477,9 @@ describe('config-driven session id', () => {
     await ctx2.plugin(SystemPrompt)
     await ctx2.plugin(ToolRuntime)
     await ctx2.plugin(AgentRegistry)
-    await ctx2.plugin(AgentLoop, { agents: [{ id: SessionId('main'), provider: 'mock', model: 'mock', resumeSessionId: SessionId('sticky-1') }] })
+    await ctx2.plugin(AgentLoop, {
+      agents: [{ id: SessionId('main'), provider: 'mock', model: 'mock', resumeSessionId: SessionId('sticky-1') }],
+    })
     await ctx2.plugin(JsonlSessionPersistence, { root })
     ctx2.llm.registerAdapter(['mock'], new MockAdapter([textResponse('second')]))
 
@@ -490,17 +505,22 @@ describe('config-driven session id', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(AgentRegistry)
-    await ctx.plugin(AgentLoop, { agents: [{ id: SessionId('main'), provider: 'mock', model: 'mock', resumeSessionId: SessionId('does-not-exist') }] })
-    const warn = vi.spyOn((ctx.agentLoop as unknown as { ctx: { logger: { warn: (...a: unknown[]) => void } } }).ctx.logger, 'warn')
+    await ctx.plugin(AgentLoop, {
+      agents: [{ id: SessionId('main'), provider: 'mock', model: 'mock', resumeSessionId: SessionId('does-not-exist') }],
+    })
+    const warn = vi
+      .spyOn((ctx.agentLoop as unknown as { ctx: { logger: { warn: (...a: unknown[]) => void } } }).ctx.logger, 'warn')
       .mockImplementation(() => undefined)
     await ctx.plugin(JsonlSessionPersistence, { root })
     ctx.llm.registerAdapter(['mock'], new MockAdapter([textResponse('x')]))
 
     // The deferred resume fails (no such session on disk). It must be contained:
     // a warning is logged, no agent is registered, and the app stays up.
-    await expect.poll(() => warn.mock.calls.some(call =>
-      typeof call[0] === 'string' && call[0].includes('config-driven resume of "does-not-exist" failed'),
-    )).toBe(true)
+    await expect
+      .poll(() =>
+        warn.mock.calls.some(call => typeof call[0] === 'string' && call[0].includes('config-driven resume of "does-not-exist" failed')),
+      )
+      .toBe(true)
     expect(ctx.agents.list()).toEqual([])
     warn.mockRestore()
     await ctx.fiber.dispose()
@@ -522,7 +542,9 @@ describe('startup reporting after factory teardown', () => {
     gate.promise.catch(() => undefined)
     vi.spyOn(ctx.sessionPersistence, 'open').mockReturnValue(gate.promise)
     const failures: unknown[] = []
-    ctx.on('agent-loop/config-start-failed', ({ error }) => { failures.push(error) })
+    ctx.on('agent-loop/config-start-failed', ({ error }) => {
+      failures.push(error)
+    })
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
 
     const loop = await ctx.plugin(AgentLoop, {

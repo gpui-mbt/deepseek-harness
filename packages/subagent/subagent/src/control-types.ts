@@ -22,70 +22,63 @@ import type {} from '@deepseek-ai/dsh-workspace/types'
 export type SubagentPromptRequestId = Branded<'session-request-id'>
 
 /** Shared child fields for recursive catalog listing. */
-export type SubagentCatalogRow =
-  & {
-    /** The durable child session id, stable across Activations. */
-    readonly id: SessionId
-    /**
-     * Whether recursive catalog listing observed a resident Session. This
-     * does not encode a durable outcome or guarantee continuation delivery.
-     */
-    readonly activity: 'running' | 'inactive'
-  } & (
-    | {
+export type SubagentCatalogRow = {
+  /** The durable child session id, stable across Activations. */
+  readonly id: SessionId
+  /**
+   * Whether recursive catalog listing observed a resident Session. This
+   * does not encode a durable outcome or guarantee continuation delivery.
+   */
+  readonly activity: 'running' | 'inactive'
+} & (
+  | {
       /** A terminal one-shot child. */
       readonly mode: 'one-shot'
       /** Optional durable creation label from the parent catalog. */
       readonly label?: string
     }
-    | {
+  | {
       /** An external execution without a local child Session. */
       readonly mode: 'external'
       /** Optional durable creation label from the parent catalog. */
       readonly label?: string
     }
-    | {
+  | {
       /** A resumable conversation. */
       readonly mode: 'continuable'
       /** Durable creation label from the parent catalog. */
       readonly label: string
     }
-  )
+)
 
 /**
  * One recursive catalog row. Traversal may also return diagnostics for
  * unknown catalog modes or unreadable child catalogs.
  */
 export type SubagentListEntry =
-  | SubagentCatalogRow & {
-    readonly kind: 'child'
-    /** Whether the child catalog contains a direct child. */
-    readonly hasChildren: boolean
-  }
+  | (SubagentCatalogRow & {
+      readonly kind: 'child'
+      /** Whether the child catalog contains a direct child. */
+      readonly hasChildren: boolean
+    })
   | {
-    readonly kind: 'diagnostic'
-    /** The candidate's session id. */
-    readonly id: SessionId
-    /**
-     * `corrupt` means the child catalog read found invalid or conflicting
-     * Session data; `unavailable` means it could not be read. Either failure
-     * stops that branch. `unsupported` means the parent catalog records an
-     * unknown child mode; its readable catalog is still traversed.
-     */
-    readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
-  }
+      readonly kind: 'diagnostic'
+      /** The candidate's session id. */
+      readonly id: SessionId
+      /**
+       * `corrupt` means the child catalog read found invalid or conflicting
+       * Session data; `unavailable` means it could not be read. Either failure
+       * stops that branch. `unsupported` means the parent catalog records an
+       * unknown child mode; its readable catalog is still traversed.
+       */
+      readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
+    }
 
 /** Durable parent/child browsing address; unknown mode is resolved when child history is read. */
-export type SubagentAddress =
-  & {
-    readonly parentSessionId: SessionId
-    readonly childSessionId: SessionId
-  }
-  & (
-    | { readonly mode: 'one-shot' }
-    | { readonly mode: 'continuable' }
-    | { readonly mode: 'unknown' }
-  )
+export type SubagentAddress = {
+  readonly parentSessionId: SessionId
+  readonly childSessionId: SessionId
+} & ({ readonly mode: 'one-shot' } | { readonly mode: 'continuable' } | { readonly mode: 'unknown' })
 
 /** One Agent inbox destination, as the prompt request selects it. */
 export type SubagentDelivery = SubagentPromptRequest['delivery']

@@ -34,17 +34,20 @@ export function resolveIn(cwd: string, path: string): string {
  */
 export function describeFailure(program: string, path: string, error: unknown): string {
   const code = (error as Partial<VfsError>).code
-  const reason = code === 'ENOENT'
-    ? 'No such file or directory'
-    : code === 'ENOTDIR'
-      ? 'Not a directory'
-      : code === 'EISDIR'
-        ? 'Is a directory'
-        : code === 'ENOTEMPTY'
-          ? 'Directory not empty'
-          : code === 'EEXIST'
-            ? 'File exists'
-            : error instanceof Error ? error.message : String(error)
+  const reason =
+    code === 'ENOENT'
+      ? 'No such file or directory'
+      : code === 'ENOTDIR'
+        ? 'Not a directory'
+        : code === 'EISDIR'
+          ? 'Is a directory'
+          : code === 'ENOTEMPTY'
+            ? 'Directory not empty'
+            : code === 'EEXIST'
+              ? 'File exists'
+              : error instanceof Error
+                ? error.message
+                : String(error)
   return `${program}: ${path}: ${reason}`
 }
 
@@ -90,7 +93,7 @@ export function hostFileSystem(): ShellFileSystem {
   return {
     stat,
     list: async (path: string): Promise<ShellDirent[]> => {
-      const names = [...vfs().readdirSync(path) as string[]].sort()
+      const names = [...(vfs().readdirSync(path) as string[])].sort()
       const entries: ShellDirent[] = []
       for (const name of names) {
         entries.push({ name, directory: (await stat(resolve(path, name)))?.directory ?? false })

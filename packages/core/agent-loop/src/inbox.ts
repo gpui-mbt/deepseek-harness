@@ -8,20 +8,16 @@ import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { Session, SessionEventMap, UserMessage } from '@deepseek-ai/dsh-session'
-import type {
-  AgentEventDispatch,
-  Inbox as InboxContract,
-  InboxState,
-  InboxTarget,
-  InboxWireState,
-} from '@deepseek-ai/dsh-agent'
+import type { AgentEventDispatch, Inbox as InboxContract, InboxState, InboxTarget, InboxWireState } from '@deepseek-ai/dsh-agent'
 import { z } from 'zod'
 
 /** Wire validation for pending agent input reconstructed from durable inbox splices. */
-export const inboxProjectionSchema = z.object({
-  'next-turn': z.array(z.custom<UserMessage>()).readonly(),
-  'next-step': z.array(z.custom<UserMessage>()).readonly(),
-}).readonly()
+export const inboxProjectionSchema = z
+  .object({
+    'next-turn': z.array(z.custom<UserMessage>()).readonly(),
+    'next-step': z.array(z.custom<UserMessage>()).readonly(),
+  })
+  .readonly()
 
 /** Standard fold that reconstructs pending input and rejects invalid durable splice history. */
 export const inboxProjectionDefinition = {
@@ -34,16 +30,19 @@ export const inboxProjectionDefinition = {
     try {
       const inbox = state[splice.target]
       const removedCount = splice.removedCount ?? 0
-      if (!Number.isSafeInteger(splice.start) || splice.start < 0 || splice.start > inbox.length
-        || !Number.isSafeInteger(removedCount) || removedCount < 0
-        || splice.start + removedCount > inbox.length) {
+      if (
+        !Number.isSafeInteger(splice.start) ||
+        splice.start < 0 ||
+        splice.start > inbox.length ||
+        !Number.isSafeInteger(removedCount) ||
+        removedCount < 0 ||
+        splice.start + removedCount > inbox.length
+      ) {
         throw new Error('invalid inbox splice')
       }
       const next = inbox.toSpliced(splice.start, removedCount, ...splice.inserted)
       const ids = new Set<string>()
-      for (const message of splice.target === 'next-turn'
-        ? [...next, ...state['next-step']]
-        : [...state['next-turn'], ...next]) {
+      for (const message of splice.target === 'next-turn' ? [...next, ...state['next-step']] : [...state['next-turn'], ...next]) {
         if (ids.has(message.id)) throw new Error(`message "${message.id}" is already pending`)
         ids.add(message.id)
       }
@@ -164,12 +163,7 @@ export class ReactLoopInbox implements InboxContract {
    * @param inserted - messages to insert at the resolved position.
    * @returns messages removed by the splice.
    */
-  splice(
-    target: InboxTarget,
-    start: number,
-    deleteCount: number,
-    inserted: UserMessage[],
-  ): UserMessage[] {
+  splice(target: InboxTarget, start: number, deleteCount: number, inserted: UserMessage[]): UserMessage[] {
     return this.mutate(target, start, deleteCount, inserted, true)
   }
 
@@ -187,28 +181,18 @@ export class ReactLoopInbox implements InboxContract {
   private current(): InboxState {
     const state = this.projections.stateOf(this.session, 'inbox')
     if (state === undefined) {
-      throw new Error(
-        `agent "${this.session.id}" cannot read inbox state: its projection registration is not active`,
-      )
+      throw new Error(`agent "${this.session.id}" cannot read inbox state: its projection registration is not active`)
     }
     return state
   }
 
   /** Commit one normalized mutation and publish its live events. */
-  private mutate(
-    target: InboxTarget,
-    start: number,
-    deleteCount: number,
-    inserted: UserMessage[],
-    discardRemoved: boolean,
-  ): UserMessage[] {
+  private mutate(target: InboxTarget, start: number, deleteCount: number, inserted: UserMessage[], discardRemoved: boolean): UserMessage[] {
     const state = this.current()
     const inbox = state[target]
     const truncatedStart = Math.trunc(start)
     const offset = Number.isNaN(truncatedStart) ? 0 : truncatedStart
-    const actualStart = offset < 0
-      ? Math.max(inbox.length + offset, 0)
-      : Math.min(offset, inbox.length)
+    const actualStart = offset < 0 ? Math.max(inbox.length + offset, 0) : Math.min(offset, inbox.length)
     const truncatedDeleteCount = Math.trunc(deleteCount)
     const actualDeleteCount = Math.min(
       Math.max(Number.isNaN(truncatedDeleteCount) ? 0 : truncatedDeleteCount, 0),
@@ -217,13 +201,11 @@ export class ReactLoopInbox implements InboxContract {
     if (actualDeleteCount === 0 && inserted.length === 0) return []
     const candidate = inbox.toSpliced(actualStart, actualDeleteCount, ...inserted)
     const ids = new Set<string>()
-    for (const message of target === 'next-turn'
-      ? [...candidate, ...state['next-step']]
-      : [...state['next-turn'], ...candidate]) {
+    for (const message of target === 'next-turn' ? [...candidate, ...state['next-step']] : [...state['next-turn'], ...candidate]) {
       if (ids.has(message.id)) throw new Error(`message "${message.id}" is already pending`)
       ids.add(message.id)
     }
-    const outcome = discardRemoved && actualDeleteCount > 0 ? 'canceled' as const : undefined
+    const outcome = discardRemoved && actualDeleteCount > 0 ? ('canceled' as const) : undefined
     const splice: SessionEventMap['agent/inbox/spliced'] = {
       target,
       start: actualStart,

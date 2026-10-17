@@ -9,9 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode, RefObject } from 'react'
 import clsx from 'clsx'
-import {
-  IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { PickerPopover } from './PickerPopover.tsx'
 import type { TaskManagerKey } from './task-manager-locales.ts'
@@ -25,13 +23,21 @@ const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 
 /** Weekday column headings, Monday first as the weekly choice orders them. */
 const WEEKDAY_KEYS = [
-  'frequency.weekday.1', 'frequency.weekday.2', 'frequency.weekday.3', 'frequency.weekday.4',
-  'frequency.weekday.5', 'frequency.weekday.6', 'frequency.weekday.7',
+  'frequency.weekday.1',
+  'frequency.weekday.2',
+  'frequency.weekday.3',
+  'frequency.weekday.4',
+  'frequency.weekday.5',
+  'frequency.weekday.6',
+  'frequency.weekday.7',
 ] as const satisfies readonly TaskManagerKey[]
 
 /** Arrow key to the number of days it moves the focused cell. */
 const STEP_BY_KEY: Readonly<Record<string, number>> = {
-  ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7,
+  ArrowLeft: -1,
+  ArrowRight: 1,
+  ArrowUp: -7,
+  ArrowDown: 7,
 }
 
 /** One month and the day the keyboard is on, as the panel shows them. */
@@ -168,59 +174,77 @@ export function DatePicker({ open, anchorRef, value, onPick, onClose, t }: DateP
   const cellCount = Math.ceil((offset + total) / 7) * 7
   const weeks = Array.from({ length: cellCount / 7 }, (_value, week) => week)
   const monthTitle = new Intl.DateTimeFormat(t('time.locale'), {
-    month: 'long', year: 'numeric', timeZone: 'UTC',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
   }).format(Date.UTC(view.year, view.month, 1))
 
-  return <PickerPopover
-    open={open}
-    anchorRef={anchorRef}
-    label={t('timing.date')}
-    className={css.calendar}
-    onClose={onClose}
-  >
-    <div className={css.head}>
-      <button
-        type="button"
-        className={css.nav}
-        aria-label={t('timing.prevMonth')}
-        onClick={() => { setView(current => shiftMonth(current, -1)) }}
-      ><IconChevronLeftOutlineRegular /></button>
-      <span className={css.title} aria-live="polite">{monthTitle}</span>
-      <button
-        type="button"
-        className={css.nav}
-        aria-label={t('timing.nextMonth')}
-        onClick={() => { setView(current => shiftMonth(current, 1)) }}
-      ><IconChevronRightOutlineRegular /></button>
-    </div>
-    <div className={css.grid} role="grid" aria-label={monthTitle}>
-      <div role="row" className={css.week}>
-        {WEEKDAY_KEYS.map(key => (
-          <div key={key} role="columnheader" className={css.weekday}>{t(key)}</div>
-        ))}
+  return (
+    <PickerPopover open={open} anchorRef={anchorRef} label={t('timing.date')} className={css.calendar} onClose={onClose}>
+      <div className={css.head}>
+        <button
+          type="button"
+          className={css.nav}
+          aria-label={t('timing.prevMonth')}
+          onClick={() => {
+            setView(current => shiftMonth(current, -1))
+          }}
+        >
+          <IconChevronLeftOutlineRegular />
+        </button>
+        <span className={css.title} aria-live="polite">
+          {monthTitle}
+        </span>
+        <button
+          type="button"
+          className={css.nav}
+          aria-label={t('timing.nextMonth')}
+          onClick={() => {
+            setView(current => shiftMonth(current, 1))
+          }}
+        >
+          <IconChevronRightOutlineRegular />
+        </button>
       </div>
-      {weeks.map(week => (
-        <div key={week} role="row" className={css.week}>
-          {Array.from({ length: 7 }, (_value, column) => week * 7 + column - offset + 1).map(day => (
-            day < 1 || day > total
-              ? <div key={day} role="gridcell" aria-hidden="true" className={css.blank} />
-              : <div
-                key={day}
-                ref={(element) => {
-                  if (element === null) refs.current.delete(String(day))
-                  else refs.current.set(String(day), element)
-                }}
-                role="gridcell"
-                aria-selected={isoOf(view, day) === value}
-                aria-current={isoOf(view, day) === todayIso ? 'date' : undefined}
-                tabIndex={day === view.day ? 0 : -1}
-                className={clsx(css.cell, isoOf(view, day) === value && css.selected)}
-                onClick={() => { pick(day) }}
-                onKeyDown={(event) => { onCellKeyDown(event, day) }}
-              >{day}</div>
+      <div className={css.grid} role="grid" aria-label={monthTitle}>
+        <div role="row" className={css.week}>
+          {WEEKDAY_KEYS.map(key => (
+            <div key={key} role="columnheader" className={css.weekday}>
+              {t(key)}
+            </div>
           ))}
         </div>
-      ))}
-    </div>
-  </PickerPopover>
+        {weeks.map(week => (
+          <div key={week} role="row" className={css.week}>
+            {Array.from({ length: 7 }, (_value, column) => week * 7 + column - offset + 1).map(day =>
+              day < 1 || day > total ? (
+                <div key={day} role="gridcell" aria-hidden="true" className={css.blank} />
+              ) : (
+                <div
+                  key={day}
+                  ref={element => {
+                    if (element === null) refs.current.delete(String(day))
+                    else refs.current.set(String(day), element)
+                  }}
+                  role="gridcell"
+                  aria-selected={isoOf(view, day) === value}
+                  aria-current={isoOf(view, day) === todayIso ? 'date' : undefined}
+                  tabIndex={day === view.day ? 0 : -1}
+                  className={clsx(css.cell, isoOf(view, day) === value && css.selected)}
+                  onClick={() => {
+                    pick(day)
+                  }}
+                  onKeyDown={event => {
+                    onCellKeyDown(event, day)
+                  }}
+                >
+                  {day}
+                </div>
+              ),
+            )}
+          </div>
+        ))}
+      </div>
+    </PickerPopover>
+  )
 }

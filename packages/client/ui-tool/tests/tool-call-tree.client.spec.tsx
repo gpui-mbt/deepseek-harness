@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** ToolCallTree-owned root/subcall markers and keyed Tool dispatch. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindDisclosure, useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
@@ -18,16 +18,20 @@ afterEach(cleanup)
 const t: ToolTreeProps['t'] = makeTranslate(zh, commonZh)
 
 const root = (callId: string, call: ToolResultNode['call']): ToolResultNode => ({
-  kind: 'tool-result', seq: 3, time: 3_000, callId, call, callTime: 2_000,
-  name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
-  content: [], isError: false, subCalls: [],
+  kind: 'tool-result',
+  seq: 3,
+  time: 3_000,
+  callId,
+  call,
+  callTime: 2_000,
+  name: call?.name ?? '',
+  args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+  content: [],
+  isError: false,
+  subCalls: [],
 })
 
-function props(
-  block: ToolCallBlock,
-  home?: string,
-  owners?: ToolCallOwnerProps[],
-): ToolTreeProps {
+function props(block: ToolCallBlock, home?: string, owners?: ToolCallOwnerProps[]): ToolTreeProps {
   const snapshot = {} as SessionSnapshot
   const useSession = ((selector: (value: SessionSnapshot) => unknown) => selector(snapshot)) as ToolTreeProps['useSession']
   const renderSlot = ((_key: string, owner: ToolCallOwnerProps, options?: { fallback?: React.ReactNode }) => {
@@ -70,16 +74,31 @@ describe('ToolCallTree', () => {
     expect(owners).toHaveLength(101)
     owners.length = 0
     const changed = { ...children[42]!, isError: true }
-    const next = { ...block, subCalls: children.map((child, index) => index === 42 ? changed : child) }
+    const next = { ...block, subCalls: children.map((child, index) => (index === 42 ? changed : child)) }
     view.rerender(<ToolCallTree {...initial} node={{ ...initial.node, data: { root: next } }} />)
     expect(owners.map(owner => owner.callId)).toEqual(['parent', 'child-42'])
   })
 
   it('dispatches preparation through the existing keyed toolview with no argument fields', () => {
     const owners: ToolCallOwnerProps[] = []
-    const view = render(<ToolCallTree {...props({
-      phase: 'preparing', args: PartialArguments.EMPTY, callId: 'preparing', name: 'write', turn: 1, step: 1, time: 1, subCalls: [],
-    }, undefined, owners)} />)
+    const view = render(
+      <ToolCallTree
+        {...props(
+          {
+            phase: 'preparing',
+            args: PartialArguments.EMPTY,
+            callId: 'preparing',
+            name: 'write',
+            turn: 1,
+            step: 1,
+            time: 1,
+            subCalls: [],
+          },
+          undefined,
+          owners,
+        )}
+      />,
+    )
     expect(owners[0]).toMatchObject({ phase: 'preparing', callId: 'preparing', toolName: 'write' })
     expect(owners[0]?.block).not.toHaveProperty('argsRaw')
     expect(view.container.querySelector('[data-chat-call-id="preparing"] [data-state="preparing"]')).not.toBeNull()
@@ -93,10 +112,12 @@ describe('ToolCallTree', () => {
     const block = {
       ...root('parent', { name: 'custom_parent', argsRaw: '{}' }),
       content: [{ type: 'text' as const, text: 'Parent output' }],
-      subCalls: [{
-        ...root('child', { name: 'custom_child', argsRaw: '{}' }),
-        content: [{ type: 'text' as const, text: 'Child output' }],
-      }],
+      subCalls: [
+        {
+          ...root('child', { name: 'custom_child', argsRaw: '{}' }),
+          content: [{ type: 'text' as const, text: 'Child output' }],
+        },
+      ],
     }
     const view = render(<ToolCallTree {...props(block, undefined, owners)} useDisclosure={useDisclosure} />)
     const rows = [...view.container.querySelectorAll<HTMLElement>('[data-expandable]')]
@@ -108,7 +129,9 @@ describe('ToolCallTree', () => {
     expect(view.getByText('Parent output')).toBeTruthy()
     expect(view.getByText('Child output')).toBeTruthy()
 
-    act(() => { reset.set(1) })
+    act(() => {
+      reset.set(1)
+    })
     expect(view.queryByText('Parent output')).toBeNull()
     expect(view.queryByText('Child output')).toBeNull()
     expect([...view.container.querySelectorAll('[data-expandable]')]).toEqual(rows)
@@ -164,8 +187,15 @@ describe('ToolCallTree', () => {
   it('dispatches a running call by its wire name and forwards inspect', () => {
     const owners: ToolCallOwnerProps[] = []
     const block: ToolCallBlock = {
-      phase: 'start' as const, args: PartialArguments.fromText('{"command":"pwd"}'), callId: 'running', name: 'bash', argsRaw: '{"command":"pwd"}',
-      turn: 1, step: 0, time: 1_000, subCalls: [],
+      phase: 'start' as const,
+      args: PartialArguments.fromText('{"command":"pwd"}'),
+      callId: 'running',
+      name: 'bash',
+      argsRaw: '{"command":"pwd"}',
+      turn: 1,
+      step: 0,
+      time: 1_000,
+      subCalls: [],
     }
     const treeProps = props(block, undefined, owners)
     render(<ToolCallTree {...treeProps} />)

@@ -75,11 +75,7 @@ export class RepositoryCleaner {
     for (const entry of await readdir(this.root, { withFileTypes: true })) {
       if (entry.isFile() && entry.name.endsWith('.tsbuildinfo')) targets.add(join(this.root, entry.name))
     }
-    await this.addIfPresent(
-      targets,
-      join(this.root, 'native/system/tsconfig.tsbuildinfo'),
-      canonicalRoot,
-    )
+    await this.addIfPresent(targets, join(this.root, 'native/system/tsconfig.tsbuildinfo'), canonicalRoot)
 
     // The root project-reference graph is the source of truth for live build targets.
     // Each emitting project declares lib/types as outDir; its parent lib also owns
@@ -109,10 +105,12 @@ export class RepositoryCleaner {
     }
 
     if (unsafeOrphans.length > 0) {
-      throw new Error([
-        'clean: refusing to remove package directories without package.json; unknown entries remain:',
-        ...unsafeOrphans.sort().map(path => `  ${path}`),
-      ].join('\n'))
+      throw new Error(
+        [
+          'clean: refusing to remove package directories without package.json; unknown entries remain:',
+          ...unsafeOrphans.sort().map(path => `  ${path}`),
+        ].join('\n'),
+      )
     }
 
     return [...targets].sort()
@@ -134,11 +132,8 @@ export class RepositoryCleaner {
       const parsed = parseConfig(configPath)
       if (parsed.options.outDir !== undefined) {
         const typesDirectory = resolve(parsed.options.outDir)
-        const outputDirectory = basename(typesDirectory) === 'types'
-          ? dirname(typesDirectory)
-          : typesDirectory === nativeEntryOutput
-            ? typesDirectory
-            : undefined
+        const outputDirectory =
+          basename(typesDirectory) === 'types' ? dirname(typesDirectory) : typesDirectory === nativeEntryOutput ? typesDirectory : undefined
         if (outputDirectory === undefined) {
           throw new Error(`clean: expected TypeScript outDir to end in /types: ${repositoryPath(this.root, typesDirectory)}`)
         }
@@ -160,14 +155,19 @@ export class RepositoryCleaner {
 
   private assertDescendant(root: string, path: string, displayPath: string): void {
     const repositoryRelative = relative(root, path)
-    if (repositoryRelative === '' || repositoryRelative === '..' || repositoryRelative.startsWith(`..${sep}`) || isAbsolute(repositoryRelative)) {
+    if (
+      repositoryRelative === '' ||
+      repositoryRelative === '..' ||
+      repositoryRelative.startsWith(`..${sep}`) ||
+      isAbsolute(repositoryRelative)
+    ) {
       throw new Error(`clean: refusing deletion target outside repository: ${displayPath}`)
     }
   }
 
   private async addIfPresent(targets: Set<string>, path: string, canonicalRoot: string): Promise<void> {
     // Missing outputs are normal on a clean checkout; only existing paths become deletion targets.
-    if (!await exists(path)) return
+    if (!(await exists(path))) return
     // Resolve the parent rather than the final entry: rm unlinks a final symlink,
     // but a symlink in an ancestor would make deletion cross the repository boundary.
     const canonicalParent = await realpath(dirname(path))

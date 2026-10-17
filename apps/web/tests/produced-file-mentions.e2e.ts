@@ -3,13 +3,11 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
-import {
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
-} from './scaffold.ts'
+import { launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const MODE = webSnapshotMode()
@@ -29,10 +27,14 @@ function mentionFixture(): string {
   const session = Session.create(SessionId('produced-file-mentions-source'))
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', { turn: 1 })
-  const user = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'Write the report page and both stylesheets.' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'Write the report page and both stylesheets.' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('session/title', {
     title: 'Produced file mentions',
     messageSeqs: [user.seq],
@@ -44,20 +46,24 @@ function mentionFixture(): string {
     callId: ToolCallId(`file-mention-${String(index)}`),
     args: JSON.stringify({ file_path: path, content: `content of ${path}\n` }),
   }))
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: createAssistantMessage({
-      content: calls.map(call => ({
-        type: 'tool-call' as const,
-        id: call.callId,
-        name: 'write',
-        arguments: call.args,
-      })),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: createAssistantMessage({
+        content: calls.map(call => ({
+          type: 'tool-call' as const,
+          id: call.callId,
+          name: 'write',
+          arguments: call.args,
+        })),
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   for (const call of calls) {
     if (call.path === 'report.txt') session.append('working-directory/change', { cwd: '{{cwd}}/child' })
     const source = session.append('tool/call', {
@@ -67,37 +73,47 @@ function mentionFixture(): string {
       name: 'write',
       arguments: call.args,
     })
-    session.append('tool/result', {
-      turn: 1,
-      step: 1,
-      ...call.path === 'report.txt' ? { meta: { path: '{{cwd}}/child/report.txt', diffs: [] } } : {},
-      message: createToolResultMessage({
-        callId: call.callId,
-        content: text(`Created ${call.path}`),
-        isError: false,
-      }),
-    }, { surfaceOp: 'append', sourceEventSeqs: [source.seq] })
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        ...(call.path === 'report.txt' ? { meta: { path: '{{cwd}}/child/report.txt', diffs: [] } } : {}),
+        message: createToolResultMessage({
+          callId: call.callId,
+          content: text(`Created ${call.path}`),
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append', sourceEventSeqs: [source.seq] },
+    )
   }
   session.append('working-directory/change', { cwd: '{{cwd}}' })
   session.append('deliverables/presented', { turn: 1, callId: ToolCallId('present-child'), files: [{ path: '{{cwd}}/child/report.txt' }] })
   session.append('step/end', { turn: 1, step: 1 })
   session.append('step/start', { turn: 1, step: 2 })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 2,
-    message: createAssistantMessage({
-      content: [{
-        type: 'text',
-        text: [
-          'Wrote `report.html` plus two `style.css` copies; `notes.md` untouched. Created `report.txt` in child, then returned to the original directory.',
-          '',
-          DONE,
-        ].join('\n'),
-      }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 2,
+      message: createAssistantMessage({
+        content: [
+          {
+            type: 'text',
+            text: [
+              'Wrote `report.html` plus two `style.css` copies; `notes.md` untouched. Created `report.txt` in child, then returned to the original directory.',
+              '',
+              DONE,
+            ].join('\n'),
+          },
+        ],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 2 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
@@ -111,10 +127,12 @@ function mentionFixture(): string {
       isSeeded: false,
       delegationDepth: 0,
     }),
-    ...session.snapshotEvents().map(event => JSON.stringify({
-      ...event,
-      time: eventTimeOrigin + event.seq * 1_000,
-    })),
+    ...session.snapshotEvents().map(event =>
+      JSON.stringify({
+        ...event,
+        time: eventTimeOrigin + event.seq * 1_000,
+      }),
+    ),
     '',
   ].join('\n')
 }
@@ -143,33 +161,37 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await scaffold?.close()
   })
 
-  it.skipIf(MODE === 'record')('links the unique mention and leaves ambiguous and unknown code inert', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-produced-file-mentions'))
-    const groupRow = page.locator('[role="treeitem"]').first()
-    await groupRow.waitFor({ timeout: 15_000 })
-    await groupRow.click()
-    const sessionRow = page.locator('[role="treeitem"]').nth(1)
-    await sessionRow.waitFor({ timeout: 10_000 })
-    await sessionRow.click()
-    await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
+  it.skipIf(MODE === 'record')(
+    'links the unique mention and leaves ambiguous and unknown code inert',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-produced-file-mentions'))
+      const groupRow = page.locator('[role="treeitem"]').first()
+      await groupRow.waitFor({ timeout: 15_000 })
+      await groupRow.click()
+      const sessionRow = page.locator('[role="treeitem"]').nth(1)
+      await sessionRow.waitFor({ timeout: 10_000 })
+      await sessionRow.click()
+      await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
 
-    // Canonical child metadata and the delivery name one target; neither
-    // same-basename CSS files nor the unproduced note become guessed links.
-    const mentions = page.locator('[class*="markdown"] code button')
-    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(2)
-    expect(await mentions.first().innerText()).toBe('report.html')
-    expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html in sidebar')
-    expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
-    // Without a recorded git summary, no changed-files card follows.
-    expect(await page.locator('[data-changed-files]').count()).toBe(0)
-    const moved = mentions.filter({ hasText: /^report\.txt$/ })
-    expect(await moved.getAttribute('title')).toBe(`${scaffold.workspaceCwd}/child/report.txt`)
-    await moved.click()
-    const preview = page.locator('[data-rightbar-col] [data-document-preview]')
-    await preview.getByText('CHILD FILE', { exact: true }).waitFor({ timeout: 10_000 })
-    expect(await preview.getByText('ROOT FILE', { exact: true }).count()).toBe(0)
+      // Canonical child metadata and the delivery name one target; neither
+      // same-basename CSS files nor the unproduced note become guessed links.
+      const mentions = page.locator('[class*="markdown"] code button')
+      await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(2)
+      expect(await mentions.first().innerText()).toBe('report.html')
+      expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html in sidebar')
+      expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
+      // Without a recorded git summary, no changed-files card follows.
+      expect(await page.locator('[data-changed-files]').count()).toBe(0)
+      const moved = mentions.filter({ hasText: /^report\.txt$/ })
+      expect(await moved.getAttribute('title')).toBe(`${scaffold.workspaceCwd}/child/report.txt`)
+      await moved.click()
+      const preview = page.locator('[data-rightbar-col] [data-document-preview]')
+      await preview.getByText('CHILD FILE', { exact: true }).waitFor({ timeout: 10_000 })
+      expect(await preview.getByText('ROOT FILE', { exact: true }).count()).toBe(0)
 
-    expect(tripwire.pageErrors).toEqual([])
-    expect(tripwire.warnings).toEqual([])
-  }, 90_000)
+      expect(tripwire.pageErrors).toEqual([])
+      expect(tripwire.warnings).toEqual([])
+    },
+    90_000,
+  )
 })

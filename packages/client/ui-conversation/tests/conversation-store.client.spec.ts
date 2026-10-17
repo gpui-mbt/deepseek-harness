@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { DraftSnapshot } from '../src/client/contract/draft-editor.ts'
 import { createConversationStore, readConversationDraft, readConversationViewPreference } from '../src/client/stores.ts'
@@ -77,8 +77,14 @@ describe('createConversationStore', () => {
     const draft: DraftSnapshot = {
       text: '🙂 @file @file',
       references: [3, 9].map(offset => ({
-        source: 'reference', ref: '@file', label: 'file', appearance: 'file',
-        clipboardText: '@file', offset, length: 5, invalid: true,
+        source: 'reference',
+        ref: '@file',
+        label: 'file',
+        appearance: 'file',
+        clipboardText: '@file',
+        offset,
+        length: 5,
+        invalid: true,
       })),
     }
     const store = createConversationStore().create(sessionId)
@@ -86,7 +92,9 @@ describe('createConversationStore', () => {
     store.actions.setView('trajectory')
 
     expect(JSON.parse(localStorage.getItem(`${KEY}.${sessionId}`)!)).toEqual({
-      draft, view: 'trajectory', viewRequest: null,
+      draft,
+      view: 'trajectory',
+      viewRequest: null,
     })
     expect(readConversationDraft(sessionId)).toEqual(draft)
     expect(createConversationStore().create(sessionId).getSnapshot().draft).toEqual(draft)
@@ -106,7 +114,7 @@ describe('createConversationStore', () => {
     expect(localStorage.getItem(`${KEY}.${sessionId}`)).toBe(raw)
   })
 
-  it.each(['null', '42', '"text"', '[]', '{}', '{invalid'])('ignores unusable saved records: %s', (raw) => {
+  it.each(['null', '42', '"text"', '[]', '{}', '{invalid'])('ignores unusable saved records: %s', raw => {
     const sessionId = 'invalid-record' as SessionId
     localStorage.setItem(`${KEY}.${sessionId}`, raw)
     expect(readConversationDraft(sessionId)).toEqual({ text: '', references: [] })
@@ -118,17 +126,27 @@ describe('createConversationStore', () => {
     null,
     42,
     { text: 'missing references' },
-    { text: '@entry', references: [{
-      source: 'reference', ref: '@entry', label: 'entry', clipboardText: '@entry', offset: 1, length: 6,
-    }] },
-  ])('ignores an invalid saved draft while retaining a usable View: %j', (draft) => {
+    {
+      text: '@entry',
+      references: [
+        {
+          source: 'reference',
+          ref: '@entry',
+          label: 'entry',
+          clipboardText: '@entry',
+          offset: 1,
+          length: 6,
+        },
+      ],
+    },
+  ])('ignores an invalid saved draft while retaining a usable View: %j', draft => {
     const sessionId = 'invalid-draft' as SessionId
     localStorage.setItem(`${KEY}.${sessionId}`, JSON.stringify({ draft, view: 'chat' }))
     expect(readConversationDraft(sessionId)).toEqual({ text: '', references: [] })
     expect(readConversationViewPreference(sessionId)).toBe('chat')
   })
 
-  it.each([{}, { view: null }, { view: 7 }])('reads a draft independently of an unusable View: %j', (view) => {
+  it.each([{}, { view: null }, { view: 7 }])('reads a draft independently of an unusable View: %j', view => {
     const sessionId = 'invalid-view' as SessionId
     localStorage.setItem(`${KEY}.${sessionId}`, JSON.stringify({ draft: 'saved', ...view }))
     expect(readConversationDraft(sessionId)).toEqual({ text: 'saved', references: [] })
@@ -147,7 +165,9 @@ describe('createConversationStore', () => {
       const sessionId = 'unavailable' as SessionId
       expect(readConversationDraft(sessionId)).toEqual({ text: '', references: [] })
       expect(readConversationViewPreference(sessionId)).toBeNull()
-    } finally { vi.unstubAllGlobals() }
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('returns empty preferences when browser storage denies access', () => {
@@ -159,6 +179,8 @@ describe('createConversationStore', () => {
       expect(readConversationDraft(sessionId)).toEqual({ text: '', references: [] })
       expect(readConversationViewPreference(sessionId)).toBeNull()
       expect(read.mock.calls).toEqual([[`${KEY}.${sessionId}`], [`${KEY}.${sessionId}`]])
-    } finally { read.mockRestore() }
+    } finally {
+      read.mockRestore()
+    }
   })
 })

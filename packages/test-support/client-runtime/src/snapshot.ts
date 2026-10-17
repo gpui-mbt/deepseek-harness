@@ -10,8 +10,8 @@
  *   element: path geometry is print noise, but the fingerprint still flips
  *   when an icon's artwork actually changes.
  */
-import { expect } from 'vitest'
-import type { SnapshotSerializer } from 'vitest'
+import { expect } from 'vite-plus/test'
+import type { SnapshotSerializer } from 'vite-plus/test'
 
 /** One scoped class token: `_<local>_<hash>` (local may itself contain underscores). */
 const SCOPED_CLASS = /^_(.+)_[a-z0-9]+$/
@@ -44,7 +44,7 @@ function svgsOf(root: Element): Element[] {
 
 /** Whether serializing this subtree needs a normalized clone. */
 function needsNormalization(root: Element): boolean {
-  const scoped = [root, ...root.querySelectorAll('[class]')].some((el) => {
+  const scoped = [root, ...root.querySelectorAll('[class]')].some(el => {
     const value = el.getAttribute('class')
     return value !== null && value.split(/\s+/).some(token => SCOPED_CLASS.test(token))
   })

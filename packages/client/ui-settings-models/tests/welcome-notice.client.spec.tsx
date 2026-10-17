@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { allowAllAccess, bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { Context } from '@deepseek-ai/cordis'
 import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
@@ -9,7 +9,12 @@ import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/
 import { ConfigFormController } from '@deepseek-ai/dsh-client-ui-settings/src/client/config-form.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({
+  status: 'none' as const,
+  value: undefined,
+  failure: undefined,
+  reload: () => {},
+})) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
 /** Stateless schema service for scope construction in this jsdom fixture. */
@@ -19,10 +24,7 @@ import type { WelcomeNoticeProps } from '../src/client/WelcomeNotice.tsx'
 import { decodeWelcomeSection, WelcomeNoticeStore } from '../src/client/welcome-store.ts'
 import type { WelcomeSection } from '../src/client/welcome-store.ts'
 import { en, zh } from '../src/client/locales.ts'
-import {
-  WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE,
-  WELCOME_NOTICE_VERSION,
-} from '../src/onboarding-copy.ts'
+import { WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE, WELCOME_NOTICE_VERSION } from '../src/onboarding-copy.ts'
 
 const WELCOME_NOTICE_COPY = {
   en: { title: en.welcomeTitle, body: en.welcomeBody, continueLabel: en.welcomeContinue },
@@ -46,7 +48,8 @@ function welcomeView(value: unknown, revision = 0) {
     value,
     base: {},
     user: {},
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision,
   }
@@ -67,11 +70,14 @@ function mount(
   const mutate = vi.fn(mutateImpl)
   const api = {
     settings: {
-      describe: () => Promise.resolve(remoteAnswer({
-        writable: true,
-        hasDocument: false,
-        namespaces: [welcomeView(version === undefined ? {} : { [WELCOME_NOTICE_ACK_FIELD]: version })],
-      })),
+      describe: () =>
+        Promise.resolve(
+          remoteAnswer({
+            writable: true,
+            hasDocument: false,
+            namespaces: [welcomeView(version === undefined ? {} : { [WELCOME_NOTICE_ACK_FIELD]: version })],
+          }),
+        ),
       mutate,
     },
   }
@@ -86,14 +92,18 @@ function mount(
   const controller = new WelcomeNoticeStore(scope)
   void mirror.load()
   const complete = vi.fn()
-  const unusedHook = (() => { throw new Error('unused standard hook') }) as never
+  const unusedHook = (() => {
+    throw new Error('unused standard hook')
+  }) as never
   const props: WelcomeNoticeProps = {
     stepId: 'welcome-notice',
     complete,
     openSection: vi.fn(),
     useSessions: unusedHook,
     useSessionStatus,
-    usePanelInfo, useSessionRetainInfo: () => undefined, useResource,
+    usePanelInfo,
+    useSessionRetainInfo: () => undefined,
+    useResource,
     useWorkspaces: unusedHook,
     ...allowAllAccess,
     controller,
@@ -136,7 +146,9 @@ describe('WelcomeNotice', () => {
     const h = mount('2026-08-13.1')
     await screen.findByRole('dialog')
     fireEvent.click(screen.getByRole('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel }))
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(h.mutate).toHaveBeenCalledOnce()
     expect(h.complete).toHaveBeenCalledOnce()
   })
@@ -153,7 +165,9 @@ describe('WelcomeNotice', () => {
 
   it('keeps the sole action disabled while saving and reports a refused write', async () => {
     let resolveWrite!: (value: unknown) => void
-    const write = new Promise<unknown>((resolve) => { resolveWrite = resolve })
+    const write = new Promise<unknown>(resolve => {
+      resolveWrite = resolve
+    })
     const h = mount(undefined, () => write)
     await screen.findByRole('dialog')
     const action = screen.getByRole<HTMLButtonElement>('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel })

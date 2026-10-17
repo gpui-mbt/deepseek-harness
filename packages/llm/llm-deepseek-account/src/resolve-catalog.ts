@@ -7,9 +7,7 @@ import type { ModelOverride } from './config.ts'
 import type { ListedFacts, ListingEntry } from './listing.ts'
 
 /** Why this build refuses one listed model before network I/O. */
-export type CatalogRefusal =
-  | { readonly kind: 'upgrade-required'; readonly requiredVersion: string }
-  | { readonly kind: 'unsupported' }
+export type CatalogRefusal = { readonly kind: 'upgrade-required'; readonly requiredVersion: string } | { readonly kind: 'unsupported' }
 
 /** Inputs of one catalog resolution. */
 export interface AccountCatalogInput {
@@ -53,10 +51,10 @@ function layered(model: DeepSeekCatalogModel, layer: ModelOverride): DeepSeekCat
 function listed(base: DeepSeekCatalogModel, entry: ListingEntry, facts: ListedFacts, routeMaxTokens: number): DeepSeekCatalogModel {
   const { systemPromptUpdate: _replaced, ...leadingOnly } = base
   return layered(facts.systemPromptUpdate === 'leading-only' ? leadingOnly : base, {
-    ...entry.name === undefined ? {} : { name: entry.name },
-    ...facts.contextWindow === undefined ? {} : { contextWindow: facts.contextWindow },
-    ...facts.maxOutputTokens === undefined ? {} : { maxTokens: Math.min(routeMaxTokens, facts.maxOutputTokens) },
-    ...facts.systemPromptUpdate === 'in-history' ? { systemPromptUpdate: 'in-history' as const } : {},
+    ...(entry.name === undefined ? {} : { name: entry.name }),
+    ...(facts.contextWindow === undefined ? {} : { contextWindow: facts.contextWindow }),
+    ...(facts.maxOutputTokens === undefined ? {} : { maxTokens: Math.min(routeMaxTokens, facts.maxOutputTokens) }),
+    ...(facts.systemPromptUpdate === 'in-history' ? { systemPromptUpdate: 'in-history' as const } : {}),
     inputModalities: [...facts.inputModalities],
   })
 }
@@ -68,9 +66,7 @@ function gateOf(entry: ListingEntry, known: boolean, clientVersion: string, prob
       return known ? undefined : { kind: 'unsupported' }
     case 'min-version':
       if (semver.valid(requirement.version) === null) break
-      return semver.gte(clientVersion, requirement.version)
-        ? undefined
-        : { kind: 'upgrade-required', requiredVersion: requirement.version }
+      return semver.gte(clientVersion, requirement.version) ? undefined : { kind: 'upgrade-required', requiredVersion: requirement.version }
     case 'invalid':
       break
     /* v8 ignore next 2 -- listing decoding produces only the closed requirement union */

@@ -1,19 +1,11 @@
 /** Per-DevTools Debugger and source routing across Host and Client realms. */
 
 import { respondToCdpRequest, sendCdpFailure, type CdpRequest, type CdpTransport } from '../../protocol.ts'
-import type {
-  DebuggerBackend,
-  NativeDomainBackend,
-  SourceBackend,
-} from '../../../../shared/cdp/realm.ts'
+import type { DebuggerBackend, NativeDomainBackend, SourceBackend } from '../../../../shared/cdp/realm.ts'
 import type { RuntimeBackendObjectHandle } from '../../../../shared/cdp/ids.ts'
 import type { InspectorRealmSession } from '../../../inspection/realm.ts'
 import type { InspectorRealmSessionEvent, InspectorRealmSessionSet } from '../../realm-sessions.ts'
-import type {
-  RuntimeDebuggerEnableRequest,
-  RuntimeDebuggerEvent,
-  RuntimeScript,
-} from '../../../../shared/cdp/index.ts'
+import type { RuntimeDebuggerEnableRequest, RuntimeDebuggerEvent, RuntimeScript } from '../../../../shared/cdp/index.ts'
 import { exactKeys, optionalBoolean } from '../../../../shared/validation.ts'
 import type { RuntimeDomainSession } from '../runtime/index.ts'
 import { parseCallFrameEvaluation, requestScriptId } from './cdp-params.ts'
@@ -37,12 +29,15 @@ export class DebuggerDomainSession {
     private readonly realms: InspectorRealmSessionSet,
     private readonly runtime: RuntimeDomainSession,
   ) {
-    const native = realms.all()
+    const native = realms
+      .all()
       .map(realm => realm.nativeDomains)
       .find(capability => capability.state === 'supported')
     if (native === undefined) throw new Error('Inspector has no native Host debugger transport')
     this.native = native.backend
-    this.unsubscribeRealms = realms.subscribe((event) => { this.receiveRealm(event) })
+    this.unsubscribeRealms = realms.subscribe(event => {
+      this.receiveRealm(event)
+    })
   }
 
   /**
@@ -97,8 +92,10 @@ export class DebuggerDomainSession {
     exactKeys(params, ['maxScriptsCacheSize'], 'Debugger.enable parameters')
     if (this.enabled) return {}
     const maxScriptsCacheSize = params.maxScriptsCacheSize
-    if (maxScriptsCacheSize !== undefined
-      && (typeof maxScriptsCacheSize !== 'number' || !Number.isFinite(maxScriptsCacheSize) || maxScriptsCacheSize < 0)) {
+    if (
+      maxScriptsCacheSize !== undefined &&
+      (typeof maxScriptsCacheSize !== 'number' || !Number.isFinite(maxScriptsCacheSize) || maxScriptsCacheSize < 0)
+    ) {
       throw new Error('Debugger.enable maxScriptsCacheSize must be a non-negative number')
     }
     const enableRequest = maxScriptsCacheSize === undefined ? {} : { maxScriptsCacheSize }
@@ -106,8 +103,9 @@ export class DebuggerDomainSession {
     this.enabled = true
     try {
       for (const realm of this.realms.all()) this.attachCapabilities(realm)
-      const results = await Promise.all(this.realms.all().map(async realm =>
-        realm.debugger.state === 'supported' ? realm.debugger.backend.enable(enableRequest) : {}))
+      const results = await Promise.all(
+        this.realms.all().map(async realm => (realm.debugger.state === 'supported' ? realm.debugger.backend.enable(enableRequest) : {})),
+      )
       await Promise.all(this.realms.all().map(async realm => this.publishCatalog(realm)))
       return mergeResults(results)
     } catch (error) {
@@ -115,9 +113,11 @@ export class DebuggerDomainSession {
       this.debuggerEnableRequest = {}
       this.detachCapabilities()
       this.scripts.clear()
-      await Promise.allSettled(this.realms.all().map(async (realm) => {
-        if (realm.debugger.state === 'supported') await realm.debugger.backend.disable()
-      }))
+      await Promise.allSettled(
+        this.realms.all().map(async realm => {
+          if (realm.debugger.state === 'supported') await realm.debugger.backend.disable()
+        }),
+      )
       throw error
     }
   }
@@ -129,8 +129,9 @@ export class DebuggerDomainSession {
     this.callFrameRealms.clear()
     this.scripts.clear()
     this.runtime.releaseProjectedGroup('backtrace')
-    const results = await Promise.all(this.realms.all().map(async realm =>
-      realm.debugger.state === 'supported' ? realm.debugger.backend.disable() : {}))
+    const results = await Promise.all(
+      this.realms.all().map(async realm => (realm.debugger.state === 'supported' ? realm.debugger.backend.disable() : {})),
+    )
     return mergeResults(results)
   }
 
@@ -165,12 +166,7 @@ export class DebuggerDomainSession {
     }
     const source = await route.source.getScriptSource(route.script.scriptKey)
     return {
-      result: searchLines(
-        source,
-        params.query,
-        params.caseSensitive === true,
-        params.isRegex === true,
-      ),
+      result: searchLines(source, params.query, params.caseSensitive === true, params.isRegex === true),
     }
   }
 
@@ -240,9 +236,10 @@ export class DebuggerDomainSession {
 
   private receiveRealm(event: InspectorRealmSessionEvent): void {
     if (event.type === 'opened') {
-      if (this.enabled) void this.enableRealm(event.session).catch((error: unknown) => {
-        console.error(`Inspector could not enable Debugger realm ${event.session.descriptor.label}:`, error)
-      })
+      if (this.enabled)
+        void this.enableRealm(event.session).catch((error: unknown) => {
+          console.error(`Inspector could not enable Debugger realm ${event.session.descriptor.label}:`, error)
+        })
       return
     }
     this.sourceDisposers.get(event.session.descriptor.realmId)?.()
@@ -264,14 +261,20 @@ export class DebuggerDomainSession {
   private attachCapabilities(realm: InspectorRealmSession): void {
     if (realm.sources.state === 'supported' && !this.sourceDisposers.has(realm.descriptor.realmId)) {
       const source = realm.sources.backend
-      this.sourceDisposers.set(realm.descriptor.realmId, source.subscribe((script) => {
-        if (this.enabled) this.publishScript(realm, source, script)
-      }))
+      this.sourceDisposers.set(
+        realm.descriptor.realmId,
+        source.subscribe(script => {
+          if (this.enabled) this.publishScript(realm, source, script)
+        }),
+      )
     }
     if (realm.debugger.state === 'supported' && !this.debuggerDisposers.has(realm.descriptor.realmId)) {
-      this.debuggerDisposers.set(realm.descriptor.realmId, realm.debugger.backend.subscribe((event) => {
-        if (this.enabled) this.publishDebuggerEvent(realm, event)
-      }))
+      this.debuggerDisposers.set(
+        realm.descriptor.realmId,
+        realm.debugger.backend.subscribe(event => {
+          if (this.enabled) this.publishDebuggerEvent(realm, event)
+        }),
+      )
     }
   }
 
@@ -287,10 +290,7 @@ export class DebuggerDomainSession {
     if (registered.fresh) this.transport.send(scriptParsedEvent(realm, script))
   }
 
-  private publishDebuggerEvent(
-    realm: InspectorRealmSession,
-    event: RuntimeDebuggerEvent<RuntimeBackendObjectHandle>,
-  ): void {
+  private publishDebuggerEvent(realm: InspectorRealmSession, event: RuntimeDebuggerEvent<RuntimeBackendObjectHandle>): void {
     if (event.type === 'paused') {
       for (const frame of event.callFrames) this.callFrameRealms.set(frame.callFrameId, realm)
     } else if (event.type === 'resumed') {
@@ -337,14 +337,11 @@ function searchLines(
   caseSensitive: boolean,
   isRegex: boolean,
 ): ReadonlyArray<{ readonly lineNumber: number; readonly lineContent: string }> {
-  const expression = isRegex
-    ? new RegExp(query, caseSensitive ? 'u' : 'iu')
-    : undefined
+  const expression = isRegex ? new RegExp(query, caseSensitive ? 'u' : 'iu') : undefined
   const expected = caseSensitive ? query : query.toLowerCase()
   const result: Array<{ readonly lineNumber: number; readonly lineContent: string }> = []
   for (const [lineNumber, lineContent] of source.split('\n').entries()) {
-    const matches = expression?.test(lineContent)
-      ?? (caseSensitive ? lineContent : lineContent.toLowerCase()).includes(expected)
+    const matches = expression?.test(lineContent) ?? (caseSensitive ? lineContent : lineContent.toLowerCase()).includes(expected)
     if (matches) result.push({ lineNumber, lineContent })
   }
   return result

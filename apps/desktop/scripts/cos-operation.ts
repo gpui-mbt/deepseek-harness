@@ -19,15 +19,23 @@ export async function cosOperation<T>(cos: COS, timeoutMs: number, operation: ()
     ...transport,
     request(options: http.RequestOptions) {
       const request = transport.request({ ...options, signal: controller.signal })
-      closed.push(new Promise<void>((resolve) => { request.once('close', resolve) }))
+      closed.push(
+        new Promise<void>(resolve => {
+          request.once('close', resolve)
+        }),
+      )
       return request
     },
   })
   const modules = { 'http:': wrap(http), 'https:': wrap(https) }
   // cos-request forwards httpModules to its native request layer, including every SDK retry.
-  const configure = (options: { httpModules?: typeof modules }): void => { options.httpModules = modules }
+  const configure = (options: { httpModules?: typeof modules }): void => {
+    options.httpModules = modules
+  }
   cos.on('before-send', configure)
-  const timer = setTimeout(() => { controller.abort(timeout) }, timeoutMs)
+  const timer = setTimeout(() => {
+    controller.abort(timeout)
+  }, timeoutMs)
   try {
     const result = await operation()
     if (controller.signal.aborted) throw timeout

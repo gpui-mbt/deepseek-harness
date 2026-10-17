@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SettingsSecretField, SettingsValueField } from '../src/settings-form/fields.tsx'
 
 afterEach(cleanup)
@@ -58,16 +58,7 @@ describe('SettingsValueField', () => {
   })
 
   it('hints a numeric keypad and renders a placeholder when asked', () => {
-    render(
-      <SettingsValueField
-        {...frame}
-        numeric
-        placeholder="https://api.deepseek.com"
-        text=""
-        onEdit={vi.fn()}
-        onReset={vi.fn()}
-      />,
-    )
+    render(<SettingsValueField {...frame} numeric placeholder="https://api.deepseek.com" text="" onEdit={vi.fn()} onReset={vi.fn()} />)
     const input = screen.getByLabelText('Command timeout')
 
     expect(input.getAttribute('inputmode')).toBe('numeric')
@@ -92,15 +83,7 @@ describe('SettingsSecretField', () => {
 
   it('stages the draft and never renders it', () => {
     const onEdit = vi.fn()
-    render(
-      <SettingsSecretField
-        {...secret}
-        text=""
-        configured={false}
-        stateLabel="No key is configured."
-        onEdit={onEdit}
-      />,
-    )
+    render(<SettingsSecretField {...secret} text="" configured={false} stateLabel="No key is configured." onEdit={onEdit} />)
     const input = screen.getByLabelText('API key')
 
     fireEvent.change(input, { target: { value: 'ds-secret' } })
@@ -111,41 +94,18 @@ describe('SettingsSecretField', () => {
 
   it('reports the configured state the Host holds', () => {
     const { rerender } = render(
-      <SettingsSecretField
-        {...secret}
-        text=""
-        configured={false}
-        stateLabel="No key is configured."
-        onEdit={vi.fn()}
-      />,
+      <SettingsSecretField {...secret} text="" configured={false} stateLabel="No key is configured." onEdit={vi.fn()} />,
     )
     expect(screen.getByText('No key is configured.')).toBeTruthy()
 
-    rerender(
-      <SettingsSecretField
-        {...secret}
-        text="ds-secret"
-        configured
-        stateLabel="A key is configured."
-        onEdit={vi.fn()}
-      />,
-    )
+    rerender(<SettingsSecretField {...secret} text="ds-secret" configured stateLabel="A key is configured." onEdit={vi.fn()} />)
 
     expect(screen.getByText('A key is configured.')).toBeTruthy()
     expect(screen.getByLabelText('API key')).toHaveProperty('value', 'ds-secret')
   })
 
   it('disables the control when it is told to', () => {
-    render(
-      <SettingsSecretField
-        {...secret}
-        disabled
-        text=""
-        configured
-        stateLabel="A key is configured."
-        onEdit={vi.fn()}
-      />,
-    )
+    render(<SettingsSecretField {...secret} disabled text="" configured stateLabel="A key is configured." onEdit={vi.fn()} />)
 
     expect(screen.getByLabelText('API key')).toHaveProperty('disabled', true)
   })

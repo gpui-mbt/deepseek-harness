@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -10,7 +10,7 @@ const fsHarness = vi.hoisted(() => ({
   nextReadError: undefined as NodeJS.ErrnoException | undefined,
 }))
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
@@ -57,7 +57,7 @@ interface FakeChokidar {
 }
 
 async function fakeInstances(): Promise<FakeChokidar['__instances']> {
-  const chokidar = await import('chokidar') as unknown as FakeChokidar
+  const chokidar = (await import('chokidar')) as unknown as FakeChokidar
   return chokidar.__instances
 }
 
@@ -155,10 +155,15 @@ describe('watcher pipeline', () => {
     })
     await fiber.dispose()
 
-    expect(() => instance!.watcher.emit('error', Object.assign(
-      new Error("EPERM: operation not permitted, stat 'C:\\Temp\\dsh\\.credentials.yaml'"),
-      { code: 'EPERM', syscall: 'stat' },
-    ))).not.toThrow()
+    expect(() =>
+      instance!.watcher.emit(
+        'error',
+        Object.assign(new Error("EPERM: operation not permitted, stat 'C:\\Temp\\dsh\\.credentials.yaml'"), {
+          code: 'EPERM',
+          syscall: 'stat',
+        }),
+      ),
+    ).not.toThrow()
   })
 
   it('quiesces the refresh pipeline before dispose completes', async () => {
@@ -194,7 +199,7 @@ describe('watcher pipeline', () => {
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_PIPE: doomed\n')
     const ctx = await boot({ path, debounceMs: 5 })
     const seen: string[] = []
-    ctx.on('credentials/reference-updated', (ref) => {
+    ctx.on('credentials/reference-updated', ref => {
       seen.push(ref)
     })
 
@@ -213,7 +218,7 @@ describe('watcher pipeline', () => {
     await writeCredentials(path, 'version: 1\nrefs:\n  DSH_CRED_PIPE: a\n')
     const ctx = await boot({ path, debounceMs: 5 })
     const seen: string[] = []
-    ctx.on('credentials/reference-updated', (ref) => {
+    ctx.on('credentials/reference-updated', ref => {
       seen.push(ref)
     })
 

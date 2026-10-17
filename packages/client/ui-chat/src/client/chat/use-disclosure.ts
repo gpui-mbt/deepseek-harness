@@ -11,11 +11,14 @@ import type { UseDisclosure } from '../contract/slots.ts'
 export function useDisclosure(version = 0): ReturnType<UseDisclosure> {
   const [expandedVersion, setExpandedVersion] = useState<number | null>(null)
   const expanded = expandedVersion === version
-  const setExpanded = useCallback((open: boolean) => {
-    setExpandedVersion(open ? version : null)
-  }, [version])
+  const setExpanded = useCallback(
+    (open: boolean) => {
+      setExpandedVersion(open ? version : null)
+    },
+    [version],
+  )
   const toggle = useCallback(() => {
-    setExpandedVersion(previous => previous === version ? null : version)
+    setExpandedVersion(previous => (previous === version ? null : version))
   }, [version])
   return { expanded, setExpanded, toggle }
 }

@@ -11,16 +11,25 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { shallow } from 'zustand/shallow'
 import { freeze, produce } from 'immer'
-import type {
-  ActionsDecl, BakedActions, ObservableSnapshot, StoreHandle, StoreInstance, StoreSpec,
-} from './contract.ts'
+import type { ActionsDecl, BakedActions, ObservableSnapshot, StoreHandle, StoreInstance, StoreSpec } from './contract.ts'
 
 // Store contract types are ui-slots authority; re-exported beside the engine
 // so store consumers get one import path.
 export type {
-  ActionsDecl, BakedActions, BoundActions, DefineStore, HandleOf, MaybeSnapshotSelectorHook,
-  ObservableSnapshot, PropsStore, SnapshotSelectorHook, StoreDecl, StoreFactory,
-  StoreHandle, StoreInstance, StoreSpec,
+  ActionsDecl,
+  BakedActions,
+  BoundActions,
+  DefineStore,
+  HandleOf,
+  MaybeSnapshotSelectorHook,
+  ObservableSnapshot,
+  PropsStore,
+  SnapshotSelectorHook,
+  StoreDecl,
+  StoreFactory,
+  StoreHandle,
+  StoreInstance,
+  StoreSpec,
 } from './contract.ts'
 
 /** Writable snapshot store (bare data face; React selector hooks are synthesized in ui-renderer). */
@@ -74,8 +83,14 @@ function rafBatch(notify: () => void): () => void {
   // both preserve the N-changes=1-notification contract within a tick.
   const schedule: (fn: () => void) => void =
     typeof requestAnimationFrame === 'function'
-      ? (fn) => { requestAnimationFrame(() => { fn() }) }
-      : (fn) => { queueMicrotask(fn) }
+      ? fn => {
+          requestAnimationFrame(() => {
+            fn()
+          })
+        }
+      : fn => {
+          queueMicrotask(fn)
+        }
   let scheduled = false
   return () => {
     if (scheduled) return
@@ -100,36 +115,45 @@ function rafBatch(notify: () => void): () => void {
  * @param opts - flush mode and opt-in persistence (localStorage, keyed by name).
  * @returns the store.
  */
-export function createSnapshotStore<T>(
-  init: T, opts?: { flush?: 'raf' | 'sync'; persist?: { name: string } }): SnapshotStore<T> {
+export function createSnapshotStore<T>(init: T, opts?: { flush?: 'raf' | 'sync'; persist?: { name: string } }): SnapshotStore<T> {
   // Immer enters through produce() in update() below (identical semantics to
   // the immer middleware without its setState-signature mutator generics).
   const withSelector = subscribeWithSelector(() => init)
   const api: StoreApi<T> = createStore<T>()(withSelector)
   if (opts?.persist) attachPersistence(api, opts.persist.name)
 
-  let subscribe = (fn: () => void) => api.subscribe(() => {
-    notifySubscribers([fn], '[client-store]')
-  })
+  let subscribe = (fn: () => void) =>
+    api.subscribe(() => {
+      notifySubscribers([fn], '[client-store]')
+    })
   if (opts?.flush === 'raf') {
     const listeners = new Set<() => void>()
-    const flush = rafBatch(() => { notifySubscribers(listeners, '[client-store]') })
+    const flush = rafBatch(() => {
+      notifySubscribers(listeners, '[client-store]')
+    })
     api.subscribe(flush)
     subscribe = (fn: () => void) => {
       listeners.add(fn)
-      return () => { listeners.delete(fn) }
+      return () => {
+        listeners.delete(fn)
+      }
     }
   }
 
   return {
     getSnapshot: () => api.getState(),
     subscribe: fn => subscribe(fn),
-    update: (mutator) => {
+    update: mutator => {
       // Immer's produce (not setState's partial-merge path) so scalar and
       // array roots replace correctly; produce also freezes in dev.
-      api.setState(produce(api.getState(), (draft) => { mutator(draft as T) }), true)
+      api.setState(
+        produce(api.getState(), draft => {
+          mutator(draft as T)
+        }),
+        true,
+      )
     },
-    set: (next) => {
+    set: next => {
       api.setState(devFreeze(next), true)
     },
   }
@@ -156,7 +180,7 @@ function attachPersistence<T>(api: StoreApi<T>, name: string): void {
   } catch (error) {
     console.error(`snapshot store '${name}' rehydration failed:`, error)
   }
-  api.subscribe((state) => {
+  api.subscribe(state => {
     try {
       localStorage.setItem(name, JSON.stringify(state))
     } catch (error) {
@@ -214,21 +238,20 @@ export interface EngineStoreHandle<T, A extends ActionsDecl<T>> extends StoreHan
  * @param decl - init lambda (fresh state per instance), optional persist key, actions table.
  * @returns the store handle.
  */
-export function defineStore<T, A extends ActionsDecl<T>>(
-  decl: StoreSpec<T, A> & { actions: A & ActionsDecl<T> }): EngineStoreHandle<T, A> {
+export function defineStore<T, A extends ActionsDecl<T>>(decl: StoreSpec<T, A> & { actions: A & ActionsDecl<T> }): EngineStoreHandle<T, A> {
   return {
     spec: decl,
     create(scopeKey?: string): EngineStoreInstance<T, A> {
-      const persistKey = decl.persist === undefined
-        ? undefined
-        : scopeKey === undefined ? decl.persist : `${decl.persist}.${scopeKey}`
-      const store = createSnapshotStore<T>(
-        decl.init(),
-        persistKey !== undefined ? { persist: { name: persistKey } } : undefined)
+      const persistKey = decl.persist === undefined ? undefined : scopeKey === undefined ? decl.persist : `${decl.persist}.${scopeKey}`
+      const store = createSnapshotStore<T>(decl.init(), persistKey !== undefined ? { persist: { name: persistKey } } : undefined)
       const actions = {} as Record<string, (...params: unknown[]) => void>
       for (const key of Object.keys(decl.actions)) {
         const mutate = decl.actions[key] as (draft: T, ...params: unknown[]) => void
-        actions[key] = (...params: unknown[]) => { store.update((draft) => { mutate(draft, ...params) }) }
+        actions[key] = (...params: unknown[]) => {
+          store.update(draft => {
+            mutate(draft, ...params)
+          })
+        }
       }
       return {
         actions: actions as BakedActions<T, A>,

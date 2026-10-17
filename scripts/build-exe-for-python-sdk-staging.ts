@@ -4,9 +4,12 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { load } from 'js-yaml'
 
 function isHoistedLocations(value: unknown): value is Record<string, string[]> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    && Object.values(value).every(paths => Array.isArray(paths)
-      && paths.every((path: unknown) => typeof path === 'string'))
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every(paths => Array.isArray(paths) && paths.every((path: unknown) => typeof path === 'string'))
+  )
 }
 
 /**
@@ -20,13 +23,17 @@ export async function deduplicateStagedWorkspacePackages(staging: string, worksp
   const modules = resolve(staging, 'node_modules')
   const file = join(modules, '.modules.yaml')
   const manifest: unknown = load(await readFile(file, 'utf8'))
-  if (typeof manifest !== 'object' || manifest === null || !('hoistedLocations' in manifest)
-    || !isHoistedLocations(manifest.hoistedLocations)) {
+  if (
+    typeof manifest !== 'object' ||
+    manifest === null ||
+    !('hoistedLocations' in manifest) ||
+    !isHoistedLocations(manifest.hoistedLocations)
+  ) {
     throw new Error(`${file}: hoistedLocations must map dependency identities to path lists`)
   }
   const duplicates: string[] = []
   for (const [identity, locations] of Object.entries(manifest.hoistedLocations)) {
-    const paths = locations.map((location) => {
+    const paths = locations.map(location => {
       const path = resolve(workspace, location)
       const local = relative(modules, path)
       if (local === '' || local === '..' || local.startsWith(`..${sep}`) || isAbsolute(local)) {

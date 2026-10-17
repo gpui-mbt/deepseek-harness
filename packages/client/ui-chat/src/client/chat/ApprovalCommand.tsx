@@ -29,7 +29,7 @@ export function commandOf(call: ApprovalToolCall | undefined): string | undefine
  * @returns command text when the correlated call carries one.
  */
 export function ApprovalCommand({ callId, useChat }: PropsRuntime<'conversation.approval.detail'>) {
-  const command = useChat((snapshot) => {
+  const command = useChat(snapshot => {
     for (const node of snapshot.nodes.values()) {
       const root = node.kind === 'tool-call' ? (node as ChatNode<'tool-call'>).data.root : undefined
       if (root !== undefined && root.callId === callId && !('kind' in root) && root.phase === 'start') return commandOf(root)

@@ -18,9 +18,12 @@ const OUTPUT = 'packages/boot/app-boot/src/official-bundles.generated.ts'
  * @returns Offline entries in admission order, with metadata from the owning packages.
  */
 export function generateOfficialBundleCatalog(root: string, names: readonly string[] = ON_DEMAND_BUNDLES): OfficialBundleCatalogEntry[] {
-  if (names.length === 0 || new Set(names).size !== names.length) throw new Error('Official on-demand catalog must contain distinct package names')
+  if (names.length === 0 || new Set(names).size !== names.length)
+    throw new Error('Official on-demand catalog must contain distinct package names')
   const manifests = new Map<string, { path: string; private: boolean; bundle: boolean; runtime: string[] }>()
-  for (const path of globSync(['packages/*/*/package.json', 'apps/*/package.json', 'vendor/*/package.json'], { cwd: root }).map(path => path.replaceAll('\\', '/')).sort()) {
+  for (const path of globSync(['packages/*/*/package.json', 'apps/*/package.json', 'vendor/*/package.json'], { cwd: root })
+    .map(path => path.replaceAll('\\', '/'))
+    .sort()) {
     const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as {
       name: string
       private?: boolean
@@ -31,8 +34,12 @@ export function generateOfficialBundleCatalog(root: string, names: readonly stri
     }
     if (manifests.has(manifest.name)) throw new Error(`duplicate workspace package ${manifest.name}`)
     const runtime = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const
-    manifests.set(manifest.name, { path, private: manifest.private === true, bundle: manifest.dsh?.bundle?.patch !== undefined,
-      runtime: runtime.flatMap(section => Object.keys(manifest[section] ?? {})) })
+    manifests.set(manifest.name, {
+      path,
+      private: manifest.private === true,
+      bundle: manifest.dsh?.bundle?.patch !== undefined,
+      runtime: runtime.flatMap(section => Object.keys(manifest[section] ?? {})),
+    })
   }
   const visited = new Set<string>()
   const checkInstallation = (name: string): void => {
@@ -43,17 +50,27 @@ export function generateOfficialBundleCatalog(root: string, names: readonly stri
   }
   if (!manifests.has('@deepseek-ai/dsh')) throw new Error('Official catalog requires the DSH installation manifest')
   checkInstallation('@deepseek-ai/dsh')
-  return names.map((packageName) => {
+  return names.map(packageName => {
     const entry = manifests.get(packageName)
-    if (entry === undefined || !entry.path.startsWith('packages/') || !packageName.startsWith('@deepseek-ai/dsh-') || entry.private || !entry.bundle) {
+    if (
+      entry === undefined ||
+      !entry.path.startsWith('packages/') ||
+      !packageName.startsWith('@deepseek-ai/dsh-') ||
+      entry.private ||
+      !entry.bundle
+    ) {
       throw new Error(`${packageName}: Official catalog entries must be public DSH bundle packages`)
     }
     const parentURL = pathToFileURL(resolve(root, entry.path)).href
     for (const language of ['en', 'zh']) {
       const file = resolvePluginResource(`${packageName}/locale/${language}.json`, parentURL)
       const dictionary = JSON.parse(readFileSync(file, 'utf8')) as { meta?: { title?: unknown; description?: unknown } }
-      if (typeof dictionary.meta?.title !== 'string' || dictionary.meta.title.trim() === ''
-        || typeof dictionary.meta.description !== 'string' || dictionary.meta.description.trim() === '') {
+      if (
+        typeof dictionary.meta?.title !== 'string' ||
+        dictionary.meta.title.trim() === '' ||
+        typeof dictionary.meta.description !== 'string' ||
+        dictionary.meta.description.trim() === ''
+      ) {
         throw new Error(`${packageName}: Official metadata requires explicit ${language} title and description`)
       }
     }
@@ -79,18 +96,25 @@ export function generateOfficialBundleCatalog(root: string, names: readonly stri
  * @returns Deterministic TypeScript source for app-boot's generated module.
  */
 export function renderOfficialBundleCatalog(entries: readonly OfficialBundleCatalogEntry[]): string {
-  return '/** Generated offline Official bundle metadata. Run pnpm gen-official-bundle-catalog; do not edit. */\n\n'
-    + "import type { OfficialBundleCatalogEntry } from './official-bundles.ts'\n\n"
-    + '/** Official on-demand entries, independent of installed packages and registry availability. */\n'
-    + 'export const OFFICIAL_ON_DEMAND_CATALOG: readonly OfficialBundleCatalogEntry[] = [\n'
-    + entries.map(entry => '  {\n'
-      + `    packageName: ${quote(entry.packageName)},\n`
-      + '    meta: {\n'
-      + `      title: ${localized(entry.meta.title)},\n`
-      + `      description: ${localized(entry.meta.description)},\n`
-      + `      icon: ${quote(entry.meta.icon)},\n`
-      + '    },\n  },\n').join('')
-    + ']\n'
+  return (
+    '/** Generated offline Official bundle metadata. Run pnpm gen-official-bundle-catalog; do not edit. */\n\n' +
+    "import type { OfficialBundleCatalogEntry } from './official-bundles.ts'\n\n" +
+    '/** Official on-demand entries, independent of installed packages and registry availability. */\n' +
+    'export const OFFICIAL_ON_DEMAND_CATALOG: readonly OfficialBundleCatalogEntry[] = [\n' +
+    entries
+      .map(
+        entry =>
+          '  {\n' +
+          `    packageName: ${quote(entry.packageName)},\n` +
+          '    meta: {\n' +
+          `      title: ${localized(entry.meta.title)},\n` +
+          `      description: ${localized(entry.meta.description)},\n` +
+          `      icon: ${quote(entry.meta.icon)},\n` +
+          '    },\n  },\n',
+      )
+      .join('') +
+    ']\n'
+  )
 }
 
 const printer = ts.createPrinter()
@@ -102,7 +126,10 @@ function quote(value: string): string {
 
 function localized(value: LocalizedText): string {
   if (typeof value === 'string') return quote(value)
-  return `{ ${Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([language, text]) => `${quote(language)}: ${quote(text)}`).join(', ')} }`
+  return `{ ${Object.entries(value)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([language, text]) => `${quote(language)}: ${quote(text)}`)
+    .join(', ')} }`
 }
 
 /**
@@ -114,8 +141,11 @@ export function syncOfficialBundleCatalog(root: string, check: boolean): void {
   const source = renderOfficialBundleCatalog(generateOfficialBundleCatalog(root))
   const path = resolve(root, OUTPUT)
   let current: string | undefined
-  try { current = readFileSync(path, 'utf8') }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+  try {
+    current = readFileSync(path, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
   if (current === source) return
   if (check) throw new Error(`${OUTPUT} is stale; run pnpm gen-official-bundle-catalog`)
   writeFileSync(path, source)

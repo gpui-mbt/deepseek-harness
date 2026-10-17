@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { chmod, mkdtemp, mkdir, rm, writeFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
@@ -46,12 +46,17 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('onpath', {
-      command: 'fake-lsp',
-      args: [],
-      env: { PATH: bin, ...process.platform === 'win32' ? { PATHEXT: '.CMD' } : {} },
-      extensionToLanguage: { '.ts': 'typescript' },
-    }))).resolves.toBeDefined()
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('onpath', {
+          command: 'fake-lsp',
+          args: [],
+          env: { PATH: bin, ...(process.platform === 'win32' ? { PATHEXT: '.CMD' } : {}) },
+          extensionToLanguage: { '.ts': 'typescript' },
+        }),
+      ),
+    ).resolves.toBeDefined()
     await ctx.fiber.dispose()
   })
 
@@ -60,12 +65,17 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('nope', {
-      command: 'fake-lsp',
-      args: [],
-      env: { PATH: `${delimiter}${delimiter}${join(root, 'empty')}` },
-      extensionToLanguage: { '.ts': 'typescript' },
-    }))).rejects.toThrow(/was not found on PATH/)
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('nope', {
+          command: 'fake-lsp',
+          args: [],
+          env: { PATH: `${delimiter}${delimiter}${join(root, 'empty')}` },
+          extensionToLanguage: { '.ts': 'typescript' },
+        }),
+      ),
+    ).rejects.toThrow(/was not found on PATH/)
     await ctx.fiber.dispose()
   })
 
@@ -77,11 +87,14 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
     // Grab the provider instance by registering, then dispose the whole plugin fiber.
     const lsp = ctx.lsp
-    const fiber = await ctx.plugin(LspLocal, config('disp', {
-      command: process.execPath,
-      args: ['-e', 'setInterval(()=>{},1000)'],
-      extensionToLanguage: { '.ts': 'typescript' },
-    }))
+    const fiber = await ctx.plugin(
+      LspLocal,
+      config('disp', {
+        command: process.execPath,
+        args: ['-e', 'setInterval(()=>{},1000)'],
+        extensionToLanguage: { '.ts': 'typescript' },
+      }),
+    )
     await fiber.dispose()
     // After disposal the provider unregistered from the seam, so selection fails as unavailable.
     await expect(lsp.query(query())).rejects.toThrow(expect.objectContaining({ code: 'LSP_UNAVAILABLE' }))
@@ -93,12 +106,17 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('bad-budget', {
-      command: process.execPath,
-      args: ['-e', ''],
-      extensionToLanguage: { '.ts': 'typescript' },
-      killGraceMs: 0,
-    }))).rejects.toThrow(/servers\.bad-budget\.killGraceMs must be a positive integer/)
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('bad-budget', {
+          command: process.execPath,
+          args: ['-e', ''],
+          extensionToLanguage: { '.ts': 'typescript' },
+          killGraceMs: 0,
+        }),
+      ),
+    ).rejects.toThrow(/servers\.bad-budget\.killGraceMs must be a positive integer/)
     await ctx.fiber.dispose()
   })
 
@@ -107,26 +125,36 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('bad-cap', {
-      command: process.execPath,
-      args: ['-e', ''],
-      extensionToLanguage: { '.ts': 'typescript' },
-      maxDocumentBytes: 0,
-    }))).rejects.toThrow(/servers\.bad-cap\.maxDocumentBytes must be a positive integer/)
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('bad-cap', {
+          command: process.execPath,
+          args: ['-e', ''],
+          extensionToLanguage: { '.ts': 'typescript' },
+          maxDocumentBytes: 0,
+        }),
+      ),
+    ).rejects.toThrow(/servers\.bad-cap\.maxDocumentBytes must be a positive integer/)
     await ctx.fiber.dispose()
   })
 
-  it.each(['shutdownTimeoutMs', 'killGraceMs'] as const)('rejects %s above Node timer range at load', async (name) => {
+  it.each(['shutdownTimeoutMs', 'killGraceMs'] as const)('rejects %s above Node timer range at load', async name => {
     const ctx = new Context()
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('bad-timer', {
-      command: process.execPath,
-      args: ['-e', ''],
-      extensionToLanguage: { '.ts': 'typescript' },
-      [name]: MAX_TIMER_DELAY_MS + 1,
-    }))).rejects.toThrow(new RegExp(`servers\\.bad-timer\\.${name}`))
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('bad-timer', {
+          command: process.execPath,
+          args: ['-e', ''],
+          extensionToLanguage: { '.ts': 'typescript' },
+          [name]: MAX_TIMER_DELAY_MS + 1,
+        }),
+      ),
+    ).rejects.toThrow(new RegExp(`servers\\.bad-timer\\.${name}`))
     await ctx.fiber.dispose()
   })
 
@@ -138,11 +166,16 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('abs-bad', {
-      command: notExe,
-      args: [],
-      extensionToLanguage: { '.ts': 'typescript' },
-    }))).rejects.toThrow(/is not an executable file/)
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('abs-bad', {
+          command: notExe,
+          args: [],
+          extensionToLanguage: { '.ts': 'typescript' },
+        }),
+      ),
+    ).rejects.toThrow(/is not an executable file/)
     await ctx.fiber.dispose()
   })
 
@@ -151,11 +184,16 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('abs-directory', {
-      command: ws,
-      args: [],
-      extensionToLanguage: { '.ts': 'typescript' },
-    }))).rejects.toThrow(/is not an executable file/)
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('abs-directory', {
+          command: ws,
+          args: [],
+          extensionToLanguage: { '.ts': 'typescript' },
+        }),
+      ),
+    ).rejects.toThrow(/is not an executable file/)
     await ctx.fiber.dispose()
   })
 
@@ -173,10 +211,15 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, config('', {
-      command: process.execPath,
-      extensionToLanguage: { '.ts': 'typescript' },
-    }))).rejects.toThrow(/server ids must be non-empty strings/)
+    await expect(
+      ctx.plugin(
+        LspLocal,
+        config('', {
+          command: process.execPath,
+          extensionToLanguage: { '.ts': 'typescript' },
+        }),
+      ),
+    ).rejects.toThrow(/server ids must be non-empty strings/)
     await ctx.fiber.dispose()
   })
 
@@ -185,12 +228,14 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, {
-      servers: {
-        valid: { command: process.execPath, extensionToLanguage: { '.ts': 'typescript' } },
-        missing: { command: 'definitely-not-a-real-lsp-binary-xyz', extensionToLanguage: { '.py': 'python' } },
-      },
-    })).rejects.toThrow(/was not found on PATH/)
+    await expect(
+      ctx.plugin(LspLocal, {
+        servers: {
+          valid: { command: process.execPath, extensionToLanguage: { '.ts': 'typescript' } },
+          missing: { command: 'definitely-not-a-real-lsp-binary-xyz', extensionToLanguage: { '.py': 'python' } },
+        },
+      }),
+    ).rejects.toThrow(/was not found on PATH/)
     await expect(ctx.lsp.query(query())).rejects.toThrow(expect.objectContaining({ code: 'LSP_UNAVAILABLE' }))
     await ctx.fiber.dispose()
   })
@@ -230,8 +275,17 @@ describe('lsp-stdio provider resolution', () => {
     })
     await slowAborted.promise
     let settled = false
-    void loading.then(() => { settled = true }, () => { settled = true })
-    await new Promise<void>((resolve) => { setImmediate(resolve) })
+    void loading.then(
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
+    )
+    await new Promise<void>(resolve => {
+      setImmediate(resolve)
+    })
     expect(settled).toBe(false)
 
     releaseCleanup.resolve(undefined)
@@ -258,10 +312,13 @@ describe('lsp-stdio provider resolution', () => {
       })
     })
 
-    const loading = ctx.plugin(LspLocal, config('pending', {
-      command: 'pending-lsp',
-      extensionToLanguage: { '.ts': 'typescript' },
-    }))
+    const loading = ctx.plugin(
+      LspLocal,
+      config('pending', {
+        command: 'pending-lsp',
+        extensionToLanguage: { '.ts': 'typescript' },
+      }),
+    )
     const signal = await lookupStarted.promise
     const unrelated = await ctx.plugin(() => {})
     await unrelated.dispose()
@@ -279,12 +336,14 @@ describe('lsp-stdio provider resolution', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, {
-      servers: {
-        first: { command: process.execPath, extensionToLanguage: { '.ts': 'typescript' } },
-        second: { command: process.execPath, extensionToLanguage: { '.ts': 'typescript' } },
-      },
-    })).rejects.toThrow(expect.objectContaining({ code: 'LSP_CONFLICT' }))
+    await expect(
+      ctx.plugin(LspLocal, {
+        servers: {
+          first: { command: process.execPath, extensionToLanguage: { '.ts': 'typescript' } },
+          second: { command: process.execPath, extensionToLanguage: { '.ts': 'typescript' } },
+        },
+      }),
+    ).rejects.toThrow(expect.objectContaining({ code: 'LSP_CONFLICT' }))
     await expect(ctx.lsp.query(query())).rejects.toThrow(expect.objectContaining({ code: 'LSP_UNAVAILABLE' }))
     await ctx.fiber.dispose()
   })

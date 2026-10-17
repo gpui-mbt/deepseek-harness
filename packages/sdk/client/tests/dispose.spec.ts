@@ -6,7 +6,7 @@
 
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { disposeRuntimeProcess } from '../src/dispose.ts'
 
 /** What fells a scripted {@link FakeChild}. */
@@ -41,9 +41,15 @@ class FakeChild extends EventEmitter {
 
   constructor(private readonly script: FakeChildScript = {}) {
     super()
-    this.stdin = script.stdin === false
-      ? null
-      : { end: () => { this.stdinEnded = true; this.maybeDie('eof') } }
+    this.stdin =
+      script.stdin === false
+        ? null
+        : {
+            end: () => {
+              this.stdinEnded = true
+              this.maybeDie('eof')
+            },
+          }
   }
 
   kill(signal: NodeJS.Signals): boolean {
@@ -136,9 +142,9 @@ describe('disposeRuntimeProcess', () => {
     expect(fake.signalCode).toBe('SIGKILL')
   })
 
-  it.each(['exitCode', 'signalCode'] as const)('accepts a late OS %s marker before the final forced wait', async (marker) => {
+  it.each(['exitCode', 'signalCode'] as const)('accepts a late OS %s marker before the final forced wait', async marker => {
     const fake = new FakeChild()
-    vi.spyOn(fake, 'kill').mockImplementation((signal) => {
+    vi.spyOn(fake, 'kill').mockImplementation(signal => {
       fake.kills.push(signal)
       queueMicrotask(() => {
         if (marker === 'exitCode') fake.exitCode = 0
@@ -167,17 +173,13 @@ describe('disposeRuntimeProcess', () => {
   it('propagates a forced-termination error without waiting for the grace', async () => {
     const fake = new FakeChild()
     const failure = Object.assign(new Error('kill EPERM'), { code: 'EPERM' })
-    vi.spyOn(fake, 'kill').mockImplementation((signal) => {
+    vi.spyOn(fake, 'kill').mockImplementation(signal => {
       fake.kills.push(signal)
       fake.emit('error', failure)
       return false
     })
 
-    await expect(disposeRuntimeProcess(
-      asChild(fake),
-      { disposeEofGraceMs: 1, disposeGraceMs: 1000 },
-      'win32',
-    )).rejects.toBe(failure)
+    await expect(disposeRuntimeProcess(asChild(fake), { disposeEofGraceMs: 1, disposeGraceMs: 1000 }, 'win32')).rejects.toBe(failure)
     expect(fake.kills).toEqual(['SIGKILL'])
     expect(fake.listenerCount('error')).toBe(0)
     expect(fake.listenerCount('exit')).toBe(0)
@@ -186,45 +188,42 @@ describe('disposeRuntimeProcess', () => {
   it('wraps a synchronous forced-termination exception and removes its listeners', async () => {
     const fake = new FakeChild()
     const failure = new Error('invalid signal state')
-    vi.spyOn(fake, 'kill').mockImplementation(() => { throw failure })
+    vi.spyOn(fake, 'kill').mockImplementation(() => {
+      throw failure
+    })
 
-    await expect(disposeRuntimeProcess(
-      asChild(fake),
-      { disposeEofGraceMs: 1, disposeGraceMs: 1000 },
-      'win32',
-    )).rejects.toMatchObject({ message: 'SIGKILL failed', cause: failure })
+    await expect(disposeRuntimeProcess(asChild(fake), { disposeEofGraceMs: 1, disposeGraceMs: 1000 }, 'win32')).rejects.toMatchObject({
+      message: 'SIGKILL failed',
+      cause: failure,
+    })
     expect(fake.listenerCount('error')).toBe(0)
     expect(fake.listenerCount('exit')).toBe(0)
   })
 
   it('bounds a refused forced termination that produces no error or exit', async () => {
     const fake = new FakeChild()
-    vi.spyOn(fake, 'kill').mockImplementation((signal) => {
+    vi.spyOn(fake, 'kill').mockImplementation(signal => {
       fake.kills.push(signal)
       return false
     })
 
-    await expect(disposeRuntimeProcess(
-      asChild(fake),
-      { disposeEofGraceMs: 1, disposeGraceMs: 10 },
-      'win32',
-    )).rejects.toThrow('runtime process did not exit within 10ms after SIGKILL was refused')
+    await expect(disposeRuntimeProcess(asChild(fake), { disposeEofGraceMs: 1, disposeGraceMs: 10 }, 'win32')).rejects.toThrow(
+      'runtime process did not exit within 10ms after SIGKILL was refused',
+    )
     expect(fake.listenerCount('error')).toBe(0)
     expect(fake.listenerCount('exit')).toBe(0)
   })
 
   it('bounds an accepted forced termination that never reports exit', async () => {
     const fake = new FakeChild()
-    vi.spyOn(fake, 'kill').mockImplementation((signal) => {
+    vi.spyOn(fake, 'kill').mockImplementation(signal => {
       fake.kills.push(signal)
       return true
     })
 
-    await expect(disposeRuntimeProcess(
-      asChild(fake),
-      { disposeEofGraceMs: 1, disposeGraceMs: 10 },
-      'win32',
-    )).rejects.toThrow('runtime process did not exit within 10ms after SIGKILL was accepted')
+    await expect(disposeRuntimeProcess(asChild(fake), { disposeEofGraceMs: 1, disposeGraceMs: 10 }, 'win32')).rejects.toThrow(
+      'runtime process did not exit within 10ms after SIGKILL was accepted',
+    )
     expect(fake.listenerCount('error')).toBe(0)
     expect(fake.listenerCount('exit')).toBe(0)
   })

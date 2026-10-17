@@ -182,10 +182,7 @@ export interface LegacyEveryScheduleRecord extends Omit<EveryScheduleRecord, 'ti
  * `after`, `at`, and `every` decode without one and stay readable. The Host task
  * record requires the member and never persists a record without it.
  */
-export type LegacyScheduleRecord =
-  | LegacyAfterScheduleRecord
-  | LegacyAtScheduleRecord
-  | LegacyEveryScheduleRecord
+export type LegacyScheduleRecord = LegacyAfterScheduleRecord | LegacyAtScheduleRecord | LegacyEveryScheduleRecord
 
 /** Recurring Host task variants. */
 export type RecurringScheduleRecord = EveryScheduleRecord | DailyScheduleRecord | WeeklyScheduleRecord | CronScheduleRecord
@@ -457,17 +454,17 @@ export interface DeliveryRetentionBounds {
 /** Newest-first saved deliveries, or a non-mutating task/cursor lookup failure. */
 export type ScheduleDeliveryHistoryResult =
   | {
-    readonly id: ScheduleId
-    readonly records: ScheduleDeliveryRecord[]
-    /** Whether earlier delivery records may be unavailable; missing receipts are never reconstructed. */
-    readonly earlierRecordsUnavailable: boolean
-    /** True only after an append removed saved records; absent legacy evidence is false. */
-    readonly earlierRecordsPruned: boolean
-    /** Current Host retention configuration, also used by the delivery writer. */
-    readonly retention: DeliveryRetentionBounds
-    /** Oldest returned message identity, present only when older saved records remain. */
-    readonly nextBefore?: MessageId
-  }
+      readonly id: ScheduleId
+      readonly records: ScheduleDeliveryRecord[]
+      /** Whether earlier delivery records may be unavailable; missing receipts are never reconstructed. */
+      readonly earlierRecordsUnavailable: boolean
+      /** True only after an append removed saved records; absent legacy evidence is false. */
+      readonly earlierRecordsPruned: boolean
+      /** Current Host retention configuration, also used by the delivery writer. */
+      readonly retention: DeliveryRetentionBounds
+      /** Oldest returned message identity, present only when older saved records remain. */
+      readonly nextBefore?: MessageId
+    }
   | { readonly id: ScheduleId; readonly code: 'schedule_not_found' | 'delivery_cursor_not_found' }
 
 declare module '@deepseek-ai/cordis' {

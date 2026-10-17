@@ -1,7 +1,7 @@
 /** The installed CLI uses the shared pnpm distribution with Electron's package-operation environment. */
 
 import { delimiter, join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { runCli } from '@deepseek-ai/dsh/lib/bin.js'
 import { runDesktopCli } from '../../desktop-host/src/cli.ts'
 import { installOfficeEngineResolution } from '../../desktop-host/src/office-engine.ts'
@@ -14,7 +14,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-it.each(['system-bin', undefined])('dispatches with bundled pnpm when PATH is %s', async (path) => {
+it.each(['system-bin', undefined])('dispatches with bundled pnpm when PATH is %s', async path => {
   vi.stubEnv('PATH', path)
   const runtime = join('Application 中文 with spaces', 'resources', 'app.asar', 'dsh')
   const support = join('Application 中文 with spaces', 'resources', 'runtime')

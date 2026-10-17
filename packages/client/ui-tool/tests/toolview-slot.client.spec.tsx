@@ -1,14 +1,12 @@
 // @vitest-environment jsdom
 
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent } from '@testing-library/react'
 import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import {
-  apply as applyChat, inject as injectChat, type ToolResultNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import { apply as applyChat, inject as injectChat, type ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotTestRuntime, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -51,11 +49,18 @@ const toolResult = (
 ): ToolResultNode => {
   const call = over.call === undefined ? { name, argsRaw: args } : over.call
   return {
-    kind: 'tool-result', seq, time: seq * 1_000, callId,
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq,
+    time: seq * 1_000,
+    callId,
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: seq * 1_000 - 500,
-    content: [], isError: false, subCalls: [], ...over,
+    content: [],
+    isError: false,
+    subCalls: [],
+    ...over,
   }
 }
 
@@ -66,7 +71,7 @@ function AppRoot({ renderSlot }: AppRootProps) {
 }
 
 const LAYOUT_CHILDREN = {
-  'main': { kind: 'keyed', scope: 'root' },
+  main: { kind: 'keyed', scope: 'root' },
 } as const
 
 /**
@@ -111,10 +116,7 @@ async function bench(nodes: ToolResultNode[]) {
 
 describe('keyed toolview hole through the real machinery', () => {
   it('dispatches registered rows by entryKey and unregistered tools to the GenericToolCard fallback', async () => {
-    const b = await bench([
-      toolResult(3, 'c1', 'bash'),
-      toolResult(4, 'c2', 'mystery', '{"n":1}'),
-    ])
+    const b = await bench([toolResult(3, 'c1', 'bash'), toolResult(4, 'c2', 'mystery', '{"n":1}')])
     const view = b.runtime.renderRoot()
     // bash: the sample plugin's keyed registration took the row (root
     // session → global arm, decided inside the component off useSessions).
@@ -128,21 +130,15 @@ describe('keyed toolview hole through the real machinery', () => {
 
   it('renders Auto denial copy through the real machinery', async () => {
     const b = await bench([
-      toolResult(
-        3,
-        'bash-1',
-        'bash',
-        '{"command":"rm -rf build","description":"Clean"}',
-        {
-          content: [{ type: 'text', text: 'Tool execution rejected by user' }],
-          isError: true,
-          error: {
-            name: 'AutoReviewDeniedError',
-            code: 'AUTO_REVIEW_DENIED',
-            reason: '  precise scope\r\nwas not authorized  ',
-          },
+      toolResult(3, 'bash-1', 'bash', '{"command":"rm -rf build","description":"Clean"}', {
+        content: [{ type: 'text', text: 'Tool execution rejected by user' }],
+        isError: true,
+        error: {
+          name: 'AutoReviewDeniedError',
+          code: 'AUTO_REVIEW_DENIED',
+          reason: '  precise scope\r\nwas not authorized  ',
         },
-      ),
+      }),
     ])
     const view = b.runtime.renderRoot()
 
@@ -160,12 +156,8 @@ describe('keyed toolview hole through the real machinery', () => {
   })
 
   it('does not let external skill or Cordis keyed rows hide an Auto denial', async () => {
-    const denied = (seq: number, callId: string, name: string) => toolResult(
-      seq,
-      callId,
-      name,
-      '{}',
-      {
+    const denied = (seq: number, callId: string, name: string) =>
+      toolResult(seq, callId, name, '{}', {
         content: [{ type: 'text', text: 'Tool execution rejected by user' }],
         isError: true,
         error: {
@@ -173,20 +165,10 @@ describe('keyed toolview hole through the real machinery', () => {
           code: 'AUTO_REVIEW_DENIED',
           reason: 'outside the authorized scope',
         },
-      },
-    )
-    const b = await bench([
-      denied(3, 'skill-1', 'skill'),
-      denied(4, 'cordis-1', 'cordis_define'),
-    ])
-    b.slots.register(
-      { name: 'tool.call.toolview', key: 'skill' },
-      () => <div data-testid="external-skill-row" />,
-    )
-    b.slots.register(
-      { name: 'tool.call.toolview', key: 'cordis_define' },
-      () => <div data-testid="external-cordis-row" />,
-    )
+      })
+    const b = await bench([denied(3, 'skill-1', 'skill'), denied(4, 'cordis-1', 'cordis_define')])
+    b.slots.register({ name: 'tool.call.toolview', key: 'skill' }, () => <div data-testid="external-skill-row" />)
+    b.slots.register({ name: 'tool.call.toolview', key: 'cordis_define' }, () => <div data-testid="external-cordis-row" />)
 
     const view = b.runtime.renderRoot()
     expect(view.queryByTestId('external-skill-row')).toBeNull()
@@ -244,9 +226,7 @@ describe('keyed toolview hole through the real machinery', () => {
     const view = b.runtime.renderRoot()
     expect(view.getByText('Tool call')).toBeTruthy()
     let dispose = (): void => {}
-    dispose = b.slots.register(
-      { name: 'tool.call.toolview', key: 'mystery' },
-      () => <div data-testid="mystery-row" />)
+    dispose = b.slots.register({ name: 'tool.call.toolview', key: 'mystery' }, () => <div data-testid="mystery-row" />)
     await b.runtime.flush()
     // Per-key version tick: the row flipped without a remount of the view.
     expect(view.getByTestId('mystery-row')).toBeTruthy()
@@ -260,28 +240,32 @@ describe('keyed toolview hole through the real machinery', () => {
 
   it('a duplicate key registration fails loud at load', async () => {
     const b = await bench([])
-    expect(() => b.slots.register(
-      { name: 'tool.call.toolview', key: 'bash' },
-      () => null,
-    )).toThrow(/key "bash"/)
+    expect(() => b.slots.register({ name: 'tool.call.toolview', key: 'bash' }, () => null)).toThrow(/key "bash"/)
     await b.runtime.dispose()
   })
 
   it('the inject channel feeds (sessionId) => I into the row component', async () => {
     const b = await bench([toolResult(3, 'c3', 'probe', '{"x":1}')])
     const poked: string[] = []
-    b.slots.register({
-      name: 'tool.call.toolview',
-      key: 'probe',
-      // Two-way business face: data derived from the session id out, a
-      // callback closing over it back in — the askuser-pattern inject shape.
-      inject: (sessionId: SessionId) => ({
-        mark: `for:${sessionId}`,
-        poke: () => { poked.push(sessionId) },
-      }),
-    }, ({ mark, poke }: ToolCallViewProps & { mark: string; poke: () => void }) => (
-      <button data-testid="probe-row" onClick={poke}>{mark}</button>
-    ))
+    b.slots.register(
+      {
+        name: 'tool.call.toolview',
+        key: 'probe',
+        // Two-way business face: data derived from the session id out, a
+        // callback closing over it back in — the askuser-pattern inject shape.
+        inject: (sessionId: SessionId) => ({
+          mark: `for:${sessionId}`,
+          poke: () => {
+            poked.push(sessionId)
+          },
+        }),
+      },
+      ({ mark, poke }: ToolCallViewProps & { mark: string; poke: () => void }) => (
+        <button data-testid="probe-row" onClick={poke}>
+          {mark}
+        </button>
+      ),
+    )
     const view = b.runtime.renderRoot()
     const row = view.getByTestId('probe-row')
     expect(row.textContent).toBe(`for:${SID}`)
@@ -299,7 +283,10 @@ describe('registrant declaration injection', () => {
         openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })),
       },
     })
-    runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
+    runtime.ctx.provide('configForms', {
+      developerTools: { enabled: createSnapshotStore(true) },
+      get: () => stubConfigForm().scope,
+    } as never)
     runtime.ctx.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
     runtime.ctx.provide('sidebarRight', { openResource: vi.fn() } as never)
     runtime.ctx.provide('uiWorkspace', {
@@ -318,8 +305,9 @@ describe('registrant declaration injection', () => {
     let applyRuns = 0
     const registrantApply = (registrantCtx: typeof runtime.ctx): void => {
       applyRuns += 1
-      registrantCtx.slots.inject('tool.call.toolview', () => registrantCtx.slots.register(
-        { name: 'tool.call.toolview', key: 'late' }, () => null))
+      registrantCtx.slots.inject('tool.call.toolview', () =>
+        registrantCtx.slots.register({ name: 'tool.call.toolview', key: 'late' }, () => null),
+      )
     }
     const late = runtime.ctx.plugin({
       name: 'late-registrant',
@@ -335,8 +323,7 @@ describe('registrant declaration injection', () => {
     await runtime.mount({ inject: [...injectConversation], apply: applyConversation })
     await runtime.mount({ inject: [...injectChat], apply: applyChat })
     await runtime.mount({ inject: [...injectTool], apply: applyTool })
-    expect(runtime.slots.entries('tool.call.toolview').map(e => e.options.key))
-      .toEqual(expect.arrayContaining(['bash', 'late']))
+    expect(runtime.slots.entries('tool.call.toolview').map(e => e.options.key)).toEqual(expect.arrayContaining(['bash', 'late']))
     await runtime.dispose()
   })
 })

@@ -23,8 +23,12 @@ export function createInboxStub(): Inbox {
   }
 
   return {
-    get nextTurn() { return pending['next-turn'] },
-    get nextStep() { return pending['next-step'] },
+    get nextTurn() {
+      return pending['next-turn']
+    },
+    get nextStep() {
+      return pending['next-step']
+    },
     clear() {
       pending['next-step'].splice(0)
       pending['next-turn'].splice(0)

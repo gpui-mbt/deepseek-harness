@@ -2,7 +2,7 @@ import { cp, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { create as createTar } from 'tar'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { artifactManifestSchema, fileDigest, payloadFiles, SSH_HELPER_TARGETS, verifyPayload } from './artifact.ts'
 import { macosDeploymentVersions } from './native.ts'
 import { extractHelper } from '../verify-ssh-helper-artifact.ts'
@@ -16,13 +16,24 @@ async function fixture() {
   await writeFile(join(payload, 'dsh-ssh-helper'), 'fixture executable')
   await writeFile(join(payload, 'native/system/package.json'), '{}')
   const metadata = {
-    format: 1, version: '1.0.0', commit: 'a'.repeat(40), dirty: false,
-    target: 'node24-linux-x64', protocol: 2, nodeVersion: 'v24.1.0',
-    files: await Promise.all((await payloadFiles(payload)).map(async path => ({
-      path, sha256: await fileDigest(join(payload, path)), mode: (await lstat(join(payload, path))).mode & 0o777,
-    }))),
+    format: 1,
+    version: '1.0.0',
+    commit: 'a'.repeat(40),
+    dirty: false,
+    target: 'node24-linux-x64',
+    protocol: 2,
+    nodeVersion: 'v24.1.0',
+    files: await Promise.all(
+      (await payloadFiles(payload)).map(async path => ({
+        path,
+        sha256: await fileDigest(join(payload, path)),
+        mode: (await lstat(join(payload, path))).mode & 0o777,
+      })),
+    ),
   }
-  const save = async () => { await writeFile(join(payload, 'manifest.json'), JSON.stringify(metadata)) }
+  const save = async () => {
+    await writeFile(join(payload, 'manifest.json'), JSON.stringify(metadata))
+  }
   await save()
   return { root, payload, metadata, save }
 }
@@ -48,7 +59,7 @@ it('rejects missing, undeclared and duplicate payload files', async () => {
   await expect(verifyPayload(test.payload)).rejects.toThrow('inventory')
 })
 
-it.each(['../outside', '/absolute', 'a/../b', 'a\\b', 'a//b'])('rejects unsafe manifest path %s', async (path) => {
+it.each(['../outside', '/absolute', 'a/../b', 'a\\b', 'a//b'])('rejects unsafe manifest path %s', async path => {
   const test = await fixture()
   expect(() => artifactManifestSchema.parse({ ...test.metadata, files: [{ ...test.metadata.files[0], path }] })).toThrow('payload path')
 })
@@ -77,8 +88,11 @@ it('extracts and verifies a portable archive in a new directory', async () => {
 })
 
 it('reads minimum macOS versions without accepting a linked library version as the OS version', () => {
-  expect(macosDeploymentVersions('Load command 0\ncmd LC_VERSION_MIN_MACOSX\nversion 11.0\nLoad command 1\ncmd LC_LOAD_DYLIB\ncurrent version 1311.100.3\nLoad command 2\ncmd LC_BUILD_VERSION\nminos 14.0\nsdk 15.1\n'))
-    .toEqual(['11.0', '14.0'])
+  expect(
+    macosDeploymentVersions(
+      'Load command 0\ncmd LC_VERSION_MIN_MACOSX\nversion 11.0\nLoad command 1\ncmd LC_LOAD_DYLIB\ncurrent version 1311.100.3\nLoad command 2\ncmd LC_BUILD_VERSION\nminos 14.0\nsdk 15.1\n',
+    ),
+  ).toEqual(['11.0', '14.0'])
   expect(macosDeploymentVersions('Load command 0\ncmd LC_LOAD_DYLIB\ncurrent version 14.0\n')).toEqual([])
 })
 
@@ -86,7 +100,16 @@ it('publishes only a complete clean-source matrix with native and no-Node eviden
   const test = await fixture()
   const archives = join(test.root, 'release')
   await mkdir(archives)
-  const checks = ['executable-handshake', 'guarded-files-and-streams', 'managed-process-output', 'process-cancellation', 'native-pty', 'native-flock', 'embedded-ptc-and-deadline', 'sandbox-enforcement']
+  const checks = [
+    'executable-handshake',
+    'guarded-files-and-streams',
+    'managed-process-output',
+    'process-cancellation',
+    'native-pty',
+    'native-flock',
+    'embedded-ptc-and-deadline',
+    'sandbox-enforcement',
+  ]
   for (const target of SSH_HELPER_TARGETS) {
     const parent = join(test.root, target)
     await mkdir(parent)
@@ -98,9 +121,19 @@ it('publishes only a complete clean-source matrix with native and no-Node eviden
     await createTar({ cwd: parent, file: archive, gzip: true, portable: true }, ['dsh-ssh-helper'])
     await writeFile(`${archive}.sha256`, `${await fileDigest(archive)}  archive\n`)
     const runtime = { checks, nodeVersion: 'v24.1.0', platform: target.includes('linux') ? 'linux' : 'darwin', sandboxLane: 'required' }
-    await writeFile(join(archives, `${target}.json`), JSON.stringify({ manifest, runtime, restrictedWorker: true, readonlyInstall: true, concurrentColdStarts: 2 }))
+    await writeFile(
+      join(archives, `${target}.json`),
+      JSON.stringify({ manifest, runtime, restrictedWorker: true, readonlyInstall: true, concurrentColdStarts: 2 }),
+    )
     if (target.includes('linux')) {
-      await writeFile(join(archives, `${target}.ssh.json`), JSON.stringify({ manifest, runtime: { ...runtime, checks: [...checks, 'target-has-no-node'], sandboxLane: 'portable' }, glibc: 'glibc 2.28' }))
+      await writeFile(
+        join(archives, `${target}.ssh.json`),
+        JSON.stringify({
+          manifest,
+          runtime: { ...runtime, checks: [...checks, 'target-has-no-node'], sandboxLane: 'portable' },
+          glibc: 'glibc 2.28',
+        }),
+      )
       await writeFile(join(archives, `${target}.landlock.json`), JSON.stringify({ manifest, runtime, expectedBackend: 'landlock-run' }))
     }
   }

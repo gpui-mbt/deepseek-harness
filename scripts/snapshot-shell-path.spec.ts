@@ -4,7 +4,7 @@ import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import * as adapter from './snapshot-shell-path.ts'
 
 it.skipIf(process.platform === 'win32')('translates only the exact fixture command and preserves real shell failures', async () => {

@@ -45,9 +45,7 @@ const SECONDS_PER_WORK_UNIT = 2.6e-4
  * measured host cannot decide this gate's outcome. Derived from the budget so a
  * raised budget cannot silently shrink the guard's headroom.
  */
-const NPM_HANG_GUARD_MS = Math.round(
-  4 * MAX_RESOLUTION_WORK_UNITS * SECONDS_PER_WORK_UNIT * 1000,
-)
+const NPM_HANG_GUARD_MS = Math.round(4 * MAX_RESOLUTION_WORK_UNITS * SECONDS_PER_WORK_UNIT * 1000)
 
 /** Synthetic incompatible versions used to expose cross-release placement errors. */
 export const SYNTHETIC_DSH_VERSIONS = ['0.1.0', '0.2.0'] as const
@@ -101,10 +99,7 @@ export function buildDualDshRegistry(index: RegistryIndex, sourceVersion: string
     const source = versions.get(sourceVersion)
     if (source === undefined) throw new Error(`${name} has no workspace version ${sourceVersion}`)
     dshPackages++
-    output.set(name, new Map(SYNTHETIC_DSH_VERSIONS.map(version => [
-      version,
-      cloneForVersion(source, version),
-    ])))
+    output.set(name, new Map(SYNTHETIC_DSH_VERSIONS.map(version => [version, cloneForVersion(source, version)])))
   }
   if (dshPackages === 0) throw new Error('registry contains no DSH packages')
   return output
@@ -168,11 +163,8 @@ export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInst
       continue
     }
     namesByVersion.get(version)?.add(name)
-    const expectedPath = version === rootVersion
-      ? `node_modules/${name}`
-      : name === DSH_PACKAGE
-        ? NESTED_DSH_PATH
-        : `${NESTED_DSH_PATH}/node_modules/${name}`
+    const expectedPath =
+      version === rootVersion ? `node_modules/${name}` : name === DSH_PACKAGE ? NESTED_DSH_PATH : `${NESTED_DSH_PATH}/node_modules/${name}`
     if (path !== expectedPath) {
       errors.push(`${path}: expected ${name}@${version} at ${expectedPath}`)
     }
@@ -181,8 +173,7 @@ export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInst
       for (const dependency of Object.keys(manifest[field] ?? {})) {
         if (!isDshPackage(dependency)) continue
         const targetPath = resolvePackagePath(packageLock.packages, path, dependency)
-        const optionalPeer = field === 'peerDependencies'
-          && manifest.peerDependenciesMeta?.[dependency]?.optional === true
+        const optionalPeer = field === 'peerDependencies' && manifest.peerDependenciesMeta?.[dependency]?.optional === true
         if (targetPath === undefined) {
           if (field === 'optionalDependencies' || optionalPeer) continue
           errors.push(`${path}: ${field} ${dependency} does not resolve`)
@@ -191,9 +182,7 @@ export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInst
         checkedDshEdges++
         const targetVersion = packageLock.packages[targetPath]?.version
         if (targetVersion !== version) {
-          errors.push(
-            `${path}: ${field} ${dependency} resolves to ${targetPath}@${String(targetVersion)}, expected ${version}`,
-          )
+          errors.push(`${path}: ${field} ${dependency} resolves to ${targetPath}@${String(targetVersion)}, expected ${version}`)
         }
       }
     }
@@ -208,8 +197,7 @@ export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInst
   if (onlyNested.length > 0) errors.push(`only ${nestedVersion} contains: ${onlyNested.join(', ')}`)
   if (onlyRoot.length > 0) errors.push(`only ${rootVersion} contains: ${onlyRoot.join(', ')}`)
 
-  const cordisPaths = installed.flatMap(([path, manifest]) =>
-    packageNameAtPath(path, manifest) === CORDIS_PACKAGE ? [path] : [])
+  const cordisPaths = installed.flatMap(([path, manifest]) => (packageNameAtPath(path, manifest) === CORDIS_PACKAGE ? [path] : []))
   if (cordisPaths.length !== 1 || cordisPaths[0] !== `node_modules/${CORDIS_PACKAGE}`) {
     errors.push(`expected one shared ${CORDIS_PACKAGE} at node_modules/${CORDIS_PACKAGE}, got ${cordisPaths.join(', ')}`)
   }
@@ -227,13 +215,13 @@ export function assertResolutionWorkBudget(summary: DshInstallLayoutSummary): nu
   const units = summary.dshPackagesPerVersion * summary.checkedDshEdges
   if (units > MAX_RESOLUTION_WORK_UNITS) {
     throw new Error(
-      'dual-release graph exceeds the resolution work budget: '
-      + `${String(summary.dshPackagesPerVersion)} package(s) per release x `
-      + `${String(summary.checkedDshEdges)} internal edge(s) = ${String(units)} unit(s), `
-      + `budget ${String(MAX_RESOLUTION_WORK_UNITS)} unit(s)\n`
-      + '  npm re-checks every internal edge against the incoming edges of its peer target, so the resolution\n'
-      + '  cost grows with this product. Measure the new cost and raise MAX_RESOLUTION_WORK_UNITS in\n'
-      + '  scripts/verify-npm-install-layout.ts.',
+      'dual-release graph exceeds the resolution work budget: ' +
+        `${String(summary.dshPackagesPerVersion)} package(s) per release x ` +
+        `${String(summary.checkedDshEdges)} internal edge(s) = ${String(units)} unit(s), ` +
+        `budget ${String(MAX_RESOLUTION_WORK_UNITS)} unit(s)\n` +
+        '  npm re-checks every internal edge against the incoming edges of its peer target, so the resolution\n' +
+        '  cost grows with this product. Measure the new cost and raise MAX_RESOLUTION_WORK_UNITS in\n' +
+        '  scripts/verify-npm-install-layout.ts.',
     )
   }
   return units
@@ -249,19 +237,24 @@ async function main(): Promise<void> {
   const root = resolve(import.meta.dirname, '..')
   const index = buildDualDshRegistry(buildRegistryIndex(root), workspaceVersion(root))
   const [nestedVersion, rootVersion] = SYNTHETIC_DSH_VERSIONS
-  const result = await resolveNpmPackageLock(index, {
-    [DSH_PACKAGE]: rootVersion,
-    [NESTED_DSH_ALIAS]: `npm:${DSH_PACKAGE}@${nestedVersion}`,
-  }, NPM_HANG_GUARD_MS, 'npm resolution hang guard')
+  const result = await resolveNpmPackageLock(
+    index,
+    {
+      [DSH_PACKAGE]: rootVersion,
+      [NESTED_DSH_ALIAS]: `npm:${DSH_PACKAGE}@${nestedVersion}`,
+    },
+    NPM_HANG_GUARD_MS,
+    'npm resolution hang guard',
+  )
   if (result.archiveRequests !== 0) throw new Error(`npm requested ${String(result.archiveRequests)} package archive(s)`)
   const summary = assertDualDshInstallLayout(result.packageLock)
   const units = assertResolutionWorkBudget(summary)
   console.log(
-    `verify-npm-install-layout: ${String(summary.dshPackagesPerVersion)} DSH package(s) per release and `
-    + `${String(summary.checkedDshEdges)} internal edge(s) verified in ${(result.durationMs / 1000).toFixed(2)} s; `
-    + `${String(units)} of ${String(MAX_RESOLUTION_WORK_UNITS)} budgeted resolution work unit(s); `
-    + `both releases share one Cordis installation; ${String(result.unknownPackages.length)} unavailable optional `
-    + 'package name(s) ignored by npm.',
+    `verify-npm-install-layout: ${String(summary.dshPackagesPerVersion)} DSH package(s) per release and ` +
+      `${String(summary.checkedDshEdges)} internal edge(s) verified in ${(result.durationMs / 1000).toFixed(2)} s; ` +
+      `${String(units)} of ${String(MAX_RESOLUTION_WORK_UNITS)} budgeted resolution work unit(s); ` +
+      `both releases share one Cordis installation; ${String(result.unknownPackages.length)} unavailable optional ` +
+      'package name(s) ignored by npm.',
   )
 }
 

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { zipSync } from 'fflate'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import lock from './lock.json' with { type: 'json' }
 import { unpackPrimaryRuntimeWheel } from './prepare.ts'
 import { prunePrimaryRuntimePythonTests } from './prune-python-tests.ts'
@@ -17,20 +17,33 @@ it('removes only NumPy/pandas test directories and keeps retained wheel files an
   const root = await mkdtemp(join(tmpdir(), 'primary-python-pruning-'))
   try {
     const removed = [
-      'numpy/tests/test_numpy.py', 'numpy/_core/tests/test_core.py', 'numpy/_core/tests/data/values,small.csv',
-      'numpy/testing/tests/test_utils.py', 'pandas/tests/io/test_excel.py', 'pandas/tests/io/data/workbook.xlsx',
+      'numpy/tests/test_numpy.py',
+      'numpy/_core/tests/test_core.py',
+      'numpy/_core/tests/data/values,small.csv',
+      'numpy/testing/tests/test_utils.py',
+      'pandas/tests/io/test_excel.py',
+      'pandas/tests/io/data/workbook.xlsx',
     ]
     const retained = [
-      'numpy/__init__.py', 'numpy/_core/_multiarray_tests.so', 'numpy/_core/_multiarray_tests.pyd',
-      'numpy/testing/__init__.py', 'numpy/_core/tests.py', 'numpy/data/values,small.csv',
-      'pandas/__init__.py', 'pandas/testing.py', 'pandas/_testing/__init__.py', 'pandas/_libs/testing.pyd',
+      'numpy/__init__.py',
+      'numpy/_core/_multiarray_tests.so',
+      'numpy/_core/_multiarray_tests.pyd',
+      'numpy/testing/__init__.py',
+      'numpy/_core/tests.py',
+      'numpy/data/values,small.csv',
+      'pandas/__init__.py',
+      'pandas/testing.py',
+      'pandas/_testing/__init__.py',
+      'pandas/_libs/testing.pyd',
       `numpy-${lock.pythonPackages.numpy}.dist-info/licenses/LICENSE.txt`,
       `pandas-${lock.pythonPackages.pandas}.dist-info/LICENSE`,
-      'other/tests/test_other.py', 'numpy_extra/tests/test_extra.py',
+      'other/tests/test_other.py',
+      'numpy_extra/tests/test_extra.py',
     ]
     const files = Object.fromEntries([...removed, ...retained].map(path => [path, Buffer.from(`contents of ${path}\n`)]))
     // Quoted paths exercise RECORD's CSV encoding even when a filename contains a comma.
-    const row = (path: string): string => `"${path}",sha256=${createHash('sha256').update(files[path]!).digest('base64url')},${files[path]!.length}\n`
+    const row = (path: string): string =>
+      `"${path}",sha256=${createHash('sha256').update(files[path]!).digest('base64url')},${files[path]!.length}\n`
     for (const [name, record] of Object.entries(records)) {
       const paths = [...removed, ...retained].filter(path => path.startsWith(`${name}/`) || path.startsWith(`${name}-`))
       files[record] = Buffer.from(`${paths.map(row).join('')}${record},,\n`)
@@ -68,7 +81,8 @@ it('removes only NumPy/pandas test directories and keeps retained wheel files an
 })
 
 it.each(['"unterminated,,\n', 'numpy/tests/test_numpy.py,\n', '', ',,\n'])(
-  'rejects malformed installed-file records before deleting that distribution\'s tests: %j', async (record) => {
+  "rejects malformed installed-file records before deleting that distribution's tests: %j",
+  async record => {
     const root = await mkdtemp(join(tmpdir(), 'primary-python-record-'))
     try {
       await mkdir(join(root, `numpy-${lock.pythonPackages.numpy}.dist-info`))
@@ -76,7 +90,9 @@ it.each(['"unterminated,,\n', 'numpy/tests/test_numpy.py,\n', '', ',,\n'])(
       await mkdir(join(root, 'numpy/tests'), { recursive: true })
       const testFile = join(root, 'numpy/tests/test_numpy.py')
       await writeFile(testFile, 'test fixture\n')
-      expect(() => { prunePrimaryRuntimePythonTests(root) }).toThrow('invalid wheel RECORD')
+      expect(() => {
+        prunePrimaryRuntimePythonTests(root)
+      }).toThrow('invalid wheel RECORD')
       expect(await readFile(testFile, 'utf8')).toBe('test fixture\n')
     } finally {
       await rm(root, { recursive: true, force: true })

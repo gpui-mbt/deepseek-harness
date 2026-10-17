@@ -26,8 +26,12 @@ export function requiredText(value: string, field: string, maxLength: number): s
 export function writeScope(value: string): string {
   const normalized = value.replaceAll('\\', '/').replace(/^\.\//u, '').replace(/\/+$/u, '')
   const segments = normalized.split('/')
-  if (normalized.length === 0 || normalized.startsWith('/') || /^[a-z]:/iu.test(normalized)
-    || segments.some(segment => segment.length === 0 || segment === '.' || segment === '..')) {
+  if (
+    normalized.length === 0 ||
+    normalized.startsWith('/') ||
+    /^[a-z]:/iu.test(normalized) ||
+    segments.some(segment => segment.length === 0 || segment === '.' || segment === '..')
+  ) {
     throw new TeamError(`invalid workspace-relative write scope ${JSON.stringify(value)}`, 'TEAM_INVALID_WRITE_SCOPE')
   }
   return normalized

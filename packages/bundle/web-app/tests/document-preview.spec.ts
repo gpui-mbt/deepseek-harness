@@ -18,7 +18,7 @@ import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import { FsError } from '@deepseek-ai/dsh-fs'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import type { Converter, ConverterOptions } from '@deepseek-ai/libreoffice-kit'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 
 const kit = vi.hoisted(() => ({ create: vi.fn<(options?: ConverterOptions) => Promise<Converter>>() }))
 vi.mock('@deepseek-ai/libreoffice-kit', () => ({ createConverter: kit.create }))
@@ -27,8 +27,12 @@ it('loads the shipped Office rows with separately patched settings and authorize
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'dsh-web-office-')))
   const ctx = new Context()
   onTestFinished(async () => {
-    try { await ctx.fiber.dispose() }
-    finally { vi.restoreAllMocks(); await rm(directory, { recursive: true, force: true }) }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      vi.restoreAllMocks()
+      await rm(directory, { recursive: true, force: true })
+    }
   })
   const configPath = join(directory, 'cordis.yml')
   const expectedRows = {
@@ -36,24 +40,34 @@ it('loads the shipped Office rows with separately patched settings and authorize
     'ui-sidebar-documentpreview': '@deepseek-ai/dsh-client-ui-sidebar-documentpreview',
   }
   const rows = loadOverlayPatches('web-office-test', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))
-    .flatMap(patch => patch.insert ?? []).filter(row => row.id !== undefined && Object.hasOwn(expectedRows, row.id))
+    .flatMap(patch => patch.insert ?? [])
+    .filter(row => row.id !== undefined && Object.hasOwn(expectedRows, row.id))
   expect(rows.map(row => [row.id, row.name])).toEqual(Object.entries(expectedRows))
   const providerConfig = { maxInputBytes: 4096, maxConcurrentConversions: 1, fontFallbacks: [['Missing Serif', 'Available Serif']] }
   const clientConfig = DocumentPreview.Config({ office: { maxCachedEntries: 3, maxCachedBytes: 8192 } })
-  const configured = applyEntryPatches(rows, [
-    { id: 'office-to-pdf', config: providerConfig },
-    { id: 'ui-sidebar-documentpreview', config: clientConfig },
-  ], (message) => { throw new Error(message) })
+  const configured = applyEntryPatches(
+    rows,
+    [
+      { id: 'office-to-pdf', config: providerConfig },
+      { id: 'ui-sidebar-documentpreview', config: clientConfig },
+    ],
+    message => {
+      throw new Error(message)
+    },
+  )
   expect(configured.find(row => row.id === 'ui-sidebar-documentpreview')!.config).toEqual(clientConfig)
-  await writeFile(configPath, JSON.stringify([
-    { name: '@deepseek-ai/dsh-session' },
-    { name: '@deepseek-ai/dsh-session-projection' },
-    { name: '@deepseek-ai/dsh-sandbox-policy', config: { workspaceRoot: directory } },
-    { name: '@deepseek-ai/dsh-fs-local', config: { cwd: directory } },
-    { name: '@deepseek-ai/dsh-typert-registry' },
-    { name: '@deepseek-ai/dsh-api-workspace-files', config: { maxFileBytes: 1 } },
-    ...configured,
-  ]))
+  await writeFile(
+    configPath,
+    JSON.stringify([
+      { name: '@deepseek-ai/dsh-session' },
+      { name: '@deepseek-ai/dsh-session-projection' },
+      { name: '@deepseek-ai/dsh-sandbox-policy', config: { workspaceRoot: directory } },
+      { name: '@deepseek-ai/dsh-fs-local', config: { cwd: directory } },
+      { name: '@deepseek-ai/dsh-typert-registry' },
+      { name: '@deepseek-ai/dsh-api-workspace-files', config: { maxFileBytes: 1 } },
+      ...configured,
+    ]),
+  )
   const pdf = Buffer.from('%PDF-1.7\nLoader preview\n%%EOF\n')
   const render = vi.fn<Converter['render']>().mockImplementation(async ({ inputPath, outputPath }) => {
     expect(await readFile(inputPath)).toEqual(Buffer.from('authorized OOXML'))
@@ -61,7 +75,9 @@ it('loads the shipped Office rows with separately patched settings and authorize
     return { backend: 'native', missingFonts: ['Missing Serif'] }
   })
   kit.create.mockReset().mockResolvedValue({
-    backend: 'native', render, dispose: async () => {},
+    backend: 'native',
+    render,
+    dispose: async () => {},
     renderImages: vi.fn<Converter['renderImages']>().mockRejectedValue(new Error('Unexpected Converter.renderImages call')),
     convert: vi.fn<Converter['convert']>().mockRejectedValue(new Error('Unexpected Converter.convert call')),
     recalculate: vi.fn<Converter['recalculate']>().mockRejectedValue(new Error('Unexpected Converter.recalculate call')),
@@ -93,14 +109,12 @@ it('loads the shipped Office rows with separately patched settings and authorize
   for (const row of configured) await entries.get(row.id)!.fiber!.await()
   const injections: IndexInjection[] = []
   ctx.emit('webserver/index-inject', injections)
-  expect(injections).toEqual([
-    { kind: 'global', name: '__DSH_DOCUMENT_PREVIEW_CONFIG__', value: clientConfig },
-  ])
+  expect(injections).toEqual([{ kind: 'global', name: '__DSH_DOCUMENT_PREVIEW_CONFIG__', value: clientConfig }])
 
   const id = SessionId('office-loader')
   const session = ctx.sessions.create(id, { meta: { cwd: directory } })
   const lookup = ctx.typert.lookups.get('workspaceFileScope')!
-  const scope = await lookup.resolve(id) as WorkspaceFileScope | undefined
+  const scope = (await lookup.resolve(id)) as WorkspaceFileScope | undefined
   if (scope === undefined) throw new Error('Expected the Session workspace scope')
   expect(await lookup.resolve(SessionId('missing'))).toBeUndefined()
   const sourcePath = join(directory, 'report.docx')
@@ -109,8 +123,16 @@ it('loads the shipped Office rows with separately patched settings and authorize
   const version = (await ctx.workspaceFiles.stat(scope, 'report.docx', signal)).version
   const before = session.seq
   const result = await ctx.officeToPdf.render(scope, 'report.docx', 'foreground', signal)
-  expect(result).toEqual({ absolutePath: sourcePath, version, offset: 0, eof: true, bytes: pdf.length,
-    data: Uint8Array.from(pdf), missingFonts: ['Missing Serif'], generation: ctx.officeToPdf.generation })
+  expect(result).toEqual({
+    absolutePath: sourcePath,
+    version,
+    offset: 0,
+    eof: true,
+    bytes: pdf.length,
+    data: Uint8Array.from(pdf),
+    missingFonts: ['Missing Serif'],
+    generation: ctx.officeToPdf.generation,
+  })
   const readAgain = vi.spyOn(ctx.fs, 'readBytes')
   expect(await ctx.officeToPdf.render(scope, 'report.docx', 'foreground', signal)).toEqual(result)
   expect(readAgain).not.toHaveBeenCalled()
@@ -119,15 +141,17 @@ it('loads the shipped Office rows with separately patched settings and authorize
   expect(ctx.get('agents')).toBeUndefined()
   const { maxConcurrentConversions: _count, ...kitOptions } = providerConfig
   expect(kit.create).toHaveBeenCalledWith(expect.objectContaining(kitOptions))
-  await expect(ctx.officeToPdf.render(scope, 'missing.docx', 'foreground', signal))
-    .rejects.toMatchObject({ code: 'workspace-file/not-found' })
+  await expect(ctx.officeToPdf.render(scope, 'missing.docx', 'foreground', signal)).rejects.toMatchObject({
+    code: 'workspace-file/not-found',
+  })
   const refusal = new FsError('read refused', 'FS_SANDBOX_DENIED')
   vi.spyOn(ctx.fs, 'stat').mockRejectedValueOnce(refusal)
   await expect(ctx.officeToPdf.render(scope, 'report.docx', 'foreground', signal)).rejects.toBe(refusal)
   if (process.platform !== 'win32') {
     await symlink(sourcePath, join(directory, 'link.docx'))
-    await expect(ctx.officeToPdf.render(scope, 'link.docx', 'foreground', signal))
-      .rejects.toMatchObject({ code: 'workspace-file/not-regular-file' })
+    await expect(ctx.officeToPdf.render(scope, 'link.docx', 'foreground', signal)).rejects.toMatchObject({
+      code: 'workspace-file/not-regular-file',
+    })
   }
   expect(render).toHaveBeenCalledOnce()
 })

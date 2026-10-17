@@ -58,7 +58,7 @@ export async function graphql(query, variables) {
       'Content-Type': 'application/json',
     },
   })
-  if (result.errors?.length) throw new Error(result.errors.map((error) => error.message).join('; '))
+  if (result.errors?.length) throw new Error(result.errors.map(error => error.message).join('; '))
   return result.data
 }
 
@@ -75,7 +75,7 @@ export async function issueSnapshot(number, status = undefined) {
   return {
     number,
     nodeId: issue.node_id,
-    labels: issue.labels.map((label) => label.name),
+    labels: issue.labels.map(label => label.name),
     type: issue.type?.name ?? null,
     priority: context.item?.priorityValue?.name ?? null,
     status: status === undefined ? (context.item?.fieldValueByName?.name ?? null) : status,
@@ -93,71 +93,88 @@ export async function issueSnapshot(number, status = undefined) {
  */
 export async function projectContext(number, includeStatusActor = false, includeStartDate = false) {
   const data = await graphql(
-    `query(
-      $organization: String!
-      $repository: String!
-      $number: Int!
-      $project: Int!
-      $includeStatusActor: Boolean!
-      $includeStartDate: Boolean!
-      $priorityField: String!
-      $startDateField: String!
-    ) {
-      organization(login: $organization) {
-        projectV2(number: $project) {
-          id
-          title
-          fields(first: 50) {
-            nodes {
-              ... on ProjectV2Field {
-                id
-                name
-                dataType
-                isIssueField
+    `
+      query (
+        $organization: String!
+        $repository: String!
+        $number: Int!
+        $project: Int!
+        $includeStatusActor: Boolean!
+        $includeStartDate: Boolean!
+        $priorityField: String!
+        $startDateField: String!
+      ) {
+        organization(login: $organization) {
+          projectV2(number: $project) {
+            id
+            title
+            fields(first: 50) {
+              nodes {
+                ... on ProjectV2Field {
+                  id
+                  name
+                  dataType
+                  isIssueField
+                }
+                ... on ProjectV2SingleSelectField {
+                  id
+                  name
+                  dataType
+                  isIssueField
+                  options {
+                    id
+                    name
+                  }
+                }
               }
-              ... on ProjectV2SingleSelectField {
+            }
+          }
+        }
+        repository(owner: $organization, name: $repository) {
+          issue(number: $number) {
+            id
+            timelineItems(last: 100, itemTypes: [PROJECT_V2_ITEM_STATUS_CHANGED_EVENT]) @include(if: $includeStatusActor) {
+              nodes {
+                ... on ProjectV2ItemStatusChangedEvent {
+                  actor {
+                    login
+                  }
+                  project {
+                    id
+                  }
+                  status
+                }
+              }
+            }
+            projectItems(first: 20, includeArchived: true) {
+              nodes {
                 id
-                name
-                dataType
-                isIssueField
-                options { id name }
+                project {
+                  id
+                }
+                fieldValueByName(name: "Status") {
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    name
+                    optionId
+                  }
+                }
+                priorityValue: fieldValueByName(name: $priorityField) {
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    name
+                    optionId
+                  }
+                }
+                startDateValue: fieldValueByName(name: $startDateField) @include(if: $includeStartDate) {
+                  ... on ProjectV2ItemFieldDateValue {
+                    date
+                  }
+                }
               }
             }
           }
         }
       }
-      repository(owner: $organization, name: $repository) {
-        issue(number: $number) {
-          id
-          timelineItems(last: 100, itemTypes: [PROJECT_V2_ITEM_STATUS_CHANGED_EVENT])
-            @include(if: $includeStatusActor) {
-            nodes {
-              ... on ProjectV2ItemStatusChangedEvent {
-                actor { login }
-                project { id }
-                status
-              }
-            }
-          }
-          projectItems(first: 20, includeArchived: true) {
-            nodes {
-              id
-              project { id }
-              fieldValueByName(name: "Status") {
-                ... on ProjectV2ItemFieldSingleSelectValue { name optionId }
-              }
-              priorityValue: fieldValueByName(name: $priorityField) {
-                ... on ProjectV2ItemFieldSingleSelectValue { name optionId }
-              }
-              startDateValue: fieldValueByName(name: $startDateField)
-                @include(if: $includeStartDate) {
-                ... on ProjectV2ItemFieldDateValue { date }
-              }
-            }
-          }
-        }
-      }
-    }`,
+    `,
     {
       organization: config.organization,
       repository: config.repository,
@@ -173,9 +190,9 @@ export async function projectContext(number, includeStatusActor = false, include
   const issue = data.repository?.issue
   if (!project || project.title !== config.projectTitle) throw new Error('目标 Project 不存在或标题不匹配')
   if (!issue) throw new Error(`#${number} 不存在`)
-  const statusField = project.fields.nodes.find((field) => field?.name === 'Status')
+  const statusField = project.fields.nodes.find(field => field?.name === 'Status')
   if (!statusField) throw new Error('Project 缺少 Status 字段')
-  const priorityField = project.fields.nodes.find((field) => field?.name === config.priorityField)
+  const priorityField = project.fields.nodes.find(field => field?.name === config.priorityField)
   if (!priorityField) throw new Error(`Project 缺少 ${config.priorityField} 字段`)
   if (priorityField.dataType !== 'SINGLE_SELECT') {
     throw new Error(`Project ${config.priorityField} 字段必须为 Single Select`)
@@ -183,9 +200,7 @@ export async function projectContext(number, includeStatusActor = false, include
   if (priorityField.isIssueField) {
     throw new Error(`Project ${config.priorityField} 字段必须为 Project custom field`)
   }
-  const startDateField = includeStartDate
-    ? project.fields.nodes.find((field) => field?.name === config.startDateField)
-    : null
+  const startDateField = includeStartDate ? project.fields.nodes.find(field => field?.name === config.startDateField) : null
   if (includeStartDate && !startDateField) {
     throw new Error(`Project 缺少 ${config.startDateField} 字段`)
   }
@@ -195,14 +210,10 @@ export async function projectContext(number, includeStatusActor = false, include
   if (startDateField?.isIssueField) {
     throw new Error(`Project ${config.startDateField} 字段必须为 Project Date 字段`)
   }
-  const item = issue.projectItems.nodes.find((candidate) => candidate.project.id === project.id)
-  const latestStatusEvent = issue.timelineItems?.nodes
-    ?.filter((event) => event?.project?.id === project.id)
-    .at(-1)
+  const item = issue.projectItems.nodes.find(candidate => candidate.project.id === project.id)
+  const latestStatusEvent = issue.timelineItems?.nodes?.filter(event => event?.project?.id === project.id).at(-1)
   const statusActor =
-    latestStatusEvent && latestStatusEvent.status === item?.fieldValueByName?.name
-      ? (latestStatusEvent.actor?.login ?? null)
-      : null
+    latestStatusEvent && latestStatusEvent.status === item?.fieldValueByName?.name ? (latestStatusEvent.actor?.login ?? null) : null
   return { project, issue, statusField, priorityField, startDateField, item, statusActor }
 }
 
@@ -216,11 +227,15 @@ export async function ensureProjectItem(number, includeStartDate = false) {
   const context = await projectContext(number, false, includeStartDate)
   if (context.item) return context
   const data = await graphql(
-    `mutation($projectId: ID!, $contentId: ID!) {
-      addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
-        item { id }
+    `
+      mutation ($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+          item {
+            id
+          }
+        }
       }
-    }`,
+    `,
     { projectId: context.project.id, contentId: context.issue.id },
   )
   return {
@@ -244,14 +259,15 @@ export async function initializeIssueStartDate(number, date) {
   const context = await ensureProjectItem(number, true)
   if (context.item.startDateValue?.date) return
   await graphql(
-    `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $date: Date!) {
-      updateProjectV2ItemFieldValue(input: {
-        projectId: $projectId,
-        itemId: $itemId,
-        fieldId: $fieldId,
-        value: {date: $date}
-      }) { projectV2Item { id } }
-    }`,
+    `
+      mutation ($projectId: ID!, $itemId: ID!, $fieldId: ID!, $date: Date!) {
+        updateProjectV2ItemFieldValue(input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { date: $date } }) {
+          projectV2Item {
+            id
+          }
+        }
+      }
+    `,
     {
       projectId: context.project.id,
       itemId: context.item.id,
@@ -268,18 +284,21 @@ export async function initializeIssueStartDate(number, date) {
  * @returns {Promise<void>} Resolves after the optional update; rejects an unknown option.
  */
 export async function updateStatus(context, status) {
-  const option = context.statusField.options.find((candidate) => candidate.name === status)
+  const option = context.statusField.options.find(candidate => candidate.name === status)
   if (!option) throw new Error(`Status 不存在：${status}`)
   if (context.item.fieldValueByName?.name === status) return
   await graphql(
-    `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-      updateProjectV2ItemFieldValue(input: {
-        projectId: $projectId,
-        itemId: $itemId,
-        fieldId: $fieldId,
-        value: {singleSelectOptionId: $optionId}
-      }) { projectV2Item { id } }
-    }`,
+    `
+      mutation ($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+        updateProjectV2ItemFieldValue(
+          input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { singleSelectOptionId: $optionId } }
+        ) {
+          projectV2Item {
+            id
+          }
+        }
+      }
+    `,
     {
       projectId: context.project.id,
       itemId: context.item.id,

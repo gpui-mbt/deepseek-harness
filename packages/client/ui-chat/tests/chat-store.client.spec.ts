@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createChatStore, storedTurnProcessEntry, turnProcessOpen } from '../src/client/stores.ts'
 
 describe('createChatStore', () => {
@@ -31,7 +31,7 @@ describe('createChatStore', () => {
     ])
   })
 
-  it.each([false, true])('uses the default %s only without a matching manual answer choice', (defaultOpen) => {
+  it.each([false, true])('uses the default %s only without a matching manual answer choice', defaultOpen => {
     const store = createChatStore().create()
     const spec = { turn: 2, answerStep: 3 }
     const open = () => turnProcessOpen(store.store.getSnapshot(), spec, defaultOpen)

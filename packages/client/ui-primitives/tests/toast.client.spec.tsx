@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Toast } from '../src/Toast.tsx'
 
@@ -24,7 +24,7 @@ describe('Toast', () => {
     }
   })
 
-  it('holds for the owner\'s window and hands the stylesheet the same value', () => {
+  it("holds for the owner's window and hands the stylesheet the same value", () => {
     vi.useFakeTimers()
     try {
       const onDone = vi.fn()

@@ -41,10 +41,7 @@ export interface TrajectoryTimelineModel extends TrajectoryTimeRange {
  * @param t - Trajectory locale translator.
  * @returns Millisecond label with thousands separators.
  */
-export function formatTimelineOffset(
-  milliseconds: number,
-  t: TrajectoryTranslate,
-): string {
+export function formatTimelineOffset(milliseconds: number, t: TrajectoryTranslate): string {
   return formatDurationMillis(milliseconds, t)
 }
 
@@ -60,9 +57,7 @@ function finite(value: number | null | undefined): value is number {
 
 function cellRange(cell: TrajectoryCellProps): TrajectoryTimeRange | null {
   if (!finite(cell.startedAt)) return null
-  const durationMs = finite(cell.timeSeconds)
-    ? Math.max(0, cell.timeSeconds * 1_000)
-    : 0
+  const durationMs = finite(cell.timeSeconds) ? Math.max(0, cell.timeSeconds * 1_000) : 0
   return { start: cell.startedAt, end: cell.startedAt + durationMs }
 }
 
@@ -77,19 +72,13 @@ export function deriveTrajectoryTimeline(
   mode: TrajectoryTimelineMode = 'sequence',
 ): TrajectoryTimelineModel | null {
   if (mode !== 'sequence') {
-    return deriveTimedTimeline(
-      turns,
-      mode === 'duration' || mode === 'actual',
-      mode === 'duration',
-    )
+    return deriveTimedTimeline(turns, mode === 'duration' || mode === 'actual', mode === 'duration')
   }
   const spans: TrajectoryTimelineSpan[] = []
   const turnBoundaries: TrajectoryTimelineTurnBoundary[] = []
 
   for (const turn of turns) {
-    const cells = turn.groups.flatMap(group =>
-      group.cells.filter(cell => cell.requestOnly !== true),
-    )
+    const cells = turn.groups.flatMap(group => group.cells.filter(cell => cell.requestOnly !== true))
     if (cells.length === 0) continue
     if (turn.turn !== null) {
       turnBoundaries.push({
@@ -97,15 +86,17 @@ export function deriveTrajectoryTimeline(
         time: spans.length,
       })
     }
-    spans.push(...cells.map((cell, offset): TrajectoryTimelineSpan => ({
-      start: spans.length + offset,
-      end: spans.length + offset + 1,
-      index: cell.index,
-      isError: cell.isError === true,
-      kind: cell.kind,
-      label: cell.text,
-      lane: laneFor(cell.kind),
-    })))
+    spans.push(
+      ...cells.map((cell, offset): TrajectoryTimelineSpan => ({
+        start: spans.length + offset,
+        end: spans.length + offset + 1,
+        index: cell.index,
+        isError: cell.isError === true,
+        kind: cell.kind,
+        label: cell.text,
+        lane: laneFor(cell.kind),
+      })),
+    )
   }
 
   if (spans.length === 0) return null
@@ -122,21 +113,23 @@ function deriveTimedTimeline(
   actualDuration: boolean,
   compressIdle: boolean,
 ): TrajectoryTimelineModel | null {
-  const timedTurns = turns.flatMap((turn) => {
+  const timedTurns = turns.flatMap(turn => {
     const rawSpans = turn.groups.flatMap(group =>
       group.cells.flatMap((cell): TrajectoryTimelineSpan[] => {
         if (cell.requestOnly === true) return []
         const range = cellRange(cell)
         return range === null
           ? []
-          : [{
-            ...range,
-            index: cell.index,
-            isError: cell.isError === true,
-            kind: cell.kind,
-            label: cell.text,
-            lane: laneFor(cell.kind),
-          }]
+          : [
+              {
+                ...range,
+                index: cell.index,
+                isError: cell.isError === true,
+                kind: cell.kind,
+                label: cell.text,
+                lane: laneFor(cell.kind),
+              },
+            ]
       }),
     )
     return rawSpans.length === 0 ? [] : [{ turn: turn.turn, rawSpans }]
@@ -147,8 +140,7 @@ function deriveTimedTimeline(
   const removedIdleBySpan = new Map<TrajectoryTimelineSpan, number>()
   let removedIdle = 0
   let coveredUntil: number | null = null
-  for (const span of [...rawSpans].sort((left, right) =>
-    left.start - right.start || left.end - right.end)) {
+  for (const span of [...rawSpans].sort((left, right) => left.start - right.start || left.end - right.end)) {
     if (compressIdle && coveredUntil !== null && span.start > coveredUntil) {
       removedIdle += span.start - coveredUntil
     }
@@ -197,9 +189,5 @@ export function trajectoryTimelineFocusIndexes(
   mode: TrajectoryTimelineMode = 'sequence',
 ): ReadonlySet<number> {
   const model = deriveTrajectoryTimeline(turns, mode)
-  return new Set(
-    model?.spans
-      .filter(span => span.start <= range.end && span.end >= range.start)
-      .map(span => span.index),
-  )
+  return new Set(model?.spans.filter(span => span.start <= range.end && span.end >= range.start).map(span => span.index))
 }

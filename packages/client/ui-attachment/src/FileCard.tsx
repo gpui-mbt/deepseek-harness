@@ -20,7 +20,13 @@ export type FileCardState = 'uploading' | 'ready' | 'error'
 
 /** One pending file card: type glyph, name, size or upload status, remove, retry. */
 export function FileCard({
-  name, bytes, state, progress, labels, onRemove, onRetry,
+  name,
+  bytes,
+  state,
+  progress,
+  labels,
+  onRemove,
+  onRetry,
 }: {
   name: string
   bytes: number
@@ -31,35 +37,29 @@ export function FileCard({
   onRetry: () => void
 }) {
   const extension = fileExtension(name).toUpperCase().slice(0, 8)
-  const meta = state === 'uploading'
-    ? labels.uploading
-    : state === 'error'
-      ? labels.failed
-      : [extension, fileSizeText(bytes)].filter(part => part !== '').join(' ')
+  const meta =
+    state === 'uploading'
+      ? labels.uploading
+      : state === 'error'
+        ? labels.failed
+        : [extension, fileSizeText(bytes)].filter(part => part !== '').join(' ')
   const retryable = state === 'error'
   return (
-    <div
-      className={`${css.card}${retryable ? ` ${css.failed}` : ''}`}
-      title={name}
-    >
+    <div className={`${css.card}${retryable ? ` ${css.failed}` : ''}`} title={name}>
       <span className={css.icon} aria-hidden>
-        {state === 'uploading'
-          ? <span className={css.spinner} />
-          : <FileTypeIcon path={name} />}
+        {state === 'uploading' ? <span className={css.spinner} /> : <FileTypeIcon path={name} />}
       </span>
-      {retryable
-        ? (
-          <button type="button" className={`${css.body} ${css.retry}`} aria-label={labels.retry} onClick={onRetry}>
-            <span className={css.name}>{name}</span>
-            <span className={`${css.meta} ${css.metaFailed}`}>{meta}</span>
-          </button>
-        )
-        : (
-          <span className={css.body} aria-label={labels.label}>
-            <span className={css.name}>{name}</span>
-            <span className={css.meta}>{meta}</span>
-          </span>
-        )}
+      {retryable ? (
+        <button type="button" className={`${css.body} ${css.retry}`} aria-label={labels.retry} onClick={onRetry}>
+          <span className={css.name}>{name}</span>
+          <span className={`${css.meta} ${css.metaFailed}`}>{meta}</span>
+        </button>
+      ) : (
+        <span className={css.body} aria-label={labels.label}>
+          <span className={css.name}>{name}</span>
+          <span className={css.meta}>{meta}</span>
+        </span>
+      )}
       <button
         type="button"
         className={retryable ? `${css.remove} ${css.removeFailed}` : css.remove}

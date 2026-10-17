@@ -86,10 +86,7 @@ export const inject = ['inputTriggers', 'sessions', 'slots', 'locale', 'remote',
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-skill: dictionaries')
   ctx.uiConversation.userText.register(skillReferenceRule)
-  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register(
-    { name: 'tool.call.toolview', key: 'skill', locale: NS },
-    SkillRow,
-  ))
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({ name: 'tool.call.toolview', key: 'skill', locale: NS }, SkillRow))
 
   const skills = ctx.remote.skills
   const sessions = ctx.sessions
@@ -120,7 +117,7 @@ export function apply(ctx: ClientContext): void {
       if (sessions.binding(sessionId) === undefined) {
         throw new Error(`skill catalog requires a retained session "${sessionId}"`)
       }
-      return sessions.using(sessionId, { source: 'skillCatalog', signal: abort.signal }, async (reference) => {
+      return sessions.using(sessionId, { source: 'skillCatalog', signal: abort.signal }, async reference => {
         abort.signal.throwIfAborted()
         const state = reference.binding.session.getSnapshot()
         if (state.openState !== 'open') {
@@ -136,7 +133,7 @@ export function apply(ctx: ClientContext): void {
     fetches.set(sessionId, entry)
     promise.then(
       // Settled snapshot backs the synchronous lexicon reads.
-      (skills) => {
+      skills => {
         entry.settled = skills
         notifyLexicon(sessionId)
       },
@@ -175,13 +172,12 @@ export function apply(ctx: ClientContext): void {
       if (signal.aborted) return []
       // The same ranking as the command group of this menu: case-insensitive
       // ordered subsequence, prefix hits first.
-      return rankByName(skills, query)
-        .map(skill => ({
-          name: skill.name,
-          // The user-only marker rides the description (the menu's only
-          // secondary text); `hint` is the claim-state ghost text, not a badge.
-          description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
-        }))
+      return rankByName(skills, query).map(skill => ({
+        name: skill.name,
+        // The user-only marker rides the description (the menu's only
+        // secondary text); `hint` is the claim-state ghost text, not a badge.
+        description: skill.modelInvocable ? skill.description : `${t('menu.userOnly')} · ${skill.description}`,
+      }))
     },
     warm(session) {
       // Fire-and-forget scope-birth prewarm; the shared fetch reports
@@ -214,11 +210,13 @@ export function apply(ctx: ClientContext): void {
       const settled = fetches.get(session.sessionId)?.settled
       if (settled !== undefined) return open(settled)
       const entry = fetchCatalog(session.sessionId)
-      void entry.promise.then((catalog) => {
-        if (!entry.abort.signal.aborted) open(catalog)
-      }).catch((error: unknown) => {
-        if (!entry.abort.signal.aborted) console.error('[ui-skill] reference preview failed:', error)
-      })
+      void entry.promise
+        .then(catalog => {
+          if (!entry.abort.signal.aborted) open(catalog)
+        })
+        .catch((error: unknown) => {
+          if (!entry.abort.signal.aborted) console.error('[ui-skill] reference preview failed:', error)
+        })
       return true
     },
     onPick({ candidate }) {
@@ -233,17 +231,22 @@ export function apply(ctx: ClientContext): void {
     },
   } satisfies InputTriggerSource
 
-  ctx.slots.inject('conversation.user.text.node', () => ctx.slots.register({
-    name: 'conversation.user.text.node',
-    key: 'skill',
-    priority: 100,
-    inject: (sessionId): SkillReferenceInjected => ({
-      openSkill: (name) => {
-        if (sessions.scope(sessionId) === undefined) return
-        source.openReference({ sessionId }, { ref: `/${name}` })
+  ctx.slots.inject('conversation.user.text.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.user.text.node',
+        key: 'skill',
+        priority: 100,
+        inject: (sessionId): SkillReferenceInjected => ({
+          openSkill: name => {
+            if (sessions.scope(sessionId) === undefined) return
+            source.openReference({ sessionId }, { ref: `/${name}` })
+          },
+        }),
       },
-    }),
-  }, SkillReference))
+      SkillReference,
+    ),
+  )
 
   const inputTriggers = ctx.get('inputTriggers') as InputTriggerServiceContract
   // A preset decides which skill providers an agent reads, so a switched

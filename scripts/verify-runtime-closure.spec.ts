@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { loadCordisYaml } from './cordis-yaml.ts'
 import { verifyRuntimeClosure } from './verify-runtime-closure.ts'
 
@@ -14,7 +14,23 @@ function fixture(files: Record<string, string | Record<string, unknown>>): strin
     const preset = /^preset:(.+)$/.exec(relative)
     const path = join(root, preset === null ? relative : `packages/bundle/web-app/presets/${preset[1]}.patch.yml`)
     mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, preset === null ? (typeof value === 'string' ? value : `${JSON.stringify(value, null, 2)}\n`) : JSON.stringify([{ insert: [{ name: '@deepseek-ai/dsh-agent-preset', config: { id: preset[1], plugins: typeof value === 'string' ? loadCordisYaml(value) : value } }] }]))
+    writeFileSync(
+      path,
+      preset === null
+        ? typeof value === 'string'
+          ? value
+          : `${JSON.stringify(value, null, 2)}\n`
+        : JSON.stringify([
+            {
+              insert: [
+                {
+                  name: '@deepseek-ai/dsh-agent-preset',
+                  config: { id: preset[1], plugins: typeof value === 'string' ? loadCordisYaml(value) : value },
+                },
+              ],
+            },
+          ]),
+    )
   }
   return root
 }
@@ -45,7 +61,10 @@ describe('verifyRuntimeClosure', () => {
     workspace(root, '@scope/worker', { peerDependencies: { '@scope/peer': 'workspace:^' } })
     workspace(root, '@scope/peer', {})
     expect((await verifyRuntimeClosure(root, manifestPath, false)).failures).toEqual(['helper -> @scope/worker -> @scope/peer'])
-    writeFileSync(join(root, manifestPath), JSON.stringify({ name: 'helper', dependencies: { '@scope/worker': 'workspace:^', '@scope/peer': 'workspace:^' } }))
+    writeFileSync(
+      join(root, manifestPath),
+      JSON.stringify({ name: 'helper', dependencies: { '@scope/worker': 'workspace:^', '@scope/peer': 'workspace:^' } }),
+    )
     expect(await verifyRuntimeClosure(root, manifestPath, false)).toMatchObject({ failures: [], presetCount: 0 })
   })
 
@@ -95,9 +114,7 @@ describe('verifyRuntimeClosure', () => {
 
     const result = await verifyRuntimeClosure(root)
 
-    expect(result.failures).toEqual([
-      'standard preset -> @scope/conditional (linux-arm64, linux-x64, macos-arm64, macos-x64, win-x64)',
-    ])
+    expect(result.failures).toEqual(['standard preset -> @scope/conditional (linux-arm64, linux-x64, macos-arm64, macos-x64, win-x64)'])
   })
 
   it('does not interpret an ordinary plugin array config as nested Loader entries', async () => {
@@ -143,9 +160,7 @@ describe('verifyRuntimeClosure', () => {
     const result = await verifyRuntimeClosure(root)
 
     expect(result.presetCount).toBe(0)
-    expect(result.failures).toEqual([
-      'no agent presets matched packages/bundle/web-app/presets/*.patch.yml',
-    ])
+    expect(result.failures).toEqual(['no agent presets matched packages/bundle/web-app/presets/*.patch.yml'])
   })
 
   it('fails when the runtime platform manifest has no targets', async () => {
@@ -157,9 +172,7 @@ describe('verifyRuntimeClosure', () => {
 
     const result = await verifyRuntimeClosure(root)
 
-    expect(result.failures).toEqual([
-      'python/sdk-runtime/platforms.json defines no runtime targets',
-    ])
+    expect(result.failures).toEqual(['python/sdk-runtime/platforms.json defines no runtime targets'])
   })
 
   it('retains the required workspace-peer closure check', async () => {

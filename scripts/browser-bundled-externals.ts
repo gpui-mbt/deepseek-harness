@@ -39,8 +39,14 @@ function recorder(seen: Set<string>, workspaceNames: ReadonlySet<string>, follow
     resolveId: {
       order: 'pre' as const,
       async handler(this: ResolveContext, source: string, importer: string | undefined) {
-        if (importer === undefined || source.startsWith('.') || source.startsWith('/')
-          || source.startsWith('\0') || source.startsWith('node:')) return null
+        if (
+          importer === undefined ||
+          source.startsWith('.') ||
+          source.startsWith('/') ||
+          source.startsWith('\0') ||
+          source.startsWith('node:')
+        )
+          return null
         const parts = source.split('/')
         const name = source.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
         if (name !== undefined && workspaceNames.has(name)) {
@@ -89,7 +95,7 @@ async function collectClientBundles(
   for (const [manifestPath, manifest] of manifests) {
     if (manifest.private === true || manifest.dsh?.client === undefined) continue
     const dir = dirname(manifestPath)
-    const loaded = await import(pathToFileURL(resolve(dir, 'tsdown.config.ts')).href) as { default: UserConfigExport }
+    const loaded = (await import(pathToFileURL(resolve(dir, 'tsdown.config.ts')).href)) as { default: UserConfigExport }
     const factory = await loaded.default
     const configured = typeof factory === 'function' ? await factory({ env: {} }, { ci: false }) : factory
     const configs = Array.isArray(configured) ? configured : [configured]
@@ -118,23 +124,17 @@ interface ShellConfig {
 }
 
 interface ViteApi {
-  resolveConfig(
-    config: Record<string, unknown>, command: 'build', defaultMode: string, defaultNodeEnv: string,
-  ): Promise<ShellConfig>
+  resolveConfig(config: Record<string, unknown>, command: 'build', defaultMode: string, defaultNodeEnv: string): Promise<ShellConfig>
   build(config: Record<string, unknown>): Promise<unknown>
 }
 
-async function collectShell(
-  root: string,
-  workspaceNames: ReadonlySet<string>,
-  seen: Set<string>,
-): Promise<void> {
+async function collectShell(root: string, workspaceNames: ReadonlySet<string>, seen: Set<string>): Promise<void> {
   for (const path of globSync('apps/*/vite.config.ts', { cwd: root }).sort()) {
     const dir = dirname(resolve(root, path))
     const manifest = readManifest(resolve(dir, 'package.json'))
     if (manifest.private === true || manifest.exports?.['./dist/*'] === undefined) continue
     const vitePath = createRequire(resolve(dir, 'package.json')).resolve('vite')
-    const vite = await import(pathToFileURL(vitePath).href) as ViteApi
+    const vite = (await import(pathToFileURL(vitePath).href)) as ViteApi
     const config = await vite.resolveConfig({ root: dir, logLevel: 'error' }, 'build', 'production', 'production')
     const input = config.build.rollupOptions?.input
     const entries = typeof input === 'string' ? [input] : Object.values(input ?? {})

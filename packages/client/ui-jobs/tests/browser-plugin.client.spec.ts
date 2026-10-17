@@ -7,7 +7,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { Context } from '@deepseek-ai/cordis'
 import { JobId } from '@deepseek-ai/dsh-jobs/brand'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
@@ -18,9 +18,7 @@ import { en, NS, zh } from '../src/client/locales.ts'
 
 /** Slot ledger reader: entry ids currently registered in the header list. */
 function headerEntryIds(ctx: Context): (string | undefined)[] {
-  return ctx.slots
-    .entries('conversation.session.header.actions')
-    .map(entry => entry.options.id)
+  return ctx.slots.entries('conversation.session.header.actions').map(entry => entry.options.id)
 }
 
 /** Observation requests handed to the stubbed jobs service. */
@@ -36,12 +34,15 @@ let killResult: { ok: boolean } = { ok: true }
 async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  ctx.slots.register({
-    name: 'root',
-    children: {
-      'conversation.session.header.actions': { kind: 'list', scope: 'session' },
-    },
-  } as never, () => null)
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    () => null,
+  )
   ctx.provide('jobs', {
     state: { getSnapshot: () => ({ rows: {}, observed: {} }), subscribe: () => () => {} },
     watchRows: (sessionId: string) => {
@@ -79,9 +80,7 @@ describe('ui-jobs browser half', () => {
 
   it('exposes the jobs source and the roster, observation, and kill controls through the inject face', async () => {
     const { ctx } = await bench()
-    const entry = ctx.slots
-      .entries('conversation.session.header.actions')
-      .find(candidate => candidate.options.id === 'job-list')
+    const entry = ctx.slots.entries('conversation.session.header.actions').find(candidate => candidate.options.id === 'job-list')
     const inject = entry?.inject as (() => JobListInjected) | undefined
     if (inject === undefined) throw new Error('job-list entry registered no inject face')
     const face = inject()
@@ -99,7 +98,10 @@ describe('ui-jobs browser half', () => {
     await expect(face.killJob(SessionId('sess-live'), 'bash-3')).resolves.toBe(true)
     killResult = { ok: false }
     await expect(face.killJob(SessionId('sess-live'), 'bash-4')).resolves.toBe(false)
-    expect(kills).toEqual([['sess-live', 'bash-3'], ['sess-live', 'bash-4']])
+    expect(kills).toEqual([
+      ['sess-live', 'bash-3'],
+      ['sess-live', 'bash-4'],
+    ])
   })
 
   it('registers the header action, and fiber teardown removes it (HMR safety)', async () => {

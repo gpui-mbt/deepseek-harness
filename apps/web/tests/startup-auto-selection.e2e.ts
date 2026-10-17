@@ -1,10 +1,8 @@
 /** Web acceptance that startup Session opening preserves the resident Hero tree. */
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vitest'
-import {
-  acknowledgeReloadConnectionLoss, launchWebScaffold, watchConsole, type WebScaffold,
-} from './scaffold.ts'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vite-plus/test'
+import { acknowledgeReloadConnectionLoss, launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
 /**
@@ -46,8 +44,7 @@ describe('web e2e: startup auto-selection', () => {
     // hitbox precedes the group, not the text span.
     const fishHitbox = headline.locator('xpath=../preceding-sibling::span[1]')
     const fish = fishHitbox.locator('svg')
-    expect(await fish.evaluate(node => getComputedStyle(node).color))
-      .toBe(await headline.evaluate(node => getComputedStyle(node).color))
+    expect(await fish.evaluate(node => getComputedStyle(node).color)).toBe(await headline.evaluate(node => getComputedStyle(node).color))
     await fishHitbox.hover()
     expect(await fish.evaluate(node => getComputedStyle(node).animationName)).not.toBe('none')
     await page.evaluate(() => {
@@ -66,18 +63,20 @@ describe('web e2e: startup auto-selection', () => {
     // this first connection is also the no-Workspace → Workspace path.
     await connectFreshWorkspace(page, scaffold.workspaceCwd, 'startup-auto-selection')
 
-    expect(await page.evaluate(() => {
-      const before = (window as unknown as { __heroTree: Record<string, Element> }).__heroTree
-      return {
-        phase: document.querySelector('div[data-phase]')?.getAttribute('data-phase'),
-        root: document.querySelector('div[data-phase="hero"]') === before.root,
-        workspaceChip: document.querySelector('[aria-label="Choose workspace"]') === before.workspaceChip,
-        scrollBody: document.querySelector('[data-conversation-scroll]') === before.scrollBody,
-        composerSeat: document.querySelector('[data-composer-seat]') === before.composerSeat,
-        composer: document.querySelector('[data-composer-input]') === before.composer,
-        composerEnabled: document.querySelector('[data-composer-input]')?.getAttribute('aria-disabled') !== 'true',
-      }
-    })).toEqual({
+    expect(
+      await page.evaluate(() => {
+        const before = (window as unknown as { __heroTree: Record<string, Element> }).__heroTree
+        return {
+          phase: document.querySelector('div[data-phase]')?.getAttribute('data-phase'),
+          root: document.querySelector('div[data-phase="hero"]') === before.root,
+          workspaceChip: document.querySelector('[aria-label="Choose workspace"]') === before.workspaceChip,
+          scrollBody: document.querySelector('[data-conversation-scroll]') === before.scrollBody,
+          composerSeat: document.querySelector('[data-composer-seat]') === before.composerSeat,
+          composer: document.querySelector('[data-composer-input]') === before.composer,
+          composerEnabled: document.querySelector('[data-composer-input]')?.getAttribute('aria-disabled') !== 'true',
+        }
+      }),
+    ).toEqual({
       phase: 'hero',
       root: true,
       workspaceChip: true,
@@ -102,21 +101,23 @@ describe('web e2e: startup auto-selection', () => {
     })
 
     let releaseOpening = (): void => {}
-    const openingHeld = new Promise<void>((resolve) => { releaseOpening = resolve })
+    const openingHeld = new Promise<void>(resolve => {
+      releaseOpening = resolve
+    })
     let openingRequested = (): void => {}
-    const openingInFlight = new Promise<void>((resolve) => { openingRequested = resolve })
+    const openingInFlight = new Promise<void>(resolve => {
+      openingRequested = resolve
+    })
     let gated = false
-    const readObservation = scaffold.ctx.sessionQuery.observeSession
-      .bind(scaffold.ctx.sessionQuery)
-    const observe = vi.spyOn(scaffold.ctx.sessionQuery, 'observeSession')
-      .mockImplementation(async (sessionId, options) => {
-        const observation = await readObservation(sessionId, options)
-        if (gated) return observation
-        gated = true
-        openingRequested()
-        await openingHeld
-        return observation
-      })
+    const readObservation = scaffold.ctx.sessionQuery.observeSession.bind(scaffold.ctx.sessionQuery)
+    const observe = vi.spyOn(scaffold.ctx.sessionQuery, 'observeSession').mockImplementation(async (sessionId, options) => {
+      const observation = await readObservation(sessionId, options)
+      if (gated) return observation
+      gated = true
+      openingRequested()
+      await openingHeld
+      return observation
+    })
 
     const warningsBefore = tripwire.warnings.length
     try {
@@ -132,7 +133,10 @@ describe('web e2e: startup auto-selection', () => {
       expect(await page.locator('[data-composer-input]').first().isVisible()).toBe(true)
 
       releaseOpening()
-      await page.locator('[data-composer-input][contenteditable="true"][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]')
+      await page
+        .locator(
+          '[data-composer-input][contenteditable="true"][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]',
+        )
         .waitFor({ timeout: 15_000 })
       acknowledgeReloadConnectionLoss(tripwire, warningsBefore)
 

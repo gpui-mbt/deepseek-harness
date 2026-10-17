@@ -19,12 +19,14 @@
  * actually fold, do the hooks cover timers) is `als-shim.spec.ts`. This file is
  * the middle layer: the protocol, in isolation.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { createAlsRuntime, type AlsCausality, type AlsToken } from '../../src/polyfill/async-context/als-runtime.ts'
 
 const check = (label: string, actual: unknown, expected: unknown): void => {
   const [seen, wanted] = [JSON.stringify(actual), JSON.stringify(expected)]
-  test(label, () => { expect(seen).toBe(wanted) })
+  test(label, () => {
+    expect(seen).toBe(wanted)
+  })
 }
 
 /**
@@ -95,7 +97,17 @@ function recordingCausality(): {
   // operand, most of which are not promises.
   const als = createAlsRuntime(recordingCausality().causality)
   check('pause accepts a plain value', (await als.pause(7)).value, 7)
-  check('pause accepts a thenable', (await als.pause({ then: (resolve: (v: unknown) => void) => { resolve('t') } })).value, 't')
+  check(
+    'pause accepts a thenable',
+    (
+      await als.pause({
+        then: (resolve: (v: unknown) => void) => {
+          resolve('t')
+        },
+      })
+    ).value,
+    't',
+  )
   const nested = await als.pause(Promise.resolve(Promise.resolve('deep')))
   check('pause unwraps a nested promise', nested.value, 'deep')
 }
@@ -258,7 +270,9 @@ function recordingCausality(): {
     } catch (reason) {
       outcome = reason instanceof TypeError ? 'TypeError' : `no TypeError: ${String(reason)}`
     }
-    test(label, () => { expect(outcome).toBe('TypeError') })
+    test(label, () => {
+      expect(outcome).toBe('TypeError')
+    })
   }
   rejects('a plain object is not iterable', {})
   rejects('a number is not iterable', 7)
@@ -297,7 +311,9 @@ function recordingCausality(): {
 
   const synchronouslyThrowing = {
     next: () => Promise.resolve({ done: true, value: undefined }),
-    return: (): Promise<IteratorResult<unknown>> => { throw new Error('teardown exploded synchronously') },
+    return: (): Promise<IteratorResult<unknown>> => {
+      throw new Error('teardown exploded synchronously')
+    },
   }
   check('close swallows a synchronously throwing return', await als.close(synchronouslyThrowing), undefined)
 }
@@ -305,7 +321,11 @@ function recordingCausality(): {
 {
   const als = createAlsRuntime(recordingCausality().causality)
   // No `return` at all: nothing to do, and no crash.
-  check('close tolerates an iterator without return', await als.close({ next: () => Promise.resolve({ done: true, value: undefined }) }), undefined)
+  check(
+    'close tolerates an iterator without return',
+    await als.close({ next: () => Promise.resolve({ done: true, value: undefined }) }),
+    undefined,
+  )
 }
 
 // ---------------------------------------------------------------------------

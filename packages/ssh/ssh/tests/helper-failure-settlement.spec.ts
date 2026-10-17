@@ -5,7 +5,7 @@ import { createConnection, type Socket } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteProcesses } from '../src/helper-processes.ts'
 import { authenticateStream } from '../src/stream-security.ts'
 
@@ -20,7 +20,9 @@ describe.skipIf(process.platform === 'win32')('SSH failed process settlement', (
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
         const prepared = await owner.prepare({
-          argv: [`${root}/missing-executable`], cwd: root, graceMs: 50,
+          argv: [`${root}/missing-executable`],
+          cwd: root,
+          graceMs: 50,
           stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
         })
         for (const endpoint of Object.values(prepared.streams)) {
@@ -29,14 +31,17 @@ describe.skipIf(process.platform === 'win32')('SSH failed process settlement', (
           const socket = await authenticateStream(raw, endpoint.capability, 5000)
           socket.on('error', () => {})
           sockets.push(socket)
-          socket.end(); socket.resume()
+          socket.end()
+          socket.resume()
         }
         await owner.start(prepared.id)
         const failure = await owner.done(prepared.id).catch((error: unknown) => error)
         expect(failure).toMatchObject({ code: 'ENOENT' })
         await owner.terminate(prepared.id)
         expect(await owner.wait(prepared.id)).toBe(true)
-        await vi.waitFor(async () => { expect(await readdir(root)).toEqual([]) })
+        await vi.waitFor(async () => {
+          expect(await readdir(root)).toEqual([])
+        })
         await expect(owner.done(prepared.id)).rejects.toBe(failure)
       }
     } finally {

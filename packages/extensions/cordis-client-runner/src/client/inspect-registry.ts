@@ -2,8 +2,11 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  CordisInspectProviderManifest, CordisInspectQueryRequest, CordisInspectQueryResolution,
-  CordisInspectRequestId, SessionId,
+  CordisInspectProviderManifest,
+  CordisInspectQueryRequest,
+  CordisInspectQueryResolution,
+  CordisInspectRequestId,
+  SessionId,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
@@ -28,11 +31,7 @@ export interface ClientCordisInspectHost {
   /** Replace the Host's mirrored Client manifest. */
   sync(providers: readonly CordisInspectProviderManifest[]): Promise<void>
   /** Submit one query result; the first accepted page wins. */
-  resolve(
-    sessionId: SessionId,
-    requestId: CordisInspectRequestId,
-    resolution: CordisInspectQueryResolution,
-  ): Promise<void>
+  resolve(sessionId: SessionId, requestId: CordisInspectRequestId, resolution: CordisInspectQueryResolution): Promise<void>
 }
 
 /** Client provider registry, manifest publisher, and live query dispatcher. */
@@ -79,11 +78,13 @@ export class ClientCordisInspectRegistry {
     queueMicrotask(() => {
       this.publishQueued = false
       const manifests = [...this.providers.values()].map(provider => provider.manifest)
-      this.syncChain = this.syncChain.then(async () => {
-        await this.host.sync(manifests)
-      }).catch((error: unknown) => {
-        console.error('[cordis-client-runner] syncing inspect providers failed:', error)
-      })
+      this.syncChain = this.syncChain
+        .then(async () => {
+          await this.host.sync(manifests)
+        })
+        .catch((error: unknown) => {
+          console.error('[cordis-client-runner] syncing inspect providers failed:', error)
+        })
     })
   }
 
@@ -102,7 +103,11 @@ export class ClientCordisInspectRegistry {
       if (provider === undefined) {
         resolution = { ok: false, reason: 'provider-missing', message: `Client inspect provider "${request.provider}" is unavailable` }
       } else if (!provider.manifest.methods.some(method => method.name === request.method)) {
-        resolution = { ok: false, reason: 'method-missing', message: `Client inspect provider "${request.provider}" has no method "${request.method}"` }
+        resolution = {
+          ok: false,
+          reason: 'method-missing',
+          message: `Client inspect provider "${request.provider}" has no method "${request.method}"`,
+        }
       } else {
         const data = await provider.query(request.method, request.input, {
           signal: controller.signal,

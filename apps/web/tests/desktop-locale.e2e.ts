@@ -3,10 +3,16 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { openSettings, saveFailureShot } from './support.ts'
 
@@ -31,7 +37,9 @@ describe.skipIf(MODE === 'record')('web e2e: native and Client locale preference
       const section = scaffold.ctx.settings.describe().find(row => row.ns === 'locale')!.value as { preference?: string }
       return { languages: ['ja-JP', 'zh-CN', 'en-US'], preference: section.preference ?? null }
     })
-    await page.exposeFunction('nativeLocaleChanged', (locale: string) => { reported.push(locale) })
+    await page.exposeFunction('nativeLocaleChanged', (locale: string) => {
+      reported.push(locale)
+    })
     await page.addInitScript(() => {
       Object.defineProperty(globalThis, 'dshDesktop', { value: { protocolVersion: 1 } })
       const bridge = globalThis as typeof globalThis & {
@@ -41,7 +49,9 @@ describe.skipIf(MODE === 'record')('web e2e: native and Client locale preference
       }
       bridge.__DSH_LOCALE__ = {
         read: () => bridge.nativeLocaleRead(),
-        onChange: (locale) => { void bridge.nativeLocaleChanged(locale) },
+        onChange: locale => {
+          void bridge.nativeLocaleChanged(locale)
+        },
       }
     })
   })
@@ -61,17 +71,24 @@ describe.skipIf(MODE === 'record')('web e2e: native and Client locale preference
     // provisional pick, so the native shell first sees the shipped fallback and then ja.
     await expect.poll(() => reported.at(-1)).toBe('ja')
     expect(scaffold.ctx.settings.describe().find(row => row.ns === 'locale')!.value).toEqual({})
-    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'automatic.expected.md'),
-      await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd, versionCapture), MODE)
+    await compareOrRefreshGolden(
+      join(SNAPSHOT_DIR, 'automatic.expected.md'),
+      await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd, versionCapture),
+      MODE,
+    )
     await jaDialog.getByRole('button', { name: '日本語', exact: true }).click()
     await page.getByRole('menuitem', { name: 'English', exact: true }).click()
     const enDialog = page.getByRole('dialog', { name: 'Settings', exact: true })
     await enDialog.getByRole('button', { name: 'English', exact: true }).waitFor()
     await expect.poll(() => reported.at(-1)).toBe('en')
-    await expect.poll(() => readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8'))
+    await expect
+      .poll(() => readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8'))
       .toContain('preference: en')
-    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'selected.expected.md'),
-      await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd, versionCapture), MODE)
+    await compareOrRefreshGolden(
+      join(SNAPSHOT_DIR, 'selected.expected.md'),
+      await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd, versionCapture),
+      MODE,
+    )
     const warningsBefore = tripwire.warnings.length
     reported.length = 0
     await page.reload({ waitUntil: 'load' })

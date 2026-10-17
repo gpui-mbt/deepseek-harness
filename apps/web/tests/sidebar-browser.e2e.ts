@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type {} from '@deepseek-ai/dsh-agent'
 import {
   assertFixtureInventory,
@@ -36,17 +36,19 @@ describe.skipIf(MODE === 'record')('web e2e: Sidebar Browser', () => {
     })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
-    await page.route('https://browser.test/**', async (route) => {
+    await page.route('https://browser.test/**', async route => {
       const name = new URL(route.request().url()).pathname.slice(1) || 'one'
       await route.fulfill({
         contentType: 'text/html',
         body: `<h1>${name}</h1><a href="/inside">Inside navigation</a><p>isolated HTTPS fixture</p>`,
       })
     })
-    await page.route('http://127.0.0.1:3080/**', async route => route.fulfill({
-      contentType: 'text/html',
-      body: '<h1>loopback</h1>',
-    }))
+    await page.route('http://127.0.0.1:3080/**', async route =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<h1>loopback</h1>',
+      }),
+    )
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
@@ -77,9 +79,16 @@ describe.skipIf(MODE === 'record')('web e2e: Sidebar Browser', () => {
     expect(await frame.getAttribute('allow')).toBeNull()
     await column.getByRole('button', { name: 'Disable sandbox restrictions' }).click()
     await expect.poll(() => frame.getAttribute('sandbox')).toBeNull()
-    await column.getByText('Sandbox restrictions are disabled; the page can navigate the top-level app and use downloads, modal dialogs, and input locks.', { exact: true }).waitFor()
+    await column
+      .getByText(
+        'Sandbox restrictions are disabled; the page can navigate the top-level app and use downloads, modal dialogs, and input locks.',
+        { exact: true },
+      )
+      .waitFor()
     await column.getByRole('button', { name: 'Restore sandbox restrictions' }).click()
-    await expect.poll(() => frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox')
+    await expect
+      .poll(() => frame.getAttribute('sandbox'))
+      .toBe('allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox')
     await page.frameLocator('[data-sidebar-browser-frame]').getByRole('link', { name: 'Inside navigation' }).click()
     await page.frameLocator('[data-sidebar-browser-frame]').getByRole('heading', { name: 'inside' }).waitFor()
     await column.getByText('URL changed', { exact: true }).waitFor()
@@ -99,7 +108,9 @@ describe.skipIf(MODE === 'record')('web e2e: Sidebar Browser', () => {
     await input.fill('http://127.0.0.1:3080/preview')
     await input.press('Enter')
     await page.frameLocator('[data-sidebar-browser-frame]').getByRole('heading', { name: 'loopback' }).waitFor()
-    expect(await frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox')
+    expect(await frame.getAttribute('sandbox')).toBe(
+      'allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox',
+    )
 
     await input.fill('file:///work/index.html')
     await input.press('Enter')
@@ -108,16 +119,21 @@ describe.skipIf(MODE === 'record')('web e2e: Sidebar Browser', () => {
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
     await mkdir(SNAPSHOT_DIR, { recursive: true })
-    await compareOrRefreshGolden(EXPECTED, [
-      '# Sidebar Browser', '',
-      '- HTTPS sandbox: allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox',
-      '- Permissions Policy: browser defaults',
-      '- Sandbox toggle: per-tab and temporary',
-      '- Unknown navigation: marker shown; Back, Forward, and external-open disabled',
-      '- HTTPS history: one -> two -> one -> two',
-      '- Loopback HTTP: loaded under the default sandbox',
-      `- Invalid protocol: ${blocked}`,
-    ].join('\n'), MODE)
+    await compareOrRefreshGolden(
+      EXPECTED,
+      [
+        '# Sidebar Browser',
+        '',
+        '- HTTPS sandbox: allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox',
+        '- Permissions Policy: browser defaults',
+        '- Sandbox toggle: per-tab and temporary',
+        '- Unknown navigation: marker shown; Back, Forward, and external-open disabled',
+        '- HTTPS history: one -> two -> one -> two',
+        '- Loopback HTTP: loaded under the default sandbox',
+        `- Invalid protocol: ${blocked}`,
+      ].join('\n'),
+      MODE,
+    )
     await assertFixtureInventory(SNAPSHOT_DIR, ['browser.expected.md'])
   })
 })

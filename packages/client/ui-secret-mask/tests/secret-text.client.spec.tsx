@@ -2,7 +2,7 @@
 /** The masked credential renderer: reveal control, accessible names, and reset to masked. */
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SecretText } from '../src/client/SecretText.tsx'
 import { en, zh } from '../src/client/locales.ts'
@@ -20,13 +20,19 @@ function props(raw: string, interactive: boolean, dictionary: Record<string, str
   // The component reads only these owner and locale seats.
   return {
     node: { id: 'secret', start: 0, end: raw.length, data: { masked: masked(raw) } },
-    raw, interactive, t: makeTranslate(dictionary),
+    raw,
+    interactive,
+    t: makeTranslate(dictionary),
   } as Props
 }
 
 describe('SecretText', () => {
   it('draws only the masked form without a control in non-interactive text', () => {
-    const view = render(<div data-host><SecretText {...props(KEY, false)} /></div>)
+    const view = render(
+      <div data-host>
+        <SecretText {...props(KEY, false)} />
+      </div>,
+    )
     const run = view.container.querySelector('[data-secret]')!
     expect(run.textContent).toBe(masked(KEY))
     expect(view.container.querySelector('button')).toBeNull()

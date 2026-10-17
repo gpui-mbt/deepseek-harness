@@ -3,7 +3,7 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -92,29 +92,27 @@ async function stored(
   return { header, path, bytes }
 }
 
-async function seedCache(
-  fixture: Harness,
-  header: SessionHeader,
-  catalog: 'child' | 'empty' | 'absent',
-  matchingIdentity = true,
-) {
+async function seedCache(fixture: Harness, header: SessionHeader, catalog: 'child' | 'empty' | 'absent', matchingIdentity = true) {
   const rows: CheckpointRecord['rows'] = {
     title: { ver: titleProjectionDefinition.stateVersion, seq: SessionSeq(50), val: 'cached title' },
   }
   if (catalog !== 'absent') {
     const empty = subagentCatalogProjectionDefinition.init(header, SessionLogOffset(0))
-    const state = catalog === 'empty' ? empty : subagentCatalogProjectionDefinition.apply(empty, {
-      type: 'subagent/catalog',
-      seq: SessionSeq(0),
-      time: 1,
-      data: {
-        version: 1,
-        childId: SessionId('cached-child'),
-        childCreatedAt: 2,
-        mode: 'one-shot',
-        label: 'cached child',
-      },
-    })
+    const state =
+      catalog === 'empty'
+        ? empty
+        : subagentCatalogProjectionDefinition.apply(empty, {
+            type: 'subagent/catalog',
+            seq: SessionSeq(0),
+            time: 1,
+            data: {
+              version: 1,
+              childId: SessionId('cached-child'),
+              childCreatedAt: 2,
+              mode: 'one-shot',
+              label: 'cached child',
+            },
+          })
     const record = checkpointRecord.parse({
       identity: { createdAt: header.createdAt },
       rows: { subagentCatalog: { ver: subagentCatalogProjectionDefinition.stateVersion, seq: 50, val: state } },
@@ -156,7 +154,12 @@ describe('Session projection discovery', () => {
     const fixture = await harness()
     const parent = await stored(fixture, SessionId('parent'), {}, 3)
     const child = await stored(fixture, SessionId('child'), { origin: 'subagent', parentSession: parent.header.id, createdAt: 20 }, 3)
-    const grandchild = await stored(fixture, SessionId('grandchild'), { origin: 'subagent', parentSession: child.header.id, createdAt: 30 }, 3)
+    const grandchild = await stored(
+      fixture,
+      SessionId('grandchild'),
+      { origin: 'subagent', parentSession: child.header.id, createdAt: 30 },
+      3,
+    )
     const fork = await stored(fixture, SessionId('ordinary-fork'), { parentSession: parent.header.id, isSeeded: true }, 3)
     const unrelated = await stored(fixture, SessionId('unrelated'), { origin: 'subagent', parentSession: SessionId('another-parent') }, 3)
     const open = vi.spyOn(fixture.ctx.sessionPersistence, 'open')
@@ -178,7 +181,7 @@ describe('Session projection discovery', () => {
     }
   })
 
-  it.each(['child', 'empty'] as const)('serves a valid %s catalog cache when migration is required', async (catalog) => {
+  it.each(['child', 'empty'] as const)('serves a valid %s catalog cache when migration is required', async catalog => {
     const fixture = await harness()
     const parent = await stored(fixture, SessionId('cached-parent'), {}, 3)
     const cache = await seedCache(fixture, parent.header, catalog)
@@ -212,11 +215,12 @@ describe('Session projection discovery', () => {
     const parent = await stored(fixture, SessionId('recreated-parent'), {}, 3)
     await seedCache(fixture, parent.header, 'child', false)
     await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal)).resolves.toEqual({
-      kind: 'migration-required', values: {},
+      kind: 'migration-required',
+      values: {},
     })
   })
 
-  it.each([true, false])('returns null for an absent Session (persistence mounted: %s)', async (withPersistence) => {
+  it.each([true, false])('returns null for an absent Session (persistence mounted: %s)', async withPersistence => {
     const fixture = await harness(withPersistence)
     const list = vi.spyOn(fixture.ctx.sessionQuery, 'listSessions')
     await expect(fixture.controller.projections({ sessionId: SessionId('missing') }, new AbortController().signal)).resolves.toBeNull()
@@ -227,7 +231,9 @@ describe('Session projection discovery', () => {
     const fixture = await harness()
     const parent = await stored(fixture, SessionId('current-cold'))
     const event = {
-      type: 'subagent/catalog', seq: 0, time: 1,
+      type: 'subagent/catalog',
+      seq: 0,
+      time: 1,
       data: { version: 1, childId: 'current-child', childCreatedAt: 2, mode: 'continuable', label: 'worker' },
     }
     await writeFile(parent.path, `${parent.bytes}${JSON.stringify(event)}\n`)
@@ -236,7 +242,8 @@ describe('Session projection discovery', () => {
     const signal = new AbortController().signal
 
     await expect(fixture.controller.projections({ sessionId: parent.header.id }, signal)).resolves.toMatchObject({
-      kind: 'sequenced', asOfSeq: 0,
+      kind: 'sequenced',
+      asOfSeq: 0,
       values: { subagentCatalog: [{ id: 'current-child', mode: 'continuable', label: 'worker' }] },
     })
     expect(observe).toHaveBeenCalledWith(parent.header.id, { signal })
@@ -255,8 +262,10 @@ describe('Session projection discovery', () => {
     expect(await fixture.ctx.sessionPersistence.stat(parent.header.id)).toMatchObject({
       formatStatus: 'migration-required',
     })
-    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal))
-      .resolves.toEqual({ kind: 'migration-required', values: {} })
+    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal)).resolves.toEqual({
+      kind: 'migration-required',
+      values: {},
+    })
     expect(open).not.toHaveBeenCalled()
     expect(fixture.ctx.sessions.get(parent.header.id)).toBeUndefined()
     expect(await readFile(parent.path, 'utf8')).toBe(parent.bytes)
@@ -269,8 +278,10 @@ describe('Session projection discovery', () => {
     using observation = await fixture.ctx.sessionQuery.observeSession(parent.header.id)
     const expected = observation.projections
     const signal = new AbortController().signal
-    await expect(fixture.controller.projections({ sessionId: parent.header.id }, signal))
-      .resolves.toEqual({ kind: 'migration-required', values: {} })
+    await expect(fixture.controller.projections({ sessionId: parent.header.id }, signal)).resolves.toEqual({
+      kind: 'migration-required',
+      values: {},
+    })
 
     const writer = await fixture.ctx.sessionPersistence.open(parent.header.id, 'write')
     try {
@@ -282,21 +293,25 @@ describe('Session projection discovery', () => {
     expect(await fixture.ctx.sessionPersistence.stat(parent.header.id)).toMatchObject({
       formatStatus: 'current',
     })
-    await expect(fixture.controller.projections({ sessionId: parent.header.id }, signal))
-      .resolves.toEqual({ kind: 'sequenced', ...expected })
+    await expect(fixture.controller.projections({ sessionId: parent.header.id }, signal)).resolves.toEqual({
+      kind: 'sequenced',
+      ...expected,
+    })
     expect(fixture.ctx.sessions.get(parent.header.id)).toBeUndefined()
     expect(await readFile(parent.path, 'utf8')).toBe(parent.bytes)
     // POSIX retains the write-lock inode after close; Windows uses a semaphore.
-    expect((await readdir(dirname(parent.path))).filter(name => name !== 'session.lock').sort())
-      .toEqual(['session.v3.jsonl', `session.v${SESSION_FORMAT_VERSION}.jsonl`].sort())
+    expect((await readdir(dirname(parent.path))).filter(name => name !== 'session.lock').sort()).toEqual(
+      ['session.v3.jsonl', `session.v${SESSION_FORMAT_VERSION}.jsonl`].sort(),
+    )
   })
 
   it('reports unsupported current-format events instead of deferring migration', async () => {
     const fixture = await harness()
     const parent = await stored(fixture, SessionId('corrupt-current'))
     await writeFile(parent.path, `${parent.bytes}${JSON.stringify({ type: 'missing/plugin-event', seq: 0, time: 1, data: {} })}\n`)
-    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal))
-      .rejects.toMatchObject({ code: 'gateway/internal' })
+    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal)).rejects.toMatchObject({
+      code: 'gateway/internal',
+    })
   })
 
   it('reports unavailable projections from an otherwise readable observation', async () => {
@@ -306,11 +321,12 @@ describe('Session projection discovery', () => {
     const { projections: _projections, ...observation } = source
     vi.spyOn(fixture.ctx.sessionQuery, 'observeSession').mockResolvedValueOnce(observation)
 
-    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal))
-      .rejects.toMatchObject({ code: 'session/projections-unavailable' })
+    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal)).rejects.toMatchObject({
+      code: 'session/projections-unavailable',
+    })
   })
 
-  it.each([false, true])('rechecks live history when the stored source disappears after preflight (attached: %s)', async (attached) => {
+  it.each([false, true])('rechecks live history when the stored source disappears after preflight (attached: %s)', async attached => {
     const fixture = await harness()
     const parent = await stored(fixture, SessionId('missing-after-preflight'))
     const snapshot = await fixture.ctx.sessionPersistence.stat(parent.header.id)
@@ -322,9 +338,9 @@ describe('Session projection discovery', () => {
       })
 
     const result = await fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal)
-    expect(result).toEqual(attached
-      ? { kind: 'sequenced', ...fixture.ctx.sessionProjections.snapshot(fixture.ctx.sessions.get(parent.header.id)!) }
-      : null)
+    expect(result).toEqual(
+      attached ? { kind: 'sequenced', ...fixture.ctx.sessionProjections.snapshot(fixture.ctx.sessions.get(parent.header.id)!) } : null,
+    )
   })
 
   it('serves the live registry cut instead of a conflicting cached hint', async () => {
@@ -336,13 +352,14 @@ describe('Session projection discovery', () => {
     const cached = vi.spyOn(fixture.ctx.sessionProjectionCache, 'cachedSnapshot')
     const stat = vi.spyOn(fixture.ctx.sessionPersistence, 'stat').mockRejectedValue(new Error('metadata unavailable'))
     await expect(fixture.controller.projections({ sessionId: live.id }, new AbortController().signal)).resolves.toEqual({
-      kind: 'sequenced', ...expected,
+      kind: 'sequenced',
+      ...expected,
     })
     expect(stat).not.toHaveBeenCalled()
     expect(cached).not.toHaveBeenCalled()
   })
 
-  it.each([true, false])('prefers a Session attached during stat (stored header present: %s)', async (present) => {
+  it.each([true, false])('prefers a Session attached during stat (stored header present: %s)', async present => {
     const fixture = await harness()
     const parent = await stored(fixture, SessionId('stat-race'), {}, 3)
     const snapshot = await fixture.ctx.sessionPersistence.stat(parent.header.id)
@@ -370,8 +387,10 @@ describe('Session projection discovery', () => {
     const parent = await stored(fixture, SessionId('failed-metadata'))
     const failure = new Error('target metadata unavailable')
     vi.spyOn(fixture.ctx.sessionPersistence, 'stat').mockRejectedValue(failure)
-    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal))
-      .rejects.toMatchObject({ code: 'gateway/internal', cause: failure })
+    await expect(fixture.controller.projections({ sessionId: parent.header.id }, new AbortController().signal)).rejects.toMatchObject({
+      code: 'gateway/internal',
+      cause: failure,
+    })
   })
 
   it('honors cancellation while waiting for target metadata', async () => {
@@ -401,8 +420,9 @@ describe('Session projection discovery', () => {
   it('rejects an already-cancelled read before metadata access', async () => {
     const fixture = await harness()
     const stat = vi.spyOn(fixture.ctx.sessionPersistence, 'stat')
-    await expect(fixture.controller.projections({ sessionId: SessionId('cancelled') }, AbortSignal.abort()))
-      .rejects.toMatchObject({ code: 'gateway/cancelled' })
+    await expect(fixture.controller.projections({ sessionId: SessionId('cancelled') }, AbortSignal.abort())).rejects.toMatchObject({
+      code: 'gateway/cancelled',
+    })
     expect(stat).not.toHaveBeenCalled()
   })
 
@@ -417,8 +437,9 @@ describe('Session projection discovery', () => {
   it('rejects an empty identity without querying metadata', async () => {
     const fixture = await harness()
     const stat = vi.spyOn(fixture.ctx.sessionPersistence, 'stat')
-    await expect(fixture.controller.projections({ sessionId: SessionId('') }, new AbortController().signal))
-      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    await expect(fixture.controller.projections({ sessionId: SessionId('') }, new AbortController().signal)).rejects.toMatchObject({
+      code: 'gateway/bad-request',
+    })
     expect(stat).not.toHaveBeenCalled()
   })
 })

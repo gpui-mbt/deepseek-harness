@@ -14,11 +14,20 @@ import type {} from '@deepseek-ai/dsh-jobs/view'
 import type {} from '@deepseek-ai/dsh-schedule/client'
 import type {} from '@deepseek-ai/dsh-subagent/client'
 import {
-  Button, IconArchiveOutlineRegular, IconUnarchiveOutlineRegular, MenuItemButton, Modal, Tooltip,
+  Button,
+  IconArchiveOutlineRegular,
+  IconUnarchiveOutlineRegular,
+  MenuItemButton,
+  Modal,
+  Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  ArchiveSessionInjected, SessionArchiveConfirmInjected, SessionArchiveConfirmProps, SessionArchiveConfirmRequest,
-  SessionMenuItemProps, SessionRowActionProps,
+  ArchiveSessionInjected,
+  SessionArchiveConfirmInjected,
+  SessionArchiveConfirmProps,
+  SessionArchiveConfirmRequest,
+  SessionMenuItemProps,
+  SessionRowActionProps,
 } from '../contract/slots.ts'
 import css from '../rows/Rows.module.css'
 import browserCss from '../rows/WorkspaceBrowser.module.css'
@@ -29,7 +38,13 @@ import browserCss from '../rows/WorkspaceBrowser.module.css'
  * @returns the row.
  */
 export function ArchiveSessionMenuItem({
-  sessionId, useArchived, useMenuOpenState, useShortcuts, archiveSession, unarchiveSession, t,
+  sessionId,
+  useArchived,
+  useMenuOpenState,
+  useShortcuts,
+  archiveSession,
+  unarchiveSession,
+  t,
 }: SessionMenuItemProps<ArchiveSessionInjected>) {
   const [, setMenuOpen] = useMenuOpenState()
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'session.archive'))
@@ -54,7 +69,11 @@ export function ArchiveSessionMenuItem({
  * @returns the button.
  */
 export function ArchiveSessionRowButton({
-  sessionId, useArchived, archiveSession, unarchiveSession, t,
+  sessionId,
+  useArchived,
+  archiveSession,
+  unarchiveSession,
+  t,
 }: SessionRowActionProps<ArchiveSessionInjected>) {
   const archived = useArchived(set => set.has(sessionId))
   return (
@@ -63,7 +82,9 @@ export function ArchiveSessionRowButton({
         type="button"
         className={css.iconButton}
         aria-label={t(archived ? 'menu.unarchiveSession' : 'menu.archiveSession')}
-        onClick={() => { (archived ? unarchiveSession : archiveSession)(sessionId) }}
+        onClick={() => {
+          ;(archived ? unarchiveSession : archiveSession)(sessionId)
+        }}
       >
         {archived ? <IconUnarchiveOutlineRegular size={14} /> : <IconArchiveOutlineRegular size={14} />}
       </button>
@@ -80,7 +101,10 @@ export function ArchiveSessionRowButton({
  * @returns the open dialog, or null.
  */
 export function SessionArchiveConfirmDialog({
-  useArchiveRequest, settleSessionArchive, stopAndArchiveSession, t,
+  useArchiveRequest,
+  settleSessionArchive,
+  stopAndArchiveSession,
+  t,
 }: SessionArchiveConfirmProps) {
   const request = useArchiveRequest(pending => pending)
   if (request === null) return null
@@ -96,7 +120,12 @@ export function SessionArchiveConfirmDialog({
 }
 
 /** One request's dialog: in-flight and error state die with it. */
-function ArchiveConfirmForm({ request, stopAndArchiveSession, onSettle, t }: {
+function ArchiveConfirmForm({
+  request,
+  stopAndArchiveSession,
+  onSettle,
+  t,
+}: {
   request: SessionArchiveConfirmRequest
   stopAndArchiveSession: SessionArchiveConfirmInjected['stopAndArchiveSession']
   onSettle: () => void
@@ -111,13 +140,15 @@ function ArchiveConfirmForm({ request, stopAndArchiveSession, onSettle, t }: {
   const confirm = () => {
     setArchiving(true)
     setError(null)
-    stopAndArchiveSession(request.sessionId).then(() => {
-      setArchiving(false)
-      onSettle()
-    }).catch((reason: unknown) => {
-      setArchiving(false)
-      setError(reason instanceof Error ? reason.message : String(reason))
-    })
+    stopAndArchiveSession(request.sessionId)
+      .then(() => {
+        setArchiving(false)
+        onSettle()
+      })
+      .catch((reason: unknown) => {
+        setArchiving(false)
+        setError(reason instanceof Error ? reason.message : String(reason))
+      })
   }
   return (
     <Modal
@@ -126,27 +157,32 @@ function ArchiveConfirmForm({ request, stopAndArchiveSession, onSettle, t }: {
       closeLabel={t('close')}
       title={t('archive.confirm.title')}
       description={t('archive.confirm.desc', { title: request.displayTitle })}
-      footer={(
+      footer={
         <>
-          <Button variant="outline" disabled={archiving} onClick={close}>{t('cancel')}</Button>
-          <Button
-            variant="outline"
-            className={browserCss.deleteAction}
-            disabled={archiving}
-            onClick={confirm}
-          >
+          <Button variant="outline" disabled={archiving} onClick={close}>
+            {t('cancel')}
+          </Button>
+          <Button variant="outline" className={browserCss.deleteAction} disabled={archiving} onClick={confirm}>
             {t('archive.confirm.action')}
           </Button>
         </>
-      )}
+      }
     >
       <ul className={browserCss.archiveActivity} aria-label={t('archive.confirm.activity')}>
         {request.activity.map((entry, index) => (
           <li key={`${entry.kind}-${String(index)}`}>{activityLine(entry, t)}</li>
         ))}
       </ul>
-      {archiving && <div className={browserCss.deleteStatus} role="status">{t('archive.confirm.pending')}</div>}
-      {error !== null && <div className={browserCss.renameError} role="alert">{error}</div>}
+      {archiving && (
+        <div className={browserCss.deleteStatus} role="status">
+          {t('archive.confirm.pending')}
+        </div>
+      )}
+      {error !== null && (
+        <div className={browserCss.renameError} role="alert">
+          {error}
+        </div>
+      )}
     </Modal>
   )
 }
@@ -162,10 +198,15 @@ function activityLine(entry: SessionActivity, t: SessionArchiveConfirmProps['t']
   const names = items.map(item => item.label ?? item.id).join(t('archive.confirm.listSeparator'))
   const plural = n === 1 ? 'one' : 'other'
   switch (entry.kind) {
-    case 'turn': return t('archive.confirm.turn')
-    case 'subagent': return t(`archive.confirm.subagents.${plural}`, { n, names })
-    case 'job': return t(`archive.confirm.jobs.${plural}`, { n, names })
-    case 'schedule': return t(`archive.confirm.schedules.${plural}`, { n, names })
-    default: return t(`archive.confirm.other.${plural}`, { kind: entry.kind, n })
+    case 'turn':
+      return t('archive.confirm.turn')
+    case 'subagent':
+      return t(`archive.confirm.subagents.${plural}`, { n, names })
+    case 'job':
+      return t(`archive.confirm.jobs.${plural}`, { n, names })
+    case 'schedule':
+      return t(`archive.confirm.schedules.${plural}`, { n, names })
+    default:
+      return t(`archive.confirm.other.${plural}`, { kind: entry.kind, n })
   }
 }

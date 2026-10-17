@@ -1,12 +1,15 @@
-import {
-  useEffect, useMemo, useRef, useState,
-  type ChangeEvent, type FocusEvent, type KeyboardEvent,
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular,
-  IconChevronRightOutlineRegular, IconChevronUpOutlineRegular, IconCloseOutlineRegular,
-  IconEditOutlineRegular, MarkdownText,
+  Button,
+  IconCheckOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconChevronLeftOutlineRegular,
+  IconChevronRightOutlineRegular,
+  IconChevronUpOutlineRegular,
+  IconCloseOutlineRegular,
+  IconEditOutlineRegular,
+  MarkdownText,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { planReviewOf, type QuestionAnswer, type QuestionCardSnapshot, type QuestionComposerProps } from './contract/slots.ts'
 import type { PendingQuestion } from './contract/slots.ts'
@@ -24,7 +27,11 @@ type Feedback = { key: 'error.incomplete' | 'error.unanswered' | 'error.unavaila
 
 /** A removed card can remain mounted until the composer seat updates. */
 const REMOVED_CARD: QuestionCardSnapshot = {
-  state: 'open', waitState: 'counting', countdown: undefined, channel: 'none', closed: true,
+  state: 'open',
+  waitState: 'counting',
+  countdown: undefined,
+  channel: 'none',
+  closed: true,
 }
 
 /**
@@ -34,9 +41,7 @@ const REMOVED_CARD: QuestionCardSnapshot = {
  */
 export function parseRecommendedLabel(label: string): { label: string; recommended: boolean } {
   const suffix = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i
-  return suffix.test(label)
-    ? { label: label.replace(suffix, ''), recommended: true }
-    : { label, recommended: false }
+  return suffix.test(label) ? { label: label.replace(suffix, ''), recommended: true } : { label, recommended: false }
 }
 
 /** Only a marked first choice is an implicit draft; the user still submits it. */
@@ -49,15 +54,25 @@ function recommendedFirstOption(question: PendingQuestion['questions'][number]):
 function isQuestionDraftProgress(value: unknown, questionCount: number): value is QuestionDraftProgress {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const progress = value as Record<string, unknown>
-  if (typeof progress.index !== 'number' || !Number.isInteger(progress.index)
-    || progress.index < 0 || progress.index >= questionCount
-    || !Array.isArray(progress.drafts) || progress.drafts.length !== questionCount
-    || (progress.wait !== undefined && progress.wait !== 'editing' && progress.wait !== 'waiting')) return false
+  if (
+    typeof progress.index !== 'number' ||
+    !Number.isInteger(progress.index) ||
+    progress.index < 0 ||
+    progress.index >= questionCount ||
+    !Array.isArray(progress.drafts) ||
+    progress.drafts.length !== questionCount ||
+    (progress.wait !== undefined && progress.wait !== 'editing' && progress.wait !== 'waiting')
+  )
+    return false
   return progress.drafts.every((item: unknown) => {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return false
     const draft = item as Record<string, unknown>
-    return Array.isArray(draft.selected) && draft.selected.every((label: unknown) => typeof label === 'string')
-      && typeof draft.custom === 'string' && typeof draft.skipped === 'boolean'
+    return (
+      Array.isArray(draft.selected) &&
+      draft.selected.every((label: unknown) => typeof label === 'string') &&
+      typeof draft.custom === 'string' &&
+      typeof draft.skipped === 'boolean'
+    )
   })
 }
 
@@ -139,51 +154,51 @@ function AnswerField(props: AnswerFieldProps) {
 export function QuestionComposer(props: QuestionComposerProps) {
   const question = props.matched
   const review = useMemo(() => planReviewOf(question.questions), [question])
-  return review === undefined
-    ? (
-      <QuestionFlow
-        key={question.key}
-        pending={question}
-        t={props.t}
-        useStore={props.useStore}
-        useQuestionCard={props.useQuestionCard}
-        actions={props.actions}
-        renderSlot={props.renderSlot}
-      />
-    )
-    : (
-      <PlanReviewPanel
-        key={question.key}
-        pending={question}
-        review={review}
-        t={props.t}
-        renderSlot={props.renderSlot}
-      />
-    )
+  return review === undefined ? (
+    <QuestionFlow
+      key={question.key}
+      pending={question}
+      t={props.t}
+      useStore={props.useStore}
+      useQuestionCard={props.useQuestionCard}
+      actions={props.actions}
+      renderSlot={props.renderSlot}
+    />
+  ) : (
+    <PlanReviewPanel key={question.key} pending={question} review={review} t={props.t} renderSlot={props.renderSlot} />
+  )
 }
 
-type QuestionFlowProps =
-  { pending: PendingQuestion }
-  & Pick<QuestionComposerProps, 't' | 'useStore' | 'useQuestionCard' | 'actions' | 'renderSlot'>
+type QuestionFlowProps = { pending: PendingQuestion } & Pick<
+  QuestionComposerProps,
+  't' | 'useStore' | 'useQuestionCard' | 'actions' | 'renderSlot'
+>
 
 function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSlot }: QuestionFlowProps) {
   const questions = pending.questions
   // A read-only card built from a settled call's transcript: the same panel
   // over the recorded answers, with nothing left to submit.
   const review = pending.review
-  const markdownLabels = useMemo(() => ({
-    code: { copyLabel: t('copy'), copiedLabel: t('copied'), toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') } },
-    footnotes: t('markdown.footnotes'),
-  }), [t])
+  const markdownLabels = useMemo(
+    () => ({
+      code: {
+        copyLabel: t('copy'),
+        copiedLabel: t('copied'),
+        toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') },
+      },
+      footnotes: t('markdown.footnotes'),
+    }),
+    [t],
+  )
   const initialDrafts = useMemo<QuestionDraftAnswer[]>(() => {
     // Recorded answers echo the question ids rather than their order.
     const recorded = new Map((review ?? []).map(answer => [answer.id, answer]))
-    return questions.map((item) => {
+    return questions.map(item => {
       const answer = recorded.get(item.id)
       const custom = answer?.custom ?? ''
       const recommended = review === undefined ? recommendedFirstOption(item) : undefined
       return {
-        selected: answer === undefined && recommended !== undefined ? [recommended] : [...answer?.selected ?? []],
+        selected: answer === undefined && recommended !== undefined ? [recommended] : [...(answer?.selected ?? [])],
         custom,
         // A recorded answer with no selection and no custom text was skipped.
         skipped: answer !== undefined && answer.selected.length === 0 && custom === '',
@@ -197,12 +212,17 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
   const storedProgress = review === undefined ? validStored : undefined
   const index = validStored?.index ?? 0
   const drafts = storedProgress?.drafts ?? initialDrafts
-  const restoredWait = storedProgress?.wait
-    ?? (storedProgress?.drafts.some((item, itemIndex) =>
-      item.selected.length !== initialDrafts[itemIndex]?.selected.length
-      || item.selected.some((label, labelIndex) => label !== initialDrafts[itemIndex]?.selected[labelIndex])
-      || item.custom !== '' || item.skipped) === true
-      ? 'editing' : undefined)
+  const restoredWait =
+    storedProgress?.wait ??
+    (storedProgress?.drafts.some(
+      (item, itemIndex) =>
+        item.selected.length !== initialDrafts[itemIndex]?.selected.length ||
+        item.selected.some((label, labelIndex) => label !== initialDrafts[itemIndex]?.selected[labelIndex]) ||
+        item.custom !== '' ||
+        item.skipped,
+    ) === true
+      ? 'editing'
+      : undefined)
   const [busy, setBusy] = useState<'answer' | 'cancel' | null>(null)
   const [error, setError] = useState<Feedback | null>(null)
   const card = useQuestionCard(pending.key, snapshot => snapshot ?? REMOVED_CARD)
@@ -281,7 +301,9 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
   }
 
   useEffect(() => {
-    const release = (): void => { pending.releaseFocus() }
+    const release = (): void => {
+      pending.releaseFocus()
+    }
     const refocus = (): void => {
       if (waitDisposition.current === 'editing') {
         pending.engage()
@@ -289,7 +311,10 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
       }
       if (answerSurface.current?.contains(document.activeElement) === true) pending.holdFocus()
     }
-    const visibilityChanged = (): void => { if (document.hidden) release(); else refocus() }
+    const visibilityChanged = (): void => {
+      if (document.hidden) release()
+      else refocus()
+    }
     window.addEventListener('blur', release)
     window.addEventListener('focus', refocus)
     document.addEventListener('visibilitychange', visibilityChanged)
@@ -315,38 +340,34 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
     setBusy('cancel')
     setError(null)
     sentVia.current = 'waterfall'
-    void pending.dismiss()
-      .catch((cause: unknown) => {
-        sentVia.current = null
-        setBusy(null)
-        setError({ text: cause instanceof Error ? cause.message : String(cause) })
-      })
+    void pending.dismiss().catch((cause: unknown) => {
+      sentVia.current = null
+      setBusy(null)
+      setError({ text: cause instanceof Error ? cause.message : String(cause) })
+    })
   }
 
-  const updateDraft = (
-    update: (current: QuestionDraftAnswer) => QuestionDraftAnswer,
-    nextIndex = index,
-  ): void => {
+  const updateDraft = (update: (current: QuestionDraftAnswer) => QuestionDraftAnswer, nextIndex = index): void => {
     engage()
-    const nextDrafts = drafts.map((item, itemIndex) => itemIndex === index ? update(item) : item)
+    const nextDrafts = drafts.map((item, itemIndex) => (itemIndex === index ? update(item) : item))
     replaceProgress(nextIndex, nextDrafts)
     setError(null)
   }
 
   const choose = (label: string): void => {
-    updateDraft((current) => {
-      if (question.multiSelect === true) {
-        const selected = current.selected.includes(label)
-          ? current.selected.filter(item => item !== label)
-          : [...current.selected, label]
-        return { ...current, selected, skipped: false }
-      }
-      return { selected: [label], custom: '', skipped: false }
-    }, question.multiSelect !== true && index < questions.length - 1 ? index + 1 : index)
+    updateDraft(
+      current => {
+        if (question.multiSelect === true) {
+          const selected = current.selected.includes(label) ? current.selected.filter(item => item !== label) : [...current.selected, label]
+          return { ...current, selected, skipped: false }
+        }
+        return { selected: [label], custom: '', skipped: false }
+      },
+      question.multiSelect !== true && index < questions.length - 1 ? index + 1 : index,
+    )
   }
 
-  const answered = (item: QuestionDraftAnswer): boolean =>
-    item.selected.length > 0 || item.custom.trim() !== ''
+  const answered = (item: QuestionDraftAnswer): boolean => item.selected.length > 0 || item.custom.trim() !== ''
 
   const completed = (item: QuestionDraftAnswer): boolean => answered(item) || item.skipped
 
@@ -379,13 +400,16 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
     // Read the channel used by answer() in this same event turn.
     const channel = pending.snapshot().channel
     sentVia.current = channel === 'waterfall' ? 'waterfall' : null
-    void pending.answer(answer)
+    void pending
+      .answer(answer)
       .then(() => {
         if (channel !== 'rpc') return
         sentVia.current = null
         setBusy(null)
         setError(null)
-        void pending.dismiss().catch(() => { setError({ key: 'status.sent' }) })
+        void pending.dismiss().catch(() => {
+          setError({ key: 'status.sent' })
+        })
       })
       .catch((cause: unknown) => {
         sentVia.current = null
@@ -428,9 +452,7 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
 
   const skipQuestion = (): void => {
     engage()
-    const nextDrafts = drafts.map((item, itemIndex) => itemIndex === index
-      ? { selected: [], custom: '', skipped: true }
-      : item)
+    const nextDrafts = drafts.map((item, itemIndex) => (itemIndex === index ? { selected: [], custom: '', skipped: true } : item))
     replaceProgress(index < questions.length - 1 ? index + 1 : index, nextDrafts)
     setError(null)
     if (index < questions.length - 1) {
@@ -441,15 +463,10 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
 
   return (
     <div className={css.frame} data-question-key={pending.key}>
-      <section
-        className={clsx(css.card, minimized && css.cardMinimized)}
-        aria-labelledby={`question-${pending.key}-${String(index)}`}
-      >
+      <section className={clsx(css.card, minimized && css.cardMinimized)} aria-labelledby={`question-${pending.key}-${String(index)}`}>
         <header className={css.header}>
           <div className={css.headingBlock}>
-            <div className={css.headerLead}>
-              {renderSlot('conversation.question.header.lead', {})}
-            </div>
+            <div className={css.headerLead}>{renderSlot('conversation.question.header.lead', {})}</div>
             {question.header !== undefined && <div className={css.eyebrow}>{question.header}</div>}
             <h2 className={css.title} id={`question-${pending.key}-${String(index)}`}>
               {question.question}
@@ -476,20 +493,25 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
             )}
             {review !== undefined && <span className={css.waitStatus}>{t('review.status')}</span>}
             <button
-              type="button" className={css.iconButton}
+              type="button"
+              className={css.iconButton}
               aria-label={t(minimized ? 'nav.maximize' : 'nav.minimize')}
               title={t(minimized ? 'nav.maximize' : 'nav.minimize')}
               aria-expanded={!minimized}
               disabled={busy !== null}
-              onClick={() => { setMinimized(current => !current) }}
+              onClick={() => {
+                setMinimized(current => !current)
+              }}
             >
               {minimized ? <IconChevronUpOutlineRegular /> : <IconChevronDownOutlineRegular />}
             </button>
             <button
-              type="button" className={css.iconButton}
+              type="button"
+              className={css.iconButton}
               aria-label={t(pending.dismissal === 'hide' ? 'nav.close' : 'nav.cancel')}
               title={t(pending.dismissal === 'hide' ? 'nav.close' : 'nav.cancel')}
-              disabled={busy !== null} onClick={dismissFlow}
+              disabled={busy !== null}
+              onClick={dismissFlow}
             >
               <IconCloseOutlineRegular />
             </button>
@@ -506,7 +528,9 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
               onBlurCapture={blurAnswerSurface}
             >
               {question.detail !== undefined && (
-                <div className={css.detail}><MarkdownText text={question.detail} labels={markdownLabels} /></div>
+                <div className={css.detail}>
+                  <MarkdownText text={question.detail} labels={markdownLabels} />
+                </div>
               )}
               <div className={css.options} role={question.multiSelect === true ? 'group' : 'radiogroup'}>
                 {(question.options ?? []).map((option, optionIndex) => {
@@ -514,50 +538,47 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
                   const display = parseRecommendedLabel(option.label)
                   return (
                     <button
-                      type="button" key={`${option.label}-${String(optionIndex)}`}
+                      type="button"
+                      key={`${option.label}-${String(optionIndex)}`}
                       className={clsx(css.option, selected && question.multiSelect !== true && css.optionSelected)}
                       role={question.multiSelect === true ? 'checkbox' : 'radio'}
                       aria-checked={selected}
                       aria-label={display.label}
                       disabled={locked}
-                      onClick={() => { choose(option.label) }}
-                      onKeyDown={(event) => {
+                      onClick={() => {
+                        choose(option.label)
+                      }}
+                      onKeyDown={event => {
                         if (event.key !== 'Enter') return
                         event.preventDefault()
                         submitDrafts(drafts)
                       }}
                     >
-                      {question.multiSelect === true
-                        ? (
-                          <span className={clsx(css.checkbox, selected && css.checkboxChecked)} aria-hidden="true">
-                            {selected && <IconCheckOutlineRegular size={12} />}
-                          </span>
-                        )
-                        : <span className={css.number}>{optionIndex + 1}</span>}
+                      {question.multiSelect === true ? (
+                        <span className={clsx(css.checkbox, selected && css.checkboxChecked)} aria-hidden="true">
+                          {selected && <IconCheckOutlineRegular size={12} />}
+                        </span>
+                      ) : (
+                        <span className={css.number}>{optionIndex + 1}</span>
+                      )}
                       <span className={css.optionCopy}>
                         <span className={css.optionLine}>
                           <span className={css.optionLabel}>{display.label}</span>
-                          {display.recommended && (
-                            <span className={css.badge}>{t('option.recommended')}</span>
-                          )}
-                          {option.description !== undefined && (
-                            <span className={css.description}>{option.description}</span>
-                          )}
+                          {display.recommended && <span className={css.badge}>{t('option.recommended')}</span>}
+                          {option.description !== undefined && <span className={css.description}>{option.description}</span>}
                         </span>
                       </span>
                     </button>
                   )
                 })}
 
-                {review !== undefined && draft.skipped && (
-                  <p className={css.reviewNote}>{t('review.skipped')}</p>
-                )}
+                {review !== undefined && draft.skipped && <p className={css.reviewNote}>{t('review.skipped')}</p>}
 
                 {/* A review card keeps the free-text field only when the
                     recorded answer used it; an empty disabled box with a
                     placeholder would read as somewhere to type. */}
-                {(review === undefined || draft.custom !== '') && (hasOptions
-                  ? (
+                {(review === undefined || draft.custom !== '') &&
+                  (hasOptions ? (
                     <div
                       className={clsx(
                         css.customRow,
@@ -565,20 +586,15 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
                         question.multiSelect !== true && draft.selected.length > 0 && css.customRowYielded,
                       )}
                     >
-                      {question.multiSelect === true
-                        ? (
-                          <span
-                            className={clsx(css.checkbox, draft.custom !== '' && css.checkboxChecked)}
-                            aria-hidden="true"
-                          >
-                            {draft.custom !== '' && <IconCheckOutlineRegular size={12} />}
-                          </span>
-                        )
-                        : (
-                          <span className={css.number} aria-hidden="true">
-                            <IconEditOutlineRegular size={12} />
-                          </span>
-                        )}
+                      {question.multiSelect === true ? (
+                        <span className={clsx(css.checkbox, draft.custom !== '' && css.checkboxChecked)} aria-hidden="true">
+                          {draft.custom !== '' && <IconCheckOutlineRegular size={12} />}
+                        </span>
+                      ) : (
+                        <span className={css.number} aria-hidden="true">
+                          <IconEditOutlineRegular size={12} />
+                        </span>
+                      )}
                       <AnswerField
                         variant="inline"
                         value={draft.custom}
@@ -588,8 +604,7 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
                         onKeyDown={continueFromCustom}
                       />
                     </div>
-                  )
-                  : (
+                  ) : (
                     <AnswerField
                       // A missing countdown does not imply an indefinite request:
                       // a timed request can still be awaiting its claim's first frame.
@@ -598,7 +613,9 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
                       value={draft.custom}
                       disabled={locked}
                       placeholder={t('custom.placeholder')}
-                      onFocus={() => { focusedQuestions.current.add(index) }}
+                      onFocus={() => {
+                        focusedQuestions.current.add(index)
+                      }}
                       onChange={draftCustom}
                       onKeyDown={continueFromCustom}
                     />
@@ -609,17 +626,29 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
             <footer className={css.footer}>
               <div className={css.pager}>
                 <button
-                  type="button" className={css.iconButton} aria-label={t('nav.prev')}
+                  type="button"
+                  className={css.iconButton}
+                  aria-label={t('nav.prev')}
                   disabled={index === 0 || busy !== null}
-                  onClick={() => { replaceProgress(index - 1, drafts); setError(null) }}
+                  onClick={() => {
+                    replaceProgress(index - 1, drafts)
+                    setError(null)
+                  }}
                 >
                   <IconChevronLeftOutlineRegular />
                 </button>
-                <span className={css.progress}>{index + 1} / {questions.length}</span>
+                <span className={css.progress}>
+                  {index + 1} / {questions.length}
+                </span>
                 <button
-                  type="button" className={css.iconButton} aria-label={t('nav.next')}
+                  type="button"
+                  className={css.iconButton}
+                  aria-label={t('nav.next')}
                   disabled={index === questions.length - 1 || busy !== null}
-                  onClick={() => { replaceProgress(index + 1, drafts); setError(null) }}
+                  onClick={() => {
+                    replaceProgress(index + 1, drafts)
+                    setError(null)
+                  }}
                 >
                   <IconChevronRightOutlineRegular />
                 </button>
@@ -638,9 +667,7 @@ function QuestionFlow({ pending, t, useStore, useQuestionCard, actions, renderSl
                     disabled={busy !== null || !answered(draft) || (index === questions.length - 1 && !canSubmit)}
                     onClick={continueFlow}
                   >
-                    {busy === 'answer'
-                      ? t('submitting')
-                      : index === questions.length - 1 ? t('submit') : t('action.next')}
+                    {busy === 'answer' ? t('submitting') : index === questions.length - 1 ? t('submit') : t('action.next')}
                   </Button>
                 </div>
               )}

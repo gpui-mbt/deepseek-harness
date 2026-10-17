@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { type ContinuableCreateSpec, type SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 
 /**
  * Mount isolated persistence and remove it after the context reaches quiescence.
@@ -52,10 +52,15 @@ export function startPreparedActivation(request: SubagentStartRequest, prepared:
   const unregister = ctx.get('subagents')!.registerProvider({
     name: provider,
     capabilities: {
-      agentOptions: true, agentPreset: prepared.seed === undefined, outputSchema: true, depthLimit: true,
+      agentOptions: true,
+      agentPreset: prepared.seed === undefined,
+      outputSchema: true,
+      depthLimit: true,
     },
     inheritsParentContext: prepared.seed !== undefined,
     prepareContinuable: () => Promise.resolve(prepared),
   })
-  return startTestActivation(ctx, provider, request).finally(() => { unregister() })
+  return startTestActivation(ctx, provider, request).finally(() => {
+    unregister()
+  })
 }

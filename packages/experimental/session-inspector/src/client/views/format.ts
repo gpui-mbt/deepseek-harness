@@ -13,13 +13,18 @@ function preview(value: unknown, depth: number, hiddenRootFields: readonly strin
   if (value === null || typeof value !== 'object') return String(value)
   if (depth > 1) return Array.isArray(value) ? `[${value.length}]` : '{…}'
   const fields = 'type' in value && typeof value.type === 'string' ? DELTA_PREVIEW_FIELDS.get(value.type) : undefined
-  const entries = Object.entries(value)
-    .filter(([key]) => !(depth === 0 && (key.toLowerCase() === 'time' || hiddenRootFields.includes(key))) && (fields === undefined
-      ? !['type', 'seq', 'sequence'].includes(key.toLowerCase())
-      : fields.includes(key)))
+  const entries = Object.entries(value).filter(
+    ([key]) =>
+      !(depth === 0 && (key.toLowerCase() === 'time' || hiddenRootFields.includes(key))) &&
+      (fields === undefined ? !['type', 'seq', 'sequence'].includes(key.toLowerCase()) : fields.includes(key)),
+  )
   const [first, second] = entries
   if (first !== undefined && second === undefined) return preview(first[1], depth + 1, hiddenRootFields)
-  return entries.slice(0, 5).map(([key, item]) => `${key}: ${preview(item, depth + 1, hiddenRootFields)}`).join(' · ').slice(0, INSPECTOR_PREVIEW_LIMIT)
+  return entries
+    .slice(0, 5)
+    .map(([key, item]) => `${key}: ${preview(item, depth + 1, hiddenRootFields)}`)
+    .join(' · ')
+    .slice(0, INSPECTOR_PREVIEW_LIMIT)
 }
 
 /**

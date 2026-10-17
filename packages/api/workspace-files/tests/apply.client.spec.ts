@@ -5,7 +5,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { apply, inject } from '../src/client/index.ts'
 import { FakeRemote } from './fake-remote.client.ts'
 
@@ -46,14 +46,20 @@ describe('workspace-files client apply', () => {
     pulls.push(registered[0]!.open(sessionFileAddress('s1', 'a.txt'), { signal })[Symbol.asyncIterator]().next())
     pulls.push(registered[0]!.open(sessionFileAddress('s1', '/etc/hosts'), { signal })[Symbol.asyncIterator]().next())
     await Promise.all([remote.waitForChanges(0), remote.waitForChanges(1)])
-    expect(remote.opened.map(watch => [watch.sessionId, watch.path])).toEqual([['s1', 'a.txt'], ['s1', '/etc/hosts']])
+    expect(remote.opened.map(watch => [watch.sessionId, watch.path])).toEqual([
+      ['s1', 'a.txt'],
+      ['s1', '/etc/hosts'],
+    ])
     expect(remote.stats).toEqual([])
     await remote.ready(0)
     await remote.waitForStat(0)
     expect(remote.stats.map(pending => [pending.sessionId, pending.path])).toEqual([['s1', 'a.txt']])
     await remote.ready(1)
     await remote.waitForStat(1)
-    expect(remote.stats.map(pending => [pending.sessionId, pending.path])).toEqual([['s1', 'a.txt'], ['s1', '/etc/hosts']])
+    expect(remote.stats.map(pending => [pending.sessionId, pending.path])).toEqual([
+      ['s1', 'a.txt'],
+      ['s1', '/etc/hosts'],
+    ])
     expect(remote.opened).toHaveLength(2)
 
     await fiber.dispose()

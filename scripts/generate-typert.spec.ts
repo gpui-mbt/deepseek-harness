@@ -1,7 +1,7 @@
 import { existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { typertPlugin } from '../packages/typert/generator/src/tsdown-plugin.ts'
 import { WorkspaceTypertGenerator } from '../packages/typert/generator/src/workspace.ts'
 import { main } from './generate-typert.ts'
@@ -13,7 +13,9 @@ const REMOTE_CLIENT_FILES = ['typert.remote-client.js', 'typert.remote-client.d.
 
 function workspace(source?: string): { root: string; pkg: string } {
   const root = mkdtempSync(join(tmpdir(), 'dsh-generate-typert-'))
-  onTestFinished(() => { removeFixtureSafely(root) })
+  onTestFinished(() => {
+    removeFixtureSafely(root)
+  })
   return { root, pkg: writeTypertWorkspace(root, source) }
 }
 
@@ -23,7 +25,9 @@ function workspace(source?: string): { root: string; pkg: string } {
  */
 function linkedRoot(root: string): string {
   const parent = mkdtempSync(join(tmpdir(), 'dsh-generate-typert-link-'))
-  onTestFinished(() => { rmSync(parent, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(parent, { recursive: true, force: true })
+  })
   const link = join(parent, 'workspace')
   symlinkSync(root, link, 'junction')
   return link
@@ -38,11 +42,16 @@ function captureConsole(): { log: () => string; error: () => string } {
 
 function typertOutputs(pkg: string): Record<string, string> {
   const output = join(pkg, 'lib')
-  return Object.fromEntries(globSync('typert.*', { cwd: output }).sort()
-    .map(file => [file, readFileSync(join(output, file)).toString('base64')]))
+  return Object.fromEntries(
+    globSync('typert.*', { cwd: output })
+      .sort()
+      .map(file => [file, readFileSync(join(output, file)).toString('base64')]),
+  )
 }
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('bundle-free Typert pass', { timeout: 60_000 }, () => {
   it('writes the files the workspace-mode tsdown plugin writes, from a directory inside the workspace', async () => {
@@ -94,47 +103,56 @@ describe('bundle-free Typert pass', { timeout: 60_000 }, () => {
     expect(output.log()).toBe('')
   })
 
-  it.each(['real', 'linked'] as const)('rejects a Host program that loads a compiled workspace declaration and names the missing alias (%s root)', (spelling) => {
-    const { root: realRoot, pkg } = workspace(DEPENDENT_TYPERT_SOURCE)
-    writeCompiledDependency(realRoot)
-    const root = spelling === 'real' ? realRoot : linkedRoot(realRoot)
-    const output = captureConsole()
+  it.each(['real', 'linked'] as const)(
+    'rejects a Host program that loads a compiled workspace declaration and names the missing alias (%s root)',
+    spelling => {
+      const { root: realRoot, pkg } = workspace(DEPENDENT_TYPERT_SOURCE)
+      writeCompiledDependency(realRoot)
+      const root = spelling === 'real' ? realRoot : linkedRoot(realRoot)
+      const output = captureConsole()
 
-    expect(main([], root)).toBe(1)
+      expect(main([], root)).toBe(1)
 
-    expect(output.error().split('\n').slice(1, 5)).toEqual([
-      '  TypertAnalysisError: typert(host): the host program loads workspace build outputs instead of source; resolve each import below to source so that generation does not depend on package compilation:',
-      '    packages/fixture/dep/lib/types/types.d.ts',
-      "      imported as '@fixture/dep/types' by packages/fixture/probe/src/index.ts",
-      '      add "@fixture/dep/types": ["./packages/fixture/dep/src/types.ts"] to the compilerOptions.paths of tsconfig.host.json or the config it extends',
-    ])
-    expect(existsSync(join(pkg, 'lib'))).toBe(false)
+      expect(output.error().split('\n').slice(1, 5)).toEqual([
+        '  TypertAnalysisError: typert(host): the host program loads workspace build outputs instead of source; resolve each import below to source so that generation does not depend on package compilation:',
+        '    packages/fixture/dep/lib/types/types.d.ts',
+        "      imported as '@fixture/dep/types' by packages/fixture/probe/src/index.ts",
+        '      add "@fixture/dep/types": ["./packages/fixture/dep/src/types.ts"] to the compilerOptions.paths of tsconfig.host.json or the config it extends',
+      ])
+      expect(existsSync(join(pkg, 'lib'))).toBe(false)
 
-    const basePath = join(root, 'tsconfig.base.json')
-    const base = JSON.parse(readFileSync(basePath, 'utf8')) as { compilerOptions: Record<string, unknown> }
-    writeFileSync(basePath, JSON.stringify({
-      ...base,
-      compilerOptions: { ...base.compilerOptions, paths: { '@fixture/dep/types': ['./packages/fixture/dep/src/types.ts'] } },
-    }))
-    expect(main([], root)).toBe(0)
-    expect(Object.keys(typertOutputs(pkg))).toEqual(['typert.host.d.ts', 'typert.host.js'])
-  })
+      const basePath = join(root, 'tsconfig.base.json')
+      const base = JSON.parse(readFileSync(basePath, 'utf8')) as { compilerOptions: Record<string, unknown> }
+      writeFileSync(
+        basePath,
+        JSON.stringify({
+          ...base,
+          compilerOptions: { ...base.compilerOptions, paths: { '@fixture/dep/types': ['./packages/fixture/dep/src/types.ts'] } },
+        }),
+      )
+      expect(main([], root)).toBe(0)
+      expect(Object.keys(typertOutputs(pkg))).toEqual(['typert.host.d.ts', 'typert.host.js'])
+    },
+  )
 
-  it.each(['real', 'linked'] as const)('rejects an unresolved workspace import before the package compiles and names the missing alias (%s root)', (spelling) => {
-    const { root: realRoot, pkg } = workspace(DEPENDENT_TYPERT_SOURCE)
-    writeCompiledDependency(realRoot, false)
-    const root = spelling === 'real' ? realRoot : linkedRoot(realRoot)
-    const output = captureConsole()
+  it.each(['real', 'linked'] as const)(
+    'rejects an unresolved workspace import before the package compiles and names the missing alias (%s root)',
+    spelling => {
+      const { root: realRoot, pkg } = workspace(DEPENDENT_TYPERT_SOURCE)
+      writeCompiledDependency(realRoot, false)
+      const root = spelling === 'real' ? realRoot : linkedRoot(realRoot)
+      const output = captureConsole()
 
-    expect(main([], root)).toBe(1)
+      expect(main([], root)).toBe(1)
 
-    expect(output.error().split('\n').slice(1, 4)).toEqual([
-      '  TypertAnalysisError: typert(host): the host program cannot resolve workspace imports, which would analyze as unknown types; map each import below to source:',
-      "    '@fixture/dep/types' imported by packages/fixture/probe/src/index.ts",
-      '      add "@fixture/dep/types": ["./packages/fixture/dep/src/types.ts"] to the compilerOptions.paths of tsconfig.host.json or the config it extends',
-    ])
-    expect(existsSync(join(pkg, 'lib'))).toBe(false)
-  })
+      expect(output.error().split('\n').slice(1, 4)).toEqual([
+        '  TypertAnalysisError: typert(host): the host program cannot resolve workspace imports, which would analyze as unknown types; map each import below to source:',
+        "    '@fixture/dep/types' imported by packages/fixture/probe/src/index.ts",
+        '      add "@fixture/dep/types": ["./packages/fixture/dep/src/types.ts"] to the compilerOptions.paths of tsconfig.host.json or the config it extends',
+      ])
+      expect(existsSync(join(pkg, 'lib'))).toBe(false)
+    },
+  )
 
   it('reports a failed write as a possibly mixed generation', () => {
     const { root, pkg } = workspace()
@@ -144,19 +162,25 @@ describe('bundle-free Typert pass', { timeout: 60_000 }, () => {
     expect(main([], root)).toBe(1)
 
     const report = output.error()
-    expect(report).toContain('generate-typert: writing Typert artifacts failed; packages written before the failure have new lib/typert.* files and the rest keep their previous files')
+    expect(report).toContain(
+      'generate-typert: writing Typert artifacts failed; packages written before the failure have new lib/typert.* files and the rest keep their previous files',
+    )
     expect(report).toMatch(/\n {2}Error: E(?:EXIST|NOTDIR)/)
     expect(report).toContain('until a run succeeds, lib/typert.* files may come from two generations.')
   })
 
   it('fails outside a workspace without writing', () => {
     const outside = mkdtempSync(join(tmpdir(), 'dsh-generate-typert-outside-'))
-    onTestFinished(() => { removeFixtureSafely(outside) })
+    onTestFinished(() => {
+      removeFixtureSafely(outside)
+    })
     const output = captureConsole()
 
     expect(main([], outside)).toBe(1)
 
-    expect(output.error()).toContain(`no directory at or above the working directory holds tsconfig.host.json and packages/; no artifact file changed (${outside})`)
+    expect(output.error()).toContain(
+      `no directory at or above the working directory holds tsconfig.host.json and packages/; no artifact file changed (${outside})`,
+    )
     expect(output.error()).toContain('Run the command from the repository root or a directory below it.')
   })
 
@@ -166,7 +190,9 @@ describe('bundle-free Typert pass', { timeout: 60_000 }, () => {
 
     expect(main(['--root', root], root)).toBe(2)
 
-    expect(output.error()).toBe(`generate-typert: expected no arguments, got ${JSON.stringify(['--root', root])}; usage: tsx scripts/generate-typert.ts`)
+    expect(output.error()).toBe(
+      `generate-typert: expected no arguments, got ${JSON.stringify(['--root', root])}; usage: tsx scripts/generate-typert.ts`,
+    )
     expect(existsSync(join(pkg, 'lib'))).toBe(false)
   })
 })

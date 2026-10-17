@@ -35,7 +35,9 @@ export function response(serial: number, tools: number): { chunks: StreamChunk[]
     { type: 'reasoning', text: 'Inspect the synthetic result. '.repeat(8) },
     { type: 'text', text: 'Synthetic response. '.repeat(8) },
     ...Array.from({ length: tools }, (_, index): ContentBlock => ({
-      type: 'tool-call', id: ToolCallId('call-' + String(serial) + '-' + String(index)), name: 'bench_tool',
+      type: 'tool-call',
+      id: ToolCallId('call-' + String(serial) + '-' + String(index)),
+      name: 'bench_tool',
       arguments: JSON.stringify({ ordinal: serial * 100 + index }),
     })),
   ]
@@ -48,7 +50,13 @@ export function response(serial: number, tools: number): { chunks: StreamChunk[]
       }
     } else if (block.type === 'tool-call') {
       for (let offset = 0; offset < block.arguments.length; offset += 8) {
-        chunks.push({ type: 'tool-call-delta', index, id: block.id, name: block.name, argumentsDelta: block.arguments.slice(offset, offset + 8) })
+        chunks.push({
+          type: 'tool-call-delta',
+          index,
+          id: block.id,
+          name: block.name,
+          argumentsDelta: block.arguments.slice(offset, offset + 8),
+        })
       }
     }
     chunks.push({ type: 'block-end', index, block })
@@ -68,34 +76,67 @@ export function syntheticHistory(turns: number): SessionEvent[] {
   for (let turn = 1; turn <= turns; turn++) {
     session.append('turn/start', { turn })
     session.append('step/start', { turn, step: 1 })
-    if (turn === 1) session.append('system/message', {
-      turn, step: 1, message: { id: MessageId('system-head'), role: 'system', content: [], source: { kind: 'system-prompt' } },
-    }, { surfaceOp: 'append' })
-    session.append('user/message', {
-      id: MessageId('prompt-' + String(turn)), role: 'user',
-      content: [{ type: 'text', text: 'Inspect synthetic module ' + String(turn) }], source: { kind: 'user' },
-    }, { surfaceOp: 'append' })
+    if (turn === 1)
+      session.append(
+        'system/message',
+        {
+          turn,
+          step: 1,
+          message: { id: MessageId('system-head'), role: 'system', content: [], source: { kind: 'system-prompt' } },
+        },
+        { surfaceOp: 'append' },
+      )
+    session.append(
+      'user/message',
+      {
+        id: MessageId('prompt-' + String(turn)),
+        role: 'user',
+        content: [{ type: 'text', text: 'Inspect synthetic module ' + String(turn) }],
+        source: { kind: 'user' },
+      },
+      { surfaceOp: 'append' },
+    )
     for (const step of [1, 2]) {
       if (step === 2) session.append('step/start', { turn, step })
       const reply = response(turn * 2 + step, step === 1 ? WORKLOAD.toolsPerHistoricalTurn : 0)
       const stream = new AssistantStreamAccumulator()
-      reply.chunks.forEach((chunk, index) => { stream.push({ time: TIME_ZERO + turn * 1_000 + step * 100 + index, chunk }) })
-      session.append('assistant/message', {
-        turn, step,
-        message: { id: MessageId('reply-' + String(turn) + '-' + String(step)), role: 'assistant', content: reply.content, source: { kind: 'model', provider: 'bench', model: 'bench' } },
-        stream: [...stream.snapshot()],
-      }, { surfaceOp: 'append' })
+      reply.chunks.forEach((chunk, index) => {
+        stream.push({ time: TIME_ZERO + turn * 1_000 + step * 100 + index, chunk })
+      })
+      session.append(
+        'assistant/message',
+        {
+          turn,
+          step,
+          message: {
+            id: MessageId('reply-' + String(turn) + '-' + String(step)),
+            role: 'assistant',
+            content: reply.content,
+            source: { kind: 'model', provider: 'bench', model: 'bench' },
+          },
+          stream: [...stream.snapshot()],
+        },
+        { surfaceOp: 'append' },
+      )
       for (const block of reply.content) {
         if (block.type !== 'tool-call') continue
         const call = session.append('tool/call', { turn, step, callId: block.id, name: block.name, arguments: block.arguments })
-        session.append('tool/result', {
-          turn, step,
-          message: {
-            id: MessageId('result-' + block.id), role: 'tool', toolCallId: block.id, isError: false,
-            source: { kind: 'tool', callId: block.id },
-            content: [{ type: 'text', text: resultText(turn) }],
+        session.append(
+          'tool/result',
+          {
+            turn,
+            step,
+            message: {
+              id: MessageId('result-' + block.id),
+              role: 'tool',
+              toolCallId: block.id,
+              isError: false,
+              source: { kind: 'tool', callId: block.id },
+              content: [{ type: 'text', text: resultText(turn) }],
+            },
           },
-        }, { surfaceOp: 'append', sourceEventSeqs: [call.seq] })
+          { surfaceOp: 'append', sourceEventSeqs: [call.seq] },
+        )
       }
       session.append('step/end', { turn, step })
     }

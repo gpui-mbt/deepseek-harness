@@ -46,9 +46,7 @@ type DownstreamOutcome =
   | { readonly type: 'decision'; readonly decision: RequestErrorAction }
   | { readonly type: 'error'; readonly error: unknown }
 
-async function settleDownstream(
-  next: () => Promise<RequestErrorAction>,
-): Promise<DownstreamOutcome> {
+async function settleDownstream(next: () => Promise<RequestErrorAction>): Promise<DownstreamOutcome> {
   try {
     return { type: 'decision', decision: await next() }
   } catch (error: unknown) {
@@ -67,13 +65,13 @@ function retryPolicyKey(policy: ResolvedRetryPolicy): string {
   return policy.mode === 'always'
     ? JSON.stringify([policy.mode, policy.initialDelayMs, policy.maxDelayMs, policy.jitterRatio])
     : JSON.stringify([
-      policy.mode,
-      policy.maxRetries,
-      [...policy.retryableCodes].sort(),
-      policy.initialDelayMs,
-      policy.maxDelayMs,
-      policy.jitterRatio,
-    ])
+        policy.mode,
+        policy.maxRetries,
+        [...policy.retryableCodes].sort(),
+        policy.initialDelayMs,
+        policy.maxDelayMs,
+        policy.jitterRatio,
+      ])
 }
 
 function retryStateKey(provider: string, policyKey: string): string {
@@ -82,7 +80,7 @@ function retryStateKey(provider: string, policyKey: string): string {
 
 function cancellableDelay(delayMs: number, signal: AbortSignal): Promise<boolean> {
   if (signal.aborted) return Promise.resolve(false)
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const timer = setTimeout(() => {
       signal.removeEventListener('abort', onAbort)
       resolve(true)
@@ -109,10 +107,13 @@ interface RetryStateEntry {
 type LlmRetryState = Record<string, RetryStateEntry>
 
 // The cast bridges the branded retry id, which Zod cannot express directly.
-const llmRetryStateSchema: zod.ZodType<LlmRetryState> = zod.record(zod.string(), zod.object({
-  retry: zod.number().int().nonnegative(),
-  retryId: zod.string(),
-})) as unknown as zod.ZodType<LlmRetryState>
+const llmRetryStateSchema: zod.ZodType<LlmRetryState> = zod.record(
+  zod.string(),
+  zod.object({
+    retry: zod.number().int().nonnegative(),
+    retryId: zod.string(),
+  }),
+) as unknown as zod.ZodType<LlmRetryState>
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap {
     /** Retry state for the current step by provider and policy. */
@@ -161,32 +162,33 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
   ): Promise<RequestErrorAction> {
     const fusedSignal = AbortSignal.any([signal, lifetime.signal])
     if (fusedSignal.aborted) return
-    const eventData: LlmRetryEventData = policy.mode === 'normal'
-      ? {
-        retryId,
-        turn,
-        step,
-        provider,
-        mode: policy.mode,
-        policyKey,
-        retry,
-        maxRetries: policy.maxRetries,
-        delayMs,
-        failure,
-      }
-      : {
-        retryId,
-        turn,
-        step,
-        provider,
-        mode: policy.mode,
-        policyKey,
-        retry,
-        delayMs,
-        failure,
-      }
+    const eventData: LlmRetryEventData =
+      policy.mode === 'normal'
+        ? {
+            retryId,
+            turn,
+            step,
+            provider,
+            mode: policy.mode,
+            policyKey,
+            retry,
+            maxRetries: policy.maxRetries,
+            delayMs,
+            failure,
+          }
+        : {
+            retryId,
+            turn,
+            step,
+            provider,
+            mode: policy.mode,
+            policyKey,
+            retry,
+            delayMs,
+            failure,
+          }
     agent.session.append('llm/retry', eventData)
-    if (!await cancellableDelay(delayMs, fusedSignal)) return
+    if (!(await cancellableDelay(delayMs, fusedSignal))) return
     agent.session.append('llm/retry-started', { retryId, turn, step, retry })
     return { kind: 'retry' }
   }
@@ -204,10 +206,7 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
       const downstream = await settleDownstream(next)
       if (fusedSignal.aborted) return
       if (downstream.type === 'error') {
-        ctx.logger.warn(
-          `llm-retry: provider "${provider}" always policy ignored a downstream recovery failure: %o`,
-          downstream.error,
-        )
+        ctx.logger.warn(`llm-retry: provider "${provider}" always policy ignored a downstream recovery failure: %o`, downstream.error)
       }
       if (downstream.type === 'decision' && downstream.decision?.kind === 'retry') {
         return downstream.decision
@@ -224,9 +223,7 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
     const retry = previousRetry + 1
     const retryId = previous?.retryId ?? RetryId(randomUUID())
     let delayMs: number
-    if (failure.providerRetryAfterMs !== undefined
-      && Number.isFinite(failure.providerRetryAfterMs)
-      && failure.providerRetryAfterMs > 0) {
+    if (failure.providerRetryAfterMs !== undefined && Number.isFinite(failure.providerRetryAfterMs) && failure.providerRetryAfterMs > 0) {
       if (failure.providerRetryAfterMs > policy.maxDelayMs) {
         if (policy.mode === 'normal') return next()
         delayMs = localDelay(policy, retry, random)
@@ -240,10 +237,7 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
     return backoff(agent, turn, step, failure, provider, policy, policyKey, retry, retryId, delayMs, signal)
   }
 
-  const disposeListener = ctx.on('agent/request-error', (
-    payload,
-    next: () => Promise<RequestErrorAction>,
-  ) => {
+  const disposeListener = ctx.on('agent/request-error', (payload, next: () => Promise<RequestErrorAction>) => {
     // A waterfall may have captured this callback before its registration was
     // removed. Lifetime cancellation must prevent that stale callback from
     // entering a downstream policy after disposal.
@@ -251,9 +245,12 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
     return track(recover(payload, next))
   })
 
-  ctx.effect(() => async () => {
-    disposeListener()
-    lifetime.abort(new Error('llm-retry plugin disposed'))
-    await Promise.allSettled([...active])
-  }, 'llm-retry: abort and drain active recovery')
+  ctx.effect(
+    () => async () => {
+      disposeListener()
+      lifetime.abort(new Error('llm-retry plugin disposed'))
+      await Promise.allSettled([...active])
+    },
+    'llm-retry: abort and drain active recovery',
+  )
 }

@@ -213,7 +213,7 @@ async function prepareAnchors(root: string, anchors: readonly number[]): Promise
   } finally {
     await host.ctx.fiber.dispose()
   }
-  await withCacheTable(foldRoot, async (table) => {
+  await withCacheTable(foldRoot, async table => {
     for (const anchor of anchors) {
       const record = table.get(anchorHeader(anchor).id)
       await writeFile(anchorFactsPath(root, anchor), JSON.stringify({ ...facts.get(anchor), record }))
@@ -255,14 +255,17 @@ async function seed(root: string, name: string, count: number): Promise<SeedRepo
   // and the list endpoint rejects a corpus whose rows the cache does not serve.
   const table = join(corpusRoot, 'storages', projectionCacheDomainSpec.name, 'sessions')
   await mkdir(table, { recursive: true })
-  await forEachConcurrently(written.sessions.length, async (rank) => {
+  await forEachConcurrently(written.sessions.length, async rank => {
     const { header, anchor } = written.sessions[rank] as WrittenSession
     const source = records.get(anchor)
     if (source === undefined) throw new Error(`corpus anchor ${String(anchor)} has no folded projection record`)
-    await writeFile(join(table, `${header.id}.json`), serializeRecord(projectionCacheDomainSpec.version, {
-      identity: { ...source.identity, createdAt: header.createdAt, cwd: header.cwd },
-      rows: source.rows,
-    }))
+    await writeFile(
+      join(table, `${header.id}.json`),
+      serializeRecord(projectionCacheDomainSpec.version, {
+        identity: { ...source.identity, createdAt: header.createdAt, cwd: header.cwd },
+        rows: source.rows,
+      }),
+    )
   })
   return { mode: 'seed', name, corpus: written.facts, seedMs: performance.now() - started }
 }
@@ -358,12 +361,17 @@ async function measureFork(root: string, ranks: readonly number[]): Promise<Fork
   }
 }
 
-assertBuiltBenchmarkRuntime(import.meta.url, Object.fromEntries([
-  '@deepseek-ai/dsh-api-session-controller',
-  '@deepseek-ai/dsh-session-persistence-jsonl',
-  '@deepseek-ai/dsh-session-query-sqlite',
-  '@deepseek-ai/dsh-session-projection-cache',
-].map(name => [name, import.meta.resolve(name)])))
+assertBuiltBenchmarkRuntime(
+  import.meta.url,
+  Object.fromEntries(
+    [
+      '@deepseek-ai/dsh-api-session-controller',
+      '@deepseek-ai/dsh-session-persistence-jsonl',
+      '@deepseek-ai/dsh-session-query-sqlite',
+      '@deepseek-ai/dsh-session-projection-cache',
+    ].map(name => [name, import.meta.resolve(name)]),
+  ),
+)
 
 const USAGE = 'usage: session-corpus.worker.js <root> <anchors anchors...|seed name count|list count|search|fork ranks...>'
 const [root, mode, ...rest] = process.argv.slice(2)

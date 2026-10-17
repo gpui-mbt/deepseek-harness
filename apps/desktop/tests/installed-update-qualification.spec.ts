@@ -4,8 +4,12 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { describe, expect, it } from 'vitest'
-import { collectInstalledUpdateJournals, createInstalledUpdateRun, inspectInstalledUpdateJournals } from '../scripts/installed-update-qualification.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import {
+  collectInstalledUpdateJournals,
+  createInstalledUpdateRun,
+  inspectInstalledUpdateJournals,
+} from '../scripts/installed-update-qualification.ts'
 import { DesktopUpdateJournal } from '../src/update-journal.ts'
 
 const versions = ['0.1.6-alpha.1.20260916.1', '0.1.6-alpha.1.20260916.2'] as const
@@ -17,8 +21,11 @@ interface CollectionReport {
 
 async function fixture<T>(body: (directory: string) => Promise<T>): Promise<T> {
   const directory = await mkdtemp(join(tmpdir(), 'dsh-installed-update-'))
-  try { return await body(directory) }
-  finally { await rm(directory, { recursive: true, force: true }) }
+  try {
+    return await body(directory)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 }
 
 function failedDownload(journal: DesktopUpdateJournal): void {
@@ -37,9 +44,11 @@ function completeRetry(journal: DesktopUpdateJournal): void {
 
 describe('installed-update qualification materials', () => {
   it('allocates independent test-only namespaces and does not produce packages or overwrite an earlier manifest', async () => {
-    await fixture(async (directory) => {
-      const [first, next] = await Promise.all([createInstalledUpdateRun(directory, versions, source),
-        createInstalledUpdateRun(directory, versions, source)])
+    await fixture(async directory => {
+      const [first, next] = await Promise.all([
+        createInstalledUpdateRun(directory, versions, source),
+        createInstalledUpdateRun(directory, versions, source),
+      ])
       expect(first.root).not.toBe(next.root)
       expect(first.appId).not.toBe(next.appId)
       expect(first.feedKey).not.toBe(next.feedKey)
@@ -51,18 +60,22 @@ describe('installed-update qualification materials', () => {
     })
   })
 
-  it.each([['1.0.0', '1.0.1'], [versions[1], versions[0]], [versions[0], versions[0]],
-    ['garbage', versions[1]], ['0.1.6-nightly.abc', versions[1]], ['0.1.6-nightly.01', versions[1]]])(
-    'rejects unusable version pair %s to %s before allocating material', async (old, next) => {
-      await fixture(async (directory) => {
-        await expect(createInstalledUpdateRun(directory, [old, next], source)).rejects.toThrow('increasing')
-        expect(await readdir(directory)).toEqual([])
-      })
-    },
-  )
+  it.each([
+    ['1.0.0', '1.0.1'],
+    [versions[1], versions[0]],
+    [versions[0], versions[0]],
+    ['garbage', versions[1]],
+    ['0.1.6-nightly.abc', versions[1]],
+    ['0.1.6-nightly.01', versions[1]],
+  ])('rejects unusable version pair %s to %s before allocating material', async (old, next) => {
+    await fixture(async directory => {
+      await expect(createInstalledUpdateRun(directory, [old, next], source)).rejects.toThrow('increasing')
+      expect(await readdir(directory)).toEqual([])
+    })
+  })
 
-  it.each(['alpha.1', 'beta.2', 'rc.3', 'test'])('accepts dated %s versions', async (prefix) => {
-    await fixture(async (directory) => {
+  it.each(['alpha.1', 'beta.2', 'rc.3', 'test'])('accepts dated %s versions', async prefix => {
+    await fixture(async directory => {
       const pair = [`0.1.6-${prefix}.20260916.1`, `0.1.6-${prefix}.20260916.2`] as const
       const run = await createInstalledUpdateRun(directory, pair, source)
       expect(run.versions).toEqual(pair)
@@ -70,14 +83,14 @@ describe('installed-update qualification materials', () => {
   })
 
   it('rejects an invalid source commit before allocating material', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       await expect(createInstalledUpdateRun(directory, versions, { ...source, commit: 'unknown' })).rejects.toThrow('Git commit')
       expect(await readdir(directory)).toEqual([])
     })
   })
 
   it('reads real journal output while keeping observed flow separate from installation and data acceptance', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const original = new DesktopUpdateJournal(directory, versions[0])
       failedDownload(original)
       completeRetry(original)
@@ -96,7 +109,7 @@ describe('installed-update qualification materials', () => {
   })
 
   it('does not join original-process fragments or count a successor startup by itself', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       failedDownload(new DesktopUpdateJournal(directory, versions[0]))
       completeRetry(new DesktopUpdateJournal(directory, versions[0]))
       new DesktopUpdateJournal(directory, versions[1]).action('workspace-ready')
@@ -108,7 +121,7 @@ describe('installed-update qualification materials', () => {
   })
 
   it('requires a fresh retry and readiness after a later failure', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const journal = new DesktopUpdateJournal(directory, versions[0])
       failedDownload(journal)
       journal.action('download-requested')
@@ -122,7 +135,7 @@ describe('installed-update qualification materials', () => {
   })
 
   it('reports absent evidence as incomplete', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const result = await inspectInstalledUpdateJournals(directory, versions)
       expect(result.recordedFlow).toBe('incomplete')
       expect(result.missing).toHaveLength(10)
@@ -130,7 +143,7 @@ describe('installed-update qualification materials', () => {
   })
 
   it('distinguishes a connection failure from an interrupted transfer with recorded progress', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const journal = new DesktopUpdateJournal(directory, versions[0])
       journal.action('workspace-ready')
       journal.action('download-requested')
@@ -142,41 +155,51 @@ describe('installed-update qualification materials', () => {
     })
   })
 
-  it.each(['partial', 'unknown-fields', 'wrong-sequence', 'mixed-version', 'invalid-json', 'unknown-phase', 'mixed-pid', 'raw-error', 'raw-operation', 'action-phase'])(
-    'refuses %s evidence without printing raw input', async (variant) => {
-      await fixture(async (directory) => {
-        const journal = new DesktopUpdateJournal(directory, versions[0])
-        const initial = await readFile(journal.path, 'utf8')
-        const row = { ...JSON.parse(initial) as Record<string, unknown>, sequence: 1, event: 'state', phase: 'idle' }
-        if (variant === 'unknown-fields') Object.assign(row, { secret: 'private-value' })
-        if (variant === 'wrong-sequence') row.sequence = 9
-        if (variant === 'mixed-version') Object.assign(row, { version: versions[1] })
-        if (variant === 'unknown-phase') row.phase = 'unknown'
-        if (variant === 'mixed-pid') Object.assign(row, { pid: 999999 })
-        if (variant === 'raw-error') Object.assign(row, { errorCode: 'private-value' })
-        if (variant === 'raw-operation') Object.assign(row, { failedOperation: 'private-value' })
-        if (variant === 'action-phase') Object.assign(row, { event: 'download-requested', phase: 'private-value' })
-        const next = variant === 'invalid-json' ? 'private-value' : JSON.stringify(row)
-        await writeFile(journal.path, initial + next + (variant === 'partial' ? '' : '\n'))
-        await expect(inspectInstalledUpdateJournals(directory, versions)).rejects.not.toThrow('private-value')
-      })
-    },
-  )
+  it.each([
+    'partial',
+    'unknown-fields',
+    'wrong-sequence',
+    'mixed-version',
+    'invalid-json',
+    'unknown-phase',
+    'mixed-pid',
+    'raw-error',
+    'raw-operation',
+    'action-phase',
+  ])('refuses %s evidence without printing raw input', async variant => {
+    await fixture(async directory => {
+      const journal = new DesktopUpdateJournal(directory, versions[0])
+      const initial = await readFile(journal.path, 'utf8')
+      const row = { ...(JSON.parse(initial) as Record<string, unknown>), sequence: 1, event: 'state', phase: 'idle' }
+      if (variant === 'unknown-fields') Object.assign(row, { secret: 'private-value' })
+      if (variant === 'wrong-sequence') row.sequence = 9
+      if (variant === 'mixed-version') Object.assign(row, { version: versions[1] })
+      if (variant === 'unknown-phase') row.phase = 'unknown'
+      if (variant === 'mixed-pid') Object.assign(row, { pid: 999999 })
+      if (variant === 'raw-error') Object.assign(row, { errorCode: 'private-value' })
+      if (variant === 'raw-operation') Object.assign(row, { failedOperation: 'private-value' })
+      if (variant === 'action-phase') Object.assign(row, { event: 'download-requested', phase: 'private-value' })
+      const next = variant === 'invalid-json' ? 'private-value' : JSON.stringify(row)
+      await writeFile(journal.path, initial + next + (variant === 'partial' ? '' : '\n'))
+      await expect(inspectInstalledUpdateJournals(directory, versions)).rejects.not.toThrow('private-value')
+    })
+  })
 
   it('does not accept an already-running successor as evidence of a later restart', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const journal = new DesktopUpdateJournal(directory, versions[0])
       failedDownload(journal)
       completeRetry(journal)
-      const rows = ['started', 'workspace-ready'].map((event, sequence) => JSON.stringify({ schemaVersion: 1,
-        pid: 123, sequence, time: '2000-01-01T00:00:00.000Z', version: versions[1], event }))
+      const rows = ['started', 'workspace-ready'].map((event, sequence) =>
+        JSON.stringify({ schemaVersion: 1, pid: 123, sequence, time: '2000-01-01T00:00:00.000Z', version: versions[1], event }),
+      )
       await writeFile(join(directory, `1-${randomUUID()}.jsonl`), `${rows.join('\n')}\n`)
       expect((await inspectInstalledUpdateJournals(directory, versions)).missing).toContain('successor-started')
     })
   })
 
   it('collects exact validated journal bytes in independent snapshots without copying other files or declaring acceptance', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const run = await createInstalledUpdateRun(directory, versions, source)
       const journals = join(directory, 'dsh-update-qualification', run.id, 'journals')
       const original = new DesktopUpdateJournal(journals, versions[0])
@@ -206,7 +229,7 @@ describe('installed-update qualification materials', () => {
   })
 
   it('rejects invalid or wrong-run journals before allocating a collection', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const run = await createInstalledUpdateRun(directory, versions, source)
       const manifest = join(run.root, 'run.json')
       await expect(collectInstalledUpdateJournals(manifest, directory)).rejects.toThrow('matching installed-app')
@@ -218,13 +241,19 @@ describe('installed-update qualification materials', () => {
     })
   })
 
-  it.each(['file', 'snapshot'])('rejects an oversized %s before collecting bytes', async (variant) => {
-    await fixture(async (directory) => {
+  it.each(['file', 'snapshot'])('rejects an oversized %s before collecting bytes', async variant => {
+    await fixture(async directory => {
       const run = await createInstalledUpdateRun(directory, versions, source)
       const journals = join(directory, 'dsh-update-qualification', run.id, 'journals')
       await mkdir(journals, { recursive: true })
-      const record = JSON.stringify({ schemaVersion: 1, sequence: 0, pid: 1, time: '2026-09-14T00:00:00.000Z',
-        version: versions[0], event: 'started' })
+      const record = JSON.stringify({
+        schemaVersion: 1,
+        sequence: 0,
+        pid: 1,
+        time: '2026-09-14T00:00:00.000Z',
+        version: versions[0],
+        event: 'started',
+      })
       const text = record + ' '.repeat((variant === 'file' ? 11 : 9) * 1024 * 1024) + '\n'
       for (let index = 0; index < (variant === 'file' ? 1 : 6); index++) {
         await writeFile(join(journals, `${index}-${randomUUID()}.jsonl`), text)
@@ -235,19 +264,27 @@ describe('installed-update qualification materials', () => {
   })
 
   it('runs the documented source CLI and retains an incomplete report instead of claiming operator acceptance', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const run = await createInstalledUpdateRun(directory, versions, source)
       const journals = join(directory, 'dsh-update-qualification', run.id, 'journals')
       new DesktopUpdateJournal(journals, versions[0]).action('workspace-ready')
       // This test owns the documented source-script entry, not a built application or Cordis profile.
-      const result = await promisify(execFile)(process.execPath, ['--import', 'tsx', 'apps/desktop/scripts/prepare-installed-update.ts',
-        'collect', join(run.root, 'run.json'), journals], { cwd: resolve(import.meta.dirname, '../../..'), windowsHide: true,
-        env: Object.fromEntries(Object.entries(process.env)
-          .filter(([key]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^NODE_PATH$/iu.test(key))) })
+      const result = await promisify(execFile)(
+        process.execPath,
+        ['--import', 'tsx', 'apps/desktop/scripts/prepare-installed-update.ts', 'collect', join(run.root, 'run.json'), journals],
+        {
+          cwd: resolve(import.meta.dirname, '../../..'),
+          windowsHide: true,
+          env: Object.fromEntries(
+            Object.entries(process.env).filter(([key]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^NODE_PATH$/iu.test(key)),
+          ),
+        },
+      )
       const output = JSON.parse(result.stdout) as { collection: string; operatorAcceptance: string }
       expect(output.operatorAcceptance).toBe('pending')
       expect(JSON.parse(await readFile(join(output.collection, 'report.json'), 'utf8'))).toMatchObject({
-        evidence: { recordedFlow: 'incomplete', filesRead: 1 }, operatorAcceptance: 'pending',
+        evidence: { recordedFlow: 'incomplete', filesRead: 1 },
+        operatorAcceptance: 'pending',
       })
     })
   })

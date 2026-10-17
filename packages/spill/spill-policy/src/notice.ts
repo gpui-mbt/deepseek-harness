@@ -29,11 +29,9 @@ function isOmission(text: string): boolean {
     if (!Number.isSafeInteger(Number(imageNotice[1]))) return false
     text = text.slice(0, imageNotice.index)
   }
-  if (text === describeOmitted({ kind: 'none' }, 'bytes')
-    || text === describeOmitted({ kind: 'unknown' }, 'bytes')) return true
+  if (text === describeOmitted({ kind: 'none' }, 'bytes') || text === describeOmitted({ kind: 'unknown' }, 'bytes')) return true
   const count = Number(text.slice(COUNT_OFFSET, text.length - COUNT_SUFFIX.length))
-  return Number.isSafeInteger(count) && count >= 0
-    && text === describeOmitted({ kind: 'exact', count }, 'bytes')
+  return Number.isSafeInteger(count) && count >= 0 && text === describeOmitted({ kind: 'exact', count }, 'bytes')
 }
 
 /**
@@ -49,8 +47,7 @@ export function hasSpillNotice(text: string): boolean {
     const next = text.indexOf(`${SEPARATOR}${OPEN}`, start)
     const candidate = text.slice(start, next < 0 ? -CLOSE.length : next)
     const location = candidate.indexOf(LOCATION, OPEN.length)
-    if (candidate.startsWith(OPEN) && location >= 0
-      && isOmission(candidate.slice(OPEN.length, location))) {
+    if (candidate.startsWith(OPEN) && location >= 0 && isOmission(candidate.slice(OPEN.length, location))) {
       return text.indexOf(GUIDANCE_SEPARATOR, start + location + LOCATION.length) >= 0
     }
     if (next < 0) return false

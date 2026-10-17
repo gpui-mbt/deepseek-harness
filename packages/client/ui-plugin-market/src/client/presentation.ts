@@ -23,9 +23,12 @@ export const INITIAL_QUERY: DiscoverQuery = { text: '', category: null, labels: 
  */
 export function withText(query: DiscoverQuery, text: string): DiscoverQuery {
   const [was, blank] = [query.text.trim() === '', text.trim() === '']
-  const sort: MarketSort = was && !blank && query.sort.kind === 'index'
-    ? { kind: 'relevance' }
-    : blank && query.sort.kind === 'relevance' ? { kind: 'index' } : query.sort
+  const sort: MarketSort =
+    was && !blank && query.sort.kind === 'index'
+      ? { kind: 'relevance' }
+      : blank && query.sort.kind === 'relevance'
+        ? { kind: 'index' }
+        : query.sort
   return { ...query, text, sort }
 }
 
@@ -58,7 +61,9 @@ export interface DisplayDeclaration<T> {
  * @returns declarations in display order.
  */
 export function displayDeclarations<T extends { readonly title: LocalizedText }>(
-  declarations: Readonly<Record<string, T>>, resolveText: (text: LocalizedText) => string, language: string,
+  declarations: Readonly<Record<string, T>>,
+  resolveText: (text: LocalizedText) => string,
+  language: string,
 ): DisplayDeclaration<T>[] {
   const collator = new Intl.Collator(language)
   return Object.entries(declarations)
@@ -93,13 +98,13 @@ export function sourceFacts(name: string, version: MarketListingVersion): Source
   if (source.type === 'npm') {
     return [
       { kind: 'package', value: `${name}@${version.version}` },
-      ...source.registry === undefined ? [] : [{ kind: 'registry' as const, value: source.registry }],
+      ...(source.registry === undefined ? [] : [{ kind: 'registry' as const, value: source.registry }]),
     ]
   }
   return [
     { kind: 'repository', value: source.url },
     { kind: 'commit', value: source.commit },
-    ...source.path === undefined ? [] : [{ kind: 'directory' as const, value: source.path }],
+    ...(source.path === undefined ? [] : [{ kind: 'directory' as const, value: source.path }]),
   ]
 }
 

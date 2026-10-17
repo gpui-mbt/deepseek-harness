@@ -7,9 +7,19 @@ import { execa } from 'execa'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import {
-  DEFAULT_PROFILE_BUNDLES, bundlePatchPaths, initProfile, PROFILE_TEMPLATES, readProfileManifest,
-  resolveBundleDir, resolveProfileDir, loadOverlayPatches, composeEntries, readProfileVersionExemptions,
-  evaluatePluginCompatibility, pluginCompatibilityWarning, type ProfileManifest,
+  DEFAULT_PROFILE_BUNDLES,
+  bundlePatchPaths,
+  initProfile,
+  PROFILE_TEMPLATES,
+  readProfileManifest,
+  resolveBundleDir,
+  resolveProfileDir,
+  loadOverlayPatches,
+  composeEntries,
+  readProfileVersionExemptions,
+  evaluatePluginCompatibility,
+  pluginCompatibilityWarning,
+  type ProfileManifest,
 } from '@deepseek-ai/dsh-app-boot'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import { parseInstallSpec } from './install-spec.ts'
@@ -91,7 +101,7 @@ async function reconcile(before: ProfileManifest, dir: string, anchor: string, o
   const dependencies = Object.keys(after.dependencies ?? {})
   const beforeDeps = new Set(Object.keys(before.dependencies ?? {}))
   const previous = after.dsh?.profile?.bundles ?? []
-  const bundles = previous.filter((name) => {
+  const bundles = previous.filter(name => {
     if (!beforeDeps.has(name) && !dependencies.includes(name)) return true
     return dependencies.includes(name) && bundleManifest(name, dir, anchor) !== undefined
   })
@@ -130,8 +140,10 @@ async function drainWithin(collectors: readonly Promise<void>[], ms: number): Pr
   try {
     return await Promise.race([
       Promise.allSettled(collectors).then(() => true),
-      new Promise<false>((resolve) => {
-        timer = setTimeout(() => { resolve(false) }, ms)
+      new Promise<false>(resolve => {
+        timer = setTimeout(() => {
+          resolve(false)
+        }, ms)
       }),
     ])
   } finally {
@@ -165,23 +177,42 @@ function namedSpecs(args: readonly string[]): string[] {
  * @returns The package manifest, or undefined when reading it would need the installation itself.
  */
 async function namedSpecManifest(
-  dir: string, spec: string, options: PackageOperationOptions, environment: Readonly<Record<string, string | undefined>>,
+  dir: string,
+  spec: string,
+  options: PackageOperationOptions,
+  environment: Readonly<Record<string, string | undefined>>,
   flags: readonly string[],
 ): Promise<object | undefined> {
   const parsed = parseInstallSpec(spec)
   if (parsed.kind === 'path') {
     const filename = join(parsed.path, 'package.json')
-    return existsSync(filename) ? JSON.parse(readFileSync(filename, 'utf8')) as object : undefined
+    return existsSync(filename) ? (JSON.parse(readFileSync(filename, 'utf8')) as object) : undefined
   }
   if (parsed.kind !== 'registry') return undefined
-  const viewed = await execa(options.command ?? 'pnpm', [
-    ...options.args ?? [], 'view', parsed.spec, 'name', 'version', 'engines', 'peerDependencies', '--json',
-    ...flags, '--config.fetch-retries=0',
-  ], {
-    cwd: dir, env: environment, extendEnv: false, reject: false, stdin: 'ignore',
-    ...options.signal === undefined ? {} : { cancelSignal: options.signal },
-    timeout: options.lookupTimeoutMs ?? LOOKUP_TIMEOUT_MS,
-  })
+  const viewed = await execa(
+    options.command ?? 'pnpm',
+    [
+      ...(options.args ?? []),
+      'view',
+      parsed.spec,
+      'name',
+      'version',
+      'engines',
+      'peerDependencies',
+      '--json',
+      ...flags,
+      '--config.fetch-retries=0',
+    ],
+    {
+      cwd: dir,
+      env: environment,
+      extendEnv: false,
+      reject: false,
+      stdin: 'ignore',
+      ...(options.signal === undefined ? {} : { cancelSignal: options.signal }),
+      timeout: options.lookupTimeoutMs ?? LOOKUP_TIMEOUT_MS,
+    },
+  )
   if (viewed.exitCode !== 0) return undefined
   const value: unknown = JSON.parse(viewed.stdout)
   return (Array.isArray(value) ? value.at(-1) : value) as object
@@ -189,7 +220,9 @@ async function namedSpecManifest(
 
 /** Missing installed packages are repairable; their absence is part of the before/after comparison. */
 function optionalFile(path: string): string | undefined {
-  try { return readFileSync(path, 'utf8') } catch (error) {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
     throw error
   }
@@ -232,8 +265,10 @@ async function activeRecordedRun(dir: string): Promise<string | undefined> {
   }
   await awaitTreeGone(tree)
   if (treeAlive(tree)) {
-    return `dsh: process ${String(tree.pid)}, started by an earlier package operation whose own process ended, is still running in this profile; `
-      + `wait for it or stop it, then retry. If process ${String(tree.pid)} is not that package run, delete ${path}.\n`
+    return (
+      `dsh: process ${String(tree.pid)}, started by an earlier package operation whose own process ended, is still running in this profile; ` +
+      `wait for it or stop it, then retry. If process ${String(tree.pid)} is not that package run, delete ${path}.\n`
+    )
   }
   await rm(path, { force: true })
   return undefined
@@ -260,9 +295,11 @@ function bundleComponentManifests(manifest: ProfileManifest, dir: string, anchor
     }
   }
   visit(composeEntries([patches.filter(patch => patch.insert !== undefined)]))
-  return [...names].flatMap((name) => {
+  return [...names].flatMap(name => {
     let packageDir: string
-    try { packageDir = resolveBundleDir('dsh', name, anchor, dir) } catch (error) {
+    try {
+      packageDir = resolveBundleDir('dsh', name, anchor, dir)
+    } catch (error) {
       // Resolution errors for uninstalled or dynamic rows remain subject to the startup loader's checks.
       void error
       return []
@@ -283,7 +320,9 @@ function bundleComponentManifests(manifest: ProfileManifest, dir: string, anchor
  * The diagnostic file is closed on return or rejection, including preparation and spawn failures.
  */
 export async function runProfilePnpm(
-  context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
+  context: PackageOperationContext,
+  args: readonly string[],
+  options: PackageOperationOptions,
 ): Promise<PackageResult> {
   const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
   // Before any profile file is read: a recorded run that is still active may be rewriting them.
@@ -298,12 +337,19 @@ export async function runProfilePnpm(
     await log.close()
     options.onOutput?.(active, 'stderr')
     const bytes = Buffer.from(active)
-    return { exitCode: 1, output: bytes.subarray(Math.max(0, bytes.length - options.outputBytes)).toString('utf8'), truncated: bytes.length > options.outputBytes, logPath }
+    return {
+      exitCode: 1,
+      output: bytes.subarray(Math.max(0, bytes.length - options.outputBytes)).toString('utf8'),
+      truncated: bytes.length > options.outputBytes,
+      logPath,
+    }
   }
   const before = readProfileManifest('dsh', dir)
   const savedFiles = ['package.json', 'pnpm-lock.yaml'].map(name => ({ path: join(dir, name), text: optionalFile(join(dir, name)) }))
   const beforeDependencies = directDependencies(before)
-  const installedBefore = new Map(Object.keys(beforeDependencies).map(name => [name, optionalFile(join(dir, 'node_modules', name, 'package.json'))]))
+  const installedBefore = new Map(
+    Object.keys(beforeDependencies).map(name => [name, optionalFile(join(dir, 'node_modules', name, 'package.json'))]),
+  )
   let output = Buffer.alloc(0)
   let truncated = false
   const append = (bytes: Buffer): void => {
@@ -347,7 +393,10 @@ export async function runProfilePnpm(
         preflight.push(pluginCompatibilityWarning(issue))
         incompatible.push(incompatiblePlugin(issue))
       }
-    } catch (error) { void error; continue }
+    } catch (error) {
+      void error
+      continue
+    }
   }
   if (preflight.length > 0) return await rejected(preflight, 'nothing was installed')
   const cancellation = new AbortController()
@@ -355,13 +404,17 @@ export async function runProfilePnpm(
   // run is killed: a lifecycle script outlives the pnpm process that started it.
   // The CLI keeps the caller's process group, so an interrupt still reaches it.
   const grouped = leadsOwnGroup(options.execution)
-  const child = execa(options.command ?? 'pnpm', [...options.args ?? [], ...args.map(arg => anchorPathSpec(arg, context.cwd))], {
-    cwd: dir, env: environment, extendEnv: false, reject: false,
+  const child = execa(options.command ?? 'pnpm', [...(options.args ?? []), ...args.map(arg => anchorPathSpec(arg, context.cwd))], {
+    cwd: dir,
+    env: environment,
+    extendEnv: false,
+    reject: false,
     stdout: options.execution === 'cli' ? 'inherit' : 'pipe',
     stderr: options.execution === 'cli' ? 'inherit' : 'pipe',
     killDescendants: options.execution === 'service',
-    buffer: false, stdin: options.execution === 'cli' ? 'inherit' : 'ignore', cancelSignal: options.signal === undefined
-      ? cancellation.signal : AbortSignal.any([cancellation.signal, options.signal]),
+    buffer: false,
+    stdin: options.execution === 'cli' ? 'inherit' : 'ignore',
+    cancelSignal: options.signal === undefined ? cancellation.signal : AbortSignal.any([cancellation.signal, options.signal]),
   })
   // Listened for before the record is written, so an exit during that write is not missed.
   const exited = once(child.nodeChildProcess, 'exit').catch(() => undefined)
@@ -388,7 +441,9 @@ export async function runProfilePnpm(
       for await (const chunk of stream) {
         armIdle()
         const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-        writes = writes.then(async () => { await log.write(bytes) })
+        writes = writes.then(async () => {
+          await log.write(bytes)
+        })
         await writes
         options.onOutput?.(bytes.toString('utf8'), kind)
         append(bytes)
@@ -404,12 +459,15 @@ export async function runProfilePnpm(
     }
   }
   const collectors = [
-    ...child.stdout === null ? [] : [collect(child.stdout, 'stdout')],
-    ...child.stderr === null ? [] : [collect(child.stderr, 'stderr')],
+    ...(child.stdout === null ? [] : [collect(child.stdout, 'stdout')]),
+    ...(child.stderr === null ? [] : [collect(child.stderr, 'stderr')]),
   ]
   // The drain decides whether a failure surfaces, so each reading is claimed now:
   // an unclaimed rejection would be reported as unhandled while the pipes drain.
-  for (const collector of collectors) void collector.catch(() => { /* reported through `failure` and the settled readings */ })
+  for (const collector of collectors)
+    void collector.catch(() => {
+      /* reported through `failure` and the settled readings */
+    })
   // Inherited descriptors hand pnpm the terminal, so there is no captured output
   // for a silence bound to observe: it would fire on a healthy run.
   if (collectors.length > 0) armIdle()
@@ -490,8 +548,7 @@ export async function runProfilePnpm(
         if (!untouched) {
           warnings.push(...found)
           incompatible.push(...issues)
-        }
-        else {
+        } else {
           const notice = `\ndsh: warning: ${found.join('\n')}\ndsh: it stays installed but profile startup denies it until you grant an exemption for those exact versions.\n`
           await log.write(notice)
           options.onOutput?.(notice, 'stderr')
@@ -505,16 +562,21 @@ export async function runProfilePnpm(
         await restore()
         const hadLockfile = savedFiles.some(file => file.path.endsWith('pnpm-lock.yaml') && file.text !== undefined)
         const repair = ['install', hadLockfile ? '--frozen-lockfile' : '--config.lockfile=false']
-        const repairing = execa(options.command ?? 'pnpm', [...options.args ?? [], ...repair], {
-          cwd: dir, env: environment, extendEnv: false, reject: false, stdin: 'ignore',
-          ...options.idleTimeoutMs === undefined ? {} : { timeout: options.idleTimeoutMs },
+        const repairing = execa(options.command ?? 'pnpm', [...(options.args ?? []), ...repair], {
+          cwd: dir,
+          env: environment,
+          extendEnv: false,
+          reject: false,
+          stdin: 'ignore',
+          ...(options.idleTimeoutMs === undefined ? {} : { timeout: options.idleTimeoutMs }),
         })
         await recordRun(dir, { pid: repairing.pid, grouped: false })
         const repaired = await repairing
         exitCode = 1
-        const restoration = repaired.exitCode === 0
-          ? 'restored package.json, pnpm-lock.yaml, and node_modules'
-          : "restored package.json and pnpm-lock.yaml, but node_modules could not be reinstalled; run 'dsh plugin install'"
+        const restoration =
+          repaired.exitCode === 0
+            ? 'restored package.json, pnpm-lock.yaml, and node_modules'
+            : "restored package.json and pnpm-lock.yaml, but node_modules could not be reinstalled; run 'dsh plugin install'"
         const diagnostic = `\ndsh: installation rejected: ${warnings.join('\n')}\ndsh: ${restoration}.\n`
         await log.write(diagnostic)
         options.onOutput?.(diagnostic, 'stderr')
@@ -531,8 +593,12 @@ export async function runProfilePnpm(
     await log.close()
   }
   return {
-    exitCode, output: output.toString('utf8'), truncated, logPath,
-    ...control.stalled ? { timedOut: true } : {}, ...incompatible.length > 0 ? { incompatible } : {},
+    exitCode,
+    output: output.toString('utf8'),
+    truncated,
+    logPath,
+    ...(control.stalled ? { timedOut: true } : {}),
+    ...(incompatible.length > 0 ? { incompatible } : {}),
   }
 }
 
@@ -543,18 +609,24 @@ export async function runProfilePnpm(
  * @returns Completed package-manager result.
  */
 export async function runPluginCommand(
-  context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
+  context: PackageOperationContext,
+  args: readonly string[],
+  options: PackageOperationOptions,
 ): Promise<PackageResult> {
   const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
   await mkdir(dir, { recursive: true })
-  return withFileLock(join(dir, 'package.json'), async () => {
-    if (!existsSync(join(dir, 'package.json'))) {
-      const template = PROFILE_TEMPLATES[context.profile]
-      initProfile(dir, template?.bundles ?? DEFAULT_PROFILE_BUNDLES)
-      options.onOutput?.(`dsh: initialized profile ${context.profile} at ${dir}\n`, 'stderr')
-    }
-    return runProfilePnpm(context, args, options)
-  }, options.lockWaitMs === undefined ? undefined : { waitMs: options.lockWaitMs })
+  return withFileLock(
+    join(dir, 'package.json'),
+    async () => {
+      if (!existsSync(join(dir, 'package.json'))) {
+        const template = PROFILE_TEMPLATES[context.profile]
+        initProfile(dir, template?.bundles ?? DEFAULT_PROFILE_BUNDLES)
+        options.onOutput?.(`dsh: initialized profile ${context.profile} at ${dir}\n`, 'stderr')
+      }
+      return runProfilePnpm(context, args, options)
+    },
+    options.lockWaitMs === undefined ? undefined : { waitMs: options.lockWaitMs },
+  )
 }
 
 /** What one registry lookup answered. */
@@ -593,13 +665,25 @@ export interface PackageViewOptions {
  * @returns The registry URL as pnpm printed it, or null when pnpm did not answer with one.
  */
 export async function readProfileRegistry(
-  dir: string, options: { command?: string; args?: readonly string[]; env?: Readonly<Record<string, string>>; timeoutMs: number },
+  dir: string,
+  options: { command?: string; args?: readonly string[]; env?: Readonly<Record<string, string>>; timeoutMs: number },
 ): Promise<string | null> {
-  const result = await execa(options.command ?? 'pnpm', [...options.args ?? [], 'config', 'get', 'registry'], {
-    cwd: dir, env: { ...scrubbedParentEnv(), ...options.env }, extendEnv: false, reject: false, stdin: 'ignore', timeout: options.timeoutMs,
+  const result = await execa(options.command ?? 'pnpm', [...(options.args ?? []), 'config', 'get', 'registry'], {
+    cwd: dir,
+    env: { ...scrubbedParentEnv(), ...options.env },
+    extendEnv: false,
+    reject: false,
+    stdin: 'ignore',
+    timeout: options.timeoutMs,
   })
   // The registry is the last line: pnpm may print a notice before it.
-  const answer = result.exitCode === 0 ? result.stdout.trim().replace(/^[\s\S]*\n/, '').trim() : ''
+  const answer =
+    result.exitCode === 0
+      ? result.stdout
+          .trim()
+          .replace(/^[\s\S]*\n/, '')
+          .trim()
+      : ''
   return /^https?:\/\/\S+$/.test(answer) ? answer : null
 }
 
@@ -624,18 +708,39 @@ export function registryArguments(registry: Registry): string[] {
  * @returns pnpm's exit, output, and how the lookup ended.
  */
 export async function viewProfilePackage(dir: string, spec: string, options: PackageViewOptions): Promise<PackageViewResult> {
-  const result = await execa(options.command ?? 'pnpm', [
-    ...options.args ?? [], 'view', spec, 'name', 'version', 'description', 'dsh', '--json',
-    ...registryArguments(options.registry ?? null), '--config.fetch-retries=0',
-  ], {
-    cwd: dir, env: { ...scrubbedParentEnv(), ...options.env }, extendEnv: false, reject: false, stdin: 'ignore',
-    timeout: options.timeoutMs, ...options.signal === undefined ? {} : { cancelSignal: options.signal },
-  })
-  const cause = result.exitCode === undefined && !result.timedOut && !result.isCanceled
-    ? Object.assign(new Error(result.shortMessage), { code: result.code })
-    : undefined
+  const result = await execa(
+    options.command ?? 'pnpm',
+    [
+      ...(options.args ?? []),
+      'view',
+      spec,
+      'name',
+      'version',
+      'description',
+      'dsh',
+      '--json',
+      ...registryArguments(options.registry ?? null),
+      '--config.fetch-retries=0',
+    ],
+    {
+      cwd: dir,
+      env: { ...scrubbedParentEnv(), ...options.env },
+      extendEnv: false,
+      reject: false,
+      stdin: 'ignore',
+      timeout: options.timeoutMs,
+      ...(options.signal === undefined ? {} : { cancelSignal: options.signal }),
+    },
+  )
+  const cause =
+    result.exitCode === undefined && !result.timedOut && !result.isCanceled
+      ? Object.assign(new Error(result.shortMessage), { code: result.code })
+      : undefined
   return {
-    exitCode: result.exitCode ?? null, stdout: result.stdout, stderr: result.stderr, timedOut: result.timedOut,
-    ...cause === undefined ? {} : { cause },
+    exitCode: result.exitCode ?? null,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    timedOut: result.timedOut,
+    ...(cause === undefined ? {} : { cause }),
   }
 }

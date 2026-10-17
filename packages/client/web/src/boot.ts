@@ -6,9 +6,7 @@
  * @module @deepseek-ai/dsh-client-web/src/boot
  */
 import { Context } from '@deepseek-ai/cordis'
-import type {
-  BootManifest, ClientModuleCreateOptions, ClientModuleSystem, DshWindow,
-} from '@deepseek-ai/dsh-client-modules/client'
+import type { BootManifest, ClientModuleCreateOptions, ClientModuleSystem, DshWindow } from '@deepseek-ai/dsh-client-modules/client'
 import { bootClient } from './boot-client.ts'
 import { BootPage } from './boot-page.ts'
 import { mountClient } from './mount.ts'
@@ -65,13 +63,15 @@ export class AppWebEntry {
       // is `ClientTransportHooks`, owned by @deepseek-ai/dsh-client-connection;
       // this structural slice reads one optional member without adding a
       // package edge.
-      const transport = (globalThis as {
-        __DSH_TRANSPORT__?: { loadBundle?: ClientModuleCreateOptions['loadBundle'] }
-      }).__DSH_TRANSPORT__
+      const transport = (
+        globalThis as {
+          __DSH_TRANSPORT__?: { loadBundle?: ClientModuleCreateOptions['loadBundle'] }
+        }
+      ).__DSH_TRANSPORT__
       this.modules = moduleLoader.create({
         boot: win.__DSH_BOOT__,
         staticModules: getStaticModules(),
-        ...transport?.loadBundle === undefined ? {} : { loadBundle: transport.loadBundle },
+        ...(transport?.loadBundle === undefined ? {} : { loadBundle: transport.loadBundle }),
         ...this.seams,
       })
       this.manifest = this.modules.manifest
@@ -114,10 +114,14 @@ export class AppWebEntry {
 
   /** Prefetch stage-one bundles and their dynamic requests before concurrent plugin imports. */
   private async prefetchImmediateTier(): Promise<void> {
-    await Promise.all(this.manifest.plugins
-      .filter(row => row.immediately)
-      .map(row => this.modules.prefetch(row.id).catch((_prefetchError: unknown) => {
-        // Prefetch only starts transport early; the Loader import retries and reports this bundle failure.
-      })))
+    await Promise.all(
+      this.manifest.plugins
+        .filter(row => row.immediately)
+        .map(row =>
+          this.modules.prefetch(row.id).catch((_prefetchError: unknown) => {
+            // Prefetch only starts transport early; the Loader import retries and reports this bundle failure.
+          }),
+        ),
+    )
   }
 }

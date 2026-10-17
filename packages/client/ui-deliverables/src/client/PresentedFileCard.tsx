@@ -19,7 +19,15 @@ function cardDescription(description: string | undefined, fallback: string): str
  * @param props - durable file metadata, Sidebar preview, Host capabilities, gesture status, and localized copy.
  * @returns the file card and its anchored action menu.
  */
-export function PresentedFileCard({ file, cwd, phase, host, onPreview, actions, t }: {
+export function PresentedFileCard({
+  file,
+  cwd,
+  phase,
+  host,
+  onPreview,
+  actions,
+  t,
+}: {
   file: PresentedPath
   cwd: string | undefined
   phase: PresentedOpenPhase | undefined
@@ -31,28 +39,55 @@ export function PresentedFileCard({ file, cwd, phase, host, onPreview, actions, 
   const reveal = host?.fileManager ?? 'directory'
   const name = basename(file.path)
   const metadata = fileExtension(name).toUpperCase() || t('presented.file')
-  const status = phase === undefined
-    ? cardDescription(file.description, metadata)
-    : t(reveal === 'directory' && phase === 'revealed' ? 'presented.directoryOpened'
-      : reveal === 'directory' && phase === 'revealing' ? 'presented.directoryOpening'
-        : reveal === 'directory' && phase === 'revealError' ? 'presented.directoryError' : `presented.${phase}`)
-  return <div className={css.file} data-presented-file>
-    <button type="button" className={css.cardPreview} title={resolveWorkspacePath(cwd, file.path)}
-      aria-label={t('presented.previewCard', { name: file.path })} onClick={onPreview} />
-    <span className={css.fileIcon}><FileTypeIcon path={file.path} size={20} /></span>
-    <div className={css.fileBody}>
-      <div className={css.details}>
-        <span className={css.fileName}>{name}</span>
-        <span className={css.description} data-presented-description role={phase === undefined ? undefined : 'status'}
-          data-error={phase === 'error' || phase === 'revealError' || phase === 'nativeUnavailable' ? true : undefined}>
-          <span className={css.secondaryText} data-success={succeeded || undefined}
-            style={succeeded ? { animationDelay: `${PRESENTED_SUCCESS_HOLD_MS}ms`, animationDuration: `${PRESENTED_SUCCESS_FADE_MS}ms` } : undefined}>
-            {status}
+  const status =
+    phase === undefined
+      ? cardDescription(file.description, metadata)
+      : t(
+          reveal === 'directory' && phase === 'revealed'
+            ? 'presented.directoryOpened'
+            : reveal === 'directory' && phase === 'revealing'
+              ? 'presented.directoryOpening'
+              : reveal === 'directory' && phase === 'revealError'
+                ? 'presented.directoryError'
+                : `presented.${phase}`,
+        )
+  return (
+    <div className={css.file} data-presented-file>
+      <button
+        type="button"
+        className={css.cardPreview}
+        title={resolveWorkspacePath(cwd, file.path)}
+        aria-label={t('presented.previewCard', { name: file.path })}
+        onClick={onPreview}
+      />
+      <span className={css.fileIcon}>
+        <FileTypeIcon path={file.path} size={20} />
+      </span>
+      <div className={css.fileBody}>
+        <div className={css.details}>
+          <span className={css.fileName}>{name}</span>
+          <span
+            className={css.description}
+            data-presented-description
+            role={phase === undefined ? undefined : 'status'}
+            data-error={phase === 'error' || phase === 'revealError' || phase === 'nativeUnavailable' ? true : undefined}
+          >
+            <span
+              className={css.secondaryText}
+              data-success={succeeded || undefined}
+              style={
+                succeeded
+                  ? { animationDelay: `${PRESENTED_SUCCESS_HOLD_MS}ms`, animationDuration: `${PRESENTED_SUCCESS_FADE_MS}ms` }
+                  : undefined
+              }
+            >
+              {status}
+            </span>
+            <span className={css.previewHint}>{t('presented.preview')}</span>
           </span>
-          <span className={css.previewHint}>{t('presented.preview')}</span>
-        </span>
+        </div>
+        <div className={css.actions}>{actions}</div>
       </div>
-      <div className={css.actions}>{actions}</div>
     </div>
-  </div>
+  )
 }

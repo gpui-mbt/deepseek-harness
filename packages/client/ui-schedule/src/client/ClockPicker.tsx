@@ -118,8 +118,7 @@ export function ClockPicker({ open, anchorRef, value, onPick, onClose, seconds =
     if (!open) return
     setCursor({ column: 0, index: columnIndex(clockBase(valueRef.current), 0) })
     for (const column of COLUMN_INDICES) {
-      refs.current.get(`${column}:${columnIndex(clockBase(valueRef.current), column)}`)
-        ?.scrollIntoView({ block: 'nearest' })
+      refs.current.get(`${column}:${columnIndex(clockBase(valueRef.current), column)}`)?.scrollIntoView({ block: 'nearest' })
     }
   }, [open])
 
@@ -153,9 +152,7 @@ export function ClockPicker({ open, anchorRef, value, onPick, onClose, seconds =
    * @param option - padded option text.
    * @param count - number of options in the column.
    */
-  const onOptionKeyDown = (
-    event: KeyboardEvent<HTMLDivElement>, column: number, index: number, option: string, count: number,
-  ): void => {
+  const onOptionKeyDown = (event: KeyboardEvent<HTMLDivElement>, column: number, index: number, option: string, count: number): void => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       pick(column, option, index)
@@ -182,34 +179,34 @@ export function ClockPicker({ open, anchorRef, value, onPick, onClose, seconds =
     setCursor({ column, index: Math.min(Math.max(index + step, 0), count - 1) })
   }
 
-  return <PickerPopover
-    open={open}
-    anchorRef={anchorRef}
-    label={t('timing.time')}
-    className={css.clock}
-    onClose={onClose}
-  >
-    {columns.map((column, at) => (
-      <div key={column.label} role="listbox" aria-label={t(column.label)} className={css.column}>
-        {column.options.map((option, index) => (
-          <div
-            key={option}
-            ref={(element) => {
-              const key = `${at}:${index}`
-              if (element === null) refs.current.delete(key)
-              else refs.current.set(key, element)
-            }}
-            role="option"
-            aria-selected={option === picked[at]}
-            tabIndex={
-              (cursor.column === at ? cursor.index : columnIndices[at]) === index ? 0 : -1
-            }
-            className={clsx(css.option, option === picked[at] && css.selected)}
-            onClick={() => { pick(at, option, index) }}
-            onKeyDown={(event) => { onOptionKeyDown(event, at, index, option, column.options.length) }}
-          >{option}</div>
-        ))}
-      </div>
-    ))}
-  </PickerPopover>
+  return (
+    <PickerPopover open={open} anchorRef={anchorRef} label={t('timing.time')} className={css.clock} onClose={onClose}>
+      {columns.map((column, at) => (
+        <div key={column.label} role="listbox" aria-label={t(column.label)} className={css.column}>
+          {column.options.map((option, index) => (
+            <div
+              key={option}
+              ref={element => {
+                const key = `${at}:${index}`
+                if (element === null) refs.current.delete(key)
+                else refs.current.set(key, element)
+              }}
+              role="option"
+              aria-selected={option === picked[at]}
+              tabIndex={(cursor.column === at ? cursor.index : columnIndices[at]) === index ? 0 : -1}
+              className={clsx(css.option, option === picked[at] && css.selected)}
+              onClick={() => {
+                pick(at, option, index)
+              }}
+              onKeyDown={event => {
+                onOptionKeyDown(event, at, index, option, column.options.length)
+              }}
+            >
+              {option}
+            </div>
+          ))}
+        </div>
+      ))}
+    </PickerPopover>
+  )
 }

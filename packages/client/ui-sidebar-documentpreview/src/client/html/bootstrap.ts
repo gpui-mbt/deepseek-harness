@@ -22,10 +22,12 @@ export interface HtmlBundle {
  * @returns bootstrap HTML; invalid UTF-8 throws before navigation.
  */
 export function createHtmlDocument(bundle: HtmlBundle): string {
-  const payload = encodeText(JSON.stringify({
-    html: decodeText(bundle.data),
-    assets: bundle.assets.map(asset => ({ kind: asset.kind, reference: asset.reference, text: decodeText(asset.data) })),
-  }))
+  const payload = encodeText(
+    JSON.stringify({
+      html: decodeText(bundle.data),
+      assets: bundle.assets.map(asset => ({ kind: asset.kind, reference: asset.reference, text: decodeText(asset.data) })),
+    }),
+  )
   return `<!doctype html><meta charset="utf-8"><script>(()=>{
 const bytes=data=>Uint8Array.from(atob(data),character=>character.charCodeAt(0));
 const text=data=>new TextDecoder('utf-8',{fatal:true}).decode(bytes(data));

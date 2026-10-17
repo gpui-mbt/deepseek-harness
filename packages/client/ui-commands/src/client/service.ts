@@ -25,8 +25,15 @@ import { WeakMapWithValues } from '@deepseek-ai/dsh-util-values'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
 import { rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  CandidateRequest, ClientSessionContext, CommandClaim, PickOutcome, InputTriggerCandidate, InputTriggerPick,
-  SubmitAttachment, SubmitEnvelope, SubmitOutcome,
+  CandidateRequest,
+  ClientSessionContext,
+  CommandClaim,
+  PickOutcome,
+  InputTriggerCandidate,
+  InputTriggerPick,
+  SubmitAttachment,
+  SubmitEnvelope,
+  SubmitOutcome,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { CommandContribution, CommandDecoration, CommandUiContract } from './contract.ts'
 import type { CommandDescriptor } from './directory.ts'
@@ -94,13 +101,13 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const locale = ctx.get('locale')
     if (locale === undefined) throw new Error('ui-commands: locale service unavailable')
     this.t = locale.bind('command')
-    this.directory = new CommandDirectory(async (sessionId) => {
+    this.directory = new CommandDirectory(async sessionId => {
       const sessions = this.sessions()
       if (sessions.subagentAddress(sessionId) !== undefined) return []
       if (sessions.binding(sessionId) === undefined) {
         throw new Error(`command catalog requires a retained session "${sessionId}"`)
       }
-      return sessions.using(sessionId, { source: 'commandCatalog' }, async (reference) => {
+      return sessions.using(sessionId, { source: 'commandCatalog' }, async reference => {
         const state = reference.binding.session.getSnapshot()
         if (state.openState !== 'open') {
           throw state.openError ?? new Error(`session "${sessionId}" is not open`)
@@ -112,22 +119,34 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     })
     const inputTriggers = ctx.get('inputTriggers')
     if (inputTriggers === undefined) throw new Error('ui-commands: slash service unavailable')
-    ctx.effect(() => inputTriggers.registerSource({
-      trigger: '/',
-      name: 'command',
-      candidates: (session, req) => this.candidates(session, req),
-      onPick: pick => this.dispatch(pick),
-      matchSpace: (session, token) => this.matchSpace(session, token),
-      matchClaim: (session, token, signal) => this.matchClaim(session, token, signal),
-      matchEnter: (session, line, signal, envelope) => this.matchEnter(session, line, signal, envelope),
-      warm: (session) => { this.directory.warm(session.sessionId) },
-    }), 'command: slash source')
-    ctx.remote.$on('commands/change', () => { this.directory.invalidateAll() })
+    ctx.effect(
+      () =>
+        inputTriggers.registerSource({
+          trigger: '/',
+          name: 'command',
+          candidates: (session, req) => this.candidates(session, req),
+          onPick: pick => this.dispatch(pick),
+          matchSpace: (session, token) => this.matchSpace(session, token),
+          matchClaim: (session, token, signal) => this.matchClaim(session, token, signal),
+          matchEnter: (session, line, signal, envelope) => this.matchEnter(session, line, signal, envelope),
+          warm: session => {
+            this.directory.warm(session.sessionId)
+          },
+        }),
+      'command: slash source',
+    )
+    ctx.remote.$on('commands/change', () => {
+      this.directory.invalidateAll()
+    })
     // A preset switch changes which commands one session's agent resolves and
     // registers nothing globally. Drop that key's old composition before
     // prewarming so a newly opened menu waits for the replacement catalog.
-    ctx.remote.$on('agent-preset/selected', (sessionId) => { this.directory.resetSession(sessionId) })
-    ctx.on('connection/reset', () => { this.directory.resetConnected() })
+    ctx.remote.$on('agent-preset/selected', sessionId => {
+      this.directory.resetSession(sessionId)
+    })
+    ctx.on('connection/reset', () => {
+      this.directory.resetConnected()
+    })
   }
 
   /**
@@ -143,9 +162,13 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
         throw new Error(`ui-commands: duplicate contribution for /${contribution.name}`)
       }
       contributions.set(contribution.name, contribution)
-      return () => { contributions.delete(contribution.name) }
+      return () => {
+        contributions.delete(contribution.name)
+      }
     }, 'command.register()')
-    return () => { void dispose() }
+    return () => {
+      void dispose()
+    }
   }
 
   /**
@@ -161,9 +184,13 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
         throw new Error(`ui-commands: duplicate decoration for /${decoration.name}`)
       }
       decorations.set(decoration.name, decoration)
-      return () => { decorations.delete(decoration.name) }
+      return () => {
+        decorations.delete(decoration.name)
+      }
     }, 'command.decorate()')
-    return () => { void dispose() }
+    return () => {
+      void dispose()
+    }
   }
 
   /**
@@ -200,19 +227,23 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const existing = popups.get(binding)
     if (existing !== undefined) return existing
     const controller = new PopupSelectController<ClientSessionContext>({
-      consume: segment => binding.ctx.bail(binding.ctx, 'slash/input-consume-token', {
-        guard: segment.via === 'menu'
-          ? { kind: 'span', span: segment.span }
-          : { kind: 'bare-token', token: segment.token },
-      }) === true,
+      consume: segment =>
+        binding.ctx.bail(binding.ctx, 'slash/input-consume-token', {
+          guard: segment.via === 'menu' ? { kind: 'span', span: segment.span } : { kind: 'bare-token', token: segment.token },
+        }) === true,
       // The shell took the keyboard; the composer restores it, caret included.
-      focusComposer: () => { binding.ctx.get('conversation')?.input.for(binding.ctx).focus() },
+      focusComposer: () => {
+        binding.ctx.get('conversation')?.input.for(binding.ctx).focus()
+      },
     })
     popups.set(binding, controller)
-    binding.ctx.effect(() => () => {
-      controller.dispose()
-      popups.delete(binding)
-    }, 'command: session popup')
+    binding.ctx.effect(
+      () => () => {
+        controller.dispose()
+        popups.delete(binding)
+      },
+      'command: session popup',
+    )
     return controller
   }
 
@@ -369,12 +400,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * Invoke one contribution or decoration (menu pick / bare enter): open the
    * session's popup, or consume the token and run the action.
    */
-  private invoke(
-    name: string,
-    ui: CommandContribution['ui'],
-    session: ClientSessionContext,
-    segment: TokenSegment,
-  ): void {
+  private invoke(name: string, ui: CommandContribution['ui'], session: ClientSessionContext, segment: TokenSegment): void {
     if (ui.kind === 'action') {
       this.consumeVia(session.sessionId, segment)
       ui.run(session)
@@ -465,7 +491,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    */
   private runDetached(desc: CommandDescriptor, session: ClientSessionContext, line: string): void {
     void this.execute(session, line).then(
-      (outcome) => {
+      outcome => {
         // matched:false maps to an error outcome with no logged lifecycle.
         if (outcome.kind === 'error') this.noticeFor(session.sessionId, 'error', outcome.text ?? `/${desc.name} failed`)
       },
@@ -480,9 +506,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const actx = this.scopeFor(id)
     if (actx === undefined) return
     actx.bail(actx, 'slash/input-consume-token', {
-      guard: segment.via === 'menu'
-        ? { kind: 'span', span: segment.span }
-        : { kind: 'bare-token', token: segment.token },
+      guard: segment.via === 'menu' ? { kind: 'span', span: segment.span } : { kind: 'bare-token', token: segment.token },
     })
   }
 

@@ -5,7 +5,12 @@ import { isVolatile } from '@deepseek-ai/cosmokit'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type { LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { catalogModelFields, deepSeekConfigFields, resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
-import type { Config as ProtocolConfig, DeepSeekCatalogModel, Options as ProtocolOptions, ResolvedDeepSeekOptions } from '@deepseek-ai/dsh-llm-deepseek'
+import type {
+  Config as ProtocolConfig,
+  DeepSeekCatalogModel,
+  Options as ProtocolOptions,
+  ResolvedDeepSeekOptions,
+} from '@deepseek-ai/dsh-llm-deepseek'
 
 /** Default deadline of one model-listing request and of a first-use wait. */
 export const DEFAULT_MODELS_TIMEOUT_MS = 5_000
@@ -112,12 +117,16 @@ function resolveOverride(id: string, override: Readonly<Record<string, unknown>>
  */
 export function resolveAccountOptions(options: AccountOptions, environment?: LaunchEnvironmentSnapshot): ResolvedAccountOptions {
   if (Object.hasOwn(options, 'models')) {
-    throw new Error('llm-deepseek-account: models is no longer configurable; the account /models listing supplies the catalog. '
-      + 'Remove models from this entry and adjust single models with modelOverrides.<model id>')
+    throw new Error(
+      'llm-deepseek-account: models is no longer configurable; the account /models listing supplies the catalog. ' +
+        'Remove models from this entry and adjust single models with modelOverrides.<model id>',
+    )
   }
   const {
-    modelsTimeoutMs = DEFAULT_MODELS_TIMEOUT_MS, modelsMaxAgeMs = DEFAULT_MODELS_MAX_AGE_MS,
-    modelOverrides = {}, ...protocolOptions
+    modelsTimeoutMs = DEFAULT_MODELS_TIMEOUT_MS,
+    modelsMaxAgeMs = DEFAULT_MODELS_MAX_AGE_MS,
+    modelOverrides = {},
+    ...protocolOptions
   } = options
   if (!Number.isFinite(modelsTimeoutMs) || modelsTimeoutMs <= 0 || modelsTimeoutMs > MAX_TIMER_DELAY_MS) {
     throw new Error(`llm-deepseek-account: modelsTimeoutMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`)

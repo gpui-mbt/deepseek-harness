@@ -6,9 +6,7 @@
  * settings group. The displayed value follows the persisted setting, never the
  * click echo.
  */
-import {
-  IconChevronDownOutlineRegular, IconChevronUpOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineRegular, IconChevronUpOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import { FONT_SIZE_SPECS, type FontRole } from '../theme-settings.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -24,9 +22,10 @@ export interface FontSizeRowInjected {
 }
 
 /** Full component props: runtime share + store share + locale seat + injected face. */
-export type FontSizeRowComponentProps =
-  PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createFontRowStore>>
-  & PropsLocale<'settings.theme'> & FontSizeRowInjected & {
+export type FontSizeRowComponentProps = PropsRuntime<'settings.general.item'> &
+  PropsStore<ReturnType<typeof createFontRowStore>> &
+  PropsLocale<'settings.theme'> &
+  FontSizeRowInjected & {
     /** Disclosure button after the unit label; the font settings group passes it for the text row. */
     expander?: FontSizeRowExpander | undefined
   }
@@ -64,7 +63,9 @@ export function FontSizeRow({ t, role, setFontSize, useStore, expander }: FontSi
               className={css.arrow}
               aria-label={t(`fontSize.${role}.increase`)}
               disabled={fontSize >= max}
-              onClick={() => { setFontSize(fontSize + 1) }}
+              onClick={() => {
+                setFontSize(fontSize + 1)
+              }}
             >
               <IconChevronUpOutlineRegular size={9} />
             </button>
@@ -73,7 +74,9 @@ export function FontSizeRow({ t, role, setFontSize, useStore, expander }: FontSi
               className={css.arrow}
               aria-label={t(`fontSize.${role}.decrease`)}
               disabled={fontSize <= min}
-              onClick={() => { setFontSize(fontSize - 1) }}
+              onClick={() => {
+                setFontSize(fontSize - 1)
+              }}
             >
               <IconChevronDownOutlineRegular size={9} />
             </button>

@@ -1,10 +1,10 @@
 import { PassThrough, Writable } from 'node:stream'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshRpcPeer } from '../src/protocol.ts'
 
 describe('SSH protocol disposal during output backpressure', () => {
-  it.each(['peer close', 'output close', 'input EOF'] as const)('settles queued requests after %s without a drain event', async (cause) => {
+  it.each(['peer close', 'output close', 'input EOF'] as const)('settles queued requests after %s without a drain event', async cause => {
     const entered = Promise.withResolvers<undefined>()
     const input = new PassThrough()
     let releaseWrite: (() => void) | undefined

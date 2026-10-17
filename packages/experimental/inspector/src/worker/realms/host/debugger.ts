@@ -25,14 +25,14 @@ export class HostDebuggerBackend implements DebuggerBackend {
   ) {
     this.events = new HostNotificationChannel(
       target,
-      message => message.method === 'Debugger.resumed'
-        || message.method === 'Debugger.breakpointResolved'
-        || message.method === 'Debugger.paused',
-      async message => message.method === 'Debugger.resumed'
-        ? { type: 'resumed' }
-        : message.method === 'Debugger.breakpointResolved'
-          ? breakpointResolved(message.params)
-          : this.paused(message.params),
+      message =>
+        message.method === 'Debugger.resumed' || message.method === 'Debugger.breakpointResolved' || message.method === 'Debugger.paused',
+      async message =>
+        message.method === 'Debugger.resumed'
+          ? { type: 'resumed' }
+          : message.method === 'Debugger.breakpointResolved'
+            ? breakpointResolved(message.params)
+            : this.paused(message.params),
     )
   }
 
@@ -59,17 +59,19 @@ export class HostDebuggerBackend implements DebuggerBackend {
   async evaluateOnCallFrame(
     request: Parameters<DebuggerBackend['evaluateOnCallFrame']>[0],
   ): ReturnType<DebuggerBackend['evaluateOnCallFrame']> {
-    return this.runtime.completion(await this.target.request('Debugger.evaluateOnCallFrame', {
-      callFrameId: request.callFrameId,
-      expression: request.expression,
-      ...optionalNativeField('objectGroup', request.objectGroup),
-      ...optionalNativeField('includeCommandLineAPI', request.includeCommandLineAPI),
-      ...optionalNativeField('silent', request.silent),
-      ...optionalNativeField('returnByValue', request.returnByValue),
-      ...optionalNativeField('generatePreview', request.generatePreview),
-      ...optionalNativeField('throwOnSideEffect', request.throwOnSideEffect),
-      ...optionalNativeField('timeout', request.timeoutMs),
-    }))
+    return this.runtime.completion(
+      await this.target.request('Debugger.evaluateOnCallFrame', {
+        callFrameId: request.callFrameId,
+        expression: request.expression,
+        ...optionalNativeField('objectGroup', request.objectGroup),
+        ...optionalNativeField('includeCommandLineAPI', request.includeCommandLineAPI),
+        ...optionalNativeField('silent', request.silent),
+        ...optionalNativeField('returnByValue', request.returnByValue),
+        ...optionalNativeField('generatePreview', request.generatePreview),
+        ...optionalNativeField('throwOnSideEffect', request.throwOnSideEffect),
+        ...optionalNativeField('timeout', request.timeoutMs),
+      }),
+    )
   }
 
   subscribe(listener: (event: RuntimeDebuggerEvent<RuntimeBackendObjectHandle>) => void): () => void {
@@ -93,21 +95,19 @@ export class HostDebuggerBackend implements DebuggerBackend {
       callFrames,
       reason: params.reason,
       ...(data === undefined || !isJsonValue(data) ? {} : { data }),
-      ...(isStringArray(hitBreakpoints)
-        ? { hitBreakpoints: hitBreakpoints }
-        : {}),
-      ...(params.asyncStackTrace === undefined
-        ? {}
-        : { asyncStackTrace: this.runtime.stackTrace(params.asyncStackTrace) }),
+      ...(isStringArray(hitBreakpoints) ? { hitBreakpoints: hitBreakpoints } : {}),
+      ...(params.asyncStackTrace === undefined ? {} : { asyncStackTrace: this.runtime.stackTrace(params.asyncStackTrace) }),
     }
   }
 
   private async callFrame(value: unknown): Promise<RuntimeDebuggerCallFrame<RuntimeBackendObjectHandle>> {
     const record = requireNativeRecord(value, 'Host Debugger call frame')
-    if (typeof record.callFrameId !== 'string'
-      || typeof record.functionName !== 'string'
-      || typeof record.url !== 'string'
-      || !Array.isArray(record.scopeChain)) {
+    if (
+      typeof record.callFrameId !== 'string' ||
+      typeof record.functionName !== 'string' ||
+      typeof record.url !== 'string' ||
+      !Array.isArray(record.scopeChain)
+    ) {
       throw new Error('Host Debugger returned an invalid call frame')
     }
     return {
@@ -133,7 +133,6 @@ export class HostDebuggerBackend implements DebuggerBackend {
       ...(record.endLocation === undefined ? {} : { endLocation: location(record.endLocation) }),
     }
   }
-
 }
 
 function breakpointResolved(

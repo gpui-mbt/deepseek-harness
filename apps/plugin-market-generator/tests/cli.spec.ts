@@ -1,15 +1,23 @@
 /** Command-line parsing and help of the generator. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { main } from '../src/cli.ts'
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 /** Run the CLI and collect what it writes to stdout and stderr. */
 async function cli(...argv: string[]) {
   const out: string[] = []
   const err: string[] = []
-  vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => { out.push(String(chunk)); return true })
-  vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => { err.push(String(chunk)); return true })
+  vi.spyOn(process.stdout, 'write').mockImplementation(chunk => {
+    out.push(String(chunk))
+    return true
+  })
+  vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+    err.push(String(chunk))
+    return true
+  })
   const status = await main(argv)
   return { status, out: out.join(''), err: err.join('') }
 }
@@ -19,13 +27,22 @@ const REQUIRED = ['--input', '/nonexistent/list.txt', '--output', '/nonexistent/
 it('prints help with every option, its default, and the exit statuses', async () => {
   const { status, out } = await cli('--help')
   expect(status).toBe(0)
-  for (const text of ['--input <file>', '--inline-icon-bytes <n>', 'at most 32768', '(default: 16384)', 'Exit status: 0 when every source was read']) {
+  for (const text of [
+    '--input <file>',
+    '--inline-icon-bytes <n>',
+    'at most 32768',
+    '(default: 16384)',
+    'Exit status: 0 when every source was read',
+  ]) {
     expect(out).toContain(text)
   }
 })
 
 it.each([
-  [['--inline-icon-bytes', '32769'], "option '--inline-icon-bytes <n>' argument '32769' is invalid. must be a positive integer up to 32768"],
+  [
+    ['--inline-icon-bytes', '32769'],
+    "option '--inline-icon-bytes <n>' argument '32769' is invalid. must be a positive integer up to 32768",
+  ],
   [['--inline-icon-bytes', '0'], 'must be a positive integer up to 32768'],
   [['--concurrency', '1.5'], "option '--concurrency <n>' argument '1.5' is invalid. must be a positive integer"],
   [['--bogus'], "unknown option '--bogus'"],

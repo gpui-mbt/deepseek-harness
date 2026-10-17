@@ -148,7 +148,9 @@ function joined(first: string, second: string | null): ReactNode {
   return (
     <>
       {first}
-      <span className={css.sep} aria-hidden>·</span>
+      <span className={css.sep} aria-hidden>
+        ·
+      </span>
       {second}
     </>
   )
@@ -187,7 +189,15 @@ function PlainPill({ stat, icon, label }: PillContent) {
  * state; useStatDialog closes it on Escape or an outside pointerdown or click,
  * so at most one dialog is open across the dock.
  */
-function DialogPill({ stat, icon, label, ariaLabel, title, titleValue, children }: PillContent & {
+function DialogPill({
+  stat,
+  icon,
+  label,
+  ariaLabel,
+  title,
+  titleValue,
+  children,
+}: PillContent & {
   ariaLabel: string
   title: string
   titleValue?: string
@@ -202,31 +212,28 @@ function DialogPill({ stat, icon, label, ariaLabel, title, titleValue, children 
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => { setOpen(!open) }}
+        onClick={() => {
+          setOpen(!open)
+        }}
       >
         {icon}
         <span className={css.label}>{label}</span>
       </button>
-      {open && createPortal(
-        <div
-          ref={panelRef}
-          className={dialogCss.panel}
-          role="dialog"
-          aria-label={title}
-          style={pos ?? MEASURE_STYLE}
-        >
-          <div className={dialogCss.title}>
-            <span className={dialogCss.titleLabel}>
-              {icon}
-              {title}
-            </span>
-            {titleValue !== undefined && <span className={dialogCss.titleValue}>{titleValue}</span>}
-          </div>
-          <div className={dialogCss.titleRule} aria-hidden />
-          {children}
-        </div>,
-        document.body,
-      )}
+      {open &&
+        createPortal(
+          <div ref={panelRef} className={dialogCss.panel} role="dialog" aria-label={title} style={pos ?? MEASURE_STYLE}>
+            <div className={dialogCss.title}>
+              <span className={dialogCss.titleLabel}>
+                {icon}
+                {title}
+              </span>
+              {titleValue !== undefined && <span className={dialogCss.titleValue}>{titleValue}</span>}
+            </div>
+            <div className={dialogCss.titleRule} aria-hidden />
+            {children}
+          </div>,
+          document.body,
+        )}
     </span>
   )
 }

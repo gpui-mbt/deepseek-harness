@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { FsVersion } from '@deepseek-ai/dsh-fs'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -31,7 +31,11 @@ async function agent(ctx: Context, cwd: string): Promise<Agent> {
   const id = SessionId(`str-replace-editor-owner-${callNumber}`)
   const scope = ctx.plugin(() => {})
   const session = Session.create(id, [], {
-    version: SESSION_FORMAT_VERSION, id, createdAt: 0, cwd, isSeeded: false,
+    version: SESSION_FORMAT_VERSION,
+    id,
+    createdAt: 0,
+    cwd,
+    isSeeded: false,
   })
   const value: Agent = {
     id,
@@ -53,7 +57,10 @@ async function agent(ctx: Context, cwd: string): Promise<Agent> {
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 function call(ctx: Context, owner: Agent | undefined, args: unknown) {
@@ -62,7 +69,7 @@ function call(ctx: Context, owner: Agent | undefined, args: unknown) {
     callId: ToolCallId(`str-replace-editor-${++callNumber}`),
     name: 'str_replace_editor',
     arguments: args,
-    ...owner === undefined ? {} : { agent: owner },
+    ...(owner === undefined ? {} : { agent: owner }),
   })
 }
 
@@ -70,7 +77,7 @@ async function setup(
   config: ToolStrReplaceEditor.Config = {},
   options: { fsPolicy?: boolean; sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access'; root?: string } = {},
 ) {
-  const root = options.root ?? await mkdtemp(join(tmpdir(), 'dsh-tool-str-replace-editor-'))
+  const root = options.root ?? (await mkdtemp(join(tmpdir(), 'dsh-tool-str-replace-editor-')))
   if (options.root === undefined) roots.push(root)
   const ctx = new Context()
   contexts.push(ctx)
@@ -97,13 +104,18 @@ describe('tool-str-replace-editor', () => {
     const schema = ctx.tools.schemas()[0]
     expect(ctx.tools.schemas().map(item => item.name)).toEqual(['str_replace_editor'])
     expect(schema?.description).toBe('custom editor description')
-    const properties = (schema?.parameters as {
-      properties: Record<string, {
-        type?: string
-        items?: { type?: string }
-        oneOf?: { type?: string; items?: { type?: string } }[]
-      }>
-    }).properties
+    const properties = (
+      schema?.parameters as {
+        properties: Record<
+          string,
+          {
+            type?: string
+            items?: { type?: string }
+            oneOf?: { type?: string; items?: { type?: string } }[]
+          }
+        >
+      }
+    ).properties
     expect(properties).not.toHaveProperty('replace_all')
     expect(properties.file_text?.oneOf?.map(option => option.type)).toEqual(['string', 'null'])
     expect(properties.insert_line?.oneOf?.map(option => option.type)).toEqual(['integer', 'null'])
@@ -111,82 +123,98 @@ describe('tool-str-replace-editor', () => {
     expect(properties.old_str?.oneOf?.map(option => option.type)).toEqual(['string', 'null'])
     expect(properties.view_range?.oneOf?.map(option => option.type)).toEqual(['array', 'null'])
     expect(properties.view_range?.oneOf?.[0]?.items?.type).toBe('integer')
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'view',
-      path: '/workspace/a.txt',
-      file_text: null,
-      insert_line: null,
-      new_str: null,
-      old_str: null,
-      view_range: null,
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'view',
+        path: '/workspace/a.txt',
+        file_text: null,
+        insert_line: null,
+        new_str: null,
+        old_str: null,
+        view_range: null,
+      }),
+    ).toMatchObject({
       card: 'generic',
       kind: 'read',
       locations: [{ path: '/workspace/a.txt' }],
     })
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'create',
-      path: '/workspace/a.txt',
-      file_text: 'hello',
-      insert_line: null,
-      new_str: null,
-      old_str: null,
-      view_range: null,
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'create',
+        path: '/workspace/a.txt',
+        file_text: 'hello',
+        insert_line: null,
+        new_str: null,
+        old_str: null,
+        view_range: null,
+      }),
+    ).toMatchObject({
       card: 'diff',
       diffs: [{ path: '/workspace/a.txt', oldText: null, newText: 'hello' }],
     })
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'str_replace',
-      path: '/workspace/a.txt',
-      old_str: 'old',
-      new_str: 'new',
-      file_text: null,
-      insert_line: null,
-      view_range: null,
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'str_replace',
+        path: '/workspace/a.txt',
+        old_str: 'old',
+        new_str: 'new',
+        file_text: null,
+        insert_line: null,
+        view_range: null,
+      }),
+    ).toMatchObject({
       card: 'diff',
       diffs: [{ path: '/workspace/a.txt', oldText: 'old', newText: 'new' }],
     })
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'insert',
-      path: '/workspace/a.txt',
-      insert_line: null,
-      new_str: 'x',
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'insert',
+        path: '/workspace/a.txt',
+        insert_line: null,
+        new_str: 'x',
+      }),
+    ).toMatchObject({
       card: 'generic',
       kind: 'edit',
       locations: [{ path: '/workspace/a.txt' }],
     })
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'insert',
-      path: '/workspace/a.txt',
-      insert_line: 0,
-      new_str: 'x',
-      file_text: null,
-      old_str: null,
-      view_range: null,
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'insert',
+        path: '/workspace/a.txt',
+        insert_line: 0,
+        new_str: 'x',
+        file_text: null,
+        old_str: null,
+        view_range: null,
+      }),
+    ).toMatchObject({
       card: 'generic',
       kind: 'edit',
       locations: [{ path: '/workspace/a.txt', line: 1 }],
     })
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'create',
-      path: '/workspace/empty.txt',
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'create',
+        path: '/workspace/empty.txt',
+      }),
+    ).toMatchObject({
       diffs: [{ path: '/workspace/empty.txt', oldText: null, newText: '' }],
     })
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'str_replace',
-      path: '/workspace/a.txt',
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'str_replace',
+        path: '/workspace/a.txt',
+      }),
+    ).toMatchObject({
       diffs: [{ path: '/workspace/a.txt', oldText: null, newText: '' }],
     })
-    expect(ctx.tools.get('str_replace_editor')?.presentCall?.({
-      command: 'insert',
-      path: '/workspace/a.txt',
-    })).toMatchObject({
+    expect(
+      ctx.tools.get('str_replace_editor')?.presentCall?.({
+        command: 'insert',
+        path: '/workspace/a.txt',
+      }),
+    ).toMatchObject({
       locations: [{ path: '/workspace/a.txt' }],
     })
 
@@ -198,61 +226,87 @@ describe('tool-str-replace-editor', () => {
   it('creates, views, replaces, and inserts with the canonical model-facing output', async () => {
     const { ctx, root, owner } = await setup()
     const sample = join(root, 'sample.txt')
-    expect(text(await call(ctx, owner, {
-      command: 'create',
-      path: sample,
-      file_text: 'one\ntwo\nthree\n',
-      insert_line: null,
-      new_str: null,
-      old_str: null,
-      view_range: null,
-    }))).toBe(`New file created successfully at: ${sample}`)
+    expect(
+      text(
+        await call(ctx, owner, {
+          command: 'create',
+          path: sample,
+          file_text: 'one\ntwo\nthree\n',
+          insert_line: null,
+          new_str: null,
+          old_str: null,
+          view_range: null,
+        }),
+      ),
+    ).toBe(`New file created successfully at: ${sample}`)
 
-    expect(text(await call(ctx, owner, {
-      command: 'view',
-      path: sample,
-      file_text: null,
-      insert_line: null,
-      new_str: null,
-      old_str: null,
-      view_range: null,
-    }))).toContain('     2  two')
+    expect(
+      text(
+        await call(ctx, owner, {
+          command: 'view',
+          path: sample,
+          file_text: null,
+          insert_line: null,
+          new_str: null,
+          old_str: null,
+          view_range: null,
+        }),
+      ),
+    ).toContain('     2  two')
 
-    expect(text(await call(ctx, owner, {
-      command: 'view',
-      path: sample,
-      view_range: [2, -1],
-    }))).toBe([
-      `Here's the content of ${sample} with line numbers (which has a total of 4 lines) with view_range=[2, -1]:`,
-      '     2  two',
-      '     3  three',
-      '     4  ',
-      '',
-    ].join('\n'))
+    expect(
+      text(
+        await call(ctx, owner, {
+          command: 'view',
+          path: sample,
+          view_range: [2, -1],
+        }),
+      ),
+    ).toBe(
+      [
+        `Here's the content of ${sample} with line numbers (which has a total of 4 lines) with view_range=[2, -1]:`,
+        '     2  two',
+        '     3  three',
+        '     4  ',
+        '',
+      ].join('\n'),
+    )
 
-    expect(text(await call(ctx, owner, {
-      command: 'str_replace',
-      path: sample,
-      old_str: 'two',
-      new_str: 'TWO',
-      file_text: null,
-      insert_line: null,
-      view_range: null,
-    }))).toBe(`The file ${sample} has been edited successfully.`)
-    expect(text(await call(ctx, owner, {
-      command: 'str_replace',
-      path: sample,
-      old_str: 'TWO',
-    }))).toBe(`The file ${sample} has been edited successfully.`)
-    expect(text(await call(ctx, owner, {
-      command: 'insert',
-      path: sample,
-      insert_line: 1,
-      new_str: 'between',
-      file_text: null,
-      old_str: null,
-      view_range: null,
-    }))).toBe(`The file ${sample} has been edited successfully.`)
+    expect(
+      text(
+        await call(ctx, owner, {
+          command: 'str_replace',
+          path: sample,
+          old_str: 'two',
+          new_str: 'TWO',
+          file_text: null,
+          insert_line: null,
+          view_range: null,
+        }),
+      ),
+    ).toBe(`The file ${sample} has been edited successfully.`)
+    expect(
+      text(
+        await call(ctx, owner, {
+          command: 'str_replace',
+          path: sample,
+          old_str: 'TWO',
+        }),
+      ),
+    ).toBe(`The file ${sample} has been edited successfully.`)
+    expect(
+      text(
+        await call(ctx, owner, {
+          command: 'insert',
+          path: sample,
+          insert_line: 1,
+          new_str: 'between',
+          file_text: null,
+          old_str: null,
+          view_range: null,
+        }),
+      ),
+    ).toBe(`The file ${sample} has been edited successfully.`)
     expect(await readFile(sample, 'utf8')).toBe('one\nbetween\n\nthree\n')
   })
 
@@ -291,12 +345,16 @@ describe('tool-str-replace-editor', () => {
     const replacement = "$&|$`|$'|$$"
     await writeFile(sample, 'before OLD after')
 
-    expect((await call(ctx, owner, {
-      command: 'str_replace',
-      path: sample,
-      old_str: 'OLD',
-      new_str: replacement,
-    })).isError).toBe(false)
+    expect(
+      (
+        await call(ctx, owner, {
+          command: 'str_replace',
+          path: sample,
+          old_str: 'OLD',
+          new_str: replacement,
+        })
+      ).isError,
+    ).toBe(false)
     expect(await readFile(sample, 'utf8')).toBe(`before ${replacement} after`)
   })
 
@@ -321,10 +379,10 @@ describe('tool-str-replace-editor', () => {
       const entries = await listDir(target, signal)
       return target.displayPath === join(root, 'dir')
         ? [
-          { name: 'same-target', type: 'other', target: otherTarget },
-          { name: 'other', type: 'other', target: otherTarget },
-          ...entries.toReversed(),
-        ]
+            { name: 'same-target', type: 'other', target: otherTarget },
+            { name: 'other', type: 'other', target: otherTarget },
+            ...entries.toReversed(),
+          ]
         : entries
     }
 
@@ -340,11 +398,14 @@ describe('tool-str-replace-editor', () => {
 
     const clipped = await setup({ maxOutputChars: 10 })
     await writeFile(join(clipped.root, 'large.txt'), 'x'.repeat(100))
-    expect(text(await call(clipped.ctx, clipped.owner, {
-      command: 'view',
-      path: join(clipped.root, 'large.txt'),
-    })))
-      .toContain('<response clipped>')
+    expect(
+      text(
+        await call(clipped.ctx, clipped.owner, {
+          command: 'view',
+          path: join(clipped.root, 'large.txt'),
+        }),
+      ),
+    ).toContain('<response clipped>')
   })
 
   it('clips a view at a code-unit boundary without splitting a surrogate pair', async () => {
@@ -373,24 +434,36 @@ describe('tool-str-replace-editor', () => {
     await writeFile(newline, '\n')
     await writeFile(plain, 'one\ntwo')
 
-    expect(text(await call(ctx, owner, { command: 'view', path: empty })))
-      .toContain('(which has a total of 1 lines):\n     1  \n')
-    expect(text(await call(ctx, owner, { command: 'view', path: newline })))
-      .toContain('(which has a total of 2 lines):\n     1  \n     2  \n')
-    expect(text(await call(ctx, owner, {
-      command: 'view',
-      path: plain,
-      view_range: [1, 2],
-    }))).toContain('     2  two')
-    expect(text(await call(ctx, undefined, {
-      command: 'view',
-      path: plain,
-    }))).toContain('     1  one')
-    expect((await call(ctx, undefined, {
-      command: 'create',
-      path: join(root, 'ownerless.txt'),
-      file_text: 'ownerless',
-    })).isError).toBe(false)
+    expect(text(await call(ctx, owner, { command: 'view', path: empty }))).toContain('(which has a total of 1 lines):\n     1  \n')
+    expect(text(await call(ctx, owner, { command: 'view', path: newline }))).toContain(
+      '(which has a total of 2 lines):\n     1  \n     2  \n',
+    )
+    expect(
+      text(
+        await call(ctx, owner, {
+          command: 'view',
+          path: plain,
+          view_range: [1, 2],
+        }),
+      ),
+    ).toContain('     2  two')
+    expect(
+      text(
+        await call(ctx, undefined, {
+          command: 'view',
+          path: plain,
+        }),
+      ),
+    ).toContain('     1  one')
+    expect(
+      (
+        await call(ctx, undefined, {
+          command: 'create',
+          path: join(root, 'ownerless.txt'),
+          file_text: 'ownerless',
+        })
+      ).isError,
+    ).toBe(false)
 
     await call(ctx, owner, {
       command: 'insert',
@@ -442,17 +515,20 @@ describe('tool-str-replace-editor', () => {
       old_str: 'alpha\nbeta',
       new_str: 'x',
     })
-    expect(text(repeatedMultiline))
-      .toContain('Multiple occurrences of old_str `alpha\nbeta` in lines [1, 4]')
+    expect(text(repeatedMultiline)).toContain('Multiple occurrences of old_str `alpha\nbeta` in lines [1, 4]')
 
     const mixedEol = join(root, 'mixed-eol.txt')
     await writeFile(mixedEol, 'alpha\r\nbeta\nmiddle\nalpha\nbeta')
-    expect((await call(ctx, owner, {
-      command: 'str_replace',
-      path: mixedEol,
-      old_str: 'alpha\r\nbeta',
-      new_str: 'replaced',
-    })).isError).toBe(false)
+    expect(
+      (
+        await call(ctx, owner, {
+          command: 'str_replace',
+          path: mixedEol,
+          old_str: 'alpha\r\nbeta',
+          new_str: 'replaced',
+        })
+      ).isError,
+    ).toBe(false)
     expect(await readFile(mixedEol, 'utf8')).toBe('replaced\nmiddle\nalpha\nbeta')
 
     const relative = await call(ctx, owner, { command: 'view', path: 'ambiguous.txt' })
@@ -510,18 +586,26 @@ describe('tool-str-replace-editor', () => {
     const special = await call(ctx, owner, { command: 'view', path: join(root, 'special') })
     expect(special.isError).toBe(true)
     expect(special.error).toMatchObject({ info: { code: 'FS_NOT_REGULAR_FILE' } })
-    expect((await call(ctx, owner, {
-      command: 'str_replace',
-      path: join(root, 'special'),
-      old_str: 'x',
-      new_str: 'y',
-    })).error).toMatchObject({ info: { code: 'FS_NOT_REGULAR_FILE' } })
-    expect((await call(ctx, owner, {
-      command: 'insert',
-      path: join(root, 'special'),
-      insert_line: 0,
-      new_str: 'x',
-    })).error).toMatchObject({ info: { code: 'FS_NOT_REGULAR_FILE' } })
+    expect(
+      (
+        await call(ctx, owner, {
+          command: 'str_replace',
+          path: join(root, 'special'),
+          old_str: 'x',
+          new_str: 'y',
+        })
+      ).error,
+    ).toMatchObject({ info: { code: 'FS_NOT_REGULAR_FILE' } })
+    expect(
+      (
+        await call(ctx, owner, {
+          command: 'insert',
+          path: join(root, 'special'),
+          insert_line: 0,
+          new_str: 'x',
+        })
+      ).error,
+    ).toMatchObject({ info: { code: 'FS_NOT_REGULAR_FILE' } })
   })
 
   it('delegates read-before-edit decisions to fs-observation-policy', async () => {
@@ -540,27 +624,39 @@ describe('tool-str-replace-editor', () => {
     expect(await readFile(existing, 'utf8')).toBe('before')
 
     await call(ctx, owner, { command: 'view', path: existing })
-    expect((await call(ctx, owner, {
-      command: 'str_replace',
-      path: existing,
-      old_str: 'before',
-      new_str: 'after',
-    })).isError).toBe(false)
+    expect(
+      (
+        await call(ctx, owner, {
+          command: 'str_replace',
+          path: existing,
+          old_str: 'before',
+          new_str: 'after',
+        })
+      ).isError,
+    ).toBe(false)
     expect(await readFile(existing, 'utf8')).toBe('after')
 
-    expect((await call(ctx, owner, {
-      command: 'insert',
-      path: existing,
-      insert_line: 1,
-      new_str: 'tail',
-    })).isError).toBe(false)
+    expect(
+      (
+        await call(ctx, owner, {
+          command: 'insert',
+          path: existing,
+          insert_line: 1,
+          new_str: 'tail',
+        })
+      ).isError,
+    ).toBe(false)
     expect(await readFile(existing, 'utf8')).toBe('after\ntail')
 
-    expect((await call(ctx, owner, {
-      command: 'create',
-      path: created,
-      file_text: 'new',
-    })).isError).toBe(false)
+    expect(
+      (
+        await call(ctx, owner, {
+          command: 'create',
+          path: created,
+          file_text: 'new',
+        })
+      ).isError,
+    ).toBe(false)
     expect(await readFile(created, 'utf8')).toBe('new')
   })
 
@@ -587,8 +683,7 @@ describe('tool-str-replace-editor', () => {
     const { ctx, root, owner } = await setup()
     const path = join(root, 'Makefile')
     await writeFile(path, 'target:\n\told\nremove\n')
-    expect(text(await call(ctx, owner, { command: 'view', path })))
-      .toContain('     2  \told')
+    expect(text(await call(ctx, owner, { command: 'view', path }))).toContain('     2  \told')
     await call(ctx, owner, {
       command: 'str_replace',
       path,
@@ -620,8 +715,7 @@ describe('tool-str-replace-editor', () => {
     await ctx.plugin(LocalFileSystem, { cwd: root })
     Object.defineProperty(ctx.fs, 'sandboxMode', { value: 'read-only' })
 
-    await expect(ctx.plugin(ToolStrReplaceEditor))
-      .rejects.toThrow('the mounted filesystem confines but ctx.sandboxPolicy is missing')
+    await expect(ctx.plugin(ToolStrReplaceEditor)).rejects.toThrow('the mounted filesystem confines but ctx.sandboxPolicy is missing')
   })
 
   it('maps unexpected backend write failures for replace and insert', async () => {

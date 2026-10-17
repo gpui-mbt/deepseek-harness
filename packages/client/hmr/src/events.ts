@@ -8,9 +8,7 @@
 import type { WebBootGraph } from '@deepseek-ai/dsh-client-modules'
 
 /** One SSE frame: the settled graph on connection or change, or one rebuilt bundle notice. */
-export type PluginsEventFrame =
-  | { type: 'graph'; graph: WebBootGraph }
-  | { type: 'rebuilt'; id: string; rev: string }
+export type PluginsEventFrame = { type: 'graph'; graph: WebBootGraph } | { type: 'rebuilt'; id: string; rev: string }
 
 /** Browser wire-parse result: known frame, forward-compatible unknown type, or malformed payload. */
 export type PluginsEventParseResult =

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 function evaluateRunsOn(selector: unknown, context: Record<string, unknown>): unknown {
   if (typeof selector !== 'string') throw new TypeError('Runner selector must be a string')
@@ -33,8 +33,7 @@ describe('CI workflow', () => {
       matrix: { include: [{ node: '22.19' }, { node: '24.9' }, { node: 26 }] },
     })
     expect(workflowJob(ci, 'all-checks-passed').needs).toContain('node-compat')
-    const ordinaryJobs = Object.entries(ci.jobs)
-      .filter(([name]) => !['node-compat', 'python-runtime', 'all-checks-passed'].includes(name))
+    const ordinaryJobs = Object.entries(ci.jobs).filter(([name]) => !['node-compat', 'python-runtime', 'all-checks-passed'].includes(name))
     for (const [name, job] of ordinaryJobs) {
       if (!isRecord(job)) throw new TypeError(`${name} must define a job`)
       expect(job).not.toHaveProperty('strategy')
@@ -82,8 +81,9 @@ describe('CI workflow', () => {
       ['release-publish.yml', 'pnpm run build:official'],
       ['release-vendor-publish.yml', 'pnpm run build:lib:host'],
     ] as const) {
-      expect(workflowJob(loadWorkflow('.github/workflows/' + file), 'pack').steps)
-        .toContainEqual(expect.objectContaining({ name: 'Build', run: command }))
+      expect(workflowJob(loadWorkflow('.github/workflows/' + file), 'pack').steps).toContainEqual(
+        expect.objectContaining({ name: 'Build', run: command }),
+      )
     }
     const scripts = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
     expect(scripts.scripts['build:lib:host']).toContain('tsc -b tsconfig.host.json')
@@ -92,8 +92,10 @@ describe('CI workflow', () => {
   })
 
   it('selects artifact builds only for PR release and API rehearsals', () => {
-    const official = "${{ github.event_name == 'pull_request' && 'pnpm run build:artifacts --profile official' || 'pnpm run build:official' }}"
-    const vendor = "${{ github.event_name == 'pull_request' && 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries' || 'pnpm run build:lib:host' }}"
+    const official =
+      "${{ github.event_name == 'pull_request' && 'pnpm run build:artifacts --profile official' || 'pnpm run build:official' }}"
+    const vendor =
+      "${{ github.event_name == 'pull_request' && 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries' || 'pnpm run build:lib:host' }}"
     for (const [file, jobName, expected] of [
       ['release.yml', 'pack', official],
       ['release-vendor.yml', 'pack', vendor],
@@ -101,17 +103,25 @@ describe('CI workflow', () => {
     ] as const) {
       const job = workflowJob(loadWorkflow('.github/workflows/' + file), jobName)
       if (!Array.isArray(job.steps)) throw new TypeError(`${jobName} must define steps`)
-      const step = job.steps.filter(isRecord).find(candidate => typeof candidate.run === 'string'
-        && (candidate.run.includes('build:artifacts') || candidate.run.includes('host-libraries')))
+      const step = job.steps
+        .filter(isRecord)
+        .find(
+          candidate =>
+            typeof candidate.run === 'string' && (candidate.run.includes('build:artifacts') || candidate.run.includes('host-libraries')),
+        )
       expect(step?.run).toBe(expected)
       for (const event of ['pull_request', 'push', 'workflow_dispatch']) {
         const expression = expected.slice('${{ '.length, -' }}'.length)
         const selected: unknown = runInNewContext(expression, { github: { event_name: event } }, { timeout: 1000 })
-        expect(selected).toBe(event === 'pull_request'
-          ? file === 'release-vendor.yml'
-            ? 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries'
-            : 'pnpm run build:artifacts --profile official'
-          : file === 'release-vendor.yml' ? 'pnpm run build:lib:host' : 'pnpm run build:official')
+        expect(selected).toBe(
+          event === 'pull_request'
+            ? file === 'release-vendor.yml'
+              ? 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries'
+              : 'pnpm run build:artifacts --profile official'
+            : file === 'release-vendor.yml'
+              ? 'pnpm run build:lib:host'
+              : 'pnpm run build:official',
+        )
       }
     }
   })
@@ -127,7 +137,8 @@ describe('CI workflow', () => {
     })
     if (typeof execute?.run !== 'string') throw new TypeError('Python executable builder must define a command')
     const expression = [...execute.run.matchAll(/\$\{\{ ([^{}]+) \}\}/g)]
-      .map(match => match[1]).find(value => value?.startsWith('inputs.ci'))
+      .map(match => match[1])
+      .find(value => value?.startsWith('inputs.ci'))
     expect(expression).toBe("inputs.ci && github.event_name == 'pull_request' && '--build-artifacts' || ''")
     if (expression === undefined) throw new TypeError('Python executable builder must select its build mode')
     for (const ci of [false, true]) {
@@ -151,7 +162,8 @@ describe('CI workflow', () => {
   })
 
   it.each(['ci.yml', 'ci-master.yml', 'e2e.yml', 'release.yml', 'release-vendor.yml'])(
-    '%s cancels superseded validation runs without crossing workflow or ref boundaries', (name) => {
+    '%s cancels superseded validation runs without crossing workflow or ref boundaries',
+    name => {
       const workflow = loadWorkflow('.github/workflows/' + name)
       expect(workflow.concurrency).toEqual({
         group: '${{ github.workflow }}-${{ github.ref }}',
@@ -181,9 +193,12 @@ describe('CI workflow', () => {
   it('skips coverage-history uploads on cancellation but retains Wine cleanup', () => {
     const coverage = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'windows-coverage')
     const wine = workflowJob(loadWorkflow('.github/workflows/ci-master.yml'), 'windows')
-    expect(coverage.steps).toContainEqual(expect.objectContaining({
-      name: 'Save coverage duration history', if: '${{ !cancelled() }}',
-    }))
+    expect(coverage.steps).toContainEqual(
+      expect.objectContaining({
+        name: 'Save coverage duration history',
+        if: '${{ !cancelled() }}',
+      }),
+    )
     expect(wine.steps).toContainEqual(expect.objectContaining({ name: 'Shut down wineserver', if: 'always()' }))
   })
 
@@ -245,22 +260,21 @@ describe('CI workflow', () => {
 
   it.each(['node-24', 'node-24-coverage', 'node-24-consumers'])(
     '%s keeps tool and fixture temporary files under runner cleanup',
-    (jobName) => {
+    jobName => {
       const job = workflowJob(loadWorkflow('.github/workflows/ci.yml'), jobName)
       if (!Array.isArray(job.steps)) throw new TypeError(`${jobName} must define steps`)
       expect(job.steps[0]).toEqual({
         name: 'Use runner-owned temporary storage',
         run: [
           'echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"',
-          ...(jobName === 'node-24-consumers'
-            ? ['echo "PLAYWRIGHT_BROWSERS_PATH=${RUNNER_TEMP%/*}/ms-playwright" >> "$GITHUB_ENV"']
-            : []),
+          ...(jobName === 'node-24-consumers' ? ['echo "PLAYWRIGHT_BROWSERS_PATH=${RUNNER_TEMP%/*}/ms-playwright" >> "$GITHUB_ENV"'] : []),
           '',
         ].join('\n'),
       })
       if (jobName === 'node-24-consumers') {
-        const browserCache: unknown = job.steps.find(step => isRecord(step) && isRecord(step.with)
-          && step.with.path === '${{ env.PLAYWRIGHT_BROWSERS_PATH }}')
+        const browserCache: unknown = job.steps.find(
+          step => isRecord(step) && isRecord(step.with) && step.with.path === '${{ env.PLAYWRIGHT_BROWSERS_PATH }}',
+        )
         expect(browserCache).toMatchObject({ uses: 'actions/cache/restore@v6.1.0' })
       }
       const store: unknown = job.steps.find(step => isRecord(step) && step.name === 'Configure pnpm store path')
@@ -304,19 +318,23 @@ describe('CI workflow', () => {
   it('keeps split native Windows PR jobs with failover, plus a master-only standby', () => {
     const workflow = loadWorkflow('.github/workflows/ci.yml')
     const masterWorkflow = loadWorkflow('.github/workflows/ci-master.yml')
-    if (!isRecord(workflow.jobs)
-      || !isRecord(workflow.jobs['windows-build'])
-      || !isRecord(workflow.jobs['windows-coverage'])
-      || !isRecord(workflow.jobs['windows-native-tests'])
-      || !isRecord(workflow.jobs['node-24'])
-      || !isRecord(workflow.jobs['node-24-coverage'])
-      || !isRecord(workflow.jobs['node-24-bench'])
-      || !isRecord(workflow.jobs['node-24-consumers'])
-      || !isRecord(workflow.jobs['node-compat'])
-      || !isRecord(workflow.jobs['all-checks-passed'])
-      || !isRecord(masterWorkflow.jobs)
-      || !isRecord(masterWorkflow.jobs['serial-windows'])) {
-      throw new TypeError('CI workflow must define windows-build, windows-coverage, windows-native-tests, node-24, node-24-coverage, node-24-bench, node-24-consumers, node-compat, and all-checks-passed; ci-master must define serial-windows')
+    if (
+      !isRecord(workflow.jobs) ||
+      !isRecord(workflow.jobs['windows-build']) ||
+      !isRecord(workflow.jobs['windows-coverage']) ||
+      !isRecord(workflow.jobs['windows-native-tests']) ||
+      !isRecord(workflow.jobs['node-24']) ||
+      !isRecord(workflow.jobs['node-24-coverage']) ||
+      !isRecord(workflow.jobs['node-24-bench']) ||
+      !isRecord(workflow.jobs['node-24-consumers']) ||
+      !isRecord(workflow.jobs['node-compat']) ||
+      !isRecord(workflow.jobs['all-checks-passed']) ||
+      !isRecord(masterWorkflow.jobs) ||
+      !isRecord(masterWorkflow.jobs['serial-windows'])
+    ) {
+      throw new TypeError(
+        'CI workflow must define windows-build, windows-coverage, windows-native-tests, node-24, node-24-coverage, node-24-bench, node-24-consumers, node-compat, and all-checks-passed; ci-master must define serial-windows',
+      )
     }
 
     const windowsBuild = workflow.jobs['windows-build']
@@ -333,7 +351,11 @@ describe('CI workflow', () => {
       throw new TypeError('CI aggregate must define needs')
     }
     // The split native jobs all resolve their pool through the Windows switch.
-    for (const [jobName, job] of [['windows-build', windowsBuild], ['windows-coverage', windowsCoverage], ['windows-native-tests', windowsNativeTests]] as const) {
+    for (const [jobName, job] of [
+      ['windows-build', windowsBuild],
+      ['windows-coverage', windowsCoverage],
+      ['windows-native-tests', windowsNativeTests],
+    ] as const) {
       expect(typeof job['runs-on']).toBe('string')
       expect(job['runs-on'], `${jobName} runs-on must use the Windows failover switch`).toContain('DSH_CI_FAILOVER_WINDOWS')
       expect(job['runs-on'], `${jobName} runs-on must not use the Linux failover switch`).not.toContain('DSH_CI_FAILOVER_LINUX')
@@ -341,17 +363,18 @@ describe('CI workflow', () => {
       expect(job['runs-on']).toContain('dsh-win-ci')
       expect(job['runs-on']).toContain('dsh-windows-2025-16core')
       const cores = jobName === 'windows-native-tests' ? 2 : 16
-      expect(evaluateRunsOn(job['runs-on'], { vars: { DSH_CI_FAILOVER_WINDOWS: 'blacksmith' } }))
-        .toBe(`blacksmith-${cores}vcpu-windows-2025`)
+      expect(evaluateRunsOn(job['runs-on'], { vars: { DSH_CI_FAILOVER_WINDOWS: 'blacksmith' } })).toBe(
+        `blacksmith-${cores}vcpu-windows-2025`,
+      )
       expect(job.if).toBe("github.event_name == 'pull_request'")
     }
 
     // windows-build runs the blocking build/site pair.
     expect(windowsBuild.name).toBe('windows node 24 / build & observational')
     const buildSteps = windowsBuild.steps as unknown[]
-    const buildCommands = buildSteps.filter((step): step is Record<string, unknown> & { run: string } => (
-      isRecord(step) && typeof step.run === 'string'
-    ))
+    const buildCommands = buildSteps.filter(
+      (step): step is Record<string, unknown> & { run: string } => isRecord(step) && typeof step.run === 'string',
+    )
     expect(buildCommands.map(step => step.run)).toContain('pnpm run check:ci:windows-blocking')
 
     // Native Windows installs branch on the workspace filesystem:
@@ -360,11 +383,16 @@ describe('CI workflow', () => {
     // of the self-hosted pool without forcing clone onto hosted NTFS, which
     // rejects copy-on-write. The branch must stay, or a hosted fallback would
     // fail installs with ERR_PNPM_LINKING_FAILED.
-    for (const [jobName, job] of [['windows-build', windowsBuild], ['windows-coverage', windowsCoverage], ['windows-native-tests', windowsNativeTests]] as const) {
+    for (const [jobName, job] of [
+      ['windows-build', windowsBuild],
+      ['windows-coverage', windowsCoverage],
+      ['windows-native-tests', windowsNativeTests],
+    ] as const) {
       const steps = job.steps as unknown[]
-      const install = steps.find((step): step is Record<string, unknown> & { run: string } => (
-        isRecord(step) && step.name === 'Install (immutable)' && typeof step.run === 'string'
-      ))
+      const install = steps.find(
+        (step): step is Record<string, unknown> & { run: string } =>
+          isRecord(step) && step.name === 'Install (immutable)' && typeof step.run === 'string',
+      )
       expect(install, `${jobName} must define the filesystem-branched install`).toBeDefined()
       expect(install!.run).toContain("$fs -eq 'ReFS'")
       expect(install!.run).toContain('--package-import-method=clone')
@@ -377,18 +405,24 @@ describe('CI workflow', () => {
       // rest with leading two-space indents.
       const installLines = install!.run.split('\n').map(line => line.trim())
       expect(installLines).toContain('} else {')
-      expect(installLines.some(line => line === 'pnpm install --frozen-lockfile'), `${jobName} else branch must keep the plain hosted install`).toBe(true)
+      expect(
+        installLines.some(line => line === 'pnpm install --frozen-lockfile'),
+        `${jobName} else branch must keep the plain hosted install`,
+      ).toBe(true)
       // The ReFS branch must not use the interpolated empty-flag form, which
       // passes a stray "" positional argument to pnpm.
       expect(install!.run).not.toContain('$cloneFlag')
     }
 
     expect(windowsCoverage.name).toBe('windows node 24 / coverage')
-    expect(windowsCoverage.env).toMatchObject({ DSH_COVERAGE_PARTITIONS: "${{ vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '4' || '' }}" })
+    expect(windowsCoverage.env).toMatchObject({
+      DSH_COVERAGE_PARTITIONS:
+        "${{ vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '4' || '' }}",
+    })
     const coverageSteps = windowsCoverage.steps as unknown[]
-    const coverageCommands = coverageSteps.filter((step): step is Record<string, unknown> & { run: string } => (
-      isRecord(step) && typeof step.run === 'string'
-    ))
+    const coverageCommands = coverageSteps.filter(
+      (step): step is Record<string, unknown> & { run: string } => isRecord(step) && typeof step.run === 'string',
+    )
     expect(coverageCommands.map(step => step.run)).toContain('pnpm run check:ci:coverage')
     // Windows coverage runs zero-build like the Linux lane: workspace imports
     // resolve to src through the tsconfig paths map, and the lib-consuming
@@ -402,9 +436,9 @@ describe('CI workflow', () => {
     // windows-native-tests runs the Windows-specific specs.
     expect(windowsNativeTests.name).toBe('windows node 24 / native tests')
     const nativeTestSteps = windowsNativeTests.steps as unknown[]
-    const nativeTestCommands = nativeTestSteps.filter((step): step is Record<string, unknown> & { run: string } => (
-      isRecord(step) && typeof step.run === 'string'
-    ))
+    const nativeTestCommands = nativeTestSteps.filter(
+      (step): step is Record<string, unknown> & { run: string } => isRecord(step) && typeof step.run === 'string',
+    )
     const nativeTestCommand = nativeTestCommands.map(step => step.run).join('\n')
     expect(nativeTestCommand).toContain('--no-file-parallelism')
     expect(nativeTestCommand).toContain('--testTimeout 90000')
@@ -421,12 +455,14 @@ describe('CI workflow', () => {
       'timeout-minutes': 15,
       env: {
         DSH_GATE_FAIL_FAST: '',
-        DSH_PUBLINT_CONCURRENCY: "${{ vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '8' || '' }}",
+        DSH_PUBLINT_CONCURRENCY:
+          "${{ vars.DSH_CI_FAILOVER_WINDOWS == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '8' || '' }}",
       },
     })
     expect(observational?.if).toBeUndefined()
-    expect(buildCommands.findIndex(step => step.id === 'observational'))
-      .toBeGreaterThan(buildCommands.findIndex(step => step.run === 'pnpm run check:ci:windows-blocking'))
+    expect(buildCommands.findIndex(step => step.id === 'observational')).toBeGreaterThan(
+      buildCommands.findIndex(step => step.run === 'pnpm run check:ci:windows-blocking'),
+    )
     const report = buildCommands.find(step => step.name === 'Report Windows observational failures')
     expect(report).toMatchObject({
       'continue-on-error': true,
@@ -443,15 +479,17 @@ describe('CI workflow', () => {
     // Its store must share the ReFS workspace volume for clone; the install
     // must carry the same filesystem branch as the PR jobs.
     const serialSteps = serialWindows.steps as unknown[]
-    const serialStore = serialSteps.find((step): step is Record<string, unknown> & { run: string } => (
-      isRecord(step) && step.name === 'Configure persistent pnpm store' && typeof step.run === 'string'
-    ))
+    const serialStore = serialSteps.find(
+      (step): step is Record<string, unknown> & { run: string } =>
+        isRecord(step) && step.name === 'Configure persistent pnpm store' && typeof step.run === 'string',
+    )
     expect(serialStore).toBeDefined()
     expect(serialStore!.run).toContain('[IO.Path]::GetPathRoot($env:GITHUB_WORKSPACE)')
     expect(serialStore!.run).toContain("'.pnpm-store'")
-    const serialInstall = serialSteps.find((step): step is Record<string, unknown> & { run: string } => (
-      isRecord(step) && step.name === 'Install (immutable)' && typeof step.run === 'string'
-    ))
+    const serialInstall = serialSteps.find(
+      (step): step is Record<string, unknown> & { run: string } =>
+        isRecord(step) && step.name === 'Install (immutable)' && typeof step.run === 'string',
+    )
     expect(serialInstall).toBeDefined()
     expect(serialInstall!.run).toContain("$fs -eq 'ReFS'")
     expect(serialInstall!.run).toContain('--package-import-method=clone')
@@ -464,9 +502,10 @@ describe('CI workflow', () => {
     // The unsharded reference runs the whole coverage inventory at the same
     // per-test budget the PR coverage lane grants; the default 5000ms times
     // out load-sensitive store scans (e.g. gen-third-party-notices).
-    const serialGate = serialSteps.find((step): step is Record<string, unknown> & { env?: Record<string, unknown> } => (
-      isRecord(step) && step.name === 'Run complete unsharded Windows gate inventory serially'
-    ))
+    const serialGate = serialSteps.find(
+      (step): step is Record<string, unknown> & { env?: Record<string, unknown> } =>
+        isRecord(step) && step.name === 'Run complete unsharded Windows gate inventory serially',
+    )
     expect(serialGate).toBeDefined()
     expect(serialGate!.env).toMatchObject({ DSH_COVERAGE_TEST_TIMEOUT_MS: '90000' })
 
@@ -497,13 +536,18 @@ describe('CI workflow', () => {
     // Linux failover is a separate switch: the three enterprise Linux workers
     // and the verdict job resolve their pool through DSH_CI_FAILOVER_LINUX,
     // never the Windows switch.
-    for (const [jobName, job] of [['node-24', node24], ['node-24-coverage', node24Coverage], ['node-24-consumers', node24Consumers]] as const) {
+    for (const [jobName, job] of [
+      ['node-24', node24],
+      ['node-24-coverage', node24Coverage],
+      ['node-24-consumers', node24Consumers],
+    ] as const) {
       expect(typeof job['runs-on']).toBe('string')
       expect(job['runs-on'], `${jobName} runs-on must use the Linux failover switch`).toContain('DSH_CI_FAILOVER_LINUX')
       expect(job['runs-on'], `${jobName} runs-on must not use the Windows failover switch`).not.toContain('DSH_CI_FAILOVER_WINDOWS')
       expect(job['runs-on']).toContain('vm-backup')
-      expect(evaluateRunsOn(job['runs-on'], { vars: { DSH_CI_FAILOVER_LINUX: 'blacksmith' } }))
-        .toBe(`blacksmith-${jobName === 'node-24' ? 8 : 16}vcpu-ubuntu-2404`)
+      expect(evaluateRunsOn(job['runs-on'], { vars: { DSH_CI_FAILOVER_LINUX: 'blacksmith' } })).toBe(
+        `blacksmith-${jobName === 'node-24' ? 8 : 16}vcpu-ubuntu-2404`,
+      )
     }
     expect(aggregate['runs-on']).toContain('DSH_CI_FAILOVER_LINUX')
     expect(aggregate['runs-on']).not.toContain('DSH_CI_FAILOVER_WINDOWS')
@@ -544,7 +588,12 @@ describe('CI workflow', () => {
     // a red aggregate does not keep burning runner time on the remaining
     // gates. Removing the flag silently reverts to running every independent
     // gate to completion.
-    for (const [jobName, job] of [['node-24', node24], ['node-24-coverage', node24Coverage], ['node-24-consumers', node24Consumers], ['node-compat', nodeCompat]] as const) {
+    for (const [jobName, job] of [
+      ['node-24', node24],
+      ['node-24-coverage', node24Coverage],
+      ['node-24-consumers', node24Consumers],
+      ['node-compat', nodeCompat],
+    ] as const) {
       expect(job.env, `${jobName} must enable fail-fast`).toMatchObject({ DSH_GATE_FAIL_FAST: '1' })
     }
 
@@ -560,7 +609,7 @@ describe('CI workflow', () => {
     expect(observational?.env).toMatchObject({ DSH_GATE_FAIL_FAST: '' })
   })
 
-  it('runs the darwin unit parity inventory at the coverage lanes\' test budget', () => {
+  it("runs the darwin unit parity inventory at the coverage lanes' test budget", () => {
     const coverage = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'node-24-coverage')
     if (!isRecord(coverage.env) || typeof coverage.env.DSH_COVERAGE_TEST_TIMEOUT_MS !== 'string') {
       throw new TypeError('node-24-coverage must grant DSH_COVERAGE_TEST_TIMEOUT_MS')
@@ -752,19 +801,22 @@ describe('CI workflow', () => {
     for (const [workflow, jobKey] of redirectLanes) {
       const job = workflowJob(workflow, jobKey)
       if (!Array.isArray(job.steps)) throw new TypeError(`${jobKey} must define steps`)
-      const redirectStepIndex = job.steps.findIndex((step): step is Record<string, unknown> & { run: string } => (
-        isRecord(step) && typeof step.run === 'string'
-          && step.run.includes('NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache')
-          && step.run.includes('"$GITHUB_ENV"')
-      ))
+      const redirectStepIndex = job.steps.findIndex(
+        (step): step is Record<string, unknown> & { run: string } =>
+          isRecord(step) &&
+          typeof step.run === 'string' &&
+          step.run.includes('NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache') &&
+          step.run.includes('"$GITHUB_ENV"'),
+      )
       // Removing this injection would send every pnpm call in the lane (setup,
       // store-path probe, install, and the gate) back to the root partition's
       // /tmp; rationale in
       // .github/workflows/ci.yml.
       expect(redirectStepIndex, `${jobKey} must inject NODE_COMPILE_CACHE into GITHUB_ENV`).toBeGreaterThan(-1)
-      const pnpmSetupIndex = job.steps.findIndex((step): step is Record<string, unknown> & { uses: string } => (
-        isRecord(step) && typeof step.uses === 'string' && step.uses.includes('pnpm/action-setup')
-      ))
+      const pnpmSetupIndex = job.steps.findIndex(
+        (step): step is Record<string, unknown> & { uses: string } =>
+          isRecord(step) && typeof step.uses === 'string' && step.uses.includes('pnpm/action-setup'),
+      )
       expect(pnpmSetupIndex, `${jobKey} must run pnpm/action-setup`).toBeGreaterThan(-1)
       expect(redirectStepIndex, `${jobKey} must redirect before pnpm/action-setup runs pnpm`).toBeLessThan(pnpmSetupIndex)
     }
@@ -809,10 +861,14 @@ describe('CI workflow', () => {
     const master = workflowJob(loadWorkflow('.github/workflows/ci-master.yml'), 'ssh-helper')
     if (typeof master.if !== 'string') throw new Error('SSH manual caller must define its trigger condition')
     for (const [event, suite, expected] of [
-      ['push', 'ssh-helper', false], ['pull_request', 'ssh-helper', false],
-      ['workflow_dispatch', 'larger-runner-benchmark', false], ['workflow_dispatch', 'ssh-helper', true],
+      ['push', 'ssh-helper', false],
+      ['pull_request', 'ssh-helper', false],
+      ['workflow_dispatch', 'larger-runner-benchmark', false],
+      ['workflow_dispatch', 'ssh-helper', true],
     ] as const) {
-      expect(runInNewContext(master.if, { github: { event_name: event, ref: 'refs/heads/master' }, inputs: { suite } }, { timeout: 1000 })).toBe(expected)
+      expect(
+        runInNewContext(master.if, { github: { event_name: event, ref: 'refs/heads/master' }, inputs: { suite } }, { timeout: 1000 }),
+      ).toBe(expected)
     }
     expect(master.with).toEqual({ targets: 'node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64' })
     const workflow = loadWorkflow('.github/workflows/build-exe-for-ssh-helper.yml')
@@ -864,19 +920,29 @@ describe('CI workflow', () => {
     const source = nodeStepSource(validate, 'source')
     const evaluate = (publish: boolean, type: string, name: string): string => {
       let output = ''
-      runInNewContext(source, {
-        process: { env: { PUBLISH: String(publish), GITHUB_REF_TYPE: type, GITHUB_REF_NAME: name, GITHUB_OUTPUT: 'output' } },
-        readFileSync: () => JSON.stringify({ version: '1.2.3' }),
-        execFileSync: () => `${'a'.repeat(40)}\n`,
-        appendFileSync: (_path: string, text: string) => { output += text },
-      }, { timeout: 1000 })
+      runInNewContext(
+        source,
+        {
+          process: { env: { PUBLISH: String(publish), GITHUB_REF_TYPE: type, GITHUB_REF_NAME: name, GITHUB_OUTPUT: 'output' } },
+          readFileSync: () => JSON.stringify({ version: '1.2.3' }),
+          execFileSync: () => `${'a'.repeat(40)}\n`,
+          appendFileSync: (_path: string, text: string) => {
+            output += text
+          },
+        },
+        { timeout: 1000 },
+      )
       return output
     }
     const expected = `version=1.2.3\ncommit=${'a'.repeat(40)}\n`
     expect(evaluate(false, 'branch', 'worktree/helper')).toBe(expected)
     expect(evaluate(false, 'tag', 'arbitrary-tag')).toBe(expected)
     expect(evaluate(true, 'tag', 'dsh-v1.2.3')).toBe(expected)
-    for (const [type, name] of [['branch', 'dsh-v1.2.3'], ['tag', 'dsh-v1.2.2'], ['tag', 'python-v1.2.3']] as const) {
+    for (const [type, name] of [
+      ['branch', 'dsh-v1.2.3'],
+      ['tag', 'dsh-v1.2.2'],
+      ['tag', 'python-v1.2.3'],
+    ] as const) {
       expect(() => evaluate(true, type, name)).toThrow('Publication requires the matching dsh-v<version> tag')
     }
   })
@@ -886,10 +952,16 @@ describe('CI workflow', () => {
     const source = nodeStepSource(plan, 'targets')
     const evaluate = (requested: string): unknown => {
       let output = ''
-      runInNewContext(source, {
-        process: { env: { REQUESTED_TARGETS: requested, GITHUB_OUTPUT: 'output' } },
-        appendFileSync: (_path: string, text: string) => { output += text },
-      }, { timeout: 1000 })
+      runInNewContext(
+        source,
+        {
+          process: { env: { REQUESTED_TARGETS: requested, GITHUB_OUTPUT: 'output' } },
+          appendFileSync: (_path: string, text: string) => {
+            output += text
+          },
+        },
+        { timeout: 1000 },
+      )
       return JSON.parse(output.slice('matrix='.length))
     }
     expect(evaluate('')).toHaveLength(4)
@@ -921,8 +993,9 @@ describe('Runtime and LLM e2e Blacksmith routing', () => {
   it('routes DeepSeek e2e only through the Linux Blacksmith switch', () => {
     const job = workflowJob(loadWorkflow('.github/workflows/e2e.yml'), 'e2e')
     for (const mode of ['', 'selfhosted', 'unexpected', 'blacksmith']) {
-      expect(evaluateRunsOn(job['runs-on'], { vars: { DSH_CI_FAILOVER_LINUX: mode, DSH_CI_FAILOVER_WINDOWS: 'blacksmith' } }))
-        .toBe(mode === 'blacksmith' ? 'blacksmith-4vcpu-ubuntu-2404' : 'ubuntu-latest')
+      expect(evaluateRunsOn(job['runs-on'], { vars: { DSH_CI_FAILOVER_LINUX: mode, DSH_CI_FAILOVER_WINDOWS: 'blacksmith' } })).toBe(
+        mode === 'blacksmith' ? 'blacksmith-4vcpu-ubuntu-2404' : 'ubuntu-latest',
+      )
     }
   })
 
@@ -940,21 +1013,24 @@ describe('Runtime and LLM e2e Blacksmith routing', () => {
         for (const release of [false, true]) {
           for (const mode of ['', 'selfhosted', 'unexpected', 'blacksmith']) {
             const vars = { DSH_CI_FAILOVER_LINUX: 'blacksmith', DSH_CI_FAILOVER_WINDOWS: 'blacksmith', [variable]: mode }
-            expect(evaluateRunsOn(build['runs-on'], { inputs: { ci, release }, vars, matrix: { target, runner } }), `${target} ci=${ci} release=${release} mode=${mode}`)
-              .toBe(release ? releaseRunner : ci && mode === 'blacksmith' ? blacksmith : runner)
+            expect(
+              evaluateRunsOn(build['runs-on'], { inputs: { ci, release }, vars, matrix: { target, runner } }),
+              `${target} ci=${ci} release=${release} mode=${mode}`,
+            ).toBe(release ? releaseRunner : ci && mode === 'blacksmith' ? blacksmith : runner)
           }
         }
       }
     }
   })
 
-  it.each(['plan', 'sdk-wheel'])('routes runtime %s only for non-release CI', (name) => {
+  it.each(['plan', 'sdk-wheel'])('routes runtime %s only for non-release CI', name => {
     const job = workflowJob(loadWorkflow('.github/workflows/build-exe-for-python-sdk.yml'), name)
     for (const ci of [false, true]) {
       for (const release of [false, true]) {
         for (const mode of ['', 'selfhosted', 'unexpected', 'blacksmith']) {
-          expect(evaluateRunsOn(job['runs-on'], { inputs: { ci, release }, vars: { DSH_CI_FAILOVER_LINUX: mode } }))
-            .toBe(ci && !release && mode === 'blacksmith' ? 'blacksmith-4vcpu-ubuntu-2404' : 'ubuntu-latest')
+          expect(evaluateRunsOn(job['runs-on'], { inputs: { ci, release }, vars: { DSH_CI_FAILOVER_LINUX: mode } })).toBe(
+            ci && !release && mode === 'blacksmith' ? 'blacksmith-4vcpu-ubuntu-2404' : 'ubuntu-latest',
+          )
         }
       }
     }
@@ -1006,12 +1082,14 @@ describe('Python release workflows', () => {
     const validate = workflowJob(workflow, 'validate')
     const publishRuntime = workflowJob(workflow, 'publish-runtime')
     const publishSdk = workflowJob(workflow, 'publish-sdk')
-    if (!isRecord(dispatch.inputs)
-      || !isRecord(dispatch.inputs.publish)
-      || !Array.isArray(pythonCompat.steps)
-      || !Array.isArray(validate.steps)
-      || !Array.isArray(publishRuntime.steps)
-      || !Array.isArray(publishSdk.steps)) {
+    if (
+      !isRecord(dispatch.inputs) ||
+      !isRecord(dispatch.inputs.publish) ||
+      !Array.isArray(pythonCompat.steps) ||
+      !Array.isArray(validate.steps) ||
+      !Array.isArray(publishRuntime.steps) ||
+      !Array.isArray(publishSdk.steps)
+    ) {
       throw new TypeError('Python release workflow must define publish input and release steps')
     }
 
@@ -1062,12 +1140,10 @@ describe('Python release workflows', () => {
     const sdkPublish = sdkSteps.find(step => step.name === 'Publish SDK wheel')
     const runtimeHashes = runtimeSteps.find(step => step.name === 'Verify release artifact hashes')
     const sdkHashes = sdkSteps.find(step => step.name === 'Verify release artifact hashes')
-    expect([...runtimeSteps, ...sdkSteps].some(
-      step => typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@'),
-    )).toBe(false)
-    expect([...runtimeSteps, ...sdkSteps].filter(
-      step => step.uses === 'pypa/gh-action-pypi-publish@release/v1',
-    )).toHaveLength(2)
+    expect([...runtimeSteps, ...sdkSteps].some(step => typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@'))).toBe(
+      false,
+    )
+    expect([...runtimeSteps, ...sdkSteps].filter(step => step.uses === 'pypa/gh-action-pypi-publish@release/v1')).toHaveLength(2)
     expect(runtimePublish).toMatchObject({
       with: { 'packages-dir': 'dist/runtime/', attestations: false },
     })
@@ -1092,19 +1168,40 @@ describe('Python release workflows', () => {
     const manylinuxAddon = buildSteps.find(step => isRecord(step) && step.name === 'Rebuild Linux node-pty against manylinux 2.28')
     const macosCheck = buildSteps.find(step => isRecord(step) && step.name === 'Check macOS payload architecture and deployment target')
     const manylinuxSmoke = buildSteps.find(step => isRecord(step) && step.name === 'Run wheel in a manylinux 2.28 container')
-    const cleanVenvPosix = buildSteps.find(step => isRecord(step) && step.name === 'Install local SDK and runtime wheels into a clean venv (POSIX)')
-    const cleanVenvWindows = buildSteps.find(step => isRecord(step) && step.name === 'Install local SDK and runtime wheels into a clean venv (Windows)')
-    const installedKeylessPosix = buildSteps.find(step => isRecord(step) && step.name === 'Run installed-wheel keyless black-box tests (POSIX)')
-    const installedKeylessWindows = buildSteps.find(step => isRecord(step) && step.name === 'Run installed-wheel keyless black-box tests (Windows)')
+    const cleanVenvPosix = buildSteps.find(
+      step => isRecord(step) && step.name === 'Install local SDK and runtime wheels into a clean venv (POSIX)',
+    )
+    const cleanVenvWindows = buildSteps.find(
+      step => isRecord(step) && step.name === 'Install local SDK and runtime wheels into a clean venv (Windows)',
+    )
+    const installedKeylessPosix = buildSteps.find(
+      step => isRecord(step) && step.name === 'Run installed-wheel keyless black-box tests (POSIX)',
+    )
+    const installedKeylessWindows = buildSteps.find(
+      step => isRecord(step) && step.name === 'Run installed-wheel keyless black-box tests (Windows)',
+    )
     const realApiPreflightPosix = buildSteps.find(step => isRecord(step) && step.name === 'Preflight installed-wheel real API test (POSIX)')
-    const realApiPreflightWindows = buildSteps.find(step => isRecord(step) && step.name === 'Preflight installed-wheel real API test (Windows)')
-    const installedRealApiPosix = buildSteps.find(step => isRecord(step) && step.name === 'Run installed-wheel real API black-box test (POSIX)')
-    const installedRealApiWindows = buildSteps.find(step => isRecord(step) && step.name === 'Run installed-wheel real API black-box test (Windows)')
-    if (!isRecord(macosCheck) || typeof macosCheck.run !== 'string'
-      || !isRecord(cleanVenvPosix) || !isRecord(cleanVenvWindows)
-      || !isRecord(installedKeylessPosix) || !isRecord(installedKeylessWindows)
-      || !isRecord(realApiPreflightPosix) || !isRecord(realApiPreflightWindows)
-      || !isRecord(installedRealApiPosix) || !isRecord(installedRealApiWindows)) {
+    const realApiPreflightWindows = buildSteps.find(
+      step => isRecord(step) && step.name === 'Preflight installed-wheel real API test (Windows)',
+    )
+    const installedRealApiPosix = buildSteps.find(
+      step => isRecord(step) && step.name === 'Run installed-wheel real API black-box test (POSIX)',
+    )
+    const installedRealApiWindows = buildSteps.find(
+      step => isRecord(step) && step.name === 'Run installed-wheel real API black-box test (Windows)',
+    )
+    if (
+      !isRecord(macosCheck) ||
+      typeof macosCheck.run !== 'string' ||
+      !isRecord(cleanVenvPosix) ||
+      !isRecord(cleanVenvWindows) ||
+      !isRecord(installedKeylessPosix) ||
+      !isRecord(installedKeylessWindows) ||
+      !isRecord(realApiPreflightPosix) ||
+      !isRecord(realApiPreflightWindows) ||
+      !isRecord(installedRealApiPosix) ||
+      !isRecord(installedRealApiWindows)
+    ) {
       throw new TypeError('Python wheel builder must define native POSIX and Windows installed-wheel steps')
     }
     expect(call.inputs).toHaveProperty('targets')
@@ -1140,7 +1237,9 @@ describe('Python release workflows', () => {
     expect(manylinuxAddon).toMatchObject({ if: "runner.os == 'Linux'" })
     expect(JSON.stringify(manylinuxAddon)).toContain('manylinux_2_28_x86_64')
     expect(JSON.stringify(manylinuxAddon)).toContain('manylinux_2_28_aarch64')
-    expect(JSON.stringify(manylinuxAddon)).toContain('npm_config_build_from_source=true pnpm --config.verifyDepsBeforeRun=false run install')
+    expect(JSON.stringify(manylinuxAddon)).toContain(
+      'npm_config_build_from_source=true pnpm --config.verifyDepsBeforeRun=false run install',
+    )
     expect(JSON.stringify(manylinuxAddon)).toContain('pnpm_setup_root')
     expect(JSON.stringify(manylinuxAddon)).toContain('$pnpm_setup_root:$pnpm_setup_root:ro')
     expect(JSON.stringify(manylinuxAddon)).toContain('node-pty-glibc-versions.txt')
@@ -1186,9 +1285,7 @@ describe('Python release workflows', () => {
       throw new TypeError('GitLab CI must define the runtime wheel script')
     }
     const runtimeScript: unknown[] = runtimeWheel.script
-    const macosCheck = runtimeScript.find(
-      step => typeof step === 'string' && step.includes('${PLATFORM#macos-}'),
-    )
+    const macosCheck = runtimeScript.find(step => typeof step === 'string' && step.includes('${PLATFORM#macos-}'))
     if (typeof macosCheck !== 'string') {
       throw new TypeError('GitLab CI must check the macOS deployment target')
     }
@@ -1216,8 +1313,13 @@ describe('Python release workflows', () => {
     const workflow = loadWorkflow('.gitlab-ci.yml')
     const windows = workflow['runtime-windows-x64']
     const publish = workflow['publish-python']
-    if (!isRecord(windows) || !Array.isArray(windows.before_script) || !Array.isArray(windows.script)
-      || !isRecord(publish) || !Array.isArray(publish.needs)) {
+    if (
+      !isRecord(windows) ||
+      !Array.isArray(windows.before_script) ||
+      !Array.isArray(windows.script) ||
+      !isRecord(publish) ||
+      !Array.isArray(publish.needs)
+    ) {
       throw new TypeError('GitLab CI must define the Windows runtime and aggregate publication jobs')
     }
 
@@ -1266,14 +1368,16 @@ describe('Weighted approval workflow', () => {
       statuses: 'write',
     })
     expect(publisher.concurrency).toEqual({
-      group: "weighted-approval-${{ (github.event.pull_request.number || github.event.issue.number) && format('weighted-approval-review-event:{0}', github.event.pull_request.number || github.event.issue.number) || github.event.workflow_run.display_title }}",
+      group:
+        "weighted-approval-${{ (github.event.pull_request.number || github.event.issue.number) && format('weighted-approval-review-event:{0}', github.event.pull_request.number || github.event.issue.number) || github.event.workflow_run.display_title }}",
       'cancel-in-progress': false,
     })
     expect(job).toMatchObject({
-      if: "(github.event_name != 'pull_request_target' || github.event.pull_request.state == 'open') && "
-        + "(github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && "
-        + "(github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.issue.state == 'open' &&\n"
-        + "  (contains(github.event.comment.body, '/delegate') || contains(github.event.changes.body.from, '/delegate'))))",
+      if:
+        "(github.event_name != 'pull_request_target' || github.event.pull_request.state == 'open') && " +
+        "(github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && " +
+        "(github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.issue.state == 'open' &&\n" +
+        "  (contains(github.event.comment.body, '/delegate') || contains(github.event.changes.body.from, '/delegate'))))",
       name: 'weighted approval publisher',
       'runs-on': 'ubuntu-latest',
       'timeout-minutes': 5,
@@ -1464,8 +1568,7 @@ describe('npm release workflows', () => {
     if (!isRecord(workflow.on) || !Array.isArray(dependencies.steps)) {
       throw new TypeError('DSH release workflow must define triggers and dependency steps')
     }
-    const commands = dependencies.steps.flatMap(step =>
-      isRecord(step) && typeof step.run === 'string' ? [step.run] : [])
+    const commands = dependencies.steps.flatMap(step => (isRecord(step) && typeof step.run === 'string' ? [step.run] : []))
 
     expect(Object.keys(workflow.on).sort()).toEqual(['pull_request', 'push', 'workflow_dispatch'])
     expect(commands).toContain('pnpm run verify-package-dependencies')
@@ -1491,9 +1594,7 @@ describe('Documentation site publication', () => {
     // definition of a released version.
     const steps = build.steps.filter(isRecord)
     const verify = steps.find(step => step.name === 'Verify release version')
-    const checkout = steps.find(
-      step => typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@'),
-    )
+    const checkout = steps.find(step => typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@'))
     expect(verify).toMatchObject({
       env: { RELEASE_PUBLISH: 'true' },
       run: 'pnpm run release:verify --family dsh',
@@ -1522,9 +1623,7 @@ describe('Git hooks', () => {
       if (!isRecord(hook) || !Array.isArray(hook.jobs)) {
         throw new TypeError(`lefthook must define ${hookName} jobs`)
       }
-      const pairing: unknown = hook.jobs.find(
-        (job: unknown) => isRecord(job) && job.name === 'translation pairing (staged records)',
-      )
+      const pairing: unknown = hook.jobs.find((job: unknown) => isRecord(job) && job.name === 'translation pairing (staged records)')
 
       expect(pairing).toMatchObject({ exclude: ['.agents/notes/archived/**'] })
     }
@@ -1541,7 +1640,10 @@ function nodeStepSource(job: Record<string, unknown>, id: string): string {
   if (!Array.isArray(job.steps)) throw new Error('Node workflow job must define steps')
   const step: unknown = job.steps.find(value => isRecord(value) && value.id === id)
   if (!isRecord(step) || typeof step.run !== 'string') throw new Error(`Missing Node workflow step: ${id}`)
-  const source = step.run.split("<<'JS'\n")[1]?.split('\nJS')[0]?.replace(/^import .*;\n/gm, '')
+  const source = step.run
+    .split("<<'JS'\n")[1]
+    ?.split('\nJS')[0]
+    ?.replace(/^import .*;\n/gm, '')
   if (source === undefined) throw new Error(`Workflow step ${id} must contain an executable Node script`)
   return source
 }

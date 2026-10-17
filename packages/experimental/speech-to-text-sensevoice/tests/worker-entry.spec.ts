@@ -6,7 +6,7 @@
  */
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const ENTRY = fileURLToPath(new URL('../src/worker.ts', import.meta.url))
 const TSCONFIG = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
@@ -23,13 +23,22 @@ async function launch(argument: string | undefined, token: string | undefined): 
   const env: NodeJS.ProcessEnv = { ...process.env, TSX_TSCONFIG_PATH: TSCONFIG }
   delete env.DSH_SPEECH_TOKEN
   if (token !== undefined) env.DSH_SPEECH_TOKEN = token
-  const child = spawn(process.execPath, ['--import', import.meta.resolve('tsx/esm'), ENTRY, ...argument === undefined ? [] : [argument]], {
-    env, stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const child = spawn(
+    process.execPath,
+    ['--import', import.meta.resolve('tsx/esm'), ENTRY, ...(argument === undefined ? [] : [argument])],
+    {
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   let stdout = ''
   let stderr = ''
-  child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk })
-  child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
+  child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+    stdout += chunk
+  })
+  child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+    stderr += chunk
+  })
   const code = await new Promise<number | null>((resolve, reject) => {
     child.once('error', reject)
     child.once('close', resolve)
@@ -46,12 +55,16 @@ it.each([
   ['launch JSON without a data root', JSON.stringify({ ...LAUNCH, dataRoot: undefined }), TOKEN, 'dataRoot'],
   ['a missing bearer token', JSON.stringify(LAUNCH), undefined, 'invalid_type'],
   ['a malformed bearer token', JSON.stringify(LAUNCH), 'not-hex', '[a-f0-9]{64}'],
-])('exits 1 before readiness on %s, reporting only the failure message', async (_case, argument, token, reason) => {
-  const exit = await launch(argument, token)
-  expect(exit.code).toBe(1)
-  expect(exit.stdout).toBe('')
-  expect(exit.stderr).toContain(reason)
-  expect(exit.stderr.endsWith('\n')).toBe(true)
-  expect(exit.stderr).not.toMatch(/^\s+at /mu)
-  expect(exit.stderr).not.toContain('Node.js v')
-}, 30_000)
+])(
+  'exits 1 before readiness on %s, reporting only the failure message',
+  async (_case, argument, token, reason) => {
+    const exit = await launch(argument, token)
+    expect(exit.code).toBe(1)
+    expect(exit.stdout).toBe('')
+    expect(exit.stderr).toContain(reason)
+    expect(exit.stderr.endsWith('\n')).toBe(true)
+    expect(exit.stderr).not.toMatch(/^\s+at /mu)
+    expect(exit.stderr).not.toContain('Node.js v')
+  },
+  30_000,
+)

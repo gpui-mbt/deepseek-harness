@@ -135,10 +135,10 @@ export interface ToolRemovalBlock {
  * developer messages; `projectToolUpdates` selects what each route receives.
  */
 export interface ContentBlockMap {
-  'text': TextBlock
-  'reasoning': ReasoningBlock
-  'image': ImageBlock
-  'file': FileBlock
+  text: TextBlock
+  reasoning: ReasoningBlock
+  image: ImageBlock
+  file: FileBlock
   'tool-call': ToolCallBlock
   'tool-addition': ToolAdditionBlock
   'tool-removal': ToolRemovalBlock
@@ -154,11 +154,11 @@ export type ContentBlock = ContentBlockMap[ContentBlockType]
  * Merge-extensible so adapters can surface provider-specific reasons.
  */
 export interface FinishReasonMap {
-  'stop': { kind: 'stop' }
+  stop: { kind: 'stop' }
   'tool-calls': { kind: 'tool-calls' }
   'max-tokens': { kind: 'max-tokens' }
-  'aborted': { kind: 'aborted'; failure: LlmFailure }
-  'error': { kind: 'error'; failure: LlmFailure }
+  aborted: { kind: 'aborted'; failure: LlmFailure }
+  error: { kind: 'error'; failure: LlmFailure }
 }
 
 /** Any known finish reason, derived from {@link FinishReasonMap}; switch on `kind` and fall through unknowns (merge-extensible). */
@@ -506,11 +506,11 @@ export type StreamChunk =
   | { type: 'block-end'; index: number; block: ContentBlock }
   | { type: 'usage'; usage: TokenUsage }
   | {
-    type: 'finish'
-    reason: FinishReason
-    /** Replay metadata for a successful response; see {@link ReplayEnvelope}. */
-    replayState?: ReplayEnvelope
-  }
+      type: 'finish'
+      reason: FinishReason
+      /** Replay metadata for a successful response; see {@link ReplayEnvelope}. */
+      replayState?: ReplayEnvelope
+    }
 
 /**
  * JSON-schema description of a tool, as sent to the model.

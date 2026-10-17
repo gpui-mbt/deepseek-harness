@@ -14,7 +14,12 @@ import { resolve as resolvePath } from 'node:path'
 import type { AuthContext, Credential, CredentialInfo, CredentialStore } from '@earendil-works/pi-ai'
 import type { Context } from '@deepseek-ai/cordis'
 import {
-  credentialKey, credentialKeyId, credentialKeyScope, credentialRef, isCredentialKeySegment, isCredentialRefName,
+  credentialKey,
+  credentialKeyId,
+  credentialKeyScope,
+  credentialRef,
+  isCredentialKeySegment,
+  isCredentialRefName,
 } from '@deepseek-ai/dsh-credentials'
 import type { CredentialKey, CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
@@ -50,7 +55,7 @@ export function recordKeyFor(providerId: string): CredentialKey {
  * @returns the value's JSON image.
  */
 function jsonImage(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(entry => entry === undefined ? null : jsonImage(entry))
+  if (Array.isArray(value)) return value.map(entry => (entry === undefined ? null : jsonImage(entry)))
   if (typeof value === 'object' && value !== null && Object.getPrototypeOf(value) === Object.prototype) {
     const image: Record<string, unknown> = {}
     for (const [key, member] of Object.entries(value)) {
@@ -76,8 +81,8 @@ function toPiCredential(record: CredentialRecord | undefined): Credential | unde
   if (record.kind === 'api-key') {
     return {
       type: 'api_key',
-      ...record.key === undefined ? {} : { key: record.key },
-      ...record.env === undefined ? {} : { env: { ...record.env } },
+      ...(record.key === undefined ? {} : { key: record.key }),
+      ...(record.env === undefined ? {} : { env: { ...record.env } }),
     }
   }
   return record.payload as Credential
@@ -92,8 +97,8 @@ function toRecord(credential: Credential): CredentialRecord {
   if (credential.type === 'api_key') {
     return {
       kind: 'api-key',
-      ...credential.key === undefined ? {} : { key: credential.key },
-      ...credential.env === undefined ? {} : { env: { ...credential.env } },
+      ...(credential.key === undefined ? {} : { key: credential.key }),
+      ...(credential.env === undefined ? {} : { env: { ...credential.env } }),
     }
   }
   return { kind: 'grant', payload: jsonImage(credential) }
@@ -113,8 +118,8 @@ function writableStore(ctx: Context): CredentialProvider {
   const credentials = ctx.get('credentials')
   if (credentials === undefined) {
     throw new LlmError(
-      'llm-pi-ai: this composition mounts no credentials service, so there is nowhere to store the'
-      + ' credential a sign-in produces; mount one (dsh-credentials-local) to sign in',
+      'llm-pi-ai: this composition mounts no credentials service, so there is nowhere to store the' +
+        ' credential a sign-in produces; mount one (dsh-credentials-local) to sign in',
       'NO_CREDENTIAL_STORE',
     )
   }
@@ -147,7 +152,7 @@ export function credentialStoreFrom(ctx: Context): CredentialStore {
       return toPiCredential(await credentials.readRecord(recordKeyFor(providerId)))
     },
     async list(): Promise<readonly CredentialInfo[]> {
-      const stored = await ctx.get('credentials')?.listRecords() ?? []
+      const stored = (await ctx.get('credentials')?.listRecords()) ?? []
       const mine: CredentialInfo[] = []
       for (const entry of stored) {
         // Records another plugin owns are not this collection's to report:
@@ -163,13 +168,13 @@ export function credentialStoreFrom(ctx: Context): CredentialStore {
     async modify(providerId, mutate) {
       if (!isCredentialKeySegment(providerId)) {
         throw new LlmError(
-          `llm-pi-ai: provider id "${providerId}" cannot address a stored credential record (a record id is a`
-          + ' lowercase hyphenated identifier); authenticate this route through apiKeyEnv instead of a stored'
-          + ' credential',
+          `llm-pi-ai: provider id "${providerId}" cannot address a stored credential record (a record id is a` +
+            ' lowercase hyphenated identifier); authenticate this route through apiKeyEnv instead of a stored' +
+            ' credential',
           'UNSTORABLE_PROVIDER_ID',
         )
       }
-      const stored = await writableStore(ctx).modifyRecord(recordKeyFor(providerId), async (current) => {
+      const stored = await writableStore(ctx).modifyRecord(recordKeyFor(providerId), async current => {
         const next = await mutate(toPiCredential(current))
         return next === undefined ? undefined : toRecord(next)
       })
@@ -214,9 +219,7 @@ export function authContextFrom(ctx: Context): AuthContext {
       return launchEnvironmentOf(ctx).get(name)?.value
     },
     async fileExists(path) {
-      const expanded = path.startsWith('~/') || path === '~'
-        ? resolvePath(homedir(), path.slice(1).replace(/^\//, ''))
-        : path
+      const expanded = path.startsWith('~/') || path === '~' ? resolvePath(homedir(), path.slice(1).replace(/^\//, '')) : path
       try {
         await access(expanded)
         return true

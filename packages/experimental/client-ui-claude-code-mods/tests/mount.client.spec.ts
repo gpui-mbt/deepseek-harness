@@ -6,7 +6,7 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SurfaceSnapshot } from '@deepseek-ai/dsh-experimental-claude-code-mods/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { RemoteError, type TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { apply as hostApply } from '../src/index.ts'
 import { Band, type BandInjected } from '../src/client/Band.tsx'
 import { inject, mountModsBand } from '../src/client/mount.ts'
@@ -27,19 +27,37 @@ function stream() {
   let failure: unknown
   const handle = {
     disposed: vi.fn(),
-    push(snapshot: SurfaceSnapshot) { queue.push(snapshot); wake?.() },
-    fail(error: unknown) { failure = error; wake?.() },
-    close() { closed = true; wake?.() },
+    push(snapshot: SurfaceSnapshot) {
+      queue.push(snapshot)
+      wake?.()
+    },
+    fail(error: unknown) {
+      failure = error
+      wake?.()
+    },
+    close() {
+      closed = true
+      wake?.()
+    },
     send() {},
     end() {},
-    dispose() { handle.disposed(); closed = true; wake?.() },
+    dispose() {
+      handle.disposed()
+      closed = true
+      wake?.()
+    },
     async *[Symbol.asyncIterator](): AsyncIterator<SurfaceSnapshot> {
       while (true) {
         const next = queue.shift()
-        if (next !== undefined) { yield next; continue }
+        if (next !== undefined) {
+          yield next
+          continue
+        }
         if (failure !== undefined) throw failure
         if (closed) return
-        await new Promise<void>((resolve) => { wake = resolve })
+        await new Promise<void>(resolve => {
+          wake = resolve
+        })
         wake = undefined
       }
     },
@@ -51,7 +69,9 @@ async function fixture() {
   const ctx = new Context()
   const unmount = vi.fn(async () => {})
   class Remote extends Service {
-    constructor() { super(ctx, 'remote') }
+    constructor() {
+      super(ctx, 'remote')
+    }
     async $mount(contribution: TypertRemoteContribution) {
       expect(contribution).toBe(REMOTE)
       return unmount
@@ -64,9 +84,11 @@ async function fixture() {
     streams.set(sessionId, handle)
     return handle
   })
-  const pressBand = vi.fn(async (_sessionId: SessionId, generation: number, actionId: string) => actionId === 'a0'
-    ? { ok: true as const, value: { generation: generation + 1, tree: null } satisfies SurfaceSnapshot }
-    : { ok: false as const, error: new RemoteError('gateway/bad-request', `no action ${actionId}`, {}) })
+  const pressBand = vi.fn(async (_sessionId: SessionId, generation: number, actionId: string) =>
+    actionId === 'a0'
+      ? { ok: true as const, value: { generation: generation + 1, tree: null } satisfies SurfaceSnapshot }
+      : { ok: false as const, error: new RemoteError('gateway/bad-request', `no action ${actionId}`, {}) },
+  )
   ctx.provide('remote.claudeCodeMods', { watchBand, pressBand })
   ctx.provide('locale', new LocaleRuntime(ctx))
   const warn = vi.fn()
@@ -74,7 +96,12 @@ async function fixture() {
   await ctx.plugin(SlotRegistry)
   ctx.slots.register({ name: 'root', children: { 'conversation.input.dock': { kind: 'list', scope: 'session' } } } as never, () => null)
   let dispose: (() => Promise<void>) | undefined
-  const fiber = ctx.plugin({ inject: [...inject], apply: async (plugin: Context) => { dispose = await mountModsBand(plugin, REMOTE) } })
+  const fiber = ctx.plugin({
+    inject: [...inject],
+    apply: async (plugin: Context) => {
+      dispose = await mountModsBand(plugin, REMOTE)
+    },
+  })
   await fiber
   const entry = ctx.slots.entries('conversation.input.dock').find(candidate => candidate.component === Band)
   if (entry === undefined || dispose === undefined) throw new Error('the band registered no dock entry')
@@ -100,16 +127,24 @@ it('watches one stream per session, feeds snapshots into the dock entry, and end
   expect(f.watchBand).toHaveBeenCalledTimes(1)
   expect(first.hooks.band).toBe(again.hooks.band)
   const seen: (SurfaceSnapshot | undefined)[] = []
-  const unsubscribe = first.hooks.band.subscribe(() => { seen.push(first.hooks.band.getSnapshot()) })
-  const ignored = first.hooks.band.subscribe(() => { throw new Error('unsubscribed listeners never run') })
+  const unsubscribe = first.hooks.band.subscribe(() => {
+    seen.push(first.hooks.band.getSnapshot())
+  })
+  const ignored = first.hooks.band.subscribe(() => {
+    throw new Error('unsubscribed listeners never run')
+  })
   ignored()
   expect(first.hooks.band.getSnapshot()).toBeUndefined()
   const handle = f.streams.get('s1')
   if (handle === undefined) throw new Error('no stream')
   handle.push({ generation: 1, tree: null })
-  await vi.waitFor(() => { expect(seen).toHaveLength(1) })
+  await vi.waitFor(() => {
+    expect(seen).toHaveLength(1)
+  })
   handle.push({ generation: 2, tree: ['drawn'] })
-  await vi.waitFor(() => { expect(seen).toHaveLength(2) })
+  await vi.waitFor(() => {
+    expect(seen).toHaveLength(2)
+  })
   expect(seen[1]).toEqual({ generation: 2, tree: ['drawn'] })
 
   f.injected('s2')
@@ -126,14 +161,20 @@ it('withdraws the Remote mount when the registration fails', async () => {
   const ctx = new Context()
   const unmount = vi.fn(async () => {})
   class Remote extends Service {
-    constructor() { super(ctx, 'remote') }
-    async $mount() { return unmount }
+    constructor() {
+      super(ctx, 'remote')
+    }
+    async $mount() {
+      return unmount
+    }
   }
   new Remote()
   ctx.provide('remote.claudeCodeMods', { watchBand: vi.fn(), pressBand: vi.fn() })
   ctx.provide('locale', new LocaleRuntime(ctx))
   await ctx.plugin(SlotRegistry)
-  vi.spyOn(ctx.slots, 'inject').mockImplementationOnce(() => { throw new Error('slot failed') })
+  vi.spyOn(ctx.slots, 'inject').mockImplementationOnce(() => {
+    throw new Error('slot failed')
+  })
   const fiber = ctx.plugin({ inject: [...inject], apply: (plugin: Context) => mountModsBand(plugin, REMOTE) })
   await expect(fiber).rejects.toThrow('slot failed')
   expect(unmount).toHaveBeenCalled()
@@ -156,9 +197,13 @@ it('logs a stream that fails while watched, but not one ended by disposal', asyn
   if (handle === undefined) throw new Error('no stream')
   const stale = f.injected('s1').hooks.band
   handle.fail(new Error('connection lost'))
-  await vi.waitFor(() => { expect(f.warn).toHaveBeenCalledWith('claude-code-mods band: watch of s1 ended: connection lost') })
+  await vi.waitFor(() => {
+    expect(f.warn).toHaveBeenCalledWith('claude-code-mods band: watch of s1 ended: connection lost')
+  })
   // The ended watch is dropped: the next subscriber opens a fresh stream instead of reading the stale store.
-  await vi.waitFor(() => { expect(f.injected('s1').hooks.band).not.toBe(stale) })
+  await vi.waitFor(() => {
+    expect(f.injected('s1').hooks.band).not.toBe(stale)
+  })
   expect(f.watchBand).toHaveBeenCalledTimes(2)
   // A stream the Host closes without failing is dropped the same way, without a report.
   f.streams.get('s1')?.close()
@@ -167,7 +212,9 @@ it('logs a stream that fails while watched, but not one ended by disposal', asyn
   expect(f.watchBand).toHaveBeenCalledTimes(3)
   f.injected('s2')
   f.streams.get('s2')?.fail('text failure')
-  await vi.waitFor(() => { expect(f.warn).toHaveBeenCalledWith('claude-code-mods band: watch of s2 ended: text failure') })
+  await vi.waitFor(() => {
+    expect(f.warn).toHaveBeenCalledWith('claude-code-mods band: watch of s2 ended: text failure')
+  })
   f.injected('s3')
   const third = f.streams.get('s3')
   if (third === undefined) throw new Error('no stream')

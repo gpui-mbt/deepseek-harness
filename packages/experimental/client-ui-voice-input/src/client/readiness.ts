@@ -25,8 +25,10 @@ export function observeReadiness(ctx: Context): { state: SnapshotStore<SpeechRea
     state.set({ ...state.getSnapshot(), connected: false, error: error instanceof Error ? error.message : String(error) })
   }
   const stream = ctx.remote.$stream<SpeechCatalog>({
-    name: 'Speech readiness', open: signal => ctx.remote.speech.follow(signal),
-    ended: () => new RemoteStreamCarrierError('Speech readiness stream ended'), carrierFailed: fail,
+    name: 'Speech readiness',
+    open: signal => ctx.remote.speech.follow(signal),
+    ended: () => new RemoteStreamCarrierError('Speech readiness stream ended'),
+    carrierFailed: fail,
   })
   const observing = (async () => {
     try {
@@ -34,7 +36,16 @@ export function observeReadiness(ctx: Context): { state: SnapshotStore<SpeechRea
         state.set({ catalog: item.value, connected: true, error: null })
         item.accept()
       }
-    } catch (error) { if (!isDisposed()) fail(error) }
+    } catch (error) {
+      if (!isDisposed()) fail(error)
+    }
   })()
-  return { state, dispose: async () => { disposed = true; await stream.dispose(); await observing } }
+  return {
+    state,
+    dispose: async () => {
+      disposed = true
+      await stream.dispose()
+      await observing
+    },
+  }
 }

@@ -437,7 +437,7 @@ resolveMaxDepth(configured?: number | 'provider-managed'): number | undefined
  * @param spec - local task, reserved child id, and result recipient.
  * @returns activation with its accepted initial message id.
  */
-startActivation(spec: SubagentActivationSpec & { readonly childId: SessionId }): Promise<SubagentActivation & { readonly messageId: MessageId }>
+startActivation( spec: SubagentActivationSpec & { readonly childId: SessionId }, ): Promise<SubagentActivation & { readonly messageId: MessageId }>
 
 /**
  * Start a local or external child.
@@ -468,7 +468,7 @@ async waitForChildren(parent: Agent): Promise<boolean>
  * @throws when continuation services are unavailable, adjacency is rejected,
  *   or the message was not admitted.
  */
-async sendMessage( sender: Agent, targetId: SessionId, content: ContentBlock[], options: SubagentSendMessageOptions, ): Promise<MessageId>
+async sendMessage(sender: Agent, targetId: SessionId, content: ContentBlock[], options: SubagentSendMessageOptions): Promise<MessageId>
 
 /**
  * Interrupt one live child's current execution under a human parent
@@ -574,7 +574,7 @@ listDescendants(rootSessionId: SessionId, signal?: AbortSignal): Promise<Subagen
  *   `subagent/unauthorized` when the address does not own the live target,
  *   otherwise `gateway/internal`.
  */
-@Remote('interruptByParent') interruptByParent( childSessionId: SessionId, parentSessionId: SessionId, mode: 'continuable', ): SubagentInterruptReceipt
+@Remote('interruptByParent') interruptByParent(childSessionId: SessionId, parentSessionId: SessionId, mode: 'continuable'): SubagentInterruptReceipt
 
 /**
  * Register a provider under its name. Registration is effect-scoped and HMR

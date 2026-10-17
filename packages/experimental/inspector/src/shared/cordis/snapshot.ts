@@ -1,9 +1,6 @@
 /** CDP-independent snapshot model for a Cordis Context and Fiber tree. */
 
-import {
-  type InspectorObjectHandle,
-  type InspectorObjectRegistryId,
-} from './ids.ts'
+import { type InspectorObjectHandle, type InspectorObjectRegistryId } from './ids.ts'
 import { isPlainObject } from '../json.ts'
 import { exactKeys, exactObject, wireId } from '../validation.ts'
 
@@ -49,12 +46,13 @@ export interface CordisTreeSnapshot {
  * @returns A detached, validated snapshot.
  */
 export function parseCordisTreeSnapshot(value: unknown, maxNodes: number): CordisTreeSnapshot {
-  const record = exactObject(value, [
-    'schemaVersion', 'revision', 'objectRegistryId', 'root', 'truncated',
-  ], 'Cordis tree')
-  if (record.schemaVersion !== CORDIS_TREE_SCHEMA_VERSION
-    || !Number.isSafeInteger(record.revision) || (record.revision as number) < 1
-    || typeof record.truncated !== 'boolean') {
+  const record = exactObject(value, ['schemaVersion', 'revision', 'objectRegistryId', 'root', 'truncated'], 'Cordis tree')
+  if (
+    record.schemaVersion !== CORDIS_TREE_SCHEMA_VERSION ||
+    !Number.isSafeInteger(record.revision) ||
+    (record.revision as number) < 1 ||
+    typeof record.truncated !== 'boolean'
+  ) {
     throw new Error('inspector protocol: invalid Cordis tree header')
   }
   const state: ParseState = { count: 0, handles: new Set(), fiberUids: new Set() }

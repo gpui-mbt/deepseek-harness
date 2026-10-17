@@ -6,23 +6,21 @@
 import { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
 import { DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
-import type {
-  DirectoryPickerCapabilities, DirectoryPickerErrorCode,
-} from '@deepseek-ai/dsh-host-directory-picker'
+import type { DirectoryPickerCapabilities, DirectoryPickerErrorCode } from '@deepseek-ai/dsh-host-directory-picker'
 // The seam owns the listing declaration; the generator requires the reference
 // site to name that package rather than this package's re-export of it.
 import type { DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { RemoteErrorCode } from '@deepseek-ai/dsh-typert-protocol'
 
-const createDirectoryRequestSchema = z.object({
-  path: z.string(),
-  name: z.string(),
-}).refine(
-  request => request.name.trim() !== '' && request.name !== '.' && request.name !== '..'
-    && !/[/\\]/.test(request.name),
-  { message: 'host.createDirectory requires a single non-blank path segment name' },
-)
+const createDirectoryRequestSchema = z
+  .object({
+    path: z.string(),
+    name: z.string(),
+  })
+  .refine(request => request.name.trim() !== '' && request.name !== '.' && request.name !== '..' && !/[/\\]/.test(request.name), {
+    message: 'host.createDirectory requires a single non-blank path segment name',
+  })
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -88,11 +86,7 @@ export class DirectoryPickerController extends TypertRemoteService {
   async createDirectory(path: string, name: string): Promise<string> {
     const request = createDirectoryRequestSchema.safeParse({ path, name })
     if (!request.success) {
-      throw new RemoteError(
-        'gateway/bad-request',
-        'invalid payload for host.createDirectory',
-        { issues: request.error.issues },
-      )
+      throw new RemoteError('gateway/bad-request', 'invalid payload for host.createDirectory', { issues: request.error.issues })
     }
     const capability = this.requireCapability('browse', 'createDirectory')
     try {
@@ -103,10 +97,7 @@ export class DirectoryPickerController extends TypertRemoteService {
   }
 
   /** Resolve the capability one wire verb needs, or refuse with the kind this backend serves. */
-  private requireCapability<Kind extends keyof DirectoryPickerCapabilities>(
-    kind: Kind,
-    method: string,
-  ): DirectoryPickerCapabilities[Kind] {
+  private requireCapability<Kind extends keyof DirectoryPickerCapabilities>(kind: Kind, method: string): DirectoryPickerCapabilities[Kind] {
     const capability = this.ctx.directoryPicker.capability()
     if (capability.kind !== kind) {
       throw new RemoteError(
@@ -138,12 +129,7 @@ const BROWSE_FAILURE_CODES = {
  */
 function browseFailure(error: unknown): RemoteError {
   if (error instanceof DirectoryPickerError) {
-    return new RemoteError(
-      BROWSE_FAILURE_CODES[error.code],
-      error.message,
-      { path: error.path },
-      { cause: error },
-    )
+    return new RemoteError(BROWSE_FAILURE_CODES[error.code], error.message, { path: error.path }, { cause: error })
   }
   return new RemoteError('gateway/internal', errorMessage(error), {}, { cause: error })
 }
@@ -158,12 +144,7 @@ function browseFailure(error: unknown): RemoteError {
  * @param failed - prefix for a non-seam failure, when the verb has no closed codes.
  * @returns the failure to throw across the Remote boundary.
  */
-function cancellableFailure(
-  error: unknown,
-  signal: AbortSignal,
-  cancelled: string,
-  failed?: string,
-): RemoteError {
+function cancellableFailure(error: unknown, signal: AbortSignal, cancelled: string, failed?: string): RemoteError {
   if (signal.aborted) return new RemoteError('gateway/cancelled', cancelled, {}, { cause: error })
   if (failed === undefined) return browseFailure(error)
   return new RemoteError('gateway/internal', `${failed}: ${errorMessage(error)}`, {}, { cause: error })

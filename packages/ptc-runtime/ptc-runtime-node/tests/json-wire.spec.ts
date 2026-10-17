@@ -1,5 +1,5 @@
 import { runInNewContext } from 'node:vm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import { decodePtcJsonWire, encodePtcJsonWire, snapshotPtcJsonValue } from '../src/json-wire.ts'
 
@@ -160,7 +160,9 @@ describe('snapshotPtcJsonValue', () => {
     const failure = new Error('getter failed')
     const source = Object.defineProperty({}, 'value', {
       enumerable: true,
-      get: () => { throw failure },
+      get: () => {
+        throw failure
+      },
     })
 
     expect(() => snapshotPtcJsonValue(source)).toThrow(failure)
@@ -205,7 +207,12 @@ describe('flat worker JSON wire', () => {
     const decorated: unknown[] = [null]
     Object.defineProperty(decorated, 'extra', { value: true })
     const throwing: unknown[] = []
-    Object.defineProperty(throwing, 0, { enumerable: true, get: () => { throw new Error('wire getter') } })
+    Object.defineProperty(throwing, 0, {
+      enumerable: true,
+      get: () => {
+        throw new Error('wire getter')
+      },
+    })
     const decoratedKeys: unknown[] = ['x']
     Object.defineProperty(decoratedKeys, 'extra', { value: true })
     const foreignMarker: Record<string, unknown> = { kind: 'array', length: 0 }

@@ -26,11 +26,7 @@ import {
   translationStructureDiff,
   translationStructureSignature,
 } from './translation-pairing.ts'
-import {
-  computeTranslationPairingRecord,
-  renderTranslationPairingRecord,
-  translationPairPaths,
-} from './translation-pairing-record.ts'
+import { computeTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
 import {
   changedSpanIndices,
   computeMechanicalUpdate,
@@ -68,10 +64,13 @@ function git(args: string[], allowedExitCodes: number[] = [0]): string {
 function recordOf(anchor: string, en: string, zh: string): string | undefined {
   const paths = translationPairPaths(anchor)
   try {
-    return renderTranslationPairingRecord(paths, computeTranslationPairingRecord(paths, en, zh, {
-      repoRoot: root,
-      isTranslationPairSource,
-    }))
+    return renderTranslationPairingRecord(
+      paths,
+      computeTranslationPairingRecord(paths, en, zh, {
+        repoRoot: root,
+        isTranslationPairSource,
+      }),
+    )
   } catch {
     // A heading-count mismatch, the only computation error, means these contents were never confirmed.
     return undefined
@@ -95,7 +94,8 @@ function diffTexts(before: string, after: string): string {
     writeFileSync(join(dir, 'last-confirmed.md'), before)
     writeFileSync(join(dir, 'current.md'), after)
     const raw = git(['diff', '--no-index', '--unified=2', join(dir, 'last-confirmed.md'), join(dir, 'current.md')], [0, 1])
-    return raw.split('\n')
+    return raw
+      .split('\n')
       .filter(line => !line.startsWith('diff --git') && !line.startsWith('index ') && !line.startsWith('--- ') && !line.startsWith('+++ '))
       .join('\n')
       .trim()
@@ -157,23 +157,25 @@ function bundlesFor(
   counterpart: MarkdownSpan[],
 ): BriefBundle[] {
   const extras = new Set(extraIndices)
-  return [...new Set([...indices, ...extraIndices])].sort((left, right) => left - right).map((index) => {
-    const confirmedSpan = confirmed[index]
-    const currentSpan = current[index]
-    const counterpartSpan = counterpart[index]
-    if (confirmedSpan === undefined || currentSpan === undefined || counterpartSpan === undefined) {
-      throw new Error(`gen-translation-brief: span ${index} is unmapped despite alignment`)
-    }
-    return {
-      index,
-      label: currentSpan.label,
-      reason: extras.has(index) && confirmedSpan.text === currentSpan.text ? 'first-occurrence' as const : undefined,
-      confirmedSourceText: confirmedSpan.text,
-      currentSourceText: currentSpan.text,
-      counterpartText: counterpartSpan.text,
-      counterpartStartLine: counterpartSpan.startLine,
-    }
-  })
+  return [...new Set([...indices, ...extraIndices])]
+    .sort((left, right) => left - right)
+    .map(index => {
+      const confirmedSpan = confirmed[index]
+      const currentSpan = current[index]
+      const counterpartSpan = counterpart[index]
+      if (confirmedSpan === undefined || currentSpan === undefined || counterpartSpan === undefined) {
+        throw new Error(`gen-translation-brief: span ${index} is unmapped despite alignment`)
+      }
+      return {
+        index,
+        label: currentSpan.label,
+        reason: extras.has(index) && confirmedSpan.text === currentSpan.text ? ('first-occurrence' as const) : undefined,
+        confirmedSourceText: confirmedSpan.text,
+        currentSourceText: currentSpan.text,
+        counterpartText: counterpartSpan.text,
+        counterpartStartLine: counterpartSpan.startLine,
+      }
+    })
 }
 
 interface PlannedBrief {
@@ -195,7 +197,11 @@ function planScope(
   const wholeChangedText = `${sourceLast}\n${sourceCurrent}`
   if (bothDrifted) {
     return {
-      scope: { kind: 'document', reason: 'BOTH sides changed since the pair was last confirmed consistent, so no side is a trustworthy mapping anchor; decide which side owns each divergence.' },
+      scope: {
+        kind: 'document',
+        reason:
+          'BOTH sides changed since the pair was last confirmed consistent, so no side is a trustworthy mapping anchor; decide which side owns each divergence.',
+      },
       changedText: wholeChangedText,
     }
   }
@@ -203,7 +209,10 @@ function planScope(
   if (mechanical !== undefined) {
     return { scope: { kind: 'mechanical' }, changedText: wholeChangedText, mechanicalResult: mechanical }
   }
-  for (const [kind, spansOf] of [['units', markdownUnits], ['sections', sectionSpans]] as const) {
+  for (const [kind, spansOf] of [
+    ['units', markdownUnits],
+    ['sections', sectionSpans],
+  ] as const) {
     const confirmed = spansOf(sourceLast)
     const current = spansOf(sourceCurrent)
     const counterpart = spansOf(counterpartCurrent)
@@ -212,9 +221,10 @@ function planScope(
     if (changed.length === 0) continue
     const changedText = changed.map(index => `${confirmed[index]?.text ?? ''}\n${current[index]?.text ?? ''}`).join('\n')
     const rows = relevantTerminologyRows(terminology, direction, changedText)
-    const occurrence = direction === 'en-to-zh'
-      ? firstOccurrenceContext(sourceLast, sourceCurrent, confirmed, current, rows, new Set(changed))
-      : { notes: [], extraSpanIndices: [] }
+    const occurrence =
+      direction === 'en-to-zh'
+        ? firstOccurrenceContext(sourceLast, sourceCurrent, confirmed, current, rows, new Set(changed))
+        : { notes: [], extraSpanIndices: [] }
     return {
       scope: {
         kind,
@@ -225,7 +235,11 @@ function planScope(
     }
   }
   return {
-    scope: { kind: 'document', reason: 'Neither fine-grained units nor heading sections align one to one across the last-confirmed source, current source, and current counterpart.' },
+    scope: {
+      kind: 'document',
+      reason:
+        'Neither fine-grained units nor heading sections align one to one across the last-confirmed source, current source, and current counterpart.',
+    },
     changedText: wholeChangedText,
   }
 }
@@ -240,19 +254,23 @@ function applyMechanical(counterpartPath: string, sourceCurrent: string, result:
     ? counterpartBase.replace(/\.zh\.md$/, '.md')
     : counterpartBase.replace(/\.md$/, '.zh.md')
   const errors = translationStructureDiff(
-    translationStructureSignature(
-      parseTranslationMarkdown(sourceCurrent),
-      counterpartBase,
-      { repoRoot: root, sourcePath, isTranslationPairSource, markdown: sourceCurrent },
-    ),
-    translationStructureSignature(
-      parseTranslationMarkdown(result),
-      sourceBase,
-      { repoRoot: root, sourcePath: counterpartPath, isTranslationPairSource, markdown: result },
-    ),
+    translationStructureSignature(parseTranslationMarkdown(sourceCurrent), counterpartBase, {
+      repoRoot: root,
+      sourcePath,
+      isTranslationPairSource,
+      markdown: sourceCurrent,
+    }),
+    translationStructureSignature(parseTranslationMarkdown(result), sourceBase, {
+      repoRoot: root,
+      sourcePath: counterpartPath,
+      isTranslationPairSource,
+      markdown: result,
+    }),
   )
   if (errors.length > 0) {
-    throw new Error(`gen-translation-brief: computed mechanical update for ${counterpartPath} violates the pair structure: ${errors.join('; ')}`)
+    throw new Error(
+      `gen-translation-brief: computed mechanical update for ${counterpartPath} violates the pair structure: ${errors.join('; ')}`,
+    )
   }
   writeFileSync(join(root, counterpartPath), result)
   console.error(`gen-translation-brief: applied code-fence splice to ${counterpartPath}; review the diff, then record the pair.`)

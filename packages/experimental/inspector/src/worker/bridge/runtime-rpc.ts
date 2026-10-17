@@ -50,7 +50,10 @@ interface ConsoleSubscription {
 
 /** Error returned deliberately by the Client Runtime executor. */
 export class ClientRuntimeRemoteError extends Error {
-  constructor(readonly code: ClientRuntimeError['code'], message: string) {
+  constructor(
+    readonly code: ClientRuntimeError['code'],
+    message: string,
+  ) {
     super(message)
   }
 }
@@ -65,8 +68,13 @@ export class ClientRuntimeRouter {
   private nextContextId = -1
   private closed = false
 
-  constructor(private readonly sources: InspectorSourceRegistry, private readonly timeoutMs: number) {
-    this.unsubscribeSources = sources.subscribeEvents((event) => { this.receiveSourceEvent(event) })
+  constructor(
+    private readonly sources: InspectorSourceRegistry,
+    private readonly timeoutMs: number,
+  ) {
+    this.unsubscribeSources = sources.subscribeEvents(event => {
+      this.receiveSourceEvent(event)
+    })
   }
 
   /**
@@ -94,7 +102,9 @@ export class ClientRuntimeRouter {
    */
   subscribe(listener: (event: ClientRuntimeTargetEvent) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -110,13 +120,15 @@ export class ClientRuntimeRouter {
     listener: (event: RuntimeConsoleBackendEvent<ClientRemoteObjectHandle>) => void,
   ): () => void {
     const subscription: ConsoleSubscription = { target, sessionId, listener }
-    if (!this.sources.send(target.source, {
-      v: INSPECTOR_PROTOCOL_VERSION,
-      t: 'client-console/enable',
-      sourceId: target.source.sourceId,
-      generation: target.source.generation,
-      sessionId,
-    })) {
+    if (
+      !this.sources.send(target.source, {
+        v: INSPECTOR_PROTOCOL_VERSION,
+        t: 'client-console/enable',
+        sourceId: target.source.sourceId,
+        generation: target.source.generation,
+        sessionId,
+      })
+    ) {
       throw new Error('Client Console source disconnected before enable')
     }
     this.consoleSubscriptions.add(subscription)
@@ -143,11 +155,7 @@ export class ClientRuntimeRouter {
    * @param command - Validated Client Runtime operation.
    * @returns The correlated result, or a rejection on timeout or disconnect.
    */
-  request(
-    target: ClientRuntimeTarget,
-    sessionId: ClientRuntimeSessionId,
-    command: ClientRuntimeCommand,
-  ): Promise<ClientRuntimeResult> {
+  request(target: ClientRuntimeTarget, sessionId: ClientRuntimeSessionId, command: ClientRuntimeCommand): Promise<ClientRuntimeResult> {
     if (this.closed || this.targetsBySource.get(target.source.sourceId) !== target) {
       return Promise.reject(new Error('Client execution context is no longer available'))
     }
@@ -237,9 +245,7 @@ export class ClientRuntimeRouter {
   }
 
   private open(source: InspectorSourceDescriptor): void {
-    const capability = source.capabilities.find(
-      (candidate): candidate is ClientRuntimeCapability => candidate.type === 'client-runtime',
-    )
+    const capability = source.capabilities.find((candidate): candidate is ClientRuntimeCapability => candidate.type === 'client-runtime')
     if (capability === undefined) return
     const target: ClientRuntimeTarget = {
       contextId: this.nextContextId--,
@@ -284,9 +290,11 @@ export class ClientRuntimeRouter {
       this.cancelClientResponse(source, frame.sessionId, frame.requestId)
       return
     }
-    if (pending.target.source.sourceId !== source.sourceId
-      || pending.target.source.generation !== source.generation
-      || pending.sessionId !== frame.sessionId) {
+    if (
+      pending.target.source.sourceId !== source.sourceId ||
+      pending.target.source.generation !== source.generation ||
+      pending.sessionId !== frame.sessionId
+    ) {
       this.cancelClientResponse(source, frame.sessionId, frame.requestId)
       this.cancelClientResponse(pending.target.source, pending.sessionId, frame.requestId)
       this.rejectPending(frame.requestId, new Error('Client Runtime response correlation mismatch'))
@@ -299,9 +307,7 @@ export class ClientRuntimeRouter {
     }
     if (frame.outcome.result.op !== pending.op) {
       this.cancelClientResponse(source, frame.sessionId, frame.requestId)
-      this.rejectPending(frame.requestId, new Error(
-        `Client Runtime response op ${frame.outcome.result.op} does not match ${pending.op}`,
-      ))
+      this.rejectPending(frame.requestId, new Error(`Client Runtime response op ${frame.outcome.result.op} does not match ${pending.op}`))
       return
     }
     if (!this.acknowledgeClientResponse(source, frame.sessionId, frame.requestId)) {

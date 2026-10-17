@@ -46,20 +46,10 @@ export function EditorFooter(props: EditorFooterProps): ReactNode {
   const { t } = props
   return (
     <div className={styles['editorActions']}>
-      <button
-        type="button"
-        className={styles['secondaryButton']}
-        disabled={props.busy}
-        onClick={props.onCancel}
-      >
+      <button type="button" className={styles['secondaryButton']} disabled={props.busy} onClick={props.onCancel}>
         {t(props.cancelLabelKey ?? 'cancel')}
       </button>
-      <button
-        type="button"
-        className={styles['primaryButton']}
-        disabled={props.submitDisabled}
-        onClick={props.onSubmit}
-      >
+      <button type="button" className={styles['primaryButton']} disabled={props.submitDisabled} onClick={props.onSubmit}>
         {props.busy ? t(props.submitBusyLabelKey) : t(props.submitLabelKey)}
       </button>
     </div>

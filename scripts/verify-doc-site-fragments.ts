@@ -82,7 +82,7 @@ export function inspectSiteFragments(distRoot: string): SiteFragmentReport {
   if (files.length === 0) {
     throw new Error(`verify-doc-site-fragments: no HTML files found under ${distRoot}; run docs:build first.`)
   }
-  const pages: BuiltPage[] = files.map((file) => {
+  const pages: BuiltPage[] = files.map(file => {
     const document = new JSDOM(readFileSync(resolve(distRoot, file), 'utf8')).window.document
     const ids = new Set<string>()
     for (const element of document.querySelectorAll<HTMLElement>('[id]')) ids.add(element.id)
@@ -98,9 +98,7 @@ export function inspectSiteFragments(distRoot: string): SiteFragmentReport {
     for (const alias of aliasesFor(page)) {
       const existing = byRoute.get(alias)
       if (existing !== undefined && existing !== page) {
-        throw new Error(
-          `verify-doc-site-fragments: built pages ${existing.file} and ${page.file} share route ${JSON.stringify(alias)}.`,
-        )
+        throw new Error(`verify-doc-site-fragments: built pages ${existing.file} and ${page.file} share route ${JSON.stringify(alias)}.`)
       }
       byRoute.set(alias, page)
     }
@@ -117,10 +115,7 @@ export function inspectSiteFragments(distRoot: string): SiteFragmentReport {
       try {
         targetUrl = new URL(href, `${origin}${page.route}`)
       } catch (error) {
-        throw new Error(
-          `verify-doc-site-fragments: ${page.file} has invalid fragment href ${JSON.stringify(href)}.`,
-          { cause: error },
-        )
+        throw new Error(`verify-doc-site-fragments: ${page.file} has invalid fragment href ${JSON.stringify(href)}.`, { cause: error })
       }
       if (targetUrl.origin !== origin || targetUrl.hash === '') continue
       const fragment = decodedFragment(targetUrl.hash)
@@ -158,8 +153,8 @@ function main(): number {
   const missing = missingSiteFiles(distRoot, [...expected, 'llms.txt'])
   if (report.broken.length === 0 && missing.length === 0) {
     console.log(
-      `verify-doc-site-fragments: ${report.checked} internal fragment reference(s) resolve;`
-      + ` ${expected.length} raw-Markdown file(s) and llms.txt emitted.`,
+      `verify-doc-site-fragments: ${report.checked} internal fragment reference(s) resolve;` +
+        ` ${expected.length} raw-Markdown file(s) and llms.txt emitted.`,
     )
     return 0
   }

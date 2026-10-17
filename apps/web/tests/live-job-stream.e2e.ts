@@ -7,14 +7,20 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { JobId } from '@deepseek-ai/dsh-jobs'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -81,7 +87,7 @@ describe.skipIf(MODE === 'record')('web e2e: live job stream', () => {
     await scaffold?.close()
   })
 
-  it('streams a running job\'s real output into the expanded panel, then settles it in place on kill', async () => {
+  it("streams a running job's real output into the expanded panel, then settles it in place on kill", async () => {
     let phase = 'streaming'
     onTestFailed(() => saveFailureShot(page, `web-e2e-live-job-${phase}`))
     const trigger = page.getByRole('button', { name: '1 background job running' })
@@ -94,7 +100,7 @@ describe.skipIf(MODE === 'record')('web e2e: live job stream', () => {
       arguments: { command: COMMAND, description: 'Emit one live line then hold', run_in_background: true },
       agent,
     })
-    const reported = started.content.map(block => block.type === 'text' ? block.text : '').join('')
+    const reported = started.content.map(block => (block.type === 'text' ? block.text : '')).join('')
     const matched = /\bbash-[0-9a-f]{16}\b/.exec(reported)
     if (matched === null) throw new Error(`background bash reported no job id: ${reported}`)
     const jobId = JobId(matched[0])

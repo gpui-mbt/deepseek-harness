@@ -1,7 +1,7 @@
 /** Remote process transport, output observations, and managed cleanup through the public provider. */
 import { duplexPair, type Duplex, type Readable } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { SshRpcPeer } from '../../ssh/src/protocol.ts'
@@ -10,7 +10,9 @@ import { SshSubprocessRuntime } from '../src/index.ts'
 
 const id = 'fd897b7b-1b7e-4cd0-9b8d-06b354062d91'
 const spec: SubprocessSpawnSpec = {
-  argv: ['/usr/bin/node', '-e', ''], cwd: '/workspace', graceMs: 5,
+  argv: ['/usr/bin/node', '-e', ''],
+  cwd: '/workspace',
+  graceMs: 5,
   stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
 }
 interface FinalOutput {
@@ -20,10 +22,20 @@ interface FinalOutput {
 }
 const emptyResult: FinalOutput = { outcome: { exitCode: 0, signal: null }, spills: {}, collected: {} }
 
-async function setup(options: { pause?: 'prepare' | 'connect' | 'start'; failPrepare?: Error; failStart?: unknown; failTerminate?: Error; wait?: boolean } = {}) {
+async function setup(
+  options: {
+    pause?: 'prepare' | 'connect' | 'start'
+    failPrepare?: Error
+    failStart?: unknown
+    failTerminate?: Error
+    wait?: boolean
+  } = {},
+) {
   const ctx = new Context()
   const disposalErrors: unknown[] = []
-  ctx.logger.error = ((error: unknown) => { disposalErrors.push(error) }) as typeof ctx.logger.error
+  ctx.logger.error = ((error: unknown) => {
+    disposalErrors.push(error)
+  }) as typeof ctx.logger.error
   const finished = Promise.withResolvers<FinalOutput>()
   const gate = Promise.withResolvers<undefined>()
   const entered = Promise.withResolvers<undefined>()
@@ -33,7 +45,10 @@ async function setup(options: { pause?: 'prepare' | 'connect' | 'start'; failPre
   const calls: { method: string; params: unknown }[] = []
   let preparedSpec: SubprocessSpawnSpec | undefined
   const waitStage = async (stage: string) => {
-    if (stage === options.pause) { entered.resolve(undefined); await gate.promise }
+    if (stage === options.pause) {
+      entered.resolve(undefined)
+      await gate.promise
+    }
   }
   const connection = {
     dispose: vi.fn(async () => {}),
@@ -44,8 +59,12 @@ async function setup(options: { pause?: 'prepare' | 'connect' | 'start'; failPre
         if (options.failPrepare !== undefined) throw options.failPrepare
         preparedSpec = params as SubprocessSpawnSpec
         await waitStage('prepare')
-        const names = ['stdout', 'stderr', ...(preparedSpec.stdio.stdin === 'pipe' ? ['stdin'] : []),
-          ...(preparedSpec.stdio.control === 'pipe' ? ['control'] : [])]
+        const names = [
+          'stdout',
+          'stderr',
+          ...(preparedSpec.stdio.stdin === 'pipe' ? ['stdin'] : []),
+          ...(preparedSpec.stdio.control === 'pipe' ? ['control'] : []),
+        ]
         value = { id, streams: Object.fromEntries(names.map(name => [name, { path: `/tmp/test-${name}`, capability: 'a'.repeat(64) }])) }
       } else if (method === 'process.start') {
         started.resolve(undefined)
@@ -78,7 +97,10 @@ async function setup(options: { pause?: 'prepare' | 'connect' | 'start'; failPre
     gate.resolve(undefined)
     finished.resolve(emptyResult)
     for (const peer of rpcPeers) peer.close()
-    for (const peer of peers.values()) { peer.host.destroy(); peer.remote.destroy() }
+    for (const peer of peers.values()) {
+      peer.host.destroy()
+      peer.remote.destroy()
+    }
     return fiber.dispose()
   }
   onTestFinished(async () => {
@@ -94,20 +116,45 @@ async function setup(options: { pause?: 'prepare' | 'connect' | 'start'; failPre
     const socket = stream(name)
     const peer = new SshRpcPeer(socket, socket, outputSnapshotFrameLimit(maxBytes), 1)
     rpcPeers.push(peer)
-    return (tail: string, totalBytes: number, method = 'snapshot') => peer.request(method, {
-      tail: Buffer.from(tail).toString('base64'), totalBytes,
-    }, z.null())
+    return (tail: string, totalBytes: number, method = 'snapshot') =>
+      peer.request(
+        method,
+        {
+          tail: Buffer.from(tail).toString('base64'),
+          totalBytes,
+        },
+        z.null(),
+      )
   }
   const closeStream = async (name: string): Promise<void> => {
     const peer = peers.get(name)
     if (peer === undefined) throw new Error(`stream ${name} has not been connected`)
-    const closed = new Promise<void>((resolve) => { peer.host.once('close', () => { resolve() }) })
+    const closed = new Promise<void>(resolve => {
+      peer.host.once('close', () => {
+        resolve()
+      })
+    })
     peer.host.destroy()
     peer.remote.destroy()
     await closed
   }
-  return { runtime: ctx.subprocess, fiber, calls, connection, disposalErrors, finished, entered: entered.promise, started: started.promise,
-    release: () => { gate.resolve(undefined) }, stream, closeStream, snapshots, close }
+  return {
+    runtime: ctx.subprocess,
+    fiber,
+    calls,
+    connection,
+    disposalErrors,
+    finished,
+    entered: entered.promise,
+    started: started.promise,
+    release: () => {
+      gate.resolve(undefined)
+    },
+    stream,
+    closeStream,
+    snapshots,
+    close,
+  }
 }
 
 /** Read incoming bytes without closing a duplex's outgoing half. */
@@ -122,8 +169,14 @@ describe('SSH ordinary process behavior', () => {
     const test = await setup()
     const stdout: unknown[] = []
     const stderr: unknown[] = []
-    const out = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => { stdout.push(chunk); return true })
-    const err = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => { stderr.push(chunk); return true })
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      stdout.push(chunk)
+      return true
+    })
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => {
+      stderr.push(chunk)
+      return true
+    })
     try {
       const handle = test.runtime.spawn({ ...spec, stdio: { stdin: 'ignore', stdout: 'inherit', stderr: 'inherit' } })
       await test.started
@@ -137,7 +190,10 @@ describe('SSH ordinary process behavior', () => {
       expect(process.stderr.writableEnded).toBe(false)
       expect(handle.stdout).toBeUndefined()
       expect(handle.collected).toEqual({})
-    } finally { out.mockRestore(); err.mockRestore() }
+    } finally {
+      out.mockRestore()
+      err.mockRestore()
+    }
   })
 
   it('bounds output draining after process completion even when the output peer remains open', async () => {
@@ -167,8 +223,11 @@ describe('SSH ordinary process behavior', () => {
   it('keeps stdin, stdout, stderr and control independent and forwards explicit environment removals', async () => {
     const test = await setup()
     expect(await test.runtime.resolveExecutable('node', { PATH: '/remote/bin' })).toBe('/remote/bin/node')
-    const handle = test.runtime.spawn({ ...spec, env: { REMOVE: undefined, KEEP: 'value' },
-      stdio: { stdin: 'pipe', stdout: 'pipe', stderr: 'pipe', control: 'pipe' } })
+    const handle = test.runtime.spawn({
+      ...spec,
+      env: { REMOVE: undefined, KEEP: 'value' },
+      stdio: { stdin: 'pipe', stdout: 'pipe', stderr: 'pipe', control: 'pipe' },
+    })
     const stdout = readAll(handle.stdout!)
     const stderr = readAll(handle.stderr!)
     const control = readAll(handle.control!)
@@ -198,9 +257,14 @@ describe('SSH ordinary process behavior', () => {
     const snapshot = test.snapshots('stdout', 4)
     await snapshot('cdef', 6)
     expect(handle.collected.stdout!.readFrom(0)).toEqual({ text: 'cdef', nextOffset: 6, lossy: true })
-    test.finished.resolve({ ...emptyResult, spills: { stdout: '/remote/spill' }, collected: {
-      stdout: { tail: Buffer.from('ghij').toString('base64'), totalBytes: 10 }, stderr: { tail: '', totalBytes: 0 },
-    } })
+    test.finished.resolve({
+      ...emptyResult,
+      spills: { stdout: '/remote/spill' },
+      collected: {
+        stdout: { tail: Buffer.from('ghij').toString('base64'), totalBytes: 10 },
+        stderr: { tail: '', totalBytes: 0 },
+      },
+    })
     await handle.done
     await snapshot('x', 1)
     expect(handle.collected.stdout!.readFrom(8)).toEqual({ text: 'ij', nextOffset: 10, lossy: false, spillPath: '/remote/spill' })
@@ -219,7 +283,10 @@ describe('SSH ordinary process behavior', () => {
     await expect(snapshot(tail, total)).rejects.toThrow(error)
     await expect(snapshot('a', 1, 'unexpected')).rejects.toThrow('Unexpected SSH output-stream operation')
     expect(handle.collected.stdout!.readFrom(0).text).toBe('abcd')
-    test.finished.resolve({ ...emptyResult, collected: { stdout: { tail: 'YWJjZA==', totalBytes: 4 }, stderr: { tail: '', totalBytes: 0 } } })
+    test.finished.resolve({
+      ...emptyResult,
+      collected: { stdout: { tail: 'YWJjZA==', totalBytes: 4 }, stderr: { tail: '', totalBytes: 0 } },
+    })
     await handle.done
   })
 
@@ -233,7 +300,7 @@ describe('SSH ordinary process behavior', () => {
     expect(test.calls.filter(call => call.method === 'process.terminate')).toHaveLength(1)
   })
 
-  it.each(['prepare', 'connect', 'start'] as const)('joins cancellation during %s and sends at most one termination', async (pause) => {
+  it.each(['prepare', 'connect', 'start'] as const)('joins cancellation during %s and sends at most one termination', async pause => {
     const test = await setup({ pause })
     const controller = new AbortController()
     const handle = test.runtime.spawn({ ...spec, signal: controller.signal })

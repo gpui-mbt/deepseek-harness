@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import yaml from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const builtBin = join(repoRoot, 'apps/cli/lib/bin.js')
@@ -54,15 +54,7 @@ function runBuiltWeb(cwd: string): Promise<{ stdout: string; stderr: string; cod
     delete env.DEEPSEEK_BASE_URL
     delete env.NODE_OPTIONS
     delete env.NODE_NO_WARNINGS
-    const child = spawn(process.execPath, [
-      builtBin,
-      'web',
-      '--no-open',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      '0',
-    ], {
+    const child = spawn(process.execPath, [builtBin, 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'], {
       cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -79,16 +71,18 @@ function runBuiltWeb(cwd: string): Promise<{ stdout: string; stderr: string; cod
         child.kill('SIGTERM')
       }
     })
-    child.stderr.on('data', (chunk: string) => { stderr += chunk })
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk
+    })
     const timer = setTimeout(() => {
       child.kill('SIGKILL')
       rejectRun(new Error(`built Web CLI did not settle and dispose within 60s\nstdout:\n${stdout}\nstderr:\n${stderr}`))
     }, 60_000)
-    child.on('error', (error) => {
+    child.on('error', error => {
       clearTimeout(timer)
       rejectRun(error)
     })
-    child.on('close', (code) => {
+    child.on('close', code => {
       clearTimeout(timer)
       if (!settled) {
         rejectRun(new Error(`built Web CLI exited before settled startup (code ${String(code)})\nstdout:\n${stdout}\nstderr:\n${stderr}`))
@@ -103,10 +97,12 @@ describe.skipIf(!requireBuiltArtifacts)('built CLI lazy-search startup', () => {
   it('boots and disposes the shipped composition with full-text search off by default', async () => {
     expect(existsSync(builtBin), `missing built CLI ${resolve(builtBin)}; run pnpm build`).toBe(true)
     expect(existsSync(webDist), `missing Web dist ${resolve(webDist)}; run pnpm run build:web`).toBe(true)
-    const baseRows = (yaml.load(await readFile(baseConfigPath, 'utf8'), { schema: configSchema }) as PatchEntry[])
-      .flatMap(entry => entry.insert ?? [entry])
-    const webRows = (yaml.load(await readFile(webConfigPath, 'utf8'), { schema: configSchema }) as PatchEntry[])
-      .flatMap(entry => entry.insert ?? [entry])
+    const baseRows = (yaml.load(await readFile(baseConfigPath, 'utf8'), { schema: configSchema }) as PatchEntry[]).flatMap(
+      entry => entry.insert ?? [entry],
+    )
+    const webRows = (yaml.load(await readFile(webConfigPath, 'utf8'), { schema: configSchema }) as PatchEntry[]).flatMap(
+      entry => entry.insert ?? [entry],
+    )
     const baseRow = baseRows.find(row => row.id === 'session-query-sqlite')
     const webRow = webRows.find(row => row.id === 'session-query-sqlite')
     expect(baseRow?.config?.openAt).toBe('never')

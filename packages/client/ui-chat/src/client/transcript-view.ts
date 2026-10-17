@@ -4,9 +4,14 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { CollapseTiming } from './presentation-policy.ts'
 import {
-  COLLAPSE_TIMING_FIELD, DEFAULT_COLLAPSE_TIMING,
-  DEFAULT_TRANSCRIPT_VIEW_MODE, LEGACY_TRANSCRIPT_VIEW_MODE, LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE, TRANSCRIPT_VIEW_FIELD,
-  type ChatSettings, type TranscriptViewMode,
+  COLLAPSE_TIMING_FIELD,
+  DEFAULT_COLLAPSE_TIMING,
+  DEFAULT_TRANSCRIPT_VIEW_MODE,
+  LEGACY_TRANSCRIPT_VIEW_MODE,
+  LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE,
+  TRANSCRIPT_VIEW_FIELD,
+  type ChatSettings,
+  type TranscriptViewMode,
 } from '../chat-settings.ts'
 
 /** Live work-details preference consumed by Chat and its Settings row. */
@@ -26,12 +31,16 @@ export class TranscriptViewPolicy {
     private readonly defaultMode: TranscriptViewMode = DEFAULT_TRANSCRIPT_VIEW_MODE,
   ) {
     this.mode = createSnapshotStore(defaultMode)
-    this.unsubscribe = host.subscribe(() => { this.adopt() })
+    this.unsubscribe = host.subscribe(() => {
+      this.adopt()
+    })
     this.adopt()
   }
 
   /** Release the accepted-value subscription. */
-  dispose(): void { this.unsubscribe() }
+  dispose(): void {
+    this.unsubscribe()
+  }
 
   /**
    * Publish and persist one explicit user choice.
@@ -58,8 +67,8 @@ export class TranscriptViewPolicy {
     const section = this.host.getSnapshot().value
     if (section === undefined) return
     const saved = section.transcriptView
-    const mode = saved === LEGACY_TRANSCRIPT_VIEW_MODE || saved === LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE
-      ? 'detailed' : saved ?? this.defaultMode
+    const mode =
+      saved === LEGACY_TRANSCRIPT_VIEW_MODE || saved === LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE ? 'detailed' : (saved ?? this.defaultMode)
     if (this.mode.getSnapshot() !== mode) this.mode.set(mode)
     const timing = section.collapseTiming ?? DEFAULT_COLLAPSE_TIMING
     if (this.collapseTiming.getSnapshot() !== timing) this.collapseTiming.set(timing)

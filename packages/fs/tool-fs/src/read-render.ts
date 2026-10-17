@@ -159,9 +159,7 @@ export function formatReadOutput(displayPath: string, outcome: FileReadOutcome):
   } else {
     footer = `(End of file - total ${outcome.totalLines} lines)`
   }
-  const body = outcome.lines.length > 0
-    ? `${outcome.lines.map(line => `${line.number}: ${line.text}`).join('\n')}\n\n${footer}`
-    : footer
+  const body = outcome.lines.length > 0 ? `${outcome.lines.map(line => `${line.number}: ${line.text}`).join('\n')}\n\n${footer}` : footer
   return `<path>${displayPath}</path>
 <type>file</type>
 <content>
@@ -240,5 +238,5 @@ export function readMetaFromMeta(meta: unknown): FsReadMeta | undefined {
     if (number <= previous || number > totalLines) return undefined
     previous = number
   }
-  return { path, offset, lines, totalLines, ...lang === undefined ? {} : { lang } }
+  return { path, offset, lines, totalLines, ...(lang === undefined ? {} : { lang }) }
 }

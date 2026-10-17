@@ -13,7 +13,7 @@ export async function apply(ctx) {
   if (process.env.DSH_WEB_RESTART_HOLD_STARTUP === '1') {
     if (typeof process.send !== 'function') throw new Error('web restart startup fixture requires an IPC channel')
     const released = Promise.withResolvers()
-    const resume = (message) => {
+    const resume = message => {
       if (message === 'resume-startup') released.resolve(true)
     }
     ctx.effect(() => {
@@ -24,7 +24,7 @@ export async function apply(ctx) {
       }
     }, 'web-restart: startup barrier')
     process.send('startup-blocked')
-    if (!await released.promise) return
+    if (!(await released.promise)) return
   }
   ctx.reflect.provide('webRestartReady', {})
 }

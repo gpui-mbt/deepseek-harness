@@ -103,7 +103,7 @@ export class TerminalSanitizer {
     return {
       text: this.normalizeText(text),
       prompt,
-      ...includePromptTail ? { promptTail } : {},
+      ...(includePromptTail ? { promptTail } : {}),
     }
   }
 

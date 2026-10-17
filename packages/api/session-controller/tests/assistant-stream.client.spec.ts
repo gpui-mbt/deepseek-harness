@@ -1,10 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { LlmAttemptId, createAssistantMessage } from '@deepseek-ai/dsh-llm'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session'
-import type {
-  SessionAssistantStreamBaseline,
-  SessionAssistantStreamFrame,
-} from '../src/types.ts'
+import type { SessionAssistantStreamBaseline, SessionAssistantStreamFrame } from '../src/types.ts'
 import { ClientAssistantStream } from '../src/client/sessions/assistant-stream.ts'
 import type { SessionLiveEventEntry } from '../src/client/contract/events.ts'
 
@@ -46,29 +43,29 @@ function messageEvent(
       }),
       stream: [],
     },
-    surfaceOp: surfaceOp === 'append'
-      ? surfaceOp
-      : { ...surfaceOp, startSeq: SessionSeq(surfaceOp.startSeq), endSeq: SessionSeq(surfaceOp.endSeq) },
+    surfaceOp:
+      surfaceOp === 'append' ? surfaceOp : { ...surfaceOp, startSeq: SessionSeq(surfaceOp.startSeq), endSeq: SessionSeq(surfaceOp.endSeq) },
   })
 }
 
-function start(
-  attemptId = ATTEMPT,
-  startedAfterSeq = -1,
-): SessionAssistantStreamFrame {
+function start(attemptId = ATTEMPT, startedAfterSeq = -1): SessionAssistantStreamFrame {
   return {
-    type: 'start', attemptId, revision: 1,
+    type: 'start',
+    attemptId,
+    revision: 1,
     startedAfterSeq: startedAfterSeq === -1 ? -1 : SessionSeq(startedAfterSeq),
-    turn: 1, step: 1,
+    turn: 1,
+    step: 1,
   }
 }
 
-function chunkFrame(
-  index: number,
-  attemptId = ATTEMPT,
-): SessionAssistantStreamFrame {
+function chunkFrame(index: number, attemptId = ATTEMPT): SessionAssistantStreamFrame {
   return {
-    type: 'chunk', attemptId, revision: index + 2, index, time: 20 + index,
+    type: 'chunk',
+    attemptId,
+    revision: index + 2,
+    index,
+    time: 20 + index,
     chunk: { type: 'text-delta', index: 0, text: `chunk-${index}` },
   }
 }
@@ -141,10 +138,19 @@ describe('ClientAssistantStream', () => {
     const durable = messageEvent(2)
     expect(stream.acceptDurable(durable)).toBeUndefined()
     expect(stream.acceptFrame(chunkFrame(0))).toEqual(expect.objectContaining({ type: 'transient' }))
-    expect(stream.acceptFrame(end(1, {
-      kind: 'committed', eventType: 'assistant/message', seq: 2,
-    }))).toEqual({ type: 'publish', entry: durable })
-    for (const [turn, step] of [[2, 1], [1, 2]]) {
+    expect(
+      stream.acceptFrame(
+        end(1, {
+          kind: 'committed',
+          eventType: 'assistant/message',
+          seq: 2,
+        }),
+      ),
+    ).toEqual({ type: 'publish', entry: durable })
+    for (const [turn, step] of [
+      [2, 1],
+      [1, 2],
+    ]) {
       const unrelated = entry({ type: 'step/end', seq: SessionSeq(3), time: 3, data: { turn: turn!, step: step! } })
       expect(stream.acceptDurable(unrelated)).toEqual({ type: 'publish', entry: unrelated })
     }
@@ -173,9 +179,15 @@ describe('ClientAssistantStream', () => {
     for (const durable of [attemptEvent(2), interrupted]) {
       const stream = opened()
       stream.acceptDurable(durable)
-      expect(stream.acceptFrame(end(0, {
-        kind: 'committed', eventType: durable.event.type as 'assistant/message' | 'assistant/attempt', seq: 2,
-      }))).toEqual({ type: 'settlement', attemptId: ATTEMPT, entry: durable })
+      expect(
+        stream.acceptFrame(
+          end(0, {
+            kind: 'committed',
+            eventType: durable.event.type as 'assistant/message' | 'assistant/attempt',
+            seq: 2,
+          }),
+        ),
+      ).toEqual({ type: 'settlement', attemptId: ATTEMPT, entry: durable })
       expect(stream.acceptFrame(start(LlmAttemptId('session:2'), 2))).toBeUndefined()
     }
   })
@@ -227,19 +239,37 @@ describe('ClientAssistantStream', () => {
   it('rebaselines committed outcomes without one exact staged settlement', () => {
     const published = new ClientAssistantStream()
     published.replace([attemptEvent(2)], baseline(0))
-    expect(published.acceptFrame(end(0, {
-      kind: 'committed', eventType: 'assistant/attempt', seq: 2,
-    }))).toBeUndefined()
+    expect(
+      published.acceptFrame(
+        end(0, {
+          kind: 'committed',
+          eventType: 'assistant/attempt',
+          seq: 2,
+        }),
+      ),
+    ).toBeUndefined()
 
     const missing = opened()
-    expect(missing.acceptFrame(end(0, {
-      kind: 'committed', eventType: 'assistant/attempt', seq: 2,
-    }))).toEqual({ type: 'rebaseline' })
+    expect(
+      missing.acceptFrame(
+        end(0, {
+          kind: 'committed',
+          eventType: 'assistant/attempt',
+          seq: 2,
+        }),
+      ),
+    ).toEqual({ type: 'rebaseline' })
 
     const wrongType = opened()
     expect(wrongType.acceptDurable(messageEvent(2))).toBeUndefined()
-    expect(wrongType.acceptFrame(end(0, {
-      kind: 'committed', eventType: 'assistant/attempt', seq: 2,
-    }))).toEqual({ type: 'rebaseline' })
+    expect(
+      wrongType.acceptFrame(
+        end(0, {
+          kind: 'committed',
+          eventType: 'assistant/attempt',
+          seq: 2,
+        }),
+      ),
+    ).toEqual({ type: 'rebaseline' })
   })
 })

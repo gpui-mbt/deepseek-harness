@@ -8,13 +8,20 @@ import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { WEB_SEARCH_MAX_RESULTS } from '@deepseek-ai/dsh-tool-web'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -59,17 +66,19 @@ function resultPageAge(ordinal: number): string {
 const RESULT_ORDINALS = Array.from({ length: PROVIDER_RESULT_COUNT }, (_value, index) => index + 1)
 
 /** Sources kept after round-robin merging reaches the shipped combined cap. */
-const KEPT_SOURCES = RESULT_ORDINALS.flatMap(ordinal => QUERIES.map((_query, queryIndex) => ({
-  url: resultUrl(queryIndex, ordinal),
-  title: resultTitle(queryIndex, ordinal),
-  snippet: resultSnippet(queryIndex, ordinal),
-  publishedAt: resultPageAge(ordinal),
-}))).slice(0, WEB_SEARCH_MAX_RESULTS)
+const KEPT_SOURCES = RESULT_ORDINALS.flatMap(ordinal =>
+  QUERIES.map((_query, queryIndex) => ({
+    url: resultUrl(queryIndex, ordinal),
+    title: resultTitle(queryIndex, ordinal),
+    snippet: resultSnippet(queryIndex, ordinal),
+    publishedAt: resultPageAge(ordinal),
+  })),
+).slice(0, WEB_SEARCH_MAX_RESULTS)
 
 /** URLs omitted after the combined source cap is reached. */
-const DROPPED_SOURCE_URLS = RESULT_ORDINALS.flatMap(ordinal => QUERIES.map(
-  (_query, queryIndex) => resultUrl(queryIndex, ordinal),
-)).slice(WEB_SEARCH_MAX_RESULTS)
+const DROPPED_SOURCE_URLS = RESULT_ORDINALS.flatMap(ordinal => QUERIES.map((_query, queryIndex) => resultUrl(queryIndex, ordinal))).slice(
+  WEB_SEARCH_MAX_RESULTS,
+)
 
 interface CapturedSearchRequest {
   path: string
@@ -87,7 +96,9 @@ async function startSearchServer(captured: CapturedSearchRequest[]): Promise<{ s
   const server = createServer((request, response) => {
     let body = ''
     request.setEncoding('utf8')
-    request.on('data', (chunk: string) => { body += chunk })
+    request.on('data', (chunk: string) => {
+      body += chunk
+    })
     request.on('end', () => {
       const parsedBody: unknown = JSON.parse(body)
       captured.push({
@@ -102,15 +113,19 @@ async function startSearchServer(captured: CapturedSearchRequest[]): Promise<{ s
         return
       }
       response.writeHead(200, { 'content-type': 'application/json' })
-      response.end(JSON.stringify({
-        results: RESULT_ORDINALS.map(ordinal => ({
-          url: resultUrl(queryIndex, ordinal),
-          title: resultTitle(queryIndex, ordinal),
-          snippet: resultSnippet(queryIndex, ordinal),
-          content: '', site_name: null, site_icon: null,
-          date: resultPageAge(ordinal),
-        })),
-      }))
+      response.end(
+        JSON.stringify({
+          results: RESULT_ORDINALS.map(ordinal => ({
+            url: resultUrl(queryIndex, ordinal),
+            title: resultTitle(queryIndex, ordinal),
+            snippet: resultSnippet(queryIndex, ordinal),
+            content: '',
+            site_name: null,
+            site_icon: null,
+            date: resultPageAge(ordinal),
+          })),
+        }),
+      )
     })
   })
   await new Promise<void>((resolve, reject) => {
@@ -147,7 +162,9 @@ describe('web e2e: opt-in Search API web search', () => {
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15 }),
     })
     await scaffold.ctx.credentials.set(SEARCH_CREDENTIAL_REF, SEARCH_CREDENTIAL)
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
@@ -164,7 +181,7 @@ describe('web e2e: opt-in Search API web search', () => {
         resolve()
         return
       }
-      searchServer.close((error) => {
+      searchServer.close(error => {
         if (error === undefined) resolve()
         else reject(error)
       })
@@ -192,14 +209,16 @@ describe('web e2e: opt-in Search API web search', () => {
       if (request === undefined) throw new Error(`missing provider request for query: ${query}`)
       expect(request).toMatchObject({ path: '/api/v1/tools/search', apiKey: `Bearer ${SEARCH_CREDENTIAL}` })
       expect(request.body).toEqual({
-        query, count: WEB_SEARCH_MAX_RESULTS, need_content: false, ori_question: Array.from(PROMPT).slice(0, 128).join(''),
+        query,
+        count: WEB_SEARCH_MAX_RESULTS,
+        need_content: false,
+        ori_question: Array.from(PROMPT).slice(0, 128).join(''),
       })
     }
     expect(sessionEvents.filter(event => event.type === 'web/deepseek-search-llm-request')).toEqual([])
 
     const searchCall = sessionEvents.find(
-      (event): event is Extract<SessionEvent, { type: 'tool/call' }> =>
-        event.type === 'tool/call' && event.data.name === 'web_search',
+      (event): event is Extract<SessionEvent, { type: 'tool/call' }> => event.type === 'tool/call' && event.data.name === 'web_search',
     )
     if (searchCall === undefined) throw new Error('the replayed turn did not call web_search')
     const searchResult = sessionEvents.find(
@@ -209,7 +228,10 @@ describe('web e2e: opt-in Search API web search', () => {
     if (searchResult === undefined) throw new Error('web_search produced no durable result')
     const message = searchResult.data.message
     expect(message.isError).toBe(false)
-    const rendered = message.content.filter(block => block.type === 'text').map(block => block.text).join('')
+    const rendered = message.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('')
     // The tool interleaves sources from both seam results before applying the
     // combined cap, so each query remains represented in model-visible output.
     for (const source of KEPT_SOURCES) {
@@ -218,9 +240,7 @@ describe('web e2e: opt-in Search API web search', () => {
     for (const url of DROPPED_SOURCE_URLS) {
       expect(rendered).not.toContain(url)
     }
-    expect(rendered).toContain(
-      `(Showing the first ${WEB_SEARCH_MAX_RESULTS} sources. Refine the query for more.)`,
-    )
+    expect(rendered).toContain(`(Showing the first ${WEB_SEARCH_MAX_RESULTS} sources. Refine the query for more.)`)
     expect(searchResult.data.meta).toMatchObject({
       sources: KEPT_SOURCES,
       truncated: true,
@@ -229,8 +249,7 @@ describe('web e2e: opt-in Search API web search', () => {
 
   it.skipIf(MODE === 'record')('matches the settled search card aria golden', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-search-aria'))
-    await expect.poll(() => page.getByText('SEARCH_DONE', { exact: true }).count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(1)
+    await expect.poll(() => page.getByText('SEARCH_DONE', { exact: true }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
     const searchTool = page.locator('[data-tool="web_search"]')
     await expandOwningTurnProcess(page, searchTool)
     await searchTool.waitFor({ timeout: 10_000 })
@@ -254,7 +273,7 @@ describe('web e2e: opt-in Search API web search', () => {
     expect(await card.locator('button').count()).toBe(0)
     expect(await card.getByText('Source list truncated').isVisible()).toBe(true)
 
-    const geometry = await sources.evaluate((element) => {
+    const geometry = await sources.evaluate(element => {
       const computed = getComputedStyle(element)
       return {
         maxHeight: computed.maxHeight,
@@ -276,7 +295,7 @@ describe('web e2e: opt-in Search API web search', () => {
     // than `padding-left` silently loses its leading digits. `searchMaxResults`
     // is an unbounded positive integer, so measure the widest three-digit marker
     // in the list's own font and require the shipped padding to hold it.
-    const marker = await page.locator('[data-web="search"] ol').evaluate((element) => {
+    const marker = await page.locator('[data-web="search"] ol').evaluate(element => {
       const probe = document.createElement('span')
       probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font:inherit'
       probe.textContent = '999. '

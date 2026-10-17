@@ -8,11 +8,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {
-  ContinuableCreateSpec,
-  SubagentCapabilities,
-  SubagentProvider,
-} from '@deepseek-ai/dsh-subagent'
+import type { ContinuableCreateSpec, SubagentCapabilities, SubagentProvider } from '@deepseek-ai/dsh-subagent'
 
 export const name = 'subagent-spawn-in-process'
 // `tools` is deliberately not injected: the child factory already provides it during setup,

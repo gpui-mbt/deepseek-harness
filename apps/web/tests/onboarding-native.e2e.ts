@@ -3,10 +3,17 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, watchConsole, webSnapshotMode, WELCOME_NOTICE_COPY, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  WELCOME_NOTICE_COPY,
+  type WebScaffold,
 } from './scaffold.ts'
 import { openSettings, ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
@@ -14,7 +21,7 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-native', impor
 const SIGNED_OUT_MENU_EXPECTED = join(SNAPSHOT_DIR, 'signed-out-menu.expected.md')
 const MODE = webSnapshotMode()
 
-describe.skipIf(MODE === 'record').each([false, true])('web e2e: native credential onboarding (desktop marker: %s)', (desktop) => {
+describe.skipIf(MODE === 'record').each([false, true])('web e2e: native credential onboarding (desktop marker: %s)', desktop => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -24,13 +31,18 @@ describe.skipIf(MODE === 'record').each([false, true])('web e2e: native credenti
     scaffold = await launchWebScaffold({
       deepSeekMissingCredential: true,
       welcomeNoticePending: true,
-      ...desktop ? {} : { extraOverlayPath: fileURLToPath(new URL('./fixtures/onboarding-native/cordis.patch.yml', import.meta.url)) },
+      ...(desktop ? {} : { extraOverlayPath: fileURLToPath(new URL('./fixtures/onboarding-native/cordis.patch.yml', import.meta.url)) }),
     })
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1440, height: 960 }, locale: ZH_BROWSER_LOCALE })
     // The shared menu golden uses the Linux shortcut profile on every test host.
-    await page.addInitScript(() => { Object.defineProperty(navigator, 'platform', { value: 'Linux x86_64' }) })
-    if (desktop) await page.addInitScript(() => { Object.defineProperty(globalThis, 'dshDesktop', { value: { protocolVersion: 1 } }) })
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'platform', { value: 'Linux x86_64' })
+    })
+    if (desktop)
+      await page.addInitScript(() => {
+        Object.defineProperty(globalThis, 'dshDesktop', { value: { protocolVersion: 1 } })
+      })
     tripwire = watchConsole(page)
   })
 

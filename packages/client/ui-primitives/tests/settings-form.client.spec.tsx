@@ -2,7 +2,7 @@
 /** The settings form frame: what it says in each state, and that leaving it discards. */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { SettingsForm } from '../src/settings-form/SettingsForm.tsx'
 import type { SettingsFormShell } from '../src/settings-form/form-model.ts'
 
@@ -71,9 +71,15 @@ it('discards when it leaves the page, calling the latest discard it was given', 
   const first = vi.fn()
   const second = vi.fn()
   const { rerender, unmount } = render(
-    <SettingsForm labels={labels} state={settled} onSave={vi.fn()} onDiscard={first}><span /></SettingsForm>,
+    <SettingsForm labels={labels} state={settled} onSave={vi.fn()} onDiscard={first}>
+      <span />
+    </SettingsForm>,
   )
-  rerender(<SettingsForm labels={labels} state={settled} onSave={vi.fn()} onDiscard={second}><span /></SettingsForm>)
+  rerender(
+    <SettingsForm labels={labels} state={settled} onSave={vi.fn()} onDiscard={second}>
+      <span />
+    </SettingsForm>,
+  )
 
   unmount()
 

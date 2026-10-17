@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { act, cleanup, render } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
@@ -9,9 +9,15 @@ import { DocumentTitle } from '../src/client/DocumentTitle.tsx'
 import type { MainPanelId, PanelInfo } from '../src/client/service.ts'
 
 let originalTitle: string
-beforeEach(() => { originalTitle = document.title })
+beforeEach(() => {
+  originalTitle = document.title
+})
 afterEach(() => {
-  try { cleanup() } finally { document.title = originalTitle }
+  try {
+    cleanup()
+  } finally {
+    document.title = originalTitle
+  }
 })
 
 function titleSources() {
@@ -24,7 +30,9 @@ function titleSources() {
   })
   const panelInfo = createSnapshotStore<PanelInfo>({ activePanelId: null })
   return {
-    sessionId, sessions, panelInfo,
+    sessionId,
+    sessions,
+    panelInfo,
     props: { useSessions: bindSnapshotSelector(sessions), usePanelInfo: bindSnapshotSelector(panelInfo) },
   }
 }
@@ -35,9 +43,17 @@ describe('DocumentTitle', () => {
     document.title = 'stale title'
     const mounted = render(<DocumentTitle {...props} productTitle="DeepSeek Harness" />)
     expect(document.title).toBe('DeepSeek Harness')
-    act(() => { sessions.update((state) => { state.byId[sessionId]!.title = 'First title' }) })
+    act(() => {
+      sessions.update(state => {
+        state.byId[sessionId]!.title = 'First title'
+      })
+    })
     expect(document.title).toBe('First title — DeepSeek Harness')
-    act(() => { sessions.update((state) => { state.byId[sessionId]!.title = 'Revised title' }) })
+    act(() => {
+      sessions.update(state => {
+        state.byId[sessionId]!.title = 'Revised title'
+      })
+    })
     expect(document.title).toBe('Revised title — DeepSeek Harness')
     act(() => {
       const state = sessions.getSnapshot()
@@ -53,7 +69,9 @@ describe('DocumentTitle', () => {
 
   it('uses the localized product title supplied by the frame', () => {
     const { sessionId, sessions, props } = titleSources()
-    sessions.update((state) => { state.byId[sessionId]!.title = 'First title' })
+    sessions.update(state => {
+      state.byId[sessionId]!.title = 'First title'
+    })
     const mounted = render(<DocumentTitle {...props} productTitle="DSH Local Build" />)
     expect(document.title).toBe('First title — DSH Local Build')
     mounted.unmount()
@@ -62,23 +80,38 @@ describe('DocumentTitle', () => {
 
   it('keeps the product title across global panels and restores the latest Session title on return', () => {
     const { sessionId, sessions, panelInfo, props } = titleSources()
-    sessions.update((state) => { state.byId[sessionId]!.title = 'Session title' })
+    sessions.update(state => {
+      state.byId[sessionId]!.title = 'Session title'
+    })
     render(<DocumentTitle {...props} productTitle="Product" />)
     expect(document.title).toBe('Session title — Product')
-    act(() => { panelInfo.set({ activePanelId: 'panel-a' as MainPanelId }) })
+    act(() => {
+      panelInfo.set({ activePanelId: 'panel-a' as MainPanelId })
+    })
     expect(document.title).toBe('Product')
-    act(() => { sessions.update((state) => { state.byId[sessionId]!.title = 'Updated title' }) })
+    act(() => {
+      sessions.update(state => {
+        state.byId[sessionId]!.title = 'Updated title'
+      })
+    })
     expect(document.title).toBe('Product')
-    act(() => { panelInfo.set({ activePanelId: 'panel-b' as MainPanelId }) })
+    act(() => {
+      panelInfo.set({ activePanelId: 'panel-b' as MainPanelId })
+    })
     expect(document.title).toBe('Product')
     expect(sessions.getSnapshot().byId[sessionId]?.retainedBy.mainView).toBe(1)
-    act(() => { panelInfo.set({ activePanelId: null }) })
+    act(() => {
+      panelInfo.set({ activePanelId: null })
+    })
     expect(document.title).toBe('Updated title — Product')
   })
 
   it('uses the product title when the current Session row is not available', () => {
     const { sessions, props } = titleSources()
-    sessions.update((state) => { state.byId = {}; state.ids = [] })
+    sessions.update(state => {
+      state.byId = {}
+      state.ids = []
+    })
     render(<DocumentTitle {...props} productTitle="Product" />)
     expect(document.title).toBe('Product')
   })

@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { applicationEntrypointViolations } from './verify-application-entrypoints.ts'
 
 const cleanups: string[] = []
@@ -60,9 +60,7 @@ describe('application entrypoints', () => {
     const root = fixture()
     write(root, 'rogue.mjs', '#!/usr/bin/env node\n')
 
-    expect(applicationEntrypointViolations(root)).toEqual([
-      'rogue.mjs: executable source has no application/build/test classification',
-    ])
+    expect(applicationEntrypointViolations(root)).toEqual(['rogue.mjs: executable source has no application/build/test classification'])
   })
 
   it('rejects an unclassified executable in an app workspace', () => {

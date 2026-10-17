@@ -3,52 +3,57 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { WorkspaceEmitResult } from '../src/workspace.ts'
 
-const generated = vi.hoisted(() => vi.fn<() => WorkspaceEmitResult[]>(() => [
-  {
-    package: '@deepseek-ai/dsh-tools',
-    packageRoot: 'packages/core/tools',
-    face: 'host' as const,
-    exports: [],
-    js: 'export const host = true\n',
-    dts: 'export declare const host: true\n',
-    remote: {
-      js: 'export const remote = true\n',
-      dts: 'export declare const remote: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n',
-      dtsMap: '{"version":3}\n',
+const generated = vi.hoisted(() =>
+  vi.fn<() => WorkspaceEmitResult[]>(() => [
+    {
+      package: '@deepseek-ai/dsh-tools',
+      packageRoot: 'packages/core/tools',
+      face: 'host' as const,
+      exports: [],
+      js: 'export const host = true\n',
+      dts: 'export declare const host: true\n',
+      remote: {
+        js: 'export const remote = true\n',
+        dts: 'export declare const remote: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n',
+        dtsMap: '{"version":3}\n',
+      },
     },
-  },
-  {
-    package: '@deepseek-ai/dsh-tools',
-    packageRoot: 'packages/core/tools',
-    face: 'client' as const,
-    exports: [],
-    js: 'export const client = true\n',
-    dts: 'export declare const client: true\n',
-  },
-  {
-    package: '@fixture/remote-only',
-    packageRoot: 'packages/remote-only',
-    face: 'host' as const,
-    exports: [],
-    js: 'export const local = true\n',
-    dts: 'export declare const local: true\n',
-    remote: {
-      js: 'export const remoteOnly = true\n',
-      dts: 'export declare const remoteOnly: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n',
-      dtsMap: '{"version":3}\n',
+    {
+      package: '@deepseek-ai/dsh-tools',
+      packageRoot: 'packages/core/tools',
+      face: 'client' as const,
+      exports: [],
+      js: 'export const client = true\n',
+      dts: 'export declare const client: true\n',
     },
-  },
-]))
+    {
+      package: '@fixture/remote-only',
+      packageRoot: 'packages/remote-only',
+      face: 'host' as const,
+      exports: [],
+      js: 'export const local = true\n',
+      dts: 'export declare const local: true\n',
+      remote: {
+        js: 'export const remoteOnly = true\n',
+        dts: 'export declare const remoteOnly: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n',
+        dtsMap: '{"version":3}\n',
+      },
+    },
+  ]),
+)
 const generatorRoots = vi.hoisted(() => [] as string[])
 
 /** A Worker Thread double whose terminal events each test emits explicitly. */
 class FakeWorker extends EventEmitter {
   readonly terminate = vi.fn(() => Promise.resolve(1))
 
-  constructor(readonly entry: URL, readonly options: { readonly workerData: unknown; readonly execArgv?: readonly string[] }) {
+  constructor(
+    readonly entry: URL,
+    readonly options: { readonly workerData: unknown; readonly execArgv?: readonly string[] },
+  ) {
     super()
     workers.push(this)
   }
@@ -58,9 +63,11 @@ const workers = vi.hoisted(() => [] as FakeWorker[])
 vi.mock('node:worker_threads', () => ({ Worker: FakeWorker }))
 
 vi.mock('../src/workspace.ts', async importOriginal => ({
-  ...await importOriginal<typeof import('../src/workspace.ts')>(),
+  ...(await importOriginal<typeof import('../src/workspace.ts')>()),
   WorkspaceTypertGenerator: class {
-    constructor(root: string) { generatorRoots.push(root) }
+    constructor(root: string) {
+      generatorRoots.push(root)
+    }
     generate = generated
   },
 }))
@@ -79,20 +86,23 @@ describe('typertPlugin', () => {
   it('lowers standard decorators in TypeScript source dependencies', () => {
     const { transform } = typertPlugin()
     expect(transform.handler('export const value = 1\n', '/workspace/src/plain.ts')).toBeUndefined()
-    expect(transform.handler('@sealed\nexport class Example {}\n', '/workspace/src/example.ts?raw')?.code)
-      .not.toContain('@sealed')
-    expect(transform.handler('@sealed\nexport class Example {}\n', '/workspace/lib/example.js?from=a.ts'))
-      .toBeUndefined()
-    expect(transform.handler('@sealed\nexport class View { render() { return <div /> } }\n', '/workspace/src/view.tsx')?.code)
-      .toContain('react/jsx-runtime')
+    expect(transform.handler('@sealed\nexport class Example {}\n', '/workspace/src/example.ts?raw')?.code).not.toContain('@sealed')
+    expect(transform.handler('@sealed\nexport class Example {}\n', '/workspace/lib/example.js?from=a.ts')).toBeUndefined()
+    expect(transform.handler('@sealed\nexport class View { render() { return <div /> } }\n', '/workspace/src/view.tsx')?.code).toContain(
+      'react/jsx-runtime',
+    )
   })
 
   it('filters transform calls to TypeScript module ids', () => {
     const { filter } = typertPlugin().transform
-    expect(['/w/a.ts', '/w/a.mts?x=1', '/w/a.cts', '/w/a.tsx', '/w/a.ts?raw.js'].map(id => filter.id.test(id)))
-      .toEqual([true, true, true, true, true])
-    expect(['/w/a.js', '/w/a.d.json', '/w/a.js?from=a.ts', '/w/a.tsv'].map(id => filter.id.test(id)))
-      .toEqual([false, false, false, false])
+    expect(['/w/a.ts', '/w/a.mts?x=1', '/w/a.cts', '/w/a.tsx', '/w/a.ts?raw.js'].map(id => filter.id.test(id))).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+    ])
+    expect(['/w/a.js', '/w/a.d.json', '/w/a.js?from=a.ts', '/w/a.tsv'].map(id => filter.id.test(id))).toEqual([false, false, false, false])
   })
 
   it('skips outputs that do not identify a Typert contributor', async () => {
@@ -113,16 +123,20 @@ describe('typertPlugin', () => {
 
     expect(generated).not.toHaveBeenCalled()
     expect(workers).toEqual([])
-    await expect(plugin.writeBundle({ dir: join(root, '..', 'outside', 'lib') }))
-      .rejects.toThrow('cannot find workspace root')
+    await expect(plugin.writeBundle({ dir: join(root, '..', 'outside', 'lib') })).rejects.toThrow('cannot find workspace root')
   })
 
   it('writes every generated face beside a nested package bundle', async () => {
     const root = await workspace()
-    const output = await packageOutput(root, 'tools', {
-      name: '@deepseek-ai/dsh-tools',
-      exports: { './typert': './lib/typert.host.js' },
-    }, 'lib/dev')
+    const output = await packageOutput(
+      root,
+      'tools',
+      {
+        name: '@deepseek-ai/dsh-tools',
+        exports: { './typert': './lib/typert.host.js' },
+      },
+      'lib/dev',
+    )
     const clientOutput = await packageOutput(root, 'client-tools', {
       name: '@deepseek-ai/dsh-tools',
       exports: { './client/typert': './lib/typert.client.js' },
@@ -140,12 +154,11 @@ describe('typertPlugin', () => {
     expect(readFileSync(join(packageLib, 'typert.client.js'), 'utf8')).toBe('export const client = true\n')
     expect(existsSync(join(packageLib, 'typert.client.d.ts'))).toBe(true)
     expect(readFileSync(join(packageLib, 'typert.remote-client.js'), 'utf8')).toBe('export const remote = true\n')
-    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts'), 'utf8'))
-      .toBe('export declare const remote: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n')
-    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts.map'), 'utf8'))
-      .toBe('{"version":3}\n')
-    expect(readFileSync(join(root, 'packages/client-tools/lib/typert.client.js'), 'utf8'))
-      .toBe('export const client = true\n')
+    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts'), 'utf8')).toBe(
+      'export declare const remote: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n',
+    )
+    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts.map'), 'utf8')).toBe('{"version":3}\n')
+    expect(readFileSync(join(root, 'packages/client-tools/lib/typert.client.js'), 'utf8')).toBe('export const client = true\n')
   })
 
   it('generates a package opted in only through its Remote export', async () => {
@@ -160,12 +173,11 @@ describe('typertPlugin', () => {
     const packageLib = join(root, 'packages', 'remote-only', 'lib')
     expect(generated).toHaveBeenCalledOnce()
     expect(generated).toHaveBeenCalledWith(undefined, ['host'])
-    expect(readFileSync(join(packageLib, 'typert.remote-client.js'), 'utf8'))
-      .toBe('export const remoteOnly = true\n')
-    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts'), 'utf8'))
-      .toBe('export declare const remoteOnly: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n')
-    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts.map'), 'utf8'))
-      .toBe('{"version":3}\n')
+    expect(readFileSync(join(packageLib, 'typert.remote-client.js'), 'utf8')).toBe('export const remoteOnly = true\n')
+    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts'), 'utf8')).toBe(
+      'export declare const remoteOnly: true\n//# sourceMappingURL=typert.remote-client.d.ts.map\n',
+    )
+    expect(readFileSync(join(packageLib, 'typert.remote-client.d.ts.map'), 'utf8')).toBe('{"version":3}\n')
   })
 
   it('removes stale Remote artifacts from a Host package without Remote output', async () => {
@@ -175,27 +187,23 @@ describe('typertPlugin', () => {
       exports: { './typert': './lib/typert.host.js' },
     })
     const packageLib = join(root, 'packages', 'tools', 'lib')
-    for (const file of [
-      'typert.remote-client.js',
-      'typert.remote-client.d.ts',
-      'typert.remote-client.d.ts.map',
-    ]) writeFileSync(join(packageLib, file), 'stale\n')
-    generated.mockReturnValueOnce([{
-      package: '@deepseek-ai/dsh-tools',
-      packageRoot: 'packages/core/tools',
-      face: 'host',
-      exports: [],
-      js: 'export const host = true\n',
-      dts: 'export declare const host: true\n',
-    }])
+    for (const file of ['typert.remote-client.js', 'typert.remote-client.d.ts', 'typert.remote-client.d.ts.map'])
+      writeFileSync(join(packageLib, file), 'stale\n')
+    generated.mockReturnValueOnce([
+      {
+        package: '@deepseek-ai/dsh-tools',
+        packageRoot: 'packages/core/tools',
+        face: 'host',
+        exports: [],
+        js: 'export const host = true\n',
+        dts: 'export declare const host: true\n',
+      },
+    ])
 
     await typertPlugin().writeBundle({ dir: output })
 
-    for (const file of [
-      'typert.remote-client.js',
-      'typert.remote-client.d.ts',
-      'typert.remote-client.d.ts.map',
-    ]) expect(existsSync(join(packageLib, file))).toBe(false)
+    for (const file of ['typert.remote-client.js', 'typert.remote-client.d.ts', 'typert.remote-client.d.ts.map'])
+      expect(existsSync(join(packageLib, file))).toBe(false)
   })
 
   it('resolves the workspace root above a dual-face package leaf', async () => {
@@ -211,8 +219,7 @@ describe('typertPlugin', () => {
     workspacePlugin.buildStart({ cwd: join(root, 'packages/api/gateway') })
 
     expect(generatorRoots).toEqual([root])
-    expect(readFileSync(join(root, 'packages/api/gateway/lib/typert.host.js'), 'utf8'))
-      .toBe('export const host = true\n')
+    expect(readFileSync(join(root, 'packages/api/gateway/lib/typert.host.js'), 'utf8')).toBe('export const host = true\n')
     expect(workers.map(worker => worker.options.workerData)).toEqual([{ root, options: { checkDiagnostics: false } }])
   })
 })
@@ -234,7 +241,9 @@ describe('typertPlugin workspace mode', () => {
     expect(worker.entry.protocol).toBe('data:')
 
     let emitted = false
-    const emission = plugin.writeBundle({ dir: trigger }).then(() => { emitted = true })
+    const emission = plugin.writeBundle({ dir: trigger }).then(() => {
+      emitted = true
+    })
     await plugin.writeBundle({ dir: later })
     expect(emitted).toBe(false)
     expect(worker.terminate).not.toHaveBeenCalled()
@@ -250,12 +259,9 @@ describe('typertPlugin workspace mode', () => {
     expect(worker.terminate).toHaveBeenCalledOnce()
     expect(workers).toHaveLength(1)
     expect(generatorRoots).toEqual([])
-    expect(readFileSync(join(root, 'packages/core/tools/lib/typert.host.js'), 'utf8'))
-      .toBe('export const host = true\n')
-    expect(readFileSync(join(root, 'packages/core/tools/lib/typert.remote-client.d.ts.map'), 'utf8'))
-      .toBe('{"version":3}\n')
-    expect(readFileSync(join(root, 'packages/remote-only/lib/typert.remote-client.js'), 'utf8'))
-      .toBe('export const remoteOnly = true\n')
+    expect(readFileSync(join(root, 'packages/core/tools/lib/typert.host.js'), 'utf8')).toBe('export const host = true\n')
+    expect(readFileSync(join(root, 'packages/core/tools/lib/typert.remote-client.d.ts.map'), 'utf8')).toBe('{"version":3}\n')
+    expect(readFileSync(join(root, 'packages/remote-only/lib/typert.remote-client.js'), 'utf8')).toBe('export const remoteOnly = true\n')
   })
 
   it('starts generation from writeBundle when no buildStart ran', async () => {
@@ -380,7 +386,10 @@ async function claimedEmission(): Promise<{ readonly emission: Promise<void>; re
 }
 
 async function rejection(promise: Promise<void>): Promise<Error> {
-  const error = await promise.then(() => undefined, (reason: unknown) => reason)
+  const error = await promise.then(
+    () => undefined,
+    (reason: unknown) => reason,
+  )
   if (!(error instanceof Error)) throw new Error('expected the bundle to fail')
   return error
 }
@@ -393,12 +402,7 @@ async function workspace(): Promise<string> {
   return root
 }
 
-async function packageOutput(
-  root: string,
-  directory: string,
-  manifest: Record<string, unknown>,
-  output = 'lib',
-): Promise<string> {
+async function packageOutput(root: string, directory: string, manifest: Record<string, unknown>, output = 'lib'): Promise<string> {
   const packageRoot = join(root, 'packages', directory)
   const result = join(packageRoot, output)
   await mkdir(result, { recursive: true })

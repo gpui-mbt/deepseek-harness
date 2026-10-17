@@ -90,8 +90,10 @@ export class InspectorEndpoint {
     await Promise.all([
       closeWebSocketServer(this.cdpServer),
       closeWebSocketServer(this.ingestServer),
-      new Promise<void>((resolve) => {
-        server.close(() => { resolve() })
+      new Promise<void>(resolve => {
+        server.close(() => {
+          resolve()
+        })
         server.closeAllConnections()
       }),
     ])
@@ -132,7 +134,9 @@ export class InspectorEndpoint {
         socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
         return
       }
-      this.cdpServer.handleUpgrade(request, socket, head, (ws) => { this.acceptCdp(ws, clientSourceId) })
+      this.cdpServer.handleUpgrade(request, socket, head, ws => {
+        this.acceptCdp(ws, clientSourceId)
+      })
       return
     }
     if (url.pathname === '/ingest') {
@@ -140,7 +144,9 @@ export class InspectorEndpoint {
         socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
         return
       }
-      this.ingestServer.handleUpgrade(request, socket, head, (ws) => { this.acceptIngest(ws) })
+      this.ingestServer.handleUpgrade(request, socket, head, ws => {
+        this.acceptIngest(ws)
+      })
       return
     }
     socket.destroy()
@@ -148,10 +154,12 @@ export class InspectorEndpoint {
 
   private acceptCdp(socket: WebSocket, clientSourceId: InspectorSourceId | undefined): void {
     const transport: CdpTransport = {
-      send: (payload) => {
+      send: payload => {
         if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload))
       },
-      close: () => { socket.close(1008, 'invalid CDP request') },
+      close: () => {
+        socket.close(1008, 'invalid CDP request')
+      },
     }
     const target = { targetId: this.config.targetId, title: 'DeepSeek Harness Host' }
     const session = new CdpSession(
@@ -165,7 +173,7 @@ export class InspectorEndpoint {
       clientSourceId,
     )
     this.cdpSessions.set(socket, session)
-    socket.on('message', (data) => {
+    socket.on('message', data => {
       try {
         session.receive(JSON.parse(rawText(data)) as unknown)
       } catch {
@@ -183,10 +191,12 @@ export class InspectorEndpoint {
 
   private acceptIngest(socket: WebSocket): void {
     const queryPeer = this.queries.open({
-      send: (frame) => {
+      send: frame => {
         if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(frame))
       },
-      close: (code, reason) => { socket.close(code, reason) },
+      close: (code, reason) => {
+        socket.close(code, reason)
+      },
     })
     const connection: SourceConnection = {
       kind: 'client',
@@ -195,10 +205,12 @@ export class InspectorEndpoint {
         socket.send(JSON.stringify(frame))
         if (frame.t === 'source/accepted') queryPeer.accept(frame.sourceId, frame.generation)
       },
-      close: (code, reason) => { socket.close(code, reason.slice(0, 123)) },
+      close: (code, reason) => {
+        socket.close(code, reason.slice(0, 123))
+      },
     }
     this.ingestConnections.set(socket, connection)
-    socket.on('message', (data) => {
+    socket.on('message', data => {
       try {
         const value: unknown = JSON.parse(rawText(data))
         if (!queryPeer.receive(value)) this.sources.receive(connection, value)
@@ -217,9 +229,7 @@ export class InspectorEndpoint {
   }
 
   private authorizedClient(request: IncomingMessage): boolean {
-    const protocols = (request.headers['sec-websocket-protocol'] ?? '')
-      .split(',')
-      .map(value => value.trim())
+    const protocols = (request.headers['sec-websocket-protocol'] ?? '').split(',').map(value => value.trim())
     if (!protocols.includes(this.config.clientToken)) return false
     const origin = request.headers.origin
     if (origin === undefined) return true
@@ -257,8 +267,12 @@ export class InspectorEndpoint {
   }
 
   private createServer(): Server {
-    const server = createServer((request, response) => { this.handleHttp(request, response) })
-    server.on('upgrade', (request, socket, head) => { this.handleUpgrade(request, socket, head) })
+    const server = createServer((request, response) => {
+      this.handleHttp(request, response)
+    })
+    server.on('upgrade', (request, socket, head) => {
+      this.handleUpgrade(request, socket, head)
+    })
     return server
   }
 
@@ -303,14 +317,14 @@ function isAddressInUse(error: unknown): boolean {
 }
 
 function rawText(data: RawData): string {
-  const bytes = data instanceof ArrayBuffer
-    ? Buffer.from(new Uint8Array(data))
-    : Array.isArray(data) ? Buffer.concat(data) : data
+  const bytes = data instanceof ArrayBuffer ? Buffer.from(new Uint8Array(data)) : Array.isArray(data) ? Buffer.concat(data) : data
   return bytes.toString('utf8')
 }
 
 function closeWebSocketServer(server: WebSocketServer): Promise<void> {
-  return new Promise((resolve) => {
-    server.close(() => { resolve() })
+  return new Promise(resolve => {
+    server.close(() => {
+      resolve()
+    })
   })
 }

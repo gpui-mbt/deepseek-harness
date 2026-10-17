@@ -22,11 +22,7 @@ The durable phase answers what happened to the objective. Process-local activati
 
 ```ts type-equiv
 /** Durable continuation phase. Activation is process-local and separate. */
-type GoalPhase =
-  | 'active'
-  | 'paused'
-  | 'blocked'
-  | 'complete'
+type GoalPhase = 'active' | 'paused' | 'blocked' | 'complete'
 ```
 
 Blocking is the single durable stopped-by-a-problem state. Its policy-owned reason carries a stable lower-kebab-case code for routing and a free-form explanation for humans and models.

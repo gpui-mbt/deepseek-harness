@@ -5,16 +5,12 @@
  * file descriptors, `mkdtemp`, access checks, watchers, streams, and the promise face.
  */
 import { requireActiveVfs } from '../../../storage/active.ts'
-import type {
-  Vfs, VfsBigIntStats, VfsOpenFile, VfsStatOptions, VfsStats, VfsWriteOptions,
-} from '../../../storage/types.ts'
+import type { Vfs, VfsBigIntStats, VfsOpenFile, VfsStatOptions, VfsStats, VfsWriteOptions } from '../../../storage/types.ts'
 import { Buffer } from 'buffer'
 import { Readable, Writable } from './stream.ts'
 import { dirname } from './path.ts'
 import { abortError } from './abort-error.ts'
-import {
-  FSWatcher, StatWatcher, unwatchFile, watch, watchAsync, watchFile,
-} from './fs-watch.ts'
+import { FSWatcher, StatWatcher, unwatchFile, watch, watchAsync, watchFile } from './fs-watch.ts'
 
 const vfs = (): Vfs => requireActiveVfs()
 
@@ -36,14 +32,12 @@ const encodingOf = (options: EncodingOption): BufferEncoding | undefined => {
   return options.encoding ?? undefined
 }
 
-const numericMode = (mode: number | string): number =>
-  typeof mode === 'string' ? Number.parseInt(mode, 8) : mode
+const numericMode = (mode: number | string): number => (typeof mode === 'string' ? Number.parseInt(mode, 8) : mode)
 
 const bytesOf = (path: string): Uint8Array => vfs().readFileSync(path) as Uint8Array
 
 /** Share the VFS bytes rather than copying them. */
-const asBuffer = (bytes: Uint8Array): Buffer =>
-  Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+const asBuffer = (bytes: Uint8Array): Buffer => Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
 /** Node `Dirent` subset returned by `readdirSync(dir, { withFileTypes: true })`. */
 export class Dirent {
@@ -115,7 +109,9 @@ export function readFileSync(path: PathArg, options?: EncodingOption): Buffer | 
   const encoding = encodingOf(options)
   const bytes = bytesOf(asPath(path))
   return encoding === undefined || encoding === 'utf8' || encoding === 'utf-8'
-    ? (encoding === undefined ? asBuffer(bytes) : new TextDecoder().decode(bytes))
+    ? encoding === undefined
+      ? asBuffer(bytes)
+      : new TextDecoder().decode(bytes)
     : asBuffer(bytes).toString(encoding)
 }
 
@@ -250,10 +246,7 @@ realpath.native = realpath
  * @param options - `withFileTypes` selects Dirent objects.
  * @returns names, or Dirent objects.
  */
-export function readdirSync(
-  path: PathArg,
-  options?: { withFileTypes?: boolean } | BufferEncoding | null,
-): string[] | Dirent[] {
+export function readdirSync(path: PathArg, options?: { withFileTypes?: boolean } | BufferEncoding | null): string[] | Dirent[] {
   const target = asPath(path)
   const names = vfs().readdirSync(target)
   if (typeof options !== 'object' || options === null || options.withFileTypes !== true) return names
@@ -363,13 +356,7 @@ const fileOf = (fd: number, syscall: string): OpenFile => {
  * @param position - file position, or null to continue from the cursor.
  * @returns bytes read.
  */
-export function readSync(
-  fd: number,
-  buffer: Uint8Array,
-  offset = 0,
-  length = buffer.byteLength,
-  position: number | null = null,
-): number {
+export function readSync(fd: number, buffer: Uint8Array, offset = 0, length = buffer.byteLength, position: number | null = null): number {
   const file = fileOf(fd, 'read')
   const from = position ?? file.position
   const slice = file.file.read(from, length)
@@ -452,7 +439,9 @@ export function openHandleSync(path: PathArg, flags = 'r', mode?: number): FileH
       open.position += bytes.length
       const encoding = encodingOf(options)
       return encoding === undefined || encoding === 'utf8' || encoding === 'utf-8'
-        ? (encoding === undefined ? asBuffer(bytes) : new TextDecoder().decode(bytes))
+        ? encoding === undefined
+          ? asBuffer(bytes)
+          : new TextDecoder().decode(bytes)
         : asBuffer(bytes).toString(encoding)
     },
     writeFile: async (data: string | Uint8Array) => {
@@ -468,17 +457,22 @@ export function openHandleSync(path: PathArg, flags = 'r', mode?: number): FileH
       if (directory) chmodSync(target, mode)
       else descriptor('fchmod').file.chmod(numericMode(mode))
     },
-    stat: async (options?: VfsStatOptions) => directory
-      ? statSync(target, options)
-      : options?.bigint === true
-        ? descriptor('fstat').file.statBigInt()
-        : descriptor('fstat').file.stat(),
+    stat: async (options?: VfsStatOptions) =>
+      directory
+        ? statSync(target, options)
+        : options?.bigint === true
+          ? descriptor('fstat').file.statBigInt()
+          : descriptor('fstat').file.stat(),
     truncate: async (length = 0) => {
       if (directory) writeFileSync(target, new Uint8Array(length))
       else descriptor('ftruncate').file.truncate(length)
     },
-    sync: async () => { await vfs().flush() },
-    datasync: async () => { await vfs().flush() },
+    sync: async () => {
+      await vfs().flush()
+    },
+    datasync: async () => {
+      await vfs().flush()
+    },
     close: async () => {
       if (closed) return
       closed = true
@@ -540,11 +534,11 @@ interface ClosableFileStream {
 }
 
 /** Register an optional completion callback and explicitly destroy a file stream. */
-function closeFileStream(
-  stream: ClosableFileStream,
-  callback?: (error?: NodeJS.ErrnoException | null) => void,
-): void {
-  if (callback !== undefined) stream.once('close', () => { callback(null) })
+function closeFileStream(stream: ClosableFileStream, callback?: (error?: NodeJS.ErrnoException | null) => void): void {
+  if (callback !== undefined)
+    stream.once('close', () => {
+      callback(null)
+    })
   stream.destroy()
 }
 
@@ -556,9 +550,7 @@ interface ReadDescriptorTarget {
 }
 
 /** Open a read stream's descriptor and announce it, completing `_construct`. */
-function openReadDescriptor(
-  stream: ReadDescriptorTarget, path: string, flags: string, callback: (error?: Error | null) => void,
-): void {
+function openReadDescriptor(stream: ReadDescriptorTarget, path: string, flags: string, callback: (error?: Error | null) => void): void {
   let fd: number
   try {
     fd = openSync(path, flags)
@@ -602,7 +594,12 @@ export class ReadStream extends Readable {
     this.flags = options.flags ?? 'r'
     this.position = this.start
     this.signal = options.signal
-    this.onAbort = options.signal === undefined ? undefined : () => { this.destroy(abortError(options.signal?.reason)) }
+    this.onAbort =
+      options.signal === undefined
+        ? undefined
+        : () => {
+            this.destroy(abortError(options.signal?.reason))
+          }
     if (options.encoding !== undefined && options.encoding !== null) this.setEncoding(options.encoding)
     options.signal?.addEventListener('abort', this.onAbort as () => void, { once: true })
   }
@@ -623,8 +620,12 @@ export class ReadStream extends Readable {
       return
     }
     arrival.then(
-      () => { openReadDescriptor(this, this.path, this.flags, callback) },
-      (error: unknown) => { callback(error as Error) },
+      () => {
+        openReadDescriptor(this, this.path, this.flags, callback)
+      },
+      (error: unknown) => {
+        callback(error as Error)
+      },
     )
   }
 
@@ -694,7 +695,12 @@ export class WriteStream extends Writable {
     this.mode = options.mode
     this.start = options.start
     this.signal = options.signal
-    this.onAbort = options.signal === undefined ? undefined : () => { this.destroy(abortError(options.signal?.reason)) }
+    this.onAbort =
+      options.signal === undefined
+        ? undefined
+        : () => {
+            this.destroy(abortError(options.signal?.reason))
+          }
     options.signal?.addEventListener('abort', this.onAbort as () => void, { once: true })
   }
 
@@ -722,11 +728,7 @@ export class WriteStream extends Writable {
     this.emit('ready')
   }
 
-  override _write(
-    chunk: string | Uint8Array,
-    encoding: BufferEncoding,
-    callback: (error?: Error | null) => void,
-  ): void {
+  override _write(chunk: string | Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
     try {
       const fd = this.fd
       if (fd === null) return badFileDescriptor('write')
@@ -795,8 +797,12 @@ export function opendirSync(path: PathArg): Dir {
   return {
     path: target,
     read: async () => next(),
-    close: async () => { index = entries.length },
-    closeSync: () => { index = entries.length },
+    close: async () => {
+      index = entries.length
+    },
+    closeSync: () => {
+      index = entries.length
+    },
     async *[Symbol.asyncIterator]() {
       for (let entry = next(); entry !== null; entry = next()) yield entry
     },
@@ -826,23 +832,33 @@ export const promises = {
       throw error
     }
     if (flag !== undefined && flag.startsWith('a')) appendFileSync(path, data)
-    else writeFileSync(path, data, { ...flag === undefined ? {} : { flag }, ...mode === undefined ? {} : { mode } })
+    else writeFileSync(path, data, { ...(flag === undefined ? {} : { flag }), ...(mode === undefined ? {} : { mode }) })
   },
-  appendFile: async (path: PathArg, data: string | Uint8Array): Promise<void> => { appendFileSync(path, data) },
+  appendFile: async (path: PathArg, data: string | Uint8Array): Promise<void> => {
+    appendFileSync(path, data)
+  },
   mkdir: async (path: PathArg, options?: { recursive?: boolean; mode?: number }): Promise<string | undefined> => mkdirSync(path, options),
   mkdtemp: async (prefix: string): Promise<string> => mkdtempSync(prefix),
-  readdir: async (
-    path: PathArg,
-    options?: { withFileTypes?: boolean } | BufferEncoding,
-  ): Promise<string[] | Dirent[]> => readdirSync(path, options),
+  readdir: async (path: PathArg, options?: { withFileTypes?: boolean } | BufferEncoding): Promise<string[] | Dirent[]> =>
+    readdirSync(path, options),
   stat: async (path: PathArg, options?: VfsStatOptions): Promise<VfsStats | VfsBigIntStats> => statSync(path, options),
   lstat: async (path: PathArg, options?: VfsStatOptions): Promise<VfsStats | VfsBigIntStats> => lstatSync(path, options),
   realpath: async (path: PathArg): Promise<string> => realpathSync(path),
-  rm: async (path: PathArg, options?: { recursive?: boolean; force?: boolean }): Promise<void> => { rmSync(path, options) },
-  unlink: async (path: PathArg): Promise<void> => { unlinkSync(path) },
-  rename: async (from: PathArg, to: PathArg): Promise<void> => { renameSync(from, to) },
-  access: async (path: PathArg): Promise<void> => { accessSync(path) },
-  chmod: async (path: PathArg, mode: number | string): Promise<void> => { chmodSync(path, mode) },
+  rm: async (path: PathArg, options?: { recursive?: boolean; force?: boolean }): Promise<void> => {
+    rmSync(path, options)
+  },
+  unlink: async (path: PathArg): Promise<void> => {
+    unlinkSync(path)
+  },
+  rename: async (from: PathArg, to: PathArg): Promise<void> => {
+    renameSync(from, to)
+  },
+  access: async (path: PathArg): Promise<void> => {
+    accessSync(path)
+  },
+  chmod: async (path: PathArg, mode: number | string): Promise<void> => {
+    chmodSync(path, mode)
+  },
   cp: async (from: PathArg, to: PathArg): Promise<void> => {
     const source = asPath(from)
     const target = asPath(to)
@@ -856,7 +872,9 @@ export const promises = {
     writeFileSync(target, bytesOf(source))
   },
   // The VFS keeps both names attached to one file identity until either name is removed.
-  link: async (from: PathArg, to: PathArg): Promise<void> => { linkSync(from, to) },
+  link: async (from: PathArg, to: PathArg): Promise<void> => {
+    linkSync(from, to)
+  },
   open: async (path: PathArg, flags?: string, mode?: number): Promise<FileHandle> => {
     await vfs().whenReadable(asPath(path))
     return openHandleSync(path, flags, mode)
@@ -882,26 +900,80 @@ export const __esModule = true
  * the subsets the host tree reads.
  */
 type OwnSignature =
-  | 'constants' | 'promises' | 'Dirent' | 'FSWatcher' | 'StatWatcher' | 'ReadStream' | 'WriteStream'
-  | 'readFileSync' | 'writeFileSync' | 'appendFileSync' | 'statSync' | 'lstatSync' | 'realpathSync' | 'realpath'
-  | 'readdirSync' | 'mkdirSync' | 'mkdtempSync' | 'rmSync' | 'opendirSync'
-  | 'openSync' | 'readSync' | 'writeSync' | 'stat' | 'lstat' | 'watch' | 'watchFile' | 'unwatchFile'
-  | 'createReadStream' | 'createWriteStream'
+  | 'constants'
+  | 'promises'
+  | 'Dirent'
+  | 'FSWatcher'
+  | 'StatWatcher'
+  | 'ReadStream'
+  | 'WriteStream'
+  | 'readFileSync'
+  | 'writeFileSync'
+  | 'appendFileSync'
+  | 'statSync'
+  | 'lstatSync'
+  | 'realpathSync'
+  | 'realpath'
+  | 'readdirSync'
+  | 'mkdirSync'
+  | 'mkdtempSync'
+  | 'rmSync'
+  | 'opendirSync'
+  | 'openSync'
+  | 'readSync'
+  | 'writeSync'
+  | 'stat'
+  | 'lstat'
+  | 'watch'
+  | 'watchFile'
+  | 'unwatchFile'
+  | 'createReadStream'
+  | 'createWriteStream'
 
 /**
  * The `node:fs` declarations this module stands in for. Every other member is
  * checked against Node; `openHandleSync` is the worker's own handle opener, which
  * `promises.open` answers with and Node has no synchronous counterpart for.
  */
-type NodeFace = Partial<Omit<typeof import('node:fs'), OwnSignature>>
-  & Record<OwnSignature | 'openHandleSync', unknown>
+type NodeFace = Partial<Omit<typeof import('node:fs'), OwnSignature>> & Record<OwnSignature | 'openHandleSync', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  constants, promises, Dirent, FSWatcher, StatWatcher, ReadStream, WriteStream,
-  readFileSync, writeFileSync, appendFileSync, existsSync, statSync, stat, lstatSync, lstat, realpathSync, realpath, chmodSync,
-  readdirSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, renameSync, accessSync, opendirSync,
-  openHandleSync, linkSync,
-  openSync, readSync, writeSync, closeSync, watch, watchFile, unwatchFile,
-  createReadStream, createWriteStream,
+  constants,
+  promises,
+  Dirent,
+  FSWatcher,
+  StatWatcher,
+  ReadStream,
+  WriteStream,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  existsSync,
+  statSync,
+  stat,
+  lstatSync,
+  lstat,
+  realpathSync,
+  realpath,
+  chmodSync,
+  readdirSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  unlinkSync,
+  renameSync,
+  accessSync,
+  opendirSync,
+  openHandleSync,
+  linkSync,
+  openSync,
+  readSync,
+  writeSync,
+  closeSync,
+  watch,
+  watchFile,
+  unwatchFile,
+  createReadStream,
+  createWriteStream,
 } satisfies NodeFace

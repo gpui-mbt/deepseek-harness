@@ -55,11 +55,7 @@ function sameIdentity(left: BigIntStats, right: BigIntStats): boolean {
  *   to the host filesystem convention used by supported platforms.
  * @returns whether the target is the root or a descendant of it.
  */
-export async function isPathUnder(
-  path: string,
-  root: string,
-  caseSensitive = process.platform !== 'win32',
-): Promise<boolean> {
+export async function isPathUnder(path: string, root: string, caseSensitive = process.platform !== 'win32'): Promise<boolean> {
   if (isLexicallyUnder(path, root, caseSensitive)) return true
 
   const rootInfo = await statIfPresent(root)

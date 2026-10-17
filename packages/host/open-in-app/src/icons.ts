@@ -15,8 +15,14 @@ import { join } from 'node:path'
 import { desktopApplicationIcon } from '@deepseek-ai/dsh-native-command'
 import type { OpenInAppApp } from './catalog.ts'
 import {
-  findDesktopEntry, output, resolveInternals, specFor, xdgDataDirectories,
-  type OpenInAppInternals, type OpenInAppResolvedLaunch, type ResolvedInternals,
+  findDesktopEntry,
+  output,
+  resolveInternals,
+  specFor,
+  xdgDataDirectories,
+  type OpenInAppInternals,
+  type OpenInAppResolvedLaunch,
+  type ResolvedInternals,
 } from './resolver.ts'
 
 /** One extracted icon: raw bytes plus the media type the route serves. */
@@ -31,13 +37,15 @@ export interface OpenInAppIcon {
  * back to the first `Resources/*.icns`, then convert with `sips` through a
  * fresh temp file.
  */
-async function extractBundleIconPng(
-  bundlePath: string, timeoutMs: number, internals: ResolvedInternals,
-): Promise<Buffer | null> {
+async function extractBundleIconPng(bundlePath: string, timeoutMs: number, internals: ResolvedInternals): Promise<Buffer | null> {
   const resources = join(bundlePath, 'Contents', 'Resources')
   let iconFile: string | null = null
   const plistJson = await output(
-    'plutil', ['-convert', 'json', '-o', '-', join(bundlePath, 'Contents', 'Info.plist')], timeoutMs, internals)
+    'plutil',
+    ['-convert', 'json', '-o', '-', join(bundlePath, 'Contents', 'Info.plist')],
+    timeoutMs,
+    internals,
+  )
   if (plistJson !== null) {
     try {
       const declared: unknown = (JSON.parse(plistJson) as { CFBundleIconFile?: unknown }).CFBundleIconFile
@@ -67,7 +75,7 @@ async function extractBundleIconPng(
   const workDir = await mkdtemp(join(tmpdir(), 'dsh-open-in-app-'))
   try {
     const outPng = join(workDir, 'icon.png')
-    if (await output('sips', ['-s', 'format', 'png', '-Z', '128', icns, '--out', outPng], timeoutMs, internals) === null) {
+    if ((await output('sips', ['-s', 'format', 'png', '-Z', '128', icns, '--out', outPng], timeoutMs, internals)) === null) {
       return null
     }
     try {
@@ -99,17 +107,18 @@ const EXTRACT_ICON_PS1 = [
 ].join('\n')
 
 /** Extract one Windows executable's associated icon as a 32px PNG. */
-async function extractExecutableIconPng(
-  executablePath: string, timeoutMs: number, internals: ResolvedInternals,
-): Promise<Buffer | null> {
+async function extractExecutableIconPng(executablePath: string, timeoutMs: number, internals: ResolvedInternals): Promise<Buffer | null> {
   const workDir = await mkdtemp(join(tmpdir(), 'dsh-open-in-app-'))
   try {
     const script = join(workDir, 'extract-icon.ps1')
     const outPng = join(workDir, 'icon.png')
     await writeFile(script, EXTRACT_ICON_PS1, 'utf8')
-    const ran = await output('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, executablePath, outPng,
-    ], timeoutMs, internals)
+    const ran = await output(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, executablePath, outPng],
+      timeoutMs,
+      internals,
+    )
     if (ran === null) return null
     try {
       return await readFile(outPng)
@@ -123,9 +132,7 @@ async function extractExecutableIconPng(
 }
 
 /** One Linux application's icon from its desktop entry's `Icon=` key. */
-async function extractLinuxIcon(
-  desktopId: string, internals: ResolvedInternals,
-): Promise<OpenInAppIcon | null> {
+async function extractLinuxIcon(desktopId: string, internals: ResolvedInternals): Promise<OpenInAppIcon | null> {
   const entry = await findDesktopEntry(desktopId, internals)
   const icon = entry?.icon
   if (icon === undefined || icon === '') return null

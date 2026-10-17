@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { MarkdownText } from './markdown-test-components.tsx'
 
 afterEach(cleanup)
@@ -8,7 +8,12 @@ afterEach(cleanup)
 describe('compact MarkdownText', () => {
   it('retains the body variant semantics for headings, lists, quotes, links, code, tables, and math', () => {
     const text = [
-      '# First', '## Second', '### Third', '#### Fourth', '##### Fifth', '###### Sixth',
+      '# First',
+      '## Second',
+      '### Third',
+      '#### Fourth',
+      '##### Fifth',
+      '###### Sixth',
       'Paragraph with **strong** and `inline`.',
       '- one\n- two\n  - nested',
       '1. ordered\n2. next',

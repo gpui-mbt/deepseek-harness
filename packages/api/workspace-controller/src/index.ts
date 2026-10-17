@@ -104,9 +104,7 @@ export class WorkspaceController extends TypertRemoteService {
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
     const workspace = await this.ctx.workspaceRegistry.initializeDefault(async () => {
       const timeout = AbortSignal.timeout(this.config.documentsLookupTimeoutMs)
-      return await defaultWorkspaceDirectory(
-        this.config.documentsDirectory, AbortSignal.any([signal, timeout]),
-      )
+      return await defaultWorkspaceDirectory(this.config.documentsDirectory, AbortSignal.any([signal, timeout]))
     })
     return workspace === undefined ? undefined : { workspace: workspaceView(workspace) }
   }

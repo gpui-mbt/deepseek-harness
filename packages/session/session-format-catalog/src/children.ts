@@ -14,6 +14,6 @@ export function createSessionFormatCatalogWithChildren(children: readonly Sessio
   const migration = createSessionFormatV3ToV4(children)
   return createSessionFormatCatalog({
     ...sessionFormatCatalogOptions,
-    migrations: sessionFormatCatalogOptions.migrations.map(edge => edge === sessionFormatV3ToV4 ? migration : edge),
+    migrations: sessionFormatCatalogOptions.migrations.map(edge => (edge === sessionFormatV3ToV4 ? migration : edge)),
   })
 }

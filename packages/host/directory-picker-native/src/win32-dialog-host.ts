@@ -28,7 +28,11 @@ export function spawnDialogWorker(data: Win32DialogWorkerData): ReturnType<typeo
   if (!import.meta.url.endsWith('.ts')) {
     return spawn(process.execPath, [fileURLToPath(new URL('./worker.cjs', import.meta.url))], { env, stdio, windowsHide: true })
   }
-  return spawn(process.execPath, ['--import', import.meta.resolve('tsx/esm'), fileURLToPath(new URL('./win32-dialog-worker.ts', import.meta.url))], { env, stdio, windowsHide: true })
+  return spawn(
+    process.execPath,
+    ['--import', import.meta.resolve('tsx/esm'), fileURLToPath(new URL('./win32-dialog-worker.ts', import.meta.url))],
+    { env, stdio, windowsHide: true },
+  )
 }
 
 export { closeThreadWindows } from './win32-dialog-bindings.ts'

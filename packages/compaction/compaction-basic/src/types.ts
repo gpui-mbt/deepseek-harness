@@ -61,15 +61,17 @@ interface ResolvedPolicyFields {
 }
 
 /** Validated immutable config whose target-specific defaults remain unresolved. */
-export type ResolvedConfig = ResolvedPolicyFields & ResolvedRetention & {
-  readonly modelPolicies: readonly Readonly<ModelCompactPolicyConfig>[]
-  readonly auto: boolean
-}
+export type ResolvedConfig = ResolvedPolicyFields &
+  ResolvedRetention & {
+    readonly modelPolicies: readonly Readonly<ModelCompactPolicyConfig>[]
+    readonly auto: boolean
+  }
 
 /** Fully merged policy for one routed conversation target, before capacity scaling. */
-export type ResolvedTargetPolicy = ResolvedPolicyFields & ResolvedRetention & {
-  readonly target: Pick<LlmCallConfig, 'provider' | 'model'>
-}
+export type ResolvedTargetPolicy = ResolvedPolicyFields &
+  ResolvedRetention & {
+    readonly target: Pick<LlmCallConfig, 'provider' | 'model'>
+  }
 
 /** One routed model's concrete pressure and retention budget. */
 export type ResolvedCompactSpec = Omit<ResolvedTargetPolicy, 'retainRatio' | 'retainTokens' | 'headroomTokens'> & {

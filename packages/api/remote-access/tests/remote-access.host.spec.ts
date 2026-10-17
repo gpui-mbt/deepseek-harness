@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import TypertGatewayService from '@deepseek-ai/dsh-api-gateway'
 import { Peer } from '@deepseek-ai/dsh-client-connection'
@@ -67,17 +67,25 @@ const DESK_WRITER: RemoteAccessRole<'test-desk'> = { name: 'test:desk-writer', r
 class Notes extends TypertRemoteService {
   static inject = ['remoteAccess']
 
-  constructor(ctx: Context) { super(ctx, 'notes') }
+  constructor(ctx: Context) {
+    super(ctx, 'notes')
+  }
 
   @Remote
-  read(): string { return 'read' }
+  read(): string {
+    return 'read'
+  }
 
   /** Resolves to the shelf its request names through the registered default field. */
   @Remote
-  write(request: { readonly shelfId: string; readonly text: string }): string { return request.text }
+  write(request: { readonly shelfId: string; readonly text: string }): string {
+    return request.text
+  }
 
   @Remote
-  hidden(): string { return 'hidden' }
+  hidden(): string {
+    return 'hidden'
+  }
 
   /** A list method: a global call, then one `allows()` check per item. */
   @Remote
@@ -118,7 +126,11 @@ function call(ctx: Context, principal: Principal, method: string, args: Record<s
 }
 
 /** A request by `principal` for `action` on `resources`. */
-function ask(principal: Principal, action: RemoteAccessRequest<Principal>['action'], ...resources: RemoteAccessResource[]): RemoteAccessRequest<Principal> {
+function ask(
+  principal: Principal,
+  action: RemoteAccessRequest<Principal>['action'],
+  ...resources: RemoteAccessResource[]
+): RemoteAccessRequest<Principal> {
   return { principal, action, resources }
 }
 
@@ -135,7 +147,10 @@ function invocationOf(ctx: Context, principal: Principal, method = 'follow', nam
   }
 }
 
-async function follow(ctx: Context, principal: Principal): Promise<{
+async function follow(
+  ctx: Context,
+  principal: Principal,
+): Promise<{
   readonly frames: RemoteAccessFrame[]
   readonly next: () => Promise<RemoteAccessFrame>
   readonly stop: () => Promise<void>
@@ -181,7 +196,9 @@ describe('RemoteAccessService registrations', () => {
     await expect(call(ctx, GUEST, 'read')).rejects.toMatchObject({ code: 'remote-access/denied', details: { reason: 'no-allow' } })
     const fiber = ctx.plugin({
       inject: ['remoteAccess'],
-      apply: (pluginCtx: Context) => { pluginCtx.remoteAccess.registerPolicy('test-guest', policy) },
+      apply: (pluginCtx: Context) => {
+        pluginCtx.remoteAccess.registerPolicy('test-guest', policy)
+      },
     })
     await fiber
     await expect(call(ctx, GUEST, 'read')).resolves.toBe('read')
@@ -192,8 +209,9 @@ describe('RemoteAccessService registrations', () => {
   it('accepts one policy per principal kind', async () => {
     const { access } = await setup()
     access.registerPolicy('test-guest', new GuestPolicy())
-    expect(() => access.registerPolicy('test-guest', new GuestPolicy()))
-      .toThrow('remote access: principal kind "test-guest" already has a policy')
+    expect(() => access.registerPolicy('test-guest', new GuestPolicy())).toThrow(
+      'remote access: principal kind "test-guest" already has a policy',
+    )
     access.registerPolicy('test-crew', { bindings: () => [{ role: READER, resource: GLOBAL }] })
     expect(access.decide(ask(CREW, 'notes/read', GLOBAL))).toEqual({ kind: 'allow' })
   })
@@ -205,7 +223,8 @@ describe('RemoteAccessService.decide', () => {
     expect(access.decide(ask(OWNER, 'notes/hidden', ROOM))).toEqual({ kind: 'allow' })
     await expect(call(ctx, OWNER, 'hidden')).resolves.toBe('hidden')
     await expect(call(ctx, GUEST, 'read')).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'notes/read', reason: 'no-allow' },
+      code: 'remote-access/denied',
+      details: { action: 'notes/read', reason: 'no-allow' },
     })
   })
 
@@ -217,7 +236,9 @@ describe('RemoteAccessService.decide', () => {
     await expect(call(ctx, GUEST, 'read')).resolves.toBe('read')
     await expect(call(ctx, GUEST, 'hidden')).rejects.toMatchObject({ details: { action: 'notes/hidden', reason: 'no-allow' } })
     await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r1', text: 'hi' } })).resolves.toBe('hi')
-    await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r2', text: 'hi' } })).rejects.toMatchObject({ details: { reason: 'no-allow' } })
+    await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r2', text: 'hi' } })).rejects.toMatchObject({
+      details: { reason: 'no-allow' },
+    })
     await expect(call(ctx, OTHER, 'read')).rejects.toMatchObject({ details: { reason: 'no-allow' } })
     // Resources are independent: a global grant implies nothing on a shelf, and a shelf grant nothing on global.
     expect(access.decide(ask(GUEST, 'notes/read', ROOM))).toEqual({ kind: 'deny', reason: 'no-allow' })
@@ -238,7 +259,7 @@ describe('RemoteAccessService.decide', () => {
     expect(policy.bindings).toHaveBeenCalledTimes(2)
   })
 
-  it('asks a matching binding\'s condition, which can refuse with its own reason', async () => {
+  it("asks a matching binding's condition, which can refuse with its own reason", async () => {
     const { ctx, access } = await setup()
     const policy = new GuestPolicy()
     access.registerPolicy('test-guest', policy)
@@ -251,13 +272,16 @@ describe('RemoteAccessService.decide', () => {
         : { kind: 'deny', reason: 'text-refused' }
     })
     const unrelated = vi.fn<RemoteAccessCondition<'test-shelf'>>(() => ({ kind: 'allow' }))
-    policy.hold(GUEST,
+    policy.hold(
+      GUEST,
       { role: SHELF_READER, resource: ROOM, condition: unrelated },
       { role: SHELF_WRITER, resource: ROOM2, condition: unrelated },
       { role: SHELF_WRITER, resource: ROOM, condition: paused },
-      { role: SHELF_WRITER, resource: ROOM, condition: locked })
+      { role: SHELF_WRITER, resource: ROOM, condition: locked },
+    )
     await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r1', text: 'x' } })).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'notes/write', reason: 'shelf-paused' },
+      code: 'remote-access/denied',
+      details: { action: 'notes/write', reason: 'shelf-paused' },
     })
     expect(paused).toHaveBeenCalledWith({ action: 'notes/write', resource: ROOM, args: { request: { shelfId: 'r1', text: 'x' } } })
     expect(locked).toHaveBeenCalledOnce()
@@ -265,7 +289,9 @@ describe('RemoteAccessService.decide', () => {
     expect(unrelated).not.toHaveBeenCalled()
 
     policy.hold(GUEST, { role: SHELF_WRITER, resource: ROOM, condition: short })
-    await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r1', text: 'x' } })).rejects.toMatchObject({ details: { reason: 'text-refused' } })
+    await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r1', text: 'x' } })).rejects.toMatchObject({
+      details: { reason: 'text-refused' },
+    })
     await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r1', text: 'ok' } })).resolves.toBe('ok')
 
     // Any binding without a condition, or with an allowing one, allows.
@@ -302,33 +328,51 @@ describe('RemoteAccessService.decide', () => {
     access.registerPolicy('test-guest', {
       bindings: () => {
         if (mode === 'bindings') throw new Error('binding store unavailable')
-        return [{ role: SHELF_WRITER, resource: ROOM, condition: () => { throw new Error('condition failed') } }]
+        return [
+          {
+            role: SHELF_WRITER,
+            resource: ROOM,
+            condition: () => {
+              throw new Error('condition failed')
+            },
+          },
+        ]
       },
-      explain: () => { throw new Error('explain failed') },
+      explain: () => {
+        throw new Error('explain failed')
+      },
     })
-    access.registerPolicy('test-crew', { bindings: () => { throw new Error('crew store unavailable') } })
+    access.registerPolicy('test-crew', {
+      bindings: () => {
+        throw new Error('crew store unavailable')
+      },
+    })
     for (let round = 0; round < 3; round++) {
       expect(access.decide(ask(GUEST, 'notes/write', ROOM))).toEqual({ kind: 'deny', reason: 'policy-failed' })
       expect(access.decide(ask(CREW, 'notes/write', ROOM))).toEqual({ kind: 'deny', reason: 'policy-failed' })
     }
     await expect(call(ctx, GUEST, 'write', { request: { shelfId: 'r1', text: 'x' } })).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'notes/write', reason: 'policy-failed' },
+      code: 'remote-access/denied',
+      details: { action: 'notes/write', reason: 'policy-failed' },
     })
     expect(failures()).toEqual(['binding store unavailable', 'crew store unavailable'])
     expect(warn).toHaveBeenCalledWith(
-      'remote access: the "test-guest" policy failed to list bindings for notes/write; its further failures are not logged until access state changes')
+      'remote access: the "test-guest" policy failed to list bindings for notes/write; its further failures are not logged until access state changes',
+    )
 
     mode = 'condition'
     access.invalidate(OTHER)
     expect(access.decide(ask(GUEST, 'notes/write', ROOM))).toEqual({ kind: 'deny', reason: 'policy-failed' })
     expect(warn).toHaveBeenCalledWith(
-      'remote access: the "test-guest" policy failed to evaluate a condition for notes/write; its further failures are not logged until access state changes')
+      'remote access: the "test-guest" policy failed to evaluate a condition for notes/write; its further failures are not logged until access state changes',
+    )
 
     mode = 'explain'
     access.invalidate()
     expect(access.decide(ask(GUEST, 'notes/read', ROOM))).toEqual({ kind: 'deny', reason: 'policy-failed' })
     expect(warn).toHaveBeenCalledWith(
-      'remote access: the "test-guest" policy failed to explain a refusal of notes/read; its further failures are not logged until access state changes')
+      'remote access: the "test-guest" policy failed to explain a refusal of notes/read; its further failures are not logged until access state changes',
+    )
     expect(failures()).toEqual(['binding store unavailable', 'crew store unavailable', 'condition failed', 'explain failed'])
   })
 
@@ -377,7 +421,9 @@ describe('RemoteAccessService.allows', () => {
     vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     const crewCall = ctx.extend({ invocation: invocationOf(ctx, CREW, 'rooms', 'notes') })
     expect(crewCall.remoteAccess.allows(ROOM)).toBe(false)
-    const bindings = vi.fn((): readonly RemoteAccessBinding[] => { throw new Error('binding store unavailable') })
+    const bindings = vi.fn((): readonly RemoteAccessBinding[] => {
+      throw new Error('binding store unavailable')
+    })
     access.registerPolicy('test-guest', { bindings })
     const guestCall = ctx.extend({ invocation: invocationOf(ctx, GUEST, 'rooms', 'notes') })
     expect(guestCall.remoteAccess.allows(ROOM)).toBe(false)
@@ -394,7 +440,9 @@ describe('first snapshots', () => {
     access.registerPolicy('test-guest', policy)
     expect(access.snapshotFor(OWNER)).toEqual({ type: 'baseline', owner: true })
     expect(access.snapshotFor(GUEST)).toEqual({
-      type: 'baseline', owner: false, grants: [{ resource: GLOBAL, actions: ['notes/read', 'notes/rooms', 'notes/write'] }],
+      type: 'baseline',
+      owner: false,
+      grants: [{ resource: GLOBAL, actions: ['notes/read', 'notes/rooms', 'notes/write'] }],
     })
     expect(access.snapshotFor(CREW)).toEqual({ type: 'baseline', owner: false, grants: [] })
     expect(REMOTE_ACCESS_SNAPSHOT_KEY).toBe('__DSH_REMOTE_ACCESS__')
@@ -421,11 +469,19 @@ describe('first snapshots', () => {
     access.registerPolicy('test-guest', policy)
     const writeOnly: RemoteAccessCondition<'test-shelf'> = ({ action }) =>
       action === 'notes/write' ? { kind: 'allow' } : { kind: 'deny', reason: 'read-paused' }
-    policy.hold(GUEST,
+    policy.hold(
+      GUEST,
       { role: SHELF_READER, resource: ROOM, condition: writeOnly },
       { role: SHELF_WRITER, resource: ROOM },
-      { role: DESK_WRITER, resource: DESK, condition: () => { throw new Error('condition failed') } },
-      { role: READER, resource: GLOBAL })
+      {
+        role: DESK_WRITER,
+        resource: DESK,
+        condition: () => {
+          throw new Error('condition failed')
+        },
+      },
+      { role: READER, resource: GLOBAL },
+    )
     const grants: RemoteAccessGrant[] = [
       { resource: ROOM, actions: ['notes/write'] },
       { resource: GLOBAL, actions: ['notes/read', 'notes/rooms', 'notes/write'] },
@@ -445,12 +501,17 @@ describe('first snapshots', () => {
   it('gives a principal whose bindings() throws no grant', async () => {
     const { ctx, access } = await setup()
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    access.registerPolicy('test-guest', { bindings: () => { throw new Error('binding store unavailable') } })
+    access.registerPolicy('test-guest', {
+      bindings: () => {
+        throw new Error('binding store unavailable')
+      },
+    })
     expect(access.snapshotFor(GUEST)).toEqual({ type: 'baseline', owner: false, grants: [] })
     const guest = await follow(ctx, GUEST)
     await expect(guest.next()).resolves.toEqual({ type: 'baseline', owner: false, grants: [] })
     expect(warn).toHaveBeenCalledWith(
-      'remote access: the "test-guest" policy failed to list bindings for a snapshot; its further failures are not logged until access state changes')
+      'remote access: the "test-guest" policy failed to list bindings for a snapshot; its further failures are not logged until access state changes',
+    )
     await guest.stop()
   })
 })
@@ -493,13 +554,15 @@ describe('remoteAccess/follow', () => {
     policy.hold(GUEST, { role: SHELF_WRITER, resource: ROOM }, { role: SHELF_READER, resource: ROOM })
     access.invalidate()
     await expect(guest.next()).resolves.toEqual({
-      type: 'upsert', grant: { resource: ROOM, actions: ['notes/read', 'notes/rooms', 'notes/write'] },
+      type: 'upsert',
+      grant: { resource: ROOM, actions: ['notes/read', 'notes/rooms', 'notes/write'] },
     })
 
     policy.hold(GUEST, { role: READER, resource: GLOBAL })
     access.invalidate(GUEST)
     await expect(guest.next()).resolves.toEqual({
-      type: 'upsert', grant: { resource: GLOBAL, actions: ['notes/read', 'notes/rooms', 'notes/write'] },
+      type: 'upsert',
+      grant: { resource: GLOBAL, actions: ['notes/read', 'notes/rooms', 'notes/write'] },
     })
     await expect(guest.next()).resolves.toEqual({ type: 'remove', resource: ROOM })
 
@@ -507,18 +570,23 @@ describe('remoteAccess/follow', () => {
     policy.hold(GUEST, { role: READER, resource: GLOBAL }, { role: SHELF_WRITER, resource: ROOM2 })
     access.invalidate(GUEST)
     await expect(guest.next()).resolves.toEqual({ type: 'upsert', grant: { resource: ROOM2, actions: ['notes/write'] } })
-    policy.hold(GUEST,
+    policy.hold(
+      GUEST,
       { role: { ...READER, actions: ['notes/hidden', 'notes/read', 'notes/rooms'] }, resource: GLOBAL },
-      { role: SHELF_WRITER, resource: ROOM2 })
+      { role: SHELF_WRITER, resource: ROOM2 },
+    )
     access.invalidate(GUEST)
     await expect(guest.next()).resolves.toEqual({
-      type: 'upsert', grant: { resource: GLOBAL, actions: ['notes/hidden', 'notes/read', 'notes/rooms'] },
+      type: 'upsert',
+      grant: { resource: GLOBAL, actions: ['notes/hidden', 'notes/read', 'notes/rooms'] },
     })
     // A resource on which no action stays allowed loses its grant.
     const paused: RemoteAccessCondition<'test-shelf'> = () => ({ kind: 'deny', reason: 'shelf-paused' })
-    policy.hold(GUEST,
+    policy.hold(
+      GUEST,
       { role: { ...READER, actions: ['notes/hidden', 'notes/read', 'notes/rooms'] }, resource: GLOBAL },
-      { role: SHELF_WRITER, resource: ROOM2, condition: paused })
+      { role: SHELF_WRITER, resource: ROOM2, condition: paused },
+    )
     access.invalidate(GUEST)
     await expect(guest.next()).resolves.toEqual({ type: 'remove', resource: ROOM2 })
 
@@ -540,7 +608,10 @@ describe('remoteAccess/follow', () => {
     const policy = new GuestPolicy()
     access.registerPolicy('test-guest', policy)
     const abort = new AbortController()
-    const stream = ctx.extend({ invocation: invocationOf(ctx, GUEST) }).remoteAccess.follow(abort.signal)[Symbol.asyncIterator]()
+    const stream = ctx
+      .extend({ invocation: invocationOf(ctx, GUEST) })
+      .remoteAccess.follow(abort.signal)
+      [Symbol.asyncIterator]()
     await stream.next()
     const add = vi.spyOn(EventTarget.prototype, 'addEventListener')
     const remove = vi.spyOn(EventTarget.prototype, 'removeEventListener')
@@ -574,9 +645,14 @@ describe('remoteAccess/follow', () => {
     policy.hold(GUEST, { role: READER, resource: GLOBAL })
     ctx.remoteAccess.registerPolicy('test-guest', policy)
     const open = async (principal: Principal): Promise<AsyncIterator<unknown>> =>
-      (await ctx.typertGateway.stream({
-        peer: new Peer(ctx, { principal }), namespace: 'remoteAccess', method: 'follow', args: {},
-      }))[Symbol.asyncIterator]()
+      (
+        await ctx.typertGateway.stream({
+          peer: new Peer(ctx, { principal }),
+          namespace: 'remoteAccess',
+          method: 'follow',
+          args: {},
+        })
+      )[Symbol.asyncIterator]()
     const guest = await open(GUEST)
     const owner = await open(OWNER)
     await expect(guest.next()).resolves.toMatchObject({
@@ -589,7 +665,9 @@ describe('remoteAccess/follow', () => {
     await expect(owner.next()).resolves.toEqual({ done: true, value: undefined })
 
     await ctx.plugin(RemoteAccessService)
-    await vi.waitFor(() => { expect(ctx.get('typertGateway')).toBeDefined() })
+    await vi.waitFor(() => {
+      expect(ctx.get('typertGateway')).toBeDefined()
+    })
     const reopened = await follow(ctx, GUEST)
     await expect(reopened.next()).resolves.toEqual({ type: 'baseline', owner: false, grants: [] })
     await reopened.stop()
@@ -599,7 +677,10 @@ describe('remoteAccess/follow', () => {
     const { ctx, access } = await setup()
     access.registerPolicy('test-guest', new GuestPolicy())
     const abort = new AbortController()
-    const stream = ctx.extend({ invocation: invocationOf(ctx, GUEST) }).remoteAccess.follow(abort.signal)[Symbol.asyncIterator]()
+    const stream = ctx
+      .extend({ invocation: invocationOf(ctx, GUEST) })
+      .remoteAccess.follow(abort.signal)
+      [Symbol.asyncIterator]()
     await expect(stream.next()).resolves.toMatchObject({ value: { type: 'baseline', owner: false } })
     const pending = stream.next()
     abort.abort()

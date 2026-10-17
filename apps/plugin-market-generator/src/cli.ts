@@ -34,7 +34,7 @@ interface Options {
 
 /** A positive integer option value, at most `max` when one is given. */
 function integer(max?: number): (value: string) => number {
-  return (value) => {
+  return value => {
     const parsed = Number(value)
     if (!Number.isInteger(parsed) || parsed < 1 || (max !== undefined && parsed > max)) {
       throw new InvalidArgumentError(`must be a positive integer${max === undefined ? '' : ` up to ${String(max)}`}`)
@@ -47,17 +47,26 @@ function program(): Command {
   return new Command('plugin-market-generator')
     .description('Write a plugin market index from a list of npm packages and Git repositories.')
     .requiredOption('--input <file>', 'source list: one npm package name or https Git URL per line; lines starting with # are comments')
-    .requiredOption('--output <file>', 'index file to write; large icons go to icons/ beside it, and stale generated icons there are removed')
+    .requiredOption(
+      '--output <file>',
+      'index file to write; large icons go to icons/ beside it, and stale generated icons there are removed',
+    )
     .requiredOption('--title <text>', 'market title')
     .option('--description <text>', 'market description')
     .option('--cache <dir>', 'cache directory (default: .plugin-market-cache beside the input list)')
     .option('--registry <url>', 'npm registry', PUBLIC_REGISTRY)
-    .addOption(new Option('--inline-icon-bytes <n>', `largest icon embedded as a data URL, at most ${String(MAX_INLINE_ICON_BYTES)}`)
-      .argParser(integer(MAX_INLINE_ICON_BYTES)).default(16384))
+    .addOption(
+      new Option('--inline-icon-bytes <n>', `largest icon embedded as a data URL, at most ${String(MAX_INLINE_ICON_BYTES)}`)
+        .argParser(integer(MAX_INLINE_ICON_BYTES))
+        .default(16384),
+    )
     .addOption(new Option('--concurrency <n>', 'sources read at once').argParser(integer()).default(4))
     .addOption(new Option('--timeout-ms <n>', 'deadline for one request or git command').argParser(integer()).default(60000))
     .helpOption('-h, --help', 'show this help')
-    .addHelpText('after', '\nExit status: 0 when every source was read, 1 when some source fell back to its cached result or was omitted,\n2 for invalid arguments or input.')
+    .addHelpText(
+      'after',
+      '\nExit status: 0 when every source was read, 1 when some source fell back to its cached result or was omitted,\n2 for invalid arguments or input.',
+    )
     .showHelpAfterError('(run with --help for usage)')
     .exitOverride()
 }
@@ -74,11 +83,13 @@ async function run(options: Options): Promise<number> {
     registry,
     recordRegistry: registry !== PUBLIC_REGISTRY,
     title: options.title,
-    ...options.description === undefined ? {} : { description: options.description },
+    ...(options.description === undefined ? {} : { description: options.description }),
     inlineIconBytes: options.inlineIconBytes,
     limits: { timeoutMs: options.timeoutMs, maxTarballBytes: 64 * 1024 * 1024 },
     concurrency: options.concurrency,
-    warn: (message) => { console.error(`warning: ${message}`) },
+    warn: message => {
+      console.error(`warning: ${message}`)
+    },
   })
   for (const [path, cached] of result.icons) writeIfChanged(join(dirname(output), path), readFileSync(cached))
   const iconDir = join(dirname(output), 'icons')
@@ -100,7 +111,9 @@ async function run(options: Options): Promise<number> {
 export async function main(argv: readonly string[]): Promise<number> {
   let options: Options
   try {
-    options = program().parse([...argv], { from: 'user' }).opts<Options>()
+    options = program()
+      .parse([...argv], { from: 'user' })
+      .opts<Options>()
   } catch (error) {
     // Commander has already printed the help or the parse error.
     if (!(error instanceof CommanderError)) throw error

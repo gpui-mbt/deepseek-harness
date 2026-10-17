@@ -15,7 +15,21 @@ export function prepareCommandLink(destination: string, arch: 'arm64' | 'x64', m
     throw new Error('desktop command link: a macOS host and Electron minimum version are required')
   }
   mkdirSync(destination, { recursive: true })
-  execFileSync('clang', ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
-    '-arch', arch === 'arm64' ? 'arm64' : 'x86_64', '-mmacosx-version-min=' + minimumVersion,
-    join(import.meta.dirname, '..', 'cli', 'link-entry.c'), '-o', join(destination, 'link-entry')], { stdio: 'inherit' })
+  execFileSync(
+    'clang',
+    [
+      '-std=c11',
+      '-O2',
+      '-Wall',
+      '-Wextra',
+      '-Werror',
+      '-arch',
+      arch === 'arm64' ? 'arm64' : 'x86_64',
+      '-mmacosx-version-min=' + minimumVersion,
+      join(import.meta.dirname, '..', 'cli', 'link-entry.c'),
+      '-o',
+      join(destination, 'link-entry'),
+    ],
+    { stdio: 'inherit' },
+  )
 }

@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { LinkIconMedium, WebBlock as LocalizedWebBlock } from '../src/index.ts'
-import type {
-  WebFetchBlockProps, WebSearchBlockProps, WebSourceView,
-} from '../src/index.ts'
+import type { WebFetchBlockProps, WebSearchBlockProps, WebSourceView } from '../src/index.ts'
 import { webBlockLabels } from './labels.client.ts'
 
-type WebBlockProps =
-  | Omit<WebSearchBlockProps, 'labels'>
-  | Omit<WebFetchBlockProps, 'labels'>
+type WebBlockProps = Omit<WebSearchBlockProps, 'labels'> | Omit<WebFetchBlockProps, 'labels'>
 
 function WebSearchBlock(props: Omit<WebSearchBlockProps, 'labels'>) {
   return <LocalizedWebBlock {...props} labels={webBlockLabels} />
@@ -21,9 +17,7 @@ function WebFetchBlock(props: Omit<WebFetchBlockProps, 'labels'>) {
 }
 
 function WebBlock(props: WebBlockProps) {
-  return props.kind === 'search'
-    ? <WebSearchBlock {...props} />
-    : <WebFetchBlock {...props} />
+  return props.kind === 'search' ? <WebSearchBlock {...props} /> : <WebFetchBlock {...props} />
 }
 
 afterEach(cleanup)
@@ -76,11 +70,17 @@ describe('WebBlock search card', () => {
   })
 
   it('labels a source by its title, and by hostname when the title is absent', () => {
-    const view = render(<WebBlock kind="search" truncated={false} sources={[
-      { url: 'https://example.com/a', title: 'Titled' },
-      { url: 'https://plain.example.org/b' },
-      { url: 'https://empty.example.net/c', title: '' },
-    ]} />)
+    const view = render(
+      <WebBlock
+        kind="search"
+        truncated={false}
+        sources={[
+          { url: 'https://example.com/a', title: 'Titled' },
+          { url: 'https://plain.example.org/b' },
+          { url: 'https://empty.example.net/c', title: '' },
+        ]}
+      />,
+    )
     expect(view.getByText('Titled')).toBeTruthy()
     // No title / empty title: the hostname labels the link.
     expect(view.getByText('plain.example.org')).toBeTruthy()
@@ -91,16 +91,12 @@ describe('WebBlock search card', () => {
     // file:/data:/javascript: URLs parse but have no hostname; the label must
     // fall back to the raw URL so it is never blank (and the link stays plain
     // text since the protocol is not http(s)).
-    const view = render(<WebBlock kind="search" truncated={false} sources={[
-      { url: 'file:///etc/passwd' },
-    ]} />)
+    const view = render(<WebBlock kind="search" truncated={false} sources={[{ url: 'file:///etc/passwd' }]} />)
     expect(view.getByText('file:///etc/passwd')).toBeTruthy()
   })
 
   it('renders a source as a safe external anchor for an http(s) url', () => {
-    const view = render(<WebBlock kind="search" truncated={false} sources={[
-      { url: 'https://example.com/a', title: 'Titled' },
-    ]} />)
+    const view = render(<WebBlock kind="search" truncated={false} sources={[{ url: 'https://example.com/a', title: 'Titled' }]} />)
     const anchor = view.getByText('Titled') as HTMLAnchorElement
     expect(anchor.tagName).toBe('A')
     expect(anchor.getAttribute('href')).toBe('https://example.com/a')
@@ -111,22 +107,19 @@ describe('WebBlock search card', () => {
   it("leads a source and a fetched url on a known site with that site's mark", () => {
     /** The mark a link leads with, as its path data. */
     const mark = (element: Element): string | null => element.querySelector('a svg path')!.getAttribute('d')
-    const view = render(<WebBlock kind="search" truncated={false} sources={[
-      { url: 'https://github.com/org/repo', title: 'Repo' },
-    ]} />)
+    const view = render(<WebBlock kind="search" truncated={false} sources={[{ url: 'https://github.com/org/repo', title: 'Repo' }]} />)
     expect(mark(view.container)).toBe(glyphMark('https://github.com/a'))
     // An unmapped host keeps the globe, as does the fetch card's URL.
-    expect(mark(render(<WebBlock kind="search" sources={sources(1)} truncated={false} />).container))
-      .toBe(glyphMark(undefined))
-    expect(mark(render(<WebBlock kind="fetch" url="https://news.ycombinator.com/item?id=1" statusCode={200} truncated={false} />).container))
-      .toBe(glyphMark('https://news.ycombinator.com/item?id=2'))
+    expect(mark(render(<WebBlock kind="search" sources={sources(1)} truncated={false} />).container)).toBe(glyphMark(undefined))
+    expect(
+      mark(render(<WebBlock kind="fetch" url="https://news.ycombinator.com/item?id=1" statusCode={200} truncated={false} />).container),
+    ).toBe(glyphMark('https://news.ycombinator.com/item?id=2'))
   })
 
   it('renders a non-http url as plain text with no href, and its raw text label when unparseable', () => {
-    const view = render(<WebBlock kind="search" truncated={false} sources={[
-      { url: 'javascript:alert(1)', title: 'Dangerous' },
-      { url: 'not a url' },
-    ]} />)
+    const view = render(
+      <WebBlock kind="search" truncated={false} sources={[{ url: 'javascript:alert(1)', title: 'Dangerous' }, { url: 'not a url' }]} />,
+    )
     const unsafe = view.getByText('Dangerous')
     expect(unsafe.tagName).toBe('SPAN')
     expect(unsafe.getAttribute('href')).toBeNull()
@@ -137,11 +130,17 @@ describe('WebBlock search card', () => {
   })
 
   it('shows a source snippet and publication date when present, and omits them when absent or empty', () => {
-    const view = render(<WebBlock kind="search" truncated={false} sources={[
-      { url: 'https://a.example.com', title: 'A', snippet: 'excerpt', publishedAt: '2026-07-01' },
-      { url: 'https://b.example.com', title: 'B', snippet: '', publishedAt: '' },
-      { url: 'https://c.example.com', title: 'C' },
-    ]} />)
+    const view = render(
+      <WebBlock
+        kind="search"
+        truncated={false}
+        sources={[
+          { url: 'https://a.example.com', title: 'A', snippet: 'excerpt', publishedAt: '2026-07-01' },
+          { url: 'https://b.example.com', title: 'B', snippet: '', publishedAt: '' },
+          { url: 'https://c.example.com', title: 'C' },
+        ]}
+      />,
+    )
     expect(view.getByText('excerpt')).toBeTruthy()
     expect(view.getByText('2026-07-01')).toBeTruthy()
     // The empty-string and absent arms both draw nothing beyond the link.

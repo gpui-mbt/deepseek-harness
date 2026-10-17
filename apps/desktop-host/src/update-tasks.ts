@@ -14,10 +14,10 @@ import type {} from '@deepseek-ai/dsh-client-connection'
  * @returns true when any of those conditions holds.
  */
 export function hasDesktopActiveTasks(liveAgents: ReturnType<Context['agents']['list']>, jobs: Context['jobs']): boolean {
-  return liveAgents.some(agent => agent.status === 'running'
-    || agent.inbox.nextTurn.length > 0 || agent.inbox.nextStep.length > 0)
-    || [undefined, ...liveAgents].some(agent => jobs.list(agent?.id)
-      .some(job => job.status === 'running' || job.status === 'stopping'))
+  return (
+    liveAgents.some(agent => agent.status === 'running' || agent.inbox.nextTurn.length > 0 || agent.inbox.nextStep.length > 0) ||
+    [undefined, ...liveAgents].some(agent => jobs.list(agent?.id).some(job => job.status === 'running' || job.status === 'stopping'))
+  )
 }
 
 /**
@@ -29,7 +29,9 @@ export function installDesktopUpdateTaskControl(ctx: Context): (action: 'inspect
   let locked = false
   let lockGeneration = 0
   let stopped = false
-  ctx.effect(() => () => { stopped = true })
+  ctx.effect(() => () => {
+    stopped = true
+  })
   const pendingRequests = new Set<Promise<void>>()
   ctx.on('connection/request', async (_request, response, next) => {
     if (locked) {
@@ -39,12 +41,19 @@ export function installDesktopUpdateTaskControl(ctx: Context): (action: 'inspect
     }
     const finished = Promise.withResolvers<void>()
     pendingRequests.add(finished.promise)
-    try { await next() }
-    finally { pendingRequests.delete(finished.promise); finished.resolve() }
+    try {
+      await next()
+    } finally {
+      pendingRequests.delete(finished.promise)
+      finished.resolve()
+    }
   })
-  return async (action) => {
+  return async action => {
     if (stopped) throw new Error('desktop update: Host is stopping')
-    if (action === 'unlock') { locked = false; lockGeneration++ }
+    if (action === 'unlock') {
+      locked = false
+      lockGeneration++
+    }
     const agents = ctx.get('agents')
     const jobs = ctx.get('jobs')
     if (agents === undefined || jobs === undefined) throw new Error('desktop update: task services are unavailable')

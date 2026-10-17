@@ -11,14 +11,12 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { LAUNCHER_FAILURE_EXIT } from '@deepseek-ai/node-addon-system/landlock-run'
 import { SANDBOX_UNAVAILABLE, SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
-import {
-  LocalSandboxProvider,
-} from '@deepseek-ai/dsh-sandbox-local'
+import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
 import type { Config } from '@deepseek-ai/dsh-sandbox-local'
 import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from '../src/profiles.ts'
 
@@ -56,7 +54,9 @@ function fakeLauncher(report = 'landlock: fully enforced'): string {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-landlock-'))
   tempDirs.push(dir)
   const launcher = join(dir, 'landlock-run')
-  writeFileSync(launcher, `#!/bin/sh\nif [ "$1" = "--probe" ]; then echo "${report}"; exit 0; fi\nexit ${LAUNCHER_FAILURE_EXIT}\n`, { mode: 0o755 })
+  writeFileSync(launcher, `#!/bin/sh\nif [ "$1" = "--probe" ]; then echo "${report}"; exit 0; fi\nexit ${LAUNCHER_FAILURE_EXIT}\n`, {
+    mode: 0o755,
+  })
   return launcher
 }
 
@@ -79,8 +79,20 @@ describe('profile dialects', () => {
 
   it('bwrap workspace-write: adds an ephemeral /tmp and rebinds the workspace root', () => {
     expect(bwrapProfileArgs(WW)).toEqual([
-      '--ro-bind', '/', '/', '--dev', '/dev', '--unshare-pid', '--proc', '/proc', '--die-with-parent',
-      '--tmpfs', '/tmp', '--bind', '/ws', '/ws',
+      '--ro-bind',
+      '/',
+      '/',
+      '--dev',
+      '/dev',
+      '--unshare-pid',
+      '--proc',
+      '/proc',
+      '--die-with-parent',
+      '--tmpfs',
+      '/tmp',
+      '--bind',
+      '/ws',
+      '/ws',
     ])
   })
 
@@ -122,10 +134,13 @@ describe('runnerCommand config', () => {
     const probeBwrap = vi.fn(() => false)
     const probeLandlock = vi.fn(() => 'unusable' as const)
     const probeSeatbelt = vi.fn(() => false)
-    const { sandbox } = await setup({
-      runnerCommand: ['fake-runner', '--flag'],
-      runnerFailureSignatures: ['fake-runner: profile rejected'],
-    }, { probeBwrap, probeLandlock, probeSeatbelt })
+    const { sandbox } = await setup(
+      {
+        runnerCommand: ['fake-runner', '--flag'],
+        runnerFailureSignatures: ['fake-runner: profile rejected'],
+      },
+      { probeBwrap, probeLandlock, probeSeatbelt },
+    )
     const confined = await sandbox.confine(['bash', '-c', 'echo hi'], WW)
     expect(confined).toEqual({
       argv: ['fake-runner', '--flag', ...bwrapProfileArgs(WW), '--', 'bash', '-c', 'echo hi'],
@@ -154,19 +169,14 @@ describe('runnerCommand config', () => {
   })
 
   it('rejects runner failure signatures when no custom runner consumes them', async () => {
-    await expect(setup({ runnerFailureSignatures: ['profile rejected'] })).rejects.toThrow(
-      'runnerFailureSignatures requires runnerCommand',
-    )
+    await expect(setup({ runnerFailureSignatures: ['profile rejected'] })).rejects.toThrow('runnerFailureSignatures requires runnerCommand')
   })
 
-  it.each(['  ', 'fatal\ncontinued', 'fatal\rcontinued'])(
-    'rejects an unusable configured-runner failure signature %j',
-    async (signature) => {
-      await expect(setup({ runnerCommand: ['fake-runner'], runnerFailureSignatures: [signature] })).rejects.toThrow(
-        'runnerFailureSignatures entries must be non-empty single-line strings',
-      )
-    },
-  )
+  it.each(['  ', 'fatal\ncontinued', 'fatal\rcontinued'])('rejects an unusable configured-runner failure signature %j', async signature => {
+    await expect(setup({ runnerCommand: ['fake-runner'], runnerFailureSignatures: [signature] })).rejects.toThrow(
+      'runnerFailureSignatures entries must be non-empty single-line strings',
+    )
+  })
 })
 
 describe('the platform chains', () => {
@@ -194,11 +204,13 @@ describe('the platform chains', () => {
       argv: [launcher, ...landlockProfileArgs(WW), '--', 'bash', '-c', 'echo hi'],
       enforcement: 'full',
       denialSignatures: ['permission denied'],
-      runnerFailureRules: [{
-        allowedExitCodes: [LAUNCHER_FAILURE_EXIT],
-        fatalSignatures: ['landlock-run: '],
-        informationalLines: ['landlock-run: partial enforcement (older Landlock ABI)'],
-      }],
+      runnerFailureRules: [
+        {
+          allowedExitCodes: [LAUNCHER_FAILURE_EXIT],
+          fatalSignatures: ['landlock-run: '],
+          informationalLines: ['landlock-run: partial enforcement (older Landlock ABI)'],
+        },
+      ],
     })
     expect(probeLandlock).toHaveBeenCalledWith(launcher)
   })
@@ -224,7 +236,9 @@ describe('the platform chains', () => {
     const probeLandlock = vi.fn(() => 'full' as const)
     const probeSeatbelt = vi.fn(() => true)
     const { sandbox } = await setup({}, { platform: 'freebsd', probeBwrap, probeLandlock, probeSeatbelt })
-    await expect(sandbox.confine(['true'], RO)).rejects.toThrow(expect.objectContaining({ name: 'SandboxUnavailableError', code: SANDBOX_UNAVAILABLE }))
+    await expect(sandbox.confine(['true'], RO)).rejects.toThrow(
+      expect.objectContaining({ name: 'SandboxUnavailableError', code: SANDBOX_UNAVAILABLE }),
+    )
     expect(probeBwrap).not.toHaveBeenCalled()
     expect(probeLandlock).not.toHaveBeenCalled()
     expect(probeSeatbelt).not.toHaveBeenCalled()
@@ -247,7 +261,9 @@ describe('the platform chains', () => {
     const probeBwrap = vi.fn(() => false)
     const probeLandlock = vi.fn(() => 'unusable' as const)
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap, probeLandlock })
-    await expect(sandbox.confine(['true'], RO)).rejects.toThrow(expect.objectContaining({ name: 'SandboxUnavailableError', code: SANDBOX_UNAVAILABLE }))
+    await expect(sandbox.confine(['true'], RO)).rejects.toThrow(
+      expect.objectContaining({ name: 'SandboxUnavailableError', code: SANDBOX_UNAVAILABLE }),
+    )
     await expect(sandbox.confine(['true'], RO)).rejects.toThrow(SandboxUnavailableError)
     expect(probeBwrap).toHaveBeenCalledTimes(1)
     expect(probeLandlock).toHaveBeenCalledTimes(1)
@@ -266,7 +282,7 @@ describe('the platform chains', () => {
     expect(probeBwrap).toHaveBeenCalledTimes(1)
   })
 
-  it('a rogue chain entry throws via the probe walk\'s exhaustiveness guard (closed union)', async () => {
+  it("a rogue chain entry throws via the probe walk's exhaustiveness guard (closed union)", async () => {
     // Same convention as the wrap switch below: the union is closed, so a runner added later
     // fails to compile at the probe switch instead of silently selecting without a probe.
     const { sandbox } = await setup({}, { chain: ['chroot', 'bwrap'] as unknown as readonly ['bwrap'] })
@@ -338,8 +354,7 @@ describe('the default landlock probe (launcher CLI contract)', () => {
 describe('probeTimeoutMs config', () => {
   it('rejects 0 at construction: Node treats a 0 spawnSync timeout as UNBOUNDED, the opposite of the field', async () => {
     const ctx = new Context()
-    await expect(ctx.plugin(LocalSandboxProvider, { probeTimeoutMs: 0 }))
-      .rejects.toThrow(/probeTimeoutMs must be a positive finite number/)
+    await expect(ctx.plugin(LocalSandboxProvider, { probeTimeoutMs: 0 })).rejects.toThrow(/probeTimeoutMs must be a positive finite number/)
   })
 
   it('bounds the default probes: a launcher slower than the configured timeout reads as unusable', async () => {
@@ -353,16 +368,10 @@ describe('probeTimeoutMs config', () => {
     const launcher = join(dir, 'landlock-run')
     writeFileSync(launcher, '#!/bin/sh\nsleep 1\necho "landlock: fully enforced"\nexit 0\n', { mode: 0o755 })
 
-    const patient = await setup(
-      { probeTimeoutMs: 15_000 },
-      { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher },
-    )
+    const patient = await setup({ probeTimeoutMs: 15_000 }, { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher })
     expect((await patient.sandbox.confine(['true'], RO)).enforcement).toBe('full')
 
-    const impatient = await setup(
-      { probeTimeoutMs: 250 },
-      { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher },
-    )
+    const impatient = await setup({ probeTimeoutMs: 250 }, { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher })
     await expect(impatient.sandbox.confine(['true'], RO)).rejects.toThrow(expect.objectContaining({ code: SANDBOX_UNAVAILABLE }))
   }, 30_000)
 })
@@ -395,12 +404,15 @@ describe('the windows-acl probe (runner invocation contract)', () => {
   // through the chain seam, mirroring the seatbelt default-probe contract.
   it('selects the rung when the injected probe passes, speaking the ACL dialect', async () => {
     const probeWindowsAcl = vi.fn(() => true)
-    const { sandbox } = await setup({}, {
-      chain: ['windows-acl', 'bwrap'],
-      probeWindowsAcl,
-      probeBwrap: () => false,
-      windowsAclRunnerArgs: ['node', 'windows-acl-runner.js'],
-    })
+    const { sandbox } = await setup(
+      {},
+      {
+        chain: ['windows-acl', 'bwrap'],
+        probeWindowsAcl,
+        probeBwrap: () => false,
+        windowsAclRunnerArgs: ['node', 'windows-acl-runner.js'],
+      },
+    )
     const confined = await sandbox.confine(['true'], RO)
     expect(probeWindowsAcl).toHaveBeenCalledTimes(1)
     expect(confined.argv.slice(-4)).toEqual(['--mode', 'read-only', '--', 'true'])
@@ -433,11 +445,14 @@ describe('the windows-acl probe (runner invocation contract)', () => {
     // The absent entry pins the source-through-tsx arm regardless of build
     // state: on a checkout where build:lib:host has run, the real resolution
     // above takes the built-entry arm instead and would leave this uncovered.
-    const { sandbox } = await setup({}, {
-      chain: ['windows-acl', 'bwrap'],
-      probeWindowsAcl: () => true,
-      windowsAclRunnerEntry: absentRunnerEntry(),
-    })
+    const { sandbox } = await setup(
+      {},
+      {
+        chain: ['windows-acl', 'bwrap'],
+        probeWindowsAcl: () => true,
+        windowsAclRunnerEntry: absentRunnerEntry(),
+      },
+    )
     const confined = await sandbox.confine(['true'], RO)
     expect(confined.argv.slice(0, 2)).toEqual([process.execPath, '--import'])
     expect(confined.argv[2]).toMatch(/^data:text\/javascript,/)
@@ -448,11 +463,14 @@ describe('the windows-acl probe (runner invocation contract)', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'dsh-acl-source-cwd-'))
     tempDirs.push(cwd)
     writeFileSync(join(cwd, 'tsconfig.json'), '{ invalid workspace configuration')
-    const { sandbox } = await setup({}, {
-      chain: ['windows-acl', 'bwrap'],
-      probeWindowsAcl: () => true,
-      windowsAclRunnerEntry: absentRunnerEntry(),
-    })
+    const { sandbox } = await setup(
+      {},
+      {
+        chain: ['windows-acl', 'bwrap'],
+        probeWindowsAcl: () => true,
+        windowsAclRunnerEntry: absentRunnerEntry(),
+      },
+    )
     const { argv } = await sandbox.confine(['true'], RO)
     for (const ambientConfig of [undefined, join(cwd, 'absent-ambient-tsconfig.json')]) {
       const result = spawnSync(argv[0]!, argv.slice(1, 4), {
@@ -468,7 +486,7 @@ describe('the windows-acl probe (runner invocation contract)', () => {
     }
   }, 10_000)
 
-  it('reads an empty runner invocation as unusable (the probe\'s empty-argv guard)', async () => {
+  it("reads an empty runner invocation as unusable (the probe's empty-argv guard)", async () => {
     // windowsAclRunnerInvocation always yields [node, ...] in product; an
     // override returning [] exercises the default probe's empty-argv guard.
     const { sandbox } = await setup({}, { chain: ['windows-acl', 'bwrap'], probeBwrap: () => true, windowsAclRunnerArgs: [] })
@@ -481,11 +499,14 @@ describe('the windows-acl probe (runner invocation contract)', () => {
     tempDirs.push(dir)
     const builtEntry = join(dir, 'runner.js')
     writeFileSync(builtEntry, '')
-    const { sandbox } = await setup({}, {
-      chain: ['windows-acl', 'bwrap'],
-      probeWindowsAcl: () => true,
-      windowsAclRunnerEntry: builtEntry,
-    })
+    const { sandbox } = await setup(
+      {},
+      {
+        chain: ['windows-acl', 'bwrap'],
+        probeWindowsAcl: () => true,
+        windowsAclRunnerEntry: builtEntry,
+      },
+    )
     const confined = await sandbox.confine(['true'], RO)
     expect(confined.argv.slice(0, 2)).toEqual([process.execPath, builtEntry])
   })

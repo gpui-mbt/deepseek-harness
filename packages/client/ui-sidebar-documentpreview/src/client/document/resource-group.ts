@@ -7,7 +7,10 @@ export class ResourceGroup {
   private readonly members = new Map<string, () => void>()
 
   /** @param resources - shared file sources. @param changed - marks the owning preview stale. */
-  constructor(private readonly resources: Resources, private readonly changed: () => void) {}
+  constructor(
+    private readonly resources: Resources,
+    private readonly changed: () => void,
+  ) {}
 
   /**
    * Subscribe once; initial metadata establishes the baseline for later changes.

@@ -14,15 +14,31 @@ import { inspectSignaturesBatched } from './windows-signature-batch.mjs'
  */
 export async function inspectWindowsRuntimeSignature(path) {
   // Node can inherit PowerShell 7's module search path while launching Windows PowerShell 5.
-  const { stdout, stderr } = await promisify(execFile)('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-    '$ErrorActionPreference="Stop"; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1" -ErrorAction Stop; Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1" -ErrorAction Stop; $s=Get-AuthenticodeSignature -LiteralPath $env:DSH_RUNTIME_VERIFY_FILE; [pscustomobject]@{status=[string]$s.Status;timestamped=($null -ne $s.TimeStamperCertificate);thumbprint=$s.SignerCertificate.Thumbprint}|ConvertTo-Json -Compress'], {
-    env: { ...scrubWindowsSigningEnvironment(process.env), DSH_RUNTIME_VERIFY_FILE: path },
-    encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 * 1024,
-  })
+  const { stdout, stderr } = await promisify(execFile)(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      '$ErrorActionPreference="Stop"; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1" -ErrorAction Stop; Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1" -ErrorAction Stop; $s=Get-AuthenticodeSignature -LiteralPath $env:DSH_RUNTIME_VERIFY_FILE; [pscustomobject]@{status=[string]$s.Status;timestamped=($null -ne $s.TimeStamperCertificate);thumbprint=$s.SignerCertificate.Thumbprint}|ConvertTo-Json -Compress',
+    ],
+    {
+      env: { ...scrubWindowsSigningEnvironment(process.env), DSH_RUNTIME_VERIFY_FILE: path },
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60_000,
+      maxBuffer: 64 * 1024,
+    },
+  )
   const value = JSON.parse(stdout)
-  if (stderr || typeof value !== 'object' || value === null || typeof value.status !== 'string'
-    || typeof value.timestamped !== 'boolean'
-    || !(value.thumbprint === null || typeof value.thumbprint === 'string' && /^[A-F\d]{40}$/iu.test(value.thumbprint))) {
+  if (
+    stderr ||
+    typeof value !== 'object' ||
+    value === null ||
+    typeof value.status !== 'string' ||
+    typeof value.timestamped !== 'boolean' ||
+    !(value.thumbprint === null || (typeof value.thumbprint === 'string' && /^[A-F\d]{40}$/iu.test(value.thumbprint)))
+  ) {
     throw new Error(`Windows code: invalid signature inspection: ${path}`)
   }
   return { status: value.status, timestamped: value.timestamped, thumbprint: value.thumbprint }
@@ -39,7 +55,7 @@ export async function preserveWindowsRuntimeSignature(path, options) {
   if (!suffix || suffix === '..' || suffix.startsWith(`..${sep}`) || isAbsolute(suffix)) return false
   const source = join(options.sourceRoot, suffix)
   for (const file of [source, path]) {
-    if (await realpath(file) !== resolve(file)) throw new Error(`Windows code: linked copy is not signable: ${file}`)
+    if ((await realpath(file)) !== resolve(file)) throw new Error(`Windows code: linked copy is not signable: ${file}`)
   }
   const [prepared, copied] = await Promise.all([readFile(source), readFile(path)])
   if (!prepared.equals(copied)) throw new Error(`Windows code: copied executable changed: ${path}`)
@@ -61,7 +77,10 @@ export async function windowsRuntimeCode(root) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
     const path = join(root, entry.name)
     if (entry.isSymbolicLink()) throw new Error(`Windows code: directory links are not signable: ${path}`)
-    if (entry.isDirectory()) { files.push(...await windowsRuntimeCode(path)); continue }
+    if (entry.isDirectory()) {
+      files.push(...(await windowsRuntimeCode(path)))
+      continue
+    }
     if (!entry.isFile()) continue
     const file = await open(path, 'r')
     let portableExecutable = false
@@ -76,9 +95,12 @@ export async function windowsRuntimeCode(root) {
         const read = await file.read(signature, 0, 4, offset)
         portableExecutable = offset >= 64 && read.bytesRead === 4 && signature.readUInt32LE(0) === 0x4550
       }
-    } finally { await file.close() }
+    } finally {
+      await file.close()
+    }
     if (portableExecutable) files.push(path)
-    else if (windowsCandidate || ['.exe', '.dll', '.pyd'].includes(extname(path).toLowerCase())) throw new Error(`Windows code: invalid PE file: ${path}`)
+    else if (windowsCandidate || ['.exe', '.dll', '.pyd'].includes(extname(path).toLowerCase()))
+      throw new Error(`Windows code: invalid PE file: ${path}`)
   }
   return files.sort()
 }
@@ -118,7 +140,11 @@ export async function signWindowsCode(root, options) {
   options.record({ type: 'windows-code-signing-plan', files: files.length, unsigned: unsigned.length })
   async function verifySigned(path) {
     const signature = await inspect(path)
-    if (signature.status !== 'Valid' || !signature.timestamped || signature.thumbprint?.toUpperCase() !== options.thumbprint.toUpperCase()) {
+    if (
+      signature.status !== 'Valid' ||
+      !signature.timestamped ||
+      signature.thumbprint?.toUpperCase() !== options.thumbprint.toUpperCase()
+    ) {
       throw new Error(`Windows code: signing verification failed: ${path}`)
     }
     options.record({ type: 'windows-code-signature-verified', path, ...signature })
@@ -135,7 +161,9 @@ export async function signWindowsCode(root, options) {
             await verifySigned(path)
             restored.add(path)
           }
-        } catch (error) { failure ??= { error } }
+        } catch (error) {
+          failure ??= { error }
+        }
       }
     }
     await Promise.all(Array.from({ length: Math.min(options.cache.concurrency, unsigned.length) }, worker))

@@ -5,11 +5,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import type { SubprocessTerminalActivity } from '@deepseek-ai/dsh-subprocess'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import LocalSubprocessRuntime from '../src/index.ts'
 
 const cleanups: Array<() => Promise<void>> = []
-afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
+})
 
 /** Prompt every startup file in this spec prints; its repeats count the prompts a shell reached. */
 const PROMPT_MARKER = 'READY>'
@@ -21,12 +23,25 @@ async function shell(path: string, rc = '', envFile = '') {
   await writeFile(join(home, '.zshrc'), `PROMPT='${PROMPT_MARKER} '\n${rc}\n`)
   await writeFile(join(home, '.bashrc'), `PS1='${PROMPT_MARKER} '\n${rc}\n`)
   const ctx = new Context()
-  cleanups.push(async () => { await ctx.fiber.dispose() })
+  cleanups.push(async () => {
+    await ctx.fiber.dispose()
+  })
   await ctx.plugin(LocalSubprocessRuntime)
-  const handle = await ctx.subprocess.spawnTerminal({ argv: [path, '-i'], cwd: home, env: { HOME: home, ZDOTDIR: home }, rows: 24, cols: 80, terminalType: 'xterm-256color', graceMs: 200, shellActivity: true })
+  const handle = await ctx.subprocess.spawnTerminal({
+    argv: [path, '-i'],
+    cwd: home,
+    env: { HOME: home, ZDOTDIR: home },
+    rows: 24,
+    cols: 80,
+    terminalType: 'xterm-256color',
+    graceMs: 200,
+    shellActivity: true,
+  })
   cleanups.push(() => handle.terminate())
   let output = ''
-  handle.output.on('data', (data: Buffer) => { output += data.toString('utf8') })
+  handle.output.on('data', (data: Buffer) => {
+    output += data.toString('utf8')
+  })
   await expect.poll(() => output).toContain(PROMPT_MARKER)
   const prompts = (): number => output.split(PROMPT_MARKER).length - 1
   return { handle, home, prompts, output: () => output, activity: async () => (await handle.inspectActivity()).state }
@@ -42,7 +57,7 @@ function summarizeSamples(samples: readonly string[]): string {
     if (last?.sample === sample) last.count += 1
     else groups.push({ sample, count: 1 })
   }
-  const rendered = groups.map(group => group.count === 1 ? group.sample : `${group.sample} x${group.count}`)
+  const rendered = groups.map(group => (group.count === 1 ? group.sample : `${group.sample} x${group.count}`))
   return rendered.length <= 8 ? rendered.join(' ') : `${rendered.slice(0, 6).join(' ')} … ${rendered.slice(-2).join(' ')}`
 }
 
@@ -57,15 +72,20 @@ async function expectActivity(h: Shell, expected: SubprocessTerminalActivity['st
   const observed: string[] = []
   const promptsBefore = h.prompts()
   try {
-    await expect.poll(async () => {
-      const activity = await h.handle.inspectActivity()
-      observed.push(`${activity.state}:${activity.revision}`)
-      return activity.state
-    }).toBe(expected)
+    await expect
+      .poll(async () => {
+        const activity = await h.handle.inspectActivity()
+        observed.push(`${activity.state}:${activity.revision}`)
+        return activity.state
+      })
+      .toBe(expected)
   } catch (cause) {
     const prompts = h.prompts() - promptsBefore
     const samples = observed.length === 0 ? 'no sample' : summarizeSamples(observed)
-    throw new Error(`${label === undefined ? 'terminal activity' : `terminal activity for "${label}"`} reported state:revision ${samples} with ${prompts} further prompt${prompts === 1 ? '' : 's'} instead of reaching ${expected}`, { cause })
+    throw new Error(
+      `${label === undefined ? 'terminal activity' : `terminal activity for "${label}"`} reported state:revision ${samples} with ${prompts} further prompt${prompts === 1 ? '' : 's'} instead of reaching ${expected}`,
+      { cause },
+    )
   }
 }
 
@@ -142,8 +162,11 @@ describe.skipIf(process.platform === 'win32' || !existsSync('/bin/bash'))('Bash 
     await expect.poll(() => h.output()).toContain('VERSION:')
     await expect.poll(() => /VERSION:\d+\.\d+/u.test(h.output())).toBe(true)
     const version = /VERSION:(\d+)\.(\d+)/u.exec(h.output())
-    const supported = Number(version?.[1]) > 4 || Number(version?.[1]) === 4 && Number(version?.[2]) >= 4
-    if (!supported) { expect(await h.activity()).toBe('unknown'); return }
+    const supported = Number(version?.[1]) > 4 || (Number(version?.[1]) === 4 && Number(version?.[2]) >= 4)
+    if (!supported) {
+      expect(await h.activity()).toBe('unknown')
+      return
+    }
     await expectActivity(h, 'idle')
     for (const command of ['sleep 600', 'while :; do :; done', 'read answer']) {
       await h.handle.write(`${command}\r`)

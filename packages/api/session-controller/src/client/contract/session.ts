@@ -23,9 +23,9 @@ import type { PendingSubmissionAttachment, SessionSnapshot } from './snapshot.ts
  */
 export type PendingSubmissionRetirement =
   | {
-    readonly reason: 'observed'
-    readonly attachments: readonly (ImageAttachmentRef | FileAttachmentRef)[]
-  }
+      readonly reason: 'observed'
+      readonly attachments: readonly (ImageAttachmentRef | FileAttachmentRef)[]
+    }
   | { readonly reason: 'failed' }
 
 /** Input registering one local submission echo ahead of its prompt call. */
@@ -95,9 +95,7 @@ export interface ISession {
    * @param attachmentId - opaque id found in the folded session log.
    * @returns the authenticated reference and decoded bytes.
    */
-  readAttachment(
-    attachmentId: AttachmentIdType,
-  ): Promise<RemoteResult<{ attachment: ImageAttachmentRef; data: Uint8Array }>>
+  readAttachment(attachmentId: AttachmentIdType): Promise<RemoteResult<{ attachment: ImageAttachmentRef; data: Uint8Array }>>
   /**
    * Apply one edit, remove, or Steer action to a still-pending queue occurrence.
    * @param itemId - agent-owned inbox occurrence identity.

@@ -7,11 +7,7 @@ import type {
   ClientSourceResponseFrame,
   ClientSourceResult,
 } from '../../shared/bridge/messages/sources/index.ts'
-import {
-  inspectorId,
-  type ClientSourceRequestId,
-  type ClientSourceSessionId,
-} from '../../shared/bridge/ids.ts'
+import { inspectorId, type ClientSourceRequestId, type ClientSourceSessionId } from '../../shared/bridge/ids.ts'
 import { INSPECTOR_PROTOCOL_VERSION, type InspectorSourceDescriptor } from '../../shared/bridge/messages/observation.ts'
 import { sendClientSessionClosed } from './session.ts'
 import type { InspectorSourceEvent, InspectorSourceRegistry } from './hub.ts'
@@ -27,7 +23,10 @@ interface PendingSourceRequest {
 
 /** Deliberate error returned by the Client source catalog. */
 export class ClientSourceRemoteError extends Error {
-  constructor(readonly code: ClientSourceError['code'], message: string) {
+  constructor(
+    readonly code: ClientSourceError['code'],
+    message: string,
+  ) {
     super(message)
   }
 }
@@ -46,8 +45,10 @@ export class ClientSourceRouter {
     readonly maxContentBytes: number,
     maxFrameBytes: number,
   ) {
-    this.chunkBytes = Math.max(1, Math.floor((maxFrameBytes - 4_096) * 3 / 4))
-    this.unsubscribeSources = sources.subscribeEvents((event) => { this.receiveSourceEvent(event) })
+    this.chunkBytes = Math.max(1, Math.floor(((maxFrameBytes - 4_096) * 3) / 4))
+    this.unsubscribeSources = sources.subscribeEvents(event => {
+      this.receiveSourceEvent(event)
+    })
   }
 
   /**
@@ -57,11 +58,7 @@ export class ClientSourceRouter {
    * @param command - Validated read-only source command.
    * @returns The correlated result.
    */
-  request(
-    source: InspectorSourceDescriptor,
-    sessionId: ClientSourceSessionId,
-    command: ClientSourceCommand,
-  ): Promise<ClientSourceResult> {
+  request(source: InspectorSourceDescriptor, sessionId: ClientSourceSessionId, command: ClientSourceCommand): Promise<ClientSourceResult> {
     if (this.closed) return Promise.reject(new Error('Client source router is closed'))
     const requestId = inspectorId<'ClientSourceRequestId'>(randomUUID(), 'requestId')
     return new Promise((resolve, reject) => {
@@ -95,9 +92,8 @@ export class ClientSourceRouter {
    */
   closeSession(source: InspectorSourceDescriptor, sessionId: ClientSourceSessionId): void {
     for (const [requestId, pending] of this.pending) {
-      if (pending.source.sourceId !== source.sourceId
-        || pending.source.generation !== source.generation
-        || pending.sessionId !== sessionId) continue
+      if (pending.source.sourceId !== source.sourceId || pending.source.generation !== source.generation || pending.sessionId !== sessionId)
+        continue
       this.rejectPending(requestId, new Error('DevTools source session closed'))
     }
     sendClientSessionClosed(this.sources, source, {
@@ -123,8 +119,7 @@ export class ClientSourceRouter {
     switch (event.type) {
       case 'closed':
         for (const [requestId, pending] of this.pending) {
-          if (pending.source.sourceId === event.source.sourceId
-            && pending.source.generation === event.source.generation) {
+          if (pending.source.sourceId === event.source.sourceId && pending.source.generation === event.source.generation) {
             this.rejectPending(requestId, new Error(`Client source closed: ${event.reason}`))
           }
         }
@@ -144,17 +139,16 @@ export class ClientSourceRouter {
   private settle(source: InspectorSourceDescriptor, frame: ClientSourceResponseFrame): void {
     const pending = this.pending.get(frame.requestId)
     if (pending === undefined) return
-    if (pending.source.sourceId !== source.sourceId
-      || pending.source.generation !== source.generation
-      || pending.sessionId !== frame.sessionId) {
+    if (
+      pending.source.sourceId !== source.sourceId ||
+      pending.source.generation !== source.generation ||
+      pending.sessionId !== frame.sessionId
+    ) {
       this.rejectPending(frame.requestId, new Error('Client source response correlation mismatch'))
       return
     }
     if (!frame.outcome.ok) {
-      this.rejectPending(
-        frame.requestId,
-        new ClientSourceRemoteError(frame.outcome.error.code, frame.outcome.error.message),
-      )
+      this.rejectPending(frame.requestId, new ClientSourceRemoteError(frame.outcome.error.code, frame.outcome.error.message))
       return
     }
     if (!matchesCommand(pending.command, frame.outcome.result)) {
@@ -178,9 +172,9 @@ export class ClientSourceRouter {
 function matchesCommand(command: ClientSourceCommand, result: ClientSourceResult): boolean {
   if (command.op !== result.op) return false
   if (command.op === 'list-scripts' || result.op === 'list-scripts') return true
-  return result.scriptKey === command.scriptKey
-    && result.content === command.content
-    && (!result.available || result.offset === command.offset)
+  return (
+    result.scriptKey === command.scriptKey && result.content === command.content && (!result.available || result.offset === command.offset)
+  )
 }
 
 function renderError(error: unknown): Error {

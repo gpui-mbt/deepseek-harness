@@ -39,7 +39,9 @@ for (const [path, ceiling] of Object.entries(manifest)) {
   const words = countWords(readFileSync(abs, 'utf8'))
   rows.push(`${words <= ceiling ? 'ok  ' : 'OVER'}  ${String(words).padStart(6)} / ${String(ceiling).padEnd(6)} ${path}`)
   if (words > ceiling) {
-    failures.push(`${path}: ${words} words exceeds the ${ceiling}-word ceiling — relocate or condense per docs/AGENTS.md (raising the ceiling requires justification in the PR)`)
+    failures.push(
+      `${path}: ${words} words exceeds the ${ceiling}-word ceiling — relocate or condense per docs/AGENTS.md (raising the ceiling requires justification in the PR)`,
+    )
   }
 }
 

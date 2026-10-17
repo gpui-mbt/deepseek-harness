@@ -23,9 +23,7 @@ import { groupOptions } from './option-groups.ts'
  * is unchanged, an enter-path line iff the trimmed draft still equals the
  * bare token.
  */
-export type TokenSegment =
-  | { readonly via: 'menu'; readonly span: TokenSpan }
-  | { readonly via: 'enter'; readonly token: string }
+export type TokenSegment = { readonly via: 'menu'; readonly span: TokenSpan } | { readonly via: 'enter'; readonly token: string }
 
 /**
  * Structural business spec the shell settles against — the popupSelect half
@@ -87,8 +85,18 @@ export interface PopupState {
 }
 
 const CLOSED: PopupState = {
-  open: false, command: null, status: 'pending', options: [], search: '', searchLabels: null, searchMode: 'substring', active: 0,
-  submitting: false, confirming: null, acknowledged: false, error: null,
+  open: false,
+  command: null,
+  status: 'pending',
+  options: [],
+  search: '',
+  searchLabels: null,
+  searchMode: 'substring',
+  active: 0,
+  submitting: false,
+  confirming: null,
+  acknowledged: false,
+  error: null,
 }
 
 /**
@@ -100,16 +108,21 @@ const CLOSED: PopupState = {
  * @returns the original option objects in the order shown and used for selection.
  */
 export function filterOptions(
-  options: readonly SelectOption[], search: string, mode: PopupSearchMode = 'substring',
+  options: readonly SelectOption[],
+  search: string,
+  mode: PopupSearchMode = 'substring',
 ): readonly SelectOption[] {
   const query = search.trim().toLowerCase()
   const groups = groupOptions(options)
   const ordered = groups.some(group => group.group !== undefined) ? groups.flatMap(group => group.rows) : options
   if (query === '') return ordered
   if (mode === 'fuzzy-label') {
-    return groups.flatMap(group => rankByName(
-      group.rows.map(option => ({ name: option.label, option })), query,
-    ).map(row => row.option))
+    return groups.flatMap(group =>
+      rankByName(
+        group.rows.map(option => ({ name: option.label, option })),
+        query,
+      ).map(row => row.option),
+    )
   }
   return ordered.filter(o => o.label.toLowerCase().includes(query) || (o.detail?.toLowerCase().includes(query) ?? false))
 }
@@ -180,10 +193,16 @@ export class PopupSelectController<TCtx = unknown> {
   /** Run the one options fetch of a binding; settlement rights die with the binding. */
   private load(binding: OpenBinding<TCtx>): void {
     binding.spec.options(binding.context, binding.abort.signal).then(
-      (options) => {
+      options => {
         if (this.binding !== binding) return
         const current = this.state.getSnapshot()
-        this.state.set({ ...current, status: 'ready', options, active: currentIndex(options, current.search, current.searchMode), error: null })
+        this.state.set({
+          ...current,
+          status: 'ready',
+          options,
+          active: currentIndex(options, current.search, current.searchMode),
+          error: null,
+        })
       },
       (error: unknown) => {
         if (this.binding !== binding) return

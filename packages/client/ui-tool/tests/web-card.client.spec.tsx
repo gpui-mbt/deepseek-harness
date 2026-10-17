@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -15,7 +15,6 @@ import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.t
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 
 afterEach(cleanup)
-
 
 const t = makeTranslate(zh, commonZh)
 
@@ -47,38 +46,63 @@ const searchMeta = (over?: Partial<SearchMeta>): SearchMeta => ({
 
 /** Persisted web_fetch result metadata. */
 const fetchMeta = (over?: Partial<FetchMeta>): FetchMeta => ({
-  url: 'https://example.com/page', statusCode: 200, truncated: false, ...over,
+  url: 'https://example.com/page',
+  statusCode: 200,
+  truncated: false,
+  ...over,
 })
 
 const runningSearch = (over?: Partial<StartedToolCall>): StartedToolCall => {
   const argsRaw = over?.argsRaw ?? SEARCH_ARGS
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'c1', name: 'web_search', argsRaw,
-    turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'c1',
+    name: 'web_search',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 1_000,
+    subCalls: [],
+    ...over,
   }
 }
 
 const settledSearch = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'web_search', argsRaw: SEARCH_ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
-    content: [{ type: 'text', text: 'search text' }], isError: false,
-    meta: searchMeta(), subCalls: [], ...over,
+    content: [{ type: 'text', text: 'search text' }],
+    isError: false,
+    meta: searchMeta(),
+    subCalls: [],
+    ...over,
   }
 }
 
 const settledFetch = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'web_fetch', argsRaw: FETCH_ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 11, time: 2_000, callId: 'c2',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 11,
+    time: 2_000,
+    callId: 'c2',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
-    content: [{ type: 'text', text: 'fetch body' }], isError: false,
-    meta: fetchMeta(), subCalls: [], ...over,
+    content: [{ type: 'text', text: 'fetch body' }],
+    isError: false,
+    meta: fetchMeta(),
+    subCalls: [],
+    ...over,
   }
 }
 
@@ -102,10 +126,17 @@ describe('webCardModel', () => {
 
   it('derives a fetch card from result metadata', () => {
     expect(webCardModel(settledFetch())).toEqual({
-      kind: 'fetch', url: 'https://example.com/page', statusCode: 200, truncated: false,
+      kind: 'fetch',
+      url: 'https://example.com/page',
+      statusCode: 200,
+      truncated: false,
     })
-    expect(webCardModel(settledFetch({ meta: fetchMeta({ statusCode: 404, truncated: true }) })))
-      .toEqual({ kind: 'fetch', url: 'https://example.com/page', statusCode: 404, truncated: true })
+    expect(webCardModel(settledFetch({ meta: fetchMeta({ statusCode: 404, truncated: true }) }))).toEqual({
+      kind: 'fetch',
+      url: 'https://example.com/page',
+      statusCode: 404,
+      truncated: true,
+    })
   })
 
   it('returns null for a running call, since the web card is result-only', () => {
@@ -123,25 +154,35 @@ describe('webCardModel', () => {
   })
 
   it('accepts open-root extensions while validating declared web arguments', () => {
-    expect(webCardModel(settledSearch({
-      call: { name: 'web_search', argsRaw: '{"queries":["deepseek"],"extension":1}' },
-    }))).not.toBeNull()
-    expect(webCardModel(settledSearch({
-      call: { name: 'web_search', argsRaw: '{"queries":[7]}' },
-    }))).toBeNull()
-    expect(webCardModel(settledFetch({
-      call: { name: 'web_fetch', argsRaw: '{"url":" "}' },
-    }))).toBeNull()
+    expect(
+      webCardModel(
+        settledSearch({
+          call: { name: 'web_search', argsRaw: '{"queries":["deepseek"],"extension":1}' },
+        }),
+      ),
+    ).not.toBeNull()
+    expect(
+      webCardModel(
+        settledSearch({
+          call: { name: 'web_search', argsRaw: '{"queries":[7]}' },
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      webCardModel(
+        settledFetch({
+          call: { name: 'web_fetch', argsRaw: '{"url":" "}' },
+        }),
+      ),
+    ).toBeNull()
   })
 })
 
 describe('webFetchHref', () => {
   it('returns only an http(s) web_fetch URL', () => {
     expect(webFetchHref(settledFetch())).toBe('https://example.com/page')
-    expect(webFetchHref(settledFetch({ call: { name: 'web_fetch', argsRaw: '{"url":"http://a.test/"}' } })))
-      .toBe('http://a.test/')
-    expect(webFetchHref(settledFetch({ call: { name: 'web_fetch', argsRaw: '{"url":"javascript:alert(1)"}' } })))
-      .toBeUndefined()
+    expect(webFetchHref(settledFetch({ call: { name: 'web_fetch', argsRaw: '{"url":"http://a.test/"}' } }))).toBe('http://a.test/')
+    expect(webFetchHref(settledFetch({ call: { name: 'web_fetch', argsRaw: '{"url":"javascript:alert(1)"}' } }))).toBeUndefined()
     expect(webFetchHref(settledFetch({ call: { name: 'web_fetch', argsRaw: '{"url":"not a url"}' } }))).toBeUndefined()
     expect(webFetchHref(settledFetch({ call: { name: 'web_fetch', argsRaw: '{"url":1}' } }))).toBeUndefined()
     expect(webFetchHref(settledFetch({ call: null }))).toBeUndefined()
@@ -151,13 +192,18 @@ describe('webFetchHref', () => {
 
 describe('chat row web body', () => {
   const ownerProps = (block: StartedToolCall | ToolResultNode, toolName: string): ToolCallOwnerProps => ({
-    useDisclosure, callId: block.callId, toolName, ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
+    useDisclosure,
+    callId: block.callId,
+    toolName,
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    openFile: vi.fn(),
+    loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
   })
   // WebRow reads only toolName/block off the full runtime share plus the locale
   // seat; the standard kit is unused, so the cast supplies the owner slice and
   // `t` alone (as BashRow's tests do for the terminal card).
   const rowProps = (block: StartedToolCall | ToolResultNode, toolName: string): Parameters<typeof WebRow>[0] =>
-    ({ ...ownerProps(block, toolName), t } as unknown as Parameters<typeof WebRow>[0])
+    ({ ...ownerProps(block, toolName), t }) as unknown as Parameters<typeof WebRow>[0]
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
   const toggleRow = (view: { container: HTMLElement }) => {
@@ -198,7 +244,9 @@ describe('chat row web body', () => {
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toBe('noopener noreferrer')
     // jsdom does not implement navigation; cancel it after the row's handlers run.
-    link.addEventListener('click', (event) => { event.preventDefault() })
+    link.addEventListener('click', event => {
+      event.preventDefault()
+    })
     fireEvent.click(link)
     fireEvent.keyDown(link, { key: 'Enter' })
     expect(view.container.querySelector('[data-web]')).toBeNull()
@@ -219,9 +267,16 @@ describe('chat row web body', () => {
   })
 
   it('a failed web call keeps the summary row without the card', () => {
-    const view = render(<WebRow {...rowProps(settledSearch({
-      isError: true,
-    }), 'web_search')} />)
+    const view = render(
+      <WebRow
+        {...rowProps(
+          settledSearch({
+            isError: true,
+          }),
+          'web_search',
+        )}
+      />,
+    )
     expect(view.getByText('网页搜索')).toBeTruthy()
     expect(view.container.querySelector('[data-web]')).toBeNull()
     // The row reflects the error state so the summary line still reads as failed.
@@ -230,19 +285,35 @@ describe('chat row web body', () => {
   })
 
   it('the GenericToolCard fallback does not promote an unknown tool from metadata alone', () => {
-    const view = render(<GenericToolCard {...ownerProps(settledSearch({
-      call: { name: 'fx-web', argsRaw: SEARCH_ARGS },
-    }), 'fx-web')} t={t} />)
+    const view = render(
+      <GenericToolCard
+        {...ownerProps(
+          settledSearch({
+            call: { name: 'fx-web', argsRaw: SEARCH_ARGS },
+          }),
+          'fx-web',
+        )}
+        t={t}
+      />,
+    )
     toggleRow(view)
     expect(view.container.querySelector('[data-web]')).toBeNull()
     expect(view.getByText('search text')).toBeTruthy()
   })
 
   it('the GenericToolCard fallback keeps the plain row for a non-web call', () => {
-    const view = render(<GenericToolCard {...ownerProps(settledSearch({
-      call: { name: 'echo', argsRaw: '{}' },
-      meta: undefined,
-    }), 'echo')} t={t} />)
+    const view = render(
+      <GenericToolCard
+        {...ownerProps(
+          settledSearch({
+            call: { name: 'echo', argsRaw: '{}' },
+            meta: undefined,
+          }),
+          'echo',
+        )}
+        t={t}
+      />,
+    )
     expect(view.container.querySelector('[data-web]')).toBeNull()
   })
 })
@@ -253,7 +324,9 @@ describe('web toolview registration', () => {
     const ctx = {
       slots: {
         inject: (_name: string, callback: () => Iterable<() => void>) => {
-          for (const _dispose of callback()) { /* exhaust transactional setup */ }
+          for (const _dispose of callback()) {
+            /* exhaust transactional setup */
+          }
           return () => undefined
         },
         register: (options: { name: string; key: string; locale?: string }, component: unknown) => {

@@ -1,16 +1,14 @@
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
-import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold,
-  seedSession, watchConsole, webSnapshotMode,
-} from './scaffold.ts'
+import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage } from './support.ts'
 import { expectFirstLineTerminalState, expectWrappedCommandText } from './terminal-command-browser.ts'
 
-const COMMAND = 'node ./scripts/start-worker.mjs --workspace=/tmp/diagnostics/long-workspace-name-for-background-command-details --log-level=debug --trace-tag=background-shell-full-command-selection --include=worker,lifecycle,transport,subscriptions --output=/tmp/diagnostics/background-worker.log'
+const COMMAND =
+  'node ./scripts/start-worker.mjs --workspace=/tmp/diagnostics/long-workspace-name-for-background-command-details --log-level=debug --trace-tag=background-shell-full-command-selection --include=worker,lifecycle,transport,subscriptions --output=/tmp/diagnostics/background-worker.log'
 const ARGS = { command: COMMAND, description: 'Start the diagnostic worker', run_in_background: true }
 const OUTPUT = 'started background job bash-1'
 const LONG_ARGS = { ...ARGS, command: `${COMMAND} --token=${'x'.repeat(1024)}` }
@@ -21,37 +19,69 @@ function shellFixture(arguments_: typeof ARGS, output: string): string {
   const callId = ToolCallId('shell-command-details-background')
   const args = JSON.stringify(arguments_)
   session.append('turn/start', { turn: 1 })
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: arguments_.run_in_background
-      ? 'Start the diagnostic worker in the background.' : 'Run the diagnostic worker.' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
-  session.append('step/start', { turn: 1, step: 1 })
-  session.append('assistant/message', {
-    stream: [], turn: 1, step: 1,
-    message: createAssistantMessage({
-      content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: args }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [
+        {
+          type: 'text',
+          text: arguments_.run_in_background ? 'Start the diagnostic worker in the background.' : 'Run the diagnostic worker.',
+        },
+      ],
+      source: { kind: 'user' },
     }),
-  }, { surfaceOp: 'append' })
+    { surfaceOp: 'append' },
+  )
+  session.append('step/start', { turn: 1, step: 1 })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: createAssistantMessage({
+        content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: args }],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   const call = session.append('tool/call', { turn: 1, step: 1, callId, name: 'bash', arguments: args })
-  session.append('tool/result', {
-    turn: 1, step: 1,
-    message: createToolResultMessage({ callId, content: [{ type: 'text', text: output }], isError: false }),
-  }, { surfaceOp: 'append', sourceEventSeqs: [call.seq] })
+  session.append(
+    'tool/result',
+    {
+      turn: 1,
+      step: 1,
+      message: createToolResultMessage({ callId, content: [{ type: 'text', text: output }], isError: false }),
+    },
+    { surfaceOp: 'append', sourceEventSeqs: [call.seq] },
+  )
   session.append('step/end', { turn: 1, step: 1 })
   session.append('step/start', { turn: 1, step: 2 })
-  session.append('assistant/message', {
-    stream: [], turn: 1, step: 2,
-    message: createAssistantMessage({
-      content: [{ type: 'text', text: 'Diagnostic worker launched.' }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 2,
+      message: createAssistantMessage({
+        content: [{ type: 'text', text: 'Diagnostic worker launched.' }],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 2 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   return [
-    JSON.stringify({ type: 'session', version: SESSION_FORMAT_VERSION, id: '{{sessionId}}', createdAt: 0, isSeeded: false, delegationDepth: 0 }),
+    JSON.stringify({
+      type: 'session',
+      version: SESSION_FORMAT_VERSION,
+      id: '{{sessionId}}',
+      createdAt: 0,
+      isSeeded: false,
+      delegationDepth: 0,
+    }),
     ...session.snapshotEvents().map(event => JSON.stringify(event)),
     '',
   ].join('\n')
@@ -96,7 +126,9 @@ it.each([
         expect(await commands.allTextContents()).toEqual([args.command])
         expect(await card.locator('[data-terminal]').count()).toBe(1)
         expect(await card.getByText(OUTPUT, { exact: true }).count()).toBe(0)
-        expect(await card.locator('[data-terminal][data-body], [data-terminal][data-running], [data-terminal] [data-state]').count()).toBe(0)
+        expect(await card.locator('[data-terminal][data-body], [data-terminal][data-running], [data-terminal] [data-state]').count()).toBe(
+          0,
+        )
         expect(await card.getByRole('button', { name: 'Copy', exact: true }).count()).toBe(0)
       } else {
         expect(await commands.allTextContents()).toEqual([selectableText, 'echo done'])
@@ -106,32 +138,44 @@ it.each([
       expect(await card.getByRole('button', { name: 'Inspect', exact: true }).count()).toBe(1)
       for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme })
-        await expect.poll(() => page.locator('body').evaluate(element => element.hasAttribute('data-ds-dark-theme'))).toBe(colorScheme === 'dark')
+        await expect
+          .poll(() => page.locator('body').evaluate(element => element.hasAttribute('data-ds-dark-theme')))
+          .toBe(colorScheme === 'dark')
         for (const width of ['', '380px', '']) {
-          await card.evaluate((element, value) => { element.style.width = value }, width)
+          await card.evaluate((element, value) => {
+            element.style.width = value
+          }, width)
           if (!background && width === '380px') await expectFirstLineTerminalState(card.locator('[data-terminal]'), 'done')
           await expectWrappedCommandText(page, input, selectableText, inputSection)
           expect(await card.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
           if (name !== 'background') {
             expect(await inputSection.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true)
-            await inputSection.evaluate((element) => { element.scrollTop = 0 })
+            await inputSection.evaluate(element => {
+              element.scrollTop = 0
+            })
             await row.focus()
             await page.keyboard.press('Tab')
             const focusTarget = background ? inputSection : card.getByRole('button', { name: 'Copy', exact: true })
             expect(await focusTarget.evaluate(element => document.activeElement === element)).toBe(true)
             await page.keyboard.press('End')
-            await expect.poll(() => inputSection.evaluate(element =>
-              element.scrollTop + element.clientHeight >= element.scrollHeight - 1)).toBe(true)
+            await expect
+              .poll(() => inputSection.evaluate(element => element.scrollTop + element.clientHeight >= element.scrollHeight - 1))
+              .toBe(true)
             await page.keyboard.press('Home')
             await expect.poll(() => inputSection.evaluate(element => element.scrollTop)).toBe(0)
           }
         }
-        await card.evaluate((element) => { element.style.width = '' })
+        await card.evaluate(element => {
+          element.style.width = ''
+        })
       }
       await page.emulateMedia({ colorScheme: null })
       const expected = fileURLToPath(new URL(`./expected/shell-command-details/${name}.expected.md`, import.meta.url))
-      await compareOrRefreshGolden(expected,
-        await captureStableAria(page, '[data-chat-call-id="shell-command-details-background"]', scaffold.workspaceCwd), webSnapshotMode())
+      await compareOrRefreshGolden(
+        expected,
+        await captureStableAria(page, '[data-chat-call-id="shell-command-details-background"]', scaffold.workspaceCwd),
+        webSnapshotMode(),
+      )
       expect(tripwire.pageErrors).toEqual([])
       expect(tripwire.warnings).toEqual([])
     } finally {
@@ -165,17 +209,28 @@ it.each([
       const callId = ToolCallId(`status-dot-${name}-${background ? 'background' : 'foreground'}`)
       const args = JSON.stringify({ command: LONG_ARGS.command, description: `Long ${name} command`, run_in_background: background })
       session.append('turn/start', { turn: 2 })
-      session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text: 'Show a long running command.' }], source: { kind: 'user' },
-      }), { surfaceOp: 'append' })
-      session.append('step/start', { turn: 2, step: 1 })
-      session.append('assistant/message', {
-        turn: 2, step: 1, stream: [],
-        message: createAssistantMessage({
-          content: [{ type: 'tool-call', id: callId, name, arguments: args }],
-          source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: 'Show a long running command.' }],
+          source: { kind: 'user' },
         }),
-      }, { surfaceOp: 'append' })
+        { surfaceOp: 'append' },
+      )
+      session.append('step/start', { turn: 2, step: 1 })
+      session.append(
+        'assistant/message',
+        {
+          turn: 2,
+          step: 1,
+          stream: [],
+          message: createAssistantMessage({
+            content: [{ type: 'tool-call', id: callId, name, arguments: args }],
+            source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+          }),
+        },
+        { surfaceOp: 'append' },
+      )
       const call = session.append('tool/call', { turn: 2, step: 1, callId, name, arguments: args })
       await scaffold.ctx.sessions.flush(session)
       const callRow = page.locator(`[data-chat-call-id="${callId}"]`)
@@ -185,7 +240,9 @@ it.each([
       await toggle.click()
       const card = callRow.locator('[data-terminal]')
       await card.waitFor()
-      await card.evaluate((element) => { element.style.width = '380px' })
+      await card.evaluate(element => {
+        element.style.width = '380px'
+      })
       await card.scrollIntoViewIfNeeded()
       const header = card.locator('[class*="_header_"]')
       const mountedCard = await card.elementHandle()
@@ -194,20 +251,28 @@ it.each([
       expect(await card.getByRole('button', { name: 'Copy', exact: true }).count()).toBe(0)
       for (const state of ['ongoing', 'done'] as const) {
         if (state === 'done') {
-          session.append('tool/result', {
-            turn: 2, step: 1,
-            message: createToolResultMessage({
-              callId, content: [{ type: 'text', text: background ? OUTPUT : 'status dot output\n[exit code: 0]' }], isError: false,
-            }),
-          }, { surfaceOp: 'append', sourceEventSeqs: [call.seq] })
+          session.append(
+            'tool/result',
+            {
+              turn: 2,
+              step: 1,
+              message: createToolResultMessage({
+                callId,
+                content: [{ type: 'text', text: background ? OUTPUT : 'status dot output\n[exit code: 0]' }],
+                isError: false,
+              }),
+            },
+            { surfaceOp: 'append', sourceEventSeqs: [call.seq] },
+          )
           session.append('step/end', { turn: 2, step: 1 })
           session.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
           await scaffold.ctx.sessions.flush(session)
         }
         for (const colorScheme of ['light', 'dark'] as const) {
           await page.emulateMedia({ colorScheme })
-          await expect.poll(() => page.locator('body').evaluate(element =>
-            element.hasAttribute('data-ds-dark-theme'))).toBe(colorScheme === 'dark')
+          await expect
+            .poll(() => page.locator('body').evaluate(element => element.hasAttribute('data-ds-dark-theme')))
+            .toBe(colorScheme === 'dark')
           if (background && state === 'done') {
             await expect.poll(() => card.getAttribute('data-running')).toBeNull()
             expect(await card.evaluate((element, previous) => element === previous, mountedCard)).toBe(true)

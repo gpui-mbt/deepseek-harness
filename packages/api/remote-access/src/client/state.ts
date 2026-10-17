@@ -15,10 +15,10 @@ type AccessSnapshot =
   | { readonly kind: 'closed' }
   | { readonly kind: 'owner' }
   | {
-    readonly kind: 'granted'
-    readonly global: ReadonlySet<string>
-    readonly resources: ReadonlyMap<string, KindGrants>
-  }
+      readonly kind: 'granted'
+      readonly global: ReadonlySet<string>
+      readonly resources: ReadonlyMap<string, KindGrants>
+    }
 
 type GrantedSnapshot = Extract<AccessSnapshot, { kind: 'granted' }>
 
@@ -37,7 +37,8 @@ export type Baseline = Extract<RemoteAccessFrame, { type: 'baseline' }>
  */
 export function parseInjectedBaseline(value: unknown): Baseline | undefined {
   if (value === undefined) return undefined
-  if (!isRecord(value) || value['type'] !== 'baseline') throw new TypeError('remote access: the injected access snapshot is not a baseline frame')
+  if (!isRecord(value) || value['type'] !== 'baseline')
+    throw new TypeError('remote access: the injected access snapshot is not a baseline frame')
   if (value['owner'] === true) return { type: 'baseline', owner: true }
   const grants = value['grants']
   if (value['owner'] !== false || !Array.isArray(grants) || !grants.every(isGrant)) {
@@ -159,9 +160,11 @@ export class ClientAccessState {
     if (source === undefined) {
       source = {
         getSnapshot: () => answer(this.snapshot, kind, id, action),
-        subscribe: (listener) => {
+        subscribe: listener => {
           this.listeners.add(listener)
-          return () => { this.listeners.delete(listener) }
+          return () => {
+            this.listeners.delete(listener)
+          }
         },
       }
       this.sources.set(key, source)

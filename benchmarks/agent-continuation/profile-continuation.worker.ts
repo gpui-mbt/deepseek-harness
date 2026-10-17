@@ -24,27 +24,46 @@ async function run(root: string): Promise<ProfileReport> {
   await mkdir(home, { recursive: true })
   await writeFile(join(cwd, 'synthetic.txt'), resultText(0))
   const patch = join(root, 'profile.patch.yml')
-  await writeFile(patch, [
-    '- id: llm-deepseek', '  disabled: true',
-    '- id: sessions', '  config:', '    root: ' + JSON.stringify(join(root, 'profile-sessions')), '    compression: zstd',
-    '- insert:',
-    '    - id: fs-local', "      name: '@deepseek-ai/dsh-fs-local'",
-    '    - id: str-replace-editor', "      name: '@deepseek-ai/dsh-tool-str-replace-editor'",
-    '    - id: benchmark-model', '      name: ' + JSON.stringify(join(import.meta.dirname, 'profile-adapter.js')),
-    '',
-  ].join('\n'))
+  await writeFile(
+    patch,
+    [
+      '- id: llm-deepseek',
+      '  disabled: true',
+      '- id: sessions',
+      '  config:',
+      '    root: ' + JSON.stringify(join(root, 'profile-sessions')),
+      '    compression: zstd',
+      '- insert:',
+      '    - id: fs-local',
+      "      name: '@deepseek-ai/dsh-fs-local'",
+      '    - id: str-replace-editor',
+      "      name: '@deepseek-ai/dsh-tool-str-replace-editor'",
+      '    - id: benchmark-model',
+      '      name: ' + JSON.stringify(join(import.meta.dirname, 'profile-adapter.js')),
+      '',
+    ].join('\n'),
+  )
   const env: NodeJS.ProcessEnv = {
-    PATH: process.env.PATH, HOME: home, USERPROFILE: home,
+    PATH: process.env.PATH,
+    HOME: home,
+    USERPROFILE: home,
     DSH_AGENTS_HOME: join(home, 'agents'),
   }
   const harness = new DeepSeekHarness({
     dshBin: join(import.meta.dirname, '..', '..', '..', 'apps', 'cli', 'lib', 'bin.js'),
-    profile: 'sdk-minimal', dshHome: home, processCwd: cwd, cwd,
-    provider: 'bench', model: 'bench', patches: [patch], env,
-    initializeTimeoutMs: 15_000, requestTimeoutMs: 15_000,
+    profile: 'sdk-minimal',
+    dshHome: home,
+    processCwd: cwd,
+    cwd,
+    provider: 'bench',
+    model: 'bench',
+    patches: [patch],
+    env,
+    initializeTimeoutMs: 15_000,
+    requestTimeoutMs: 15_000,
   })
   let closing: Promise<void> | undefined
-  const close = (): Promise<void> => closing ??= harness.close()
+  const close = (): Promise<void> => (closing ??= harness.close())
   let expired = false
   const deadline = setTimeout(() => {
     expired = true
@@ -63,7 +82,10 @@ async function run(root: string): Promise<ProfileReport> {
       for (const event of result.events) {
         if (event.type !== 'tool/result') continue
         const message = event.data.message
-        if (message.isError || !message.content.some(block => block.type === 'text' && block.text.includes('export const synthetic = 42;'))) {
+        if (
+          message.isError ||
+          !message.content.some(block => block.type === 'text' && block.text.includes('export const synthetic = 42;'))
+        ) {
           throw new Error('profile benchmark did not read the synthetic file')
         }
         toolCalls++

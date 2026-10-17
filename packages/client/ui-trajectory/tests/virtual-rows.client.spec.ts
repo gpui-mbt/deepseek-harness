@@ -1,9 +1,10 @@
 /** Measurable virtual-row grouping and durable identity contracts. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { TrajectoryCellProps } from '../src/client/trajectory-record.ts'
 import {
-  groupTrajectoryVirtualRows, trajectoryVirtualRecordKey,
+  groupTrajectoryVirtualRows,
+  trajectoryVirtualRecordKey,
   type VirtualizableTrajectoryRecord,
 } from '../src/client/trajectory-virtual-rows.ts'
 
@@ -30,15 +31,17 @@ describe('trajectory virtual rows', () => {
     const second = record(2, { requestOnly: true, sourceSeq: 11 })
     const content = record(3, { sourceSeq: 12 })
 
-    expect(groupTrajectoryVirtualRows([first, second, content])).toEqual([{
-      entries: [
-        { logicalIndex: 0, record: first },
-        { logicalIndex: 1, record: second },
-        { logicalIndex: 2, record: content },
-      ],
-      height: 30,
-      key: trajectoryVirtualRecordKey(content),
-    }])
+    expect(groupTrajectoryVirtualRows([first, second, content])).toEqual([
+      {
+        entries: [
+          { logicalIndex: 0, record: first },
+          { logicalIndex: 1, record: second },
+          { logicalIndex: 2, record: content },
+        ],
+        height: 30,
+        key: trajectoryVirtualRecordKey(content),
+      },
+    ])
   })
 
   it('retains terminal request-boundary clearance as a measurable row', () => {
@@ -74,8 +77,7 @@ describe('trajectory virtual rows', () => {
     const content = record(2, { sourceSeq: 100 })
     const boundary = record(1, { requestOnly: true, sourceSeq: 99 })
 
-    expect(groupTrajectoryVirtualRows([boundary, content])[0]?.key)
-      .toBe(groupTrajectoryVirtualRows([content])[0]?.key)
+    expect(groupTrajectoryVirtualRows([boundary, content])[0]?.key).toBe(groupTrajectoryVirtualRows([content])[0]?.key)
   })
 
   it('distinguishes a folded summary from its source record', () => {
@@ -88,8 +90,6 @@ describe('trajectory virtual rows', () => {
   it('exposes a DOM-safe semantic key', () => {
     const source = record(1, { callId: 'call with spaces/and?punctuation' })
 
-    expect(trajectoryVirtualRecordKey(source)).toBe(
-      'message%00call%00call%20with%20spaces%2Fand%3Fpunctuation',
-    )
+    expect(trajectoryVirtualRecordKey(source)).toBe('message%00call%00call%20with%20spaces%2Fand%3Fpunctuation')
   })
 })

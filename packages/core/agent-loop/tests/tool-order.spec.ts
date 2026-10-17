@@ -7,7 +7,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
  * and must not leak downstream.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId, foldRequestHeader } from '@deepseek-ai/dsh-session'
@@ -25,7 +25,7 @@ async function harness(adapter: MockAdapter, toolOrder?: SystemPromptConfig['too
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
-  await ctx.plugin(SystemPrompt, { personaPrefix: 'stable base', ...toolOrder !== undefined ? { toolOrder } : {} })
+  await ctx.plugin(SystemPrompt, { personaPrefix: 'stable base', ...(toolOrder !== undefined ? { toolOrder } : {}) })
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -34,7 +34,7 @@ async function harness(adapter: MockAdapter, toolOrder?: SystemPromptConfig['too
 }
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -45,14 +45,16 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 }
 
 function registerNamed(ctx: Context, name: string) {
-  ctx.tools.register(defineContentToolFixture({
-    name,
-    description: `the ${name} tool`,
-    parameters: {},
-    async execute() {
-      return [{ type: 'text', text: name }]
-    },
-  }))
+  ctx.tools.register(
+    defineContentToolFixture({
+      name,
+      description: `the ${name} tool`,
+      parameters: {},
+      async execute() {
+        return [{ type: 'text', text: name }]
+      },
+    }),
+  )
 }
 
 /** Run one text-only turn and return the harness context + agent. */

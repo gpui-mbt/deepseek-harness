@@ -2,11 +2,7 @@
 
 import type { InspectorJsonObject, InspectorJsonValue } from '../json.ts'
 import type { RuntimeExceptionDetails } from './errors.ts'
-import type {
-  RuntimeInternalPropertyDescriptor,
-  RuntimePrivatePropertyDescriptor,
-  RuntimePropertyDescriptor,
-} from './property.ts'
+import type { RuntimeInternalPropertyDescriptor, RuntimePrivatePropertyDescriptor, RuntimePropertyDescriptor } from './property.ts'
 import type { RuntimeRemoteObject } from './remote-object.ts'
 
 /** One argument supplied to a function in an inspected realm. */
@@ -17,9 +13,7 @@ export type RuntimeCallArgument<Handle extends string> =
   | { readonly kind: 'undefined' }
 
 /** Backend-local selector for a native execution context within one realm. */
-export type RuntimeExecutionContext =
-  | { readonly kind: 'numeric'; readonly id: number }
-  | { readonly kind: 'unique'; readonly id: string }
+export type RuntimeExecutionContext = { readonly kind: 'numeric'; readonly id: number } | { readonly kind: 'unique'; readonly id: string }
 
 /** Engine-independent evaluation options supported by Runtime backends. */
 export interface RuntimeEvaluateRequest {

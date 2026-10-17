@@ -47,7 +47,9 @@ export function createDetachedRuns(): DetachedRuns {
     signal: controller.signal,
     track(run: Promise<unknown>): void {
       inflight.add(run)
-      const settled = (): void => { inflight.delete(run) }
+      const settled = (): void => {
+        inflight.delete(run)
+      }
       void run.then(settled, settled)
     },
     async drain(): Promise<void> {

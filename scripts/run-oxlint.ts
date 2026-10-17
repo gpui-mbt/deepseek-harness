@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defaultParallelism } from './parallelism.ts'
 
-const oxlintCli = fileURLToPath(new URL('../node_modules/oxlint/bin/oxlint', import.meta.url))
+const vpCli = fileURLToPath(new URL('../node_modules/vite-plus/bin/vp', import.meta.url))
 const MAX_CAPTURED_OUTPUT_BYTES = 64 * 1024 * 1024
 const FIX_FLAGS = new Set(['--fix', '--fix-dangerously', '--fix-suggestions'])
 
@@ -13,11 +13,7 @@ function isFixInvocation(args: readonly string[]): boolean {
 }
 
 function hasOutputFormat(args: readonly string[]): boolean {
-  return args.some(arg =>
-    arg === '-f'
-    || arg.startsWith('-f=')
-    || arg === '--format'
-    || arg.startsWith('--format='))
+  return args.some(arg => arg === '-f' || arg.startsWith('-f=') || arg === '--format' || arg.startsWith('--format='))
 }
 
 /** Complete Oxlint child-process arguments and environment. */
@@ -30,6 +26,7 @@ export interface OxlintInvocation {
  * Apply the repository worker bound to both Oxlint backends.
  * `DSH_OXLINT_THREADS` selects the bound; without it, CI keeps Oxlint's own default and other runs use the
  * [local worker budget](./parallelism.ts). A caller's own `--threads` without `DSH_OXLINT_THREADS` passes through.
+ * The resulting arguments are forwarded to `vp lint`, which runs the Oxlint bundled with Vite+.
  * @param args - Oxlint CLI arguments requested by the caller.
  * @param env - Environment inherited by the Oxlint process.
  * @param cpus - CPU count Node reports for this process.
@@ -73,7 +70,7 @@ function completeFrom(result: { readonly signal: NodeJS.Signals | null; readonly
 function main(): void {
   const invocation = resolveOxlintInvocation(process.argv.slice(2), process.env)
   if (!isFixInvocation(invocation.args)) {
-    const result = spawnSync(process.execPath, [oxlintCli, ...invocation.args], {
+    const result = spawnSync(process.execPath, [vpCli, 'lint', ...invocation.args], {
       env: invocation.env,
       stdio: 'inherit',
     })
@@ -82,7 +79,7 @@ function main(): void {
     return
   }
 
-  const first = spawnSync(process.execPath, [oxlintCli, ...invocation.args], {
+  const first = spawnSync(process.execPath, [vpCli, 'lint', ...invocation.args], {
     encoding: 'utf8',
     env: invocation.env,
     maxBuffer: MAX_CAPTURED_OUTPUT_BYTES,
@@ -100,7 +97,7 @@ function main(): void {
   }
 
   // Overlapping JS-plugin fixes can expose one more fixable diagnostic after the first pass.
-  const second = spawnSync(process.execPath, [oxlintCli, ...invocation.args], {
+  const second = spawnSync(process.execPath, [vpCli, 'lint', ...invocation.args], {
     env: invocation.env,
     stdio: 'inherit',
   })

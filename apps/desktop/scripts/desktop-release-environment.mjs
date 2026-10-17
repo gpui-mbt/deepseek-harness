@@ -46,11 +46,22 @@ export function resolveNpmRegistry(env) {
   const configured = env[NPM_REGISTRY_ENV]?.trim() ?? ''
   if (configured === '') return DEFAULT_NPM_REGISTRY
   let url
-  try { url = new URL(configured) }
-  catch { throw new Error(`desktop release environment: ${NPM_REGISTRY_ENV} must be an HTTPS origin`) }
-  if (url.protocol !== 'https:' || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== ''
-    || (url.pathname !== '/' && url.pathname !== '')) {
-    throw new Error(`desktop release environment: ${NPM_REGISTRY_ENV} must be an HTTPS origin without credentials, path, query, or fragment`)
+  try {
+    url = new URL(configured)
+  } catch {
+    throw new Error(`desktop release environment: ${NPM_REGISTRY_ENV} must be an HTTPS origin`)
+  }
+  if (
+    url.protocol !== 'https:' ||
+    url.username !== '' ||
+    url.password !== '' ||
+    url.search !== '' ||
+    url.hash !== '' ||
+    (url.pathname !== '/' && url.pathname !== '')
+  ) {
+    throw new Error(
+      `desktop release environment: ${NPM_REGISTRY_ENV} must be an HTTPS origin without credentials, path, query, or fragment`,
+    )
   }
   return url.origin
 }
@@ -112,10 +123,10 @@ export function resolveMacOSNotarizationEnvironment(env) {
   const keychainProfile = env[APPLE_KEYCHAIN_PROFILE_ENV]?.trim()
   if (keychainProfile !== undefined && keychainProfile !== '') {
     const keychain = env[APPLE_KEYCHAIN_ENV]?.trim()
-    return keychain === undefined || keychain === ''
-      ? { keychainProfile }
-      : { keychainProfile, keychain }
+    return keychain === undefined || keychain === '' ? { keychainProfile } : { keychainProfile, keychain }
   }
 
-  throw new Error('desktop release environment: macOS packaging requires APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER; APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID; or APPLE_KEYCHAIN_PROFILE')
+  throw new Error(
+    'desktop release environment: macOS packaging requires APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER; APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID; or APPLE_KEYCHAIN_PROFILE',
+  )
 }

@@ -1,10 +1,6 @@
 import { AssistantStreamAccumulator } from '@deepseek-ai/dsh-llm'
 import type { AssistantStreamRecord } from '@deepseek-ai/dsh-llm'
-import {
-  SessionFormatUnsupportedMigrationError,
-  defineSessionFormatMigration,
-  sessionFormatCount,
-} from '@deepseek-ai/dsh-session-format'
+import { SessionFormatUnsupportedMigrationError, defineSessionFormatMigration, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
 import type {
   SessionFormatEvent,
   SessionFormatEventRun,
@@ -49,9 +45,7 @@ export const sessionFormatV1ToV2 = defineSessionFormatMigration({
     return { ...header, version: 2 }
   },
   createStage(input) {
-    return input.sourceKind === 'decoded'
-      ? new DecodedReleasedV1ToV2Stage(input)
-      : new TransformedReleasedV1ToV2Stage(input)
+    return input.sourceKind === 'decoded' ? new DecodedReleasedV1ToV2Stage(input) : new TransformedReleasedV1ToV2Stage(input)
   },
   validateTargetHeader: assertReleasedV2Header,
 })
@@ -73,17 +67,11 @@ class TransformedReleasedV1ToV2Stage implements SessionFormatMigrationStage {
     }
   }
 
-  transformEvent(
-    event: SessionFormatEvent,
-    context: SessionFormatMigrationContext,
-  ): void {
+  transformEvent(event: SessionFormatEvent, context: SessionFormatMigrationContext): void {
     transformReleasedEvent(this.state, event, context)
   }
 
-  transformRun(
-    run: SessionFormatEventRun,
-    context: SessionFormatMigrationContext,
-  ): void {
+  transformRun(run: SessionFormatEventRun, context: SessionFormatMigrationContext): void {
     transformReleasedRun(this.state, run, context)
   }
 
@@ -93,12 +81,8 @@ class TransformedReleasedV1ToV2Stage implements SessionFormatMigrationStage {
 }
 
 class DecodedReleasedV1ToV2Stage extends TransformedReleasedV1ToV2Stage {
-  override transformEvent(
-    event: SessionFormatEvent,
-    context: SessionFormatMigrationContext,
-  ): void {
-    if (event.type !== 'assistant/chunk'
-      && RELEASED_V0_EVENT_DISPOSITIONS[event.type] !== undefined) {
+  override transformEvent(event: SessionFormatEvent, context: SessionFormatMigrationContext): void {
+    if (event.type !== 'assistant/chunk' && RELEASED_V0_EVENT_DISPOSITIONS[event.type] !== undefined) {
       assertReleasedEventPayload(event, 1)
     }
     super.transformEvent(event, context)
@@ -121,11 +105,7 @@ interface ReleasedV1ToV2State {
   lastTime: number
 }
 
-function transformReleasedEvent(
-  state: ReleasedV1ToV2State,
-  event: SessionFormatEvent,
-  context: SessionFormatMigrationContext,
-): void {
+function transformReleasedEvent(state: ReleasedV1ToV2State, event: SessionFormatEvent, context: SessionFormatMigrationContext): void {
   if (event.type === 'assistant/chunk') assertChunkEnvelope(event)
   if (RELEASED_V0_EVENT_DISPOSITIONS[event.type] === undefined) {
     throw refusal(`format v1 contains unknown event type ${JSON.stringify(event.type)} at seq ${event.seq}`)
@@ -186,21 +166,17 @@ function assertSourceDeliveryMarker(state: ReleasedV1ToV2State, event: SessionFo
   }
 }
 
-function transformReleasedRun(
-  state: ReleasedV1ToV2State,
-  run: SessionFormatEventRun,
-  context: SessionFormatMigrationContext,
-): void {
+function transformReleasedRun(state: ReleasedV1ToV2State, run: SessionFormatEventRun, context: SessionFormatMigrationContext): void {
   if (!isReleasedAssistantChunkRun(run)) {
     for (const event of run.expand()) transformReleasedEvent(state, event, context)
     return
   }
   state.legacyTurns.previous = undefined
   state.lastTime = run.lastTime
-  if (state.pending !== undefined
-    && (state.pending.group.terminal
-      || state.pending.group.turn !== run.turn
-      || state.pending.group.step !== run.step)) {
+  if (
+    state.pending !== undefined &&
+    (state.pending.group.terminal || state.pending.group.turn !== run.turn || state.pending.group.step !== run.step)
+  ) {
     finishAttempt(state, context)
   } else if (state.pending !== undefined) {
     flushBuffered(state, state.pending, context)
@@ -208,18 +184,11 @@ function transformReleasedRun(
   state.pending ??= { group: attemptGroup(run.turn, run.step), afterLastChunk: [] }
   assertAttemptRange(state, run.firstSeq, run.lastSeq)
   flushAccumulator(state.pending.group)
-  appendStreamRecord(
-    state.pending.group,
-    run.stream as unknown as AssistantStreamRecord,
-    run.lastTime,
-  )
+  appendStreamRecord(state.pending.group, run.stream as unknown as AssistantStreamRecord, run.lastTime)
   recordChunkSpan(state.pending.group, run.firstSeq, run.eventCount, run.lastTime)
 }
 
-function finishMigration(
-  state: ReleasedV1ToV2State,
-  context: SessionFormatMigrationContext,
-): number {
+function finishMigration(state: ReleasedV1ToV2State, context: SessionFormatMigrationContext): number {
   finishAttempt(state, context)
   if (state.sourceHeader.isSeeded && state.targetCut === undefined) {
     state.targetCut = state.targetSeq
@@ -234,19 +203,15 @@ function finishMigration(
   return state.targetCut as number
 }
 
-function transformChunk(
-  state: ReleasedV1ToV2State,
-  event: SessionFormatEvent,
-  context: SessionFormatMigrationContext,
-): void {
+function transformChunk(state: ReleasedV1ToV2State, event: SessionFormatEvent, context: SessionFormatMigrationContext): void {
   const data = record(event.data)
   const turn = coordinate(data['turn'])
   const step = coordinate(data['step'])
   const chunk = record(data['chunk'])
-  if (state.pending !== undefined
-    && (state.pending.group.terminal
-      || state.pending.group.turn !== turn
-      || state.pending.group.step !== step)) {
+  if (
+    state.pending !== undefined &&
+    (state.pending.group.terminal || state.pending.group.turn !== turn || state.pending.group.step !== step)
+  ) {
     finishAttempt(state, context)
   } else if (state.pending !== undefined) {
     flushBuffered(state, state.pending, context)
@@ -262,11 +227,7 @@ function transformChunk(
   if (chunk['type'] === 'finish') state.pending.group.terminal = true
 }
 
-function transformMessage(
-  state: ReleasedV1ToV2State,
-  event: SessionFormatEvent,
-  context: SessionFormatMigrationContext,
-): void {
+function transformMessage(state: ReleasedV1ToV2State, event: SessionFormatEvent, context: SessionFormatMigrationContext): void {
   const data = record(event.data)
   const turn = coordinate(data['turn'])
   const step = coordinate(data['step'])
@@ -289,8 +250,7 @@ function transformMessage(
     emitSource(state, messageEvent(event, attemptGroup(turn, step)), context)
     return
   }
-  if (pending === undefined
-    || !matchesChunkSources(pending.group, sources)) {
+  if (pending === undefined || !matchesChunkSources(pending.group, sources)) {
     throw refusal(`assistant/message ${event.seq} chunk references are not one complete ordered attempt`)
   }
   assertAttemptCut(state, pending.group, event.seq)
@@ -300,10 +260,7 @@ function transformMessage(
   state.pending = undefined
 }
 
-function finishAttempt(
-  state: ReleasedV1ToV2State,
-  context: SessionFormatMigrationContext,
-): void {
+function finishAttempt(state: ReleasedV1ToV2State, context: SessionFormatMigrationContext): void {
   const pending = state.pending
   if (pending === undefined) return
   emitGenerated(state, pending.group.lastChunkSeq as number, attemptEvent(pending.group), context)
@@ -311,24 +268,14 @@ function finishAttempt(
   state.pending = undefined
 }
 
-function flushBuffered(
-  state: ReleasedV1ToV2State,
-  pending: StreamingAttempt,
-  context: SessionFormatMigrationContext,
-): void {
+function flushBuffered(state: ReleasedV1ToV2State, pending: StreamingAttempt, context: SessionFormatMigrationContext): void {
   for (const event of pending.afterLastChunk) emitSource(state, event, context)
   pending.afterLastChunk.length = 0
 }
 
-function emitSource(
-  state: ReleasedV1ToV2State,
-  event: SessionFormatEvent,
-  context: SessionFormatMigrationContext,
-): void {
+function emitSource(state: ReleasedV1ToV2State, event: SessionFormatEvent, context: SessionFormatMigrationContext): void {
   let source = event
-  if (state.sourceHeader.isSeeded
-    && event.seq === state.sourceCut
-    && event.type === 'session/end-seed') {
+  if (state.sourceHeader.isSeeded && event.seq === state.sourceCut && event.type === 'session/end-seed') {
     source = { ...event, data: { inherited: true } }
   }
   ensureTargetCut(state, event.seq, event.time, source.type, context)
@@ -369,13 +316,13 @@ function ensureTargetCut(
 
 function assertAttemptCut(state: ReleasedV1ToV2State, group: AttemptGroup, member: number): void {
   const first = group.spans[0]?.firstSeq ?? member
-  if ((first < state.sourceCut) !== (member < state.sourceCut)) {
+  if (first < state.sourceCut !== member < state.sourceCut) {
     throw refusal(`inherited Session cut ${state.sourceCut} splits one Assistant attempt`)
   }
 }
 
 function assertAttemptRange(state: ReleasedV1ToV2State, first: number, last: number): void {
-  if ((first < state.sourceCut) !== (last < state.sourceCut)) {
+  if (first < state.sourceCut !== last < state.sourceCut) {
     throw refusal(`inherited Session cut ${state.sourceCut} splits one Assistant attempt`)
   }
 }
@@ -390,13 +337,15 @@ function legacyTurnState(): LegacyTurnState {
   return { openTurn: null, openStep: null, previous: undefined }
 }
 
-function legacyInterruptedTurn(
-  state: LegacyTurnState,
-  event: SessionFormatEvent,
-): SessionFormatEvent | undefined {
-  if (event.type !== 'turn/start' || state.openTurn === null || state.openStep !== null
-    || coordinate(record(event.data)['turn']) !== state.openTurn + 1
-    || state.previous?.type !== 'agent/inbox/spliced') return undefined
+function legacyInterruptedTurn(state: LegacyTurnState, event: SessionFormatEvent): SessionFormatEvent | undefined {
+  if (
+    event.type !== 'turn/start' ||
+    state.openTurn === null ||
+    state.openStep !== null ||
+    coordinate(record(event.data)['turn']) !== state.openTurn + 1 ||
+    state.previous?.type !== 'agent/inbox/spliced'
+  )
+    return undefined
   const splice = record(state.previous.data)
   if (splice['target'] !== 'next-turn' || !Array.isArray(splice['inserted']) || splice['inserted'].length === 0) {
     return undefined
@@ -425,10 +374,12 @@ function observeLegacyTurn(state: LegacyTurnState, event: SessionFormatEvent): v
   state.previous = event
 }
 
-function splitLegacyGoalChange(event: SessionFormatEvent): {
-  readonly change: SessionFormatEvent
-  readonly message: SessionFormatEvent
-} | undefined {
+function splitLegacyGoalChange(event: SessionFormatEvent):
+  | {
+      readonly change: SessionFormatEvent
+      readonly message: SessionFormatEvent
+    }
+  | undefined {
   if (event.type !== 'user/message') return undefined
   const data = record(event.data)
   const source = record(data['source'])
@@ -448,10 +399,7 @@ function splitLegacyGoalChange(event: SessionFormatEvent): {
 }
 
 function closesAttempt(event: SessionFormatEvent): boolean {
-  return event.type === 'turn/end'
-    || event.type === 'step/end'
-    || event.type === 'llm/retry'
-    || event.type === 'llm/retry-started'
+  return event.type === 'turn/end' || event.type === 'step/end' || event.type === 'llm/retry' || event.type === 'llm/retry-started'
 }
 
 function attemptGroup(turn: number, step: number): AttemptGroup {
@@ -495,12 +443,7 @@ function mutableRecord(record: AssistantStreamRecord): AssistantStreamRecord {
   return { ...record, dt: [...record.dt], texts: [...record.texts] }
 }
 
-function appendStreamRecord(
-  group: AttemptGroup,
-  source: AssistantStreamRecord,
-  lastTime: number,
-  owned = true,
-): void {
+function appendStreamRecord(group: AttemptGroup, source: AssistantStreamRecord, lastTime: number, owned = true): void {
   const previous = group.stream.at(-1)
   if (previous === undefined || source.type === 'chunk' || previous.record.type !== source.type) {
     group.stream.push({ record: owned ? source : mutableRecord(source), lastTime })
@@ -521,9 +464,12 @@ function appendStreamRecord(
     for (const value of source.dt) (target.dt as number[]).push(value)
     for (const value of source.args) (target.args as string[]).push(value)
   } else {
-    const target = previous.record as Extract<AssistantStreamRecord, {
-      readonly type: 'text-chunks' | 'reasoning-chunks'
-    }>
+    const target = previous.record as Extract<
+      AssistantStreamRecord,
+      {
+        readonly type: 'text-chunks' | 'reasoning-chunks'
+      }
+    >
     ;(target.dt as number[]).push(gap)
     for (const value of source.dt) (target.dt as number[]).push(value)
     for (const value of source.texts) (target.texts as string[]).push(value)
@@ -563,36 +509,21 @@ function attemptEvent(group: AttemptGroup): SessionFormatEvent {
   }
 }
 
-function remapReferences(
-  source: SessionFormatEvent,
-  targetSeq: number,
-  mapping: ReadonlyMap<number, number>,
-): SessionFormatEvent {
+function remapReferences(source: SessionFormatEvent, targetSeq: number, mapping: ReadonlyMap<number, number>): SessionFormatEvent {
   const { sourceEventSeqs, surfaceOp, ...event } = source
-  const sources = sourceEventSeqs === undefined
-    ? {}
-    : {
-      sourceEventSeqs: mapList(
-        numberArray(sourceEventSeqs),
-        mapping,
-        `${source.type} ${source.seq} sources`,
-      ),
-    }
+  const sources =
+    sourceEventSeqs === undefined
+      ? {}
+      : {
+          sourceEventSeqs: mapList(numberArray(sourceEventSeqs), mapping, `${source.type} ${source.seq} sources`),
+        }
   let operation: SessionFormatJsonValue | undefined = surfaceOp
   if (surfaceOp !== undefined && surfaceOp !== 'append') {
     const replacement = record(surfaceOp)
     operation = {
       op: 'replace',
-      start: mapOne(
-        coordinate(replacement['start']),
-        mapping,
-        `${source.type} ${source.seq} surface start`,
-      ),
-      end: mapOne(
-        coordinate(replacement['end']),
-        mapping,
-        `${source.type} ${source.seq} surface end`,
-      ),
+      start: mapOne(coordinate(replacement['start']), mapping, `${source.type} ${source.seq} surface start`),
+      end: mapOne(coordinate(replacement['end']), mapping, `${source.type} ${source.seq} surface end`),
     }
   }
   return {
@@ -604,39 +535,24 @@ function remapReferences(
   }
 }
 
-function remapPayloadReferences(
-  event: SessionFormatEvent,
-  mapping: ReadonlyMap<number, number>,
-): SessionFormatJsonValue {
+function remapPayloadReferences(event: SessionFormatEvent, mapping: ReadonlyMap<number, number>): SessionFormatJsonValue {
   const data = record(event.data)
   switch (event.type) {
     case 'command/done':
       return data['sourceEventSeq'] === undefined
         ? data
         : {
-          ...data,
-          sourceEventSeq: mapOne(
-            coordinate(data['sourceEventSeq']),
-            mapping,
-            `command/done ${event.seq} sourceEventSeq`,
-          ),
-        }
+            ...data,
+            sourceEventSeq: mapOne(coordinate(data['sourceEventSeq']), mapping, `command/done ${event.seq} sourceEventSeq`),
+          }
     case 'compaction/prune':
     case 'compaction/summary': {
       const range = record(data['shadowedRange'])
       return {
         ...data,
         shadowedRange: {
-          start: mapOne(
-            coordinate(range['start']),
-            mapping,
-            `${event.type} ${event.seq} shadowedRange start`,
-          ),
-          end: mapOne(
-            coordinate(range['end']),
-            mapping,
-            `${event.type} ${event.seq} shadowedRange end`,
-          ),
+          start: mapOne(coordinate(range['start']), mapping, `${event.type} ${event.seq} shadowedRange start`),
+          end: mapOne(coordinate(range['end']), mapping, `${event.type} ${event.seq} shadowedRange end`),
         },
         shadowedSeqs: mapList(
           numberArray(data['shadowedSeqs'] as SessionFormatJsonValue),
@@ -649,30 +565,18 @@ function remapPayloadReferences(
     case 'session/title-llm-request':
       return {
         ...data,
-        messageSeqs: mapList(
-          numberArray(data['messageSeqs'] as SessionFormatJsonValue),
-          mapping,
-          `${event.type} ${event.seq} messageSeqs`,
-        ),
+        messageSeqs: mapList(numberArray(data['messageSeqs'] as SessionFormatJsonValue), mapping, `${event.type} ${event.seq} messageSeqs`),
       }
     default:
       return data
   }
 }
 
-function mapList(
-  values: readonly number[],
-  mapping: ReadonlyMap<number, number>,
-  label: string,
-): number[] {
+function mapList(values: readonly number[], mapping: ReadonlyMap<number, number>, label: string): number[] {
   return values.map(value => mapOne(value, mapping, label))
 }
 
-function mapOne(
-  value: number,
-  mapping: ReadonlyMap<number, number>,
-  label: string,
-): number {
+function mapOne(value: number, mapping: ReadonlyMap<number, number>, label: string): number {
   const mapped = mapping.get(value)
   if (mapped === undefined) throw refusal(`${label} targets consumed assistant/chunk ${value}`)
   return mapped

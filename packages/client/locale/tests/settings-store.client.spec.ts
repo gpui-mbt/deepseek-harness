@@ -1,8 +1,11 @@
 /** Language row store: snapshot-mirror action and the revision guard. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createLanguageRowStore } from '../src/client/settings-store.ts'
 
-const OPTIONS = [{ id: 'zh', label: '中文' }, { id: 'en', label: 'English' }]
+const OPTIONS = [
+  { id: 'zh', label: '中文' },
+  { id: 'en', label: 'English' },
+]
 
 describe('createLanguageRowStore', () => {
   it('init shape: empty mirror with revision at -1', () => {

@@ -44,7 +44,7 @@ export function apply(ctx) {
       bothAccepted.resolve()
     }
   })
-  ctx.on('subagent/end', (info) => {
+  ctx.on('subagent/end', info => {
     if (info.id === children[0]) firstSettled.resolve()
   })
   ctx.on('tools/execute', async (exec, next) => {

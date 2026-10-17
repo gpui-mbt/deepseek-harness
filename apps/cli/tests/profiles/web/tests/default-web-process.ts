@@ -9,8 +9,8 @@ import { request as httpRequest } from 'node:http'
 import type { IncomingHttpHeaders } from 'node:http'
 import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
 import ts from 'typescript'
-import { expect } from 'vitest'
-import type { TestContext } from 'vitest'
+import { expect } from 'vite-plus/test'
+import type { TestContext } from 'vite-plus/test'
 import { PROCESS_SHUTDOWN_TIMEOUT_MS } from '../../../../src/process-shutdown.ts'
 import type { RuntimeRoster } from './runtime-roster.ts'
 
@@ -36,7 +36,7 @@ export async function withDefaultWeb(
 ): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-web-default-isolation-'))
   let removal: Promise<void> | undefined
-  const removeRoot = (): Promise<void> => removal ??= rm(root, { recursive: true, force: true })
+  const removeRoot = (): Promise<void> => (removal ??= rm(root, { recursive: true, force: true }))
   test.onTestFinished(removeRoot)
   try {
     await options.prepare?.(root)
@@ -52,17 +52,34 @@ export async function withDefaultWeb(
       await writeFile(path, output)
     }
     const patch = join(root, 'observer.patch.yml')
-    await writeFile(patch, JSON.stringify([{ insert: [{
-      id: 'runtime-roster-observer',
-      name: pathToFileURL(join(root, 'fixtures/runtime-roster-observer.js')).href,
-      config: { negativeControl: pathToFileURL(join(repoRoot, 'packages/experimental/client-ui-agent-team/lib/index.js')).href },
-    }] }]) + '\n')
+    await writeFile(
+      patch,
+      JSON.stringify([
+        {
+          insert: [
+            {
+              id: 'runtime-roster-observer',
+              name: pathToFileURL(join(root, 'fixtures/runtime-roster-observer.js')).href,
+              config: { negativeControl: pathToFileURL(join(repoRoot, 'packages/experimental/client-ui-agent-team/lib/index.js')).href },
+            },
+          ],
+        },
+      ]) + '\n',
+    )
     const launch = resolveExampleLaunch({
       srcBin: join(repoRoot, 'apps/cli/src/bin.ts'),
       mode: 'lib',
       configArgs: [
-        '--profile', 'web', ...options.patches?.flatMap(path => ['--patch', path]) ?? [],
-        '--patch', patch, '--host', '127.0.0.1', '--port', '0', '--no-open',
+        '--profile',
+        'web',
+        ...(options.patches?.flatMap(path => ['--patch', path]) ?? []),
+        '--patch',
+        patch,
+        '--host',
+        '127.0.0.1',
+        '--port',
+        '0',
+        '--no-open',
       ],
       env: {
         NODE_OPTIONS: undefined,
@@ -84,8 +101,12 @@ export async function withDefaultWeb(
     })
     let stdout = ''
     let stderr = ''
-    child.stdout!.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk })
-    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
+    child.stdout!.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
     const completion = Promise.withResolvers<{ code: number | null; signal: NodeJS.Signals | null }>()
     let exited = false
     let processError: Error | undefined
@@ -94,13 +115,18 @@ export async function withDefaultWeb(
       for (const request of pending.values()) request.reject(error)
       pending.clear()
     }
-    child.once('error', (error) => { processError = error; rejectPending(error) })
+    child.once('error', error => {
+      processError = error
+      rejectPending(error)
+    })
     child.once('close', (code, signal) => {
       exited = true
       rejectPending(new Error(`Web exited (code ${String(code)}, signal ${String(signal)})\n${stdout}\n${stderr}`))
       completion.resolve({ code, signal })
     })
-    child.once('disconnect', () => { rejectPending(new Error(`Web IPC disconnected\n${stdout}\n${stderr}`)) })
+    child.once('disconnect', () => {
+      rejectPending(new Error(`Web IPC disconnected\n${stdout}\n${stderr}`))
+    })
     child.on('message', (message: { command?: string; roster?: RuntimeRoster; error?: string }) => {
       if (message.command === undefined) return
       const request = pending.get(message.command)
@@ -110,9 +136,13 @@ export async function withDefaultWeb(
       else if (message.roster !== undefined) request.resolve(message.roster)
       else request.reject(new Error('Web observer returned no runtime roster'))
     })
-    const send = (command: string): Promise<void> => new Promise((resolve, reject) => {
-      child.send(command, (error: Error | null) => { if (error) reject(error); else resolve() })
-    })
+    const send = (command: string): Promise<void> =>
+      new Promise((resolve, reject) => {
+        child.send(command, (error: Error | null) => {
+          if (error) reject(error)
+          else resolve()
+        })
+      })
     const request = async (command: string): Promise<RuntimeRoster> => {
       test.signal.throwIfAborted()
       if (exited || !child.connected) throw new Error(`Web is not connected during ${command}`)
@@ -127,33 +157,47 @@ export async function withDefaultWeb(
     }
     let forced = false
     let closing: Promise<Awaited<typeof completion.promise>> | undefined
-    const close = (): Promise<Awaited<typeof completion.promise>> => closing ??= (async () => {
-      const force = (): void => {
-        if (exited || child.pid === undefined) return
-        forced = true
-        child.kill('SIGKILL')
-      }
-      // The CLI owns its 5-second graceful deadline; the outer watchdog also allows that process exit to settle.
-      const kill = setTimeout(force, PROCESS_SHUTDOWN_TIMEOUT_MS * 2)
-      try {
-        if (!exited && child.connected) {
-          try { await send('stop') } catch (_closedChannel: unknown) { force() }
-        } else force()
-        return await completion.promise
-      } finally { clearTimeout(kill) }
-    })()
+    const close = (): Promise<Awaited<typeof completion.promise>> =>
+      (closing ??= (async () => {
+        const force = (): void => {
+          if (exited || child.pid === undefined) return
+          forced = true
+          child.kill('SIGKILL')
+        }
+        // The CLI owns its 5-second graceful deadline; the outer watchdog also allows that process exit to settle.
+        const kill = setTimeout(force, PROCESS_SHUTDOWN_TIMEOUT_MS * 2)
+        try {
+          if (!exited && child.connected) {
+            try {
+              await send('stop')
+            } catch (_closedChannel: unknown) {
+              force()
+            }
+          } else force()
+          return await completion.promise
+        } finally {
+          clearTimeout(kill)
+        }
+      })())
     const abort = (): void => {
       rejectPending(new Error('Web isolation test was cancelled', { cause: test.signal.reason }))
       void close()
     }
     test.signal.addEventListener('abort', abort, { once: true })
-    test.onTestFinished(async () => { await close() })
+    test.onTestFinished(async () => {
+      await close()
+    })
     try {
-      await expect.poll(() => {
-        test.signal.throwIfAborted()
-        if (exited) throw new Error(`Web exited before readiness\n${stdout}\n${stderr}`)
-        return /dsh web: (http:\/\/[^\s]+)/u.exec(stdout)?.[1]
-      }, { timeout: test.task.timeout }).toBeDefined()
+      await expect
+        .poll(
+          () => {
+            test.signal.throwIfAborted()
+            if (exited) throw new Error(`Web exited before readiness\n${stdout}\n${stderr}`)
+            return /dsh web: (http:\/\/[^\s]+)/u.exec(stdout)?.[1]
+          },
+          { timeout: test.task.timeout },
+        )
+        .toBeDefined()
       const url = /dsh web: (http:\/\/[^\s]+)/u.exec(stdout)![1]!
       await inspect({ root, url, request })
     } finally {
@@ -177,9 +221,7 @@ export async function withDefaultWeb(
  * @param headers - optional authentication cookie.
  * @returns complete response after its stream ends.
  */
-export function webGet(
-  url: string | URL, signal: AbortSignal, headers: Record<string, string> = {},
-): ReturnType<typeof webRequest> {
+export function webGet(url: string | URL, signal: AbortSignal, headers: Record<string, string> = {}): ReturnType<typeof webRequest> {
   return webRequest(url, signal, { method: 'GET', headers })
 }
 
@@ -196,12 +238,16 @@ export function webRequest(
   options: { method: 'GET' | 'POST'; headers?: Record<string, string>; body?: string },
 ): Promise<{ status: number | undefined; headers: IncomingHttpHeaders; text: string }> {
   return new Promise((resolve, reject) => {
-    const request = httpRequest(url, { method: options.method, headers: options.headers, agent: false, signal }, (response) => {
+    const request = httpRequest(url, { method: options.method, headers: options.headers, agent: false, signal }, response => {
       response.setEncoding('utf8')
       let text = ''
-      response.on('data', (chunk: string) => { text += chunk })
+      response.on('data', (chunk: string) => {
+        text += chunk
+      })
       response.once('error', reject)
-      response.once('end', () => { resolve({ status: response.statusCode, headers: response.headers, text }) })
+      response.once('end', () => {
+        resolve({ status: response.statusCode, headers: response.headers, text })
+      })
     })
     request.once('error', reject)
     request.end(options.body)

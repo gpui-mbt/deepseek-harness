@@ -14,7 +14,7 @@ const SIGNAL_EXIT_STATUS = 130
 
 const cd: ShellProgram = async (argv, io, state, fs) => {
   const target = argv[1] ?? state.environment['HOME'] ?? '/'
-  const path = target === '-' ? state.variables['OLDPWD'] ?? state.cwd : resolveIn(state.cwd, target)
+  const path = target === '-' ? (state.variables['OLDPWD'] ?? state.cwd) : resolveIn(state.cwd, target)
   const stats = await fs.stat(path)
   if (stats === undefined) {
     io.err(`cd: ${target}: No such file or directory\n`)
@@ -77,21 +77,30 @@ const exitProgram: ShellProgram = (argv, _io, state) => {
 /** `test` / `[`: the file and string predicates a generated command line uses. */
 const test: ShellProgram = async (argv, io, state, fs) => {
   const words = argv[0] === '[' ? argv.slice(1, argv[argv.length - 1] === ']' ? -1 : undefined) : argv.slice(1)
-  const status = (value: boolean): number => value ? 0 : 1
+  const status = (value: boolean): number => (value ? 0 : 1)
   const statOf = async (operand: string): Promise<ShellStats | undefined> => await fs.stat(resolveIn(state.cwd, operand))
   if (words.length === 1) return status((words[0] as string) !== '')
   if (words.length === 2) {
     const operator = words[0] as string
     const operand = words[1] ?? ''
     switch (operator) {
-      case '-e': return status(await statOf(operand) !== undefined)
-      case '-f': return status((await statOf(operand))?.directory === false)
-      case '-d': return status((await statOf(operand))?.directory === true)
-      case '-s': return status(((await statOf(operand))?.size ?? 0) > 0)
-      case '-r': case '-w': return status(await statOf(operand) !== undefined)
-      case '-z': return status(operand === '')
-      case '-n': return status(operand !== '')
-      case '!': return status(operand === '')
+      case '-e':
+        return status((await statOf(operand)) !== undefined)
+      case '-f':
+        return status((await statOf(operand))?.directory === false)
+      case '-d':
+        return status((await statOf(operand))?.directory === true)
+      case '-s':
+        return status(((await statOf(operand))?.size ?? 0) > 0)
+      case '-r':
+      case '-w':
+        return status((await statOf(operand)) !== undefined)
+      case '-z':
+        return status(operand === '')
+      case '-n':
+        return status(operand !== '')
+      case '!':
+        return status(operand === '')
       default:
         io.err(`test: ${operator}: unsupported unary operator\n`)
         return 2
@@ -100,14 +109,23 @@ const test: ShellProgram = async (argv, io, state, fs) => {
   if (words.length === 3) {
     const [left, operator, right] = words as [string, string, string]
     switch (operator) {
-      case '=': case '==': return status(left === right)
-      case '!=': return status(left !== right)
-      case '-eq': return status(Number(left) === Number(right))
-      case '-ne': return status(Number(left) !== Number(right))
-      case '-lt': return status(Number(left) < Number(right))
-      case '-le': return status(Number(left) <= Number(right))
-      case '-gt': return status(Number(left) > Number(right))
-      case '-ge': return status(Number(left) >= Number(right))
+      case '=':
+      case '==':
+        return status(left === right)
+      case '!=':
+        return status(left !== right)
+      case '-eq':
+        return status(Number(left) === Number(right))
+      case '-ne':
+        return status(Number(left) !== Number(right))
+      case '-lt':
+        return status(Number(left) < Number(right))
+      case '-le':
+        return status(Number(left) <= Number(right))
+      case '-gt':
+        return status(Number(left) > Number(right))
+      case '-ge':
+        return status(Number(left) >= Number(right))
       default:
         io.err(`test: ${operator}: unsupported binary operator\n`)
         return 2
@@ -125,7 +143,7 @@ const sleep: ShellProgram = async (argv, io, state) => {
   }
   // A killed command must settle at once: waiting out the full interval would
   // keep the caller's process handle open long after its signal arrived.
-  const killed = await new Promise<boolean>((settle) => {
+  const killed = await new Promise<boolean>(settle => {
     const timer = setTimeout(() => {
       state.signal?.removeEventListener('abort', onAbort)
       settle(false)
@@ -148,9 +166,9 @@ const date: ShellProgram = (_argv, io) => {
 const seq: ShellProgram = (argv, io) => {
   const numbers = argv.slice(1).map(value => Number.parseInt(value, 10))
   const [first, second, third] = numbers
-  const from = numbers.length > 1 ? first as number : 1
-  const step = numbers.length > 2 ? second as number : 1
-  const to = numbers.length > 2 ? third as number : numbers.length > 1 ? second as number : first
+  const from = numbers.length > 1 ? (first as number) : 1
+  const step = numbers.length > 2 ? (second as number) : 1
+  const to = numbers.length > 2 ? (third as number) : numbers.length > 1 ? (second as number) : first
   if (to === undefined || !Number.isFinite(to) || step === 0) {
     io.err('seq: expected numeric bounds\n')
     return 2
@@ -186,7 +204,7 @@ export const BUILTIN_PROGRAMS: Readonly<Record<string, ShellProgram>> = {
   sleep,
   date,
   seq,
-  'true': () => 0,
-  'false': () => 1,
+  true: () => 0,
+  false: () => 1,
   ':': () => 0,
 }

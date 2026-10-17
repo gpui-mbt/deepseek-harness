@@ -16,7 +16,7 @@
  * mishandles them. Five traps cannot recur while the AST pass is the parser,
  * but they stay checked because a future parser swap could reintroduce them.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { parse } from 'acorn'
 import { lowerModuleSource } from '../../src/compile/transform.ts'
 import { LOWERING_VERSION, WRAPPER_PARAMS } from '../../src/image-layout.ts'
@@ -27,23 +27,28 @@ import { LOWERING_VERSION, WRAPPER_PARAMS } from '../../src/image-layout.ts'
  * @param path - Path the diagnostics name.
  * @returns The emitted body.
  */
-const transformModule = (source: string, path = 'probe.js'): string =>
-  lowerModuleSource({ filename: path, source }).code
+const transformModule = (source: string, path = 'probe.js'): string => lowerModuleSource({ filename: path, source }).code
 
 /** Register one comparison as its own case, serialized at call time. */
 const check = (label: string, actual: unknown, expected: unknown): void => {
   const [seen, wanted] = [JSON.stringify(actual), JSON.stringify(expected)]
-  test(label, () => { expect(seen).toBe(wanted) })
+  test(label, () => {
+    expect(seen).toBe(wanted)
+  })
 }
 
 /** Assert a substring is present in an emitted body. */
 const contains = (label: string, code: string, needle: string): void => {
-  test(label, () => { expect(code).toContain(needle) })
+  test(label, () => {
+    expect(code).toContain(needle)
+  })
 }
 
 /** Assert a substring is absent (used for "must survive untouched" cases). */
 const lacks = (label: string, code: string, needle: string): void => {
-  test(label, () => { expect(code).not.toContain(needle) })
+  test(label, () => {
+    expect(code).not.toContain(needle)
+  })
 }
 
 /** @returns The error message of a refused transform, or undefined when it succeeded. */
@@ -59,7 +64,9 @@ const refusal = (source: string, path = 'probe.js'): string | undefined => {
 /** Assert the transform refuses a source and names the reason. */
 const refuses = (label: string, source: string, fragment: string): void => {
   const message = refusal(source)
-  test(label, () => { expect(message).toContain(fragment) })
+  test(label, () => {
+    expect(message).toContain(fragment)
+  })
 }
 
 /**
@@ -71,11 +78,7 @@ const refuses = (label: string, source: string, fragment: string): void => {
  * @param als - Suspension runtime bound to `__als`.
  * @returns The populated `exports` object.
  */
-function runBody(
-  code: string,
-  require: (specifier: string) => unknown = () => ({}),
-  als?: unknown,
-): Record<string, unknown> {
+function runBody(code: string, require: (specifier: string) => unknown = () => ({}), als?: unknown): Record<string, unknown> {
   const exports: Record<string, unknown> = {}
   const module = { exports }
   // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the wrapper contract under test is a `new Function` body
@@ -96,9 +99,11 @@ const parsesAsScript = (label: string, code: string): void => {
 // ---------------------------------------------------------------------------
 
 check('LOWERING_VERSION is a non-empty string', typeof LOWERING_VERSION === 'string' && LOWERING_VERSION.length > 0, true)
-check('WRAPPER_PARAMS is the frozen 7-parameter shape', [...WRAPPER_PARAMS], [
-  'exports', 'require', 'module', '__filename', '__dirname', '__dsh$meta', '__als',
-])
+check(
+  'WRAPPER_PARAMS is the frozen 7-parameter shape',
+  [...WRAPPER_PARAMS],
+  ['exports', 'require', 'module', '__filename', '__dirname', '__dsh$meta', '__als'],
+)
 // The wrapper signature is a contract with the loader's `new Function`, so the
 // parameters must be valid identifiers in that position.
 check(
@@ -184,7 +189,7 @@ check(
   parsesAsScript('side-effect import', code)
 
   const requested: string[] = []
-  runBody(code, (specifier) => {
+  runBody(code, specifier => {
     requested.push(specifier)
     return {}
   })
@@ -245,11 +250,7 @@ check(
   ;(exports.bump as () => void)()
   check('live binding observes a later assignment', exports.counter, 1)
   // A getter, not a data property: this is what makes the above work.
-  check(
-    'exported local is an accessor',
-    typeof Object.getOwnPropertyDescriptor(exports, 'counter')?.get,
-    'function',
-  )
+  check('exported local is an accessor', typeof Object.getOwnPropertyDescriptor(exports, 'counter')?.get, 'function')
 }
 
 {
@@ -264,8 +265,8 @@ check(
   // Destructuring exports exercise the pattern walker (object, array, rest,
   // default) — every branch of `declaredBindings`.
   const code = transformModule(
-    'export const { p, q: renamed, ...restObj } = { p: 1, q: 2, z: 3 }\n'
-    + 'export const [first, , third = 30, ...restArr] = [10, 20, undefined, 40, 50]\n',
+    'export const { p, q: renamed, ...restObj } = { p: 1, q: 2, z: 3 }\n' +
+      'export const [first, , third = 30, ...restArr] = [10, 20, undefined, 40, 50]\n',
     'probe.js',
   )
   parsesAsScript('destructuring exports', code)
@@ -399,7 +400,7 @@ function recordingAls(): { als: Record<string, unknown>; calls: string[] } {
       const inner = syncFactory.call(source)
       return {
         next: async (...args: unknown[]) => {
-          const step = inner.next(...args as [unknown])
+          const step = inner.next(...(args as [unknown]))
           return { done: step.done ?? false, value: await step.value }
         },
         return: async (sent?: unknown) => {
@@ -444,9 +445,8 @@ function recordingAls(): { als: Record<string, unknown>; calls: string[] } {
   // for-await desugars to an explicit loop; `return()` must run only on abrupt
   // completion, which is the language rule. The two
   // completion paths need two different loop bodies, so they are separate cases.
-  const plain = 'export const run = async (src) => { const seen = []\n'
-    + 'for await (const item of src) { seen.push(item) }\n'
-    + 'return seen }\n'
+  const plain =
+    'export const run = async (src) => { const seen = []\n' + 'for await (const item of src) { seen.push(item) }\n' + 'return seen }\n'
   const code = transformModule(plain, 'probe.js')
   parsesAsScript('for-await', code)
   contains('for-await uses the iterator helper', code, '__als.iterator(')
@@ -457,9 +457,7 @@ function recordingAls(): { als: Record<string, unknown>; calls: string[] } {
     [Symbol.asyncIterator]: () => {
       let emitted = 0
       return {
-        next: () => Promise.resolve(
-          emitted < n ? { done: false, value: ++emitted } : { done: true, value: undefined },
-        ),
+        next: () => Promise.resolve(emitted < n ? { done: false, value: ++emitted } : { done: true, value: undefined }),
       }
     },
   })
@@ -472,9 +470,10 @@ function recordingAls(): { als: Record<string, unknown>; calls: string[] } {
 
   // Abrupt completion (break), and a sync source whose values are promises
   // (async-from-sync): close must run exactly once.
-  const breaking = 'export const run = async (src) => { const seen = []\n'
-    + 'for await (const item of src) { seen.push(item); if (item === 2) break }\n'
-    + 'return seen }\n'
+  const breaking =
+    'export const run = async (src) => { const seen = []\n' +
+    'for await (const item of src) { seen.push(item); if (item === 2) break }\n' +
+    'return seen }\n'
   const breakingCode = transformModule(breaking, 'probe.js')
   parsesAsScript('for-await with break', breakingCode)
   const { als: als2, calls: calls2 } = recordingAls()
@@ -514,10 +513,7 @@ function recordingAls(): { als: Record<string, unknown>; calls: string[] } {
 {
   // `yield` in an async generator: the snapshot is taken before suspending and
   // the consumer's sent value comes back through afterYield.
-  const code = transformModule(
-    'export async function* gen() { const got = yield 1\nyield got * 2 }\n',
-    'probe.js',
-  )
+  const code = transformModule('export async function* gen() { const got = yield 1\nyield got * 2 }\n', 'probe.js')
   parsesAsScript('yield rewrite', code)
   contains('yield is wrapped in afterYield(snapshot(), yield ...)', code, '__als.afterYield(__als.snapshot(),yield ')
   const { als, calls } = recordingAls()
@@ -530,10 +526,7 @@ function recordingAls(): { als: Record<string, unknown>; calls: string[] } {
 
 {
   // Statement-position `yield*` desugars into a forwarding loop.
-  const code = transformModule(
-    'export async function* outer(inner) { yield* inner\nyield "tail" }\n',
-    'probe.js',
-  )
+  const code = transformModule('export async function* outer(inner) { yield* inner\nyield "tail" }\n', 'probe.js')
   parsesAsScript('yield* rewrite', code)
   const { als } = recordingAls()
   const outer = runBody(code, () => ({}), als).outer as (inner: unknown) => AsyncGenerator<unknown, void, unknown>
@@ -585,11 +578,7 @@ refuses(
   'export const f = async (src) => { outer: for await (const x of src) { break outer } }\n',
   'labeled for-await',
 )
-refuses(
-  'import attributes are refused',
-  "import data from './d.json' with { type: 'json' }\n",
-  'import attributes',
-)
+refuses('import attributes are refused', "import data from './d.json' with { type: 'json' }\n", 'import attributes')
 refuses(
   'value-position yield* is refused',
   'export async function* f(inner) { const v = yield* inner\nuse(v) }\n',
@@ -605,11 +594,7 @@ refuses(
   'export async function* f(inner) { use(yield* inner) }\n',
   'yield* is only supported as the whole statement expression',
 )
-refuses(
-  'already-lowered source is refused',
-  'const x = __als.pause(1)\n',
-  'already lowered',
-)
+refuses('already-lowered source is refused', 'const x = __als.pause(1)\n', 'already lowered')
 refuses('unparseable source is refused', 'export const = \n', 'parse failed')
 
 {
@@ -725,9 +710,5 @@ refuses('unparseable source is refused', 'export const = \n', 'parse failed')
   const second = transformModule(source, 'b.js')
   check('identical sources return the identical cached body', first === second, true)
   // Distinct sources must not collide.
-  check(
-    'distinct sources produce distinct bodies',
-    transformModule('export const other = 2\n', 'c.js') !== first,
-    true,
-  )
+  check('distinct sources produce distinct bodies', transformModule('export const other = 2\n', 'c.js') !== first, true)
 }

@@ -72,7 +72,7 @@ export class ChatViewport {
   /** Transition state and row callbacks owned by this viewport's attachment. */
   readonly motion = createFlowMotion(
     () => this.foldDriver(),
-    (active) => {
+    active => {
       if (this.elements !== null) this.elements.scroller.style.overflowAnchor = active ? 'none' : ''
     },
   )
@@ -131,7 +131,9 @@ export class ChatViewport {
    */
   connect(events: ViewportEvents): () => void {
     this.events = events
-    return () => { if (this.events === events) this.events = null }
+    return () => {
+      if (this.events === events) this.events = null
+    }
   }
 
   /**
@@ -174,7 +176,9 @@ export class ChatViewport {
    */
   bindReader(reader: FoldReader): () => void {
     this.reader = reader
-    return () => { if (this.reader === reader) this.reader = null }
+    return () => {
+      if (this.reader === reader) this.reader = null
+    }
   }
 
   /**
@@ -238,12 +242,10 @@ export class ChatViewport {
       const remaining = segmentProgress === 1 ? 1 : (progress - segmentProgress) / (1 - segmentProgress)
       return segmentTop + (target - segmentTop) * remaining
     }
-    const room = (top: number, progress: number, cancelled: boolean): number => Math.max(
-      automatic(cancelled) ? finalRoom : 0,
-      top + elements.scroller.clientHeight - (initialHeight + (growth - removed) * progress),
-    )
+    const room = (top: number, progress: number, cancelled: boolean): number =>
+      Math.max(automatic(cancelled) ? finalRoom : 0, top + elements.scroller.clientHeight - (initialHeight + (growth - removed) * progress))
     return {
-      begin: (boxes) => {
+      begin: boxes => {
         // Own input lands at the tail; otherwise an unsampled reading movement outranks follow intent.
         tail = this.tailRequested || (follow.active && !reader.pending())
         this.tailRequested = false
@@ -335,7 +337,7 @@ export class ChatViewport {
         previousProgress = progress
         return written - start
       },
-      finish: (cancelled) => {
+      finish: cancelled => {
         this.retarget = null
         this.tailRequested = false
         if (this.elements !== elements) return
@@ -497,16 +499,20 @@ export class ChatViewport {
         const row = element instanceof HTMLElement ? element.closest<HTMLElement>('[data-chat-anchor-key]') : null
         if (row !== null && row.dataset.chatFlowKind !== 'turn-process' && list.contains(row)) {
           // An open group's header stays put while older members enter above its body content.
-          anchor = row.dataset.chatGroupKey === undefined ? row
-            : row.querySelector<HTMLElement>('[data-step-process-content] > [data-chat-anchor-key]:not(:empty):not([hidden]):not([hidden] *)') ?? row
+          anchor =
+            row.dataset.chatGroupKey === undefined
+              ? row
+              : (row.querySelector<HTMLElement>(
+                  '[data-step-process-content] > [data-chat-anchor-key]:not(:empty):not([hidden]):not([hidden] *)',
+                ) ?? row)
           break
         }
       }
     }
     if (anchor === null) {
       const rows = list.querySelectorAll<HTMLElement>(
-        '[data-chat-flow-key]:not([data-chat-group-key]):not([data-chat-flow-kind="turn-process"])'
-        + ':not(:empty):not([hidden]):not([hidden] *)',
+        '[data-chat-flow-key]:not([data-chat-group-key]):not([data-chat-flow-kind="turn-process"])' +
+          ':not(:empty):not([hidden]):not([hidden] *)',
       )
       let low = 0
       let high = rows.length
@@ -516,14 +522,16 @@ export class ChatViewport {
         else low = middle + 1
       }
       const row = rows[low]
-      anchor = row !== undefined && row.getBoundingClientRect().top < bottom ? row : rows[0] ?? null
+      anchor = row !== undefined && row.getBoundingClientRect().top < bottom ? row : (rows[0] ?? null)
     }
     const key = anchor?.dataset.chatAnchorKey
-    return anchor === null || key === undefined ? null : {
-      anchorKey: key,
-      anchorTop: anchor.getBoundingClientRect().top - viewport.top,
-      scrollTop: scroller.scrollTop,
-    }
+    return anchor === null || key === undefined
+      ? null
+      : {
+          anchorKey: key,
+          anchorTop: anchor.getBoundingClientRect().top - viewport.top,
+          scrollTop: scroller.scrollTop,
+        }
   }
 
   /**
@@ -601,9 +609,7 @@ export class ChatViewport {
   /** Retain the first eligible transcript seat in DOM order; selection reads no geometry. */
   beginPaging(): void {
     this.stopPreserving()
-    const row = this.elements?.list.querySelector<HTMLElement>(
-      '[data-chat-paging-anchor]:not(:empty):not([hidden]):not([hidden] *)',
-    )
+    const row = this.elements?.list.querySelector<HTMLElement>('[data-chat-paging-anchor]:not(:empty):not([hidden]):not([hidden] *)')
     if (row != null) this.retain(row)
   }
 
@@ -628,10 +634,10 @@ export class ChatViewport {
     const top = row.getBoundingClientRect().top
     const body = row.closest<HTMLElement>('[data-step-process-body]')
     const content = body?.querySelector<HTMLElement>('[data-step-process-content]')
-    const group = body === null || content == null ? null
-      : { body, content, top: groupTop ?? top - body.getBoundingClientRect().top }
+    const group = body === null || content == null ? null : { body, content, top: groupTop ?? top - body.getBoundingClientRect().top }
     this.paging = {
-      row, group,
+      row,
+      group,
       position: position ?? {
         anchorKey: key,
         anchorTop: top - elements.scroller.getBoundingClientRect().top,
@@ -653,7 +659,9 @@ export class ChatViewport {
    * Expose retained paging ownership to navigation and resize policy.
    * @returns whether a paging row is retained for subsequent layout changes.
    */
-  get preserving(): boolean { return this.paging !== null }
+  get preserving(): boolean {
+    return this.paging !== null
+  }
 
   /**
    * Compensate inner scrolling first, then the outer scrollport, within their actual scroll ranges.
@@ -728,7 +736,9 @@ export class ChatViewport {
   }
 
   private write(
-    target: number, metrics: ViewportMetrics, turn: number | null,
+    target: number,
+    metrics: ViewportMetrics,
+    turn: number | null,
     anchor?: { key: string | undefined; top: number },
   ): ViewportLanding | null {
     if (this.elements === null) return null
@@ -738,11 +748,14 @@ export class ChatViewport {
     const landing: ViewportLanding = {
       metrics: { ...metrics, top: actual },
       turn,
-      position: anchor?.key === undefined ? null : {
-        anchorKey: anchor.key,
-        anchorTop: anchor.top - (actual - metrics.top),
-        scrollTop: actual,
-      },
+      position:
+        anchor?.key === undefined
+          ? null
+          : {
+              anchorKey: anchor.key,
+              anchorTop: anchor.top - (actual - metrics.top),
+              scrollTop: actual,
+            },
     }
     this.observation = { top: actual, landing }
     return landing
@@ -794,7 +807,9 @@ export function useChatViewport(): {
   useLayoutEffect(() => {
     if (listRef.current === null || columnRef.current === null) return
     viewport.attach(listRef.current, columnRef.current)
-    return () => { viewport.detach() }
+    return () => {
+      viewport.detach()
+    }
   }, [viewport])
   return { viewport, listRef, columnRef }
 }

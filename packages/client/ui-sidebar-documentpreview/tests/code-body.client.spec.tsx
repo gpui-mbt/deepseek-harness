@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { absoluteFileAddress, sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
@@ -29,8 +29,10 @@ afterEach(() => {
 function contents(pages: readonly string[], eof = false): DocumentContent {
   let offset = 1
   return {
-    kind: 'text', text: pages.join('\n'), eof,
-    pages: pages.map((text) => {
+    kind: 'text',
+    text: pages.join('\n'),
+    eof,
+    pages: pages.map(text => {
       const page = { offset, text, lines: text.split('\n').length }
       offset += page.lines
       return page
@@ -41,8 +43,12 @@ function contents(pages: readonly string[], eof = false): DocumentContent {
 /** Unused framework seats are omitted; this renderer reads only owner data and t. */
 function props(content: DocumentContent, overrides: Partial<CodeBodyProps> = {}): CodeBodyProps {
   return {
-    resourceAddress: sessionFileAddress(SESSION, 'source.ts'), sessionId: SESSION,
-    content, wrap: false, t: (key: keyof typeof en) => en[key], ...overrides,
+    resourceAddress: sessionFileAddress(SESSION, 'source.ts'),
+    sessionId: SESSION,
+    content,
+    wrap: false,
+    t: (key: keyof typeof en) => en[key],
+    ...overrides,
   } as CodeBodyProps
 }
 
@@ -54,14 +60,16 @@ function element(root: HTMLElement, selector: string): HTMLElement {
 
 function tokens(root: HTMLElement) {
   return [...root.querySelectorAll('.shiki .line')].map(line =>
-    [...line.querySelectorAll<HTMLElement>('span[style]')].map(span => [span.textContent, span.style.color]))
+    [...line.querySelectorAll<HTMLElement>('span[style]')].map(span => [span.textContent, span.style.color]),
+  )
 }
 
 /** Apply both source stylesheets using Vite's module names; jsdom has no CSS loader. */
 function installStyles(): void {
   const directory = dirname(fileURLToPath(import.meta.url))
   const own = readFileSync(resolve(directory, '../src/client/code/CodeBody.module.css'), 'utf8')
-    .replaceAll('.renderer', `.${css.renderer}`).replaceAll('.code', `.${css.code}`)
+    .replaceAll('.renderer', `.${css.renderer}`)
+    .replaceAll('.code', `.${css.code}`)
   const shared = readFileSync(resolve(directory, '../../ui-primitives/src/markdown/CodeBlock.module.css'), 'utf8')
     .replaceAll('.block', `.${primitiveCss.block}`)
     .replaceAll('.content', `.${primitiveCss.content}`)
@@ -133,14 +141,23 @@ describe('CodeBody', () => {
     const code = 'def answer():\n    return 42'
     const view = render(<CodeBody {...props(contents([code], true), { resourceAddress: sessionFileAddress(SESSION, 'answer.py') })} />)
     expect(element(view.container, 'pre').textContent).toBe(code)
-    await waitFor(() => { expect(view.container.querySelector('.shiki')).not.toBeNull() })
+    await waitFor(() => {
+      expect(view.container.querySelector('.shiki')).not.toBeNull()
+    })
     expect(element(view.container, '.shiki').textContent).toBe(code)
     expect(view.container.querySelectorAll('.shiki span[style]').length).toBeGreaterThan(1)
   })
 
-  it.each([['html', '<h1>Source only</h1>'], ['md', '# Source only']])('renders %s as selectable source, not document markup', async (extension, code) => {
-    const view = render(<CodeBody {...props(contents([code], true), { resourceAddress: sessionFileAddress(SESSION, `page.${extension}`) })} />)
-    await waitFor(() => { expect(view.container.querySelector('.shiki')).not.toBeNull() })
+  it.each([
+    ['html', '<h1>Source only</h1>'],
+    ['md', '# Source only'],
+  ])('renders %s as selectable source, not document markup', async (extension, code) => {
+    const view = render(
+      <CodeBody {...props(contents([code], true), { resourceAddress: sessionFileAddress(SESSION, `page.${extension}`) })} />,
+    )
+    await waitFor(() => {
+      expect(view.container.querySelector('.shiki')).not.toBeNull()
+    })
     expect(element(view.container, '.shiki').textContent).toBe(code)
     expect(view.container.querySelector('h1')).toBeNull()
   })

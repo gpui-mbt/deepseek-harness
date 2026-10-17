@@ -37,8 +37,10 @@ export type AgentPresetSettingsKey =
 /** English copy. */
 export const en: Record<AgentPresetSettingsKey, string> = {
   ...guideEn,
-  builtInGroup: 'Built-in', customGroup: 'Custom',
-  sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to DSH.',
+  builtInGroup: 'Built-in',
+  customGroup: 'Custom',
+  sectionIntro:
+    'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to DSH.',
 
   seatHint: 'Choose the agent preset for your new task',
   headerHint: 'The agent preset chosen when this task started',
@@ -76,13 +78,13 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   createPluginChecking: 'Checking whether Creator mode is available',
   createPluginUnavailable: 'Temporarily unavailable. Reopen this menu to retry',
   createPluginMissing: 'Creator mode is not included in this configuration',
-
 }
 
 /** Simplified Chinese copy. */
 export const zh: Record<AgentPresetSettingsKey, string> = {
   ...guideZh,
-  builtInGroup: '内置', customGroup: '自定义',
+  builtInGroup: '内置',
+  customGroup: '自定义',
   sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 DSH 的能力用「创造模式」。',
 
   seatHint: '选择新任务使用的 Agent 预设',
@@ -117,7 +119,6 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   createPluginChecking: '正在确认创造模式是否可用',
   createPluginUnavailable: '暂时不可用，请重新打开菜单重试',
   createPluginMissing: '当前配置未提供创造模式',
-
 }
 
 // The resolution itself is the shared fold in `dsh-agent-preset-registry/display`,

@@ -1,5 +1,5 @@
 /** Prepared calls retain their endpoint and credential generation. */
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import { DeepSeekAdapter } from '../src/index.ts'
 import { Config, plainOptions, resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek-api-key'
@@ -24,7 +24,7 @@ function adapter(connection: () => DeepSeekConnectionOptions) {
   })
 }
 
-it.each([false, true])('uses Messages, schema=%s', async (schema) => {
+it.each([false, true])('uses Messages, schema=%s', async schema => {
   const http = await endpoint()
   const raw = { baseURL: http.url }
   const connection = resolveAdapterOptions(schema ? plainOptions(Config(raw)) : raw)
@@ -40,7 +40,8 @@ it.each([false, true])('uses Messages, schema=%s', async (schema) => {
 })
 
 it('keeps the prepared credential reference and endpoint after configuration changes', async () => {
-  const first = await endpoint(), second = await endpoint()
+  const first = await endpoint(),
+    second = await endpoint()
   let connection = resolveAdapterOptions({ baseURL: first.url, apiKeyEnv: 'FIRST_KEY', maxTokens: 12 })
   const llm = adapter(() => connection)
   const prepared = await llm.prepareCall('deepseek-official', MODEL)
@@ -51,9 +52,12 @@ it('keeps the prepared credential reference and endpoint after configuration cha
   expect((await llm.resolveModel('deepseek-official', MODEL)).defaultMaxTokens).toBe(24)
   await chunks(llm.stream(options()))
   expect(first.requests).toHaveLength(2)
-  for (const request of first.requests) expect(request).toMatchObject({
-    path: '/anthropic/v1/messages', headers: { 'x-api-key': 'key-for-FIRST_KEY' }, body: { max_tokens: 12 },
-  })
+  for (const request of first.requests)
+    expect(request).toMatchObject({
+      path: '/anthropic/v1/messages',
+      headers: { 'x-api-key': 'key-for-FIRST_KEY' },
+      body: { max_tokens: 12 },
+    })
   expect(second.requests).toHaveLength(1)
   expect(second.requests[0]).toMatchObject({ path: '/anthropic/v1/messages', headers: { 'x-api-key': 'key-for-SECOND_KEY' } })
 })

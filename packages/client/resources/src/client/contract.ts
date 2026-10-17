@@ -57,9 +57,7 @@ export interface ResourceSnapshot<Value> {
  * protocol named as the type argument. Present on every slot component's
  * props, whatever its scope.
  */
-export type UseResource = <P extends ResourceProtocol>(
-  address: string,
-) => ResourceSnapshot<ResourceProtocolMap[P]>
+export type UseResource = <P extends ResourceProtocol>(address: string) => ResourceSnapshot<ResourceProtocolMap[P]>
 
 /** What a provider's `open` receives beside the address. */
 export interface ResourceOpenContext {

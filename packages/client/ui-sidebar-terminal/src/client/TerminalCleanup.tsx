@@ -19,11 +19,28 @@ export interface TerminalCleanupInjected {
  * @param props - root overlay hooks, retry command and localized copy.
  * @returns a compact alert stack, empty when no close has failed.
  */
-export function TerminalCleanup({ useCloseFailures, retryClose, t }: PropsRuntime<'shell.overlay'> & PropsLocale<'sidebarTerminal'> & InjectFace<TerminalCleanupInjected>): ReactNode {
+export function TerminalCleanup({
+  useCloseFailures,
+  retryClose,
+  t,
+}: PropsRuntime<'shell.overlay'> & PropsLocale<'sidebarTerminal'> & InjectFace<TerminalCleanupInjected>): ReactNode {
   const failures = useCloseFailures(value => value)
   if (failures.length === 0) return null
-  return <div className={css.stack}>{failures.map(failure => <div key={failure.id} className={css.notice} role="alert">
-    <span>{t('cleanupFailed', { title: failure.title, message: failure.message })}</span>
-    <button type="button" onClick={() => { retryClose(failure.id) }}>{t('retry')}</button>
-  </div>)}</div>
+  return (
+    <div className={css.stack}>
+      {failures.map(failure => (
+        <div key={failure.id} className={css.notice} role="alert">
+          <span>{t('cleanupFailed', { title: failure.title, message: failure.message })}</span>
+          <button
+            type="button"
+            onClick={() => {
+              retryClose(failure.id)
+            }}
+          >
+            {t('retry')}
+          </button>
+        </div>
+      ))}
+    </div>
+  )
 }

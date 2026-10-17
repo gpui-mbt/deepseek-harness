@@ -19,9 +19,15 @@ export function browserDefinition(t: TranslateNS<'sidebarBrowser'>): SidebarRigh
     multiple: true,
     priority: 'builtin',
     title: () => t('type.label'),
-    guide: [{
-      id: 'new', commandId: 'browser.new' as ShortcutCommandId, order: 30, title: () => t('guide.title'),
-      description: () => t('guide.description'), icon: GuideArtworkBrowser,
-    }],
+    guide: [
+      {
+        id: 'new',
+        commandId: 'browser.new' as ShortcutCommandId,
+        order: 30,
+        title: () => t('guide.title'),
+        description: () => t('guide.description'),
+        icon: GuideArtworkBrowser,
+      },
+    ],
   }
 }

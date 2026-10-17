@@ -48,20 +48,31 @@ export async function defaultWorkspaceDirectory(
     let stdout: string
     switch (platform) {
       case 'darwin':
-        ({ stdout } = await run('osascript', [
-          '-e', 'POSIX path of (path to documents folder from user domain without folder creation)',
-        ], signal, 'hidden'))
+        ;({ stdout } = await run(
+          'osascript',
+          ['-e', 'POSIX path of (path to documents folder from user domain without folder creation)'],
+          signal,
+          'hidden',
+        ))
         break
       case 'win32':
-        ({ stdout } = await run('powershell.exe', [
-          '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
-          '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); '
-          + '[Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments, '
-          + '[Environment+SpecialFolderOption]::DoNotVerify)',
-        ], signal, 'hidden'))
+        ;({ stdout } = await run(
+          'powershell.exe',
+          [
+            '-NoLogo',
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ' +
+              '[Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments, ' +
+              '[Environment+SpecialFolderOption]::DoNotVerify)',
+          ],
+          signal,
+          'hidden',
+        ))
         break
       case 'linux':
-        ({ stdout } = await run('xdg-user-dir', ['DOCUMENTS'], signal, 'hidden'))
+        ;({ stdout } = await run('xdg-user-dir', ['DOCUMENTS'], signal, 'hidden'))
         break
       default:
         throw new Error(`system Documents directory is unavailable on ${platform}`)

@@ -25,7 +25,7 @@ export function HoverCardGroup({ children, className }: { children: ReactNode; c
     let active: { owner: symbol; dismiss: () => void; element: HTMLElement } | null = null
     return {
       isWarm: () => warm,
-      enter: (overCard) => {
+      enter: overCard => {
         pointer = overCard ? 'card' : 'list'
         if (overCard) warm = true
       },
@@ -37,16 +37,22 @@ export function HoverCardGroup({ children, className }: { children: ReactNode; c
       containsCard: target => target instanceof Node && active !== null && active.element.contains(target),
       shown: (owner, dismiss, element) => {
         // Keyboard focus can replace the portal under the pointer without a pointer-out event.
-        if (pointer === 'card') { pointer = 'outside'; warm = false }
+        if (pointer === 'card') {
+          pointer = 'outside'
+          warm = false
+        }
         if (pointer === 'list') warm = true
         const previous = active
         active = { owner, dismiss, element }
         if (previous !== null && previous.owner !== owner) previous.dismiss()
       },
-      release: (owner) => {
+      release: owner => {
         if (active?.owner !== owner) return
         active = null
-        if (pointer !== 'list') { pointer = 'outside'; warm = false }
+        if (pointer !== 'list') {
+          pointer = 'outside'
+          warm = false
+        }
       },
     }
   })
@@ -54,14 +60,15 @@ export function HoverCardGroup({ children, className }: { children: ReactNode; c
     <HoverCardGroupContext.Provider value={group}>
       <div
         className={className}
-        onPointerOverCapture={(event) => {
+        onPointerOverCapture={event => {
           const overCard = group.containsCard(event.target)
           if (event.currentTarget.contains(event.target as Node) || overCard) group.enter(overCard)
         }}
-        onPointerOutCapture={(event) => {
+        onPointerOutCapture={event => {
           const fromGroup = event.currentTarget.contains(event.target as Node) || group.containsCard(event.target)
-          const intoGroup = (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))
-            || group.containsCard(event.relatedTarget)
+          const intoGroup =
+            (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) ||
+            group.containsCard(event.relatedTarget)
           if (fromGroup && !intoGroup) group.leave()
         }}
       >

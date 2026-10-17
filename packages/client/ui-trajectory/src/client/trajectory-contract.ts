@@ -1,7 +1,17 @@
 import type {
-  AssistantMessageNode, AssistantTiming, ConversationLocation, ConversationNode, ConversationPromptSnapshot,
-  ConversationViewNode, MessageImagesOwnerProps, PartialAssistant, RequestPromptChange,
-  RequestView, RunningToolCall, SystemPromptNode, ToolCallBlock,
+  AssistantMessageNode,
+  AssistantTiming,
+  ConversationLocation,
+  ConversationNode,
+  ConversationPromptSnapshot,
+  ConversationViewNode,
+  MessageImagesOwnerProps,
+  PartialAssistant,
+  RequestPromptChange,
+  RequestView,
+  RunningToolCall,
+  SystemPromptNode,
+  ToolCallBlock,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -23,39 +33,39 @@ export interface TrajectoryPartialAssistant extends PartialAssistant {
 export type TrajectoryContribution =
   | { readonly kind: 'system-prompt'; readonly prompt: SystemPromptNode }
   | {
-    readonly kind: 'node'
-    readonly node: ConversationNode
-  }
+      readonly kind: 'node'
+      readonly node: ConversationNode
+    }
   | {
-    readonly kind: 'assistant'
-    readonly node?: AssistantMessageNode
-    readonly partial: TrajectoryPartialAssistant | null
-    readonly request?: Extract<RequestView, { purpose: 'assistant' }>
-  }
+      readonly kind: 'assistant'
+      readonly node?: AssistantMessageNode
+      readonly partial: TrajectoryPartialAssistant | null
+      readonly request?: Extract<RequestView, { purpose: 'assistant' }>
+    }
   | {
-    readonly kind: 'tool'
-    readonly root: ToolCallBlock
-  }
+      readonly kind: 'tool'
+      readonly root: ToolCallBlock
+    }
   | {
-    readonly kind: 'request-header'
-    readonly header: TrajectoryRequestHeaderState
-  }
+      readonly kind: 'request-header'
+      readonly header: TrajectoryRequestHeaderState
+    }
   | {
-    readonly kind: 'compaction'
-    readonly request: Extract<RequestView, { purpose: 'compaction' }>
-  }
+      readonly kind: 'compaction'
+      readonly request: Extract<RequestView, { purpose: 'compaction' }>
+    }
   | {
-    readonly kind: 'session-end'
-    readonly seq: number
-    readonly time: number
-  }
+      readonly kind: 'session-end'
+      readonly seq: number
+      readonly time: number
+    }
   | {
-    readonly kind: 'turn-end'
-    readonly turn: number
-    readonly time: number
-    readonly error?: string
-    readonly errorCode?: string
-  }
+      readonly kind: 'turn-end'
+      readonly turn: number
+      readonly time: number
+      readonly error?: string
+      readonly errorCode?: string
+    }
 
 /** Target envelope consumed by the Trajectory snapshot builder. */
 export interface TrajectoryConversationViewNode extends ConversationViewNode {

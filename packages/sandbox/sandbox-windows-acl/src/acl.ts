@@ -25,7 +25,21 @@ import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-import { allocOverlapped, allocPtrSlot, decodePtr, decodeUint8At, decodeUint16At, decodeUint32At, getTempPath, isInvalidHandle, isNullPtr, ptrAddress, sameSidAt, throwLastError, throwWin32 } from './ffi.ts'
+import {
+  allocOverlapped,
+  allocPtrSlot,
+  decodePtr,
+  decodeUint8At,
+  decodeUint16At,
+  decodeUint32At,
+  getTempPath,
+  isInvalidHandle,
+  isNullPtr,
+  ptrAddress,
+  sameSidAt,
+  throwLastError,
+  throwWin32,
+} from './ffi.ts'
 import type { NativePtr, Win32Bindings } from './ffi.ts'
 import * as abi from './win32-abi.ts'
 
@@ -97,7 +111,10 @@ export function withPathLock<T>(api: Win32Bindings, path: string, action: () => 
     lockPath,
     abi.GENERIC_READ | abi.GENERIC_WRITE,
     abi.FILE_SHARE_READ | abi.FILE_SHARE_WRITE,
-    null, abi.OPEN_ALWAYS, 0, null,
+    null,
+    abi.OPEN_ALWAYS,
+    0,
+    null,
   )
   if (isInvalidHandle(handle)) throwLastError(api, 'CreateFileW', lockPath)
   const overlapped = allocOverlapped() // stays zeroed: offset 0, hEvent NULL
@@ -148,8 +165,14 @@ function readCurrentSecurity(
   const saclSlot = allocPtrSlot()
   const descriptorSlot = allocPtrSlot()
   const readResult = api.getNamedSecurityInfoW(
-    path, abi.SE_FILE_OBJECT, abi.DACL_SECURITY_INFORMATION | abi.LABEL_SECURITY_INFORMATION,
-    ownerSlot, groupSlot, daclSlot, saclSlot, descriptorSlot,
+    path,
+    abi.SE_FILE_OBJECT,
+    abi.DACL_SECURITY_INFORMATION | abi.LABEL_SECURITY_INFORMATION,
+    ownerSlot,
+    groupSlot,
+    daclSlot,
+    saclSlot,
+    descriptorSlot,
   )
   if (readResult !== abi.ERROR_SUCCESS) throwWin32(api, 'GetNamedSecurityInfoW', readResult, path)
   return { oldAcl: decodePtr(daclSlot), labelAcl: decodePtr(saclSlot), descriptor: decodePtr(descriptorSlot) }
@@ -177,9 +200,15 @@ export function buildLowLabelAcl(api: Win32Bindings, lowLabelSidPtr: NativePtr):
     api.localFree(acl) // best-effort on the error path
     throwWin32(api, 'InitializeAcl', win32Code, 'Low mandatory label ACL')
   }
-  if (api.addMandatoryAce(
-    acl, abi.ACL_REVISION, abi.SUB_CONTAINERS_AND_OBJECTS_INHERIT, abi.SYSTEM_MANDATORY_LABEL_NO_WRITE_UP, lowLabelSidPtr,
-  ) === 0) {
+  if (
+    api.addMandatoryAce(
+      acl,
+      abi.ACL_REVISION,
+      abi.SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+      abi.SYSTEM_MANDATORY_LABEL_NO_WRITE_UP,
+      lowLabelSidPtr,
+    ) === 0
+  ) {
     const win32Code = api.getLastError()
     api.localFree(acl) // best-effort on the error path
     throwWin32(api, 'AddMandatoryAce', win32Code, 'Low mandatory label ACL')
@@ -197,8 +226,11 @@ export function buildLowLabelAcl(api: Win32Bindings, lowLabelSidPtr: NativePtr):
  */
 function hasExactLabel(labelAcl: NativePtr, lowLabelSidPtr: NativePtr): boolean {
   return hasExactEntry(
-    labelAcl, abi.SYSTEM_MANDATORY_LABEL_ACE_TYPE, abi.SUB_CONTAINERS_AND_OBJECTS_INHERIT,
-    abi.SYSTEM_MANDATORY_LABEL_NO_WRITE_UP, lowLabelSidPtr,
+    labelAcl,
+    abi.SYSTEM_MANDATORY_LABEL_ACE_TYPE,
+    abi.SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+    abi.SYSTEM_MANDATORY_LABEL_NO_WRITE_UP,
+    lowLabelSidPtr,
   )
 }
 
@@ -253,9 +285,13 @@ function mergeAndApply(
   // before applying, exactly like the POC.
   const freedDescriptor = descriptor !== null ? api.localFree(descriptor) : null
   const applyResult = api.setNamedSecurityInfoW(
-    path, abi.SE_FILE_OBJECT,
+    path,
+    abi.SE_FILE_OBJECT,
     labelEdit.kind === 'keep' ? abi.DACL_SECURITY_INFORMATION : abi.DACL_SECURITY_INFORMATION | abi.LABEL_SECURITY_INFORMATION,
-    null, null, newAcl, labelEdit.kind === 'apply' ? labelEdit.acl : null,
+    null,
+    null,
+    newAcl,
+    labelEdit.kind === 'apply' ? labelEdit.acl : null,
   )
   const freedNew = api.localFree(newAcl)
   const freedLabel = labelEdit.kind === 'apply' ? api.localFree(labelEdit.acl) : null
@@ -292,9 +328,8 @@ function hasExactEntry(acl: NativePtr, aceType: number, inheritance: number, mas
     // ACE_HEADER: AceType@0, AceFlags@1, AceSize@2 (WORD); Mask@4, inline SID@8.
     const aceSize = decodeUint16At(acl, offset + 2)
     if (aceSize < 8 || offset + aceSize > aclSize) return false // implausible: fall back to the merge path
-    const exact = decodeUint8At(acl, offset) === aceType
-      && decodeUint8At(acl, offset + 1) === inheritance
-      && decodeUint32At(acl, offset + 4) === mask
+    const exact =
+      decodeUint8At(acl, offset) === aceType && decodeUint8At(acl, offset + 1) === inheritance && decodeUint32At(acl, offset + 4) === mask
     if (exact && sameSidAt(acl, offset + 8, sidPtr, 0)) return true
     offset += aceSize
   }
@@ -342,8 +377,7 @@ function hasForeignGrant(oldAcl: NativePtr, sidPtr: NativePtr): boolean {
   for (let index = 0; index < aceCount; index++) {
     const aceSize = decodeUint16At(oldAcl, offset + 2)
     if (aceSize < 8 || offset + aceSize > aclSize) return false // implausible: leave the label alone
-    const isGrant = decodeUint8At(oldAcl, offset) === abi.ACCESS_ALLOWED_ACE_TYPE
-      && decodeUint32At(oldAcl, offset + 4) === abi.GRANT_MASK
+    const isGrant = decodeUint8At(oldAcl, offset) === abi.ACCESS_ALLOWED_ACE_TYPE && decodeUint32At(oldAcl, offset + 4) === abi.GRANT_MASK
     if (isGrant && !sameSidAt(oldAcl, offset + 8, sidPtr, 0)) return true
     offset += aceSize
   }
@@ -374,18 +408,16 @@ function hasForeignGrant(oldAcl: NativePtr, sidPtr: NativePtr): boolean {
  * @param lowLabelSidPtr - the Low integrity SID the mandatory label names.
  * @param worldSidPtr - the Everyone SID the ambient-delete deny names.
  */
-export function grantWrite(
-  api: Win32Bindings,
-  path: string,
-  sidPtr: NativePtr,
-  lowLabelSidPtr: NativePtr,
-  worldSidPtr: NativePtr,
-): void {
+export function grantWrite(api: Win32Bindings, path: string, sidPtr: NativePtr, lowLabelSidPtr: NativePtr, worldSidPtr: NativePtr): void {
   withPathLock(api, path, () => {
     const { oldAcl, labelAcl, descriptor } = readCurrentSecurity(api, path)
-    if (oldAcl !== null && labelAcl !== null
-      && hasExactGrant(oldAcl, sidPtr) && hasExactDeny(oldAcl, worldSidPtr)
-      && hasExactLabel(labelAcl, lowLabelSidPtr)) {
+    if (
+      oldAcl !== null &&
+      labelAcl !== null &&
+      hasExactGrant(oldAcl, sidPtr) &&
+      hasExactDeny(oldAcl, worldSidPtr) &&
+      hasExactLabel(labelAcl, lowLabelSidPtr)
+    ) {
       // The exact ACE, deny, and label stand: releasing the descriptor is the whole operation.
       if (descriptor !== null) {
         const freed = api.localFree(descriptor)
@@ -403,12 +435,16 @@ export function grantWrite(
       throw error
     }
     mergeAndApply(
-      api, path,
+      api,
+      path,
       Buffer.concat([
         buildExplicitAccess(worldSidPtr, abi.DENY_ACCESS, abi.FILE_DELETE_CHILD, abi.CONTAINER_INHERIT_ACE),
         buildExplicitAccess(sidPtr, abi.GRANT_ACCESS, abi.GRANT_MASK),
       ]),
-      oldAcl, { kind: 'apply', acl: label }, descriptor, 'grantWrite',
+      oldAcl,
+      { kind: 'apply', acl: label },
+      descriptor,
+      'grantWrite',
     )
   })
 }
@@ -439,9 +475,13 @@ export function revokeWrite(api: Win32Bindings, path: string, sidPtr: NativePtr)
       return false
     }
     mergeAndApply(
-      api, path, buildExplicitAccess(sidPtr, abi.REVOKE_ACCESS, 0), oldAcl,
+      api,
+      path,
+      buildExplicitAccess(sidPtr, abi.REVOKE_ACCESS, 0),
+      oldAcl,
       hasForeignGrant(oldAcl, sidPtr) ? { kind: 'keep' } : { kind: 'clear' },
-      descriptor, 'revokeWrite',
+      descriptor,
+      'revokeWrite',
     )
     return true
   })

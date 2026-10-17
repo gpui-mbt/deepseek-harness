@@ -12,7 +12,9 @@ const LoadedPdfBody = lazy(async () => ({ default: (await import('./pdf.tsx')).P
  */
 export function LazyPdfBody(props: PdfBodyProps): ReactNode {
   const loading = <LoadingIndicator label={props.t('loading')} />
-  return <Suspense fallback={loading}>
-    <LoadedPdfBody {...props} loading={loading} />
-  </Suspense>
+  return (
+    <Suspense fallback={loading}>
+      <LoadedPdfBody {...props} loading={loading} />
+    </Suspense>
+  )
 }

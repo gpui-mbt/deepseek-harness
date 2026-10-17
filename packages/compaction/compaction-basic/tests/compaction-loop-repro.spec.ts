@@ -1,7 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
-import { createUserMessage, createSystemMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, resolveRetryPolicy , createMessage } from '@deepseek-ai/dsh-llm'
+import {
+  createUserMessage,
+  createSystemMessage,
+  CONTEXT_WINDOW_EXCEEDED_CODE,
+  LlmError,
+  resolveRetryPolicy,
+  createMessage,
+} from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, LlmResolvedModelInfo, ResolvedRetryPolicy, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
@@ -46,7 +53,7 @@ class StepwiseToolAdapter extends LlmAdapter {
     })
   }
 
-  async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
     const n = this.calls
     this.calls += 1
     if (n < this.toolSteps) {
@@ -69,11 +76,14 @@ class StepwiseToolAdapter extends LlmAdapter {
 class OverflowRecoveryAdapter extends LlmAdapter {
   readonly conversationRequests: GenerateOptions[] = []
   readonly summaryRequests: GenerateOptions[] = []
-  private readonly retryPolicy = resolveRetryPolicy({
-    mode: 'normal',
-    maxRetries: 1,
-    backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 },
-  }, 'compaction test provider retryPolicy')
+  private readonly retryPolicy = resolveRetryPolicy(
+    {
+      mode: 'normal',
+      maxRetries: 1,
+      backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 },
+    },
+    'compaction test provider retryPolicy',
+  )
 
   constructor(
     private readonly delivery: 'thrown' | 'in-band',
@@ -95,12 +105,14 @@ class OverflowRecoveryAdapter extends LlmAdapter {
     return this.retryPolicy
   }
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     // The cache-reusing summarizer replays the conversation prefix and marks
     // its call only by the compaction instruction in the trailing user message.
-    const trailing = options.messages.at(-1)?.content
-      .map(block => (block.type === 'text' ? block.text : ''))
-      .join('') ?? ''
+    const trailing =
+      options.messages
+        .at(-1)
+        ?.content.map(block => (block.type === 'text' ? block.text : ''))
+        .join('') ?? ''
     if (trailing.includes('acting as a compaction engine')) {
       this.summaryRequests.push(options)
       yield { type: 'block-start', index: 0, blockType: 'text' }
@@ -141,14 +153,16 @@ async function harness(toolSteps: number): Promise<{ ctx: Context; compact: Repr
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(TokenMeter)
   ctx.llm.registerAdapter(['mock'], new StepwiseToolAdapter(toolSteps))
-  ctx.tools.register(defineContentToolFixture({
-    name: 'work',
-    description: 'does work',
-    parameters: { i: { type: 'number' } },
-    async execute() {
-      return [{ type: 'text', text: 'work result' }]
-    },
-  }))
+  ctx.tools.register(
+    defineContentToolFixture({
+      name: 'work',
+      description: 'does work',
+      parameters: { i: { type: 'number' } },
+      async execute() {
+        return [{ type: 'text', text: 'work result' }]
+      },
+    }),
+  )
   // Small window so several tool steps cross the threshold and compaction
   // fires within the runaway turn after enough history can shrink.
   const compact = new ReproCompactionEngine(ctx, {
@@ -163,7 +177,7 @@ async function harness(toolSteps: number): Promise<{ ctx: Context; compact: Repr
 }
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -180,24 +194,32 @@ function overflowHistorySeed(): readonly SessionEvent[] {
     session.append('turn/start', {
       turn,
     })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `${sentinel} ${'old context '.repeat(200)}` }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    session.append('step/start', { turn, step: 1 })
-    session.append('assistant/message', {
-      stream: [],
-      turn,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'text', text: `historical response ${turn} ${'detail '.repeat(200)}` }],
-        source: {
-          kind: 'model',
-          ...{ provider: 'mock', model: 'mock' },
-        },
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: `${sentinel} ${'old context '.repeat(200)}` }],
+        source: { kind: 'user' },
       }),
-    }, { surfaceOp: 'append' })
+      { surfaceOp: 'append' },
+    )
+    session.append('step/start', { turn, step: 1 })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'text', text: `historical response ${turn} ${'detail '.repeat(200)}` }],
+          source: {
+            kind: 'model',
+            ...{ provider: 'mock', model: 'mock' },
+          },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('step/end', { turn, step: 1 })
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
@@ -208,7 +230,9 @@ describe('CBR-001: a real-loop checkpoint is a valid boundary on both sides', ()
   it('uses the model actually routed by agent/request for post-step pressure', async () => {
     const { ctx } = await harness(8)
     ctx.on('agent/request', async (_payload, next) => ({
-      ...await next(), provider: 'mock', model: 'mock',
+      ...(await next()),
+      provider: 'mock',
+      model: 'mock',
     }))
     try {
       const agent = await ctx.agentLoop.create(SessionId('routed-pressure'), {
@@ -239,19 +263,13 @@ describe('CBR-001: a real-loop checkpoint is a valid boundary on both sides', ()
       const events = agent.session.snapshotEvents()
       const compactStart = events.find(event => event.type === 'compaction/start')
       expect(compactStart).toBeDefined()
-      const precedingResult = events.findLast(event =>
-        event.type === 'tool/result' && event.seq < compactStart!.seq,
-      )
+      const precedingResult = events.findLast(event => event.type === 'tool/result' && event.seq < compactStart!.seq)
       if (precedingResult?.type !== 'tool/result') throw new Error('expected a durable tool result before compaction')
-      const precedingStepEnd = events.find(event =>
-        event.type === 'step/end'
-        && event.data.step === precedingResult.data.step
-        && event.seq > precedingResult.seq,
+      const precedingStepEnd = events.find(
+        event => event.type === 'step/end' && event.data.step === precedingResult.data.step && event.seq > precedingResult.seq,
       )
-      const nextStepStart = events.find(event =>
-        event.type === 'step/start'
-        && event.data.step === precedingResult.data.step + 1
-        && event.seq > compactStart!.seq,
+      const nextStepStart = events.find(
+        event => event.type === 'step/start' && event.data.step === precedingResult.data.step + 1 && event.seq > compactStart!.seq,
       )
       expect(precedingResult.seq).toBeLessThan(compactStart!.seq)
       expect(precedingStepEnd!.seq).toBeLessThan(compactStart!.seq)
@@ -271,9 +289,7 @@ describe('CBR-001: a real-loop checkpoint is a valid boundary on both sides', ()
       const events = agent.session.snapshotEvents()
       // A compaction ran: at least one checkpoint landed on the surface.
       const checkpoints = events.filter(
-        (e): e is SurfaceEvent =>
-          e.type === 'user/message'
-          && typeof (e as SurfaceEvent).surfaceOp === 'object',
+        (e): e is SurfaceEvent => e.type === 'user/message' && typeof (e as SurfaceEvent).surfaceOp === 'object',
       )
       expect(checkpoints.length).toBeGreaterThan(0)
 
@@ -283,10 +299,8 @@ describe('CBR-001: a real-loop checkpoint is a valid boundary on both sides', ()
       for (const cp of checkpoints) {
         const index = nodes.indexOf(cp.seq)
         if (index === -1) continue // shadowed by a later checkpoint — no longer an edge.
-        expect(toolPairingBalancedBefore(agent.session, cp.seq),
-          `checkpoint seq ${cp.seq} must be a balanced region START`).toBe(true)
-        expect(toolPairingBalancedAfter(agent.session, cp.seq),
-          `checkpoint seq ${cp.seq} must be a balanced region END`).toBe(true)
+        expect(toolPairingBalancedBefore(agent.session, cp.seq), `checkpoint seq ${cp.seq} must be a balanced region START`).toBe(true)
+        expect(toolPairingBalancedAfter(agent.session, cp.seq), `checkpoint seq ${cp.seq} must be a balanced region END`).toBe(true)
       }
     } finally {
       await ctx.fiber.dispose()
@@ -295,12 +309,12 @@ describe('CBR-001: a real-loop checkpoint is a valid boundary on both sides', ()
 })
 
 describe('token pressure after loop-admitted system prompts', () => {
-  it.each([false, true])('counts initial and replaced prompts once with retry=%s', async (retry) => {
+  it.each([false, true])('counts initial and replaced prompts once with retry=%s', async retry => {
     const ctx = new Context()
     const requests: GenerateOptions[] = []
     const usage = { inputTokens: 1000, cacheReadTokens: 100, outputTokens: 10 }
-    const adapter = new class extends StepwiseToolAdapter {
-      override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+    const adapter = new (class extends StepwiseToolAdapter {
+      override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
         requests.push(options)
         yield { type: 'block-start', index: 0, blockType: 'text' }
         yield { type: 'block-end', index: 0, block: { type: 'text', text: 'answer' } }
@@ -309,7 +323,7 @@ describe('token pressure after loop-admitted system prompts', () => {
           ? { type: 'finish', reason: { kind: 'error', failure: { code: 'SERVER', message: 'retry me' } } }
           : { type: 'finish', reason: { kind: 'stop' } }
       }
-    }(0)
+    })(0)
     try {
       await mountAgentLoopTestDependencies(ctx)
       await ctx.plugin(AgentLoop, { agents: [] })
@@ -317,16 +331,20 @@ describe('token pressure after loop-admitted system prompts', () => {
       ctx.llm.registerAdapter(['mock'], adapter)
       let prompt = 'initial guidance '.repeat(8)
       ctx.systemPrompt.section({ name: 'meter-test', order: 0, complete: true, text: () => prompt })
-      ctx.on('agent/request', async (_payload, next) => ({ ...await next(), temperature: 0.5 }))
+      ctx.on('agent/request', async (_payload, next) => ({ ...(await next()), temperature: 0.5 }))
       ctx.on('agent/request-error', async ({ agent, turn, step }, next) => {
         const action = await next()
         if (action !== undefined) return action
         const node = agent.session.surface.nodes[0]!
-        agent.session.append('system/message', {
-          turn,
-          step,
-          message: createSystemMessage('retry guidance'),
-        }, { surfaceOp: { op: 'replace', startSeq: node, endSeq: node }, sourceEventSeqs: [node] })
+        agent.session.append(
+          'system/message',
+          {
+            turn,
+            step,
+            message: createSystemMessage('retry guidance'),
+          },
+          { surfaceOp: { op: 'replace', startSeq: node, endSeq: node }, sourceEventSeqs: [node] },
+        )
         return { kind: 'retry' }
       })
       const agent = await ctx.agentLoop.create(SessionId('prompt-pressure'), { provider: 'mock', model: 'mock' })
@@ -337,7 +355,8 @@ describe('token pressure after loop-admitted system prompts', () => {
         agent.followup(createUserMessage({ content: [{ type: 'text', text: 'question' }], source: { kind: 'user' } }))
         await agent.whenIdle()
         expect(agent.session.snapshotEvents().at(-1)).toMatchObject({
-          type: 'turn/end', data: { reason: { kind: 'completed' } },
+          type: 'turn/end',
+          data: { reason: { kind: 'completed' } },
         })
         const measured = ctx.tokenMeter.measure(agent.session)
         expect(measured.baseline).toEqual({ kind: 'usage', tokens: 1110, usage })
@@ -345,7 +364,10 @@ describe('token pressure after loop-admitted system prompts', () => {
         expect(measured.totalTokens).toBe(1110)
         const replay = Session.create(SessionId('prompt-pressure-replay'), agent.session.snapshotEvents())
         expect(ctx.tokenMeter.measure(replay)).toMatchObject({
-          baseline: measured.baseline, surfaceDeltaTokens: 0, totalTokens: 1110, nodes: measured.nodes,
+          baseline: measured.baseline,
+          surfaceDeltaTokens: 0,
+          totalTokens: 1110,
+          nodes: measured.nodes,
         })
       }
       const events = agent.session.snapshotEvents()
@@ -353,9 +375,10 @@ describe('token pressure after loop-admitted system prompts', () => {
       expect(prompts[0]?.surfaceOp).toBe('append')
       expect(prompts.slice(1).every(event => typeof event.surfaceOp === 'object')).toBe(true)
       for (const event of prompts) {
-        expect(events.find(start => start.type === 'step/start'
-          && start.data.turn === event.data.turn && start.data.step === event.data.step)?.seq)
-          .toBeLessThan(event.seq)
+        expect(
+          events.find(start => start.type === 'step/start' && start.data.turn === event.data.turn && start.data.step === event.data.step)
+            ?.seq,
+        ).toBeLessThan(event.seq)
       }
       expect(requests).toHaveLength(retry ? 5 : 4)
       expect(requests.every(request => request.temperature === 0.5)).toBe(true)
@@ -371,85 +394,76 @@ describe('token pressure after loop-admitted system prompts', () => {
 })
 
 describe('context-overflow recovery across the real loop and compaction-basic', () => {
-  it.each(['thrown', 'in-band'] as const)(
-    'force-compacts a %s overflow within the retried step',
-    async (delivery) => {
-      const ctx = new Context()
-      const adapter = new OverflowRecoveryAdapter(delivery)
-      await mountAgentLoopTestDependencies(ctx)
-      await ctx.plugin(AgentLoop, { agents: [] })
-      await ctx.plugin(TokenMeter)
-      ctx.llm.registerAdapter(['mock'], adapter)
-      ctx.on('agent/request', async (_payload, next) => ({
-        ...await next(), provider: 'mock', model: 'mock',
-      }))
-      await ctx.plugin(BasicCompactionEngine, {
-        headroomTokens: 0,
-        thresholdRatio: 1,
-        retainTokens: 100,
-        maxTokens: 64,
-        compactionRetries: 0,
-        maxOverflowRetries: 1,
+  it.each(['thrown', 'in-band'] as const)('force-compacts a %s overflow within the retried step', async delivery => {
+    const ctx = new Context()
+    const adapter = new OverflowRecoveryAdapter(delivery)
+    await mountAgentLoopTestDependencies(ctx)
+    await ctx.plugin(AgentLoop, { agents: [] })
+    await ctx.plugin(TokenMeter)
+    ctx.llm.registerAdapter(['mock'], adapter)
+    ctx.on('agent/request', async (_payload, next) => ({
+      ...(await next()),
+      provider: 'mock',
+      model: 'mock',
+    }))
+    await ctx.plugin(BasicCompactionEngine, {
+      headroomTokens: 0,
+      thresholdRatio: 1,
+      retainTokens: 100,
+      maxTokens: 64,
+      compactionRetries: 0,
+      maxOverflowRetries: 1,
+    })
+
+    try {
+      const { agent } = await ctx.agentLoop.createAgent(ctx, {
+        sessionId: SessionId(`overflow-${delivery}`),
+        seed: overflowHistorySeed(),
+        agentOptions: {
+          provider: 'unconfigured-agent-fallback',
+          model: 'unconfigured-agent-fallback',
+        },
       })
 
-      try {
-        const { agent } = await ctx.agentLoop.createAgent(ctx, {
-          sessionId: SessionId(`overflow-${delivery}`),
-          seed: overflowHistorySeed(),
-          agentOptions: {
-            provider: 'unconfigured-agent-fallback',
-            model: 'unconfigured-agent-fallback',
-          },
-        })
+      agent.followup(createUserMessage({ content: [{ type: 'text', text: 'continue from history' }], source: { kind: 'user' } }))
+      await agent.whenIdle()
 
-        agent.followup(createUserMessage({ content: [{ type: 'text', text: 'continue from history' }], source: { kind: 'user' } }))
-        await agent.whenIdle()
-
-        expect(adapter.conversationRequests).toHaveLength(2)
-        expect(adapter.summaryRequests).toHaveLength(1)
-        const instruction = adapter.summaryRequests[0]!.messages.at(-1)?.content
-          .map(block => (block.type === 'text' ? block.text : ''))
+      expect(adapter.conversationRequests).toHaveLength(2)
+      expect(adapter.summaryRequests).toHaveLength(1)
+      const instruction =
+        adapter.summaryRequests[0]!.messages.at(-1)
+          ?.content.map(block => (block.type === 'text' ? block.text : ''))
           .join('') ?? ''
-        expect(instruction).toContain('Write concise English engineering prose.')
-        expect(instruction).toContain('numeric values, function signatures, and syntax fragments.')
-        expect(JSON.stringify(adapter.conversationRequests[0]!.messages)).toContain('OLD HISTORY SENTINEL')
-        const retry = JSON.stringify(adapter.conversationRequests[1]!.messages)
-        expect(retry).toContain('RECOVERY CHECKPOINT')
-        expect(retry).not.toContain('OLD HISTORY SENTINEL')
+      expect(instruction).toContain('Write concise English engineering prose.')
+      expect(instruction).toContain('numeric values, function signatures, and syntax fragments.')
+      expect(JSON.stringify(adapter.conversationRequests[0]!.messages)).toContain('OLD HISTORY SENTINEL')
+      const retry = JSON.stringify(adapter.conversationRequests[1]!.messages)
+      expect(retry).toContain('RECOVERY CHECKPOINT')
+      expect(retry).not.toContain('OLD HISTORY SENTINEL')
 
-        const events = agent.session.snapshotEvents()
-        const stepStart = events.find(event =>
-          event.type === 'step/start' && event.data.turn === 3 && event.data.step === 1,
-        )!
-        const stepEnd = events.find(event =>
-          event.type === 'step/end' && event.data.turn === 3 && event.data.step === 1,
-        )!
-        const compaction = events.filter(event =>
-          event.type === 'compaction/start'
-          || event.type === 'compaction/summary'
-          || event.type === 'compaction/end',
-        )
-        expect(compaction.map(event => event.type)).toEqual([
-          'compaction/start',
-          'compaction/summary',
-          'compaction/end',
-        ])
-        expect(compaction.every(event =>
-          event.seq > stepStart.seq && event.seq < stepEnd.seq,
-        )).toBe(true)
-        expect(events.filter(event => event.type === 'turn/start').slice(-1).map(event => event.data.turn))
-          .toEqual([3])
-        expect(events.filter(event => event.type === 'step/start' && event.data.turn === 3))
-          .toHaveLength(1)
-        expect(events.at(-1)).toMatchObject({
-          type: 'turn/end',
-          data: { reason: { kind: 'completed' } },
-        })
-      } finally {
-        await ctx.fiber.dispose()
-      }
-    },
-  )
+      const events = agent.session.snapshotEvents()
+      const stepStart = events.find(event => event.type === 'step/start' && event.data.turn === 3 && event.data.step === 1)!
+      const stepEnd = events.find(event => event.type === 'step/end' && event.data.turn === 3 && event.data.step === 1)!
+      const compaction = events.filter(
+        event => event.type === 'compaction/start' || event.type === 'compaction/summary' || event.type === 'compaction/end',
+      )
+      expect(compaction.map(event => event.type)).toEqual(['compaction/start', 'compaction/summary', 'compaction/end'])
+      expect(compaction.every(event => event.seq > stepStart.seq && event.seq < stepEnd.seq)).toBe(true)
+      expect(
+        events
+          .filter(event => event.type === 'turn/start')
+          .slice(-1)
+          .map(event => event.data.turn),
+      ).toEqual([3])
+      expect(events.filter(event => event.type === 'step/start' && event.data.turn === 3)).toHaveLength(1)
+      expect(events.at(-1)).toMatchObject({
+        type: 'turn/end',
+        data: { reason: { kind: 'completed' } },
+      })
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
 
   it('keeps context-overflow and transient retry budgets independent in one sequence', async () => {
     const ctx = new Context()
@@ -479,10 +493,21 @@ describe('context-overflow recovery across the real loop and compaction-basic', 
 
       expect(adapter.conversationRequests).toHaveLength(3)
       expect(adapter.summaryRequests).toHaveLength(1)
-      expect(agent.session.snapshotEvents().filter(event => event.type === 'llm/retry').map(event => event.data))
-        .toEqual([expect.objectContaining({ turn: 3, step: 1, retry: 1, failure: { message: 'temporary provider outage', code: 'SERVER' } })])
-      expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/start').slice(-1).map(event => event.data.turn))
-        .toEqual([3])
+      expect(
+        agent.session
+          .snapshotEvents()
+          .filter(event => event.type === 'llm/retry')
+          .map(event => event.data),
+      ).toEqual([
+        expect.objectContaining({ turn: 3, step: 1, retry: 1, failure: { message: 'temporary provider outage', code: 'SERVER' } }),
+      ])
+      expect(
+        agent.session
+          .snapshotEvents()
+          .filter(event => event.type === 'turn/start')
+          .slice(-1)
+          .map(event => event.data.turn),
+      ).toEqual([3])
       expect(agent.session.snapshotEvents().at(-1)).toMatchObject({
         type: 'turn/end',
         data: { reason: { kind: 'completed' } },

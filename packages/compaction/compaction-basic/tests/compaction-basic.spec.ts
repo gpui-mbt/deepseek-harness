@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
@@ -7,13 +7,17 @@ import { selectCompactableRange } from '@deepseek-ai/dsh-compaction-basic/src/re
 import { frameSummary } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
 import type { SummarizationInput, SummaryResult } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
 import { CompactionId, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
-import {
-  resolveCompactSpec,
-  resolveConfig,
-  resolveTargetPolicy,
-} from '@deepseek-ai/dsh-compaction-basic/src/config.ts'
+import { resolveCompactSpec, resolveConfig, resolveTargetPolicy } from '@deepseek-ai/dsh-compaction-basic/src/config.ts'
 import type { CompactionResult } from '@deepseek-ai/dsh-compaction'
-import LlmRuntime, { createUserMessage, ToolCallId, CONTEXT_WINDOW_EXCEEDED_CODE, createSystemMessage, createToolResultMessage, LlmAdapter , createMessage } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, {
+  createUserMessage,
+  ToolCallId,
+  CONTEXT_WINDOW_EXCEEDED_CODE,
+  createSystemMessage,
+  createToolResultMessage,
+  LlmAdapter,
+  createMessage,
+} from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import type {
   ContentBlock,
@@ -32,7 +36,7 @@ import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -53,7 +57,7 @@ class ContextAdapter extends LlmAdapter {
     })
   }
 
-  override async * stream(): AsyncIterable<StreamChunk> {
+  override async *stream(): AsyncIterable<StreamChunk> {
     yield { type: 'finish', reason: { kind: 'stop' } }
   }
 }
@@ -69,11 +73,11 @@ class RoutedContextAdapter extends LlmAdapter {
       provider,
       id: model,
       name: model,
-      ...contextWindow === undefined ? {} : { context: { contextWindow } },
+      ...(contextWindow === undefined ? {} : { context: { contextWindow } }),
     })
   }
 
-  override async * stream(): AsyncIterable<StreamChunk> {
+  override async *stream(): AsyncIterable<StreamChunk> {
     yield { type: 'finish', reason: { kind: 'stop' } }
   }
 }
@@ -98,17 +102,22 @@ function agent(session: Session, model?: string): Agent {
 
 /** Flatten every text fragment the summarizer received across all messages. */
 function summarizedText(input: SummarizationInput): string {
-  return input.messages.flatMap(message => message.content)
-    .map(block => block.type === 'text' ? block.text : '')
+  return input.messages
+    .flatMap(message => message.content)
+    .map(block => (block.type === 'text' ? block.text : ''))
     .join('\n')
 }
 
 /** A minimal replayed prefix carrying one user message of the given text. */
 function promptInput(text: string): SummarizationInput {
-  return { messages: [createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'test' },
-  })] }
+  return {
+    messages: [
+      createUserMessage({
+        content: [{ type: 'text', text }],
+        source: { kind: 'test' },
+      }),
+    ],
+  }
 }
 
 /**
@@ -120,16 +129,24 @@ function conversation(turns = 4, text = 'fixture '.repeat(40).trim(), system?: s
   for (let turn = 1; turn <= turns; turn += 1) {
     session.append('turn/start', { turn })
     if (turn === 1 && system !== undefined) {
-      session.append('system/message', {
-        turn,
-        step: 1,
-        message: createSystemMessage(system),
-      }, { surfaceOp: 'append' })
+      session.append(
+        'system/message',
+        {
+          turn,
+          step: 1,
+          message: createSystemMessage(system),
+        },
+        { surfaceOp: 'append' },
+      )
     }
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `${text} user ${turn}` }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: `${text} user ${turn}` }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('step/start', { turn, step: 1 })
     if (turn === 1) {
       session.append('request/header', {
@@ -137,19 +154,23 @@ function conversation(turns = 4, text = 'fixture '.repeat(40).trim(), system?: s
         reason: 'initial',
       })
     }
-    session.append('assistant/message', {
-      stream: [],
-      turn,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'text', text: `${text} assistant ${turn}` }],
-        source: {
-          kind: 'model',
-          ...{ provider: MODEL, model: MODEL },
-        },
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'text', text: `${text} assistant ${turn}` }],
+          source: {
+            kind: 'model',
+            ...{ provider: MODEL, model: MODEL },
+          },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('step/end', { turn, step: 1 })
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
@@ -164,10 +185,14 @@ function toolConversation(): Session {
   for (let turn = 1; turn <= 3; turn += 1) {
     const callId = ToolCallId(`call-${turn}`)
     session.append('turn/start', { turn })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `request ${turn} `.repeat(300) }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: `request ${turn} `.repeat(300) }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('step/start', { turn, step: 1 })
     if (turn === 1) {
       session.append('request/header', {
@@ -175,32 +200,40 @@ function toolConversation(): Session {
         reason: 'initial',
       })
     }
-    session.append('assistant/message', {
-      stream: [],
-      turn,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [
-          { type: 'text', text: `calling ${turn} `.repeat(300) },
-          { type: 'tool-call', id: callId, name: 'read', arguments: '{}' },
-        ],
-        source: {
-          kind: 'model',
-          ...{ provider: MODEL, model: MODEL },
-        },
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [
+            { type: 'text', text: `calling ${turn} `.repeat(300) },
+            { type: 'tool-call', id: callId, name: 'read', arguments: '{}' },
+          ],
+          source: {
+            kind: 'model',
+            ...{ provider: MODEL, model: MODEL },
+          },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('tool/call', { turn, step: 1, callId, name: 'read', arguments: '{}' })
-    session.append('tool/result', {
-      turn,
-      step: 1,
-      message: createToolResultMessage({
-        callId,
-        content: [{ type: 'text', text: `result ${turn} `.repeat(300) }],
-        isError: false,
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'tool/result',
+      {
+        turn,
+        step: 1,
+        message: createToolResultMessage({
+          callId,
+          content: [{ type: 'text', text: `result ${turn} `.repeat(300) }],
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('step/end', { turn, step: 1 })
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
@@ -214,40 +247,52 @@ function oversizedToolResult(chars = 3_000, withCompactablePrompt = false): Sess
   const callId = ToolCallId('oversized')
   session.append('turn/start', { turn: 1 })
   if (withCompactablePrompt) {
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'older history '.repeat(200) }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'older history '.repeat(200) }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
   }
   session.append('step/start', { turn: 1, step: 1 })
   session.append('request/header', {
     header: { config: { provider: MODEL, model: MODEL } },
     reason: 'initial',
   })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: createMessage({
-      role: 'assistant',
-      content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: '{}' }],
-      source: {
-        kind: 'model',
-        ...{ provider: MODEL, model: MODEL },
-      },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: createMessage({
+        role: 'assistant',
+        content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: '{}' }],
+        source: {
+          kind: 'model',
+          ...{ provider: MODEL, model: MODEL },
+        },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('tool/call', { turn: 1, step: 1, callId, name: 'bash', arguments: '{}' })
-  session.append('tool/result', {
-    turn: 1,
-    step: 1,
-    message: createToolResultMessage({
-      callId,
-      content: [{ type: 'text', text: 'X'.repeat(chars) }],
-      isError: false,
-    }),
-    meta: { presentation: 'preserved' },
-  }, { surfaceOp: 'append' })
+  session.append(
+    'tool/result',
+    {
+      turn: 1,
+      step: 1,
+      message: createToolResultMessage({
+        callId,
+        content: [{ type: 'text', text: 'X'.repeat(chars) }],
+        isError: false,
+      }),
+      meta: { presentation: 'preserved' },
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   session.append('turn/start', { turn: 2 })
@@ -281,19 +326,16 @@ class TestCompactionEngine extends BasicCompactionEngine {
     if (this.error !== undefined) throw this.error
     return {
       summary: this.summary,
-      ...this.rawOutput === undefined ? {} : { rawOutput: this.rawOutput },
+      ...(this.rawOutput === undefined ? {} : { rawOutput: this.rawOutput }),
       provider: this.summaryProvider,
       model: this.summaryModel,
       maxTokens: 123,
-      ...this.usage === undefined ? {} : { usage: this.usage },
+      ...(this.usage === undefined ? {} : { usage: this.usage }),
     }
   }
 }
 
-function service(
-  config: BasicCompactionConfig = { auto: false },
-  ctx = createContext(),
-): TestCompactionEngine {
+function service(config: BasicCompactionConfig = { auto: false }, ctx = createContext()): TestCompactionEngine {
   return new TestCompactionEngine(ctx, { headroomTokens: 0, maxTokens: 8192, ...config })
 }
 
@@ -329,24 +371,41 @@ describe('compact configuration and defaults', () => {
     const target = { provider: MODEL, model: MODEL }
     expect(resolveConfig({ headroomTokens: 16_384 }).maxTokens).toBe(16_384)
     expect(resolveConfig({ headroomTokens: 0, maxTokens: 32 }).maxTokens).toBe(32)
-    expect(resolveTargetPolicy(resolveConfig({
-      modelPolicies: [{ ...target, headroomTokens: 16_384 }],
-    }), target).maxTokens).toBe(16_384)
-    expect(resolveTargetPolicy(resolveConfig({
-      maxTokens: 512,
-      modelPolicies: [{ ...target, headroomTokens: 0 }],
-    }), target).maxTokens).toBe(512)
-    expect(resolveTargetPolicy(resolveConfig({
-      maxTokens: 512,
-      modelPolicies: [{ ...target, headroomTokens: 0, maxTokens: 32 }],
-    }), target).maxTokens).toBe(32)
+    expect(
+      resolveTargetPolicy(
+        resolveConfig({
+          modelPolicies: [{ ...target, headroomTokens: 16_384 }],
+        }),
+        target,
+      ).maxTokens,
+    ).toBe(16_384)
+    expect(
+      resolveTargetPolicy(
+        resolveConfig({
+          maxTokens: 512,
+          modelPolicies: [{ ...target, headroomTokens: 0 }],
+        }),
+        target,
+      ).maxTokens,
+    ).toBe(512)
+    expect(
+      resolveTargetPolicy(
+        resolveConfig({
+          maxTokens: 512,
+          modelPolicies: [{ ...target, headroomTokens: 0, maxTokens: 32 }],
+        }),
+        target,
+      ).maxTokens,
+    ).toBe(32)
   })
 
   it('rejects a zero summary cap inherited from headroom', () => {
     expect(() => resolveConfig({ headroomTokens: 0 })).toThrow(/maxTokens.*positive integer/)
-    expect(() => resolveConfig({
-      modelPolicies: [{ provider: MODEL, model: MODEL, headroomTokens: 0 }],
-    })).toThrow(/modelPolicies\[0\].maxTokens.*positive integer/)
+    expect(() =>
+      resolveConfig({
+        modelPolicies: [{ provider: MODEL, model: MODEL, headroomTokens: 0 }],
+      }),
+    ).toThrow(/modelPolicies\[0\].maxTokens.*positive integer/)
   })
 
   it('resolves threshold and retention overrides independently', () => {
@@ -374,13 +433,15 @@ describe('compact configuration and defaults', () => {
       maxTokens: 8192,
       thresholdRatio: 0.8,
       retainRatio: 0.1,
-      modelPolicies: [{
-        provider: 'small-provider',
-        model: 'shared-id',
-        thresholdRatio: 0.5,
-        headroomTokens: 600,
-        retainTokens: 120,
-      }],
+      modelPolicies: [
+        {
+          provider: 'small-provider',
+          model: 'shared-id',
+          thresholdRatio: 0.5,
+          headroomTokens: 600,
+          retainTokens: 120,
+        },
+      ],
     })
     const small = resolveTargetPolicy(config, {
       provider: 'small-provider',
@@ -400,22 +461,27 @@ describe('compact configuration and defaults', () => {
       retainTokens: 200,
     })
 
-    const ratioOverride = resolveTargetPolicy(resolveConfig({
-      headroomTokens: 0,
-      maxTokens: 8192,
-      retainTokens: 200,
-      modelPolicies: [{
-        provider: 'ratio-provider',
-        model: 'ratio-model',
-        thresholdRatio: 0.6,
-        retainRatio: 0.2,
-        summarizationProvider: 'summary-provider',
-        summarizationModel: 'summary-model',
-        maxTokens: 512,
-        compactionRetries: 2,
-        maxOverflowRetries: 3,
-      }],
-    }), { provider: 'ratio-provider', model: 'ratio-model' })
+    const ratioOverride = resolveTargetPolicy(
+      resolveConfig({
+        headroomTokens: 0,
+        maxTokens: 8192,
+        retainTokens: 200,
+        modelPolicies: [
+          {
+            provider: 'ratio-provider',
+            model: 'ratio-model',
+            thresholdRatio: 0.6,
+            retainRatio: 0.2,
+            summarizationProvider: 'summary-provider',
+            summarizationModel: 'summary-model',
+            maxTokens: 512,
+            compactionRetries: 2,
+            maxOverflowRetries: 3,
+          },
+        ],
+      }),
+      { provider: 'ratio-provider', model: 'ratio-model' },
+    )
     expect(resolveCompactSpec(ratioOverride, 2_000, 0)).toMatchObject({
       thresholdTokens: 1_200,
       retainTokens: 400,
@@ -443,29 +509,23 @@ describe('compact configuration and defaults', () => {
     })
   })
 
-  it.each([500, 501])('rejects headroom %i that exhausts the remaining capacity', (headroomTokens) => {
+  it.each([500, 501])('rejects headroom %i that exhausts the remaining capacity', headroomTokens => {
     const policy = resolveTargetPolicy(resolveConfig({ headroomTokens }), { provider: MODEL, model: MODEL })
-    expect(() => resolveCompactSpec(policy, 1_000, 500))
-      .toThrow(/headroom tokens.*leaving no pressure budget/)
+    expect(() => resolveCompactSpec(policy, 1_000, 500)).toThrow(/headroom tokens.*leaving no pressure budget/)
   })
 
   it('rejects ratio retention that reaches the headroom-limited threshold', () => {
     const policy = resolveTargetPolicy(resolveConfig({ headroomTokens: 420 }), { provider: MODEL, model: MODEL })
-    expect(() => resolveCompactSpec(policy, 1_000, 500))
-      .toThrow(/retainTokens \(80\) must be less than threshold tokens 80/)
+    expect(() => resolveCompactSpec(policy, 1_000, 500)).toThrow(/retainTokens \(80\) must be less than threshold tokens 80/)
   })
 
   it('rejects a reserve that leaves no message budget or is not a count', () => {
     const policy = resolveTargetPolicy(resolveConfig({}), { provider: MODEL, model: MODEL })
 
-    expect(() => resolveCompactSpec(policy, 1_000, 1_000))
-      .toThrow(/reserves 1000 completion tokens.*leaving no message budget/)
-    expect(() => resolveCompactSpec(policy, 1_000, 1_500))
-      .toThrow(/leaving no message budget/)
-    expect(() => resolveCompactSpec(policy, 1_000, -1))
-      .toThrow(/reservedCompletionTokens \(-1\) must be a non-negative integer/)
-    expect(() => resolveCompactSpec(policy, 1_000, 1.5))
-      .toThrow(/reservedCompletionTokens \(1.5\) must be a non-negative integer/)
+    expect(() => resolveCompactSpec(policy, 1_000, 1_000)).toThrow(/reserves 1000 completion tokens.*leaving no message budget/)
+    expect(() => resolveCompactSpec(policy, 1_000, 1_500)).toThrow(/leaving no message budget/)
+    expect(() => resolveCompactSpec(policy, 1_000, -1)).toThrow(/reservedCompletionTokens \(-1\) must be a non-negative integer/)
+    expect(() => resolveCompactSpec(policy, 1_000, 1.5)).toThrow(/reservedCompletionTokens \(1.5\) must be a non-negative integer/)
   })
 
   it('inherits, clears, and replaces the summarization target as a pair', () => {
@@ -489,18 +549,18 @@ describe('compact configuration and defaults', () => {
       ],
     })
 
-    expect(resolveTargetPolicy(config, { provider: 'inherit-provider', model: MODEL }))
-      .toMatchObject({
-        summarizationProvider: 'default-provider',
-        summarizationModel: 'default-model',
-      })
-    expect(resolveTargetPolicy(config, { provider: 'clear-provider', model: MODEL }))
-      .toMatchObject({ summarizationProvider: '', summarizationModel: '' })
-    expect(resolveTargetPolicy(config, { provider: 'replace-provider', model: MODEL }))
-      .toMatchObject({
-        summarizationProvider: 'replacement-provider',
-        summarizationModel: 'replacement-model',
-      })
+    expect(resolveTargetPolicy(config, { provider: 'inherit-provider', model: MODEL })).toMatchObject({
+      summarizationProvider: 'default-provider',
+      summarizationModel: 'default-model',
+    })
+    expect(resolveTargetPolicy(config, { provider: 'clear-provider', model: MODEL })).toMatchObject({
+      summarizationProvider: '',
+      summarizationModel: '',
+    })
+    expect(resolveTargetPolicy(config, { provider: 'replace-provider', model: MODEL })).toMatchObject({
+      summarizationProvider: 'replacement-provider',
+      summarizationModel: 'replacement-model',
+    })
   })
 
   it('validates common values and pressure-policy invariants', () => {
@@ -534,16 +594,22 @@ describe('compact configuration and defaults', () => {
       [{ modelPolicies: [{ provider: MODEL, model: 1 }] }, /model must be a non-empty string/],
       [{ modelPolicies: [{ provider: MODEL, model: '' }] }, /model must be a non-empty string/],
       [{ modelPolicies: [{ provider: MODEL, model: MODEL, summarizationProvider: 1 }] }, /summarizationProvider must be a string/],
-      [{
-        summarizationProvider: 'default-provider',
-        summarizationModel: 'default-model',
-        modelPolicies: [{ provider: MODEL, model: MODEL, summarizationModel: '' }],
-      }, /modelPolicies\[0\].*must be set together/],
-      [{
-        summarizationProvider: 'default-provider',
-        summarizationModel: 'default-model',
-        modelPolicies: [{ provider: MODEL, model: MODEL, summarizationProvider: '' }],
-      }, /modelPolicies\[0\].*must be set together/],
+      [
+        {
+          summarizationProvider: 'default-provider',
+          summarizationModel: 'default-model',
+          modelPolicies: [{ provider: MODEL, model: MODEL, summarizationModel: '' }],
+        },
+        /modelPolicies\[0\].*must be set together/,
+      ],
+      [
+        {
+          summarizationProvider: 'default-provider',
+          summarizationModel: 'default-model',
+          modelPolicies: [{ provider: MODEL, model: MODEL, summarizationProvider: '' }],
+        },
+        /modelPolicies\[0\].*must be set together/,
+      ],
       [{ modelPolicies: [{ provider: MODEL, model: MODEL, retainRatio: 0.2, retainTokens: 100 }] }, /mutually exclusive/],
       [
         { modelPolicies: [{ provider: MODEL, model: MODEL, thresholdRatio: 0.1 }] },
@@ -553,7 +619,15 @@ describe('compact configuration and defaults', () => {
         { modelPolicies: [{ provider: MODEL, model: MODEL, retainRatio: 0.9 }] },
         /modelPolicies\[0\]: retainRatio \(0.9\).*thresholdRatio \(0.8\)/,
       ],
-      [{ modelPolicies: [{ provider: MODEL, model: MODEL }, { provider: MODEL, model: MODEL }] }, /duplicate model policy/],
+      [
+        {
+          modelPolicies: [
+            { provider: MODEL, model: MODEL },
+            { provider: MODEL, model: MODEL },
+          ],
+        },
+        /duplicate model policy/,
+      ],
       [{ models: { [MODEL]: { retainTokens: 10 } } }, /BasicCompactionConfig: unknown key "models"/],
       [{ thresholdRato: 0.5 }, /BasicCompactionConfig: unknown key "thresholdRato"/],
     ] as Array<[unknown, RegExp]>
@@ -562,17 +636,19 @@ describe('compact configuration and defaults', () => {
       expect(() => resolveConfig(config as BasicCompactionConfig)).toThrow(pattern)
     }
 
-    const invalidPressure = resolveTargetPolicy(resolveConfig({
-      headroomTokens: 0,
-      maxTokens: 8192,
-      thresholdRatio: 0.5,
-      retainTokens: 500,
-    }), { provider: MODEL, model: MODEL })
+    const invalidPressure = resolveTargetPolicy(
+      resolveConfig({
+        headroomTokens: 0,
+        maxTokens: 8192,
+        thresholdRatio: 0.5,
+        retainTokens: 500,
+      }),
+      { provider: MODEL, model: MODEL },
+    )
     expect(() => resolveCompactSpec(invalidPressure, 1_000, 0)).toThrow(/less than threshold/)
     expect(() => resolveCompactSpec(invalidPressure, 1.5, 0)).toThrow(/positive integer/)
     expect(() => resolveCompactSpec(invalidPressure, 0, 0)).toThrow(/positive integer/)
   })
-
 })
 
 describe('pressure measurement and retention', () => {
@@ -586,8 +662,7 @@ describe('pressure measurement and retention', () => {
     const compact = service(compactConfig)
     const session = Session.create(SessionId('headerless'))
     session.append('turn/start', { turn: 1 })
-    await expect(compact.compactIfNeeded(agent(session, MODEL), 'pressure', SIGNAL))
-      .resolves.toBeNull()
+    await expect(compact.compactIfNeeded(agent(session, MODEL), 'pressure', SIGNAL)).resolves.toBeNull()
     expect(compact.calls).toHaveLength(0)
   })
 
@@ -598,8 +673,7 @@ describe('pressure measurement and retention', () => {
       header: { config: { provider: 'unlisted-provider', model: 'unlisted-model' } },
       reason: 'resume',
     })
-    await expect(compactIfNeeded(compact, session))
-      .resolves.not.toBeNull()
+    await expect(compactIfNeeded(compact, session)).resolves.not.toBeNull()
   })
 
   it('forwards turn cancellation to proactive model metadata resolution', async () => {
@@ -609,8 +683,7 @@ describe('pressure measurement and retention', () => {
     const session = conversation()
     const signal = new AbortController().signal
 
-    await expect(compact.compactIfNeeded(agent(session, MODEL), 'pressure', signal))
-      .resolves.not.toBeNull()
+    await expect(compact.compactIfNeeded(agent(session, MODEL), 'pressure', signal)).resolves.not.toBeNull()
     expect(resolveModelInfo).toHaveBeenCalledWith(MODEL, MODEL, signal)
   })
 
@@ -619,15 +692,21 @@ describe('pressure measurement and retention', () => {
     void new LlmRuntime(ctx)
     new SessionProjectionRegistry(ctx)
     void new TokenMeter(ctx)
-    ctx.llm.registerAdapter(['large', 'small'], new RoutedContextAdapter({
-      large: 10_000,
-      small: 1_000,
-    }))
-    const compact = service({
-      auto: false,
-      thresholdRatio: 0.5,
-      retainRatio: 0.1,
-    }, ctx)
+    ctx.llm.registerAdapter(
+      ['large', 'small'],
+      new RoutedContextAdapter({
+        large: 10_000,
+        small: 1_000,
+      }),
+    )
+    const compact = service(
+      {
+        auto: false,
+        thresholdRatio: 0.5,
+        retainRatio: 0.1,
+      },
+      ctx,
+    )
     const session = conversation(4)
     session.append('request/header', {
       header: { config: { provider: 'large', model: 'shared-id' } },
@@ -669,13 +748,15 @@ describe('pressure measurement and retention', () => {
     const measured = ctx.tokenMeter.measure(session).totalTokens
     expect(measured).toBeLessThan(800)
 
-    vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) => Promise.resolve({
-      provider,
-      id: model,
-      name: model,
-      context: { contextWindow: 1_000 },
-      defaultMaxTokens: 1_000 - measured + 1,
-    }))
+    vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) =>
+      Promise.resolve({
+        provider,
+        id: model,
+        name: model,
+        context: { contextWindow: 1_000 },
+        defaultMaxTokens: 1_000 - measured + 1,
+      }),
+    )
 
     await expect(compactIfNeeded(compact, session)).resolves.not.toBeNull()
   })
@@ -686,11 +767,13 @@ describe('pressure measurement and retention', () => {
     new SessionProjectionRegistry(ctx)
     void new TokenMeter(ctx)
     ctx.llm.registerAdapter(['unknown-context'], new ContextAdapter(1_000))
-    vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) => Promise.resolve({
-      provider,
-      id: model,
-      name: model,
-    }))
+    vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) =>
+      Promise.resolve({
+        provider,
+        id: model,
+        name: model,
+      }),
+    )
     const compact = service(compactConfig, ctx)
     const session = conversation(4)
     session.append('request/header', {
@@ -698,10 +781,8 @@ describe('pressure measurement and retention', () => {
       reason: 'resume',
     })
 
-    await expect(compactIfNeeded(compact, session, 'pressure'))
-      .rejects.toThrow(/no context capacity for unknown-context\/model/)
-    await expect(compactIfNeeded(compact, session, 'context-overflow'))
-      .resolves.not.toBeNull()
+    await expect(compactIfNeeded(compact, session, 'pressure')).rejects.toThrow(/no context capacity for unknown-context\/model/)
+    await expect(compactIfNeeded(compact, session, 'context-overflow')).resolves.not.toBeNull()
   })
 
   it('declines forced overflow when the whole surface is one indivisible tool pair', async () => {
@@ -714,29 +795,37 @@ describe('pressure measurement and retention', () => {
       header: { config: { provider: MODEL, model: MODEL } },
       reason: 'initial',
     })
-    session.append('assistant/message', {
-      stream: [],
-      turn: 1,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'tool-call', id: callId, name: 'read', arguments: '{}' }],
-        source: {
-          kind: 'model',
-          ...{ provider: MODEL, model: MODEL },
-        },
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn: 1,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'tool-call', id: callId, name: 'read', arguments: '{}' }],
+          source: {
+            kind: 'model',
+            ...{ provider: MODEL, model: MODEL },
+          },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('tool/call', { turn: 1, step: 1, callId, name: 'read', arguments: '{}' })
-    session.append('tool/result', {
-      turn: 1,
-      step: 1,
-      message: createToolResultMessage({
-        callId,
-        content: [{ type: 'text', text: 'result' }],
-        isError: false,
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId,
+          content: [{ type: 'text', text: 'result' }],
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('step/end', { turn: 1, step: 1 })
     const generation = session.surface.replaceGeneration
 
@@ -812,11 +901,14 @@ describe('pressure measurement and retention', () => {
 
   it('uses the latest logged request envelope without an AgentOptions override', async () => {
     const ctx = createContext()
-    const compact = service({
-      auto: false,
-      thresholdRatio: 0.5,
-      retainTokens: 180,
-    }, ctx)
+    const compact = service(
+      {
+        auto: false,
+        thresholdRatio: 0.5,
+        retainTokens: 180,
+      },
+      ctx,
+    )
     const session = conversation(4)
     session.append('request/header', {
       header: { config: { provider: 'actual', model: 'actual' } },
@@ -872,16 +964,18 @@ describe('pressure measurement and retention', () => {
       text: `summary ${index}`,
     }))
 
-    await expect(compactIfNeeded(compact, conversation(4)))
-      .rejects.toThrow(/still above threshold after 1 compaction attempts/)
+    await expect(compactIfNeeded(compact, conversation(4))).rejects.toThrow(/still above threshold after 1 compaction attempts/)
   })
 
   it('rounds a retention cut head-ward to preserve tool-call/result pairing', async () => {
-    const compact = service({
-      auto: false,
-      thresholdRatio: 0.8,
-      retainTokens: 80,
-    }, createContext(4_000))
+    const compact = service(
+      {
+        auto: false,
+        thresholdRatio: 0.8,
+        retainTokens: 80,
+      },
+      createContext(4_000),
+    )
     const session = toolConversation()
     const result = await compactIfNeeded(compact, session)
     expect(result).not.toBeNull()
@@ -900,10 +994,16 @@ describe('pressure measurement and retention', () => {
     const ctx = createContext()
     const session = conversation(2)
     const priced = ctx.tokenMeter.measure(session)
-    expect(() => selectCompactableRange(session, {
-      ...priced,
-      nodes: priced.nodes.slice(1),
-    }, 1)).toThrow(/does not match/)
+    expect(() =>
+      selectCompactableRange(
+        session,
+        {
+          ...priced,
+          nodes: priced.nodes.slice(1),
+        },
+        1,
+      ),
+    ).toThrow(/does not match/)
   })
 
   it('declines when rounding a cut would consume the only tool pair', () => {
@@ -912,29 +1012,37 @@ describe('pressure measurement and retention', () => {
     const callId = ToolCallId('only')
     session.append('turn/start', { turn: 1 })
     session.append('step/start', { turn: 1, step: 1 })
-    session.append('assistant/message', {
-      stream: [],
-      turn: 1,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'tool-call', id: callId, name: 'read', arguments: '{}' }],
-        source: {
-          kind: 'model',
-          ...{ provider: MODEL, model: MODEL },
-        },
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn: 1,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'tool-call', id: callId, name: 'read', arguments: '{}' }],
+          source: {
+            kind: 'model',
+            ...{ provider: MODEL, model: MODEL },
+          },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('tool/call', { turn: 1, step: 1, callId, name: 'read', arguments: '{}' })
-    session.append('tool/result', {
-      turn: 1,
-      step: 1,
-      message: createToolResultMessage({
-        callId,
-        content: [{ type: 'text', text: 'result' }],
-        isError: false,
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId,
+          content: [{ type: 'text', text: 'result' }],
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('step/end', { turn: 1, step: 1 })
 
     const priced = ctx.tokenMeter.measure(session)
@@ -1015,29 +1123,19 @@ describe('optional model-free tool-result pruning', () => {
     expect(await compactIfNeeded(compact, session)).not.toBeNull()
     expect(compact.calls).toHaveLength(1)
     const original = session.snapshotEvents().find(event => event.type === 'tool/result')
-    expect(original?.type === 'tool/result' && original.data.message.content[0])
-      .toEqual({ type: 'text', text: 'X'.repeat(3_000) })
-    expect(session.snapshotEvents().filter(event =>
-      event.type === 'tool/result' && event.surfaceOp !== 'append')).toHaveLength(0)
+    expect(original?.type === 'tool/result' && original.data.message.content[0]).toEqual({ type: 'text', text: 'X'.repeat(3_000) })
+    expect(session.snapshotEvents().filter(event => event.type === 'tool/result' && event.surfaceOp !== 'append')).toHaveLength(0)
   })
 })
 
 describe('compaction region transaction', () => {
   it('lands a framed, replayable checkpoint with exact source seqs and token price', async () => {
     const compact = service()
-    compact.rawOutput = [
-      { type: 'reasoning', text: 'private compact thought' },
-      ...compact.summary,
-    ]
+    compact.rawOutput = [{ type: 'reasoning', text: 'private compact thought' }, ...compact.summary]
     compact.usage = { inputTokens: 40, outputTokens: 5 }
     const session = conversation(3)
     const before = [...session.surface.nodes]
-    const result = await compact.compactRegion(
-      before[0]!,
-      before[3]!,
-      agent(session, MODEL),
-      SIGNAL,
-    )
+    const result = await compact.compactRegion(before[0]!, before[3]!, agent(session, MODEL), SIGNAL)
 
     expect(result.shadowedSeqs).toEqual(before.slice(0, 4))
     expect(result.shadowedTokenCount).toBeGreaterThan(0)
@@ -1100,8 +1198,9 @@ describe('compaction region transaction', () => {
     const compact = service()
     const session = conversation(3, undefined, 'PROTECTED SYSTEM')
     const nodes = [...session.surface.nodes]
-    await expect(compact.compactRegion(nodes[0]!, nodes[3]!, agent(session, MODEL), SIGNAL))
-      .rejects.toThrow(/node 0 holds the system prompt/)
+    await expect(compact.compactRegion(nodes[0]!, nodes[3]!, agent(session, MODEL), SIGNAL)).rejects.toThrow(
+      /node 0 holds the system prompt/,
+    )
 
     expect(session.surface.nodes).toEqual(nodes)
     const end = session.snapshotEvents().findLast(event => event.type === 'compaction/end')
@@ -1115,35 +1214,29 @@ describe('compaction region transaction', () => {
     const compact = service()
     const session = conversation(2)
     const nodes = session.surface.nodes
-    await expect(compact.compactRegion(
-      startOverride === undefined ? nodes[0]! : SessionSeq(startOverride),
-      endOverride === undefined ? nodes[1]! : SessionSeq(endOverride),
-      agent(session, MODEL),
-    )).rejects.toThrow(pattern)
+    await expect(
+      compact.compactRegion(
+        startOverride === undefined ? nodes[0]! : SessionSeq(startOverride),
+        endOverride === undefined ? nodes[1]! : SessionSeq(endOverride),
+        agent(session, MODEL),
+      ),
+    ).rejects.toThrow(pattern)
   })
 
   it('rejects reversed and tool-unbalanced positional boundaries', async () => {
     const compact = service()
     const plain = conversation(2)
     const nodes = plain.surface.nodes
-    await expect(compact.compactRegion(
-      nodes[2]!,
-      nodes[1]!,
-      agent(plain, MODEL),
-    )).rejects.toThrow(/is after end/)
+    await expect(compact.compactRegion(nodes[2]!, nodes[1]!, agent(plain, MODEL))).rejects.toThrow(/is after end/)
 
     const tools = toolConversation()
     const toolNodes = tools.surface.nodes
-    await expect(compact.compactRegion(
-      toolNodes[2]!,
-      toolNodes[4]!,
-      agent(tools, MODEL),
-    )).rejects.toThrow(/start seq .* not a balanced boundary/)
-    await expect(compact.compactRegion(
-      toolNodes[0]!,
-      toolNodes[1]!,
-      agent(tools, MODEL),
-    )).rejects.toThrow(/end seq .* not a balanced boundary/)
+    await expect(compact.compactRegion(toolNodes[2]!, toolNodes[4]!, agent(tools, MODEL))).rejects.toThrow(
+      /start seq .* not a balanced boundary/,
+    )
+    await expect(compact.compactRegion(toolNodes[0]!, toolNodes[1]!, agent(tools, MODEL))).rejects.toThrow(
+      /end seq .* not a balanced boundary/,
+    )
   })
 
   it('requires an open turn and an idle compaction bracket', async () => {
@@ -1151,11 +1244,7 @@ describe('compaction region transaction', () => {
     const closed = conversation(1)
     closed.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
     const nodes = closed.surface.nodes
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[1]!,
-      agent(closed, MODEL),
-    )).rejects.toThrow(/no open turn/)
+    await expect(compact.compactRegion(nodes[0]!, nodes[1]!, agent(closed, MODEL))).rejects.toThrow(/no open turn/)
 
     const locked = conversation(1)
     locked.append('compaction/start', {
@@ -1163,34 +1252,30 @@ describe('compaction region transaction', () => {
       turn: 2,
     })
     const lockedNodes = locked.surface.nodes
-    await expect(compact.compactRegion(
-      lockedNodes[0]!,
-      lockedNodes[1]!,
-      agent(locked, MODEL),
-    )).rejects.toThrow(/already in progress/)
+    await expect(compact.compactRegion(lockedNodes[0]!, lockedNodes[1]!, agent(locked, MODEL))).rejects.toThrow(/already in progress/)
   })
 
   it('rejects a session with no turn boundary at all', async () => {
     const compact = service()
     const session = Session.create(SessionId('turnless'))
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'orphan' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'orphan' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     const node = session.surface.nodes[0]!
 
-    await expect(compact.compactRegion(
-      node,
-      node,
-      agent(session, MODEL),
-    )).rejects.toThrow(/no open turn/)
+    await expect(compact.compactRegion(node, node, agent(session, MODEL))).rejects.toThrow(/no open turn/)
   })
 
   it('rejects a meter snapshot that changed before summarization began', async () => {
     const ctx = createContext()
     const meter = ctx.tokenMeter
     const original = meter.measure.bind(meter)
-    vi.spyOn(meter, 'measure').mockImplementationOnce((session) => {
+    vi.spyOn(meter, 'measure').mockImplementationOnce(session => {
       const measurement = original(session)
       return { ...measurement, nodes: measurement.nodes.slice(1) }
     })
@@ -1198,11 +1283,7 @@ describe('compaction region transaction', () => {
     const session = conversation(2)
     const nodes = session.surface.nodes
 
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[2]!,
-      agent(session, MODEL),
-    )).rejects.toThrow(/selected surface changed/)
+    await expect(compact.compactRegion(nodes[0]!, nodes[2]!, agent(session, MODEL))).rejects.toThrow(/selected surface changed/)
   })
 
   it('records summarizer failures without mutating the surface', async () => {
@@ -1211,14 +1292,11 @@ describe('compaction region transaction', () => {
     const session = conversation(2)
     const before = session.surface.nodes
 
-    await expect(compact.compactRegion(
-      before[0]!,
-      before[2]!,
-      agent(session, MODEL),
-    )).rejects.toThrow('summary unavailable')
+    await expect(compact.compactRegion(before[0]!, before[2]!, agent(session, MODEL))).rejects.toThrow('summary unavailable')
     expect(session.surface.nodes).toEqual(before)
-    expect(session.snapshotEvents().findLast(event => event.type === 'compaction/end')?.data)
-      .toMatchObject({ error: 'summary unavailable' })
+    expect(session.snapshotEvents().findLast(event => event.type === 'compaction/end')?.data).toMatchObject({
+      error: 'summary unavailable',
+    })
   })
 
   it('stringifies non-Error failures in the durable end bracket', async () => {
@@ -1226,13 +1304,8 @@ describe('compaction region transaction', () => {
     compact.error = 'plain failure'
     const session = conversation(2)
     const nodes = session.surface.nodes
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[2]!,
-      agent(session, MODEL),
-    )).rejects.toBe('plain failure')
-    expect(session.snapshotEvents().findLast(event => event.type === 'compaction/end')?.data)
-      .toMatchObject({ error: 'plain failure' })
+    await expect(compact.compactRegion(nodes[0]!, nodes[2]!, agent(session, MODEL))).rejects.toBe('plain failure')
+    expect(session.snapshotEvents().findLast(event => event.type === 'compaction/end')?.data).toMatchObject({ error: 'plain failure' })
   })
 
   it('tolerates concurrent log-only appends while the selected surface is stable', async () => {
@@ -1246,11 +1319,9 @@ describe('compaction region transaction', () => {
     }
     const nodes = session.surface.nodes
 
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[2]!,
-      agent(session, MODEL),
-    )).resolves.toMatchObject({ shadowedSeqs: nodes.slice(0, 3) })
+    await expect(compact.compactRegion(nodes[0]!, nodes[2]!, agent(session, MODEL))).resolves.toMatchObject({
+      shadowedSeqs: nodes.slice(0, 3),
+    })
     expect(session.snapshotEvents().some(event => event.type === 'compaction/summary')).toBe(true)
   })
 
@@ -1258,18 +1329,18 @@ describe('compaction region transaction', () => {
     const compact = service()
     const session = conversation(2)
     compact.mutateDuringSummary = () => {
-      session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text: 'concurrent surface mutation' }],
-        source: { kind: 'test' },
-      }), { surfaceOp: 'append' })
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: 'concurrent surface mutation' }],
+          source: { kind: 'test' },
+        }),
+        { surfaceOp: 'append' },
+      )
     }
     const nodes = session.surface.nodes
 
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[2]!,
-      agent(session, MODEL),
-    )).rejects.toThrow(/session surface changed/)
+    await expect(compact.compactRegion(nodes[0]!, nodes[2]!, agent(session, MODEL))).rejects.toThrow(/session surface changed/)
     expect(session.snapshotEvents().some(event => event.type === 'compaction/summary')).toBe(false)
   })
 
@@ -1282,11 +1353,7 @@ describe('compaction region transaction', () => {
     const session = conversation(2)
     const nodes = session.surface.nodes
 
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[2]!,
-      agent(session, MODEL),
-    )).rejects.toThrow(/summary is not smaller/)
+    await expect(compact.compactRegion(nodes[0]!, nodes[2]!, agent(session, MODEL))).rejects.toThrow(/summary is not smaller/)
     expect(session.snapshotEvents().some(event => event.type === 'compaction/summary')).toBe(false)
   })
 
@@ -1294,31 +1361,37 @@ describe('compaction region transaction', () => {
     const compact = service()
     const session = Session.create(SessionId('model-less-region'))
     session.append('turn/start', { turn: 1 })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'history '.repeat(100) }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    session.append('step/start', { turn: 1, step: 1 })
-    session.append('assistant/message', {
-      stream: [],
-      turn: 1,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'text', text: 'answer '.repeat(100) }],
-        source: {
-          kind: 'model',
-          ...{ provider: 'historical', model: 'historical' },
-        },
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'history '.repeat(100) }],
+        source: { kind: 'user' },
       }),
-    }, { surfaceOp: 'append' })
+      { surfaceOp: 'append' },
+    )
+    session.append('step/start', { turn: 1, step: 1 })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn: 1,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'text', text: 'answer '.repeat(100) }],
+          source: {
+            kind: 'model',
+            ...{ provider: 'historical', model: 'historical' },
+          },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('step/end', { turn: 1, step: 1 })
     const nodes = session.surface.nodes
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[1]!,
-      agent(session),
-    )).resolves.toMatchObject({ shadowedSeqs: [nodes[0]!, nodes[1]!] })
+    await expect(compact.compactRegion(nodes[0]!, nodes[1]!, agent(session))).resolves.toMatchObject({
+      shadowedSeqs: [nodes[0]!, nodes[1]!],
+    })
   })
 })
 
@@ -1333,7 +1406,7 @@ class ScriptedAdapter extends LlmAdapter {
     super()
   }
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.lastOptions = options
     for (const [index, block] of this.blocks.entries()) {
       yield { type: 'block-start', index, blockType: block.type }
@@ -1384,31 +1457,34 @@ async function summarizerHarness(
 }
 
 describe('default one-shot summarizer', () => {
-  it.each([undefined, '', 'SYSTEM HEAD\n精确前缀\n'])('preserves the routed prefix through region summarization with system %j', async (system) => {
-    const { adapter, compact } = await summarizerHarness([{ type: 'text', text: 'summary' }])
-    const session = conversation(3, undefined, system)
-    const tools = [{ name: 'do_thing', description: 'd', parameters: { type: 'object' } }]
-    session.append('request/header', {
-      header: { config: { provider: MODEL, model: MODEL }, tools },
-      reason: 'resume',
-    })
-    const nodes = [...session.surface.nodes]
-    const start = system === undefined ? 0 : 1
-    const prefix = session.deriveMessages().slice(0, system ? 3 : 2)
-    const result = await compact.compactRegion(nodes[start]!, nodes[start + 1]!, agent(session, MODEL), SIGNAL)
+  it.each([undefined, '', 'SYSTEM HEAD\n精确前缀\n'])(
+    'preserves the routed prefix through region summarization with system %j',
+    async system => {
+      const { adapter, compact } = await summarizerHarness([{ type: 'text', text: 'summary' }])
+      const session = conversation(3, undefined, system)
+      const tools = [{ name: 'do_thing', description: 'd', parameters: { type: 'object' } }]
+      session.append('request/header', {
+        header: { config: { provider: MODEL, model: MODEL }, tools },
+        reason: 'resume',
+      })
+      const nodes = [...session.surface.nodes]
+      const start = system === undefined ? 0 : 1
+      const prefix = session.deriveMessages().slice(0, system ? 3 : 2)
+      const result = await compact.compactRegion(nodes[start]!, nodes[start + 1]!, agent(session, MODEL), SIGNAL)
 
-    expect(adapter.lastOptions).not.toHaveProperty('system')
-    expect(adapter.lastOptions?.tools).toEqual(tools)
-    expect(adapter.lastOptions?.messages.slice(0, -1)).toEqual(prefix)
-    const instruction = adapter.lastOptions?.messages.at(-1)
-    expect(instruction).toMatchObject({ role: 'user' })
-    expect(instruction).not.toHaveProperty('id')
-    expect(instruction).not.toHaveProperty('source')
-    expect(Object.isFrozen(instruction)).toBe(true)
-    expect(Object.isFrozen(instruction?.content[0])).toBe(true)
-    expect(result.shadowedSeqs).toEqual(nodes.slice(start, start + 2))
-    if (system !== undefined) expect(session.surface.nodes[0]).toBe(nodes[0])
-  })
+      expect(adapter.lastOptions).not.toHaveProperty('system')
+      expect(adapter.lastOptions?.tools).toEqual(tools)
+      expect(adapter.lastOptions?.messages.slice(0, -1)).toEqual(prefix)
+      const instruction = adapter.lastOptions?.messages.at(-1)
+      expect(instruction).toMatchObject({ role: 'user' })
+      expect(instruction).not.toHaveProperty('id')
+      expect(instruction).not.toHaveProperty('source')
+      expect(Object.isFrozen(instruction)).toBe(true)
+      expect(Object.isFrozen(instruction?.content[0])).toBe(true)
+      expect(result.shadowedSeqs).toEqual(nodes.slice(start, start + 2))
+      if (system !== undefined) expect(session.surface.nodes[0]).toBe(nodes[0])
+    },
+  )
 
   it('requires complete raw output when a subclass marks one local LLM stream call', () => {
     expectTypeOf<{
@@ -1420,16 +1496,21 @@ describe('default one-shot summarizer', () => {
   })
 
   it('uses configured model/default cap, forwards cancellation, and keeps only safe text', async () => {
-    const { adapter, compact } = await summarizerHarness([
-      { type: 'reasoning', text: 'private' },
-      { type: 'text', text: 'public summary' },
-      { type: 'tool-call', id: ToolCallId('unexpected'), name: 'x', arguments: '{}' },
-    ], undefined, MODEL, {
-      auto: false,
-      summarizationProvider: MODEL,
-      summarizationModel: MODEL,
-      maxTokens: 321,
-    })
+    const { adapter, compact } = await summarizerHarness(
+      [
+        { type: 'reasoning', text: 'private' },
+        { type: 'text', text: 'public summary' },
+        { type: 'tool-call', id: ToolCallId('unexpected'), name: 'x', arguments: '{}' },
+      ],
+      undefined,
+      MODEL,
+      {
+        auto: false,
+        summarizationProvider: MODEL,
+        summarizationModel: MODEL,
+        maxTokens: 321,
+      },
+    )
     const session = conversation(1)
     adapter.usage = { inputTokens: 12, outputTokens: 3 }
     const output = await compact.runSummarize(promptInput('transcript'), agent(session, 'fallback'), SIGNAL)
@@ -1480,10 +1561,13 @@ describe('default one-shot summarizer', () => {
       source: { kind: 'test' },
     })
     const system = createSystemMessage('REPLAYED SYSTEM')
-    await compact.runSummarize({
-      tools,
-      messages: [system, prefix],
-    }, agent(conversation(1), MODEL))
+    await compact.runSummarize(
+      {
+        tools,
+        messages: [system, prefix],
+      },
+      agent(conversation(1), MODEL),
+    )
 
     expect(adapter.lastOptions).not.toHaveProperty('system')
     expect(adapter.lastOptions?.tools).toEqual(tools)
@@ -1497,22 +1581,19 @@ describe('default one-shot summarizer', () => {
   })
 
   it('applies the routed model policy without changing the replayed prefix', async () => {
-    const { ctx, compact } = await summarizerHarness(
-      [{ type: 'text', text: 'unused default summary' }],
-      undefined,
-      MODEL,
-      {
-        auto: false,
-        maxTokens: 111,
-        modelPolicies: [{
+    const { ctx, compact } = await summarizerHarness([{ type: 'text', text: 'unused default summary' }], undefined, MODEL, {
+      auto: false,
+      maxTokens: 111,
+      modelPolicies: [
+        {
           provider: MODEL,
           model: MODEL,
           summarizationProvider: 'policy-summary',
           summarizationModel: 'policy-summary',
           maxTokens: 222,
-        }],
-      },
-    )
+        },
+      ],
+    })
     const policyAdapter = new ScriptedAdapter([{ type: 'text', text: 'policy summary' }])
     ctx.llm.registerAdapter(['policy-summary'], policyAdapter)
     const prefix: Message = createUserMessage({
@@ -1521,9 +1602,12 @@ describe('default one-shot summarizer', () => {
     })
 
     const system = createSystemMessage('WARM SYSTEM')
-    const output = await compact.runSummarize({
-      messages: [system, prefix],
-    }, agent(conversation(1), 'fallback'))
+    const output = await compact.runSummarize(
+      {
+        messages: [system, prefix],
+      },
+      agent(conversation(1), 'fallback'),
+    )
 
     expect(output).toMatchObject({
       provider: 'policy-summary',
@@ -1582,8 +1666,9 @@ describe('default one-shot summarizer', () => {
     await ctx.plugin(SessionProjectionRegistry)
     void new TokenMeter(ctx)
     const compact = new ExposedCompactionEngine(ctx, { auto: false })
-    await expect(compact.runSummarize(promptInput('history'), agent(Session.create(SessionId('model-less')))))
-      .rejects.toThrow(/no provider\/model available for summarization/)
+    await expect(compact.runSummarize(promptInput('history'), agent(Session.create(SessionId('model-less'))))).rejects.toThrow(
+      /no provider\/model available for summarization/,
+    )
   })
 
   it('uses a complete AgentOptions target when no durable route exists', async () => {
@@ -1597,26 +1682,24 @@ describe('default one-shot summarizer', () => {
     expect(adapter.lastOptions).toMatchObject({ provider: MODEL, model: MODEL })
   })
 
-  it.each([
-    { provider: '', model: MODEL },
-    { provider: MODEL },
-    { provider: MODEL, model: '' },
-  ])('rejects incomplete AgentOptions target %#', async (options) => {
-    const { compact } = await summarizerHarness([{ type: 'text', text: 'unused' }])
-    const owner = {
-      session: Session.create(SessionId(`incomplete-${String(options.model)}`)),
-      options,
-    } as Agent
-    await expect(compact.runSummarize(promptInput('history'), owner))
-      .rejects.toThrow(/no provider\/model available for summarization/)
-  })
+  it.each([{ provider: '', model: MODEL }, { provider: MODEL }, { provider: MODEL, model: '' }])(
+    'rejects incomplete AgentOptions target %#',
+    async options => {
+      const { compact } = await summarizerHarness([{ type: 'text', text: 'unused' }])
+      const owner = {
+        session: Session.create(SessionId(`incomplete-${String(options.model)}`)),
+        options,
+      } as Agent
+      await expect(compact.runSummarize(promptInput('history'), owner)).rejects.toThrow(/no provider\/model available for summarization/)
+    },
+  )
 
   it.each([
     [{ kind: 'error', failure: { message: 'provider failed', code: 'PROVIDER' } }, 'PROVIDER', /provider failed/],
     [{ kind: 'error', failure: { message: 'opaque', code: 'UNKNOWN' } }, 'UNKNOWN', /opaque/],
     [{ kind: 'aborted', failure: { message: 'summarization aborted', code: 'ABORTED' } }, 'ABORTED', /aborted/],
     [{ kind: 'max-tokens' }, 'MAX_TOKENS', /token cap/],
-  ] as Array<[(StreamChunk & { type: 'finish' })['reason'], string | undefined, RegExp]>) (
+  ] as Array<[(StreamChunk & { type: 'finish' })['reason'], string | undefined, RegExp]>)(
     'rejects terminal finish %#',
     async (finish, code, pattern) => {
       const { compact } = await summarizerHarness([], finish)
@@ -1634,8 +1717,7 @@ describe('default one-shot summarizer', () => {
 
   it('rejects empty or reasoning-only successful output', async () => {
     const { compact } = await summarizerHarness([{ type: 'reasoning', text: 'private' }])
-    await expect(compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL)))
-      .rejects.toThrow(/no text summary content/)
+    await expect(compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL))).rejects.toThrow(/no text summary content/)
   })
 
   it('rejects image summary output instead of silently dropping it', async () => {
@@ -1652,31 +1734,34 @@ describe('default one-shot summarizer', () => {
       },
       { type: 'text', text: 'partial summary' },
     ])
-    await expect(compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL)))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
+    await expect(compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_CONTENT',
+    })
   })
 
   it('rejects image summary output', async () => {
-    const { compact } = await summarizerHarness([{
-      type: 'image',
-      attachment: {
-        attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`),
-        mediaType: 'image/png',
-        bytes: 1,
-        width: 1,
-        height: 1,
+    const { compact } = await summarizerHarness([
+      {
+        type: 'image',
+        attachment: {
+          attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`),
+          mediaType: 'image/png',
+          bytes: 1,
+          width: 1,
+          height: 1,
+        },
       },
-    }])
-    await expect(compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL)))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
+    ])
+    await expect(compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_CONTENT',
+    })
   })
 })
 
 describe('automatic listener and loader composition', () => {
   function preStep(ctx: Context, owner: Agent, signal = SIGNAL) {
-    return agentEvents(ctx, owner).waterfall(
-      'agent/pre-step', { messages: [], turn: 1, step: 1, signal },
-      () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
+    return agentEvents(ctx, owner).waterfall('agent/pre-step', { messages: [], turn: 1, step: 1, signal }, () =>
+      Promise.resolve({ kind: 'enter' as const, messages: [] }),
     )
   }
 
@@ -1689,11 +1774,9 @@ describe('automatic listener and loader composition', () => {
   ): Promise<boolean> {
     const failure: LlmFailure = { message: error.message, code: error.code ?? 'UNKNOWN' }
     const turn = owner.session.snapshotEvents().findLast(event => event.type === 'turn/start')?.data.turn ?? 1
-    return agentEvents(ctx, owner).waterfall(
-      'agent/request-error',
-      { turn, step: 1, provider: 'test', failure, retryPolicy: undefined, signal },
-      next,
-    ).then(action => action?.kind === 'retry')
+    return agentEvents(ctx, owner)
+      .waterfall('agent/request-error', { turn, step: 1, provider: 'test', failure, retryPolicy: undefined, signal }, next)
+      .then(action => action?.kind === 'retry')
   }
 
   function overflow(message = 'provider overflow'): Error & { code: string } {
@@ -1729,8 +1812,7 @@ describe('automatic listener and loader composition', () => {
     const pressured = conversation(4)
     const compactIfNeeded = vi.spyOn(compact, 'compactIfNeeded')
 
-    await expect(preStep(ctx, agent(pressured, MODEL), AbortSignal.abort('step aborted')))
-      .resolves.toEqual({ kind: 'enter', messages: [] })
+    await expect(preStep(ctx, agent(pressured, MODEL), AbortSignal.abort('step aborted'))).resolves.toEqual({ kind: 'enter', messages: [] })
 
     expect(compactIfNeeded).not.toHaveBeenCalled()
     expect(pressured.snapshotEvents().some(event => event.type === 'compaction/start')).toBe(false)
@@ -1758,11 +1840,13 @@ describe('automatic listener and loader composition', () => {
     const ctx = createContext()
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
-    vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) => Promise.resolve({
-      provider,
-      id: model,
-      name: model,
-    }))
+    vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) =>
+      Promise.resolve({
+        provider,
+        id: model,
+        name: model,
+      }),
+    )
     void new TestCompactionEngine(ctx, {
       headroomTokens: 0,
       maxTokens: 8192,
@@ -1774,9 +1858,7 @@ describe('automatic listener and loader composition', () => {
     await preStep(ctx, agent(session, MODEL))
     await preStep(ctx, agent(session, MODEL))
 
-    expect(warnings).toEqual([
-      expect.stringContaining(`no context capacity for ${MODEL}/${MODEL}`),
-    ])
+    expect(warnings).toEqual([expect.stringContaining(`no context capacity for ${MODEL}/${MODEL}`)])
   })
 
   it('warns once per routed target when absolute retention exceeds its resolved threshold', async () => {
@@ -1794,12 +1876,10 @@ describe('automatic listener and loader composition', () => {
     await preStep(ctx, agent(session, MODEL))
     await preStep(ctx, agent(session, MODEL))
 
-    expect(warnings).toEqual([
-      expect.stringContaining('retainTokens (500) must be less than threshold tokens 500'),
-    ])
+    expect(warnings).toEqual([expect.stringContaining('retainTokens (500) must be less than threshold tokens 500')])
   })
 
-  it.each([1_000, 1_500])('warns once and continues when the output reserve is %i for a 1,000-token window', async (maxTokens) => {
+  it.each([1_000, 1_500])('warns once and continues when the output reserve is %i for a 1,000-token window', async maxTokens => {
     const ctx = createContext(1_000)
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
@@ -1817,10 +1897,8 @@ describe('automatic listener and loader composition', () => {
     await expect(preStep(ctx, agent(session, MODEL))).resolves.toEqual({ kind: 'enter', messages: [] })
     await expect(preStep(ctx, agent(session, MODEL))).resolves.toEqual({ kind: 'enter', messages: [] })
 
-    expect(warnings).toEqual([
-      expect.stringContaining(`reserves ${maxTokens} completion tokens`),
-    ])
-    expect(warnings[0]).toContain('configure the adapter model\'s contextWindow above the effective request maxTokens')
+    expect(warnings).toEqual([expect.stringContaining(`reserves ${maxTokens} completion tokens`)])
+    expect(warnings[0]).toContain("configure the adapter model's contextWindow above the effective request maxTokens")
     expect(session.snapshotEvents()).toEqual(before)
     expect(compact.calls).toHaveLength(0)
   })
@@ -1909,8 +1987,9 @@ describe('automatic listener and loader composition', () => {
     expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(true)
     expect(session.surface.replaceGeneration).toBe(1)
     expect(session.snapshotEvents().filter(event => event.type === 'tool/result')).toHaveLength(2)
-    expect(session.snapshotEvents().findLast(event => event.type === 'compaction/end')?.data)
-      .toMatchObject({ error: 'summary unavailable after prune' })
+    expect(session.snapshotEvents().findLast(event => event.type === 'compaction/end')?.data).toMatchObject({
+      error: 'summary unavailable after prune',
+    })
     expect(warnings).toContainEqual(expect.stringContaining('retrying from the replacement surface'))
   })
 
@@ -1928,7 +2007,9 @@ describe('automatic listener and loader composition', () => {
       thresholdRatio: 1,
       retainTokens: 900,
     })
-    compact.mutateDuringSummary = () => { controller.abort('cancelled during summary') }
+    compact.mutateDuringSummary = () => {
+      controller.abort('cancelled during summary')
+    }
     compact.error = new Error('summary cancelled after prune')
     const session = oversizedToolResult(3_000, true)
 
@@ -1984,16 +2065,12 @@ describe('automatic listener and loader composition', () => {
     const downstream = new Error('downstream recovery failed')
     let calls = 0
 
-    await expect(recover(
-      ctx,
-      agent(conversation(2), MODEL),
-      overflow(),
-      SIGNAL,
-      () => {
+    await expect(
+      recover(ctx, agent(conversation(2), MODEL), overflow(), SIGNAL, () => {
         calls += 1
         return Promise.reject(downstream)
-      },
-    )).rejects.toBe(downstream)
+      }),
+    ).rejects.toBe(downstream)
     expect(calls).toBe(1)
   })
 
@@ -2047,8 +2124,7 @@ describe('automatic listener and loader composition', () => {
       header: { config: { provider: 'unknown-routed-provider', model: 'unknown-routed-model' } },
       reason: 'resume',
     })
-    expect(await recover(ctx, agent(session, MODEL), overflow('unlisted-model overflow')))
-      .toBe(true)
+    expect(await recover(ctx, agent(session, MODEL), overflow('unlisted-model overflow'))).toBe(true)
   })
 
   it('delegates canonical overflow when no durable routed target exists', async () => {
@@ -2067,8 +2143,7 @@ describe('automatic listener and loader composition', () => {
     const compact = new TestCompactionEngine(ctx, { maxOverflowRetries: 1 })
     const compactSpy = vi.spyOn(compact, 'compactIfNeeded')
     const owner = agent(conversation(3), MODEL)
-    expect(await recover(ctx, owner, Object.assign(new Error('rate limit'), { code: 'RATE_LIMIT' })))
-      .toBe(false)
+    expect(await recover(ctx, owner, Object.assign(new Error('rate limit'), { code: 'RATE_LIMIT' }))).toBe(false)
     expect(await recover(ctx, owner, overflow())).toBe(true)
     compactSpy.mockClear()
     expect(await recover(ctx, owner, overflow())).toBe(false)
@@ -2081,11 +2156,13 @@ describe('automatic listener and loader composition', () => {
       headroomTokens: 0,
       maxTokens: 8192,
       maxOverflowRetries: 2,
-      modelPolicies: [{
-        provider: MODEL,
-        model: MODEL,
-        maxOverflowRetries: 1,
-      }],
+      modelPolicies: [
+        {
+          provider: MODEL,
+          model: MODEL,
+          maxOverflowRetries: 1,
+        },
+      ],
     })
     const compactSpy = vi.spyOn(compact, 'compactIfNeeded')
     const owner = agent(conversation(3), MODEL)
@@ -2100,7 +2177,9 @@ describe('automatic listener and loader composition', () => {
     const ctx = createContext()
     const compact = new TestCompactionEngine(ctx)
     const controller = new AbortController()
-    compact.mutateDuringSummary = () => { controller.abort('cancelled during summary') }
+    compact.mutateDuringSummary = () => {
+      controller.abort('cancelled during summary')
+    }
     const session = conversation(3)
     const generation = session.surface.replaceGeneration
 
@@ -2180,10 +2259,11 @@ describe('route-priced image pressure', () => {
   class PricedContextAdapter extends ContextAdapter {
     override imageRequestPricing(): { priceImages: (images: readonly unknown[]) => Array<{ visualTokens: number; text: string }> } {
       return {
-        priceImages: images => images.map(() => ({
-          visualTokens: IMAGE_VISUAL_TOKENS,
-          text: IMAGE_HANDLE_TEXT,
-        })),
+        priceImages: images =>
+          images.map(() => ({
+            visualTokens: IMAGE_VISUAL_TOKENS,
+            text: IMAGE_HANDLE_TEXT,
+          })),
       }
     }
   }
@@ -2202,23 +2282,27 @@ describe('route-priced image pressure', () => {
     const session = Session.create(SessionId(`image-dense-${turns}`))
     for (let turn = 1; turn <= turns; turn += 1) {
       session.append('turn/start', { turn })
-      session.append('user/message', createUserMessage({
-        content: [
-          { type: 'text', text: `image turn ${turn}` },
-          {
-            type: 'image',
-            attachment: {
-              attachmentId: AttachmentId(`sha256:${String(turn).repeat(8)}`),
-              mediaType: 'image/png',
-              bytes: 2048,
-              width: 800,
-              height: 800,
-              name: `shot-${turn}`,
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [
+            { type: 'text', text: `image turn ${turn}` },
+            {
+              type: 'image',
+              attachment: {
+                attachmentId: AttachmentId(`sha256:${String(turn).repeat(8)}`),
+                mediaType: 'image/png',
+                bytes: 2048,
+                width: 800,
+                height: 800,
+                name: `shot-${turn}`,
+              },
             },
-          },
-        ],
-        source: { kind: 'user' },
-      }), { surfaceOp: 'append' })
+          ],
+          source: { kind: 'user' },
+        }),
+        { surfaceOp: 'append' },
+      )
       session.append('step/start', { turn, step: 1 })
       if (turn === 1) {
         session.append('request/header', {
@@ -2226,19 +2310,23 @@ describe('route-priced image pressure', () => {
           reason: 'initial',
         })
       }
-      session.append('assistant/message', {
-        stream: [],
-        turn,
-        step: 1,
-        message: createMessage({
-          role: 'assistant',
-          content: [{ type: 'text', text: `ok ${turn}` }],
-          source: {
-            kind: 'model',
-            ...{ provider: MODEL, model: MODEL },
-          },
-        }),
-      }, { surfaceOp: 'append' })
+      session.append(
+        'assistant/message',
+        {
+          stream: [],
+          turn,
+          step: 1,
+          message: createMessage({
+            role: 'assistant',
+            content: [{ type: 'text', text: `ok ${turn}` }],
+            source: {
+              kind: 'model',
+              ...{ provider: MODEL, model: MODEL },
+            },
+          }),
+        },
+        { surfaceOp: 'append' },
+      )
       session.append('step/end', { turn, step: 1 })
       session.append('turn/end', { turn, reason: { kind: 'completed' } })
     }
@@ -2271,16 +2359,21 @@ describe('route-priced image pressure', () => {
     const before = ctx.tokenMeter.measure(session)
     const imageNode = before.nodes[0]!
     const compact = new TestCompactionEngine(ctx, { auto: false })
-    compact.summary = [{
-      type: 'text',
-      text: 'summary text sized between the heuristic and route prices of the shadowed image message, '
-        + 'long enough that the fixed heuristic alone would reject it as not smaller '
-        + 'while the route-priced comparison accepts the pressure reduction.',
-    }]
-    const framed = ctx.tokenMeter.estimateMessage(createUserMessage({
-      content: frameSummary(compact.summary),
-      source: { kind: 'test' },
-    }))
+    compact.summary = [
+      {
+        type: 'text',
+        text:
+          'summary text sized between the heuristic and route prices of the shadowed image message, ' +
+          'long enough that the fixed heuristic alone would reject it as not smaller ' +
+          'while the route-priced comparison accepts the pressure reduction.',
+      },
+    ]
+    const framed = ctx.tokenMeter.estimateMessage(
+      createUserMessage({
+        content: frameSummary(compact.summary),
+        source: { kind: 'test' },
+      }),
+    )
     expect(framed).toBeGreaterThan(imageNode.heuristicTokens)
     expect(framed).toBeLessThan(imageNode.tokens)
 
@@ -2302,11 +2395,14 @@ describe('route-priced image pressure', () => {
     })
 
     // The same history stays below the 800-token threshold without pricing.
-    const neutralResult = await compactIfNeeded(service({
-      auto: false,
-      thresholdRatio: 0.8,
-      retainTokens: 350,
-    }), session)
+    const neutralResult = await compactIfNeeded(
+      service({
+        auto: false,
+        thresholdRatio: 0.8,
+        retainTokens: 350,
+      }),
+      session,
+    )
     expect(neutralResult).toBeNull()
 
     const result = await compact.compactIfNeeded(agent(session), 'pressure', SIGNAL)

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { redactSessionSnapshotIds } from '../src/identity.ts'
 
 const parentId = '11111111-1111-4111-8111-111111111111'
@@ -18,7 +18,9 @@ describe('session snapshot identity redaction', () => {
       { type: 'feedback/message-put', data: { sessionId: parentId, item: { messageId, version: runId } } },
       { type: 'feedback/message-delete', data: { sessionId: parentId, messageId } },
       { type: 'example', data: { version: proseUuid } },
-    ].map(record => JSON.stringify(record)).join('\n')
+    ]
+      .map(record => JSON.stringify(record))
+      .join('\n')
     const [output] = redactSessionSnapshotIds([source])
     expect(output).toContain('"version":"{{id:1}}"')
     expect(output).toContain('"version":"{{id:2}}"')
@@ -33,12 +35,14 @@ describe('session snapshot identity redaction', () => {
       JSON.stringify({
         type: 'agent/inbox/spliced',
         data: {
-          inserted: [{
-            role: 'user',
-            content: [{ type: 'text', text: `keep unrelated ${proseUuid}; session ${childId}` }],
-            source: { kind: 'user' },
-            id: messageId,
-          }],
+          inserted: [
+            {
+              role: 'user',
+              content: [{ type: 'text', text: `keep unrelated ${proseUuid}; session ${childId}` }],
+              source: { kind: 'user' },
+              id: messageId,
+            },
+          ],
         },
       }),
       JSON.stringify({ type: 'approval/asked', data: { id: approvalId } }),
@@ -51,7 +55,10 @@ describe('session snapshot identity redaction', () => {
       JSON.stringify({
         type: 'user/message',
         data: {
-          role: 'user', content: [], source: { kind: 'user' }, id: messageId,
+          role: 'user',
+          content: [],
+          source: { kind: 'user' },
+          id: messageId,
         },
       }),
       '',

@@ -2,12 +2,16 @@
 
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold,
-  watchConsole, webSnapshotMode, type WebScaffold,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -25,16 +29,31 @@ describe('web e2e: cold Inbox recovery', () => {
     scaffold = await launchWebScaffold({})
     const createdAt = Date.now() - 60_000
     const handle = await scaffold.ctx.sessionPersistence.create({
-      version: SESSION_FORMAT_VERSION, id: SESSION_ID, createdAt,
-      cwd: scaffold.workspaceCwd, isSeeded: false, delegationDepth: 0,
+      version: SESSION_FORMAT_VERSION,
+      id: SESSION_ID,
+      createdAt,
+      cwd: scaffold.workspaceCwd,
+      isSeeded: false,
+      delegationDepth: 0,
     })
     try {
-      await handle.append([{
-        type: 'agent/inbox/spliced', seq: SessionSeq(0), time: createdAt,
-        data: { target: 'next-turn', start: 0, inserted: [createUserMessage({
-          content: [{ type: 'text', text: PENDING_TEXT }], source: { kind: 'user' },
-        })] },
-      }])
+      await handle.append([
+        {
+          type: 'agent/inbox/spliced',
+          seq: SessionSeq(0),
+          time: createdAt,
+          data: {
+            target: 'next-turn',
+            start: 0,
+            inserted: [
+              createUserMessage({
+                content: [{ type: 'text', text: PENDING_TEXT }],
+                source: { kind: 'user' },
+              }),
+            ],
+          },
+        },
+      ])
     } finally {
       await handle.close()
     }
@@ -60,8 +79,7 @@ describe('web e2e: cold Inbox recovery', () => {
     await page.locator('[role="treeitem"]').nth(1).click()
     const dock = page.locator('[data-queue-dock]')
     await dock.getByText(PENDING_TEXT, { exact: true }).waitFor({ timeout: 15_000 })
-    await compareOrRefreshGolden(EXPECTED,
-      await captureStableAria(page, '[data-queue-dock]', scaffold.workspaceCwd), webSnapshotMode())
+    await compareOrRefreshGolden(EXPECTED, await captureStableAria(page, '[data-queue-dock]', scaffold.workspaceCwd), webSnapshotMode())
     await page.reload({ waitUntil: 'load' })
     await dock.getByText(PENDING_TEXT, { exact: true }).waitFor({ timeout: 15_000 })
     await dock.getByRole('button', { name: 'Edit queued message', exact: true }).click()

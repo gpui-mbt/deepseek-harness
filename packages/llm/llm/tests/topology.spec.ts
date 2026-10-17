@@ -1,11 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { LlmAdapter, LlmError } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmConfigurableProvider, StreamChunk } from '@deepseek-ai/dsh-llm'
 
 class NoopAdapter extends LlmAdapter {
-
-  async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
     throw new Error('not exercised')
   }
 }
@@ -88,7 +87,6 @@ describe('llm/adapters-updated', () => {
     registration.replace(['a'])
     expect(observed).toEqual([['a']])
   })
-
 })
 
 describe('configurable-provider directory', () => {
@@ -123,7 +121,11 @@ describe('configurable-provider directory', () => {
     baseURLEnv.push('mutated')
     const listed = ctx.llm.listConfigurableProviders()
     expect(listed).toEqual([
-      entry({ defaultBaseURL: 'https://api.openai.com/v1', baseURLEnv: ['ENDPOINT'], nativeAuth: { env: ['OPENAI_API_KEY'], oauth: false } }),
+      entry({
+        defaultBaseURL: 'https://api.openai.com/v1',
+        baseURLEnv: ['ENDPOINT'],
+        nativeAuth: { env: ['OPENAI_API_KEY'], oauth: false },
+      }),
     ])
     ;(listed[0]!.nativeAuth!.env as string[]).push('mutated')
     ;(listed[0]!.baseURLEnv as string[]).push('mutated')
@@ -177,32 +179,44 @@ describe('configurable-provider directory', () => {
     ctx.llm.registerConfigurableProviders([entry({ provider: 'owned-elsewhere' })])
 
     // A candidate another registration already declares refuses the whole swap.
-    expect(() =>{  handle.replace([entry({ provider: 'owned-elsewhere' })]) }).toThrow(/already declared/)
-    expect(ctx.llm.listConfigurableProviders().map(view => view.provider).sort())
-      .toEqual(['owned-elsewhere', 'second', entry().provider].sort())
+    expect(() => {
+      handle.replace([entry({ provider: 'owned-elsewhere' })])
+    }).toThrow(/already declared/)
+    expect(
+      ctx.llm
+        .listConfigurableProviders()
+        .map(view => view.provider)
+        .sort(),
+    ).toEqual(['owned-elsewhere', 'second', entry().provider].sort())
 
     // Its own entries are not "already declared" against itself, so a swap that
     // keeps one and drops another lands whole.
     handle.replace([entry({ displayName: 'Renamed' })])
-    expect(ctx.llm.listConfigurableProviders().map(view => view.provider).sort())
-      .toEqual(['owned-elsewhere', entry().provider].sort())
-    expect(ctx.llm.listConfigurableProviders().find(view => view.provider === entry().provider)?.displayName)
-      .toBe('Renamed')
+    expect(
+      ctx.llm
+        .listConfigurableProviders()
+        .map(view => view.provider)
+        .sort(),
+    ).toEqual(['owned-elsewhere', entry().provider].sort())
+    expect(ctx.llm.listConfigurableProviders().find(view => view.provider === entry().provider)?.displayName).toBe('Renamed')
 
     // An empty replace is legal, unlike an empty initial registration.
     handle.replace([])
     expect(ctx.llm.listConfigurableProviders().map(view => view.provider)).toEqual(['owned-elsewhere'])
 
     handle()
-    expect(() =>{  handle.replace([entry()]) }).toThrow(/was disposed/)
+    expect(() => {
+      handle.replace([entry()])
+    }).toThrow(/was disposed/)
   })
 
   it('rejects duplicates within one registration and across registrations', async () => {
     const ctx = await setup()
     expect(() => ctx.llm.registerConfigurableProviders([entry(), entry()])).toThrow(/already declared/)
     ctx.llm.registerConfigurableProviders([entry()])
-    expect(() => ctx.llm.registerConfigurableProviders([entry({ displayName: 'Other' }), entry({ provider: 'unseen' })]))
-      .toThrow(/already declared/)
+    expect(() => ctx.llm.registerConfigurableProviders([entry({ displayName: 'Other' }), entry({ provider: 'unseen' })])).toThrow(
+      /already declared/,
+    )
     expect(ctx.llm.listConfigurableProviders()).toHaveLength(1)
   })
 })
@@ -213,15 +227,17 @@ describe('model discovery registry', () => {
     const discover = vi.fn(() => Promise.resolve([{ id: 'from-endpoint' }]))
 
     const dispose = ctx.llm.registerModelDiscovery('llm-example', discover)
-    await expect(ctx.llm.discoverModels('llm-example', { baseURL: 'https://gateway.example/v1' }))
-      .resolves.toEqual([{ id: 'from-endpoint' }])
+    await expect(ctx.llm.discoverModels('llm-example', { baseURL: 'https://gateway.example/v1' })).resolves.toEqual([
+      { id: 'from-endpoint' },
+    ])
     expect(discover).toHaveBeenCalledWith({ baseURL: 'https://gateway.example/v1' })
 
     // Disposal is observed through the offer itself, which is the only thing
     // the registration ever produced.
     dispose()
-    await expect(ctx.llm.discoverModels('llm-example', { baseURL: 'https://gateway.example/v1' }))
-      .rejects.toThrow(/no model discovery is registered/)
+    await expect(ctx.llm.discoverModels('llm-example', { baseURL: 'https://gateway.example/v1' })).rejects.toThrow(
+      /no model discovery is registered/,
+    )
   })
 
   it('rejects an unnamed namespace and a second registration of the same one', async () => {
@@ -232,18 +248,19 @@ describe('model discovery registry', () => {
     ctx.llm.registerModelDiscovery('llm-example', discover)
     expect(() => ctx.llm.registerModelDiscovery('llm-example', discover)).toThrow(/already registered/)
     // The refused second registration left the first one serving.
-    await expect(ctx.llm.discoverModels('llm-example', { baseURL: 'https://gateway.example/v1' }))
-      .resolves.toEqual([])
+    await expect(ctx.llm.discoverModels('llm-example', { baseURL: 'https://gateway.example/v1' })).resolves.toEqual([])
   })
 
   it('preserves discovered input types without inventing missing metadata', async () => {
     const ctx = await setup()
-    ctx.llm.registerModelDiscovery('llm-example', () => Promise.resolve([
-      { id: 'keep', name: 'Keep', contextWindow: 1024, maxTokens: 256, inputModalities: ['text', 'image'] },
-      { id: '' },
-      { id: 'keep' },
-      { id: 'bare' },
-    ] as never))
+    ctx.llm.registerModelDiscovery('llm-example', () =>
+      Promise.resolve([
+        { id: 'keep', name: 'Keep', contextWindow: 1024, maxTokens: 256, inputModalities: ['text', 'image'] },
+        { id: '' },
+        { id: 'keep' },
+        { id: 'bare' },
+      ] as never),
+    )
 
     expect(await ctx.llm.discoverModels('llm-example', { baseURL: 'https://gateway.example/v1' })).toEqual([
       { id: 'keep', name: 'Keep', contextWindow: 1024, maxTokens: 256, inputModalities: ['text', 'image'] },
@@ -253,7 +270,8 @@ describe('model discovery registry', () => {
 
   it('carries cancellation into Remote discovery and maps provider failures', async () => {
     const ctx = await setup()
-    const discover = vi.fn()
+    const discover = vi
+      .fn()
       .mockResolvedValueOnce([
         { id: 'keep', name: 'Keep', contextWindow: 1024, maxTokens: 256 },
         { id: '' },
@@ -265,34 +283,18 @@ describe('model discovery registry', () => {
     ctx.llm.registerModelDiscovery('llm-example', discover)
     const signal = new AbortController().signal
 
-    await expect(ctx.llm.remoteDiscoverModels(
-      'llm-example',
-      { baseURL: 'https://gateway.example/v1' },
-      signal,
-    )).resolves.toEqual([
+    await expect(ctx.llm.remoteDiscoverModels('llm-example', { baseURL: 'https://gateway.example/v1' }, signal)).resolves.toEqual([
       { id: 'keep', name: 'Keep', contextWindow: 1024, maxTokens: 256 },
       { id: 'bare' },
     ])
-    expect(discover).toHaveBeenNthCalledWith(
-      1,
-      { baseURL: 'https://gateway.example/v1' },
-      signal,
-    )
+    expect(discover).toHaveBeenNthCalledWith(1, { baseURL: 'https://gateway.example/v1' }, signal)
 
-    await expect(ctx.llm.remoteDiscoverModels(
-      'llm-example',
-      { baseURL: 'https://gateway.example/v1' },
-      signal,
-    )).rejects.toMatchObject({
+    await expect(ctx.llm.remoteDiscoverModels('llm-example', { baseURL: 'https://gateway.example/v1' }, signal)).rejects.toMatchObject({
       code: 'llm/model-discovery-rejected',
       message: 'endpoint offline',
       details: { settingsNs: 'llm-example', baseURL: 'https://gateway.example/v1' },
     })
-    await expect(ctx.llm.remoteDiscoverModels(
-      'llm-example',
-      { provider: 'known-route' },
-      signal,
-    )).rejects.toMatchObject({
+    await expect(ctx.llm.remoteDiscoverModels('llm-example', { provider: 'known-route' }, signal)).rejects.toMatchObject({
       code: 'llm/model-discovery-rejected',
       message: 'provider refused',
       details: { settingsNs: 'llm-example' },
@@ -303,14 +305,12 @@ describe('model discovery registry', () => {
     const ctx = await setup()
     ctx.llm.registerModelDiscovery('llm-example', () => Promise.resolve([]))
 
-    await expect(ctx.llm.discoverModels('llm-absent', { baseURL: 'https://gateway.example/v1' }))
-      .rejects.toMatchObject({ code: 'NO_DISCOVERY' })
-    await expect(ctx.llm.discoverModels('llm-example', { baseURL: '' }))
-      .rejects.toMatchObject({ code: 'INVALID_DISCOVERY' })
-    await expect(ctx.llm.discoverModels('llm-example', { provider: '', baseURL: '' }))
-      .rejects.toMatchObject({ code: 'INVALID_DISCOVERY' })
-    await expect(ctx.llm.discoverModels('llm-example', {}))
-      .rejects.toMatchObject({ code: 'INVALID_DISCOVERY' })
+    await expect(ctx.llm.discoverModels('llm-absent', { baseURL: 'https://gateway.example/v1' })).rejects.toMatchObject({
+      code: 'NO_DISCOVERY',
+    })
+    await expect(ctx.llm.discoverModels('llm-example', { baseURL: '' })).rejects.toMatchObject({ code: 'INVALID_DISCOVERY' })
+    await expect(ctx.llm.discoverModels('llm-example', { provider: '', baseURL: '' })).rejects.toMatchObject({ code: 'INVALID_DISCOVERY' })
+    await expect(ctx.llm.discoverModels('llm-example', {})).rejects.toMatchObject({ code: 'INVALID_DISCOVERY' })
     // Naming a route alone is enough: the adapter may know it without an endpoint.
     await expect(ctx.llm.discoverModels('llm-example', { provider: 'known-route' })).resolves.toEqual([])
   })

@@ -53,7 +53,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const connection = McpClient.Config({
     command: config.command,
     args: config.args,
-    ...config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs },
+    ...(config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs }),
     reconnect: config.reconnect,
     transport: 'stdio',
     serverName: 'cua-driver-mcp',

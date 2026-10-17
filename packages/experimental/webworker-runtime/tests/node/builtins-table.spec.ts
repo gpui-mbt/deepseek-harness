@@ -13,7 +13,7 @@
  * evaluates at load, which is why nothing here asserts that a factory is
  * unevaluated.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createNodeBuiltins, REPLACED_PREFIXES } from '../../src/node/builtins.ts'
 import { WorkerModuleLoader, type WorkerRequire } from '../../src/module-system/module-loader.ts'
 import { MemoryVfs } from '../../src/storage/memory.ts'
@@ -97,14 +97,22 @@ describe('module identity through the loader', () => {
     expect(promises.finished).toBe(stream.promises.finished)
     expect(promises.pipeline).toBe(stream.promises.pipeline)
 
-    const output = new stream.Writable({ write(_chunk, _encoding, callback) { callback() } })
+    const output = new stream.Writable({
+      write(_chunk, _encoding, callback) {
+        callback()
+      },
+    })
     const baseline = output.listenerCount('error')
     const completed = promises.finished(output, { cleanup: true })
     output.end('done')
     await completed
     expect(output.listenerCount('error')).toBe(baseline)
 
-    const failed = new stream.Writable({ write(_chunk, _encoding, callback) { callback(new Error('write failed')) } })
+    const failed = new stream.Writable({
+      write(_chunk, _encoding, callback) {
+        callback(new Error('write failed'))
+      },
+    })
     const rejected = expect(promises.finished(failed, { cleanup: true })).rejects.toThrow('write failed')
     failed.end('broken')
     await rejected

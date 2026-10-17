@@ -11,9 +11,7 @@ import {
 const HIGH = ReasoningEffortId('high')
 const OFF = ReasoningEffortId('off')
 const SHELL_TOOL = process.platform === 'win32' ? 'pwsh' : 'bash'
-const SHELL_COMMAND = process.platform === 'win32'
-  ? "Write-Output 'CLI_TOOL_ROUND_TRIP'"
-  : 'printf CLI_TOOL_ROUND_TRIP'
+const SHELL_COMMAND = process.platform === 'win32' ? "Write-Output 'CLI_TOOL_ROUND_TRIP'" : 'printf CLI_TOOL_ROUND_TRIP'
 
 /** Keyless headless-agent adapter: one production shell call followed by a final answer. */
 class CliMockAdapter extends LlmAdapter {
@@ -32,7 +30,7 @@ class CliMockAdapter extends LlmAdapter {
     }
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     if (process.env.DSH_CLI_MOCK_FAILURE === '1') {
       yield { type: 'finish', reason: { kind: 'error', failure: { code: 'SERVER', message: 'CLI mock provider failed' } } }
       return
@@ -47,7 +45,11 @@ class CliMockAdapter extends LlmAdapter {
       yield { type: 'block-end', index: 0, block: { type: 'reasoning', text: reasoning } }
       yield { type: 'block-start', index: 1, blockType: 'tool-call' }
       yield { type: 'tool-call-delta', index: 1, id: ToolCallId('cli-smoke-call'), name: SHELL_TOOL, argumentsDelta: args }
-      yield { type: 'block-end', index: 1, block: { type: 'tool-call', id: ToolCallId('cli-smoke-call'), name: SHELL_TOOL, arguments: args } }
+      yield {
+        type: 'block-end',
+        index: 1,
+        block: { type: 'tool-call', id: ToolCallId('cli-smoke-call'), name: SHELL_TOOL, arguments: args },
+      }
       yield { type: 'usage', usage: { inputTokens: 11, outputTokens: 3, cacheReadTokens: 2 } }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
       return

@@ -27,7 +27,11 @@ export function macosDeploymentVersions(output: string): string[] {
     else if (text.startsWith('cmd ')) command = text.slice(4)
     else {
       const match = /^(minos|version)\s+(\d+(?:\.\d+)+)$/.exec(text)
-      if (match !== null && ((command === 'LC_BUILD_VERSION' && match[1] === 'minos') || (command === 'LC_VERSION_MIN_MACOSX' && match[1] === 'version'))) versions.push(match[2] as string)
+      if (
+        match !== null &&
+        ((command === 'LC_BUILD_VERSION' && match[1] === 'minos') || (command === 'LC_VERSION_MIN_MACOSX' && match[1] === 'version'))
+      )
+        versions.push(match[2] as string)
     }
   }
   return versions
@@ -47,7 +51,11 @@ export async function verifyNativePayload(directory: string, target: SshHelperTa
     const filename = join(directory, path)
     const file = await open(filename, 'r')
     const header = Buffer.alloc(4)
-    try { await file.read(header, 0, 4, 0) } finally { await file.close() }
+    try {
+      await file.read(header, 0, 4, 0)
+    } finally {
+      await file.close()
+    }
     const magic = header.readUInt32BE()
     const elf = magic === 0x7f454c46
     const macho = [0xcffaedfe, 0xcefaedfe, 0xfeedfacf, 0xfeedface, 0xcafebabe, 0xbebafeca, 0xcafebabf].includes(magic)

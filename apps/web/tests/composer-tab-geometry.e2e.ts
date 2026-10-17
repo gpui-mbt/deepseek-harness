@@ -5,11 +5,16 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { createChatScrollFixture } from './chat-scroll-fixture.ts'
 import {
-  assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole,
-  webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -37,22 +42,22 @@ const NARROW_VIEWPORT = { width: 800, height: 1000 }
  * @param viewport - the viewport dimensions to apply.
  * @param sidebarCollapsed - the sidebar state expected at this width.
  */
-async function setMeasuredViewport(
-  page: Page,
-  viewport: { width: number; height: number },
-  sidebarCollapsed: boolean,
-): Promise<void> {
+async function setMeasuredViewport(page: Page, viewport: { width: number; height: number }, sidebarCollapsed: boolean): Promise<void> {
   await page.setViewportSize(viewport)
   await page.locator('[data-sidebar-collapsed="true"]').waitFor({
     state: sidebarCollapsed ? 'attached' : 'detached',
     timeout: 10_000,
   })
-  await page.locator('[data-conversation-scroll]').evaluate(async (host) => {
+  await page.locator('[data-conversation-scroll]').evaluate(async host => {
     const deadline = performance.now() + 5_000
     let previous = host.getBoundingClientRect().width
     let stableFrames = 0
     while (performance.now() < deadline) {
-      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+      await new Promise<void>(resolve => {
+        requestAnimationFrame(() => {
+          resolve()
+        })
+      })
       const current = host.getBoundingClientRect().width
       stableFrames = Math.abs(current - previous) < 0.01 ? stableFrames + 1 : 0
       if (stableFrames >= 3) return
@@ -133,9 +138,16 @@ async function showTab(page: Page, tab: 'Chat' | 'Trajectory'): Promise<void> {
   else await page.locator('[data-conversation-scroll] [data-chat-anchor-key]:visible').first().waitFor({ timeout: 30_000 })
   // Both measurements are taken after a paint, so a rectangle read mid-transition
   // cannot be reported as a shift the cascade did not cause.
-  await page.evaluate(() => new Promise<void>((settle) => {
-    requestAnimationFrame(() => { requestAnimationFrame(() => { settle() }) })
-  }))
+  await page.evaluate(
+    () =>
+      new Promise<void>(settle => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            settle()
+          })
+        })
+      }),
+  )
 }
 
 /**
@@ -166,16 +178,21 @@ async function compareTabs(page: Page): Promise<TabComparison> {
  * @returns the comparison as the column lays out without the compensation.
  */
 async function compareTabsWithoutCompensation(page: Page): Promise<TabComparison> {
-  await page.evaluate(({ id, css }) => {
-    const style = document.createElement('style')
-    style.id = id
-    style.textContent = css
-    document.head.append(style)
-  }, { id: CONTROL_STYLE_ID, css: CONTROL_CSS })
+  await page.evaluate(
+    ({ id, css }) => {
+      const style = document.createElement('style')
+      style.id = id
+      style.textContent = css
+      document.head.append(style)
+    },
+    { id: CONTROL_STYLE_ID, css: CONTROL_CSS },
+  )
   try {
     return await compareTabs(page)
   } finally {
-    await page.evaluate((id) => { document.getElementById(id)?.remove() }, CONTROL_STYLE_ID)
+    await page.evaluate(id => {
+      document.getElementById(id)?.remove()
+    }, CONTROL_STYLE_ID)
   }
 }
 
@@ -191,13 +208,13 @@ async function compareTabsWithoutCompensation(page: Page): Promise<TabComparison
 async function openSeededSession(page: Page): Promise<void> {
   // Search collapsed into a header action; expand it before filling.
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
-  if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
+  if ((await searchButton.getAttribute('aria-expanded')) !== 'true') await searchButton.click()
   const search = page.getByRole('textbox', { name: 'Search session names', exact: true })
   await search.fill(FIXTURE.markers.user(1))
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   const deadline = Date.now() + 60_000
   for (;;) {
-    if (await results.count() === 1) break
+    if ((await results.count()) === 1) break
     if (Date.now() > deadline) throw new Error('seeded session never appeared in the sidebar search results')
     await page.waitForTimeout(200)
   }
@@ -232,7 +249,9 @@ function renderGeometry(wide: TabComparison, narrow: TabComparison, control: Tab
     ...section(`Wide viewport (${String(WIDE_VIEWPORT.width)}px, card at its cap)`, wide),
     ...section(`Narrow viewport (${String(NARROW_VIEWPORT.width)}px, card shrinking with the column)`, narrow),
     ...section('Wide viewport, seat compensation removed in the page (control)', control),
-  ].join('\n').trimEnd()
+  ]
+    .join('\n')
+    .trimEnd()
 }
 
 describe('web e2e: input card position across view tabs', () => {
@@ -252,8 +271,7 @@ describe('web e2e: input card position across view tabs', () => {
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await openSeededSession(page)
     await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 30_000 })
-    await page.getByText(FIXTURE.markers.assistant(FIXTURE.turns), { exact: false }).last()
-      .waitFor({ timeout: 30_000 })
+    await page.getByText(FIXTURE.markers.assistant(FIXTURE.turns), { exact: false }).last().waitFor({ timeout: 30_000 })
   }, 180_000)
 
   afterAll(async () => {

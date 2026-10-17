@@ -13,12 +13,23 @@ function toolCallPhase(block: ToolCallBlock): ToolCallPhaseProps {
 
 /** Resolve a Tool call's wire name from its current stage. */
 function callName(call: ToolCallPhaseProps): string {
-  return call.phase === 'result' ? call.block.call?.name ?? '' : call.block.name
+  return call.phase === 'result' ? (call.block.call?.name ?? '') : call.block.name
 }
 
 /** One atomic call dispatched through the Tool-owned keyed slot. */
 const ToolCall = memo(function ToolCall({
-  renderSlot, callId, toolName, call, openFile, cwd, home, inspectCall, loadImage, useDisclosure, t, children,
+  renderSlot,
+  callId,
+  toolName,
+  call,
+  openFile,
+  cwd,
+  home,
+  inspectCall,
+  loadImage,
+  useDisclosure,
+  t,
+  children,
 }: Pick<ToolTreeProps, 'renderSlot' | 'openFile' | 'cwd' | 'inspectCall' | 'loadImage' | 'useDisclosure' | 't'> & {
   callId: string
   toolName: string
@@ -26,40 +37,54 @@ const ToolCall = memo(function ToolCall({
   home?: string | undefined
   children?: ReactNode
 }) {
-  const owner: ToolCallOwnerProps = useMemo(() => ({
-    callId,
-    toolName,
-    ...call,
-    openFile,
-    cwd,
-    home,
-    loadImage,
-    useDisclosure,
-    inspect: inspectCall === undefined ? undefined : () => { inspectCall(callId) },
-  }), [callId, toolName, call, openFile, cwd, home, loadImage, inspectCall, useDisclosure])
+  const owner: ToolCallOwnerProps = useMemo(
+    () => ({
+      callId,
+      toolName,
+      ...call,
+      openFile,
+      cwd,
+      home,
+      loadImage,
+      useDisclosure,
+      inspect:
+        inspectCall === undefined
+          ? undefined
+          : () => {
+              inspectCall(callId)
+            },
+    }),
+    [callId, toolName, call, openFile, cwd, home, loadImage, inspectCall, useDisclosure],
+  )
   const autoReviewDenied = useMemo(
     () => call.phase === 'result' && toolRowModel(toolName, call.block).autoReviewDenial !== null,
     [toolName, call],
   )
   return (
-    <div
-      className={css.callRow}
-      data-chat-anchor-key={`call:${callId}`}
-      data-chat-call-id={callId}
-    >
-      {autoReviewDenied
-        ? <GenericToolCard {...owner} t={t} />
-        : renderSlot('tool.call.toolview', owner, {
+    <div className={css.callRow} data-chat-anchor-key={`call:${callId}`} data-chat-call-id={callId}>
+      {autoReviewDenied ? (
+        <GenericToolCard {...owner} t={t} />
+      ) : (
+        renderSlot('tool.call.toolview', owner, {
           entryKey: toolName,
           fallback: <GenericToolCard {...owner} t={t} />,
-        })}
+        })
+      )}
       {children}
     </div>
   )
 })
 
 const ToolCallBranch = memo(function ToolCallBranch({
-  renderSlot, block, cwd, home, openFile, inspectCall, loadImage, useDisclosure, t,
+  renderSlot,
+  block,
+  cwd,
+  home,
+  openFile,
+  inspectCall,
+  loadImage,
+  useDisclosure,
+  t,
 }: Pick<ToolTreeProps, 'renderSlot' | 'cwd' | 'openFile' | 'inspectCall' | 'loadImage' | 'useDisclosure' | 't'> & {
   block: ToolCallBlock
   home?: string | undefined
@@ -107,9 +132,7 @@ const ToolCallBranch = memo(function ToolCallBranch({
  * @param props - whole-Tool owner data and the Tool-owned child-slot share.
  * @returns the Tool call tree.
  */
-export function ToolCallTree({
-  renderSlot, node, cwd, openFile, inspectCall, loadImage, useDisclosure, useHostInfo, t,
-}: ToolTreeProps) {
+export function ToolCallTree({ renderSlot, node, cwd, openFile, inspectCall, loadImage, useDisclosure, useHostInfo, t }: ToolTreeProps) {
   const home = useHostInfo(info => info.home)
   return (
     <ToolCallBranch

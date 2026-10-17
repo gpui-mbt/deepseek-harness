@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ScheduleCatalogEntry, ScheduleDeleteResult } from '@deepseek-ai/dsh-schedule/client'
@@ -8,9 +8,7 @@ import { ScheduleId } from '@deepseek-ai/dsh-schedule'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-ui-renderer/src/client/bind.ts'
 import { createCatalogSource, type CatalogInjected } from '../src/client/catalog-source.ts'
-import {
-  formatScheduleAbsolute, formatScheduleFrequency, formatScheduleRelative,
-} from '../src/client/schedule-format.ts'
+import { formatScheduleAbsolute, formatScheduleFrequency, formatScheduleRelative } from '../src/client/schedule-format.ts'
 import { SessionScheduleHover, type SessionScheduleHoverProps } from '../src/client/SessionScheduleHover.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import css from '../src/client/SessionScheduleMark.module.css'
@@ -28,7 +26,8 @@ const DEVICE_ZONE = 'Asia/Shanghai'
  */
 function pinSystemZone(timeZone: string): void {
   vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
-    ...new Intl.DateTimeFormat().resolvedOptions(), timeZone,
+    ...new Intl.DateTimeFormat().resolvedOptions(),
+    timeZone,
   })
 }
 
@@ -64,13 +63,10 @@ function record(
   }
 }
 
-function sourceFor(
-  list: () => Promise<RemoteResult<ScheduleCatalogEntry[]>>,
-): CatalogInjected<ScheduleCatalogEntry> {
+function sourceFor(list: () => Promise<RemoteResult<ScheduleCatalogEntry[]>>): CatalogInjected<ScheduleCatalogEntry> {
   return createCatalogSource<ScheduleCatalogEntry>({
     list,
-    remove: async (): Promise<RemoteResult<ScheduleDeleteResult>> =>
-      ({ ok: true, value: { id: ScheduleId('unused'), deleted: true } }),
+    remove: async (): Promise<RemoteResult<ScheduleDeleteResult>> => ({ ok: true, value: { id: ScheduleId('unused'), deleted: true } }),
     subscribeChanged: () => () => {},
     subscribeReset: () => () => {},
   })
@@ -91,7 +87,9 @@ function renderHover(
 
 /** Flush the source's initial read and its publication. */
 async function settle(): Promise<void> {
-  await act(async () => { await Promise.resolve() })
+  await act(async () => {
+    await Promise.resolve()
+  })
 }
 
 function section(container: HTMLElement): HTMLElement {
@@ -119,15 +117,17 @@ describe('Session hover-card task section', () => {
   })
 
   it('keeps the two-row cap and elides every further task into the remainder count', async () => {
-    const view = renderHover(sourceFor(async () => ({
-      ok: true,
-      value: [
-        record('a', 'Task A', START + 300_000),
-        record('b', 'Task B', START + 600_000),
-        record('c', 'Task C', START + 900_000),
-        record('d', 'Task D', START + 1_200_000),
-      ],
-    })))
+    const view = renderHover(
+      sourceFor(async () => ({
+        ok: true,
+        value: [
+          record('a', 'Task A', START + 300_000),
+          record('b', 'Task B', START + 600_000),
+          record('c', 'Task C', START + 900_000),
+          record('d', 'Task D', START + 1_200_000),
+        ],
+      })),
+    )
     await settle()
 
     const tasks = section(view.container)
@@ -138,10 +138,12 @@ describe('Session hover-card task section', () => {
   })
 
   it('shows every task with its frequency and next run when none are omitted', async () => {
-    const view = renderHover(sourceFor(async () => ({
-      ok: true,
-      value: [record('only', 'Check metrics', START + 120_000)],
-    })))
+    const view = renderHover(
+      sourceFor(async () => ({
+        ok: true,
+        value: [record('only', 'Check metrics', START + 120_000)],
+      })),
+    )
     await settle()
 
     const tasks = section(view.container)
@@ -152,35 +154,38 @@ describe('Session hover-card task section', () => {
     expect(view.container.textContent).not.toContain('{count}')
   })
 
-  it.each([['English', en], ['Chinese', zh]] as const)(
-    'states the next run in the same shape as the other three surfaces in %s',
-    async (_name, dictionary) => {
-      const only = record('only', 'Check metrics', START + 300_000)
-      const view = renderHover(sourceFor(async () => ({ ok: true, value: [only] })), SESSION, dictionary)
-      await settle()
+  it.each([
+    ['English', en],
+    ['Chinese', zh],
+  ] as const)('states the next run in the same shape as the other three surfaces in %s', async (_name, dictionary) => {
+    const only = record('only', 'Check metrics', START + 300_000)
+    const view = renderHover(
+      sourceFor(async () => ({ ok: true, value: [only] })),
+      SESSION,
+      dictionary,
+    )
+    await settle()
 
-      const timing = section(view.container).querySelector<HTMLElement>(`.${css.taskTiming!}`)!
-      const translate = makeTranslate(dictionary)
-      // Frequency, then the device-zone stamp, then the distance in parentheses.
-      const absolute = formatScheduleAbsolute(only.scheduledAt, dictionary['time.locale'])
-      const relative = formatScheduleRelative(only.scheduledAt, START, translate)
-      expect(timing.textContent)
-        .toBe(`${formatScheduleFrequency(only, translate)} · ${absolute} (${relative})`)
-      const stamp = timing.querySelector('time')!
-      expect(stamp.dateTime).toBe(only.scheduledAt)
-      expect(stamp.textContent).toBe(absolute)
-      // The distance carries the card's own weakened step, one below the stamp.
-      expect(timing.querySelector<HTMLElement>(`.${css.taskRelative!}`)?.textContent).toBe(`(${relative})`)
-    },
-  )
+    const timing = section(view.container).querySelector<HTMLElement>(`.${css.taskTiming!}`)!
+    const translate = makeTranslate(dictionary)
+    // Frequency, then the device-zone stamp, then the distance in parentheses.
+    const absolute = formatScheduleAbsolute(only.scheduledAt, dictionary['time.locale'])
+    const relative = formatScheduleRelative(only.scheduledAt, START, translate)
+    expect(timing.textContent).toBe(`${formatScheduleFrequency(only, translate)} · ${absolute} (${relative})`)
+    const stamp = timing.querySelector('time')!
+    expect(stamp.dateTime).toBe(only.scheduledAt)
+    expect(stamp.textContent).toBe(absolute)
+    // The distance carries the card's own weakened step, one below the stamp.
+    expect(timing.querySelector<HTMLElement>(`.${css.taskRelative!}`)?.textContent).toBe(`(${relative})`)
+  })
 
   it('names each row with the stored title rather than the instruction', async () => {
-    const view = renderHover(sourceFor(async () => ({
-      ok: true,
-      value: [
-        record('named', 'Summarize the incident\nand every follow-up', START + 120_000, SESSION, 'active', 'Weekly review'),
-      ],
-    })))
+    const view = renderHover(
+      sourceFor(async () => ({
+        ok: true,
+        value: [record('named', 'Summarize the incident\nand every follow-up', START + 120_000, SESSION, 'active', 'Weekly review')],
+      })),
+    )
     await settle()
 
     const tasks = section(view.container)
@@ -189,13 +194,12 @@ describe('Session hover-card task section', () => {
   })
 
   it('lists only the hovered Session tasks from the shared catalog', async () => {
-    const view = renderHover(sourceFor(async () => ({
-      ok: true,
-      value: [
-        record('mine', 'My task', START + 120_000),
-        record('other', 'Other session task', START + 120_000, OTHER_SESSION),
-      ],
-    })))
+    const view = renderHover(
+      sourceFor(async () => ({
+        ok: true,
+        value: [record('mine', 'My task', START + 120_000), record('other', 'Other session task', START + 120_000, OTHER_SESSION)],
+      })),
+    )
     await settle()
 
     const tasks = section(view.container)
@@ -208,9 +212,12 @@ describe('Session hover-card task section', () => {
     expect(pending.container.querySelector('[data-session-schedule-tasks]')).toBeNull()
     pending.unmount()
 
-    const failed = renderHover(sourceFor(async () => ({
-      ok: false, error: new RemoteError('gateway/internal', 'Unavailable', {}),
-    })))
+    const failed = renderHover(
+      sourceFor(async () => ({
+        ok: false,
+        error: new RemoteError('gateway/internal', 'Unavailable', {}),
+      })),
+    )
     await settle()
     expect(failed.container.querySelector('[data-session-schedule-tasks]')).toBeNull()
 
@@ -218,10 +225,12 @@ describe('Session hover-card task section', () => {
     await settle()
     expect(empty.container.querySelector('[data-session-schedule-tasks]')).toBeNull()
 
-    const ended = renderHover(sourceFor(async () => ({
-      ok: true,
-      value: [record('ended', 'Finished task', START + 120_000, SESSION, 'inactive')],
-    })))
+    const ended = renderHover(
+      sourceFor(async () => ({
+        ok: true,
+        value: [record('ended', 'Finished task', START + 120_000, SESSION, 'inactive')],
+      })),
+    )
     await settle()
     expect(ended.container.querySelector('[data-session-schedule-tasks]')).toBeNull()
   })

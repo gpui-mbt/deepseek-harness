@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 
 let bubbleSize: ResizeObserverSize
@@ -9,20 +9,33 @@ const observers: TooltipResizeObserver[] = []
 
 class TooltipResizeObserver implements ResizeObserver {
   private target: Element | undefined
-  constructor(private readonly callback: ResizeObserverCallback) { observers.push(this) }
+  constructor(private readonly callback: ResizeObserverCallback) {
+    observers.push(this)
+  }
   observe(target: Element): void {
     this.target = target
     if (automaticResize) this.deliver()
   }
-  unobserve(): void { this.target = undefined }
-  disconnect(): void { this.target = undefined }
+  unobserve(): void {
+    this.target = undefined
+  }
+  disconnect(): void {
+    this.target = undefined
+  }
   deliver(): void {
     if (this.target === undefined) return
-    this.callback([{
-      target: this.target, borderBoxSize: [bubbleSize], contentBoxSize: [bubbleSize],
-      devicePixelContentBoxSize: [bubbleSize],
-      contentRect: new DOMRect(0, 0, bubbleSize.inlineSize, bubbleSize.blockSize),
-    }], this)
+    this.callback(
+      [
+        {
+          target: this.target,
+          borderBoxSize: [bubbleSize],
+          contentBoxSize: [bubbleSize],
+          devicePixelContentBoxSize: [bubbleSize],
+          contentRect: new DOMRect(0, 0, bubbleSize.inlineSize, bubbleSize.blockSize),
+        },
+      ],
+      this,
+    )
   }
 }
 
@@ -40,12 +53,31 @@ afterEach(() => {
 
 describe('Tooltip', () => {
   it('updates independent keycaps and the accessible combination while visible', () => {
-    const view = render(<Tooltip label="Reload" shortcutKeys={['⌘', 'R']}><button>anchor</button></Tooltip>)
+    const view = render(
+      <Tooltip label="Reload" shortcutKeys={['⌘', 'R']}>
+        <button>anchor</button>
+      </Tooltip>,
+    )
     fireEvent.focus(screen.getByText('anchor'))
-    expect(Array.from(screen.getByRole('tooltip', { name: 'Reload ⌘ R' }).querySelectorAll('kbd'), key => key.textContent)).toEqual(['⌘', 'R'])
-    view.rerender(<Tooltip label="Reload" shortcutKeys={['Ctrl', '+', 'R']}><button>anchor</button></Tooltip>)
-    expect(Array.from(screen.getByRole('tooltip', { name: 'Reload Ctrl + R' }).querySelectorAll('kbd'), key => key.textContent)).toEqual(['Ctrl', '+', 'R'])
-    view.rerender(<Tooltip label="Reload" shortcutKeys={[]}><button>anchor</button></Tooltip>)
+    expect(Array.from(screen.getByRole('tooltip', { name: 'Reload ⌘ R' }).querySelectorAll('kbd'), key => key.textContent)).toEqual([
+      '⌘',
+      'R',
+    ])
+    view.rerender(
+      <Tooltip label="Reload" shortcutKeys={['Ctrl', '+', 'R']}>
+        <button>anchor</button>
+      </Tooltip>,
+    )
+    expect(Array.from(screen.getByRole('tooltip', { name: 'Reload Ctrl + R' }).querySelectorAll('kbd'), key => key.textContent)).toEqual([
+      'Ctrl',
+      '+',
+      'R',
+    ])
+    view.rerender(
+      <Tooltip label="Reload" shortcutKeys={[]}>
+        <button>anchor</button>
+      </Tooltip>,
+    )
     expect(screen.getByRole('tooltip').querySelector('kbd')).toBeNull()
     fireEvent.click(screen.getByText('anchor'))
     expect(screen.queryByRole('tooltip')).toBeNull()
@@ -54,7 +86,11 @@ describe('Tooltip', () => {
   it('fits from observed sizes without synchronously measuring the bubble', () => {
     automaticResize = false
     const measured = vi.spyOn(Element.prototype, 'getBoundingClientRect')
-    const view = render(<Tooltip label="Observed" side="bottom"><button>anchor</button></Tooltip>)
+    const view = render(
+      <Tooltip label="Observed" side="bottom">
+        <button>anchor</button>
+      </Tooltip>,
+    )
     const anchor = screen.getByText('anchor')
     fireEvent.mouseEnter(anchor)
     const bubble = view.container.querySelector<HTMLElement>('[role="tooltip"]')!
@@ -64,7 +100,9 @@ describe('Tooltip', () => {
     expect(bubble.style.visibility).toBe('hidden')
     expect(measured.mock.contexts).toEqual([anchor])
     bubbleSize = { inlineSize: 100, blockSize: 20 }
-    act(() => { observers[0]!.deliver() })
+    act(() => {
+      observers[0]!.deliver()
+    })
     expect(screen.getByRole('tooltip').style.left).toBe('62px')
     fireEvent(window, new Event('resize'))
     expect(measured.mock.contexts).toEqual([anchor])
@@ -84,9 +122,13 @@ describe('Tooltip', () => {
       )
       expect(label).not.toHaveBeenCalled()
       fireEvent.mouseEnter(screen.getByText('anchor'))
-      act(() => { vi.advanceTimersByTime(499) })
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
       expect(label).not.toHaveBeenCalled()
-      act(() => { vi.advanceTimersByTime(1) })
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
       expect(screen.getByRole('tooltip').textContent).toBe('Timing details')
       expect(label).toHaveBeenCalledOnce()
     } finally {
@@ -104,13 +146,19 @@ describe('Tooltip', () => {
       )
       const anchor = screen.getByText('anchor')
       fireEvent.mouseEnter(anchor)
-      act(() => { vi.advanceTimersByTime(499) })
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
       expect(screen.queryByRole('tooltip')).toBeNull()
       fireEvent.mouseLeave(anchor)
-      act(() => { vi.advanceTimersByTime(1) })
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
       expect(screen.queryByRole('tooltip')).toBeNull()
       fireEvent.mouseEnter(anchor)
-      act(() => { vi.advanceTimersByTime(500) })
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
       expect(screen.getByRole('tooltip').textContent).toBe('Timing details')
       fireEvent.mouseLeave(anchor)
       fireEvent.focus(anchor)
@@ -133,47 +181,75 @@ describe('Tooltip', () => {
 
     it('shows at 500ms, but not at 499ms', () => {
       const label = vi.fn(() => 'Refresh')
-      render(<Tooltip label={label} delayMs={500} focusDelayMs={500}><button>anchor</button></Tooltip>)
+      render(
+        <Tooltip label={label} delayMs={500} focusDelayMs={500}>
+          <button>anchor</button>
+        </Tooltip>,
+      )
       fireEvent.focus(screen.getByText('anchor'))
       expect(screen.queryByRole('tooltip')).toBeNull()
-      act(() => { vi.advanceTimersByTime(499) })
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
       expect(screen.queryByRole('tooltip')).toBeNull()
       expect(label).not.toHaveBeenCalled()
-      act(() => { vi.advanceTimersByTime(1) })
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
       expect(screen.getByRole('tooltip').textContent).toBe('Refresh')
     })
 
-    it.each(['blur', 'click', 'mouseLeave', 'disabled', 'unmount'] as const)(
-      'cancels a pending focus bubble on %s', (cancel) => {
-        const view = render(<Tooltip label="Refresh" focusDelayMs={500}><button>anchor</button></Tooltip>)
-        const anchor = screen.getByText('anchor')
-        const initialTimers = vi.getTimerCount()
-        fireEvent.focus(anchor)
-        expect(vi.getTimerCount()).toBe(initialTimers + 1)
-        act(() => { vi.advanceTimersByTime(499) })
-        if (cancel === 'disabled') {
-          view.rerender(<Tooltip label="Refresh" focusDelayMs={500} disabled><button>anchor</button></Tooltip>)
-        } else if (cancel === 'unmount') {
-          view.unmount()
-        } else {
-          fireEvent[cancel](anchor)
-        }
-        expect(vi.getTimerCount()).toBe(initialTimers)
-        act(() => { vi.advanceTimersByTime(500) })
+    it.each(['blur', 'click', 'mouseLeave', 'disabled', 'unmount'] as const)('cancels a pending focus bubble on %s', cancel => {
+      const view = render(
+        <Tooltip label="Refresh" focusDelayMs={500}>
+          <button>anchor</button>
+        </Tooltip>,
+      )
+      const anchor = screen.getByText('anchor')
+      const initialTimers = vi.getTimerCount()
+      fireEvent.focus(anchor)
+      expect(vi.getTimerCount()).toBe(initialTimers + 1)
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
+      if (cancel === 'disabled') {
+        view.rerender(
+          <Tooltip label="Refresh" focusDelayMs={500} disabled>
+            <button>anchor</button>
+          </Tooltip>,
+        )
+      } else if (cancel === 'unmount') {
+        view.unmount()
+      } else {
+        fireEvent[cancel](anchor)
+      }
+      expect(vi.getTimerCount()).toBe(initialTimers)
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(screen.queryByRole('tooltip')).toBeNull()
+      if (cancel === 'disabled') {
+        view.rerender(
+          <Tooltip label="Refresh" focusDelayMs={500}>
+            <button>anchor</button>
+          </Tooltip>,
+        )
         expect(screen.queryByRole('tooltip')).toBeNull()
-        if (cancel === 'disabled') {
-          view.rerender(<Tooltip label="Refresh" focusDelayMs={500}><button>anchor</button></Tooltip>)
-          expect(screen.queryByRole('tooltip')).toBeNull()
-        }
-      },
-    )
+      }
+    })
 
     it('keeps default focus immediate and cancels a pending hover delay', () => {
-      render(<Tooltip label="Refresh" delayMs={500}><button>anchor</button></Tooltip>)
+      render(
+        <Tooltip label="Refresh" delayMs={500}>
+          <button>anchor</button>
+        </Tooltip>,
+      )
       const anchor = screen.getByText('anchor')
       const initialTimers = vi.getTimerCount()
       fireEvent.mouseEnter(anchor)
-      act(() => { vi.advanceTimersByTime(499) })
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
       expect(screen.queryByRole('tooltip')).toBeNull()
       fireEvent.focus(anchor)
       expect(screen.getByRole('tooltip').textContent).toBe('Refresh')
@@ -181,20 +257,30 @@ describe('Tooltip', () => {
     })
 
     it('does not schedule pointer-driven focus and resumes delay after a key press', () => {
-      render(<Tooltip label="Refresh" focusDelayMs={500}><button>anchor</button></Tooltip>)
+      render(
+        <Tooltip label="Refresh" focusDelayMs={500}>
+          <button>anchor</button>
+        </Tooltip>,
+      )
       const anchor = screen.getByText('anchor')
       const initialTimers = vi.getTimerCount()
       fireEvent.pointerDown(document.body)
       fireEvent.focus(anchor)
       expect(vi.getTimerCount()).toBe(initialTimers)
-      act(() => { vi.advanceTimersByTime(500) })
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
       expect(screen.queryByRole('tooltip')).toBeNull()
       fireEvent.blur(anchor)
       fireEvent.keyDown(document.body, { key: 'Tab' })
       fireEvent.focus(anchor)
-      act(() => { vi.advanceTimersByTime(499) })
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
       expect(screen.queryByRole('tooltip')).toBeNull()
-      act(() => { vi.advanceTimersByTime(1) })
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
       expect(screen.getByRole('tooltip').textContent).toBe('Refresh')
     })
   })
@@ -234,8 +320,17 @@ describe('Tooltip', () => {
   })
 
   // Anchor geometry and observed bubble sizes are independent browser inputs.
-  const rect = (left: number, right: number): DOMRect =>
-    ({ left, right, top: 0, bottom: 20, width: right - left, height: 20, x: left, y: 0, toJSON: () => ({}) })
+  const rect = (left: number, right: number): DOMRect => ({
+    left,
+    right,
+    top: 0,
+    bottom: 20,
+    width: right - left,
+    height: 20,
+    x: left,
+    y: 0,
+    toJSON: () => ({}),
+  })
 
   it('aligns the end of a bottom tooltip with the anchor right edge', () => {
     bubbleSize = { inlineSize: 100, blockSize: 20 }
@@ -305,7 +400,9 @@ describe('Tooltip', () => {
         </Tooltip>,
       )
       bubbleSize = { inlineSize: 100, blockSize: 20 }
-      act(() => { observers[0]!.deliver() })
+      act(() => {
+        observers[0]!.deliver()
+      })
       expect(screen.getByRole('tooltip').style.left).toBe('950px')
 
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: 900 })
@@ -340,7 +437,15 @@ describe('Tooltip', () => {
   const placed = (top: number, bottom: number, bubbleHeight: number) => {
     bubbleSize = { inlineSize: 100, blockSize: bubbleHeight }
     return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
-      left: 100, right: 200, top, bottom, width: 100, height: bottom - top, x: 100, y: top, toJSON: () => ({}),
+      left: 100,
+      right: 200,
+      top,
+      bottom,
+      width: 100,
+      height: bottom - top,
+      x: 100,
+      y: top,
+      toJSON: () => ({}),
     })
   }
 
@@ -400,16 +505,24 @@ describe('Tooltip', () => {
     }
   })
 
-  it.each(['bottom', 'top'] as const)('uses a custom gap to position and flip a %s tooltip', (side) => {
+  it.each(['bottom', 'top'] as const)('uses a custom gap to position and flip a %s tooltip', side => {
     const anchorBottom = side === 'bottom' ? window.innerHeight - 36 : 56
     const spy = placed(anchorBottom - 20, anchorBottom, 20)
     try {
-      const view = render(<Tooltip label="Gap" side={side} gap={4}><button type="button">anchor</button></Tooltip>)
+      const view = render(
+        <Tooltip label="Gap" side={side} gap={4}>
+          <button type="button">anchor</button>
+        </Tooltip>,
+      )
       fireEvent.mouseEnter(screen.getByText('anchor'))
       const bubble = screen.getByRole('tooltip')
       expect(bubble.getAttribute('data-side')).toBe(side)
       expect(bubble.style.top).toBe(`${side === 'bottom' ? anchorBottom + 4 : anchorBottom - 24}px`)
-      view.rerender(<Tooltip label="Gap" side={side} gap={12}><button type="button">anchor</button></Tooltip>)
+      view.rerender(
+        <Tooltip label="Gap" side={side} gap={12}>
+          <button type="button">anchor</button>
+        </Tooltip>,
+      )
       expect(bubble.getAttribute('data-side')).toBe(side === 'bottom' ? 'top' : 'bottom')
       expect(bubble.style.top).toBe(`${side === 'bottom' ? anchorBottom - 32 : anchorBottom + 12}px`)
     } finally {
@@ -436,12 +549,16 @@ describe('Tooltip', () => {
 
   it('pins an informational tooltip on click and preserves the anchor description', () => {
     const clicked = vi.fn()
-    render(<>
-      <p id="existing-description">Existing description</p>
-      <Tooltip label="Plugin information" openOnClick portal>
-        <button aria-describedby="existing-description" onClick={clicked}>anchor</button>
-      </Tooltip>
-    </>)
+    render(
+      <>
+        <p id="existing-description">Existing description</p>
+        <Tooltip label="Plugin information" openOnClick portal>
+          <button aria-describedby="existing-description" onClick={clicked}>
+            anchor
+          </button>
+        </Tooltip>
+      </>,
+    )
     const anchor = screen.getByText('anchor')
     fireEvent.pointerDown(anchor)
     fireEvent.focus(anchor)
@@ -467,9 +584,13 @@ describe('Tooltip', () => {
 
   it('shows informational tooltips on hover and focus, and consumes Escape only while open', () => {
     const onKeyDown = vi.fn()
-    render(<div onKeyDown={onKeyDown}>
-      <Tooltip label="Plugin information" openOnClick><button>anchor</button></Tooltip>
-    </div>)
+    render(
+      <div onKeyDown={onKeyDown}>
+        <Tooltip label="Plugin information" openOnClick>
+          <button>anchor</button>
+        </Tooltip>
+      </div>,
+    )
     const anchor = screen.getByText('anchor')
     fireEvent.mouseEnter(anchor)
     expect(screen.getByRole('tooltip').textContent).toBe('Plugin information')
@@ -494,7 +615,11 @@ describe('Tooltip', () => {
   it('cancels a delayed hover when clicking to pin the information', () => {
     vi.useFakeTimers()
     try {
-      render(<Tooltip label="Plugin information" openOnClick delayMs={300}><button>anchor</button></Tooltip>)
+      render(
+        <Tooltip label="Plugin information" openOnClick delayMs={300}>
+          <button>anchor</button>
+        </Tooltip>,
+      )
       const anchor = screen.getByText('anchor')
       fireEvent.mouseEnter(anchor)
       expect(screen.queryByRole('tooltip')).toBeNull()
@@ -503,7 +628,9 @@ describe('Tooltip', () => {
       fireEvent.mouseLeave(anchor)
       expect(screen.getByRole('tooltip')).toBeTruthy()
       fireEvent.keyDown(anchor, { key: 'Escape' })
-      act(() => { vi.advanceTimersByTime(300) })
+      act(() => {
+        vi.advanceTimersByTime(300)
+      })
       expect(screen.queryByRole('tooltip')).toBeNull()
     } finally {
       cleanup()
@@ -512,20 +639,40 @@ describe('Tooltip', () => {
   })
 
   it('drops a click pin when disabled or when click opening is removed', () => {
-    const view = render(<Tooltip label="Plugin information" openOnClick><button>anchor</button></Tooltip>)
+    const view = render(
+      <Tooltip label="Plugin information" openOnClick>
+        <button>anchor</button>
+      </Tooltip>,
+    )
     const anchor = screen.getByText('anchor')
     fireEvent.click(anchor)
-    view.rerender(<Tooltip label="Plugin information" openOnClick disabled><button>anchor</button></Tooltip>)
+    view.rerender(
+      <Tooltip label="Plugin information" openOnClick disabled>
+        <button>anchor</button>
+      </Tooltip>,
+    )
     expect(screen.queryByRole('tooltip')).toBeNull()
     fireEvent.click(anchor)
     expect(screen.queryByRole('tooltip')).toBeNull()
-    view.rerender(<Tooltip label="Plugin information" openOnClick><button>anchor</button></Tooltip>)
+    view.rerender(
+      <Tooltip label="Plugin information" openOnClick>
+        <button>anchor</button>
+      </Tooltip>,
+    )
     fireEvent.click(anchor)
     expect(screen.getByRole('tooltip')).toBeTruthy()
-    view.rerender(<Tooltip label="Plugin information"><button>anchor</button></Tooltip>)
+    view.rerender(
+      <Tooltip label="Plugin information">
+        <button>anchor</button>
+      </Tooltip>,
+    )
     fireEvent.mouseLeave(anchor)
     expect(screen.queryByRole('tooltip')).toBeNull()
-    view.rerender(<Tooltip label="Plugin information" openOnClick><button>anchor</button></Tooltip>)
+    view.rerender(
+      <Tooltip label="Plugin information" openOnClick>
+        <button>anchor</button>
+      </Tooltip>,
+    )
     fireEvent.click(anchor)
     view.unmount()
     expect(fireEvent.keyDown(document.body, { key: 'Escape' })).toBe(true)
@@ -571,7 +718,7 @@ describe('Tooltip', () => {
     expect(screen.getByRole('tooltip')).toBeTruthy()
   })
 
-  it('chains the anchor\'s own handlers ahead of the tooltip\'s', () => {
+  it("chains the anchor's own handlers ahead of the tooltip's", () => {
     const onMouseEnter = vi.fn()
     const onMouseLeave = vi.fn()
     const onClick = vi.fn()
@@ -579,7 +726,9 @@ describe('Tooltip', () => {
     const onBlur = vi.fn()
     render(
       <Tooltip label="Chained">
-        <button type="button" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={onClick} onFocus={onFocus} onBlur={onBlur}>anchor</button>
+        <button type="button" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={onClick} onFocus={onFocus} onBlur={onBlur}>
+          anchor
+        </button>
       </Tooltip>,
     )
     const anchor = screen.getByText('anchor')
@@ -640,7 +789,9 @@ describe('Tooltip', () => {
     const callbackRef = vi.fn()
     const { rerender } = render(
       <Tooltip label="Add">
-        <button type="button" ref={objectRef}>anchor</button>
+        <button type="button" ref={objectRef}>
+          anchor
+        </button>
       </Tooltip>,
     )
     expect(objectRef.current).toBe(screen.getByText('anchor'))
@@ -649,7 +800,9 @@ describe('Tooltip', () => {
     expect(screen.getByRole('tooltip')).toBeTruthy()
     rerender(
       <Tooltip label="Add">
-        <button type="button" ref={callbackRef}>anchor</button>
+        <button type="button" ref={callbackRef}>
+          anchor
+        </button>
       </Tooltip>,
     )
     expect(callbackRef).toHaveBeenCalledWith(screen.getByText('anchor'))
@@ -707,7 +860,9 @@ describe('Tooltip', () => {
       <Tooltip label="Open sidebar">
         <button type="button">
           anchor
-          <Tooltip label="Update"><span data-testid="badge" /></Tooltip>
+          <Tooltip label="Update">
+            <span data-testid="badge" />
+          </Tooltip>
         </button>
       </Tooltip>,
     )
@@ -724,11 +879,14 @@ describe('Tooltip', () => {
   })
 })
 
-
 it('keeps the anchor in its clipping container and portals only the tooltip', () => {
-  const view = render(<div style={{ overflow: 'hidden', contain: 'layout' }}>
-    <Tooltip portal label="Open in Music" side="bottom"><button type="button">File action</button></Tooltip>
-  </div>)
+  const view = render(
+    <div style={{ overflow: 'hidden', contain: 'layout' }}>
+      <Tooltip portal label="Open in Music" side="bottom">
+        <button type="button">File action</button>
+      </Tooltip>
+    </div>,
+  )
   const anchor = screen.getByRole('button', { name: 'File action' })
   fireEvent.mouseEnter(anchor)
   const tooltip = screen.getByRole('tooltip')

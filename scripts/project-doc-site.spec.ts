@@ -1,19 +1,38 @@
 /** Tests for the documentation website projection adapter. */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  globSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
 import type { Nodes } from 'mdast'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { cleanDocSiteOutput, docSiteBuildOptions } from '../website/build.ts'
 import { docsPages, landingLink, routeLink, sectionSpec, type DocsPage } from '../website/docs.ts'
 import {
-  addProjectionFrontmatter, emitRawMarkdownPages, llmsTxt, projectedPageContent, publishableImage,
-  rawMarkdownFiles, rawMarkdownPageContent, rawMarkdownRoute, resolveRepositoryRef, rewriteMarkdown,
+  addProjectionFrontmatter,
+  emitRawMarkdownPages,
+  llmsTxt,
+  projectedPageContent,
+  publishableImage,
+  rawMarkdownFiles,
+  rawMarkdownPageContent,
+  rawMarkdownRoute,
+  resolveRepositoryRef,
+  rewriteMarkdown,
 } from './project-doc-site.ts'
 
 const roots: string[] = []
@@ -40,34 +59,66 @@ function fixture(): { root: string; pages: DocsPage[] } {
   return {
     root,
     pages: [
-      { locale: 'root', contentLocale: 'en-US', source: 'docs/a.md', route: 'a.md', label: 'A', sidebar: 'zh-reference', section: 'Test', order: 1 },
-      { locale: 'root', contentLocale: 'en-US', source: 'docs/b.md', route: 'reference-root/b.md', label: 'B', sidebar: 'zh-reference', section: 'Test', order: 2 },
-      { locale: 'en', contentLocale: 'en-US', source: 'docs/a.md', route: 'en/a.md', label: 'A', sidebar: 'en-reference', section: 'Test', order: 1 },
-      { locale: 'en', contentLocale: 'en-US', source: 'docs/b.md', route: 'en/reference/b.md', label: 'B', sidebar: 'en-reference', section: 'Test', order: 2 },
+      {
+        locale: 'root',
+        contentLocale: 'en-US',
+        source: 'docs/a.md',
+        route: 'a.md',
+        label: 'A',
+        sidebar: 'zh-reference',
+        section: 'Test',
+        order: 1,
+      },
+      {
+        locale: 'root',
+        contentLocale: 'en-US',
+        source: 'docs/b.md',
+        route: 'reference-root/b.md',
+        label: 'B',
+        sidebar: 'zh-reference',
+        section: 'Test',
+        order: 2,
+      },
+      {
+        locale: 'en',
+        contentLocale: 'en-US',
+        source: 'docs/a.md',
+        route: 'en/a.md',
+        label: 'A',
+        sidebar: 'en-reference',
+        section: 'Test',
+        order: 1,
+      },
+      {
+        locale: 'en',
+        contentLocale: 'en-US',
+        source: 'docs/b.md',
+        route: 'en/reference/b.md',
+        label: 'B',
+        sidebar: 'en-reference',
+        section: 'Test',
+        order: 2,
+      },
     ],
   }
 }
 
 describe('website source layout', () => {
   it('rejects Markdown outside the subtree instructions', () => {
-    expect(unexpectedWebsiteMarkdown([
-      'website/AGENTS.md',
-      'website/docs.ts',
+    expect(unexpectedWebsiteMarkdown(['website/AGENTS.md', 'website/docs.ts', 'website/zh-CN/api/harness/service.md'])).toEqual([
       'website/zh-CN/api/harness/service.md',
-    ])).toEqual(['website/zh-CN/api/harness/service.md'])
+    ])
   })
 
   it('contains no tracked or unignored documentation copies', () => {
-    const files = execFileSync(
-      'git',
-      ['ls-files', '--cached', '--others', '--exclude-standard', '--', 'website'],
-      { cwd: repositoryRoot, encoding: 'utf8' },
-    ).split('\n').filter(file => file !== '' && existsSync(resolve(repositoryRoot, file)))
+    const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '--', 'website'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter(file => file !== '' && existsSync(resolve(repositoryRoot, file)))
 
-    expect(
-      unexpectedWebsiteMarkdown(files),
-      'Keep canonical Markdown under docs/ and publish it through website/docs.ts.',
-    ).toEqual([])
+    expect(unexpectedWebsiteMarkdown(files), 'Keep canonical Markdown under docs/ and publish it through website/docs.ts.').toEqual([])
   })
 })
 
@@ -183,42 +234,48 @@ describe('rewriteMarkdown', () => {
   it('maps published pages and pins unpublished source links', () => {
     const { root, pages } = fixture()
     const source = '[B](b.md#part) [source](../packages/tool.ts:2) [web](https://example.com)\n'
-    expect(rewriteMarkdown(source, {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toBe(
-      '[B](./reference/b.md#part) '
-      + '[source](https://github.com/deepseek-ai/deepseek-harness/blob/abc123/packages/tool.ts#L2) '
-      + '[web](https://example.com)\n',
+    expect(
+      rewriteMarkdown(source, {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toBe(
+      '[B](./reference/b.md#part) ' +
+        '[source](https://github.com/deepseek-ai/deepseek-harness/blob/abc123/packages/tool.ts#L2) ' +
+        '[web](https://example.com)\n',
     )
   })
 
   it('selects the published target in the current site locale', () => {
     const { root, pages } = fixture()
-    expect(rewriteMarkdown('[B](b.md)\n', {
-      locale: 'root',
-      sourcePath: 'docs/a.md',
-      route: 'a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toBe('[B](./reference-root/b.md)\n')
+    expect(
+      rewriteMarkdown('[B](b.md)\n', {
+        locale: 'root',
+        sourcePath: 'docs/a.md',
+        route: 'a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toBe('[B](./reference-root/b.md)\n')
   })
 
   it('uses raw GitHub content for unpublished images when nothing places them', () => {
     const { root, pages } = fixture()
-    expect(rewriteMarkdown('![logo](../packages/logo.svg)\n', {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toBe('![logo](https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/abc123/packages/logo.svg)\n')
+    expect(
+      rewriteMarkdown('![logo](../packages/logo.svg)\n', {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toBe('![logo](https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/abc123/packages/logo.svg)\n')
   })
 
   it('hands an image to the placer and uses the URL it returns', () => {
@@ -228,19 +285,21 @@ describe('rewriteMarkdown', () => {
     // returning the basename would fail here rather than pass on a constant.
     const { root, pages } = fixture()
     const placed: string[] = []
-    expect(rewriteMarkdown('![logo](../packages/logo.svg)\n', {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-      placeImage: (absPath) => {
-        const name = basename(absPath)
-        placed.push(name)
-        return `./${name}`
-      },
-    })).toBe('![logo](./logo.svg)\n')
+    expect(
+      rewriteMarkdown('![logo](../packages/logo.svg)\n', {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+        placeImage: absPath => {
+          const name = basename(absPath)
+          placed.push(name)
+          return `./${name}`
+        },
+      }),
+    ).toBe('![logo](./logo.svg)\n')
     expect(placed).toEqual(['logo.svg'])
   })
 
@@ -248,106 +307,133 @@ describe('rewriteMarkdown', () => {
     // An SVG view fragment and a Vite query both change what the reference
     // means, and the GitHub branch has always carried them.
     const { root, pages } = fixture()
-    expect(rewriteMarkdown('![logo](../packages/logo.svg#view)\n', {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-      placeImage: absPath => `./${basename(absPath)}`,
-    })).toBe('![logo](./logo.svg#view)\n')
+    expect(
+      rewriteMarkdown('![logo](../packages/logo.svg#view)\n', {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+        placeImage: absPath => `./${basename(absPath)}`,
+      }),
+    ).toBe('![logo](./logo.svg#view)\n')
   })
 
   it('leaves a published page link to the route even when a placer exists', () => {
     const { root, pages } = fixture()
-    expect(rewriteMarkdown('[B](b.md)\n', {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-      placeImage: () => { throw new Error('a page link must not be placed as an asset') },
-    })).toBe('[B](./reference/b.md)\n')
+    expect(
+      rewriteMarkdown('[B](b.md)\n', {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+        placeImage: () => {
+          throw new Error('a page link must not be placed as an asset')
+        },
+      }),
+    ).toBe('[B](./reference/b.md)\n')
   })
 
   it('does not rewrite Markdown-looking text inside code fences', () => {
     const { root, pages } = fixture()
     const source = '```md\n[B](b.md)\n```\n'
-    expect(rewriteMarkdown(source, {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toBe(source)
+    expect(
+      rewriteMarkdown(source, {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toBe(source)
   })
 
   it('replaces the destination token without changing repeated titles or escapes', () => {
     const { root, pages } = fixture()
     const source = '[title](b.md "b.md") [escaped](x\\(y\\).md)\n'
-    expect(rewriteMarkdown(source, {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toBe(
-      '[title](./reference/b.md "b.md") '
-      + '[escaped](https://github.com/deepseek-ai/deepseek-harness/blob/abc123/docs/x(y).md)\n',
-    )
+    expect(
+      rewriteMarkdown(source, {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toBe('[title](./reference/b.md "b.md") ' + '[escaped](https://github.com/deepseek-ai/deepseek-harness/blob/abc123/docs/x(y).md)\n')
   })
 
   it('routes switchers across locales and explicit locale siblings within their locale', () => {
     const { root, pages } = fixture()
     writeFileSync(join(root, 'docs/a.zh.md'), '# A\n')
     writeFileSync(join(root, 'docs/b.zh.md'), '# B\n')
-    const paired = pages.filter(page => page.source !== 'docs/a.md').map(page => (
-      page.locale === 'root' && page.source === 'docs/b.md'
-        ? { ...page, source: 'docs/b.zh.md', sourceAliases: ['docs/b.md'] }
-        : page
-    ))
+    const paired = pages
+      .filter(page => page.source !== 'docs/a.md')
+      .map(page =>
+        page.locale === 'root' && page.source === 'docs/b.md' ? { ...page, source: 'docs/b.zh.md', sourceAliases: ['docs/b.md'] } : page,
+      )
     paired.push(
       {
-        locale: 'root', contentLocale: 'zh-CN', source: 'docs/a.zh.md', sourceAliases: ['docs/a.md'],
-        route: 'guide/a.md', label: 'A', sidebar: 'zh-guide', section: 'Test', order: 1,
+        locale: 'root',
+        contentLocale: 'zh-CN',
+        source: 'docs/a.zh.md',
+        sourceAliases: ['docs/a.md'],
+        route: 'guide/a.md',
+        label: 'A',
+        sidebar: 'zh-guide',
+        section: 'Test',
+        order: 1,
       },
       {
-        locale: 'en', contentLocale: 'en-US', source: 'docs/a.md', sourceAliases: ['docs/a.zh.md'],
-        route: 'en/guide/a.md', label: 'A', sidebar: 'en-guide', section: 'Test', order: 1,
+        locale: 'en',
+        contentLocale: 'en-US',
+        source: 'docs/a.md',
+        sourceAliases: ['docs/a.zh.md'],
+        route: 'en/guide/a.md',
+        label: 'A',
+        sidebar: 'en-guide',
+        section: 'Test',
+        order: 1,
       },
     )
-    expect(rewriteMarkdown('[English](a.md) [B](b.zh.md)\n', {
-      locale: 'root',
-      sourcePath: 'docs/a.zh.md',
-      route: 'guide/a.md',
-      pages: paired,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toBe('[English](../en/guide/a.md) [B](../reference-root/b.md)\n')
-    expect(rewriteMarkdown('[中文](a.zh.md) [B](b.md)\n', {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/guide/a.md',
-      pages: paired,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toBe('[中文](../../guide/a.md) [B](../reference/b.md)\n')
+    expect(
+      rewriteMarkdown('[English](a.md) [B](b.zh.md)\n', {
+        locale: 'root',
+        sourcePath: 'docs/a.zh.md',
+        route: 'guide/a.md',
+        pages: paired,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toBe('[English](../en/guide/a.md) [B](../reference-root/b.md)\n')
+    expect(
+      rewriteMarkdown('[中文](a.zh.md) [B](b.md)\n', {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/guide/a.md',
+        pages: paired,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toBe('[中文](../../guide/a.md) [B](../reference/b.md)\n')
   })
 
   it('fails loud when a relative target is missing', () => {
     const { root, pages } = fixture()
-    expect(() => rewriteMarkdown('[missing](missing.md)\n', {
-      locale: 'en',
-      sourcePath: 'docs/a.md',
-      route: 'en/a.md',
-      pages,
-      repoRoot: root,
-      repositoryRef: 'abc123',
-    })).toThrow('links to missing path "missing.md"')
+    expect(() =>
+      rewriteMarkdown('[missing](missing.md)\n', {
+        locale: 'en',
+        sourcePath: 'docs/a.md',
+        route: 'en/a.md',
+        pages,
+        repoRoot: root,
+        repositoryRef: 'abc123',
+      }),
+    ).toThrow('links to missing path "missing.md"')
   })
 })
 
@@ -380,10 +466,9 @@ describe('docsPages locale routes', () => {
         expect(counterpart?.source).toBe(page.source)
         expect(counterpart?.contentLocale).toBe(page.contentLocale)
         const chineseSource = page.source.replace(/\.md$/, '.zh.md')
-        expect(
-          existsSync(resolve(repositoryRoot, chineseSource)),
-          `${page.route} has a Chinese counterpart but projects English`,
-        ).toBe(false)
+        expect(existsSync(resolve(repositoryRoot, chineseSource)), `${page.route} has a Chinese counterpart but projects English`).toBe(
+          false,
+        )
       }
     }
   })
@@ -407,14 +492,16 @@ describe('docsPages locale routes', () => {
         const page = docsPages.find(candidate => candidate.locale === locale && candidate.source === source)
         expect(page, `${locale}:${source}`).toBeDefined()
         expect(readFileSync(resolve(repositoryRoot, source), 'utf8')).toContain(`](${target})`)
-        expect(rewriteMarkdown(`[Entry](${target})\n`, {
-          locale,
-          sourcePath: source,
-          route: page!.route,
-          pages: docsPages,
-          repoRoot: repositoryRoot,
-          repositoryRef: 'abc123',
-        })).toBe(`[Entry](${englishTarget})\n`)
+        expect(
+          rewriteMarkdown(`[Entry](${target})\n`, {
+            locale,
+            sourcePath: source,
+            route: page!.route,
+            pages: docsPages,
+            repoRoot: repositoryRoot,
+            repositoryRef: 'abc123',
+          }),
+        ).toBe(`[Entry](${englishTarget})\n`)
       }
     }
   })
@@ -427,7 +514,7 @@ describe('docsPages locale routes', () => {
     expect(pages.length).toBeGreaterThan(0)
     for (const readme of ['README.md', 'README.zh.md']) {
       const rows = readFileSync(join(repositoryRoot, 'docs/subsystems', readme), 'utf8')
-      const missing = pages.filter((page) => {
+      const missing = pages.filter(page => {
         const target = readme.endsWith('.zh.md') ? page.replace(/\.md$/, '.zh.md') : page
         return !rows.includes(`| [${page}](${target}) |`)
       })
@@ -438,15 +525,11 @@ describe('docsPages locale routes', () => {
   it('places the shared todo fragment alias on the translated todo section', () => {
     const catalog = readFileSync(resolve(repositoryRoot, 'docs/tool-catalog.zh.md'), 'utf8')
     expect(catalog.match(/<a id="deepseek-aidsh-tool-todo"><\/a>/g)).toHaveLength(1)
-    expect(catalog).toContain(
-      '<a id="deepseek-aidsh-tool-todo"></a>\n\n## `@deepseek-ai/dsh-tool-todo`',
-    )
+    expect(catalog).toContain('<a id="deepseek-aidsh-tool-todo"></a>\n\n## `@deepseek-ai/dsh-tool-todo`')
   })
 
   it('projects every published subsystem page in Chinese', () => {
-    const rootPages = docsPages.filter(page => (
-      page.locale === 'root' && page.route.startsWith('reference/subsystems/')
-    ))
+    const rootPages = docsPages.filter(page => page.locale === 'root' && page.route.startsWith('reference/subsystems/'))
     const translated = rootPages.filter(page => page.contentLocale === 'zh-CN')
     const fallbacks = rootPages.filter(page => page.contentLocale === 'en-US')
 
@@ -479,10 +562,7 @@ describe('docsPages locale routes', () => {
   it('includes persistence event headings in both locale outlines', () => {
     const pages = docsPages.filter(page => page.route.endsWith('reference/persistence-catalog.md'))
     expect(pages).toHaveLength(2)
-    expect(pages.map(page => page.source).sort()).toEqual([
-      'docs/persistence-catalog.md',
-      'docs/persistence-catalog.zh.md',
-    ])
+    expect(pages.map(page => page.source).sort()).toEqual(['docs/persistence-catalog.md', 'docs/persistence-catalog.zh.md'])
     expect(pages.map(page => page.outline)).toEqual(['deep', 'deep'])
   })
 
@@ -516,8 +596,7 @@ describe('sidebar ordering', () => {
   })
 
   it('refuses a section with no declared placement', () => {
-    expect(() => sectionSpec('root', '数据结构'))
-      .toThrow('Sidebar section "数据结构" has no placement in the root locale.')
+    expect(() => sectionSpec('root', '数据结构')).toThrow('Sidebar section "数据结构" has no placement in the root locale.')
   })
 
   it('declares placements per locale rather than in one shared list', () => {
@@ -533,8 +612,12 @@ describe('sidebar ordering', () => {
     // The navigation bar named `/guide/` while the manifest published the guide's
     // first page at `guide/quickstart.md`, so the item served a 404.
     const collections = [
-      ['root', 'zh-guide'], ['root', 'zh-develop'], ['root', 'zh-reference'],
-      ['en', 'en-guide'], ['en', 'en-develop'], ['en', 'en-reference'],
+      ['root', 'zh-guide'],
+      ['root', 'zh-develop'],
+      ['root', 'zh-reference'],
+      ['en', 'en-guide'],
+      ['en', 'en-develop'],
+      ['en', 'en-reference'],
     ] as const
     const published = new Set(docsPages.map(page => routeLink(page.route)))
     for (const [locale, collection] of collections) {
@@ -578,14 +661,14 @@ describe('addProjectionFrontmatter', () => {
   })
 
   it('adds the page-specific outline depth from the publication manifest', () => {
-    expect(addProjectionFrontmatter('# Catalog\n', {
-      source: 'docs/catalog.md',
-      route: 'reference/index.md',
-      sidebar: 'zh-reference',
-      outline: [2, 4],
-    })).toBe(
-      '---\neditSource: "docs/catalog.md"\nrawMarkdownPath: "reference/index.md"\noutline: [2,4]\n---\n\n# Catalog\n',
-    )
+    expect(
+      addProjectionFrontmatter('# Catalog\n', {
+        source: 'docs/catalog.md',
+        route: 'reference/index.md',
+        sidebar: 'zh-reference',
+        outline: [2, 4],
+      }),
+    ).toBe('---\neditSource: "docs/catalog.md"\nrawMarkdownPath: "reference/index.md"\noutline: [2,4]\n---\n\n# Catalog\n')
   })
 })
 
@@ -602,10 +685,12 @@ describe('projectedPageContent', () => {
   })
 
   it('omits the source-only body from locale home pages', () => {
-    expect(projectedPageContent(
-      '---\nlayout: false\nhead:\n  - - meta\n    - http-equiv: refresh\n      content: 0; url=./guide/quickstart\n---\n\n# Harness\n\n[English](index.md) | 中文\n',
-      page(null),
-    )).toBe('---\nlayout: false\nhead:\n  - - meta\n    - http-equiv: refresh\n      content: 0; url=./guide/quickstart\n---\n')
+    expect(
+      projectedPageContent(
+        '---\nlayout: false\nhead:\n  - - meta\n    - http-equiv: refresh\n      content: 0; url=./guide/quickstart\n---\n\n# Harness\n\n[English](index.md) | 中文\n',
+        page(null),
+      ),
+    ).toBe('---\nlayout: false\nhead:\n  - - meta\n    - http-equiv: refresh\n      content: 0; url=./guide/quickstart\n---\n')
   })
 
   it('keeps the full body for ordinary pages', () => {
@@ -614,16 +699,14 @@ describe('projectedPageContent', () => {
   })
 
   it('drops the language switcher the navigation bar already offers', () => {
-    expect(projectedPageContent('# Guide\n\nEnglish | [中文](./en/guide)\n\nBody.\n', page('zh-guide')))
-      .toBe('# Guide\n\nBody.\n')
-    expect(projectedPageContent('# 指南\n\n[English](./en/guide) | 中文\n\n正文。\n', page('zh-guide')))
-      .toBe('# 指南\n\n正文。\n')
+    expect(projectedPageContent('# Guide\n\nEnglish | [中文](./en/guide)\n\nBody.\n', page('zh-guide'))).toBe('# Guide\n\nBody.\n')
+    expect(projectedPageContent('# 指南\n\n[English](./en/guide) | 中文\n\n正文。\n', page('zh-guide'))).toBe('# 指南\n\n正文。\n')
   })
 
   it('drops the repository badge every page links from its footer', () => {
-    const badge = '[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square)](https://github.com/deepseek-ai/deepseek-harness)'
-    expect(projectedPageContent(`# Guide\n\nBody.\n\n${badge}\n`, page('zh-guide')))
-      .toBe('# Guide\n\nBody.\n')
+    const badge =
+      '[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square)](https://github.com/deepseek-ai/deepseek-harness)'
+    expect(projectedPageContent(`# Guide\n\nBody.\n\n${badge}\n`, page('zh-guide'))).toBe('# Guide\n\nBody.\n')
   })
 
   it('keeps a switcher-shaped line that is not the page header', () => {
@@ -633,30 +716,34 @@ describe('projectedPageContent', () => {
   })
 
   it('rejects a locale home source without frontmatter', () => {
-    expect(() => projectedPageContent('# Harness\n', page(null)))
-      .toThrow('locale home source "docs/index.zh.md" must start with YAML frontmatter')
+    expect(() => projectedPageContent('# Harness\n', page(null))).toThrow(
+      'locale home source "docs/index.zh.md" must start with YAML frontmatter',
+    )
   })
 })
 
 describe('rawMarkdownPageContent', () => {
   it('keeps the home body the rendered site omits and drops the VitePress frontmatter', () => {
-    expect(rawMarkdownPageContent(
-      '---\nlayout: false\nhead:\n  - - meta\n    - http-equiv: refresh\n      content: 0; url=./guide/quickstart\n---\n\n# Harness\n\nEnglish | [中文](./index.md)\n\nBody.\n',
-      'docs/user/index.zh.md',
-    )).toBe('# Harness\n\nBody.\n')
+    expect(
+      rawMarkdownPageContent(
+        '---\nlayout: false\nhead:\n  - - meta\n    - http-equiv: refresh\n      content: 0; url=./guide/quickstart\n---\n\n# Harness\n\nEnglish | [中文](./index.md)\n\nBody.\n',
+        'docs/user/index.zh.md',
+      ),
+    ).toBe('# Harness\n\nBody.\n')
   })
 
   it('drops the language switcher and repository badge like the rendered site', () => {
-    const badge = '[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square)](https://github.com/deepseek-ai/deepseek-harness)'
-    expect(rawMarkdownPageContent(`# Guide\n\nEnglish | [中文](./x)\n\nBody.\n\n${badge}\n`, 'docs/guide.md'))
-      .toBe('# Guide\n\nBody.\n')
+    const badge =
+      '[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square)](https://github.com/deepseek-ai/deepseek-harness)'
+    expect(rawMarkdownPageContent(`# Guide\n\nEnglish | [中文](./x)\n\nBody.\n\n${badge}\n`, 'docs/guide.md')).toBe('# Guide\n\nBody.\n')
   })
 
   it('rejects unclosed frontmatter and names the page', () => {
     // The twin pass is the first place an ordinary page's frontmatter is
     // parsed, so an anonymous error would leave 168 routes to search.
-    expect(() => rawMarkdownPageContent('---\nlayout: false\n', 'docs/broken.md'))
-      .toThrow('project-doc-site: "docs/broken.md" has unclosed YAML frontmatter')
+    expect(() => rawMarkdownPageContent('---\nlayout: false\n', 'docs/broken.md')).toThrow(
+      'project-doc-site: "docs/broken.md" has unclosed YAML frontmatter',
+    )
   })
 })
 
@@ -686,8 +773,14 @@ describe('emitRawMarkdownPages', () => {
     const { root, pages } = fixture()
     writeFileSync(join(root, 'docs/home.md'), '---\nlayout: false\n---\n\n# Home\n\n[A](a.md)\n')
     pages.push({
-      locale: 'root', contentLocale: 'zh-CN', source: 'docs/home.md', route: 'index.md',
-      label: 'Home', sidebar: null, section: 'Home', order: 0,
+      locale: 'root',
+      contentLocale: 'zh-CN',
+      source: 'docs/home.md',
+      route: 'index.md',
+      label: 'Home',
+      sidebar: null,
+      section: 'Home',
+      order: 0,
     })
     const out = mirrorDir()
 
@@ -702,8 +795,14 @@ describe('emitRawMarkdownPages', () => {
     const { root, pages } = fixture()
     writeFileSync(join(root, 'docs/c.md'), '# C\n\n[A](a.md)\n')
     pages.push({
-      locale: 'root', contentLocale: 'en-US', source: 'docs/c.md', route: 'guide/index.md',
-      label: 'C', sidebar: 'zh-guide', section: 'Test', order: 3,
+      locale: 'root',
+      contentLocale: 'en-US',
+      source: 'docs/c.md',
+      route: 'guide/index.md',
+      label: 'C',
+      sidebar: 'zh-guide',
+      section: 'Test',
+      order: 3,
     })
     const out = mirrorDir()
 
@@ -800,9 +899,7 @@ function relativeTargets(markdown: string): string[] {
   const targets: string[] = []
   const visit = (node: Nodes): void => {
     if ((node.type === 'link' || node.type === 'image' || node.type === 'definition') && 'url' in node) {
-      const external = node.url.startsWith('#')
-        || node.url.startsWith('/')
-        || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(node.url)
+      const external = node.url.startsWith('#') || node.url.startsWith('/') || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(node.url)
       const path = node.url.split(/[?#]/)[0] ?? ''
       if (!external && path !== '') targets.push(decodeURIComponent(path))
     }
@@ -844,8 +941,7 @@ describe('rawMarkdownRoute', () => {
     const { root, pages } = fixture()
     writeFileSync(join(root, 'docs/a.md'), '# A\n\n[B](b.md)\n')
 
-    expect(rawMarkdownRoute('en/a.md', { pages, repoRoot: root, repositoryRef: 'abc123' }))
-      .toBe('# A\n\n[B](./reference/b.md)\n')
+    expect(rawMarkdownRoute('en/a.md', { pages, repoRoot: root, repositoryRef: 'abc123' })).toBe('# A\n\n[B](./reference/b.md)\n')
   })
 
   it('returns undefined for a path the manifest does not publish', () => {

@@ -26,7 +26,9 @@ export interface InspectorService {
  */
 export function createInspectorService(connection: InspectorConnection): InspectorService {
   return {
-    publish: (topic, payload, monotonicMs) => { connection.publish(topic, payload, monotonicMs) },
+    publish: (topic, payload, monotonicMs) => {
+      connection.publish(topic, payload, monotonicMs)
+    },
     cordis: createQueryCordisRuntimeTreeReader(connection),
   }
 }

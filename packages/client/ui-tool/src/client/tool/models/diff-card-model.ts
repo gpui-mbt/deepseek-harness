@@ -69,9 +69,7 @@ function intendedDiff(block: ToolCallBlock): IntendedDiff | null {
   if (typeof path !== 'string' || path.trim() === '') return null
   if (parsed.name === 'write') {
     const { content } = parsed.args
-    return typeof content === 'string'
-      ? { tool: 'write', diff: { path, oldText: null, newText: content } }
-      : null
+    return typeof content === 'string' ? { tool: 'write', diff: { path, oldText: null, newText: content } } : null
   }
   if (parsed.name !== 'edit') return null
   const { old_string: oldText, new_string: newText, replace_all: replaceAll } = parsed.args
@@ -109,5 +107,5 @@ export function diffCardModel(block: ToolCallBlock): DiffCardModel | null {
     return intended.tool === 'write' ? { card: { diffs: [intended.diff] } } : null
   }
   const path = recordedAbsolutePath(block.meta, 'path')
-  return { card: { diffs: applied.map(diff => diff.path === path ? { ...diff, path: intended.diff.path } : diff) } }
+  return { card: { diffs: applied.map(diff => (diff.path === path ? { ...diff, path: intended.diff.path } : diff)) } }
 }

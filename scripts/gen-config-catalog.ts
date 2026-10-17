@@ -13,11 +13,7 @@ import ts from 'typescript'
 import { LINK_MAP } from './gen-cordis-catalog.ts'
 import { parseJsDoc, pointer, rawJsDoc } from './jsdoc.ts'
 import { rewriteTranslationLinkLocales } from './translation-links.ts'
-import {
-  computeTranslationPairingRecord,
-  renderTranslationPairingRecord,
-  translationPairPaths,
-} from './translation-pairing-record.ts'
+import { computeTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
 import {
   languageSwitcherTargets,
   parseTranslationPairingManifest,
@@ -39,9 +35,31 @@ const FENCE = 'ts config-catalog'
  * legitimately appears — the generator hard-errors on unknown names, so an
  * omission is loud, not silent. */
 const GLOBAL_TYPES = new Set([
-  'Array', 'ReadonlyArray', 'Record', 'Partial', 'Required', 'Readonly', 'Pick', 'Omit',
-  'Promise', 'Map', 'Set', 'Date', 'Error', 'RegExp', 'Exclude', 'Extract', 'NonNullable',
-  'ReturnType', 'Parameters', 'AbortSignal', 'URL', 'Buffer', 'NodeJS', 'Iterable', 'AsyncIterable',
+  'Array',
+  'ReadonlyArray',
+  'Record',
+  'Partial',
+  'Required',
+  'Readonly',
+  'Pick',
+  'Omit',
+  'Promise',
+  'Map',
+  'Set',
+  'Date',
+  'Error',
+  'RegExp',
+  'Exclude',
+  'Extract',
+  'NonNullable',
+  'ReturnType',
+  'Parameters',
+  'AbortSignal',
+  'URL',
+  'Buffer',
+  'NodeJS',
+  'Iterable',
+  'AsyncIterable',
 ])
 
 /** How a package classifies for the catalog. */
@@ -105,10 +123,7 @@ interface FileCtx {
 /** Throw one aggregate error for every violation the walk collected. */
 function report(violations: string[]): void {
   if (violations.length === 0) return
-  throw new Error(
-    `gen-config-catalog: ${violations.length} violation(s):\n`
-    + violations.map(v => `  ${v}`).join('\n'),
-  )
+  throw new Error(`gen-config-catalog: ${violations.length} violation(s):\n` + violations.map(v => `  ${v}`).join('\n'))
 }
 
 /** Parse a source file and index its import declarations. */
@@ -148,8 +163,8 @@ type TypeDecl = ts.InterfaceDeclaration | ts.TypeAliasDeclaration | ts.EnumDecla
 /** Find a pasteable type declaration by name in a file, or null. */
 function findTypeDecl(ctx: FileCtx, name: string): TypeDecl | null {
   for (const stmt of ctx.sf.statements) {
-    if ((ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt) || ts.isEnumDeclaration(stmt))
-      && stmt.name.text === name) return stmt
+    if ((ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt) || ts.isEnumDeclaration(stmt)) && stmt.name.text === name)
+      return stmt
   }
   return null
 }
@@ -175,7 +190,9 @@ function resolveTypeName(
       return null
     }
     if (imp.imported !== name) {
-      violations.push(`${ctx.rel}: '${name}' aliases '${imp.imported}' across a package-local import; the catalog pastes declarations verbatim, so keep package-local config types unaliased.`)
+      violations.push(
+        `${ctx.rel}: '${name}' aliases '${imp.imported}' across a package-local import; the catalog pastes declarations verbatim, so keep package-local config types unaliased.`,
+      )
       return null
     }
     const abs = resolve(dirname(ctx.abs), imp.specifier)
@@ -222,7 +239,10 @@ function checkMemberDocs(ctx: FileCtx, decl: TypeDecl, violations: string[]): vo
   }
   const walkNested = (type: ts.Node, path: string): void => {
     if (ts.isTypeLiteralNode(type)) walkMembers(type.members, path)
-    else ts.forEachChild(type, (n) => { walkNested(n, path) })
+    else
+      ts.forEachChild(type, n => {
+        walkNested(n, path)
+      })
   }
   if (ts.isInterfaceDeclaration(decl)) walkMembers(decl.members, decl.name.text)
   else if (ts.isTypeAliasDeclaration(decl)) walkNested(decl.type, decl.name.text)
@@ -242,22 +262,34 @@ interface World {
 
 /** Resolve an explicitly exported workspace module to its mapped source file. */
 function loadWorkspaceSource(world: World, from: FileCtx, specifier: string): FileCtx {
-  const pkg = specifier.split('/').slice(0, specifier.startsWith('@') ? 2 : 1).join('/')
+  const pkg = specifier
+    .split('/')
+    .slice(0, specifier.startsWith('@') ? 2 : 1)
+    .join('/')
   const dir = world.pkgDirByName.get(pkg)
   if (dir === undefined) throw new Error(`schema import '${specifier}' is not a workspace package`)
   const subpath = specifier === pkg ? '.' : `.${specifier.slice(pkg.length)}`
   const exports = world.pkgExportsByName.get(pkg)
-  if (typeof exports !== 'object' || exports === null || Array.isArray(exports)
-    || !Object.hasOwn(exports, subpath) || (exports as Record<string, unknown>)[subpath] == null) {
+  if (
+    typeof exports !== 'object' ||
+    exports === null ||
+    Array.isArray(exports) ||
+    !Object.hasOwn(exports, subpath) ||
+    (exports as Record<string, unknown>)[subpath] == null
+  ) {
     throw new Error(`workspace package '${pkg}' does not explicitly export '${subpath}'`)
   }
   if (world.compilerOptions === undefined) {
-    const parsed = ts.getParsedCommandLineOfConfigFile(resolve(world.scanRoot, 'tsconfig.json'), {}, {
-      ...ts.sys,
-      onUnRecoverableConfigFileDiagnostic(diagnostic) {
-        throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+    const parsed = ts.getParsedCommandLineOfConfigFile(
+      resolve(world.scanRoot, 'tsconfig.json'),
+      {},
+      {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic(diagnostic) {
+          throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+        },
       },
-    })
+    )
     if (parsed === undefined || parsed.errors.length > 0) {
       throw new Error(`cannot resolve schema import '${specifier}' through the workspace source tsconfig`)
     }
@@ -266,8 +298,13 @@ function loadWorkspaceSource(world: World, from: FileCtx, specifier: string): Fi
   const resolved = ts.resolveModuleName(specifier, from.abs, world.compilerOptions, ts.sys).resolvedModule
   if (resolved === undefined) throw new Error(`schema import '${specifier}' has no workspace source mapping`)
   const sourcePath = relative(resolve(world.scanRoot, dir, 'src'), resolved.resolvedFileName)
-  if (isAbsolute(sourcePath) || sourcePath === '..' || sourcePath.startsWith(`..${sep}`)
-    || !sourcePath.endsWith('.ts') || sourcePath.endsWith('.d.ts')) {
+  if (
+    isAbsolute(sourcePath) ||
+    sourcePath === '..' ||
+    sourcePath.startsWith(`..${sep}`) ||
+    !sourcePath.endsWith('.ts') ||
+    sourcePath.endsWith('.d.ts')
+  ) {
     throw new Error(`schema import '${specifier}' must resolve inside ${dir}/src to a TypeScript source file`)
   }
   const rel = relative(world.scanRoot, resolved.resolvedFileName).split(sep).join('/')
@@ -293,9 +330,10 @@ function schemaAlias(world: World, ctx: FileCtx, name: string): { ctx: FileCtx; 
   if (imported === undefined || imported.typeOnly || imported.imported === '*' || imported.imported === 'default') {
     throw new Error(`schema alias '${name}' must name a const or named value import`)
   }
-  const target = imported.specifier.startsWith('.') && imported.specifier.endsWith('.ts')
-    ? loadRelative(world, ctx, imported.specifier)
-    : loadWorkspaceSource(world, ctx, imported.specifier)
+  const target =
+    imported.specifier.startsWith('.') && imported.specifier.endsWith('.ts')
+      ? loadRelative(world, ctx, imported.specifier)
+      : loadWorkspaceSource(world, ctx, imported.specifier)
   const expr = schemaConst(target, imported.imported, true)
   if (expr === null) throw new Error(`schema import '${imported.specifier}' has no exported const '${imported.imported}'`)
   return { ctx: target, expr }
@@ -581,10 +619,18 @@ function walkSchemaExpr(
         const part = unwrapExpr(el)
         if (ts.isPropertyAccessExpression(part) && part.name.text === 'Config' && ts.isIdentifier(part.expression)) {
           const imp = ctx.imports.get(part.expression.text)
-          if (imp && !imp.specifier.startsWith('.')) { composes.push(imp.specifier); continue }
+          if (imp && !imp.specifier.startsWith('.')) {
+            composes.push(imp.specifier)
+            continue
+          }
         }
-        if (ts.isCallExpression(part) || ts.isIdentifier(part)) { visit(part); continue }
-        violations.push(`${where}: intersect element '${part.getText(ctx.sf)}' is neither a workspace plugin's Config nor an inline schema call.`)
+        if (ts.isCallExpression(part) || ts.isIdentifier(part)) {
+          visit(part)
+          continue
+        }
+        violations.push(
+          `${where}: intersect element '${part.getText(ctx.sf)}' is neither a workspace plugin's Config nor an inline schema call.`,
+        )
       }
       return
     }
@@ -593,7 +639,10 @@ function walkSchemaExpr(
     if (method === 'union' && call.arguments[0] && ts.isArrayLiteralExpression(call.arguments[0])) {
       for (const el of call.arguments[0].elements) {
         const part = unwrapExpr(el)
-        if (ts.isCallExpression(part) || ts.isIdentifier(part)) { visit(part); continue }
+        if (ts.isCallExpression(part) || ts.isIdentifier(part)) {
+          visit(part)
+          continue
+        }
         violations.push(`${where}: union element '${part.getText(ctx.sf)}' is not a schema call or const alias.`)
       }
       return
@@ -601,7 +650,10 @@ function walkSchemaExpr(
     // A chained refinement (`z.object({…}).default(…)` etc.): the keys live on
     // the call the chain hangs off — keep unwrapping toward it.
     const base = unwrapExpr(call.expression.expression)
-    if (ts.isCallExpression(base)) { visit(base); return }
+    if (ts.isCallExpression(base)) {
+      visit(base)
+      return
+    }
     violations.push(`${where}: schema call '${method}' is not object/intersect and hangs off no walkable base call.`)
   }
   visit(expr)
@@ -634,7 +686,7 @@ function findInject(ctx: FileCtx, pluginClass: ts.ClassDeclaration | null, viola
       violations.push(`${where}: inject is not a plain string-array literal; teach the generator the new declaration form.`)
       return []
     }
-    return expr.elements.map(el => ts.isStringLiteral(el) ? el.text : el.getText(ctx.sf))
+    return expr.elements.map(el => (ts.isStringLiteral(el) ? el.text : el.getText(ctx.sf)))
   }
   for (const stmt of ctx.sf.statements) {
     if (!ts.isVariableStatement(stmt)) continue
@@ -663,8 +715,11 @@ function defaultExport(ctx: FileCtx): ts.ClassDeclaration | ts.FunctionDeclarati
       }
       return null
     }
-    if ((ts.isClassDeclaration(stmt) || ts.isFunctionDeclaration(stmt))
-      && stmt.modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)) return stmt
+    if (
+      (ts.isClassDeclaration(stmt) || ts.isFunctionDeclaration(stmt)) &&
+      stmt.modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)
+    )
+      return stmt
   }
   return null
 }
@@ -672,8 +727,8 @@ function defaultExport(ctx: FileCtx): ts.ClassDeclaration | ts.FunctionDeclarati
 /** Find the exported `apply` function declaration in the entry file, or null. */
 function applyExport(ctx: FileCtx): ts.FunctionDeclaration | null {
   for (const stmt of ctx.sf.statements) {
-    if (ts.isFunctionDeclaration(stmt) && stmt.name?.text === 'apply'
-      && stmt.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)) return stmt
+    if (ts.isFunctionDeclaration(stmt) && stmt.name?.text === 'apply' && stmt.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword))
+      return stmt
   }
   return null
 }
@@ -693,9 +748,16 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
   const pkgDirByName = new Map<string, string>()
   const pkgExportsByName = new Map<string, unknown>()
   const manifests: { dir: string; pkg: string }[] = []
-  for (const manifestRel of globSync('packages/*/*/package.json', { cwd: scanRoot }).map(path => path.split(sep).join('/')).sort()) {
+  for (const manifestRel of globSync('packages/*/*/package.json', { cwd: scanRoot })
+    .map(path => path.split(sep).join('/'))
+    .sort()) {
     const dir = manifestRel.slice(0, -'/package.json'.length)
-    const manifest = JSON.parse(readFileSync(resolve(scanRoot, manifestRel), 'utf8')) as { name?: string; os?: string[]; cpu?: string[]; exports?: unknown }
+    const manifest = JSON.parse(readFileSync(resolve(scanRoot, manifestRel), 'utf8')) as {
+      name?: string
+      os?: string[]
+      cpu?: string[]
+      exports?: unknown
+    }
     const pkg = manifest.name
     if (!pkg) {
       violations.push(`${manifestRel} has no "name".`)
@@ -759,14 +821,16 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
       entry: entryRel,
       kind,
       inject: kind === 'library' || kind === 'seam' ? [] : findInject(ctx, pluginClass, violations),
-      ...className !== undefined ? { className } : {},
+      ...(className !== undefined ? { className } : {}),
     }
     entries.push(entry)
     if (kind !== 'config' || !configParam) continue
 
     // Resolve the config type and paste its package-local transitive closure.
     if (!configParam.type || !ts.isTypeReferenceNode(configParam.type) || !ts.isIdentifier(configParam.type.typeName)) {
-      violations.push(`${pkg}: config parameter type (${pointer(entryRel, ctx.sf, configParam)}) is not a plain type-name reference; declare a named config type.`)
+      violations.push(
+        `${pkg}: config parameter type (${pointer(entryRel, ctx.sf, configParam)}) is not a plain type-name reference; declare a named config type.`,
+      )
       continue
     }
     const typeName = configParam.type.typeName.text
@@ -783,21 +847,29 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
       const { name, from } = item
       const resolved = resolveTypeName(from, name, cache, violations)
       if (resolved === null) {
-        violations.push(`${pkg}: config declaration references '${name}' (via ${from.rel}), which is neither declared in the package, imported, nor a known global type.`)
+        violations.push(
+          `${pkg}: config declaration references '${name}' (via ${from.rel}), which is neither declared in the package, imported, nor a known global type.`,
+        )
         continue
       }
       if ('ref' in resolved) {
         if (name === typeName) {
-          violations.push(`${pkg}: config type '${name}' is imported from '${resolved.ref.specifier}'; a plugin's config type must live in its own package.`)
+          violations.push(
+            `${pkg}: config type '${name}' is imported from '${resolved.ref.specifier}'; a plugin's config type must live in its own package.`,
+          )
           continue
         }
         if (pastedDeclByName.has(name)) {
-          violations.push(`${pkg}: '${name}' resolves to a package-local declaration (${pastedDeclByName.get(name) ?? ''}) in one file and an import from '${resolved.ref.specifier}' in another; rename one so the fence is unambiguous.`)
+          violations.push(
+            `${pkg}: '${name}' resolves to a package-local declaration (${pastedDeclByName.get(name) ?? ''}) in one file and an import from '${resolved.ref.specifier}' in another; rename one so the fence is unambiguous.`,
+          )
           continue
         }
         const existing = refs.get(name)
         if (existing && (existing.specifier !== resolved.ref.specifier || existing.imported !== resolved.ref.imported)) {
-          violations.push(`${pkg}: '${name}' is imported from both '${existing.specifier}' (${existing.imported}) and '${resolved.ref.specifier}' (${resolved.ref.imported}) across the pasted closure; disambiguate the aliases.`)
+          violations.push(
+            `${pkg}: '${name}' is imported from both '${existing.specifier}' (${existing.imported}) and '${resolved.ref.specifier}' (${resolved.ref.imported}) across the pasted closure; disambiguate the aliases.`,
+          )
           continue
         }
         refs.set(name, resolved.ref)
@@ -807,11 +879,15 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
       const prior = pastedDeclByName.get(name)
       if (prior === declKey) continue // same declaration reached again — benign
       if (prior !== undefined) {
-        violations.push(`${pkg}: type name '${name}' resolves to two different declarations (${prior} and ${declKey}) across the pasted closure; rename one — a verbatim fence cannot carry two same-named declarations.`)
+        violations.push(
+          `${pkg}: type name '${name}' resolves to two different declarations (${prior} and ${declKey}) across the pasted closure; rename one — a verbatim fence cannot carry two same-named declarations.`,
+        )
         continue
       }
       if (refs.has(name)) {
-        violations.push(`${pkg}: '${name}' resolves to an import from '${refs.get(name)?.specifier ?? ''}' in one file and a package-local declaration (${declKey}) in another; rename one so the fence is unambiguous.`)
+        violations.push(
+          `${pkg}: '${name}' resolves to an import from '${refs.get(name)?.specifier ?? ''}' in one file and a package-local declaration (${declKey}) in another; rename one so the fence is unambiguous.`,
+        )
         continue
       }
       pastedDeclByName.set(name, declKey)
@@ -847,7 +923,7 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
     const foldComposed = (e: CatalogEntry): string[] => {
       if (seen.has(e.pkg)) return []
       seen.add(e.pkg)
-      const keys = [...e.schemaKeys ?? []]
+      const keys = [...(e.schemaKeys ?? [])]
       for (const composed of e.schemaComposes ?? []) {
         const target = byName.get(composed)
         if (!target) {
@@ -869,7 +945,9 @@ export function collectConfigCatalog(scanRoot: string = root): CatalogEntry[] {
     }
     for (const keyPath of allKeys) {
       if (lookupPath(world, mainCtx, mainDecl, parsePath(keyPath), new Set()) === 'missing') {
-        violations.push(`${entry.pkg}: schema validates key '${keyPath}' but config type '${entry.configTypeName ?? ''}' declares no such member — the catalog paste would hide a loader-accepted field.`)
+        violations.push(
+          `${entry.pkg}: schema validates key '${keyPath}' but config type '${entry.configTypeName ?? ''}' declares no such member — the catalog paste would hide a loader-accepted field.`,
+        )
       }
     }
   }
@@ -895,15 +973,18 @@ function refLink(ref: TypeRef, byName: Map<string, CatalogEntry>): string {
 type Locale = 'en' | 'zh'
 
 /** Locale-owned prose; every other byte of both pages is shared generated content. */
-const TEXT: Record<Locale, {
-  header: string[]
-  title: string
-  switcher: string[]
-  intro: string[]
-  noConfig: [string, string]
-  seam: [string, string]
-  library: [string, string]
-}> = {
+const TEXT: Record<
+  Locale,
+  {
+    header: string[]
+    title: string
+    switcher: string[]
+    intro: string[]
+    noConfig: [string, string]
+    seam: [string, string]
+    library: [string, string]
+  }
+> = {
   en: {
     header: [
       '<!-- Generated by scripts/gen-config-catalog.ts — do not edit by hand.',
@@ -912,7 +993,7 @@ const TEXT: Record<Locale, {
     title: '# Plugin Config Catalog',
     switcher: [],
     intro: [
-      'Every `config:` block a `cordis.yml` entry can set: for each loadable harness package, the verbatim config declaration (JSDoc included) its `apply` function or service constructor receives, with every referenced type pasted alongside (package-local types) or linked (everything else). The paste is the plugin\'s full declared config type — a field the runtime schema deliberately excludes is a runtime-only seam (its own JSDoc says so) and is not settable from `cordis.yml`. This is the **deployment**-axis reference — the wiring a plugin author works against is the generated Cordis API region on each [subsystem page](subsystems/core.md), the model-facing tool schemas are the [tool catalog](tool-catalog.md), and [subsystems/](subsystems/core.md) documents the types these declarations reference.',
+      "Every `config:` block a `cordis.yml` entry can set: for each loadable harness package, the verbatim config declaration (JSDoc included) its `apply` function or service constructor receives, with every referenced type pasted alongside (package-local types) or linked (everything else). The paste is the plugin's full declared config type — a field the runtime schema deliberately excludes is a runtime-only seam (its own JSDoc says so) and is not settable from `cordis.yml`. This is the **deployment**-axis reference — the wiring a plugin author works against is the generated Cordis API region on each [subsystem page](subsystems/core.md), the model-facing tool schemas are the [tool catalog](tool-catalog.md), and [subsystems/](subsystems/core.md) documents the types these declarations reference.",
       'Both language versions of this file are GENERATED from source (`scripts/gen-config-catalog.ts`) and verified fresh by `pnpm run verify-config-catalog` (part of `doc-sync`) — do not edit them by hand. Declaration blocks use a `ts config-catalog` fence (skipped by doc-typecheck, since a lone declaration referencing imports is not standalone-compilable). The generator also cross-checks the runtime schemastery schema against the pasted declaration — every schema-validated key, nested keys included, must be locatable on the declared config type — so the paste cannot hide a loader-accepted field.',
       'Each package entry labels its data with three identifiers: `inject` lists the service keys the plugin injects, so its `cordis.yml` tree must also load providers for those services; `refs` lists the referenced types that are not pasted here; `source` links the file that declares the config. Scope is the harness tier (`packages/`); the vendored cordis plugins a config tree may also load (the console logger, …) are pinned upstream source ([vendoring policy](../vendor/README.md)) and not catalogued here.',
     ],
@@ -924,16 +1005,10 @@ const TEXT: Record<Locale, {
       '## Seam packages (not directly loadable)',
       'Abstract service classes — a deployment loads a concrete implementation package instead ([capability seams](../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md)).',
     ],
-    library: [
-      '## Library packages (no plugin entry)',
-      'Imported as libraries by other packages; a `cordis.yml` cannot load them.',
-    ],
+    library: ['## Library packages (no plugin entry)', 'Imported as libraries by other packages; a `cordis.yml` cannot load them.'],
   },
   zh: {
-    header: [
-      '<!-- 由 scripts/gen-config-catalog.ts 生成——请勿手工编辑。',
-      '     运行 `pnpm run gen-config-catalog` 重新生成。 -->',
-    ],
+    header: ['<!-- 由 scripts/gen-config-catalog.ts 生成——请勿手工编辑。', '     运行 `pnpm run gen-config-catalog` 重新生成。 -->'],
     title: '# 插件配置目录',
     switcher: ['[English](config-catalog.md) | 中文', ''],
     intro: [
@@ -941,18 +1016,12 @@ const TEXT: Record<Locale, {
       '本文件的两种语言版本都由源代码（`scripts/gen-config-catalog.ts`）生成，并通过 `pnpm run verify-config-catalog`（`doc-sync` 的一部分）验证新鲜度——请勿手工编辑。声明块使用 `ts config-catalog` 围栏（doc-typecheck 会跳过它，因为单独引用导入项的声明无法独立编译）。生成器还会将运行时 schemastery schema 与粘贴的声明进行交叉核对——每个经 schema 验证的键（包括嵌套键）都必须能在声明的配置类型中找到——因此，粘贴内容无法隐藏加载器接受的字段。',
       '每个包的条目用三个标识符标注：`inject` 列出插件注入的服务键，其 `cordis.yml` 树还必须加载这些服务的提供者；`refs` 列出声明引用、但未粘贴在此处的类型；`source` 链接到声明配置的源文件。范围限定为 harness 层级（`packages/`）；配置树还可能加载的 vendored cordis 插件（控制台日志记录器等）固定为上游源代码（参见 [vendoring policy](../vendor/README.md)），未收录于此目录。',
     ],
-    noConfig: [
-      '## 无配置的可加载插件',
-      '这些插件通过 `cordis.yml` 中不含 `config:` 块的条目加载；它们未声明任何配置接口。',
-    ],
+    noConfig: ['## 无配置的可加载插件', '这些插件通过 `cordis.yml` 中不含 `config:` 块的条目加载；它们未声明任何配置接口。'],
     seam: [
       '## Seam 包（不可直接加载）',
       '抽象服务类——部署时应改为加载具体的实现包（参见[能力 seam](../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md)）。',
     ],
-    library: [
-      '## 库包（无插件入口）',
-      '由其他包作为库导入；`cordis.yml` 无法加载它们。',
-    ],
+    library: ['## 库包（无插件入口）', '由其他包作为库导入；`cordis.yml` 无法加载它们。'],
   },
 }
 
@@ -971,32 +1040,44 @@ function renderConfigEntry(entry: CatalogEntry, byName: Map<string, CatalogEntry
     ...(entry.refs && entry.refs.length > 0 ? [`- \`refs\`: ${entry.refs.map(r => refLink(r, byName)).join(' · ')}`] : []),
     `- \`source\`: ${sourceLink(entry.pastes?.[0]?.source ?? entry.entry)}`,
   ]
-  return renderGeneratedRegion(`config-catalog:${entry.pkg}`, [
-    `<a id="${githubSlug(entry.pkg)}"></a>`,
-    '',
-    `## \`${entry.pkg}\``,
-    '',
-    ...fields,
-    '',
-    '```' + FENCE,
-    ...(entry.pastes ?? []).map(p => p.text).join('\n\n').split('\n'),
-    '```',
-  ].join('\n'))
+  return renderGeneratedRegion(
+    `config-catalog:${entry.pkg}`,
+    [
+      `<a id="${githubSlug(entry.pkg)}"></a>`,
+      '',
+      `## \`${entry.pkg}\``,
+      '',
+      ...fields,
+      '',
+      '```' + FENCE,
+      ...(entry.pastes ?? [])
+        .map(p => p.text)
+        .join('\n\n')
+        .split('\n'),
+      '```',
+    ].join('\n'),
+  )
 }
 
 /** Render one package table (the no-config / seam / library sections) as a generated region. */
 function renderTable(slug: string, entries: readonly CatalogEntry[], withClass: boolean): string {
   const columns = ['package', ...(withClass ? ['class'] : []), 'inject', 'source']
-  return renderGeneratedRegion(`config-catalog:${slug}`, [
-    `| ${columns.map(column => `\`${column}\``).join(' | ')} |`,
-    `| ${columns.map(() => '---').join(' | ')} |`,
-    ...entries.map(entry => `| ${[
-      `\`${entry.pkg}\``,
-      ...(withClass ? [`\`${entry.className ?? ''}\``] : []),
-      entry.inject.length > 0 ? codeList(entry.inject) : '—',
-      sourceLink(entry.entry),
-    ].join(' | ')} |`),
-  ].join('\n'))
+  return renderGeneratedRegion(
+    `config-catalog:${slug}`,
+    [
+      `| ${columns.map(column => `\`${column}\``).join(' | ')} |`,
+      `| ${columns.map(() => '---').join(' | ')} |`,
+      ...entries.map(
+        entry =>
+          `| ${[
+            `\`${entry.pkg}\``,
+            ...(withClass ? [`\`${entry.className ?? ''}\``] : []),
+            entry.inject.length > 0 ? codeList(entry.inject) : '—',
+            sourceLink(entry.entry),
+          ].join(' | ')} |`,
+      ),
+    ].join('\n'),
+  )
 }
 
 /**
@@ -1017,9 +1098,30 @@ export function render(entries: CatalogEntry[], locale: Locale = 'en'): string {
     ...text.switcher,
     ...text.intro.flatMap(paragraph => [paragraph, '']),
     ...entries.filter(e => e.kind === 'config').flatMap(entry => [renderConfigEntry(entry, byName), '']),
-    ...section(text.noConfig, renderTable('no-config', entries.filter(e => e.kind === 'no-config'), false)),
-    ...section(text.seam, renderTable('seam', entries.filter(e => e.kind === 'seam'), true)),
-    ...section(text.library, renderTable('library', entries.filter(e => e.kind === 'library'), false)),
+    ...section(
+      text.noConfig,
+      renderTable(
+        'no-config',
+        entries.filter(e => e.kind === 'no-config'),
+        false,
+      ),
+    ),
+    ...section(
+      text.seam,
+      renderTable(
+        'seam',
+        entries.filter(e => e.kind === 'seam'),
+        true,
+      ),
+    ),
+    ...section(
+      text.library,
+      renderTable(
+        'library',
+        entries.filter(e => e.kind === 'library'),
+        false,
+      ),
+    ),
   ].join('\n')
 }
 
@@ -1032,9 +1134,9 @@ export function computeConfigCatalogOutputs(scanRoot: string = root): ReadonlyMa
   const entries = collectConfigCatalog()
   const context = {
     repoRoot: scanRoot,
-    isTranslationPairSource: translationPairSourcePredicate(parseTranslationPairingManifest(
-      readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-    )),
+    isTranslationPairSource: translationPairSourcePredicate(
+      parseTranslationPairingManifest(readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8')),
+    ),
   }
   const en = render(entries, 'en')
   const zh = rewriteTranslationLinkLocales(
@@ -1054,9 +1156,9 @@ export function computeConfigCatalogOutputs(scanRoot: string = root): ReadonlyMa
  * module for tests neither regenerates the committed files nor calls process.exit. */
 function main(): void {
   const outputs = computeConfigCatalogOutputs()
-  const stale = [...outputs].filter(([path, content]) => (
-    !existsSync(resolve(root, path)) || readFileSync(resolve(root, path), 'utf8') !== content
-  )).map(([path]) => path)
+  const stale = [...outputs]
+    .filter(([path, content]) => !existsSync(resolve(root, path)) || readFileSync(resolve(root, path), 'utf8') !== content)
+    .map(([path]) => path)
   if (process.argv.includes('--check')) {
     if (stale.length === 0) {
       console.log(`gen-config-catalog: ${outputs.size} artifact(s) are up to date.`)

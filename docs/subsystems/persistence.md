@@ -256,9 +256,7 @@ interface RestoredSessionOptions {
 
 ```ts type-equiv
 /** Inputs accepted while constructing an unpublished Session. */
-type PrepareSessionOptions =
-  | (CreateSessionOptions & { readonly eventState?: undefined })
-  | RestoredSessionOptions
+type PrepareSessionOptions = (CreateSessionOptions & { readonly eventState?: undefined }) | RestoredSessionOptions
 ```
 
 ```ts type-equiv

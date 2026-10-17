@@ -47,11 +47,7 @@ export const POLICY_ENV_NAMES = {
  * package resolves but never writes back. A caller that must isolate a child from the machine's
  * network policy clears exactly these.
  */
-export const PROXY_ENV_NAMES: readonly string[] = [
-  ...Object.values(POLICY_ENV_NAMES).flat(),
-  'all_proxy',
-  'ALL_PROXY',
-]
+export const PROXY_ENV_NAMES: readonly string[] = [...Object.values(POLICY_ENV_NAMES).flat(), 'all_proxy', 'ALL_PROXY']
 
 /** Proxy URL schemes this package routes through. Everything else is reported, never silently dropped. */
 const SUPPORTED_PROTOCOLS = new Set(['http:', 'https:'])
@@ -88,7 +84,6 @@ export interface ProxyDiagnostic {
   readonly message: string
 }
 
-
 /** A resolved policy plus every candidate value that was rejected on the way to it. */
 export interface ProxyResolution {
   /** The policy to install. Never carries a rejected value. */
@@ -106,10 +101,7 @@ export interface ProxyResolution {
  * @param lower - the lowercase variable name.
  * @returns the trimmed value and the name that supplied it, or `undefined` when neither is set.
  */
-function readEnv(
-  env: EnvLookup,
-  lower: string,
-): { value: string; name: string } | undefined {
+function readEnv(env: EnvLookup, lower: string): { value: string; name: string } | undefined {
   for (const name of [lower, lower.toUpperCase()]) {
     const value = env.get(name)?.value.trim()
     if (value !== undefined && value !== '') return { value, name }
@@ -122,10 +114,7 @@ function readEnv(
  * one: the user named a proxy for that scheme, so falling back to another scheme's proxy would route
  * the request somewhere they never asked for while the diagnostic said it stayed direct.
  */
-type ProxyCandidate =
-  | { readonly kind: 'accepted'; readonly value: string }
-  | { readonly kind: 'rejected' }
-  | { readonly kind: 'absent' }
+type ProxyCandidate = { readonly kind: 'accepted'; readonly value: string } | { readonly kind: 'rejected' } | { readonly kind: 'absent' }
 
 /** A slot nobody filled. */
 const ABSENT: ProxyCandidate = { kind: 'absent' }
@@ -137,10 +126,7 @@ const ABSENT: ProxyCandidate = { kind: 'absent' }
  * @param diagnostics - collector the rejection is appended to.
  * @returns the candidate's usability, distinguishing a rejected slot from an empty one.
  */
-function acceptProxyUrl(
-  candidate: { value: string; name: string } | undefined,
-  diagnostics: ProxyDiagnostic[],
-): ProxyCandidate {
+function acceptProxyUrl(candidate: { value: string; name: string } | undefined, diagnostics: ProxyDiagnostic[]): ProxyCandidate {
   if (candidate === undefined) return ABSENT
   const parsed = URL.parse(candidate.value)
   if (parsed === null) {
@@ -204,7 +190,10 @@ function resolveScheme(own: ProxyCandidate, ...fallbacks: (string | undefined)[]
  * @returns the effective bypass list.
  */
 function withLoopback(noProxy: string | undefined): string {
-  const entries = (noProxy ?? '').split(/[,\s]+/).map(entry => entry.trim()).filter(entry => entry !== '')
+  const entries = (noProxy ?? '')
+    .split(/[,\s]+/)
+    .map(entry => entry.trim())
+    .filter(entry => entry !== '')
   if (entries.includes('*')) return '*'
   const present = new Set(entries.map(entry => entry.toLowerCase()))
   return [...entries, ...LOOPBACK_NO_PROXY.filter(entry => !present.has(entry))].join(',')
@@ -255,7 +244,10 @@ const LOOPBACK_IPV4 = new RegExp(`^127\\.${OCTET}\\.${OCTET}\\.${OCTET}$`)
  * @returns true when the host is loopback or the unspecified address.
  */
 export function isLoopbackHost(hostname: string): boolean {
-  const host = hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase()
+  const host = hostname
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '')
+    .toLowerCase()
   if (host === 'localhost' || host.endsWith('.localhost')) return true
   if (host === '::1' || host === '::' || host === '0.0.0.0') return true
   // An IPv4-mapped IPv6 address may keep its dotted tail or, once a URL has normalized it, carry
@@ -279,7 +271,10 @@ export function isLoopbackHost(hostname: string): boolean {
 export function bypassesProxy(noProxy: string, url: URL): boolean {
   // `URL.hostname` keeps the brackets around an IPv6 literal, while a bypass entry may be written
   // either way, so both sides are unbracketed before they are compared.
-  const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase()
+  const host = url.hostname
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '')
+    .toLowerCase()
   const port = url.port !== '' ? url.port : url.protocol === 'https:' ? '443' : '80'
   for (const raw of noProxy.split(/[,\s]+/)) {
     const entry = raw.trim().toLowerCase()
@@ -316,8 +311,8 @@ export function resolveProxyPolicy(env: EnvLookup): ProxyResolution {
   if (httpProxy === undefined && httpsProxy === undefined) return { policy: DIRECT_POLICY, diagnostics }
   return {
     policy: {
-      ...httpProxy === undefined ? {} : { httpProxy },
-      ...httpsProxy === undefined ? {} : { httpsProxy },
+      ...(httpProxy === undefined ? {} : { httpProxy }),
+      ...(httpsProxy === undefined ? {} : { httpsProxy }),
       noProxy: withLoopback(readEnv(env, 'no_proxy')?.value),
       source: 'env',
     },

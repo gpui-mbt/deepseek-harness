@@ -259,9 +259,7 @@ agent loop（智能体循环）向注册表查询每个待处理调用的执行�
  * Scheduling mode for one pending call. `parallel` may overlap with siblings;
  * `exclusive` runs alone and forms an ordering barrier.
  */
-type ToolExecutionMode =
-  | { kind: 'parallel' }
-  | { kind: 'exclusive' }
+type ToolExecutionMode = { kind: 'parallel' } | { kind: 'exclusive' }
 ```
 
 PTC 绑定在构造时冻结 ToolSchema，经由调度器传入 `ToolExecution.schema`；它只是临时执行元数据。每个实际开始的子分派在策略之前只记录配对 id、名称与规范化参数。开始和结算事件都不序列化描述、参数 schema 或 schema 字段。桥接层随后把已结算调用交给 `tools/ptc-dispatch-log` waterfall；它可以改变持久内容副本，但会保留程序取得的值、模型可见的外层结果和结构化失败身份：
@@ -641,7 +639,7 @@ Around-dispatch waterfall for timeout, retry, or metrics. `next()` returns a nor
  * @param exec - the allowed call about to dispatch (name, parsed arguments, caller agent, signal).
  * @mode waterfall
  */
-'tools/execute'(this: Scoped<ToolRuntime>, exec: ToolDispatchExecution, next: () => Promise<ToolExecutionResult>): Promise<ToolExecutionResult>
+'tools/execute'( this: Scoped<ToolRuntime>, exec: ToolDispatchExecution, next: () => Promise<ToolExecutionResult>, ): Promise<ToolExecutionResult>
 ```
 
 Types: [Scoped](scope.zh.md)
@@ -666,7 +664,7 @@ Accept, replace, enrich, or block a normalized dispatch result. `next()` accepts
  * @param result - the dispatch outcome a listener may accept, replace, or block.
  * @mode waterfall
  */
-'tools/post-execute'(this: Scoped<ToolRuntime>, exec: ToolExecution, result: Readonly<ToolExecutionResult>, next: () => Promise<PostToolDecision>): Promise<PostToolDecision>
+'tools/post-execute'( this: Scoped<ToolRuntime>, exec: ToolExecution, result: Readonly<ToolExecutionResult>, next: () => Promise<PostToolDecision>, ): Promise<PostToolDecision>
 ```
 
 Types: [Scoped](scope.zh.md)
@@ -717,7 +715,7 @@ Allow a listener to replace content in the DURABLE LOG COPY of one `run_code` su
  * @param dispatch - the parent execution, sub-call identity, and the settled content to log.
  * @mode waterfall
  */
-'tools/ptc-dispatch-log'(this: Scoped<ToolRuntime>, dispatch: PtcDispatchLog, next: () => Promise<ContentBlock[]>): Promise<ContentBlock[]>
+'tools/ptc-dispatch-log'( this: Scoped<ToolRuntime>, dispatch: PtcDispatchLog, next: () => Promise<ContentBlock[]>, ): Promise<ContentBlock[]>
 ```
 
 Types: [ContentBlock](llm-streaming.zh.md) · [Scoped](scope.zh.md)

@@ -16,7 +16,7 @@ interface StartupDiagnosticContext {
 /** Wait for stderr to finish the write before the failed process exits. */
 function writeStderr(text: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    process.stderr.write(text, (error) => {
+    process.stderr.write(text, error => {
       if (error) reject(error)
       else resolve()
     })
@@ -37,23 +37,29 @@ export async function reportStartupFailure(
   write: (text: string) => void | Promise<void> = writeStderr,
 ): Promise<void> {
   const now = new Date().toISOString()
-  const report = 'WARNING: Raw diagnostics may contain configuration or credential values from plugin errors. Review before sharing.\n\n' + inspect({
-    timestamp: now,
-    dshVersion: context.version,
-    nodeVersion: process.version,
-    platform: process.platform,
-    arch: process.arch,
-    profile: context.profile,
-    error,
-  }, {
-    depth: null,
-    maxArrayLength: null,
-    maxStringLength: null,
-    showHidden: true,
-    customInspect: false,
-    getters: false,
-    colors: false,
-  }) + '\n'
+  const report =
+    'WARNING: Raw diagnostics may contain configuration or credential values from plugin errors. Review before sharing.\n\n' +
+    inspect(
+      {
+        timestamp: now,
+        dshVersion: context.version,
+        nodeVersion: process.version,
+        platform: process.platform,
+        arch: process.arch,
+        profile: context.profile,
+        error,
+      },
+      {
+        depth: null,
+        maxArrayLength: null,
+        maxStringLength: null,
+        showHidden: true,
+        customInspect: false,
+        getters: false,
+        colors: false,
+      },
+    ) +
+    '\n'
   await write(`${error.message}\n`)
   const logDir = join(context.home, 'logs')
   const logPath = join(logDir, `startup-${now.replaceAll(':', '-')}-${randomUUID()}.log`)

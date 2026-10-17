@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { describeMatcher, eventMatches, isEventPattern, KNOWN_EVENTS, matcherMatches } from '../src/matcher.ts'
 import { createToolNameAliases, DEFAULT_TOOL_ALIASES } from '../src/tool-names.ts'
 
 describe('event patterns and matchers', () => {
-  it('knows Claude Code\'s event names and globs', () => {
+  it("knows Claude Code's event names and globs", () => {
     expect(KNOWN_EVENTS.has('tool.call')).toBe(true)
     expect(isEventPattern('tool.call')).toBe(true)
     expect(isEventPattern('tool.calls')).toBe(false)

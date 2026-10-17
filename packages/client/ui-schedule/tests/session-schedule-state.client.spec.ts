@@ -1,26 +1,31 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import type {
-  ScheduleCatalogEntry, ScheduleDeleteResult, ScheduleId, ScheduleRecord,
-} from '@deepseek-ai/dsh-schedule/client'
+import type { ScheduleCatalogEntry, ScheduleDeleteResult, ScheduleId, ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { CatalogSnapshot } from '../src/client/catalog-source.ts'
-import {
-  createSessionScheduleSource, selectSessionScheduleFacts,
-} from '../src/client/session-schedule-state.ts'
+import { createSessionScheduleSource, selectSessionScheduleFacts } from '../src/client/session-schedule-state.ts'
 
 const SESSION = 'ambient-session' as SessionId
 const id = 'ambient-task' as ScheduleId
 const row: ScheduleRecord = {
-  id, kind: 'at', title: 'Read status', prompt: 'Read status', scheduledAt: '2026-10-01T00:00:00.000Z',
+  id,
+  kind: 'at',
+  title: 'Read status',
+  prompt: 'Read status',
+  scheduledAt: '2026-10-01T00:00:00.000Z',
 }
 const failure = { ok: false as const, error: new RemoteError('gateway/internal', 'Unavailable', {}) }
 
 function catalogEntry(taskId: string, sessionId: string, status: 'active' | 'inactive'): ScheduleCatalogEntry {
   return {
-    id: taskId as ScheduleId, sessionId: sessionId as SessionId, status, kind: 'at',
-    title: 'Read status', prompt: 'Read status', scheduledAt: '2026-10-01T00:00:00.000Z',
+    id: taskId as ScheduleId,
+    sessionId: sessionId as SessionId,
+    status,
+    kind: 'at',
+    title: 'Read status',
+    prompt: 'Read status',
+    scheduledAt: '2026-10-01T00:00:00.000Z',
   }
 }
 
@@ -38,9 +43,9 @@ describe('Session schedule state', () => {
     let reset = (): void => {}
     const changedDisposed = vi.fn()
     const resetDisposed = vi.fn()
-    const list = vi.fn<() => Promise<RemoteResult<ScheduleRecord[]>>>()
-      .mockResolvedValue({ ok: true, value: [row] })
-    const remove = vi.fn<(value: ScheduleId) => Promise<RemoteResult<ScheduleDeleteResult>>>()
+    const list = vi.fn<() => Promise<RemoteResult<ScheduleRecord[]>>>().mockResolvedValue({ ok: true, value: [row] })
+    const remove = vi
+      .fn<(value: ScheduleId) => Promise<RemoteResult<ScheduleDeleteResult>>>()
       .mockResolvedValue({ ok: true, value: { id, deleted: true } })
     const ctx = {
       remote: {
@@ -90,10 +95,8 @@ describe('shared Host catalog projection', () => {
     const catalog = hostSnapshot('ready', [mine, other, ended])
 
     expect(selectSessionScheduleFacts(catalog, SESSION)).toEqual({ hasActive: true, records: [mine] })
-    expect(selectSessionScheduleFacts(catalog, 'other-session' as SessionId))
-      .toEqual({ hasActive: true, records: [other] })
-    expect(selectSessionScheduleFacts(catalog, 'empty-session' as SessionId))
-      .toEqual({ hasActive: false, records: [] })
+    expect(selectSessionScheduleFacts(catalog, 'other-session' as SessionId)).toEqual({ hasActive: true, records: [other] })
+    expect(selectSessionScheduleFacts(catalog, 'empty-session' as SessionId)).toEqual({ hasActive: false, records: [] })
   })
 
   it('answers no active task for an ended-only Session', () => {
@@ -103,10 +106,8 @@ describe('shared Host catalog projection', () => {
 
   it('answers no active task while the shared read is unresolved or failed', () => {
     const records = [catalogEntry('mine', SESSION, 'active')]
-    expect(selectSessionScheduleFacts(hostSnapshot('loading', records), SESSION))
-      .toEqual({ hasActive: false, records: [] })
-    expect(selectSessionScheduleFacts(hostSnapshot('error', records), SESSION))
-      .toEqual({ hasActive: false, records: [] })
+    expect(selectSessionScheduleFacts(hostSnapshot('loading', records), SESSION)).toEqual({ hasActive: false, records: [] })
+    expect(selectSessionScheduleFacts(hostSnapshot('error', records), SESSION)).toEqual({ hasActive: false, records: [] })
   })
 
   it('keeps a Session’s active tasks through a refresh and a failed refresh', () => {
@@ -123,7 +124,6 @@ describe('shared Host catalog projection', () => {
     }
 
     // A read that never succeeded states nothing, however many records it carries.
-    expect(selectSessionScheduleFacts(hostSnapshot('loading', [mine, other], false), SESSION))
-      .toEqual({ hasActive: false, records: [] })
+    expect(selectSessionScheduleFacts(hostSnapshot('loading', [mine, other], false), SESSION)).toEqual({ hasActive: false, records: [] })
   })
 })

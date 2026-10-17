@@ -1,11 +1,11 @@
 import type {
-  ConversationLocation, ConversationNodeContext, ConversationNodeDefinition,
+  ConversationLocation,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatConversationViewNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {
-  ToolWorkflowAgentEndData, ToolWorkflowAgentStartData,
-} from '@deepseek-ai/dsh-tool-workflow/types'
+import type { ToolWorkflowAgentEndData, ToolWorkflowAgentStartData } from '@deepseek-ai/dsh-tool-workflow/types'
 import type { WorkflowAgentOutcome, WorkflowStopReason } from '@deepseek-ai/dsh-workflow/types'
 
 /** Status shown for a workflow, phase, or member. */
@@ -62,21 +62,29 @@ export function workflowPhaseKey(phase: string | null): string {
 
 function statusFromStopReason(stopReason: WorkflowStopReason): WorkflowRunStatus {
   switch (stopReason) {
-    case 'completed': return 'completed'
-    case 'cancelled': return 'cancelled'
-    case 'error': return 'failed'
+    case 'completed':
+      return 'completed'
+    case 'cancelled':
+      return 'cancelled'
+    case 'error':
+      return 'failed'
     /* v8 ignore next -- WorkflowStopReason is closed and every variant is handled above. */
-    default: return stopReason satisfies never
+    default:
+      return stopReason satisfies never
   }
 }
 
 function statusFromOutcome(outcome: WorkflowAgentOutcome): WorkflowRunStatus {
   switch (outcome) {
-    case 'completed': return 'completed'
-    case 'cancelled': return 'cancelled'
-    case 'failed': return 'failed'
+    case 'completed':
+      return 'completed'
+    case 'cancelled':
+      return 'cancelled'
+    case 'failed':
+      return 'failed'
     /* v8 ignore next -- WorkflowAgentOutcome is closed and every variant is handled above. */
-    default: return outcome satisfies never
+    default:
+      return outcome satisfies never
   }
 }
 
@@ -92,13 +100,9 @@ function turnAbandoned(location: ConversationLocation): boolean {
   return reason === 'interrupted' || reason === 'forked'
 }
 
-function projectWorkflow(
-  context: ConversationNodeContext<WorkflowState>,
-  location: ConversationLocation,
-): WorkflowRunChatData {
+function projectWorkflow(context: ConversationNodeContext<WorkflowState>, location: ConversationLocation): WorkflowRunChatData {
   const state = context.state as WorkflowState
-  const interrupted = state.stopReason === undefined
-    && turnAbandoned(location)
+  const interrupted = state.stopReason === undefined && turnAbandoned(location)
   const phases = new Map<string, { phase: string | null; members: WorkflowRunMemberData[] }>()
   for (const member of state.members) {
     const phase = member.phase === undefined ? null : member.phase
@@ -112,9 +116,7 @@ function projectWorkflow(
       seq: member.seq,
       label: member.label,
       childId: member.childId,
-      status: member.outcome === undefined
-        ? interrupted ? 'interrupted' : 'running'
-        : statusFromOutcome(member.outcome),
+      status: member.outcome === undefined ? (interrupted ? 'interrupted' : 'running') : statusFromOutcome(member.outcome),
     })
   }
   const projectedPhases = [...phases].map(([key, phase]) => ({
@@ -124,9 +126,7 @@ function projectWorkflow(
   }))
   return {
     name: state.name,
-    status: state.stopReason === undefined
-      ? interrupted ? 'interrupted' : 'running'
-      : statusFromStopReason(state.stopReason),
+    status: state.stopReason === undefined ? (interrupted ? 'interrupted' : 'running') : statusFromStopReason(state.stopReason),
     phases: projectedPhases,
   }
 }
@@ -135,7 +135,7 @@ function updateAgentStart(state: WorkflowState, data: ToolWorkflowAgentStartData
   const member: WorkflowMemberState = {
     seq: data.seq,
     label: data.label,
-    ...data.phase === undefined ? {} : { phase: data.phase },
+    ...(data.phase === undefined ? {} : { phase: data.phase }),
     childId: data.childId,
   }
   return { ...state, members: [...state.members, member] }
@@ -144,9 +144,7 @@ function updateAgentStart(state: WorkflowState, data: ToolWorkflowAgentStartData
 function updateAgentEnd(state: WorkflowState, data: ToolWorkflowAgentEndData): WorkflowState {
   return {
     ...state,
-    members: state.members.map(member => member.seq === data.seq
-      ? { ...member, outcome: data.outcome }
-      : member),
+    members: state.members.map(member => (member.seq === data.seq ? { ...member, outcome: data.outcome } : member)),
   }
 }
 
@@ -154,11 +152,9 @@ function updateAgentEnd(state: WorkflowState, data: ToolWorkflowAgentEndData): W
 export const workflowRunDefinition: ConversationNodeDefinition<WorkflowState> = {
   kind: 'workflow-run',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'tool-workflow/run-start') return { id: String(event.data.runId), role: 'start' }
-    if (event.type === 'tool-workflow/agent-start'
-      || event.type === 'tool-workflow/agent-end'
-      || event.type === 'tool-workflow/run-end') {
+    if (event.type === 'tool-workflow/agent-start' || event.type === 'tool-workflow/agent-end' || event.type === 'tool-workflow/run-end') {
       return { id: String(event.data.runId), role: 'update' }
     }
     return null

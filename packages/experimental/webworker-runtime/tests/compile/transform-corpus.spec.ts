@@ -14,11 +14,11 @@
  */
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { expect, test, TestRunner } from 'vitest'
+import { expect, test, TestRunner } from 'vite-plus/test'
 
 const runner = fileURLToPath(new URL('./transform-corpus-check.ts', import.meta.url))
 
-test('every built bundle imports under Node', (context) => {
+test('every built bundle imports under Node', context => {
   const finished = spawnSync(process.execPath, ['--import', 'tsx/esm', runner], { encoding: 'utf8' })
   const output = `${finished.stdout}${finished.stderr}`
   if (output.includes('no built bundles found')) {
@@ -27,7 +27,12 @@ test('every built bundle imports under Node', (context) => {
   }
   // The runner prefixes every finding with '- ', so a failure reads as the
   // findings themselves rather than as a diff of its whole report.
-  expect(output.split('\n').filter(line => line.startsWith('- ')).join('\n')).toBe('')
+  expect(
+    output
+      .split('\n')
+      .filter(line => line.startsWith('- '))
+      .join('\n'),
+  ).toBe('')
   expect(finished.status, output).toBe(0)
 }, 900_000)
 
@@ -49,15 +54,13 @@ test.each([
   // The other stylesheet is the dependency's, which the launcher resolves into
   // its source tree: the sweep reports it where an exact-path admission would
   // reject the bundle.
-  const file = mode === 'other-css'
-    ? fileURLToPath(new URL('packages/client/ui-primitives/src/StateDot.module.css', root))
-    : `${cssBase}${extension}`
-  const message = mode === 'error'
-    ? 'dockkit-negative-control'
-    : `Unknown file extension "${extension}" for ${file}`
-  const source = mode === 'clean'
-    ? 'export {}'
-    : `throw Object.assign(new Error(${JSON.stringify(message)}), { code: ${JSON.stringify(mode === 'other-code' ? 'ERR_OTHER' : 'ERR_UNKNOWN_FILE_EXTENSION')} })`
+  const file =
+    mode === 'other-css' ? fileURLToPath(new URL('packages/client/ui-primitives/src/StateDot.module.css', root)) : `${cssBase}${extension}`
+  const message = mode === 'error' ? 'dockkit-negative-control' : `Unknown file extension "${extension}" for ${file}`
+  const source =
+    mode === 'clean'
+      ? 'export {}'
+      : `throw Object.assign(new Error(${JSON.stringify(message)}), { code: ${JSON.stringify(mode === 'other-code' ? 'ERR_OTHER' : 'ERR_UNKNOWN_FILE_EXTENSION')} })`
   const script = `
     import { registerHooks } from 'node:module'
     const target = ${JSON.stringify(new URL(bundle, root).href)}
@@ -77,7 +80,9 @@ test.each([
     await import(${JSON.stringify(pathToFileURL(runner).href)})
   `
   const finished = spawnSync(process.execPath, ['--import', 'tsx/esm', '--input-type=module', '-e', script], {
-    cwd: fileURLToPath(root), encoding: 'utf8', timeout: TestRunner.getCurrentTest()!.timeout,
+    cwd: fileURLToPath(root),
+    encoding: 'utf8',
+    timeout: TestRunner.getCurrentTest()!.timeout,
   })
   const output = `${finished.stdout}${finished.stderr}`
   expect(finished.error).toBeUndefined()

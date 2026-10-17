@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { finished } from 'node:stream/promises'
 import type { WriteStream } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const require = createRequire(import.meta.url)
 const builderRequire = createRequire(require.resolve('app-builder-lib/package.json'))
@@ -16,17 +16,22 @@ const { createPackageWithOptions } = builderRequire('@electron/asar') as {
 }
 const packageDirectory = fileURLToPath(new URL('../../../packages/sandbox/sandbox-windows-acl/', import.meta.url))
 
-it.skipIf(process.platform !== 'win32' || process.env.DSH_EXAMPLE_MODE !== 'lib')('executes the archived ACL skill through external PowerShell and disposes its copy', { retry: 0 }, async () => {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-acl-asar-'))
-  try {
-    const source = join(root, 'package')
-    // Electron reads the archived package here; full installer layout and SEA execution have separate coverage needs.
-    await mkdir(source)
-    for (const path of ['lib', 'assets', 'package.json']) await cp(join(packageDirectory, path), join(source, path), { recursive: true })
-    const archive = join(root, 'app.asar')
-    await finished(await createPackageWithOptions(source, archive, {}))
-    const entry = join(root, 'probe.mjs')
-    await writeFile(entry, `
+it.skipIf(process.platform !== 'win32' || process.env.DSH_EXAMPLE_MODE !== 'lib')(
+  'executes the archived ACL skill through external PowerShell and disposes its copy',
+  { retry: 0 },
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-acl-asar-'))
+    try {
+      const source = join(root, 'package')
+      // Electron reads the archived package here; full installer layout and SEA execution have separate coverage needs.
+      await mkdir(source)
+      for (const path of ['lib', 'assets', 'package.json']) await cp(join(packageDirectory, path), join(source, path), { recursive: true })
+      const archive = join(root, 'app.asar')
+      await finished(await createPackageWithOptions(source, archive, {}))
+      const entry = join(root, 'probe.mjs')
+      await writeFile(
+        entry,
+        `
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -63,16 +68,21 @@ try {
   assert.deepEqual(await ctx.skills.list(), []);
   process.stdout.write('ACL_SKILL_ASAR_OK');
 } finally { await ctx.fiber.dispose(); }
-`)
-    const electron = require('electron') as string
-    const result = spawnSync(electron, [entry, packageDirectory, archive, root], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', TEMP: root, TMP: root }, encoding: 'utf8', timeout: 60_000, windowsHide: true,
-    })
-    expect(result.error).toBeUndefined()
-    expect(result.signal).toBeNull()
-    expect(result.status, result.stderr).toBe(0)
-    expect(result.stdout).toBe('ACL_SKILL_ASAR_OK')
-  } finally {
-    await rm(root, { recursive: true, force: true })
-  }
-})
+`,
+      )
+      const electron = require('electron') as string
+      const result = spawnSync(electron, [entry, packageDirectory, archive, root], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', TEMP: root, TMP: root },
+        encoding: 'utf8',
+        timeout: 60_000,
+        windowsHide: true,
+      })
+      expect(result.error).toBeUndefined()
+      expect(result.signal).toBeNull()
+      expect(result.status, result.stderr).toBe(0)
+      expect(result.stdout).toBe('ACL_SKILL_ASAR_OK')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)

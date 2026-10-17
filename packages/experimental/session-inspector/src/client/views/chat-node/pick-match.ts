@@ -35,14 +35,17 @@ export function matchChatElement(element: Element, root: HTMLElement): Inspector
   if (box === undefined) return undefined
   const turnValue = turnElement?.dataset.chatTurn
   const turn = turnValue === undefined || turnValue === '' ? undefined : Number(turnValue)
-  return { element: box, target: {
-    ...node?.dataset.chatNodeKey === undefined ? {} : { nodeKey: node.dataset.chatNodeKey },
-    ...node?.dataset.chatGroupPart === undefined ? {} : { groupPart: node.dataset.chatGroupPart },
-    ...node?.dataset.chatFlowKind === undefined ? {} : { nodeKind: node.dataset.chatFlowKind },
-    ...call?.dataset.chatCallId === undefined ? {} : { callId: call.dataset.chatCallId },
-    ...group?.dataset.chatGroupKey === undefined ? {} : { groupKey: group.dataset.chatGroupKey },
-    ...turn !== undefined && Number.isSafeInteger(turn) && turn >= 0 ? { turn } : {},
-  } }
+  return {
+    element: box,
+    target: {
+      ...(node?.dataset.chatNodeKey === undefined ? {} : { nodeKey: node.dataset.chatNodeKey }),
+      ...(node?.dataset.chatGroupPart === undefined ? {} : { groupPart: node.dataset.chatGroupPart }),
+      ...(node?.dataset.chatFlowKind === undefined ? {} : { nodeKind: node.dataset.chatFlowKind }),
+      ...(call?.dataset.chatCallId === undefined ? {} : { callId: call.dataset.chatCallId }),
+      ...(group?.dataset.chatGroupKey === undefined ? {} : { groupKey: group.dataset.chatGroupKey }),
+      ...(turn !== undefined && Number.isSafeInteger(turn) && turn >= 0 ? { turn } : {}),
+    },
+  }
 }
 
 /**
@@ -64,5 +67,5 @@ export function matchChatNodeRow(target: InspectorPickTarget, rows: ReadonlyMap<
   }
   if (target.turn === undefined) return undefined
   const turn = entries.filter(([, row]) => row.turn === target.turn)
-  return (target.step === undefined ? turn[0] : turn.find(([, row]) => row.step === target.step) ?? turn[0])?.[0]
+  return (target.step === undefined ? turn[0] : (turn.find(([, row]) => row.step === target.step) ?? turn[0]))?.[0]
 }

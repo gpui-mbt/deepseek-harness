@@ -37,7 +37,9 @@ interface TranslationSpecFields {
 }
 
 /** Fully resolved anonymous endpoint request. */
-export interface AnonymousTranslationSpec extends TranslationSpecFields { readonly provider: AnonymousTranslationProvider }
+export interface AnonymousTranslationSpec extends TranslationSpecFields {
+  readonly provider: AnonymousTranslationProvider
+}
 
 /** Fully resolved native request with its required durable Session identity. */
 export interface PaidTranslationSpec extends TranslationSpecFields {
@@ -87,7 +89,14 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** Failures distinct from caller cancellation and service disposal. */
-export type TranslationErrorCode = 'TRANSLATION_TEXT_LIMIT' | 'TRANSLATION_HTTP_ERROR'
-  | 'TRANSLATION_INVALID_RESPONSE' | 'TRANSLATION_RESPONSE_LIMIT' | 'TRANSLATION_REQUEST_FAILED' | 'TRANSLATION_TIMEOUT'
-  | 'TRANSLATION_SESSION_REQUIRED' | 'TRANSLATION_SESSION_INACTIVE' | 'TRANSLATION_STORAGE_ERROR'
+export type TranslationErrorCode =
+  | 'TRANSLATION_TEXT_LIMIT'
+  | 'TRANSLATION_HTTP_ERROR'
+  | 'TRANSLATION_INVALID_RESPONSE'
+  | 'TRANSLATION_RESPONSE_LIMIT'
+  | 'TRANSLATION_REQUEST_FAILED'
+  | 'TRANSLATION_TIMEOUT'
+  | 'TRANSLATION_SESSION_REQUIRED'
+  | 'TRANSLATION_SESSION_INACTIVE'
+  | 'TRANSLATION_STORAGE_ERROR'
   | 'TRANSLATION_UNAVAILABLE'

@@ -1,5 +1,5 @@
 /** Unknown producer attribution survives the native codec and detached Session reader. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Session, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { SessionFormatEventCollector } from '@deepseek-ai/dsh-session-format'
@@ -9,9 +9,10 @@ import { releasedV4SessionFormatCodec as codec, restoreReleasedV4Artifact } from
 const header = { version: 4, id: 'unknown-attribution', createdAt: 1, isSeeded: false, delegationDepth: 0 }
 
 describe('uninstalled producer attribution', () => {
-  it.each(['user', 'developer'] as const)('preserves %s source metadata through decoding, adoption and derivation', (role) => {
+  it.each(['user', 'developer'] as const)('preserves %s source metadata through decoding, adoption and derivation', role => {
     const message = {
-      id: 'attributed-message', role,
+      id: 'attributed-message',
+      role,
       source: { kind: 'external-attribution', location: { file: 'notes.txt', lines: [2, 5] }, enabled: false },
       content: [{ type: 'text', text: 'Retain this context.' }],
     }
@@ -32,8 +33,11 @@ describe('uninstalled producer attribution', () => {
     expect(restored.events).toEqual(input)
     // The format reader validates stored JSON; adoption validates the current Session fields.
     const session = Session.fromRestore(
-      SessionId(header.id), restored.events as readonly SessionEvent[], restored.header as unknown as SessionHeader,
-      SessionLogOffset(restored.inheritedEventCount), 'detached',
+      SessionId(header.id),
+      restored.events as readonly SessionEvent[],
+      restored.header as unknown as SessionHeader,
+      SessionLogOffset(restored.inheritedEventCount),
+      'detached',
     )
     expect(session.deriveMessages()).toEqual([message])
     expect(restored.events.map(event => JSON.stringify(codec.encodeEvent(event)))).toEqual(physical)

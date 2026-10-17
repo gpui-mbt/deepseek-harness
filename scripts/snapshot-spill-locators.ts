@@ -40,7 +40,7 @@ export function apply(ctx: Context, config: Config): void {
     return path
   }
   ctx.effect(() => {
-    store.saveText = async (input) => {
+    store.saveText = async input => {
       const saved = await saveText.call(store, input)
       const suffix = relative(root, saved.locator)
       if (suffix.startsWith('..') || resolve(root, suffix) !== saved.locator) {

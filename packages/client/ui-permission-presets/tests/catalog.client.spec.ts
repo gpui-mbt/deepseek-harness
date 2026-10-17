@@ -1,18 +1,26 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
-import type {
-  ConnectionGeneration, ConnectionHandle,
-} from '@deepseek-ai/dsh-client-connection/client'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import type { ConnectionGeneration, ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import type { PermissionCatalog } from '@deepseek-ai/dsh-permission-presets/client'
 import { PermissionCatalogDirectory } from '../src/client/catalog.ts'
 
 const FIRST: PermissionCatalog = {
-  defaultPreset: 'read-only', defaultOptions: [{ value: 'read-only', name: 'read-only' }, { value: 'workspace-write', name: 'workspace-write' }, { value: 'danger-full-access', name: 'danger-full-access' }],
+  defaultPreset: 'read-only',
+  defaultOptions: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+    { value: 'danger-full-access', name: 'danger-full-access' },
+  ],
   options: [{ value: 'read-only', name: 'Read only' }],
 }
 const SECOND: PermissionCatalog = {
-  defaultPreset: 'read-only', defaultOptions: [{ value: 'read-only', name: 'read-only' }, { value: 'workspace-write', name: 'workspace-write' }, { value: 'danger-full-access', name: 'danger-full-access' }],
+  defaultPreset: 'read-only',
+  defaultOptions: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+    { value: 'danger-full-access', name: 'danger-full-access' },
+  ],
   options: [{ value: 'workspace-write', name: 'Workspace write' }],
 }
 
@@ -31,7 +39,9 @@ function installConnection(ctx: Context, initialId: number | undefined): Generat
       getSnapshot: () => generation,
       subscribe(listener: () => void) {
         listeners.add(listener)
-        return () => { listeners.delete(listener) }
+        return () => {
+          listeners.delete(listener)
+        }
       },
     },
   } as ConnectionHandle
@@ -56,9 +66,7 @@ function installConnection(ctx: Context, initialId: number | undefined): Generat
 }
 
 function generationOf(id: number | undefined): ConnectionGeneration | undefined {
-  return id === undefined
-    ? undefined
-    : { id, host: { home: `/host-${String(id)}` } }
+  return id === undefined ? undefined : { id, host: { home: `/host-${String(id)}` } }
 }
 
 describe('PermissionCatalogDirectory', () => {
@@ -108,7 +116,9 @@ describe('PermissionCatalogDirectory', () => {
     const directory = new PermissionCatalogDirectory(ctx)
     expect(calls).toBe(2)
     second.resolve({ ok: true, value: SECOND })
-    await vi.waitFor(() => { expect(directory.store.getSnapshot().value).toEqual(SECOND) })
+    await vi.waitFor(() => {
+      expect(directory.store.getSnapshot().value).toEqual(SECOND)
+    })
     first.resolve({ ok: true, value: FIRST })
     await first.promise
     await Promise.resolve()
@@ -161,9 +171,7 @@ describe('PermissionCatalogDirectory', () => {
       permissionPresets: {
         catalog() {
           calls += 1
-          return calls === 1
-            ? Promise.resolve({ ok: true as const, value: FIRST })
-            : refresh.promise
+          return calls === 1 ? Promise.resolve({ ok: true as const, value: FIRST }) : refresh.promise
         },
       },
     })
@@ -173,7 +181,9 @@ describe('PermissionCatalogDirectory', () => {
     remote.emit('permission-presets/catalog-changed', [])
     const loaded = directory.load()
     let settled = false
-    void loaded.finally(() => { settled = true })
+    void loaded.finally(() => {
+      settled = true
+    })
     await Promise.resolve()
     expect(settled).toBe(false)
 
@@ -250,7 +260,9 @@ describe('PermissionCatalogDirectory', () => {
 
     generation.setSilently(3)
     directory.refresh()
-    await vi.waitFor(() => { expect(directory.store.getSnapshot().value).toEqual(FIRST) })
+    await vi.waitFor(() => {
+      expect(directory.store.getSnapshot().value).toEqual(FIRST)
+    })
     expect(calls).toBe(3)
     expect(directory.invalidations.getSnapshot()).toEqual({ count: 2 })
     directory.dispose()
@@ -295,10 +307,11 @@ describe('PermissionCatalogDirectory', () => {
     installConnection(ctx, 1)
     new TestRemote(ctx, {
       permissionPresets: {
-        catalog: () => Promise.resolve({
-          ok: false as const,
-          error: { code: 'catalog/missing', message: 'missing catalog', details: {} },
-        }),
+        catalog: () =>
+          Promise.resolve({
+            ok: false as const,
+            error: { code: 'catalog/missing', message: 'missing catalog', details: {} },
+          }),
       },
     })
     const directory = new PermissionCatalogDirectory(ctx)

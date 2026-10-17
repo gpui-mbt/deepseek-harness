@@ -1,13 +1,8 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
-import {
-  CompactionId,
-  CompactionEngine,
-  compactCheckpointSource,
-  isCompactCheckpointSource,
-} from '@deepseek-ai/dsh-compaction'
+import { CompactionId, CompactionEngine, compactCheckpointSource, isCompactCheckpointSource } from '@deepseek-ai/dsh-compaction'
 import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionSeq } from '@deepseek-ai/dsh-session'
@@ -16,7 +11,7 @@ import type { ManualCompactAgentContext } from '@deepseek-ai/dsh-compaction'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'other': { kind: 'other' } & ContextFormed
+    other: { kind: 'other' } & ContextFormed
   }
 }
 
@@ -39,10 +34,7 @@ class StubCompactionEngine extends CompactionEngine {
     return null
   }
 
-  override async compactNow(
-    _agent: ManualCompactAgentContext,
-    signal: AbortSignal,
-  ): Promise<CompactionResult | null> {
+  override async compactNow(_agent: ManualCompactAgentContext, signal: AbortSignal): Promise<CompactionResult | null> {
     this.lastSignal = signal
     return null
   }
@@ -73,13 +65,17 @@ class StubCompactionEngine extends CompactionEngine {
       provider: 'mock',
       model: 'stub',
     })
-    session.append('user/message', createUserMessage({
-      content: summary,
-      source: compactCheckpointSource(compactionId),
-    }), {
-      surfaceOp: { op: 'replace', startSeq: start, endSeq: end },
-      sourceEventSeqs: [startEvent.seq, summaryEvent.seq, ...shadowedSeqs],
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: summary,
+        source: compactCheckpointSource(compactionId),
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: start, endSeq: end },
+        sourceEventSeqs: [startEvent.seq, summaryEvent.seq, ...shadowedSeqs],
+      },
+    )
     const endEvent = session.append('compaction/end', { compactionId, turn: 0 })
     return {
       compactionId,
@@ -120,10 +116,15 @@ describe('CompactionEngine seam', () => {
     const session = Session.create(SessionId('s'))
     expect(await svc.compactIfNeeded(stubAgent(session), 'pressure', new AbortController().signal)).toBeNull()
     const signal = new AbortController().signal
-    expect(await svc.compactNow({
-      ...stubAgent(session),
-      runMaintenance: task => task(new AbortController().signal),
-    }, signal)).toBeNull()
+    expect(
+      await svc.compactNow(
+        {
+          ...stubAgent(session),
+          runMaintenance: task => task(new AbortController().signal),
+        },
+        signal,
+      ),
+    ).toBeNull()
     expect(svc.lastSignal).toBe(signal)
   })
 
@@ -131,10 +132,14 @@ describe('CompactionEngine seam', () => {
     const ctx = new Context()
     const svc = new StubCompactionEngine(ctx)
     const session = Session.create(SessionId('s'))
-    const original = session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'original' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const original = session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'original' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
 
     const result = await svc.compactRegion(original.seq, original.seq, stubAgent(session, 'm'))
 
@@ -149,14 +154,16 @@ describe('CompactionEngine seam', () => {
     expect(result.endSeq).toBeGreaterThan(result.summarySeq)
     expect(result.shadowedRange).toEqual({ start: original.seq, end: original.seq })
     expect(result.shadowedSeqs).toEqual([original.seq])
-    const checkpoint = session.snapshotEvents().find(event => event.type === 'user/message'
-      && isCompactCheckpointSource(event.data.source))
-    expect(checkpoint?.type === 'user/message' && checkpoint.data.source)
-      .toEqual(compactCheckpointSource(result.compactionId))
+    const checkpoint = session.snapshotEvents().find(event => event.type === 'user/message' && isCompactCheckpointSource(event.data.source))
+    expect(checkpoint?.type === 'user/message' && checkpoint.data.source).toEqual(compactCheckpointSource(result.compactionId))
     expect(isCompactCheckpointSource({ kind: 'other' })).toBe(false)
     expect(isCompactCheckpointSource({ kind: 'user' })).toBe(false)
-    expect(session.snapshotEvents().filter(e => e.type.startsWith('compaction/')).map(e => e.type))
-      .toEqual(['compaction/start', 'compaction/summary', 'compaction/end'])
+    expect(
+      session
+        .snapshotEvents()
+        .filter(e => e.type.startsWith('compaction/'))
+        .map(e => e.type),
+    ).toEqual(['compaction/start', 'compaction/summary', 'compaction/end'])
   })
 
   it('threads the cancellation signal through to the backend', async () => {
@@ -164,10 +171,14 @@ describe('CompactionEngine seam', () => {
     const svc = new StubCompactionEngine(ctx)
     const session = Session.create(SessionId('s'))
     const controller = new AbortController()
-    const original = session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'original' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const original = session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'original' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
 
     await svc.compactRegion(original.seq, original.seq, stubAgent(session, 'm'), controller.signal)
     expect(svc.lastSignal).toBe(controller.signal)

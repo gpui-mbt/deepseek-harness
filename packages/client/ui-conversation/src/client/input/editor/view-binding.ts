@@ -54,7 +54,9 @@ export function focusDraftEditor(editor: LexicalEditor, revealSelection: () => v
   // Lexical's focus() restores the editor selection but never calls the DOM
   // focus itself; preventScroll keeps the conversation scrollport still.
   editor.getRootElement()?.focus({ preventScroll: true })
-  editor.focus(() => { revealSelection() })
+  editor.focus(() => {
+    revealSelection()
+  })
 }
 
 /**
@@ -75,7 +77,9 @@ export function installDraftWheel(scrollRef: RefObject<HTMLDivElement>): (() => 
     host.scrollTop += e.deltaY
   }
   el.addEventListener('wheel', onWheel, { passive: false })
-  return () => { el.removeEventListener('wheel', onWheel) }
+  return () => {
+    el.removeEventListener('wheel', onWheel)
+  }
 }
 
 /**
@@ -92,7 +96,9 @@ export function installDraftFilePicker(
 ): () => void {
   return keyboard.bindFilePicker({
     available: () => gate.current.canAcceptDrop && fileInputRef.current !== null && !fileInputRef.current.disabled,
-    open: () => { fileInputRef.current?.click() },
+    open: () => {
+      fileInputRef.current?.click()
+    },
   })
 }
 
@@ -103,20 +109,18 @@ export function installDraftFilePicker(
  * @param gate - live view values read by the installed handlers.
  * @returns the keymap disposer.
  */
-export function installDraftKeymap(
-  editor: LexicalEditor,
-  keyboard: ComposerKeyboard,
-  gate: MutableRefObject<DraftViewGate>,
-): () => void {
+export function installDraftKeymap(editor: LexicalEditor, keyboard: ComposerKeyboard, gate: MutableRefObject<DraftViewGate>): () => void {
   return registerComposerKeymap(editor, {
     arbitrate: (key, composing) => keyboard.arbitrate(key, composing),
     space: () => {
       if (gate.current.machineBusy || gate.current.locked) return false
       return keyboard.space()
     },
-    dismissPopup: () => { keyboard.dismissPopup() },
+    dismissPopup: () => {
+      keyboard.dismissPopup()
+    },
     canSubmit: () => !gate.current.locked && !gate.current.machineBusy,
-    submit: (accelerated) => {
+    submit: accelerated => {
       const g = gate.current
       // Empty-draft accelerated Enter acts on the queue instead of the
       // (empty) draft: the machine rejects empty drafts, so the gesture
@@ -129,15 +133,12 @@ export function installDraftKeymap(
         g.showToast(g.t('file.stillUploading'))
         return
       }
-      keyboard.submit(resolveSubmitMode(
-        g.busyEnter,
-        g.running,
-        accelerated ? 'accelerated' : 'enter',
-        g.steeringAvailable,
-      ), 'enter')
+      keyboard.submit(resolveSubmitMode(g.busyEnter, g.running, accelerated ? 'accelerated' : 'enter', g.steeringAvailable), 'enter')
     },
-    intakeFiles: (files, directories) => { gate.current.intakeFiles(files, directories) },
-    pasteText: (text) => {
+    intakeFiles: (files, directories) => {
+      gate.current.intakeFiles(files, directories)
+    },
+    pasteText: text => {
       if (gate.current.machineBusy || gate.current.locked) return
       keyboard.paste(text)
     },

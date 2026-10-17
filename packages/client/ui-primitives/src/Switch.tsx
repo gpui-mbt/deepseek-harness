@@ -15,7 +15,14 @@ import css from './Switch.module.css'
  * @param props.className - extra class for layout placement.
  * @returns the switch element.
  */
-export function Switch({ checked, onChange, label, disabled = false, title, className }: {
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  title,
+  className,
+}: {
   checked: boolean
   onChange: (next: boolean) => void
   label: string
@@ -34,7 +41,9 @@ export function Switch({ checked, onChange, label, disabled = false, title, clas
       title={title}
       disabled={disabled}
       className={clsx(css.switch, className)}
-      onClick={() => { onChange(!checked) }}
+      onClick={() => {
+        onChange(!checked)
+      }}
     >
       <span className={css.thumb} />
     </button>

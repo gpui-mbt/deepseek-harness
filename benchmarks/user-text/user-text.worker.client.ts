@@ -73,8 +73,13 @@ export interface UserTextAllocationReport {
 
 /** Matchers the Web composition registers besides the credential matcher. */
 const BASE_RULES: readonly UserTextRule[] = [
-  sessionReferenceRule, fileReferenceRule, folderReferenceRule, skillReferenceRule,
-  goalCommandReferenceRule, collapseWhitespaceRule, trimWhitespaceRule,
+  sessionReferenceRule,
+  fileReferenceRule,
+  folderReferenceRule,
+  skillReferenceRule,
+  goalCommandReferenceRule,
+  collapseWhitespaceRule,
+  trimWhitespaceRule,
 ]
 /** Facts a sent message bubble supplies. */
 const FACTS: Readonly<Partial<UserTextFacts>> = { sessionLabels: ['会话一'], skillNames: ['plan', 'review'] }
@@ -85,24 +90,43 @@ const WARMUP_PAIRS = 10
 /** Batch every single-document workload to limit noise in its shortest evaluation intervals. */
 const SINGLE_DOCUMENT_EVALUATIONS = 20
 const PROSE = '帮我看看这个函数为什么慢，顺便把 README 也更新一下。The quick brown fox jumps over the lazy dog, 1234 times. '
-const CODE = 'const value = await fetch(`https://api.example.com/v1/items?id=${id}`); if (!value.ok) throw new Error("bad: " + value.status);\n'
+const CODE =
+  'const value = await fetch(`https://api.example.com/v1/items?id=${id}`); if (!value.ok) throw new Error("bad: " + value.status);\n'
 const BASE64 = 'QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVphYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ejAxMjM0NTY3ODkrLw'
 const MARKDOWN = [
-  '## 安装与配置', '', '- 运行 `pnpm install`，然后执行 `pnpm run build`。',
-  '- 详见 [文档](https://example.com/docs/setup?ref=readme#install)。', '',
-  '| 选项 | 默认值 | 说明 |', '|---|---|---|', '| `timeout` | 30s | 请求超时 |', '| `retries` | 3 | 失败重试次数 |', '',
-  '```ts', "const client = createClient({ baseUrl: 'https://api.example.com/v1', timeout: 30_000 })", '```', '', '',
+  '## 安装与配置',
+  '',
+  '- 运行 `pnpm install`，然后执行 `pnpm run build`。',
+  '- 详见 [文档](https://example.com/docs/setup?ref=readme#install)。',
+  '',
+  '| 选项 | 默认值 | 说明 |',
+  '|---|---|---|',
+  '| `timeout` | 30s | 请求超时 |',
+  '| `retries` | 3 | 失败重试次数 |',
+  '',
+  '```ts',
+  "const client = createClient({ baseUrl: 'https://api.example.com/v1', timeout: 30_000 })",
+  '```',
+  '',
+  '',
 ].join('\n')
-const LOG = '2026-10-11T12:00:00.123Z INFO  [worker-3] GET https://api.example.com/v1/items?id=1234&page=2 200 12ms '
-  + 'trace=4bf92f3577b34da6a3ce929d0e0e4736 user=alice@example.com\n'
-const JSON_LINES = '{"id":"123e4567-e89b-12d3-a456-426614174000","url":"https://cdn.example.com/assets/img_0001.png",'
-  + '"name":"task-runner","tags":["sk-button","api_key_name"],"created_at":"2026-10-11T12:00:00Z","size":10240},\n'
-const SHELL = 'pnpm --filter @deepseek-ai/dsh-client-ui-secret-mask run test -- --coverage --reporter=verbose'
-  + ' && git push origin feat/user-text-secret-mask\n'
+const LOG =
+  '2026-10-11T12:00:00.123Z INFO  [worker-3] GET https://api.example.com/v1/items?id=1234&page=2 200 12ms ' +
+  'trace=4bf92f3577b34da6a3ce929d0e0e4736 user=alice@example.com\n'
+const JSON_LINES =
+  '{"id":"123e4567-e89b-12d3-a456-426614174000","url":"https://cdn.example.com/assets/img_0001.png",' +
+  '"name":"task-runner","tags":["sk-button","api_key_name"],"created_at":"2026-10-11T12:00:00Z","size":10240},\n'
+const SHELL =
+  'pnpm --filter @deepseek-ai/dsh-client-ui-secret-mask run test -- --coverage --reporter=verbose' +
+  ' && git push origin feat/user-text-secret-mask\n'
 /** Ordinary message fragments: prose, references, a slash skill, a URL without credentials, and code. */
 const MESSAGE_PARTS = [
-  PROSE, '参照 @src/app/main.ts 修复一下', ' /plan 先列计划', ' 见 https://example.com/docs/a?b=c#d ',
-  '`const total = items.reduce((a, b) => a + b, 0)`', ' 然后跑 pnpm run test -- --watch=false。',
+  PROSE,
+  '参照 @src/app/main.ts 修复一下',
+  ' /plan 先列计划',
+  ' 见 https://example.com/docs/a?b=c#d ',
+  '`const total = items.reduce((a, b) => a + b, 0)`',
+  ' 然后跑 pnpm run test -- --watch=false。',
 ] as const
 
 const fill = (unit: string, characters: number): string => unit.repeat(Math.ceil(characters / unit.length)).slice(0, characters)
@@ -116,7 +140,8 @@ const CREDENTIALS = {
   'json-web-token': ['ey', 'J', fill(MIXED, 17), '.', 'ey', 'J', fill(MIXED, 30), '.', fill(MIXED, 43)].join(''),
   'address-password': ['postgres://admin:', 'p4ss-W0rd', '@db.internal:5432/app'].join(''),
   'private-key-block': [
-    ['-----BEGIN', ' RSA PRIVATE KEY-----'].join(''), ...Array.from({ length: 10 }, () => fill(BASE64, 64)),
+    ['-----BEGIN', ' RSA PRIVATE KEY-----'].join(''),
+    ...Array.from({ length: 10 }, () => fill(BASE64, 64)),
     ['-----END', ' RSA PRIVATE KEY-----'].join(''),
   ].join('\n'),
 } as const
@@ -166,10 +191,13 @@ interface Workload {
 function workloads(): readonly Workload[] {
   return [
     { id: 'typical-messages', group: 'unmatched', texts: messages(5_000) },
-    ...Object.entries({ prose: PROSE, code: CODE, base64: BASE64, markdown: MARKDOWN, log: LOG, json: JSON_LINES, shell: SHELL })
-      .map(([name, unit]): Workload => ({ id: `${name}-256k`, group: 'unmatched', texts: [fill(unit, 256 * KIB)] })),
+    ...Object.entries({ prose: PROSE, code: CODE, base64: BASE64, markdown: MARKDOWN, log: LOG, json: JSON_LINES, shell: SHELL }).map(
+      ([name, unit]): Workload => ({ id: `${name}-256k`, group: 'unmatched', texts: [fill(unit, 256 * KIB)] }),
+    ),
     ...Object.entries(CREDENTIALS).map(([name, credential]): Workload => ({
-      id: `messages-with-${name}`, group: 'matched', texts: credentialMessages(5_000, credential),
+      id: `messages-with-${name}`,
+      group: 'matched',
+      texts: credentialMessages(5_000, credential),
     })),
     { id: 'env-keys-1000', group: 'matched', texts: [envFile(1_000)] },
     { id: 'env-keys-2000', group: 'matched', texts: [envFile(2_000)] },
@@ -246,9 +274,15 @@ async function evaluatePair(texts: readonly string[], index: number, evaluations
   return { base: await sample(withoutSecret, texts, evaluations), secret }
 }
 
-async function measure(texts: readonly string[], attempts: number, evaluations: number): Promise<SamplePair & {
-  readonly samples: readonly UserTextTimingPair[]
-}> {
+async function measure(
+  texts: readonly string[],
+  attempts: number,
+  evaluations: number,
+): Promise<
+  SamplePair & {
+    readonly samples: readonly UserTextTimingPair[]
+  }
+> {
   for (let warm = 0; warm < WARMUP_PAIRS; warm++) await evaluatePair(texts, warm, evaluations)
   const pairs: SamplePair[] = []
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -261,8 +295,10 @@ async function measure(texts: readonly string[], attempts: number, evaluations: 
   return {
     ...best,
     samples: pairs.map(pair => ({
-      baseMs: pair.base.ms, baseCpuMs: pair.base.cpuMs,
-      withSecretMs: pair.secret.ms, withSecretCpuMs: pair.secret.cpuMs,
+      baseMs: pair.base.ms,
+      baseCpuMs: pair.base.cpuMs,
+      withSecretMs: pair.secret.ms,
+      withSecretCpuMs: pair.secret.cpuMs,
     })),
   }
 }
@@ -324,7 +360,9 @@ function returned(texts: readonly string[]): Omit<UserTextWorkloadAllocation, 'i
  */
 async function allocatedBytes(texts: readonly string[], collect: () => void): Promise<number> {
   const collections: number[] = []
-  const observer = new PerformanceObserver((list) => { for (const entry of list.getEntries()) collections.push(entry.startTime) })
+  const observer = new PerformanceObserver(list => {
+    for (const entry of list.getEntries()) collections.push(entry.startTime)
+  })
   observer.observe({ entryTypes: ['gc'] })
   try {
     const rule = createSecretRule()
@@ -337,9 +375,12 @@ async function allocatedBytes(texts: readonly string[], collect: () => void): Pr
     const grown = youngBytes() - used
     const end = performance.now()
     // GC entries arrive on a later turn.
-    await new Promise(resolve => { setTimeout(resolve, 20) })
+    await new Promise(resolve => {
+      setTimeout(resolve, 20)
+    })
     const inside = collections.filter(time => time >= start && time <= end).length
-    if (inside > 0) throw new Error(`${String(inside)} garbage collections ran inside the allocation interval; enlarge the young generation`)
+    if (inside > 0)
+      throw new Error(`${String(inside)} garbage collections ran inside the allocation interval; enlarge the young generation`)
     return grown
   } finally {
     observer.disconnect()

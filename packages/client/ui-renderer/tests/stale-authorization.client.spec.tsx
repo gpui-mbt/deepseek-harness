@@ -3,15 +3,11 @@
  * A retained render binding dies with its entry. Re-registering the same key
  * creates a new binding rather than reviving the stale closure.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { act, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import {
-  StaleAuthorizationError, type SlotEntryDef, type SlotSpec, type StoredEntry,
-} from '@deepseek-ai/dsh-client-ui-slots'
-import type {
-  RenderOpts, SlotRendererHost, SlotScopeAdapter, StandardSourceBinding,
-} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import { StaleAuthorizationError, type SlotEntryDef, type SlotSpec, type StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
+import type { RenderOpts, SlotRendererHost, SlotScopeAdapter, StandardSourceBinding } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createSlotRenderer } from '../src/client/scoped-slots.tsx'
 
 type RenderSlotFn = (key: string, owner: object, opts?: RenderOpts) => ReactNode
@@ -46,7 +42,9 @@ function makeHost() {
       const set = subs.get(key) ?? new Set()
       set.add(fn)
       subs.set(key, set)
-      return () => { set.delete(fn) }
+      return () => {
+        set.delete(fn)
+      }
     },
     getVersion: key => versions.get(key) ?? 0,
     entriesOf: key => entries.get(key) ?? [],
@@ -75,7 +73,10 @@ function makeHost() {
       live.add(entry)
       bump(key)
       return () => {
-        entries.set(key, (entries.get(key) ?? []).filter(e => e !== entry))
+        entries.set(
+          key,
+          (entries.get(key) ?? []).filter(e => e !== entry),
+        )
         live.delete(entry)
         bump(key)
       }
@@ -118,8 +119,10 @@ describe('stale authorization', () => {
   it('a live binding renders; the same closure throws after its entry is disposed', () => {
     const h = makeHost()
     const { binding, dispose } = mountCapturing(h)
-    expect(binding('k.child', {})).not.toBeUndefined()   // live: returns an element
-    act(() => { dispose() })
+    expect(binding('k.child', {})).not.toBeUndefined() // live: returns an element
+    act(() => {
+      dispose()
+    })
     expect(() => binding('k.child', {})).toThrow(StaleAuthorizationError)
     expect(() => binding('k.child', {})).toThrow(/disposed registration/)
   })
@@ -127,7 +130,9 @@ describe('stale authorization', () => {
   it('stale check precedes the ownership check: a dead binding throws stale even for undeclared keys', () => {
     const h = makeHost()
     const { binding, dispose } = mountCapturing(h)
-    act(() => { dispose() })
+    act(() => {
+      dispose()
+    })
     // Were ownership checked first this would be SlotOwnershipError; the dead
     // entry must fail on liveness regardless of the key asked for.
     expect(() => binding('k.undeclared', {})).toThrow(StaleAuthorizationError)
@@ -136,7 +141,9 @@ describe('stale authorization', () => {
   it('HMR reload (same key, new entry) mints a fresh binding; the old one stays dead', () => {
     const h = makeHost()
     const first = mountCapturing(h)
-    act(() => { first.dispose() })
+    act(() => {
+      first.dispose()
+    })
 
     // Reload: a new entry object for the same slot key (new registration identity).
     let secondBinding: RenderSlotFn | undefined
@@ -152,8 +159,8 @@ describe('stale authorization', () => {
     render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
 
     expect(secondBinding).toBeDefined()
-    expect(secondBinding).not.toBe(first.binding)          // new identity, no revival
-    expect(secondBinding!('k.child', {})).not.toBeUndefined()   // new binding is live
-    expect(() => first.binding('k.child', {})).toThrow(StaleAuthorizationError)   // old stays dead
+    expect(secondBinding).not.toBe(first.binding) // new identity, no revival
+    expect(secondBinding!('k.child', {})).not.toBeUndefined() // new binding is live
+    expect(() => first.binding('k.child', {})).toThrow(StaleAuthorizationError) // old stays dead
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { CommandText } from '../src/CommandText.tsx'
 import { TerminalBlock } from '../src/TerminalBlock.tsx'
 import { terminalBlockLabels } from './labels.client.ts'
@@ -44,11 +44,16 @@ it('updates focusability after resizing and font loading, and releases both obse
   let resize: (() => void) | undefined
   const observe = vi.fn()
   const disconnect = vi.fn()
-  vi.stubGlobal('ResizeObserver', class {
-    constructor(callback: () => void) { resize = callback }
-    observe = observe
-    disconnect = disconnect
-  })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resize = callback
+      }
+      observe = observe
+      disconnect = disconnect
+    },
+  )
   const fonts = new EventTarget()
   Object.defineProperty(document, 'fonts', { configurable: true, value: fonts })
   const removeListener = vi.spyOn(fonts, 'removeEventListener')
@@ -62,7 +67,9 @@ it('updates focusability after resizing and font loading, and releases both obse
   act(resize)
   expect(command.tabIndex).toBe(0)
   width.mockReturnValue(300)
-  act(() => { fonts.dispatchEvent(new Event('loadingdone')) })
+  act(() => {
+    fonts.dispatchEvent(new Event('loadingdone'))
+  })
   expect(command.hasAttribute('tabindex')).toBe(false)
   view.unmount()
   expect(disconnect).toHaveBeenCalledOnce()

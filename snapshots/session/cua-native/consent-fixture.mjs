@@ -8,7 +8,10 @@ export const inject = ['userQuestions']
 export async function apply(ctx) {
   const close = await startFixtureHost(join(process.cwd(), 'native-helper.mjs'))
   ctx.effect(() => close)
-  ctx.on('user-questions/request', async request => ({ answers: request.questions.map(question => ({
-    id: question.id, selected: ['Allow for this task'],
-  })) }))
+  ctx.on('user-questions/request', async request => ({
+    answers: request.questions.map(question => ({
+      id: question.id,
+      selected: ['Allow for this task'],
+    })),
+  }))
 }

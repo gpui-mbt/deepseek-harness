@@ -2,7 +2,7 @@
 import { createRequire } from 'node:module'
 import ExcelJS from 'exceljs'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { XlsxPreviewArchive } from '../src/client/excel/xlsx-archive.ts'
@@ -12,8 +12,11 @@ const require = createRequire(import.meta.url)
 const browserExcel = require('exceljs/dist/exceljs.js') as typeof ExcelJS
 const limits = Config({}).excel
 
-describe.each([['Node', ExcelJS], ['browser bundle', browserExcel]] as const)('%s XML reader', (_name, parser) => {
-  it.each(excelXmlCases)('preserves comments and Tables in %s', async (name) => {
+describe.each([
+  ['Node', ExcelJS],
+  ['browser bundle', browserExcel],
+] as const)('%s XML reader', (_name, parser) => {
+  it.each(excelXmlCases)('preserves comments and Tables in %s', async name => {
     const source = await excelXmlFixture(name)
     const original = source.slice()
     const archive = new XlsxPreviewArchive(source)
@@ -33,7 +36,7 @@ describe.each([['Node', ExcelJS], ['browser bundle', browserExcel]] as const)('%
   })
 })
 
-it.each(excelXmlCases)('preserves the complete preview for %s', async (name) => {
+it.each(excelXmlCases)('preserves the complete preview for %s', async name => {
   const expected = await convertExcel(await excelXmlFixture('rich'), 'xlsx', limits)
   expect(await convertExcel(await excelXmlFixture(name), 'xlsx', limits)).toEqual(expected)
   expect(expected.unsupportedFeatures).toEqual(['charts', 'images', 'shapes', 'conditionalFormatting'])
@@ -43,7 +46,7 @@ it.each(excelXmlCases)('preserves the complete preview for %s', async (name) => 
   expect(sheet.frozen).toMatchObject({ type: 'rangeBoth', range: { row_focus: 0, column_focus: 0 } })
 })
 
-it.each(['utf-16le', 'utf-16be'] as const)('decodes %s parts and relationships with and without a BOM', async (encoding) => {
+it.each(['utf-16le', 'utf-16be'] as const)('decodes %s parts and relationships with and without a BOM', async encoding => {
   const source = await excelXmlFixture('rich')
   const expected = await convertExcel(source, 'xlsx', limits)
   for (const bom of [false, true]) {
@@ -59,11 +62,14 @@ it.each(['utf-16le', 'utf-16be'] as const)('decodes %s parts and relationships w
   }
 })
 
-it.each(['xl/workbook.xml', 'xl/styles.xml', 'xl/sharedStrings.xml', '_rels/.rels', 'xl/_rels/workbook.xml.rels'])('rejects missing core part %s', async (path) => {
-  const files = unzipSync(await excelXmlFixture('rich'))
-  Reflect.deleteProperty(files, path)
-  await expect(convertExcel(new Uint8Array(zipSync(files)), 'xlsx', limits)).rejects.toMatchObject({ code: 'invalid' })
-})
+it.each(['xl/workbook.xml', 'xl/styles.xml', 'xl/sharedStrings.xml', '_rels/.rels', 'xl/_rels/workbook.xml.rels'])(
+  'rejects missing core part %s',
+  async path => {
+    const files = unzipSync(await excelXmlFixture('rich'))
+    Reflect.deleteProperty(files, path)
+    await expect(convertExcel(new Uint8Array(zipSync(files)), 'xlsx', limits)).rejects.toMatchObject({ code: 'invalid' })
+  },
+)
 
 it('ignores unrelated binary parts without trying to decode them as XML', async () => {
   const source = await excelXmlFixture('rich')
@@ -81,11 +87,17 @@ it('preserves text split across escaped text and CDATA segments', async () => {
 })
 
 it('finds a drawing owned by a part at the package root', () => {
-  const archive = new XlsxPreviewArchive(new Uint8Array(zipSync({
-    '_rels/root.xml.rels': strToU8('<Relationships><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="drawing.xml"/></Relationships>'),
-    'drawing.xml': strToU8('<wsDr><chart/></wsDr>'),
-    '_rels/drawing.xml.rels': strToU8('<Relationships/>'),
-  })))
+  const archive = new XlsxPreviewArchive(
+    new Uint8Array(
+      zipSync({
+        '_rels/root.xml.rels': strToU8(
+          '<Relationships><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="drawing.xml"/></Relationships>',
+        ),
+        'drawing.xml': strToU8('<wsDr><chart/></wsDr>'),
+        '_rels/drawing.xml.rels': strToU8('<Relationships/>'),
+      }),
+    ),
+  )
   expect(Object.keys(unzipSync(archive.withoutDrawings()))).toEqual(['_rels/root.xml.rels'])
   expect([...archive.unsupportedFeatures]).toEqual(['charts'])
 })
@@ -97,11 +109,16 @@ it('rejects a worksheet relationship with no target', async () => {
   await expect(convertExcel(new Uint8Array(zipSync(files)), 'xlsx', limits)).rejects.toMatchObject({ code: 'invalid' })
 })
 
-it.each(['missing', 'external', 'duplicate'] as const)('rejects a %s officeDocument relationship', async (defect) => {
+it.each(['missing', 'external', 'duplicate'] as const)('rejects a %s officeDocument relationship', async defect => {
   const files = unzipSync(await excelXmlFixture('rich'))
   const xml = strFromU8(files['_rels/.rels']!)
   const relation = xml.match(/<Relationship\b[^>]*officeDocument"[^>]*\/>/)![0]
-  files['_rels/.rels'] = strToU8(xml.replace(relation, defect === 'missing' ? '' : defect === 'duplicate' ? relation + relation : relation.replace('/>', ' TargetMode="External"/>')))
+  files['_rels/.rels'] = strToU8(
+    xml.replace(
+      relation,
+      defect === 'missing' ? '' : defect === 'duplicate' ? relation + relation : relation.replace('/>', ' TargetMode="External"/>'),
+    ),
+  )
   await expect(convertExcel(new Uint8Array(zipSync(files)), 'xlsx', limits)).rejects.toMatchObject({ code: 'invalid' })
 })
 

@@ -8,9 +8,7 @@
  * All $-functions must run inside `editor.read()` / `editor.update()`.
  */
 import type { ElementNode, LexicalNode, NodeKey, Point } from 'lexical'
-import {
-  $getRoot, $getSelection, $isElementNode, $isLineBreakNode, $isRangeSelection, $isTextNode,
-} from 'lexical'
+import { $getRoot, $getSelection, $isElementNode, $isLineBreakNode, $isRangeSelection, $isTextNode } from 'lexical'
 import type { Occurrence } from '../../contract/draft-editor.ts'
 import type { CommandClaim } from '../../contract/input.ts'
 import { $isReferenceChipNode } from './chip-node.tsx'
@@ -79,7 +77,10 @@ export function $composerLayout(): ComposerLayout {
   const walkElement = (element: ElementNode): void => {
     const start = detect.length
     const kids = element.getChildren()
-    children.set(element.getKey(), kids.map(kid => kid.getKey()))
+    children.set(
+      element.getKey(),
+      kids.map(kid => kid.getKey()),
+    )
     for (const kid of kids) {
       if ($isReferenceChipNode(kid) || $isCommandChipNode(kid)) {
         pushLeaf('chip', kid, ATOMIC_CHAR, kid.getTextContent())
@@ -100,7 +101,10 @@ export function $composerLayout(): ComposerLayout {
 
   const root = $getRoot()
   const blocks = root.getChildren()
-  children.set(root.getKey(), blocks.map(block => block.getKey()))
+  children.set(
+    root.getKey(),
+    blocks.map(block => block.getKey()),
+  )
   const rootStart = detect.length
   blocks.forEach((block, index) => {
     const previous = blocks[index - 1]

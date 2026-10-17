@@ -1,12 +1,8 @@
 import type { ContentBlock, ToolSchema } from '@deepseek-ai/dsh-llm/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type {
-  AssistantProviderMetadataView, AssistantRequestConfig,
-} from './records.ts'
+import type { AssistantProviderMetadataView, AssistantRequestConfig } from './records.ts'
 
-export type {
-  AssistantProviderMetadataView, AssistantRequestConfig,
-} from './records.ts'
+export type { AssistantProviderMetadataView, AssistantRequestConfig } from './records.ts'
 
 /**
  * Complete model-visible request state in force for an ordinary generation:
@@ -100,12 +96,11 @@ export function inspectRequestPrompt(
   const prompt: ConversationPromptSnapshot = {
     config: header.config,
     system: system?.text ?? '',
-    tools: Array.isArray(rawTools) ? rawTools as readonly ToolSchema[] : [],
+    tools: Array.isArray(rawTools) ? (rawTools as readonly ToolSchema[]) : [],
   }
   if (previous === undefined && event.data.reason !== 'initial') return { prompt }
   const systemChanged = previous !== undefined && previous.system !== prompt.system && system?.update !== true
-  const toolsChanged = previous !== undefined
-    && JSON.stringify(previous.tools) !== JSON.stringify(prompt.tools)
+  const toolsChanged = previous !== undefined && JSON.stringify(previous.tools) !== JSON.stringify(prompt.tools)
   if (previous !== undefined && !systemChanged && !toolsChanged) return { prompt }
   const origin = system !== undefined && (previous === undefined || systemChanged) ? system : event
   return {
@@ -113,11 +108,7 @@ export function inspectRequestPrompt(
     change: {
       seq: origin.seq,
       time: origin.time,
-      kind: previous === undefined
-        ? 'initial'
-        : systemChanged && toolsChanged
-          ? 'system-and-tools'
-          : systemChanged ? 'system' : 'tools',
+      kind: previous === undefined ? 'initial' : systemChanged && toolsChanged ? 'system-and-tools' : systemChanged ? 'system' : 'tools',
       ...(previous === undefined ? {} : { previous }),
     },
   }

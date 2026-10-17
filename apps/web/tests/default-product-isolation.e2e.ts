@@ -5,7 +5,7 @@ import type { Context, Plugin, RegistryService } from '@deepseek-ai/cordis'
 import type { ClientModuleLoader, ClientModuleLoaderTarget } from '@deepseek-ai/dsh-client-modules/client'
 import { chromium } from 'playwright'
 import { hasExperimentalPackageReference } from '../../../scripts/experimental-package-policy.ts'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { withDefaultWeb } from '../../cli/tests/profiles/web/tests/default-web-process.ts'
 import { newEnglishPage } from './support.ts'
 
@@ -25,17 +25,19 @@ async function readClientRoster() {
     for (const value of Object.values(record.exports)) {
       if (typeof value !== 'function' && (typeof value !== 'object' || value === null)) continue
       const callback = ctx.registry.resolve(value as Plugin)
-      if (callback !== undefined) callbacks.set(callback, [...callbacks.get(callback) ?? [], id])
+      if (callback !== undefined) callbacks.set(callback, [...(callbacks.get(callback) ?? []), id])
     }
   }
   return {
     entries: [...ctx.loader.entries()].map(entry => ({ name: entry.options.name, state: entry.fiber?.state })),
-    plugins: [...ctx.registry.values()].flatMap(runtime => [...runtime.fibers].map(fiber => ({
-      name: runtime.name ?? runtime.callback.name,
-      owner: fiber.entry?.options.name,
-      state: fiber.state,
-      modules: callbacks.get(runtime.callback) ?? [],
-    }))),
+    plugins: [...ctx.registry.values()].flatMap(runtime =>
+      [...runtime.fibers].map(fiber => ({
+        name: runtime.name ?? runtime.callback.name,
+        owner: fiber.entry?.options.name,
+        state: fiber.state,
+        modules: callbacks.get(runtime.callback) ?? [],
+      })),
+    ),
     modules: [...modules.loadCache].flatMap(([id, record]) => [id, ...record.edges]),
   }
 }
@@ -48,10 +50,12 @@ function experimentalClientReferences(roster: Awaited<ReturnType<typeof readClie
   ].filter(hasExperimentalPackageReference)
 }
 
-it('activates the actual default Client registry without experimental packages', async (test) => {
+it('activates the actual default Client registry without experimental packages', async test => {
   await withDefaultWeb(test, async ({ url, request }) => {
     const browser = await chromium.launch({ timeout: test.task.timeout })
-    test.onTestFinished(async () => { await browser.close() })
+    test.onTestFinished(async () => {
+      await browser.close()
+    })
     try {
       const page = await newEnglishPage(browser)
       page.setDefaultTimeout(test.task.timeout)
@@ -97,13 +101,19 @@ it('activates the actual default Client registry without experimental packages',
       const experimentalName = '@deepseek-ai/dsh-experimental-client-ui-agent-team'
       expect(contaminatedHost.client.entries.map(entry => entry.id)).toContain(experimentalName)
       await page.reload()
-      await expect.poll(async () => {
-        const current = await page.evaluate(readClientRoster)
-        return current.entries.some(entry => entry.name === experimentalName && entry.state === FiberState.ACTIVE)
-      }, { timeout: test.task.timeout }).toBe(true)
+      await expect
+        .poll(
+          async () => {
+            const current = await page.evaluate(readClientRoster)
+            return current.entries.some(entry => entry.name === experimentalName && entry.state === FiberState.ACTIVE)
+          },
+          { timeout: test.task.timeout },
+        )
+        .toBe(true)
       const contaminated = await page.evaluate(readClientRoster)
-      expect(contaminated.plugins.some(plugin => plugin.modules.includes(experimentalName)
-        && plugin.state === FiberState.ACTIVE)).toBe(true)
+      expect(contaminated.plugins.some(plugin => plugin.modules.includes(experimentalName) && plugin.state === FiberState.ACTIVE)).toBe(
+        true,
+      )
       expect(experimentalClientReferences(contaminated)).toContain(experimentalName)
       expect(errors).toEqual([])
     } finally {

@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { mountLocalActivations, startTestActivation as start } from '../../subagent/tests/local-activation.ts'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context, symbols, type EffectMeta } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
@@ -37,16 +37,18 @@ async function setup(script: Script) {
 }
 
 function text(blocks: readonly { type: string; text?: string }[]): string {
-  return blocks.filter(b => b.type === 'text').map(b => b.text).join('')
+  return blocks
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 /** Invoke the child lifecycle effect while its parent-owned setup is still unpublished. */
 function disposeChildLifecycle(parent: Agent): void {
-  const lifecycle = [...parent.ctx.fiber._disposables]
-    .find((dispose) => {
-      const effect = (dispose as typeof dispose & { [symbols.effect]?: EffectMeta })[symbols.effect]
-      return effect?.label.startsWith('agentLoop.lifecycle(') === true
-    })
+  const lifecycle = [...parent.ctx.fiber._disposables].find(dispose => {
+    const effect = (dispose as typeof dispose & { [symbols.effect]?: EffectMeta })[symbols.effect]
+    return effect?.label.startsWith('agentLoop.lifecycle(') === true
+  })
   if (lifecycle === undefined) throw new Error('child lifecycle effect not found')
   void lifecycle()
 }
@@ -65,7 +67,7 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('emits subagent/start only after the fresh child is published', async () => {
     const { ctx, parent } = await setup([textResponse('child answer')])
     let childAtStart: ReturnType<typeof ctx.agents.get>
-    ctx.on('subagent/start', (info) => {
+    ctx.on('subagent/start', info => {
       if (info.provider === 'spawn') childAtStart = ctx.agents.get(info.id)
     })
 
@@ -81,7 +83,7 @@ describe('dsh-subagent-spawn-in-process', () => {
     await run.dispose()
   })
 
-  it('gives the child its OWN session (not the parent\'s), with parentSession lineage', async () => {
+  it("gives the child its OWN session (not the parent's), with parentSession lineage", async () => {
     const { ctx, parent } = await setup([textResponse('hi')])
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
     await run.result
@@ -130,8 +132,9 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('refuses to spawn past maxDepth (depthLimit capability)', async () => {
     const { ctx, parent } = await setup([])
     // parent is depth 0, child would be depth 1 — cap at 0 forbids any child.
-    await expect(start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent, maxDepth: 0 }))
-      .rejects.toThrow('subagent depth 1 exceeds maxDepth 0')
+    await expect(start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent, maxDepth: 0 })).rejects.toThrow(
+      'subagent depth 1 exceeds maxDepth 0',
+    )
   })
 
   it('maps a child that hit its token ceiling to stopReason "max-tokens"', async () => {
@@ -159,8 +162,9 @@ describe('dsh-subagent-spawn-in-process', () => {
     const controller = new AbortController()
     controller.abort()
     const { ctx, parent } = await setup([])
-    await expect(start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent, signal: controller.signal }))
-      .rejects.toBe(controller.signal.reason)
+    await expect(start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent, signal: controller.signal })).rejects.toBe(
+      controller.signal.reason,
+    )
   })
 
   it('same-tick cancellation rejects start and prevents child publication', async () => {
@@ -286,9 +290,7 @@ describe('dsh-subagent-spawn-in-process', () => {
   })
 
   it('captures structured output through the shipped plugin (driver runtime, plugin wiring)', async () => {
-    const { ctx, parent } = await setup([
-      toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 42 }),
-    ])
+    const { ctx, parent } = await setup([toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 42 })])
     const run = await start(ctx, 'spawn', {
       prompt: [{ type: 'text', text: 'produce the answer' }],
       parent,
@@ -348,9 +350,12 @@ describe('dsh-subagent-spawn-in-process', () => {
 
     const unloading = fiber.dispose()
     await unloading
-    await expect(start(ctx, 'spawn', {
-      prompt: [{ type: 'text', text: 'must never start' }], parent,
-    })).rejects.toThrow(/no subagent provider/)
+    await expect(
+      start(ctx, 'spawn', {
+        prompt: [{ type: 'text', text: 'must never start' }],
+        parent,
+      }),
+    ).rejects.toThrow(/no subagent provider/)
 
     expect(parent.ctx.fiber.getEffects()).toHaveLength(parentEffects)
     expect(published).toEqual([])
@@ -381,10 +386,12 @@ describe('dsh-subagent-spawn-in-process', () => {
     const published: string[] = []
     ctx.on('session/created', () => void published.push('session/created'))
     ctx.on('agent/created', () => void published.push('agent/created'))
-    await expect(start(ctx, 'spawn', {
-      prompt: [{ type: 'text', text: 'do X' }],
-      parent: parentHandle.agent,
-    })).rejects.toThrow(/exact live parent agent/)
+    await expect(
+      start(ctx, 'spawn', {
+        prompt: [{ type: 'text', text: 'do X' }],
+        parent: parentHandle.agent,
+      }),
+    ).rejects.toThrow(/exact live parent agent/)
     expect(ctx.agents.list().length).toBe(before)
     expect(ctx.sessions.list()).toHaveLength(sessionsBefore)
     expect(published).toEqual([])
@@ -400,7 +407,7 @@ describe('dsh-subagent-spawn-in-process', () => {
     ctx.on('session/created', () => void published.push('session/created'))
     ctx.on('agent/created', () => void published.push('agent/created'))
     let teardownStarted = false
-    ctx.on('internal/plugin', (fiber) => {
+    ctx.on('internal/plugin', fiber => {
       if (teardownStarted || fiber.name !== 'scope') return
       teardownStarted = true
       disposeChildLifecycle(parentHandle.agent)

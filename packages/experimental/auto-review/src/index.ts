@@ -26,11 +26,7 @@ import { AUTO_PRESET } from '@deepseek-ai/dsh-permission-presets'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-user-approval'
-import {
-  RUN_CODE_NAME,
-  type PreToolDecision,
-  type ToolExecution,
-} from '@deepseek-ai/dsh-tools'
+import { RUN_CODE_NAME, type PreToolDecision, type ToolExecution } from '@deepseek-ai/dsh-tools'
 
 /** Structured error name persisted for every final reviewer denial. */
 const AUTO_REVIEW_DENIED_ERROR_NAME = 'AutoReviewDeniedError'
@@ -67,12 +63,7 @@ type AutoReviewDecision =
   | { readonly risk: 'medium'; readonly decision: 'allow' }
   | { readonly risk: 'medium' | 'high'; readonly decision: 'deny'; readonly reason?: string }
 
-type ReviewSourceRole =
-  | 'human-instruction'
-  | 'direct-parent-instruction'
-  | 'constraint'
-  | 'checkpoint'
-  | 'fact'
+type ReviewSourceRole = 'human-instruction' | 'direct-parent-instruction' | 'constraint' | 'checkpoint' | 'fact'
 
 interface HistoricalUserMessage {
   readonly kind: 'user-message'
@@ -177,8 +168,7 @@ function isAborted(signal: AbortSignal): boolean {
 
 /** Whether this visible message is a durable shipped-Web human instruction. */
 function isHumanInstruction(source: MessageSource): boolean {
-  return source.kind === 'user'
-    && typeof (source as { readonly rpcId?: unknown }).rpcId === 'string'
+  return source.kind === 'user' && typeof (source as { readonly rpcId?: unknown }).rpcId === 'string'
 }
 
 /** Whether this visible context is the current project-instruction source. */
@@ -194,16 +184,15 @@ function isCheckpoint(source: MessageSource): boolean {
 
 /** Whether this message was durably attributed to the child's direct parent. */
 function isDirectParentInstruction(source: MessageSource, parentSession: string | undefined): boolean {
-  return parentSession !== undefined
-    && source.kind === 'agent-message'
-    && (source as { readonly senderSessionId?: unknown }).senderSessionId === parentSession
+  return (
+    parentSession !== undefined &&
+    source.kind === 'agent-message' &&
+    (source as { readonly senderSessionId?: unknown }).senderSessionId === parentSession
+  )
 }
 
 /** Find the visible-role identity of the in-process child's creation prompt. */
-function directParentInitialPromptSeq(
-  agent: Agent,
-  events: readonly SessionEvent[],
-): SessionEvent['seq'] | undefined {
+function directParentInitialPromptSeq(agent: Agent, events: readonly SessionEvent[]): SessionEvent['seq'] | undefined {
   const { session } = agent
   if (session.header.origin !== 'subagent' || session.header.parentSession === undefined) return undefined
   let passedCreationBoundary = false
@@ -213,10 +202,12 @@ function directParentInitialPromptSeq(
       passedCreationBoundary = true
       continue
     }
-    if (passedCreationBoundary
-      && event.type === 'user/message'
-      && event.data.source.kind === 'user'
-      && !isHumanInstruction(event.data.source)) {
+    if (
+      passedCreationBoundary &&
+      event.type === 'user/message' &&
+      event.data.source.kind === 'user' &&
+      !isHumanInstruction(event.data.source)
+    ) {
       return event.seq
     }
   }
@@ -248,9 +239,7 @@ function filteredUserEntries(
 ): HistoricalUserMessage[] {
   return content.map(block => ({
     kind: 'user-message',
-    role: block.type === 'text'
-      ? textRole(source, seq, initialPromptSeq, parentSession)
-      : 'fact',
+    role: block.type === 'text' ? textRole(source, seq, initialPromptSeq, parentSession) : 'fact',
     source,
     content: [block],
   }))
@@ -306,13 +295,11 @@ function nativeAction(
   headerTools: readonly ToolSchema[] | undefined,
   logged: Extract<SessionEvent, { type: 'tool/call' }>,
 ): PendingAction {
-  if (logged.data.name !== exec.name
-    || !sameJson(parseLoggedArguments(logged.data.arguments), exec.arguments)) {
+  if (logged.data.name !== exec.name || !sameJson(parseLoggedArguments(logged.data.arguments), exec.arguments)) {
     throw new Error('auto-review: the pending native call disagrees with its logged action')
   }
   const candidates: readonly unknown[] = Array.isArray(headerTools) ? headerTools : []
-  const schemas = candidates.filter((schema): schema is Record<string, unknown> =>
-    isRecord(schema) && schema['name'] === exec.name)
+  const schemas = candidates.filter((schema): schema is Record<string, unknown> => isRecord(schema) && schema['name'] === exec.name)
   const [candidate] = schemas
   if (candidate === undefined || schemas.length !== 1) {
     throw new Error('auto-review: the pending native tool schema is missing or ambiguous')
@@ -328,16 +315,14 @@ function nativeAction(
 }
 
 /** Resolve a PTC inner action from its binding schema and logged identity. */
-function ptcAction(
-  exec: ToolExecution,
-  start: ScopedPtcStart,
-  visibleParentKeys: ReadonlySet<string>,
-): PendingAction {
+function ptcAction(exec: ToolExecution, start: ScopedPtcStart, visibleParentKeys: ReadonlySet<string>): PendingAction {
   const { event } = start
-  if (!visibleParentKeys.has(scopedCallKey(start.step, event.data.parentCallId))
-    || event.data.rootCallId !== exec.rootCallId
-    || event.data.name !== exec.name
-    || !sameJson(event.data.arguments, exec.arguments)) {
+  if (
+    !visibleParentKeys.has(scopedCallKey(start.step, event.data.parentCallId)) ||
+    event.data.rootCallId !== exec.rootCallId ||
+    event.data.name !== exec.name ||
+    !sameJson(event.data.arguments, exec.arguments)
+  ) {
     throw new Error('auto-review: the pending PTC call disagrees with its logged action')
   }
   if (exec.schema === undefined || exec.schema.name !== exec.name) {
@@ -405,9 +390,7 @@ function snapshotAutoReview(agent: Agent, exec: ToolExecution, cwd: string): Rev
   if (currentRootCall === undefined || currentRootCalls.length !== 1) {
     throw new Error('auto-review: the pending root call is missing or ambiguous in the session log')
   }
-  const currentPtcStart = exec.parent === undefined
-    ? undefined
-    : startsBySubCall.get(scopedCallKey(currentStep, exec.callId))
+  const currentPtcStart = exec.parent === undefined ? undefined : startsBySubCall.get(scopedCallKey(currentStep, exec.callId))
   if (exec.parent !== undefined && currentPtcStart === undefined) {
     throw new Error('auto-review: the pending PTC call is missing or ambiguous in the session log')
   }
@@ -433,13 +416,9 @@ function snapshotAutoReview(agent: Agent, exec: ToolExecution, cwd: string): Rev
           })
         }
       } else {
-        history.push(...filteredUserEntries(
-          event.seq,
-          event.data.source,
-          event.data.content,
-          initialPromptSeq,
-          session.header.parentSession,
-        ))
+        history.push(
+          ...filteredUserEntries(event.seq, event.data.source, event.data.content, initialPromptSeq, session.header.parentSession),
+        )
       }
       continue
     }
@@ -504,11 +483,12 @@ function snapshotAutoReview(agent: Agent, exec: ToolExecution, cwd: string): Rev
     throw new Error('auto-review: the pending root call is missing from the current surface')
   }
 
-  const action = exec.parent === undefined
-    ? nativeAction(exec, header.tools, currentRootCall)
-    // The branch above established that every nested execution has one scoped start.
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    : ptcAction(exec, currentPtcStart!, visibleParentKeys)
+  const action =
+    exec.parent === undefined
+      ? nativeAction(exec, header.tools, currentRootCall)
+      : // The branch above established that every nested execution has one scoped start.
+        // oxlint-disable-next-line typescript/no-non-null-assertion
+        ptcAction(exec, currentPtcStart!, visibleParentKeys)
   return deepFreeze({
     provider: header.config.provider,
     model: header.config.model,
@@ -574,11 +554,13 @@ function parseDecision(text: string): AutoReviewDecision {
   if (keys.length === 2 && decision === 'deny' && (risk === 'medium' || risk === 'high')) {
     return { risk, decision }
   }
-  if (decision === 'deny'
-    && (risk === 'medium' || risk === 'high')
-    && keys.length === 3
-    && Object.hasOwn(record, 'reason')
-    && typeof record['reason'] === 'string') {
+  if (
+    decision === 'deny' &&
+    (risk === 'medium' || risk === 'high') &&
+    keys.length === 3 &&
+    Object.hasOwn(record, 'reason') &&
+    typeof record['reason'] === 'string'
+  ) {
     return { risk, decision, reason: record['reason'] }
   }
   throw new Error('auto-review: reviewer output does not match the risk/decision protocol')
@@ -612,12 +594,7 @@ async function readDecision(stream: AsyncIterable<StreamChunk>): Promise<AutoRev
 }
 
 /** Review one frozen pending action with the fixed policy and current LLM route. */
-async function classifyRisk(
-  ctx: Context,
-  agent: Agent,
-  exec: ToolExecution,
-  signal: AbortSignal,
-): Promise<AutoReviewDecision> {
+async function classifyRisk(ctx: Context, agent: Agent, exec: ToolExecution, signal: AbortSignal): Promise<AutoReviewDecision> {
   const cwd = await ctx.workingDirectory.ensure(agent, signal)
   const snapshot = snapshotAutoReview(agent, exec, cwd)
   // This review prompt is sent only through ctx.llm.stream and never enters a Session log.
@@ -625,10 +602,12 @@ async function classifyRisk(
     provider: snapshot.provider,
     model: snapshot.model,
     system: REVIEW_POLICY,
-    messages: [{
-      role: 'user',
-      content: [{ type: 'text', text: reviewUserText(snapshot) }],
-    }],
+    messages: [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: reviewUserText(snapshot) }],
+      },
+    ],
     temperature: 0,
     signal,
   })
@@ -643,7 +622,7 @@ function denied(exec: ToolExecution, reason?: string): PreToolDecision {
     info: {
       name: AUTO_REVIEW_DENIED_ERROR_NAME,
       code: AUTO_REVIEW_DENIED_CODE,
-      ...reason === undefined ? {} : { reason },
+      ...(reason === undefined ? {} : { reason }),
     },
   }
 }
@@ -657,9 +636,10 @@ function askUser(exec: ToolExecution, reason?: string): PreToolDecision {
   return {
     kind: 'ask',
     reason: reason === undefined ? denial : `${denial}: ${reason}`,
-    displayReason: reason === undefined
-      ? { en: 'Auto review denied this call.', zh: 'Auto review 拒绝了此调用。' }
-      : { en: `Auto review denied this call: ${reason}`, zh: `Auto review 拒绝了此调用：${reason}` },
+    displayReason:
+      reason === undefined
+        ? { en: 'Auto review denied this call.', zh: 'Auto review 拒绝了此调用。' }
+        : { en: `Auto review denied this call: ${reason}`, zh: `Auto review 拒绝了此调用：${reason}` },
   }
 }
 
@@ -681,42 +661,46 @@ export function apply(ctx: Context): void {
   const lifecycle = new AbortController()
 
   ctx.effect(function* () {
-    const stopListener = ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => {
-      const agent = exec.agent
-      if (agent === undefined || (exec.parent === undefined && exec.name === RUN_CODE_NAME)) {
-        return next()
-      }
-      if (permissionPresets.current(agent.session) !== AUTO_PRESET) {
-        return next()
-      }
-      if (!accepting || lifecycle.signal.aborted) {
-        return { kind: 'cancel' }
-      }
-
-      const completed = Promise.withResolvers<void>()
-      active.add(completed.promise)
-      try {
-        const signal = AbortSignal.any([exec.signal, lifecycle.signal])
-        const review = await classifyRisk(ctx, agent, exec, signal).then(
-          decision => ({ ok: true as const, decision }),
-          (error: unknown) => ({ ok: false as const, error }),
-        )
-        if (isAborted(lifecycle.signal)) return { kind: 'cancel' }
-        if (!review.ok) return failed(exec, review.error)
-        const { decision } = review
-        // The permission owner pins an approval policy into every published Session.
-        if (decision.decision === 'deny' && ctx.approval.overrideOf(agent.session) === 'never') {
-          return denied(exec, decision.reason)
+    const stopListener = ctx.on(
+      'tools/pre-execute',
+      async (exec, next): Promise<PreToolDecision> => {
+        const agent = exec.agent
+        if (agent === undefined || (exec.parent === undefined && exec.name === RUN_CODE_NAME)) {
+          return next()
         }
-        const downstream = await next()
-        if (isAborted(lifecycle.signal)) return { kind: 'cancel' }
-        if (decision.decision === 'allow' || downstream.kind !== 'allow') return downstream
-        return askUser(exec, decision.reason)
-      } finally {
-        active.delete(completed.promise)
-        completed.resolve()
-      }
-    }, { prepend: true })
+        if (permissionPresets.current(agent.session) !== AUTO_PRESET) {
+          return next()
+        }
+        if (!accepting || lifecycle.signal.aborted) {
+          return { kind: 'cancel' }
+        }
+
+        const completed = Promise.withResolvers<void>()
+        active.add(completed.promise)
+        try {
+          const signal = AbortSignal.any([exec.signal, lifecycle.signal])
+          const review = await classifyRisk(ctx, agent, exec, signal).then(
+            decision => ({ ok: true as const, decision }),
+            (error: unknown) => ({ ok: false as const, error }),
+          )
+          if (isAborted(lifecycle.signal)) return { kind: 'cancel' }
+          if (!review.ok) return failed(exec, review.error)
+          const { decision } = review
+          // The permission owner pins an approval policy into every published Session.
+          if (decision.decision === 'deny' && ctx.approval.overrideOf(agent.session) === 'never') {
+            return denied(exec, decision.reason)
+          }
+          const downstream = await next()
+          if (isAborted(lifecycle.signal)) return { kind: 'cancel' }
+          if (decision.decision === 'allow' || downstream.kind !== 'allow') return downstream
+          return askUser(exec, decision.reason)
+        } finally {
+          active.delete(completed.promise)
+          completed.resolve()
+        }
+      },
+      { prepend: true },
+    )
     yield stopListener
     const stopContribution = permissionPresets.registerAuto(() => {
       if (!accepting) throw new Error('auto-review: integration is closing')

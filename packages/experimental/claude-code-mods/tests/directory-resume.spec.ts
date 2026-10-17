@@ -2,7 +2,7 @@
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -28,15 +28,17 @@ it('reports the final committed cwd when a persisted Session resumes, retaining 
     await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
     await ctx.plugin(AgentLoop, { agents: [] })
     await ctx.plugin(ClaudeCodeMods)
-    await ctx.plugin(defineMod({
-      name: 'directory-observer',
-      register(on) {
-        on('session.start', async ($, event, next) => {
-          observed.push({ cwd: await $.session.cwd(), root: await $.session.root(), payload: event.cwd })
-          return next(event)
-        })
-      },
-    }))
+    await ctx.plugin(
+      defineMod({
+        name: 'directory-observer',
+        register(on) {
+          on('session.start', async ($, event, next) => {
+            observed.push({ cwd: await $.session.cwd(), root: await $.session.root(), payload: event.cwd })
+            return next(event)
+          })
+        },
+      }),
+    )
     return ctx
   }
   try {
@@ -47,7 +49,10 @@ it('reports the final committed cwd when a persisted Session resumes, retaining 
     await first.fiber.dispose()
     const second = await mount()
     const resumed = await second.agents.resume({ resumeSessionId: SessionId('directory-resume') })
-    expect(observed).toEqual([{ cwd: origin, root: origin, payload: origin }, { cwd: current, root: origin, payload: current }])
+    expect(observed).toEqual([
+      { cwd: origin, root: origin, payload: origin },
+      { cwd: current, root: origin, payload: current },
+    ])
     expect(resumed.agent.session.header.cwd).toBe(origin)
     expect(second.workingDirectory.get(resumed.agent.session)).toBe(current)
     await resumed.dispose()

@@ -185,11 +185,14 @@ export async function ensureDurableDirectoryWin32(target: string): Promise<void>
   const root = parse(absolute).root
   await assertDirectory(root)
 
-  const segments = absolute.slice(root.length).split(/[\\/]+/).filter(part => part.length > 0)
+  const segments = absolute
+    .slice(root.length)
+    .split(/[\\/]+/)
+    .filter(part => part.length > 0)
   let current = root
   for (const segment of segments) {
     const next = join(current, segment)
-    if (!await assertDirectory(next)) await createLeafDirectoryWin32(current, next)
+    if (!(await assertDirectory(next))) await createLeafDirectoryWin32(current, next)
     current = next
   }
 }
@@ -202,7 +205,7 @@ async function createLeafDirectoryWin32(parent: string, target: string): Promise
     await publishNewFileWin32(staging, target)
   } catch (error) {
     await rm(staging, { recursive: true, force: true })
-    if (isEEXIST(error) && await assertDirectory(target)) return
+    if (isEEXIST(error) && (await assertDirectory(target))) return
     throw error
   }
 }

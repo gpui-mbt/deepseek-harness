@@ -18,7 +18,7 @@ export function isRunningAccountTask(agent: Pick<Agent, 'status' | 'session'>): 
  * @param ctx - account provider lifetime; Agents may attach later.
  */
 export function installAccountTaskCancellation(ctx: Context): void {
-  ctx.inject(['agents'], (scope) => {
+  ctx.inject(['agents'], scope => {
     scope.on('agent/error', ({ error }) => {
       if (error instanceof LlmError && error.code === 'ACCOUNT_SIGN_IN_REQUIRED') {
         scope.emit('deepseek-account/model-sign-in-required')

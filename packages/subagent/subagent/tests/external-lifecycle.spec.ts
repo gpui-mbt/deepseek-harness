@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 /** External activation admission and resource ownership across parent lifetimes. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -19,16 +19,22 @@ async function setup(start: (request: SubagentStartRequest) => Promise<SubagentR
   await ctx.plugin(SubagentRuntime)
   const parent = await externalTestParent(ctx)
   ctx.subagents.registerProvider({
-    name: 'external', inheritsParentContext: false,
+    name: 'external',
+    inheritsParentContext: false,
     capabilities: { agentOptions: false, agentPreset: false, outputSchema: false, depthLimit: false },
     start,
   })
   return {
-    ctx, parent,
-    start: (owner: Agent = parent) => ctx.subagents.startActivation({
-      provider: 'external', label: 'External work', signal: new AbortController().signal, delivery,
-      request: { parent: owner, prompt: [{ type: 'text', text: 'work' }] },
-    }),
+    ctx,
+    parent,
+    start: (owner: Agent = parent) =>
+      ctx.subagents.startActivation({
+        provider: 'external',
+        label: 'External work',
+        signal: new AbortController().signal,
+        delivery,
+        request: { parent: owner, prompt: [{ type: 'text', text: 'work' }] },
+      }),
   }
 }
 
@@ -40,13 +46,18 @@ describe('external activation ownership', () => {
   it('observes admitted startup and reports no children after the execution releases', async () => {
     const entered = Promise.withResolvers<undefined>()
     const published = Promise.withResolvers<SubagentRun>()
-    const fixture = await setup(() => { entered.resolve(undefined); return published.promise })
+    const fixture = await setup(() => {
+      entered.resolve(undefined)
+      return published.promise
+    })
     await expect(fixture.ctx.subagents.waitForChildren(fixture.parent)).resolves.toBe(false)
     const starting = fixture.start()
     await entered.promise
     const waiting = fixture.ctx.subagents.waitForChildren(fixture.parent)
     let released = false
-    void waiting.then(() => { released = true })
+    void waiting.then(() => {
+      released = true
+    })
     await Promise.resolve()
     expect(released).toBe(false)
     published.resolve(run('admitted-start', Promise.resolve(complete)))
@@ -64,7 +75,13 @@ describe('external activation ownership', () => {
     let siblingSignal: AbortSignal | undefined
     const fixture = await setup(({ signal }) => {
       if (starts++ === 0) {
-        signal.addEventListener('abort', () => { result.resolve({ output: [], stopReason: 'aborted' }) }, { once: true })
+        signal.addEventListener(
+          'abort',
+          () => {
+            result.resolve({ output: [], stopReason: 'aborted' })
+          },
+          { once: true },
+        )
         return Promise.resolve(run('owned-child', result.promise))
       }
       siblingSignal = signal
@@ -97,9 +114,15 @@ describe('external activation ownership', () => {
     const firstDispose = vi.fn(() => Promise.resolve())
     const duplicateDispose = vi.fn(() => Promise.resolve())
     let starts = 0
-    const fixture = await setup(() => Promise.resolve(starts++ === 0
-      ? run('shared-external-id', firstResult.promise, firstDispose)
-      : run('shared-external-id', Promise.resolve(complete), duplicateDispose)), 'parent')
+    const fixture = await setup(
+      () =>
+        Promise.resolve(
+          starts++ === 0
+            ? run('shared-external-id', firstResult.promise, firstDispose)
+            : run('shared-external-id', Promise.resolve(complete), duplicateDispose),
+        ),
+      'parent',
+    )
     const otherParent = await externalTestParent(fixture.ctx)
     const first = await fixture.start()
     try {
@@ -107,8 +130,9 @@ describe('external activation ownership', () => {
       expect(duplicateDispose).toHaveBeenCalledOnce()
       expect(firstDispose).not.toHaveBeenCalled()
       expect(fixture.ctx.sessionProjections.snapshot(otherParent.session, ['subagentCatalog']).values.subagentCatalog).toEqual([])
-      expect(fixture.ctx.sessionProjections.snapshot(fixture.parent.session, ['subagentCatalog']).values.subagentCatalog)
-        .toMatchObject([{ id: first.childId, mode: 'external' }])
+      expect(fixture.ctx.sessionProjections.snapshot(fixture.parent.session, ['subagentCatalog']).values.subagentCatalog).toMatchObject([
+        { id: first.childId, mode: 'external' },
+      ])
       await expect(fixture.ctx.subagents.waitForChildren(otherParent)).resolves.toBe(false)
     } finally {
       firstResult.resolve(complete)
@@ -122,9 +146,11 @@ describe('external activation ownership', () => {
     const result = Promise.withResolvers<SubagentResult>()
     const fixture = await setup(() => Promise.resolve(run('no-continuation', result.promise)))
     const activation = await fixture.start()
-    await expect(fixture.ctx.subagents.sendMessage(fixture.parent, activation.childId, [{ type: 'text', text: 'follow up' }], {
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'NOT_CONTINUABLE' })
+    await expect(
+      fixture.ctx.subagents.sendMessage(fixture.parent, activation.childId, [{ type: 'text', text: 'follow up' }], {
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_CONTINUABLE' })
     result.resolve(complete)
     await activation.dispose()
   })
@@ -134,7 +160,9 @@ describe('external activation ownership', () => {
     const dispose = vi.fn(() => Promise.reject(null))
     const fixture = await setup(() => Promise.resolve(run('rollback-child', Promise.resolve(complete), dispose)), 'parent')
     const failure = new Error('catalog unavailable')
-    const append = vi.spyOn(fixture.parent.session, 'append').mockImplementationOnce(() => { throw failure })
+    const append = vi.spyOn(fixture.parent.session, 'append').mockImplementationOnce(() => {
+      throw failure
+    })
     const warning = vi.spyOn(fixture.ctx.logger, 'warn')
     try {
       await expect(fixture.start()).rejects.toBe(failure)
@@ -159,6 +187,6 @@ describe('external activation ownership', () => {
     cleanup.reject({ private: 'SECRET_TOKEN' })
     await rejected
     await expect(activation.result).resolves.toEqual(complete)
-    expect((await disposal.catch((error: unknown) => error) as Error).message).not.toContain('SECRET_TOKEN')
+    expect(((await disposal.catch((error: unknown) => error)) as Error).message).not.toContain('SECRET_TOKEN')
   })
 })

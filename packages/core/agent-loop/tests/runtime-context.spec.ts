@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
@@ -27,13 +27,17 @@ describe('RuntimeContextProjection', () => {
     const session = ctx.sessions.create(SessionId('runtime-context-replay'))
     const retained = session.append('user/message', contextMessage('retained'), { surfaceOp: 'append' })
     const shadowed = session.append('user/message', contextMessage('shadowed'), { surfaceOp: 'append' })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'summary' }],
-      source: { kind: 'test-compaction' },
-    }), {
-      surfaceOp: { op: 'replace', startSeq: shadowed.seq, endSeq: shadowed.seq },
-      sourceEventSeqs: [shadowed.seq],
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'summary' }],
+        source: { kind: 'test-compaction' },
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: shadowed.seq, endSeq: shadowed.seq },
+        sourceEventSeqs: [shadowed.seq],
+      },
+    )
 
     const projection = new RuntimeContextProjection(ctx, session)
     expect(session.surface.nodes).toContain(retained.seq)

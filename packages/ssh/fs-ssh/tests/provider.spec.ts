@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { FsError, FsTargetKey, FsVersion, type FsTarget } from '@deepseek-ai/dsh-fs'
 import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
 import { RemoteOperationError } from '@deepseek-ai/dsh-ssh/protocol'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshFileSystem } from '../src/index.ts'
 
@@ -14,27 +14,34 @@ const streamId = '00000000-0000-4000-8000-000000000001'
 async function setup() {
   const dispatch = vi.fn<Dispatch>()
   class WireConnection extends Service {
-    constructor(ctx: Context) { super(ctx, 'ssh') }
+    constructor(ctx: Context) {
+      super(ctx, 'ssh')
+    }
     async request<T>(method: string, params: unknown, result: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
       return result.parse(await dispatch(method, params, signal))
     }
   }
   class Policy extends Service {
     readonly defaultMode = 'read-only'
-    constructor(ctx: Context) { super(ctx, 'sandboxPolicy') }
-    resolve(): SandboxExecutionPolicy { return { mode: 'read-only', workspaceRoot: '/remote/work' } }
+    constructor(ctx: Context) {
+      super(ctx, 'sandboxPolicy')
+    }
+    resolve(): SandboxExecutionPolicy {
+      return { mode: 'read-only', workspaceRoot: '/remote/work' }
+    }
   }
   const ctx = new Context()
   const fibers = [await ctx.plugin(WireConnection), await ctx.plugin(Policy), await ctx.plugin(SshFileSystem)]
-  onTestFinished(async () => { for (const fiber of fibers.reverse()) await fiber.dispose() })
+  onTestFinished(async () => {
+    for (const fiber of fibers.reverse()) await fiber.dispose()
+  })
   return { fs: ctx.fs, dispatch }
 }
 
 describe('SSH filesystem provider', () => {
   it('declares watching unsupported without sending a remote request', async () => {
     const { fs, dispatch } = await setup()
-    await expect(fs.watch(target, vi.fn(), new AbortController().signal))
-      .rejects.toMatchObject({ code: 'FS_IO_ERROR' })
+    await expect(fs.watch(target, vi.fn(), new AbortController().signal)).rejects.toMatchObject({ code: 'FS_IO_ERROR' })
     expect(dispatch).not.toHaveBeenCalled()
   })
 
@@ -80,7 +87,11 @@ describe('SSH filesystem provider', () => {
     const info = { version: 'v1', type: 'file', size: 7 }
     const link = { version: 'link-v1', type: 'symlink', size: 8 }
     const entries = [{ name: 'file.txt', type: 'file', target, version: 'v1', size: 7 }]
-    dispatch.mockResolvedValueOnce(info).mockResolvedValueOnce(null).mockResolvedValueOnce(link).mockResolvedValueOnce(null)
+    dispatch
+      .mockResolvedValueOnce(info)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(link)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(entries)
     expect(await fs.stat(target)).toEqual(info)
     expect(await fs.stat(target)).toBeUndefined()
@@ -93,7 +104,9 @@ describe('SSH filesystem provider', () => {
   it('decodes binary responses and retains caller-owned read limits', async () => {
     const { fs, dispatch } = await setup()
     const bytes = Buffer.from([0, 255, 128, 10])
-    dispatch.mockResolvedValueOnce('remote text').mockResolvedValueOnce(bytes.toString('base64'))
+    dispatch
+      .mockResolvedValueOnce('remote text')
+      .mockResolvedValueOnce(bytes.toString('base64'))
       .mockResolvedValueOnce(bytes.subarray(1, 3).toString('base64'))
     expect(await fs.readText(target)).toBe('remote text')
     expect(await fs.readBytes(target, undefined, 64)).toEqual(bytes)
@@ -119,29 +132,37 @@ describe('SSH filesystem provider', () => {
 
   it('resolves deployment policy for mutations without an explicit policy', async () => {
     const { fs, dispatch } = await setup()
-    dispatch.mockResolvedValueOnce({ operation: 'create', version: 'v1', before: null, after: 'new' })
+    dispatch
+      .mockResolvedValueOnce({ operation: 'create', version: 'v1', before: null, after: 'new' })
       .mockResolvedValueOnce({ version: 'v2', before: 'new', after: 'next' })
     await fs.writeText(target, 'new', { kind: 'createIfAbsent' })
     await fs.editText(target, { oldString: 'new', newString: 'next', replaceAll: true })
-    for (const [, params] of dispatch.mock.calls) expect(params).toMatchObject({ policy: { mode: 'read-only', workspaceRoot: '/remote/work' } })
+    for (const [, params] of dispatch.mock.calls)
+      expect(params).toMatchObject({ policy: { mode: 'read-only', workspaceRoot: '/remote/work' } })
   })
 
   it('pulls text through completion without an unnecessary close request', async () => {
     const { fs, dispatch } = await setup()
-    dispatch.mockResolvedValueOnce(streamId).mockResolvedValueOnce({ done: false, value: '' })
-      .mockResolvedValueOnce({ done: false, value: 'first' }).mockResolvedValueOnce({ done: true, value: 'last' })
+    dispatch
+      .mockResolvedValueOnce(streamId)
+      .mockResolvedValueOnce({ done: false, value: '' })
+      .mockResolvedValueOnce({ done: false, value: 'first' })
+      .mockResolvedValueOnce({ done: true, value: 'last' })
     const chunks: string[] = []
     for await (const chunk of await fs.streamText(target)) chunks.push(chunk)
     expect(chunks).toEqual(['first', 'last'])
     expect(dispatch.mock.calls.map(([method]) => method)).toEqual(['fs.stream', 'fs.next', 'fs.next', 'fs.next'])
   })
 
-  it.each([false, true])('closes the remote iterator after an early consumer stop (close fails: %s)', async (closeFails) => {
+  it.each([false, true])('closes the remote iterator after an early consumer stop (close fails: %s)', async closeFails => {
     const { fs, dispatch } = await setup()
     dispatch.mockResolvedValueOnce(streamId).mockResolvedValueOnce({ done: false, value: 'first' })
     if (closeFails) dispatch.mockRejectedValueOnce(new Error('connection lost'))
     else dispatch.mockResolvedValueOnce(null)
-    for await (const chunk of await fs.streamText(target)) { expect(chunk).toBe('first'); break }
+    for await (const chunk of await fs.streamText(target)) {
+      expect(chunk).toBe('first')
+      break
+    }
     expect(dispatch).toHaveBeenLastCalledWith('fs.streamClose', { id: streamId }, undefined)
   })
 
@@ -164,7 +185,7 @@ describe('SSH filesystem provider', () => {
     expect(dispatch).toHaveBeenLastCalledWith('fs.streamClose', { id: streamId }, undefined)
   })
 
-  it.each(['FS_STALE_VERSION', 'FS_SANDBOX_DENIED', 'FS_NOT_OBSERVED'] as const)('preserves remote %s failures', async (code) => {
+  it.each(['FS_STALE_VERSION', 'FS_SANDBOX_DENIED', 'FS_NOT_OBSERVED'] as const)('preserves remote %s failures', async code => {
     const { fs, dispatch } = await setup()
     const cause = new RemoteOperationError('remote mutation rejected', code)
     dispatch.mockRejectedValueOnce(cause)
@@ -172,7 +193,7 @@ describe('SSH filesystem provider', () => {
     expect(dispatch).toHaveBeenCalledTimes(1)
   })
 
-  it.each([undefined, 'OTHER_ERROR', 'FS_UNKNOWN_REMOTE_CODE'])('maps an unrecognized remote error code %s to I/O failure', async (code) => {
+  it.each([undefined, 'OTHER_ERROR', 'FS_UNKNOWN_REMOTE_CODE'])('maps an unrecognized remote error code %s to I/O failure', async code => {
     const { fs, dispatch } = await setup()
     dispatch.mockRejectedValueOnce(new RemoteOperationError('unrecognized failure', code))
     await expect(fs.readText(target)).rejects.toMatchObject({ code: 'FS_IO_ERROR' })
@@ -181,7 +202,10 @@ describe('SSH filesystem provider', () => {
   it('reports a cancelled remote request without retrying its mutation', async () => {
     const { fs, dispatch } = await setup()
     const controller = new AbortController()
-    dispatch.mockImplementationOnce(async () => { controller.abort(); throw new Error('request cancelled') })
+    dispatch.mockImplementationOnce(async () => {
+      controller.abort()
+      throw new Error('request cancelled')
+    })
     await expect(fs.writeText(target, 'new', undefined, controller.signal)).rejects.toMatchObject({ code: 'FS_ABORTED' })
     expect(dispatch).toHaveBeenCalledTimes(1)
   })
@@ -189,13 +213,16 @@ describe('SSH filesystem provider', () => {
   it('preserves a primitive AbortSignal reason as a filesystem cancellation', async () => {
     const { fs, dispatch } = await setup()
     const signal = AbortSignal.abort('caller cancelled')
-    dispatch.mockImplementationOnce(async (_method, _params, cancellation) => { cancellation?.throwIfAborted() })
+    dispatch.mockImplementationOnce(async (_method, _params, cancellation) => {
+      cancellation?.throwIfAborted()
+    })
     await expect(fs.readText(target, signal)).rejects.toMatchObject({ code: 'FS_ABORTED', message: 'caller cancelled' })
     expect(dispatch).toHaveBeenCalledTimes(1)
   })
 
   it.each([null, { targetKey: 'relative', displayPath: 'file' }, { targetKey: '/remote/file', displayPath: 1 }])(
-    'rejects malformed target observations from the wire', async (raw) => {
+    'rejects malformed target observations from the wire',
+    async raw => {
       const { fs, dispatch } = await setup()
       dispatch.mockResolvedValueOnce(raw)
       await expect(fs.resolve('file')).rejects.toBeInstanceOf(FsError)

@@ -1,25 +1,36 @@
 /** Developer-tool choices share settings validation, persistence and accepted-state publication. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { stubConfigForm, TestRemote, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { DEVELOPER_TOOLS_NAMESPACE, DeveloperToolsSettingsSchema, type DeveloperToolsSettings } from '../src/developer-tools-settings.ts'
 import { DeveloperToolsPreference } from '../src/client/developer-tools.ts'
 import { apply as clientApply, inject } from '../src/client/index.ts'
 
-
 describe('developer tools settings', () => {
   it('reports a refused Host write after recovering accepted state', async () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
-    const describeCall = vi.fn().mockResolvedValue({ ok: true, value: {
-      writable: true, hasDocument: true, namespaces: [{
-        ns: DEVELOPER_TOOLS_NAMESPACE,
-        schema: DeveloperToolsSettingsSchema.toJSON(),
-        value: { enabled: false }, revision: 1, autoGenerate: true, applies: 'live', secrets: [],
-      }],
-    } })
+    const describeCall = vi.fn().mockResolvedValue({
+      ok: true,
+      value: {
+        writable: true,
+        hasDocument: true,
+        namespaces: [
+          {
+            ns: DEVELOPER_TOOLS_NAMESPACE,
+            schema: DeveloperToolsSettingsSchema.toJSON(),
+            value: { enabled: false },
+            revision: 1,
+            autoGenerate: true,
+            applies: 'live',
+            secrets: [],
+          },
+        ],
+      },
+    })
     const mutate = vi.fn().mockResolvedValue({
-      ok: false, error: new RemoteError('settings/rejected', 'conflict', { ns: DEVELOPER_TOOLS_NAMESPACE }),
+      ok: false,
+      error: new RemoteError('settings/rejected', 'conflict', { ns: DEVELOPER_TOOLS_NAMESPACE }),
     })
     new TestRemote(ctx, { settings: { describe: describeCall, mutate } })
     await ctx.plugin({ inject, apply: clientApply }).await()
@@ -30,17 +41,30 @@ describe('developer tools settings', () => {
     expect(ctx.configForms.developerTools.enabled.getSnapshot()).toBe(false)
   })
 
-  it.each([false, true])('withholds features during a delayed Host read before accepting %s', async (enabled) => {
+  it.each([false, true])('withholds features during a delayed Host read before accepting %s', async enabled => {
     const ctx = new Context()
-    const accepted = { ok: true, value: {
-      writable: true, hasDocument: true, namespaces: [{
-        ns: DEVELOPER_TOOLS_NAMESPACE,
-        schema: DeveloperToolsSettingsSchema.toJSON(),
-        value: { enabled }, revision: 1, applies: 'live', secrets: [],
-      }],
-    } }
+    const accepted = {
+      ok: true,
+      value: {
+        writable: true,
+        hasDocument: true,
+        namespaces: [
+          {
+            ns: DEVELOPER_TOOLS_NAMESPACE,
+            schema: DeveloperToolsSettingsSchema.toJSON(),
+            value: { enabled },
+            revision: 1,
+            applies: 'live',
+            secrets: [],
+          },
+        ],
+      },
+    }
     const pending = Promise.withResolvers<typeof accepted>()
-    onTestFinished(async () => { pending.resolve(accepted); await ctx.fiber.dispose() })
+    onTestFinished(async () => {
+      pending.resolve(accepted)
+      await ctx.fiber.dispose()
+    })
     new TestRemote(ctx, { settings: { describe: () => pending.promise } })
     await ctx.plugin({ inject, apply: clientApply }).await()
     const preference = ctx.configForms.developerTools

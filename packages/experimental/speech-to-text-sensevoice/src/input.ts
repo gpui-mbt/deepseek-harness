@@ -17,6 +17,9 @@ export class SpeechInputError extends Error {}
 export function validateInput(audio: Uint8Array, language: string, maxAudioBytes: number): number {
   if (!languages.includes(language)) throw new SpeechInputError('Unsupported SenseVoice language')
   if (audio.byteLength > maxAudioBytes) throw new SpeechInputError('Speech audio exceeds the worker byte limit')
-  try { return validateWave(audio, maxAudioBytes / 32000) }
-  catch (error) { throw new SpeechInputError('Invalid speech WAV', { cause: error }) }
+  try {
+    return validateWave(audio, maxAudioBytes / 32000)
+  } catch (error) {
+    throw new SpeechInputError('Invalid speech WAV', { cause: error })
+  }
 }

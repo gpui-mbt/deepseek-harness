@@ -43,10 +43,16 @@ export class AcpModelControl {
   ) {
     this.selected = initial
     const getCurrent = (): ModelSelection | undefined => this.turnSelection?.selection ?? this.selected
-    const setCurrent = (value: ModelSelection | undefined): void => { this.selected = value }
+    const setCurrent = (value: ModelSelection | undefined): void => {
+      this.selected = value
+    }
     this.selection = {
-      get current() { return getCurrent() },
-      set current(value) { setCurrent(value) },
+      get current() {
+        return getCurrent()
+      },
+      set current(value) {
+        setCurrent(value)
+      },
       assembled: undefined,
     }
   }
@@ -113,19 +119,18 @@ export class AcpModelControl {
         this.selected = selected
       } else if (configId === REASONING_CONFIG_ID) {
         const info = await this.llm.resolveModelInfo(current.provider, current.model, signal)
-        const providerDefault = value === PROVIDER_DEFAULT_REASONING_VALUE
-          && info.reasoning?.defaultEffort === undefined
-        if (
-          info.reasoning === undefined
-          || (!providerDefault && !info.reasoning.efforts.some(effort => effort.id === value))
-        ) {
+        const providerDefault = value === PROVIDER_DEFAULT_REASONING_VALUE && info.reasoning?.defaultEffort === undefined
+        if (info.reasoning === undefined || (!providerDefault && !info.reasoning.efforts.some(effort => effort.id === value))) {
           throw new AcpModelConfigError(`unknown reasoning effort for ${current.provider}/${current.model}: ${value}`)
         }
-        this.selected = await this.resolveSelection({
-          provider: current.provider,
-          model: current.model,
-          ...providerDefault ? {} : { reasoningEffort: ReasoningEffortId(value) },
-        }, signal)
+        this.selected = await this.resolveSelection(
+          {
+            provider: current.provider,
+            model: current.model,
+            ...(providerDefault ? {} : { reasoningEffort: ReasoningEffortId(value) }),
+          },
+          signal,
+        )
       } else {
         throw new AcpModelConfigError(`unknown session config option: ${configId}`)
       }
@@ -136,7 +141,10 @@ export class AcpModelControl {
   /** Keep concurrent client mutations in receive order without wedging after rejection. */
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.tail.then(operation)
-    this.tail = result.then(() => undefined, () => undefined)
+    this.tail = result.then(
+      () => undefined,
+      () => undefined,
+    )
     return result
   }
 
@@ -155,26 +163,28 @@ export class AcpModelControl {
       routeAvailable = false
     }
     const choices = new Map<SessionConfigValueId, ModelSelection>()
-    const groups = await Promise.all(this.llm.listProviders().map(async (provider) => {
-      try {
-        const models = await this.llm.listModels(provider.id)
-        const entries = models.map((model) => {
-          const choice: ModelChoice = {
-            value: modelValue(provider.id, model.id),
-            selection: { provider: provider.id, model: model.id },
-          }
-          choices.set(choice.value, choice.selection)
-          return {
-            value: choice.value,
-            name: model.name,
-            ...model.description === undefined ? {} : { description: model.description },
-          }
-        })
-        return { group: provider.id, name: provider.name, options: entries }
-      } catch (_providerCatalogUnavailable) {
-        return { group: provider.id, name: provider.name, options: [] }
-      }
-    }))
+    const groups = await Promise.all(
+      this.llm.listProviders().map(async provider => {
+        try {
+          const models = await this.llm.listModels(provider.id)
+          const entries = models.map(model => {
+            const choice: ModelChoice = {
+              value: modelValue(provider.id, model.id),
+              selection: { provider: provider.id, model: model.id },
+            }
+            choices.set(choice.value, choice.selection)
+            return {
+              value: choice.value,
+              name: model.name,
+              ...(model.description === undefined ? {} : { description: model.description }),
+            }
+          })
+          return { group: provider.id, name: provider.name, options: entries }
+        } catch (_providerCatalogUnavailable) {
+          return { group: provider.id, name: provider.name, options: [] }
+        }
+      }),
+    )
     const currentValue = modelValue(resolved.provider, resolved.model)
     if (!choices.has(currentValue)) {
       choices.set(currentValue, { provider: resolved.provider, model: resolved.model })
@@ -185,34 +195,30 @@ export class AcpModelControl {
       }
       group.options.unshift({ value: currentValue, name: resolved.model })
     }
-    const options: SessionConfigOption[] = [{
-      id: MODEL_CONFIG_ID,
-      name: 'Model',
-      category: 'model',
-      type: 'select',
-      currentValue,
-      options: groups.filter(group => group.options.length > 0),
-    }]
-    const info = routeAvailable
-      ? await this.llm.resolveModelInfo(resolved.provider, resolved.model, signal)
-      : undefined
+    const options: SessionConfigOption[] = [
+      {
+        id: MODEL_CONFIG_ID,
+        name: 'Model',
+        category: 'model',
+        type: 'select',
+        currentValue,
+        options: groups.filter(group => group.options.length > 0),
+      },
+    ]
+    const info = routeAvailable ? await this.llm.resolveModelInfo(resolved.provider, resolved.model, signal) : undefined
     if (info?.reasoning !== undefined) {
       options.push({
         id: REASONING_CONFIG_ID,
         name: 'Reasoning effort',
         category: 'thought_level',
         type: 'select',
-        currentValue: resolved.reasoningEffort === undefined
-          ? PROVIDER_DEFAULT_REASONING_VALUE
-          : String(resolved.reasoningEffort),
+        currentValue: resolved.reasoningEffort === undefined ? PROVIDER_DEFAULT_REASONING_VALUE : String(resolved.reasoningEffort),
         options: [
-          ...info.reasoning.defaultEffort === undefined
-            ? [{ value: PROVIDER_DEFAULT_REASONING_VALUE, name: 'Provider default' }]
-            : [],
+          ...(info.reasoning.defaultEffort === undefined ? [{ value: PROVIDER_DEFAULT_REASONING_VALUE, name: 'Provider default' }] : []),
           ...info.reasoning.efforts.map(effort => ({
             value: String(effort.id),
             name: effort.name,
-            ...effort.description === undefined ? {} : { description: effort.description },
+            ...(effort.description === undefined ? {} : { description: effort.description }),
           })),
         ],
       })
@@ -226,7 +232,7 @@ export class AcpModelControl {
     return {
       provider: resolved.provider,
       model: resolved.model,
-      ...resolved.reasoningEffort === undefined ? {} : { reasoningEffort: resolved.reasoningEffort },
+      ...(resolved.reasoningEffort === undefined ? {} : { reasoningEffort: resolved.reasoningEffort }),
     }
   }
 }

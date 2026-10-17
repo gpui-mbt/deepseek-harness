@@ -1,8 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import {
-  resolveRetryPolicy,
-  RetryPolicySchema,
-} from '@deepseek-ai/dsh-llm'
+import { describe, expect, it } from 'vite-plus/test'
+import { resolveRetryPolicy, RetryPolicySchema } from '@deepseek-ai/dsh-llm'
 import type { RetryPolicyConfig } from '@deepseek-ai/dsh-llm'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 

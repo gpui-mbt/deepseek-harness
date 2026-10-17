@@ -107,17 +107,20 @@ export class ClientJobs extends Service implements IJobs {
   ) {
     super(ctx, 'jobs')
     this.state = model
-    ctx.effect(() => async () => {
-      const open = [...this.rowsEntries.values(), ...this.observations.values()]
-      this.rowsEntries.clear()
-      this.observations.clear()
-      for (const entry of open) entry.stopped = true
-      // Cordis awaits an async disposer, so the fiber stays unloading until
-      // every carrier iterator has closed and a successor plugin instance
-      // cannot overlap one. A carrier whose teardown fails is stopped all the
-      // same; its failure has no consumer here.
-      await Promise.allSettled(open.map(entry => entry.dispose()))
-    }, 'job-controller.client.streams')
+    ctx.effect(
+      () => async () => {
+        const open = [...this.rowsEntries.values(), ...this.observations.values()]
+        this.rowsEntries.clear()
+        this.observations.clear()
+        for (const entry of open) entry.stopped = true
+        // Cordis awaits an async disposer, so the fiber stays unloading until
+        // every carrier iterator has closed and a successor plugin instance
+        // cannot overlap one. A carrier whose teardown fails is stopped all the
+        // same; its failure has no consumer here.
+        await Promise.allSettled(open.map(entry => entry.dispose()))
+      },
+      'job-controller.client.streams',
+    )
   }
 
   kill(sessionId: SessionId, id: JobId): Promise<RemoteResult<JobKillValue>> {
@@ -129,7 +132,9 @@ export class ClientJobs extends Service implements IJobs {
       this.rowsEntries,
       String(sessionId),
       () => this.startRows(sessionId),
-      () => { this.model.rowsDropped(sessionId) },
+      () => {
+        this.model.rowsDropped(sessionId)
+      },
     )
   }
 
@@ -138,17 +143,14 @@ export class ClientJobs extends Service implements IJobs {
       this.observations,
       String(id),
       () => this.startObservation(sessionId, id),
-      () => { this.model.observeStopped(id) },
+      () => {
+        this.model.observeStopped(id)
+      },
     )
   }
 
   /** Share the live entry under `key` or start one, and hand back its release. */
-  private acquire(
-    entries: Map<string, StreamEntry>,
-    key: string,
-    start: () => StreamEntry,
-    cleared: () => void,
-  ): () => void {
+  private acquire(entries: Map<string, StreamEntry>, key: string, start: () => StreamEntry, cleared: () => void): () => void {
     const existing = entries.get(key)
     if (existing !== undefined && !existing.stopped) {
       existing.refs += 1
@@ -193,9 +195,8 @@ export class ClientJobs extends Service implements IJobs {
       // first frame is a carrier interruption (a Host reload closes the
       // generation) and the next generation's whole set loses nothing. An end
       // before the first frame is terminal.
-      ended: accepted => accepted
-        ? new RemoteStreamCarrierError(`${name} ended before release`)
-        : new Error(`${name} ended before its first frame`),
+      ended: accepted =>
+        accepted ? new RemoteStreamCarrierError(`${name} ended before release`) : new Error(`${name} ended before its first frame`),
     })
     const entry: StreamEntry = {
       refs: 1,
@@ -224,13 +225,13 @@ export class ClientJobs extends Service implements IJobs {
     const name = `job observation ${String(id)}`
     const stream = this.remote.$stream<JobFollowFrame>({
       name,
-      open: (signal) => {
+      open: signal => {
         const from = this.model.cursorOf(id)
         return this.remote.job.follow(
           {
             jobId: id,
-            ...sessionId !== undefined ? { sessionId } : {},
-            ...from !== undefined ? { from } : {},
+            ...(sessionId !== undefined ? { sessionId } : {}),
+            ...(from !== undefined ? { from } : {}),
           },
           signal,
         )
@@ -238,9 +239,8 @@ export class ClientJobs extends Service implements IJobs {
       // A premature end after the anchor is retryable (a Host reload closes the
       // generation); resuming from the cursor loses nothing. An end before the
       // anchor is terminal.
-      ended: accepted => accepted
-        ? new RemoteStreamCarrierError(`${name} ended before settlement`)
-        : new Error(`${name} ended before its anchor`),
+      ended: accepted =>
+        accepted ? new RemoteStreamCarrierError(`${name} ended before settlement`) : new Error(`${name} ended before its anchor`),
     })
     const entry: StreamEntry = {
       refs: 1,

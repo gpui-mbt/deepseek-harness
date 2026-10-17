@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
 
@@ -16,7 +16,7 @@ describe('Tag', () => {
     expect(tag.closest('button')).toBeNull()
   })
 
-  it.each(TONES)('carries tone %s as data-tone', (tone) => {
+  it.each(TONES)('carries tone %s as data-tone', tone => {
     const { container } = render(<Tag tone={tone}>label</Tag>)
     const tag = container.firstElementChild as HTMLElement
     expect(tag.dataset['tone']).toBe(tone)

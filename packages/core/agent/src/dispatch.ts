@@ -28,7 +28,9 @@ type Return<F> = F extends (...args: never[]) => infer R ? R : never
 export type AgentSubjectEvent = {
   [K in keyof Events]: Events[K] extends (this: Scoped<Agent>, ...args: infer P) => unknown
     ? P extends [infer Payload, ...unknown[]]
-      ? Payload extends { agent: Agent } ? K : never
+      ? Payload extends { agent: Agent }
+        ? K
+        : never
       : never
     : never
 }[keyof Events]
@@ -115,7 +117,7 @@ export function agentEvents(ctx: Context, agent: Agent, carrier: Scoped<Agent> =
     // the fused record is exactly the declared payload. The spread comes
     // first, so a structurally acceptable payload that happens to carry an
     // `agent` field can never override the injected subject.
-    ({ ...payload, agent } as PayloadOf<K>)
+    ({ ...payload, agent }) as PayloadOf<K>
   return {
     emit(name, payload) {
       // Cordis emit invokes callbacks through Array.map: one synchronous throw
@@ -155,12 +157,7 @@ export function agentEvents(ctx: Context, agent: Agent, carrier: Scoped<Agent> =
  * @param name - the agent-subject event to emit.
  * @param payload - the event's payload fields; `agent` is injected.
  */
-export function emitAgentEvent<K extends AgentSubjectEvent>(
-  ctx: Context,
-  agent: Agent,
-  name: K,
-  payload: PayloadRest<K>,
-): void {
+export function emitAgentEvent<K extends AgentSubjectEvent>(ctx: Context, agent: Agent, name: K, payload: PayloadRest<K>): void {
   agentEvents(ctx, agent).emit(name, payload)
 }
 
@@ -172,5 +169,5 @@ export function emitAgentEvent<K extends AgentSubjectEvent>(
  * @returns the context to pass to `assemble()`.
  */
 export function assembleContextFor(agent: Agent, signal?: AbortSignal): AssembleContext {
-  return { agent, scope: agent, ...signal === undefined ? {} : { signal } }
+  return { agent, scope: agent, ...(signal === undefined ? {} : { signal }) }
 }

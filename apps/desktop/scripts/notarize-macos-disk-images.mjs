@@ -14,13 +14,7 @@ import { verifyMacOSDiskImage } from './verify-macos-signature.mjs'
  * @param {(path: string, expected: object) => void} verify - Disk-image qualification implementation.
  * @returns {Promise<void>}
  */
-export async function notarizeMacOSDiskImageArtifact(
-  artifact,
-  env,
-  expected,
-  submit = notarizeMacOS,
-  verify = verifyMacOSDiskImage,
-) {
+export async function notarizeMacOSDiskImageArtifact(artifact, env, expected, submit = notarizeMacOS, verify = verifyMacOSDiskImage) {
   if (!artifact.file.endsWith('.dmg')) return
   rmSync(`${artifact.file}.blockmap`, { force: true })
   const credentials = resolveMacOSNotarizationEnvironment(env)

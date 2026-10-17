@@ -14,7 +14,9 @@ const FATAL_NOTIFICATION = 'DSH_DESKTOP_PACKAGING_FATAL'
  * @returns {void}
  */
 export function recordPackagingEvent(directory, event) {
-  appendFileSync(join(directory, 'events.jsonl'), `${JSON.stringify({ time: new Date().toISOString(), pid: process.pid, ...event })}\n`, { flush: true })
+  appendFileSync(join(directory, 'events.jsonl'), `${JSON.stringify({ time: new Date().toISOString(), pid: process.pid, ...event })}\n`, {
+    flush: true,
+  })
 }
 
 /**
@@ -25,8 +27,12 @@ export function recordPackagingEvent(directory, event) {
  */
 export function failPackagingRun(directory, reason) {
   try {
-    writeFileSync(join(directory, 'fatal.json'), `${JSON.stringify({ time: new Date().toISOString(), pid: process.pid, reason })}\n`, { flush: true })
-  } finally { process.stderr.write(`\n${FATAL_NOTIFICATION}\n`) }
+    writeFileSync(join(directory, 'fatal.json'), `${JSON.stringify({ time: new Date().toISOString(), pid: process.pid, reason })}\n`, {
+      flush: true,
+    })
+  } finally {
+    process.stderr.write(`\n${FATAL_NOTIFICATION}\n`)
+  }
 }
 
 /**
@@ -43,7 +49,11 @@ export function packagingOutputRedactor(secrets, emit) {
     let output = ''
     while (buffer.length > 0) {
       const match = values.find(value => buffer.startsWith(value))
-      if (match !== undefined) { output += '[REDACTED]'; buffer = buffer.slice(match.length); continue }
+      if (match !== undefined) {
+        output += '[REDACTED]'
+        buffer = buffer.slice(match.length)
+        continue
+      }
       if (!final && values.some(value => value.startsWith(buffer))) break
       output += buffer[0]
       buffer = buffer.slice(1)
@@ -51,8 +61,14 @@ export function packagingOutputRedactor(secrets, emit) {
     if (output !== '') emit(output)
   }
   return {
-    write(chunk) { buffer += decoder.write(chunk); drain(false) },
-    end() { buffer += decoder.end(); drain(true) },
+    write(chunk) {
+      buffer += decoder.write(chunk)
+      drain(false)
+    },
+    end() {
+      buffer += decoder.end()
+      drain(true)
+    },
   }
 }
 
@@ -70,7 +86,11 @@ export function createPackagingRun(root, metadata, settings = {}) {
   for (const name of ['events.jsonl', 'stdout.log', 'stderr.log']) {
     writeFileSync(join(directory, name), '', { flag: 'wx', mode: 0o600 })
   }
-  writeFileSync(join(directory, 'run.json'), `${JSON.stringify({ startedAt: new Date().toISOString(), pid: process.pid, ...metadata })}\n`, { flag: 'wx', mode: 0o600, flush: true })
+  writeFileSync(
+    join(directory, 'run.json'),
+    `${JSON.stringify({ startedAt: new Date().toISOString(), pid: process.pid, ...metadata })}\n`,
+    { flag: 'wx', mode: 0o600, flush: true },
+  )
   let failed = false
   let active = 0
   const fatal = join(directory, 'fatal.json')
@@ -91,25 +111,42 @@ export function createPackagingRun(root, metadata, settings = {}) {
     let timedOut = false
     let deadline
     let closed
-    const safeEnvironment = Object.fromEntries(Object.entries(options.env).filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$/iu.test(name)))
+    const safeEnvironment = Object.fromEntries(
+      Object.entries(options.env).filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$/iu.test(name)),
+    )
     function stop() {
       fatalObserved = true
       failed = true
       if (termination !== undefined || child?.pid === undefined || stageClosed) return
       if (process.platform === 'win32') {
-        const killer = spawn(join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'taskkill.exe'), ['/PID', String(child.pid), '/T', '/F'], {
-          env: safeEnvironment, windowsHide: true, stdio: 'ignore',
-        })
+        const killer = spawn(
+          join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'taskkill.exe'),
+          ['/PID', String(child.pid), '/T', '/F'],
+          {
+            env: safeEnvironment,
+            windowsHide: true,
+            stdio: 'ignore',
+          },
+        )
         termination = new Promise(resolveTermination => {
-          killer.once('error', () => { terminationError = true })
+          killer.once('error', () => {
+            terminationError = true
+          })
           killer.once('close', code => {
             terminationCode = code
-            if (code !== 0) { terminationError = true; child.kill() }
+            if (code !== 0) {
+              terminationError = true
+              child.kill()
+            }
             resolveTermination()
           })
         })
       } else {
-        try { process.kill(-child.pid, 'SIGKILL') } catch (error) { if (error.code !== 'ESRCH') terminationError = true }
+        try {
+          process.kill(-child.pid, 'SIGKILL')
+        } catch (error) {
+          if (error.code !== 'ESRCH') terminationError = true
+        }
         termination = Promise.resolve()
       }
     }
@@ -118,16 +155,38 @@ export function createPackagingRun(root, metadata, settings = {}) {
     process.once('SIGTERM', interrupted)
     try {
       recordPackagingEvent(directory, { type: 'stage-start', stage, stageId })
-      child = spawn(executable, [...args], { cwd: options.cwd, env: { ...options.env, DSH_DESKTOP_PACKAGING_RUN_DIR: directory },
-        windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] })
+      child = spawn(executable, [...args], {
+        cwd: options.cwd,
+        env: { ...options.env, DSH_DESKTOP_PACKAGING_RUN_DIR: directory },
+        windowsHide: true,
+        detached: process.platform !== 'win32',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
       closed = new Promise(resolveClose => {
-        child.once('error', () => { launchError = true })
-        child.once('close', (code, signal) => { stageClosed = true; resolveClose({ code, signal }) })
+        child.once('error', () => {
+          launchError = true
+        })
+        child.once('close', (code, signal) => {
+          stageClosed = true
+          resolveClose({ code, signal })
+        })
       })
       recordPackagingEvent(directory, { type: 'stage-spawn', stage, stageId, childPid: child.pid })
-      if (options.timeoutMs !== undefined) deadline = setTimeout(() => { timedOut = true; stop() }, options.timeoutMs)
-      const secrets = [...(settings.secrets ?? []), ...Object.entries(options.env).filter(([name]) => /KEY|SECRET|TOKEN|PASSWORD|APPLE_ID/iu.test(name)).map(([, value]) => value ?? '')]
-      const streams = [['stdout', child.stdout, process.stdout], ['stderr', child.stderr, process.stderr]]
+      if (options.timeoutMs !== undefined)
+        deadline = setTimeout(() => {
+          timedOut = true
+          stop()
+        }, options.timeoutMs)
+      const secrets = [
+        ...(settings.secrets ?? []),
+        ...Object.entries(options.env)
+          .filter(([name]) => /KEY|SECRET|TOKEN|PASSWORD|APPLE_ID/iu.test(name))
+          .map(([, value]) => value ?? ''),
+      ]
+      const streams = [
+        ['stdout', child.stdout, process.stdout],
+        ['stderr', child.stderr, process.stderr],
+      ]
       for (const [name, stream, consoleStream] of streams) {
         let notification = ''
         const redactor = packagingOutputRedactor(secrets, text => {
@@ -135,20 +194,38 @@ export function createPackagingRun(root, metadata, settings = {}) {
             appendFileSync(join(directory, `${name}.log`), text, { flush: true })
             if (settings.parallel) recordPackagingEvent(directory, { type: 'output', stage, stageId, stream: name, text })
             consoleStream.write(text)
-          } catch { outputError = true; stop() }
+          } catch {
+            outputError = true
+            stop()
+          }
           notification += text
           if (notification.includes(FATAL_NOTIFICATION)) stop()
           notification = notification.slice(-FATAL_NOTIFICATION.length)
         })
         stream.on('data', chunk => redactor.write(chunk))
         stream.once('end', () => redactor.end())
-        stream.once('error', () => { outputError = true; stop() })
+        stream.once('error', () => {
+          outputError = true
+          stop()
+        })
       }
       if (existsSync(fatal)) stop()
       const result = await closed
       await termination
       fatalObserved ||= existsSync(fatal)
-      recordPackagingEvent(directory, { type: 'stage-end', stage, stageId, elapsedMs: performance.now() - started, ...result, timedOut, fatalObserved, launchError, outputError, terminationCode, terminationError })
+      recordPackagingEvent(directory, {
+        type: 'stage-end',
+        stage,
+        stageId,
+        elapsedMs: performance.now() - started,
+        ...result,
+        timedOut,
+        fatalObserved,
+        launchError,
+        outputError,
+        terminationCode,
+        terminationError,
+      })
       if (result.code !== 0 || result.signal !== null || fatalObserved || launchError || outputError || terminationError) {
         failed = true
         throw new Error(`desktop package: ${stage} failed; evidence: ${directory}`)
@@ -171,10 +248,18 @@ export function createPackagingRun(root, metadata, settings = {}) {
     run,
     finish(success) {
       if (active) throw new Error('desktop package: cannot finish an active run')
-      const events = readFileSync(join(directory, 'events.jsonl'), 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
+      const events = readFileSync(join(directory, 'events.jsonl'), 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map(line => JSON.parse(line))
       const stages = events.filter(event => event.type === 'stage-end')
       const proxy = events.filter(event => event.type === 'notarization-proxy').at(-1)?.status ?? 'not-used'
-      writeFileSync(join(directory, 'result.json'), `${JSON.stringify({ completedAt: new Date().toISOString(), elapsedMs: performance.now() - started, success: success && !failed && !existsSync(fatal), proxy, artifacts: events.filter(event => event.type === 'artifacts').at(-1)?.directory, stages })}\n`, { flag: 'wx', mode: 0o600, flush: true })
+      writeFileSync(
+        join(directory, 'result.json'),
+        `${JSON.stringify({ completedAt: new Date().toISOString(), elapsedMs: performance.now() - started, success: success && !failed && !existsSync(fatal), proxy, artifacts: events.filter(event => event.type === 'artifacts').at(-1)?.directory, stages })}\n`,
+        { flag: 'wx', mode: 0o600, flush: true },
+      )
     },
   }
 }

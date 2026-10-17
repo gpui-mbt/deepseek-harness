@@ -11,11 +11,19 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
 import type { SessionEventReadRequest } from '@deepseek-ai/dsh-session-query'
 import type { WorkspaceChangedFile, WorkspaceChangesSummary, WorkspaceFileDiff } from '@deepseek-ai/dsh-workspace-changes/types'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { registerPresentOpen } from '../src/present-open.ts'
 import {
-  changedFileUrl, changesDiffUrl, changesSummaryUrl, CHANGES_DIFF_PATH, CHANGES_OPEN_PATH, CHANGED_FILES_PATH, isChangedFile, isChangesDiff,
-  isChangesEvent, isChangesSummary,
+  changedFileUrl,
+  changesDiffUrl,
+  changesSummaryUrl,
+  CHANGES_DIFF_PATH,
+  CHANGES_OPEN_PATH,
+  CHANGED_FILES_PATH,
+  isChangedFile,
+  isChangesDiff,
+  isChangesEvent,
+  isChangesSummary,
 } from '../src/changes.ts'
 
 const cleanups: Array<() => Promise<unknown>> = []
@@ -37,7 +45,12 @@ async function fixture() {
   const outside = join(root, 'outside.txt')
   await writeFile(outside, 'outside')
   const data: WorkspaceChangesSummary = {
-    turn: 1, cwd, total: 3, added: 3, deleted: 0, snapshot: { before: 'a'.repeat(40), after: 'b'.repeat(40) },
+    turn: 1,
+    cwd,
+    total: 3,
+    added: 3,
+    deleted: 0,
+    snapshot: { before: 'a'.repeat(40), after: 'b'.repeat(40) },
     files: [changed('src/lib/a.ts'), changed('src/b.ts'), changed(outside, '~/outside.txt')],
   }
   const ctx = new Context()
@@ -46,35 +59,64 @@ async function fixture() {
   ctx.provide('sandboxPolicy', { workspaceRoot: cwd } as never)
   await ctx.plugin({
     inject: ['fs', 'sandboxPolicy'],
-    apply: (scope) => { new WorkspaceFiles(scope, { maxBytes: 1024, maxFileBytes: 1024, maxLines: 100, maxEntries: 100 }) },
+    apply: scope => {
+      new WorkspaceFiles(scope, { maxBytes: 1024, maxFileBytes: 1024, maxLines: 100, maxEntries: 100 })
+    },
   })
   const readEvent = vi.fn(async (_request: SessionEventReadRequest) => {
     throw new SessionQueryError('missing', 'SESSION_QUERY_EVENT_NOT_FOUND')
   })
   ctx.provide('sessionQuery', { readEvent } as never)
-  const summary = vi.fn((sessionId: SessionId, seq: number) => sessionId === 'owner' && seq === 9 ? data : undefined)
+  const summary = vi.fn((sessionId: SessionId, seq: number) => (sessionId === 'owner' && seq === 9 ? data : undefined))
   const comparison: WorkspaceFileDiff = {
-    kind: 'text', path: 'src/lib/a.ts', display: 'src/lib/a.ts', before: true, after: true, coarse: false,
+    kind: 'text',
+    path: 'src/lib/a.ts',
+    display: 'src/lib/a.ts',
+    before: true,
+    after: true,
+    coarse: false,
     hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-a', '+b'] }],
   }
   const diff = vi.fn(async (sessionId: SessionId, seq: number, index: number, _signal: AbortSignal) =>
-    sessionId === 'owner' && seq === 9 && index === 0 ? comparison : undefined)
+    sessionId === 'owner' && seq === 9 && index === 0 ? comparison : undefined,
+  )
   ctx.provide('workspaceChanges', { summary, diff })
   const opener = vi.fn(async (_request: { path: string; action?: 'reveal' }, _signal: AbortSignal) => ({ opened: true as const }))
   const applications = vi.fn(async () => [{ id: 'player', name: 'Player', default: true, icon: null }])
-  ctx.provide('sessionController', { workspacePathApplications: applications, openWorkspacePath: opener, workspaceDesktop: () => ({ name: 'desktop', available: true, fileManager: 'finder' }) } as never)
+  ctx.provide('sessionController', {
+    workspacePathApplications: applications,
+    openWorkspacePath: opener,
+    workspaceDesktop: () => ({ name: 'desktop', available: true, fileManager: 'finder' }),
+  } as never)
   const connection = new HostConnectionService(ctx, [], {} as BrowserAuth)
   await ctx.plugin({
     inject: ['connection', 'sessionQuery', 'sessionController', 'workspaceFiles', 'fs', 'sandboxPolicy', 'workspaceChanges'],
     apply: registerPresentOpen,
   })
   const handler = connection.createSharedFetchHandler('/api')
-  const open = (query = '?sessionId=owner&seq=9&index=0') => handler.fetch(new Request(`http://localhost${CHANGES_OPEN_PATH}${query}`, { method: 'POST' }), connection.browserPeer)
-  const read = (query = '?sessionId=owner&seq=9') => handler.fetch(new Request(`http://localhost${CHANGED_FILES_PATH}${query}`), connection.browserPeer)
-  const compare = (query = '?sessionId=owner&seq=9&index=0') => handler.fetch(new Request(`http://localhost${CHANGES_DIFF_PATH}${query}`), connection.browserPeer)
+  const open = (query = '?sessionId=owner&seq=9&index=0') =>
+    handler.fetch(new Request(`http://localhost${CHANGES_OPEN_PATH}${query}`, { method: 'POST' }), connection.browserPeer)
+  const read = (query = '?sessionId=owner&seq=9') =>
+    handler.fetch(new Request(`http://localhost${CHANGED_FILES_PATH}${query}`), connection.browserPeer)
+  const compare = (query = '?sessionId=owner&seq=9&index=0') =>
+    handler.fetch(new Request(`http://localhost${CHANGES_DIFF_PATH}${query}`), connection.browserPeer)
   return {
-    browserPeer: connection.browserPeer, handler, applications, root, cwd, ctx, data, readEvent, open, read, compare, comparison, diff,
-    opener, outside, summary,
+    browserPeer: connection.browserPeer,
+    handler,
+    applications,
+    root,
+    cwd,
+    ctx,
+    data,
+    readEvent,
+    open,
+    read,
+    compare,
+    comparison,
+    diff,
+    opener,
+    outside,
+    summary,
   }
 }
 
@@ -108,7 +150,13 @@ describe('change comparison route', () => {
     expect((await compare('?sessionId=owner&seq=9&index=1')).status).toBe(404)
     expect((await compare('?sessionId=owner&seq=8&index=0')).status).toBe(404)
     expect((await compare('?sessionId=other&seq=9&index=0')).status).toBe(404)
-    for (const bad of ['', '?seq=9&index=0', '?sessionId=owner&seq=9', '?sessionId=owner&seq=9&index=-1', '?sessionId=owner&seq=x&index=0']) {
+    for (const bad of [
+      '',
+      '?seq=9&index=0',
+      '?sessionId=owner&seq=9',
+      '?sessionId=owner&seq=9&index=-1',
+      '?sessionId=owner&seq=x&index=0',
+    ]) {
       expect((await compare(bad)).status).toBe(400)
     }
     diff.mockRejectedValueOnce(new Error('/private/objects'))
@@ -120,7 +168,9 @@ describe('change comparison route', () => {
   it('validates served comparisons', () => {
     const text = { kind: 'text', path: 'a', display: 'a', before: true, after: false, coarse: true, hunks: [] }
     expect(isChangesDiff(text)).toBe(true)
-    expect(isChangesDiff({ ...text, hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 0, lines: ['-x', ' y', '+z'] }] })).toBe(true)
+    expect(isChangesDiff({ ...text, hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 0, lines: ['-x', ' y', '+z'] }] })).toBe(
+      true,
+    )
     expect(isChangesDiff({ kind: 'binary', path: 'a', display: 'a' })).toBe(true)
     expect(isChangesDiff({ kind: 'oversized', path: 'a', display: 'a' })).toBe(true)
     expect(isChangesDiff({ kind: 'other', path: 'a', display: 'a' })).toBe(false)
@@ -145,12 +195,19 @@ describe('changed files native open route', () => {
     expect(opener.mock.lastCall?.[0].path).toBe(await realpath(outside))
   })
 
-  it.each(['', '?seq=9', '?sessionId=owner', '?sessionId=owner&seq=9', '?sessionId=owner&seq=9&index=-1', '?sessionId=owner&seq=9&index=1.5', '?sessionId=owner&seq=x'])(
-    'rejects invalid coordinates before reading: %s', async (query) => {
-      const { open, readEvent } = await fixture()
-      expect((await open(query)).status).toBe(400)
-      expect(readEvent).not.toHaveBeenCalled()
-    })
+  it.each([
+    '',
+    '?seq=9',
+    '?sessionId=owner',
+    '?sessionId=owner&seq=9',
+    '?sessionId=owner&seq=9&index=-1',
+    '?sessionId=owner&seq=9&index=1.5',
+    '?sessionId=owner&seq=x',
+  ])('rejects invalid coordinates before reading: %s', async query => {
+    const { open, readEvent } = await fixture()
+    expect((await open(query)).status).toBe(400)
+    expect(readEvent).not.toHaveBeenCalled()
+  })
 
   it('refuses unrelated Sessions, forgotten summaries, unknown indices, and missing files', async () => {
     const { open, readEvent, opener, cwd } = await fixture()
@@ -165,7 +222,9 @@ describe('changed files native open route', () => {
 
   it('refuses opening without a desktop or a verified Host mapping and reports launcher failures', async () => {
     const { ctx, open, opener } = await fixture()
-    const desktop = vi.spyOn(ctx.sessionController, 'workspaceDesktop').mockReturnValue({ name: 'desktop', available: false, fileManager: null })
+    const desktop = vi
+      .spyOn(ctx.sessionController, 'workspaceDesktop')
+      .mockReturnValue({ name: 'desktop', available: false, fileManager: null })
     expect((await open()).status).toBe(409)
     desktop.mockRestore()
     const mapping = vi.spyOn(ctx.fs, 'processPathFromHostPath').mockReturnValue(undefined)
@@ -188,7 +247,9 @@ describe('changed files native open route', () => {
     expect(isChangedFile({ path: 'a', display: 'a', added: 1.5, deleted: 2 })).toBe(false)
     expect(isChangedFile([])).toBe(false)
     expect(isChangesSummary({ turn: 1, total: 0, added: 0, deleted: 0, files: [] })).toBe(true)
-    expect(isChangesSummary({ turn: 1, total: 1, added: 1, deleted: 0, files: [{ path: 'a', display: 'a', added: 1, deleted: 0 }] })).toBe(true)
+    expect(isChangesSummary({ turn: 1, total: 1, added: 1, deleted: 0, files: [{ path: 'a', display: 'a', added: 1, deleted: 0 }] })).toBe(
+      true,
+    )
     expect(isChangesSummary({ turn: '1', total: 0, added: 0, deleted: 0, files: [] })).toBe(false)
     expect(isChangesSummary({ turn: 0, total: 0, added: 0, deleted: 0, files: [] })).toBe(false)
     expect(isChangesSummary({ turn: 1, total: 1.5, added: 0, deleted: 0, files: [] })).toBe(false)
@@ -204,7 +265,6 @@ describe('changed files native open route', () => {
   })
 })
 
-
 it('queries handlers only after file authorization and forwards explicit application choices', async () => {
   const { browserPeer, handler, applications, opener, open, ctx } = await fixture()
   const url = 'http://localhost/api/changes.open?sessionId=owner&seq=9&index=0'
@@ -219,7 +279,6 @@ it('queries handlers only after file authorization and forwards explicit applica
   expect((await handler.fetch(new Request(url), browserPeer)).status).toBe(422)
   expect(applications).toHaveBeenCalledOnce()
 })
-
 
 it('rejects an unsupported changed-file action before invoking the desktop', async () => {
   const { open, opener } = await fixture()

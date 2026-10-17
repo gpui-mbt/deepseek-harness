@@ -78,8 +78,10 @@ export function readProfilePatches(binName: string, context: ProfileContext, ini
     ...(loadOptionalPatches(binName, join(context.home, PROFILE_PATCH_FILENAME)) ?? []),
     ...context.overlays,
   ])
-  const telemetryPatch = resolveTelemetryPatch(context.telemetryDisabledEnv,
-    composeEntries([patches]).some(row => row.id === TELEMETRY_ROW_ID))
+  const telemetryPatch = resolveTelemetryPatch(
+    context.telemetryDisabledEnv,
+    composeEntries([patches]).some(row => row.id === TELEMETRY_ROW_ID),
+  )
   if (telemetryPatch !== undefined) patches.push(telemetryPatch)
   return patches
 }

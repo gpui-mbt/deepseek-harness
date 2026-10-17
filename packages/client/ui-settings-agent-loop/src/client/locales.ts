@@ -4,9 +4,18 @@ import type { SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Locale keys the page renders. */
 export type AgentLoopSettingsLocaleKey =
-  | 'title' | 'description' | 'maxParallel' | 'maxParallelHint'
-  | 'overridden' | 'reset' | 'readOnly' | 'unavailable'
-  | 'save' | 'saving' | 'saveFailed' | 'invalidNumber'
+  | 'title'
+  | 'description'
+  | 'maxParallel'
+  | 'maxParallelHint'
+  | 'overridden'
+  | 'reset'
+  | 'readOnly'
+  | 'unavailable'
+  | 'save'
+  | 'saving'
+  | 'saveFailed'
+  | 'invalidNumber'
 
 /** English copy. */
 export const en: Record<AgentLoopSettingsLocaleKey, string> = {

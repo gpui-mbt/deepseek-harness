@@ -37,7 +37,13 @@ import z from '@deepseek-ai/schemastery'
 import { SandboxProvider, SandboxUnavailableError, canonicalPath } from '@deepseek-ai/dsh-sandbox'
 import type { ConfinedArgv, ConfinedSandboxMode, RunnerFailureRule, SandboxEnforcement, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import type { SessionId } from '@deepseek-ai/dsh-session'
-import { AclWriteGrant, assertTempRootOutsideWorkspace, registerAclDiagnosisSkill, tempWriteSid, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl'
+import {
+  AclWriteGrant,
+  assertTempRootOutsideWorkspace,
+  registerAclDiagnosisSkill,
+  tempWriteSid,
+  workspaceWriteSid,
+} from '@deepseek-ai/dsh-sandbox-windows-acl'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from './profiles.ts'
 
@@ -101,14 +107,14 @@ function defaultProbeSeatbelt(seatbeltExec: string, timeoutMs: number): boolean 
 function defaultProbeWindowsAcl(runnerInvocation: string[], timeoutMs: number): boolean {
   const program = runnerInvocation[0]
   if (program === undefined) return false
-  const probe = spawnSync(program, [
-    ...runnerInvocation.slice(1),
-    '--workspace', tmpdir(), '--temp', tmpdir(), '--mode', 'read-only',
-    '--', 'cmd', '/c', 'exit', '0',
-  ], {
-    timeout: timeoutMs,
-    stdio: 'ignore',
-  })
+  const probe = spawnSync(
+    program,
+    [...runnerInvocation.slice(1), '--workspace', tmpdir(), '--temp', tmpdir(), '--mode', 'read-only', '--', 'cmd', '/c', 'exit', '0'],
+    {
+      timeout: timeoutMs,
+      stdio: 'ignore',
+    },
+  )
   return probe.status === 0
 }
 
@@ -232,11 +238,13 @@ const WINDOWS_ACL_RUNNER_FAILURE_EXIT = 127
  */
 const RUNNER_FAILURE_RULES = {
   bwrap: [{ fatalSignatures: ['bwrap: '] }],
-  landlock: [{
-    allowedExitCodes: [LAUNCHER_FAILURE_EXIT],
-    fatalSignatures: [`${LAUNCHER_BIN}: `],
-    informationalLines: [`${LAUNCHER_BIN}: partial enforcement (older Landlock ABI)`],
-  }],
+  landlock: [
+    {
+      allowedExitCodes: [LAUNCHER_FAILURE_EXIT],
+      fatalSignatures: [`${LAUNCHER_BIN}: `],
+      informationalLines: [`${LAUNCHER_BIN}: partial enforcement (older Landlock ABI)`],
+    },
+  ],
   seatbelt: [{ fatalSignatures: ['sandbox-exec: '] }],
   'windows-acl': [{ allowedExitCodes: [WINDOWS_ACL_RUNNER_FAILURE_EXIT], fatalSignatures: ['windows-acl-run: '] }],
 } as const satisfies Record<SelectedRunner['runner'], readonly RunnerFailureRule[]>
@@ -299,7 +307,9 @@ export class LocalSandboxProvider extends SandboxProvider {
     // remains optional and may be mounted after this provider.
     /* v8 ignore next 3 -- Windows-only registration; the Linux coverage lane cannot take this branch */
     if (process.platform === 'win32' && this.runnerCommand === undefined) {
-      ctx.inject(['skills'], (skillsCtx) => { registerAclDiagnosisSkill(skillsCtx) })
+      ctx.inject(['skills'], skillsCtx => {
+        registerAclDiagnosisSkill(skillsCtx)
+      })
     }
     // The temp grants are revoked with the provider: a clean server
     // shutdown leaves no temp ACEs behind (workspace ACEs stand by design —
@@ -346,11 +356,16 @@ export class LocalSandboxProvider extends SandboxProvider {
   /** The selected rung's runner invocation (program + profile arguments) for one policy. */
   private runnerArgv(runner: SelectedRunner['runner'], policy: SandboxPolicy): string[] {
     switch (runner) {
-      case 'bwrap': return ['bwrap', ...bwrapProfileArgs(policy)]
-      case 'landlock': return [this.landlockLauncher(), ...landlockProfileArgs(policy)]
-      case 'seatbelt': return [this.seatbeltExec(), ...seatbeltProfileArgs(policy)]
-      case 'windows-acl': return this.windowsAclRunnerArgv(policy)
-      default: return assertNever(runner)
+      case 'bwrap':
+        return ['bwrap', ...bwrapProfileArgs(policy)]
+      case 'landlock':
+        return [this.landlockLauncher(), ...landlockProfileArgs(policy)]
+      case 'seatbelt':
+        return [this.seatbeltExec(), ...seatbeltProfileArgs(policy)]
+      case 'windows-acl':
+        return this.windowsAclRunnerArgv(policy)
+      default:
+        return assertNever(runner)
     }
   }
 
@@ -369,21 +384,21 @@ export class LocalSandboxProvider extends SandboxProvider {
   private windowsAclRunnerArgv(policy: SandboxPolicy): string[] {
     const sessionId = policy.sessionId
     if (sessionId === undefined || policy.mode === 'read-only') {
-      return [
-        ...this.windowsAclRunnerInvocation(),
-        '--workspace', policy.workspaceRoot,
-        '--temp', tmpdir(),
-        '--mode', policy.mode,
-      ]
+      return [...this.windowsAclRunnerInvocation(), '--workspace', policy.workspaceRoot, '--temp', tmpdir(), '--mode', policy.mode]
     }
     const temp = this.materializeAclGrant(sessionId, policy.workspaceRoot)
     return [
       ...this.windowsAclRunnerInvocation(),
-      '--workspace', policy.workspaceRoot,
-      '--temp', temp.dir,
-      '--mode', policy.mode,
-      '--write-sid', workspaceWriteSid(policy.workspaceRoot),
-      '--temp-write-sid', temp.writeSid,
+      '--workspace',
+      policy.workspaceRoot,
+      '--temp',
+      temp.dir,
+      '--mode',
+      policy.mode,
+      '--write-sid',
+      workspaceWriteSid(policy.workspaceRoot),
+      '--temp-write-sid',
+      temp.writeSid,
     ]
   }
 
@@ -444,7 +459,10 @@ export class LocalSandboxProvider extends SandboxProvider {
         cleanupFailures.push(cleanupError)
       }
       if (cleanupFailures.length > 0) {
-        throw new AggregateError([error, ...cleanupFailures], 'sandbox-local windows-acl temp grant materialization failed and its cleanup also failed')
+        throw new AggregateError(
+          [error, ...cleanupFailures],
+          'sandbox-local windows-acl temp grant materialization failed and its cleanup also failed',
+        )
       }
       throw error
     }
@@ -489,7 +507,11 @@ export class LocalSandboxProvider extends SandboxProvider {
 
   /** Remove one provider-owned private temp directory (injectable for cleanup tests). */
   private removeTempDir(dir: string): void {
-    const remove = this.internals.rmTempDir ?? ((path: string) => { rmSync(path, { recursive: true, force: true }) })
+    const remove =
+      this.internals.rmTempDir ??
+      ((path: string) => {
+        rmSync(path, { recursive: true, force: true })
+      })
     remove(dir)
   }
 
@@ -542,11 +564,12 @@ export class LocalSandboxProvider extends SandboxProvider {
         return probe(this.seatbeltExec()) ? 'full' : 'unusable'
       }
       case 'windows-acl': {
-        const probe = this.internals.probeWindowsAcl
-          ?? (() => defaultProbeWindowsAcl(this.windowsAclRunnerInvocation(), this.probeTimeoutMs))
+        const probe =
+          this.internals.probeWindowsAcl ?? (() => defaultProbeWindowsAcl(this.windowsAclRunnerInvocation(), this.probeTimeoutMs))
         return probe() ? 'partial' : 'unusable'
       }
-      default: return assertNever(runner)
+      default:
+        return assertNever(runner)
     }
   }
 
@@ -571,7 +594,8 @@ export class LocalSandboxProvider extends SandboxProvider {
   private windowsAclRunnerInvocation(): string[] {
     const override = this.internals.windowsAclRunnerArgs
     if (override !== undefined) return override
-    const builtEntry = this.internals.windowsAclRunnerEntry ?? fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/runner'))
+    const builtEntry =
+      this.internals.windowsAclRunnerEntry ?? fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/runner'))
     if (existsSync(builtEntry)) return [process.execPath, builtEntry]
     const sourceEntry = fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/src/runner.ts'))
     const sourceConfig = fileURLToPath(new URL('../../../../tsconfig.base.json', import.meta.url))

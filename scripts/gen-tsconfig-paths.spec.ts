@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   collectPackageAliases,
   collectPackageNames,
@@ -36,10 +36,9 @@ describe('generated tsconfig package aliases', () => {
     ]
     const body = renderAliases(aliases, new Set(['@deepseek-ai/dsh-a']))
 
-    expect(body).toBe([
-      '      "@deepseek-ai/dsh-b": ["./packages/g/b/src"]',
-      '      "@deepseek-ai/dsh-c": ["./packages/g/c/src"]',
-    ].join(',\n'))
+    expect(body).toBe(
+      ['      "@deepseek-ai/dsh-b": ["./packages/g/b/src"]', '      "@deepseek-ai/dsh-c": ["./packages/g/c/src"]'].join(',\n'),
+    )
     expect(body.endsWith(',')).toBe(false)
   })
 
@@ -69,10 +68,7 @@ describe('generated tsconfig package aliases', () => {
     // package nobody had aliased. A package whose name does not match its
     // directory is skipped by the generator, so without this check it would
     // resolve through the workspace symlink to built lib/types instead.
-    expect(uncoveredPackages(
-      ['@deepseek-ai/dsh-a', '@deepseek-ai/dsh-b'],
-      new Set(['@deepseek-ai/dsh-a']),
-    )).toEqual(['@deepseek-ai/dsh-b'])
+    expect(uncoveredPackages(['@deepseek-ai/dsh-a', '@deepseek-ai/dsh-b'], new Set(['@deepseek-ai/dsh-a']))).toEqual(['@deepseek-ai/dsh-b'])
 
     expect(uncoveredPackages(['@deepseek-ai/dsh-a'], new Set(['@deepseek-ai/dsh-a']))).toEqual([])
   })

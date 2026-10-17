@@ -35,7 +35,8 @@ export function verifyInstalledProductIsolation(directory: string, optionalBundl
     for (const section of ['dependencies', 'optionalDependencies', 'peerDependencies'] as const) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         if (section === 'dependencies' && offered.has(name)) {
-          if (installedPackage(canonical, name) === undefined) throw new Error(`optional bundle is missing: ${[...chain, name].join(' -> ')}`)
+          if (installedPackage(canonical, name) === undefined)
+            throw new Error(`optional bundle is missing: ${[...chain, name].join(' -> ')}`)
           continue
         }
         rejectExperimental(name, [...chain, name])
@@ -44,9 +45,12 @@ export function verifyInstalledProductIsolation(directory: string, optionalBundl
         }
         const dependency = installedPackage(canonical, name)
         if (dependency === undefined) {
-          if (section === 'optionalDependencies'
-            || Object.hasOwn(manifest.optionalDependencies ?? {}, name)
-            || section === 'peerDependencies' && manifest.peerDependenciesMeta?.[name]?.optional === true) continue
+          if (
+            section === 'optionalDependencies' ||
+            Object.hasOwn(manifest.optionalDependencies ?? {}, name) ||
+            (section === 'peerDependencies' && manifest.peerDependenciesMeta?.[name]?.optional === true)
+          )
+            continue
           throw new Error(`default product dependency is missing: ${[...chain, name].join(' -> ')}`)
         }
         queue.push({ directory: dependency, chain })

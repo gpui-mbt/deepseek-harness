@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { DesktopBackendController, type DesktopBackendState } from '../src/backend-controller.ts'
 
 function deferred() {
   let resolve!: () => void
   let reject!: (error: Error) => void
-  const promise = new Promise<void>((accept, decline) => { resolve = accept; reject = decline })
+  const promise = new Promise<void>((accept, decline) => {
+    resolve = accept
+    reject = decline
+  })
   return { promise, resolve, reject }
 }
 
@@ -16,12 +19,33 @@ function fixture() {
   const states: DesktopBackendState[] = []
   let fail!: (error: Error) => void
   const host = {
-    start: vi.fn(() => { started.resolve(); return ready.promise }),
-    stop: vi.fn(() => { stopping.resolve(); return exited.promise }),
+    start: vi.fn(() => {
+      started.resolve()
+      return ready.promise
+    }),
+    stop: vi.fn(() => {
+      stopping.resolve()
+      return exited.promise
+    }),
   }
-  const create = vi.fn((onFailure: (error: Error) => void) => { fail = onFailure; return host })
+  const create = vi.fn((onFailure: (error: Error) => void) => {
+    fail = onFailure
+    return host
+  })
   const controller = new DesktopBackendController(create, state => states.push(state))
-  return { controller, host, create, states, started, ready, stopping, exited, fail: (error: Error) => { fail(error) } }
+  return {
+    controller,
+    host,
+    create,
+    states,
+    started,
+    ready,
+    stopping,
+    exited,
+    fail: (error: Error) => {
+      fail(error)
+    },
+  }
 }
 
 describe('desktop backend controller', () => {
@@ -47,10 +71,15 @@ describe('desktop backend controller', () => {
     const f = fixture()
     const preparing = deferred()
     const prepared = deferred()
-    const start = f.controller.start(() => { preparing.resolve(); return prepared.promise })
+    const start = f.controller.start(() => {
+      preparing.resolve()
+      return prepared.promise
+    })
     await preparing.promise
     let closed = false
-    const close = f.controller.close().then(() => { closed = true })
+    const close = f.controller.close().then(() => {
+      closed = true
+    })
     await Promise.resolve()
     expect(closed).toBe(false)
     prepared.resolve()
@@ -69,7 +98,9 @@ describe('desktop backend controller', () => {
     expect(f.controller.close()).toBe(close)
     await f.stopping.promise
     let closed = false
-    void close.then(() => { closed = true })
+    void close.then(() => {
+      closed = true
+    })
     f.ready.reject(new Error('stopped'))
     await Promise.resolve()
     expect(closed).toBe(false)
@@ -83,7 +114,11 @@ describe('desktop backend controller', () => {
   it('publishes preparation errors and permits retry', async () => {
     const f = fixture()
     const invalid = new Error('invalid profile')
-    await expect(f.controller.start(async () => { throw invalid })).rejects.toThrow('invalid profile')
+    await expect(
+      f.controller.start(async () => {
+        throw invalid
+      }),
+    ).rejects.toThrow('invalid profile')
     expect(f.controller.state).toEqual({ phase: 'error', message: 'invalid profile', failure: invalid })
     expect(f.create).not.toHaveBeenCalled()
     f.ready.resolve()

@@ -1,22 +1,15 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
-import type {
-  RemoteEventHostInfo,
-  TypertRemoteEventInvocation,
-  TypertRemoteEventSource,
-} from '@deepseek-ai/dsh-api-gateway'
+import type { RemoteEventHostInfo, TypertRemoteEventInvocation, TypertRemoteEventSource } from '@deepseek-ai/dsh-api-gateway'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { apply, inject } from '../src/index.ts'
 
 interface GatewayProbe {
   source: TypertRemoteEventSource | undefined
   host: RemoteEventHostInfo | undefined
   removals: number
-  registerRemoteEvents(
-    source: TypertRemoteEventSource,
-    host: RemoteEventHostInfo,
-  ): () => Promise<void>
+  registerRemoteEvents(source: TypertRemoteEventSource, host: RemoteEventHostInfo): () => Promise<void>
 }
 
 async function setup(): Promise<{
@@ -63,11 +56,7 @@ function waterfallRaw(
   args: readonly unknown[],
   next: () => Promise<unknown>,
 ): Promise<unknown> {
-  const waterfall = ctx.waterfall.bind(ctx) as (
-    receiver: object,
-    name: string,
-    ...values: readonly unknown[]
-  ) => Promise<unknown>
+  const waterfall = ctx.waterfall.bind(ctx) as (receiver: object, name: string, ...values: readonly unknown[]) => Promise<unknown>
   return waterfall(target, event, ...args, next)
 }
 
@@ -104,10 +93,12 @@ describe('Remote event Host source', () => {
       value: { event: 'settings/document-updated', args: ['ui-theme', 1] },
     })
 
-    emitRaw(ctx, 'goal/activation-changed', [{
-      sessionId: 'session-1',
-      goal: { id: 'goal-1', revision: 1, activation: 'disarmed' },
-    }])
+    emitRaw(ctx, 'goal/activation-changed', [
+      {
+        sessionId: 'session-1',
+        goal: { id: 'goal-1', revision: 1, activation: 'disarmed' },
+      },
+    ])
     await expect(first.next()).resolves.toEqual({
       done: false,
       value: {
@@ -200,8 +191,7 @@ describe('Remote event Host source', () => {
 
     const alreadyAborted = new AbortController()
     alreadyAborted.abort()
-    await expect(sourceOf(gateway)(alreadyAborted.signal)[Symbol.asyncIterator]().next())
-      .resolves.toEqual({ done: true, value: undefined })
+    await expect(sourceOf(gateway)(alreadyAborted.signal)[Symbol.asyncIterator]().next()).resolves.toEqual({ done: true, value: undefined })
     await ctx.fiber.dispose()
   })
 
@@ -214,21 +204,13 @@ describe('Remote event Host source', () => {
     const target = scopeTarget(ctx, agent)
     const request = { questions: [], agent }
 
-    await expect(async () => waterfallRaw(
-      ctx,
-      target,
-      'user-questions/request',
-      [{ questions: [], agent: { id: 'agent-2', ctx: ctx.extend() } }],
-      () => Promise.resolve('host fallback'),
-    )).rejects.toThrow('must carry its Agent directly')
+    await expect(async () =>
+      waterfallRaw(ctx, target, 'user-questions/request', [{ questions: [], agent: { id: 'agent-2', ctx: ctx.extend() } }], () =>
+        Promise.resolve('host fallback'),
+      ),
+    ).rejects.toThrow('must carry its Agent directly')
 
-    const claimed = waterfallRaw(
-      ctx,
-      target,
-      'user-questions/request',
-      [request],
-      () => Promise.resolve('host fallback'),
-    )
+    const claimed = waterfallRaw(ctx, target, 'user-questions/request', [request], () => Promise.resolve('host fallback'))
     const claimedDispatch = invocationOf((await iterator.next()).value)
     expect(claimedDispatch).toMatchObject({
       event: 'user-questions/request',
@@ -238,13 +220,7 @@ describe('Remote event Host source', () => {
     claimedDispatch.resolve({ kind: 'result', value: 'client answer' })
     await expect(claimed).resolves.toBe('client answer')
 
-    const delegated = waterfallRaw(
-      ctx,
-      target,
-      'user-questions/request',
-      [request],
-      () => Promise.resolve('host fallback'),
-    )
+    const delegated = waterfallRaw(ctx, target, 'user-questions/request', [request], () => Promise.resolve('host fallback'))
     const delegatedDispatch = invocationOf((await iterator.next()).value)
     delegatedDispatch.resolve({ kind: 'next' })
     await expect(delegated).resolves.toBe('host fallback')
@@ -252,13 +228,7 @@ describe('Remote event Host source', () => {
     const rejection = Object.assign(new Error('the user cancelled ask_user_question'), {
       code: 'ASK_CANCELLED',
     })
-    const rejected = waterfallRaw(
-      ctx,
-      target,
-      'user-questions/request',
-      [request],
-      () => Promise.resolve('host fallback'),
-    )
+    const rejected = waterfallRaw(ctx, target, 'user-questions/request', [request], () => Promise.resolve('host fallback'))
     const rejectedAssertion = expect(rejected).rejects.toBe(rejection)
     const rejectedDispatch = invocationOf((await iterator.next()).value)
     rejectedDispatch.reject(rejection)
@@ -277,12 +247,8 @@ describe('Remote event Host source', () => {
     const delivery = iterator.next()
     const agent = { id: 'agent-1', ctx: ctx.extend() }
     const reason = new Error('forwarded event source removed')
-    const pending = waterfallRaw(
-      ctx,
-      scopeTarget(ctx, agent),
-      'user-questions/request',
-      [{ questions: [], agent }],
-      () => Promise.resolve('host fallback'),
+    const pending = waterfallRaw(ctx, scopeTarget(ctx, agent), 'user-questions/request', [{ questions: [], agent }], () =>
+      Promise.resolve('host fallback'),
     )
     const rejected = expect(pending).rejects.toBe(reason)
 

@@ -46,6 +46,13 @@ export interface BrowserFrame extends HostObservable<BrowserFrameState> {
  * @returns state before any page has been requested.
  */
 export function emptyBrowserFrame(): BrowserFrameState {
-  return { target: undefined, address: 'empty', loading: false, canGoBack: false, canGoForward: false,
-    error: undefined, sandboxEnabled: undefined }
+  return {
+    target: undefined,
+    address: 'empty',
+    loading: false,
+    canGoBack: false,
+    canGoForward: false,
+    error: undefined,
+    sandboxEnabled: undefined,
+  }
 }

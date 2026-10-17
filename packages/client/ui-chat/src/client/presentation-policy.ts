@@ -71,10 +71,7 @@ const TIMING_POLICIES = {
  * @param collapseTiming - persisted timing; defaults to immediate completion folding.
  * @returns the same policy object for the same pair of choices.
  */
-export function presentationPolicyFor(
-  mode: TranscriptViewMode,
-  collapseTiming: CollapseTiming = 'completion',
-): ChatPresentationPolicy {
+export function presentationPolicyFor(mode: TranscriptViewMode, collapseTiming: CollapseTiming = 'completion'): ChatPresentationPolicy {
   return TIMING_POLICIES[collapseTiming][mode]
 }
 
@@ -90,10 +87,13 @@ export function derivePresentationPolicy(
 ): ObservableSnapshot<ChatPresentationPolicy> {
   return {
     getSnapshot: () => presentationPolicyFor(mode.getSnapshot(), collapseTiming.getSnapshot()),
-    subscribe: (listener) => {
+    subscribe: listener => {
       const unsubscribeMode = mode.subscribe(listener)
       const unsubscribeTiming = collapseTiming.subscribe(listener)
-      return () => { unsubscribeMode(); unsubscribeTiming() }
+      return () => {
+        unsubscribeMode()
+        unsubscribeTiming()
+      }
     },
   }
 }

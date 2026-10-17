@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 /** Recorded layout arithmetic supplements browser geometry; no browser layout is asserted here. */
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { ChatViewport } from '../src/client/chat/use-chat-viewport.ts'
 import { ChatReading } from '../src/client/chat/use-chat-reading.ts'
 import { ScrollFollow } from '../src/client/chat/use-scroll-follow.ts'
 
 const disposers = new Set<() => void>()
-beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }) })
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+})
 afterEach(async () => {
   try {
     for (const dispose of disposers) dispose()
@@ -54,7 +56,9 @@ function fixture(layout: { earlier: number; later: number; top: number; followin
     frames.set(id, callback)
     return id
   })
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id) })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+    frames.delete(id)
+  })
   const list = document.createElement('div')
   const column = document.createElement('div')
   const row = document.createElement('div')
@@ -75,8 +79,13 @@ function fixture(layout: { earlier: number; later: number; top: number; followin
     scrollHeight: { configurable: true, get: () => Math.max(400, contentHeight + room()) },
     scrollTop: {
       configurable: true,
-      get: () => { top = Math.min(top, floor()); return top },
-      set: (value: number) => { top = Math.max(0, Math.min(value, floor())) },
+      get: () => {
+        top = Math.min(top, floor())
+        return top
+      },
+      set: (value: number) => {
+        top = Math.max(0, Math.min(value, floor()))
+      },
     },
     scrollTo: { value: scrollTo },
     getBoundingClientRect: { value: () => ({ top: 0, bottom: 400, height: 400 }) },
@@ -89,16 +98,28 @@ function fixture(layout: { earlier: number; later: number; top: number; followin
   const viewport = new ChatViewport()
   viewport.attach(list, column)
   const follow = new ScrollFollow(layout.following, 25)
-  const reading = new ChatReading(viewport, { read: () => null, save: vi.fn() }, {
-    initialized: true, followingTail: layout.following, activeTurn: 1,
-  }, vi.fn(), follow)
+  const reading = new ChatReading(
+    viewport,
+    { read: () => null, save: vi.fn() },
+    {
+      initialized: true,
+      followingTail: layout.following,
+      activeTurn: 1,
+    },
+    vi.fn(),
+    follow,
+  )
   const unbind = reading.bindFolds()
   viewport.connect({
     scroll: reading.onScroll,
     scrollEnd: reading.onScrollEnd,
-    resize: () => { reading.onResize() },
+    resize: () => {
+      reading.onResize()
+    },
     interact: () => {},
-    intent: () => { reading.interruptFollow() },
+    intent: () => {
+      reading.interruptFollow()
+    },
   })
   disposers.add(() => {
     unbind()
@@ -108,8 +129,16 @@ function fixture(layout: { earlier: number; later: number; top: number; followin
     frames.clear()
   })
   return {
-    list, spacer, row, viewport, follow, reading, scrollTo,
-    grow: (height: number) => { contentHeight = height },
+    list,
+    spacer,
+    row,
+    viewport,
+    follow,
+    reading,
+    scrollTo,
+    grow: (height: number) => {
+      contentHeight = height
+    },
     close: async () => {
       viewport.motion.collapse(row, () => {
         row.hidden = true
@@ -151,9 +180,12 @@ it('lands a following reader at the tail and lets content growth consume the roo
   expect(h.follow.animating).toBe(false)
 })
 
-it('adds a reader\'s own scrolling during the fold to the position it keeps still', async () => {
+it("adds a reader's own scrolling during the fold to the position it keeps still", async () => {
   const h = fixture({ earlier: 100, later: 500, top: 2_000, following: false })
-  h.viewport.motion.collapse(h.row, () => { h.row.hidden = true; h.grow(600) })
+  h.viewport.motion.collapse(h.row, () => {
+    h.row.hidden = true
+    h.grow(600)
+  })
   await Promise.resolve()
   runFrameCount(6)
   h.list.scrollTop -= 50
@@ -167,7 +199,10 @@ it('keeps the reader landing while reader movement awaits sampling', async () =>
   h.list.dispatchEvent(new Event('wheel'))
   h.scroll(1_990)
   expect(h.reading.pending).toBe(true)
-  h.viewport.motion.collapse(h.row, () => { h.row.hidden = true; h.grow(600) })
+  h.viewport.motion.collapse(h.row, () => {
+    h.row.hidden = true
+    h.grow(600)
+  })
   await Promise.resolve()
   runFrames()
   expect(h.list.scrollTop).toBe(190)
@@ -177,7 +212,10 @@ it('keeps the reader landing while reader movement awaits sampling', async () =>
 it('lands a tail batch on the committed content when it reaches past the estimate', async () => {
   const h = fixture(VISIBLE_ROW)
   // Content arriving with the hidden commit is not in the estimate; the landing reads the real floor.
-  h.viewport.motion.collapse(h.row, () => { h.row.hidden = true; h.grow(1_200) })
+  h.viewport.motion.collapse(h.row, () => {
+    h.row.hidden = true
+    h.grow(1_200)
+  })
   await Promise.resolve()
   runFrames()
   expect(h.list.scrollTop).toBe(800)
@@ -211,16 +249,22 @@ it('keeps manual off-bottom ownership and reclaims only space below the reader',
 })
 
 it('lands immediately under reduced motion', async () => {
-  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: true })),
+  )
   const h = fixture(VISIBLE_ROW)
-  h.viewport.motion.collapse(h.row, () => { h.row.hidden = true; h.grow(600) })
+  h.viewport.motion.collapse(h.row, () => {
+    h.row.hidden = true
+    h.grow(600)
+  })
   await Promise.resolve()
   expect(h.list.scrollTop).toBe(600)
   expect(h.spacer.style.height).toBe('400px')
   expect(h.follow.animating).toBe(false)
 })
 
-it.each([1_999.5, 2_000, 2_000.5])('restores follow immediately at a rounded floor sample (%s)', (top) => {
+it.each([1_999.5, 2_000, 2_000.5])('restores follow immediately at a rounded floor sample (%s)', top => {
   const h = fixture(VISIBLE_ROW)
   h.reading.pauseFollowing()
   h.reading.onScroll({ metrics: { top, floor: 2_000, height: 400 }, movedByReader: true })
@@ -228,7 +272,7 @@ it.each([1_999.5, 2_000, 2_000.5])('restores follow immediately at a rounded flo
   expect(h.reading.pending).toBe(false)
 })
 
-it.each([1_999, 2_001])('keeps movement at least one pixel from the floor pending (%s)', (top) => {
+it.each([1_999, 2_001])('keeps movement at least one pixel from the floor pending (%s)', top => {
   const h = fixture(VISIBLE_ROW)
   h.reading.pauseFollowing()
   h.reading.onScroll({ metrics: { top, floor: 2_000, height: 400 }, movedByReader: true })
@@ -238,8 +282,7 @@ it.each([1_999, 2_001])('keeps movement at least one pixel from the floor pendin
 
 it('does not measure geometry to interrupt an idle follow controller', () => {
   const h = fixture(VISIBLE_ROW)
-  const reads = (['clientHeight', 'scrollHeight', 'scrollTop'] as const).map(property =>
-    vi.spyOn(h.list, property, 'get'))
+  const reads = (['clientHeight', 'scrollHeight', 'scrollTop'] as const).map(property => vi.spyOn(h.list, property, 'get'))
   h.viewport.interruptFollow(h.follow)
   for (const read of reads) expect(read).not.toHaveBeenCalled()
 })

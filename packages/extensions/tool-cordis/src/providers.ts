@@ -19,7 +19,7 @@ const EVENT_OUTPUT = {
 const CONFIG_INPUT: JsonValue = {
   type: 'object',
   properties: {
-    entry: { type: 'string', description: 'Exact Loader entry id from the directory; returns that entry\'s projected Config schema.' },
+    entry: { type: 'string', description: "Exact Loader entry id from the directory; returns that entry's projected Config schema." },
     name: { type: 'string', description: 'Exact plugin package name; limits the directory to its entries.' },
     offset: { type: 'number', description: 'Zero-based directory offset; defaults to 0.' },
     limit: { type: 'number', description: 'Directory page size, from 1 to 100; defaults to 25.' },
@@ -27,7 +27,8 @@ const CONFIG_INPUT: JsonValue = {
   additionalProperties: false,
 }
 const CONFIG_OUTPUT = {
-  description: 'One directory page of live entries with patch ids, Config status, total, and nextOffset, or one entry\'s projected JSON Schema with shared definitions, omission acceptance, and projection limitations.',
+  description:
+    "One directory page of live entries with patch ids, Config status, total, and nextOffset, or one entry's projected JSON Schema with shared definitions, omission acceptance, and projection limitations.",
 } as const
 const HOST_EVENTS = EVENT_API.filter(event => !event.name.startsWith('cordis/'))
 
@@ -56,7 +57,7 @@ export function hostInspectProviders(ctx: Context): HostCordisInspectProviderReg
     ),
     registration(
       'Config',
-      'Progressive live plugin Config discovery: paged entry directory with schema status, then one entry\'s exact JSON Schema.',
+      "Progressive live plugin Config discovery: paged entry directory with schema status, then one entry's exact JSON Schema.",
       'listConfigs',
       input => queryLiveConfig(ctx, input),
       CONFIG_INPUT,
@@ -66,12 +67,14 @@ export function hostInspectProviders(ctx: Context): HostCordisInspectProviderReg
       manifest: {
         id: 'Tool',
         description: 'Tools visible to the requesting Agent, including scoped and dynamic registrations.',
-        methods: [{
-          name: 'listTools',
-          description: 'Return every Tool schema currently callable by this Agent.',
-          inputSchema: EMPTY_INPUT,
-          outputSchema: ANY_OUTPUT,
-        }],
+        methods: [
+          {
+            name: 'listTools',
+            description: 'Return every Tool schema currently callable by this Agent.',
+            inputSchema: EMPTY_INPUT,
+            outputSchema: ANY_OUTPUT,
+          },
+        ],
       },
       query(method, _input, context) {
         if (method !== 'listTools') throw new Error(`unknown Tool inspect method "${method}"`)
@@ -93,12 +96,14 @@ function registration(
     manifest: {
       id,
       description,
-      methods: [{
-        name: method,
-        description,
-        inputSchema,
-        outputSchema,
-      }],
+      methods: [
+        {
+          name: method,
+          description,
+          inputSchema,
+          outputSchema,
+        },
+      ],
     },
     async query(requested, input) {
       if (requested !== method) throw new Error(`unknown ${id} inspect method "${requested}"`)

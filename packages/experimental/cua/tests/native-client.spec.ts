@@ -2,7 +2,7 @@
 import { PassThrough, Writable } from 'node:stream'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { NativeChannel } from '../src/native-client.ts'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { NativeClient, NativeError } from '../src/native-client.ts'
 
@@ -12,41 +12,63 @@ const Request = z.object({ id: z.string(), method: z.string(), params: z.record(
 const Cancel = z.object({ type: z.literal('cancel'), id: z.string() }).strict()
 const Frame = z.union([Request, Cancel])
 
-function fixture(options: {
-  maxRequestBytes?: number
-  maxResponseBytes?: number
-  timeoutMs?: number
-  screenshotTimeoutMs?: number
-  graceMs?: number
-  writeError?: Error
-  cancelWriteError?: Error
-  reportDiagnostic?: (message: string) => void
-} = {}) {
+function fixture(
+  options: {
+    maxRequestBytes?: number
+    maxResponseBytes?: number
+    timeoutMs?: number
+    screenshotTimeoutMs?: number
+    graceMs?: number
+    writeError?: Error
+    cancelWriteError?: Error
+    reportDiagnostic?: (message: string) => void
+  } = {},
+) {
   const requests: z.infer<typeof Request>[] = []
   const cancellations: z.infer<typeof Cancel>[] = []
   const stdout = new PassThrough()
   const done: PromiseWithResolvers<void> = Promise.withResolvers()
   const gone: PromiseWithResolvers<void> = Promise.withResolvers()
-  const stdin = new Writable({ write(chunk, _encoding, callback) {
-    const frame = Frame.parse(JSON.parse(String(chunk)))
-    if ('type' in frame) { cancellations.push(frame); callback(options.cancelWriteError) }
-    else { requests.push(frame); callback(options.writeError) }
-  } })
+  const stdin = new Writable({
+    write(chunk, _encoding, callback) {
+      const frame = Frame.parse(JSON.parse(String(chunk)))
+      if ('type' in frame) {
+        cancellations.push(frame)
+        callback(options.cancelWriteError)
+      } else {
+        requests.push(frame)
+        callback(options.writeError)
+      }
+    },
+  })
   const closed: PromiseWithResolvers<void> = Promise.withResolvers()
-  const close = vi.fn(() => { closed.resolve() })
+  const close = vi.fn(() => {
+    closed.resolve()
+  })
   const waitForClose = vi.fn(() => gone.promise)
   const channel: NativeChannel = { stdin, stdout, done: done.promise, close, waitForClose }
   shared.create.mockClear().mockReturnValueOnce(channel)
   const owner = { subprocess: { spawn: vi.fn() } }
   const config = {
-    helperPath: '/fixture/helper', cwd: '/fixture', axTimeoutMs: 321, timeoutMs: options.timeoutMs ?? 60_000,
-    connectTimeoutMs: 5000, screenshotTimeoutMs: options.screenshotTimeoutMs ?? 5000,
+    helperPath: '/fixture/helper',
+    cwd: '/fixture',
+    axTimeoutMs: 321,
+    timeoutMs: options.timeoutMs ?? 60_000,
+    connectTimeoutMs: 5000,
+    screenshotTimeoutMs: options.screenshotTimeoutMs ?? 5000,
     maxRequestBytes: options.maxRequestBytes ?? 1024,
-    maxResponseBytes: options.maxResponseBytes ?? 1024, graceMs: options.graceMs ?? 10, textEventIntervalMs: 0.5,
+    maxResponseBytes: options.maxResponseBytes ?? 1024,
+    graceMs: options.graceMs ?? 10,
+    textEventIntervalMs: 0.5,
   }
   const client = new NativeClient(owner, config, shared.create, options.reportDiagnostic)
-  function finish() { done.resolve(); gone.resolve() }
-  function reply(value: unknown) { stdout.write(Buffer.from(JSON.stringify(value) + '\n')) }
+  function finish() {
+    done.resolve()
+    gone.resolve()
+  }
+  function reply(value: unknown) {
+    stdout.write(Buffer.from(JSON.stringify(value) + '\n'))
+  }
   function id(index = requests.length - 1) {
     const request = requests[index]
     if (!request) throw new Error('No native request was dispatched')
@@ -58,8 +80,24 @@ function fixture(options: {
     stdout.destroy()
     stdin.destroy()
   })
-  return { client, requests, cancellations, stdout, stdin, owner, config, connect: shared.create,
-    close, closed: closed.promise, waitForClose, done, gone, finish, reply, id }
+  return {
+    client,
+    requests,
+    cancellations,
+    stdout,
+    stdin,
+    owner,
+    config,
+    connect: shared.create,
+    close,
+    closed: closed.promise,
+    waitForClose,
+    done,
+    gone,
+    finish,
+    reply,
+    id,
+  }
 }
 
 describe('native helper transport', () => {
@@ -83,7 +121,11 @@ describe('native helper transport', () => {
     for (const byte of bytes) f.stdout.write(Buffer.from([byte]))
     expect(await first).toEqual([{ name: '编辑器' }])
     const second = f.client.request('click', { appHandle: 'app-one' }, new AbortController().signal)
-    const rejected = expect(second).rejects.toMatchObject({ name: 'NativeError', code: 'STALE_SNAPSHOT', message: 'STALE_SNAPSHOT: Refresh observation' })
+    const rejected = expect(second).rejects.toMatchObject({
+      name: 'NativeError',
+      code: 'STALE_SNAPSHOT',
+      message: 'STALE_SNAPSHOT: Refresh observation',
+    })
     f.reply({ id: f.id(), error: { code: 'STALE_SNAPSHOT', message: 'Refresh observation' } })
     await rejected
     expect(f.client.disposed).toBe(false)
@@ -94,7 +136,17 @@ describe('native helper transport', () => {
     expect(f.connect).toHaveBeenCalledTimes(1)
   })
 
-  it.each(['malformed', 'wrong-id', 'both', 'neither', 'empty-code', 'extra-field', 'invalid-utf8', 'extra-frame', 'duplicate-reply'] as const)('invalidates the connection on a %s response before releasing the caller', async (kind) => {
+  it.each([
+    'malformed',
+    'wrong-id',
+    'both',
+    'neither',
+    'empty-code',
+    'extra-field',
+    'invalid-utf8',
+    'extra-frame',
+    'duplicate-reply',
+  ] as const)('invalidates the connection on a %s response before releasing the caller', async kind => {
     const f = fixture()
     const pending = f.client.request('listApps', {}, new AbortController().signal)
     const rejected = expect(pending).rejects.toMatchObject({ code: 'NATIVE_PROTOCOL' })
@@ -104,7 +156,8 @@ describe('native helper transport', () => {
     else if (kind === 'neither') f.reply({ id: f.id() })
     else if (kind === 'empty-code') f.reply({ id: f.id(), error: { code: '', message: 'bad' } })
     else if (kind === 'extra-field') f.reply({ id: f.id(), result: [], extra: true })
-    else if (kind === 'invalid-utf8') f.stdout.write(Buffer.concat([Buffer.from(`{"id":"${f.id()}","result":"`), Buffer.from([0xff]), Buffer.from('"}\n')]))
+    else if (kind === 'invalid-utf8')
+      f.stdout.write(Buffer.concat([Buffer.from(`{"id":"${f.id()}","result":"`), Buffer.from([0xff]), Buffer.from('"}\n')]))
     else if (kind === 'extra-frame') f.stdout.write(JSON.stringify({ id: f.id(), result: [] }) + '\n{}\n')
     else f.stdout.write((JSON.stringify({ id: f.id(), result: [] }) + '\n').repeat(2))
     expect(f.client.disposed).toBe(true)
@@ -146,8 +199,10 @@ describe('native helper transport', () => {
     try {
       f.stdout.emit('data', Buffer.alloc(0))
       for (let offset = 0; offset < bytes.length; offset += 64 * 1024) f.stdout.write(bytes.subarray(offset, offset + 64 * 1024))
-    } finally { copying.mockRestore() }
-    expect(await pending === value).toBe(true)
+    } finally {
+      copying.mockRestore()
+    }
+    expect((await pending) === value).toBe(true)
     // Permit an ownership copy plus one complete-frame assembly, independent of pipe chunk count.
     expect(copiedBytes).toBeLessThanOrEqual(bytes.length * 2)
     expect(f.client.disposed).toBe(false)
@@ -160,7 +215,9 @@ describe('native helper transport', () => {
     const first = f.client.request('typeText', { text }, new AbortController().signal)
     f.reply({ id: f.id(), result: { dispatched: true } })
     await expect(first).resolves.toEqual({ dispatched: true })
-    await expect(f.client.request('typeText', { text: text.slice(1) + 'é' }, new AbortController().signal)).rejects.toMatchObject({ code: 'NATIVE_REQUEST_LIMIT' })
+    await expect(f.client.request('typeText', { text: text.slice(1) + 'é' }, new AbortController().signal)).rejects.toMatchObject({
+      code: 'NATIVE_REQUEST_LIMIT',
+    })
     expect(f.requests).toHaveLength(1)
     expect(f.client.disposed).toBe(false)
     expect(f.close).not.toHaveBeenCalled()
@@ -196,7 +253,15 @@ describe('native helper transport', () => {
     const abort = new AbortController()
     const pending = f.client.request('screenshot', { appHandle: 'retained-app' }, abort.signal)
     let settled = false
-    const observed = pending.then(() => { settled = true }, (error: unknown) => { settled = true; expect(error).toMatchObject({ code: 'NATIVE_CANCELLED' }) })
+    const observed = pending.then(
+      () => {
+        settled = true
+      },
+      (error: unknown) => {
+        settled = true
+        expect(error).toMatchObject({ code: 'NATIVE_CANCELLED' })
+      },
+    )
     abort.abort()
     await Promise.resolve()
     expect(f.cancellations).toEqual([{ type: 'cancel', id: f.id() }])
@@ -265,7 +330,9 @@ describe('native helper transport', () => {
       await rejected
       expect(f.close).not.toHaveBeenCalled()
       expect(vi.getTimerCount()).toBe(0)
-    } finally { vi.useRealTimers() }
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('closes only after the cancellation grace expires without an acknowledgement', async () => {
@@ -282,7 +349,9 @@ describe('native helper transport', () => {
       await rejected
       expect(f.client.disposed).toBe(true)
       expect(vi.getTimerCount()).toBe(0)
-    } finally { vi.useRealTimers() }
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sends cancellation once and preserves the first interruption reason', async () => {
@@ -299,43 +368,54 @@ describe('native helper transport', () => {
       await rejected
       expect(f.client.disposed).toBe(false)
       expect(vi.getTimerCount()).toBe(0)
-    } finally { vi.useRealTimers() }
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
-  it.each(['throw', 'callback'] as const)('closes the connection when sending cancellation fails through %s', async (kind) => {
+  it.each(['throw', 'callback'] as const)('closes the connection when sending cancellation fails through %s', async kind => {
     const failure = new Error('cancel write failed')
     const f = fixture(kind === 'callback' ? { cancelWriteError: failure } : {})
     const abort = new AbortController()
     const pending = f.client.request('screenshot', {}, abort.signal)
     const rejected = expect(pending).rejects.toMatchObject({ code: 'NATIVE_IO', cause: failure })
-    if (kind === 'throw') vi.spyOn(f.stdin, 'write').mockImplementation(() => { throw failure })
+    if (kind === 'throw')
+      vi.spyOn(f.stdin, 'write').mockImplementation(() => {
+        throw failure
+      })
     abort.abort()
     await f.closed
     f.finish()
     await rejected
   })
 
-  it.each(['stdout-error', 'stdin-error', 'stdout-end', 'stdout-close', 'connection-exit', 'connection-rejection'] as const)('contains %s while an operation is pending', async (kind) => {
-    const f = fixture()
-    const pending = f.client.request('getState', {}, new AbortController().signal)
-    const code = kind.endsWith('-error') ? 'NATIVE_IO' : kind.startsWith('stdout-') ? 'NATIVE_EOF' : 'NATIVE_EXITED'
-    const rejected = expect(pending).rejects.toMatchObject({ code })
-    if (kind === 'stdout-error') f.stdout.emit('error', new Error('read failed'))
-    else if (kind === 'stdin-error') f.stdin.emit('error', new Error('write failed'))
-    else if (kind === 'stdout-end') f.stdout.emit('end')
-    else if (kind === 'stdout-close') f.stdout.emit('close')
-    else if (kind === 'connection-exit') f.done.resolve()
-    else f.done.reject(new Error('connection failed'))
-    f.gone.resolve()
-    if (!kind.startsWith('connection-')) f.done.resolve()
-    await rejected
-    expect(f.close).toHaveBeenCalledTimes(1)
-  })
+  it.each(['stdout-error', 'stdin-error', 'stdout-end', 'stdout-close', 'connection-exit', 'connection-rejection'] as const)(
+    'contains %s while an operation is pending',
+    async kind => {
+      const f = fixture()
+      const pending = f.client.request('getState', {}, new AbortController().signal)
+      const code = kind.endsWith('-error') ? 'NATIVE_IO' : kind.startsWith('stdout-') ? 'NATIVE_EOF' : 'NATIVE_EXITED'
+      const rejected = expect(pending).rejects.toMatchObject({ code })
+      if (kind === 'stdout-error') f.stdout.emit('error', new Error('read failed'))
+      else if (kind === 'stdin-error') f.stdin.emit('error', new Error('write failed'))
+      else if (kind === 'stdout-end') f.stdout.emit('end')
+      else if (kind === 'stdout-close') f.stdout.emit('close')
+      else if (kind === 'connection-exit') f.done.resolve()
+      else f.done.reject(new Error('connection failed'))
+      f.gone.resolve()
+      if (!kind.startsWith('connection-')) f.done.resolve()
+      await rejected
+      expect(f.close).toHaveBeenCalledTimes(1)
+    },
+  )
 
-  it.each(['throw', 'callback'] as const)('invalidates uncertain dispatch after a write %s failure', async (kind) => {
+  it.each(['throw', 'callback'] as const)('invalidates uncertain dispatch after a write %s failure', async kind => {
     const failure = new Error('pipe failed')
     const f = fixture(kind === 'callback' ? { writeError: failure } : {})
-    if (kind === 'throw') vi.spyOn(f.stdin, 'write').mockImplementation(() => { throw failure })
+    if (kind === 'throw')
+      vi.spyOn(f.stdin, 'write').mockImplementation(() => {
+        throw failure
+      })
     const pending = f.client.request('click', {}, new AbortController().signal)
     const rejected = expect(pending).rejects.toMatchObject({ code: 'NATIVE_IO', cause: failure })
     await f.closed
@@ -391,7 +471,10 @@ describe('native helper transport', () => {
       f.reply({ id: f.id(), result: {} })
       await ordinary
       const screenshot = f.client.request('screenshot', {}, new AbortController().signal)
-      const rejected = expect(screenshot).rejects.toMatchObject({ code: 'NATIVE_TIMEOUT', message: 'NATIVE_TIMEOUT: Operation exceeded 25ms' })
+      const rejected = expect(screenshot).rejects.toMatchObject({
+        code: 'NATIVE_TIMEOUT',
+        message: 'NATIVE_TIMEOUT: Operation exceeded 25ms',
+      })
       await vi.advanceTimersByTimeAsync(25)
       f.reply({ id: f.id(), error: { code: 'NATIVE_CANCELLED', message: 'Capture stopped' } })
       await rejected
@@ -401,7 +484,9 @@ describe('native helper transport', () => {
       await expect(next).resolves.toEqual({ snapshotId: 'after-timeout' })
       expect(f.close).not.toHaveBeenCalled()
       expect(vi.getTimerCount()).toBe(0)
-    } finally { vi.useRealTimers() }
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('retains the last screenshot phase after timeout and request cancellation', async () => {
@@ -421,20 +506,28 @@ describe('native helper transport', () => {
       expect(f.client.disposed).toBe(false)
       expect(reportDiagnostic.mock.calls.flat().join('\n')).toContain('host.settled')
       expect(vi.getTimerCount()).toBe(0)
-    } finally { vi.useRealTimers() }
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('accepts diagnostic and result frames in one chunk and omits unrelated requests and extra fields', async () => {
     const f = fixture()
     const pending = f.client.request('screenshot', {}, new AbortController().signal, ToolCallId('current'))
-    f.stdout.write([
-      { type: 'diagnostic', requestId: 'previous', stage: 'old.begin', elapsedMs: 1 },
-      { type: 'diagnostic', requestId: 'current', stage: 'ax-geometry.begin', elapsedMs: 3, title: 'private' },
-      { id: 'current', error: { code: 'WINDOW_CHANGED', message: 'Window changed' } },
-    ].map(frame => JSON.stringify(frame) + '\n').join(''))
-    await expect(pending).rejects.toMatchObject({ code: 'WINDOW_CHANGED', message:
-      'WINDOW_CHANGED: Window changed\nScreenshot diagnostics:\n'
-      + '[cua-screenshot] {"requestId":"current","stage":"ax-geometry.begin","elapsedMs":3}',
+    f.stdout.write(
+      [
+        { type: 'diagnostic', requestId: 'previous', stage: 'old.begin', elapsedMs: 1 },
+        { type: 'diagnostic', requestId: 'current', stage: 'ax-geometry.begin', elapsedMs: 3, title: 'private' },
+        { id: 'current', error: { code: 'WINDOW_CHANGED', message: 'Window changed' } },
+      ]
+        .map(frame => JSON.stringify(frame) + '\n')
+        .join(''),
+    )
+    await expect(pending).rejects.toMatchObject({
+      code: 'WINDOW_CHANGED',
+      message:
+        'WINDOW_CHANGED: Window changed\nScreenshot diagnostics:\n' +
+        '[cua-screenshot] {"requestId":"current","stage":"ax-geometry.begin","elapsedMs":3}',
     })
     expect(f.client.disposed).toBe(false)
   })
@@ -467,7 +560,11 @@ describe('native helper transport', () => {
   })
 
   it('does not let a Host diagnostic sink replace a screenshot result', async () => {
-    const f = fixture({ reportDiagnostic: () => { throw new Error('log sink failed') } })
+    const f = fixture({
+      reportDiagnostic: () => {
+        throw new Error('log sink failed')
+      },
+    })
     const pending = f.client.request('screenshot', {}, new AbortController().signal)
     f.reply({ id: f.id(), result: { data: 'image' } })
     await expect(pending).resolves.toEqual({ data: 'image' })

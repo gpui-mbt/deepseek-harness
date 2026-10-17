@@ -50,7 +50,11 @@ export interface Config {
 /** Validated Session-log request contribution configuration. */
 export const Config = z.object({
   enabled: z.boolean().default(false).volatile(),
-  maxBytes: z.number().step(1).min(1).default(8 * 1024 * 1024),
+  maxBytes: z
+    .number()
+    .step(1)
+    .min(1)
+    .default(8 * 1024 * 1024),
 })
 
 interface AcceptanceFold {
@@ -69,12 +73,12 @@ function wireHeader(session: Session): DeepSeekSessionLogWireHeader {
     version: header.version,
     id: String(header.id),
     createdAt: header.createdAt,
-    ...header.cwd === undefined ? {} : { cwd: header.cwd },
-    ...header.parentSession === undefined ? {} : { parentSession: String(header.parentSession) },
-    ...header.isSeeded ? { seedLength: Number(session.inheritedEventCount) } : {},
-    ...header.origin === undefined ? {} : { origin: header.origin },
-    ...header.delegationDepth === undefined ? {} : { delegationDepth: header.delegationDepth },
-    ...header.agentPreset === undefined ? {} : { agentPreset: header.agentPreset },
+    ...(header.cwd === undefined ? {} : { cwd: header.cwd }),
+    ...(header.parentSession === undefined ? {} : { parentSession: String(header.parentSession) }),
+    ...(header.isSeeded ? { seedLength: Number(session.inheritedEventCount) } : {}),
+    ...(header.origin === undefined ? {} : { origin: header.origin }),
+    ...(header.delegationDepth === undefined ? {} : { delegationDepth: header.delegationDepth }),
+    ...(header.agentPreset === undefined ? {} : { agentPreset: header.agentPreset }),
   }
 }
 
@@ -84,7 +88,7 @@ function wireEvent(event: SessionEvent): DeepSeekSessionLogWireEvent {
     seq: Number(event.seq),
     time: event.time,
     data: event.data as JsonValue,
-    ...event.ignorable === undefined ? {} : { ignorable: event.ignorable },
+    ...(event.ignorable === undefined ? {} : { ignorable: event.ignorable }),
   }
   switch (event.type) {
     case 'developer/message':
@@ -95,7 +99,7 @@ function wireEvent(event: SessionEvent): DeepSeekSessionLogWireEvent {
         ...common,
         type: event.type,
         surfaceOp: wireSurfaceOp(event.surfaceOp),
-        ...event.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: event.sourceEventSeqs.map(Number) },
+        ...(event.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: event.sourceEventSeqs.map(Number) }),
       }
     case 'assistant/message':
       return { ...common, type: event.type, surfaceOp: wireSurfaceOp(event.surfaceOp) }
@@ -104,9 +108,11 @@ function wireEvent(event: SessionEvent): DeepSeekSessionLogWireEvent {
       if (!KNOWN_SESSION_EVENT_TYPES.has(event.type) && event.ignorable === true) {
         const opaque = event as { surfaceOp?: JsonValue; sourceEventSeqs?: JsonValue }
         return {
-          ...common, type: event.type, ignorable: true,
-          ...opaque.surfaceOp === undefined ? {} : { surfaceOp: opaque.surfaceOp },
-          ...opaque.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: opaque.sourceEventSeqs },
+          ...common,
+          type: event.type,
+          ignorable: true,
+          ...(opaque.surfaceOp === undefined ? {} : { surfaceOp: opaque.surfaceOp }),
+          ...(opaque.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: opaque.sourceEventSeqs }),
         }
       }
       return { ...common, type: event.type }
@@ -115,9 +121,7 @@ function wireEvent(event: SessionEvent): DeepSeekSessionLogWireEvent {
 }
 
 function wireSurfaceOp(op: SurfaceOp): DeepSeekSessionLogWireSurfaceOp {
-  return op === 'append'
-    ? op
-    : { op: 'replace', startSeq: Number(op.startSeq), endSeq: Number(op.endSeq) }
+  return op === 'append' ? op : { op: 'replace', startSeq: Number(op.startSeq), endSeq: Number(op.endSeq) }
 }
 
 /**
@@ -153,9 +157,7 @@ export function acceptedThrough(session: Session): SessionSeqCursor {
     }
     if (event.type !== 'session-log-deepseek/delivery-accepted') continue
     const acceptedFormatVersion = event.data.sessionFormatVersion ?? 0
-    if (!Number.isSafeInteger(acceptedFormatVersion)
-      || acceptedFormatVersion < 0
-      || Object.is(acceptedFormatVersion, -0)) {
+    if (!Number.isSafeInteger(acceptedFormatVersion) || acceptedFormatVersion < 0 || Object.is(acceptedFormatVersion, -0)) {
       throw new Error(`session-log-deepseek: malformed acceptance format version at seq ${event.seq}`)
     }
     if (acceptedFormatVersion !== session.header.version) continue
@@ -165,8 +167,7 @@ export function acceptedThrough(session: Session): SessionSeqCursor {
     } catch {
       throw new Error(`session-log-deepseek: malformed acceptance watermark at seq ${event.seq}`)
     }
-    if (typeof event.data.sessionId !== 'string' || event.data.sessionId.length === 0
-      || acceptedSeq >= event.seq) {
+    if (typeof event.data.sessionId !== 'string' || event.data.sessionId.length === 0 || acceptedSeq >= event.seq) {
       throw new Error(`session-log-deepseek: malformed acceptance watermark at seq ${event.seq}`)
     }
     if (event.data.sessionId !== session.id) continue
@@ -185,7 +186,7 @@ export function apply(ctx: Context, config: Config): void {
   // Schemastery validates and fills the defaults before `apply` runs.
   const { maxBytes } = config
   ctx.deepseekLlmApiExtensions.register('dsh_session_log', {
-    prepare: (request) => {
+    prepare: request => {
       if (!config.enabled.get()) return undefined
       // TODO: Define an explicit wire result for direct or stale-session calls if they become a supported product path.
       if (request.sessionId === undefined) return undefined
@@ -220,12 +221,14 @@ export function apply(ctx: Context, config: Config): void {
         if (first !== undefined && blockedWarnings.get(session) !== first.seq) {
           blockedWarnings.set(session, first.seq)
           const seq = String(first.seq)
-          ctx.logger.warn(Number.isFinite(candidateBytes)
-            ? `session-log-deepseek: event ${seq} of session "${session.id}" needs a ${String(candidateBytes)}-byte`
-              + ` dsh_session_log field, above maxBytes ${String(maxBytes)}; this session's upload stays at event ${seq}`
-              + ' until maxBytes admits it'
-            : `session-log-deepseek: event ${seq} of session "${session.id}" is too large to serialize into a dsh_session_log field;`
-              + ` this session's upload stays at event ${seq}`)
+          ctx.logger.warn(
+            Number.isFinite(candidateBytes)
+              ? `session-log-deepseek: event ${seq} of session "${session.id}" needs a ${String(candidateBytes)}-byte` +
+                  ` dsh_session_log field, above maxBytes ${String(maxBytes)}; this session's upload stays at event ${seq}` +
+                  ' until maxBytes admits it'
+              : `session-log-deepseek: event ${seq} of session "${session.id}" is too large to serialize into a dsh_session_log field;` +
+                  ` this session's upload stays at event ${seq}`,
+          )
         }
         return undefined
       }

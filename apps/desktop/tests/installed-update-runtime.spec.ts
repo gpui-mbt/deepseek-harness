@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createInstalledUpdateRun } from '../scripts/installed-update-qualification.ts'
 import { prepareInstalledUpdateRuntime } from '../scripts/prepare-installed-update-runtime.ts'
 import { verifyDesktopRuntime } from '../src/runtime-tree.ts'
@@ -12,13 +12,16 @@ const source = { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] }
 
 async function fixture<T>(body: (directory: string) => Promise<T>): Promise<T> {
   const directory = await mkdtemp(join(tmpdir(), 'dsh-update-materials-'))
-  try { return await body(directory) }
-  finally { await rm(directory, { recursive: true, force: true }) }
+  try {
+    return await body(directory)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 }
 
 describe('installed-update runtime preparation', () => {
   it('retags only release-owned packages and dependencies while preserving source and third-party versions', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const original = join(directory, 'source')
       runtimeFixture(original, source.version)
       const before = await readFile(join(original, 'desktop-runtime.json'))
@@ -43,7 +46,7 @@ describe('installed-update runtime preparation', () => {
   })
 
   it('stops after a failed version and retains partial materials without a completion receipt', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const original = join(directory, 'source')
       runtimeFixture(original, source.version)
       const run = await createInstalledUpdateRun(join(directory, 'runs'), versions, source)
@@ -52,22 +55,27 @@ describe('installed-update runtime preparation', () => {
       await expect(prepareInstalledUpdateRuntime(join(run.root, 'run.json'), original)).rejects.toMatchObject({ code: 'EEXIST' })
       const files = await readdir(join(run.root, 'runtime-preparation'))
       expect(files.sort()).toEqual(['failed.json', 'source.json', 'started.json'])
-      expect(JSON.parse(await readFile(join(run.root, 'runtime-preparation/failed.json'), 'utf8')))
-        .toMatchObject({ failed: true, completedVersions: 1, retryAllowed: false })
+      expect(JSON.parse(await readFile(join(run.root, 'runtime-preparation/failed.json'), 'utf8'))).toMatchObject({
+        failed: true,
+        completedVersions: 1,
+        retryAllowed: false,
+      })
       expect(await readFile(join(run.root, versions[1], 'owner.txt'), 'utf8')).toBe('do not overwrite')
     })
   })
 
   it('rejects stale or damaged prepared resources before copying either version', async () => {
-    await fixture(async (directory) => {
+    await fixture(async directory => {
       const original = join(directory, 'source')
       runtimeFixture(original, source.version)
       await writeFile(join(original, 'package.json'), '{}')
       const run = await createInstalledUpdateRun(join(directory, 'runs'), versions, source)
       await expect(prepareInstalledUpdateRuntime(join(run.root, 'run.json'), original)).rejects.toThrow('integrity')
       expect((await readdir(run.root)).sort()).toEqual(['run.json', 'runtime-preparation'])
-      expect(JSON.parse(await readFile(join(run.root, 'runtime-preparation/failed.json'), 'utf8')))
-        .toMatchObject({ failed: true, completedVersions: 0 })
+      expect(JSON.parse(await readFile(join(run.root, 'runtime-preparation/failed.json'), 'utf8'))).toMatchObject({
+        failed: true,
+        completedVersions: 0,
+      })
     })
   })
 })

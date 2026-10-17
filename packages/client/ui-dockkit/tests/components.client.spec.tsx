@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { DockIntents } from '../src/contract/adapter.ts'
 import type { PaneId, TabId } from '../src/contract/types.ts'
 import { DockController } from '../src/engine/controller.ts'
@@ -66,13 +66,22 @@ function renderSurface(
       intents={intents}
       labels={TEST_LABELS}
       renderTab={tab => <p data-testid="body">{tab.contentId}</p>}
-      {...renderTabMenuItems === undefined ? {} : { renderTabMenuItems }}
+      {...(renderTabMenuItems === undefined ? {} : { renderTabMenuItems })}
     />,
   )
 }
 
-const box = (x: number, y: number, width: number, height: number): DOMRect =>
-  ({ x, y, width, height, top: y, left: x, right: x + width, bottom: y + height, toJSON: () => ({}) })
+const box = (x: number, y: number, width: number, height: number): DOMRect => ({
+  x,
+  y,
+  width,
+  height,
+  top: y,
+  left: x,
+  right: x + width,
+  bottom: y + height,
+  toJSON: () => ({}),
+})
 
 /** Height every laid-out pane takes. */
 const PANE_HEIGHT = 600
@@ -137,7 +146,10 @@ function twoPanes(
   const [first, second] = dockPaneIds(controller.getSnapshot().state)
   if (first === undefined || second === undefined) throw new Error('expected two docked panes')
   const fileTabId = controller.openContent({
-    contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', paneId: first,
+    contentId: 'dsh-resource://file/session/s/a.txt',
+    title: 'a.txt',
+    kind: 'file',
+    paneId: first,
   })
   const seedTabId = getPane(controller.getSnapshot().state, first).tabs[0]
   if (seedTabId === undefined) throw new Error('expected the seeded tab')
@@ -217,7 +229,7 @@ describe('DockSurface', () => {
     expect(intents.focusPane).not.toHaveBeenCalled()
   })
 
-  it('records nothing for a click on the active pane\'s selected chip, but selects that chip in another pane', () => {
+  it("records nothing for a click on the active pane's selected chip, but selects that chip in another pane", () => {
     const controller = seededController()
     controller.setExpanded(true)
     controller.splitPane()
@@ -289,7 +301,9 @@ describe('DockSurface', () => {
       const button = screen.getByRole('button', { name: TEST_LABELS.splitPane })
       expect(button.hasAttribute('title')).toBe(false)
       fireEvent.mouseEnter(button)
-      act(() => { vi.advanceTimersByTime(500) })
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
       expect(screen.getByRole('tooltip').textContent).toBe(TEST_LABELS.splitPane)
       fireEvent.mouseLeave(button)
       expect(screen.queryByRole('tooltip')).toBeNull()
@@ -305,7 +319,12 @@ describe('DockSurface', () => {
     layOut(dockPaneIds(state), 520)
     const intents = spyIntents()
     const props: DockSurfaceProps = {
-      state, canSplit: false, hideSplitWhenBlocked: true, intents, labels: TEST_LABELS, renderTab: tab => <p>{tab.title}</p>,
+      state,
+      canSplit: false,
+      hideSplitWhenBlocked: true,
+      intents,
+      labels: TEST_LABELS,
+      renderTab: tab => <p>{tab.title}</p>,
     }
     const view = render(<DockSurface {...props} />)
     expect(screen.queryByRole('button', { name: TEST_LABELS.splitPane })).toBeNull()
@@ -324,7 +343,7 @@ describe('DockSurface', () => {
   // hands it: two panes, one wide enough for two halves and one not. The
   // strip's fixed part is 104px in both (the chrome pane's controls), the chip
   // minimum falls back to the stylesheet's 100px.
-  it.each([false, true])('disables or hides the width-blocked split control with hideSplitWhenBlocked=%s', (hideSplitWhenBlocked) => {
+  it.each([false, true])('disables or hides the width-blocked split control with hideSplitWhenBlocked=%s', hideSplitWhenBlocked => {
     const controller = seededController()
     controller.setExpanded(true)
     controller.splitPane()
@@ -410,12 +429,16 @@ describe('DockSurface', () => {
     const readings = onRoom.mock.calls.length
 
     // The same reading again renders nothing new.
-    act(() => { observer.fire() })
+    act(() => {
+      observer.fire()
+    })
     expect(onRoom).toHaveBeenCalledTimes(readings)
 
     // The column narrowed: every pane loses the room for a row split.
     paneWidth = 208
-    act(() => { observer.fire() })
+    act(() => {
+      observer.fire()
+    })
     expect(onRoom).toHaveBeenLastCalledWith(new Map(panes.map(id => [id, { row: false, column: true }])))
     unmount()
     expect(observer.disconnect).toHaveBeenCalledTimes(1)
@@ -480,19 +503,37 @@ describe('DockSurface', () => {
     const observer = FakeResizeObserver.latest
     if (observer === undefined) throw new Error('expected the surface to observe its own size')
     paneWidth = 300
-    act(() => { observer.fire() })
+    act(() => {
+      observer.fire()
+    })
     expect(document.querySelector('[data-dockkit-split-button]')).toBeNull()
   })
 
-  it.each([true, false])('names the chip box\'s hidden sides as it scrolls with resize observation: %s', (observed) => {
+  it.each([true, false])("names the chip box's hidden sides as it scrolls with resize observation: %s", observed => {
     if (!observed) vi.stubGlobal('ResizeObserver', undefined)
     let scrollLeft = 0
-    const descriptors = ['scrollLeft', 'scrollWidth', 'clientWidth'].map(name =>
-      [name, Object.getOwnPropertyDescriptor(Element.prototype, name)] as const)
+    const descriptors = ['scrollLeft', 'scrollWidth', 'clientWidth'].map(
+      name => [name, Object.getOwnPropertyDescriptor(Element.prototype, name)] as const,
+    )
     const strip = (element: Element): boolean => element.hasAttribute('data-dockkit-strip-tabs')
-    Object.defineProperty(Element.prototype, 'scrollLeft', { configurable: true, get(this: Element) { return strip(this) ? scrollLeft : 0 } })
-    Object.defineProperty(Element.prototype, 'scrollWidth', { configurable: true, get(this: Element) { return strip(this) ? 400 : 0 } })
-    Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get(this: Element) { return strip(this) ? 200 : 0 } })
+    Object.defineProperty(Element.prototype, 'scrollLeft', {
+      configurable: true,
+      get(this: Element) {
+        return strip(this) ? scrollLeft : 0
+      },
+    })
+    Object.defineProperty(Element.prototype, 'scrollWidth', {
+      configurable: true,
+      get(this: Element) {
+        return strip(this) ? 400 : 0
+      },
+    })
+    Object.defineProperty(Element.prototype, 'clientWidth', {
+      configurable: true,
+      get(this: Element) {
+        return strip(this) ? 200 : 0
+      },
+    })
     try {
       const controller = seededController()
       renderSurface(controller, spyIntents())
@@ -518,8 +559,12 @@ describe('DockSurface', () => {
     const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollLeft')
     Object.defineProperty(Element.prototype, 'scrollLeft', {
       configurable: true,
-      get() { return scrollLeft },
-      set(value: number) { scrollLeft = value },
+      get() {
+        return scrollLeft
+      },
+      set(value: number) {
+        scrollLeft = value
+      },
     })
     // The box spans 0..200; the seeded chip sits at 40..130 and the opened one where `openedAt` says.
     let openedTab: TabId | undefined
@@ -579,11 +624,22 @@ describe('DockSurface', () => {
     }
     vi.stubGlobal('ResizeObserver', FakeResizeObserver)
     let clientWidth = 200
-    const descriptors = ['scrollWidth', 'clientWidth'].map(name =>
-      [name, Object.getOwnPropertyDescriptor(Element.prototype, name)] as const)
+    const descriptors = ['scrollWidth', 'clientWidth'].map(
+      name => [name, Object.getOwnPropertyDescriptor(Element.prototype, name)] as const,
+    )
     const title = (element: Element): boolean => element.hasAttribute('data-dockkit-tab-title')
-    Object.defineProperty(Element.prototype, 'scrollWidth', { configurable: true, get(this: Element) { return title(this) ? 120 : 0 } })
-    Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get(this: Element) { return title(this) ? clientWidth : 0 } })
+    Object.defineProperty(Element.prototype, 'scrollWidth', {
+      configurable: true,
+      get(this: Element) {
+        return title(this) ? 120 : 0
+      },
+    })
+    Object.defineProperty(Element.prototype, 'clientWidth', {
+      configurable: true,
+      get(this: Element) {
+        return title(this) ? clientWidth : 0
+      },
+    })
     try {
       const controller = seededController()
       const { unmount } = renderSurface(controller, spyIntents())
@@ -594,10 +650,14 @@ describe('DockSurface', () => {
       expect(span.hasAttribute('data-dockkit-tab-clipped')).toBe(false)
       // The chip narrowed under the text.
       clientWidth = 80
-      act(() => { observer.fire() })
+      act(() => {
+        observer.fire()
+      })
       expect(span.hasAttribute('data-dockkit-tab-clipped')).toBe(true)
       clientWidth = 200
-      act(() => { observer.fire() })
+      act(() => {
+        observer.fire()
+      })
       expect(span.hasAttribute('data-dockkit-tab-clipped')).toBe(false)
       unmount()
       expect(observer.disconnect).toHaveBeenCalledTimes(1)
@@ -610,7 +670,7 @@ describe('DockSurface', () => {
     }
   })
 
-  it('asks for the seeded tab from the strip\'s add control, naming the pane and nothing else', () => {
+  it("asks for the seeded tab from the strip's add control, naming the pane and nothing else", () => {
     const controller = seededController()
     const intents = spyIntents()
     renderSurface(controller, intents)
@@ -619,7 +679,7 @@ describe('DockSurface', () => {
     expect(intents.focusPane).not.toHaveBeenCalled()
   })
 
-  it('draws the add control only where the embedder\'s canAddTab allows, pane by pane', () => {
+  it("draws the add control only where the embedder's canAddTab allows, pane by pane", () => {
     const controller = seededController()
     controller.setExpanded(true)
     controller.splitPane()
@@ -645,7 +705,7 @@ describe('DockSurface', () => {
     expect(strip?.querySelector('[data-dockkit-strip-tabs]')).not.toBeNull()
   })
 
-  it('withholds a tab\'s close control and menu close item where the embedder\'s canCloseTab denies, tab by tab', () => {
+  it("withholds a tab's close control and menu close item where the embedder's canCloseTab denies, tab by tab", () => {
     const controller = seededController()
     controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const snapshot = controller.getSnapshot()
@@ -659,7 +719,11 @@ describe('DockSurface', () => {
         intents={controller}
         labels={TEST_LABELS}
         renderTab={tab => <p>{tab.contentId}</p>}
-        renderTabMenuItems={(_, dismiss) => <button type="button" role="menuitem" onClick={dismiss}>embedder item</button>}
+        renderTabMenuItems={(_, dismiss) => (
+          <button type="button" role="menuitem" onClick={dismiss}>
+            embedder item
+          </button>
+        )}
       />,
     )
     const [seedChip, fileChip] = screen.getAllByRole('tab')
@@ -698,7 +762,7 @@ describe('DockSurface', () => {
     expect(document.querySelector('[data-dockkit-tab-menu]')).toBeNull()
   })
 
-  it('lets the embedder render a chip\'s title, and shows the record\'s text when it does not', () => {
+  it("lets the embedder render a chip's title, and shows the record's text when it does not", () => {
     const controller = seededController()
     controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const snapshot = controller.getSnapshot()
@@ -709,7 +773,7 @@ describe('DockSurface', () => {
         intents={controller}
         labels={TEST_LABELS}
         renderTab={tab => <p>{tab.contentId}</p>}
-        renderTabTitle={tab => tab.kind === 'file' ? <em data-testid="rich-title">{tab.title.toUpperCase()}</em> : undefined}
+        renderTabTitle={tab => (tab.kind === 'file' ? <em data-testid="rich-title">{tab.title.toUpperCase()}</em> : undefined)}
       />,
     )
     const titles = [...document.querySelectorAll('[data-dockkit-tab-title]')].map(el => el.textContent)
@@ -717,7 +781,7 @@ describe('DockSurface', () => {
     expect(screen.getByTestId('rich-title').tagName).toBe('EM')
   })
 
-  it('closes a tab from the chip\'s own control, without starting a drag', () => {
+  it("closes a tab from the chip's own control, without starting a drag", () => {
     const controller = seededController()
     const intents = spyIntents()
     renderSurface(controller, intents)
@@ -800,20 +864,35 @@ describe('DockSurface', () => {
     expect(intents.closeTab).toHaveBeenCalledTimes(2)
   })
 
-  it.each([false, true])('hides the popup when an extras component renders no content inside a wrapper: %s', (wrapped) => {
+  it.each([false, true])('hides the popup when an extras component renders no content inside a wrapper: %s', wrapped => {
     const EmptyExtras = () => null
-    renderSurface(seededController(), spyIntents(), true,
-      () => wrapped ? <div style={{ display: 'contents' }}><EmptyExtras /></div> : <EmptyExtras />,
-      { canCloseTab: () => false })
+    renderSurface(
+      seededController(),
+      spyIntents(),
+      true,
+      () =>
+        wrapped ? (
+          <div style={{ display: 'contents' }}>
+            <EmptyExtras />
+          </div>
+        ) : (
+          <EmptyExtras />
+        ),
+      { canCloseTab: () => false },
+    )
     fireEvent.contextMenu(screen.getByRole('tab'))
     const menu = document.querySelector<HTMLElement>('[data-dockkit-tab-menu]')
     if (menu === null) throw new Error('expected the extras component menu')
     // Vitest stubs CSS Modules; bind the real stylesheet's menu selector to its generated class.
     const style = document.createElement('style')
-    style.textContent = readFileSync(resolve(import.meta.dirname, '../src/components/dockkit.module.css'), 'utf8')
-      .replaceAll(/\.menu(?=[:\s{])/g, `.${[...menu.classList].join('.')}`)
+    style.textContent = readFileSync(resolve(import.meta.dirname, '../src/components/dockkit.module.css'), 'utf8').replaceAll(
+      /\.menu(?=[:\s{])/g,
+      `.${[...menu.classList].join('.')}`,
+    )
     document.head.append(style)
-    onTestFinished(() => { style.remove() })
+    onTestFinished(() => {
+      style.remove()
+    })
     expect(menu.querySelectorAll('[role^="menuitem"]')).toHaveLength(0)
     expect(getComputedStyle(menu).display).toBe('none')
     expect(screen.queryByRole('menu')).toBeNull()
@@ -838,7 +917,7 @@ describe('DockSurface', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it.each(['tab', 'item'])('Escape dismisses a reopened menu from the %s without closing its tab', (focus) => {
+  it.each(['tab', 'item'])('Escape dismisses a reopened menu from the %s without closing its tab', focus => {
     const intents = spyIntents()
     const { unmount } = renderSurface(seededController(), intents)
     const tab = screen.getByRole('tab')
@@ -884,19 +963,25 @@ describe('DockSurface', () => {
     modal.setAttribute('role', 'dialog')
     modal.setAttribute('aria-modal', 'true')
     document.body.append(modal)
-    onTestFinished(() => { modal.remove() })
+    onTestFinished(() => {
+      modal.remove()
+    })
     expect(fireEvent.keyDown(modal, { key: 'Escape' })).toBe(true)
     expect(screen.getByRole('menu')).toBeDefined()
     modal.remove()
-    const parent = vi.fn((event: KeyboardEvent) => { expect(event.defaultPrevented).toBe(true) })
+    const parent = vi.fn((event: KeyboardEvent) => {
+      expect(event.defaultPrevented).toBe(true)
+    })
     document.addEventListener('keydown', parent)
-    onTestFinished(() => { document.removeEventListener('keydown', parent) })
+    onTestFinished(() => {
+      document.removeEventListener('keydown', parent)
+    })
     fireEvent.keyDown(tab, { key: 'Escape' })
     expect(parent).toHaveBeenCalledOnce()
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('hangs the menu below the chip\'s left edge, or from its right edge when it would run off the viewport', () => {
+  it("hangs the menu below the chip's left edge, or from its right edge when it would run off the viewport", () => {
     const controller = seededController()
     let left = 10
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -914,7 +999,7 @@ describe('DockSurface', () => {
     expect(screen.getByRole('menu').style.left).toBe(`${left + 60}px`)
   })
 
-  it('offers no copy or float item: those gestures are the embedder\'s API and the drag', () => {
+  it("offers no copy or float item: those gestures are the embedder's API and the drag", () => {
     const controller = seededController()
     renderSurface(controller, spyIntents())
     fireEvent.contextMenu(screen.getByRole('tab'))
@@ -922,7 +1007,7 @@ describe('DockSurface', () => {
     expect(document.querySelector('[data-dockkit-tab-more]')).toBeNull()
   })
 
-  it.each([true, false])('keeps embedder menu items and their tab and dismiss when close is allowed: %s', (canClose) => {
+  it.each([true, false])('keeps embedder menu items and their tab and dismiss when close is allowed: %s', canClose => {
     const controller = seededController()
     const acted = vi.fn<(contentId: string) => void>()
     const extras: TabMenuExtras = (tab, dismiss) => (
@@ -930,7 +1015,10 @@ describe('DockSurface', () => {
         type="button"
         role="menuitem"
         data-testid="extra"
-        onClick={() => { acted(tab.contentId); dismiss() }}
+        onClick={() => {
+          acted(tab.contentId)
+          dismiss()
+        }}
       >
         embedder item
       </button>
@@ -983,7 +1071,7 @@ describe('tab drags', () => {
     expect(document.querySelector('[data-dockkit-caret]')).toBeNull()
   })
 
-  it('reports a slot in another pane\'s strip as a placement there', () => {
+  it("reports a slot in another pane's strip as a placement there", () => {
     const { intents, second, fileTabId, chip } = twoPanes()
     drag(chip(fileTabId), FILE_CHIP, [420 + 30, 18])
     expect(intents.placeTab).toHaveBeenCalledWith(fileTabId, second, 0)
@@ -1211,7 +1299,7 @@ describe('keyboard tabs', () => {
     expect(intents.focusTab).not.toHaveBeenCalled()
   })
 
-  it('records nothing for Enter on the active pane\'s selected chip, and leaves keys on the close control alone', () => {
+  it("records nothing for Enter on the active pane's selected chip, and leaves keys on the close control alone", () => {
     const { intents, chip } = threeChips()
     fireEvent.keyDown(chip('b.txt'), { key: 'Enter' })
     fireEvent.keyDown(chip('b.txt'), { key: ' ' })
@@ -1232,7 +1320,12 @@ describe('divider drags', () => {
     controller.splitPane()
     const [first, second] = dockPaneIds(controller.getSnapshot().state)
     if (first === undefined || second === undefined) throw new Error('expected two docked panes')
-    const opened = controller.openContent({ contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', paneId: second })
+    const opened = controller.openContent({
+      contentId: 'dsh-resource://file/session/s/a.txt',
+      title: 'a.txt',
+      kind: 'file',
+      paneId: second,
+    })
     controller.dropTab(opened, second, 'bottom')
     const state = controller.getSnapshot().state
     const root = state.nodes[state.rootId]
@@ -1244,7 +1337,7 @@ describe('divider drags', () => {
     return { intents, columnId }
   }
 
-  it('moves a column split\'s divider along the vertical axis', () => {
+  it("moves a column split's divider along the vertical axis", () => {
     const { intents, columnId } = withColumn(box(420, 0, 420, 600))
     const divider = document.querySelector(`[data-dockkit-divider="${columnId}:0"]`)
     if (divider === null) throw new Error('expected the column divider')
@@ -1309,28 +1402,31 @@ describe('FloatLayer', () => {
     { fullscreen: true, savedY: 0, displayedY: 20 },
     { fullscreen: false, savedY: 80, displayedY: 80 },
     { fullscreen: true, savedY: 80, displayedY: 80 },
-  ])('starts move and resize at $displayedY for saved y=$savedY, fullscreen=$fullscreen without layout reads', ({ fullscreen, savedY, displayedY }) => {
-    const root = document.documentElement
-    const attributes = ['data-windows-titlebar', 'data-fullscreen', 'style'].map(name => [name, root.getAttribute(name)] as const)
-    onTestFinished(() => {
-      for (const [name, value] of attributes) {
-        if (value === null) root.removeAttribute(name)
-        else root.setAttribute(name, value)
-      }
-    })
-    root.setAttribute('data-windows-titlebar', '')
-    root.toggleAttribute('data-fullscreen', fullscreen)
-    root.style.setProperty('--dsh-windows-titlebar-height', '40px')
-    const { intents, paneId, panel } = floating(undefined, savedY)
-    const measure = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-    const computedStyle = vi.spyOn(window, 'getComputedStyle')
-    drag(panel.querySelector('[data-dockkit-float-grip]')!, [150, displayedY + 10], [170, displayedY + 30])
-    expect(intents.moveFloat).toHaveBeenCalledWith(paneId, 120, displayedY + 20)
-    drag(panel.querySelector('[data-dockkit-float-resize]')!, [400, displayedY + 200], [420, displayedY + 220])
-    expect(intents.resizeFloat).toHaveBeenCalledWith(paneId, { x: 100, y: displayedY, width: 320, height: 220 })
-    expect(measure).not.toHaveBeenCalled()
-    expect(computedStyle).not.toHaveBeenCalled()
-  })
+  ])(
+    'starts move and resize at $displayedY for saved y=$savedY, fullscreen=$fullscreen without layout reads',
+    ({ fullscreen, savedY, displayedY }) => {
+      const root = document.documentElement
+      const attributes = ['data-windows-titlebar', 'data-fullscreen', 'style'].map(name => [name, root.getAttribute(name)] as const)
+      onTestFinished(() => {
+        for (const [name, value] of attributes) {
+          if (value === null) root.removeAttribute(name)
+          else root.setAttribute(name, value)
+        }
+      })
+      root.setAttribute('data-windows-titlebar', '')
+      root.toggleAttribute('data-fullscreen', fullscreen)
+      root.style.setProperty('--dsh-windows-titlebar-height', '40px')
+      const { intents, paneId, panel } = floating(undefined, savedY)
+      const measure = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      const computedStyle = vi.spyOn(window, 'getComputedStyle')
+      drag(panel.querySelector('[data-dockkit-float-grip]')!, [150, displayedY + 10], [170, displayedY + 30])
+      expect(intents.moveFloat).toHaveBeenCalledWith(paneId, 120, displayedY + 20)
+      drag(panel.querySelector('[data-dockkit-float-resize]')!, [400, displayedY + 200], [420, displayedY + 220])
+      expect(intents.resizeFloat).toHaveBeenCalledWith(paneId, { x: 100, y: displayedY, width: 320, height: 220 })
+      expect(measure).not.toHaveBeenCalled()
+      expect(computedStyle).not.toHaveBeenCalled()
+    },
+  )
 
   /** Two floating panels, `lower` under `upper`, with `upper` active. */
   function twoFloats(): {
@@ -1361,7 +1457,10 @@ describe('FloatLayer', () => {
   }
 
   /** One floating panel over a spied intent set. */
-  function floating(canCloseTab?: FloatLayerProps['canCloseTab'], y = 80): {
+  function floating(
+    canCloseTab?: FloatLayerProps['canCloseTab'],
+    y = 80,
+  ): {
     intents: ReturnType<typeof spyIntents>
     paneId: PaneId
     tabId: TabId
@@ -1377,7 +1476,7 @@ describe('FloatLayer', () => {
         intents={intents}
         labels={TEST_LABELS}
         renderTab={tab => <p data-testid="float-body">{tab.title}</p>}
-        {...canCloseTab === undefined ? {} : { canCloseTab }}
+        {...(canCloseTab === undefined ? {} : { canCloseTab })}
       />,
     )
     const panel = document.querySelector<HTMLElement>(`[data-dockkit-float="${paneId}"]`)
@@ -1441,7 +1540,10 @@ describe('FloatLayer', () => {
     // Focus on the lower panel while the upper stays on top: only a recorded
     // focus snapshot puts the layout there, as an undo does.
     const buried = applyOp(controller.getSnapshot().state, {
-      type: 'restoreFocus', activePaneId: lower, floats: [lower, upper], paneActiveTabs: {},
+      type: 'restoreFocus',
+      activePaneId: lower,
+      floats: [lower, upper],
+      paneActiveTabs: {},
     }).state
     const intents = spyIntents()
     render(<FloatLayer state={buried} intents={intents} labels={TEST_LABELS} renderTab={() => null} />)
@@ -1509,21 +1611,14 @@ describe('FloatLayer', () => {
     const second = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file' })
     controller.floatTab(first)
     controller.floatTab(second)
-    render(
-      <FloatLayer
-        state={controller.getSnapshot().state}
-        intents={spyIntents()}
-        labels={TEST_LABELS}
-        renderTab={() => null}
-      />,
-    )
+    render(<FloatLayer state={controller.getSnapshot().state} intents={spyIntents()} labels={TEST_LABELS} renderTab={() => null} />)
     const zIndexes = screen.getAllByRole('banner').map(header => header.parentElement?.style.zIndex)
     expect(zIndexes).toEqual(['1', '2'])
   })
 })
 
 describe('surface chrome', () => {
-  it('renders the embedder\'s controls once, at the end of the top-right pane\'s strip', () => {
+  it("renders the embedder's controls once, at the end of the top-right pane's strip", () => {
     const controller = seededController()
     controller.setExpanded(true)
     // A row split puts the new pane to the right; a bottom drop under it puts a
@@ -1535,7 +1630,12 @@ describe('surface chrome', () => {
     if (rightPaneId === undefined) throw new Error('expected a row split')
     const seeded = controller.getSnapshot().state.nodes[rightPaneId]
     if (seeded === undefined || seeded.kind !== 'pane' || seeded.tabs[0] === undefined) throw new Error('expected a seeded pane')
-    const opened = controller.openContent({ contentId: 'dsh-resource://file/session/s/b.txt', title: 'b.txt', kind: 'file', paneId: seeded.id })
+    const opened = controller.openContent({
+      contentId: 'dsh-resource://file/session/s/b.txt',
+      title: 'b.txt',
+      kind: 'file',
+      paneId: seeded.id,
+    })
     controller.dropTab(opened, seeded.id, 'bottom')
 
     const snapshot = controller.getSnapshot()
@@ -1560,7 +1660,7 @@ describe('surface chrome', () => {
     expect(children.at(-1)?.hasAttribute('data-dockkit-strip-chrome')).toBe(true)
   })
 
-  it('keeps a click on the chrome from focusing the pane: the embedder\'s controls report their own intents', () => {
+  it("keeps a click on the chrome from focusing the pane: the embedder's controls report their own intents", () => {
     const controller = seededController()
     const intents = spyIntents()
     render(

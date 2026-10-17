@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { deriveTurnTokenUsage } from '../src/turn-usage.ts'
@@ -43,7 +43,7 @@ function message(
       content: [{ type: 'text', text: 'done' }],
       source: { kind: 'model', provider, model },
     },
-    ...tokenUsage === undefined ? {} : { usage: tokenUsage },
+    ...(tokenUsage === undefined ? {} : { usage: tokenUsage }),
   })
 }
 
@@ -67,10 +67,19 @@ function completeAttempt(...middle: readonly SessionEvent[]): SessionEvent[] {
 
 describe('deriveTurnTokenUsage', () => {
   it('preserves authoritative totals and explicit optional buckets', () => {
-    expect(deriveTurnTokenUsage(completeAttempt(message(3, usage({
-      cacheWriteTokens: 0,
-      reasoningTokens: 8,
-    }))))).toEqual({
+    expect(
+      deriveTurnTokenUsage(
+        completeAttempt(
+          message(
+            3,
+            usage({
+              cacheWriteTokens: 0,
+              reasoningTokens: 8,
+            }),
+          ),
+        ),
+      ),
+    ).toEqual({
       uncachedInputTokens: 100,
       outputTokens: 20,
       totalTokens: 170,
@@ -82,38 +91,56 @@ describe('deriveTurnTokenUsage', () => {
   })
 
   it('derives an exact total only when both cache buckets are present', () => {
-    expect(deriveTurnTokenUsage(completeAttempt(message(3, usage({
-      totalTokens: undefined,
-      inputTokens: 10,
-      outputTokens: 4,
-      cacheReadTokens: 2,
-      cacheWriteTokens: 1,
-    }))))?.totalTokens).toBe(17)
+    expect(
+      deriveTurnTokenUsage(
+        completeAttempt(
+          message(
+            3,
+            usage({
+              totalTokens: undefined,
+              inputTokens: 10,
+              outputTokens: 4,
+              cacheReadTokens: 2,
+              cacheWriteTokens: 1,
+            }),
+          ),
+        ),
+      )?.totalTokens,
+    ).toBe(17)
 
-    expect(deriveTurnTokenUsage(completeAttempt(message(3, usage({
-      totalTokens: undefined,
-      cacheWriteTokens: undefined,
-    }))))).toBeUndefined()
+    expect(
+      deriveTurnTokenUsage(
+        completeAttempt(
+          message(
+            3,
+            usage({
+              totalTokens: undefined,
+              cacheWriteTokens: undefined,
+            }),
+          ),
+        ),
+      ),
+    ).toBeUndefined()
   })
 
   it('lets final message usage replace the latest streaming sample', () => {
-    const result = deriveTurnTokenUsage(completeAttempt(
-      message(
-        4,
-        usage({ inputTokens: 30, outputTokens: 5, totalTokens: 45, cacheReadTokens: 10 }),
-        'deepseek',
-        'deepseek-chat',
-        1,
-        usage(),
+    const result = deriveTurnTokenUsage(
+      completeAttempt(
+        message(
+          4,
+          usage({ inputTokens: 30, outputTokens: 5, totalTokens: 45, cacheReadTokens: 10 }),
+          'deepseek',
+          'deepseek-chat',
+          1,
+          usage(),
+        ),
       ),
-    ))
+    )
     expect(result).toMatchObject({ uncachedInputTokens: 30, outputTokens: 5, totalTokens: 45 })
   })
 
   it('keeps the latest streaming sample when the final message omits usage', () => {
-    const result = deriveTurnTokenUsage(completeAttempt(
-      message(4, undefined, 'deepseek', 'deepseek-chat', 1, usage()),
-    ))
+    const result = deriveTurnTokenUsage(completeAttempt(message(4, undefined, 'deepseek', 'deepseek-chat', 1, usage())))
     expect(result).toMatchObject({ uncachedInputTokens: 100, outputTokens: 20, totalTokens: 170 })
   })
 
@@ -136,22 +163,26 @@ describe('deriveTurnTokenUsage', () => {
   })
 
   it('does not invent an attempt for a scheduled retry that never started', () => {
-    const result = deriveTurnTokenUsage(completeAttempt(
-      attempt(3, [
-        { type: 'usage', usage: usage() },
-        { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
-      ]),
-      event(4, 'llm/retry', { turn: 1, step: 1 }),
-    ))
+    const result = deriveTurnTokenUsage(
+      completeAttempt(
+        attempt(3, [
+          { type: 'usage', usage: usage() },
+          { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
+        ]),
+        event(4, 'llm/retry', { turn: 1, step: 1 }),
+      ),
+    )
     expect(result).toMatchObject({ totalTokens: 170 })
   })
 
   it('fails closed for missing lifecycle or missing attempt usage', () => {
-    expect(deriveTurnTokenUsage([
-      event(1, 'turn/start', { turn: 1 }),
-      message(2, usage()),
-      event(3, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-    ])).toBeUndefined()
+    expect(
+      deriveTurnTokenUsage([
+        event(1, 'turn/start', { turn: 1 }),
+        message(2, usage()),
+        event(3, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ]),
+    ).toBeUndefined()
     expect(deriveTurnTokenUsage(completeAttempt(message(3)))).toBeUndefined()
   })
 
@@ -165,19 +196,25 @@ describe('deriveTurnTokenUsage', () => {
     ['total below known prompt', usage({ totalTokens: 160 })],
     ['contradictory complete buckets', usage({ totalTokens: 171, cacheWriteTokens: 0 })],
     ['reasoning exceeds output', usage({ reasoningTokens: 21 })],
-    ['prompt bucket overflow', usage({
-      inputTokens: Number.MAX_SAFE_INTEGER,
-      outputTokens: 0,
-      totalTokens: Number.MAX_SAFE_INTEGER,
-      cacheReadTokens: 1,
-    })],
-    ['derived total overflow', usage({
-      inputTokens: Number.MAX_SAFE_INTEGER,
-      outputTokens: 1,
-      totalTokens: undefined,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-    })],
+    [
+      'prompt bucket overflow',
+      usage({
+        inputTokens: Number.MAX_SAFE_INTEGER,
+        outputTokens: 0,
+        totalTokens: Number.MAX_SAFE_INTEGER,
+        cacheReadTokens: 1,
+      }),
+    ],
+    [
+      'derived total overflow',
+      usage({
+        inputTokens: Number.MAX_SAFE_INTEGER,
+        outputTokens: 1,
+        totalTokens: undefined,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      }),
+    ],
   ])('fails closed for %s usage', (_label, invalidUsage) => {
     expect(deriveTurnTokenUsage(completeAttempt(message(3, invalidUsage)))).toBeUndefined()
   })
@@ -193,7 +230,9 @@ describe('deriveTurnTokenUsage', () => {
         turn: 1,
         step: 2,
         message: {
-          id: 'message-6', role: 'assistant', content: [],
+          id: 'message-6',
+          role: 'assistant',
+          content: [],
           source: { kind: 'model', provider: '', model: '' },
         },
         usage: usage({ cacheReadTokens: undefined, cacheWriteTokens: undefined, reasoningTokens: undefined }),
@@ -240,7 +279,9 @@ describe('deriveTurnTokenUsage', () => {
         turn: 1,
         step: 2,
         message: {
-          id: 'message-6', role: 'assistant', content: [],
+          id: 'message-6',
+          role: 'assistant',
+          content: [],
           source: { kind: 'model', provider: 'deepseek', model: 'deepseek-chat' },
         },
         usage: attempt,
@@ -252,161 +293,182 @@ describe('deriveTurnTokenUsage', () => {
   })
 
   it.each([
-    ['uncached input', usage({
-      inputTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
-      outputTokens: 0,
-      cacheReadTokens: undefined,
-      totalTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
-    })],
-    ['output', usage({
-      inputTokens: 0,
-      outputTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
-      cacheReadTokens: undefined,
-      totalTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
-    })],
+    [
+      'uncached input',
+      usage({
+        inputTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
+        outputTokens: 0,
+        cacheReadTokens: undefined,
+        totalTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
+      }),
+    ],
+    [
+      'output',
+      usage({
+        inputTokens: 0,
+        outputTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
+        cacheReadTokens: undefined,
+        totalTokens: Math.floor(Number.MAX_SAFE_INTEGER / 2) + 1,
+      }),
+    ],
   ])('fails closed when aggregate %s overflows', (_label, attempt) => {
-    expect(deriveTurnTokenUsage([
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      message(3, attempt),
-      event(4, 'step/end', { turn: 1, step: 1 }),
-      event(5, 'step/start', { turn: 1, step: 1 }),
-      message(6, attempt),
-      event(7, 'step/end', { turn: 1, step: 1 }),
-      event(8, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-    ])).toBeUndefined()
+    expect(
+      deriveTurnTokenUsage([
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        message(3, attempt),
+        event(4, 'step/end', { turn: 1, step: 1 }),
+        event(5, 'step/start', { turn: 1, step: 1 }),
+        message(6, attempt),
+        event(7, 'step/end', { turn: 1, step: 1 }),
+        event(8, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ]),
+    ).toBeUndefined()
   })
 
   it('closes a sampled attempt at step/end', () => {
-    expect(deriveTurnTokenUsage(completeAttempt(
-      attempt(3, [
-        { type: 'usage', usage: usage() },
-        { type: 'finish', reason: { kind: 'stop' } },
-      ]),
-      event(5, 'tool/call', { turn: 1, step: 1 }),
-    ))).toMatchObject({ totalTokens: 170 })
+    expect(
+      deriveTurnTokenUsage(
+        completeAttempt(
+          attempt(3, [
+            { type: 'usage', usage: usage() },
+            { type: 'finish', reason: { kind: 'stop' } },
+          ]),
+          event(5, 'tool/call', { turn: 1, step: 1 }),
+        ),
+      ),
+    ).toMatchObject({ totalTokens: 170 })
   })
 
   it('accepts an aborted finish after observing usage', () => {
-    expect(deriveTurnTokenUsage(completeAttempt(
-      attempt(3, [
-        { type: 'usage', usage: usage() },
-        { type: 'finish', reason: { kind: 'aborted', failure: { message: 'aborted', code: 'ABORTED' } } },
-      ]),
-    ))).toMatchObject({ totalTokens: 170 })
+    expect(
+      deriveTurnTokenUsage(
+        completeAttempt(
+          attempt(3, [
+            { type: 'usage', usage: usage() },
+            { type: 'finish', reason: { kind: 'aborted', failure: { message: 'aborted', code: 'ABORTED' } } },
+          ]),
+        ),
+      ),
+    ).toMatchObject({ totalTokens: 170 })
   })
 
   it.each([
-    ['empty turn', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-    ]],
-    ['duplicate turn start', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'turn/start', { turn: 1 }),
-    ]],
-    ['wrong turn end', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'turn/end', { turn: 2, reason: { kind: 'completed' } }),
-    ]],
-    ['turn end during an open attempt', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      event(3, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-    ]],
-    ['duplicate turn end', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-      event(3, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-    ]],
-    ['event after turn end', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
-      event(3, 'step/start', { turn: 1, step: 1 }),
-    ]],
-    ['wrong-turn step start', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 2, step: 1 }),
-    ]],
-    ['nested step start', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      event(3, 'step/start', { turn: 1, step: 2 }),
-    ]],
-    ['retry start without a scheduled retry', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'llm/retry-started', { turn: 1, step: 1, retry: 1 }),
-    ]],
-    ['retry start after a final message', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      message(3, usage()),
-      event(4, 'llm/retry-started', { turn: 1, step: 1, retry: 1 }),
-    ]],
-    ['retry start for the wrong step', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      attempt(3, [
-        { type: 'usage', usage: usage() },
-        { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
-      ]),
-      event(4, 'llm/retry', { turn: 1, step: 1 }),
-      event(5, 'llm/retry-started', { turn: 1, step: 2, retry: 1 }),
-    ]],
-    ['attempt outside a step', [
-      event(1, 'turn/start', { turn: 1 }),
-      attempt(2, [{ type: 'usage', usage: usage() }]),
-    ]],
-    ['attempt for the wrong step', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      attempt(3, [{ type: 'usage', usage: usage() }], 2),
-    ]],
-    ['error finish without usage', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      attempt(3, [{
-        type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } },
-      }]),
-    ]],
-    ['retry outside an attempt', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'llm/retry', { turn: 1, step: 1 }),
-    ]],
-    ['retry for the wrong step', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      attempt(3, [
-        { type: 'usage', usage: usage() },
-        { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
-      ]),
-      event(4, 'llm/retry', { turn: 1, step: 2 }),
-    ]],
-    ['retry after a final message', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      message(3, usage()),
-      event(4, 'llm/retry', { turn: 1, step: 1 }),
-    ]],
-    ['retry before any usage', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      event(3, 'llm/retry', { turn: 1, step: 1 }),
-    ]],
-    ['step end outside an attempt', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/end', { turn: 1, step: 1 }),
-    ]],
-    ['step end for the wrong step', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      event(3, 'step/end', { turn: 1, step: 2 }),
-    ]],
-    ['step end before any usage', [
-      event(1, 'turn/start', { turn: 1 }),
-      event(2, 'step/start', { turn: 1, step: 1 }),
-      event(3, 'step/end', { turn: 1, step: 1 }),
-    ]],
+    ['empty turn', [event(1, 'turn/start', { turn: 1 }), event(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } })]],
+    ['duplicate turn start', [event(1, 'turn/start', { turn: 1 }), event(2, 'turn/start', { turn: 1 })]],
+    ['wrong turn end', [event(1, 'turn/start', { turn: 1 }), event(2, 'turn/end', { turn: 2, reason: { kind: 'completed' } })]],
+    [
+      'turn end during an open attempt',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        event(3, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ],
+    ],
+    [
+      'duplicate turn end',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+        event(3, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      ],
+    ],
+    [
+      'event after turn end',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+        event(3, 'step/start', { turn: 1, step: 1 }),
+      ],
+    ],
+    ['wrong-turn step start', [event(1, 'turn/start', { turn: 1 }), event(2, 'step/start', { turn: 2, step: 1 })]],
+    [
+      'nested step start',
+      [event(1, 'turn/start', { turn: 1 }), event(2, 'step/start', { turn: 1, step: 1 }), event(3, 'step/start', { turn: 1, step: 2 })],
+    ],
+    [
+      'retry start without a scheduled retry',
+      [event(1, 'turn/start', { turn: 1 }), event(2, 'llm/retry-started', { turn: 1, step: 1, retry: 1 })],
+    ],
+    [
+      'retry start after a final message',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        message(3, usage()),
+        event(4, 'llm/retry-started', { turn: 1, step: 1, retry: 1 }),
+      ],
+    ],
+    [
+      'retry start for the wrong step',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        attempt(3, [
+          { type: 'usage', usage: usage() },
+          { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
+        ]),
+        event(4, 'llm/retry', { turn: 1, step: 1 }),
+        event(5, 'llm/retry-started', { turn: 1, step: 2, retry: 1 }),
+      ],
+    ],
+    ['attempt outside a step', [event(1, 'turn/start', { turn: 1 }), attempt(2, [{ type: 'usage', usage: usage() }])]],
+    [
+      'attempt for the wrong step',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        attempt(3, [{ type: 'usage', usage: usage() }], 2),
+      ],
+    ],
+    [
+      'error finish without usage',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        attempt(3, [
+          {
+            type: 'finish',
+            reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } },
+          },
+        ]),
+      ],
+    ],
+    ['retry outside an attempt', [event(1, 'turn/start', { turn: 1 }), event(2, 'llm/retry', { turn: 1, step: 1 })]],
+    [
+      'retry for the wrong step',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        attempt(3, [
+          { type: 'usage', usage: usage() },
+          { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
+        ]),
+        event(4, 'llm/retry', { turn: 1, step: 2 }),
+      ],
+    ],
+    [
+      'retry after a final message',
+      [
+        event(1, 'turn/start', { turn: 1 }),
+        event(2, 'step/start', { turn: 1, step: 1 }),
+        message(3, usage()),
+        event(4, 'llm/retry', { turn: 1, step: 1 }),
+      ],
+    ],
+    [
+      'retry before any usage',
+      [event(1, 'turn/start', { turn: 1 }), event(2, 'step/start', { turn: 1, step: 1 }), event(3, 'llm/retry', { turn: 1, step: 1 })],
+    ],
+    ['step end outside an attempt', [event(1, 'turn/start', { turn: 1 }), event(2, 'step/end', { turn: 1, step: 1 })]],
+    [
+      'step end for the wrong step',
+      [event(1, 'turn/start', { turn: 1 }), event(2, 'step/start', { turn: 1, step: 1 }), event(3, 'step/end', { turn: 1, step: 2 })],
+    ],
+    [
+      'step end before any usage',
+      [event(1, 'turn/start', { turn: 1 }), event(2, 'step/start', { turn: 1, step: 1 }), event(3, 'step/end', { turn: 1, step: 1 })],
+    ],
   ])('fails closed for invalid lifecycle: %s', (_label, events) => {
     expect(deriveTurnTokenUsage(events)).toBeUndefined()
   })

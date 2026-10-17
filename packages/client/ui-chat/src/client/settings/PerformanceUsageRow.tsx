@@ -13,10 +13,7 @@ export interface PerformanceUsageRowInjected extends PerformanceUsageInjected {
 }
 
 /** Full Settings-row props. */
-export type PerformanceUsageRowProps =
-  PropsRuntime<'settings.general.item'>
-  & PropsLocale<'chat'>
-  & InjectFace<PerformanceUsageRowInjected>
+export type PerformanceUsageRowProps = PropsRuntime<'settings.general.item'> & PropsLocale<'chat'> & InjectFace<PerformanceUsageRowInjected>
 
 const OPTIONS: readonly { id: PerformanceUsageMode; label: ChatKey }[] = [
   { id: 'compact', label: 'settings.performance.compact' },
@@ -30,9 +27,7 @@ const OPTIONS: readonly { id: PerformanceUsageMode; label: ChatKey }[] = [
  */
 export function PerformanceUsageRow({ usePerformanceUsage, setPerformanceUsage, t }: PerformanceUsageRowProps) {
   const mode = usePerformanceUsage(value => value)
-  const selectedLabel = mode === 'detailed'
-    ? 'settings.performance.detailed'
-    : 'settings.performance.compact'
+  const selectedLabel = mode === 'detailed' ? 'settings.performance.detailed' : 'settings.performance.compact'
   return (
     <PreferenceRow
       title={t('settings.performance.title')}
@@ -40,7 +35,9 @@ export function PerformanceUsageRow({ usePerformanceUsage, setPerformanceUsage, 
       value={mode}
       selectedLabel={t(selectedLabel)}
       options={OPTIONS.map(option => ({ id: option.id, label: t(option.label) }))}
-      onSelect={(value) => { setPerformanceUsage(value as PerformanceUsageMode) }}
+      onSelect={value => {
+        setPerformanceUsage(value as PerformanceUsageMode)
+      }}
     />
   )
 }

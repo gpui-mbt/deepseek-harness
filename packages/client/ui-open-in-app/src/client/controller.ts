@@ -2,8 +2,10 @@
 
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
-  OPEN_IN_APP_APPS_ROUTE, OPEN_IN_APP_OPEN_ROUTE,
-  type OpenInAppAppsPayload, type OpenInAppOpenPayload,
+  OPEN_IN_APP_APPS_ROUTE,
+  OPEN_IN_APP_OPEN_ROUTE,
+  type OpenInAppAppsPayload,
+  type OpenInAppOpenPayload,
 } from '@deepseek-ai/dsh-host-open-in-app/shared'
 
 import { APP_LABEL_KEY } from './applications.ts'
@@ -99,7 +101,7 @@ export class OpenInAppController {
         headers: { accept: 'application/json' },
       })
       if (response.ok) {
-        const payload = await response.json() as OpenInAppAppsPayload
+        const payload = (await response.json()) as OpenInAppAppsPayload
         if (Array.isArray(payload.apps)) apps = payload.apps.filter(id => typeof id === 'string')
       }
     } catch {

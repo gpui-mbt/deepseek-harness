@@ -13,9 +13,7 @@
  * @param dicts - dictionaries consulted in order.
  * @returns the translate function (assignable to any `XxxProps['t']` seat).
  */
-export function makeTranslate(
-  ...dicts: readonly Record<string, string>[]
-): (key: string, params?: Record<string, unknown>) => string {
+export function makeTranslate(...dicts: readonly Record<string, string>[]): (key: string, params?: Record<string, unknown>) => string {
   return (key, params) => {
     let template = key
     for (const dict of dicts) {
@@ -26,7 +24,6 @@ export function makeTranslate(
       }
     }
     if (!params) return template
-    return template.replace(/\{(\w+)\}/g, (match, name: string) =>
-      name in params ? String(params[name]) : match)
+    return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match))
   }
 }

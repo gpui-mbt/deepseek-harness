@@ -11,10 +11,7 @@ import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ClientRemote, MessageId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { FeedbackRecord } from '@deepseek-ai/dsh-command-feedback/types'
-import type {
-  MessageFeedbackItem,
-  MessageFeedbackRating,
-} from '@deepseek-ai/dsh-message-feedback/types'
+import type { MessageFeedbackItem, MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 
 /** Load state of the one list read that seeds every per-message control. */
 export type MessageFeedbackStatus = 'cold' | 'loading' | 'ready' | 'error'
@@ -63,12 +60,18 @@ const DISPOSED: MessageFeedbackActionFailure = Object.freeze({
  */
 export function describe(code: string): string {
   switch (code) {
-    case 'session-not-found': return 'this session is no longer persisted'
-    case 'target-not-found': return 'this message is not a persisted assistant message'
-    case 'version-conflict': return 'feedback changed elsewhere'
-    case 'note-blank': return 'a note must contain a non-whitespace character'
-    case 'note-too-large': return 'the note is too long'
-    default: return code
+    case 'session-not-found':
+      return 'this session is no longer persisted'
+    case 'target-not-found':
+      return 'this message is not a persisted assistant message'
+    case 'version-conflict':
+      return 'feedback changed elsewhere'
+    case 'note-blank':
+      return 'a note must contain a non-whitespace character'
+    case 'note-too-large':
+      return 'the note is too long'
+    default:
+      return code
   }
 }
 
@@ -108,7 +111,9 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
   /** Subscribe to view replacement. */
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -135,7 +140,9 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
     this.publish({ status: 'loading', items: this.view.items, error: null })
     const pending = this.load()
     this.loadPromise = pending
-    return pending.finally(() => { this.loadPromise = null })
+    return pending.finally(() => {
+      this.loadPromise = null
+    })
   }
 
   /**
@@ -158,11 +165,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
    * @param entry - explanation and category to store with the judgment.
    * @returns the settled mutation result.
    */
-  rate(
-    messageId: MessageId,
-    rating: MessageFeedbackRating,
-    entry: FeedbackRecord = {},
-  ): Promise<MessageFeedbackActionResult> {
+  rate(messageId: MessageId, rating: MessageFeedbackRating, entry: FeedbackRecord = {}): Promise<MessageFeedbackActionResult> {
     return this.mutate(async () => {
       const observed = this.view.items.get(messageId)
       return await this.putCommitted(messageId, rating, entry, observed)
@@ -180,9 +183,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
   retract(messageId: MessageId, rating: MessageFeedbackRating): Promise<MessageFeedbackActionResult> {
     return this.mutate(async () => {
       const observed = this.view.items.get(messageId)
-      return observed?.rating === rating
-        ? await this.deleteCommitted(messageId, observed)
-        : OK
+      return observed?.rating === rating ? await this.deleteCommitted(messageId, observed) : OK
     })
   }
 
@@ -212,10 +213,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
   }
 
   /** Commit one delete against the observed version and reconcile a conflict. */
-  private async deleteCommitted(
-    messageId: MessageId,
-    observed: MessageFeedbackItem,
-  ): Promise<MessageFeedbackActionResult> {
+  private async deleteCommitted(messageId: MessageId, observed: MessageFeedbackItem): Promise<MessageFeedbackActionResult> {
     const carried = await this.remote.delete({
       sessionId: this.sessionId,
       messageId,
@@ -260,10 +258,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
    * Serialize one mutation behind this Session's prior mutation so queued
    * operations always compare against the committed version.
    */
-  private mutate<T>(
-    operation: () => Promise<T>,
-    options: { readonly seed?: boolean } = {},
-  ): Promise<T | MessageFeedbackActionFailure> {
+  private mutate<T>(operation: () => Promise<T>, options: { readonly seed?: boolean } = {}): Promise<T | MessageFeedbackActionFailure> {
     const guarded = async (): Promise<T | MessageFeedbackActionFailure> => {
       if (this.disposed) return DISPOSED
       if (options.seed !== false) {

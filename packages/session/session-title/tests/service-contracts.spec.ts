@@ -1,6 +1,6 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { Context, type Fiber } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import SessionStore, { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionTitleService, {
@@ -19,7 +19,9 @@ const CONFIG = {
 
 function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((accept) => { resolve = accept })
+  const promise = new Promise<T>(accept => {
+    resolve = accept
+  })
   return { promise, resolve }
 }
 
@@ -44,24 +46,29 @@ function startSession(ctx: Context, id: string): ReturnType<Context['sessions'][
 }
 
 function appendPrompt(session: ReturnType<Context['sessions']['create']>, text: string) {
-  return session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  return session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 describe('SessionTitleService configuration and refresh boundaries', () => {
   it('requires explicit positive limits with a fallback cap no larger than the accepted-title cap', () => {
-    expect(() => new SessionTitleService(new Context(), undefined as never))
-      .toThrow('configuration is required')
-    expect(() => new SessionTitleService(new Context(), null as never))
-      .toThrow('configuration is required')
-    expect(() => new SessionTitleService(new Context(), { ...CONFIG, fallbackMaxWords: 0 }))
-      .toThrow(/fallbackMaxWords must be a positive integer/)
-    expect(() => new SessionTitleService(new Context(), { ...CONFIG, fallbackMaxWords: 1.5 }))
-      .toThrow(/fallbackMaxWords must be a positive integer/)
-    expect(() => new SessionTitleService(new Context(), { ...CONFIG, fallbackMaxBytes: 81 }))
-      .toThrow(/fallbackMaxBytes must not exceed maxTitleBytes/)
+    expect(() => new SessionTitleService(new Context(), undefined as never)).toThrow('configuration is required')
+    expect(() => new SessionTitleService(new Context(), null as never)).toThrow('configuration is required')
+    expect(() => new SessionTitleService(new Context(), { ...CONFIG, fallbackMaxWords: 0 })).toThrow(
+      /fallbackMaxWords must be a positive integer/,
+    )
+    expect(() => new SessionTitleService(new Context(), { ...CONFIG, fallbackMaxWords: 1.5 })).toThrow(
+      /fallbackMaxWords must be a positive integer/,
+    )
+    expect(() => new SessionTitleService(new Context(), { ...CONFIG, fallbackMaxBytes: 81 })).toThrow(
+      /fallbackMaxBytes must not exceed maxTitleBytes/,
+    )
   })
 
   it('returns no title for empty input with or without a provider, and rejects detached or pre-aborted refreshes', async () => {
@@ -83,12 +90,10 @@ describe('SessionTitleService configuration and refresh boundaries', () => {
     await expect(withProvider.sessionTitle.refresh(providerEmpty)).resolves.toBeUndefined()
     expect(generate).not.toHaveBeenCalled()
 
-    await expect(withProvider.sessionTitle.refresh(Session.create(SessionId('detached'))))
-      .rejects.toThrow(/not live in this store/)
+    await expect(withProvider.sessionTitle.refresh(Session.create(SessionId('detached')))).rejects.toThrow(/not live in this store/)
     const controller = new AbortController()
     controller.abort(new Error('already cancelled'))
-    await expect(withProvider.sessionTitle.refresh(providerEmpty, controller.signal))
-      .rejects.toThrow('already cancelled')
+    await expect(withProvider.sessionTitle.refresh(providerEmpty, controller.signal)).rejects.toThrow('already cancelled')
   })
 
   it('passes an absent route and caller cancellation into explicit generation', async () => {
@@ -107,8 +112,7 @@ describe('SessionTitleService configuration and refresh boundaries', () => {
     await settle()
     const controller = new AbortController()
 
-    await expect(ctx.sessionTitle.refresh(session, controller.signal))
-      .resolves.toMatchObject({ title: 'Explicit title' })
+    await expect(ctx.sessionTitle.refresh(session, controller.signal)).resolves.toMatchObject({ title: 'Explicit title' })
     expect(observed?.route).toBeUndefined()
     expect(observed?.signal.aborted).toBe(false)
   })
@@ -173,10 +177,7 @@ describe('SessionTitleService configuration and refresh boundaries', () => {
     seed.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     const session = ctx.sessions.create(SessionId('fallback-concurrency'), { seed: seed.snapshotEvents() })
 
-    const results = await Promise.all([
-      ctx.sessionTitle.refresh(session),
-      ctx.sessionTitle.refresh(session),
-    ])
+    const results = await Promise.all([ctx.sessionTitle.refresh(session), ctx.sessionTitle.refresh(session)])
 
     expect(results[0]).toEqual(results[1])
     expect(session.snapshotEvents().filter(event => event.type === 'session/title')).toHaveLength(1)
@@ -245,7 +246,7 @@ describe('SessionTitleService configuration and refresh boundaries', () => {
     await ctx.plugin(SessionStore)
     await ctx.plugin(SessionProjectionRegistry)
     const lifecycle: { fiber?: Fiber; session?: Session; inactiveRefresh?: Promise<unknown> } = {}
-    ctx.on('internal/plugin', (subject) => {
+    ctx.on('internal/plugin', subject => {
       if (subject !== lifecycle.fiber || subject.uid !== null || lifecycle.session === undefined) return
       appendPrompt(lifecycle.session, 'Ignore reentrant disposal prompt')
       lifecycle.session.append('request/header', {
@@ -319,7 +320,9 @@ describe('SessionTitleService configuration and refresh boundaries', () => {
 
     const disposal = fiber.dispose()
     let disposed = false
-    void disposal.then(() => { disposed = true })
+    void disposal.then(() => {
+      disposed = true
+    })
     await settle()
     expect(requests[0]?.signal.aborted).toBe(true)
     expect(disposed).toBe(false)
@@ -363,30 +366,39 @@ describe('SessionTitleService Provider validation and stale scheduling', () => {
   it('rejects malformed provider registrations before publishing them', async () => {
     const ctx = await setup()
     const generate = async (): Promise<SessionTitleProviderResult> => ({
-      title: 'title', messageSeqs: [SessionSeq(0)],
+      title: 'title',
+      messageSeqs: [SessionSeq(0)],
     })
     expect(() => ctx.sessionTitle.register(null as never)).toThrow(/must be an object/)
     expect(() => ctx.sessionTitle.register('provider' as never)).toThrow(/must be an object/)
-    expect(() => ctx.sessionTitle.register({
-      id: 1,
-      automatic: 'first-prompt',
-      generate,
-    } as unknown as SessionTitleProvider)).toThrow(/id must be a non-empty string/)
-    expect(() => ctx.sessionTitle.register({
-      id: SessionTitleProviderId(''),
-      automatic: 'first-prompt',
-      generate,
-    })).toThrow(/id must be a non-empty string/)
-    expect(() => ctx.sessionTitle.register({
-      id: SessionTitleProviderId('bad-mode'),
-      automatic: 'sometimes' as never,
-      generate,
-    })).toThrow(/automatic mode is invalid/)
-    expect(() => ctx.sessionTitle.register({
-      id: SessionTitleProviderId('missing-generate'),
-      automatic: 'first-prompt',
-      generate: undefined,
-    } as unknown as SessionTitleProvider)).toThrow(/requires generate/)
+    expect(() =>
+      ctx.sessionTitle.register({
+        id: 1,
+        automatic: 'first-prompt',
+        generate,
+      } as unknown as SessionTitleProvider),
+    ).toThrow(/id must be a non-empty string/)
+    expect(() =>
+      ctx.sessionTitle.register({
+        id: SessionTitleProviderId(''),
+        automatic: 'first-prompt',
+        generate,
+      }),
+    ).toThrow(/id must be a non-empty string/)
+    expect(() =>
+      ctx.sessionTitle.register({
+        id: SessionTitleProviderId('bad-mode'),
+        automatic: 'sometimes' as never,
+        generate,
+      }),
+    ).toThrow(/automatic mode is invalid/)
+    expect(() =>
+      ctx.sessionTitle.register({
+        id: SessionTitleProviderId('missing-generate'),
+        automatic: 'first-prompt',
+        generate: undefined,
+      } as unknown as SessionTitleProvider),
+    ).toThrow(/requires generate/)
   })
 
   it('drops automatic work when its provider is disposed before the queued start', async () => {

@@ -9,7 +9,7 @@
  * set to. Both are the browser's job; the specs assert the body's arithmetic
  * over them.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
@@ -42,8 +42,12 @@ beforeAll(() => {
   })
   Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
     configurable: true,
-    get(this: HTMLElement & { __scrollTop?: number }) { return this.__scrollTop ?? 0 },
-    set(this: HTMLElement & { __scrollTop?: number }, value: number) { this.__scrollTop = value },
+    get(this: HTMLElement & { __scrollTop?: number }) {
+      return this.__scrollTop ?? 0
+    },
+    set(this: HTMLElement & { __scrollTop?: number }, value: number) {
+      this.__scrollTop = value
+    },
   })
 })
 
@@ -67,28 +71,37 @@ class PendingIntersectionObserver {
     PendingIntersectionObserver.instances.push(this)
   }
 
-  observe(element: Element): void { this.observed.add(element) }
-  unobserve(element: Element): void { this.observed.delete(element) }
+  observe(element: Element): void {
+    this.observed.add(element)
+  }
+  unobserve(element: Element): void {
+    this.observed.delete(element)
+  }
   disconnect(): void {}
-  takeRecords(): IntersectionObserverEntry[] { return [] }
+  takeRecords(): IntersectionObserverEntry[] {
+    return []
+  }
 
   intersect(element: Element): void {
-    this.callback(
-      [{ target: element, isIntersecting: true } as IntersectionObserverEntry],
-      this as unknown as IntersectionObserver,
-    )
+    this.callback([{ target: element, isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver)
   }
 }
 
 function codeProps(h: ReturnType<typeof harness>, navigation: { params?: unknown; revision: number }): TextPreviewProps {
   const props = h.props(navigation)
   const definition: DocumentPreviewDefinition = {
-    id: 'code', extensions: ['md'], title: () => 'Code', loading: 'text-pages', wrap: true,
+    id: 'code',
+    extensions: ['md'],
+    title: () => 'Code',
+    loading: 'text-pages',
+    wrap: true,
   }
   return {
     ...props,
     useDocumentPreviews: selector => selector([definition]),
-    renderSlot: documentSlots((_key, owner) => <CodeBody {...props} {...owner as unknown as OwnerOf<'sidebar.right.tab.document'>} t={key => key} />),
+    renderSlot: documentSlots((_key, owner) => (
+      <CodeBody {...props} {...(owner as unknown as OwnerOf<'sidebar.right.tab.document'>)} t={key => key} />
+    )),
   }
 }
 
@@ -119,10 +132,12 @@ function click(container: HTMLElement, selector: string): void {
 describe('TextPreview — pages', () => {
   it.each([ABSOLUTE_PATH, 'C:\\work\\project\\notes.md', '\\\\host\\share\\notes.md'])(
     'shows the Host path %s in the header and tooltip even when text cannot be read',
-    async (absolutePath) => {
+    async absolutePath => {
       const h = harness({ 1: failure('workspace-file/not-text', { path: PATH }) })
       h.useResource.mockReturnValue({
-        status: 'live', value: { absolutePath, version: 'v1', bytes: 100 }, failure: undefined,
+        status: 'live',
+        value: { absolutePath, version: 'v1', bytes: 100 },
+        failure: undefined,
       })
       const view = render(<TextPreview {...h.props()} />)
       await settle()
@@ -197,7 +212,10 @@ describe('TextPreview — pages', () => {
     click(view.container, '[data-textpreview-more]')
     expect(view.getByRole('status').getAttribute('aria-label')).toBe('loading')
     expect(lines(view.container)).toEqual(['held\n'])
-    await act(async () => { next.resolve(page(2, ['tail'], true)); await next.promise })
+    await act(async () => {
+      next.resolve(page(2, ['tail'], true))
+      await next.promise
+    })
     expect(view.queryByRole('status')).toBeNull()
     expect(lines(view.container)).toEqual(['held\n', 'tail\n'])
   })
@@ -240,7 +258,9 @@ describe('TextPreview — pages', () => {
     const h = harness({ 1: failure('workspace-file/not-found', { path: PATH }) })
     const view = render(<TextPreview {...h.props()} />)
     await settle()
-    expect(view.container.querySelector('[data-textpreview-failed]')?.getAttribute('data-textpreview-failed')).toBe('workspace-file/not-found')
+    expect(view.container.querySelector('[data-textpreview-failed]')?.getAttribute('data-textpreview-failed')).toBe(
+      'workspace-file/not-found',
+    )
     expect(view.container.querySelector('[data-textpreview-retry]')).toBeNull()
     expect(view.container.querySelector('[data-slot="sidebar.right.tab.document.unpreviewable"]')).toBeNull()
   })
@@ -276,7 +296,7 @@ describe('TextPreview — pages', () => {
     expect(view.container.querySelector('[data-textpreview-failed]')).toBeNull()
   })
 
-  it('announces a change while automatic refresh is paused and reloads on request, keeping the reader\'s place', async () => {
+  it("announces a change while automatic refresh is paused and reloads on request, keeping the reader's place", async () => {
     const h = harness({ 1: page(1, ['a', 'b'], true) })
     const view = render(<TextPreview {...h.props()} />)
     await settle()
@@ -296,7 +316,7 @@ describe('TextPreview — pages', () => {
   })
 })
 
-describe('TextPreview — the file\'s metadata', () => {
+describe("TextPreview — the file's metadata", () => {
   it('refreshes by default with the toggle hidden and catches up when automatic refresh resumes', async () => {
     const h = harness({ 1: page(1, ['old'], true) })
     const view = render(<TextPreview {...h.props()} />)
@@ -354,7 +374,10 @@ describe('TextPreview — the file\'s metadata', () => {
     click(view.container, '[data-textpreview-tool="auto-refresh"]')
     h.setVersion('v2')
     view.rerender(<TextPreview {...h.props()} />)
-    await act(async () => { pending.resolve(page(1, ['read v1'], true)); await pending.promise })
+    await act(async () => {
+      pending.resolve(page(1, ['read v1'], true))
+      await pending.promise
+    })
     expect(h.read).toHaveBeenCalledTimes(1)
     expect(h.instance.getSnapshot().byTab[TAB_ID]).toMatchObject({ version: 'v1', observedVersion: 'v1' })
     expect(view.container.querySelector('[data-textpreview-changed]')).not.toBeNull()
@@ -422,8 +445,9 @@ describe('TextPreview — the file\'s metadata', () => {
     // With nothing read the body's failure is the whole story: a metadata bar
     // above it would repeat the same line.
     expect(view.container.querySelector('[data-textpreview-meta-failed]')).toBeNull()
-    expect(view.container.querySelector('[data-textpreview-failed]')?.getAttribute('data-textpreview-failed'))
-      .toBe('workspace-file/outside-workspace')
+    expect(view.container.querySelector('[data-textpreview-failed]')?.getAttribute('data-textpreview-failed')).toBe(
+      'workspace-file/outside-workspace',
+    )
     h.script(1, page(1, ['a'], true))
     click(view.container, '[data-textpreview-retry]')
     await settle()
@@ -499,8 +523,12 @@ describe('TextPreview — navigation and view', () => {
     await settle()
     expect(body(view.container).scrollTop).toBe(0)
     expect(h.instance.getSnapshot().byTab[TAB_ID]?.revision).toBeUndefined()
-    act(() => { h.instance.actions.selected(TAB_ID, rendererId) })
-    await waitFor(() => { expect(h.instance.getSnapshot().byTab[TAB_ID]?.revision).toBe(1) })
+    act(() => {
+      h.instance.actions.selected(TAB_ID, rendererId)
+    })
+    await waitFor(() => {
+      expect(h.instance.getSnapshot().byTab[TAB_ID]?.revision).toBe(1)
+    })
     expect(scrollport(view.container).scrollTop).toBe(expectedScrollTop)
   })
 
@@ -522,8 +550,12 @@ describe('TextPreview — navigation and view', () => {
     expect(h.instance.getSnapshot().byTab[TAB_ID]?.scrollTop).toBe(300)
 
     const block = view.container.querySelector('[data-code-preview] .md-code-block')!
-    act(() => { PendingIntersectionObserver.instances[0]!.intersect(block) })
-    await waitFor(() => { expect(view.container.querySelector('[data-code-preview] pre.shiki')).not.toBeNull() })
+    act(() => {
+      PendingIntersectionObserver.instances[0]!.intersect(block)
+    })
+    await waitFor(() => {
+      expect(view.container.querySelector('[data-code-preview] pre.shiki')).not.toBeNull()
+    })
     expect(scrollport(view.container)).toBe(codeScrollport)
     view.rerender(<TextPreview {...codeProps(h, { params: { line: 3 }, revision: 2 })} />)
     expect(codeScrollport.scrollTop).toBe(2 * LINE_HEIGHT)
@@ -585,7 +617,9 @@ describe('TextPreview — navigation and view', () => {
     const view = render(<TextPreview {...h.props()} />)
     await settle()
     expect(body(view.container).hasAttribute('data-textpreview-wrap')).toBe(true)
-    act(() => { h.instance.actions.toggledWrap(TAB_ID) })
+    act(() => {
+      h.instance.actions.toggledWrap(TAB_ID)
+    })
     expect(body(view.container).hasAttribute('data-textpreview-wrap')).toBe(false)
   })
 })
@@ -593,11 +627,30 @@ describe('TextPreview — navigation and view', () => {
 describe('TextPreview — header controls', () => {
   it('displays the document refresh binding supplied by its tab owner', async () => {
     const h = harness({ 0: page(0, ['hello'], true) })
-    const props = h.props(), info = props.useTabInfo()
-    const view = render(<TextPreview {...props} useTabInfo={() => ({ ...info, tab: { ...info.tab,
-      refreshShortcut: { id: 'page.refresh' as never, label: 'Refresh', aliases: [], binding: null,
-        keys: ['Ctrl', 'R'], aria: 'Control+R', modified: true, conflicts: [], issue: null },
-    } })} />)
+    const props = h.props(),
+      info = props.useTabInfo()
+    const view = render(
+      <TextPreview
+        {...props}
+        useTabInfo={() => ({
+          ...info,
+          tab: {
+            ...info.tab,
+            refreshShortcut: {
+              id: 'page.refresh' as never,
+              label: 'Refresh',
+              aliases: [],
+              binding: null,
+              keys: ['Ctrl', 'R'],
+              aria: 'Control+R',
+              modified: true,
+              conflicts: [],
+              issue: null,
+            },
+          },
+        })}
+      />,
+    )
     await settle()
     expect(view.container.querySelector('[data-textpreview-tool="reload"]')?.getAttribute('aria-keyshortcuts')).toBe('Control+R')
   })

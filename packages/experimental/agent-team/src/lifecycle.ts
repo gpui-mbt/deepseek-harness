@@ -54,7 +54,14 @@ export class TeamRuntimeLifecycle {
    */
   track<T>(operation: Promise<T>): Promise<T> {
     this.operations.add(operation)
-    void operation.then(() => { this.operations.delete(operation) }, () => { this.operations.delete(operation) })
+    void operation.then(
+      () => {
+        this.operations.delete(operation)
+      },
+      () => {
+        this.operations.delete(operation)
+      },
+    )
     return operation
   }
 
@@ -92,10 +99,7 @@ export class TeamRuntimeLifecycle {
     let timer!: ReturnType<typeof setTimeout>
     const timeout = new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => {
-        reject(new TeamError(
-          `Agent Teams runtime disposal exceeded ${this.disposalTimeoutMs}ms`,
-          'TEAM_DISPOSAL_TIMEOUT',
-        ))
+        reject(new TeamError(`Agent Teams runtime disposal exceeded ${this.disposalTimeoutMs}ms`, 'TEAM_DISPOSAL_TIMEOUT'))
       }, this.disposalTimeoutMs)
     })
     try {

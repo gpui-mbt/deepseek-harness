@@ -21,10 +21,8 @@ import {
 const installAnchor = fileURLToPath(new URL('../../../../../apps/cli/package.json', import.meta.url))
 
 function insertedPluginNames(entries: readonly EntryOptions[]): string[] {
-  return entries.flatMap((entry) => {
-    const children = entry.group && Array.isArray(entry.config)
-      ? insertedPluginNames(entry.config as EntryOptions[])
-      : []
+  return entries.flatMap(entry => {
+    const children = entry.group && Array.isArray(entry.config) ? insertedPluginNames(entry.config as EntryOptions[]) : []
     return [entry.name, ...children]
   })
 }
@@ -85,31 +83,26 @@ export async function bootProductionProfile(options: ProductionProfileOptions): 
   const overlays = options.overlayPaths.map(path => loadOverlayPatches(options.binName, path))
   // Overlay-only packages need profile module visibility in plain-Node mode,
   // but these synthetic layers do not contribute Cordis patches.
-  const moduleLayers = options.overlayPaths.flatMap((path, index) => (
-    overlayModuleLayers(path, overlays[index] ?? [])
-  ))
+  const moduleLayers = options.overlayPaths.flatMap((path, index) => overlayModuleLayers(path, overlays[index] ?? []))
   const resolution = await createRuntimeResolution({
     installAnchor,
     profile: { ...profile, layers: [...profile.layers, ...moduleLayers] },
   })
-  return boot(
-    options.binName,
-    rootConfig,
-    [
-      ...profile.layers.flatMap(layer => layer.patches),
-      ...overlays.flat(),
-    ],
-    async (ctx) => {
-      // The launcher's own profile facts, so profile-backed services activate as in production.
-      const profileContext: ProfileContext = {
-        name: options.profile, dir: profile.dir, patchPath: profile.patchPath, installAnchor,
-        cwd: process.cwd(), home: process.env['DSH_HOME'] ?? join(homedir(), '.dsh'),
-        startedBundles: profile.layers.map(layer => layer.packageName),
-        overlays: overlays.flat(), telemetryDisabledEnv: process.env['DSH_TELEMETRY_DISABLED'],
-      }
-      ctx.provide('profileContext', profileContext)
-      await ctx.plugin(PluginPackages, { resolution })
-      await options.prepare?.(ctx)
-    },
-  )
+  return boot(options.binName, rootConfig, [...profile.layers.flatMap(layer => layer.patches), ...overlays.flat()], async ctx => {
+    // The launcher's own profile facts, so profile-backed services activate as in production.
+    const profileContext: ProfileContext = {
+      name: options.profile,
+      dir: profile.dir,
+      patchPath: profile.patchPath,
+      installAnchor,
+      cwd: process.cwd(),
+      home: process.env['DSH_HOME'] ?? join(homedir(), '.dsh'),
+      startedBundles: profile.layers.map(layer => layer.packageName),
+      overlays: overlays.flat(),
+      telemetryDisabledEnv: process.env['DSH_TELEMETRY_DISABLED'],
+    }
+    ctx.provide('profileContext', profileContext)
+    await ctx.plugin(PluginPackages, { resolution })
+    await options.prepare?.(ctx)
+  })
 }

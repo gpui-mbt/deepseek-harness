@@ -7,7 +7,12 @@
  * @param secrets Credential values removed from errors.
  * @returns Action result; logging failures also reject the phase.
  */
-export function packagingStep<T>(directory: string | undefined, stage: string, action: () => Promise<T>, secrets?: readonly string[]): Promise<T>
+export function packagingStep<T>(
+  directory: string | undefined,
+  stage: string,
+  action: () => Promise<T>,
+  secrets?: readonly string[],
+): Promise<T>
 
 /**
  * Format nested errors with credential values removed for journal and terminal output.

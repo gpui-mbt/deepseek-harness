@@ -40,15 +40,20 @@ interface Entry<T> {
 /** Stop a caller's wait while retaining handlers on the resource owner's work. */
 function awaitOperation<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const aborted = (): void => { reject(signal.reason instanceof Error ? signal.reason : new Error('browser operation canceled', { cause: signal.reason })) }
+    const aborted = (): void => {
+      reject(signal.reason instanceof Error ? signal.reason : new Error('browser operation canceled', { cause: signal.reason }))
+    }
     signal.addEventListener('abort', aborted, { once: true })
-    void operation.then((value) => {
-      signal.removeEventListener('abort', aborted)
-      resolve(value)
-    }, (error: unknown) => {
-      signal.removeEventListener('abort', aborted)
-      reject(error instanceof Error ? error : new Error(String(error), { cause: error }))
-    })
+    void operation.then(
+      value => {
+        signal.removeEventListener('abort', aborted)
+        resolve(value)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', aborted)
+        reject(error instanceof Error ? error : new Error(String(error), { cause: error }))
+      },
+    )
   })
 }
 
@@ -67,7 +72,10 @@ export class SessionResources<T> {
    * @param ctx - provider context with the live Agent registry.
    * @param options - provider-owned acquisition and attachment policy.
    */
-  constructor(private readonly ctx: Context, private readonly options: SessionResourceOptions<T>) {}
+  constructor(
+    private readonly ctx: Context,
+    private readonly options: SessionResourceOptions<T>,
+  ) {}
 
   /**
    * Check admission without reserving or acquiring a browser.
@@ -75,9 +83,12 @@ export class SessionResources<T> {
    * @returns whether this owner can use or acquire the configured browser.
    */
   available(agent: Agent): boolean {
-    return this.disposing === undefined && !this.disposedOwners.has(agent)
-      && this.ctx.get('agents')?.get(agent.id) === agent
-      && (this.entries.has(agent) || !this.options.exclusive || this.entries.size === 0)
+    return (
+      this.disposing === undefined &&
+      !this.disposedOwners.has(agent) &&
+      this.ctx.get('agents')?.get(agent.id) === agent &&
+      (this.entries.has(agent) || !this.options.exclusive || this.entries.size === 0)
+    )
   }
 
   /**
@@ -118,16 +129,23 @@ export class SessionResources<T> {
       })
     }
     signal.addEventListener('abort', releaseDisposed, { once: true })
-    const task = entry.tail.then(async () => {
-      combined.throwIfAborted()
-      const resource = await awaitOperation(entry.ready, combined)
-      combined.throwIfAborted()
-      const result = await operation(resource.value, combined)
-      combined.throwIfAborted()
-      return result
-    }).finally(() => { signal.removeEventListener('abort', releaseDisposed) })
+    const task = entry.tail
+      .then(async () => {
+        combined.throwIfAborted()
+        const resource = await awaitOperation(entry.ready, combined)
+        combined.throwIfAborted()
+        const result = await operation(resource.value, combined)
+        combined.throwIfAborted()
+        return result
+      })
+      .finally(() => {
+        signal.removeEventListener('abort', releaseDisposed)
+      })
     // The queue tracks settlement independently of a caller observing its error.
-    entry.tail = task.then(() => {}, () => {})
+    entry.tail = task.then(
+      () => {},
+      () => {},
+    )
     return task
   }
 
@@ -137,12 +155,12 @@ export class SessionResources<T> {
    * @returns the shared quiescent disposal promise.
    */
   dispose(): Promise<void> {
-    return this.disposing ??= Promise.resolve().then(async () => {
+    return (this.disposing ??= Promise.resolve().then(async () => {
       const settled = await Promise.allSettled([...this.entries].map(([agent, entry]) => this.closeEntry(agent, entry)))
-      const errors = settled.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : [])
+      const errors = settled.flatMap(result => (result.status === 'rejected' ? [result.reason as unknown] : []))
       if (errors.length > 0) throw new AggregateError(errors, `${this.options.label}: browser cleanup failed`)
       await Promise.all([...this.ownerCleanups.values()].map(close => close()))
-    })
+    }))
   }
 
   private entry(agent: Agent): Entry<T> {
@@ -155,25 +173,30 @@ export class SessionResources<T> {
       throw new Error(`${this.options.label}: attached browser is already reserved by another Session`)
     }
     if (!this.ownerCleanups.has(agent)) {
-      const cleanup = agent.ctx.effect(() => async () => {
-        this.disposedOwners.add(agent)
-        const owned = this.entries.get(agent)
-        if (owned !== undefined) await this.closeEntry(agent, owned)
-        this.ownerCleanups.delete(agent)
-      }, `${this.options.label}.session`)
+      const cleanup = agent.ctx.effect(
+        () => async () => {
+          this.disposedOwners.add(agent)
+          const owned = this.entries.get(agent)
+          if (owned !== undefined) await this.closeEntry(agent, owned)
+          this.ownerCleanups.delete(agent)
+        },
+        `${this.options.label}.session`,
+      )
       this.ownerCleanups.set(agent, cleanup)
     }
     const controller = new AbortController()
     const entry: Entry<T> = {
       controller,
-      ready: Promise.resolve().then(() => {
-        controller.signal.throwIfAborted()
-        return this.options.open(agent, controller.signal)
-      }).catch((error: unknown) => {
-        // open() owns rollback; a failed acquisition has no remaining resource.
-        this.entries.delete(agent)
-        throw error
-      }),
+      ready: Promise.resolve()
+        .then(() => {
+          controller.signal.throwIfAborted()
+          return this.options.open(agent, controller.signal)
+        })
+        .catch((error: unknown) => {
+          // open() owns rollback; a failed acquisition has no remaining resource.
+          this.entries.delete(agent)
+          throw error
+        }),
       tail: Promise.resolve(),
     }
     // Acquisition can outlive every canceled caller; later consumers still receive its failure.
@@ -183,7 +206,7 @@ export class SessionResources<T> {
   }
 
   private closeEntry(agent: Agent, entry: Entry<T>): Promise<void> {
-    return entry.closing ??= Promise.resolve().then(async () => {
+    return (entry.closing ??= Promise.resolve().then(async () => {
       entry.controller.abort(new Error(`${this.options.label}: Session browser is closing`))
       const resource = await entry.ready.catch(() => undefined)
       try {
@@ -192,6 +215,6 @@ export class SessionResources<T> {
         await entry.tail
       }
       this.entries.delete(agent)
-    })
+    }))
   }
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -6,9 +6,7 @@ import { ConfigFormController } from '@deepseek-ai/dsh-client-ui-settings/src/cl
 import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applySettings, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { decodeWelcomeSection, WelcomeNoticeStore, type WelcomeSection } from '../src/client/welcome-store.ts'
-import {
-  WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE, WELCOME_NOTICE_VERSION,
-} from '../src/onboarding-copy.ts'
+import { WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE, WELCOME_NOTICE_VERSION } from '../src/onboarding-copy.ts'
 
 const schemaService = new SettingsSchemaService(new Context())
 
@@ -29,7 +27,8 @@ function namespace(value: unknown = {}, revision = 0) {
     ns: WELCOME_NOTICE_SETTINGS_NAMESPACE,
     schema: { type: 'object', dict: { [WELCOME_NOTICE_ACK_FIELD]: { type: 'string', meta: {} } } },
     value,
-    autoGenerate: true, applies: 'live' as const,
+    autoGenerate: true,
+    applies: 'live' as const,
     secrets: [],
     revision,
   }
@@ -40,9 +39,7 @@ function acknowledgedNamespace(version: string, revision = 1) {
 }
 
 /** The welcome store over a real mirror-derived scope and a fake wire. */
-function buildWelcome(
-  api: { describe?: ReturnType<typeof vi.fn>; mutate?: ReturnType<typeof vi.fn> },
-) {
+function buildWelcome(api: { describe?: ReturnType<typeof vi.fn>; mutate?: ReturnType<typeof vi.fn> }) {
   const ctx = { remote: { settings: api } } as never
   const mirror = new SettingsDescribeMirror(ctx)
   const scope = new ConfigFormController(
@@ -61,11 +58,15 @@ describe('WelcomeNoticeStore', () => {
       ['older-copy', false],
       [WELCOME_NOTICE_VERSION, true],
     ] as const) {
-      const describeCall = vi.fn(() => Promise.resolve(ok({
-        writable: true,
-        hasDocument: false,
-        namespaces: [version === undefined ? namespace() : acknowledgedNamespace(version)],
-      })))
+      const describeCall = vi.fn(() =>
+        Promise.resolve(
+          ok({
+            writable: true,
+            hasDocument: false,
+            namespaces: [version === undefined ? namespace() : acknowledgedNamespace(version)],
+          }),
+        ),
+      )
       const { mirror, controller } = buildWelcome({ describe: describeCall })
       await mirror.load()
       await controller.load()
@@ -74,9 +75,15 @@ describe('WelcomeNoticeStore', () => {
   })
 
   it('persists the owner version through one revision-fenced mutation', async () => {
-    const describeCall = vi.fn(() => Promise.resolve(ok({
-      writable: true, hasDocument: false, namespaces: [namespace({}, 3)],
-    })))
+    const describeCall = vi.fn(() =>
+      Promise.resolve(
+        ok({
+          writable: true,
+          hasDocument: false,
+          namespaces: [namespace({}, 3)],
+        }),
+      ),
+    )
     const mutate = vi.fn(() => Promise.resolve(ok(acknowledgedNamespace(WELCOME_NOTICE_VERSION, 4))))
     const { mirror, controller } = buildWelcome({ describe: describeCall, mutate })
     await mirror.load()
@@ -110,16 +117,14 @@ describe('WelcomeNoticeStore', () => {
       const first = ctx.plugin(plugin)
       await first.await()
       await ctx.configForms.describe().ensure()
-      controller = new WelcomeNoticeStore(
-        ctx.configForms.get<WelcomeSection>(WELCOME_NOTICE_SETTINGS_NAMESPACE))
+      controller = new WelcomeNoticeStore(ctx.configForms.get<WelcomeSection>(WELCOME_NOTICE_SETTINGS_NAMESPACE))
       await controller.load()
       await expect(controller.acknowledge()).resolves.toBe(true)
       controller.dispose()
       await first.dispose()
       await ctx.plugin(plugin).await()
       await ctx.configForms.describe().ensure()
-      controller = new WelcomeNoticeStore(
-        ctx.configForms.get<WelcomeSection>(WELCOME_NOTICE_SETTINGS_NAMESPACE))
+      controller = new WelcomeNoticeStore(ctx.configForms.get<WelcomeSection>(WELCOME_NOTICE_SETTINGS_NAMESPACE))
       await controller.load()
       expect(controller.store.getSnapshot()).toMatchObject({ status: 'ready', acknowledged: true })
     } finally {
@@ -138,9 +143,15 @@ describe('WelcomeNoticeStore', () => {
   })
 
   it('reports a refused persistence attempt after its recovery read', async () => {
-    const describeCall = vi.fn(() => Promise.resolve(ok({
-      writable: true, hasDocument: false, namespaces: [namespace()],
-    })))
+    const describeCall = vi.fn(() =>
+      Promise.resolve(
+        ok({
+          writable: true,
+          hasDocument: false,
+          namespaces: [namespace()],
+        }),
+      ),
+    )
     const mutate = vi.fn(() => Promise.resolve(rejected('the settings document is read-only')))
     const { mirror, controller } = buildWelcome({ describe: describeCall, mutate })
     await mirror.load()
@@ -156,9 +167,15 @@ describe('WelcomeNoticeStore', () => {
   })
 
   it('reports a missing namespace as an error instead of a silent skip', async () => {
-    const describeCall = vi.fn(() => Promise.resolve(ok({
-      writable: true, hasDocument: false, namespaces: [],
-    })))
+    const describeCall = vi.fn(() =>
+      Promise.resolve(
+        ok({
+          writable: true,
+          hasDocument: false,
+          namespaces: [],
+        }),
+      ),
+    )
     const { mirror, controller } = buildWelcome({ describe: describeCall })
     await mirror.load()
     await controller.load()
@@ -170,9 +187,15 @@ describe('WelcomeNoticeStore', () => {
 
   it('reads malformed durable values as unacknowledged', async () => {
     for (const value of [null, 42, { [WELCOME_NOTICE_ACK_FIELD]: 42 }]) {
-      const describeCall = vi.fn(() => Promise.resolve(ok({
-        writable: true, hasDocument: false, namespaces: [namespace(value)],
-      })))
+      const describeCall = vi.fn(() =>
+        Promise.resolve(
+          ok({
+            writable: true,
+            hasDocument: false,
+            namespaces: [namespace(value)],
+          }),
+        ),
+      )
       const { mirror, controller } = buildWelcome({ describe: describeCall })
       await mirror.load()
       await controller.load()
@@ -181,12 +204,16 @@ describe('WelcomeNoticeStore', () => {
   })
 
   it('follows a later document change without an own read', async () => {
-    const describeCall = vi.fn()
+    const describeCall = vi
+      .fn()
       .mockResolvedValueOnce(ok({ writable: true, hasDocument: false, namespaces: [namespace()] }))
-      .mockResolvedValueOnce(ok({
-        writable: true, hasDocument: false,
-        namespaces: [acknowledgedNamespace(WELCOME_NOTICE_VERSION)],
-      }))
+      .mockResolvedValueOnce(
+        ok({
+          writable: true,
+          hasDocument: false,
+          namespaces: [acknowledgedNamespace(WELCOME_NOTICE_VERSION)],
+        }),
+      )
     const { mirror, controller } = buildWelcome({ describe: describeCall })
     await mirror.load()
     await controller.load()

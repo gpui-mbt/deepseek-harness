@@ -15,10 +15,7 @@ import type {
   SessionFormatMigrationStageInput,
 } from '@deepseek-ai/dsh-session-format'
 import { isReleasedAssistantChunkRun } from './codec.ts'
-import {
-  assertReleasedEventPayload,
-  assertReleasedV1Header,
-} from './validation.ts'
+import { assertReleasedEventPayload, assertReleasedV1Header } from './validation.ts'
 import { assertReleasedV0Keys, releasedV0Record } from './validation-helpers.ts'
 
 const LEGACY_ASSISTANT_SOURCE_KEY = ['pro', 'venance'].join('')
@@ -47,19 +44,13 @@ class ReleasedV0ToV1Stage implements SessionFormatMigrationStage {
     this.headerInheritedEventCount = sessionFormatCount(input.sourceInheritedEventCount, 'format v0 inherited event count')
   }
 
-  transformEvent(
-    event: SessionFormatEvent,
-    context: SessionFormatMigrationContext,
-  ): void {
+  transformEvent(event: SessionFormatEvent, context: SessionFormatMigrationContext): void {
     const normalized = normalizeReleasedV0Event(event, this.input.sourceHeader.id, this.state)
     assertSourceDeliveryMarker(normalized, this.input)
     context.emitEvent(normalized)
   }
 
-  transformRun(
-    run: SessionFormatEventRun,
-    context: SessionFormatMigrationContext,
-  ): void {
+  transformRun(run: SessionFormatEventRun, context: SessionFormatMigrationContext): void {
     if (isReleasedAssistantChunkRun(run)) {
       context.emitRun(run)
       return
@@ -82,11 +73,7 @@ interface LegacyNormalizationState {
   compactionId?: string
 }
 
-function normalizeReleasedV0Event(
-  event: SessionFormatEvent,
-  sessionId: string,
-  state: LegacyNormalizationState,
-): SessionFormatEvent {
+function normalizeReleasedV0Event(event: SessionFormatEvent, sessionId: string, state: LegacyNormalizationState): SessionFormatEvent {
   const named = normalizeLegacyCompactionType(event)
   assertSupportedLegacyType(named, sessionId)
   const start = normalizeLegacyTurnStart(named, sessionId)
@@ -118,30 +105,22 @@ function normalizeLegacyCompactionType(event: SessionFormatEvent): SessionFormat
   }
 }
 
-function assertSourceDeliveryMarker(
-  event: SessionFormatEvent,
-  input: SessionFormatMigrationStageInput,
-): void {
+function assertSourceDeliveryMarker(event: SessionFormatEvent, input: SessionFormatMigrationStageInput): void {
   if (event.type !== 'session-log-deepseek/delivery-accepted') return
   const data = releasedV0Record(event.data, `${event.type} ${event.seq} data`)
   const acceptedVersion = data['sessionFormatVersion'] ?? 0
-  const inherited = input.sourceHeader.parentSession !== undefined
-    && event.seq < sessionFormatCount(input.sourceInheritedEventCount, 'format v0 inherited event count')
+  const inherited =
+    input.sourceHeader.parentSession !== undefined &&
+    event.seq < sessionFormatCount(input.sourceInheritedEventCount, 'format v0 inherited event count')
   if (acceptedVersion === 0 && !inherited && data['sessionId'] !== input.sourceHeader.id) {
     throw new SessionFormatError('current-generation delivery marker names the wrong Session')
   }
 }
 
-function normalizeLegacyRetry(
-  event: SessionFormatEvent,
-  sessionId: string,
-  retryIds: Map<string, string>,
-): SessionFormatEvent {
+function normalizeLegacyRetry(event: SessionFormatEvent, sessionId: string, retryIds: Map<string, string>): SessionFormatEvent {
   if (event.type !== 'llm/retry') return event
   const data = releasedV0Record(event.data, `llm/retry ${event.seq} data`)
-  const chain = [data['turn'], data['step'], data['provider'], data['policyKey']]
-    .map(value => JSON.stringify(value))
-    .join('\0')
+  const chain = [data['turn'], data['step'], data['provider'], data['policyKey']].map(value => JSON.stringify(value)).join('\0')
   const retryId = data['retryId']
   if (typeof retryId === 'string' && retryId.length > 0) {
     retryIds.set(chain, retryId)
@@ -153,11 +132,7 @@ function normalizeLegacyRetry(
   return { ...event, data: { ...data, retryId: migratedRetryId } }
 }
 
-function normalizeLegacyCompaction(
-  event: SessionFormatEvent,
-  sessionId: string,
-  state: LegacyNormalizationState,
-): SessionFormatEvent {
+function normalizeLegacyCompaction(event: SessionFormatEvent, sessionId: string, state: LegacyNormalizationState): SessionFormatEvent {
   if (event.type === 'session/end-seed') {
     delete state.compactionId
     return event
@@ -184,8 +159,8 @@ function normalizeLegacyCompaction(
   if (event.type !== 'user/message') return event
   const data = releasedV0Record(event.data, `user/message ${event.seq} data`)
   const source = data['source']
-  if (!releasedIsRecord(source) || source['kind'] !== 'plugin' || source['plugin'] !== 'compact'
-    || Object.hasOwn(source, 'compactionId')) return event
+  if (!releasedIsRecord(source) || source['kind'] !== 'plugin' || source['plugin'] !== 'compact' || Object.hasOwn(source, 'compactionId'))
+    return event
   return {
     ...event,
     data: {
@@ -198,10 +173,7 @@ function normalizeLegacyCompaction(
   }
 }
 
-function addLegacyCompactionId(
-  event: SessionFormatEvent,
-  compactionId: string,
-): SessionFormatEvent {
+function addLegacyCompactionId(event: SessionFormatEvent, compactionId: string): SessionFormatEvent {
   const data = releasedV0Record(event.data, `${event.type} ${event.seq} data`)
   if (Object.hasOwn(data, 'compactionId')) return event
   return { ...event, data: { ...data, compactionId } }
@@ -213,9 +185,7 @@ function normalizeLegacyRequestHeader(event: SessionFormatEvent, sessionId: stri
   const header = releasedV0Record(data['header'], `request/header ${event.seq} header`)
   if (!Object.hasOwn(header, 'messagePrefix')) return event
   if (!Array.isArray(header['messagePrefix'])) {
-    throw new SessionFormatError(
-      `session ${JSON.stringify(sessionId)} contains malformed request/header messagePrefix at seq ${event.seq}`,
-    )
+    throw new SessionFormatError(`session ${JSON.stringify(sessionId)} contains malformed request/header messagePrefix at seq ${event.seq}`)
   }
   const { messagePrefix: _messagePrefix, ...currentHeader } = header
   return { ...event, data: { ...data, header: currentHeader } }
@@ -319,20 +289,14 @@ function normalizeLegacyErrorReason(
   if (failure !== undefined) {
     assertReleasedV0Keys(reason, ['kind', 'step', 'failure'], [], `turn/end ${seq} reason`)
     const record = releasedV0Record(failure, `turn/end ${seq} failure`)
-    assertReleasedV0Keys(
-      record,
-      ['message', 'code'],
-      ['status', 'providerRetryAfterMs', 'requestId'],
-      `turn/end ${seq} failure`,
-    )
+    assertReleasedV0Keys(record, ['message', 'code'], ['status', 'providerRetryAfterMs', 'requestId'], `turn/end ${seq} failure`)
     if (typeof record['message'] !== 'string' || typeof record['code'] !== 'string') {
       throw malformedLegacy(sessionId, 'turn/end', seq)
     }
     return { kind: 'error', error: record }
   }
   assertReleasedV0Keys(reason, ['kind', 'step', 'message'], ['code'], `turn/end ${seq} reason`)
-  if (typeof reason['message'] !== 'string'
-    || (reason['code'] !== undefined && typeof reason['code'] !== 'string')) {
+  if (typeof reason['message'] !== 'string' || (reason['code'] !== undefined && typeof reason['code'] !== 'string')) {
     throw malformedLegacy(sessionId, 'turn/end', seq)
   }
   return {
@@ -344,17 +308,18 @@ function normalizeLegacyErrorReason(
   }
 }
 
-function normalizeLegacyMessage(
-  event: SessionFormatEvent,
-  sessionId: string,
-  messageIds: ReadonlyMap<number, string>,
-): SessionFormatEvent {
+function normalizeLegacyMessage(event: SessionFormatEvent, sessionId: string, messageIds: ReadonlyMap<number, string>): SessionFormatEvent {
   const data = releasedV0Record(event.data, `${event.type} ${event.seq} data`)
   switch (event.type) {
     case 'user/message':
-      if (Object.hasOwn(data, 'id') || Object.hasOwn(data, 'role')
-        || Object.hasOwn(data, 'message') || !Object.hasOwn(data, 'content')
-        || !Object.hasOwn(data, 'source')) return event
+      if (
+        Object.hasOwn(data, 'id') ||
+        Object.hasOwn(data, 'role') ||
+        Object.hasOwn(data, 'message') ||
+        !Object.hasOwn(data, 'content') ||
+        !Object.hasOwn(data, 'source')
+      )
+        return event
       return {
         ...event,
         data: {
@@ -364,15 +329,12 @@ function normalizeLegacyMessage(
         },
       }
     case 'assistant/message': {
-      if (Object.hasOwn(data, 'message')
-        || !Object.hasOwn(data, 'content') || !Object.hasOwn(data, LEGACY_ASSISTANT_SOURCE_KEY)) return event
+      if (Object.hasOwn(data, 'message') || !Object.hasOwn(data, 'content') || !Object.hasOwn(data, LEGACY_ASSISTANT_SOURCE_KEY))
+        return event
       const content = data['content'] as SessionFormatJsonValue
       const eventData = { ...data }
       delete eventData['content']
-      const source = releasedV0Record(
-        eventData[LEGACY_ASSISTANT_SOURCE_KEY],
-        `assistant/message ${event.seq} legacy source`,
-      )
+      const source = releasedV0Record(eventData[LEGACY_ASSISTANT_SOURCE_KEY], `assistant/message ${event.seq} legacy source`)
       Reflect.deleteProperty(eventData, LEGACY_ASSISTANT_SOURCE_KEY)
       return {
         ...event,
@@ -388,15 +350,17 @@ function normalizeLegacyMessage(
       }
     }
     case 'tool/result': {
-      if (Object.hasOwn(data, 'message')
-        || !Object.hasOwn(data, 'callId') || !Object.hasOwn(data, 'content')
-        || !Object.hasOwn(data, 'isError')) return event
+      if (
+        Object.hasOwn(data, 'message') ||
+        !Object.hasOwn(data, 'callId') ||
+        !Object.hasOwn(data, 'content') ||
+        !Object.hasOwn(data, 'isError')
+      )
+        return event
       const { callId, content, isError, ...eventData } = data
       if (typeof callId !== 'string' || typeof isError !== 'boolean' || content === undefined) return event
       const inheritedId = replacementStart(event)
-      const messageId = inheritedId === undefined
-        ? legacyMessageId(sessionId, event.seq)
-        : messageIds.get(inheritedId)
+      const messageId = inheritedId === undefined ? legacyMessageId(sessionId, event.seq) : messageIds.get(inheritedId)
       if (messageId === undefined) {
         throw new SessionFormatError(`tool/result ${event.seq} replacement cites a message without identity`)
       }
@@ -427,9 +391,7 @@ function replacementStart(event: SessionFormatEvent): number | undefined {
 
 function eventMessageId(event: SessionFormatEvent): string | undefined {
   const data = releasedV0Record(event.data, `${event.type} ${event.seq} data`)
-  const message = event.type === 'user/message'
-    ? data
-    : releasedIsRecord(data['message']) ? data['message'] : undefined
+  const message = event.type === 'user/message' ? data : releasedIsRecord(data['message']) ? data['message'] : undefined
   return typeof message?.['id'] === 'string' ? message['id'] : undefined
 }
 
@@ -442,7 +404,5 @@ function legacyMessageId(sessionId: string, seq: number): string {
 }
 
 function malformedLegacy(sessionId: string, type: string, seq: number): SessionFormatError {
-  return new SessionFormatError(
-    `session ${JSON.stringify(sessionId)} contains malformed pre-react-loop ${type} at seq ${seq}`,
-  )
+  return new SessionFormatError(`session ${JSON.stringify(sessionId)} contains malformed pre-react-loop ${type} at seq ${seq}`)
 }

@@ -10,9 +10,9 @@
  * plugin fiber (HMR safety), and the node half stays inert.
  */
 import { Context, Service } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -49,24 +49,28 @@ function makeProjection(revision = 3): GoalProjection {
 }
 
 /** Boot the plugin over fake faces; Goal Remote methods record arguments and answer per the script. */
-async function bench(options: {
-  projection?: GoalProjection | null | undefined
-  activation?: GoalActivation
-  failWith?: RemoteFailure
-  initialOpen?: SessionFixture['initialOpen']
-  snapshot?: SessionFixture['snapshot']
-} = {}) {
+async function bench(
+  options: {
+    projection?: GoalProjection | null | undefined
+    activation?: GoalActivation
+    failWith?: RemoteFailure
+    initialOpen?: SessionFixture['initialOpen']
+    snapshot?: SessionFixture['snapshot']
+  } = {},
+) {
   const ctx = new Context()
   const calls: { method: string; args: unknown[] }[] = []
-  const sessions = new TestSessions(async (action) => { await action() }, ctx)
+  const sessions = new TestSessions(async action => {
+    await action()
+  }, ctx)
   onTestFinished(async () => {
     await sessions.disposeScopes()
     await ctx.fiber.dispose()
   })
   await sessions.add({
     id: 's1',
-    ...options.initialOpen === undefined ? {} : { initialOpen: options.initialOpen },
-    ...options.snapshot === undefined ? {} : { snapshot: options.snapshot },
+    ...(options.initialOpen === undefined ? {} : { initialOpen: options.initialOpen }),
+    ...(options.snapshot === undefined ? {} : { snapshot: options.snapshot }),
   })
   await sessions.setProjection('s1', 'goal', options.projection)
   const owner = sessions.retainFor(ctx, sid('s1'))
@@ -99,47 +103,59 @@ async function bench(options: {
   })
   let activeGoals: ReturnType<typeof goals> | undefined = goals('goals')
   class RemoteService extends Service {
-    readonly activationListeners = new Set<(event: {
-      sessionId: SessionId
-      goal?: { id: string; revision: number; activation: GoalActivation }
-    }) => void>()
+    readonly activationListeners = new Set<
+      (event: { sessionId: SessionId; goal?: { id: string; revision: number; activation: GoalActivation } }) => void
+    >()
 
     constructor(serviceCtx: Context) {
       super(serviceCtx, 'remote')
     }
 
-    $on(_event: string, listener: (event: {
-      sessionId: SessionId
-      goal?: { id: string; revision: number; activation: GoalActivation }
-    }) => void): () => void {
+    $on(
+      _event: string,
+      listener: (event: { sessionId: SessionId; goal?: { id: string; revision: number; activation: GoalActivation } }) => void,
+    ): () => void {
       this.activationListeners.add(listener)
-      return () => { this.activationListeners.delete(listener) }
+      return () => {
+        this.activationListeners.delete(listener)
+      }
     }
 
-    emitActivation(
-      sessionId: SessionId,
-      goal: { id: string; revision: number; activation: GoalActivation } | undefined,
-    ): void {
+    emitActivation(sessionId: SessionId, goal: { id: string; revision: number; activation: GoalActivation } | undefined): void {
       for (const listener of this.activationListeners) {
-        listener({ sessionId, ...goal === undefined ? {} : { goal } })
+        listener({ sessionId, ...(goal === undefined ? {} : { goal }) })
       }
     }
   }
   const remote = new RemoteService(ctx)
   ctx.provide('remote.goals', {
-    get get() { return activeGoals?.get },
-    get edit() { return activeGoals?.edit },
-    get pause() { return activeGoals?.pause },
-    get resume() { return activeGoals?.resume },
-    get clear() { return activeGoals?.clear },
+    get get() {
+      return activeGoals?.get
+    },
+    get edit() {
+      return activeGoals?.edit
+    },
+    get pause() {
+      return activeGoals?.pause
+    },
+    get resume() {
+      return activeGoals?.resume
+    },
+    get clear() {
+      return activeGoals?.clear
+    },
   })
   await ctx.plugin(SlotRegistry).await()
-  ctx.slots.register({
-    name: 'root', children: {
-      'conversation.input.dock': { kind: 'list', scope: 'session' },
-      'conversation.chat.node': { kind: 'keyed', scope: 'session' },
-    },
-  } as never, (() => null) as never)
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.input.dock': { kind: 'list', scope: 'session' },
+        'conversation.chat.node': { kind: 'keyed', scope: 'session' },
+      },
+    } as never,
+    (() => null) as never,
+  )
   ctx.provide('locale', new LocaleRuntime(ctx))
   const fiber = ctx.plugin({ inject: [...inject], apply })
   return {
@@ -150,8 +166,12 @@ async function bench(options: {
     owner,
     emitActivation: remote.emitActivation.bind(remote),
     definitions: () => conversationEvents.entries(),
-    remountGoals: () => { activeGoals = goals('remounted-goals') },
-    unmountGoals: () => { activeGoals = undefined },
+    remountGoals: () => {
+      activeGoals = goals('remounted-goals')
+    },
+    unmountGoals: () => {
+      activeGoals = undefined
+    },
     entry: () => {
       const entry = ctx.slots.entries('conversation.input.dock')[0]
       if (entry === undefined) return undefined
@@ -176,7 +196,9 @@ describe('ui-goal browser plugin', () => {
       expect(b.calls).toEqual([])
       expect(b.sessions.retainInfo(sid('s1')).getSnapshot().retainedBy.goalActivation).toBe(1)
       opened.resolve(undefined)
-      await waitFor(() => { expect(source.getSnapshot().activation).toBe('disarmed') })
+      await waitFor(() => {
+        expect(source.getSnapshot().activation).toBe('disarmed')
+      })
       expect(b.calls).toEqual([{ method: 'goals/get', args: [sid('s1')] }])
       expect(b.sessions.retainInfo(sid('s1')).getSnapshot().referenceCount).toBe(1)
     } finally {
@@ -185,19 +207,26 @@ describe('ui-goal browser plugin', () => {
     }
   })
 
-  it.each([true, false])('keeps projected goal state after an unsuccessful history open (reported error: %s)', async (reported) => {
+  it.each([true, false])('keeps projected goal state after an unsuccessful history open (reported error: %s)', async reported => {
     const error = new RemoteError('gateway/internal', 'history unavailable', {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    onTestFinished(() => { warn.mockRestore() })
+    onTestFinished(() => {
+      warn.mockRestore()
+    })
     const b = await bench({ projection: makeProjection(), snapshot: { openState: 'error', openError: reported ? error : null } })
     await b.fiber.await()
     const source = b.entry()!.inject!(sid('s1')).hooks.goalActivation
     const dispose = source.subscribe(() => {})
     try {
-      await waitFor(() => { expect(warn).toHaveBeenCalledOnce() })
-      expect(warn).toHaveBeenCalledWith('[ui-goal] goal activation read failed:', expect.objectContaining({
-        message: reported ? 'history unavailable' : 'session "s1" is not open',
-      }))
+      await waitFor(() => {
+        expect(warn).toHaveBeenCalledOnce()
+      })
+      expect(warn).toHaveBeenCalledWith(
+        '[ui-goal] goal activation read failed:',
+        expect.objectContaining({
+          message: reported ? 'history unavailable' : 'session "s1" is not open',
+        }),
+      )
       expect(source.getSnapshot()).toEqual({ id: GOAL_ID, revision: 3 })
       expect(b.calls).toEqual([])
       expect(b.sessions.retainInfo(sid('s1')).getSnapshot().referenceCount).toBe(1)
@@ -208,7 +237,9 @@ describe('ui-goal browser plugin', () => {
 
   it('refuses activation reads captured from a replaced Session binding', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    onTestFinished(() => { warn.mockRestore() })
+    onTestFinished(() => {
+      warn.mockRestore()
+    })
     const b = await bench({ projection: makeProjection() })
     await b.fiber.await()
     const source = b.entry()!.inject!(sid('s1')).hooks.goalActivation
@@ -216,9 +247,14 @@ describe('ui-goal browser plugin', () => {
     b.sessions.retainFor(b.ctx, sid('s1'))
     const dispose = source.subscribe(() => {})
     try {
-      await waitFor(() => { expect(warn).toHaveBeenCalledWith('[ui-goal] goal activation read failed:', expect.objectContaining({
-        message: 'ui-goal: session "s1" is unavailable',
-      })) })
+      await waitFor(() => {
+        expect(warn).toHaveBeenCalledWith(
+          '[ui-goal] goal activation read failed:',
+          expect.objectContaining({
+            message: 'ui-goal: session "s1" is unavailable',
+          }),
+        )
+      })
       expect(b.calls).toEqual([])
     } finally {
       dispose()
@@ -271,7 +307,9 @@ describe('ui-goal browser plugin', () => {
     const injected = b.entry()!.inject!(sid('s1'))
     const source = injected.hooks.goalActivation
     const seen: unknown[] = []
-    const dispose = source.subscribe(() => { seen.push(source.getSnapshot()) })
+    const dispose = source.subscribe(() => {
+      seen.push(source.getSnapshot())
+    })
     await waitFor(() => {
       expect(source.getSnapshot()).toMatchObject({ id: 'g-1', revision: 3, activation: 'disarmed' })
     })
@@ -340,9 +378,8 @@ describe('GoalDock adapter', () => {
   it('renders the projected goal snapshot and nothing for absent/null', () => {
     const projection = makeProjection()
     const useProjection = vi.fn(() => projection)
-    const useGoalActivation = (
-      selector: (snapshot: GoalActivationSnapshot) => unknown,
-    ) => selector({ id: GOAL_ID, revision: 3, activation: 'armed' })
+    const useGoalActivation = (selector: (snapshot: GoalActivationSnapshot) => unknown) =>
+      selector({ id: GOAL_ID, revision: 3, activation: 'armed' })
     const actions: GoalBarActions = {
       onEdit: () => Promise.resolve({ ok: true, value: undefined }),
       onPause: () => Promise.resolve({ ok: true, value: undefined }),
@@ -367,9 +404,8 @@ describe('GoalDock adapter', () => {
   it('matches activation by goal id and revision from the injected hook', () => {
     const projection = makeProjection()
     const useProjection = vi.fn(() => projection)
-    const useGoalActivation = (
-      selector: (snapshot: GoalActivationSnapshot) => unknown,
-    ) => selector({ id: GOAL_ID, revision: 3, activation: 'disarmed' })
+    const useGoalActivation = (selector: (snapshot: GoalActivationSnapshot) => unknown) =>
+      selector({ id: GOAL_ID, revision: 3, activation: 'disarmed' })
     const actions: GoalBarActions = {
       onEdit: () => Promise.resolve({ ok: true, value: undefined }),
       onPause: () => Promise.resolve({ ok: true, value: undefined }),
@@ -387,6 +423,8 @@ describe('GoalDock adapter', () => {
 
 describe('ui-goal node half', () => {
   it('the node apply is an inert loader seat', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })

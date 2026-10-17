@@ -5,13 +5,22 @@
  */
 
 import {
-  existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterAll, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterAll, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import {
   composeEntries,
   createRuntimeResolution,
@@ -46,10 +55,7 @@ const tmp = (): string => {
 }
 
 /** Stage a fake installed app: package.json with deps and a node_modules holding bundles. */
-function stageInstallation(
-  bundles: Record<string, { patch?: string; deps?: Record<string, string> }>,
-  appName = 'dsh-app',
-): string {
+function stageInstallation(bundles: Record<string, { patch?: string; deps?: Record<string, string> }>, appName = 'dsh-app'): string {
   const root = tmp()
   const appDir = join(root, 'app')
   mkdirSync(join(appDir, 'node_modules'), { recursive: true })
@@ -58,20 +64,30 @@ function stageInstallation(
     appDeps[name] = '0.0.0'
     const dir = join(appDir, 'node_modules', name)
     mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({
-      name,
-      version: '0.0.0',
-      type: 'module',
-      main: './index.js',
-      dependencies: spec.deps ?? {},
-      ...spec.patch === undefined ? {} : { dsh: { bundle: { patch: './cordis.patch.yml' } } },
-    }))
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({
+        name,
+        version: '0.0.0',
+        type: 'module',
+        main: './index.js',
+        dependencies: spec.deps ?? {},
+        ...(spec.patch === undefined ? {} : { dsh: { bundle: { patch: './cordis.patch.yml' } } }),
+      }),
+    )
     writeFileSync(join(dir, 'index.js'), `export const packageName = ${JSON.stringify(name)}\n`)
     if (spec.patch !== undefined) writeFileSync(join(dir, 'cordis.patch.yml'), spec.patch)
   }
-  writeFileSync(join(appDir, 'package.json'), JSON.stringify({
-    name: appName, version: '0.0.0', type: 'module', main: './index.js', dependencies: appDeps,
-  }))
+  writeFileSync(
+    join(appDir, 'package.json'),
+    JSON.stringify({
+      name: appName,
+      version: '0.0.0',
+      type: 'module',
+      main: './index.js',
+      dependencies: appDeps,
+    }),
+  )
   writeFileSync(join(appDir, 'index.js'), `export const packageName = ${JSON.stringify(appName)}\n`)
   return join(appDir, 'package.json')
 }
@@ -81,23 +97,24 @@ function stageProfile(home: string, name: string, bundleAnchor: string): Profile
   const dir = resolveProfileDir(name, home)
   mkdirSync(dir, { recursive: true })
   const packageName = (JSON.parse(readFileSync(bundleAnchor, 'utf8')) as { name: string }).name
-  return { skippedBundles: [],
+  return {
+    skippedBundles: [],
     name,
     dir,
-    layers: [{
-      packageName,
-      packageDir: join(bundleAnchor, '..'),
-      patchPaths: [join(bundleAnchor, '..', 'cordis.patch.yml')],
-      patches: [],
-    }],
+    layers: [
+      {
+        packageName,
+        packageDir: join(bundleAnchor, '..'),
+        patchPaths: [join(bundleAnchor, '..', 'cordis.patch.yml')],
+        patches: [],
+      },
+    ],
     patchPath: join(dir, PROFILE_PATCH_FILENAME),
     patches: [],
   }
 }
 
-async function importFromResolution(
-  resolution: RuntimeResolution, specifier: string,
-): Promise<Record<string, unknown>> {
+async function importFromResolution(resolution: RuntimeResolution, specifier: string): Promise<Record<string, unknown>> {
   const addon = createRequire(import.meta.url)('node-addon-require-builtin') as {
     requireBuiltin(id: string): unknown
   }
@@ -128,9 +145,13 @@ describe('isolated profile resolution', () => {
     for (const consumer of [consumerA, consumerB]) {
       mkdirSync(join(consumer, '..'), { recursive: true })
       writeFileSync(consumer, 'module.exports = require("commander")\n')
-      writeFileSync(join(consumer, '..', 'package.json'), JSON.stringify({
-        name: 'custom-plugin', peerDependencies: { commander: '*' },
-      }))
+      writeFileSync(
+        join(consumer, '..', 'package.json'),
+        JSON.stringify({
+          name: 'custom-plugin',
+          peerDependencies: { commander: '*' },
+        }),
+      )
     }
     const installed = join(profileA.dir, 'node_modules', 'pnpm-owned')
     mkdirSync(installed)
@@ -141,29 +162,38 @@ describe('isolated profile resolution', () => {
     const resolutionB = await createRuntimeResolution({ installAnchor: anchorB, profile: profileB, home })
     let registration = installRuntimeInterception(resolutionA)
     try {
-      expect(realpathSync.native(createRequire(consumerA).resolve('commander')))
-        .toBe(realpathSync.native(join(anchorA, '..', 'node_modules', 'commander', 'index.js')))
+      expect(realpathSync.native(createRequire(consumerA).resolve('commander'))).toBe(
+        realpathSync.native(join(anchorA, '..', 'node_modules', 'commander', 'index.js')),
+      )
       registration.dispose()
       registration = installRuntimeInterception(resolutionB)
-      expect(realpathSync.native(createRequire(consumerB).resolve('commander')))
-        .toBe(realpathSync.native(join(anchorB, '..', 'node_modules', 'commander', 'index.js')))
+      expect(realpathSync.native(createRequire(consumerB).resolve('commander'))).toBe(
+        realpathSync.native(join(anchorB, '..', 'node_modules', 'commander', 'index.js')),
+      )
       registration.dispose()
       registration = installRuntimeInterception(resolutionA)
       expect(realpathSync.native(createRequire(consumerA).resolve('pnpm-owned'))).toBe(realpathSync.native(join(installed, 'index.js')))
       expect(readFileSync(join(installed, 'index.js'), 'utf8')).toContain('profile-installed')
-      expect(realpathSync.native(createRequire(consumerA).resolve('bundle-only')))
-        .toBe(realpathSync.native(join(bundleAnchor, '..', 'node_modules', 'bundle-only', 'index.js')))
+      expect(realpathSync.native(createRequire(consumerA).resolve('bundle-only'))).toBe(
+        realpathSync.native(join(bundleAnchor, '..', 'node_modules', 'bundle-only', 'index.js')),
+      )
       expect(existsSync(join(home, 'profiles', 'node_modules'))).toBe(false)
 
       registration.dispose()
-      registration = installRuntimeInterception(await createRuntimeResolution({
-        installAnchor: anchorA, profile: { ...profileA, layers: [] }, home,
-      }))
+      registration = installRuntimeInterception(
+        await createRuntimeResolution({
+          installAnchor: anchorA,
+          profile: { ...profileA, layers: [] },
+          home,
+        }),
+      )
       expect(() => createRequire(consumerA).resolve('bundle-only')).toThrow(/Cannot find module/u)
-      expect(resolutionB.entries.find(entry => entry.name === 'bundle-only')?.packageDir)
-        .toBe(realpathSync.native(join(bundleAnchor, '..', 'node_modules', 'bundle-only')))
-      expect(realpathSync.native(createRequire(consumerA).resolve('commander')))
-        .toBe(realpathSync.native(join(anchorA, '..', 'node_modules', 'commander', 'index.js')))
+      expect(resolutionB.entries.find(entry => entry.name === 'bundle-only')?.packageDir).toBe(
+        realpathSync.native(join(bundleAnchor, '..', 'node_modules', 'bundle-only')),
+      )
+      expect(realpathSync.native(createRequire(consumerA).resolve('commander'))).toBe(
+        realpathSync.native(join(anchorA, '..', 'node_modules', 'commander', 'index.js')),
+      )
     } finally {
       registration.dispose()
     }
@@ -189,9 +219,15 @@ it('composes current files from profile data and retains launch overlay and tele
   writeFileSync(patchPath, '- id: session-telemetry-otel\n  disabled: true\n')
   writeFileSync(join(home, PROFILE_PATCH_FILENAME), '- id: session-telemetry-otel\n  disabled: false\n')
   const context = {
-    name: 'test', dir, patchPath, installAnchor, home, cwd: home,
+    name: 'test',
+    dir,
+    patchPath,
+    installAnchor,
+    home,
+    cwd: home,
     startedBundles: ['base'],
-    overlays: [{ id: 'session-telemetry-otel', disabled: false }], telemetryDisabledEnv: 'false',
+    overlays: [{ id: 'session-telemetry-otel', disabled: false }],
+    telemetryDisabledEnv: 'false',
   }
   expect(composeEntries([readProfilePatches('test', context)])[0]?.disabled).toBe(true)
   const enabled = { ...context, telemetryDisabledEnv: undefined }
@@ -257,12 +293,15 @@ describe('resolveBundleDir', () => {
     writeFileSync(join(profileDir, 'package.json'), '{}')
     const dir = join(profileDir, 'node_modules', 'sealed-bundle')
     mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({
-      name: 'sealed-bundle',
-      version: '0.0.0',
-      exports: { '.': './index.js' },
-      dsh: { bundle: { patch: './cordis.patch.yml' } },
-    }))
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({
+        name: 'sealed-bundle',
+        version: '0.0.0',
+        exports: { '.': './index.js' },
+        dsh: { bundle: { patch: './cordis.patch.yml' } },
+      }),
+    )
     writeFileSync(join(dir, 'index.js'), '')
     writeFileSync(join(dir, 'cordis.patch.yml'), '[]\n')
     expect(resolveBundleDir('t', 'sealed-bundle', anchor, profileDir)).toBe(dir)
@@ -292,10 +331,7 @@ describe('loadProfile', () => {
     const profile = loadProfile('t', 'demo', anchor, home)
     expect(profile.layers.map(layer => layer.packageName)).toEqual(['bundle-a', 'bundle-b'])
     expect(profile.patches).toHaveLength(1)
-    const entries = composeEntries([
-      ...profile.layers.map(layer => layer.patches),
-      profile.patches,
-    ])
+    const entries = composeEntries([...profile.layers.map(layer => layer.patches), profile.patches])
     expect(entries).toEqual([{ id: 'a', name: 'pkg-a', config: { v: 3 } }])
     // A hand-made profile without the user layer file or dsh section: empty layers, no throw.
     rmSync(join(dir, PROFILE_PATCH_FILENAME))
@@ -306,27 +342,38 @@ describe('loadProfile', () => {
   })
 
   it('applies a dsh.bundle.patch list in order, anchoring inserted paths beside each file', () => {
-    const anchor = stageInstallation({ 'multi': { patch: '[]\n' }, 'broken': { patch: '[]\n' } })
+    const anchor = stageInstallation({ multi: { patch: '[]\n' }, broken: { patch: '[]\n' } })
     const bundleDir = join(anchor, '..', 'node_modules', 'multi')
     mkdirSync(join(bundleDir, 'layers'), { recursive: true })
-    writeFileSync(join(bundleDir, 'package.json'), JSON.stringify({
-      name: 'multi', version: '0.0.0', type: 'module', main: './index.js',
-      dsh: { bundle: { patch: ['./first.patch.yml', './layers/second.patch.yml'] } },
-    }))
+    writeFileSync(
+      join(bundleDir, 'package.json'),
+      JSON.stringify({
+        name: 'multi',
+        version: '0.0.0',
+        type: 'module',
+        main: './index.js',
+        dsh: { bundle: { patch: ['./first.patch.yml', './layers/second.patch.yml'] } },
+      }),
+    )
     writeFileSync(join(bundleDir, 'first.patch.yml'), '- insert:\n    - id: a\n      name: ./local.js\n      config: { v: 1 }\n')
-    writeFileSync(join(bundleDir, 'layers', 'second.patch.yml'), '- id: a\n  config: { v: 2 }\n- insert:\n    - id: b\n      name: ./local.js\n')
+    writeFileSync(
+      join(bundleDir, 'layers', 'second.patch.yml'),
+      '- id: a\n  config: { v: 2 }\n- insert:\n    - id: b\n      name: ./local.js\n',
+    )
     const brokenManifest = join(anchor, '..', 'node_modules', 'broken', 'package.json')
     writeFileSync(brokenManifest, JSON.stringify({ name: 'broken', version: '0.0.0', dsh: { bundle: { patch: [1] } } }))
     const home = tmp()
     const dir = resolveProfileDir('demo', home)
     initProfile(dir, ['multi', 'broken'])
     const profile = loadProfile('t', 'demo', anchor, home)
-    expect(profile.layers.map(layer => ({ ...layer, patches: layer.patches.length }))).toEqual([{
-      packageName: 'multi',
-      packageDir: bundleDir,
-      patchPaths: [join(bundleDir, 'first.patch.yml'), join(bundleDir, 'layers', 'second.patch.yml')],
-      patches: 3,
-    }])
+    expect(profile.layers.map(layer => ({ ...layer, patches: layer.patches.length }))).toEqual([
+      {
+        packageName: 'multi',
+        packageDir: bundleDir,
+        patchPaths: [join(bundleDir, 'first.patch.yml'), join(bundleDir, 'layers', 'second.patch.yml')],
+        patches: 3,
+      },
+    ])
     expect(composeEntries(profile.layers.map(layer => layer.patches))).toEqual([
       { id: 'a', name: pathToFileURL(join(bundleDir, 'local.js')).href, config: { v: 2 } },
       { id: 'b', name: pathToFileURL(join(bundleDir, 'layers', 'local.js')).href },
@@ -339,8 +386,7 @@ describe('loadProfile', () => {
   it('auto-initializes only shipped templates and fails loud otherwise', () => {
     const anchor = stageInstallation({})
     const home = tmp()
-    expect(() => loadProfile('t', 'custom', anchor, home))
-      .toThrow('profile "custom" does not exist')
+    expect(() => loadProfile('t', 'custom', anchor, home)).toThrow('profile "custom" does not exist')
     expect(PROFILE_TEMPLATES.web?.bundles).toContain('@deepseek-ai/dsh-base')
     expect(PROFILE_TEMPLATES.acp).toEqual({
       bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app'],
@@ -352,8 +398,9 @@ describe('loadProfile', () => {
       bundles: ['@deepseek-ai/dsh-sdk-minimal'],
     })
     loadProfile('t', 'web', anchor, home)
-    expect(readProfileManifest('t', resolveProfileDir('web', home)).dsh?.profile?.bundles)
-      .toEqual([...PROFILE_TEMPLATES.web?.bundles ?? []])
+    expect(readProfileManifest('t', resolveProfileDir('web', home)).dsh?.profile?.bundles).toEqual([
+      ...(PROFILE_TEMPLATES.web?.bundles ?? []),
+    ])
   })
 
   it('normalizes only the exact installation-owned headless bundle tuple', () => {
@@ -365,9 +412,7 @@ describe('loadProfile', () => {
     })
     const home = tmp()
     const stock = resolveProfileDir('headless', home)
-    initProfile(stock, [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless',
-    ])
+    initProfile(stock, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'])
     const retiredManifest = readProfileManifest('t', stock)
     writeProfileManifest(stock, retiredManifest)
     loadProfile('t', 'headless', anchor, home)
@@ -377,12 +422,13 @@ describe('loadProfile', () => {
 
     const customHome = tmp()
     const custom = resolveProfileDir('headless', customHome)
-    initProfile(custom, [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
-    ])
+    initProfile(custom, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle'])
     loadProfile('t', 'headless', anchor, customHome)
     expect(readProfileManifest('t', custom).dsh?.profile?.bundles).toEqual([
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
+      '@deepseek-ai/dsh-base',
+      '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-headless',
+      'custom-bundle',
     ])
   })
 
@@ -404,7 +450,8 @@ describe('loadProfile', () => {
   })
 
   it.each(['missing package', 'invalid manifest', 'not a bundle', 'missing patch', 'invalid patch'])(
-    'skips a bundle with %s, retains selections, and retries it on reread', async (failure) => {
+    'skips a bundle with %s, retains selections, and retries it on reread',
+    async failure => {
       const anchor = stageInstallation({
         before: { patch: '- insert: [{ id: a, name: pkg-a }]\n' },
         broken: { patch: '[]\n' },
@@ -424,27 +471,26 @@ describe('loadProfile', () => {
       if (failure === 'invalid patch') writeFileSync(patchPath, '[invalid')
       const saved = readFileSync(join(dir, 'package.json'), 'utf8')
       const warn = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
-      onTestFinished(() => { warn.mockRestore() })
+      onTestFinished(() => {
+        warn.mockRestore()
+      })
 
       const profile = loadProfile('t', 'demo', anchor, home)
       // Loading only records the skip; the launcher reports it once per start.
       expect(warn).not.toHaveBeenCalled()
       expect(profile.layers.map(layer => layer.packageName)).toEqual(['before', 'after'])
-      expect(composeEntries(profile.layers.map(layer => layer.patches)))
-        .toEqual([{ id: 'a', name: 'pkg-a', config: { value: 'after' } }])
+      expect(composeEntries(profile.layers.map(layer => layer.patches))).toEqual([{ id: 'a', name: 'pkg-a', config: { value: 'after' } }])
       expect(profile.skippedBundles.map(skipped => skipped.packageName)).toEqual(['broken'])
       reportSkippedBundles('t', profile)
       expect(warn.mock.calls).toEqual([[`t: skipping profile bundle "broken": ${profile.skippedBundles[0]?.reason}\n`]])
       expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(saved)
       const resolution = await createRuntimeResolution({ installAnchor: anchor, profile, home })
       const unavailable = failure === 'missing package' || failure === 'invalid manifest'
-      expect(resolution.entries.map(entry => entry.name))
-        .toEqual(['dsh-app', 'before', ...unavailable ? [] : ['broken'], 'after'])
+      expect(resolution.entries.map(entry => entry.name)).toEqual(['dsh-app', 'before', ...(unavailable ? [] : ['broken']), 'after'])
       mkdirSync(bundleDir, { recursive: true })
       writeFileSync(manifestPath, original)
       writeFileSync(patchPath, '[]\n')
-      expect(loadProfileDirectory('t', dir, anchor).layers.map(layer => layer.packageName))
-        .toEqual(['before', 'broken', 'after'])
+      expect(loadProfileDirectory('t', dir, anchor).layers.map(layer => layer.packageName)).toEqual(['before', 'broken', 'after'])
     },
   )
 
@@ -454,16 +500,23 @@ describe('loadProfile', () => {
       kept: { patch: '- insert: [{ id: b, name: pkg-b }]\n' },
     })
     const manifestPath = join(anchor, '..', 'node_modules', 'guarded', 'package.json')
-    writeFileSync(manifestPath, JSON.stringify({
-      ...JSON.parse(readFileSync(manifestPath, 'utf8')) as object, peerDependencies: { '@deepseek-ai/dsh': '999.0.0' },
-    }))
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        ...(JSON.parse(readFileSync(manifestPath, 'utf8')) as object),
+        peerDependencies: { '@deepseek-ai/dsh': '999.0.0' },
+      }),
+    )
     const dir = resolveProfileDir('demo', tmp())
     initProfile(dir, ['guarded', 'kept'])
     const denied = loadProfileDirectory('dsh', dir, anchor)
     expect(denied.layers.map(layer => layer.packageName)).toEqual(['kept'])
-    expect(denied.skippedBundles).toEqual([{ packageName: 'guarded', reason: expect.stringContaining(
-      `Error: Plugin guarded@0.0.0 is incompatible with dsh ${getDshRuntimeVersion()}`,
-    ) as string }])
+    expect(denied.skippedBundles).toEqual([
+      {
+        packageName: 'guarded',
+        reason: expect.stringContaining(`Error: Plugin guarded@0.0.0 is incompatible with dsh ${getDshRuntimeVersion()}`) as string,
+      },
+    ])
     writeFileSync(join(dir, PROFILE_COMPATIBILITY_FILENAME), JSON.stringify({ 'guarded@0.0.0': [getDshRuntimeVersion()] }))
     expect(loadProfileDirectory('dsh', dir, anchor).layers.map(layer => layer.packageName)).toEqual(['guarded', 'kept'])
   })
@@ -483,10 +536,16 @@ describe('loadProfile', () => {
 describe('composeEntries', () => {
   it('applies layers over an empty root and reports skipped patches', () => {
     const warnings: string[] = []
-    const entries = composeEntries([
-      [{ insert: [{ id: 'x', name: 'pkg-x', config: { a: 1 } }] }],
-      [{ id: 'x', config: { a: 2 } }, { id: 'missing', config: {} }],
-    ], message => warnings.push(message))
+    const entries = composeEntries(
+      [
+        [{ insert: [{ id: 'x', name: 'pkg-x', config: { a: 1 } }] }],
+        [
+          { id: 'x', config: { a: 2 } },
+          { id: 'missing', config: {} },
+        ],
+      ],
+      message => warnings.push(message),
+    )
     expect(entries).toEqual([{ id: 'x', name: 'pkg-x', config: { a: 2 } }])
     expect(warnings.join('\n')).toContain('"missing"')
     // Default warn sink: skipped patches are silently dropped (boot repeats them).
@@ -525,23 +584,25 @@ describe('createRuntimeResolution', () => {
     const profileA = stageProfile(home, 'a', bundleA)
     const profileB = stageProfile(home, 'b', bundleB)
     const resolutionA = await createRuntimeResolution({ installAnchor: installationAnchor, profile: profileA, home })
-    await expect(createRuntimeResolution({ installAnchor: installationAnchor, profile: profileA, home }))
-      .resolves.toEqual(resolutionA)
+    await expect(createRuntimeResolution({ installAnchor: installationAnchor, profile: profileA, home })).resolves.toEqual(resolutionA)
     const resolutionB = await createRuntimeResolution({ installAnchor: installationAnchor, profile: profileB, home })
 
     for (const resolution of [resolutionA, resolutionB]) {
       expect(resolution.entries.find(entry => entry.name === 'shared')).toMatchObject({
-        packageDir: join(installationAnchor, '..', 'node_modules', 'shared'), scope: 'installation',
+        packageDir: join(installationAnchor, '..', 'node_modules', 'shared'),
+        scope: 'installation',
       })
     }
     expect(existsSync(join(home, 'profiles', 'node_modules'))).toBe(false)
     expect(existsSync(join(profileA.dir, 'node_modules', 'shared'))).toBe(false)
     expect(existsSync(join(profileB.dir, 'node_modules', 'shared'))).toBe(false)
     expect(resolutionA.entries.find(entry => entry.name === '@scope/bundle-only')).toMatchObject({
-      packageDir: realpathSync.native(join(bundleA, '..', 'node_modules', '@scope', 'bundle-only')), scope: 'profile',
+      packageDir: realpathSync.native(join(bundleA, '..', 'node_modules', '@scope', 'bundle-only')),
+      scope: 'profile',
     })
     expect(resolutionB.entries.find(entry => entry.name === '@scope/bundle-only')).toMatchObject({
-      packageDir: realpathSync.native(join(bundleB, '..', 'node_modules', '@scope', 'bundle-only')), scope: 'profile',
+      packageDir: realpathSync.native(join(bundleB, '..', 'node_modules', '@scope', 'bundle-only')),
+      scope: 'profile',
     })
 
     const withoutBundles = await createRuntimeResolution({
@@ -550,11 +611,12 @@ describe('createRuntimeResolution', () => {
       home,
     })
     expect(withoutBundles.entries.some(entry => entry.name === '@scope/bundle-only')).toBe(false)
-    expect(resolutionB.entries.find(entry => entry.name === '@scope/bundle-only')?.packageDir)
-      .toBe(realpathSync.native(join(bundleB, '..', 'node_modules', '@scope', 'bundle-only')))
+    expect(resolutionB.entries.find(entry => entry.name === '@scope/bundle-only')?.packageDir).toBe(
+      realpathSync.native(join(bundleB, '..', 'node_modules', '@scope', 'bundle-only')),
+    )
   })
 
-  it.each([false, true])('discovers dependencies beside a symlinked bundle real path (packaged: %s)', async (packaged) => {
+  it.each([false, true])('discovers dependencies beside a symlinked bundle real path (packaged: %s)', async packaged => {
     const installationAnchor = stageInstallation({})
     const home = tmp()
     const dir = resolveProfileDir('symlinked', home)
@@ -564,23 +626,29 @@ describe('createRuntimeResolution', () => {
     const realDependency = join(storeModules, 'bundle-only')
     mkdirSync(realBundle, { recursive: true })
     mkdirSync(realDependency)
-    writeFileSync(join(realBundle, 'package.json'), JSON.stringify({
-      name: 'selected-bundle',
-      dependencies: { 'bundle-only': '0.0.0' },
-    }))
+    writeFileSync(
+      join(realBundle, 'package.json'),
+      JSON.stringify({
+        name: 'selected-bundle',
+        dependencies: { 'bundle-only': '0.0.0' },
+      }),
+    )
     writeFileSync(join(realDependency, 'package.json'), JSON.stringify({ name: 'bundle-only' }))
     mkdirSync(profileModules, { recursive: true })
     const bundleLink = join(profileModules, 'selected-bundle')
     symlinkSync(realBundle, bundleLink, 'junction')
-    const profile: Profile = { skippedBundles: [],
+    const profile: Profile = {
+      skippedBundles: [],
       name: 'symlinked',
       dir,
-      layers: [{
-        packageName: 'selected-bundle',
-        packageDir: bundleLink,
-        patchPaths: [join(bundleLink, 'cordis.patch.yml')],
-        patches: [],
-      }],
+      layers: [
+        {
+          packageName: 'selected-bundle',
+          packageDir: bundleLink,
+          patchPaths: [join(bundleLink, 'cordis.patch.yml')],
+          patches: [],
+        },
+      ],
       patchPath: join(dir, PROFILE_PATCH_FILENAME),
       patches: [],
     }
@@ -589,8 +657,7 @@ describe('createRuntimeResolution', () => {
     Object.defineProperty(process, 'pkg', { configurable: true, value: packaged ? {} : undefined })
     try {
       const resolution = await createRuntimeResolution({ installAnchor: installationAnchor, profile, home })
-      expect(resolution.entries.find(entry => entry.name === 'bundle-only')?.packageDir)
-        .toBe(realpathSync.native(realDependency))
+      expect(resolution.entries.find(entry => entry.name === 'bundle-only')?.packageDir).toBe(realpathSync.native(realDependency))
     } finally {
       if (previous === undefined) Reflect.deleteProperty(process, 'pkg')
       else Object.defineProperty(process, 'pkg', previous)
@@ -607,25 +674,40 @@ describe('createRuntimeResolution', () => {
     const bundleB = join(root, 'bundle-b')
     const explicitOnly = join(bundleB, 'node_modules', 'explicit-only')
     for (const dir of [bundleA, nestedBundleB, nestedOnly, bundleB, explicitOnly]) mkdirSync(dir, { recursive: true })
-    writeFileSync(join(bundleA, 'package.json'), JSON.stringify({
-      name: 'bundle-a',
-      dependencies: { 'bundle-b': '0.0.0' },
-    }))
-    writeFileSync(join(nestedBundleB, 'package.json'), JSON.stringify({
-      name: 'bundle-b',
-      dependencies: { 'nested-only': '0.0.0' },
-    }))
+    writeFileSync(
+      join(bundleA, 'package.json'),
+      JSON.stringify({
+        name: 'bundle-a',
+        dependencies: { 'bundle-b': '0.0.0' },
+      }),
+    )
+    writeFileSync(
+      join(nestedBundleB, 'package.json'),
+      JSON.stringify({
+        name: 'bundle-b',
+        dependencies: { 'nested-only': '0.0.0' },
+      }),
+    )
     writeFileSync(join(nestedOnly, 'package.json'), JSON.stringify({ name: 'nested-only' }))
-    writeFileSync(join(bundleB, 'package.json'), JSON.stringify({
-      name: 'bundle-b',
-      dependencies: { 'explicit-only': '0.0.0' },
-    }))
+    writeFileSync(
+      join(bundleB, 'package.json'),
+      JSON.stringify({
+        name: 'bundle-b',
+        dependencies: { 'explicit-only': '0.0.0' },
+      }),
+    )
     writeFileSync(join(explicitOnly, 'package.json'), JSON.stringify({ name: 'explicit-only' }))
     const dir = resolveProfileDir('explicit-roots', home)
-    const profile: Profile = { skippedBundles: [],
+    const profile: Profile = {
+      skippedBundles: [],
       name: 'explicit-roots',
       dir,
-      layers: ([['bundle-a', bundleA], ['bundle-b', bundleB]] as const).map(([packageName, packageDir]) => ({
+      layers: (
+        [
+          ['bundle-a', bundleA],
+          ['bundle-b', bundleB],
+        ] as const
+      ).map(([packageName, packageDir]) => ({
         packageName,
         packageDir,
         patchPaths: [join(packageDir, 'cordis.patch.yml')],
@@ -651,12 +733,15 @@ describe('createRuntimeResolution', () => {
     writeFileSync(join(bundleDir, 'package.json'), JSON.stringify(bundleManifest))
     const nestedDir = join(bundleDir, 'node_modules', 'nested-esm')
     mkdirSync(nestedDir, { recursive: true })
-    writeFileSync(join(nestedDir, 'package.json'), JSON.stringify({
-      name: 'nested-esm',
-      version: '0.0.0',
-      type: 'module',
-      exports: { import: './index.js' },
-    }))
+    writeFileSync(
+      join(nestedDir, 'package.json'),
+      JSON.stringify({
+        name: 'nested-esm',
+        version: '0.0.0',
+        type: 'module',
+        exports: { import: './index.js' },
+      }),
+    )
     writeFileSync(join(nestedDir, 'index.js'), 'export const nested = "selected"\n')
     const home = tmp()
     const resolution = await createRuntimeResolution({ installAnchor: anchor, home })
@@ -722,13 +807,10 @@ describe('createRuntimeResolution', () => {
       const anchor = stageInstallation({ 'bundle-a': { patch: '[]\n' } })
       const bundleDir = join(anchor, '..', 'node_modules', 'bundle-a')
       const manifest = JSON.parse(readFileSync(join(bundleDir, 'package.json'), 'utf8')) as Record<string, unknown>
-      const target = mode === 'missing' ? './missing.js'
-        : mode === 'directory' ? './mini'
-          : mode === 'escape' ? './../outside.js'
-            : '../outside.js'
-      manifest.exports = mode === 'absent-map' ? null
-        : mode === 'null-subpath' ? { './bad': null }
-          : { '.': mode === 'null' ? null : { import: target } }
+      const target =
+        mode === 'missing' ? './missing.js' : mode === 'directory' ? './mini' : mode === 'escape' ? './../outside.js' : '../outside.js'
+      manifest.exports =
+        mode === 'absent-map' ? null : mode === 'null-subpath' ? { './bad': null } : { '.': mode === 'null' ? null : { import: target } }
       writeFileSync(join(bundleDir, 'package.json'), JSON.stringify(manifest))
       if (mode === 'directory') mkdirSync(join(bundleDir, 'mini'))
       const home = tmp()
@@ -737,10 +819,14 @@ describe('createRuntimeResolution', () => {
         await expect(importFromResolution(resolution, 'bundle-a')).resolves.toMatchObject({ packageName: 'bundle-a' })
       } else {
         const specifier = mode === 'null-subpath' ? 'bundle-a/bad' : 'bundle-a'
-        const code = mode === 'missing' ? 'ERR_MODULE_NOT_FOUND'
-          : mode === 'directory' ? 'ERR_UNSUPPORTED_DIR_IMPORT'
-            : mode === 'null' || mode === 'null-subpath' ? 'ERR_PACKAGE_PATH_NOT_EXPORTED'
-              : 'ERR_INVALID_PACKAGE_TARGET'
+        const code =
+          mode === 'missing'
+            ? 'ERR_MODULE_NOT_FOUND'
+            : mode === 'directory'
+              ? 'ERR_UNSUPPORTED_DIR_IMPORT'
+              : mode === 'null' || mode === 'null-subpath'
+                ? 'ERR_PACKAGE_PATH_NOT_EXPORTED'
+                : 'ERR_INVALID_PACKAGE_TARGET'
         await expect(importFromResolution(resolution, specifier)).rejects.toMatchObject({ code })
       }
     }
@@ -785,7 +871,9 @@ describe('removeLinkProjections', () => {
     expect(lstatSync(join(modules, 'linked-plugin')).isSymbolicLink()).toBe(true)
     expect(readlinkSync(join(modules, 'linked-plugin'))).toBe(outside)
     expect(lstatSync(join(modules, 'dangling')).isSymbolicLink()).toBe(true)
-    expect(() => { removeLinkProjections(profile) }).not.toThrow()
+    expect(() => {
+      removeLinkProjections(profile)
+    }).not.toThrow()
   })
 
   it('removes the directory when the profile has no node_modules and keeps links whose target parent is gone', () => {

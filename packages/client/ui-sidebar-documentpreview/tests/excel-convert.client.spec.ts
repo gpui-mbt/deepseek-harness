@@ -1,7 +1,7 @@
 /** XLSX formatting, cached formula results, and resource admission. */
 import ExcelJS from 'exceljs'
 import { strToU8, unzipSync, zipSync } from 'fflate'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { Config } from '../src/config.ts'
 import { excelFixture, meetingMinutesFixture } from './excel-fixture.ts'
@@ -16,13 +16,25 @@ describe('Excel conversion', () => {
     expect(sheets.map(sheet => sheet.name)).toEqual(['季度预算', '公式与格式', '隐藏页'])
     const first = sheets[0]!
     const cell = (r: number, c: number) => first.celldata!.find(value => value.r === r && value.c === c)!.v
-    expect(cell(0, 0)).toMatchObject({ v: 'DeepSeek · 项目预算', bl: 1, fs: 18, fc: '#FFFFFF', bg: '#3B5CCC', ht: 0, vt: 0, mc: { r: 0, c: 0, rs: 1, cs: 4 } })
+    expect(cell(0, 0)).toMatchObject({
+      v: 'DeepSeek · 项目预算',
+      bl: 1,
+      fs: 18,
+      fc: '#FFFFFF',
+      bg: '#3B5CCC',
+      ht: 0,
+      vt: 0,
+      mc: { r: 0, c: 0, rs: 1, cs: 4 },
+    })
     expect(cell(0, 1)).toMatchObject({ mc: { r: 0, c: 0 } })
     expect(cell(0, 1)).not.toHaveProperty('v')
     expect(cell(2, 3)).toMatchObject({ f: '=C3/B3', v: 0.8, m: '80.0%', ct: { fa: '0.0%', t: 'n' } })
     expect(cell(4, 1)).toMatchObject({ f: '=SUM(B3:B4)', v: 57000, m: '57,000.00' })
     expect(first.config).toMatchObject({ rowlen: { 0: 48 }, columnlen: { 0: 173 }, merge: { '0_0': { rs: 1, cs: 4 } } })
-    expect(first.config!.borderInfo).toContainEqual({ rangeType: 'cell', value: { row_index: 1, col_index: 0, b: { style: 1, color: '#DCE2ED' } } })
+    expect(first.config!.borderInfo).toContainEqual({
+      rangeType: 'cell',
+      value: { row_index: 1, col_index: 0, b: { style: 1, color: '#DCE2ED' } },
+    })
     expect(first.frozen).toEqual({ type: 'rangeBoth', range: { row_focus: 1, column_focus: 0 } })
     expect(first.luckysheet_select_save).toEqual([{ row: [0, 0], column: [0, 3], row_focus: 0, column_focus: 0 }])
     const second = sheets[1]!
@@ -40,14 +52,23 @@ describe('Excel conversion', () => {
     expect(secondCell(4, 0)).toMatchObject({ v: '#DIV/0!' })
     expect(secondCell(0, 5)).toMatchObject({ f: '=1-1', v: 0, m: '0' })
     expect(secondCell(1, 5)).toMatchObject({ f: '=1=2', v: false, m: 'false' })
-    expect(second.config).toMatchObject({ rowhidden: { 6: 0 }, colhidden: { 4: 0 }, rowlen: { 6: 40 * 96 / 72 } })
+    expect(second.config).toMatchObject({ rowhidden: { 6: 0 }, colhidden: { 4: 0 }, rowlen: { 6: (40 * 96) / 72 } })
     expect(sheets[2]).toMatchObject({ hide: 1, status: 0 })
     expect(missingResults).toBe(1)
   })
 
   it('opens workbooks with missing results and Chinese worksheet references', async () => {
     const { sheets, missingResults } = await convertExcel(await meetingMinutesFixture(), 'xlsx', limits)
-    expect(sheets.map(sheet => sheet.name)).toEqual(['会议信息', '会议议程', '决议事项', '行动计划', '待确认问题', '风险与依赖', '统计看板', '填写说明'])
+    expect(sheets.map(sheet => sheet.name)).toEqual([
+      '会议信息',
+      '会议议程',
+      '决议事项',
+      '行动计划',
+      '待确认问题',
+      '风险与依赖',
+      '统计看板',
+      '填写说明',
+    ])
     const dashboard = sheets[6]!
     const cell = (r: number, c: number) => dashboard.celldata!.find(value => value.r === r && value.c === c)!.v
     expect(cell(4, 1)).toMatchObject({ f: '=COUNTIF(行动计划!$G$4:$G$23,$A5)', m: '' })
@@ -65,7 +86,9 @@ describe('Excel conversion', () => {
     await expect(convertExcel(framed.subarray(1, -1), 'xlsx', limits)).resolves.toMatchObject({ missingResults: 1 })
     const workbook = new ExcelJS.Workbook()
     workbook.addWorksheet('Sparse').getCell('Z1000').value = 1
-    await expect(convertExcel(new Uint8Array(await workbook.xlsx.writeBuffer()), 'xlsx', { ...limits, maxCells: 25_000 })).rejects.toMatchObject({ code: 'tooLarge' })
+    await expect(
+      convertExcel(new Uint8Array(await workbook.xlsx.writeBuffer()), 'xlsx', { ...limits, maxCells: 25_000 }),
+    ).rejects.toMatchObject({ code: 'tooLarge' })
     const styled = new ExcelJS.Workbook()
     styled.addWorksheet('Styled').getCell('A1').value = 1
     styled.getWorksheet('Styled')!.getCell('XFD1000').font = { bold: true }
@@ -93,7 +116,7 @@ describe('Excel conversion', () => {
     expect(result.sheets[0]!.config!.rowlen).not.toHaveProperty('999')
   })
 
-  it.each([false, true])('retains dates for the 1904 epoch flag %s', async (date1904) => {
+  it.each([false, true])('retains dates for the 1904 epoch flag %s', async date1904 => {
     const workbook = new ExcelJS.Workbook()
     workbook.properties.date1904 = date1904
     const cell = workbook.addWorksheet('Dates').getCell('A1')
@@ -139,7 +162,7 @@ describe('Excel conversion', () => {
     expect(cells[6]!.v).toMatchObject({ v: 'No underline', un: 0 })
   })
 
-  it.each([{ ySplit: 2 }, { xSplit: 1 }, {}])('maps one-axis or empty freeze settings %j', async (freeze) => {
+  it.each([{ ySplit: 2 }, { xSplit: 1 }, {}])('maps one-axis or empty freeze settings %j', async freeze => {
     const workbook = new ExcelJS.Workbook()
     workbook.addWorksheet('Frozen', { views: [{ state: 'frozen', ...freeze, showGridLines: false }] }).getCell('A1').value = 1
     const result = await convertExcel(new Uint8Array(await workbook.xlsx.writeBuffer()), 'xlsx', limits)
@@ -151,7 +174,9 @@ describe('Excel conversion', () => {
     const files = unzipSync(await excelFixture())
     delete files['xl/theme/theme1.xml']
     expect((await convertExcel(new Uint8Array(zipSync(files)), 'xlsx', limits)).sheets).toHaveLength(3)
-    files['xl/theme/theme1.xml'] = strToU8('<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:themeElements><a:clrScheme name="Custom"><a:lt1><a:sysClr val="window" lastClr="FEFEFE"/></a:lt1></a:clrScheme></a:themeElements></a:theme>')
+    files['xl/theme/theme1.xml'] = strToU8(
+      '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:themeElements><a:clrScheme name="Custom"><a:lt1><a:sysClr val="window" lastClr="FEFEFE"/></a:lt1></a:clrScheme></a:themeElements></a:theme>',
+    )
     expect((await convertExcel(new Uint8Array(zipSync(files)), 'xlsx', limits)).sheets).toHaveLength(3)
   })
 })

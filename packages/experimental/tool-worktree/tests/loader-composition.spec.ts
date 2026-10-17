@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -39,15 +39,35 @@ describe('worktree tool through real Loader composition', () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-worktree-loader-')))
     const repository = join(root, 'repo')
     await mkdir(repository)
-    const git = (...args: string[]) => exec('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
-      cwd: repository,
-      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '', GIT_CONFIG_PARAMETERS: '', GIT_CONFIG_COUNT: '0', GIT_DIR: undefined, GIT_WORK_TREE: undefined, GIT_INDEX_FILE: undefined },
-    })
+    const git = (...args: string[]) =>
+      exec('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
+        cwd: repository,
+        env: {
+          ...process.env,
+          GIT_CONFIG_NOSYSTEM: '1',
+          GIT_CONFIG_GLOBAL: '',
+          GIT_CONFIG_PARAMETERS: '',
+          GIT_CONFIG_COUNT: '0',
+          GIT_DIR: undefined,
+          GIT_WORK_TREE: undefined,
+          GIT_INDEX_FILE: undefined,
+        },
+      })
     await git('init', '-b', 'main')
     await git('config', 'core.autocrlf', 'false')
     await writeFile(join(repository, 'file.txt'), 'committed\n')
     await git('add', 'file.txt')
-    await git('-c', 'user.name=Worktree fixture', '-c', 'user.email=worktree@example.invalid', '-c', 'commit.gpgSign=false', 'commit', '-m', 'initial')
+    await git(
+      '-c',
+      'user.name=Worktree fixture',
+      '-c',
+      'user.email=worktree@example.invalid',
+      '-c',
+      'commit.gpgSign=false',
+      'commit',
+      '-m',
+      'initial',
+    )
     const baseCommit = (await git('rev-parse', 'HEAD')).stdout.trim()
 
     const modules = new Map<string, unknown>([
@@ -66,11 +86,14 @@ describe('worktree tool through real Loader composition', () => {
       ['@deepseek-ai/dsh-experimental-tool-worktree', ToolWorktree],
       ['@deepseek-ai/dsh-agent-loop', AgentLoop],
     ])
-    const config = [...modules.keys()].flatMap(name => [
-      `- name: 'cordis:${name}'`,
-      ...name === '@deepseek-ai/dsh-sandbox-policy' ? ['  config:', '    mode: danger-full-access'] : [],
-      ...name === '@deepseek-ai/dsh-agent-loop' ? ['  config:', '    agents: []'] : [],
-    ]).join('\n') + '\n'
+    const config =
+      [...modules.keys()]
+        .flatMap(name => [
+          `- name: 'cordis:${name}'`,
+          ...(name === '@deepseek-ai/dsh-sandbox-policy' ? ['  config:', '    mode: danger-full-access'] : []),
+          ...(name === '@deepseek-ai/dsh-agent-loop' ? ['  config:', '    agents: []'] : []),
+        ])
+        .join('\n') + '\n'
     const configPath = join(root, 'cordis.yml')
     await writeFile(configPath, config)
     context = new Context()
@@ -82,9 +105,14 @@ describe('worktree tool through real Loader composition', () => {
     await context.loader.await()
 
     const agent = await context.agentLoop.create(SessionId('worktree-loader'), {}, { cwd: repository })
-    const invoke = (name: string, agentValue = agent) => context!.tools.execute({
-      name: 'create_worktree', callId: ToolCallId(name), arguments: { name }, agent: agentValue, signal: new AbortController().signal,
-    })
+    const invoke = (name: string, agentValue = agent) =>
+      context!.tools.execute({
+        name: 'create_worktree',
+        callId: ToolCallId(name),
+        arguments: { name },
+        agent: agentValue,
+        signal: new AbortController().signal,
+      })
     const result = await invoke('new-checkout')
     const path = join(repository, '.agents/worktrees/new-checkout')
     expect(result.isError).not.toBe(true)
@@ -94,12 +122,21 @@ describe('worktree tool through real Loader composition', () => {
     expect(await readFile(join(path, 'file.txt'), 'utf8')).toBe('committed\n')
 
     const failure = await context.tools.execute({
-      name: 'create_worktree', callId: ToolCallId('no-agent'), arguments: {}, signal: new AbortController().signal,
+      name: 'create_worktree',
+      callId: ToolCallId('no-agent'),
+      arguments: {},
+      signal: new AbortController().signal,
     })
     expect(failure.isError).toBe(true)
-    expect(failure.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')).toContain('requires a calling agent')
-    expect(context.tools.get('create_worktree')!.presentCall!({ name: 'named' })).toEqual({ card: 'generic', title: 'create_worktree', rawInput: { name: 'named' } })
-    const entry = [...context.loader.entries()].find(candidate => candidate.options.name === 'cordis:@deepseek-ai/dsh-experimental-tool-worktree')
+    expect(failure.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('\n')).toContain('requires a calling agent')
+    expect(context.tools.get('create_worktree')!.presentCall!({ name: 'named' })).toEqual({
+      card: 'generic',
+      title: 'create_worktree',
+      rawInput: { name: 'named' },
+    })
+    const entry = [...context.loader.entries()].find(
+      candidate => candidate.options.name === 'cordis:@deepseek-ai/dsh-experimental-tool-worktree',
+    )
     await entry!.fiber!.dispose()
     expect(context.tools.schemas().some(tool => tool.name === 'create_worktree')).toBe(false)
   })

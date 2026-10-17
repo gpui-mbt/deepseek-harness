@@ -1,7 +1,7 @@
 /** Context and Fiber identities collected from live Cordis plugins. */
 
 import { Context, Service, type Fiber } from '@deepseek-ai/cordis'
-import { assert, describe, expect, it, type TestContext } from 'vitest'
+import { assert, describe, expect, it, type TestContext } from 'vite-plus/test'
 import { CordisTreeCollector } from '../src/shared/cordis/collector.ts'
 import type { CordisTreeNode } from '../src/shared/cordis/snapshot.ts'
 
@@ -27,9 +27,13 @@ class CollectorSpawner extends Service {
 
 function setup(test: TestContext): { root: Context; collector: CordisTreeCollector } {
   const root = new Context()
-  test.onTestFinished(async () => { await root.fiber.dispose() })
+  test.onTestFinished(async () => {
+    await root.fiber.dispose()
+  })
   const collector = new CordisTreeCollector(root, { maxNodes: 100, maxBytes: 100_000 })
-  test.onTestFinished(() => { collector.close() })
+  test.onTestFinished(() => {
+    collector.close()
+  })
   return { root, collector }
 }
 
@@ -39,7 +43,7 @@ function* walk(node: CordisTreeNode): Generator<CordisTreeNode> {
 }
 
 describe('Cordis collector live object identities', () => {
-  it('retains a service-created Fiber with its canonical Context', async (test) => {
+  it('retains a service-created Fiber with its canonical Context', async test => {
     const { root, collector } = setup(test)
     const provider = await root.plugin(CollectorSpawner)
     let spawned: Fiber | undefined
@@ -86,7 +90,7 @@ describe('Cordis collector live object identities', () => {
     expect(new Set(retained).size).toBe(nodes.length)
   })
 
-  it('keeps ordinary and inherited-fiber Contexts distinct without duplicating their Fiber', async (test) => {
+  it('keeps ordinary and inherited-fiber Contexts distinct without duplicating their Fiber', async test => {
     const { root, collector } = setup(test)
     const extended = root.extend()
     const isolated = extended.isolate('collector-value')
@@ -103,13 +107,19 @@ describe('Cordis collector live object identities', () => {
     expect(derived.fiber).toBe(fiber)
     const snapshot = collector.snapshot()
     expect(snapshot.truncated).toBe(false)
-    const subtree = [...walk(snapshot.root)].find(node =>
-      node.kind === 'context' && collector.objects.resolve(node.objectHandle) === extended)
+    const subtree = [...walk(snapshot.root)].find(
+      node => node.kind === 'context' && collector.objects.resolve(node.objectHandle) === extended,
+    )
     assert(subtree)
     const nodes = [...walk(subtree)]
     expect(nodes.filter(node => node.kind === 'fiber')).toHaveLength(1)
     expect(nodes.map(node => collector.objects.resolve(node.objectHandle))).toEqual([
-      extended, isolated, intercepted, fiber, fiber.ctx, derived,
+      extended,
+      isolated,
+      intercepted,
+      fiber,
+      fiber.ctx,
+      derived,
     ])
     const reference = collector.objects.identify(fiber)
     assert(reference)

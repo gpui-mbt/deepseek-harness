@@ -117,16 +117,17 @@ function httpsOrigin(value, name) {
   let parsed
   try {
     parsed = new URL(value)
-  }
-  catch {
+  } catch {
     throw new Error(`desktop auto-update: ${name} must be an absolute HTTPS origin`)
   }
-  if (parsed.protocol !== 'https:'
-    || parsed.username !== ''
-    || parsed.password !== ''
-    || parsed.pathname !== '/'
-    || parsed.search !== ''
-    || parsed.hash !== '') {
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username !== '' ||
+    parsed.password !== '' ||
+    parsed.pathname !== '/' ||
+    parsed.search !== '' ||
+    parsed.hash !== ''
+  ) {
     throw new Error(`desktop auto-update: ${name} must be an absolute HTTPS origin without a path, credentials, query, or fragment`)
   }
   return parsed.origin

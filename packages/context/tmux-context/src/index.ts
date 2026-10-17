@@ -36,7 +36,6 @@ declare module '@deepseek-ai/dsh-llm' {
   }
 }
 
-
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'tmux-context'
 
@@ -144,16 +143,16 @@ async function queryTmuxLocation(
   const line = result.stdout.text.split('\n', 1)[0] as string
   const parts = line.split(FIELD_SEP)
   if (parts.length !== TMUX_FIELDS.length) return undefined
-  const [
-    sessionName,
-    windowIndex,
-    windowName,
-    paneIndex,
-    paneId,
-    windowActive,
-    paneActive,
-    windowLayout,
-  ] = parts as [string, string, string, string, string, string, string, string]
+  const [sessionName, windowIndex, windowName, paneIndex, paneId, windowActive, paneActive, windowLayout] = parts as [
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+  ]
   if (paneId.length === 0) return undefined
   return {
     sessionName,
@@ -173,11 +172,13 @@ async function queryTmuxLocation(
  * only by tmux state, not by loop position.
  */
 function renderState(location: TmuxLocation): string {
-  return `session ${location.sessionName}, `
-    + `window ${location.windowIndex} ${JSON.stringify(location.windowName)}, `
-    + `pane ${location.paneIndex} ${location.paneId}\n`
-    + `window active=${location.windowActive}, pane active=${location.paneActive}, `
-    + `layout ${location.windowLayout}`
+  return (
+    `session ${location.sessionName}, ` +
+    `window ${location.windowIndex} ${JSON.stringify(location.windowName)}, ` +
+    `pane ${location.paneIndex} ${location.paneId}\n` +
+    `window active=${location.windowActive}, pane active=${location.paneActive}, ` +
+    `layout ${location.windowLayout}`
+  )
 }
 
 /** Render the full durable reading, including the volatile turn preamble. */
@@ -193,20 +194,17 @@ function renderReading(location: TmuxLocation, turn: number): string {
  */
 /** Reject refresh intervals that cannot represent an exact elapsed-millisecond threshold. */
 function validateRefreshInterval(refreshIntervalMs: number | undefined): void {
-  if (refreshIntervalMs !== undefined && (
-    !Number.isSafeInteger(refreshIntervalMs)
-    || refreshIntervalMs < 0
-  )) {
-    throw new TypeError(
-      `tmux-context: refreshIntervalMs must be a non-negative safe integer, got ${String(refreshIntervalMs)}`,
-    )
+  if (refreshIntervalMs !== undefined && (!Number.isSafeInteger(refreshIntervalMs) || refreshIntervalMs < 0)) {
+    throw new TypeError(`tmux-context: refreshIntervalMs must be a non-negative safe integer, got ${String(refreshIntervalMs)}`)
   }
 }
 
-const tmuxContextStateSchema = zod.object({
-  state: zod.string(),
-  time: zod.number(),
-}).nullable()
+const tmuxContextStateSchema = zod
+  .object({
+    state: zod.string(),
+    time: zod.number(),
+  })
+  .nullable()
 
 type TmuxContextState = zod.infer<typeof tmuxContextStateSchema>
 
@@ -233,8 +231,7 @@ export function apply(ctx: Context, config: Config): void {
     stateSchema: tmuxContextStateSchema,
     init: () => null,
     apply: (state, event) => {
-      if (event.type !== 'user/message'
-        || event.data.source.kind !== name) return state
+      if (event.type !== 'user/message' || event.data.source.kind !== name) return state
       const [block] = event.data.content
       if (block?.type !== 'text') return state
       const newline = block.text.indexOf('\n')
@@ -243,33 +240,34 @@ export function apply(ctx: Context, config: Config): void {
     },
   })
 
-  ctx.on('agent/pre-step', async (
-    { agent, turn, step, signal },
-    next,
-  ): Promise<PreStepDecision> => {
-    const decision = await next()
-    if (decision.kind === 'reject' || signal.aborted || step !== 1) return decision
-    const bash = ctx.get('shell')
-    if (bash === undefined) return decision
-    const previous = ctx.sessionProjections.stateOf(agent.session, 'tmuxContext') as TmuxContextState
-    if (refreshIntervalMs !== undefined && refreshIntervalMs > 0 && previous !== null) {
-      const now = Date.now()
-      if (now >= previous.time && now - previous.time < refreshIntervalMs) return decision
-    }
-    const location = await queryTmuxLocation(bash, ctx.logger, process.pid, signal)
-    if (location === undefined) return decision
-    const state = renderState(location)
-    if (previous !== null && previous.state === state) return decision
-    const text = renderReading(location, turn)
-    return {
-      ...decision,
-      messages: [
-        createUserMessage({
-          content: [{ type: 'text', text }],
-          source: { kind: name, form: 'snapshot', sections: [{ name, text }] },
-        }),
-        ...decision.messages,
-      ],
-    }
-  }, { prepend: true })
+  ctx.on(
+    'agent/pre-step',
+    async ({ agent, turn, step, signal }, next): Promise<PreStepDecision> => {
+      const decision = await next()
+      if (decision.kind === 'reject' || signal.aborted || step !== 1) return decision
+      const bash = ctx.get('shell')
+      if (bash === undefined) return decision
+      const previous = ctx.sessionProjections.stateOf(agent.session, 'tmuxContext') as TmuxContextState
+      if (refreshIntervalMs !== undefined && refreshIntervalMs > 0 && previous !== null) {
+        const now = Date.now()
+        if (now >= previous.time && now - previous.time < refreshIntervalMs) return decision
+      }
+      const location = await queryTmuxLocation(bash, ctx.logger, process.pid, signal)
+      if (location === undefined) return decision
+      const state = renderState(location)
+      if (previous !== null && previous.state === state) return decision
+      const text = renderReading(location, turn)
+      return {
+        ...decision,
+        messages: [
+          createUserMessage({
+            content: [{ type: 'text', text }],
+            source: { kind: name, form: 'snapshot', sections: [{ name, text }] },
+          }),
+          ...decision.messages,
+        ],
+      }
+    },
+    { prepend: true },
+  )
 }

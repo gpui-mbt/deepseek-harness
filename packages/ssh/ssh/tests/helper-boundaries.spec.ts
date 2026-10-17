@@ -4,7 +4,7 @@ import { readFile, stat, writeFile } from 'node:fs/promises'
 import { PassThrough } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { createHelperHarness } from './fixtures/helper.ts'
 import { runSshHelper } from '../src/helper.ts'
@@ -23,11 +23,18 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
     const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
     try {
       await expect(runSshHelper({ input, output, kind: 'node-script', entryPath, signal: controller.signal })).rejects.toThrow('POSIX host')
-    } finally { platform.mockRestore() }
+    } finally {
+      platform.mockRestore()
+    }
     controller.abort(new Error('startup cancelled'))
     try {
-      await expect(runSshHelper({ input, output, kind: 'node-script', entryPath, signal: controller.signal })).rejects.toThrow('startup cancelled')
-    } finally { input.destroy(); output.destroy() }
+      await expect(runSshHelper({ input, output, kind: 'node-script', entryPath, signal: controller.signal })).rejects.toThrow(
+        'startup cancelled',
+      )
+    } finally {
+      input.destroy()
+      output.destroy()
+    }
   })
 
   it('joins teardown when cancellation arrives while services are mounting', async () => {
@@ -40,7 +47,10 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       await serving
       expect(input.destroyed).toBe(true)
       expect(output.destroyed).toBe(true)
-    } finally { input.destroy(); output.destroy() }
+    } finally {
+      input.destroy()
+      output.destroy()
+    }
   })
 
   it('returns the negotiated bootstrap digest and rejects invalid handshake fields', async () => {
@@ -50,21 +60,35 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
         { protocol: 1, workspace: test.root, leaseMs: 3000 },
         { protocol: 2, workspace: 'relative', leaseMs: 3000 },
         { protocol: 2, workspace: test.root, leaseMs: 2999 },
-      ]) await expect(test.client.request('hello', params, helloSchema)).rejects.toThrow()
+      ])
+        await expect(test.client.request('hello', params, helloSchema)).rejects.toThrow()
       const bootstrapPath = `${test.root}/bootstrap.js`
       await writeFile(bootstrapPath, 'export const identity = "test"\n')
       const facts = await test.client.request('hello', { protocol: 2, workspace: test.root, leaseMs: 3000, bootstrapPath }, helloSchema)
-      expect(facts.bootstrapHash).toBe(createHash('sha256').update(await readFile(bootstrapPath)).digest('hex'))
-    } finally { await test.close() }
+      expect(facts.bootstrapHash).toBe(
+        createHash('sha256')
+          .update(await readFile(bootstrapPath))
+          .digest('hex'),
+      )
+    } finally {
+      await test.close()
+    }
   })
 
   it('refuses an external bootstrap for an executable helper', async () => {
     const test = await createHelperHarness(false, 30_000, 'executable')
     try {
-      await expect(test.client.request('hello', { protocol: 2, workspace: test.root, leaseMs: 3000, bootstrapPath: '/external/process.js' }, helloSchema))
-        .rejects.toThrow('embedded PTC bootstrap')
+      await expect(
+        test.client.request(
+          'hello',
+          { protocol: 2, workspace: test.root, leaseMs: 3000, bootstrapPath: '/external/process.js' },
+          helloSchema,
+        ),
+      ).rejects.toThrow('embedded PTC bootstrap')
       expect((await test.hello()).kind).toBe('executable')
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('expires the client lease and joins open text streams and reserved sockets', async () => {
@@ -75,10 +99,16 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       await writeFile(`${test.root}/text`, 'pending stream')
       const target = await test.client.request('fs.resolve', { path: 'text' }, targetSchema)
       await test.client.request('fs.stream', { target }, z.string())
-      const reservation = await test.client.request('process.prepare', {
-        argv: ['true'], cwd: test.root, graceMs: 100,
-        stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
-      }, preparedSchema)
+      const reservation = await test.client.request(
+        'process.prepare',
+        {
+          argv: ['true'],
+          cwd: test.root,
+          graceMs: 100,
+          stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
+        },
+        preparedSchema,
+      )
       const endpoint = reservation.streams.stdout
       expect(endpoint).toBeDefined()
       await test.client.request('heartbeat', {}, z.null())
@@ -88,8 +118,11 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       await expect(stat(endpoint!.path)).rejects.toMatchObject({ code: 'ENOENT' })
       await expect(test.client.request('heartbeat', {}, z.null())).rejects.toThrow('connection lost')
     } finally {
-      try { await test?.close() }
-      finally { vi.useRealTimers() }
+      try {
+        await test?.close()
+      } finally {
+        vi.useRealTimers()
+      }
     }
   })
 
@@ -105,7 +138,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       expect(next.done).toBe(false)
       expect(next.value.length).toBeGreaterThan(0)
       await test.client.request('fs.streamClose', { id: stream }, z.null())
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('enforces stream capacity before and after overlapping allocation', async () => {
@@ -143,7 +178,11 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       if (created?.status !== 'fulfilled') throw new Error('no stream was admitted')
       await test.client.request('fs.streamClose', { id: created.value }, z.null())
       expect(await test.client.request('fs.stream', { target }, z.string())).toBeTypeOf('string')
-    } finally { release.resolve(undefined); spy.mockRestore(); await test.close() }
+    } finally {
+      release.resolve(undefined)
+      spy.mockRestore()
+      await test.close()
+    }
   })
 
   it('returns an iterator allocated after its remote request was cancelled', async () => {
@@ -152,7 +191,10 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
     const release = Promise.withResolvers<AsyncIterable<string>>()
     const returned = vi.fn(() => Promise.resolve({ done: true as const, value: undefined }))
     const stream: AsyncIterable<string> = { [Symbol.asyncIterator]: () => ({ next: returned, return: returned }) }
-    const spy = vi.spyOn(LocalFileSystem.prototype, 'streamText').mockImplementationOnce(() => { entered.resolve(undefined); return release.promise })
+    const spy = vi.spyOn(LocalFileSystem.prototype, 'streamText').mockImplementationOnce(() => {
+      entered.resolve(undefined)
+      return release.promise
+    })
     const controller = new AbortController()
     try {
       const target = await test.client.request('fs.resolve', { path: 'delayed' }, targetSchema)
@@ -164,7 +206,11 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       release.resolve(stream)
       await rejected
       await expect.poll(() => returned.mock.calls.length).toBe(1)
-    } finally { release.resolve(stream); spy.mockRestore(); await test.close() }
+    } finally {
+      release.resolve(stream)
+      spy.mockRestore()
+      await test.close()
+    }
   })
 
   it('removes failed text iterators and reports the underlying filesystem error', async () => {
@@ -174,7 +220,9 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       const id = await test.client.request('fs.stream', { target }, z.string())
       await expect(test.client.request('fs.next', { id }, nextSchema)).rejects.toMatchObject({ code: 'FS_NOT_FOUND' })
       await expect(test.client.request('fs.next', { id }, nextSchema)).rejects.toThrow('Unknown SSH text stream')
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 
   it('cancels a pending iterator read and closes it before accepting another read', async () => {
@@ -183,15 +231,24 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
     const pending = Promise.withResolvers<IteratorResult<string>>()
     const returned = vi.fn(() => Promise.resolve({ done: true as const, value: undefined }))
     const spy = vi.spyOn(LocalFileSystem.prototype, 'streamText').mockImplementationOnce((_target, signal) => {
-      signal!.addEventListener('abort', () => { pending.reject(signal!.reason) }, { once: true })
+      signal!.addEventListener(
+        'abort',
+        () => {
+          pending.reject(signal!.reason)
+        },
+        { once: true },
+      )
       let reads = 0
-      return Promise.resolve({ [Symbol.asyncIterator]: () => ({
-        next: () => {
-          if (reads++ === 0) return Promise.resolve({ value: 'before wait' })
-          entered.resolve(undefined)
-          return pending.promise
-        }, return: returned,
-      }) })
+      return Promise.resolve({
+        [Symbol.asyncIterator]: () => ({
+          next: () => {
+            if (reads++ === 0) return Promise.resolve({ value: 'before wait' })
+            entered.resolve(undefined)
+            return pending.promise
+          },
+          return: returned,
+        }),
+      })
     })
     const controller = new AbortController()
     try {
@@ -205,7 +262,11 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       await rejected
       await expect.poll(() => returned.mock.calls.length).toBe(1)
       await expect(test.client.request('fs.next', { id }, nextSchema)).rejects.toThrow('Unknown SSH text stream')
-    } finally { pending.resolve({ done: true, value: undefined }); spy.mockRestore(); await test.close() }
+    } finally {
+      pending.resolve({ done: true, value: undefined })
+      spy.mockRestore()
+      await test.close()
+    }
   })
 
   it('reports cleanup failure through the serving lifetime after transport loss', async () => {
@@ -217,24 +278,37 @@ describe.skipIf(process.platform === 'win32')('SSH helper wire and lifecycle bou
       test.controller.abort()
       await rejected
       await expect(stat(test.facts!.root)).rejects.toMatchObject({ code: 'ENOENT' })
-    } finally { close.mockRestore(); await expect(test.close()).rejects.toBe(failure) }
+    } finally {
+      close.mockRestore()
+      await expect(test.close()).rejects.toBe(failure)
+    }
   })
 
   it('routes process and terminal lifecycle operations while rejecting unknown ids', async () => {
     const test = await createHelperHarness()
     try {
-      const prepared = await test.client.request('process.prepare', {
-        argv: ['true'], cwd: test.root, graceMs: 100,
-        stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
-      }, preparedSchema)
+      const prepared = await test.client.request(
+        'process.prepare',
+        {
+          argv: ['true'],
+          cwd: test.root,
+          graceMs: 100,
+          stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
+        },
+        preparedSchema,
+      )
       for (const method of ['terminal.write', 'terminal.inspect', 'terminal.signal']) {
         await expect(test.client.request(method, { id: prepared.id, value: 'x' }, z.unknown())).rejects.toThrow('does not own a terminal')
       }
       await test.client.request('process.terminate', { id: prepared.id }, z.null())
       for (const method of ['process.start', 'process.done', 'process.wait', 'process.terminate']) {
-        await expect(test.client.request(method, { id: randomUUID() }, z.unknown())).rejects.toThrow('Unknown or expired SSH process handle')
+        await expect(test.client.request(method, { id: randomUUID() }, z.unknown())).rejects.toThrow(
+          'Unknown or expired SSH process handle',
+        )
       }
       await expect(test.client.request('process.wait', { id: 'malformed' }, z.unknown())).rejects.toThrow()
-    } finally { await test.close() }
+    } finally {
+      await test.close()
+    }
   })
 })

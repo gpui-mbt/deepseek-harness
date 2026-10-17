@@ -14,9 +14,7 @@ export interface CodeProgram {
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
 
 function parseRecord(value: string | undefined): Record<string, unknown> | undefined {
@@ -53,9 +51,13 @@ export function codeProgram(cell: TrajectoryCellProps): CodeProgram | undefined 
   return {
     rawInput: cell.inputDetail,
     source: args.code,
-    description: typeof args.description === 'string' && args.description.trim() !== ''
-      ? args.description
-      : args.code.split(/\r?\n/).find(line => line.trim() !== '')?.trim() ?? '',
+    description:
+      typeof args.description === 'string' && args.description.trim() !== ''
+        ? args.description
+        : (args.code
+            .split(/\r?\n/)
+            .find(line => line.trim() !== '')
+            ?.trim() ?? ''),
     arguments: args,
     language: recordedLanguage(cell.schemaDetail),
   }

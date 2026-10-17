@@ -21,13 +21,13 @@ export interface OpenPathInjected {
 }
 
 /** Full props of the document-header contribution. */
-export type OpenPathActionProps =
-  PropsRuntime<'sidebar.right.tab.document.actions'>
-  & PropsLocale<typeof NS>
-  & InjectFace<OpenPathInjected>
+export type OpenPathActionProps = PropsRuntime<'sidebar.right.tab.document.actions'> & PropsLocale<typeof NS> & InjectFace<OpenPathInjected>
 
 /** File inputs shared by the document header and its unpreviewable state. */
-type FileOpenTargetProps = Pick<OpenPathActionProps, 'absolutePath' | 'useOpenInAppDesktop' | 'loadDesktop' | 'openPath' | 'applications' | 't'> & {
+type FileOpenTargetProps = Pick<
+  OpenPathActionProps,
+  'absolutePath' | 'useOpenInAppDesktop' | 'loadDesktop' | 'openPath' | 'applications' | 't'
+> & {
   empty?: boolean
 }
 
@@ -46,12 +46,22 @@ export function FileOpenTarget(props: FileOpenTargetProps): ReactNode {
   const { apps } = association
   return (
     <OpenTargetButton
-      key={props.absolutePath} kind="file" applications={apps} defaultId={apps.find(app => app.default)?.id}
-      loading={association.loading} failed={association.failed}
-      prominent={props.empty === true} t={props.t}
+      key={props.absolutePath}
+      kind="file"
+      applications={apps}
+      defaultId={apps.find(app => app.default)?.id}
+      loading={association.loading}
+      failed={association.failed}
+      prominent={props.empty === true}
+      t={props.t}
       refresh={association.refresh}
-      execute={operation => props.openPath(props.absolutePath, operation.kind === 'reveal' ? 'reveal' : 'open',
-        operation.kind === 'application' ? operation.id : undefined)}
+      execute={operation =>
+        props.openPath(
+          props.absolutePath,
+          operation.kind === 'reveal' ? 'reveal' : 'open',
+          operation.kind === 'application' ? operation.id : undefined,
+        )
+      }
     />
   )
 }

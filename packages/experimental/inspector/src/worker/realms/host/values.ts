@@ -26,9 +26,6 @@ export function requireNativeRecord(value: unknown, label: string): Readonly<Rec
  * @param value - Optional field value.
  * @returns An empty record or the requested field.
  */
-export function optionalNativeField<Key extends string, Value>(
-  key: Key,
-  value: Value | undefined,
-): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : { [key]: value } as Partial<Record<Key, Value>>
+export function optionalNativeField<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
+  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>)
 }

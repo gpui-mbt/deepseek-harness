@@ -2,17 +2,23 @@
 
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { startInspector, type InspectorHandle } from '../src/host/bridge/controller.ts'
 
 async function closeServer(server: Server): Promise<void> {
   if (!server.listening) return
-  await new Promise<void>((resolve) => { server.close(() => { resolve() }) })
+  await new Promise<void>(resolve => {
+    server.close(() => {
+      resolve()
+    })
+  })
 }
 
 async function listen(server: Server, port: number): Promise<AddressInfo> {
   return await new Promise<AddressInfo>((resolve, reject) => {
-    const onError = (error: Error): void => { reject(error) }
+    const onError = (error: Error): void => {
+      reject(error)
+    }
     server.once('error', onError)
     server.listen(port, '127.0.0.1', () => {
       server.off('error', onError)

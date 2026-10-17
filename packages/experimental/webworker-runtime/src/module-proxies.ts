@@ -23,18 +23,18 @@
 export const MODULE_PROXIES: Record<string, string> = {
   // VFS-backed real implementations.
   'node:fs': './node/builtin_modules/implemented/fs.ts',
-  'fs': './node/builtin_modules/implemented/fs.ts',
+  fs: './node/builtin_modules/implemented/fs.ts',
   'node:fs/promises': './node/builtin_modules/implemented/fs/promises.ts',
   'fs/promises': './node/builtin_modules/implemented/fs/promises.ts',
   'node:path': './node/builtin_modules/implemented/path.ts',
-  'path': './node/builtin_modules/implemented/path.ts',
+  path: './node/builtin_modules/implemented/path.ts',
   'node:path/posix': './node/builtin_modules/implemented/path.ts',
   'node:os': './node/builtin_modules/implemented/os.ts',
-  'os': './node/builtin_modules/implemented/os.ts',
+  os: './node/builtin_modules/implemented/os.ts',
   'node:url': './node/builtin_modules/implemented/url.ts',
   'node:module': './node/builtin_modules/implemented/module.ts',
   'node:crypto': './node/builtin_modules/implemented/crypto.ts',
-  'crypto': './node/builtin_modules/implemented/crypto.ts',
+  crypto: './node/builtin_modules/implemented/crypto.ts',
   // `buffer` itself stays unaliased: the shim is backed by that npm package.
   'node:buffer': './node/builtin_modules/implemented/buffer.ts',
   // Tunnel request source: fake bind, real route face. `node:process` and
@@ -52,7 +52,7 @@ export const MODULE_PROXIES: Record<string, string> = {
   'node:timers/promises': './node/builtin_modules/implemented/timers/promises.ts',
   'node:perf_hooks': './node/builtin_modules/implemented/perf_hooks.ts',
   'node:tty': './node/builtin_modules/implemented/tty.ts',
-  'tty': './node/builtin_modules/implemented/tty.ts',
+  tty: './node/builtin_modules/implemented/tty.ts',
   // Real zstd codec: session-log appends compress on every write.
   'node:zlib': './node/builtin_modules/implemented/zlib.ts',
   // The worker's own process layer: `bash -c` and the command table run against
@@ -72,19 +72,18 @@ export const MODULE_PROXIES: Record<string, string> = {
   // External npm replacements, named after the package each stands in for.
   '@deepseek-ai/libreoffice-kit': './node/external_packages/libreoffice-kit.ts',
   '@deepseek-ai/node-addon-system/flock': './node/external_packages/node-addon-system-flock.ts',
-  'koffi': './node/external_packages/koffi.ts',
-  'sharp': './node/external_packages/sharp.ts',
+  koffi: './node/external_packages/koffi.ts',
+  sharp: './node/external_packages/sharp.ts',
   'node-pty': './node/external_packages/node-pty.ts',
-  'execa': './node/external_packages/execa.ts',
-  'got': './node/external_packages/got.ts',
+  execa: './node/external_packages/execa.ts',
+  got: './node/external_packages/got.ts',
   '@vscode/ripgrep': './node/external_packages/ripgrep.ts',
   '@earendil-works/pi-ai': './node/external_packages/pi-ai.ts',
   // Node internal modules for callers without `--expose-internals`.
   'node-addon-require-builtin': './node/external_packages/node-addon-require-builtin.ts',
   // Constructible fakes whose methods are never reached.
-  'ws': './node/external_packages/ws.ts',
+  ws: './node/external_packages/ws.ts',
 }
-
 
 /** pi-ai subpaths (`/providers/all`, `/api/*.lazy`) share the one structural stub. */
 export const MODULE_PROXY_PREFIXES: Record<string, string> = {

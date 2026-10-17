@@ -15,9 +15,16 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { launchWebScaffold, watchConsole, captureStableAria, compareOrRefreshGolden, webSnapshotMode, type WebScaffold } from './scaffold.ts'
+import {
+  launchWebScaffold,
+  watchConsole,
+  captureStableAria,
+  compareOrRefreshGolden,
+  webSnapshotMode,
+  type WebScaffold,
+} from './scaffold.ts'
 import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
 
 /** Points the shipped shared Agent default at this scenario's own route. */
@@ -50,8 +57,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
     const session = scaffold.ctx.sessions.get(SessionId(sessionId))
     if (session === undefined) throw new Error(`session "${sessionId}" is not live`)
     return Promise.resolve(
-      scaffold.ctx.sessionProjections.snapshot(session).values.modelSelection?.next
-        ?? scaffold.ctx.agentDefaultModel.currentSelection(),
+      scaffold.ctx.sessionProjections.snapshot(session).values.modelSelection?.next ?? scaffold.ctx.agentDefaultModel.currentSelection(),
     )
   }
 
@@ -73,7 +79,10 @@ describe('web e2e: the composer model switch is the default for later sessions',
           displayName: 'Acme Gateway',
           api: 'openai-completions',
           baseURL: 'https://gateway.acme.example/v1',
-          models: [{ id: MODEL, name: 'Acme Large' }, { id: 'acme-small', name: 'Acme Small' }],
+          models: [
+            { id: MODEL, name: 'Acme Large' },
+            { id: 'acme-small', name: 'Acme Small' },
+          ],
         },
       },
     })
@@ -95,14 +104,22 @@ describe('web e2e: the composer model switch is the default for later sessions',
   it('exposes inline model labels with exact routes throughout the composer picker', async () => {
     const trigger = page.getByRole('button', { name: /^选择模型/ })
     const label = '[data-provider-id][data-model-id]'
-    const readLabels = (surface: Locator) => surface.locator(label).evaluateAll(nodes => nodes.map(node => ({
-      provider: node.getAttribute('data-provider-id'), model: node.getAttribute('data-model-id'),
-      name: node.textContent, slot: node.querySelector('[data-slot]')?.getAttribute('data-slot'),
-      inline: node.tagName === 'SPAN' && node.querySelector('div') === null,
-    })))
+    const readLabels = (surface: Locator) =>
+      surface.locator(label).evaluateAll(nodes =>
+        nodes.map(node => ({
+          provider: node.getAttribute('data-provider-id'),
+          model: node.getAttribute('data-model-id'),
+          name: node.textContent,
+          slot: node.querySelector('[data-slot]')?.getAttribute('data-slot'),
+          inline: node.tagName === 'SPAN' && node.querySelector('div') === null,
+        })),
+      )
     const current = {
-      provider: START_ROUTE, model: START_MODEL, name: 'Origin Large',
-      slot: 'conversation.input.model.label', inline: true,
+      provider: START_ROUTE,
+      model: START_MODEL,
+      name: 'Origin Large',
+      slot: 'conversation.input.model.label',
+      inline: true,
     }
     await expect.poll(() => readLabels(trigger)).toEqual([current])
     try {
@@ -122,7 +139,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
     }
   })
 
-  it.each(['root', 'model'])('reanchors the %s menu when a label grows and shrinks without a window resize', async (pane) => {
+  it.each(['root', 'model'])('reanchors the %s menu when a label grows and shrinks without a window resize', async pane => {
     const viewport = page.viewportSize()!
     const trigger = page.getByRole('button', { name: /^选择模型/ })
     try {
@@ -135,18 +152,22 @@ describe('web e2e: the composer model switch is the default for later sessions',
       const original = await surface.boundingBox()
       expect(original).not.toBeNull()
       // A Slot descendant can resize independently of ModelSelect's props and state.
-      await label.evaluate((node) => {
+      await label.evaluate(node => {
         const badge = node.ownerDocument.createElement('span')
         badge.dataset.modelLabelResizeProbe = ''
         badge.textContent = ' — Provider identification badge with a long channel name'
         node.appendChild(badge)
       })
       await expect.poll(async () => (await surface.boundingBox())!.width).toBeGreaterThan(original!.width + 50)
-      await expect.poll(async () => {
-        const box = (await surface.boundingBox())!
-        return box.x >= 12 && box.x + box.width <= 378
-      }).toBe(true)
-      await label.locator('[data-model-label-resize-probe]').evaluate((node) => { node.remove() })
+      await expect
+        .poll(async () => {
+          const box = (await surface.boundingBox())!
+          return box.x >= 12 && box.x + box.width <= 378
+        })
+        .toBe(true)
+      await label.locator('[data-model-label-resize-probe]').evaluate(node => {
+        node.remove()
+      })
       await expect.poll(async () => (await surface.boundingBox())!.width).toBeCloseTo(original!.width)
       await expect.poll(async () => (await surface.boundingBox())!.x).toBeCloseTo(original!.x)
     } finally {
@@ -179,11 +200,11 @@ describe('web e2e: the composer model switch is the default for later sessions',
       await search.fill('no-model-matches')
       await page.getByText('没有匹配的模型。', { exact: true }).waitFor()
       await search.fill('')
-      const borders = await search.evaluate((input) => {
+      const borders = await search.evaluate(input => {
         const body = input.ownerDocument.body
         const previousTheme = body.getAttribute('data-ds-dark-theme')
         try {
-          return [false, true].map((dark) => {
+          return [false, true].map(dark => {
             body.toggleAttribute('data-ds-dark-theme', dark)
             return getComputedStyle(input).borderColor
           })
@@ -200,25 +221,36 @@ describe('web e2e: the composer model switch is the default for later sessions',
   })
 
   it('shares provider order, fuzzy result order and sticky header material between both model pickers', async () => {
-    const readGroups = (surface: Locator, role: 'option' | 'menuitemradio') => surface.locator('[data-menu-group]')
-      .evaluateAll((groups, rowRole) => groups.map(group => ({
-        label: group.querySelector('[data-menu-group-heading]')!.textContent,
-        rows: [...group.querySelectorAll(`[role="${rowRole}"]`)].map(row => row.textContent),
-      })), role)
+    const readGroups = (surface: Locator, role: 'option' | 'menuitemradio') =>
+      surface.locator('[data-menu-group]').evaluateAll(
+        (groups, rowRole) =>
+          groups.map(group => ({
+            label: group.querySelector('[data-menu-group-heading]')!.textContent,
+            rows: [...group.querySelectorAll(`[role="${rowRole}"]`)].map(row => row.textContent),
+          })),
+        role,
+      )
     const checkSticky = async (surface: Locator, viewport: Locator) => {
       // Bound only this test's list viewport so native scrolling can cross a heading.
-      await viewport.evaluate((node) => { node.style.maxHeight = '80px'; node.scrollTop = 0 })
+      await viewport.evaluate(node => {
+        node.style.maxHeight = '80px'
+        node.scrollTop = 0
+      })
       const heading = surface.locator('[data-menu-group-heading]').first()
       await expect.poll(() => heading.getAttribute('data-stuck')).toBeNull()
       const clear = await heading.evaluate(node => getComputedStyle(node).backgroundColor)
       expect(clear).toBe('rgba(0, 0, 0, 0)')
-      await viewport.evaluate((node) => { node.scrollTop = 10 })
+      await viewport.evaluate(node => {
+        node.scrollTop = 10
+      })
       await expect.poll(() => heading.getAttribute('data-stuck')).toBe('')
-      const stuck = await heading.evaluate((node) => {
+      const stuck = await heading.evaluate(node => {
         const style = getComputedStyle(node)
         return { fill: style.backgroundColor, radius: style.borderRadius, font: style.fontSize, padding: style.padding }
       })
-      await viewport.evaluate((node) => { node.scrollTop = 0 })
+      await viewport.evaluate(node => {
+        node.scrollTop = 0
+      })
       await expect.poll(() => heading.getAttribute('data-stuck')).toBeNull()
       return stuck
     }
@@ -253,13 +285,22 @@ describe('web e2e: the composer model switch is the default for later sessions',
   it('hides search only in the button menu when four models remain', async () => {
     const trigger = page.getByRole('button', { name: /^选择模型/ })
     const search = page.getByRole('searchbox', { name: '搜索模型…' })
-    const setModels = (expanded: boolean) => scaffold.ctx.settings.update('llm-pi-ai', {
-      providers: { [ROUTE]: {
-        displayName: 'Acme Gateway', api: 'openai-completions', baseURL: 'https://gateway.acme.example/v1',
-        models: expanded ? [{ id: MODEL, name: 'Acme Large' }, { id: 'acme-small', name: 'Acme Small' }]
-          : [{ id: MODEL, name: 'Acme Large' }],
-      } },
-    })
+    const setModels = (expanded: boolean) =>
+      scaffold.ctx.settings.update('llm-pi-ai', {
+        providers: {
+          [ROUTE]: {
+            displayName: 'Acme Gateway',
+            api: 'openai-completions',
+            baseURL: 'https://gateway.acme.example/v1',
+            models: expanded
+              ? [
+                  { id: MODEL, name: 'Acme Large' },
+                  { id: 'acme-small', name: 'Acme Small' },
+                ]
+              : [{ id: MODEL, name: 'Acme Large' }],
+          },
+        },
+      })
     try {
       await setModels(false)
       await trigger.click()
@@ -314,36 +355,51 @@ describe('web e2e: the composer model switch is the default for later sessions',
       const headings = surface.locator('section[role="group"] > div')
       const readPinned = () => headings.evaluateAll(nodes => nodes.map(node => node.hasAttribute('data-stuck')))
       const resetScroll = async (): Promise<void> => {
-        await scroller.evaluate((node) => { node.scrollTop = 0 })
+        await scroller.evaluate(node => {
+          node.scrollTop = 0
+        })
         await expect.poll(readPinned).toEqual([false, false, false])
       }
       for (const platform of ['web', 'win32', 'darwin']) {
         for (const dark of [false, true]) {
-          await page.evaluate(({ platform, dark }) => {
-            if (platform === 'web') document.documentElement.removeAttribute('data-platform')
-            else document.documentElement.setAttribute('data-platform', platform)
-            document.body.toggleAttribute('data-ds-dark-theme', dark)
-          }, { platform, dark })
+          await page.evaluate(
+            ({ platform, dark }) => {
+              if (platform === 'web') document.documentElement.removeAttribute('data-platform')
+              else document.documentElement.setAttribute('data-platform', platform)
+              document.body.toggleAttribute('data-ds-dark-theme', dark)
+            },
+            { platform, dark },
+          )
           await resetScroll()
-          expect(await headings.evaluateAll(nodes => [...new Set(nodes.map(node => getComputedStyle(node).backgroundColor))]))
-            .toEqual(['rgba(0, 0, 0, 0)'])
-          const secondTop = await scroller.evaluate((node) => {
+          expect(await headings.evaluateAll(nodes => [...new Set(nodes.map(node => getComputedStyle(node).backgroundColor))])).toEqual([
+            'rgba(0, 0, 0, 0)',
+          ])
+          const secondTop = await scroller.evaluate(node => {
             const second = node.querySelectorAll('section')[1]!
             return Math.ceil(second.getBoundingClientRect().top - node.getBoundingClientRect().top) + 1
           })
           expect(await scroller.evaluate(node => node.scrollHeight - node.clientHeight)).toBeGreaterThanOrEqual(secondTop)
-          await scroller.evaluate((node) => { node.scrollTop = 10 })
+          await scroller.evaluate(node => {
+            node.scrollTop = 10
+          })
           await expect.poll(readPinned).toEqual([true, false, false])
-          expect(await headings.first().evaluate(node => getComputedStyle(node).backgroundColor))
-            .toBe(dark ? 'rgba(48, 49, 54, 0.94)' : 'rgba(248, 249, 250, 0.94)')
-          await scroller.evaluate((node, top) => { node.scrollTop = top }, secondTop)
+          expect(await headings.first().evaluate(node => getComputedStyle(node).backgroundColor)).toBe(
+            dark ? 'rgba(48, 49, 54, 0.94)' : 'rgba(248, 249, 250, 0.94)',
+          )
+          await scroller.evaluate((node, top) => {
+            node.scrollTop = top
+          }, secondTop)
           await expect.poll(readPinned).toEqual([false, true, false])
-          await scroller.evaluate((node) => { node.scrollTop = 10 })
+          await scroller.evaluate(node => {
+            node.scrollTop = 10
+          })
           await expect.poll(readPinned).toEqual([true, false, false])
           await resetScroll()
         }
       }
-      await scroller.evaluate((node) => { node.scrollTop = 10 })
+      await scroller.evaluate(node => {
+        node.scrollTop = 10
+      })
       await expect.poll(readPinned).toEqual([true, false, false])
       await search.fill('Origin Large')
       await expect.poll(() => headings.count()).toBe(1)
@@ -362,7 +418,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
       await resetScroll()
     } finally {
       if (await surface.count()) await search.press('Escape')
-      if (await trigger.getAttribute('aria-expanded') === 'true') await page.keyboard.press('Escape')
+      if ((await trigger.getAttribute('aria-expanded')) === 'true') await page.keyboard.press('Escape')
       await page.setViewportSize(originalViewport)
       await page.evaluate(({ platform, theme }) => {
         if (platform === null) document.documentElement.removeAttribute('data-platform')
@@ -401,7 +457,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
     await modelCell.click()
     const search = page.getByRole('searchbox', { name: '搜索模型…' })
     const rowIds = await page.getByRole('menuitemradio').evaluateAll(rows => rows.map(row => row.id))
-    const initialHighlight = rowIds.indexOf(await search.getAttribute('aria-activedescendant') ?? '')
+    const initialHighlight = rowIds.indexOf((await search.getAttribute('aria-activedescendant')) ?? '')
     expect(initialHighlight).toBeGreaterThanOrEqual(0)
     for (let step = 1; step <= rowIds.length + 1; step++) {
       await search.press('ArrowDown')
@@ -410,7 +466,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
     }
     await search.press('ArrowUp')
     expect(await search.getAttribute('aria-activedescendant')).toBe(rowIds[initialHighlight])
-    const searchStyle = await search.evaluate((input) => {
+    const searchStyle = await search.evaluate(input => {
       const wrapper = input.parentElement!
       const caption = input.ownerDocument.createElement('span')
       caption.style.color = 'var(--dsw-alias-label-caption)'
@@ -435,31 +491,34 @@ describe('web e2e: the composer model switch is the default for later sessions',
     expect(searchStyle.radius).toBe('12px')
     expect(searchStyle.padding).toBe('5px 7px')
     expect(searchStyle.fontSize).toBe('12px')
-    const modelWeights = await page.getByRole('menuitemradio').evaluateAll(rows => rows.map(row =>
-      getComputedStyle(row.querySelector('span span')!).fontWeight,
-    ))
+    const modelWeights = await page
+      .getByRole('menuitemradio')
+      .evaluateAll(rows => rows.map(row => getComputedStyle(row.querySelector('span span')!).fontWeight))
     expect(new Set(modelWeights)).toEqual(new Set(['400']))
-    const headingPalettes = await page.getByRole('group', { name: '模型与推理等级', exact: true }).evaluate((menu) => {
+    const headingPalettes = await page.getByRole('group', { name: '模型与推理等级', exact: true }).evaluate(menu => {
       const html = menu.ownerDocument.documentElement
       const body = menu.ownerDocument.body
       const previousPlatform = html.getAttribute('data-platform')
       const previousTheme = body.getAttribute('data-ds-dark-theme')
       try {
-        return ['web', 'win32', 'darwin'].flatMap(platform => [false, true].map((dark) => {
-          if (platform === 'web') html.removeAttribute('data-platform')
-          else html.setAttribute('data-platform', platform)
-          body.toggleAttribute('data-ds-dark-theme', dark)
-          const headings = [...menu.querySelectorAll('section[role="group"] > div')]
-          return {
-            platform, dark,
-            headingFills: [...new Set(headings.map(heading => getComputedStyle(heading).backgroundColor))],
-            positions: [...new Set(headings.map(heading => getComputedStyle(heading).position))],
-            headingRadii: [...new Set(headings.map(heading => getComputedStyle(heading).borderRadius))],
-            optionRadius: getComputedStyle(menu.querySelector('[role="menuitemradio"]')!).borderRadius,
-            menuFill: getComputedStyle(menu.querySelector(':scope > [aria-hidden="true"]')!).backgroundColor,
-            searchBorder: getComputedStyle(menu.querySelector('input')!.parentElement!).borderColor,
-          }
-        }))
+        return ['web', 'win32', 'darwin'].flatMap(platform =>
+          [false, true].map(dark => {
+            if (platform === 'web') html.removeAttribute('data-platform')
+            else html.setAttribute('data-platform', platform)
+            body.toggleAttribute('data-ds-dark-theme', dark)
+            const headings = [...menu.querySelectorAll('section[role="group"] > div')]
+            return {
+              platform,
+              dark,
+              headingFills: [...new Set(headings.map(heading => getComputedStyle(heading).backgroundColor))],
+              positions: [...new Set(headings.map(heading => getComputedStyle(heading).position))],
+              headingRadii: [...new Set(headings.map(heading => getComputedStyle(heading).borderRadius))],
+              optionRadius: getComputedStyle(menu.querySelector('[role="menuitemradio"]')!).borderRadius,
+              menuFill: getComputedStyle(menu.querySelector(':scope > [aria-hidden="true"]')!).backgroundColor,
+              searchBorder: getComputedStyle(menu.querySelector('input')!.parentElement!).borderColor,
+            }
+          }),
+        )
       } finally {
         if (previousPlatform === null) html.removeAttribute('data-platform')
         else html.setAttribute('data-platform', previousPlatform)
@@ -468,8 +527,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
       }
     })
     for (const palette of headingPalettes) {
-      expect(palette.headingFills, `${palette.platform}, dark=${String(palette.dark)}`)
-        .toEqual(['rgba(0, 0, 0, 0)'])
+      expect(palette.headingFills, `${palette.platform}, dark=${String(palette.dark)}`).toEqual(['rgba(0, 0, 0, 0)'])
       expect(palette.menuFill).toBe(palette.dark ? 'rgba(67, 69, 74, 0.45)' : 'rgba(248, 249, 250, 0.58)')
       expect(palette.searchBorder).toBe('rgba(0, 0, 0, 0)')
       expect(palette.positions).toEqual(['sticky'])
@@ -500,8 +558,9 @@ describe('web e2e: the composer model switch is the default for later sessions',
       await entered.promise
       await search.press('ArrowDown')
       await expect.poll(() => search.evaluate(input => input === input.ownerDocument.activeElement)).toBe(true)
-      expect(await search.getAttribute('aria-activedescendant'))
-        .toBe(await page.getByRole('menuitemradio', { name: 'Acme Large' }).getAttribute('id'))
+      expect(await search.getAttribute('aria-activedescendant')).toBe(
+        await page.getByRole('menuitemradio', { name: 'Acme Large' }).getAttribute('id'),
+      )
       await page.keyboard.press('Enter')
       await expect.poll(() => trigger.getAttribute('aria-busy')).toBe('false')
       await expect.poll(() => trigger.textContent()).toContain('Acme Large')
@@ -509,7 +568,11 @@ describe('web e2e: the composer model switch is the default for later sessions',
       expect(await trigger.evaluate(element => getComputedStyle(element).boxShadow)).toBe('none')
       expect(scaffold.ctx.agentDefaultModel.currentSelection()).toEqual({ provider: START_ROUTE, model: START_MODEL })
       const aria = await captureStableAria(page, '[data-composer-card]', scaffold.workspaceCwd)
-      await compareOrRefreshGolden(fileURLToPath(new URL('./expected/default-model/background-save.expected.md', import.meta.url)), aria, webSnapshotMode())
+      await compareOrRefreshGolden(
+        fileURLToPath(new URL('./expected/default-model/background-save.expected.md', import.meta.url)),
+        aria,
+        webSnapshotMode(),
+      )
     } finally {
       release.resolve(undefined)
       await blocked
@@ -517,19 +580,16 @@ describe('web e2e: the composer model switch is the default for later sessions',
 
     // The switch is what sets the default: the shared Agent-route settings section
     // now names it, beside the provider profiles the Models page writes.
-    await expect.poll(
-      async () => readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8'),
-      { timeout: 10_000 },
-    ).toContain('id: agent-default-model')
+    await expect
+      .poll(async () => readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8'), { timeout: 10_000 })
+      .toContain('id: agent-default-model')
     const document = await readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')
     expect(document).toContain(`provider: ${ROUTE}`)
     expect(document).toContain(`model: ${MODEL}`)
 
-    await expect.poll(() => scaffold.ctx.agentDefaultModel.currentSelection())
-      .toEqual({ provider: ROUTE, model: MODEL })
+    await expect.poll(() => scaffold.ctx.agentDefaultModel.currentSelection()).toEqual({ provider: ROUTE, model: MODEL })
     // A session created after the switch starts from it...
-    expect(await currentOf(await createSession('default-model-after')))
-      .toEqual({ provider: ROUTE, model: MODEL })
+    expect(await currentOf(await createSession('default-model-after'))).toEqual({ provider: ROUTE, model: MODEL })
     // ...while the one holding a logged route keeps deriving from its log.
     expect(await currentOf(loggedId)).toEqual({ provider: START_ROUTE, model: START_MODEL })
     await trigger.press('Tab')
@@ -546,17 +606,27 @@ describe('web e2e: the composer model switch is the default for later sessions',
 
     // Removing the selected provider preserves the other route and the saved
     // selection. A merge update would retain the removed profile.
-    await scaffold.ctx.settings.replace('llm-pi-ai', { providers: {
-      [START_ROUTE]: { displayName: 'Origin Gateway', api: 'openai-completions',
-        baseURL: 'https://gateway.origin.example/v1', models: [{ id: START_MODEL, name: 'Origin Large' }] },
-    } })
+    await scaffold.ctx.settings.replace('llm-pi-ai', {
+      providers: {
+        [START_ROUTE]: {
+          displayName: 'Origin Gateway',
+          api: 'openai-completions',
+          baseURL: 'https://gateway.origin.example/v1',
+          models: [{ id: START_MODEL, name: 'Origin Large' }],
+        },
+      },
+    })
 
     const seat = page.getByRole('button', { name: '请选择模型', exact: true })
     await seat.waitFor()
     expect(await box.isEnabled()).toBe(true)
     expect(scaffold.ctx.agentDefaultModel.currentSelection()).toMatchObject({ provider: ROUTE, model: MODEL })
     const aria = await captureStableAria(page, '[data-composer-card]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(fileURLToPath(new URL('./expected/default-model/unselected.expected.md', import.meta.url)), aria, webSnapshotMode())
+    await compareOrRefreshGolden(
+      fileURLToPath(new URL('./expected/default-model/unselected.expected.md', import.meta.url)),
+      aria,
+      webSnapshotMode(),
+    )
     await seat.click()
     await page.getByRole('menuitemradio').first().click()
     await expect.poll(async () => box.isEnabled(), { timeout: 15_000 }).toBe(true)

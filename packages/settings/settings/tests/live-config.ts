@@ -1,15 +1,16 @@
 /** Test fixtures using the same Loader updates as profile reconciliation. */
 import { Context, resolveConfig, type Fiber, type Plugin } from '@deepseek-ai/cordis'
-import { expect, vi } from 'vitest'
+import { expect, vi } from 'vite-plus/test'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 
 function merge(base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
   const result = { ...base }
   for (const [key, value] of Object.entries(patch)) {
     const before = result[key]
-    result[key] = before && typeof before === 'object' && !Array.isArray(before)
-      && value && typeof value === 'object' && !Array.isArray(value)
-      ? merge(before as Record<string, unknown>, value as Record<string, unknown>) : value
+    result[key] =
+      before && typeof before === 'object' && !Array.isArray(before) && value && typeof value === 'object' && !Array.isArray(value)
+        ? merge(before as Record<string, unknown>, value as Record<string, unknown>)
+        : value
   }
   return result
 }
@@ -27,7 +28,10 @@ export async function liveConfig(ctx: Context, plugin: Plugin, initial: object =
   await entry.fiber!.await()
   const replace = async (next: Record<string, unknown>) => {
     const fiber = entry.fiber!
-    resolveConfig(fiber.runtime!, fiber.ctx.waterfall(fiber, 'internal/config', next, () => next))
+    resolveConfig(
+      fiber.runtime!,
+      fiber.ctx.waterfall(fiber, 'internal/config', next, () => next),
+    )
     await entry.update({ config: next })
     await entry.fiber!.await()
     ctx.emit('app-boot/config-reload')

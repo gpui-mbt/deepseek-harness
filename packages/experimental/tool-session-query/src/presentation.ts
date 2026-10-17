@@ -13,10 +13,7 @@ import {
   type SessionRecord,
   type SessionSearchHit,
 } from '@deepseek-ai/dsh-session-query'
-import type {
-  SessionEvent,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import type { GenericCallView } from '@deepseek-ai/dsh-tools'
 import { workspaceAccess } from './workspace-access.ts'
 
@@ -53,15 +50,16 @@ function formatSessionSearch(
   if (collected.items.length === 0) return formatEmptySessionSearch()
   const lines = [`Session search results (${collected.items.length}):`]
   for (const [index, hit] of collected.items.entries()) {
-    const parent = hit.header.parentSession === undefined
-      ? 'root'
-      : authorizedParents.has(hit.header.parentSession)
-        ? hit.header.parentSession
-        : '[outside workspace]'
-    const availability = [
-      hit.live ? 'live' : undefined,
-      hit.persisted ? 'persisted' : undefined,
-    ].filter((value): value is string => value !== undefined).join(', ') || 'unavailable'
+    const parent =
+      hit.header.parentSession === undefined
+        ? 'root'
+        : authorizedParents.has(hit.header.parentSession)
+          ? hit.header.parentSession
+          : '[outside workspace]'
+    const availability =
+      [hit.live ? 'live' : undefined, hit.persisted ? 'persisted' : undefined]
+        .filter((value): value is string => value !== undefined)
+        .join(', ') || 'unavailable'
     lines.push(
       '',
       `${index + 1}. Session ${hit.header.id} — ${workspaceAccess.titleText(titles.get(hit.header.id))}`,
@@ -82,11 +80,7 @@ function formatEmptySessionSearch(): string {
   return 'No prior session matches found.'
 }
 
-function formatEventSearch(
-  sessionId: SessionId,
-  title: TitleView,
-  collected: SearchCollection<SessionEventSearchHit>,
-): string {
+function formatEventSearch(sessionId: SessionId, title: TitleView, collected: SearchCollection<SessionEventSearchHit>): string {
   const lines = [`Session ${sessionId} — ${workspaceAccess.titleText(title)}`]
   if (collected.items.length === 0) {
     lines.push('', 'No prior event matches found.')
@@ -94,10 +88,7 @@ function formatEventSearch(
   }
   lines.push('', `Event search results (${collected.items.length}):`)
   for (const [index, hit] of collected.items.entries()) {
-    lines.push(
-      `${index + 1}. seq ${hit.seq} | ${hit.type} | ${hit.surface} | ${formatTime(hit.time)}`,
-      `   Snippet: ${hit.snippet}`,
-    )
+    lines.push(`${index + 1}. seq ${hit.seq} | ${hit.type} | ${hit.surface} | ${formatTime(hit.time)}`, `   Snippet: ${hit.snippet}`)
   }
   if (collected.capped) {
     lines.push('', 'Result cap reached. Narrow the query or add filters to find additional matches.')
@@ -121,7 +112,9 @@ function formatSessionTrace(
   ]
   if (ancestors.length === 0 && !ancestorBoundary) lines.push('- none (target is a root session)')
   for (const record of ancestors) {
-    lines.push(`- ${record.header.id} — ${workspaceAccess.titleText(titles.get(record.header.id))} | ${formatTime(record.header.createdAt)} | ${availabilityText(record)}`)
+    lines.push(
+      `- ${record.header.id} — ${workspaceAccess.titleText(titles.get(record.header.id))} | ${formatTime(record.header.createdAt)} | ${availabilityText(record)}`,
+    )
   }
   if (ancestorBoundary) lines.push('- [outside workspace boundary]')
   lines.push('', 'Descendants:')
@@ -130,11 +123,7 @@ function formatSessionTrace(
   return lines.join('\n')
 }
 
-function renderDescendants(
-  lines: string[],
-  nodes: AuthorizedDescendants,
-  titles: CompleteTitleMap,
-): void {
+function renderDescendants(lines: string[], nodes: AuthorizedDescendants, titles: CompleteTitleMap): void {
   for (const { node, depth } of workspaceAccess.visitDescendants(nodes)) {
     const indent = '  '.repeat(depth)
     if (node === null) {
@@ -142,15 +131,13 @@ function renderDescendants(
       continue
     }
     const id = node.record.header.id
-    lines.push(`${indent}- ${id} — ${workspaceAccess.titleText(titles.get(id))} | ${formatTime(node.record.header.createdAt)} | ${availabilityText(node.record)}`)
+    lines.push(
+      `${indent}- ${id} — ${workspaceAccess.titleText(titles.get(id))} | ${formatTime(node.record.header.createdAt)} | ${availabilityText(node.record)}`,
+    )
   }
 }
 
-function formatEventTrace(
-  sessionId: SessionId,
-  title: TitleView,
-  trace: SessionEventTraceObservation,
-): string {
+function formatEventTrace(sessionId: SessionId, title: TitleView, trace: SessionEventTraceObservation): string {
   return [
     `Session ${sessionId} — ${workspaceAccess.titleText(title)}`,
     `Target: seq ${trace.target.seq} | ${trace.target.type} | ${trace.target.surface} | ${formatTime(trace.target.time)}`,
@@ -162,11 +149,7 @@ function formatEventTrace(
   ].join('\n')
 }
 
-function formatEventRead(
-  sessionId: SessionId,
-  title: TitleView,
-  window: SessionEventWindow,
-): string {
+function formatEventRead(sessionId: SessionId, title: TitleView, window: SessionEventWindow): string {
   const before = window.events.filter(event => event.seq < window.target.seq)
   const after = window.events.filter(event => event.seq > window.target.seq)
   const lines = [
@@ -189,15 +172,18 @@ function formatEventRead(
 
 function formatNeighbor(event: SessionEvent): string {
   const text = extractSessionEventText(event)
-  return `- seq ${event.seq} | ${event.type} | ${formatTime(event.time)}`
-    + (text.length === 0 ? ' | (no semantic text)' : `\n  ${text.replaceAll('\n', '\n  ')}`)
+  return (
+    `- seq ${event.seq} | ${event.type} | ${formatTime(event.time)}` +
+    (text.length === 0 ? ' | (no semantic text)' : `\n  ${text.replaceAll('\n', '\n  ')}`)
+  )
 }
 
 function availabilityText(record: SessionRecord): string {
-  return [
-    record.live ? 'live' : undefined,
-    record.persisted ? 'persisted' : undefined,
-  ].filter((value): value is string => value !== undefined).join(', ') || 'unavailable'
+  return (
+    [record.live ? 'live' : undefined, record.persisted ? 'persisted' : undefined]
+      .filter((value): value is string => value !== undefined)
+      .join(', ') || 'unavailable'
+  )
 }
 
 function seqList(values: readonly number[]): string {
@@ -221,20 +207,17 @@ function presentSessionTraceCall(args: SessionTargetCallArgs): GenericCallView {
     card: 'generic',
     kind: 'read',
     title: args.session_id === undefined ? 'Trace current session' : `Trace session ${args.session_id}`,
-    ...args.session_id === undefined ? {} : { rawInput: args.session_id },
+    ...(args.session_id === undefined ? {} : { rawInput: args.session_id }),
   }
 }
 
-function presentEventTargetCall(
-  action: string,
-  args: EventTargetCallArgs,
-): GenericCallView {
+function presentEventTargetCall(action: string, args: EventTargetCallArgs): GenericCallView {
   return {
     card: 'generic',
     kind: 'read',
     title: `${action} ${args.seq}`,
     rawInput: {
-      ...args.session_id === undefined ? {} : { session_id: args.session_id },
+      ...(args.session_id === undefined ? {} : { session_id: args.session_id }),
       seq: args.seq,
     },
   }

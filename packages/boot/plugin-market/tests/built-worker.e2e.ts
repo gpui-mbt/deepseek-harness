@@ -7,15 +7,19 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
 const built = ['lib/index.js', 'lib/worker.cjs'].every(path => existsSync(join(packageRoot, path)))
 
 async function node(script: string): Promise<unknown> {
   const { exitCode, stdout, stderr } = await execa(process.execPath, ['--input-type=module', '-e', script], {
-    cwd: packageRoot, env: { NODE_PATH: undefined, NODE_OPTIONS: undefined },
-    stdin: 'ignore', timeout: 30_000, killSignal: 'SIGKILL', reject: false,
+    cwd: packageRoot,
+    env: { NODE_PATH: undefined, NODE_OPTIONS: undefined },
+    stdin: 'ignore',
+    timeout: 30_000,
+    killSignal: 'SIGKILL',
+    reject: false,
   })
   expect(exitCode, `stderr:\n${stderr}`).toBe(0)
   return JSON.parse(stdout.trim())

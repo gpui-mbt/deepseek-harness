@@ -4,10 +4,10 @@ import * as fs from 'node:fs/promises'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { copyPrimaryRuntime, type PrimaryRuntimeManifest } from '../src/index.ts'
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof fs>()
   return { ...actual, lstat: vi.fn(actual.lstat), readlink: vi.fn(actual.readlink), symlink: vi.fn(actual.symlink) }
 })
@@ -37,18 +37,19 @@ async function aliases(bin: string, target: string) {
   for (const path of paths) await writeFile(path, 'uncopied alias placeholder')
   vi.mocked(fs.lstat).mockImplementation(async (...args) => {
     const entry = await actual.lstat(...args)
-    return typeof args[0] === 'string' && paths.includes(args[0])
-      ? Object.assign(entry, { isSymbolicLink: () => true }) : entry
+    return typeof args[0] === 'string' && paths.includes(args[0]) ? Object.assign(entry, { isSymbolicLink: () => true }) : entry
   })
-  vi.mocked(fs.readlink).mockImplementation(async (path) => {
+  vi.mocked(fs.readlink).mockImplementation(async path => {
     if (typeof path === 'string' && paths.includes(path)) return target
     return actual.readlink(path)
   })
   // Exclusive writes expose accidental alias copies while recording the requested link text without OS symlink privileges.
-  vi.mocked(fs.symlink).mockImplementation(async (target, path) => { await writeFile(path, String(target), { flag: 'wx' }) })
+  vi.mocked(fs.symlink).mockImplementation(async (target, path) => {
+    await writeFile(path, String(target), { flag: 'wx' })
+  })
 }
 
-it.each(['linux', 'darwin', 'win32'])('copies a %s payload using its declared layout', async (platform) => {
+it.each(['linux', 'darwin', 'win32'])('copies a %s payload using its declared layout', async platform => {
   const { source, destination, bin, executable, manifest } = await fixture(platform)
   if (platform !== 'win32') await aliases(bin, executable)
   await copyPrimaryRuntime(source, destination, manifest)
@@ -65,9 +66,10 @@ it.each(['linux', 'darwin', 'win32'])('copies a %s payload using its declared la
   }
 })
 
-it.each(['absolute', 'escaping', 'chained', 'dangling', 'directory'])('rejects a %s alias before copying the payload', async (kind) => {
+it.each(['absolute', 'escaping', 'chained', 'dangling', 'directory'])('rejects a %s alias before copying the payload', async kind => {
   const { source, destination, bin, executable, manifest } = await fixture('linux')
-  const target = kind === 'absolute' ? join(bin, executable) : kind === 'escaping' ? '../outside' : kind === 'chained' ? 'python3' : executable
+  const target =
+    kind === 'absolute' ? join(bin, executable) : kind === 'escaping' ? '../outside' : kind === 'chained' ? 'python3' : executable
   await aliases(bin, target)
   if (kind === 'dangling' || kind === 'directory') await rm(join(bin, executable))
   if (kind === 'directory') await mkdir(join(bin, executable))

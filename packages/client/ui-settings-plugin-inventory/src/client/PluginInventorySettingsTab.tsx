@@ -3,13 +3,7 @@ import type { ClientEntryState } from '@deepseek-ai/dsh-client-modules/client'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
-import {
-  IconChevronDownOutlineRegular,
-  IconSearchOutlineRegular,
-  Menu,
-  StateDot,
-  Tag,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineRegular, IconSearchOutlineRegular, Menu, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState, TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PluginInventoryLocaleKey } from './locales.ts'
@@ -38,10 +32,9 @@ export interface PluginInventorySettingsTabInjected {
 type PluginFiberPhase = PluginInventoryEntry['fiberPhase']
 
 /** Full component props assembled by the Settings slot renderer. */
-export type PluginInventorySettingsTabProps =
-  PropsRuntime<'settings.plugins.tab'>
-  & PropsLocale<'settings.pluginInventory'>
-  & InjectFace<PluginInventorySettingsTabInjected>
+export type PluginInventorySettingsTabProps = PropsRuntime<'settings.plugins.tab'> &
+  PropsLocale<'settings.pluginInventory'> &
+  InjectFace<PluginInventorySettingsTabInjected>
 
 type Translate = PluginInventorySettingsTabProps['t']
 
@@ -100,11 +93,14 @@ function pluginText(row: PluginInventoryEntry | AgentPresetRow, resolveText: Plu
 }
 
 /** Match translated text alongside the row's technical module and entry identities. */
-function matches(row: PluginInventoryEntry | AgentPresetRow, normalizedQuery: string, resolveText: PluginInventorySettingsTabInjected['resolveText']): boolean {
+function matches(
+  row: PluginInventoryEntry | AgentPresetRow,
+  normalizedQuery: string,
+  resolveText: PluginInventorySettingsTabInjected['resolveText'],
+): boolean {
   if (normalizedQuery.length === 0) return true
   const { title, description } = pluginText(row, resolveText)
-  return [row.moduleName, row.entryId, title, description]
-    .some(value => value?.toLocaleLowerCase().includes(normalizedQuery))
+  return [row.moduleName, row.entryId, title, description].some(value => value?.toLocaleLowerCase().includes(normalizedQuery))
 }
 
 /** The roster row shown when the preset switcher has no explicit choice. */
@@ -122,7 +118,18 @@ function presetLabel(preset: AgentPresetGroup, t: Translate, presetName: (preset
 
 /** One expandable plugin card; the caller owns the trailing status content. */
 function PluginCard({
-  rowKey, moduleName, title, description, metadataError, entryId, trailing, ariaLabel, failed, expanded, onToggle, children,
+  rowKey,
+  moduleName,
+  title,
+  description,
+  metadataError,
+  entryId,
+  trailing,
+  ariaLabel,
+  failed,
+  expanded,
+  onToggle,
+  children,
 }: {
   readonly rowKey: string
   readonly moduleName: string
@@ -155,30 +162,53 @@ function PluginCard({
         aria-controls={detailId}
         aria-label={ariaLabel}
         aria-describedby={description === undefined ? undefined : descriptionId}
-        onClick={() => { onToggle(rowKey) }}
+        onClick={() => {
+          onToggle(rowKey)
+        }}
       >
         <span className={css.cardMainRow}>
-          <strong className={css.cardTitle} title={moduleName}>{title}</strong>
+          <strong className={css.cardTitle} title={moduleName}>
+            {title}
+          </strong>
           <span className={css.cardTrailing}>
             {trailing}
             <IconChevronDownOutlineRegular className={css.chevron} size={12} aria-hidden="true" />
           </span>
         </span>
-        {description === undefined ? null : <span className={css.cardDescription} id={descriptionId}>{description}</span>}
+        {description === undefined ? null : (
+          <span className={css.cardDescription} id={descriptionId}>
+            {description}
+          </span>
+        )}
         {idAddsToTitle(entryId, title) ? (
           <span className={css.cardMeta}>
-            <code className={css.cardIdentity} title={entryId}>{entrySubtitle(entryId)}</code>
+            <code className={css.cardIdentity} title={entryId}>
+              {entrySubtitle(entryId)}
+            </code>
           </span>
         ) : null}
       </button>
-      {metadataError === undefined ? null : <p className={css.brokenNote} role="status" data-package-meta-error>{metadataError}</p>}
-      {open ? <div className={css.cardDetails} id={detailId}>{children}</div> : null}
+      {metadataError === undefined ? null : (
+        <p className={css.brokenNote} role="status" data-package-meta-error>
+          {metadataError}
+        </p>
+      )}
+      {open ? (
+        <div className={css.cardDetails} id={detailId}>
+          {children}
+        </div>
+      ) : null}
     </li>
   )
 }
 
 /** Detail rows shared by every card: the Loader identity, then labeled facts. */
-function CardFacts({ moduleName, moduleLabel, entryId, facts }: {
+function CardFacts({
+  moduleName,
+  moduleLabel,
+  entryId,
+  facts,
+}: {
   readonly moduleName: string
   readonly moduleLabel: string
   readonly entryId: string | null
@@ -186,7 +216,11 @@ function CardFacts({ moduleName, moduleLabel, entryId, facts }: {
 }): ReactNode {
   return (
     <>
-      {entryId === null ? null : <code className={css.entryValue} data-loader-entry>{entryId}</code>}
+      {entryId === null ? null : (
+        <code className={css.entryValue} data-loader-entry>
+          {entryId}
+        </code>
+      )}
       <dl className={css.details}>
         <div>
           <dt>{moduleLabel}</dt>
@@ -249,9 +283,14 @@ function StateTag({ kind, label }: { readonly kind: EnablementKind; readonly lab
 }
 
 /** Render the read-only plugin inventory: agent presets first, then the global plane. */
-export function PluginInventorySettingsTab(
-  { list, presetName, resolveText, t, useClientSync, retryClient }: PluginInventorySettingsTabProps,
-): ReactNode {
+export function PluginInventorySettingsTab({
+  list,
+  presetName,
+  resolveText,
+  t,
+  useClientSync,
+  retryClient,
+}: PluginInventorySettingsTabProps): ReactNode {
   const clientSync = useClientSync(snapshot => snapshot)
   const sectionId = useId()
   const [request, setRequest] = useState(0)
@@ -265,11 +304,19 @@ export function PluginInventorySettingsTab(
 
   useEffect(() => {
     let current = true
-    void Promise.resolve().then(() => list()).then(
-      (snapshot) => { if (current) setState({ status: 'ready', snapshot }) },
-      () => { if (current) setState({ status: 'error' }) },
-    )
-    return () => { current = false }
+    void Promise.resolve()
+      .then(() => list())
+      .then(
+        snapshot => {
+          if (current) setState({ status: 'ready', snapshot })
+        },
+        () => {
+          if (current) setState({ status: 'error' })
+        },
+      )
+    return () => {
+      current = false
+    }
   }, [list, request])
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -306,24 +353,20 @@ export function PluginInventorySettingsTab(
   const filteredRegular = regularEntries.filter(entryMatch)
   const globalCount = filteredFailed.length + filteredRegular.length
   const selectedRows = selected === undefined ? [] : selected.rows.filter(rowMatch)
-  const otherPresetMatches = searching
-    ? presets.filter(preset => preset !== selected && preset.rows.some(rowMatch))
-    : []
-  const otherMatchCount = otherPresetMatches
-    .reduce((total, preset) => total + preset.rows.filter(rowMatch).length, 0)
+  const otherPresetMatches = searching ? presets.filter(preset => preset !== selected && preset.rows.some(rowMatch)) : []
+  const otherMatchCount = otherPresetMatches.reduce((total, preset) => total + preset.rows.filter(rowMatch).length, 0)
 
   // The preset group starts open and the larger global plane folded; a search opens both for as long as it lasts.
   const presetEffectiveOpen = searching || (presetOpen ?? true)
   const globalEffectiveOpen = searching || (globalOpen ?? false)
-  const nothingMatches = searching && globalCount === 0 && selectedRows.length === 0
-    && otherPresetMatches.length === 0
+  const nothingMatches = searching && globalCount === 0 && selectedRows.length === 0 && otherPresetMatches.length === 0
 
   const retry = (): void => {
     setState({ status: 'loading' })
     setRequest(value => value + 1)
   }
   const toggleRow = (key: string): void => {
-    setExpanded(current => current === key ? null : key)
+    setExpanded(current => (current === key ? null : key))
   }
 
   /** Trailing status and detail facts for one row of the selected preset. */
@@ -333,7 +376,11 @@ export function PluginInventorySettingsTab(
     const failed = row.fiberPhase === 'failed'
     const stateText = failed
       ? t('failedTag')
-      : row.enabled === true ? t('enabledTag') : row.enabled === false ? t('disabledTag') : t('conditionalTag')
+      : row.enabled === true
+        ? t('enabledTag')
+        : row.enabled === false
+          ? t('disabledTag')
+          : t('conditionalTag')
     const kind = failed ? 'failed' : row.enabled === true ? 'enabled' : row.enabled === false ? 'disabled' : 'conditional'
     return (
       <PluginCard
@@ -348,14 +395,12 @@ export function PluginInventorySettingsTab(
         expanded={expanded}
         onToggle={toggleRow}
         ariaLabel={cardLabel(title, row.entryId, stateText)}
-        trailing={(
+        trailing={
           <>
-            {row.enabled === true && showsPhaseDot(row.fiberPhase)
-              ? <PhaseDot phase={row.fiberPhase} t={t} />
-              : null}
+            {row.enabled === true && showsPhaseDot(row.fiberPhase) ? <PhaseDot phase={row.fiberPhase} t={t} /> : null}
             <StateTag kind={kind} label={stateText} />
           </>
-        )}
+        }
       >
         <CardFacts
           moduleName={row.moduleName}
@@ -364,8 +409,8 @@ export function PluginInventorySettingsTab(
           facts={[
             [t('fromPreset'), presetName(preset)],
             [t('configuration'), stateText],
-            ...row.fiberPhase === null ? [] : [[t('runtime'), phaseLabel(row.fiberPhase, t)] as const],
-            ...row.condition === undefined ? [] : [[t('condition'), <code key="condition">{row.condition}</code>] as const],
+            ...(row.fiberPhase === null ? [] : [[t('runtime'), phaseLabel(row.fiberPhase, t)] as const]),
+            ...(row.condition === undefined ? [] : [[t('condition'), <code key="condition">{row.condition}</code>] as const]),
           ]}
         />
       </PluginCard>
@@ -373,16 +418,15 @@ export function PluginInventorySettingsTab(
   }
 
   /** One global-plane row; a preset-provided row carries the presets that enable it. */
-  const globalRowCard = (
-    entry: PluginInventoryEntry,
-    providers?: readonly [AgentPresetGroup, ...AgentPresetGroup[]],
-  ): ReactNode => {
+  const globalRowCard = (entry: PluginInventoryEntry, providers?: readonly [AgentPresetGroup, ...AgentPresetGroup[]]): ReactNode => {
     const key = `global:${entry.entryId}`
     const { title, description } = pluginText(entry, resolveText)
     const failed = entry.fiberPhase === 'failed'
     const stateText = failed
       ? t('failedTag')
-      : providers !== undefined ? t('presetEnabledTag') : t(entry.enabled ? 'enabledTag' : 'disabledTag')
+      : providers !== undefined
+        ? t('presetEnabledTag')
+        : t(entry.enabled ? 'enabledTag' : 'disabledTag')
     const kind = failed ? 'failed' : providers !== undefined ? 'preset' : entry.enabled ? 'enabled' : 'disabled'
     return (
       <PluginCard
@@ -397,28 +441,28 @@ export function PluginInventorySettingsTab(
         expanded={expanded}
         onToggle={toggleRow}
         ariaLabel={cardLabel(title, entry.entryId, stateText)}
-        trailing={(
+        trailing={
           <>
-            {entry.enabled && showsPhaseDot(entry.fiberPhase)
-              ? <PhaseDot phase={entry.fiberPhase} t={t} />
-              : null}
+            {entry.enabled && showsPhaseDot(entry.fiberPhase) ? <PhaseDot phase={entry.fiberPhase} t={t} /> : null}
             <StateTag kind={kind} label={stateText} />
           </>
-        )}
+        }
       >
         <CardFacts
           moduleName={entry.moduleName}
           moduleLabel={t('moduleLabel')}
           entryId={entry.entryId}
-          facts={providers !== undefined
-            ? [
-              [t('configuration'), t('presetProvidedDetail')],
-              [t('enabledIn'), providers.map(preset => presetName(preset)).join(' · ')],
-            ]
-            : [
-              [t('configuration'), t(entry.enabled ? 'enabledTag' : 'disabledTag')],
-              ...entry.enabled ? [[t('runtime'), phaseLabel(entry.fiberPhase, t)] as const] : [],
-            ]}
+          facts={
+            providers !== undefined
+              ? [
+                  [t('configuration'), t('presetProvidedDetail')],
+                  [t('enabledIn'), providers.map(preset => presetName(preset)).join(' · ')],
+                ]
+              : [
+                  [t('configuration'), t(entry.enabled ? 'enabledTag' : 'disabledTag')],
+                  ...(entry.enabled ? [[t('runtime'), phaseLabel(entry.fiberPhase, t)] as const] : []),
+                ]
+          }
         />
       </PluginCard>
     )
@@ -428,16 +472,26 @@ export function PluginInventorySettingsTab(
     <div className={css.section} aria-busy={state.status === 'loading'}>
       {clientSync.syncing ? (
         <p className={`${css.status} ${css.statusWithDot}`} role="status">
-          <StateDot state="ongoing" />{t('clientSyncing')}
+          <StateDot state="ongoing" />
+          {t('clientSyncing')}
         </p>
       ) : null}
       {clientSync.failures.length === 0 ? null : (
         <div className={css.failure} data-client-sync-failure>
           <p className={css.statusWithDot} role="alert">
-            <StateDot state="error" />{t('clientSyncFailed')}
+            <StateDot state="error" />
+            {t('clientSyncFailed')}
           </p>
-          <ul>{clientSync.failures.map(failure => <li key={failure.id}>{failure.id}: {failure.message}</li>)}</ul>
-          <button type="button" disabled={clientSync.syncing} onClick={retryClient}>{t('clientSyncRetry')}</button>
+          <ul>
+            {clientSync.failures.map(failure => (
+              <li key={failure.id}>
+                {failure.id}: {failure.message}
+              </li>
+            ))}
+          </ul>
+          <button type="button" disabled={clientSync.syncing} onClick={retryClient}>
+            {t('clientSyncRetry')}
+          </button>
         </div>
       )}
       {state.status === 'loading' ? (
@@ -454,9 +508,12 @@ export function PluginInventorySettingsTab(
       {state.status === 'error' ? (
         <div className={css.failure}>
           <p className={css.statusWithDot} role="alert">
-            <StateDot state="error" />{t('error')}
+            <StateDot state="error" />
+            {t('error')}
           </p>
-          <button type="button" onClick={retry}>{t('retry')}</button>
+          <button type="button" onClick={retry}>
+            {t('retry')}
+          </button>
         </div>
       ) : null}
       {snapshot !== undefined ? (
@@ -469,7 +526,9 @@ export function PluginInventorySettingsTab(
               value={query}
               placeholder={t('search')}
               aria-label={t('search')}
-              onChange={(event) => { setQuery(event.currentTarget.value) }}
+              onChange={event => {
+                setQuery(event.currentTarget.value)
+              }}
             />
           </label>
           {entries.length === 0 && presets.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
@@ -483,7 +542,9 @@ export function PluginInventorySettingsTab(
                   className={css.groupToggle}
                   aria-expanded={presetEffectiveOpen}
                   aria-controls={`${sectionId}-preset`}
-                  onClick={() => { setPresetOpen(!presetEffectiveOpen) }}
+                  onClick={() => {
+                    setPresetOpen(!presetEffectiveOpen)
+                  }}
                 >
                   <IconChevronDownOutlineRegular className={css.chevron} size={12} aria-hidden="true" />
                   <span className={css.groupTitle}>{t('presetTitle')}</span>
@@ -491,28 +552,32 @@ export function PluginInventorySettingsTab(
                 <div className={css.headerEnd}>
                   <Menu
                     open={switcherOpen}
-                    onClose={() => { setSwitcherOpen(false) }}
+                    onClose={() => {
+                      setSwitcherOpen(false)
+                    }}
                     items={presets.map(preset => ({ id: preset.id, label: presetLabel(preset, t, presetName) }))}
                     selectedId={selected.id}
-                    onSelect={(id) => {
+                    onSelect={id => {
                       setSwitcherOpen(false)
                       setChosenPreset(id)
                     }}
                     align="end"
                     portal
-                    anchor={(
+                    anchor={
                       <button
                         type="button"
                         className={css.switcher}
                         aria-haspopup="menu"
                         aria-expanded={switcherOpen}
                         aria-label={t('switcherLabel')}
-                        onClick={() => { setSwitcherOpen(value => !value) }}
+                        onClick={() => {
+                          setSwitcherOpen(value => !value)
+                        }}
                       >
                         <span className={css.switcherLabel}>{presetLabel(selected, t, presetName)}</span>
                         <IconChevronDownOutlineRegular className={css.chevron} aria-hidden="true" />
                       </button>
-                    )}
+                    }
                   />
                 </div>
               </div>
@@ -520,12 +585,12 @@ export function PluginInventorySettingsTab(
               {presetEffectiveOpen ? (
                 <div id={`${sectionId}-preset`} className={css.groupBody}>
                   {selected.broken !== undefined ? (
-                    <p className={css.brokenNote} role="alert">{selected.broken}</p>
+                    <p className={css.brokenNote} role="alert">
+                      {selected.broken}
+                    </p>
                   ) : null}
                   {selectedRows.length > 0 ? (
-                    <ul className={css.cards}>
-                      {selectedRows.map((row, index) => presetRowCard(selected, row, index))}
-                    </ul>
+                    <ul className={css.cards}>{selectedRows.map((row, index) => presetRowCard(selected, row, index))}</ul>
                   ) : null}
                   {otherMatchCount > 0 ? (
                     <p className={css.hint}>
@@ -535,7 +600,9 @@ export function PluginInventorySettingsTab(
                           key={preset.id}
                           type="button"
                           className={css.jumpLink}
-                          onClick={() => { setChosenPreset(preset.id) }}
+                          onClick={() => {
+                            setChosenPreset(preset.id)
+                          }}
                         >
                           {presetName(preset)}
                         </button>
@@ -555,7 +622,9 @@ export function PluginInventorySettingsTab(
                   className={css.groupToggle}
                   aria-expanded={globalEffectiveOpen}
                   aria-controls={`${sectionId}-global`}
-                  onClick={() => { setGlobalOpen(!globalEffectiveOpen) }}
+                  onClick={() => {
+                    setGlobalOpen(!globalEffectiveOpen)
+                  }}
                 >
                   <IconChevronDownOutlineRegular className={css.chevron} size={12} aria-hidden="true" />
                   <span className={css.groupTitle}>{t('globalTitle')}</span>
@@ -565,10 +634,7 @@ export function PluginInventorySettingsTab(
               {globalEffectiveOpen && globalCount > 0 ? (
                 <ul className={css.cards} id={`${sectionId}-global`}>
                   {filteredFailed.map(entry => globalRowCard(entry))}
-                  {filteredRegular.map(entry => globalRowCard(
-                    entry,
-                    entry.enabled ? undefined : enabledIn.get(entry.moduleName),
-                  ))}
+                  {filteredRegular.map(entry => globalRowCard(entry, entry.enabled ? undefined : enabledIn.get(entry.moduleName)))}
                 </ul>
               ) : null}
             </section>

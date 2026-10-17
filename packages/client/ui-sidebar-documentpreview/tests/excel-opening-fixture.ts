@@ -10,7 +10,7 @@ export const excelOpeningCases = ['strict', 'case-root', 'case-parts', 'orphan-d
  * @param name - Opening regression to construct.
  * @returns Complete XLSX bytes owned by the caller.
  */
-export async function excelOpeningFixture(name: typeof excelOpeningCases[number]): Promise<Uint8Array<ArrayBuffer>> {
+export async function excelOpeningFixture(name: (typeof excelOpeningCases)[number]): Promise<Uint8Array<ArrayBuffer>> {
   const files = unzipSync(await excelOpcFixture('combined'))
   const result: Record<string, Uint8Array> = {}
   for (const [path, bytes] of Object.entries(files)) {
@@ -18,13 +18,20 @@ export async function excelOpeningFixture(name: typeof excelOpeningCases[number]
     let target = path
     if (xml !== undefined) {
       if (name === 'strict') {
-        xml = xml.replaceAll('http://schemas.openxmlformats.org/spreadsheetml/2006/main', 'http://purl.oclc.org/ooxml/spreadsheetml/main')
-          .replaceAll('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'http://purl.oclc.org/ooxml/officeDocument/relationships')
+        xml = xml
+          .replaceAll('http://schemas.openxmlformats.org/spreadsheetml/2006/main', 'http://purl.oclc.org/ooxml/spreadsheetml/main')
+          .replaceAll(
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+            'http://purl.oclc.org/ooxml/officeDocument/relationships',
+          )
       } else if (name === 'case-root' && path === '_rels/.rels') {
         xml = xml.replace('Target="xl/workbook.xml"', 'Target="XL/WORKBOOK.XML"')
       } else if (name === 'case-parts') {
         if (!path.startsWith('docProps/') && !path.startsWith('xl/theme/')) target = path.toUpperCase()
-        if (path.endsWith('.rels')) xml = xml.replace(/Target="([^"]+)"/g, (attribute, value: string) => value.includes('://') ? attribute : `Target="${value.toLowerCase()}"`)
+        if (path.endsWith('.rels'))
+          xml = xml.replace(/Target="([^"]+)"/g, (attribute, value: string) =>
+            value.includes('://') ? attribute : `Target="${value.toLowerCase()}"`,
+          )
       } else if (name === 'orphan-drawing') {
         if (path.endsWith('.rels')) xml = xml.replace(/<Relationship\b[^>]*Type="[^"]*\/drawing"[^>]*\/>/g, '')
         if (path.startsWith('xl/worksheets/')) xml = xml.replace(/<(?:\w+:)?drawing\b[^>]*\/>/g, '')

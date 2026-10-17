@@ -9,7 +9,14 @@
  */
 
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
+import {
+  CONTEXT_WINDOW_EXCEEDED_CODE,
+  EMPTY_RESPONSE_CODE,
+  isContextWindowExceededError,
+  isQuotaExceededError,
+  LlmError,
+  QUOTA_EXCEEDED_CODE,
+} from '@deepseek-ai/dsh-llm'
 import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 import type { AssistantMessage, AssistantMessageEvent, Usage as PiUsage } from '@earendil-works/pi-ai'
@@ -26,8 +33,8 @@ export function mapUsage(usage: PiUsage): TokenUsage {
     inputTokens: usage.input,
     outputTokens: usage.output,
     totalTokens: usage.totalTokens,
-    ...usage.cacheRead > 0 ? { cacheReadTokens: usage.cacheRead } : {},
-    ...usage.cacheWrite > 0 ? { cacheWriteTokens: usage.cacheWrite } : {},
+    ...(usage.cacheRead > 0 ? { cacheReadTokens: usage.cacheRead } : {}),
+    ...(usage.cacheWrite > 0 ? { cacheWriteTokens: usage.cacheWrite } : {}),
   }
 }
 
@@ -45,7 +52,8 @@ function classifyPiAiError(message: string): string {
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
-  if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'
+  if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message))
+    return 'INVALID_REQUEST'
   if (/\b400\b|invalid.?request/i.test(message)) return 'INVALID_REQUEST'
   if (/\b5\d\d\b/.test(message)) return 'SERVER'
   if (/\btime(?:d)?\s*out\b|timeout/i.test(message)) return 'TIMEOUT'
@@ -56,12 +64,14 @@ function classifyPiAiError(message: string): string {
   // finish_reason`). The connection dropped mid-response, so this is a transport
   // truncation, not a model-level error.
   if (/stream ended (?:before|without)\b/i.test(message)) return 'TRANSPORT'
-  if (/\b(?:network|connection|socket|fetch)\b|\bECONN[A-Z]+\b/i.test(message)
-    || /\b(?:other side closed|HTTP2 request did not get a response|WebSocket closed unexpectedly)\b/i.test(message)
+  if (
+    /\b(?:network|connection|socket|fetch)\b|\bECONN[A-Z]+\b/i.test(message) ||
+    /\b(?:other side closed|HTTP2 request did not get a response|WebSocket closed unexpectedly)\b/i.test(message) ||
     // undici renders a mid-stream socket drop as a bare `terminated` (its
     // `cause` — the real SocketError — was flattened away upstream); Node's
     // stream layer says `Premature close`.
-    || /\bterminated\b|premature close/i.test(message)) {
+    /\bterminated\b|premature close/i.test(message)
+  ) {
     return 'TRANSPORT'
   }
   return 'PI_AI_ERROR'
@@ -79,9 +89,8 @@ function classifyPiAiError(message: string): string {
  */
 export function mapStopReason(message: AssistantMessage, contextWindow?: number): FinishReason {
   const piAiOverflow = isContextOverflow(message, contextWindow)
-  const harnessOverflow = message.stopReason === 'error'
-    && message.errorMessage !== undefined
-    && isContextWindowExceededError(message.errorMessage)
+  const harnessOverflow =
+    message.stopReason === 'error' && message.errorMessage !== undefined && isContextWindowExceededError(message.errorMessage)
   if (piAiOverflow || harnessOverflow) {
     return {
       kind: 'error',
@@ -106,20 +115,25 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
         }
       }
       return { kind: 'stop' }
-    case 'length': return { kind: 'max-tokens' }
-    case 'toolUse': return { kind: 'tool-calls' }
-    case 'pending': return {
-      kind: 'error',
-      failure: { message: `pi-ai stream for model "${message.model}" ended pending`, code: 'PI_AI_ERROR' },
-    }
-    case 'deferred': return {
-      kind: 'error',
-      failure: { message: `pi-ai deferred response for model "${message.model}" is not supported`, code: 'PI_AI_ERROR' },
-    }
-    case 'aborted': return {
-      kind: 'aborted',
-      failure: { message: message.errorMessage ?? 'pi-ai stream aborted', code: 'ABORTED' },
-    }
+    case 'length':
+      return { kind: 'max-tokens' }
+    case 'toolUse':
+      return { kind: 'tool-calls' }
+    case 'pending':
+      return {
+        kind: 'error',
+        failure: { message: `pi-ai stream for model "${message.model}" ended pending`, code: 'PI_AI_ERROR' },
+      }
+    case 'deferred':
+      return {
+        kind: 'error',
+        failure: { message: `pi-ai deferred response for model "${message.model}" is not supported`, code: 'PI_AI_ERROR' },
+      }
+    case 'aborted':
+      return {
+        kind: 'aborted',
+        failure: { message: message.errorMessage ?? 'pi-ai stream aborted', code: 'ABORTED' },
+      }
     case 'error': {
       const text = message.errorMessage ?? 'pi-ai stream error'
       return { kind: 'error', failure: { message: text, code: classifyPiAiError(text) } }
@@ -186,7 +200,7 @@ export async function* toStreamChunks(
           type: 'tool-call-delta',
           index: event.contentIndex,
           id: brandString<ToolCallId>(known?.id ?? ''),
-          ...known?.name !== undefined && known.name.length > 0 ? { name: known.name } : {},
+          ...(known?.name !== undefined && known.name.length > 0 ? { name: known.name } : {}),
           argumentsDelta: event.delta,
         }
         break
@@ -219,10 +233,7 @@ export async function* toStreamChunks(
         yield { type: 'usage', usage: mapUsage(event.error.usage) }
         yield {
           type: 'finish',
-          reason: mapStopReason(
-            callerSignal?.aborted ? { ...event.error, stopReason: 'aborted' } : event.error,
-            contextWindow,
-          ),
+          reason: mapStopReason(callerSignal?.aborted ? { ...event.error, stopReason: 'aborted' } : event.error, contextWindow),
         }
         return
       // no default: AssistantMessageEvent is pi-ai's closed union; a new

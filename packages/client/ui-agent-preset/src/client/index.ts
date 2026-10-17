@@ -61,9 +61,7 @@ export type { AgentPresetOption, AgentPresetSettingsState } from './settings-sto
 export { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.ts'
 
 /** Required services (cordis fiber inject). */
-export const inject = [
-  'slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'configForms',
-]
+export const inject = ['slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'configForms']
 
 /**
  * Mount the roster surfaces: hero chip, session-header label, settings section.
@@ -79,24 +77,32 @@ export function apply(ctx: ClientContext): void {
   const staged: AgentPresetStage = { id: undefined, introduce: false }
   const seats = new WeakMapWithValues<SessionBinding, AgentPresetSeatController>()
   const boundSeatDisposers = new Set<() => Promise<void>>()
-  ctx.effect(() => async () => {
-    await Promise.all([...boundSeatDisposers].map(dispose => dispose()))
-  }, 'ui-agent-preset: bound selections')
+  ctx.effect(
+    () => async () => {
+      await Promise.all([...boundSeatDisposers].map(dispose => dispose()))
+    },
+    'ui-agent-preset: bound selections',
+  )
   const unboundSeat = new AgentPresetSeatController(ctx, () => undefined, staged)
   const seatFor = (binding: SessionBinding): AgentPresetSeatController => {
     const existing = seats.get(binding)
     if (existing !== undefined) return existing
-    const seat = new AgentPresetSeatController(ctx, () => {
-      if (ctx.sessions.binding(binding.sessionId) !== binding) return undefined
-      const summary = ctx.sessions.list.getSnapshot().byId[binding.sessionId]
-      return summary !== undefined
-        && (ctx.sessions.retainInfo(binding.sessionId).getSnapshot().retainedBy.mainView ?? 0) > 0
-        ? summary
-        : undefined
-    }, staged)
+    const seat = new AgentPresetSeatController(
+      ctx,
+      () => {
+        if (ctx.sessions.binding(binding.sessionId) !== binding) return undefined
+        const summary = ctx.sessions.list.getSnapshot().byId[binding.sessionId]
+        return summary !== undefined && (ctx.sessions.retainInfo(binding.sessionId).getSnapshot().retainedBy.mainView ?? 0) > 0
+          ? summary
+          : undefined
+      },
+      staged,
+    )
     seats.set(binding, seat)
     const dispose = binding.ctx.effect(() => {
-      const stop = ctx.sessions.list.subscribe(() => { void seat.apply() })
+      const stop = ctx.sessions.list.subscribe(() => {
+        void seat.apply()
+      })
       return () => {
         stop()
         seats.delete(binding)
@@ -109,19 +115,22 @@ export function apply(ctx: ClientContext): void {
   const section = new AgentPresetSectionController(ctx)
   // Turning Developer tools off clears the shared stage before any apply can compose it.
   const developerTools = ctx.configForms.developerTools.enabled
-  ctx.effect(() => developerTools.subscribe(() => {
-    if (developerTools.getSnapshot()) return
-    staged.id = undefined
-    staged.introduce = false
-    void unboundSeat.apply()
-    for (const seat of seats.values) void seat.apply()
-  }), 'ui-agent-preset: Developer tools gate')
+  ctx.effect(
+    () =>
+      developerTools.subscribe(() => {
+        if (developerTools.getSnapshot()) return
+        staged.id = undefined
+        staged.introduce = false
+        void unboundSeat.apply()
+        for (const seat of seats.values) void seat.apply()
+      }),
+    'ui-agent-preset: Developer tools gate',
+  )
   const mainBlankSeat = (): AgentPresetSeatController | undefined => {
-    const summary = Object.values(ctx.sessions.list.getSnapshot().byId)
-      .find((session) => {
-        /* v8 ignore next -- retained source counts omit zero-valued entries. */
-        return session.blank && (session.retainedBy.mainView ?? 0) > 0
-      })
+    const summary = Object.values(ctx.sessions.list.getSnapshot().byId).find(session => {
+      /* v8 ignore next -- retained source counts omit zero-valued entries. */
+      return session.blank && (session.retainedBy.mainView ?? 0) > 0
+    })
     const binding = summary === undefined ? undefined : ctx.sessions.binding(summary.id)
     return binding === undefined ? undefined : seatFor(binding)
   }
@@ -142,7 +151,9 @@ export function apply(ctx: ClientContext): void {
             await section.reconcileCodingTools(codingToolsDisabled)
             if (!active || requested === revision) return
           }
-        } finally { pending = undefined }
+        } finally {
+          pending = undefined
+        }
       })
     }
     // The roster reflects live declarations and the default is a settings field, so
@@ -159,7 +170,7 @@ export function apply(ctx: ClientContext): void {
     const disposers = [
       toolsSettings.subscribe(reconcile),
       presetSettings.subscribe(reconcile),
-      ctx.remote.$on('settings/document-updated', (ns) => {
+      ctx.remote.$on('settings/document-updated', ns => {
         if (ns !== AGENT_PRESET_SETTINGS_NS) return
         refresh()
       }),
@@ -187,8 +198,12 @@ export function apply(ctx: ClientContext): void {
         hooks: { agentPresetSeat: seat.store, developerTools: ctx.configForms.developerTools.enabled },
         load: () => seat.load(),
         select: (id: string) => seat.select(id),
-        dismissRefusal: (error) => { seat.dismissRefusal(error) },
-        introduced: () => { seat.introduced() },
+        dismissRefusal: error => {
+          seat.dismissRefusal(error)
+        },
+        introduced: () => {
+          seat.introduced()
+        },
       }
     }
 
@@ -206,19 +221,25 @@ export function apply(ctx: ClientContext): void {
 
     scope.effect(() => {
       creatorDraft = startCreatorDraft
-      const chip = scope.slots.register({
-        name: 'conversation.hero.agentPreset',
-        locale: 'settings.agentPreset',
-        inject: seatInjected,
-      }, AgentPresetSeat)
-      const label = scope.slots.register({
-        name: 'conversation.session.header.actions',
-        id: 'agent-preset',
-        // Static session context occupies the header's leading negative-order band.
-        order: -10,
-        locale: 'settings.agentPreset',
-        inject: labelInjected,
-      }, AgentPresetLabel)
+      const chip = scope.slots.register(
+        {
+          name: 'conversation.hero.agentPreset',
+          locale: 'settings.agentPreset',
+          inject: seatInjected,
+        },
+        AgentPresetSeat,
+      )
+      const label = scope.slots.register(
+        {
+          name: 'conversation.session.header.actions',
+          id: 'agent-preset',
+          // Static session context occupies the header's leading negative-order band.
+          order: -10,
+          locale: 'settings.agentPreset',
+          inject: labelInjected,
+        },
+        AgentPresetLabel,
+      )
       return () => {
         creatorDraft = undefined
         chip()
@@ -226,28 +247,33 @@ export function apply(ctx: ClientContext): void {
       }
     }, 'ui-agent-preset: new-session chip and header label')
 
-    scope.slots.inject('plugins.add.actions', () => scope.slots.register({
-      name: 'plugins.add.actions',
-      id: 'create-plugin',
-      locale: 'settings.agentPreset',
-      inject: () => ({
-        hooks: { agentPresets: controller.store },
-        load: () => controller.load(),
-        startCreatorDraft,
-      }),
-    }, CreatePluginMenuItem))
+    scope.slots.inject('plugins.add.actions', () =>
+      scope.slots.register(
+        {
+          name: 'plugins.add.actions',
+          id: 'create-plugin',
+          locale: 'settings.agentPreset',
+          inject: () => ({
+            hooks: { agentPresets: controller.store },
+            load: () => controller.load(),
+            startCreatorDraft,
+          }),
+        },
+        CreatePluginMenuItem,
+      ),
+    )
   })
 
   /** Capture the exact blank Session one Settings action may update. */
   const captureBlankSessionSync = (): ((id: string) => Promise<string | undefined>) => {
-    const summary = Object.values(ctx.sessions.list.getSnapshot().byId)
-      .find(session => session.blank && (session.retainedBy.mainView ?? 0) > 0)
+    const summary = Object.values(ctx.sessions.list.getSnapshot().byId).find(
+      session => session.blank && (session.retainedBy.mainView ?? 0) > 0,
+    )
     const binding = summary === undefined ? undefined : ctx.sessions.binding(summary.id)
     const seat = binding === undefined ? undefined : seatFor(binding)
     const sessionId = seat?.blankSessionId()
     return async (id: string) => {
-      if (seat === undefined || sessionId === undefined || binding === undefined
-        || seats.get(binding) !== seat) return undefined
+      if (seat === undefined || sessionId === undefined || binding === undefined || seats.get(binding) !== seat) return undefined
       return await seat.syncBlankSession(sessionId, id)
     }
   }
@@ -256,19 +282,26 @@ export function apply(ctx: ClientContext): void {
     hooks: { agentPresetSection: section.store, developerTools: ctx.configForms.developerTools.enabled },
     load: () => section.load(),
     view: (id: string) => section.view(id),
-    closeView: () => { section.closeView() },
-    ...creatorDraft === undefined ? {} : { startCreatorDraft: creatorDraft },
+    closeView: () => {
+      section.closeView()
+    },
+    ...(creatorDraft === undefined ? {} : { startCreatorDraft: creatorDraft }),
     makeDefault: (id: string) => section.makeDefault(id, captureBlankSessionSync()),
   })
 
   // Ordered after Models: choosing a model is routine, and composing an
   // agent is the deployment-shaping act behind it.
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
-    id: 'agent-presets',
-    order: 20,
-    label: () => ctx.locale.bind('settings.agentPreset')('nav'),
-    locale: 'settings.agentPreset',
-    inject: sectionInjected,
-  }, AgentPresetSection))
+  ctx.slots.inject('settings.section', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.section',
+        id: 'agent-presets',
+        order: 20,
+        label: () => ctx.locale.bind('settings.agentPreset')('nav'),
+        locale: 'settings.agentPreset',
+        inject: sectionInjected,
+      },
+      AgentPresetSection,
+    ),
+  )
 }

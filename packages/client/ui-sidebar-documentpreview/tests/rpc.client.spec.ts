@@ -4,7 +4,7 @@
  * it hands the Host; absolute paths also travel inside the Session address.
  * An address without a Session fails loud.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import { createReadPage, hostFileOf } from '../src/client/rpc.ts'
 import type { ReadWorkspaceFilePage, WorkspaceFilesReadRemote } from '../src/client/index.ts'
@@ -16,14 +16,18 @@ describe('hostFileOf', () => {
     expect(hostFileOf('dsh-resource://file/session/s%2F1/work/a%20b%23c.md')).toEqual({ sessionId: 's/1', path: 'work/a b#c.md' })
   })
 
-  it.each(['/etc/hosts', 'C:/w/a b.md', '//host/share/a b.md'])('preserves the Session address\'s absolute path %s for the Host', (path) => {
+  it.each(['/etc/hosts', 'C:/w/a b.md', '//host/share/a b.md'])("preserves the Session address's absolute path %s for the Host", path => {
     expect(hostFileOf(sessionFileAddress(SESSION, path))).toEqual({ sessionId: SESSION, path })
   })
 
   it('throws for an address that is not a Session file address', () => {
     for (const address of [
-      'dsh-resource://file/absolute/etc/hosts', 'dsh-resource://file/absolute/C:/w/a.md',
-      'dsh-resource://file/shared/team/notes.md', 'dsh-resource://file/session', 'file:///work/notes.md', 'sidebar://guide',
+      'dsh-resource://file/absolute/etc/hosts',
+      'dsh-resource://file/absolute/C:/w/a.md',
+      'dsh-resource://file/shared/team/notes.md',
+      'dsh-resource://file/session',
+      'file:///work/notes.md',
+      'sidebar://guide',
     ]) {
       expect(() => hostFileOf(address)).toThrow('not a session file address')
     }

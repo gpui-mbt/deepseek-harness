@@ -13,11 +13,7 @@ import { assistantBlockToAcp } from './content.ts'
  * @param event - committed assistant message event.
  * @returns ordered standard thought, message, and optional usage updates.
  */
-export async function assistantUpdates(
-  ctx: Context,
-  session: Session,
-  event: SessionEvent<'assistant/message'>,
-): Promise<SessionUpdate[]> {
+export async function assistantUpdates(ctx: Context, session: Session, event: SessionEvent<'assistant/message'>): Promise<SessionUpdate[]> {
   const updates: SessionUpdate[] = []
   for (const block of event.data.message.content) {
     if (block.type === 'reasoning') {
@@ -66,10 +62,7 @@ export function toolCallUpdate(event: SessionEvent<'tool/call'>): SessionUpdate 
  * @param event - committed DSH tool-result event.
  * @returns the standard completed or failed tool-call update.
  */
-export async function toolResultUpdate(
-  ctx: Context,
-  event: SessionEvent<'tool/result'>,
-): Promise<SessionUpdate> {
+export async function toolResultUpdate(ctx: Context, event: SessionEvent<'tool/result'>): Promise<SessionUpdate> {
   const message = event.data.message
   const content: ToolCallContent[] = []
   for (const block of message.content) {
@@ -85,11 +78,7 @@ export async function toolResultUpdate(
 }
 
 /** Report current context occupancy only when DSH has both usage and capacity facts. */
-function usageUpdate(
-  ctx: Context,
-  session: Session,
-  event: SessionEvent<'assistant/message'>,
-): SessionUpdate | undefined {
+function usageUpdate(ctx: Context, session: Session, event: SessionEvent<'assistant/message'>): SessionUpdate | undefined {
   if (event.data.usage === undefined) return undefined
   const size = session.requestContext()?.contextWindow
   const meter = ctx.get('tokenMeter')

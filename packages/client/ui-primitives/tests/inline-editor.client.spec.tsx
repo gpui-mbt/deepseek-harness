@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { InlineEditor } from '../src/InlineEditor.tsx'
 
 afterEach(() => {
@@ -59,8 +59,9 @@ describe('InlineEditor', () => {
     }
     vi.stubGlobal('ResizeObserver', FakeResizeObserver)
     let scrollHeight = 20
-    const descriptors = (['scrollHeight', 'offsetHeight', 'clientHeight'] as const)
-      .map(name => [name, Object.getOwnPropertyDescriptor(HTMLElement.prototype, name)] as const)
+    const descriptors = (['scrollHeight', 'offsetHeight', 'clientHeight'] as const).map(
+      name => [name, Object.getOwnPropertyDescriptor(HTMLElement.prototype, name)] as const,
+    )
     Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => scrollHeight })
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 27 })
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 26 })
@@ -72,7 +73,9 @@ describe('InlineEditor', () => {
       expect(observer.observe).toHaveBeenCalledWith(box)
 
       scrollHeight = 60
-      act(() => { observer.fire() })
+      act(() => {
+        observer.fire()
+      })
       expect(box.style.height).toBe('61px')
       view.unmount()
       expect(observer.disconnect).toHaveBeenCalledTimes(1)

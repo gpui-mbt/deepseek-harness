@@ -282,10 +282,12 @@ type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * inconvenience) rather than silently resuming a gutted session.
      */
     ignorable?: true
-  } & (K extends SurfaceEventType ? SurfaceIntent<K> : {
-    surfaceOp?: never
-    sourceEventSeqs?: never
-  })
+  } & (K extends SurfaceEventType
+    ? SurfaceIntent<K>
+    : {
+        surfaceOp?: never
+        sourceEventSeqs?: never
+      })
 }[T]
 ```
 
@@ -308,12 +310,7 @@ type SessionEvent<T extends SessionEventType = SessionEventType> = {
  * event types may carry {@link SurfaceOp}; system, user, and tool events may also cite
  * earlier sources through {@link SessionEvent.sourceEventSeqs}.
  */
-type SurfaceEventType =
-  | 'system/message'
-  | 'developer/message'
-  | 'user/message'
-  | 'assistant/message'
-  | 'tool/result'
+type SurfaceEventType = 'system/message' | 'developer/message' | 'user/message' | 'assistant/message' | 'tool/result'
 ```
 
 ### `SurfaceOp`：事件如何进入 surface
@@ -332,9 +329,7 @@ type SurfaceEventType =
  *   shadowed surface node. Used by compaction; any surface-replacing producer
  *   may use it.
  */
-type SurfaceOp =
-  | 'append'
-  | { op: 'replace'; startSeq: SessionSeq; endSeq: SessionSeq }
+type SurfaceOp = 'append' | { op: 'replace'; startSeq: SessionSeq; endSeq: SessionSeq }
 ```
 
 `'append'` 是常规的尾部追加路径。`replace` 恰好包含 `op`、`startSeq` 和 `endSeq`，不接受别名或额外键。它遮蔽这两个当前 surface 事件序号之间的闭区间，并在原位置插入新事件；相同端点仅替换一个条目。端点必须早于替换事件，但它们的相对顺序按 surface 顺序而非数值序号顺序确定。
@@ -348,13 +343,15 @@ type SurfaceOp =
  */
 type SurfaceIntent<T extends SurfaceEventType = SurfaceEventType> = {
   surfaceOp: SurfaceOp
-} & (T extends 'assistant/message' ? {
-  /** Assistant messages embed their provider stream instead of citing source events. */
-  sourceEventSeqs?: never
-} : {
-  /** Complete non-empty set of known earlier source-event seqs. */
-  sourceEventSeqs?: SessionSeq[]
-})
+} & (T extends 'assistant/message'
+  ? {
+      /** Assistant messages embed their provider stream instead of citing source events. */
+      sourceEventSeqs?: never
+    }
+  : {
+      /** Complete non-empty set of known earlier source-event seqs. */
+      sourceEventSeqs?: SessionSeq[]
+    })
 ```
 
 对 `SurfaceEventType` 事件必填：每个产生消息的事件都必须声明它如何加入 surface（派生模型历史的唯一来源）。面向人类的 transcript（文本记录）是另一个投影，读取的是日志中追加来源的事件，因为 surface 会有意遮蔽替换所概括的范围（见 [dsh-session](../../packages/core/session/README.zh.md) 的 `isAppendSurfaceEvent`）。非 surface 类型在编译期拒绝此参数。
@@ -554,10 +551,7 @@ declare class Session {
    * @param toSeqExclusive - non-negative exclusive sequence number; defaults to the current end.
    * @returns a frozen array of the selected deeply frozen events.
    */
-  snapshotEvents(
-    fromSeq: SessionLogOffset = SessionLogOffset(0),
-    toSeqExclusive: SessionLogOffset = this.seq,
-    ): readonly SessionEvent[];
+  snapshotEvents(fromSeq: SessionLogOffset = SessionLogOffset(0), toSeqExclusive: SessionLogOffset = this.seq): readonly SessionEvent[];
   /**
    * Return this Session's events after its fork-inherited prefix.
    * @deprecated Existing logic may remain unmigrated for now, but new calls are prohibited.
@@ -841,7 +835,7 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
  * @param signal - optional caller cancellation for persistence reads.
  * @returns the current attached state or persisted header and event prefix.
  */
-inspect( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionInspection>
+inspect(sessionId: SessionId, signal?: AbortSignal): Promise<SessionInspection>
 
 /**
  * Read all visible Session rows without resuming an Agent.
@@ -906,7 +900,7 @@ workspaceDesktop(): { name: string; available: boolean; fileManager: 'finder' | 
  * @returns confirmation after the native opener accepts the path.
  * @throws RemoteError when the request is invalid, has no verified Host mapping, is cancelled, or the opener fails.
  */
-@Remote('openWorkspacePath') async openWorkspacePath( request: SessionOpenWorkspacePathRequest, signal: AbortSignal, ): Promise<SessionOpenWorkspacePathValue>
+@Remote('openWorkspacePath') async openWorkspacePath(request: SessionOpenWorkspacePathRequest, signal: AbortSignal): Promise<SessionOpenWorkspacePathValue>
 
 /**
  * Query current file handlers on the serving desktop without activating an Agent.

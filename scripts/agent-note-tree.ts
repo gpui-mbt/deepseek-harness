@@ -45,17 +45,21 @@ export function walkAgentNoteTree(): { notes: AgentNote[]; errors: string[] } {
   // a known lifecycle would otherwise hold Agent Notes invisible to the walk below.
   for (const entry of readdirSync(agentNoteRoot, { withFileTypes: true })) {
     if (entry.name === 'INDEX.md') {
-      errors.push('structure: INDEX.md — centralized Agent Note indexes are forbidden; browse the lifecycle/class tree or search the repository')
+      errors.push(
+        'structure: INDEX.md — centralized Agent Note indexes are forbidden; browse the lifecycle/class tree or search the repository',
+      )
       continue
     }
-    if (entry.isDirectory()
-      && entry.name !== AGENT_NOTE_ARCHIVE
-      && !(AGENT_NOTE_LIFECYCLES as readonly string[]).includes(entry.name)) {
-      errors.push(`structure: ${entry.name}/ — unknown lifecycle folder (allowed: ${AGENT_NOTE_LIFECYCLES.join(', ')}, plus ${AGENT_NOTE_ARCHIVE}/)`)
+    if (entry.isDirectory() && entry.name !== AGENT_NOTE_ARCHIVE && !(AGENT_NOTE_LIFECYCLES as readonly string[]).includes(entry.name)) {
+      errors.push(
+        `structure: ${entry.name}/ — unknown lifecycle folder (allowed: ${AGENT_NOTE_LIFECYCLES.join(', ')}, plus ${AGENT_NOTE_ARCHIVE}/)`,
+      )
     }
   }
   for (const lifecycle of AGENT_NOTE_LIFECYCLES) {
-    for (const match of globSync(`${lifecycle}/**/*.md`, { cwd: agentNoteRoot }).map(path => path.split(sep).join('/')).sort()) {
+    for (const match of globSync(`${lifecycle}/**/*.md`, { cwd: agentNoteRoot })
+      .map(path => path.split(sep).join('/'))
+      .sort()) {
       const segs = match.split('/')
       // Allowlisted file directly at the lifecycle root (e.g. implemented/AGENTS.md).
       if (segs.length === 2 && ROOT_ALLOWLIST.has(segs[1] ?? '')) continue

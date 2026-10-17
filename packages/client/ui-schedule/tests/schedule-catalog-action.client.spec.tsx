@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
@@ -16,10 +16,7 @@ import {
   zoneLabel,
   type FrequencyTranslator,
 } from '../src/client/schedule-format.ts'
-import {
-  ScheduleCatalogAction,
-  type ScheduleCatalogActionProps,
-} from '../src/client/ScheduleCatalogAction.tsx'
+import { ScheduleCatalogAction, type ScheduleCatalogActionProps } from '../src/client/ScheduleCatalogAction.tsx'
 import type { CatalogSnapshot } from '../src/client/catalog-source.ts'
 import { en, zh } from '../src/client/locales.ts'
 import catalogCss from '../src/client/ScheduleCatalogAction.module.css'
@@ -67,13 +64,18 @@ function record(
   if (kind === 'daily') return { ...common, kind, time: options.time ?? '23:00:00.000', timeZone: options.timeZone ?? 'Asia/Shanghai' }
   if (kind === 'weekly') {
     return {
-      ...common, kind, time: options.time ?? '23:00:00.000',
-      timeZone: options.timeZone ?? 'Asia/Shanghai', weekdays: options.weekdays ?? [1],
+      ...common,
+      kind,
+      time: options.time ?? '23:00:00.000',
+      timeZone: options.timeZone ?? 'Asia/Shanghai',
+      weekdays: options.weekdays ?? [1],
     }
   }
   if (kind === 'cron') {
     return {
-      ...common, kind, expression: options.expression ?? '0 9 * * 1-5',
+      ...common,
+      kind,
+      expression: options.expression ?? '0 9 * * 1-5',
       timeZone: options.timeZone ?? 'Asia/Shanghai',
     }
   }
@@ -113,8 +115,12 @@ function props(
   const useSession = <T,>(select: (value: SessionSnapshot) => T): T => select(snapshot)
   // A settled read reports ordinal 1; a read that has not settled yet reports 0.
   const state: CatalogSnapshot = {
-    records: records ?? [], status: records === undefined ? 'loading' : 'ready', deleting: [],
-    settled: records !== undefined, readRequest: records === undefined ? 0 : 1, readSettled: records === undefined ? 0 : 1,
+    records: records ?? [],
+    status: records === undefined ? 'loading' : 'ready',
+    deleting: [],
+    settled: records !== undefined,
+    readRequest: records === undefined ? 0 : 1,
+    readSettled: records === undefined ? 0 : 1,
   }
   const useCatalog = <T,>(select: (value: CatalogSnapshot) => T): T => select(state)
   return {
@@ -169,15 +175,23 @@ describe('ScheduleCatalogAction visibility', () => {
     // its loading row stays visible.
     const known = record('known', 'after', START + 60_000)
     const p = props([known])
-    const view = render(<ScheduleCatalogAction {...p} useCatalog={
-      select => select({ records: [known], status: 'loading', deleting: [], settled: true, readRequest: 0, readSettled: 0 })} />)
+    const view = render(
+      <ScheduleCatalogAction
+        {...p}
+        useCatalog={select => select({ records: [known], status: 'loading', deleting: [], settled: true, readRequest: 0, readSettled: 0 })}
+      />,
+    )
     fireEvent.click(screen.getByRole('button', { name: '1 reminder' }))
     expect(screen.getByRole('status').textContent).toBe(en['list.loading'])
 
     // A failed read with nothing known keeps the entry, and the open popover
     // replaces its loading row with the retry.
-    view.rerender(<ScheduleCatalogAction {...p} useCatalog={
-      select => select({ records: [], status: 'error', deleting: [], settled: false, readRequest: 0, readSettled: 0 })} />)
+    view.rerender(
+      <ScheduleCatalogAction
+        {...p}
+        useCatalog={select => select({ records: [], status: 'error', deleting: [], settled: false, readRequest: 0, readSettled: 0 })}
+      />,
+    )
     expect(screen.getByRole('alert').textContent).toBe(en['list.error'])
     fireEvent.click(screen.getByRole('button', { name: en['list.retry'] }))
     expect(p.onRetry).toHaveBeenCalledOnce()
@@ -193,8 +207,7 @@ describe('ScheduleCatalogAction visibility', () => {
     const view = render(<ScheduleCatalogAction {...p} useCatalog={select => select(state)} />)
     expect(screen.getByRole('button', { name: '1 reminder' })).toBeDefined()
 
-    view.rerender(<ScheduleCatalogAction {...p} useCatalog={
-      select => select({ ...state, status: 'loading' })} />)
+    view.rerender(<ScheduleCatalogAction {...p} useCatalog={select => select({ ...state, status: 'loading' })} />)
     const trigger = screen.getByRole('button', { name: '1 reminder' })
     expect(screen.queryByRole('button', { name: en['trigger.label'] })).toBeNull()
     fireEvent.click(trigger)
@@ -203,8 +216,14 @@ describe('ScheduleCatalogAction visibility', () => {
 
     // Two known records keep their plural count through the same refresh.
     const second = record('second', 'after', START + 120_000)
-    view.rerender(<ScheduleCatalogAction {...p} useCatalog={
-      select => select({ records: [only, second], status: 'loading', deleting: [], settled: true, readRequest: 0, readSettled: 0 })} />)
+    view.rerender(
+      <ScheduleCatalogAction
+        {...p}
+        useCatalog={select =>
+          select({ records: [only, second], status: 'loading', deleting: [], settled: true, readRequest: 0, readSettled: 0 })
+        }
+      />,
+    )
     expect(screen.getByRole('button', { name: '2 reminders' })).toBeDefined()
   })
 
@@ -217,10 +236,22 @@ describe('ScheduleCatalogAction visibility', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete reminder: selected' }))
     expect(p.onDelete).toHaveBeenCalledWith(row.id)
     // A failed deletion keeps the row; the app-wide toast, not this popover, announces it.
-    view.rerender(<ScheduleCatalogAction {...p} useCatalog={select => select({ records: [row], status: 'ready', deleting: [], settled: true, readRequest: 0, readSettled: 0 })} />)
+    view.rerender(
+      <ScheduleCatalogAction
+        {...p}
+        useCatalog={select => select({ records: [row], status: 'ready', deleting: [], settled: true, readRequest: 0, readSettled: 0 })}
+      />,
+    )
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByText('selected')).toBeDefined()
-    view.rerender(<ScheduleCatalogAction {...p} useCatalog={select => select({ records: [row], status: 'ready', deleting: [row.id], settled: true, readRequest: 0, readSettled: 0 })} />)
+    view.rerender(
+      <ScheduleCatalogAction
+        {...p}
+        useCatalog={select =>
+          select({ records: [row], status: 'ready', deleting: [row.id], settled: true, readRequest: 0, readSettled: 0 })
+        }
+      />,
+    )
     const pending = screen.getByRole('button', { name: 'Delete reminder: selected' })
     expect(pending.hasAttribute('disabled')).toBe(true)
     // The icon-only delete button keeps its action copy as the tooltip.
@@ -296,8 +327,12 @@ describe('ScheduleCatalogAction task reveal', () => {
   it('keeps the known count while a read is unresolved and names the entry with it', () => {
     const known = record('known', 'after', START + 60_000)
     const p = props([known])
-    render(<ScheduleCatalogAction {...p} useCatalog={
-      select => select({ records: [known], status: 'loading', deleting: [], settled: true, readRequest: 0, readSettled: 0 })} />)
+    render(
+      <ScheduleCatalogAction
+        {...p}
+        useCatalog={select => select({ records: [known], status: 'loading', deleting: [], settled: true, readRequest: 0, readSettled: 0 })}
+      />,
+    )
 
     // The retained record supplies the count, so the icon-only entry names it
     // instead of falling back to the catalog label.
@@ -339,8 +374,7 @@ describe('ScheduleCatalogAction rows', () => {
     // metadata line, and the trash action's glyph as the row's only svg.
     expect(rows.every(row => row.querySelectorAll('svg').length === 1)).toBe(true)
     const frequencyLines = metadataLines()
-    const lines = screen.getAllByRole('listitem')
-      .map(row => row.querySelector<HTMLElement>(`.${catalogCss.nextRun}`)!)
+    const lines = screen.getAllByRole('listitem').map(row => row.querySelector<HTMLElement>(`.${catalogCss.nextRun}`)!)
     // The frequency keeps its own line, and the next target states a second one:
     // the label, the absolute stamp, and the parenthesized distance.
     expect(frequencyLines.every(line => line.children.length === 1)).toBe(true)
@@ -360,18 +394,20 @@ describe('ScheduleCatalogAction rows', () => {
     // The line states the local stamp now, and the distance sits in parentheses
     // beside it.
     expect(lines.every(line => /\d{1,2}:\d{2}/.test(line.textContent ?? ''))).toBe(true)
-    for (const [line, task] of [[lines[0]!, overdue], [lines[1]!, every], [lines[2]!, at]] as const) {
+    for (const [line, task] of [
+      [lines[0]!, overdue],
+      [lines[1]!, every],
+      [lines[2]!, at],
+    ] as const) {
       const stamp = line.querySelector('time')
       expect(stamp?.dateTime).toBe(task.scheduledAt)
       expect(stamp?.textContent).toBe(formatScheduleAbsolute(task.scheduledAt, en['time.locale']))
       const relative = line.querySelector<HTMLElement>(`.${catalogCss.nextRunRelative}`)
-      expect(relative?.textContent)
-        .toBe(`(${formatScheduleRelative(task.scheduledAt, START, makeTranslate(en))})`)
+      expect(relative?.textContent).toBe(`(${formatScheduleRelative(task.scheduledAt, START, makeTranslate(en))})`)
     }
     // Both surfaces read the whole next-run line in one color: the popover's
     // countdown declares no ink of its own and the Tasks page row inherits.
-    const declared = (source: string): string =>
-      /\.nextRunRelative\s*\{([^}]*)\}/.exec(source)?.[1] ?? ''
+    const declared = (source: string): string => /\.nextRunRelative\s*\{([^}]*)\}/.exec(source)?.[1] ?? ''
     const popoverCss = readFileSync(resolve(import.meta.dirname, '../src/client/ScheduleCatalogAction.module.css'), 'utf8')
     const listCss = readFileSync(resolve(import.meta.dirname, '../src/client/TaskManagerPage.module.css'), 'utf8')
     expect(declared(popoverCss)).not.toMatch(/color:/)
@@ -428,72 +464,88 @@ describe('ScheduleCatalogAction rows', () => {
     ['23:00:15.500', '23:00:15'],
   ])('trims fractional and zero seconds off a daily rule clock: %s', (time, displayed) => {
     const item = record('daily-clock', 'daily', START + 3_600_000, { time, timeZone: 'America/New_York' })
-    expect(formatScheduleFrequency(item, makeTranslate(en)))
-      .toBe(`Daily at ${displayed} (${zoneLabel('America/New_York', makeTranslate(managerEn))})`)
-    expect(formatScheduleFrequency(item, makeTranslate(zh)))
-      .toBe(`每天 ${displayed}（${zoneLabel('America/New_York', makeTranslate(managerZh))}）`)
+    expect(formatScheduleFrequency(item, makeTranslate(en))).toBe(
+      `Daily at ${displayed} (${zoneLabel('America/New_York', makeTranslate(managerEn))})`,
+    )
+    expect(formatScheduleFrequency(item, makeTranslate(zh))).toBe(
+      `每天 ${displayed}（${zoneLabel('America/New_York', makeTranslate(managerZh))}）`,
+    )
   })
 
   it('labels a weekly rule with its localized weekday set, clock, and zone', () => {
     const item = record('weekly-clock', 'weekly', START + 3_600_000, {
-      time: '09:00:00.000', timeZone: 'Asia/Shanghai', weekdays: [1, 3],
+      time: '09:00:00.000',
+      timeZone: 'Asia/Shanghai',
+      weekdays: [1, 3],
     })
-    expect(formatScheduleFrequency(item, makeTranslate(en)))
-      .toBe(`Weekly on Mon, Wed at 09:00 (${zoneLabel('Asia/Shanghai', makeTranslate(managerEn))})`)
-    expect(formatScheduleFrequency(item, makeTranslate(zh)))
-      .toBe(`每周一、三 09:00（${zoneLabel('Asia/Shanghai', makeTranslate(managerZh))}）`)
+    expect(formatScheduleFrequency(item, makeTranslate(en))).toBe(
+      `Weekly on Mon, Wed at 09:00 (${zoneLabel('Asia/Shanghai', makeTranslate(managerEn))})`,
+    )
+    expect(formatScheduleFrequency(item, makeTranslate(zh))).toBe(
+      `每周一、三 09:00（${zoneLabel('Asia/Shanghai', makeTranslate(managerZh))}）`,
+    )
   })
 
   it('labels a weekly rule with whole seconds and for a single weekday', () => {
     const seconds = record('weekly-seconds', 'weekly', START + 3_600_000, {
-      time: '09:00:15.000', timeZone: 'UTC', weekdays: [7],
+      time: '09:00:15.000',
+      timeZone: 'UTC',
+      weekdays: [7],
     })
     expect(formatScheduleFrequency(seconds, makeTranslate(en))).toBe('Weekly on Sun at 09:00:15 (UTC+00:00)')
     expect(formatScheduleFrequency(seconds, makeTranslate(zh))).toBe('每周日 09:00:15（UTC+00:00）')
     const milliseconds = record('weekly-milliseconds', 'weekly', START + 3_600_000, {
-      time: '09:00:00.125', timeZone: 'UTC', weekdays: [1, 2, 3, 4, 5, 6, 7],
+      time: '09:00:00.125',
+      timeZone: 'UTC',
+      weekdays: [1, 2, 3, 4, 5, 6, 7],
     })
-    expect(formatScheduleFrequency(milliseconds, makeTranslate(en)))
-      .toBe('Weekly on Mon, Tue, Wed, Thu, Fri, Sat, Sun at 09:00 (UTC+00:00)')
-    expect(formatScheduleFrequency(milliseconds, makeTranslate(zh)))
-      .toBe('每周一、二、三、四、五、六、日 09:00（UTC+00:00）')
+    expect(formatScheduleFrequency(milliseconds, makeTranslate(en))).toBe(
+      'Weekly on Mon, Tue, Wed, Thu, Fri, Sat, Sun at 09:00 (UTC+00:00)',
+    )
+    expect(formatScheduleFrequency(milliseconds, makeTranslate(zh))).toBe('每周一、二、三、四、五、六、日 09:00（UTC+00:00）')
   })
 
   it('labels a cron rule with its described sentence and zone', () => {
     const item = record('cron-clock', 'cron', START + 3_600_000, {
-      expression: '0 9 * * 1-5', timeZone: 'America/New_York',
+      expression: '0 9 * * 1-5',
+      timeZone: 'America/New_York',
     })
-    expect(formatScheduleFrequency(item, makeTranslate(en)))
-      .toBe(`Mon–Fri at 09:00 (${zoneLabel('America/New_York', makeTranslate(managerEn))})`)
-    expect(formatScheduleFrequency(item, makeTranslate(zh)))
-      .toBe(`周一至周五 09:00（${zoneLabel('America/New_York', makeTranslate(managerZh))}）`)
+    expect(formatScheduleFrequency(item, makeTranslate(en))).toBe(
+      `Mon–Fri at 09:00 (${zoneLabel('America/New_York', makeTranslate(managerEn))})`,
+    )
+    expect(formatScheduleFrequency(item, makeTranslate(zh))).toBe(
+      `周一至周五 09:00（${zoneLabel('America/New_York', makeTranslate(managerZh))}）`,
+    )
   })
 
   it('omits a cron rule zone equal to the host zone and names another zone', () => {
     const item = record('cron-zone', 'cron', START + 3_600_000, {
-      expression: '*/15 * * * *', timeZone: 'Asia/Shanghai',
+      expression: '*/15 * * * *',
+      timeZone: 'Asia/Shanghai',
     })
     const t = makeTranslate(en)
     const named = makeTranslate(managerEn)
-    expect(formatScheduleFrequency(item, t, { system: 'Asia/Shanghai', label: zone => zoneLabel(zone, named) }))
-      .toBe('Every 15 minutes')
-    expect(formatScheduleFrequency(item, t, { system: 'UTC', label: zone => zoneLabel(zone, named) }))
-      .toBe(`Every 15 minutes (${zoneLabel('Asia/Shanghai', named)})`)
-    expect(formatScheduleFrequency(item, makeTranslate(zh), { system: 'UTC', label: zone => zoneLabel(zone, makeTranslate(managerZh)) }))
-      .toBe(`每 15 分钟（${zoneLabel('Asia/Shanghai', makeTranslate(managerZh))}）`)
+    expect(formatScheduleFrequency(item, t, { system: 'Asia/Shanghai', label: zone => zoneLabel(zone, named) })).toBe('Every 15 minutes')
+    expect(formatScheduleFrequency(item, t, { system: 'UTC', label: zone => zoneLabel(zone, named) })).toBe(
+      `Every 15 minutes (${zoneLabel('Asia/Shanghai', named)})`,
+    )
+    expect(
+      formatScheduleFrequency(item, makeTranslate(zh), { system: 'UTC', label: zone => zoneLabel(zone, makeTranslate(managerZh)) }),
+    ).toBe(`每 15 分钟（${zoneLabel('Asia/Shanghai', makeTranslate(managerZh))}）`)
   })
 
   it('keeps the raw expression of a cron rule this parser cannot read', () => {
     const item = record('cron-raw', 'cron', START + 3_600_000, {
-      expression: '0 9 * * MON', timeZone: 'Asia/Shanghai',
+      expression: '0 9 * * MON',
+      timeZone: 'Asia/Shanghai',
     })
     const t = makeTranslate(en)
     const named = makeTranslate(managerEn)
     expect(formatScheduleFrequency(item, t)).toBe(`Cron 0 9 * * MON (${zoneLabel('Asia/Shanghai', named)})`)
-    expect(formatScheduleFrequency(item, t, { system: 'Asia/Shanghai', label: zone => zoneLabel(zone, named) }))
-      .toBe('Cron 0 9 * * MON')
-    expect(formatScheduleFrequency(item, t, { system: 'UTC', label: zone => zoneLabel(zone, named) }))
-      .toBe(`Cron 0 9 * * MON (${zoneLabel('Asia/Shanghai', named)})`)
+    expect(formatScheduleFrequency(item, t, { system: 'Asia/Shanghai', label: zone => zoneLabel(zone, named) })).toBe('Cron 0 9 * * MON')
+    expect(formatScheduleFrequency(item, t, { system: 'UTC', label: zone => zoneLabel(zone, named) })).toBe(
+      `Cron 0 9 * * MON (${zoneLabel('Asia/Shanghai', named)})`,
+    )
   })
 
   it('shows daily recurrence in the Session catalog rather than a one-shot label', () => {
@@ -502,7 +554,9 @@ describe('ScheduleCatalogAction rows', () => {
     render(<ScheduleCatalogAction {...props([item, other])} />)
     fireEvent.click(screen.getByRole('button', { name: '2 reminders' }))
     const list = screen.getByRole('list', { name: en['list.aria'] })
-    expect(within(list).getByText(`Daily at 23:00 (${zoneLabel('Asia/Shanghai', makeTranslate(managerEn))})`, { exact: true })).toBeDefined()
+    expect(
+      within(list).getByText(`Daily at 23:00 (${zoneLabel('Asia/Shanghai', makeTranslate(managerEn))})`, { exact: true }),
+    ).toBeDefined()
     expect(within(list).queryByText(en['frequency.once'], { exact: true })).toBeNull()
   })
 
@@ -533,15 +587,16 @@ describe('ScheduleCatalogAction rows', () => {
     const first = record('first', 'at', START + 500)
     const second = record('second', 'at', START + 500)
     expect(orderScheduleRecords([first, second], START).map(item => item.id)).toEqual(['first', 'second'])
-    expect(orderScheduleRecords([
-      record('future', 'at', START + 1_000),
-      record('overdue', 'at', START - 1_000),
-    ], START).map(item => item.id)).toEqual(['overdue', 'future'])
+    expect(
+      orderScheduleRecords([record('future', 'at', START + 1_000), record('overdue', 'at', START - 1_000)], START).map(item => item.id),
+    ).toEqual(['overdue', 'future'])
 
     render(<ScheduleCatalogAction {...props([first, second])} />)
     fireEvent.click(screen.getByRole('button'))
     expect(metadataLines().every(line => !line.className.includes('metadataOverdue'))).toBe(true)
-    act(() => { vi.advanceTimersByTime(1_000) })
+    act(() => {
+      vi.advanceTimersByTime(1_000)
+    })
     expect(metadataLines().every(line => line.className.includes('metadataOverdue'))).toBe(true)
   })
 })
@@ -560,7 +615,12 @@ describe('ScheduleCatalogAction dismissal', () => {
   })
 
   it('leaves the catalog open when Escape belongs to a sibling control', () => {
-    render(<><ScheduleCatalogAction {...props(active)} /><button type="button">Sibling</button></>)
+    render(
+      <>
+        <ScheduleCatalogAction {...props(active)} />
+        <button type="button">Sibling</button>
+      </>,
+    )
     const trigger = screen.getByRole('button', { name: '2 reminders' })
     const sibling = screen.getByRole('button', { name: 'Sibling' })
     fireEvent.click(trigger)

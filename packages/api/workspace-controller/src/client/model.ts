@@ -141,20 +141,16 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    * @param beforeWorkspaceId - anchor Workspace; omitted appends.
    * @returns generated Remote result.
    */
-  async insertBefore(
-    workspaceId: WorkspaceId,
-    beforeWorkspaceId?: WorkspaceId,
-  ): Promise<RemoteResult<WorkspaceOrderValue>> {
+  async insertBefore(workspaceId: WorkspaceId, beforeWorkspaceId?: WorkspaceId): Promise<RemoteResult<WorkspaceOrderValue>> {
     const requestGeneration = ++this.orderRequestGeneration
     const frameGeneration = this.orderFrameGeneration
     const localOrder = this.items.map(workspace => workspace.workspaceId)
     this.installOrder(insertIdBefore(localOrder, workspaceId, beforeWorkspaceId))
     const result = await this.remote.insertBefore({
       workspaceId,
-      ...beforeWorkspaceId === undefined ? {} : { beforeWorkspaceId },
+      ...(beforeWorkspaceId === undefined ? {} : { beforeWorkspaceId }),
     })
-    if (requestGeneration === this.orderRequestGeneration
-      && frameGeneration === this.orderFrameGeneration) {
+    if (requestGeneration === this.orderRequestGeneration && frameGeneration === this.orderFrameGeneration) {
       this.installOrder(result.ok ? result.value.workspaceIds : this.committedOrder, result.ok)
     }
     return result
@@ -175,7 +171,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     const result = await this.remote.insertSessionBefore({
       workspaceId,
       sessionId,
-      ...beforeSessionId === undefined ? {} : { beforeSessionId },
+      ...(beforeSessionId === undefined ? {} : { beforeSessionId }),
     })
     if (result.ok) this.upsert(result.value.workspace)
     return result
@@ -212,9 +208,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    * @param sessionId - Session to unarchive.
    * @returns generated Remote result.
    */
-  async unarchiveSession(
-    sessionId: WorkspaceUnarchiveSessionRequest['sessionId'],
-  ): Promise<RemoteResult<WorkspaceArchiveValue>> {
+  async unarchiveSession(sessionId: WorkspaceUnarchiveSessionRequest['sessionId']): Promise<RemoteResult<WorkspaceArchiveValue>> {
     const requestSeq = ++this.archiveRequestSeq
     const result = await this.remote.unarchiveSession({ sessionId })
     if (result.ok && requestSeq === this.archiveRequestSeq) {
@@ -229,9 +223,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    * @param sessionId - Session to pin.
    * @returns generated Remote result.
    */
-  async pinSession(
-    sessionId: WorkspacePinSessionRequest['sessionId'],
-  ): Promise<RemoteResult<WorkspacePinValue>> {
+  async pinSession(sessionId: WorkspacePinSessionRequest['sessionId']): Promise<RemoteResult<WorkspacePinValue>> {
     const requestSeq = ++this.pinRequestSeq
     const result = await this.remote.pinSession({ sessionId })
     if (result.ok && requestSeq === this.pinRequestSeq) {
@@ -246,9 +238,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    * @param sessionId - Session to unpin.
    * @returns generated Remote result.
    */
-  async unpinSession(
-    sessionId: WorkspaceUnpinSessionRequest['sessionId'],
-  ): Promise<RemoteResult<WorkspacePinValue>> {
+  async unpinSession(sessionId: WorkspaceUnpinSessionRequest['sessionId']): Promise<RemoteResult<WorkspacePinValue>> {
     const requestSeq = ++this.pinRequestSeq
     const result = await this.remote.unpinSession({ sessionId })
     if (result.ok && requestSeq === this.pinRequestSeq) {
@@ -333,7 +323,9 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    */
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -357,15 +349,21 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   }
 
   private installArchived(archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds']): void {
-    if (archivedSessionIds.length === this.archivedSessionIds.length
-      && archivedSessionIds.every((id, index) => id === this.archivedSessionIds[index])) return
+    if (
+      archivedSessionIds.length === this.archivedSessionIds.length &&
+      archivedSessionIds.every((id, index) => id === this.archivedSessionIds[index])
+    )
+      return
     this.archivedSessionIds = [...archivedSessionIds]
     this.invalidate()
   }
 
   private installPinned(pinnedSessionIds: WorkspacePinValue['pinnedSessionIds']): void {
-    if (pinnedSessionIds.length === this.pinnedSessionIds.length
-      && pinnedSessionIds.every((id, index) => id === this.pinnedSessionIds[index])) return
+    if (
+      pinnedSessionIds.length === this.pinnedSessionIds.length &&
+      pinnedSessionIds.every((id, index) => id === this.pinnedSessionIds[index])
+    )
+      return
     this.pinnedSessionIds = [...pinnedSessionIds]
     this.invalidate()
   }
@@ -373,9 +371,9 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   private installOrder(workspaceIds: readonly WorkspaceId[], committed = false): void {
     if (committed) this.committedOrder = [...workspaceIds]
     const rank = new Map(workspaceIds.map((id, index) => [id, index]))
-    const items = [...this.items].sort((left, right) =>
-      (rank.get(left.workspaceId) ?? Number.MAX_SAFE_INTEGER)
-      - (rank.get(right.workspaceId) ?? Number.MAX_SAFE_INTEGER))
+    const items = [...this.items].sort(
+      (left, right) => (rank.get(left.workspaceId) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.workspaceId) ?? Number.MAX_SAFE_INTEGER),
+    )
     if (items.every((item, index) => item === this.items[index])) return
     this.items = items
     this.invalidate()
@@ -391,9 +389,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
     if (!this.committedOrder.includes(view.workspaceId)) {
       this.committedOrder = [view.workspaceId, ...this.committedOrder]
     }
-    this.items = index === -1
-      ? [view, ...this.items]
-      : this.items.map((item, position) => position === index ? view : item)
+    this.items = index === -1 ? [view, ...this.items] : this.items.map((item, position) => (position === index ? view : item))
     this.invalidate()
   }
 
@@ -453,11 +449,7 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   }
 }
 
-function insertIdBefore(
-  ids: readonly WorkspaceId[],
-  id: WorkspaceId,
-  beforeId?: WorkspaceId,
-): WorkspaceId[] {
+function insertIdBefore(ids: readonly WorkspaceId[], id: WorkspaceId, beforeId?: WorkspaceId): WorkspaceId[] {
   if (!ids.includes(id) || (beforeId !== undefined && !ids.includes(beforeId)) || beforeId === id) {
     return [...ids]
   }

@@ -34,7 +34,9 @@ export function installThemeStyles(ctx: Context): void {
       tag.dataset.pluginCss = `${PLUGIN_ID}/${name}`
       tag.textContent = css
       document.head.appendChild(tag)
-      return () => { tag.remove() }
+      return () => {
+        tag.remove()
+      }
     }, `ui-theme: ${name} stylesheet`)
   }
 }

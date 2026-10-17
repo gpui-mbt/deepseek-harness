@@ -1,9 +1,7 @@
 /** Replay-stable view models for Cordis lifecycle Tool calls. */
 
 import type { StartedToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
-import type {
-  CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId, CordisDynamicRunMode,
-} from './events.ts'
+import type { CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId, CordisDynamicRunMode } from './events.ts'
 
 type Block = StartedToolCallViewProps['block']
 
@@ -55,13 +53,13 @@ function stringAt(source: Record<string, unknown>, key: string): string | null {
 
 function objectAt(source: Record<string, unknown>, key: string): Record<string, unknown> | null {
   const value = source[key]
-  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : null
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
 }
 
 function parseArgs(argsRaw: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(argsRaw)
-    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, unknown> : null
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null
   } catch {
     // Running calls can expose a truncated JSON prefix.
     return null
@@ -69,9 +67,7 @@ function parseArgs(argsRaw: string): Record<string, unknown> | null {
 }
 
 function resultText(block: Extract<Block, { kind: 'tool-result' }>): string | null {
-  const text = block.content
-    .map(item => item.type === 'text' ? item.text : JSON.stringify(item, null, 2))
-    .join('\n')
+  const text = block.content.map(item => (item.type === 'text' ? item.text : JSON.stringify(item, null, 2))).join('\n')
   if (text !== '') return text
   return block.error === undefined ? null : `${block.error.name}: ${block.error.code}`
 }
@@ -102,9 +98,9 @@ export function cordisDefineCard(block: Block): CordisDefineCard {
   const meta = metaObject(block)
   const rawName = argsRaw === '' ? null : firstLine(argsRaw)
   return {
-    pluginId: meta === null ? null : stringAt(meta, 'pluginId') as CordisDynamicPluginId | null,
-    packageId: meta === null ? null : stringAt(meta, 'packageId') as CordisDynamicPackageId | null,
-    name: args === null ? rawName : stringAt(args, 'name') ?? rawName,
+    pluginId: meta === null ? null : (stringAt(meta, 'pluginId') as CordisDynamicPluginId | null),
+    packageId: meta === null ? null : (stringAt(meta, 'packageId') as CordisDynamicPackageId | null),
+    name: args === null ? rawName : (stringAt(args, 'name') ?? rawName),
     purpose: args === null ? null : stringAt(args, 'purpose'),
     hostCode: code === null ? null : stringAt(code, 'host'),
     clientCode: code === null ? null : stringAt(code, 'client'),
@@ -130,8 +126,8 @@ export function cordisRunCard(block: Block): CordisRunCard {
   const argsPluginId = args === null ? null : stringAt(args, 'pluginId')
   const argsPackageId = args === null ? null : stringAt(args, 'packageId')
   return {
-    pluginId: (meta === null ? argsPluginId : stringAt(meta, 'pluginId') ?? argsPluginId) as CordisDynamicPluginId | null,
-    packageId: (meta === null ? argsPackageId : stringAt(meta, 'packageId') ?? argsPackageId) as CordisDynamicPackageId | null,
+    pluginId: (meta === null ? argsPluginId : (stringAt(meta, 'pluginId') ?? argsPluginId)) as CordisDynamicPluginId | null,
+    packageId: (meta === null ? argsPackageId : (stringAt(meta, 'packageId') ?? argsPackageId)) as CordisDynamicPackageId | null,
     pluginRunId: (meta === null ? null : stringAt(meta, 'pluginRunId')) as CordisDynamicPluginRunId | null,
     mode: rawMode === 'run' || rawMode === 'update' ? rawMode : null,
     seq: settled ? block.seq : null,
@@ -153,7 +149,7 @@ export function cordisActionCard(block: Block): CordisActionCard {
   const state = stateOf(block)
   const output = settled ? resultText(block) : null
   return {
-    pluginId: (args === null ? null : stringAt(args, 'pluginId') ?? stringAt(args, 'id')) as CordisDynamicPluginId | null,
+    pluginId: (args === null ? null : (stringAt(args, 'pluginId') ?? stringAt(args, 'id'))) as CordisDynamicPluginId | null,
     output,
     errorSummary: state === 'error' && output !== null ? firstLine(output) : null,
     state,

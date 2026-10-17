@@ -21,11 +21,13 @@ async function main() {
   const server = await createArtifactUpdateServer({
     signed: process.env.DSH_SIGNED_UPDATE_SIGNED,
     unsigned: process.env.DSH_SIGNED_UPDATE_UNSIGNED,
-    ...(process.env.DSH_SIGNED_UPDATE_OLD ? {
-      old: process.env.DSH_SIGNED_UPDATE_OLD,
-      oldBlockmap: `${process.env.DSH_SIGNED_UPDATE_OLD}.blockmap`,
-      signedBlockmap: `${process.env.DSH_SIGNED_UPDATE_SIGNED}.blockmap`,
-    } : {}),
+    ...(process.env.DSH_SIGNED_UPDATE_OLD
+      ? {
+          old: process.env.DSH_SIGNED_UPDATE_OLD,
+          oldBlockmap: `${process.env.DSH_SIGNED_UPDATE_OLD}.blockmap`,
+          signedBlockmap: `${process.env.DSH_SIGNED_UPDATE_SIGNED}.blockmap`,
+        }
+      : {}),
   })
   report.inputs = server.artifacts
   report.publisherName = publisher
@@ -38,11 +40,20 @@ async function main() {
     await mkdir(directory)
     const config = join(directory, 'app-update.yml')
     await writeFile(config, JSON.stringify({ publisherName: [expectedPublisher], updaterCacheDirName: 'cache' }))
-    const forbidden = () => { throw new Error('Unexpected application quit or relaunch') }
+    const forbidden = () => {
+      throw new Error('Unexpected application quit or relaunch')
+    }
     const updater = new NsisUpdater(undefined, {
-      version: '1.0.0', name: 'signed-download-qualification', isPackaged: true,
-      appUpdateConfigPath: config, userDataPath: directory, baseCachePath: directory,
-      whenReady: async () => {}, quit: forbidden, relaunch: forbidden, onQuit: forbidden,
+      version: '1.0.0',
+      name: 'signed-download-qualification',
+      isPackaged: true,
+      appUpdateConfigPath: config,
+      userDataPath: directory,
+      baseCachePath: directory,
+      whenReady: async () => {},
+      quit: forbidden,
+      relaunch: forbidden,
+      onQuit: forbidden,
     })
     const logs = []
     const errors = []
@@ -53,11 +64,31 @@ async function main() {
     updater.disableWebInstaller = true
     updater.setFeedURL({ provider: 'generic', url: server.url, channel: 'nightly', useMultipleRangeRequest: multipleRanges })
     updater.on('error', error => errors.push(error.code))
-    updater.quitAndInstall = () => { installed++ }
+    updater.quitAndInstall = () => {
+      installed++
+    }
     let authorized = false
-    const coordinator = new DesktopUpdateCoordinator(state => { states.push(state); return state },
-      async () => authorized, updater, () => true, () => '1.0.0')
-    const f = { coordinator, updater, logs, errors, states, directory, authorize: () => { authorized = true } }
+    const coordinator = new DesktopUpdateCoordinator(
+      state => {
+        states.push(state)
+        return state
+      },
+      async () => authorized,
+      updater,
+      () => true,
+      () => '1.0.0',
+    )
+    const f = {
+      coordinator,
+      updater,
+      logs,
+      errors,
+      states,
+      directory,
+      authorize: () => {
+        authorized = true
+      },
+    }
     fixtures.push(f)
     return f
   }
@@ -140,19 +171,27 @@ async function main() {
         if (!fault) {
           assert.equal(fallback, false, 'A full fallback cannot pass differential qualification')
           assert.ok(payload.length > 0 && payload.every(request => request.range))
-          assert.equal(payload.some(request => request.range.includes(',')), multipleRanges)
-          assert.ok(payload.reduce((bytes, request) => bytes + request.bytes, 0) < server.artifacts.signed.size,
-            'Reconstruction must reuse bytes from the cached installer')
-        }
-        else {
+          assert.equal(
+            payload.some(request => request.range.includes(',')),
+            multipleRanges,
+          )
+          assert.ok(
+            payload.reduce((bytes, request) => bytes + request.bytes, 0) < server.artifacts.signed.size,
+            'Reconstruction must reuse bytes from the cached installer',
+          )
+        } else {
           assert.equal(fallback, true)
           assert.equal(payload.filter(request => !request.range).length, 1)
           assert.equal(payload.at(-1).bytes, server.artifacts.signed.size)
           if (fault === 'reject-ranges') assert.ok(payload.some(request => request.range))
         }
-        report.differential.push({ name, requests, fallback,
+        report.differential.push({
+          name,
+          requests,
+          fallback,
           payloadBytes: payload.reduce((bytes, request) => bytes + request.bytes, 0),
-          fullSize: server.artifacts.signed.size })
+          fullSize: server.artifacts.signed.size,
+        })
         report.cases.push(name)
       }
     }
@@ -160,8 +199,7 @@ async function main() {
     assert.deepEqual(server.failures, [])
     for (const artifact of Object.values(server.artifacts)) assert.equal(await artifactDigest(artifact.file), artifact.sha512)
     report.passed = true
-  }
-  finally {
+  } finally {
     for (const f of fixtures) f.coordinator.dispose()
     await server.close()
     report.requests = server.requests
@@ -170,8 +208,11 @@ async function main() {
   }
 }
 
-main().then(() => app.exit(0), async (error) => {
-  console.error(error)
-  await writeFile(join(root, 'failure.txt'), `${error.stack ?? error}\n`)
-  app.exit(1)
-})
+main().then(
+  () => app.exit(0),
+  async error => {
+    console.error(error)
+    await writeFile(join(root, 'failure.txt'), `${error.stack ?? error}\n`)
+    app.exit(1)
+  },
+)

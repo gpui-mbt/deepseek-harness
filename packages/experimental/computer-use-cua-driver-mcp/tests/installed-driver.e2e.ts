@@ -5,7 +5,7 @@ import ComputerUse from '@deepseek-ai/dsh-computer-use'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import * as Provider from '../src/index.ts'
 
 const executable = process.env.DSH_COMPUTER_USE_MCP_EXECUTABLE

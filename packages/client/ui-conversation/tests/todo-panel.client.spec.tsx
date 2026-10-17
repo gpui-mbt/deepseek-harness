@@ -5,7 +5,7 @@
  * adapter (selects the plan off the session snapshot and follows changes).
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { TodoItem } from '@deepseek-ai/dsh-tool-todo/client'
@@ -49,10 +49,15 @@ describe('TodoPanel', () => {
   })
 
   it('omits the completed segment while nothing is done yet', () => {
-    render(<TodoPanel todos={[
-      { content: '写组件', status: 'in_progress' },
-      { content: '补测试', status: 'pending' },
-    ]} t={t} />)
+    render(
+      <TodoPanel
+        todos={[
+          { content: '写组件', status: 'in_progress' },
+          { content: '补测试', status: 'pending' },
+        ]}
+        t={t}
+      />,
+    )
     expect(screen.getByText('1 进行中 · 1 待处理')).toBeTruthy()
     expect(screen.queryByText(/已完成/)).toBeNull()
   })
@@ -64,10 +69,8 @@ describe('TodoPanel', () => {
     expect(items.map(li => li.getAttribute('data-status'))).toEqual(['completed', 'in_progress', 'pending'])
     expect(screen.getByText('搭骨架')).toBeTruthy()
     expect(screen.getByText('写组件')).toBeTruthy()
-    expect(items.map(li => li.querySelector('[data-state]')?.getAttribute('data-state')))
-      .toEqual(['done', 'ongoing', 'idle'])
-    expect(screen.getAllByRole('img').map(node => node.getAttribute('aria-label')))
-      .toEqual(['已完成', '进行中', '待处理'])
+    expect(items.map(li => li.querySelector('[data-state]')?.getAttribute('data-state'))).toEqual(['done', 'ongoing', 'idle'])
+    expect(screen.getAllByRole('img').map(node => node.getAttribute('aria-label'))).toEqual(['已完成', '进行中', '待处理'])
   })
 
   it('collapse hides an expanded list; expand restores; header keeps the count summary', () => {
@@ -117,10 +120,14 @@ describe('TodoDock', () => {
     render(<TodoDock {...dockProps(store)} />)
     // Capability absent (no baseline/frame yet) renders nothing.
     expect(screen.queryByTestId('todo-panel')).toBeNull()
-    act(() => { store.set({ value: LIST }) })
+    act(() => {
+      store.set({ value: LIST })
+    })
     expect(screen.getByText('1 已完成 · 1 进行中 · 1 待处理')).toBeTruthy()
     // The pre-first-write whole value (null) retires the strip (the panel owns no data).
-    act(() => { store.set({ value: null }) })
+    act(() => {
+      store.set({ value: null })
+    })
     expect(screen.queryByTestId('todo-panel')).toBeNull()
   })
 

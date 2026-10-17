@@ -4,11 +4,7 @@ import type { SessionControllerInternals } from '../src/index.ts'
 import { SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
-import type {
-  AdmittedPromptContentPart,
-  AttachmentAdmissionPart,
-  ImageAttachmentLimits,
-} from '@deepseek-ai/dsh-attachment'
+import type { AdmittedPromptContentPart, AttachmentAdmissionPart, ImageAttachmentLimits } from '@deepseek-ai/dsh-attachment'
 import type { SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionProjectionsValue } from '../src/types.ts'
 import {
@@ -25,12 +21,8 @@ import {
 } from '@deepseek-ai/dsh-session-persistence'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
-import { vi } from 'vitest'
-import {
-  RemoteError,
-  remoteErrorOf,
-  type RemoteResult,
-} from '@deepseek-ai/dsh-typert-protocol'
+import { vi } from 'vite-plus/test'
+import { RemoteError, remoteErrorOf, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
 import SessionController from '../src/index.ts'
 import type {
@@ -69,7 +61,8 @@ import type {
 /** Direct test face matching the generated `ctx.remote.session` unary methods. */
 export interface TestSessionRemote {
   workspacePathApplications(
-    request: { readonly path: string }, signal?: AbortSignal,
+    request: { readonly path: string },
+    signal?: AbortSignal,
   ): Promise<RemoteResult<readonly SessionWorkspacePathApplication[]>>
   canOpenWorkspacePath(): Promise<RemoteResult<boolean>>
   list(request: SessionListRequest, signal?: AbortSignal): Promise<RemoteResult<SessionListValue>>
@@ -83,10 +76,7 @@ export interface TestSessionRemote {
   attachment(request: SessionAttachmentRequest): Promise<RemoteResult<SessionAttachmentValue>>
   updateQueue(request: SessionUpdateQueueRequest): Promise<RemoteResult<SessionUpdateQueueValue>>
   cancel(request: SessionCancelRequest): Promise<RemoteResult<SessionCancelValue>>
-  openWorkspacePath(
-    request: SessionOpenWorkspacePathRequest,
-    signal?: AbortSignal,
-  ): Promise<RemoteResult<SessionOpenWorkspacePathValue>>
+  openWorkspacePath(request: SessionOpenWorkspacePathRequest, signal?: AbortSignal): Promise<RemoteResult<SessionOpenWorkspacePathValue>>
   page(request: SessionPageRequest, signal?: AbortSignal): Promise<RemoteResult<SessionPage>>
   projections(request: SessionProjectionsRequest, signal?: AbortSignal): Promise<RemoteResult<SessionProjectionsValue>>
   follow(request: SessionFollowRequest, signal?: AbortSignal): AsyncIterable<SessionFollowFrame>
@@ -125,26 +115,13 @@ interface TestSessionInspection {
 
 type LegacyTestPersistence = Record<string, unknown> & {
   readonly list?: (signal?: AbortSignal) => Promise<readonly SessionHeader[]>
-  readonly inspect?: (
-    sessionId: SessionId,
-    signal?: AbortSignal,
-  ) => Promise<TestSessionInspection | undefined>
-  readonly stat?: (
-    sessionId: SessionId,
-    options?: SessionPersistenceStatOptions,
-  ) => Promise<SessionPersistenceSnapshot | undefined>
-  readonly open?: (
-    sessionId: SessionId,
-    access: SessionAccess,
-    options?: SessionPersistenceOpenOptions,
-  ) => Promise<SessionHandle>
+  readonly inspect?: (sessionId: SessionId, signal?: AbortSignal) => Promise<TestSessionInspection | undefined>
+  readonly stat?: (sessionId: SessionId, options?: SessionPersistenceStatOptions) => Promise<SessionPersistenceSnapshot | undefined>
+  readonly open?: (sessionId: SessionId, access: SessionAccess, options?: SessionPersistenceOpenOptions) => Promise<SessionHandle>
 }
 
 /** One immutable read handle over a double's inspected header and events. */
-function testReadHandle(
-  sessionId: SessionId,
-  inspection: TestSessionInspection,
-): SessionHandle {
+function testReadHandle(sessionId: SessionId, inspection: TestSessionInspection): SessionHandle {
   const events = Object.freeze([...inspection.events])
   return {
     id: sessionId,
@@ -171,12 +148,8 @@ function testReadHandle(
  * headers, `stat` derives a metadata-less snapshot from the listing, and
  * `open` serves immutable read handles over the double's `inspect` result.
  */
-export function testSessionPersistence(
-  _ctx: Context,
-  persistence: LegacyTestPersistence,
-): Record<string, unknown> {
-  const listHeaders = async (signal?: AbortSignal): Promise<readonly SessionHeader[]> =>
-    await persistence.list?.(signal) ?? []
+export function testSessionPersistence(_ctx: Context, persistence: LegacyTestPersistence): Record<string, unknown> {
+  const listHeaders = async (signal?: AbortSignal): Promise<readonly SessionHeader[]> => (await persistence.list?.(signal)) ?? []
   const adapted: Record<string, unknown> = {
     ...persistence,
     list: async (options?: SessionPersistenceListOptions) =>
@@ -192,17 +165,11 @@ export function testSessionPersistence(
     ): Promise<SessionPersistenceSnapshot | undefined> => {
       options?.signal?.throwIfAborted()
       const header = (await listHeaders(options?.signal)).find(listed => listed.id === sessionId)
-      return header === undefined
-        ? undefined
-        : { header, revision: SessionPersistenceRevision(`test:${sessionId}:stat`) }
+      return header === undefined ? undefined : { header, revision: SessionPersistenceRevision(`test:${sessionId}:stat`) }
     }
   }
   if (persistence.open === undefined) {
-    adapted.open = async (
-      sessionId: SessionId,
-      access: SessionAccess,
-      options?: SessionPersistenceOpenOptions,
-    ): Promise<SessionHandle> => {
+    adapted.open = async (sessionId: SessionId, access: SessionAccess, options?: SessionPersistenceOpenOptions): Promise<SessionHandle> => {
       options?.signal?.throwIfAborted()
       if (access !== 'read') {
         throw new Error(`test persistence double only serves read handles (requested "${access}")`)
@@ -232,10 +199,7 @@ export function installSessionReadTestServices(ctx: Context): void {
   if (ctx.get('sessionQuery') === undefined) new TestSessionQuery(ctx)
 }
 
-function installControllers(
-  ctx: Context,
-  defaults: TestSessionRemoteDefaults,
-): SessionController {
+function installControllers(ctx: Context, defaults: TestSessionRemoteDefaults): SessionController {
   const found = installed.get(ctx)
   if (found !== undefined) return found
 
@@ -270,9 +234,7 @@ function installControllers(
   if (ctx.get('attachments') === undefined) {
     ctx.provide('attachments', {
       imageLimits: TEST_IMAGE_LIMITS,
-      admitPromptContent: async (
-        content: readonly AttachmentAdmissionPart[],
-      ): Promise<AdmittedPromptContentPart[]> => {
+      admitPromptContent: async (content: readonly AttachmentAdmissionPart[]): Promise<AdmittedPromptContentPart[]> => {
         const admitted: AdmittedPromptContentPart[] = []
         for (const part of content) {
           if (part.type === 'image') throw new Error('test did not configure image persistence')
@@ -298,14 +260,14 @@ function installControllers(
     controller = new SessionController(
       ctx,
       {
-        ...defaults.nativeOpen === undefined ? {} : { nativeOpen: defaults.nativeOpen },
+        ...(defaults.nativeOpen === undefined ? {} : { nativeOpen: defaults.nativeOpen }),
       },
       {
-        ...defaults.openPath === undefined ? {} : { openPath: defaults.openPath },
-        ...defaults.fileApplications === undefined ? {} : { fileApplications: defaults.fileApplications },
-        ...defaults.openFileApplication === undefined ? {} : { openFileApplication: defaults.openFileApplication },
-        ...defaults.revealPath === undefined ? {} : { revealPath: defaults.revealPath },
-        ...defaults.canOpenPath === undefined ? {} : { canOpenPath: defaults.canOpenPath },
+        ...(defaults.openPath === undefined ? {} : { openPath: defaults.openPath }),
+        ...(defaults.fileApplications === undefined ? {} : { fileApplications: defaults.fileApplications }),
+        ...(defaults.openFileApplication === undefined ? {} : { openFileApplication: defaults.openFileApplication }),
+        ...(defaults.revealPath === undefined ? {} : { revealPath: defaults.revealPath }),
+        ...(defaults.canOpenPath === undefined ? {} : { canOpenPath: defaults.canOpenPath }),
       },
     )
   } finally {
@@ -316,76 +278,45 @@ function installControllers(
 }
 
 /** Build or return the production Session Controller for a direct unit harness. */
-export function createSessionTestController(
-  ctx: Context,
-  defaults: TestSessionRemoteDefaults,
-): SessionController {
+export function createSessionTestController(ctx: Context, defaults: TestSessionRemoteDefaults): SessionController {
   return installControllers(ctx, defaults)
 }
 
-function remoteResult<T>(
-  operation: () => T | Promise<T>,
-  signal?: AbortSignal,
-): Promise<RemoteResult<T>> {
+function remoteResult<T>(operation: () => T | Promise<T>, signal?: AbortSignal): Promise<RemoteResult<T>> {
   return Promise.resolve()
     .then(operation)
     .then(value => ({ ok: true as const, value }))
     .catch((error: unknown) => ({
       ok: false as const,
-      error: signal?.aborted === true
-        ? new RemoteError('gateway/cancelled', 'request was aborted', {})
-        : remoteErrorOf(error)
-          ?? new RemoteError(
-            'gateway/internal',
-            error instanceof Error ? error.message : String(error),
-            {},
-          ),
+      error:
+        signal?.aborted === true
+          ? new RemoteError('gateway/cancelled', 'request was aborted', {})
+          : (remoteErrorOf(error) ?? new RemoteError('gateway/internal', error instanceof Error ? error.message : String(error), {})),
     }))
 }
 
 /** Build the generated Session Remote's unary result semantics without a carrier. */
-export function createSessionTestRemote(
-  ctx: Context,
-  defaults: TestSessionRemoteDefaults,
-): TestSessionRemote {
+export function createSessionTestRemote(ctx: Context, defaults: TestSessionRemoteDefaults): TestSessionRemote {
   const direct = createSessionTestController(ctx, defaults)
   return {
-    workspacePathApplications: (request, signal = new AbortController().signal) => remoteResult(
-      () => direct.workspacePathApplications(request, signal), signal,
-    ),
+    workspacePathApplications: (request, signal = new AbortController().signal) =>
+      remoteResult(() => direct.workspacePathApplications(request, signal), signal),
     canOpenWorkspacePath: () => remoteResult(() => direct.canOpenWorkspacePath()),
-    list: (request, signal = new AbortController().signal) => remoteResult(
-      () => direct.list(request, signal),
-      signal,
-    ),
-    search: (request, signal = new AbortController().signal) => remoteResult(
-      () => direct.search(request, signal),
-      signal,
-    ),
+    list: (request, signal = new AbortController().signal) => remoteResult(() => direct.list(request, signal), signal),
+    search: (request, signal = new AbortController().signal) => remoteResult(() => direct.search(request, signal), signal),
     create: request => remoteResult(() => direct.create(request)),
     selectModel: request => remoteResult(() => direct.selectModel(request)),
     modelCatalog: () => remoteResult(() => direct.modelCatalog()),
     rename: request => remoteResult(() => direct.rename(request)),
     fork: request => remoteResult(() => direct.fork(request)),
-    prompt: (request, signal = new AbortController().signal) => remoteResult(
-      () => direct.prompt(request, signal),
-      signal,
-    ),
+    prompt: (request, signal = new AbortController().signal) => remoteResult(() => direct.prompt(request, signal), signal),
     attachment: request => remoteResult(() => direct.attachment(request)),
     updateQueue: request => remoteResult(() => direct.updateQueue(request)),
     cancel: request => remoteResult(() => direct.cancel(request)),
-    openWorkspacePath: (request, signal = new AbortController().signal) => remoteResult(
-      () => direct.openWorkspacePath(request, signal),
-      signal,
-    ),
-    page: (request, signal = new AbortController().signal) => remoteResult(
-      () => direct.page(request, signal),
-      signal,
-    ),
-    projections: (request, signal = new AbortController().signal) => remoteResult(
-      () => direct.projections(request, signal),
-      signal,
-    ),
+    openWorkspacePath: (request, signal = new AbortController().signal) =>
+      remoteResult(() => direct.openWorkspacePath(request, signal), signal),
+    page: (request, signal = new AbortController().signal) => remoteResult(() => direct.page(request, signal), signal),
+    projections: (request, signal = new AbortController().signal) => remoteResult(() => direct.projections(request, signal), signal),
     follow: (request, signal = new AbortController().signal) => direct.follow(request, signal),
     control: (signal = new AbortController().signal) => direct.control(signal),
   }

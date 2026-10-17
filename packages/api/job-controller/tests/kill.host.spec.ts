@@ -8,7 +8,7 @@ import SessionStore from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
 import { remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { JobController } from '../src/index.ts'
 
 function producer(label = 'sleep 60') {
@@ -18,11 +18,21 @@ function producer(label = 'sleep 60') {
     kind: 'bash' as const,
     label,
     run: () => ({
-      cancel: (reason?: string) => { cancels.push(reason) },
-      done: new Promise<JobOutcome>((resolve) => { settle = resolve }),
+      cancel: (reason?: string) => {
+        cancels.push(reason)
+      },
+      done: new Promise<JobOutcome>(resolve => {
+        settle = resolve
+      }),
     }),
   }
-  return { spec, cancels, settle: (outcome: JobOutcome) => { settle(outcome) } }
+  return {
+    spec,
+    cancels,
+    settle: (outcome: JobOutcome) => {
+      settle(outcome)
+    },
+  }
 }
 
 async function registerAgent(ctx: Context, session: Session): Promise<Agent> {
@@ -102,19 +112,17 @@ describe('JobController.kill', () => {
 
   it('rejects an unknown job id as job/not-found', async () => {
     const { session, controller } = await harness()
-    expect(failureCode(() => controller.kill({ sessionId: session.id, jobId: 'bash-99' as JobId })))
-      .toBe('job/not-found')
+    expect(failureCode(() => controller.kill({ sessionId: session.id, jobId: 'bash-99' as JobId }))).toBe('job/not-found')
   })
 
-  it('rejects a foreign session\'s job as job/not-found', async () => {
+  it("rejects a foreign session's job as job/not-found", async () => {
     const { ctx, agent, controller } = await harness()
     const task = producer()
     const id = ctx.jobs.start({ ...task.spec, owner: agent.id })
     // The other session cannot see the owned job.
     const other = ctx.sessions.create()
 
-    expect(failureCode(() => controller.kill({ sessionId: other.id, jobId: id })))
-      .toBe('job/not-found')
+    expect(failureCode(() => controller.kill({ sessionId: other.id, jobId: id }))).toBe('job/not-found')
     expect(ctx.jobs.get(id, agent.id).status).toBe('running')
   })
 
@@ -125,7 +133,9 @@ describe('JobController.kill', () => {
       label: 'flaky cancel',
       owner: agent.id,
       run: () => ({
-        cancel: () => { throw new Error('cancel boom') },
+        cancel: () => {
+          throw new Error('cancel boom')
+        },
         done: new Promise(() => {}),
       }),
     })
@@ -135,7 +145,7 @@ describe('JobController.kill', () => {
     expect(ctx.jobs.get(id, agent.id).status).toBe('running')
   })
 
-  it('kills a child session\'s own job from its list: the owner fence is the only access rule', async () => {
+  it("kills a child session's own job from its list: the owner fence is the only access rule", async () => {
     const { ctx, controller } = await harness()
     const child = ctx.sessions.create(undefined, { meta: { origin: 'subagent' } })
     const childAgent = await registerAgent(ctx, child)

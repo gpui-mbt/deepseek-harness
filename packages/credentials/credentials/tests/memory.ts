@@ -25,9 +25,7 @@ export class MemoryCredentials extends CredentialProvider {
 
   override resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined> {
     const value = this.store.get(ref)
-    return Promise.resolve(value === undefined || value.length === 0
-      ? undefined
-      : { value, source: 'memory' })
+    return Promise.resolve(value === undefined || value.length === 0 ? undefined : { value, source: 'memory' })
   }
 
   override describe(ref: CredentialRef): Promise<CredentialInfo> {
@@ -35,7 +33,7 @@ export class MemoryCredentials extends CredentialProvider {
     const configured = value !== undefined && value.length > 0
     return Promise.resolve({
       configured,
-      ...configured ? { source: 'memory' } : {},
+      ...(configured ? { source: 'memory' } : {}),
       writable: true,
     })
   }
@@ -62,9 +60,9 @@ export class MemoryCredentials extends CredentialProvider {
 
   override describeRecord(key: CredentialKey): Promise<CredentialRecordInfo> {
     const stored = this.records.get(key)
-    return Promise.resolve(stored === undefined
-      ? { configured: false, writable: true }
-      : { configured: true, kind: stored.kind, writable: true })
+    return Promise.resolve(
+      stored === undefined ? { configured: false, writable: true } : { configured: true, kind: stored.kind, writable: true },
+    )
   }
 
   override listRecords(): Promise<readonly CredentialRecordEntry[]> {

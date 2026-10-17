@@ -38,7 +38,11 @@ export function remapV3References(event: SessionFormatEvent, seq: number, mappin
     case 'compaction/prune': {
       const source = object(data)
       const range = object(source['shadowedRange'])
-      data = { ...source, shadowedRange: { ...range, start: reference(range['start']), end: reference(range['end']) }, shadowedSeqs: references(source['shadowedSeqs']) }
+      data = {
+        ...source,
+        shadowedRange: { ...range, start: reference(range['start']), end: reference(range['end']) },
+        shadowedSeqs: references(source['shadowedSeqs']),
+      }
       break
     }
     case 'session/title':
@@ -51,17 +55,22 @@ export function remapV3References(event: SessionFormatEvent, seq: number, mappin
       const source = object(data)
       const targets = source['targets']
       if (!Array.isArray(targets)) throw new SessionFormatError('V3 image offload targets must be an array')
-      data = { ...source, targets: targets.map((value: SessionFormatJsonValue) => {
-        const target = object(value)
-        return { ...target, seq: reference(target['seq']) }
-      }) }
+      data = {
+        ...source,
+        targets: targets.map((value: SessionFormatJsonValue) => {
+          const target = object(value)
+          return { ...target, seq: reference(target['seq']) }
+        }),
+      }
       break
     }
   }
   const surface = event['surfaceOp']
   const range = surface === undefined || surface === 'append' ? undefined : object(surface)
   return {
-    ...event, seq, data,
+    ...event,
+    seq,
+    data,
     ...(event['sourceEventSeqs'] === undefined ? {} : { sourceEventSeqs: references(event['sourceEventSeqs']) }),
     ...(range === undefined ? {} : { surfaceOp: { ...range, startSeq: reference(range['startSeq']), endSeq: reference(range['endSeq']) } }),
   }

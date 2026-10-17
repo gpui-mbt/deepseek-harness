@@ -7,7 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import WebServer from '@deepseek-ai/dsh-host-webserver'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import * as GitHubAdapter from '../src/index.ts'
 
 let root: string | undefined
@@ -24,20 +24,23 @@ describe('real Loader composition', () => {
   it('registers on a real WebServer and dispatches a signed request', { timeout: 60_000 }, async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-webhook-github-loader-'))
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      '- name: fixture-dependencies',
-      "- name: '@deepseek-ai/dsh-host-webserver'",
-      '  config:',
-      "    host: '127.0.0.1'",
-      '    port: 0',
-      "- name: '@deepseek-ai/dsh-webhook-github'",
-      '  config:',
-      '    source: loader',
-      '    path: /github',
-      '    secretEnv: DSH_GITHUB_WEBHOOK_SECRET',
-      '    maxBodyBytes: 1024',
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      [
+        '- name: fixture-dependencies',
+        "- name: '@deepseek-ai/dsh-host-webserver'",
+        '  config:',
+        "    host: '127.0.0.1'",
+        '    port: 0',
+        "- name: '@deepseek-ai/dsh-webhook-github'",
+        '  config:',
+        '    source: loader',
+        '    path: /github',
+        '    secretEnv: DSH_GITHUB_WEBHOOK_SECRET',
+        '    maxBodyBytes: 1024',
+        '',
+      ].join('\n'),
+    )
 
     const dispatch = vi.fn()
     const dependencies = {

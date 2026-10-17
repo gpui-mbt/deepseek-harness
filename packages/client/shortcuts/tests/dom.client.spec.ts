@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { fireEvent } from '@testing-library/dom'
 import { installKeyboard, detectEnvironment } from '../src/client/dom.ts'
 import { ShortcutRegistry } from '../src/client/registry.ts'
@@ -7,12 +7,19 @@ import type { ShortcutFixedInput } from '../src/client/types.ts'
 import type { ShortcutCommandId } from '../src/protocol.ts'
 
 let dispose: (() => void) | undefined
-afterEach(() => { dispose?.(); document.body.replaceChildren(); vi.restoreAllMocks() })
+afterEach(() => {
+  dispose?.()
+  document.body.replaceChildren()
+  vi.restoreAllMocks()
+})
 
 function mount(runtime: 'desktop' | 'web' = 'web', platform: 'macos' | 'windows' = 'windows') {
   const registry = new ShortcutRegistry(runtime, platform)
   const run = vi.fn()
-  registry.register({ id: 'shortcuts.open' as ShortcutCommandId, label: () => 'Shortcuts', aliases: [],
+  registry.register({
+    id: 'shortcuts.open' as ShortcutCommandId,
+    label: () => 'Shortcuts',
+    aliases: [],
     defaults: {
       'desktop:macos': { code: 'Slash', modifiers: ['primary'] },
       'desktop:windows': { code: 'Slash', modifiers: ['primary'] },
@@ -21,9 +28,14 @@ function mount(runtime: 'desktop' | 'web' = 'web', platform: 'macos' | 'windows'
       'web:windows': { code: 'Slash', modifiers: ['primary'] },
       'web:linux': { code: 'Slash', modifiers: ['primary'] },
     },
-    regions: ['page', 'editable'], modals: ['shortcuts'], resolve: () => ({ status: 'handled', run }) })
+    regions: ['page', 'editable'],
+    modals: ['shortcuts'],
+    resolve: () => ({ status: 'handled', run }),
+  })
   dispose = installKeyboard(window, registry)
-  const input = document.createElement('input'); document.body.append(input); input.focus()
+  const input = document.createElement('input')
+  document.body.append(input)
+  input.focus()
   return { registry, input, run }
 }
 const press = (target: EventTarget, extra: KeyboardEventInit = {}) => {
@@ -32,35 +44,52 @@ const press = (target: EventTarget, extra: KeyboardEventInit = {}) => {
   return event
 }
 
-it.each(['macos', 'windows'] as const)('leaves configurable %s shortcuts to native input while retaining DOM fixed-action observation', (platform) => {
-  const { registry, input, run } = mount('desktop', platform)
-  dispose?.()
-  const fixed = vi.fn<(input: ShortcutFixedInput) => void>()
-  dispose = installKeyboard(window, registry, fixed, true)
-  expect(press(input, { ctrlKey: platform === 'windows', metaKey: platform === 'macos' }).defaultPrevented).toBe(false)
-  registry.configure({ ...registry.config.getSnapshot(), revision: 'pair' as never,
-    document: { schemaVersion: 2, profiles: { [`desktop:${platform}`]: {
-      'shortcuts.open': { code: 'KeyF', secondCode: 'KeyG', modifiers: [] },
-    } } } })
-  press(input, { code: 'KeyF', key: 'f', ctrlKey: false })
-  press(input, { code: 'KeyG', key: 'g', ctrlKey: false })
-  expect(run).not.toHaveBeenCalled()
-  expect(fixed.mock.lastCall?.[0]).toMatchObject({ type: 'keydown', gesture: { code: 'KeyG' } })
-})
+it.each(['macos', 'windows'] as const)(
+  'leaves configurable %s shortcuts to native input while retaining DOM fixed-action observation',
+  platform => {
+    const { registry, input, run } = mount('desktop', platform)
+    dispose?.()
+    const fixed = vi.fn<(input: ShortcutFixedInput) => void>()
+    dispose = installKeyboard(window, registry, fixed, true)
+    expect(press(input, { ctrlKey: platform === 'windows', metaKey: platform === 'macos' }).defaultPrevented).toBe(false)
+    registry.configure({
+      ...registry.config.getSnapshot(),
+      revision: 'pair' as never,
+      document: {
+        schemaVersion: 2,
+        profiles: {
+          [`desktop:${platform}`]: {
+            'shortcuts.open': { code: 'KeyF', secondCode: 'KeyG', modifiers: [] },
+          },
+        },
+      },
+    })
+    press(input, { code: 'KeyF', key: 'f', ctrlKey: false })
+    press(input, { code: 'KeyG', key: 'g', ctrlKey: false })
+    expect(run).not.toHaveBeenCalled()
+    expect(fixed.mock.lastCall?.[0]).toMatchObject({ type: 'keydown', gesture: { code: 'KeyG' } })
+  },
+)
 
 const optionCommandN = { key: 'Dead', code: 'KeyN', ctrlKey: false, altKey: true, metaKey: true } as const
 const commandSlash = { ctrlKey: false, metaKey: true } as const
 function mountMacNewSession() {
   const fixture = mount('web', 'macos')
   const newSession = vi.fn()
-  const unregister = fixture.registry.register({ id: 'session.new' as ShortcutCommandId, label: () => 'New session', aliases: [],
+  const unregister = fixture.registry.register({
+    id: 'session.new' as ShortcutCommandId,
+    label: () => 'New session',
+    aliases: [],
     defaults: {
       'desktop:macos': { code: 'KeyN', modifiers: ['primary'] },
       'desktop:windows': { code: 'KeyN', modifiers: ['primary'] },
       'desktop:linux': { code: 'KeyN', modifiers: ['primary'] },
       'web:macos': { code: 'KeyN', modifiers: ['primary', 'alt'] },
-    }, regions: ['page', 'editable'], modals: [],
-    resolve: () => ({ status: 'handled', run: newSession }) })
+    },
+    regions: ['page', 'editable'],
+    modals: [],
+    resolve: () => ({ status: 'handled', run: newSession }),
+  })
   return { ...fixture, newSession, unregister }
 }
 
@@ -94,7 +123,10 @@ it('keeps real composition, composition-ending input, legacy IME, AltGraph and a
   for (const extra of [
     { isComposing: true },
     { keyCode: 229 },
-    { metaKey: false }, { code: 'KeyE' }, { ctrlKey: true }, { shiftKey: true },
+    { metaKey: false },
+    { code: 'KeyE' },
+    { ctrlKey: true },
+    { shiftKey: true },
   ]) {
     fireEvent.blur(window)
     expect(press(input, { ...optionCommandN, ...extra }).defaultPrevented).toBe(false)
@@ -110,7 +142,10 @@ it('keeps real composition, composition-ending input, legacy IME, AltGraph and a
   expect(newSession).not.toHaveBeenCalled()
 })
 
-it.each([['desktop', 'macos'], ['web', 'windows']] as const)('keeps Dead key protection in %s on %s', (runtime, platform) => {
+it.each([
+  ['desktop', 'macos'],
+  ['web', 'windows'],
+] as const)('keeps Dead key protection in %s on %s', (runtime, platform) => {
   const { input, run } = mount(runtime, platform)
   const keys = { metaKey: platform === 'macos', ctrlKey: platform === 'windows' }
   expect(press(input, { ...keys, key: 'Dead' }).defaultPrevented).toBe(false)
@@ -137,7 +172,9 @@ it('detects the client OS and separates Web from the preload marker', () => {
 it('passes browser navigation/editing and local consumption; disposes the listener', () => {
   const { input, run } = mount()
   for (const key of ['N', 'P', 'O', 'R', 'W', 'C', 'V', 'Z']) expect(press(input, { code: `Key${key}` }).defaultPrevented).toBe(false)
-  const local = (event: Event) => { event.preventDefault() }
+  const local = (event: Event) => {
+    event.preventDefault()
+  }
   input.addEventListener('keydown', local)
   expect(press(input).defaultPrevented).toBe(true)
   expect(run).not.toHaveBeenCalled()
@@ -172,7 +209,13 @@ it('accepts a shortcut after the composition-closing key is released inside a lo
   const { input, run } = mount()
   fireEvent.compositionStart(input)
   fireEvent.compositionEnd(input)
-  input.addEventListener('keyup', (event) => { event.stopPropagation() }, { once: true })
+  input.addEventListener(
+    'keyup',
+    event => {
+      event.stopPropagation()
+    },
+    { once: true },
+  )
   fireEvent.keyUp(input, { key: 'Enter', code: 'Enter' })
   expect(press(input).defaultPrevented).toBe(true)
   expect(run).toHaveBeenCalledOnce()
@@ -180,14 +223,19 @@ it('accepts a shortcut after the composition-closing key is released inside a lo
 
 it('blocks background commands during dialogs and gives terminal input ownership', () => {
   const { input, run } = mount()
-  const dialog = document.createElement('div'); dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true')
+  const dialog = document.createElement('div')
+  dialog.setAttribute('role', 'dialog')
+  dialog.setAttribute('aria-modal', 'true')
   document.body.append(dialog)
   expect(press(input).defaultPrevented).toBe(true)
   expect(run).not.toHaveBeenCalled()
   dialog.dataset.shortcutModal = 'shortcuts'
   expect(press(input).defaultPrevented).toBe(true)
   expect(run).toHaveBeenCalledOnce()
-  const terminal = document.createElement('div'); terminal.className = 'xterm'; terminal.append(input); document.body.append(terminal)
+  const terminal = document.createElement('div')
+  terminal.className = 'xterm'
+  terminal.append(input)
+  document.body.append(terminal)
   expect(press(input).defaultPrevented).toBe(false)
   fireEvent.blur(window)
 })

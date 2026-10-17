@@ -21,7 +21,9 @@ export class NetworkDomain {
   private readonly unsubscribe: () => void
 
   constructor(private readonly store: NetworkStore) {
-    this.unsubscribe = store.subscribe((event) => { this.receive(event) })
+    this.unsubscribe = store.subscribe(event => {
+      this.receive(event)
+    })
   }
 
   /**
@@ -101,7 +103,7 @@ export class NetworkDomain {
         if (typeof params.requestId !== 'string') throw new Error('Network requestId must be a string')
         if (!body.complete) {
           let requests = this.streamedRequests.get(session)
-          if (requests === undefined) this.streamedRequests.set(session, requests = new Set())
+          if (requests === undefined) this.streamedRequests.set(session, (requests = new Set()))
           requests.add(params.requestId)
         }
         return { bufferedData: Buffer.from(body.bytes).toString('base64') }

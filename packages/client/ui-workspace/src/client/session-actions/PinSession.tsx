@@ -6,9 +6,7 @@
  * the Host call (fronting the Session in its saved orders, the failure
  * notice) lives in the injected callbacks, not here.
  */
-import {
-  IconPinFillRegular, IconPinOutlineRegular, MenuItemButton, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconPinFillRegular, IconPinOutlineRegular, MenuItemButton, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PinSessionInjected, SessionMenuItemProps, SessionRowActionProps } from '../contract/slots.ts'
 import css from '../rows/Rows.module.css'
 
@@ -60,7 +58,9 @@ export function PinSessionRowButton(props: SessionRowActionProps<PinSessionInjec
         type="button"
         className={css.iconButton}
         aria-label={t(pinned ? 'menu.unpinSession' : 'menu.pinSession')}
-        onClick={() => { (pinned ? unpinSession : pinSession)(sessionId) }}
+        onClick={() => {
+          ;(pinned ? unpinSession : pinSession)(sessionId)
+        }}
       >
         {pinned ? <IconPinFillRegular size={14} /> : <IconPinOutlineRegular size={14} />}
       </button>

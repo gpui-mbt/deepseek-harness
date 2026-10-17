@@ -16,24 +16,11 @@ import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 // Type-only: makes the optional sibling service available to `ctx.get()`.
 import type {} from '@deepseek-ai/dsh-compaction-tool-result-pruner'
-import {
-  resolveCompactSpec,
-  resolveConfig,
-  resolveTargetPolicy,
-  TargetPressureConfigError,
-} from './config.ts'
-import {
-  assertNoActiveCompaction,
-  compactSurfaceRegion,
-  selectCompactableRange,
-} from './region.ts'
+import { resolveCompactSpec, resolveConfig, resolveTargetPolicy, TargetPressureConfigError } from './config.ts'
+import { assertNoActiveCompaction, compactSurfaceRegion, selectCompactableRange } from './region.ts'
 import { summarizeWithLlm } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
-import type {
-  BasicCompactionConfig,
-  ModelCompactPolicyConfig,
-  ResolvedConfig,
-} from './types.ts'
+import type { BasicCompactionConfig, ModelCompactPolicyConfig, ResolvedConfig } from './types.ts'
 
 export type {
   BasicCompactionConfig,
@@ -46,9 +33,7 @@ export type {
 } from './types.ts'
 
 /** Resolve the exact provider/model durably routed for the latest request. */
-function routedTarget(
-  session: Session,
-): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
+function routedTarget(session: Session): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
   const config = session.requestHeader()?.config
   if (config === undefined || config.provider.length === 0 || config.model.length === 0) {
     return undefined
@@ -68,13 +53,16 @@ function reservedCompletionTokens(agent: Agent, defaultMaxTokens: number | undef
 }
 
 /** Resolve the conversation target used to select an optional policy override. */
-function conversationTarget(
-  agent: Agent,
-): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
+function conversationTarget(agent: Agent): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
   const routed = routedTarget(agent.session)
   if (routed !== undefined) return routed
-  if (agent.options.provider === undefined || agent.options.provider.length === 0
-    || agent.options.model === undefined || agent.options.model.length === 0) return undefined
+  if (
+    agent.options.provider === undefined ||
+    agent.options.provider.length === 0 ||
+    agent.options.model === undefined ||
+    agent.options.model.length === 0
+  )
+    return undefined
   return { provider: agent.options.provider, model: agent.options.model }
 }
 
@@ -149,16 +137,13 @@ export class BasicCompactionEngine extends CompactionEngine {
     const { ctx } = this
     const logResult = (result: CompactionResult, trigger: string): void => {
       ctx.logger.info(
-        `compaction (${trigger}): shadowed ${result.shadowedSeqs.length} surface nodes `
-        + `(seqs ${result.shadowedRange.start}-${result.shadowedRange.end}, `
-        + `~${result.shadowedTokenCount} tokens)`,
+        `compaction (${trigger}): shadowed ${result.shadowedSeqs.length} surface nodes ` +
+          `(seqs ${result.shadowedRange.start}-${result.shadowedRange.end}, ` +
+          `~${result.shadowedTokenCount} tokens)`,
       )
     }
 
-    ctx.on('agent/pre-step', async (
-      { agent, signal },
-      next,
-    ): Promise<PreStepDecision> => {
+    ctx.on('agent/pre-step', async ({ agent, signal }, next): Promise<PreStepDecision> => {
       if (!signal.aborted) {
         try {
           const result = await this.compactIfNeeded(agent, 'pressure', signal)
@@ -187,10 +172,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       if (agent !== undefined) this.overflowRetries.delete(agent)
     })
 
-    ctx.on('agent/request-error', async (
-      { agent, failure, signal },
-      next,
-    ) => {
+    ctx.on('agent/request-error', async ({ agent, failure, signal }, next) => {
       if (failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next()
       this.overflowAgents.set(agent.session, agent)
       const target = routedTarget(agent.session)
@@ -211,23 +193,18 @@ export class BasicCompactionEngine extends CompactionEngine {
         // oxlint-disable-next-line typescript/no-unnecessary-condition -- the signal can abort while recovery is awaited.
         if (!signal.aborted && agent.session.surface.replaceGeneration > generation) {
           ctx.logger.warn(
-            `context-overflow compaction failed after durable surface progress: ${message}; `
-            + 'retrying from the replacement surface',
+            `context-overflow compaction failed after durable surface progress: ${message}; ` + 'retrying from the replacement surface',
           )
           this.overflowRetries.set(agent, retries + 1)
           return { kind: 'retry' }
         }
-        ctx.logger.warn(
-          // oxlint-disable-next-line typescript/no-unnecessary-condition -- the signal can abort while recovery is awaited.
-          `context-overflow compaction failed: ${message}; ${signal.aborted
-            ? 'cancellation prevents retry'
-            : 'preserving the original request error'}`,
-        )
+        const describeAbort = (aborted: boolean): string =>
+          aborted ? 'cancellation prevents retry' : 'preserving the original request error'
+        ctx.logger.warn(`context-overflow compaction failed: ${message}; ${describeAbort(signal.aborted)}`)
         return next()
       }
       // oxlint-disable-next-line typescript/no-unnecessary-condition -- the signal can abort while compaction is awaited.
-      if (signal.aborted
-        || agent.session.surface.replaceGeneration <= generation) return next()
+      if (signal.aborted || agent.session.surface.replaceGeneration <= generation) return next()
       if (result !== null) logResult(result, 'context overflow recovery')
       this.overflowRetries.set(agent, retries + 1)
       return { kind: 'retry' }
@@ -244,15 +221,9 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param signal - optional cancellation forwarded to the adapter.
    * @returns safe text summary blocks and the exact auxiliary call envelope and output.
    */
-  protected async summarize(
-    input: SummarizationInput,
-    agent: Agent,
-    signal?: AbortSignal,
-  ): Promise<SummaryResult> {
+  protected async summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult> {
     const target = conversationTarget(agent)
-    const config = target === undefined
-      ? this.config
-      : resolveTargetPolicy(this.config, target)
+    const config = target === undefined ? this.config : resolveTargetPolicy(this.config, target)
     return summarizeWithLlm(this.ctx, config, input, agent, signal)
   }
 
@@ -266,11 +237,7 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param signal - live turn cancellation signal forwarded to summarization.
    * @returns the latest summary compaction result, or `null` when no summary ran.
    */
-  override async compactIfNeeded(
-    agent: Agent,
-    trigger: CompactionTrigger,
-    signal: AbortSignal,
-  ): Promise<CompactionResult | null> {
+  override async compactIfNeeded(agent: Agent, trigger: CompactionTrigger, signal: AbortSignal): Promise<CompactionResult | null> {
     const target = routedTarget(agent.session)
     if (target === undefined) return null
     const policy = resolveTargetPolicy(this.config, target)
@@ -307,15 +274,10 @@ export class BasicCompactionEngine extends CompactionEngine {
     if (info.context === undefined) {
       throw new TargetPressureConfigError(
         targetKey,
-        `compaction-basic: no context capacity for ${targetKey}; `
-        + 'configure contextWindow on that adapter model',
+        `compaction-basic: no context capacity for ${targetKey}; ` + 'configure contextWindow on that adapter model',
       )
     }
-    const spec = resolveCompactSpec(
-      policy,
-      info.context.contextWindow,
-      reservedCompletionTokens(agent, info.defaultMaxTokens),
-    )
+    const spec = resolveCompactSpec(policy, info.context.contextWindow, reservedCompletionTokens(agent, info.defaultMaxTokens))
     if (measurement.totalTokens < spec.thresholdTokens) return null
 
     // Once pressure qualifies, land the model-free pass before choosing a
@@ -341,8 +303,8 @@ export class BasicCompactionEngine extends CompactionEngine {
     }
 
     throw new Error(
-      `compaction still above threshold after ${spec.compactionRetries + 1} compaction attempts `
-      + `(${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`,
+      `compaction still above threshold after ${spec.compactionRetries + 1} compaction attempts ` +
+        `(${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`,
     )
   }
 
@@ -355,12 +317,7 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param signal - optional summarization cancellation signal.
    * @returns the successful durable compaction result.
    */
-  override async compactRegion(
-    start: SessionSeq,
-    end: SessionSeq,
-    agent: Agent,
-    signal?: AbortSignal,
-  ): Promise<CompactionResult> {
+  override async compactRegion(start: SessionSeq, end: SessionSeq, agent: Agent, signal?: AbortSignal): Promise<CompactionResult> {
     return compactSurfaceRegion(
       this.regionDependencies(),
       agent.session,
@@ -380,22 +337,14 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param sourceCommandId - initiating command identity for presentation correlation.
    * @returns the committed result, or `null` when no safe useful range exists.
    */
-  override compactNow(
-    agent: Agent,
-    signal: AbortSignal,
-    sourceCommandId?: CommandId,
-  ): Promise<CompactionResult | null> {
+  override compactNow(agent: Agent, signal: AbortSignal, sourceCommandId?: CommandId): Promise<CompactionResult | null> {
     signal.throwIfAborted()
     try {
-      return agent.runMaintenance(async (agentSignal) => {
+      return agent.runMaintenance(async agentSignal => {
         const operationSignal = AbortSignal.any([agentSignal, signal])
         try {
           operationSignal.throwIfAborted()
-          const range = selectCompactableRange(
-            agent.session,
-            this.ctx.tokenMeter.measure(agent.session),
-            0,
-          )
+          const range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0)
           if (range === null) return null
           return await compactSurfaceRegion(
             this.regionDependencies(),
@@ -406,7 +355,7 @@ export class BasicCompactionEngine extends CompactionEngine {
             {
               owner: null,
               stability: 'selected-span',
-              ...sourceCommandId === undefined ? {} : { sourceCommandId },
+              ...(sourceCommandId === undefined ? {} : { sourceCommandId }),
               flush: async () => {
                 await this.ctx.sessions.flush(agent.session)
               },
@@ -415,22 +364,14 @@ export class BasicCompactionEngine extends CompactionEngine {
           )
         } catch (error: unknown) {
           if (agentSignal.aborted && operationSignal.reason === agentSignal.reason) {
-            throw new ManualCompactionError(
-              'cancelled',
-              'manual compaction was cancelled',
-              { cause: error },
-            )
+            throw new ManualCompactionError('cancelled', 'manual compaction was cancelled', { cause: error })
           }
           operationSignal.throwIfAborted()
           throw error
         }
       })
     } catch (error: unknown) {
-      throw new ManualCompactionError(
-        'busy',
-        'manual compaction requires an idle agent with no waking queued work',
-        { cause: error },
-      )
+      throw new ManualCompactionError('busy', 'manual compaction requires an idle agent with no waking queued work', { cause: error })
     }
   }
 
@@ -439,12 +380,17 @@ export class BasicCompactionEngine extends CompactionEngine {
     return {
       meter: this.ctx.tokenMeter,
       summarize: (input, owner, abort) => this.summarize(input, owner, abort),
-      recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
-        session: agent.session,
-        sourceEventSeqs,
-        error,
-        ...signal === undefined ? {} : { signal },
-      }, () => false),
+      recover: (error, agent, sourceEventSeqs, signal) =>
+        this.ctx.waterfall(
+          'compaction/summary-error',
+          {
+            session: agent.session,
+            sourceEventSeqs,
+            error,
+            ...(signal === undefined ? {} : { signal }),
+          },
+          () => false,
+        ),
     }
   }
 }

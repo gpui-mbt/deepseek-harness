@@ -1,12 +1,18 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { HoverCard } from '../src/HoverCard.tsx'
 import { HoverCardGroup } from '../src/HoverCardGroup.tsx'
 import { Tooltip } from '../src/Tooltip.tsx'
 
-beforeEach(() => { vi.useFakeTimers() })
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
+beforeEach(() => {
+  vi.useFakeTimers()
+})
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 // jsdom lacks PointerEvent; MouseEvent preserves relatedTarget for physical and React ancestry checks.
 function move(from: Element, to: Element): void {
@@ -15,29 +21,54 @@ function move(from: Element, to: Element): void {
   fireEvent(from, new MouseEvent('mouseout', { bubbles: true, relatedTarget: to }))
   fireEvent(to, new MouseEvent('mouseover', { bubbles: true, relatedTarget: from }))
 }
-function tick(ms: number): void { act(() => { vi.advanceTimersByTime(ms) }) }
+function tick(ms: number): void {
+  act(() => {
+    vi.advanceTimersByTime(ms)
+  })
+}
 function Card({ name, grouped = true, disabled = false }: { name: string; grouped?: boolean; disabled?: boolean }) {
-  return <HoverCard grouped={grouped} disabled={disabled} openDelayMs={800}
-    anchor={<span>{name}<Tooltip label={`Archive ${name}`} delayMs={500}><button type="button">action {name}</button></Tooltip></span>}
-    content={<span>details {name}</span>} copyText={name} copyLabel="Copy" copiedLabel="Copied" />
+  return (
+    <HoverCard
+      grouped={grouped}
+      disabled={disabled}
+      openDelayMs={800}
+      anchor={
+        <span>
+          {name}
+          <Tooltip label={`Archive ${name}`} delayMs={500}>
+            <button type="button">action {name}</button>
+          </Tooltip>
+        </span>
+      }
+      content={<span>details {name}</span>}
+      copyText={name}
+      copyLabel="Copy"
+      copiedLabel="Copied"
+    />
+  )
 }
 
 describe('HoverCardGroup', () => {
   it('does not warm the next pointer visit when keyboard focus displays an inline card outside a pointer visit', () => {
-    const view = render(<>
-      <button type="button">outside</button>
-      <HoverCardGroup>
-        <HoverCard inline grouped openDelayMs={800} anchor={<button type="button">A</button>}
-          content={<span>details A</span>} />
-        <Card name="B" />
-      </HoverCardGroup>
-    </>)
+    const view = render(
+      <>
+        <button type="button">outside</button>
+        <HoverCardGroup>
+          <HoverCard inline grouped openDelayMs={800} anchor={<button type="button">A</button>} content={<span>details A</span>} />
+          <Card name="B" />
+        </HoverCardGroup>
+      </>,
+    )
     const outside = screen.getByRole('button', { name: 'outside' })
     const a = screen.getByRole('button', { name: 'A' })
-    act(() => { outside.focus() })
+    act(() => {
+      outside.focus()
+    })
     fireEvent.keyDown(outside, { key: 'Tab' })
     // jsdom does not move focus for Tab, so apply its native focus transition without a pointer event.
-    act(() => { a.focus() })
+    act(() => {
+      a.focus()
+    })
     expect(document.activeElement).toBe(a)
     expect(screen.getByText('details A')).toBeTruthy()
     move(document.body, screen.getByText('B'))
@@ -52,7 +83,13 @@ describe('HoverCardGroup', () => {
   })
 
   it('waits for the first actual display, then switches instantly within one physical list', () => {
-    render(<HoverCardGroup><Card name="A" /><span>gap</span><Card name="B" /></HoverCardGroup>)
+    render(
+      <HoverCardGroup>
+        <Card name="A" />
+        <span>gap</span>
+        <Card name="B" />
+      </HoverCardGroup>,
+    )
     const a = screen.getByText('A')
     const b = screen.getByText('B')
     const gap = screen.getByText('gap')
@@ -83,13 +120,21 @@ describe('HoverCardGroup', () => {
     expect(screen.getByText('details B')).toBeTruthy()
   })
 
-  it.each(['pointer exit', 'disabled'] as const)('replaces a preview fading after %s before displaying the next card', (reason) => {
-    const markup = (disabled = false) => <HoverCardGroup>
-      <HoverCard grouped variant="preview" openDelayMs={800} disabled={disabled}
-        anchor={<span>A</span>} content={<span>details A</span>} />
-      <span>gap</span>
-      <Card name="B" />
-    </HoverCardGroup>
+  it.each(['pointer exit', 'disabled'] as const)('replaces a preview fading after %s before displaying the next card', reason => {
+    const markup = (disabled = false) => (
+      <HoverCardGroup>
+        <HoverCard
+          grouped
+          variant="preview"
+          openDelayMs={800}
+          disabled={disabled}
+          anchor={<span>A</span>}
+          content={<span>details A</span>}
+        />
+        <span>gap</span>
+        <Card name="B" />
+      </HoverCardGroup>
+    )
     const view = render(markup())
     const a = screen.getByText('A')
     const gap = screen.getByText('gap')
@@ -109,7 +154,12 @@ describe('HoverCardGroup', () => {
   })
 
   it('keeps cancelled openings cold and shares displayed cards independently of action tooltips', () => {
-    render(<HoverCardGroup><Card name="A" /><Card name="B" /></HoverCardGroup>)
+    render(
+      <HoverCardGroup>
+        <Card name="A" />
+        <Card name="B" />
+      </HoverCardGroup>,
+    )
     const a = screen.getByText('A')
     const b = screen.getByText('B')
     move(document.body, a)
@@ -136,7 +186,12 @@ describe('HoverCardGroup', () => {
     const writeText = vi.fn(async () => {})
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     try {
-      render(<HoverCardGroup><Card name="A" /><Card name="B" /></HoverCardGroup>)
+      render(
+        <HoverCardGroup>
+          <Card name="A" />
+          <Card name="B" />
+        </HoverCardGroup>,
+      )
       const a = screen.getByText('A')
       const b = screen.getByText('B')
       move(document.body, a)
@@ -145,7 +200,10 @@ describe('HoverCardGroup', () => {
       move(a, portal)
       tick(500)
       expect(portal.isConnected).toBe(true)
-      await act(async () => { fireEvent.click(portal); await Promise.resolve() })
+      await act(async () => {
+        fireEvent.click(portal)
+        await Promise.resolve()
+      })
       expect(writeText).toHaveBeenCalledWith('A')
       expect(screen.getByRole('status').textContent).toBe('Copied')
       move(portal, b)
@@ -168,7 +226,12 @@ describe('HoverCardGroup', () => {
   })
 
   it('bridges the list-to-card gaps with the active card existing pointer grace', () => {
-    render(<HoverCardGroup><Card name="A" /><Card name="B" /></HoverCardGroup>)
+    render(
+      <HoverCardGroup>
+        <Card name="A" />
+        <Card name="B" />
+      </HoverCardGroup>,
+    )
     const a = screen.getByText('A')
     const b = screen.getByText('B')
     move(document.body, a)
@@ -194,13 +257,16 @@ describe('HoverCardGroup', () => {
   })
 
   it('warms a keyboard-open card only when the pointer visits that card', () => {
-    render(<HoverCardGroup>
-      <HoverCard inline grouped openDelayMs={800} anchor={<button type="button">A</button>}
-        content={<span>details A</span>} />
-      <Card name="B" />
-    </HoverCardGroup>)
+    render(
+      <HoverCardGroup>
+        <HoverCard inline grouped openDelayMs={800} anchor={<button type="button">A</button>} content={<span>details A</span>} />
+        <Card name="B" />
+      </HoverCardGroup>,
+    )
     fireEvent.keyDown(document, { key: 'Tab' })
-    act(() => { screen.getByRole('button', { name: 'A' }).focus() })
+    act(() => {
+      screen.getByRole('button', { name: 'A' }).focus()
+    })
     const portal = screen.getByText('details A')
     move(document.body, portal)
     move(portal, screen.getByText('B'))
@@ -211,10 +277,20 @@ describe('HoverCardGroup', () => {
   it('rejects stale clipboard feedback after a group handoff and return', async () => {
     const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
     let finishWrite: (() => void) | undefined
-    const writeText = vi.fn(() => new Promise<void>((resolve) => { finishWrite = resolve }))
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          finishWrite = resolve
+        }),
+    )
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     try {
-      render(<HoverCardGroup><Card name="A" /><Card name="B" /></HoverCardGroup>)
+      render(
+        <HoverCardGroup>
+          <Card name="A" />
+          <Card name="B" />
+        </HoverCardGroup>,
+      )
       const a = screen.getByText('A')
       const b = screen.getByText('B')
       move(document.body, a)
@@ -225,7 +301,10 @@ describe('HoverCardGroup', () => {
       expect(screen.getByText('details B')).toBeTruthy()
       move(b, a)
       expect(screen.getByText('details A')).toBeTruthy()
-      await act(async () => { finishWrite?.(); await Promise.resolve() })
+      await act(async () => {
+        finishWrite?.()
+        await Promise.resolve()
+      })
       expect(screen.queryByText('Copied')).toBeNull()
       expect(screen.getByText('details A')).toBeTruthy()
     } finally {
@@ -236,8 +315,17 @@ describe('HoverCardGroup', () => {
   })
 
   it('keeps separate groups cold and does not enroll ungrouped cards', () => {
-    render(<><HoverCardGroup><Card name="A" /><Card name="Project" grouped={false} /></HoverCardGroup>
-      <HoverCardGroup><Card name="B" /></HoverCardGroup></>)
+    render(
+      <>
+        <HoverCardGroup>
+          <Card name="A" />
+          <Card name="Project" grouped={false} />
+        </HoverCardGroup>
+        <HoverCardGroup>
+          <Card name="B" />
+        </HoverCardGroup>
+      </>,
+    )
     const a = screen.getByText('A')
     const project = screen.getByText('Project')
     const b = screen.getByText('B')
@@ -254,7 +342,12 @@ describe('HoverCardGroup', () => {
   })
 
   it('does not warm a group through a portal belonging to an ungrouped card', () => {
-    render(<HoverCardGroup><Card name="Project" grouped={false} /><Card name="B" /></HoverCardGroup>)
+    render(
+      <HoverCardGroup>
+        <Card name="Project" grouped={false} />
+        <Card name="B" />
+      </HoverCardGroup>,
+    )
     const project = screen.getByText('Project')
     const b = screen.getByText('B')
     move(document.body, project)
@@ -272,9 +365,12 @@ describe('HoverCardGroup', () => {
   })
 
   it('cools when the active portal is removed from under the pointer', () => {
-    const markup = (showA: boolean) => <HoverCardGroup>
-      {showA && <Card name="A" />}<Card name="B" />
-    </HoverCardGroup>
+    const markup = (showA: boolean) => (
+      <HoverCardGroup>
+        {showA && <Card name="A" />}
+        <Card name="B" />
+      </HoverCardGroup>
+    )
     const view = render(markup(true))
     const a = screen.getByText('A')
     move(document.body, a)
@@ -289,18 +385,22 @@ describe('HoverCardGroup', () => {
   })
 
   it('cools when keyboard focus replaces the portal under the pointer', () => {
-    render(<HoverCardGroup>
-      <HoverCard inline grouped anchor={<button type="button">A</button>} content={<span>details A</span>} />
-      <HoverCard inline grouped anchor={<button type="button">B</button>} content={<span>details B</span>} />
-      <Card name="C" />
-    </HoverCardGroup>)
+    render(
+      <HoverCardGroup>
+        <HoverCard inline grouped anchor={<button type="button">A</button>} content={<span>details A</span>} />
+        <HoverCard inline grouped anchor={<button type="button">B</button>} content={<span>details B</span>} />
+        <Card name="C" />
+      </HoverCardGroup>,
+    )
     const a = screen.getByRole('button', { name: 'A' })
     move(document.body, a)
     tick(500)
     const portal = screen.getByText('details A')
     move(a, portal)
     fireEvent.keyDown(document, { key: 'Tab' })
-    act(() => { screen.getByRole('button', { name: 'B' }).focus() })
+    act(() => {
+      screen.getByRole('button', { name: 'B' }).focus()
+    })
     expect(screen.getByText('details B')).toBeTruthy()
     move(portal, screen.getByText('C'))
     expect(screen.queryByText('details C')).toBeNull()
@@ -309,9 +409,12 @@ describe('HoverCardGroup', () => {
   })
 
   it('releases an unmounted active card without cooling its still-mounted list', () => {
-    const markup = (showA: boolean, groupKey = 'first') => <HoverCardGroup key={groupKey}>
-      {showA && <Card name="A" />}<Card name="B" />
-    </HoverCardGroup>
+    const markup = (showA: boolean, groupKey = 'first') => (
+      <HoverCardGroup key={groupKey}>
+        {showA && <Card name="A" />}
+        <Card name="B" />
+      </HoverCardGroup>
+    )
     const view = render(markup(true))
     const a = screen.getByText('A')
     move(document.body, a)

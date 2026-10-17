@@ -2,9 +2,7 @@
 
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type {
-  CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
-} from './events.ts'
+import type { CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId } from './events.ts'
 
 /** Stable keyed-slot identity of one Package-owned business view. */
 export type CordisToolViewKey = `${CordisDynamicPluginId}.${CordisDynamicPackageId}`
@@ -28,12 +26,14 @@ function createStore(): CordisRunCardStore {
   const listeners = new Set<() => void>()
   let cache: ReadonlyMap<CordisToolViewKey, CordisRunCardPointer> | undefined
   return {
-    getSnapshot: () => cache ??= new Map(pointers),
-    subscribe: (listener) => {
+    getSnapshot: () => (cache ??= new Map(pointers)),
+    subscribe: listener => {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
-    observe: (pointer) => {
+    observe: pointer => {
       const current = pointers.get(pointer.key)
       if (current !== undefined && current.seq >= pointer.seq) return
       pointers.set(pointer.key, pointer)
@@ -68,9 +68,6 @@ export class CordisRunCardRegistry {
  * @param packageId - immutable Package identity.
  * @returns the shared business-view key.
  */
-export function cordisToolViewKey(
-  pluginId: CordisDynamicPluginId,
-  packageId: CordisDynamicPackageId,
-): CordisToolViewKey {
+export function cordisToolViewKey(pluginId: CordisDynamicPluginId, packageId: CordisDynamicPackageId): CordisToolViewKey {
   return `${pluginId}.${packageId}`
 }

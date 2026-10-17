@@ -12,11 +12,19 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed, vi } from 'vite-plus/test'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import {
-  acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -24,7 +32,9 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/file-upload-r
 const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/file-upload-round/session.v3.jsonl', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/file-upload-round/ui.expected.md', import.meta.url))
 const TRAJECTORY_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/file-upload-round/trajectory.expected.md', import.meta.url))
-const TRAJECTORY_STATUS_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/file-upload-round/trajectory-status.expected.md', import.meta.url))
+const TRAJECTORY_STATUS_EXPECTED = fileURLToPath(
+  new URL('../../../snapshots/web/file-upload-round/trajectory-status.expected.md', import.meta.url),
+)
 const OVERRIDE = fileURLToPath(new URL('../../../snapshots/web/file-upload-round/replay.override.json', import.meta.url))
 const DRAFT_EXPECTED = fileURLToPath(new URL('./expected/file-upload-round/draft.expected.md', import.meta.url))
 const HISTORY_EXPECTED = fileURLToPath(new URL('./expected/file-upload-round/history.expected.md', import.meta.url))
@@ -189,11 +199,16 @@ describe('web e2e: generic file upload through the real assembly', () => {
     }
     const rawExpanded = await captureStableAria(page, '[role="tabpanel"]', scaffold.workspaceCwd)
     return [
-      '# Ledger', ledger,
-      '# Summary attachments', summaryAttachments,
-      '# Preview', preview,
-      '# Raw (collapsed)', rawCollapsed,
-      '# Raw (expanded)', rawExpanded,
+      '# Ledger',
+      ledger,
+      '# Summary attachments',
+      summaryAttachments,
+      '# Preview',
+      preview,
+      '# Raw (collapsed)',
+      rawCollapsed,
+      '# Raw (expanded)',
+      rawExpanded,
     ].join('\n\n')
   }
 
@@ -205,7 +220,9 @@ describe('web e2e: generic file upload through the real assembly', () => {
       // and the live handle line in the request carries the current one.
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE, replayOverride: OVERRIDE, paceMs: 15 }),
     })
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     await page.setViewportSize({ width: 900, height: 900 })
@@ -232,19 +249,19 @@ describe('web e2e: generic file upload through the real assembly', () => {
     await modelTrigger.click()
     await page.getByRole('menuitem', { name: /^Model\b/ }).click()
     await page.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash-Vision-Exp' }).click()
-    await expect.poll(() => modelTrigger.getAttribute('aria-label'), { timeout: 10_000 })
-      .toContain('DeepSeek-V4-Flash-Vision-Exp')
+    await expect.poll(() => modelTrigger.getAttribute('aria-label'), { timeout: 10_000 }).toContain('DeepSeek-V4-Flash-Vision-Exp')
     const imageBytes = await readFile(IMAGE_FIXTURE)
     // Pick through the composer's hidden file input: the upload RPC runs
     // immediately and the pending card appears before any prompt is typed.
-    await page.locator('input[type="file"]').setInputFiles([
-      { name: FILE_NAME, mimeType: 'text/plain', buffer: Buffer.from(FILE_TEXT) },
-      ...IMAGE_NAMES.map(name => ({ name, mimeType: 'image/png', buffer: imageBytes })),
-    ])
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles([
+        { name: FILE_NAME, mimeType: 'text/plain', buffer: Buffer.from(FILE_TEXT) },
+        ...IMAGE_NAMES.map(name => ({ name, mimeType: 'image/png', buffer: imageBytes })),
+      ])
     await page.getByTitle(FILE_NAME).waitFor({ timeout: 10_000 })
     const rail = page.getByRole('group', { name: 'Pending attachments' })
-    await expect.poll(() => rail.locator(':scope > *').count(), { timeout: 10_000 })
-      .toBe(IMAGE_NAMES.length + 1)
+    await expect.poll(() => rail.locator(':scope > *').count(), { timeout: 10_000 }).toBe(IMAGE_NAMES.length + 1)
     await rail.locator('svg[viewBox="0 0 28 28"]').waitFor({ timeout: 15_000 })
     const geometry = await rail.evaluate((element): DraftRailGeometry => {
       const cards = [...element.children] as HTMLElement[]
@@ -257,8 +274,7 @@ describe('web e2e: generic file upload through the real assembly', () => {
         fileIconBox: `${fileIcon.getBoundingClientRect().width} × ${fileIcon.getBoundingClientRect().height}`,
         fileIconColor: getComputedStyle(fileIcon).color,
         fileIconUsesSolidFill: fileIcon.querySelector('path')?.getAttribute('fill') === 'currentColor',
-        order: cards.map(card => card.querySelector('img')?.getAttribute('alt')
-          ?? card.querySelector<HTMLElement>('[title]')?.title ?? ''),
+        order: cards.map(card => card.querySelector('img')?.getAttribute('alt') ?? card.querySelector<HTMLElement>('[title]')?.title ?? ''),
         oneGroup: document.querySelectorAll('[role="group"][aria-label="Pending attachments"]').length === 1,
         oneRow: boxes.every(box => Math.abs(box.top - (boxes[0]?.top ?? box.top)) < 0.5),
         equalHeight: boxes.every(box => Math.abs(box.height - 64) < 0.5),
@@ -281,15 +297,15 @@ describe('web e2e: generic file upload through the real assembly', () => {
     await send.click()
     const restoreDeadline = Date.now() + 10_000
     let retainedCards = 0
-    while (retainedCards === 0
-      && !sessionEvents.some(event => event.type === 'turn/start')
-      && Date.now() < restoreDeadline) {
+    while (retainedCards === 0 && !sessionEvents.some(event => event.type === 'turn/start') && Date.now() < restoreDeadline) {
       await page.waitForTimeout(100)
       retainedCards = await rail.locator(':scope > *').count()
     }
     if (retainedCards !== 0) {
       const feedback = await page.locator('[role="alert"], [role="status"]').allTextContents()
-      throw new Error(`submission retained ${String(retainedCards)} draft cards; feedback=${JSON.stringify(feedback)}; events=${sessionEvents.map(event => event.type).join(',')}`)
+      throw new Error(
+        `submission retained ${String(retainedCards)} draft cards; feedback=${JSON.stringify(feedback)}; events=${sessionEvents.map(event => event.type).join(',')}`,
+      )
     }
     const sessionId = await settled
     if (MODE === 'record') await recordFixture(scaffold, sessionId, FIXTURE)
@@ -308,8 +324,7 @@ describe('web e2e: generic file upload through the real assembly', () => {
     expect(String(fileBlock.attachment.attachmentId)).toMatch(/^sha256:[0-9a-f]{64}$/)
 
     const readCall = sessionEvents.find(
-      (event): event is Extract<SessionEvent, { type: 'tool/call' }> =>
-        event.type === 'tool/call' && event.data.name === 'read',
+      (event): event is Extract<SessionEvent, { type: 'tool/call' }> => event.type === 'tool/call' && event.data.name === 'read',
     )
     if (readCall === undefined) throw new Error('the replayed turn did not call the read tool')
     expect(readCall.data.arguments).toContain(FILE_NAME)
@@ -320,8 +335,12 @@ describe('web e2e: generic file upload through the real assembly', () => {
     if (readResult === undefined) throw new Error('the read call produced no durable result')
     const message = readResult.data.message
     expect(message.isError).toBe(false)
-    expect(message.content.filter(block => block.type === 'text').map(block => block.text).join(''))
-      .toContain('UPLOAD_ROUND_OK')
+    expect(
+      message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join(''),
+    ).toContain('UPLOAD_ROUND_OK')
 
     const turnEnds = sessionEvents.filter(event => event.type === 'turn/end')
     expect(turnEnds.length).toBe(1)
@@ -330,8 +349,7 @@ describe('web e2e: generic file upload through the real assembly', () => {
 
   it.skipIf(MODE === 'record')('renders the durable file card beside the settled answer', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-file-upload-aria'))
-    await expect.poll(() => page.getByText('UPLOAD_ROUND_OK', { exact: false }).count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(1)
+    await expect.poll(() => page.getByText('UPLOAD_ROUND_OK', { exact: false }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
     await page.getByTitle(FILE_NAME).first().waitFor({ timeout: 10_000 })
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
@@ -342,11 +360,9 @@ describe('web e2e: generic file upload through the real assembly', () => {
     await expect.poll(() => groups.count(), { timeout: 10_000 }).toBe(1)
     const geometry = await groups.first().evaluate((element): HistoryAttachmentGeometry => {
       const cards = [...element.children] as HTMLElement[]
-      const renderedCards = cards.map((card) => {
+      const renderedCards = cards.map(card => {
         const box = card.getBoundingClientRect()
-        return box.width === 0 && box.height === 0 && card.firstElementChild instanceof HTMLElement
-          ? card.firstElementChild
-          : card
+        return box.width === 0 && box.height === 0 && card.firstElementChild instanceof HTMLElement ? card.firstElementChild : card
       })
       const boxes = renderedCards.map(card => card.getBoundingClientRect())
       const imageIndex = cards.findIndex(card => card.querySelector('img') !== null)
@@ -405,8 +421,8 @@ describe('web e2e: generic file upload through the real assembly', () => {
       const thumbnail = panel.locator('[data-variant="thumbnail"]')
       await thumbnail.waitFor()
       await expect.poll(() => read.mock.calls.length).toBe(1)
-      const feedbackFits = () => thumbnail.evaluate(element => element.scrollHeight <= element.clientHeight
-        && element.scrollWidth <= element.clientWidth)
+      const feedbackFits = () =>
+        thumbnail.evaluate(element => element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth)
       expect(await feedbackFits()).toBe(true)
       const loading = await captureStableAria(page, '[role="tabpanel"] [aria-label="Attachments"]', scaffold.workspaceCwd)
 
@@ -419,9 +435,7 @@ describe('web e2e: generic file upload through the real assembly', () => {
       await retry.press('Enter')
       await panel.getByRole('img', { name: IMAGE_NAMES[0]!, exact: true }).waitFor()
       expect(read).toHaveBeenCalledTimes(2)
-      await compareOrRefreshGolden(TRAJECTORY_STATUS_EXPECTED, [
-        '# Loading', loading, '# Failed', failed,
-      ].join('\n\n'), MODE)
+      await compareOrRefreshGolden(TRAJECTORY_STATUS_EXPECTED, ['# Loading', loading, '# Failed', failed].join('\n\n'), MODE)
     } finally {
       releaseRead.resolve(undefined)
       read.mockRestore()
@@ -432,7 +446,11 @@ describe('web e2e: generic file upload through the real assembly', () => {
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.v3.jsonl', 'replay.override.json', 'ui.expected.md', 'trajectory.expected.md', 'trajectory-status.expected.md',
+      'session.v3.jsonl',
+      'replay.override.json',
+      'ui.expected.md',
+      'trajectory.expected.md',
+      'trajectory-status.expected.md',
     ])
   })
 })

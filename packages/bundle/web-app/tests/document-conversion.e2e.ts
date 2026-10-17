@@ -9,21 +9,25 @@ import Include, { applyEntryPatches } from '@deepseek-ai/cordis-plugin-include'
 import { loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import { OfficeSourceKey, type OfficeToPdfRequest } from '@deepseek-ai/dsh-office-to-pdf'
 import * as LibreOfficeProvider from '@deepseek-ai/dsh-office-to-pdf'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 
 it('loads one shared conversion row and retains caller-owned PDFs after disposal', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'dsh-conversion-loader-'))
   const ctx = new Context()
   onTestFinished(async () => {
-    try { await ctx.fiber.dispose() }
-    finally { await rm(directory, { recursive: true, force: true }) }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
   const rows = loadOverlayPatches('conversion-test', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))
     .flatMap(patch => patch.insert ?? [])
     .filter(row => row.name === '@deepseek-ai/dsh-office-to-pdf')
   expect(rows.map(row => row.id)).toEqual(['office-to-pdf'])
-  const configured = applyEntryPatches(rows, [{ id: 'office-to-pdf', config: { maxConcurrentConversions: 1 } }],
-    (message) => { throw new Error(message) })
+  const configured = applyEntryPatches(rows, [{ id: 'office-to-pdf', config: { maxConcurrentConversions: 1 } }], message => {
+    throw new Error(message)
+  })
   const configPath = join(directory, 'cordis.yml')
   await writeFile(configPath, JSON.stringify(configured))
   ctx.baseUrl = pathToFileURL(directory).href + '/'
@@ -46,8 +50,12 @@ it('loads one shared conversion row and retains caller-owned PDFs after disposal
   const bytes = await readFile(new URL('./fixtures/document-conversion.docx', import.meta.url))
   let reads = 0
   const request = (key: string): OfficeToPdfRequest => ({
-    extension: 'docx', priority: 'foreground',
-    source: { key: OfficeSourceKey(key), version: 'fixture', bytes: bytes.length,
+    extension: 'docx',
+    priority: 'foreground',
+    source: {
+      key: OfficeSourceKey(key),
+      version: 'fixture',
+      bytes: bytes.length,
       async read(signal, maxBytes) {
         signal.throwIfAborted()
         expect(bytes.length).toBeLessThanOrEqual(maxBytes)

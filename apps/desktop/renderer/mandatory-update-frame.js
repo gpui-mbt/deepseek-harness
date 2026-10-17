@@ -22,15 +22,31 @@ if (window.parent !== window && window.dshMandatoryUpdate === undefined) {
     }
   }
   window.addEventListener('message', event => {
-    if (!event.isTrusted || event.source !== window.parent || event.origin !== 'dsh-app://app'
-      || event.data?.type !== 'dsh-mandatory-connect' || event.ports.length !== 1 || port) return
+    if (
+      !event.isTrusted ||
+      event.source !== window.parent ||
+      event.origin !== 'dsh-app://app' ||
+      event.data?.type !== 'dsh-mandatory-connect' ||
+      event.ports.length !== 1 ||
+      port
+    )
+      return
     port = event.ports[0]
     port.onmessage = receive
   })
-  window.addEventListener('pagehide', () => { port?.close() }, { once: true })
+  window.addEventListener(
+    'pagehide',
+    () => {
+      port?.close()
+    },
+    { once: true },
+  )
   window.dshMandatoryUpdate = {
-    status: () => state ? Promise.resolve(state) : initial.promise,
-    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
+    status: () => (state ? Promise.resolve(state) : initial.promise),
+    subscribe: listener => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
     action: (action, version, revision) => {
       const id = ++sequence
       const request = Promise.withResolvers()

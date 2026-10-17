@@ -1,9 +1,11 @@
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import type { PromptContentPart as AttachmentPromptContentPart } from '@deepseek-ai/dsh-attachment/types'
 import { SessionSeq, type SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import {
-  MutableSessionEventSource, type SessionAssistantSettlementEntry,
-  type SessionLiveEventEntry, type SessionTransientEventEntry,
+  MutableSessionEventSource,
+  type SessionAssistantSettlementEntry,
+  type SessionLiveEventEntry,
+  type SessionTransientEventEntry,
 } from '../src/client/contract/events.ts'
 import { LlmAttemptId } from '@deepseek-ai/dsh-llm/brand'
 import type { ISession } from '../src/client/contract/session.ts'
@@ -74,8 +76,7 @@ describe('Client Session contracts', () => {
   })
 
   it('keeps its text and image prompt parts identical to attachment intake', () => {
-    expectTypeOf<Exclude<SessionPromptContentPart, { type: 'file' }>>()
-      .toEqualTypeOf<AttachmentPromptContentPart>()
+    expectTypeOf<Exclude<SessionPromptContentPart, { type: 'file' }>>().toEqualTypeOf<AttachmentPromptContentPart>()
   })
 
   it('publishes exact replace, prepend, and append event-window changes', () => {
@@ -166,5 +167,4 @@ describe('Client Session contracts', () => {
       attemptId: 'attempt-two',
     })
   })
-
 })

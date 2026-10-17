@@ -33,7 +33,9 @@ export class TerminalRetention {
     private readonly inspect: () => Promise<SubprocessTerminalActivity>,
     private readonly terminate: () => Promise<void>,
     private readonly failed: (error: unknown) => void,
-  ) { this.schedule(0) }
+  ) {
+    this.schedule(0)
+  }
 
   /**
    * Hold one terminal for one physical Remote stream, independently of screen subscriptions.
@@ -57,12 +59,19 @@ export class TerminalRetention {
     this.invalidate()
     this.cancelTimer()
     combined.addEventListener('abort', release, { once: true })
-    try { yield { type: 'retained' }; await ended.promise }
-    finally { release() }
+    try {
+      yield { type: 'retained' }
+      await ended.promise
+    } finally {
+      release()
+    }
   }
 
   /** Invalidate outstanding idle observations before accepting input. */
-  invalidate(): void { this.epoch++; this.idle = undefined }
+  invalidate(): void {
+    this.epoch++
+    this.idle = undefined
+  }
 
   /**
    * Start or join cleanup; failure keeps the identity closed and schedules one retry.
@@ -90,23 +99,38 @@ export class TerminalRetention {
     this.disposed = true
     this.cancelTimer()
     const observation = this.observation
-    try { await this.close() }
-    finally { await observation }
+    try {
+      await this.close()
+    } finally {
+      await observation
+    }
   }
 
-  private cancelTimer(): void { clearTimeout(this.timer); this.timer = undefined }
+  private cancelTimer(): void {
+    clearTimeout(this.timer)
+    this.timer = undefined
+  }
 
   private schedule(delay: number): void {
     if (this.disposed || this.timer !== undefined) return
     if (!this.closing && (this.holders.size > 0 || this.policy.unattendedTimeoutMs === 0)) return
     const due = performance.now() + delay
-    this.timer = setTimeout(() => {
-      this.timer = undefined
-      const remaining = due - performance.now()
-      if (remaining > 0) { this.schedule(remaining); return }
-      if (this.closing) { void this.close().catch(this.failed); return }
-      this.observe()
-    }, Math.min(delay, 2_147_483_647))
+    this.timer = setTimeout(
+      () => {
+        this.timer = undefined
+        const remaining = due - performance.now()
+        if (remaining > 0) {
+          this.schedule(remaining)
+          return
+        }
+        if (this.closing) {
+          void this.close().catch(this.failed)
+          return
+        }
+        this.observe()
+      },
+      Math.min(delay, 2_147_483_647),
+    )
     this.timer.unref()
   }
 
@@ -115,18 +139,26 @@ export class TerminalRetention {
     const epoch = this.epoch
     this.observation = (async () => {
       let activity: SubprocessTerminalActivity
-      try { activity = await this.inspect() }
-      catch (_activityUnavailable) { activity = { state: 'unknown', revision: 0 } }
+      try {
+        activity = await this.inspect()
+      } catch (_activityUnavailable) {
+        activity = { state: 'unknown', revision: 0 }
+      }
       if (this.disposed || this.closing || this.holders.size > 0 || epoch !== this.epoch) return
       const now = performance.now()
-      if (activity.state !== 'idle') { this.idle = undefined; return }
+      if (activity.state !== 'idle') {
+        this.idle = undefined
+        return
+      }
       if (this.idle?.revision !== activity.revision || now - this.idle.observedAt > this.policy.activityPollIntervalMs * 2) {
         this.idle = { since: now, observedAt: now, revision: activity.revision }
       } else this.idle.observedAt = now
       if (now - this.idle.since >= this.policy.unattendedTimeoutMs) await this.close()
-    })().catch(this.failed).finally(() => {
-      this.observation = undefined
-      if (!this.closing) this.schedule(this.policy.activityPollIntervalMs)
-    })
+    })()
+      .catch(this.failed)
+      .finally(() => {
+        this.observation = undefined
+        if (!this.closing) this.schedule(this.policy.activityPollIntervalMs)
+      })
   }
 }

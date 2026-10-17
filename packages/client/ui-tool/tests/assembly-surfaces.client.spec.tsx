@@ -2,16 +2,14 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { toolSessionEvents } from './tool-fixtures.client.ts'
 // @vitest-environment jsdom
 /** Tool assembly acceptance through the real ui-conversation host. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type { TodoItem } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import {
-  apply as applyChat, inject as injectChat, type ToolResultNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import { apply as applyChat, inject as injectChat, type ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotTestRuntime, usePinnedBrowserLanguages, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyConversation, inject as injectConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -51,21 +49,32 @@ const TODOS: TodoItem[] = [
 ]
 
 const todoResult = (seq: number): ToolResultNode => ({
-  kind: 'tool-result', seq, time: seq * 1_000, callId: `todo-${seq}`,
-  name: 'todo_write', args: PartialArguments.fromText(JSON.stringify({ todos: TODOS })),
+  kind: 'tool-result',
+  seq,
+  time: seq * 1_000,
+  callId: `todo-${seq}`,
+  name: 'todo_write',
+  args: PartialArguments.fromText(JSON.stringify({ todos: TODOS })),
   call: { name: 'todo_write', argsRaw: JSON.stringify({ todos: TODOS }) },
   callTime: seq * 1_000 - 500,
-  content: [], isError: false, subCalls: [],
+  content: [],
+  isError: false,
+  subCalls: [],
 })
 
 const bashResult = (seq: number, callId: string, over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'bash', argsRaw: '{"command":"ls -la","description":"List files"}' } : over.call
   return {
-    kind: 'tool-result', seq, time: seq * 1_000, callId,
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq,
+    time: seq * 1_000,
+    callId,
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: seq * 1_000 - 500,
-    content: [{ type: 'text', text: 'total 2\ndemo.txt\n' }], isError: false,
+    content: [{ type: 'text', text: 'total 2\ndemo.txt\n' }],
+    isError: false,
     subCalls: [],
     ...over,
   }
@@ -78,7 +87,7 @@ function AppRoot({ renderSlot }: AppRootProps) {
 }
 
 const LAYOUT_CHILDREN = {
-  'main': { kind: 'keyed', scope: 'root' },
+  main: { kind: 'keyed', scope: 'root' },
 } as const
 
 async function bench(nodes: ToolResultNode[]) {
@@ -135,8 +144,7 @@ describe('todo_write assembly (product registrations, no outlet twins)', () => {
     expect(panel).not.toBeNull()
     expect(panel!.textContent).toContain('1 已完成\u2002·\u20021 进行中\u2002·\u20021 待处理')
     fireEvent.click(panel!.querySelector('button')!)
-    expect([...panel!.querySelectorAll('li')].map(li => li.getAttribute('data-status')))
-      .toEqual(['completed', 'in_progress', 'pending'])
+    expect([...panel!.querySelectorAll('li')].map(li => li.getAttribute('data-status'))).toEqual(['completed', 'in_progress', 'pending'])
 
     // Next turn retires the standing plan (host pushes null): the strip
     // clears while the historical row stays in the flow.

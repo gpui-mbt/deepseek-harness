@@ -40,12 +40,10 @@ export function delegationDepthOf(agent: Agent): number {
  * @param maxDepth - the optional runtime value to validate.
  */
 export function assertSubagentMaxDepth(maxDepth: unknown): void {
-  if (maxDepth !== undefined && (
-    typeof maxDepth !== 'number'
-    || !Number.isSafeInteger(maxDepth)
-    || maxDepth < 0
-    || Object.is(maxDepth, -0)
-  )) {
+  if (
+    maxDepth !== undefined &&
+    (typeof maxDepth !== 'number' || !Number.isSafeInteger(maxDepth) || maxDepth < 0 || Object.is(maxDepth, -0))
+  ) {
     throw new TypeError('subagent maxDepth must be a non-negative safe integer')
   }
 }

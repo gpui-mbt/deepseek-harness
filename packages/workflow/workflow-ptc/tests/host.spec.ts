@@ -9,7 +9,7 @@ import SessionProjections from '@deepseek-ai/dsh-session-projection'
 import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentActivation, SubagentResult } from '@deepseek-ai/dsh-subagent'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import PtcWorkflowEngine from '../src/index.ts'
 import { fakeParent } from './setup.ts'
 
@@ -20,19 +20,25 @@ class ControlledRuntime extends PtcRuntime {
   language = 'typescript'
   readonly isolation = 'process'
   policyMode: 'read-only' | undefined = 'read-only'
-  override get sandboxMode(): 'read-only' | undefined { return this.policyMode }
+  override get sandboxMode(): 'read-only' | undefined {
+    return this.policyMode
+  }
   execute: (spec: PtcRunSpec) => Promise<PtcRunResult> = () => Promise.resolve(completed)
 
   resolve(request: PtcRunRequest): PtcRunSpec {
     return { ...request, cwd: request.cwd ?? process.cwd(), timeoutMs: request.timeoutMs === undefined ? 120_000 : request.timeoutMs }
   }
 
-  run(spec: PtcRunSpec): Promise<PtcRunResult> { return this.execute(spec) }
+  run(spec: PtcRunSpec): Promise<PtcRunResult> {
+    return this.execute(spec)
+  }
 }
 
 async function setup(execute?: (bindings: HostBindings, spec: PtcRunSpec) => Promise<PtcRunResult>, language = 'typescript') {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SessionProjections)
@@ -55,9 +61,12 @@ async function setup(execute?: (bindings: HostBindings, spec: PtcRunSpec) => Pro
   if (execute !== undefined) runtime.execute = spec => execute(spec.bindings[0]!.functions, spec)
   await ctx.plugin(PtcWorkflowEngine, { provider: 'stub' })
   const parent = await fakeParent(ctx)
-  const start = () => ctx.workflowEngine.start({
-    script: 'return null', meta: { name: 'host-test', description: 'workflow callbacks' }, parent,
-  })
+  const start = () =>
+    ctx.workflowEngine.start({
+      script: 'return null',
+      meta: { name: 'host-test', description: 'workflow callbacks' },
+      parent,
+    })
   return { ctx, runtime, start, parent }
 }
 
@@ -72,7 +81,9 @@ describe('workflow host callback validation', () => {
     const handle = start()
     try {
       expect(await handle.result).toEqual({ value: null, stopReason: 'completed', agentsStarted: 0 })
-    } finally { await handle.dispose() }
+    } finally {
+      await handle.dispose()
+    }
   })
 
   it('settles a failed directory lookup when the runtime cannot confine execution', async () => {
@@ -139,18 +150,21 @@ describe('workflow host callback validation', () => {
     ['childResult', { callId: '1' }, 'call id must be an integer'],
     ['disposeChild', { callId: 99 }, 'child call is not active'],
   ] as const)('rejects malformed %s callback data %j', async (name, input, message) => {
-    const { start } = await setup(async (bindings) => {
+    const { start } = await setup(async bindings => {
       await expect(Promise.resolve().then(() => bindings[name]!(input))).rejects.toThrow(message)
       return completed
     })
     const handle = start()
-    try { expect((await handle.result).stopReason).toBe('completed') }
-    finally { await handle.dispose() }
+    try {
+      expect((await handle.result).stopReason).toBe('completed')
+    } finally {
+      await handle.dispose()
+    }
   })
 
   it('does not emit duplicate agent-end notifications', async () => {
     const info = { seq: 1, label: 'child', childId: 'host-child' }
-    const { ctx, start } = await setup(async (bindings) => {
+    const { ctx, start } = await setup(async bindings => {
       await bindings.progress!([{ type: 'agent-start', info }])
       await bindings.progress!([{ type: 'agent-end', info: { ...info, outcome: 'failed' } }])
       await bindings.progress!([{ type: 'agent-end', info: { ...info, outcome: 'cancelled' } }])
@@ -162,10 +176,12 @@ describe('workflow host callback validation', () => {
     try {
       expect((await handle.result).stopReason).toBe('completed')
       expect(ended).toHaveBeenCalledOnce()
-    } finally { await handle.dispose() }
+    } finally {
+      await handle.dispose()
+    }
   })
 
-  it.each([true, false])('carries Session cwd and an unlimited deadline with confinement capability %s', async (confined) => {
+  it.each([true, false])('carries Session cwd and an unlimited deadline with confinement capability %s', async confined => {
     const { ctx, runtime, parent, start } = await setup(async (bindings, spec) => {
       expect(spec.timeoutMs).toBeNull()
       expect(spec.cwd).toBe(parent.session.header.cwd)
@@ -179,7 +195,9 @@ describe('workflow host callback validation', () => {
       const result = await handle.result
       expect(result.stopReason, result.error).toBe(confined ? 'completed' : 'error')
       if (!confined) expect(result.error).toContain('cannot enforce the read-only file policy')
-    } finally { await handle.dispose() }
+    } finally {
+      await handle.dispose()
+    }
   })
 })
 
@@ -188,7 +206,7 @@ describe('workflow runtime outcomes', () => {
     const disposing = Promise.withResolvers<undefined>()
     const released = Promise.withResolvers<undefined>()
     const schema = { type: 'object' as const, properties: { answer: { type: 'number' as const } } }
-    const { ctx, parent, start } = await setup(async (bindings) => {
+    const { ctx, parent, start } = await setup(async bindings => {
       const child = await bindings.startChild!({ prompt: 'answer', schema, model: 'selected' })
       expect(child).toEqual({ callId: 1, childId: 'ready-child' })
       expect(await bindings.childResult!(child)).toEqual({ output: [], structured: { answer: 42 }, stopReason: 'completed' })
@@ -198,11 +216,16 @@ describe('workflow runtime outcomes', () => {
     const activation = vi.spyOn(ctx.subagents, 'startActivation').mockResolvedValue({
       childId: SessionId('ready-child'),
       result: Promise.resolve({ output: [], structured: { answer: 42 }, stopReason: 'completed' }),
-      dispose: () => { disposing.resolve(undefined); return released.promise },
+      dispose: () => {
+        disposing.resolve(undefined)
+        return released.promise
+      },
     })
     const run = start()
     let settled = false
-    void run.result.then(() => { settled = true })
+    void run.result.then(() => {
+      settled = true
+    })
     try {
       await disposing.promise
       expect(settled).toBe(false)
@@ -212,10 +235,14 @@ describe('workflow runtime outcomes', () => {
       const { parent: delegatedParent, ...request } = delegation.request
       expect(delegatedParent).toBe(parent)
       expect({ ...delegation, request }).toEqual({
-        provider: 'stub', label: 'host-test child 1', delivery: 'caller',
+        provider: 'stub',
+        label: 'host-test child 1',
+        delivery: 'caller',
         request: {
           cwd: ctx.workingDirectory.get(parent.session),
-          prompt: [{ type: 'text', text: 'answer' }], outputSchema: schema, agentOptions: { model: 'selected' },
+          prompt: [{ type: 'text', text: 'answer' }],
+          outputSchema: schema,
+          agentOptions: { model: 'selected' },
         },
       })
       released.resolve(undefined)
@@ -239,13 +266,18 @@ describe('workflow runtime outcomes', () => {
       const result = await handle.result
       expect(result.stopReason).toBe('error')
       expect(result.error).toContain(message)
-    } finally { await handle.dispose() }
+    } finally {
+      await handle.dispose()
+    }
   })
 
   it('preserves cancellation when the runtime rejects during cancellation', async () => {
     const entered = Promise.withResolvers<undefined>()
     const failure = Promise.withResolvers<PtcRunResult>()
-    const { start } = await setup(() => { entered.resolve(undefined); return failure.promise })
+    const { start } = await setup(() => {
+      entered.resolve(undefined)
+      return failure.promise
+    })
     const handle = start()
     try {
       await entered.promise
@@ -268,7 +300,7 @@ describe('workflow runtime outcomes', () => {
     const entered = Promise.withResolvers<undefined>()
     const publication = Promise.withResolvers<SubagentActivation>()
     const disposed = vi.fn(() => Promise.resolve())
-    const { ctx, start } = await setup(async (bindings) => {
+    const { ctx, start } = await setup(async bindings => {
       await expect(bindings.startChild!({ prompt: 'child' })).rejects.toThrow('workflow child started after cancellation')
       return completed
     })
@@ -298,18 +330,22 @@ describe('workflow runtime outcomes', () => {
     const childResult = Promise.withResolvers<SubagentResult>()
     const disposed = vi.fn(() => Promise.resolve())
     let outputWait: Promise<unknown> | undefined
-    const { ctx, start } = await setup(async (bindings) => {
+    const { ctx, start } = await setup(async bindings => {
       const child = await bindings.startChild!({ prompt: 'child' })
       outputWait = bindings.childResult!(child)
       void outputWait.catch(() => {})
       return completed
     })
     vi.spyOn(ctx.subagents, 'startActivation').mockResolvedValue({
-      childId: SessionId('output-pending'), result: childResult.promise, dispose: disposed,
+      childId: SessionId('output-pending'),
+      result: childResult.promise,
+      dispose: disposed,
     })
     const handle = start()
     let settled = false
-    void handle.result.then(() => { settled = true })
+    void handle.result.then(() => {
+      settled = true
+    })
     try {
       await new Promise(resolve => setImmediate(resolve))
       expect(settled).toBe(true)

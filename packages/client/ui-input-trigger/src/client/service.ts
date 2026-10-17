@@ -32,7 +32,8 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
   static inject = ['sessions']
 
   private readonly live: LiveState = {
-    sources: [], controllers: new WeakMapWithValues(),
+    sources: [],
+    controllers: new WeakMapWithValues(),
   }
 
   /**
@@ -105,10 +106,13 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
       },
     })
     live.controllers.set(binding, controller)
-    binding.ctx.effect(() => () => {
-      controller.dispose()
-      live.controllers.delete(binding)
-    }, 'slash: session controller')
+    binding.ctx.effect(
+      () => () => {
+        controller.dispose()
+        live.controllers.delete(binding)
+      },
+      'slash: session controller',
+    )
     return controller
   }
 

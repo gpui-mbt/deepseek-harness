@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scheduler } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { logPath } from '../src/format.ts'
 
 it('waits for injected consumer teardown, persists its final event, and releases listeners and leases', async () => {
@@ -46,18 +46,21 @@ it('waits for injected consumer teardown, persists its final event, and releases
   }
   try {
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      '- id: sessions',
-      "  name: '@deepseek-ai/dsh-session'",
-      '- id: persistence',
-      "  name: '@deepseek-ai/dsh-session-persistence-jsonl'",
-      '  config:',
-      `    root: ${JSON.stringify(root)}`,
-      '    compression: none',
-      '- id: consumer',
-      '  name: async-persistence-consumer',
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      [
+        '- id: sessions',
+        "  name: '@deepseek-ai/dsh-session'",
+        '- id: persistence',
+        "  name: '@deepseek-ai/dsh-session-persistence-jsonl'",
+        '  config:',
+        `    root: ${JSON.stringify(root)}`,
+        '    compression: none',
+        '- id: consumer',
+        '  name: async-persistence-consumer',
+        '',
+      ].join('\n'),
+    )
     ctx.baseUrl = pathToFileURL(root).href + '/'
     await ctx.plugin(Loader)
     ctx.loader.builtins.include = Include
@@ -66,16 +69,28 @@ it('waits for injected consumer teardown, persists its final event, and releases
       loadCache: new Map(),
       async import(specifier: string) {
         switch (specifier) {
-          case '@deepseek-ai/dsh-session': return SessionPlugin
-          case '@deepseek-ai/dsh-session-persistence-jsonl': return JsonlPlugin
-          case 'async-persistence-consumer': return consumer
-          default: throw new Error(`Unexpected plugin: ${specifier}`)
+          case '@deepseek-ai/dsh-session':
+            return SessionPlugin
+          case '@deepseek-ai/dsh-session-persistence-jsonl':
+            return JsonlPlugin
+          case 'async-persistence-consumer':
+            return consumer
+          default:
+            throw new Error(`Unexpected plugin: ${specifier}`)
         }
       },
-      register(): never { throw new Error('Unexpected module hook registration') },
-      getOrCreateModuleJob(): never { throw new Error('Unexpected module job creation') },
-      resolveSync(): never { throw new Error('Unexpected synchronous module resolution') },
-      load(): never { throw new Error('Unexpected module load') },
+      register(): never {
+        throw new Error('Unexpected module hook registration')
+      },
+      getOrCreateModuleJob(): never {
+        throw new Error('Unexpected module job creation')
+      },
+      resolveSync(): never {
+        throw new Error('Unexpected synchronous module resolution')
+      },
+      load(): never {
+        throw new Error('Unexpected module load')
+      },
     }
     await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(configPath).href } })
     await ctx.loader.await()
@@ -94,10 +109,14 @@ it('waits for injected consumer teardown, persists its final event, and releases
     const routedEvents = ['session/event', 'session/flush', 'session/disposed'] as const
     for (const event of routedEvents) expect(ctx.events.dispatch('emit', [event])).toHaveLength(1)
 
-    unload = provider.fiber!.dispose().then(() => { unloadFinished = true })
+    unload = provider.fiber!.dispose().then(() => {
+      unloadFinished = true
+    })
     await Promise.race([
       entered.promise,
-      unload.then(() => { throw new Error('Provider unloaded before its injected consumer entered teardown') }),
+      unload.then(() => {
+        throw new Error('Provider unloaded before its injected consumer entered teardown')
+      }),
     ])
     await scheduler.yield()
     expect(unloadFinished).toBe(false)
@@ -109,7 +128,10 @@ it('waits for injected consumer teardown, persists its final event, and releases
     expect(ctx.get('sessionPersistence')).toBeUndefined()
     for (const event of routedEvents) expect(ctx.events.dispatch('emit', [event])).toHaveLength(0)
     await expect(oldReader.read()).rejects.toBeInstanceOf(SessionHandleClosedError)
-    const persisted = (await readFile(path, 'utf8')).trimEnd().split('\n').map((line): unknown => JSON.parse(line))
+    const persisted = (await readFile(path, 'utf8'))
+      .trimEnd()
+      .split('\n')
+      .map((line): unknown => JSON.parse(line))
     expect(persisted.slice(1)).toEqual(live.snapshotEvents())
     expect(persisted.at(-1)).toMatchObject({ type: 'turn/end', seq: 1, data: { turn: 1, reason: { kind: 'completed' } } })
 

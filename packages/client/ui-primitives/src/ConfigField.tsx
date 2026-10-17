@@ -32,22 +32,59 @@ export interface ConfigFieldProps {
  */
 export function ConfigField(props: ConfigFieldProps) {
   const id = useId()
-  return <div className={css.field}>
-    <div className={css.head}>
-      <label htmlFor={id}>{props.label}</label>
-      {props.overridden ? <button type="button" disabled={props.disabled} onClick={props.onReset}>{props.labels.reset}</button> : null}
+  return (
+    <div className={css.field}>
+      <div className={css.head}>
+        <label htmlFor={id}>{props.label}</label>
+        {props.overridden ? (
+          <button type="button" disabled={props.disabled} onClick={props.onReset}>
+            {props.labels.reset}
+          </button>
+        ) : null}
+      </div>
+      {props.choices.length > 0 ? (
+        <select
+          id={id}
+          value={props.value}
+          disabled={props.disabled}
+          aria-invalid={props.invalid}
+          onChange={event => {
+            if (event.target.value === '') props.onReset()
+            else props.onChange(event.target.value)
+          }}
+        >
+          <option value="">{props.labels.inherited}</option>
+          {props.choices.map(choice => (
+            <option key={choice} value={choice}>
+              {choice}
+            </option>
+          ))}
+        </select>
+      ) : props.secret ? (
+        <input
+          id={id}
+          type="password"
+          autoComplete="new-password"
+          value={props.value}
+          disabled={props.disabled}
+          aria-invalid={props.invalid}
+          onChange={event => {
+            props.onChange(event.target.value)
+          }}
+        />
+      ) : (
+        <textarea
+          id={id}
+          value={props.value}
+          disabled={props.disabled}
+          aria-invalid={props.invalid}
+          rows={Math.min(8, Math.max(1, props.value.split('\n').length))}
+          onChange={event => {
+            props.onChange(event.target.value)
+          }}
+        />
+      )}
+      {props.invalid ? <p role="status">{props.labels.invalid}</p> : null}
     </div>
-    {props.choices.length > 0
-      ? <select id={id} value={props.value} disabled={props.disabled} aria-invalid={props.invalid}
-        onChange={(event) => { if (event.target.value === '') props.onReset(); else props.onChange(event.target.value) }}>
-        <option value="">{props.labels.inherited}</option>
-        {props.choices.map(choice => <option key={choice} value={choice}>{choice}</option>)}
-      </select>
-      : props.secret
-        ? <input id={id} type="password" autoComplete="new-password" value={props.value} disabled={props.disabled}
-          aria-invalid={props.invalid} onChange={(event) => { props.onChange(event.target.value) }} />
-        : <textarea id={id} value={props.value} disabled={props.disabled} aria-invalid={props.invalid}
-          rows={Math.min(8, Math.max(1, props.value.split('\n').length))} onChange={(event) => { props.onChange(event.target.value) }} />}
-    {props.invalid ? <p role="status">{props.labels.invalid}</p> : null}
-  </div>
+  )
 }

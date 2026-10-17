@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { Context, FiberState } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -24,7 +24,7 @@ afterEach(async () => {
   }
 })
 
-it.each([true, false])('reports an unversioned package by name alongside a versioned sibling (private=%s)', async (isPrivate) => {
+it.each([true, false])('reports an unversioned package by name alongside a versioned sibling (private=%s)', async isPrivate => {
   root = await mkdtemp(join(tmpdir(), 'dsh-private-package-composition-'))
   const parent = join(root, 'inspector')
   const privateDir = join(parent, 'skill')
@@ -39,14 +39,17 @@ it.each([true, false])('reports an unversioned package by name alongside a versi
   const privateUrl = pathToFileURL(join(privateDir, 'plugin.js')).href
   const siblingUrl = pathToFileURL(join(siblingDir, 'plugin.js')).href
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [
-    '- name: cordis:agents',
-    '- name: cordis:deepseek-extensions',
-    '- name: cordis:plugin-inventory',
-    `- name: ${JSON.stringify(privateUrl)}`,
-    `- name: ${JSON.stringify(siblingUrl)}`,
-    '',
-  ].join('\n'))
+  await writeFile(
+    configPath,
+    [
+      '- name: cordis:agents',
+      '- name: cordis:deepseek-extensions',
+      '- name: cordis:plugin-inventory',
+      `- name: ${JSON.stringify(privateUrl)}`,
+      `- name: ${JSON.stringify(siblingUrl)}`,
+      '',
+    ].join('\n'),
+  )
 
   const ctx = new Context()
   context = ctx
@@ -58,13 +61,12 @@ it.each([true, false])('reports an unversioned package by name alongside a versi
   ctx.loader.builtins['plugin-inventory'] = PluginInventory
   await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(configPath).href } })
   await ctx.loader.await()
-  const activeNames = [...ctx.loader.entries()]
-    .filter(entry => entry.fiber?.state === FiberState.ACTIVE)
-    .map(entry => entry.options.name)
+  const activeNames = [...ctx.loader.entries()].filter(entry => entry.fiber?.state === FiberState.ACTIVE).map(entry => entry.options.name)
   expect(activeNames).toEqual(expect.arrayContaining(['cordis:plugin-inventory', privateUrl, siblingUrl]))
 
   const prepared = await ctx.deepseekLlmApiExtensions.prepare({
-    body: { messages: [] }, signal: new AbortController().signal,
+    body: { messages: [] },
+    signal: new AbortController().signal,
   })
   expect(prepared.fields).toMatchInlineSnapshot(`
     {

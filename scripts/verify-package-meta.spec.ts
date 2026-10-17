@@ -3,10 +3,11 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vite-plus/test'
 import { packageMetaProblems } from './verify-package-meta.ts'
 
-const validSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="ink"><stop stop-color="#69B9FF" /></linearGradient></defs><path d="M8 8H28V28H8Z" fill="url(#ink)" /></svg>'
+const validSvg =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="ink"><stop stop-color="#69B9FF" /></linearGradient></defs><path d="M8 8H28V28H8Z" fill="url(#ink)" /></svg>'
 
 let root: string
 let dir: string
@@ -15,7 +16,9 @@ beforeEach(() => {
   dir = join(root, 'packages', 'test', 'plugin')
   mkdirSync(dir, { recursive: true })
 })
-afterEach(() => { rmSync(root, { recursive: true, force: true }) })
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true })
+})
 
 function file(path: string, contents: string): void {
   mkdirSync(dirname(join(dir, path)), { recursive: true })
@@ -46,16 +49,17 @@ it('does not require locale resources for exported package name and description'
   expect(packageMetaProblems(root)).toEqual([])
 })
 
-it.each(['legacy.svg', './legacy.svg'])('accepts a manifest-only icon %s', (icon) => {
+it.each(['legacy.svg', './legacy.svg'])('accepts a manifest-only icon %s', icon => {
   manifest({ icon, files: ['legacy.svg'] })
   file('legacy.svg', validSvg)
   expect(packageMetaProblems(root)).toEqual([])
 })
 
-it.each(['manifest', 'export'])('accepts SVG geometry and local references selected by %s', (selection) => {
+it.each(['manifest', 'export'])('accepts SVG geometry and local references selected by %s', selection => {
   manifest({
-    ...selection === 'manifest' ? { icon: './icon.svg' } : {},
-    exports: { './package.json': './package.json', './icon': './icon.svg' }, files: ['icon.svg'],
+    ...(selection === 'manifest' ? { icon: './icon.svg' } : {}),
+    exports: { './package.json': './package.json', './icon': './icon.svg' },
+    files: ['icon.svg'],
   })
   file('icon.svg', validSvg.replace('<path ', '<use href="#outline"/><path id="outline" '))
   expect(packageMetaProblems(root)).toEqual([])
@@ -75,8 +79,11 @@ it.each([
   ['duplicate ids', validSvg.replace('<path ', '<path id="ink" '), 'unique ids'],
   ['event handler', validSvg.replace('<path ', '<path onload="run()" '), 'event handler onload'],
   ['empty artwork', validSvg.replace(/<path[^>]+\/>/u, ''), 'must contain geometry'],
-  ...['script', 'style', 'image', 'foreignObject', 'text', 'animate', 'animateTransform', 'animateMotion', 'set']
-    .map(tag => [tag, validSvg.replace('</svg>', `<${tag} /></svg>`), 'self-contained geometry']),
+  ...['script', 'style', 'image', 'foreignObject', 'text', 'animate', 'animateTransform', 'animateMotion', 'set'].map(tag => [
+    tag,
+    validSvg.replace('</svg>', `<${tag} /></svg>`),
+    'self-contained geometry',
+  ]),
 ])('rejects SVG %s through metadata verification', (_name, source, diagnostic) => {
   manifest({ icon: './icon.svg', files: ['icon.svg'] })
   file('icon.svg', source)
@@ -89,28 +96,36 @@ it.each([
 it('validates the selected ./icon SVG fallback without a manifest icon', () => {
   manifest({ exports: { './package.json': './package.json', './icon': './icon.svg' }, files: ['icon.svg'] })
   file('icon.svg', validSvg.replace('width="36"', 'width="16"'))
-  expect(packageMetaProblems(root)).toEqual([`${realpathSync(join(dir, 'icon.svg'))}: SVG icon must use width="36" height="36" viewBox="0 0 36 36"`])
+  expect(packageMetaProblems(root)).toEqual([
+    `${realpathSync(join(dir, 'icon.svg'))}: SVG icon must use width="36" height="36" viewBox="0 0 36 36"`,
+  ])
 })
 
 it('validates the manifest icon instead of the lower-priority SVG export', () => {
-  manifest({ icon: './icon.svg', exports: { './package.json': './package.json', './icon': './fallback.svg' }, files: ['icon.svg', 'fallback.svg'] })
+  manifest({
+    icon: './icon.svg',
+    exports: { './package.json': './package.json', './icon': './fallback.svg' },
+    files: ['icon.svg', 'fallback.svg'],
+  })
   file('icon.svg', validSvg)
   file('fallback.svg', 'not XML')
   expect(packageMetaProblems(root)).toEqual([])
 })
 
 it.each(['png', 'jpg', 'jpeg', 'webp'].flatMap(extension => ['manifest', 'export'].map(selection => ({ extension, selection }))))(
-  'keeps $extension bytes opaque for $selection icons', ({ extension, selection }) => {
+  'keeps $extension bytes opaque for $selection icons',
+  ({ extension, selection }) => {
     manifest({
-      ...selection === 'manifest' ? { icon: `./icon.${extension}` } : {},
-      exports: { './package.json': './package.json', './icon': `./icon.${extension}` }, files: [`icon.${extension}`],
+      ...(selection === 'manifest' ? { icon: `./icon.${extension}` } : {}),
+      exports: { './package.json': './package.json', './icon': `./icon.${extension}` },
+      files: [`icon.${extension}`],
     })
     file(`icon.${extension}`, 'opaque raster bytes')
     expect(packageMetaProblems(root)).toEqual([])
   },
 )
 
-it.each(['@local/demo', '@deepseek-ai/other'])('keeps nonofficial %s SVGs outside official artwork conventions', (name) => {
+it.each(['@local/demo', '@deepseek-ai/other'])('keeps nonofficial %s SVGs outside official artwork conventions', name => {
   manifest({ name, icon: './icon.svg', files: ['icon.svg'] })
   file('icon.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>')
   expect(packageMetaProblems(root)).toEqual([])
@@ -119,7 +134,9 @@ it.each(['@local/demo', '@deepseek-ai/other'])('keeps nonofficial %s SVGs outsid
 it('checks official artwork in named nested packages', () => {
   manifest({ exports: { '.': './entry.js' }, files: ['nested'] })
   json('nested/package.json', {
-    name: '@deepseek-ai/dsh-nested', exports: { './icon': './icon.svg' }, files: ['icon.svg'],
+    name: '@deepseek-ai/dsh-nested',
+    exports: { './icon': './icon.svg' },
+    files: ['icon.svg'],
   })
   file('nested/icon.svg', validSvg.replace('width="36"', 'width="16"'))
   expect(packageMetaProblems(root)).toEqual([
@@ -128,38 +145,39 @@ it('checks official artwork in named nested packages', () => {
 })
 
 it('reads the manifest image and still rejects an unresolvable lower-priority export', () => {
-  manifest({ icon: './legacy.svg', files: ['legacy.svg'],
-    exports: { './package.json': './package.json', './icon': '../invalid.svg' } })
+  manifest({ icon: './legacy.svg', files: ['legacy.svg'], exports: { './package.json': './package.json', './icon': '../invalid.svg' } })
   file('legacy.svg', validSvg)
   expect(packageMetaProblems(root)).toEqual([`${join(dir, 'package.json')}: exports["./icon"] must resolve to a file`])
 })
 
-it.each([['display'], ['display/manifest.json'], ['display/logo.svg']])
-('checks publication of remapped legacy manifests and their images: %j', (...files) => {
-  manifest({ files,
-    exports: { './package.json': './display/manifest.json' } })
-  json('display/manifest.json', { icon: './logo.svg' })
-  file('display/logo.svg', validSvg)
-  const problems = packageMetaProblems(root).join('\n')
-  if (files.includes('display')) expect(problems).toBe('')
-  else expect(problems).toContain(`files must include ${files.includes('display/manifest.json') ? 'display/logo.svg' : 'display/manifest.json'}`)
-})
+it.each([['display'], ['display/manifest.json'], ['display/logo.svg']])(
+  'checks publication of remapped legacy manifests and their images: %j',
+  (...files) => {
+    manifest({ files, exports: { './package.json': './display/manifest.json' } })
+    json('display/manifest.json', { icon: './logo.svg' })
+    file('display/logo.svg', validSvg)
+    const problems = packageMetaProblems(root).join('\n')
+    if (files.includes('display')) expect(problems).toBe('')
+    else
+      expect(problems).toContain(
+        `files must include ${files.includes('display/manifest.json') ? 'display/logo.svg' : 'display/manifest.json'}`,
+      )
+  },
+)
 
 it('requires the root manifest icon declaration to remain accessible', () => {
-  manifest({ icon: './legacy.svg', files: ['legacy.svg'],
-    exports: { './icon': './legacy.svg' } })
+  manifest({ icon: './legacy.svg', files: ['legacy.svg'], exports: { './icon': './legacy.svg' } })
   file('legacy.svg', validSvg)
   expect(packageMetaProblems(root).join('\n')).toContain('exports must expose its icon declaration')
 })
 
-it.each([null, false, '', './missing.svg'])('diagnoses legacy icon %j despite a valid fallback export', (icon) => {
-  manifest({ icon, files: ['fallback.svg'],
-    exports: { './package.json': './package.json', './icon': './fallback.svg' } })
+it.each([null, false, '', './missing.svg'])('diagnoses legacy icon %j despite a valid fallback export', icon => {
+  manifest({ icon, files: ['fallback.svg'], exports: { './package.json': './package.json', './icon': './fallback.svg' } })
   file('fallback.svg', validSvg)
   expect(packageMetaProblems(root).join('\n')).toContain('Plugin metadata for @deepseek-ai/dsh-test-plugin:')
 })
 
-it.each([undefined, ['art'], ['art/*.webp'], ['./art/icon.webp']])('accepts an exported icon without other resources: %j', (files) => {
+it.each([undefined, ['art'], ['art/*.webp'], ['./art/icon.webp']])('accepts an exported icon without other resources: %j', files => {
   manifest({ exports: { './icon': './art/icon.webp' }, files })
   file('art/icon.webp', 'image')
   expect(packageMetaProblems(root)).toEqual([])
@@ -171,9 +189,11 @@ it.each([['lib'], ['art', '!art/icon.webp']])('rejects an exported icon omitted 
   expect(packageMetaProblems(root).join('\n')).toContain('files must include art/icon.webp')
 })
 
-it.each([false, 1, '', './icon.gif', '/tmp/icon.svg', './missing.png', '../outside.svg'])('validates exported icon targets: %j', (icon) => {
+it.each([false, 1, '', './icon.gif', '/tmp/icon.svg', './missing.png', '../outside.svg'])('validates exported icon targets: %j', icon => {
   manifest({ exports: { './icon': icon } })
-  expect(packageMetaProblems(root).join('\n')).toMatch(/Plugin metadata for @deepseek-ai\/dsh-test-plugin:|exports\["\.\/icon"\] must resolve to a file/u)
+  expect(packageMetaProblems(root).join('\n')).toMatch(
+    /Plugin metadata for @deepseek-ai\/dsh-test-plugin:|exports\["\.\/icon"\] must resolve to a file/u,
+  )
 })
 
 it.each([['assets'], ['lib']])('checks publication of the Node-selected conditional icon: %j', (...files) => {
@@ -191,8 +211,11 @@ it('ignores package.json exported at a subpath plugin address', () => {
 })
 
 it.each([['search.svg'], ['lib']])('reads and publishes a subpath icon export: %j', (...files) => {
-  manifest({ icon: './root.svg', exports: { './package.json': './package.json', './search': './search.js', './search/icon': './search.svg' },
-    files: ['root.svg', ...files] })
+  manifest({
+    icon: './root.svg',
+    exports: { './package.json': './package.json', './search': './search.js', './search/icon': './search.svg' },
+    files: ['root.svg', ...files],
+  })
   file('root.svg', validSvg)
   file('search.svg', validSvg)
   const problems = packageMetaProblems(root)
@@ -222,24 +245,45 @@ it('excludes tests, installed dependencies, and build output from metadata disco
 
 it.each([
   ['valid bundle', {}, 'Nested', undefined],
-  ['manifest icon takes precedence', {
-    icon: './icon.svg', exports: { './package.json': './package.json', './locale/*.json': './locale/*.json', './icon': './fallback.svg' },
-  }, 'Nested', undefined],
-  ['unpublished manifest icon', {
-    icon: './icon.svg', exports: { './package.json': './package.json', './locale/*.json': './locale/*.json', './icon': './fallback.svg' }, files: ['locale'],
-  }, 'Nested', 'files must include icon.svg'],
+  [
+    'manifest icon takes precedence',
+    {
+      icon: './icon.svg',
+      exports: { './package.json': './package.json', './locale/*.json': './locale/*.json', './icon': './fallback.svg' },
+    },
+    'Nested',
+    undefined,
+  ],
+  [
+    'unpublished manifest icon',
+    {
+      icon: './icon.svg',
+      exports: { './package.json': './package.json', './locale/*.json': './locale/*.json', './icon': './fallback.svg' },
+      files: ['locale'],
+    },
+    'Nested',
+    'files must include icon.svg',
+  ],
   ['missing locale export', { exports: { './icon': './icon.svg' } }, 'Nested', 'exports must expose locale/en.json'],
   ['unpublished locale', { files: ['icon.svg'] }, 'Nested', 'files must include locale/en.json'],
   ['unpublished icon', { files: ['locale'] }, 'Nested', 'files must include icon.svg'],
-  ['missing icon target', { exports: { './locale/*.json': './locale/*.json', './icon': './missing.svg' } }, 'Nested', 'exports["./icon"] must resolve to a file'],
+  [
+    'missing icon target',
+    { exports: { './locale/*.json': './locale/*.json', './icon': './missing.svg' } },
+    'Nested',
+    'exports["./icon"] must resolve to a file',
+  ],
   ['invalid display text', {}, false, 'meta.title must be a non-empty string'],
   ['ordinary plugin with an exported icon', { dsh: undefined }, 'Nested', undefined],
 ] as const)('validates a named nested package independently: %s', (_label, fields, title, expected) => {
   manifest({ exports: { '.': './entry.js' }, files: ['examples'] })
   json('examples/nested/package.json', {
-    name: '@test/nested', type: 'module', dsh: { bundle: { patch: './cordis.patch.yml' } },
+    name: '@test/nested',
+    type: 'module',
+    dsh: { bundle: { patch: './cordis.patch.yml' } },
     exports: { './locale/*.json': './locale/*.json', './icon': './icon.svg' },
-    files: ['locale', 'icon.svg'], ...fields,
+    files: ['locale', 'icon.svg'],
+    ...fields,
   })
   json('examples/nested/locale/en.json', { meta: { title } })
   file('examples/nested/icon.svg', validSvg)
@@ -261,7 +305,7 @@ it('checks grandchildren once and does not hide adjacent unowned locale director
   expect(problems.join('\n')).toContain('exports must expose examples/child-other/locale/en.json')
 })
 
-it.each([undefined, '', 1])('does not treat an unnamed package manifest as a separate metadata owner: %j', (name) => {
+it.each([undefined, '', 1])('does not treat an unnamed package manifest as a separate metadata owner: %j', name => {
   manifest({ exports: { '.': './entry.js' } })
   json('nested/package.json', { name, type: 'module' })
   json('nested/locale/en.json', { meta: { title: 'Still owned by outer package' } })
@@ -281,7 +325,7 @@ it('still checks explicit outer exports of nested package resources', () => {
 it.each([
   { './child/locale/*.json': './nested/locale/*.json', './child/locale/en.json': null },
   { './child/locale/*.json': { require: './nested/locale/*.json' } },
-])('rejects inaccessible outer exports even when the nested package exposes its locale: %j', (exports) => {
+])('rejects inaccessible outer exports even when the nested package exposes its locale: %j', exports => {
   manifest({ exports, files: ['nested'] })
   json('nested/package.json', { name: '@test/nested', exports: { './locale/*.json': './locale/*.json' } })
   json('nested/locale/en.json', { meta: { title: 'Nested' } })
@@ -311,7 +355,7 @@ it('accepts direct root metadata and per-field English fallback without built en
   expect(existsSync(join(dir, 'lib'))).toBe(false)
 })
 
-it.each(['en', 'zh'])('rejects %s metadata resolved into build output without reading that JSON', (language) => {
+it.each(['en', 'zh'])('rejects %s metadata resolved into build output without reading that JSON', language => {
   manifest({
     exports: {
       './locale/*.json': './locale/*.json',
@@ -329,7 +373,8 @@ it.each(['en', 'zh'])('rejects %s metadata resolved into build output without re
 
 it('does not read built locale JSON while checking a source icon declaration', () => {
   manifest({
-    icon: './icon.svg', files: ['icon.svg'],
+    icon: './icon.svg',
+    files: ['icon.svg'],
     exports: { './package.json': './package.json', './locale/en.json': './lib/locale/en.json' },
   })
   file('icon.svg', validSvg)
@@ -340,9 +385,10 @@ it('does not read built locale JSON while checking a source icon declaration', (
   expect(problems).not.toContain('Plugin metadata for')
 })
 
-it.each(['lib', 'tests'])('rejects an icon declaration when its only locale is excluded source: %s', (directory) => {
+it.each(['lib', 'tests'])('rejects an icon declaration when its only locale is excluded source: %s', directory => {
   manifest({
-    icon: './missing.svg', files: ['lib'],
+    icon: './missing.svg',
+    files: ['lib'],
     exports: { './package.json': './package.json', './locale/en.json': `./${directory}/locale/en.json` },
   })
   file(`${directory}/locale/en.json`, '{}')
@@ -353,7 +399,10 @@ it.each(['lib', 'tests'])('rejects an icon declaration when its only locale is e
 
 it('reads static metadata without evaluating the plugin entry', () => {
   manifest({ exports: { '.': './entry.js', './locale/*.json': './locale/*.json' } })
-  file('entry.js', "import { writeFileSync } from 'node:fs'; writeFileSync(new URL('./executed', import.meta.url), 'yes'); throw new Error('plugin entry executed')")
+  file(
+    'entry.js',
+    "import { writeFileSync } from 'node:fs'; writeFileSync(new URL('./executed', import.meta.url), 'yes'); throw new Error('plugin entry executed')",
+  )
   json('locale/en.json', { meta: { title: 'Plugin' } })
   expect(packageMetaProblems(root)).toEqual([])
   expect(existsSync(join(dir, 'executed'))).toBe(false)
@@ -404,7 +453,7 @@ it.each([
   { '.': './lib/index.js', './locale/*.json': null },
   { '.': './lib/index.js', './locale/*.json': { require: './locale/*.json' } },
   { '.': './lib/index.js', './locale/*.json': './locale/*.json', './locale/en.json': null },
-])('rejects a locale file that package exports do not expose: %j', (exports) => {
+])('rejects a locale file that package exports do not expose: %j', exports => {
   manifest({ exports: { ...exports, './package.json': './package.json' } })
   json('locale/en.json', { meta: { title: 'Plugin' } })
   const problems = packageMetaProblems(root).join('\n')
@@ -421,7 +470,7 @@ it('requires exports for every translated resource', () => {
   expect(problems).toContain('exports')
 })
 
-it.each(['locale/search', 'search/locale'])('discovers child metadata without its resource export: %s', (directory) => {
+it.each(['locale/search', 'search/locale'])('discovers child metadata without its resource export: %s', directory => {
   manifest({ exports: { './search': './lib/search.js' }, files: [directory] })
   json(`${directory}/en.json`, { meta: { title: 'Search' } })
   const problems = packageMetaProblems(root).join('\n')
@@ -445,7 +494,7 @@ it.each([
   { types: './missing/*.json', import: './resources/search/*.json', require: './missing/*.json' },
   { node: { import: './resources/search/*.json' }, default: './missing/*.json' },
   ['./resources/search/*.json'],
-])('accepts resource exports to an independent physical directory: %j', (target) => {
+])('accepts resource exports to an independent physical directory: %j', target => {
   manifest({
     exports: { './search': './lib/search.js', './search/locale/*.json': target },
     files: ['resources/search'],
@@ -479,15 +528,14 @@ it('ignores metadata in an unselected exports condition', () => {
   expect(packageMetaProblems(root)).toEqual([])
 })
 
-it.each([
-  { default: './locale/*.json', import: './missing/*.json' },
-  [null, './locale/*.json'],
-  ['../invalid/*.json', './locale/*.json'],
-])('uses Node condition order and export-array fallback: %j', (target) => {
-  manifest({ exports: { './locale/*.json': target } })
-  json('locale/en.json', { meta: { title: 'Plugin' } })
-  expect(packageMetaProblems(root)).toEqual([])
-})
+it.each([{ default: './locale/*.json', import: './missing/*.json' }, [null, './locale/*.json'], ['../invalid/*.json', './locale/*.json']])(
+  'uses Node condition order and export-array fallback: %j',
+  target => {
+    manifest({ exports: { './locale/*.json': target } })
+    json('locale/en.json', { meta: { title: 'Plugin' } })
+    expect(packageMetaProblems(root)).toEqual([])
+  },
+)
 
 it('does not fall through a valid exports target just because its file is missing', () => {
   manifest({ exports: { './locale/*.json': ['./missing/*.json', './locale/*.json'] } })
@@ -546,16 +594,22 @@ it('rejects language resources mapped outside the English resource directory', (
   expect(packageMetaProblems(root).join('\n')).toContain('zh.json')
 })
 
-it.each([undefined, ['.'], ['./'], ['locale'], ['locale/'], ['./locale'], ['locale/*.json'], ['locale/**'],
-  ['locale/en.json', 'locale/zh.json']])(
-  'accepts published locale resources: %j',
-  (files) => {
-    manifest({ files })
-    json('locale/en.json', { meta: { title: 'Plugin' } })
-    json('locale/zh.json', { meta: { title: '插件' } })
-    expect(packageMetaProblems(root)).toEqual([])
-  },
-)
+it.each([
+  undefined,
+  ['.'],
+  ['./'],
+  ['locale'],
+  ['locale/'],
+  ['./locale'],
+  ['locale/*.json'],
+  ['locale/**'],
+  ['locale/en.json', 'locale/zh.json'],
+])('accepts published locale resources: %j', files => {
+  manifest({ files })
+  json('locale/en.json', { meta: { title: 'Plugin' } })
+  json('locale/zh.json', { meta: { title: '插件' } })
+  expect(packageMetaProblems(root)).toEqual([])
+})
 
 it.each([
   [[], 'en'],
@@ -584,7 +638,7 @@ it.each([{ files: ['locale'] }, { files: ['resources', '!resources/search/zh.jso
   },
 )
 
-it.each(['locale', 'resources/search'])('rejects translated metadata without an English resource: %s', (directory) => {
+it.each(['locale', 'resources/search'])('rejects translated metadata without an English resource: %s', directory => {
   manifest({
     exports: { '.': './lib/index.js', './package.json': './package.json', './locale/*.json': `./${directory}/*.json` },
     files: [directory],
@@ -603,7 +657,7 @@ it.each([
     exports: {
       '.': './lib/index.js',
       './locale/*.json': './locale/*.json',
-      ...packageInfo ? { './package.json': './package.json' } : {},
+      ...(packageInfo ? { './package.json': './package.json' } : {}),
     },
   })
   json('locale/en.json', { meta: {} })
@@ -611,7 +665,7 @@ it.each([
   expect(packageMetaProblems(root)).toEqual([])
 })
 
-it.each([null, [], false, 1, 'text'])('rejects malformed meta: %j', (meta) => {
+it.each([null, [], false, 1, 'text'])('rejects malformed meta: %j', meta => {
   manifest()
   json('locale/en.json', { meta })
   const problems = packageMetaProblems(root).join('\n')
@@ -619,13 +673,13 @@ it.each([null, [], false, 1, 'text'])('rejects malformed meta: %j', (meta) => {
   expect(problems).toContain('meta')
 })
 
-it.each([null, [], false, 1, 'text'])('rejects a non-object English locale document: %j', (contents) => {
+it.each([null, [], false, 1, 'text'])('rejects a non-object English locale document: %j', contents => {
   manifest()
   json('locale/en.json', contents)
   expect(packageMetaProblems(root).join('\n')).toContain('en.json')
 })
 
-it.each([null, false, 1, {}, [], '', '  '])('rejects a malformed display field: %j', (value) => {
+it.each([null, false, 1, {}, [], '', '  '])('rejects a malformed display field: %j', value => {
   manifest()
   json('locale/en.json', { meta: { title: 'Plugin', description: 'About it' } })
   json('locale/zh.json', { meta: { title: value } })
@@ -634,7 +688,7 @@ it.each([null, false, 1, {}, [], '', '  '])('rejects a malformed display field: 
   expect(problems).toContain('title')
 })
 
-it.each(['en', 'zh'])('rejects malformed JSON in %s.json', (language) => {
+it.each(['en', 'zh'])('rejects malformed JSON in %s.json', language => {
   manifest()
   json('locale/en.json', { meta: { title: 'Plugin' } })
   file(`locale/${language}.json`, '{')
@@ -648,7 +702,7 @@ it('rejects invalid language filenames', () => {
   expect(packageMetaProblems(root).join('\n')).toContain('not_a_language.json')
 })
 
-it('rejects case-equivalent language files when the filesystem can hold both', (context) => {
+it('rejects case-equivalent language files when the filesystem can hold both', context => {
   manifest()
   json('locale/en.json', { meta: { title: 'Plugin' } })
   json('locale/EN.json', { meta: { title: 'Other' } })
@@ -676,7 +730,10 @@ it('reports metadata failures from more than one workspace package', () => {
 })
 
 it.each([[], ['locale']])('rejects a display manifest in build output without reading it: locales %j', (...locales) => {
-  manifest({ exports: { './package.json': './lib/display.json', ...locales.length > 0 ? { './locale/*.json': './locale/*.json' } : {} }, files: ['lib', 'locale'] })
+  manifest({
+    exports: { './package.json': './lib/display.json', ...(locales.length > 0 ? { './locale/*.json': './locale/*.json' } : {}) },
+    files: ['lib', 'locale'],
+  })
   if (locales.length > 0) json('locale/en.json', { meta: { title: 'Plugin' } })
   file('lib/display.json', '{')
   const problems = packageMetaProblems(root).join('\n')

@@ -137,7 +137,7 @@ export function compareVersions(left: string, right: string): number {
  * @returns The target version.
  */
 function nextSharedVersion(current: string, request: string): string {
-  if (!RELEASE_TYPES.includes(request as typeof RELEASE_TYPES[number])) {
+  if (!RELEASE_TYPES.includes(request as (typeof RELEASE_TYPES)[number])) {
     if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(request)) {
       throw new Error(`usage: release:dsh <major|minor|patch|x.y.z>, got ${request}`)
     }
@@ -165,11 +165,7 @@ function nextSharedVersion(current: string, request: string): string {
  * @param prerelease - prerelease identifier to append, for a rehearsal publication.
  * @returns The target version.
  */
-export function nextVendorVersion(
-  current: string,
-  tagged: string | undefined,
-  prerelease?: string,
-): string {
+export function nextVendorVersion(current: string, tagged: string | undefined, prerelease?: string): string {
   const taggedOrder = tagged === undefined ? undefined : compareReleaseNumbers(tagged, current)
   const ahead = taggedOrder !== undefined && taggedOrder > 0
   const baseline = ahead && tagged !== undefined ? tagged : current
@@ -179,9 +175,7 @@ export function nextVendorVersion(
   const taggedPrerelease = tagged !== undefined && prereleaseOf(tagged) !== undefined
   const sameReleasePrereleases = taggedOrder === 0 && prereleaseOf(current) !== undefined
   const reuse = taggedPrerelease && (ahead || sameReleasePrereleases)
-  const numbers = reuse
-    ? `${String(major)}.${String(minor)}.${String(patch)}`
-    : `${String(major)}.${String(minor)}.${String(patch + 1)}`
+  const numbers = reuse ? `${String(major)}.${String(minor)}.${String(patch)}` : `${String(major)}.${String(minor)}.${String(patch + 1)}`
   return prerelease === undefined ? numbers : `${numbers}-${prerelease}`
 }
 
@@ -196,9 +190,8 @@ export function reachesPayload(member: ReleaseMember, path: string): boolean {
   const files = member.manifest.files
   const selected = Array.isArray(files) ? files.filter((entry): entry is string => typeof entry === 'string') : []
   const built = selected.some(pattern => pattern.startsWith('lib'))
-  const patterns = [...ALWAYS_PUBLISHED, ...selected, ...built ? BUILD_INPUTS : []]
-  return patterns.some(pattern =>
-    matchesGlob(relative, pattern) || matchesGlob(relative, `${pattern}/**`) || relative === pattern)
+  const patterns = [...ALWAYS_PUBLISHED, ...selected, ...(built ? BUILD_INPUTS : [])]
+  return patterns.some(pattern => matchesGlob(relative, pattern) || matchesGlob(relative, `${pattern}/**`) || relative === pattern)
 }
 
 /**
@@ -210,9 +203,11 @@ export function reachesPayload(member: ReleaseMember, path: string): boolean {
 function lastTaggedVersion(family: ReleaseFamily, member: ReleaseMember): string | undefined {
   const prefix = family.tagPrefixFor(member)
   const versions = capture('git', ['tag', '--list', `${prefix}*`])
-    .split('\n').filter(line => line !== '').map(tag => tag.slice(prefix.length))
+    .split('\n')
+    .filter(line => line !== '')
+    .map(tag => tag.slice(prefix.length))
   if (versions.length === 0) return undefined
-  return versions.reduce((newest, candidate) => compareVersions(candidate, newest) > 0 ? candidate : newest)
+  return versions.reduce((newest, candidate) => (compareVersions(candidate, newest) > 0 ? candidate : newest))
 }
 
 /**
@@ -252,7 +247,7 @@ function privateDshVersions(root: string): PrivateDshVersion[] {
   return globSync(['apps/*/package.json', 'packages/*/*/package.json'], { cwd: root })
     .map(path => path.replaceAll('\\', '/'))
     .sort()
-    .flatMap((manifestPath) => {
+    .flatMap(manifestPath => {
       const parsed: unknown = JSON.parse(readFileSync(join(root, manifestPath), 'utf8'))
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
         throw new Error(`${manifestPath} is not a JSON object`)
@@ -262,11 +257,13 @@ function privateDshVersions(root: string): PrivateDshVersion[] {
       if (typeof manifest.version !== 'string') {
         throw new Error(`${manifestPath} must declare a string version`)
       }
-      return [{
-        manifestPath,
-        label: manifestPath.slice(0, -'/package.json'.length),
-        version: manifest.version,
-      }]
+      return [
+        {
+          manifestPath,
+          label: manifestPath.slice(0, -'/package.json'.length),
+          version: manifest.version,
+        },
+      ]
     })
 }
 
@@ -324,11 +321,7 @@ export function planShared(
  * @param prerelease - prerelease identifier to append, for a rehearsal publication.
  * @returns The manifests to rewrite.
  */
-function planPerPackage(
-  family: ReleaseFamily,
-  members: readonly ReleaseMember[],
-  prerelease: string | undefined,
-): PlannedVersion[] {
+function planPerPackage(family: ReleaseFamily, members: readonly ReleaseMember[], prerelease: string | undefined): PlannedVersion[] {
   const planned: PlannedVersion[] = []
   for (const member of members) {
     const tagged = lastTaggedVersion(family, member)
@@ -396,8 +389,7 @@ function main(): void {
     capture(pnpm, [...pnpmArgs, 'install', '--lockfile-only'])
   }
 
-  const summary = sharedVersion
-    ?? planned.map(entry => `${entry.label.replace('vendor/', '')} ${entry.to}`).join(', ')
+  const summary = sharedVersion ?? planned.map(entry => `${entry.label.replace('vendor/', '')} ${entry.to}`).join(', ')
   console.log(`release bump: family ${family.id} -> ${summary}`)
   for (const entry of planned) console.log(`  ${entry.label}: ${entry.from} -> ${entry.to}`)
 

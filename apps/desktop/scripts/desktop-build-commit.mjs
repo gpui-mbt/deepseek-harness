@@ -21,7 +21,7 @@ export const DESKTOP_BUILD_DIRTY_ENV = 'DSH_DESKTOP_BUILD_DIRTY'
  * @returns {{ commit: string, dirty: boolean }} The commit being packaged and whether its tree was modified.
  */
 export function readDesktopBuildCommit(repositoryRoot) {
-  const git = (args) => execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' }).trim()
+  const git = args => execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' }).trim()
   return {
     commit: git(['rev-parse', 'HEAD']),
     dirty: git(['status', '--porcelain', '--untracked-files=normal']) !== '',

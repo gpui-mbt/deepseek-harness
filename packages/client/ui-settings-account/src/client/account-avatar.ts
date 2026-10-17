@@ -28,8 +28,7 @@ export class AccountAvatarLoader {
     if (source === undefined) {
       this.detach()
       this.update(undefined)
-    }
-    else this.load(source)
+    } else this.load(source)
   }
 
   /** Retry a failed picture once; successful and pending loads remain shared. */
@@ -70,8 +69,12 @@ export class AccountAvatarLoader {
       image.onerror = null
       this.update({ url, status })
     }
-    image.onload = () => { settle('ready') }
-    image.onerror = () => { settle('failed') }
+    image.onload = () => {
+      settle('ready')
+    }
+    image.onerror = () => {
+      settle('failed')
+    }
     this.update({ url, status: 'loading' })
     if (this.image === image) image.src = url
   }

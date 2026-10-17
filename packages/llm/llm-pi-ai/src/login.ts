@@ -59,7 +59,7 @@ function relay(event: AuthEvent, session: AuthorizationSession): void {
   switch (event.type) {
     case 'info': {
       const link = event.links?.[0]
-      session.notify({ message: event.message, ...link === undefined ? {} : { url: link.url } })
+      session.notify({ message: event.message, ...(link === undefined ? {} : { url: link.url }) })
       return
     }
     case 'auth_url':
@@ -107,14 +107,14 @@ function restate(prompt: AuthPrompt): AuthorizationPrompt {
         ...signal,
         kind: 'secret',
         message: prompt.message,
-        ...prompt.placeholder === undefined ? {} : { placeholder: prompt.placeholder },
+        ...(prompt.placeholder === undefined ? {} : { placeholder: prompt.placeholder }),
       }
     default:
       return {
         ...signal,
         kind: 'text',
         message: prompt.message,
-        ...prompt.placeholder === undefined ? {} : { placeholder: prompt.placeholder },
+        ...(prompt.placeholder === undefined ? {} : { placeholder: prompt.placeholder }),
       }
   }
 }
@@ -142,9 +142,7 @@ export function registerPiAiFlows(ctx: Context, auth: PiAiAuthInjection): void {
        record grammar (dotted or uppercase, as vendor ids elsewhere already
        are) from throwing in `recordKeyFor` and failing the whole mount. */
     if (!isCredentialKeySegment(providerId)) {
-      ctx.logger.warn(
-        'llm-pi-ai: catalog provider "%s" cannot address a credential record; its sign-in is not offered',
-        providerId)
+      ctx.logger.warn('llm-pi-ai: catalog provider "%s" cannot address a credential record; its sign-in is not offered', providerId)
       continue
     }
     ctx.authorization.registerFlow({
@@ -164,7 +162,9 @@ export function registerPiAiFlows(ctx: Context, auth: PiAiAuthInjection): void {
         // is what makes it the single writer of this record.
         await models.login(providerId, type, {
           signal: session.signal,
-          notify: (event) => { relay(event, session) },
+          notify: event => {
+            relay(event, session)
+          },
           prompt: prompt => session.prompt(restate(prompt)),
         })
       },

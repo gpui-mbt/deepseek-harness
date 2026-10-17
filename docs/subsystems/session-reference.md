@@ -144,7 +144,7 @@ Host capability for cancellable file-reference discovery.
  * @param signal - caller cancellation.
  * @returns deterministic path-only candidates.
  */
-abstract list( agent: Agent, query: string, signal: AbortSignal, ): Promise<FileReferenceCandidate[]>
+abstract list(agent: Agent, query: string, signal: AbortSignal): Promise<FileReferenceCandidate[]>
 ```
 
 Types: [Agent](core.md)
@@ -165,7 +165,7 @@ Host Remote adapter over the composed file-reference provider.
  * @param signal - caller cancellation.
  * @returns deterministic path-only candidates from the composed provider.
  */
-@Remote list( agent: Agent, query: string, signal: AbortSignal, ): Promise<FileReferenceCandidate[]>
+@Remote list(agent: Agent, query: string, signal: AbortSignal): Promise<FileReferenceCandidate[]>
 ```
 
 Types: [Agent](core.md)
@@ -201,7 +201,7 @@ async listCandidates( agent: Agent, query: string = '', limit: number = this.con
  * @param signal - caller cancellation.
  * @returns mention-carrying candidates in rank order.
  */
-@Remote('candidates') async remoteExportCandidates( agent: Agent, query: string, signal: AbortSignal, ): Promise<SessionReferenceMentionCandidate[]>
+@Remote('candidates') async remoteExportCandidates(agent: Agent, query: string, signal: AbortSignal): Promise<SessionReferenceMentionCandidate[]>
 
 /**
  * Snapshot all references for one accepted direct message and return one aggregated durable context.

@@ -2,7 +2,7 @@ import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -22,17 +22,23 @@ it('continues the parent through default Messages after a reasoning-bearing cont
   let http: Awaited<ReturnType<typeof server>> | undefined
   try {
     http = await server((response, count) => {
-      const blocks = count === 1
-        ? [{ type: 'thinking', thinking: 'child reasoning' }, { type: 'text', text: 'child answer' }]
-        : [{ type: 'text', text: 'parent answer' }]
-      response.end(sse([
-        start,
-        ...blocks.flatMap((content_block, index) => [
-          { type: 'content_block_start', index, content_block },
-          { type: 'content_block_stop', index },
+      const blocks =
+        count === 1
+          ? [
+              { type: 'thinking', thinking: 'child reasoning' },
+              { type: 'text', text: 'child answer' },
+            ]
+          : [{ type: 'text', text: 'parent answer' }]
+      response.end(
+        sse([
+          start,
+          ...blocks.flatMap((content_block, index) => [
+            { type: 'content_block_start', index, content_block },
+            { type: 'content_block_stop', index },
+          ]),
+          ...end(),
         ]),
-        ...end(),
-      ]))
+      )
     })
     const { requests } = http
     const connection = resolveAdapterOptions({ baseURL: http.url })
@@ -52,7 +58,7 @@ it('continues the parent through default Messages after a reasoning-bearing cont
     const parent = await ctx.agentLoop.create(SessionId('parent'), { provider: 'deepseek-official', model: MODEL })
     const ends: SubagentRunEndInfo[] = []
     const settled = Promise.withResolvers<undefined>()
-    ctx.on('subagent/end', (info) => {
+    ctx.on('subagent/end', info => {
       ends.push(info)
       settled.resolve(undefined)
     })
@@ -67,14 +73,17 @@ it('continues the parent through default Messages after a reasoning-bearing cont
     await settled.promise
     await parent.whenIdle()
 
-    const output = [{ type: 'reasoning', text: 'child reasoning' }, { type: 'text', text: 'child answer' }]
+    const output = [
+      { type: 'reasoning', text: 'child reasoning' },
+      { type: 'text', text: 'child answer' },
+    ]
     expect(ends).toHaveLength(1)
     expect(ends[0]?.lastAssistantMessage).toEqual(output)
     const child = await loadStoredSession(ctx.sessionPersistence, started.childId)
-    expect(child.events.filter(event => event.type === 'assistant/message').at(-1))
-      .toMatchObject({ data: { message: { content: output } } })
-    expect(parent.session.snapshotEvents().at(-1))
-      .toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } })
+    expect(child.events.filter(event => event.type === 'assistant/message').at(-1)).toMatchObject({
+      data: { message: { content: output } },
+    })
+    expect(parent.session.snapshotEvents().at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } })
     expect(requests).toHaveLength(2)
     expect(requests.map(request => request.path)).toEqual(['/anthropic/v1/messages', '/anthropic/v1/messages'])
     const notice = parent.session.deriveMessages().find(message => message.source.kind === 'subagent-settled')
@@ -88,22 +97,27 @@ it('continues the parent through default Messages after a reasoning-bearing cont
       ...closingContent,
       {
         type: 'text',
-        text: 'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\n'
-          + `Current working directory: ${JSON.stringify(process.cwd())}.`,
+        text:
+          'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\n' +
+          `Current working directory: ${JSON.stringify(process.cwd())}.`,
       },
     ]
     expect(requests[1]?.body).toMatchObject({ messages: [{ role: 'user', content: noticeWithContext }] })
 
     parent.followup(createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'continue' }] }))
     await parent.whenIdle()
-    expect(parent.session.snapshotEvents().filter(event => event.type === 'turn/end'))
-      .toMatchObject([{ data: { reason: { kind: 'completed' } } }, { data: { reason: { kind: 'completed' } } }])
+    expect(parent.session.snapshotEvents().filter(event => event.type === 'turn/end')).toMatchObject([
+      { data: { reason: { kind: 'completed' } } },
+      { data: { reason: { kind: 'completed' } } },
+    ])
     expect(requests).toHaveLength(3)
-    expect(requests[2]?.body).toMatchObject({ messages: [
-      { role: 'user', content: noticeWithContext },
-      { role: 'assistant', content: [{ type: 'text', text: 'parent answer' }] },
-      { role: 'user', content: [{ type: 'text', text: 'continue' }] },
-    ] })
+    expect(requests[2]?.body).toMatchObject({
+      messages: [
+        { role: 'user', content: noticeWithContext },
+        { role: 'assistant', content: [{ type: 'text', text: 'parent answer' }] },
+        { role: 'user', content: [{ type: 'text', text: 'continue' }] },
+      ],
+    })
   } finally {
     try {
       await ctx.fiber.dispose()

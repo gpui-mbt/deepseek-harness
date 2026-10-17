@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { DesktopBrowserReservation } from '../src/types.ts'
 import { electronFixture } from './electron-harness.client.ts'
 
@@ -76,7 +76,9 @@ it('releases an acquisition that finishes after attachment cancellation', async 
   const unmount = h.mount()
   h.frame.loadUrl(target)
   try {
-    await vi.waitFor(() => { expect(h.bridge.acquire).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(h.bridge.acquire).toHaveBeenCalledOnce()
+    })
     unmount()
     const disposed = h.frame.dispose()
     expect(h.frame.dispose()).toBe(disposed)
@@ -137,18 +139,24 @@ it('contains acquisition, native command and release failures and keeps retry av
   h.bridge.acquire.mockRejectedValueOnce(new Error('acquire failed'))
   h.mount()
   h.frame.loadUrl(target)
-  await vi.waitFor(() => { expect(h.frame.getSnapshot().error).toBeDefined() })
+  await vi.waitFor(() => {
+    expect(h.frame.getSnapshot().error).toBeDefined()
+  })
   h.frame.reload()
   const guest = await h.guest()
   guest.emit('dom-ready')
   guest.state.url = target.url
   guest.emit('did-navigate')
-  guest.reload.mockImplementationOnce(() => { throw new Error('command failed') })
+  guest.reload.mockImplementationOnce(() => {
+    throw new Error('command failed')
+  })
   h.frame.reload()
   expect(h.frame.getSnapshot().error).toBeDefined()
   h.frame.reload()
   expect(h.frame.getSnapshot().error).toBeUndefined()
-  guest.getURL.mockImplementationOnce(() => { throw new Error('observation failed') })
+  guest.getURL.mockImplementationOnce(() => {
+    throw new Error('observation failed')
+  })
   guest.emit('did-navigate')
   expect(h.frame.getSnapshot().error).toBeDefined()
   h.bridge.release.mockRejectedValueOnce(new Error('release failed'))
@@ -175,6 +183,8 @@ it('ignores superseded and aborted load promises, but publishes an active naviga
   expect(h.frame.getSnapshot().error).toBeUndefined()
   guest.loadURL.mockRejectedValueOnce(new Error('active navigation failed'))
   h.frame.loadUrl(target)
-  await vi.waitFor(() => { expect(h.frame.getSnapshot().error).toBeDefined() })
+  await vi.waitFor(() => {
+    expect(h.frame.getSnapshot().error).toBeDefined()
+  })
   expect(error).toHaveBeenCalledOnce()
 })

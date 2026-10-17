@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { installProxyFromEnvironment } from '../src/index.ts'
 import { proxyForUrl, resolveProxyPolicy } from '../src/policy.ts'
 
@@ -37,14 +37,20 @@ beforeAll(async () => {
     response.writeHead(200, { 'content-type': 'text/plain' })
     response.end('VIA-PROXY')
   })
-  const address = await new Promise<AddressInfo>((resolve) => {
-    proxy.listen(0, '127.0.0.1', () => { resolve(proxy.address() as AddressInfo) })
+  const address = await new Promise<AddressInfo>(resolve => {
+    proxy.listen(0, '127.0.0.1', () => {
+      resolve(proxy.address() as AddressInfo)
+    })
   })
   proxyUrl = `http://127.0.0.1:${String(address.port)}`
 })
 
 afterAll(async () => {
-  await new Promise<void>((resolve) => { proxy.close(() => { resolve() }) })
+  await new Promise<void>(resolve => {
+    proxy.close(() => {
+      resolve()
+    })
+  })
 })
 
 /** The launch environment of a user who exported one proxy for both schemes plus one bypass list. */
@@ -64,10 +70,11 @@ describe('bypass matcher parity', () => {
       // A bypassed target has no route here, so the fetch fails; a proxied one reaches the recorder
       // in milliseconds. The deadline bounds the failing path, whose DNS miss is otherwise as slow
       // as the machine's resolver decides — and only that path, so it cannot mask a proxied hop.
-      await fetch(url, { signal: AbortSignal.timeout(1500) }).then(response => response.text()).catch(() => undefined)
+      await fetch(url, { signal: AbortSignal.timeout(1500) })
+        .then(response => response.text())
+        .catch(() => undefined)
       const agentProxied = seen.length > 0
-      expect({ ours: proxyForUrl(policy, url) !== undefined, agent: agentProxied })
-        .toEqual({ ours: !bypassed, agent: !bypassed })
+      expect({ ours: proxyForUrl(policy, url) !== undefined, agent: agentProxied }).toEqual({ ours: !bypassed, agent: !bypassed })
     } finally {
       await dispose()
     }

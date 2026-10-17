@@ -29,9 +29,10 @@ export interface GenericCommandCardProps extends CommandRowOwnerProps {
 export const GenericCommandCard = memo(function GenericCommandCard({ node, t, runningSummary }: GenericCommandCardProps) {
   const [expanded, setExpanded] = useState(false)
   const text = node.outcome?.text
-  const summary = node.outcome === null
-    ? runningSummary ?? t('command.running')
-    : text ?? (node.outcome.kind === 'error' ? t('command.failed') : t('command.done'))
+  const summary =
+    node.outcome === null
+      ? (runningSummary ?? t('command.running'))
+      : (text ?? (node.outcome.kind === 'error' ? t('command.failed') : t('command.done')))
   // The summary already carries the settlement text, so the title is the bare
   // command name.
   const title = node.name ?? t('command.title')
@@ -39,18 +40,29 @@ export const GenericCommandCard = memo(function GenericCommandCard({ node, t, ru
   const running = state === 'running'
   const body = text !== undefined && text.includes('\n') ? text : null
   const open = expanded && body !== null
-  const toggle = useCallback(() => { setExpanded(value => !value) }, [])
-  const collapsedContent = useMemo(() => (
-    <>
-      <span className={css.separator} data-shimmer-decoration aria-hidden />
-      <span className={css.summary} data-error={state === 'error' || undefined}>
-        <TextShimmer>{summary}</TextShimmer>
-      </span>
-    </>
-  ), [running, state, summary])
-  const content = useMemo(() => open
-    ? <pre className={css.body} data-error={state === 'error' || undefined}>{body}</pre>
-    : undefined, [body, open, state])
+  const toggle = useCallback(() => {
+    setExpanded(value => !value)
+  }, [])
+  const collapsedContent = useMemo(
+    () => (
+      <>
+        <span className={css.separator} data-shimmer-decoration aria-hidden />
+        <span className={css.summary} data-error={state === 'error' || undefined}>
+          <TextShimmer>{summary}</TextShimmer>
+        </span>
+      </>
+    ),
+    [running, state, summary],
+  )
+  const content = useMemo(
+    () =>
+      open ? (
+        <pre className={css.body} data-error={state === 'error' || undefined}>
+          {body}
+        </pre>
+      ) : undefined,
+    [body, open, state],
+  )
   return (
     <div className={css.root} data-variant="others" data-state={state}>
       {state === 'running' && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}

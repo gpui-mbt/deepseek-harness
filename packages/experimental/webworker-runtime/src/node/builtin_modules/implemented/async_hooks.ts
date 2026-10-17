@@ -357,7 +357,9 @@ export function __restoreAll(snapshot: AmbientSnapshot): () => void {
  */
 export const alsCausality = {
   snapshot: (): AmbientSnapshot => __snapshotAll(),
-  restore: (snapshot: AmbientSnapshot): void => { __restoreAll(snapshot) },
+  restore: (snapshot: AmbientSnapshot): void => {
+    __restoreAll(snapshot)
+  },
 }
 
 /**
@@ -385,8 +387,7 @@ export function createHook(): never {
 }
 
 /** Resource construction is likewise unavailable. */
-export const AsyncResource: typeof import('node:async_hooks').AsyncResource
-  = notImplementedFail('node:async_hooks', 'AsyncResource')
+export const AsyncResource: typeof import('node:async_hooks').AsyncResource = notImplementedFail('node:async_hooks', 'AsyncResource')
 
 /** CommonJS interop marker: the worker loader hands `default` to default imports (see ./builtins.ts). */
 export const __esModule = true
@@ -397,10 +398,13 @@ export const __esModule = true
  * bookkeeping the rewrite route reads through statics Node does not declare, and
  * its `run` is typed for the callback arguments the host tree passes.
  */
-type NodeFace = Partial<Omit<typeof import('node:async_hooks'), 'AsyncLocalStorage'>>
-  & Record<'AsyncLocalStorage', unknown>
+type NodeFace = Partial<Omit<typeof import('node:async_hooks'), 'AsyncLocalStorage'>> & Record<'AsyncLocalStorage', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  AsyncLocalStorage, AsyncResource, executionAsyncId, triggerAsyncId, createHook,
+  AsyncLocalStorage,
+  AsyncResource,
+  executionAsyncId,
+  triggerAsyncId,
+  createHook,
 } satisfies NodeFace

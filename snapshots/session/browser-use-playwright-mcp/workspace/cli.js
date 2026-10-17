@@ -12,19 +12,30 @@ lines.on('line', line => {
   let result
   switch (request.method) {
     case 'server/discover':
-      process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'Legacy browser fixture' } }) + '\n')
+      process.stdout.write(
+        JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'Legacy browser fixture' } }) + '\n',
+      )
       return
     case 'initialize':
       writeFileSync('.dsh/browser-fixture.started', 'playwright-mcp\n', { flag: 'wx' })
       process.once('exit', () => unlinkSync('.dsh/browser-fixture.started'))
-      result = { protocolVersion: request.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'browser-fixture', version: '1' } }
+      result = {
+        protocolVersion: request.params.protocolVersion,
+        capabilities: { tools: {} },
+        serverInfo: { name: 'browser-fixture', version: '1' },
+      }
       break
     case 'tools/list':
       result = catalog
       break
     case 'tools/call':
       if (request.params.name !== 'browser_take_screenshot') throw new Error(`Unexpected Playwright fixture tool: ${request.params.name}`)
-      result = { content: [{ type: 'text', text: 'Chromium page' }, { type: 'image', mimeType: 'image/png', data: png }] }
+      result = {
+        content: [
+          { type: 'text', text: 'Chromium page' },
+          { type: 'image', mimeType: 'image/png', data: png },
+        ],
+      }
       break
     default:
       throw new Error(`Unexpected Playwright fixture request: ${request.method}`)

@@ -1,9 +1,5 @@
-import type {
-  ConversationLocation, ConversationNodeContext,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {
-  ChatNode, ChatNodeDataMap, ChatNodeKind,
-} from '../contract/chat-nodes.ts'
+import type { ConversationLocation, ConversationNodeContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ChatNode, ChatNodeDataMap, ChatNodeKind } from '../contract/chat-nodes.ts'
 import type { ChatGroupTree } from '../contract/group-tree.ts'
 
 /**

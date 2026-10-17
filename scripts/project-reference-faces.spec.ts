@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { collectProjectReferenceFaceViolations } from './project-reference-faces.ts'
 
 const roots: string[] = []
@@ -14,10 +14,7 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
 }
 
-function workspaceFixture(options: {
-  readonly host: readonly string[]
-  readonly client: readonly string[]
-}): string {
+function workspaceFixture(options: { readonly host: readonly string[]; readonly client: readonly string[] }): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-project-reference-faces-'))
   roots.push(root)
   const shared = join(root, 'packages/core/shared')
@@ -59,10 +56,7 @@ describe('Project Reference compiler faces', () => {
 
   it('rejects the opposite leaf and the solution root of a split project', () => {
     const root = workspaceFixture({
-      host: [
-        './packages/api/split/tsconfig.host.json',
-        './packages/api/split/tsconfig.client.json',
-      ],
+      host: ['./packages/api/split/tsconfig.host.json', './packages/api/split/tsconfig.client.json'],
       client: ['./packages/api/split'],
     })
 

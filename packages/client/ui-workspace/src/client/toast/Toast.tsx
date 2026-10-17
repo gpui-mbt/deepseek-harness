@@ -24,7 +24,7 @@ export function ArchiveToastEntry(props: ArchiveToastEntryProps) {
   const fields = display(props, t, dismissToast)
   return renderFactorySlot('workspace.toast.content', {
     ...fields,
-    actions: [...fields.actions ?? [], ...archivedVisible ? [] : [filterAction(t, dismissToast)]],
+    actions: [...(fields.actions ?? []), ...(archivedVisible ? [] : [filterAction(t, dismissToast)])],
     seq,
     onDone: dismissToast,
   })
@@ -36,9 +36,15 @@ export function ArchiveToastEntry(props: ArchiveToastEntryProps) {
  * @returns One Toast, remounted only for a new display identity.
  */
 export function WorkspaceToast({ seq, text, tone, holdMs, actions, onDone }: WorkspaceToastProps) {
-  return <Toast key={seq} text={text} onDone={onDone}
-    {...tone === 'success' ? { tone: 'success' as const } : {}}
-    {...tone === 'warning' ? { icon: <IconWarningOutlineRegular /> } : {}}
-    {...holdMs === undefined ? {} : { holdMs }}
-    {...actions === undefined ? {} : { actions }} />
+  return (
+    <Toast
+      key={seq}
+      text={text}
+      onDone={onDone}
+      {...(tone === 'success' ? { tone: 'success' as const } : {})}
+      {...(tone === 'warning' ? { icon: <IconWarningOutlineRegular /> } : {})}
+      {...(holdMs === undefined ? {} : { holdMs })}
+      {...(actions === undefined ? {} : { actions })}
+    />
+  )
 }

@@ -83,7 +83,7 @@ export function apply(ctx: Context, config: Config): void {
   // the deployment cannot durably commit image bytes, so the tool never
   // registers; the execute body keeps a defensive re-check for direct callers.
   if (resolved.readImage) {
-    ctx.inject(['attachments'], (imageCtx) => {
+    ctx.inject(['attachments'], imageCtx => {
       applyReadImageTool(imageCtx)
     })
   }

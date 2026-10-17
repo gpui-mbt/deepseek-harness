@@ -2,7 +2,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, vi } from 'vitest'
+import { afterEach, vi } from 'vite-plus/test'
 
 const cleanups: (() => void | Promise<void>)[] = []
 
@@ -30,7 +30,9 @@ export function onCleanup(cleanup: () => void | Promise<void>): void {
 /** @returns a new temporary directory deleted after the current test. */
 export function scratch(): string {
   const dir = mkdtempSync(join(tmpdir(), 'market-generator-'))
-  onCleanup(() => { rmSync(dir, { recursive: true, force: true }) })
+  onCleanup(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
   return dir
 }
 
@@ -41,5 +43,7 @@ export function scratch(): string {
  */
 export function setEnv(name: string, value: string): void {
   vi.stubEnv(name, value)
-  onCleanup(() => { vi.unstubAllEnvs() })
+  onCleanup(() => {
+    vi.unstubAllEnvs()
+  })
 }

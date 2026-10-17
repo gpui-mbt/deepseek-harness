@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -50,12 +50,14 @@ async function setup(config: ToolJobs.Config = {}, registry: RegistryConfig = {}
   const toolsFiber = await ctx.plugin(ToolJobs, config)
   const byKind = new Map<string, JobId[]>()
   issuedIds.set(ctx, byKind)
-  ctx.effect(() => ctx.jobs.events.subscribe({ owners: 'all' }, (event) => {
-    if (event.type !== 'registered') return
-    const ids = byKind.get(event.job.kind) ?? []
-    ids.push(event.job.id)
-    byKind.set(event.job.kind, ids)
-  }))
+  ctx.effect(() =>
+    ctx.jobs.events.subscribe({ owners: 'all' }, event => {
+      if (event.type !== 'registered') return
+      const ids = byKind.get(event.job.kind) ?? []
+      ids.push(event.job.id)
+      byKind.set(event.job.kind, ids)
+    }),
+  )
   return { ctx, agentsFiber, toolsFiber }
 }
 
@@ -110,16 +112,23 @@ function producer(overrides: Partial<Omit<JobSpec, 'run' | 'output'> & JobHooks>
   const cancels: (string | undefined)[] = []
   const { kind = 'bash', label = 'sleep 60', owner, outputLimitBytes, ...hookOverrides } = overrides
   const hooks: JobHooks = {
-    cancel(reason) { cancels.push(reason) },
-    done: new Promise<JobOutcome>((res) => { settle = res }),
+    cancel(reason) {
+      cancels.push(reason)
+    },
+    done: new Promise<JobOutcome>(res => {
+      settle = res
+    }),
     ...hookOverrides,
   }
   const spec: JobSpec = {
     kind,
     label,
-    ...owner !== undefined ? { owner } : {},
-    ...outputLimitBytes !== undefined ? { outputLimitBytes } : {},
-    run: (job) => { handle = job; return hooks },
+    ...(owner !== undefined ? { owner } : {}),
+    ...(outputLimitBytes !== undefined ? { outputLimitBytes } : {}),
+    run: job => {
+      handle = job
+      return hooks
+    },
   }
   const started = (): JobHandle => {
     if (handle === undefined) throw new Error('producer not started')
@@ -129,18 +138,31 @@ function producer(overrides: Partial<Omit<JobSpec, 'run' | 'output'> & JobHooks>
     spec,
     settle,
     cancels,
-    append: (text: string, options?: JobAppendOptions) => { started().append(text, options) },
-    progress: (line: string) => { started().updateProgress(line) },
+    append: (text: string, options?: JobAppendOptions) => {
+      started().append(text, options)
+    },
+    progress: (line: string) => {
+      started().updateProgress(line)
+    },
   }
 }
 
 let callCounter = 0
 function call(ctx: Context, name: string, args: unknown, agent?: Agent) {
-  return ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId(`call-${++callCounter}`), name, arguments: args, ...agent ? { agent } : {} })
+  return ctx.tools.execute({
+    signal: testToolSignal,
+    callId: ToolCallId(`call-${++callCounter}`),
+    name,
+    arguments: args,
+    ...(agent ? { agent } : {}),
+  })
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 const tick = () => new Promise<void>(r => setTimeout(r, 0))
@@ -184,8 +206,9 @@ describe('tool-jobs setup', () => {
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
-    await expect(ctx.plugin(ToolJobs, { waitTimeoutMs: 100, maxWaitTimeoutMs: 50 }))
-      .rejects.toThrow('waitTimeoutMs (100) exceeds maxWaitTimeoutMs (50)')
+    await expect(ctx.plugin(ToolJobs, { waitTimeoutMs: 100, maxWaitTimeoutMs: 50 })).rejects.toThrow(
+      'waitTimeoutMs (100) exceeds maxWaitTimeoutMs (50)',
+    )
   })
 
   it('defaults delivery to unbounded wakeup and rejects an unknown lane', () => {
@@ -225,45 +248,92 @@ describe('tool-jobs setup', () => {
 
   it('projects the public job: live progress or terminal detail, never ownership or offsets', () => {
     const live: JobView = {
-      id: JobId('bash-1'), kind: 'bash', label: 'x', owner: SessionId('sess-1'), outputLimitBytes: 8,
-      status: 'running', progress: '3/10 files', startedAt: 5, output: { total: 12, earliest: 0 },
+      id: JobId('bash-1'),
+      kind: 'bash',
+      label: 'x',
+      owner: SessionId('sess-1'),
+      outputLimitBytes: 8,
+      status: 'running',
+      progress: '3/10 files',
+      startedAt: 5,
+      output: { total: 12, earliest: 0 },
     }
     expect(publicJob(live)).toEqual({ id: 'bash-1', kind: 'bash', label: 'x', status: 'running', detail: '3/10 files', startedAt: 5 })
     const settled: JobView = {
-      id: JobId('bash-1'), kind: 'bash', label: 'x', status: 'completed', detail: 'exit code: 0',
-      startedAt: 5, finishedAt: 9, output: { total: 12, earliest: 0 },
+      id: JobId('bash-1'),
+      kind: 'bash',
+      label: 'x',
+      status: 'completed',
+      detail: 'exit code: 0',
+      startedAt: 5,
+      finishedAt: 9,
+      output: { total: 12, earliest: 0 },
     }
-    expect(publicJob(settled)).toEqual({ id: 'bash-1', kind: 'bash', label: 'x', status: 'completed', detail: 'exit code: 0', startedAt: 5, finishedAt: 9 })
+    expect(publicJob(settled)).toEqual({
+      id: 'bash-1',
+      kind: 'bash',
+      label: 'x',
+      status: 'completed',
+      detail: 'exit code: 0',
+      startedAt: 5,
+      finishedAt: 9,
+    })
   })
 
   it('renders a model delta as stdout, one stderr section, and a dropped-output notice', () => {
     expect(renderModelDelta([], false, [])).toBe('')
     expect(renderModelDelta([], true, [])).toBe('[some output was dropped from memory; full output: (unavailable)]')
-    expect(renderModelDelta([
-      { at: 0, text: 'a' },
-      { at: 1, text: 'e1\n', channel: 'stderr' },
-      { at: 4, text: 'narration', channel: 'log' },
-      { at: 13, text: 'b', channel: 'stdout' },
-      { at: 14, text: 'e2', channel: 'stderr' },
-    ], false, [])).toBe('ab\n[stderr]\ne1\ne2')
-    expect(renderModelDelta([{ at: 0, text: 'tail' }], true, [])).toBe('tail\n[some output was dropped from memory; full output: (unavailable)]')
-    expect(renderModelDelta([{ at: 0, text: 'line\n' }], true, [])).toBe('line\n[some output was dropped from memory; full output: (unavailable)]')
+    expect(
+      renderModelDelta(
+        [
+          { at: 0, text: 'a' },
+          { at: 1, text: 'e1\n', channel: 'stderr' },
+          { at: 4, text: 'narration', channel: 'log' },
+          { at: 13, text: 'b', channel: 'stdout' },
+          { at: 14, text: 'e2', channel: 'stderr' },
+        ],
+        false,
+        [],
+      ),
+    ).toBe('ab\n[stderr]\ne1\ne2')
+    expect(renderModelDelta([{ at: 0, text: 'tail' }], true, [])).toBe(
+      'tail\n[some output was dropped from memory; full output: (unavailable)]',
+    )
+    expect(renderModelDelta([{ at: 0, text: 'line\n' }], true, [])).toBe(
+      'line\n[some output was dropped from memory; full output: (unavailable)]',
+    )
     // Ring eviction names the files the job's sources keep, whether or not a retained chunk carries a gap.
-    expect(renderModelDelta([{ at: 8, text: 'tail' }], true, ['/spill/out.log', '/spill/err.log']))
-      .toBe('tail\n[some output was dropped from memory; full output: /spill/out.log, /spill/err.log]')
+    expect(renderModelDelta([{ at: 8, text: 'tail' }], true, ['/spill/out.log', '/spill/err.log'])).toBe(
+      'tail\n[some output was dropped from memory; full output: /spill/out.log, /spill/err.log]',
+    )
   })
 
   it('reports a producer-side gap as dropped output and names the spill files the job advertises', () => {
     // The ring itself lost nothing (`lossy: false`); the source did, between two pumps.
-    expect(renderModelDelta([{ at: 0, text: 'head' }, { at: 4, text: 'tail', gapBefore: true }], false, ['/spill/out.log']))
-      .toBe('headtail\n[some output was dropped from memory; full output: /spill/out.log]')
-    expect(renderModelDelta([
-      { at: 0, text: 'o', gapBefore: true },
-      { at: 1, text: 'e', channel: 'stderr', gapBefore: true },
-    ], false, ['/spill/out.log', '/spill/err.log'])).toBe('o\n[stderr]\ne\n[some output was dropped from memory; full output: /spill/out.log, /spill/err.log]')
+    expect(
+      renderModelDelta(
+        [
+          { at: 0, text: 'head' },
+          { at: 4, text: 'tail', gapBefore: true },
+        ],
+        false,
+        ['/spill/out.log'],
+      ),
+    ).toBe('headtail\n[some output was dropped from memory; full output: /spill/out.log]')
+    expect(
+      renderModelDelta(
+        [
+          { at: 0, text: 'o', gapBefore: true },
+          { at: 1, text: 'e', channel: 'stderr', gapBefore: true },
+        ],
+        false,
+        ['/spill/out.log', '/spill/err.log'],
+      ),
+    ).toBe('o\n[stderr]\ne\n[some output was dropped from memory; full output: /spill/out.log, /spill/err.log]')
     // A gap while no source keeps a file yields the generic notice.
-    expect(renderModelDelta([{ at: 0, text: 'tail', gapBefore: true }], false, []))
-      .toBe('tail\n[some output was dropped from memory; full output: (unavailable)]')
+    expect(renderModelDelta([{ at: 0, text: 'tail', gapBefore: true }], false, [])).toBe(
+      'tail\n[some output was dropped from memory; full output: (unavailable)]',
+    )
     // A gap on observer-only narration never reaches the model.
     expect(renderModelDelta([{ at: 0, text: 'phase', channel: 'log', gapBefore: true }], false, ['/spill/log'])).toBe('')
   })
@@ -275,20 +345,27 @@ describe('tool-jobs setup', () => {
     // The source never reads lossy: the pump keeps up, and only the ring's live cap drops bytes.
     const source: JobOutputSource = {
       channel: 'stdout',
-      read: from => from === 0
-        ? { text: 'x'.repeat(32), nextOffset: 32, lossy: false, spillPath: '/spill/out.log' }
-        : { text: '', nextOffset: from, lossy: false, spillPath: '/spill/out.log' },
+      read: from =>
+        from === 0
+          ? { text: 'x'.repeat(32), nextOffset: 32, lossy: false, spillPath: '/spill/out.log' }
+          : { text: '', nextOffset: from, lossy: false, spillPath: '/spill/out.log' },
     }
     const id = ctx.jobs.start({
       kind: 'bash',
       label: 'noisy',
       owner: owner.id,
       output: [source],
-      run: () => ({ cancel() {}, done: new Promise<JobOutcome>((resolve) => { settle = resolve }) }),
+      run: () => ({
+        cancel() {},
+        done: new Promise<JobOutcome>(resolve => {
+          settle = resolve
+        }),
+      }),
     })
 
-    expect(text(await call(ctx, 'job_output', { job_id: id }, owner)))
-      .toBe(`${'x'.repeat(8)}\n[some output was dropped from memory; full output: /spill/out.log]\n[status: running]`)
+    expect(text(await call(ctx, 'job_output', { job_id: id }, owner))).toBe(
+      `${'x'.repeat(8)}\n[some output was dropped from memory; full output: /spill/out.log]\n[status: running]`,
+    )
     settle({ status: 'completed' })
     await tick()
   })
@@ -347,7 +424,9 @@ describe('job_output', () => {
     expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') }))).toBe('(no new output)\n[status: running, 3/10 files]')
     p.settle({ status: 'completed', detail: 'exit code: 0' })
     await tick()
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') }))).toBe('(no new output)\n[status: completed, exit code: 0]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') }))).toBe(
+      '(no new output)\n[status: completed, exit code: 0]',
+    )
   })
 
   it('flags a read whose cursor fell behind the ring', async () => {
@@ -372,8 +451,12 @@ describe('job_output', () => {
     p.append('partial')
     p.settle({ status: 'completed', detail: 'completed', result: 'the answer' })
     await tick()
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'test-task-1') }))).toBe('partial\nthe answer\n[status: completed, completed]')
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'test-task-1') }))).toBe('(no new output)\n[status: completed, completed]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'test-task-1') }))).toBe(
+      'partial\nthe answer\n[status: completed, completed]',
+    )
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'test-task-1') }))).toBe(
+      '(no new output)\n[status: completed, completed]',
+    )
   })
 
   it('keeps a newline-terminated delta and the result on separate lines', async () => {
@@ -383,7 +466,9 @@ describe('job_output', () => {
     p.append('progress log\n')
     p.settle({ status: 'completed', result: 'the answer' })
     await tick()
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'test-task-1') }))).toBe('progress log\nthe answer\n[status: completed]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'test-task-1') }))).toBe(
+      'progress log\nthe answer\n[status: completed]',
+    )
   })
 
   it('applies a producer limit to the complete body and status result', async () => {
@@ -402,11 +487,9 @@ describe('job_output', () => {
     const p = producer({ outputLimitBytes: 64 })
     ctx.jobs.start(p.spec)
 
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') })))
-      .toBe('(no new output)\n[status: running]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') }))).toBe('(no new output)\n[status: running]')
     p.append('line\n')
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') })))
-      .toBe('line\n[status: running]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') }))).toBe('line\n[status: running]')
   })
 
   it('bounds post-policy output without restoring the canonical status rendering', async () => {
@@ -471,7 +554,11 @@ describe('job_output', () => {
           value: {
             text: 'a'.repeat(1_000),
             job: {
-              id: startedId(ctx, 'bash-2'), kind: 'bash', label: 'sleep 60', status: 'running', startedAt: 0,
+              id: startedId(ctx, 'bash-2'),
+              kind: 'bash',
+              label: 'sleep 60',
+              status: 'running',
+              startedAt: 0,
             },
           },
         }
@@ -554,16 +641,24 @@ describe('job_list', () => {
     const listedValue = listed.value as Array<Record<string, unknown>>
     expect(listedValue).toHaveLength(3)
     expect(listedValue[0]).toMatchObject({ id: startedId(ctx, 'bash-1'), kind: 'bash', label: 'pnpm test', status: 'running' })
-    expect(listedValue[2]).toMatchObject({ id: startedId(ctx, 'bash-2'), kind: 'bash', label: 'build', status: 'completed', detail: 'exit code: 0' })
+    expect(listedValue[2]).toMatchObject({
+      id: startedId(ctx, 'bash-2'),
+      kind: 'bash',
+      label: 'build',
+      status: 'completed',
+      detail: 'exit code: 0',
+    })
     for (const job of listedValue) {
       expect(job).not.toHaveProperty('owner')
       expect(job).not.toHaveProperty('output')
     }
-    expect(text(listed)).toBe([
-      `${startedId(ctx, 'bash-1')} [bash] running — pnpm test`,
-      `${startedId(ctx, 'test-task-1')} [test-task] running — open research`,
-      `${startedId(ctx, 'bash-2')} [bash] completed — build`,
-    ].join('\n'))
+    expect(text(listed)).toBe(
+      [
+        `${startedId(ctx, 'bash-1')} [bash] running — pnpm test`,
+        `${startedId(ctx, 'test-task-1')} [test-task] running — open research`,
+        `${startedId(ctx, 'bash-2')} [bash] completed — build`,
+      ].join('\n'),
+    )
     // A different caller sees only the unowned job.
     const bob = await fakeAgent(ctx, 'sess-bob')
     expect(text(await call(ctx, 'job_list', {}, bob))).toBe(`${startedId(ctx, 'test-task-1')} [test-task] running — open research`)
@@ -601,10 +696,14 @@ describe('job_kill', () => {
 
   it('applies the producer output limit to a normalized cancellation failure', async () => {
     const { ctx } = await setup()
-    ctx.jobs.start(producer({
-      outputLimitBytes: 64,
-      cancel: () => { throw new Error('cancel failed: '.repeat(100)) },
-    }).spec)
+    ctx.jobs.start(
+      producer({
+        outputLimitBytes: 64,
+        cancel: () => {
+          throw new Error('cancel failed: '.repeat(100))
+        },
+      }).spec,
+    )
 
     const result = await call(ctx, 'job_kill', { job_id: startedId(ctx, 'bash-1') })
     expect(result.isError).toBe(true)
@@ -627,7 +726,10 @@ describe('job_kill', () => {
       if (reason === 'multi') {
         return Promise.resolve({
           kind: 'block',
-          feedback: [{ type: 'text', text: 'first' }, { type: 'text', text: 'second' }],
+          feedback: [
+            { type: 'text', text: 'first' },
+            { type: 'text', text: 'second' },
+          ],
         })
       }
       if (reason === 'reasoning') {
@@ -650,7 +752,10 @@ describe('job_kill', () => {
     expect(text(blocked)).toContain('[result truncated]')
 
     const multi = await call(ctx, 'job_kill', { job_id: startedId(ctx, 'bash-3'), reason: 'multi' })
-    expect(multi.content).toEqual([{ type: 'text', text: 'first' }, { type: 'text', text: 'second' }])
+    expect(multi.content).toEqual([
+      { type: 'text', text: 'first' },
+      { type: 'text', text: 'second' },
+    ])
 
     const reasoning = await call(ctx, 'job_kill', { job_id: startedId(ctx, 'bash-4'), reason: 'reasoning' })
     expect(reasoning.content).toEqual([{ type: 'reasoning', text: 'policy detail' }])
@@ -684,12 +789,19 @@ describe('job_kill', () => {
 describe('tool-owned UI presentation (presentCall)', () => {
   it('renders generic cards for all three control tools', async () => {
     const { ctx } = await setup()
-    expect(ctx.tools.get('job_output')?.presentCall?.({ job_id: 'bash-1' }))
-      .toEqual({ card: 'generic', title: 'Read output from background job bash-1', kind: 'read', rawInput: 'bash-1' })
-    expect(ctx.tools.get('job_list')?.presentCall?.({}))
-      .toEqual({ card: 'generic', title: 'List background jobs', kind: 'read' })
-    expect(ctx.tools.get('job_kill')?.presentCall?.({ job_id: 'test-task-2' }))
-      .toEqual({ card: 'generic', title: 'Kill background job test-task-2', kind: 'execute', rawInput: 'test-task-2' })
+    expect(ctx.tools.get('job_output')?.presentCall?.({ job_id: 'bash-1' })).toEqual({
+      card: 'generic',
+      title: 'Read output from background job bash-1',
+      kind: 'read',
+      rawInput: 'bash-1',
+    })
+    expect(ctx.tools.get('job_list')?.presentCall?.({})).toEqual({ card: 'generic', title: 'List background jobs', kind: 'read' })
+    expect(ctx.tools.get('job_kill')?.presentCall?.({ job_id: 'test-task-2' })).toEqual({
+      card: 'generic',
+      title: 'Kill background job test-task-2',
+      kind: 'execute',
+      rawInput: 'test-task-2',
+    })
   })
 })
 
@@ -769,8 +881,8 @@ describe('completion notice delivery', () => {
     expect(inject).toHaveBeenCalledTimes(1)
     const message = inject.mock.calls[0]![0] as { content: readonly { type: string; text: string }[] }
     expect(message.content[0]!.text).toBe(
-      `background job ${startedId(ctx, 'bash-1')} (bash: pnpm run watch) finished `
-      + '[status: killed, signal: SIGTERM; cancelled by the user]. Read its output with job_output.',
+      `background job ${startedId(ctx, 'bash-1')} (bash: pnpm run watch) finished ` +
+        '[status: killed, signal: SIGTERM; cancelled by the user]. Read its output with job_output.',
     )
   })
 
@@ -842,8 +954,12 @@ describe('completion notice delivery', () => {
       label: 'sleep 60',
       owner: owner.id,
       run: () => ({
-        cancel() { settle({ status: 'killed' }) },
-        done: new Promise<JobOutcome>((res) => { settle = res }),
+        cancel() {
+          settle({ status: 'killed' })
+        },
+        done: new Promise<JobOutcome>(res => {
+          settle = res
+        }),
       }),
     })
 
@@ -866,7 +982,9 @@ describe('completion notice delivery', () => {
       label: 'broken producer',
       owner: owner.id,
       run: () => ({
-        cancel() { throw new Error('cancel boom') },
+        cancel() {
+          throw new Error('cancel boom')
+        },
         done: new Promise<JobOutcome>(() => {}),
       }),
     })
@@ -913,7 +1031,12 @@ describe('completion notices', () => {
     expect(inject).toHaveBeenCalledWith({
       id: expect.any(String) as unknown,
       role: 'user',
-      content: [{ type: 'text', text: `background job ${startedId(ctx, 'bash-1')} (bash: pnpm test) finished [status: completed, exit code: 0]. Read its output with job_output.` }],
+      content: [
+        {
+          type: 'text',
+          text: `background job ${startedId(ctx, 'bash-1')} (bash: pnpm test) finished [status: completed, exit code: 0]. Read its output with job_output.`,
+        },
+      ],
       source: {
         kind: 'tool-jobs',
         form: 'notice',
@@ -936,21 +1059,18 @@ describe('completion notices', () => {
     first.settle({ status: 'completed', detail: 'd'.repeat(1_000) })
     await tick()
 
-    expect(inject).toHaveBeenNthCalledWith(
-      1,
-      {
-        id: expect.any(String) as unknown,
-        role: 'user',
-        content: [{ type: 'text', text: 'background job ended; use job_list for id.' }],
-        // The label and status detail are unbounded caller text, so the durable
-        // one-line account caps itself rather than committing their full length.
-        source: {
-          kind: 'tool-jobs',
-          form: 'notice',
-          summary: `test-task ${'x'.repeat(109)}…`,
-        },
+    expect(inject).toHaveBeenNthCalledWith(1, {
+      id: expect.any(String) as unknown,
+      role: 'user',
+      content: [{ type: 'text', text: 'background job ended; use job_list for id.' }],
+      // The label and status detail are unbounded caller text, so the durable
+      // one-line account caps itself rather than committing their full length.
+      source: {
+        kind: 'tool-jobs',
+        form: 'notice',
+        summary: `test-task ${'x'.repeat(109)}…`,
       },
-    )
+    })
 
     const second = producer({
       owner: owner.id,
@@ -1073,7 +1193,9 @@ describe('completion notices', () => {
     ctx.jobs.start(p.spec)
 
     const patient = call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1'), wait: true, timeout_ms: 1000 }, owner)
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1'), wait: true, timeout_ms: 10 }, owner))).toBe('(no new output)\n[status: running]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1'), wait: true, timeout_ms: 10 }, owner))).toBe(
+      '(no new output)\n[status: running]',
+    )
     p.settle({ status: 'completed' })
     expect(text(await patient)).toBe('(no new output)\n[status: completed]')
     await tick()
@@ -1087,7 +1209,9 @@ describe('completion notices', () => {
     const p = producer({ owner: owner.id })
     ctx.jobs.start(p.spec)
 
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1'), wait: true }, owner))).toBe('(no new output)\n[status: running]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1'), wait: true }, owner))).toBe(
+      '(no new output)\n[status: running]',
+    )
     p.settle({ status: 'completed' })
     await tick()
     expect(inject).toHaveBeenCalledTimes(1)
@@ -1193,7 +1317,9 @@ describe('completion notices', () => {
 
     expect(oldInject).not.toHaveBeenCalled()
     expect(replacementInject).toHaveBeenCalledTimes(1)
-    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') }, replacement))).toBe('(no new output)\n[status: completed]')
+    expect(text(await call(ctx, 'job_output', { job_id: startedId(ctx, 'bash-1') }, replacement))).toBe(
+      '(no new output)\n[status: completed]',
+    )
   })
 
   it('drops the notice when the agent registry left before settlement', async () => {
@@ -1225,7 +1351,11 @@ describe('completion notices', () => {
   it('surfaces an inject failure through listener containment (a real bug must be visible)', async () => {
     const { ctx } = await setup()
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    const owner = await fakeAgent(ctx, 'sess-1', { inject: () => { throw new Error('unexpected inject bug') } })
+    const owner = await fakeAgent(ctx, 'sess-1', {
+      inject: () => {
+        throw new Error('unexpected inject bug')
+      },
+    })
     const p = producer({ owner: owner.id })
     ctx.jobs.start(p.spec)
     p.settle({ status: 'completed' })

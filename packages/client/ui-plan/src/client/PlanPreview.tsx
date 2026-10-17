@@ -21,20 +21,39 @@ export function PlanPreview({ useTabInfo, useResource, t }: PlanPreviewProps) {
   const temporary = isReviewPreviewAddress(tab.tab.navigation.address)
   const params = tab.tab.navigation.params
   const plan = temporary ? (params !== undefined && 'planReview' in params ? params.planReview : undefined) : resource.value
-  const labels = useMemo(() => ({
-    code: { copyLabel: t('copy'), copiedLabel: t('copied'), toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') } },
-    footnotes: t('markdown.footnotes'),
-  }), [t])
-  if (plan === undefined) return (
-    <div className={css.message} role="status">
-      {temporary ? t('preview.expired') : resource.status === 'none' ? t('preview.unavailable')
-        : resource.status === 'failed' ? t('preview.failed') : t('preview.loading')}
-      {!temporary && resource.failure !== undefined && <p>{planFailureLine(t, resource.failure)}</p>}
-    </div>
+  const labels = useMemo(
+    () => ({
+      code: {
+        copyLabel: t('copy'),
+        copiedLabel: t('copied'),
+        toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') },
+      },
+      footnotes: t('markdown.footnotes'),
+    }),
+    [t],
   )
+  if (plan === undefined)
+    return (
+      <div className={css.message} role="status">
+        {temporary
+          ? t('preview.expired')
+          : resource.status === 'none'
+            ? t('preview.unavailable')
+            : resource.status === 'failed'
+              ? t('preview.failed')
+              : t('preview.loading')}
+        {!temporary && resource.failure !== undefined && <p>{planFailureLine(t, resource.failure)}</p>}
+      </div>
+    )
   return (
-    <section className={css.preview} data-plan-preview={'callId' in plan ? plan.callId : tab.tab.navigation.address} aria-label={plan.title}>
-      <div className={css.document}><MarkdownText text={plan.markdown} labels={labels} /></div>
+    <section
+      className={css.preview}
+      data-plan-preview={'callId' in plan ? plan.callId : tab.tab.navigation.address}
+      aria-label={plan.title}
+    >
+      <div className={css.document}>
+        <MarkdownText text={plan.markdown} labels={labels} />
+      </div>
     </section>
   )
 }
@@ -49,6 +68,14 @@ export function PlanTitle({ useTabInfo, useResource }: PropsRuntime<'sidebar.rig
   const resource = useResource<'plan'>(tab.tab.navigation.address)
   const params = tab.tab.navigation.params
   const plan = isReviewPreviewAddress(tab.tab.navigation.address)
-    ? (params !== undefined && 'planReview' in params ? params.planReview : undefined) : resource.value
-  return <><FileTypeIcon kind="other" size={16} className={css.titleIcon} />{plan?.title ?? tab.tab.title}</>
+    ? params !== undefined && 'planReview' in params
+      ? params.planReview
+      : undefined
+    : resource.value
+  return (
+    <>
+      <FileTypeIcon kind="other" size={16} className={css.titleIcon} />
+      {plan?.title ?? tab.tab.title}
+    </>
+  )
 }

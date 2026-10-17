@@ -9,11 +9,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { WorkspaceEmitResult } from './workspace.ts'
 
-const REMOTE_CLIENT_FILES = [
-  'typert.remote-client.js',
-  'typert.remote-client.d.ts',
-  'typert.remote-client.d.ts.map',
-] as const
+const REMOTE_CLIENT_FILES = ['typert.remote-client.js', 'typert.remote-client.d.ts', 'typert.remote-client.d.ts.map'] as const
 
 /**
  * Write one package's artifacts under `<packageDir>/lib`: `typert.<face>.js`

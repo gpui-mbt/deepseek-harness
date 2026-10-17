@@ -32,13 +32,7 @@ declare module '@deepseek-ai/dsh-llm' {
 export type CompactionTrigger = 'pressure' | 'context-overflow'
 
 /** Expected failure classes for an explicit idle-session compaction request. */
-export type ManualCompactionErrorCode =
-  | 'busy'
-  | 'cancelled'
-  | 'changed'
-  | 'summary'
-  | 'commit'
-  | 'persistence'
+export type ManualCompactionErrorCode = 'busy' | 'cancelled' | 'changed' | 'summary' | 'commit' | 'persistence'
 
 /**
  * Expected manual-compaction failure suitable for a direct human-command result.
@@ -103,7 +97,10 @@ declare module '@deepseek-ai/cordis' {
      * @param next - delegate to the next recovery listener.
      * @mode waterfall
      */
-    'compaction/summary-error'(payload: { session: Session; sourceEventSeqs: readonly SessionSeq[]; error: unknown; signal?: AbortSignal }, next: () => boolean): boolean
+    'compaction/summary-error'(
+      payload: { session: Session; sourceEventSeqs: readonly SessionSeq[]; error: unknown; signal?: AbortSignal },
+      next: () => boolean,
+    ): boolean
   }
 }
 
@@ -133,11 +130,7 @@ export abstract class CompactionEngine extends Service {
    * @param signal - cancellation signal; model-backed implementations must forward it.
    * @returns the compaction result, or `null` if no compaction was needed.
    */
-  abstract compactIfNeeded(
-    agent: CompactionAgentContext,
-    trigger: CompactionTrigger,
-    signal: AbortSignal,
-  ): Promise<CompactionResult | null>
+  abstract compactIfNeeded(agent: CompactionAgentContext, trigger: CompactionTrigger, signal: AbortSignal): Promise<CompactionResult | null>
 
   /**
    * Explicitly compact useful history even below automatic pressure thresholds.
@@ -159,11 +152,7 @@ export abstract class CompactionEngine extends Service {
    * an aborted request preserves its exact abort reason. Failed attempts remain
    * visible in the log.
    */
-  abstract compactNow(
-    agent: ManualCompactAgentContext,
-    signal: AbortSignal,
-    sourceCommandId?: CommandId,
-  ): Promise<CompactionResult | null>
+  abstract compactNow(agent: ManualCompactAgentContext, signal: AbortSignal, sourceCommandId?: CommandId): Promise<CompactionResult | null>
 
   /**
    * Forcibly compact a range of surface nodes into a single summary node.
@@ -184,12 +173,7 @@ export abstract class CompactionEngine extends Service {
    * @throws when compaction is active or the range is missing, reversed, or unbalanced.
    * @returns the appended event seqs, summary, replaced range, and token accounting.
    */
-  abstract compactRegion(
-    start: SessionSeq,
-    end: SessionSeq,
-    agent: CompactionAgentContext,
-    signal?: AbortSignal,
-  ): Promise<CompactionResult>
+  abstract compactRegion(start: SessionSeq, end: SessionSeq, agent: CompactionAgentContext, signal?: AbortSignal): Promise<CompactionResult>
 }
 
 export default CompactionEngine

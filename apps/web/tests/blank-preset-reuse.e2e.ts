@@ -3,7 +3,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
@@ -49,7 +49,7 @@ describe('web e2e: blank Session reuse under the requested preset', () => {
     const page = await newEnglishPage(browser)
     tripwires.push(watchConsole(page))
     if (saved !== undefined) {
-      await page.addInitScript((id) => {
+      await page.addInitScript(id => {
         localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: id }))
       }, saved)
     }
@@ -80,9 +80,7 @@ describe('web e2e: blank Session reuse under the requested preset', () => {
     const handle = await scaffold.ctx.sessionPersistence.open(sessionId, 'read')
     try {
       const { events } = await handle.read()
-      return events
-        .filter((event: SessionEvent) => event.type === 'agent-preset/selected')
-        .map((event: SessionEvent) => event.data)
+      return events.filter((event: SessionEvent) => event.type === 'agent-preset/selected').map((event: SessionEvent) => event.data)
     } finally {
       await handle.close()
     }
@@ -94,9 +92,13 @@ describe('web e2e: blank Session reuse under the requested preset', () => {
 
     const page = await openPage()
     await expect.poll(() => selected(page)).toBe(stale)
-    await expect.poll(() => liveComposition(stale)).toMatchObject({
-      mounted: 'standard', projected: 'standard', plan: { active: true },
-    })
+    await expect
+      .poll(() => liveComposition(stale))
+      .toMatchObject({
+        mounted: 'standard',
+        projected: 'standard',
+        plan: { active: true },
+      })
     expect(await storedSelections(stale)).toEqual([{ agentPreset: 'standard' }])
     expect(scaffold.ctx.workspaceRegistry.list().find(item => item.sessionIds.includes(stale))?.sessionIds).toEqual([stale])
     expect(await page.getByRole('alert').count()).toBe(0)
@@ -118,9 +120,13 @@ describe('web e2e: blank Session reuse under the requested preset', () => {
 
     const page = await openPage(saved)
     await expect.poll(() => selected(page)).toBe(saved)
-    await expect.poll(() => liveComposition(saved)).toMatchObject({
-      mounted: 'standard', projected: 'standard', plan: { active: true },
-    })
+    await expect
+      .poll(() => liveComposition(saved))
+      .toMatchObject({
+        mounted: 'standard',
+        projected: 'standard',
+        plan: { active: true },
+      })
     expect(await storedSelections(saved)).toEqual([{ agentPreset: 'standard' }])
     expect(await page.getByRole('alert').count()).toBe(0)
     for (const tripwire of tripwires) {

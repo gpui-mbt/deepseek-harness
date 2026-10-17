@@ -43,8 +43,7 @@ export class CdpSession implements NetworkSink {
     this.debugger = new DebuggerDomainSession(transport, this.realms, this.runtime)
     this.scopedDom = clientSourceId === undefined ? undefined : domBackend.forClient(clientSourceId)
     this.dom = new CordisDomSession(transport, this.scopedDom ?? domBackend, this.runtime)
-    this.runtime.setObjectObserver((objectId, realm, reference, group) =>
-      this.dom.bindObject(objectId, realm, reference, group))
+    this.runtime.setObjectObserver((objectId, realm, reference, group) => this.dom.bindObject(objectId, realm, reference, group))
     this.unsubscribeSources = sources.subscribeStatus(() => {
       if (this.diagnosticsEnabled) this.sendEvent('DSHInspector.sourcesChanged', { sources: this.visibleSources() })
     })
@@ -85,7 +84,9 @@ export class CdpSession implements NetworkSink {
         result = { sources: this.visibleSources() }
       } else if (request.method === 'DSHInspector.getCordisTree') {
         void this.cordisTrees.getTree().then(
-          (tree) => { this.transport.send({ id: request.id, result: { tree: this.visibleTree(tree) } }) },
+          tree => {
+            this.transport.send({ id: request.id, result: { tree: this.visibleTree(tree) } })
+          },
           (error: unknown) => {
             this.transport.send(cdpError(request.id, -32000, error instanceof Error ? error.message : String(error)))
           },
@@ -105,8 +106,9 @@ export class CdpSession implements NetworkSink {
   }
 
   private visibleSources(): ReturnType<InspectorSourceRegistry['describe']> {
-    return this.sources.describe().filter(source => this.clientSourceId === undefined
-      || source.kind === 'host' || source.sourceId === this.clientSourceId)
+    return this.sources
+      .describe()
+      .filter(source => this.clientSourceId === undefined || source.kind === 'host' || source.sourceId === this.clientSourceId)
   }
 
   private visibleTree(tree: CordisRuntimeTree): CordisRuntimeTree {

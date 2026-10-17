@@ -9,11 +9,11 @@ import { Context } from '@deepseek-ai/cordis'
 import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
 import { LocalSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-local'
 import type { SubprocessHandle, SubprocessOutcome } from '@deepseek-ai/dsh-subprocess'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { RemoteProcesses } from '../src/helper-processes.ts'
 import { authenticateStream } from '../src/stream-security.ts'
 
-vi.mock('node:tls', async (original) => {
+vi.mock('node:tls', async original => {
   const actual = await original<typeof import('node:tls')>()
   return { ...actual, createServer: vi.fn(actual.createServer) }
 })
@@ -24,14 +24,25 @@ function nativeProcess() {
   const stderr = new PassThrough()
   const control = new PassThrough()
   const finish = (): void => {
-    stdout.end(); stderr.end(); control.end()
+    stdout.end()
+    stderr.end()
+    control.end()
     completion.resolve({ exitCode: 0, signal: null })
   }
   const terminate = vi.fn(finish)
-  const waitForExit = vi.fn(async () => { await completion.promise; return true })
+  const waitForExit = vi.fn(async () => {
+    await completion.promise
+    return true
+  })
   const handle: SubprocessHandle = {
-    stdin: undefined, stdout, stderr, control, collected: {}, done: completion.promise,
-    terminate, waitForExit,
+    stdin: undefined,
+    stdout,
+    stderr,
+    control,
+    collected: {},
+    done: completion.promise,
+    terminate,
+    waitForExit,
   }
   return { handle, control, finish, terminate, waitForExit }
 }
@@ -44,8 +55,9 @@ async function harness(child: ReturnType<typeof nativeProcess>, control: boolean
   onTestFinished(async () => {
     child.finish()
     for (const socket of [...sockets].reverse()) socket.destroy()
-    try { await owner.close() }
-    finally {
+    try {
+      await owner.close()
+    } finally {
       await ctx.fiber.dispose()
       await rm(root, { recursive: true, force: true })
       vi.restoreAllMocks()
@@ -55,18 +67,25 @@ async function harness(child: ReturnType<typeof nativeProcess>, control: boolean
   await ctx.plugin(LocalSubprocessRuntime)
   vi.spyOn(ctx.subprocess, 'spawn').mockReturnValue(child.handle)
   const prepared = await owner.prepare({
-    argv: ['fixture-native-process'], cwd: root, graceMs: 100,
+    argv: ['fixture-native-process'],
+    cwd: root,
+    graceMs: 100,
     stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', ...(control ? { control: 'pipe' } : {}) },
   })
   const serving: Record<string, TLSSocket> = {}
   for (const [name, endpoint] of Object.entries(prepared.streams)) {
     let server: Server | undefined
     for (const result of vi.mocked(createServer).mock.results) {
-      if (result.type === 'return' && result.value.address() === endpoint.path) { server = result.value; break }
+      if (result.type === 'return' && result.value.address() === endpoint.path) {
+        server = result.value
+        break
+      }
     }
     if (server === undefined) throw new Error('Fixture endpoint listener was not created')
     const listener = server
-    const authenticated = new Promise<TLSSocket>((resolve) => { listener.once('secureConnection', resolve) })
+    const authenticated = new Promise<TLSSocket>(resolve => {
+      listener.once('secureConnection', resolve)
+    })
     const raw = createConnection({ path: endpoint.path, allowHalfOpen: true })
     sockets.push(raw)
     raw.on('error', () => {})
@@ -75,7 +94,10 @@ async function harness(child: ReturnType<typeof nativeProcess>, control: boolean
     sockets.push(socket)
     socket.on('error', () => {})
     serving[name] = await authenticated
-    if (name !== 'control') { socket.end(); socket.resume() }
+    if (name !== 'control') {
+      socket.end()
+      socket.resume()
+    }
   }
   await owner.start(prepared.id)
   return { root, owner, id: prepared.id, serving }
@@ -129,17 +151,22 @@ describe.skipIf(process.platform === 'win32')('SSH helper finalization ownership
     const secondEntered = Promise.withResolvers<undefined>()
     const first = Promise.withResolvers<undefined>()
     const second = Promise.withResolvers<undefined>()
-    child.waitForExit.mockImplementationOnce(async () => {
-      firstEntered.resolve(undefined)
-      await first.promise
-      return true
-    }).mockImplementationOnce(async () => {
-      secondEntered.resolve(undefined)
-      await second.promise
-      return true
-    })
+    child.waitForExit
+      .mockImplementationOnce(async () => {
+        firstEntered.resolve(undefined)
+        await first.promise
+        return true
+      })
+      .mockImplementationOnce(async () => {
+        secondEntered.resolve(undefined)
+        await second.promise
+        return true
+      })
     const test = await harness(child, false)
-    onTestFinished(() => { first.resolve(undefined); second.resolve(undefined) })
+    onTestFinished(() => {
+      first.resolve(undefined)
+      second.resolve(undefined)
+    })
     child.finish()
     await firstEntered.promise
     const closed = test.owner.close()

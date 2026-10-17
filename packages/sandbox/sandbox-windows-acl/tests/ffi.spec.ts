@@ -6,14 +6,11 @@
  * acl.spec.ts and probe.spec.ts (win32 only).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'
-import {
-  allocBytes, decodePtrAt, getTempPath,
-  isInvalidHandle, sameSidAt,
-} from '../src/ffi.ts'
+import { allocBytes, decodePtrAt, getTempPath, isInvalidHandle, sameSidAt } from '../src/ffi.ts'
 import type { NativePtr, Win32Bindings } from '../src/ffi.ts'
 import * as abi from '../src/win32-abi.ts'
 

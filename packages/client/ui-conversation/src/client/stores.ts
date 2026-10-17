@@ -24,13 +24,19 @@ export function createConversationStore(): EngineStoreHandle<ConversationStoreSt
     init: (): ConversationStoreState => ({ draft: '', view: null, viewRequest: null }),
     persist: CONVERSATION_STORE_KEY,
     actions: {
-      setDraft: (d, text: DraftInput) => { d.draft = text },
-      setView: (d, view: string) => { d.view = view },
+      setDraft: (d, text: DraftInput) => {
+        d.draft = text
+      },
+      setView: (d, view: string) => {
+        d.view = view
+      },
       openView: (d, view: string, focus: string) => {
         d.view = view
         d.viewRequest = { view, focus }
       },
-      completeViewRequest: (d) => { d.viewRequest = null },
+      completeViewRequest: d => {
+        d.viewRequest = null
+      },
     },
   })
 }

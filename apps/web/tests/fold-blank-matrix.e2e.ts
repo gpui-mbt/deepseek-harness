@@ -12,12 +12,17 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page, Route } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import { ToolCallId, createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ReplayEntry } from '@deepseek-ai/dsh-llm-replay'
 import {
-  SESSION_FORMAT_VERSION, SessionId, SessionLogOffset, SessionSeq, type SessionEvent, type SessionHeader,
+  SESSION_FORMAT_VERSION,
+  SessionId,
+  SessionLogOffset,
+  SessionSeq,
+  type SessionEvent,
+  type SessionHeader,
 } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import { sessionFixtureName } from '@deepseek-ai/dsh-session-snapshot'
@@ -53,9 +58,7 @@ const READ_FILE = 'fold-matrix-notes.txt'
 const NEXT_INPUT = 'FOLDMX_NEXT_INPUT'
 
 /** Where the reader stands when the message is sent. */
-type Reader =
-  | { readonly kind: 'bottom' }
-  | { readonly kind: 'marker'; readonly marker: string; readonly align: 'center' | 'top' }
+type Reader = { readonly kind: 'bottom' } | { readonly kind: 'marker'; readonly marker: string; readonly align: 'center' | 'top' }
 
 const AT_BOTTOM: Reader = { kind: 'bottom' }
 const SEEDED_MID_BODY: Reader = { kind: 'marker', marker: 'FOLDMX_BODY', align: 'center' }
@@ -95,7 +98,12 @@ interface Case {
 }
 
 const MAIN = {
-  surface: 'main', origin: 'composer', bodyParagraphs: 40, mode: 'Detailed', timing: 'On next message', landing: 'tail',
+  surface: 'main',
+  origin: 'composer',
+  bodyParagraphs: 40,
+  mode: 'Detailed',
+  timing: 'On next message',
+  landing: 'tail',
 } as const
 const SIDE = { ...MAIN, surface: 'side' } as const
 
@@ -147,7 +155,7 @@ interface Geometry {
 
 /** Installed into each measured page before load; reads one scrollport's blank-area geometry. */
 function installMeasure(): void {
-  window.foldMeasure = (root) => {
+  window.foldMeasure = root => {
     const host = document.querySelector<HTMLElement>(root)
     if (host === null) throw new Error(`scrollport is absent: ${root}`)
     const viewport = host.getBoundingClientRect()
@@ -155,9 +163,13 @@ function installMeasure(): void {
     if (composer === null) throw new Error(`composer is absent: ${root}`)
     const composerTop = composer.getBoundingClientRect().top
     const spacer = host.querySelector<HTMLElement>('[data-chat-turn-spacer]')?.getBoundingClientRect().height ?? 0
-    const intervals = [...host.querySelectorAll<HTMLElement>('[data-chat-flow-key], [data-submission-echo], [data-pending-steering], [data-streaming], [data-chat-running]')]
+    const intervals = [
+      ...host.querySelectorAll<HTMLElement>(
+        '[data-chat-flow-key], [data-submission-echo], [data-pending-steering], [data-streaming], [data-chat-running]',
+      ),
+    ]
       .filter(element => element.closest('[hidden]') === null)
-      .map((element) => {
+      .map(element => {
         const rect = element.getBoundingClientRect()
         return [Math.max(rect.top, viewport.top), Math.min(rect.bottom, composerTop)] as const
       })
@@ -178,8 +190,12 @@ function installMeasure(): void {
       gapAt = cursor - viewport.top
     }
     return {
-      top: host.scrollTop, floor: Math.max(0, host.scrollHeight - host.clientHeight), spacer,
-      maxGap, gapAt, tailGap: composerTop - cursor,
+      top: host.scrollTop,
+      floor: Math.max(0, host.scrollHeight - host.clientHeight),
+      spacer,
+      maxGap,
+      gapAt,
+      tailGap: composerTop - cursor,
       following: host.querySelector('[data-chat-following-tail]') !== null,
       collapsing: host.querySelector('[data-chat-motion="collapse"]') !== null,
     }
@@ -195,47 +211,81 @@ function seededFixture(id: string, bodyParagraphs: number): ChatScrollFixture {
   const base = createChatScrollFixture({ markerPrefix: 'FOLDMX', title: `FOLDMX ${id}`, turns: SEEDED_TURNS })
   const parsed = parseSeedFixture(base.log)
   const boundary = parsed.events.findIndex(event => event.type === 'turn/start' && event.data.turn === SEEDED_TURNS)
-  const drafts: (SessionEvent | { type: string; data: object; surfaceOp?: 'append' })[] = parsed.events.slice(0, boundary)
-    .map((event) => {
-      if (event.type !== 'assistant/message' || event.data.turn !== SEEDED_TURNS - 1) return event
-      return { ...event, data: { ...event.data, message: createAssistantMessage({
-        content: [{ type: 'text', text: paragraphs(`FOLDMX_PREVIOUS_${SEEDED_TURNS - 1}`, 6, 'Previous Turn answer paragraph') }],
-        source: { provider: 'fixture', model: 'fixture' },
-      }) } }
-    })
+  const drafts: (SessionEvent | { type: string; data: object; surfaceOp?: 'append' })[] = parsed.events.slice(0, boundary).map(event => {
+    if (event.type !== 'assistant/message' || event.data.turn !== SEEDED_TURNS - 1) return event
+    return {
+      ...event,
+      data: {
+        ...event.data,
+        message: createAssistantMessage({
+          content: [{ type: 'text', text: paragraphs(`FOLDMX_PREVIOUS_${SEEDED_TURNS - 1}`, 6, 'Previous Turn answer paragraph') }],
+          source: { provider: 'fixture', model: 'fixture' },
+        }),
+      },
+    }
+  })
   drafts.push(
     { type: 'turn/start', data: { turn: SEEDED_TURNS } },
     { type: 'step/start', data: { turn: SEEDED_TURNS, step: 1 } },
-    { type: 'user/message', data: createUserMessage({
-      content: [{ type: 'text', text: 'FOLDMX_LAST_USER' }], source: { kind: 'user' },
-    }), surfaceOp: 'append' },
+    {
+      type: 'user/message',
+      data: createUserMessage({
+        content: [{ type: 'text', text: 'FOLDMX_LAST_USER' }],
+        source: { kind: 'user' },
+      }),
+      surfaceOp: 'append',
+    },
   )
   for (let step = 1; step <= SEEDED_STEPS; step++) {
     if (step > 1) drafts.push({ type: 'step/start', data: { turn: SEEDED_TURNS, step } })
-    drafts.push({ type: 'assistant/message', surfaceOp: 'append', data: {
-      turn: SEEDED_TURNS, step, stream: [], message: createAssistantMessage({
-        content: [
-          { type: 'reasoning', text: paragraphs(`FOLDMX_STEP_${step}`, 18, `Reasoning stage ${step} explains an intermediate decision, paragraph`) },
-          { type: 'text', text: `FOLDMX_PROGRESS_${step}` },
-        ],
-        source: { provider: 'fixture', model: 'fixture' },
-      }),
-    } })
+    drafts.push({
+      type: 'assistant/message',
+      surfaceOp: 'append',
+      data: {
+        turn: SEEDED_TURNS,
+        step,
+        stream: [],
+        message: createAssistantMessage({
+          content: [
+            {
+              type: 'reasoning',
+              text: paragraphs(`FOLDMX_STEP_${step}`, 18, `Reasoning stage ${step} explains an intermediate decision, paragraph`),
+            },
+            { type: 'text', text: `FOLDMX_PROGRESS_${step}` },
+          ],
+          source: { provider: 'fixture', model: 'fixture' },
+        }),
+      },
+    })
     drafts.push({ type: 'step/end', data: { turn: SEEDED_TURNS, step } })
   }
   drafts.push(
     { type: 'step/start', data: { turn: SEEDED_TURNS, step: SEEDED_STEPS + 1 } },
-    { type: 'assistant/message', surfaceOp: 'append', data: {
-      turn: SEEDED_TURNS, step: SEEDED_STEPS + 1, stream: [], message: createAssistantMessage({
-        content: [{ type: 'text', text: paragraphs('FOLDMX_BODY', bodyParagraphs, 'Final answer paragraph that remains after the work details fold') }],
-        source: { provider: 'fixture', model: 'fixture' },
-      }),
-    } },
+    {
+      type: 'assistant/message',
+      surfaceOp: 'append',
+      data: {
+        turn: SEEDED_TURNS,
+        step: SEEDED_STEPS + 1,
+        stream: [],
+        message: createAssistantMessage({
+          content: [
+            {
+              type: 'text',
+              text: paragraphs('FOLDMX_BODY', bodyParagraphs, 'Final answer paragraph that remains after the work details fold'),
+            },
+          ],
+          source: { provider: 'fixture', model: 'fixture' },
+        }),
+      },
+    },
     { type: 'step/end', data: { turn: SEEDED_TURNS, step: SEEDED_STEPS + 1 } },
     { type: 'turn/end', data: { turn: SEEDED_TURNS, reason: { kind: 'completed' } } },
   )
-  return { ...base, log: [parsed.headerLine,
-    ...drafts.map((event, seq) => JSON.stringify({ ...event, seq, time: seq + 1 })), ''].join('\n') }
+  return {
+    ...base,
+    log: [parsed.headerLine, ...drafts.map((event, seq) => JSON.stringify({ ...event, seq, time: seq + 1 })), ''].join('\n'),
+  }
 }
 
 function finish(kind: 'stop' | 'tool-calls'): StreamChunk[] {
@@ -263,18 +313,24 @@ function liveLongTurn(prefix: string): ReplayEntry[] {
   for (let step = 1; step <= LIVE_STEPS; step++) {
     const id = ToolCallId(`${prefix.toLowerCase()}-read-${step}`)
     const args = JSON.stringify({ file_path: READ_FILE })
-    entries.push({ kind: 'chunks', chunks: [
-      ...textChunks(paragraphs(`${prefix}_STEP_${step}`, 10, `${prefix} narration for step ${step}, paragraph`)),
-      { type: 'block-start', index: 1, blockType: 'tool-call' },
-      { type: 'tool-call-delta', index: 1, id, name: 'read', argumentsDelta: args },
-      { type: 'block-end', index: 1, block: { type: 'tool-call', id, name: 'read', arguments: args } },
-      ...finish('tool-calls'),
-    ] })
+    entries.push({
+      kind: 'chunks',
+      chunks: [
+        ...textChunks(paragraphs(`${prefix}_STEP_${step}`, 10, `${prefix} narration for step ${step}, paragraph`)),
+        { type: 'block-start', index: 1, blockType: 'tool-call' },
+        { type: 'tool-call-delta', index: 1, id, name: 'read', argumentsDelta: args },
+        { type: 'block-end', index: 1, block: { type: 'tool-call', id, name: 'read', arguments: args } },
+        ...finish('tool-calls'),
+      ],
+    })
   }
-  entries.push({ kind: 'chunks', chunks: [
-    ...textChunks(paragraphs(prefix === 'FOLDMX_LIVE' ? 'FOLDMX_LIVE_BODY' : `${prefix}_BODY`, 40, `${prefix} final answer paragraph`)),
-    ...finish('stop'),
-  ] })
+  entries.push({
+    kind: 'chunks',
+    chunks: [
+      ...textChunks(paragraphs(prefix === 'FOLDMX_LIVE' ? 'FOLDMX_LIVE_BODY' : `${prefix}_BODY`, 40, `${prefix} final answer paragraph`)),
+      ...finish('stop'),
+    ],
+  })
   return entries
 }
 
@@ -298,46 +354,59 @@ function replayFor(scenario: Case): ReplayEntry[] {
 }
 
 async function stableScroll(page: Page, root: string, timeoutMs = 20_000): Promise<void> {
-  await page.evaluate(async ([selector, limit]) => {
-    const host = document.querySelector<HTMLElement>(selector)
-    if (host === null) throw new Error(`scrollport is absent: ${selector}`)
-    let previous = host.scrollTop
-    const started = performance.now()
-    let stableSince = started
-    await new Promise<void>((resolveStable, reject) => {
-      const check = (): void => {
-        const now = performance.now()
-        const moving = host.querySelector('[data-chat-motion="collapse"], [data-chat-motion="reveal"]') !== null
-        if (Math.abs(host.scrollTop - previous) > 0.25 || moving) stableSince = now
-        previous = host.scrollTop
-        if (now - stableSince >= 300) resolveStable()
-        else if (now - started >= limit) reject(new Error(`scroll did not settle within ${String(limit)}ms: top ${String(host.scrollTop)}, motion ${String(moving)}`))
-        else requestAnimationFrame(check)
-      }
-      requestAnimationFrame(check)
-    })
-  }, [root, timeoutMs] as const)
+  await page.evaluate(
+    async ([selector, limit]) => {
+      const host = document.querySelector<HTMLElement>(selector)
+      if (host === null) throw new Error(`scrollport is absent: ${selector}`)
+      let previous = host.scrollTop
+      const started = performance.now()
+      let stableSince = started
+      await new Promise<void>((resolveStable, reject) => {
+        const check = (): void => {
+          const now = performance.now()
+          const moving = host.querySelector('[data-chat-motion="collapse"], [data-chat-motion="reveal"]') !== null
+          if (Math.abs(host.scrollTop - previous) > 0.25 || moving) stableSince = now
+          previous = host.scrollTop
+          if (now - stableSince >= 300) resolveStable()
+          else if (now - started >= limit)
+            reject(new Error(`scroll did not settle within ${String(limit)}ms: top ${String(host.scrollTop)}, motion ${String(moving)}`))
+          else requestAnimationFrame(check)
+        }
+        requestAnimationFrame(check)
+      })
+    },
+    [root, timeoutMs] as const,
+  )
 }
 
 function measure(page: Page, root: string): Promise<Geometry> {
-  return page.evaluate((selector) => {
+  return page.evaluate(selector => {
     if (window.foldMeasure === undefined) throw new Error('fold measurement is not installed')
     return window.foldMeasure(selector)
   }, root)
 }
 
 async function startTrace(page: Page, root: string): Promise<void> {
-  await page.evaluate((selector) => {
+  await page.evaluate(selector => {
     const read = window.foldMeasure
     if (read === undefined) throw new Error('fold measurement is not installed')
     const samples: Geometry[] = []
     let frame = 0
     const tick = (): void => {
       // A scrollport can remount between frames; that frame contributes no sample.
-      try { samples.push(read(selector)) } catch (_remounting) { /* skip this frame */ }
+      try {
+        samples.push(read(selector))
+      } catch (_remounting) {
+        /* skip this frame */
+      }
       frame = requestAnimationFrame(tick)
     }
-    window.foldProbe = { samples, stop: () => { cancelAnimationFrame(frame) } }
+    window.foldProbe = {
+      samples,
+      stop: () => {
+        cancelAnimationFrame(frame)
+      },
+    }
     frame = requestAnimationFrame(tick)
   }, root)
 }
@@ -353,18 +422,21 @@ async function stopTrace(page: Page): Promise<Geometry[]> {
 
 /** Screen position of the smallest visible row containing a marker, relative to the scrollport top. */
 function anchorTop(page: Page, root: string, marker: string): Promise<number | null> {
-  return page.evaluate(([selector, text]) => {
-    const host = document.querySelector<HTMLElement>(selector)!
-    const row = [...host.querySelectorAll<HTMLElement>('[data-chat-flow-key], [data-streaming]')]
-      .filter(candidate => candidate.closest('[hidden]') === null && (candidate.textContent ?? '').includes(text))
-      .sort((left, right) => left.getBoundingClientRect().height - right.getBoundingClientRect().height)[0]
-    return row === undefined ? null : row.getBoundingClientRect().top - host.getBoundingClientRect().top
-  }, [root, marker] as const)
+  return page.evaluate(
+    ([selector, text]) => {
+      const host = document.querySelector<HTMLElement>(selector)!
+      const row = [...host.querySelectorAll<HTMLElement>('[data-chat-flow-key], [data-streaming]')]
+        .filter(candidate => candidate.closest('[hidden]') === null && (candidate.textContent ?? '').includes(text))
+        .sort((left, right) => left.getBoundingClientRect().height - right.getBoundingClientRect().height)[0]
+      return row === undefined ? null : row.getBoundingClientRect().top - host.getBoundingClientRect().top
+    },
+    [root, marker] as const,
+  )
 }
 
 async function toBottom(page: Page, root: string): Promise<void> {
   const button = page.locator(root).getByRole('button', { name: 'Back to bottom', exact: true })
-  if (await button.count() > 0) await button.click()
+  if ((await button.count()) > 0) await button.click()
   await stableScroll(page, root)
   await expect.poll(() => page.locator(`${root} [data-chat-following-tail]`).count()).toBe(1)
 }
@@ -374,20 +446,21 @@ async function placeReader(page: Page, root: string, reader: Reader): Promise<vo
     await toBottom(page, root)
     return
   }
-  const delta = await page.evaluate(([selector, marker, align]) => {
-    const host = document.querySelector<HTMLElement>(selector)!
-    const viewport = host.getBoundingClientRect()
-    const composerTop = host.querySelector<HTMLElement>('[data-composer-seat]')!.getBoundingClientRect().top
-    const rows = [...host.querySelectorAll<HTMLElement>('[data-chat-flow-key], [data-streaming]')]
-      .filter(row => row.closest('[hidden]') === null && (row.textContent ?? '').includes(marker))
-      .sort((left, right) => left.getBoundingClientRect().height - right.getBoundingClientRect().height)
-    const row = rows[0]
-    if (row === undefined) throw new Error(`reader anchor is absent: ${marker}`)
-    const rect = row.getBoundingClientRect()
-    return align === 'center'
-      ? rect.top + rect.height / 2 - (viewport.top + composerTop) / 2
-      : rect.top - viewport.top - 24
-  }, [root, reader.marker, reader.align] as const)
+  const delta = await page.evaluate(
+    ([selector, marker, align]) => {
+      const host = document.querySelector<HTMLElement>(selector)!
+      const viewport = host.getBoundingClientRect()
+      const composerTop = host.querySelector<HTMLElement>('[data-composer-seat]')!.getBoundingClientRect().top
+      const rows = [...host.querySelectorAll<HTMLElement>('[data-chat-flow-key], [data-streaming]')]
+        .filter(row => row.closest('[hidden]') === null && (row.textContent ?? '').includes(marker))
+        .sort((left, right) => left.getBoundingClientRect().height - right.getBoundingClientRect().height)
+      const row = rows[0]
+      if (row === undefined) throw new Error(`reader anchor is absent: ${marker}`)
+      const rect = row.getBoundingClientRect()
+      return align === 'center' ? rect.top + rect.height / 2 - (viewport.top + composerTop) / 2 : rect.top - viewport.top - 24
+    },
+    [root, reader.marker, reader.align] as const,
+  )
   const box = await page.locator(root).boundingBox()
   if (box === null) throw new Error('scrollport has no layout box')
   await page.mouse.move(box.x + box.width / 2, box.y + Math.min(140, box.height / 3))
@@ -401,7 +474,7 @@ async function placeReader(page: Page, root: string, reader: Reader): Promise<vo
 async function openSessionBySearch(page: Page, query: string): Promise<void> {
   await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
-  if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
+  if ((await searchButton.getAttribute('aria-expanded')) !== 'true') await searchButton.click()
   await page.getByRole('textbox', { name: 'Search session names', exact: true }).fill(query)
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await expect.poll(() => results.count(), { timeout: 60_000 }).toBe(1)
@@ -426,10 +499,12 @@ async function expandSeededSteps(page: Page, root: string, scenario: Case): Prom
   await expect.poll(() => thoughts.count()).toBe(SEEDED_STEPS)
   for (let index = 0; index < SEEDED_STEPS; index++) {
     const button = thoughts.nth(index).getByRole('button').first()
-    if (await button.getAttribute('aria-expanded') !== 'true') await button.click()
+    if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click()
   }
   // Focus left inside a folding row keeps that row open; a reader who moved on has focused nothing there.
-  await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur() })
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+  })
 }
 
 /** Model-call barrier for one live Turn. */
@@ -470,13 +545,18 @@ function holdFinishOf(scaffold: WebScaffold, session: SessionId, marker: string)
   })
   const describe = (): string => {
     const events = scaffold.ctx.agents.get(session)?.session.snapshotEvents() ?? []
-    return `model calls: [${calls.join('; ')}]; ${session} event tail: ${events.slice(-12).map(event => event.type).join(', ')}`
+    return `model calls: [${calls.join('; ')}]; ${session} event tail: ${events
+      .slice(-12)
+      .map(event => event.type)
+      .join(', ')}`
   }
   return {
-    reached: async (timeoutMs) => {
+    reached: async timeoutMs => {
       let timer: ReturnType<typeof setTimeout> | undefined
       const expired = new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => { reject(new Error(`no model call streamed ${marker} within ${String(timeoutMs)}ms`)) }, timeoutMs)
+        timer = setTimeout(() => {
+          reject(new Error(`no model call streamed ${marker} within ${String(timeoutMs)}ms`))
+        }, timeoutMs)
       })
       try {
         await Promise.race([reached.promise, expired])
@@ -484,8 +564,13 @@ function holdFinishOf(scaffold: WebScaffold, session: SessionId, marker: string)
         clearTimeout(timer)
       }
     },
-    release: () => { gate.resolve(undefined) },
-    dispose: () => { gate.resolve(undefined); dispose() },
+    release: () => {
+      gate.resolve(undefined)
+    },
+    dispose: () => {
+      gate.resolve(undefined)
+      dispose()
+    },
     describe,
   }
 }
@@ -512,16 +597,29 @@ async function createChild(scaffold: WebScaffold, parentId: SessionId, scenario:
   const childId = SessionId(`${sessionKey(scenario)}-child`)
   const createdAt = Date.now() - 30_000
   const header: SessionHeader = {
-    version: SESSION_FORMAT_VERSION, id: childId, createdAt, isSeeded: false, cwd: scaffold.workspaceCwd,
-    parentSession: parentId, origin: 'subagent', delegationDepth: 1,
+    version: SESSION_FORMAT_VERSION,
+    id: childId,
+    createdAt,
+    isSeeded: false,
+    cwd: scaffold.workspaceCwd,
+    parentSession: parentId,
+    origin: 'subagent',
+    delegationDepth: 1,
   }
   const parsed = parseSeedFixture(seededFixture(scenario.id, scenario.bodyParagraphs).log)
   const firstUser = parsed.events.findIndex(event => event.type === 'user/message')
   const ordered = [
     ...parsed.events.slice(0, firstUser + 1),
-    { type: 'subagent/descriptor', data: snapshotSubagentDescriptor({
-      mode: 'continuable', provider: 'spawn', label: CHILD_LABEL, agentProvider: 'deepseek-official', agentModel: 'deepseek-v4-flash',
-    }) },
+    {
+      type: 'subagent/descriptor',
+      data: snapshotSubagentDescriptor({
+        mode: 'continuable',
+        provider: 'spawn',
+        label: CHILD_LABEL,
+        agentProvider: 'deepseek-official',
+        agentModel: 'deepseek-v4-flash',
+      }),
+    },
     ...parsed.events.slice(firstUser + 1),
   ]
   const events = ordered.map((event, seq) => ({ ...event, seq: SessionSeq(seq), time: createdAt + seq })) as SessionEvent[]
@@ -548,7 +646,11 @@ async function openWorld(browser: Browser, scenario: Case, replayDir: string): P
     return await prepareWorld(browser, scenario, scaffold, page)
   } catch (error) {
     const failures: unknown[] = [error]
-    if (page !== undefined) await page.context().close().catch((cleanupError: unknown) => failures.push(cleanupError))
+    if (page !== undefined)
+      await page
+        .context()
+        .close()
+        .catch((cleanupError: unknown) => failures.push(cleanupError))
     await scaffold.close().catch((cleanupError: unknown) => failures.push(cleanupError))
     if (failures.length === 1) throw error
     throw new AggregateError(failures, `${scenario.id}: world setup failed and cleanup was incomplete`)
@@ -607,12 +709,20 @@ async function prepareWorld(browser: Browser, scenario: Case, scaffold: WebScaff
   const trigger = page.getByRole('button', { name: '1 subagent', exact: true })
   await trigger.waitFor({ timeout: 15_000 })
   await trigger.hover()
-  await page.getByRole('treeitem', { name: new RegExp(CHILD_LABEL) })
-    .getByRole('button', { name: `Open ${CHILD_LABEL} in sidebar`, exact: true }).click()
+  await page
+    .getByRole('treeitem', { name: new RegExp(CHILD_LABEL) })
+    .getByRole('button', { name: `Open ${CHILD_LABEL} in sidebar`, exact: true })
+    .click()
   await page.locator(SIDE_ROOT).getByText('FOLDMX_BODY', { exact: false }).last().waitFor({ timeout: 30_000 })
   await page.mouse.move(0, 0)
   return {
-    browser, scaffold, page, root: SIDE_ROOT, target: childId, parentId: sessionId, tripwire,
+    browser,
+    scaffold,
+    page,
+    root: SIDE_ROOT,
+    target: childId,
+    parentId: sessionId,
+    tripwire,
     searchQuery: parentFixture.markers.user(1),
   }
 }
@@ -630,7 +740,10 @@ async function send(world: World, text: string): Promise<void> {
 function turnEnded(scaffold: WebScaffold, sessionId: SessionId, count = 1, timeoutMs = 60_000): Promise<void> {
   return new Promise<void>((resolveEnded, reject) => {
     let remaining = count
-    const timer = setTimeout(() => { off(); reject(new Error(`no turn/end for ${sessionId} within ${timeoutMs}ms`)) }, timeoutMs)
+    const timer = setTimeout(() => {
+      off()
+      reject(new Error(`no turn/end for ${sessionId} within ${timeoutMs}ms`))
+    }, timeoutMs)
     const off = scaffold.ctx.on('session/event', (session: { id: SessionId }, event: SessionEvent) => {
       if (session.id !== sessionId || event.type !== 'turn/end') return
       remaining -= 1
@@ -661,8 +774,8 @@ interface RunResult {
 async function run(world: World, scenario: Case): Promise<RunResult> {
   const { page, root, scaffold, target } = world
   const anchors: RunResult['anchors'] = { before: null, fold: null, turn: null }
-  const readAnchor = (): Promise<number | null> => scenario.reader.kind === 'marker'
-    ? anchorTop(page, root, scenario.reader.marker) : Promise.resolve(null)
+  const readAnchor = (): Promise<number | null> =>
+    scenario.reader.kind === 'marker' ? anchorTop(page, root, scenario.reader.marker) : Promise.resolve(null)
   const begin = async (): Promise<void> => {
     anchors.before = await readAnchor()
     await startTrace(page, root)
@@ -676,9 +789,12 @@ async function run(world: World, scenario: Case): Promise<RunResult> {
   switch (scenario.origin) {
     case 'composer':
     case 'error': {
-      const disposeFailure = scenario.origin === 'error'
-        ? scaffold.ctx.on('system-prompt/assemble', async () => { throw new Error('FOLDMX_TURN_FAILED') })
-        : () => undefined
+      const disposeFailure =
+        scenario.origin === 'error'
+          ? scaffold.ctx.on('system-prompt/assemble', async () => {
+              throw new Error('FOLDMX_TURN_FAILED')
+            })
+          : () => undefined
       // A subagent child's composer sends through the subagent continuation route.
       const promptRoute = scenario.surface === 'side' ? '**/api/subagents/prompt' : '**/api/session/prompt'
       const promptGate = Promise.withResolvers<undefined>()
@@ -727,7 +843,11 @@ async function run(world: World, scenario: Case): Promise<RunResult> {
     case 'queued':
     case 'steer': {
       // Queued: hold the long final body. Steer: hold the last replayed Step so the steering message lands in this Turn.
-      const gate = holdFinishOf(scaffold, target, scenario.origin === 'queued' ? 'FOLDMX_LIVE_BODY' : `FOLDMX_LIVE_STEP_${String(STEER_STEPS)}`)
+      const gate = holdFinishOf(
+        scaffold,
+        target,
+        scenario.origin === 'queued' ? 'FOLDMX_LIVE_BODY' : `FOLDMX_LIVE_STEP_${String(STEER_STEPS)}`,
+      )
       const first = turnEnded(scaffold, target, scenario.origin === 'queued' ? 2 : 1)
       // A failed earlier step reports itself; the success path still awaits and rethrows this rejection.
       first.catch(() => undefined)
@@ -750,8 +870,10 @@ async function run(world: World, scenario: Case): Promise<RunResult> {
         }
         await begin()
         gate.release()
-        await page.locator(`${root} [data-chat-flow-kind="user"], ${root} [data-chat-flow-kind="steering"]`, { hasText: NEXT_INPUT })
-          .first().waitFor({ timeout: 30_000 })
+        await page
+          .locator(`${root} [data-chat-flow-kind="user"], ${root} [data-chat-flow-kind="steering"]`, { hasText: NEXT_INPUT })
+          .first()
+          .waitFor({ timeout: 30_000 })
         afterFold = await folded()
         await first
       } catch (error) {
@@ -768,8 +890,13 @@ async function run(world: World, scenario: Case): Promise<RunResult> {
       const parent = scaffold.ctx.agents.get(world.parentId!)
       if (parent === undefined) throw new Error('parent Agent is not live')
       const ended = turnEnded(scaffold, target)
-      await scaffold.ctx.subagents.sendMessage(parent, target, [{ type: 'text', text: 'FOLDMX_PARENT_NOTE' }], { signal: new AbortController().signal })
-      await page.locator(`${root} [data-chat-turn="${SEEDED_TURNS + 1}"]`).first().waitFor({ timeout: 30_000 })
+      await scaffold.ctx.subagents.sendMessage(parent, target, [{ type: 'text', text: 'FOLDMX_PARENT_NOTE' }], {
+        signal: new AbortController().signal,
+      })
+      await page
+        .locator(`${root} [data-chat-turn="${SEEDED_TURNS + 1}"]`)
+        .first()
+        .waitFor({ timeout: 30_000 })
       afterFold = await folded()
       await ended
       break
@@ -802,8 +929,12 @@ async function run(world: World, scenario: Case): Promise<RunResult> {
 
 function rounded(geometry: Geometry): Record<string, number | boolean> {
   return {
-    top: Math.round(geometry.top), floor: Math.round(geometry.floor), spacer: Math.round(geometry.spacer),
-    maxGap: Math.round(geometry.maxGap), gapAt: Math.round(geometry.gapAt), following: geometry.following,
+    top: Math.round(geometry.top),
+    floor: Math.round(geometry.floor),
+    spacer: Math.round(geometry.spacer),
+    maxGap: Math.round(geometry.maxGap),
+    gapAt: Math.round(geometry.gapAt),
+    following: geometry.following,
   }
 }
 
@@ -827,10 +958,15 @@ describe.skipIf(MODE === 'record')('web e2e: blank area after next-message foldi
         const { afterFold, afterTurn, samples, anchors } = await run(world, scenario)
         const transient = samples.filter(sample => sample.maxGap > BLANK_LIMIT)
         const summary = {
-          id: scenario.id, landing: scenario.landing, before: samples[0] === undefined ? null : rounded(samples[0]),
-          afterFold: rounded(afterFold), afterTurn: rounded(afterTurn), anchors,
+          id: scenario.id,
+          landing: scenario.landing,
+          before: samples[0] === undefined ? null : rounded(samples[0]),
+          afterFold: rounded(afterFold),
+          afterTurn: rounded(afterTurn),
+          anchors,
           peakGap: Math.round(Math.max(0, ...samples.map(sample => sample.maxGap))),
-          framesOverLimit: transient.length, frames: samples.length,
+          framesOverLimit: transient.length,
+          frames: samples.length,
           peakSpacer: Math.round(Math.max(0, ...samples.map(sample => sample.spacer))),
         }
         const evidence = async (): Promise<void> => {
@@ -842,7 +978,12 @@ describe.skipIf(MODE === 'record')('web e2e: blank area after next-message foldi
         if (process.env.FOLDMX_EVIDENCE === '1') await evidence()
         else onTestFailed(evidence)
         if (scenario.origin === 'parent-message' || scenario.origin === 'steer') {
-          expect.soft(samples.some(sample => sample.collapsing), 'a control case folds nothing').toBe(false)
+          expect
+            .soft(
+              samples.some(sample => sample.collapsing),
+              'a control case folds nothing',
+            )
+            .toBe(false)
         }
         if (scenario.roomUntilReply !== true) {
           expect.soft(afterFold.maxGap, 'layout gap after the fold settles').toBeLessThanOrEqual(BLANK_LIMIT)
@@ -862,7 +1003,10 @@ describe.skipIf(MODE === 'record')('web e2e: blank area after next-message foldi
       } finally {
         // Scaffold close also asserts that every replay entry was consumed; its failures fail the case.
         const failures: unknown[] = []
-        await world?.page.context().close().catch((error: unknown) => failures.push(error))
+        await world?.page
+          .context()
+          .close()
+          .catch((error: unknown) => failures.push(error))
         await world?.scaffold.close().catch((error: unknown) => failures.push(error))
         await rm(replayDir, { recursive: true, force: true }).catch((error: unknown) => failures.push(error))
         if (failures.length === 1) throw failures[0]

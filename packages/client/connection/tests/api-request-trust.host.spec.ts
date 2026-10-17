@@ -1,6 +1,6 @@
 /** Behavior of the /api browser-trust fence (rebinding + cross-site defense). */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assertTrustedAuthority, isTrustedApiRequest } from '../src/api-request-trust.ts'
 
 function request(headers: Record<string, string | undefined>): { headers: Record<string, string | undefined> } {
@@ -20,12 +20,21 @@ describe('isTrustedApiRequest', () => {
   })
 
   it('accepts loopback Hosts in every spelling, with and without ports, for browser requests', () => {
-    for (const host of ['localhost', 'localhost:3080', '127.0.0.1', '127.0.0.1:3080', '127.8.9.10:80', '[::1]', '[::1]:3080', 'LOCALHOST:3080']) {
+    for (const host of [
+      'localhost',
+      'localhost:3080',
+      '127.0.0.1',
+      '127.0.0.1:3080',
+      '127.8.9.10:80',
+      '[::1]',
+      '[::1]:3080',
+      'LOCALHOST:3080',
+    ]) {
       expect(isTrustedApiRequest(request({ host, origin: `http://${host}` }), [])).toBe(true)
     }
   })
 
-  it('accepts the listener\'s own bind address port-lessly, and nothing that merely resembles it', () => {
+  it("accepts the listener's own bind address port-lessly, and nothing that merely resembles it", () => {
     // A browser dialing the bind address sends that IP literal as Host; the
     // port is not part of the grant.
     for (const host of ['10.1.2.3', '10.1.2.3:3080', '10.1.2.3:9999']) {
@@ -46,33 +55,57 @@ describe('isTrustedApiRequest', () => {
   })
 
   it('refuses a rebound Host: the attacker domain names the socket it did not expect', () => {
-    expect(isTrustedApiRequest(request({
-      host: 'evil.example:3080',
-      origin: 'http://evil.example:3080',
-      'sec-fetch-site': 'same-origin',
-    }), [])).toBe(false)
+    expect(
+      isTrustedApiRequest(
+        request({
+          host: 'evil.example:3080',
+          origin: 'http://evil.example:3080',
+          'sec-fetch-site': 'same-origin',
+        }),
+        [],
+      ),
+    ).toBe(false)
   })
 
   it('compares Origin and Host under the Origin scheme, so HTTPS default ports normalize like HTTP ones', () => {
     // A browser omits the default port it dialed, while a proxy or a direct
     // client may still write it in Host: both spellings name one authority.
-    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(true)
-    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal:443' }), ['harness.internal'])).toBe(true)
-    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'https://harness.internal:443' }), ['harness.internal'])).toBe(true)
-    expect(isTrustedApiRequest(request({ host: 'harness.internal:80', origin: 'http://harness.internal' }), ['harness.internal'])).toBe(true)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(
+      true,
+    )
+    expect(
+      isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal:443' }), ['harness.internal']),
+    ).toBe(true)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'https://harness.internal:443' }), ['harness.internal'])).toBe(
+      true,
+    )
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:80', origin: 'http://harness.internal' }), ['harness.internal'])).toBe(
+      true,
+    )
     // A TLS-terminating proxy forwards the browser's https Origin to a plain-HTTP upstream.
     expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(true)
     // A real hostname or port difference still decides, in both directions.
-    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal:444' }), ['harness.internal'])).toBe(false)
-    expect(isTrustedApiRequest(request({ host: 'harness.internal:80', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(false)
-    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'http://harness.internal' }), ['harness.internal'])).toBe(false)
+    expect(
+      isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://harness.internal:444' }), ['harness.internal']),
+    ).toBe(false)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:80', origin: 'https://harness.internal' }), ['harness.internal'])).toBe(
+      false,
+    )
+    expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'http://harness.internal' }), ['harness.internal'])).toBe(
+      false,
+    )
     expect(isTrustedApiRequest(request({ host: 'harness.internal:443', origin: 'https://evil.example' }), ['harness.internal'])).toBe(false)
     // Cross-site labelling outranks a purely spelling-level match.
-    expect(isTrustedApiRequest(request({
-      host: 'harness.internal:443',
-      origin: 'https://harness.internal',
-      'sec-fetch-site': 'cross-site',
-    }), ['harness.internal'])).toBe(false)
+    expect(
+      isTrustedApiRequest(
+        request({
+          host: 'harness.internal:443',
+          origin: 'https://harness.internal',
+          'sec-fetch-site': 'cross-site',
+        }),
+        ['harness.internal'],
+      ),
+    ).toBe(false)
     // Only http(s) names this listener; opaque and other schemes never compare as an authority.
     for (const origin of ['ftp://harness.internal', 'file://harness.internal', 'ws://harness.internal', 'null']) {
       expect(isTrustedApiRequest(request({ host: 'harness.internal', origin }), ['harness.internal']), origin).toBe(false)
@@ -88,10 +121,16 @@ describe('isTrustedApiRequest', () => {
   })
 
   it('matches Host, Origin, and trusted entries through WHATWG normalization (case, default port)', () => {
-    expect(isTrustedApiRequest(request({ host: 'Harness.INTERNAL:3080', origin: 'http://harness.internal:3080' }), ['harness.internal:3080'])).toBe(true)
-    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'http://harness.internal' }), ['HARNESS.internal:80'])).toBe(true)
+    expect(
+      isTrustedApiRequest(request({ host: 'Harness.INTERNAL:3080', origin: 'http://harness.internal:3080' }), ['harness.internal:3080']),
+    ).toBe(true)
+    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'http://harness.internal' }), ['HARNESS.internal:80'])).toBe(
+      true,
+    )
     // An unparsable entry never matches; it must not poison the rest of the list.
-    expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'http://harness.internal' }), ['bad entry', 'harness.internal'])).toBe(true)
+    expect(
+      isTrustedApiRequest(request({ host: 'harness.internal', origin: 'http://harness.internal' }), ['bad entry', 'harness.internal']),
+    ).toBe(true)
     expect(isTrustedApiRequest(request({ host: 'harness.internal', origin: 'http://harness.internal' }), ['bad entry'])).toBe(false)
   })
 
@@ -105,40 +144,67 @@ describe('isTrustedApiRequest', () => {
   })
 
   it('accepts a same-origin browser request, with or without an Origin header', () => {
-    expect(isTrustedApiRequest(request({
-      host: 'localhost:3080',
-      origin: 'http://localhost:3080',
-      'sec-fetch-site': 'same-origin',
-    }), [])).toBe(true)
+    expect(
+      isTrustedApiRequest(
+        request({
+          host: 'localhost:3080',
+          origin: 'http://localhost:3080',
+          'sec-fetch-site': 'same-origin',
+        }),
+        [],
+      ),
+    ).toBe(true)
     // Origin-less browser shapes (same-origin GETs) still carry sec-fetch-site.
     expect(isTrustedApiRequest(request({ host: 'localhost:3080', 'sec-fetch-site': 'same-origin' }), [])).toBe(true)
   })
 
   it('reads Fetch Headers while preserving absent browser markers', () => {
     expect(isTrustedApiRequest({ headers: new Headers({ host: '127.0.0.1:3080' }) }, [])).toBe(true)
-    expect(isTrustedApiRequest({
-      headers: new Headers({ host: '127.0.0.1:3080', origin: 'http://evil.example' }),
-    }, [])).toBe(false)
+    expect(
+      isTrustedApiRequest(
+        {
+          headers: new Headers({ host: '127.0.0.1:3080', origin: 'http://evil.example' }),
+        },
+        [],
+      ),
+    ).toBe(false)
   })
 
   it('assertTrustedAuthority accepts bare authorities and throws on anything more', () => {
     for (const entry of ['harness.internal', 'harness.internal:3080', 'HARNESS.internal:80', '10.0.0.9', '[::1]:3080']) {
-      expect(() => { assertTrustedAuthority(entry) }).not.toThrow()
+      expect(() => {
+        assertTrustedAuthority(entry)
+      }).not.toThrow()
     }
     // WHATWG parsing would quietly read a hostname out of each of these; the
     // config boundary must refuse them instead of authorizing the prefix.
-    for (const entry of ['harness.internal/path', 'harness.internal/', 'user@harness.internal', 'harness.internal?x', 'harness.internal#f', 'harness.internal\\path', 'bad entry', '']) {
-      expect(() => { assertTrustedAuthority(entry) }).toThrow(/not a bare host\[:port\] authority/)
+    for (const entry of [
+      'harness.internal/path',
+      'harness.internal/',
+      'user@harness.internal',
+      'harness.internal?x',
+      'harness.internal#f',
+      'harness.internal\\path',
+      'bad entry',
+      '',
+    ]) {
+      expect(() => {
+        assertTrustedAuthority(entry)
+      }).toThrow(/not a bare host\[:port\] authority/)
     }
     // WHATWG trimming would silently strip these; the entry must fail instead.
     for (const entry of ['harness.internal:3080 ', ' harness.internal', 'harness.internal:30\t80']) {
-      expect(() => { assertTrustedAuthority(entry) }).toThrow(/not a bare host\[:port\] authority/)
+      expect(() => {
+        assertTrustedAuthority(entry)
+      }).toThrow(/not a bare host\[:port\] authority/)
     }
     // WHATWG parsing would silently rewrite these — a dangling colon or
     // zero-padded port would broaden an intended exact-port grant to every
     // port, and non-canonical host spellings would not read back as written.
     for (const entry of ['harness.internal:', '[::1]:', 'harness.internal:0080', '0x7f.0.0.1', '[0:0:0:0:0:0:0:1]']) {
-      expect(() => { assertTrustedAuthority(entry) }).toThrow(/not a bare host\[:port\] authority/)
+      expect(() => {
+        assertTrustedAuthority(entry)
+      }).toThrow(/not a bare host\[:port\] authority/)
     }
   })
 

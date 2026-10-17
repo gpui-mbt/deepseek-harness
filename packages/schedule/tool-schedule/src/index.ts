@@ -13,11 +13,25 @@ import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView } from '@deepseek-ai/dsh-tools'
 import {
-  MAX_TITLE_LENGTH, MIN_EVERY_INTERVAL_SECONDS, REQUIRED_TITLE_MESSAGE, ScheduleId, ScheduleInputError, scheduleView,
+  MAX_TITLE_LENGTH,
+  MIN_EVERY_INTERVAL_SECONDS,
+  REQUIRED_TITLE_MESSAGE,
+  ScheduleId,
+  ScheduleInputError,
+  scheduleView,
 } from '@deepseek-ai/dsh-schedule'
 import type {
-  AtInput, CronInput, DailyInput, WeeklyInput, InternalScheduleError, ScheduleCreateValue, ScheduleDeleteValue,
-  ScheduleListValue, ScheduleTimingChange, ScheduleToolError, ScheduleUpdateValue,
+  AtInput,
+  CronInput,
+  DailyInput,
+  WeeklyInput,
+  InternalScheduleError,
+  ScheduleCreateValue,
+  ScheduleDeleteValue,
+  ScheduleListValue,
+  ScheduleTimingChange,
+  ScheduleToolError,
+  ScheduleUpdateValue,
 } from '@deepseek-ai/dsh-schedule'
 
 /** Plugin name registered with the Loader. */
@@ -101,9 +115,7 @@ const CRON_VIEW_SCHEMA = {
 } as const
 
 const VIEW_SCHEMA = {
-  oneOf: [
-    AFTER_VIEW_SCHEMA, AT_VIEW_SCHEMA, EVERY_VIEW_SCHEMA, DAILY_VIEW_SCHEMA, WEEKLY_VIEW_SCHEMA, CRON_VIEW_SCHEMA,
-  ],
+  oneOf: [AFTER_VIEW_SCHEMA, AT_VIEW_SCHEMA, EVERY_VIEW_SCHEMA, DAILY_VIEW_SCHEMA, WEEKLY_VIEW_SCHEMA, CRON_VIEW_SCHEMA],
 } as const
 
 /** Build one exact two-field error schema while preserving its literal code. */
@@ -132,10 +144,7 @@ const ERROR_SCHEMAS = [
 
 const CREATE_OUTPUT_SCHEMA = { oneOf: [VIEW_SCHEMA, ...ERROR_SCHEMAS] } as const
 const LIST_OUTPUT_SCHEMA = {
-  oneOf: [
-    { type: 'array', items: VIEW_SCHEMA },
-    ...ERROR_SCHEMAS,
-  ],
+  oneOf: [{ type: 'array', items: VIEW_SCHEMA }, ...ERROR_SCHEMAS],
 } as const
 const DELETE_OUTPUT_SCHEMA = {
   oneOf: [
@@ -181,10 +190,10 @@ const UPDATE_OUTPUT_SCHEMA = {
 } as const
 
 const CREATE_DESCRIPTION =
-  'Create a reminder in the current session that delivers prompt when it becomes due. '
-  + 'Supply exactly one timing parameter: after_seconds, at, every_seconds, daily, weekly, or cron. '
-  + 'Local times that do not exist in the zone are skipped; repeated local times fire once, at the earlier instant. '
-  + 'After downtime, a recurring reminder delivers only its latest missed occurrence. Delivery can repeat after a crash.'
+  'Create a reminder in the current session that delivers prompt when it becomes due. ' +
+  'Supply exactly one timing parameter: after_seconds, at, every_seconds, daily, weekly, or cron. ' +
+  'Local times that do not exist in the zone are skipped; repeated local times fire once, at the earlier instant. ' +
+  'After downtime, a recurring reminder delivers only its latest missed occurrence. Delivery can repeat after a crash.'
 
 const LIST_DESCRIPTION = 'List the active reminders in the current session.'
 
@@ -192,16 +201,16 @@ const DELETE_DESCRIPTION =
   'Delete a reminder in the current session, active or inactive. Deletion does not retract a reminder message that is already queued.'
 
 const UPDATE_DESCRIPTION =
-  'Change a reminder in place, keeping its id. Supply a new title, prompt, or at most one timing parameter; '
-  + 'omitted fields keep their stored values. To change a relative delay, create a new reminder.'
+  'Change a reminder in place, keeping its id. Supply a new title, prompt, or at most one timing parameter; ' +
+  'omitted fields keep their stored values. To change a relative delay, create a new reminder.'
 
 const CREATE_TITLE_DESCRIPTION =
-  `Concise task name in the user's language, at most ${MAX_TITLE_LENGTH} characters. `
-  + 'Name only the core action and subject; keep essential target identifiers such as PR numbers and branch names. '
-  + 'Do not include execution frequency (e.g. daily, hourly), scheduled dates/times, time zones, task status, '
-  + 'or configuration and execution details (e.g. read-only mode, profile-tag filters), even when embedded in the requested or existing title. '
-  + 'Do not append parenthetical notes. '
-  + 'Put scheduling information in the timing parameters and execution instructions in prompt.'
+  `Concise task name in the user's language, at most ${MAX_TITLE_LENGTH} characters. ` +
+  'Name only the core action and subject; keep essential target identifiers such as PR numbers and branch names. ' +
+  'Do not include execution frequency (e.g. daily, hourly), scheduled dates/times, time zones, task status, ' +
+  'or configuration and execution details (e.g. read-only mode, profile-tag filters), even when embedded in the requested or existing title. ' +
+  'Do not append parenthetical notes. ' +
+  'Put scheduling information in the timing parameters and execution instructions in prompt.'
 
 /** Deterministic model content for every canonical Schedule value. */
 function renderValue(_args: unknown, value: unknown): ContentBlock[] {
@@ -212,7 +221,7 @@ function renderValue(_args: unknown, value: unknown): ContentBlock[] {
 
 /** Pure generic pending card. */
 function present(title: string, kind: 'read' | 'other', rawInput?: unknown): GenericCallView {
-  return { card: 'generic', title, kind, ...rawInput === undefined ? {} : { rawInput } }
+  return { card: 'generic', title, kind, ...(rawInput === undefined ? {} : { rawInput }) }
 }
 
 /** Stable error for failures not safe to expose. */
@@ -264,20 +273,26 @@ function validateCreateArgs(args: {
   cron?: CronInput
 }): ScheduleToolError | undefined {
   const keys = Object.keys(args)
-  if (keys.some(key => key !== 'prompt'
-    && key !== 'title'
-    && key !== 'after_seconds'
-    && key !== 'at'
-    && key !== 'every_seconds'
-    && key !== 'daily'
-    && key !== 'weekly'
-    && key !== 'cron')
-    || Number(args.after_seconds !== undefined)
-    + Number(args.at !== undefined)
-    + Number(args.every_seconds !== undefined)
-    + Number(args.daily !== undefined)
-    + Number(args.weekly !== undefined)
-    + Number(args.cron !== undefined) !== 1) {
+  if (
+    keys.some(
+      key =>
+        key !== 'prompt' &&
+        key !== 'title' &&
+        key !== 'after_seconds' &&
+        key !== 'at' &&
+        key !== 'every_seconds' &&
+        key !== 'daily' &&
+        key !== 'weekly' &&
+        key !== 'cron',
+    ) ||
+    Number(args.after_seconds !== undefined) +
+      Number(args.at !== undefined) +
+      Number(args.every_seconds !== undefined) +
+      Number(args.daily !== undefined) +
+      Number(args.weekly !== undefined) +
+      Number(args.cron !== undefined) !==
+      1
+  ) {
     return {
       code: 'invalid_selector',
       message: 'schedule_create accepts exactly one of after_seconds, at, every_seconds, daily, weekly, or cron.',
@@ -292,8 +307,7 @@ function validateCreateArgs(args: {
   if (args.title.trim().length > MAX_TITLE_LENGTH) {
     return { code: 'invalid_prompt', message: `title must be at most ${MAX_TITLE_LENGTH} characters.` }
   }
-  if (args.after_seconds !== undefined
-    && (!Number.isSafeInteger(args.after_seconds) || args.after_seconds <= 0)) {
+  if (args.after_seconds !== undefined && (!Number.isSafeInteger(args.after_seconds) || args.after_seconds <= 0)) {
     return { code: 'invalid_rule', message: 'after_seconds must be a positive safe integer.' }
   }
   return invalidInterval(args.every_seconds)
@@ -317,15 +331,20 @@ function validateUpdateArgs(args: {
     args.weekly !== undefined,
     args.cron !== undefined,
   ].filter(Boolean).length
-  if (Object.keys(args).some(key => key !== 'id'
-    && key !== 'title'
-    && key !== 'prompt'
-    && key !== 'at'
-    && key !== 'every_seconds'
-    && key !== 'daily'
-    && key !== 'weekly'
-    && key !== 'cron')
-    || selectors > 1) {
+  if (
+    Object.keys(args).some(
+      key =>
+        key !== 'id' &&
+        key !== 'title' &&
+        key !== 'prompt' &&
+        key !== 'at' &&
+        key !== 'every_seconds' &&
+        key !== 'daily' &&
+        key !== 'weekly' &&
+        key !== 'cron',
+    ) ||
+    selectors > 1
+  ) {
     return {
       code: 'invalid_selector',
       message: 'schedule_update accepts at most one of at, every_seconds, daily, weekly, or cron.',
@@ -409,8 +428,9 @@ const SELECTOR_PARAMETERS = {
       expression: {
         type: 'string',
         required: true,
-        description: 'minute hour day-of-month month day-of-week, for example "*/15 9-17 * * 1-5". '
-          + 'When both day fields are restricted, a date matches if either one matches.',
+        description:
+          'minute hour day-of-month month day-of-week, for example "*/15 9-17 * * 1-5". ' +
+          'When both day fields are restricted, a date matches if either one matches.',
       },
       time_zone: { type: 'string', required: true, description: 'UTC or IANA Area/Location, for example Asia/Shanghai.' },
     },
@@ -441,7 +461,9 @@ const SELECTOR_PARAMETERS = {
  * @param ctx - Context owning the `tools` registry and the Host `schedule` service.
  */
 export function apply(ctx: Context): void {
-  ctx.inject(['schedule'], (scheduleCtx) => { registerScheduleTools(scheduleCtx) })
+  ctx.inject(['schedule'], scheduleCtx => {
+    registerScheduleTools(scheduleCtx)
+  })
 }
 
 /**
@@ -450,141 +472,150 @@ export function apply(ctx: Context): void {
  * @param ctx - Scope whose `schedule` service the tools act through.
  */
 function registerScheduleTools(ctx: Context): void {
-  ctx.tools.register(defineTool({
-    name: 'schedule_create',
-    description: CREATE_DESCRIPTION,
-    parameters: {
-      prompt: {
-        type: 'string',
-        required: true,
-        description: 'Reminder content to present when the target becomes due.',
+  ctx.tools.register(
+    defineTool({
+      name: 'schedule_create',
+      description: CREATE_DESCRIPTION,
+      parameters: {
+        prompt: {
+          type: 'string',
+          required: true,
+          description: 'Reminder content to present when the target becomes due.',
+        },
+        title: {
+          type: 'string',
+          required: true,
+          description: CREATE_TITLE_DESCRIPTION,
+        },
+        after_seconds: {
+          type: 'number',
+          description: 'Delay in whole seconds.',
+        },
+        ...SELECTOR_PARAMETERS,
       },
-      title: {
-        type: 'string',
-        required: true,
-        description: CREATE_TITLE_DESCRIPTION,
-      },
-      after_seconds: {
-        type: 'number',
-        description: 'Delay in whole seconds.',
-      },
-      ...SELECTOR_PARAMETERS,
-    },
-    output: { schema: CREATE_OUTPUT_SCHEMA, render: renderValue },
-    async execute(args, exec): Promise<ScheduleCreateValue> {
-      const agent = exec.agent
-      if (agent === undefined) return internalError()
-      const refusal = subagentCallerRefusal(agent)
-      if (refusal !== undefined) return refusal
-      const invalid = validateCreateArgs(args)
-      if (invalid !== undefined) return invalid
-      if (exec.signal.aborted) return internalError()
-      try {
-        return scheduleView(await ctx.schedule.create(agent.session.id, args, exec.signal), Date.now())
-      } catch (error: unknown) {
-        return operationError(error)
-      }
-    },
-    presentCall: args => present('Create reminder', 'other', args.prompt),
-  }))
-
-  ctx.tools.register(defineTool({
-    name: 'schedule_list',
-    description: LIST_DESCRIPTION,
-    parameters: {},
-    output: { schema: LIST_OUTPUT_SCHEMA, render: renderValue },
-    async execute(_args, exec): Promise<ScheduleListValue> {
-      const agent = exec.agent
-      if (agent === undefined) return internalError()
-      const refusal = subagentCallerRefusal(agent)
-      if (refusal !== undefined) return refusal
-      if (exec.signal.aborted) return internalError()
-      try {
-        const records = await ctx.schedule.list({ sessionId: agent.session.id })
-        return records.map(record => scheduleView(record, Date.now()))
-      } catch (error: unknown) {
-        return operationError(error)
-      }
-    },
-    presentCall: () => present('List reminders', 'read'),
-  }))
-
-  ctx.tools.register(defineTool({
-    name: 'schedule_delete',
-    description: DELETE_DESCRIPTION,
-    parameters: {
-      id: { type: 'string', required: true, description: 'Exact schedule id.' },
-    },
-    output: { schema: DELETE_OUTPUT_SCHEMA, render: renderValue },
-    async execute(args, exec): Promise<ScheduleDeleteValue> {
-      if (args.id.length === 0 || args.id.trim() !== args.id) {
-        return { code: 'invalid_rule', message: 'schedule_delete id must be non-empty without surrounding whitespace.' }
-      }
-      const id = ScheduleId(args.id)
-      const agent = exec.agent
-      if (agent === undefined) return internalError()
-      const refusal = subagentCallerRefusal(agent)
-      if (refusal !== undefined) return refusal
-      if (exec.signal.aborted) return internalError()
-      try {
-        return await ctx.schedule.delete({ sessionId: agent.session.id, id }, exec.signal)
-      } catch (error: unknown) {
-        return operationError(error)
-      }
-    },
-    presentCall: args => present('Delete reminder', 'other', args.id),
-  }))
-
-  ctx.tools.register(defineTool({
-    name: 'schedule_update',
-    description: UPDATE_DESCRIPTION,
-    parameters: {
-      id: { type: 'string', required: true, description: 'Schedule id returned by schedule_list.' },
-      title: {
-        type: 'string',
-        description: 'New task name; follow the schedule_create title rules.',
-      },
-      prompt: {
-        type: 'string',
-        description: 'New reminder content.',
-      },
-      ...SELECTOR_PARAMETERS,
-    },
-    output: { schema: UPDATE_OUTPUT_SCHEMA, render: renderValue },
-    async execute(args, exec): Promise<ScheduleUpdateValue> {
-      const agent = exec.agent
-      if (agent === undefined) return internalError()
-      const refusal = subagentCallerRefusal(agent)
-      if (refusal !== undefined) return refusal
-      const invalid = validateUpdateArgs(args)
-      if (invalid !== undefined) return invalid
-      if (exec.signal.aborted) return internalError()
-      const id = ScheduleId(args.id)
-      try {
-        const sessionId = agent.session.id
-        const expected = (await ctx.schedule.list({ sessionId }))
-          .find(record => record.id === id)
-        if (expected === undefined) {
-          // The catalog also holds inactive reminders, which is the one not-found
-          // case the model can act on: it has to create a new reminder instead.
-          const ended = (await ctx.schedule.catalog())
-            .some(entry => entry.sessionId === sessionId && entry.id === id)
-          return { id, updated: false, code: ended ? 'schedule_ended' : 'schedule_not_found' }
+      output: { schema: CREATE_OUTPUT_SCHEMA, render: renderValue },
+      async execute(args, exec): Promise<ScheduleCreateValue> {
+        const agent = exec.agent
+        if (agent === undefined) return internalError()
+        const refusal = subagentCallerRefusal(agent)
+        if (refusal !== undefined) return refusal
+        const invalid = validateCreateArgs(args)
+        if (invalid !== undefined) return invalid
+        if (exec.signal.aborted) return internalError()
+        try {
+          return scheduleView(await ctx.schedule.create(agent.session.id, args, exec.signal), Date.now())
+        } catch (error: unknown) {
+          return operationError(error)
         }
-        const change = timingChangeFrom(args)
-        const result = await ctx.schedule.update({
-          sessionId,
-          id,
-          expected,
-          ...(change === undefined ? {} : { change }),
-          ...(args.title === undefined ? {} : { title: args.title }),
-          ...(args.prompt === undefined ? {} : { prompt: args.prompt }),
-        }, exec.signal)
-        return 'record' in result ? scheduleView(result.record, Date.now()) : result
-      } catch (error: unknown) {
-        return operationError(error)
-      }
-    },
-    presentCall: args => present('Update reminder', 'other', args.id),
-  }))
+      },
+      presentCall: args => present('Create reminder', 'other', args.prompt),
+    }),
+  )
+
+  ctx.tools.register(
+    defineTool({
+      name: 'schedule_list',
+      description: LIST_DESCRIPTION,
+      parameters: {},
+      output: { schema: LIST_OUTPUT_SCHEMA, render: renderValue },
+      async execute(_args, exec): Promise<ScheduleListValue> {
+        const agent = exec.agent
+        if (agent === undefined) return internalError()
+        const refusal = subagentCallerRefusal(agent)
+        if (refusal !== undefined) return refusal
+        if (exec.signal.aborted) return internalError()
+        try {
+          const records = await ctx.schedule.list({ sessionId: agent.session.id })
+          return records.map(record => scheduleView(record, Date.now()))
+        } catch (error: unknown) {
+          return operationError(error)
+        }
+      },
+      presentCall: () => present('List reminders', 'read'),
+    }),
+  )
+
+  ctx.tools.register(
+    defineTool({
+      name: 'schedule_delete',
+      description: DELETE_DESCRIPTION,
+      parameters: {
+        id: { type: 'string', required: true, description: 'Exact schedule id.' },
+      },
+      output: { schema: DELETE_OUTPUT_SCHEMA, render: renderValue },
+      async execute(args, exec): Promise<ScheduleDeleteValue> {
+        if (args.id.length === 0 || args.id.trim() !== args.id) {
+          return { code: 'invalid_rule', message: 'schedule_delete id must be non-empty without surrounding whitespace.' }
+        }
+        const id = ScheduleId(args.id)
+        const agent = exec.agent
+        if (agent === undefined) return internalError()
+        const refusal = subagentCallerRefusal(agent)
+        if (refusal !== undefined) return refusal
+        if (exec.signal.aborted) return internalError()
+        try {
+          return await ctx.schedule.delete({ sessionId: agent.session.id, id }, exec.signal)
+        } catch (error: unknown) {
+          return operationError(error)
+        }
+      },
+      presentCall: args => present('Delete reminder', 'other', args.id),
+    }),
+  )
+
+  ctx.tools.register(
+    defineTool({
+      name: 'schedule_update',
+      description: UPDATE_DESCRIPTION,
+      parameters: {
+        id: { type: 'string', required: true, description: 'Schedule id returned by schedule_list.' },
+        title: {
+          type: 'string',
+          description: 'New task name; follow the schedule_create title rules.',
+        },
+        prompt: {
+          type: 'string',
+          description: 'New reminder content.',
+        },
+        ...SELECTOR_PARAMETERS,
+      },
+      output: { schema: UPDATE_OUTPUT_SCHEMA, render: renderValue },
+      async execute(args, exec): Promise<ScheduleUpdateValue> {
+        const agent = exec.agent
+        if (agent === undefined) return internalError()
+        const refusal = subagentCallerRefusal(agent)
+        if (refusal !== undefined) return refusal
+        const invalid = validateUpdateArgs(args)
+        if (invalid !== undefined) return invalid
+        if (exec.signal.aborted) return internalError()
+        const id = ScheduleId(args.id)
+        try {
+          const sessionId = agent.session.id
+          const expected = (await ctx.schedule.list({ sessionId })).find(record => record.id === id)
+          if (expected === undefined) {
+            // The catalog also holds inactive reminders, which is the one not-found
+            // case the model can act on: it has to create a new reminder instead.
+            const ended = (await ctx.schedule.catalog()).some(entry => entry.sessionId === sessionId && entry.id === id)
+            return { id, updated: false, code: ended ? 'schedule_ended' : 'schedule_not_found' }
+          }
+          const change = timingChangeFrom(args)
+          const result = await ctx.schedule.update(
+            {
+              sessionId,
+              id,
+              expected,
+              ...(change === undefined ? {} : { change }),
+              ...(args.title === undefined ? {} : { title: args.title }),
+              ...(args.prompt === undefined ? {} : { prompt: args.prompt }),
+            },
+            exec.signal,
+          )
+          return 'record' in result ? scheduleView(result.record, Date.now()) : result
+        } catch (error: unknown) {
+          return operationError(error)
+        }
+      },
+      presentCall: args => present('Update reminder', 'other', args.id),
+    }),
+  )
 }

@@ -29,28 +29,47 @@ export class DesktopBackgroundNotice {
    */
   close(hide: () => void): void {
     if (this.disposed) return
-    if (this.pending) { this.options.focus(); return }
-    if (this.acknowledged || existsSync(this.options.markerPath)) { hide(); return }
+    if (this.pending) {
+      this.options.focus()
+      return
+    }
+    if (this.acknowledged || existsSync(this.options.markerPath)) {
+      hide()
+      return
+    }
     this.pending = true
     void this.confirm(hide)
   }
 
   /** Ignore late dialog responses after application shutdown begins. */
-  dispose(): void { this.disposed = true }
+  dispose(): void {
+    this.disposed = true
+  }
 
   private async confirm(hide: () => void): Promise<void> {
     try {
       const { messages } = this.options.locale()
-      const result = await this.options.show({ type: 'info', title: messages.aboutProduct,
-        message: messages.backgroundNoticeBody, buttons: [messages.backgroundNoticeConfirm], defaultId: 0, cancelId: -1 })
+      const result = await this.options.show({
+        type: 'info',
+        title: messages.aboutProduct,
+        message: messages.backgroundNoticeBody,
+        buttons: [messages.backgroundNoticeConfirm],
+        defaultId: 0,
+        cancelId: -1,
+      })
       if (this.disposed || result.response !== 0) return
       this.acknowledged = true
       try {
         mkdirSync(dirname(this.options.markerPath), { recursive: true })
         writeFileSync(this.options.markerPath, '')
-      } catch (error) { console.warn('desktop tray: could not record background confirmation', error) }
+      } catch (error) {
+        console.warn('desktop tray: could not record background confirmation', error)
+      }
       hide()
-    } catch (error) { console.warn('desktop tray: background confirmation unavailable', error) }
-    finally { this.pending = false }
+    } catch (error) {
+      console.warn('desktop tray: background confirmation unavailable', error)
+    } finally {
+      this.pending = false
+    }
   }
 }

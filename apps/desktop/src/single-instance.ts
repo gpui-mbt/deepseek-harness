@@ -13,10 +13,7 @@ export interface DesktopSingleInstanceApplication {
  * @param focusOwner - focus or recreate the primary window after a later launch.
  * @returns true only in the process that may access the Desktop profile.
  */
-export function claimDesktopSingleInstance(
-  application: DesktopSingleInstanceApplication,
-  focusOwner: () => void,
-): boolean {
+export function claimDesktopSingleInstance(application: DesktopSingleInstanceApplication, focusOwner: () => void): boolean {
   if (!application.requestSingleInstanceLock()) {
     application.quit()
     return false

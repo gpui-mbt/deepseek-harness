@@ -43,14 +43,7 @@ export { RpcId, transportError } from './rpc.ts'
 export { Peer } from './peer.ts'
 export type { PeerOptions } from './peer.ts'
 export { CONNECT_PATH, type ConnectionInteractions } from './connect-protocol.ts'
-export {
-  clientRequestSchema,
-  rpcErrorSchema,
-  rpcIdSchema,
-  rpcMessageSchema,
-  rpcResultSchema,
-  serverResponseSchema,
-} from './rpc-schema.ts'
+export { clientRequestSchema, rpcErrorSchema, rpcIdSchema, rpcMessageSchema, rpcResultSchema, serverResponseSchema } from './rpc-schema.ts'
 export { HostConnectionService } from './rpc-host.ts'
 
 export { API_PATH } from './api-path.ts'
@@ -78,13 +71,11 @@ const REQUEST_ENVELOPE_HEADROOM_BYTES = 1024 * 1024
 function assertImageBodyCapacity(ctx: Context, maxRequestBodyBytes: number): void {
   const attachments = ctx.get('attachments')
   if (attachments === undefined) return
-  const requiredImageBodyBytes = Math.ceil(
-    attachments.imageLimits.maxMessageImageBytes * 4 / 3,
-  ) + REQUEST_ENVELOPE_HEADROOM_BYTES
+  const requiredImageBodyBytes = Math.ceil((attachments.imageLimits.maxMessageImageBytes * 4) / 3) + REQUEST_ENVELOPE_HEADROOM_BYTES
   if (maxRequestBodyBytes < requiredImageBodyBytes) {
     throw new Error(
-      `client-connection maxRequestBodyBytes (${String(maxRequestBodyBytes)}) must be at least `
-      + `${String(requiredImageBodyBytes)} for the configured aggregate image limit`,
+      `client-connection maxRequestBodyBytes (${String(maxRequestBodyBytes)}) must be at least ` +
+        `${String(requiredImageBodyBytes)} for the configured aggregate image limit`,
     )
   }
 }
@@ -133,14 +124,10 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
-  const connection = new HostConnectionService(
-    ctx,
-    trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays),
-  )
-  ctx.inject(['webServer'], (webCtx) => {
+  const connection = new HostConnectionService(ctx, trustedHosts, await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays))
+  ctx.inject(['webServer'], webCtx => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
-    webCtx.on('webserver/index-inject', (table) => {
+    webCtx.on('webserver/index-inject', table => {
       table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
     })
     const fetchHandler = connection.createSharedFetchHandler(API_PATH)
@@ -158,12 +145,19 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
       },
     }
     webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')
-    webCtx.effect(() => webCtx.webServer.register({
-      kind: 'exact', path: CONNECT_PATH,
-      handler: (req, res) => { connection.authorizeConnect(req, res) },
-    }), 'client-connection: /connect route')
+    webCtx.effect(
+      () =>
+        webCtx.webServer.register({
+          kind: 'exact',
+          path: CONNECT_PATH,
+          handler: (req, res) => {
+            connection.authorizeConnect(req, res)
+          },
+        }),
+      'client-connection: /connect route',
+    )
   })
-  ctx.inject(['attachments'], (attachmentCtx) => {
+  ctx.inject(['attachments'], attachmentCtx => {
     assertImageBodyCapacity(attachmentCtx, maxRequestBodyBytes)
   })
 }

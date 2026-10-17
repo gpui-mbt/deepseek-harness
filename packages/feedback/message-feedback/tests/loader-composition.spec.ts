@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
@@ -43,9 +43,7 @@ async function loadComposition(configPath: string): Promise<Context> {
     config: { path: pathToFileURL(configPath).href },
   })
   await ctx.loader.await()
-  const unloaded = [...ctx.loader.entries()]
-    .filter(entry => entry.fiber === undefined && !entry.disabled)
-    .map(entry => entry.options.name)
+  const unloaded = [...ctx.loader.entries()].filter(entry => entry.fiber === undefined && !entry.disabled).map(entry => entry.options.name)
   expect(unloaded).toEqual([])
   return ctx
 }
@@ -54,35 +52,41 @@ describe('message feedback through a real Loader composition', () => {
   it('persists canonical feedback across live and cold operations', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-message-feedback-loader-'))
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-session'",
-      "- name: '@deepseek-ai/dsh-session-persistence-jsonl'",
-      '  config:',
-      `    root: ${JSON.stringify(join(root, 'sessions'))}`,
-      '    compression: none',
-      "- name: '@deepseek-ai/dsh-message-feedback'",
-      '  config:',
-      '    maxNoteBytes: 32',
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      [
+        "- name: '@deepseek-ai/dsh-session'",
+        "- name: '@deepseek-ai/dsh-session-persistence-jsonl'",
+        '  config:',
+        `    root: ${JSON.stringify(join(root, 'sessions'))}`,
+        '    compression: none',
+        "- name: '@deepseek-ai/dsh-message-feedback'",
+        '  config:',
+        '    maxNoteBytes: 32',
+        '',
+      ].join('\n'),
+    )
 
     const first = await loadComposition(configPath)
     expect(first.messageFeedback.typertRemote.namespace).toBe('messageFeedback')
-    expect(remoteMethods(first.messageFeedback).map(marker => marker.method))
-      .toEqual(['list', 'put', 'delete'])
+    expect(remoteMethods(first.messageFeedback).map(marker => marker.method)).toEqual(['list', 'put', 'delete'])
 
     const unowned = first.sessions.create(SessionId('unowned-feedback'))
     const unownedFixture = appendMessageFixture(unowned)
     const unownedRequest = {
-      sessionId: unowned.id, messageId: unownedFixture.assistantMessageIds[0], rating: 'positive' as const, ifVersion: null,
+      sessionId: unowned.id,
+      messageId: unownedFixture.assistantMessageIds[0],
+      rating: 'positive' as const,
+      ifVersion: null,
     }
     // A mounted JSONL listener alone does not persist Sessions without a write handle.
     await expect(first.messageFeedback.put(unownedRequest)).rejects.toThrow(/not found/u)
     expect(await first.sessionPersistence.stat(unowned.id)).toBeUndefined()
     const unownedItems = await first.messageFeedback.list({ sessionId: unowned.id })
     if (!unownedItems.ok) throw new Error(unownedItems.error.code)
-    await expect(first.messageFeedback.put({ ...unownedRequest, ifVersion: unownedItems.value.items[0]!.version }))
-      .rejects.toThrow(/not found/u)
+    await expect(first.messageFeedback.put({ ...unownedRequest, ifVersion: unownedItems.value.items[0]!.version })).rejects.toThrow(
+      /not found/u,
+    )
 
     const session = first.sessions.create(SessionId('loader-feedback'), {
       meta: { cwd: root },
@@ -102,9 +106,9 @@ describe('message feedback through a real Loader composition', () => {
     const readHandle = await first.sessionPersistence.open(session.id, 'read')
     const { events: durableEvents } = await readHandle.read()
     await readHandle.close()
-    expect(durableEvents.some(event =>
-      event.type === 'assistant/message'
-      && event.data.message.id === fixture.assistantMessageIds[0])).toBe(true)
+    expect(
+      durableEvents.some(event => event.type === 'assistant/message' && event.data.message.id === fixture.assistantMessageIds[0]),
+    ).toBe(true)
 
     await writeHandle.close()
     await first.fiber.dispose()

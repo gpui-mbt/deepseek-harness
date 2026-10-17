@@ -2,14 +2,23 @@ import { createHmac } from 'node:crypto'
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { createGitHubWebhookHandler } from '../src/handler.ts'
 
 const servers: Server[] = []
 
 afterEach(async () => {
-  await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => server.close(() => { resolve() }))))
+  await Promise.all(
+    servers.splice(0).map(
+      server =>
+        new Promise<void>(resolve =>
+          server.close(() => {
+            resolve()
+          }),
+        ),
+    ),
+  )
 })
 
 /** One mutable fake for credential rotation and dispatch observation. */
@@ -25,13 +34,15 @@ function fakeContext(secret = 'fixture-secret'): {
   return {
     ctx: {
       credentials: {
-        resolve: async () => current === undefined ? undefined : { value: current, source: 'environment' },
+        resolve: async () => (current === undefined ? undefined : { value: current, source: 'environment' }),
       },
       webhookRuntime: { dispatch },
       logger: { warn: warnings },
     } as unknown as Context,
     dispatch,
-    setSecret(value) { current = value },
+    setSecret(value) {
+      current = value
+    },
     warnings,
   }
 }
@@ -43,7 +54,9 @@ async function serve(ctx: Context, maxBodyBytes = 1024): Promise<string> {
     secretEnv: credentialRef('DSH_GITHUB_WEBHOOK_SECRET'),
     maxBodyBytes,
   })
-  const server = createServer((request, response) => { void handler(request, response) })
+  const server = createServer((request, response) => {
+    void handler(request, response)
+  })
   servers.push(server)
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as AddressInfo).port
@@ -82,33 +95,42 @@ async function post(
 }
 
 /** Send body chunks without Content-Length through a real Node client socket. */
-async function postChunked(
-  base: string,
-  chunks: readonly string[],
-  endDelayMs = 0,
-): Promise<{ body: string; status: number }> {
+async function postChunked(base: string, chunks: readonly string[], endDelayMs = 0): Promise<{ body: string; status: number }> {
   return await new Promise((resolve, reject) => {
-    const request = httpRequest(base, {
-      method: 'POST',
-      headers: {
-        connection: 'close',
-        'content-type': 'application/json',
-        'transfer-encoding': 'chunked',
-        'x-hub-signature-256': 'sha256=unused',
-        'x-github-event': 'pull_request',
-        'x-github-delivery': 'chunked-delivery',
+    const request = httpRequest(
+      base,
+      {
+        method: 'POST',
+        headers: {
+          connection: 'close',
+          'content-type': 'application/json',
+          'transfer-encoding': 'chunked',
+          'x-hub-signature-256': 'sha256=unused',
+          'x-github-event': 'pull_request',
+          'x-github-delivery': 'chunked-delivery',
+        },
       },
-    }, (response) => {
-      let body = ''
-      response.setEncoding('utf8')
-      response.on('data', (chunk: string) => { body += chunk })
-      response.on('end', () => { resolve({ body, status: response.statusCode ?? 0 }) })
-    })
+      response => {
+        let body = ''
+        response.setEncoding('utf8')
+        response.on('data', (chunk: string) => {
+          body += chunk
+        })
+        response.on('end', () => {
+          resolve({ body, status: response.statusCode ?? 0 })
+        })
+      },
+    )
     request.once('error', reject)
-    request.once('socket', (socket) => { socket.setNoDelay(true) })
+    request.once('socket', socket => {
+      socket.setNoDelay(true)
+    })
     for (const chunk of chunks) request.write(chunk)
     if (endDelayMs === 0) request.end()
-    else setTimeout(() => { request.end() }, endDelayMs)
+    else
+      setTimeout(() => {
+        request.end()
+      }, endDelayMs)
   })
 }
 
@@ -190,7 +212,9 @@ describe('GitHub webhook HTTP handler', () => {
         'x-github-event': ['pull_request', 'ping'],
       },
       complete: true,
-      async * [Symbol.asyncIterator]() { yield Buffer.from('{}') },
+      async *[Symbol.asyncIterator]() {
+        yield Buffer.from('{}')
+      },
     } as unknown as IncomingMessage
     const writeHead = vi.fn()
     const response = { setHeader: vi.fn(), writeHead, end: vi.fn() } as unknown as ServerResponse
@@ -237,7 +261,9 @@ describe('GitHub webhook HTTP handler', () => {
     expect((await post(missingBase, '{}')).status).toBe(503)
 
     const closing = fakeContext()
-    closing.dispatch.mockImplementation(() => { throw new Error('closing') })
+    closing.dispatch.mockImplementation(() => {
+      throw new Error('closing')
+    })
     const closingBase = await serve(closing.ctx)
     expect((await post(closingBase, '{}')).status).toBe(503)
     expect(closing.warnings).toHaveBeenCalledTimes(1)

@@ -139,8 +139,8 @@ async function assertOwnerOnly(filename: string): Promise<void> {
   const offending = mode & GROUP_OTHER_BITS
   if (offending === 0) return
   throw new Error(
-    `credentials-local: ${filename} is readable beyond its owner (mode ${(mode & 0o777).toString(8)});`
-    + ` run "chmod 600 ${filename}" before starting again`,
+    `credentials-local: ${filename} is readable beyond its owner (mode ${(mode & 0o777).toString(8)});` +
+      ` run "chmod 600 ${filename}" before starting again`,
   )
   /* v8 ignore stop */
 }
@@ -197,8 +197,7 @@ export function parseCredentialsDocument(text: string, filename: string): Creden
   // print, a value is not.
   const document = parseDocument(text, { prettyErrors: true, uniqueKeys: true })
   if (document.errors.length > 0) {
-    throw new Error(`credentials-local: invalid document at ${filename}: ${
-      document.errors.map(describeYamlError).join('; ')}`)
+    throw new Error(`credentials-local: invalid document at ${filename}: ${document.errors.map(describeYamlError).join('; ')}`)
   }
   const root: unknown = document.toJS() ?? {}
   if (typeof root !== 'object' || root === null || Array.isArray(root)) {
@@ -211,15 +210,15 @@ export function parseCredentialsDocument(text: string, filename: string): Creden
   if (keys.length === 0) return { refs: new Map(), records: new Map(), ignoredKeys: [] }
   if (!('version' in fields)) {
     throw new Error(
-      `credentials-local: ${filename} uses the pre-release flat layout. Add \`version: ${DOCUMENT_VERSION}\``
-      + ` and nest the existing ${keys.length} ${keys.length === 1 ? 'entry' : 'entries'} under \`refs:\`.`
-      + ' No values need to change.',
+      `credentials-local: ${filename} uses the pre-release flat layout. Add \`version: ${DOCUMENT_VERSION}\`` +
+        ` and nest the existing ${keys.length} ${keys.length === 1 ? 'entry' : 'entries'} under \`refs:\`.` +
+        ' No values need to change.',
     )
   }
   if (fields['version'] !== DOCUMENT_VERSION) {
     throw new Error(
-      `credentials-local: ${filename} declares version ${JSON.stringify(fields['version'])};`
-      + ` this build reads version ${DOCUMENT_VERSION}`,
+      `credentials-local: ${filename} declares version ${JSON.stringify(fields['version'])};` +
+        ` this build reads version ${DOCUMENT_VERSION}`,
     )
   }
   return {
@@ -264,7 +263,10 @@ export function renderFlatLayoutMigration(text: string): string | undefined {
     }
     if (!isScalar(pair.value) || typeof pair.value.value !== 'string' || pair.value.value.length === 0) return undefined
   }
-  const body = text.split('\n').map(line => (line.length === 0 ? line : `  ${line}`)).join('\n')
+  const body = text
+    .split('\n')
+    .map(line => (line.length === 0 ? line : `  ${line}`))
+    .join('\n')
   return `version: ${DOCUMENT_VERSION}\nrefs:\n${body}${text.endsWith('\n') ? '' : '\n'}`
 }
 
@@ -344,8 +346,8 @@ function parseRecord(key: string, value: unknown, filename: string): CredentialR
     const env = parseRecordEnv(key, fields['env'], filename)
     return {
       kind: 'api-key',
-      ...apiKey === undefined ? {} : { key: apiKey },
-      ...env === undefined ? {} : { env },
+      ...(apiKey === undefined ? {} : { key: apiKey }),
+      ...(env === undefined ? {} : { env }),
     }
   }
   if (kind === 'grant') {
@@ -379,9 +381,7 @@ function parseRecordEnv(key: string, env: unknown, filename: string): Record<str
   for (const [name, value] of Object.entries(env as Record<string, unknown>)) {
     credentialRef(name)
     if (typeof value !== 'string' || value.length === 0) {
-      throw new TypeError(
-        `credentials-local: record "${key}" env "${name}" in ${filename} must be a non-empty string`,
-      )
+      throw new TypeError(`credentials-local: record "${key}" env "${name}" in ${filename} must be a non-empty string`)
     }
     parsed[name] = value
   }
@@ -509,8 +509,9 @@ function sameJsonValue(left: unknown, right: unknown): boolean {
   const leftKeys = Object.keys(left)
   const rightKeys = Object.keys(right)
   if (leftKeys.length !== rightKeys.length) return false
-  return leftKeys.every(key => key in right
-    && sameJsonValue((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]))
+  return leftKeys.every(
+    key => key in right && sameJsonValue((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]),
+  )
 }
 
 /** File-backed credentials provider (`$DSH_HOME/.credentials.yaml`). */
@@ -547,7 +548,10 @@ export class LocalCredentialProvider extends CredentialProvider {
     return this.closed
   }
 
-  constructor(ctx: Context, public config: Config) {
+  constructor(
+    ctx: Context,
+    public config: Config,
+  ) {
     super(ctx)
     // Programmatic construction may bypass Schemastery normalization; resolve
     // the same defaults in one explicit step either way.
@@ -570,7 +574,7 @@ export class LocalCredentialProvider extends CredentialProvider {
     return entry !== undefined && entry.value.length > 0 ? entry : undefined
   }
 
-  async* [Service.init](): AsyncGenerator<() => Promise<void> | void, void, void> {
+  async *[Service.init](): AsyncGenerator<() => Promise<void> | void, void, void> {
     yield async () => {
       // Drain: refuse new operations, then settle the queued ones so disposal
       // completes only once storage is quiescent.
@@ -668,11 +672,13 @@ export class LocalCredentialProvider extends CredentialProvider {
   }
 
   override listRecords(): Promise<readonly CredentialRecordEntry[]> {
-    return Promise.resolve([...this.records].map(([key, record]) => ({
-      // The parser has already proven every stored key addressable.
-      key: parseCredentialKey(key),
-      kind: record.kind,
-    })))
+    return Promise.resolve(
+      [...this.records].map(([key, record]) => ({
+        // The parser has already proven every stored key addressable.
+        key: parseCredentialKey(key),
+        kind: record.kind,
+      })),
+    )
   }
 
   override async modifyRecord(
@@ -685,28 +691,32 @@ export class LocalCredentialProvider extends CredentialProvider {
         throw new Error(`credentials-local was disposed before the queued "${key}" modify ran`)
       }
       await mkdir(dirname(this.spec.filename), { recursive: true, mode: 0o700 })
-      return withFileLock(this.spec.filename, async () => {
-        // Read-modify-write: `mutate` must decide against the record as it
-        // stands now, not as this process last saw it — another process may
-        // have rotated it since.
-        await this.reconcileFromDisk()
-        const current = this.records.get(key)
-        const next = await mutate(current)
-        if (next === undefined) return current
-        // Admitted before it is rendered: what the read path would refuse is
-        // refused here first, so a caller can never persist a document the
-        // next boot rejects, and a value refused here has not been stored.
-        if (next.kind === 'grant') assertJsonValue(`record "${key}" payload`, next.payload, new Set())
-        else assertStorableApiKey(key, next)
-        const nextText = renderRecord(this.text, key, next)
-        // 0600: a document holding secrets is never world-readable.
-        await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
-        this.text = nextText
-        this.records.set(key, next)
-        // After the commit, on the same terms as a reference write.
-        this.notifyRecordUpdated(key)
-        return next
-      }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
+      return withFileLock(
+        this.spec.filename,
+        async () => {
+          // Read-modify-write: `mutate` must decide against the record as it
+          // stands now, not as this process last saw it — another process may
+          // have rotated it since.
+          await this.reconcileFromDisk()
+          const current = this.records.get(key)
+          const next = await mutate(current)
+          if (next === undefined) return current
+          // Admitted before it is rendered: what the read path would refuse is
+          // refused here first, so a caller can never persist a document the
+          // next boot rejects, and a value refused here has not been stored.
+          if (next.kind === 'grant') assertJsonValue(`record "${key}" payload`, next.payload, new Set())
+          else assertStorableApiKey(key, next)
+          const nextText = renderRecord(this.text, key, next)
+          // 0600: a document holding secrets is never world-readable.
+          await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
+          this.text = nextText
+          this.records.set(key, next)
+          // After the commit, on the same terms as a reference write.
+          this.notifyRecordUpdated(key)
+          return next
+        },
+        { waitMs: DOCUMENT_LOCK_WAIT_MS },
+      )
     })
   }
 
@@ -717,22 +727,29 @@ export class LocalCredentialProvider extends CredentialProvider {
         throw new Error(`credentials-local was disposed before the queued "${key}" delete ran`)
       }
       await mkdir(dirname(this.spec.filename), { recursive: true, mode: 0o700 })
-      await withFileLock(this.spec.filename, async () => {
-        await this.reconcileFromDisk()
-        if (!this.records.has(key)) return
-        const nextText = renderRecord(this.text, key, undefined)
-        await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
-        this.text = nextText
-        this.records.delete(key)
-        this.notifyRecordUpdated(key)
-      }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
+      await withFileLock(
+        this.spec.filename,
+        async () => {
+          await this.reconcileFromDisk()
+          if (!this.records.has(key)) return
+          const nextText = renderRecord(this.text, key, undefined)
+          await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
+          this.text = nextText
+          this.records.delete(key)
+          this.notifyRecordUpdated(key)
+        },
+        { waitMs: DOCUMENT_LOCK_WAIT_MS },
+      )
     })
   }
 
   /** Queue one exclusive document operation behind every earlier one. */
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const task = this.operations.then(operation)
-    this.operations = task.then(() => undefined, () => undefined)
+    this.operations = task.then(
+      () => undefined,
+      () => undefined,
+    )
     return task
   }
 
@@ -754,24 +771,28 @@ export class LocalCredentialProvider extends CredentialProvider {
       // The writer lock's exclusive create needs the parent to exist; 0700
       // because the harness home holds user-private data.
       await mkdir(dirname(this.spec.filename), { recursive: true, mode: 0o700 })
-      await withFileLock(this.spec.filename, async () => {
-        // Read-modify-write: fold in any on-disk state this process has not
-        // observed yet — an external edit still inside the watcher debounce
-        // window, a change the watcher missed, or another process's write —
-        // so the line edit below can never resurrect a stale document.
-        await this.reconcileFromDisk()
-        const existing = this.values.get(ref)
-        if (value === undefined && existing === undefined) return
-        const nextText = renderRef(this.text, ref, value)
-        // 0600: a document holding secrets is never world-readable.
-        await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
-        this.text = nextText
-        if (value === undefined) this.values.delete(ref)
-        else this.values.set(ref, value)
-        // After the commit: a broken observer must never make the durable
-        // write look failed.
-        this.notifyUpdated(ref)
-      }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
+      await withFileLock(
+        this.spec.filename,
+        async () => {
+          // Read-modify-write: fold in any on-disk state this process has not
+          // observed yet — an external edit still inside the watcher debounce
+          // window, a change the watcher missed, or another process's write —
+          // so the line edit below can never resurrect a stale document.
+          await this.reconcileFromDisk()
+          const existing = this.values.get(ref)
+          if (value === undefined && existing === undefined) return
+          const nextText = renderRef(this.text, ref, value)
+          // 0600: a document holding secrets is never world-readable.
+          await writeFileAtomic(this.spec.filename, nextText, { mode: 0o600, dirMode: 0o700 })
+          this.text = nextText
+          if (value === undefined) this.values.delete(ref)
+          else this.values.set(ref, value)
+          // After the commit: a broken observer must never make the durable
+          // write look failed.
+          this.notifyUpdated(ref)
+        },
+        { waitMs: DOCUMENT_LOCK_WAIT_MS },
+      )
     })
   }
 
@@ -811,24 +832,28 @@ export class LocalCredentialProvider extends CredentialProvider {
    * @returns the document text this boot should parse.
    */
   private async migrateFlatDocument(): Promise<string> {
-    return withFileLock(this.spec.filename, async () => {
-      const current = await readFile(this.spec.filename, 'utf8')
-      const migrated = renderFlatLayoutMigration(current)
-      /* v8 ignore next 2 -- the losing side of the cross-process migration race:
+    return withFileLock(
+      this.spec.filename,
+      async () => {
+        const current = await readFile(this.spec.filename, 'utf8')
+        const migrated = renderFlatLayoutMigration(current)
+        /* v8 ignore next 2 -- the losing side of the cross-process migration race:
          another boot rewrote the document between the unlocked recognize and
          this lock. That interleaving cannot be scheduled deterministically
          through a whole boot (migration.spec drives it best-effort); the
          decision itself is the recognizer's covered versioned-document decline. */
-      if (migrated === undefined) return current
-      // 0600: a document holding secrets is never world-readable.
-      await writeFileAtomic(this.spec.filename, migrated, { mode: 0o600, dirMode: 0o700 })
-      this.ctx.logger.info(
-        'credentials-local: migrated %s to the version %d layout; values are unchanged',
-        this.spec.filename,
-        DOCUMENT_VERSION,
-      )
-      return migrated
-    }, { waitMs: DOCUMENT_LOCK_WAIT_MS })
+        if (migrated === undefined) return current
+        // 0600: a document holding secrets is never world-readable.
+        await writeFileAtomic(this.spec.filename, migrated, { mode: 0o600, dirMode: 0o700 })
+        this.ctx.logger.info(
+          'credentials-local: migrated %s to the version %d layout; values are unchanged',
+          this.spec.filename,
+          DOCUMENT_VERSION,
+        )
+        return migrated
+      },
+      { waitMs: DOCUMENT_LOCK_WAIT_MS },
+    )
   }
 
   /**
@@ -866,9 +891,10 @@ export class LocalCredentialProvider extends CredentialProvider {
       text = undefined
     }
     if (text === this.text || this.isClosed()) return
-    const next = text === undefined
-      ? { refs: new Map<string, string>(), records: new Map<string, CredentialRecord>(), ignoredKeys: [] }
-      : parseCredentialsDocument(text, this.spec.filename)
+    const next =
+      text === undefined
+        ? { refs: new Map<string, string>(), records: new Map<string, CredentialRecord>(), ignoredKeys: [] }
+        : parseCredentialsDocument(text, this.spec.filename)
     this.warnIgnoredKeys(next)
     const changedRefs = this.changedRefs(this.values, next.refs)
     const changedRecords = this.changedRecords(this.records, next.records)
@@ -900,10 +926,7 @@ export class LocalCredentialProvider extends CredentialProvider {
   }
 
   /** Records whose stored value changed; the parser has already proven every key addressable. */
-  private changedRecords(
-    prev: Map<string, CredentialRecord>,
-    next: Map<string, CredentialRecord>,
-  ): CredentialKey[] {
+  private changedRecords(prev: Map<string, CredentialRecord>, next: Map<string, CredentialRecord>): CredentialKey[] {
     const changed: CredentialKey[] = []
     for (const key of new Set([...prev.keys(), ...next.keys()])) {
       if (sameJsonValue(prev.get(key), next.get(key))) continue

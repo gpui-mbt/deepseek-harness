@@ -20,9 +20,7 @@ import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
 import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
 
-export type {
-  SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
-} from './types.ts'
+export type { SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace } from './types.ts'
 export { workspaceDomainState, workspaceRecord, workspaceDomainSpec } from './spec.ts'
 export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
 export { realpathNormalize } from './paths.ts'
@@ -49,7 +47,10 @@ export class WorkspaceUnknownSessionError extends Error {
    * @param sessionId - The unknown session id.
    * @param verb - The registry operation that named the session.
    */
-  constructor(readonly sessionId: SessionId, verb: 'archive' | 'pin') {
+  constructor(
+    readonly sessionId: SessionId,
+    verb: 'archive' | 'pin',
+  ) {
     super(`cannot ${verb} session '${sessionId}': live sessions and session persistence hold no such session`)
     this.name = 'WorkspaceUnknownSessionError'
   }
@@ -65,7 +66,10 @@ export class WorkspaceActiveSessionError extends Error {
    * @param sessionId - The active session id.
    * @param activity - The reported activity, in listener order.
    */
-  constructor(readonly sessionId: SessionId, readonly activity: readonly SessionActivity[]) {
+  constructor(
+    readonly sessionId: SessionId,
+    readonly activity: readonly SessionActivity[],
+  ) {
     super(`cannot archive session '${sessionId}': the session is active (${activity.map(entry => entry.kind).join(', ')})`)
     this.name = 'WorkspaceActiveSessionError'
   }
@@ -92,7 +96,6 @@ export class WorkspaceOrderInvalidError extends Error {
     this.name = 'WorkspaceOrderInvalidError'
   }
 }
-
 
 /** The session an archive request is about to write into the archive set. */
 export interface SessionActivityRequest {
@@ -261,8 +264,13 @@ export class WorkspaceRegistry extends Service {
       if (state.defaultWorkspaceId !== undefined) return this.entities.get(state.defaultWorkspaceId)
       const sessions = this.ctx.get('sessions')
       if (sessions === undefined) throw new Error('default Workspace initialization requires the Session store')
-      if (state.workspaceIds.length > 0 || state.archivedSessionIds.length > 0
-        || sessions.list().length > 0 || (await this.listStoredHeaders()).length > 0) return undefined
+      if (
+        state.workspaceIds.length > 0 ||
+        state.archivedSessionIds.length > 0 ||
+        sessions.list().length > 0 ||
+        (await this.listStoredHeaders()).length > 0
+      )
+        return undefined
 
       const path = await resolveDirectory()
       if (!fullyQualifiedWorkspacePath(path)) throw new TypeError(`Workspace path is not fully qualified: '${path}'`)
@@ -290,7 +298,7 @@ export class WorkspaceRegistry extends Service {
    * @returns a fresh ordered array of workspace entities.
    */
   list(): Workspace[] {
-    return this.requireState().workspaceIds.map((id) => {
+    return this.requireState().workspaceIds.map(id => {
       const entity = this.entities.get(id)
       if (entity === undefined) {
         throw new Error(`workspace registry order references missing workspace '${id}'`)
@@ -371,9 +379,7 @@ export class WorkspaceRegistry extends Service {
         throw new WorkspaceUnknownSessionError(sessionId, 'archive')
       }
       if (options.stopActivity !== true) {
-        const activity = await this.ctx.waterfall(
-          'workspace/session-activity', { sessionId }, () => Promise.resolve([]),
-        )
+        const activity = await this.ctx.waterfall('workspace/session-activity', { sessionId }, () => Promise.resolve([]))
         if (activity.length > 0) throw new WorkspaceActiveSessionError(sessionId, activity)
       }
       const state = this.requireState()
@@ -543,10 +549,7 @@ export class WorkspaceRegistry extends Service {
       try {
         await this.setState(state)
       } catch (rollbackError) {
-        throw new AggregateError(
-          [error, rollbackError],
-          `workspace '${id}' record write and pending-marker rollback both failed`,
-        )
+        throw new AggregateError([error, rollbackError], `workspace '${id}' record write and pending-marker rollback both failed`)
       }
       throw error
     }
@@ -572,10 +575,7 @@ export class WorkspaceRegistry extends Service {
       try {
         await this.setState(state)
       } catch (rollbackError) {
-        throw new AggregateError(
-          [error, rollbackError],
-          `workspace '${id}' order write and pending-marker rollback both failed`,
-        )
+        throw new AggregateError([error, rollbackError], `workspace '${id}' order write and pending-marker rollback both failed`)
       }
       throw error
     }
@@ -608,10 +608,7 @@ export class WorkspaceRegistry extends Service {
         // agree with that recoverable direction rather than republish a row
         // absent from the persisted order.
         this.entities.delete(id)
-        throw new AggregateError(
-          [error, rollbackError],
-          `workspace '${id}' record deletion and registry-order rollback both failed`,
-        )
+        throw new AggregateError([error, rollbackError], `workspace '${id}' record deletion and registry-order rollback both failed`)
       }
       throw error
     }
@@ -621,9 +618,7 @@ export class WorkspaceRegistry extends Service {
       // The deletion committed at the table write and was already published
       // to Host streams. Keep the durable marker for startup recovery rather
       // than reporting failure after the requested state became true.
-      this.ctx.logger.warn(
-        `workspace '${id}' was deleted but its pending marker could not be cleared: ${String(error)}`,
-      )
+      this.ctx.logger.warn(`workspace '${id}' was deleted but its pending marker could not be cleared: ${String(error)}`)
     }
     return true
   }
@@ -639,8 +634,8 @@ export class WorkspaceRegistry extends Service {
     if (pending === undefined) return
     if (state.workspaceIds.includes(pending.workspaceId)) {
       throw new Error(
-        `workspace domain is inconsistent: pending ${pending.operation} workspace `
-        + `'${pending.workspaceId}' is still present in registry order`,
+        `workspace domain is inconsistent: pending ${pending.operation} workspace ` +
+          `'${pending.workspaceId}' is still present in registry order`,
       )
     }
     await this.requireTable().delete(pending.workspaceId)
@@ -658,12 +653,13 @@ export class WorkspaceRegistry extends Service {
       if (group === undefined) groupsByPath.set(path, [header])
       else group.push(header)
     }
-    const groups: BootstrapGroup[] = [...groupsByPath].map(([path, groupHeaders]) => {
-      groupHeaders.sort(compareHeaders)
-      const newest = groupHeaders[0] as SessionHeader
-      return { path, headers: groupHeaders, newestAt: newest.createdAt }
-    }).sort((left, right) =>
-      right.newestAt - left.newestAt || left.path.localeCompare(right.path))
+    const groups: BootstrapGroup[] = [...groupsByPath]
+      .map(([path, groupHeaders]) => {
+        groupHeaders.sort(compareHeaders)
+        const newest = groupHeaders[0] as SessionHeader
+        return { path, headers: groupHeaders, newestAt: newest.createdAt }
+      })
+      .sort((left, right) => right.newestAt - left.newestAt || left.path.localeCompare(right.path))
 
     const byPath = new Map<string, WorkspaceId>()
     const accounted = new Map<SessionId, WorkspaceId>()
@@ -675,9 +671,7 @@ export class WorkspaceRegistry extends Service {
     for (const group of groups) {
       let id = byPath.get(group.path)
       if (id === undefined) {
-        const sessionIds = group.headers
-          .map(header => header.id)
-          .filter(sessionId => !accounted.has(sessionId))
+        const sessionIds = group.headers.map(header => header.id).filter(sessionId => !accounted.has(sessionId))
         if (sessionIds.length === 0) continue
         id = WorkspaceId(randomUUID())
         const createdAt = new Date(group.newestAt).toISOString()
@@ -699,10 +693,7 @@ export class WorkspaceRegistry extends Service {
         .map(header => header.id)
         .filter(sessionId => accounted.get(sessionId) === undefined || accounted.get(sessionId) === id)
       const historicalSet = new Set(historical)
-      const sessionIds = [
-        ...historical,
-        ...current.sessionIds.filter(sessionId => !historicalSet.has(sessionId)),
-      ]
+      const sessionIds = [...historical, ...current.sessionIds.filter(sessionId => !historicalSet.has(sessionId))]
       if (sameSessionIds(current.sessionIds, sessionIds)) continue
       await table.update(id, record => ({
         ...record,
@@ -718,10 +709,11 @@ export class WorkspaceRegistry extends Service {
       .sort(([leftId, left], [rightId, right]) => {
         const leftTime = groupRank.get(left.path) ?? Date.parse(left.createdAt)
         const rightTime = groupRank.get(right.path) ?? Date.parse(right.createdAt)
-        return rightTime - leftTime
-          || (priorRank.get(leftId) ?? Number.MAX_SAFE_INTEGER)
-            - (priorRank.get(rightId) ?? Number.MAX_SAFE_INTEGER)
-          || String(leftId).localeCompare(String(rightId))
+        return (
+          rightTime - leftTime ||
+          (priorRank.get(leftId) ?? Number.MAX_SAFE_INTEGER) - (priorRank.get(rightId) ?? Number.MAX_SAFE_INTEGER) ||
+          String(leftId).localeCompare(String(rightId))
+        )
       })
       .map(([id]) => id)
 
@@ -755,9 +747,7 @@ export class WorkspaceRegistry extends Service {
     }
     if (state.initialized && order.size !== table.size) {
       const orphan = [...table.keys()].find(id => !order.has(id))
-      throw new Error(
-        `workspace domain is inconsistent: workspace '${orphan as WorkspaceId}' is absent from registry order`,
-      )
+      throw new Error(`workspace domain is inconsistent: workspace '${orphan as WorkspaceId}' is absent from registry order`)
     }
 
     const paths = new Map<string, WorkspaceId>()
@@ -766,8 +756,7 @@ export class WorkspaceRegistry extends Service {
       const pathHolder = paths.get(record.path)
       if (pathHolder !== undefined) {
         throw new Error(
-          `workspace domain is inconsistent: path '${record.path}' is claimed `
-          + `by both workspace '${pathHolder}' and workspace '${id}'`,
+          `workspace domain is inconsistent: path '${record.path}' is claimed ` + `by both workspace '${pathHolder}' and workspace '${id}'`,
         )
       }
       paths.set(record.path, id)
@@ -775,8 +764,8 @@ export class WorkspaceRegistry extends Service {
         const holder = accounted.get(sessionId)
         if (holder !== undefined) {
           throw new Error(
-            `workspace domain is inconsistent: session '${sessionId}' is accounted `
-            + `by both workspace '${holder}' and workspace '${id}'`,
+            `workspace domain is inconsistent: session '${sessionId}' is accounted ` +
+              `by both workspace '${holder}' and workspace '${id}'`,
           )
         }
         accounted.set(sessionId, id)
@@ -821,8 +810,7 @@ export class WorkspaceRegistry extends Service {
       this.sessionPaths.set(header.id, path)
       this.invalidSessionPaths.delete(header.id)
     } catch (error) {
-      if (fullyQualifiedWorkspacePath(header.cwd)
-        && error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      if (fullyQualifiedWorkspacePath(header.cwd) && error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         this.missingSessionPaths.add(header.id)
       }
       this.invalidSessionPaths.set(header.id, `cwd '${header.cwd}' does not resolve`)
@@ -847,13 +835,12 @@ export class WorkspaceRegistry extends Service {
       for (const sessionId of record.sessionIds) {
         if (this.host.candidateMatches(sessionId, record.path)) continue
         const path = this.sessionPaths.get(sessionId)
-        const reason = this.invalidSessionPaths.get(sessionId)
-          ?? (this.headers.has(sessionId)
+        const reason =
+          this.invalidSessionPaths.get(sessionId) ??
+          (this.headers.has(sessionId)
             ? `canonical cwd '${path}' differs from workspace path '${record.path}'`
             : 'session header is missing')
-        this.ctx.logger.warn(
-          `workspace '${entity.id}' filtered session '${sessionId}' from membership: ${reason}`,
-        )
+        this.ctx.logger.warn(`workspace '${entity.id}' filtered session '${sessionId}' from membership: ${reason}`)
       }
     }
   }
@@ -898,7 +885,10 @@ export class WorkspaceRegistry extends Service {
       await this.recoverPendingMutation()
       return await operation()
     })
-    this.operationTail = result.then(() => {}, () => {})
+    this.operationTail = result.then(
+      () => {},
+      () => {},
+    )
     return result
   }
 }

@@ -22,7 +22,8 @@ const EVENT_OUTPUT = {
 } as const
 /* jscpd:ignore-end */
 const SUBTREE_OUTPUT = {
-  description: 'Compact topology trees. An exact Slot includes its catalog and occupants; an exact Factory includes identity, scope, and registrant.',
+  description:
+    'Compact topology trees. An exact Slot includes its catalog and occupants; an exact Factory includes identity, scope, and registrant.',
 } as const
 const SUBTREE_INPUT = {
   type: 'object',
@@ -54,7 +55,7 @@ export const CLIENT_BUILTIN_INSPECTION: readonly JsonValue[] = [
   },
   {
     name: 'host',
-    description: 'Package-private JSON RPC from Client to this Package\'s Host half.',
+    description: "Package-private JSON RPC from Client to this Package's Host half.",
     signatures: ['host.call(method: string, args?: JsonValue): Promise<JsonValue>'],
   },
   {
@@ -100,25 +101,27 @@ export function clientInspectProviders(ctx: Context): ClientCordisInspectProvide
       manifest: {
         id: 'Slots',
         description: 'Progressive live Slot inspection with explicit Slot and Factory topology nodes.',
-        methods: [{
-          name: 'listSubTree',
-          description: 'Return compact live Slot and Factory trees, plus available detail for one exact root.',
-          inputSchema: SUBTREE_INPUT,
-          outputSchema: SUBTREE_OUTPUT,
-        }],
+        methods: [
+          {
+            name: 'listSubTree',
+            description: 'Return compact live Slot and Factory trees, plus available detail for one exact root.',
+            inputSchema: SUBTREE_INPUT,
+            outputSchema: SUBTREE_OUTPUT,
+          },
+        ],
       },
       query(method, input) {
         if (method !== 'listSubTree') throw new Error(`unknown Slots inspect method "${method}"`)
         const slots = ctx.get('slots')
         if (slots === undefined) throw new Error('Client Slots service is not running')
-        const root = typeof input === 'object' && input !== null && !Array.isArray(input)
-          && typeof input.root === 'string' ? input.root : undefined
+        const root =
+          typeof input === 'object' && input !== null && !Array.isArray(input) && typeof input.root === 'string' ? input.root : undefined
         const trees = slots.snapshot(root)
         const selected = trees[0]
         return Promise.resolve({
-          ...root === undefined ? {} : { requestedRoot: { name: root, available: trees.length > 0 } },
+          ...(root === undefined ? {} : { requestedRoot: { name: root, available: trees.length > 0 } }),
           trees: trees.map(compactSlotTree),
-          ...root === undefined || selected === undefined ? {} : { selected: inspectLiveSlot(selected) },
+          ...(root === undefined || selected === undefined ? {} : { selected: inspectLiveSlot(selected) }),
           referencedTypes: [],
         })
       },
@@ -144,12 +147,14 @@ function registration(
     manifest: {
       id,
       description,
-      methods: [{
-        name: method,
-        description,
-        inputSchema,
-        outputSchema,
-      }],
+      methods: [
+        {
+          name: method,
+          description,
+          inputSchema,
+          outputSchema,
+        },
+      ],
     },
     async query(requested, input) {
       if (requested !== method) throw new Error(`unknown ${id} inspect method "${requested}"`)
@@ -172,17 +177,25 @@ function readExact(input: JsonValue | undefined, field: string): string | undefi
 type LiveCompositionNode = ReturnType<SlotRegistry['snapshot']>[number]
 
 const SLOT_CATALOG = new Map(CLIENT_SLOT_API.map(entry => [entry.key, entry]))
-const GUARDED_SLOT_KEYS = new Map<string, {
-  description: string
-  values: readonly { value: string; description: string }[]
-}>([
-  ['tool.view.cordis', {
-    description: 'fixed by the dynamic Client Guard',
-    values: [{
-      value: 'self',
-      description: 'The only accepted key. The Guard binds it to this Package\'s pluginId and packageId.',
-    }],
-  }],
+const GUARDED_SLOT_KEYS = new Map<
+  string,
+  {
+    description: string
+    values: readonly { value: string; description: string }[]
+  }
+>([
+  [
+    'tool.view.cordis',
+    {
+      description: 'fixed by the dynamic Client Guard',
+      values: [
+        {
+          value: 'self',
+          description: "The only accepted key. The Guard binds it to this Package's pluginId and packageId.",
+        },
+      ],
+    },
+  ],
 ])
 
 function compactSlotTree(node: LiveCompositionNode): JsonValue {
@@ -201,21 +214,27 @@ function compactSlotTree(node: LiveCompositionNode): JsonValue {
     name: node.name,
     kind: node.kind,
     scope: node.scope,
-    ...catalog === undefined ? {} : {
-      purpose: catalog.summary,
-      replaceRisk: catalog.replaceRisk,
-      ...catalog.registerOptions.length === 0 ? {} : {
-        registration: catalog.registerOptions.map(option => ({
-          name: option.name,
-          type: option.type,
-          required: option.requirement === 'required',
-        })),
-      },
-      ...catalog.keyDomain === '' ? {} : {
-        keyDomain: guardedKeys?.description ?? catalog.keyDomain,
-        ...guardedKeys === undefined ? {} : { allowedKeys: guardedKeys.values.map(value => ({ ...value })) },
-      },
-    },
+    ...(catalog === undefined
+      ? {}
+      : {
+          purpose: catalog.summary,
+          replaceRisk: catalog.replaceRisk,
+          ...(catalog.registerOptions.length === 0
+            ? {}
+            : {
+                registration: catalog.registerOptions.map(option => ({
+                  name: option.name,
+                  type: option.type,
+                  required: option.requirement === 'required',
+                })),
+              }),
+          ...(catalog.keyDomain === ''
+            ? {}
+            : {
+                keyDomain: guardedKeys?.description ?? catalog.keyDomain,
+                ...(guardedKeys === undefined ? {} : { allowedKeys: guardedKeys.values.map(value => ({ ...value })) }),
+              }),
+        }),
     children: node.children.map(compactSlotTree),
   }
 }
@@ -226,7 +245,7 @@ function inspectLiveSlot(node: LiveCompositionNode): JsonValue {
       type: node.type,
       name: node.name,
       scope: node.scope,
-      ...node.registrant === undefined ? {} : { registrant: node.registrant },
+      ...(node.registrant === undefined ? {} : { registrant: node.registrant }),
     }
   }
   const catalog = SLOT_CATALOG.get(node.name)
@@ -235,9 +254,9 @@ function inspectLiveSlot(node: LiveCompositionNode): JsonValue {
     name: node.name,
     kind: node.kind,
     scope: node.scope,
-    ...node.declaredBy === undefined ? {} : { declaredBy: node.declaredBy },
+    ...(node.declaredBy === undefined ? {} : { declaredBy: node.declaredBy }),
     occupants: node.occupants.map(occupant => ({ ...occupant })),
-    ...catalog === undefined ? {} : { catalog: inspectSlotCatalog(catalog) },
+    ...(catalog === undefined ? {} : { catalog: inspectSlotCatalog(catalog) }),
   }
 }
 
@@ -255,7 +274,7 @@ function inspectSlotCatalog(entry: ClientSlotEntry): JsonValue {
     ownerPropsReferences: [...entry.ownerPropsReferences],
     standardProps: [...entry.standardProps],
     keyDomain: guardedKeys?.description ?? entry.keyDomain,
-    ...guardedKeys === undefined ? {} : { allowedKeys: guardedKeys.values.map(value => ({ ...value })) },
+    ...(guardedKeys === undefined ? {} : { allowedKeys: guardedKeys.values.map(value => ({ ...value })) }),
     hookContext: entry.hookContext,
     slotInject: entry.slotInject,
     replaceRisk: entry.replaceRisk,

@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apply, type Config } from '../src/index.ts'
 
 const contexts: Context[] = []
@@ -47,7 +47,9 @@ describe('GitHub webhook plugin config', () => {
     [{ ...valid, secretEnv: 'not valid' }, /credential ref/],
   ] as const)('rejects invalid config %# before route registration', (config, message) => {
     const test = harness()
-    expect(() => { apply(test.ctx, config) }).toThrow(message)
+    expect(() => {
+      apply(test.ctx, config)
+    }).toThrow(message)
     expect(test.register).not.toHaveBeenCalled()
   })
 })

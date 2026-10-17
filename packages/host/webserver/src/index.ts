@@ -113,11 +113,7 @@ interface ResolvedConfig extends Config {
   compressionThresholdBytes: number
 }
 
-type NodeMiddleware = (
-  req: IncomingMessage,
-  res: ServerResponse,
-  next: () => void,
-) => void
+type NodeMiddleware = (req: IncomingMessage, res: ServerResponse, next: () => void) => void
 
 /** Dotted-quad tail of the IPv6 mixed notation: `::0.0.0.1`, `1:2:3:4:5:6:127.0.0.1`. */
 const IPV4_TAIL = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
@@ -277,20 +273,26 @@ async function readTlsFile(field: 'certFile' | 'keyFile', path: string): Promise
  */
 export class WebServer extends Service {
   static Config: z<Config> = z.object({
-    host: z.transform(z.string(), (value) => {
-      const parsed = parseIpLiteral(value)
-      if (parsed === undefined) throw notLiteralError(value)
-      if (isWildcardAddress(parsed)) {
-        throw new Error(`webserver: host ${JSON.stringify(value)} is an unspecified (wildcard) address, which is not supported: binding every interface would expose remote code execution to the network; bind one concrete IPv4 or IPv6 address of a local interface instead`)
-      }
-      return value
-    }).required(),
+    host: z
+      .transform(z.string(), value => {
+        const parsed = parseIpLiteral(value)
+        if (parsed === undefined) throw notLiteralError(value)
+        if (isWildcardAddress(parsed)) {
+          throw new Error(
+            `webserver: host ${JSON.stringify(value)} is an unspecified (wildcard) address, which is not supported: binding every interface would expose remote code execution to the network; bind one concrete IPv4 or IPv6 address of a local interface instead`,
+          )
+        }
+        return value
+      })
+      .required(),
     port: z.natural().max(65535).required(),
     // An omitted object must not become `{}` and fail the required pair fields.
-    tls: z.object({
-      certFile: z.string().required(),
-      keyFile: z.string().required(),
-    }).default(undefined as never),
+    tls: z
+      .object({
+        certFile: z.string().required(),
+        keyFile: z.string().required(),
+      })
+      .default(undefined as never),
     compression: z.union([z.const('none'), z.const('gzip')]).default(DEFAULT_COMPRESSION),
     compressionLevel: z.number().step(1).min(0).max(9).default(DEFAULT_COMPRESSION_LEVEL),
     compressionThresholdBytes: z.natural().default(DEFAULT_COMPRESSION_THRESHOLD_BYTES),
@@ -315,7 +317,10 @@ export class WebServer extends Service {
   private readonly gzip: NodeMiddleware | undefined
   private readonly tlsConfig: TlsConfig | undefined
 
-  constructor(ctx: Context, private config: Config) {
+  constructor(
+    ctx: Context,
+    private config: Config,
+  ) {
     super(ctx, 'webServer')
     const resolved = config as ResolvedConfig
     // Schemastery passes an explicit `tls: null` through; only a real object serves TLS.
@@ -369,7 +374,9 @@ export class WebServer extends Service {
       throw new Error(`webserver: duplicate ${route.kind} route "${route.path}"`)
     }
     table.set(route.path, route)
-    return () => { table.delete(route.path) }
+    return () => {
+      table.delete(route.path)
+    }
   }
 
   /**
@@ -383,7 +390,9 @@ export class WebServer extends Service {
       throw new Error(`webserver: duplicate upgrade route "${route.path}"`)
     }
     this.upgrades.set(route.path, route)
-    return () => { this.upgrades.delete(route.path) }
+    return () => {
+      this.upgrades.delete(route.path)
+    }
   }
 
   /**
@@ -399,7 +408,9 @@ export class WebServer extends Service {
       throw new Error('webserver: fallback already registered')
     }
     this.fallback = handler
-    return () => { this.fallback = undefined }
+    return () => {
+      this.fallback = undefined
+    }
   }
 
   /**
@@ -463,18 +474,19 @@ export class WebServer extends Service {
       } else {
         const certFile = resolve(tls.certFile)
         const keyFile = resolve(tls.keyFile)
-        const [cert, key] = await Promise.all([
-          readTlsFile('certFile', certFile),
-          readTlsFile('keyFile', keyFile),
-        ])
+        const [cert, key] = await Promise.all([readTlsFile('certFile', certFile), readTlsFile('keyFile', keyFile)])
         try {
           this.server = createSecureServer({ cert, key }, listener)
         } catch (error) {
-          throw new Error(`webserver: tls.certFile ${certFile} and tls.keyFile ${keyFile} are not a usable certificate and key pair: ${error instanceof Error ? error.message : String(error)}`)
+          throw new Error(
+            `webserver: tls.certFile ${certFile} and tls.keyFile ${keyFile} are not a usable certificate and key pair: ${error instanceof Error ? error.message : String(error)}`,
+          )
         }
-        this.server.on('connection', (socket) => {
+        this.server.on('connection', socket => {
           this.tlsConnections.add(socket)
-          socket.once('close', () => { this.tlsConnections.delete(socket) })
+          socket.once('close', () => {
+            this.tlsConnections.delete(socket)
+          })
         })
       }
       this.server.on('upgrade', (req, socket, head) => {
@@ -516,7 +528,9 @@ export class WebServer extends Service {
         this.server.once('error', reject)
         this.server.listen(this.config.port, this.config.host, () => {
           this.server.off('error', reject)
-          this.server.on('error', (err) => { this.ctx.logger.error(err) })
+          this.server.on('error', err => {
+            this.ctx.logger.error(err)
+          })
           this.listenedPort = (this.server.address() as AddressInfo).port
           resolve()
         })
@@ -526,14 +540,21 @@ export class WebServer extends Service {
       // connection joins that table only after its handshake. The service owns both
       // kinds with the other connections, so it tracks and destroys them explicitly.
       return async () => {
-        const serverClosed = new Promise<void>((resolve) => {
-          this.server.close(() => { resolve() })
+        const serverClosed = new Promise<void>(resolve => {
+          this.server.close(() => {
+            resolve()
+          })
         })
         this.server.closeAllConnections()
-        const socketsClosed = [...this.upgradedSockets, ...this.tlsConnections].map(socket => new Promise<void>((resolve) => {
-          socket.once('close', () => { resolve() })
-          socket.destroy()
-        }))
+        const socketsClosed = [...this.upgradedSockets, ...this.tlsConnections].map(
+          socket =>
+            new Promise<void>(resolve => {
+              socket.once('close', () => {
+                resolve()
+              })
+              socket.destroy()
+            }),
+        )
         await Promise.all([serverClosed, ...socketsClosed])
       }
     }, 'webServer.listen')

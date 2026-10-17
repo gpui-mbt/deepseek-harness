@@ -52,7 +52,10 @@ export class DesktopMandatoryUpdateWindow {
   private readonly embedded = process.platform === 'win32'
   private embeddedParent: BrowserWindow | undefined
   private embeddedBlocking = false
-  private readonly publishEmbedded = (): void => { this.embeddedBlocking = false; this.sync() }
+  private readonly publishEmbedded = (): void => {
+    this.embeddedBlocking = false
+    this.sync()
+  }
   private window: BrowserWindow | undefined
   private closing: ReturnType<typeof setTimeout> | undefined
   private disposed = false
@@ -72,12 +75,17 @@ export class DesktopMandatoryUpdateWindow {
     this.attention = new DesktopUpdateAttention(options.locale)
     this.embeddedParent = this.embedded ? options.parent() : undefined
     this.embeddedParent?.webContents.on('did-finish-load', this.publishEmbedded)
-    ipcMain.handle(MANDATORY_IPC.status, (event) => { this.assertSender(event); return this.view() })
+    ipcMain.handle(MANDATORY_IPC.status, event => {
+      this.assertSender(event)
+      return this.view()
+    })
     ipcMain.handle(MANDATORY_IPC.action, (event, action: unknown, version: unknown, confirmationRevision: unknown) => {
       this.assertSender(event)
       if (!this.options.policy().blocking) throw new Error('desktop policy: no mandatory decision is active')
-      if (typeof action !== 'string' || !['refresh', 'download', 'install', 'later', 'page', 'copy'].includes(action)) throw new Error('desktop policy: invalid action')
-      if (['download', 'install', 'later'].includes(action) && typeof version !== 'string') throw new Error('desktop policy: missing confirmed version')
+      if (typeof action !== 'string' || !['refresh', 'download', 'install', 'later', 'page', 'copy'].includes(action))
+        throw new Error('desktop policy: invalid action')
+      if (['download', 'install', 'later'].includes(action) && typeof version !== 'string')
+        throw new Error('desktop policy: missing confirmed version')
       if (action === 'page' || action === 'copy') return this.navigate(action)
       if (this.confirmation !== undefined && (action === 'install' || action === 'later')) {
         if (version !== this.confirmation.version || confirmationRevision !== this.confirmation.revision) {
@@ -90,27 +98,41 @@ export class DesktopMandatoryUpdateWindow {
         return Promise.resolve()
       }
       if (action === 'later') throw new Error('desktop policy: no installation confirmation')
-      this.action ??= Promise.resolve().then(async () => {
-        this.error = undefined
-        this.restart = undefined
-        this.deferred = false
-        this.clearNavigation()
-        if (action === 'download') this.attention.reset()
-        this.sync()
-        switch (action) {
-          case 'refresh': await this.options.refresh(); break
-          case 'download': await this.options.download(version as string); break
-          case 'install': await this.options.install(version as string); break
-        }
-      }).catch(() => {
-        this.error = this.options.locale.messages.mandatoryActionFailed
-      }).finally(() => { this.action = undefined; this.sync() })
+      this.action ??= Promise.resolve()
+        .then(async () => {
+          this.error = undefined
+          this.restart = undefined
+          this.deferred = false
+          this.clearNavigation()
+          if (action === 'download') this.attention.reset()
+          this.sync()
+          switch (action) {
+            case 'refresh':
+              await this.options.refresh()
+              break
+            case 'download':
+              await this.options.download(version as string)
+              break
+            case 'install':
+              await this.options.install(version as string)
+              break
+          }
+        })
+        .catch(() => {
+          this.error = this.options.locale.messages.mandatoryActionFailed
+        })
+        .finally(() => {
+          this.action = undefined
+          this.sync()
+        })
       return this.action
     })
   }
 
   /** Active modal used as the owner of shell installation-confirmation dialogs. */
-  get confirmationWindow(): BrowserWindow | undefined { return this.embedded ? this.options.parent() : this.window }
+  get confirmationWindow(): BrowserWindow | undefined {
+    return this.embedded ? this.options.parent() : this.window
+  }
 
   /**
    * @param version - Updater-owned target, already downloaded and verified.
@@ -122,7 +144,7 @@ export class DesktopMandatoryUpdateWindow {
     this.finishConfirmation(false)
     this.deferred = false
     this.restart = undefined
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.confirmation = { version, active, revision: ++this.confirmationRevision, resolve }
       this.sync()
       const parent = this.options.parent()
@@ -194,15 +216,25 @@ export class DesktopMandatoryUpdateWindow {
       const window = this.options.overlays.create(parent, this.options.preload, this.options.locale.messages.mandatoryTitle, false)
       this.window = window
       window.setMenu(null)
-      window.on('close', (event) => { if (!this.disposed && this.options.policy().blocking) { event.preventDefault(); app.quit() } })
-      window.on('closed', () => { if (this.window === window) this.window = undefined })
+      window.on('close', event => {
+        if (!this.disposed && this.options.policy().blocking) {
+          event.preventDefault()
+          app.quit()
+        }
+      })
+      window.on('closed', () => {
+        if (this.window === window) this.window = undefined
+      })
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-      window.webContents.on('will-navigate', (event, url) => { if (url !== page) event.preventDefault() })
+      window.webContents.on('will-navigate', (event, url) => {
+        if (url !== page) event.preventDefault()
+      })
       window.webContents.on('render-process-gone', () => {
-        if (!this.disposed) void window.loadURL(page).catch(() => {
-          // A failed recovery keeps the parent blocked and leaves application exit available.
-          if (!window.isDestroyed()) window.setTitle(this.options.locale.messages.mandatoryActionFailed)
-        })
+        if (!this.disposed)
+          void window.loadURL(page).catch(() => {
+            // A failed recovery keeps the parent blocked and leaves application exit available.
+            if (!window.isDestroyed()) window.setTitle(this.options.locale.messages.mandatoryActionFailed)
+          })
       })
       void window.loadURL(page).catch(() => {
         // The parent stays modal-blocked if its dedicated recovery document cannot load.
@@ -243,17 +275,25 @@ export class DesktopMandatoryUpdateWindow {
   }
 
   private view(): MandatoryUpdateView {
-    const locale = process.platform === 'win32'
-      ? { ...this.options.locale, messages: { ...this.options.locale.messages,
-        mandatoryReadyDetail: this.options.locale.messages.updateDownloadedDetailWindows } }
-      : this.options.locale
-    return { locale, policy: this.options.policy(), update: this.options.update(),
+    const locale =
+      process.platform === 'win32'
+        ? {
+            ...this.options.locale,
+            messages: { ...this.options.locale.messages, mandatoryReadyDetail: this.options.locale.messages.updateDownloadedDetailWindows },
+          }
+        : this.options.locale
+    return {
+      locale,
+      policy: this.options.policy(),
+      update: this.options.update(),
       deferred: this.deferred,
-      ...(this.confirmation === undefined ? {}
+      ...(this.confirmation === undefined
+        ? {}
         : { confirmation: { version: this.confirmation.version, active: this.confirmation.active, revision: this.confirmation.revision } }),
       ...(this.restart === undefined ? {} : { restart: this.restart }),
       ...(this.navigation === undefined ? {} : { navigation: this.navigation }),
-      ...(this.error === undefined ? {} : { error: this.error }) }
+      ...(this.error === undefined ? {} : { error: this.error }),
+    }
   }
 
   private finishConfirmation(approved: boolean): void {
@@ -283,15 +323,14 @@ export class DesktopMandatoryUpdateWindow {
     try {
       if (action === 'copy') {
         await clipboard.writeText(url)
-        if (await clipboard.readText() !== url) throw new Error('desktop policy: clipboard did not retain download address')
-      }
-      else await shell.openExternal(url)
+        if ((await clipboard.readText()) !== url) throw new Error('desktop policy: clipboard did not retain download address')
+      } else await shell.openExternal(url)
       if (epoch !== this.navigationEpoch || this.disposed) return
       if (action === 'copy') this.navigation = { page: this.navigation?.page ?? 'requested', copy: 'copied' }
     } catch {
       if (epoch !== this.navigationEpoch || this.disposed) return
-      this.navigation = action === 'page' ? { ...this.navigation, page: 'failed' }
-        : { page: this.navigation?.page ?? 'requested', copy: 'failed' }
+      this.navigation =
+        action === 'page' ? { ...this.navigation, page: 'failed' } : { page: this.navigation?.page ?? 'requested', copy: 'failed' }
     }
     this.sync()
   }
@@ -299,14 +338,22 @@ export class DesktopMandatoryUpdateWindow {
   private assertSender(event: IpcMainInvokeEvent): void {
     if (this.embedded) {
       const parent = this.options.parent()
-      if (parent === undefined || parent.isDestroyed() || event.sender !== parent.webContents
-        || event.senderFrame !== parent.webContents.mainFrame) {
+      if (
+        parent === undefined ||
+        parent.isDestroyed() ||
+        event.sender !== parent.webContents ||
+        event.senderFrame !== parent.webContents.mainFrame
+      ) {
         throw new Error('desktop policy: rejected unowned renderer')
       }
       assertDesktopSender(event, ['app'])
       return
     }
-    if (event.sender !== this.window?.webContents || event.senderFrame !== this.window.webContents.mainFrame
-      || event.senderFrame.url !== page) throw new Error('desktop policy: rejected unowned renderer')
+    if (
+      event.sender !== this.window?.webContents ||
+      event.senderFrame !== this.window.webContents.mainFrame ||
+      event.senderFrame.url !== page
+    )
+      throw new Error('desktop policy: rejected unowned renderer')
   }
 }

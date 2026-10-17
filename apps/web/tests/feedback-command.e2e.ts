@@ -9,11 +9,18 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureExpandedTurnProcessAria, captureStableAria,
-  compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureExpandedTurnProcessAria,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -70,35 +77,33 @@ describe('web e2e: /feedback command acknowledgement', () => {
     }
   }, 60_000)
 
-  it.skipIf(MODE === 'record')('records feedback and renders the acknowledgement with session and anonymous user ids', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-feedback-command'))
-    // The drive test settled the recorded turn: the transcript is active (a
-    // command row does not render while a fresh session is still blank) and
-    // the replayed reply is on screen.
-    await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
-    const input = page.locator('[data-composer-input]').first()
-    await input.fill('/feedback the diff view is unreadable')
-    await input.press('Enter')
-    await page.getByText(/Feedback recorded for session/).waitFor({ timeout: 10_000 })
-    expect(await page.getByText(/Anonymous user: [0-9a-f-]+\.$/i).count()).toBe(1)
-    await expect.poll(() => input.textContent(), { timeout: 10_000 }).toBe('')
-    await expect.poll(() => page.getByRole('button', { name: 'Add files or run commands' }).isEnabled(), { timeout: 10_000 }).toBe(true)
-    const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(ACK_EXPECTED, snapshot, MODE)
-    const expanded = await captureExpandedTurnProcessAria(
-      page,
-      '[class*="centerCol"]',
-      scaffold.workspaceCwd,
-    )
-    await compareOrRefreshGolden(ACK_EXPANDED_EXPECTED, expanded, MODE)
+  it.skipIf(MODE === 'record')(
+    'records feedback and renders the acknowledgement with session and anonymous user ids',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-feedback-command'))
+      // The drive test settled the recorded turn: the transcript is active (a
+      // command row does not render while a fresh session is still blank) and
+      // the replayed reply is on screen.
+      await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
+      const input = page.locator('[data-composer-input]').first()
+      await input.fill('/feedback the diff view is unreadable')
+      await input.press('Enter')
+      await page.getByText(/Feedback recorded for session/).waitFor({ timeout: 10_000 })
+      expect(await page.getByText(/Anonymous user: [0-9a-f-]+\.$/i).count()).toBe(1)
+      await expect.poll(() => input.textContent(), { timeout: 10_000 }).toBe('')
+      await expect.poll(() => page.getByRole('button', { name: 'Add files or run commands' }).isEnabled(), { timeout: 10_000 }).toBe(true)
+      const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
+      await compareOrRefreshGolden(ACK_EXPECTED, snapshot, MODE)
+      const expanded = await captureExpandedTurnProcessAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
+      await compareOrRefreshGolden(ACK_EXPANDED_EXPECTED, expanded, MODE)
 
-    expect(tripwire.pageErrors).toEqual([])
-    expect(tripwire.warnings).toEqual([])
-  }, 60_000)
+      expect(tripwire.pageErrors).toEqual([])
+      expect(tripwire.warnings).toEqual([])
+    },
+    60_000,
+  )
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.v3.jsonl', 'ack.expected.md', 'ack-expanded.expected.md',
-    ])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['session.v3.jsonl', 'ack.expected.md', 'ack-expanded.expected.md'])
   })
 })

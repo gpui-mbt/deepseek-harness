@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 /** Parent result delivery independent of a local child's messaging tool. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -12,7 +12,7 @@ import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent
 import SubagentRuntime from '../src/index.ts'
 import { mountLocalActivations } from './local-activation.ts'
 
-it.each(['absent', 'unused'] as const)('returns the closing answer when send_message is %s', async (availability) => {
+it.each(['absent', 'unused'] as const)('returns the closing answer when send_message is %s', async availability => {
   const ctx = new Context()
   await mountLocalActivations(ctx)
   await mountAgentLoopTestDependencies(ctx)
@@ -25,9 +25,13 @@ it.each(['absent', 'unused'] as const)('returns the closing answer when send_mes
   ctx.llm.registerAdapter(['mock'], adapter)
   const parent = await ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
   const activation = await ctx.subagents.startActivation({
-    provider: 'spawn', label: 'Compute the answer', delivery: 'parent', signal: new AbortController().signal,
+    provider: 'spawn',
+    label: 'Compute the answer',
+    delivery: 'parent',
+    signal: new AbortController().signal,
     request: {
-      parent, prompt: [{ type: 'text', text: 'Find the answer.' }],
+      parent,
+      prompt: [{ type: 'text', text: 'Find the answer.' }],
     },
   })
   try {
@@ -59,9 +63,13 @@ it('delivers structured output to the parent when the child has send_message', a
   ctx.llm.registerAdapter(['mock'], adapter)
   const parent = await ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
   const activation = await ctx.subagents.startActivation({
-    provider: 'spawn', label: 'Compute the answer', delivery: 'parent', signal: new AbortController().signal,
+    provider: 'spawn',
+    label: 'Compute the answer',
+    delivery: 'parent',
+    signal: new AbortController().signal,
     request: {
-      parent, prompt: [{ type: 'text', text: 'Find the answer.' }],
+      parent,
+      prompt: [{ type: 'text', text: 'Find the answer.' }],
       outputSchema: { type: 'object', properties: { answer: { type: 'number' } }, required: ['answer'] },
     },
   })

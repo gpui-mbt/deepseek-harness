@@ -1,7 +1,7 @@
 import { chmod, mkdir, mkdtemp, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { resolvePrimaryRuntime } from '../packages/skill/tool-workspace-dependencies/src/index.ts'
 import { syncPythonRuntimeProduct } from './build-exe-for-python-sdk-resources.ts'
 
@@ -26,9 +26,16 @@ it.skipIf(process.platform === 'win32')('keeps SDK Python resources usable after
   const bin = 'primary-runtime/dependencies/python/bin'
   await mkdir(join(source, bin), { recursive: true })
   await mkdir(join(source, 'primary-runtime/dependencies/python/lib/python3.12/site-packages'), { recursive: true })
-  await writeFile(join(source, 'primary-runtime/runtime.json'), JSON.stringify({
-    desktopVersion: '1', platform: process.platform, arch: process.arch, python: '3.12.14', pythonPackages: {},
-  }))
+  await writeFile(
+    join(source, 'primary-runtime/runtime.json'),
+    JSON.stringify({
+      desktopVersion: '1',
+      platform: process.platform,
+      arch: process.arch,
+      python: '3.12.14',
+      pythonPackages: {},
+    }),
+  )
   await writeFile(join(source, bin, 'python3.12'), 'interpreter')
   for (const alias of ['python', 'python3']) await symlink('python3.12', join(source, bin, alias))
   await mkdir(destination, { recursive: true })

@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 /** Inspector iframe keyboard listeners follow document loads and the effective command binding. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
 import { bindInspectorKeyboard } from '../src/client/bottom/keyboard.ts'
 
-afterEach(() => { document.body.replaceChildren(); vi.restoreAllMocks() })
+afterEach(() => {
+  document.body.replaceChildren()
+  vi.restoreAllMocks()
+})
 
 function key(options: KeyboardEventInit = {}) {
   return new KeyboardEvent('keydown', { code: 'F12', key: 'F12', shiftKey: true, bubbles: true, cancelable: true, ...options })
@@ -15,7 +18,9 @@ it('replaces document listeners on load and removes them on disposal or cross-or
   document.body.append(frame)
   const first = frame.contentDocument!
   const second = document.implementation.createHTMLDocument()
-  const delivered = vi.fn((event: KeyboardEvent) => { event.preventDefault() })
+  const delivered = vi.fn((event: KeyboardEvent) => {
+    event.preventDefault()
+  })
   frame.addEventListener('keydown', delivered)
   const off = bindInspectorKeyboard(frame, () => ({ code: 'F12', modifiers: ['shift'] }))
   const original = key()
@@ -69,5 +74,7 @@ it('leaves composing, consumed, unbound, and nonmatching keys inside DevTools', 
     target.dispatchEvent(repeat)
     expect(delivered).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ code: 'F12', repeat: true }))
     expect(repeat.defaultPrevented).toBe(false)
-  } finally { off() }
+  } finally {
+    off()
+  }
 })

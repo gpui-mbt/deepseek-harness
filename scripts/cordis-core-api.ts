@@ -28,7 +28,8 @@ export const CORDIS_CORE_API_PAGES: CordisCoreApiPage[] = [
   {
     out: 'docs/cordis-api/context.md',
     title: 'Context',
-    intro: 'The context is the core Cordis object: every service, event, and lifecycle API is reached through `ctx`. Event methods are documented on [Events](events.md), effects and the current fiber on [Fiber](fiber.md), and plugin loading on [Registry](registry.md).',
+    intro:
+      'The context is the core Cordis object: every service, event, and lifecycle API is reached through `ctx`. Event methods are documented on [Events](events.md), effects and the current fiber on [Fiber](fiber.md), and plugin loading on [Registry](registry.md).',
     sections: [
       { kind: 'class', file: 'vendor/cordis/src/context.ts', symbol: 'Context', prefix: 'ctx.' },
       { kind: 'context-merge', file: 'vendor/cordis/src/reflect.ts', heading: 'Service store and mixins' },
@@ -37,7 +38,8 @@ export const CORDIS_CORE_API_PAGES: CordisCoreApiPage[] = [
   {
     out: 'docs/cordis-api/events.md',
     title: 'Events',
-    intro: 'The event-dispatch API mixed into every context. Harness event declarations and their dispatch modes are generated into each owning [subsystem page](../subsystems/core.md).',
+    intro:
+      'The event-dispatch API mixed into every context. Harness event declarations and their dispatch modes are generated into each owning [subsystem page](../subsystems/core.md).',
     sections: [
       { kind: 'context-merge', file: 'vendor/cordis/src/events.ts' },
       { kind: 'decl', file: 'vendor/cordis/src/events.ts', symbol: 'EventOptions' },
@@ -47,7 +49,8 @@ export const CORDIS_CORE_API_PAGES: CordisCoreApiPage[] = [
   {
     out: 'docs/cordis-api/fiber.md',
     title: 'Fiber',
-    intro: 'A fiber is one loaded plugin instance: its lifecycle state, validated config, and registered effects. `ctx.fiber` is the current fiber, and `ctx.effect()` delegates to it.',
+    intro:
+      'A fiber is one loaded plugin instance: its lifecycle state, validated config, and registered effects. `ctx.fiber` is the current fiber, and `ctx.effect()` delegates to it.',
     sections: [
       { kind: 'context-merge', file: 'vendor/cordis/src/fiber.ts' },
       { kind: 'class', file: 'vendor/cordis/src/fiber.ts', symbol: 'Fiber', heading: 'The Fiber class' },
@@ -72,9 +75,7 @@ export const CORDIS_CORE_API_PAGES: CordisCoreApiPage[] = [
     out: 'docs/cordis-api/service.md',
     title: 'Service',
     intro: 'The base class for context services. A subclass loaded as a plugin registers itself as `ctx.<name>`.',
-    sections: [
-      { kind: 'class', file: 'vendor/cordis/src/service.ts', symbol: 'Service' },
-    ],
+    sections: [{ kind: 'class', file: 'vendor/cordis/src/service.ts', symbol: 'Service' }],
   },
 ]
 
@@ -110,27 +111,26 @@ function sourceJsDoc(text: string, sf: ts.SourceFile, node: ts.Node): string {
   const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
   const lineStart = sf.getPositionOfLineAndCharacter(line, 0)
   const indent = text.slice(lineStart, node.getStart(sf))
-  return raw.split('\n')
-    .map((sourceLine, index) => index > 0 && sourceLine.startsWith(indent)
-      ? sourceLine.slice(indent.length)
-      : sourceLine)
+  return raw
+    .split('\n')
+    .map((sourceLine, index) => (index > 0 && sourceLine.startsWith(indent) ? sourceLine.slice(indent.length) : sourceLine))
     .join('\n')
 }
 
 function signatureOf(member: ts.Node, sf: ts.SourceFile): string {
   const full = member.getText(sf)
-  const tail = (member as { body?: ts.Node; initializer?: ts.Node }).body
-    ?? (member as { initializer?: ts.Node }).initializer
-  const signature = tail
-    ? full.slice(0, full.length - tail.getText(sf).length).replace(/[=\s]+$/, '')
-    : full
-  return signature.replace(/\s*;?\s*$/, '').replace(/\s+/g, ' ').trim()
+  const tail = (member as { body?: ts.Node; initializer?: ts.Node }).body ?? (member as { initializer?: ts.Node }).initializer
+  const signature = tail ? full.slice(0, full.length - tail.getText(sf).length).replace(/[=\s]+$/, '') : full
+  return signature
+    .replace(/\s*;?\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function headingParams(parameters: readonly ts.ParameterDeclaration[], sf: ts.SourceFile): string {
   const names = parameters
     .filter(parameter => !(ts.isIdentifier(parameter.name) && parameter.name.text === 'this'))
-    .map((parameter) => {
+    .map(parameter => {
       const rest = parameter.dotDotDotToken ? '...' : ''
       const optional = parameter.questionToken || parameter.initializer ? '?' : ''
       return `${rest}${parameter.name.getText(sf)}${optional}`
@@ -153,11 +153,7 @@ function isPublicStatic(member: ts.ClassElement): boolean {
   return !member.name.getText().startsWith('_')
 }
 
-type Member = ts.MethodDeclaration
-  | ts.MethodSignature
-  | ts.PropertyDeclaration
-  | ts.PropertySignature
-  | ts.GetAccessorDeclaration
+type Member = ts.MethodDeclaration | ts.MethodSignature | ts.PropertyDeclaration | ts.PropertySignature | ts.GetAccessorDeclaration
 
 function memberDoc(ctx: RenderContext, where: string, name: string, group: Member[], rel: string): MemberDoc {
   const { sf, text } = load(ctx, rel)
@@ -169,13 +165,21 @@ function memberDoc(ctx: RenderContext, where: string, name: string, group: Membe
   const doc = parseJsDoc(raw).doc
   if (doc === '') ctx.violations.push(`${where} has no JSDoc prose.`)
   const { params: tags, returns } = parseTags(raw)
-  const functionMembers = group.filter((member): member is ts.MethodDeclaration | ts.MethodSignature =>
-    ts.isMethodDeclaration(member) || ts.isMethodSignature(member))
+  const functionMembers = group.filter(
+    (member): member is ts.MethodDeclaration | ts.MethodSignature => ts.isMethodDeclaration(member) || ts.isMethodSignature(member),
+  )
   const docCarrier = functionMembers[docIndex === -1 ? 0 : docIndex]
   const params: { name: string; text: string }[] = []
   if (docCarrier !== undefined) {
-    checkParams(where, 'cordis-core-api', docCarrier.parameters, tags, sf,
-      parameter => ts.isIdentifier(parameter.name) && parameter.name.text === 'this', ctx.violations)
+    checkParams(
+      where,
+      'cordis-core-api',
+      docCarrier.parameters,
+      tags,
+      sf,
+      parameter => ts.isIdentifier(parameter.name) && parameter.name.text === 'this',
+      ctx.violations,
+    )
     if (docCarrier.type !== undefined) {
       checkReturns(where, docCarrier.type, returns, sf, ctx.violations)
     } else if (returns === null && ts.isMethodDeclaration(docCarrier)) {
@@ -188,9 +192,10 @@ function memberDoc(ctx: RenderContext, where: string, name: string, group: Membe
     }
   }
   const headingSource = docCarrier ?? functionMembers[0]
-  const signatures = ts.isMethodDeclaration(first) && functionMembers.length > 1
-    ? functionMembers.filter(member => ts.isMethodDeclaration(member) && member.body === undefined)
-    : group
+  const signatures =
+    ts.isMethodDeclaration(first) && functionMembers.length > 1
+      ? functionMembers.filter(member => ts.isMethodDeclaration(member) && member.body === undefined)
+      : group
   return {
     name,
     heading: headingSource === undefined ? '' : headingParams(headingSource.parameters, sf),
@@ -253,11 +258,14 @@ function contextMergeMembers(ctx: RenderContext, rel: string): MemberDoc[] {
       groups.set(name, group)
     }
   }
-  return [...groups.entries()].map(([name, group]) =>
-    memberDoc(ctx, `ctx.${name} (${rel})`, name, group, rel))
+  return [...groups.entries()].map(([name, group]) => memberDoc(ctx, `ctx.${name} (${rel})`, name, group, rel))
 }
 
-function classMembers(ctx: RenderContext, rel: string, className: string): {
+function classMembers(
+  ctx: RenderContext,
+  rel: string,
+  className: string,
+): {
   doc: string
   instance: MemberDoc[]
   statics: MemberDoc[]
@@ -265,8 +273,7 @@ function classMembers(ctx: RenderContext, rel: string, className: string): {
 } {
   const { sf, text } = load(ctx, rel)
   const cls = sf.statements.find(
-    (statement): statement is ts.ClassDeclaration =>
-      ts.isClassDeclaration(statement) && statement.name?.text === className,
+    (statement): statement is ts.ClassDeclaration => ts.isClassDeclaration(statement) && statement.name?.text === className,
   )
   if (cls === undefined) throw new Error(`cordis-core-api: class ${className} not found in ${rel}.`)
   const doc = parseJsDoc(rawJsDoc(text, cls)).doc
@@ -287,8 +294,7 @@ function classMembers(ctx: RenderContext, rel: string, className: string): {
     }
   }
   const declaration = sf.statements.find(
-    (statement): statement is ts.InterfaceDeclaration =>
-      ts.isInterfaceDeclaration(statement) && statement.name.text === className,
+    (statement): statement is ts.InterfaceDeclaration => ts.isInterfaceDeclaration(statement) && statement.name.text === className,
   )
   for (const member of declaration?.members ?? []) {
     if (!ts.isPropertySignature(member) || ts.isComputedPropertyName(member.name)) continue
@@ -310,11 +316,12 @@ function classMembers(ctx: RenderContext, rel: string, className: string): {
 function stripBodies(node: ts.Node, sf: ts.SourceFile): string {
   const cuts: { start: number; end: number }[] = []
   const visit = (entry: ts.Node): void => {
-    const functionLike = ts.isMethodDeclaration(entry)
-      || ts.isConstructorDeclaration(entry)
-      || ts.isFunctionDeclaration(entry)
-      || ts.isGetAccessorDeclaration(entry)
-      || ts.isSetAccessorDeclaration(entry)
+    const functionLike =
+      ts.isMethodDeclaration(entry) ||
+      ts.isConstructorDeclaration(entry) ||
+      ts.isFunctionDeclaration(entry) ||
+      ts.isGetAccessorDeclaration(entry) ||
+      ts.isSetAccessorDeclaration(entry)
     if (functionLike && entry.body !== undefined) {
       const signatureEnd = (entry.type ?? entry.parameters.at(-1) ?? entry).getEnd()
       cuts.push({ start: signatureEnd, end: entry.body.getEnd() })
@@ -336,22 +343,25 @@ function stripBodies(node: ts.Node, sf: ts.SourceFile): string {
 
 function declarationPaste(ctx: RenderContext, rel: string, symbol: string): { doc: string; code: string; source: string } {
   const { sf, text } = load(ctx, rel)
-  const matches = sf.statements.filter((statement) => {
-    const named = ts.isInterfaceDeclaration(statement)
-      || ts.isTypeAliasDeclaration(statement)
-      || ts.isClassDeclaration(statement)
-      || ts.isEnumDeclaration(statement)
-      || ts.isModuleDeclaration(statement)
+  const matches = sf.statements.filter(statement => {
+    const named =
+      ts.isInterfaceDeclaration(statement) ||
+      ts.isTypeAliasDeclaration(statement) ||
+      ts.isClassDeclaration(statement) ||
+      ts.isEnumDeclaration(statement) ||
+      ts.isModuleDeclaration(statement)
     return named && statement.name?.getText(sf) === symbol
   })
   const first = matches[0]
   if (first === undefined) throw new Error(`cordis-core-api: declaration ${symbol} not found in ${rel}.`)
   const doc = parseJsDoc(sourceJsDoc(text, sf, first)).doc
-  const code = matches.map((statement) => {
-    const jsDoc = sourceJsDoc(text, sf, statement)
-    const declaration = stripBodies(statement, sf).replace(/^export\s+(default\s+)?/, '')
-    return jsDoc === '' ? declaration : `${jsDoc}\n${declaration}`
-  }).join('\n\n')
+  const code = matches
+    .map(statement => {
+      const jsDoc = sourceJsDoc(text, sf, statement)
+      const declaration = stripBodies(statement, sf).replace(/^export\s+(default\s+)?/, '')
+      return jsDoc === '' ? declaration : `${jsDoc}\n${declaration}`
+    })
+    .join('\n\n')
   return { doc, code, source: pointer(rel, sf, first) }
 }
 
@@ -372,7 +382,7 @@ function prose(doc: string): string[] {
     .split(/\n\s*\n/)
     .map(paragraph => paragraph.replace(/\s*\n\s*/g, ' ').trim())
     .filter(paragraph => paragraph !== '')
-  return paragraphs.flatMap((paragraph, index) => index === 0 ? [paragraph] : ['', paragraph])
+  return paragraphs.flatMap((paragraph, index) => (index === 0 ? [paragraph] : ['', paragraph]))
 }
 
 function renderMember(prefix: string, member: MemberDoc): string[] {
@@ -388,10 +398,7 @@ function renderMember(prefix: string, member: MemberDoc): string[] {
 }
 
 /** Render one detailed Cordis core API page and reject undocumented members. */
-export function renderCordisCoreApiPage(
-  page: CordisCoreApiPage,
-  scanRoot: string = root,
-): string {
+export function renderCordisCoreApiPage(page: CordisCoreApiPage, scanRoot: string = root): string {
   const ctx: RenderContext = { scanRoot, cache: new Map(), violations: [] }
   const lines = [
     '<!-- Generated by scripts/gen-cordis-catalog.ts — do not edit by hand.',
@@ -424,7 +431,10 @@ export function renderCordisCoreApiPage(
     }
   }
   reportViolations('gen-cordis-catalog', ctx.violations)
-  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`
+  return `${lines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd()}\n`
 }
 
 /** Render every detailed Cordis core API page. */

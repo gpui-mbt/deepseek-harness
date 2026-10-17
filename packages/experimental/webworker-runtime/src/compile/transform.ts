@@ -72,7 +72,10 @@ class Transformer {
   private readonly metaResolveRequests = new Set<string>()
   private readonly createRequireBindings = new Set<string>()
 
-  constructor(source: string, private readonly path: string) {
+  constructor(
+    source: string,
+    private readonly path: string,
+  ) {
     // A `#!` line is only legal at offset zero, and the prologue takes that spot;
     // commenting it out in place keeps every offset and the line count intact.
     this.source = source.startsWith('#!') ? `//${source.slice(2)}` : source
@@ -112,7 +115,7 @@ class Transformer {
     this.edits.push({
       start,
       end,
-      render: (inner) => {
+      render: inner => {
         const text = build(inner)
         return text + '\n'.repeat(Math.max(0, original - countNewlines(text)))
       },
@@ -175,7 +178,7 @@ class Transformer {
         continue
       }
       const imported = specifier.imported as Node
-      const name = imported.type === 'Identifier' ? imported.name as string : imported.value as string
+      const name = imported.type === 'Identifier' ? (imported.name as string) : (imported.value as string)
       lines.push(`const ${local}=${held}[${JSON.stringify(name)}];`)
     }
     this.replace(node.start, node.end, lines.join(''))
@@ -267,14 +270,16 @@ class Transformer {
       }
       return `${String(left.kind)} ${inner(pattern.start, pattern.end)}=${step}.value;`
     }
-    this.structural(node.start, node.end, inner => [
-      `{const ${iterator}=${ALS}.iterator(${inner(right.start, right.end)});`,
-      `let ${step};let ${exhausted}=false;`,
-      `try{for(;;){${step}=${ALS}.resume(await ${ALS}.pause(${iterator}.next()));`,
-      `if(${step}.done){${exhausted}=true;break}`,
-      `{${binding(inner)}${body.type === 'BlockStatement' ? inner(body.start, body.end) : `{${inner(body.start, body.end)}}`}}}}`,
-      `finally{if(!${exhausted})${ALS}.resume(await ${ALS}.pause(${ALS}.close(${iterator})))}}`,
-    ].join(''))
+    this.structural(node.start, node.end, inner =>
+      [
+        `{const ${iterator}=${ALS}.iterator(${inner(right.start, right.end)});`,
+        `let ${step};let ${exhausted}=false;`,
+        `try{for(;;){${step}=${ALS}.resume(await ${ALS}.pause(${iterator}.next()));`,
+        `if(${step}.done){${exhausted}=true;break}`,
+        `{${binding(inner)}${body.type === 'BlockStatement' ? inner(body.start, body.end) : `{${inner(body.start, body.end)}}`}}}}`,
+        `finally{if(!${exhausted})${ALS}.resume(await ${ALS}.pause(${ALS}.close(${iterator})))}}`,
+      ].join(''),
+    )
   }
 
   /**
@@ -303,24 +308,29 @@ class Transformer {
     const step = this.alsTemp()
     const sent = this.alsTemp()
     const exhausted = this.alsTemp()
-    this.structural(statement.start, statement.end, inner => [
-      `{const ${iterator}=${ALS}.iterator(${inner(argument.start, argument.end)});`,
-      `let ${sent};let ${exhausted}=false;`,
-      `try{for(;;){const ${step}=${ALS}.resume(await ${ALS}.pause(${iterator}.next(${sent})));`,
-      `if(${step}.done){${exhausted}=true;break}`,
-      `${sent}=${ALS}.afterYield(${ALS}.snapshot(),yield ${step}.value)}}`,
-      `finally{if(!${exhausted})${ALS}.resume(await ${ALS}.pause(${ALS}.close(${iterator})))}}`,
-    ].join(''))
+    this.structural(statement.start, statement.end, inner =>
+      [
+        `{const ${iterator}=${ALS}.iterator(${inner(argument.start, argument.end)});`,
+        `let ${sent};let ${exhausted}=false;`,
+        `try{for(;;){const ${step}=${ALS}.resume(await ${ALS}.pause(${iterator}.next(${sent})));`,
+        `if(${step}.done){${exhausted}=true;break}`,
+        `${sent}=${ALS}.afterYield(${ALS}.snapshot(),yield ${step}.value)}}`,
+        `finally{if(!${exhausted})${ALS}.resume(await ${ALS}.pause(${ALS}.close(${iterator})))}}`,
+      ].join(''),
+    )
   }
 
   // --- traversal ------------------------------------------------------------
 
-  private visit(node: unknown, context: {
-    asyncGenerator: boolean
-    functionDepth: number
-    moduleScope: boolean
-    statement?: Node
-  }): void {
+  private visit(
+    node: unknown,
+    context: {
+      asyncGenerator: boolean
+      functionDepth: number
+      moduleScope: boolean
+      statement?: Node
+    },
+  ): void {
     if (node === null || typeof node !== 'object') return
     if (Array.isArray(node)) {
       for (const child of node) this.visit(child, context)
@@ -330,10 +340,18 @@ class Transformer {
     if (typeof record.type !== 'string') return
     let next = context
     switch (record.type) {
-      case 'ImportDeclaration': this.importDeclaration(record); break
-      case 'ExportNamedDeclaration': this.exportNamed(record); break
-      case 'ExportDefaultDeclaration': this.exportDefault(record); break
-      case 'ExportAllDeclaration': this.exportAll(record); break
+      case 'ImportDeclaration':
+        this.importDeclaration(record)
+        break
+      case 'ExportNamedDeclaration':
+        this.exportNamed(record)
+        break
+      case 'ExportDefaultDeclaration':
+        this.exportDefault(record)
+        break
+      case 'ExportAllDeclaration':
+        this.exportAll(record)
+        break
       case 'ImportExpression': {
         this.moduleSyntax = true
         if (!this.source.startsWith('import', record.start)) this.fail('unexpected dynamic import layout', record.start)
@@ -350,8 +368,7 @@ class Transformer {
         // only a direct module-scope createRequire call with the importer URL.
         const callee = record.callee as Node
         const callArguments = record.arguments as Node[]
-        if (this.isRequireCall(callee, context.moduleScope) && callArguments.length === 1
-          && typeof callArguments[0]?.value === 'string') {
+        if (this.isRequireCall(callee, context.moduleScope) && callArguments.length === 1 && typeof callArguments[0]?.value === 'string') {
           this.moduleRequests.add(callArguments[0].value)
         }
         // `import.meta.resolve('lit')` is the third static request face: the
@@ -361,9 +378,13 @@ class Transformer {
         if (callee.type === 'MemberExpression') {
           const object = callee.object as Node
           const property = callee.property as Node
-          if (object.type === 'MetaProperty' && (object.meta as Node).name === 'import'
-            && property.type === 'Identifier' && property.name === 'resolve'
-            && typeof callArguments[0]?.value === 'string') {
+          if (
+            object.type === 'MetaProperty' &&
+            (object.meta as Node).name === 'import' &&
+            property.type === 'Identifier' &&
+            property.name === 'resolve' &&
+            typeof callArguments[0]?.value === 'string'
+          ) {
             this.metaResolveRequests.add(callArguments[0].value)
           }
         }
@@ -419,7 +440,8 @@ class Transformer {
       case 'SwitchStatement':
         next = { ...next, moduleScope: false }
         break
-      default: break
+      default:
+        break
     }
     if (record.type === 'ExpressionStatement') next = { ...next, statement: record }
     for (const [key, value] of Object.entries(record)) {
@@ -439,15 +461,13 @@ class Transformer {
     if (base.type !== 'MemberExpression' || base.computed === true) return false
     const object = base.object as Node
     const property = base.property as Node
-    return object.type === 'MetaProperty'
-      && (object.meta as Node).name === 'import'
-      && property.type === 'Identifier'
-      && property.name === 'url'
+    return (
+      object.type === 'MetaProperty' && (object.meta as Node).name === 'import' && property.type === 'Identifier' && property.name === 'url'
+    )
   }
 
   private isRequireCall(callee: Node, moduleScope: boolean): boolean {
-    return (callee.type === 'Identifier' && callee.name === 'require')
-      || (moduleScope && this.isCreateRequireCall(callee))
+    return (callee.type === 'Identifier' && callee.name === 'require') || (moduleScope && this.isCreateRequireCall(callee))
   }
 
   private indexCreateRequireImports(program: Node): void {
@@ -518,7 +538,7 @@ class Transformer {
 
 /** @returns The name a specifier or identifier node carries. */
 function nameOf(node: Node): string {
-  return node.type === 'Identifier' ? node.name as string : String(node.value)
+  return node.type === 'Identifier' ? (node.name as string) : String(node.value)
 }
 
 /** Every binding an exported declaration introduces, including patterns. */

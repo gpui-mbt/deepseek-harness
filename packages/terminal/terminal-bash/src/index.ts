@@ -49,17 +49,21 @@ function ensureSandboxModeFence(ctx: Context, owner: Agent): void {
     sessionProjections: ctx.sessionProjections,
   }
   sandboxModeFences.set(owner, state)
-  owner.ctx.on('internal/dispatch', (_mode, eventName, args) => {
-    if (eventName !== 'session/event') return
-    const [session, event] = args as [Session, SessionEvent]
-    if (session !== owner.session || event.type !== 'sandbox/mode') return
-    const folded = state.sessionProjections.stateOf(session, 'sandboxMode') ?? null
-    const currentMode = folded ?? state.sandboxPolicy.defaultMode
-    if (event.data.mode === currentMode || !state.pty.hasOwnerActivity(owner)) return
-    throw new Error(
-      `cannot change sandbox mode from "${currentMode}" to "${event.data.mode}" while persistent terminal sessions are open or being created; wait for creation to settle and close them first`,
-    )
-  }, { global: true })
+  owner.ctx.on(
+    'internal/dispatch',
+    (_mode, eventName, args) => {
+      if (eventName !== 'session/event') return
+      const [session, event] = args as [Session, SessionEvent]
+      if (session !== owner.session || event.type !== 'sandbox/mode') return
+      const folded = state.sessionProjections.stateOf(session, 'sandboxMode') ?? null
+      const currentMode = folded ?? state.sandboxPolicy.defaultMode
+      if (event.data.mode === currentMode || !state.pty.hasOwnerActivity(owner)) return
+      throw new Error(
+        `cannot change sandbox mode from "${currentMode}" to "${event.data.mode}" while persistent terminal sessions are open or being created; wait for creation to settle and close them first`,
+      )
+    },
+    { global: true },
+  )
 }
 
 function childEnvironment(spec: TerminalBackendSpawnSpec, dialect: ShellDialect): Record<string, string> {
@@ -112,12 +116,7 @@ async function spawnArgv(ctx: Context, config: ResolvedConfig, policy: SandboxEx
 // TODO(pty-initialize-race-home): Fold this outer abort race into
 // LocalPtySession.initialize when the send-state consolidation lands; the
 // session already owns the send lifecycle the race protects.
-async function startupSession(
-  session: LocalPtySession,
-  dialect: ShellDialect,
-  timeoutMs: number,
-  signal?: AbortSignal,
-): Promise<void> {
+async function startupSession(session: LocalPtySession, dialect: ShellDialect, timeoutMs: number, signal?: AbortSignal): Promise<void> {
   let startupOperation: TerminalSendOperation | undefined
   const start = async (): Promise<void> => {
     if (dialect === 'bash') {
@@ -135,7 +134,7 @@ async function startupSession(
       startupOperation = session.startSend({
         text: first ? ENCODING_PREAMBLE + PWSH_PROMPT_SETUP : '',
         submit: first,
-        ...signal !== undefined ? { signal } : {},
+        ...(signal !== undefined ? { signal } : {}),
       })
       const result = await startupOperation.done
       if (result.waitReason === 'session_exit') throw new Error('PTY shell exited during startup')
@@ -149,7 +148,9 @@ async function startupSession(
   let onAbort: (() => void) | undefined
   if (signal !== undefined) {
     const aborted = Promise.withResolvers<never>()
-    onAbort = () => { aborted.reject(signal.reason) }
+    onAbort = () => {
+      aborted.reject(signal.reason)
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     races.push(aborted.promise)
   }
@@ -188,13 +189,10 @@ export class BashTerminalBackend implements TerminalBackend {
   constructor(
     private readonly ctx: Context,
     private readonly config: ResolvedConfig,
-    private readonly spawnTerminal: (
-      spec: SubprocessTerminalSpawnSpec,
-    ) => Promise<SubprocessTerminalHandle> = spec => ctx.subprocess.spawnTerminal(spec),
-    private readonly createSession: (
-      terminal: SubprocessTerminalHandle,
-      config: ResolvedConfig,
-    ) => LocalPtySession = (terminal, config) => new LocalPtySession(terminal, config),
+    private readonly spawnTerminal: (spec: SubprocessTerminalSpawnSpec) => Promise<SubprocessTerminalHandle> = spec =>
+      ctx.subprocess.spawnTerminal(spec),
+    private readonly createSession: (terminal: SubprocessTerminalHandle, config: ResolvedConfig) => LocalPtySession = (terminal, config) =>
+      new LocalPtySession(terminal, config),
   ) {
     this.type = config.backendType
   }
@@ -208,7 +206,7 @@ export class BashTerminalBackend implements TerminalBackend {
     if (argv[0] === undefined) throw new Error('terminal-bash: sandbox returned empty argv')
     const terminal = await this.spawnTerminal({
       argv,
-      cwd: spec.cwd ?? await this.ctx.workingDirectory.ensure(spec.owner, spec.signal),
+      cwd: spec.cwd ?? (await this.ctx.workingDirectory.ensure(spec.owner, spec.signal)),
       env: childEnvironment(spec, this.config.shellDialect),
       rows: this.config.rows,
       cols: this.config.cols,

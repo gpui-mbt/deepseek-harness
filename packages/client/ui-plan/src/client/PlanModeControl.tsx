@@ -8,8 +8,7 @@ import type { PlanChipInjected } from './index.ts'
 import css from './PlanModeControl.module.css'
 
 /** Full plan-seat component props: runtime share (standard kit + locked owner prop) & injected share & the locale seat. */
-export type PlanChipProps =
-  PropsRuntime<'conversation.input.plan'> & InjectFace<PlanChipInjected> & PropsLocale<'plan'>
+export type PlanChipProps = PropsRuntime<'conversation.input.plan'> & InjectFace<PlanChipInjected> & PropsLocale<'plan'>
 
 /**
  * Plan-mode status over the host-computed `plan` projection. The chip renders
@@ -37,15 +36,18 @@ export function PlanChip({ useProjection, locked, exitPlanMode, t }: PlanChipPro
     // No leaving/locked guard: both disable the button, so no click arrives.
     setLeaving(true)
     setError(null)
-    void exitPlanMode().then((failure) => {
-      if (!aliveRef.current) return
-      setLeaving(false)
-      setError(failure)
-    }, (reason: unknown) => {
-      if (!aliveRef.current) return
-      setLeaving(false)
-      setError(reason instanceof Error ? reason.message : String(reason))
-    })
+    void exitPlanMode().then(
+      failure => {
+        if (!aliveRef.current) return
+        setLeaving(false)
+        setError(failure)
+      },
+      (reason: unknown) => {
+        if (!aliveRef.current) return
+        setLeaving(false)
+        setError(reason instanceof Error ? reason.message : String(reason))
+      },
+    )
   }
 
   return (
@@ -64,7 +66,11 @@ export function PlanChip({ useProjection, locked, exitPlanMode, t }: PlanChipPro
         </span>
         {t('chip.label')}
       </button>
-      {error !== null && <span className={css.error} role="status" title={error}>{t('chip.exitFailed')}</span>}
+      {error !== null && (
+        <span className={css.error} role="status" title={error}>
+          {t('chip.exitFailed')}
+        </span>
+      )}
     </span>
   )
 }

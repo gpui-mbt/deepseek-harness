@@ -162,15 +162,12 @@ export class JsonlSessionHandle implements SessionHandle {
   }
 
   /** Read one current physical generation and enforce this handle's monotonic view. */
-  private async readCurrent(
-    path: string,
-    offset: number,
-    length: number,
-    signal?: AbortSignal,
-  ): Promise<SessionHandleReadResult> {
+  private async readCurrent(path: string, offset: number, length: number, signal?: AbortSignal): Promise<SessionHandleReadResult> {
     const source = await this.storage.readStoredLog(path, this.id, signal)
     if (source.events.length < this.observedLength) {
-      throw new Error(`session "${this.id}": stored log shrank below a previously observed prefix (${source.events.length} < ${this.observedLength})`)
+      throw new Error(
+        `session "${this.id}": stored log shrank below a previously observed prefix (${source.events.length} < ${this.observedLength})`,
+      )
     }
     this.observedLength = source.events.length
     return {
@@ -221,7 +218,7 @@ export class JsonlSessionHandle implements SessionHandle {
    * @returns settlement of the release.
    */
   close(): Promise<void> {
-    return this.closing ??= (async () => {
+    return (this.closing ??= (async () => {
       let drainFailure: unknown
       // Producers on other fibers may still publish while close waits for
       // in-flight mutations (root disposal is concurrent), so drain again
@@ -254,9 +251,10 @@ export class JsonlSessionHandle implements SessionHandle {
         failures.push(releaseFailure instanceof Error ? releaseFailure : new Error(errorChain(releaseFailure)))
       }
       this.storage.releaseHandle(this, this.state.materialized)
-      if (failures.length > 1) throw new AggregateError(failures, `session "${this.id}": close failed to drain and to release its write lock`)
+      if (failures.length > 1)
+        throw new AggregateError(failures, `session "${this.id}": close failed to drain and to release its write lock`)
       if (failures[0] !== undefined) throw failures[0]
-    })()
+    })())
   }
 
   /** `await using` support: delegates to {@link close}. */
@@ -286,9 +284,9 @@ export class JsonlSessionHandle implements SessionHandle {
    * order so `session/flush` can retry and reject loudly.
    */
   drainLive(): Promise<void> {
-    return this.draining ??= this.drainBuffered().finally(() => {
+    return (this.draining ??= this.drainBuffered().finally(() => {
       this.draining = undefined
-    })
+    }))
   }
 
   private async drainBuffered(): Promise<void> {
@@ -547,8 +545,10 @@ export class JsonlBackendTracker {
         if (errors.length > 0) throw new AggregateError(errors, `${name} dispose failed`)
       }
       yield ctx.on('session/event', (session: Session, event) => {
-        writers.get(session.id)?.enqueueLive(event, (error) => {
-          ctx.logger.warn(`session-persistence: background write for session "${session.id}" failed (buffered events retained): ${String(error)}`)
+        writers.get(session.id)?.enqueueLive(event, error => {
+          ctx.logger.warn(
+            `session-persistence: background write for session "${session.id}" failed (buffered events retained): ${String(error)}`,
+          )
         })
       })
       yield ctx.on('session/flush', (session: Session) => {

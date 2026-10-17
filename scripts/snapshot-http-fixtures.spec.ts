@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 
 const httpMock = vi.hoisted(() => ({ createServer: vi.fn() }))
 
@@ -84,7 +84,9 @@ function nextServer(): FixtureServer {
 
 function captureErrors(ctx: Context): unknown[] {
   const errors: unknown[] = []
-  ctx.logger.error = ((error: unknown) => { errors.push(error) }) as typeof ctx.logger.error
+  ctx.logger.error = ((error: unknown) => {
+    errors.push(error)
+  }) as typeof ctx.logger.error
   return errors
 }
 
@@ -125,12 +127,13 @@ describe('snapshot HTTP fixture lifecycle', () => {
     const onListening = vi.fn()
     const fiber = ctx.plugin({
       name: 'loopback-fixture-lifecycle-test',
-      apply: testCtx => applyLoopbackServerEffect(testCtx, {
-        label: 'loopback-fixture-lifecycle-test',
-        onCleanup,
-        onListening,
-        requestListener: () => {},
-      }),
+      apply: testCtx =>
+        applyLoopbackServerEffect(testCtx, {
+          label: 'loopback-fixture-lifecycle-test',
+          onCleanup,
+          onListening,
+          requestListener: () => {},
+        }),
     })
     await disposeWhileStarting(fiber, server)
 
@@ -170,8 +173,9 @@ describe('snapshot HTTP fixture lifecycle', () => {
       await globalThis.fetch(unrelated)
       expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(unrelated)
 
-      await expect(globalThis.fetch('http://127.0.0.1:43118/unexpected'))
-        .rejects.toThrow('web-search-error-fixture: unexpected URL for recorded authority')
+      await expect(globalThis.fetch('http://127.0.0.1:43118/unexpected')).rejects.toThrow(
+        'web-search-error-fixture: unexpected URL for recorded authority',
+      )
     } finally {
       await fiber.dispose()
     }

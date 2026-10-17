@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { inspectSystemPrompt, type SystemPromptState } from '../src/client/contract/system-prompt.ts'
 
 function system(seq: number, text: string, replaces?: number): SessionEvent {
   return {
-    seq, time: seq, type: 'system/message',
+    seq,
+    time: seq,
+    type: 'system/message',
     data: { turn: 1, step: seq, message: { role: 'system', content: [{ type: 'text', text }] } },
     surfaceOp: replaces === undefined ? 'append' : { op: 'replace', startSeq: replaces, endSeq: replaces },
   } as unknown as SessionEvent
@@ -37,10 +39,7 @@ describe('loaded system surface interpretation', () => {
   })
 
   it('uses surface order across chained replacements with reversed chronological endpoints', () => {
-    const state = fold([
-      system(1, 'A'), system(4, 'B'), system(6, 'C'),
-      system(8, 'new A', 1), replace(9, 3, 5), replace(10, 9, 6),
-    ])
+    const state = fold([system(1, 'A'), system(4, 'B'), system(6, 'C'), system(8, 'new A', 1), replace(9, 3, 5), replace(10, 9, 6)])
     expect(state?.effective).toMatchObject({ text: 'new A', seq: 10 })
     expect(state?.nodes.map(item => item.node.text)).toEqual(['new A'])
   })
@@ -73,9 +72,19 @@ describe('loaded system surface interpretation', () => {
   it('extracts text blocks once and treats an empty initial node as no prompt', () => {
     const event = system(1, 'A')
     if (event.type !== 'system/message') throw new Error('expected system event')
-    const multiBlock = { ...event, data: { ...event.data, message: {
-      ...event.data.message, content: [{ type: 'text' as const, text: 'A' }, { type: 'text' as const, text: 'B' }],
-    } } }
+    const multiBlock = {
+      ...event,
+      data: {
+        ...event.data,
+        message: {
+          ...event.data.message,
+          content: [
+            { type: 'text' as const, text: 'A' },
+            { type: 'text' as const, text: 'B' },
+          ],
+        },
+      },
+    }
     expect(inspectSystemPrompt(undefined, multiBlock).effective?.text).toBe('AB')
     expect(inspectSystemPrompt(undefined, system(2, '')).effective).toBeUndefined()
   })

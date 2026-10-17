@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { HostObservable, RootStandardSourceContribution } from '@deepseek-ai/dsh-client-ui-slots'
 import type { TypertRemoteContribution, TypertResource } from '@deepseek-ai/dsh-typert-protocol'
@@ -52,8 +52,13 @@ describe('ClientAccessState', () => {
     expect(parseInjectedBaseline({ type: 'baseline', owner: true, extra: 1 })).toEqual({ type: 'baseline', owner: true })
     expect(parseInjectedBaseline(JSON.parse(JSON.stringify(GRANTED)))).toEqual(GRANTED)
     for (const malformed of [
-      null, 'baseline', [], { type: 'upsert' },
-      { type: 'baseline' }, { type: 'baseline', owner: false }, { type: 'baseline', owner: false, grants: [7] },
+      null,
+      'baseline',
+      [],
+      { type: 'upsert' },
+      { type: 'baseline' },
+      { type: 'baseline', owner: false },
+      { type: 'baseline', owner: false, grants: [7] },
       { type: 'baseline', owner: false, grants: [{ resource: { kind: 'test-shelf' }, actions: [] }] },
       { type: 'baseline', owner: false, grants: [{ resource: { kind: 7 }, actions: [] }] },
       { type: 'baseline', owner: false, grants: [{ resource: { kind: 'global' }, actions: 'session/list' }] },
@@ -176,7 +181,9 @@ class FakeAccessStream {
         yield { generation: 1, value: frame, accept: () => {} }
         continue
       }
-      await new Promise<void>((resolve) => { this.wake = resolve })
+      await new Promise<void>(resolve => {
+        this.wake = resolve
+      })
     }
   }
 }
@@ -220,11 +227,15 @@ async function mounted(initial?: Baseline): Promise<{
   let dispose: (() => Promise<void>) | undefined
   await ctx.plugin({
     inject: ['remote', 'slots'],
-    apply: async (pluginCtx: Context) => { dispose = await mountAccess(pluginCtx, contribution, initial) },
+    apply: async (pluginCtx: Context) => {
+      dispose = await mountAccess(pluginCtx, contribution, initial)
+    },
   })
   // The generated namespace arrives after the mount, as `$mount` provides it.
   ctx.provide('remote.remoteAccess', remote.remoteAccess as never)
-  await vi.waitFor(() => { expect(stream).toBeDefined() })
+  await vi.waitFor(() => {
+    expect(stream).toBeDefined()
+  })
   return {
     ctx,
     stream: () => stream as FakeAccessStream,
@@ -233,7 +244,9 @@ async function mounted(initial?: Baseline): Promise<{
     mount: remote.$mount,
     unmount,
     contribution,
-    dispose: async () => { await dispose?.() },
+    dispose: async () => {
+      await dispose?.()
+    },
   }
 }
 
@@ -248,11 +261,15 @@ describe('remote-access Client mount', () => {
     expect([value(globalFork), value(shelfFork), value(deskFollow)]).toEqual([false, false, false])
 
     access.stream().push(GRANTED)
-    await vi.waitFor(() => { expect(value(shelfFork)).toBe(true) })
+    await vi.waitFor(() => {
+      expect(value(shelfFork)).toBe(true)
+    })
     expect(value(globalFork)).toBe(false)
     expect(value(deskFollow)).toBe(true)
     access.stream().push({ type: 'remove', resource: { kind: 'test-shelf', id: 's1' } })
-    await vi.waitFor(() => { expect(value(shelfFork)).toBe(false) })
+    await vi.waitFor(() => {
+      expect(value(shelfFork)).toBe(false)
+    })
     // Reading an answer never issues a request; only the stream factory reaches the namespace.
     expect(access.follow).not.toHaveBeenCalled()
     access.stream().options.open(new AbortController().signal)
@@ -271,19 +288,23 @@ describe('remote-access Client mount', () => {
     expect(value(globalList)).toBe(true)
     const failure = new Error('carrier closed for good')
     access.stream().fail(failure)
-    await vi.waitFor(() => { expect(value(globalList)).toBe(false) })
+    await vi.waitFor(() => {
+      expect(value(globalList)).toBe(false)
+    })
     expect(report).toHaveBeenCalledWith('access snapshot stream failed; reload the page to reconnect', failure)
     await access.dispose()
   })
 
-  it('keeps the owner\'s answers when its stream fails terminally', async () => {
+  it("keeps the owner's answers when its stream fails terminally", async () => {
     const access = await mounted({ type: 'baseline', owner: true })
     const report = vi.spyOn(access.ctx.logger, 'error').mockImplementation(() => undefined)
     const globalFork = access.global('session/fork')
     expect(value(globalFork)).toBe(true)
     const failure = new Error('carrier closed for good')
     access.stream().fail(failure)
-    await vi.waitFor(() => { expect(report).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(report).toHaveBeenCalledOnce()
+    })
     expect(report).toHaveBeenCalledWith('access snapshot stream failed; owner access answers are unaffected', failure)
     expect(value(globalFork)).toBe(true)
     await access.dispose()

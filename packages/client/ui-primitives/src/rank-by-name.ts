@@ -87,7 +87,6 @@ export function rankByName<T extends { readonly name: string; readonly label?: s
     }
     if (score !== undefined) ranked.push({ item, index, prefix, score })
   })
-  ranked.sort((left, right) =>
-    Number(right.prefix) - Number(left.prefix) || right.score - left.score || left.index - right.index)
+  ranked.sort((left, right) => Number(right.prefix) - Number(left.prefix) || right.score - left.score || left.index - right.index)
   return ranked.map(match => match.item)
 }

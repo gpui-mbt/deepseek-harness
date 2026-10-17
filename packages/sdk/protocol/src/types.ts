@@ -143,11 +143,11 @@ export interface HarnessSdkNotificationMap {
 
 /** Client-to-server request methods with their param and result shapes. */
 export interface HarnessSdkRequestMap {
-  'initialize': { params: InitializeParams; result: InitializeResult }
+  initialize: { params: InitializeParams; result: InitializeResult }
   'session/prompt': { params: SessionPromptParams; result: SessionPromptResult }
   'session/resume': { params: SessionResumeParams; result: Record<string, never> }
   'session/wait': { params: SessionWaitParams; result: Record<string, never> }
   'session/working-directory/get': { params: SessionWorkingDirectoryParams; result: SessionWorkingDirectoryResult }
   'session/working-directory/set': { params: SessionWorkingDirectorySetParams; result: SessionWorkingDirectoryResult }
-  'shutdown': { params: undefined; result: Record<string, never> }
+  shutdown: { params: undefined; result: Record<string, never> }
 }

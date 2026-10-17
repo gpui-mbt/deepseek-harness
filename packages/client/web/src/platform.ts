@@ -6,8 +6,13 @@
 
 /** The module specifiers the shell shares into the frozen module table. */
 export const PLATFORM_MODULES = [
-  'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
-  'zod', '@tanstack/react-virtual',
+  'react',
+  'react/jsx-runtime',
+  'react-dom',
+  'react-dom/client',
+  '@deepseek-ai/cordis',
+  'zod',
+  '@tanstack/react-virtual',
   '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
@@ -15,8 +20,7 @@ export const PLATFORM_MODULES = [
 ] as const
 
 /** Client-bundle specifiers whose factories the parser preloads before the shell starts. */
-export const PRELOADED_CLIENT_EXTERNALS = [
-] as const
+export const PRELOADED_CLIENT_EXTERNALS = [] as const
 
 /** One platform module specifier (a seed-table key). */
 export type PlatformModule = (typeof PLATFORM_MODULES)[number]

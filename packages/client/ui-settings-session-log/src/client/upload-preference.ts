@@ -29,14 +29,17 @@ export class UploadPreference {
    */
   async setEnabled(enabled: boolean): Promise<void> {
     if (this.state.getSnapshot().busy) return
-    this.state.update((state) => { state.busy = true; state.notice = null })
+    this.state.update(state => {
+      state.busy = true
+      state.notice = null
+    })
     let accepted = false
     try {
       accepted = await this.form.set('enabled', enabled)
     } catch (_error) {
       // The shell notice reports the failed write while the form retains accepted state.
     }
-    this.state.update((state) => {
+    this.state.update(state => {
       state.busy = false
       state.notice = accepted ? 'saved' : 'failed'
       state.sequence++
@@ -45,6 +48,8 @@ export class UploadPreference {
 
   /** Clear the displayed mutation notice. */
   dismiss(): void {
-    this.state.update((state) => { state.notice = null })
+    this.state.update(state => {
+      state.notice = null
+    })
   }
 }

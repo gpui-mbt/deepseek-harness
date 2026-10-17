@@ -11,7 +11,7 @@ export { Config } from './config.ts'
  * @param config - Cache limits adopted when the page loads.
  */
 export function apply(ctx: Context, config: Config): void {
-  ctx.on('webserver/index-inject', (table) => {
+  ctx.on('webserver/index-inject', table => {
     table.push({ kind: 'global', name: '__DSH_DOCUMENT_PREVIEW_CONFIG__', value: config })
   })
 }

@@ -6,13 +6,31 @@ import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/
 import type { FileAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type {
-  CommandNode, CompactionSummaryNode, ConversationLocationDataStore, ConversationTurnDataMap,
-  ConversationGroupData, GroupSnapshot,
-  MessageImageLoader, MessageImageSource, MessageImagesOwnerProps, RenderEntry, TurnLocation, UserTextFacts, UserTextInput,
+  CommandNode,
+  CompactionSummaryNode,
+  ConversationLocationDataStore,
+  ConversationTurnDataMap,
+  ConversationGroupData,
+  GroupSnapshot,
+  MessageImageLoader,
+  MessageImageSource,
+  MessageImagesOwnerProps,
+  RenderEntry,
+  TurnLocation,
+  UserTextFacts,
+  UserTextInput,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
-  HostObservable, InjectFace, KeyedSnapshotSelectorHook, PropsLocale, PropsRenderSlots, PropsRuntime,
-  PropsRenderFactories, PropsStore, SlotHookFactory, SnapshotSelectorHook,
+  HostObservable,
+  InjectFace,
+  KeyedSnapshotSelectorHook,
+  PropsLocale,
+  PropsRenderSlots,
+  PropsRuntime,
+  PropsRenderFactories,
+  PropsStore,
+  SlotHookFactory,
+  SnapshotSelectorHook,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { MarkdownFileMentions, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -24,9 +42,7 @@ import type { ChatPresentationPolicy } from '../presentation-policy.ts'
 import type { FlowMotionRows } from '../chat/flow-motion.ts'
 import type { ToolCallId } from './store.ts'
 import type { ChatConversationViewNode, ChatNode, ChatNodeKind } from './chat-nodes.ts'
-import type {
-  ChatNodeProcessSource, ChatNodeSource, ChatSnapshot, ChatTurnProcessPresentation,
-} from './snapshot.ts'
+import type { ChatNodeProcessSource, ChatNodeSource, ChatSnapshot, ChatTurnProcessPresentation } from './snapshot.ts'
 import type { TurnProcessSpec } from './turn-process.ts'
 import type { ClockTimeZone, PerformanceUsageMode } from '../../chat-settings.ts'
 
@@ -122,11 +138,10 @@ export interface QuotaNoticeInjected {
 }
 
 /** Full props of the Chat-owned frame-wide quota notice host. */
-export type QuotaNoticeHostProps =
-  PropsRuntime<'shell.overlay'>
-  & PropsLocale<'chat'>
-  & PropsRenderSlots<'shell.quota-notice'>
-  & InjectFace<QuotaNoticeInjected>
+export type QuotaNoticeHostProps = PropsRuntime<'shell.overlay'> &
+  PropsLocale<'chat'> &
+  PropsRenderSlots<'shell.quota-notice'> &
+  InjectFace<QuotaNoticeInjected>
 
 /** Optional prose file-mention provider consumed by Chat. */
 export interface ChatFileMentions {
@@ -243,8 +258,7 @@ export interface UserContentData {
 }
 
 /** Public content rendering input; reference renderers own their injected actions. */
-export interface UserContentInput extends Pick<ChatNodeOwnerProps, 'loadImage'>,
-  Pick<UserTextInput, 'interactive' | 'ellipsis'> {
+export interface UserContentInput extends Pick<ChatNodeOwnerProps, 'loadImage'>, Pick<UserTextInput, 'interactive' | 'ellipsis'> {
   readonly content: UserContentData
   /** Transform inputs passed unchanged to UserText, separate from summary and rendering props. */
   readonly facts: Readonly<Partial<UserTextFacts>>
@@ -269,8 +283,9 @@ export interface PresentationInjected {
 }
 
 /** Full props of one keyed Chat renderer. */
-export type ChatNodeViewProps<Kind extends ChatNodeKind = ChatNodeKind> =
-  PropsRuntime<'conversation.chat.node', Kind> & PropsLocale<'chat'> & PropsRenderFactories
+export type ChatNodeViewProps<Kind extends ChatNodeKind = ChatNodeKind> = PropsRuntime<'conversation.chat.node', Kind> &
+  PropsLocale<'chat'> &
+  PropsRenderFactories
 
 /** Command-row owner share. */
 export interface CommandRowOwnerProps {
@@ -336,8 +351,10 @@ export interface ChatViewInjected {
 export type ChatFlowDataInjected = Pick<ChatViewInjected, 'hooks' | 'keyedHooks'>
 
 /** Ordered rows and reconciled local echoes rendered inside one Chat viewport. */
-export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
-  'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'loadImage' | 'fileMentions'> {
+export interface ChatFlowOwnerProps extends Pick<
+  ChatNodeOwnerProps,
+  'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'loadImage' | 'fileMentions'
+> {
   readonly entries: readonly RenderEntry[]
   readonly pendingInputs: readonly (PendingSubmission | InboxState['next-step'][number])[]
   readonly lastInputTurn: number | undefined
@@ -345,25 +362,22 @@ export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
 }
 
 /** Full props of the Chat-owned flow renderer. */
-export type ChatFlowSlotProps =
-  PropsRuntime<'conversation.chat.flow'>
-  & PropsRenderSlots<'conversation.chat.node'>
-  & PropsRenderFactories
-  & PropsStore<ChatStore>
-  & InjectFace<ChatFlowDataInjected>
-  & PropsLocale<'chat'>
+export type ChatFlowSlotProps = PropsRuntime<'conversation.chat.flow'> &
+  PropsRenderSlots<'conversation.chat.node'> &
+  PropsRenderFactories &
+  PropsStore<ChatStore> &
+  InjectFace<ChatFlowDataInjected> &
+  PropsLocale<'chat'>
 
 /** Full Chat view props. */
-export type ChatViewSlotProps =
-  PropsRuntime<'conversation.view'>
-  & PropsRenderSlots<'conversation.chat.flow'>
-  & PropsStore<ChatStore>
-  & InjectFace<ChatViewInjected>
-  & PropsLocale<'chat'>
+export type ChatViewSlotProps = PropsRuntime<'conversation.view'> &
+  PropsRenderSlots<'conversation.chat.flow'> &
+  PropsStore<ChatStore> &
+  InjectFace<ChatViewInjected> &
+  PropsLocale<'chat'>
 
 /** Full props shared by the user and output image entries. */
-export type MessageImagesProps =
-  PropsRuntime<'conversation.chat.user.images' | 'conversation.chat.message.images'> & PropsRenderFactories
+export type MessageImagesProps = PropsRuntime<'conversation.chat.user.images' | 'conversation.chat.message.images'> & PropsRenderFactories
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SessionStandardProps {

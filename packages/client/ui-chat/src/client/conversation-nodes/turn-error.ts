@@ -1,6 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, TurnErrorNode,
+  ConversationMatch,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
+  TurnErrorNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { TurnEndReason } from '@deepseek-ai/dsh-session/types'
 import { chatNode } from './common.ts'
@@ -79,7 +82,7 @@ function fallbackState(context: ConversationNodeContext<TurnErrorState>): TurnEr
 export const turnErrorDefinition: ConversationNodeDefinition<TurnErrorState> = {
   kind: 'turn-error',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
     if (event.type === 'turn/end' && endFailure(event.data.reason) !== undefined) {
       return { id: String(event.data.turn), role: 'update' }
@@ -94,7 +97,7 @@ export const turnErrorDefinition: ConversationNodeDefinition<TurnErrorState> = {
     const failure = failureFrom(match)
     return failure === undefined ? context.state : { ...context.state, failure }
   },
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     const state = context.state ?? fallbackState(context)
     if (state?.failure === undefined) return null
     const failure = state.failure
@@ -105,7 +108,7 @@ export const turnErrorDefinition: ConversationNodeDefinition<TurnErrorState> = {
       turn: state.turn,
       step: lastStep(context),
       message: failure.message,
-      ...failure.code === undefined ? {} : { code: failure.code },
+      ...(failure.code === undefined ? {} : { code: failure.code }),
     }
     return chatNode(context, 'turn-error', node.seq, node, { groupTree: 'turn' })
   },

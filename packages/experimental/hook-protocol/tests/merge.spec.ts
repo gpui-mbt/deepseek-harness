@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { mergeHookOutputs } from '@deepseek-ai/dsh-hook-protocol'
 import type { HookOutput } from '@deepseek-ai/dsh-hook-protocol'
 
@@ -56,7 +56,7 @@ describe('mergeHookOutputs — reasons, stop, context, systemMessages accumulate
     expect(m.reason).toBe('needs approval')
   })
 
-  it('when deny wins over ask, the ask reasons are dropped (only the winning rank\'s reasons)', () => {
+  it("when deny wins over ask, the ask reasons are dropped (only the winning rank's reasons)", () => {
     const m = mergeHookOutputs([
       out({ decision: 'ask', reason: 'ask reason — not surfaced once deny wins' }),
       out({ decision: 'deny', reason: 'the real objection' }),

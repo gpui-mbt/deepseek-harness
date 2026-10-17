@@ -75,7 +75,7 @@ function canonicalAuthority(entry: string, entryUrl: URL): string {
  * so case and a redundant scheme-default port never decide trust.
  */
 function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[], protocol: 'http:' | 'https:'): boolean {
-  return trustedHosts.some((entry) => {
+  return trustedHosts.some(entry => {
     const entryUrl = parseAuthority(entry, protocol)
     if (entryUrl === undefined) return false
     return canonicalAuthority(entry, entryUrl) === entryUrl.hostname
@@ -135,9 +135,12 @@ export function isTrustedApiRequest(
   if (host === undefined) return false
   const hostUrl = parseAuthority(host, protocol)
   if (hostUrl === undefined) return false
-  if (!isLoopbackHostname(hostUrl.hostname)
-    && !isTrustedAuthority(hostUrl, trustedHosts, protocol)
-    && !isBindAddressAuthority(hostUrl, bindHost)) return false
+  if (
+    !isLoopbackHostname(hostUrl.hostname) &&
+    !isTrustedAuthority(hostUrl, trustedHosts, protocol) &&
+    !isBindAddressAuthority(hostUrl, bindHost)
+  )
+    return false
   // Cross-site fence: modern browsers label the initiator relationship on
   // every fetch; an explicit cross-site marker is refused regardless of Origin.
   if (header(request.headers, 'sec-fetch-site') === 'cross-site') return false
@@ -167,9 +170,7 @@ function isSameAuthorityOrigin(origin: string, host: string): boolean {
   // Only http(s) can name this listener: the opaque `null` already threw above,
   // and every other scheme (file:, ftp:) fails here rather than matching by
   // hostname alone.
-  const scheme = originUrl.protocol === 'https:' ? 'https:'
-    : originUrl.protocol === 'http:' ? 'http:'
-      : undefined
+  const scheme = originUrl.protocol === 'https:' ? 'https:' : originUrl.protocol === 'http:' ? 'http:' : undefined
   if (scheme === undefined) return false
   const hostUrl = parseAuthority(host, scheme)
   return hostUrl !== undefined && originUrl.host === hostUrl.host

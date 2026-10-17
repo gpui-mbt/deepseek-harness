@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { readProfileManifest } from '@deepseek-ai/dsh-app-boot'
 import { startHttpMcpFixture } from '../../../../../../packages/mcp/mcp-client/tests/http-fixture.ts'
 
@@ -25,7 +25,7 @@ interface Observation {
 
 const repo = fileURLToPath(new URL('../../../../../../', import.meta.url))
 
-it('configures MCP on a live profile, restores it on restart, and removes its tools', async (test) => {
+it('configures MCP on a live profile, restores it on restart, and removes its tools', async test => {
   const root = await mkdtemp(join(tmpdir(), 'creator-manager-'))
   test.onTestFinished(() => rm(root, { recursive: true, force: true }))
   const mcp = await startHttpMcpFixture()
@@ -33,42 +33,91 @@ it('configures MCP on a live profile, restores it on restart, and removes its to
   await mkdir(join(root, 'workspace'))
   const bundle = join(root, 'demo-mcp')
   await mkdir(bundle)
-  await writeFile(join(bundle, 'package.json'), JSON.stringify({ name: '@test/creator-mcp', version: '1.0.0',
-    dsh: { bundle: { patch: './cordis.patch.yml' } } }))
-  await writeFile(join(bundle, 'cordis.patch.yml'), JSON.stringify([{ insert: [{ id: 'demo',
-    name: '@deepseek-ai/dsh-mcp-client', config: { serverName: 'demo', transport: 'streamable-http',
-      url: mcp.url, failOnStartupError: true },
-  }] }]))
+  await writeFile(
+    join(bundle, 'package.json'),
+    JSON.stringify({ name: '@test/creator-mcp', version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } } }),
+  )
+  await writeFile(
+    join(bundle, 'cordis.patch.yml'),
+    JSON.stringify([
+      {
+        insert: [
+          {
+            id: 'demo',
+            name: '@deepseek-ai/dsh-mcp-client',
+            config: { serverName: 'demo', transport: 'streamable-http', url: mcp.url, failOnStartupError: true },
+          },
+        ],
+      },
+    ]),
+  )
   const patch = join(root, 'test.patch.yml')
-  await writeFile(patch, JSON.stringify([{ insert: [{ id: 'creator-manager-observer',
-    name: new URL('./fixtures/creator-plugin-manager.mjs', import.meta.url).href, config: { bundle },
-  }] }]))
+  await writeFile(
+    patch,
+    JSON.stringify([
+      {
+        insert: [
+          {
+            id: 'creator-manager-observer',
+            name: new URL('./fixtures/creator-plugin-manager.mjs', import.meta.url).href,
+            config: { bundle },
+          },
+        ],
+      },
+    ]),
+  )
   const start = async () => {
-    const child = spawn(process.execPath, [join(repo, 'apps/cli/lib/bin.js'), '--profile', 'web', '--patch', patch,
-      '--port', '0', '--no-open'], { cwd: join(root, 'workspace'),
-      env: { ...process.env, DSH_HOME: join(root, 'home'), DSH_AGENTS_HOME: join(root, 'agents'),
-        DSH_TELEMETRY_DISABLED: '1', DEEPSEEK_API_KEY: 'keyless-no-model-calls' },
-      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-    })
+    const child = spawn(
+      process.execPath,
+      [join(repo, 'apps/cli/lib/bin.js'), '--profile', 'web', '--patch', patch, '--port', '0', '--no-open'],
+      {
+        cwd: join(root, 'workspace'),
+        env: {
+          ...process.env,
+          DSH_HOME: join(root, 'home'),
+          DSH_AGENTS_HOME: join(root, 'agents'),
+          DSH_TELEMETRY_DISABLED: '1',
+          DEEPSEEK_API_KEY: 'keyless-no-model-calls',
+        },
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      },
+    )
     let output = ''
     const completion = new Promise<void>((resolve, reject) => {
-      child.once('close', () => { resolve() })
+      child.once('close', () => {
+        resolve()
+      })
       child.once('error', reject)
     })
-    const stop = async () => { if (child.exitCode === null) child.kill('SIGTERM'); await completion }
+    const stop = async () => {
+      if (child.exitCode === null) child.kill('SIGTERM')
+      await completion
+    }
     test.onTestFinished(stop)
-    for (const stream of [child.stdout, child.stderr]) stream!.on('data', (data) => { output = (output + String(data)).slice(-30_000) })
-    await expect.poll(() => {
-      if (child.exitCode !== null) throw new Error(output)
-      return output.includes('dsh web: http://')
-    }, { timeout: 60_000 }).toBe(true)
-    return { stop, request: (phase: string): Promise<Observation> => new Promise((resolve, reject) => {
-      child.once('message', (value: { result: Observation; error?: string }) => {
-        if (value.error !== undefined) reject(new Error(value.error))
-        else resolve(value.result)
+    for (const stream of [child.stdout, child.stderr])
+      stream!.on('data', data => {
+        output = (output + String(data)).slice(-30_000)
       })
-      child.send(phase)
-    }) }
+    await expect
+      .poll(
+        () => {
+          if (child.exitCode !== null) throw new Error(output)
+          return output.includes('dsh web: http://')
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(true)
+    return {
+      stop,
+      request: (phase: string): Promise<Observation> =>
+        new Promise((resolve, reject) => {
+          child.once('message', (value: { result: Observation; error?: string }) => {
+            if (value.error !== undefined) reject(new Error(value.error))
+            else resolve(value.result)
+          })
+          child.send(phase)
+        }),
+    }
   }
   const first = await start()
   const initial = await first.request('initial')

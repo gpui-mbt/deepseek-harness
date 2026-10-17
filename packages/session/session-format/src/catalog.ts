@@ -1,11 +1,7 @@
 import { createSessionFormatChain } from './chain.ts'
 import { SessionFormatEventCollector } from './context.ts'
 import { SessionFormatError, SessionFormatUnsupportedMigrationError } from './error.ts'
-import {
-  inspectSessionFormatVersion,
-  snapshotSessionFormatHeader,
-  sessionFormatVersion,
-} from './json.ts'
+import { inspectSessionFormatVersion, snapshotSessionFormatHeader, sessionFormatVersion } from './json.ts'
 import type {
   SessionFormatArtifact,
   SessionFormatArtifactDecoder,
@@ -107,10 +103,7 @@ export function createSessionFormatCatalog(options: SessionFormatCatalogOptions)
     return { storedVersion, codec }
   }
 
-  function encodeCurrentHeader(
-    header: Parameters<SessionFormatCatalog['encodeCurrentHeader']>[0],
-    inheritedEventCount: number,
-  ) {
+  function encodeCurrentHeader(header: Parameters<SessionFormatCatalog['encodeCurrentHeader']>[0], inheritedEventCount: number) {
     if (inspectSessionFormatVersion(header) !== chain.currentVersion) {
       throw new SessionFormatError(`encodeCurrent requires Session format v${chain.currentVersion}`)
     }
@@ -121,10 +114,7 @@ export function createSessionFormatCatalog(options: SessionFormatCatalogOptions)
     return encoded
   }
 
-  function createRestore(
-    headerValue: unknown,
-    restoreOptions: SessionFormatRestoreOptions,
-  ): SessionFormatRestore {
+  function createRestore(headerValue: unknown, restoreOptions: SessionFormatRestoreOptions): SessionFormatRestore {
     const { storedVersion, codec } = artifactCodec(headerValue)
     const decoder = codec.createDecoder(headerValue, restoreOptions.recovery)
     const sourceCut = decoder.headerInheritedEventCount
@@ -137,19 +127,13 @@ export function createSessionFormatCatalog(options: SessionFormatCatalogOptions)
       )
     }
     const collector = new SessionFormatEventCollector()
-    const migration = chain.createStream(
-      decoder.header,
-      sourceCut,
-      collector,
-    )
+    const migration = chain.createStream(decoder.header, sourceCut, collector)
     return new MigratingSessionFormatRestore(
       decoder,
       sourceCut,
       migration,
       collector,
-      restoreOptions.validation === 'current'
-        ? options.restoreCurrent
-        : options.restoreTransformedCurrent,
+      restoreOptions.validation === 'current' ? options.restoreCurrent : options.restoreTransformedCurrent,
       restoreOptions.validation,
       storedVersion,
       chain.currentVersion,
@@ -185,22 +169,19 @@ class CurrentSessionFormatRestore implements SessionFormatRestore {
   }
 
   finish(): SessionFormatArtifact {
-    const inheritedEventCount = finishDecoder(
-      this.decoder,
-      this.collector,
-      this.sourceInheritedEventCount,
+    const inheritedEventCount = finishDecoder(this.decoder, this.collector, this.sourceInheritedEventCount)
+    return restoreCurrentVersion(
+      this.restoreArtifact({
+        header: this.header,
+        inheritedEventCount,
+        events: this.collector.values,
+      }),
+      this.currentVersion,
     )
-    return restoreCurrentVersion(this.restoreArtifact({
-      header: this.header,
-      inheritedEventCount,
-      events: this.collector.values,
-    }), this.currentVersion)
   }
 }
 
-class MigratingSessionFormatRestore implements
-  SessionFormatRestore,
-  SessionFormatMigrationContext {
+class MigratingSessionFormatRestore implements SessionFormatRestore, SessionFormatMigrationContext {
   readonly header: SessionFormatArtifact['header']
 
   constructor(
@@ -239,8 +220,7 @@ class MigratingSessionFormatRestore implements
     try {
       restored = this.restoreArtifact(artifact)
     } catch (error: unknown) {
-      if (this.validation === 'current'
-        || error instanceof SessionFormatUnsupportedMigrationError) throw error
+      if (this.validation === 'current' || error instanceof SessionFormatUnsupportedMigrationError) throw error
       const detail = error instanceof Error ? error.message : String(error)
       throw new SessionFormatUnsupportedMigrationError(
         `Session migration from v${this.sourceVersion} to v${this.currentVersion} refuses the transformed artifact: ${detail}`,
@@ -263,14 +243,9 @@ function finishDecoder(
   return inheritedEventCount
 }
 
-function restoreCurrentVersion(
-  artifact: SessionFormatArtifact,
-  currentVersion: number,
-): SessionFormatArtifact {
+function restoreCurrentVersion(artifact: SessionFormatArtifact, currentVersion: number): SessionFormatArtifact {
   if (artifact.header.version !== currentVersion) {
-    throw new SessionFormatError(
-      `current Session restorer returned v${artifact.header.version}; expected v${currentVersion}`,
-    )
+    throw new SessionFormatError(`current Session restorer returned v${artifact.header.version}; expected v${currentVersion}`)
   }
   return artifact
 }

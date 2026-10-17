@@ -57,25 +57,25 @@ function decodePhysicalHeader(value: unknown): SessionFormatHeader {
   if (record['origin'] !== undefined && record['origin'] !== 'subagent') {
     throw new SessionFormatError('released v2 header origin must be "subagent"')
   }
-  const header = snapshotSessionFormatJson({
-    version: 2,
-    id: record['id'],
-    createdAt,
-    ...(record['cwd'] === undefined ? {} : { cwd: record['cwd'] }),
-    ...(record['parentSession'] === undefined ? {} : { parentSession: record['parentSession'] }),
-    isSeeded: record['isSeeded'],
-    ...(record['origin'] === undefined ? {} : { origin: record['origin'] }),
-    delegationDepth,
-    ...(record['agentPreset'] === undefined ? {} : { agentPreset: record['agentPreset'] }),
-  }, 'released v2 logical header') as SessionFormatHeader
+  const header = snapshotSessionFormatJson(
+    {
+      version: 2,
+      id: record['id'],
+      createdAt,
+      ...(record['cwd'] === undefined ? {} : { cwd: record['cwd'] }),
+      ...(record['parentSession'] === undefined ? {} : { parentSession: record['parentSession'] }),
+      isSeeded: record['isSeeded'],
+      ...(record['origin'] === undefined ? {} : { origin: record['origin'] }),
+      delegationDepth,
+      ...(record['agentPreset'] === undefined ? {} : { agentPreset: record['agentPreset'] }),
+    },
+    'released v2 logical header',
+  ) as SessionFormatHeader
   assertReleasedV2Header(header)
   return header
 }
 
-function createDecoder(
-  headerValue: unknown,
-  recovery: SessionFormatRecovery,
-): SessionFormatArtifactDecoder {
+function createDecoder(headerValue: unknown, recovery: SessionFormatRecovery): SessionFormatArtifactDecoder {
   const header = decodePhysicalHeader(headerValue)
   let rowIndex = 0
   let eventCount = 0
@@ -90,9 +90,10 @@ function createDecoder(
       try {
         event = decodeEvent(value, currentRow)
       } catch (error: unknown) {
-        const current = error instanceof SessionFormatError
-          ? error
-          : new SessionFormatError(`released v2 row ${currentRow} is malformed`, { cause: error })
+        const current =
+          error instanceof SessionFormatError
+            ? error
+            : new SessionFormatError(`released v2 row ${currentRow} is malformed`, { cause: error })
         if (recovery === 'strict') throw current
         issue ??= current
         return
@@ -102,9 +103,7 @@ function createDecoder(
         return
       }
       if (event.seq !== eventCount) {
-        const gap = new SessionFormatError(
-          `released v2 row ${currentRow} has seq gap (expected ${eventCount}, got ${event.seq})`,
-        )
+        const gap = new SessionFormatError(`released v2 row ${currentRow} has seq gap (expected ${eventCount}, got ${event.seq})`)
         if (recovery === 'strict') throw gap
         issue = gap
         if (event.type === 'turn/end') throw issue
@@ -152,10 +151,7 @@ function decodeEvent(value: unknown, rowIndex: number): SessionFormatEvent {
   } as unknown as SessionFormatEvent
 }
 
-function encodeHeader(
-  header: SessionFormatHeader,
-  inheritedEventCount: number,
-): SessionFormatJsonObject {
+function encodeHeader(header: SessionFormatHeader, inheritedEventCount: number): SessionFormatJsonObject {
   assertReleasedV2Header(header)
   const cut = sessionFormatCount(inheritedEventCount, 'format v2 inherited event count')
   if (!header.isSeeded && cut !== 0) {
@@ -238,12 +234,7 @@ function jsonRecord(value: SessionFormatJsonValue | undefined, label: string): S
   return value as SessionFormatJsonObject
 }
 
-function exactKeys(
-  record: SessionFormatJsonObject,
-  required: readonly string[],
-  optional: readonly string[],
-  label: string,
-): void {
+function exactKeys(record: SessionFormatJsonObject, required: readonly string[], optional: readonly string[], label: string): void {
   const allowed = new Set([...required, ...optional])
   const missing = required.find(key => !Object.hasOwn(record, key))
   if (missing !== undefined) throw new SessionFormatError(`${label} lacks ${missing}`)

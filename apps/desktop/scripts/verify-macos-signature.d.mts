@@ -55,10 +55,7 @@ export function verifyMacOSNotarizedApplication(appPath: string, expected: MacOS
  * @param diskImagePath - Path to the packaged `.dmg` file.
  * @param expected - Public release identity.
  */
-export function verifyMacOSDiskImage(
-  diskImagePath: string,
-  expected: MacOSSigningEnvironment,
-): void
+export function verifyMacOSDiskImage(diskImagePath: string, expected: MacOSSigningEnvironment): void
 
 /** Electron-builder fields required to locate a signed macOS application. */
 export interface MacOSAfterSignContext {
@@ -76,10 +73,7 @@ export interface MacOSAfterSignContext {
  * @param context - electron-builder hook context.
  * @param expected - Public release identity.
  */
-export function verifyMacOSSignatureAfterSign(
-  context: MacOSAfterSignContext,
-  expected: MacOSSigningEnvironment,
-): void
+export function verifyMacOSSignatureAfterSign(context: MacOSAfterSignContext, expected: MacOSSigningEnvironment): void
 
 /**
  * Verify a disk image's code signature and Developer ID without requiring a notarization ticket.

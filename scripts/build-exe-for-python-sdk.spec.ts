@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 const root = resolve(import.meta.dirname, '..')
 const script = resolve(root, 'scripts/build-exe-for-python-sdk.ts')
@@ -27,12 +27,7 @@ describe('Python runtime executable builder CLI', () => {
     { flags: [], command: 'run build' },
     { flags: ['--build-artifacts'], command: 'run build:artifacts' },
   ])('validates the closure before $command and deploys only after building', ({ flags, command }) => {
-    const result = run(
-      { npm_execpath: 'C:\\tools\\pnpm.cjs' },
-      '--dry-run',
-      '--targets=node24-macos-arm64',
-      ...flags,
-    )
+    const result = run({ npm_execpath: 'C:\\tools\\pnpm.cjs' }, '--dry-run', '--targets=node24-macos-arm64', ...flags)
 
     expect(result.error).toBeUndefined()
     expect(result.signal).toBeNull()
@@ -48,11 +43,14 @@ describe('Python runtime executable builder CLI', () => {
     temporaryDirectories.push(setup)
     const entrypoint = join(setup, 'pnpm.cjs')
     const commands = join(setup, 'commands.jsonl')
-    writeFileSync(entrypoint, [
-      "require('node:fs').appendFileSync(process.env.DSH_PYTHON_BUILD_COMMANDS, JSON.stringify(process.argv.slice(2)) + '\\n')",
-      'process.exit(31)',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      entrypoint,
+      [
+        "require('node:fs').appendFileSync(process.env.DSH_PYTHON_BUILD_COMMANDS, JSON.stringify(process.argv.slice(2)) + '\\n')",
+        'process.exit(31)',
+        '',
+      ].join('\n'),
+    )
 
     const result = run(
       { npm_execpath: entrypoint, DSH_PYTHON_BUILD_COMMANDS: commands },
@@ -74,12 +72,15 @@ describe('Python runtime executable builder CLI', () => {
     temporaryDirectories.push(setup)
     const entrypoint = join(setup, 'pnpm.cjs')
     const commands = join(setup, 'commands.jsonl')
-    writeFileSync(entrypoint, [
-      "require('node:fs').appendFileSync(process.env.DSH_PYTHON_BUILD_COMMANDS, JSON.stringify(process.argv.slice(2)) + '\\n')",
-      "if (process.argv.slice(2).join(' ') === 'run verify-runtime-closure') process.exit(31)",
-      'process.exit(32)',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      entrypoint,
+      [
+        "require('node:fs').appendFileSync(process.env.DSH_PYTHON_BUILD_COMMANDS, JSON.stringify(process.argv.slice(2)) + '\\n')",
+        "if (process.argv.slice(2).join(' ') === 'run verify-runtime-closure') process.exit(31)",
+        'process.exit(32)',
+        '',
+      ].join('\n'),
+    )
 
     const result = run(
       { npm_execpath: entrypoint, DSH_PYTHON_BUILD_COMMANDS: commands },
@@ -91,8 +92,7 @@ describe('Python runtime executable builder CLI', () => {
     expect(result.signal).toBeNull()
     expect(result.status).not.toBe(0)
     expect(result.stderr).toContain('runtime dependency closure failed (exit code 31)')
-    expect(readFileSync(commands, 'utf8').trim().split('\n'))
-      .toEqual([JSON.stringify(['run', 'verify-runtime-closure'])])
+    expect(readFileSync(commands, 'utf8').trim().split('\n')).toEqual([JSON.stringify(['run', 'verify-runtime-closure'])])
   })
 
   it('keeps the single-file dispatcher on the Python packaging surface', () => {
@@ -122,12 +122,7 @@ describe('Python runtime executable builder CLI', () => {
   })
 
   it('runs pnpm through its JavaScript entrypoint without a command shell', () => {
-    const result = run(
-      { npm_execpath: 'C:\\tools\\pnpm.cjs' },
-      '--skip-build',
-      '--dry-run',
-      '--targets=node24-macos-arm64',
-    )
+    const result = run({ npm_execpath: 'C:\\tools\\pnpm.cjs' }, '--skip-build', '--dry-run', '--targets=node24-macos-arm64')
 
     expect(result.status).toBe(0)
     expect(result.stdout).toContain(`${process.execPath} C:\\tools\\pnpm.cjs run verify-runtime-closure`)
@@ -165,12 +160,7 @@ describe('Python runtime executable builder CLI', () => {
   })
 
   it('accepts the macOS x64 pkg target', () => {
-    const result = run(
-      { npm_execpath: 'C:\\tools\\pnpm.cjs' },
-      '--skip-build',
-      '--dry-run',
-      '--targets=node24-macos-x64',
-    )
+    const result = run({ npm_execpath: 'C:\\tools\\pnpm.cjs' }, '--skip-build', '--dry-run', '--targets=node24-macos-x64')
 
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('exec pkg')
@@ -181,12 +171,7 @@ describe('Python runtime executable builder CLI', () => {
   })
 
   it('rejects a Windows arm64 product before any build step', () => {
-    const result = run(
-      { npm_execpath: 'C:\\tools\\pnpm.cjs' },
-      '--skip-build',
-      '--dry-run',
-      '--targets=node24-win-arm64',
-    )
+    const result = run({ npm_execpath: 'C:\\tools\\pnpm.cjs' }, '--skip-build', '--dry-run', '--targets=node24-win-arm64')
 
     expect(result.status).not.toBe(0)
     expect(result.stderr).toContain('Windows supports x64 only')

@@ -17,19 +17,25 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page, Route, WebSocketRoute } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { ToolCallId, expandAssistantStream } from '@deepseek-ai/dsh-llm'
 import { SessionId, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SessionListValue } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import {
-  acknowledgeReloadConnectionLoss, assertFixtureInventory, captureExpandedTurnProcessAria, captureStableAria,
-  compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFixtureInventory,
+  captureExpandedTurnProcessAria,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
-import {
-  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot,
-} from './support.ts'
+import { connectFreshWorkspace, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip', import.meta.url))
 const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip/session.v3.jsonl', import.meta.url))
@@ -37,9 +43,7 @@ const UI_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/fresh-round-tr
 const ECHO_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip/submission-echo.expected.md', import.meta.url))
 const ACCEPTED_RECONNECT_EXPECTED = join(SNAPSHOT_DIR, 'accepted-reconnect.expected.md')
 const BLANK_EXPECTED = join(SNAPSHOT_DIR, 'blank-reload.expected.md')
-const UI_EXPANDED_EXPECTED = fileURLToPath(
-  new URL('../../../snapshots/web/fresh-round-trip/ui-expanded.expected.md', import.meta.url),
-)
+const UI_EXPANDED_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip/ui-expanded.expected.md', import.meta.url))
 const WEB_CONTEXT_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip/web-context.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
 
@@ -53,7 +57,7 @@ type SessionListResponse = { result: RemoteResult<SessionListValue> }
 /** Rendered text of the system prompt surface node, or undefined when the surface carries none. */
 function systemPromptText(session: Session): string | undefined {
   const message = session.deriveMessages().find(candidate => candidate.role === 'system')
-  return message?.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
+  return message?.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')
 }
 
 describe('web e2e: fresh round trip through the real assembly', () => {
@@ -71,11 +75,13 @@ describe('web e2e: fresh round trip through the real assembly', () => {
       compareReplaySession: true,
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15 }),
     })
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     await page.clock.setFixedTime(browserNow)
-    await page.routeWebSocket('**/api/remote.mux', (route) => {
+    await page.routeWebSocket('**/api/remote.mux', route => {
       remoteSocket = route
       route.connectToServer()
     })
@@ -105,15 +111,14 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     await page.getByRole('button', { name: 'Select model, current DeepSeek · DeepSeek-V4-Flash' }).waitFor({ timeout: 15_000 })
     await expect.poll(() => page.evaluate(() => localStorage.getItem('dsh.sessions.current'))).toBe(beforeReload)
     if (MODE !== 'record') {
-      await compareOrRefreshGolden(BLANK_EXPECTED,
-        await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd), MODE)
+      await compareOrRefreshGolden(BLANK_EXPECTED, await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd), MODE)
     }
     const input = page.locator('[data-composer-input]').first()
     await input.waitFor({ timeout: 10_000 })
-    const sessionId = await page.evaluate(() => {
+    const sessionId = (await page.evaluate(() => {
       const selected = JSON.parse(localStorage.getItem('dsh.sessions.current')!) as { sessionId: string }
       return selected.sessionId
-    }) as SessionId
+    })) as SessionId
     const agent = scaffold.ctx.agents.get(sessionId)
     if (agent === undefined) throw new Error('the selected Web Session has no live Agent')
     await agent.whenIdle()
@@ -126,12 +131,21 @@ describe('web e2e: fresh round trip through the real assembly', () => {
       const admitted = page.waitForResponse('**/api/session/prompt')
       const [echoSnapshot, response] = await Promise.all([
         input.evaluate(async (element, prompt) => {
-          element.dispatchEvent(new KeyboardEvent('keydown', {
-            key: 'Enter', code: 'Enter', bubbles: true, cancelable: true,
-          }))
+          element.dispatchEvent(
+            new KeyboardEvent('keydown', {
+              key: 'Enter',
+              code: 'Enter',
+              bubbles: true,
+              cancelable: true,
+            }),
+          )
           // sendSession registered its paint yield first. This frame observes the
           // committed echo while admission remains queued on the following task.
-          await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+          await new Promise<void>(resolve => {
+            requestAnimationFrame(() => {
+              resolve()
+            })
+          })
           const echo = document.querySelector<HTMLElement>('[data-submission-echo]')
           return [
             `echo: ${echo?.textContent?.includes(prompt) === true ? prompt : '(missing)'}`,
@@ -144,8 +158,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
       expect(await response.json()).toMatchObject({ result: { ok: true, value: { accepted: true } } })
       accepted = true
       await compareOrRefreshGolden(ECHO_EXPECTED, echoSnapshot, MODE)
-      const row = page.getByRole('tree', { name: 'Sessions', exact: true })
-        .locator('[role="treeitem"][aria-selected="true"]')
+      const row = page.getByRole('tree', { name: 'Sessions', exact: true }).locator('[role="treeitem"][aria-selected="true"]')
       await expect.poll(() => row.getAttribute('draggable'), { timeout: 5_000 }).toBe('true')
       expect(sessionEvents.some(event => event.type === 'turn/start')).toBe(false)
 
@@ -158,14 +171,17 @@ describe('web e2e: fresh round trip through the real assembly', () => {
       const markListResponse = async (route: Route): Promise<void> => {
         const response = await route.fetch()
         try {
-          const body = await response.json() as SessionListResponse
+          const body = (await response.json()) as SessionListResponse
           if (body.result.ok) {
-            body.result = { ...body.result, value: {
-              ...body.result.value,
-              items: body.result.value.items.map(item => item.sessionId === sessionId
-                ? { ...item, updatedAt: browserNow - 2 * 86_400_000 }
-                : item),
-            } }
+            body.result = {
+              ...body.result,
+              value: {
+                ...body.result.value,
+                items: body.result.value.items.map(item =>
+                  item.sessionId === sessionId ? { ...item, updatedAt: browserNow - 2 * 86_400_000 } : item,
+                ),
+              },
+            }
           }
           await route.fulfill({ response, json: body })
         } finally {
@@ -178,7 +194,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
         const [, refreshed] = await Promise.all([disconnected.close(), refreshing])
         // Cross-network reconnect: allow more than expect.poll's default.
         await expect.poll(() => remoteSocket !== disconnected, { timeout: 15_000 }).toBe(true)
-        const baseline = await refreshed.json() as SessionListResponse
+        const baseline = (await refreshed.json()) as SessionListResponse
         expect(baseline.result.ok).toBe(true)
         if (!baseline.result.ok) throw new Error('the reconnect list request failed')
         const hostSummary = baseline.result.value.items.find(item => item.sessionId === sessionId)
@@ -227,15 +243,22 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     const cwd = agent.session.header.cwd
     if (cwd === undefined) throw new Error('the Web session has no working directory')
     expect(system).not.toContain(cwd)
-    const userText = agent.session.deriveMessages().filter(message => message.role === 'user')
-      .flatMap(message => message.content.flatMap(block => block.type === 'text' ? [block.text] : []))
+    const userText = agent.session
+      .deriveMessages()
+      .filter(message => message.role === 'user')
+      .flatMap(message => message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])))
     expect(userText.some(text => text.includes(`Current working directory: ${JSON.stringify(cwd)}.`))).toBe(true)
     expect(system).not.toContain(scaffold.baseUrl)
     expect(userText.some(text => text.includes(`Current DeepSeek Harness Web GUI URL: ${JSON.stringify(scaffold.baseUrl)}.`))).toBe(true)
-    const suffix = paragraphs.slice(-2).join('\n\n')
-      .split(REPO_ROOT).join('{{sourceRoot}}')
-      .split(join(scaffold.workspaceCwd, 'workspace')).join('{{cwd}}')
-      .split(scaffold.baseUrl).join('{{webUrl}}')
+    const suffix = paragraphs
+      .slice(-2)
+      .join('\n\n')
+      .split(REPO_ROOT)
+      .join('{{sourceRoot}}')
+      .split(join(scaffold.workspaceCwd, 'workspace'))
+      .join('{{cwd}}')
+      .split(scaffold.baseUrl)
+      .join('{{webUrl}}')
     await compareOrRefreshGolden(WEB_CONTEXT_EXPECTED, suffix, MODE)
   })
 
@@ -260,8 +283,12 @@ describe('web e2e: fresh round trip through the real assembly', () => {
           agent: handle.agent,
         })
         expect(result.isError).toBe(false)
-        expect(result.content.filter(block => block.type === 'text').map(block => block.text).join(''))
-          .toBe(`${probe.baseUrl}\n`)
+        expect(
+          result.content
+            .filter(block => block.type === 'text')
+            .map(block => block.text)
+            .join(''),
+        ).toBe(`${probe.baseUrl}\n`)
       } finally {
         await handle.dispose()
       }
@@ -270,32 +297,46 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     }
   })
 
-  it.skipIf(MODE === 'record')('rendered the settled turn: markdown, tool row, composer restore', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-round-trip-settled'))
-    // Browser settled-poll after host completion (host strictly precedes render).
-    await page.locator('[data-streaming="true"]').waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {
-      // Chunks may coalesce into one commit; a never-mounted streaming node is
-      // legal — the chunk-event assertions below carry incrementality.
-    })
-    await expect.poll(() => page.getByText('DONE', { exact: true }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
-    // World state, not self-report: the real bash executor returned the exact
-    // command output, and the turn closed cleanly.
-    const bashCall = sessionEvents.find(event => event.type === 'tool/call' && event.data.name === 'bash')
-    if (bashCall?.type !== 'tool/call') throw new Error('the replayed turn did not call the bash tool')
-    const bashResult = sessionEvents.find(event =>
-      event.type === 'tool/result' && event.data.message.source.callId === bashCall.data.callId)
-    if (bashResult?.type !== 'tool/result') throw new Error('the bash tool call produced no durable result')
-    expect(bashResult.data.message.isError).toBe(false)
-    expect(bashResult.data.message.content.filter(block => block.type === 'text').map(block => block.text).join(''))
-      .toBe('WEB_E2E_OK\n')
-    const turnEnds = sessionEvents.filter(e => e.type === 'turn/end')
-    expect(turnEnds.length).toBe(1)
-    expect((turnEnds[0] as SessionEvent & { data: { reason: { kind: string } } }).data.reason.kind).toBe('completed')
-    // Embedded stream members are the authoritative incrementality proof.
-    expect(sessionEvents.flatMap(e => e.type === 'assistant/message' || e.type === 'assistant/attempt'
-      ? expandAssistantStream(e.data.stream)
-      : []).length).toBeGreaterThan(10)
-  }, 60_000)
+  it.skipIf(MODE === 'record')(
+    'rendered the settled turn: markdown, tool row, composer restore',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-round-trip-settled'))
+      // Browser settled-poll after host completion (host strictly precedes render).
+      await page
+        .locator('[data-streaming="true"]')
+        .waitFor({ state: 'detached', timeout: 15_000 })
+        .catch(() => {
+          // Chunks may coalesce into one commit; a never-mounted streaming node is
+          // legal — the chunk-event assertions below carry incrementality.
+        })
+      await expect.poll(() => page.getByText('DONE', { exact: true }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
+      // World state, not self-report: the real bash executor returned the exact
+      // command output, and the turn closed cleanly.
+      const bashCall = sessionEvents.find(event => event.type === 'tool/call' && event.data.name === 'bash')
+      if (bashCall?.type !== 'tool/call') throw new Error('the replayed turn did not call the bash tool')
+      const bashResult = sessionEvents.find(
+        event => event.type === 'tool/result' && event.data.message.source.callId === bashCall.data.callId,
+      )
+      if (bashResult?.type !== 'tool/result') throw new Error('the bash tool call produced no durable result')
+      expect(bashResult.data.message.isError).toBe(false)
+      expect(
+        bashResult.data.message.content
+          .filter(block => block.type === 'text')
+          .map(block => block.text)
+          .join(''),
+      ).toBe('WEB_E2E_OK\n')
+      const turnEnds = sessionEvents.filter(e => e.type === 'turn/end')
+      expect(turnEnds.length).toBe(1)
+      expect((turnEnds[0] as SessionEvent & { data: { reason: { kind: string } } }).data.reason.kind).toBe('completed')
+      // Embedded stream members are the authoritative incrementality proof.
+      expect(
+        sessionEvents.flatMap(e =>
+          e.type === 'assistant/message' || e.type === 'assistant/attempt' ? expandAssistantStream(e.data.stream) : [],
+        ).length,
+      ).toBeGreaterThan(10)
+    },
+    60_000,
+  )
 
   it.skipIf(MODE === 'record')('matches the conversation aria golden with stable anchors', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-round-trip-aria'))
@@ -303,16 +344,14 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     // while the whole-region golden churns.
     await expect(page.getByRole('textbox').first().isVisible()).resolves.toBe(true)
     expect(await page.getByText('WEB_E2E_OK', { exact: false }).count()).toBeGreaterThanOrEqual(1)
-    await page.getByRole('button', {
-      name: 'Select model, current DeepSeek · DeepSeek-V4-Flash',
-    }).waitFor({ timeout: 10_000 })
+    await page
+      .getByRole('button', {
+        name: 'Select model, current DeepSeek · DeepSeek-V4-Flash',
+      })
+      .waitFor({ timeout: 10_000 })
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
-    const expanded = await captureExpandedTurnProcessAria(
-      page,
-      '[class*="centerCol"]',
-      scaffold.workspaceCwd,
-    )
+    const expanded = await captureExpandedTurnProcessAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPANDED_EXPECTED, expanded, MODE)
   })
 

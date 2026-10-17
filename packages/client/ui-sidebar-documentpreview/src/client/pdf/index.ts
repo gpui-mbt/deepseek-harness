@@ -20,7 +20,15 @@ export const PDF_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/p
  * @returns the complete-file PDF registration.
  */
 export function pdfBodyDefinition(title: () => string): DocumentPreviewDefinition {
-  return { id: PDF_BODY_ID, extensions: ['pdf'], binaryExtensions: ['pdf'], priority: 'builtin', title, loading: 'bytes-complete', wrap: false }
+  return {
+    id: PDF_BODY_ID,
+    extensions: ['pdf'],
+    binaryExtensions: ['pdf'],
+    priority: 'builtin',
+    title,
+    loading: 'bytes-complete',
+    wrap: false,
+  }
 }
 
 /** @param ctx - context carrying the locale, document registry, and slot registry. */
@@ -29,9 +37,19 @@ export function apply(ctx: Context): void {
   const t = ctx.locale.bind('sidebarPdf')
   ctx.effect(() => ctx.documentPreviews.register(pdfBodyDefinition(() => t('title'))))
   const presentation = pdfBodyRegistration(ctx)
-  ctx.effect(() => ctx.slots.inject('sidebar.right.tab.document', () => ctx.slots.register({
-    name: 'sidebar.right.tab.document', key: PDF_BODY_ID, locale: 'sidebarPdf', ...presentation,
-  }, LazyPdfBody)))
+  ctx.effect(() =>
+    ctx.slots.inject('sidebar.right.tab.document', () =>
+      ctx.slots.register(
+        {
+          name: 'sidebar.right.tab.document',
+          key: PDF_BODY_ID,
+          locale: 'sidebarPdf',
+          ...presentation,
+        },
+        LazyPdfBody,
+      ),
+    ),
+  )
 }
 
 /**
@@ -48,7 +66,9 @@ export function pdfBodyRegistration(ctx: Context): {
   return {
     store,
     inject: (_sessionId, actions): PdfBodyInjected => ({
-      retainTab: (tabId, signal) => { retainTab(tabId, signal, actions.forget) },
+      retainTab: (tabId, signal) => {
+        retainTab(tabId, signal, actions.forget)
+      },
       ZoomViewport,
       zoomSurfaceClass,
     }),

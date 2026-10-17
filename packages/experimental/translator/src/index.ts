@@ -57,7 +57,10 @@ export default class Translator extends Service {
     bingEndpoint: z.transform(z.string(), endpoint).default('https://edge.microsoft.com/translate/translatetext'),
     timeoutMs: z.natural().min(1).max(2_147_483_647).default(10_000),
     maxTextChars: z.natural().min(2).default(4_000),
-    maxResponseBytes: z.natural().min(1).default(1024 * 1024),
+    maxResponseBytes: z
+      .natural()
+      .min(1)
+      .default(1024 * 1024),
     deepseekTimeoutMs: z.natural().min(1).max(2_147_483_647).default(60_000),
     deepseekMaxOutputTokens: z.natural().min(1).default(8192),
   })
@@ -66,7 +69,10 @@ export default class Translator extends Service {
   private readonly pending = new Set<Promise<void>>()
   private readonly storage: TranslationStorage
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'translator')
     this.storage = new TranslationStorage(ctx)
     ctx.effect(() => async () => {
@@ -76,7 +82,9 @@ export default class Translator extends Service {
   }
 
   /** Maximum UTF-16 code units accepted by one provider request. */
-  get maxTextChars(): number { return this.config.maxTextChars }
+  get maxTextChars(): number {
+    return this.config.maxTextChars
+  }
 
   /**
    * Inspect eligible native routes without inference; saved results remain readable for unavailable routes.
@@ -85,7 +93,11 @@ export default class Translator extends Service {
    */
   async availableProviders(signal?: AbortSignal): Promise<readonly TranslationProvider[]> {
     const combined = this.signal(signal)
-    const task = Promise.resolve().then(() => availablePaidProviders(this.ctx, this.config, combined, (work) => { this.track(work) }))
+    const task = Promise.resolve().then(() =>
+      availablePaidProviders(this.ctx, this.config, combined, work => {
+        this.track(work)
+      }),
+    )
     this.track(task)
     return task
   }
@@ -102,14 +114,17 @@ export default class Translator extends Service {
     const base = { text: request.text, targetLanguage: request.targetLanguage, sourceLanguage: request.sourceLanguage ?? 'auto' }
     switch (provider) {
       case 'google':
-      case 'bing': return { ...base, provider, ...request.sessionId === undefined ? {} : { sessionId: request.sessionId } }
+      case 'bing':
+        return { ...base, provider, ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }) }
       case 'deepseek-account':
       case 'deepseek-official': {
-        if (request.sessionId === undefined) throw new TranslationError('TRANSLATION_SESSION_REQUIRED', 'Paid translation requires a durable Session')
+        if (request.sessionId === undefined)
+          throw new TranslationError('TRANSLATION_SESSION_REQUIRED', 'Paid translation requires a durable Session')
         return { ...base, provider, sessionId: request.sessionId }
       }
       /* v8 ignore next -- TranslationProvider is a closed union validated by Config or Remote request admission. */
-      default: return assertNever(provider)
+      default:
+        return assertNever(provider)
     }
   }
 
@@ -124,35 +139,55 @@ export default class Translator extends Service {
   async translate(spec: TranslationSpec, signal?: AbortSignal): Promise<string> {
     this.assertTextLimit(spec.text)
     const combined = this.signal(signal)
-    const identity: TranslationIdentity = { provider: spec.provider, text: spec.text, sourceLanguage: spec.sourceLanguage,
-      targetLanguage: spec.targetLanguage, recipe: spec.provider === 'google' || spec.provider === 'bing'
-        ? anonymousRecipe(spec.provider, this.config) : deepseekRecipe(this.config) }
-    const inSession = (id: SessionId) => this.storage.run(id, identity, combined, async (log) => {
-      switch (spec.provider) {
-        case 'deepseek-account':
-        case 'deepseek-official':
-          return translateWithDeepSeek(this.ctx, spec, this.config, combined, (work) => { this.track(work) }, log, identity)
-        case 'google':
-        case 'bing': {
-          const requestSeq = await log.request(identity)
-          combined.throwIfAborted()
-          const text = await translateText(spec, this.config, combined)
-          combined.throwIfAborted()
-          await log.result(requestSeq, text)
-          return text
+    const identity: TranslationIdentity = {
+      provider: spec.provider,
+      text: spec.text,
+      sourceLanguage: spec.sourceLanguage,
+      targetLanguage: spec.targetLanguage,
+      recipe:
+        spec.provider === 'google' || spec.provider === 'bing' ? anonymousRecipe(spec.provider, this.config) : deepseekRecipe(this.config),
+    }
+    const inSession = (id: SessionId) =>
+      this.storage.run(id, identity, combined, async log => {
+        switch (spec.provider) {
+          case 'deepseek-account':
+          case 'deepseek-official':
+            return translateWithDeepSeek(
+              this.ctx,
+              spec,
+              this.config,
+              combined,
+              work => {
+                this.track(work)
+              },
+              log,
+              identity,
+            )
+          case 'google':
+          case 'bing': {
+            const requestSeq = await log.request(identity)
+            combined.throwIfAborted()
+            const text = await translateText(spec, this.config, combined)
+            combined.throwIfAborted()
+            await log.result(requestSeq, text)
+            return text
+          }
+          /* v8 ignore next -- TranslationSpec has a closed provider union resolved before same-process dispatch. */
+          default:
+            return assertNever(spec)
         }
-        /* v8 ignore next -- TranslationSpec has a closed provider union resolved before same-process dispatch. */
-        default: return assertNever(spec)
-      }
-    })
+      })
     const task = Promise.resolve().then(() => {
       switch (spec.provider) {
         case 'google':
-        case 'bing': return spec.sessionId === undefined ? translateText(spec, this.config, combined) : inSession(spec.sessionId)
+        case 'bing':
+          return spec.sessionId === undefined ? translateText(spec, this.config, combined) : inSession(spec.sessionId)
         case 'deepseek-account':
-        case 'deepseek-official': return inSession(spec.sessionId)
+        case 'deepseek-official':
+          return inSession(spec.sessionId)
         /* v8 ignore next -- TranslationSpec has a closed provider union resolved before same-process dispatch. */
-        default: return assertNever(spec)
+        default:
+          return assertNever(spec)
       }
     })
     this.track(task)
@@ -162,7 +197,9 @@ export default class Translator extends Service {
         // oxlint-disable-next-line typescript/prefer-promise-reject-errors
         reject(combined.reason)
       })
-      void task.then(resolve, reject).finally(() => { listener[Symbol.dispose]() })
+      void task.then(resolve, reject).finally(() => {
+        listener[Symbol.dispose]()
+      })
     })
   }
 
@@ -174,9 +211,14 @@ export default class Translator extends Service {
   }
 
   private track(work: Promise<unknown>): void {
-    const settled = work.then(() => {}, () => {})
+    const settled = work.then(
+      () => {},
+      () => {},
+    )
     this.pending.add(settled)
-    void settled.then(() => { this.pending.delete(settled) })
+    void settled.then(() => {
+      this.pending.delete(settled)
+    })
   }
 
   private assertTextLimit(text: string): void {

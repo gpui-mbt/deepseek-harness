@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Guide shell discovery, direct launch and cancellation stay within the entry lifetime. */
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { allowAllAccess, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TerminalLaunchShells } from '@deepseek-ai/dsh-api-terminal-controller/client'
 import type { GlobalStandardProps, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
@@ -13,25 +13,53 @@ import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 const SESSION = 's-terminal-guide' as SessionId
-const unused = (): never => { throw new Error('This isolated component does not consume framework hooks') }
+const unused = (): never => {
+  throw new Error('This isolated component does not consume framework hooks')
+}
 const standard: GlobalStandardProps & SessionStandardProps = {
-  sessionId: SESSION, useSession: unused, useProjection: unused, useConversation: unused,
-  useInput: unused, useChat: unused, useTrajectory: unused,
-  usePanelInfo: unused, useSessions: unused, useSessionStatus: unused,
-  useSessionRetainInfo: unused, useResource: unused, useWorkspaces: unused,
+  sessionId: SESSION,
+  useSession: unused,
+  useProjection: unused,
+  useConversation: unused,
+  useInput: unused,
+  useChat: unused,
+  useTrajectory: unused,
+  usePanelInfo: unused,
+  useSessions: unused,
+  useSessionStatus: unused,
+  useSessionRetainInfo: unused,
+  useResource: unused,
+  useWorkspaces: unused,
   ...allowAllAccess,
-  inputActions: { captureInsertion: unused, insertText: unused, setDraft: unused, persistDraft: unused,
-    addAttachments: unused, removeAttachment: unused, pruneAttachments: unused, submit: unused },
+  inputActions: {
+    captureInsertion: unused,
+    insertText: unused,
+    setDraft: unused,
+    persistDraft: unused,
+    addAttachments: unused,
+    removeAttachment: unused,
+    pruneAttachments: unused,
+    submit: unused,
+  },
 }
 const choices: TerminalLaunchShells = {
-  shells: [{ name: 'bash', path: '/bin/bash', args: ['-i'] }, { name: 'zsh', path: '/bin/zsh', args: ['-i'] }],
+  shells: [
+    { name: 'bash', path: '/bin/bash', args: ['-i'] },
+    { name: 'zsh', path: '/bin/zsh', args: ['-i'] },
+  ],
   selectedShell: '/bin/zsh',
 }
 
 type GuideShortcut = Pick<ShortcutCatalogEntry, 'keys' | 'aria'>
 const catalogEntry = (shortcut: GuideShortcut): ShortcutCatalogEntry => ({
-  id: 'terminal.new' as ShortcutCommandId, label: en.new, aliases: [], binding: null,
-  modified: false, conflicts: [], issue: null, ...shortcut,
+  id: 'terminal.new' as ShortcutCommandId,
+  label: en.new,
+  aliases: [],
+  binding: null,
+  modified: false,
+  conflicts: [],
+  issue: null,
+  ...shortcut,
 })
 
 function mount(description: string | undefined = en.description, shortcut?: GuideShortcut) {
@@ -42,13 +70,27 @@ function mount(description: string | undefined = en.description, shortcut?: Guid
   const props: TerminalGuideProps = {
     ...standard,
     useShortcuts: <T,>(selector: (entries: readonly ShortcutCatalogEntry[]) => T): T => selector(shortcuts),
-    entryId: 'new', kind: 'terminal', title: en.new, description, t: makeTranslate(en),
-    useTabInfo: () => ({ sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-guide' as PaneId },
-      tab: { id: 'tab-guide' as TabId, kind: 'guide', contentId: 'sidebar://guide', title: 'Start',
-        visible: true, signal: new AbortController().signal,
+    entryId: 'new',
+    kind: 'terminal',
+    title: en.new,
+    description,
+    t: makeTranslate(en),
+    useTabInfo: () => ({
+      sidebar: { expanded: true, fullscreen: false },
+      panel: { id: 'pane-guide' as PaneId },
+      tab: {
+        id: 'tab-guide' as TabId,
+        kind: 'guide',
+        contentId: 'sidebar://guide',
+        title: 'Start',
+        visible: true,
+        signal: new AbortController().signal,
         navigation: { address: 'sidebar://guide', params: undefined, revision: 0 },
-        actions: { openTab, bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), close: vi.fn() } } }),
-    loadShells, selectShell,
+        actions: { openTab, bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), close: vi.fn() },
+      },
+    }),
+    loadShells,
+    selectShell,
   }
   const view = render(<TerminalGuide {...props} />)
   const open = () => fireEvent.click(view.getByRole('button', { name: en.shell }))
@@ -67,7 +109,7 @@ it('opens the default shell from the main button without querying a menu', () =>
   expect(h.view.container.querySelector('button button')).toBeNull()
 })
 
-it.each(['hover', 'focus'] as const)('keeps the terminal shortcut inline without a tooltip on %s after rebinding', (trigger) => {
+it.each(['hover', 'focus'] as const)('keeps the terminal shortcut inline without a tooltip on %s after rebinding', trigger => {
   const h = mount(en.description, { keys: ['Ctrl', '`'], aria: 'Control+`' })
   const button = h.view.getByRole('button', { name: /^New terminal/u })
   if (trigger === 'hover') fireEvent.mouseEnter(button)
@@ -95,7 +137,9 @@ it('loads on demand, remembers a selected shell before opening, and cancels on m
   await h.view.findByRole('menuitem', { name: 'zsh' })
   expect(h.openTab).not.toHaveBeenCalled()
   const signal = h.loadShells.mock.calls[0]![0]
-  h.selectShell.mockImplementation(() => { expect(h.openTab).not.toHaveBeenCalled() })
+  h.selectShell.mockImplementation(() => {
+    expect(h.openTab).not.toHaveBeenCalled()
+  })
   fireEvent.click(h.view.getByRole('menuitem', { name: 'bash' }))
   expect(h.selectShell).toHaveBeenCalledExactlyOnceWith('/bin/bash')
   expect(h.openTab).toHaveBeenCalledExactlyOnceWith('terminal', { replaceTab: true, params: { shellPath: '/bin/bash' } })
@@ -107,7 +151,7 @@ it('loads on demand, remembers a selected shell before opening, and cancels on m
   expect(h.loadShells.mock.calls[1]![0].aborted).toBe(true)
 })
 
-it.each([new Error('offline'), 'offline'])('offers an in-place retry after discovery fails: %s', async (error) => {
+it.each([new Error('offline'), 'offline'])('offers an in-place retry after discovery fails: %s', async error => {
   const h = mount()
   h.loadShells.mockRejectedValueOnce(error)
   h.open()
@@ -129,7 +173,7 @@ it('shows empty discovery without opening a terminal and supports title-only car
   expect(h.openTab).not.toHaveBeenCalled()
 })
 
-it.each(['resolve', 'reject'] as const)('ignores a late %s after a loading entry unmounts', async (outcome) => {
+it.each(['resolve', 'reject'] as const)('ignores a late %s after a loading entry unmounts', async outcome => {
   const h = mount()
   const pending = Promise.withResolvers<TerminalLaunchShells>()
   h.loadShells.mockReturnValue(pending.promise)

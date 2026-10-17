@@ -13,7 +13,10 @@ import type { ToolExecution } from '@deepseek-ai/dsh-tools'
  * @returns the provider's result fields without the version, plus the canonical absolute path.
  */
 export function mutationResult<T extends { version: FsVersion }>(
-  ctx: Context, target: FsTarget, outcome: T, exec: ToolExecution,
+  ctx: Context,
+  target: FsTarget,
+  outcome: T,
+  exec: ToolExecution,
 ): Omit<T, 'version'> & { path: string } {
   const { version, ...result } = outcome
   ctx.emit('fs/observed', target, { kind: 'present', version }, exec)

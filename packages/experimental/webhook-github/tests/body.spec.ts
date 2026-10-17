@@ -1,14 +1,16 @@
 import type { IncomingMessage } from 'node:http'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { readBoundedUtf8Body } from '../src/body.ts'
 
 /** Minimal async-iterable request for byte-level branches Node fetch cannot construct. */
-function request(options: {
-  chunks?: Array<Buffer | string>
-  contentLength?: string
-  complete?: boolean
-  error?: unknown
-} = {}): IncomingMessage & { resume: ReturnType<typeof vi.fn> } {
+function request(
+  options: {
+    chunks?: Array<Buffer | string>
+    contentLength?: string
+    complete?: boolean
+    error?: unknown
+  } = {},
+): IncomingMessage & { resume: ReturnType<typeof vi.fn> } {
   const resume = vi.fn()
   return {
     headers: {
@@ -16,7 +18,7 @@ function request(options: {
     },
     complete: options.complete ?? true,
     resume,
-    async * [Symbol.asyncIterator]() {
+    async *[Symbol.asyncIterator]() {
       for (const chunk of options.chunks ?? []) yield chunk
       if (options.error !== undefined) throw options.error
     },
@@ -30,8 +32,9 @@ describe('bounded webhook body intake', () => {
 
   it('rejects malformed, unsafe, and oversized declared lengths', async () => {
     await expect(readBoundedUtf8Body(request({ contentLength: '01' }), 10)).rejects.toMatchObject({ status: 400 })
-    await expect(readBoundedUtf8Body(request({ contentLength: '999999999999999999999' }), Number.MAX_SAFE_INTEGER))
-      .rejects.toMatchObject({ status: 413 })
+    await expect(readBoundedUtf8Body(request({ contentLength: '999999999999999999999' }), Number.MAX_SAFE_INTEGER)).rejects.toMatchObject({
+      status: 413,
+    })
     const oversized = request({ contentLength: '3' })
     await expect(readBoundedUtf8Body(oversized, 2)).rejects.toMatchObject({ status: 413 })
     expect(oversized.resume).toHaveBeenCalledOnce()
@@ -44,14 +47,20 @@ describe('bounded webhook body intake', () => {
   })
 
   it('normalizes stream failure and incomplete EOF as an aborted body', async () => {
-    await expect(readBoundedUtf8Body(request({ error: new Error('socket') }), 10))
-      .rejects.toMatchObject({ status: 400, message: 'request body was aborted' })
-    await expect(readBoundedUtf8Body(request({ complete: false }), 10))
-      .rejects.toMatchObject({ status: 400, message: 'request body was aborted' })
+    await expect(readBoundedUtf8Body(request({ error: new Error('socket') }), 10)).rejects.toMatchObject({
+      status: 400,
+      message: 'request body was aborted',
+    })
+    await expect(readBoundedUtf8Body(request({ complete: false }), 10)).rejects.toMatchObject({
+      status: 400,
+      message: 'request body was aborted',
+    })
   })
 
   it('rejects invalid UTF-8 after a complete bounded read', async () => {
-    await expect(readBoundedUtf8Body(request({ chunks: [Buffer.from([0xff])] }), 1))
-      .rejects.toMatchObject({ status: 400, message: 'request body is not valid UTF-8' })
+    await expect(readBoundedUtf8Body(request({ chunks: [Buffer.from([0xff])] }), 1)).rejects.toMatchObject({
+      status: 400,
+      message: 'request body is not valid UTF-8',
+    })
   })
 })

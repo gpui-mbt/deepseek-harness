@@ -12,9 +12,7 @@ import { isLoopbackHost, type Config as HttpServerConfig } from '@deepseek-ai/ds
 export type DirectoryPickerBackendKind = 'native' | 'browse'
 
 /** Environment keys the resolution reads (a `process.env` subset). */
-export type DirectoryPickerEnv = Readonly<
-  Partial<Record<'DISPLAY' | 'WAYLAND_DISPLAY', string>>
->
+export type DirectoryPickerEnv = Readonly<Partial<Record<'DISPLAY' | 'WAYLAND_DISPLAY', string>>>
 
 /** Host facts the backend choice is a pure function of, sampled once at boot. */
 export interface DirectoryPickerHostFacts {

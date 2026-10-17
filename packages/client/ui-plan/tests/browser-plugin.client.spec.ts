@@ -7,7 +7,7 @@
  */
 import { ConversationEventRegistry } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -16,7 +16,13 @@ import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { EMPTY_CHAT_SNAPSHOT } from '../../ui-chat/src/client/contract/snapshot.ts'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { PlanChip } from '../src/client/PlanModeControl.tsx'
-import { PlanCards, PlanReviewOpen, type PlanCardsInjected, type PlanOpenInjected, type PlanReviewOpenInjected } from '../src/client/PlanCard.tsx'
+import {
+  PlanCards,
+  PlanReviewOpen,
+  type PlanCardsInjected,
+  type PlanOpenInjected,
+  type PlanReviewOpenInjected,
+} from '../src/client/PlanCard.tsx'
 import { PlanPreview, PlanTitle } from '../src/client/PlanPreview.tsx'
 import { submittedPlan } from '../src/client/plan.ts'
 import type { PlanChipInjected } from '../src/client/index.ts'
@@ -53,18 +59,22 @@ async function bench() {
   const preview = providePreview(ctx)
   await ctx.plugin(SlotRegistry).await()
   const slots = ctx.get('slots') as SlotRegistry
-  slots.register({
-    name: 'root',
-    children: {
-      'conversation.input.plan': { kind: 'single', scope: 'session' },
-      'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
-      'conversation.plan-review.actions': { kind: 'list', scope: 'session' },
-      'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session' },
-      'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session' },
-    },
-  } as never, () => null)
+  slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.input.plan': { kind: 'single', scope: 'session' },
+        'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
+        'conversation.plan-review.actions': { kind: 'list', scope: 'session' },
+        'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session' },
+        'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session' },
+      },
+    } as never,
+    () => null,
+  )
   const execute = vi.fn((_sessionId: SessionId, _line: string) =>
-    Promise.resolve({ ok: true, value: { commandId: 'c1', result: { kind: 'success' as const } } }))
+    Promise.resolve({ ok: true, value: { commandId: 'c1', result: { kind: 'success' as const } } }),
+  )
   const commandsRemote = { execute }
   ctx.provide('remote', { commands: commandsRemote })
   ctx.provide('remote.commands', commandsRemote)
@@ -76,13 +86,16 @@ describe('ui-plan browser apply', () => {
   it('binds plan cards to one Turn collection and reports unavailable bindings', async () => {
     const b = await bench()
     const turnDataSource = vi.fn<(turn: number, kind: string) => void>()
-    b.chat.set({ ...EMPTY_CHAT_SNAPSHOT, nodes: {
-      ...EMPTY_CHAT_SNAPSHOT.nodes,
-      turnDataSource: (turn, kind) => {
-        turnDataSource(turn, kind)
-        return EMPTY_CHAT_SNAPSHOT.nodes.turnDataSource(turn, kind)
+    b.chat.set({
+      ...EMPTY_CHAT_SNAPSHOT,
+      nodes: {
+        ...EMPTY_CHAT_SNAPSHOT.nodes,
+        turnDataSource: (turn, kind) => {
+          turnDataSource(turn, kind)
+          return EMPTY_CHAT_SNAPSHOT.nodes.turnDataSource(turn, kind)
+        },
       },
-    } })
+    })
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     try {
       await fiber.await()
@@ -111,8 +124,12 @@ describe('ui-plan browser apply', () => {
     const store = createSidebarRightStore(() => ({ kind: 'guide', title: 'Guide' })).create()
     const { controller, adopt, show } = createSidebarRightController(tabs, vi.fn(), {
       autoFullscreen: () => false,
-      openWithFocus: (_sessionId, open) => { open() },
-      closeWithFocus: (_sessionId, _paneId, close) => { close() },
+      openWithFocus: (_sessionId, open) => {
+        open()
+      },
+      closeWithFocus: (_sessionId, _paneId, close) => {
+        close()
+      },
     })
     const release = adopt(parent, store)
     store.actions.open(parent)
@@ -125,14 +142,20 @@ describe('ui-plan browser apply', () => {
       await fiber.await()
       const card = b.slots.entries('conversation.chat.turnTail')[0]!
       const opener = (card.inject as unknown as (sessionId: SessionId) => PlanOpenInjected)(child)
-      const plan = submittedPlan({ type: 'tool/call', data: { callId: 'child-plan', name: 'exit_plan_mode', arguments: '{"plan":"# Child plan"}' } })!
+      const plan = submittedPlan({
+        type: 'tool/call',
+        data: { callId: 'child-plan', name: 'exit_plan_mode', arguments: '{"plan":"# Child plan"}' },
+      })!
       opener.openPlan(plan.callId)
       const resources = () => Object.values(store.getSnapshot().bySession[parent]!.layout.tabs).map(tab => tab.contentId)
       expect(resources()).toContain('dsh-resource://plan/subagent/visible-parent/embedded-child/continuable/child-plan')
       expect(store.getSnapshot().bySession[child]).toBeUndefined()
       const review = b.slots.entries('conversation.plan-review.actions')[0]!
       const reviewOpener = (review.inject as unknown as (sessionId: SessionId) => PlanReviewOpenInjected)(child)
-      reviewOpener.openReview({ id: 'pending', question: 'Approve?', plan: '# Temporary child plan', approve: { label: 'Approve' } }, 'child-question')
+      reviewOpener.openReview(
+        { id: 'pending', question: 'Approve?', plan: '# Temporary child plan', approve: { label: 'Approve' } },
+        'child-question',
+      )
       expect(resources().some(address => address.startsWith('dsh-resource://plan-review/embedded-child/'))).toBe(true)
       expect(store.getSnapshot().bySession[child]).toBeUndefined()
     } finally {
@@ -144,11 +167,24 @@ describe('ui-plan browser apply', () => {
   })
 
   it('declares every service it binds', () => {
-    expect(inject).toEqual(['slots', 'remote', 'remote.commands', 'remote.session', 'sessions', 'locale', 'uiConversation', 'resources', 'sidebarRight', 'sidebarRightTabs'])
+    expect(inject).toEqual([
+      'slots',
+      'remote',
+      'remote.commands',
+      'remote.session',
+      'sessions',
+      'locale',
+      'uiConversation',
+      'resources',
+      'sidebarRight',
+      'sidebarRightTabs',
+    ])
   })
 
   it('node-half apply is an intentional no-op', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 
   it('waits until conversation declares the plan seat', async () => {
@@ -161,9 +197,13 @@ describe('ui-plan browser apply', () => {
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(ctx.slots.entries('conversation.input.plan')).toHaveLength(0)
-    ctx.slots.register({
-      name: 'root', children: { 'conversation.input.plan': { kind: 'single', scope: 'session' } },
-    } as never, () => null)
+    ctx.slots.register(
+      {
+        name: 'root',
+        children: { 'conversation.input.plan': { kind: 'single', scope: 'session' } },
+      } as never,
+      () => null,
+    )
     await Promise.resolve()
     expect(ctx.slots.entries('conversation.input.plan')).toHaveLength(1)
   })
@@ -211,7 +251,10 @@ describe('ui-plan browser apply', () => {
       expect(type.canOpen!(address)).toBe(true)
       expect(type.canOpen!('file:///plan.md')).toBe(false)
       expect(type.title(address)).toBeTruthy()
-      const plan = submittedPlan({ type: 'tool/call', data: { callId: 'call', name: 'exit_plan_mode', arguments: '{"plan":"# Saved plan"}' } })!
+      const plan = submittedPlan({
+        type: 'tool/call',
+        data: { callId: 'call', name: 'exit_plan_mode', arguments: '{"plan":"# Saved plan"}' },
+      })!
       const card = b.slots.entries('conversation.chat.turnTail')[0]!
       expect(card.component).toBe(PlanCards)
       const injected = (card.inject as unknown as (sessionId: SessionId) => PlanOpenInjected)(SID)
@@ -234,9 +277,12 @@ describe('ui-plan browser apply', () => {
       reviewInjected.openReview(temporary, 'question:2')
       const first = b.openResource.mock.calls.at(-1)!
       expect(type.canOpen!(first[0])).toBe(true)
-      expect(first).toEqual([expect.stringMatching(/^dsh-resource:\/\/plan-review\/s-plan\//), {
-        params: { planReview: { title: 'Temporary', markdown: temporary.plan } },
-      }])
+      expect(first).toEqual([
+        expect.stringMatching(/^dsh-resource:\/\/plan-review\/s-plan\//),
+        {
+          params: { planReview: { title: 'Temporary', markdown: temporary.plan } },
+        },
+      ])
       reviewInjected.openReview(temporary, 'question:2')
       expect(b.openResource).toHaveBeenLastCalledWith(...first)
       reviewInjected.openReview(temporary, 'question:3')
@@ -248,6 +294,8 @@ describe('ui-plan browser apply', () => {
       expect(b.slots.entries('conversation.plan-review.actions')).toEqual([])
       expect(b.slots.entries('sidebar.right.pane.tab')).toEqual([])
       expect(b.slots.entries('sidebar.right.pane.tab.title')).toEqual([])
-    } finally { await fiber.dispose() }
+    } finally {
+      await fiber.dispose()
+    }
   })
 })

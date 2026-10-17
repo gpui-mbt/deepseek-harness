@@ -23,10 +23,10 @@ export const STRUCTURED_OUTPUT_TOOL = 'structured_output'
  * the demand travels with the
  * tool, as ordinary prompt state of exactly one agent.
  */
-export const STRUCTURED_OUTPUT_INSTRUCTION
-  = 'When you have your final answer, you MUST report it by calling the '
-    + `\`${STRUCTURED_OUTPUT_TOOL}\` tool with arguments matching its parameter schema exactly. `
-    + 'Do not finish with a plain text answer: only the tool call counts as your result.'
+export const STRUCTURED_OUTPUT_INSTRUCTION =
+  'When you have your final answer, you MUST report it by calling the ' +
+  `\`${STRUCTURED_OUTPUT_TOOL}\` tool with arguments matching its parameter schema exactly. ` +
+  'Do not finish with a plain text answer: only the tool call counts as your result.'
 
 /** One structured run's live handle: read the captured value once the child settles. */
 export interface StructuredAttachment {
@@ -53,11 +53,7 @@ export interface StructuredAttachment {
  * @param canComplete - whether accepted input and owned child work have finished.
  * @returns the attachment handle (read `captured()` after the child settles).
  */
-export function attachStructuredRuntime(
-  childCtx: Context,
-  schema: ObjectJsonSchema,
-  canComplete: () => boolean,
-): StructuredAttachment {
+export function attachStructuredRuntime(childCtx: Context, schema: ObjectJsonSchema, canComplete: () => boolean): StructuredAttachment {
   /**
    * Validated values staged by the capture tool body, awaiting THEIR OWN
    * authoritative `tools/result` notification. The execution object's identity
@@ -75,8 +71,8 @@ export function attachStructuredRuntime(
   const schemaEntry: ToolSchema = {
     name: STRUCTURED_OUTPUT_TOOL,
     description:
-      'Report your final structured result. Call this exactly once, when your answer is complete; '
-      + 'the arguments must match this tool\'s parameter schema exactly.',
+      'Report your final structured result. Call this exactly once, when your answer is complete; ' +
+      "the arguments must match this tool's parameter schema exactly.",
     parameters: { ...schema },
   }
 
@@ -96,7 +92,8 @@ export function attachStructuredRuntime(
       // ToolArgsError → isError result with INVALID_ARGS: the model retries
       // within the same turn, exactly like a schema-validated defineTool call.
       if (violations.length > 0) throw new ToolArgsError(violations)
-      if (!canComplete()) throw new Error('Wait for all delegated child tasks to finish and process pending messages before submitting structured output.')
+      if (!canComplete())
+        throw new Error('Wait for all delegated child tasks to finish and process pending messages before submitting structured output.')
       // Two-phase commit, keyed by THIS execution: later transformable
       // waterfalls may still turn the success into an error. ToolRuntime has
       // already frozen model-bound arguments at the actual input boundary.
@@ -116,9 +113,11 @@ export function attachStructuredRuntime(
   // waterfall and compose monotonically (deny or abstain, never allow), so a
   // later prepended listener cannot resurrect dispatch. Calls that precede
   // capture in the same response remain untouched.
-  childCtx.tools.guard(exec => captured === undefined && pending === undefined
-    ? undefined
-    : `structured output already recorded: the run is complete, so \`${exec.name}\` is not executed`)
+  childCtx.tools.guard(exec =>
+    captured === undefined && pending === undefined
+      ? undefined
+      : `structured output already recorded: the run is complete, so \`${exec.name}\` is not executed`,
+  )
 
   // The capture COMMIT observes the immutable, authoritative result after the
   // complete pipeline and outer error normalization. This notification cannot

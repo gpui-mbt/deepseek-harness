@@ -1,5 +1,5 @@
 import { PassThrough } from 'node:stream'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { drainOutput } from '../src/output-stream.ts'
 
 afterEach(() => vi.useRealTimers())
@@ -26,7 +26,7 @@ it('bounds an output descriptor retained after the process exits', async () => {
   expect(await drainOutput(stream, 100)).toBe(false)
 })
 
-it.each(['close', 'error'])('reports incomplete output on %s', async (event) => {
+it.each(['close', 'error'])('reports incomplete output on %s', async event => {
   const stream = new PassThrough()
   const pending = drainOutput(stream, 1000)
   stream.emit(event, new Error('pipe failed'))

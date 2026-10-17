@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { JSDOM } from 'jsdom'
 import ts from 'typescript'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { OPTIONAL_BUNDLES } from '../packages/boot/app-boot/src/profile.ts'
 
 const pagePath = resolve(import.meta.dirname, '../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx')
@@ -16,7 +16,9 @@ it('keeps every registered preview a single self-contained 640×300 SVG with Eng
       imports.set(statement.importClause.name.text, statement.moduleSpecifier.text)
     }
   }
-  const declaration = page.statements.filter(ts.isVariableStatement).flatMap(statement => [...statement.declarationList.declarations])
+  const declaration = page.statements
+    .filter(ts.isVariableStatement)
+    .flatMap(statement => [...statement.declarationList.declarations])
     .find(item => ts.isIdentifier(item.name) && item.name.text === 'BUNDLE_PREVIEWS')
   const initializer = declaration?.initializer
   if (initializer === undefined || !ts.isNewExpression(initializer)) throw new Error('Built-in preview map is missing')
@@ -25,7 +27,9 @@ it('keeps every registered preview a single self-contained 640×300 SVG with Eng
   expect(entries.elements.length).toBeGreaterThan(0)
   const packages = new Set<string>()
   const browser = new JSDOM('')
-  onTestFinished(() => { browser.window.close() })
+  onTestFinished(() => {
+    browser.window.close()
+  })
   const parser = new browser.window.DOMParser()
   for (const entry of entries.elements) {
     if (!ts.isArrayLiteralExpression(entry) || entry.elements.length !== 2) throw new Error('One preview pair per bundle is required')
@@ -40,7 +44,8 @@ it('keeps every registered preview a single self-contained 640×300 SVG with Eng
     let bytes = 0
     const sources: string[] = []
     for (const property of pair.properties) {
-      if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.initializer)) throw new Error('Preview values must be SVG imports')
+      if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.initializer))
+        throw new Error('Preview values must be SVG imports')
       const path = imports.get(property.initializer.text)
       expect(path).toMatch(/^\.\/assets\/[^/]+-preview(?:\.zh)?\.svg$/u)
       if (path === undefined) throw new Error('Preview import is missing')
@@ -64,8 +69,12 @@ it('keeps every registered preview a single self-contained 640×300 SVG with Eng
           const references = [...attribute.value.matchAll(/url\(([^)]+)\)/gu)].map(match => (match[1] ?? '').replace(/['"]/gu, '').trim())
           if (attribute.localName === 'href') references.push(attribute.value)
           for (const reference of references) {
-            if (element.localName === 'image' && attribute.localName === 'href'
-              && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z\d+/]+=*$/u.test(reference)) continue
+            if (
+              element.localName === 'image' &&
+              attribute.localName === 'href' &&
+              /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z\d+/]+=*$/u.test(reference)
+            )
+              continue
             expect(reference.startsWith('#') && ids.has(reference.slice(1)), path).toBe(true)
           }
         }

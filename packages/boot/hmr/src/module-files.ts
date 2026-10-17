@@ -79,8 +79,8 @@ export class ModuleFiles {
         stale.add(url)
         continue
       }
-      if (this.records.has(url) ? this.records.get(url) !== identity.key
-        : identity.modifiedAt >= this.observedAt - TIMESTAMP_RESOLUTION_MS) stale.add(url)
+      if (this.records.has(url) ? this.records.get(url) !== identity.key : identity.modifiedAt >= this.observedAt - TIMESTAMP_RESOLUTION_MS)
+        stale.add(url)
     }
     return { stale, seen }
   }
@@ -93,11 +93,14 @@ export class ModuleFiles {
    * `retained` modules keep their record, or are marked stale when they have none. `at` is the observation time from
    * {@link now} used for unrecorded modules.
    */
-  observe(urls: Iterable<string>, options: {
-    seen?: ReadonlyMap<string, string | undefined>
-    retained?: ReadonlySet<string>
-    at?: number
-  } = {}): void {
+  observe(
+    urls: Iterable<string>,
+    options: {
+      seen?: ReadonlyMap<string, string | undefined>
+      retained?: ReadonlySet<string>
+      at?: number
+    } = {},
+  ): void {
     const { seen = new Map<string, string | undefined>(), retained = new Set<string>(), at = this.now() } = options
     const records = new Map<string, string | undefined>()
     for (const url of urls) {

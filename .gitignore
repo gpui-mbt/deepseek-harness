@@ -19,7 +19,10 @@ coverage/
 .node-next-types-*/
 .oxlint-contract-*/
 .oxlintrc.contract-*.json
+vite.config.contract-*.ts
 oxlint-contract-*.ts
+.vitest/
+.vite-plus/
 .humanize/
 tmp/
 .claude/commands/

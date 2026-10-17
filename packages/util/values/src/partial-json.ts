@@ -19,8 +19,18 @@ export interface LengthReadOptions {
 
 /** Scanner position inside the object text. */
 type Mode =
-  | 'root' | 'key-or-end' | 'key-only' | 'key' | 'colon' | 'value'
-  | 'string' | 'scalar' | 'nested' | 'comma-or-end' | 'closed' | 'invalid'
+  | 'root'
+  | 'key-or-end'
+  | 'key-only'
+  | 'key'
+  | 'colon'
+  | 'value'
+  | 'string'
+  | 'scalar'
+  | 'nested'
+  | 'comma-or-end'
+  | 'closed'
+  | 'invalid'
 
 /** A content reader advances independently of the boundary scanner. */
 interface StringRead {
@@ -32,19 +42,27 @@ interface StringRead {
 /** Raw ranges exclude string quotes and include a non-string value's own brackets. */
 type Entry =
   | {
-    readonly kind: 'string'
-    readonly start: number
-    end: number
-    needsDecoding: boolean
-    invalidAt: number | undefined
-    length: StringRead | undefined
-    text: StringRead | undefined
-    prefixes: Map<number, StringRead> | undefined
-  }
+      readonly kind: 'string'
+      readonly start: number
+      end: number
+      needsDecoding: boolean
+      invalidAt: number | undefined
+      length: StringRead | undefined
+      text: StringRead | undefined
+      prefixes: Map<number, StringRead> | undefined
+    }
   | { readonly kind: 'value'; readonly start: number; end: number; parsed: JsonValue | undefined; invalid: boolean }
 
-type ReadKind = 'closed' | 'keys' | 'has' | 'complete' | 'text' | 'value'
-  | `length:${number}:${number}` | `prefix:${number}` | `exceeds:${number}`
+type ReadKind =
+  | 'closed'
+  | 'keys'
+  | 'has'
+  | 'complete'
+  | 'text'
+  | 'value'
+  | `length:${number}:${number}`
+  | `prefix:${number}`
+  | `exceeds:${number}`
 
 /** One answered question, kept to detect whether later text changes the answer. */
 interface Read {
@@ -54,7 +72,14 @@ interface Read {
 }
 
 const SIMPLE_ESCAPES: Readonly<Record<string, string>> = {
-  '"': '"', '\\': '\\', '/': '/', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t',
+  '"': '"',
+  '\\': '\\',
+  '/': '/',
+  b: '\b',
+  f: '\f',
+  n: '\n',
+  r: '\r',
+  t: '\t',
 }
 
 const CONTENT_ESCAPE = /[\\\u0000-\u001f]/u
@@ -96,9 +121,7 @@ export class PartialArguments {
    */
   static fromObject(value: unknown): PartialArguments {
     const view = new PartialArguments()
-    view.object = typeof value === 'object' && value !== null && !Array.isArray(value)
-      ? value as Readonly<Record<string, JsonValue>>
-      : {}
+    view.object = typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Readonly<Record<string, JsonValue>>) : {}
     view.sealed = true
     return view
   }
@@ -214,7 +237,12 @@ export class PartialArguments {
    * @returns top-level keys seen so far, in first-appearance order.
    */
   keys(): readonly string[] {
-    return this.remember('keys', '', () => this.keysNow(), keys => keys.length)
+    return this.remember(
+      'keys',
+      '',
+      () => this.keysNow(),
+      keys => keys.length,
+    )
   }
 
   /**
@@ -244,8 +272,12 @@ export class PartialArguments {
   stringLength(key: string, options?: LengthReadOptions): number | undefined {
     const step = Math.max(1, Math.floor(options?.step ?? 1))
     const offset = options?.offset ?? 0
-    return this.remember(`length:${step}:${offset}`, key, () => this.lengthNow(key),
-      length => length === undefined ? undefined : Math.ceil((length + offset) / step))
+    return this.remember(
+      `length:${step}:${offset}`,
+      key,
+      () => this.lengthNow(key),
+      length => (length === undefined ? undefined : Math.ceil((length + offset) / step)),
+    )
   }
 
   /**
@@ -256,8 +288,7 @@ export class PartialArguments {
    */
   stringExceeds(key: string, maxLength: number): boolean {
     const limit = Math.max(0, Math.floor(maxLength))
-    return this.remember(`exceeds:${limit}`, key,
-      () => (this.lengthNow(key, limit + 1) ?? 0) > limit)
+    return this.remember(`exceeds:${limit}`, key, () => (this.lengthNow(key, limit + 1) ?? 0) > limit)
   }
 
   /**
@@ -277,8 +308,7 @@ export class PartialArguments {
    */
   textPrefix(key: string, maxLength: number): string | undefined {
     const limit = Math.max(1, Math.floor(maxLength))
-    return this.remember(`prefix:${limit}`, key,
-      () => this.textPrefixNow(key, limit))
+    return this.remember(`prefix:${limit}`, key, () => this.textPrefixNow(key, limit))
   }
 
   /**
@@ -291,12 +321,7 @@ export class PartialArguments {
   }
 
   /** Answer a question and, on a streaming view, remember it for change detection. */
-  private remember<T>(
-    kind: ReadKind,
-    key: string,
-    read: () => T,
-    comparison?: (value: T) => unknown,
-  ): T {
+  private remember<T>(kind: ReadKind, key: string, read: () => T, comparison?: (value: T) => unknown): T {
     this.scan()
     const result = read()
     if (!this.sealed) {
@@ -327,8 +352,7 @@ export class PartialArguments {
   private completeNow(key: string): boolean {
     if (this.object !== undefined) return Object.hasOwn(this.object, key)
     const entry = this.#entries.get(key)
-    return entry !== undefined && entry.end >= 0
-      && (entry.kind === 'string' ? entry.invalidAt === undefined : !entry.invalid)
+    return entry !== undefined && entry.end >= 0 && (entry.kind === 'string' ? entry.invalidAt === undefined : !entry.invalid)
   }
 
   private lengthNow(key: string, limit = Number.POSITIVE_INFINITY): number | undefined {
@@ -339,7 +363,7 @@ export class PartialArguments {
     const entry = this.#entries.get(key)
     if (entry?.kind !== 'string') return undefined
     if (entry.text !== undefined && entry.text.at === entry.end) return entry.text.length
-    const read = entry.length ??= { at: entry.start, length: 0, text: '' }
+    const read = (entry.length ??= { at: entry.start, length: 0, text: '' })
     this.readString(entry, read, limit, false)
     return read.length
   }
@@ -360,7 +384,7 @@ export class PartialArguments {
       }
       if (text !== undefined) entry.text = { at: entry.end, length: text.length, text }
     }
-    const read = entry.text ??= { at: entry.start, length: 0, text: '' }
+    const read = (entry.text ??= { at: entry.start, length: 0, text: '' })
     this.readString(entry, read, Number.POSITIVE_INFINITY, true)
     return read.text
   }
@@ -372,7 +396,7 @@ export class PartialArguments {
     }
     const entry = this.#entries.get(key)
     if (entry?.kind !== 'string') return undefined
-    const prefixes = entry.prefixes ??= new Map<number, StringRead>()
+    const prefixes = (entry.prefixes ??= new Map<number, StringRead>())
     let read = prefixes.get(maxLength)
     if (read === undefined) {
       read = { at: entry.start, length: 0, text: '' }
@@ -418,7 +442,7 @@ export class PartialArguments {
     if (start >= end) return ''
     const first = this.chunkAt(start)
     const last = this.chunkAt(end - 1)
-    const base = first === 0 ? 0 : this.#ends[first - 1] as number
+    const base = first === 0 ? 0 : (this.#ends[first - 1] as number)
     if (first === last) return (this.chunks[first] as string).slice(start - base, end - base)
     const parts = [(this.chunks[first] as string).slice(start - base)]
     for (let i = first + 1; i < last; i++) parts.push(this.chunks[i] as string)
@@ -426,14 +450,12 @@ export class PartialArguments {
     return parts.join('')
   }
 
-  private readString(
-    entry: Extract<Entry, { kind: 'string' }>,
-    read: StringRead,
-    limit: number,
-    materialize: boolean,
-  ): void {
-    const end = Math.min(entry.end < 0 ? this.#consumed : entry.end,
-      entry.invalidAt ?? Number.POSITIVE_INFINITY, this.#invalidAt ?? Number.POSITIVE_INFINITY)
+  private readString(entry: Extract<Entry, { kind: 'string' }>, read: StringRead, limit: number, materialize: boolean): void {
+    const end = Math.min(
+      entry.end < 0 ? this.#consumed : entry.end,
+      entry.invalidAt ?? Number.POSITIVE_INFINITY,
+      this.#invalidAt ?? Number.POSITIVE_INFINITY,
+    )
     if (!entry.needsDecoding) {
       const length = Math.min(end - read.at, limit - read.length)
       if (length <= 0) return
@@ -444,7 +466,7 @@ export class PartialArguments {
     }
     let chunkIndex = this.chunkAt(read.at)
     while (read.at < end && read.length < limit) {
-      const base = chunkIndex === 0 ? 0 : this.#ends[chunkIndex - 1] as number
+      const base = chunkIndex === 0 ? 0 : (this.#ends[chunkIndex - 1] as number)
       const chunk = this.chunks[chunkIndex] as string
       const remaining = chunk.slice(read.at - base, Math.min(chunk.length, end - base))
       const boundary = remaining.search(CONTENT_ESCAPE)
@@ -456,8 +478,7 @@ export class PartialArguments {
         if (read.at === base + chunk.length) chunkIndex++
         continue
       }
-      const type = remaining.length > 1 ? remaining[1]
-        : read.at + 1 < end ? (this.chunks[chunkIndex + 1] as string)[0] : undefined
+      const type = remaining.length > 1 ? remaining[1] : read.at + 1 < end ? (this.chunks[chunkIndex + 1] as string)[0] : undefined
       let decoded: string | undefined
       let width = 2
       if (remaining[0] === '\\' && type === undefined && entry.end < 0) return
@@ -490,7 +511,7 @@ export class PartialArguments {
     if (this.object !== undefined || this.#consumed === this.#size) return
     for (let i = this.chunkAt(this.#consumed); i < this.chunks.length && this.#invalidAt === undefined; i++) {
       const pending = this.chunks[i] as string
-      const base = i === 0 ? 0 : this.#ends[i - 1] as number
+      const base = i === 0 ? 0 : (this.#ends[i - 1] as number)
       for (let index = this.#consumed - base; index < pending.length && this.#mode !== 'invalid'; index++) {
         if (this.#mode === 'string' || (this.#mode === 'nested' && this.#nestedInString)) {
           const end = this.stringBoundary(pending, index)
@@ -527,25 +548,46 @@ export class PartialArguments {
     switch (this.#mode) {
       case 'root':
         if (isWhitespace(c)) return
-        if (c === '{') { this.#mode = 'key-or-end'; return }
-        this.fail(); return
+        if (c === '{') {
+          this.#mode = 'key-or-end'
+          return
+        }
+        this.fail()
+        return
       case 'key-or-end':
         if (isWhitespace(c)) return
-        if (c === '}') { this.#mode = 'closed'; return }
-        if (c === '"') { this.beginKey(at); return }
-        this.fail(); return
+        if (c === '}') {
+          this.#mode = 'closed'
+          return
+        }
+        if (c === '"') {
+          this.beginKey(at)
+          return
+        }
+        this.fail()
+        return
       case 'key-only':
         if (isWhitespace(c)) return
-        if (c === '"') { this.beginKey(at); return }
-        this.fail(); return
+        if (c === '"') {
+          this.beginKey(at)
+          return
+        }
+        this.fail()
+        return
       case 'key':
-        this.stepKey(c, at); return
+        this.stepKey(c, at)
+        return
       case 'colon':
         if (isWhitespace(c)) return
-        if (c === ':') { this.#mode = 'value'; return }
-        this.fail(); return
+        if (c === ':') {
+          this.#mode = 'value'
+          return
+        }
+        this.fail()
+        return
       case 'value':
-        this.beginValue(c, at); return
+        this.beginValue(c, at)
+        return
       case 'string': {
         const entry = this.#current as Extract<Entry, { kind: 'string' }>
         entry.end = at
@@ -554,17 +596,27 @@ export class PartialArguments {
         return
       }
       case 'scalar':
-        this.stepScalar(c, at); return
+        this.stepScalar(c, at)
+        return
       case 'nested':
-        this.stepNested(c, at); return
+        this.stepNested(c, at)
+        return
       case 'comma-or-end':
         if (isWhitespace(c)) return
-        if (c === ',') { this.#mode = 'key-only'; return }
-        if (c === '}') { this.#mode = 'closed'; return }
-        this.fail(); return
+        if (c === ',') {
+          this.#mode = 'key-only'
+          return
+        }
+        if (c === '}') {
+          this.#mode = 'closed'
+          return
+        }
+        this.fail()
+        return
       case 'closed':
         if (isWhitespace(c)) return
-        this.fail(); return
+        this.fail()
+        return
       /* v8 ignore next 2 -- scan() stops stepping once the view is invalid. */
       case 'invalid':
         return
@@ -588,9 +640,19 @@ export class PartialArguments {
   }
 
   private stepKey(c: string, at: number): void {
-    if (c < ' ') { this.fail(); return }
-    if (this.#escape) { this.#escape = false; return }
-    if (c === '\\') { this.#escape = true; this.#keyEscaped = true; return }
+    if (c < ' ') {
+      this.fail()
+      return
+    }
+    if (this.#escape) {
+      this.#escape = false
+      return
+    }
+    if (c === '\\') {
+      this.#escape = true
+      this.#keyEscaped = true
+      return
+    }
     if (c !== '"') return
     const raw = this.slice(this.#keyStart, at)
     if (this.#keyEscaped) {
@@ -617,14 +679,23 @@ export class PartialArguments {
     if (isWhitespace(c)) return
     if (c === '"') {
       this.open({
-        kind: 'string', start: at + 1, end: -1, needsDecoding: false, invalidAt: undefined,
-        length: undefined, text: undefined, prefixes: undefined,
+        kind: 'string',
+        start: at + 1,
+        end: -1,
+        needsDecoding: false,
+        invalidAt: undefined,
+        length: undefined,
+        text: undefined,
+        prefixes: undefined,
       })
       this.#escape = false
       this.#mode = 'string'
       return
     }
-    if (c === '}' || c === ',' || c === ':' || c === ']') { this.fail(); return }
+    if (c === '}' || c === ',' || c === ':' || c === ']') {
+      this.fail()
+      return
+    }
     this.open({ kind: 'value', start: at, end: -1, parsed: undefined, invalid: false })
     if (c === '{' || c === '[') {
       this.#mode = 'nested'
@@ -647,10 +718,19 @@ export class PartialArguments {
       this.#nestedInString = false
       return
     }
-    if (c === '"') { this.#nestedInString = true; return }
-    if (c === '{' || c === '[') { this.#nestedEnds.push(c === '{' ? '}' : ']'); return }
+    if (c === '"') {
+      this.#nestedInString = true
+      return
+    }
+    if (c === '{' || c === '[') {
+      this.#nestedEnds.push(c === '{' ? '}' : ']')
+      return
+    }
     if (c === '}' || c === ']') {
-      if (this.#nestedEnds.pop() !== c) { this.fail(); return }
+      if (this.#nestedEnds.pop() !== c) {
+        this.fail()
+        return
+      }
       if (this.#nestedEnds.length === 0) {
         this.closeValue(at + 1)
         this.#mode = 'comma-or-end'

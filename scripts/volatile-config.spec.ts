@@ -1,5 +1,5 @@
 /** Schemastery and Cordis config reference behavior through direct and Loader updates. */
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import { type Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { Config } from './volatile-config.fixture.ts'
@@ -69,27 +69,32 @@ describe('volatile schemas', () => {
     const restored = new z<unknown>(JSON.parse(JSON.stringify(schema.toJSON())) as z<unknown>)
     expect(restored.dict?.block?.type).toBe('object')
     expect(restored.dict?.block?.dict?.apiKey?.meta.role).toBe('secret')
-    expect(redactSecrets(restored as z<never>, { block: { apiKey: 'secret', title: 'public' } }).value)
-      .toEqual({ block: { title: 'public' } })
+    expect(redactSecrets(restored as z<never>, { block: { apiKey: 'secret', title: 'public' } }).value).toEqual({
+      block: { title: 'public' },
+    })
   })
 
   it('accepts metadata-free serialized nodes and checks their nested volatile declarations', () => {
-    const schema = new z<{ enabled: boolean }>(JSON.parse('{"type":"object","dict":{"enabled":{"type":"boolean"}}}') as z<{ enabled: boolean }>)
+    const schema = new z<{ enabled: boolean }>(
+      JSON.parse('{"type":"object","dict":{"enabled":{"type":"boolean"}}}') as z<{ enabled: boolean }>,
+    )
     expect(schema({ enabled: true })).toEqual({ enabled: true })
-    const dynamic = new z<unknown>(JSON.parse(
-      '{"type":"object","dict":{"items":{"type":"array","inner":{"type":"string","meta":{"volatile":true}}}}}',
-    ) as z<unknown>)
+    const dynamic = new z<unknown>(
+      JSON.parse('{"type":"object","dict":{"items":{"type":"array","inner":{"type":"string","meta":{"volatile":true}}}}}') as z<unknown>,
+    )
     expect(() => dynamic({ items: [] })).toThrow('items')
   })
 
   it('resolves recursive lazy schemas only for the supplied data', () => {
-    interface Tree { name: string; children?: Tree[] }
+    interface Tree {
+      name: string
+      children?: Tree[]
+    }
     function tree(): z<Tree> {
       return z.object({ name: z.string(), children: z.array(z.lazy(tree)).default([]) })
     }
     expect(tree()({ name: 'root' })).toEqual({ name: 'root', children: [] })
-    expect(tree()({ name: 'root', children: [{ name: 'leaf' }] }))
-      .toEqual({ name: 'root', children: [{ name: 'leaf', children: [] }] })
+    expect(tree()({ name: 'root', children: [{ name: 'leaf' }] })).toEqual({ name: 'root', children: [{ name: 'leaf', children: [] }] })
     const schema = z.object({ lazy: z.lazy(() => z.object({ live: z.string().volatile() })) })
     expect(() => schema({ lazy: { live: 'value' } })).toThrow('lazy')
   })
@@ -112,8 +117,10 @@ describe('volatile comparison semantics', () => {
     expect(deepEqual(new URL('https://example.com'), {}, true)).toBe(false)
     expect(deepEqual({}, new URL('https://example.com'), true)).toBe(false)
     expect(deepEqual(new Uint8Array([1]).buffer, new Uint8Array([2]).buffer, true)).toBe(false)
-    const firstCycle: Record<string, unknown> = {}; firstCycle.self = firstCycle
-    const secondCycle: Record<string, unknown> = {}; secondCycle.self = secondCycle
+    const firstCycle: Record<string, unknown> = {}
+    firstCycle.self = firstCycle
+    const secondCycle: Record<string, unknown> = {}
+    secondCycle.self = secondCycle
     expect(deepEqual(firstCycle, secondCycle, true)).toBe(false)
   })
 })

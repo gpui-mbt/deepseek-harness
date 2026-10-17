@@ -27,11 +27,7 @@ export const AGENT_PRESET_SETTINGS_NS = 'agent-preset-registry'
  * @param expectedRevision - optional fence for an automatic correction based on a previous settings read.
  * @returns the failure message, or undefined once the write landed.
  */
-export async function writeDefaultPreset(
-  ctx: ClientContext,
-  id: string,
-  expectedRevision?: number,
-): Promise<string | undefined> {
+export async function writeDefaultPreset(ctx: ClientContext, id: string, expectedRevision?: number): Promise<string | undefined> {
   const response = await ctx.remote.settings.update(AGENT_PRESET_SETTINGS_NS, { selectedDefault: id }, expectedRevision)
   return response.ok ? undefined : response.error.message
 }
@@ -119,11 +115,13 @@ export async function beginRosterRead<S extends { status: string; error: string 
 export function presetOptions(
   presets: readonly { id: string; name?: string; description?: string; broken?: string }[],
 ): AgentPresetOption[] {
-  return presets.filter(preset => preset.broken === undefined).map(preset => ({
-    id: preset.id,
-    ...preset.name === undefined ? {} : { name: preset.name },
-    ...preset.description === undefined ? {} : { description: preset.description },
-  }))
+  return presets
+    .filter(preset => preset.broken === undefined)
+    .map(preset => ({
+      id: preset.id,
+      ...(preset.name === undefined ? {} : { name: preset.name }),
+      ...(preset.description === undefined ? {} : { description: preset.description }),
+    }))
 }
 
 /** Agent-preset roster snapshot for the display surfaces. */
@@ -147,9 +145,7 @@ export class AgentPresetSettingsController {
   /**
    * @param ctx - the browser plugin context (the roster read).
    */
-  constructor(
-    private readonly ctx: ClientContext,
-  ) {}
+  constructor(private readonly ctx: ClientContext) {}
 
   private set(patch: Partial<AgentPresetSettingsState>): void {
     this.store.set({ ...this.store.getSnapshot(), ...patch })
@@ -175,5 +171,4 @@ export class AgentPresetSettingsController {
       options: presetOptions(presets),
     })
   }
-
 }

@@ -2,9 +2,14 @@
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { chromium, type Page } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import {
-  assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole, webSnapshotMode,
+  assertFixtureInventory,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
 } from './scaffold.ts'
 import { createChatScrollFixture } from './chat-scroll-fixture.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
@@ -18,7 +23,7 @@ const EXPECTED = join(SNAPSHOT_DIR, 'focus.expected.md')
  * @returns The editor's focus, draft and DOM selection.
  */
 async function selectionState(page: Page) {
-  return await page.locator('[data-composer-input]').evaluate((input) => {
+  return await page.locator('[data-composer-input]').evaluate(input => {
     const selection = window.getSelection()
     return {
       focused: document.activeElement === input,
@@ -49,7 +54,7 @@ async function exerciseComposer(page: Page): Promise<string[]> {
   await input.click()
   // Let the editor observe its insertText selection before native arrow moves;
   // a coalesced first notification can otherwise be treated as its own update.
-  await input.evaluate((el) => {
+  await input.evaluate(el => {
     const onSelectionChange = (): void => {
       const selection = el.ownerDocument.getSelection()
       if (selection === null || !el.contains(selection.anchorNode) || !el.contains(selection.focusNode)) return
@@ -71,7 +76,7 @@ async function exerciseComposer(page: Page): Promise<string[]> {
   const selected = { focused: true, draft: 'alpha beta gamma', text: 'beta', anchor: 10, focus: 6 }
   await expect.poll(() => selectionState(page)).toEqual(selected)
 
-  const points = await page.locator('[data-composer-card]').evaluate((card) => {
+  const points = await page.locator('[data-composer-card]').evaluate(card => {
     const box = card.getBoundingClientRect()
     const scroll = card.querySelector('[data-input-scroll]')!.getBoundingClientRect()
     const rowElement = card.querySelector('[data-input-scroll]')!.nextElementSibling!
@@ -94,7 +99,9 @@ async function exerciseComposer(page: Page): Promise<string[]> {
   }
 
   await expect.poll(() => input.getAttribute('data-selection-ready')).toBe('selected')
-  await input.evaluate((el) => { delete el.dataset.selectionReady })
+  await input.evaluate(el => {
+    delete el.dataset.selectionReady
+  })
   const top = points[0]!
   const cardBox = await page.locator('[data-composer-card]').boundingBox()
   await page.mouse.click(cardBox!.x - 12, top.y)
@@ -120,8 +127,11 @@ it('restores the previous caret or selection in fresh and existing sessions', as
   const scaffold = await launchWebScaffold({})
   const browserPromise = chromium.launch()
   onTestFinished(async () => {
-    try { await (await browserPromise).close() }
-    finally { await scaffold.close() }
+    try {
+      await (await browserPromise).close()
+    } finally {
+      await scaffold.close()
+    }
   })
   const browser = await browserPromise
   const fixture = createChatScrollFixture({ markerPrefix: 'COMPOSER_FOCUS', title: 'Composer focus', turns: 1 })
@@ -141,10 +151,11 @@ it('restores the previous caret or selection in fresh and existing sessions', as
   await page.getByText(fixture.markers.assistant(1), { exact: false }).last().waitFor()
   const docked = await exerciseComposer(page)
 
-  await compareOrRefreshGolden(EXPECTED, [
-    '# Composer whitespace focus', '', '## Fresh session', '', ...hero,
-    '', '## Existing session', '', ...docked,
-  ].join('\n'), webSnapshotMode())
+  await compareOrRefreshGolden(
+    EXPECTED,
+    ['# Composer whitespace focus', '', '## Fresh session', '', ...hero, '', '## Existing session', '', ...docked].join('\n'),
+    webSnapshotMode(),
+  )
   await assertFixtureInventory(SNAPSHOT_DIR, ['focus.expected.md'])
   if (webSnapshotMode() !== 'record') expect(tripwire.warnings).toEqual([])
   expect(tripwire.pageErrors).toEqual([])

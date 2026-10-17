@@ -20,7 +20,7 @@ function median(values: readonly number[]): number {
 
 drain(sizes[0] as number)
 for (const size of sizes) {
-  const expected = size * (size - 1) / 2
+  const expected = (size * (size - 1)) / 2
   const durations: number[] = []
   for (let sample = 0; sample < samples; sample += 1) {
     const result = drain(size)
@@ -28,9 +28,11 @@ for (const size of sizes) {
     durations.push(result.milliseconds)
   }
   const milliseconds = median(durations)
-  console.log(JSON.stringify({
-    size,
-    medianMilliseconds: Number(milliseconds.toFixed(3)),
-    nanosecondsPerEntry: Number((milliseconds * 1_000_000 / size).toFixed(3)),
-  }))
+  console.log(
+    JSON.stringify({
+      size,
+      medianMilliseconds: Number(milliseconds.toFixed(3)),
+      nanosecondsPerEntry: Number(((milliseconds * 1_000_000) / size).toFixed(3)),
+    }),
+  )
 }

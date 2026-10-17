@@ -15,10 +15,14 @@ import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import NodePtcRuntime from '@deepseek-ai/dsh-ptc-runtime-node'
 import type { Config as NodeRuntimeConfig } from '@deepseek-ai/dsh-ptc-runtime-node'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 
 /** Mount real Node execution services with a private working directory and awaited cleanup. */
-export async function mountPtcRuntime(ctx: Context, mode: SandboxMode = 'danger-full-access', executionMode: NodeRuntimeConfig['executionMode'] = 'per-call') {
+export async function mountPtcRuntime(
+  ctx: Context,
+  mode: SandboxMode = 'danger-full-access',
+  executionMode: NodeRuntimeConfig['executionMode'] = 'per-call',
+) {
   const root = await mkdtemp(join(homedir(), '.dsh-workflow-test-'))
   onTestFinished(async () => {
     await ctx.fiber.dispose()
@@ -42,10 +46,11 @@ export async function mountWorkflowRuntime(
   if (!ctx.get('fs')) await ctx.plugin(FileSystem)
   if (!ctx.get('subprocess')) await ctx.plugin(Subprocess)
   if (!ctx.get('sandbox')) await ctx.plugin(Sandbox)
-  if (!ctx.get('sandboxPolicy')) await ctx.plugin(SandboxPolicy, {
-    mode: options.mode ?? 'danger-full-access',
-    ...options.cwd === undefined ? {} : { workspaceRoot: options.cwd },
-  })
+  if (!ctx.get('sandboxPolicy'))
+    await ctx.plugin(SandboxPolicy, {
+      mode: options.mode ?? 'danger-full-access',
+      ...(options.cwd === undefined ? {} : { workspaceRoot: options.cwd }),
+    })
   if (!ctx.get('ptcRuntime')) await ctx.plugin(NodePtcRuntime, options.runtimeConfig ?? {})
   return ctx.ptcRuntime as NodePtcRuntime
 }

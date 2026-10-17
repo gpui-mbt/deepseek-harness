@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   DEFAULT_INITIALIZE_TIMEOUT_MS,
   installedDshBin,
@@ -38,39 +38,51 @@ describe('SDK dsh launch resolution', () => {
     expect(bin.endsWith(join('apps', 'cli', 'lib', 'bin.js'))).toBe(true)
     const launch = resolveDshLaunch()
     expect(launch.command).toBe(process.execPath)
-    expect(launch.args).toEqual(existsSync(bin)
-      ? [bin, '--profile', 'sdk']
-      : [
-        '--import', import.meta.resolve('tsx/esm'), resolve(bin, '..', '..', 'src/bin.ts'),
-        '--profile', 'sdk',
-        '--patch', resolve(bin, '..', '..', 'src/sdk-source.cordis.patch.yml'),
-      ])
+    expect(launch.args).toEqual(
+      existsSync(bin)
+        ? [bin, '--profile', 'sdk']
+        : [
+            '--import',
+            import.meta.resolve('tsx/esm'),
+            resolve(bin, '..', '..', 'src/bin.ts'),
+            '--profile',
+            'sdk',
+            '--patch',
+            resolve(bin, '..', '..', 'src/sdk-source.cordis.patch.yml'),
+          ],
+    )
     expect(launch.initializeTimeoutMs).toBe(DEFAULT_INITIALIZE_TIMEOUT_MS)
     expect(launch.description).toBe('dsh profile "sdk"')
   })
 
   it('makes every filesystem input absolute before spawn and preserves patch order', () => {
     const caller = resolve('/tmp', 'sdk-launch-caller')
-    const launch = resolveDshLaunch({
-      dshBin: './bin/dsh',
-      profile: 'custom-sdk',
-      patches: ['./first.yml', '../second.yml'],
-      dshHome: './home',
-      processCwd: './worker',
-      env: { PATH: '/bin', DSH_HOME: '/stale' },
-      initializeTimeoutMs: 123,
-      requestTimeoutMs: 456,
-      shutdownTimeoutMs: 789,
-      disposeEofGraceMs: 12,
-      disposeGraceMs: 34,
-    }, caller)
+    const launch = resolveDshLaunch(
+      {
+        dshBin: './bin/dsh',
+        profile: 'custom-sdk',
+        patches: ['./first.yml', '../second.yml'],
+        dshHome: './home',
+        processCwd: './worker',
+        env: { PATH: '/bin', DSH_HOME: '/stale' },
+        initializeTimeoutMs: 123,
+        requestTimeoutMs: 456,
+        shutdownTimeoutMs: 789,
+        disposeEofGraceMs: 12,
+        disposeGraceMs: 34,
+      },
+      caller,
+    )
     expect(launch).toMatchObject({
       command: process.execPath,
       args: [
         join(caller, 'bin/dsh'),
-        '--profile', 'custom-sdk',
-        '--patch', join(caller, 'first.yml'),
-        '--patch', resolve(caller, '../second.yml'),
+        '--profile',
+        'custom-sdk',
+        '--patch',
+        join(caller, 'first.yml'),
+        '--patch',
+        resolve(caller, '../second.yml'),
       ],
       cwd: join(caller, 'worker'),
       description: 'dsh profile "custom-sdk"',
@@ -93,18 +105,16 @@ describe('SDK dsh launch resolution', () => {
     writeFileSync(sourcePatch, '[]\n')
     writeFileSync(sourceTsconfig, '{}\n')
 
-    expect(resolveDshNodeLaunchFromManifests(pair.dshUrl, pair.clientUrl, 'file:///tsx-loader.mjs'))
-      .toEqual({
-        nodeArgs: ['--import', 'file:///tsx-loader.mjs', sourceBin],
-        patches: [sourcePatch],
-        environment: { TSX_TSCONFIG_PATH: sourceTsconfig },
-      })
-    expect(resolveDshNodeLaunchFromManifests(pair.dshUrl, pair.clientUrl))
-      .toEqual({
-        nodeArgs: ['--import', import.meta.resolve('tsx/esm'), sourceBin],
-        patches: [sourcePatch],
-        environment: { TSX_TSCONFIG_PATH: sourceTsconfig },
-      })
+    expect(resolveDshNodeLaunchFromManifests(pair.dshUrl, pair.clientUrl, 'file:///tsx-loader.mjs')).toEqual({
+      nodeArgs: ['--import', 'file:///tsx-loader.mjs', sourceBin],
+      patches: [sourcePatch],
+      environment: { TSX_TSCONFIG_PATH: sourceTsconfig },
+    })
+    expect(resolveDshNodeLaunchFromManifests(pair.dshUrl, pair.clientUrl)).toEqual({
+      nodeArgs: ['--import', import.meta.resolve('tsx/esm'), sourceBin],
+      patches: [sourcePatch],
+      environment: { TSX_TSCONFIG_PATH: sourceTsconfig },
+    })
   })
 
   it('uses the built entry when the manifest bin exists', () => {
@@ -120,13 +130,14 @@ describe('SDK dsh launch resolution', () => {
     })
   })
 
-  it.each([0, 1, 2])('fails loud when a source launch is missing required file set %s', (presentCount) => {
+  it.each([0, 1, 2])('fails loud when a source launch is missing required file set %s', presentCount => {
     const pair = manifestPair({ version: '1.0.0', bin: 'lib/bin.js' }, { version: '1.0.0' })
     mkdirSync(join(pair.root, 'src'))
     const sourceFiles = ['src/bin.ts', 'src/sdk-source.cordis.patch.yml', 'tsconfig.json']
     for (const source of sourceFiles.slice(0, presentCount)) writeFileSync(join(pair.root, source), '')
-    expect(() => resolveDshNodeLaunchFromManifests(pair.dshUrl, pair.clientUrl, 'file:///tsx-loader.mjs'))
-      .toThrow('is missing its built executable')
+    expect(() => resolveDshNodeLaunchFromManifests(pair.dshUrl, pair.clientUrl, 'file:///tsx-loader.mjs')).toThrow(
+      'is missing its built executable',
+    )
   })
 
   it('reads explicit and inherited environments when the child starts', () => {
@@ -144,26 +155,18 @@ describe('SDK dsh launch resolution', () => {
     }
   })
 
-  it.each([2, '2.0.0'])(
-    'rejects a dsh version that differs from the client (%j)',
-    (version) => {
-      const pair = manifestPair({ version, bin: 'bin.js' }, { version: '1.0.0' })
-      expect(() => resolveDshBinFromManifests(pair.dshUrl, pair.clientUrl))
-        .toThrow(`requires the same dsh version, got ${String(version)}`)
-    },
-  )
+  it.each([2, '2.0.0'])('rejects a dsh version that differs from the client (%j)', version => {
+    const pair = manifestPair({ version, bin: 'bin.js' }, { version: '1.0.0' })
+    expect(() => resolveDshBinFromManifests(pair.dshUrl, pair.clientUrl)).toThrow(`requires the same dsh version, got ${String(version)}`)
+  })
 
   it('accepts the string npm bin form', () => {
     const pair = manifestPair({ version: '1.0.0', bin: './bin.js' }, { version: '1.0.0' })
     expect(resolveDshBinFromManifests(pair.dshUrl, pair.clientUrl)).toBe(join(pair.root, 'bin.js'))
   })
 
-  it.each([null, {}, ''])(
-    'rejects a manifest without a usable dsh executable (%j)',
-    (bin) => {
-      const pair = manifestPair({ version: '1.0.0', bin }, { version: '1.0.0' })
-      expect(() => resolveDshBinFromManifests(pair.dshUrl, pair.clientUrl))
-        .toThrow('declares no dsh executable')
-    },
-  )
+  it.each([null, {}, ''])('rejects a manifest without a usable dsh executable (%j)', bin => {
+    const pair = manifestPair({ version: '1.0.0', bin }, { version: '1.0.0' })
+    expect(() => resolveDshBinFromManifests(pair.dshUrl, pair.clientUrl)).toThrow('declares no dsh executable')
+  })
 })

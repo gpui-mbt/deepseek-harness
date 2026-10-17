@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished, vi } from 'vite-plus/test'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-webhook'
@@ -24,9 +24,7 @@ import { saveFailureShot } from './support.ts'
 const MODE = webSnapshotMode()
 const OVERLAY = fileURLToPath(new URL('../../../packages/experimental/webhook-github/examples/github-review/cordis.yml', import.meta.url))
 const EXPECTED = fileURLToPath(new URL('./expected/github-ready-review/conversation.expected.md', import.meta.url))
-const EXPANDED_EXPECTED = fileURLToPath(
-  new URL('./expected/github-ready-review/conversation-expanded.expected.md', import.meta.url),
-)
+const EXPANDED_EXPECTED = fileURLToPath(new URL('./expected/github-ready-review/conversation-expanded.expected.md', import.meta.url))
 const PROVIDER = 'github-webhook-review-test'
 const MODEL = 'reply'
 const SECRET = 'github-webhook-review-secret'
@@ -35,10 +33,12 @@ const REPLY = 'Review complete: no actionable findings.'
 
 /** Deterministic model response for the webhook-created Session. */
 class ReviewAdapter extends LlmAdapter {
-  override async listModels(provider: string) { return [{ provider, id: MODEL, name: `${provider}/${MODEL}` }] }
+  override async listModels(provider: string) {
+    return [{ provider, id: MODEL, name: `${provider}/${MODEL}` }]
+  }
   readonly requests: GenerateOptions[] = []
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     yield { type: 'block-start', index: 0, blockType: 'text' }
     yield { type: 'block-end', index: 0, block: { type: 'text', text: REPLY } }
@@ -51,7 +51,11 @@ async function freePort(): Promise<number> {
   const server = createServer()
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as AddressInfo).port
-  await new Promise<void>(resolve => server.close(() => { resolve() }))
+  await new Promise<void>(resolve =>
+    server.close(() => {
+      resolve()
+    }),
+  )
   return port
 }
 
@@ -94,20 +98,21 @@ describe.skipIf(MODE === 'record')('web e2e: GitHub ready-for-review', () => {
     webhookOrigin = `http://127.0.0.1:${String(port)}`
     scaffold = await launchWebScaffold({
       extraOverlayPath: OVERLAY,
-      profile: { packages: [
-        { dir: fileURLToPath(new URL('../../../packages/experimental/webhook', import.meta.url)) },
-        { dir: fileURLToPath(new URL('../../../packages/experimental/webhook-github', import.meta.url)) },
-      ] },
+      profile: {
+        packages: [
+          { dir: fileURLToPath(new URL('../../../packages/experimental/webhook', import.meta.url)) },
+          { dir: fileURLToPath(new URL('../../../packages/experimental/webhook-github', import.meta.url)) },
+        ],
+      },
     })
-    scaffold.ctx.effect(
-      () => scaffold.ctx.llm.registerAdapter([PROVIDER], adapter),
-      'GitHub webhook review adapter',
-    )
+    scaffold.ctx.effect(() => scaffold.ctx.llm.registerAdapter([PROVIDER], adapter), 'GitHub webhook review adapter')
     await scaffold.ctx.agentDefaultModel.saveSelection({ provider: PROVIDER, model: MODEL })
 
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: 'en-US' })
-    await page.addInitScript(() => { localStorage.setItem('dsh.locale', 'en') })
+    await page.addInitScript(() => {
+      localStorage.setItem('dsh.locale', 'en')
+    })
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -123,7 +128,9 @@ describe.skipIf(MODE === 'record')('web e2e: GitHub ready-for-review', () => {
   })
 
   it('isolates ingress and creates a browsable Workspace Session', async () => {
-    onTestFailed(async () => { await saveFailureShot(page, 'github-ready-review') })
+    onTestFailed(async () => {
+      await saveFailureShot(page, 'github-ready-review')
+    })
     const before = scaffold.ctx.agents.list().length
 
     expect((await fetch(`${webhookOrigin}/api`)).status).toBe(404)
@@ -131,7 +138,9 @@ describe.skipIf(MODE === 'record')('web e2e: GitHub ready-for-review', () => {
     expect(scaffold.ctx.agents.list()).toHaveLength(before)
 
     expect((await send(webhookOrigin, 'ping', { zen: 'keep it logically awesome' }, 'ping')).status).toBe(202)
-    await vi.waitFor(() => { expect(scaffold.ctx.agents.list()).toHaveLength(before) })
+    await vi.waitFor(() => {
+      expect(scaffold.ctx.agents.list()).toHaveLength(before)
+    })
 
     const payload = {
       action: 'ready_for_review',
@@ -149,9 +158,15 @@ describe.skipIf(MODE === 'record')('web e2e: GitHub ready-for-review', () => {
     const completed = Promise.withResolvers<undefined>()
     let reviewSession: string | undefined
     const off = scaffold.ctx.on('session/event', (session, event) => {
-      if (event.type === 'user/message' && event.data.source.kind === 'webhook'
-        && event.data.source.provider === 'github' && event.data.source.source === 'primary-github'
-        && event.data.source.deliveryId === 'ready' && event.data.source.ruleId === 'review-pr-when-ready') reviewSession = session.id
+      if (
+        event.type === 'user/message' &&
+        event.data.source.kind === 'webhook' &&
+        event.data.source.provider === 'github' &&
+        event.data.source.source === 'primary-github' &&
+        event.data.source.deliveryId === 'ready' &&
+        event.data.source.ruleId === 'review-pr-when-ready'
+      )
+        reviewSession = session.id
       if (event.type === 'turn/end' && session.id === reviewSession) completed.resolve(undefined)
     })
     const entered = Promise.withResolvers<undefined>()
@@ -194,17 +209,13 @@ describe.skipIf(MODE === 'record')('web e2e: GitHub ready-for-review', () => {
     expect(content.text).toContain('exact head SHA bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
 
     const workspaceRow = page.locator('[role="treeitem"]').first()
-    if (await workspaceRow.getAttribute('aria-expanded') !== 'true') await workspaceRow.click()
+    if ((await workspaceRow.getAttribute('aria-expanded')) !== 'true') await workspaceRow.click()
     await page.getByText(TITLE, { exact: true }).click()
     await page.getByText(REPLY, { exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     const tree = await captureStableAria(page, '[role="tree"][aria-label="Sessions"]', scaffold.workspaceCwd)
     const conversation = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(EXPECTED, `${tree}\n\n---\n\n${conversation}`, MODE)
-    const expanded = await captureExpandedTurnProcessAria(
-      page,
-      '[class*="centerCol"]',
-      scaffold.workspaceCwd,
-    )
+    const expanded = await captureExpandedTurnProcessAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(EXPANDED_EXPECTED, `${tree}\n\n---\n\n${expanded}`, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

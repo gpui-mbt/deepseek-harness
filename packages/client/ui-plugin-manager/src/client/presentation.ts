@@ -9,9 +9,7 @@ import type { FailedAction, ManagerNotice, PackageRow, PackageView, PluginManage
 export type Translate = PropsLocale<'pluginManager'>['t']
 
 /** The registries with a name of their own, by host. */
-const REGISTRY_COPY = new Map<string, PluginManagerLocaleKey>([
-  ['registry.npmmirror.com', 'registryNpmmirror'],
-])
+const REGISTRY_COPY = new Map<string, PluginManagerLocaleKey>([['registry.npmmirror.com', 'registryNpmmirror']])
 
 /** npm's own registry, which reads by name rather than by host. */
 const OFFICIAL_NPM_HOST = 'registry.npmjs.org'
@@ -47,7 +45,7 @@ function registryHost(registry: string): string {
 /** The sentence each of the Host's refusal codes reads as. */
 const CODE_KEYS = {
   'management-required': 'reasonManagementRequired',
-  'unaddressable': 'reasonUnaddressable',
+  unaddressable: 'reasonUnaddressable',
   'unknown-plugin': 'reasonUnknownPlugin',
   'invalid-spec': 'reasonInvalidSpec',
   'already-installed': 'reasonAlreadyInstalled',
@@ -77,21 +75,30 @@ const FAILED_KEYS = {
  * @param t - the manager's translate seat.
  * @returns the sentence.
  */
-export function managementText(error: {
-  readonly code: ManagementError['code']
-  readonly diagnostic?: string
-  readonly incompatible?: readonly IncompatiblePlugin[]
-  /** Set when the refused package is being installed rather than already installed; selects the incompatibility remedy. */
-  readonly installing?: true
-}, t: Translate): string {
+export function managementText(
+  error: {
+    readonly code: ManagementError['code']
+    readonly diagnostic?: string
+    readonly incompatible?: readonly IncompatiblePlugin[]
+    /** Set when the refused package is being installed rather than already installed; selects the incompatibility remedy. */
+    readonly installing?: true
+  },
+  t: Translate,
+): string {
   if (error.code === 'incompatible-version') {
     const named = error.incompatible ?? []
-    const sentences = named.length === 0
-      ? [t('reasonIncompatibleVersionUnnamed')]
-      : named.map(plugin => t('reasonIncompatibleVersion', {
-        plugin: `${plugin.name}@${plugin.version}`, runtime: plugin.runtimeVersion,
-        requirements: Object.entries(plugin.requirements).map(([name, range]) => `${name} ${range}`).join(', '),
-      }))
+    const sentences =
+      named.length === 0
+        ? [t('reasonIncompatibleVersionUnnamed')]
+        : named.map(plugin =>
+            t('reasonIncompatibleVersion', {
+              plugin: `${plugin.name}@${plugin.version}`,
+              runtime: plugin.runtimeVersion,
+              requirements: Object.entries(plugin.requirements)
+                .map(([name, range]) => `${name} ${range}`)
+                .join(', '),
+            }),
+          )
     return [...sentences, t(error.installing ? 'reasonIncompatibleInstall' : 'reasonIncompatibleInstalled')].join(t('sentenceSeparator'))
   }
   if (error.code !== 'operation-error') return t(CODE_KEYS[error.code])
@@ -115,7 +122,8 @@ export function shortName(name: string): string {
  * @returns localized copy with a technical-name fallback and the independent beta status.
  */
 export function packageText(
-  pkg: Pick<PackageView, 'name' | 'meta'>, resolveText: PluginManagerFace['resolveText'],
+  pkg: Pick<PackageView, 'name' | 'meta'>,
+  resolveText: PluginManagerFace['resolveText'],
 ): { title: string; description: string | undefined; beta: boolean } {
   return {
     title: pkg.meta?.title === undefined ? pkg.name : resolveText(pkg.meta.title),
@@ -131,7 +139,8 @@ export function packageText(
  * @returns the row's display title and optional description.
  */
 export function rowText(
-  row: Pick<PackageRow, 'moduleName' | 'meta'>, resolveText: PluginManagerFace['resolveText'],
+  row: Pick<PackageRow, 'moduleName' | 'meta'>,
+  resolveText: PluginManagerFace['resolveText'],
 ): { title: string; description: string | undefined } {
   return {
     title: row.meta?.title === undefined ? row.moduleName : resolveText(row.meta.title),
@@ -168,18 +177,38 @@ export function restartText(key: 'restartNotice' | 'installDoneRestart', reason:
  */
 export function noticeText(notice: ManagerNotice, t: Translate): string {
   switch (notice.kind) {
-    case 'restart': return restartText('restartNotice', notice.reason, t)
-    case 'overridden': return t('overriddenNotice', { name: notice.packageName })
-    case 'cancelled': return t('installCancelled')
-    case 'refresh-failed': return t('refreshError')
-    case 'install': return t(({
-      done: 'installBackgroundDone', failed: 'installBackgroundFailed',
-      unconfirmed: 'installBackgroundUnconfirmed', applying: 'installBackgroundApplying', unknown: 'installBackgroundUnknown',
-    } as const)[notice.outcome])
+    case 'restart':
+      return restartText('restartNotice', notice.reason, t)
+    case 'overridden':
+      return t('overriddenNotice', { name: notice.packageName })
+    case 'cancelled':
+      return t('installCancelled')
+    case 'refresh-failed':
+      return t('refreshError')
+    case 'install':
+      return t(
+        (
+          {
+            done: 'installBackgroundDone',
+            failed: 'installBackgroundFailed',
+            unconfirmed: 'installBackgroundUnconfirmed',
+            applying: 'installBackgroundApplying',
+            unknown: 'installBackgroundUnknown',
+          } as const
+        )[notice.outcome],
+      )
     case 'failed': {
-      const reason = notice.code === undefined ? notice.reason : managementText({
-        code: notice.code, diagnostic: notice.reason, ...notice.incompatible === undefined ? {} : { incompatible: notice.incompatible },
-      }, t)
+      const reason =
+        notice.code === undefined
+          ? notice.reason
+          : managementText(
+              {
+                code: notice.code,
+                diagnostic: notice.reason,
+                ...(notice.incompatible === undefined ? {} : { incompatible: notice.incompatible }),
+              },
+              t,
+            )
       return t(FAILED_KEYS[notice.action], { reason: reason === '' ? t('reasonOperationError') : reason })
     }
   }

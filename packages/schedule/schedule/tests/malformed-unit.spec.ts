@@ -2,7 +2,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Storage from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
@@ -18,7 +18,8 @@ afterEach(async () => {
 })
 
 async function open(root: string) {
-  const ctx = new Context(); contexts.push(ctx)
+  const ctx = new Context()
+  contexts.push(ctx)
   await ctx.plugin(Storage)
   const backend = new JsonStorageBackend(root)
   ctx.storage.backend.register('json', backend)
@@ -27,7 +28,8 @@ async function open(root: string) {
 }
 
 it('refuses an array-shaped tables map instead of opening an empty task catalog', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-schedule-malformed-')); roots.push(root)
+  const root = await mkdtemp(join(tmpdir(), 'dsh-schedule-malformed-'))
+  roots.push(root)
   const path = join(root, 'schedule.json')
   const task = {
     sessionId: 'session-1',
@@ -36,11 +38,15 @@ it('refuses an array-shaped tables map instead of opening an empty task catalog'
   }
   // An array is `typeof 'object'`: an empty-domain read would let the first
   // write republish this file without the task it could not see.
-  const text = `${JSON.stringify({
-    unit: { name: 'schedule', version: 1 },
-    global: null,
-    tables: [{ tasks: { kept: task } }],
-  }, null, 2)}\n`
+  const text = `${JSON.stringify(
+    {
+      unit: { name: 'schedule', version: 1 },
+      global: null,
+      tables: [{ tasks: { kept: task } }],
+    },
+    null,
+    2,
+  )}\n`
   await writeFile(path, text, 'utf8')
 
   const { facility, backend } = await open(root)

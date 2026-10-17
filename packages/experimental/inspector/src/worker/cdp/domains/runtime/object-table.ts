@@ -98,9 +98,7 @@ export class RuntimeObjectTable {
   ): CdpRuntimeCompletion {
     return {
       result: this.remote(realm, value.result, group),
-      ...(value.exceptionDetails === undefined
-        ? {}
-        : { exceptionDetails: this.exception(realm, value.exceptionDetails, group) }),
+      ...(value.exceptionDetails === undefined ? {} : { exceptionDetails: this.exception(realm, value.exceptionDetails, group) }),
     }
   }
 
@@ -124,9 +122,7 @@ export class RuntimeObjectTable {
       ...(value.privateProperties === undefined
         ? {}
         : { privateProperties: value.privateProperties.map(property => this.privateProperty(realm, property, group)) }),
-      ...(value.exceptionDetails === undefined
-        ? {}
-        : { exceptionDetails: this.exception(realm, value.exceptionDetails, group) }),
+      ...(value.exceptionDetails === undefined ? {} : { exceptionDetails: this.exception(realm, value.exceptionDetails, group) }),
     }
   }
 
@@ -136,13 +132,9 @@ export class RuntimeObjectTable {
    * @param value - Realm-neutral Console or exception event.
    * @returns CDP method and parameters.
    */
-  consoleEvent(
-    realm: InspectorRealmSession,
-    value: RuntimeConsoleBackendEvent<RuntimeBackendObjectHandle>,
-  ): CdpRuntimeEvent {
+  consoleEvent(realm: InspectorRealmSession, value: RuntimeConsoleBackendEvent<RuntimeBackendObjectHandle>): CdpRuntimeEvent {
     if (value.type === 'console-api') {
-      const contextId = value.event.contextId
-        ?? (realm.context.kind === 'synthetic' ? realm.context.id : undefined)
+      const contextId = value.event.contextId ?? (realm.context.kind === 'synthetic' ? realm.context.id : undefined)
       return {
         method: 'Runtime.consoleAPICalled',
         params: {
@@ -154,8 +146,7 @@ export class RuntimeObjectTable {
         },
       }
     }
-    const contextId = value.event.contextId
-      ?? (realm.context.kind === 'synthetic' ? realm.context.id : undefined)
+    const contextId = value.event.contextId ?? (realm.context.kind === 'synthetic' ? realm.context.id : undefined)
     return {
       method: 'Runtime.exceptionThrown',
       params: {
@@ -226,12 +217,11 @@ export class RuntimeObjectTable {
     value: RuntimeRemoteObject<RuntimeBackendObjectHandle>,
     group: string | undefined,
   ): Readonly<Record<string, unknown>> {
-    const objectId = value.object === undefined
-      ? undefined
-      : this.expose(realm, value.object.handle, group)
-    const presentation = objectId === undefined || value.semanticReference === undefined
-      ? undefined
-      : this.observer?.(objectId, realm.descriptor, value.semanticReference, group)
+    const objectId = value.object === undefined ? undefined : this.expose(realm, value.object.handle, group)
+    const presentation =
+      objectId === undefined || value.semanticReference === undefined
+        ? undefined
+        : this.observer?.(objectId, realm.descriptor, value.semanticReference, group)
     const descriptor = value.descriptor
     return {
       ...descriptor,
@@ -294,15 +284,8 @@ export class RuntimeObjectTable {
     }
   }
 
-  private expose(
-    realm: InspectorRealmSession,
-    handle: RuntimeBackendObjectHandle,
-    group: string | undefined,
-  ): CdpRemoteObjectId {
-    const objectId = cdpStringId<'CdpRemoteObjectId'>(
-      `runtime:${this.connectionId}:${String(this.nextObjectId++)}`,
-      'objectId',
-    )
+  private expose(realm: InspectorRealmSession, handle: RuntimeBackendObjectHandle, group: string | undefined): CdpRemoteObjectId {
+    const objectId = cdpStringId<'CdpRemoteObjectId'>(`runtime:${this.connectionId}:${String(this.nextObjectId++)}`, 'objectId')
     this.routes.set(objectId, { realm, handle, group })
     return objectId
   }

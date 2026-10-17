@@ -3,7 +3,7 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
 import type { DirectoryPickerBrowseCapability } from '@deepseek-ai/dsh-host-directory-picker'
@@ -118,11 +118,15 @@ describe('BrowseDirectoryPicker', () => {
     // The abort wins over a pending operation and carries its own reason;
     // the operation's late rejection is swallowed, never unhandled.
     const rejections: unknown[] = []
-    const onUnhandled = (reason: unknown): void => { rejections.push(reason) }
+    const onUnhandled = (reason: unknown): void => {
+      rejections.push(reason)
+    }
     process.on('unhandledRejection', onUnhandled)
     try {
       let rejectLate!: (reason: unknown) => void
-      const pending = new Promise<never>((_resolve, reject) => { rejectLate = reject })
+      const pending = new Promise<never>((_resolve, reject) => {
+        rejectLate = reject
+      })
       const controller = new AbortController()
       const raced = raceAbort(pending, controller.signal)
       // A bare-string abort reason exercises the Error wrap.

@@ -182,9 +182,7 @@ export interface RestoredSessionOptions {
 }
 
 /** Inputs accepted while constructing an unpublished Session. */
-export type PrepareSessionOptions =
-  | (CreateSessionOptions & { readonly eventState?: undefined })
-  | RestoredSessionOptions
+export type PrepareSessionOptions = (CreateSessionOptions & { readonly eventState?: undefined }) | RestoredSessionOptions
 
 /** Why an active agent driver was cancelled. */
 export type AgentCancelCause =
@@ -437,12 +435,7 @@ export type SessionEventType = keyof SessionEventMap
  * event types may carry {@link SurfaceOp}; system, user, and tool events may also cite
  * earlier sources through {@link SessionEvent.sourceEventSeqs}.
  */
-export type SurfaceEventType =
-  | 'system/message'
-  | 'developer/message'
-  | 'user/message'
-  | 'assistant/message'
-  | 'tool/result'
+export type SurfaceEventType = 'system/message' | 'developer/message' | 'user/message' | 'assistant/message' | 'tool/result'
 
 /** A message-producing event carrying its required surface operation. */
 export type SurfaceEvent = SessionEvent<SurfaceEventType>
@@ -460,9 +453,7 @@ export type SurfaceEvent = SessionEvent<SurfaceEventType>
  *   shadowed surface node. Used by compaction; any surface-replacing producer
  *   may use it.
  */
-export type SurfaceOp =
-  | 'append'
-  | { op: 'replace'; startSeq: SessionSeq; endSeq: SessionSeq }
+export type SurfaceOp = 'append' | { op: 'replace'; startSeq: SessionSeq; endSeq: SessionSeq }
 
 /**
  * Surface placement and cited source-event seqs for {@link Session.append}. Required on
@@ -470,13 +461,15 @@ export type SurfaceOp =
  */
 export type SurfaceIntent<T extends SurfaceEventType = SurfaceEventType> = {
   surfaceOp: SurfaceOp
-} & (T extends 'assistant/message' ? {
-  /** Assistant messages embed their provider stream instead of citing source events. */
-  sourceEventSeqs?: never
-} : {
-  /** Complete non-empty set of known earlier source-event seqs. */
-  sourceEventSeqs?: SessionSeq[]
-})
+} & (T extends 'assistant/message'
+  ? {
+      /** Assistant messages embed their provider stream instead of citing source events. */
+      sourceEventSeqs?: never
+    }
+  : {
+      /** Complete non-empty set of known earlier source-event seqs. */
+      sourceEventSeqs?: SessionSeq[]
+    })
 
 /**
  * One immutable entry in the session log.
@@ -510,10 +503,12 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * inconvenience) rather than silently resuming a gutted session.
      */
     ignorable?: true
-  } & (K extends SurfaceEventType ? SurfaceIntent<K> : {
-    surfaceOp?: never
-    sourceEventSeqs?: never
-  })
+  } & (K extends SurfaceEventType
+    ? SurfaceIntent<K>
+    : {
+        surfaceOp?: never
+        sourceEventSeqs?: never
+      })
 }[T]
 
 /**

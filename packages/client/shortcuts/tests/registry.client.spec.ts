@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { bindingKey, initialShortcutConfig, normalizeBinding, presentBinding } from '../src/protocol.ts'
 import type { ShortcutCommandId } from '../src/protocol.ts'
 import { ShortcutRegistry } from '../src/client/registry.ts'
 import { isWebBindingAllowed } from '../src/binding.ts'
 
-it.each(['macos', 'windows'] as const)('admits the existing single-modifier Web keys on %s', (platform) => {
+it.each(['macos', 'windows'] as const)('admits the existing single-modifier Web keys on %s', platform => {
   const primary = platform === 'macos' ? 'meta' : 'control'
   for (const code of ['Comma', 'Backslash']) {
     expect(isWebBindingAllowed({ code, modifiers: [primary] }, platform)).toBe(true)
@@ -22,17 +22,33 @@ it('admits modified Web combinations and refuses two-key chords', () => {
 
 it('leaves Linux terminal control-W and control-R with the terminal while dispatching other bindings', () => {
   for (const [code, modifiers, status] of [
-    ['KeyW', ['control'], 'pass'], ['KeyR', ['control'], 'pass'], ['KeyB', ['control'], 'handled'],
+    ['KeyW', ['control'], 'pass'],
+    ['KeyR', ['control'], 'pass'],
+    ['KeyB', ['control'], 'handled'],
     ['KeyB', ['alt'], 'handled'],
-    ['KeyB', ['control', 'alt'], 'handled'], ['KeyB', ['control', 'shift'], 'handled'],
+    ['KeyB', ['control', 'alt'], 'handled'],
+    ['KeyB', ['control', 'shift'], 'handled'],
   ] as const) {
     const registry = new ShortcutRegistry('desktop', 'linux')
-    const run = vi.fn(), consume = vi.fn()
-    registry.register(command({ defaults: { 'desktop:linux': { code, modifiers } }, regions: ['terminal'],
-      resolve: () => ({ status: 'handled', run }) }))
-    expect(registry.dispatch({ ...gesture, code, control: modifiers.some(value => value === 'control'),
-      meta: false, alt: modifiers.some(value => value === 'alt'),
-      shift: modifiers.some(value => value === 'shift') }, { ...context, region: 'terminal' }, consume).status).toBe(status)
+    const run = vi.fn(),
+      consume = vi.fn()
+    registry.register(
+      command({ defaults: { 'desktop:linux': { code, modifiers } }, regions: ['terminal'], resolve: () => ({ status: 'handled', run }) }),
+    )
+    expect(
+      registry.dispatch(
+        {
+          ...gesture,
+          code,
+          control: modifiers.some(value => value === 'control'),
+          meta: false,
+          alt: modifiers.some(value => value === 'alt'),
+          shift: modifiers.some(value => value === 'shift'),
+        },
+        { ...context, region: 'terminal' },
+        consume,
+      ).status,
+    ).toBe(status)
     expect(run).toHaveBeenCalledTimes(status === 'handled' ? 1 : 0)
     expect(consume).toHaveBeenCalledTimes(status === 'handled' ? 1 : 0)
   }
@@ -40,40 +56,66 @@ it('leaves Linux terminal control-W and control-R with the terminal while dispat
 
 it('dispatches a Windows Web terminal binding with Control, Meta, and Shift', () => {
   const registry = new ShortcutRegistry('web', 'windows')
-  const run = vi.fn(), consume = vi.fn()
-  registry.register(command({ defaults: { 'web:windows': { code: 'KeyB', modifiers: ['control', 'meta', 'shift'] } },
-    regions: ['terminal'], resolve: () => ({ status: 'handled', run }) }))
+  const run = vi.fn(),
+    consume = vi.fn()
+  registry.register(
+    command({
+      defaults: { 'web:windows': { code: 'KeyB', modifiers: ['control', 'meta', 'shift'] } },
+      regions: ['terminal'],
+      resolve: () => ({ status: 'handled', run }),
+    }),
+  )
   expect(registry.dispatch({ ...gesture, control: true, shift: true }, { ...context, region: 'terminal' }, consume).status).toBe('handled')
   expect(run).toHaveBeenCalledOnce()
   expect(consume).toHaveBeenCalledOnce()
 })
 
-it.each(['pass', 'blocked'] as const)('does not execute a menu command whose owner returns %s', (status) => {
+it.each(['pass', 'blocked'] as const)('does not execute a menu command whose owner returns %s', status => {
   const registry = new ShortcutRegistry('desktop', 'macos')
-  const resolve = vi.fn<ShortcutCommand['resolve']>(() => status === 'pass' ? { status } : { status, reason: 'unavailable' })
+  const resolve = vi.fn<ShortcutCommand['resolve']>(() => (status === 'pass' ? { status } : { status, reason: 'unavailable' }))
   registry.register(command({ resolve }))
   registry.invoke('test.toggle' as ShortcutCommandId, context)
   expect(resolve).toHaveBeenCalledWith({ ...context, source: 'menu' })
 })
-const gesture: ShortcutGesture = { code: 'KeyB', control: false, alt: false, shift: false, meta: true,
-  repeat: false, composing: false, defaultPrevented: false }
+const gesture: ShortcutGesture = {
+  code: 'KeyB',
+  control: false,
+  alt: false,
+  shift: false,
+  meta: true,
+  repeat: false,
+  composing: false,
+  defaultPrevented: false,
+}
 function command(overrides: Partial<ShortcutCommand> = {}): ShortcutCommand {
-  return { id: 'test.toggle' as ShortcutCommandId, label: () => 'Toggle', aliases: ['toggle'],
+  return {
+    id: 'test.toggle' as ShortcutCommandId,
+    label: () => 'Toggle',
+    aliases: ['toggle'],
     defaults: {
       'desktop:macos': { code: 'KeyB', modifiers: ['primary'] },
       'desktop:windows': { code: 'KeyB', modifiers: ['primary'] },
       'desktop:linux': { code: 'KeyB', modifiers: ['primary'] },
-    }, regions: ['page', 'editable'], modals: [],
-    resolve: () => ({ status: 'handled', run: () => {} }), ...overrides }
+    },
+    regions: ['page', 'editable'],
+    modals: [],
+    resolve: () => ({ status: 'handled', run: () => {} }),
+    ...overrides,
+  }
 }
 
 describe('physical key registry', () => {
   it('normalizes primary/control together on Windows and presents platform-specific keys', () => {
     const binding = { code: 'KeyB', modifiers: ['primary', 'control', 'shift'] as const }
     expect(bindingKey(normalizeBinding(binding, 'windows'))).toBe('control+shift+KeyB')
-    expect(presentBinding(normalizeBinding(binding, 'macos'), 'macos')).toEqual({ keys: ['⌃', '⇧', '⌘', 'B'], aria: 'Control+Shift+Meta+B' })
-    expect(presentBinding(normalizeBinding({ code: 'Slash', modifiers: ['primary'] }, 'windows'), 'windows'))
-      .toEqual({ keys: ['Ctrl', '+', '/'], aria: 'Control+/' })
+    expect(presentBinding(normalizeBinding(binding, 'macos'), 'macos')).toEqual({
+      keys: ['⌃', '⇧', '⌘', 'B'],
+      aria: 'Control+Shift+Meta+B',
+    })
+    expect(presentBinding(normalizeBinding({ code: 'Slash', modifiers: ['primary'] }, 'windows'), 'windows')).toEqual({
+      keys: ['Ctrl', '+', '/'],
+      aria: 'Control+/',
+    })
     expect(presentBinding(null, 'linux')).toEqual({ keys: [], aria: undefined })
     expect(() => normalizeBinding({ code: 'Unidentified', modifiers: [] }, 'macos')).toThrow('Unsupported')
   })
@@ -82,28 +124,47 @@ describe('physical key registry', () => {
     const registry = new ShortcutRegistry('desktop', 'macos')
     const off = registry.register(command())
     expect(() => registry.register(command())).toThrow('Duplicate')
-    expect(() => registry.register(command({ id: 'other.toggle' as ShortcutCommandId,
-      defaults: {
-        'desktop:macos': { code: 'KeyB', modifiers: ['control'] },
-        'desktop:windows': { code: 'KeyB', modifiers: ['control'] },
-        'desktop:linux': { code: 'KeyB', modifiers: ['control'] },
-      } }))).toThrow('windows')
-    expect(() => registry.register(command({ id: 'web.new' as ShortcutCommandId,
-      defaults: {
-        'web:macos': { code: 'KeyN', modifiers: ['primary'] },
-        'web:windows': { code: 'KeyN', modifiers: ['primary'] },
-        'web:linux': { code: 'KeyN', modifiers: ['primary'] },
-      } }))).toThrow('Unsupported Web')
-    expect(() => registry.register(command({ id: 'system.copy' as ShortcutCommandId,
-      defaults: {
-        'desktop:macos': { code: 'KeyC', modifiers: ['primary'] },
-        'desktop:windows': { code: 'KeyC', modifiers: ['primary'] },
-        'desktop:linux': { code: 'KeyC', modifiers: ['primary'] },
-      } }))).toThrow('Reserved')
+    expect(() =>
+      registry.register(
+        command({
+          id: 'other.toggle' as ShortcutCommandId,
+          defaults: {
+            'desktop:macos': { code: 'KeyB', modifiers: ['control'] },
+            'desktop:windows': { code: 'KeyB', modifiers: ['control'] },
+            'desktop:linux': { code: 'KeyB', modifiers: ['control'] },
+          },
+        }),
+      ),
+    ).toThrow('windows')
+    expect(() =>
+      registry.register(
+        command({
+          id: 'web.new' as ShortcutCommandId,
+          defaults: {
+            'web:macos': { code: 'KeyN', modifiers: ['primary'] },
+            'web:windows': { code: 'KeyN', modifiers: ['primary'] },
+            'web:linux': { code: 'KeyN', modifiers: ['primary'] },
+          },
+        }),
+      ),
+    ).toThrow('Unsupported Web')
+    expect(() =>
+      registry.register(
+        command({
+          id: 'system.copy' as ShortcutCommandId,
+          defaults: {
+            'desktop:macos': { code: 'KeyC', modifiers: ['primary'] },
+            'desktop:windows': { code: 'KeyC', modifiers: ['primary'] },
+            'desktop:linux': { code: 'KeyC', modifiers: ['primary'] },
+          },
+        }),
+      ),
+    ).toThrow('Reserved')
     expect(registry.catalog.getSnapshot()).toHaveLength(1)
     const changed = vi.fn()
     registry.catalog.subscribe(changed)
-    off(); off()
+    off()
+    off()
     expect(changed).toHaveBeenCalledOnce()
     expect(registry.catalog.getSnapshot()).toEqual([])
     expect(registry.dispatch(gesture, context, vi.fn())).toEqual({ status: 'pass' })
@@ -112,7 +173,9 @@ describe('physical key registry', () => {
   it('consumes before executing, ignores repeats, and matches every modifier exactly', () => {
     const registry = new ShortcutRegistry('desktop', 'macos')
     const consumed = vi.fn()
-    const run = vi.fn(() => { expect(consumed).toHaveBeenCalled() })
+    const run = vi.fn(() => {
+      expect(consumed).toHaveBeenCalled()
+    })
     registry.register(command({ resolve: () => ({ status: 'handled', run }) }))
     expect(registry.dispatch(gesture, context, consumed).status).toBe('handled')
     expect(registry.dispatch({ ...gesture, repeat: true }, context, consumed).status).toBe('handled')
@@ -130,7 +193,10 @@ describe('physical key registry', () => {
     const consumed = vi.fn()
     const resolve = vi.fn<ShortcutCommand['resolve']>(() => ({ status: 'blocked', reason: 'No target' }))
     registry.register(command({ resolve }))
-    expect(registry.dispatch(gesture, { ...context, modal: 'settings' }, consumed)).toMatchObject({ status: 'blocked', reason: 'No target' })
+    expect(registry.dispatch(gesture, { ...context, modal: 'settings' }, consumed)).toMatchObject({
+      status: 'blocked',
+      reason: 'No target',
+    })
     expect(resolve).toHaveBeenCalledOnce()
     expect(registry.dispatch(gesture, { region: 'terminal', modal: null, target: null }, consumed).status).toBe('blocked')
     expect(registry.dispatch(gesture, context, consumed)).toMatchObject({ status: 'blocked', reason: 'No target' })
@@ -153,10 +219,9 @@ describe('physical key registry', () => {
   })
 })
 
-it.each(['Space', 'Escape', 'ArrowUp'])('uses standard ARIA names for %s', (code) => {
+it.each(['Space', 'Escape', 'ArrowUp'])('uses standard ARIA names for %s', code => {
   expect(presentBinding(normalizeBinding({ code, modifiers: [] }, 'windows'), 'windows').aria).toBe(code)
 })
-
 
 it('keeps commands disabled during startup and publishes config/catalog together before dispatch changes', () => {
   const config = initialShortcutConfig()
@@ -164,8 +229,14 @@ it('keeps commands disabled during startup and publishes config/catalog together
   const run = vi.fn()
   registry.register(command({ resolve: () => ({ status: 'handled', run }) }))
   expect(registry.dispatch(gesture, context, vi.fn()).status).toBe('pass')
-  const snapshot = { ...config, status: 'ready' as const, document: { schemaVersion: 1 as const,
-    profiles: { 'desktop:macos': { 'test.toggle': { code: 'KeyJ', modifiers: ['primary'] as const } } } } }
+  const snapshot = {
+    ...config,
+    status: 'ready' as const,
+    document: {
+      schemaVersion: 1 as const,
+      profiles: { 'desktop:macos': { 'test.toggle': { code: 'KeyJ', modifiers: ['primary'] as const } } },
+    },
+  }
   registry.catalog.subscribe(() => {
     expect(registry.config.getSnapshot()).toBe(snapshot)
     expect(registry.catalog.getSnapshot()[0]?.keys).toEqual(['⌘', 'J'])
@@ -178,37 +249,62 @@ it('keeps commands disabled during startup and publishes config/catalog together
 
 it('blocks conflicting dormant overrides when their plugins return, then releases every row on unload', () => {
   const registry = new ShortcutRegistry('desktop', 'macos')
-  registry.configure({ ...initialShortcutConfig(), status: 'ready', document: { schemaVersion: 1,
-    profiles: { 'desktop:macos': { 'test.toggle': { code: 'KeyJ', modifiers: ['primary'] }, 'other.toggle': { code: 'KeyJ', modifiers: ['primary'] } } } } })
+  registry.configure({
+    ...initialShortcutConfig(),
+    status: 'ready',
+    document: {
+      schemaVersion: 1,
+      profiles: {
+        'desktop:macos': {
+          'test.toggle': { code: 'KeyJ', modifiers: ['primary'] },
+          'other.toggle': { code: 'KeyJ', modifiers: ['primary'] },
+        },
+      },
+    },
+  })
   const run = vi.fn()
   const off = registry.register(command({ resolve: () => ({ status: 'handled', run }) }))
   expect(registry.dispatch({ ...gesture, code: 'KeyJ' }, context, vi.fn()).status).toBe('handled')
-  const other = registry.register(command({ id: 'other.toggle' as ShortcutCommandId, defaults: {}, resolve: () => ({ status: 'handled', run }) }))
+  const other = registry.register(
+    command({ id: 'other.toggle' as ShortcutCommandId, defaults: {}, resolve: () => ({ status: 'handled', run }) }),
+  )
   const consumed = vi.fn()
   expect(registry.dispatch({ ...gesture, code: 'KeyJ' }, context, consumed).status).toBe('blocked')
   expect(consumed).toHaveBeenCalledOnce()
   expect(run).toHaveBeenCalledOnce()
-  other(); off()
+  other()
+  off()
   expect(registry.catalog.getSnapshot()).toEqual([])
   expect(registry.dispatch({ ...gesture, code: 'KeyJ' }, context, vi.fn()).status).toBe('pass')
 })
 
-it.each(['macos', 'windows'] as const)('keeps %s priority identical before saving, after saving the same default, and after resetting', (platform) => {
-  const registry = new ShortcutRegistry('desktop', platform)
-  const run = vi.fn()
-  registry.register(command({ regions: ['page'], modals: [], resolve: () => ({ status: 'handled', run }) }))
-  for (const [index, modified] of [false, true, false].entries()) {
-    registry.configure({ ...registry.config.getSnapshot(), revision: `revision-${index}` as never,
-      document: { schemaVersion: 2, profiles: modified ? {
-        [`desktop:${platform}`]: { 'test.toggle': { code: 'KeyB', modifiers: ['primary'] } },
-      } : {} } })
-    expect(registry.catalog.getSnapshot()[0]?.modified).toBe(modified)
-    const input = { ...gesture, meta: platform === 'macos', control: platform === 'windows' }
-    for (const region of ['page', 'editable', 'terminal'] as const) {
-      for (const modal of [null, 'settings']) {
-        expect(registry.dispatch(input, { region, modal, target: null }, vi.fn()).status).toBe('handled')
+it.each(['macos', 'windows'] as const)(
+  'keeps %s priority identical before saving, after saving the same default, and after resetting',
+  platform => {
+    const registry = new ShortcutRegistry('desktop', platform)
+    const run = vi.fn()
+    registry.register(command({ regions: ['page'], modals: [], resolve: () => ({ status: 'handled', run }) }))
+    for (const [index, modified] of [false, true, false].entries()) {
+      registry.configure({
+        ...registry.config.getSnapshot(),
+        revision: `revision-${index}` as never,
+        document: {
+          schemaVersion: 2,
+          profiles: modified
+            ? {
+                [`desktop:${platform}`]: { 'test.toggle': { code: 'KeyB', modifiers: ['primary'] } },
+              }
+            : {},
+        },
+      })
+      expect(registry.catalog.getSnapshot()[0]?.modified).toBe(modified)
+      const input = { ...gesture, meta: platform === 'macos', control: platform === 'windows' }
+      for (const region of ['page', 'editable', 'terminal'] as const) {
+        for (const modal of [null, 'settings']) {
+          expect(registry.dispatch(input, { region, modal, target: null }, vi.fn()).status).toBe('handled')
+        }
       }
     }
-  }
-  expect(run).toHaveBeenCalledTimes(18)
-})
+    expect(run).toHaveBeenCalledTimes(18)
+  },
+)

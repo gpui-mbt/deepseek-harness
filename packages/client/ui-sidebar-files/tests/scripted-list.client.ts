@@ -1,6 +1,6 @@
 /** Deferred directory reads paired with independently controlled watch streams. */
-import { vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { vi } from 'vite-plus/test'
+import type { Mock } from 'vite-plus/test'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -70,10 +70,12 @@ export function scriptedList(): ScriptedList {
     settle: result => land(pending.shift(), result),
     settleLatest: result => land(pending.pop(), result),
     outstanding: () => pending.map(call => call.path),
-    waitForList: (index) => {
+    waitForList: index => {
       const call = calls[index]
       if (call !== undefined) return Promise.resolve(call)
-      return new Promise((resolve) => { waiters.set(index, resolve) })
+      return new Promise(resolve => {
+        waiters.set(index, resolve)
+      })
     },
     dispose: async () => {
       for (const call of pending.splice(0)) {

@@ -137,14 +137,14 @@ export type PaneAttachment =
 export type LayoutOp =
   /** Give `paneId` a new empty sibling pane along `axis`. */
   | {
-    readonly type: 'split'
-    readonly paneId: PaneId
-    readonly axis: SplitAxis
-    readonly direction: SplitDirection
-    readonly newPaneId: PaneId
-    /** Used only when the reference pane's parent cannot host `axis` directly. */
-    readonly newSplitId: SplitId
-  }
+      readonly type: 'split'
+      readonly paneId: PaneId
+      readonly axis: SplitAxis
+      readonly direction: SplitDirection
+      readonly newPaneId: PaneId
+      /** Used only when the reference pane's parent cannot host `axis` directly. */
+      readonly newSplitId: SplitId
+    }
   /** Drop an empty docked pane and collapse the split it leaves behind. */
   | { readonly type: 'merge'; readonly paneId: PaneId }
   /** Add a new tab to a docked pane and focus it. */
@@ -175,21 +175,21 @@ export type LayoutOp =
   | { readonly type: 'setMode'; readonly mode: DockMode }
   /** Put a pane back, with the tab records it owned. */
   | {
-    readonly type: 'insertPane'
-    readonly pane: PaneNode
-    readonly tabs: readonly TabRecord[]
-    readonly attach: PaneAttachment
-  }
+      readonly type: 'insertPane'
+      readonly pane: PaneNode
+      readonly tabs: readonly TabRecord[]
+      readonly attach: PaneAttachment
+    }
   /** Put one tab record back into a docked pane. */
   | { readonly type: 'insertTab'; readonly paneId: PaneId; readonly tab: TabRecord; readonly index: number }
   /** Restore focus facts an operation displaced. */
   | {
-    readonly type: 'restoreFocus'
-    readonly activePaneId: PaneId
-    readonly floats: readonly PaneId[]
-    /** Active tab per pane, for the panes the inverted operation touched. */
-    readonly paneActiveTabs: Readonly<Record<PaneId, TabId | undefined>>
-  }
+      readonly type: 'restoreFocus'
+      readonly activePaneId: PaneId
+      readonly floats: readonly PaneId[]
+      /** Active tab per pane, for the panes the inverted operation touched. */
+      readonly paneActiveTabs: Readonly<Record<PaneId, TabId | undefined>>
+    }
 
 /** Operation kinds that only move focus; `Sequencer` collapses runs of these into one undo step. */
 export type FocusOpType = 'focusTab' | 'focusPane' | 'restoreFocus'

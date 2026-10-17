@@ -3,14 +3,21 @@
 import { createRef } from 'react'
 import { createPortal } from 'react-dom'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { MenuSurface } from '../src/MenuSurface.tsx'
 
 afterEach(cleanup)
 
 it('keeps each backing after its menu anchor and removes it when unmounted', () => {
   const ref = createRef<HTMLDivElement>()
-  const view = render(createPortal(<MenuSurface ref={ref} role="menu" compact><button>Action</button></MenuSurface>, document.body))
+  const view = render(
+    createPortal(
+      <MenuSurface ref={ref} role="menu" compact>
+        <button>Action</button>
+      </MenuSurface>,
+      document.body,
+    ),
+  )
   const menu = screen.getByRole('menu')
   const backing = document.querySelector<HTMLElement>('[data-menu-backing]')!
   expect(ref.current).toBe(menu)
@@ -22,7 +29,12 @@ it('keeps each backing after its menu anchor and removes it when unmounted', () 
 })
 
 it('gives simultaneously open menus independent anchors and follows visibility changes', () => {
-  const view = render(<><MenuSurface role="menu" /><MenuSurface role="menu" /></>)
+  const view = render(
+    <>
+      <MenuSurface role="menu" />
+      <MenuSurface role="menu" />
+    </>,
+  )
   const anchors = screen.getAllByRole('menu').map(menu => menu.style.getPropertyValue('--dsh-menu-anchor'))
   expect(new Set(anchors).size).toBe(2)
   expect(document.querySelectorAll('[data-menu-backing]')).toHaveLength(2)

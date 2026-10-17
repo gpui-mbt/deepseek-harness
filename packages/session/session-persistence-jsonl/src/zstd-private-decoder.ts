@@ -38,19 +38,19 @@ function privateZstdStream(
 ): { stream: NodeZstdPrivateStream; errorKey: symbol } | undefined {
   const candidate = stream as unknown as Partial<NodeZstdPrivateState>
   const handle = candidate._handle
-  const errorKey = Reflect.ownKeys(stream).find((key): key is symbol => (
-    typeof key === 'symbol' && key.description === 'kError'
-  ))
+  const errorKey = Reflect.ownKeys(stream).find((key): key is symbol => typeof key === 'symbol' && key.description === 'kError')
   /* v8 ignore next -- one test runtime exposes one Node-private shape; the Node 22/24/26 matrix checks compatibility. */
   if (
-    typeof handle !== 'object' || handle === null
-    || typeof (handle as { writeSync?: unknown }).writeSync !== 'function'
-    || !(candidate._writeState instanceof Uint32Array)
-    || candidate._writeState.length < 2
-    || typeof candidate._defaultFlushFlag !== 'number'
-    || errorKey === undefined
-    || candidate[errorKey] !== null
-  ) return undefined
+    typeof handle !== 'object' ||
+    handle === null ||
+    typeof (handle as { writeSync?: unknown }).writeSync !== 'function' ||
+    !(candidate._writeState instanceof Uint32Array) ||
+    candidate._writeState.length < 2 ||
+    typeof candidate._defaultFlushFlag !== 'number' ||
+    errorKey === undefined ||
+    candidate[errorKey] !== null
+  )
+    return undefined
   return { stream: stream as NodeZstdPrivateStream, errorKey }
 }
 
@@ -124,15 +124,7 @@ export class NodePrivateZstdFrameDecoder implements ZstdFrameDecoder {
     let outputBytes = 0
     const fullChunks: Buffer[] = []
     for (;;) {
-      handle.writeSync(
-        this.stream._defaultFlushFlag,
-        input,
-        inputOffset,
-        inputRemaining,
-        this.output,
-        0,
-        this.output.length,
-      )
+      handle.writeSync(this.stream._defaultFlushFlag, input, inputOffset, inputRemaining, this.output, 0, this.output.length)
       if (this.decoderError !== undefined) throw this.decoderError
       const internalError = this.stream[this.errorKey]
       if (internalError !== null) {
@@ -159,9 +151,7 @@ export class NodePrivateZstdFrameDecoder implements ZstdFrameDecoder {
         if (fullChunks.length === 0) return finalChunk
         if (produced > 0) fullChunks.push(Buffer.from(finalChunk))
         const onlyChunk = fullChunks[0] as Buffer
-        return fullChunks.length === 1
-          ? onlyChunk
-          : Buffer.concat(fullChunks, outputBytes)
+        return fullChunks.length === 1 ? onlyChunk : Buffer.concat(fullChunks, outputBytes)
       }
       fullChunks.push(Buffer.from(this.output))
       inputOffset += consumed

@@ -39,10 +39,18 @@ export class XlsxPreviewArchive {
       if (match === null) continue
       const owner = `${match[1] ?? ''}${match[2]}`
       new XMLParser({
-        removeNSPrefix: true, ignoreAttributes: false, attributeNamePrefix: '', parseAttributeValue: false,
+        removeNSPrefix: true,
+        ignoreAttributes: false,
+        attributeNamePrefix: '',
+        parseAttributeValue: false,
         updateTag: (tag: string, _path, attributes: Record<string, unknown>) => {
-          const type = typeof attributes.Type === 'string'
-            ? attributes.Type.replace(/^http:\/\/purl\.oclc\.org\/ooxml\/officeDocument\/relationships\//, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/') : undefined
+          const type =
+            typeof attributes.Type === 'string'
+              ? attributes.Type.replace(
+                  /^http:\/\/purl\.oclc\.org\/ooxml\/officeDocument\/relationships\//,
+                  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/',
+                )
+              : undefined
           if (tag !== 'Relationship' || attributes.TargetMode === 'External') return tag
           const drawing = type === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing'
           if (!drawing && type !== 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet') return tag
@@ -89,10 +97,12 @@ function partKey(path: string): string {
 
 /** Decode the mandatory XML encodings without rewriting the archived bytes. */
 function decodeXml(bytes: Uint8Array): string {
-  const encoding = (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0x3c && bytes[1] === 0)
-    ? 'utf-16le'
-    : (bytes[0] === 0xfe && bytes[1] === 0xff) || (bytes[0] === 0 && bytes[1] === 0x3c)
-      ? 'utf-16be' : 'utf-8'
+  const encoding =
+    (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0x3c && bytes[1] === 0)
+      ? 'utf-16le'
+      : (bytes[0] === 0xfe && bytes[1] === 0xff) || (bytes[0] === 0 && bytes[1] === 0x3c)
+        ? 'utf-16be'
+        : 'utf-8'
   return new TextDecoder(encoding, { fatal: true }).decode(bytes)
 }
 

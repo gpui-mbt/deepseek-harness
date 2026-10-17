@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The segmented control is a tablist whose selection the owner holds. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives'
 
 afterEach(cleanup)
@@ -14,11 +14,14 @@ const OPTIONS: ReadonlyArray<{ value: Mode; label: string; disabled?: boolean; t
   { value: 'import', label: 'Import' },
 ]
 
-function mount(value: Mode, extra: {
-  options?: typeof OPTIONS
-  className?: string
-  disabled?: boolean
-} = {}) {
+function mount(
+  value: Mode,
+  extra: {
+    options?: typeof OPTIONS
+    className?: string
+    disabled?: boolean
+  } = {},
+) {
   const onChange = vi.fn<(next: Mode) => void>()
   const view = render(
     <SegmentedControl
@@ -27,8 +30,8 @@ function mount(value: Mode, extra: {
       value={value}
       options={extra.options ?? OPTIONS}
       onChange={onChange}
-      {...extra.className === undefined ? {} : { className: extra.className }}
-      {...extra.disabled === undefined ? {} : { disabled: extra.disabled }}
+      {...(extra.className === undefined ? {} : { className: extra.className })}
+      {...(extra.disabled === undefined ? {} : { disabled: extra.disabled })}
     />,
   )
   return { view, onChange }
@@ -85,11 +88,7 @@ describe('SegmentedControl', () => {
 
   it('jumps to the first and last enabled options with Home and End, skipping disabled ones', () => {
     const { onChange } = mount('custom', {
-      options: [
-        { value: 'catalog', label: 'Catalog', disabled: true },
-        OPTIONS[1]!,
-        { value: 'import', label: 'Import', disabled: true },
-      ],
+      options: [{ value: 'catalog', label: 'Catalog', disabled: true }, OPTIONS[1]!, { value: 'import', label: 'Import', disabled: true }],
     })
     fireEvent.keyDown(tab('Custom'), { key: 'Home' })
     fireEvent.keyDown(tab('Custom'), { key: 'End' })
@@ -123,9 +122,7 @@ describe('SegmentedControl', () => {
     const { view, onChange } = mount('catalog')
     tab('Catalog').focus()
     fireEvent.keyDown(tab('Catalog'), { key: 'ArrowRight' })
-    view.rerender(
-      <SegmentedControl id="add" label="Add mode" value="custom" options={OPTIONS} onChange={onChange} />,
-    )
+    view.rerender(<SegmentedControl id="add" label="Add mode" value="custom" options={OPTIONS} onChange={onChange} />)
     expect(document.activeElement).toBe(tab('Custom'))
   })
 
@@ -168,7 +165,9 @@ describe('SegmentedControl', () => {
   })
 
   it('never submits a surrounding form', () => {
-    const onSubmit = vi.fn((event: { preventDefault: () => void }) => { event.preventDefault() })
+    const onSubmit = vi.fn((event: { preventDefault: () => void }) => {
+      event.preventDefault()
+    })
     render(
       <form onSubmit={onSubmit}>
         <SegmentedControl id="add" label="Add mode" value="catalog" options={OPTIONS} onChange={() => {}} />

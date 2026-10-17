@@ -6,12 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import AgentLoop, { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { agentPresetProjectionDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import SessionStore, {
-  interruptedTurnClosers,
-  SessionId,
-  SessionLogOffset,
-  SessionPreparation,
-} from '@deepseek-ai/dsh-session'
+import SessionStore, { interruptedTurnClosers, SessionId, SessionLogOffset, SessionPreparation } from '@deepseek-ai/dsh-session'
 import type { AgentHandle } from '@deepseek-ai/dsh-agent'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -35,11 +30,7 @@ import { assertBuiltBenchmarkRuntime } from '../support/built-worker.ts'
 import { SYNTHETIC_SESSION_ID } from './session-open.constants.ts'
 
 /** Worker scenario selected by the parent benchmark. */
-export type SessionOpenBenchmarkScenario =
-  | 'phase-migrate'
-  | 'phase-steady'
-  | 'first-history'
-  | 'agent-resume'
+export type SessionOpenBenchmarkScenario = 'phase-migrate' | 'phase-steady' | 'first-history' | 'agent-resume'
 
 /** One post-GC process memory observation. */
 export interface BenchmarkMemorySnapshot {
@@ -77,17 +68,11 @@ export interface SessionOpenWorkerReport {
 }
 
 class BenchmarkSessionQuery extends SessionQueryEngine {
-  override searchSessions(
-    _request: SessionSearchRequest,
-    _exec?: SessionSearchExecContext,
-  ): Promise<SessionSearchPage<SessionSearchHit>> {
+  override searchSessions(_request: SessionSearchRequest, _exec?: SessionSearchExecContext): Promise<SessionSearchPage<SessionSearchHit>> {
     return Promise.reject(new Error('search is outside the Session opening benchmark'))
   }
 
-  override searchEvents(
-    _request: SessionEventSearchRequest,
-    _exec?: SessionSearchExecContext,
-  ): Promise<SessionEventSearchPage> {
+  override searchEvents(_request: SessionEventSearchRequest, _exec?: SessionSearchExecContext): Promise<SessionEventSearchPage> {
     return Promise.reject(new Error('search is outside the Session opening benchmark'))
   }
 }
@@ -116,10 +101,7 @@ async function collectGarbage(): Promise<BenchmarkMemorySnapshot> {
   return memorySnapshot()
 }
 
-function memoryDelta(
-  before: BenchmarkMemorySnapshot,
-  after: BenchmarkMemorySnapshot,
-): BenchmarkMemoryDelta {
+function memoryDelta(before: BenchmarkMemorySnapshot, after: BenchmarkMemorySnapshot): BenchmarkMemoryDelta {
   return {
     heapUsedMb: Math.round((after.heapUsedMb - before.heapUsedMb) * 10) / 10,
     externalMb: Math.round((after.externalMb - before.externalMb) * 10) / 10,
@@ -170,7 +152,7 @@ class SessionBenchmarkHost {
     let history: SessionHistoryController | undefined
     if (scenario === 'first-history') {
       new BenchmarkSessionQuery(ctx)
-      history = new SessionHistoryController(ctx, (observation) => {
+      history = new SessionHistoryController(ctx, observation => {
         // First-history ends at snapshot delivery; Agent-resume owns live activation and retention.
         observation[Symbol.dispose]()
       })
@@ -191,7 +173,7 @@ class SessionBenchmarkHost {
     return {
       scenario: this.scenario,
       totalMs,
-      ...measured.phases === undefined ? {} : { phases: measured.phases },
+      ...(measured.phases === undefined ? {} : { phases: measured.phases }),
       cpuUserMs: cpu.user / 1_000,
       cpuSystemMs: cpu.system / 1_000,
       events: measured.events,
@@ -239,21 +221,18 @@ class SessionBenchmarkHost {
     phaseStarted = performance.now()
     const repaired = [...read.events, ...interruptedTurnClosers(read.events)]
     const seed = repaired
-    const preparation = SessionPreparation.create(this.ctx.sessions.prepare(SessionId(SYNTHETIC_SESSION_ID), {
-      seed,
-      meta: structuredClone(handle.header),
-      inheritedEventCount: handle.inheritedEventCount,
-      eventState: read.eventState,
-    }))
+    const preparation = SessionPreparation.create(
+      this.ctx.sessions.prepare(SessionId(SYNTHETIC_SESSION_ID), {
+        seed,
+        meta: structuredClone(handle.header),
+        inheritedEventCount: handle.inheritedEventCount,
+        eventState: read.eventState,
+      }),
+    )
     this.preparation = preparation
     const sessionRestoreMs = performance.now() - phaseStarted
     phaseStarted = performance.now()
-    const projection = this.ctx.sessionProjections.hydrate(
-      preparation.session,
-      {},
-      seed,
-      SessionLogOffset(0),
-    )
+    const projection = this.ctx.sessionProjections.hydrate(preparation.session, {}, seed, SessionLogOffset(0))
     const projectionMs = performance.now() - phaseStarted
     this.retained = { preparation, projection, seed }
     return {
@@ -267,9 +246,14 @@ class SessionBenchmarkHost {
     this.historyAbort = abort
     const history = this.history
     if (history === undefined) throw new Error('first-history benchmark did not initialize its controller')
-    const iterator = history.follow({
-      address: { kind: 'session', sessionId: SessionId(SYNTHETIC_SESSION_ID) },
-    }, abort.signal)[Symbol.asyncIterator]()
+    const iterator = history
+      .follow(
+        {
+          address: { kind: 'session', sessionId: SessionId(SYNTHETIC_SESSION_ID) },
+        },
+        abort.signal,
+      )
+      [Symbol.asyncIterator]()
     this.historyIterator = iterator as AsyncIterator<unknown>
     const first = await iterator.next()
     if (first.done || first.value.type !== 'snapshot') {
@@ -295,12 +279,7 @@ assertBuiltBenchmarkRuntime(import.meta.url, {
 })
 
 const [root, scenarioValue] = process.argv.slice(2)
-const scenarios: readonly SessionOpenBenchmarkScenario[] = [
-  'phase-migrate',
-  'phase-steady',
-  'first-history',
-  'agent-resume',
-]
+const scenarios: readonly SessionOpenBenchmarkScenario[] = ['phase-migrate', 'phase-steady', 'first-history', 'agent-resume']
 if (root === undefined || !scenarios.includes(scenarioValue as SessionOpenBenchmarkScenario)) {
   throw new Error('usage: session-open.worker.js <root> <phase-migrate|phase-steady|first-history|agent-resume>')
 }

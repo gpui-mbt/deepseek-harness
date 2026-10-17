@@ -4,10 +4,14 @@ import type { UserTextDataMap, UserTextFacts } from '../index.ts'
 /** Registered business IDs plus the document-owned `text` ID. */
 export type UserTextId = Extract<keyof UserTextDataMap, string>
 
-type JsonPayload<T> = T extends string | number | boolean | null ? T
-  : T extends (...args: never[]) => unknown ? never
-    : T extends readonly unknown[] ? { readonly [K in keyof T]: JsonPayload<T[K]> }
-      : T extends object ? { readonly [K in keyof T]: JsonPayload<T[K]> }
+type JsonPayload<T> = T extends string | number | boolean | null
+  ? T
+  : T extends (...args: never[]) => unknown
+    ? never
+    : T extends readonly unknown[]
+      ? { readonly [K in keyof T]: JsonPayload<T[K]> }
+      : T extends object
+        ? { readonly [K in keyof T]: JsonPayload<T[K]> }
         : never
 
 /** Original UTF-16 text and readonly Facts; absence is observable through `context.read`. */
@@ -50,7 +54,12 @@ export interface UserTextRule<out Id extends string = string> {
    * @returns one nonempty node using this rule's ID or `text`, or undefined when no later candidate exists.
    * Text candidates preserve the exact source substring and may supply `data.display`.
    */
-  match(this: void, text: string, from: number, context: UserTextTransformContext): (UserTextNode & { readonly id: Id }) | UserTextNode<'text'> | undefined
+  match(
+    this: void,
+    text: string,
+    from: number,
+    context: UserTextTransformContext,
+  ): (UserTextNode & { readonly id: Id }) | UserTextNode<'text'> | undefined
 }
 
 /**

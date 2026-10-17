@@ -1,5 +1,5 @@
 import { Duplex, PassThrough } from 'node:stream'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { JsonChannel } from '../src/channel.ts'
 import { runPersistentMain, type PersistentProcess } from '../src/persistent-process.ts'
 import { decodePtcJsonWire, encodePtcJsonWire } from '../src/json-wire.ts'
@@ -12,7 +12,12 @@ async function setup(limit = 4096, chdir: (cwd: string) => void = () => {}) {
   const host = Duplex.from({ readable: second, writable: first })
   child.on('error', () => {})
   host.on('error', () => {})
-  const state: PersistentProcess = { env: { FIXTURE_SECRET: 'test', PATH: '/native' }, stdout: { write: () => true }, stderr: { write: () => true }, chdir }
+  const state: PersistentProcess = {
+    env: { FIXTURE_SECRET: 'test', PATH: '/native' },
+    stdout: { write: () => true },
+    stderr: { write: () => true },
+    chdir,
+  }
   const nativeEnvironment = state.env
   const ready = Promise.withResolvers<true>()
   const pending = new Map<number, ReturnType<typeof Promise.withResolvers<Record<string, unknown>>>>()
@@ -21,15 +26,28 @@ async function setup(limit = 4096, chdir: (cwd: string) => void = () => {}) {
   let onCall: (id: number, payload: Record<string, unknown>) => void = (_id, payload) => {
     void peer.send({ type: 'reply', id: payload.id, ok: true, value: encodePtcJsonWire(42) })
   }
-  const peer = new JsonChannel(host, limit, (raw) => {
-    const message = raw as { type?: string; id: number; payload: Record<string, unknown> }
-    if (message.type === 'ready') { ready.resolve(true); return }
-    seen.push(message.payload)
-    if (message.payload.type === 'call') onCall(message.id, message.payload)
-    if (message.payload.type === 'done') pending.get(message.id)?.resolve(message.payload)
-  }, () => {})
+  const peer = new JsonChannel(
+    host,
+    limit,
+    raw => {
+      const message = raw as { type?: string; id: number; payload: Record<string, unknown> }
+      if (message.type === 'ready') {
+        ready.resolve(true)
+        return
+      }
+      seen.push(message.payload)
+      if (message.payload.type === 'call') onCall(message.id, message.payload)
+      if (message.payload.type === 'done') pending.get(message.id)?.resolve(message.payload)
+    },
+    () => {},
+  )
   const main = runPersistentMain(child, limit, state)
-  const close = async () => { peer.close(); host.destroy(); child.destroy(); await main }
+  const close = async () => {
+    peer.close()
+    host.destroy()
+    child.destroy()
+    await main
+  }
   onTestFinished(close)
   await ready.promise
   const run = (code: string, namespaces: ProgramBootData['namespaces'] = [], maxOutputBytes = 1024) => {
@@ -39,7 +57,19 @@ async function setup(limit = 4096, chdir: (cwd: string) => void = () => {}) {
     void peer.send({ type: 'run', id, cwd: '/', data: { code, namespaces, maxOutputBytes } })
     return result.promise
   }
-  return { state, nativeEnvironment, run, seen, peer, main, close, host, setCall: (handler: typeof onCall) => { onCall = handler } }
+  return {
+    state,
+    nativeEnvironment,
+    run,
+    seen,
+    peer,
+    main,
+    close,
+    host,
+    setCall: (handler: typeof onCall) => {
+      onCall = handler
+    },
+  }
 }
 
 it('keeps an injected process local to the REPL while it runs and after it closes', async () => {
@@ -76,7 +106,10 @@ it('keeps an environment while capturing each evaluation and binding replies sep
 it('does not let an old asynchronous exception finish a later evaluation', async () => {
   const h = await setup()
   const declarations = [{ global: 'tools', names: ['echo'] }]
-  const first = await h.run('let count = 1; let resume; const pause = new Promise(resolve => { resume = resolve }); setImmediate(() => { throw new Error("async failure") }); await pause; count', declarations)
+  const first = await h.run(
+    'let count = 1; let resume; const pause = new Promise(resolve => { resume = resolve }); setImmediate(() => { throw new Error("async failure") }); await pause; count',
+    declarations,
+  )
   expect(first).toMatchObject({ error: { kind: 'exception' } })
   const second = await h.run('resume(); await tools.echo({})', declarations)
   expect(decodePtcJsonWire(second.value)).toBe(42)
@@ -109,7 +142,9 @@ it('contains directory failures and output overflow in the active evaluation', a
 
 it('refuses overlapping host evaluations and settles transport shutdown', async () => {
   const h = await setup()
-  h.setCall(() => { void h.peer.send({ type: 'run', id: 2, cwd: '/', data: { code: '1', namespaces: [], maxOutputBytes: 1000 } }) })
+  h.setCall(() => {
+    void h.peer.send({ type: 'run', id: 2, cwd: '/', data: { code: '1', namespaces: [], maxOutputBytes: 1000 } })
+  })
   void h.run('await tools.echo({})', [{ global: 'tools', names: ['echo'] }])
   await h.main
 })
@@ -123,7 +158,10 @@ it('closes the process channel when a terminal result cannot fit its write budge
 it('ignores output and rejects tool calls from a completed evaluation', async () => {
   const h = await setup()
   const declarations = [{ global: 'tools', names: ['echo'] }]
-  await h.run('let finish; let old; const trigger = new Promise(resolve => { finish = resolve }); void trigger.then(async () => { console.log("late"); try { await tools.echo({}) } catch (error) { old = error.message } });', declarations)
+  await h.run(
+    'let finish; let old; const trigger = new Promise(resolve => { finish = resolve }); void trigger.then(async () => { console.log("late"); try { await tools.echo({}) } catch (error) { old = error.message } });',
+    declarations,
+  )
   const result = await h.run('finish(); await new Promise(resolve => setImmediate(resolve)); old', declarations)
   expect(decodePtcJsonWire(result.value)).toContain('evaluation has ended')
   expect(h.seen.some(item => item.type === 'log' || item.type === 'call')).toBe(false)
@@ -138,11 +176,15 @@ it('rejects unfinished binding waits when a program returns', async () => {
   expect(decodePtcJsonWire((await h.run('rejected')).value)).toContain('ended before the binding completed')
 })
 
-it.each([0, 1.5, 4294967296])('rejects an invalid control limit %s', async (limit) => {
+it.each([0, 1.5, 4294967296])('rejects an invalid control limit %s', async limit => {
   const stream = new PassThrough()
   try {
-    await expect(runPersistentMain(stream, limit, { env: {}, stdout: { write: () => true }, stderr: { write: () => true }, chdir: () => {} })).rejects.toThrow('invalid control message limit')
-  } finally { stream.destroy() }
+    await expect(
+      runPersistentMain(stream, limit, { env: {}, stdout: { write: () => true }, stderr: { write: () => true }, chdir: () => {} }),
+    ).rejects.toThrow('invalid control message limit')
+  } finally {
+    stream.destroy()
+  }
 })
 
 it('shuts down an idle REPL without creating an evaluation', async () => {

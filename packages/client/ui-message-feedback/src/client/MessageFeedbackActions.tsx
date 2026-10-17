@@ -9,7 +9,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  IconDislikeFillRegular, IconDislikeOutlineRegular, IconLikeFillRegular, IconLikeOutlineRegular, Tooltip,
+  IconDislikeFillRegular,
+  IconDislikeOutlineRegular,
+  IconLikeFillRegular,
+  IconLikeOutlineRegular,
+  Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type { MessageFeedbackActionFailure } from './controller.ts'
@@ -22,9 +26,7 @@ import css from './MessageFeedbackActions.module.css'
  * shared feedback hook.
  * @returns the rating buttons with any failure notice beside them.
  */
-export function MessageFeedbackActions({
-  messageId, ensure, current, retract, openDialog, useFeedback, t,
-}: MessageFeedbackActionProps) {
+export function MessageFeedbackActions({ messageId, ensure, current, retract, openDialog, useFeedback, t }: MessageFeedbackActionProps) {
   const item = useFeedback(view => view.items.get(messageId))
   const loadFailed = useFeedback(view => view.status === 'error')
   const rating = item?.rating
@@ -41,35 +43,50 @@ export function MessageFeedbackActions({
   }, [ensure])
 
   const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
+  useEffect(
+    () => () => {
+      alive.current = false
+    },
+    [],
+  )
 
-  const errorCopy = useCallback((result: MessageFeedbackActionFailure) => {
-    return result.error.code === 'version-conflict' ? t('error.conflict') : t('error.generic')
-  }, [t])
+  const errorCopy = useCallback(
+    (result: MessageFeedbackActionFailure) => {
+      return result.error.code === 'version-conflict' ? t('error.conflict') : t('error.generic')
+    },
+    [t],
+  )
 
   // A recorded rating retracts on click; either unrecorded rating opens the
   // dialog and records only after submission. The decision waits for the
   // seeding read, so a click on a cold row still sees the stored judgment.
-  const choose = useCallback((nextRating: MessageFeedbackRating) => {
-    setPending(true)
-    setFailure(null)
-    void ensure().then((loaded) => {
-      if (!alive.current) return
-      if (!loaded.ok || current(messageId)?.rating !== nextRating) {
-        setPending(false)
-        openDialog(messageId, nextRating)
-        return
-      }
-      void retract(messageId, nextRating).then((result) => {
+  const choose = useCallback(
+    (nextRating: MessageFeedbackRating) => {
+      setPending(true)
+      setFailure(null)
+      void ensure().then(loaded => {
         if (!alive.current) return
-        setPending(false)
-        if (!result.ok) setFailure(errorCopy(result))
+        if (!loaded.ok || current(messageId)?.rating !== nextRating) {
+          setPending(false)
+          openDialog(messageId, nextRating)
+          return
+        }
+        void retract(messageId, nextRating).then(result => {
+          if (!alive.current) return
+          setPending(false)
+          if (!result.ok) setFailure(errorCopy(result))
+        })
       })
-    })
-  }, [current, ensure, errorCopy, messageId, openDialog, retract])
+    },
+    [current, ensure, errorCopy, messageId, openDialog, retract],
+  )
 
-  const onLike = useCallback(() => { choose('positive') }, [choose])
-  const onDislike = useCallback(() => { choose('negative') }, [choose])
+  const onLike = useCallback(() => {
+    choose('positive')
+  }, [choose])
+  const onDislike = useCallback(() => {
+    choose('negative')
+  }, [choose])
 
   const likeLabel = rating === 'positive' ? t('action.likeActive') : t('action.like')
   const dislikeLabel = rating === 'negative' ? t('action.dislikeActive') : t('action.dislike')
@@ -107,9 +124,15 @@ export function MessageFeedbackActions({
         </button>
       </Tooltip>
       {failure === null && loadFailed && (
-        <span className={css.failure} role="status">{t('error.load')}</span>
+        <span className={css.failure} role="status">
+          {t('error.load')}
+        </span>
       )}
-      {failure !== null && <span className={css.failure} role="status">{failure}</span>}
+      {failure !== null && (
+        <span className={css.failure} role="status">
+          {failure}
+        </span>
+      )}
     </>
   )
 }

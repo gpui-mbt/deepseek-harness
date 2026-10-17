@@ -1,16 +1,37 @@
 // @vitest-environment jsdom
 /** Dormant saved layouts expose only provider metadata, with in-window stores authoritative. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TabRecord } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { SidebarTabInventory } from '../src/client/tab-inventory.ts'
 import { sidebarPersistence } from '../src/client/persistence.ts'
 
-afterEach(() => { localStorage.clear(); vi.restoreAllMocks() })
+afterEach(() => {
+  localStorage.clear()
+  vi.restoreAllMocks()
+})
 const session = 'inactive-session' as SessionId
 const tab = { id: 'tab2', kind: 'terminal', contentId: 'terminal-page', title: 'Terminal' } as TabRecord
 function save(id: SessionId, tabs: Record<string, unknown>): void {
-  localStorage.setItem(`${sidebarPersistence}.${id}`, JSON.stringify({ bySession: { [id]: { minted: 3, layout: { tabs, expanded: false, mode: 'push', rootId: 'pane1', activePaneId: 'pane1', floats: [], nodes: { pane1: { id: 'pane1', kind: 'pane', host: 'dock', tabs: Object.keys(tabs), activeTabId: Object.keys(tabs)[0] } } } } } }))
+  localStorage.setItem(
+    `${sidebarPersistence}.${id}`,
+    JSON.stringify({
+      bySession: {
+        [id]: {
+          minted: 3,
+          layout: {
+            tabs,
+            expanded: false,
+            mode: 'push',
+            rootId: 'pane1',
+            activePaneId: 'pane1',
+            floats: [],
+            nodes: { pane1: { id: 'pane1', kind: 'pane', host: 'dock', tabs: Object.keys(tabs), activeTabId: Object.keys(tabs)[0] } },
+          },
+        },
+      },
+    }),
+  )
 }
 
 it('inventories collapsed and inactive saved Sessions without creating occurrences or resources', () => {
@@ -50,7 +71,9 @@ it('keeps stable membership across title and layout changes and ignores another 
 })
 
 it('publishes in-memory membership even when browser storage is inaccessible', () => {
-  vi.spyOn(Storage.prototype, 'length', 'get').mockImplementation(() => { throw new Error('storage blocked') })
+  vi.spyOn(Storage.prototype, 'length', 'get').mockImplementation(() => {
+    throw new Error('storage blocked')
+  })
   const inventory = new SidebarTabInventory()
   inventory.update(session, [tab])
   expect(inventory.source.getSnapshot()).toMatchObject([{ sessionId: session, tabId: tab.id }])
@@ -58,8 +81,11 @@ it('publishes in-memory membership even when browser storage is inaccessible', (
 
 it('allows startup without browser globals or with a key removed during enumeration', () => {
   vi.stubGlobal('localStorage', undefined)
-  try { expect(new SidebarTabInventory().source.getSnapshot()).toEqual([]) }
-  finally { vi.unstubAllGlobals() }
+  try {
+    expect(new SidebarTabInventory().source.getSnapshot()).toEqual([])
+  } finally {
+    vi.unstubAllGlobals()
+  }
   save(session, { [tab.id]: tab })
   vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(null)
   expect(new SidebarTabInventory().source.getSnapshot()).toEqual([])

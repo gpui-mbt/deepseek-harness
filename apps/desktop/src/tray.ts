@@ -22,7 +22,9 @@ export class DesktopTray {
   constructor(private readonly options: DesktopTrayOptions) {
     const tray = new Tray(nativeImage.createFromPath(options.iconPath))
     this.tray = tray
-    tray.on('click', () => { options.open() })
+    tray.on('click', () => {
+      options.open()
+    })
     this.relabel()
   }
 
@@ -32,11 +34,23 @@ export class DesktopTray {
     if (tray === undefined) return
     const { messages } = this.options.locale()
     tray.setToolTip(messages.aboutProduct)
-    tray.setContextMenu(Menu.buildFromTemplate([
-      { label: messages.openApplication, click: () => { this.options.open() } },
-      { type: 'separator' },
-      { label: messages.quitApplication, click: () => { this.options.quit() } },
-    ]))
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        {
+          label: messages.openApplication,
+          click: () => {
+            this.options.open()
+          },
+        },
+        { type: 'separator' },
+        {
+          label: messages.quitApplication,
+          click: () => {
+            this.options.quit()
+          },
+        },
+      ]),
+    )
   }
 
   /** Remove the icon; called once the quit is confirmed so no dead icon outlives the process. */

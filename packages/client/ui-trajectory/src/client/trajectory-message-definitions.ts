@@ -1,7 +1,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ContextMessageNode, ConversationNodeDefinition, ConversationPreviousContext,
-  SteeringMessageNode, UserMessageNode,
+  ContextMessageNode,
+  ConversationNodeDefinition,
+  ConversationPreviousContext,
+  SteeringMessageNode,
+  UserMessageNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-agent/types'
 import { trajectoryNode } from './trajectory-definition-common.ts'
@@ -62,10 +65,7 @@ function materializePending(state: PendingState): string[] {
   return pending
 }
 
-function withoutInserted(
-  claimed: ReadonlySet<string>,
-  inserted: readonly string[],
-): ReadonlySet<string> {
+function withoutInserted(claimed: ReadonlySet<string>, inserted: readonly string[]): ReadonlySet<string> {
   let next: Set<string> | undefined
   for (const id of inserted) {
     if (!claimed.has(id)) continue
@@ -81,10 +81,7 @@ function withoutInserted(
  * rejected claim logs no messages, so only the current claim can classify a
  * later `user/message`.
  */
-function applySplice(
-  previous: ConversationPreviousContext<InboxState> | undefined,
-  splice: InboxSplice,
-): InboxState {
+function applySplice(previous: ConversationPreviousContext<InboxState> | undefined, splice: InboxSplice): InboxState {
   const priorPending = previous?.state.pending ?? EMPTY_PENDING
   const inserted = splice.inserted.map(identity => identity.id)
   const removedCount = splice.removedCount ?? 0
@@ -96,10 +93,7 @@ function applySplice(
       currentClaimed: new Set(removed),
     }
   }
-  const currentClaimed = withoutInserted(
-    previous?.state.currentClaimed ?? EMPTY_CURRENT_CLAIMED,
-    inserted,
-  )
+  const currentClaimed = withoutInserted(previous?.state.currentClaimed ?? EMPTY_CURRENT_CLAIMED, inserted)
   return {
     pending: {
       kind: 'splice',
@@ -114,7 +108,7 @@ function applySplice(
 
 const trajectoryInboxDefinition: ConversationNodeDefinition<InboxState> = {
   kind: 'trajectory-inbox-next-step',
-  match: (event) => {
+  match: event => {
     if (event.type === 'agent/inbox/spliced' && event.data.target === 'next-step') {
       return { id: String(event.seq), role: 'start' }
     }
@@ -124,10 +118,7 @@ const trajectoryInboxDefinition: ConversationNodeDefinition<InboxState> = {
     if (match.event.type !== 'agent/inbox/spliced') {
       throw new Error('trajectory-inbox-next-step start requires agent/inbox/spliced')
     }
-    return applySplice(
-      reader.previous<InboxState>('trajectory-inbox-next-step'),
-      match.event.data,
-    )
+    return applySplice(reader.previous<InboxState>('trajectory-inbox-next-step'), match.event.data)
   },
   update: context => context.state,
   publication: () => 'none',
@@ -136,14 +127,16 @@ const trajectoryInboxDefinition: ConversationNodeDefinition<InboxState> = {
 const trajectoryMessageDefinition: ConversationNodeDefinition<MessageNode> = {
   kind: 'trajectory-input-message',
   target: 'trajectory',
-  match: (event) => {
-    return event.type === 'user/message' || event.type === 'developer/message'
-      ? { id: String(event.seq), role: 'start' }
-      : null
+  match: event => {
+    return event.type === 'user/message' || event.type === 'developer/message' ? { id: String(event.seq), role: 'start' } : null
   },
   start: (_context, match, reader) => {
     if (match.event.type === 'developer/message') {
-      const { seq, time, data: { message } } = match.event
+      const {
+        seq,
+        time,
+        data: { message },
+      } = match.event
       return {
         kind: 'context',
         seq,
@@ -169,29 +162,27 @@ const trajectoryMessageDefinition: ConversationNodeDefinition<MessageNode> = {
         form: contextForm(event.data.source),
       }
     }
-    const claimed = reader.previous<InboxState>('trajectory-inbox-next-step')
-      ?.state.currentClaimed.has(String(event.data.id)) === true
+    const claimed = reader.previous<InboxState>('trajectory-inbox-next-step')?.state.currentClaimed.has(String(event.data.id)) === true
     return claimed
       ? {
-        kind: 'steering',
-        messageId: event.data.id,
-        seq: event.seq,
-        time: event.time,
-        content: event.data.content,
-        source: event.data.source,
-      }
+          kind: 'steering',
+          messageId: event.data.id,
+          seq: event.seq,
+          time: event.time,
+          content: event.data.content,
+          source: event.data.source,
+        }
       : {
-        kind: 'user',
-        seq: event.seq,
-        time: event.time,
-        content: event.data.content,
-        source: event.data.source,
-      }
+          kind: 'user',
+          seq: event.seq,
+          time: event.time,
+          content: event.data.content,
+          source: event.data.source,
+        }
   },
   update: context => context.state,
-  buildViewNode: context => context.state === undefined
-    ? null
-    : trajectoryNode(context, context.state.seq, { kind: 'node', node: context.state }),
+  buildViewNode: context =>
+    context.state === undefined ? null : trajectoryNode(context, context.state.seq, { kind: 'node', node: context.state }),
 }
 /* jscpd:ignore-end */
 

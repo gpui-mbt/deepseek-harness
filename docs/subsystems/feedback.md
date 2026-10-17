@@ -192,12 +192,12 @@ type MessageFeedbackListResult =
 type MessageFeedbackPutResult =
   | MessageFeedbackSuccess<MessageFeedbackItem>
   | MessageFeedbackRejected<
-    | MessageFeedbackSessionNotFound
-    | MessageFeedbackTargetNotFound
-    | MessageFeedbackVersionConflict
-    | MessageFeedbackNoteBlank
-    | MessageFeedbackNoteTooLarge
-  >
+      | MessageFeedbackSessionNotFound
+      | MessageFeedbackTargetNotFound
+      | MessageFeedbackVersionConflict
+      | MessageFeedbackNoteBlank
+      | MessageFeedbackNoteTooLarge
+    >
 ```
 
 ```ts type-equiv

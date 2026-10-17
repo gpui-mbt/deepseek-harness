@@ -11,11 +11,7 @@ interface ProjectReferenceConfig {
   readonly references?: ReadonlyArray<{ readonly path?: unknown }>
 }
 
-const WORKSPACE_MANIFESTS = [
-  'packages/*/*/package.json',
-  'apps/*/package.json',
-  'vendor/*/package.json',
-] as const
+const WORKSPACE_MANIFESTS = ['packages/*/*/package.json', 'apps/*/package.json', 'vendor/*/package.json'] as const
 
 /**
  * Find references that enter the wrong leaf of a split Host/Client project.
@@ -65,8 +61,7 @@ export function collectProjectReferenceFaceViolations(root: string): string[] {
 function splitProjectRoots(root: string): string[] {
   return globSync(WORKSPACE_MANIFESTS, { cwd: root })
     .map(manifest => resolve(root, dirname(manifest)))
-    .filter(dir => existsSync(resolve(dir, 'tsconfig.host.json'))
-      && existsSync(resolve(dir, 'tsconfig.client.json')))
+    .filter(dir => existsSync(resolve(dir, 'tsconfig.host.json')) && existsSync(resolve(dir, 'tsconfig.client.json')))
     .sort((left, right) => right.length - left.length)
 }
 
@@ -80,17 +75,10 @@ function projectConfig(root: string, configPath: string): ProjectReferenceConfig
 }
 
 function projectReferences(config: ProjectReferenceConfig): string[] {
-  return (config.references ?? [])
-    .map(reference => reference.path)
-    .filter((path): path is string => typeof path === 'string')
+  return (config.references ?? []).map(reference => reference.path).filter((path): path is string => typeof path === 'string')
 }
 
-function projectFace(
-  root: string,
-  configPath: string,
-  config: ProjectReferenceConfig,
-  seen = new Set<string>(),
-): ProjectFace | undefined {
+function projectFace(root: string, configPath: string, config: ProjectReferenceConfig, seen = new Set<string>()): ProjectFace | undefined {
   if (basename(configPath) === 'tsconfig.host.json') return 'host'
   if (basename(configPath) === 'tsconfig.client.json') return 'client'
   if (configPath === resolve(root, 'tsconfig.base.json')) return 'host'
@@ -114,7 +102,7 @@ function referenceConfigPath(sourceConfig: string, reference: string): string {
 }
 
 function containingSplitRoot(splitRoots: readonly string[], targetConfig: string): string | undefined {
-  return splitRoots.find((root) => {
+  return splitRoots.find(root => {
     const path = relative(root, targetConfig)
     return path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path)
   })

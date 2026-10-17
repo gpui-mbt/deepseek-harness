@@ -15,11 +15,7 @@ export type HiddenTransition = (element: HTMLElement, hidden: boolean, commit: (
  * @param transition - optional caller-owned visibility operation; otherwise apply synchronously.
  * @returns ref for the stable subtree root.
  */
-export function useSearchableHidden(
-  hidden: boolean,
-  reveal: () => void,
-  transition?: HiddenTransition,
-): RefObject<HTMLDivElement> {
+export function useSearchableHidden(hidden: boolean, reveal: () => void, transition?: HiddenTransition): RefObject<HTMLDivElement> {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const element = ref.current
@@ -39,7 +35,9 @@ export function useSearchableHidden(
     const element = ref.current
     if (element === null) return
     element.addEventListener('beforematch', reveal)
-    return () => { element.removeEventListener('beforematch', reveal) }
+    return () => {
+      element.removeEventListener('beforematch', reveal)
+    }
   }, [reveal])
   return ref
 }

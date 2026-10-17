@@ -32,23 +32,36 @@ export function ApiKeyInput({ value, t, ...props }: ApiKeyInputProps): ReactNode
         type={revealed ? 'text' : 'password'}
         autoComplete="new-password"
         value={value}
-        onChange={(event) => {
+        onChange={event => {
           setRevealedValue(undefined)
           props.onChange?.(event)
         }}
       />
-      {value.length === 0 ? null : <button
-        type="button"
-        className={styles['keyToggle']}
-        aria-label={t(revealed ? 'keyHide' : 'keyReveal')}
-        aria-pressed={revealed}
-        disabled={props.disabled}
-        onClick={() => { setRevealedValue(revealed ? undefined : value) }}
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" aria-hidden="true">
-          <path d={revealed ? EYE_OFF_PATH : EYE_PATH} />
-        </svg>
-      </button>}
+      {value.length === 0 ? null : (
+        <button
+          type="button"
+          className={styles['keyToggle']}
+          aria-label={t(revealed ? 'keyHide' : 'keyReveal')}
+          aria-pressed={revealed}
+          disabled={props.disabled}
+          onClick={() => {
+            setRevealedValue(revealed ? undefined : value)
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.3}
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <path d={revealed ? EYE_OFF_PATH : EYE_PATH} />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

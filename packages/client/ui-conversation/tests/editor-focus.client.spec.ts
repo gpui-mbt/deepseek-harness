@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Composer selection survives focus transfers and background editor reconciliation. */
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { $getRoot, $getSelection, $isRangeSelection, SELECTION_CHANGE_COMMAND, UNDO_COMMAND } from 'lexical'
 import { DraftEditorRuntime } from '../src/client/input/editor/runtime.ts'
 import { focusDraftEditor } from '../src/client/input/editor/view-binding.ts'
@@ -18,12 +18,15 @@ function fixture(start = 1, end = 4) {
   root.tabIndex = 0
   const outside = document.createElement('button')
   document.body.append(root, outside)
-  onTestFinished(() => { root.remove(); outside.remove() })
+  onTestFinished(() => {
+    root.remove()
+    outside.remove()
+  })
   // jsdom collapses document Selection on every focus(); Chromium retains the
   // editor range here. Keep native focus events and activeElement changes.
   for (const element of [root, outside]) {
     const focus = element.focus.bind(element)
-    const mocked = vi.spyOn(element, 'focus').mockImplementation((options) => {
+    const mocked = vi.spyOn(element, 'focus').mockImplementation(options => {
       const selection = document.getSelection()!
       const range = selection.rangeCount === 0 ? undefined : selection.getRangeAt(0).cloneRange()
       focus(options)
@@ -32,35 +35,66 @@ function fixture(start = 1, end = 4) {
         selection.addRange(range)
       }
     })
-    onTestFinished(() => { mocked.mockRestore() })
+    onTestFinished(() => {
+      mocked.mockRestore()
+    })
   }
   const onUpdate = vi.fn()
   const runtime: DraftEditorRuntime = new DraftEditorRuntime({
-    onUpdate: () => { runtime.refreshProjection(); onUpdate() },
+    onUpdate: () => {
+      runtime.refreshProjection()
+      onUpdate()
+    },
     openReference: () => false,
-    lexicon: () => new Map(), resolveLexicon: () => undefined,
+    lexicon: () => new Map(),
+    resolveLexicon: () => undefined,
   })
   const dispose = runtime.register()
   const { editor } = runtime
-  onTestFinished(() => { dispose(); editor.setRootElement(null) })
+  onTestFinished(() => {
+    dispose()
+    editor.setRootElement(null)
+  })
   editor.setRootElement(root)
   runtime.setDraft('alpha beta')
   root.focus()
-  editor.update(() => { $getRoot().getAllTextNodes()[0]!.select(start, end) }, { discrete: true })
-  const selection = () => editor.getEditorState().read(() => {
-    const selected = $getSelection()
-    if (!$isRangeSelection(selected)) throw new Error('Expected a Composer range selection')
-    return { anchorKey: selected.anchor.key, anchor: selected.anchor.offset,
-      focusKey: selected.focus.key, focus: selected.focus.offset, text: selected.getTextContent() }
-  })
+  editor.update(
+    () => {
+      $getRoot().getAllTextNodes()[0]!.select(start, end)
+    },
+    { discrete: true },
+  )
+  const selection = () =>
+    editor.getEditorState().read(() => {
+      const selected = $getSelection()
+      if (!$isRangeSelection(selected)) throw new Error('Expected a Composer range selection')
+      return {
+        anchorKey: selected.anchor.key,
+        anchor: selected.anchor.offset,
+        focusKey: selected.focus.key,
+        focus: selected.focus.offset,
+        text: selected.getTextContent(),
+      }
+    })
   const domSelection = () => {
     const selected = document.getSelection()!
-    return { anchorNode: selected.anchorNode, anchor: selected.anchorOffset,
-      focusNode: selected.focusNode, focus: selected.focusOffset, text: selected.toString() }
+    return {
+      anchorNode: selected.anchorNode,
+      anchor: selected.anchorOffset,
+      focusNode: selected.focusNode,
+      focus: selected.focusOffset,
+      text: selected.toString(),
+    }
   }
   const focusComposer = () => {
     const reveal = vi.fn()
-    outside.addEventListener('click', () => { focusDraftEditor(editor, reveal) }, { once: true })
+    outside.addEventListener(
+      'click',
+      () => {
+        focusDraftEditor(editor, reveal)
+      },
+      { once: true },
+    )
     outside.click()
     editor.read(() => {})
     return reveal
@@ -69,7 +103,8 @@ function fixture(start = 1, end = 4) {
 }
 
 it.each([
-  ['range', 1, 4], ['caret', 3, 3],
+  ['range', 1, 4],
+  ['caret', 3, 3],
 ] as const)('retains the %s while another control owns focus', (_kind, start, end) => {
   const f = fixture(start, end)
   const internal = f.selection()
@@ -83,17 +118,25 @@ it.each([
   expect(f.selection()).toEqual(internal)
   expect(f.domSelection()).toEqual(dom)
 
-  f.editor.update(() => { $getRoot().getFirstDescendant()!.markDirty() }, { discrete: true })
+  f.editor.update(
+    () => {
+      $getRoot().getFirstDescendant()!.markDirty()
+    },
+    { discrete: true },
+  )
   expect(document.activeElement).toBe(f.outside)
   expect(f.selection()).toEqual(internal)
   expect(f.domSelection()).toEqual(dom)
 
-  f.editor.update(() => {
-    const selected = $getSelection()
-    if (!$isRangeSelection(selected)) throw new Error('Expected a Composer range selection')
-    selected.dirty = true
-    f.editor.dispatchCommand(SELECTION_CHANGE_COMMAND, undefined)
-  }, { discrete: true })
+  f.editor.update(
+    () => {
+      const selected = $getSelection()
+      if (!$isRangeSelection(selected)) throw new Error('Expected a Composer range selection')
+      selected.dirty = true
+      f.editor.dispatchCommand(SELECTION_CHANGE_COMMAND, undefined)
+    },
+    { discrete: true },
+  )
   expect(document.activeElement).toBe(f.outside)
   expect(f.selection()).toEqual(internal)
   expect(f.domSelection()).toEqual(dom)
@@ -144,9 +187,19 @@ it('removes focus preservation and update subscriptions when registration is dis
   f.onUpdate.mockClear()
   f.editor.setRootElement(f.root)
   f.root.focus()
-  f.editor.update(() => { $getRoot().getAllTextNodes()[0]!.select(1, 4) }, { discrete: true })
+  f.editor.update(
+    () => {
+      $getRoot().getAllTextNodes()[0]!.select(1, 4)
+    },
+    { discrete: true },
+  )
   f.outside.focus()
-  f.editor.update(() => { $getRoot().getFirstDescendant()!.markDirty() }, { discrete: true })
+  f.editor.update(
+    () => {
+      $getRoot().getFirstDescendant()!.markDirty()
+    },
+    { discrete: true },
+  )
   expect(document.activeElement).toBe(f.root)
   expect(f.onUpdate).not.toHaveBeenCalled()
 })

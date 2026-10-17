@@ -63,9 +63,8 @@ class TunnelLogicalStreamError extends Error {
   constructor(failure: TunnelStreamErrorFrame['failure'], options?: ErrorOptions) {
     super(failure.message, options)
     this.name = 'TunnelLogicalStreamError'
-    this.dshRemoteStreamFailure = failure.kind === 'remote'
-      ? { kind: 'remote', code: failure.code, details: failure.details }
-      : { kind: 'carrier' }
+    this.dshRemoteStreamFailure =
+      failure.kind === 'remote' ? { kind: 'remote', code: failure.code, details: failure.details } : { kind: 'carrier' }
   }
 }
 
@@ -94,7 +93,9 @@ class LogicalStreamInbox {
   async next(): Promise<LogicalStreamFrame> {
     while (this.frames.length === 0) {
       if (this.failed) throw this.failure
-      await new Promise<void>((resolve) => { this.wake = resolve })
+      await new Promise<void>(resolve => {
+        this.wake = resolve
+      })
     }
     return this.frames.shift() as LogicalStreamFrame
   }
@@ -137,9 +138,7 @@ async function localizeSourceMap(source: string, bundleUrl: string, fetch: Tunne
 }
 
 /** Keep opaque Blobs and transferable streams intact; normalize other bodies to bytes. */
-function toTunnelBody(
-  body: RequestInit['body'],
-): ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined {
+function toTunnelBody(body: RequestInit['body']): ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined {
   if (body === undefined || body === null) return undefined
   if (typeof body === 'string') return encoder.encode(body).buffer
   if (body instanceof Blob) return body
@@ -183,7 +182,7 @@ export class WorkerTunnel {
     worker.addEventListener('message', (event: MessageEvent<ResponseFrame>) => {
       this.receive(event.data)
     })
-    worker.addEventListener('error', (event) => {
+    worker.addEventListener('error', event => {
       const reason = new Error(`web-preview tunnel: worker failed: ${event.message}`)
       for (const id of this.inFlight.keys()) this.warnRefusal(id, `worker failed: ${event.message}`)
       this.inFlight.clear()
@@ -191,10 +190,13 @@ export class WorkerTunnel {
       this.unary.clear()
       for (const controller of this.bodyStreams.values()) controller.error(reason)
       this.bodyStreams.clear()
-      const failure = new TunnelLogicalStreamError({
-        kind: 'carrier',
-        message: `web-preview tunnel: worker failed: ${event.message}`,
-      }, { cause: reason })
+      const failure = new TunnelLogicalStreamError(
+        {
+          kind: 'carrier',
+          message: `web-preview tunnel: worker failed: ${event.message}`,
+        },
+        { cause: reason },
+      )
       for (const { inbox } of this.logicalStreams.values()) inbox.fail(failure)
       this.logicalStreams.clear()
       for (const release of this.releases.values()) release()
@@ -261,7 +263,9 @@ export class WorkerTunnel {
     const stream: LogicalStream = { inbox, pump: undefined }
     let opened = false
     let terminal = false
-    const onAbort = (): void => { inbox.fail(signal.reason) }
+    const onAbort = (): void => {
+      inbox.fail(signal.reason)
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     this.logicalStreams.set(id, stream)
     this.inFlight.set(id, `STREAM ${endpoint}`)
@@ -271,10 +275,13 @@ export class WorkerTunnel {
         this.worker.postMessage(frame)
         opened = true
       } catch (cause) {
-        throw new TunnelLogicalStreamError({
-          kind: 'carrier',
-          message: `web-preview tunnel: failed to open Remote stream ${endpoint}`,
-        }, { cause })
+        throw new TunnelLogicalStreamError(
+          {
+            kind: 'carrier',
+            message: `web-preview tunnel: failed to open Remote stream ${endpoint}`,
+          },
+          { cause },
+        )
       }
       if (uplink !== undefined) stream.pump = this.pumpUplink(id, uplink, signal, inbox)
       while (true) {
@@ -306,12 +313,7 @@ export class WorkerTunnel {
    * from then on; a generator blocked in `next()` completes that return only
    * once it yields, so it is not awaited.
    */
-  private pumpUplink(
-    id: TunnelRequestId,
-    uplink: AsyncIterable<unknown>,
-    signal: AbortSignal,
-    inbox: LogicalStreamInbox,
-  ): UplinkPump {
+  private pumpUplink(id: TunnelRequestId, uplink: AsyncIterable<unknown>, signal: AbortSignal, inbox: LogicalStreamInbox): UplinkPump {
     const interrupt = Promise.withResolvers<IteratorReturnResult<undefined>>()
     const iterator = uplink[Symbol.asyncIterator]()
     const state = { active: true, released: false }
@@ -321,7 +323,14 @@ export class WorkerTunnel {
       void Promise.resolve(iterator.return?.()).catch(() => undefined)
     }
     const done = this.forwardUplink(id, iterator, interrupt.promise, () => state.active && !signal.aborted)
-      .then((exhausted) => { state.released ||= exhausted }, (error: unknown) => { inbox.fail(error) })
+      .then(
+        exhausted => {
+          state.released ||= exhausted
+        },
+        (error: unknown) => {
+          inbox.fail(error)
+        },
+      )
       .then(release)
     return {
       done,
@@ -362,7 +371,7 @@ export class WorkerTunnel {
     if (!response.ok) {
       throw new Error(`web-preview tunnel: boot payload failed with HTTP ${String(response.status)}: ${await response.text()}`)
     }
-    return await response.json() as BootPayload
+    return (await response.json()) as BootPayload
   }
 
   /**
@@ -385,14 +394,22 @@ export class WorkerTunnel {
       await new Promise<void>((resolve, reject) => {
         const el = document.createElement('script')
         el.src = blob
-        el.addEventListener('load', () => {
-          el.remove()
-          resolve()
-        }, { once: true })
-        el.addEventListener('error', () => {
-          el.remove()
-          reject(new Error(`web-preview tunnel: bundle ${url} failed to execute`))
-        }, { once: true })
+        el.addEventListener(
+          'load',
+          () => {
+            el.remove()
+            resolve()
+          },
+          { once: true },
+        )
+        el.addEventListener(
+          'error',
+          () => {
+            el.remove()
+            reject(new Error(`web-preview tunnel: bundle ${url} failed to execute`))
+          },
+          { once: true },
+        )
         document.head.append(el)
       })
     } finally {
@@ -403,7 +420,9 @@ export class WorkerTunnel {
   private rejectOnAbort(id: TunnelRequestId, signal: AbortSignal): { rejected: Promise<never>; release: () => void } {
     let release = (): void => {}
     const rejected = new Promise<never>((_resolve, reject) => {
-      const fail = (): void => { reject(this.abortRequest(id)) }
+      const fail = (): void => {
+        reject(this.abortRequest(id))
+      }
       if (signal.aborted) {
         fail()
         return
@@ -411,7 +430,9 @@ export class WorkerTunnel {
       signal.addEventListener('abort', fail, { once: true })
       // A completed request must not leave its listener on a long-lived
       // signal, where every further request would pile another one on.
-      release = () => { signal.removeEventListener('abort', fail) }
+      release = () => {
+        signal.removeEventListener('abort', fail)
+      }
     })
     return { rejected, release }
   }
@@ -442,9 +463,13 @@ export class WorkerTunnel {
    * @param signal - the caller's signal.
    */
   private observeStreamAbort(id: TunnelRequestId, signal: AbortSignal): void {
-    const onAbort = (): void => { this.abortRequest(id) }
+    const onAbort = (): void => {
+      this.abortRequest(id)
+    }
     signal.addEventListener('abort', onAbort, { once: true })
-    this.releases.set(id, () => { signal.removeEventListener('abort', onAbort) })
+    this.releases.set(id, () => {
+      signal.removeEventListener('abort', onAbort)
+    })
   }
 
   /** Release a body-phase abort listener a settled stream no longer needs. */
@@ -495,9 +520,7 @@ export class WorkerTunnel {
         }
         this.unary.delete(frame.id)
         this.inFlight.delete(frame.id)
-        const body = NULL_BODY_STATUS.has(frame.status)
-          ? null
-          : frame.body ?? frame.message ?? null
+        const body = NULL_BODY_STATUS.has(frame.status) ? null : (frame.body ?? frame.message ?? null)
         pending.resolve(new Response(body, { status: frame.status, headers: frame.headers }))
         return
       }
@@ -506,7 +529,7 @@ export class WorkerTunnel {
         if (pending === undefined) return
         this.unary.delete(frame.id)
         const stream = new ReadableStream<Uint8Array>({
-          start: (controller) => {
+          start: controller => {
             this.bodyStreams.set(frame.id, controller)
           },
           cancel: () => {

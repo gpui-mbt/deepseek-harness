@@ -1,9 +1,7 @@
 /** Target-indexed business grouping registrations with the existing effect lifecycle. */
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConversationViewNode } from '../contract/conversation.ts'
-import type {
-  ConversationGroupData, ConversationGroupDefinition,
-} from '../contract/groups.ts'
+import type { ConversationGroupData, ConversationGroupDefinition } from '../contract/groups.ts'
 import { ConversationDefinitionRegistry } from './definition-registry.ts'
 import type { ConversationViewRegistry } from './view-registry.ts'
 
@@ -13,7 +11,10 @@ export class ConversationGroupRegistry extends ConversationDefinitionRegistry<Co
    * @param ctx - owning plugin context.
    * @param views - registered target Builder definitions.
    */
-  constructor(ctx: Context, private readonly views: ConversationViewRegistry) {
+  constructor(
+    ctx: Context,
+    private readonly views: ConversationViewRegistry,
+  ) {
     super(ctx)
   }
 
@@ -23,8 +24,7 @@ export class ConversationGroupRegistry extends ConversationDefinitionRegistry<Co
    * @returns the effect-owned, idempotent registration disposer.
    */
   register<Node extends ConversationViewNode, State, Target extends string>(
-    definition: ConversationGroupDefinition<Node, State, ConversationGroupData<Target>>
-      & { readonly target: Target },
+    definition: ConversationGroupDefinition<Node, State, ConversationGroupData<Target>> & { readonly target: Target },
   ): () => void {
     if (!this.views.entries().some(view => view.target === definition.target)) {
       throw new Error(`conversation group target "${definition.target}" is not registered`)

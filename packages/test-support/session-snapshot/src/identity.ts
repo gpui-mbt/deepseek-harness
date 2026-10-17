@@ -19,7 +19,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseLog(log: string): ParsedLog {
   return {
-    records: log.split(/\r?\n/)
+    records: log
+      .split(/\r?\n/)
       .filter(line => line.trim() !== '')
       .map(line => JSON.parse(line) as Record<string, unknown>),
     trailingNewline: log.endsWith('\n'),
@@ -27,17 +28,19 @@ function parseLog(log: string): ParsedLog {
 }
 
 function messageId(value: unknown): string | undefined {
-  if (!isRecord(value)
-    || typeof value.id !== 'string'
-    || typeof value.role !== 'string'
-    || !Array.isArray(value.content)
-    || !isRecord(value.source)) return undefined
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    typeof value.role !== 'string' ||
+    !Array.isArray(value.content) ||
+    !isRecord(value.source)
+  )
+    return undefined
   return value.id
 }
 
 function redactedCandidate(value: string): boolean {
-  return UUID_FRAGMENT_RE.test(value) || SHORT_JOB_ID_RE.test(value)
-    || LEGACY_TOKEN_RE.test(value) || CANONICAL_TOKEN_RE.test(value)
+  return UUID_FRAGMENT_RE.test(value) || SHORT_JOB_ID_RE.test(value) || LEGACY_TOKEN_RE.test(value) || CANONICAL_TOKEN_RE.test(value)
 }
 
 /**
@@ -111,8 +114,7 @@ export function redactSessionSnapshotIds(logs: readonly string[]): string[] {
     }
   }
 
-  const replacements = [...tokenByValue]
-    .sort(([left], [right]) => right.length - left.length)
+  const replacements = [...tokenByValue].sort(([left], [right]) => right.length - left.length)
   const replace = (value: unknown): unknown => {
     if (typeof value === 'string') {
       const exact = tokenByValue.get(value)
@@ -128,7 +130,7 @@ export function redactSessionSnapshotIds(logs: readonly string[]): string[] {
     return value
   }
 
-  return parsed.map((log) => {
+  return parsed.map(log => {
     const content = log.records.map(record => JSON.stringify(replace(record))).join('\n')
     return log.trailingNewline ? `${content}\n` : content
   })

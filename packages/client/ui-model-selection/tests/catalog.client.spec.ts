@@ -1,6 +1,6 @@
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { ModelCatalogDirectory } from '../src/client/catalog.ts'
 
 const catalog = (model: string): ModelCatalog => ({
@@ -17,9 +17,11 @@ function directory(models: () => Promise<unknown>): ModelCatalogDirectory {
 
 describe('ModelCatalogDirectory', () => {
   it('shares one failing request, exposes the RPC error, and permits a retry', async () => {
-    const models = vi.fn()
+    const models = vi
+      .fn()
       .mockResolvedValueOnce({
-        ok: false, error: new RemoteError('gateway/internal', 'catalog offline', {}),
+        ok: false,
+        error: new RemoteError('gateway/internal', 'catalog offline', {}),
       })
       .mockResolvedValueOnce({ ok: true, value: catalog('recovered') })
     const subject = directory(models)
@@ -35,9 +37,7 @@ describe('ModelCatalogDirectory', () => {
   it('does not publish a successful result from an invalidated generation', async () => {
     const first = Promise.withResolvers<unknown>()
     const second = Promise.withResolvers<unknown>()
-    const models = vi.fn()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise)
+    const models = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
     const subject = directory(models)
 
     const stale = subject.load()
@@ -54,9 +54,7 @@ describe('ModelCatalogDirectory', () => {
   it('does not publish a failure from an invalidated generation', async () => {
     const first = Promise.withResolvers<unknown>()
     const second = Promise.withResolvers<unknown>()
-    const models = vi.fn()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise)
+    const models = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
     const subject = directory(models)
 
     const stale = subject.load()
@@ -71,7 +69,8 @@ describe('ModelCatalogDirectory', () => {
   })
 
   it('contains refresh failures while retaining old data and clears it on a failed Host reset', async () => {
-    const models = vi.fn()
+    const models = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true, value: catalog('old') })
       .mockRejectedValueOnce('refresh failed')
       .mockRejectedValueOnce(new Error('reset failed'))
@@ -81,14 +80,18 @@ describe('ModelCatalogDirectory', () => {
     subject.refresh()
     await vi.waitFor(() => {
       expect(subject.store.getSnapshot()).toEqual({
-        value: catalog('old'), status: 'error', error: 'refresh failed',
+        value: catalog('old'),
+        status: 'error',
+        error: 'refresh failed',
       })
     })
 
     subject.resetGeneration()
     await vi.waitFor(() => {
       expect(subject.store.getSnapshot()).toEqual({
-        value: null, status: 'error', error: 'reset failed',
+        value: null,
+        status: 'error',
+        error: 'reset failed',
       })
     })
   })

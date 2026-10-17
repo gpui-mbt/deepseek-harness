@@ -41,10 +41,7 @@ export interface FetchObserver {
  * @param options - Per-body capture limits.
  * @returns The owner that stops capture and awaits pending body readers.
  */
-export function installFetchObserver(
-  publisher: InspectorPublisher,
-  options: FetchCaptureOptions,
-): FetchObserver {
+export function installFetchObserver(publisher: InspectorPublisher, options: FetchCaptureOptions): FetchObserver {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch')
   const original = globalThis.fetch
   if (typeof original !== 'function') throw new Error('inspector: globalThis.fetch is unavailable')
@@ -59,8 +56,12 @@ export function installFetchObserver(
   const track = (promise: Promise<void>): void => {
     pending.add(promise)
     void promise.then(
-      () => { pending.delete(promise) },
-      () => { pending.delete(promise) },
+      () => {
+        pending.delete(promise)
+      },
+      () => {
+        pending.delete(promise)
+      },
     )
   }
 
@@ -88,15 +89,13 @@ export function installFetchObserver(
       })
     }
     if (requestClone !== undefined) {
-      track(captureBody(
-        requestClone.body,
-        options.maxRequestBodyBytes,
-        options.maxChunkBytes,
-        controller.signal,
-        (data) => { publisher.publish('fetch/request-body-chunk', { requestId, data }) },
-      ).then((outcome) => {
-        publisher.publish('fetch/request-body-end', compactOutcome(requestId, outcome))
-      }))
+      track(
+        captureBody(requestClone.body, options.maxRequestBodyBytes, options.maxChunkBytes, controller.signal, data => {
+          publisher.publish('fetch/request-body-chunk', { requestId, data })
+        }).then(outcome => {
+          publisher.publish('fetch/request-body-end', compactOutcome(requestId, outcome))
+        }),
+      )
     }
 
     let response: Response
@@ -122,20 +121,18 @@ export function installFetchObserver(
 
     try {
       const responseClone = response.clone()
-      track(captureBody(
-        responseClone.body,
-        options.maxResponseBodyBytes,
-        options.maxChunkBytes,
-        controller.signal,
-        (data) => { publisher.publish('fetch/response-body-chunk', { requestId, data }) },
-      ).then((outcome) => {
-        publisher.publish('fetch/end', {
-          requestId,
-          capturedBytes: outcome.capturedBytes,
-          responseBodyTruncated: outcome.truncated,
-          ...(outcome.captureError === undefined ? {} : { responseCaptureError: outcome.captureError }),
-        })
-      }))
+      track(
+        captureBody(responseClone.body, options.maxResponseBodyBytes, options.maxChunkBytes, controller.signal, data => {
+          publisher.publish('fetch/response-body-chunk', { requestId, data })
+        }).then(outcome => {
+          publisher.publish('fetch/end', {
+            requestId,
+            capturedBytes: outcome.capturedBytes,
+            responseBodyTruncated: outcome.truncated,
+            ...(outcome.captureError === undefined ? {} : { responseCaptureError: outcome.captureError }),
+          })
+        }),
+      )
     } catch (error) {
       publisher.publish('fetch/end', {
         requestId,
@@ -150,9 +147,11 @@ export function installFetchObserver(
 
   Object.defineProperty(observedFetch, 'name', { value: original.name, configurable: true })
   Object.defineProperty(observedFetch, 'length', { value: original.length, configurable: true })
-  Object.defineProperty(globalThis, 'fetch', descriptor === undefined
-    ? { value: observedFetch, writable: true, configurable: true }
-    : { ...descriptor, value: observedFetch })
+  Object.defineProperty(
+    globalThis,
+    'fetch',
+    descriptor === undefined ? { value: observedFetch, writable: true, configurable: true } : { ...descriptor, value: observedFetch },
+  )
 
   let stopped: Promise<void> | undefined
   return {
@@ -181,7 +180,9 @@ async function captureBody(
 ): Promise<CaptureOutcome> {
   if (body === null) return { capturedBytes: 0, truncated: false }
   const reader = body.getReader()
-  const abort = (): void => { void reader.cancel(signal.reason).catch(() => undefined) }
+  const abort = (): void => {
+    void reader.cancel(signal.reason).catch(() => undefined)
+  }
   signal.addEventListener('abort', abort, { once: true })
   let capturedBytes = 0
   let truncated = false

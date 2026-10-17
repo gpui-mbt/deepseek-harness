@@ -1,15 +1,17 @@
 import { once } from 'node:events'
 import { createConnection, createServer, type Socket } from 'node:net'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { authenticateStream } from '../src/stream-security.ts'
 
 describe('SSH TLS authentication deadline', () => {
   it('closes a transport whose peer accepts a connection but never completes authentication', async () => {
     const accepted = new Set<Socket>()
-    const server = createServer((socket) => {
+    const server = createServer(socket => {
       accepted.add(socket)
       socket.on('error', () => {})
-      socket.on('close', () => { accepted.delete(socket) })
+      socket.on('close', () => {
+        accepted.delete(socket)
+      })
       socket.resume()
     })
     server.listen(0, '127.0.0.1')
@@ -28,7 +30,12 @@ describe('SSH TLS authentication deadline', () => {
     } finally {
       raw.destroy()
       for (const socket of accepted) socket.destroy()
-      await new Promise<void>((resolve, reject) => { server.close((error) => { if (error) reject(error); else resolve() }) })
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => {
+          if (error) reject(error)
+          else resolve()
+        })
+      })
     }
   })
 })

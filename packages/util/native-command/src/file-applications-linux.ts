@@ -9,7 +9,9 @@ import type { NativeFileApplication } from './types.ts'
 /** Find a desktop id, including ids derived from nested application directories. */
 async function desktopFile(root: string, id: string, directory = root): Promise<string | null> {
   let entries
-  try { entries = await readdir(directory, { withFileTypes: true }) } catch (_error) {
+  try {
+    entries = await readdir(directory, { withFileTypes: true })
+  } catch (_error) {
     // An absent XDG root contributes no applications.
     return null
   }
@@ -35,15 +37,25 @@ async function desktopFile(root: string, id: string, directory = root): Promise<
  * @returns registered applications with the desktop's default marked.
  */
 export async function linuxFileApplications(
-  path: string, signal: AbortSignal, run: NativeCommandRunner, env: NodeJS.ProcessEnv,
+  path: string,
+  signal: AbortSignal,
+  run: NativeCommandRunner,
+  env: NodeJS.ProcessEnv,
 ): Promise<readonly NativeFileApplication[]> {
   const info = await run('gio', ['info', '-a', 'standard::content-type', path], signal, 'hidden')
   const mime = /standard::content-type:\s*(\S+)/.exec(info.stdout)?.[1]
   if (mime === undefined) throw new Error('GIO did not identify the file content type')
   const result = await run('env', ['LC_ALL=C', 'gio', 'mime', mime], signal, 'hidden')
   const preferred = /^Default application.*:\s*(.+\.desktop)\s*$/m.exec(result.stdout)?.[1]
-  const ids = [...new Set([...(preferred === undefined ? [] : [preferred]), ...result.stdout.split(/\r?\n/)
-    .filter(line => /^\s+.*\.desktop\s*$/.test(line)).map(line => line.trim())])]
+  const ids = [
+    ...new Set([
+      ...(preferred === undefined ? [] : [preferred]),
+      ...result.stdout
+        .split(/\r?\n/)
+        .filter(line => /^\s+.*\.desktop\s*$/.test(line))
+        .map(line => line.trim()),
+    ]),
+  ]
   const directories = desktopDataDirectories(env.HOME ?? homedir(), env)
   const locale = (env.LC_ALL ?? env.LC_MESSAGES ?? env.LANG ?? '').replace(/\..*$/, '')
   const applications: NativeFileApplication[] = []
@@ -59,8 +71,12 @@ export async function linuxFileApplications(
     const name = fields[`Name[${locale}]`] ?? fields[`Name[${locale.replace(/_.*/, '')}]`] ?? fields.Name
     if (name === undefined || fields.Hidden === 'true') continue
     const icon = fields.Icon === undefined ? null : await desktopApplicationIcon(fields.Icon, directories)
-    applications.push({ id: entryPath, name, default: id === preferred,
-      icon: icon === null ? null : `data:${icon.contentType};base64,${icon.bytes.toString('base64')}` })
+    applications.push({
+      id: entryPath,
+      name,
+      default: id === preferred,
+      icon: icon === null ? null : `data:${icon.contentType};base64,${icon.bytes.toString('base64')}`,
+    })
   }
   return applications
 }

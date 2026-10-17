@@ -9,16 +9,20 @@ import type { ModelSelectionProjection } from '@deepseek-ai/dsh-api-session-cont
 import type { PlanProjection } from '@deepseek-ai/dsh-plan-mode/types'
 import type { GoalProjection } from '@deepseek-ai/dsh-goal/types'
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  ISessions, SessionBinding, SessionFace,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ISessions, SessionBinding, SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
 import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type {
-  DraftAttachmentId, DraftAttachmentSerializationResult, DraftInitializationOptions, DraftInitializationResult, InputTriggerController,
-  SessionInputResolver, SessionInput, SubmitOutcome,
+  DraftAttachmentId,
+  DraftAttachmentSerializationResult,
+  DraftInitializationOptions,
+  DraftInitializationResult,
+  InputTriggerController,
+  SessionInputResolver,
+  SessionInput,
+  SubmitOutcome,
 } from '../contract/input.ts'
 import type { ComposerKeyboard } from '../contract/draft-editor.ts'
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
@@ -106,23 +110,32 @@ export class InputHub implements SessionInputResolver {
         const goal = session.projections.faceOf('goal').getSnapshot() as GoalProjection | null | undefined
         const selection = model?.next ?? model?.lastUsed
         return Object.freeze({
-          ...state.blank ? {} : { sessionId: state.sessionId },
-          ...selection == null ? {} : { model: Object.freeze({
-            provider: selection.provider, name: selection.model,
-            ...selection.reasoningEffort === undefined ? {} : { effort: selection.reasoningEffort },
-          }) },
+          ...(state.blank ? {} : { sessionId: state.sessionId }),
+          ...(selection == null
+            ? {}
+            : {
+                model: Object.freeze({
+                  provider: selection.provider,
+                  name: selection.model,
+                  ...(selection.reasoningEffort === undefined ? {} : { effort: selection.reasoningEffort }),
+                }),
+              }),
           runMode: plan?.active ? 'plan' : goal?.goal.phase === 'active' ? 'goal' : 'default',
           running: state.running,
         })
       },
-      messageSubmitted: (submission) => { reportMessageSubmission(this.rootCtx, submission) },
+      messageSubmitted: submission => {
+        reportMessageSubmission(this.rootCtx, submission)
+      },
       inputTriggers: () => this.controller(actx),
       popup: () => this.popup(actx),
       inbox: session.projections.faceOf('inbox') as ObservableSnapshot<InboxState | undefined>,
       defaultSink: (text, attachmentIds, mode, signal) => this.sink(session, text, attachmentIds, mode, signal),
-      steerQueue: () => { void this.steerQueue(session, shell) },
+      steerQueue: () => {
+        void this.steerQueue(session, shell)
+      },
       commandAttachments: {
-        serialize: async (ids) => {
+        serialize: async ids => {
           const result = await this.conversation().serializeDraftAttachments(ids)
           return result.attachments
         },
@@ -130,13 +143,14 @@ export class InputHub implements SessionInputResolver {
         // submit RPC, where session teardown may already have unloaded the
         // conversation service (the same tolerance as the scope disposer
         // above); leaked preview URLs then die with the document.
-        release: (ids) => {
+        release: ids => {
           const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
           for (const attachmentId of ids) conversation?.releaseDraftAttachment(attachmentId)
         },
-        unsupportedNotice: token => this.t('command.attachmentsUnsupported', {
-          command: token.trim().replace(/^\//u, ''),
-        }),
+        unsupportedNotice: token =>
+          this.t('command.attachmentsUnsupported', {
+            command: token.trim().replace(/^\//u, ''),
+          }),
       },
     })
     this.shells.set(binding, shell)
@@ -144,14 +158,10 @@ export class InputHub implements SessionInputResolver {
     // scope fiber (nothing here outlives the scope).
     actx.effect(() => {
       const offs = [
-        actx.on('slash/input-begin-command', req =>
-          shell.beginCommand(req.claim, req.span) ? true : undefined),
-        actx.on('slash/input-insert-reference', req =>
-          shell.insertReference(req.reference, req.span) ? true : undefined),
-        actx.on('slash/input-consume-token', req =>
-          shell.consumeToken(req.guard) ? true : undefined),
-        actx.on('slash/input-insert-text', req =>
-          shell.insertText(req.text, req.span, req.continue === true) ? true : undefined),
+        actx.on('slash/input-begin-command', req => (shell.beginCommand(req.claim, req.span) ? true : undefined)),
+        actx.on('slash/input-insert-reference', req => (shell.insertReference(req.reference, req.span) ? true : undefined)),
+        actx.on('slash/input-consume-token', req => (shell.consumeToken(req.guard) ? true : undefined)),
+        actx.on('slash/input-insert-text', req => (shell.insertText(req.text, req.span, req.continue === true) ? true : undefined)),
       ]
       return () => {
         for (const off of offs) off()
@@ -161,10 +171,12 @@ export class InputHub implements SessionInputResolver {
         for (const attachmentId of drafts) conversation?.releaseDraftAttachment(attachmentId)
       }
     }, 'conversation.input: session shell')
-    actx.inject(['inputTriggers'], (scope) => {
+    actx.inject(['inputTriggers'], scope => {
       scope.effect(() => {
         shell.refreshLexiconSubscription()
-        return () => { shell.refreshLexiconSubscription() }
+        return () => {
+          shell.refreshLexiconSubscription()
+        }
       }, 'conversation.input: reference catalogs')
     })
     shell.setDraft(readConversationDraft(binding.sessionId))

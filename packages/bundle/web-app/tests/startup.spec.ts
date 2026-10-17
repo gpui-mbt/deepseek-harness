@@ -11,7 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import { internals, provideCmdline } from '@deepseek-ai/dsh-cmdline'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { apply, WEB_STARTUP_SERVICE, type WebStartupValues } from '../src/startup.ts'
 
 /** What one fixture boot observed. */
@@ -45,33 +45,47 @@ async function bootProvider(args: string[]): Promise<{
   const dir = mkdtempSync(join(tmpdir(), 'dsh-web-startup-'))
   tempDirs.push(dir)
   const observed: Observed = { exits: [], out: '' }
-  writeFileSync(join(dir, 'reader.mjs'), `
+  writeFileSync(
+    join(dir, 'reader.mjs'),
+    `
 export function apply(_ctx, config) { globalThis.__webStartupObserved.readerConfig = config }
-`)
+`,
+  )
   // Node imports the fixture row outside Vite's source resolver, so delegate
   // to the source-plane plugin already imported by this test.
-  writeFileSync(join(dir, 'provider.mjs'), `
+  writeFileSync(
+    join(dir, 'provider.mjs'),
+    `
 export const name = 'web-startup'
 export const inject = ['cmdlineArgs']
 export const apply = ctx => globalThis.__webStartupApply(ctx)
-`)
-  writeFileSync(join(dir, 'cordis.yml'), [
-    '- id: reader',
-    `  name: ${pathToFileURL(join(dir, 'reader.mjs')).href}`,
-    `  inject: [${WEB_STARTUP_SERVICE}]`,
-    '  config:',
-    "    host: !!js ctx.webStartup.host ?? '127.0.0.1'",
-    '    instance: !!js ctx.webStartup.instance',
-    '    openBrowser: !!js ctx.webStartup.openBrowser',
-    '    port: !!js ctx.webStartup.port ?? 3080',
-    '    publicUrl: !!js ctx.webStartup.publicUrl',
-    '    trustedHosts: !!js ctx.webStartup.trustedHosts',
-    '    tls: !!js ctx.webStartup.tls',
-    '- id: provider',
-    `  name: ${pathToFileURL(join(dir, 'provider.mjs')).href}`,
-    '',
-  ].join('\n'))
-  const observing = { write: (chunk: string) => { observed.out += chunk; return true } }
+`,
+  )
+  writeFileSync(
+    join(dir, 'cordis.yml'),
+    [
+      '- id: reader',
+      `  name: ${pathToFileURL(join(dir, 'reader.mjs')).href}`,
+      `  inject: [${WEB_STARTUP_SERVICE}]`,
+      '  config:',
+      "    host: !!js ctx.webStartup.host ?? '127.0.0.1'",
+      '    instance: !!js ctx.webStartup.instance',
+      '    openBrowser: !!js ctx.webStartup.openBrowser',
+      '    port: !!js ctx.webStartup.port ?? 3080',
+      '    publicUrl: !!js ctx.webStartup.publicUrl',
+      '    trustedHosts: !!js ctx.webStartup.trustedHosts',
+      '    tls: !!js ctx.webStartup.tls',
+      '- id: provider',
+      `  name: ${pathToFileURL(join(dir, 'provider.mjs')).href}`,
+      '',
+    ].join('\n'),
+  )
+  const observing = {
+    write: (chunk: string) => {
+      observed.out += chunk
+      return true
+    },
+  }
   internals.stdout = observing
   internals.stderr = observing
   const globals = globalThis as unknown as {
@@ -87,7 +101,9 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
   provideCmdline(ctx, { args, exit: code => void observed.exits.push(code) })
   await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(join(dir, 'cordis.yml')).href } })
   await ctx.loader.await()
-  disposers.push(async () => { await ctx.fiber.dispose() })
+  disposers.push(async () => {
+    await ctx.fiber.dispose()
+  })
   return {
     values: ctx.get(WEB_STARTUP_SERVICE) as WebStartupValues | undefined,
     observed,
@@ -97,14 +113,21 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
 describe('web command-line provider', () => {
   it('publishes each flag and releases direct service expressions', async () => {
     const { values, observed } = await bootProvider([
-      '--host', '127.0.0.1',
+      '--host',
+      '127.0.0.1',
       '--instance',
       '--no-open',
-      '--port', '8080',
-      '--trusted-host', 'lab.internal', 'lab-2.internal',
-      '--trusted-host', '10.0.0.9',
-      '--tls-cert', 'fullchain.pem',
-      '--tls-key', 'private-key.pem',
+      '--port',
+      '8080',
+      '--trusted-host',
+      'lab.internal',
+      'lab-2.internal',
+      '--trusted-host',
+      '10.0.0.9',
+      '--tls-cert',
+      'fullchain.pem',
+      '--tls-key',
+      'private-key.pem',
     ])
     expect(values).toEqual({
       host: '127.0.0.1',
@@ -120,7 +143,7 @@ describe('web command-line provider', () => {
 
   // The webserver suite owns the wildcard spellings; the CLI only has to
   // refuse them by address value before any consumer activates.
-  it.each(['0.0.0.0', '::ffff:0.0.0.0'])('rejects wildcard --host %s before activating consumers', async (host) => {
+  it.each(['0.0.0.0', '::ffff:0.0.0.0'])('rejects wildcard --host %s before activating consumers', async host => {
     const { values, observed } = await bootProvider(['--host', host])
     expect(observed.out).toContain(`error: --host ${host} is an unspecified (wildcard) address`)
     expect(values).toBeUndefined()
@@ -193,10 +216,7 @@ describe('web command-line provider', () => {
   })
 
   it('publishes --public-url as advertisement only, leaving the fence to --trusted-host', async () => {
-    const { values, observed } = await bootProvider([
-      '--public-url', 'https://web.example/ui',
-      '--trusted-host', 'lab.internal',
-    ])
+    const { values, observed } = await bootProvider(['--public-url', 'https://web.example/ui', '--trusted-host', 'lab.internal'])
     expect(values).toEqual({
       openBrowser: true,
       publicUrl: 'https://web.example/ui',
@@ -212,7 +232,7 @@ describe('web command-line provider', () => {
     expect(observed.exits).toEqual([])
   })
 
-  it.each(['--tls-cert', '--tls-key'])('rejects an unpaired %s before activating consumers', async (flag) => {
+  it.each(['--tls-cert', '--tls-key'])('rejects an unpaired %s before activating consumers', async flag => {
     const { values, observed } = await bootProvider([flag, 'server.pem'])
     expect(observed.out).toContain('--tls-cert and --tls-key must be supplied together')
     expect(values).toBeUndefined()

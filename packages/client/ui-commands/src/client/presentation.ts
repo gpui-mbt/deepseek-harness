@@ -2,7 +2,11 @@
 import type { ComponentType } from 'react'
 import type { InputTriggerCandidate } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import {
-  IconCompactOutlineRegular, IconDownloadOutlineRegular, IconGoalOutlineRegular, IconPaperPlaneOutlineRegular, IconPlanOutlineRegular,
+  IconCompactOutlineRegular,
+  IconDownloadOutlineRegular,
+  IconGoalOutlineRegular,
+  IconPaperPlaneOutlineRegular,
+  IconPlanOutlineRegular,
   PermissionIconFullAccessRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { IconProps } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -30,11 +34,14 @@ interface HostFace {
 
 /** One built-in Host command's face, keyed by its dictionary entries. */
 function hostFace(name: BuiltinCommandName, icon: ComponentType<IconProps>): readonly [BuiltinCommandName, HostFace] {
-  return [name, {
-    label: `label.${name}`,
-    description: `description.${name}`,
-    icon,
-  }]
+  return [
+    name,
+    {
+      label: `label.${name}`,
+      description: `description.${name}`,
+      icon,
+    },
+  ]
 }
 
 /** Built-in Host commands whose client face this package owns. */
@@ -75,12 +82,14 @@ export function sectionRows(rows: readonly InputTriggerCandidate[], t: Translate
   const listed = new Set([...SECTION_ROWS.add, ...SECTION_ROWS.commands])
   const byName = new Map(rows.map(row => [row.name, row]))
   const pick = (names: readonly string[]): InputTriggerCandidate[] =>
-    names.flatMap((name) => {
+    names.flatMap(name => {
       const row = byName.get(name)
       return row === undefined ? [] : [row]
     })
   const add = pick(SECTION_ROWS.add).map(row => ({ ...row, section: t('section.add') }))
-  const commands = [...pick(SECTION_ROWS.commands), ...rows.filter(row => !listed.has(row.name))]
-    .map(row => ({ ...row, section: t('section.commands') }))
+  const commands = [...pick(SECTION_ROWS.commands), ...rows.filter(row => !listed.has(row.name))].map(row => ({
+    ...row,
+    section: t('section.commands'),
+  }))
   return [...add, ...commands]
 }

@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, ToolCallId, HarnessError } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
@@ -36,8 +36,9 @@ import * as CordisInspectProviders from '@deepseek-ai/dsh-tool-cordis/host'
  * each `tool/ptc-dispatch`. The keyless Loader smoke is in the sibling test.
  */
 
-const PERSONA = 'You are a coding agent. You work by writing TypeScript programs for run_code: '
-  + 'batch related tool work into one program and print or return ONLY the findings that matter.'
+const PERSONA =
+  'You are a coding agent. You work by writing TypeScript programs for run_code: ' +
+  'batch related tool work into one program and print or return ONLY the findings that matter.'
 const WORKSPACE_PROBE = 'dragonfruit-8675309'
 
 let ctx: Context | undefined
@@ -90,12 +91,7 @@ let keylessCall = 0
 const testToolSignal = new AbortController().signal
 
 /** Execute one outer PTC mode call through the real registry and Node process. */
-function runCode(
-  harness: Context,
-  code: string,
-  signal: AbortSignal = testToolSignal,
-  agent?: Agent,
-): Promise<ToolExecutionResult> {
+function runCode(harness: Context, code: string, signal: AbortSignal = testToolSignal, agent?: Agent): Promise<ToolExecutionResult> {
   return harness.tools.execute({
     callId: ToolCallId(`keyless-code-${++keylessCall}`),
     name: RUN_CODE_NAME,
@@ -108,7 +104,12 @@ function runCode(
 /** Read the optional completion from a successful canonical `run_code` value. */
 function completion(result: ToolExecutionResult): unknown {
   if (result.isError) {
-    throw new Error(result.content.filter(block => block.type === 'text').map(block => block.text).join('\n'))
+    throw new Error(
+      result.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join('\n'),
+    )
   }
   const value = result.value
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('invalid run_code result')
@@ -116,7 +117,9 @@ function completion(result: ToolExecutionResult): unknown {
 }
 
 async function mountRuntime(harness: Context): Promise<void> {
-  onTestFinished(async () => { await harness.fiber.dispose() })
+  onTestFinished(async () => {
+    await harness.fiber.dispose()
+  })
   if (!harness.get('sessions')) await harness.plugin(SessionStore)
   if (!harness.get('fs')) await harness.plugin(LocalFileSystem)
   if (!harness.get('subprocess')) await harness.plugin(LocalSubprocessRuntime)
@@ -149,25 +152,32 @@ async function backgroundPtcModeHarness(cwd: string): Promise<Context> {
 describe('PTC mode typed values: keyless real-process contracts', () => {
   it('crosses a large intermediate value intact and exposes only typed tool failure fields', async () => {
     ctx = await typedPtcModeHarness()
-    ctx.tools.register(defineTool({
-      name: 'large_value',
-      description: 'Return a large canonical string.',
-      parameters: {},
-      output: {
-        schema: { type: 'string' },
-        render: (_args, value) => [{ type: 'text', text: value }],
-      },
-      execute: () => Promise.resolve('x'.repeat(100_000)),
-    }))
-    ctx.tools.register(defineTool({
-      name: 'always_fail',
-      description: 'Fail for ToolCallError coverage.',
-      parameters: {},
-      output: { schema: { type: 'null' }, render: () => [] },
-      execute: () => Promise.reject(new HarnessError('expected failure', 'EXPECTED_INTERNAL_CODE')),
-    }))
+    ctx.tools.register(
+      defineTool({
+        name: 'large_value',
+        description: 'Return a large canonical string.',
+        parameters: {},
+        output: {
+          schema: { type: 'string' },
+          render: (_args, value) => [{ type: 'text', text: value }],
+        },
+        execute: () => Promise.resolve('x'.repeat(100_000)),
+      }),
+    )
+    ctx.tools.register(
+      defineTool({
+        name: 'always_fail',
+        description: 'Fail for ToolCallError coverage.',
+        parameters: {},
+        output: { schema: { type: 'null' }, render: () => [] },
+        execute: () => Promise.reject(new HarnessError('expected failure', 'EXPECTED_INTERNAL_CODE')),
+      }),
+    )
 
-    const value = completion(await runCode(ctx, `
+    const value = completion(
+      await runCode(
+        ctx,
+        `
       const large = await tools.large_value({});
       let failure;
       try {
@@ -184,7 +194,9 @@ describe('PTC mode typed values: keyless real-process contracts', () => {
         };
       }
       return { length: large.length, failure };
-    `))
+    `,
+      ),
+    )
 
     expect(value).toEqual({
       length: 100_000,
@@ -204,84 +216,124 @@ describe('PTC mode typed values: keyless real-process contracts', () => {
     workdir = await mkdtemp(join(tmpdir(), 'dsh-ptc-background-'))
     ctx = await backgroundPtcModeHarness(workdir)
 
-    const jobId = completion(await runCode(ctx, `
+    const jobId = completion(
+      await runCode(
+        ctx,
+        `
       const started = await tools.bash({
         command: "sleep 0.2; printf 'background-complete\\n'",
         description: 'Run completion marker in background',
         run_in_background: true,
       });
       return started.jobId;
-    `))
+    `,
+      ),
+    )
     expect(jobId).toMatch(/^bash-[0-9a-f]{16}$/)
 
-    const polled = completion(await runCode(ctx, `
+    const polled = completion(
+      await runCode(
+        ctx,
+        `
       return await tools.job_output({ job_id: ${JSON.stringify(jobId)}, wait: true, timeout_ms: 5000 });
-    `))
+    `,
+      ),
+    )
     if (typeof polled !== 'object' || polled === null || Array.isArray(polled)) throw new Error('invalid job_output completion')
     const taskOutput = polled as Record<string, unknown>
     expect(taskOutput.text).toContain('background-complete')
     expect(taskOutput.job).toMatchObject({ id: jobId, kind: 'bash', status: 'completed' })
   }, 15_000)
 
-  it('pre-abort spawns nothing; post-publication abort leaves job_kill as the cancellation owner', { timeout: 15_000, retry: 0 }, async () => {
-    workdir = await mkdtemp(join(tmpdir(), 'dsh-ptc-task-cancel-'))
-    ctx = await backgroundPtcModeHarness(workdir)
+  it(
+    'pre-abort spawns nothing; post-publication abort leaves job_kill as the cancellation owner',
+    { timeout: 15_000, retry: 0 },
+    async () => {
+      workdir = await mkdtemp(join(tmpdir(), 'dsh-ptc-task-cancel-'))
+      ctx = await backgroundPtcModeHarness(workdir)
 
-    const pre = new AbortController()
-    pre.abort('pre-aborted')
-    const preResult = await runCode(ctx, `
+      const pre = new AbortController()
+      pre.abort('pre-aborted')
+      const preResult = await runCode(
+        ctx,
+        `
       return await tools.bash({ command: 'sleep 10', description: 'Must never start', run_in_background: true });
-    `, pre.signal)
-    expect(preResult.isError).toBe(true)
-    expect(ctx.jobs.list()).toEqual([])
+    `,
+        pre.signal,
+      )
+      expect(preResult.isError).toBe(true)
+      expect(ctx.jobs.list()).toEqual([])
 
-    const jobs = ctx.jobs
-    // Registration is announced after the job's ownership has committed.
-    const registered = new Promise<void>((resolve) => {
-      onTestFinished(jobs.events.subscribe({ owners: 'all' }, (event) => {
-        if (event.type === 'registered') resolve()
-      }))
-    })
-    const afterPublication = new AbortController()
-    const running = runCode(ctx, `
+      const jobs = ctx.jobs
+      // Registration is announced after the job's ownership has committed.
+      const registered = new Promise<void>(resolve => {
+        onTestFinished(
+          jobs.events.subscribe({ owners: 'all' }, event => {
+            if (event.type === 'registered') resolve()
+          }),
+        )
+      })
+      const afterPublication = new AbortController()
+      const running = runCode(
+        ctx,
+        `
       const started = await tools.bash({ command: 'sleep 10', description: 'Wait for explicit task kill', run_in_background: true });
       console.log(started.jobId);
       await new Promise(() => {});
-    `, afterPublication.signal)
-    await Promise.race([
-      registered,
-      running.then((result) => {
-        // Promise.race handles a late rejection after registration, too.
-        completion(result)
-        throw new Error('run_code completed before background job registration')
-      }),
-    ])
-    const job = ctx.jobs.list()[0]
-    expect(job).toMatchObject({ status: 'running' })
-    expect(job?.id).toMatch(/^bash-[0-9a-f]{16}$/)
-    afterPublication.abort('outer-call-cancelled')
-    expect((await running).isError).toBe(true)
-    expect(ctx.jobs.list()[0]).toMatchObject({ id: job!.id, status: 'running' })
+    `,
+        afterPublication.signal,
+      )
+      await Promise.race([
+        registered,
+        running.then(result => {
+          // Promise.race handles a late rejection after registration, too.
+          completion(result)
+          throw new Error('run_code completed before background job registration')
+        }),
+      ])
+      const job = ctx.jobs.list()[0]
+      expect(job).toMatchObject({ status: 'running' })
+      expect(job?.id).toMatch(/^bash-[0-9a-f]{16}$/)
+      afterPublication.abort('outer-call-cancelled')
+      expect((await running).isError).toBe(true)
+      expect(ctx.jobs.list()[0]).toMatchObject({ id: job!.id, status: 'running' })
 
-    const killed = completion(await runCode(ctx, `
+      const killed = completion(
+        await runCode(
+          ctx,
+          `
       return await tools.job_kill({ job_id: ${JSON.stringify(job!.id)}, reason: 'test owns cancellation' });
-    `))
-    expect(killed).toMatchObject({ outcome: 'cancellation-requested', job: { id: job!.id } })
-    const settled = completion(await runCode(ctx, `
+    `,
+        ),
+      )
+      expect(killed).toMatchObject({ outcome: 'cancellation-requested', job: { id: job!.id } })
+      const settled = completion(
+        await runCode(
+          ctx,
+          `
       return await tools.job_output({ job_id: ${JSON.stringify(job!.id)}, wait: true, timeout_ms: 5000 });
-    `))
-    expect(settled).toMatchObject({ job: { id: job!.id, status: 'killed' } })
-  })
+    `,
+        ),
+      )
+      expect(settled).toMatchObject({ job: { id: job!.id, status: 'killed' } })
+    },
+  )
 
   it('keeps foreground bash coupled to the outer signal', async () => {
     workdir = await mkdtemp(join(tmpdir(), 'dsh-ptc-foreground-cancel-'))
     ctx = await backgroundPtcModeHarness(workdir)
     const controller = new AbortController()
     const startedAt = Date.now()
-    const pending = runCode(ctx, `
+    const pending = runCode(
+      ctx,
+      `
       return await tools.bash({ command: 'sleep 10', description: 'Run cancellable foreground command' });
-    `, controller.signal)
-    setTimeout(() => { controller.abort('stop-foreground') }, 200)
+    `,
+      controller.signal,
+    )
+    setTimeout(() => {
+      controller.abort('stop-foreground')
+    }, 200)
     const result = await pending
     expect(result.isError).toBe(true)
     expect(Date.now() - startedAt).toBeLessThan(5_000)
@@ -299,21 +351,28 @@ describe('PTC mode typed values: keyless real-process contracts', () => {
       session: ctx.sessions.create(SessionId('ptc-cordis'), { meta: { cwd: process.cwd() } }),
     } as Agent
 
-    const value = completion(await runCode(ctx, `
+    const value = completion(
+      await runCode(
+        ctx,
+        `
       const listed = await tools.cordis_inspect_list({});
       const provider = listed.providers.find(item => item.id === 'Tool');
       const inspected = await tools.cordis_inspect_query({
         platform: provider.platform, provider: provider.id, method: provider.methods[0].name,
       });
       return { provider: provider.id, names: inspected.data.tools.map(tool => tool.name) };
-    `, testToolSignal, agent))
+    `,
+        testToolSignal,
+        agent,
+      ),
+    )
 
     expect(value).toEqual({ provider: 'Tool', names: ['cordis_inspect_list', 'cordis_inspect_query', 'run_code'] })
   })
 })
 
 function waitForIdle(harness: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = harness.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -327,15 +386,26 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC mode: real model writes a pr
   it('collapses the wire tool list to [run_code], bridges sub-calls, and returns curated output', async () => {
     workdir = await mkdtemp(join(tmpdir(), 'dsh-ptc-e2e-'))
     ctx = await ptcModeHarness(workdir)
-    const agent = await ctx.agentLoop.create(SessionId('e2e-ptc'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, { cwd: workdir })
+    const agent = await ctx.agentLoop.create(
+      SessionId('e2e-ptc'),
+      { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      { cwd: workdir },
+    )
 
-    agent.followup(createUserMessage({
-      content: [{
-        type: 'text',
-        text: 'Using one run_code program: run `echo alpha-7` with the bash tool, run `echo beta-9` with the bash tool, '
-        + 'then write both outputs joined by a plus sign into combined.txt (bash heredoc or redirect), '
-        + 'and return only the joined string.',
-      }], source: { kind: 'user' } }))
+    agent.followup(
+      createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text:
+              'Using one run_code program: run `echo alpha-7` with the bash tool, run `echo beta-9` with the bash tool, ' +
+              'then write both outputs joined by a plus sign into combined.txt (bash heredoc or redirect), ' +
+              'and return only the joined string.',
+          },
+        ],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, agent)
     const events: readonly SessionEvent[] = agent.session.snapshotEvents()
 
@@ -362,9 +432,13 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC mode: real model writes a pr
     expect(combined).toContain('alpha-7')
     expect(combined).toContain('beta-9')
     const finalMessage = events.findLast(event => event.type === 'assistant/message')
-    const finalText = finalMessage !== undefined
-      ? finalMessage.data.message.content.filter(block => block.type === 'text').map(block => block.text).join('')
-      : ''
+    const finalText =
+      finalMessage !== undefined
+        ? finalMessage.data.message.content
+            .filter(block => block.type === 'text')
+            .map(block => block.text)
+            .join('')
+        : ''
     expect(finalText).toContain('alpha-7')
     expect(finalText).toContain('beta-9')
   }, 180_000)
@@ -373,7 +447,10 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC mode: real model writes a pr
     workdir = await mkdtemp(join(tmpdir(), 'dsh-ptc-workspace-e2e-'))
     await mkdir(join(workdir, '.git'), { recursive: true })
     await mkdir(join(workdir, 'pkg/deep'), { recursive: true })
-    await writeFile(join(workdir, 'pkg/AGENTS.md'), `If asked for the PTC mode workspace handshake, reply with exactly ${WORKSPACE_PROBE} and nothing else.\n`)
+    await writeFile(
+      join(workdir, 'pkg/AGENTS.md'),
+      `If asked for the PTC mode workspace handshake, reply with exactly ${WORKSPACE_PROBE} and nothing else.\n`,
+    )
     await writeFile(join(workdir, 'pkg/deep/task.txt'), 'Touch this file to discover the nested instructions.\n')
     ctx = await workspacePtcModeHarness()
     const handle = await ctx.agents.create({
@@ -382,22 +459,33 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC mode: real model writes a pr
       agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
     })
 
-    handle.agent.followup(createUserMessage({
-      content: [{
-        type: 'text',
-        text: 'Use one run_code program to call tools.read on pkg/deep/task.txt. After it finishes, answer: PTC mode workspace handshake?',
-      }], source: { kind: 'user' } }))
+    handle.agent.followup(
+      createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text: 'Use one run_code program to call tools.read on pkg/deep/task.txt. After it finishes, answer: PTC mode workspace handshake?',
+          },
+        ],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, handle.agent)
 
     const events: readonly SessionEvent[] = handle.agent.session.snapshotEvents()
     const dispatch = events.find(event => event.type === 'tool/ptc-dispatch' && event.data.name === 'read')
     const outerResult = events.find(event => event.type === 'tool/result')
     const workspaceContext = await vi.waitFor(() => {
-      const splice = handle.agent.session.snapshotEvents().findLast(event => event.type === 'agent/inbox/spliced'
-        && event.data.inserted.some(message => message.source.kind === 'agent-instructions'))
-      const inserted = splice?.type === 'agent/inbox/spliced'
-        ? splice.data.inserted.find(message => message.source.kind === 'agent-instructions')
-        : undefined
+      const splice = handle.agent.session
+        .snapshotEvents()
+        .findLast(
+          event =>
+            event.type === 'agent/inbox/spliced' && event.data.inserted.some(message => message.source.kind === 'agent-instructions'),
+        )
+      const inserted =
+        splice?.type === 'agent/inbox/spliced'
+          ? splice.data.inserted.find(message => message.source.kind === 'agent-instructions')
+          : undefined
       expect(inserted).toBeDefined()
       return inserted!
     })

@@ -45,18 +45,22 @@ export class TeamActivity {
       const onAbort = (): void => {
         finish(() => {
           const reason: unknown = signal.reason
-          reject(reason instanceof Error
-            ? reason
-            : new TeamError(`wait_agent aborted: ${errorMessage(reason)}`, 'TEAM_WAIT_ABORTED'))
+          reject(reason instanceof Error ? reason : new TeamError(`wait_agent aborted: ${errorMessage(reason)}`, 'TEAM_WAIT_ABORTED'))
         })
       }
       const waiter: Waiter = {
         resolve: () => {
-          finish(() => { resolve(true) })
+          finish(() => {
+            resolve(true)
+          })
         },
       }
       waiters.add(waiter)
-      const timer = setTimeout(() => { finish(() => { resolve(false) }) }, timeoutMs)
+      const timer = setTimeout(() => {
+        finish(() => {
+          resolve(false)
+        })
+      }, timeoutMs)
       signal.addEventListener('abort', onAbort, { once: true })
       // AbortSignal does not replay an abort that wins between the pre-check and listener registration.
       /* v8 ignore next -- requires an abort in the synchronous gap between the pre-check and listener registration. */

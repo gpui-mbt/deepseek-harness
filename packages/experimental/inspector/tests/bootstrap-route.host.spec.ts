@@ -6,14 +6,14 @@ import type { IndexInjection, WebServer } from '@deepseek-ai/dsh-host-webserver'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 import type { BrowserAuth } from '@deepseek-ai/dsh-client-connection/src/browser-auth.ts'
 import open from 'open'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apply, Config, inject, name } from '../src/index.ts'
 import { startInspector, type InspectorHandle, type InspectorOptions } from '../src/host/bridge/controller.ts'
 import { INSPECTOR_BOOTSTRAP_PATH } from '../src/shared/web.ts'
 
 vi.mock('open', () => ({ default: vi.fn(async () => undefined), apps: { chrome: 'chrome' } }))
 
-vi.mock('../src/host/bridge/controller.ts', async (importOriginal) => {
+vi.mock('../src/host/bridge/controller.ts', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/host/bridge/controller.ts')>()
   return { ...actual, startInspector: vi.fn(actual.startInspector) }
 })
@@ -21,9 +21,10 @@ vi.mock('../src/host/bridge/controller.ts', async (importOriginal) => {
 /** Startup failures the fixture can inject; only the platform code selects the unavailable state. */
 const FAILURES = {
   fail: () => new Error('fixture Worker startup failed'),
-  unavailable: () => Object.assign(new Error('web-preview: node:worker_threads.MessageChannel is not available in the worker host'), {
-    code: 'ERR_FEATURE_UNAVAILABLE_ON_PLATFORM',
-  }),
+  unavailable: () =>
+    Object.assign(new Error('web-preview: node:worker_threads.MessageChannel is not available in the worker host'), {
+      code: 'ERR_FEATURE_UNAVAILABLE_ON_PLATFORM',
+    }),
   'other-code': () => Object.assign(new Error('fixture Worker port is occupied'), { code: 'EADDRINUSE' }),
   'message-only': () => new Error('fixture ERR_FEATURE_UNAVAILABLE_ON_PLATFORM: worker host is not available'),
 } satisfies Record<string, () => Error>
@@ -66,12 +67,15 @@ describe('experimental Inspector Host bootstrap route', () => {
     const connection = new HostConnectionService(context, [], {} as BrowserAuth)
     const api = connection.createSharedFetchHandler('/api')
     const messages: Message[] = []
-    context.logger.exporter({ levels: { default: 3 }, export: (message) => { messages.push(message) } })
+    context.logger.exporter({
+      levels: { default: 3 },
+      export: message => {
+        messages.push(message)
+      },
+    })
     const fiber = context.plugin({ name, inject: [...inject], Config, apply }, { port: 0, captureFetch: false })
-    const bootstrap = (signal?: AbortSignal) => api.fetch(
-      new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`, signal === undefined ? {} : { signal }),
-      connection.browserPeer,
-    )
+    const bootstrap = (signal?: AbortSignal) =>
+      api.fetch(new Request(`http://localhost${INSPECTOR_BOOTSTRAP_PATH}`, signal === undefined ? {} : { signal }), connection.browserPeer)
     const injected = () => {
       const rows: IndexInjection[] = []
       context!.emit('webserver/index-inject', rows)
@@ -83,7 +87,9 @@ describe('experimental Inspector Host bootstrap route', () => {
   it('accepts bootstrap requests before the Worker is ready and answers once it is', async () => {
     const gate = gateStartup('start')
     const { fiber, bootstrap, injected, register, registerUpgrade } = mount()
-    await vi.waitFor(() => { expect(startInspector).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(startInspector).toHaveBeenCalledOnce()
+    })
 
     const early = bootstrap()
     expect(await settledWithin(early, 50)).toBe(false)
@@ -107,7 +113,9 @@ describe('experimental Inspector Host bootstrap route', () => {
     it(`answers waiting bootstrap requests with 503 and removes the route when Worker startup fails (${outcome})`, async () => {
       const gate = gateStartup(outcome)
       const { fiber, bootstrap, injected, messages } = mount()
-      await vi.waitFor(() => { expect(startInspector).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(startInspector).toHaveBeenCalledOnce()
+      })
 
       const early = bootstrap()
       expect(await settledWithin(early, 50)).toBe(false)
@@ -126,7 +134,9 @@ describe('experimental Inspector Host bootstrap route', () => {
   it('starts without the NodeJS Inspector when the platform cannot run its Worker', async () => {
     const gate = gateStartup('unavailable')
     const { fiber, bootstrap, injected, register, registerUpgrade, messages, log } = mount(['--inspect'])
-    await vi.waitFor(() => { expect(startInspector).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(startInspector).toHaveBeenCalledOnce()
+    })
 
     const early = bootstrap()
     expect(await settledWithin(early, 50)).toBe(false)
@@ -157,7 +167,9 @@ describe('experimental Inspector Host bootstrap route', () => {
   it('stops waiting when a bootstrap request is aborted before the Worker is ready', async () => {
     const gate = gateStartup('start')
     const { fiber, bootstrap } = mount()
-    await vi.waitFor(() => { expect(startInspector).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(startInspector).toHaveBeenCalledOnce()
+    })
 
     const abort = new AbortController()
     const abandoned = bootstrap(abort.signal)
@@ -174,6 +186,16 @@ describe('experimental Inspector Host bootstrap route', () => {
 
 /** Report whether a promise settles before a real-time deadline. */
 async function settledWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
-  const timeout = new Promise<false>((resolve) => { setTimeout(() => { resolve(false) }, ms) })
-  return Promise.race([promise.then(() => true, () => true), timeout])
+  const timeout = new Promise<false>(resolve => {
+    setTimeout(() => {
+      resolve(false)
+    }, ms)
+  })
+  return Promise.race([
+    promise.then(
+      () => true,
+      () => true,
+    ),
+    timeout,
+  ])
 }

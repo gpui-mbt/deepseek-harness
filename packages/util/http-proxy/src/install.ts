@@ -18,7 +18,6 @@ import {
   type ProxyPolicy,
 } from './policy.ts'
 
-
 /** The active policy, or `undefined` until one is installed. Process-wide, like the dispatcher it tracks. */
 let active: ProxyPolicy | undefined
 
@@ -46,9 +45,7 @@ let installed: Dispatcher | undefined
  * and long-lived, so a caller uses it and never closes it. Disposal closes that dispatcher rather
  * than destroying it, so a request already dispatched when a policy is unmounted still finishes.
  */
-export type ProxyRoute =
-  | { readonly proxied: true; readonly proxy: string; readonly dispatcher: Dispatcher }
-  | { readonly proxied: false }
+export type ProxyRoute = { readonly proxied: true; readonly proxy: string; readonly dispatcher: Dispatcher } | { readonly proxied: false }
 
 /** A route that sends nothing through a proxy, shared because it carries no per-request state. */
 const DIRECT_ROUTE: ProxyRoute = { proxied: false }
@@ -222,9 +219,6 @@ async function installGlobalProxy(policy: ProxyPolicy): Promise<() => Promise<vo
   }
 }
 
-
-
-
 /**
  * The proxy environment a spawned child needs.
  *
@@ -293,10 +287,7 @@ export function proxyEnvironmentForChild(): Readonly<Record<string, string | und
  * @param report - receives one message per rejected value, in the order the values were considered.
  * @returns a disposer restoring the previous dispatcher, policy, and environment.
  */
-export async function installProxyFromEnvironment(
-  env: EnvLookup,
-  report: (message: string) => void,
-): Promise<() => Promise<void>> {
+export async function installProxyFromEnvironment(env: EnvLookup, report: (message: string) => void): Promise<() => Promise<void>> {
   const { policy, diagnostics } = resolveProxyPolicy(env)
   for (const diagnostic of diagnostics) report(diagnostic.message)
   return await installGlobalProxy(policy)

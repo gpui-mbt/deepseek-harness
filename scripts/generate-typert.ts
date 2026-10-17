@@ -37,7 +37,11 @@ export class TypertGenerationError extends Error {
    * @param location - directory the stage worked on: the search start for `locate`, otherwise the workspace root.
    * @param cause - failure raised by the generator or the file system.
    */
-  constructor(readonly stage: TypertGenerationStage, readonly location: string, cause: unknown) {
+  constructor(
+    readonly stage: TypertGenerationStage,
+    readonly location: string,
+    cause: unknown,
+  ) {
     super(`generate-typert: ${STAGE_SUMMARIES[stage]} (${location})`, { cause })
   }
 }
@@ -45,13 +49,15 @@ export class TypertGenerationError extends Error {
 const STAGE_SUMMARIES: Readonly<Record<TypertGenerationStage, string>> = {
   locate: 'no directory at or above the working directory holds tsconfig.host.json and packages/; no artifact file changed',
   generate: 'Typert analysis or emission failed; no artifact file changed',
-  write: 'writing Typert artifacts failed; packages written before the failure have new lib/typert.* files and the rest keep their previous files',
+  write:
+    'writing Typert artifacts failed; packages written before the failure have new lib/typert.* files and the rest keep their previous files',
 }
 
 const STAGE_ACTIONS: Readonly<Record<TypertGenerationStage, string>> = {
   locate: 'Run the command from the repository root or a directory below it.',
   generate: 'Fix the source, package.json, or tsconfig paths named above, then rerun this command or pnpm run typecheck.',
-  write: 'Fix the file-system error above, then rerun this command; until a run succeeds, lib/typert.* files may come from two generations.',
+  write:
+    'Fix the file-system error above, then rerun this command; until a run succeeds, lib/typert.* files may come from two generations.',
 }
 
 // Host package compilation owns TypeScript diagnostics, as it does for the
@@ -102,7 +108,10 @@ function describeCause(cause: unknown): string {
 }
 
 function indent(text: string): string {
-  return text.split('\n').map(line => `  ${line}`).join('\n')
+  return text
+    .split('\n')
+    .map(line => `  ${line}`)
+    .join('\n')
 }
 
 /**

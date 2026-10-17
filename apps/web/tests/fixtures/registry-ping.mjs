@@ -16,10 +16,19 @@ export function apply(ctx, config) {
       const signal = AbortSignal.any([init.signal, lifetime.signal])
       const request = new Promise((_resolve, reject) => {
         if (signal.aborted) reject(signal.reason)
-        else signal.addEventListener('abort', () => { reject(signal.reason) }, { once: true })
+        else
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(signal.reason)
+            },
+            { once: true },
+          )
       })
       pending.add(request)
-      return request.finally(() => { pending.delete(request) })
+      return request.finally(() => {
+        pending.delete(request)
+      })
     }
     return async () => {
       globalThis.fetch = original

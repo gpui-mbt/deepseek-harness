@@ -4,13 +4,15 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { apply, inject } from '../src/client/index.ts'
 import type { DiscoverFace } from '../src/client/market-store.ts'
 
 it('contributes Discover to the Plugins page, follows Host changes, and withdraws with its fiber', async () => {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   await ctx.plugin(SlotRegistry).await()
   ctx.provide('locale', new LocaleRuntime(ctx))
   const market = {
@@ -33,10 +35,14 @@ it('contributes Discover to the Plugins page, follows Host changes, and withdraw
   const face = injected as DiscoverFace
   expect(face.resolveText({ en: 'English' })).toBe('English')
   face.ensure()
-  await vi.waitFor(() => { expect(face.hooks.discover.getSnapshot().status).toBe('ready') })
+  await vi.waitFor(() => {
+    expect(face.hooks.discover.getSnapshot().status).toBe('ready')
+  })
   remote.emit('plugin-market/changed', [])
   ctx.emit('connection/reset')
-  await vi.waitFor(() => { expect(market.listIndexes).toHaveBeenCalledTimes(3) })
+  await vi.waitFor(() => {
+    expect(market.listIndexes).toHaveBeenCalledTimes(3)
+  })
   await fiber.dispose()
   expect(slots.entries('plugins.tab')).toEqual([])
 })

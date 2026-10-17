@@ -11,10 +11,13 @@ import css from './Input.module.css'
  * @param ref - the native input, cleared when it unmounts.
  * @returns wrapper span containing the native input; input attributes pass through.
  */
-export const Input = forwardRef<HTMLInputElement, {
-  icon?: ReactNode
-  className?: string
-} & InputHTMLAttributes<HTMLInputElement>>(function Input({ icon, className, ...rest }, ref) {
+export const Input = forwardRef<
+  HTMLInputElement,
+  {
+    icon?: ReactNode
+    className?: string
+  } & InputHTMLAttributes<HTMLInputElement>
+>(function Input({ icon, className, ...rest }, ref) {
   return (
     <span className={clsx(css.wrap, className)}>
       {icon != null && <span className={css.icon}>{icon}</span>}

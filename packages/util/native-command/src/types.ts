@@ -21,11 +21,19 @@ export function parseNativeFileApplications(value: unknown): readonly NativeFile
   const applications: NativeFileApplication[] = []
   const entries: readonly unknown[] = value
   for (const entry of entries) {
-    if (typeof entry !== 'object' || entry === null
-      || !('id' in entry) || !('name' in entry) || !('default' in entry) || !('icon' in entry)
-      || typeof entry.id !== 'string' || entry.id.length === 0
-      || typeof entry.name !== 'string' || typeof entry.default !== 'boolean'
-      || !(entry.icon === null || (typeof entry.icon === 'string' && /^data:image\/(?:png|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(entry.icon)))) {
+    if (
+      typeof entry !== 'object' ||
+      entry === null ||
+      !('id' in entry) ||
+      !('name' in entry) ||
+      !('default' in entry) ||
+      !('icon' in entry) ||
+      typeof entry.id !== 'string' ||
+      entry.id.length === 0 ||
+      typeof entry.name !== 'string' ||
+      typeof entry.default !== 'boolean' ||
+      !(entry.icon === null || (typeof entry.icon === 'string' && /^data:image\/(?:png|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(entry.icon)))
+    ) {
       throw new Error('Invalid native application entry')
     }
     applications.push({ id: entry.id, name: entry.name, default: entry.default, icon: entry.icon })

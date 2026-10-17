@@ -1,6 +1,11 @@
 /** Historical child identity reduced to the fields required by a parent's catalog. */
 
-import { SessionFormatError, SessionFormatUnsupportedMigrationError, isSessionFormatJsonObject, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
+import {
+  SessionFormatError,
+  SessionFormatUnsupportedMigrationError,
+  isSessionFormatJsonObject,
+  sessionFormatCount,
+} from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatArtifact, SessionFormatJsonObject, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
 
 /**
@@ -16,8 +21,10 @@ export function historicalChildCatalogSource(artifact: SessionFormatArtifact): S
   }
   const descriptors = artifact.events.filter(event => event.type === 'subagent/descriptor' && event.seq >= artifact.inheritedEventCount)
   const source = {
-    childId: header.id, childCreatedAt: header.createdAt,
-    descriptorCount: descriptors.length, descriptor: descriptors[0]?.data ?? null,
+    childId: header.id,
+    childCreatedAt: header.createdAt,
+    descriptorCount: descriptors.length,
+    descriptor: descriptors[0]?.data ?? null,
   }
   childCatalogFact(source)
   return source
@@ -29,8 +36,7 @@ export function historicalChildCatalogSource(artifact: SessionFormatArtifact): S
  * @returns validated evidence; descriptor interpretation is deferred until parent membership is known.
  */
 export function childCatalogSource(value: SessionFormatJsonValue): SessionFormatJsonObject {
-  if (!isSessionFormatJsonObject(value) || typeof value['childId'] !== 'string'
-    || !Object.hasOwn(value, 'descriptor')) {
+  if (!isSessionFormatJsonObject(value) || typeof value['childId'] !== 'string' || !Object.hasOwn(value, 'descriptor')) {
     throw new SessionFormatUnsupportedMigrationError('catalog migration requires historical child identity and descriptor evidence')
   }
   sessionFormatCount(value['childCreatedAt'], 'catalog child creation time')
@@ -55,12 +61,17 @@ export function childCatalogFact(source: SessionFormatJsonObject): SessionFormat
   if (descriptor['version'] !== 1 && descriptor['mode'] !== 'continuable' && descriptor['mode'] !== 'one-shot') {
     throw new SessionFormatUnsupportedMigrationError(`${childCatalogSubject(source)} has an invalid subagent descriptor mode`)
   }
-  return catalogFact({
-    version: 0, childId: id, childCreatedAt: source['childCreatedAt'] as number,
-    // V1 described only continuable children and carried no mode field.
-    mode: descriptor['version'] === 1 ? 'continuable' : descriptor['mode'] as SessionFormatJsonValue,
-    ...(descriptor['label'] === undefined ? {} : { label: descriptor['label'] }),
-  }, childCatalogSubject(source))
+  return catalogFact(
+    {
+      version: 0,
+      childId: id,
+      childCreatedAt: source['childCreatedAt'] as number,
+      // V1 described only continuable children and carried no mode field.
+      mode: descriptor['version'] === 1 ? 'continuable' : (descriptor['mode'] as SessionFormatJsonValue),
+      ...(descriptor['label'] === undefined ? {} : { label: descriptor['label'] }),
+    },
+    childCatalogSubject(source),
+  )
 }
 
 /**
@@ -70,13 +81,16 @@ export function childCatalogFact(source: SessionFormatJsonObject): SessionFormat
  * @returns validated catalog payload.
  */
 export function catalogFact(value: SessionFormatJsonValue, subject = 'subagent/catalog'): SessionFormatJsonObject {
-  if (!isSessionFormatJsonObject(value) || (value['version'] !== 0 && value['version'] !== 1 && value['version'] !== 2)
-    || typeof value['childId'] !== 'string'
-    || (value['mode'] !== 'continuable' && value['mode'] !== 'one-shot' && value['mode'] !== 'external' && value['mode'] !== 'unknown')
-    || ((value['version'] === 2) !== (value['mode'] === 'external'))
-    || (value['version'] === 0 && value['mode'] === 'unknown')
-    || (value['mode'] === 'continuable' && typeof value['label'] !== 'string')
-    || (value['label'] !== undefined && typeof value['label'] !== 'string')) {
+  if (
+    !isSessionFormatJsonObject(value) ||
+    (value['version'] !== 0 && value['version'] !== 1 && value['version'] !== 2) ||
+    typeof value['childId'] !== 'string' ||
+    (value['mode'] !== 'continuable' && value['mode'] !== 'one-shot' && value['mode'] !== 'external' && value['mode'] !== 'unknown') ||
+    (value['version'] === 2) !== (value['mode'] === 'external') ||
+    (value['version'] === 0 && value['mode'] === 'unknown') ||
+    (value['mode'] === 'continuable' && typeof value['label'] !== 'string') ||
+    (value['label'] !== undefined && typeof value['label'] !== 'string')
+  ) {
     throw new SessionFormatError(`${subject} requires a supported versioned catalog fact`)
   }
   sessionFormatCount(value['childCreatedAt'], 'catalog child creation time')

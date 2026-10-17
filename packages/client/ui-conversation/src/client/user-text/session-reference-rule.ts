@@ -21,9 +21,13 @@ export const sessionReferenceRule: UserTextRule<'session'> = {
     for (let start = text.indexOf('@', from); start >= 0; start = text.indexOf('@', start + 1)) {
       wire.lastIndex = start
       const explicit = wire.exec(text)
-      if (explicit !== null) return {
-        id: 'session', start, end: start + explicit[0].length, data: { label: explicit[1] as string },
-      }
+      if (explicit !== null)
+        return {
+          id: 'session',
+          start,
+          end: start + explicit[0].length,
+          data: { label: explicit[1] as string },
+        }
       if (!readLabels) {
         labels = context.read('sessionLabels')
         readLabels = true

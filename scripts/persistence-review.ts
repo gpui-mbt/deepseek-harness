@@ -4,7 +4,13 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { classifyPersistenceChange, parsePersistenceSnapshot, type PersistenceTypeChange } from './persistence-changes.ts'
-import { canonicalizeSchema, schemaDigest, type CanonicalSchema, type PersistenceSchemaInventory, type SchemaNode } from './persistence-schema-model.ts'
+import {
+  canonicalizeSchema,
+  schemaDigest,
+  type CanonicalSchema,
+  type PersistenceSchemaInventory,
+  type SchemaNode,
+} from './persistence-schema-model.ts'
 import { sourceKindGroups } from './persistence-source-policy.ts'
 
 /** One structural observation, shared across its containing roots. */
@@ -36,7 +42,7 @@ function compareText(left: string, right: string): number {
 function selector(schema: CanonicalSchema, index: number): string | undefined {
   const node = schema.nodes[index]
   if (node?.kind !== 'object') return undefined
-  const parts = ['kind', 'type', 'role', 'form'].flatMap((name) => {
+  const parts = ['kind', 'type', 'role', 'form'].flatMap(name => {
     const property = node.properties.find(property => property.name === name && !property.optional)
     const value = property === undefined ? undefined : schema.nodes[property.type]
     return value?.kind === 'literal' && typeof value.value === 'string' ? [`[${name}=${JSON.stringify(value.value)}]`] : []
@@ -57,8 +63,11 @@ function propertyPath(path: string, name: string): string {
 export function reviewPersistenceSchemas(before: PersistenceSchemaInventory, after: PersistenceSchemaInventory): PersistenceReview {
   const oldRoots = new Map(before.roots.map(root => [root.key, root]))
   const newRoots = new Map(after.roots.map(root => [root.key, root]))
-  const evidence = new Map<string, Omit<PersistenceReviewEvidence, 'locations'> & { locations: Map<string, { root: string; path: string }> }>()
-  const roots = [...new Set([...oldRoots.keys(), ...newRoots.keys()])].sort().flatMap((root) => {
+  const evidence = new Map<
+    string,
+    Omit<PersistenceReviewEvidence, 'locations'> & { locations: Map<string, { root: string; path: string }> }
+  >()
+  const roots = [...new Set([...oldRoots.keys(), ...newRoots.keys()])].sort().flatMap(root => {
     const oldRoot = oldRoots.get(root) ?? null
     const newRoot = newRoots.get(root) ?? null
     const changes = classifyPersistenceChange(oldRoot, newRoot)
@@ -80,7 +89,12 @@ export function reviewPersistenceSchemas(before: PersistenceSchemaInventory, aft
       return hash
     }
     const emit = (kind: string, left: number | null, right: number | null, path: string, field?: string): void => {
-      const change = { kind, ...(field === undefined ? {} : { field }), before: left === null ? null : digest('before', left), after: right === null ? null : digest('after', right) }
+      const change = {
+        kind,
+        ...(field === undefined ? {} : { field }),
+        before: left === null ? null : digest('before', left),
+        after: right === null ? null : digest('after', right),
+      }
       const key = JSON.stringify(change)
       const item = evidence.get(key) ?? { ...change, locations: new Map() }
       item.locations.set(JSON.stringify([root, path]), { root, path })
@@ -104,13 +118,16 @@ export function reviewPersistenceSchemas(before: PersistenceSchemaInventory, aft
             emit(previous === undefined ? 'property-added' : 'property-removed', left, right, child, name)
             continue
           }
-          if (previous.optional !== next.optional) emit(next.optional ? 'property-made-optional' : 'property-made-required', left, right, child, name)
-          if (JSON.stringify(previous.compatibility) !== JSON.stringify(next.compatibility)) emit('source-policy-changed', left, right, child, name)
+          if (previous.optional !== next.optional)
+            emit(next.optional ? 'property-made-optional' : 'property-made-required', left, right, child, name)
+          if (JSON.stringify(previous.compatibility) !== JSON.stringify(next.compatibility))
+            emit('source-policy-changed', left, right, child, name)
           walk(previous.type, next.type, child, active)
         }
         const oldIndices = new Map(oldNode.indices.map(index => [digest('before', index.key), index]))
         const newIndices = new Map(newNode.indices.map(index => [digest('after', index.key), index]))
-        if (oldIndices.size !== newIndices.size || [...oldIndices.keys()].some(key => !newIndices.has(key))) emit('index-signature-changed', left, right, path)
+        if (oldIndices.size !== newIndices.size || [...oldIndices.keys()].some(key => !newIndices.has(key)))
+          emit('index-signature-changed', left, right, path)
         for (const [key, index] of oldIndices) {
           const next = newIndices.get(key)
           if (next !== undefined) walk(index.value, next.value, `${path}[*]`, active)
@@ -123,7 +140,8 @@ export function reviewPersistenceSchemas(before: PersistenceSchemaInventory, aft
           const next = newNode.elements[position]
           if (next === undefined) continue
           const child = `${path}[${String(position)}]`
-          if (previous.optional !== next.optional || previous.rest !== next.rest) emit('tuple-element-cardinality-changed', left, right, child)
+          if (previous.optional !== next.optional || previous.rest !== next.rest)
+            emit('tuple-element-cardinality-changed', left, right, child)
           walk(previous.type, next.type, child, active)
         }
       } else if (oldNode.kind === 'union' && newNode.kind === 'union') {
@@ -136,9 +154,9 @@ export function reviewPersistenceSchemas(before: PersistenceSchemaInventory, aft
           const candidates = new Map<string, number[]>()
           for (const index of indices) {
             const key = selector(schema, index)
-            if (key !== undefined) candidates.set(key, [...candidates.get(key) ?? [], index])
+            if (key !== undefined) candidates.set(key, [...(candidates.get(key) ?? []), index])
           }
-          return new Map([...candidates].flatMap(([key, values]) => values.length === 1 ? [[key, values[0] as number]] : []))
+          return new Map([...candidates].flatMap(([key, values]) => (values.length === 1 ? [[key, values[0] as number]] : [])))
         }
         const oldSelectors = unique(oldSchema, oldNode.types)
         const newSelectors = unique(newSchema, newNode.types)
@@ -154,17 +172,22 @@ export function reviewPersistenceSchemas(before: PersistenceSchemaInventory, aft
         const oldKinds = sourceKindGroups(oldSchema.nodes, left)
         const newKinds = sourceKindGroups(newSchema.nodes, right)
         for (const [side, indices, matched, schema] of [
-          ['before', removed, matchedOld, oldSchema], ['after', added, matchedNew, newSchema],
+          ['before', removed, matchedOld, oldSchema],
+          ['after', added, matchedNew, newSchema],
         ] as const) {
           for (const index of indices) {
             if (matched.has(index)) continue
             const ownKinds = side === 'before' ? oldKinds : newKinds
             const otherKinds = side === 'before' ? newKinds : oldKinds
-            const kind = [...ownKinds ?? []].find(([, members]) => members.includes(index))?.[0]
+            const kind = [...(ownKinds ?? [])].find(([, members]) => members.includes(index))?.[0]
             const wholeKind = kind !== undefined && otherKinds !== undefined && !otherKinds.has(kind)
             const suffix = selector(schema, index) ?? ''
-            emit(`${wholeKind ? 'kind' : 'variant'}-${side === 'before' ? 'removed' : 'added'}`,
-              side === 'before' ? index : null, side === 'after' ? index : null, path + suffix)
+            emit(
+              `${wholeKind ? 'kind' : 'variant'}-${side === 'before' ? 'removed' : 'added'}`,
+              side === 'before' ? index : null,
+              side === 'after' ? index : null,
+              path + suffix,
+            )
           }
         }
       } else emit('type-changed', left, right, path)
@@ -173,10 +196,17 @@ export function reviewPersistenceSchemas(before: PersistenceSchemaInventory, aft
   }
 
   const oldTypes = new Set(before.types.map(type => type.digest))
-  return { schemaVersion: 1, roots, unchangedTypes: after.types.filter(type => oldTypes.has(type.digest)).length,
-    evidence: [...evidence].sort(([a], [b]) => compareText(a, b)).map(([, item]) => ({ ...item,
-      locations: [...item.locations.values()].sort((a, b) => compareText(a.root, b.root) || compareText(a.path, b.path)),
-    })) }
+  return {
+    schemaVersion: 1,
+    roots,
+    unchangedTypes: after.types.filter(type => oldTypes.has(type.digest)).length,
+    evidence: [...evidence]
+      .sort(([a], [b]) => compareText(a, b))
+      .map(([, item]) => ({
+        ...item,
+        locations: [...item.locations.values()].sort((a, b) => compareText(a.root, b.root) || compareText(a.path, b.path)),
+      })),
+  }
 }
 
 function code(value: string): string {
@@ -189,20 +219,44 @@ function code(value: string): string {
  * @returns Markdown with full fingerprints in expandable evidence.
  */
 export function renderPersistenceReview(report: PersistenceReview): string {
-  const lines = ['# Persistence schema review', '', `${String(report.roots.length)} changed roots; ${String(report.unchangedTypes)} unchanged type fingerprints.`, '',
-    '## Structural evidence', '', 'Display paths use literal discriminators. Ambiguous alternatives remain separate additions and removals; this explanation does not decide compatibility.', '']
+  const lines = [
+    '# Persistence schema review',
+    '',
+    `${String(report.roots.length)} changed roots; ${String(report.unchangedTypes)} unchanged type fingerprints.`,
+    '',
+    '## Structural evidence',
+    '',
+    'Display paths use literal discriminators. Ambiguous alternatives remain separate additions and removals; this explanation does not decide compatibility.',
+    '',
+  ]
   for (const root of report.roots) {
     if (root.before === null || root.after === null) lines.push(`- Root ${root.before === null ? 'added' : 'removed'}: ${code(root.root)}.`)
   }
   for (const item of report.evidence) {
-    lines.push('', `<details><summary>${item.kind}${item.field === undefined ? '' : `: ${item.field.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}`}</summary>`, '',
-      `Before: ${item.before === null ? 'absent' : code(item.before)}; after: ${item.after === null ? 'absent' : code(item.after)}.`, '',
-      ...item.locations.map(location => `- ${code(location.path)}`), '', '</details>')
+    lines.push(
+      '',
+      `<details><summary>${item.kind}${item.field === undefined ? '' : `: ${item.field.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}`}</summary>`,
+      '',
+      `Before: ${item.before === null ? 'absent' : code(item.before)}; after: ${item.after === null ? 'absent' : code(item.after)}.`,
+      '',
+      ...item.locations.map(location => `- ${code(location.path)}`),
+      '',
+      '</details>',
+    )
   }
   lines.push('', '## Compatibility review requirements', '')
   for (const root of report.roots) {
-    lines.push(`### ${code(root.root)}`, '', `Assessment: **${root.changes.some(change => change.requiresCompatibilityReview) ? 'compatibility review required' : 'same-version allowed'}**.`, '',
-      ...root.changes.map(change => `- ${code(change.path)}: ${change.description} (${code(change.kind)}; requiresCompatibilityReview: ${String(change.requiresCompatibilityReview)}).`), '')
+    lines.push(
+      `### ${code(root.root)}`,
+      '',
+      `Assessment: **${root.changes.some(change => change.requiresCompatibilityReview) ? 'compatibility review required' : 'same-version allowed'}**.`,
+      '',
+      ...root.changes.map(
+        change =>
+          `- ${code(change.path)}: ${change.description} (${code(change.kind)}; requiresCompatibilityReview: ${String(change.requiresCompatibilityReview)}).`,
+      ),
+      '',
+    )
   }
   return lines.join('\n').trimEnd() + '\n'
 }
@@ -213,8 +267,14 @@ export function renderPersistenceReview(report: PersistenceReview): string {
  * @returns structural evidence and per-root compatibility-review requirements.
  */
 export function runPersistenceReview(args: readonly string[]): string {
-  const { values } = parseArgs({ args: [...args], options: { before: { type: 'string' }, after: { type: 'string' }, json: { type: 'boolean' } }, strict: true, allowPositionals: false })
-  if (values.before === undefined || values.after === undefined) throw new Error('persistence review: --before and --after inventory paths are required')
+  const { values } = parseArgs({
+    args: [...args],
+    options: { before: { type: 'string' }, after: { type: 'string' }, json: { type: 'boolean' } },
+    strict: true,
+    allowPositionals: false,
+  })
+  if (values.before === undefined || values.after === undefined)
+    throw new Error('persistence review: --before and --after inventory paths are required')
   const read = (path: string): PersistenceSchemaInventory => parsePersistenceSnapshot(JSON.parse(readFileSync(path, 'utf8')))
   const report = reviewPersistenceSchemas(read(values.before), read(values.after))
   return values.json ? JSON.stringify(report, null, 2) + '\n' : renderPersistenceReview(report)

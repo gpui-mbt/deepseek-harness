@@ -25,17 +25,21 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
     show: false,
     title: locale.messages.welcomeTitle,
     backgroundColor: platform === 'darwin' || platform === 'win32' ? '#00000000' : '#FFFFFF',
-    ...(platform === 'darwin' ? {
-      titleBarStyle: 'hidden',
-      trafficLightPosition: { x: 21, y: 21 },
-      vibrancy: 'menu',
-      visualEffectState: 'active',
-    } as const : {}),
-    ...(platform === 'win32' ? {
-      titleBarStyle: 'hidden',
-      titleBarOverlay: { color: '#00000000', symbolColor: '#0F1115', height: 42 },
-      backgroundMaterial: 'acrylic',
-    } as const : {}),
+    ...(platform === 'darwin'
+      ? ({
+          titleBarStyle: 'hidden',
+          trafficLightPosition: { x: 21, y: 21 },
+          vibrancy: 'menu',
+          visualEffectState: 'active',
+        } as const)
+      : {}),
+    ...(platform === 'win32'
+      ? ({
+          titleBarStyle: 'hidden',
+          titleBarOverlay: { color: '#00000000', symbolColor: '#0F1115', height: 42 },
+          backgroundMaterial: 'acrylic',
+        } as const)
+      : {}),
     webPreferences: {
       preload: fileURLToPath(new URL('./preload-welcome.cjs', import.meta.url)),
       additionalArguments: [`--dsh-welcome-locale=${locale.id}`],
@@ -65,8 +69,14 @@ export async function openWelcomeWindow(locale: DesktopLocale, operations: Welco
     if (!active) return
     active = false
     for (const channel of [
-      WELCOME_IPC.analyticsEnabled, WELCOME_IPC.analytics, WELCOME_IPC.takeNotice, WELCOME_IPC.saveApiKey,
-      WELCOME_IPC.skip, WELCOME_IPC.start, WELCOME_IPC.cancel, WELCOME_IPC.copyLink,
+      WELCOME_IPC.analyticsEnabled,
+      WELCOME_IPC.analytics,
+      WELCOME_IPC.takeNotice,
+      WELCOME_IPC.saveApiKey,
+      WELCOME_IPC.skip,
+      WELCOME_IPC.start,
+      WELCOME_IPC.cancel,
+      WELCOME_IPC.copyLink,
     ]) {
       ipcMain.removeHandler(channel)
     }
@@ -78,31 +88,42 @@ export async function openWelcomeWindow(locale: DesktopLocale, operations: Welco
       throw new Error('desktop welcome: rejected action from an unowned frame')
     }
   }
-  ipcMain.handle(WELCOME_IPC.analyticsEnabled, (event) => {
+  ipcMain.handle(WELCOME_IPC.analyticsEnabled, event => {
     assertSender(event)
     return operations.analyticsEnabled()
   })
   ipcMain.handle(WELCOME_IPC.analytics, async (event, eventName: unknown, attributes: unknown) => {
     assertSender(event)
-    if (typeof attributes !== 'object' || attributes === null || Array.isArray(attributes)) throw new Error('desktop welcome: invalid analytics attributes')
-    if (eventName === 'auth_page_click' && 'button_name' in attributes && Object.keys(attributes).length === 1
-      && (attributes.button_name === 'sign_in' || attributes.button_name === 'api-key')) {
+    if (typeof attributes !== 'object' || attributes === null || Array.isArray(attributes))
+      throw new Error('desktop welcome: invalid analytics attributes')
+    if (
+      eventName === 'auth_page_click' &&
+      'button_name' in attributes &&
+      Object.keys(attributes).length === 1 &&
+      (attributes.button_name === 'sign_in' || attributes.button_name === 'api-key')
+    ) {
       await operations.analytics?.(eventName, { button_name: attributes.button_name })
     } else if ((eventName === 'auth_page_view' || eventName === 'api_key_save_click') && Object.keys(attributes).length === 0) {
       await operations.analytics?.(eventName, {})
     } else throw new Error('desktop welcome: invalid analytics event')
   })
-  ipcMain.handle(WELCOME_IPC.takeNotice, async (event) => { assertSender(event); return operations.takeNotice() })
+  ipcMain.handle(WELCOME_IPC.takeNotice, async event => {
+    assertSender(event)
+    return operations.takeNotice()
+  })
   ipcMain.handle(WELCOME_IPC.saveApiKey, async (event, value: unknown) => {
     assertSender(event)
     if (typeof value !== 'string' || !/^[\x21-\x7e]+$/.test(value)) return { ok: false }
     return operations.saveApiKey(value)
   })
-  ipcMain.handle(WELCOME_IPC.skip, async (event) => {
+  ipcMain.handle(WELCOME_IPC.skip, async event => {
     assertSender(event)
     await operations.skip()
   })
-  ipcMain.handle(WELCOME_IPC.start, async (event) => { assertSender(event); return operations.startSignIn() })
+  ipcMain.handle(WELCOME_IPC.start, async event => {
+    assertSender(event)
+    return operations.startSignIn()
+  })
   ipcMain.handle(WELCOME_IPC.cancel, async (event, id: unknown) => {
     assertSender(event)
     if (typeof id !== 'string') throw new Error('desktop welcome: invalid attempt')
@@ -115,7 +136,9 @@ export async function openWelcomeWindow(locale: DesktopLocale, operations: Welco
   })
   window.once('closed', disposeHandlers)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  window.webContents.on('will-navigate', (event) => { event.preventDefault() })
+  window.webContents.on('will-navigate', event => {
+    event.preventDefault()
+  })
   try {
     await window.loadFile(join(app.getAppPath(), 'renderer', 'welcome.html'))
   } catch (error) {

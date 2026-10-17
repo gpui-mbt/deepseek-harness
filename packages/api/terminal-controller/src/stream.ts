@@ -12,7 +12,9 @@ export class TerminalFollower {
   private failure: Error | undefined
 
   /** Whether this attachment still accepts input and output. */
-  get active(): boolean { return !this.closed && !this.finished }
+  get active(): boolean {
+    return !this.closed && !this.finished
+  }
 
   /** @param maxBytes - maximum queued UTF-8 bytes for this follower. */
   constructor(private readonly maxBytes: number) {}
@@ -63,7 +65,9 @@ export class TerminalFollower {
    * @returns ordered terminal frames.
    */
   async *read(signal: AbortSignal): AsyncIterable<TerminalFrame> {
-    const abort = (): void => { this.close() }
+    const abort = (): void => {
+      this.close()
+    }
     signal.addEventListener('abort', abort, { once: true })
     if (signal.aborted) abort()
     try {
@@ -74,7 +78,9 @@ export class TerminalFollower {
           yield next.frame
         } else {
           if (this.finished) break
-          await new Promise<void>((resolve) => { this.wake = resolve })
+          await new Promise<void>(resolve => {
+            this.wake = resolve
+          })
           this.wake = undefined
         }
       }

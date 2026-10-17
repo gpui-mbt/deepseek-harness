@@ -38,7 +38,9 @@ export async function withWindowsSigningStage(options, operation) {
   try {
     const file = await lstat(path)
     if (!file.isFile() || file.isSymbolicLink()) throw new Error('Windows signing stage requires a regular lock file')
-  } catch (error) { if (error.code !== 'ENOENT') throw error }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
   const start = performance.now()
   let handle
   let waiting = false
@@ -49,7 +51,10 @@ export async function withWindowsSigningStage(options, operation) {
     if (handle !== -1) break
     const code = api.error()
     if (code !== 32) throw new Error(`Windows signing stage cannot open its lock (Win32 ${code})`)
-    if (!waiting) { options.record({ type: 'signing-stage-wait', stage: options.stage }); waiting = true }
+    if (!waiting) {
+      options.record({ type: 'signing-stage-wait', stage: options.stage })
+      waiting = true
+    }
     await setTimeout(100, undefined, { signal: options.signal })
   }
   try {

@@ -1,31 +1,41 @@
 // @vitest-environment jsdom
 /** Text overlay resources follow page ownership; resize only aligns selection with the existing canvas. */
 import type { PageViewport, PDFPageProxy } from 'pdfjs-dist'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 
 const api = vi.hoisted(() => ({ render: vi.fn(), cancel: vi.fn(), create: vi.fn() }))
 vi.mock('pdfjs-dist', () => ({}))
 vi.mock('pdfjs-dist/web/pdf_viewer.mjs', () => ({
   TextLayerBuilder: class {
     div = document.createElement('div')
-    constructor(options: unknown) { api.create(options) }
+    constructor(options: unknown) {
+      api.create(options)
+    }
     render = api.render
     cancel = api.cancel
   },
 }))
 import { pdfTextRenderer } from '../src/client/pdf/text.ts'
 
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 it('aligns selectable text to the displayed width and removes its observer and DOM on cancellation', async () => {
   let resize: ResizeObserverCallback | undefined
   const observe = vi.fn()
   const disconnect = vi.fn()
-  vi.stubGlobal('ResizeObserver', class {
-    constructor(callback: ResizeObserverCallback) { resize = callback }
-    observe = observe
-    disconnect = disconnect
-  })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        resize = callback
+      }
+      observe = observe
+      disconnect = disconnect
+    },
+  )
   api.render.mockResolvedValue(undefined)
   const host = document.createElement('div')
   let width = 200

@@ -8,7 +8,9 @@ import { DESKTOP_IPC } from './ipc.ts'
  * when the preload runs before the document root exists.
  */
 export function markDocumentPlatform(): void {
-  const mark = (): void => { document.documentElement.dataset.platform = process.platform }
+  const mark = (): void => {
+    document.documentElement.dataset.platform = process.platform
+  }
   // lib.dom types documentElement non-null, but a preload runs before the
   // document root exists.
   const root = document.documentElement as HTMLElement | null

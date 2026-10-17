@@ -8,13 +8,7 @@
 
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import {
-  loadOptionalPatches,
-  loadOverlayPatches,
-  renderConfigDump,
-  type ConfigDumpLayer,
-  type Profile,
-} from '@deepseek-ai/dsh-app-boot'
+import { loadOptionalPatches, loadOverlayPatches, renderConfigDump, type ConfigDumpLayer, type Profile } from '@deepseek-ai/dsh-app-boot'
 import { homePatchPath, prepareProfile, PROFILE_ROOT_FILENAME } from './profile-boot.ts'
 
 const NAME = 'dsh'
@@ -29,12 +23,7 @@ const NAME = 'dsh'
  * @param patches - `--patch` overlay paths, in argv order.
  * @param fromDefaultProfile - shipped template that replaces the profile before loading it.
  */
-export function runDumpConfig(
-  profile: string,
-  defaultOnly: boolean,
-  patches: readonly string[],
-  fromDefaultProfile?: string,
-): void {
+export function runDumpConfig(profile: string, defaultOnly: boolean, patches: readonly string[], fromDefaultProfile?: string): void {
   const loaded = prepareProfile(profile, !defaultOnly, fromDefaultProfile)
   const layers = collectConfigDumpLayers(loaded, defaultOnly, patches)
   // The dump anchors on the same empty root file the boot includes.
@@ -48,11 +37,7 @@ export function runDumpConfig(
  * @param patches - overlay paths relative to the invoking directory, in argv order.
  * @returns the labeled layers shared by YAML and schema dumps.
  */
-export function collectConfigDumpLayers(
-  loaded: Profile,
-  defaultOnly: boolean,
-  patches: readonly string[],
-): ConfigDumpLayer[] {
+export function collectConfigDumpLayers(loaded: Profile, defaultOnly: boolean, patches: readonly string[]): ConfigDumpLayer[] {
   const layers: ConfigDumpLayer[] = loaded.layers.map(layer => ({
     label: layer.packageName,
     patches: layer.patches,

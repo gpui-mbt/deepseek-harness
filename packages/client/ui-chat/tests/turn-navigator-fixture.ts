@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import { act } from '@testing-library/react'
 
 /**
@@ -17,20 +17,28 @@ export function installTurnNavigatorObserver(initialHeight: number | null = 300)
       if (!(element instanceof HTMLElement) || element.parentElement?.tagName !== 'NAV') return
       rails.set(element, this)
       element.scrollTo = (options: ScrollToOptions | number = {}, y?: number) => {
-        const next = typeof options === 'number' ? y ?? 0 : options.top ?? element.scrollTop
+        const next = typeof options === 'number' ? (y ?? 0) : (options.top ?? element.scrollTop)
         if (next === element.scrollTop) return
         element.scrollTop = next
         queueMicrotask(() => {
-          if (element.isConnected) act(() => { element.dispatchEvent(new Event('scroll')) })
+          if (element.isConnected)
+            act(() => {
+              element.dispatchEvent(new Event('scroll'))
+            })
         })
       }
       queueMicrotask(() => {
         const currentHeight = height
-        if (currentHeight !== null && rails.get(element) === this) act(() => { this.deliver(element, currentHeight) })
+        if (currentHeight !== null && rails.get(element) === this)
+          act(() => {
+            this.deliver(element, currentHeight)
+          })
       })
     }
 
-    unobserve(element: Element): void { rails.delete(element) }
+    unobserve(element: Element): void {
+      rails.delete(element)
+    }
 
     disconnect(): void {
       for (const [element, observer] of rails) {
@@ -40,13 +48,18 @@ export function installTurnNavigatorObserver(initialHeight: number | null = 300)
 
     deliver(target: Element, blockSize: number): void {
       const size = [{ inlineSize: 36, blockSize }]
-      this.callback([{
-        target,
-        borderBoxSize: size,
-        contentBoxSize: size,
-        devicePixelContentBoxSize: size,
-        contentRect: new DOMRectReadOnly(0, 0, 36, blockSize),
-      }], this)
+      this.callback(
+        [
+          {
+            target,
+            borderBoxSize: size,
+            contentBoxSize: size,
+            devicePixelContentBoxSize: size,
+            contentRect: new DOMRectReadOnly(0, 0, 36, blockSize),
+          },
+        ],
+        this,
+      )
     }
   }
 

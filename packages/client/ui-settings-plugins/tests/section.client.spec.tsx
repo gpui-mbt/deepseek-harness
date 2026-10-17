@@ -2,7 +2,7 @@
 /** The Built-in plugins section: its heading, its tab row, and which tab is mounted. */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PluginsSettingsSection } from '../src/client/PluginsSettingsSection.tsx'
 import type { PluginsSettingsSectionProps, PluginsSettingsTabEntry } from '../src/client/PluginsSettingsSection.tsx'
 import { en } from '../src/client/locales.ts'
@@ -15,9 +15,7 @@ function renderSection(rows: readonly PluginsSettingsTabEntry[]) {
   const props = {
     t,
     useTabs: (selector: (value: readonly PluginsSettingsTabEntry[]) => unknown) => selector(rows),
-    renderSlot: (_name: string, _owner: unknown, options: { only?: string }) => (
-      <span>{options.only}</span>
-    ),
+    renderSlot: (_name: string, _owner: unknown, options: { only?: string }) => <span>{options.only}</span>,
   } as PluginsSettingsSectionProps
   render(<PluginsSettingsSection {...props} />)
 }

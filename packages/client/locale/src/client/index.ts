@@ -7,7 +7,11 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
 import {
-  type BoundActions, type LocaleDictOf, type LocaleNamespaceMap, type Translate, type TranslateNS,
+  type BoundActions,
+  type LocaleDictOf,
+  type LocaleNamespaceMap,
+  type Translate,
+  type TranslateNS,
 } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the ctx.configForms Context merge and the settings slot types.
 // Cross-plugin collaboration goes through the service, never a value import
@@ -17,13 +21,16 @@ import { parseLocaleBootstrap, type LocaleBootstrap, type LocaleBridge } from '.
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import {
-  LOCALE_ID_PATTERN, LOCALE_IDS, LOCALE_PREFERENCE_FIELD, LOCALE_SETTINGS_NAMESPACE,
-  type BuiltInLocaleId, type LocaleId, type LocaleSettings,
+  LOCALE_ID_PATTERN,
+  LOCALE_IDS,
+  LOCALE_PREFERENCE_FIELD,
+  LOCALE_SETTINGS_NAMESPACE,
+  type BuiltInLocaleId,
+  type LocaleId,
+  type LocaleSettings,
 } from '../locale-settings.ts'
 import { en, zh, type CommonKey } from '../locales/index.ts'
-import {
-  en as settingsEn, zh as settingsZh, type SettingsLocaleKey,
-} from '../locales/settings.ts'
+import { en as settingsEn, zh as settingsZh, type SettingsLocaleKey } from '../locales/settings.ts'
 import type { LanguageRowInjected } from './LanguageRow.tsx'
 import { LanguageRow } from './LanguageRow.tsx'
 import { createLanguageRowStore } from './settings-store.ts'
@@ -183,7 +190,11 @@ export class LocaleRuntime {
    * absent compositions (standalone dictionary registries) stay process-local.
    * @param bootstrap - native initialization; absent in ordinary browsers.
    */
-  constructor(ctx: ClientContext, host?: ConfigForm<LocaleSettings>, private readonly bootstrap?: LocaleBootstrap) {
+  constructor(
+    ctx: ClientContext,
+    host?: ConfigForm<LocaleSettings>,
+    private readonly bootstrap?: LocaleBootstrap,
+  ) {
     this.ctx = ctx
     this.host = host
     for (const locale of BUILT_IN_LOCALES) this.catalog.set(localeKey(locale.id), locale)
@@ -192,7 +203,13 @@ export class LocaleRuntime {
     this.preference = bootstrap?.preference ?? undefined
     this.snapshot = Object.freeze({ active: this.resolveActive(), locales, revision: 0 })
     if (host !== undefined) {
-      ctx.effect(() => host.subscribe(() => { this.adopt(host) }), 'locale: settings scope adoption')
+      ctx.effect(
+        () =>
+          host.subscribe(() => {
+            this.adopt(host)
+          }),
+        'locale: settings scope adoption',
+      )
       this.adopt(host)
     }
   }
@@ -213,10 +230,7 @@ export class LocaleRuntime {
    */
   resolveText(text: LocalizedText): string {
     if (typeof text === 'string') return text
-    return this.fallbackChain(this.snapshot.active).reduceRight(
-      (resolved, locale) => text[localeKey(locale)] ?? resolved,
-      text.en,
-    )
+    return this.fallbackChain(this.snapshot.active).reduceRight((resolved, locale) => text[localeKey(locale)] ?? resolved, text.en)
   }
 
   /**
@@ -237,7 +251,9 @@ export class LocaleRuntime {
    */
   subscribe(fn: () => void): () => void {
     this.listeners.add(fn)
-    return () => { this.listeners.delete(fn) }
+    return () => {
+      this.listeners.delete(fn)
+    }
   }
 
   /**
@@ -364,9 +380,7 @@ export class LocaleRuntime {
       const key = localeKey(current.id)
       seen.add(key)
       chain.push(current.id)
-      current = current.fallback === undefined
-        ? undefined
-        : this.catalog.get(localeKey(current.fallback))
+      current = current.fallback === undefined ? undefined : this.catalog.get(localeKey(current.fallback))
     }
     if (!seen.has(localeKey(FALLBACK_LOCALE))) chain.push(FALLBACK_LOCALE)
     const resolved = Object.freeze(chain)
@@ -398,10 +412,11 @@ export class LocaleRuntime {
    */
   register(ns: string, locale: string, dict: LocaleDict): () => void
   register(ns: string, localeOrDicts: string | Record<string, LocaleDict>, dict?: LocaleDict): () => void {
-    const pairs: [string, LocaleDict][] = typeof localeOrDicts === 'string'
-      // Overload guarantees dict on the single-locale arm.
-      ? [[localeOrDicts, dict as LocaleDict]]
-      : Object.entries(localeOrDicts)
+    const pairs: [string, LocaleDict][] =
+      typeof localeOrDicts === 'string'
+        ? // Overload guarantees dict on the single-locale arm.
+          [[localeOrDicts, dict as LocaleDict]]
+        : Object.entries(localeOrDicts)
     for (const [locale] of pairs) {
       if (!LOCALE_ID_PATTERN.test(locale)) {
         throw new Error(`locale id "${locale}" is not a BCP 47-style tag`)
@@ -465,12 +480,9 @@ export class LocaleRuntime {
 
   private translate(ns: string, key: string, params?: Record<string, unknown>): string {
     const chain = this.fallbackChain(this.snapshot.active)
-    const template = this.lookup(ns, key, chain)
-      ?? (ns !== COMMON_NS ? this.lookup(COMMON_NS, key, chain) : undefined)
-      ?? key
+    const template = this.lookup(ns, key, chain) ?? (ns !== COMMON_NS ? this.lookup(COMMON_NS, key, chain) : undefined) ?? key
     if (!params) return template
-    return template.replace(/\{(\w+)\}/g, (match, name: string) =>
-      name in params ? String(params[name]) : match)
+    return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match))
   }
 
   private lookup(ns: string, key: string, chain: readonly LocaleId[]): string | undefined {
@@ -489,11 +501,7 @@ export class LocaleRuntime {
    * registration-heavy boot cannot storm event listeners (which may
    * re-register slots in response).
    */
-  private publish(
-    active: LocaleId,
-    localeChanged: boolean,
-    locales: readonly LocaleDefinition[] = this.snapshot.locales,
-  ): void {
+  private publish(active: LocaleId, localeChanged: boolean, locales: readonly LocaleDefinition[] = this.snapshot.locales): void {
     this.snapshot = Object.freeze({
       active,
       locales,
@@ -580,7 +588,9 @@ export async function apply(ctx: ClientContext): Promise<void> {
   locale.register(SETTINGS_NS, { zh: settingsZh, en: settingsEn })
   ctx.provide('locale', locale)
   if (bridge !== undefined) {
-    ctx.on('locale/change', (snapshot) => { bridge.onChange(snapshot.active) })
+    ctx.on('locale/change', snapshot => {
+      bridge.onChange(snapshot.active)
+    })
     bridge.onChange(locale.getSnapshot().active)
   }
   // The service IS the LocaleFace (bind + getSnapshot/subscribe): install it
@@ -609,15 +619,22 @@ export async function apply(ctx: ClientContext): Promise<void> {
     // first render (the store's revision guard drops stale duplicates).
     sync()
     return {
-      setLocale: (id) => { locale.setLocale(id) },
+      setLocale: id => {
+        locale.setLocale(id)
+      },
     }
   }
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'language',
-    order: 0,
-    store,
-    locale: SETTINGS_NS,
-    inject: injected,
-  }, LanguageRow))
+  ctx.slots.inject('settings.general.item', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.general.item',
+        id: 'language',
+        order: 0,
+        store,
+        locale: SETTINGS_NS,
+        inject: injected,
+      },
+      LanguageRow,
+    ),
+  )
 }

@@ -19,7 +19,8 @@ export function syncWindowsAppearance(): void {
     const root = document.documentElement
     const menu = installWindowsMenu()
     const probe = document.createElement('span')
-    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--dsw-specific-sidebar-fill);color:var(--dsw-alias-label-primary)'
+    probe.style.cssText =
+      'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--dsw-specific-sidebar-fill);color:var(--dsw-alias-label-primary)'
     document.body.append(probe)
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 1
@@ -49,12 +50,16 @@ export function syncWindowsAppearance(): void {
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme', 'style'] })
     observer.observe(document.head, { childList: true, subtree: true, characterData: true })
     document.head.addEventListener('load', send, true)
-    window.addEventListener('pagehide', () => {
-      observer.disconnect()
-      menu.dispose()
-      probe.remove()
-      document.head.removeEventListener('load', send, true)
-    }, { once: true })
+    window.addEventListener(
+      'pagehide',
+      () => {
+        observer.disconnect()
+        menu.dispose()
+        probe.remove()
+        document.head.removeEventListener('load', send, true)
+      },
+      { once: true },
+    )
     send()
   }
   if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', install, { once: true })

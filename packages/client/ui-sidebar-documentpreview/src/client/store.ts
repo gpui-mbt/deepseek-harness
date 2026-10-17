@@ -91,7 +91,7 @@ export function fresh(): TextTabState {
 
 /** The bucket for one tab, created on first write. */
 function bucket(state: TextState, tabId: TabId): TextTabState {
-  return state.byTab[tabId] ??= fresh()
+  return (state.byTab[tabId] ??= fresh())
 }
 
 /** The preview store's write set; every action names the tab it writes. */
@@ -127,7 +127,9 @@ export function createTextStore(): EngineStoreHandle<TextState, TextActions> {
         const state = bucket(d, tabId)
         state.autoRefresh = !state.autoRefresh
       },
-      resourceChanged: (d, tabId: TabId) => { bucket(d, tabId).resourcesDirty = true },
+      resourceChanged: (d, tabId: TabId) => {
+        bucket(d, tabId).resourcesDirty = true
+      },
       /** @param d - draft. @param tabId - owning tab. @param rendererId - manual choice, or automatic selection. */
       selected: (d, tabId: TabId, rendererId: string | undefined) => {
         if (rendererId === undefined) delete bucket(d, tabId).rendererId

@@ -33,6 +33,8 @@ export function apply(ctx: Context, config: { negativeControl: string }): void {
   }
   ctx.effect(() => {
     process.on('message', receive)
-    return () => { process.off('message', receive) }
+    return () => {
+      process.off('message', receive)
+    }
   })
 }

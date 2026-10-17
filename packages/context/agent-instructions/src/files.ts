@@ -88,7 +88,7 @@ interface UserGlobalRoot {
  * @returns the roots in model precedence order.
  */
 function userGlobalRoots(config: ResolvedDiscoveryConfig): UserGlobalRoot[] {
-  return USER_GLOBAL_DIRECTORIES.map((directory) => {
+  return USER_GLOBAL_DIRECTORIES.map(directory => {
     switch (directory) {
       case USER_GLOBAL_DIRECTORY:
         return { directory, home: config.dshHome, display: dshHomeDisplay(config.dshHome) }
@@ -122,10 +122,7 @@ export interface RenderedInstructionSet {
   included: LoadedInstructionFile[]
 }
 /** Tri-state scope probe that distinguishes confirmed absence from provider failure. */
-export type ScopeInstructionProbe =
-  | { kind: 'present'; file: ProbedInstructionFile }
-  | { kind: 'absent' }
-  | { kind: 'unavailable' }
+export type ScopeInstructionProbe = { kind: 'present'; file: ProbedInstructionFile } | { kind: 'absent' } | { kind: 'unavailable' }
 
 interface StatFileInfo {
   target?: FsTarget
@@ -133,10 +130,7 @@ interface StatFileInfo {
   version?: FsVersion
 }
 
-type StatFileProbe =
-  | { kind: 'present'; info: StatFileInfo }
-  | { kind: 'absent' }
-  | { kind: 'unavailable' }
+type StatFileProbe = { kind: 'present'; info: StatFileInfo } | { kind: 'absent' } | { kind: 'unavailable' }
 
 function signalOptions(signal?: AbortSignal): { signal: AbortSignal } | undefined {
   return signal === undefined ? undefined : { signal }
@@ -165,11 +159,7 @@ async function nodeStatFile(path: string, signal?: AbortSignal): Promise<StatFil
   }
 }
 
-async function fsStatFile(
-  path: string,
-  fileSystem: FileSystem,
-  signal?: AbortSignal,
-): Promise<StatFileProbe> {
+async function fsStatFile(path: string, fileSystem: FileSystem, signal?: AbortSignal): Promise<StatFileProbe> {
   // resolve() follows a final-component symlink to its target's stable identity;
   // stat then classifies that target. A link to a regular file loads, while a
   // missing path or non-file target (including a link to a directory) is absent.
@@ -181,7 +171,7 @@ async function fsStatFile(
     if (info?.type !== 'file') return { kind: 'absent' }
     return {
       kind: 'present',
-      info: { target, version: info.version, ...info.size === undefined ? {} : { size: info.size } },
+      info: { target, version: info.version, ...(info.size === undefined ? {} : { size: info.size }) },
     }
   } catch {
     signal?.throwIfAborted()
@@ -189,11 +179,7 @@ async function fsStatFile(
   }
 }
 
-async function statFile(
-  path: string,
-  fileSystem?: FileSystem,
-  signal?: AbortSignal,
-): Promise<StatFileProbe> {
+async function statFile(path: string, fileSystem?: FileSystem, signal?: AbortSignal): Promise<StatFileProbe> {
   return fileSystem === undefined ? nodeStatFile(path, signal) : fsStatFile(path, fileSystem, signal)
 }
 
@@ -201,7 +187,7 @@ async function existsAsMarker(path: string, fileSystem?: FileSystem, signal?: Ab
   if (fileSystem !== undefined) {
     try {
       const target = await fileSystem.resolve(path, signalOptions(signal))
-      return await fileSystem.stat(target, signal) !== undefined
+      return (await fileSystem.stat(target, signal)) !== undefined
     } catch (error: unknown) {
       signal?.throwIfAborted()
       if (isMissingProviderPathError(error)) return false
@@ -320,10 +306,7 @@ async function allExistingInstructionFiles(
   return found
 }
 
-async function discoverInstructionFiles(
-  options: DiscoverOptions,
-  fileSystem?: FileSystem,
-): Promise<DiscoveredInstructionFile[]> {
+async function discoverInstructionFiles(options: DiscoverOptions, fileSystem?: FileSystem): Promise<DiscoveredInstructionFile[]> {
   const config = resolveDiscoveryConfig(options)
   const files: DiscoveredInstructionFile[] = []
   const seen = new Set<string>()
@@ -354,8 +337,7 @@ async function discoverInstructionFiles(
   }
 
   const cwd = resolve(options.cwd)
-  const projectRoot = options.projectRoot
-    ?? await findProjectRoot(cwd, config.projectRootMarkers, fileSystem, options.signal)
+  const projectRoot = options.projectRoot ?? (await findProjectRoot(cwd, config.projectRootMarkers, fileSystem, options.signal))
   for (const dir of ancestorChain(projectRoot, cwd)) {
     for (const candidates of [config.instructionFileCandidates, config.localInstructionFileCandidates]) {
       for (const file of await allExistingInstructionFiles(dir, projectRoot, candidates, fileSystem, options.signal)) {
@@ -396,9 +378,10 @@ async function readBounded(
   signal?.throwIfAborted()
   if (file.size !== undefined && file.size > maxSourceBytes) return undefined
   try {
-    const chunks = fileSystem === undefined || file.target === undefined
-      ? nodeTextChunks(file.absolutePath, signal)
-      : await fileSystem.streamText(file.target, signal)
+    const chunks =
+      fileSystem === undefined || file.target === undefined
+        ? nodeTextChunks(file.absolutePath, signal)
+        : await fileSystem.streamText(file.target, signal)
     const parts: string[] = []
     let bytes = 0
     for await (const chunk of chunks) {
@@ -482,7 +465,7 @@ export async function loadBaselineInstructionSet(
         absolutePath: file.absolutePath,
         displayPath: file.displayPath,
         content,
-        ...file.version === undefined ? {} : { version: file.version },
+        ...(file.version === undefined ? {} : { version: file.version }),
       })
     }
   }
@@ -503,9 +486,7 @@ export async function loadBaselineInstructionSet(
   const keptPaths = new Set(kept.map(file => file.absolutePath))
   const { rendered, included } = renderAgentInstructionSet(kept, {
     maxBytes: config.maxBytes,
-    ...options.replacePreviousBaseline === undefined
-      ? {}
-      : { replacePreviousBaseline: options.replacePreviousBaseline },
+    ...(options.replacePreviousBaseline === undefined ? {} : { replacePreviousBaseline: options.replacePreviousBaseline }),
   })
   return {
     rendered,
@@ -523,11 +504,7 @@ export async function loadBaselineInstructionSet(
  * @returns the absolute and model-facing paths for the candidate.
  * @internal
  */
-export function scopeInstructionFile(
-  scope: string,
-  projectRoot: string,
-  resolved: ResolvedDiscoveryConfig,
-): InstructionFile {
+export function scopeInstructionFile(scope: string, projectRoot: string, resolved: ResolvedDiscoveryConfig): InstructionFile {
   const { directory, candidateName } = decodeScopeKey(scope)
   const globalRoot = userGlobalRoots(resolved).find(root => root.directory === directory)
   const dir = globalRoot?.home ?? (directory === '.' ? projectRoot : join(projectRoot, directory))
@@ -572,7 +549,7 @@ export async function probeScopeInstruction(
     ...candidate,
     target,
     version: info.version,
-    ...info.size === undefined ? {} : { size: info.size },
+    ...(info.size === undefined ? {} : { size: info.size }),
   }
   return { kind: 'present', file }
 }

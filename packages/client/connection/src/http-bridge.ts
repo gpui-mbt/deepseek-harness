@@ -53,9 +53,7 @@ export async function bridge(
   /* v8 ignore next 2 -- node:http always sets url/method on server requests. */
   const url = new URL(req.url ?? '/', 'http://dsh.internal')
   const method = req.method ?? 'GET'
-  const headers = Object.fromEntries(
-    Object.entries(req.headers).filter(([, value]) => typeof value === 'string') as [string, string][],
-  )
+  const headers = Object.fromEntries(Object.entries(req.headers).filter(([, value]) => typeof value === 'string') as [string, string][])
   const bodyMode = apiHandler.requestBodyMode({ method, url })
   let request: Request
   if (bodyMode === 'buffered') {
@@ -82,7 +80,7 @@ export async function bridge(
     request = new Request(url, {
       method,
       headers,
-      ...chunks.length > 0 ? { body: Buffer.concat(chunks) } : {},
+      ...(chunks.length > 0 ? { body: Buffer.concat(chunks) } : {}),
       signal: abort.signal,
     })
   } else {
@@ -111,7 +109,7 @@ export async function bridge(
     // instead of buffering unboundedly (slow or suspended consumers). 'close' also
     // resolves so a mid-wait disconnect cannot park this loop forever.
     if (!res.write(chunk) && !res.destroyed) {
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         const done = (): void => {
           res.off('drain', done)
           res.off('close', done)

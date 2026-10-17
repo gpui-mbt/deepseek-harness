@@ -1,6 +1,6 @@
 /** Model input types stay below both capacity fields across editor widths. */
 import type { Locator, Page } from 'playwright'
-import { expect } from 'vitest'
+import { expect } from 'vite-plus/test'
 
 /**
  * Verify the expanded row at the current viewport and a narrow viewport.

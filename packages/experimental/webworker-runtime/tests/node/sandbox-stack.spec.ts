@@ -1,5 +1,5 @@
 /** The unchanged sandbox-local → bash-sandbox → subprocess stack over the Worker Node layer. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SandboxBashExecutor } from '@deepseek-ai/dsh-bash-sandbox'
 import LocalSandboxProvider from '@deepseek-ai/dsh-sandbox-local'
@@ -15,7 +15,6 @@ import type { ShellExecSpec, ShellExecution, ShellRunResult } from '@deepseek-ai
 async function run(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spec: ShellExecSpec): Promise<ShellRunResult> {
   return (await x.execute(spec)).result()
 }
-
 
 vi.mock('node:child_process', async () => await import('../../src/node/builtin_modules/implemented/child_process.ts'))
 
@@ -43,7 +42,11 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  await Promise.all(contexts.splice(0).map(async (ctx) => { await ctx.fiber.dispose() }))
+  await Promise.all(
+    contexts.splice(0).map(async ctx => {
+      await ctx.fiber.dispose()
+    }),
+  )
   vi.restoreAllMocks()
 })
 
@@ -62,9 +65,12 @@ async function setup(mode: 'read-only' | 'workspace-write' | 'danger-full-access
 describe('Worker Landlock through the production sandbox stack', () => {
   it('allows workspace and temp writes while classifying an outside write as denied', async () => {
     const bash = await setup('workspace-write')
-    const allowed = await run(bash, bash.resolve({
-      command: `echo workspace > ${WORKSPACE}/allowed.txt; echo temp > /tmp/allowed.txt`,
-    }))
+    const allowed = await run(
+      bash,
+      bash.resolve({
+        command: `echo workspace > ${WORKSPACE}/allowed.txt; echo temp > /tmp/allowed.txt`,
+      }),
+    )
     expect(allowed.sandbox).toEqual({ mode: 'workspace-write', denied: false, enforcement: 'full' })
     expect(vfs.readFileSync(`${WORKSPACE}/allowed.txt`, 'utf8')).toBe('workspace\n')
     expect(vfs.readFileSync('/dsh/tmp/allowed.txt', 'utf8')).toBe('temp\n')
@@ -77,9 +83,12 @@ describe('Worker Landlock through the production sandbox stack', () => {
 
   it('keeps read-only confined and danger-full-access unwrapped', async () => {
     const readOnly = await setup('read-only')
-    const strict = await run(readOnly, readOnly.resolve({
-      command: `echo discarded > /dev/null; echo denied > ${WORKSPACE}/strict.txt`,
-    }))
+    const strict = await run(
+      readOnly,
+      readOnly.resolve({
+        command: `echo discarded > /dev/null; echo denied > ${WORKSPACE}/strict.txt`,
+      }),
+    )
     expect(strict.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
     expect(vfs.existsSync(`${WORKSPACE}/strict.txt`)).toBe(false)
 
@@ -91,13 +100,19 @@ describe('Worker Landlock through the production sandbox stack', () => {
 
   it('does not leak a concurrent command policy into another process', async () => {
     const bash = await setup('read-only')
-    const strict = run(bash, bash.resolve({
-      command: `sleep 0.02; echo denied > ${WORKSPACE}/strict.txt`,
-    }))
-    const writable = run(bash, bash.resolve({
-      command: `echo allowed > ${WORKSPACE}/writable.txt`,
-      sandboxPolicy: { mode: 'workspace-write', workspaceRoot: WORKSPACE },
-    }))
+    const strict = run(
+      bash,
+      bash.resolve({
+        command: `sleep 0.02; echo denied > ${WORKSPACE}/strict.txt`,
+      }),
+    )
+    const writable = run(
+      bash,
+      bash.resolve({
+        command: `echo allowed > ${WORKSPACE}/writable.txt`,
+        sandboxPolicy: { mode: 'workspace-write', workspaceRoot: WORKSPACE },
+      }),
+    )
     const [strictResult, writableResult] = await Promise.all([strict, writable])
     expect(strictResult.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
     expect(writableResult.sandbox).toEqual({ mode: 'workspace-write', denied: false, enforcement: 'full' })

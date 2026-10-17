@@ -2,16 +2,7 @@
 
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 import { createInterface } from 'node:readline/promises'
@@ -22,12 +13,7 @@ import { validateTarballPayload } from './publication-payload.ts'
 
 const DEFAULT_REGISTRY = 'https://registry.npm.harnessment.com'
 const DEFAULT_OUTPUT_DIRECTORY = '.artifacts/npm-baseline'
-const DEPENDENCY_SECTIONS = [
-  'dependencies',
-  'devDependencies',
-  'optionalDependencies',
-  'peerDependencies',
-] as const
+const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const
 const RELEASE_MANIFEST_NAME = 'manifest.json'
 const RELEASE_ENTRY_PACKAGE = '@deepseek-ai/dsh'
 const LATEST_DIST_TAG = 'latest'
@@ -149,12 +135,7 @@ class BaselinePackPlan {
 
 /** Runs child processes without involving a command shell. */
 class CommandRunner {
-  run(
-    command: string,
-    args: string[],
-    cwd: string,
-    environment: NodeJS.ProcessEnv = process.env,
-  ): void {
+  run(command: string, args: string[], cwd: string, environment: NodeJS.ProcessEnv = process.env): void {
     const result = spawnSync(command, args, { cwd, env: environment, stdio: 'inherit' })
     if (result.error !== undefined) throw result.error
     if (result.status !== 0) {
@@ -162,23 +143,13 @@ class CommandRunner {
     }
   }
 
-  capture(
-    command: string,
-    args: string[],
-    cwd: string,
-    environment: NodeJS.ProcessEnv = process.env,
-  ): string {
+  capture(command: string, args: string[], cwd: string, environment: NodeJS.ProcessEnv = process.env): string {
     const result = this.result(command, args, cwd, environment)
     if (result.status !== 0) throw commandFailure(command, args, result)
     return result.stdout.trim()
   }
 
-  result(
-    command: string,
-    args: string[],
-    cwd: string,
-    environment: NodeJS.ProcessEnv = process.env,
-  ): CommandResult {
+  result(command: string, args: string[], cwd: string, environment: NodeJS.ProcessEnv = process.env): CommandResult {
     const result: SpawnSyncReturns<string> = spawnSync(command, args, {
       cwd,
       encoding: 'utf8',
@@ -216,11 +187,7 @@ class DetachedWorktree {
   }
 
   dispose(): void {
-    const result = this.runner.result(
-      'git',
-      ['worktree', 'remove', '--force', this.path],
-      this.repositoryRoot,
-    )
+    const result = this.runner.result('git', ['worktree', 'remove', '--force', this.path], this.repositoryRoot)
     if (result.status !== 0) {
       console.error(`publish-npm-baseline: could not remove worktree ${this.path}`)
       if (result.stderr.trim() !== '') console.error(result.stderr.trim())
@@ -311,7 +278,7 @@ class ReleaseBundle {
     const packages = readdirSync(directory)
       .filter(name => name.endsWith('.tgz'))
       .sort()
-      .map((tarball) => {
+      .map(tarball => {
         const artifact = inspectTarball(resolve(directory, tarball), runner)
         const expected = expectedByName.get(artifact.name)
         if (expected === undefined || !missingNames.delete(artifact.name)) {
@@ -344,10 +311,7 @@ class ReleaseBundle {
       packages,
     }
     writeFileSync(resolve(directory, RELEASE_MANIFEST_NAME), `${JSON.stringify(manifest, null, 2)}\n`)
-    writeFileSync(
-      resolve(directory, 'SHA256SUMS'),
-      `${packages.map(pkg => `${pkg.sha256}  ${pkg.tarball}`).join('\n')}\n`,
-    )
+    writeFileSync(resolve(directory, 'SHA256SUMS'), `${packages.map(pkg => `${pkg.sha256}  ${pkg.tarball}`).join('\n')}\n`)
     return new ReleaseBundle(directory, manifest)
   }
 
@@ -403,12 +367,7 @@ class ReleaseBundle {
       if (containsWorkspaceProtocol(artifact.manifest)) {
         throw new Error(`${pkg.tarball} still contains a workspace: dependency`)
       }
-      validateInternalDependencyPins(
-        artifact.manifest,
-        internalNames,
-        this.manifest.version,
-        pkg.tarball,
-      )
+      validateInternalDependencyPins(artifact.manifest, internalNames, this.manifest.version, pkg.tarball)
     }
   }
 
@@ -427,42 +386,37 @@ class InstalledBundleSmoke {
   run(): void {
     const consumerRoot = mkdtempSync(join(tmpdir(), 'dsh-npm-consumer-'))
     try {
-      const dependencies = Object.fromEntries(this.bundle.manifest.packages.map(pkg => [
-        pkg.name,
-        pathToFileURL(this.bundle.tarballPath(pkg)).href,
-      ]))
-      writeFileSync(resolve(consumerRoot, 'package.json'), `${JSON.stringify({
-        name: 'dsh-npm-baseline-consumer',
-        version: '0.0.0',
-        private: true,
-        dependencies,
-      }, null, 2)}\n`)
-
-      console.log(
-        `publish-npm-baseline: installing ${this.bundle.manifest.packages.length} local tarballs`,
+      const dependencies = Object.fromEntries(
+        this.bundle.manifest.packages.map(pkg => [pkg.name, pathToFileURL(this.bundle.tarballPath(pkg)).href]),
       )
-      this.runner.run('npm', [
-        'install',
-        '--no-audit',
-        '--no-fund',
-        '--package-lock=false',
-        `--registry=${this.bundle.manifest.registry}`,
-      ], consumerRoot, npmClientEnvironment())
+      writeFileSync(
+        resolve(consumerRoot, 'package.json'),
+        `${JSON.stringify(
+          {
+            name: 'dsh-npm-baseline-consumer',
+            version: '0.0.0',
+            private: true,
+            dependencies,
+          },
+          null,
+          2,
+        )}\n`,
+      )
+
+      console.log(`publish-npm-baseline: installing ${this.bundle.manifest.packages.length} local tarballs`)
+      this.runner.run(
+        'npm',
+        ['install', '--no-audit', '--no-fund', '--package-lock=false', `--registry=${this.bundle.manifest.registry}`],
+        consumerRoot,
+        npmClientEnvironment(),
+      )
 
       const bin = resolve(consumerRoot, 'node_modules/@deepseek-ai/dsh/lib/bin.js')
       assertPathWithin(consumerRoot, bin, 'installed dsh bin')
       const environment = installedArtifactEnvironment(consumerRoot)
-      const version = this.runner.capture(
-        process.execPath,
-        [bin, '--version'],
-        consumerRoot,
-        environment,
-      )
+      const version = this.runner.capture(process.execPath, [bin, '--version'], consumerRoot, environment)
       if (version !== this.bundle.manifest.version) {
-        throw new Error(
-          `installed dsh --version returned ${JSON.stringify(version)}; `
-          + `expected ${this.bundle.manifest.version}`,
-        )
+        throw new Error(`installed dsh --version returned ${JSON.stringify(version)}; ` + `expected ${this.bundle.manifest.version}`)
       }
       this.probeWeb(bin, consumerRoot, environment)
       console.log('publish-npm-baseline: installed dsh entry and Web startup probes passed')
@@ -498,16 +452,8 @@ class BaselinePackager {
   plan(options: PackOptions): BaselinePackPlan {
     const timestamp = formatUtcTimestamp(this.now())
     const registry = normalizeRegistry(options.registry)
-    const commit = this.runner.capture(
-      'git',
-      ['rev-parse', '--verify', `${options.ref}^{commit}`],
-      this.repositoryRoot,
-    )
-    const shortCommit = this.runner.capture(
-      'git',
-      ['rev-parse', '--short=10', commit],
-      this.repositoryRoot,
-    )
+    const commit = this.runner.capture('git', ['rev-parse', '--verify', `${options.ref}^{commit}`], this.repositoryRoot)
+    const shortCommit = this.runner.capture('git', ['rev-parse', '--short=10', commit], this.repositoryRoot)
     const rootManifest = parseObject(
       this.runner.capture('git', ['show', `${commit}:package.json`], this.repositoryRoot),
       `${commit}:package.json`,
@@ -521,16 +467,7 @@ class BaselinePackager {
     if (existsSync(artifactDirectory)) {
       throw new Error(`output already exists: ${artifactDirectory}`)
     }
-    return new BaselinePackPlan(
-      commit,
-      shortCommit,
-      timestamp,
-      baseVersion,
-      version,
-      distTag,
-      registry,
-      artifactDirectory,
-    )
+    return new BaselinePackPlan(commit, shortCommit, timestamp, baseVersion, version, distTag, registry, artifactDirectory)
   }
 
   pack(plan: BaselinePackPlan): ReleaseBundle {
@@ -544,8 +481,7 @@ class BaselinePackager {
       const packageSet = WorkspacePackageSet.discover(worktree.path)
       if (packageSet.baseVersion !== plan.baseVersion) {
         throw new Error(
-          `workspace package version ${packageSet.baseVersion} does not match root version `
-          + `${plan.baseVersion} at ${plan.commit}`,
+          `workspace package version ${packageSet.baseVersion} does not match root version ` + `${plan.baseVersion} at ${plan.commit}`,
         )
       }
 
@@ -556,19 +492,25 @@ class BaselinePackager {
       mkdirSync(artifactDirectory, { recursive: true })
       createdArtifactDirectory = true
 
-      console.log(
-        `publish-npm-baseline: building ${packageSet.packages.length} packages as ${plan.version}`,
-      )
+      console.log(`publish-npm-baseline: building ${packageSet.packages.length} packages as ${plan.version}`)
       this.runner.run('pnpm', ['run', 'build'], worktree.path)
       this.runner.run('pnpm', ['run', 'publint'], worktree.path)
-      this.runner.run('pnpm', [
-        '--filter', './vendor/**',
-        '--filter', './packages/**',
-        '--filter', './apps/**',
-        '--recursive',
-        'pack',
-        '--pack-destination', artifactDirectory,
-      ], worktree.path)
+      this.runner.run(
+        'pnpm',
+        [
+          '--filter',
+          './vendor/**',
+          '--filter',
+          './packages/**',
+          '--filter',
+          './apps/**',
+          '--recursive',
+          'pack',
+          '--pack-destination',
+          artifactDirectory,
+        ],
+        worktree.path,
+      )
 
       const bundle = ReleaseBundle.create(
         artifactDirectory,
@@ -585,17 +527,20 @@ class BaselinePackager {
       console.log(`  version:  ${bundle.manifest.version}`)
       console.log(`  dist-tag: ${bundle.manifest.distTag}`)
       console.log(`  manifest: ${resolve(bundle.directory, RELEASE_MANIFEST_NAME)}`)
-      console.log('  publish:  ' + formatCopyableCommand('pnpm', [
-        '--dir',
-        this.repositoryRoot,
-        'exec',
-        'tsx',
-        resolve(this.repositoryRoot, 'scripts/publish-npm-baseline.ts'),
-        'publish',
-        '--manifest',
-        resolve(bundle.directory, RELEASE_MANIFEST_NAME),
-        '--yes',
-      ]))
+      console.log(
+        '  publish:  ' +
+          formatCopyableCommand('pnpm', [
+            '--dir',
+            this.repositoryRoot,
+            'exec',
+            'tsx',
+            resolve(this.repositoryRoot, 'scripts/publish-npm-baseline.ts'),
+            'publish',
+            '--manifest',
+            resolve(bundle.directory, RELEASE_MANIFEST_NAME),
+            '--yes',
+          ]),
+      )
       return bundle
     } finally {
       worktree.dispose()
@@ -624,21 +569,17 @@ class RegistryPublication {
     for (const pkg of this.bundle.manifest.packages) {
       const existingIntegrity = this.remoteIntegrity(pkg.name)
       if (existingIntegrity === undefined) {
-        this.runner.run('npm', [
-          'publish',
-          this.bundle.tarballPath(pkg),
-          `--registry=${this.bundle.manifest.registry}`,
-          `--tag=${this.bundle.manifest.distTag}`,
-        ], this.npmWorkingDirectory, this.npmEnvironment)
+        this.runner.run(
+          'npm',
+          ['publish', this.bundle.tarballPath(pkg), `--registry=${this.bundle.manifest.registry}`, `--tag=${this.bundle.manifest.distTag}`],
+          this.npmWorkingDirectory,
+          this.npmEnvironment,
+        )
       } else {
         if (existingIntegrity !== pkg.integrity) {
-          throw new Error(
-            `${pkg.name}@${this.bundle.manifest.version} already exists with different integrity`,
-          )
+          throw new Error(`${pkg.name}@${this.bundle.manifest.version} already exists with different integrity`)
         }
-        console.log(
-          `publish-npm-baseline: already published ${pkg.name}@${this.bundle.manifest.version}`,
-        )
+        console.log(`publish-npm-baseline: already published ${pkg.name}@${this.bundle.manifest.version}`)
       }
       this.ensureDistTag(pkg.name, this.bundle.manifest.distTag)
     }
@@ -665,15 +606,14 @@ class RegistryPublication {
       const tagVersion = this.remoteDistTag(pkg.name, this.bundle.manifest.distTag)
       if (tagVersion !== this.bundle.manifest.version) {
         throw new Error(
-          `${pkg.name}@${this.bundle.manifest.distTag} points to ${tagVersion ?? '<missing>'}; `
-          + `expected ${this.bundle.manifest.version}`,
+          `${pkg.name}@${this.bundle.manifest.distTag} points to ${tagVersion ?? '<missing>'}; ` +
+            `expected ${this.bundle.manifest.version}`,
         )
       }
       console.log(`publish-npm-baseline: verified ${pkg.name}@${this.bundle.manifest.version}`)
     }
     console.log(
-      `publish-npm-baseline: verified ${this.bundle.manifest.packages.length} packages and `
-      + `dist-tag ${this.bundle.manifest.distTag}`,
+      `publish-npm-baseline: verified ${this.bundle.manifest.packages.length} packages and ` + `dist-tag ${this.bundle.manifest.distTag}`,
     )
   }
 
@@ -681,36 +621,28 @@ class RegistryPublication {
     const tagVersion = this.remoteDistTag(RELEASE_ENTRY_PACKAGE, LATEST_DIST_TAG)
     if (tagVersion !== this.bundle.manifest.version) {
       throw new Error(
-        `${RELEASE_ENTRY_PACKAGE}@${LATEST_DIST_TAG} points to ${tagVersion ?? '<missing>'}; `
-        + `expected ${this.bundle.manifest.version}`,
+        `${RELEASE_ENTRY_PACKAGE}@${LATEST_DIST_TAG} points to ${tagVersion ?? '<missing>'}; ` + `expected ${this.bundle.manifest.version}`,
       )
     }
-    console.log(
-      `publish-npm-baseline: verified ${RELEASE_ENTRY_PACKAGE}@${LATEST_DIST_TAG} at `
-      + this.bundle.manifest.version,
-    )
+    console.log(`publish-npm-baseline: verified ${RELEASE_ENTRY_PACKAGE}@${LATEST_DIST_TAG} at ` + this.bundle.manifest.version)
   }
 
   private pingRegistry(): void {
     const { registry } = this.bundle.manifest
-    this.runner.capture(
-      'npm', ['ping', `--registry=${registry}`], this.npmWorkingDirectory, this.npmEnvironment,
-    )
+    this.runner.capture('npm', ['ping', `--registry=${registry}`], this.npmWorkingDirectory, this.npmEnvironment)
   }
 
   private requireIdentity(): void {
     const { registry } = this.bundle.manifest
-    const identity = this.runner.capture(
-      'npm', ['whoami', `--registry=${registry}`], this.npmWorkingDirectory, this.npmEnvironment,
-    )
+    const identity = this.runner.capture('npm', ['whoami', `--registry=${registry}`], this.npmWorkingDirectory, this.npmEnvironment)
     console.log(`publish-npm-baseline: registry identity ${identity} at ${registry}`)
   }
 
   private async confirm(): Promise<void> {
     await confirmEnter(
-      `Publish ${this.bundle.manifest.packages.length} packages as `
-      + `${this.bundle.manifest.version} to ${this.bundle.manifest.registry}? `
-      + 'Press Enter to continue or type anything to cancel: ',
+      `Publish ${this.bundle.manifest.packages.length} packages as ` +
+        `${this.bundle.manifest.version} to ${this.bundle.manifest.registry}? ` +
+        'Press Enter to continue or type anything to cancel: ',
       'publish requires an interactive terminal or --yes',
       'publication cancelled',
     )
@@ -767,9 +699,7 @@ interface InspectedTarball {
 }
 
 function inspectTarball(path: string, runner: CommandRunner): InspectedTarball {
-  const manifest: unknown = JSON.parse(
-    runner.capture('tar', ['-xOf', path, 'package/package.json'], dirname(path)),
-  )
+  const manifest: unknown = JSON.parse(runner.capture('tar', ['-xOf', path, 'package/package.json'], dirname(path)))
   if (!isRecord(manifest)) throw new Error(`${path} contains an invalid package.json`)
   return {
     name: expectString(manifest, 'name', path),
@@ -836,10 +766,7 @@ function validateInternalDependencyPins(
 ): void {
   for (const { section, name, range } of internalDependencyEntries(manifest, internalNames, context)) {
     if (range !== releaseVersion) {
-      throw new Error(
-        `${context} has internal ${section} ${name}@${String(range)}; `
-        + `expected exact version ${releaseVersion}`,
-      )
+      throw new Error(`${context} has internal ${section} ${name}@${String(range)}; ` + `expected exact version ${releaseVersion}`)
     }
   }
 }
@@ -849,7 +776,7 @@ function* internalDependencyEntries(
   internalNames: ReadonlySet<string>,
   context: string,
 ): Generator<{
-  section: typeof DEPENDENCY_SECTIONS[number]
+  section: (typeof DEPENDENCY_SECTIONS)[number]
   dependencies: Record<string, unknown>
   name: string
   range: unknown
@@ -954,11 +881,7 @@ function parseDistTagListing(raw: string, name: string): Map<string, string> {
   return tags
 }
 
-async function confirmEnter(
-  prompt: string,
-  nonInteractiveError: string,
-  cancellationError: string,
-): Promise<void> {
+async function confirmEnter(prompt: string, nonInteractiveError: string, cancellationError: string): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error(nonInteractiveError)
   const readline = createInterface({ input: process.stdin, output: process.stdout })
   try {
@@ -971,14 +894,15 @@ async function confirmEnter(
 
 function formatUtcTimestamp(value: Date): string {
   if (!Number.isFinite(value.getTime())) throw new Error('pack timestamp must be a valid date')
-  return value.toISOString().replaceAll(/[-:TZ.]/g, '').slice(0, 14)
+  return value
+    .toISOString()
+    .replaceAll(/[-:TZ.]/g, '')
+    .slice(0, 14)
 }
 
 function commandFailure(command: string, args: string[], result: CommandResult): Error {
   const detail = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join('\n')
-  return new Error(
-    `${formatCommand(command, args)} exited with status ${result.status}${detail === '' ? '' : `\n${detail}`}`,
-  )
+  return new Error(`${formatCommand(command, args)} exited with status ${result.status}${detail === '' ? '' : `\n${detail}`}`)
 }
 
 function formatCommand(command: string, args: string[]): string {

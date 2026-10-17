@@ -22,7 +22,7 @@ interface SourceJson {
 }
 
 function sourceJsonFiles(dir: string): SourceJson[] {
-  return globSync('**/*.json', { cwd: dir, exclude: ['node_modules', 'lib', 'tests'] }).map((path) => {
+  return globSync('**/*.json', { cwd: dir, exclude: ['node_modules', 'lib', 'tests'] }).map(path => {
     const file = path.replaceAll('\\', '/')
     let contents: unknown
     try {
@@ -35,9 +35,11 @@ function sourceJsonFiles(dir: string): SourceJson[] {
     }
     const name = 'name' in contents ? contents.name : undefined
     return {
-      file, metadata: Object.hasOwn(contents, 'meta'), invalid: false,
+      file,
+      metadata: Object.hasOwn(contents, 'meta'),
+      invalid: false,
       icon: 'icon' in contents ? contents.icon : undefined,
-      ...basename(file) === 'package.json' && typeof name === 'string' && name.trim() !== '' ? { packageName: name } : {},
+      ...(basename(file) === 'package.json' && typeof name === 'string' && name.trim() !== '' ? { packageName: name } : {}),
     }
   })
 }
@@ -66,11 +68,12 @@ function pluginOf(resource: string): string | undefined {
 function published(file: string, files: string[]): boolean {
   const covered = (pattern: string): boolean => {
     const normalized = pattern.replaceAll('\\', '/').replace(/^\.\//u, '').replace(/\/+$/u, '')
-    return normalized === '.' || normalized === ''
-      || matchesGlob(file, normalized) || matchesGlob(file, `${normalized}/**`)
+    return normalized === '.' || normalized === '' || matchesGlob(file, normalized) || matchesGlob(file, `${normalized}/**`)
   }
-  return files.some(pattern => !pattern.startsWith('!') && covered(pattern))
-    && !files.some(pattern => pattern.startsWith('!') && covered(pattern.slice(1)))
+  return (
+    files.some(pattern => !pattern.startsWith('!') && covered(pattern)) &&
+    !files.some(pattern => pattern.startsWith('!') && covered(pattern.slice(1)))
+  )
 }
 
 /** Structural artwork conventions only; not an SVG sanitizer or a rendered-pixel check. */
@@ -94,7 +97,7 @@ function svgArtworkProblems(icon: string, parser: DOMParser): string[] {
     problems.push('SVG icon must use self-contained geometry without scripts, styles, images, foreignObject, text, or animation')
   }
   const elements = [svg, ...svg.querySelectorAll('*')]
-  const ids = elements.flatMap(element => element.hasAttribute('id') ? [element.id] : [])
+  const ids = elements.flatMap(element => (element.hasAttribute('id') ? [element.id] : []))
   const uniqueIds = new Set(ids)
   if (uniqueIds.size !== ids.length) problems.push('SVG icon must use unique ids')
   for (const element of elements) {
@@ -117,7 +120,8 @@ function packageProblems(manifestPath: string, parser: DOMParser): string[] {
   const dir = realpathSync(dirname(manifestPath))
   const pkg = JSON.parse(readFileSync(manifestPath, 'utf8')) as Manifest
   const documents = sourceJsonFiles(dir)
-  const nestedPackages = documents.filter(document => document.file !== 'package.json' && document.packageName !== undefined)
+  const nestedPackages = documents
+    .filter(document => document.file !== 'package.json' && document.packageName !== undefined)
     .map(document => ({ file: document.file, prefix: `${dirname(document.file).replaceAll('\\', '/')}/` }))
   const children = nestedPackages.filter(child => !nestedPackages.some(parent => child !== parent && child.file.startsWith(parent.prefix)))
   const byPath = new Map(documents.map(document => [join(dir, document.file), document]))
@@ -143,7 +147,7 @@ function packageProblems(manifestPath: string, parser: DOMParser): string[] {
         if (owner === undefined) continue
         candidates.add(owner)
         let requests = alternatives.get(document.file)
-        if (requests === undefined) alternatives.set(document.file, requests = new Set())
+        if (requests === undefined) alternatives.set(document.file, (requests = new Set()))
         requests.add(pkg.name + request.slice(1))
       }
     }
@@ -166,7 +170,7 @@ function packageProblems(manifestPath: string, parser: DOMParser): string[] {
   for (const candidate of candidates) {
     const specifier = specifierOf(candidate)
     const resourceOf = (filename: string): string => `${specifier}/locale/${filename}`
-    const resources = [...filenames].flatMap((filename) => {
+    const resources = [...filenames].flatMap(filename => {
       const file = lookup(resourceOf(filename))
       return file === undefined ? [] : [{ filename, file }]
     })
@@ -188,10 +192,12 @@ function packageProblems(manifestPath: string, parser: DOMParser): string[] {
     if (sourceManifest && resources.every(({ file }) => byPath.has(file))) {
       const meta = readPluginMeta(specifier, parentURL)
       if (meta?.error !== undefined) problems.push(meta.error)
-      const iconTarget = meta?.icon === undefined ? undefined
-        : displayManifest !== undefined && typeof iconDocument?.icon === 'string'
-          ? resolve(dirname(displayManifest), iconDocument.icon)
-          : lookup(`${specifier}/icon`)
+      const iconTarget =
+        meta?.icon === undefined
+          ? undefined
+          : displayManifest !== undefined && typeof iconDocument?.icon === 'string'
+            ? resolve(dirname(displayManifest), iconDocument.icon)
+            : lookup(`${specifier}/icon`)
       if (pkg.name.startsWith('@deepseek-ai/dsh-') && meta?.icon !== undefined) {
         problems.push(...svgArtworkProblems(meta.icon, parser).map(problem => `${iconTarget ?? specifier}: ${problem}`))
       }
@@ -246,10 +252,14 @@ function packageProblems(manifestPath: string, parser: DOMParser): string[] {
     if (!document.file.split('/').includes('locale') && requests === undefined) continue
     if (!document.metadata && !document.invalid) continue
     if (claimed.has(join(dir, document.file))) continue
-    if (requests !== undefined && [...requests].some((resource) => {
-      const selected = lookup(resource)
-      return selected !== undefined && byPath.has(selected)
-    })) continue
+    if (
+      requests !== undefined &&
+      [...requests].some(resource => {
+        const selected = lookup(resource)
+        return selected !== undefined && byPath.has(selected)
+      })
+    )
+      continue
     problems.push(`${manifestPath}: exports must expose ${document.file} as a plugin locale resource with an en.json discovery baseline`)
   }
   return problems.concat(children.flatMap(child => packageProblems(join(dir, child.file), parser)))

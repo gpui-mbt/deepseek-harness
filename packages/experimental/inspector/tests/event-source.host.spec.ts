@@ -1,6 +1,6 @@
 /** Consumer-neutral Server-Sent Event parsing behavior. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { InspectorEventSourceParser } from '../src/shared/network/event-source.ts'
 
 const encoder = new TextEncoder()
@@ -13,11 +13,13 @@ describe('InspectorEventSourceParser', () => {
     const unicode = encoder.encode('\ndata: two 你\r\n\r\n')
     const split = unicode.indexOf(0xe4) + 1
     expect(parser.push(unicode.subarray(0, split))).toEqual([])
-    expect(parser.push(unicode.subarray(split))).toEqual([{
-      eventName: 'update',
-      eventId: 'first',
-      data: 'one\ntwo 你',
-    }])
+    expect(parser.push(unicode.subarray(split))).toEqual([
+      {
+        eventName: 'update',
+        eventId: 'first',
+        data: 'one\ntwo 你',
+      },
+    ])
   })
 
   it('retains valid ids, ignores comments and unknown fields, and emits empty data', () => {

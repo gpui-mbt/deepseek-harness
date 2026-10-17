@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act } from '@testing-library/react'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
 import { TestClient, remoteDefaultResponses, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'

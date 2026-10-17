@@ -54,11 +54,16 @@ export class OfficePreviewCache {
    * @param generation - current Host renderer generation, checked before cached reuse.
    * @param busy - localized capacity failure.
    */
-  constructor(private readonly stat: Stat, private readonly convert: ReadOfficeBytes,
-    private readonly maxEntries: number, private readonly maxBytes: number,
-    private readonly maxPending: number, private readonly maxReaders: number,
+  constructor(
+    private readonly stat: Stat,
+    private readonly convert: ReadOfficeBytes,
+    private readonly maxEntries: number,
+    private readonly maxBytes: number,
+    private readonly maxPending: number,
+    private readonly maxReaders: number,
     private readonly currentGeneration: (signal: AbortSignal) => Promise<RemoteResult<OfficeToPdfGeneration>>,
-    private readonly busy: () => Error) {}
+    private readonly busy: () => Error,
+  ) {}
 
   /**
    * Share a conversion without letting one caller cancel another caller's work.
@@ -76,13 +81,21 @@ export class OfficePreviewCache {
     this.readers++
     const operation = this.lookup(file, signal, priority)
     this.reads.add(operation)
-    try { return await operation } finally { this.readers--; this.reads.delete(operation) }
+    try {
+      return await operation
+    } finally {
+      this.readers--
+      this.reads.delete(operation)
+    }
   }
 
   private async lookup(file: SessionFile, signal: AbortSignal, priority: OfficeToPdfPriority): Promise<Result> {
     for (let attempt = 0; attempt < 2; attempt++) {
-      try { return await this.lookupGeneration(file, signal, priority) }
-      catch (error) { if (error !== this.superseded) throw error }
+      try {
+        return await this.lookupGeneration(file, signal, priority)
+      } catch (error) {
+        if (error !== this.superseded) throw error
+      }
     }
     throw this.busy()
   }
@@ -121,21 +134,28 @@ export class OfficePreviewCache {
       const pendingLimit = priority === 'background' ? this.maxPending - 1 : this.maxPending
       if (this.tasks.size >= pendingLimit) throw this.busy()
       const controller = new AbortController()
-      const promise = Promise.resolve().then(() => {
-        controller.signal.throwIfAborted()
-        return this.convert(file, controller.signal, priority)
-      }).then((result) => {
-        controller.signal.throwIfAborted()
-        if (generation.value === this.generation && result.ok && result.value.generation === generation.value
-          && result.value.version === metadata.value.version
-          && result.value.absolutePath === metadata.value.absolutePath) {
-          this.retain(key, result)
-        }
-        return result
-      }).finally(() => {
-        this.tasks.delete(promise)
-        if (this.pending.get(pendingKey)?.controller === controller) this.pending.delete(pendingKey)
-      })
+      const promise = Promise.resolve()
+        .then(() => {
+          controller.signal.throwIfAborted()
+          return this.convert(file, controller.signal, priority)
+        })
+        .then(result => {
+          controller.signal.throwIfAborted()
+          if (
+            generation.value === this.generation &&
+            result.ok &&
+            result.value.generation === generation.value &&
+            result.value.version === metadata.value.version &&
+            result.value.absolutePath === metadata.value.absolutePath
+          ) {
+            this.retain(key, result)
+          }
+          return result
+        })
+        .finally(() => {
+          this.tasks.delete(promise)
+          if (this.pending.get(pendingKey)?.controller === controller) this.pending.delete(pendingKey)
+        })
       this.tasks.add(promise)
       entry = { controller, promise, users: 0 }
       this.pending.set(pendingKey, entry)
@@ -162,8 +182,12 @@ export class OfficePreviewCache {
       }
       signal.addEventListener('abort', abort, { once: true })
       shared.promise.then(
-        (result) => { if (finish()) resolve(result) },
-        (error: unknown) => { if (finish()) reject(error instanceof Error ? error : new Error('Office preview failed', { cause: error })) },
+        result => {
+          if (finish()) resolve(result)
+        },
+        (error: unknown) => {
+          if (finish()) reject(error instanceof Error ? error : new Error('Office preview failed', { cause: error }))
+        },
       )
     })
   }
@@ -179,7 +203,10 @@ export class OfficePreviewCache {
 
   private retain(key: string, result: Success): void {
     const previous = this.ready.get(key)
-    if (previous !== undefined) { this.ready.delete(key); this.bytes -= previous.value.data.byteLength }
+    if (previous !== undefined) {
+      this.ready.delete(key)
+      this.bytes -= previous.value.data.byteLength
+    }
     const size = result.value.data.byteLength
     if (size > this.maxBytes) return
     while (this.ready.size >= this.maxEntries || this.bytes + size > this.maxBytes) {

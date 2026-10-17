@@ -4,11 +4,7 @@ import { deepStrictEqual } from 'node:assert'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  decodeSeqRanges,
-  SessionLogOffset,
-  type SessionEvent,
-} from '@deepseek-ai/dsh-session'
+import { decodeSeqRanges, SessionLogOffset, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SessionLogOffset as SessionLogOffsetType } from '@deepseek-ai/dsh-session'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { SessionFormatEventCollector, type SessionFormatArtifactDecoder, type SessionFormatCodec } from '@deepseek-ai/dsh-session-format'
@@ -17,17 +13,17 @@ import { releasedV2SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v1
 import { releasedV3SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v2-to-v3'
 
 const historicalCodecs: readonly SessionFormatCodec[] = [
-  releasedV0SessionFormatCodec, releasedV1SessionFormatCodec, releasedV2SessionFormatCodec,
+  releasedV0SessionFormatCodec,
+  releasedV1SessionFormatCodec,
+  releasedV2SessionFormatCodec,
   releasedV3SessionFormatCodec,
 ]
 
 /** Physical persistence artifacts validated by the WebWorker runtime fixture spec. */
-const WEBWORKER_PHYSICAL_SESSION_FIXTURE_ROOT =
-  'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/'
+const WEBWORKER_PHYSICAL_SESSION_FIXTURE_ROOT = 'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/'
 
 /** Installed-runtime snapshots that preserve the JSONL writer's physical encoding. */
-const PYTHON_RUNTIME_PHYSICAL_SESSION_FIXTURE_ROOT =
-  'scripts/snapshots/python-sdk-single-exe/'
+const PYTHON_RUNTIME_PHYSICAL_SESSION_FIXTURE_ROOT = 'scripts/snapshots/python-sdk-single-exe/'
 
 /** One repository session fixture and its canonical projected representation. */
 export interface SessionFixtureLayout {
@@ -49,8 +45,7 @@ export function isPhysicalSessionFixture(path: string): boolean {
   if (path.startsWith(WEBWORKER_PHYSICAL_SESSION_FIXTURE_ROOT)) {
     return /\/session(?:\.v[1-9]\d*)?\.jsonl$/.test(path)
   }
-  return path.startsWith(PYTHON_RUNTIME_PHYSICAL_SESSION_FIXTURE_ROOT)
-    && /\/session(?:\.[1-9]\d*)?(?:\.v[1-9]\d*)?\.jsonl$/.test(path)
+  return path.startsWith(PYTHON_RUNTIME_PHYSICAL_SESSION_FIXTURE_ROOT) && /\/session(?:\.[1-9]\d*)?(?:\.v[1-9]\d*)?\.jsonl$/.test(path)
 }
 
 function isSessionHeader(value: unknown): boolean {
@@ -59,7 +54,7 @@ function isSessionHeader(value: unknown): boolean {
 
 function validationHeader(value: unknown): unknown {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
-  const header = { ...value as Record<string, unknown> }
+  const header = { ...(value as Record<string, unknown>) }
   if (header.version === 0 && !Object.hasOwn(header, 'delegationDepth')) header.delegationDepth = 0
   if (typeof header.cwd === 'string' && /^\{\{cwd\}\}(?:\/|$)/.test(header.cwd)) {
     header.cwd = header.cwd.replace('{{cwd}}', '/dsh-snapshot-cwd')
@@ -70,7 +65,7 @@ function validationHeader(value: unknown): unknown {
 function renderFixture(headerLine: string, events: readonly SessionEvent[]): string {
   return [
     headerLine,
-    ...events.map((event) => {
+    ...events.map(event => {
       const record: Record<string, unknown> = { ...event }
       delete record.seq
       delete record.time
@@ -114,9 +109,7 @@ function parseFixtureRows(content: string, headerValue: unknown): SessionEvent[]
       continue
     }
     const record = parseFixtureObjectLine(line, index + 1)
-    const packed = record.type === 'text-chunks'
-      || record.type === 'reasoning-chunks'
-      || record.type === 'tool-call-chunks'
+    const packed = record.type === 'text-chunks' || record.type === 'reasoning-chunks' || record.type === 'tool-call-chunks'
     const seqKey = packed ? 'seq0' : 'seq'
     const timeKey = packed ? 'time0' : 'time'
     if (!Object.hasOwn(record, seqKey)) record[seqKey] = nextSeq
@@ -131,18 +124,22 @@ function parseFixtureRows(content: string, headerValue: unknown): SessionEvent[]
   // event rows. Current snapshots may contain owner-restored scrub tokens such
   // as `{{tools}}`; semantic replay restores those sidecars, while this layout
   // gate owns only envelopes, source-event ranges, and one-event-per-row form.
-  const projectedCurrent = headerValue !== null
-    && typeof headerValue === 'object'
-    && !Array.isArray(headerValue)
-    && (headerValue as Record<string, unknown>).version === sessionFormatCatalog.currentVersion
-  if (headerValue === null || typeof headerValue !== 'object' || Array.isArray(headerValue)
-    || !Object.hasOwn(headerValue, 'version') || projectedCurrent) {
+  const projectedCurrent =
+    headerValue !== null &&
+    typeof headerValue === 'object' &&
+    !Array.isArray(headerValue) &&
+    (headerValue as Record<string, unknown>).version === sessionFormatCatalog.currentVersion
+  if (
+    headerValue === null ||
+    typeof headerValue !== 'object' ||
+    Array.isArray(headerValue) ||
+    !Object.hasOwn(headerValue, 'version') ||
+    projectedCurrent
+  ) {
     return rows.map((source, index) => {
       const record = { ...source }
       try {
-        if (record.type === 'text-chunks'
-          || record.type === 'reasoning-chunks'
-          || record.type === 'tool-call-chunks') {
+        if (record.type === 'text-chunks' || record.type === 'reasoning-chunks' || record.type === 'tool-call-chunks') {
           throw new Error('current projected fixtures cannot contain legacy packed rows')
         }
         if (Object.hasOwn(record, 'sourceEventSeqs')) {
@@ -184,24 +181,17 @@ function parseFixtureRows(content: string, headerValue: unknown): SessionEvent[]
   }
 }
 
-function fixtureDiagnosticLine(
-  error: unknown,
-  rowLines: readonly number[],
-  eventLines: readonly number[],
-): number {
-  const detail = error instanceof Error && error.cause instanceof Error
-    ? error.cause.message
-    : error instanceof Error ? error.message : String(error)
+function fixtureDiagnosticLine(error: unknown, rowLines: readonly number[], eventLines: readonly number[]): number {
+  const detail =
+    error instanceof Error && error.cause instanceof Error ? error.cause.message : error instanceof Error ? error.message : String(error)
   const physicalRow = /^released Session row (\d+)/.exec(detail)
   if (physicalRow !== null) return rowLines[Number(physicalRow[1])] ?? 1
-  const event = /Session event (\d+)/.exec(detail)
-    ?? / at seq (\d+)/.exec(detail)
-    ?? /inherited Session cut (\d+)/.exec(detail)
-  return event === null ? 1 : eventLines[Number(event[1])] ?? 1
+  const event = /Session event (\d+)/.exec(detail) ?? / at seq (\d+)/.exec(detail) ?? /inherited Session cut (\d+)/.exec(detail)
+  return event === null ? 1 : (eventLines[Number(event[1])] ?? 1)
 }
 
 function withoutEnvelope(events: readonly SessionEvent[]): Array<Omit<SessionEvent, 'seq' | 'time'>> {
-  return events.map((event) => {
+  return events.map(event => {
     const { seq: _seq, time: _time, ...projected } = event
     return projected
   })
@@ -237,12 +227,13 @@ export function canonicalSessionFixture(content: string, label = '<session-fixtu
     const detail = error instanceof Error ? error.message : String(error)
     throw new Error(`${label}: ${detail}`, { cause: error })
   }
-  const storedVersion = headerValue !== null
-    && typeof headerValue === 'object'
-    && !Array.isArray(headerValue)
-    && typeof (headerValue as Record<string, unknown>).version === 'number'
-    ? (headerValue as Record<string, number>).version
-    : undefined
+  const storedVersion =
+    headerValue !== null &&
+    typeof headerValue === 'object' &&
+    !Array.isArray(headerValue) &&
+    typeof (headerValue as Record<string, unknown>).version === 'number'
+      ? (headerValue as Record<string, number>).version
+      : undefined
   // Released predecessor generations are immutable compatibility fixtures.
   // Parsing above still validates their physical rows, but canonicalization
   // never rewrites their committed bytes into the current scalar layout.
@@ -269,11 +260,11 @@ export function canonicalSessionFixture(content: string, label = '<session-fixtu
  * @returns Stable repository-relative paths.
  */
 function discoverJsonlFiles(root: string): string[] {
-  return execFileSync(
-    'git',
-    ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '*.jsonl'],
-    { cwd: root, encoding: 'utf8' },
-  ).split('\0')
+  return execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '*.jsonl'], {
+    cwd: root,
+    encoding: 'utf8',
+  })
+    .split('\0')
     .filter(path => path.length > 0 && existsSync(resolve(root, path)))
     .sort()
 }
@@ -285,7 +276,7 @@ function discoverJsonlFiles(root: string): string[] {
  * @returns Session fixtures with current and canonical text.
  */
 export function inspectSessionFixtureLayouts(root: string): SessionFixtureLayout[] {
-  return discoverJsonlFiles(root).flatMap((path) => {
+  return discoverJsonlFiles(root).flatMap(path => {
     if (isPhysicalSessionFixture(path)) return []
     const source = readFileSync(resolve(root, path), 'utf8')
     const canonical = canonicalSessionFixture(source, path)

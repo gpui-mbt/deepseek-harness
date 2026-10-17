@@ -1,10 +1,12 @@
 import type { MessageBoxOptions, MessageBoxReturnValue, NativeImage } from 'electron'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { DesktopQuitInspection } from '../src/host-process.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import { DesktopQuitConfirmation, resolveDesktopQuitPrompt } from '../src/quit-confirmation.ts'
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function setup(platform: NodeJS.Platform, inspect: () => Promise<DesktopQuitInspection> | undefined, locale = 'zh') {
   const shown: MessageBoxOptions[] = []
@@ -12,10 +14,25 @@ function setup(platform: NodeJS.Platform, inspect: () => Promise<DesktopQuitInsp
   const focus = vi.fn()
   const icon: NativeImage = { isEmpty: () => false } as never
   const confirmation = new DesktopQuitConfirmation({
-    locale: () => resolveDesktopLocale(locale), inspect, focus, platform, icon,
-    show: async (options) => { shown.push(options); return answer },
+    locale: () => resolveDesktopLocale(locale),
+    inspect,
+    focus,
+    platform,
+    icon,
+    show: async options => {
+      shown.push(options)
+      return answer
+    },
   })
-  return { confirmation, shown, focus, icon, answer: (value: number) => { answer = { response: value, checkboxChecked: false } } }
+  return {
+    confirmation,
+    shown,
+    focus,
+    icon,
+    answer: (value: number) => {
+      answer = { response: value, checkboxChecked: false }
+    },
+  }
 }
 
 describe('quit prompt selection', () => {
@@ -42,27 +59,44 @@ describe('DesktopQuitConfirmation', () => {
   it('shows the macOS alert with the warning icon, Chinese copy, and Quit as the default right-hand button', async () => {
     const f = setup('darwin', async () => ({ activeTasks: true, scheduledTasks: true }))
     expect(await f.confirmation.confirm()).toBe(true)
-    expect(f.shown).toEqual([{
-      type: 'warning', title: 'DeepSeek Harness', message: '退出 DeepSeek Harness？',
-      detail: '当前正在运行的任务将会中断，且应用关闭期间，定时任务不会运行',
-      buttons: ['退出', '取消'], defaultId: 0, cancelId: 1, noLink: true,
-    }])
+    expect(f.shown).toEqual([
+      {
+        type: 'warning',
+        title: 'DeepSeek Harness',
+        message: '退出 DeepSeek Harness？',
+        detail: '当前正在运行的任务将会中断，且应用关闭期间，定时任务不会运行',
+        buttons: ['退出', '取消'],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      },
+    ])
   })
 
   it('shows the Windows task dialog with the application icon and plain buttons in English', async () => {
     const f = setup('win32', async () => ({ activeTasks: false, scheduledTasks: true }), 'en')
     f.answer(1)
     expect(await f.confirmation.confirm()).toBe(false)
-    expect(f.shown).toEqual([{
-      type: 'none', icon: f.icon, title: 'DeepSeek Harness', message: 'Quit DeepSeek Harness?',
-      detail: 'Scheduled tasks will not run while the app is closed.',
-      buttons: ['Quit', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
-    }])
+    expect(f.shown).toEqual([
+      {
+        type: 'none',
+        icon: f.icon,
+        title: 'DeepSeek Harness',
+        message: 'Quit DeepSeek Harness?',
+        detail: 'Scheduled tasks will not run while the app is closed.',
+        buttons: ['Quit', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      },
+    ])
   })
 
   it('warns about running tasks when the inspection fails', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const f = setup('darwin', async () => { throw new Error('desktop quit: inspection timed out') })
+    const f = setup('darwin', async () => {
+      throw new Error('desktop quit: inspection timed out')
+    })
     f.answer(1)
     expect(await f.confirmation.confirm()).toBe(false)
     expect(f.shown.map(options => options.detail)).toEqual(['当前正在运行的任务将会中断'])
@@ -101,8 +135,11 @@ describe('DesktopQuitConfirmation', () => {
   it('does not approve a quit from a box answered after disposal', async () => {
     const answered = Promise.withResolvers<MessageBoxReturnValue>()
     const confirmation = new DesktopQuitConfirmation({
-      locale: () => resolveDesktopLocale('en'), inspect: async () => ({ activeTasks: true, scheduledTasks: false }),
-      focus: () => {}, platform: 'darwin', show: () => answered.promise,
+      locale: () => resolveDesktopLocale('en'),
+      inspect: async () => ({ activeTasks: true, scheduledTasks: false }),
+      focus: () => {},
+      platform: 'darwin',
+      show: () => answered.promise,
     })
     const pending = confirmation.confirm()
     await Promise.resolve()

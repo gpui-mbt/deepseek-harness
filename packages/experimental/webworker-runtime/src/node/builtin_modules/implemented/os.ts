@@ -93,8 +93,21 @@ export function networkInterfaces(): NodeJS.Dict<NetworkInterfaceInfo[]> {
 /** OS constants: only the signal table is read (terminal signal name mapping). */
 export const constants = {
   signals: {
-    SIGHUP: 1, SIGINT: 2, SIGQUIT: 3, SIGILL: 4, SIGTRAP: 5, SIGABRT: 6, SIGBUS: 7, SIGFPE: 8,
-    SIGKILL: 9, SIGUSR1: 10, SIGSEGV: 11, SIGUSR2: 12, SIGPIPE: 13, SIGALRM: 14, SIGTERM: 15,
+    SIGHUP: 1,
+    SIGINT: 2,
+    SIGQUIT: 3,
+    SIGILL: 4,
+    SIGTRAP: 5,
+    SIGABRT: 6,
+    SIGBUS: 7,
+    SIGFPE: 8,
+    SIGKILL: 9,
+    SIGUSR1: 10,
+    SIGSEGV: 11,
+    SIGUSR2: 12,
+    SIGPIPE: 13,
+    SIGALRM: 14,
+    SIGTERM: 15,
   },
   errno: {},
   priority: {},
@@ -112,6 +125,16 @@ type NodeFace = Partial<Omit<typeof import('node:os'), 'constants'>> & Record<'c
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  EOL, tmpdir, homedir, platform, type, arch, release, hostname, availableParallelism, cpus,
-  networkInterfaces, constants,
+  EOL,
+  tmpdir,
+  homedir,
+  platform,
+  type,
+  arch,
+  release,
+  hostname,
+  availableParallelism,
+  cpus,
+  networkInterfaces,
+  constants,
 } satisfies NodeFace

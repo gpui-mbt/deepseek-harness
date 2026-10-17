@@ -20,7 +20,10 @@ export class StopSequence {
    * @param intervalMs - validated maximum time between independent presses.
    * @param release - releases observations retained by the pending first press.
    */
-  constructor(private readonly intervalMs: number, private readonly release: () => void) {}
+  constructor(
+    private readonly intervalMs: number,
+    private readonly release: () => void,
+  ) {}
 
   /** Clear the first press and its expiry timer. */
   reset(): void {
@@ -38,15 +41,21 @@ export class StopSequence {
   press(target: StopTarget): boolean {
     const first = this.first
     this.reset()
-    if (first !== undefined && performance.now() <= first.deadline
-      && first.target.sessionId === target.sessionId
-      && first.target.turn === target.turn && first.target.generation === target.generation
-      && first.target.region === target.region) {
+    if (
+      first !== undefined &&
+      performance.now() <= first.deadline &&
+      first.target.sessionId === target.sessionId &&
+      first.target.turn === target.turn &&
+      first.target.generation === target.generation &&
+      first.target.region === target.region
+    ) {
       target.cancel()
       return true
     }
     this.first = { target, deadline: performance.now() + this.intervalMs }
-    this.timer = setTimeout(() => { this.reset() }, this.intervalMs + 1)
+    this.timer = setTimeout(() => {
+      this.reset()
+    }, this.intervalMs + 1)
     return false
   }
 }

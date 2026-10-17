@@ -81,9 +81,9 @@ export function packagedImportsPlugin(policy) {
       const offending = unpackagedImports(external, policy)
       if (offending.length === 0) return
       this.error(
-        `desktop bundle: ${relative(process.cwd(), info.id)} imports ${offending.join(', ')}, which the packaged application does not ship. `
-        + `This bundle may leave only ${allowed} as bare imports; anything else must be bundled, `
-        + 'which requires its lib/ output to exist before this bundle runs (pnpm run build:lib:host).',
+        `desktop bundle: ${relative(process.cwd(), info.id)} imports ${offending.join(', ')}, which the packaged application does not ship. ` +
+          `This bundle may leave only ${allowed} as bare imports; anything else must be bundled, ` +
+          'which requires its lib/ output to exist before this bundle runs (pnpm run build:lib:host).',
       )
     },
   }

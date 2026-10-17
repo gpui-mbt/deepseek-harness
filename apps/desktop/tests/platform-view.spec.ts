@@ -1,35 +1,51 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import type { AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import { DesktopPlatformView, platformBounds } from '../src/platform-view.ts'
 
 const state = vi.hoisted(() => ({
-  views: [] as unknown[], sessions: [] as unknown[], openExternal: vi.fn(async () => {}),
-  loadFailure: undefined as Error | undefined, loadBarrier: undefined as Promise<void> | undefined,
+  views: [] as unknown[],
+  sessions: [] as unknown[],
+  openExternal: vi.fn(async () => {}),
+  loadFailure: undefined as Error | undefined,
+  loadBarrier: undefined as Promise<void> | undefined,
 }))
 vi.mock('electron', () => ({
   shell: { openExternal: state.openExternal },
-  session: { fromPartition: vi.fn((partition: string) => {
-    const existing = state.sessions.find(value => (value as { partition: string }).partition === partition)
-    if (existing !== undefined) return existing
-    const value = {
-      partition, webRequest: { onBeforeSendHeaders: vi.fn(), onCompleted: vi.fn(), onErrorOccurred: vi.fn() },
-      setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn(),
-      clearStorageData: vi.fn(async (_options?: { storages: string[] }) => {}),
-      clearCache: vi.fn(async () => {}), flushStorageData: vi.fn(),
-      clearAuthCache: vi.fn(async () => {}), closeAllConnections: vi.fn(async () => {}),
-      isPersistent: () => partition.startsWith('persist:'),
-    }
-    state.sessions.push(value)
-    return value
-  }) },
+  session: {
+    fromPartition: vi.fn((partition: string) => {
+      const existing = state.sessions.find(value => (value as { partition: string }).partition === partition)
+      if (existing !== undefined) return existing
+      const value = {
+        partition,
+        webRequest: { onBeforeSendHeaders: vi.fn(), onCompleted: vi.fn(), onErrorOccurred: vi.fn() },
+        setPermissionRequestHandler: vi.fn(),
+        setPermissionCheckHandler: vi.fn(),
+        clearStorageData: vi.fn(async (_options?: { storages: string[] }) => {}),
+        clearCache: vi.fn(async () => {}),
+        flushStorageData: vi.fn(),
+        clearAuthCache: vi.fn(async () => {}),
+        closeAllConnections: vi.fn(async () => {}),
+        isPersistent: () => partition.startsWith('persist:'),
+      }
+      state.sessions.push(value)
+      return value
+    }),
+  },
   WebContentsView: class {
     webContents = Object.assign(new EventEmitter(), {
       mainFrame: { url: 'https://platform.deepseek.com/usage' },
       session: undefined as object | undefined,
       setWindowOpenHandler: vi.fn(),
-      loadURL: vi.fn(async (_url: string) => { await state.loadBarrier; if (state.loadFailure !== undefined) throw state.loadFailure }),
-      isDestroyed: () => false, close: vi.fn(() => { this.webContents.emit('destroyed') }), send: vi.fn(),
+      loadURL: vi.fn(async (_url: string) => {
+        await state.loadBarrier
+        if (state.loadFailure !== undefined) throw state.loadFailure
+      }),
+      isDestroyed: () => false,
+      close: vi.fn(() => {
+        this.webContents.emit('destroyed')
+      }),
+      send: vi.fn(),
     })
     setVisible = vi.fn()
     setBounds = vi.fn()
@@ -40,15 +56,23 @@ vi.mock('electron', () => ({
   },
 }))
 
-beforeEach(() => { vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3') })
+beforeEach(() => {
+  vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3')
+})
 afterEach(() => {
-  state.views.length = 0; state.sessions.length = 0; state.loadFailure = undefined; state.loadBarrier = undefined
-  vi.clearAllMocks(); vi.unstubAllEnvs()
+  state.views.length = 0
+  state.sessions.length = 0
+  state.loadFailure = undefined
+  state.loadBarrier = undefined
+  vi.clearAllMocks()
+  vi.unstubAllEnvs()
 })
 function setup() {
   const removeChildView = vi.fn()
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView }, isDestroyed: () => false,
+    webContents: new EventEmitter(),
+    contentView: { addChildView: vi.fn(), removeChildView },
+    isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => 'en_US', 'darwin')
   manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret' })
@@ -75,7 +99,8 @@ function view() {
       setWindowOpenHandler: ReturnType<typeof vi.fn>
       close: ReturnType<typeof vi.fn>
       send: ReturnType<typeof vi.fn>
-    } }
+    }
+  }
 }
 const bounds = { x: 10, y: 20, width: 800, height: 600 }
 
@@ -135,13 +160,21 @@ it('blocks cross-origin navigation and redirects', async () => {
 
 it('injects the deployment and client identity headers only at the Platform origin', async () => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret',
-    requestHeaders: { cookie: 'gate=synthetic', 'x-deployment': 'harness' } })
+  manager.setSession({
+    origin: 'https://platform.deepseek.com',
+    userId: null,
+    token: 'fixture-secret',
+    requestHeaders: { cookie: 'gate=synthetic', 'x-deployment': 'harness' },
+  })
   await manager.open(owner, 'usage', bounds)
   const request = { Cookie: 'route=user', 'x-client-platform': 'stale', 'x-deployment': 'stale' }
   expect(interceptHeaders(1, 'https://platform.deepseek.com/api/v0/users/current', request)).toEqual({
-    'x-deployment': 'harness', cookie: 'route=user; gate=synthetic', 'x-client-bundle-id': '',
-    'x-client-platform': 'desktop-mac', 'x-client-version': '1.2.3', 'x-client-locale': 'en_US',
+    'x-deployment': 'harness',
+    cookie: 'route=user; gate=synthetic',
+    'x-client-bundle-id': '',
+    'x-client-platform': 'desktop-mac',
+    'x-client-version': '1.2.3',
+    'x-client-locale': 'en_US',
     'x-client-timezone-offset': String(-new Date().getTimezoneOffset() * 60),
   })
   // A redirect to another origin keeps the injected headers out of the follow-up request.
@@ -152,27 +185,34 @@ it('injects the deployment and client identity headers only at the Platform orig
 it('samples the language and UTC offset on every Platform request', async () => {
   let locale: 'en_US' | 'zh_CN' = 'en_US'
   const owner = Object.assign(new EventEmitter(), {
-    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
+    webContents: new EventEmitter(),
+    contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
+    isDestroyed: () => false,
   })
   const manager = new DesktopPlatformView('/bundled/preload.cjs', () => locale, 'darwin')
   manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret' })
   await manager.open(owner, 'usage', bounds)
   const offset = vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(480)
   expect(interceptHeaders(1, 'https://platform.deepseek.com/usage', {})).toMatchObject({
-    'x-client-locale': 'en_US', 'x-client-timezone-offset': '-28800',
+    'x-client-locale': 'en_US',
+    'x-client-timezone-offset': '-28800',
   })
   locale = 'zh_CN'
   offset.mockReturnValue(-300)
   expect(interceptHeaders(1, 'https://platform.deepseek.com/usage', {})).toMatchObject({
-    'x-client-locale': 'zh_CN', 'x-client-timezone-offset': '18000',
+    'x-client-locale': 'zh_CN',
+    'x-client-timezone-offset': '18000',
   })
   offset.mockRestore()
   manager.close()
 })
 
-it.each([null, {}, { ...bounds, width: NaN }, { ...bounds, x: -1 }, { ...bounds, y: Infinity }])('rejects malformed IPC rectangles', (value) => {
-  expect(() => platformBounds(value)).toThrow()
-})
+it.each([null, {}, { ...bounds, width: NaN }, { ...bounds, x: -1 }, { ...bounds, y: Infinity }])(
+  'rejects malformed IPC rectangles',
+  value => {
+    expect(() => platformBounds(value)).toThrow()
+  },
+)
 
 it('opens HTTPS payment links in the system browser without an embedded child window', async () => {
   const { manager, owner } = setup()
@@ -193,7 +233,9 @@ it('reveals a loaded document only after loading finishes', async () => {
   const loaded = Promise.withResolvers<undefined>()
   state.loadBarrier = loaded.promise
   const loading = manager.open(owner, 'usage', bounds)
-  await vi.waitFor(() => { expect(state.views).toHaveLength(1) })
+  await vi.waitFor(() => {
+    expect(state.views).toHaveLength(1)
+  })
   const active = view()
   expect(active.setVisible.mock.calls).toEqual([[false]])
   loaded.resolve(undefined)
@@ -207,7 +249,9 @@ it('does not reveal a document closed before its load settles', async () => {
   const loaded = Promise.withResolvers<undefined>()
   state.loadBarrier = loaded.promise
   const loading = manager.open(owner, 'usage', bounds)
-  await vi.waitFor(() => { expect(state.views).toHaveLength(1) })
+  await vi.waitFor(() => {
+    expect(state.views).toHaveLength(1)
+  })
   const active = view()
   manager.close()
   loaded.resolve(undefined)
@@ -217,8 +261,12 @@ it('does not reveal a document closed before its load settles', async () => {
 
 it('injects deployment headers only at the Platform origin and excludes them from bootstrap', async () => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret',
-    requestHeaders: { cookie: 'route=new; gate=private', 'x-private-gate': 'private', 'x-client-platform': 'desktop-mac' } })
+  manager.setSession({
+    origin: 'https://platform.deepseek.com',
+    userId: 'fixture-user' as AccountUserId,
+    token: 'fixture-secret',
+    requestHeaders: { cookie: 'route=new; gate=private', 'x-private-gate': 'private', 'x-client-platform': 'desktop-mac' },
+  })
   await manager.open(owner, 'usage', bounds)
   const browserSession = state.sessions.at(-1) as { webRequest: { onBeforeSendHeaders: ReturnType<typeof vi.fn> } }
   const intercept = browserSession.webRequest.onBeforeSendHeaders.mock.calls[0]![0] as (
@@ -227,35 +275,72 @@ it('injects deployment headers only at the Platform origin and excludes them fro
   ) => void
   const callback = vi.fn()
   for (const path of ['/usage', '/top_up', '/api/v0/users/get_user_summary']) {
-    intercept({ id: 1, url: `https://platform.deepseek.com${path}`, requestHeaders: { Cookie: 'route=old; browser=keep', Accept: 'application/json' } }, callback)
-    expect(callback).toHaveBeenLastCalledWith({ requestHeaders: {
-      cookie: 'route=new; browser=keep; gate=private', accept: 'application/json', 'x-private-gate': 'private', 'x-client-platform': 'desktop-mac',
-      'x-client-bundle-id': '', 'x-client-version': '1.2.3', 'x-client-locale': 'en_US',
-      'x-client-timezone-offset': String(-new Date().getTimezoneOffset() * 60),
-    } })
+    intercept(
+      {
+        id: 1,
+        url: `https://platform.deepseek.com${path}`,
+        requestHeaders: { Cookie: 'route=old; browser=keep', Accept: 'application/json' },
+      },
+      callback,
+    )
+    expect(callback).toHaveBeenLastCalledWith({
+      requestHeaders: {
+        cookie: 'route=new; browser=keep; gate=private',
+        accept: 'application/json',
+        'x-private-gate': 'private',
+        'x-client-platform': 'desktop-mac',
+        'x-client-bundle-id': '',
+        'x-client-version': '1.2.3',
+        'x-client-locale': 'en_US',
+        'x-client-timezone-offset': String(-new Date().getTimezoneOffset() * 60),
+      },
+    })
   }
-  intercept({ id: 1, url: 'https://other.example/api', requestHeaders: {
-    cookie: 'route=new; gate=private', 'x-private-gate': 'private', 'x-client-platform': 'desktop-mac', accept: 'application/json',
-  } }, callback)
+  intercept(
+    {
+      id: 1,
+      url: 'https://other.example/api',
+      requestHeaders: {
+        cookie: 'route=new; gate=private',
+        'x-private-gate': 'private',
+        'x-client-platform': 'desktop-mac',
+        accept: 'application/json',
+      },
+    },
+    callback,
+  )
   expect(callback).toHaveBeenLastCalledWith({ requestHeaders: { accept: 'application/json' } })
   intercept({ id: 2, url: 'https://other.example/api', requestHeaders: { cookie: 'payment=session', constructor: 'keep' } }, callback)
   expect(callback).toHaveBeenLastCalledWith({ requestHeaders: { cookie: 'payment=session', constructor: 'keep' } })
   const sender = view().webContents
-  expect(manager.bootstrap({ sender, senderFrame: sender.mainFrame }))
-    .toEqual({ origin: 'https://platform.deepseek.com', token: 'fixture-secret', locale: 'en_US' })
+  expect(manager.bootstrap({ sender, senderFrame: sender.mainFrame })).toEqual({
+    origin: 'https://platform.deepseek.com',
+    token: 'fixture-secret',
+    locale: 'en_US',
+  })
   manager.close()
 })
 
-it.each(['usage', 'top-up'] as const)('selects the configured frontend deployment for %s', async (page) => {
+it.each(['usage', 'top-up'] as const)('selects the configured frontend deployment for %s', async page => {
   const { manager, owner } = setup()
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret', embeddedPageDist: 'feat/test&other=value' })
+  manager.setSession({
+    origin: 'https://platform.deepseek.com',
+    userId: 'fixture-user' as AccountUserId,
+    token: 'fixture-secret',
+    embeddedPageDist: 'feat/test&other=value',
+  })
   await manager.open(owner, page, bounds)
   const url = new URL(view().webContents.loadURL.mock.calls[0]![0] as string)
   expect(url.origin).toBe('https://platform.deepseek.com')
   expect(url.pathname).toBe(page === 'usage' ? '/usage' : '/top_up')
   expect([...url.searchParams]).toEqual([['dist', 'feat/test&other=value']])
   const previous = view().webContents
-  manager.setSession({ origin: 'https://platform.deepseek.com', userId: 'fixture-user' as AccountUserId, token: 'fixture-secret', embeddedPageDist: 'another' })
+  manager.setSession({
+    origin: 'https://platform.deepseek.com',
+    userId: 'fixture-user' as AccountUserId,
+    token: 'fixture-secret',
+    embeddedPageDist: 'another',
+  })
   expect(previous.close).toHaveBeenCalledOnce()
   manager.close()
 })
@@ -280,7 +365,7 @@ it('retains the view on same-document and subframe navigation', async () => {
   manager.close()
 })
 
-it.each(['render-process-gone', 'destroyed', 'closed'])('removes the view on owner %s', async (event) => {
+it.each(['render-process-gone', 'destroyed', 'closed'])('removes the view on owner %s', async event => {
   const { manager, owner } = setup()
   await manager.open(owner, 'usage', bounds)
   const child = view()
@@ -295,7 +380,9 @@ it('does not reveal a pending view after the owner reloads or remove a replaceme
   const loaded = Promise.withResolvers<undefined>()
   state.loadBarrier = loaded.promise
   const loading = manager.open(owner, 'usage', bounds)
-  await vi.waitFor(() => { expect(state.views).toHaveLength(1) })
+  await vi.waitFor(() => {
+    expect(state.views).toHaveLength(1)
+  })
   const previous = view()
   owner.webContents.emit('did-start-navigation', {}, 'dsh-app://app/', false, true)
   state.loadBarrier = undefined
@@ -360,7 +447,9 @@ it('reuses persistent storage across closes, token replacement, and manager recr
   await manager.open(owner, 'top-up', bounds)
   expect(browserSession().partition).toBe(first.partition)
   expect(first.flushStorageData).toHaveBeenCalledOnce()
-  expect(first.clearStorageData).toHaveBeenCalledWith({ storages: ['cookies', 'filesystem', 'indexdb', 'shadercache', 'serviceworkers', 'cachestorage'] })
+  expect(first.clearStorageData).toHaveBeenCalledWith({
+    storages: ['cookies', 'filesystem', 'indexdb', 'shadercache', 'serviceworkers', 'cachestorage'],
+  })
   expect(first.clearAuthCache).toHaveBeenCalledTimes(3)
   expect(first.closeAllConnections).toHaveBeenCalledTimes(3)
   expect(first.webRequest.onBeforeSendHeaders).toHaveBeenCalledWith(null)
@@ -439,7 +528,7 @@ it('does not open a view when authentication cleanup fails', async () => {
   await manager.dispose()
 })
 
-it.each(['did-start-navigation', 'closed', 'destroyed'])('cancels allocation when owner %s during storage cleanup', async (event) => {
+it.each(['did-start-navigation', 'closed', 'destroyed'])('cancels allocation when owner %s during storage cleanup', async event => {
   const { manager, owner } = setup()
   await manager.open(owner, 'usage', bounds)
   const cleared = Promise.withResolvers<undefined>()

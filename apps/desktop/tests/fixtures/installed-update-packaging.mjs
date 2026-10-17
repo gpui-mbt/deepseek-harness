@@ -14,6 +14,11 @@ else {
   const bytes = Buffer.from('inert test bytes, not an installer')
   await writeFile(join(directory, filename), bytes)
   await writeFile(join(directory, `${filename}.blockmap`), 'inert test map')
-  await writeFile(join(directory, 'nightly.yml'), JSON.stringify({ version, files: [{ url: filename,
-    size: bytes.length, sha512: createHash('sha512').update(bytes).digest('base64') }] }))
+  await writeFile(
+    join(directory, 'nightly.yml'),
+    JSON.stringify({
+      version,
+      files: [{ url: filename, size: bytes.length, sha512: createHash('sha512').update(bytes).digest('base64') }],
+    }),
+  )
 }

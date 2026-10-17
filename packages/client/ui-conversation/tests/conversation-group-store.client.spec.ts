@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ConversationViewNode } from '../src/client/contract/conversation.ts'
 import type { GroupKey, GroupSnapshot, GroupUpdate, NodeKey, NodeReference, RenderEntry } from '../src/client/contract/groups.ts'
@@ -6,12 +6,13 @@ import { ConversationGroupStore } from '../src/client/conversation/group-store.t
 
 const key = (value: string): GroupKey => brandString<GroupKey>(value)
 const node = (value: string, groupPart?: string): NodeReference => ({
-  kind: 'node', key: brandString<NodeKey>(value), ...groupPart === undefined ? {} : { groupPart },
+  kind: 'node',
+  key: brandString<NodeKey>(value),
+  ...(groupPart === undefined ? {} : { groupPart }),
 })
 const reference = (value: string): RenderEntry => ({ kind: 'group', key: key(value) })
-const readNode = (id: NodeKey): ConversationViewNode | undefined => id === 'missing'
-  ? undefined
-  : { key: id, kind: 'test', id, target: 'test', data: id }
+const readNode = (id: NodeKey): ConversationViewNode | undefined =>
+  id === 'missing' ? undefined : { key: id, kind: 'test', id, target: 'test', data: id }
 const group = (id: string, members: readonly NodeReference[], data = 0): GroupSnapshot<number> => ({ key: key(id), members, data })
 
 function replace(store: ConversationGroupStore<number>, entries: readonly RenderEntry[], groups: readonly GroupSnapshot<number>[]) {
@@ -67,7 +68,10 @@ describe('ConversationGroupStore', () => {
     expect(store.entries).toBe(root)
     expect(source.getSnapshot()).toBe(original)
     expect(changed).not.toHaveBeenCalled()
-    store.prepareAndInstall({ groups: { kind: 'apply', upserts: [group('a', [node('assistant', 'reasoning')], 1)], removes: [] } }, readNode)
+    store.prepareAndInstall(
+      { groups: { kind: 'apply', upserts: [group('a', [node('assistant', 'reasoning')], 1)], removes: [] } },
+      readNode,
+    )
     expect(source.getSnapshot()?.members).toBe(original.members)
     store.publish()
     expect(changed).toHaveBeenCalledOnce()
@@ -83,10 +87,13 @@ describe('ConversationGroupStore', () => {
     const nextSource = store.groupSource(key('next'))
     const oldChanged = vi.fn()
     oldSource.subscribe(oldChanged)
-    store.prepareAndInstall({
-      entries: [a, reference('next')],
-      groups: { kind: 'apply', removes: [key('old')], upserts: [group('next', [b])] },
-    }, readNode)
+    store.prepareAndInstall(
+      {
+        entries: [a, reference('next')],
+        groups: { kind: 'apply', removes: [key('old')], upserts: [group('next', [b])] },
+      },
+      readNode,
+    )
     expect(oldSource.getSnapshot()).toBeUndefined()
     expect(nextSource.getSnapshot()?.members).toEqual([b])
     expect(oldChanged).not.toHaveBeenCalled()
@@ -124,8 +131,9 @@ describe('ConversationGroupStore', () => {
     const initial = group('a', [node('a')])
     const entries = [reference('a'), node('b')]
     replace(store, entries, [initial])
-    expect(() => { store.prepareAndInstall({ entries, groups: { kind: 'replace', snapshots: [initial] } }, () => undefined) })
-      .toThrow('missing Node')
+    expect(() => {
+      store.prepareAndInstall({ entries, groups: { kind: 'replace', snapshots: [initial] } }, () => undefined)
+    }).toThrow('missing Node')
     expect(store.entries).toBe(entries)
     expect(store.groupSource(key('a')).getSnapshot()).toBe(initial)
   })
@@ -139,23 +147,57 @@ describe('ConversationGroupStore', () => {
     const store = new ConversationGroupStore<number>()
     replace(store, [node('before')], [])
     const root = store.entries
-    expect(() => { replace(store, [first, reference('a')], [group('a', [second])]) }).toThrow('overlapping')
+    expect(() => {
+      replace(store, [first, reference('a')], [group('a', [second])])
+    }).toThrow('overlapping')
     expect(store.entries).toBe(root)
     replace(store, [reference('a')], [group('a', [first])])
     expect(store.groupSource(key('a')).getSnapshot()?.members).toEqual([first])
   })
 
   it.each<{ name: string; update: GroupUpdate<number>; error: string }>([
-    { name: 'duplicate group roots', update: { entries: [reference('a'), reference('a')], groups: { kind: 'apply', upserts: [], removes: [] } }, error: 'duplicate root' },
-    { name: 'unreferenced group', update: { entries: [reference('a'), reference('c')], groups: { kind: 'apply', upserts: [group('b', [])], removes: [] } }, error: 'no root reference' },
-    { name: 'missing group', update: { entries: [reference('missing')], groups: { kind: 'apply', upserts: [], removes: [] } }, error: 'missing group' },
-    { name: 'removed referenced group', update: { groups: { kind: 'apply', upserts: [group('b', [])], removes: [key('a')] } }, error: 'still referenced' },
+    {
+      name: 'duplicate group roots',
+      update: { entries: [reference('a'), reference('a')], groups: { kind: 'apply', upserts: [], removes: [] } },
+      error: 'duplicate root',
+    },
+    {
+      name: 'unreferenced group',
+      update: { entries: [reference('a'), reference('c')], groups: { kind: 'apply', upserts: [group('b', [])], removes: [] } },
+      error: 'no root reference',
+    },
+    {
+      name: 'missing group',
+      update: { entries: [reference('missing')], groups: { kind: 'apply', upserts: [], removes: [] } },
+      error: 'missing group',
+    },
+    {
+      name: 'removed referenced group',
+      update: { groups: { kind: 'apply', upserts: [group('b', [])], removes: [key('a')] } },
+      error: 'still referenced',
+    },
     { name: 'record count mismatch', update: { entries: [], groups: { kind: 'apply', upserts: [], removes: [] } }, error: 'one-to-one' },
-    { name: 'duplicate upserts', update: { groups: { kind: 'apply', upserts: [group('a', []), group('a', [])], removes: [] } }, error: 'duplicate upserts' },
-    { name: 'duplicate removals', update: { entries: [], groups: { kind: 'apply', upserts: [], removes: [key('a'), key('a')] } }, error: 'duplicate removals' },
+    {
+      name: 'duplicate upserts',
+      update: { groups: { kind: 'apply', upserts: [group('a', []), group('a', [])], removes: [] } },
+      error: 'duplicate upserts',
+    },
+    {
+      name: 'duplicate removals',
+      update: { entries: [], groups: { kind: 'apply', upserts: [], removes: [key('a'), key('a')] } },
+      error: 'duplicate removals',
+    },
     { name: 'absent removal', update: { groups: { kind: 'apply', upserts: [], removes: [key('missing')] } }, error: 'absent' },
-    { name: 'upsert and remove', update: { groups: { kind: 'apply', upserts: [group('a', [])], removes: [key('a')] } }, error: 'upserted and removed' },
-    { name: 'missing Node', update: { groups: { kind: 'apply', upserts: [group('a', [node('missing')])], removes: [] } }, error: 'missing Node' },
+    {
+      name: 'upsert and remove',
+      update: { groups: { kind: 'apply', upserts: [group('a', [])], removes: [key('a')] } },
+      error: 'upserted and removed',
+    },
+    {
+      name: 'missing Node',
+      update: { groups: { kind: 'apply', upserts: [group('a', [node('missing')])], removes: [] } },
+      error: 'missing Node',
+    },
   ])('rejects $name atomically', ({ update, error }) => {
     const store = new ConversationGroupStore<number>()
     const initial = group('a', [node('a')])
@@ -163,7 +205,9 @@ describe('ConversationGroupStore', () => {
     store.publish()
     const root = store.entries
     const source = store.groupSource(key('a'))
-    expect(() => { store.prepareAndInstall(update, readNode) }).toThrow(error)
+    expect(() => {
+      store.prepareAndInstall(update, readNode)
+    }).toThrow(error)
     expect(store.entries).toBe(root)
     expect(source.getSnapshot()).toBe(initial)
   })

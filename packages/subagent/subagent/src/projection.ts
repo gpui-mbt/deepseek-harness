@@ -27,28 +27,35 @@ export interface TimingState {
   lastTurnCompleted?: boolean | undefined
 }
 
-const activeIntervalSchema = z.object({
-  since: z.number().int().nonnegative(),
-  through: z.number().int().nonnegative(),
-}).strict()
+const activeIntervalSchema = z
+  .object({
+    since: z.number().int().nonnegative(),
+    through: z.number().int().nonnegative(),
+  })
+  .strict()
 
-const projectionSchema: z.ZodType<SubagentTimingProjection> = z.object({
-  settledMs: z.number().int().nonnegative(),
-  active: activeIntervalSchema.optional(),
-  lastTurnCompleted: z.boolean().optional(),
-}).strict().transform(({ settledMs, active, lastTurnCompleted }) => ({
-  settledMs,
-  ...active === undefined ? {} : { active },
-  ...lastTurnCompleted === undefined ? {} : { lastTurnCompleted },
-}))
+const projectionSchema: z.ZodType<SubagentTimingProjection> = z
+  .object({
+    settledMs: z.number().int().nonnegative(),
+    active: activeIntervalSchema.optional(),
+    lastTurnCompleted: z.boolean().optional(),
+  })
+  .strict()
+  .transform(({ settledMs, active, lastTurnCompleted }) => ({
+    settledMs,
+    ...(active === undefined ? {} : { active }),
+    ...(lastTurnCompleted === undefined ? {} : { lastTurnCompleted }),
+  }))
 
-const timingStateSchema: z.ZodType<TimingState> = z.object({
-  settledMs: z.number().int().nonnegative(),
-  active: activeIntervalSchema.optional(),
-  pendingTurnStart: z.number().int().nonnegative().optional(),
-  descriptorSeen: z.boolean(),
-  lastTurnCompleted: z.boolean().optional(),
-}).strict()
+const timingStateSchema: z.ZodType<TimingState> = z
+  .object({
+    settledMs: z.number().int().nonnegative(),
+    active: activeIntervalSchema.optional(),
+    pendingTurnStart: z.number().int().nonnegative().optional(),
+    descriptorSeen: z.boolean(),
+    lastTurnCompleted: z.boolean().optional(),
+  })
+  .strict()
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap {
@@ -81,9 +88,7 @@ export const subagentTimingProjectionDefinition = {
       return {
         descriptorSeen: true,
         settledMs: 0,
-        ...(activeSince === undefined
-          ? {}
-          : { active: { since: activeSince, through: event.time } }),
+        ...(activeSince === undefined ? {} : { active: { since: activeSince, through: event.time } }),
       }
     }
     if (event.type === 'turn/end') {
@@ -125,23 +130,29 @@ interface IdentityState {
 // `null` arm — never `undefined` — so every registry read and push frame
 // survives JSON.stringify losslessly.
 const identityValueSchema = z.discriminatedUnion('mode', [
-  z.object({
-    mode: z.literal('one-shot'),
-    label: z.string().optional(),
-    seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
-  }).strict(),
-  z.object({
-    mode: z.literal('continuable'),
-    label: z.string(),
-    seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
-  }).strict(),
+  z
+    .object({
+      mode: z.literal('one-shot'),
+      label: z.string().optional(),
+      seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal('continuable'),
+      label: z.string(),
+      seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
+    })
+    .strict(),
 ]) as unknown as z.ZodType<SubagentIdentityProjection>
 
 const identitySchema = identityValueSchema.nullable()
 
-const identityStateSchema: z.ZodType<IdentityState> = z.object({
-  identity: identityValueSchema.optional(),
-}).strict()
+const identityStateSchema: z.ZodType<IdentityState> = z
+  .object({
+    identity: identityValueSchema.optional(),
+  })
+  .strict()
 
 /** Interpret one `subagent/descriptor` event's identity; no value when the payload cannot be trusted. */
 function descriptorIdentity(event: SessionEvent): SubagentIdentityProjection | undefined {
@@ -156,10 +167,10 @@ function descriptorIdentity(event: SessionEvent): SubagentIdentityProjection | u
   if (descriptor === undefined) return undefined
   return descriptor.mode === 'one-shot'
     ? {
-      mode: 'one-shot',
-      ...descriptor.label !== undefined ? { label: descriptor.label } : {},
-      seq: event.seq,
-    }
+        mode: 'one-shot',
+        ...(descriptor.label !== undefined ? { label: descriptor.label } : {}),
+        seq: event.seq,
+      }
     : { mode: 'continuable', label: descriptor.label, seq: event.seq }
 }
 

@@ -8,7 +8,7 @@
 // the commands/execute payload — and clears the composer on success, including
 // when the image is the whole `/plan` task.
 import { fireEvent, waitFor } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createAssembledSessionComposer, installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()
@@ -19,7 +19,9 @@ async function pasteText(surface: HTMLElement, text: string): Promise<void> {
   fireEvent.paste(surface, {
     clipboardData: { items: [], getData: () => text },
   })
-  await waitFor(() => { expect(surface.textContent).toContain(text) })
+  await waitFor(() => {
+    expect(surface.textContent).toContain(text)
+  })
 }
 
 /** Paste one tiny PNG into the composer and wait for its rail thumbnail. */
@@ -31,11 +33,14 @@ async function pasteImage(textarea: HTMLElement, name: string): Promise<void> {
       getData: () => '',
     },
   })
-  await waitFor(() => {
-    const rail = document.querySelector('[role="group"][aria-label="Pending attachments"]')
-    if (rail === null) throw new Error('attachment rail missing')
-    expect([...rail.querySelectorAll('img')].map(img => img.getAttribute('alt'))).toContain(name)
-  }, { timeout: 5_000 })
+  await waitFor(
+    () => {
+      const rail = document.querySelector('[role="group"][aria-label="Pending attachments"]')
+      if (rail === null) throw new Error('attachment rail missing')
+      expect([...rail.querySelectorAll('img')].map(img => img.getAttribute('alt'))).toContain(name)
+    },
+    { timeout: 5_000 },
+  )
 }
 
 it('refuses an image-carrying submit to a non-declaring command and keeps draft and images', async () => {
@@ -49,17 +54,22 @@ it('refuses an image-carrying submit to a non-declaring command and keeps draft 
 
   // The refusal rides the same transient error banner as other composer
   // failures; session activity remains on its separate status live region.
-  const notice = await waitFor(() => {
-    const el = [...document.querySelectorAll('[role="alert"]')]
-      .find(candidate => candidate.textContent?.includes('attachments') ?? false)
-    if (el === undefined) throw new Error('composer refusal banner missing')
-    return el
-  }, { timeout: 5_000 })
+  const notice = await waitFor(
+    () => {
+      const el = [...document.querySelectorAll('[role="alert"]')].find(candidate => candidate.textContent?.includes('attachments') ?? false)
+      if (el === undefined) throw new Error('composer refusal banner missing')
+      return el
+    },
+    { timeout: 5_000 },
+  )
   expect(notice.textContent).toBe('/echo does not accept attachments; remove them first')
-  expect([...document.querySelectorAll('[role="status"]')]
-    .some(candidate => candidate.textContent?.includes('attachments') ?? false)).toBe(false)
+  expect([...document.querySelectorAll('[role="status"]')].some(candidate => candidate.textContent?.includes('attachments') ?? false)).toBe(
+    false,
+  )
   // The whole envelope is retained: draft text and the rail thumbnail.
-  await waitFor(() => { expect(textarea.textContent).toBe('/echo hello') })
+  await waitFor(() => {
+    expect(textarea.textContent).toBe('/echo hello')
+  })
   const rail = document.querySelector('[role="group"][aria-label="Pending attachments"]')
   expect([...(rail?.querySelectorAll('img') ?? [])].map(img => img.getAttribute('alt'))).toEqual(['ref.png'])
 })
@@ -74,10 +84,13 @@ it('consumes images through a declaring command and clears the composer on succe
   await pasteText(textarea, '/goal rebuild the cathedral')
   fireEvent.keyDown(textarea, { key: 'Enter' })
 
-  await waitFor(() => {
-    expect(textarea.textContent).toBe('')
-    expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).toBeNull()
-  }, { timeout: 5_000 })
+  await waitFor(
+    () => {
+      expect(textarea.textContent).toBe('')
+      expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).toBeNull()
+    },
+    { timeout: 5_000 },
+  )
 })
 
 it('submits a bare /plan with an image as an image-only plan request', async () => {
@@ -90,10 +103,12 @@ it('submits a bare /plan with an image as an image-only plan request', async () 
   await pasteText(textarea, '/plan ')
   fireEvent.keyDown(textarea, { key: 'Enter' })
 
-  await waitFor(() => {
-    expect(textarea.textContent).toBe('')
-    expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).toBeNull()
-  }, { timeout: 5_000 })
-  expect([...document.querySelectorAll('[role="alert"]')]
-    .some(candidate => candidate.textContent?.includes('/plan') ?? false)).toBe(false)
+  await waitFor(
+    () => {
+      expect(textarea.textContent).toBe('')
+      expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).toBeNull()
+    },
+    { timeout: 5_000 },
+  )
+  expect([...document.querySelectorAll('[role="alert"]')].some(candidate => candidate.textContent?.includes('/plan') ?? false)).toBe(false)
 })

@@ -33,9 +33,7 @@ import { questionReplyDefinition } from './question-reply.ts'
 import { QuestionReplyView } from './QuestionReplyView.tsx'
 import { en, zh, type QuestionKey } from './locales.ts'
 
-export type {
-  PendingQuestion, PlanReview, QuestionAnswer, QuestionComposerProps, QuestionWait,
-} from './contract/slots.ts'
+export type { PendingQuestion, PlanReview, QuestionAnswer, QuestionComposerProps, QuestionWait } from './contract/slots.ts'
 export type { QuestionKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -100,7 +98,9 @@ class QuestionCards {
 
   /** Keys of every card registered for one Session. */
   keysFor(sessionId: SessionId): readonly string[] {
-    return this.values().filter(card => card.pending.sessionId === sessionId).map(card => card.pending.key)
+    return this.values()
+      .filter(card => card.pending.sessionId === sessionId)
+      .map(card => card.pending.key)
   }
 
   /**
@@ -143,9 +143,11 @@ class QuestionCards {
         unpublish?.()
         unpublish = undefined
       },
-      trackRequest: (completion) => {
+      trackRequest: completion => {
         requests.add(completion)
-        return () => { requests.delete(completion) }
+        return () => {
+          requests.delete(completion)
+        }
       },
       hasRequest: () => requests.size > 0,
     }
@@ -181,13 +183,11 @@ class QuestionCards {
    * @returns true; a record always produces a card.
    */
   review(sessionId: SessionId, callId: string, record: UserQuestionRecord): boolean {
-    const card = this.byCallId(sessionId, callId) ?? this.#create(new PendingQuestion(
-      sessionId,
-      record.questions,
-      brandString<ToolCallId>(callId),
-      () => this.keysFor(sessionId),
-      record.answers,
-    ))
+    const card =
+      this.byCallId(sessionId, callId) ??
+      this.#create(
+        new PendingQuestion(sessionId, record.questions, brandString<ToolCallId>(callId), () => this.keysFor(sessionId), record.answers),
+      )
     card.reveal()
     return true
   }
@@ -218,22 +218,22 @@ async function answerQuestion(
   const callId = request.wait?.callId
   const card = cards.ensure(sessionId, request.questions, callId)
   const claimLifetime = new AbortController()
-  const claimSignal = request.signal === undefined ? claimLifetime.signal
-    : AbortSignal.any([claimLifetime.signal, request.signal])
+  const claimSignal = request.signal === undefined ? claimLifetime.signal : AbortSignal.any([claimLifetime.signal, request.signal])
   let claim: ReturnType<typeof ctx.remote.userQuestions.attachWait> | undefined
   let claimEnded: Promise<never> | undefined
   let delegateRequest: (() => void) | undefined
-  const releaseClaim = request.wait?.timed === true && callId !== undefined
-    ? ctx.effect(() => {
-      claim = ctx.remote.userQuestions.attachWait(sessionId, callId, claimSignal)
-      return async () => {
-        delegateRequest?.()
-        claimLifetime.abort()
-        claim?.dispose()
-        if (claimEnded !== undefined) await Promise.allSettled([claimEnded])
-      }
-    }, 'ui-user-questions: foreground claim')
-    : undefined
+  const releaseClaim =
+    request.wait?.timed === true && callId !== undefined
+      ? ctx.effect(() => {
+          claim = ctx.remote.userQuestions.attachWait(sessionId, callId, claimSignal)
+          return async () => {
+            delegateRequest?.()
+            claimLifetime.abort()
+            claim?.dispose()
+            if (claimEnded !== undefined) await Promise.allSettled([claimEnded])
+          }
+        }, 'ui-user-questions: foreground claim')
+      : undefined
   const completed = Promise.withResolvers<void>()
   const finishRequest = card.trackRequest(completed.promise)
   try {
@@ -243,12 +243,16 @@ async function answerQuestion(
     const waterfall = createWaterfallRequest(
       opening === undefined ? undefined : Date.now() + opening.value.remainingMs,
       claimSignal,
-      (channel) => { card.pending.detachWaterfall(channel) },
+      channel => {
+        card.pending.detachWaterfall(channel)
+      },
     )
     // Cancellation may win between the first claim frame and this continuation.
     // The request has already settled, so its channel must never reach the card.
     if (claimSignal.aborted) return await waterfall.result
-    delegateRequest = () => { waterfall.channel.delegate() }
+    delegateRequest = () => {
+      waterfall.channel.delegate()
+    }
     card.pending.attachWaterfall(waterfall.channel)
     if (iterator !== undefined) {
       claimEnded = (async () => {
@@ -271,7 +275,9 @@ async function answerQuestion(
     else {
       // The Host closes the claim after accepting the waterfall outcome.
       // A local return precedes transmission and cannot release that claim.
-      void Promise.allSettled([claimEnded]).then(() => { void releaseClaim() })
+      void Promise.allSettled([claimEnded]).then(() => {
+        void releaseClaim()
+      })
     }
     // A blocking request without a call id is not in the projection; its card ends with its waterfall.
     if (callId === undefined) card.remove()
@@ -298,10 +304,12 @@ function publishContinuedQuestions(ctx: ClientContext, cards: QuestionCards): ()
 
   const reconcile = (): void => {
     const snapshot = sessions.list.getSnapshot()
-    const bound = new Map(Object.values(snapshot.byId).flatMap((summary) => {
-      const binding = sessions.binding(summary.id)
-      return binding === undefined ? [] : [[summary.id, binding] as const]
-    }))
+    const bound = new Map(
+      Object.values(snapshot.byId).flatMap(summary => {
+        const binding = sessions.binding(summary.id)
+        return binding === undefined ? [] : [[summary.id, binding] as const]
+      }),
+    )
     for (const [sessionId, stop] of stopProjections) {
       if (bound.has(sessionId)) continue
       stop()
@@ -311,12 +319,14 @@ function publishContinuedQuestions(ctx: ClientContext, cards: QuestionCards): ()
       if (stopProjections.has(sessionId)) continue
       const stopQuestions = binding.session.projections.faceOf('userQuestions').subscribe(reconcile)
       const stopInbox = binding.session.projections.faceOf('inbox').subscribe(reconcile)
-      stopProjections.set(sessionId, () => { stopQuestions(); stopInbox() })
+      stopProjections.set(sessionId, () => {
+        stopQuestions()
+        stopInbox()
+      })
     }
     const rows = new Map<string, { sessionId: SessionId; row: PendingUserQuestion }>()
     for (const [sessionId, binding] of bound) {
-      const projected = binding.session.projections.faceOf('userQuestions').getSnapshot() as
-        UserQuestionProjectionView | undefined
+      const projected = binding.session.projections.faceOf('userQuestions').getSnapshot() as UserQuestionProjectionView | undefined
       const inbox = binding.session.projections.faceOf('inbox').getSnapshot() as InboxWireState | undefined
       const queued = new Set<string>()
       for (const message of [...(inbox?.['next-step'] ?? []), ...(inbox?.['next-turn'] ?? [])]) {
@@ -341,11 +351,14 @@ function publishContinuedQuestions(ctx: ClientContext, cards: QuestionCards): ()
     }
     for (const card of cards.values()) {
       // A review card's call already settled, so the projection no longer lists it as answerable.
-      if (card.pending.callId === undefined
-        || card.pending.review !== undefined
-        || rows.has(card.pending.key)
-        || card.hasRequest()
-        || card.pending.hasWaterfall()) continue
+      if (
+        card.pending.callId === undefined ||
+        card.pending.review !== undefined ||
+        rows.has(card.pending.key) ||
+        card.hasRequest() ||
+        card.pending.hasWaterfall()
+      )
+        continue
       card.remove()
     }
   }
@@ -369,38 +382,50 @@ function publishContinuedQuestions(ctx: ClientContext, cards: QuestionCards): ()
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-user-questions: dictionaries')
   const questionDraftStore = createQuestionDraftStore()
-  const registerPendingInteraction = ctx.uiSession.registerPendingInteraction<PendingQuestion>(
-    pending => pending.kind === 'plan-review' ? 2 : 1,
+  const registerPendingInteraction = ctx.uiSession.registerPendingInteraction<PendingQuestion>(pending =>
+    pending.kind === 'plan-review' ? 2 : 1,
   )
   const cards = new QuestionCards(registerPendingInteraction)
-  ctx.effect(() => () => { cards.dispose() }, 'ui-user-questions: cards')
+  ctx.effect(
+    () => () => {
+      cards.dispose()
+    },
+    'ui-user-questions: cards',
+  )
   const disposePanels = ctx.reflect.provide('userQuestionPanels', {
     reveal: (sessionId, callId) => cards.reveal(sessionId, callId),
     review: (sessionId, callId, record) => cards.review(sessionId, callId, record),
   } satisfies UserQuestionPanels)
   ctx.effect(() => disposePanels, 'ui-user-questions: answer panels')
   ctx.effect(() => publishContinuedQuestions(ctx, cards), 'ui-user-questions: continued questions')
-  ctx.slots.inject('conversation.composer', () => ctx.slots.register(
-    {
-      name: 'conversation.composer',
-      select: ({ pendingInteraction }: ComposerChainProps): PendingQuestion | null =>
-        pendingInteraction instanceof PendingQuestion ? pendingInteraction : null,
-      locale: NS,
-      store: questionDraftStore,
-      inject: () => ({ keyedHooks: { questionCard: (key: string) => cards.source(key) } }),
-      children: {
-        'conversation.plan-review.actions': { kind: 'list', scope: 'session' },
-        'conversation.question.header.lead': { kind: 'list', scope: 'session' },
+  ctx.slots.inject('conversation.composer', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.composer',
+        select: ({ pendingInteraction }: ComposerChainProps): PendingQuestion | null =>
+          pendingInteraction instanceof PendingQuestion ? pendingInteraction : null,
+        locale: NS,
+        store: questionDraftStore,
+        inject: () => ({ keyedHooks: { questionCard: (key: string) => cards.source(key) } }),
+        children: {
+          'conversation.plan-review.actions': { kind: 'list', scope: 'session' },
+          'conversation.question.header.lead': { kind: 'list', scope: 'session' },
+        },
       },
-    },
-    QuestionComposer,
-  ))
+      QuestionComposer,
+    ),
+  )
   ctx.uiConversation.events.register(questionReplyDefinition)
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
-    name: 'conversation.chat.node',
-    key: 'question-reply',
-    locale: NS,
-  }, QuestionReplyView))
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'question-reply',
+        locale: NS,
+      },
+      QuestionReplyView,
+    ),
+  )
   ctx.remote.$on('user-questions/request', function (request, next) {
     return answerQuestion(ctx, this, request, next, cards)
   })

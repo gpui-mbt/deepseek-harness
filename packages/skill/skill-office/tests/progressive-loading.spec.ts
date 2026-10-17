@@ -1,5 +1,5 @@
 /** Model request contents for independent Office authoring and operation skills. */
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -16,12 +16,16 @@ import * as SkillOffice from '../src/index.ts'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
 const contexts: Context[] = []
-afterEach(async () => { for (const ctx of contexts.splice(0)) await ctx.fiber.dispose() })
+afterEach(async () => {
+  for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
+})
 
 class SkillProgram extends PtcRuntime {
   readonly language = 'typescript'
   readonly isolation = 'fixture'
-  resolve(request: PtcRunRequest): PtcRunSpec { return { ...request, cwd: process.cwd(), timeoutMs: 120_000 } }
+  resolve(request: PtcRunRequest): PtcRunSpec {
+    return { ...request, cwd: process.cwd(), timeoutMs: 120_000 }
+  }
   async run(request: PtcRunSpec) {
     return { logs: [], value: await request.bindings[0]!.functions.skill!({ name: request.program }) }
   }
@@ -43,13 +47,20 @@ async function setup(mode: 'native' | 'ptc', names: string[]) {
   await ctx.plugin(SkillOffice)
   if (mode === 'ptc') await ctx.plugin(SkillProgram)
   const adapter = new MockAdapter([
-    ...names.map((name, index) => mode === 'native'
-      ? toolCallResponse(`skill-${index}`, 'skill', { name })
-      : toolCallResponse(`skill-${index}`, 'run_code', { code: name, description: 'Load task instructions' })),
-    textResponse('Done.'), textResponse('Continued.'), textResponse('Fork continued.'),
+    ...names.map((name, index) =>
+      mode === 'native'
+        ? toolCallResponse(`skill-${index}`, 'skill', { name })
+        : toolCallResponse(`skill-${index}`, 'run_code', { code: name, description: 'Load task instructions' }),
+    ),
+    textResponse('Done.'),
+    textResponse('Continued.'),
+    textResponse('Fork continued.'),
   ])
   ctx.llm.registerAdapter(['mock'], adapter)
-  const { agent } = await ctx.agents.create({ sessionId: SessionId('progressive-office'), agentOptions: { provider: 'mock', model: 'model' } })
+  const { agent } = await ctx.agents.create({
+    sessionId: SessionId('progressive-office'),
+    agentOptions: { provider: 'mock', model: 'model' },
+  })
   return { ctx, agent, adapter }
 }
 
@@ -58,7 +69,7 @@ async function send(agent: Agent, text = 'Continue the task'): Promise<void> {
   await agent.whenIdle()
 }
 
-it.each(['native', 'ptc'] as const)('loads the router and authoring body in %s; resume and fork retain those instructions', async (mode) => {
+it.each(['native', 'ptc'] as const)('loads the router and authoring body in %s; resume and fork retain those instructions', async mode => {
   const { ctx, agent, adapter } = await setup(mode, ['office', 'office-docx'])
   await send(agent, 'Edit the Word document text.')
   expect(adapter.requests).toHaveLength(3)
@@ -69,7 +80,9 @@ it.each(['native', 'ptc'] as const)('loads the router and authoring body in %s; 
   expect(requests[1]).not.toContain('python-docx')
   expect(requests[2]).toContain('python-docx')
   if (mode === 'ptc') {
-    expect(agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'skill-invocation')).toEqual([])
+    expect(
+      agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'skill-invocation'),
+    ).toEqual([])
   }
   expect(requests[2]).toContain('office-render')
   expect(requests[2]).not.toContain('dsoffice')
@@ -79,9 +92,18 @@ it.each(['native', 'ptc'] as const)('loads the router and authoring body in %s; 
     expect(request).not.toMatch(/uniformly blank|fragment rectangles/)
   }
   const seed = agent.session.snapshotEvents()
-  const { agent: resumed } = await ctx.agents.create({ sessionId: SessionId('resumed-office'), agentOptions: { provider: 'mock', model: 'model' }, seed })
+  const { agent: resumed } = await ctx.agents.create({
+    sessionId: SessionId('resumed-office'),
+    agentOptions: { provider: 'mock', model: 'model' },
+    seed,
+  })
   await send(resumed)
-  const { agent: forked } = await ctx.agents.create({ sessionId: SessionId('forked-office'), agentOptions: { provider: 'mock', model: 'model' }, seed, meta: { parentSession: agent.id } })
+  const { agent: forked } = await ctx.agents.create({
+    sessionId: SessionId('forked-office'),
+    agentOptions: { provider: 'mock', model: 'model' },
+    seed,
+    meta: { parentSession: agent.id },
+  })
   await send(forked)
   for (const request of adapter.requests.slice(3)) {
     const text = JSON.stringify(request)
@@ -93,17 +115,20 @@ it.each(['native', 'ptc'] as const)('loads the router and authoring body in %s; 
   expect(agent.session.snapshotEvents()).toEqual(seed)
 })
 
-it.each(['office-render', 'office-recalculate', 'office-export-pdf'])('loads %s directly without unrelated operation or authoring bodies', async (name) => {
-  const { agent, adapter } = await setup('native', [name])
-  await send(agent)
-  const loaded = JSON.stringify(adapter.requests.at(-1))
-  expect(loaded).toContain('libreofficeKit')
-  expect(loaded).not.toContain('Office task routing')
-  expect(loaded).not.toContain('# Word documents')
-  if (name !== 'office-render') expect(loaded).not.toMatch(/render --input|uniformly blank|fragment rectangles|DPI/)
-  if (name !== 'office-recalculate') expect(loaded).not.toContain('recalculate --input')
-  if (name !== 'office-export-pdf') expect(loaded).not.toContain('convert --input')
-})
+it.each(['office-render', 'office-recalculate', 'office-export-pdf'])(
+  'loads %s directly without unrelated operation or authoring bodies',
+  async name => {
+    const { agent, adapter } = await setup('native', [name])
+    await send(agent)
+    const loaded = JSON.stringify(adapter.requests.at(-1))
+    expect(loaded).toContain('libreofficeKit')
+    expect(loaded).not.toContain('Office task routing')
+    expect(loaded).not.toContain('# Word documents')
+    if (name !== 'office-render') expect(loaded).not.toMatch(/render --input|uniformly blank|fragment rectangles|DPI/)
+    if (name !== 'office-recalculate') expect(loaded).not.toContain('recalculate --input')
+    if (name !== 'office-export-pdf') expect(loaded).not.toContain('convert --input')
+  },
+)
 
 it('loads an explicitly invoked authoring skill without the router', async () => {
   const { agent, adapter } = await setup('native', [])

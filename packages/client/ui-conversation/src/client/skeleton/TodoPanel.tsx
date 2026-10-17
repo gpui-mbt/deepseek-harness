@@ -7,7 +7,10 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 // free of host value imports, so no host Context merge enters this program.
 import type { TodoItem } from '@deepseek-ai/dsh-tool-todo/client'
 import {
-  IconChecklistOutlineRegular, IconChevronDownOutlineRegular, IconChevronUpOutlineRegular, StateDot,
+  IconChecklistOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconChevronUpOutlineRegular,
+  StateDot,
   type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { NS } from '../locales.ts'
@@ -29,22 +32,30 @@ function assertNever(value: never): never {
 /** Map Todo lifecycle state onto the shared compact status language. */
 function statusDotState(status: TodoItem['status']): StateDotState {
   switch (status) {
-    case 'completed': return 'done'
-    case 'in_progress': return 'ongoing'
-    case 'pending': return 'idle'
+    case 'completed':
+      return 'done'
+    case 'in_progress':
+      return 'ongoing'
+    case 'pending':
+      return 'idle'
     /* v8 ignore next -- closed TodoItem status union */
-    default: return assertNever(status)
+    default:
+      return assertNever(status)
   }
 }
 
 /** Return the localized status announced beside one decorative marker. */
 function statusLabel(status: TodoItem['status'], t: TodoPanelProps['t']): string {
   switch (status) {
-    case 'completed': return t('todo.status.completed')
-    case 'in_progress': return t('todo.status.inProgress')
-    case 'pending': return t('todo.status.pending')
+    case 'completed':
+      return t('todo.status.completed')
+    case 'in_progress':
+      return t('todo.status.inProgress')
+    case 'pending':
+      return t('todo.status.pending')
     /* v8 ignore next -- closed TodoItem status union */
-    default: return assertNever(status)
+    default:
+      return assertNever(status)
   }
 }
 
@@ -56,9 +67,9 @@ function progressLabel(todos: readonly TodoItem[], t: TodoPanelProps['t']): stri
   // En spaces (U+2002): HTML collapses runs of ASCII spaces, so widening the
   // separator breathing room needs a literal wide space.
   return [
-    ...done > 0 ? [t('todo.progress.done', { done })] : [],
-    ...active > 0 ? [t('todo.progress.active', { active })] : [],
-    ...pending > 0 ? [t('todo.progress.pending', { pending })] : [],
+    ...(done > 0 ? [t('todo.progress.done', { done })] : []),
+    ...(active > 0 ? [t('todo.progress.active', { active })] : []),
+    ...(pending > 0 ? [t('todo.progress.pending', { pending })] : []),
   ].join('\u2002·\u2002')
 }
 
@@ -73,9 +84,13 @@ export function TodoPanel({ todos, t }: TodoPanelProps) {
           type="button"
           className={css.header}
           aria-expanded={!collapsed}
-          onClick={() => { setCollapsed(v => !v) }}
+          onClick={() => {
+            setCollapsed(v => !v)
+          }}
         >
-          <span className={css.lead} aria-hidden><IconChecklistOutlineRegular /></span>
+          <span className={css.lead} aria-hidden>
+            <IconChecklistOutlineRegular />
+          </span>
           <span className={css.title}>{t('todo.title')}</span>
           <span className={css.progress}>{progressLabel(todos, t)}</span>
           <span className={css.chevron} aria-hidden>
@@ -114,6 +129,7 @@ export const todoDockEntry = {
   inject: ['slots'],
   apply(ctx: Context): void {
     ctx.slots.inject('conversation.input.dock', () =>
-      ctx.slots.register({ name: 'conversation.input.dock', id: 'todo', order: 0, locale: NS }, TodoDock))
+      ctx.slots.register({ name: 'conversation.input.dock', id: 'todo', order: 0, locale: NS }, TodoDock),
+    )
   },
 }

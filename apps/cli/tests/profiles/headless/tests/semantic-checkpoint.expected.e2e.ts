@@ -13,14 +13,16 @@ import { createUserMessage, ToolCallId, createMessage } from '@deepseek-ai/dsh-l
 import { SessionSeq, SESSION_FORMAT_VERSION, SessionId, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { logPath } from '../../../../../../packages/session/session-persistence-jsonl/src/format.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), 'expected/semantic-checkpoint')
 const replayFixture = join(fixtureDir, 'replay.jsonl')
 const replayOverride = join(fixtureDir, 'replay.override.json')
 const sessionExpected = join(fixtureDir, 'session.expected.jsonl')
 const configPath = fileURLToPath(new URL('../semantic-checkpoint-snapshot.patch.yml', import.meta.url))
-const binScript = fileURLToPath(new URL('../../../../../../packages/test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url))
+const binScript = fileURLToPath(
+  new URL('../../../../../../packages/test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url),
+)
 const tsconfigPath = fileURLToPath(new URL('../../../../../../tsconfig.json', import.meta.url))
 const sessionId = SessionId('semantic-checkpoint-unknown-outcome')
 const refreshing = process.env.DSH_SNAPSHOT === 'refresh'
@@ -29,11 +31,14 @@ const task = 'Continue safely from the interrupted operation.'
 /** Compare one current normalized Session with its generation-aware committed fixture. */
 async function expectSession(actual: string, expectedPath: string): Promise<void> {
   const expected = await readFile(expectedPath, 'utf8')
-  const parse = (content: string): Record<string, unknown>[] => content.split('\n')
-    .filter(line => line.trim().length > 0)
-    .map(line => JSON.parse(line) as Record<string, unknown>)
-  expect(normalizeSessionSnapshots([actual], fixtureContext(actual)).map(parse))
-    .toEqual(normalizeSessionSnapshots([expected], fixtureContext(expected)).map(parse))
+  const parse = (content: string): Record<string, unknown>[] =>
+    content
+      .split('\n')
+      .filter(line => line.trim().length > 0)
+      .map(line => JSON.parse(line) as Record<string, unknown>)
+  expect(normalizeSessionSnapshots([actual], fixtureContext(actual)).map(parse)).toEqual(
+    normalizeSessionSnapshots([expected], fixtureContext(expected)).map(parse),
+  )
 }
 
 async function seedInterruptedSession(root: string, cwd: string): Promise<string> {
@@ -51,13 +56,22 @@ async function seedInterruptedSession(root: string, cwd: string): Promise<string
     { type: 'turn/start', seq: SessionSeq(0), time: 10, data: { turn: 1 } },
     { type: 'step/start', seq: SessionSeq(1), time: 11, data: { turn: 1, step: 1 } },
     {
-      type: 'system/message', seq: SessionSeq(2), time: 12,
+      type: 'system/message',
+      seq: SessionSeq(2),
+      time: 12,
       data: { turn: 1, step: 1, message: createMessage({ role: 'system', content: [], source: { kind: 'system-prompt' } }) },
       surfaceOp: 'append',
     },
-    { type: 'user/message', seq: SessionSeq(3), time: 13, data: createUserMessage({
-      content: [{ type: 'text', text: 'Perform one side-effecting remote mutation.' }], source: { kind: 'user' },
-    }), surfaceOp: 'append' },
+    {
+      type: 'user/message',
+      seq: SessionSeq(3),
+      time: 13,
+      data: createUserMessage({
+        content: [{ type: 'text', text: 'Perform one side-effecting remote mutation.' }],
+        source: { kind: 'user' },
+      }),
+      surfaceOp: 'append',
+    },
     {
       type: 'assistant/message',
       seq: SessionSeq(4),
@@ -101,41 +115,48 @@ async function seedInterruptedSession(root: string, cwd: string): Promise<string
 }
 
 describe('semantic checkpoint recovery snapshot', () => {
-  it('resumes an unknown tool outcome through the headless stream-json app', async () => {
-    let cwd = ''
-    let sessionPath = ''
-    const result = await runLoaderSmoke({
-      label: 'semantic checkpoint headless stream-json snapshot',
-      tempDirPrefix: 'dsh-semantic-snapshot-',
-      binScript,
-      libBinScript: binScript,
-      configPath,
-      binArgs: [configPath, task],
-      tsconfigPath,
-      env: {
-        DSH_SNAPSHOT_FILE: replayFixture,
-        DSH_SNAPSHOT_OVERRIDE: replayOverride,
-      },
-      prepare: async (runCwd) => {
-        cwd = runCwd
-        sessionPath = await seedInterruptedSession(join(runCwd, '.sessions'), runCwd)
-      },
-      inspect: async () => {
-        const normalization: NormalizeContext = { sessionIds: [sessionId], cwd }
-        const session = normalizeSessionSnapshot(await readFile(sessionPath, 'utf8'), normalization)
-        if (refreshing) await writeFile(sessionExpected, session)
-        await expectSession(session, sessionExpected)
-        expect(session).toContain('TOOL_OUTCOME_UNKNOWN')
-        expect(session).toContain('Do not retry blindly.')
-      },
-    })
+  it(
+    'resumes an unknown tool outcome through the headless stream-json app',
+    async () => {
+      let cwd = ''
+      let sessionPath = ''
+      const result = await runLoaderSmoke({
+        label: 'semantic checkpoint headless stream-json snapshot',
+        tempDirPrefix: 'dsh-semantic-snapshot-',
+        binScript,
+        libBinScript: binScript,
+        configPath,
+        binArgs: [configPath, task],
+        tsconfigPath,
+        env: {
+          DSH_SNAPSHOT_FILE: replayFixture,
+          DSH_SNAPSHOT_OVERRIDE: replayOverride,
+        },
+        prepare: async runCwd => {
+          cwd = runCwd
+          sessionPath = await seedInterruptedSession(join(runCwd, '.sessions'), runCwd)
+        },
+        inspect: async () => {
+          const normalization: NormalizeContext = { sessionIds: [sessionId], cwd }
+          const session = normalizeSessionSnapshot(await readFile(sessionPath, 'utf8'), normalization)
+          if (refreshing) await writeFile(sessionExpected, session)
+          await expectSession(session, sessionExpected)
+          expect(session).toContain('TOOL_OUTCOME_UNKNOWN')
+          expect(session).toContain('Do not retry blindly.')
+        },
+      })
 
-    expect(result.stderr).toBe('')
-    const records = result.stdout.trimEnd().split('\n').map(line => JSON.parse(line) as Record<string, unknown>)
-    expect(records.at(-1)).toMatchObject({
-      type: 'result',
-      sessionId,
-      output: 'I will verify the external state before deciding whether to retry the side-effecting operation.',
-    })
-  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+      expect(result.stderr).toBe('')
+      const records = result.stdout
+        .trimEnd()
+        .split('\n')
+        .map(line => JSON.parse(line) as Record<string, unknown>)
+      expect(records.at(-1)).toMatchObject({
+        type: 'result',
+        sessionId,
+        output: 'I will verify the external state before deciding whether to retry the side-effecting operation.',
+      })
+    },
+    LOADER_SMOKE_TEST_TIMEOUT_MS,
+  )
 })

@@ -2,12 +2,14 @@ import { Context } from '@deepseek-ai/cordis'
 import Sessions, { SessionId } from '@deepseek-ai/dsh-session'
 import SandboxPolicy, { setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy'
 import SessionProjections from '@deepseek-ai/dsh-session-projection'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { PtcCalls } from '../src/ptc-calls.ts'
 
 async function setup() {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   await ctx.plugin(Sessions)
   await ctx.plugin(SessionProjections)
   await ctx.plugin(SandboxPolicy, { mode: 'workspace-write' })
@@ -22,7 +24,10 @@ it('commits policy immediately, cancels existing calls, and waits for their comp
   const { ctx, session, calls, mode, signal } = await setup()
   const cleanup = Promise.withResolvers<undefined>()
   let oldSignal: AbortSignal | undefined
-  const first = calls.run(session.id, signal, mode, async (current) => { oldSignal = current; await cleanup.promise })
+  const first = calls.run(session.id, signal, mode, async current => {
+    oldSignal = current
+    await cleanup.promise
+  })
   const next = vi.fn(async () => mode())
   try {
     session.append('turn/start', { turn: 1 })
@@ -38,7 +43,10 @@ it('commits policy immediately, cancels existing calls, and waits for their comp
     cleanup.resolve(undefined)
     await first
     expect(await second).toBe('danger-full-access')
-  } finally { cleanup.resolve(undefined); await first }
+  } finally {
+    cleanup.resolve(undefined)
+    await first
+  }
 })
 
 it('releases failed calls and allows same-policy calls to overlap', async () => {
@@ -46,9 +54,16 @@ it('releases failed calls and allows same-policy calls to overlap', async () => 
   const cleanup = Promise.withResolvers<undefined>()
   const first = calls.run(session.id, signal, mode, () => cleanup.promise)
   try {
-    await expect(calls.run(session.id, signal, mode, async () => { throw new Error('failed call') })).rejects.toThrow('failed call')
+    await expect(
+      calls.run(session.id, signal, mode, async () => {
+        throw new Error('failed call')
+      }),
+    ).rejects.toThrow('failed call')
     expect(await calls.run(session.id, signal, mode, async () => 'next')).toBe('next')
-  } finally { cleanup.resolve(undefined); await first }
+  } finally {
+    cleanup.resolve(undefined)
+    await first
+  }
 })
 
 it('honors cancellation while waiting for a canceled predecessor', async () => {
@@ -71,8 +86,14 @@ it('unloads the registry only after calls stop and refuses late admission', asyn
   const { ctx, session, calls, mode, signal } = await setup()
   const cleanup = Promise.withResolvers<undefined>()
   const stopped = Promise.withResolvers<undefined>()
-  const first = calls.run(session.id, signal, mode, async (current) => {
-    current.addEventListener('abort', () => { stopped.resolve(undefined) }, { once: true })
+  const first = calls.run(session.id, signal, mode, async current => {
+    current.addEventListener(
+      'abort',
+      () => {
+        stopped.resolve(undefined)
+      },
+      { once: true },
+    )
     await cleanup.promise
   })
   const disposed = ctx.fiber.dispose()
@@ -85,5 +106,9 @@ it('unloads the registry only after calls stop and refuses late admission', asyn
     await rejected
     await disposed
     await expect(calls.run(session.id, signal, mode, async () => 'unexpected')).rejects.toThrow('PTC tool registry disposed')
-  } finally { cleanup.resolve(undefined); await first; await disposed }
+  } finally {
+    cleanup.resolve(undefined)
+    await first
+    await disposed
+  }
 })

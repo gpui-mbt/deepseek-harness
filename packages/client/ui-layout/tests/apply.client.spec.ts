@@ -4,7 +4,7 @@ import ShortcutsService from '../../shortcuts/src/client/index.ts'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { Context, type Fiber } from '@deepseek-ai/cordis'
 import { stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SlotRendererHost } from '@deepseek-ai/dsh-client-ui-slots'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -25,7 +25,9 @@ beforeEach(() => {
   originalBodyStyle = document.body.getAttribute('style')
   originalDarkTheme = document.body.getAttribute('data-ds-dark-theme')
   originalThemeMetadata = [...document.head.querySelectorAll('meta[name="theme-color"]')]
-  originalThemeMetadata.forEach((node) => { node.remove() })
+  originalThemeMetadata.forEach(node => {
+    node.remove()
+  })
   vi.stubGlobal('innerWidth', 1920)
 })
 
@@ -37,7 +39,9 @@ afterEach(async () => {
     restoreAttribute(document.documentElement, 'style', originalRootStyle)
     restoreAttribute(document.body, 'style', originalBodyStyle)
     restoreAttribute(document.body, 'data-ds-dark-theme', originalDarkTheme)
-    document.head.querySelectorAll('meta[name="theme-color"]').forEach((node) => { node.remove() })
+    document.head.querySelectorAll('meta[name="theme-color"]').forEach(node => {
+      node.remove()
+    })
     document.head.append(...originalThemeMetadata)
     vi.unstubAllGlobals()
   }
@@ -51,7 +55,9 @@ function restoreAttribute(element: Element, name: string, value: string | null):
 async function bench() {
   const root = new Context()
   let ctx: Context | undefined
-  const owner = root.plugin((ownedContext: Context) => { ctx = ownedContext })
+  const owner = root.plugin((ownedContext: Context) => {
+    ctx = ownedContext
+  })
   owners.add(owner)
   await owner.await()
   if (ctx === undefined) throw new Error('the fixture owner did not activate')
@@ -65,7 +71,12 @@ async function bench() {
   await slotsFiber.await()
   const slots = ctx.get('slots') as SlotRegistry
   let host: SlotRendererHost | undefined
-  slots.install({ renderRoot: (value) => { host = value; return null } })
+  slots.install({
+    renderRoot: value => {
+      host = value
+      return null
+    },
+  })
   const rendererHost = (): SlotRendererHost => {
     slots.renderSlot('root', {})
     if (host === undefined) throw new Error('the root renderer did not receive its host')
@@ -103,7 +114,9 @@ describe('ui-layout client apply', () => {
     const instance = handle.create()
     expect(handle.create()).toBe(instance)
     const layout = ctx.get('layout') as LayoutController
-    expect(() => { layout.selectPanel('missing' as MainPanelId) }).toThrow('main panel "missing" is not registered')
+    expect(() => {
+      layout.selectPanel('missing' as MainPanelId)
+    }).toThrow('main panel "missing" is not registered')
     layout.toggleSidebar()
     expect(instance.getSnapshot().layoutInfo.sidebar).toBe(0)
     const host = rendererHost()
@@ -116,8 +129,12 @@ describe('ui-layout client apply', () => {
     layout.selectPanel(panelId)
     expect(panelInfo.getSnapshot()).toEqual({ activePanelId: panelId })
     disposePanel()
-    await vi.waitFor(() => { expect(panelInfo.getSnapshot()).toEqual({ activePanelId: null }) })
-    expect(() => { layout.selectPanel(panelId) }).toThrow('main panel "panel-a" is not registered')
+    await vi.waitFor(() => {
+      expect(panelInfo.getSnapshot()).toEqual({ activePanelId: null })
+    })
+    expect(() => {
+      layout.selectPanel(panelId)
+    }).toThrow('main panel "panel-a" is not registered')
     expect(instance.getSnapshot().layoutInfo.sidebar).toBe(0)
     const pending = layout.beginNavigation()
     await fiber.dispose()

@@ -25,12 +25,12 @@ export const PATH_TOKEN = '{path}'
  */
 export type OpenInAppLaunch =
   | {
-    readonly kind: 'argv'
-    readonly command: string
-    readonly args: readonly string[]
-    readonly env?: Readonly<Record<string, string>> | undefined
-    readonly windowsHide?: boolean | undefined
-  }
+      readonly kind: 'argv'
+      readonly command: string
+      readonly args: readonly string[]
+      readonly env?: Readonly<Record<string, string>> | undefined
+      readonly windowsHide?: boolean | undefined
+    }
   | { readonly kind: 'shell-open' }
 
 /**
@@ -51,36 +51,36 @@ export type OpenInAppLaunch =
  */
 export type OpenInAppLocator =
   | {
-    readonly kind: 'fixed'
-    readonly launch: OpenInAppLaunch
-    /** Icon source template (`.app` directory on macOS, executable on Windows). */
-    readonly iconPath: string
-  }
+      readonly kind: 'fixed'
+      readonly launch: OpenInAppLaunch
+      /** Icon source template (`.app` directory on macOS, executable on Windows). */
+      readonly iconPath: string
+    }
   | { readonly kind: 'app'; readonly fsNames: readonly string[] }
   | { readonly kind: 'xcode' }
   | {
-    readonly kind: 'cli'
-    readonly name: string
-    readonly args: readonly string[]
-    /** Require a desktop session before offering this native GUI launcher. */
-    readonly requiresDesktop?: boolean | undefined
-  }
+      readonly kind: 'cli'
+      readonly name: string
+      readonly args: readonly string[]
+      /** Require a desktop session before offering this native GUI launcher. */
+      readonly requiresDesktop?: boolean | undefined
+    }
   | { readonly kind: 'file'; readonly candidates: readonly string[]; readonly args: readonly string[] }
   | {
-    readonly kind: 'scan'
-    readonly root: string
-    readonly namePrefix: string
-    readonly relativeLauncher: string
-    readonly args: readonly string[]
-  }
+      readonly kind: 'scan'
+      readonly root: string
+      readonly namePrefix: string
+      readonly relativeLauncher: string
+      readonly args: readonly string[]
+    }
   | { readonly kind: 'app-paths'; readonly exe: string; readonly args: readonly string[] }
   | {
-    readonly kind: 'install-record'
-    readonly displayNamePrefix: string
-    /** Launcher under the record's `InstallLocation`; absent means the record's `DisplayIcon` executable. */
-    readonly relativeLauncher?: string | undefined
-    readonly args: readonly string[]
-  }
+      readonly kind: 'install-record'
+      readonly displayNamePrefix: string
+      /** Launcher under the record's `InstallLocation`; absent means the record's `DisplayIcon` executable. */
+      readonly relativeLauncher?: string | undefined
+      readonly args: readonly string[]
+    }
   | { readonly kind: 'github-desktop'; readonly root: string }
   | { readonly kind: 'desktop'; readonly desktopId: string; readonly args: readonly string[] }
 
@@ -148,9 +148,7 @@ function installRecord(displayNamePrefix: string, relativeLauncher?: string, ...
  * or a verified Uninstall record on Windows, PATH command or Toolbox shell
  * script on Linux.
  */
-function jetBrains(
-  id: string, productName: string, cliName: string, winExe: string, macNames: readonly string[],
-): OpenInAppApp {
+function jetBrains(id: string, productName: string, cliName: string, winExe: string, macNames: readonly string[]): OpenInAppApp {
   return {
     id,
     platforms: {
@@ -204,11 +202,7 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
     id: 'cursor',
     platforms: {
       darwin: macApp('Cursor.app'),
-      win32: spec(
-        appPaths('Cursor.exe'),
-        installRecord('Cursor'),
-        file(['${LOCALAPPDATA}/Programs/cursor/Cursor.exe']),
-      ),
+      win32: spec(appPaths('Cursor.exe'), installRecord('Cursor'), file(['${LOCALAPPDATA}/Programs/cursor/Cursor.exe'])),
       linux: spec(cli('cursor')),
     },
   },
@@ -219,10 +213,7 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
       win32: spec(
         appPaths('Code.exe'),
         installRecord('Microsoft Visual Studio Code', 'Code.exe'),
-        file([
-          '${LOCALAPPDATA}/Programs/Microsoft VS Code/Code.exe',
-          '${ProgramFiles}/Microsoft VS Code/Code.exe',
-        ]),
+        file(['${LOCALAPPDATA}/Programs/Microsoft VS Code/Code.exe', '${ProgramFiles}/Microsoft VS Code/Code.exe']),
       ),
       linux: desktopSpec('code', cli('code')),
     },
@@ -243,11 +234,7 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
     id: 'windsurf',
     platforms: {
       darwin: macApp('Windsurf.app'),
-      win32: spec(
-        appPaths('Windsurf.exe'),
-        installRecord('Windsurf'),
-        file(['${LOCALAPPDATA}/Programs/Windsurf/Windsurf.exe']),
-      ),
+      win32: spec(appPaths('Windsurf.exe'), installRecord('Windsurf'), file(['${LOCALAPPDATA}/Programs/Windsurf/Windsurf.exe'])),
       linux: spec(cli('windsurf')),
     },
   },
@@ -262,11 +249,7 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
     id: 'sublimetext',
     platforms: {
       darwin: macApp('Sublime Text.app'),
-      win32: spec(
-        appPaths('sublime_text.exe'),
-        installRecord('Sublime Text'),
-        file(['${ProgramFiles}/Sublime Text/sublime_text.exe']),
-      ),
+      win32: spec(appPaths('sublime_text.exe'), installRecord('Sublime Text'), file(['${ProgramFiles}/Sublime Text/sublime_text.exe'])),
       linux: desktopSpec('sublime_text', cli('subl')),
     },
   },
@@ -275,20 +258,17 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
     id: 'androidstudio',
     platforms: {
       darwin: macApp('Android Studio.app'),
-      win32: spec(
-        installRecord('Android Studio', 'bin/studio64.exe'),
-        file(['${ProgramFiles}/Android/Android Studio/bin/studio64.exe']),
-      ),
-      linux: spec(cli('studio'), file([
-        '~/.local/share/JetBrains/Toolbox/scripts/studio',
-        '/opt/android-studio/bin/studio.sh',
-      ])),
+      win32: spec(installRecord('Android Studio', 'bin/studio64.exe'), file(['${ProgramFiles}/Android/Android Studio/bin/studio64.exe'])),
+      linux: spec(cli('studio'), file(['~/.local/share/JetBrains/Toolbox/scripts/studio', '/opt/android-studio/bin/studio.sh'])),
     },
   },
-  jetBrains('intellij', 'IntelliJ IDEA', 'idea', 'idea64.exe',
-    ['IntelliJ IDEA.app', 'IntelliJ IDEA Ultimate.app', 'IntelliJ IDEA CE.app']),
-  jetBrains('pycharm', 'PyCharm', 'pycharm', 'pycharm64.exe',
-    ['PyCharm.app', 'PyCharm Professional.app', 'PyCharm CE.app', 'PyCharm Community.app']),
+  jetBrains('intellij', 'IntelliJ IDEA', 'idea', 'idea64.exe', ['IntelliJ IDEA.app', 'IntelliJ IDEA Ultimate.app', 'IntelliJ IDEA CE.app']),
+  jetBrains('pycharm', 'PyCharm', 'pycharm', 'pycharm64.exe', [
+    'PyCharm.app',
+    'PyCharm Professional.app',
+    'PyCharm CE.app',
+    'PyCharm Community.app',
+  ]),
   jetBrains('webstorm', 'WebStorm', 'webstorm', 'webstorm64.exe', ['WebStorm.app']),
   jetBrains('phpstorm', 'PhpStorm', 'phpstorm', 'phpstorm64.exe', ['PhpStorm.app']),
   jetBrains('goland', 'GoLand', 'goland', 'goland64.exe', ['GoLand.app']),
@@ -316,11 +296,7 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
     id: 'sublimemerge',
     platforms: {
       darwin: macApp('Sublime Merge.app'),
-      win32: spec(
-        appPaths('sublime_merge.exe'),
-        installRecord('Sublime Merge'),
-        file(['${ProgramFiles}/Sublime Merge/sublime_merge.exe']),
-      ),
+      win32: spec(appPaths('sublime_merge.exe'), installRecord('Sublime Merge'), file(['${ProgramFiles}/Sublime Merge/sublime_merge.exe'])),
       linux: desktopSpec('sublime_merge', cli('smerge')),
     },
   },
@@ -328,11 +304,11 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
     id: 'ghostty',
     platforms: {
       darwin: macApp('Ghostty.app'),
-      linux: desktopSpec(
-        'com.mitchellh.ghostty',
-        cli('ghostty', `--working-directory=${PATH_TOKEN}`),
-        { kind: 'desktop', desktopId: 'com.mitchellh.ghostty', args: [`--working-directory=${PATH_TOKEN}`] },
-      ),
+      linux: desktopSpec('com.mitchellh.ghostty', cli('ghostty', `--working-directory=${PATH_TOKEN}`), {
+        kind: 'desktop',
+        desktopId: 'com.mitchellh.ghostty',
+        args: [`--working-directory=${PATH_TOKEN}`],
+      }),
     },
   },
   { id: 'warp', platforms: { darwin: macApp('Warp.app') } },
@@ -341,11 +317,7 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
     id: 'kitty',
     platforms: {
       darwin: macApp('kitty.app'),
-      linux: desktopSpec(
-        'kitty',
-        cli('kitty', '--directory'),
-        { kind: 'desktop', desktopId: 'kitty', args: ['--directory'] },
-      ),
+      linux: desktopSpec('kitty', cli('kitty', '--directory'), { kind: 'desktop', desktopId: 'kitty', args: ['--directory'] }),
     },
   },
   {
@@ -373,21 +345,21 @@ export const OPEN_IN_APP_CATALOG: readonly OpenInAppApp[] = [
   {
     id: 'gnometerminal',
     platforms: {
-      linux: desktopSpec(
-        'org.gnome.Terminal',
-        cli('gnome-terminal', `--working-directory=${PATH_TOKEN}`),
-        { kind: 'desktop', desktopId: 'org.gnome.Terminal', args: [`--working-directory=${PATH_TOKEN}`] },
-      ),
+      linux: desktopSpec('org.gnome.Terminal', cli('gnome-terminal', `--working-directory=${PATH_TOKEN}`), {
+        kind: 'desktop',
+        desktopId: 'org.gnome.Terminal',
+        args: [`--working-directory=${PATH_TOKEN}`],
+      }),
     },
   },
   {
     id: 'konsole',
     platforms: {
-      linux: desktopSpec(
-        'org.kde.konsole',
-        cli('konsole', '--workdir'),
-        { kind: 'desktop', desktopId: 'org.kde.konsole', args: ['--workdir'] },
-      ),
+      linux: desktopSpec('org.kde.konsole', cli('konsole', '--workdir'), {
+        kind: 'desktop',
+        desktopId: 'org.kde.konsole',
+        args: ['--workdir'],
+      }),
     },
   },
 ]

@@ -1,11 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { fstatSync } from 'node:fs'
 import { PassThrough } from 'node:stream'
-import { describe, expect, it, vi } from 'vitest'
-import {
-  launchWindowsJob,
-  probeWindowsJob,
-} from '../src/windows-job.ts'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import { launchWindowsJob, probeWindowsJob } from '../src/windows-job.ts'
 import { bindManagedProcess } from '../src/spawn.ts'
 
 class FakeChild extends EventEmitter {
@@ -40,7 +37,9 @@ class FakeChild extends EventEmitter {
     if (callback !== undefined && this.deferSendCallbacks) {
       this.pendingSendCallbacks.push(callback)
     } else {
-      queueMicrotask(() => { callback?.(this.sendError ?? null) })
+      queueMicrotask(() => {
+        callback?.(this.sendError ?? null)
+      })
     }
     return true
   }
@@ -63,16 +62,16 @@ const spec = {
   graceMs: 100,
 } as const
 
-function launch(
-  child = new FakeChild(),
-  request: Parameters<typeof launchWindowsJob>[0] = spec,
-  emitSpawn = true,
-) {
+function launch(child = new FakeChild(), request: Parameters<typeof launchWindowsJob>[0] = spec, emitSpawn = true) {
   const spawn = vi.fn((_command: string, _args: readonly string[], _options: unknown) => child)
-  const result = launchWindowsJob(request, { TARGET: 'yes' }, {
-    spawn: spawn as never,
-    runnerInvocation: ['C:\\node.exe', 'C:\\runner.js'],
-  })
+  const result = launchWindowsJob(
+    request,
+    { TARGET: 'yes' },
+    {
+      spawn: spawn as never,
+      runnerInvocation: ['C:\\node.exe', 'C:\\runner.js'],
+    },
+  )
   if (emitSpawn) child.emit('spawn')
   return { child, result, spawn }
 }
@@ -85,7 +84,7 @@ describe('Windows Job capability', () => {
     const load = vi.fn(() => ({ bindings: true }) as never)
     const probe = vi.fn()
     vi.doMock('node:child_process', async importOriginal => ({
-      ...await importOriginal<typeof import('node:child_process')>(),
+      ...(await importOriginal<typeof import('node:child_process')>()),
       spawn,
     }))
     vi.doMock('@deepseek-ai/dsh-win32-process', () => ({
@@ -103,7 +102,7 @@ describe('Windows Job capability', () => {
       child.emit('spawn')
       child.emit('message', { type: 'target-exit', exitCode: 0 })
       child.connected = false
-      child.exit( 0, null)
+      child.exit(0, null)
       await expect(result.direct).resolves.toEqual({ exitCode: 0, signal: null })
       await expect(result.owner.waitForExit()).resolves.toBeUndefined()
     } finally {
@@ -131,15 +130,23 @@ describe('Windows Job capability', () => {
   })
 
   it('falls back when either runner or current Job capability is unavailable', () => {
-    expect(probeWindowsJob({
-      resolveRunnerInvocation: () => { throw new Error('runner resolution failed') },
-    })).toBe(false)
+    expect(
+      probeWindowsJob({
+        resolveRunnerInvocation: () => {
+          throw new Error('runner resolution failed')
+        },
+      }),
+    ).toBe(false)
     expect(probeWindowsJob({ runnerInvocation: ['/missing'], runnerAvailable: () => false })).toBe(false)
-    expect(probeWindowsJob({
-      runnerInvocation: ['C:\\node.exe'],
-      runnerAvailable: () => true,
-      loadWin32ProcessBindings: () => { throw new Error('bindings missing') },
-    })).toBe(false)
+    expect(
+      probeWindowsJob({
+        runnerInvocation: ['C:\\node.exe'],
+        runnerAvailable: () => true,
+        loadWin32ProcessBindings: () => {
+          throw new Error('bindings missing')
+        },
+      }),
+    ).toBe(false)
   })
 })
 
@@ -170,21 +177,27 @@ describe('Windows parent runner contract', () => {
     const { result, spawn } = launch(child, request)
     expect(result.control).toBe(control)
     expect(child.sent).toEqual([{ type: 'start', cwd: 'C:\\target', env: { TARGET: 'yes' }, control: 'pipe' }])
-    expect(spawn).toHaveBeenCalledWith('C:\\node.exe', expect.any(Array), expect.objectContaining({
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2, 'overlapped'],
-    }))
+    expect(spawn).toHaveBeenCalledWith(
+      'C:\\node.exe',
+      expect.any(Array),
+      expect.objectContaining({
+        stdio: ['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2, 'overlapped'],
+      }),
+    )
     control.destroy()
   })
 
   it('isolates runner stdio, carries target stdio on fd 4 through fd 6, and sends cwd/env', () => {
     const { child, result, spawn } = launch()
-    expect(spawn).toHaveBeenCalledWith('C:\\node.exe', [
-      'C:\\runner.js', '--', 'tool.exe', 'literal arg',
-    ], expect.objectContaining({
-      cwd: process.cwd(),
-      windowsHide: true,
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2],
-    }))
+    expect(spawn).toHaveBeenCalledWith(
+      'C:\\node.exe',
+      ['C:\\runner.js', '--', 'tool.exe', 'literal arg'],
+      expect.objectContaining({
+        cwd: process.cwd(),
+        windowsHide: true,
+        stdio: ['ignore', 'ignore', 'ignore', 'ipc', 'pipe', 'pipe', 2],
+      }),
+    )
     expect(child.sent).toEqual([{ type: 'start', cwd: 'C:\\target', env: { TARGET: 'yes' } }])
     expect(result.stdin).toBe(child.targetStdin)
     expect(result.stdout).toBe(child.targetStdout)
@@ -198,9 +211,13 @@ describe('Windows parent runner contract', () => {
       stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'inherit' },
     } as const
     const { result, spawn } = launch(child, ignored)
-    expect(spawn).toHaveBeenCalledWith('C:\\node.exe', expect.any(Array), expect.objectContaining({
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc', expect.any(Number), 'pipe', 2],
-    }))
+    expect(spawn).toHaveBeenCalledWith(
+      'C:\\node.exe',
+      expect.any(Array),
+      expect.objectContaining({
+        stdio: ['ignore', 'ignore', 'ignore', 'ipc', expect.any(Number), 'pipe', 2],
+      }),
+    )
     const options = spawn.mock.calls[0]?.[2] as { stdio: unknown[] }
     const carrier = options.stdio[4]
     if (typeof carrier !== 'number') throw new Error('expected numeric null-device carrier')
@@ -221,10 +238,16 @@ describe('Windows parent runner contract', () => {
       throw new Error('runner spawn failed')
     })
 
-    expect(() => launchWindowsJob(ignored, { TARGET: 'yes' }, {
-      spawn: spawn as never,
-      runnerInvocation: ['C:\\node.exe', 'C:\\runner.js'],
-    })).toThrow('runner spawn failed')
+    expect(() =>
+      launchWindowsJob(
+        ignored,
+        { TARGET: 'yes' },
+        {
+          spawn: spawn as never,
+          runnerInvocation: ['C:\\node.exe', 'C:\\runner.js'],
+        },
+      ),
+    ).toThrow('runner spawn failed')
     if (carrier === undefined) throw new Error('runner spawn was not attempted')
     const closedCarrier = carrier
     expect(() => fstatSync(closedCarrier)).toThrow()
@@ -235,7 +258,7 @@ describe('Windows parent runner contract', () => {
     child.emit('message', { type: 'target-exit', exitCode: 7 })
     await expect(result.direct).resolves.toEqual({ exitCode: 7, signal: null })
     child.connected = false
-    child.exit( 0, null)
+    child.exit(0, null)
     await expect(result.owner.waitForExit()).resolves.toBeUndefined()
   })
 
@@ -245,7 +268,7 @@ describe('Windows parent runner contract', () => {
     child.emit('message', { type: 'target-exit', exitCode: 7 })
     await Promise.resolve()
     child.connected = false
-    child.exit( 127, null)
+    child.exit(127, null)
     child.targetStdout.end()
     child.targetStderr.end()
     await expect(handle.done).resolves.toEqual({ exitCode: 7, signal: null })
@@ -255,11 +278,12 @@ describe('Windows parent runner contract', () => {
   it('maps errors and restores raw start-cancellation reasons from the parent latch', async () => {
     const spawned = launch()
     spawned.child.emit('message', {
-      type: 'error', error: { name: 'Error', message: 'missing', code: 'ENOENT' },
+      type: 'error',
+      error: { name: 'Error', message: 'missing', code: 'ENOENT' },
     })
     await expect(spawned.result.direct).rejects.toMatchObject({ code: 'ENOENT' })
     spawned.child.connected = false
-    spawned.child.exit( 0, null)
+    spawned.child.exit(0, null)
     await expect(spawned.result.owner.waitForExit()).resolves.toBeUndefined()
 
     const cancelled = launch()
@@ -269,12 +293,13 @@ describe('Windows parent runner contract', () => {
     cancelled.child.emit('message', {
       type: 'error',
       error: {
-        name: 'Error', message: 'subprocess target start was cancelled',
+        name: 'Error',
+        message: 'subprocess target start was cancelled',
       },
     })
     await expect(cancelled.result.direct).rejects.toBe(reason)
     cancelled.child.connected = false
-    cancelled.child.exit( 0, null)
+    cancelled.child.exit(0, null)
     await expect(cancelled.result.owner.waitForExit()).resolves.toBeUndefined()
 
     const nullCancelled = launch()
@@ -283,12 +308,13 @@ describe('Windows parent runner contract', () => {
     nullCancelled.child.emit('message', {
       type: 'error',
       error: {
-        name: 'Error', message: 'subprocess target start was cancelled',
+        name: 'Error',
+        message: 'subprocess target start was cancelled',
       },
     })
     await expect(nullCancelled.result.direct).rejects.toBeNull()
     nullCancelled.child.connected = false
-    nullCancelled.child.exit( 0, null)
+    nullCancelled.child.exit(0, null)
     await expect(nullCancelled.result.owner.waitForExit()).resolves.toBeUndefined()
 
     const implicit = launch()
@@ -296,12 +322,13 @@ describe('Windows parent runner contract', () => {
     implicit.child.emit('message', {
       type: 'error',
       error: {
-        name: 'Error', message: 'subprocess target start was cancelled',
+        name: 'Error',
+        message: 'subprocess target start was cancelled',
       },
     })
     await expect(implicit.result.direct).rejects.toBeUndefined()
     implicit.child.connected = false
-    implicit.child.exit( 0, null)
+    implicit.child.exit(0, null)
     await expect(implicit.result.owner.waitForExit()).resolves.toBeUndefined()
   })
 
@@ -327,28 +354,29 @@ describe('Windows parent runner contract', () => {
       syscall: 'QueryInformationJobObject',
     })
     spawned.child.connected = false
-    spawned.child.exit( 127, null)
+    spawned.child.exit(127, null)
     await expect(spawned.result.owner.waitForExit()).rejects.toThrow('exit code 127')
   })
 
   it('rejects direct and wait for runner error or abnormal runner exit', async () => {
     const failed = launch()
     failed.child.emit('message', {
-      type: 'error', error: { name: 'Error', message: 'Job assignment failed' },
+      type: 'error',
+      error: { name: 'Error', message: 'Job assignment failed' },
     })
     await expect(failed.result.direct).rejects.toThrow('Job assignment failed')
     failed.child.connected = false
-    failed.child.exit( 127, null)
+    failed.child.exit(127, null)
     await expect(failed.result.owner.waitForExit()).rejects.toThrow('exit code 127')
 
     const missing = launch()
     missing.child.connected = false
-    missing.child.exit( null, 'SIGKILL')
+    missing.child.exit(null, 'SIGKILL')
     await expect(missing.result.direct).rejects.toThrow('signal SIGKILL')
 
     const statusless = launch()
     statusless.child.connected = false
-    statusless.child.exit( null, null)
+    statusless.child.exit(null, null)
     await expect(statusless.result.direct).rejects.toThrow('without an exit status')
   })
 
@@ -370,7 +398,7 @@ describe('Windows parent runner contract', () => {
     errored.child.emit('error', spawnError)
     await expect(errored.result.direct).rejects.toBe(spawnError)
     await expect(errored.result.owner.waitForExit()).resolves.toBeUndefined()
-    errored.child.exit( 127, null)
+    errored.child.exit(127, null)
 
     const postSpawnError = launch()
     const infrastructureError = new Error('runner failed after spawn')
@@ -432,7 +460,8 @@ describe('Windows parent runner contract', () => {
     await Promise.resolve()
     child.deferSendCallbacks = true
     child.emit('message', {
-      type: 'error', error: { name: 'Error', message: 'target start failed', code: 'ENOENT' },
+      type: 'error',
+      error: { name: 'Error', message: 'target start failed', code: 'ENOENT' },
     })
     await expect(handle.done).rejects.toMatchObject({ code: 'ENOENT' })
     expect(child.pendingSendCallbacks).toHaveLength(1)
@@ -442,7 +471,7 @@ describe('Windows parent runner contract', () => {
     await Promise.resolve()
     expect(child.killed).toEqual([])
     child.connected = false
-    child.exit( 0, null)
+    child.exit(0, null)
     await expect(handle.waitForExit()).resolves.toBe(true)
   })
 
@@ -465,7 +494,7 @@ describe('Windows parent runner contract', () => {
     await Promise.resolve()
     expect(child.killed).toEqual([])
     child.connected = false
-    child.exit( 0, null)
+    child.exit(0, null)
     await expect(handle.done).resolves.toEqual({ exitCode: 7, signal: null })
     await expect(handle.waitForExit()).resolves.toBe(true)
   })

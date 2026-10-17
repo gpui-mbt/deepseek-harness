@@ -43,9 +43,7 @@ const PUBLISH_ATTEMPTS = 4
 const PUBLISH_SPACING_MS = 2_000
 
 /** What the registry knows about one version. */
-type RegistryState =
-  | { readonly kind: 'absent' }
-  | { readonly kind: 'present'; readonly integrity: string }
+type RegistryState = { readonly kind: 'absent' } | { readonly kind: 'present'; readonly integrity: string }
 
 /**
  * Whether a failed publish is worth another attempt.
@@ -88,7 +86,9 @@ function registryState(name: string, version: string): RegistryState {
 /** Reject empty tags, npm option prefixes, characters requiring URI encoding, and version ranges. */
 function validateDistTag(distTag: string): void {
   if (distTag === '' || distTag.startsWith('-') || encodeURIComponent(distTag) !== distTag || validRange(distTag) !== null) {
-    throw new Error(`Invalid npm dist-tag ${JSON.stringify(distTag)}: use a non-empty tag without a leading hyphen, characters requiring URI encoding, or a version range.`)
+    throw new Error(
+      `Invalid npm dist-tag ${JSON.stringify(distTag)}: use a non-empty tag without a leading hyphen, characters requiring URI encoding, or a version range.`,
+    )
   }
 }
 
@@ -114,12 +114,16 @@ function verifyDistTag(member: PackedIdentity, distTag: string): void {
   const version = tags.get(distTag)
   if (version === undefined) {
     if (registryState(member.name, member.version).kind === 'present') {
-      throw new Error(`${member.name}@${member.version} is already published without dist-tag ${distTag}; this run cannot bind an existing version to a new channel.`)
+      throw new Error(
+        `${member.name}@${member.version} is already published without dist-tag ${distTag}; this run cannot bind an existing version to a new channel.`,
+      )
     }
     return
   }
   if (version !== member.version) {
-    throw new Error(`${member.name}@${distTag} already points to ${version}; choose an unused dist-tag instead of replacing it with ${member.version}.`)
+    throw new Error(
+      `${member.name}@${distTag} already points to ${version}; choose an unused dist-tag instead of replacing it with ${member.version}.`,
+    )
   }
 }
 
@@ -134,12 +138,7 @@ function verifyDistTag(member: PackedIdentity, distTag: string): void {
  * @param version - package version the tarball declares.
  * @param distTag - explicit npm dist-tag, or undefined for npm's `latest` default.
  */
-async function publishTarball(
-  tarball: string,
-  name: string,
-  version: string,
-  distTag: string | undefined,
-): Promise<void> {
+async function publishTarball(tarball: string, name: string, version: string, distTag: string | undefined): Promise<void> {
   const tagArgs = distTag === undefined ? [] : ['--tag', distTag]
   for (let tries = 1; tries <= PUBLISH_ATTEMPTS; tries += 1) {
     // No --access: every release member declares its own publishConfig, and
@@ -159,8 +158,8 @@ async function publishTarball(
     }
     const backoff = PUBLISH_SPACING_MS * 2 ** (tries - 1)
     console.log(
-      `release publish: ${name}@${version} hit a transient registry failure`
-      + ` (attempt ${String(tries)} of ${String(PUBLISH_ATTEMPTS)}), retrying in ${String(backoff)}ms`,
+      `release publish: ${name}@${version} hit a transient registry failure` +
+        ` (attempt ${String(tries)} of ${String(PUBLISH_ATTEMPTS)}), retrying in ${String(backoff)}ms`,
     )
     await sleep(backoff)
   }
@@ -180,7 +179,7 @@ export async function publishRelease(familyId: string, directory: string, distTa
   // Every entry in the order settles as either published or already present, so
   // one counter answers "how far along is this run" for whoever is watching a
   // release that takes minutes per family.
-  const order = readPublishOrder(directory).map((filename) => {
+  const order = readPublishOrder(directory).map(filename => {
     const tarball = join(directory, filename)
     return { tarball, ...packedIdentity(tarball) }
   })
@@ -197,9 +196,9 @@ export async function publishRelease(familyId: string, directory: string, distTa
       const local = integrityOf(tarball)
       if (state.integrity !== local) {
         throw new Error(
-          `${name}@${version} is already published with different content`
-          + `\n  registry: ${state.integrity}\n  packed:   ${local}`
-          + '\nBump the version, or investigate why the build is not reproducible.',
+          `${name}@${version} is already published with different content` +
+            `\n  registry: ${state.integrity}\n  packed:   ${local}` +
+            '\nBump the version, or investigate why the build is not reproducible.',
         )
       }
       console.log(`release publish: ${progress} ${name}@${version} already published, skipping`)
@@ -215,8 +214,7 @@ export async function publishRelease(familyId: string, directory: string, distTa
   }
 
   console.log(
-    `release publish: family ${family.id}, ${total} member(s),`
-    + ` ${String(published)} published, ${String(skipped)} already present`,
+    `release publish: family ${family.id}, ${total} member(s),` + ` ${String(published)} published, ${String(skipped)} already present`,
   )
 }
 

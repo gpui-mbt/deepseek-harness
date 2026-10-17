@@ -1,11 +1,6 @@
 /** Versioned envelopes for Worker-to-Client Runtime operations. */
 
-import type {
-  ClientRuntimeRequestId,
-  ClientRuntimeSessionId,
-  InspectorSourceGeneration,
-  InspectorSourceId,
-} from '../../ids.ts'
+import type { ClientRuntimeRequestId, ClientRuntimeSessionId, InspectorSourceGeneration, InspectorSourceId } from '../../ids.ts'
 import { isPlainObject } from '../../../json.ts'
 import { exactKeys, exactObject, wireId } from '../../../validation.ts'
 import { INSPECTOR_PROTOCOL_VERSION } from '../../version.ts'
@@ -58,9 +53,7 @@ export interface ClientRuntimeResponseFrame {
   readonly generation: InspectorSourceGeneration
   readonly sessionId: ClientRuntimeSessionId
   readonly requestId: ClientRuntimeRequestId
-  readonly outcome:
-    | { readonly ok: true; readonly result: ClientRuntimeResult }
-    | { readonly ok: false; readonly error: ClientRuntimeError }
+  readonly outcome: { readonly ok: true; readonly result: ClientRuntimeResult } | { readonly ok: false; readonly error: ClientRuntimeError }
 }
 
 /** One-way cleanup when a DevTools connection or its Runtime domain closes. */
@@ -134,9 +127,7 @@ export function parseClientRuntimeCancelFrame(value: Record<string, unknown>): C
 /* jscpd:ignore-start */
 // Deliberately mirrors parseClientRuntimeCancelFrame: each wire parser spells
 // out its own envelope literally instead of sharing a tag-parameterized helper.
-export function parseClientRuntimeResponseAcknowledgedFrame(
-  value: Record<string, unknown>,
-): ClientRuntimeResponseAcknowledgedFrame {
+export function parseClientRuntimeResponseAcknowledgedFrame(value: Record<string, unknown>): ClientRuntimeResponseAcknowledgedFrame {
   exactKeys(value, ['v', 't', 'sourceId', 'generation', 'sessionId', 'requestId'], 'Client Runtime response acknowledgement')
   if (value.v !== INSPECTOR_PROTOCOL_VERSION || value.t !== 'client-runtime/response-acknowledged') {
     throw new Error('inspector protocol: invalid Client Runtime response acknowledgement envelope')
@@ -209,5 +200,10 @@ function parseOutcome(value: unknown): ClientRuntimeResponseFrame['outcome'] {
 }
 
 const ERROR_CODES = new Set<ClientRuntimeError['code']>([
-  'invalid-request', 'object-not-found', 'unsupported', 'timeout', 'result-too-large', 'internal-error',
+  'invalid-request',
+  'object-not-found',
+  'unsupported',
+  'timeout',
+  'result-too-large',
+  'internal-error',
 ])

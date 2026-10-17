@@ -6,26 +6,12 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { setTimeout as sleepMs } from 'node:timers/promises'
-import type {
-  SubprocessOutcome,
-  SubprocessSpawnSpec,
-  SubprocessTerminalSpawnSpec,
-} from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessOutcome, SubprocessSpawnSpec, SubprocessTerminalSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { loadLinuxExecve } from './linux-execve.ts'
 import type { BoundProcessOwner, ManagedProcessLaunch } from './managed-owner.ts'
-import {
-  cleanupLinuxLaunchFiles,
-  createLinuxLaunchFiles,
-  deserializeRunnerError,
-  readLinuxStartupError,
-} from './runner-protocol.ts'
+import { cleanupLinuxLaunchFiles, createLinuxLaunchFiles, deserializeRunnerError, readLinuxStartupError } from './runner-protocol.ts'
 import type { LinuxLaunchFiles } from './runner-protocol.ts'
-import {
-  runnerEnvironment,
-  runnerInvocationAvailable,
-  runnerStdio,
-  spawnRunnerInvocation,
-} from './runner-launch.ts'
+import { runnerEnvironment, runnerInvocationAvailable, runnerStdio, spawnRunnerInvocation } from './runner-launch.ts'
 import type { RunnerInvocation } from './runner-launch.ts'
 import { childEnv } from './spawn.ts'
 
@@ -77,20 +63,25 @@ function quietSystemdEnvironment(): NodeJS.ProcessEnv {
 }
 
 function querySystemctl(command: string, args: readonly string[]): Promise<SystemctlResult> {
-  return new Promise((resolveResult) => {
-    execFile(command, [...args], {
-      encoding: 'utf8',
-      env: managerEnvironment(),
-      timeout: SYSTEMCTL_TIMEOUT_MS,
-    }, (error, stdout, stderr) => {
-      const code = error === null ? 0 : (error as Error & { code?: string | number }).code
-      resolveResult({
-        status: typeof code === 'number' ? code : null,
-        stdout,
-        stderr,
-        ...error === null ? {} : { error },
-      })
-    })
+  return new Promise(resolveResult => {
+    execFile(
+      command,
+      [...args],
+      {
+        encoding: 'utf8',
+        env: managerEnvironment(),
+        timeout: SYSTEMCTL_TIMEOUT_MS,
+      },
+      (error, stdout, stderr) => {
+        const code = error === null ? 0 : (error as Error & { code?: string | number }).code
+        resolveResult({
+          status: typeof code === 'number' ? code : null,
+          stdout,
+          stderr,
+          ...(error === null ? {} : { error }),
+        })
+      },
+    )
   })
 }
 
@@ -110,8 +101,7 @@ function sleepWithAbort(delayMs: number, signal?: AbortSignal): Promise<void> {
 export function probeLinuxBootstrap(internals: LinuxScopeInternals = {}): boolean {
   try {
     ;(internals.loadLinuxExecve ?? loadLinuxExecve)()
-    const invocation = internals.runnerInvocation
-      ?? (internals.resolveRunnerInvocation ?? spawnRunnerInvocation)()
+    const invocation = internals.runnerInvocation ?? (internals.resolveRunnerInvocation ?? spawnRunnerInvocation)()
     return (internals.runnerAvailable ?? runnerInvocationAvailable)(invocation)
   } catch {
     return false
@@ -126,26 +116,30 @@ export function probeLinuxBootstrap(internals: LinuxScopeInternals = {}): boolea
 export function probeLinuxScope(internals: LinuxScopeInternals = {}): LiteralArgvOptions | undefined {
   const attempt = (literalArgv: LiteralArgvOptions): { created: boolean; stderr: string } => {
     const unitBase = unitStem('dsh-subprocess-probe')
-    const result = (internals.spawnSync ?? spawnSync)(internals.systemdRun ?? 'systemd-run', [
-      '--user',
-      '--scope',
-      '--quiet',
-      '--collect',
-      ...literalArgv,
-      `--unit=${unitBase}`,
-      '--',
-      internals.systemctl ?? 'systemctl',
-      '--user',
-      'show',
-      `${unitBase}.scope`,
-      '--property=ActiveState',
-      '--value',
-    ], {
-      encoding: 'utf8',
-      env: quietSystemdEnvironment(),
-      stdio: ['ignore', 'ignore', 'pipe'],
-      timeout: SYSTEMCTL_TIMEOUT_MS,
-    })
+    const result = (internals.spawnSync ?? spawnSync)(
+      internals.systemdRun ?? 'systemd-run',
+      [
+        '--user',
+        '--scope',
+        '--quiet',
+        '--collect',
+        ...literalArgv,
+        `--unit=${unitBase}`,
+        '--',
+        internals.systemctl ?? 'systemctl',
+        '--user',
+        'show',
+        `${unitBase}.scope`,
+        '--property=ActiveState',
+        '--value',
+      ],
+      {
+        encoding: 'utf8',
+        env: quietSystemdEnvironment(),
+        stdio: ['ignore', 'ignore', 'pipe'],
+        timeout: SYSTEMCTL_TIMEOUT_MS,
+      },
+    )
     return { created: result.error === undefined && result.status === 0, stderr: result.stderr }
   }
   const current = attempt([LITERAL_ARGV_OPTION])
@@ -169,12 +163,11 @@ export function probeLinuxNative(internals: LinuxScopeInternals = {}): LiteralAr
  * @returns whether the query succeeds.
  */
 export function probeLinuxManager(internals: LinuxScopeInternals = {}): boolean {
-  const result = (internals.spawnSync ?? spawnSync)(internals.systemctl ?? 'systemctl', [
-    '--user',
-    'show',
-    '--property=Version',
-    '--value',
-  ], { env: managerEnvironment(), stdio: 'ignore', timeout: SYSTEMCTL_TIMEOUT_MS })
+  const result = (internals.spawnSync ?? spawnSync)(
+    internals.systemctl ?? 'systemctl',
+    ['--user', 'show', '--property=Version', '--value'],
+    { env: managerEnvironment(), stdio: 'ignore', timeout: SYSTEMCTL_TIMEOUT_MS },
+  )
   return result.error === undefined && result.status === 0
 }
 
@@ -225,7 +218,10 @@ export function systemdRunIdentity(internals: LinuxScopeInternals = {}): string 
   const command = internals.systemdRun ?? 'systemd-run'
   const candidates = command.includes('/')
     ? [command]
-    : (childEnv().PATH ?? '').split(':').filter(directory => directory !== '').map(directory => join(directory, command))
+    : (childEnv().PATH ?? '')
+        .split(':')
+        .filter(directory => directory !== '')
+        .map(directory => join(directory, command))
   for (const candidate of candidates) {
     let stats: ReturnType<typeof statSync>
     try {
@@ -266,13 +262,15 @@ export class LinuxScopeNotStartedError extends Error {
 class LinuxScopeStartup {
   readonly terminationSignals = new Set<NodeJS.Signals>()
 
-  constructor(readonly files: LinuxLaunchFiles, private readonly kind: 'subprocess' | 'terminal') {}
+  constructor(
+    readonly files: LinuxLaunchFiles,
+    private readonly kind: 'subprocess' | 'terminal',
+  ) {}
 
   resolveOutcome(outcome: SubprocessOutcome): SubprocessOutcome {
     const startup = readLinuxStartupError(this.files.startupErrorPath)
     if (startup !== undefined) throw deserializeRunnerError(startup.error)
-    if (existsSync(this.files.requestPath)
-      && !(outcome.signal !== null && this.terminationSignals.has(outcome.signal))) {
+    if (existsSync(this.files.requestPath) && !(outcome.signal !== null && this.terminationSignals.has(outcome.signal))) {
       throw new LinuxScopeNotStartedError(
         `${this.kind} scope exited before its bootstrap consumed the launch request; the provider probes native containment again before its next command`,
       )
@@ -302,9 +300,11 @@ class SystemdScopeOwner implements BoundProcessOwner {
   ) {}
 
   inspectTaskCount(): number | undefined {
-    const result = this.runSync(this.systemctl, [
-      '--user', 'show', '--property=LoadState', '--property=ActiveState', '--property=TasksCurrent', this.unit,
-    ], { encoding: 'utf8', env: managerEnvironment(), timeout: SYSTEMCTL_TIMEOUT_MS })
+    const result = this.runSync(
+      this.systemctl,
+      ['--user', 'show', '--property=LoadState', '--property=ActiveState', '--property=TasksCurrent', this.unit],
+      { encoding: 'utf8', env: managerEnvironment(), timeout: SYSTEMCTL_TIMEOUT_MS },
+    )
     if (result.error !== undefined || result.status !== 0 || typeof result.stdout !== 'string') return undefined
     const state = this.parseUnitState(result.stdout)
     return state.loadState === 'loaded' && state.activeState === 'active' ? state.tasksCurrent : undefined
@@ -318,13 +318,11 @@ class SystemdScopeOwner implements BoundProcessOwner {
     const directFallbackRequired = this.establishment === 'pending'
     let directSignalled = false
     if (directFallbackRequired && this.direct.running()) directSignalled = this.direct.signal(signal)
-    const result = this.runSync(this.systemctl, [
-      '--user',
-      'kill',
-      KILL_ALL_MEMBERS,
-      `--signal=${signal}`,
-      this.unit,
-    ], { encoding: 'utf8', env: managerEnvironment(), timeout: SYSTEMCTL_TIMEOUT_MS })
+    const result = this.runSync(this.systemctl, ['--user', 'kill', KILL_ALL_MEMBERS, `--signal=${signal}`, this.unit], {
+      encoding: 'utf8',
+      env: managerEnvironment(),
+      timeout: SYSTEMCTL_TIMEOUT_MS,
+    })
     this.wakeObservation()
     if (result.error === undefined && result.status === 0) {
       if (signal === 'SIGKILL') {
@@ -337,12 +335,14 @@ class SystemdScopeOwner implements BoundProcessOwner {
     if (signal === 'SIGKILL') {
       const output = `${result.stdout}\n${result.stderr}`
       if (!MISSING_UNIT.test(output)) {
-        this.killFailure = result.error ?? new Error(
-          `systemctl could not signal ${this.unit}: ${output.trim() || `exit ${String(result.status)}`}`,
-        )
+        this.killFailure =
+          result.error ?? new Error(`systemctl could not signal ${this.unit}: ${output.trim() || `exit ${String(result.status)}`}`)
         // The direct outcome retains errors; this barrier only joins its physical settlement.
         this.directKillSettlement = directSignalled
-          ? this.direct.settled.then(() => {}, () => {})
+          ? this.direct.settled.then(
+              () => {},
+              () => {},
+            )
           : undefined
       }
     }
@@ -352,15 +352,15 @@ class SystemdScopeOwner implements BoundProcessOwner {
     if (this.stopped) return
     try {
       if (this.direct.running()) this.direct.signal('SIGKILL')
-    } catch { /* Continue with the native owner. */ }
+    } catch {
+      /* Continue with the native owner. */
+    }
     try {
-      this.runSync(this.systemctl, [
-        '--user',
-        'kill',
-        KILL_ALL_MEMBERS,
-        '--signal=SIGKILL',
-        this.unit,
-      ], { env: managerEnvironment(), stdio: 'ignore', timeout: SYSTEMCTL_TIMEOUT_MS })
+      this.runSync(this.systemctl, ['--user', 'kill', KILL_ALL_MEMBERS, '--signal=SIGKILL', this.unit], {
+        env: managerEnvironment(),
+        stdio: 'ignore',
+        timeout: SYSTEMCTL_TIMEOUT_MS,
+      })
     } catch {
       // Host exit cannot report one range; the runtime continues with the rest.
     }
@@ -391,8 +391,7 @@ class SystemdScopeOwner implements BoundProcessOwner {
    * even while its direct-process exit notification is pending.
    */
   private emptyRange(tasksCurrent: number | undefined): boolean {
-    return this.terminationRequested && tasksCurrent === 0
-      && (!this.direct.running() || !existsSync(this.startup.files.requestPath))
+    return this.terminationRequested && tasksCurrent === 0 && (!this.direct.running() || !existsSync(this.startup.files.requestPath))
   }
 
   /** Release a leftover empty scope so the transient unit is collected and cannot accumulate. */
@@ -427,8 +426,7 @@ class SystemdScopeOwner implements BoundProcessOwner {
     // The manager prints this sentinel for a property the unit does not carry.
     const reportedTasks = values.get('TasksCurrent')
     const tasksCurrent = reportedTasks === '[not set]' ? undefined : reportedTasks
-    if (values.size !== (reportedTasks === undefined ? 2 : 3)
-      || loadState === undefined || activeState === undefined) {
+    if (values.size !== (reportedTasks === undefined ? 2 : 3) || loadState === undefined || activeState === undefined) {
       throw new Error(`systemctl returned incomplete state for ${this.unit}: ${JSON.stringify(stdout.trim())}`)
     }
     if (tasksCurrent !== undefined && !/^\d+$/u.test(tasksCurrent)) {
@@ -460,9 +458,7 @@ class SystemdScopeOwner implements BoundProcessOwner {
       const { loadState, activeState, tasksCurrent } = this.parseUnitState(result.stdout)
       if (loadState === 'not-found' && activeState === 'inactive') return this.absentUnit()
       if (loadState !== 'loaded') {
-        throw new Error(
-          `systemctl returned unknown state for ${this.unit}: ${JSON.stringify({ loadState, activeState })}`,
-        )
+        throw new Error(`systemctl returned unknown state for ${this.unit}: ${JSON.stringify({ loadState, activeState })}`)
       }
       this.establishment = 'established'
       if (activeState === 'inactive' || activeState === 'failed') return false
@@ -539,33 +535,14 @@ class SystemdScopeOwner implements BoundProcessOwner {
   }
 }
 
-function scopeArgs(
-  unitBase: string,
-  literalArgv: LiteralArgvOptions,
-  invocation: RunnerInvocation,
-  argv: readonly string[],
-): string[] {
-  return [
-    '--user',
-    '--scope',
-    '--quiet',
-    '--collect',
-    ...literalArgv,
-    `--unit=${unitBase}`,
-    '--',
-    ...invocation,
-    '--',
-    ...argv,
-  ]
+function scopeArgs(unitBase: string, literalArgv: LiteralArgvOptions, invocation: RunnerInvocation, argv: readonly string[]): string[] {
+  return ['--user', '--scope', '--quiet', '--collect', ...literalArgv, `--unit=${unitBase}`, '--', ...invocation, '--', ...argv]
 }
 
-function directOutcome(
-  child: ReturnType<typeof spawn>,
-  startup: LinuxScopeStartup,
-): Promise<SubprocessOutcome> {
+function directOutcome(child: ReturnType<typeof spawn>, startup: LinuxScopeStartup): Promise<SubprocessOutcome> {
   return new Promise((resolveOutcome, rejectOutcome) => {
     let settled = false
-    child.once('error', (error) => {
+    child.once('error', error => {
       if (settled) return
       settled = true
       rejectOutcome(error)
@@ -593,7 +570,9 @@ function directOutcome(
 export function signalLinuxDirectProcess(pid: number, send: () => boolean): boolean {
   try {
     if (send()) return true
-  } catch { /* A failed signal still permits an independent absence observation. */ }
+  } catch {
+    /* A failed signal still permits an independent absence observation. */
+  }
   try {
     process.kill(pid, 0)
     return false
@@ -606,7 +585,9 @@ function signalChildGroup(child: ReturnType<typeof spawn>, signal: 'SIGTERM' | '
   let groupSignalled = false
   try {
     groupSignalled = process.kill(-(child.pid as number), signal)
-  } catch { /* A missing or inaccessible group still permits a direct-process attempt. */ }
+  } catch {
+    /* A missing or inaccessible group still permits a direct-process attempt. */
+  }
   if (groupSignalled && signal === 'SIGTERM') return true
   // Group success can reflect another member; joining direct exit requires its own SIGKILL submission.
   // ChildProcess.kill can emit an error that settles directOutcome before the real exit.
@@ -647,17 +628,20 @@ export function prepareLinuxTerminalScope(
     args: scopeArgs(unitBase, literalArgv, invocation, spec.argv),
     cwd: process.cwd(),
     env: runnerEnvironment(files.requestPath, invocation),
-    bindOwner: direct => new SystemdScopeOwner(
-      `${unitBase}.scope`,
-      startup,
-      direct,
-      internals.systemctl ?? 'systemctl',
-      internals.spawnSync ?? spawnSync,
-      internals.systemctlQuery ?? querySystemctl,
-      internals.sleep ?? sleepWithAbort,
-    ),
+    bindOwner: direct =>
+      new SystemdScopeOwner(
+        `${unitBase}.scope`,
+        startup,
+        direct,
+        internals.systemctl ?? 'systemctl',
+        internals.spawnSync ?? spawnSync,
+        internals.systemctlQuery ?? querySystemctl,
+        internals.sleep ?? sleepWithAbort,
+      ),
     resolveOutcome: outcome => startup.resolveOutcome(outcome),
-    cleanup: () => { cleanupLinuxLaunchFiles(files) },
+    cleanup: () => {
+      cleanupLinuxLaunchFiles(files)
+    },
   }
 }
 
@@ -677,19 +661,15 @@ export function launchLinuxScope(
 ): ManagedProcessLaunch {
   const invocation = internals.runnerInvocation ?? spawnRunnerInvocation()
   const files = createLinuxLaunchFiles({
-    cwd: spec.cwd, env: targetEnv,
-    ...spec.stdio.control === undefined ? {} : { control: spec.stdio.control },
+    cwd: spec.cwd,
+    env: targetEnv,
+    ...(spec.stdio.control === undefined ? {} : { control: spec.stdio.control }),
   })
   const startup = new LinuxScopeStartup(files, 'subprocess')
   const unitBase = unitStem('dsh-subprocess')
   let child: ReturnType<typeof spawn>
   try {
-    child = (internals.spawn ?? spawn)(internals.systemdRun ?? 'systemd-run', scopeArgs(
-      unitBase,
-      literalArgv,
-      invocation,
-      spec.argv,
-    ), {
+    child = (internals.spawn ?? spawn)(internals.systemdRun ?? 'systemd-run', scopeArgs(unitBase, literalArgv, invocation, spec.argv), {
       cwd: process.cwd(),
       env: runnerEnvironment(files.requestPath, invocation),
       stdio: runnerStdio(spec, false),

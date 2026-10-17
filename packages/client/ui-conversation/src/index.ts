@@ -9,8 +9,12 @@ import { BUSY_ENTER_FIELD } from './submission-settings.ts'
 import { ConversationSettingsFields } from './submission-settings.ts'
 
 export {
-  BUSY_ENTER_BEHAVIORS, BUSY_ENTER_FIELD, CONVERSATION_SETTINGS_NAMESPACE,
-  DEFAULT_BUSY_ENTER_BEHAVIOR, type BusyEnterBehavior, type ConversationSettings,
+  BUSY_ENTER_BEHAVIORS,
+  BUSY_ENTER_FIELD,
+  CONVERSATION_SETTINGS_NAMESPACE,
+  DEFAULT_BUSY_ENTER_BEHAVIOR,
+  type BusyEnterBehavior,
+  type ConversationSettings,
 } from './submission-settings.ts'
 
 /** Runtime preferences projected to the browser. */
@@ -28,5 +32,7 @@ export const Config = z.object({
  * @param ctx Plugin context used for optional settings presentation.
  */
 export function apply(ctx: Context): void {
-  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+  ctx.inject(['settings'], child => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
 }

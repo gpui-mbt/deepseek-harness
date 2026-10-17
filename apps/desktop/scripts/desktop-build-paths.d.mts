@@ -68,11 +68,7 @@ export function resolveDesktopTargetBuildPaths(
  * @param hostArch - Build-host architecture used when no target override exists.
  * @returns Primary-runtime directory prepared for the selected target.
  */
-export function developmentRuntimeDirectory(
-  env?: NodeJS.ProcessEnv,
-  hostPlatform?: NodeJS.Platform,
-  hostArch?: string,
-): string
+export function developmentRuntimeDirectory(env?: NodeJS.ProcessEnv, hostPlatform?: NodeJS.Platform, hostArch?: string): string
 
 /**
  * Select the output directory and filename suffix for one packaging mode.
@@ -82,5 +78,5 @@ export function developmentRuntimeDirectory(
  */
 export function desktopArtifactOutput(
   paths: Pick<DesktopTargetBuildPaths, 'artifacts' | 'unsignedArtifacts' | 'unnotarizedArtifacts'>,
-  mode: { unsigned: boolean, skipNotarization: boolean },
-): { directory: string, suffix: string }
+  mode: { unsigned: boolean; skipNotarization: boolean },
+): { directory: string; suffix: string }

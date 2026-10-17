@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Storage, { storageBackendServiceKey } from '@deepseek-ai/dsh-storage'
 import { runKvBackendContract } from '../../storage/tests/contract.ts'
@@ -36,11 +36,9 @@ describe('json backend specifics', () => {
     const unit = await backend.kv.open(descriptor)
     await unit.putRecord('t', 'k', { hello: 'world' })
     const text = await readFile(join(root, 'shape.json'), 'utf8')
-    expect(text).toBe(`${JSON.stringify(
-      { unit: { name: 'shape', version: 1 }, global: null, tables: { t: { k: { hello: 'world' } } } },
-      null,
-      2,
-    )}\n`)
+    expect(text).toBe(
+      `${JSON.stringify({ unit: { name: 'shape', version: 1 }, global: null, tables: { t: { k: { hello: 'world' } } } }, null, 2)}\n`,
+    )
     await backend.close()
   })
 
@@ -62,11 +60,7 @@ describe('json backend specifics', () => {
 
   it('rejects a foreign unit header', async () => {
     const root = await freshRoot()
-    await writeFile(
-      join(root, 'shape.json'),
-      JSON.stringify({ unit: { name: 'other', version: 1 }, global: null, tables: {} }),
-      'utf8',
-    )
+    await writeFile(join(root, 'shape.json'), JSON.stringify({ unit: { name: 'other', version: 1 }, global: null, tables: {} }), 'utf8')
     const backend = new JsonStorageBackend(root)
     await expect(backend.kv.open(descriptor)).rejects.toMatchObject({ code: 'malformed-medium' })
     await backend.close()
@@ -166,11 +160,7 @@ describe('json backend specifics', () => {
     const backend = new JsonStorageBackend(root)
     await expect(backend.kv.open(descriptor)).rejects.toMatchObject({ code: 'malformed-medium' })
 
-    await writeFile(
-      join(root, 'shape.json'),
-      JSON.stringify({ unit: { name: 'shape', version: 9 }, global: null, tables: {} }),
-      'utf8',
-    )
+    await writeFile(join(root, 'shape.json'), JSON.stringify({ unit: { name: 'shape', version: 9 }, global: null, tables: {} }), 'utf8')
     await expect(backend.kv.open(descriptor)).rejects.toMatchObject({ code: 'version-mismatch' })
 
     await writeFile(join(root, 'shape.json'), JSON.stringify({ unit: { name: 'shape', version: 1 }, global: null }), 'utf8')
@@ -261,11 +251,9 @@ describe('per-record layout', () => {
     await unit.putRecord('t', 'k1', { v: 1 })
     await unit.putRecord('t', 'k2', { v: 2 })
     await unit.setGlobal('G')
-    expect(await readFile(recordPath(root, 'k1'), 'utf8'))
-      .toBe(`${JSON.stringify({ version: 2, record: { v: 1 } }, null, 2)}\n`)
+    expect(await readFile(recordPath(root, 'k1'), 'utf8')).toBe(`${JSON.stringify({ version: 2, record: { v: 1 } }, null, 2)}\n`)
     expect((await readdir(join(root, 'recs', 't'))).sort()).toEqual(['k1.json', 'k2.json'])
-    expect(JSON.parse(await readFile(join(root, 'recs', 'global.json'), 'utf8')))
-      .toEqual({ version: 2, record: 'G' })
+    expect(JSON.parse(await readFile(join(root, 'recs', 'global.json'), 'utf8'))).toEqual({ version: 2, record: 'G' })
     expect(await unit.loadAll()).toEqual({ tables: { t: { k1: { v: 1 }, k2: { v: 2 } } }, global: 'G' })
     await backend.close()
   })
@@ -407,8 +395,7 @@ describe('per-record layout', () => {
     const unit2 = await backend2.kv.open(compat)
     expect(await unit2.loadAll()).toEqual({ tables: { t: { old: { v: 1 } } }, global: null })
     // …and the migrated documents are stamped with the CURRENT version.
-    expect(JSON.parse(await readFile(join(root2, 'recs', 't', 'old.json'), 'utf8')))
-      .toEqual({ version: 4, record: { v: 1 } })
+    expect(JSON.parse(await readFile(join(root2, 'recs', 't', 'old.json'), 'utf8'))).toEqual({ version: 4, record: { v: 1 } })
     await unit2.close()
     await backend2.close()
   })
@@ -444,8 +431,7 @@ describe('per-record layout', () => {
     // Version 1 is declared compat and served; version 0 is not and discards.
     expect(await unit.loadAll()).toEqual({ tables: { t: { oldrec: { v: 'old' } } }, global: null })
     await unit.putRecord('t', 'oldrec', { v: 'new' })
-    expect(JSON.parse(await readFile(recordPath(root, 'oldrec'), 'utf8')))
-      .toEqual({ version: 2, record: { v: 'new' } })
+    expect(JSON.parse(await readFile(recordPath(root, 'oldrec'), 'utf8'))).toEqual({ version: 2, record: { v: 'new' } })
     await backend.close()
   })
 
@@ -514,11 +500,7 @@ describe('per-record layout', () => {
     await expect(readFile(join(root5, 'recs.json'), 'utf8')).resolves.toContain('not an object')
     await backend5.close()
 
-    await writeFile(
-      join(root5, 'recs.json'),
-      JSON.stringify({ unit: { name: 'recs', version: descriptor.version }, tables: null }),
-      'utf8',
-    )
+    await writeFile(join(root5, 'recs.json'), JSON.stringify({ unit: { name: 'recs', version: descriptor.version }, tables: null }), 'utf8')
     const backend6 = new JsonStorageBackend(root5)
     const unit6 = await backend6.kv.open(descriptor)
     expect(await unit6.loadAll()).toEqual({ tables: { t: {} }, global: null })

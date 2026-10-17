@@ -24,9 +24,16 @@ export function shortcutReadFailure(config: ShortcutConfigSnapshot, runtime: Sho
  * @param runtime - storage owner for unreadable-document recovery guidance.
  * @returns localized diagnosis for a system toast and accessible field description.
  */
-export function shortcutFailure(result: ShortcutSaveResult, catalog: readonly Pick<ShortcutCatalogEntry, 'id' | 'label'>[], t: PropsLocale<'shortcuts'>['t'], runtime: ShortcutRuntime): string {
+export function shortcutFailure(
+  result: ShortcutSaveResult,
+  catalog: readonly Pick<ShortcutCatalogEntry, 'id' | 'label'>[],
+  t: PropsLocale<'shortcuts'>['t'],
+  runtime: ShortcutRuntime,
+): string {
   if (result.status === 'unreadable') return shortcutReadFailure(result.snapshot, runtime, t)
-  return result.issue ? t(result.issue) : result.status === 'conflict'
-    ? t('conflict', { commands: result.conflicts?.map(id => catalog.find(row => row.id === id)?.label ?? id).join(', ') ?? '' })
-    : t(result.status)
+  return result.issue
+    ? t(result.issue)
+    : result.status === 'conflict'
+      ? t('conflict', { commands: result.conflicts?.map(id => catalog.find(row => row.id === id)?.label ?? id).join(', ') ?? '' })
+      : t(result.status)
 }

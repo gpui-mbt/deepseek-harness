@@ -54,10 +54,10 @@ const MIN_FOUR_DIGIT_YEAR_MS = Date.parse('0001-01-01T00:00:00.000Z')
 const MAX_FOUR_DIGIT_YEAR_MS = Date.parse('9999-12-31T23:59:59.999Z')
 const UTC_INSTANT = /^(?!0000)\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/
 const OFFSET_INSTANT = new RegExp(
-  String.raw`^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})`
-  + String.raw`T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})`
-  + String.raw`(?:\.(?<fraction>\d{1,3}))?(?<zone>Z|(?<sign>[+-])`
-  + String.raw`(?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$`,
+  String.raw`^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})` +
+    String.raw`T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})` +
+    String.raw`(?:\.(?<fraction>\d{1,3}))?(?<zone>Z|(?<sign>[+-])` +
+    String.raw`(?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$`,
 )
 const LOCAL_DATE = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/
 const LOCAL_TIME = /^(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.(?<fraction>\d{1,3}))?$/
@@ -154,11 +154,7 @@ function hasExactKeys(value: Record<string, unknown>, expected: readonly string[
 }
 
 /** Require the named durable keys while admitting further optional members. */
-function hasExactKeysWithOptional(
-  value: Record<string, unknown>,
-  required: readonly string[],
-  optional: readonly string[],
-): boolean {
+function hasExactKeysWithOptional(value: Record<string, unknown>, required: readonly string[], optional: readonly string[]): boolean {
   const allowed = new Set([...required, ...optional])
   return required.every(key => key in value) && Object.keys(value).every(key => allowed.has(key))
 }
@@ -234,11 +230,7 @@ function decodeRecordTitle(value: Record<string, unknown>, expected: readonly st
  * @param message - Diagnostic naming the record's keys.
  * @returns The stored title, or undefined when the historical record predates it.
  */
-function decodeHistoricalRecordTitle(
-  value: Record<string, unknown>,
-  expected: readonly string[],
-  message: string,
-): string | undefined {
+function decodeHistoricalRecordTitle(value: Record<string, unknown>, expected: readonly string[], message: string): string | undefined {
   const keys = expected.filter(key => key !== 'title')
   if (!hasExactKeysWithOptional(value, keys, ['title'])) throw new ScheduleLogError(message)
   return value['title'] === undefined ? undefined : decodeStoredTitle(value['title'])
@@ -289,14 +281,16 @@ function calendarEpoch(parts: CalendarParts): number {
   value.setUTCFullYear(parts.year, parts.month - 1, parts.day)
   value.setUTCHours(parts.hour, parts.minute, parts.second, parts.millisecond)
   const epoch = value.getTime()
-  if (!Number.isFinite(epoch)
-    || value.getUTCFullYear() !== parts.year
-    || value.getUTCMonth() + 1 !== parts.month
-    || value.getUTCDate() !== parts.day
-    || value.getUTCHours() !== parts.hour
-    || value.getUTCMinutes() !== parts.minute
-    || value.getUTCSeconds() !== parts.second
-    || value.getUTCMilliseconds() !== parts.millisecond) {
+  if (
+    !Number.isFinite(epoch) ||
+    value.getUTCFullYear() !== parts.year ||
+    value.getUTCMonth() + 1 !== parts.month ||
+    value.getUTCDate() !== parts.day ||
+    value.getUTCHours() !== parts.hour ||
+    value.getUTCMinutes() !== parts.minute ||
+    value.getUTCSeconds() !== parts.second ||
+    value.getUTCMilliseconds() !== parts.millisecond
+  ) {
     throw new ScheduleInputError('invalid_rule', 'The at value must be a real ISO calendar date and time.')
   }
   return epoch
@@ -309,12 +303,8 @@ function milliseconds(value: string | undefined): number {
 
 /** Require a safe, representable, strictly future UTC target. */
 function futureInstant(epoch: number, now: number): string {
-  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(epoch)
-    || epoch < MIN_FOUR_DIGIT_YEAR_MS || epoch > MAX_FOUR_DIGIT_YEAR_MS) {
-    throw new ScheduleInputError(
-      'time_out_of_range',
-      'The scheduled time must be representable as a four-digit-year RFC 3339 UTC instant.',
-    )
+  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(epoch) || epoch < MIN_FOUR_DIGIT_YEAR_MS || epoch > MAX_FOUR_DIGIT_YEAR_MS) {
+    throw new ScheduleInputError('time_out_of_range', 'The scheduled time must be representable as a four-digit-year RFC 3339 UTC instant.')
   }
   if (epoch <= now) {
     throw new ScheduleInputError('not_future', 'The scheduled time must be strictly in the future.')
@@ -322,10 +312,7 @@ function futureInstant(epoch: number, now: number): string {
   const instant = new Date(epoch).toISOString()
   /* v8 ignore next -- an in-range integral Date always formats as the canonical UTC profile. */
   if (!UTC_INSTANT.test(instant)) {
-    throw new ScheduleInputError(
-      'time_out_of_range',
-      'The scheduled time must be representable as a four-digit-year RFC 3339 UTC instant.',
-    )
+    throw new ScheduleInputError('time_out_of_range', 'The scheduled time must be representable as a four-digit-year RFC 3339 UTC instant.')
   }
   return instant
 }
@@ -356,8 +343,7 @@ function parseOffsetInstant(value: string): number {
   if (groups['zone'] === 'Z') return localEpoch
   const offsetHour = groupNumber(groups, 'offsetHour')
   const offsetMinute = groupNumber(groups, 'offsetMinute')
-  if (offsetHour > 23 || offsetMinute > 59
-    || (groups['sign'] === '-' && offsetHour === 0 && offsetMinute === 0)) {
+  if (offsetHour > 23 || offsetMinute > 59 || (groups['sign'] === '-' && offsetHour === 0 && offsetMinute === 0)) {
     throw new ScheduleInputError('invalid_rule', 'The at numeric offset is invalid.')
   }
   const direction = groups['sign'] === '+' ? 1 : -1
@@ -377,11 +363,7 @@ export function canonicalizeTimeZone(value: string): string {
   try {
     canonical = new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions().timeZone
   } catch (error: unknown) {
-    throw new ScheduleInputError(
-      'invalid_time_zone',
-      'time_zone must be UTC or a valid IANA Area/Location name.',
-      { cause: error },
-    )
+    throw new ScheduleInputError('invalid_time_zone', 'time_zone must be UTC or a valid IANA Area/Location name.', { cause: error })
   }
   /* v8 ignore next -- Intl returns the requested canonical zone or an IANA canonical alias. */
   if (canonical !== 'UTC' && !IANA_ZONE.test(canonical)) {
@@ -497,9 +479,7 @@ function decodeEveryRecord(value: unknown): LegacyEveryScheduleRecord {
   }
   const everySeconds = value['everySeconds']
   const interval = typeof everySeconds === 'number' ? everySeconds * 1_000 : Number.NaN
-  if (!Number.isSafeInteger(everySeconds)
-    || (everySeconds as number) < MIN_EVERY_INTERVAL_SECONDS
-    || !Number.isSafeInteger(interval)) {
+  if (!Number.isSafeInteger(everySeconds) || (everySeconds as number) < MIN_EVERY_INTERVAL_SECONDS || !Number.isSafeInteger(interval)) {
     throw new ScheduleLogError(`everySeconds must be a safe integer of at least ${MIN_EVERY_INTERVAL_SECONDS}`)
   }
   return Object.freeze({
@@ -574,7 +554,12 @@ function decodeDailyRecord(value: Record<string, unknown>): DailyScheduleRecord 
   }
   if (time !== normalized) throw new ScheduleLogError('daily time must be normalized to HH:mm:ss.SSS')
   return Object.freeze({
-    id: decodeId(value['id']), kind: 'daily', title, prompt, time, timeZone,
+    id: decodeId(value['id']),
+    kind: 'daily',
+    title,
+    prompt,
+    time,
+    timeZone,
     scheduledAt: decodeInstant(value['scheduledAt']),
   })
 }
@@ -591,9 +576,7 @@ export function normalizeWeekdays(weekdays: unknown): number[] {
   const unique = new Set<number>()
   for (const weekday of weekdays as unknown[]) {
     if (typeof weekday !== 'number' || !Number.isInteger(weekday) || weekday < 1 || weekday > 7) {
-      throw new ScheduleInputError(
-        'invalid_rule', 'Each weekly.weekdays entry must be an integer from 1 (Monday) through 7 (Sunday).',
-      )
+      throw new ScheduleInputError('invalid_rule', 'Each weekly.weekdays entry must be an integer from 1 (Monday) through 7 (Sunday).')
     }
     if (unique.has(weekday)) {
       throw new ScheduleInputError('invalid_rule', `weekly.weekdays must not repeat weekday ${weekday}.`)
@@ -648,8 +631,14 @@ function decodeWeeklyRecord(value: Record<string, unknown>): WeeklyScheduleRecor
     throw new ScheduleLogError('weekly weekdays must be normalized to unique ascending ISO weekday numbers')
   }
   return Object.freeze({
-    id: decodeId(value['id']), kind: 'weekly', title, prompt, time, timeZone,
-    weekdays, scheduledAt: decodeInstant(value['scheduledAt']),
+    id: decodeId(value['id']),
+    kind: 'weekly',
+    title,
+    prompt,
+    time,
+    timeZone,
+    weekdays,
+    scheduledAt: decodeInstant(value['scheduledAt']),
   })
 }
 
@@ -686,7 +675,12 @@ function decodeCronRecord(value: Record<string, unknown>): CronScheduleRecord {
   }
   if (expression !== canonical) throw new ScheduleLogError('cron expression must be canonical')
   return Object.freeze({
-    id: decodeId(value['id']), kind: 'cron', title, prompt, expression, timeZone,
+    id: decodeId(value['id']),
+    kind: 'cron',
+    title,
+    prompt,
+    expression,
+    timeZone,
     scheduledAt: decodeInstant(value['scheduledAt']),
   })
 }
@@ -719,10 +713,14 @@ export function decodeScheduleRecord(value: unknown): ScheduleRecord {
 function decodeLegacyScheduleRecord(value: unknown): LegacyScheduleRecord {
   if (!isRecord(value)) throw new ScheduleLogError('schedule record must be an object')
   switch (value['kind']) {
-    case 'after': return decodeAfterRecord(value)
-    case 'at': return decodeAtRecord(value)
-    case 'every': return decodeEveryRecord(value)
-    default: throw new ScheduleLogError('v1 schedule kind must be "after", "at", or "every"')
+    case 'after':
+      return decodeAfterRecord(value)
+    case 'at':
+      return decodeAtRecord(value)
+    case 'every':
+      return decodeEveryRecord(value)
+    default:
+      throw new ScheduleLogError('v1 schedule kind must be "after", "at", or "every"')
   }
 }
 
@@ -788,15 +786,10 @@ type EveryOccurrenceInput = Pick<EveryScheduleRecord, 'everySeconds' | 'schedule
  * @param acceptedAt - Wall-clock decision time in epoch milliseconds.
  * @returns The latest due occurrence and first strictly future target, if representable.
  */
-export function resolveEveryOccurrence(
-  record: EveryOccurrenceInput,
-  acceptedAt: number,
-): RecurringOccurrence {
+export function resolveEveryOccurrence(record: EveryOccurrenceInput, acceptedAt: number): RecurringOccurrence {
   const target = Date.parse(record.scheduledAt)
   const interval = record.everySeconds * 1_000
-  if (!Number.isSafeInteger(acceptedAt)
-    || acceptedAt < MIN_FOUR_DIGIT_YEAR_MS
-    || acceptedAt > MAX_FOUR_DIGIT_YEAR_MS) {
+  if (!Number.isSafeInteger(acceptedAt) || acceptedAt < MIN_FOUR_DIGIT_YEAR_MS || acceptedAt > MAX_FOUR_DIGIT_YEAR_MS) {
     throw new ScheduleLogError('every acceptedAt must be a representable four-digit-year instant')
   }
   if (!Number.isSafeInteger(interval) || interval <= 0) {
@@ -872,7 +865,7 @@ function latestDueOccurrence(
 ): number {
   // Offsets are less than 24 hours; a date-line rollback can make the current local date earlier than a due date.
   let date = localDate(acceptedAt, 'UTC').add({ days: 1 })
-  for (;; date = date.subtract({ days: 1 })) {
+  for (; ; date = date.subtract({ days: 1 })) {
     if (!matches(date)) continue
     const candidate = localInstant(date.toPlainDateTime(time), timeZone)
     if (candidate === undefined || candidate > acceptedAt) continue
@@ -883,20 +876,14 @@ function latestDueOccurrence(
 
 /** Resolve a wall-clock rule only when its decision is at a representable four-digit-year instant. */
 function acceptedDecision(selector: string, acceptedAt: number): number {
-  if (!Number.isSafeInteger(acceptedAt)
-    || acceptedAt < MIN_FOUR_DIGIT_YEAR_MS || acceptedAt > MAX_FOUR_DIGIT_YEAR_MS) {
+  if (!Number.isSafeInteger(acceptedAt) || acceptedAt < MIN_FOUR_DIGIT_YEAR_MS || acceptedAt > MAX_FOUR_DIGIT_YEAR_MS) {
     throw new ScheduleLogError(`${selector} acceptedAt must be a representable four-digit-year instant`)
   }
   return acceptedAt
 }
 
 /** Find the first actual daily occurrence after now and, when supplied, after a delivered date. */
-function nextDailyTarget(
-  time: Temporal.PlainTime,
-  timeZone: string,
-  now: number,
-  afterDate?: Temporal.PlainDate,
-): string | undefined {
+function nextDailyTarget(time: Temporal.PlainTime, timeZone: string, now: number, afterDate?: Temporal.PlainDate): string | undefined {
   return nextMatchingTarget(time, timeZone, now, EVERY_DATE, afterDate)
 }
 
@@ -972,7 +959,7 @@ function cronDateMatch(parsed: ParsedCronExpression): WeekdayMatch {
   const daysOfWeek = new Set(parsed.daysOfWeek)
   const dayOfMonthRestricted = !parsed.dayOfMonthStar
   const dayOfWeekRestricted = !parsed.dayOfWeekStar
-  return (date) => {
+  return date => {
     /* v8 ignore next -- both callers pre-filter by month before matching a date. */
     if (!months.has(date.month)) return false
     const dayOfMonth = daysOfMonth.has(date.day)
@@ -1046,12 +1033,7 @@ function nextCronTarget(parsed: ParsedCronExpression, timeZone: string, floor: n
  * @param savedTarget - Committed target that stays due even when current zone data resolves past it.
  * @returns The latest due occurrence, or the committed target when no local occurrence is representable.
  */
-function latestCronOccurrence(
-  parsed: ParsedCronExpression,
-  timeZone: string,
-  decision: number,
-  savedTarget: number,
-): number {
+function latestCronOccurrence(parsed: ParsedCronExpression, timeZone: string, decision: number, savedTarget: number): number {
   const times = cronTimes(parsed)
   const matches = cronDateMatch(parsed)
   const months = new Set(parsed.months)
@@ -1129,10 +1111,14 @@ export function isRecurringScheduleRecord(record: ScheduleRecord): record is Rec
  */
 export function resolveRecurringOccurrence(record: RecurringScheduleRecord, acceptedAt: number): RecurringOccurrence {
   switch (record.kind) {
-    case 'every': return resolveEveryOccurrence(record, acceptedAt)
-    case 'daily': return resolveDailyOccurrence(record, acceptedAt)
-    case 'weekly': return resolveWeeklyOccurrence(record, acceptedAt)
-    case 'cron': return resolveCronOccurrence(record, acceptedAt)
+    case 'every':
+      return resolveEveryOccurrence(record, acceptedAt)
+    case 'daily':
+      return resolveDailyOccurrence(record, acceptedAt)
+    case 'weekly':
+      return resolveWeeklyOccurrence(record, acceptedAt)
+    case 'cron':
+      return resolveCronOccurrence(record, acceptedAt)
   }
 }
 
@@ -1147,9 +1133,7 @@ function dispatchedRecord(record: LegacyScheduleRecord, change: DecodedDispatch)
   }
   if (!hasAcceptedAt) throw new ScheduleLogError('every dispatch must contain acceptedAt')
   const occurrence = resolveEveryOccurrence(record, Date.parse(change.acceptedAt))
-  return occurrence.nextScheduledAt === undefined
-    ? undefined
-    : Object.freeze({ ...record, scheduledAt: occurrence.nextScheduledAt })
+  return occurrence.nextScheduledAt === undefined ? undefined : Object.freeze({ ...record, scheduledAt: occurrence.nextScheduledAt })
 }
 
 /**
@@ -1161,10 +1145,7 @@ function dispatchedRecord(record: LegacyScheduleRecord, change: DecodedDispatch)
  * @param changes - strictly decoded durable mutations in log order.
  * @returns the complete fold value after every mutation.
  */
-export function applyScheduleChanges(
-  folded: FoldedSchedules,
-  changes: Iterable<ScheduleChange>,
-): FoldedSchedules {
+export function applyScheduleChanges(folded: FoldedSchedules, changes: Iterable<ScheduleChange>): FoldedSchedules {
   const active = new Map(folded.active.map(record => [record.id, record]))
   const seen = new Set(folded.seenIds)
   for (const change of changes) {
@@ -1214,9 +1195,7 @@ export function foldScheduleEvents(
   events: readonly SessionEvent[],
   inheritedEventCount: SessionLogOffsetType = SessionLogOffset(0),
 ): FoldedSchedules {
-  if (!Number.isSafeInteger(inheritedEventCount)
-    || inheritedEventCount < 0
-    || inheritedEventCount > events.length) {
+  if (!Number.isSafeInteger(inheritedEventCount) || inheritedEventCount < 0 || inheritedEventCount > events.length) {
     throw new ScheduleLogError('schedule inheritedEventCount must be within the supplied event log')
   }
   const initial: FoldedSchedules = Object.freeze({
@@ -1291,13 +1270,7 @@ export function createAfterScheduleRecord(
  * @param title - Required task name supplied at creation.
  * @returns Frozen durable absolute one-shot record.
  */
-export function createAtScheduleRecord(
-  id: ScheduleIdType,
-  prompt: string,
-  at: AtInput,
-  now: number,
-  title: string,
-): AtScheduleRecord {
+export function createAtScheduleRecord(id: ScheduleIdType, prompt: string, at: AtInput, now: number, title: string): AtScheduleRecord {
   const normalizedPrompt = prompt.trim()
   if (normalizedPrompt.length === 0) {
     throw new ScheduleInputError('invalid_prompt', 'prompt must be non-empty after trimming.')
@@ -1369,10 +1342,7 @@ export function createEveryScheduleRecord(
     throw new ScheduleInputError('invalid_rule', 'every_seconds must be a safe integer.')
   }
   if (everySeconds < MIN_EVERY_INTERVAL_SECONDS) {
-    throw new ScheduleInputError(
-      'frequency_too_high',
-      `every_seconds must be at least ${MIN_EVERY_INTERVAL_SECONDS}.`,
-    )
+    throw new ScheduleInputError('frequency_too_high', `every_seconds must be at least ${MIN_EVERY_INTERVAL_SECONDS}.`)
   }
   const interval = everySeconds * 1_000
   const target = now + interval
@@ -1415,7 +1385,13 @@ export function createDailyScheduleRecord(
     throw new ScheduleInputError('time_out_of_range', 'No future daily occurrence is representable as a four-digit-year UTC instant.')
   }
   return Object.freeze({
-    id, kind: 'daily', title: scheduleTitle(title), prompt: normalizedPrompt, time, timeZone, scheduledAt,
+    id,
+    kind: 'daily',
+    title: scheduleTitle(title),
+    prompt: normalizedPrompt,
+    time,
+    timeZone,
+    scheduledAt,
   })
 }
 
@@ -1427,7 +1403,8 @@ export function createDailyScheduleRecord(
 export function parseDailyInput(daily: DailyInput): { readonly time: string; readonly timeZone: string } {
   if (!isRecord(daily) || !hasExactKeys(daily, ['time', 'time_zone']) || typeof daily['time'] !== 'string') {
     throw new ScheduleInputError(
-      'invalid_rule', 'daily must contain exactly time and time_zone, with time HH:mm:ss and optional 1-3 fractional digits.',
+      'invalid_rule',
+      'daily must contain exactly time and time_zone, with time HH:mm:ss and optional 1-3 fractional digits.',
     )
   }
   if (typeof daily['time_zone'] !== 'string') {
@@ -1468,8 +1445,14 @@ export function createWeeklyScheduleRecord(
     throw new ScheduleInputError('time_out_of_range', 'No future weekly occurrence is representable as a four-digit-year UTC instant.')
   }
   return Object.freeze({
-    id, kind: 'weekly', title: scheduleTitle(title), prompt: normalizedPrompt, time, timeZone,
-    weekdays, scheduledAt,
+    id,
+    kind: 'weekly',
+    title: scheduleTitle(title),
+    prompt: normalizedPrompt,
+    time,
+    timeZone,
+    weekdays,
+    scheduledAt,
   })
 }
 
@@ -1502,7 +1485,13 @@ export function createCronScheduleRecord(
     throw new ScheduleInputError('time_out_of_range', 'No future cron occurrence is representable as a four-digit-year UTC instant.')
   }
   return Object.freeze({
-    id, kind: 'cron', title: scheduleTitle(title), prompt: normalizedPrompt, expression, timeZone, scheduledAt,
+    id,
+    kind: 'cron',
+    title: scheduleTitle(title),
+    prompt: normalizedPrompt,
+    expression,
+    timeZone,
+    scheduledAt,
   })
 }
 
@@ -1511,12 +1500,8 @@ export function createCronScheduleRecord(
  * @param weekly - Strict local time, explicit IANA zone, and explicit ISO weekday set.
  * @returns Normalized time, canonical zone, and unique ascending weekdays; malformed input throws ScheduleInputError.
  */
-export function parseWeeklyInput(
-  weekly: WeeklyInput,
-): { readonly time: string; readonly timeZone: string; readonly weekdays: number[] } {
-  if (!isRecord(weekly)
-    || !hasExactKeys(weekly, ['time', 'time_zone', 'weekdays'])
-    || typeof weekly['time'] !== 'string') {
+export function parseWeeklyInput(weekly: WeeklyInput): { readonly time: string; readonly timeZone: string; readonly weekdays: number[] } {
+  if (!isRecord(weekly) || !hasExactKeys(weekly, ['time', 'time_zone', 'weekdays']) || typeof weekly['time'] !== 'string') {
     throw new ScheduleInputError(
       'invalid_rule',
       'weekly must contain exactly time, time_zone, and weekdays, with time HH:mm:ss and optional 1-3 fractional digits.',
@@ -1566,8 +1551,8 @@ interface ParsedCronField {
 function invalidCronField(spec: CronFieldSpec, element: string): ScheduleInputError {
   return new ScheduleInputError(
     'invalid_rule',
-    `cron.expression ${spec.name} field element ${JSON.stringify(element)} must be *, a value, a-b, */n, a-b/n, `
-    + 'or a comma-separated list of those.',
+    `cron.expression ${spec.name} field element ${JSON.stringify(element)} must be *, a value, a-b, */n, a-b/n, ` +
+      'or a comma-separated list of those.',
   )
 }
 
@@ -1575,10 +1560,7 @@ function invalidCronField(spec: CronFieldSpec, element: string): ScheduleInputEr
 function cronFieldValue(text: string, spec: CronFieldSpec): number {
   const value = Number(text)
   if (!Number.isSafeInteger(value) || value < spec.min || value > spec.max) {
-    throw new ScheduleInputError(
-      'invalid_rule',
-      `cron.expression ${spec.name} field value ${text} is outside ${spec.min}-${spec.max}.`,
-    )
+    throw new ScheduleInputError('invalid_rule', `cron.expression ${spec.name} field value ${text} is outside ${spec.min}-${spec.max}.`)
   }
   return value
 }
@@ -1597,9 +1579,7 @@ function cronFieldValues(raw: string, spec: CronFieldSpec): number[] {
   const matched = new Set<number>()
   for (const element of raw.split(',')) {
     if (element.length === 0) {
-      throw new ScheduleInputError(
-        'invalid_rule', `cron.expression ${spec.name} field must not contain an empty list element.`,
-      )
+      throw new ScheduleInputError('invalid_rule', `cron.expression ${spec.name} field must not contain an empty list element.`)
     }
     if (element === '*') {
       for (let value = spec.min; value <= spec.max; value += 1) matched.add(value)
@@ -1632,9 +1612,7 @@ function cronFieldValues(raw: string, spec: CronFieldSpec): number[] {
     }
     const last = cronFieldValue(end, spec)
     if (start > last) {
-      throw new ScheduleInputError(
-        'invalid_rule', `cron.expression ${spec.name} field range ${start}-${last} is inverted.`,
-      )
+      throw new ScheduleInputError('invalid_rule', `cron.expression ${spec.name} field range ${start}-${last} is inverted.`)
     }
     const step = stepText === undefined ? 1 : cronFieldStep(stepText, spec)
     for (let value = start; value <= last; value += step) matched.add(value)
@@ -1737,9 +1715,7 @@ function encodeStarCronField(values: readonly number[], spec: CronFieldSpec): st
   const walked = new Set(bestWalk)
   const remaining = values.filter(value => !walked.has(value))
   const walkText = `*/${bestStep}`
-  return remaining.length === 0
-    ? walkText
-    : `${walkText},${encodeCronField(remaining)}`
+  return remaining.length === 0 ? walkText : `${walkText},${encodeCronField(remaining)}`
 }
 
 /**
@@ -1790,18 +1766,15 @@ function parseCronExpression(expression: string): ParsedCronExpression {
   if (fields.length !== 5) {
     throw new ScheduleInputError(
       'invalid_rule',
-      'cron.expression must contain exactly five whitespace-separated fields: '
-      + 'minute hour day-of-month month day-of-week.',
+      'cron.expression must contain exactly five whitespace-separated fields: ' + 'minute hour day-of-month month day-of-week.',
     )
   }
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = fields.map(
-    (field, index) => {
-      const fieldSpec = CRON_FIELDS[index]
-      /* v8 ignore next -- the five-field split bounds this index. */
-      if (fieldSpec === undefined) throw new ScheduleLogError('cron field specification is missing')
-      return parseCronField(field, fieldSpec)
-    },
-  ) as [ParsedCronField, ParsedCronField, ParsedCronField, ParsedCronField, ParsedCronField]
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = fields.map((field, index) => {
+    const fieldSpec = CRON_FIELDS[index]
+    /* v8 ignore next -- the five-field split bounds this index. */
+    if (fieldSpec === undefined) throw new ScheduleLogError('cron field specification is missing')
+    return parseCronField(field, fieldSpec)
+  }) as [ParsedCronField, ParsedCronField, ParsedCronField, ParsedCronField, ParsedCronField]
   return Object.freeze({
     expression: [minute, hour, dayOfMonth, month, dayOfWeek].map(field => field.canonical).join(' '),
     minutes: minute.values,
@@ -1830,9 +1803,7 @@ export function canonicalizeCronExpression(expression: string): string {
  */
 export function parseCronInput(cron: CronInput): { readonly expression: string; readonly timeZone: string } {
   if (!isRecord(cron) || !hasExactKeys(cron, ['expression', 'time_zone']) || typeof cron['expression'] !== 'string') {
-    throw new ScheduleInputError(
-      'invalid_rule', 'cron must contain exactly expression and time_zone, with a five-field cron expression.',
-    )
+    throw new ScheduleInputError('invalid_rule', 'cron must contain exactly expression and time_zone, with a five-field cron expression.')
   }
   if (typeof cron['time_zone'] !== 'string') {
     throw new ScheduleInputError('invalid_time_zone', 'time_zone must be a string.')
@@ -1888,9 +1859,5 @@ export function renderRecurringReminderBatchFraming(
     occurrence_at: occurrenceAt,
     reminder_prompt: record.prompt,
   }))
-  return [
-    '[SCHEDULE REMINDER BATCH]',
-    SCHEDULED_MESSAGE_FRAMING,
-    `reminders_json: ${JSON.stringify(payload)}`,
-  ].join('\n')
+  return ['[SCHEDULE REMINDER BATCH]', SCHEDULED_MESSAGE_FRAMING, `reminders_json: ${JSON.stringify(payload)}`].join('\n')
 }

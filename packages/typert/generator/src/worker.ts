@@ -26,17 +26,17 @@ export type WorkspaceWorkerResponse =
   | { readonly kind: 'failure'; readonly name: string; readonly message: string; readonly stack?: string }
 
 function parseRequest(value: unknown): WorkspaceWorkerRequest {
-  const request = typeof value === 'object' && value !== null
-    ? value as Partial<Record<keyof WorkspaceWorkerRequest, unknown>>
-    : {}
+  const request = typeof value === 'object' && value !== null ? (value as Partial<Record<keyof WorkspaceWorkerRequest, unknown>>) : {}
   const { root, faces, options } = request
-  const checkDiagnostics = typeof options === 'object' && options !== null
-    ? (options as Partial<Record<keyof WorkspaceTypertGeneratorOptions, unknown>>).checkDiagnostics
-    : null
-  if (typeof root !== 'string'
-    || (faces !== undefined
-      && (!Array.isArray(faces) || !faces.every((face): face is TypertFace => face === 'host' || face === 'client')))
-    || (checkDiagnostics !== undefined && typeof checkDiagnostics !== 'boolean')) {
+  const checkDiagnostics =
+    typeof options === 'object' && options !== null
+      ? (options as Partial<Record<keyof WorkspaceTypertGeneratorOptions, unknown>>).checkDiagnostics
+      : null
+  if (
+    typeof root !== 'string' ||
+    (faces !== undefined && (!Array.isArray(faces) || !faces.every((face): face is TypertFace => face === 'host' || face === 'client'))) ||
+    (checkDiagnostics !== undefined && typeof checkDiagnostics !== 'boolean')
+  ) {
     throw new TypeError('typert-generator: malformed workspace worker request')
   }
   return {

@@ -73,7 +73,14 @@ export type TerminalInput =
  * inputWindow is absent when the carrier has no encoded-frame inbox limit.
  */
 export type TerminalFrame =
-  | { readonly type: 'snapshot'; readonly sequence: number; readonly screen: string; readonly info: WebTerminalInfo; readonly writable: boolean; readonly inputWindow?: RemoteUplinkWindow }
+  | {
+      readonly type: 'snapshot'
+      readonly sequence: number
+      readonly screen: string
+      readonly info: WebTerminalInfo
+      readonly writable: boolean
+      readonly inputWindow?: RemoteUplinkWindow
+    }
   | { readonly type: 'output'; readonly sequence: number; readonly data: string }
   | { readonly type: 'state'; readonly info: WebTerminalInfo; readonly writable: boolean }
   | { readonly type: 'ack'; readonly sequence: number; readonly refusal?: 'read-only' | 'not-running' }

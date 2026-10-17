@@ -2,14 +2,10 @@
 // otherwise this view owns it. Each row subscribes to one stable node key.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  NodeKey, RenderEntry,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { NodeKey, RenderEntry } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
-import {
-  Button, IconChevronDownOutlineRegular, MarkdownDelegateProvider, Modal,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronDownOutlineRegular, MarkdownDelegateProvider, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { isAtOrOutside } from '../contract/group-tree.ts'
 import type { ChatFlowHookContext, ChatViewSlotProps, OpenFileOptions } from '../contract/slots.ts'
 import type { ChatSnapshot } from '../contract/snapshot.ts'
@@ -42,8 +38,15 @@ function observedInputs(
     if (node.location.kind === 'turn' || node.location.kind === 'step') lastInputTurn = node.location.turn.turn
     const data: unknown = node.data
     const source = typeof data === 'object' && data !== null && 'source' in data ? data.source : undefined
-    if (typeof source === 'object' && source !== null && 'kind' in source && source.kind === 'user'
-      && 'rpcId' in source && typeof source.rpcId === 'string') observed.add(source.rpcId)
+    if (
+      typeof source === 'object' &&
+      source !== null &&
+      'kind' in source &&
+      source.kind === 'user' &&
+      'rpcId' in source &&
+      typeof source.rpcId === 'string'
+    )
+      observed.add(source.rpcId)
   }
   return { rpcIds: observed, lastInputTurn }
 }
@@ -58,14 +61,31 @@ const MOTION_TAIL_MS = 800
  * ordered business Node crosses the keyed renderer seat.
  */
 export function ChatView({
-  useSession, useChat, useConversation, useSessions, renderSlot,
-  sessionId, openFile, openExternalLink, loadOlder, loadThrough, loadImage, inspectCall, chatScroll, forkAt, fileMentions,
-  usePresentation, useProjection, t,
+  useSession,
+  useChat,
+  useConversation,
+  useSessions,
+  renderSlot,
+  sessionId,
+  openFile,
+  openExternalLink,
+  loadOlder,
+  loadThrough,
+  loadImage,
+  inspectCall,
+  chatScroll,
+  forkAt,
+  fileMentions,
+  usePresentation,
+  useProjection,
+  t,
 }: ChatViewSlotProps) {
   const order = useChat(s => s.order)
   const groupedEntries = useConversation(snapshot => snapshot.views.grouped('chat')?.entries)
-  const entries = useMemo<readonly RenderEntry[]>(() => groupedEntries
-    ?? order.map(key => ({ kind: 'node', key: key as NodeKey })), [groupedEntries, order])
+  const entries = useMemo<readonly RenderEntry[]>(
+    () => groupedEntries ?? order.map(key => ({ kind: 'node', key: key as NodeKey })),
+    [groupedEntries, order],
+  )
   const nodeStore = useChat(s => s.nodes)
   const deferCompletedTurns = usePresentation(policy => policy.collapseTiming === 'next-input')
   const transcriptView = usePresentation(policy => policy.mode)
@@ -76,20 +96,23 @@ export function ChatView({
   // Host-computed whole-log outline; the merge is view-layer only (the
   // conversation snapshot never carries projection values).
   const turnOutline = useProjection('turnOutline')
-  const railItems = useMemo(
-    () => mergeTurnRailItems(turnNavigationItems, turnOutline),
-    [turnNavigationItems, turnOutline],
-  )
+  const railItems = useMemo(() => mergeTurnRailItems(turnNavigationItems, turnOutline), [turnNavigationItems, turnOutline])
   const inbox = useProjection('inbox') as InboxState | undefined
   // Workspace root off the session list row: path summaries display relative to it.
   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
-  const fileImages = useMemo(() => ({
-    resolve: (path: string) => fileMediaUrl(document.baseURI, resolveWorkspacePath(cwd, path)),
-    labels: {
-      open: t('image.open'), loading: t('image.loading'), failed: t('image.failed'),
-      dialog: t('image.dialog'), close: t('image.close'),
-    },
-  }), [cwd, t])
+  const fileImages = useMemo(
+    () => ({
+      resolve: (path: string) => fileMediaUrl(document.baseURI, resolveWorkspacePath(cwd, path)),
+      labels: {
+        open: t('image.open'),
+        loading: t('image.loading'),
+        failed: t('image.failed'),
+        dialog: t('image.dialog'),
+        close: t('image.close'),
+      },
+    }),
+    [cwd, t],
+  )
   const running = useSession(s => s.running)
   // Fold transitions run while a Turn is live, while an input is pending, and briefly after settling.
   const [motionTail, setMotionTail] = useState(false)
@@ -102,8 +125,12 @@ export function ChatView({
       setMotionTail(true)
       return
     }
-    const timer = setTimeout(() => { setMotionTail(false) }, MOTION_TAIL_MS)
-    return () => { clearTimeout(timer) }
+    const timer = setTimeout(() => {
+      setMotionTail(false)
+    }, MOTION_TAIL_MS)
+    return () => {
+      clearTimeout(timer)
+    }
   }, [running, deferCompletedTurns])
   const openState = useSession(s => s.openState)
   const openError = useSession(s => s.openError)
@@ -115,28 +142,28 @@ export function ChatView({
   // gesture; otherwise a cancelled in-flight refusal reopens the dialog.
   const fileOpenRequest = useRef(0)
 
-  const requestOpenFile = useCallback((path: string, options?: OpenFileOptions) => {
-    const id = ++fileOpenRequest.current
-    setFileOpenBusy(true)
-    void (options === undefined ? openFile(path) : openFile(path, options)).then(
-      () => {
-        if (id !== fileOpenRequest.current) return
-        setFileOpenError(null)
-        setFileOpenBusy(false)
-      },
-      (error: unknown) => {
-        if (id !== fileOpenRequest.current) return
-        setFileOpenError({
-          path,
-          message: openFailureMessage(
-            error,
-            t('fileOpen.unknown'),
-          ),
-        })
-        setFileOpenBusy(false)
-      },
-    )
-  }, [openFile, t])
+  const requestOpenFile = useCallback(
+    (path: string, options?: OpenFileOptions) => {
+      const id = ++fileOpenRequest.current
+      setFileOpenBusy(true)
+      void (options === undefined ? openFile(path) : openFile(path, options)).then(
+        () => {
+          if (id !== fileOpenRequest.current) return
+          setFileOpenError(null)
+          setFileOpenBusy(false)
+        },
+        (error: unknown) => {
+          if (id !== fileOpenRequest.current) return
+          setFileOpenError({
+            path,
+            message: openFailureMessage(error, t('fileOpen.unknown')),
+          })
+          setFileOpenBusy(false)
+        },
+      )
+    },
+    [openFile, t],
+  )
 
   const closeFileOpenError = useCallback(() => {
     fileOpenRequest.current += 1
@@ -144,10 +171,7 @@ export function ChatView({
     setFileOpenBusy(false)
   }, [])
 
-  const inboxSteering = useMemo(
-    () => inbox?.['next-step'].filter(message => message.source.kind === 'user') ?? [],
-    [inbox],
-  )
+  const inboxSteering = useMemo(() => inbox?.['next-step'].filter(message => message.source.kind === 'user') ?? [], [inbox])
   const pendingSubmissions = useSession(s => s.pendingSubmissions)
   // Submission echoes still awaiting their durable counterpart. `order` is the
   // recompute trigger: durable user material always arrives as an append, and
@@ -155,16 +179,18 @@ export function ChatView({
   const [visibleSubmissions, lastInputTurn] = useMemo(() => {
     if (pendingSubmissions.length === 0) return [pendingSubmissions, undefined] as const
     const observed = observedInputs(order, nodeStore)
-    return [pendingSubmissions.filter(submission => (
-      submission.placement !== 'queued' && !observed.rpcIds.has(submission.requestId)
-    )), observed.lastInputTurn] as const
+    return [
+      pendingSubmissions.filter(submission => submission.placement !== 'queued' && !observed.rpcIds.has(submission.requestId)),
+      observed.lastInputTurn,
+    ] as const
   }, [pendingSubmissions, order, nodeStore])
   const pendingInputs = useMemo(() => {
     const local = new Map(visibleSubmissions.map(submission => [submission.requestId, submission]))
     // Admitted local identities outlive their bubbles until the Inbox claim watermark.
-    const localIds = new Set(pendingSubmissions.filter(submission => submission.placement !== 'queued')
-      .map(submission => submission.requestId))
-    const pending = inboxSteering.flatMap<PendingInput>((item) => {
+    const localIds = new Set(
+      pendingSubmissions.filter(submission => submission.placement !== 'queued').map(submission => submission.requestId),
+    )
+    const pending = inboxSteering.flatMap<PendingInput>(item => {
       const source = item.source
       if (source.kind !== 'user' || !('rpcId' in source)) return [item]
       const submission = local.get(source.rpcId)
@@ -174,18 +200,26 @@ export function ChatView({
     })
     return [...pending, ...local.values()]
   }, [inboxSteering, pendingSubmissions, visibleSubmissions])
-  const deferCollapse = deferCompletedTurns
-    && !pendingInputs.some(item => 'requestId' in item && item.placement === 'transcript')
+  const deferCollapse = deferCompletedTurns && !pendingInputs.some(item => 'requestId' in item && item.placement === 'transcript')
 
   const firstKey = order[0]
-  const firstSeq = firstKey === undefined ? null : nodeStore.get(firstKey)?.anchorSeq ?? null
+  const firstSeq = firstKey === undefined ? null : (nodeStore.get(firstKey)?.anchorSeq ?? null)
   const lastKey = order.at(-1) ?? null
   const latestSteering = pendingInputs.findLast(item => 'source' in item)
-  const steeringId = latestSteering?.source.kind === 'user' && 'rpcId' in latestSteering.source
-    ? latestSteering.source.rpcId : latestSteering?.id ?? null
+  const steeringId =
+    latestSteering?.source.kind === 'user' && 'rpcId' in latestSteering.source ? latestSteering.source.rpcId : (latestSteering?.id ?? null)
   const scroll = useChatScroll({
     ready: openState === 'open',
-    order, firstSeq, lastKey, running, loadingOlder, hasMore, chatScroll, loadOlder, loadThrough, deferCompletedTurns,
+    order,
+    firstSeq,
+    lastKey,
+    running,
+    loadingOlder,
+    hasMore,
+    chatScroll,
+    loadOlder,
+    loadThrough,
+    deferCompletedTurns,
     lastIsUser: lastKey !== null && nodeStore.get(lastKey)?.kind === 'user',
     steeringId,
     submissionId: visibleSubmissions.at(-1)?.requestId ?? null,
@@ -207,14 +241,17 @@ export function ChatView({
       )}
       <div className={css.root} data-chat-following-tail={scroll.followingTail ? '' : undefined}>
         <div ref={scroll.listRef} className={css.scroll}>
-          <div ref={scroll.columnRef} className={css.column} data-chat-flow=""
-            data-chat-motion={deferCompletedTurns && scroll.initialized
-              && (running || motionTail || pendingInputs.length > 0) ? '' : undefined}>
+          <div
+            ref={scroll.columnRef}
+            className={css.column}
+            data-chat-flow=""
+            data-chat-motion={
+              deferCompletedTurns && scroll.initialized && (running || motionTail || pendingInputs.length > 0) ? '' : undefined
+            }
+          >
             {openState === 'loading' && <div className={css.hint}>{t('chat.loadingHistory')}</div>}
             {openState === 'error' && openError !== null && (
-              <div className={css.openError}>
-                {t('chat.loadError', { message: openError.message, code: openError.code })}
-              </div>
+              <div className={css.openError}>{t('chat.loadError', { message: openError.message, code: openError.code })}</div>
             )}
             {hasMore && (
               <div className={css.older}>
@@ -224,10 +261,22 @@ export function ChatView({
               </div>
             )}
             <MarkdownDelegateProvider openFile={requestOpenFile} openExternalLink={openExternalLink} fileImages={fileImages}>
-              {renderSlot('conversation.chat.flow', {
-                entries, pendingInputs, lastInputTurn, deferCollapse,
-                cwd, openFile: requestOpenFile, inspectCall, forkAt, loadImage, fileMentions,
-              }, { hookContext: flowContext })}
+              {renderSlot(
+                'conversation.chat.flow',
+                {
+                  entries,
+                  pendingInputs,
+                  lastInputTurn,
+                  deferCollapse,
+                  cwd,
+                  openFile: requestOpenFile,
+                  inspectCall,
+                  forkAt,
+                  loadImage,
+                  fileMentions,
+                },
+                { hookContext: flowContext },
+              )}
             </MarkdownDelegateProvider>
             {/* No pending placeholders: questions (ui-user-questions) and approvals
                 (ApprovalPanel) both take over the composer, so a flow card would
@@ -239,12 +288,7 @@ export function ChatView({
       </div>
       {!scroll.followingTail && (
         <div className={css.toBottomSlot}>
-          <button
-            type="button"
-            className={css.toBottom}
-            aria-label={t('chat.toBottom')}
-            onClick={scroll.returnToBottom}
-          >
+          <button type="button" className={css.toBottom} aria-label={t('chat.toBottom')} onClick={scroll.returnToBottom}>
             <IconChevronDownOutlineRegular />
           </button>
         </div>
@@ -254,7 +298,9 @@ export function ChatView({
           message={fileOpenError.message}
           busy={fileOpenBusy}
           onClose={closeFileOpenError}
-          onRetry={() => { requestOpenFile(fileOpenError.path) }}
+          onRetry={() => {
+            requestOpenFile(fileOpenError.path)
+          }}
           t={t}
         />
       )}
@@ -264,7 +310,11 @@ export function ChatView({
 
 /** In-page Host open-path refusal: the wire reason plus a retry of the same path. */
 function FileOpenErrorDialog({
-  message, busy, onClose, onRetry, t,
+  message,
+  busy,
+  onClose,
+  onRetry,
+  t,
 }: {
   message: string
   busy: boolean
@@ -279,12 +329,16 @@ function FileOpenErrorDialog({
       closeLabel={t('close')}
       title={t('fileOpen.title')}
       description={message}
-      footer={(
+      footer={
         <>
-          <Button variant="outline" className={css.modalAction} onClick={onClose}>{t('cancel')}</Button>
-          <Button variant="primary" className={css.modalAction} disabled={busy} onClick={onRetry}>{t('retry')}</Button>
+          <Button variant="outline" className={css.modalAction} onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button variant="primary" className={css.modalAction} disabled={busy} onClick={onRetry}>
+            {t('retry')}
+          </Button>
         </>
-      )}
+      }
     />
   )
 }

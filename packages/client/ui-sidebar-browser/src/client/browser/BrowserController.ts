@@ -38,7 +38,9 @@ export class BrowserController implements HostObservable<BrowserControllerState>
   private started = false
   private disposed = false
   private disposal: Promise<void> | undefined
-  private readonly abort = (): void => { void this.dispose() }
+  private readonly abort = (): void => {
+    void this.dispose()
+  }
 
   /** @param options - identity, persistence, page factory and source-tab navigation. */
   constructor(private readonly options: BrowserControllerOptions) {
@@ -46,28 +48,38 @@ export class BrowserController implements HostObservable<BrowserControllerState>
     this.checkpoint = options.initial
     this.page = options.createPage({
       initial: options.initial,
-      persist: (state) => {
+      persist: state => {
         if (this.disposed) return
         this.checkpoint = state
         this.actions.replace(options.tabId, state)
       },
-      openRequested: (value) => {
+      openRequested: value => {
         if (this.disposed) return
         const result = parseBrowserAddress(value, options.applicationOrigin)
-        if (!result.ok) { this.addressFailed(result.reason); return }
+        if (!result.ok) {
+          this.addressFailed(result.reason)
+          return
+        }
         options.openTab(result.target.url)
       },
     })
-    this.store = createSnapshotStore({ frame: this.page.frame.getSnapshot(),
-      restoreTarget: currentBrowserTarget(this.checkpoint), addressFailure: undefined, addressRevision: 0 })
+    this.store = createSnapshotStore({
+      frame: this.page.frame.getSnapshot(),
+      restoreTarget: currentBrowserTarget(this.checkpoint),
+      addressFailure: undefined,
+      addressRevision: 0,
+    })
     this.unsubscribe = this.page.frame.subscribe(() => {
       if (this.disposed) return
       const current = this.store.getSnapshot()
       const frame = this.page.frame.getSnapshot()
       const changed = frame.target?.url !== current.frame.target?.url
-      this.store.set({ frame, restoreTarget: frame.target === undefined ? currentBrowserTarget(this.checkpoint) : undefined,
+      this.store.set({
+        frame,
+        restoreTarget: frame.target === undefined ? currentBrowserTarget(this.checkpoint) : undefined,
         addressFailure: changed ? undefined : current.addressFailure,
-        addressRevision: current.addressRevision + Number(changed) })
+        addressRevision: current.addressRevision + Number(changed),
+      })
     })
     options.signal.addEventListener('abort', this.abort, { once: true })
   }
@@ -110,18 +122,34 @@ export class BrowserController implements HostObservable<BrowserControllerState>
   loadUrl(value: string): void {
     if (this.disposed) return
     const parsed = parseBrowserAddress(value, this.options.applicationOrigin)
-    if (!parsed.ok) { this.addressFailed(parsed.reason); return }
-    this.command(() => { this.page.frame.loadUrl(parsed.target) })
+    if (!parsed.ok) {
+      this.addressFailed(parsed.reason)
+      return
+    }
+    this.command(() => {
+      this.page.frame.loadUrl(parsed.target)
+    })
   }
 
   /** Delegate Back to the page's navigation provider. */
-  goBack(): void { this.command(() => { this.page.frame.goBack() }) }
+  goBack(): void {
+    this.command(() => {
+      this.page.frame.goBack()
+    })
+  }
   /** Delegate Forward to the page's navigation provider. */
-  goForward(): void { this.command(() => { this.page.frame.goForward() }) }
+  goForward(): void {
+    this.command(() => {
+      this.page.frame.goForward()
+    })
+  }
   /** Restore a saved address, or reload the already requested page. */
   reload(): void {
     if (this.store.getSnapshot().restoreTarget !== undefined) this.restore()
-    else this.command(() => { this.page.frame.reload() })
+    else
+      this.command(() => {
+        this.page.frame.reload()
+      })
   }
 
   /**
@@ -130,14 +158,19 @@ export class BrowserController implements HostObservable<BrowserControllerState>
    */
   setSandbox(enabled: boolean): void {
     const sandbox = this.page.frame.sandbox
-    if (sandbox !== undefined) this.command(() => { sandbox.setEnabled(enabled) })
+    if (sandbox !== undefined)
+      this.command(() => {
+        sandbox.setEnabled(enabled)
+      })
   }
 
   /**
    * Redirect future checkpoint writes to a replacement Session binding.
    * @param actions - replacement persistence writer.
    */
-  rebind(actions: BoundActions<BrowserStore>): void { this.actions = actions }
+  rebind(actions: BoundActions<BrowserStore>): void {
+    this.actions = actions
+  }
 
   /**
    * Release the page and detach occurrence and state listeners.
@@ -211,14 +244,20 @@ export interface BrowserInjected {
  * @param isTabOpen - authoritative layout membership, independent of mounted bodies and plugin lifetime.
  * @returns tab callbacks.
  */
-export function createBrowserControllers(actions: BoundActions<BrowserStore>, createPage: BrowserPageFactory,
-  isTabOpen: (tabId: TabId) => boolean): BrowserInjected {
+export function createBrowserControllers(
+  actions: BoundActions<BrowserStore>,
+  createPage: BrowserPageFactory,
+  isTabOpen: (tabId: TabId) => boolean,
+): BrowserInjected {
   let currentActions = actions
-  const controllers = new Map<TabId, {
-    readonly signal: AbortSignal
-    readonly controller: BrowserController
-    readonly forget: () => void
-  }>()
+  const controllers = new Map<
+    TabId,
+    {
+      readonly signal: AbortSignal
+      readonly controller: BrowserController
+      readonly forget: () => void
+    }
+  >()
   const controller = (id: TabId): BrowserController | undefined => controllers.get(id)?.controller
   return {
     keyedHooks: { browserState: key => controller(key as TabId) },
@@ -253,15 +292,27 @@ export function createBrowserControllers(actions: BoundActions<BrowserStore>, cr
       controllers.clear()
       await Promise.all(pending)
     },
-    rebind: (actions) => {
+    rebind: actions => {
       currentActions = actions
       for (const { controller } of controllers.values()) controller.rebind(actions)
     },
-    loadUrl: (id, value) => { controller(id)?.loadUrl(value) },
-    restore: (id) => { controller(id)?.restore() },
-    goBack: (id) => { controller(id)?.goBack() },
-    goForward: (id) => { controller(id)?.goForward() },
-    reload: (id) => { controller(id)?.reload() },
-    setSandbox: (id, enabled) => { controller(id)?.setSandbox(enabled) },
+    loadUrl: (id, value) => {
+      controller(id)?.loadUrl(value)
+    },
+    restore: id => {
+      controller(id)?.restore()
+    },
+    goBack: id => {
+      controller(id)?.goBack()
+    },
+    goForward: id => {
+      controller(id)?.goForward()
+    },
+    reload: id => {
+      controller(id)?.reload()
+    },
+    setSandbox: (id, enabled) => {
+      controller(id)?.setSandbox(enabled)
+    },
   }
 }

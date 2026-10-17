@@ -17,13 +17,7 @@ import type {
 } from '@deepseek-ai/dsh-agent'
 import { agentEvents, assembleContextFor } from '@deepseek-ai/dsh-agent'
 import type { GenerateOptions, LlmCallConfig, Message, PreparedLlmCall } from '@deepseek-ai/dsh-llm'
-import {
-  LlmError,
-  createAssistantMessage,
-  createDeveloperMessage,
-  errorChain,
-  markAgentLoopRequest,
-} from '@deepseek-ai/dsh-llm'
+import { LlmError, createAssistantMessage, createDeveloperMessage, errorChain, markAgentLoopRequest } from '@deepseek-ai/dsh-llm'
 import { assertNever, deepFreeze } from '@deepseek-ai/dsh-util-values'
 import type { Scope } from '@deepseek-ai/dsh-scope'
 import { createScope } from '@deepseek-ai/dsh-scope'
@@ -42,11 +36,11 @@ import { executeToolCalls } from './tool-calls.ts'
 type Phase =
   | { kind: 'idle'; lastTurn: number }
   | {
-    kind: 'maintenance'
-    abort: AbortController
-    lastTurn: number
-    wakeRequested: boolean
-  }
+      kind: 'maintenance'
+      abort: AbortController
+      lastTurn: number
+      wakeRequested: boolean
+    }
   | { kind: 'running'; abort: AbortController; turn: number; step: number; wakeRequested: boolean }
 
 type StepEndReason = Extract<TurnEndReason, { kind: 'completed' | 'max-tokens' }>
@@ -54,11 +48,11 @@ type StepEndReason = Extract<TurnEndReason, { kind: 'completed' | 'max-tokens' }
 type PreparedStep =
   | { kind: 'reject' }
   | {
-    kind: 'enter'
-    messages: UserMessage[]
-    startsRequestSeries?: true
-    assembly: PromptAssembly
-  }
+      kind: 'enter'
+      messages: UserMessage[]
+      startsRequestSeries?: true
+      assembly: PromptAssembly
+    }
 
 /** Remove adapter-derived values before plugins propose the next request config. */
 function requestProposal(header: EpochHeader): LlmCallConfig {
@@ -272,7 +266,8 @@ export class ReactLoopAgent implements Agent {
     const assembly = await this.loopCtx.systemPrompt.assemble(assembleContextFor(this, signal))
     signal.throwIfAborted()
     const decision = await this.dispatch.waterfall(
-      'agent/pre-step', { messages: claimed, ...position, signal },
+      'agent/pre-step',
+      { messages: claimed, ...position, signal },
       (): Promise<PreStepDecision> => {
         const sections = renderContextSections(assembly)
         const context = this.runtimeContext.project(joinContextSections(sections), sections)
@@ -346,11 +341,13 @@ export class ReactLoopAgent implements Agent {
             for (const event of toolRecovery.results()) {
               this.session.append('tool/result', event.data, {
                 surfaceOp: 'append',
-                ...event.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: event.sourceEventSeqs },
+                ...(event.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: event.sourceEventSeqs }),
               })
             }
           } catch (recoveryError: unknown) {
-            throw new AggregateError([error, recoveryError], 'Step failed and its pending tool results could not be recorded', { cause: error })
+            throw new AggregateError([error, recoveryError], 'Step failed and its pending tool results could not be recorded', {
+              cause: error,
+            })
           }
           throw error
         } finally {
@@ -376,9 +373,7 @@ export class ReactLoopAgent implements Agent {
       // else flattens to `errorChain` text under the `UNKNOWN` code.
       turnEnds = {
         kind: 'error',
-        error: error instanceof LlmError
-          ? error.failure
-          : { message: errorChain(error), code: 'UNKNOWN' },
+        error: error instanceof LlmError ? error.failure : { message: errorChain(error), code: 'UNKNOWN' },
       }
       this.throwError(error)
     } finally {
@@ -400,7 +395,11 @@ export class ReactLoopAgent implements Agent {
   private async step(decision: Extract<PreparedStep, { kind: 'enter' }>): Promise<StepEndReason | null> {
     /* v8 ignore next -- private callers establish the running phase before executing a step */
     if (this.phase.kind !== 'running') throw new Error(`agent "${this.id}": step outside running phase`)
-    const { turn, step, abort: { signal } } = this.phase
+    const {
+      turn,
+      step,
+      abort: { signal },
+    } = this.phase
     signal.throwIfAborted()
 
     const { assembly } = decision
@@ -415,9 +414,10 @@ export class ReactLoopAgent implements Agent {
       const startsRequestSeries = firstAttempt && decision.startsRequestSeries === true
       const commits = this.systemPrompt.project(renderedPrompt, {
         inHistory: preparedCall?.systemPromptUpdate === 'in-history',
-        startsSeries: startsRequestSeries
-          || this.requestSurfaceGeneration !== this.session.surface.contentGeneration
-          || (preparedCall?.toolUpdate === undefined && this.toolsChanged(assembly.tools)),
+        startsSeries:
+          startsRequestSeries ||
+          this.requestSurfaceGeneration !== this.session.surface.contentGeneration ||
+          (preparedCall?.toolUpdate === undefined && this.toolsChanged(assembly.tools)),
       })
       for (const { message, intent } of commits) {
         this.session.append('system/message', { turn, step, message }, intent)
@@ -446,7 +446,9 @@ export class ReactLoopAgent implements Agent {
         () => ++this.assistantStreamRevision,
         turn,
         step,
-        (frame) => { this.dispatch.emit('agent/assistant-stream', { frame }) },
+        frame => {
+          this.dispatch.emit('agent/assistant-stream', { frame })
+        },
       )
       let started = false
       try {
@@ -465,51 +467,49 @@ export class ReactLoopAgent implements Agent {
           if (signal.aborted) {
             const content = live.interruptedBlocks()
             if (content.length > 0) {
-              live.settle('assistant/message', () => this.session.append('assistant/message', {
-                turn,
-                step,
-                message: createAssistantMessage({
-                  content,
-                  source: {
-                    provider: request.provider,
-                    model: request.model,
-                    ...live.replayState === undefined ? {} : { replayState: live.replayState },
-                  },
-                }),
-                interrupted: true,
-                ...live.usage === undefined ? {} : { usage: live.usage },
-                stream: live.stream,
-              }, { surfaceOp: 'append' }).seq)
-            } else {
               live.settle(
-                'assistant/attempt',
-                () => this.session.append('assistant/attempt', { turn, step, stream: live.stream }).seq,
+                'assistant/message',
+                () =>
+                  this.session.append(
+                    'assistant/message',
+                    {
+                      turn,
+                      step,
+                      message: createAssistantMessage({
+                        content,
+                        source: {
+                          provider: request.provider,
+                          model: request.model,
+                          ...(live.replayState === undefined ? {} : { replayState: live.replayState }),
+                        },
+                      }),
+                      interrupted: true,
+                      ...(live.usage === undefined ? {} : { usage: live.usage }),
+                      stream: live.stream,
+                    },
+                    { surfaceOp: 'append' },
+                  ).seq,
               )
+            } else {
+              live.settle('assistant/attempt', () => this.session.append('assistant/attempt', { turn, step, stream: live.stream }).seq)
             }
           } else {
-            live.settle(
-              'assistant/attempt',
-              () => this.session.append('assistant/attempt', { turn, step, stream: live.stream }).seq,
-            )
+            live.settle('assistant/attempt', () => this.session.append('assistant/attempt', { turn, step, stream: live.stream }).seq)
           }
         } catch (settlementError: unknown) {
-          throw new AggregateError(
-            [error, settlementError],
-            'Assistant stream failed and its durable settlement was rejected',
-            { cause: error },
-          )
+          throw new AggregateError([error, settlementError], 'Assistant stream failed and its durable settlement was rejected', {
+            cause: error,
+          })
         }
         throw error
       }
       try {
         const finish = live.finish
         if (finish.kind === 'error' || finish.kind === 'aborted') {
-          live.settle(
-            'assistant/attempt',
-            () => this.session.append('assistant/attempt', { turn, step, stream: live.stream }).seq,
-          )
+          live.settle('assistant/attempt', () => this.session.append('assistant/attempt', { turn, step, stream: live.stream }).seq)
           const action = await this.dispatch.waterfall(
-            'agent/request-error', {
+            'agent/request-error',
+            {
               turn,
               step,
               provider: request.provider,
@@ -531,26 +531,30 @@ export class ReactLoopAgent implements Agent {
           source: {
             provider: request.provider,
             model: request.model,
-            ...live.replayState !== undefined ? { replayState: live.replayState } : {},
+            ...(live.replayState !== undefined ? { replayState: live.replayState } : {}),
           },
         })
         live.settle(
           'assistant/message',
-          () => this.session.append('assistant/message', {
-            turn,
-            step,
-            message,
-            ...live.usage === undefined ? {} : { usage: live.usage },
-            stream: live.stream,
-          }, { surfaceOp: 'append' }).seq,
+          () =>
+            this.session.append(
+              'assistant/message',
+              {
+                turn,
+                step,
+                message,
+                ...(live.usage === undefined ? {} : { usage: live.usage }),
+                stream: live.stream,
+              },
+              { surfaceOp: 'append' },
+            ).seq,
         )
         if (finish.kind === 'max-tokens') return { kind: 'max-tokens' }
 
         const toolCalls = message.content.filter(block => block.type === 'tool-call')
         if (toolCalls.length === 0) return { kind: 'completed' }
-        const { concluded } = await executeToolCalls(
-          this.loopCtx, turn, step, toolCalls, signal,
-          context => this.inbox.splice('next-step', this.inbox.nextStep.length, 0, [context]),
+        const { concluded } = await executeToolCalls(this.loopCtx, turn, step, toolCalls, signal, context =>
+          this.inbox.splice('next-step', this.inbox.nextStep.length, 0, [context]),
         )
         return concluded ? { kind: 'completed' } : null
       } catch (error: unknown) {
@@ -573,30 +577,32 @@ export class ReactLoopAgent implements Agent {
     const persistedHeader = session.requestHeader()
     const persistedConfig = persistedHeader?.config
     const route = { provider: this.options.provider ?? '', model: this.options.model ?? '' }
-    const persistedReasoningEffort = persistedConfig?.provider === route.provider
-      && persistedConfig.model === route.model
-      && persistedHeader?.adapterDefaults?.reasoningEffort !== true
-      ? persistedConfig.reasoningEffort
-      : undefined
+    const persistedReasoningEffort =
+      persistedConfig?.provider === route.provider &&
+      persistedConfig.model === route.model &&
+      persistedHeader?.adapterDefaults?.reasoningEffort !== true
+        ? persistedConfig.reasoningEffort
+        : undefined
     const reasoningEffort = this.options.reasoningEffort ?? persistedReasoningEffort
     const maxTokens = this.options.maxTokens
-    const seedConfig = deepFreeze(structuredClone(
-      this.requestHeaderLogged
-        // oxlint-disable-next-line typescript/no-non-null-assertion -- the instance logged the header it now folds
-        ? requestProposal(persistedHeader!)
-        : {
-          ...route,
-          ...reasoningEffort === undefined ? {} : { reasoningEffort },
-          ...maxTokens === undefined ? {} : { maxTokens },
-        },
-    ))
-    const proposedConfig = await this.dispatch.waterfall(
-      'agent/request', { turn, step, signal },
-      () => Promise.resolve(seedConfig),
+    const seedConfig = deepFreeze(
+      structuredClone(
+        this.requestHeaderLogged
+          ? // oxlint-disable-next-line typescript/no-non-null-assertion -- the instance logged the header it now folds
+            requestProposal(persistedHeader!)
+          : {
+              ...route,
+              ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+              ...(maxTokens === undefined ? {} : { maxTokens }),
+            },
+      ),
     )
+    const proposedConfig = await this.dispatch.waterfall('agent/request', { turn, step, signal }, () => Promise.resolve(seedConfig))
     signal.throwIfAborted()
     if (!proposedConfig.provider || !proposedConfig.model) {
-      throw new Error(`agent "${this.id}" has no provider/model: set AgentOptions.provider and AgentOptions.model or supply both via the agent/request waterfall`)
+      throw new Error(
+        `agent "${this.id}" has no provider/model: set AgentOptions.provider and AgentOptions.model or supply both via the agent/request waterfall`,
+      )
     }
     let config: LlmCallConfig
     let preparedCall: PreparedLlmCall | undefined
@@ -609,7 +615,7 @@ export class ReactLoopAgent implements Agent {
       config = proposedConfig
     }
     signal.throwIfAborted()
-    return { config, ...preparedCall === undefined ? {} : { preparedCall } }
+    return { config, ...(preparedCall === undefined ? {} : { preparedCall }) }
   }
 
   /** Log the resolved envelope and derive a frozen request from the admitted surface. */
@@ -625,26 +631,25 @@ export class ReactLoopAgent implements Agent {
     const surfaceGeneration = session.surface.contentGeneration
     const header = canonicalHeader({
       config,
-      ...preparedCall === undefined ? {} : { adapterDefaults: preparedCall.adapterDefaults },
-      ...tools.length > 0 ? { tools } : {},
+      ...(preparedCall === undefined ? {} : { adapterDefaults: preparedCall.adapterDefaults }),
+      ...(tools.length > 0 ? { tools } : {}),
     })
     const baseline = this.session.requestHeader()
-    const startsSeries = startsRequestSeries
-      || this.requestSurfaceGeneration !== surfaceGeneration
+    const startsSeries = startsRequestSeries || this.requestSurfaceGeneration !== surfaceGeneration
     let headerSeq: SessionSeq | undefined
     if (!this.requestHeaderLogged) {
       // Compaction during the first resumed pre-step must still mark a new series.
       headerSeq = this.session.append('request/header', {
         header,
         reason: baseline === undefined ? 'initial' : 'resume',
-        ...startsSeries ? { startsSeries: true } : {},
+        ...(startsSeries ? { startsSeries: true } : {}),
       }).seq
       this.requestHeaderLogged = true
     } else if (baseline === undefined || !headerEquals(baseline, header)) {
       headerSeq = this.session.append('request/header', {
         header,
         reason: 'change',
-        ...startsSeries ? { startsSeries: true } : {},
+        ...(startsSeries ? { startsSeries: true } : {}),
       }).seq
     } else if (startsSeries) {
       this.session.append('request/header', { header, reason: 'series' })
@@ -652,16 +657,22 @@ export class ReactLoopAgent implements Agent {
     if (baseline !== undefined && headerSeq !== undefined) {
       const previousNames = new Set(baseline.tools?.map(tool => tool.name))
       const currentNames = new Set(tools.map(tool => tool.name))
-      const additions = tools.filter(tool => !previousNames.has(tool.name))
+      const additions = tools
+        .filter(tool => !previousNames.has(tool.name))
         .map(tool => ({ type: 'tool-addition' as const, toolName: tool.name }))
-      const removals = (baseline.tools ?? []).filter(tool => !currentNames.has(tool.name))
+      const removals = (baseline.tools ?? [])
+        .filter(tool => !currentNames.has(tool.name))
         .map(tool => ({ type: 'tool-removal' as const, toolName: tool.name }))
       if (additions.length > 0 || removals.length > 0) {
-        session.append('developer/message', {
-          ...position,
-          message: createDeveloperMessage({ source: { kind: 'tool-registry' }, content: [...additions, ...removals] }),
-          ...additions.length > 0 ? { headerSeq } : {},
-        }, { surfaceOp: 'append' })
+        session.append(
+          'developer/message',
+          {
+            ...position,
+            message: createDeveloperMessage({ source: { kind: 'tool-registry' }, content: [...additions, ...removals] }),
+            ...(additions.length > 0 ? { headerSeq } : {}),
+          },
+          { surfaceOp: 'append' },
+        )
       }
     }
     this.requestSurfaceGeneration = surfaceGeneration
@@ -671,14 +682,16 @@ export class ReactLoopAgent implements Agent {
     const requestContext: RequestContext = {
       provider: config.provider,
       model: config.model,
-      ...contextWindow === undefined ? {} : { contextWindow },
-      ...systemPromptUpdate === undefined ? {} : { systemPromptUpdate },
+      ...(contextWindow === undefined ? {} : { contextWindow }),
+      ...(systemPromptUpdate === undefined ? {} : { systemPromptUpdate }),
     }
     const previousContext = session.requestContext()
-    if (previousContext?.provider !== requestContext.provider
-      || previousContext.model !== requestContext.model
-      || previousContext.contextWindow !== requestContext.contextWindow
-      || previousContext.systemPromptUpdate !== requestContext.systemPromptUpdate) {
+    if (
+      previousContext?.provider !== requestContext.provider ||
+      previousContext.model !== requestContext.model ||
+      previousContext.contextWindow !== requestContext.contextWindow ||
+      previousContext.systemPromptUpdate !== requestContext.systemPromptUpdate
+    ) {
       session.append('request/context', requestContext)
     }
     signal.throwIfAborted()
@@ -692,14 +705,16 @@ export class ReactLoopAgent implements Agent {
       this.frozenMessages.add(message)
     }
     Object.freeze(boundaryMessages)
-    const request = markAgentLoopRequest(Object.freeze({
-      ...header.config,
-      messages: boundaryMessages,
-      toolHistory: session.toolHistory(),
-      ...header.tools !== undefined ? { tools: header.tools } : {},
-      sessionId: this.session.id,
-      signal,
-    }))
+    const request = markAgentLoopRequest(
+      Object.freeze({
+        ...header.config,
+        messages: boundaryMessages,
+        toolHistory: session.toolHistory(),
+        ...(header.tools !== undefined ? { tools: header.tools } : {}),
+        sessionId: this.session.id,
+        signal,
+      }),
+    )
     return request
   }
 }

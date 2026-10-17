@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vite-plus/test'
 import { removeOwnedDirectory } from '../src/owned-directory.ts'
 
 const roots: string[] = []
@@ -11,7 +11,9 @@ function fixture(): string {
   return root
 }
 
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
 
 it('removes nested files and directories while preserving unknown directory-link targets', () => {
   const root = fixture()
@@ -29,7 +31,7 @@ it('removes nested files and directories while preserving unknown directory-link
   expect(readFileSync(join(target, 'sentinel'), 'utf8')).toBe('preserved')
 })
 
-it.each([false, true])('unlinks a root directory link with missing target: %s', (missing) => {
+it.each([false, true])('unlinks a root directory link with missing target: %s', missing => {
   const root = fixture()
   const target = join(root, 'target')
   if (!missing) {
@@ -45,9 +47,13 @@ it.each([false, true])('unlinks a root directory link with missing target: %s', 
 
 it('ignores a missing root and refuses to delete a regular-file root', () => {
   const root = fixture()
-  expect(() => { removeOwnedDirectory(join(root, 'missing')) }).not.toThrow()
+  expect(() => {
+    removeOwnedDirectory(join(root, 'missing'))
+  }).not.toThrow()
   const file = join(root, 'file')
   writeFileSync(file, 'preserved')
-  expect(() => { removeOwnedDirectory(file) }).toThrow(/not a directory/u)
+  expect(() => {
+    removeOwnedDirectory(file)
+  }).toThrow(/not a directory/u)
   expect(readFileSync(file, 'utf8')).toBe('preserved')
 })

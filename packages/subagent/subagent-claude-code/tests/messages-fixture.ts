@@ -5,11 +5,11 @@ export type MessagesBehavior =
   | { readonly kind: 'complete'; readonly text: string }
   | { readonly kind: 'hold' }
   | {
-    readonly kind: 'tool-use'
-    readonly toolName: string
-    readonly input: Record<string, unknown>
-    readonly finalText?: string
-  }
+      readonly kind: 'tool-use'
+      readonly toolName: string
+      readonly input: Record<string, unknown>
+      readonly finalText?: string
+    }
 
 /** One recorded Anthropic Messages request. */
 interface RecordedMessagesRequest {
@@ -27,19 +27,11 @@ export interface MessagesFixture {
   close(): Promise<void>
 }
 
-function event(
-  response: ServerResponse,
-  type: string,
-  payload: Record<string, unknown>,
-): void {
+function event(response: ServerResponse, type: string, payload: Record<string, unknown>): void {
   response.write(`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`)
 }
 
-function complete(
-  response: ServerResponse,
-  body: Record<string, unknown>,
-  text: string,
-): void {
+function complete(response: ServerResponse, body: Record<string, unknown>, text: string): void {
   const model = typeof body.model === 'string' ? body.model : 'fixture-model'
   response.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -87,12 +79,7 @@ function complete(
   response.end()
 }
 
-function toolUse(
-  response: ServerResponse,
-  body: Record<string, unknown>,
-  toolName: string,
-  input: Record<string, unknown>,
-): void {
+function toolUse(response: ServerResponse, body: Record<string, unknown>, toolName: string, input: Record<string, unknown>): void {
   const model = typeof body.model === 'string' ? body.model : 'fixture-model'
   response.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -153,25 +140,27 @@ function toolUse(
  * @param behavior - the single response behavior for this fixture.
  * @returns the bound server and its recorded requests.
  */
-export async function startMessagesFixture(
-  behavior: MessagesBehavior,
-): Promise<MessagesFixture> {
+export async function startMessagesFixture(behavior: MessagesBehavior): Promise<MessagesFixture> {
   const requests: RecordedMessagesRequest[] = []
   let requestStartedResolve!: () => void
-  const requestStarted = new Promise<void>((resolve) => {
+  const requestStarted = new Promise<void>(resolve => {
     requestStartedResolve = resolve
   })
   const server = createServer((request, response) => {
     const chunks: Buffer[] = []
-    request.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+    request.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
     request.on('end', () => {
       const path = request.url ?? ''
       if (path !== '/v1/messages' && !path.startsWith('/v1/messages?')) {
         response.writeHead(404, { 'content-type': 'application/json' })
-        response.end(JSON.stringify({
-          type: 'error',
-          error: { type: 'not_found_error', message: `unexpected path ${path}` },
-        }))
+        response.end(
+          JSON.stringify({
+            type: 'error',
+            error: { type: 'not_found_error', message: `unexpected path ${path}` },
+          }),
+        )
         return
       }
       const text = Buffer.concat(chunks).toString('utf8')
@@ -187,10 +176,7 @@ export async function startMessagesFixture(
         complete(response, body, behavior.text)
       } else if (behavior.kind === 'tool-use' && requests.length === 1) {
         toolUse(response, body, behavior.toolName, behavior.input)
-      } else if (
-        behavior.kind === 'tool-use'
-        && behavior.finalText !== undefined
-      ) {
+      } else if (behavior.kind === 'tool-use' && behavior.finalText !== undefined) {
         complete(response, body, behavior.finalText)
       }
       // A hold, or a tool-use without final text, waits for client abort.
@@ -214,7 +200,7 @@ export async function startMessagesFixture(
     async close(): Promise<void> {
       server.closeAllConnections()
       await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
+        server.close(error => {
           if (error !== undefined) reject(error)
           else resolve()
         })

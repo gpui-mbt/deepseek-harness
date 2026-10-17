@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Present UI derives statuses and details from durable tool records. */
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
@@ -10,10 +10,39 @@ import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 type Props = Parameters<typeof PresentRow>[0]
-const running: StartedToolCall = { phase: 'start' as const, args: PartialArguments.fromText('{"files":[{"path":"report.txt"}]}'), callId: 'p', name: 'present', argsRaw: '{"files":[{"path":"report.txt"}]}', turn: 1, step: 1, time: 1, subCalls: [] }
-const settled: ToolResultNode = { kind: 'tool-result', seq: 2, time: 2, callId: 'p', name: 'present', args: PartialArguments.fromText(running.argsRaw), call: { name: 'present', argsRaw: running.argsRaw }, callTime: 1, content: [{ type: 'text', text: 'Presented report.txt (4 bytes)' }], isError: false, subCalls: [] }
+const running: StartedToolCall = {
+  phase: 'start' as const,
+  args: PartialArguments.fromText('{"files":[{"path":"report.txt"}]}'),
+  callId: 'p',
+  name: 'present',
+  argsRaw: '{"files":[{"path":"report.txt"}]}',
+  turn: 1,
+  step: 1,
+  time: 1,
+  subCalls: [],
+}
+const settled: ToolResultNode = {
+  kind: 'tool-result',
+  seq: 2,
+  time: 2,
+  callId: 'p',
+  name: 'present',
+  args: PartialArguments.fromText(running.argsRaw),
+  call: { name: 'present', argsRaw: running.argsRaw },
+  callTime: 1,
+  content: [{ type: 'text', text: 'Presented report.txt (4 bytes)' }],
+  isError: false,
+  subCalls: [],
+}
 function props(block: Props['block'], inspect?: () => void): Props {
-  return { ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), callId: 'p', toolName: 'present', openFile: vi.fn(), inspect, t: makeTranslate(en) } as Props
+  return {
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    callId: 'p',
+    toolName: 'present',
+    openFile: vi.fn(),
+    inspect,
+    t: makeTranslate(en),
+  } as Props
 }
 
 it('discloses the saved result and offers call inspection', () => {
@@ -34,10 +63,24 @@ it('discloses the saved result and offers call inspection', () => {
 })
 
 it('shows a non-expandable preparation before delivery arguments exist', () => {
-  const useDisclosure = vi.fn(() => { throw new Error('preparation must not subscribe to disclosure resets') })
-  const view = render(<PresentRow {...props({
-    phase: 'preparing', args: PartialArguments.EMPTY, callId: 'p', name: 'present', turn: 1, step: 1, time: 1, subCalls: [],
-  })} useDisclosure={useDisclosure} />)
+  const useDisclosure = vi.fn(() => {
+    throw new Error('preparation must not subscribe to disclosure resets')
+  })
+  const view = render(
+    <PresentRow
+      {...props({
+        phase: 'preparing',
+        args: PartialArguments.EMPTY,
+        callId: 'p',
+        name: 'present',
+        turn: 1,
+        step: 1,
+        time: 1,
+        subCalls: [],
+      })}
+      useDisclosure={useDisclosure}
+    />,
+  )
   expect(view.container.querySelector('[data-state="preparing"] svg')).not.toBeNull()
   expect(view.queryByRole('button')).toBeNull()
   expect(view.container.querySelector('pre')).toBeNull()
@@ -57,14 +100,19 @@ it.each([
   expect(view.queryByText('Delivered')).toBeNull()
 })
 
-it.each(['', '{', 'null', '[]', '{"files":null}', '{"files":[null,{},1,{"path":false},{"path":"good.txt"}]}'])('tolerates partial arguments %s', (argsRaw) => {
-  const view = render(<PresentRow {...props({ ...running, argsRaw })} />)
-  expect(view.getByText('Delivering')).toBeTruthy()
-  expect(view.queryByRole('button')).toBeNull()
-})
+it.each(['', '{', 'null', '[]', '{"files":null}', '{"files":[null,{},1,{"path":false},{"path":"good.txt"}]}'])(
+  'tolerates partial arguments %s',
+  argsRaw => {
+    const view = render(<PresentRow {...props({ ...running, argsRaw })} />)
+    expect(view.getByText('Delivering')).toBeTruthy()
+    expect(view.queryByRole('button')).toBeNull()
+  },
+)
 
 it('shows orphaned error details and non-text results', () => {
-  const view = render(<PresentRow {...props({ ...settled, call: null, content: [], isError: true, error: { name: 'Missing', code: 'missing' } })} />)
+  const view = render(
+    <PresentRow {...props({ ...settled, call: null, content: [], isError: true, error: { name: 'Missing', code: 'missing' } })} />,
+  )
   fireEvent.click(view.getByRole('button'))
   expect(view.getByText('Missing: missing')).toBeTruthy()
   view.rerender(<PresentRow {...props({ ...settled, content: [{ type: 'reasoning', text: 'Recorded detail' }] })} />)

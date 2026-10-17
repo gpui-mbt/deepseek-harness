@@ -28,7 +28,9 @@ export class TerminalWindowHold {
   }
 
   /** Whether a terminal-domain failure ended this hold, allowing an explicit retry. */
-  get failed(): boolean { return this.failure !== undefined }
+  get failed(): boolean {
+    return this.failure !== undefined
+  }
 
   /**
    * Wait for an acknowledged current physical hold before following its screen.
@@ -40,11 +42,17 @@ export class TerminalWindowHold {
     if (this.failure !== undefined) throw this.failure
     if (this.generation !== undefined && !this.generation.aborted) return
     const waiting = Promise.withResolvers<void>()
-    const abort = (): void => { waiting.reject(signal.reason) }
+    const abort = (): void => {
+      waiting.reject(signal.reason)
+    }
     this.waiters.add(waiting)
     signal.addEventListener('abort', abort, { once: true })
-    try { await waiting.promise }
-    finally { this.waiters.delete(waiting); signal.removeEventListener('abort', abort) }
+    try {
+      await waiting.promise
+    } finally {
+      this.waiters.delete(waiting)
+      signal.removeEventListener('abort', abort)
+    }
   }
 
   /**
@@ -64,7 +72,9 @@ export class TerminalWindowHold {
         for (const waiter of this.waiters) waiter.resolve()
         this.waiters.clear()
       }
-    } catch (error) { this.reject(error) }
+    } catch (error) {
+      this.reject(error)
+    }
   }
 
   private reject(error: unknown): void {

@@ -1,5 +1,5 @@
 /** The loop logs tool changes as developer messages and carries session tool history to the runtime. */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -37,14 +37,20 @@ async function send(agent: Agent, text: string) {
 }
 
 function tool(ctx: Context, name: string) {
-  return ctx.tools.register(defineContentToolFixture({
-    name, description: `${name} tool`, parameters: {}, execute: async () => [{ type: 'text', text: 'done' }],
-  }))
+  return ctx.tools.register(
+    defineContentToolFixture({
+      name,
+      description: `${name} tool`,
+      parameters: {},
+      execute: async () => [{ type: 'text', text: 'done' }],
+    }),
+  )
 }
 
 const developerEvents = (agent: Agent) => agent.session.snapshotEvents().filter(event => event.type === 'developer/message')
 const headerEvents = (agent: Agent) => agent.session.snapshotEvents().filter(event => event.type === 'request/header')
-const developerContent = (request: GenerateOptions) => request.messages.filter(message => message.role === 'developer').map(message => message.content)
+const developerContent = (request: GenerateOptions) =>
+  request.messages.filter(message => message.role === 'developer').map(message => message.content)
 
 describe('tool update emission', () => {
   it('logs additions bound to the new header and removals without one, after the first header', async () => {
@@ -59,9 +65,16 @@ describe('tool update emission', () => {
     const [addition] = developerEvents(agent)
     expect(addition).toMatchObject({
       surfaceOp: 'append',
-      data: { turn: 2, step: 1, headerSeq: headerEvents(agent)[1]?.seq, message: {
-        role: 'developer', source: { kind: 'tool-registry' }, content: [{ type: 'tool-addition', toolName: 'fetch' }],
-      } },
+      data: {
+        turn: 2,
+        step: 1,
+        headerSeq: headerEvents(agent)[1]?.seq,
+        message: {
+          role: 'developer',
+          source: { kind: 'tool-registry' },
+          content: [{ type: 'tool-addition', toolName: 'fetch' }],
+        },
+      },
     })
 
     disposeSearch()
@@ -80,7 +93,10 @@ describe('tool update emission', () => {
       expect(request.tools?.some(schema => schema.deferLoading === true)).toBeFalsy()
     }
     expect(adapter.requests.map(request => request.tools?.map(schema => schema.name))).toEqual([
-      ['search'], ['fetch', 'search'], ['fetch'], ['fetch'],
+      ['search'],
+      ['fetch', 'search'],
+      ['fetch'],
+      ['fetch'],
     ])
   })
 
@@ -96,7 +112,9 @@ describe('tool update emission', () => {
     await send(agent, 'third')
 
     expect(headerEvents(agent).map(event => [event.data.reason, event.data.startsSeries])).toEqual([
-      ['initial', undefined], ['change', undefined], ['change', undefined],
+      ['initial', undefined],
+      ['change', undefined],
+      ['change', undefined],
     ])
     const [first, second, third] = adapter.requests
     expect(first?.tools?.map(schema => schema.name)).toEqual(['search'])
@@ -107,7 +125,8 @@ describe('tool update emission', () => {
     expect(developerContent(second!)).toEqual([[{ type: 'tool-addition', toolName: 'fetch' }]])
     expect(third?.tools).toEqual(second?.tools)
     expect(developerContent(third!)).toEqual([
-      [{ type: 'tool-addition', toolName: 'fetch' }], [{ type: 'tool-removal', toolName: 'fetch' }],
+      [{ type: 'tool-addition', toolName: 'fetch' }],
+      [{ type: 'tool-removal', toolName: 'fetch' }],
     ])
     expect(agent.session.requestHeader()?.tools?.map(schema => schema.name)).toEqual(['search'])
   })

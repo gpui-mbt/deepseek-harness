@@ -1,6 +1,6 @@
 /** Plan projection behavior. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -91,12 +91,17 @@ describe('plan projection unit', () => {
     commitPlanMode(bench.session, true, 0)
     // Another command's record never touches plan state.
     bench.session.append('command/run', {
-      commandId: CommandId('other-1'), name: 'compact', args: '', source: { kind: 'user' },
+      commandId: CommandId('other-1'),
+      name: 'compact',
+      args: '',
+      source: { kind: 'user' },
     })
     expect(bench.values().plan).toEqual({ active: true, pending: false })
     // A command lifecycle with omitted input carries no plan selection.
     bench.session.append('command/run', {
-      commandId: CommandId('plan-no-input'), name: 'plan', source: { kind: 'user' },
+      commandId: CommandId('plan-no-input'),
+      name: 'plan',
+      source: { kind: 'user' },
     })
     expect(bench.values().plan).toEqual({ active: true, pending: false })
     runPlanCommand(bench.session, ' off', 1)

@@ -4,7 +4,7 @@
  * Providers are scripted feeds so every transition is driven by the spec,
  * never by timing.
  */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
@@ -38,11 +38,17 @@ function createFeed(ctx: ResourceOpenContext): { feed: Feed; stream: AsyncIterab
   let wake: (() => void) | undefined
   let returned = false
   const closed = Promise.withResolvers<undefined>()
-  const notify = (): void => { wake?.(); wake = undefined }
+  const notify = (): void => {
+    wake?.()
+    wake = undefined
+  }
   async function* stream(): AsyncGenerator<RemoteResult<string>> {
     try {
       for (;;) {
-        if (steps.length === 0) await new Promise<void>((resolve) => { wake = resolve })
+        if (steps.length === 0)
+          await new Promise<void>(resolve => {
+            wake = resolve
+          })
         const step = steps.shift()
         if (step === undefined) continue
         if (step.kind === 'end') return
@@ -56,10 +62,21 @@ function createFeed(ctx: ResourceOpenContext): { feed: Feed; stream: AsyncIterab
   const feed: Feed = {
     ctx,
     closed: closed.promise,
-    push: (value) => { steps.push({ kind: 'frame', frame: { ok: true, value } }); notify() },
-    fail: (error) => { steps.push({ kind: 'frame', frame: { ok: false, error } }); notify() },
-    end: () => { steps.push({ kind: 'end' }); notify() },
-    get returned() { return returned },
+    push: value => {
+      steps.push({ kind: 'frame', frame: { ok: true, value } })
+      notify()
+    },
+    fail: error => {
+      steps.push({ kind: 'frame', frame: { ok: false, error } })
+      notify()
+    },
+    end: () => {
+      steps.push({ kind: 'end' })
+      notify()
+    },
+    get returned() {
+      return returned
+    },
   }
   return { feed, stream: stream() }
 }
@@ -82,7 +99,10 @@ function scriptedProvider() {
   return { provider, opens, last: () => opens[opens.length - 1]! }
 }
 
-const settle = (): Promise<void> => new Promise((resolve) => { setTimeout(resolve, 0) })
+const settle = (): Promise<void> =>
+  new Promise(resolve => {
+    setTimeout(resolve, 0)
+  })
 
 function bench() {
   const ctx = new Context()
@@ -135,7 +155,9 @@ describe('ResourceRegistry providers', () => {
     expect(b.snapshot().status).toBe('loading')
     expect(b.provider.open).toHaveBeenCalledWith(A, { signal: expect.any(AbortSignal) as AbortSignal })
     b.last().push('v1')
-    await vi.waitFor(() => { expect(b.snapshot()).toMatchObject({ status: 'live', value: 'v1' }) })
+    await vi.waitFor(() => {
+      expect(b.snapshot()).toMatchObject({ status: 'live', value: 'v1' })
+    })
 
     dispose()
     expect(b.last().ctx.signal.aborted).toBe(true)
@@ -143,7 +165,7 @@ describe('ResourceRegistry providers', () => {
     expect(seen).toHaveBeenCalled()
   })
 
-  it('opens the arriving protocol\'s held addresses only, leaving another protocol\'s records as they were', () => {
+  it("opens the arriving protocol's held addresses only, leaving another protocol's records as they were", () => {
     const b = bench()
     const other = `${RESOURCE_SCHEME}://other/one`
     b.registry.source(other).subscribe(() => {})
@@ -165,7 +187,9 @@ describe('ResourceRegistry providers', () => {
   it('drops a registration when the registering fiber is disposed', async () => {
     const b = bench()
     const fiber = b.ctx.plugin({
-      apply: (child: Context) => { child.effect(() => b.registry.register(b.provider), 'spec: feed provider') },
+      apply: (child: Context) => {
+        child.effect(() => b.registry.register(b.provider), 'spec: feed provider')
+      },
     })
     await fiber.await()
     expect(b.snapshot().status).toBe('loading')
@@ -174,10 +198,14 @@ describe('ResourceRegistry providers', () => {
     expect(() => b.registry.register(scriptedProvider().provider)).not.toThrow()
   })
 
-  it('drops every registration when the registry\'s own fiber is disposed', async () => {
+  it("drops every registration when the registry's own fiber is disposed", async () => {
     const root = new Context()
     let registry: ResourceRegistry | undefined
-    const fiber = root.plugin({ apply: (child: Context) => { registry = new ResourceRegistry(child) } })
+    const fiber = root.plugin({
+      apply: (child: Context) => {
+        registry = new ResourceRegistry(child)
+      },
+    })
     await fiber.await()
     const { provider } = scriptedProvider()
     registry!.register(provider)
@@ -199,7 +227,9 @@ describe('ResourceRegistry holders', () => {
     const second = source.subscribe(() => {})
     expect(b.provider.open).toHaveBeenCalledTimes(1)
     b.last().push('v1')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('v1') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('v1')
+    })
 
     first()
     first()
@@ -242,10 +272,14 @@ describe('ResourceRegistry holders', () => {
     const unsubscribe = source.subscribe(() => {})
     b.last().push('v1')
     b.last().push('v2')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('v2') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('v2')
+    })
     unsubscribe()
     b.last().push('v3')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('v3') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('v3')
+    })
 
     const seen = vi.fn()
     source.subscribe(seen)
@@ -260,14 +294,18 @@ describe('ResourceRegistry holders', () => {
     const source = b.registry.source(A)
     const first = source.subscribe(() => {})
     b.last().push('v1')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('v1') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('v1')
+    })
     first()
 
     const second = source.subscribe(() => {})
     expect(b.provider.open).toHaveBeenCalledTimes(2)
     expect(source.getSnapshot()).toMatchObject({ status: 'loading', value: undefined })
     b.last().push('v2')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('v2') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('v2')
+    })
     second()
   })
 })
@@ -307,13 +345,19 @@ describe('ResourceRegistry streams', () => {
     const source = b.registry.source(A)
     source.subscribe(() => {})
     b.last().push('v1')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('v1') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('v1')
+    })
     const failure = new RemoteError('gateway/bad-request', 'refused', {})
     b.last().fail(failure)
-    await vi.waitFor(() => { expect(source.getSnapshot().status).toBe('failed') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().status).toBe('failed')
+    })
     expect(source.getSnapshot()).toMatchObject({ value: 'v1', failure })
     b.last().push('v2')
-    await vi.waitFor(() => { expect(source.getSnapshot().status).toBe('live') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().status).toBe('live')
+    })
     expect(source.getSnapshot()).toMatchObject({ value: 'v2', failure: undefined })
   })
 
@@ -323,7 +367,9 @@ describe('ResourceRegistry streams', () => {
     const source = b.registry.source(A)
     source.subscribe(() => {})
     b.last().fail(new RemoteError('gateway/bad-request', 'refused', {}))
-    await vi.waitFor(() => { expect(source.getSnapshot().status).toBe('failed') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().status).toBe('failed')
+    })
     expect(source.getSnapshot()).toMatchObject({ value: undefined, failure: { code: 'gateway/bad-request' } })
   })
 
@@ -353,13 +399,20 @@ describe('ResourceRegistry addresses', () => {
     const releaseSecond = second.subscribe(() => {})
     const secondFeed = b.last()
     expect(first).not.toBe(second)
-    expect(b.provider.open.mock.calls).toEqual([[A, firstFeed.ctx], [other, secondFeed.ctx]])
+    expect(b.provider.open.mock.calls).toEqual([
+      [A, firstFeed.ctx],
+      [other, secondFeed.ctx],
+    ])
     expect(firstFeed.ctx).toStrictEqual({ signal: expect.any(AbortSignal) as AbortSignal })
     expect(secondFeed.ctx).toStrictEqual({ signal: expect.any(AbortSignal) as AbortSignal })
     firstFeed.push('first data')
     secondFeed.push('second data')
-    await vi.waitFor(() => { expect(first.getSnapshot().value).toBe('first data') })
-    await vi.waitFor(() => { expect(second.getSnapshot().value).toBe('second data') })
+    await vi.waitFor(() => {
+      expect(first.getSnapshot().value).toBe('first data')
+    })
+    await vi.waitFor(() => {
+      expect(second.getSnapshot().value).toBe('second data')
+    })
     releaseFirst()
     expect(firstFeed.ctx.signal.aborted).toBe(true)
     expect(secondFeed.ctx.signal.aborted).toBe(false)
@@ -370,20 +423,24 @@ describe('ResourceRegistry addresses', () => {
 })
 
 describe('ResourceRegistry stream generations', () => {
-  it.each(['value', 'failure'] as const)('drops late %s frames after a released resource reopens', async (kind) => {
+  it.each(['value', 'failure'] as const)('drops late %s frames after a released resource reopens', async kind => {
     const b = bench()
     b.registry.register(b.provider)
     const source = b.registry.source(A)
     const releaseFirst = source.subscribe(() => {})
     const oldFeed = b.last()
     oldFeed.push('old data')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('old data') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('old data')
+    })
     releaseFirst()
     const releaseCurrent = source.subscribe(() => {})
     const currentFeed = b.last()
     expect(currentFeed).not.toBe(oldFeed)
     currentFeed.push('current data')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('current data') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('current data')
+    })
     const current = source.getSnapshot()
     if (kind === 'value') oldFeed.push('late old data')
     else oldFeed.fail(new RemoteError('gateway/internal', 'late old failure', {}))
@@ -393,14 +450,16 @@ describe('ResourceRegistry stream generations', () => {
     releaseCurrent()
   })
 
-  it.each(['value', 'failure'] as const)('drops old-provider %s frames after replacement', async (kind) => {
+  it.each(['value', 'failure'] as const)('drops old-provider %s frames after replacement', async kind => {
     const b = bench()
     const releaseProvider = b.registry.register(b.provider)
     const source = b.registry.source(A)
     const unsubscribe = source.subscribe(() => {})
     const oldFeed = b.last()
     oldFeed.push('old data')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('old data') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('old data')
+    })
     releaseProvider()
     expect(oldFeed.ctx.signal.aborted).toBe(true)
     expect(source.getSnapshot()).toEqual({ status: 'none', value: undefined, failure: undefined })
@@ -408,7 +467,9 @@ describe('ResourceRegistry stream generations', () => {
     b.registry.register(replacement.provider)
     expect(source.getSnapshot()).toEqual({ status: 'loading', value: undefined, failure: undefined })
     replacement.last().push('replacement data')
-    await vi.waitFor(() => { expect(source.getSnapshot().value).toBe('replacement data') })
+    await vi.waitFor(() => {
+      expect(source.getSnapshot().value).toBe('replacement data')
+    })
     const current = source.getSnapshot()
     if (kind === 'value') oldFeed.push('late old data')
     else oldFeed.fail(new RemoteError('gateway/internal', 'late old failure', {}))
@@ -424,7 +485,11 @@ describe('ResourceRegistry stream generations', () => {
     const dispose = b.registry.register({
       protocol: 'counter',
       async *open() {
-        try { yield { ok: true as const, value: 1 } } finally { closed.resolve(undefined) }
+        try {
+          yield { ok: true as const, value: 1 }
+        } finally {
+          closed.resolve(undefined)
+        }
       },
     })
     onTestFinished(dispose)

@@ -132,11 +132,7 @@ function resolveDistIndex(): string {
 
 /** Start the maintained platform opener without forwarding Harness credentials. */
 function spawnBrowserLauncher(url: string): ChildProcess {
-  return spawn(process.execPath, [
-    '--input-type=module',
-    '--eval', BROWSER_OPENER_PROGRAM,
-    '--', url,
-  ], {
+  return spawn(process.execPath, ['--input-type=module', '--eval', BROWSER_OPENER_PROGRAM, '--', url], {
     env: scrubbedParentEnv(),
     stdio: ['ignore', 'inherit', 'pipe'],
   })
@@ -147,7 +143,9 @@ async function openBrowser(url: string): Promise<void> {
   const launcher = spawnBrowserLauncher(url)
   let launcherStderr = ''
   launcher.stderr?.setEncoding('utf8')
-  launcher.stderr?.on('data', (chunk: string) => { launcherStderr += chunk })
+  launcher.stderr?.on('data', (chunk: string) => {
+    launcherStderr += chunk
+  })
   await new Promise<void>((resolve, reject) => {
     function onError(error: Error): void {
       launcher.off('close', onClose)
@@ -157,9 +155,10 @@ async function openBrowser(url: string): Promise<void> {
       launcher.off('error', onError)
       if (code !== 0) {
         const firstLine = launcherStderr.trim().split(/\r?\n/u)[0]
-        const reason = firstLine === undefined || firstLine === ''
-          ? `browser launcher exited with code ${String(code)}`
-          : firstLine.replace(/^(?:[A-Za-z]*Error):\s*/u, '')
+        const reason =
+          firstLine === undefined || firstLine === ''
+            ? `browser launcher exited with code ${String(code)}`
+            : firstLine.replace(/^(?:[A-Za-z]*Error):\s*/u, '')
         reject(new Error(reason))
         return
       }
@@ -190,8 +189,8 @@ export function apply(ctx: Context, config: Config): void {
   const boundHost = ctx.webServer.host
   if (publicUrl === undefined && bindUrlHost(boundHost) === undefined) {
     throw new Error(
-      `web-app: bind address ${JSON.stringify(boundHost)} carries an interface zone id, which no URL can express;`
-      + ' pass --public-url with the root browsers actually reach it through',
+      `web-app: bind address ${JSON.stringify(boundHost)} carries an interface zone id, which no URL can express;` +
+        ' pass --public-url with the root browsers actually reach it through',
     )
   }
   if (ctx.webServer.protocol === 'http:' && !isLoopbackHost(boundHost)) {
@@ -205,7 +204,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.provide('webApp', { getAdvertisedUrl: appRootUrl } satisfies WebApp)
   ctx.plugin(FrontendStatic, { distIndex: internals.resolveDistIndex() })
   if (config.surfaceContext) {
-    ctx.inject(['shellEnv'], (runtimeCtx) => {
+    ctx.inject(['shellEnv'], runtimeCtx => {
       runtimeCtx.shellEnv.register({
         name: 'web-runtime',
         variables: {
@@ -216,7 +215,7 @@ export function apply(ctx: Context, config: Config): void {
     })
   }
   if (config.printUrl || handoffBrowser) {
-    ctx.inject(['connection'], (connectionCtx) => {
+    ctx.inject(['connection'], connectionCtx => {
       // The URL line and browser handoff are readiness signals: supervisors RPC
       // as soon as they observe the line, while a browser requests the page as
       // soon as it opens. Neither may run while sibling rows such as the /api
@@ -244,17 +243,18 @@ export function apply(ctx: Context, config: Config): void {
       const settled = connectionCtx.get('loader')?.await()
       if (settled === undefined) announceReady()
       else {
-        void settled.then(async () => {
-          await auditStartupEntries(connectionCtx.root, 'dsh web', () => {})
-          // The tree can be disposed while the boot was in flight (early
-          // SIGTERM); a URL line or browser tab for a dead server would only
-          // mislead, and reading torn-down services would turn a clean shutdown
-          // into a crash.
-          if (connectionCtx.get('webServer') !== undefined
-            && connectionCtx.get('connection') !== undefined) announceReady()
-        }).catch(() => {
-          // Boot owns the failure diagnostic; readiness remains unpublished.
-        })
+        void settled
+          .then(async () => {
+            await auditStartupEntries(connectionCtx.root, 'dsh web', () => {})
+            // The tree can be disposed while the boot was in flight (early
+            // SIGTERM); a URL line or browser tab for a dead server would only
+            // mislead, and reading torn-down services would turn a clean shutdown
+            // into a crash.
+            if (connectionCtx.get('webServer') !== undefined && connectionCtx.get('connection') !== undefined) announceReady()
+          })
+          .catch(() => {
+            // Boot owns the failure diagnostic; readiness remains unpublished.
+          })
       }
     })
   }

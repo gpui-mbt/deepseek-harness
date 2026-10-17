@@ -13,8 +13,9 @@ const IGNORED_BUILDS = /\bIgnored build scripts: (.+)/
 
 async function readPolicy(dir: string) {
   let text: string
-  try { text = await readFile(join(dir, 'pnpm-workspace.yaml'), 'utf8') }
-  catch (error) {
+  try {
+    text = await readFile(join(dir, 'pnpm-workspace.yaml'), 'utf8')
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     text = '{}\n'
   }
@@ -28,11 +29,14 @@ async function readPolicy(dir: string) {
       throw new Error('allowBuilds must not contain YAML anchors or aliases')
     }
   })
-  const keys = isMap(builds) ? builds.items.flatMap(({ key }) =>
-    isScalar(key) && typeof key.value === 'string' ? [key.value] : []) : []
-  const pending = isMap(builds) ? builds.items.flatMap(({ key, value }) =>
-    isScalar(key) && typeof key.value === 'string' && !/[*?]/.test(key.value)
-      && isScalar(value) && value.value === UNDECIDED_BUILD ? [key.value] : []) : []
+  const keys = isMap(builds) ? builds.items.flatMap(({ key }) => (isScalar(key) && typeof key.value === 'string' ? [key.value] : [])) : []
+  const pending = isMap(builds)
+    ? builds.items.flatMap(({ key, value }) =>
+        isScalar(key) && typeof key.value === 'string' && !/[*?]/.test(key.value) && isScalar(value) && value.value === UNDECIDED_BUILD
+          ? [key.value]
+          : [],
+      )
+    : []
   return { document, pending, keys }
 }
 
@@ -64,7 +68,10 @@ export async function recordPendingBuilds(dir: string, output: string): Promise<
 export function ignoredBuildNames(output: string): string[] {
   const reported = IGNORED_BUILDS.exec(output)?.[1]
   if (reported === undefined) return []
-  return reported.split(',').map(name => name.trim()).filter(name => name !== '' && !/[*?]/.test(name))
+  return reported
+    .split(',')
+    .map(name => name.trim())
+    .filter(name => name !== '' && !/[*?]/.test(name))
 }
 
 /** Persist approval without running scripts; the caller holds the profile manifest lock.

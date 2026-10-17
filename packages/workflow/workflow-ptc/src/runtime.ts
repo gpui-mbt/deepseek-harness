@@ -12,12 +12,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { assertObjectJsonSchema, JsonSchemaError } from '@deepseek-ai/dsh-tools'
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import { isFatalWorkflowError, WorkflowError } from '@deepseek-ai/dsh-workflow'
-import type {
-  WorkflowAgentEndInfo,
-  WorkflowAgentInfo,
-  WorkflowMeta,
-  WorkflowResult,
-} from '@deepseek-ai/dsh-workflow'
+import type { WorkflowAgentEndInfo, WorkflowAgentInfo, WorkflowMeta, WorkflowResult } from '@deepseek-ai/dsh-workflow'
 import { materializeFromRealm, MaterializeError, renderThrown } from './realm.ts'
 import type { ChildHandle, ChildPort, WorkerLimits } from './types.ts'
 
@@ -86,8 +81,12 @@ export class WorkflowExecution {
       agent: (prompt: unknown, opts?: unknown) => this.contain(this.agent(prompt, opts)),
       parallel: (thunks: unknown) => this.contain(this.parallel(thunks)),
       pipeline: (items: unknown, ...stages: unknown[]) => this.contain(this.pipeline(items, stages)),
-      phase: (title: unknown) => { this.phase(title) },
-      log: (message: unknown) => { this.log(message) },
+      phase: (title: unknown) => {
+        this.phase(title)
+      },
+      log: (message: unknown) => {
+        this.log(message)
+      },
       // PTC has already copied these inputs through its JSON channel.
       args,
     }
@@ -120,7 +119,9 @@ export class WorkflowExecution {
    * the script does await it, it still observes the rejection.
    */
   private contain<T>(promise: Promise<T>): Promise<T> {
-    promise.catch(() => { /* consumed: see method contract — a dropped hook promise must not surface an unhandled rejection */ })
+    promise.catch(() => {
+      /* consumed: see method contract — a dropped hook promise must not surface an unhandled rejection */
+    })
     return promise
   }
 
@@ -145,7 +146,7 @@ export class WorkflowExecution {
       this.activeSlots += 1
       return Promise.resolve()
     }
-    return new Promise<void>((resolve) => {
+    return new Promise<void>(resolve => {
       this.slotWaiters.push(() => {
         this.activeSlots += 1
         resolve()
@@ -182,14 +183,14 @@ export class WorkflowExecution {
       try {
         run = await this.children.startAgent({
           prompt: rawPrompt,
-          ...opts.schema !== undefined ? { schema: opts.schema } : {},
-          ...opts.provider !== undefined ? { provider: opts.provider } : {},
-          ...opts.model !== undefined ? { model: opts.model } : {},
+          ...(opts.schema !== undefined ? { schema: opts.schema } : {}),
+          ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+          ...(opts.model !== undefined ? { model: opts.model } : {}),
         })
       } catch (error: unknown) {
         throw new WorkflowError(`agent() could not start a child: ${renderThrown(error)}`, 'AGENT_START', { cause: error })
       }
-      const info: WorkflowAgentInfo = { seq, label, ...phase !== undefined ? { phase } : {}, childId: brandString<SessionId>(run.id) }
+      const info: WorkflowAgentInfo = { seq, label, ...(phase !== undefined ? { phase } : {}), childId: brandString<SessionId>(run.id) }
       this.observer.agentStart(info)
       try {
         let result
@@ -252,9 +253,15 @@ export class WorkflowExecution {
     for (const key of Object.keys(record)) {
       if (SUPPORTED_AGENT_OPTIONS.has(key)) continue
       if (DEFERRED_AGENT_OPTIONS.has(key)) {
-        throw new WorkflowError(`agent() option "${key}" is deferred and not supported by this engine (supported: label, phase, schema, provider, model)`, 'UNSUPPORTED_OPTION')
+        throw new WorkflowError(
+          `agent() option "${key}" is deferred and not supported by this engine (supported: label, phase, schema, provider, model)`,
+          'UNSUPPORTED_OPTION',
+        )
       }
-      throw new WorkflowError(`agent() option "${key}" is not recognized (supported: label, phase, schema, provider, model)`, 'UNSUPPORTED_OPTION')
+      throw new WorkflowError(
+        `agent() option "${key}" is not recognized (supported: label, phase, schema, provider, model)`,
+        'UNSUPPORTED_OPTION',
+      )
     }
     for (const key of ['label', 'phase', 'provider', 'model'] as const) {
       if (record[key] !== undefined && typeof record[key] !== 'string') {
@@ -273,11 +280,11 @@ export class WorkflowExecution {
       }
     }
     return {
-      ...record.label !== undefined ? { label: record.label as string } : {},
-      ...record.phase !== undefined ? { phase: record.phase as string } : {},
-      ...record.provider !== undefined ? { provider: record.provider as string } : {},
-      ...record.model !== undefined ? { model: record.model as string } : {},
-      ...schema !== undefined ? { schema } : {},
+      ...(record.label !== undefined ? { label: record.label as string } : {}),
+      ...(record.phase !== undefined ? { phase: record.phase as string } : {}),
+      ...(record.provider !== undefined ? { provider: record.provider as string } : {}),
+      ...(record.model !== undefined ? { model: record.model as string } : {}),
+      ...(schema !== undefined ? { schema } : {}),
     }
   }
 
@@ -293,18 +300,20 @@ export class WorkflowExecution {
       }
       return thunk as () => unknown
     })
-    return Promise.all(thunks.map(async (thunk) => {
-      try {
-        return await thunk()
-      } catch (error: unknown) {
-        // Hook failures are WorkflowErrors built OUTSIDE the script's realm;
-        // fatality is recognized by `instanceof` against this realm's class —
-        // a script-built object can never pass it, so fatality cannot be
-        // forged (nor accidentally dissolved).
-        if (isFatalWorkflowError(error)) throw error
-        return null
-      }
-    }))
+    return Promise.all(
+      thunks.map(async thunk => {
+        try {
+          return await thunk()
+        } catch (error: unknown) {
+          // Hook failures are WorkflowErrors built OUTSIDE the script's realm;
+          // fatality is recognized by `instanceof` against this realm's class —
+          // a script-built object can never pass it, so fatality cannot be
+          // forged (nor accidentally dissolved).
+          if (isFatalWorkflowError(error)) throw error
+          return null
+        }
+      }),
+    )
   }
 
   /** The `pipeline(items, ...stages)` hook: per-item stage chains, NO cross-stage barrier. */
@@ -322,21 +331,23 @@ export class WorkflowExecution {
       }
       return stage as (previous: unknown, item: unknown, index: number) => unknown
     })
-    return Promise.all(rawItems.map(async (item: unknown, index) => {
-      let value: unknown = item
-      try {
-        for (const stage of stages) {
-          value = await stage(value, item, index)
+    return Promise.all(
+      rawItems.map(async (item: unknown, index) => {
+        let value: unknown = item
+        try {
+          for (const stage of stages) {
+            value = await stage(value, item, index)
+          }
+          return value
+        } catch (error: unknown) {
+          // An ordinary stage throw drops the ITEM to null and skips its
+          // remaining stages; a fatal WorkflowError (see parallel()) kills the
+          // whole script.
+          if (isFatalWorkflowError(error)) throw error
+          return null
         }
-        return value
-      } catch (error: unknown) {
-        // An ordinary stage throw drops the ITEM to null and skips its
-        // remaining stages; a fatal WorkflowError (see parallel()) kills the
-        // whole script.
-        if (isFatalWorkflowError(error)) throw error
-        return null
-      }
-    }))
+      }),
+    )
   }
 
   private assertItemCap(length: number, hook: string): void {

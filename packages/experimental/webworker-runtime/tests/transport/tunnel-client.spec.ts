@@ -12,7 +12,7 @@
  * expanded cause chain, so both sides hold each other to it. Do not relax these
  * expectations to make a change pass — agree the new text with the worker host first.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { WorkerTunnel } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/client/client.ts'
 
 // Both sides are serialized here, at call time, rather than inside the case: the
@@ -20,11 +20,15 @@ import { WorkerTunnel } from '@deepseek-ai/dsh-experimental-webworker-runtime/sr
 // would read a later block's state by the time the case executes.
 const check = (label: string, actual: unknown, expected: unknown): void => {
   const [seen, wanted] = [JSON.stringify(actual), JSON.stringify(expected)]
-  test(label, () => { expect(seen).toBe(wanted) })
+  test(label, () => {
+    expect(seen).toBe(wanted)
+  })
 }
 
 const warnings: string[] = []
-console.warn = (message: string) => { warnings.push(message) }
+console.warn = (message: string) => {
+  warnings.push(message)
+}
 ;(globalThis as { location?: unknown }).location = { origin: 'http://localhost:4173' }
 
 type StubListener = (event: { data?: unknown; message?: string }) => void
@@ -55,8 +59,12 @@ function stubWorker(): {
     worker,
     sent,
     transfers,
-    deliver: (frame) => { for (const listener of listeners) listener({ data: frame }) },
-    fail: (message) => { for (const listener of errorListeners) listener({ message }) },
+    deliver: frame => {
+      for (const listener of listeners) listener({ data: frame })
+    },
+    fail: message => {
+      for (const listener of errorListeners) listener({ message })
+    },
   }
 }
 
@@ -64,7 +72,11 @@ function stubWorker(): {
 {
   const { worker, sent, transfers } = stubWorker()
   const tunnel = new WorkerTunnel(worker)
-  const body = new ReadableStream<Uint8Array>({ start(controller) { controller.close() } })
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.close()
+    },
+  })
   void tunnel.fetch('/upload', { method: 'POST', body, duplex: 'half' } as RequestInit)
   check('a stream request body stays intact', (sent[0] as unknown as { body: unknown }).body, body)
   check('a stream request body is transferred', transfers[0], [body])
@@ -74,10 +86,7 @@ function stubWorker(): {
 {
   const { worker, sent } = stubWorker()
   const tunnel = new WorkerTunnel(worker)
-  tunnel.init('https://preview.test/base.tar.gz', [
-    'https://preview.test/first.tar.gz',
-    'https://preview.test/second.tar.gz',
-  ])
+  tunnel.init('https://preview.test/base.tar.gz', ['https://preview.test/first.tar.gz', 'https://preview.test/second.tar.gz'])
   check('the init frame carries ordered overlays', sent[0], {
     t: 'init',
     image: 'https://preview.test/base.tar.gz',
@@ -87,7 +96,9 @@ function stubWorker(): {
   const direct = stubWorker()
   new WorkerTunnel(direct.worker).init('https://preview.test/base.tar.gz')
   check('the direct init path defaults to no overlays', direct.sent[0], {
-    t: 'init', image: 'https://preview.test/base.tar.gz', overlays: [],
+    t: 'init',
+    image: 'https://preview.test/base.tar.gz',
+    overlays: [],
   })
 }
 
@@ -97,8 +108,11 @@ function stubWorker(): {
   const tunnel = new WorkerTunnel(worker)
   const response = tunnel.fetch('/api/session.list', { method: 'POST', body: '{"a":1}' })
   const request = sent[0] as { t: string; id: number; method: string; url: string; body: ArrayBuffer }
-  check('the request frame carries method and absolute url', [request.t, request.id, request.method, request.url],
-    ['req', 1, 'POST', 'http://localhost:4173/api/session.list'])
+  check(
+    'the request frame carries method and absolute url',
+    [request.t, request.id, request.method, request.url],
+    ['req', 1, 'POST', 'http://localhost:4173/api/session.list'],
+  )
   check('the request body travels as bytes', new TextDecoder().decode(request.body), '{"a":1}')
   deliver({ t: 'res', id: 1, status: 200, headers: {}, message: '{"ok":true}' })
   const resolved = await response
@@ -159,8 +173,14 @@ function stubWorker(): {
   const tunnel = new WorkerTunnel(worker)
   const errored = tunnel.fetch('/api/session.history', { method: 'POST' })
   deliver({ t: 'res-err', id: 1, message: 'boom: nested cause' })
-  check('an error frame rejects', await errored.then(() => 'resolved', (error: unknown) => (error as Error).message),
-    'web-preview tunnel: boom: nested cause')
+  check(
+    'an error frame rejects',
+    await errored.then(
+      () => 'resolved',
+      (error: unknown) => (error as Error).message,
+    ),
+    'web-preview tunnel: boom: nested cause',
+  )
   check('an error frame is reported once', warnings, [
     'web-preview tunnel: request 1 POST http://localhost:4173/api/session.history → res-err: boom: nested cause',
   ])
@@ -184,7 +204,14 @@ function stubWorker(): {
   const controller = new AbortController()
   const aborted = tunnel.fetch('/api/session.events', { method: 'POST', signal: controller.signal })
   controller.abort()
-  check('abort rejects with AbortError', await aborted.then(() => 'resolved', (error: unknown) => (error as Error).name), 'AbortError')
+  check(
+    'abort rejects with AbortError',
+    await aborted.then(
+      () => 'resolved',
+      (error: unknown) => (error as Error).name,
+    ),
+    'AbortError',
+  )
   check('abort reaches the worker', sent.at(-1), { t: 'abort', id: 1 })
   // A late reply to an aborted request must not resurrect it.
   deliver({ t: 'res', id: 1, status: 200, headers: {}, message: 'late' })
@@ -195,11 +222,13 @@ function stubWorker(): {
   const { worker, sent, deliver } = stubWorker()
   const tunnel = new WorkerTunnel(worker)
   const signal = new AbortController()
-  const stream = tunnel.open('session/follow', { args: { sessionId: 'session-1' } }, signal.signal)
-    [Symbol.asyncIterator]()
+  const stream = tunnel.open('session/follow', { args: { sessionId: 'session-1' } }, signal.signal)[Symbol.asyncIterator]()
   const first = stream.next()
   check('a logical stream opens on the worker-local carrier', sent[0], {
-    t: 'stream-open', id: 1, endpoint: 'session/follow', payload: { args: { sessionId: 'session-1' } },
+    t: 'stream-open',
+    id: 1,
+    endpoint: 'session/follow',
+    payload: { args: { sessionId: 'session-1' } },
   })
   deliver({ t: 'stream-item', id: 1, value: { type: 'baseline' } })
   check('a logical stream yields decoded values', await first, { value: { type: 'baseline' }, done: false })
@@ -226,19 +255,29 @@ function stubWorker(): {
       details: { sessionId: 'session-1' },
     },
   })
-  const failure = await pending.then(() => undefined, (error: unknown) => error as {
-    message: string
-    dshRemoteStreamFailure: unknown
-  })
-  check('a logical Host failure retains its structural marker', {
-    message: failure?.message,
-    dshRemoteStreamFailure: failure?.dshRemoteStreamFailure,
-  }, {
-    message: 'fixture Session is absent',
-    dshRemoteStreamFailure: {
-      kind: 'remote', code: 'session/not-found', details: { sessionId: 'session-1' },
+  const failure = await pending.then(
+    () => undefined,
+    (error: unknown) =>
+      error as {
+        message: string
+        dshRemoteStreamFailure: unknown
+      },
+  )
+  check(
+    'a logical Host failure retains its structural marker',
+    {
+      message: failure?.message,
+      dshRemoteStreamFailure: failure?.dshRemoteStreamFailure,
     },
-  })
+    {
+      message: 'fixture Session is absent',
+      dshRemoteStreamFailure: {
+        kind: 'remote',
+        code: 'session/not-found',
+        details: { sessionId: 'session-1' },
+      },
+    },
+  )
 }
 
 // Caller cancellation keeps the caller's exact reason and reaches the worker once.
@@ -250,10 +289,14 @@ function stubWorker(): {
   const reason = new Error('caller stopped the Workspace feed')
   abort.abort(reason)
   deliver({ t: 'stream-item', id: 1, value: 'late' })
-  check('logical stream cancellation preserves the caller reason', await pending.then(
-    () => 'resolved',
-    (error: unknown) => error === reason ? 'same reason' : 'different reason',
-  ), 'same reason')
+  check(
+    'logical stream cancellation preserves the caller reason',
+    await pending.then(
+      () => 'resolved',
+      (error: unknown) => (error === reason ? 'same reason' : 'different reason'),
+    ),
+    'same reason',
+  )
   check('logical stream cancellation reaches the worker', sent.at(-1), { t: 'abort', id: 1 })
 }
 
@@ -264,24 +307,32 @@ function stubWorker(): {
   const tunnel = new WorkerTunnel(worker)
   const pending = tunnel.open('$events', { args: {} }, new AbortController().signal).next()
   fail('worker crashed')
-  const failure = await pending.then(() => undefined, (error: unknown) => error as {
-    message: string
-    dshRemoteStreamFailure: unknown
-  })
-  check('worker failure carries the carrier marker', {
-    message: failure?.message,
-    dshRemoteStreamFailure: failure?.dshRemoteStreamFailure,
-  }, {
-    message: 'web-preview tunnel: worker failed: worker crashed',
-    dshRemoteStreamFailure: { kind: 'carrier' },
-  })
+  const failure = await pending.then(
+    () => undefined,
+    (error: unknown) =>
+      error as {
+        message: string
+        dshRemoteStreamFailure: unknown
+      },
+  )
+  check(
+    'worker failure carries the carrier marker',
+    {
+      message: failure?.message,
+      dshRemoteStreamFailure: failure?.dshRemoteStreamFailure,
+    },
+    {
+      message: 'web-preview tunnel: worker failed: worker crashed',
+      dshRemoteStreamFailure: { kind: 'carrier' },
+    },
+  )
 }
 
 // A stream posts each uplink item, then the uplink end, under the stream's id.
 {
   const { worker, sent, deliver } = stubWorker()
   const tunnel = new WorkerTunnel(worker)
-  const uplink = (async function *(): AsyncGenerator<string> {
+  const uplink = (async function* (): AsyncGenerator<string> {
     yield 'a'
     yield 'b'
   })()
@@ -305,14 +356,24 @@ function stubWorker(): {
 {
   const { worker, sent } = stubWorker()
   const tunnel = new WorkerTunnel(worker)
-  const uplink = (async function *(): AsyncGenerator<string> {
+  const uplink = (async function* (): AsyncGenerator<string> {
     yield 'a'
     throw new Error('uplink exploded')
   })()
-  const failure = await tunnel.open('job/attach', {}, new AbortController().signal, uplink)[Symbol.asyncIterator]().next()
-    .then(() => 'resolved', (error: unknown) => (error as Error).message)
+  const failure = await tunnel
+    .open('job/attach', {}, new AbortController().signal, uplink)
+    [Symbol.asyncIterator]()
+    .next()
+    .then(
+      () => 'resolved',
+      (error: unknown) => (error as Error).message,
+    )
   check('an uplink failure fails the downlink', failure, 'uplink exploded')
-  check('an uplink failure aborts the worker stream', sent.map(frame => frame.t), ['stream-open', 'stream-uplink-item', 'abort'])
+  check(
+    'an uplink failure aborts the worker stream',
+    sent.map(frame => frame.t),
+    ['stream-open', 'stream-uplink-item', 'abort'],
+  )
 }
 
 // The downlink ending first stops the uplink pump and releases the caller's iterator.
@@ -361,7 +422,9 @@ function stubWorker(): {
 /** Wait, in small hops, for a condition that a concurrent pump settles. */
 async function settled(condition: () => boolean): Promise<void> {
   for (let attempt = 0; attempt < 200 && !condition(); attempt += 1) {
-    await new Promise<void>((resolve) => { setTimeout(resolve, 1) })
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 1)
+    })
   }
   if (!condition()) throw new Error('fixture condition did not settle')
 }

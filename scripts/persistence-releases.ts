@@ -65,7 +65,8 @@ function object(value: unknown, fields: readonly string[], label: string): Recor
   const result = value as Record<string, unknown>
   const missing = fields.find(field => !Object.hasOwn(result, field))
   const extra = Object.keys(result).find(field => !fields.includes(field))
-  if (missing !== undefined || extra !== undefined) throw new Error(`${label}: ${missing === undefined ? `unknown field ${extra}` : `missing field ${missing}`}`)
+  if (missing !== undefined || extra !== undefined)
+    throw new Error(`${label}: ${missing === undefined ? `unknown field ${extra}` : `missing field ${missing}`}`)
   return result
 }
 
@@ -104,14 +105,16 @@ function parseManifest(value: unknown): PersistenceReleaseManifest {
   const input = object(value, ['schemaVersion', 'capturedAt', 'releases'], 'release manifest')
   if (input.schemaVersion !== 1) throw new Error('unsupported persistence release manifest schema version')
   const date = string(input.capturedAt, /^\d{4}-\d{2}-\d{2}$/u, 'capture date')
-  if (!Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) throw new Error('release manifest: invalid capture date')
+  if (!Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date)
+    throw new Error('release manifest: invalid capture date')
   let previous: string | undefined
   const releases = array(input.releases, 'releases')
   if (releases.length === 0) throw new Error('release manifest: releases must not be empty')
   for (const raw of releases) {
     const release = object(raw, ['tag', 'sourceDate', 'publishedAt', 'sessionFormatVersion'], 'release')
     const tag = string(release.tag, TAG_PATTERN, 'release tag')
-    if (previous !== undefined && compareTags(previous, tag) >= 0) throw new Error(`${tag}: release tags must be unique and in semantic-version order`)
+    if (previous !== undefined && compareTags(previous, tag) >= 0)
+      throw new Error(`${tag}: release tags must be unique and in semantic-version order`)
     previous = tag
     timestamp(release.sourceDate, `${tag} source date`)
     if (release.publishedAt !== null) timestamp(release.publishedAt, `${tag} publication date`)
@@ -135,7 +138,11 @@ function machineBlock(source: string, label: string): string {
 }
 
 function parseRecord(source: string, release: PersistenceRelease, previous: string | null): PersistenceReleaseRecord {
-  const input = object(load(source, { schema: JSON_SCHEMA }), ['schemaVersion', 'tag', 'previous', 'sessionFormatVersion', 'changes'], release.tag)
+  const input = object(
+    load(source, { schema: JSON_SCHEMA }),
+    ['schemaVersion', 'tag', 'previous', 'sessionFormatVersion', 'changes'],
+    release.tag,
+  )
   if (input.schemaVersion !== 1) throw new Error(`${release.tag}: unsupported persistence release record schema version`)
   for (const field of ['tag', 'sessionFormatVersion'] as const) {
     if (input[field] !== release[field]) throw new Error(`${release.tag}: record ${field} does not match manifest`)
@@ -147,7 +154,8 @@ function parseRecord(source: string, release: PersistenceRelease, previous: stri
     const root = string(change.root, /^(?:SessionHeader|JsonlHeaderLine|SessionEventEnvelope|event:.+)$/u, 'changed root')
     if (roots.has(root)) throw new Error(`${release.tag}: duplicate change for ${root}`)
     roots.add(root)
-    for (const field of ['before', 'after']) if (change[field] !== null) string(change[field], DIGEST_PATTERN, `${release.tag} ${field} digest`)
+    for (const field of ['before', 'after'])
+      if (change[field] !== null) string(change[field], DIGEST_PATTERN, `${release.tag} ${field} digest`)
   }
   return input as unknown as PersistenceReleaseRecord
 }
@@ -174,8 +182,13 @@ function validateVersion(roots: ReadonlyMap<string, PersistenceRoot>, release: P
   const node = header.schema.nodes[0]
   const field = node?.kind === 'object' ? node.properties.find(property => property.name === 'version') : undefined
   const value = field === undefined ? undefined : header.schema.nodes[field.type]
-  if (field?.optional !== false || !(value?.kind === 'primitive' && value.type === 'number'
-    || value?.kind === 'literal' && value.value === release.sessionFormatVersion)) {
+  if (
+    field?.optional !== false ||
+    !(
+      (value?.kind === 'primitive' && value.type === 'number') ||
+      (value?.kind === 'literal' && value.value === release.sessionFormatVersion)
+    )
+  ) {
     throw new Error(`${release.tag}: SessionHeader.version does not match the recorded format version`)
   }
 }
@@ -209,8 +222,12 @@ export function loadPersistenceReleases(root: string): PersistenceReleases {
     const snapshot = parseHistoricalPersistenceSnapshot(JSON.parse(read('.schema.json')))
     validateTypes(snapshot, release.tag)
     const afterRoots = new Map(snapshot.roots.map(root => [root.key, root]))
-    const expectedRoots = record.changes.filter(change => change.after !== null).map(change => change.root).sort()
-    if (JSON.stringify([...afterRoots.keys()].sort()) !== JSON.stringify(expectedRoots)) throw new Error(`${release.tag}: snapshot roots do not match changed after schemas`)
+    const expectedRoots = record.changes
+      .filter(change => change.after !== null)
+      .map(change => change.root)
+      .sort()
+    if (JSON.stringify([...afterRoots.keys()].sort()) !== JSON.stringify(expectedRoots))
+      throw new Error(`${release.tag}: snapshot roots do not match changed after schemas`)
     const differences: (PersistenceTypeChange & { readonly root: string })[] = []
     for (const change of record.changes) {
       const before = roots.get(change.root) ?? null
@@ -241,10 +258,15 @@ export function runPersistenceReleases(args: readonly string[], root = resolve(i
   const artifacts = persistenceReleaseFactArtifacts(root, archive)
   const changed = artifacts.filter(artifact => readFileSync(join(root, artifact.path), 'utf8') !== artifact.content)
   const stale = changed.filter(artifact => artifact.path.endsWith('.md'))
-  if (!values.write && stale.length > 0) throw new Error(`Stale persistence release facts: ${stale.map(file => file.path).join(', ')}. Run pnpm run verify-persistence-releases --write.`)
+  if (!values.write && stale.length > 0)
+    throw new Error(
+      `Stale persistence release facts: ${stale.map(file => file.path).join(', ')}. Run pnpm run verify-persistence-releases --write.`,
+    )
   if (values.write) for (const artifact of changed) writeFileSync(join(root, artifact.path), artifact.content)
-  return `Persistence release archive: ${archive.entries.length} records, ${archive.entries.length - 1} adjacent transitions verified.`
-    + (values.write ? ` Refreshed ${changed.length} file${changed.length === 1 ? '' : 's'}.` : '')
+  return (
+    `Persistence release archive: ${archive.entries.length} records, ${archive.entries.length - 1} adjacent transitions verified.` +
+    (values.write ? ` Refreshed ${changed.length} file${changed.length === 1 ? '' : 's'}.` : '')
+  )
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === import.meta.filename) {

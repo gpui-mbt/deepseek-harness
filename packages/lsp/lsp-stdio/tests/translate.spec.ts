@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   negotiatePositionEncoding,
   normalizeHover,
@@ -76,7 +76,10 @@ describe('normalizeLocations', () => {
   })
 
   it('maps an array of Locations', () => {
-    const result = normalizeLocations([{ uri: 'file:///a', range: RANGE }, { uri: 'file:///b', range: RANGE }])
+    const result = normalizeLocations([
+      { uri: 'file:///a', range: RANGE },
+      { uri: 'file:///b', range: RANGE },
+    ])
     expect(result.map(l => l.uri)).toEqual(['file:///a', 'file:///b'])
   })
 
@@ -102,10 +105,12 @@ describe('normalizeLocations', () => {
   })
 
   it('rejects negative and fractional position coordinates', () => {
-    expect(() => normalizeLocations([{ uri: 'file:///a', range: { start: { line: -1, character: 0 }, end: RANGE.end } }]))
-      .toThrow(expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }))
-    expect(() => normalizeLocations([{ uri: 'file:///a', range: { start: RANGE.start, end: { line: 1.5, character: 5 } } }]))
-      .toThrow(expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }))
+    expect(() => normalizeLocations([{ uri: 'file:///a', range: { start: { line: -1, character: 0 }, end: RANGE.end } }])).toThrow(
+      expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }),
+    )
+    expect(() => normalizeLocations([{ uri: 'file:///a', range: { start: RANGE.start, end: { line: 1.5, character: 5 } } }])).toThrow(
+      expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }),
+    )
   })
 })
 
@@ -119,8 +124,7 @@ describe('normalizeHover', () => {
   })
 
   it('reads MarkupContent value and keeps a range', () => {
-    expect(normalizeHover({ contents: { kind: 'markdown', value: '# H' }, range: RANGE }))
-      .toEqual({ contents: '# H', range: RANGE })
+    expect(normalizeHover({ contents: { kind: 'markdown', value: '# H' }, range: RANGE })).toEqual({ contents: '# H', range: RANGE })
   })
 
   it('keeps a bare string MarkedString verbatim', () => {
@@ -128,13 +132,11 @@ describe('normalizeHover', () => {
   })
 
   it('renders a language-tagged MarkedString object as a fenced code block', () => {
-    expect(normalizeHover({ contents: { language: 'ts', value: 'const x = 1' } }))
-      .toEqual({ contents: '```ts\nconst x = 1\n```' })
+    expect(normalizeHover({ contents: { language: 'ts', value: 'const x = 1' } })).toEqual({ contents: '```ts\nconst x = 1\n```' })
   })
 
   it('joins a MarkedString array with one blank line', () => {
-    expect(normalizeHover({ contents: ['a', { language: 'ts', value: 'b' }] }))
-      .toEqual({ contents: 'a\n\n```ts\nb\n```' })
+    expect(normalizeHover({ contents: ['a', { language: 'ts', value: 'b' }] })).toEqual({ contents: 'a\n\n```ts\nb\n```' })
   })
 
   it('drops an empty-contents hover to null', () => {
@@ -142,8 +144,9 @@ describe('normalizeHover', () => {
   })
 
   it('rejects a MarkupContent with a non-string value', () => {
-    expect(() => normalizeHover({ contents: { kind: 'markdown', value: 42 } }))
-      .toThrow(expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }))
+    expect(() => normalizeHover({ contents: { kind: 'markdown', value: 42 } })).toThrow(
+      expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }),
+    )
   })
 
   it('rejects a non-object payload', () => {
@@ -156,10 +159,10 @@ describe('normalizeHover', () => {
   })
 
   it('rejects a malformed MarkedString array member', () => {
-    expect(() => normalizeHover({ contents: ['ok', { language: 'ts', value: 42 }] }))
-      .toThrow(expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }))
-    expect(() => normalizeHover({ contents: [null] }))
-      .toThrow(expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }))
+    expect(() => normalizeHover({ contents: ['ok', { language: 'ts', value: 42 }] })).toThrow(
+      expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }),
+    )
+    expect(() => normalizeHover({ contents: [null] })).toThrow(expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }))
   })
 
   it('rejects a hover with no contents field', () => {
@@ -167,7 +170,8 @@ describe('normalizeHover', () => {
   })
 
   it('rejects a malformed range instead of silently dropping it', () => {
-    expect(() => normalizeHover({ contents: 'x', range: { start: { line: 1 } } }))
-      .toThrow(expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }))
+    expect(() => normalizeHover({ contents: 'x', range: { start: { line: 1 } } })).toThrow(
+      expect.objectContaining({ code: 'LSP_MALFORMED_RESPONSE' }),
+    )
   })
 })

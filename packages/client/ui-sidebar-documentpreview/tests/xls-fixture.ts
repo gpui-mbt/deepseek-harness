@@ -9,8 +9,11 @@ import { utils, write, type CellObject, type WorkBook } from 'xlsx'
 export function legacyWorkbook(date1904 = false): WorkBook {
   const workbook = utils.book_new()
   const sheet = utils.aoa_to_sheet([
-    ['旧版预算', null, null], ['项目', '金额', '比例'], ['研发', 1234.5, 0.25],
-    ['公式结果', 3, null], ['日期', date1904 ? 43890 : 45352, true],
+    ['旧版预算', null, null],
+    ['项目', '金额', '比例'],
+    ['研发', 1234.5, 0.25],
+    ['公式结果', 3, null],
+    ['日期', date1904 ? 43890 : 45352, true],
   ])
   const amount = sheet['B3'] as CellObject | undefined
   const ratio = sheet['C3'] as CellObject | undefined
@@ -27,7 +30,14 @@ export function legacyWorkbook(date1904 = false): WorkBook {
   utils.book_append_sheet(workbook, sheet, '预算')
   utils.book_append_sheet(workbook, utils.aoa_to_sheet([['Second sheet']]), '明细')
   utils.book_append_sheet(workbook, utils.aoa_to_sheet([['Hidden']]), '隐藏')
-  workbook.Workbook = { WBProps: { date1904 }, Sheets: [{ Hidden: 0, name: '预算' }, { Hidden: 0, name: '明细' }, { Hidden: 1, name: '隐藏' }] }
+  workbook.Workbook = {
+    WBProps: { date1904 },
+    Sheets: [
+      { Hidden: 0, name: '预算' },
+      { Hidden: 0, name: '明细' },
+      { Hidden: 1, name: '隐藏' },
+    ],
+  }
   return workbook
 }
 

@@ -1,12 +1,15 @@
 /** Required time and allocation budgets for sent-user-text evaluation with the credential matcher. */
 
 import { join } from 'node:path'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { ciTimeBudget, PERFORMANCE_BUDGET_HEADROOM } from '../support/calibration.ts'
 import { recordTimings, type BenchmarkCase } from '../support/scaling-report.ts'
 import type {
-  UserTextAllocationReport, UserTextTimeReport, UserTextWorkloadAllocation, UserTextWorkloadTiming,
+  UserTextAllocationReport,
+  UserTextTimeReport,
+  UserTextWorkloadAllocation,
+  UserTextWorkloadTiming,
 } from './user-text.worker.client.ts'
 
 /** Fresh registries and documents after warm-up; independent minima of adjacent pairs limit scheduler delay. */
@@ -73,8 +76,16 @@ const ALLOCATION_PER_MASKED_LINE_BREAK_BYTES = 64
 const ALLOCATION_PER_MASKED_CHARACTER_BYTES = 2
 
 const ADVERSARIAL = [
-  'digitless-sk', 'jwt-header-runs', 'jwt-two-segments', 'unterminated-key-blocks', 'address-without-at',
-  'colon-run', 'long-scheme-user', 'short-token-runs', 'tokens-between-digitless-keys', 'closed-one-line-key-blocks',
+  'digitless-sk',
+  'jwt-header-runs',
+  'jwt-two-segments',
+  'unterminated-key-blocks',
+  'address-without-at',
+  'colon-run',
+  'long-scheme-user',
+  'short-token-runs',
+  'tokens-between-digitless-keys',
+  'closed-one-line-key-blocks',
 ] as const
 
 function benchmarkCase(id: string, measures: string): BenchmarkCase {
@@ -83,11 +94,17 @@ function benchmarkCase(id: string, measures: string): BenchmarkCase {
 
 async function worker<Report>(args: readonly string[], semiSpaceMb?: number): Promise<Report> {
   const run = await runBuiltBenchmarkWorker<Report>({
-    worker: WORKER, args, timeoutMs: WORKER_TIMEOUT_MS, exposeGc: true, ...semiSpaceMb === undefined ? {} : { semiSpaceMb },
+    worker: WORKER,
+    args,
+    timeoutMs: WORKER_TIMEOUT_MS,
+    exposeGc: true,
+    ...(semiSpaceMb === undefined ? {} : { semiSpaceMb }),
   })
   if (run.report === undefined) {
-    throw new Error(`user-text worker failed: exit=${String(run.exitCode)}, signal=${String(run.signal)}, `
-      + `timedOut=${String(run.timedOut)}\n${run.stderr.trim().split('\n').slice(-10).join('\n')}`)
+    throw new Error(
+      `user-text worker failed: exit=${String(run.exitCode)}, signal=${String(run.signal)}, ` +
+        `timedOut=${String(run.timedOut)}\n${run.stderr.trim().split('\n').slice(-10).join('\n')}`,
+    )
   }
   return run.report
 }
@@ -110,10 +127,14 @@ describe('sent user text with the credential matcher', () => {
     return found
   }
   const record = (benchmark: BenchmarkCase, measured: UserTextWorkloadTiming, budgetMs: number): void => {
-    recordTimings({
-      ...benchmark,
-      measures: `${benchmark.measures} Minimum of ${ATTEMPTS} per-sample means of ${measured.evaluationsPerSample} fresh evaluations after warm-up.`,
-    }, { withSecretMs: { ms: measured.withSecretMs, cpuMs: measured.withSecretCpuMs } }, { withSecretMs: budgetMs })
+    recordTimings(
+      {
+        ...benchmark,
+        measures: `${benchmark.measures} Minimum of ${ATTEMPTS} per-sample means of ${measured.evaluationsPerSample} fresh evaluations after warm-up.`,
+      },
+      { withSecretMs: { ms: measured.withSecretMs, cpuMs: measured.withSecretCpuMs } },
+      { withSecretMs: budgetMs },
+    )
   }
 
   it.each(Object.entries(UNMATCHED_EXPECTED))('evaluates %s without credentials within its budget and ratio', (id, expected) => {
@@ -142,7 +163,7 @@ describe('sent user text with the credential matcher', () => {
     expect(full.withSecretMs / half.withSecretMs).toBeLessThanOrEqual(MAX_DOUBLING_SCALING)
   })
 
-  it.each(ADVERSARIAL)('scans adversarial %s input linearly without backtracking', (name) => {
+  it.each(ADVERSARIAL)('scans adversarial %s input linearly without backtracking', name => {
     const half = timing(`adversarial-${name}-64k`)
     const full = timing(`adversarial-${name}-128k`)
     const budgetMs = ciTimeBudget(ADVERSARIAL_EXPECTED_MS)
@@ -151,13 +172,15 @@ describe('sent user text with the credential matcher', () => {
     expect(full.withSecretMs / half.withSecretMs).toBeLessThanOrEqual(MAX_DOUBLING_SCALING)
   })
 
-  it.each(workloadIds())('allocates only result nodes and masks for %s', (id) => {
+  it.each(workloadIds())('allocates only result nodes and masks for %s', id => {
     const allocation = allocations.get(id)
     if (allocation === undefined) throw new Error(`user-text worker reported no ${id} allocation`)
     expect(allocation.secrets).toBe(timing(id).secrets)
-    const budgetBytes = ALLOCATION_FLOOR_BYTES + ALLOCATION_PER_CREDENTIAL_BYTES * allocation.secrets
-      + ALLOCATION_PER_MASKED_LINE_BREAK_BYTES * allocation.maskedLineBreaks
-      + ALLOCATION_PER_MASKED_CHARACTER_BYTES * allocation.maskedCharacters
+    const budgetBytes =
+      ALLOCATION_FLOOR_BYTES +
+      ALLOCATION_PER_CREDENTIAL_BYTES * allocation.secrets +
+      ALLOCATION_PER_MASKED_LINE_BREAK_BYTES * allocation.maskedLineBreaks +
+      ALLOCATION_PER_MASKED_CHARACTER_BYTES * allocation.maskedCharacters
     expect(allocation.ruleAllocatedBytes).toBeLessThanOrEqual(budgetBytes)
   })
 })
@@ -165,7 +188,9 @@ describe('sent user text with the credential matcher', () => {
 /** Every workload id, in the worker's order, so each has an allocation case. */
 function workloadIds(): readonly string[] {
   return [
-    ...Object.keys(UNMATCHED_EXPECTED), ...Object.keys(MATCHED_EXPECTED_MS), 'env-keys-1000',
+    ...Object.keys(UNMATCHED_EXPECTED),
+    ...Object.keys(MATCHED_EXPECTED_MS),
+    'env-keys-1000',
     ...ADVERSARIAL.flatMap(name => [`adversarial-${name}-64k`, `adversarial-${name}-128k`]),
   ]
 }

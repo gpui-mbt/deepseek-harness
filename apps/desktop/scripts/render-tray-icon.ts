@@ -86,7 +86,8 @@ export function unpackIco(ico: Buffer): IcoEntry[] {
     const offset = ico.readUInt32LE(at + 12)
     const png = ico.subarray(offset, offset + length)
     const { width, height } = pngDimensions(png)
-    if (width !== size || height !== size) throw new Error(`tray icon: entry ${String(index)} declares ${String(size)} but holds ${String(width)}x${String(height)}`)
+    if (width !== size || height !== size)
+      throw new Error(`tray icon: entry ${String(index)} declares ${String(size)} but holds ${String(width)}x${String(height)}`)
     return { size, png }
   })
 }
@@ -103,14 +104,20 @@ export async function renderTrayIconEntries(svg: Buffer, sizes: readonly number[
   if (!source.includes(glyph)) throw new Error('tray icon: SVG requires a tray-glyph group')
   // Scale around the application tile center, retaining its background and the whale's aspect ratio.
   const tray = Buffer.from(source.replace(glyph, `${glyph} transform="translate(552 544) scale(1.2) translate(-552 -544)"`))
-  return Promise.all(sizes.map(async size => ({
-    size,
-    png: await sharp(tray, { density: SOURCE_DENSITY * size / SOURCE_EDGE }).resize(size, size).png().toBuffer(),
-  })))
+  return Promise.all(
+    sizes.map(async size => ({
+      size,
+      png: await sharp(tray, { density: (SOURCE_DENSITY * size) / SOURCE_EDGE })
+        .resize(size, size)
+        .png()
+        .toBuffer(),
+    })),
+  )
 }
 
 function pngDimensions(png: Buffer): { width: number; height: number } {
-  if (png.length < 24 || !png.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) throw new Error('tray icon: bitmap is not a PNG stream')
+  if (png.length < 24 || !png.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE))
+    throw new Error('tray icon: bitmap is not a PNG stream')
   return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) }
 }
 

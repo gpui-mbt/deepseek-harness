@@ -23,9 +23,9 @@ const preloadImports = { packages: new Set(['electron', 'events', 'timers', 'url
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 /** Use the client environment this build already received, otherwise the repository's own version and commit. */
-const clientEnvironment = resolveClientBuildEnvironment(process.env.DSH_CLIENT_VERSION === undefined
-  ? repositoryClientBuildEnvironment(REPOSITORY_ROOT, process.env)
-  : process.env)
+const clientEnvironment = resolveClientBuildEnvironment(
+  process.env.DSH_CLIENT_VERSION === undefined ? repositoryClientBuildEnvironment(REPOSITORY_ROOT, process.env) : process.env,
+)
 const clientVersion = clientEnvironment.DSH_CLIENT_VERSION
 if (clientVersion === undefined) throw new Error('desktop build: the client environment carries no DSH_CLIENT_VERSION')
 
@@ -53,18 +53,26 @@ export default defineConfig([
     onSuccess: async () => {
       await build({
         configFile: false,
-        plugins: [{
-          name: 'desktop-brand-font',
-          async generateBundle() {
-            for (const name of ['brand-font.css', 'montserrat-regular.woff2', 'montserrat-light.woff2', 'montserrat-medium.woff2', 'Montserrat-OFL.txt']) {
-              this.emitFile({
-                type: 'asset',
-                fileName: name,
-                source: await readFile(new URL(`../../packages/client/ui-theme/src/styles/${name}`, import.meta.url)),
-              })
-            }
+        plugins: [
+          {
+            name: 'desktop-brand-font',
+            async generateBundle() {
+              for (const name of [
+                'brand-font.css',
+                'montserrat-regular.woff2',
+                'montserrat-light.woff2',
+                'montserrat-medium.woff2',
+                'Montserrat-OFL.txt',
+              ]) {
+                this.emitFile({
+                  type: 'asset',
+                  fileName: name,
+                  source: await readFile(new URL(`../../packages/client/ui-theme/src/styles/${name}`, import.meta.url)),
+                })
+              }
+            },
           },
-        }],
+        ],
         root: fileURLToPath(new URL('.', import.meta.url)),
         esbuild: { jsx: 'automatic' },
         define: { 'process.env.NODE_ENV': JSON.stringify('production') },

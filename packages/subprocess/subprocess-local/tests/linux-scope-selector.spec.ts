@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { LinuxScopeSelector } from '../src/linux-scope-selector.ts'
 import type { LinuxScopeDecision } from '../src/linux-scope-selector.ts'
 

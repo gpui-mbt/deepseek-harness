@@ -1,25 +1,35 @@
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { createAssistantMessage, LlmAttemptId } from '@deepseek-ai/dsh-llm'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import {
-  createScope, MutableSessionEventSource,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import { createScope, MutableSessionEventSource } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {
-  ISessions, SessionBinding, SessionEventLike, SessionFace, SessionListState, SessionSnapshot,
+  ISessions,
+  SessionBinding,
+  SessionEventLike,
+  SessionFace,
+  SessionListState,
+  SessionSnapshot,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import {
-  ConversationEventRegistry, ConversationNodeAssembler, ConversationViewRegistry, UiConversation,
+  ConversationEventRegistry,
+  ConversationNodeAssembler,
+  ConversationViewRegistry,
+  UiConversation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
-  ConversationNodeDefinition, ConversationViewDefinition, ConversationViewNode,
+  ConversationNodeDefinition,
+  ConversationViewDefinition,
+  ConversationViewNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 const SESSION_ID = 'resident' as SessionId
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function sessionSnapshot(): SessionSnapshot {
   return {
@@ -92,10 +102,10 @@ function fakeSessions(ctx: Context): { sessions: ISessions; binding: SessionBind
     refresh: () => Promise.reject(new Error('unused fake Sessions operation')),
     search: () => Promise.reject(new Error('unused fake Sessions operation')),
     fork: () => Promise.reject(new Error('unused fake Sessions operation')),
-    scope: id => id === SESSION_ID ? binding.ctx : undefined,
-    scopeOf: candidate => candidate === binding.ctx ? SESSION_ID : undefined,
-    sessionOf: candidate => candidate === binding.ctx ? binding.session : undefined,
-    binding: id => id === SESSION_ID ? binding : undefined,
+    scope: id => (id === SESSION_ID ? binding.ctx : undefined),
+    scopeOf: candidate => (candidate === binding.ctx ? SESSION_ID : undefined),
+    sessionOf: candidate => (candidate === binding.ctx ? binding.session : undefined),
+    binding: id => (id === SESSION_ID ? binding : undefined),
   }
   return { sessions, binding }
 }
@@ -130,7 +140,9 @@ async function bootRegistries(): Promise<{
   views: ConversationViewRegistry
 }> {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   const { sessions, binding } = fakeSessions(ctx)
   const uiConversation = new UiConversation(ctx, sessions)
   return {
@@ -149,42 +161,80 @@ describe('Conversation registries', () => {
     const source = binding.eventSource as MutableSessionEventSource
     const openTurn = conversation.openTurn
     const published: (number | undefined)[] = []
-    const listener = vi.fn(() => { published.push(openTurn.getSnapshot()) })
+    const listener = vi.fn(() => {
+      published.push(openTurn.getSnapshot())
+    })
     const unsubscribe = openTurn.subscribe(listener)
     expect(openTurn.getSnapshot()).toBeUndefined()
     expect(conversation.snapshot.getSnapshot().activeTargets.size).toBe(0)
-    source.append({ type: 'event', event: {
-      type: 'turn/start', seq: SessionSeq(1), time: 1, data: { turn: 1 },
-    } })
+    source.append({
+      type: 'event',
+      event: {
+        type: 'turn/start',
+        seq: SessionSeq(1),
+        time: 1,
+        data: { turn: 1 },
+      },
+    })
     expect(openTurn.getSnapshot()).toBe(1)
-    source.append({ type: 'event', event: {
-      type: 'step/start', seq: SessionSeq(2), time: 2, data: { turn: 1, step: 1 },
-    } })
+    source.append({
+      type: 'event',
+      event: {
+        type: 'step/start',
+        seq: SessionSeq(2),
+        time: 2,
+        data: { turn: 1, step: 1 },
+      },
+    })
     expect(listener).toHaveBeenCalledOnce()
-    source.append({ type: 'event', event: {
-      type: 'turn/end', seq: SessionSeq(3), time: 3, data: { turn: 1, reason: { kind: 'completed' } },
-    } })
+    source.append({
+      type: 'event',
+      event: {
+        type: 'turn/end',
+        seq: SessionSeq(3),
+        time: 3,
+        data: { turn: 1, reason: { kind: 'completed' } },
+      },
+    })
     expect(openTurn.getSnapshot()).toBeUndefined()
-    source.append({ type: 'event', event: {
-      type: 'turn/start', seq: SessionSeq(4), time: 4, data: { turn: 2 },
-    } })
+    source.append({
+      type: 'event',
+      event: {
+        type: 'turn/start',
+        seq: SessionSeq(4),
+        time: 4,
+        data: { turn: 2 },
+      },
+    })
     expect(openTurn.getSnapshot()).toBe(2)
     expect(published).toEqual([1, undefined, 2])
     expect(uiConversation.binding(binding).openTurn).toBe(openTurn)
     expect(conversation.snapshot.getSnapshot().activeTargets.size).toBe(0)
     unsubscribe()
     listener.mockClear()
-    source.append({ type: 'event', event: {
-      type: 'turn/end', seq: SessionSeq(5), time: 5, data: { turn: 2, reason: { kind: 'completed' } },
-    } })
+    source.append({
+      type: 'event',
+      event: {
+        type: 'turn/end',
+        seq: SessionSeq(5),
+        time: 5,
+        data: { turn: 2, reason: { kind: 'completed' } },
+      },
+    })
     expect(openTurn.getSnapshot()).toBeUndefined()
     expect(listener).not.toHaveBeenCalled()
     const unsubscribeAgain = openTurn.subscribe(listener)
     await binding.ctx.fiber.dispose()
     listener.mockClear()
-    source.append({ type: 'event', event: {
-      type: 'turn/start', seq: SessionSeq(6), time: 6, data: { turn: 3 },
-    } })
+    source.append({
+      type: 'event',
+      event: {
+        type: 'turn/start',
+        seq: SessionSeq(6),
+        time: 6,
+        data: { turn: 3 },
+      },
+    })
     expect(listener).not.toHaveBeenCalled()
     expect(openTurn.getSnapshot()).toBeUndefined()
     unsubscribeAgain()
@@ -193,22 +243,66 @@ describe('Conversation registries', () => {
   it('requires a loaded turn start and follows prepended history and replacement windows', async () => {
     const { uiConversation, binding } = await bootRegistries()
     const source = binding.eventSource as MutableSessionEventSource
-    source.replace([{ type: 'event', event: {
-      type: 'step/start', seq: SessionSeq(2), time: 2, data: { turn: 7, step: 1 },
-    } }], true)
+    source.replace(
+      [
+        {
+          type: 'event',
+          event: {
+            type: 'step/start',
+            seq: SessionSeq(2),
+            time: 2,
+            data: { turn: 7, step: 1 },
+          },
+        },
+      ],
+      true,
+    )
     const openTurn = uiConversation.binding(binding).openTurn
     expect(openTurn.getSnapshot()).toBeUndefined()
-    source.prepend([{ type: 'event', event: {
-      type: 'turn/start', seq: SessionSeq(1), time: 1, data: { turn: 7 },
-    } }], false)
+    source.prepend(
+      [
+        {
+          type: 'event',
+          event: {
+            type: 'turn/start',
+            seq: SessionSeq(1),
+            time: 1,
+            data: { turn: 7 },
+          },
+        },
+      ],
+      false,
+    )
     expect(openTurn.getSnapshot()).toBe(7)
-    source.replace([{ type: 'event', event: {
-      type: 'turn/end', seq: SessionSeq(3), time: 3, data: { turn: 7, reason: { kind: 'completed' } },
-    } }], true)
+    source.replace(
+      [
+        {
+          type: 'event',
+          event: {
+            type: 'turn/end',
+            seq: SessionSeq(3),
+            time: 3,
+            data: { turn: 7, reason: { kind: 'completed' } },
+          },
+        },
+      ],
+      true,
+    )
     expect(openTurn.getSnapshot()).toBeUndefined()
-    source.replace([{ type: 'event', event: {
-      type: 'turn/start', seq: SessionSeq(4), time: 4, data: { turn: 8 },
-    } }], false)
+    source.replace(
+      [
+        {
+          type: 'event',
+          event: {
+            type: 'turn/start',
+            seq: SessionSeq(4),
+            time: 4,
+            data: { turn: 8 },
+          },
+        },
+      ],
+      false,
+    )
     expect(openTurn.getSnapshot()).toBe(8)
   })
 
@@ -220,21 +314,24 @@ describe('Conversation registries', () => {
       frames.set(nextFrame, callback)
       return nextFrame
     })
-    const cancelFrame = vi.fn((frame: number) => { frames.delete(frame) })
+    const cancelFrame = vi.fn((frame: number) => {
+      frames.delete(frame)
+    })
     vi.stubGlobal('requestAnimationFrame', requestFrame)
     vi.stubGlobal('cancelAnimationFrame', cancelFrame)
     const { uiConversation, binding, events, views } = await bootRegistries()
     const definition: ConversationNodeDefinition<number> = {
       kind: 'frame-probe',
       target: 'chat',
-      match: event => event.type === 'turn/start'
-        ? { id: String(event.data.turn), role: 'start' }
-        : event.type === 'assistant/live-chunk' || event.type === 'assistant/message'
-          ? { id: String(event.data.turn), role: 'update' }
-          : null,
+      match: event =>
+        event.type === 'turn/start'
+          ? { id: String(event.data.turn), role: 'start' }
+          : event.type === 'assistant/live-chunk' || event.type === 'assistant/message'
+            ? { id: String(event.data.turn), role: 'update' }
+            : null,
       start: () => 0,
       update: context => context.state + 1,
-      publication: match => match.event.type === 'assistant/live-chunk' ? 'animation-frame' : 'immediate',
+      publication: match => (match.event.type === 'assistant/live-chunk' ? 'animation-frame' : 'immediate'),
       buildViewNode: context => ({
         key: context.key,
         kind: 'frame-probe',
@@ -252,9 +349,7 @@ describe('Conversation registries', () => {
     const unsubscribe = conversation.snapshot.subscribe(listener)
     const source = binding.eventSource as MutableSessionEventSource
     const append = (event: SessionEventLike): void => {
-      source.append(event.type === 'assistant/live-chunk'
-        ? { type: 'transient', event }
-        : { type: 'event', event })
+      source.append(event.type === 'assistant/live-chunk' ? { type: 'transient', event } : { type: 'event', event })
     }
 
     append({ seq: SessionSeq(1), time: 1, type: 'turn/start', data: { turn: 1 } })
@@ -265,7 +360,9 @@ describe('Conversation registries', () => {
       type: 'assistant/live-chunk',
       data: {
         attemptId: LlmAttemptId('frame-probe'),
-        turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'a' },
+        turn: 1,
+        step: 1,
+        chunk: { type: 'text-delta', index: 0, text: 'a' },
       },
     })
     append({
@@ -274,7 +371,9 @@ describe('Conversation registries', () => {
       type: 'assistant/live-chunk',
       data: {
         attemptId: LlmAttemptId('frame-probe'),
-        turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'b' },
+        turn: 1,
+        step: 1,
+        chunk: { type: 'text-delta', index: 0, text: 'b' },
       },
     })
     expect(requestFrame).toHaveBeenCalledOnce()
@@ -306,7 +405,9 @@ describe('Conversation registries', () => {
       type: 'assistant/live-chunk',
       data: {
         attemptId: LlmAttemptId('frame-probe'),
-        turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'c' },
+        turn: 1,
+        step: 1,
+        chunk: { type: 'text-delta', index: 0, text: 'c' },
       },
     })
     source.settleAssistant(LlmAttemptId('frame-probe'), {
@@ -391,8 +492,7 @@ describe('Conversation registries', () => {
       update: context => context.state,
     }
 
-    expect(() => events.registerFallback(fallback))
-      .toThrow('conversation fallback Definition must declare a target')
+    expect(() => events.registerFallback(fallback)).toThrow('conversation fallback Definition must declare a target')
   })
 
   it('rejects duplicate view targets and disposes a view registration once', async () => {
@@ -410,7 +510,7 @@ describe('Conversation registries', () => {
 
   it('removes Event, fallback, and view contributions with their caller fiber', async () => {
     const { ctx, events, views } = await bootRegistries()
-    const feature = ctx.inject(['uiConversation'], (featureCtx) => {
+    const feature = ctx.inject(['uiConversation'], featureCtx => {
       featureCtx.uiConversation.events.register(eventDefinition('message'))
       featureCtx.uiConversation.events.registerFallback(eventDefinition('unknown'))
       featureCtx.uiConversation.views.register(viewDefinition('chat'))

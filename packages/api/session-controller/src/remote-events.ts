@@ -7,8 +7,7 @@ type SessionControllerRemoteEvent =
   | 'api-session/status'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
-  interface TypertRemoteEventSelection extends
-    Record<SessionControllerRemoteEvent, true> {}
+  interface TypertRemoteEventSelection extends Record<SessionControllerRemoteEvent, true> {}
 }
 
 export {}

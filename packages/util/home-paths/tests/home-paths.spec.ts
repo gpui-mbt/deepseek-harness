@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   AGENTS_HOME_DIR_NAME,
   DEFAULT_AGENTS_HOME_DISPLAY,
@@ -117,8 +117,9 @@ describe('dsh path helpers', () => {
     vi.stubEnv('DSH_HOME', '~/env-dsh')
     try {
       expect(dshCachePath({ dshHome: '~/explicit-dsh' })).toBe(join(homedir(), 'explicit-dsh', 'cache'))
-      expect(dshCachePath({ dshHome: './explicit-dsh' }, 'attachments', 'request-images'))
-        .toBe(resolve('./explicit-dsh/cache/attachments/request-images'))
+      expect(dshCachePath({ dshHome: './explicit-dsh' }, 'attachments', 'request-images')).toBe(
+        resolve('./explicit-dsh/cache/attachments/request-images'),
+      )
       expect(dshCachePath({}, 'attachments')).toBe(join(homedir(), 'env-dsh', 'cache', 'attachments'))
     } finally {
       vi.unstubAllEnvs()

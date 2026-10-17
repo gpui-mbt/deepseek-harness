@@ -11,15 +11,23 @@ import { z } from 'zod'
 import type { NativeClientConfig, NativeChannel } from '@deepseek-ai/dsh-cua/native-client'
 export type { NativeChannel } from '@deepseek-ai/dsh-cua/native-client'
 
-const Ready = z.object({
-  type: z.literal('ready'), protocol: z.literal(1), runtimeKey: z.string(),
-  pid: z.number().int().positive(), instanceId: z.string().min(1),
-}).strict()
+const Ready = z
+  .object({
+    type: z.literal('ready'),
+    protocol: z.literal(1),
+    runtimeKey: z.string(),
+    pid: z.number().int().positive(),
+    instanceId: z.string().min(1),
+  })
+  .strict()
 const Refusal = z.object({ type: z.literal('error'), code: z.string().min(1), message: z.string() }).strict()
 const handshakeByteLimit = 8192
 type LauncherExit = [PromiseSettledResult<SubprocessOutcome>, PromiseSettledResult<boolean>]
-interface RuntimeLocation { helperPath: string; runtimeKey: string; directory: string }
-
+interface RuntimeLocation {
+  helperPath: string
+  runtimeKey: string
+  directory: string
+}
 
 function transportError(code: string, message: string, cause?: unknown): Error & { code: string } {
   return Object.assign(new Error(message, { cause }), { code })
@@ -31,11 +39,16 @@ function asError(error: unknown): Error {
 
 async function untilAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   const cancelled = Promise.withResolvers<T>()
-  const abort = (): void => { cancelled.reject(signal.reason) }
+  const abort = (): void => {
+    cancelled.reject(signal.reason)
+  }
   if (signal.aborted) abort()
   else signal.addEventListener('abort', abort, { once: true })
-  try { return await Promise.race([operation, cancelled.promise]) }
-  finally { signal.removeEventListener('abort', abort) }
+  try {
+    return await Promise.race([operation, cancelled.promise])
+  } finally {
+    signal.removeEventListener('abort', abort)
+  }
 }
 
 class SharedNativeChannel implements NativeChannel {
@@ -56,19 +69,31 @@ class SharedNativeChannel implements NativeChannel {
   private cleanupTimer: ReturnType<typeof setTimeout> | undefined
   private cleanupFailure: Error | undefined
 
-  constructor(private readonly owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> }, private readonly config: NativeClientConfig) {
+  constructor(
+    private readonly owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> },
+    private readonly config: NativeClientConfig,
+  ) {
     this.stdin = new Writable({
       write: (chunk: Buffer, encoding, callback) => {
-        void this.ready.promise.then((socket) => {
+        void this.ready.promise.then(socket => {
           if (this.closing) callback(transportError('NATIVE_CLOSED', 'Native connection is closing'))
           else {
-            try { socket.write(chunk, encoding, callback) }
-            catch (error) { callback(asError(error)) }
+            try {
+              socket.write(chunk, encoding, callback)
+            } catch (error) {
+              callback(asError(error))
+            }
           }
         }, callback)
       },
-      final: (callback) => { this.close(); callback() },
-      destroy: (error, callback) => { this.close(); callback(error) },
+      final: callback => {
+        this.close()
+        callback()
+      },
+      destroy: (error, callback) => {
+        this.close()
+        callback(error)
+      },
     })
     // Consumers can attach after construction; connection failures still settle done.
     this.stdin.on('error', () => {})
@@ -99,7 +124,9 @@ class SharedNativeChannel implements NativeChannel {
     }
   }
 
-  waitForClose(): Promise<void> { return this.closed.promise }
+  waitForClose(): Promise<void> {
+    return this.closed.promise
+  }
 
   private async run(): Promise<void> {
     let failure: Error | undefined
@@ -119,8 +146,11 @@ class SharedNativeChannel implements NativeChannel {
       clearTimeout(this.cleanupTimer)
       this.closing = true
       this.socket?.destroy()
-      try { await this.cleanup() }
-      catch (error) { this.cleanupFailure ??= asError(error) }
+      try {
+        await this.cleanup()
+      } catch (error) {
+        this.cleanupFailure ??= asError(error)
+      }
       this.stdin.destroy()
       if (this.cleanupFailure) {
         this.stdout.destroy(this.cleanupFailure)
@@ -136,16 +166,22 @@ class SharedNativeChannel implements NativeChannel {
 
   private async prepare(): Promise<RuntimeLocation> {
     const helperPath = await realpath(this.config.helperPath)
-    const runtimeKey = createHash('sha256').update(await readFile(helperPath, { signal: this.startup.signal })).digest('hex')
+    const runtimeKey = createHash('sha256')
+      .update(await readFile(helperPath, { signal: this.startup.signal }))
+      .digest('hex')
     const uid = userInfo().uid
     const directory = `/tmp/dsh-cua-${uid}`
-    try { await mkdir(directory, { mode: 0o700 }) }
-    catch (error) {
+    try {
+      await mkdir(directory, { mode: 0o700 })
+    } catch (error) {
       if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
     }
     const stat = await lstat(directory)
     if (!stat.isDirectory() || stat.uid !== uid || (stat.mode & 0o777) !== 0o700) {
-      throw transportError('NATIVE_RUNTIME_DIRECTORY', 'Native runtime directory must be a real, owner-only directory owned by the current user')
+      throw transportError(
+        'NATIVE_RUNTIME_DIRECTORY',
+        'Native runtime directory must be a real, owner-only directory owned by the current user',
+      )
     }
     return { helperPath, runtimeKey, directory }
   }
@@ -154,9 +190,19 @@ class SharedNativeChannel implements NativeChannel {
     this.startup.signal.throwIfAborted()
     this.launcherFinished = false
     this.launcher = this.owner.subprocess.spawn({
-      argv: [helperPath, '--ensure-shared', '--runtime-key', runtimeKey, '--runtime-directory', directory,
-        '--startup-timeout-ms', String(this.config.connectTimeoutMs)],
-      cwd: this.config.cwd, graceMs: this.config.graceMs, signal: this.startup.signal,
+      argv: [
+        helperPath,
+        '--ensure-shared',
+        '--runtime-key',
+        runtimeKey,
+        '--runtime-directory',
+        directory,
+        '--startup-timeout-ms',
+        String(this.config.connectTimeoutMs),
+      ],
+      cwd: this.config.cwd,
+      graceMs: this.config.graceMs,
+      signal: this.startup.signal,
       stdio: { stdin: 'ignore', stdout: { maxBytes: 8192 }, stderr: { maxBytes: 8192 } },
     })
     this.launcherExit = Promise.allSettled([this.launcher.done, this.launcher.waitForExit()])
@@ -167,7 +213,10 @@ class SharedNativeChannel implements NativeChannel {
     if (outcome.status === 'rejected') throw outcome.reason
     if (outcome.value.exitCode !== 0 || outcome.value.signal !== null) {
       const stderr = this.launcher.collected.stderr?.readFrom(0).text ?? ''
-      throw transportError('NATIVE_STARTUP', `Native launcher failed (exit ${outcome.value.exitCode}, signal ${outcome.value.signal})${stderr ? `: ${stderr}` : ''}`)
+      throw transportError(
+        'NATIVE_STARTUP',
+        `Native launcher failed (exit ${outcome.value.exitCode}, signal ${outcome.value.signal})${stderr ? `: ${stderr}` : ''}`,
+      )
     }
   }
 
@@ -193,21 +242,35 @@ class SharedNativeChannel implements NativeChannel {
     let socketError: Error | undefined
     let bytes = Buffer.alloc(0)
     const admission: { status: 'pending' | 'accepted' | 'refused' } = { status: 'pending' }
-    const abort = (): void => { socket.destroy(asError(this.startup.signal.reason)) }
+    const abort = (): void => {
+      socket.destroy(asError(this.startup.signal.reason))
+    }
     this.startup.signal.addEventListener('abort', abort, { once: true })
-    socket.on('error', (error: Error) => { socketError = error; handshake.reject(error) })
-    socket.on('end', () => { peerEnded = true })
+    socket.on('error', (error: Error) => {
+      socketError = error
+      handshake.reject(error)
+    })
+    socket.on('end', () => {
+      peerEnded = true
+    })
     socket.on('close', () => {
       this.startup.signal.removeEventListener('abort', abort)
-      const error = socketError ?? (peerEnded ? undefined : transportError('NATIVE_EOF', 'Native socket closed without cleanup acknowledgement'))
+      const error =
+        socketError ?? (peerEnded ? undefined : transportError('NATIVE_EOF', 'Native socket closed without cleanup acknowledgement'))
       handshake.reject(error ?? transportError('NATIVE_EOF', 'Native socket ended before its handshake'))
       if (error) ended.reject(error)
       else ended.resolve()
     })
     socket.once('connect', () => {
       const { maxRequestBytes, maxResponseBytes, axTimeoutMs, textEventIntervalMs, screenshotTimeoutMs, timeoutMs, graceMs } = this.config
-      socket.write(JSON.stringify({ type: 'hello', protocol: 1, runtimeKey,
-        config: { maxRequestBytes, maxResponseBytes, axTimeoutMs, textEventIntervalMs, screenshotTimeoutMs, timeoutMs, graceMs } }) + '\n')
+      socket.write(
+        JSON.stringify({
+          type: 'hello',
+          protocol: 1,
+          runtimeKey,
+          config: { maxRequestBytes, maxResponseBytes, axTimeoutMs, textEventIntervalMs, screenshotTimeoutMs, timeoutMs, graceMs },
+        }) + '\n',
+      )
     })
     const receive = (chunk: Buffer): void => {
       const newline = chunk.indexOf(10)
@@ -228,7 +291,8 @@ class SharedNativeChannel implements NativeChannel {
           return
         }
         const ready = Ready.parse(value)
-        if (ready.runtimeKey !== runtimeKey) throw transportError('NATIVE_PROTOCOL', 'Native handshake returned a different runtime identity')
+        if (ready.runtimeKey !== runtimeKey)
+          throw transportError('NATIVE_PROTOCOL', 'Native handshake returned a different runtime identity')
         admission.status = 'accepted'
         socket.removeListener('data', receive)
         this.startup.signal.removeEventListener('abort', abort)
@@ -248,8 +312,13 @@ class SharedNativeChannel implements NativeChannel {
     } catch (error) {
       socket.destroy()
       await ended.promise.catch(() => {})
-      if (admission.status === 'pending' && error instanceof Error && 'code' in error
-        && ['ENOENT', 'ECONNREFUSED', 'ECONNRESET', 'NATIVE_EOF'].includes(String(error.code))) return undefined
+      if (
+        admission.status === 'pending' &&
+        error instanceof Error &&
+        'code' in error &&
+        ['ENOENT', 'ECONNREFUSED', 'ECONNRESET', 'NATIVE_EOF'].includes(String(error.code))
+      )
+        return undefined
       throw error
     } finally {
       if (admission.status !== 'accepted') socket.removeListener('data', receive)
@@ -263,15 +332,18 @@ class SharedNativeChannel implements NativeChannel {
       controller.abort(transportError('NATIVE_CLEANUP', `Native startup cleanup exceeded ${this.config.graceMs}ms`))
     }, this.config.graceMs)
     try {
-      const [, launcher] = await untilAbort(Promise.allSettled([
-        Promise.resolve(this.socketClosed), Promise.resolve(this.launcherExit),
-      ] as const), controller.signal)
+      const [, launcher] = await untilAbort(
+        Promise.allSettled([Promise.resolve(this.socketClosed), Promise.resolve(this.launcherExit)] as const),
+        controller.signal,
+      )
       if (launcher.status === 'fulfilled' && launcher.value) {
         const range = launcher.value[1]
         if (range.status === 'rejected') throw range.reason
         if (!range.value) throw transportError('NATIVE_CLEANUP', 'Native launcher process range did not close')
       }
-    } finally { clearTimeout(timer) }
+    } finally {
+      clearTimeout(timer)
+    }
   }
 }
 
@@ -281,6 +353,9 @@ class SharedNativeChannel implements NativeChannel {
  * @param config - Native runtime identity, operation limits and connection deadlines.
  * @returns One independently disposable Agent connection, without operation replay.
  */
-export function createSharedNativeChannel(owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> }, config: NativeClientConfig): NativeChannel {
+export function createSharedNativeChannel(
+  owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> },
+  config: NativeClientConfig,
+): NativeChannel {
   return new SharedNativeChannel(owner, config)
 }

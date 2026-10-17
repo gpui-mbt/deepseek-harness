@@ -34,10 +34,7 @@ export const EXCLUDE: readonly string[] = [
  * static deployment serves itself. External packages may place runtime code
  * under either directory.
  */
-export const EXCLUDE_WORKSPACE: readonly string[] = [
-  'src/**',
-  'dist/**',
-]
+export const EXCLUDE_WORKSPACE: readonly string[] = ['src/**', 'dist/**']
 
 /**
  * Image paths that belong to the PAGE, not to the worker's loader.

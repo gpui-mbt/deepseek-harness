@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 describe('Vitest jsdom compatibility', () => {
   it('provides initial ResizeObserver delivery and supports disconnecting targets', () => {
     const target = document.createElement('div')
-    target.getBoundingClientRect = () => { throw new Error('the jsdom resize fallback must not measure viewport geometry') }
+    target.getBoundingClientRect = () => {
+      throw new Error('the jsdom resize fallback must not measure viewport geometry')
+    }
     const deliveries: ResizeObserverEntry[][] = []
     const observer = new ResizeObserver(entries => deliveries.push(entries))
     observer.observe(target, { box: 'border-box' })

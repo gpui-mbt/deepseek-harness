@@ -1,11 +1,12 @@
 /** Tool UI slot declarations and their composed component props. */
-import type {
-  HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, SessionIdOf,
-} from '@deepseek-ai/dsh-client-ui-slots'
+import type { HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, SessionIdOf } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteHostFacts } from '@deepseek-ai/dsh-api-remotes/client'
 import type {
-  OpenFileOptions, PreparingToolCall, StartedToolCall,
-  ToolResultNode, UseDisclosure,
+  OpenFileOptions,
+  PreparingToolCall,
+  StartedToolCall,
+  ToolResultNode,
+  UseDisclosure,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { MessageImageLoader, MessageImageSource } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { AskUserQuestionAnswerItem, AskUserQuestionItem } from '@deepseek-ai/dsh-user-questions/types'
@@ -151,7 +152,7 @@ export type ToolHostInfoInjected = {
 }
 
 /** Full props of the Tool call-tree renderer registered as a tool-call Chat Node. */
-export type ToolTreeProps = PropsRuntime<'conversation.chat.node', 'tool-call'>
-  & PropsRenderSlots<'tool.call.toolview'>
-  & PropsLocale<'conversation'>
-  & InjectFace<ToolHostInfoInjected>
+export type ToolTreeProps = PropsRuntime<'conversation.chat.node', 'tool-call'> &
+  PropsRenderSlots<'tool.call.toolview'> &
+  PropsLocale<'conversation'> &
+  InjectFace<ToolHostInfoInjected>

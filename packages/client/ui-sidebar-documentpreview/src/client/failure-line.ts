@@ -23,14 +23,18 @@ function humanBytes(bytes: number): string {
  */
 export function failureLine(t: TranslateNS<'sidebarDocumentPreview'>, failure: RemoteFailure): string {
   switch (failure.code) {
-    case 'workspace-file/not-found': return t('error.notFound')
+    case 'workspace-file/not-found':
+      return t('error.notFound')
     case 'workspace-file/too-large':
       return t('error.tooLarge', { limit: humanBytes(failure.details.limit) })
-    case 'workspace-file/not-text': return t('error.notText')
-    case 'workspace-file/not-regular-file': return t('error.notRegularFile')
+    case 'workspace-file/not-text':
+      return t('error.notText')
+    case 'workspace-file/not-regular-file':
+      return t('error.notRegularFile')
     // Carrier and unclassified host failures reach the reader as themselves:
     // this panel knows nothing useful to add to a transport-level message.
-    default: return t('error.unavailable', { message: failure.message })
+    default:
+      return t('error.unavailable', { message: failure.message })
   }
 }
 
@@ -52,6 +56,7 @@ export function emptyFailureRecourse(failure: RemoteFailure): EmptyFailureRecour
     case 'workspace-file/not-found':
     case 'workspace-file/not-regular-file':
       return 'none'
-    default: return 'retry'
+    default:
+      return 'retry'
   }
 }

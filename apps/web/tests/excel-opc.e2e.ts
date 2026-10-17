@@ -3,11 +3,18 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { excelOpeningCases, excelOpeningFixture } from '../../../packages/client/ui-sidebar-documentpreview/tests/excel-opening-fixture.ts'
 import { excelOpcCases, excelOpcFixture } from '../../../packages/client/ui-sidebar-documentpreview/tests/excel-opc-fixture.ts'
 import { excelXmlCases, excelXmlFixture } from '../../../packages/client/ui-sidebar-documentpreview/tests/excel-xml-fixture.ts'
-import { assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
+import {
+  assertFixtureInventory,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
+} from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage } from './support.ts'
 
 const snapshotDirectory = fileURLToPath(new URL('../../../snapshots/web/excel-opc', import.meta.url))
@@ -33,7 +40,11 @@ describe.skipIf(mode === 'record')('web e2e: independent-writer Excel previews',
   })
 
   afterAll(async () => {
-    try { await browser?.close() } finally { await scaffold?.close() }
+    try {
+      await browser?.close()
+    } finally {
+      await scaffold?.close()
+    }
   })
 
   it('opens comments, Tables and equivalent OPC encodings without hiding cell data', async () => {
@@ -63,7 +74,10 @@ describe.skipIf(mode === 'record')('web e2e: independent-writer Excel previews',
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin })
     for (const name of [...excelOpcCases, ...excelOpeningCases, ...excelXmlCases]) {
       await files.click()
-      await column.locator('[data-files-entry="file"]').getByRole('button', { name: `${name}.xlsx`, exact: true }).click()
+      await column
+        .locator('[data-files-entry="file"]')
+        .getByRole('button', { name: `${name}.xlsx`, exact: true })
+        .click()
       await expect.poll(async () => (await preview.getAttribute('data-textpreview-url'))?.endsWith(`/${name}.xlsx`)).toBe(true)
       await sheets.getByText('数据', { exact: true }).waitFor()
       await excel.locator('.fortune-sheet-overlay').click({ position: { x: 70, y: 30 } })
@@ -74,15 +88,22 @@ describe.skipIf(mode === 'record')('web e2e: independent-writer Excel previews',
       const opening = excelOpeningCases.some(candidate => candidate === name)
       expect(await notice.count()).toBe(name === 'combined' || rich || opening ? 1 : 0)
       if (name === 'combined' || rich || opening) {
-        const features = rich ? 'charts, images, shapes, conditional formatting'
-          : name === 'orphan-drawing' ? 'conditional formatting' : 'charts, conditional formatting'
-        expect(await notice.innerText()).toBe(`This preview does not support ${features} in this workbook. Open it in a system application for the full experience.`)
+        const features = rich
+          ? 'charts, images, shapes, conditional formatting'
+          : name === 'orphan-drawing'
+            ? 'conditional formatting'
+            : 'charts, conditional formatting'
+        expect(await notice.innerText()).toBe(
+          `This preview does not support ${features} in this workbook. Open it in a system application for the full experience.`,
+        )
       }
       rows.push(`- ${name}.xlsx: 数据 opened; Item copied`)
     }
     expect(await sheets.getByText('隐藏页', { exact: true }).isVisible()).toBe(false)
     const warning = await notice.innerText()
-    expect(warning).toBe('This preview does not support charts, images, shapes, conditional formatting in this workbook. Open it in a system application for the full experience.')
+    expect(warning).toBe(
+      'This preview does not support charts, images, shapes, conditional formatting in this workbook. Open it in a system application for the full experience.',
+    )
     rows.push('- Relocated workbook: hidden sheet omitted', `- Relocated workbook notice: ${warning}`)
     expect(consoleErrors.pageErrors).toEqual([])
     expect(consoleErrors.warnings).toEqual([])

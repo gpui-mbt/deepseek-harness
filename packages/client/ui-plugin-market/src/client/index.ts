@@ -20,7 +20,7 @@ export type { PluginMarketLocaleKey } from './locales.ts'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Discover tab copy. */
-    'pluginMarket': PluginMarketLocaleKey
+    pluginMarket: PluginMarketLocaleKey
   }
 }
 
@@ -37,18 +37,40 @@ export const inject = ['slots', 'locale', 'remote', 'remote.pluginMarket']
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-plugin-market: dictionaries')
   const controller = new DiscoverController(ctx)
-  ctx.effect(() => () => { controller.dispose() }, 'ui-plugin-market: controller')
+  ctx.effect(
+    () => () => {
+      controller.dispose()
+    },
+    'ui-plugin-market: controller',
+  )
   ctx.effect(() => {
     const disposers = [
-      ctx.remote.$on('plugin-market/changed', () => { controller.sourcesChanged() }),
-      ctx.remote.$on('plugin-manager/changed', () => { controller.bundlesChanged() }),
-      ctx.on('connection/reset', () => { controller.sourcesChanged() }),
+      ctx.remote.$on('plugin-market/changed', () => {
+        controller.sourcesChanged()
+      }),
+      ctx.remote.$on('plugin-manager/changed', () => {
+        controller.bundlesChanged()
+      }),
+      ctx.on('connection/reset', () => {
+        controller.sourcesChanged()
+      }),
     ]
-    return () => { for (const dispose of disposers) dispose() }
+    return () => {
+      for (const dispose of disposers) dispose()
+    }
   }, 'ui-plugin-market: host invalidations')
   const face = controller.face(text => ctx.locale.resolveText(text))
   const t = ctx.locale.bind(NS)
-  ctx.slots.inject('plugins.tab', () => ctx.slots.register({
-    name: 'plugins.tab', id: 'discover', label: () => t('title'), locale: NS, inject: () => face,
-  }, DiscoverSection))
+  ctx.slots.inject('plugins.tab', () =>
+    ctx.slots.register(
+      {
+        name: 'plugins.tab',
+        id: 'discover',
+        label: () => t('title'),
+        locale: NS,
+        inject: () => face,
+      },
+      DiscoverSection,
+    ),
+  )
 }

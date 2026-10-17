@@ -1,7 +1,7 @@
 // The built shared Web/Electron composer hides guidance as soon as a draft contains whitespace.
 import { fileURLToPath } from 'node:url'
 import { chromium, type Page } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -51,14 +51,13 @@ it('hides the placeholder for typed and pasted spaces and restores it after dele
       await observe('Pasted spaces', false)
       await clear()
       await observe('Pasted content deleted', true)
-      await assertFixtureInventory(
-        fileURLToPath(new URL('./expected/composer-placeholder', import.meta.url)), ['visibility.expected.md'],
-      )
+      await assertFixtureInventory(fileURLToPath(new URL('./expected/composer-placeholder', import.meta.url)), ['visibility.expected.md'])
       expect(tripwire.pageErrors).toEqual([])
       expect(tripwire.warnings).toEqual([])
       await compareOrRefreshGolden(
         fileURLToPath(new URL('./expected/composer-placeholder/visibility.expected.md', import.meta.url)),
-        observations.join('\n'), webSnapshotMode(),
+        observations.join('\n'),
+        webSnapshotMode(),
       )
     } catch (error) {
       if (failurePage !== undefined) await saveFailureShot(failurePage, 'web-e2e-composer-placeholder')

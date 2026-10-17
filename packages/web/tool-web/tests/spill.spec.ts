@@ -7,7 +7,7 @@
  * deliberate spill notice (the full formatted result lands in the spill file).
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { AddressInfo } from 'node:net'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -42,8 +42,13 @@ const MAX_INLINE_TOKENS = 250 // leaves room for a head/tail preview beside the 
 
 beforeEach(async () => {
   vi.spyOn(publicHttpNetwork, 'resolve').mockResolvedValue([{ address: '127.0.0.1', family: 4 }])
-  handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end(BODY) }
-  server = createServer((req, res) => { handler(req, res) })
+  handler = (_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain' })
+    res.end(BODY)
+  }
+  server = createServer((req, res) => {
+    handler(req, res)
+  })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   spillRoot = mkdtempSync(join(tmpdir(), 'dsh-spill-web-'))
@@ -63,14 +68,24 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.restoreAllMocks()
   await ctx.fiber.dispose()
-  await new Promise<void>(resolve => server.close(() => { resolve() }))
+  await new Promise<void>(resolve =>
+    server.close(() => {
+      resolve()
+    }),
+  )
   rmSync(spillRoot, { recursive: true, force: true })
 })
 
 /** A web_fetch call carrying a session owner (so the policy can scope the spill). */
 function fetchCall(): Promise<{ isError: boolean; content: { type: string; text?: string }[] }> {
   const agent = { session: { header: { id: SessionId('web-sess') } } }
-  const exec = { callId: ToolCallId('call-1'), name: 'web_fetch', arguments: { url: base }, agent, signal: testToolSignal } as unknown as ToolExecution
+  const exec = {
+    callId: ToolCallId('call-1'),
+    name: 'web_fetch',
+    arguments: { url: base },
+    agent,
+    signal: testToolSignal,
+  } as unknown as ToolExecution
   return ctx.tools.execute(exec)
 }
 

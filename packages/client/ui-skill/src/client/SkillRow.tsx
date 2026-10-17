@@ -1,6 +1,9 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
-  IconChevronDownOutlineRegular, IconInspectOutlineRegular, IconSkillOutlineRegular, TextShimmer,
+  IconChevronDownOutlineRegular,
+  IconInspectOutlineRegular,
+  IconSkillOutlineRegular,
+  TextShimmer,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StartedToolCallViewProps, ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -58,11 +61,7 @@ function resultText(block: StartedToolCallViewProps['block']): string | null {
 function skillRowModel(block: StartedToolCallViewProps['block']): SkillRowModel {
   const settled = 'kind' in block
   const argsRaw = (settled ? block.call?.argsRaw : block.argsRaw) ?? ''
-  const state: SkillRowState = !settled
-    ? 'running'
-    : block.error?.code === 'interrupted'
-      ? 'stopped'
-      : block.isError ? 'error' : 'ok'
+  const state: SkillRowState = !settled ? 'running' : block.error?.code === 'interrupted' ? 'stopped' : block.isError ? 'error' : 'ok'
   const output = resultText(block)
   return {
     name: skillName(argsRaw, block.callId),
@@ -88,9 +87,12 @@ function disclosureLeading(open: boolean, expandable: boolean): ReactNode {
 /** Visually hidden state copy for the color-only running sweep and error tone. */
 function stateStatus(state: SkillRowState, t: SkillRowProps['t']): string | null {
   switch (state) {
-    case 'running': return t('row.running')
-    case 'error': return t('row.failed')
-    default: return null
+    case 'running':
+      return t('row.running')
+    case 'error':
+      return t('row.failed')
+    default:
+      return null
   }
 }
 
@@ -100,13 +102,20 @@ function stateStatus(state: SkillRowState, t: SkillRowProps['t']): string | null
  * @returns the dedicated skill row.
  */
 export function SkillRow(props: SkillRowProps) {
-  if (props.phase === 'preparing') return <div className={css.card} data-tool="skill" data-state="preparing">
-    <div className={css.row}>
-      <span className={css.leading}><IconSkillOutlineRegular size={14} /></span>
-      <span className={css.visuallyHidden}>{props.t('row.preparing')}</span>
-      <TextShimmer active className={css.title}>{props.t('row.title')}</TextShimmer>
-    </div>
-  </div>
+  if (props.phase === 'preparing')
+    return (
+      <div className={css.card} data-tool="skill" data-state="preparing">
+        <div className={css.row}>
+          <span className={css.leading}>
+            <IconSkillOutlineRegular size={14} />
+          </span>
+          <span className={css.visuallyHidden}>{props.t('row.preparing')}</span>
+          <TextShimmer active className={css.title}>
+            {props.t('row.title')}
+          </TextShimmer>
+        </div>
+      </div>
+    )
   return <StartedSkillRow {...props} />
 }
 
@@ -117,7 +126,7 @@ function StartedSkillRow({ block, inspect, t }: Exclude<SkillRowProps, { phase: 
   const open = expanded && expandable
   const status = stateStatus(model.state, t)
   const running = model.state === 'running'
-  const summary = model.state === 'stopped' ? t('row.stopped') : model.errorSummary ?? model.name
+  const summary = model.state === 'stopped' ? t('row.stopped') : (model.errorSummary ?? model.name)
   const toggleExpand = (): void => {
     setExpanded(value => !value)
   }
@@ -126,30 +135,31 @@ function StartedSkillRow({ block, inspect, t }: Exclude<SkillRowProps, { phase: 
     event.preventDefault()
     toggleExpand()
   }
-  const disclosureProps = expandable ? {
-    role: 'button' as const,
-    tabIndex: 0,
-    'aria-expanded': open,
-    onClick: toggleExpand,
-    onKeyDown: toggleFromKeyboard,
-  } : {}
+  const disclosureProps = expandable
+    ? {
+        role: 'button' as const,
+        tabIndex: 0,
+        'aria-expanded': open,
+        onClick: toggleExpand,
+        onKeyDown: toggleFromKeyboard,
+      }
+    : {}
   const leading = disclosureLeading(open, expandable)
   return (
     <div className={css.card} data-tool="skill" data-state={model.state}>
-      <div
-        className={css.row}
-        data-expandable={expandable || undefined}
-        {...disclosureProps}
-      >
+      <div className={css.row} data-expandable={expandable || undefined} {...disclosureProps}>
         <span className={css.leading}>{leading}</span>
         {status !== null ? <span className={css.visuallyHidden}>{status}</span> : null}
         <TextShimmer active={running}>
-          <span className={css.title}><TextShimmer>{t('row.title')}</TextShimmer></span>
+          <span className={css.title}>
+            <TextShimmer>{t('row.title')}</TextShimmer>
+          </span>
           <span className={css.separator} data-shimmer-decoration aria-hidden />
-          <span className={`${css.summary}${
-            model.state === 'error' ? ` ${css.errorSummary}`
-              : model.state === 'stopped' ? ` ${css.stoppedSummary}` : ''
-          }`}>
+          <span
+            className={`${css.summary}${
+              model.state === 'error' ? ` ${css.errorSummary}` : model.state === 'stopped' ? ` ${css.stoppedSummary}` : ''
+            }`}
+          >
             <TextShimmer>{summary}</TextShimmer>
           </span>
         </TextShimmer>
@@ -158,7 +168,9 @@ function StartedSkillRow({ block, inspect, t }: Exclude<SkillRowProps, { phase: 
         <div className={css.bodyWrap}>
           <section className={css.instructionsCard} aria-label={t('row.instructions')}>
             <div className={css.instructionsHeader}>{t('row.instructions')}</div>
-            <pre className={css.instructions} data-error={model.state === 'error' || undefined}>{model.output}</pre>
+            <pre className={css.instructions} data-error={model.state === 'error' || undefined}>
+              {model.output}
+            </pre>
           </section>
           {inspect !== undefined ? (
             <button type="button" className={css.inspectButton} onClick={inspect}>

@@ -26,9 +26,9 @@ async function checkPty() {
   const pty = requireRuntime('node-pty')
   const script = join(scratch, 'pty.cjs')
   writeFileSync(script, "process.stdout.write('runtime-payload-pty-ok\\n')\n", { flag: 'wx', mode: 0o600 })
-  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => (
-    /^(?:path|systemroot|windir|comspec|ELECTRON_RUN_AS_NODE)$/iu.test(name)
-  )))
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => /^(?:path|systemroot|windir|comspec|ELECTRON_RUN_AS_NODE)$/iu.test(name)),
+  )
   Object.assign(env, { HOME: scratch, USERPROFILE: scratch, TMP: scratch, TEMP: scratch, TMPDIR: scratch })
   env.DSH_DESKTOP_NODE_EXECUTABLE = process.execPath
   env.PATH = `${join(resourcesRuntime, 'bin')}${delimiter}${env.PATH ?? env.Path ?? ''}`
@@ -37,7 +37,10 @@ async function checkPty() {
   const args = process.platform === 'win32' ? ['/d', '/c', 'node', script] : [script]
   // Mirror the product's Windows allocation: the console host node-pty ships.
   const terminal = pty.spawn(executable, args, {
-    cwd: scratch, env, cols: 80, rows: 24,
+    cwd: scratch,
+    env,
+    cols: 80,
+    rows: 24,
     ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
   })
   let output = ''
@@ -50,7 +53,9 @@ async function checkPty() {
       resolveExit(event)
     })
   })
-  const dataSubscription = terminal.onData(data => { output += data })
+  const dataSubscription = terminal.onData(data => {
+    output += data
+  })
   let timer
   try {
     const deadline = new Promise((_, reject) => {
@@ -84,10 +89,16 @@ async function checkSearch() {
   const name = 'ripgrep-smoke.txt'
   const marker = 'desktop-ripgrep-smoke'
   writeFileSync(join(scratch, name), `${marker}\n`, { flag: 'wx', mode: 0o600 })
-  const run = args => execFileSync(executable, ['--no-config', ...args], {
-    cwd: scratch, encoding: 'utf8', timeout: 45_000, windowsHide: true,
-    env: Object.fromEntries(Object.entries(process.env).filter(([name]) => /^(?:systemroot|windir)$/iu.test(name))),
-  }).trim().replaceAll('\\', '/')
+  const run = args =>
+    execFileSync(executable, ['--no-config', ...args], {
+      cwd: scratch,
+      encoding: 'utf8',
+      timeout: 45_000,
+      windowsHide: true,
+      env: Object.fromEntries(Object.entries(process.env).filter(([name]) => /^(?:systemroot|windir)$/iu.test(name))),
+    })
+      .trim()
+      .replaceAll('\\', '/')
   assert.equal(run(['--no-heading', '--no-filename', '--line-number', '--fixed-strings', '--', marker, name]), `1:${marker}`)
   assert.equal(run(['--files', '--glob', name, '.']), `./${name}`)
 }
@@ -97,9 +108,8 @@ function checkKoffi() {
   const koffi = requireRuntime('koffi')
   const library = koffi.load(process.platform === 'win32' ? 'kernel32.dll' : null)
   try {
-    const getPid = process.platform === 'win32'
-      ? library.func('uint32_t __stdcall GetCurrentProcessId(void)')
-      : library.func('int getpid(void)')
+    const getPid =
+      process.platform === 'win32' ? library.func('uint32_t __stdcall GetCurrentProcessId(void)') : library.func('int getpid(void)')
     assert.equal(getPid(), process.pid)
   } finally {
     library.unload()
@@ -110,7 +120,9 @@ function checkKoffi() {
 async function checkSharp() {
   const sharp = requireRuntime('sharp')
   const pixel = Buffer.from([17, 103, 231])
-  const png = await sharp(pixel, { raw: { width: 1, height: 1, channels: 3 } }).png().toBuffer()
+  const png = await sharp(pixel, { raw: { width: 1, height: 1, channels: 3 } })
+    .png()
+    .toBuffer()
   const decoded = await sharp(png).raw().toBuffer({ resolveWithObject: true })
   assert.equal(decoded.info.width, 1)
   assert.equal(decoded.info.height, 1)
@@ -124,8 +136,10 @@ function checkHtml() {
   const { gfm } = requireRuntime('@joplin/turndown-plugin-gfm')
   const converter = new Turndown({ bulletListMarker: '-' })
   converter.use(gfm)
-  const markdown = converter.turndown('<p>A &amp; B &copy;</p><ul><li>first</li><li>second</li></ul>'
-    + '<table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td>x</td><td>7</td></tr></tbody></table>')
+  const markdown = converter.turndown(
+    '<p>A &amp; B &copy;</p><ul><li>first</li><li>second</li></ul>' +
+      '<table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td>x</td><td>7</td></tr></tbody></table>',
+  )
   assert.match(markdown, /A & B ©/u)
   assert.match(markdown, /-\s+first\n-\s+second/u)
   assert.match(markdown, /\| Name \| Value \|/u)
@@ -155,6 +169,18 @@ try {
 
 // Natural event-loop drain includes node-pty's worker and console-list helper teardown.
 process.once('beforeExit', () => {
-  console.log(JSON.stringify({ node: process.versions.node, platform: process.platform, arch: process.arch,
-    koffi: true, sharp: true, html: true, pty: true, pnpm: true, grep: true, glob: true }))
+  console.log(
+    JSON.stringify({
+      node: process.versions.node,
+      platform: process.platform,
+      arch: process.arch,
+      koffi: true,
+      sharp: true,
+      html: true,
+      pty: true,
+      pnpm: true,
+      grep: true,
+      glob: true,
+    }),
+  )
 })

@@ -71,10 +71,7 @@ const TEST_INFRASTRUCTURE_PREFIX = 'packages/test-support/'
  * @param environment - watcher launch environment supplying public extensions.
  * @returns process environment shared by tsdown and spawned watcher stages.
  */
-export function devWebBuildEnvironment(
-  root: string,
-  environment: NodeJS.ProcessEnv = process.env,
-): NodeJS.ProcessEnv {
+export function devWebBuildEnvironment(root: string, environment: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return clientBuildProcessEnvironment(environment, repositoryClientBuildEnvironment(root, environment))
 }
 
@@ -175,13 +172,11 @@ export function discoverLibraryDirs(root = repoRoot): string[] {
  * @param pollInterval - optional source-watcher polling interval in milliseconds.
  * @returns live bundles after every watcher has completed its initial build and package-owned post-build hooks.
  */
-export async function watchClientPlugins(
-  root: string,
-  pluginDirs: readonly string[],
-  pollInterval?: number,
-): Promise<TsdownBundle[]> {
+export async function watchClientPlugins(root: string, pluginDirs: readonly string[], pollInterval?: number): Promise<TsdownBundle[]> {
   let resolveInitialBuilds: (() => void) | undefined
-  const initialBuilds = new Promise<void>((resolve) => { resolveInitialBuilds = resolve })
+  const initialBuilds = new Promise<void>(resolve => {
+    resolveInitialBuilds = resolve
+  })
   const initialized = new WeakSet<object>()
   const readiness: { expectedBuilds?: number; initializedBuilds: number } = { initializedBuilds: 0 }
   const bundles = await build({
@@ -190,18 +185,13 @@ export async function watchClientPlugins(
     configLoader: 'native',
     watch: true,
     // Workspace hooks override inline hooks; onSuccess runs after each package's build:done work.
-    onSuccess: (options) => {
+    onSuccess: options => {
       if (initialized.has(options)) return
       initialized.add(options)
       readiness.initializedBuilds += 1
-      if (
-        readiness.expectedBuilds !== undefined
-        && readiness.initializedBuilds >= readiness.expectedBuilds
-      ) resolveInitialBuilds?.()
+      if (readiness.expectedBuilds !== undefined && readiness.initializedBuilds >= readiness.expectedBuilds) resolveInitialBuilds?.()
     },
-    ...pollInterval !== undefined
-      ? { inputOptions: { watch: { watcher: { usePolling: true, pollInterval } } } }
-      : {},
+    ...(pollInterval !== undefined ? { inputOptions: { watch: { watcher: { usePolling: true, pollInterval } } } } : {}),
   })
   readiness.expectedBuilds = bundles.length
   if (readiness.initializedBuilds >= readiness.expectedBuilds) resolveInitialBuilds?.()
@@ -249,7 +239,7 @@ export class StageSupervisor {
    */
   add(stage: StageHandle): void {
     this.live.add(stage)
-    void stage.exited.then((code) => {
+    void stage.exited.then(code => {
       this.live.delete(stage)
       if (!this.stopping) this.onStale(stage.name, code)
     })
@@ -276,7 +266,9 @@ export class StageSupervisor {
     let timer: NodeJS.Timeout | undefined
     await Promise.race([
       Promise.all([...this.live].map(stage => stage.exited)),
-      new Promise<void>((resolve) => { timer = setTimeout(resolve, graceMs) }),
+      new Promise<void>(resolve => {
+        timer = setTimeout(resolve, graceMs)
+      }),
     ])
     clearTimeout(timer)
   }
@@ -297,13 +289,7 @@ const STOP_GRACE_MS = 6_000
  * @param args - command arguments.
  * @param local - whether to resolve `command` from the workspace's installed bins.
  */
-function spawnStage(
-  supervisor: StageSupervisor,
-  name: string,
-  command: string,
-  args: readonly string[],
-  local: boolean,
-): void {
+function spawnStage(supervisor: StageSupervisor, name: string, command: string, args: readonly string[], local: boolean): void {
   const child = execa(command, [...args], {
     cwd: repoRoot,
     stdio: 'inherit',
@@ -313,7 +299,9 @@ function spawnStage(
   supervisor.add({
     name,
     exited: child.then(result => result.exitCode ?? null),
-    kill(signal) { child.kill(signal) },
+    kill(signal) {
+      child.kill(signal)
+    },
   })
 }
 
@@ -360,8 +348,12 @@ if (isMain) {
   // Persistent listeners, not `once`: the tsdown watchers bundle signal-exit,
   // which re-raises a signal whenever it finds no other listener left and would
   // terminate this process in the middle of the teardown below.
-  process.on('SIGINT', () => { requestShutdown(130, undefined) })
-  process.on('SIGTERM', () => { requestShutdown(0, 'SIGTERM') })
+  process.on('SIGINT', () => {
+    requestShutdown(130, undefined)
+  })
+  process.on('SIGTERM', () => {
+    requestShutdown(0, 'SIGTERM')
+  })
 
   const buildExit = options.skipBuild ? 0 : await runBuild()
   if (shutdownRequested()) process.exit(await shutdown.promise)
@@ -387,7 +379,9 @@ if (isMain) {
     process.exit(1)
   }
   if (libraryDirs.length === 0) {
-    console.error('dev-web: no client-preset library packages found under packages/ — the compile shell links their lib products, so an empty set means the discovery predicate is stale')
+    console.error(
+      'dev-web: no client-preset library packages found under packages/ — the compile shell links their lib products, so an empty set means the discovery predicate is stale',
+    )
     process.exit(1)
   }
 
@@ -396,12 +390,19 @@ if (isMain) {
   // natively watching on a network mount where inotify never fires: it stops
   // re-emitting lib/types, and the two later stages then rebuild forever from
   // stale input without printing anything.
-  spawnStage(supervisor, `tsc -b ${CLIENT_TYPE_PROGRAM} --watch`, 'tsc', [
-    '-b', CLIENT_TYPE_PROGRAM, '--watch', '--preserveWatchOutput',
-    ...options.pollInterval !== undefined
-      ? ['--watchFile', 'fixedPollingInterval', '--watchDirectory', 'fixedPollingInterval']
-      : [],
-  ], true)
+  spawnStage(
+    supervisor,
+    `tsc -b ${CLIENT_TYPE_PROGRAM} --watch`,
+    'tsc',
+    [
+      '-b',
+      CLIENT_TYPE_PROGRAM,
+      '--watch',
+      '--preserveWatchOutput',
+      ...(options.pollInterval !== undefined ? ['--watchFile', 'fixedPollingInterval', '--watchDirectory', 'fixedPollingInterval'] : []),
+    ],
+    true,
+  )
 
   // tsdown's initial builds are awaited before the dist watcher starts so vite's
   // first build reads current lib bundles rather than whatever the last full
@@ -418,18 +419,16 @@ if (isMain) {
     // The same launch vector as the root `dsh` script, so the served Host runs
     // from source exactly as `pnpm dsh web` would.
     if (options.serve) {
-      spawnStage(supervisor, 'dsh web', process.execPath, [
-        '--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web', ...options.appArgs,
-      ], false)
+      spawnStage(supervisor, 'dsh web', process.execPath, ['--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web', ...options.appArgs], false)
     }
     console.log(
-      `dev-web: watching ${String(pluginDirs.length)} dsh.client plugin packages`
-      + ` and ${String(libraryDirs.length)} statically linked library packages`
-      + (options.pollInterval !== undefined ? ` (polling ${String(options.pollInterval)}ms)` : '')
-      + `, plus tsc -b ${CLIENT_TYPE_PROGRAM} and the ${SHELL_PACKAGE} dist build`
-      + (options.serve ? ', serving through dsh web' : '')
-      + ':\n  '
-      + [...pluginDirs, ...libraryDirs].join('\n  '),
+      `dev-web: watching ${String(pluginDirs.length)} dsh.client plugin packages` +
+        ` and ${String(libraryDirs.length)} statically linked library packages` +
+        (options.pollInterval !== undefined ? ` (polling ${String(options.pollInterval)}ms)` : '') +
+        `, plus tsc -b ${CLIENT_TYPE_PROGRAM} and the ${SHELL_PACKAGE} dist build` +
+        (options.serve ? ', serving through dsh web' : '') +
+        ':\n  ' +
+        [...pluginDirs, ...libraryDirs].join('\n  '),
     )
   }
 

@@ -41,11 +41,7 @@ export interface BuildOutputImporter {
  * @param host - module resolution host of the program.
  * @returns loads in file-path order; empty when every workspace file comes from source.
  */
-export function findBuildOutputLoads(
-  program: ts.Program,
-  root: string,
-  host: ts.ModuleResolutionHost,
-): BuildOutputLoad[] {
+export function findBuildOutputLoads(program: ts.Program, root: string, host: ts.ModuleResolutionHost): BuildOutputLoad[] {
   const classifier = new BuildOutputClassifier(root)
   const outputs = new Map<string, BuildOutputImporter[]>()
   for (const sourceFile of program.getSourceFiles()) {

@@ -25,17 +25,29 @@ import type { BoundFunctions } from '@testing-library/dom'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { bindSnapshotSelector as bindRendererSnapshotSelector } from '@deepseek-ai/dsh-client-ui-renderer/src/client/bind.ts'
 import { createSlotRenderer as createRenderer } from '@deepseek-ai/dsh-client-ui-renderer/src/client/scoped-slots.tsx'
-import {
-  apply as applyUiSession, inject as uiSessionInject,
-} from '@deepseek-ai/dsh-client-ui-session/client'
+import { apply as applyUiSession, inject as uiSessionInject } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { PanelInfo } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {
-  ChildrenDecl, ComposedProps, HostObservable, OwnerOf, RenderOpts, SlotComponent, SlotMap, SlotRenderer,
-  ScopedStandardSourceBinding, SessionProviderComponent, SlotEntryDef, SlotFactoryMap, SlotRendererHost, SlotSpec,
-  SnapshotSelectorHook, StoredFactory, StoreInstanceLike,
+  ChildrenDecl,
+  ComposedProps,
+  HostObservable,
+  OwnerOf,
+  RenderOpts,
+  SlotComponent,
+  SlotMap,
+  SlotRenderer,
+  ScopedStandardSourceBinding,
+  SessionProviderComponent,
+  SlotEntryDef,
+  SlotFactoryMap,
+  SlotRendererHost,
+  SlotSpec,
+  SnapshotSelectorHook,
+  StoredFactory,
+  StoreInstanceLike,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import { registerDomSnapshotSerializer } from './snapshot.ts'
 import { TestRemote } from './remote.ts'
@@ -51,12 +63,8 @@ export { stubConfigForm } from './config-form.ts'
 export type { StubConfigForm } from './config-form.ts'
 export { TestWorkspaces } from './workspaces.ts'
 export { RemoteError, TestRemote } from './remote.ts'
-export {
-  chatSnapshot, conversationSnapshot, sessionSnapshot, workspaceSnapshot,
-} from './fixtures.ts'
-export type {
-  FixtureSnapshot, SessionBehaviorOverrides, SessionFixture, SessionFixtureSnapshot, Stabilizer,
-} from './fixtures.ts'
+export { chatSnapshot, conversationSnapshot, sessionSnapshot, workspaceSnapshot } from './fixtures.ts'
+export type { FixtureSnapshot, SessionBehaviorOverrides, SessionFixture, SessionFixtureSnapshot, Stabilizer } from './fixtures.ts'
 export { makeTranslate } from './translate.ts'
 export { allowAllAccess, allowAllAccessPlugin } from './access.ts'
 export type { AccessStandardProps } from './access.ts'
@@ -149,7 +157,9 @@ class OwnerPropsCell {
    */
   readonly subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn)
-    return () => { this.listeners.delete(fn) }
+    return () => {
+      this.listeners.delete(fn)
+    }
   }
 
   /**
@@ -183,7 +193,10 @@ export class TestRoot {
    * @param slots - the runtime SlotRegistry.
    * @param stabilize - the owning runtime's act wrapper.
    */
-  constructor(private readonly slots: SlotRegistry, private readonly stabilize: Stabilizer) {}
+  constructor(
+    private readonly slots: SlotRegistry,
+    private readonly stabilize: Stabilizer,
+  ) {}
 
   /**
    * Register the root frame, declaring (and thereby claiming) the child
@@ -235,8 +248,10 @@ export class SlotTestRuntime {
   /** Mutable file-upload stub; replace `upload` in suites that exercise the capability. */
   readonly fileUpload: TestFileUpload
 
-  private readonly stabilizer: Stabilizer = async (fn) => {
-    await act(async () => { await fn() })
+  private readonly stabilizer: Stabilizer = async fn => {
+    await act(async () => {
+      await fn()
+    })
   }
 
   private host: SlotRendererHost | undefined
@@ -364,17 +379,21 @@ export class SlotTestRuntime {
       // Keyed Fragments only: the renderer's outlet anchor is the one
       // `[data-slot]` element — the frame adding its own would nest
       // duplicate anchors under the same key.
-      return createElement(Fragment, null, cell.entries().map(([key, { owner, opts }]) => {
-        const body = props.renderSlot(key, owner, opts)
-        const spec = children[key as keyof typeof children] as SlotSpec<SlotEntryDef>
-        if (spec.scope === 'root') return createElement(Fragment, { key }, body)
-        return createElement(props.SessionProvider, {
-          key,
-          session: opts?.session,
-          children: body,
-          ...spec.scope === 'session-maybe' ? { empty: () => body } : {},
-        })
-      }))
+      return createElement(
+        Fragment,
+        null,
+        cell.entries().map(([key, { owner, opts }]) => {
+          const body = props.renderSlot(key, owner, opts)
+          const spec = children[key as keyof typeof children] as SlotSpec<SlotEntryDef>
+          if (spec.scope === 'root') return createElement(Fragment, { key }, body)
+          return createElement(props.SessionProvider, {
+            key,
+            session: opts?.session,
+            children: body,
+            ...(spec.scope === 'session-maybe' ? { empty: () => body } : {}),
+          })
+        }),
+      )
     }
     await this.root.declare(children as never, AutoFrame as never)
   }
@@ -390,11 +409,7 @@ export class SlotTestRuntime {
    * @param opts - explicit entry selection and borrowed Session reference; retained by view updates.
    * @returns the slot-local view (snapshot container, scoped queries, owner updates).
    */
-  renderSlot<K extends keyof SlotMap & string>(
-    key: K,
-    owner: OwnerOf<K>,
-    opts?: SlotTestRenderOptions,
-  ): SlotView<K> {
+  renderSlot<K extends keyof SlotMap & string>(key: K, owner: OwnerOf<K>, opts?: SlotTestRenderOptions): SlotView<K> {
     if (!this.autoDeclared.has(key)) {
       throw new Error(`renderSlot('${key}') without declare() — declare the key first (or use root.declare for a custom frame)`)
     }
@@ -432,9 +447,7 @@ export class SlotTestRuntime {
     if (entry === undefined) throw new Error(`storeOf('${key}'): no registration on the ledger`)
     const adapter = session === undefined ? undefined : this.host.scope('session')
     const resolved = session === undefined ? undefined : adapter?.bindingSource(session).getSnapshot()
-    const scopeBinding = resolved?.key === undefined
-      ? undefined
-      : resolved as ScopedStandardSourceBinding
+    const scopeBinding = resolved?.key === undefined ? undefined : (resolved as ScopedStandardSourceBinding)
     if (session !== undefined && scopeBinding === undefined) {
       throw new Error(`storeOf('${key}'): no live Session binding for '${session.sessionId}'`)
     }

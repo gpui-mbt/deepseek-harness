@@ -82,7 +82,13 @@ export interface MenuItemButtonProps {
  * @returns one menu-item row.
  */
 export function MenuItemButton({
-  children, shortcut, icon, disabled = false, danger = false, separatorBefore = false, onSelect,
+  children,
+  shortcut,
+  icon,
+  disabled = false,
+  danger = false,
+  separatorBefore = false,
+  onSelect,
 }: MenuItemButtonProps) {
   return (
     <div className={css.itemWrap}>
@@ -97,7 +103,11 @@ export function MenuItemButton({
       >
         {icon !== undefined && <span className={css.itemIcon}>{icon}</span>}
         <span className={css.itemLabel}>{children}</span>
-        {shortcut !== undefined && <span aria-hidden="true" className={css.shortcut}><ShortcutKeys keys={shortcut.keys} className={css.shortcutKeys} /></span>}
+        {shortcut !== undefined && (
+          <span aria-hidden="true" className={css.shortcut}>
+            <ShortcutKeys keys={shortcut.keys} className={css.shortcutKeys} />
+          </span>
+        )}
       </button>
     </div>
   )
@@ -165,7 +175,28 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * document.body outside the owner's DOM subtree.
  * @returns anchor wrapper with the conditional list.
  */
-export function Menu({ open, anchor, items = [], children, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, autoFocus = false, selection = 'check', getAnchorRect, footer, className, listClassName }: {
+export function Menu({
+  open,
+  anchor,
+  items = [],
+  children,
+  selectedId,
+  selectedIds,
+  onSelect,
+  onClose,
+  align = 'start',
+  side = 'bottom',
+  portal = false,
+  closeOnPointerLeave = false,
+  dense = false,
+  compact = false,
+  autoFocus = false,
+  selection = 'check',
+  getAnchorRect,
+  footer,
+  className,
+  listClassName,
+}: {
   open: boolean
   autoFocus?: boolean
   anchor: ReactNode
@@ -208,8 +239,10 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
    */
   const refocusAnchor = (navigation = false): void => {
     const trigger = triggerRef.current
-    const target = trigger !== null && document.contains(trigger) && !(trigger as HTMLButtonElement).disabled
-      ? trigger : rootRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')
+    const target =
+      trigger !== null && document.contains(trigger) && !(trigger as HTMLButtonElement).disabled
+        ? trigger
+        : rootRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')
     if (target == null) return
     if (navigation) target.focus()
     else focusWithoutRing(target)
@@ -242,7 +275,10 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   // runs before the parent's, so a wrapper the host positions in its own
   // effect measures stale here — the host callback owns the truth instead.
   useLayoutEffect(() => {
-    if (!open || !portal) { setFixedPos(null); return }
+    if (!open || !portal) {
+      setFixedPos(null)
+      return
+    }
     const place = () => {
       let r: DOMRect | null
       if (getAnchorRect !== undefined) {
@@ -275,7 +311,7 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       if (lw > 0) x = Math.min(Math.max(x, MARGIN), vw - lw - MARGIN)
       if (lh > 0) y = Math.min(Math.max(y, overlayTopMargin(MARGIN)), vh - lh - MARGIN)
 
-      setFixedPos(current => current?.left === x && current.top === y ? current : { left: x, top: y })
+      setFixedPos(current => (current?.left === x && current.top === y ? current : { left: x, top: y }))
     }
     // First run measures the hidden pre-render (same commit as `open`), so
     // end/top alignment and clamping use real dimensions before anything
@@ -367,8 +403,11 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
           if (focused instanceof Element && focused.getAttribute('role') === 'menuitem') {
             e.preventDefault()
             selectingWithTab.current = true
-            try { (focused as HTMLElement).click() }
-            finally { selectingWithTab.current = false }
+            try {
+              ;(focused as HTMLElement).click()
+            } finally {
+              selectingWithTab.current = false
+            }
           }
           return
         }
@@ -394,10 +433,16 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       if (buttons.length === 0) return
       const index = buttons.indexOf(focused as HTMLButtonElement)
       const from = index >= 0 ? index : walkIndex.current
-      const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1
-        : from === null
-          ? (e.key === 'ArrowDown' ? 0 : buttons.length - 1)
-          : (from + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+      const next =
+        e.key === 'Home'
+          ? 0
+          : e.key === 'End'
+            ? buttons.length - 1
+            : from === null
+              ? e.key === 'ArrowDown'
+                ? 0
+                : buttons.length - 1
+              : (from + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
       e.preventDefault()
       walkIndex.current = next
       buttons[next]?.focus()
@@ -410,8 +455,12 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       if (document.activeElement instanceof HTMLIFrameElement) onClose()
     }
     document.addEventListener('pointerdown', onPointerDown)
-    const onEscape = (event: KeyboardEvent): void => { if (event.key === 'Escape') onKeyDown(event) }
-    const onOtherKey = (event: KeyboardEvent): void => { if (event.key !== 'Escape') onKeyDown(event) }
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onKeyDown(event)
+    }
+    const onOtherKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') onKeyDown(event)
+    }
     document.addEventListener('keydown', onOtherKey)
     document.addEventListener('keydown', onEscape, true)
     window.addEventListener('blur', onWindowBlur)
@@ -441,7 +490,11 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       return <div key={entry.id} className={css.separator} role="separator" />
     }
     if (isLabel(entry)) {
-      return <div key={entry.id} className={css.label} role="presentation">{entry.text}</div>
+      return (
+        <div key={entry.id} className={css.label} role="presentation">
+          {entry.text}
+        </div>
+      )
     }
     const hasSub = entry.submenu !== undefined && entry.submenu.length > 0
     const subOpen = hasSub && openSubmenuId === entry.id
@@ -450,18 +503,36 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       <div
         key={entry.id}
         className={css.itemWrap}
-        onMouseEnter={hasSub ? () => { setOpenSubmenuId(entry.id) } : undefined}
-        onMouseLeave={() => { setOpenSubmenuId(null) }}
+        onMouseEnter={
+          hasSub
+            ? () => {
+                setOpenSubmenuId(entry.id)
+              }
+            : undefined
+        }
+        onMouseLeave={() => {
+          setOpenSubmenuId(null)
+        }}
       >
         <button
           type="button"
           role="menuitem"
-          className={clsx(css.item, selected && (selection === 'fill' ? css.selectedFill : css.selected), entry.danger === true && css.danger)}
+          className={clsx(
+            css.item,
+            selected && (selection === 'fill' ? css.selectedFill : css.selected),
+            entry.danger === true && css.danger,
+          )}
           disabled={entry.disabled}
           aria-keyshortcuts={entry.shortcut?.aria}
           aria-haspopup={hasSub ? 'menu' : undefined}
           aria-expanded={hasSub ? subOpen : undefined}
-          onFocus={hasSub ? () => { setOpenSubmenuId(entry.id) } : undefined}
+          onFocus={
+            hasSub
+              ? () => {
+                  setOpenSubmenuId(entry.id)
+                }
+              : undefined
+          }
           onClick={() => {
             if (hasSub) {
               setOpenSubmenuId(entry.id)
@@ -472,7 +543,11 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
         >
           {entry.icon !== undefined && <span className={css.itemIcon}>{entry.icon}</span>}
           <span className={css.itemLabel}>{entry.label}</span>
-          {entry.shortcut !== undefined && <span aria-hidden="true" className={css.shortcut}><ShortcutKeys keys={entry.shortcut.keys} className={css.shortcutKeys} /></span>}
+          {entry.shortcut !== undefined && (
+            <span aria-hidden="true" className={css.shortcut}>
+              <ShortcutKeys keys={entry.shortcut.keys} className={css.shortcutKeys} />
+            </span>
+          )}
           {/* Selection marker is a trailing check (figma .Menu_cell) unless the fill mode carries it. */}
           {selected && selection === 'check' && <IconCheckOutlineRegular className={css.check} />}
         </button>
@@ -486,11 +561,18 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
                 className={css.item}
                 disabled={sub.disabled}
                 aria-keyshortcuts={sub.shortcut?.aria}
-                onClick={() => { onSelect?.(sub.id); refocusAfterSelection() }}
+                onClick={() => {
+                  onSelect?.(sub.id)
+                  refocusAfterSelection()
+                }}
               >
                 {sub.icon !== undefined && <span className={css.itemIcon}>{sub.icon}</span>}
                 <span className={css.itemLabel}>{sub.label}</span>
-                {sub.shortcut !== undefined && <span aria-hidden="true" className={css.shortcut}><ShortcutKeys keys={sub.shortcut.keys} className={css.shortcutKeys} /></span>}
+                {sub.shortcut !== undefined && (
+                  <span aria-hidden="true" className={css.shortcut}>
+                    <ShortcutKeys keys={sub.shortcut.keys} className={css.shortcutKeys} />
+                  </span>
+                )}
               </button>
             ))}
           </MenuSurface>
@@ -515,10 +597,20 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   // already at the final position (with getAnchorRect returning null the
   // list simply stays hidden).
   const list = open && (
-    <MenuSurface compact={compact}
+    <MenuSurface
+      compact={compact}
       ref={listRef}
-      className={clsx(css.list, listClassName, dense && css.denseList, compact && css.compactList, scrollable && css.scrollable, portal && css.portal, side === 'top' && !portal && css.sideTop, align === 'end' && !portal && css.alignEnd)}
-      style={portal ? fixedPos ?? MEASURE_STYLE : undefined}
+      className={clsx(
+        css.list,
+        listClassName,
+        dense && css.denseList,
+        compact && css.compactList,
+        scrollable && css.scrollable,
+        portal && css.portal,
+        side === 'top' && !portal && css.sideTop,
+        align === 'end' && !portal && css.alignEnd,
+      )}
+      style={portal ? (fixedPos ?? MEASURE_STYLE) : undefined}
       role="menu"
       // React portals bubble synthetic events through the REACT tree: without
       // this stop, an item click re-fires the anchor row's own onClick
@@ -526,7 +618,7 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       // activation lands — data rows and component rows alike — so the
       // post-selection focus return is decided once here, after the row's
       // own handler ran; a submenu parent only opened its card.
-      onClick={(e) => {
+      onClick={e => {
         e.stopPropagation()
         const row = e.target instanceof Element ? e.target.closest('button[role="menuitem"]') : null
         if (row !== null && row.getAttribute('aria-haspopup') !== 'menu') refocusAfterSelection()
@@ -555,10 +647,16 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       ref={rootRef}
       className={clsx(css.root, className)}
       onPointerEnter={closeOnPointerLeave ? cancelClose : undefined}
-      onPointerLeave={closeOnPointerLeave ? () => { if (open) armClose() } : undefined}
+      onPointerLeave={
+        closeOnPointerLeave
+          ? () => {
+              if (open) armClose()
+            }
+          : undefined
+      }
     >
       {anchor}
-      {portal ? (list !== false && createPortal(list, document.body)) : list}
+      {portal ? list !== false && createPortal(list, document.body) : list}
     </span>
   )
 }

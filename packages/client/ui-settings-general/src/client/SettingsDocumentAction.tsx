@@ -18,8 +18,9 @@ export interface SettingsDocumentActionInjected {
 }
 
 /** Header-action owner share, localized copy, and the registrant's state face. */
-export type SettingsDocumentActionProps =
-  PropsRuntime<'settings.action'> & PropsLocale<'settings'> & InjectFace<SettingsDocumentActionInjected>
+export type SettingsDocumentActionProps = PropsRuntime<'settings.action'> &
+  PropsLocale<'settings'> &
+  InjectFace<SettingsDocumentActionInjected>
 
 /**
  * Render the open-document action only after Host metadata confirms document availability.
@@ -37,12 +38,18 @@ export function SettingsDocumentAction({ controller, useSnapshot, t }: SettingsD
 
   return (
     <div className={css.action}>
-      {state.error === null ? null : <span className={css.error} role="alert">{t('openDocument.error')}</span>}
+      {state.error === null ? null : (
+        <span className={css.error} role="alert">
+          {t('openDocument.error')}
+        </span>
+      )}
       <Button
         variant="outline"
         size="sm"
         disabled={state.opening}
-        onClick={() => { void controller.open() }}
+        onClick={() => {
+          void controller.open()
+        }}
       >
         {t('openDocument')}
       </Button>

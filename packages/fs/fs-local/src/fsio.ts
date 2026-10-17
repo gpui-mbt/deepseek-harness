@@ -182,7 +182,8 @@ export async function resolveLocalTarget(cwd: string, path: string): Promise<Loc
     try {
       const realAncestor = await realpath(ancestor)
       /* v8 ignore next -- POSIX rejects this traversal; Windows normalizes parent segments before filesystem lookup. */
-      if (missing.includes('..')) throw new FsError(`cannot resolve "${displayPath}": parent traversal crosses a missing directory`, 'FS_NOT_FOUND')
+      if (missing.includes('..'))
+        throw new FsError(`cannot resolve "${displayPath}": parent traversal crosses a missing directory`, 'FS_NOT_FOUND')
       // On Windows, realpath of a regular file succeeds where POSIX returns
       // ENOTDIR (the OS reports ENOENT for `regular-file/child`, not ENOTDIR).
       // Stat the ancestor to restore the semantic distinction: a non-directory
@@ -223,10 +224,7 @@ function pathLinkType(info: Stats | BigIntStats): PathLinkInfo['type'] {
   return pathType(info)
 }
 
-async function probeStats<T extends Stats | BigIntStats>(
-  absolutePath: string,
-  readStats: (path: string) => Promise<T>,
-): Promise<T | null> {
+async function probeStats<T extends Stats | BigIntStats>(absolutePath: string, readStats: (path: string) => Promise<T>): Promise<T | null> {
   try {
     return await readStats(absolutePath)
   } catch (error: unknown) {
@@ -279,7 +277,8 @@ function listingIoError(displayPath: string, error: unknown): FsError {
   /* v8 ignore next -- requires the listed target/parent to disappear between successful preflight and listing/child resolution. */
   if (isENOENT(error) || isENOTDIR(error)) return new FsError(`cannot list "${displayPath}": not found`, 'FS_NOT_FOUND', { cause: error })
   /* v8 ignore next -- Windows chmod does not deny directory listing; POSIX covers permission translation. */
-  if (isPermissionError(error)) return new FsError(`cannot list "${displayPath}": permission denied`, 'FS_PERMISSION_DENIED', { cause: error })
+  if (isPermissionError(error))
+    return new FsError(`cannot list "${displayPath}": permission denied`, 'FS_PERMISSION_DENIED', { cause: error })
   return new FsError(`cannot list "${displayPath}": ${errorMessage(error)}`, 'FS_IO_ERROR', { cause: error })
 }
 
@@ -353,12 +352,7 @@ function decodeUtf8(buffer: Uint8Array, verb: 'read' | 'edit', displayPath: stri
   }
 }
 
-function decodeUtf8Stream(
-  decoder: TextDecoder,
-  chunk: Uint8Array | undefined,
-  verb: 'read' | 'edit',
-  displayPath: string,
-): string {
+function decodeUtf8Stream(decoder: TextDecoder, chunk: Uint8Array | undefined, verb: 'read' | 'edit', displayPath: string): string {
   try {
     return chunk ? decoder.decode(chunk, { stream: true }) : decoder.decode()
   } catch (error: unknown) {
@@ -423,7 +417,7 @@ export async function readWholeBytes(
   await internals.inspectReadBytesAfterStat?.(target)
   const stream = createReadStream(target.targetKey, {
     end: maxBytes,
-    ...signal ? { signal } : {},
+    ...(signal ? { signal } : {}),
   })
   const chunks: Buffer[] = []
   let bytes = 0
@@ -463,7 +457,7 @@ export async function readByteWindow(
   const stream = createReadStream(target.targetKey, {
     start: range.offset,
     end: range.offset + range.length - 1,
-    ...signal ? { signal } : {},
+    ...(signal ? { signal } : {}),
   })
   const chunks: Buffer[] = []
   let bytes = 0
@@ -528,7 +522,11 @@ async function removeStagingDirOrThrow(
     await removeStagingDir(stagingDir)
   } catch (cleanupError: unknown) {
     /* v8 ignore next 1 -- cleanup failure here needs a second filesystem fault after the primary write failure. */
-    throw new FsError(`write failed (${errorMessage(originalError)}) and temp cleanup failed (${errorMessage(cleanupError)})`, 'FS_NOT_FOUND', { cause: originalError })
+    throw new FsError(
+      `write failed (${errorMessage(originalError)}) and temp cleanup failed (${errorMessage(cleanupError)})`,
+      'FS_NOT_FOUND',
+      { cause: originalError },
+    )
   }
   throw originalError
 }
@@ -554,18 +552,10 @@ async function throwGuardedCreateFailure(
     if (!existing.isFile()) {
       throw new FsError(`cannot write "${displayPath}": not a regular file`, 'FS_NOT_REGULAR_FILE', { cause: error })
     }
-    throw new FsError(
-      `cannot overwrite existing "${displayPath}" without reading it first`,
-      'FS_NOT_OBSERVED',
-      { cause: error },
-    )
+    throw new FsError(`cannot overwrite existing "${displayPath}" without reading it first`, 'FS_NOT_OBSERVED', { cause: error })
   }
   if (isEEXIST(error)) {
-    throw new FsError(
-      `cannot overwrite existing "${displayPath}" without reading it first`,
-      'FS_NOT_OBSERVED',
-      { cause: error },
-    )
+    throw new FsError(`cannot overwrite existing "${displayPath}" without reading it first`, 'FS_NOT_OBSERVED', { cause: error })
   }
   throw new FsError(`cannot write "${displayPath}": ${errorMessage(error)}`, 'FS_IO_ERROR', { cause: error })
 }
@@ -606,10 +596,8 @@ export async function writeFileAtomic(
   const copyFileDacl = internals.copyFileDacl ?? copyFileDaclWin32
   const replaceFile = internals.replaceFile ?? replaceFileWin32
   const linkFile = internals.linkFile ?? link
-  const inspectPublicationTarget = internals.inspectPublicationTarget
-    ?? (path => lstat(path, { bigint: true }))
-  const removeStagingDir = internals.removeStagingDir
-    ?? (path => rm(path, { recursive: true, force: true }))
+  const inspectPublicationTarget = internals.inspectPublicationTarget ?? (path => lstat(path, { bigint: true }))
+  const removeStagingDir = internals.removeStagingDir ?? (path => rm(path, { recursive: true, force: true }))
   let handle: Awaited<ReturnType<typeof open>> | undefined
   let stagingCreated = false
   try {
@@ -622,7 +610,7 @@ export async function writeFileAtomic(
     if (platform === 'win32' && mode !== undefined) {
       await copyFileDacl(absolutePath, tempPath)
     }
-    await handle.writeFile(content, { encoding: 'utf8', ...signal ? { signal } : {} })
+    await handle.writeFile(content, { encoding: 'utf8', ...(signal ? { signal } : {}) })
     await handle.sync()
     await internals.inspectTemp?.({ stagingDir, tempPath })
     if (mode !== undefined) await handle.chmod(mode)
@@ -661,7 +649,11 @@ export async function writeFileAtomic(
       try {
         await handle.close()
       } catch (closeError: unknown) {
-        failure = new FsError(`write failed (${errorMessage(failure)}) and temp close failed (${errorMessage(closeError)})`, 'FS_NOT_FOUND', { cause: failure })
+        failure = new FsError(
+          `write failed (${errorMessage(failure)}) and temp close failed (${errorMessage(closeError)})`,
+          'FS_NOT_FOUND',
+          { cause: failure },
+        )
       }
     }
     if (!stagingCreated) throw failure
@@ -747,11 +739,7 @@ export async function readForEdit(
  * @returns the LF-normalized text, or null for a non-regular, at/above-limit, binary, non-UTF-8,
  * descriptor-size-changed, or unreadable file.
  */
-export async function readTextForDiff(
-  absolutePath: string,
-  maxBytes: number,
-  signal?: AbortSignal,
-): Promise<string | null> {
+export async function readTextForDiff(absolutePath: string, maxBytes: number, signal?: AbortSignal): Promise<string | null> {
   throwIfAborted(signal, 'read')
   try {
     const handle = await open(absolutePath, 'r')
@@ -828,7 +816,10 @@ export function applyLiteralEdit(
     throw new FsError(`old_string was not found in "${displayPath}"`, 'FS_EDIT_NOT_FOUND')
   }
   if (!replaceAll && replacements > 1) {
-    throw new FsError(`old_string matched ${replacements} times in "${displayPath}"; provide a more specific old_string or set replace_all to true`, 'FS_AMBIGUOUS_EDIT')
+    throw new FsError(
+      `old_string matched ${replacements} times in "${displayPath}"; provide a more specific old_string or set replace_all to true`,
+      'FS_AMBIGUOUS_EDIT',
+    )
   }
   return { content: content.split(oldNorm).join(newNorm), replacements }
 }

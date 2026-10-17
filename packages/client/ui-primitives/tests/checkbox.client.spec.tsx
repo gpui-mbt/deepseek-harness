@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The shared checkbox keeps native label activation and controlled state. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Checkbox } from '../src/Checkbox.tsx'
 
 afterEach(cleanup)

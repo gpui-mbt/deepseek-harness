@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { packageFiles, packageStylesheets, parseRules, type CssRule } from './stylesheet-scan.ts'
 
 /** The one stylesheet allowed to declare a darwin window drag region, relative to packages/. */
@@ -128,8 +128,7 @@ const CHROME_ROWS: readonly ChromeRow[] = [
  * @returns true when the rule declares a drag region.
  */
 function declaresDrag(rule: CssRule): boolean {
-  return rule.declarations
-    .some(([property, value]) => /^(-webkit-)?app-region$/.test(property) && /^drag(\s|!|$)/.test(value))
+  return rule.declarations.some(([property, value]) => /^(-webkit-)?app-region$/.test(property) && /^drag(\s|!|$)/.test(value))
 }
 
 /**
@@ -149,7 +148,7 @@ function dragSelectors(css: string): string[] {
  */
 function dragOwners(): { file: string; selectors: string[] }[] {
   return packageStylesheets()
-    .flatMap((file) => {
+    .flatMap(file => {
       const selectors = dragSelectors(readFileSync(file, 'utf8'))
       return selectors.length === 0 ? [] : [{ file: underPackages(file), selectors }]
     })
@@ -252,19 +251,18 @@ describe('window drag-region ownership', () => {
   it('declares every pinned chrome row at the height the manifest pins', () => {
     for (const row of CHROME_ROWS) {
       if (row.height === undefined) continue
-      expect(declaredValue(row.file, row.selector, row.height[0]), `${row.selector} ${row.height[0]}`)
-        .toBe(row.height[1])
+      expect(declaredValue(row.file, row.selector, row.height[0]), `${row.selector} ${row.height[0]}`).toBe(row.height[1])
       if (row.inset !== undefined) {
-        expect(declaredValue(row.file, row.selector, row.inset[0]), `${row.selector} ${row.inset[0]}`)
-          .toBe(row.inset[1])
+        expect(declaredValue(row.file, row.selector, row.inset[0]), `${row.selector} ${row.inset[0]}`).toBe(row.inset[1])
       }
     }
   })
 
   it('marks its own window drag in every chrome row’s markup', () => {
     for (const row of CHROME_ROWS) {
-      const marked = openingTags(readFileSync(join(PACKAGES_DIR, row.markup), 'utf8'))
-        .filter(tag => DRAG_MARK_PATTERN.test(tag) && referencesRow(tag, row))
+      const marked = openingTags(readFileSync(join(PACKAGES_DIR, row.markup), 'utf8')).filter(
+        tag => DRAG_MARK_PATTERN.test(tag) && referencesRow(tag, row),
+      )
       expect(marked, `${row.markup} ${row.selector}`).toHaveLength(1)
     }
   })

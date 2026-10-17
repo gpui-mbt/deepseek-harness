@@ -21,18 +21,30 @@ function NoConversationWidthControls() {
  */
 export function ConversationContent(props: ConversationContentProps) {
   const {
-    sessionId, phase, hero, useSession, useSessions, useSessionStatus,
-    useWorkspaces, useInput, useComposerBlock, renderSlot, renderSlotChain,
-    selectWorkspace, t, useFactorySlot,
+    sessionId,
+    phase,
+    hero,
+    useSession,
+    useSessions,
+    useSessionStatus,
+    useWorkspaces,
+    useInput,
+    useComposerBlock,
+    renderSlot,
+    renderSlotChain,
+    selectWorkspace,
+    t,
+    useFactorySlot,
   } = props
   const session = useSession(snapshot => snapshot)
   const Views = useFactorySlot('views', ConversationSessionView)
   const WidthControls = useFactorySlot('widthControls', NoConversationWidthControls)
   const [body, setBody] = useState<HTMLDivElement | null>(null)
   const pendingInteraction = useSessionStatus(snapshot =>
-    sessionId === undefined ? undefined : snapshot.get(sessionId)?.pendingInteraction)
+    sessionId === undefined ? undefined : snapshot.get(sessionId)?.pendingInteraction,
+  )
   const inputState = useInput(s => s)
-  const cwd = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.cwd)
+  const cwd = useSessions(s => (sessionId === undefined ? undefined : s.byId[sessionId]?.cwd))
   const workspaces = useWorkspaces(s => s)
   // A plugin this package cannot import (ui-model-selection) says this session cannot
   // send; its reason is already localized by whoever raised it.
@@ -57,34 +69,26 @@ export function ConversationContent(props: ConversationContentProps) {
     if (seat === null || scroller === null) return
     seatObserver.current = new ResizeObserver(() => {
       scroller.style.setProperty('--dsh-composer-height', `${seat.offsetHeight}px`)
-      scroller.style.setProperty(
-        '--dsh-conversation-viewport-height',
-        `${scroller.clientHeight}px`,
-      )
+      scroller.style.setProperty('--dsh-conversation-viewport-height', `${scroller.clientHeight}px`)
     })
     seatObserver.current.observe(seat)
     seatObserver.current.observe(scroller)
   }, [])
 
-  const sessionWorkspace = sessionId === undefined
-    ? undefined
-    : workspaces.items.find(workspace => workspace.sessionIds.includes(sessionId))
-  const pendingWorkspace = workspaces.items.find(
-    workspace => workspace.workspaceId === pendingWorkspaceId,
-  )
+  const sessionWorkspace =
+    sessionId === undefined ? undefined : workspaces.items.find(workspace => workspace.sessionIds.includes(sessionId))
+  const pendingWorkspace = workspaces.items.find(workspace => workspace.workspaceId === pendingWorkspaceId)
 
   // Clear the pending pick once the session lands in it, or when the picked
   // workspace disappears from a ready list (deleted from the sidebar).
   useEffect(() => {
     if (pendingWorkspaceId === undefined) return
-    if (sessionWorkspace?.workspaceId === pendingWorkspaceId
-      || (workspaces.phase === 'ready' && pendingWorkspace === undefined)) {
+    if (sessionWorkspace?.workspaceId === pendingWorkspaceId || (workspaces.phase === 'ready' && pendingWorkspace === undefined)) {
       setPendingWorkspaceId(undefined)
     }
   }, [pendingWorkspaceId, sessionWorkspace?.workspaceId, workspaces.phase, pendingWorkspace])
 
-  const zone: InputZone | undefined =
-    session === undefined || inputState === undefined ? undefined : { session, input: inputState }
+  const zone: InputZone | undefined = session === undefined || inputState === undefined ? undefined : { session, input: inputState }
 
   // The chip is a selector; label resolution walks the flow top-down:
   //   1. a just-picked workspace (pending) → its title;
@@ -96,16 +100,12 @@ export function ConversationContent(props: ConversationContentProps) {
   //      placeholder, never the deleted folder's name via cwd.
   // A title still automatic reads in the reader's language, matching the
   // sidebar row the same Workspace has there.
-  const storedChipTitle = pendingWorkspace?.title
-    ?? (sessionId === undefined
+  const storedChipTitle =
+    pendingWorkspace?.title ??
+    (sessionId === undefined
       ? undefined
-      : sessionWorkspace?.title
-        ?? (workspaces.phase === 'ready' || cwd === undefined || cwd === ''
-          ? undefined
-          : workspaceLabel(cwd)))
-  const chipTitle = storedChipTitle === undefined
-    ? undefined
-    : workspaceDisplayTitle(storedChipTitle, t('workspace.defaultName'))
+      : (sessionWorkspace?.title ?? (workspaces.phase === 'ready' || cwd === undefined || cwd === '' ? undefined : workspaceLabel(cwd))))
+  const chipTitle = storedChipTitle === undefined ? undefined : workspaceDisplayTitle(storedChipTitle, t('workspace.defaultName'))
 
   const heroWorkspaceRow = (
     <div className={css.heroWorkspaceRow}>
@@ -113,21 +113,25 @@ export function ConversationContent(props: ConversationContentProps) {
         buttonRef={pickerAnchor}
         label={chipTitle}
         menuOpen={pickerOpen}
-        onClick={() => { setPickerOpen(open => !open) }}
+        onClick={() => {
+          setPickerOpen(open => !open)
+        }}
         t={t}
       />
       {renderSlot('conversation.hero.workspace', {
         open: pickerOpen,
         anchorRef: pickerAnchor,
         selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
-        onPick: (workspaceId) => {
+        onPick: workspaceId => {
           setPickerOpen(false)
           setPendingWorkspaceId(workspaceId)
           void selectWorkspace(workspaceId).catch(() => {
-            setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
+            setPendingWorkspaceId(current => (current === workspaceId ? undefined : current))
           })
         },
-        onClose: () => { setPickerOpen(false) },
+        onClose: () => {
+          setPickerOpen(false)
+        },
       })}
       {renderSlot('conversation.hero.agentPreset', {})}
       {sessionId === undefined ? null : <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div>}
@@ -148,17 +152,21 @@ export function ConversationContent(props: ConversationContentProps) {
     variant: hero ? 'hero' : 'composer',
     ...(inert
       ? {
-        disabled: true,
-        placeholder: t('placeholder.workspace'),
-        workspacePickerOpen: pickerOpen,
-        onRequestWorkspace: () => { setPickerOpen(true) },
-      }
+          disabled: true,
+          placeholder: t('placeholder.workspace'),
+          workspacePickerOpen: pickerOpen,
+          onRequestWorkspace: () => {
+            setPickerOpen(true)
+          },
+        }
       : blocked
-        // `blocked`, not `disabled`: the bar refuses input either way, but a
-        // block keeps the model seat live because choosing a model is how the
-        // user clears it.
-        ? { blocked: composerBlock, placeholder: composerBlock.reason }
-        : hero ? { placeholder: t('placeholder.hero') } : {}),
+        ? // `blocked`, not `disabled`: the bar refuses input either way, but a
+          // block keeps the model seat live because choosing a model is how the
+          // user clears it.
+          { blocked: composerBlock, placeholder: composerBlock.reason }
+        : hero
+          ? { placeholder: t('placeholder.hero') }
+          : {}),
   })
 
   const composerBar = (

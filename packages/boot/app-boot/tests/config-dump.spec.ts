@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vite-plus/test'
 import * as yaml from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { loadOverlayPatches, renderConfigDump } from '../src/index.ts'
@@ -31,16 +31,19 @@ const tmp = (): string => {
 
 function writeBase(dir: string): string {
   const base = join(dir, 'base.yml')
-  writeFileSync(base, [
-    '- id: shared',
-    '  name: ./noop.mjs',
-    '  config:',
-    '    value: base',
-    '    key: !!js process.env.DSH_DUMP_SPEC',
-    '- id: untouched',
-    '  name: ./noop.mjs',
-    '',
-  ].join('\n'))
+  writeFileSync(
+    base,
+    [
+      '- id: shared',
+      '  name: ./noop.mjs',
+      '  config:',
+      '    value: base',
+      '    key: !!js process.env.DSH_DUMP_SPEC',
+      '- id: untouched',
+      '  name: ./noop.mjs',
+      '',
+    ].join('\n'),
+  )
   return base
 }
 
@@ -49,28 +52,31 @@ describe('renderConfigDump', () => {
     const dir = tmp()
     const base = writeBase(dir)
     const surface = join(dir, 'surface.yml')
-    writeFileSync(surface, [
-      '- id: shared',
-      '  config:',
-      '    value: surface',
-      '    key: !!js process.env.DSH_DUMP_SPEC',
-      '- insert:',
-      '    - id: surface-extra',
-      '      name: ./noop.mjs',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      surface,
+      [
+        '- id: shared',
+        '  config:',
+        '    value: surface',
+        '    key: !!js process.env.DSH_DUMP_SPEC',
+        '- insert:',
+        '    - id: surface-extra',
+        '      name: ./noop.mjs',
+        '',
+      ].join('\n'),
+    )
     const user = join(dir, 'user.yml')
-    writeFileSync(user, [
-      '- id: surface-extra',
-      '  config:',
-      '    value: user',
-      '',
-    ].join('\n'))
+    writeFileSync(user, ['- id: surface-extra', '  config:', '    value: user', ''].join('\n'))
 
-    const dump = renderConfigDump(NAME, base, [
-      { label: 'surface.yml', patches: loadOverlayPatches(NAME, surface) },
-      { label: 'user.yml', patches: loadOverlayPatches(NAME, user) },
-    ], () => {})
+    const dump = renderConfigDump(
+      NAME,
+      base,
+      [
+        { label: 'surface.yml', patches: loadOverlayPatches(NAME, surface) },
+        { label: 'user.yml', patches: loadOverlayPatches(NAME, user) },
+      ],
+      () => {},
+    )
     // Comments do not break loadability: the dump parses as one document
     // equal to what boot() would mount.
     const parsed = yaml.load(dump, { schema: entryListSchema }) as {
@@ -103,13 +109,7 @@ describe('renderConfigDump', () => {
   it('groups contiguous rows with the same origin and patches under one separator', () => {
     const dir = tmp()
     const base = join(dir, 'base.yml')
-    writeFileSync(base, [
-      '- id: a',
-      '  name: ./noop.mjs',
-      '- id: b',
-      '  name: ./noop.mjs',
-      '',
-    ].join('\n'))
+    writeFileSync(base, ['- id: a', '  name: ./noop.mjs', '- id: b', '  name: ./noop.mjs', ''].join('\n'))
     const dump = renderConfigDump(NAME, base, [], () => {})
     expect(dump.match(/# == base\.yml/g)).toHaveLength(1)
     expect(dump).toContain('# == base.yml\n- id: a')
@@ -124,21 +124,20 @@ describe('renderConfigDump', () => {
     // is skipped (with the layer-labeled warning), matching boot.
     const dir = tmp()
     const base = join(dir, 'base.yml')
-    writeFileSync(base, [
-      '- id: g',
-      '  name: ./group.mjs',
-      '  group: true',
-      '  config: []',
-      '',
-    ].join('\n'))
+    writeFileSync(base, ['- id: g', '  name: ./group.mjs', '  group: true', '  config: []', ''].join('\n'))
     const warnings: string[] = []
-    const dump = renderConfigDump(NAME, base, [
-      {
-        label: 'a.yml',
-        patches: [{ id: 'g', config: [{ id: 'child', name: './noop.mjs', config: { v: 1 } }] }],
-      },
-      { label: 'b.yml', patches: [{ id: 'child', config: { v: 2 } }] },
-    ], line => void warnings.push(line))
+    const dump = renderConfigDump(
+      NAME,
+      base,
+      [
+        {
+          label: 'a.yml',
+          patches: [{ id: 'g', config: [{ id: 'child', name: './noop.mjs', config: { v: 1 } }] }],
+        },
+        { label: 'b.yml', patches: [{ id: 'child', config: { v: 2 } }] },
+      ],
+      line => void warnings.push(line),
+    )
     expect(warnings).toEqual([`${NAME}: [b.yml] patch: entry "child" not found`])
     const parsed = yaml.load(dump, { schema: entryListSchema }) as {
       config?: { config?: { v?: number } }[]
@@ -153,18 +152,16 @@ describe('renderConfigDump', () => {
     const dir = tmp()
     const base = writeBase(dir)
     const overlay = join(dir, 'overlay.yml')
-    writeFileSync(overlay, [
-      '- id: only-on-another-surface',
-      '  config:',
-      '    value: ignored',
-      '- id: shared',
-      '  config:',
-      '    value: patched',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      overlay,
+      ['- id: only-on-another-surface', '  config:', '    value: ignored', '- id: shared', '  config:', '    value: patched', ''].join(
+        '\n',
+      ),
+    )
     const warnings: string[] = []
     const dump = renderConfigDump(
-      NAME, base,
+      NAME,
+      base,
       [{ label: 'overlay.yml', patches: loadOverlayPatches(NAME, overlay) }],
       line => void warnings.push(line),
     )
@@ -187,15 +184,12 @@ describe('renderConfigDump', () => {
 
   it('fails loud on a missing, unparsable, or non-array base config', () => {
     const dir = tmp()
-    expect(() => renderConfigDump(NAME, join(dir, 'absent.yml'), [], () => {}))
-      .toThrow(new RegExp(`^${NAME}: failed to read config `))
+    expect(() => renderConfigDump(NAME, join(dir, 'absent.yml'), [], () => {})).toThrow(new RegExp(`^${NAME}: failed to read config `))
     const invalid = join(dir, 'invalid.yml')
     writeFileSync(invalid, 'invalid: [unclosed\n')
-    expect(() => renderConfigDump(NAME, invalid, [], () => {}))
-      .toThrow(new RegExp(`^${NAME}: failed to parse config `))
+    expect(() => renderConfigDump(NAME, invalid, [], () => {})).toThrow(new RegExp(`^${NAME}: failed to parse config `))
     const scalar = join(dir, 'scalar.yml')
     writeFileSync(scalar, 'id: not-a-list\n')
-    expect(() => renderConfigDump(NAME, scalar, [], () => {}))
-      .toThrow('must be a top-level YAML array of entries')
+    expect(() => renderConfigDump(NAME, scalar, [], () => {})).toThrow('must be a top-level YAML array of entries')
   })
 })

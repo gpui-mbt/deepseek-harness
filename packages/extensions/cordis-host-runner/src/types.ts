@@ -71,10 +71,10 @@ export interface CordisInspectQueryRequest {
 export type CordisInspectQueryResolution =
   | { ok: true; data: JsonValue }
   | {
-    ok: false
-    reason: 'provider-missing' | 'method-missing' | 'invalid-input' | 'provider-error' | 'cancelled'
-    message: string
-  }
+      ok: false
+      reason: 'provider-missing' | 'method-missing' | 'invalid-input' | 'provider-error' | 'cancelled'
+      message: string
+    }
 
 /** Notification that a Client inspect request can no longer be answered. */
 export interface CordisInspectQueryResolved {
@@ -251,9 +251,7 @@ export interface DynamicCordisInventoryRow {
 }
 
 /** Answer to removing a plugin and all of its package versions. */
-export type DynamicCordisUndefineReceipt =
-  | { ok: true; wasRunning: boolean }
-  | { ok: false; reason: 'plugin-missing'; message: string }
+export type DynamicCordisUndefineReceipt = { ok: true; wasRunning: boolean } | { ok: false; reason: 'plugin-missing'; message: string }
 
 /** One render failure observed after a Client half loaded. */
 export interface DynamicCordisRenderFailure {
@@ -270,56 +268,54 @@ export interface DynamicCordisRenderFailure {
 /** Result shared by model-driven and panel-driven activation. */
 export type DynamicCordisRunResponse =
   | {
-    ok: true
-    /** Whether activation completed synchronously, is starting in a Client, or awaits user approval. */
-    status: 'awaiting-approval' | 'starting' | 'running'
-    pluginId: CordisDynamicPluginId
-    packageId: CordisDynamicPackageId
-    pluginRunId: CordisDynamicPluginRunId
-    /** Missing Host services; a parked Fiber is a successful activation. */
-    waitingFor: readonly string[]
-    /** Missing Client services reported by the approving page. */
-    clientWaitingFor?: readonly string[]
-    /** Last fully successful Package. */
-    currentPackageId?: CordisDynamicPackageId
-    /** Selected transition target. */
-    nextPackageId?: CordisDynamicPackageId
-    /** Explicit lifecycle intent. */
-    mode: CordisDynamicRunMode
-  }
+      ok: true
+      /** Whether activation completed synchronously, is starting in a Client, or awaits user approval. */
+      status: 'awaiting-approval' | 'starting' | 'running'
+      pluginId: CordisDynamicPluginId
+      packageId: CordisDynamicPackageId
+      pluginRunId: CordisDynamicPluginRunId
+      /** Missing Host services; a parked Fiber is a successful activation. */
+      waitingFor: readonly string[]
+      /** Missing Client services reported by the approving page. */
+      clientWaitingFor?: readonly string[]
+      /** Last fully successful Package. */
+      currentPackageId?: CordisDynamicPackageId
+      /** Selected transition target. */
+      nextPackageId?: CordisDynamicPackageId
+      /** Explicit lifecycle intent. */
+      mode: CordisDynamicRunMode
+    }
   | {
-    ok: false
-    reason:
-      | 'plugin-missing'
-      | 'package-missing'
-      | 'invalid-mode'
-      | 'transition-in-flight'
-      | 'host-half-failed'
-      | 'client-half-failed'
-      | 'rejected'
-      | 'cancelled'
-      | 'not-running'
-    message: string
-    /** Original failure stack when available. */
-    stack?: string
-  }
+      ok: false
+      reason:
+        | 'plugin-missing'
+        | 'package-missing'
+        | 'invalid-mode'
+        | 'transition-in-flight'
+        | 'host-half-failed'
+        | 'client-half-failed'
+        | 'rejected'
+        | 'cancelled'
+        | 'not-running'
+      message: string
+      /** Original failure stack when available. */
+      stack?: string
+    }
 
 /** Result of stopping a Plugin without deleting its Packages. */
-export type DynamicCordisStopResponse =
-  | { ok: true }
-  | { ok: false; reason: 'plugin-missing' | 'not-running'; message: string }
+export type DynamicCordisStopResponse = { ok: true } | { ok: false; reason: 'plugin-missing' | 'not-running'; message: string }
 
 /** Result of bringing up the Host half before loading the Client half. */
 export type DynamicCordisHostHalfResult =
   | {
-    ok: true
-    pluginId: CordisDynamicPluginId
-    packageId: CordisDynamicPackageId
-    pluginRunId: CordisDynamicPluginRunId
-    waitingFor: readonly string[]
-    /** False when a panel merely attaches this page to an already active run. */
-    startedHere: boolean
-  }
+      ok: true
+      pluginId: CordisDynamicPluginId
+      packageId: CordisDynamicPackageId
+      pluginRunId: CordisDynamicPluginRunId
+      waitingFor: readonly string[]
+      /** False when a panel merely attaches this page to an already active run. */
+      startedHere: boolean
+    }
   | ({ ok: false } & CordisErrorDetails)
 
 /** Client-half source for one exact activation. */
@@ -340,15 +336,15 @@ export interface DynamicCordisClientSource {
 export type DynamicCordisRunResolution =
   | { ok: true; pluginRunId: CordisDynamicPluginRunId; waitingFor?: readonly string[] }
   | {
-    ok: false
-    reason: 'rejected' | 'host-half-failed' | 'client-half-failed'
-    /** Activation that failed; absent for a refusal before activation. */
-    pluginRunId?: CordisDynamicPluginRunId
-    /** Whether this page created the failed activation instead of attaching to it. */
-    startedHere?: boolean
-    message?: string
-    stack?: string
-  }
+      ok: false
+      reason: 'rejected' | 'host-half-failed' | 'client-half-failed'
+      /** Activation that failed; absent for a refusal before activation. */
+      pluginRunId?: CordisDynamicPluginRunId
+      /** Whether this page created the failed activation instead of attaching to it. */
+      startedHere?: boolean
+      message?: string
+      stack?: string
+    }
 
 /** Whether a Client activation resolution reached the still-pending request. */
 export interface DynamicCordisResolveAck {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
@@ -14,16 +14,28 @@ const contexts: Context[] = []
 // The policy only requires the service's presence; it flushes through
 // `ctx.sessions`, so no handle is ever opened in these tests.
 class TestPersistence extends SessionPersistence {
-  create(): Promise<SessionHandle> { return Promise.reject(new Error('not used')) }
-  open(): Promise<SessionHandle> { return Promise.reject(new Error('not used')) }
-  flush(): Promise<void> { return Promise.resolve() }
-  stat(): Promise<SessionPersistenceSnapshot | undefined> { return Promise.resolve(undefined) }
-  list(): Promise<readonly SessionPersistenceSnapshot[]> { return Promise.resolve([]) }
+  create(): Promise<SessionHandle> {
+    return Promise.reject(new Error('not used'))
+  }
+  open(): Promise<SessionHandle> {
+    return Promise.reject(new Error('not used'))
+  }
+  flush(): Promise<void> {
+    return Promise.resolve()
+  }
+  stat(): Promise<SessionPersistenceSnapshot | undefined> {
+    return Promise.resolve(undefined)
+  }
+  list(): Promise<readonly SessionPersistenceSnapshot[]> {
+    return Promise.resolve([])
+  }
 }
 
 class RecordingAdapter extends LlmAdapter {
-  constructor(private readonly order: string[]) { super() }
-  async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+  constructor(private readonly order: string[]) {
+    super()
+  }
+  async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.order.push('adapter')
     yield { type: 'finish', reason: { kind: 'stop' } }
   }
@@ -42,7 +54,9 @@ async function setup(): Promise<Context> {
 }
 
 async function drain(stream: AsyncIterable<StreamChunk>): Promise<void> {
-  for await (const _chunk of stream) { /* drain */ }
+  for await (const _chunk of stream) {
+    /* drain */
+  }
 }
 
 afterEach(async () => {
@@ -63,9 +77,14 @@ describe('session-checkpoint-policy request boundary', () => {
     })
     ctx.llm.registerAdapter(['mock'], new RecordingAdapter(order))
 
-    const pending = drain(ctx.llm.stream({
-      provider: 'mock', model: 'mock', messages: [], sessionId: session.id,
-    }))
+    const pending = drain(
+      ctx.llm.stream({
+        provider: 'mock',
+        model: 'mock',
+        messages: [],
+        sessionId: session.id,
+      }),
+    )
     await Promise.resolve()
     expect(order).toEqual(['flush:start'])
     gate.resolve(undefined)
@@ -76,7 +95,9 @@ describe('session-checkpoint-policy request boundary', () => {
   it('delegates a request without a live session without checkpointing', async () => {
     const ctx = await setup()
     const order: string[] = []
-    ctx.on('session/flush', () => { order.push('flush') })
+    ctx.on('session/flush', () => {
+      order.push('flush')
+    })
     ctx.llm.registerAdapter(['mock'], new RecordingAdapter(order))
     await drain(ctx.llm.stream({ provider: 'mock', model: 'mock', messages: [] }))
     expect(order).toEqual(['adapter'])
@@ -85,11 +106,18 @@ describe('session-checkpoint-policy request boundary', () => {
   it('delegates an already-detached session id without checkpointing', async () => {
     const ctx = await setup()
     const order: string[] = []
-    ctx.on('session/flush', () => { order.push('flush') })
+    ctx.on('session/flush', () => {
+      order.push('flush')
+    })
     ctx.llm.registerAdapter(['mock'], new RecordingAdapter(order))
-    await drain(ctx.llm.stream({
-      provider: 'mock', model: 'mock', messages: [], sessionId: SessionId('detached'),
-    }))
+    await drain(
+      ctx.llm.stream({
+        provider: 'mock',
+        model: 'mock',
+        messages: [],
+        sessionId: SessionId('detached'),
+      }),
+    )
     expect(order).toEqual(['adapter'])
   })
 
@@ -99,9 +127,16 @@ describe('session-checkpoint-policy request boundary', () => {
     const order: string[] = []
     ctx.on('session/flush', () => Promise.reject(new Error('disk unavailable')))
     ctx.llm.registerAdapter(['mock'], new RecordingAdapter(order))
-    await expect(drain(ctx.llm.stream({
-      provider: 'mock', model: 'mock', messages: [], sessionId: session.id,
-    }))).rejects.toThrow('disk unavailable')
+    await expect(
+      drain(
+        ctx.llm.stream({
+          provider: 'mock',
+          model: 'mock',
+          messages: [],
+          sessionId: session.id,
+        }),
+      ),
+    ).rejects.toThrow('disk unavailable')
     expect(order).toEqual([])
   })
 })
@@ -119,13 +154,21 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
       order.push('flush:end')
     })
     ctx.tools.register({
-      name: 'write', description: 'side effect', parameters: {},
+      name: 'write',
+      description: 'side effect',
+      parameters: {},
       output: { schema: { type: 'null' }, render: () => [] },
-      execute: async () => { order.push('tool'); return null },
+      execute: async () => {
+        order.push('tool')
+        return null
+      },
     })
 
     const pending = ctx.tools.execute({
-      callId: ToolCallId('write-1'), name: 'write', arguments: {}, agent,
+      callId: ToolCallId('write-1'),
+      name: 'write',
+      arguments: {},
+      agent,
       signal: new AbortController().signal,
     })
     await Promise.resolve()
@@ -148,13 +191,21 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
       order.push('flush:end')
     })
     ctx.tools.register({
-      name: 'write', description: 'side effect', parameters: {},
+      name: 'write',
+      description: 'side effect',
+      parameters: {},
       output: { schema: { type: 'null' }, render: () => [] },
-      execute: async () => { order.push('tool'); return null },
+      execute: async () => {
+        order.push('tool')
+        return null
+      },
     })
 
     const pending = ctx.tools.execute({
-      callId: ToolCallId('write-cancelled'), name: 'write', arguments: {}, agent,
+      callId: ToolCallId('write-cancelled'),
+      name: 'write',
+      arguments: {},
+      agent,
       signal: controller.signal,
     })
     await Promise.resolve()
@@ -180,12 +231,20 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
     let ran = false
     ctx.on('session/flush', () => Promise.reject(new Error('disk unavailable')))
     ctx.tools.register({
-      name: 'write', description: 'side effect', parameters: {},
+      name: 'write',
+      description: 'side effect',
+      parameters: {},
       output: { schema: { type: 'null' }, render: () => [] },
-      execute: async () => { ran = true; return null },
+      execute: async () => {
+        ran = true
+        return null
+      },
     })
     const result = await ctx.tools.execute({
-      callId: ToolCallId('write-2'), name: 'write', arguments: {}, agent,
+      callId: ToolCallId('write-2'),
+      name: 'write',
+      arguments: {},
+      agent,
       signal: new AbortController().signal,
     })
     expect(result.isError).toBe(true)
@@ -198,14 +257,21 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
     const session = ctx.sessions.create(SessionId('nested-tool'))
     const agent = { session } as Agent
     let flushes = 0
-    ctx.on('session/flush', () => { flushes += 1 })
+    ctx.on('session/flush', () => {
+      flushes += 1
+    })
     ctx.tools.register({
-      name: 'nested', description: 'nested', parameters: {},
+      name: 'nested',
+      description: 'nested',
+      parameters: {},
       output: { schema: { type: 'null' }, render: () => [] },
       execute: async () => null,
     })
     await ctx.tools.execute({
-      callId: ToolCallId('nested-1'), name: 'nested', arguments: {}, agent,
+      callId: ToolCallId('nested-1'),
+      name: 'nested',
+      arguments: {},
+      agent,
       parent: Symbol('outer') as never,
       signal: new AbortController().signal,
     })
@@ -217,11 +283,12 @@ describe('session-checkpoint-policy tool and step boundaries', () => {
     const session = ctx.sessions.create(SessionId('post-step'))
     const agent = { session } as Agent
     const flushed: string[] = []
-    ctx.on('session/flush', (current) => { flushed.push(current.id) })
+    ctx.on('session/flush', current => {
+      flushed.push(current.id)
+    })
     const signal = new AbortController().signal
-    await agentEvents(ctx, agent).waterfall(
-      'agent/pre-step', { messages: [], turn: 1, step: 1, signal },
-      () => Promise.resolve({ kind: 'enter', messages: [] }),
+    await agentEvents(ctx, agent).waterfall('agent/pre-step', { messages: [], turn: 1, step: 1, signal }, () =>
+      Promise.resolve({ kind: 'enter', messages: [] }),
     )
     expect(flushed).toEqual([session.id])
   })
@@ -238,7 +305,9 @@ describe('session-checkpoint-policy lifecycle', () => {
     await ctx.plugin(TestPersistence)
     const session = ctx.sessions.create(SessionId('disposed-policy'))
     let flushes = 0
-    ctx.on('session/flush', () => { flushes += 1 })
+    ctx.on('session/flush', () => {
+      flushes += 1
+    })
     ctx.llm.registerAdapter(['mock'], new RecordingAdapter([]))
     const fiber = await ctx.plugin(checkpointPolicy)
     await drain(ctx.llm.stream({ provider: 'mock', model: 'mock', messages: [], sessionId: session.id }))

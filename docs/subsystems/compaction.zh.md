@@ -87,13 +87,7 @@ type CompactionTrigger = 'pressure' | 'context-overflow'
 
 ```ts type-equiv
 /** Expected failure classes for an explicit idle-session compaction request. */
-type ManualCompactionErrorCode =
-  | 'busy'
-  | 'cancelled'
-  | 'changed'
-  | 'summary'
-  | 'commit'
-  | 'persistence'
+type ManualCompactionErrorCode = 'busy' | 'cancelled' | 'changed' | 'summary' | 'commit' | 'persistence'
 ```
 
 `changed` 和 `summary` 闭合失败尝试并将其持久化到日志，不写入摘要替换；恢复过程中记录的图片省略仍然有效。`commit` 可能发生在部分变更之后；`persistence` 表示内存中的标记对已闭合，但 flush 失败。取消独立于这些失败，并在完成必要清理后抛出原始 abort 原因。
@@ -159,7 +153,7 @@ Abstract compaction service. Implementations own trigger policy, retention, and 
  * @param signal - cancellation signal; model-backed implementations must forward it.
  * @returns the compaction result, or `null` if no compaction was needed.
  */
-abstract compactIfNeeded( agent: CompactionAgentContext, trigger: CompactionTrigger, signal: AbortSignal, ): Promise<CompactionResult | null>
+abstract compactIfNeeded(agent: CompactionAgentContext, trigger: CompactionTrigger, signal: AbortSignal): Promise<CompactionResult | null>
 
 /**
  * Explicitly compact useful history even below automatic pressure thresholds.
@@ -181,7 +175,7 @@ abstract compactIfNeeded( agent: CompactionAgentContext, trigger: CompactionTrig
  * an aborted request preserves its exact abort reason. Failed attempts remain
  * visible in the log.
  */
-abstract compactNow( agent: ManualCompactAgentContext, signal: AbortSignal, sourceCommandId?: CommandId, ): Promise<CompactionResult | null>
+abstract compactNow(agent: ManualCompactAgentContext, signal: AbortSignal, sourceCommandId?: CommandId): Promise<CompactionResult | null>
 
 /**
  * Forcibly compact a range of surface nodes into a single summary node.
@@ -202,7 +196,7 @@ abstract compactNow( agent: ManualCompactAgentContext, signal: AbortSignal, sour
  * @throws when compaction is active or the range is missing, reversed, or unbalanced.
  * @returns the appended event seqs, summary, replaced range, and token accounting.
  */
-abstract compactRegion( start: SessionSeq, end: SessionSeq, agent: CompactionAgentContext, signal?: AbortSignal, ): Promise<CompactionResult>
+abstract compactRegion(start: SessionSeq, end: SessionSeq, agent: CompactionAgentContext, signal?: AbortSignal): Promise<CompactionResult>
 ```
 
 Types: [CommandId](commands.zh.md) · [SessionSeq](session.zh.md)
@@ -275,7 +269,7 @@ Recover a failed summary request by synchronously recording a durable change to 
  * @param next - delegate to the next recovery listener.
  * @mode waterfall
  */
-'compaction/summary-error'(payload: { session: Session; sourceEventSeqs: readonly SessionSeq[]; error: unknown; signal?: AbortSignal }, next: () => boolean): boolean
+'compaction/summary-error'( payload: { session: Session; sourceEventSeqs: readonly SessionSeq[]; error: unknown; signal?: AbortSignal }, next: () => boolean, ): boolean
 ```
 
 Types: [Session](session.zh.md) · [SessionSeq](session.zh.md)

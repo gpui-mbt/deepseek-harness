@@ -1,6 +1,6 @@
 /** Image metadata, keyed slot, dictionary, and disposal registration. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { DocumentPreviewRegistry } from '../src/client/document/registry.ts'
@@ -10,7 +10,10 @@ import { en, zh } from '../src/client/image/locales.ts'
 import type { ZoomInjected, ZoomStore } from '../src/client/zoom/store.ts'
 
 let dispose: (() => Promise<void>) | undefined
-afterEach(async () => { await dispose?.(); dispose = undefined })
+afterEach(async () => {
+  await dispose?.()
+  dispose = undefined
+})
 
 describe('image registration', () => {
   it('claims common image suffixes as a builtin complete-byte renderer without wrap', () => {
@@ -45,7 +48,10 @@ describe('image registration', () => {
     const register = vi.fn((options: Options, body: unknown) => {
       bodies.set(options.key, body)
       entries.push(options)
-      return () => { bodies.delete(options.key); entries.splice(entries.indexOf(options), 1) }
+      return () => {
+        bodies.delete(options.key)
+        entries.splice(entries.indexOf(options), 1)
+      }
     })
     ctx.provide('documentPreviews', registry)
     ctx.provide('slots', { inject: (_key: string, callback: () => () => void) => callback(), register } as never)
@@ -53,20 +59,29 @@ describe('image registration', () => {
       bind: () => (key: keyof typeof en) => en[key],
       register: (name: string, value: unknown) => {
         dictionaries.set(name, value)
-        return () => { dictionaries.delete(name) }
+        return () => {
+          dictionaries.delete(name)
+        }
       },
     } as never)
     const fiber = ctx.plugin({ apply })
-    dispose = async () => { await fiber.dispose() }
+    dispose = async () => {
+      await fiber.dispose()
+    }
     await fiber.await()
     for (const extension of IMAGE_EXTENSIONS) {
       expect(registry.candidates(`ASSET.${extension}`).map(entry => entry.id)).toEqual([IMAGE_BODY_ID])
     }
     expect(registry.getSnapshot()[0]?.title()).toBe(en.title)
     expect(dictionaries.get('sidebarImage')).toEqual({ zh, en })
-    expect(register).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      name: 'sidebar.right.tab.document', key: IMAGE_BODY_ID, locale: 'sidebarImage',
-    }), ImageBody)
+    expect(register).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        name: 'sidebar.right.tab.document',
+        key: IMAGE_BODY_ID,
+        locale: 'sidebarImage',
+      }),
+      ImageBody,
+    )
     expect(entries[0]?.store).toBeDefined()
     expect(typeof entries[0]?.inject).toBe('function')
     const instance = entries[0]!.store.create()

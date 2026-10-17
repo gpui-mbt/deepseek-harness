@@ -2,18 +2,24 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { getDshRuntimeVersion } from '../src/index.ts'
 import {
-  PROFILE_COMPATIBILITY_FILENAME, isExactPluginVersion,
-  readProfileCompatibility, readProfileVersionExemptions, setProfileVersionExemption, validatePluginVersionExemption,
+  PROFILE_COMPATIBILITY_FILENAME,
+  isExactPluginVersion,
+  readProfileCompatibility,
+  readProfileVersionExemptions,
+  setProfileVersionExemption,
+  validatePluginVersionExemption,
 } from '../src/profile-compatibility.ts'
 
 const runtime = getDshRuntimeVersion()
 
 function profileFixture(): string {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-compatibility-'))
-  onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
   return dir
 }
 
@@ -41,7 +47,9 @@ it('reads exact plugin and runtime identities, including build metadata', () => 
 })
 
 it.each([
-  ['an array', []], ['a string', 'all'], ['null', null],
+  ['an array', []],
+  ['a string', 'all'],
+  ['null', null],
   ['a non-list value', { 'plugin@1.2.3': '1.2.3' }],
   ['a non-string version', { 'plugin@1.2.3': [1] }],
   ['a range version', { 'plugin@1.2.3': ['^1.2.3'] }],
@@ -75,16 +83,24 @@ it('accepts an empty permission list as authorizing nothing', () => {
   expect(readProfileCompatibility(dir)).toEqual({ exemptions: { 'plugin@1.2.3': [] }, warnings: [], rewritable: true })
 })
 
-it.each(['1.2.3', '1.2.3-alpha.1', '1.2.3+build.7', '1.2.3-alpha+build'])('accepts exact version %s', (version) => {
+it.each(['1.2.3', '1.2.3-alpha.1', '1.2.3+build.7', '1.2.3-alpha+build'])('accepts exact version %s', version => {
   expect(isExactPluginVersion(version)).toBe(true)
-  expect(() => { validatePluginVersionExemption(`@scope/plugin@${version}`, version) }).not.toThrow()
+  expect(() => {
+    validatePluginVersionExemption(`@scope/plugin@${version}`, version)
+  }).not.toThrow()
 })
 
 it.each([
-  ['plugin', '1.2.3'], ['plugin@^1.2.3', '1.2.3'], ['plugin@v1.2.3', '1.2.3'],
-  ['plugin@1.2.3', '*'], ['plugin@1.2.3', ' 1.2.3'], ['../plugin@1.2.3', '1.2.3'],
+  ['plugin', '1.2.3'],
+  ['plugin@^1.2.3', '1.2.3'],
+  ['plugin@v1.2.3', '1.2.3'],
+  ['plugin@1.2.3', '*'],
+  ['plugin@1.2.3', ' 1.2.3'],
+  ['../plugin@1.2.3', '1.2.3'],
 ])('rejects noncanonical identity %s / %s', (plugin, version) => {
-  expect(() => { validatePluginVersionExemption(plugin, version) }).toThrow('exact')
+  expect(() => {
+    validatePluginVersionExemption(plugin, version)
+  }).toThrow('exact')
 })
 
 it('requires explicit risk acknowledgement and the running runtime for a grant', async () => {

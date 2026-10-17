@@ -6,14 +6,8 @@ import { basename, dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { notarizeMacOS } from './notarize-macos.mjs'
 import { packagingStep } from './packaging-step.mjs'
-import {
-  resolveMacOSNotarizationEnvironment,
-  resolveMacOSSigningEnvironment,
-} from './desktop-release-environment.mjs'
-import {
-  desktopUpdateMetadataFilename,
-  resolveDesktopAutoUpdateConfig,
-} from './desktop-auto-update-environment.mjs'
+import { resolveMacOSNotarizationEnvironment, resolveMacOSSigningEnvironment } from './desktop-release-environment.mjs'
+import { desktopUpdateMetadataFilename, resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
 import { verifyMacOSAppUpdateConfig } from './macos-app-update-config.mjs'
 import { verifyMacOSNotarizedApplication, verifyMacOSSignature } from './verify-macos-signature.mjs'
 
@@ -74,7 +68,9 @@ export async function packageMacOSArtifacts(
   apple: MacOSArtifactOperations = operations,
 ): Promise<void> {
   const { arch, version, artifactsRoot, environment } = request
-  const secrets = Object.entries(environment).filter(([name]) => /KEY|SECRET|TOKEN|PASSWORD|APPLE_ID/iu.test(name)).map(([, value]) => value ?? '')
+  const secrets = Object.entries(environment)
+    .filter(([name]) => /KEY|SECRET|TOKEN|PASSWORD|APPLE_ID/iu.test(name))
+    .map(([, value]) => value ?? '')
   const expected = resolveMacOSSigningEnvironment(environment)
   const credentials = resolveMacOSNotarizationEnvironment(environment)
   const update = resolveDesktopAutoUpdateConfig(environment, 'darwin', arch)
@@ -93,18 +89,29 @@ export async function packageMacOSArtifacts(
     apple.verifySignature(zipApp, expected)
     apple.verifySignature(dmgApp, expected)
     const results = await Promise.allSettled([
-      timed('App notarization and ZIP', async () => {
-        await apple.notarize({ appPath: zipApp, ...credentials })
-        apple.verifyNotarization(zipApp, expected)
-        await build({ format: 'zip', appPath: zipApp, output: zipOutput })
-      }, secrets),
-      timed('DMG creation and notarization', async () => {
-        await build({ format: 'dmg', appPath: dmgApp, output: dmgOutput })
-      }, secrets),
+      timed(
+        'App notarization and ZIP',
+        async () => {
+          await apple.notarize({ appPath: zipApp, ...credentials })
+          apple.verifyNotarization(zipApp, expected)
+          await build({ format: 'zip', appPath: zipApp, output: zipOutput })
+        },
+        secrets,
+      ),
+      timed(
+        'DMG creation and notarization',
+        async () => {
+          await build({ format: 'dmg', appPath: dmgApp, output: dmgOutput })
+        },
+        secrets,
+      ),
     ])
     const failures = results.filter(result => result.status === 'rejected')
     if (failures.length > 0) {
-      throw new AggregateError(failures.map(result => result.reason), 'desktop macOS packaging: artifact lanes failed')
+      throw new AggregateError(
+        failures.map(result => result.reason),
+        'desktop macOS packaging: artifact lanes failed',
+      )
     }
     await verifyMacOSAppUpdateConfig(zipApp, update)
     await verifyMacOSAppUpdateConfig(dmgApp, update)

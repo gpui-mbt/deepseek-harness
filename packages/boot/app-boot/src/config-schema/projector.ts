@@ -6,8 +6,11 @@ import { createPatternCheck } from './pattern.ts'
 
 /** Definition that projected value positions reference as `#/$defs/loaderExpression`; an enclosing document must define it. */
 export const LOADER_EXPRESSION_SCHEMA: ConfigJsonSchemaObject = {
-  type: 'object', properties: { __jsExpr: { type: 'string' } }, required: ['__jsExpr'],
-  description: 'Inert representation of a YAML !!js scalar from the Cordis entry-list parser. Its result is evaluated and validated only at runtime. Extra marker-object fields are ignored by interpolation.',
+  type: 'object',
+  properties: { __jsExpr: { type: 'string' } },
+  required: ['__jsExpr'],
+  description:
+    'Inert representation of a YAML !!js scalar from the Cordis entry-list parser. Its result is evaluated and validated only at runtime. Extra marker-object fields are ignored by interpolation.',
 }
 
 /** One Config projection; unknown omission behavior is explicit rather than an invented default. */
@@ -58,8 +61,9 @@ function jsonValue(value: unknown, nullifyUndefined = false): unknown {
     active.delete(item)
   }
   visit(value, new Set())
-  const result: unknown = JSON.parse(JSON.stringify(value,
-    (_key: string, item: unknown) => nullifyUndefined && item === undefined ? null : item))
+  const result: unknown = JSON.parse(
+    JSON.stringify(value, (_key: string, item: unknown) => (nullifyUndefined && item === undefined ? null : item)),
+  )
   return result
 }
 
@@ -67,7 +71,10 @@ function jsonValue(value: unknown, nullifyUndefined = false): unknown {
 function constant(value: unknown, objectComparison: () => void): InputSchema {
   if (Array.isArray(value)) {
     return {
-      type: 'array', minItems: value.length, maxItems: value.length, items: false,
+      type: 'array',
+      minItems: value.length,
+      maxItems: value.length,
+      items: false,
       ...(value.length ? { prefixItems: Array.from(value, item => constant(item, objectComparison)) } : {}),
     }
   }
@@ -78,7 +85,9 @@ function constant(value: unknown, objectComparison: () => void): InputSchema {
     const required = Object.keys(properties).filter(key => !inherited.includes(key) && Reflect.get(value, key) != null)
     const pattern = inherited.map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
     return {
-      type: 'object', properties, additionalProperties: { type: 'null' },
+      type: 'object',
+      properties,
+      additionalProperties: { type: 'null' },
       patternProperties: { [`^(?:${pattern})$`]: {} },
       ...(required.length ? { required } : {}),
     }
@@ -100,8 +109,9 @@ function nullable(core: InputSchema | boolean, accepts: boolean): InputSchema | 
 function expressions(schema: InputSchema, valuePosition = true, enabled = true): InputSchema {
   const result: InputSchema = { ...schema }
   if (schema.properties) {
-    result.properties = Object.fromEntries(Object.entries(schema.properties)
-      .map(([key, child]) => [key, expressions(child, true, enabled)]))
+    result.properties = Object.fromEntries(
+      Object.entries(schema.properties).map(([key, child]) => [key, expressions(child, true, enabled)]),
+    )
   }
   for (const key of ['items', 'additionalProperties'] as const) {
     if (schema[key] !== undefined) result[key] = schema[key] === false ? false : expressions(schema[key], true, enabled)
@@ -123,14 +133,17 @@ function expressions(schema: InputSchema, valuePosition = true, enabled = true):
 
 /** Check native volatile containment without evaluating values or invoking unresolved lazy builders. */
 function validateVolatilePlacement(
-  node: NativeConfigSchema, path: string, blocked = false,
+  node: NativeConfigSchema,
+  path: string,
+  blocked = false,
   seen = new Map<NativeConfigSchema, Set<boolean>>(),
 ): void {
   const states = seen.get(node) ?? new Set<boolean>()
   if (states.has(blocked)) return
   states.add(blocked)
   seen.set(node, states)
-  if (node.meta.volatile && blocked) throw new Error(`${path}: volatile fields require a fixed object path without an enclosing volatile field`)
+  if (node.meta.volatile && blocked)
+    throw new Error(`${path}: volatile fields require a fixed object path without an enclosing volatile field`)
   const nested = blocked || !!node.meta.volatile
   for (const [key, child] of Object.entries(node.dict ?? {})) validateVolatilePlacement(child, `${path}/${key}`, nested, seen)
   if (node.sKey) validateVolatilePlacement(node.sKey, `${path}/keys`, true, seen)
@@ -182,8 +195,12 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
           recursiveNames.set(key, name)
         }
         return {
-          schema: { $ref: `#/$defs/${name}` }, acceptsMissing: node.type !== 'lazy' && node.meta.required ? false : 'unknown',
-          exact: true, recursive: true, effectful: true, mutating: true,
+          schema: { $ref: `#/$defs/${name}` },
+          acceptsMissing: node.type !== 'lazy' && node.meta.required ? false : 'unknown',
+          exact: true,
+          recursive: true,
+          effectful: true,
+          mutating: true,
         }
       }
       active.add(key)
@@ -200,7 +217,11 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
             if (!cachedInner) metadataEffects.push(limitation(path, 'unresolved loose lazy metadata propagation may affect shared schemas'))
             looseProjection = {
               schema: { 'x-cordis': { loose: true, limitations: [message] } },
-              acceptsMissing: true, exact: false, recursive: false, effectful: true, mutating: false,
+              acceptsMissing: true,
+              exact: false,
+              recursive: false,
+              effectful: true,
+              mutating: false,
             }
             break
           }
@@ -212,11 +233,18 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
             builderResults.set(inner, next)
           }
           if (!isNativeConfigSchema(next)) throw new Error(`${path}: lazy schema has no native builder result or resolved inner schema`)
-          if (!cachedInner && ['required', 'default', 'min', 'max', 'step', 'pattern', 'loose', 'volatile'].some(key => (
-            Object.hasOwn(meta, key) && !Object.hasOwn(next.meta, key)
-            && (['required', 'loose', 'volatile'].includes(key) ? !!Reflect.get(meta, key) : Reflect.get(meta, key) != null)
-          ))) {
-            metadataEffects.push(limitation(path, 'lazy metadata propagation may affect shared schemas; validation requires native execution'))
+          if (
+            !cachedInner &&
+            ['required', 'default', 'min', 'max', 'step', 'pattern', 'loose', 'volatile'].some(
+              key =>
+                Object.hasOwn(meta, key) &&
+                !Object.hasOwn(next.meta, key) &&
+                (['required', 'loose', 'volatile'].includes(key) ? !!Reflect.get(meta, key) : Reflect.get(meta, key) != null),
+            )
+          ) {
+            metadataEffects.push(
+              limitation(path, 'lazy metadata propagation may affect shared schemas; validation requires native execution'),
+            )
           }
           // Native lazy resolution merges outer metadata only when it first invokes the builder.
           meta = cachedInner ? next.meta : { ...meta, ...next.meta }
@@ -239,7 +267,9 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
           try {
             return { ok: true, value: jsonValue(value) }
           } catch (error) {
-            ownLimitations.push(limitation(`${path}/${name}`, `annotation omitted: ${error instanceof Error ? error.message : String(error)}`))
+            ownLimitations.push(
+              limitation(`${path}/${name}`, `annotation omitted: ${error instanceof Error ? error.message : String(error)}`),
+            )
             return { ok: false }
           }
         }
@@ -261,20 +291,29 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
         let core: InputSchema | boolean
         let dictionaryValidation: { keySchema: InputSchema; valueSchema: InputSchema } | undefined
         switch (node.type) {
-          case 'any': core = true; break
-          case 'never': core = false; break
+          case 'any':
+            core = true
+            break
+          case 'never':
+            core = false
+            break
           case 'const': {
             try {
-              core = node.value == null ? false : constant(jsonValue(node.value, true), () => {
-                inputLimitation('object constant inherited-member comparison requires native validation')
-              })
+              core =
+                node.value == null
+                  ? false
+                  : constant(jsonValue(node.value, true), () => {
+                      inputLimitation('object constant inherited-member comparison requires native validation')
+                    })
             } catch (error) {
               core = true
               inputLimitation(`constant constraint requires native validation: ${error instanceof Error ? error.message : String(error)}`)
             }
             break
           }
-          case 'boolean': core = { type: 'boolean' }; break
+          case 'boolean':
+            core = { type: 'boolean' }
+            break
           case 'string': {
             core = { type: 'string' }
             if (meta.min !== undefined) {
@@ -311,11 +350,13 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
           }
           case 'object': {
             const required: string[] = []
-            const properties = Object.fromEntries(Object.entries(node.dict ?? {}).map(([key, field]) => {
-              const value = child(field, key)
-              if (value.acceptsMissing === false) required.push(key)
-              return [key, value.schema]
-            }))
+            const properties = Object.fromEntries(
+              Object.entries(node.dict ?? {}).map(([key, field]) => {
+                const value = child(field, key)
+                if (value.acceptsMissing === false) required.push(key)
+                return [key, value.schema]
+              }),
+            )
             core = { type: 'object', properties }
             if (required.length) core.required = required
             break
@@ -335,14 +376,19 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
             core = { type: 'object', additionalProperties: valueSchema }
             if (node.sKey) {
               const key = child(node.sKey, 'keys')
-              const totalString = node.sKey.type === 'string'
-                && node.sKey.meta.min === undefined && node.sKey.meta.max === undefined && node.sKey.meta.pattern === undefined
+              const totalString =
+                node.sKey.type === 'string' &&
+                node.sKey.meta.min === undefined &&
+                node.sKey.meta.max === undefined &&
+                node.sKey.meta.pattern === undefined
               if (!totalString && (strict || key.effectful)) {
                 dictionaryValidation = { keySchema: key.schema, valueSchema }
                 core = { type: 'object' }
-                inputLimitation(key.effectful
-                  ? 'dictionary key normalization can overwrite unvalidated values; native validation is required'
-                  : 'strict dictionary filtering and value validation require native validation')
+                inputLimitation(
+                  key.effectful
+                    ? 'dictionary key normalization can overwrite unvalidated values; native validation is required'
+                    : 'strict dictionary filtering and value validation require native validation',
+                )
               } else core.propertyNames = key.schema
             }
             break
@@ -351,7 +397,7 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
             if (node.list === undefined) throw new Error(`${path}: tuple schema is missing its list`)
             const values = node.list.map((item, index) => child(item, String(index)))
             core = { type: 'array', ...(values.length ? { prefixItems: values.map(item => item.schema) } : {}) }
-            const minimum = values.reduce((length, value, index) => value.acceptsMissing === false ? index + 1 : length, 0)
+            const minimum = values.reduce((length, value, index) => (value.acceptsMissing === false ? index + 1 : length), 0)
             if (minimum) core.minItems = minimum
             break
           }
@@ -425,7 +471,7 @@ export async function createConfigProjector(): Promise<(root: NativeConfigSchema
         if (Object.keys(native).length) annotations['x-cordis'] = native
         const input = nullable(core, acceptsMissing !== false)
         projection = {
-          schema: { ...(typeof input === 'boolean' ? input ? {} : { not: {} } : input), ...annotations },
+          schema: { ...(typeof input === 'boolean' ? (input ? {} : { not: {} }) : input), ...annotations },
           acceptsMissing,
           exact: exact && acceptsMissing !== 'unknown',
           recursive,

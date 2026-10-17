@@ -41,7 +41,9 @@ export function NativeDirectoryFlow(props: DirectoryFlowOwnerProps & NativeFlowI
     // StrictMode's development replay runs the cleanup once before the real
     // lifetime: re-arm on setup or every outcome would be discarded.
     alive.current = true
-    return () => { alive.current = false }
+    return () => {
+      alive.current = false
+    }
   }, [])
   useEffect(() => {
     if (!open) {
@@ -51,9 +53,10 @@ export function NativeDirectoryFlow(props: DirectoryFlowOwnerProps & NativeFlowI
     if (armed.current) return
     armed.current = true
     pick().then(
-      (path) => {
+      path => {
         if (!alive.current) return
-        if (path === null) outcome.current.onCancel(); else outcome.current.onPicked(path)
+        if (path === null) outcome.current.onCancel()
+        else outcome.current.onPicked(path)
       },
       (reason: unknown) => {
         if (!alive.current) return

@@ -8,10 +8,7 @@ import type {} from '@deepseek-ai/dsh-working-directory'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import FileReferenceService, {
-  FILE_REFERENCE_PROMPT,
-  type FileReferenceCandidate,
-} from '@deepseek-ai/dsh-file-reference'
+import FileReferenceService, { FILE_REFERENCE_PROMPT, type FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference'
 import type {} from '@deepseek-ai/dsh-tools'
 import {
   DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES,
@@ -67,11 +64,11 @@ export class LocalFileReferenceService extends FileReferenceService {
     const installPrompt = (agent: Agent): ReturnType<Context['inject']> => {
       const existing = this.promptFibers.get(agent)
       if (existing !== undefined) return existing
-      const fiber = agent.ctx.inject(['systemPrompt', 'tools'], (scope) => {
+      const fiber = agent.ctx.inject(['systemPrompt', 'tools'], scope => {
         scope.systemPrompt.section({
           name: 'context:file-reference',
           order: scope.systemPrompt.getSectionOrder('FILE_REFERENCE'),
-          text: () => agent.ctx.tools.get('read', agent) === undefined ? '' : FILE_REFERENCE_PROMPT,
+          text: () => (agent.ctx.tools.get('read', agent) === undefined ? '' : FILE_REFERENCE_PROMPT),
         })
       })
       this.promptFibers.set(agent, fiber)
@@ -90,7 +87,9 @@ export class LocalFileReferenceService extends FileReferenceService {
       })
     }
     for (const agent of ctx.agents.list()) installPrompt(agent)
-    ctx.on('agent/created', async ({ agent }) => { await installPrompt(agent) })
+    ctx.on('agent/created', async ({ agent }) => {
+      await installPrompt(agent)
+    })
     ctx.on('agent/disposed', ({ agent }) => {
       this.searches.get(agent)?.search.dispose()
       this.searches.delete(agent)
@@ -101,23 +100,19 @@ export class LocalFileReferenceService extends FileReferenceService {
       const agent = ctx.agents.get(session.id)
       if (agent !== undefined) this.searches.get(agent)?.search.invalidate()
     })
-    ctx.effect(() => async () => {
-      for (const { search } of this.searches.values()) search.dispose()
-      this.searches.clear()
-      const promptFibers = [...this.promptFibers.values()]
-      this.promptFibers.clear()
-      await Promise.all([
-        ...promptFibers.map(fiber => fiber.dispose()),
-        ...this.promptDisposals,
-      ])
-    }, 'file-reference-local: search cache')
+    ctx.effect(
+      () => async () => {
+        for (const { search } of this.searches.values()) search.dispose()
+        this.searches.clear()
+        const promptFibers = [...this.promptFibers.values()]
+        this.promptFibers.clear()
+        await Promise.all([...promptFibers.map(fiber => fiber.dispose()), ...this.promptDisposals])
+      },
+      'file-reference-local: search cache',
+    )
   }
 
-  override async list(
-    agent: Agent,
-    query: string,
-    signal: AbortSignal,
-  ): Promise<FileReferenceCandidate[]> {
+  override async list(agent: Agent, query: string, signal: AbortSignal): Promise<FileReferenceCandidate[]> {
     const cwd = await this.ctx.workingDirectory.ensure(agent, signal)
     let cached = this.searches.get(agent)
     if (cached?.cwd !== cwd) {

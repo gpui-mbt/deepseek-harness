@@ -6,9 +6,7 @@ import type {
   ClientRuntimeRemoteObject,
   ClientRuntimeResult,
 } from '../../../shared/bridge/messages/runtime/index.ts'
-import {
-  type ClientRemoteObjectHandle,
-} from '../../../shared/bridge/ids.ts'
+import { type ClientRemoteObjectHandle } from '../../../shared/bridge/ids.ts'
 import { inspectorId } from '../../../shared/identity.ts'
 import type { RuntimeBackendObjectHandle, RuntimeScriptKey } from '../../../shared/cdp/ids.ts'
 import type {
@@ -47,9 +45,7 @@ export function clientCompletion(
  * @param value - Client wire property descriptor.
  * @returns A realm-neutral property descriptor.
  */
-export function clientProperty(
-  value: ClientRuntimePropertyDescriptor,
-): RuntimePropertyDescriptor<RuntimeBackendObjectHandle> {
+export function clientProperty(value: ClientRuntimePropertyDescriptor): RuntimePropertyDescriptor<RuntimeBackendObjectHandle> {
   const { value: propertyValue, get, set, symbol, ...descriptor } = value
   return {
     ...descriptor,
@@ -108,9 +104,7 @@ export function clientConsoleEvent(
       event: {
         ...value.event,
         arguments: value.event.arguments.map(clientRemoteObject),
-        ...(value.event.stackTrace === undefined
-          ? {}
-          : { stackTrace: clientStackTrace(value.event.stackTrace, mapScriptKey) }),
+        ...(value.event.stackTrace === undefined ? {} : { stackTrace: clientStackTrace(value.event.stackTrace, mapScriptKey) }),
       },
     }
   }
@@ -125,14 +119,10 @@ export function clientConsoleEvent(
  * @param value - Client wire RemoteObject.
  * @returns A realm-neutral Runtime value.
  */
-export function clientRemoteObject(
-  value: ClientRuntimeRemoteObject,
-): RuntimeRemoteObject<RuntimeBackendObjectHandle> {
+export function clientRemoteObject(value: ClientRuntimeRemoteObject): RuntimeRemoteObject<RuntimeBackendObjectHandle> {
   return {
     descriptor: value.descriptor,
-    ...(value.object === undefined
-      ? {}
-      : { object: { handle: backendHandle(value.object.handle) } }),
+    ...(value.object === undefined ? {} : { object: { handle: backendHandle(value.object.handle) } }),
     ...(value.semanticReference === undefined ? {} : { semanticReference: value.semanticReference }),
   }
 }

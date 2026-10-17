@@ -1,6 +1,16 @@
 /** Lookup tables derived from the credential formats, built once on first use. */
 import {
-  ALNUM, ALNUM_DASH, CREDENTIAL_FORMATS, KEY, LABEL, LOWER, PASSWORD, SCHEME, UPPER_ALNUM, USER, WORD,
+  ALNUM,
+  ALNUM_DASH,
+  CREDENTIAL_FORMATS,
+  KEY,
+  LABEL,
+  LOWER,
+  PASSWORD,
+  SCHEME,
+  UPPER_ALNUM,
+  USER,
+  WORD,
 } from './credential-formats.ts'
 
 /** Tables indexed by format position in `CREDENTIAL_FORMATS`, by ASCII code unit, or by a literal's last two code units. */
@@ -66,10 +76,17 @@ function charClasses(): Uint16Array {
     const digit = code >= 48 && code <= 57
     const alnum = upper || lower || digit
     const authority = !((code >= 9 && code <= 13) || code === 32 || code === 47 || code === 64 || code === 63 || code === 35)
-    classes[code] = (alnum || code === 95 || code === 45 ? KEY : 0) | (alnum ? ALNUM : 0) | (alnum || code === 95 ? WORD : 0)
-      | (alnum || code === 45 ? ALNUM_DASH : 0) | (upper || digit ? UPPER_ALNUM : 0) | (upper || digit || code === 32 ? LABEL : 0)
-      | (lower || digit || code === 43 || code === 46 || code === 45 ? SCHEME : 0) | (lower ? LOWER : 0)
-      | (authority && code !== 58 ? USER : 0) | (authority ? PASSWORD : 0)
+    classes[code] =
+      (alnum || code === 95 || code === 45 ? KEY : 0) |
+      (alnum ? ALNUM : 0) |
+      (alnum || code === 95 ? WORD : 0) |
+      (alnum || code === 45 ? ALNUM_DASH : 0) |
+      (upper || digit ? UPPER_ALNUM : 0) |
+      (upper || digit || code === 32 ? LABEL : 0) |
+      (lower || digit || code === 43 || code === 46 || code === 45 ? SCHEME : 0) |
+      (lower ? LOWER : 0) |
+      (authority && code !== 58 ? USER : 0) |
+      (authority ? PASSWORD : 0)
   }
   return classes
 }
@@ -96,7 +113,7 @@ function endingTables(literals: readonly string[]): Pick<FormatTables, 'ending' 
       sharedEndings[key] = [existing - 1]
       ending[key] = -1
     }
-    (sharedEndings[key] as number[]).push(index)
+    ;(sharedEndings[key] as number[]).push(index)
   })
   return { ending, sharedEndings }
 }
@@ -106,8 +123,8 @@ const escape = (literal: string): string => literal.replace(/[.*+?^${}()|[\]\\/]
 /** Literal alternatives grouped by shared leading characters; groups only factor literals and add no quantifier. */
 function alternation(literals: readonly string[]): string {
   const groups = new Map<string, string[]>()
-  for (const literal of literals) groups.set(literal.charAt(0), [...groups.get(literal.charAt(0)) ?? [], literal.slice(1)])
-  return [...groups].map(([head, tails]) => tails.length === 1
-    ? escape(head + tails.join(''))
-    : `${escape(head)}(?:${alternation(tails)})`).join('|')
+  for (const literal of literals) groups.set(literal.charAt(0), [...(groups.get(literal.charAt(0)) ?? []), literal.slice(1)])
+  return [...groups]
+    .map(([head, tails]) => (tails.length === 1 ? escape(head + tails.join('')) : `${escape(head)}(?:${alternation(tails)})`))
+    .join('|')
 }

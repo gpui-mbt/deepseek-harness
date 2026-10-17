@@ -8,9 +8,14 @@ import { snapshotJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
 import { assertSupportedJsonSchema, validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
 import type { JsonSchemaNode } from '@deepseek-ai/dsh-tools'
 import type {
-  CordisInspectMethodManifest, CordisInspectPlatform, CordisInspectProviderManifest,
-  CordisInspectProviderView, CordisInspectQueryRequest, CordisInspectQueryResolution,
-  CordisInspectRequestId, CordisInspectResolveAck,
+  CordisInspectMethodManifest,
+  CordisInspectPlatform,
+  CordisInspectProviderManifest,
+  CordisInspectProviderView,
+  CordisInspectQueryRequest,
+  CordisInspectQueryResolution,
+  CordisInspectRequestId,
+  CordisInspectResolveAck,
 } from './types.ts'
 
 /** Context supplied to a Host inspect query. */
@@ -55,13 +60,19 @@ export class CordisInspectRegistryService extends Service {
    * @param ctx - owning Host context.
    * @param clientQueryTimeoutMs - maximum wait for a valid Client response, in milliseconds.
    */
-  constructor(ctx: Context, private readonly clientQueryTimeoutMs: number) {
+  constructor(
+    ctx: Context,
+    private readonly clientQueryTimeoutMs: number,
+  ) {
     super(ctx, 'cordisInspect')
-    ctx.effect(() => () => {
-      for (const pending of this.pending.values()) {
-        pending.settle({ ok: false, reason: 'cancelled', message: 'Client inspect registry was disposed' })
-      }
-    }, 'cordis-inspect: pending queries')
+    ctx.effect(
+      () => () => {
+        for (const pending of this.pending.values()) {
+          pending.settle({ ok: false, reason: 'cancelled', message: 'Client inspect registry was disposed' })
+        }
+      },
+      'cordis-inspect: pending queries',
+    )
   }
 
   /**
@@ -85,7 +96,7 @@ export class CordisInspectRegistryService extends Service {
    */
   syncClientManifest(providers: readonly CordisInspectProviderManifest[]): void {
     const ids = new Set<string>()
-    const validated = providers.map((provider) => {
+    const validated = providers.map(provider => {
       const manifest = validateManifest(provider)
       if (ids.has(manifest.id)) throw new Error(`Client Cordis inspect manifest repeats provider "${manifest.id}"`)
       ids.add(manifest.id)
@@ -144,11 +155,7 @@ export class CordisInspectRegistryService extends Service {
    * @param resolution - Client provider result or failure.
    * @returns acknowledgement with accepted true only for a success that settles the query; only the first failure diagnostic is retained.
    */
-  resolveClientQuery(
-    agent: Agent,
-    requestId: CordisInspectRequestId,
-    resolution: CordisInspectQueryResolution,
-  ): CordisInspectResolveAck {
+  resolveClientQuery(agent: Agent, requestId: CordisInspectRequestId, resolution: CordisInspectQueryResolution): CordisInspectResolveAck {
     const pending = this.pending.get(requestId)
     if (pending === undefined || pending.request.agentId !== agent.id) return { accepted: false }
     // A failed page must not prevent another page from supplying a valid result.
@@ -183,7 +190,9 @@ export class CordisInspectRegistryService extends Service {
     signal.throwIfAborted()
     const gateway = this.ctx.get('typertGateway')
     if (gateway !== undefined && !gateway.hasLiveClient()) {
-      throw new Error(`Client inspect query ${providerId}.${methodName} has no connected Harness page. Open or reconnect the Harness page, then retry.`)
+      throw new Error(
+        `Client inspect query ${providerId}.${methodName} has no connected Harness page. Open or reconnect the Harness page, then retry.`,
+      )
     }
     const requestId = `inspect-${this.nextRequest++}` as CordisInspectRequestId
     const request: CordisInspectQueryRequest = {
@@ -191,13 +200,13 @@ export class CordisInspectRegistryService extends Service {
       agentId: agent.id,
       provider: providerId,
       method: methodName,
-      ...input === undefined ? {} : { input },
+      ...(input === undefined ? {} : { input }),
     }
-    const result = new Promise<CordisInspectQueryResolution>((resolve) => {
+    const result = new Promise<CordisInspectQueryResolution>(resolve => {
       this.pending.set(requestId, {
         request,
         method,
-        settle: (resolution) => {
+        settle: resolution => {
           this.pending.delete(requestId)
           resolve(resolution)
           try {
@@ -218,9 +227,8 @@ export class CordisInspectRegistryService extends Service {
     const timer = setTimeout(() => {
       const pending = this.pending.get(requestId)
       if (pending === undefined) return
-      const detail = pending.failure === undefined
-        ? 'Open or reconnect the Harness page, then retry.'
-        : `Client failure: ${pending.failure}`
+      const detail =
+        pending.failure === undefined ? 'Open or reconnect the Harness page, then retry.' : `Client failure: ${pending.failure}`
       pending.settle({
         ok: false,
         reason: 'provider-error',
@@ -250,7 +258,7 @@ function validateManifest(manifest: CordisInspectProviderManifest): CordisInspec
   if (manifest.id.trim() === '') throw new Error('Cordis inspect provider id must not be empty')
   if (manifest.description.trim() === '') throw new Error(`Cordis inspect provider "${manifest.id}" needs a description`)
   const names = new Set<string>()
-  const methods = manifest.methods.map((method) => {
+  const methods = manifest.methods.map(method => {
     if (method.name.trim() === '') throw new Error(`Cordis inspect provider "${manifest.id}" has an empty method name`)
     if (names.has(method.name)) throw new Error(`Cordis inspect provider "${manifest.id}" repeats method "${method.name}"`)
     if (method.description.trim() === '') throw new Error(`Cordis inspect method ${manifest.id}.${method.name} needs a description`)
@@ -275,18 +283,15 @@ function validateInput(
   input: JsonValue | undefined,
 ): void {
   const violations = validateJsonSchemaValue(method.inputSchema as JsonSchemaNode, input ?? {}, 'input')
-  if (violations.length > 0) throw new Error(`${platform} Cordis inspect ${provider}.${method.name} rejected input: ${violations.join('; ')}`)
+  if (violations.length > 0)
+    throw new Error(`${platform} Cordis inspect ${provider}.${method.name} rejected input: ${violations.join('; ')}`)
 }
 
-function validateOutput(
-  platform: 'Host' | 'Client',
-  provider: string,
-  method: CordisInspectMethodManifest,
-  data: JsonValue,
-): JsonValue {
+function validateOutput(platform: 'Host' | 'Client', provider: string, method: CordisInspectMethodManifest, data: JsonValue): JsonValue {
   const snapshot = snapshotJsonValue(data)
   if (snapshot === undefined) throw new Error(`${platform} Cordis inspect ${provider}.${method.name} returned a non-JSON value`)
   const violations = validateJsonSchemaValue(method.outputSchema as JsonSchemaNode, snapshot, 'output')
-  if (violations.length > 0) throw new Error(`${platform} Cordis inspect ${provider}.${method.name} returned invalid output: ${violations.join('; ')}`)
+  if (violations.length > 0)
+    throw new Error(`${platform} Cordis inspect ${provider}.${method.name} returned invalid output: ${violations.join('; ')}`)
   return snapshot
 }

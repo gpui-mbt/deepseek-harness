@@ -1,10 +1,6 @@
 /** Browser caller for generic Connection unary RPC channels. */
 
-import {
-  RpcId,
-  type ClientRequest,
-  type RpcId as RpcIdType,
-} from '../rpc.ts'
+import { RpcId, type ClientRequest, type RpcId as RpcIdType } from '../rpc.ts'
 import type { ClientConnectionRpc, ConnectionRpcResult } from '../rpc.ts'
 import { randomUuid } from './random-uuid.ts'
 
@@ -46,37 +42,35 @@ export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStrea
       // The channel key is absolute; a page posts the document-relative form, and
       // a carrier that resolves against the Host root accepts the same form.
       const route = `${channel}/${endpoint}`.slice(1)
-      const response = await send(
-        route,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(message),
-          ...signal === undefined ? {} : { signal },
-        },
-      )
+      const response = await send(route, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(message),
+        ...(signal === undefined ? {} : { signal }),
+      })
       if (!response.ok) {
         throw new Error(`transport failure for ${channel}/${endpoint}: HTTP ${response.status}`)
       }
       const mediaType = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
-      const full = mediaType === 'multipart/form-data'
-        ? await parseBinaryResponse(response)
-        : parseConnectionResponse(await response.json())
+      const full =
+        mediaType === 'multipart/form-data' ? await parseBinaryResponse(response) : parseConnectionResponse(await response.json())
       signal?.throwIfAborted()
       if (full.rpcId !== rpcId) {
         throw new Error(`rpcId mismatch for ${endpoint}: sent ${rpcId}, got ${full.rpcId}`)
       }
       return full.result
     },
-    ...openStream === undefined ? {} : {
-      open(channel, endpoint, payload, signal, uplink) {
-        assertTarget(channel, endpoint)
-        if (channel !== '/api') {
-          throw new Error(`connection: worker-local streams require the /api channel, got ${JSON.stringify(channel)}`)
-        }
-        return openStream(endpoint, payload, signal, uplink)
-      },
-    },
+    ...(openStream === undefined
+      ? {}
+      : {
+          open(channel, endpoint, payload, signal, uplink) {
+            assertTarget(channel, endpoint)
+            if (channel !== '/api') {
+              throw new Error(`connection: worker-local streams require the /api channel, got ${JSON.stringify(channel)}`)
+            }
+            return openStream(endpoint, payload, signal, uplink)
+          },
+        }),
   }
 }
 
@@ -99,8 +93,7 @@ async function parseBinaryResponse(response: Response): Promise<ReturnType<typeo
   }
   const root = { value: full.result.value }
   for (const attachment of envelope.attachments) {
-    if (!isRecord(attachment) || attachment.codec !== 'bytes' || typeof attachment.part !== 'string'
-      || !Array.isArray(attachment.path)) {
+    if (!isRecord(attachment) || attachment.codec !== 'bytes' || typeof attachment.part !== 'string' || !Array.isArray(attachment.path)) {
       throw new TypeError('connection: invalid binary response attachment')
     }
     const data = fields.get(attachment.part)
@@ -128,7 +121,10 @@ async function parseBinaryResponse(response: Response): Promise<ReturnType<typeo
     }
     if (Reflect.get(parent, key) !== null) throw new TypeError('connection: invalid binary response placeholder')
     Object.defineProperty(parent, key, {
-      value: new Uint8Array(await data.arrayBuffer()), enumerable: true, writable: true, configurable: true,
+      value: new Uint8Array(await data.arrayBuffer()),
+      enumerable: true,
+      writable: true,
+      configurable: true,
     })
   }
   if (fields.size !== 0) throw new TypeError('connection: invalid binary response fields')
@@ -175,9 +171,10 @@ function isRecord(value: unknown): value is Record<PropertyKey, unknown> {
 
 function assertTarget(channel: string, endpoint: string): void {
   const segments = endpoint.split('/')
-  if (!CHANNEL_PATTERN.test(channel)
-    || segments.some(segment =>
-      segment === '' || segment === '.' || segment === '..' || !ENDPOINT_SEGMENT_PATTERN.test(segment))) {
+  if (
+    !CHANNEL_PATTERN.test(channel) ||
+    segments.some(segment => segment === '' || segment === '.' || segment === '..' || !ENDPOINT_SEGMENT_PATTERN.test(segment))
+  ) {
     throw new Error(`connection: invalid RPC target ${JSON.stringify(`${channel}/${endpoint}`)}`)
   }
 }

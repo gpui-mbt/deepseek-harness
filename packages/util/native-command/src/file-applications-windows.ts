@@ -245,7 +245,10 @@ public static class DshFileAssociations {
  * @returns adapter output; query mode emits a JSON array.
  */
 export async function windowsFileApplications(
-  path: string, application: string | null, signal: AbortSignal, run: NativeCommandRunner,
+  path: string,
+  application: string | null,
+  signal: AbortSignal,
+  run: NativeCommandRunner,
 ): Promise<string> {
   const encodedPath = Buffer.from(path).toString('base64')
   const encodedApplication = Buffer.from(application ?? '').toString('base64')
@@ -266,9 +269,12 @@ ${application === null ? 'ConvertTo-Json -InputObject @([DshFileAssociations]::L
   const scriptPath = join(directory, 'associations.ps1')
   try {
     await writeFile(scriptPath, `\uFEFF${script}`, 'utf8')
-    const result = await run('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-File', scriptPath,
-    ], signal, 'hidden')
+    const result = await run(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
+      signal,
+      'hidden',
+    )
     return result.stdout
   } finally {
     await rm(directory, { recursive: true, force: true })

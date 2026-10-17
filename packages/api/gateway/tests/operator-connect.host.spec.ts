@@ -16,7 +16,7 @@ import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import TypertGateway from '@deepseek-ai/dsh-api-gateway'
 import RemoteAccess from '@deepseek-ai/dsh-api-remote-access'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import WebSocket from 'ws'
 import { z } from 'zod'
 import { parseRemoteStreamServerMessage, type RemoteStreamServerMessage } from '../src/stream-protocol.ts'
@@ -39,7 +39,9 @@ const hosts: Host[] = []
 const clients: SocketClient[] = []
 const readySchema = z.object({ type: z.literal('ready'), clientId: z.string(), host: z.object({ home: z.string() }) })
 const deliverySchema = z.object({
-  type: z.literal('waterfall'), eventId: z.string(), request: z.object({ prompt: z.string() }),
+  type: z.literal('waterfall'),
+  eventId: z.string(),
+  request: z.object({ prompt: z.string() }),
 })
 
 afterEach(async () => {
@@ -47,10 +49,12 @@ afterEach(async () => {
     host.fixture.streamCleanup.resolve(undefined)
     for (const finish of host.fixture.holds.values()) finish()
   }
-  await Promise.all(clients.splice(0).map(async (client) => {
-    if (client.socket.readyState !== WebSocket.CLOSED) client.socket.terminate()
-    await client.closed
-  }))
+  await Promise.all(
+    clients.splice(0).map(async client => {
+      if (client.socket.readyState !== WebSocket.CLOSED) client.socket.terminate()
+      await client.closed
+    }),
+  )
   await Promise.all(hosts.splice(0).map(host => host.ctx.fiber.dispose()))
   for (const root of roots.splice(0)) {
     if (!isAbsolute(root) || dirname(root) !== resolve(tmpdir()) || !basename(root).startsWith('dsh-operator-connect-')) {
@@ -74,14 +78,20 @@ describe('operator connect through Loader composition', () => {
     open(client, 'follow', 'fixture/follow', { label: 'follow' })
     await frame(client, 'follow', 'item')
     await close(client)
-    await vi.waitFor(() => { expect(call(host, 'follow').signal.aborted).toBe(true) })
+    await vi.waitFor(() => {
+      expect(call(host, 'follow').signal.aborted).toBe(true)
+    })
     expect(call(host, 'follow').finished).toBe(false)
     expect((await rpc(host, cookie, 'fixture/identity', { label: 'after' })).status).toBe(401)
     expect(await refusedMux(host, cookie)).toBe(401)
     expect(host.fixture.calls.has('after')).toBe(false)
-    await vi.waitFor(() => { expect(host.fixture.effects.size).toBe(0) })
+    await vi.waitFor(() => {
+      expect(host.fixture.effects.size).toBe(0)
+    })
     host.fixture.streamCleanup.resolve(undefined)
-    await vi.waitFor(() => { expect(call(host, 'follow').finished).toBe(true) })
+    await vi.waitFor(() => {
+      expect(call(host, 'follow').finished).toBe(true)
+    })
   })
 
   it('reports failed Operator release without retaining its credential or blocking shutdown', async () => {
@@ -116,7 +126,7 @@ describe('operator connect through Loader composition', () => {
     const host = await boot()
     const cookie = await exchange(host, 'none')
     const admit = host.ctx.connection.admitConnection.bind(host.ctx.connection)
-    const admission = vi.spyOn(host.ctx.connection, 'admitConnection').mockImplementationOnce((request) => {
+    const admission = vi.spyOn(host.ctx.connection, 'admitConnection').mockImplementationOnce(request => {
       const result = admit(request)
       if (!(request instanceof IncomingMessage)) throw new Error('fixture expected a Node upgrade request')
       request.socket.destroy()
@@ -163,7 +173,9 @@ describe('operator connect through Loader composition', () => {
     const cookie = await exchange(host, 'none')
     const client = await mux(host, cookie)
     const pending = rpc(host, cookie, 'fixture/hold', { label: 'inflight' })
-    await vi.waitFor(() => { expect(host.fixture.holds.has('inflight')).toBe(true) })
+    await vi.waitFor(() => {
+      expect(host.fixture.holds.has('inflight')).toBe(true)
+    })
     await close(client)
     expect((await rpc(host, cookie, 'fixture/identity', { label: 'refused' })).status).toBe(401)
     expect(call(host, 'inflight').signal.aborted).toBe(false)
@@ -199,7 +211,6 @@ describe('operator connect through Loader composition', () => {
     await expect(pending).resolves.toEqual({ kind: 'result', value: 'allowed' })
     expect(passive.frames.filter(item => item.type === 'item')).toEqual([])
   })
-
 })
 
 async function boot(): Promise<Host> {
@@ -259,12 +270,17 @@ async function exchange(host: Host, mode: 'html' | 'none' | 'answer'): Promise<s
 
 function socketClient(host: Host, cookie: string): SocketClient {
   const socket = new WebSocket(`${host.origin.replace('http:', 'ws:')}/api/remote.mux`, { headers: { cookie } })
-  const closed = new Promise<void>((resolve) => { socket.once('close', () => { resolve() }) })
+  const closed = new Promise<void>(resolve => {
+    socket.once('close', () => {
+      resolve()
+    })
+  })
   const frames: RemoteStreamServerMessage[] = []
   const errors: Error[] = []
   socket.on('error', error => errors.push(error))
-  socket.on('message', (data) => {
-    const text = Array.isArray(data) ? Buffer.concat(data).toString('utf8')
+  socket.on('message', data => {
+    const text = Array.isArray(data)
+      ? Buffer.concat(data).toString('utf8')
       : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data).toString('utf8')
     frames.push(parseRemoteStreamServerMessage(text))
   })
@@ -282,7 +298,9 @@ async function mux(host: Host, cookie: string): Promise<SocketClient> {
 async function refusedMux(host: Host, cookie: string): Promise<number> {
   const client = socketClient(host, cookie)
   const status = await new Promise<number>((resolve, reject) => {
-    client.socket.once('open', () => { reject(new Error('forbidden Mux was admitted')) })
+    client.socket.once('open', () => {
+      reject(new Error('forbidden Mux was admitted'))
+    })
     client.socket.once('unexpected-response', (_request, response) => {
       response.resume()
       resolve(response.statusCode ?? 0)
@@ -305,7 +323,9 @@ function open(client: SocketClient, streamId: string, endpoint: string, args: ob
 }
 
 async function frame(client: SocketClient, streamId: string, type: RemoteStreamServerMessage['type']): Promise<RemoteStreamServerMessage> {
-  await vi.waitFor(() => { expect(client.frames.some(frame => frame.streamId === streamId && frame.type === type)).toBe(true) })
+  await vi.waitFor(() => {
+    expect(client.frames.some(frame => frame.streamId === streamId && frame.type === type)).toBe(true)
+  })
   return client.frames.find(frame => frame.streamId === streamId && frame.type === type)!
 }
 
@@ -329,11 +349,10 @@ async function invocation(client: SocketClient, label: string): Promise<z.infer<
   return delivery!
 }
 
-async function rpc(
-  host: Host, cookie: string, endpoint: string, args: object,
-): Promise<{ status: number; body: unknown }> {
+async function rpc(host: Host, cookie: string, endpoint: string, args: object): Promise<{ status: number; body: unknown }> {
   const response = await fetch(`${host.origin}/api/${endpoint}`, {
-    method: 'POST', headers: { cookie, 'content-type': 'application/json' },
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ type: 'client-request', rpcId: randomUUID(), method: endpoint, payload: { args } }),
   })
   return { status: response.status, body: response.status === 200 ? await response.json() : await response.text() }

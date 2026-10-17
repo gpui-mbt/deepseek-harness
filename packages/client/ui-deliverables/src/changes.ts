@@ -1,6 +1,11 @@
 /** Validate workspace-change records that cross the Host routes and address their summary, comparison, and native-open actions. */
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceChangedFile, WorkspaceChangesSummary, WorkspaceDiffHunk, WorkspaceFileDiff } from '@deepseek-ai/dsh-workspace-changes/types'
+import type {
+  WorkspaceChangedFile,
+  WorkspaceChangesSummary,
+  WorkspaceDiffHunk,
+  WorkspaceFileDiff,
+} from '@deepseek-ai/dsh-workspace-changes/types'
 
 /** Authenticated GET route serving one announced change summary while its Session lives. */
 export const CHANGED_FILES_PATH = '/api/changes.summary'
@@ -52,9 +57,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function isChangedFile(value: unknown): value is WorkspaceChangedFile {
   if (!isRecord(value)) return false
   const { path, display, added, deleted, binary, oversized } = value
-  return typeof path === 'string' && path.length > 0 && typeof display === 'string' && display.length > 0
-    && Number.isSafeInteger(added) && Number.isSafeInteger(deleted)
-    && (binary === undefined || binary === true) && (oversized === undefined || oversized === true)
+  return (
+    typeof path === 'string' &&
+    path.length > 0 &&
+    typeof display === 'string' &&
+    display.length > 0 &&
+    Number.isSafeInteger(added) &&
+    Number.isSafeInteger(deleted) &&
+    (binary === undefined || binary === true) &&
+    (oversized === undefined || oversized === true)
+  )
 }
 
 /**
@@ -65,16 +77,25 @@ export function isChangedFile(value: unknown): value is WorkspaceChangedFile {
 export function isChangesSummary(value: unknown): value is ChangesSummary {
   if (!isRecord(value)) return false
   const { turn, files, total, added, deleted } = value
-  return Number.isSafeInteger(turn) && (turn as number) >= 1 && Number.isSafeInteger(total)
-    && Number.isSafeInteger(added) && Number.isSafeInteger(deleted)
-    && Array.isArray(files) && files.every(isChangedFile)
+  return (
+    Number.isSafeInteger(turn) &&
+    (turn as number) >= 1 &&
+    Number.isSafeInteger(total) &&
+    Number.isSafeInteger(added) &&
+    Number.isSafeInteger(deleted) &&
+    Array.isArray(files) &&
+    files.every(isChangedFile)
+  )
 }
 
 function isHunk(value: unknown): value is WorkspaceDiffHunk {
   if (!isRecord(value)) return false
   const { oldStart, oldLines, newStart, newLines, lines } = value
-  return [oldStart, oldLines, newStart, newLines].every(field => Number.isSafeInteger(field) && (field as number) >= 0)
-    && Array.isArray(lines) && lines.every(line => typeof line === 'string' && /^[+ -]/.test(line))
+  return (
+    [oldStart, oldLines, newStart, newLines].every(field => Number.isSafeInteger(field) && (field as number) >= 0) &&
+    Array.isArray(lines) &&
+    lines.every(line => typeof line === 'string' && /^[+ -]/.test(line))
+  )
 }
 
 /**
@@ -89,8 +110,9 @@ export function isChangesDiff(value: unknown): value is ChangesDiff {
   if (kind === 'binary' || kind === 'oversized') return true
   if (kind !== 'text') return false
   const { before, after, hunks, coarse } = value
-  return typeof before === 'boolean' && typeof after === 'boolean' && typeof coarse === 'boolean'
-    && Array.isArray(hunks) && hunks.every(isHunk)
+  return (
+    typeof before === 'boolean' && typeof after === 'boolean' && typeof coarse === 'boolean' && Array.isArray(hunks) && hunks.every(isHunk)
+  )
 }
 
 /**

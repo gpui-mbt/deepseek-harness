@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** File-tree presentation over controlled directory watches and deferred listings. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent } from '@testing-library/react'
 import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
@@ -20,7 +20,9 @@ const ROOT_LEVEL: DirLevel = {
   truncated: false,
 }
 
-afterEach(() => { cleanup() })
+afterEach(() => {
+  cleanup()
+})
 
 /** Row labels in document order. */
 function names(root: HTMLElement): string[] {
@@ -29,8 +31,17 @@ function names(root: HTMLElement): string[] {
 
 describe('FilesBody', () => {
   it('displays the effective file-tree refresh accelerator', async () => {
-    const { view, script } = mountBody(ROOT, { id: 'page.refresh' as never, label: 'Refresh', aliases: [],
-      binding: null, keys: ['Ctrl', 'R'], aria: 'Control+R', modified: true, conflicts: [], issue: null })
+    const { view, script } = mountBody(ROOT, {
+      id: 'page.refresh' as never,
+      label: 'Refresh',
+      aliases: [],
+      binding: null,
+      keys: ['Ctrl', 'R'],
+      aria: 'Control+R',
+      modified: true,
+      conflicts: [],
+      issue: null,
+    })
     await act(() => script.watches.ready(ROOT))
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
     expect(view.getByRole('button', { name: zh.reload }).getAttribute('aria-keyshortcuts')).toBe('Control+R')
@@ -51,7 +62,7 @@ describe('FilesBody', () => {
     expect(view.container.querySelector('[data-files-state="tree"]')?.getAttribute('data-files-root')).toBe(ROOT)
     const path = view.container.querySelector('[data-files-path]')
     expect(path?.getAttribute('title')).toBe(ROOT)
-    expect([...path?.firstElementChild?.children ?? []].map(span => span.textContent)).toEqual(['/work/', 'app'])
+    expect([...(path?.firstElementChild?.children ?? [])].map(span => span.textContent)).toEqual(['/work/', 'app'])
     expect(names(view.container)).toEqual([`${ROOT}/src`, `${ROOT}/.env`, `${ROOT}/pipe`, `${ROOT}/README.md`])
     const envIcon = view.container.querySelector(`[data-files-path="${ROOT}/.env"] svg`)?.innerHTML
     const readmeIcon = view.container.querySelector(`[data-files-path="${ROOT}/README.md"] svg`)?.innerHTML
@@ -63,7 +74,7 @@ describe('FilesBody', () => {
     await act(() => script.watches.ready('/'))
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
     const path = view.container.querySelector('[data-files-path]')
-    expect([...path?.firstElementChild?.children ?? []].map(span => span.textContent)).toEqual(['/'])
+    expect([...(path?.firstElementChild?.children ?? [])].map(span => span.textContent)).toEqual(['/'])
     expect(names(view.container)).toEqual(['/src', '/.env', '/pipe', '/README.md'])
   })
 
@@ -100,17 +111,24 @@ describe('FilesBody', () => {
       expect(observer.observe).toHaveBeenCalledWith(text)
 
       boxWidth = 120
-      act(() => { observer.fire() })
+      act(() => {
+        observer.fire()
+      })
       expect(path?.hasAttribute('data-path-clipped')).toBe(true)
 
       boxWidth = 300
-      act(() => { observer.fire() })
+      act(() => {
+        observer.fire()
+      })
       expect(path?.hasAttribute('data-path-clipped')).toBe(false)
       view.unmount()
       expect(observer.disconnect).toHaveBeenCalledTimes(1)
     } finally {
       vi.unstubAllGlobals()
-      for (const [name, descriptor] of [['offsetWidth', offsetWidth], ['clientWidth', clientWidth]] as const) {
+      for (const [name, descriptor] of [
+        ['offsetWidth', offsetWidth],
+        ['clientWidth', clientWidth],
+      ] as const) {
         if (descriptor === undefined) Reflect.deleteProperty(HTMLElement.prototype, name)
         else Object.defineProperty(HTMLElement.prototype, name, descriptor)
       }
@@ -122,19 +140,25 @@ describe('FilesBody', () => {
     await act(() => script.watches.ready(ROOT))
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
     const dir = view.container.querySelector(`[data-files-path="${ROOT}/src"] > button`)!
-    act(() => { fireEvent.click(dir) })
+    act(() => {
+      fireEvent.click(dir)
+    })
     expect(script.list).toHaveBeenCalledTimes(1)
     const childStream = await act(() => script.watches.ready(`${ROOT}/src`))
     expect(script.list).toHaveBeenLastCalledWith(SESSION, `${ROOT}/src`, expect.any(AbortSignal))
     expect(dir.getAttribute('aria-expanded')).toBe('true')
     await act(() => script.settle({ ok: true, value: { entries: [{ name: 'a.ts', type: 'file' }], truncated: false } }))
     expect(names(view.container)).toContain(`${ROOT}/src/a.ts`)
-    act(() => { fireEvent.click(dir) })
+    act(() => {
+      fireEvent.click(dir)
+    })
     expect(childStream.signal.aborted).toBe(true)
     await childStream.released.promise
     expect(dir.getAttribute('aria-expanded')).toBe('false')
     expect(names(view.container)).not.toContain(`${ROOT}/src/a.ts`)
-    act(() => { fireEvent.click(dir) })
+    act(() => {
+      fireEvent.click(dir)
+    })
     expect(names(view.container)).toContain(`${ROOT}/src/a.ts`)
     expect(script.list).toHaveBeenCalledTimes(2)
     await act(() => script.watches.ready(`${ROOT}/src`, 1))
@@ -163,7 +187,9 @@ describe('FilesBody', () => {
     await act(() => script.watches.ready(ROOT))
     await act(() => script.settle({ ok: true, value: { entries: [{ name: 'd', type: 'directory' }], truncated: true } }))
     expect(view.container.querySelector('[data-files-row="truncated"]')?.textContent).toBe(zh.truncated)
-    act(() => { fireEvent.click(view.container.querySelector(`[data-files-path="${ROOT}/d"] > button`)!) })
+    act(() => {
+      fireEvent.click(view.container.querySelector(`[data-files-path="${ROOT}/d"] > button`)!)
+    })
     await act(() => script.watches.ready(`${ROOT}/d`))
     await act(() => script.settle({ ok: true, value: { entries: [], truncated: false } }))
     expect(view.container.querySelector('[data-files-row="empty"]')?.textContent).toBe(zh.empty)
@@ -172,10 +198,12 @@ describe('FilesBody', () => {
   it('shows a failed level under its directory with the failure code', async () => {
     const { view, script } = mountBody()
     await act(() => script.watches.ready(ROOT))
-    await act(() => script.settle({
-      ok: false,
-      error: new RemoteError('workspace-file/not-found', 'gone', { path: ROOT }),
-    }))
+    await act(() =>
+      script.settle({
+        ok: false,
+        error: new RemoteError('workspace-file/not-found', 'gone', { path: ROOT }),
+      }),
+    )
     const failed = view.container.querySelector('[data-files-row="failed"]')
     expect(failed?.getAttribute('data-files-code')).toBe('workspace-file/not-found')
     expect(failed?.textContent).toBe(zh['error.notFound'])
@@ -187,28 +215,39 @@ describe('FilesBody', () => {
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
     const rows = names(view.container)
     const reload = view.getByRole('button', { name: zh.reload })
-    act(() => { fireEvent.click(reload) })
-    await act(() => script.settle({
-      ok: false, error: new RemoteError('workspace-file/not-found', 'gone', { path: ROOT }),
-    }))
+    act(() => {
+      fireEvent.click(reload)
+    })
+    await act(() =>
+      script.settle({
+        ok: false,
+        error: new RemoteError('workspace-file/not-found', 'gone', { path: ROOT }),
+      }),
+    )
     expect(view.container.querySelector('[data-files-row="failed"]')?.textContent).toBe(zh['error.notFound'])
     expect(names(view.container)).toEqual(rows)
-    act(() => { fireEvent.click(reload) })
+    act(() => {
+      fireEvent.click(reload)
+    })
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
     expect(view.container.querySelector('[data-files-row="failed"]')).toBeNull()
     expect(names(view.container)).toEqual(rows)
   })
 
-  it.each(['button', 'shortcut'])('%s refreshes expanded nodes without clearing cached rows or the scroll position', async (source) => {
+  it.each(['button', 'shortcut'])('%s refreshes expanded nodes without clearing cached rows or the scroll position', async source => {
     const { view, script, instance, tabActions } = mountBody()
     const child = `${ROOT}/src`
     const collapsed = `${ROOT}/docs`
     const rootStream = await act(() => script.watches.ready(ROOT))
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
-    act(() => { fireEvent.click(view.container.querySelector(`[data-files-path="${child}"] > button`)!) })
+    act(() => {
+      fireEvent.click(view.container.querySelector(`[data-files-path="${child}"] > button`)!)
+    })
     await act(() => script.watches.ready(child))
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
-    act(() => { instance.actions.loaded(TAB, collapsed, ROOT_LEVEL) })
+    act(() => {
+      instance.actions.loaded(TAB, collapsed, ROOT_LEVEL)
+    })
     const cached = instance.getSnapshot().byTab[TAB]!
     const childRow = view.container.querySelector(`[data-files-path="${child}"]`)
     const body = view.container.querySelector('[data-files-body]')!
@@ -245,11 +284,15 @@ describe('FilesBody', () => {
     expect(automatic.getAttribute('aria-pressed')).toBe('true')
     expect(view.queryByRole('button', { name: zh.autoRefresh })).toBeNull()
     expect(view.getByRole('button', { name: zh.reload })).toBeDefined()
-    act(() => { fireEvent.click(automatic) })
+    act(() => {
+      fireEvent.click(automatic)
+    })
     expect(automatic.getAttribute('aria-pressed')).toBe('false')
     await act(() => stream.deliver('change'))
     expect(script.list).toHaveBeenCalledTimes(1)
-    act(() => { fireEvent.click(view.getByRole('button', { name: zh.reload })) })
+    act(() => {
+      fireEvent.click(view.getByRole('button', { name: zh.reload }))
+    })
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
     expect(script.list).toHaveBeenCalledTimes(2)
     expect(instance.getSnapshot().byTab[TAB]!.autoRefresh).toBe(false)
@@ -275,7 +318,9 @@ describe('FilesBody', () => {
     await act(() => script.watches.ready(ROOT))
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
     fireEvent.scroll(view.container.querySelector('[data-files-body]')!, { target: { scrollTop: 80 } })
-    act(() => { controller.abort() })
+    act(() => {
+      controller.abort()
+    })
     view.unmount()
     expect(instance.getSnapshot().byTab[TAB]).toBeUndefined()
   })
@@ -284,7 +329,9 @@ describe('FilesBody', () => {
     const { view, script, controller, instance } = mountBody()
     await act(() => script.watches.ready(ROOT))
     await act(() => script.settle({ ok: true, value: ROOT_LEVEL }))
-    act(() => { controller.abort() })
+    act(() => {
+      controller.abort()
+    })
     expect(instance.getSnapshot().byTab[TAB]).toBeUndefined()
     expect(view.container.querySelector('[data-files-state="tree"]')).toBeNull()
     expect(script.list).toHaveBeenCalledTimes(1)
@@ -304,8 +351,11 @@ describe('orderEntries', () => {
     expect(ordered.map(entry => entry.name)).toEqual(['Alpha', 'zeta', '.env', 'file2.txt', 'file10.txt', 'sock'])
   })
 
-  it('leaves the endpoint\'s array untouched', () => {
-    const entries = [{ name: 'b', type: 'file' as const }, { name: 'a', type: 'file' as const }]
+  it("leaves the endpoint's array untouched", () => {
+    const entries = [
+      { name: 'b', type: 'file' as const },
+      { name: 'a', type: 'file' as const },
+    ]
     orderEntries(entries)
     expect(entries.map(entry => entry.name)).toEqual(['b', 'a'])
   })
@@ -316,13 +366,11 @@ describe('failureLine', () => {
 
   it('names each directory failure', () => {
     expect(failureLine(t, new RemoteError('workspace-file/not-found', 'x', { path: 'p' }))).toBe(zh['error.notFound'])
-    expect(failureLine(t, new RemoteError('workspace-file/outside-workspace', 'x', { path: 'p' })))
-      .toBe(zh['error.outsideWorkspace'])
-    expect(failureLine(t, new RemoteError('workspace-file/not-directory', 'x', { path: 'p', kind: 'file' })))
-      .toBe(zh['error.notDirectory'])
+    expect(failureLine(t, new RemoteError('workspace-file/outside-workspace', 'x', { path: 'p' }))).toBe(zh['error.outsideWorkspace'])
+    expect(failureLine(t, new RemoteError('workspace-file/not-directory', 'x', { path: 'p', kind: 'file' }))).toBe(zh['error.notDirectory'])
   })
 
-  it('carries an unclassified failure\'s own message', () => {
+  it("carries an unclassified failure's own message", () => {
     const failure = { code: 'remote/transport', message: 'socket closed' } as unknown as RemoteFailure
     expect(failureLine(t, failure)).toBe('读取失败：socket closed')
   })

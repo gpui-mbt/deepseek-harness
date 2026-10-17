@@ -13,12 +13,12 @@ export function useOpenFailureToast(): { toast: ReactNode; show: (text: string) 
   // The seq keys the banner so the same failure text replays instead of staying silently in place.
   const seq = useRef(0)
   const [banner, setBanner] = useState<{ seq: number; text: string } | null>(null)
-  const dismiss = useCallback(() => { setBanner(null) }, [])
+  const dismiss = useCallback(() => {
+    setBanner(null)
+  }, [])
   return {
-    toast: banner === null
-      ? null
-      : <Toast key={banner.seq} text={banner.text} icon={<IconWarningOutlineRegular />} onDone={dismiss} />,
-    show: (text) => {
+    toast: banner === null ? null : <Toast key={banner.seq} text={banner.text} icon={<IconWarningOutlineRegular />} onDone={dismiss} />,
+    show: text => {
       seq.current += 1
       setBanner({ seq: seq.current, text })
     },

@@ -42,7 +42,7 @@ export function changesReviewDefinition(t: TranslateNS<typeof NS>): SidebarRight
     patterns: ['dsh-resource://changes-review/**'],
     priority: 'builtin',
     canOpen: address => parseChangesReviewAddress(address) !== undefined,
-    title: (address) => {
+    title: address => {
       const turn = parseChangesReviewAddress(address)?.turn
       return turn === undefined ? address : t('review.title', { turn: String(turn) })
     },

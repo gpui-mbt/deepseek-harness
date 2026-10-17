@@ -4,7 +4,7 @@
  * while the panel is collapsed, asks for it to expand, and renders nothing
  * while the panel is shown.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
 import type { GlobalStandardProps, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
@@ -16,15 +16,34 @@ import type { ExpandButtonProps } from '../src/client/shell/ExpandButton.tsx'
 import { createSidebarRightStore } from '../src/client/stores.ts'
 
 const SESSION = 's-test' as SessionId
-const unused = (): never => { throw new Error('This isolated component does not consume framework hooks') }
+const unused = (): never => {
+  throw new Error('This isolated component does not consume framework hooks')
+}
 const standard: GlobalStandardProps & SessionStandardProps = {
-  sessionId: SESSION, useSession: unused, useProjection: unused, useConversation: unused,
-  useInput: unused, useChat: unused, useTrajectory: unused,
-  usePanelInfo: unused, useSessions: unused, useSessionStatus: unused,
-  useSessionRetainInfo: unused, useResource: unused, useWorkspaces: unused,
+  sessionId: SESSION,
+  useSession: unused,
+  useProjection: unused,
+  useConversation: unused,
+  useInput: unused,
+  useChat: unused,
+  useTrajectory: unused,
+  usePanelInfo: unused,
+  useSessions: unused,
+  useSessionStatus: unused,
+  useSessionRetainInfo: unused,
+  useResource: unused,
+  useWorkspaces: unused,
   ...allowAllAccess,
-  inputActions: { captureInsertion: unused, insertText: unused, setDraft: unused, persistDraft: unused,
-    addAttachments: unused, removeAttachment: unused, pruneAttachments: unused, submit: unused },
+  inputActions: {
+    captureInsertion: unused,
+    insertText: unused,
+    setDraft: unused,
+    persistDraft: unused,
+    addAttachments: unused,
+    removeAttachment: unused,
+    pruneAttachments: unused,
+    submit: unused,
+  },
 }
 
 /** Test-local selector hook over a framework-neutral store instance. */
@@ -53,8 +72,19 @@ function mountButton(shortcuts: readonly ShortcutCatalogEntry[] = []) {
 
 describe('ExpandButton', () => {
   it('advertises the configured expand binding', async () => {
-    const { control, view } = mountButton([{ id: 'sidebar.right.toggle' as never, label: 'Toggle', aliases: [],
-      binding: null, keys: ['Ctrl', 'B'], aria: 'Control+B', modified: true, conflicts: [], issue: null }])
+    const { control, view } = mountButton([
+      {
+        id: 'sidebar.right.toggle' as never,
+        label: 'Toggle',
+        aliases: [],
+        binding: null,
+        keys: ['Ctrl', 'B'],
+        aria: 'Control+B',
+        modified: true,
+        conflicts: [],
+        issue: null,
+      },
+    ])
     expect(control()?.getAttribute('aria-keyshortcuts')).toBe('Control+B')
     fireEvent.mouseEnter(control()!)
     const tooltip = await view.findByRole('tooltip')
@@ -76,9 +106,13 @@ describe('ExpandButton', () => {
 
   it('comes back when the panel collapses again', () => {
     const { instance, control } = mountButton()
-    act(() => { instance.actions.setExpanded(SESSION, true) })
+    act(() => {
+      instance.actions.setExpanded(SESSION, true)
+    })
     expect(control()).toBeNull()
-    act(() => { instance.actions.setExpanded(SESSION, false) })
+    act(() => {
+      instance.actions.setExpanded(SESSION, false)
+    })
     expect(control()).not.toBeNull()
     cleanup()
   })

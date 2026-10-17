@@ -82,9 +82,8 @@ function collectDestructuredAgents(pattern: ts.ObjectBindingPattern, agents: Set
   for (const element of pattern.elements) {
     if (!ts.isIdentifier(element.name)) continue
     const property = element.propertyName
-    const imported = property === undefined
-      ? element.name.text
-      : ts.isIdentifier(property) || ts.isStringLiteral(property) ? property.text : undefined
+    const imported =
+      property === undefined ? element.name.text : ts.isIdentifier(property) || ts.isStringLiteral(property) ? property.text : undefined
     if (imported !== undefined && AGENT_EXPORTS.has(imported)) agents.add(element.name.text)
   }
 }
@@ -199,10 +198,7 @@ export function findDispatcherViolations(file: string, sourceText: string): Disp
  * @throws when the corpus is empty, which would make the gate pass by scanning nothing.
  */
 export function scanRepository(): DispatcherViolation[] {
-  const files = [
-    ...globSync('packages/*/*/src/**/*.ts', { cwd: root }),
-    ...globSync('apps/*/src/**/*.ts', { cwd: root }),
-  ]
+  const files = [...globSync('packages/*/*/src/**/*.ts', { cwd: root }), ...globSync('apps/*/src/**/*.ts', { cwd: root })]
   if (files.length === 0) throw new Error('verify-no-bare-dispatcher: scanned an empty corpus; the globs no longer match.')
   return files.flatMap(file => findDispatcherViolations(file, readFileSync(resolve(root, file), 'utf8')))
 }

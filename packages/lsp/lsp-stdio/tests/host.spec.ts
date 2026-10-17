@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -58,9 +58,10 @@ describe('canonicalizeWorkspace', () => {
   })
 
   it('wraps a provider failure while resolving the workspace', async () => {
-    fs.resolve = async () => { throw 'raw workspace resolve failure' }
-    await expect(canonicalizeWorkspace(fs, ws))
-      .rejects.toThrow(`workspace root "${ws}" cannot be resolved: raw workspace resolve failure`)
+    fs.resolve = async () => {
+      throw 'raw workspace resolve failure'
+    }
+    await expect(canonicalizeWorkspace(fs, ws)).rejects.toThrow(`workspace root "${ws}" cannot be resolved: raw workspace resolve failure`)
   })
 
   it('rejects a non-directory workspace', async () => {
@@ -71,7 +72,9 @@ describe('canonicalizeWorkspace', () => {
 
   it('normalizes workspace metadata cancellation and preserves other provider failures', async () => {
     const providerFailure = new Error('workspace metadata failed')
-    fs.stat = async () => { throw providerFailure }
+    fs.stat = async () => {
+      throw providerFailure
+    }
     await expect(canonicalizeWorkspace(fs, ws)).rejects.toBe(providerFailure)
 
     const controller = new AbortController()
@@ -79,8 +82,7 @@ describe('canonicalizeWorkspace', () => {
       controller.abort(new Error('workspace metadata cancelled'))
       throw providerFailure
     }
-    await expect(canonicalizeWorkspace(fs, ws, controller.signal))
-      .rejects.toThrow('workspace metadata cancelled')
+    await expect(canonicalizeWorkspace(fs, ws, controller.signal)).rejects.toThrow('workspace metadata cancelled')
   })
 })
 
@@ -126,9 +128,12 @@ describe('readHostSource', () => {
 
   it('wraps a provider failure while resolving the source', async () => {
     const canonical = await workspace()
-    fs.resolve = async () => { throw 'raw resolve failure' }
-    await expect(readHostSource(fs, 'broken.ts', canonical, BIG))
-      .rejects.toThrow('source "broken.ts" cannot be resolved: raw resolve failure')
+    fs.resolve = async () => {
+      throw 'raw resolve failure'
+    }
+    await expect(readHostSource(fs, 'broken.ts', canonical, BIG)).rejects.toThrow(
+      'source "broken.ts" cannot be resolved: raw resolve failure',
+    )
   })
 
   it('rejects a non-regular source (directory)', async () => {

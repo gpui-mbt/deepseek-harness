@@ -9,12 +9,7 @@ import { existsSync, globSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { historicalSchemaRegion } from './historical-schema-region.ts'
-import {
-  findReferenceViolations,
-  isArchivedAgentNotePath,
-  uniqueRepoFiles,
-  type ReferenceViolation as Violation,
-} from './repo-files.ts'
+import { findReferenceViolations, isArchivedAgentNotePath, uniqueRepoFiles, type ReferenceViolation as Violation } from './repo-files.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -70,9 +65,8 @@ function isDriftedPackageReference(repoRoot: string, packageNames: ReadonlySet<s
   // client-modules group and the sdk leaf), so only later segments count.
   const segments = ref.split('/').slice(1)
   const [group] = segments
-  const scanned = group !== undefined && segments.length > 1 && existsSync(resolve(repoRoot, 'packages', group))
-    ? segments.slice(1)
-    : segments
+  const scanned =
+    group !== undefined && segments.length > 1 && existsSync(resolve(repoRoot, 'packages', group)) ? segments.slice(1) : segments
   return scanned.some(segment => packageNames.has(segment))
 }
 

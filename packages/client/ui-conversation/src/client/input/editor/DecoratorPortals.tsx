@@ -21,13 +21,15 @@ export interface DecoratorPortalsProps {
  * @returns the live portal set.
  */
 export function DecoratorPortals({ editor }: DecoratorPortalsProps): ReactNode {
-  const [decorators, setDecorators] = React.useState<Record<NodeKey, React.JSX.Element>>(
-    () => editor === null ? {} : editor.getDecorators<React.JSX.Element>(),
+  const [decorators, setDecorators] = React.useState<Record<NodeKey, React.JSX.Element>>(() =>
+    editor === null ? {} : editor.getDecorators<React.JSX.Element>(),
   )
   React.useLayoutEffect(() => {
     if (editor === null) return
     setDecorators(editor.getDecorators<React.JSX.Element>())
-    return editor.registerDecoratorListener<React.JSX.Element>((next) => { setDecorators(next) })
+    return editor.registerDecoratorListener<React.JSX.Element>(next => {
+      setDecorators(next)
+    })
   }, [editor])
   if (editor === null) return null
   return (

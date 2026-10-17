@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { transform } from 'lightningcss'
 import { build, loadConfigFromFile } from 'vite'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 
 const require = createRequire(new URL('../../../packages/client/ui-primitives/package.json', import.meta.url))
 const stylesheet = require.resolve('katex/dist/katex.min.css')
@@ -22,14 +22,21 @@ async function bundleStyle(source: { path: string } | { package: string; css: st
     await writeFile(input, source.css)
     await writeFile(join(dirname(input), 'font.woff'), 'fixture font')
   }
-  const loaded = await loadConfigFromFile({ command: 'build', mode: 'production' }, fileURLToPath(new URL('../vite.config.ts', import.meta.url)))
+  const loaded = await loadConfigFromFile(
+    { command: 'build', mode: 'production' },
+    fileURLToPath(new URL('../vite.config.ts', import.meta.url)),
+  )
   if (!loaded) throw new Error('Expected the Web build configuration')
   // The product isolation check requires the full application's HTML entry.
-  const plugins = (loaded.config.plugins ?? []).flat().filter(plugin => !(plugin && typeof plugin === 'object'
-    && 'name' in plugin && plugin.name === 'dsh-product-web-bundle-isolation'))
+  const plugins = (loaded.config.plugins ?? [])
+    .flat()
+    .filter(plugin => !(plugin && typeof plugin === 'object' && 'name' in plugin && plugin.name === 'dsh-product-web-bundle-isolation'))
   const result = await build({
-    ...loaded.config, configFile: false, plugins,
-    root, logLevel: 'silent',
+    ...loaded.config,
+    configFile: false,
+    plugins,
+    root,
+    logLevel: 'silent',
     build: { write: false, cssMinify: false, assetsInlineLimit: 0, rollupOptions: { input } },
   })
   if ('on' in result) throw new Error('Expected a completed build')
@@ -39,11 +46,17 @@ async function bundleStyle(source: { path: string } | { package: string; css: st
 /** Normalize layout CSS independently of emitted font URLs and format fallbacks. */
 function layoutCss(css: string): string {
   return transform({
-    filename: 'layout.css', code: Buffer.from(css), minify: true,
-    visitor: { Rule: { 'font-face'(rule) {
-      rule.value.properties = rule.value.properties.filter(property => property.type !== 'source')
-      return rule
-    } } },
+    filename: 'layout.css',
+    code: Buffer.from(css),
+    minify: true,
+    visitor: {
+      Rule: {
+        'font-face'(rule) {
+          rule.value.properties = rule.value.properties.filter(property => property.type !== 'source')
+          return rule
+        },
+      },
+    },
   }).code.toString()
 }
 
@@ -64,9 +77,10 @@ it('ships all KaTeX WOFF2 faces with identical font bytes and layout styles', as
   expect(layoutCss(text)).toBe(layoutCss(await readFile(stylesheet, 'utf8')))
 })
 
-it.each(['src: url(font.woff) format("woff");', ''])('rejects a KaTeX face without WOFF2 (src=%s)', async (source) => {
-  await expect(bundleStyle({ package: 'katex', css: `@font-face { font-family: KaTeX_Main; ${source} }` }))
-    .rejects.toThrow('KaTeX font face requires a WOFF2 source')
+it.each(['src: url(font.woff) format("woff");', ''])('rejects a KaTeX face without WOFF2 (src=%s)', async source => {
+  await expect(bundleStyle({ package: 'katex', css: `@font-face { font-family: KaTeX_Main; ${source} }` })).rejects.toThrow(
+    'KaTeX font face requires a WOFF2 source',
+  )
 })
 
 it('preserves older font formats in unrelated stylesheets', async () => {

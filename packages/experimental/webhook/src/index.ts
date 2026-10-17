@@ -56,14 +56,7 @@ function snapshotDelivery(delivery: VerifiedWebhookDelivery): VerifiedWebhookDel
 
 /** Fire-and-forget rule runtime. Session creation is the only built-in action. */
 export class WebhookRuntime extends Service {
-  static inject = [
-    'agents',
-    'agentDefaultModel',
-    'agentPresets',
-    'permissionPresets',
-    'sessionTitle',
-    'workspaceRegistry',
-  ]
+  static inject = ['agents', 'agentDefaultModel', 'agentPresets', 'permissionPresets', 'sessionTitle', 'workspaceRegistry']
 
   private readonly rules = new Map<WebhookRuleId, RuleRegistration>()
   private readonly selfCtx: Context
@@ -72,13 +65,14 @@ export class WebhookRuntime extends Service {
   constructor(ctx: Context) {
     super(ctx, 'webhookRuntime')
     this.selfCtx = ctx
-    ctx.effect(() => async () => {
-      this.closing = true
-      /* v8 ignore next -- caller-owned registration effects normally dispose first; this covers provider-first unload. */
-      await Promise.all(
-        [...this.rules.values()].map(rule => this.disposeRegistration(rule)),
-      )
-    }, 'webhookRuntime.lifecycle()')
+    ctx.effect(
+      () => async () => {
+        this.closing = true
+        /* v8 ignore next -- caller-owned registration effects normally dispose first; this covers provider-first unload. */
+        await Promise.all([...this.rules.values()].map(rule => this.disposeRegistration(rule)))
+      },
+      'webhookRuntime.lifecycle()',
+    )
   }
 
   /**
@@ -115,7 +109,9 @@ export class WebhookRuntime extends Service {
       this.rules.set(rule.id, registration)
       return () => this.disposeRegistration(registration)
     }, `webhookRuntime.register(${rule.id})`)
-    return async () => { await disposeEffect() }
+    return async () => {
+      await disposeEffect()
+    }
   }
 
   /**
@@ -134,30 +130,28 @@ export class WebhookRuntime extends Service {
 
   /** Start one contained invocation and attach it to registration teardown. */
   private startInvocation(registration: RuleRegistration, delivery: VerifiedWebhookDelivery): void {
-    const tracked = Promise.resolve().then(async () => {
-      registration.controller.signal.throwIfAborted()
-      const request = await registration.rule.run(delivery, registration.controller.signal)
-      registration.controller.signal.throwIfAborted()
-      if (request !== null) {
-        await createWebhookSession(
-          this.selfCtx,
-          delivery,
-          registration.rule.id,
-          request,
-          registration.controller.signal,
-        )
-      }
-    }).catch((error: unknown) => {
-      const invocation = `webhook: provider=${JSON.stringify(delivery.kind)} source=${JSON.stringify(delivery.source)} `
-        + `delivery=${JSON.stringify(delivery.deliveryId)} rule=${JSON.stringify(registration.rule.id)}`
-      if (registration.controller.signal.aborted) {
-        this.selfCtx.logger.debug(`${invocation} stopped after disposal: ${errorChain(error)}`)
-      } else {
-        this.selfCtx.logger.warn(`${invocation} failed: ${errorChain(error)}`)
-      }
-    }).finally(() => {
-      registration.active.delete(tracked)
-    })
+    const tracked = Promise.resolve()
+      .then(async () => {
+        registration.controller.signal.throwIfAborted()
+        const request = await registration.rule.run(delivery, registration.controller.signal)
+        registration.controller.signal.throwIfAborted()
+        if (request !== null) {
+          await createWebhookSession(this.selfCtx, delivery, registration.rule.id, request, registration.controller.signal)
+        }
+      })
+      .catch((error: unknown) => {
+        const invocation =
+          `webhook: provider=${JSON.stringify(delivery.kind)} source=${JSON.stringify(delivery.source)} ` +
+          `delivery=${JSON.stringify(delivery.deliveryId)} rule=${JSON.stringify(registration.rule.id)}`
+        if (registration.controller.signal.aborted) {
+          this.selfCtx.logger.debug(`${invocation} stopped after disposal: ${errorChain(error)}`)
+        } else {
+          this.selfCtx.logger.warn(`${invocation} failed: ${errorChain(error)}`)
+        }
+      })
+      .finally(() => {
+        registration.active.delete(tracked)
+      })
     registration.active.add(tracked)
   }
 

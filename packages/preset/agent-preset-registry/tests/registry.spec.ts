@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import { assembleContextFor } from '@deepseek-ai/dsh-agent'
 import { entryListProblem } from '../src/index.ts'
@@ -10,8 +10,14 @@ import AgentPresets from '../src/index.ts'
 import type { Context } from '@deepseek-ai/cordis'
 
 const contexts: Context[] = []
-afterEach(async () => { for (const ctx of contexts.splice(0)) await ctx.fiber.dispose() })
-async function setup() { const ctx = await harness(); contexts.push(ctx); return ctx }
+afterEach(async () => {
+  for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
+})
+async function setup() {
+  const ctx = await harness()
+  contexts.push(ctx)
+  return ctx
+}
 
 describe('declarative preset revisions', () => {
   it('eagerly scopes tool and prompt registrations and shares one revision across Agents', async () => {
@@ -118,16 +124,20 @@ describe('declarative preset revisions', () => {
     await declare(ctx, { ...contribution('standard'), name: 'Standard', description: 'General', order: 2 })
     await declare(ctx, { id: 'empty', order: 1, plugins: [{ name: 'missing', disabled: true }] })
     expect((await ctx.agentPresets.list()).map(row => row.id)).toEqual(['empty', 'standard'])
-    expect(await ctx.agentPresets.compositionInventory()).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'standard', name: 'Standard', isDefault: true, rows: expect.any(Array) as unknown[] }),
-      expect.objectContaining({ id: 'empty', rows: [expect.objectContaining({ moduleName: 'missing', enabled: false })] }),
-    ]))
+    expect(await ctx.agentPresets.compositionInventory()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'standard', name: 'Standard', isDefault: true, rows: expect.any(Array) as unknown[] }),
+        expect.objectContaining({ id: 'empty', rows: [expect.objectContaining({ moduleName: 'missing', enabled: false })] }),
+      ]),
+    )
   })
 
   it('renders a declaration as entry-list YAML for reading, conditions included', async () => {
     const ctx = await setup()
     await declare(ctx, {
-      ...contribution('standard'), name: 'Standard', description: 'General',
+      ...contribution('standard'),
+      name: 'Standard',
+      description: 'General',
       plugins: [
         { id: 'contribute', name: plugin('contribute'), config: { tool: 'standard' } },
         { id: 'windows-only', name: 'missing', disabled: { __jsExpr: "process.platform !== 'win32'" } },
@@ -136,11 +146,14 @@ describe('declarative preset revisions', () => {
     const document = await ctx.agentPresets.readDocument('standard')
     expect(document).toMatchObject({ agentPreset: 'standard', name: 'Standard', description: 'General' })
     expect(document.content.startsWith('- id: contribute\n  name: ')).toBe(true)
-    expect(document.content).toContain("\n  config:\n    tool: standard\n- id: windows-only\n  name: missing\n  disabled: !!js process.platform !== 'win32'\n")
+    expect(document.content).toContain(
+      "\n  config:\n    tool: standard\n- id: windows-only\n  name: missing\n  disabled: !!js process.platform !== 'win32'\n",
+    )
     expect(document.content).not.toContain('__jsExpr')
     await declare(ctx, contribution('minimal'))
     expect(await ctx.agentPresets.readDocument('minimal')).toEqual({
-      agentPreset: 'minimal', content: expect.any(String) as string,
+      agentPreset: 'minimal',
+      content: expect.any(String) as string,
     })
     await expect(ctx.agentPresets.readDocument('absent')).rejects.toThrow('Unknown agent preset: absent')
   })
@@ -157,7 +170,10 @@ it('retains a retired revision for an in-flight cold read', async () => {
   expect(ctx.agentPresets.inspectCompositions()).toEqual([])
 })
 
-it.each([['throws', 'refused'], ['global-service', 'require isolate realms']])('contains a %s plugin activation failure', async (name, reason) => {
+it.each([
+  ['throws', 'refused'],
+  ['global-service', 'require isolate realms'],
+])('contains a %s plugin activation failure', async (name, reason) => {
   const ctx = await setup()
   const { plugin } = await import('./harness.ts')
   await declare(ctx, { id: 'invalid', plugins: [{ name: plugin(name), config: { message: 'refused', service: 'fixtureService' } }] })
@@ -180,38 +196,62 @@ it('waits for a Host provider still activating instead of recording the preset a
   const ctx = await setup()
   const { plugin } = await import('./harness.ts')
   let release!: () => void
-  const paused = new Promise<void>((resolve) => { release = resolve })
+  const paused = new Promise<void>(resolve => {
+    release = resolve
+  })
   let entered!: () => void
-  const started = new Promise<void>((resolve) => { entered = resolve })
-  ctx.loader.builtins.slowProvider = { async apply(host: Context) {
-    entered()
-    await paused
-    host.provide('serviceThatDoesNotExist', { label: 'late host' })
-  } }
+  const started = new Promise<void>(resolve => {
+    entered = resolve
+  })
+  ctx.loader.builtins.slowProvider = {
+    async apply(host: Context) {
+      entered()
+      await paused
+      host.provide('serviceThatDoesNotExist', { label: 'late host' })
+    },
+  }
   const hostUpdate = ctx.loader.root.update([{ id: 'slow', name: 'cordis:slowProvider' }])
   await started
   await declare(ctx, { id: 'late', plugins: [{ name: plugin('needs-missing') }] })
   expect(ctx.agentPresets.inspectCompositions()).toHaveLength(1)
   const acquiring = ctx.agentPresets.acquireScope('late')
   const outcome = await Promise.race([
-    acquiring.then(() => 'settled', () => 'settled'),
-    new Promise<string>((resolve) => { setImmediate(() => { resolve('waiting') }) }),
+    acquiring.then(
+      () => 'settled',
+      () => 'settled',
+    ),
+    new Promise<string>(resolve => {
+      setImmediate(() => {
+        resolve('waiting')
+      })
+    }),
   ])
   expect(outcome).toBe('waiting')
   release()
   await hostUpdate
   const lease = await acquiring
   expect(await ctx.agentPresets.resolve('late')).toEqual({ id: 'late' })
-  expect((await ctx.agentPresets.compositionInventory())[0]).toMatchObject({ id: 'late',
-    rows: [expect.objectContaining({ moduleName: plugin('needs-missing'), enabled: true })] })
+  expect((await ctx.agentPresets.compositionInventory())[0]).toMatchObject({
+    id: 'late',
+    rows: [expect.objectContaining({ moduleName: plugin('needs-missing'), enabled: true })],
+  })
   await lease[Symbol.asyncDispose]()
 })
 
 it('allows an isolated service and resolves it through the Agent composition', async () => {
   const ctx = await setup()
   const { plugin } = await import('./harness.ts')
-  await declare(ctx, { id: 'standard', plugins: [{ name: 'cordis:group', group: true,
-    isolate: { fixtureService: true }, config: [{ name: plugin('global-service'), config: { service: 'fixtureService', label: 'scoped' } }] }] })
+  await declare(ctx, {
+    id: 'standard',
+    plugins: [
+      {
+        name: 'cordis:group',
+        group: true,
+        isolate: { fixtureService: true },
+        config: [{ name: plugin('global-service'), config: { service: 'fixtureService', label: 'scoped' } }],
+      },
+    ],
+  })
   const scope = createScope(ctx, {})
   await ctx.agentPresets.mount(scope.ctx)
   expect(ctx.agentPresets.serviceFor({ ctx: scope.ctx }, 'fixtureService' as string & keyof Context)).toEqual({ label: 'scoped' })
@@ -243,11 +283,12 @@ it('ignores a retired modeSelectionEnabled field in the user patch', async () =>
   expect(live.entry.options.config).toMatchObject({ selectedDefault: 'minimal', modeSelectionEnabled: false })
 })
 
-it('keeps its own instance off the generated Settings pages', () => omitsGeneratedPage(async (ctx) => {
-  await ctx.plugin(Loader)
-  await ctx.plugin(SessionProjectionRegistry)
-  return ctx.plugin(AgentPresets, { default: 'standard' })
-}))
+it('keeps its own instance off the generated Settings pages', () =>
+  omitsGeneratedPage(async ctx => {
+    await ctx.plugin(Loader)
+    await ctx.plugin(SessionProjectionRegistry)
+    return ctx.plugin(AgentPresets, { default: 'standard' })
+  }))
 
 it('refuses an unscoped binding and a second child join without leaking references', async () => {
   const ctx = await setup()
@@ -273,7 +314,9 @@ it('serializes competing blank-session selections and recovers after a failed se
   await declare(ctx, contribution('minimal'))
   const agent = await agentOn(ctx, 'competing')
   const results = await Promise.allSettled([
-    ctx.agentPresets.select(agent, 'absent'), ctx.agentPresets.select(agent, 'minimal'), ctx.agentPresets.select(agent, 'standard'),
+    ctx.agentPresets.select(agent, 'absent'),
+    ctx.agentPresets.select(agent, 'minimal'),
+    ctx.agentPresets.select(agent, 'standard'),
   ])
   expect(results.map(row => row.status)).toEqual(['rejected', 'fulfilled', 'fulfilled'])
   expect(ctx.sessionProjections.stateOf(agent.session, 'agentPreset')).toBe('standard')
@@ -282,10 +325,19 @@ it('serializes competing blank-session selections and recovers after a failed se
 it('retains a newly acquired generation when a previous activation is replaced', async () => {
   const ctx = await setup()
   let release!: () => void
-  const paused = new Promise<void>((resolve) => { release = resolve })
+  const paused = new Promise<void>(resolve => {
+    release = resolve
+  })
   let entered!: () => void
-  const started = new Promise<void>((resolve) => { entered = resolve })
-  ctx.loader.builtins.delayed = { async apply() { entered(); await paused } }
+  const started = new Promise<void>(resolve => {
+    entered = resolve
+  })
+  ctx.loader.builtins.delayed = {
+    async apply() {
+      entered()
+      await paused
+    },
+  }
   const pending = ctx.agentPresets.register({ id: 'standard', plugins: [{ name: 'cordis:delayed' }] })
   await started
   const leasePromise = ctx.agentPresets.acquireScope()
@@ -305,7 +357,9 @@ it('keeps a blank Session that already runs the current revision of the selected
   const agent = await agentOn(ctx, 'repeated')
   expect(await ctx.agentPresets.select(agent, 'minimal')).toBe('minimal')
   let notified = 0
-  ctx.on('tools/change', () => { notified++ })
+  ctx.on('tools/change', () => {
+    notified++
+  })
 
   expect(await ctx.agentPresets.select(agent, 'minimal')).toBe('minimal')
 
@@ -333,7 +387,9 @@ it('recomposes and logs a repeated selection once the preset definition was repl
   await replaced.dispose()
   await declare(ctx, contribution('minimal'))
   let notified = 0
-  ctx.on('tools/change', () => { notified++ })
+  ctx.on('tools/change', () => {
+    notified++
+  })
 
   expect(await ctx.agentPresets.select(agent, 'minimal')).toBe('minimal')
 
@@ -346,19 +402,22 @@ it('does not lose the durable selection when a tools observer rejects notificati
   await declare(ctx, contribution('standard'))
   await declare(ctx, contribution('minimal'))
   const agent = await agentOn(ctx, 'observer')
-  ctx.on('tools/change', () => { throw new Error('observer refused') })
+  ctx.on('tools/change', () => {
+    throw new Error('observer refused')
+  })
   expect(await ctx.agentPresets.select(agent, 'minimal')).toBe('minimal')
   expect(ctx.sessionProjections.stateOf(agent.session, 'agentPreset')).toBe('minimal')
 })
 
 it('inventories failed conditional entries without executing their expressions again', async () => {
   const ctx = await setup()
-  await declare(ctx, { id: 'broken', name: 'Broken', plugins: [
-    { name: 'missing', disabled: { __jsExpr: 'false' } },
-  ] })
+  await declare(ctx, { id: 'broken', name: 'Broken', plugins: [{ name: 'missing', disabled: { __jsExpr: 'false' } }] })
   const inventory = await ctx.agentPresets.compositionInventory()
-  expect(inventory[0]).toMatchObject({ id: 'broken', broken: expect.any(String) as string,
-    rows: [{ moduleName: 'missing', enabled: 'conditional', condition: 'false' }] })
+  expect(inventory[0]).toMatchObject({
+    id: 'broken',
+    broken: expect.any(String) as string,
+    rows: [{ moduleName: 'missing', enabled: 'conditional', condition: 'false' }],
+  })
 })
 
 it('does not bind a definition removed while acquisition yields, and disposal is idempotent', async () => {
@@ -404,10 +463,12 @@ it.each([
 
 it('reports every process-global service published by a preset', async () => {
   const ctx = await setup()
-  ctx.loader.builtins.leaks = { apply(child: Context) {
-    child.provide('presetZulu', {})
-    child.provide('presetAlpha', {})
-  } }
+  ctx.loader.builtins.leaks = {
+    apply(child: Context) {
+      child.provide('presetZulu', {})
+      child.provide('presetAlpha', {})
+    },
+  }
   await declare(ctx, { id: 'leaks', plugins: [{ name: 'cordis:leaks' }] })
   expect((await ctx.agentPresets.resolve('leaks')).broken).toContain('presetAlpha, presetZulu')
 })

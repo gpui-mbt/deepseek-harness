@@ -29,11 +29,7 @@ export interface HostSource {
  * @param signal - optional cancellation around provider operations.
  * @returns stable identity plus process path and file URI.
  */
-export async function canonicalizeWorkspace(
-  fs: FileSystem,
-  workspaceRoot: string,
-  signal?: AbortSignal,
-): Promise<HostWorkspace> {
+export async function canonicalizeWorkspace(fs: FileSystem, workspaceRoot: string, signal?: AbortSignal): Promise<HostWorkspace> {
   throwIfAborted(signal)
   let target: FsTarget
   try {
@@ -81,7 +77,7 @@ export async function readHostSource(
   try {
     target = await fs.resolve(filePath, {
       cwd: workspace.canonicalPath,
-      ...signal === undefined ? {} : { signal },
+      ...(signal === undefined ? {} : { signal }),
     })
   } catch (error: unknown) {
     throwIfAborted(signal)
@@ -108,9 +104,7 @@ export async function readHostSource(
     throw new Error(`source "${filePath}" could not be read: ${messageOf(error)}`, { cause: error })
   }
   if (bytes > maxDocumentBytes) {
-    throw new Error(
-      `source "${filePath}" exceeds the ${maxDocumentBytes}-byte limit; reading stopped after ${bytes} bytes`,
-    )
+    throw new Error(`source "${filePath}" exceeds the ${maxDocumentBytes}-byte limit; reading stopped after ${bytes} bytes`)
   }
   throwIfAborted(signal)
   return {

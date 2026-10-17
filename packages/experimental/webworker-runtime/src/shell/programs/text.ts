@@ -61,7 +61,7 @@ const printf: ShellProgram = (argv, io) => {
   let cursor = 0
   // The conversions a shell script realistically uses; anything else is left
   // verbatim so the output shows what was not understood.
-  const rendered = format.replace(/%[sdi%]/g, (match) => {
+  const rendered = format.replace(/%[sdi%]/g, match => {
     if (match === '%%') return '%'
     const value = operands[cursor] ?? ''
     cursor += 1
@@ -130,12 +130,7 @@ const wc: ShellProgram = async (argv, io, state, fs) => {
 }
 
 /** Collect every file under one directory, for `grep -r`. */
-async function walkFiles(
-  path: string,
-  display: string,
-  into: { path: string; display: string }[],
-  fs: ShellFileSystem,
-): Promise<void> {
+async function walkFiles(path: string, display: string, into: { path: string; display: string }[], fs: ShellFileSystem): Promise<void> {
   for (const entry of await fs.list(path)) {
     const child = `${path.endsWith('/') ? path : `${path}/`}${entry.name}`
     const shown = `${display.endsWith('/') ? display : `${display}/`}${entry.name}`
@@ -220,7 +215,7 @@ const sort: ShellProgram = async (argv, io, state, fs) => {
   let lines = sources.flatMap(source => toLines(source.text))
   lines = options.flags.has('n')
     ? [...lines].sort((left, right) => (Number.parseFloat(left) || 0) - (Number.parseFloat(right) || 0))
-    : [...lines].sort((left, right) => left < right ? -1 : left > right ? 1 : 0)
+    : [...lines].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
   if (options.flags.has('r')) lines.reverse()
   if (options.flags.has('u')) lines = [...new Set(lines)]
   io.out(terminated(lines.join('\n')))
@@ -239,7 +234,9 @@ const uniq: ShellProgram = async (argv, io, state, fs) => {
   }
   const selected = options.flags.has('d')
     ? groups.filter(group => group.count > 1)
-    : options.flags.has('u') ? groups.filter(group => group.count === 1) : groups
+    : options.flags.has('u')
+      ? groups.filter(group => group.count === 1)
+      : groups
   for (const group of selected) {
     io.out(`${options.flags.has('c') ? `${String(group.count).padStart(7)} ` : ''}${group.text}\n`)
   }
@@ -249,7 +246,10 @@ const uniq: ShellProgram = async (argv, io, state, fs) => {
 const cut: ShellProgram = async (argv, io, state, fs) => {
   const options = parseOptions(argv, new Set(['d', 'f', 'c']))
   const delimiter = options.values.get('d') ?? '\t'
-  const fields = (options.values.get('f') ?? '').split(',').map(field => Number.parseInt(field, 10)).filter(Number.isFinite)
+  const fields = (options.values.get('f') ?? '')
+    .split(',')
+    .map(field => Number.parseInt(field, 10))
+    .filter(Number.isFinite)
   const characters = options.values.get('c')
   const { sources, status } = await readInputs('cut', options.operands, io, state, fs)
   if (fields.length === 0 && characters === undefined) {
@@ -310,11 +310,15 @@ const tr: ShellProgram = (argv, io) => {
     io.err('tr: expected a replacement set\n')
     return 2
   }
-  // oxlint-disable-next-line typescript/no-misused-spread -- `tr` translates per character, and code points are the unit it maps.
-  io.out([...io.stdin].map((character) => {
-    const index = from.indexOf(character)
-    return index < 0 ? character : to[Math.min(index, to.length - 1)] as string
-  }).join(''))
+  io.out(
+    // oxlint-disable-next-line typescript/no-misused-spread -- `tr` translates per character, and code points are the unit it maps.
+    [...io.stdin]
+      .map(character => {
+        const index = from.indexOf(character)
+        return index < 0 ? character : (to[Math.min(index, to.length - 1)] as string)
+      })
+      .join(''),
+  )
   return 0
 }
 
@@ -359,5 +363,17 @@ const tee: ShellProgram = async (argv, io, state, fs) => {
 
 /** The text utilities, keyed by the name a command line uses. */
 export const TEXT_PROGRAMS: Readonly<Record<string, ShellProgram>> = {
-  echo, printf, cat, head, tail, wc, grep, sort, uniq, cut, tr, sed, tee,
+  echo,
+  printf,
+  cat,
+  head,
+  tail,
+  wc,
+  grep,
+  sort,
+  uniq,
+  cut,
+  tr,
+  sed,
+  tee,
 }

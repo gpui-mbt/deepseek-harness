@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { PreviewFixtureManifest } from '../../src/fixture-manifest.ts'
 import { choosePreviewSource } from '../../src/client/source-chooser.ts'
 
@@ -9,12 +9,14 @@ const MANIFEST_URL = new URL('https://preview.test/preview/fixtures.json')
 const MANIFEST: PreviewFixtureManifest = {
   version: 1,
   defaultFixture: 'example',
-  fixtures: [{
-    id: 'example',
-    label: 'Example & <demo> "quoted" \'single\'',
-    description: 'A deterministic example.',
-    overlays: ['fixtures/base.tar.gz', 'fixtures/tail.tar.gz'],
-  }],
+  fixtures: [
+    {
+      id: 'example',
+      label: 'Example & <demo> "quoted" \'single\'',
+      description: 'A deterministic example.',
+      overlays: ['fixtures/base.tar.gz', 'fixtures/tail.tar.gz'],
+    },
+  ],
 }
 
 function setLocation(search = ''): void {
@@ -67,16 +69,13 @@ describe('Preview source chooser', () => {
     expect(document.querySelector('[data-preview-source-chooser]')).toBeNull()
   })
 
-  it.each(['', 'missing', 'webfs'])(
-    'fails loud for the explicit unavailable source %j without opening the chooser',
-    async (source) => {
-      setLocation(`?preview-fixture=${source}`)
-      installManifest()
+  it.each(['', 'missing', 'webfs'])('fails loud for the explicit unavailable source %j without opening the chooser', async source => {
+    setLocation(`?preview-fixture=${source}`)
+    installManifest()
 
-      await expect(choosePreviewSource(MANIFEST_URL)).rejects.toThrow(/unknown or interactive source/)
-      expect(document.querySelector('[data-preview-source-chooser]')).toBeNull()
-    },
-  )
+    await expect(choosePreviewSource(MANIFEST_URL)).rejects.toThrow(/unknown or interactive source/)
+    expect(document.querySelector('[data-preview-source-chooser]')).toBeNull()
+  })
 
   it('shows the chooser only when the query is absent and returns its default selection', async () => {
     installManifest()
@@ -92,8 +91,7 @@ describe('Preview source chooser', () => {
     })
     expect(document.querySelector<HTMLInputElement>('input[value="example"]')?.checked).toBe(true)
     expect(document.querySelector<HTMLInputElement>('input[value="webfs"]')?.disabled).toBe(true)
-    expect(document.querySelector('[data-preview-source-card]')?.textContent)
-      .toContain(MANIFEST.fixtures[0]?.label)
+    expect(document.querySelector('[data-preview-source-card]')?.textContent).toContain(MANIFEST.fixtures[0]?.label)
     expect(document.querySelector('[data-preview-source-card] script')).toBeNull()
 
     submitChooser()
@@ -121,7 +119,10 @@ describe('Preview source chooser', () => {
   })
 
   it('reports manifest, mount, form, selection, and catalog failures', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('missing', { status: 404 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('missing', { status: 404 })),
+    )
     await expect(choosePreviewSource(MANIFEST_URL)).rejects.toThrow(/returned 404/)
 
     installManifest()
@@ -138,8 +139,10 @@ describe('Preview source chooser', () => {
     document.head.replaceChildren()
     document.body.innerHTML = '<div id="root"></div>'
     const missingSelection = choosePreviewSource(MANIFEST_URL)
-    await vi.waitFor(() => { expect(document.querySelector('form')).not.toBeNull() })
-    document.querySelectorAll('input[name="preview-source"]').forEach((input) => {
+    await vi.waitFor(() => {
+      expect(document.querySelector('form')).not.toBeNull()
+    })
+    document.querySelectorAll('input[name="preview-source"]').forEach(input => {
       input.removeAttribute('name')
     })
     submitChooser()
@@ -148,7 +151,9 @@ describe('Preview source chooser', () => {
     document.head.replaceChildren()
     document.body.innerHTML = '<div id="root"></div>'
     const unavailableSelection = choosePreviewSource(MANIFEST_URL)
-    await vi.waitFor(() => { expect(document.querySelector('form')).not.toBeNull() })
+    await vi.waitFor(() => {
+      expect(document.querySelector('form')).not.toBeNull()
+    })
     const selected = document.querySelector<HTMLInputElement>('input:checked')
     if (selected === null) throw new Error('test selection is missing')
     selected.value = 'missing'

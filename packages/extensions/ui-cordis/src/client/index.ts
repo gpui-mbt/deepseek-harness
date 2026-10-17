@@ -24,19 +24,20 @@ export type { CordisActionResult, CordisDynamicPort, CordisInventoryRow } from '
 export type { CordisDefineRowProps } from './CordisDefineRow.tsx'
 export type { CordisActionRowProps } from './CordisActionRow.tsx'
 export type { CordisRunRowProps } from './CordisRunRow.tsx'
+export type { CordisRunCardPointer, CordisRunCardStore, CordisToolViewKey } from './run-card-index.ts'
 export type {
-  CordisRunCardPointer, CordisRunCardStore, CordisToolViewKey,
-} from './run-card-index.ts'
-export type {
-  ApprovalRequestId, CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
-  DynamicCordisInventoryRow, DynamicCordisPackage, DynamicCordisRetracted,
+  ApprovalRequestId,
+  CordisDynamicPackageId,
+  CordisDynamicPluginId,
+  CordisDynamicPluginRunId,
+  DynamicCordisInventoryRow,
+  DynamicCordisPackage,
+  DynamicCordisRetracted,
 } from './events.ts'
 export type { CordisKey } from './locales.ts'
 
 /** Required services for historical cards, the panel, and Remote lifecycle actions. */
-export const inject = [
-  'slots', 'locale', 'remote', 'remote.dynamicCordisRunner', 'dynamicCordisRunner',
-]
+export const inject = ['slots', 'locale', 'remote', 'remote.dynamicCordisRunner', 'dynamicCordisRunner']
 
 /** Mount every Cordis browser surface over the shared Host inventory. */
 export function apply(ctx: ClientContext): void {
@@ -60,88 +61,127 @@ export function apply(ctx: ClientContext): void {
       return answered.value
     },
   }
-  const inventory = createCordisInventory(port, (error) => {
+  const inventory = createCordisInventory(port, error => {
     console.error('[ui-cordis] reading the Cordis inventory failed:', error)
   })
   const runner = ctx.dynamicCordisRunner
   const loaded = { getSnapshot: () => runner.getSnapshot(), subscribe: (fn: () => void) => runner.subscribe(fn) }
   const runCards = new CordisRunCardRegistry()
 
-  ctx.effect(() => inventory.subscribe(() => {
-    const snapshot = inventory.getSnapshot()
-    if (snapshot.read) runner.reconcileApprovals(snapshot.rows)
-  }), 'ui-cordis: reconcile pending approvals')
+  ctx.effect(
+    () =>
+      inventory.subscribe(() => {
+        const snapshot = inventory.getSnapshot()
+        if (snapshot.read) runner.reconcileApprovals(snapshot.rows)
+      }),
+    'ui-cordis: reconcile pending approvals',
+  )
 
-  ctx.remote.$on('cordis/dynamic-package', () => { inventory.refresh() })
-  ctx.remote.$on('cordis/dynamic-retract', () => { inventory.refresh() })
-  ctx.remote.$on('cordis/request-run', (request) => {
+  ctx.remote.$on('cordis/dynamic-package', () => {
+    inventory.refresh()
+  })
+  ctx.remote.$on('cordis/dynamic-retract', () => {
+    inventory.refresh()
+  })
+  ctx.remote.$on('cordis/request-run', request => {
     if (!inventory.getSnapshot().rows.some(row => row.pluginId === request.pluginId)) inventory.refresh()
   })
-  ctx.remote.$on('cordis/request-run-resolved', () => { inventory.refresh() })
+  ctx.remote.$on('cordis/request-run-resolved', () => {
+    inventory.refresh()
+  })
   ctx.on('connection/reset', () => {
     inventory.reset()
     inventory.refresh()
   })
 
-  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-    name: 'sidebar.footer.action',
-    id: 'cordis-panel',
-    locale: NS,
-    inject: (): CordisPanelFace => ({
-      hooks: {
-        inventory,
-        activeRuns: runner.activeRuns,
-        runErrors: runner.lastRunError,
-        loaded,
-        renderFailures: runner.renderFailures,
+  ctx.slots.inject('sidebar.footer.action', () =>
+    ctx.slots.register(
+      {
+        name: 'sidebar.footer.action',
+        id: 'cordis-panel',
+        locale: NS,
+        inject: (): CordisPanelFace => ({
+          hooks: {
+            inventory,
+            activeRuns: runner.activeRuns,
+            runErrors: runner.lastRunError,
+            loaded,
+            renderFailures: runner.renderFailures,
+          },
+          onApprove: (requestId, approveFutureVersions) => runner.approve(requestId, approveFutureVersions),
+          onDecline: requestId => runner.decline(requestId),
+          onRun: request => runner.startUserRun(request),
+          onStop: async (sessionId, pluginId) => {
+            const result = await port.stop(sessionId, pluginId)
+            inventory.refresh()
+            return result
+          },
+          onRemove: async (sessionId, pluginId) => {
+            const result = await port.remove(sessionId, pluginId)
+            if (result.ok) inventory.retire(pluginId)
+            inventory.refresh()
+            return result
+          },
+          onRefresh: () => {
+            inventory.refresh()
+          },
+        }),
       },
-      onApprove: (requestId, approveFutureVersions) => runner.approve(requestId, approveFutureVersions),
-      onDecline: requestId => runner.decline(requestId),
-      onRun: request => runner.startUserRun(request),
-      onStop: async (sessionId, pluginId) => {
-        const result = await port.stop(sessionId, pluginId)
-        inventory.refresh()
-        return result
-      },
-      onRemove: async (sessionId, pluginId) => {
-        const result = await port.remove(sessionId, pluginId)
-        if (result.ok) inventory.retire(pluginId)
-        inventory.refresh()
-        return result
-      },
-      onRefresh: () => { inventory.refresh() },
-    }),
-  }, CordisPanel))
+      CordisPanel,
+    ),
+  )
 
   const cardFace = (): CordisCardFace => ({ hooks: { inventory, loaded } })
-  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
-    name: 'tool.call.toolview',
-    key: 'cordis_define',
-    locale: NS,
-    inject: cardFace,
-  }, CordisDefineRow))
+  ctx.slots.inject('tool.call.toolview', () =>
+    ctx.slots.register(
+      {
+        name: 'tool.call.toolview',
+        key: 'cordis_define',
+        locale: NS,
+        inject: cardFace,
+      },
+      CordisDefineRow,
+    ),
+  )
 
-  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
-    name: 'tool.call.toolview',
-    key: 'cordis_run',
-    locale: NS,
-    children: { 'tool.view.cordis': { kind: 'keyed', scope: 'session' } },
-    inject: (sessionId: SessionId): CordisRunCardFace => {
-      const store = runCards.forSession(sessionId)
-      return {
-        hooks: { inventory, loaded, runCards: store, activeRuns: runner.activeRuns },
-        onObserveRunCard: (pointer) => { store.observe(pointer) },
-      }
-    },
-  }, CordisRunRow))
+  ctx.slots.inject('tool.call.toolview', () =>
+    ctx.slots.register(
+      {
+        name: 'tool.call.toolview',
+        key: 'cordis_run',
+        locale: NS,
+        children: { 'tool.view.cordis': { kind: 'keyed', scope: 'session' } },
+        inject: (sessionId: SessionId): CordisRunCardFace => {
+          const store = runCards.forSession(sessionId)
+          return {
+            hooks: { inventory, loaded, runCards: store, activeRuns: runner.activeRuns },
+            onObserveRunCard: pointer => {
+              store.observe(pointer)
+            },
+          }
+        },
+      },
+      CordisRunRow,
+    ),
+  )
 
   ctx.slots.inject('tool.call.toolview', function* () {
-    yield ctx.slots.register({
-      name: 'tool.call.toolview', key: 'cordis_stop', locale: NS,
-    }, CordisActionRow)
-    yield ctx.slots.register({
-      name: 'tool.call.toolview', key: 'cordis_undefine', locale: NS,
-    }, CordisActionRow)
+    yield ctx.slots.register(
+      {
+        name: 'tool.call.toolview',
+        key: 'cordis_stop',
+        locale: NS,
+      },
+      CordisActionRow,
+    )
+    yield ctx.slots.register(
+      {
+        name: 'tool.call.toolview',
+        key: 'cordis_undefine',
+        locale: NS,
+      },
+      CordisActionRow,
+    )
   })
 
   inventory.refresh()

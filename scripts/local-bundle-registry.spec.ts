@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { ON_DEMAND_BUNDLES } from '../packages/boot/app-boot/src/official-bundle-packages.ts'
 import { generateOfficialBundleCatalog } from './gen-official-bundle-catalog.ts'
 import {
@@ -33,7 +33,9 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 /** A private temporary root this spec owns, removed with the test. */
 function temporaryDirectory(prefix: string): string {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), prefix)))
-  onTestFinished(() => { rmSync(directory, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(directory, { recursive: true, force: true })
+  })
   return directory
 }
 
@@ -71,8 +73,8 @@ function packFixture(options: {
     name: options.name,
     version: options.version,
     main: 'lib/index.js',
-    ...options.dependencies === undefined ? {} : { dependencies: options.dependencies },
-    ...options.patch === undefined ? {} : { dsh: { bundle: { patch: options.patch } } },
+    ...(options.dependencies === undefined ? {} : { dependencies: options.dependencies }),
+    ...(options.patch === undefined ? {} : { dsh: { bundle: { patch: options.patch } } }),
   }
   mkdirSync(join(staging, 'package', 'lib'), { recursive: true })
   writeFileSync(join(staging, 'package', 'package.json'), JSON.stringify(manifest))
@@ -110,7 +112,9 @@ async function servingRun(options: {
   readonly workspaceNames: readonly string[]
 }): Promise<string> {
   const registry = await startBundleRegistry({
-    directory: options.destination, artifacts: options.artifacts, workspaceNames: options.workspaceNames,
+    directory: options.destination,
+    artifacts: options.artifacts,
+    workspaceNames: options.workspaceNames,
   })
   onTestFinished(() => registry.close())
   return registry.url
@@ -131,8 +135,7 @@ describe('catalog and local closure', () => {
     }
     expect(selection.workspaceNames).toEqual(expect.arrayContaining(selection.members.map(member => member.name)))
     // A vendor package keeps its own version line, so a run must not assume one shared version.
-    expect(packages.get('@deepseek-ai/cordis')?.manifest.version)
-      .not.toBe(packages.get('@deepseek-ai/dsh-brand')?.manifest.version)
+    expect(packages.get('@deepseek-ai/cordis')?.manifest.version).not.toBe(packages.get('@deepseek-ai/dsh-brand')?.manifest.version)
     // Nothing in this closure is built for another platform, on any host.
     expect(selection.foreignTargets).toEqual([])
   })
@@ -157,42 +160,51 @@ describe('catalog and local closure', () => {
       platform: { os: ['darwin'] },
     })
     expect(selection.members.map(member => member.name)).toEqual([
-      '@scope/optional', '@scope/peer', '@scope/required', '@scope/root', '@scope/transitive',
+      '@scope/optional',
+      '@scope/peer',
+      '@scope/required',
+      '@scope/root',
+      '@scope/transitive',
     ])
   })
 
   it('leaves a dependency that is not a workspace package to its own registry', () => {
     const selection = selectBundleDependencies({
       entries: ['@scope/root'],
-      packages: inventory(workspacePackage('@scope/root', {
-        dependencies: { '@other/external': '^1.0.0', 'plain-external': '^2.0.0' },
-      })),
+      packages: inventory(
+        workspacePackage('@scope/root', {
+          dependencies: { '@other/external': '^1.0.0', 'plain-external': '^2.0.0' },
+        }),
+      ),
       platform: {},
     })
     expect(selection.members.map(member => member.name)).toEqual(['@scope/root'])
   })
 
   it('fails when a catalog root is not a workspace package', () => {
-    expect(() => selectBundleDependencies({ entries: ['@scope/missing'], packages: inventory(), platform: {} }))
-      .toThrow(/cannot resolve workspace package @scope\/missing \(catalog entry @scope\/missing\)/u)
+    expect(() => selectBundleDependencies({ entries: ['@scope/missing'], packages: inventory(), platform: {} })).toThrow(
+      /cannot resolve workspace package @scope\/missing \(catalog entry @scope\/missing\)/u,
+    )
   })
 
   it('rejects an empty or duplicate catalog', () => {
-    expect(() => selectBundleDependencies({ entries: [], packages: inventory(), platform: {} }))
-      .toThrow(/no on-demand entries/u)
-    expect(() => selectBundleDependencies({ entries: ['@scope/a', '@scope/a'], packages: inventory(), platform: {} }))
-      .toThrow(/must be distinct/u)
+    expect(() => selectBundleDependencies({ entries: [], packages: inventory(), platform: {} })).toThrow(/no on-demand entries/u)
+    expect(() => selectBundleDependencies({ entries: ['@scope/a', '@scope/a'], packages: inventory(), platform: {} })).toThrow(
+      /must be distinct/u,
+    )
   })
 
   it('fails on a required edge that targets another platform, naming the path', () => {
-    expect(() => selectBundleDependencies({
-      entries: ['@scope/root'],
-      packages: inventory(
-        workspacePackage('@scope/root', { dependencies: { '@scope/native-win': 'workspace:*' } }),
-        workspacePackage('@scope/native-win', { os: ['win32'] }),
-      ),
-      platform: { os: ['darwin'], cpu: ['arm64'] },
-    })).toThrow(/@scope\/root -> @scope\/native-win requires @scope\/native-win, which targets os=win32; this host is os=darwin cpu=arm64/u)
+    expect(() =>
+      selectBundleDependencies({
+        entries: ['@scope/root'],
+        packages: inventory(
+          workspacePackage('@scope/root', { dependencies: { '@scope/native-win': 'workspace:*' } }),
+          workspacePackage('@scope/native-win', { os: ['win32'] }),
+        ),
+        platform: { os: ['darwin'], cpu: ['arm64'] },
+      }),
+    ).toThrow(/@scope\/root -> @scope\/native-win requires @scope\/native-win, which targets os=win32; this host is os=darwin cpu=arm64/u)
   })
 
   it('keeps an optional-only foreign-target member and reports it', () => {
@@ -226,34 +238,53 @@ describe('packed archives', () => {
     const destination = temporaryDirectory('dsh-local-registry-payload-')
     const staging = join(destination, 'staging')
     mkdirSync(join(staging, 'package'), { recursive: true })
-    writeFileSync(join(staging, 'package', 'package.json'), JSON.stringify({
-      name: '@scope/pkg', version: '1.0.0', main: 'lib/index.js', dsh: { bundle: { patch: 'cordis.patch.yml' } },
-    }))
+    writeFileSync(
+      join(staging, 'package', 'package.json'),
+      JSON.stringify({
+        name: '@scope/pkg',
+        version: '1.0.0',
+        main: 'lib/index.js',
+        dsh: { bundle: { patch: 'cordis.patch.yml' } },
+      }),
+    )
     capture('tar', ['-czf', join(destination, 'scope-pkg-1.0.0.tgz'), '-C', staging, 'package'])
     const member = workspacePackage('@scope/pkg', { version: '1.0.0' })
     const entry: ReleaseEntry = {
-      family: releaseFamily('vendor'), member: { directory: staging, name: '@scope/pkg', version: '1.0.0', manifest: member.manifest },
+      family: releaseFamily('vendor'),
+      member: { directory: staging, name: '@scope/pkg', version: '1.0.0', manifest: member.manifest },
     }
-    expect(() => readPackedArtifacts({ destination, members: [member], release: new Map([['@scope/pkg', entry]]) }))
-      .toThrow(/@scope\/pkg: packed archive lacks its declared main lib\/index\.js/u)
+    expect(() => readPackedArtifacts({ destination, members: [member], release: new Map([['@scope/pkg', entry]]) })).toThrow(
+      /@scope\/pkg: packed archive lacks its declared main lib\/index\.js/u,
+    )
   })
 
   it('rejects a bundle whose patch is missing from its archive', () => {
     const destination = temporaryDirectory('dsh-local-registry-patch-')
     const { member, entry } = packFixture({
-      destination, name: '@scope/bundle', version: '1.0.0', source: 'export default 1\n', patch: 'cordis.patch.yml',
+      destination,
+      name: '@scope/bundle',
+      version: '1.0.0',
+      source: 'export default 1\n',
+      patch: 'cordis.patch.yml',
     })
     const archive = join(destination, 'scope-bundle-1.0.0.tgz')
     const stripped = join(destination, 'stripped')
     mkdirSync(join(stripped, 'package'), { recursive: true })
-    writeFileSync(join(stripped, 'package', 'package.json'), JSON.stringify({
-      name: '@scope/bundle', version: '1.0.0', main: 'lib/index.js', dsh: { bundle: { patch: 'cordis.patch.yml' } },
-    }))
+    writeFileSync(
+      join(stripped, 'package', 'package.json'),
+      JSON.stringify({
+        name: '@scope/bundle',
+        version: '1.0.0',
+        main: 'lib/index.js',
+        dsh: { bundle: { patch: 'cordis.patch.yml' } },
+      }),
+    )
     mkdirSync(join(stripped, 'package', 'lib'), { recursive: true })
     writeFileSync(join(stripped, 'package', 'lib', 'index.js'), 'export default 1\n')
     capture('tar', ['-czf', archive, '-C', stripped, 'package'])
-    expect(() => readPackedArtifacts({ destination, members: [member], release: new Map([['@scope/bundle', entry]]) }))
-      .toThrow(/@scope\/bundle: packed archive lacks its declared bundle patch cordis\.patch\.yml/u)
+    expect(() => readPackedArtifacts({ destination, members: [member], release: new Map([['@scope/bundle', entry]]) })).toThrow(
+      /@scope\/bundle: packed archive lacks its declared bundle patch cordis\.patch\.yml/u,
+    )
   })
 
   it('reports a preparation stopped by a signal as a cancellation', async () => {
@@ -261,45 +292,63 @@ describe('packed archives', () => {
     const { member, entry } = packFixture({ destination, name: '@scope/pkg', version: '1.0.0', source: 'export default 1\n' })
     const controller = new AbortController()
     controller.abort()
-    await expect(packBundleArtifacts({
-      root, destination, members: [member], release: new Map([[member.name, entry]]), signal: controller.signal,
-    })).rejects.toThrow(/packing was cancelled/u)
+    await expect(
+      packBundleArtifacts({
+        root,
+        destination,
+        members: [member],
+        release: new Map([[member.name, entry]]),
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow(/packing was cancelled/u)
   })
 
   it('rejects a missing archive and a package that is not a public release member', () => {
     const destination = temporaryDirectory('dsh-local-registry-missing-')
     const missing = workspacePackage('@scope/pkg', { version: '1.0.0' })
     const entry: ReleaseEntry = {
-      family: releaseFamily('vendor'), member: { directory: destination, name: '@scope/pkg', version: '1.0.0', manifest: missing.manifest },
+      family: releaseFamily('vendor'),
+      member: { directory: destination, name: '@scope/pkg', version: '1.0.0', manifest: missing.manifest },
     }
-    expect(() => readPackedArtifacts({ destination, members: [missing], release: new Map([['@scope/pkg', entry]]) }))
-      .toThrow(/@scope\/pkg produced no tarball/u)
+    expect(() => readPackedArtifacts({ destination, members: [missing], release: new Map([['@scope/pkg', entry]]) })).toThrow(
+      /@scope\/pkg produced no tarball/u,
+    )
     fabricate({ destination, name: '@scope/pkg', version: '1.0.0', source: 'export default 1\n' })
-    expect(() => readPackedArtifacts({ destination, members: [missing], release: new Map() }))
-      .toThrow(/not a public release member/u)
+    expect(() => readPackedArtifacts({ destination, members: [missing], release: new Map() })).toThrow(/not a public release member/u)
   })
 
   it('rejects a packed manifest that keeps a workspace protocol', () => {
     const destination = temporaryDirectory('dsh-local-registry-protocol-')
     const { member, entry } = packFixture({
-      destination, name: '@scope/pkg', version: '1.0.0', source: 'export default 1\n',
+      destination,
+      name: '@scope/pkg',
+      version: '1.0.0',
+      source: 'export default 1\n',
       dependencies: { '@scope/dependency': 'workspace:*' },
     })
     // The fixture writes the manifest verbatim, so a protocol a real pack rewrites is still observable here.
-    expect(() => readPackedArtifacts({ destination, members: [member], release: new Map([['@scope/pkg', entry]]) }))
-      .toThrow(/packed dependencies\.@scope\/dependency still declares workspace:\*/u)
+    expect(() => readPackedArtifacts({ destination, members: [member], release: new Map([['@scope/pkg', entry]]) })).toThrow(
+      /packed dependencies\.@scope\/dependency still declares workspace:\*/u,
+    )
   })
 
   it('rejects a packed local dependency this run does not serve at the required version', () => {
     const destination = temporaryDirectory('dsh-local-registry-version-')
     const consumer = packFixture({
-      destination, name: '@scope/pkg', version: '1.0.0', source: 'export default 1\n',
+      destination,
+      name: '@scope/pkg',
+      version: '1.0.0',
+      source: 'export default 1\n',
       dependencies: { '@scope/dependency': '^2.0.0' },
     })
     const dependency = packFixture({ destination, name: '@scope/dependency', version: '1.0.0', source: 'export default 2\n' })
-    const release = new Map([[consumer.member.name, consumer.entry], [dependency.member.name, dependency.entry]])
-    expect(() => readPackedArtifacts({ destination, members: [consumer.member, dependency.member], release }))
-      .toThrow(/@scope\/pkg: packed dependencies\.@scope\/dependency requires \^2\.0\.0, but this run serves 1\.0\.0/u)
+    const release = new Map([
+      [consumer.member.name, consumer.entry],
+      [dependency.member.name, dependency.entry],
+    ])
+    expect(() => readPackedArtifacts({ destination, members: [consumer.member, dependency.member], release })).toThrow(
+      /@scope\/pkg: packed dependencies\.@scope\/dependency requires \^2\.0\.0, but this run serves 1\.0\.0/u,
+    )
   })
 })
 
@@ -313,7 +362,7 @@ describe('registry HTTP', () => {
     for (const path of ['@scope%2flocal', '@scope/local']) {
       const response = await fetch(`${url}${path}`)
       expect(response.status, path).toBe(200)
-      const packument = await response.json() as {
+      const packument = (await response.json()) as {
         name: string
         'dist-tags': Record<string, string>
         versions: Record<string, { dist: { tarball: string; integrity: string } }>
@@ -354,11 +403,13 @@ describe('registry HTTP', () => {
     const destination = temporaryDirectory('dsh-local-registry-miss-')
     const { artifact } = fabricate({ destination, name: '@scope/local', version: '1.0.0', source: 'export default 1\n' })
     const url = await servingRun({
-      destination, artifacts: [artifact], workspaceNames: ['@scope/local', '@deepseek-ai/dsh-private-thing'],
+      destination,
+      artifacts: [artifact],
+      workspaceNames: ['@scope/local', '@deepseek-ai/dsh-private-thing'],
     })
     const owned = await fetch(`${url}@deepseek-ai%2fdsh-private-thing`)
     expect(owned.status).toBe(404)
-    const refusal = await owned.json() as { reason?: string }
+    const refusal = (await owned.json()) as { reason?: string }
     expect(refusal.reason ?? '').toContain('repository-owned')
     // A repository-owned name that is not even in the closure must never reach npm.
     expect((await fetch(`${url}@deepseek-ai%2fdsh-private-thing/1.0.0`)).status).toBe(404)
@@ -379,7 +430,11 @@ describe('registry HTTP', () => {
       socket.once('error', rejectConnect)
     })
     socket.write(`GET ${pathname}tarballs/${artifact.file} HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\n\r\n`)
-    await new Promise<void>((resolveData) => { socket.once('data', () => { resolveData() }) })
+    await new Promise<void>(resolveData => {
+      socket.once('data', () => {
+        resolveData()
+      })
+    })
     socket.destroy()
     const response = await fetch(`${url}@scope%2flocal`)
     expect(response.status).toBe(200)
@@ -450,12 +505,16 @@ async function pnpmIn(options: {
 }): Promise<{ exitCode?: number | null; stdout: string; stderr: string; timedOut: boolean }> {
   const invocation = pnpmInvocationFor([
     ...options.args,
-    ...options.store === undefined ? [] : ['--store-dir', options.store],
-    ...options.cache === undefined ? [] : ['--cache-dir', options.cache],
+    ...(options.store === undefined ? [] : ['--store-dir', options.store]),
+    ...(options.cache === undefined ? [] : ['--cache-dir', options.cache]),
     '--config.fetch-retries=0',
   ])
   const child = execa(invocation.command, invocation.args, {
-    cwd: options.consumer, env: options.environment, extendEnv: false, reject: false, timeout: 240_000,
+    cwd: options.consumer,
+    env: options.environment,
+    extendEnv: false,
+    reject: false,
+    timeout: 240_000,
   })
   onTestFinished(async () => {
     child.kill('SIGKILL')
@@ -475,8 +534,11 @@ function consumerDirectory(parent: string, name: string): string {
 
 /** The payload a consumer's installed fixture carries, or a marker when nothing is installed. */
 function installedPayload(consumer: string): string {
-  try { return readFileSync(join(consumer, 'node_modules', '@dsh-local', 'fixture', 'lib', 'index.js'), 'utf8').trim() }
-  catch { return '(absent)' }
+  try {
+    return readFileSync(join(consumer, 'node_modules', '@dsh-local', 'fixture', 'lib', 'index.js'), 'utf8').trim()
+  } catch {
+    return '(absent)'
+  }
 }
 
 describe('package cache freshness', () => {
@@ -494,12 +556,17 @@ describe('package cache freshness', () => {
       mkdirSync(destination, { recursive: true })
       const { artifact } = fabricate({ destination, name: '@dsh-local/fixture', version: '1.0.0', source })
       const registry = await startBundleRegistry({
-        directory: destination, artifacts: [artifact], workspaceNames: ['@dsh-local/fixture'],
+        directory: destination,
+        artifacts: [artifact],
+        workspaceNames: ['@dsh-local/fixture'],
       })
       onTestFinished(() => registry.close())
       const consumer = consumerDirectory(temporary, `consumer-${run}`)
       const result = await pnpmIn({
-        consumer, environment, store, cache,
+        consumer,
+        environment,
+        store,
+        cache,
         args: ['add', '@dsh-local/fixture@1.0.0', `--registry=${registry.url}`],
       })
       expect(result.timedOut, `${result.stdout}\n${result.stderr}`).toBe(false)
@@ -521,7 +588,7 @@ describe('package cache freshness', () => {
 })
 
 describe('same-version iteration', () => {
-  it('needs the earlier run\'s stale resolution cleared before a new run at the same version installs', { timeout: 300_000 }, async () => {
+  it("needs the earlier run's stale resolution cleared before a new run at the same version installs", { timeout: 300_000 }, async () => {
     const temporary = temporaryDirectory('dsh-local-registry-iteration-')
     const store = join(temporary, 'store')
     const userConfig = join(temporary, 'empty.npmrc')

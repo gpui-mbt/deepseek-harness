@@ -1,6 +1,6 @@
 /** Regression coverage for reusing one parse across the Markdown gate helpers. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { markdownHeadingLines, markdownProseLines, parseMarkdown } from './markdown.ts'
 
 const SOURCE = [

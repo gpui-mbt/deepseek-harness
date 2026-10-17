@@ -70,7 +70,7 @@ export class ClientTimerService extends Service {
    */
   timeout(delay: number): Promise<void>
   timeout(...args: any[]): any {
-    const callback = typeof args[0] === 'function' ? args.shift() as () => void : undefined
+    const callback = typeof args[0] === 'function' ? (args.shift() as () => void) : undefined
     const delay = args[0] as number
     if (callback !== undefined) {
       const dispose = this.ctx.effect(() => {
@@ -78,7 +78,9 @@ export class ClientTimerService extends Service {
           void dispose()
           callback()
         }, delay)
-        return () => { globalThis.clearTimeout(timer) }
+        return () => {
+          globalThis.clearTimeout(timer)
+        }
       }, 'ctx.timeout()')
       return dispose
     }
@@ -91,7 +93,9 @@ export class ClientTimerService extends Service {
         reject(new Error('Context has been disposed'))
       }
     }, 'ctx.timeout()')
-    return promise.finally(() => { void dispose() })
+    return promise.finally(() => {
+      void dispose()
+    })
   }
 
   /**
@@ -108,12 +112,14 @@ export class ClientTimerService extends Service {
    */
   interval<R = any>(delay: number): AsyncIterableIterator<void, R, void>
   interval(...args: any[]): any {
-    const callback = typeof args[0] === 'function' ? args.shift() as () => void : undefined
+    const callback = typeof args[0] === 'function' ? (args.shift() as () => void) : undefined
     const delay = args[0] as number
     if (callback !== undefined) {
       return this.ctx.effect(() => {
         const timer = globalThis.setInterval(callback, delay)
-        return () => { globalThis.clearInterval(timer) }
+        return () => {
+          globalThis.clearInterval(timer)
+        }
       }, 'ctx.interval()')
     }
 
@@ -157,10 +163,13 @@ export class ClientTimerService extends Service {
   /** Build a delayed wrapper whose pending callback belongs to the calling Fiber. */
   private schedule(label: string, trigger: (args: any[], disposed: boolean) => number | undefined, disposed = false): any {
     let timer: number | undefined
-    const dispose = this.ctx.effect(() => () => {
-      disposed = true
-      globalThis.clearTimeout(timer)
-    }, label)
+    const dispose = this.ctx.effect(
+      () => () => {
+        disposed = true
+        globalThis.clearTimeout(timer)
+      },
+      label,
+    )
     const wrapper: any = (...args: any[]): void => {
       globalThis.clearTimeout(timer)
       timer = trigger(args, disposed)
@@ -182,14 +191,18 @@ export class ClientTimerService extends Service {
       lastCall = Date.now()
       callback(...args)
     }
-    return this.schedule('ctx.throttle()', (args, disposed) => {
-      const remaining = delay - Date.now() + lastCall
-      if (remaining <= 0) {
-        execute(...args as Parameters<F>)
-      } else if (!disposed) {
-        return globalThis.setTimeout(execute, remaining, ...args)
-      }
-    }, noTrailing)
+    return this.schedule(
+      'ctx.throttle()',
+      (args, disposed) => {
+        const remaining = delay - Date.now() + lastCall
+        if (remaining <= 0) {
+          execute(...(args as Parameters<F>))
+        } else if (!disposed) {
+          return globalThis.setTimeout(execute, remaining, ...args)
+        }
+      },
+      noTrailing,
+    )
   }
 
   /**

@@ -9,7 +9,7 @@ import type { ZstdFrameDecoder, ZstdFrameRange } from './zstd.ts'
 /** Multi-frame adapter built exclusively from Node's supported one-shot API. */
 export class PublicZstdFrameDecoder implements ZstdFrameDecoder {
   private started = false
-  private closed = false
+  private closed = false;
 
   /** @inheritdoc */
   public *decode(source: Buffer, frames: readonly ZstdFrameRange[]): Generator<Buffer, void, void> {

@@ -13,7 +13,7 @@
  * writer and contains opaque keys and arrays, independent of Session messages.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -26,10 +26,16 @@ import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import Storage from '@deepseek-ai/dsh-storage'
 import {
-  apply as storageJsonApply, Config as storageJsonConfig, inject as storageJsonInject, name as storageJsonName,
+  apply as storageJsonApply,
+  Config as storageJsonConfig,
+  inject as storageJsonInject,
+  name as storageJsonName,
 } from '@deepseek-ai/dsh-storage-json'
 import {
-  apply as storageDomainApply, Config as storageDomainConfig, inject as storageDomainInject, name as storageDomainName,
+  apply as storageDomainApply,
+  Config as storageDomainConfig,
+  inject as storageDomainInject,
+  name as storageDomainName,
 } from '@deepseek-ai/dsh-storage-domain'
 import SessionProjectionCache from '../src/index.ts'
 import { checkpointRow, projectionCacheDomainSpec } from '../src/spec.ts'
@@ -89,7 +95,7 @@ function headerFor(id: SessionId, identity: FixtureDoc['record']['identity']): S
     id,
     createdAt: identity.createdAt,
     isSeeded: false,
-    ...identity.cwd === undefined ? {} : { cwd: identity.cwd },
+    ...(identity.cwd === undefined ? {} : { cwd: identity.cwd }),
   }
 }
 
@@ -102,7 +108,10 @@ async function storageHarness(root: string) {
   contexts.push(ctx)
   await ctx.plugin(Storage)
   await ctx.plugin({ name: storageJsonName, inject: storageJsonInject, apply: storageJsonApply, Config: storageJsonConfig }, { root })
-  await ctx.plugin({ name: storageDomainName, inject: storageDomainInject, apply: storageDomainApply, Config: storageDomainConfig }, { backend: 'json' })
+  await ctx.plugin(
+    { name: storageDomainName, inject: storageDomainInject, apply: storageDomainApply, Config: storageDomainConfig },
+    { backend: 'json' },
+  )
   return ctx
 }
 
@@ -174,9 +183,14 @@ describe('checkpoint JSON preservation', () => {
   })
 
   it.each([
-    ['undefined', undefined], ['function', () => {}], ['symbol', Symbol('opaque')], ['bigint', 1n],
-    ['nonfinite number', Number.NaN], ['infinity', Number.POSITIVE_INFINITY],
-    ['class instance', new Date(0)], ['map', new Map([['saved', true]])],
+    ['undefined', undefined],
+    ['function', () => {}],
+    ['symbol', Symbol('opaque')],
+    ['bigint', 1n],
+    ['nonfinite number', Number.NaN],
+    ['infinity', Number.POSITIVE_INFINITY],
+    ['class instance', new Date(0)],
+    ['map', new Map([['saved', true]])],
   ])('rejects non-JSON checkpoint state: %s', (_name, val) => {
     expect(checkpointRow.safeParse({ ver: 1, seq: 0, val }).success).toBe(false)
   })
@@ -187,7 +201,9 @@ describe('checkpoint JSON preservation', () => {
     for (const val of [cyclic, { nested: { value: undefined } }, [undefined], [, 'hole'], { negativeZero: -0 }]) {
       expect(() => checkpointRow.parse({ ver: 1, seq: 0, val })).toThrow()
     }
-    const val = JSON.parse('{"__proto__":{"saved":true},"constructor":{"saved":false},"nested":{"__proto__":[null,true,4,"text"]}}') as Record<string, unknown>
+    const val = JSON.parse(
+      '{"__proto__":{"saved":true},"constructor":{"saved":false},"nested":{"__proto__":[null,true,4,"text"]}}',
+    ) as Record<string, unknown>
     expect(checkpointRow.parse({ ver: 1, seq: 0, val }).val).toBe(val)
   })
 })
@@ -205,21 +221,16 @@ describe('archived version recovery', () => {
     const [sid, record] = Object.entries(archive.tables.sessions)[0]!
 
     const { ctx, cache } = await harness(root)
-    expect(cache.cachedSnapshot(
-      headerFor(SessionId(sid), record.identity),
-      ['title'],
-    )).toBeUndefined()
-    expect(cache.cachedPredecessorTitle(
-      headerFor(SessionId(sid), record.identity),
-    )).toEqual({
+    expect(cache.cachedSnapshot(headerFor(SessionId(sid), record.identity), ['title'])).toBeUndefined()
+    expect(cache.cachedPredecessorTitle(headerFor(SessionId(sid), record.identity))).toEqual({
       asOfSeq: record.rows.title?.seq,
       values: { title: record.rows.title?.val },
     })
 
     // The one-time bootstrap materialized a current-version document.
-    const migrated = JSON.parse(
-      await readFile(join(root, projectionCacheDomainSpec.name, 'sessions', `${sid}.json`), 'utf8'),
-    ) as { version: number }
+    const migrated = JSON.parse(await readFile(join(root, projectionCacheDomainSpec.name, 'sessions', `${sid}.json`), 'utf8')) as {
+      version: number
+    }
     expect(migrated.version).toBe(projectionCacheDomainSpec.version)
 
     await assertRewrite(ctx, root, SessionId(sid))
@@ -237,13 +248,8 @@ describe('archived version recovery', () => {
       expect(doc.version).toBe(storedVersion)
 
       const { ctx, cache } = await harness(root)
-      expect(cache.cachedSnapshot(
-        headerFor(id, doc.record.identity),
-        ['title'],
-      )).toBeUndefined()
-      expect(cache.cachedPredecessorTitle(
-        headerFor(id, doc.record.identity),
-      )).toEqual({
+      expect(cache.cachedSnapshot(headerFor(id, doc.record.identity), ['title'])).toBeUndefined()
+      expect(cache.cachedPredecessorTitle(headerFor(id, doc.record.identity))).toEqual({
         asOfSeq: doc.record.rows.title?.seq,
         values: { title: doc.record.rows.title?.val },
       })
@@ -257,19 +263,22 @@ describe('archived version recovery', () => {
     const sessionsDir = join(root, projectionCacheDomainSpec.name, 'sessions')
     await mkdir(sessionsDir, { recursive: true })
     const write = async (id: string, formatVersion: number, rowVersion = 1): Promise<void> => {
-      await writeFile(join(sessionsDir, `${id}.json`), JSON.stringify({
-        version: projectionCacheDomainSpec.version,
-        record: {
-          identity: {
-            formatVersion,
-            createdAt: 10,
-            cwd: '/work',
-            isSeeded: false,
-            inheritedEventCount: 0,
+      await writeFile(
+        join(sessionsDir, `${id}.json`),
+        JSON.stringify({
+          version: projectionCacheDomainSpec.version,
+          record: {
+            identity: {
+              formatVersion,
+              createdAt: 10,
+              cwd: '/work',
+              isSeeded: false,
+              inheritedEventCount: 0,
+            },
+            rows: { title: { ver: rowVersion, seq: 2, val: `${id} title` } },
           },
-          rows: { title: { ver: rowVersion, seq: 2, val: `${id} title` } },
-        },
-      }))
+        }),
+      )
     }
     await write('older', SESSION_FORMAT_VERSION - 1)
     await write('current', SESSION_FORMAT_VERSION)
@@ -311,17 +320,23 @@ describe('archived version recovery', () => {
     const sessionsDir = join(root, projectionCacheDomainSpec.name, 'sessions')
     await mkdir(sessionsDir, { recursive: true })
     // Current-version stamp, hopeless record content: no compat rung can save it.
-    await writeFile(join(sessionsDir, 'broken.json'), JSON.stringify({
-      version: projectionCacheDomainSpec.version,
-      record: { identity: { createdAt: 'not-a-number' }, rows: 'not-an-object' },
-    }))
+    await writeFile(
+      join(sessionsDir, 'broken.json'),
+      JSON.stringify({
+        version: projectionCacheDomainSpec.version,
+        record: { identity: { createdAt: 'not-a-number' }, rows: 'not-an-object' },
+      }),
+    )
     const good = await placeDoc(root, SessionId('survivor'), 'v5-session-doc.json')
 
     const ctx = new Context()
     contexts.push(ctx)
     await ctx.plugin(Storage)
     await ctx.plugin({ name: storageJsonName, inject: storageJsonInject, apply: storageJsonApply, Config: storageJsonConfig }, { root })
-    await ctx.plugin({ name: storageDomainName, inject: storageDomainInject, apply: storageDomainApply, Config: storageDomainConfig }, { backend: 'json' })
+    await ctx.plugin(
+      { name: storageDomainName, inject: storageDomainInject, apply: storageDomainApply, Config: storageDomainConfig },
+      { backend: 'json' },
+    )
     await ctx.plugin(SessionStore)
     await ctx.plugin(SessionProjectionRegistry)
     ctx.sessionProjections.register(titleUnit)
@@ -338,18 +353,13 @@ describe('archived version recovery', () => {
     expect(entries).not.toContain('broken.json')
     const backup = entries.find(name => /^broken\.json\.bak\.\d{12}$/.test(name))
     expect(backup).toBeDefined()
-    expect(JSON.parse(await readFile(join(sessionsDir, backup!), 'utf8')))
-      .toMatchObject({ record: { rows: 'not-an-object' } })
+    expect(JSON.parse(await readFile(join(sessionsDir, backup!), 'utf8'))).toMatchObject({ record: { rows: 'not-an-object' } })
 
     // The broken record reads as absent; its predecessor-stamped neighbor
     // remains available for a safe current rewrite.
     const cache = ctx.sessionProjectionCache
-    expect(cache.cachedSnapshot(headerFor(SessionId('broken'), { createdAt: 0 })))
-      .toBeUndefined()
-    expect(cache.cachedSnapshot(
-      headerFor(SessionId('survivor'), good.record.identity),
-      ['title'],
-    )).toBeUndefined()
+    expect(cache.cachedSnapshot(headerFor(SessionId('broken'), { createdAt: 0 }))).toBeUndefined()
+    expect(cache.cachedSnapshot(headerFor(SessionId('survivor'), good.record.identity), ['title'])).toBeUndefined()
     await assertRewrite(ctx, root, SessionId('survivor'))
   })
 })

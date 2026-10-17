@@ -1,5 +1,5 @@
 /** The `readBytes` endpoint: the byte window it cuts, its defaults and cap, and the gates it shares with `read`. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FsVersion } from '@deepseek-ai/dsh-fs'
@@ -44,7 +44,12 @@ describe('workspaceFiles.readBytes — the window', () => {
     const rangeRead = vi.spyOn(harness.ctx.fs, 'readByteRange')
     const completeRead = vi.spyOn(harness.ctx.fs, 'readBytes')
     const caller = signal()
-    const result = await endpoint({ maxBytes: 1024, maxFileBytes: 4 }).readBytes(harness.scope, 'huge.bin', { range: { offset: 199_000, length: 1024 } }, caller)
+    const result = await endpoint({ maxBytes: 1024, maxFileBytes: 4 }).readBytes(
+      harness.scope,
+      'huge.bin',
+      { range: { offset: 199_000, length: 1024 } },
+      caller,
+    )
     expect(rangeRead).toHaveBeenCalledExactlyOnceWith(expect.anything(), { offset: 199_000, length: 1024 }, caller)
     expect(completeRead).not.toHaveBeenCalled()
     expect(result.data).toHaveLength(1000)
@@ -125,8 +130,12 @@ describe('workspaceFiles.readBytes — defaults and cap', () => {
     await writeFile(join(workspace, 'ramp.bin'), RAMP)
     // Beyond-safe integers and a window whose end overflows are refused too: they cannot index a file.
     const ranges = [
-      { offset: -1 }, { offset: 1.5 }, { length: 0 }, { length: 2.5 },
-      { offset: 2 ** 53 }, { offset: Number.MAX_SAFE_INTEGER, length: 2 },
+      { offset: -1 },
+      { offset: 1.5 },
+      { length: 0 },
+      { length: 2.5 },
+      { offset: 2 ** 53 },
+      { offset: Number.MAX_SAFE_INTEGER, length: 2 },
     ]
     for (const range of ranges) {
       const failure = await failureOf(endpoint().readBytes(harness.scope, 'ramp.bin', { range }, signal()))
@@ -138,14 +147,23 @@ describe('workspaceFiles.readBytes — defaults and cap', () => {
 describe('workspaceFiles.readBytes — the gates it shares with read', () => {
   it('rejects a directory, a missing path, and an empty path', async () => {
     await mkdir(join(workspace, 'dir'))
-    expect((await failureOf(endpoint().readBytes(harness.scope, 'dir', { range: {} }, signal()))).code).toBe('workspace-file/not-regular-file')
-    expect((await failureOf(endpoint().readBytes(harness.scope, 'missing.bin', { range: {} }, signal()))).code).toBe('workspace-file/not-found')
+    expect((await failureOf(endpoint().readBytes(harness.scope, 'dir', { range: {} }, signal()))).code).toBe(
+      'workspace-file/not-regular-file',
+    )
+    expect((await failureOf(endpoint().readBytes(harness.scope, 'missing.bin', { range: {} }, signal()))).code).toBe(
+      'workspace-file/not-found',
+    )
     expect((await failureOf(endpoint().readBytes(harness.scope, '', { range: {} }, signal()))).code).toBe('gateway/bad-request')
   })
 
   it('reads a bounded byte window outside the workspace', async () => {
     await writeFile(join(harness.outside, 'sample.bin'), RAMP)
-    const result = await endpoint().readBytes(harness.scope, join(harness.outside, 'sample.bin'), { range: { offset: 2, length: 4 } }, signal())
+    const result = await endpoint().readBytes(
+      harness.scope,
+      join(harness.outside, 'sample.bin'),
+      { range: { offset: 2, length: 4 } },
+      signal(),
+    )
     expect(result.data).toEqual(RAMP.subarray(2, 6))
     expect(result).toMatchObject({ offset: 2, eof: false })
   })

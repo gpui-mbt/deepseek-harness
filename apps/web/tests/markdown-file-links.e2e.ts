@@ -3,14 +3,20 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -21,40 +27,68 @@ const MODE = webSnapshotMode()
 function parentPathFixture(path: string): string {
   const session = Session.create(SessionId('parent-file-links-source'))
   session.append('turn/start', { turn: 1 })
-  const user = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'Read the parent-path file and link lines 24 and 30.' }], source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'Read the parent-path file and link lines 24 and 30.' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('session/title', { title: 'Parent file links', messageSeqs: [user.seq], source: { kind: 'fallback' } })
   session.append('step/start', { turn: 1, step: 1 })
   const callId = ToolCallId('parent-file-read')
   const args = JSON.stringify({ file_path: path, offset: 24, limit: 7 })
-  session.append('assistant/message', {
-    turn: 1, step: 1, stream: [],
-    message: createAssistantMessage({
-      content: [{ type: 'tool-call', id: callId, name: 'read', arguments: args }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      turn: 1,
+      step: 1,
+      stream: [],
+      message: createAssistantMessage({
+        content: [{ type: 'tool-call', id: callId, name: 'read', arguments: args }],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   const call = session.append('tool/call', { turn: 1, step: 1, callId, name: 'read', arguments: args })
-  session.append('tool/result', {
-    turn: 1, step: 1, meta: { path: '{{cwd}}/parent.txt' },
-    message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'parent line 24\n' }], isError: false }),
-  }, { surfaceOp: 'append', sourceEventSeqs: [call.seq] })
+  session.append(
+    'tool/result',
+    {
+      turn: 1,
+      step: 1,
+      meta: { path: '{{cwd}}/parent.txt' },
+      message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'parent line 24\n' }], isError: false }),
+    },
+    { surfaceOp: 'append', sourceEventSeqs: [call.seq] },
+  )
   session.append('step/end', { turn: 1, step: 1 })
   session.append('step/start', { turn: 1, step: 2 })
-  session.append('assistant/message', {
-    turn: 1, step: 2, stream: [],
-    message: createAssistantMessage({
-      content: [{ type: 'text', text: `[Parent file:24–30](<${path}#L24-L30>) · [Parent file:30](<${path}#L30>)` }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      turn: 1,
+      step: 2,
+      stream: [],
+      message: createAssistantMessage({
+        content: [{ type: 'text', text: `[Parent file:24–30](<${path}#L24-L30>) · [Parent file:30](<${path}#L30>)` }],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 2 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   return [
     JSON.stringify({
-      type: 'session', version: SESSION_FORMAT_VERSION, id: '{{sessionId}}', createdAt: 0,
-      cwd: '{{cwd}}', isSeeded: false, delegationDepth: 0,
+      type: 'session',
+      version: SESSION_FORMAT_VERSION,
+      id: '{{sessionId}}',
+      createdAt: 0,
+      cwd: '{{cwd}}',
+      isSeeded: false,
+      delegationDepth: 0,
     }),
     ...session.snapshotEvents().map(event => JSON.stringify(event)),
     '',
@@ -71,8 +105,7 @@ describe('web e2e: Markdown file links', () => {
     scaffold = await launchWebScaffold({})
     await mkdir(join(scaffold.workspaceCwd, 'src'))
     await mkdir(join(scaffold.workspaceCwd, 'other'))
-    await writeFile(join(scaffold.workspaceCwd, 'src/example.txt'),
-      Array.from({ length: 60 }, (_, i) => `source line ${i + 1}\n`).join(''))
+    await writeFile(join(scaffold.workspaceCwd, 'src/example.txt'), Array.from({ length: 60 }, (_, i) => `source line ${i + 1}\n`).join(''))
     await writeFile(join(scaffold.workspaceCwd, 'other/example.txt'), 'other file\n')
     await seedSession(scaffold, await readFile(join(SNAPSHOT_DIR, 'session.v3.jsonl'), 'utf8'), 'markdown-file-links')
     browser = await chromium.launch()
@@ -99,8 +132,7 @@ describe('web e2e: Markdown file links', () => {
     await source.click()
     const column = page.locator('[data-rightbar-col]')
     await expect.poll(() => column.locator('[data-textpreview-target="24"]').textContent()).toBe('source line 24\n')
-    await expect.poll(() => column.locator('[data-textpreview-path]').textContent())
-      .toBe(join(scaffold.workspaceCwd, 'src/example.txt'))
+    await expect.poll(() => column.locator('[data-textpreview-path]').textContent()).toBe(join(scaffold.workspaceCwd, 'src/example.txt'))
     const absolute = page.getByRole('button', { name: 'src/example.txt:30', exact: true })
     await absolute.focus()
     await absolute.press('Enter')
@@ -113,8 +145,7 @@ describe('web e2e: Markdown file links', () => {
     await mkdir(artifacts, { recursive: true })
     await page.screenshot({ path: join(artifacts, 'markdown-file-links.png'), animations: 'disabled' })
     await page.getByRole('button', { name: 'other/example.txt', exact: true }).click()
-    await expect.poll(() => column.locator('[data-textpreview-path]').textContent())
-      .toBe(join(scaffold.workspaceCwd, 'other/example.txt'))
+    await expect.poll(() => column.locator('[data-textpreview-path]').textContent()).toBe(join(scaffold.workspaceCwd, 'other/example.txt'))
     await expect.poll(() => column.locator('[data-textpreview-line="1"]').textContent()).toBe('other file\n')
     expect(await column.locator('[data-dockkit-tab-title]').allTextContents()).toEqual(['example.txt', 'example.txt'])
     const preview = await captureStableAria(page, '[data-textpreview-state="text"]', scaffold.workspaceCwd)
@@ -131,13 +162,12 @@ describe('web e2e: Markdown file links', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-parent-file-links'))
     // Return through the parent into this owned temp root; no shared parent file is created.
     const path = `../${basename(scaffold.workspaceCwd)}/parent.txt`
-    await writeFile(join(scaffold.workspaceCwd, 'parent.txt'),
-      Array.from({ length: 60 }, (_, i) => `parent line ${i + 1}\n`).join(''))
+    await writeFile(join(scaffold.workspaceCwd, 'parent.txt'), Array.from({ length: 60 }, (_, i) => `parent line ${i + 1}\n`).join(''))
     const id = await seedSession(scaffold, parentPathFixture(path), 'parent-file-links')
     await page.reload({ waitUntil: 'load' })
     const workspace = page.getByRole('treeitem').first()
     await workspace.waitFor()
-    if (await workspace.getAttribute('aria-expanded') !== 'true') await workspace.click()
+    if ((await workspace.getAttribute('aria-expanded')) !== 'true') await workspace.click()
     await page.locator(`[data-row-key="session:${id}"]`).click()
 
     const source = page.getByRole('button', { name: 'Parent file:24–30', exact: true })

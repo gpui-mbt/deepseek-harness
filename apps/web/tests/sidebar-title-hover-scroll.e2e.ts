@@ -12,7 +12,7 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import type { Browser, Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { launchWebScaffold, seedSession, watchConsole, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -59,10 +59,7 @@ describe('web e2e: hovering a clipped session title marquees it to its far edge'
     // The marquee crawls instead of jumping: the title is caught mid-travel,
     // strictly between its start and its far edge, with both cut edges
     // publishing their fade-mask hooks.
-    await expect.poll(
-      async () => title.evaluate(el => el.scrollLeft > 0),
-      { timeout: 5_000 },
-    ).toBe(true)
+    await expect.poll(async () => title.evaluate(el => el.scrollLeft > 0), { timeout: 5_000 }).toBe(true)
     expect(await title.evaluate(el => el.scrollLeft < el.scrollWidth - el.clientWidth - 1)).toBe(true)
     expect(await title.evaluate(el => el.hasAttribute('data-scrolled'))).toBe(true)
     expect(await title.evaluate(el => el.hasAttribute('data-clipped'))).toBe(true)
@@ -72,14 +69,10 @@ describe('web e2e: hovering a clipped session title marquees it to its far edge'
     // lifting the right fade so the final character reads at full strength.
     // The fade lifts on the frame that lands exactly on the far edge, one or
     // two frames after scrollLeft first rounds within a pixel of it.
-    await expect.poll(
-      async () => title.evaluate(el => el.scrollLeft >= el.scrollWidth - el.clientWidth - 1),
-      { timeout: 20_000 },
-    ).toBe(true)
-    await expect.poll(
-      async () => title.evaluate(el => el.hasAttribute('data-clipped')),
-      { timeout: 5_000 },
-    ).toBe(false)
+    await expect
+      .poll(async () => title.evaluate(el => el.scrollLeft >= el.scrollWidth - el.clientWidth - 1), { timeout: 20_000 })
+      .toBe(true)
+    await expect.poll(async () => title.evaluate(el => el.hasAttribute('data-clipped')), { timeout: 5_000 }).toBe(false)
     // At its extent, the title must not paint the ellipsis over the
     // characters the marquee reached.
     expect(await title.evaluate(el => getComputedStyle(el).textOverflow)).toBe('clip')
@@ -87,10 +80,7 @@ describe('web e2e: hovering a clipped session title marquees it to its far edge'
     // Leaving returns in one step: a crawl back would still be travelling
     // inside this window, and it would carry the resting ellipsis with it.
     await page.mouse.move(0, 0)
-    await expect.poll(
-      async () => title.evaluate(el => el.scrollLeft),
-      { timeout: 150, interval: 20 },
-    ).toBe(0)
+    await expect.poll(async () => title.evaluate(el => el.scrollLeft), { timeout: 150, interval: 20 }).toBe(0)
     expect(await title.evaluate(el => el.hasAttribute('data-scrolled'))).toBe(false)
     expect(await title.evaluate(el => getComputedStyle(el).textOverflow)).toBe('ellipsis')
 
@@ -98,10 +88,9 @@ describe('web e2e: hovering a clipped session title marquees it to its far edge'
     // to the far edge instead of crawling.
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await row.hover()
-    await expect.poll(
-      async () => title.evaluate(el => el.scrollLeft >= el.scrollWidth - el.clientWidth - 1),
-      { timeout: 500, interval: 20 },
-    ).toBe(true)
+    await expect
+      .poll(async () => title.evaluate(el => el.scrollLeft >= el.scrollWidth - el.clientWidth - 1), { timeout: 500, interval: 20 })
+      .toBe(true)
     await page.mouse.move(0, 0)
     await page.emulateMedia({ reducedMotion: null })
     expect(tripwire.pageErrors).toEqual([])

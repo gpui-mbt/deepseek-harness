@@ -15,7 +15,9 @@ let callNumber = 0
 /** Run git synchronously inside a fixture repository. */
 export function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args], {
-    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -36,26 +38,43 @@ export function startTurn(session: Session, turn: number): void {
 export function toolCall(session: Session, turn: number, name: string, args: unknown, result: { meta?: unknown; isError?: boolean } = {}) {
   const callId = ToolCallId(`call-${++callNumber}`)
   const serialized = JSON.stringify(args)
-  session.append('assistant/message', {
-    stream: [], turn, step: 1,
-    message: createAssistantMessage({
-      content: [{ type: 'tool-call', id: callId, name, arguments: serialized }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step: 1,
+      message: createAssistantMessage({
+        content: [{ type: 'tool-call', id: callId, name, arguments: serialized }],
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   const source = session.append('tool/call', { turn, step: 1, callId, name, arguments: serialized })
-  return session.append('tool/result', {
-    turn, step: 1,
-    message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'ok' }], isError: result.isError ?? false }),
-    ...result.meta === undefined ? {} : { meta: result.meta as never },
-  }, { surfaceOp: 'append', sourceEventSeqs: [source.seq] })
+  return session.append(
+    'tool/result',
+    {
+      turn,
+      step: 1,
+      message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'ok' }], isError: result.isError ?? false }),
+      ...(result.meta === undefined ? {} : { meta: result.meta as never }),
+    },
+    { surfaceOp: 'append', sourceEventSeqs: [source.seq] },
+  )
 }
 
 /**
  * Apply a fixture mutation with an explicit filesystem intent target.
  */
 export async function mutate(
-  ctx: Context, session: Session, turn: number, name: string, args: unknown, path: string, apply: () => Promise<void>,
+  ctx: Context,
+  session: Session,
+  turn: number,
+  name: string,
+  args: unknown,
+  path: string,
+  apply: () => Promise<void>,
   result: { meta?: unknown; isError?: boolean } = {},
 ) {
   const actor = { agent: { session }, name, arguments: args }
@@ -80,7 +99,8 @@ export async function settle(ctx: Context, session: Session): Promise<void> {
 
 /** The summaries the Host still serves for one session's `workspace/changes` events, in log order. */
 export function changes(ctx: Context, session: Session): WorkspaceChangesSummary[] {
-  return session.snapshotEvents()
+  return session
+    .snapshotEvents()
     .filter(event => event.type === 'workspace/changes')
     .map(event => ctx.workspaceChanges.summary(session.id, event.seq))
     .filter(summary => summary !== undefined)

@@ -53,9 +53,12 @@ process.on('SIGTERM', () => {
 
 function resultFor(method: string): unknown {
   switch (method) {
-    case 'textDocument/definition': return envJson('LSP_FAKE_DEF', null)
-    case 'textDocument/references': return envJson('LSP_FAKE_REFS', null)
-    case 'textDocument/implementation': return envJson('LSP_FAKE_IMPL', null)
+    case 'textDocument/definition':
+      return envJson('LSP_FAKE_DEF', null)
+    case 'textDocument/references':
+      return envJson('LSP_FAKE_REFS', null)
+    case 'textDocument/implementation':
+      return envJson('LSP_FAKE_IMPL', null)
     case 'textDocument/hover': {
       // LSP_FAKE_ECHO_ENV names a variable whose VALUE becomes the hover
       // contents — a test can assert exactly what env reached this process.
@@ -63,7 +66,8 @@ function resultFor(method: string): unknown {
       if (echoName !== undefined) return { contents: process.env[echoName] ?? `<${echoName} unset>` }
       return envJson('LSP_FAKE_HOVER', null)
     }
-    default: return null
+    default:
+      return null
   }
 }
 
@@ -80,7 +84,10 @@ process.stdin.on('data', (chunk: Buffer) => {
     if (sep < 0) break
     const header = buffer.toString('ascii', 0, sep)
     const match = /content-length:\s*(\d+)/i.exec(header)
-    if (!match) { buffer = buffer.subarray(sep + 4); continue }
+    if (!match) {
+      buffer = buffer.subarray(sep + 4)
+      continue
+    }
     const length = Number(match[1])
     const start = sep + 4
     if (buffer.length < start + length) break
@@ -177,13 +184,14 @@ function emitServerRequest(kind: string): void {
     return
   }
   const id = serverRequestId++
-  const method = kind === 'configuration'
-    ? 'workspace/configuration'
-    : kind === 'applyEdit'
-      ? 'workspace/applyEdit'
-      : kind === 'lifecycle'
-        ? 'client/registerCapability'
-        : 'window/showMessageRequest'
+  const method =
+    kind === 'configuration'
+      ? 'workspace/configuration'
+      : kind === 'applyEdit'
+        ? 'workspace/applyEdit'
+        : kind === 'lifecycle'
+          ? 'client/registerCapability'
+          : 'window/showMessageRequest'
   const params = kind === 'configuration' ? { items: [{ section: 'a' }, { section: 'b' }] } : {}
   pendingServerRequests.set(id, method)
   send({ id, method, params })

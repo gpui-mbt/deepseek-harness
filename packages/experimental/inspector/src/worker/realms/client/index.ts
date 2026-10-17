@@ -30,11 +30,7 @@ export class ClientInspectorRealm implements InspectorRealm {
   private readonly scriptIds: ClientScriptIdentity
   private readonly bridge: ClientRealmBridge
 
-  constructor(
-    target: ClientRuntimeTarget,
-    runtimeRouter: ClientRuntimeRouter,
-    sourceRouter: ClientSourceRouter,
-  ) {
+  constructor(target: ClientRuntimeTarget, runtimeRouter: ClientRuntimeRouter, sourceRouter: ClientSourceRouter) {
     this.bridge = createClientRealmBridge(target, runtimeRouter, sourceRouter)
     this.descriptor = {
       realmId: inspectorId<'InspectorRealmId'>(randomUUID(), 'realmId'),
@@ -72,22 +68,24 @@ export class ClientInspectorRealm implements InspectorRealm {
       : undefined
     const sources = supports(this.target, 'client-sources')
       ? new ClientSourceBackend(
-        this.target,
-        inspectorId<'ClientSourceSessionId'>(randomUUID(), 'sourceSessionId'),
-        this.bridge.sources,
-        this.scriptIds,
-      )
+          this.target,
+          inspectorId<'ClientSourceSessionId'>(randomUUID(), 'sourceSessionId'),
+          this.bridge.sources,
+          this.scriptIds,
+        )
       : undefined
     return {
       descriptor: this.descriptor,
       context: this.context,
       runtime: { state: 'supported', backend: runtime },
-      console: console === undefined
-        ? { state: 'unsupported', reason: 'Client source does not provide Console events' }
-        : { state: 'supported', backend: console },
-      sources: sources === undefined
-        ? { state: 'unsupported', reason: 'Client source does not provide a script catalog' }
-        : { state: 'supported', backend: sources },
+      console:
+        console === undefined
+          ? { state: 'unsupported', reason: 'Client source does not provide Console events' }
+          : { state: 'supported', backend: console },
+      sources:
+        sources === undefined
+          ? { state: 'unsupported', reason: 'Client source does not provide a script catalog' }
+          : { state: 'supported', backend: sources },
       debugger: clientDebuggerCapability(),
       nativeDomains: { state: 'unsupported', reason: 'Client realm has no native CDP transport' },
       close: () => {

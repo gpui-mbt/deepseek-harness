@@ -13,7 +13,9 @@ export const inject = ['cordisInspect', 'agents', 'llm', 'typertGateway']
  */
 export function apply(ctx) {
   const open = registerSilentClientTransport(ctx)
-  const expected = readFileSync(process.env.DSH_SNAPSHOT_FILE, 'utf8').trim().split('\n')
+  const expected = readFileSync(process.env.DSH_SNAPSHOT_FILE, 'utf8')
+    .trim()
+    .split('\n')
     .map(line => JSON.parse(line))
     .filter(event => event.type === 'tool/result')
     .map(event => event.data.message)
@@ -61,22 +63,28 @@ export function apply(ctx) {
     }
     yield* next()
   })
-  ctx.cordisInspect.syncClientManifest([{
-    id: 'Service',
-    description: 'Snapshot Client Service provider.',
-    methods: [{
-      name: 'listService',
-      description: 'Inspect one Client Service.',
-      inputSchema: {
-        type: 'object',
-        properties: { service: { type: 'string' } },
-        additionalProperties: false,
-      },
-      outputSchema: { type: 'object' },
-    }],
-  }])
-  ctx.on('cordis/inspect-query-resolved', ({ requestId }) => { resolved.push(requestId) })
-  ctx.on('cordis/inspect-query', (request) => {
+  ctx.cordisInspect.syncClientManifest([
+    {
+      id: 'Service',
+      description: 'Snapshot Client Service provider.',
+      methods: [
+        {
+          name: 'listService',
+          description: 'Inspect one Client Service.',
+          inputSchema: {
+            type: 'object',
+            properties: { service: { type: 'string' } },
+            additionalProperties: false,
+          },
+          outputSchema: { type: 'object' },
+        },
+      ],
+    },
+  ])
+  ctx.on('cordis/inspect-query-resolved', ({ requestId }) => {
+    resolved.push(requestId)
+  })
+  ctx.on('cordis/inspect-query', request => {
     assert.equal(ctx.typertGateway.hasLiveClient(), true)
     assert.deepEqual(request.input, { service: 'remote' })
     queries.push(request.requestId)
@@ -90,9 +98,12 @@ export function apply(ctx) {
     assert.notEqual(queries[0], request.requestId)
     const agent = ctx.agents.get(request.agentId)
     assert.ok(agent, 'Client inspect request has an owning Agent')
-    assert.deepEqual(ctx.cordisInspect.resolveClientQuery(agent, request.requestId, {
-      ok: true,
-      data: { service: 'remote' },
-    }), { accepted: true })
+    assert.deepEqual(
+      ctx.cordisInspect.resolveClientQuery(agent, request.requestId, {
+        ok: true,
+        data: { service: 'remote' },
+      }),
+      { accepted: true },
+    )
   })
 }

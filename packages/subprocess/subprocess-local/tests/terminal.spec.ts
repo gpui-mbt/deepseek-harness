@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { IDisposable, IPty } from 'node-pty'
 import { LocalTerminalHandle } from '@deepseek-ai/dsh-subprocess-local/src/terminal.ts'
 import { createProcessInspector } from '@deepseek-ai/dsh-subprocess-local/src/process-inspector.ts'
@@ -26,12 +26,20 @@ class FakePty {
 
   readonly onData = (listener: (data: string) => void): IDisposable => {
     this.dataListeners.add(listener)
-    return { dispose: () => { this.dataListeners.delete(listener) } }
+    return {
+      dispose: () => {
+        this.dataListeners.delete(listener)
+      },
+    }
   }
 
   readonly onExit = (listener: (event: { exitCode: number; signal?: number }) => void): IDisposable => {
     this.exitListeners.add(listener)
-    return { dispose: () => { this.exitListeners.delete(listener) } }
+    return {
+      dispose: () => {
+        this.exitListeners.delete(listener)
+      },
+    }
   }
 
   emitData(data: string): void {
@@ -39,10 +47,12 @@ class FakePty {
   }
 
   emitExit(exitCode = 0, signal?: number): void {
-    for (const listener of this.exitListeners) listener({ exitCode, ...signal === undefined ? {} : { signal } })
+    for (const listener of this.exitListeners) listener({ exitCode, ...(signal === undefined ? {} : { signal }) })
   }
 
-  write(data: string): void { this.writes.push(data) }
+  write(data: string): void {
+    this.writes.push(data)
+  }
 
   kill(signal?: string): void {
     if (this.throwKill) throw new Error('process raced')
@@ -71,13 +81,15 @@ class FakeInspector implements ProcessInspector {
   throwProcess = false
   removeOnSignal = true
 
-  foregroundPgid() { return this.pgid }
+  foregroundPgid() {
+    return this.pgid
+  }
   isStdinWaiting(pgid: number, shellPid: number) {
     this.stdinChecks.push([pgid, shellPid])
     return this.waiting
   }
   /** Per-question table reads; tests replace one to stage a scan without rebuilding the fake. */
-  readTree: () => ProcessIdentity[] = () => this.root === undefined ? this.members : [this.root, ...this.members]
+  readTree: () => ProcessIdentity[] = () => (this.root === undefined ? this.members : [this.root, ...this.members])
   readSession: () => ProcessIdentity[] = () => this.sessionMembers
   readAlive: (identity: ProcessIdentity) => boolean = identity => this.alive.has(identity.pid)
   /** Liveness as of right now; tests diverge it from readAlive to stage an exit between scan and signal. */
@@ -96,7 +108,9 @@ class FakeInspector implements ProcessInspector {
     }
   }
 
-  isAlive(identity: ProcessIdentity) { return this.readCurrentAlive(identity) }
+  isAlive(identity: ProcessIdentity) {
+    return this.readCurrentAlive(identity)
+  }
   signalGroup(pgid: number, signal: SubprocessTerminalSignal) {
     if (this.throwGroup) throw new Error('group failed')
     this.groups.push([pgid, signal])
@@ -110,7 +124,9 @@ class FakeInspector implements ProcessInspector {
   }
 }
 
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function makeHandle(pty: FakePty, inspector: ProcessInspector, graceMs: number): LocalTerminalHandle {
   // The suite pins POSIX signalling semantics deterministically on every host;
@@ -123,7 +139,10 @@ describe('LocalTerminalHandle', () => {
     const pty = new FakePty()
     let readable = false
     const inspector = createProcessInspector('linux', 'x64', {
-      readDir: () => { if (!readable) throw new Error('EACCES'); return [] },
+      readDir: () => {
+        if (!readable) throw new Error('EACCES')
+        return []
+      },
     } as unknown as ProcessInspectorInternals)
     const released = vi.fn()
     const handle = new LocalTerminalHandle(pty.asPty(), inspector, 10, 'linux', undefined, undefined, undefined, released, true)
@@ -144,8 +163,12 @@ describe('LocalTerminalHandle', () => {
     pty.emitData(chunk)
     expect(pty.pause).toHaveBeenCalledOnce()
     const chunks: Buffer[] = []
-    handle.output.on('data', (data: Buffer) => { chunks.push(data) })
-    await vi.waitFor(() => { expect(pty.resume).toHaveBeenCalledOnce() })
+    handle.output.on('data', (data: Buffer) => {
+      chunks.push(data)
+    })
+    await vi.waitFor(() => {
+      expect(pty.resume).toHaveBeenCalledOnce()
+    })
     expect(Buffer.concat(chunks).toString()).toBe(chunk)
     handle.output.pause()
     pty.emitData(chunk)
@@ -208,7 +231,9 @@ describe('LocalTerminalHandle', () => {
         signals.push(signal)
         if (signal === 'SIGTERM') {
           stopped.resolve(undefined)
-          setTimeout(() => { pty.emitExit(0, 15) }, 1)
+          setTimeout(() => {
+            pty.emitExit(0, 15)
+          }, 1)
         }
       },
       waitForExit: () => stopped.promise,
@@ -254,11 +279,11 @@ describe('LocalTerminalHandle', () => {
     const pty = new FakePty()
     const failure = new Error('scope became unreadable')
     const signals: Array<'SIGTERM' | 'SIGKILL'> = []
-    const waitForExit = vi.fn()
-      .mockRejectedValueOnce(failure)
-      .mockResolvedValue(undefined)
+    const waitForExit = vi.fn().mockRejectedValueOnce(failure).mockResolvedValue(undefined)
     const owner: BoundProcessOwner = {
-      signal: (signal) => { signals.push(signal) },
+      signal: signal => {
+        signals.push(signal)
+      },
       waitForExit,
       terminateForHostExit: vi.fn(),
     }
@@ -275,10 +300,10 @@ describe('LocalTerminalHandle', () => {
     const finalFailure = new Error('scope stayed unreadable')
     const signals: Array<'SIGTERM' | 'SIGKILL'> = []
     const owner: BoundProcessOwner = {
-      signal: (signal) => { signals.push(signal) },
-      waitForExit: vi.fn()
-        .mockRejectedValueOnce(firstFailure)
-        .mockRejectedValueOnce(finalFailure),
+      signal: signal => {
+        signals.push(signal)
+      },
+      waitForExit: vi.fn().mockRejectedValueOnce(firstFailure).mockRejectedValueOnce(finalFailure),
       terminateForHostExit: vi.fn(),
     }
     const handle = new LocalTerminalHandle(pty.asPty(), new FakeInspector(), 10, 'linux', owner)
@@ -316,20 +341,17 @@ describe('LocalTerminalHandle', () => {
       terminateForHostExit: vi.fn(),
       cleanup,
     }
-    const handle = new LocalTerminalHandle(
-      pty.asPty(),
-      new FakeInspector(),
-      10,
-      'linux',
-      owner,
-      () => { throw failure },
-    )
+    const handle = new LocalTerminalHandle(pty.asPty(), new FakeInspector(), 10, 'linux', owner, () => {
+      throw failure
+    })
 
     pty.emitExit()
     await expect(handle.done).rejects.toBe(failure)
     await expect(handle.terminate()).resolves.toBeUndefined()
     await expect(handle.terminate()).resolves.toBeUndefined()
-    await vi.waitFor(() => { expect(cleanup).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(cleanup).toHaveBeenCalledOnce()
+    })
   })
 
   it('runs owner cleanup once after repeated failed managed termination attempts', async () => {
@@ -338,7 +360,9 @@ describe('LocalTerminalHandle', () => {
     const cleanup = vi.fn()
     const owner: BoundProcessOwner = {
       signal: vi.fn(),
-      waitForExit: vi.fn(async () => { throw failure }),
+      waitForExit: vi.fn(async () => {
+        throw failure
+      }),
       terminateForHostExit: vi.fn(),
       cleanup,
     }
@@ -349,7 +373,9 @@ describe('LocalTerminalHandle', () => {
     expect(cleanup).not.toHaveBeenCalled()
     pty.emitExit()
     await expect(handle.done).resolves.toEqual({ exitCode: 0, signal: null })
-    await vi.waitFor(() => { expect(cleanup).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(cleanup).toHaveBeenCalledOnce()
+    })
   })
 
   it('waits for the node-pty exit event after the managed range becomes empty', async () => {
@@ -362,7 +388,9 @@ describe('LocalTerminalHandle', () => {
     const handle = new LocalTerminalHandle(pty.asPty(), new FakeInspector(), 100, 'linux', owner)
     let settled = false
 
-    const terminating = handle.terminate().then(() => { settled = true })
+    const terminating = handle.terminate().then(() => {
+      settled = true
+    })
     await new Promise(resolve => setImmediate(resolve))
     expect(settled).toBe(false)
 
@@ -375,7 +403,9 @@ describe('LocalTerminalHandle', () => {
     const pty = new FakePty()
     const signals: Array<'SIGTERM' | 'SIGKILL'> = []
     const owner: BoundProcessOwner = {
-      signal: (signal) => { signals.push(signal) },
+      signal: signal => {
+        signals.push(signal)
+      },
       waitForExit: async () => {},
       terminateForHostExit: vi.fn(),
     }
@@ -428,10 +458,14 @@ describe('LocalTerminalHandle', () => {
     inspector.alive.add(captured.pid)
     const handle = new LocalTerminalHandle(pty.asPty(), inspector, 10)
     await handle.inspectForeground()
-    inspector.readTree = () => { throw new Error('process table unavailable') }
+    inspector.readTree = () => {
+      throw new Error('process table unavailable')
+    }
     inspector.throwProcess = true
 
-    expect(() => { handle.terminateForHostExit() }).not.toThrow()
+    expect(() => {
+      handle.terminateForHostExit()
+    }).not.toThrow()
     expect(inspector.processes).toEqual([])
     expect(pty.kills).toEqual([])
   })
@@ -450,7 +484,9 @@ describe('LocalTerminalHandle', () => {
     racingInspector.root = undefined
     racingPty.throwKill = true
     const racingHandle = new LocalTerminalHandle(racingPty.asPty(), racingInspector, 10)
-    expect(() => { racingHandle.terminateForHostExit() }).not.toThrow()
+    expect(() => {
+      racingHandle.terminateForHostExit()
+    }).not.toThrow()
   })
 
   it('does not signal a recycled terminal root before its delayed exit callback', () => {
@@ -473,7 +509,9 @@ describe('LocalTerminalHandle', () => {
     inspector.waiting = true
     const handle = makeHandle(pty, inspector, 10)
     const chunks: Buffer[] = []
-    handle.output.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+    handle.output.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
 
     pty.emitData('hello €')
     await handle.write('input\r')
@@ -541,7 +579,9 @@ describe('LocalTerminalHandle', () => {
     pty.emitExit()
     const waiting = handle.terminate()
     let settled = false
-    void waiting.then(() => { settled = true })
+    void waiting.then(() => {
+      settled = true
+    })
     await vi.advanceTimersByTimeAsync(10)
     expect(settled).toBe(false)
 
@@ -554,7 +594,7 @@ describe('LocalTerminalHandle', () => {
     const pty = new FakePty()
     const inspector = new FakeInspector()
     const disowned = { pid: 124, started: 'disowned' }
-    inspector.readSession = () => inspector.alive.has(disowned.pid) ? [disowned] : []
+    inspector.readSession = () => (inspector.alive.has(disowned.pid) ? [disowned] : [])
     inspector.alive.add(124)
     const handle = makeHandle(pty, inspector, 20)
 
@@ -629,7 +669,10 @@ describe('LocalTerminalHandle', () => {
     }
     const handle = makeHandle(pty, inspector, 10)
     await handle.terminate()
-    expect(inspector.processes).toEqual([[124, 'SIGTERM'], [125, 'SIGKILL']])
+    expect(inspector.processes).toEqual([
+      [124, 'SIGTERM'],
+      [125, 'SIGKILL'],
+    ])
     expect(pty.kills).toEqual(['SIGTERM'])
   })
 
@@ -670,7 +713,10 @@ describe('LocalTerminalHandle', () => {
     const retry = handle.terminate()
     expect(retry).not.toBe(first)
     await retry
-    expect(inspector.processes).toEqual([[late.pid, 'SIGTERM'], [late.pid, 'SIGKILL']])
+    expect(inspector.processes).toEqual([
+      [late.pid, 'SIGTERM'],
+      [late.pid, 'SIGKILL'],
+    ])
   })
 
   it('retains captured descendants after reparenting', async () => {
@@ -681,7 +727,10 @@ describe('LocalTerminalHandle', () => {
     const root = { pid: 123, started: 'shell' }
     let reads = 0
     inspector.alive.add(captured.pid)
-    inspector.readTree = () => { reads += 1; return reads === 1 ? [root] : reads === 2 ? [root, captured] : [] }
+    inspector.readTree = () => {
+      reads += 1
+      return reads === 1 ? [root] : reads === 2 ? [root, captured] : []
+    }
     inspector.signalProcess = (identity, signal) => {
       inspector.processes.push([identity.pid, signal])
       if (signal === 'SIGKILL') inspector.alive.delete(identity.pid)
@@ -690,7 +739,10 @@ describe('LocalTerminalHandle', () => {
     const quiescent = handle.terminate()
     await vi.advanceTimersByTimeAsync(25)
     await quiescent
-    expect(inspector.processes).toEqual([[124, 'SIGTERM'], [124, 'SIGKILL']])
+    expect(inspector.processes).toEqual([
+      [124, 'SIGTERM'],
+      [124, 'SIGKILL'],
+    ])
   })
 
   it('reports a top-level process that ignores escalation', async () => {
@@ -782,7 +834,10 @@ describe('LocalTerminalHandle on Windows', () => {
     const failed = expect(handle.terminate()).rejects.toThrow('surviving pid: 123')
     await vi.advanceTimersByTimeAsync(25)
     await failed
-    expect(inspector.processes).toEqual([[123, 'SIGTERM'], [123, 'SIGKILL']])
+    expect(inspector.processes).toEqual([
+      [123, 'SIGTERM'],
+      [123, 'SIGKILL'],
+    ])
     expect(pty.kills).toEqual([])
 
     pty.emitExit()
@@ -817,9 +872,13 @@ describe('signalling freshness and containment', () => {
     const inspector = new FakeInspector()
     inspector.alive.add(pty.pid)
     const handle = new LocalTerminalHandle(pty.asPty(), inspector, 10)
-    inspector.snapshot = () => { throw new Error('process table unavailable') }
+    inspector.snapshot = () => {
+      throw new Error('process table unavailable')
+    }
 
-    expect(() => { handle.terminateForHostExit() }).not.toThrow()
+    expect(() => {
+      handle.terminateForHostExit()
+    }).not.toThrow()
 
     // forceStopShell still runs: a failed scan must not cost the PTY root.
     expect(inspector.processes).toEqual([[pty.pid, 'SIGKILL']])
@@ -848,7 +907,9 @@ describe('process-table read amplification', () => {
   // command's process tree. These pin the read count, not the wall time.
   function darwinInternals(table: string): { internals: ProcessInspectorInternals; tableReads: string[] } {
     const tableReads: string[] = []
-    const unreachable = (): never => { throw new Error('darwin inspection uses exec and kill only') }
+    const unreachable = (): never => {
+      throw new Error('darwin inspection uses exec and kill only')
+    }
     return {
       tableReads,
       internals: {
@@ -899,7 +960,11 @@ it('requires matching shell identity, complete process observations, and an idle
   const pty = new FakePty()
   const inspector = new FakeInspector()
   inspector.pgid = pty.pid
-  const activity = { inspect: vi.fn((): SubprocessTerminalActivity => ({ state: 'idle', revision: 1 })), invalidate: vi.fn(), dispose: vi.fn() }
+  const activity = {
+    inspect: vi.fn((): SubprocessTerminalActivity => ({ state: 'idle', revision: 1 })),
+    invalidate: vi.fn(),
+    dispose: vi.fn(),
+  }
   const handle = new LocalTerminalHandle(pty.asPty(), inspector, 20, 'darwin', undefined, undefined, activity)
   try {
     const idle = await handle.inspectActivity()
@@ -923,10 +988,14 @@ it('requires matching shell identity, complete process observations, and an idle
     expect((await handle.inspectActivity()).state).toBe('busy')
     inspector.alive.clear()
     inspector.members = []
-    inspector.readTree = () => { throw new Error('process table unavailable') }
+    inspector.readTree = () => {
+      throw new Error('process table unavailable')
+    }
     expect((await handle.inspectActivity()).state).toBe('unknown')
     inspector.readTree = () => [inspector.root!]
-  } finally { await handle.terminate() }
+  } finally {
+    await handle.terminate()
+  }
   expect(activity.dispose).toHaveBeenCalledOnce()
   expect((await handle.inspectActivity()).state).toBe('idle')
 })
@@ -936,15 +1005,20 @@ it('keeps unverified root identities unknown without leaking a failed PTY alloca
   const inspector = new FakeInspector()
   inspector.pgid = pty.pid
   const read = inspector.readTree
-  inspector.readTree = () => { throw new Error('identity unavailable during allocation') }
+  inspector.readTree = () => {
+    throw new Error('identity unavailable during allocation')
+  }
   const activity = { inspect: () => ({ state: 'idle' as const, revision: 1 }), invalidate() {}, dispose() {} }
   const handle = new LocalTerminalHandle(pty.asPty(), inspector, 20, 'darwin', undefined, undefined, activity)
   inspector.readTree = read
-  try { expect((await handle.inspectActivity()).state).toBe('unknown') }
-  finally { await handle.terminate() }
+  try {
+    expect((await handle.inspectActivity()).state).toBe('unknown')
+  } finally {
+    await handle.terminate()
+  }
 })
 
-it.each(['darwin', 'linux'] as const)('retains root-exited work and respects %s session observability', async (platform) => {
+it.each(['darwin', 'linux'] as const)('retains root-exited work and respects %s session observability', async platform => {
   const pty = new FakePty()
   const inspector = new FakeInspector()
   const handle = new LocalTerminalHandle(pty.asPty(), inspector, 20, platform)
@@ -964,16 +1038,21 @@ it.each(['darwin', 'linux'] as const)('retains root-exited work and respects %s 
     inspector.sessionMembers = []
     expect((await handle.inspectActivity()).state).toBe(platform === 'linux' ? 'idle' : 'unknown')
     expect(pty.kills).toEqual([])
-  } finally { await handle.terminate() }
+  } finally {
+    await handle.terminate()
+  }
 })
 
-it.each([false, true])('waits for a root-exited native range, with failed observation=%s remaining unknown', async (fails) => {
+it.each([false, true])('waits for a root-exited native range, with failed observation=%s remaining unknown', async fails => {
   const pty = new FakePty()
   const inspector = new FakeInspector()
   inspector.pgid = pty.pid
   const empty = Promise.withResolvers<undefined>()
   const owner: BoundProcessOwner = {
-    signal: () => { empty.resolve(undefined); pty.emitExit() },
+    signal: () => {
+      empty.resolve(undefined)
+      pty.emitExit()
+    },
     waitForExit: vi.fn().mockReturnValueOnce(empty.promise).mockResolvedValue(undefined),
     terminateForHostExit() {},
   }
@@ -987,20 +1066,28 @@ it.each([false, true])('waits for a root-exited native range, with failed observ
     await Promise.resolve()
     await Promise.resolve()
     expect((await handle.inspectActivity()).state).toBe(fails ? 'unknown' : 'idle')
-  } finally { await handle.terminate() }
+  } finally {
+    await handle.terminate()
+  }
 })
 
-it.each([null, undefined, 0, 1, 2])('checks native range task count %s before trusting a prompt with no visible children', async (tasks) => {
+it.each([null, undefined, 0, 1, 2])('checks native range task count %s before trusting a prompt with no visible children', async tasks => {
   const pty = new FakePty()
   const inspector = new FakeInspector()
   inspector.pgid = pty.pid
   const owner: BoundProcessOwner = {
-    signal: () => { pty.emitExit() }, waitForExit: async () => {}, terminateForHostExit() {},
-    ...tasks === null ? {} : { inspectTaskCount: () => tasks },
+    signal: () => {
+      pty.emitExit()
+    },
+    waitForExit: async () => {},
+    terminateForHostExit() {},
+    ...(tasks === null ? {} : { inspectTaskCount: () => tasks }),
   }
   const activity = { inspect: () => ({ state: 'idle' as const, revision: 1 }), invalidate() {}, dispose() {} }
   const handle = new LocalTerminalHandle(pty.asPty(), inspector, 20, 'linux', owner, undefined, activity)
   try {
     expect((await handle.inspectActivity()).state).toBe(tasks === 1 ? 'idle' : tasks === 2 ? 'busy' : 'unknown')
-  } finally { await handle.terminate() }
+  } finally {
+    await handle.terminate()
+  }
 })

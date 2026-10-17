@@ -9,12 +9,7 @@ import { resolveActiveMember } from './roster.ts'
 import { assertTaskGraphCandidate, TeamTaskGraphError } from './task-graph.ts'
 import type { TeamTaskGraphViolation } from './task-graph.ts'
 import { TeamId, TeamTaskId } from './types.ts'
-import type {
-  CreateTeamTaskRequest,
-  TeamTaskSnapshot,
-  TeamTaskView,
-  UpdateTeamTaskRequest,
-} from './types.ts'
+import type { CreateTeamTaskRequest, TeamTaskSnapshot, TeamTaskView, UpdateTeamTaskRequest } from './types.ts'
 import { projectTaskView, taskReady } from './task-view.ts'
 import { requiredText, writeScope } from './validation.ts'
 
@@ -90,9 +85,7 @@ export class TeamTaskBoard {
   list(membership: TeamMembership): TeamTaskView[] {
     const { root } = membership
     const state = this.journal.state(root)
-    return state.tasks
-      .filter(task => task.status !== 'deleted')
-      .map(task => projectTaskView(state, task))
+    return state.tasks.filter(task => task.status !== 'deleted').map(task => projectTaskView(state, task))
   }
 
   /**
@@ -102,11 +95,7 @@ export class TeamTaskBoard {
    * @param request - task identity, expected revision, action, and action fields.
    * @returns the committed next task revision.
    */
-  async update(
-    caller: Agent,
-    membership: TeamMembership,
-    request: UpdateTeamTaskRequest,
-  ): Promise<TeamTaskView> {
+  async update(caller: Agent, membership: TeamMembership, request: UpdateTeamTaskRequest): Promise<TeamTaskView> {
     const root = membership.root
     return this.journal.transact(root.id, async () => {
       const state = this.journal.state(root)
@@ -137,7 +126,8 @@ export class TeamTaskBoard {
           break
         case 'release':
           authorizeOwner()
-          if (current.status !== 'in_progress') throw new TeamError('only an in-progress task can be released', 'TEAM_TASK_INVALID_TRANSITION')
+          if (current.status !== 'in_progress')
+            throw new TeamError('only an in-progress task can be released', 'TEAM_TASK_INVALID_TRANSITION')
           next = this.withoutOwner({ ...current, status: 'pending' })
           break
         case 'edit':
@@ -147,11 +137,9 @@ export class TeamTaskBoard {
           }
           next = {
             ...current,
-            ...request.subject === undefined ? {} : { subject: requiredText(request.subject, 'subject', 200) },
-            ...request.description === undefined
-              ? {}
-              : { description: requiredText(request.description, 'description', 16_384) },
-            ...request.writeScopes === undefined ? {} : { writeScopes: this.writeScopes(request.writeScopes) },
+            ...(request.subject === undefined ? {} : { subject: requiredText(request.subject, 'subject', 200) }),
+            ...(request.description === undefined ? {} : { description: requiredText(request.description, 'description', 16_384) }),
+            ...(request.writeScopes === undefined ? {} : { writeScopes: this.writeScopes(request.writeScopes) }),
           }
           break
         case 'set_dependencies':
@@ -172,10 +160,7 @@ export class TeamTaskBoard {
         case 'reassign': {
           if (!lead) throw new TeamError('only the Team Lead can reassign tasks', 'TEAM_LEAD_REQUIRED')
           if (current.status !== 'pending' && current.status !== 'in_progress') {
-            throw new TeamError(
-              'only a pending or in-progress task can be reassigned',
-              'TEAM_TASK_INVALID_TRANSITION',
-            )
+            throw new TeamError('only a pending or in-progress task can be reassigned', 'TEAM_TASK_INVALID_TRANSITION')
           }
           if (request.owner === undefined || request.owner.trim().length === 0) {
             next = this.withoutOwner({ ...current, status: 'pending' })
@@ -188,8 +173,9 @@ export class TeamTaskBoard {
         }
         case 'delete': {
           authorizeOwner()
-          const dependent = state.tasks.find(task =>
-            task.status !== 'deleted' && task.id !== current.id && task.blockedBy.includes(current.id))
+          const dependent = state.tasks.find(
+            task => task.status !== 'deleted' && task.id !== current.id && task.blockedBy.includes(current.id),
+          )
           if (dependent !== undefined) {
             throw new TeamError(`team task "${current.id}" still blocks "${dependent.id}"`, 'TEAM_TASK_HAS_DEPENDENTS')
           }
@@ -211,11 +197,7 @@ export class TeamTaskBoard {
   }
 
   /** Validate and de-duplicate dependency ids against the current task graph. */
-  private dependencies(
-    values: readonly TeamTaskId[],
-    state: TeamState,
-    self?: TeamTaskId,
-  ): TeamTaskId[] {
+  private dependencies(values: readonly TeamTaskId[], state: TeamState, self?: TeamTaskId): TeamTaskId[] {
     const seen = new Set<TeamTaskId>()
     const result: TeamTaskId[] = []
     for (const id of values) {

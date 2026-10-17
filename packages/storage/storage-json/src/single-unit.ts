@@ -25,11 +25,7 @@ import type { UnitState } from './format.ts'
  * @param onClose - Backend callback releasing the unit's open-slot.
  * @returns the opened unit.
  */
-export async function openSingleUnit(
-  descriptor: KvUnitDescriptor,
-  root: string,
-  onClose: () => void,
-): Promise<KvUnit> {
+export async function openSingleUnit(descriptor: KvUnitDescriptor, root: string, onClose: () => void): Promise<KvUnit> {
   const path = join(root, `${descriptor.name}.json`)
   let text: string | undefined
   try {
@@ -41,10 +37,10 @@ export async function openSingleUnit(
   const state: UnitState =
     text === undefined
       ? {
-        version: descriptor.version,
-        global: null,
-        tables: new Map(descriptor.tables.map(table => [table, new Map<string, unknown>()])),
-      }
+          version: descriptor.version,
+          global: null,
+          tables: new Map(descriptor.tables.map(table => [table, new Map<string, unknown>()])),
+        }
       : parse(text, descriptor)
   return new SingleJsonUnit(descriptor, path, state, onClose)
 }

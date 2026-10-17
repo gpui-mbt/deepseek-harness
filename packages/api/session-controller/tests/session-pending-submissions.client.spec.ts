@@ -4,7 +4,7 @@
  * Gateway client and are answered by endpoint name.
  */
 
-import { afterEach, describe, expect, vi } from 'vitest'
+import { afterEach, describe, expect, vi } from 'vite-plus/test'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
@@ -15,9 +15,7 @@ import type { PendingSubmissionRetirement } from '../src/client/contract/session
 import type { SessionRequestId } from '../src/types.ts'
 import { ev, historyValue } from './event-script.client.ts'
 import { sessionBench } from './remote/bench.client.ts'
-import {
-  FOLLOW, err, fileRef, followScript, history, imageRef, pushEvent,
-} from './remote/session.client.ts'
+import { FOLLOW, err, fileRef, followScript, history, imageRef, pushEvent } from './remote/session.client.ts'
 
 /** A Session talks through the Gateway client; its dependency cone is the Typert registry and the Connection. */
 const API_ROSTER = webApp.closure(['@deepseek-ai/dsh-api-gateway'])
@@ -33,9 +31,7 @@ afterEach(() => {
 type AttachmentRef = ImageAttachmentRef | FileAttachmentRef
 
 function attachmentBlock(attachment: AttachmentRef) {
-  return 'mediaType' in attachment
-    ? { type: 'image' as const, attachment }
-    : { type: 'file' as const, attachment }
+  return 'mediaType' in attachment ? { type: 'image' as const, attachment } : { type: 'file' as const, attachment }
 }
 
 /** A durable browser-prompt user/message whose source echoes `rpcId`. */
@@ -46,10 +42,7 @@ function promptEvent(seq: SessionSeq, rpcId: SessionRequestId, refs: readonly At
     type: 'user/message',
     surfaceOp: 'append',
     data: createUserMessage({
-      content: [
-        ...refs.map(attachmentBlock),
-        { type: 'text' as const, text: '发送' },
-      ],
+      content: [...refs.map(attachmentBlock), { type: 'text' as const, text: '发送' }],
       source: { kind: 'user', rpcId },
     }),
   } as unknown as SessionEvent
@@ -69,27 +62,39 @@ async function settleFrames(): Promise<void> {
 }
 
 describe('beginSubmission', () => {
-  it('inserts the echo synchronously and flips the engaging edge before any prompt call', async ({ mock, start }) => {
-    const session = await sessionBench(mock, start, SID)
-    expect(session.getSnapshot()).toMatchObject({ pendingSubmissions: [], promptAttempted: false })
-    const handle = session.beginSubmission({
-      mode: 'queue',
-      text: '你好',
-      attachments: [{
-        type: 'image', value: { previewUrl: 'blob:p1', name: 'a.png', width: 4, height: 3 },
-      }],
-    })
-    expect(session.getSnapshot().promptAttempted).toBe(true)
-    expect(session.getSnapshot().pendingSubmissions).toMatchObject([{
-      requestId: handle.requestId,
-      placement: 'transcript',
-      text: '你好',
-      attachments: [{
-        type: 'image', value: { previewUrl: 'blob:p1', name: 'a.png', width: 4, height: 3 },
-      }],
-    }])
-    expect(mock.log.requests()).toEqual([])
-  }, COLD_BOOT_TIMEOUT_MS)
+  it(
+    'inserts the echo synchronously and flips the engaging edge before any prompt call',
+    async ({ mock, start }) => {
+      const session = await sessionBench(mock, start, SID)
+      expect(session.getSnapshot()).toMatchObject({ pendingSubmissions: [], promptAttempted: false })
+      const handle = session.beginSubmission({
+        mode: 'queue',
+        text: '你好',
+        attachments: [
+          {
+            type: 'image',
+            value: { previewUrl: 'blob:p1', name: 'a.png', width: 4, height: 3 },
+          },
+        ],
+      })
+      expect(session.getSnapshot().promptAttempted).toBe(true)
+      expect(session.getSnapshot().pendingSubmissions).toMatchObject([
+        {
+          requestId: handle.requestId,
+          placement: 'transcript',
+          text: '你好',
+          attachments: [
+            {
+              type: 'image',
+              value: { previewUrl: 'blob:p1', name: 'a.png', width: 4, height: 3 },
+            },
+          ],
+        },
+      ])
+      expect(mock.log.requests()).toEqual([])
+    },
+    COLD_BOOT_TIMEOUT_MS,
+  )
 
   it('derives and captures the echo placement from running state and delivery mode', async ({ mock, start }) => {
     const session = await sessionBench(mock, start, SID)
@@ -108,13 +113,14 @@ describe('beginSubmission', () => {
   it('keeps rapid ordinary submissions in Chat until the running update arrives', async ({ mock, start }) => {
     const session = await sessionBench(mock, start, SID)
     for (const text of ['A', 'B', 'C']) session.beginSubmission({ mode: 'queue', text, attachments: [] })
-    expect(session.getSnapshot().pendingSubmissions.map(input => input.placement)).toEqual([
-      'transcript', 'transcript', 'transcript',
-    ])
+    expect(session.getSnapshot().pendingSubmissions.map(input => input.placement)).toEqual(['transcript', 'transcript', 'transcript'])
     session.handleRunning(true)
     session.beginSubmission({ mode: 'queue', text: 'D', attachments: [] })
     expect(session.getSnapshot().pendingSubmissions.map(input => input.placement)).toEqual([
-      'transcript', 'transcript', 'transcript', 'queued',
+      'transcript',
+      'transcript',
+      'transcript',
+      'queued',
     ])
   })
 
@@ -199,14 +205,18 @@ describe('observed retirement', () => {
     session.projections.apply('inbox', { 'next-turn': [], 'next-step': [message] }, SessionSeq(0))
     session.projections.apply('inbox', { 'next-turn': [], 'next-step': [] }, SessionSeq(1))
     await pushEvent(mock, {
-      type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(0),
+      time: 1,
       data: { target: 'next-step', start: 0, inserted: [message] },
     })
     await settleFrames()
     expect(session.getSnapshot().pendingSubmissions).toHaveLength(1)
     expect(onRetire).not.toHaveBeenCalled()
     await pushEvent(mock, {
-      type: 'agent/inbox/spliced', seq: SessionSeq(1), time: 2,
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(1),
+      time: 2,
       data: { target: 'next-step', start: 0, removedCount: 1, inserted: [] },
     })
     await pushEvent(mock, promptEvent(SessionSeq(2), handle.requestId, refs))
@@ -236,11 +246,15 @@ describe('observed retirement', () => {
       const empty = { 'next-turn': [], 'next-step': [] }
       if (order === 'inbox-first') session.projections.apply('inbox', queued, SessionSeq(0))
       await pushEvent(mock, {
-        type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(0),
+        time: 1,
         data: { target, start: 0, inserted: [message] },
       })
       await pushEvent(mock, {
-        type: 'agent/inbox/spliced', seq: SessionSeq(1), time: 2,
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(1),
+        time: 2,
         data: { target, start: 0, removedCount: 1, inserted: [] },
       })
       expect(session.getSnapshot().pendingSubmissions).toHaveLength(1)
@@ -268,12 +282,17 @@ describe('observed retirement', () => {
   }
 
   for (const projectionFirst of [true, false]) {
-    it(`settles overlapping opening, queued and steering inputs independently (${projectionFirst ? 'projection' : 'history'} first)`, async ({ mock, start }) => {
+    it(`settles overlapping opening, queued and steering inputs independently (${projectionFirst ? 'projection' : 'history'} first)`, async ({
+      mock,
+      start,
+    }) => {
       const session = await sessionBench(mock, start, SID)
       await session.open()
       const frames: FrameRequestCallback[] = []
       vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback))
-      const flush = () => { for (const callback of frames.splice(0)) callback(0) }
+      const flush = () => {
+        for (const callback of frames.splice(0)) callback(0)
+      }
       const normalRetired = vi.fn()
       const queueRetired = vi.fn()
       const steerRetired = vi.fn()
@@ -287,18 +306,34 @@ describe('observed retirement', () => {
       const pending = () => session.getSnapshot().pendingSubmissions.map(input => input.text)
       const accepted = { 'next-turn': [normalMessage, queuedMessage], 'next-step': [steerMessage] }
       if (projectionFirst) session.projections.apply('inbox', accepted, SessionSeq(1))
-      await pushEvent(mock, { type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
-        data: { target: 'next-turn', start: 0, inserted: [normalMessage, queuedMessage] } })
-      await pushEvent(mock, { type: 'agent/inbox/spliced', seq: SessionSeq(1), time: 2,
-        data: { target: 'next-step', start: 0, inserted: [steerMessage] } })
+      await pushEvent(mock, {
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(0),
+        time: 1,
+        data: { target: 'next-turn', start: 0, inserted: [normalMessage, queuedMessage] },
+      })
+      await pushEvent(mock, {
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(1),
+        time: 2,
+        data: { target: 'next-step', start: 0, inserted: [steerMessage] },
+      })
       flush()
       expect(pending()).toEqual(['opening', 'steering'])
       expect(queueRetired).toHaveBeenCalledExactlyOnceWith({ reason: 'observed', attachments: [imageRef('queued-image')] })
       await pushEvent(mock, ev.turnStart(SessionSeq(2), 1))
-      await pushEvent(mock, { type: 'agent/inbox/spliced', seq: SessionSeq(3), time: 4,
-        data: { target: 'next-step', start: 0, removedCount: 1, inserted: [] } })
-      await pushEvent(mock, { type: 'agent/inbox/spliced', seq: SessionSeq(4), time: 5,
-        data: { target: 'next-turn', start: 0, removedCount: 1, inserted: [] } })
+      await pushEvent(mock, {
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(3),
+        time: 4,
+        data: { target: 'next-step', start: 0, removedCount: 1, inserted: [] },
+      })
+      await pushEvent(mock, {
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(4),
+        time: 5,
+        data: { target: 'next-turn', start: 0, removedCount: 1, inserted: [] },
+      })
       const claimed = { 'next-turn': [queuedMessage], 'next-step': [] }
       if (projectionFirst) session.projections.apply('inbox', claimed, SessionSeq(4))
       await pushEvent(mock, ev.stepStart(SessionSeq(5), 1, 1))
@@ -321,13 +356,18 @@ describe('observed retirement', () => {
       expect(pending()).toEqual([])
       expect(normalRetired).toHaveBeenCalledExactlyOnceWith({ reason: 'observed', attachments: [fileRef('opening-file')] })
       expect(steerRetired).toHaveBeenCalledExactlyOnceWith({
-        reason: 'observed', attachments: [imageRef('steer-image'), fileRef('steer-file')],
+        reason: 'observed',
+        attachments: [imageRef('steer-image'), fileRef('steer-file')],
       })
       await pushEvent(mock, ev.stepEnd(SessionSeq(8), 1, 1))
       await pushEvent(mock, ev.turnEnd(SessionSeq(9), 1))
       await pushEvent(mock, ev.turnStart(SessionSeq(10), 2))
-      await pushEvent(mock, { type: 'agent/inbox/spliced', seq: SessionSeq(11), time: 12,
-        data: { target: 'next-turn', start: 0, removedCount: 1, inserted: [] } })
+      await pushEvent(mock, {
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(11),
+        time: 12,
+        data: { target: 'next-turn', start: 0, removedCount: 1, inserted: [] },
+      })
       await pushEvent(mock, ev.stepStart(SessionSeq(12), 2, 2))
       await pushEvent(mock, { type: 'user/message', seq: SessionSeq(13), time: 14, surfaceOp: 'append', data: queuedMessage })
       session.projections.apply('inbox', { 'next-turn': [], 'next-step': [] }, SessionSeq(11))
@@ -350,11 +390,15 @@ describe('observed retirement', () => {
     await settleFrames()
     expect(session.getSnapshot().pendingSubmissions).toEqual([echo])
     await pushEvent(mock, {
-      type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(0),
+      time: 1,
       data: { target: 'next-step', start: 0, inserted: [message] },
     })
     await pushEvent(mock, {
-      type: 'agent/inbox/spliced', seq: SessionSeq(1), time: 2,
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(1),
+      time: 2,
       data: { target: 'next-step', start: 0, removedCount: 1, inserted: [] },
     })
     session.projections.apply('inbox', { 'next-turn': [], 'next-step': [] }, SessionSeq(1))
@@ -362,7 +406,11 @@ describe('observed retirement', () => {
     expect(session.getSnapshot().pendingSubmissions).toEqual([echo])
     expect(onRetire).not.toHaveBeenCalled()
     await pushEvent(mock, {
-      type: 'user/message', seq: SessionSeq(2), time: 3, surfaceOp: 'append', data: message,
+      type: 'user/message',
+      seq: SessionSeq(2),
+      time: 3,
+      surfaceOp: 'append',
+      data: message,
     })
     await settleFrames()
     expect(session.getSnapshot().pendingSubmissions).toEqual([])
@@ -381,29 +429,42 @@ describe('observed retirement', () => {
       const unclaimed = session.beginSubmission({ mode: 'steer', text: 'later', attachments: [] })
       const foreign = createUserMessage({ source: { kind: 'user' }, content: [] })
       await pushEvent(mock, {
-        type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(0),
+        time: 1,
         data: { target, start: 0, inserted: [queuedItem(first.requestId), queuedItem(second.requestId)] },
       })
       await pushEvent(mock, {
-        type: 'agent/inbox/spliced', seq: SessionSeq(1), time: 2,
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(1),
+        time: 2,
         data: { target, start: 0, inserted: [foreign] },
       })
       await pushEvent(mock, {
-        type: 'agent/inbox/spliced', seq: SessionSeq(2), time: 3,
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(2),
+        time: 3,
         data: { target, start: 1, removedCount: 1, inserted: [], outcome: 'canceled' },
       })
       expect(canceled).toHaveBeenCalledExactlyOnceWith({ reason: 'failed' })
       expect(rejected).not.toHaveBeenCalled()
       await pushEvent(mock, {
-        type: 'agent/inbox/spliced', seq: SessionSeq(3), time: 4,
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(3),
+        time: 4,
         data: { target, start: 0, removedCount: 2, inserted: [] },
       })
       await pushEvent(mock, {
-        type: 'agent/inbox/spliced', seq: SessionSeq(4), time: 5,
+        type: 'agent/inbox/spliced',
+        seq: SessionSeq(4),
+        time: 5,
         data: { target, start: 0, inserted: [queuedItem(unclaimed.requestId)] },
       })
       await pushEvent(mock, {
-        type: 'turn/end', seq: SessionSeq(5), time: 6, data: { turn: 1, reason: { kind: 'blocked' } },
+        type: 'turn/end',
+        seq: SessionSeq(5),
+        time: 6,
+        data: { turn: 1, reason: { kind: 'blocked' } },
       })
       expect(rejected).toHaveBeenCalledExactlyOnceWith({ reason: 'failed' })
       expect(session.getSnapshot().pendingSubmissions.map(echo => echo.requestId)).toEqual([unclaimed.requestId])
@@ -462,9 +523,15 @@ describe('observed retirement', () => {
   })
 
   for (const [target, pending] of [
-    ['next-step', false], ['next-step', true], ['next-turn', false], ['next-turn', true],
+    ['next-step', false],
+    ['next-step', true],
+    ['next-turn', false],
+    ['next-turn', true],
   ] as const) {
-    it(`retires confirmed ${target} input on resync with the Host input ${pending ? 'still pending' : 'outside the history window'}`, async ({ mock, start }) => {
+    it(`retires confirmed ${target} input on resync with the Host input ${pending ? 'still pending' : 'outside the history window'}`, async ({
+      mock,
+      start,
+    }) => {
       const session = await sessionBench(mock, start, SID)
       await session.open()
       session.handleRunning(target === 'next-step')
@@ -477,7 +544,9 @@ describe('observed retirement', () => {
         await Promise.resolve()
       } else {
         await pushEvent(mock, {
-          type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
+          type: 'agent/inbox/spliced',
+          seq: SessionSeq(0),
+          time: 1,
           data: { target, start: 0, inserted: [message] },
         })
       }
@@ -508,14 +577,23 @@ describe('observed retirement', () => {
     const refs = [imageRef('claimed-image')]
     const message = queuedItem(handle.requestId, refs)
     await pushEvent(mock, {
-      type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(0),
+      time: 1,
       data: { target: 'next-step', start: 0, inserted: [message] },
     })
     const replacement = {
-      ...historyValue([{
-        type: 'agent/inbox/spliced', seq: SessionSeq(1), time: 2,
-        data: { target: 'next-step', start: 0, removedCount: 1, inserted: [] },
-      }], true),
+      ...historyValue(
+        [
+          {
+            type: 'agent/inbox/spliced',
+            seq: SessionSeq(1),
+            time: 2,
+            data: { target: 'next-step', start: 0, removedCount: 1, inserted: [] },
+          },
+        ],
+        true,
+      ),
       projections: { asOfSeq: 1, values: { inbox: { 'next-turn': [], 'next-step': [] } } },
     }
     mock.stream(FOLLOW, followScript({ ok: true, value: replacement }))
@@ -589,11 +667,15 @@ describe('disposal', () => {
     const handle = session.beginSubmission({ mode: 'queue', text: 'admitted', attachments: [], onRetire })
     const refs = [imageRef('held-image')]
     await pushEvent(mock, {
-      type: 'agent/inbox/spliced', seq: SessionSeq(0), time: 1,
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(0),
+      time: 1,
       data: { target: 'next-turn', start: 0, inserted: [queuedItem(handle.requestId, refs)] },
     })
     await pushEvent(mock, {
-      type: 'agent/inbox/spliced', seq: SessionSeq(1), time: 2,
+      type: 'agent/inbox/spliced',
+      seq: SessionSeq(1),
+      time: 2,
       data: { target: 'next-turn', start: 0, removedCount: 1, inserted: [] },
     })
     await pushEvent(mock, promptEvent(SessionSeq(2), handle.requestId, refs))

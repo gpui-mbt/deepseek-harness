@@ -5,7 +5,13 @@ import { SeverityNumber } from '@opentelemetry/api-logs'
 import { ExportResultCode } from '@opentelemetry/core'
 import { JsonLogsSerializer } from '@opentelemetry/otlp-transformer'
 import { resourceFromAttributes } from '@opentelemetry/resources'
-import { LoggerProvider, type BatchLogRecordProcessorOptions, type LogRecordExporter, type ReadableLogRecord, type LogRecordProcessor } from '@opentelemetry/sdk-logs'
+import {
+  LoggerProvider,
+  type BatchLogRecordProcessorOptions,
+  type LogRecordExporter,
+  type ReadableLogRecord,
+  type LogRecordProcessor,
+} from '@opentelemetry/sdk-logs'
 import { createLogExporter, type LogExporterOptions } from './transport.ts'
 
 /** Collector request ceiling in uncompressed UTF-8 bytes, including the OTLP envelope. */
@@ -80,7 +86,9 @@ class SessionLogProcessor implements LogRecordProcessor {
   constructor(
     private readonly exporter: LogRecordExporter,
     private readonly limit: number,
-    private readonly config: Required<Pick<SessionLogProcessorOptions, 'maxQueueSize' | 'maxExportBatchSize' | 'scheduledDelayMillis' | 'exportTimeoutMillis'>>,
+    private readonly config: Required<
+      Pick<SessionLogProcessorOptions, 'maxQueueSize' | 'maxExportBatchSize' | 'scheduledDelayMillis' | 'exportTimeoutMillis'>
+    >,
     private readonly warn: SessionLogOptions['onFailure'],
   ) {}
 
@@ -100,7 +108,10 @@ class SessionLogProcessor implements LogRecordProcessor {
       return
     }
     if (bytes > this.limit) {
-      this.warn('Session log record rejected; content was not truncated', new Error(`Session log record exceeds maxRequestBytes: ${bytes} > ${this.limit}`))
+      this.warn(
+        'Session log record rejected; content was not truncated',
+        new Error(`Session log record exceeds maxRequestBytes: ${bytes} > ${this.limit}`),
+      )
       return
     }
     this.queue.push({ record, bytes })
@@ -109,7 +120,9 @@ class SessionLogProcessor implements LogRecordProcessor {
     if (this.queue.length >= this.config.maxExportBatchSize || this.bytes >= this.limit) {
       void this.forceFlush()
     } else if (this.timer === undefined) {
-      this.timer = setTimeout(() => { void this.forceFlush() }, this.config.scheduledDelayMillis)
+      this.timer = setTimeout(() => {
+        void this.forceFlush()
+      }, this.config.scheduledDelayMillis)
       this.timer.unref()
     }
   }
@@ -141,11 +154,13 @@ class SessionLogProcessor implements LogRecordProcessor {
         // The export callback precedes removal from the SDK concurrency queue.
         await this.exporter.forceFlush()
       }
-    } finally { this.active = undefined }
+    } finally {
+      this.active = undefined
+    }
   }
 
   private send(records: ReadableLogRecord[]): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const timer = setTimeout(() => {
         this.warn('Session log request exceeded exportTimeoutMillis; waiting for transport settlement')
       }, this.config.exportTimeoutMillis)
@@ -156,9 +171,8 @@ class SessionLogProcessor implements LogRecordProcessor {
         resolve()
       }
       try {
-        this.exporter.export(records, (result) => {
-          finish(result.code === ExportResultCode.SUCCESS
-            ? undefined : result.error ?? new Error('Session log HTTP export failed'))
+        this.exporter.export(records, result => {
+          finish(result.code === ExportResultCode.SUCCESS ? undefined : (result.error ?? new Error('Session log HTTP export failed')))
         })
       } catch (error) {
         finish(error instanceof Error ? error : new Error(String(error)))
@@ -189,12 +203,17 @@ export class SessionLogReporter {
   /** @param options - explicit transport, resource identity, queue limits, and diagnostics. */
   constructor(options: SessionLogOptions) {
     const limit = resolveSessionLogLimits(options)
-    this.processor = new SessionLogProcessor(createLogExporter(options.exporter), limit, {
-      maxQueueSize: options.processor?.maxQueueSize ?? 2048,
-      maxExportBatchSize: options.processor?.maxExportBatchSize ?? 512,
-      scheduledDelayMillis: options.processor?.scheduledDelayMillis ?? 1000,
-      exportTimeoutMillis: options.processor?.exportTimeoutMillis ?? 30000,
-    }, options.onFailure)
+    this.processor = new SessionLogProcessor(
+      createLogExporter(options.exporter),
+      limit,
+      {
+        maxQueueSize: options.processor?.maxQueueSize ?? 2048,
+        maxExportBatchSize: options.processor?.maxExportBatchSize ?? 512,
+        scheduledDelayMillis: options.processor?.scheduledDelayMillis ?? 1000,
+        exportTimeoutMillis: options.processor?.exportTimeoutMillis ?? 30000,
+      },
+      options.onFailure,
+    )
     this.provider = new LoggerProvider({
       logRecordLimits: { attributeValueLengthLimit: Infinity, attributeCountLimit: Infinity },
       resource: resourceFromAttributes(options.resourceAttributes),
@@ -210,19 +229,26 @@ export class SessionLogReporter {
   reportSessionLog(record: SessionLogRecord): void {
     const severityNumber = record.severityNumber ?? SeverityNumber.INFO
     this.logger.emit({
-      eventName: 'session-log', body: 'session-log',
-      timestamp: record.event.time, observedTimestamp: record.event.time,
-      severityNumber, severityText: SeverityNumber[severityNumber],
+      eventName: 'session-log',
+      body: 'session-log',
+      timestamp: record.event.time,
+      observedTimestamp: record.event.time,
+      severityNumber,
+      severityText: SeverityNumber[severityNumber],
       attributes: { ...record.attributes, sessionId: record.sessionId, content: JSON.stringify(record.event) },
     })
   }
 
   /** Stop queued requests after the owning backend's shutdown deadline; an active transport may still settle. */
-  stopPending(): void { this.processor.stopPending() }
+  stopPending(): void {
+    this.processor.stopPending()
+  }
 
   /**
    * Drain queued requests and release the SDK transport.
    * @returns completion after queued requests settle and the SDK transport shuts down.
    */
-  shutdown(): Promise<void> { return this.provider.shutdown() }
+  shutdown(): Promise<void> {
+    return this.provider.shutdown()
+  }
 }

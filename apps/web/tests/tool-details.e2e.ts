@@ -3,10 +3,17 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage, saveFailureShot, scrollIntoView } from './support.ts'
 
@@ -46,7 +53,11 @@ describe.skipIf(MODE === 'record')('web e2e: compact Tool details', () => {
   }, 120_000)
 
   afterAll(async () => {
-    try { await browser?.close() } finally { await scaffold?.close() }
+    try {
+      await browser?.close()
+    } finally {
+      await scaffold?.close()
+    }
   })
 
   it('expands every recorded tool through its keyed renderer', async () => {
@@ -74,8 +85,9 @@ describe.skipIf(MODE === 'record')('web e2e: compact Tool details', () => {
       'details-call-3b',
       ...Array.from({ length: 41 }, (_, index) => `details-call-${index + 4}`),
     ]
-    const snapshots = await Promise.all(callIds.map(id =>
-      captureStableAria(page, `[data-chat-call-id="${id}"] [data-tool]`, scaffold.workspaceCwd)))
+    const snapshots = await Promise.all(
+      callIds.map(id => captureStableAria(page, `[data-chat-call-id="${id}"] [data-tool]`, scaffold.workspaceCwd)),
+    )
     const snapshot = snapshots.join('\n')
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     await page.setViewportSize({ width: 360, height: 800 })
@@ -84,12 +96,12 @@ describe.skipIf(MODE === 'record')('web e2e: compact Tool details', () => {
     const reminders = page.locator('[data-tool="schedule_list"]')
     await scrollIntoView(reminders)
     const list = reminders.getByRole('list').first()
-    await list.evaluate((element) => {
+    await list.evaluate(element => {
       const second = element.children[1]!
       element.scrollTop += second.getBoundingClientRect().top - element.getBoundingClientRect().top
     })
     expect(await list.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
-    const geometry = await reminders.evaluate((element) => {
+    const geometry = await reminders.evaluate(element => {
       const title = element.querySelector('ul')!.children[1]!.querySelector('[class*="heading"] > span')!.getBoundingClientRect()
       const inspect = element.querySelector('[class*="inspectButton"]')!.getBoundingClientRect()
       return {
@@ -106,5 +118,4 @@ describe.skipIf(MODE === 'record')('web e2e: compact Tool details', () => {
   it('keeps the snapshot inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, ['session.v3.jsonl', 'ui.expected.md'])
   })
-
 })

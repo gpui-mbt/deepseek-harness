@@ -6,7 +6,7 @@
 // @vitest-environment jsdom
 
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -29,21 +29,27 @@ async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugi
   }))
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  ctx.slots.register({
-    name: 'root',
-    children: {
-      'conversation.composer.dock': { kind: 'list', scope: 'session' },
-      'conversation.question.header.lead': { kind: 'list', scope: 'session' },
-    },
-  } as never, () => null)
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.composer.dock': { kind: 'list', scope: 'session' },
+        'conversation.question.header.lead': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    () => null,
+  )
   // The stats row owns one seat; the root stands in for the question card's declaration.
-  ctx.slots.register({
-    name: 'conversation.composer.dock',
-    id: 'stats',
-    children: {
-      'conversation.composer.stats.lead': { kind: 'list', scope: 'session' },
-    },
-  } as never, () => null)
+  ctx.slots.register(
+    {
+      name: 'conversation.composer.dock',
+      id: 'stats',
+      children: {
+        'conversation.composer.stats.lead': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    () => null,
+  )
   ctx.provide('locale', new LocaleRuntime(ctx))
   const remote = { workspaceGit: { status } }
   ctx.provide('remote', remote as never)
@@ -114,6 +120,8 @@ describe('ui-git-branch browser half', () => {
 
 describe('ui-git-branch node half', () => {
   it('the node apply is an inert loader seat', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })

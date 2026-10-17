@@ -6,22 +6,10 @@ import {
   sessionFormatCount,
   snapshotSessionFormatJson,
 } from '@deepseek-ai/dsh-session-format'
-import type {
-  SessionFormatArtifact,
-  SessionFormatEvent,
-  SessionFormatJsonValue,
-} from '@deepseek-ai/dsh-session-format'
-import {
-  assertReleasedPayloadSemantics,
-  assertReleasedSurfaceMetadata,
-} from '@deepseek-ai/dsh-session-format-v0-to-v1'
+import type { SessionFormatArtifact, SessionFormatEvent, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
+import { assertReleasedPayloadSemantics, assertReleasedSurfaceMetadata } from '@deepseek-ai/dsh-session-format-v0-to-v1'
 import { RELEASED_V2_EVENT_DISPOSITIONS, RELEASED_V2_EVENT_TYPES } from '../dispositions.ts'
-import {
-  assertReleasedV2Keys,
-  assertReleasedV2PhysicalArtifact,
-  releasedV2Record,
-  restoreReleasedV2Artifact,
-} from '../validation.ts'
+import { assertReleasedV2Keys, assertReleasedV2PhysicalArtifact, releasedV2Record, restoreReleasedV2Artifact } from '../validation.ts'
 
 const RELEASED_V2_EVENT_TYPE_SET = new Set(RELEASED_V2_EVENT_TYPES)
 const SURFACE_TYPES = new Set(['user/message', 'assistant/message', 'tool/result'])
@@ -49,10 +37,7 @@ export function assertReleasedV2Artifact(artifact: SessionFormatArtifact): void 
 
 export { assertReleasedV2PhysicalArtifact } from '../validation.ts'
 
-function assertPayload(
-  event: SessionFormatEvent,
-  disposition: (typeof RELEASED_V2_EVENT_DISPOSITIONS)[string],
-): void {
+function assertPayload(event: SessionFormatEvent, disposition: (typeof RELEASED_V2_EVENT_DISPOSITIONS)[string]): void {
   const data = releasedV2Record(event.data, `${event.type} ${event.seq} data`)
   assertReleasedV2Keys(data, disposition.required, disposition.optional, `${event.type} ${event.seq} data`)
   for (const key of disposition.opaque) {
@@ -66,12 +51,15 @@ function assertPayload(
     try {
       timed = expandAssistantStream(data['stream'] as never)
       for (const member of timed) {
-        assertReleasedPayloadSemantics({
-          type: 'assistant/chunk',
-          seq: event.seq,
-          time: member.time,
-          data: { turn, step, chunk: member.chunk } as unknown as SessionFormatJsonValue,
-        }, 2)
+        assertReleasedPayloadSemantics(
+          {
+            type: 'assistant/chunk',
+            seq: event.seq,
+            time: member.time,
+            data: { turn, step, chunk: member.chunk } as unknown as SessionFormatJsonValue,
+          },
+          2,
+        )
         assembler.push(member.chunk)
       }
     } catch (error: unknown) {

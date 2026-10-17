@@ -37,9 +37,11 @@ export class ClientEntries {
   /** Stable observable consumed by page diagnostics through the renderer's injected hook. */
   readonly state: ObservableSnapshot<ClientEntryState> = {
     getSnapshot: () => this.snapshot,
-    subscribe: (listener) => {
+    subscribe: listener => {
       this.listeners.add(listener)
-      return () => { this.listeners.delete(listener) }
+      return () => {
+        this.listeners.delete(listener)
+      }
     },
   }
   // The modules bootstrap factory cannot request platform libraries before the shell supplies its seed.
@@ -60,7 +62,10 @@ export class ClientEntries {
    * @param modules - Module arrival and materialization owner.
    * @param index - Private descriptor replacement and unused-module cleanup.
    */
-  constructor(private readonly modules: ClientModuleLoader, private readonly index: ModuleIndex) {
+  constructor(
+    private readonly modules: ClientModuleLoader,
+    private readonly index: ModuleIndex,
+  ) {
     this.desired = modules.manifest
     this.release = new ReleaseChangeGate(modules.manifest.release)
   }
@@ -85,15 +90,20 @@ export class ClientEntries {
     if (this.loader !== undefined) throw new Error('client-modules: entries already started')
     this.loader = loader
     this.desired = manifest
-    loader.ctx.effect(() => () => {
-      this.stopped = true
-      this.generation++
-      return this.queue
-    }, 'client-modules: entry reconciliation')
+    loader.ctx.effect(
+      () => () => {
+        this.stopped = true
+        this.generation++
+        return this.queue
+      },
+      'client-modules: entry reconciliation',
+    )
     return this.enqueue(async () => {
-      await Promise.all(this.desired.plugins.map(async ({ id }) => {
-        await this.create(loader, id)
-      }))
+      await Promise.all(
+        this.desired.plugins.map(async ({ id }) => {
+          await this.create(loader, id)
+        }),
+      )
       await loader.await()
       for (const row of this.modules.manifest.modules) this.revisions.set(row.id, row.rev)
     })
@@ -136,7 +146,7 @@ export class ClientEntries {
     if (!this.release.matches) return Promise.resolve()
     this.desired = {
       ...this.desired,
-      modules: this.desired.modules.map(row => row.id === id ? { ...row, rev } : row),
+      modules: this.desired.modules.map(row => (row.id === id ? { ...row, rev } : row)),
     }
     return this.enqueue(async () => {
       const desired = this.desired.modules.find(row => row.id === id)
@@ -163,12 +173,15 @@ export class ClientEntries {
   private enqueue(task: () => Promise<void>, subject = 'graph'): Promise<void> {
     const run = this.queue.then(task)
     // Each operation reports its own failure; later operations must still run.
-    this.queue = run.then(() => undefined, (error: unknown) => {
-      this.publish({ syncing: false, failures: [
-        ...this.snapshot.failures.filter(failure => failure.id !== subject),
-        { id: subject, message: String(error) },
-      ] })
-    })
+    this.queue = run.then(
+      () => undefined,
+      (error: unknown) => {
+        this.publish({
+          syncing: false,
+          failures: [...this.snapshot.failures.filter(failure => failure.id !== subject), { id: subject, message: String(error) }],
+        })
+      },
+    )
     return run
   }
 

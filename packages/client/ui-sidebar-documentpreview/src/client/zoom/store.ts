@@ -27,7 +27,9 @@ export function createZoomStore(): EngineStoreHandle<ZoomState, ZoomActions> {
   return defineStore({
     init: (): ZoomState => ({ byTab: {} }),
     actions: {
-      zoom: (draft, tabId: TabId, preference: ZoomPreference) => { draft.byTab[tabId] = preference },
+      zoom: (draft, tabId: TabId, preference: ZoomPreference) => {
+        draft.byTab[tabId] = preference
+      },
       forget: (draft, tabId: TabId) => {
         const { [tabId]: _closed, ...remaining } = draft.byTab
         draft.byTab = remaining

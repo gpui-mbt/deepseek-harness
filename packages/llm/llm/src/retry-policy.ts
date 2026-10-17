@@ -15,13 +15,7 @@ const DEFAULT_MAX_RETRIES = 5
 const DEFAULT_INITIAL_DELAY_MS = 500
 const DEFAULT_MAX_DELAY_MS = 10_000
 const DEFAULT_JITTER_RATIO = 0.1
-const DEFAULT_RETRYABLE_CODES = Object.freeze([
-  EMPTY_RESPONSE_CODE,
-  'RATE_LIMIT',
-  'SERVER',
-  'TIMEOUT',
-  'TRANSPORT',
-])
+const DEFAULT_RETRYABLE_CODES = Object.freeze([EMPTY_RESPONSE_CODE, 'RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT'])
 
 /** Bounded exponential backoff with symmetric jitter around each local delay. */
 export interface BackoffConfig {
@@ -97,19 +91,12 @@ const alwaysPolicySchema: z<AlwaysRetryPolicyConfig> = z.object({
 })
 
 /** Cordis schema embedded by each concrete provider configuration. */
-export const RetryPolicySchema: z<RetryPolicyConfig> = z.union([
-  normalPolicySchema,
-  alwaysPolicySchema,
-])
+export const RetryPolicySchema: z<RetryPolicyConfig> = z.union([normalPolicySchema, alwaysPolicySchema])
 
-const NORMAL_POLICY_KEYS: ReadonlySet<string> = new Set([
-  'mode', 'maxRetries', 'retryableCodes', 'backoff',
-])
+const NORMAL_POLICY_KEYS: ReadonlySet<string> = new Set(['mode', 'maxRetries', 'retryableCodes', 'backoff'])
 // Layered configuration can retain normal-only fields after switching modes;
 // always mode ignores those inactive values while still rejecting unknown keys.
-const ALWAYS_POLICY_KEYS: ReadonlySet<string> = new Set([
-  'mode', 'maxRetries', 'retryableCodes', 'backoff',
-])
+const ALWAYS_POLICY_KEYS: ReadonlySet<string> = new Set(['mode', 'maxRetries', 'retryableCodes', 'backoff'])
 const BACKOFF_KEYS: ReadonlySet<string> = new Set(['initialDelayMs', 'maxDelayMs', 'jitterRatio'])
 
 function validateKeys(value: object, allowed: ReadonlySet<string>, path: string): void {
@@ -146,10 +133,7 @@ function resolveBackoff(config: BackoffConfig | undefined, path: string): Resolv
  * @param path - diagnostic path naming the provider config that owns the value.
  * @returns an immutable policy safe to capture in provider registration state.
  */
-export function resolveRetryPolicy(
-  config: RetryPolicyConfig | undefined,
-  path: string,
-): ResolvedRetryPolicy {
+export function resolveRetryPolicy(config: RetryPolicyConfig | undefined, path: string): ResolvedRetryPolicy {
   if (config === undefined) {
     return Object.freeze({
       mode: 'normal',

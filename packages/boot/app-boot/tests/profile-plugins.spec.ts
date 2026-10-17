@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { readProfilePlugins, reconcileProfilePlugins, writeProfileBundles, type ProfilePluginLocation } from '../src/profile-plugins.ts'
 
 const roots: string[] = []
@@ -27,7 +27,9 @@ function fixture(): ProfilePluginLocation {
 
 function installed(location: ProfilePluginLocation, name: string, bundle = true): void {
   writeManifest(join(location.profileDir, 'node_modules', name), {
-    name, version: '1.0.0', ...(bundle ? { dsh: { bundle: { patch: 'unbuilt.yml' } } } : {}),
+    name,
+    version: '1.0.0',
+    ...(bundle ? { dsh: { bundle: { patch: 'unbuilt.yml' } } } : {}),
   })
 }
 
@@ -35,7 +37,13 @@ describe('profile plugin inventory', () => {
   it('uses dependency alias keys, installed versions, and the loader installation precedence', () => {
     const location = fixture()
     writeManifest(location.profileDir, {
-      dependencies: { alias: 'file:../local-package', shared: '^2', library: '^1', missing: 'git+example', unversioned: 'file:../unversioned' },
+      dependencies: {
+        alias: 'file:../local-package',
+        shared: '^2',
+        library: '^1',
+        missing: 'git+example',
+        unversioned: 'file:../unversioned',
+      },
       dsh: { profile: { bundles: ['shared', 'alias'] } },
     })
     const source = join(location.profileDir, '..', 'local-package')
@@ -46,7 +54,9 @@ describe('profile plugin inventory', () => {
     installed(location, 'library', false)
     writeManifest(join(location.profileDir, 'node_modules', 'unversioned'), { name: 'unversioned' })
     writeManifest(join(dirname(location.installAnchor), 'node_modules', 'shared'), {
-      name: 'shared', version: '9.0.0', dsh: { bundle: { patch: 'bundle.yml' } },
+      name: 'shared',
+      version: '9.0.0',
+      dsh: { bundle: { patch: 'bundle.yml' } },
     })
     expect(readProfilePlugins(location).dependencies).toEqual([
       { name: 'alias', version: '3.0.0', bundle: true, enabled: true },
@@ -72,10 +82,12 @@ describe('profile plugin inventory', () => {
 })
 
 describe('profile plugin reconciliation', () => {
-  it.each([false, true])('reconciles declarations and removal while preserveDisabled=%s', (preserveDisabled) => {
+  it.each([false, true])('reconciles declarations and removal while preserveDisabled=%s', preserveDisabled => {
     const location = fixture()
     const beforeManifest = {
-      name: 'custom-profile', private: false, custom: { keep: true },
+      name: 'custom-profile',
+      private: false,
+      custom: { keep: true },
       dependencies: { active: '^1', disabled: '^1', gaining: '^1', losing: '^1', removed: '^1' },
       dsh: { profile: { bundles: ['template', 'template', 'active', 'losing', 'removed'] } },
     }
@@ -91,13 +103,19 @@ describe('profile plugin reconciliation', () => {
     installed(location, 'added')
     installed(location, 'new-library', false)
     const result = reconcileProfilePlugins({ ...location, before, preserveDisabled })
-    const bundles = ['template', 'template', 'active', ...preserveDisabled ? [] : ['disabled'], 'gaining', 'added']
+    const bundles = ['template', 'template', 'active', ...(preserveDisabled ? [] : ['disabled']), 'gaining', 'added']
     expect(result.plugins.manifest.dsh?.profile?.bundles).toEqual(bundles)
-    expect(result.plugins.dependencies.filter(dependency => dependency.enabled).map(dependency => dependency.name))
-      .toEqual(['active', ...preserveDisabled ? [] : ['disabled'], 'gaining', 'added'])
+    expect(result.plugins.dependencies.filter(dependency => dependency.enabled).map(dependency => dependency.name)).toEqual([
+      'active',
+      ...(preserveDisabled ? [] : ['disabled']),
+      'gaining',
+      'added',
+    ])
     expect(result.addedPlainDependencies).toEqual(['new-library'])
     expect(JSON.parse(readFileSync(join(location.profileDir, 'package.json'), 'utf8'))).toMatchObject({
-      custom: { keep: true }, private: false, dsh: { profile: { bundles } },
+      custom: { keep: true },
+      private: false,
+      dsh: { profile: { bundles } },
     })
     const bytes = readFileSync(join(location.profileDir, 'package.json'), 'utf8')
     expect(reconcileProfilePlugins({ ...location, before: result.plugins, preserveDisabled }).addedPlainDependencies).toEqual([])
@@ -109,8 +127,9 @@ describe('profile plugin reconciliation', () => {
     const before = readProfilePlugins(location)
     writeManifest(location.profileDir, { dependencies: { added: '^1' } })
     installed(location, 'added')
-    expect(reconcileProfilePlugins({ ...location, before, preserveDisabled: false }).plugins.manifest.dsh?.profile?.bundles)
-      .toEqual(['added'])
+    expect(reconcileProfilePlugins({ ...location, before, preserveDisabled: false }).plugins.manifest.dsh?.profile?.bundles).toEqual([
+      'added',
+    ])
   })
 
   it('removes an unresolved dependency layer while preserving custom profile metadata', () => {
@@ -119,7 +138,9 @@ describe('profile plugin reconciliation', () => {
     const before = readProfilePlugins(location)
     const reconciled = reconcileProfilePlugins({ ...location, before, preserveDisabled: true })
     expect(reconciled.plugins.manifest.dsh?.profile?.bundles).toEqual(['template'])
-    expect(writeProfileBundles(location.profileDir, reconciled.plugins.manifest, ['template', 'manual']).dsh?.profile?.bundles)
-      .toEqual(['template', 'manual'])
+    expect(writeProfileBundles(location.profileDir, reconciled.plugins.manifest, ['template', 'manual']).dsh?.profile?.bundles).toEqual([
+      'template',
+      'manual',
+    ])
   })
 })

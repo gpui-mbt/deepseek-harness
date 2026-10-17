@@ -23,9 +23,7 @@ export interface ConnectionRpcFailure {
 }
 
 /** Carrier-neutral result returned by one logical RPC endpoint. */
-export type ConnectionRpcResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: ConnectionRpcFailure }
+export type ConnectionRpcResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: ConnectionRpcFailure }
 
 /** One binary value separated from a successful RPC result before transport framing. */
 export interface ConnectionRpcAttachment {
@@ -38,11 +36,11 @@ export interface ConnectionRpcAttachment {
 /** Successful or failed handler result ready for Connection transport framing. */
 export type ConnectionRpcHandlerResult =
   | {
-    readonly ok: true
-    readonly value: unknown
-    /** Binary fields already projected by the handler that owns the result protocol. */
-    readonly attachments?: readonly ConnectionRpcAttachment[]
-  }
+      readonly ok: true
+      readonly value: unknown
+      /** Binary fields already projected by the handler that owns the result protocol. */
+      readonly attachments?: readonly ConnectionRpcAttachment[]
+    }
   | { readonly ok: false; readonly error: ConnectionRpcFailure }
 
 /** Historical short name for a generic Connection result. */
@@ -116,17 +114,15 @@ export interface ConnectionIndexResponse {
 }
 
 /** Outcome of admitting one request: the Peer it speaks for, or the status refusing it. */
-export type PeerAdmission =
-  | { readonly peer: PeerScope }
-  | { readonly rejection: 401 | 403 }
+export type PeerAdmission = { readonly peer: PeerScope } | { readonly rejection: 401 | 403 }
 
 /** Socket admission claims API ownership until its carrier calls release, including failed upgrades. */
 export type ConnectionAdmission =
   | {
-    readonly peer: PeerScope
-    /** Remove and dispose an API Peer; browser releases leave the shared browser Peer intact. */
-    readonly release: () => Promise<void>
-  }
+      readonly peer: PeerScope
+      /** Remove and dispose an API Peer; browser releases leave the shared browser Peer intact. */
+      readonly release: () => Promise<void>
+    }
   | { readonly rejection: 401 | 403 | 409 }
 
 /**
@@ -183,10 +179,7 @@ export interface HostConnectionRpc {
    * @param handler - decoded endpoint handler returning the existing RPC result shape.
    * @returns asynchronous disposer removing the channel and its physical route.
    */
-  handle(
-    channel: string,
-    handler: ConnectionRpcHandler,
-  ): () => Promise<void>
+  handle(channel: string, handler: ConnectionRpcHandler): () => Promise<void>
 
   /**
    * Intercept owned endpoints on the shared `/api` channel before its fallback.
@@ -195,11 +188,7 @@ export interface HostConnectionRpc {
    * @param handler - decoded endpoint handler returning the existing RPC result shape.
    * @returns asynchronous disposer removing the interceptor.
    */
-  intercept(
-    channel: '/api',
-    matches: ConnectionRpcEndpointMatcher,
-    handler: ConnectionRpcHandler,
-  ): () => Promise<void>
+  intercept(channel: '/api', matches: ConnectionRpcEndpointMatcher, handler: ConnectionRpcHandler): () => Promise<void>
 }
 
 /** Host `ctx.connection` members consumed by transport-independent adapters. */
@@ -301,12 +290,7 @@ export interface ClientConnectionRpc {
    * @param signal - optional caller cancellation.
    * @returns the endpoint-owned success/error result; correlation stays inside Connection.
    */
-  call(
-    channel: string,
-    endpoint: string,
-    payload: unknown,
-    signal?: AbortSignal,
-  ): Promise<ConnectionRpcResult<unknown>>
+  call(channel: string, endpoint: string, payload: unknown, signal?: AbortSignal): Promise<ConnectionRpcResult<unknown>>
 
   /**
    * Open an in-process logical stream when the selected carrier supplies one.

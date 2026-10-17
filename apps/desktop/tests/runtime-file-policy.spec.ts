@@ -1,7 +1,7 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { desktopRuntimeFileExclusion } from '../scripts/runtime-file-policy.ts'
 import { verifyDesktopRuntime, writeDesktopRuntime } from '../src/runtime-tree.ts'
 import { runtimeFixture } from './runtime-fixture.ts'
@@ -13,17 +13,30 @@ it('omits development artifacts while preserving executable modules, assets and 
   const source = join(root, 'source')
   const output = join(root, 'output')
   const removed = [
-    'example/index.d.ts', 'example/index.d.mts', 'example/index.d.cts',
-    'example/index.js.map', 'example/index.mjs.map', 'example/index.cjs.map',
-    'example/style.css.map', 'example/index.d.ts.map', 'example/index.d.mts.map',
-    'example/index.d.cts.map', 'example/tsconfig.tsbuildinfo',
-    'fs-ext/build/Release/obj/fs_ext/native.obj', 'fs-ext/build/Release/fs_ext.pdb',
-    'fs-ext/build/Release/fs_ext.lib', 'fs-ext/build/Release/fs_ext.exp',
-    'fs-ext/build/Release/fs_ext.iobj', 'fs-ext/build/Release/fs_ext.ipdb',
-    'fs-ext/build/binding.sln', 'fs-ext/build/config.gypi',
-    'fs-ext/build/fs_ext.vcxproj', 'fs-ext/build/fs_ext.vcxproj.filters',
+    'example/index.d.ts',
+    'example/index.d.mts',
+    'example/index.d.cts',
+    'example/index.js.map',
+    'example/index.mjs.map',
+    'example/index.cjs.map',
+    'example/style.css.map',
+    'example/index.d.ts.map',
+    'example/index.d.mts.map',
+    'example/index.d.cts.map',
+    'example/tsconfig.tsbuildinfo',
+    'fs-ext/build/Release/obj/fs_ext/native.obj',
+    'fs-ext/build/Release/fs_ext.pdb',
+    'fs-ext/build/Release/fs_ext.lib',
+    'fs-ext/build/Release/fs_ext.exp',
+    'fs-ext/build/Release/fs_ext.iobj',
+    'fs-ext/build/Release/fs_ext.ipdb',
+    'fs-ext/build/binding.sln',
+    'fs-ext/build/config.gypi',
+    'fs-ext/build/fs_ext.vcxproj',
+    'fs-ext/build/fs_ext.vcxproj.filters',
     'node-pty/prebuilds/win32-arm64/conpty.node',
-    'node-pty/prebuilds/linux-x64/pty.node', 'node-pty/prebuilds/darwin-x64/pty.node',
+    'node-pty/prebuilds/linux-x64/pty.node',
+    'node-pty/prebuilds/darwin-x64/pty.node',
     'node-pty/prebuilds/win32-x64/conpty.pdb',
     '@koromix/koffi-win32-x64/win32_x64/koffi.lib',
     '@mixmark-io/domino/test/entities.html',
@@ -31,24 +44,43 @@ it('omits development artifacts while preserving executable modules, assets and 
     '@mixmark-io/domino/.yarn/versions/release.yml',
     '@deepseek-ai/libreoffice-kit-wasm/assets/soffice.data',
     '@deepseek-ai/libreoffice-kit-darwin-arm64/bin/libreoffice-kit',
-    '.modules.yaml', '.pnpm-workspace-state-v1.json', '.bin/tool', '.pnpm/cache',
+    '.modules.yaml',
+    '.pnpm-workspace-state-v1.json',
+    '.bin/tool',
+    '.pnpm/cache',
   ]
   const retained = [
-    'example/index.js', 'example/index.cjs', 'example/index.mjs', 'example/worker.js',
-    'example/source.ts', 'example/src/entry.ts', 'example/test/runtime-fixture.json',
-    'example/locale.json', 'example/data.map', 'example/module.wasm',
-    'example/package.json', 'example/LICENSE', 'example/NOTICE', 'example/README.md',
-    'example/native.lib', 'example/native.obj', 'example/symbols.pdb',
-    'fs-ext/build/Release/fs_ext.node', 'fs-ext/build/Release/runtime.dll',
+    'example/index.js',
+    'example/index.cjs',
+    'example/index.mjs',
+    'example/worker.js',
+    'example/source.ts',
+    'example/src/entry.ts',
+    'example/test/runtime-fixture.json',
+    'example/locale.json',
+    'example/data.map',
+    'example/module.wasm',
+    'example/package.json',
+    'example/LICENSE',
+    'example/NOTICE',
+    'example/README.md',
+    'example/native.lib',
+    'example/native.obj',
+    'example/symbols.pdb',
+    'fs-ext/build/Release/fs_ext.node',
+    'fs-ext/build/Release/runtime.dll',
     'node-pty/prebuilds/win32-x64/conpty.node',
     'node-pty/prebuilds/win32-x64/conpty_console_list.node',
     'node-pty/prebuilds/win32-x64/conpty/conpty.dll',
     'node-pty/prebuilds/win32-x64/conpty/OpenConsole.exe',
     'node-pty/third_party/conpty/win10-x64/OpenConsole.exe',
     '@koromix/koffi-win32-x64/win32_x64/koffi.node',
-    '@mixmark-io/domino/lib/HTMLParser.js', '@mixmark-io/domino/lib/EntityParser.js',
-    '@mixmark-io/domino/LICENSE', '@mixmark-io/domino/package.json',
-    'example/.yarn/runtime.cjs', '@mixmark-io/domino/.yarn-data.json',
+    '@mixmark-io/domino/lib/HTMLParser.js',
+    '@mixmark-io/domino/lib/EntityParser.js',
+    '@mixmark-io/domino/LICENSE',
+    '@mixmark-io/domino/package.json',
+    'example/.yarn/runtime.cjs',
+    '@mixmark-io/domino/.yarn-data.json',
     '@img/sharp-win32-x64/lib/libvips-42.dll',
     '@deepseek-ai/libreoffice-kit-win32-x64/bin/libreoffice-kit.exe',
     '@deepseek-ai/libreoffice-kit-win32-x64/sources/core-source.json',
@@ -62,12 +94,17 @@ it('omits development artifacts while preserving executable modules, assets and 
       writeFileSync(join(modules, path), `payload:${path}`)
     }
     cpSync(modules, join(output, 'node_modules'), {
-      recursive: true, dereference: true,
+      recursive: true,
+      dereference: true,
       filter: path => desktopRuntimeFileExclusion(relative(modules, path), windows, 'win32-x64') === undefined,
     })
     for (const path of removed) expect(existsSync(join(output, 'node_modules', path)), path).toBe(false)
     for (const path of retained) expect(readFileSync(join(output, 'node_modules', path), 'utf8'), path).toBe(`payload:${path}`)
-    const sealed = writeDesktopRuntime(output, runtime.release, runtime.sharedPackages.map(entry => entry.name))
+    const sealed = writeDesktopRuntime(
+      output,
+      runtime.release,
+      runtime.sharedPackages.map(entry => entry.name),
+    )
     expect(await verifyDesktopRuntime(output, runtime.release.version)).toEqual(sealed)
     expect(readFileSync(join(modules, removed[0]!), 'utf8')).toBe(`payload:${removed[0]}`)
   } finally {
@@ -79,7 +116,9 @@ it('applies package-specific rules inside scoped and nested dependency container
   expect(desktopRuntimeFileExclusion('outer/node_modules/@mixmark-io/domino/test/data.html', windows, 'win32-x64')).toBeDefined()
   expect(desktopRuntimeFileExclusion('outer/node_modules/@mixmark-io/domino/.yarn/plugin.cjs', windows, 'win32-x64')).toBeDefined()
   expect(desktopRuntimeFileExclusion('@mixmark-io/domino/.yarn', windows, 'win32-x64')).toBeDefined()
-  expect(desktopRuntimeFileExclusion('outer\\node_modules\\node-pty\\prebuilds\\win32-arm64\\conpty.node', windows, 'win32-x64')).toBeDefined()
+  expect(
+    desktopRuntimeFileExclusion('outer\\node_modules\\node-pty\\prebuilds\\win32-arm64\\conpty.node', windows, 'win32-x64'),
+  ).toBeDefined()
   expect(desktopRuntimeFileExclusion('outer/node_modules/unrelated/test/data.html', windows, 'win32-x64')).toBeUndefined()
   expect(desktopRuntimeFileExclusion('outer/fs-ext/build/Release/fs_ext.lib', windows, 'win32-x64')).toBeUndefined()
 })
@@ -92,26 +131,32 @@ it('retains native prebuilds for the selected macOS architecture', () => {
 })
 
 it.each([
-  ['darwin', 'arm64'], ['darwin', 'x64'],
-  ['linux', 'arm64'], ['linux', 'x64'],
-  ['win32', 'arm64'], ['win32', 'x64'],
+  ['darwin', 'arm64'],
+  ['darwin', 'x64'],
+  ['linux', 'arm64'],
+  ['linux', 'x64'],
+  ['win32', 'arm64'],
+  ['win32', 'x64'],
 ] as const)('copies ConPTY sources only for Windows targets (%s/%s)', (platform, arch) => {
   const root = mkdtempSync(join(tmpdir(), 'desktop-conpty-policy-'))
   try {
     const source = join(root, 'source')
     const output = join(root, 'output')
     const prefixes = ['', '@example/outer/node_modules/']
-    const conpty = ['arm64', 'x64'].flatMap(cpu => ['conpty.dll', 'OpenConsole.exe'].map(
-      file => `node-pty/third_party/conpty/1.25.260303002/win10-${cpu}/${file}`,
-    ))
-    const native = platform === 'win32'
-      ? ['conpty.node', 'conpty_console_list.node', 'conpty/conpty.dll', 'conpty/OpenConsole.exe']
-      : ['pty.node', 'spawn-helper']
+    const conpty = ['arm64', 'x64'].flatMap(cpu =>
+      ['conpty.dll', 'OpenConsole.exe'].map(file => `node-pty/third_party/conpty/1.25.260303002/win10-${cpu}/${file}`),
+    )
+    const native =
+      platform === 'win32'
+        ? ['conpty.node', 'conpty_console_list.node', 'conpty/conpty.dll', 'conpty/OpenConsole.exe']
+        : ['pty.node', 'spawn-helper']
     const retained = [
       ...native.map(file => `node-pty/prebuilds/${platform}-${arch}/${file}`),
       ...native.map(file => `node-pty/build/Release/${file}`),
-      'node-pty/lib/index.js', 'node-pty/LICENSE',
-      'node-pty/third_party/conpty-notes/README.md', 'node-pty/third_party/conpty.dll',
+      'node-pty/lib/index.js',
+      'node-pty/LICENSE',
+      'node-pty/third_party/conpty-notes/README.md',
+      'node-pty/third_party/conpty.dll',
       'other/third_party/conpty/conpty.dll',
     ]
     for (const prefix of prefixes) {
@@ -121,13 +166,17 @@ it.each([
       }
     }
     cpSync(source, output, {
-      recursive: true, dereference: true,
-      filter: (path) => {
+      recursive: true,
+      dereference: true,
+      filter: path => {
         const entry = relative(source, path)
-        return desktopRuntimeFileExclusion(
-          platform === 'win32' ? entry.replaceAll('/', '\\') : entry,
-          { platform, arch }, `${platform}-${arch}`,
-        ) === undefined
+        return (
+          desktopRuntimeFileExclusion(
+            platform === 'win32' ? entry.replaceAll('/', '\\') : entry,
+            { platform, arch },
+            `${platform}-${arch}`,
+          ) === undefined
+        )
       },
     })
     for (const prefix of prefixes) {
@@ -153,9 +202,7 @@ it.each([
   ['freebsd', 'x64', 'wasm'],
 ] as const)('retains only the selected Office engine for %s/%s', (platform, arch, engine) => {
   for (const candidate of ['linux-x64', 'darwin-arm64', 'wasm']) {
-    const omitted = desktopRuntimeFileExclusion(
-      `@deepseek-ai/libreoffice-kit-${candidate}/prebuilds.json`, { platform, arch }, engine,
-    )
+    const omitted = desktopRuntimeFileExclusion(`@deepseek-ai/libreoffice-kit-${candidate}/prebuilds.json`, { platform, arch }, engine)
     expect(omitted === undefined).toBe(candidate === engine)
   }
 })

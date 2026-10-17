@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 
 const preload = (name: string): string => fileURLToPath(new URL(`../lib/${name}.cjs`, import.meta.url))
 
@@ -21,16 +21,20 @@ function browserEnvironment() {
     documentElement: {
       dataset: {} as Record<string, string>,
       getAttribute: (name: string): string | null => attributes.get(name) ?? null,
-      setAttribute: (name: string, value: string): void => { attributes.set(name, value) },
+      setAttribute: (name: string, value: string): void => {
+        attributes.set(name, value)
+      },
     },
   }
   const window = {
     addEventListener: (type: string, listener: () => void): void => {
-      listeners.set(type, [...listeners.get(type) ?? [], listener])
+      listeners.set(type, [...(listeners.get(type) ?? []), listener])
     },
   }
   class SandboxMutationObserver {
-    constructor(callback: () => void) { observers.push(callback) }
+    constructor(callback: () => void) {
+      observers.push(callback)
+    }
     observe(): void {}
   }
   return {
@@ -49,13 +53,17 @@ function browserEnvironment() {
 }
 
 describe.skipIf(!existsSync(preload('preload-app')))('built sandboxed Desktop preloads', () => {
-  it.each(['preload-app', 'preload-welcome'])('%s loads without filesystem module access', async (name) => {
+  it.each(['preload-app', 'preload-welcome'])('%s loads without filesystem module access', async name => {
     const exposed = new Map<string, Record<string, unknown>>()
     const invoke = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve({ languages: ['en-US'], preference: 'zh' }))
     const send = vi.fn()
     const browser = browserEnvironment()
     const electron = {
-      contextBridge: { exposeInMainWorld: (key: string, value: Record<string, unknown>) => { exposed.set(key, value) } },
+      contextBridge: {
+        exposeInMainWorld: (key: string, value: Record<string, unknown>) => {
+          exposed.set(key, value)
+        },
+      },
       ipcRenderer: { invoke, send, on: vi.fn(), off: vi.fn() },
     }
     runInNewContext(readFileSync(preload(name), 'utf8'), {

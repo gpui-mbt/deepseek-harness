@@ -21,15 +21,21 @@ export function apply(ctx: Context): void {
     const decision = await next()
     if (decision.kind !== 'enter') return decision
     const source = { kind: `plugin:${name}` } as const
-    return { ...decision, messages: [
-      ...decision.messages,
-      createUserMessage({ source, content: [
-        { type: 'text', text: 'Background subagent finished. Its closing message: Saved child answer.' },
-        { type: 'reasoning', text: 'unforwarded-child-thought' },
-        { type: 'tool-call', id: ToolCallId('unforwarded-child-call'), name: 'bash', arguments: '{}' },
-      ] }),
-      createUserMessage({ source, content: [{ type: 'reasoning', text: 'unforwarded-empty-notice' }] }),
-    ] }
+    return {
+      ...decision,
+      messages: [
+        ...decision.messages,
+        createUserMessage({
+          source,
+          content: [
+            { type: 'text', text: 'Background subagent finished. Its closing message: Saved child answer.' },
+            { type: 'reasoning', text: 'unforwarded-child-thought' },
+            { type: 'tool-call', id: ToolCallId('unforwarded-child-call'), name: 'bash', arguments: '{}' },
+          ],
+        }),
+        createUserMessage({ source, content: [{ type: 'reasoning', text: 'unforwarded-empty-notice' }] }),
+      ],
+    }
   })
   const connection = resolveAdapterOptions({})
   ctx.on('llm/stream', (options, next) => {

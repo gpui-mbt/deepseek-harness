@@ -68,21 +68,23 @@ const REMINDER_SOURCE: MessageSource = { kind: 'repeat-tool-reminder' }
  * count, so a custom first threshold keeps the gentle-then-detailed escalation.
  */
 const GENTLE_REMINDER =
-  'You are repeating the exact same tool call with identical arguments. '
-  + 'Carefully analyze the previous result before calling again: if the task is '
-  + 'not complete, try a different approach or different arguments instead of '
-  + 'repeating the call.'
+  'You are repeating the exact same tool call with identical arguments. ' +
+  'Carefully analyze the previous result before calling again: if the task is ' +
+  'not complete, try a different approach or different arguments instead of ' +
+  'repeating the call.'
 
 /** The detailed later-threshold reminder naming the tool, the run length, and the canonical arguments. */
 function detailedReminder(toolName: string, count: number, canonicalArguments: string): string {
-  return 'Repeated tool call detected:\n'
-    + `- tool: ${toolName}\n`
-    + `- consecutive_calls: ${count}\n`
-    + `- arguments: ${canonicalArguments}\n`
-    + 'The repeated calls are not making progress. Do not call this tool with '
-    + 'these exact arguments again. Inspect the latest result and choose a '
-    + 'different action, different arguments, or finish the task if enough '
-    + 'evidence has been gathered.'
+  return (
+    'Repeated tool call detected:\n' +
+    `- tool: ${toolName}\n` +
+    `- consecutive_calls: ${count}\n` +
+    `- arguments: ${canonicalArguments}\n` +
+    'The repeated calls are not making progress. Do not call this tool with ' +
+    'these exact arguments again. Inspect the latest result and choose a ' +
+    'different action, different arguments, or finish the task if enough ' +
+    'evidence has been gathered.'
+  )
 }
 
 /**
@@ -152,7 +154,7 @@ function validateThresholds(values: number[]): number[] {
  * source and metadata.
  */
 function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {
-  return [ours, ...theirs ?? []]
+  return [ours, ...(theirs ?? [])]
 }
 
 /** One agent's consecutive-repeat chain: the last tracked call's identity key and its run length. */
@@ -204,9 +206,8 @@ export function apply(ctx: Context, config: Config): void {
     const count = chain !== undefined && chain.key === key ? chain.count + 1 : 1
     chains.set(exec.agent, { key, count })
     if (!thresholdSet.has(count)) return undefined
-    const text = count === thresholds[0]
-      ? GENTLE_REMINDER
-      : detailedReminder(exec.name, count, previewArguments(canonical, argumentsPreviewChars))
+    const text =
+      count === thresholds[0] ? GENTLE_REMINDER : detailedReminder(exec.name, count, previewArguments(canonical, argumentsPreviewChars))
     return createUserMessage({
       content: [{ type: 'text', text }],
       source: { ...REMINDER_SOURCE, form: 'notice', summary: `${exec.name} × ${count}` },

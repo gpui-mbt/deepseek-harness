@@ -1,31 +1,49 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assertServiceable, Config, resolveProfiles, type Options } from '../src/config.ts'
 
 /** Validate one hand-declared route, with the caller's fields layered onto it. */
-const routeWith = (profile: Record<string, unknown>): (() => unknown) =>
-  () => ({ providers: Config({
-    providers: {
-      'acme-gateway': {
-        api: 'openai-completions',
-        baseURL: 'https://acme.test',
-        models: [{ id: 'm' }],
-        ...profile,
+const routeWith =
+  (profile: Record<string, unknown>): (() => unknown) =>
+  () => ({
+    providers: Config({
+      providers: {
+        'acme-gateway': {
+          api: 'openai-completions',
+          baseURL: 'https://acme.test',
+          models: [{ id: 'm' }],
+          ...profile,
+        },
       },
-    },
-  }).providers.get() })
+    }).providers.get(),
+  })
 
 /** Validate that route with the caller's fields on its single model entry. */
-const configWith = (model: Record<string, unknown>): (() => unknown) =>
-  routeWith({ models: [{ id: 'm', ...model }] })
+const configWith = (model: Record<string, unknown>): (() => unknown) => routeWith({ models: [{ id: 'm', ...model }] })
 
 describe('reasoning schema boundary', () => {
   it('accepts an empty provider section and propagates unexpected catalog failures', () => {
-    expect(() => { assertServiceable({}) }).not.toThrow()
+    expect(() => {
+      assertServiceable({})
+    }).not.toThrow()
     const failure = new TypeError('model metadata lookup failed')
-    expect(() => resolveProfiles({ openrouter: { models: [{
-      id: '111',
-      get name(): string { throw failure },
-    }], api: 'openai-completions' } }, 'deferred')).toThrow(failure)
+    expect(() =>
+      resolveProfiles(
+        {
+          openrouter: {
+            models: [
+              {
+                id: '111',
+                get name(): string {
+                  throw failure
+                },
+              },
+            ],
+            api: 'openai-completions',
+          },
+        },
+        'deferred',
+      ),
+    ).toThrow(failure)
   })
 
   it('rejects a level pi-ai does not know at the write that produced it', () => {
@@ -46,14 +64,16 @@ describe('reasoning schema boundary', () => {
   })
 
   it('accepts Baseten template arguments and completion controls', () => {
-    expect(configWith({
-      compat: {
-        supportsFinishReason: false,
-        thinkingFormat: 'baseten',
-        chatTemplateArgs: { enable_thinking: { $var: 'thinking.enabled' } },
-        supportsThinkingTokenBudget: true,
-      },
-    })).not.toThrow()
+    expect(
+      configWith({
+        compat: {
+          supportsFinishReason: false,
+          thinkingFormat: 'baseten',
+          chatTemplateArgs: { enable_thinking: { $var: 'thinking.enabled' } },
+          supportsThinkingTokenBudget: true,
+        },
+      }),
+    ).not.toThrow()
   })
 })
 
@@ -68,8 +88,9 @@ describe('modality schema boundary', () => {
     // well-typed, and the namespace validator is what refuses it. Asserting
     // only the schema would report this route as writable.
     expect(routeWith({ defaultInput: [] })).not.toThrow()
-    expect(() => { assertServiceable(routeWith({ defaultInput: [] })() as Options) })
-      .toThrow(/defaultInput must name at least one modality/)
+    expect(() => {
+      assertServiceable(routeWith({ defaultInput: [] })() as Options)
+    }).toThrow(/defaultInput must name at least one modality/)
   })
 
   type Materialized = {

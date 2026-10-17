@@ -1,9 +1,6 @@
 /** Web presentation fold joining transient Assistant frames to one durable v2 settlement. */
 
-import type {
-  SessionAssistantStreamBaseline,
-  SessionAssistantStreamFrame,
-} from '../../types.ts'
+import type { SessionAssistantStreamBaseline, SessionAssistantStreamFrame } from '../../types.ts'
 import { expandAssistantStream } from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { AssistantStreamRecord } from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { LlmAttemptId } from '@deepseek-ai/dsh-llm/brand'
@@ -25,16 +22,16 @@ interface ActiveAttempt {
 /** One Web publication decision from the assistant stream fold. */
 export type ClientAssistantStreamResult =
   | {
-    readonly type: 'publish'
-    readonly entry: SessionLiveEventEntry
-    /** Retire the successful attempt's transient rows after publishing its Step end. */
-    readonly retireAttemptId?: LlmAttemptId
-  }
+      readonly type: 'publish'
+      readonly entry: SessionLiveEventEntry
+      /** Retire the successful attempt's transient rows after publishing its Step end. */
+      readonly retireAttemptId?: LlmAttemptId
+    }
   | {
-    readonly type: 'settlement'
-    readonly attemptId: LlmAttemptId
-    readonly entry: SessionAssistantSettlementEntry
-  }
+      readonly type: 'settlement'
+      readonly attemptId: LlmAttemptId
+      readonly entry: SessionAssistantSettlementEntry
+    }
   | { readonly type: 'abandonment'; readonly attemptId: LlmAttemptId }
   | { readonly type: 'transient'; readonly entry: SessionTransientEventEntry }
   | { readonly type: 'rebaseline' }
@@ -55,10 +52,7 @@ export class ClientAssistantStream {
    * @param baseline - compact prefix for an Assistant attempt that is still live.
    * @returns immediately visible durable entries plus reconstructed transient chunks.
    */
-  replace(
-    entries: readonly SessionEventLikeEntry[],
-    baseline?: SessionAssistantStreamBaseline,
-  ): readonly SessionEventLikeEntry[] {
+  replace(entries: readonly SessionEventLikeEntry[], baseline?: SessionAssistantStreamBaseline): readonly SessionEventLikeEntry[] {
     this.pending.clear()
     this.transientInGap = 0
     this.activeAttempt = undefined
@@ -77,9 +71,7 @@ export class ClientAssistantStream {
     this.publishedSeqs = new Set(visible.map(entry => entry.event.seq))
     this.durableCursor = visible.reduce((cursor, entry) => Math.max(cursor, entry.event.seq), -1)
     if (opening !== undefined) {
-      for (const [index, member] of expandAssistantStream(
-        opening.stream as unknown as readonly AssistantStreamRecord[],
-      ).entries()) {
+      for (const [index, member] of expandAssistantStream(opening.stream as unknown as readonly AssistantStreamRecord[]).entries()) {
         this.transientInGap += 1
         visible.push({
           type: 'transient',
@@ -129,8 +121,7 @@ export class ClientAssistantStream {
   acceptFrame(frame: SessionAssistantStreamFrame): ClientAssistantStreamResult {
     switch (frame.type) {
       case 'start':
-        if (this.activeAttempt !== undefined || this.retainedAttempt !== undefined
-          || this.pending.size > 0) return { type: 'rebaseline' }
+        if (this.activeAttempt !== undefined || this.retainedAttempt !== undefined || this.pending.size > 0) return { type: 'rebaseline' }
         this.pending.clear()
         this.activeAttempt = {
           attemptId: frame.attemptId,
@@ -175,14 +166,11 @@ export class ClientAssistantStream {
         this.activeAttempt = undefined
         if (frame.index !== attempt.nextIndex) return { type: 'rebaseline' }
         if (frame.outcome.kind === 'abandoned') {
-          return this.pending.size === 0
-            ? { type: 'abandonment', attemptId: attempt.attemptId }
-            : { type: 'rebaseline' }
+          return this.pending.size === 0 ? { type: 'abandonment', attemptId: attempt.attemptId } : { type: 'rebaseline' }
         }
         if (this.publishedSeqs.has(frame.outcome.seq)) return undefined
         const entry = this.pending.get(frame.outcome.seq)
-        if (entry === undefined
-          || entry.event.type !== frame.outcome.eventType) {
+        if (entry === undefined || entry.event.type !== frame.outcome.eventType) {
           return { type: 'rebaseline' }
         }
         this.pending.delete(frame.outcome.seq)
@@ -196,23 +184,28 @@ export class ClientAssistantStream {
     }
   }
 
-  private attemptForSettlement(
-    event: SessionAssistantSettlementEntry['event'],
-  ): ActiveAttempt | undefined {
+  private attemptForSettlement(event: SessionAssistantSettlementEntry['event']): ActiveAttempt | undefined {
     const attempt = this.activeAttempt
-    if (attempt === undefined
-      || (event.type === 'assistant/message' && event.surfaceOp !== 'append')
-      || event.seq <= attempt.startedAfterSeq
-      || attempt.turn !== event.data.turn
-      || attempt.step !== event.data.step) return undefined
+    if (
+      attempt === undefined ||
+      (event.type === 'assistant/message' && event.surfaceOp !== 'append') ||
+      event.seq <= attempt.startedAfterSeq ||
+      attempt.turn !== event.data.turn ||
+      attempt.step !== event.data.step
+    )
+      return undefined
     return attempt
   }
 
   private publish(entry: SessionLiveEventEntry): ClientAssistantStreamResult {
     this.publishedSeqs.add(entry.event.seq)
     const retained = this.retainedAttempt
-    if (retained !== undefined && entry.event.type === 'step/end'
-      && entry.event.data.turn === retained.turn && entry.event.data.step === retained.step) {
+    if (
+      retained !== undefined &&
+      entry.event.type === 'step/end' &&
+      entry.event.data.turn === retained.turn &&
+      entry.event.data.step === retained.step
+    ) {
       this.retainedAttempt = undefined
       return { type: 'publish', entry, retireAttemptId: retained.attemptId }
     }
@@ -220,10 +213,8 @@ export class ClientAssistantStream {
   }
 }
 
-function assistantSettlementEntry(
-  entry: SessionLiveEventEntry,
-): SessionAssistantSettlementEntry | undefined {
+function assistantSettlementEntry(entry: SessionLiveEventEntry): SessionAssistantSettlementEntry | undefined {
   return entry.event.type === 'assistant/message' || entry.event.type === 'assistant/attempt'
-    ? entry as SessionAssistantSettlementEntry
+    ? (entry as SessionAssistantSettlementEntry)
     : undefined
 }

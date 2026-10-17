@@ -6,13 +6,11 @@
 // defensive arms directly.
 import { StrictMode } from 'react'
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type * as Md from 'mdast'
 import { MarkdownText } from './markdown-test-components.tsx'
 import { markdownLabels } from './labels.client.ts'
-import {
-  collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
-} from '../src/markdown/render.tsx'
+import { collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection } from '../src/markdown/render.tsx'
 import type { MarkdownRenderContext } from '../src/markdown/render.tsx'
 
 afterEach(cleanup)
@@ -31,7 +29,12 @@ function makeContext(): MarkdownRenderContext {
 
 function renderNodes(nodes: Md.RootContent[], context = makeContext()): HTMLElement {
   const { container } = render(
-    <div>{renderBlocks(nodes.map((node, key) => ({ node, key })), context)}</div>,
+    <div>
+      {renderBlocks(
+        nodes.map((node, key) => ({ node, key })),
+        context,
+      )}
+    </div>,
   )
   return container
 }
@@ -58,12 +61,15 @@ describe('renderBlocks over hand-built trees', () => {
 
   it('keeps the first definition when identifiers repeat', () => {
     const targets = createReferenceTargets()
-    collectReferenceTargets([
-      { type: 'definition', identifier: 'dup', url: 'https://example.com/first' },
-      { type: 'definition', identifier: 'dup', url: 'https://example.com/second' },
-      { type: 'footnoteDefinition', identifier: 'fn', children: [] },
-      { type: 'footnoteDefinition', identifier: 'fn', children: [{ type: 'paragraph', children: [text('late')] }] },
-    ], targets)
+    collectReferenceTargets(
+      [
+        { type: 'definition', identifier: 'dup', url: 'https://example.com/first' },
+        { type: 'definition', identifier: 'dup', url: 'https://example.com/second' },
+        { type: 'footnoteDefinition', identifier: 'fn', children: [] },
+        { type: 'footnoteDefinition', identifier: 'fn', children: [{ type: 'paragraph', children: [text('late')] }] },
+      ],
+      targets,
+    )
     expect(targets.definitions.get('DUP')?.url).toBe('https://example.com/first')
     expect(targets.footnotes.get('FN')?.children).toEqual([])
   })
@@ -116,9 +122,7 @@ describe('renderBlocks over hand-built trees', () => {
       {
         type: 'table',
         align: ['left', 'right'],
-        children: [
-          { type: 'tableRow', children: [{ type: 'tableCell', children: [text('only')] }] },
-        ],
+        children: [{ type: 'tableRow', children: [{ type: 'tableCell', children: [text('only')] }] }],
       },
     ])
     const cells = [...container.querySelectorAll('th')]
@@ -148,10 +152,13 @@ describe('renderBlocks over hand-built trees', () => {
   it('renders images with a null alt as an empty alt attribute', () => {
     const targets = createReferenceTargets()
     targets.definitions.set('R', { type: 'definition', identifier: 'r', url: 'https://example.com/r.png' })
-    const container = renderNodes([
-      { type: 'paragraph', children: [{ type: 'image', url: 'https://example.com/x.png', alt: null }] },
-      { type: 'paragraph', children: [{ type: 'imageReference', identifier: 'r', referenceType: 'full', alt: null }] },
-    ], { ...makeContext(), targets })
+    const container = renderNodes(
+      [
+        { type: 'paragraph', children: [{ type: 'image', url: 'https://example.com/x.png', alt: null }] },
+        { type: 'paragraph', children: [{ type: 'imageReference', identifier: 'r', referenceType: 'full', alt: null }] },
+      ],
+      { ...makeContext(), targets },
+    )
     const images = [...container.querySelectorAll('img')]
     expect(images.map(image => image.getAttribute('alt'))).toEqual(['', ''])
   })
@@ -162,13 +169,15 @@ describe('renderBlocks over hand-built trees', () => {
         type: 'list',
         ordered: true,
         start: 3,
-        children: [{
-          type: 'listItem',
-          children: [
-            { type: 'paragraph', children: [text('body')] },
-            { type: 'definition', identifier: 'x', url: 'https://example.com' },
-          ],
-        }],
+        children: [
+          {
+            type: 'listItem',
+            children: [
+              { type: 'paragraph', children: [text('body')] },
+              { type: 'definition', identifier: 'x', url: 'https://example.com' },
+            ],
+          },
+        ],
       },
     ])
     expect(container.querySelector('ol')?.getAttribute('start')).toBe('3')
@@ -226,8 +235,16 @@ describe('renderFootnoteSection edge shapes', () => {
 describe('MarkdownText under StrictMode', () => {
   it('streams identically when React double-invokes render work', () => {
     const doc = 'one\n\ntwo\n\nthree\n\nfour\n\nfive'
-    const strict = render(<StrictMode><MarkdownText text={doc.slice(0, 8)} streaming /></StrictMode>)
-    strict.rerender(<StrictMode><MarkdownText text={doc} streaming /></StrictMode>)
+    const strict = render(
+      <StrictMode>
+        <MarkdownText text={doc.slice(0, 8)} streaming />
+      </StrictMode>,
+    )
+    strict.rerender(
+      <StrictMode>
+        <MarkdownText text={doc} streaming />
+      </StrictMode>,
+    )
     const plain = render(<MarkdownText text={doc} streaming />)
     expect(strict.container.innerHTML).toBe(plain.container.innerHTML)
     strict.unmount()

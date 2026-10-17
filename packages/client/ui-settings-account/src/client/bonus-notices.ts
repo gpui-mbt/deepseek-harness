@@ -17,9 +17,7 @@
  * the server still offers.
  * @module @deepseek-ai/dsh-client-ui-settings-account/src/client/bonus-notices
  */
-import type {
-  AccountBonusBatch, AccountBonusOrderId, AccountUserId,
-} from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountBonusBatch, AccountBonusOrderId, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 
 /** Notice eligible for display; the message is server-authored for the active locale. */
 export interface BonusNotice {
@@ -112,13 +110,26 @@ export function createBonusNoticeController(options: BonusNoticeControllerOption
   let ackDelay = options.ackRetryDelayMs
   /** Orders the card on screen already reported, so one mount cannot acknowledge twice. */
   const reported = new Set<AccountBonusOrderId>()
-  const clearAckTimer = (): void => { if (ackTimer !== undefined) { clearTimeout(ackTimer); ackTimer = undefined } }
+  const clearAckTimer = (): void => {
+    if (ackTimer !== undefined) {
+      clearTimeout(ackTimer)
+      ackTimer = undefined
+    }
+  }
   const setCurrent = (notices: readonly BonusNotice[]): void => {
-    if (notices.length === current.length && notices.every((notice, index) => {
-      const previous = current[index]
-      return notice.orderId === previous?.orderId && notice.message === previous.message
-        && notice.title === previous.title && notice.expiresAt === previous.expiresAt
-    })) return
+    if (
+      notices.length === current.length &&
+      notices.every((notice, index) => {
+        const previous = current[index]
+        return (
+          notice.orderId === previous?.orderId &&
+          notice.message === previous.message &&
+          notice.title === previous.title &&
+          notice.expiresAt === previous.expiresAt
+        )
+      })
+    )
+      return
     const retained = new Set(notices.map(notice => notice.orderId))
     for (const orderId of reported) if (!retained.has(orderId)) reported.delete(orderId)
     current = notices
@@ -126,7 +137,9 @@ export function createBonusNoticeController(options: BonusNoticeControllerOption
   }
   const scheduleAck = (delay: number): void => {
     clearAckTimer()
-    ackTimer = setTimeout(() => { void runAcks() }, delay)
+    ackTimer = setTimeout(() => {
+      void runAcks()
+    }, delay)
   }
   /** Drop acknowledgement work of the previous account or lifecycle, so its carry-over cannot reach the next one. */
   const resetAcks = (): void => {
@@ -134,7 +147,9 @@ export function createBonusNoticeController(options: BonusNoticeControllerOption
     ackInFlight = false
     ackDelay = options.ackRetryDelayMs
   }
-  const startAcks = (): void => { if (scope !== undefined && scope.pending.length > 0) scheduleAck(0) }
+  const startAcks = (): void => {
+    if (scope !== undefined && scope.pending.length > 0) scheduleAck(0)
+  }
 
   /**
    * Apply the server-ordered stack, excluding expired notices. An empty batch
@@ -170,8 +185,9 @@ export function createBonusNoticeController(options: BonusNoticeControllerOption
     const generation = ++readGeneration
     return (async () => {
       let batch: AccountBonusBatch | null
-      try { batch = await options.read() }
-      catch {
+      try {
+        batch = await options.read()
+      } catch {
         // A failed read reports nothing to the user and leaves the lifecycle as
         // it stands, so a pending acknowledgement keeps retrying.
         batch = null
@@ -199,8 +215,9 @@ export function createBonusNoticeController(options: BonusNoticeControllerOption
     /** @returns whether this call still owns the lifecycle and account it started for. */
     const owns = (): boolean => scope === scopeAtCall && scopeAtCall.accountId === accountId
     let acknowledged: boolean
-    try { acknowledged = await options.acknowledge(accountId, orderId) }
-    catch {
+    try {
+      acknowledged = await options.acknowledge(accountId, orderId)
+    } catch {
       // The lifecycle ended or another account answered while the call was in flight:
       // its pending list, in-flight flag and timer now belong to the new owner.
       if (!owns()) return

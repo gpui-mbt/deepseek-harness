@@ -2,7 +2,7 @@ import OTel from '@deepseek-ai/dsh-otel'
 import { createServer, type IncomingHttpHeaders } from 'node:http'
 import { once } from 'node:events'
 import { gunzipSync } from 'node:zlib'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SeverityNumber } from '@opentelemetry/api-logs'
 import ProductTelemetry, { Config } from '../src/index.ts'
@@ -59,20 +59,26 @@ function config(endpoint: string, overrides: Partial<Config> = {}): Config {
 function context() {
   const ctx = new Context()
   const ready = ctx.plugin(OTel)
-  cleanup.push(async () => { await ready; await ctx.fiber.dispose() })
+  cleanup.push(async () => {
+    await ready
+    await ctx.fiber.dispose()
+  })
   return ctx
 }
 
 const event = { eventName: 'telemetry.synthetic', body: 'Synthetic test', timestamp: 1_800_000_000_000 }
 
 describe('explicit product telemetry', () => {
-  it.each(['gzip', 'none', undefined] as const)('drains typed events with %s compression and removes the service', async (compression) => {
+  it.each(['gzip', 'none', undefined] as const)('drains typed events with %s compression and removes the service', async compression => {
     const target = await collector()
     const ctx = context()
     const fiber = await ctx.plugin(ProductTelemetry, config(target.endpoint, compression === undefined ? {} : { compression }))
     const service = ctx.productTelemetry
     expect(target.captures).toEqual([])
-    service.emit({ ...event, attributes: { text: 'test', count: 2, duration: 1.5, synthetic: true, model: { provider: 'test', count: 1, enabled: false } } })
+    service.emit({
+      ...event,
+      attributes: { text: 'test', count: 2, duration: 1.5, synthetic: true, model: { provider: 'test', count: 1, enabled: false } },
+    })
     service.emit({ ...event, severityNumber: SeverityNumber.ERROR })
     await fiber.dispose()
     expect(ctx.get('productTelemetry')).toBeUndefined()
@@ -84,16 +90,31 @@ describe('explicit product telemetry', () => {
     const logs = capture?.body.resourceLogs.flatMap(r => r.scopeLogs.flatMap(s => s.logRecords))
     expect(logs).toHaveLength(2)
     expect(logs?.[0]).toMatchObject({
-      eventName: event.eventName, body: { stringValue: event.body }, severityNumber: 9,
+      eventName: event.eventName,
+      body: { stringValue: event.body },
+      severityNumber: 9,
       timeUnixNano: '1800000000000000000',
     })
-    expect(logs?.[0]?.['attributes']).toEqual(expect.arrayContaining([
-      { key: 'text', value: { stringValue: 'test' } },
-      { key: 'count', value: { intValue: 2 } },
-      { key: 'duration', value: { doubleValue: 1.5 } },
-      { key: 'synthetic', value: { boolValue: true } },
-      { key: 'model', value: { kvlistValue: { values: [{ key: 'provider', value: { stringValue: 'test' } }, { key: 'count', value: { intValue: 1 } }, { key: 'enabled', value: { boolValue: false } }] } } },
-    ]))
+    expect(logs?.[0]?.['attributes']).toEqual(
+      expect.arrayContaining([
+        { key: 'text', value: { stringValue: 'test' } },
+        { key: 'count', value: { intValue: 2 } },
+        { key: 'duration', value: { doubleValue: 1.5 } },
+        { key: 'synthetic', value: { boolValue: true } },
+        {
+          key: 'model',
+          value: {
+            kvlistValue: {
+              values: [
+                { key: 'provider', value: { stringValue: 'test' } },
+                { key: 'count', value: { intValue: 1 } },
+                { key: 'enabled', value: { boolValue: false } },
+              ],
+            },
+          },
+        },
+      ]),
+    )
     expect(Number(logs?.[0]?.['observedTimeUnixNano'])).toBeGreaterThan(0)
     expect(logs?.[1]?.['severityNumber']).toBe(17)
     expect(JSON.stringify(capture)).not.toContain('user.id')
@@ -127,7 +148,12 @@ describe('explicit product telemetry', () => {
     const ctx = context()
     await ctx.plugin(ProductTelemetry, config(target.endpoint, { maxExportBatchSize: 1 }))
     ctx.productTelemetry.emit(event)
-    await vi.waitFor(() => { expect(target.captures).toHaveLength(2) }, { timeout: 10_000 })
+    await vi.waitFor(
+      () => {
+        expect(target.captures).toHaveLength(2)
+      },
+      { timeout: 10_000 },
+    )
     expect(target.captures[0]?.body).toEqual(target.captures[1]?.body)
   })
 
@@ -136,7 +162,9 @@ describe('explicit product telemetry', () => {
     const ctx = context()
     await ctx.plugin(ProductTelemetry, config(target.endpoint, { scheduledDelayMillis: 10 }))
     ctx.productTelemetry.emit(event)
-    await vi.waitFor(() => { expect(target.captures).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(target.captures).toHaveLength(1)
+    })
   })
 
   it('reports a permanent export rejection without failing the caller', async () => {
@@ -144,19 +172,28 @@ describe('explicit product telemetry', () => {
     const ctx = context()
     const warn = vi.spyOn(ctx.logger, 'warn')
     const fiber = await ctx.plugin(ProductTelemetry, config(target.endpoint))
-    expect(() => { ctx.productTelemetry.emit(event) }).not.toThrow()
+    expect(() => {
+      ctx.productTelemetry.emit(event)
+    }).not.toThrow()
     await fiber.dispose()
     expect(target.captures).toHaveLength(1)
     expect(warn).toHaveBeenCalledWith('Product telemetry export failed', expect.any(Error))
   })
 
   it.each([
-    { endpoint: 'broken' }, { endpoint: 'ftp://collector.test/logs' },
-    { channel: '' }, { channel: 'bad\nchannel' }, { channel: '中文' }, { timeoutMillis: 0 },
-    { maxExportBatchSize: 0 }, { maxExportBatchSize: 2, maxQueueSize: 1 },
-    { maxQueueSize: -1 }, { scheduledDelayMillis: 0 }, { exportTimeoutMillis: Infinity },
+    { endpoint: 'broken' },
+    { endpoint: 'ftp://collector.test/logs' },
+    { channel: '' },
+    { channel: 'bad\nchannel' },
+    { channel: '中文' },
+    { timeoutMillis: 0 },
+    { maxExportBatchSize: 0 },
+    { maxExportBatchSize: 2, maxQueueSize: 1 },
+    { maxQueueSize: -1 },
+    { scheduledDelayMillis: 0 },
+    { exportTimeoutMillis: Infinity },
     { shutdownTimeoutMillis: 2_147_483_648 },
-  ])('rejects invalid configuration %j before exposing the service', (invalid) => {
+  ])('rejects invalid configuration %j before exposing the service', invalid => {
     const ctx = context()
     expect(() => new ProductTelemetry(ctx, config('http://collector.test/v1/logs', invalid))).toThrow()
     expect(ctx.get('productTelemetry')).toBeUndefined()
@@ -167,8 +204,7 @@ describe('explicit product telemetry', () => {
     [{ channel: 'bad\nchannel' }, 'channel must be a valid HTTP header value'],
   ] as const)('names invalid transport fields before registering the service', (invalid, message) => {
     const ctx = context()
-    expect(() => new ProductTelemetry(ctx, config('http://collector.test/v1/logs', invalid)))
-      .toThrow(`product-telemetry-otel: ${message}`)
+    expect(() => new ProductTelemetry(ctx, config('http://collector.test/v1/logs', invalid))).toThrow(`product-telemetry-otel: ${message}`)
     expect(ctx.get('productTelemetry')).toBeUndefined()
   })
 
@@ -185,13 +221,15 @@ describe('explicit product telemetry', () => {
     expect(target.captures[0]?.headers['content-encoding']).toBe('gzip')
   })
 
-  it.each(['headers', 'body'] as const)('cancels a stalled response %s before disposal completes', async (stall) => {
+  it.each(['headers', 'body'] as const)('cancels a stalled response %s before disposal completes', async stall => {
     const received = Promise.withResolvers<undefined>()
     const disconnected = Promise.withResolvers<undefined>()
     const server = createServer((req, res) => {
       req.resume()
       req.on('end', () => {
-        res.on('close', () => { disconnected.resolve(undefined) })
+        res.on('close', () => {
+          disconnected.resolve(undefined)
+        })
         if (stall === 'body') res.writeHead(200).write('{')
         received.resolve(undefined)
       })
@@ -208,9 +246,13 @@ describe('explicit product telemetry', () => {
     if (address === null || typeof address === 'string') throw new Error('collector has no port')
     const ctx = context()
     const warn = vi.spyOn(ctx.logger, 'warn')
-    const fiber = await ctx.plugin(ProductTelemetry, config(`http://127.0.0.1:${address.port}/v1/logs`, {
-      maxExportBatchSize: 1, shutdownTimeoutMillis: 50,
-    }))
+    const fiber = await ctx.plugin(
+      ProductTelemetry,
+      config(`http://127.0.0.1:${address.port}/v1/logs`, {
+        maxExportBatchSize: 1,
+        shutdownTimeoutMillis: 50,
+      }),
+    )
     ctx.productTelemetry.emit(event)
     await received.promise
     await fiber.dispose()

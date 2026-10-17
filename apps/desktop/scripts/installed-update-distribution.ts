@@ -57,18 +57,38 @@ export async function planInstalledUpdateDistribution(manifest: string, version:
     throw new Error('installed update: feed filename must identify the selected local Windows installer')
   }
   const installer = await binary(join(directory, filename), `${run.binPrefix}/${filename}`)
-  if (info.size !== installer.size || info.sha512 !== installer.sha512
-    || (metadata.sha512 !== undefined && metadata.sha512 !== installer.sha512)) {
+  if (
+    info.size !== installer.size ||
+    info.sha512 !== installer.sha512 ||
+    (metadata.sha512 !== undefined && metadata.sha512 !== installer.sha512)
+  ) {
     throw new Error('installed update: installer size or SHA-512 differs from the generated feed')
   }
   const blockmap = await binary(join(directory, `${filename}.blockmap`), `${run.binPrefix}/${filename}.blockmap`)
-  if (metadata.releaseDate !== undefined && (typeof metadata.releaseDate !== 'string'
-    || !Number.isFinite(Date.parse(metadata.releaseDate)))) throw new Error('installed update: invalid feed release date')
+  if (
+    metadata.releaseDate !== undefined &&
+    (typeof metadata.releaseDate !== 'string' || !Number.isFinite(Date.parse(metadata.releaseDate)))
+  )
+    throw new Error('installed update: invalid feed release date')
   const url = `${run.origin}/${installer.key}`
-  const contents = dump({ version, files: [{ url, size: installer.size, sha512: installer.sha512 }],
-    path: url, sha512: installer.sha512, ...(metadata.releaseDate === undefined ? {} : { releaseDate: metadata.releaseDate }) })
-  return { version, bucket: run.bucket, binaries: [installer, blockmap],
-    feed: { key: run.feedKey, url: `${run.origin}/${run.feedKey}`, contents,
-      sha512: createHash('sha512').update(contents).digest('base64') },
-    verified: 'file-integrity-only', publicationAuthorized: false }
+  const contents = dump({
+    version,
+    files: [{ url, size: installer.size, sha512: installer.sha512 }],
+    path: url,
+    sha512: installer.sha512,
+    ...(metadata.releaseDate === undefined ? {} : { releaseDate: metadata.releaseDate }),
+  })
+  return {
+    version,
+    bucket: run.bucket,
+    binaries: [installer, blockmap],
+    feed: {
+      key: run.feedKey,
+      url: `${run.origin}/${run.feedKey}`,
+      contents,
+      sha512: createHash('sha512').update(contents).digest('base64'),
+    },
+    verified: 'file-integrity-only',
+    publicationAuthorized: false,
+  }
 }

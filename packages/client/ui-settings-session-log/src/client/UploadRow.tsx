@@ -26,15 +26,22 @@ type Face = InjectFace<UploadInjected> & PropsLocale<'settings.sessionLog'>
 export function UploadRow({ useUpload, useMutation, setEnabled, t }: PropsRuntime<'settings.general.item'> & Face) {
   const upload = useUpload(value => value)
   const busy = useMutation(value => value.busy)
-  return <div className={css.row}>
-    <div>
-      <div className={css.title}>{t('title')}</div>
-      <div className={css.description}>{t('description')}</div>
+  return (
+    <div className={css.row}>
+      <div>
+        <div className={css.title}>{t('title')}</div>
+        <div className={css.description}>{t('description')}</div>
+      </div>
+      <Switch
+        checked={upload.value?.enabled === true}
+        label={t('title')}
+        disabled={busy || upload.status !== 'ready' || !upload.writable}
+        onChange={enabled => {
+          void setEnabled(enabled)
+        }}
+      />
     </div>
-    <Switch checked={upload.value?.enabled === true} label={t('title')}
-      disabled={busy || upload.status !== 'ready' || !upload.writable}
-      onChange={(enabled) => { void setEnabled(enabled) }} />
-  </div>
+  )
 }
 
 /**
@@ -45,6 +52,12 @@ export function UploadRow({ useUpload, useMutation, setEnabled, t }: PropsRuntim
 export function UploadToast({ useMutation, dismiss, t }: PropsRuntime<'shell.overlay'> & Face) {
   const state = useMutation(value => value)
   if (state.notice === null) return null
-  return <Toast key={state.sequence} text={t(state.notice)} onDone={dismiss}
-    {...state.notice === 'saved' ? { tone: 'success' as const } : {}} />
+  return (
+    <Toast
+      key={state.sequence}
+      text={t(state.notice)}
+      onDone={dismiss}
+      {...(state.notice === 'saved' ? { tone: 'success' as const } : {})}
+    />
+  )
 }

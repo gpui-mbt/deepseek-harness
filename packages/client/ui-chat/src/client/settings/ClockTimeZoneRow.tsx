@@ -17,10 +17,7 @@ export interface ClockTimeZoneRowInjected {
 }
 
 /** Full Settings-row props. */
-export type ClockTimeZoneRowProps =
-  PropsRuntime<'settings.general.item'>
-  & PropsLocale<'chat'>
-  & InjectFace<ClockTimeZoneRowInjected>
+export type ClockTimeZoneRowProps = PropsRuntime<'settings.general.item'> & PropsLocale<'chat'> & InjectFace<ClockTimeZoneRowInjected>
 
 const LABELS = {
   local: 'settings.clockTimeZone.local',
@@ -42,7 +39,9 @@ export function ClockTimeZoneRow({ useClockTimeZone, setClockTimeZone, t }: Cloc
       value={zone}
       selectedLabel={t(LABELS[zone])}
       options={CLOCK_TIME_ZONES.map(id => ({ id, label: t(LABELS[id]) }))}
-      onSelect={(value) => { setClockTimeZone(value as ClockTimeZone) }}
+      onSelect={value => {
+        setClockTimeZone(value as ClockTimeZone)
+      }}
     />
   )
 }

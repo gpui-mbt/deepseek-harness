@@ -1,6 +1,6 @@
 /** Controller wire behavior: document-relative routes, availability filtering, and launch errors. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OpenInAppController } from '../src/client/controller.ts'
 
 afterEach(() => {
@@ -38,7 +38,10 @@ describe('OpenInAppController availability', () => {
   })
 
   it('requests the document-relative availability route', async () => {
-    const fetcher = vi.fn(async (input: string | URL) => { void input; return jsonResponse({ apps: [] }) })
+    const fetcher = vi.fn(async (input: string | URL) => {
+      void input
+      return jsonResponse({ apps: [] })
+    })
     const controller = new OpenInAppController(fetcher)
     await controller.load()
     expect(fetcher.mock.calls[0]?.[0]).toBe('open-in-app/apps')
@@ -59,7 +62,12 @@ describe('OpenInAppController launching', () => {
 
   it('shares the busy operation across gestures and captures its app and directory', async () => {
     let finish!: (response: Response) => void
-    const fetcher = vi.fn((_input: string | URL, _init?: RequestInit) => new Promise<Response>((resolve) => { finish = resolve }))
+    const fetcher = vi.fn(
+      (_input: string | URL, _init?: RequestInit) =>
+        new Promise<Response>(resolve => {
+          finish = resolve
+        }),
+    )
     const controller = new OpenInAppController(fetcher)
     controller.choose('cursor')
     const pending = controller.launch('cursor', '/workspace/first')
@@ -78,7 +86,9 @@ describe('OpenInAppController launching', () => {
     const values = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => { values.set(key, value) },
+      setItem: (key: string, value: string) => {
+        values.set(key, value)
+      },
     })
     const controller = new OpenInAppController(async () => jsonResponse({ apps: [] }))
     controller.choose('cursor')
@@ -89,7 +99,11 @@ describe('OpenInAppController launching', () => {
   })
 
   it('posts the launch body and surfaces HTTP failures', async () => {
-    const fetcher = vi.fn(async (input: string | URL, init?: RequestInit) => { void input; void init; return jsonResponse({ ok: true }) })
+    const fetcher = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      void input
+      void init
+      return jsonResponse({ ok: true })
+    })
     const controller = new OpenInAppController(fetcher)
     await controller.launch('cursor', '/w/dir')
     expect(fetcher.mock.calls[0]?.[0]).toBe('open-in-app/open')

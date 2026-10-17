@@ -2,7 +2,7 @@
 /** todo_write atomic Tool presentation and its plan-summary model. */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { TodoItem } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -43,17 +43,22 @@ describe('planSummary', () => {
   })
 
   it('has no hint when nothing is in progress', () => {
-    expect(planSummary([{ content: '都完了', status: 'completed' }]))
-      .toEqual({ done: 1, total: 1, activeContent: null, activeExtra: 0 })
+    expect(planSummary([{ content: '都完了', status: 'completed' }])).toEqual({ done: 1, total: 1, activeContent: null, activeExtra: 0 })
   })
 
   it('has no hint when the first active item carries no usable content', () => {
-    expect(planSummary([{ status: 'in_progress' }, { content: 'x', status: 'in_progress' }]))
-      .toMatchObject({ activeContent: null, activeExtra: 0 })
+    expect(planSummary([{ status: 'in_progress' }, { content: 'x', status: 'in_progress' }])).toMatchObject({
+      activeContent: null,
+      activeExtra: 0,
+    })
     expect(planSummary([{ content: 42, status: 'in_progress' }]).activeContent).toBeNull()
     expect(planSummary([{ content: '', status: 'in_progress' }]).activeContent).toBeNull()
-    expect(planSummary([{ content: '   ', status: 'in_progress' }, { content: 'x', status: 'in_progress' }]))
-      .toMatchObject({ activeContent: null, activeExtra: 0 })
+    expect(
+      planSummary([
+        { content: '   ', status: 'in_progress' },
+        { content: 'x', status: 'in_progress' },
+      ]),
+    ).toMatchObject({ activeContent: null, activeExtra: 0 })
   })
 
   it('is empty-safe', () => {
@@ -64,16 +69,27 @@ describe('planSummary', () => {
 const resultNode = (argsRaw: string, over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'todo_write', argsRaw } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callTime: 1_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callTime: 1_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
-    content: [], isError: false, subCalls: [], ...over,
+    content: [],
+    isError: false,
+    subCalls: [],
+    ...over,
   }
 }
 
 function rowProps(block: TodoRowProps['block']): TodoRowProps {
   return {
-    useDisclosure, callId: 'c1', toolName: 'todo_write', ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    useDisclosure,
+    callId: 'c1',
+    toolName: 'todo_write',
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
     openFile: vi.fn(),
     sessionId: 's1',
     useSessions: () => undefined,
@@ -102,12 +118,31 @@ describe('TodoRow', () => {
 
   it('omits the active clause when no item is in progress and reads running-call args', () => {
     const args = JSON.stringify({ todos: [{ content: 'x', status: 'completed' }] })
-    render(<TodoRow {...rowProps({ phase: 'start' as const, args: PartialArguments.fromText(args), callId: 'c1', name: 'todo_write', argsRaw: args, turn: 1, step: 1, time: 1_000, subCalls: [] })} />)
+    render(
+      <TodoRow
+        {...rowProps({
+          phase: 'start' as const,
+          args: PartialArguments.fromText(args),
+          callId: 'c1',
+          name: 'todo_write',
+          argsRaw: args,
+          turn: 1,
+          step: 1,
+          time: 1_000,
+          subCalls: [],
+        })}
+      />,
+    )
     expect(screen.getByText('1/1 已完成')).toBeTruthy()
   })
 
   it('keeps the counts when an active item has unusable content', () => {
-    const args = JSON.stringify({ todos: [{ content: 'done', status: 'completed' }, { content: 42, status: 'in_progress' }] })
+    const args = JSON.stringify({
+      todos: [
+        { content: 'done', status: 'completed' },
+        { content: 42, status: 'in_progress' },
+      ],
+    })
     const { container } = render(<TodoRow {...rowProps(resultNode(args))} />)
     expect(screen.getByText('1/2 已完成')).toBeTruthy()
     expect(container.textContent).not.toContain('+')
@@ -115,11 +150,27 @@ describe('TodoRow', () => {
 
   it('keeps non-ok execution states visible through the shared row states', () => {
     const args = JSON.stringify({ todos: LIST })
-    const running = render(<TodoRow {...rowProps({ phase: 'start' as const, args: PartialArguments.fromText(args), callId: 'c1', name: 'todo_write', argsRaw: args, turn: 1, step: 1, time: 1_000, subCalls: [] })} />)
+    const running = render(
+      <TodoRow
+        {...rowProps({
+          phase: 'start' as const,
+          args: PartialArguments.fromText(args),
+          callId: 'c1',
+          name: 'todo_write',
+          argsRaw: args,
+          turn: 1,
+          step: 1,
+          time: 1_000,
+          subCalls: [],
+        })}
+      />,
+    )
     expect(running.container.querySelector('[data-state="running"]')).not.toBeNull()
     expect(running.container.querySelector('[data-state="running"] svg')).not.toBeNull()
     running.unmount()
-    const stopped = render(<TodoRow {...rowProps(resultNode(args, { isError: true, error: { name: 'Interrupted', code: 'interrupted' } }))} />)
+    const stopped = render(
+      <TodoRow {...rowProps(resultNode(args, { isError: true, error: { name: 'Interrupted', code: 'interrupted' } }))} />,
+    )
     expect(stopped.container.querySelector('[data-state="stopped"]')).not.toBeNull()
   })
 

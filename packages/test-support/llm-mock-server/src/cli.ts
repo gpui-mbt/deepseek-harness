@@ -5,12 +5,7 @@
 
 import { parseArgs } from 'node:util'
 import { MAX_MOCK_LLM_TIMER_DELAY_MS, MOCK_LLM_BEHAVIORS } from './index.ts'
-import type {
-  ConcreteMockLlmBehavior,
-  MockLlmBehavior,
-  MockLlmRandomWeights,
-  MockLlmServerOptions,
-} from './index.ts'
+import type { ConcreteMockLlmBehavior, MockLlmBehavior, MockLlmRandomWeights, MockLlmServerOptions } from './index.ts'
 
 /** Listener lifecycle behavior understood only by the standalone CLI. */
 export const CONNECTION_REFUSED_BEHAVIOR = 'connection_refused'
@@ -26,9 +21,7 @@ export interface MockLlmCliConfig {
 }
 
 /** Result of parsing `dsh-llm-mock-server` arguments. */
-export type MockLlmCliParseResult =
-  | { readonly kind: 'help' }
-  | { readonly kind: 'run'; readonly config: MockLlmCliConfig }
+export type MockLlmCliParseResult = { readonly kind: 'help' } | { readonly kind: 'run'; readonly config: MockLlmCliConfig }
 
 const BEHAVIORS = new Set<string>(MOCK_LLM_BEHAVIORS)
 const DEFAULT_LISTEN_DELAY_MS = 750
@@ -117,13 +110,13 @@ function parseRandomWeights(raw: string): MockLlmRandomWeights {
 
 /** parseArgs vocabulary: every documented flag; only `--repeat-last` and `--help` are boolean. */
 const CLI_OPTIONS = {
-  'sequence': { type: 'string' },
-  'host': { type: 'string' },
-  'port': { type: 'string' },
+  sequence: { type: 'string' },
+  host: { type: 'string' },
+  port: { type: 'string' },
   'api-key': { type: 'string' },
   'listen-delay-ms': { type: 'string' },
   'repeat-last': { type: 'boolean' },
-  'seed': { type: 'string' },
+  seed: { type: 'string' },
   'random-weights': { type: 'string' },
   'success-text': { type: 'string' },
   'partial-text': { type: 'string' },
@@ -152,9 +145,10 @@ export function parseMockLlmCliArgs(argv: readonly string[]): MockLlmCliParseRes
   const host = values.host
   const port = values.port === undefined ? 8_000 : numberValue('--port', values.port)
   const apiKey = values['api-key']
-  const listenDelayMs = values['listen-delay-ms'] === undefined
-    ? undefined
-    : boundedIntegerValue('--listen-delay-ms', values['listen-delay-ms'], 0, MAX_MOCK_LLM_TIMER_DELAY_MS)
+  const listenDelayMs =
+    values['listen-delay-ms'] === undefined
+      ? undefined
+      : boundedIntegerValue('--listen-delay-ms', values['listen-delay-ms'], 0, MAX_MOCK_LLM_TIMER_DELAY_MS)
   const repeatLast = values['repeat-last'] ?? false
   const randomSeed = values.seed === undefined ? undefined : numberValue('--seed', values.seed)
   const randomWeights = values['random-weights'] === undefined ? undefined : parseRandomWeights(values['random-weights'])
@@ -163,9 +157,8 @@ export function parseMockLlmCliArgs(argv: readonly string[]): MockLlmCliParseRes
   const reasoningText = values['reasoning-text']
   const chunkSize = values['chunk-size'] === undefined ? undefined : numberValue('--chunk-size', values['chunk-size'])
   const chunkDelayMs = values['chunk-delay-ms'] === undefined ? undefined : numberValue('--chunk-delay-ms', values['chunk-delay-ms'])
-  const disconnectDelayMs = values['disconnect-delay-ms'] === undefined
-    ? undefined
-    : numberValue('--disconnect-delay-ms', values['disconnect-delay-ms'])
+  const disconnectDelayMs =
+    values['disconnect-delay-ms'] === undefined ? undefined : numberValue('--disconnect-delay-ms', values['disconnect-delay-ms'])
   const retryAfterMs = values['retry-after-ms'] === undefined ? undefined : numberValue('--retry-after-ms', values['retry-after-ms'])
   const requestId = values['request-id']
   const toolName = values['tool-name']
@@ -191,22 +184,22 @@ export function parseMockLlmCliArgs(argv: readonly string[]): MockLlmCliParseRes
         sequence: parsedSequence.sequence,
         port,
         repeatLast,
-        ...randomSeed === undefined ? {} : { randomSeed },
-        ...randomWeights === undefined ? {} : { randomWeights },
-        ...host === undefined ? {} : { host },
-        ...apiKey === undefined ? {} : { apiKey },
-        ...successText === undefined ? {} : { successText },
-        ...partialText === undefined ? {} : { partialText },
-        ...reasoningText === undefined ? {} : { reasoningText },
-        ...chunkSize === undefined ? {} : { chunkSize },
-        ...chunkDelayMs === undefined ? {} : { chunkDelayMs },
-        ...disconnectDelayMs === undefined ? {} : { disconnectDelayMs },
-        ...retryAfterMs === undefined ? {} : { retryAfterMs },
-        ...requestId === undefined ? {} : { requestId },
-        ...toolName === undefined ? {} : { toolName },
-        ...toolArguments === undefined ? {} : { toolArguments },
+        ...(randomSeed === undefined ? {} : { randomSeed }),
+        ...(randomWeights === undefined ? {} : { randomWeights }),
+        ...(host === undefined ? {} : { host }),
+        ...(apiKey === undefined ? {} : { apiKey }),
+        ...(successText === undefined ? {} : { successText }),
+        ...(partialText === undefined ? {} : { partialText }),
+        ...(reasoningText === undefined ? {} : { reasoningText }),
+        ...(chunkSize === undefined ? {} : { chunkSize }),
+        ...(chunkDelayMs === undefined ? {} : { chunkDelayMs }),
+        ...(disconnectDelayMs === undefined ? {} : { disconnectDelayMs }),
+        ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+        ...(requestId === undefined ? {} : { requestId }),
+        ...(toolName === undefined ? {} : { toolName }),
+        ...(toolArguments === undefined ? {} : { toolArguments }),
       },
-      listenDelayMs: parsedSequence.startsUnavailable ? listenDelayMs ?? DEFAULT_LISTEN_DELAY_MS : 0,
+      listenDelayMs: parsedSequence.startsUnavailable ? (listenDelayMs ?? DEFAULT_LISTEN_DELAY_MS) : 0,
       startsUnavailable: parsedSequence.startsUnavailable,
     },
   }

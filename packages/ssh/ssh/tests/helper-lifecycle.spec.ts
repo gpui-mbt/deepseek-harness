@@ -3,7 +3,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { createConnection, type Socket } from 'node:net'
 import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteProcesses } from '../src/helper-processes.ts'
 import { authenticateStream } from '../src/stream-security.ts'
 
@@ -20,7 +20,10 @@ describe.skipIf(process.platform === 'win32')('SSH helper allocation ownership',
       await rejected
       expect(await readdir(root)).toEqual([])
       await expect(owner.prepare(request)).rejects.toThrow('capacity unavailable')
-    } finally { await owner.close(); await rm(root, { recursive: true, force: true }) }
+    } finally {
+      await owner.close()
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   it('reserves capacity before asynchronous listener allocation', async () => {
@@ -30,7 +33,10 @@ describe.skipIf(process.platform === 'win32')('SSH helper allocation ownership',
       const first = owner.prepare(request)
       await expect(owner.prepare(request)).rejects.toThrow('capacity unavailable')
       await first
-    } finally { await owner.close(); await rm(root, { recursive: true, force: true }) }
+    } finally {
+      await owner.close()
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   it('does not publish a process after termination interrupts cwd resolution', async () => {
@@ -40,7 +46,11 @@ describe.skipIf(process.platform === 'win32')('SSH helper allocation ownership',
     const releaseCwd = Promise.withResolvers<never>()
     const spawn = vi.fn()
     ctx.provide('fs', {
-      resolve: () => { resolving.resolve(undefined); return releaseCwd.promise }, processPath: () => root,
+      resolve: () => {
+        resolving.resolve(undefined)
+        return releaseCwd.promise
+      },
+      processPath: () => root,
     } as never)
     ctx.provide('subprocess', { spawn } as never)
     const owner = new RemoteProcesses(ctx, root, 1, 5000)

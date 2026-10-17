@@ -1,6 +1,4 @@
-import type {
-  ConversationMatchHandler, ConversationNodeDefinition, ConversationNodeDefinitionInput,
-} from '../contract/conversation.ts'
+import type { ConversationMatchHandler, ConversationNodeDefinition, ConversationNodeDefinitionInput } from '../contract/conversation.ts'
 import { ConversationDefinitionRegistry } from './definition-registry.ts'
 
 /** A registered Definition and its event-type-selected handler. */
@@ -42,16 +40,21 @@ export class ConversationEventRegistry extends ConversationDefinitionRegistry<Co
     if (target === undefined) throw new Error('conversation fallback Definition must declare a target')
     if (this.fallback !== undefined) throw new Error('conversation fallback Definition is already registered')
     const definition = this.resolve(input)
-    const dispose = this.ctx.effect(() => {
-      this.fallback = definition
-      this.refresh()
-      return () => {
-        if (this.fallback !== definition) return
-        this.fallback = undefined
+    const dispose = this.ctx.effect(
+      () => {
+        this.fallback = definition
         this.refresh()
-      }
-    }, `uiConversation.events.registerFallback(${JSON.stringify(definition.kind)})`)
-    return () => { void dispose() }
+        return () => {
+          if (this.fallback !== definition) return
+          this.fallback = undefined
+          this.refresh()
+        }
+      },
+      `uiConversation.events.registerFallback(${JSON.stringify(definition.kind)})`,
+    )
+    return () => {
+      void dispose()
+    }
   }
 
   /**
@@ -110,8 +113,6 @@ export class ConversationEventRegistry extends ConversationDefinitionRegistry<Co
 
 function assertDefinitionTarget(definition: ConversationNodeDefinitionInput): void {
   if ((definition.target === undefined) !== (definition.buildViewNode === undefined)) {
-    throw new Error(
-      `conversation Definition "${definition.kind}" must declare target and buildViewNode together`,
-    )
+    throw new Error(`conversation Definition "${definition.kind}" must declare target and buildViewNode together`)
   }
 }

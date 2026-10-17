@@ -3,13 +3,13 @@
 import { once } from 'node:events'
 import { connect } from 'node:net'
 import type { Worker } from 'node:worker_threads'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { openBrowserWorker } from '../src/worker-client.ts'
 import type { NativeBrowserConfig, NativeBrowserRuntime } from '../src/native.ts'
 import { nativeModel } from './fixtures/stagehand.ts'
 
 const state = vi.hoisted(() => ({ workers: [] as Worker[], entries: [] as string[] }))
-vi.mock('node:worker_threads', async (importActual) => {
+vi.mock('node:worker_threads', async importActual => {
   const actual = await importActual<typeof import('node:worker_threads')>()
   return {
     ...actual,
@@ -34,7 +34,14 @@ afterEach(async () => {
 })
 
 function config(scenario = 'ready'): NativeBrowserConfig {
-  return { model: nativeModel, mode: 'attach', cdpEndpoint: `fixture://${scenario}`, headless: true, operationTimeoutMs: 30000, shutdownGraceMs: 1000 }
+  return {
+    model: nativeModel,
+    mode: 'attach',
+    cdpEndpoint: `fixture://${scenario}`,
+    headless: true,
+    operationTimeoutMs: 30000,
+    shutdownGraceMs: 1000,
+  }
 }
 
 async function open(scenario = 'ready') {
@@ -44,7 +51,7 @@ async function open(scenario = 'ready') {
 }
 
 function event(worker: Worker, name: string): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const receive = (value: { event?: string }) => {
       if (value.event !== name) return
       worker.off('message', receive)
@@ -60,7 +67,11 @@ it('passes explicit model credentials without ambient environment and awaits Wor
   const runtime = await open()
   const worker = state.workers[0]!
   expect(decodeURIComponent(state.entries[0]!)).toContain('tsx')
-  const { port, model, env } = await runtime.execute('tabs', { action: 'list' }) as { port: number; model: unknown; env: Record<string, string> }
+  const { port, model, env } = (await runtime.execute('tabs', { action: 'list' })) as {
+    port: number
+    model: unknown
+    env: Record<string, string>
+  }
   expect(model).toEqual(nativeModel)
   expect(env.STAGEHAND_FIXTURE_TOKEN).toBeUndefined()
   expect(env.HTTP_PROXY).toBeUndefined()
@@ -72,7 +83,7 @@ it('passes explicit model credentials without ambient environment and awaits Wor
   await exited
   expect(worker.threadId).toBe(-1)
   const disconnected = connect(port, '127.0.0.1')
-  const [error] = await once(disconnected, 'error') as [Error]
+  const [error] = (await once(disconnected, 'error')) as [Error]
   expect((error as NodeJS.ErrnoException).code).toBe('ECONNREFUSED')
 })
 
@@ -85,7 +96,9 @@ it('terminates a Worker whose initialization overlaps acquisition cancellation',
   const controller = new AbortController()
   const opening = openBrowserWorker(config('opening'), controller.signal, warn)
   const observed = expect(opening).rejects.toThrow('Acquisition canceled')
-  await vi.waitFor(() => { expect(state.workers).toHaveLength(1) })
+  await vi.waitFor(() => {
+    expect(state.workers).toHaveLength(1)
+  })
   controller.abort(new Error('Acquisition canceled'))
   await observed
   expect(state.workers[0]?.threadId).toBe(-1)
@@ -100,17 +113,20 @@ it('fails active and later operations when the Worker exits', async () => {
   await expect(runtime.close()).rejects.toThrow('Worker exited (23)')
 })
 
-it.each(['closing', 'close-failure'])('rejects cleanup after an undrained extension (%s) even though its Worker terminates', async (scenario) => {
-  const runtime = await openBrowserWorker({ ...config(scenario), shutdownGraceMs: 20 }, new AbortController().signal, warn)
-  runtimes.push(runtime)
-  const closing = runtime.close()
-  const rejected = expect(closing).rejects.toThrow(/cleanup timed out|did not drain/u)
-  await expect(runtime.execute('tabs', { action: 'list' })).rejects.toThrow('Worker is closed')
-  await rejected
-  expect(warn).toHaveBeenCalledWith(expect.stringContaining('SDK cleanup did not finish'))
-  expect(state.workers[0]?.threadId).toBe(-1)
-  await expect(runtime.close()).rejects.toThrow()
-})
+it.each(['closing', 'close-failure'])(
+  'rejects cleanup after an undrained extension (%s) even though its Worker terminates',
+  async scenario => {
+    const runtime = await openBrowserWorker({ ...config(scenario), shutdownGraceMs: 20 }, new AbortController().signal, warn)
+    runtimes.push(runtime)
+    const closing = runtime.close()
+    const rejected = expect(closing).rejects.toThrow(/cleanup timed out|did not drain/u)
+    await expect(runtime.execute('tabs', { action: 'list' })).rejects.toThrow('Worker is closed')
+    await rejected
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('SDK cleanup did not finish'))
+    expect(state.workers[0]?.threadId).toBe(-1)
+    await expect(runtime.close()).rejects.toThrow()
+  },
+)
 
 it('rejects cleanup after a Worker crashes', async () => {
   const runtime = await open('error')
@@ -137,7 +153,9 @@ it('waits for the active extension request to drain after cancellation', async (
   controller.abort(new Error('Cancel browser call'))
   await closing
   let closed = false
-  const drainage = runtime.close().then(() => { closed = true })
+  const drainage = runtime.close().then(() => {
+    closed = true
+  })
   try {
     expect(closed).toBe(false)
     expect(worker.threadId).not.toBe(-1)

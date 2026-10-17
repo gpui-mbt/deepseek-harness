@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Lsp, {
   finalExtension,
@@ -80,54 +80,60 @@ describe('Lsp registration', () => {
 
   it('rejects an empty provider id (LSP_INVALID_PROVIDER)', async () => {
     const { lsp } = await mountLsp()
-    expect(() => lsp.registerProvider(makeProvider('  ', { '.ts': 'typescript' })))
-      .toThrow(expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }))
+    expect(() => lsp.registerProvider(makeProvider('  ', { '.ts': 'typescript' }))).toThrow(
+      expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }),
+    )
   })
 
   it('rejects a provider with no extensions (LSP_INVALID_PROVIDER)', async () => {
     const { lsp } = await mountLsp()
-    expect(() => lsp.registerProvider(makeProvider('ts', {})))
-      .toThrow(expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }))
+    expect(() => lsp.registerProvider(makeProvider('ts', {}))).toThrow(expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }))
   })
 
   it('rejects an invalid extension mapping (LSP_INVALID_PROVIDER)', async () => {
     const { lsp } = await mountLsp()
-    expect(() => lsp.registerProvider(makeProvider('ts', { '.tar.gz': 'archive' })))
-      .toThrow(expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }))
+    expect(() => lsp.registerProvider(makeProvider('ts', { '.tar.gz': 'archive' }))).toThrow(
+      expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }),
+    )
   })
 
   it('rejects an empty language id (LSP_INVALID_PROVIDER)', async () => {
     const { lsp } = await mountLsp()
-    expect(() => lsp.registerProvider(makeProvider('ts', { '.ts': '  ' })))
-      .toThrow(expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }))
+    expect(() => lsp.registerProvider(makeProvider('ts', { '.ts': '  ' }))).toThrow(
+      expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }),
+    )
   })
 
   it('rejects an extension mapped twice within one provider (LSP_INVALID_PROVIDER)', async () => {
     const { lsp } = await mountLsp()
-    expect(() => lsp.registerProvider(makeProvider('ts', { '.ts': 'typescript', TS: 'ts2' })))
-      .toThrow(expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }))
+    expect(() => lsp.registerProvider(makeProvider('ts', { '.ts': 'typescript', TS: 'ts2' }))).toThrow(
+      expect.objectContaining({ code: 'LSP_INVALID_PROVIDER' }),
+    )
   })
 
   it('rejects a duplicate provider id (LSP_CONFLICT)', async () => {
     const { lsp } = await mountLsp()
     lsp.registerProvider(makeProvider('ts', { '.ts': 'typescript' }))
-    expect(() => lsp.registerProvider(makeProvider('ts', { '.tsx': 'typescriptreact' })))
-      .toThrow(expect.objectContaining({ code: 'LSP_CONFLICT' }))
+    expect(() => lsp.registerProvider(makeProvider('ts', { '.tsx': 'typescriptreact' }))).toThrow(
+      expect.objectContaining({ code: 'LSP_CONFLICT' }),
+    )
   })
 
   it('rejects an extension already owned by another provider (LSP_CONFLICT)', async () => {
     const { lsp } = await mountLsp()
     lsp.registerProvider(makeProvider('ts', { '.ts': 'typescript' }))
-    expect(() => lsp.registerProvider(makeProvider('other', { '.ts': 'other-lang' })))
-      .toThrow(expect.objectContaining({ code: 'LSP_CONFLICT' }))
+    expect(() => lsp.registerProvider(makeProvider('other', { '.ts': 'other-lang' }))).toThrow(
+      expect.objectContaining({ code: 'LSP_CONFLICT' }),
+    )
   })
 
   it('publishes nothing when a later extension conflicts (atomic reservation)', async () => {
     const { lsp } = await mountLsp()
     lsp.registerProvider(makeProvider('ts', { '.ts': 'typescript' }))
     // This provider's `.py` is free but `.ts` conflicts: the whole registration must roll back.
-    expect(() => lsp.registerProvider(makeProvider('py-ts', { '.py': 'python', '.ts': 'x' })))
-      .toThrow(expect.objectContaining({ code: 'LSP_CONFLICT' }))
+    expect(() => lsp.registerProvider(makeProvider('py-ts', { '.py': 'python', '.ts': 'x' }))).toThrow(
+      expect.objectContaining({ code: 'LSP_CONFLICT' }),
+    )
     // `.py` must NOT have been reserved.
     await expect(lsp.query(query('a.py'))).rejects.toThrow(expect.objectContaining({ code: 'LSP_UNAVAILABLE' }))
   })
@@ -169,9 +175,14 @@ describe('Lsp registration', () => {
 
   it('disposes provider registrations when the contributing fiber is disposed (HMR safety)', async () => {
     const { ctx, lsp } = await mountLsp()
-    const fiber = await ctx.plugin(Object.assign((inner: Context) => {
-      inner.lsp.registerProvider(makeProvider('ts', { '.ts': 'typescript' }))
-    }, { inject: ['lsp'] }))
+    const fiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          inner.lsp.registerProvider(makeProvider('ts', { '.ts': 'typescript' }))
+        },
+        { inject: ['lsp'] },
+      ),
+    )
     await expect(lsp.query(query('a.ts'))).resolves.toEqual({ kind: 'locations', locations: [], resolvedWorkspaceUri: 'file:///ws' })
     await fiber.dispose()
     await expect(lsp.query(query('a.ts'))).rejects.toThrow(expect.objectContaining({ code: 'LSP_UNAVAILABLE' }))

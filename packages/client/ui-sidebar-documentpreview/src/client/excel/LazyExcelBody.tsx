@@ -23,7 +23,9 @@ const LoadedExcelBody = lazy(async () => ({ default: (await import('./excel.tsx'
 export function LazyExcelBody(props: ExcelBodyProps): ReactNode {
   const format = excelFormat(hostFileOf(props.resourceAddress).path)
   const loading = <LoadingIndicator label={props.t('loading')} />
-  return <Suspense fallback={loading}>
-    <LoadedExcelBody {...props} format={format} loading={loading} />
-  </Suspense>
+  return (
+    <Suspense fallback={loading}>
+      <LoadedExcelBody {...props} format={format} loading={loading} />
+    </Suspense>
+  )
 }

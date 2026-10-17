@@ -1,15 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseClientStack } from '../src/client/cdp/stack.ts'
 import { inspectorId } from '../src/shared/bridge/ids.ts'
 
 describe('Client stack projection', () => {
   it('normalizes browser line numbers and associates known source URLs', () => {
     const key = inspectorId<'RuntimeScriptKey'>('client-bundle', 'scriptKey')
-    const stack = parseClientStack([
-      'Error',
-      '    at capture (http://client.test/client.js?rev=1:10:4)',
-      '    at http://client.test/app.js:20:8',
-    ].join('\n'), url => url.includes('/client.js') ? key : undefined, 0)
+    const stack = parseClientStack(
+      ['Error', '    at capture (http://client.test/client.js?rev=1:10:4)', '    at http://client.test/app.js:20:8'].join('\n'),
+      url => (url.includes('/client.js') ? key : undefined),
+      0,
+    )
     expect(stack).toEqual({
       callFrames: [
         {

@@ -170,7 +170,12 @@ function sideSections(markdown: string, normalized: TranslationLinkNormalization
 }
 
 function slug(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'section'
+  )
 }
 
 function sectionHash(blocks: string[]): string {
@@ -278,10 +283,7 @@ export function renderTranslationPairingRecord(paths: TranslationPairPaths, reco
  * @param current - Record computed from current contents.
  * @returns One message per changed, added, or removed section; empty when equal.
  */
-export function translationPairingRecordDiff(
-  recorded: TranslationPairingRecord,
-  current: TranslationPairingRecord,
-): string[] {
+export function translationPairingRecordDiff(recorded: TranslationPairingRecord, current: TranslationPairingRecord): string[] {
   const out: string[] = []
   for (const [key, hashes] of current) {
     const confirmed = recorded.get(key)

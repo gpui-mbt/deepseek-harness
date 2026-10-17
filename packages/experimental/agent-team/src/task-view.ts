@@ -35,11 +35,12 @@ export function taskReady(state: TeamState, task: TeamTaskSnapshot): boolean {
  * @returns a detached task view.
  */
 export function projectTaskView(state: TeamState, task: TeamTaskSnapshot): TeamTaskView {
-  const ownerName = task.ownerId === undefined
-    ? undefined
-    : task.ownerId === brandString<SessionId>(state.id)
-      ? 'lead'
-      : state.members.find(member => member.id === task.ownerId)?.name
+  const ownerName =
+    task.ownerId === undefined
+      ? undefined
+      : task.ownerId === brandString<SessionId>(state.id)
+        ? 'lead'
+        : state.members.find(member => member.id === task.ownerId)?.name
   const warnings = new Set<string>()
   for (const other of state.tasks) {
     if (other.id === task.id || other.status !== 'in_progress') continue
@@ -55,7 +56,7 @@ export function projectTaskView(state: TeamState, task: TeamTaskSnapshot): TeamT
     status: task.status,
     blockedBy: [...task.blockedBy],
     writeScopes: [...task.writeScopes],
-    ...ownerName === undefined ? {} : { ownerName },
+    ...(ownerName === undefined ? {} : { ownerName }),
     ready: task.status === 'pending' && taskReady(state, task),
     writeScopeWarnings: [...warnings],
   }

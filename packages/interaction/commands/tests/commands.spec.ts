@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import type { Scope } from '@deepseek-ai/dsh-scope'
@@ -27,13 +27,21 @@ async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scop
   const session = ctx.sessions.create(SessionId(name))
   const agent = { id: session.id, session } as Agent
   let scope!: Scope
-  await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, agent) }, { inject: ['commands'] }))
+  await ctx.plugin(
+    Object.assign(
+      (inner: Context) => {
+        scope = createScope(inner, agent)
+      },
+      { inject: ['commands'] },
+    ),
+  )
   return { scope, agent }
 }
 
 /** The lifecycle slice of one agent's log (boundary markers stripped). */
 function lifecycleOf(agent: Agent): Array<{ type: string; data: unknown }> {
-  return agent.session.snapshotEvents()
+  return agent.session
+    .snapshotEvents()
     .filter(event => event.type === 'command/run' || event.type === 'command/done')
     .map(event => ({ type: event.type, data: event.data }))
 }
@@ -48,7 +56,7 @@ describe('parseCommand()', () => {
     expect(parseCommand(line)).toEqual(expected)
   })
 
-  it.each(['goal', ' /goal', '/', '/Goal', '/goal/path', '/goal🔥'])('rejects non-command boundary %j', (line) => {
+  it.each(['goal', ' /goal', '/', '/Goal', '/goal/path', '/goal🔥'])('rejects non-command boundary %j', line => {
     expect(parseCommand(line)).toBeUndefined()
   })
 })
@@ -67,12 +75,14 @@ describe('CommandRuntime', () => {
     ctx.commands.register(definition)
 
     const listed = ctx.commands.list(agent)
-    expect(listed).toEqual([{
-      definitionId: CommandDefinitionId('example/inspect'),
-      name: 'inspect',
-      description: 'Inspect state',
-      input: { hint: '<target>' },
-    }])
+    expect(listed).toEqual([
+      {
+        definitionId: CommandDefinitionId('example/inspect'),
+        name: 'inspect',
+        description: 'Inspect state',
+        input: { hint: '<target>' },
+      },
+    ])
     expect(Object.isFrozen(listed)).toBe(true)
     expect(Object.isFrozen(listed[0])).toBe(true)
     expect(Object.isFrozen(listed[0]?.input)).toBe(true)
@@ -100,8 +110,10 @@ describe('CommandRuntime', () => {
     expect(ctx.commands.find(agent, 'shared')?.handler).toBeDefined()
     expect(ctx.commands.list(agent)[0]).not.toHaveProperty('definitionId')
     expect(ctx.commands.list(other).map(item => item.name)).toEqual(['shared'])
-    expect((await ctx.commands.execute(agent, '/shared', [], new AbortController().signal))?.result)
-      .toEqual({ kind: 'success', text: 'scoped' })
+    expect((await ctx.commands.execute(agent, '/shared', [], new AbortController().signal))?.result).toEqual({
+      kind: 'success',
+      text: 'scoped',
+    })
 
     await scope.dispose()
     expect(ctx.commands.list(agent)[0]?.definitionId).toBe('example/shared')
@@ -111,9 +123,14 @@ describe('CommandRuntime', () => {
   it('removes a registration when its contributing plugin fiber is disposed', async () => {
     const ctx = await mount()
     const { agent } = await mintAgentScope(ctx, 'a')
-    const fiber = await ctx.plugin(Object.assign((inner: Context) => {
-      inner.commands.register(command('temporary'))
-    }, { inject: ['commands'] }))
+    const fiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          inner.commands.register(command('temporary'))
+        },
+        { inject: ['commands'] },
+      ),
+    )
     expect(ctx.commands.find(agent, 'temporary')).toBeDefined()
 
     await fiber.dispose()
@@ -140,7 +157,9 @@ describe('CommandRuntime', () => {
     expect(changed).toHaveBeenCalledTimes(2)
 
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
-    ctx.on('commands/change', () => { throw new Error('observer threw') })
+    ctx.on('commands/change', () => {
+      throw new Error('observer threw')
+    })
     // oxlint-disable-next-line typescript/no-misused-promises -- exercises rejected-listener containment
     ctx.on('commands/change', () => Promise.reject(new Error('observer rejected')))
     const afterFailures = vi.fn()
@@ -160,18 +179,24 @@ describe('CommandRuntime', () => {
 
   it('rejects non-string descriptions and input hints with boundary diagnostics', async () => {
     const ctx = await mount()
-    expect(() => ctx.commands.register({
-      ...command('description-type'),
-      description: undefined,
-    } as unknown as CommandDefinition)).toThrow('command "description-type" description must be a string')
-    expect(() => ctx.commands.register({
-      ...command('hint-type'),
-      input: { hint: 42 },
-    } as unknown as CommandDefinition)).toThrow('command "hint-type" input hint must be a string')
-    expect(() => ctx.commands.register({
-      ...command('input-type'),
-      input: null,
-    } as unknown as CommandDefinition)).toThrow('command "input-type" input hint must be a string')
+    expect(() =>
+      ctx.commands.register({
+        ...command('description-type'),
+        description: undefined,
+      } as unknown as CommandDefinition),
+    ).toThrow('command "description-type" description must be a string')
+    expect(() =>
+      ctx.commands.register({
+        ...command('hint-type'),
+        input: { hint: 42 },
+      } as unknown as CommandDefinition),
+    ).toThrow('command "hint-type" input hint must be a string')
+    expect(() =>
+      ctx.commands.register({
+        ...command('input-type'),
+        input: null,
+      } as unknown as CommandDefinition),
+    ).toThrow('command "input-type" input hint must be a string')
   })
 
   it('passes exact invocation context and detaches valid handler results', async () => {
@@ -187,11 +212,13 @@ describe('CommandRuntime', () => {
     expect(execution?.commandId).toBeTruthy()
     expect(Object.isFrozen(execution)).toBe(true)
     expect(Object.isFrozen(execution?.result)).toBe(true)
-    expect(seen).toHaveBeenCalledWith(expect.objectContaining({
-      agent,
-      rawInput: '  untouched ',
-      signal: controller.signal,
-    }))
+    expect(seen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent,
+        rawInput: '  untouched ',
+        signal: controller.signal,
+      }),
+    )
     await expect(ctx.commands.execute(agent, 'run', [], controller.signal)).resolves.toBeUndefined()
     await expect(ctx.commands.execute(agent, '/missing', [], controller.signal)).resolves.toBeUndefined()
   })
@@ -203,7 +230,10 @@ describe('CommandRuntime', () => {
     ctx.commands.register({
       name: 'wait',
       description: 'Wait',
-      handler: () => new Promise((resolve) => { release = resolve }),
+      handler: () =>
+        new Promise(resolve => {
+          release = resolve
+        }),
     })
     const running = new AbortController()
     const promise = ctx.commands.execute(agent, '/wait', [], running.signal)
@@ -228,8 +258,7 @@ describe('CommandRuntime', () => {
       description: 'Reject',
       handler: () => Promise.reject(new Error('handler rejected')),
     })
-    await expect(ctx.commands.execute(agent, '/reject', [], new AbortController().signal))
-      .rejects.toThrow('handler rejected')
+    await expect(ctx.commands.execute(agent, '/reject', [], new AbortController().signal)).rejects.toThrow('handler rejected')
 
     ctx.commands.register({
       name: 'reject-value',
@@ -237,21 +266,25 @@ describe('CommandRuntime', () => {
       // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- exercise untyped plugin normalization
       handler: () => Promise.reject('not an Error'),
     })
-    await expect(ctx.commands.execute(agent, '/reject-value', [], new AbortController().signal))
-      .rejects.toThrow('command handler rejected with a non-Error value: not an Error')
+    await expect(ctx.commands.execute(agent, '/reject-value', [], new AbortController().signal)).rejects.toThrow(
+      'command handler rejected with a non-Error value: not an Error',
+    )
 
-    const hostile = { toString(): string { throw new Error('cannot render') } }
+    const hostile = {
+      toString(): string {
+        throw new Error('cannot render')
+      },
+    }
     ctx.commands.register({
       name: 'reject-hostile',
       description: 'Reject an unrenderable value',
       // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- exercise hostile plugin normalization
       handler: () => Promise.reject(hostile),
     })
-    await expect(ctx.commands.execute(agent, '/reject-hostile', [], new AbortController().signal))
-      .rejects.toMatchObject({
-        message: 'command handler rejected with a non-Error value: <unrenderable thrown value>',
-        cause: hostile,
-      })
+    await expect(ctx.commands.execute(agent, '/reject-hostile', [], new AbortController().signal)).rejects.toMatchObject({
+      message: 'command handler rejected with a non-Error value: <unrenderable thrown value>',
+      cause: hostile,
+    })
   })
 
   it('observes an abort triggered synchronously inside the handler', async () => {
@@ -266,8 +299,7 @@ describe('CommandRuntime', () => {
         return { kind: 'success' }
       },
     })
-    await expect(ctx.commands.execute(agent, '/self-abort', [], controller.signal))
-      .rejects.toThrow('aborted in handler')
+    await expect(ctx.commands.execute(agent, '/self-abort', [], controller.signal)).rejects.toThrow('aborted in handler')
   })
 
   it('returns a detached expected-error result', async () => {
@@ -320,9 +352,7 @@ describe('CommandRuntime', () => {
     // The execution's pairing id is the logged one (RPC-level correlation).
     expect(execution?.commandId).toBe(ids[0])
     // Direct log-only appends: no turn is opened for the pair on an idle log.
-    expect(agent.session.snapshotEvents().map(event => event.type)).toEqual([
-      'command/run', 'command/done',
-    ])
+    expect(agent.session.snapshotEvents().map(event => event.type)).toEqual(['command/run', 'command/done'])
   })
 
   it('preserves an earlier authoritative domain-event reference on successful settlement', async () => {
@@ -393,10 +423,11 @@ describe('CommandRuntime', () => {
     ctx.commands.register({
       name: 'boom',
       description: 'Throw',
-      handler: () => { throw new Error('handler exploded') },
+      handler: () => {
+        throw new Error('handler exploded')
+      },
     })
-    await expect(ctx.commands.execute(agent, '/boom', [], new AbortController().signal))
-      .rejects.toThrow('handler exploded')
+    await expect(ctx.commands.execute(agent, '/boom', [], new AbortController().signal)).rejects.toThrow('handler exploded')
     expect(lifecycleOf(agent)).toMatchObject([
       { type: 'command/run', data: { name: 'boom' } },
       { type: 'command/done', data: { kind: 'error', text: 'handler exploded' } },
@@ -414,7 +445,9 @@ describe('CommandRuntime', () => {
     const controller = new AbortController()
     const pending = ctx.commands.execute(agent, '/hang', [], controller.signal)
     // The run append must land before the abort so the pair stays complete.
-    await vi.waitFor(() => { expect(lifecycleOf(agent)).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(lifecycleOf(agent)).toHaveLength(1)
+    })
     controller.abort('operator cancelled command')
     await expect(pending).rejects.toThrow('operator cancelled command')
     await vi.waitFor(() => {
@@ -441,9 +474,7 @@ describe('CommandRuntime', () => {
     ctx.commands.register(command('mid'))
     agent.session.append('turn/start', { turn: 1 })
     await ctx.commands.execute(agent, '/mid', [], new AbortController().signal)
-    expect(agent.session.snapshotEvents().map(event => event.type)).toEqual([
-      'turn/start', 'command/run', 'command/done',
-    ])
+    expect(agent.session.snapshotEvents().map(event => event.type)).toEqual(['turn/start', 'command/run', 'command/done'])
   })
 
   it.each([
@@ -477,21 +508,31 @@ describe('command attachments', () => {
     let saved = 0
     const store = {
       imageLimits: {
-        maxImageBytes: 1024, maxImagesPerMessage: 2, maxMessageImageBytes: 1024,
-        maxImagePixels: 1_000_000, maxImageDimension: 2000, mediaTypes: ['image/png'],
+        maxImageBytes: 1024,
+        maxImagesPerMessage: 2,
+        maxMessageImageBytes: 1024,
+        maxImagePixels: 1_000_000,
+        maxImageDimension: 2000,
+        mediaTypes: ['image/png'],
       },
       validateImage: vi.fn(() => Promise.resolve()),
       saveImage: vi.fn((input: { mediaType: string; name?: string }) => {
         saved += 1
         return Promise.resolve({
-          attachmentId: `att-${saved}`, mediaType: input.mediaType, bytes: 3, width: 1, height: 1,
-          ...input.name === undefined ? {} : { name: input.name },
+          attachmentId: `att-${saved}`,
+          mediaType: input.mediaType,
+          bytes: 3,
+          width: 1,
+          height: 1,
+          ...(input.name === undefined ? {} : { name: input.name }),
         })
       }),
       saveFile: vi.fn((input: { data: Uint8Array; name?: string }) => {
         saved += 1
         return Promise.resolve({
-          attachmentId: `att-${saved}`, bytes: input.data.byteLength, name: input.name ?? 'attachment',
+          attachmentId: `att-${saved}`,
+          bytes: input.data.byteLength,
+          name: input.name ?? 'attachment',
         })
       }),
       validateImageBatch(inputs: readonly unknown[]) {
@@ -519,10 +560,12 @@ describe('command attachments', () => {
 
   it('rejects a boolean-typed images flag violation at registration', async () => {
     const ctx = await mount()
-    expect(() => ctx.commands.register({
-      ...command('flag-type'),
-      input: { hint: 'x', attachments: 'yes' },
-    } as unknown as CommandDefinition)).toThrow('command "flag-type" input attachments flag must be a boolean')
+    expect(() =>
+      ctx.commands.register({
+        ...command('flag-type'),
+        input: { hint: 'x', attachments: 'yes' },
+      } as unknown as CommandDefinition),
+    ).toThrow('command "flag-type" input attachments flag must be a boolean')
   })
 
   it('lists attachment acceptance on the descriptor and omits a false flag', async () => {
@@ -541,7 +584,11 @@ describe('command attachments', () => {
     const handler = vi.fn(() => ({ kind: 'success' as const }))
     ctx.commands.register({ ...command('deploy'), handler })
     const execution = await ctx.commands.execute(
-      agent, '/deploy now', [{ type: 'image', mediaType: 'image/png', data: PNG }], new AbortController().signal)
+      agent,
+      '/deploy now',
+      [{ type: 'image', mediaType: 'image/png', data: PNG }],
+      new AbortController().signal,
+    )
     expect(execution?.result).toEqual({ kind: 'error', text: '/deploy does not accept attachments' })
     expect(handler).not.toHaveBeenCalled()
     expect(lifecycleOf(agent)).toMatchObject([
@@ -555,7 +602,11 @@ describe('command attachments', () => {
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(accepting(() => ({ kind: 'success' })))
     const execution = await ctx.commands.execute(
-      agent, '/vision x', [{ type: 'image', mediaType: 'image/png', data: PNG }], new AbortController().signal)
+      agent,
+      '/vision x',
+      [{ type: 'image', mediaType: 'image/png', data: PNG }],
+      new AbortController().signal,
+    )
     expect(execution?.result).toEqual({
       kind: 'error',
       text: '/vision: attachments are unavailable because no attachment store is composed',
@@ -566,22 +617,29 @@ describe('command attachments', () => {
     const ctx = await mount()
     ctx.provide('attachments', storeOf())
     const { agent } = await mintAgentScope(ctx, 'a')
-    ctx.commands.registerFileReceiptResolver((_receivingAgent, receiptId) => receiptId === 'receipt-notes'
-      ? { attachmentId: 'file-notes' as never, name: 'notes.txt', bytes: 5 }
-      : undefined)
+    ctx.commands.registerFileReceiptResolver((_receivingAgent, receiptId) =>
+      receiptId === 'receipt-notes' ? { attachmentId: 'file-notes' as never, name: 'notes.txt', bytes: 5 } : undefined,
+    )
     const seen = vi.fn((invocation: { attachments: readonly unknown[] }) => {
       expect(Object.isFrozen(invocation.attachments)).toBe(true)
       return { kind: 'success' as const }
     })
     ctx.commands.register(accepting(seen))
-    await ctx.commands.execute(agent, '/vision x', [
-      { type: 'image', mediaType: 'image/png', data: PNG, name: 'a.png' },
-      { type: 'file', receiptId: 'receipt-notes' },
-      { type: 'image', mediaType: 'image/png', data: PNG, name: 'b.png' },
-    ], new AbortController().signal)
+    await ctx.commands.execute(
+      agent,
+      '/vision x',
+      [
+        { type: 'image', mediaType: 'image/png', data: PNG, name: 'a.png' },
+        { type: 'file', receiptId: 'receipt-notes' },
+        { type: 'image', mediaType: 'image/png', data: PNG, name: 'b.png' },
+      ],
+      new AbortController().signal,
+    )
     const invocation = seen.mock.calls[0]?.[0] as { attachments: ReadonlyArray<{ type: string; attachment: { name?: string } }> }
     expect(invocation.attachments.map(block => [block.type, block.attachment.name])).toEqual([
-      ['image', 'a.png'], ['file', 'notes.txt'], ['image', 'b.png'],
+      ['image', 'a.png'],
+      ['file', 'notes.txt'],
+      ['image', 'b.png'],
     ])
     await ctx.commands.execute(agent, '/vision y', [], new AbortController().signal)
     expect((seen.mock.calls[1]?.[0] as { attachments: readonly unknown[] }).attachments).toEqual([])
@@ -594,30 +652,38 @@ describe('command attachments', () => {
     const { agent } = await mintAgentScope(ctx, 'a')
     const handler = vi.fn(() => ({ kind: 'success' as const }))
     ctx.commands.register(accepting(handler))
-    const missing = await ctx.commands.execute(
-      agent, '/vision x', [{ type: 'file', receiptId: 'missing' }], new AbortController().signal)
+    const missing = await ctx.commands.execute(agent, '/vision x', [{ type: 'file', receiptId: 'missing' }], new AbortController().signal)
     expect(missing?.result).toEqual({
-      kind: 'error', text: 'File upload receipt is unknown for this session.',
+      kind: 'error',
+      text: 'File upload receipt is unknown for this session.',
     })
     expect(handler).not.toHaveBeenCalled()
-    const mixed = await ctx.commands.execute(agent, '/vision x', [
-      { type: 'image', mediaType: 'image/png', data: PNG },
-      { type: 'file', receiptId: 'missing' },
-    ], new AbortController().signal)
+    const mixed = await ctx.commands.execute(
+      agent,
+      '/vision x',
+      [
+        { type: 'image', mediaType: 'image/png', data: PNG },
+        { type: 'file', receiptId: 'missing' },
+      ],
+      new AbortController().signal,
+    )
     expect(mixed?.result).toEqual({
-      kind: 'error', text: 'File upload receipt is unknown for this session.',
+      kind: 'error',
+      text: 'File upload receipt is unknown for this session.',
     })
     expect(store.saveImage).not.toHaveBeenCalled()
 
     const first = vi.fn(() => undefined)
     const disposeFirst = ctx.commands.registerFileReceiptResolver(first)
-    expect(() => ctx.commands.registerFileReceiptResolver(() => undefined))
-      .toThrow('commands: a file receipt resolver is already registered')
+    expect(() => ctx.commands.registerFileReceiptResolver(() => undefined)).toThrow(
+      'commands: a file receipt resolver is already registered',
+    )
     disposeFirst()
     const disposeSecond = ctx.commands.registerFileReceiptResolver(() => undefined)
     disposeFirst()
-    expect(() => ctx.commands.registerFileReceiptResolver(() => undefined))
-      .toThrow('commands: a file receipt resolver is already registered')
+    expect(() => ctx.commands.registerFileReceiptResolver(() => undefined)).toThrow(
+      'commands: a file receipt resolver is already registered',
+    )
     disposeSecond()
   })
 
@@ -641,16 +707,20 @@ describe('command attachments', () => {
     store.saveImage.mockImplementationOnce((input: { mediaType: string }) => {
       controller.abort('operator cancelled during admission')
       return Promise.resolve({
-        attachmentId: 'att-late', mediaType: input.mediaType, bytes: 3, width: 1, height: 1,
+        attachmentId: 'att-late',
+        mediaType: input.mediaType,
+        bytes: 3,
+        width: 1,
+        height: 1,
       })
     })
     ctx.provide('attachments', store)
     const { agent } = await mintAgentScope(ctx, 'a')
     const handler = vi.fn(() => ({ kind: 'success' as const }))
     ctx.commands.register(accepting(handler))
-    await expect(ctx.commands.execute(
-      agent, '/vision x', [{ type: 'image', mediaType: 'image/png', data: PNG }], controller.signal,
-    )).rejects.toThrow('operator cancelled during admission')
+    await expect(
+      ctx.commands.execute(agent, '/vision x', [{ type: 'image', mediaType: 'image/png', data: PNG }], controller.signal),
+    ).rejects.toThrow('operator cancelled during admission')
     expect(handler).not.toHaveBeenCalled()
     expect(lifecycleOf(agent).at(-1)).toMatchObject({
       type: 'command/done',
@@ -665,9 +735,9 @@ describe('command attachments', () => {
     ctx.provide('attachments', store)
     const { agent } = await mintAgentScope(ctx, 'a')
     ctx.commands.register(accepting(() => ({ kind: 'success' })))
-    await expect(ctx.commands.execute(
-      agent, '/vision x', [{ type: 'image', mediaType: 'image/png', data: PNG }], new AbortController().signal,
-    )).rejects.toThrow('disk gone')
+    await expect(
+      ctx.commands.execute(agent, '/vision x', [{ type: 'image', mediaType: 'image/png', data: PNG }], new AbortController().signal),
+    ).rejects.toThrow('disk gone')
     expect(lifecycleOf(agent).at(-1)).toMatchObject({
       type: 'command/done',
       data: { kind: 'error', text: 'disk gone' },

@@ -1,4 +1,4 @@
-import { it } from 'vitest'
+import { it } from 'vite-plus/test'
 import { verifyMcpBrowser } from '../../browser-use-runtime/tests/mcp-upstream.ts'
 import * as Provider from '../src/index.ts'
 

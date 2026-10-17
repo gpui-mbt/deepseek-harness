@@ -21,17 +21,22 @@ const readers = new WeakMap<Query, Map<string, Entry>>()
 /** Each mounted consumer retains the query; the last release cancels and discards it. */
 function subscribe(query: Query, target: string, listener: () => void): () => void {
   let targets = readers.get(query)
-  if (targets === undefined) { targets = new Map(); readers.set(query, targets) }
+  if (targets === undefined) {
+    targets = new Map()
+    readers.set(query, targets)
+  }
   let entry = targets.get(target)
   const initial = entry === undefined
   if (entry === undefined) {
     const created: Entry = {
-      state: createSnapshotStore<Result>(EMPTY), users: 0, controller: null,
+      state: createSnapshotStore<Result>(EMPTY),
+      users: 0,
+      controller: null,
       refresh: () => {
         created.controller?.abort()
         const controller = new AbortController()
         created.controller = controller
-        void query(target, controller.signal).then((apps) => {
+        void query(target, controller.signal).then(apps => {
           if (!controller.signal.aborted) created.state.set({ apps: apps ?? [], loading: false, failed: apps === null })
         })
       },
@@ -60,14 +65,15 @@ function subscribe(query: Query, target: string, listener: () => void): () => vo
  * @param enabled - whether a native desktop is available.
  * @returns metadata, initial loading state, failure state, and a shared refresh callback.
  */
-export function useFileApplications(
-  target: string, query: Query, enabled: boolean,
-): Result & { refresh: () => void } {
-  const retain = useCallback((listener: () => void) => enabled ? subscribe(query, target, listener) : () => {}, [enabled, query, target])
+export function useFileApplications(target: string, query: Query, enabled: boolean): Result & { refresh: () => void } {
+  const retain = useCallback((listener: () => void) => (enabled ? subscribe(query, target, listener) : () => {}), [enabled, query, target])
   const snapshot = useCallback(
-    () => enabled ? readers.get(query)?.get(target)?.state.getSnapshot() ?? EMPTY : EMPTY, [enabled, query, target],
+    () => (enabled ? (readers.get(query)?.get(target)?.state.getSnapshot() ?? EMPTY) : EMPTY),
+    [enabled, query, target],
   )
   const state = useSyncExternalStore(retain, snapshot, snapshot)
-  const refresh = useCallback(() => { readers.get(query)?.get(target)?.refresh() }, [query, target])
+  const refresh = useCallback(() => {
+    readers.get(query)?.get(target)?.refresh()
+  }, [query, target])
   return { ...state, refresh }
 }

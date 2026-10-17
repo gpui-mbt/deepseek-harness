@@ -3,19 +3,51 @@
  * authorization, and entry boundaries contain registrant failures.
  */
 import {
-  Component, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore,
-  type FC, type ReactNode,
+  Component,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FC,
+  type ReactNode,
 } from 'react'
 import {
-  SlotOwnershipError, StaleAuthorizationError, standardHookPropName,
-  type ChainRenderOpts, type HostObservable, type KeyedStandardSource, type LocaleFace, type RenderFactorySlot, type RenderOpts,
-  type ScopedStandardSourceBinding, type SessionAreaProps, type SessionProviderComponent, type SlotRenderer,
-  type SlotEntryDef, type SlotRendererHost, type SlotScope, type SlotScopeAdapter, type SlotSpec, type StandardSourceBinding,
-  type StoredEntry, type StoredFactory, type Translate,
+  SlotOwnershipError,
+  StaleAuthorizationError,
+  standardHookPropName,
+  type ChainRenderOpts,
+  type HostObservable,
+  type KeyedStandardSource,
+  type LocaleFace,
+  type RenderFactorySlot,
+  type RenderOpts,
+  type ScopedStandardSourceBinding,
+  type SessionAreaProps,
+  type SessionProviderComponent,
+  type SlotRenderer,
+  type SlotEntryDef,
+  type SlotRendererHost,
+  type SlotScope,
+  type SlotScopeAdapter,
+  type SlotSpec,
+  type StandardSourceBinding,
+  type StoredEntry,
+  type StoredFactory,
+  type Translate,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  HostContext, RootStandardProvider, ScopeBindingProvider, ScopeProvider,
-  keyedObservableHook, maybeObservableHook, observableHook, useHost, useRootBinding,
+  HostContext,
+  RootStandardProvider,
+  ScopeBindingProvider,
+  ScopeProvider,
+  keyedObservableHook,
+  maybeObservableHook,
+  observableHook,
+  useHost,
+  useRootBinding,
   useScopeBinding,
 } from './bindings.tsx'
 import { SlotAssemblyError } from './errors.ts'
@@ -41,17 +73,15 @@ const factoryRenderCache = new WeakMap<FactoryRenderOwner, RenderFactorySlot>()
 function boundRenderFactorySlot(caller: FactoryRenderOwner): RenderFactorySlot {
   let render = factoryRenderCache.get(caller)
   if (render !== undefined) return render
-  render = ((name: string, props: object, options?: {
-    slots?: Readonly<Record<string, FC<InjectedProps>>>
-    fallback?: ReactNode
-  }) => (
-    <FactoryOutlet
-      name={name}
-      inputProps={props}
-      slots={options?.slots}
-      fallback={options?.fallback}
-      caller={caller}
-    />
+  render = ((
+    name: string,
+    props: object,
+    options?: {
+      slots?: Readonly<Record<string, FC<InjectedProps>>>
+      fallback?: ReactNode
+    },
+  ) => (
+    <FactoryOutlet name={name} inputProps={props} slots={options?.slots} fallback={options?.fallback} caller={caller} />
   )) as RenderFactorySlot
   factoryRenderCache.set(caller, render)
   return render
@@ -187,15 +217,11 @@ function bindInjectSources(face: InjectedProps): InjectedProps {
   if (sources === undefined && keyedSources === undefined) return face
   const { hooks: _hooks, keyedHooks: _keyedHooks, ...rest } = face
   const bound: InjectedProps = rest
-  for (const [name, source] of Object.entries(
-    (sources ?? {}) as Record<string, HostObservable<unknown>>,
-  )) {
+  for (const [name, source] of Object.entries((sources ?? {}) as Record<string, HostObservable<unknown>>)) {
     const hookName = standardHookPropName(name)
     bound[hookName] = observableHook(source)
   }
-  for (const [name, source] of Object.entries(
-    (keyedSources ?? {}) as Record<string, KeyedStandardSource>,
-  )) {
+  for (const [name, source] of Object.entries((keyedSources ?? {}) as Record<string, KeyedStandardSource>)) {
     const hookName = standardHookPropName(name)
     bound[hookName] = keyedObservableHook(source)
   }
@@ -228,19 +254,13 @@ function cachedSlotInject(face: object | undefined): BoundSlotInject {
       props[hookName] = observableHook(definition as HostObservable<unknown>)
     }
   }
-  bound = factories === undefined
-    ? { props }
-    : { props, slotHookFactories: factories }
+  bound = factories === undefined ? { props } : { props, slotHookFactories: factories }
   slotInjectCache.set(face, bound)
   return bound
 }
 
 /** Bind deferred slot-level factories for one stable renderSlot occurrence. */
-function bindSlotHookFactories(
-  factories: SlotHookFactories,
-  standard: InjectedProps,
-  hookContext: unknown,
-): InjectedProps {
+function bindSlotHookFactories(factories: SlotHookFactories, standard: InjectedProps, hookContext: unknown): InjectedProps {
   const hooks: InjectedProps = {}
   for (const [name, factory] of Object.entries(factories)) {
     const hookName = standardHookPropName(name)
@@ -272,11 +292,7 @@ function cachedSessionInject(entry: StoredEntry, binding: StandardSourceBinding,
   return props
 }
 
-function cachedSessionMaybeInject(
-  entry: StoredEntry,
-  binding: StandardSourceBinding,
-  actions: object | undefined,
-): InjectedProps {
+function cachedSessionMaybeInject(entry: StoredEntry, binding: StandardSourceBinding, actions: object | undefined): InjectedProps {
   let perBinding = sessionMaybeInjectCache.get(entry)
   if (!perBinding) {
     perBinding = new WeakMap()
@@ -325,10 +341,13 @@ const zeroRevision = (): number => 0
  * whenever the subscribe reference changes — fresh closures per render would
  * churn one unsubscribe/resubscribe pair per outlet per render.
  */
-const localeSubscriptionCache = new WeakMap<LocaleFace, {
-  subscribe: (fn: () => void) => () => void
-  getRevision: () => number
-}>()
+const localeSubscriptionCache = new WeakMap<
+  LocaleFace,
+  {
+    subscribe: (fn: () => void) => () => void
+    getRevision: () => number
+  }
+>()
 
 function localeSubscription(face: LocaleFace): { subscribe: (fn: () => void) => () => void; getRevision: () => number } {
   let cached = localeSubscriptionCache.get(face)
@@ -352,10 +371,7 @@ function localeSubscription(face: LocaleFace): { subscribe: (fn: () => void) => 
  */
 function useLocaleRevision(face: LocaleFace | undefined): number {
   const subscription = face !== undefined ? localeSubscription(face) : undefined
-  return useSyncExternalStore(
-    subscription?.subscribe ?? noopSubscribe,
-    subscription?.getRevision ?? zeroRevision,
-  )
+  return useSyncExternalStore(subscription?.subscribe ?? noopSubscribe, subscription?.getRevision ?? zeroRevision)
 }
 
 /**
@@ -403,7 +419,8 @@ function sessionGenerationKeyOf(binding: ScopedStandardSourceBinding): number {
  * the outlet then owns the crash face).
  */
 class SlotErrorBoundary extends Component<
-  { slotKey: string; anchor?: SlotAnchorTag; onEntryError: (error: unknown) => void; children: ReactNode }, { failed: boolean }
+  { slotKey: string; anchor?: SlotAnchorTag; onEntryError: (error: unknown) => void; children: ReactNode },
+  { failed: boolean }
 > {
   override state = { failed: false }
   static getDerivedStateFromError(error: unknown): { failed: boolean } {
@@ -424,7 +441,8 @@ class SlotErrorBoundary extends Component<
 /** Contain one Factory occurrence without retiring the shared definition. */
 /* jscpd:ignore-start */
 class FactoryErrorBoundary extends Component<
-  { name: string; onEntryError: (error: unknown) => void; children: ReactNode }, { failed: boolean }
+  { name: string; onEntryError: (error: unknown) => void; children: ReactNode },
+  { failed: boolean }
 > {
   override state = { failed: false }
   static getDerivedStateFromError(error: unknown): { failed: boolean } {
@@ -447,19 +465,13 @@ const sessionStandardCache = new WeakMap<StandardSourceBinding, WeakMap<Standard
 const sessionMaybeStandardCache = new WeakMap<StandardSourceBinding, WeakMap<StandardSourceBinding, InjectedProps>>()
 
 /** Materialize one binding into stable framework Hook and plain-prop seats. */
-function materializeStandardBinding(
-  binding: StandardSourceBinding,
-  optional: boolean,
-  defaultKey?: string,
-): InjectedProps {
+function materializeStandardBinding(binding: StandardSourceBinding, optional: boolean, defaultKey?: string): InjectedProps {
   const standard: InjectedProps = { ...binding.props }
   for (const [name, source] of Object.entries(binding.hooks)) {
     if (source === undefined && !optional) {
       throw new SlotAssemblyError(`strict standard hook '${name}' has no source`)
     }
-    standard[standardHookPropName(name)] = optional
-      ? maybeObservableHook(source)
-      : observableHook(source as HostObservable<unknown>)
+    standard[standardHookPropName(name)] = optional ? maybeObservableHook(source) : observableHook(source as HostObservable<unknown>)
   }
   for (const [name, source] of Object.entries(binding.keyedHooks)) {
     if (source === undefined && !optional) {
@@ -519,11 +531,7 @@ function scopeAreaProvider(adapter: SlotScopeAdapter): SessionProviderComponent 
       () => source.getSnapshot(),
     )
     const binding = explicit ? resolved : inherited
-    return (
-      <ScopeBindingProvider binding={binding}>
-        {renderArea(binding, props)}
-      </ScopeBindingProvider>
-    )
+    return <ScopeBindingProvider binding={binding}>{renderArea(binding, props)}</ScopeBindingProvider>
   }
   scopeAreaCache.set(adapter, Provider)
   return Provider
@@ -560,13 +568,12 @@ function standardKit(
     // declared namespace with no installed face is a miswired composition.
     if (face === undefined) {
       throw new SlotAssemblyError(
-        `entry declares locale namespace '${entry.locale}' but no locale face is installed (locale plugin missing from the composition?)`)
+        `entry declares locale namespace '${entry.locale}' but no locale face is installed (locale plugin missing from the composition?)`,
+      )
     }
     kit['t'] = localeSeat(face, entry.locale)
   }
-  const scopedStoreBinding = scopeBinding?.key === undefined
-    ? undefined
-    : scopeBinding as ScopedStandardSourceBinding
+  const scopedStoreBinding = scopeBinding?.key === undefined ? undefined : (scopeBinding as ScopedStandardSourceBinding)
   const store = host.storeOf(entry, scopedStoreBinding)
   if (store !== undefined) {
     // The instance IS an observable snapshot source (contract getSnapshot/
@@ -600,7 +607,15 @@ function standardKit(
  * the registration and renderSlot seams already proved their contracts.
  */
 function ContextualEntry({
-  slotKey, Comp, kit, standard, injected, slotInjected, ownerProps, hookContext, hasHookContext,
+  slotKey,
+  Comp,
+  kit,
+  standard,
+  injected,
+  slotInjected,
+  ownerProps,
+  hookContext,
+  hasHookContext,
 }: {
   slotKey: string
   Comp: FC<InjectedProps>
@@ -612,15 +627,12 @@ function ContextualEntry({
   hookContext: unknown
   hasHookContext: boolean
 }) {
-  const contextual = useMemo(
-    () => {
-      if (!hasHookContext) {
-        throw new SlotAssemblyError(`slot '${slotKey}' has contextual injected Hooks but no hookContext`)
-      }
-      return bindSlotHookFactories(slotInjected.slotHookFactories, standard, hookContext)
-    },
-    [hasHookContext, hookContext, slotInjected.slotHookFactories, slotKey, standard],
-  )
+  const contextual = useMemo(() => {
+    if (!hasHookContext) {
+      throw new SlotAssemblyError(`slot '${slotKey}' has contextual injected Hooks but no hookContext`)
+    }
+    return bindSlotHookFactories(slotInjected.slotHookFactories, standard, hookContext)
+  }, [hasHookContext, hookContext, slotInjected.slotHookFactories, slotKey, standard])
   return <Comp {...kit} {...injected} {...slotInjected.props} {...contextual} {...ownerProps} />
 }
 
@@ -653,7 +665,15 @@ function renderEntry(
   )
 }
 
-function SessionEntry({ entry, ownerProps, binding, slotKey, slotInjected, hookContext, hasHookContext }: {
+function SessionEntry({
+  entry,
+  ownerProps,
+  binding,
+  slotKey,
+  slotInjected,
+  hookContext,
+  hasHookContext,
+}: {
   entry: StoredEntry
   ownerProps: object
   binding: StandardSourceBinding & { readonly key: string }
@@ -670,7 +690,15 @@ function SessionEntry({ entry, ownerProps, binding, slotKey, slotInjected, hookC
   return renderEntry(slotKey, Comp, kit, standard, injected, slotInjected, ownerProps, hookContext, hasHookContext)
 }
 
-function SessionMaybeEntryBody({ entry, ownerProps, binding, slotKey, slotInjected, hookContext, hasHookContext }: {
+function SessionMaybeEntryBody({
+  entry,
+  ownerProps,
+  binding,
+  slotKey,
+  slotInjected,
+  hookContext,
+  hasHookContext,
+}: {
   entry: StoredEntry
   ownerProps: object
   binding: StandardSourceBinding
@@ -700,7 +728,14 @@ function SessionMaybeEntryBody({ entry, ownerProps, binding, slotKey, slotInject
  * that must SURVIVE a switch belongs in session-bound sources (machine,
  * store, hooks) — the existing layering rule, now load-bearing.
  */
-function SessionMaybeEntry({ entry, ownerProps, slotKey, slotInjected, hookContext, hasHookContext }: {
+function SessionMaybeEntry({
+  entry,
+  ownerProps,
+  slotKey,
+  slotInjected,
+  hookContext,
+  hasHookContext,
+}: {
   entry: StoredEntry
   ownerProps: object
   slotKey: string
@@ -735,9 +770,7 @@ interface MaybeIncarnation {
 const FIRST_INCARNATION: MaybeIncarnation = { adopted: undefined, epoch: 0 }
 
 function useMaybeIncarnation(binding: StandardSourceBinding): number {
-  const identity = binding.key === undefined
-    ? undefined
-    : (binding as ScopedStandardSourceBinding).ctx
+  const identity = binding.key === undefined ? undefined : (binding as ScopedStandardSourceBinding).ctx
   // The child key is an incarnation counter, NOT the session id: adoption
   // must keep the key constant across undefined → first id. Bookkeeping
   // lives in this stable (unkeyed) wrapper via the render-phase setState
@@ -764,7 +797,14 @@ function useMaybeIncarnation(binding: StandardSourceBinding): number {
   return epoch
 }
 
-function RootEntry({ entry, ownerProps, slotKey, slotInjected, hookContext, hasHookContext }: {
+function RootEntry({
+  entry,
+  ownerProps,
+  slotKey,
+  slotInjected,
+  hookContext,
+  hasHookContext,
+}: {
   entry: StoredEntry
   ownerProps: object
   slotKey: string
@@ -807,46 +847,53 @@ function useFactorySlotRuntime(name: string, fallback: FC<InjectedProps>): FC<In
   const Selected = selected ?? fallback
   const usesFallback = selected === undefined
   const { definition, host } = occurrence
-  return useMemo(function bindFactoryLocalComponent() {
-    return function BoundFactoryLocalComponent(localProps: InjectedProps): ReactNode {
-      const current = useContext(FactoryOccurrenceContext)
-      const localScopeBinding = useScopeBinding()
-      const localMaybeEpoch = useMaybeIncarnation(localScopeBinding)
-      if (!host.isFactoryLive(definition)) {
-        throw new StaleAuthorizationError(`local slot '${name}' from a disposed Factory`)
+  return useMemo(
+    function bindFactoryLocalComponent() {
+      return function BoundFactoryLocalComponent(localProps: InjectedProps): ReactNode {
+        const current = useContext(FactoryOccurrenceContext)
+        const localScopeBinding = useScopeBinding()
+        const localMaybeEpoch = useMaybeIncarnation(localScopeBinding)
+        if (!host.isFactoryLive(definition)) {
+          throw new StaleAuthorizationError(`local slot '${name}' from a disposed Factory`)
+        }
+        if (current === null || current.definition !== definition) {
+          throw new SlotOwnershipError(`local slot '${name}' rendered outside factory '${definition.name}'`)
+        }
+        if (declared.scope === 'session' && localScopeBinding.key === undefined) {
+          throw new SlotAssemblyError(
+            `strict session local slot '${name}' from factory '${definition.name}' rendered without a scope binding`,
+          )
+        }
+        const localOwner = usesFallback ? definition : current.caller
+        const localScopeIdentity =
+          declared.scope === 'root'
+            ? 'root'
+            : declared.scope === 'session'
+              ? `session:${sessionGenerationKeyOf(localScopeBinding as ScopedStandardSourceBinding)}`
+              : `session-maybe:${localMaybeEpoch}`
+        const localStandard = standardProps(declared.scope, current.rootBinding, localScopeBinding)
+        const localRegistrationKit = {
+          ...current.registrationKit,
+          renderFactorySlot: boundRenderFactorySlot(localOwner),
+        }
+        assertNoPropOverlap(`factory '${definition.name}' local slot '${name}'`, localRegistrationKit, localStandard)
+        const provided = { ...localRegistrationKit, ...localStandard }
+        assertNoPropOverlap(`factory '${definition.name}' local slot '${name}'`, provided, localProps)
+        return (
+          <FactoryErrorBoundary
+            key={`${definition.name}:${name}:${localScopeIdentity}`}
+            name={`${definition.name}:${name}`}
+            onEntryError={error => {
+              host.reportFactoryError(definition.name, localOwner, error)
+            }}
+          >
+            <Selected {...provided} {...localProps} />
+          </FactoryErrorBoundary>
+        )
       }
-      if (current === null || current.definition !== definition) {
-        throw new SlotOwnershipError(`local slot '${name}' rendered outside factory '${definition.name}'`)
-      }
-      if (declared.scope === 'session' && localScopeBinding.key === undefined) {
-        throw new SlotAssemblyError(
-          `strict session local slot '${name}' from factory '${definition.name}' rendered without a scope binding`)
-      }
-      const localOwner = usesFallback ? definition : current.caller
-      const localScopeIdentity = declared.scope === 'root'
-        ? 'root'
-        : declared.scope === 'session'
-          ? `session:${sessionGenerationKeyOf(localScopeBinding as ScopedStandardSourceBinding)}`
-          : `session-maybe:${localMaybeEpoch}`
-      const localStandard = standardProps(declared.scope, current.rootBinding, localScopeBinding)
-      const localRegistrationKit = {
-        ...current.registrationKit,
-        renderFactorySlot: boundRenderFactorySlot(localOwner),
-      }
-      assertNoPropOverlap(`factory '${definition.name}' local slot '${name}'`, localRegistrationKit, localStandard)
-      const provided = { ...localRegistrationKit, ...localStandard }
-      assertNoPropOverlap(`factory '${definition.name}' local slot '${name}'`, provided, localProps)
-      return (
-        <FactoryErrorBoundary
-          key={`${definition.name}:${name}:${localScopeIdentity}`}
-          name={`${definition.name}:${name}`}
-          onEntryError={(error) => { host.reportFactoryError(definition.name, localOwner, error) }}
-        >
-          <Selected {...provided} {...localProps} />
-        </FactoryErrorBoundary>
-      )
-    }
-  }, [Selected, declared.scope, definition, host, name, usesFallback])
+    },
+    [Selected, declared.scope, definition, host, name, usesFallback],
+  )
 }
 
 function assertNoPropOverlap(owner: string, provided: InjectedProps, received: object): void {
@@ -869,12 +916,11 @@ function factoryKit(
   if (definition.locale !== undefined) {
     const face = host.locale
     if (face === undefined) {
-      throw new SlotAssemblyError(
-        `factory declares locale namespace '${definition.locale}' but no locale face is installed`)
+      throw new SlotAssemblyError(`factory declares locale namespace '${definition.locale}' but no locale face is installed`)
     }
     registrationKit['t'] = localeSeat(face, definition.locale)
   }
-  const scoped = scopeBinding?.key === undefined ? undefined : scopeBinding as ScopedStandardSourceBinding
+  const scoped = scopeBinding?.key === undefined ? undefined : (scopeBinding as ScopedStandardSourceBinding)
   const store = host.factoryStoreOf(definition, scoped, occurrence)
   if (store !== undefined) {
     registrationKit['useStore'] = observableHook(store)
@@ -903,7 +949,14 @@ interface FactoryOccurrenceProps {
   caller: FactoryRenderOwner
 }
 
-function FactoryOccurrence({ definition, inputProps, selected, caller, binding, maybeEpoch }: FactoryOccurrenceProps & {
+function FactoryOccurrence({
+  definition,
+  inputProps,
+  selected,
+  caller,
+  binding,
+  maybeEpoch,
+}: FactoryOccurrenceProps & {
   binding: StandardSourceBinding
   maybeEpoch: number
 }) {
@@ -938,35 +991,36 @@ function FactoryOccurrence({ definition, inputProps, selected, caller, binding, 
 }
 
 function FactoryOccurrenceBody({
-  definition, inputProps, selected, caller, scopeBinding,
+  definition,
+  inputProps,
+  selected,
+  caller,
+  scopeBinding,
 }: FactoryOccurrenceProps & { scopeBinding?: StandardSourceBinding | undefined }) {
   const host = useHost()
   const rootBinding = useRootBinding()
   const occurrence = useRef<object>({}).current
   const localeRevision = useLocaleRevision(host.locale)
-  useEffect(
-    () => host.retainFactoryOccurrence(definition, occurrence),
-    [definition, host, occurrence],
-  )
+  useEffect(() => host.retainFactoryOccurrence(definition, occurrence), [definition, host, occurrence])
   const { kit, registrationKit, actions } = useMemo(
     () => factoryKit(host, definition, rootBinding, scopeBinding, occurrence),
     [definition, host, localeRevision, occurrence, rootBinding, scopeBinding],
   )
-  const injected = useMemo(
-    () => runInject(definition, scopeBinding, actions),
-    [actions, definition, scopeBinding],
-  )
+  const injected = useMemo(() => runInject(definition, scopeBinding, actions), [actions, definition, scopeBinding])
   assertNoPropOverlap(`factory '${definition.name}' inject`, kit, injected)
   const provided = { ...kit, ...injected, useFactorySlot: useFactorySlotRuntime }
   assertNoPropOverlap(`factory '${definition.name}' occurrence`, provided, inputProps)
-  const context = useMemo<FactoryOccurrenceValue>(() => ({
-    host,
-    definition,
-    selected,
-    registrationKit: { ...registrationKit, ...injected },
-    rootBinding,
-    caller,
-  }), [caller, definition, host, injected, registrationKit, rootBinding, selected])
+  const context = useMemo<FactoryOccurrenceValue>(
+    () => ({
+      host,
+      definition,
+      selected,
+      registrationKit: { ...registrationKit, ...injected },
+      rootBinding,
+      caller,
+    }),
+    [caller, definition, host, injected, registrationKit, rootBinding, selected],
+  )
   const Comp = definition.component as FC<InjectedProps>
   return (
     <FactoryOccurrenceContext.Provider value={context}>
@@ -975,7 +1029,13 @@ function FactoryOccurrenceBody({
   )
 }
 
-function FactoryOutlet({ name, inputProps, slots: selected = EMPTY_FACTORY_SELECTION, fallback, caller }: {
+function FactoryOutlet({
+  name,
+  inputProps,
+  slots: selected = EMPTY_FACTORY_SELECTION,
+  fallback,
+  caller,
+}: {
   name: string
   inputProps: object
   slots?: Readonly<Record<string, FC<InjectedProps>>> | undefined
@@ -999,18 +1059,21 @@ function FactoryOutlet({ name, inputProps, slots: selected = EMPTY_FACTORY_SELEC
       throw new SlotOwnershipError(`local slot '${localName}' is not declared by factory '${name}'`)
     }
   }
-  const scopeIdentity = definition.scope === 'root'
-    ? 'root'
-    : definition.scope === 'session'
-      ? binding.key === undefined
-        ? 'session:absent'
-        : `session:${sessionGenerationKeyOf(binding as ScopedStandardSourceBinding)}`
-      : `session-maybe:${maybeEpoch}`
+  const scopeIdentity =
+    definition.scope === 'root'
+      ? 'root'
+      : definition.scope === 'session'
+        ? binding.key === undefined
+          ? 'session:absent'
+          : `session:${sessionGenerationKeyOf(binding as ScopedStandardSourceBinding)}`
+        : `session-maybe:${maybeEpoch}`
   return (
     <FactoryErrorBoundary
       key={`${name}:${version}:${scopeIdentity}`}
       name={name}
-      onEntryError={(error) => { host.reportFactoryError(name, definition, error) }}
+      onEntryError={error => {
+        host.reportFactoryError(name, definition, error)
+      }}
     >
       <FactoryAncestryContext.Provider value={nextAncestors}>
         <FactoryOccurrence
@@ -1026,7 +1089,16 @@ function FactoryOutlet({ name, inputProps, slots: selected = EMPTY_FACTORY_SELEC
   )
 }
 
-function StrictSessionEntry({ slotKey, anchor, entry, ownerProps, slotInjected, hookContext, hasHookContext, onEntryError }: {
+function StrictSessionEntry({
+  slotKey,
+  anchor,
+  entry,
+  ownerProps,
+  slotInjected,
+  hookContext,
+  hasHookContext,
+  onEntryError,
+}: {
   slotKey: string
   anchor: SlotAnchorTag
   entry: StoredEntry
@@ -1066,7 +1138,12 @@ function StrictSessionEntry({ slotKey, anchor, entry, ownerProps, slotInjected, 
  */
 const ANCHOR_STYLE = { display: 'contents' } as const
 
-function SlotOutlet({ slotKey, ownerProps, opts, declaredInline }: {
+function SlotOutlet({
+  slotKey,
+  ownerProps,
+  opts,
+  declaredInline,
+}: {
   slotKey: string
   ownerProps: object
   opts?: (RenderOpts & ChainRenderOpts) | undefined
@@ -1131,45 +1208,41 @@ function renderOutletContent(
     const onEntryError = (error: unknown) => {
       host.reportEntryError(slotKey, entry, error, { abdicate: spec.kind !== 'chain' })
     }
-    return spec.scope === 'session'
-      ? (
-        <StrictSessionEntry
-          slotKey={slotKey}
-          anchor={Anchor}
-          entry={entry}
-          ownerProps={owner}
-          slotInjected={slotInjected}
-          hookContext={hookContext}
-          hasHookContext={hasHookContext}
-          onEntryError={onEntryError}
-          key={key}
-        />
-      )
-      : (
-        <SlotErrorBoundary slotKey={slotKey} anchor={Anchor} key={key} onEntryError={onEntryError}>
-          {spec.scope === 'session-maybe'
-            ? (
-              <SessionMaybeEntry
-                entry={entry}
-                ownerProps={owner}
-                slotKey={slotKey}
-                slotInjected={slotInjected}
-                hookContext={hookContext}
-                hasHookContext={hasHookContext}
-              />
-            )
-            : (
-              <RootEntry
-                entry={entry}
-                ownerProps={owner}
-                slotKey={slotKey}
-                slotInjected={slotInjected}
-                hookContext={hookContext}
-                hasHookContext={hasHookContext}
-              />
-            )}
-        </SlotErrorBoundary>
-      )
+    return spec.scope === 'session' ? (
+      <StrictSessionEntry
+        slotKey={slotKey}
+        anchor={Anchor}
+        entry={entry}
+        ownerProps={owner}
+        slotInjected={slotInjected}
+        hookContext={hookContext}
+        hasHookContext={hasHookContext}
+        onEntryError={onEntryError}
+        key={key}
+      />
+    ) : (
+      <SlotErrorBoundary slotKey={slotKey} anchor={Anchor} key={key} onEntryError={onEntryError}>
+        {spec.scope === 'session-maybe' ? (
+          <SessionMaybeEntry
+            entry={entry}
+            ownerProps={owner}
+            slotKey={slotKey}
+            slotInjected={slotInjected}
+            hookContext={hookContext}
+            hasHookContext={hasHookContext}
+          />
+        ) : (
+          <RootEntry
+            entry={entry}
+            ownerProps={owner}
+            slotKey={slotKey}
+            slotInjected={slotInjected}
+            hookContext={hookContext}
+            hasHookContext={hasHookContext}
+          />
+        )}
+      </SlotErrorBoundary>
+    )
   }
   // A cell whose every registration abdicated keeps the crash face: the
   // shadowing collapse ran out of survivors, which is a failure state, not
@@ -1207,9 +1280,7 @@ function renderOutletContent(
         // exists — uncontained it would black out the whole owner region. So
         // it degrades to a decline: the chain and the fallback stay intact,
         // and the breach is reported like a crashed entry.
-        console.error(
-          `chain selector crashed in '${slotKey}' (${entry.registrant ?? 'unknown registrant'}), treating as declined:`,
-          error)
+        console.error(`chain selector crashed in '${slotKey}' (${entry.registrant ?? 'unknown registrant'}), treating as declined:`, error)
         continue
       }
       if (matched !== null) {
@@ -1243,9 +1314,13 @@ function renderOutletContent(
   // id — the disjoint prefixes keep the two namespaces from colliding.
   return (
     <>
-      {list.map((item, i) => item.entry !== undefined
-        ? guarded(item.entry, `e${entryKeyOf(item.entry)}`)
-        : <Anchor data-slot-error={slotKey} key={`x${item.id ?? i}`} />)}
+      {list.map((item, i) =>
+        item.entry !== undefined ? (
+          guarded(item.entry, `e${entryKeyOf(item.entry)}`)
+        ) : (
+          <Anchor data-slot-error={slotKey} key={`x${item.id ?? i}`} />
+        ),
+      )}
     </>
   )
 }
@@ -1260,10 +1335,7 @@ function renderChainResult(
   if (!opts?.overlay) return elected ?? <>{opts?.fallback ?? null}</>
   return (
     <>
-      <Anchor
-        data-chain-overlay-fallback={slotKey}
-        style={{ display: elected === null ? 'contents' : 'none' }}
-      >
+      <Anchor data-chain-overlay-fallback={slotKey} style={{ display: elected === null ? 'contents' : 'none' }}>
         {opts.fallback ?? null}
       </Anchor>
       {elected}
@@ -1294,7 +1366,9 @@ function RootOutlet({ ownerProps }: { ownerProps: object }) {
       <SlotErrorBoundary
         slotKey="root"
         key={entryKeyOf(entry)}
-        onEntryError={(error) => { host.reportEntryError('root', entry, error, { abdicate: true }) }}
+        onEntryError={error => {
+          host.reportEntryError('root', entry, error, { abdicate: true })
+        }}
       >
         <RootEntry
           entry={entry}

@@ -10,15 +10,15 @@ export interface DesktopElectronBuilderConfig {
   }
   readonly files: readonly [
     ...string[],
-    { readonly from: string, readonly to: 'dsh', readonly filter: readonly ['**/*'] },
-    { readonly from: string, readonly to: 'dsh/node_modules', readonly filter: readonly ['**/*'] },
+    { readonly from: string; readonly to: 'dsh'; readonly filter: readonly ['**/*'] },
+    { readonly from: string; readonly to: 'dsh/node_modules'; readonly filter: readonly ['**/*'] },
   ]
   readonly extraMetadata: { readonly dshDesktopAppId: string }
   readonly asarUnpack: readonly string[]
   readonly extraResources: readonly [
-    { readonly from: string, readonly to: 'runtime' },
-    { readonly from: string, readonly to: 'icon.png' },
-    ...{ readonly from: string, readonly to: 'tray.ico' }[],
+    { readonly from: string; readonly to: 'runtime' },
+    { readonly from: string; readonly to: 'icon.png' },
+    ...{ readonly from: string; readonly to: 'tray.ico' }[],
   ]
   readonly mac: {
     readonly extendInfo: { readonly NSMicrophoneUsageDescription: string }
@@ -38,7 +38,7 @@ export interface DesktopElectronBuilderConfig {
     readonly forceCodeSigning: boolean
     readonly signtoolOptions: {
       readonly publisherName: string | undefined
-      readonly sign: ((configuration: { path: string, hash: string, isNest: boolean }) => Promise<void>) | undefined
+      readonly sign: ((configuration: { path: string; hash: string; isNest: boolean }) => Promise<void>) | undefined
       readonly signingHashAlgorithms: readonly string[]
     }
   }
@@ -55,7 +55,7 @@ export interface DesktopElectronBuilderConfig {
   readonly afterPack: (context: AfterPackContext) => Promise<void>
   readonly afterSign: (context: AfterPackContext) => Promise<void>
   readonly artifactBuildCompleted: (artifact: { readonly file: string }) => Promise<void> | undefined
-  readonly publish: readonly [{ readonly provider: 'generic', readonly url: string }] | null
+  readonly publish: readonly [{ readonly provider: 'generic'; readonly url: string }] | null
 }
 
 /**

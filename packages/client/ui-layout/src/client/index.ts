@@ -65,12 +65,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * The occupant receives the frame's live column state (collapsed, width)
      * and is expected to render the compact control rail while collapsed.
      */
-    'sidebar': { kind: 'single'; scope: 'root'; owner: SidebarOwnerProps }
+    sidebar: { kind: 'single'; scope: 'root'; owner: SidebarOwnerProps }
     /**
      * Central panel selected by sidebar entry id. The reserved `conversation`
      * key hosts the Conversation; other keys receive no Session binding.
      */
-    'main': { kind: 'keyed'; scope: 'root' }
+    main: { kind: 'keyed'; scope: 'root' }
     /**
      * The right column: a track the centre makes room for, or nothing. OCCUPIED
      * by the right Sidebar, which uses the resolved column width in normal
@@ -84,7 +84,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * not this column's: it is a button in the conversation header. The root
      * occupant decides when to render its Session-bound content.
      */
-    'rightbar': { kind: 'single'; scope: 'root'; owner: RightbarOwnerProps }
+    rightbar: { kind: 'single'; scope: 'root'; owner: RightbarOwnerProps }
     /**
      * Full-width bottom content below all three columns. Its rendered height
      * reduces the columns' available height; empty content reserves no space.
@@ -164,32 +164,41 @@ export function apply(ctx: ClientContext): void {
     const instance = handle.create()
     const store: typeof handle = { ...handle, create: () => instance }
     const retainMainPanels = (): void => {
-      instance.actions.retainMainPanels(ctx.slots.entries('main').flatMap(entry =>
-        entry.options.key === undefined ? [] : [entry.options.key]))
+      instance.actions.retainMainPanels(
+        ctx.slots.entries('main').flatMap(entry => (entry.options.key === undefined ? [] : [entry.options.key])),
+      )
     }
     const panelInfo: HostObservable<PanelInfo> = {
       getSnapshot: () => instance.getSnapshot().panelInfo,
       subscribe: listener => instance.subscribe(listener),
     }
-    const layout = new LayoutController(instance.actions, id =>
-      ctx.slots.entries('main').some(entry => entry.options.key === id), panelInfo)
+    const layout = new LayoutController(
+      instance.actions,
+      id => ctx.slots.entries('main').some(entry => entry.options.key === id),
+      panelInfo,
+    )
     const disposePanelInfo = ctx.slots.provideRoot({ hooks: { panelInfo: layout.panelInfo } })
     const disposeService = ctx.reflect.provide('layout', layout)
-    const disposeRegistration = ctx.slots.register({
-      name: 'root',
-      locale: 'common',
-      children: {
-        'sidebar': { kind: 'single', scope: 'root' },
-        'main': { kind: 'keyed', scope: 'root' },
-        'rightbar': { kind: 'single', scope: 'root' },
-        'shell.bottom': { kind: 'single', scope: 'root' },
-        'shell.overlay': { kind: 'list', scope: 'root' },
-        'shell.leading': { kind: 'single', scope: 'root' },
+    const disposeRegistration = ctx.slots.register(
+      {
+        name: 'root',
+        locale: 'common',
+        children: {
+          sidebar: { kind: 'single', scope: 'root' },
+          main: { kind: 'keyed', scope: 'root' },
+          rightbar: { kind: 'single', scope: 'root' },
+          'shell.bottom': { kind: 'single', scope: 'root' },
+          'shell.overlay': { kind: 'list', scope: 'root' },
+          'shell.leading': { kind: 'single', scope: 'root' },
+        },
+        store,
       },
-      store,
-    }, AppFrame)
+      AppFrame,
+    )
     const disposeShortcut = ctx.shortcuts.register({
-      id: 'sidebar.left.toggle' as ShortcutCommandId, label: () => t('toggle'), aliases: ['sidebar', 'toggle left sidebar'],
+      id: 'sidebar.left.toggle' as ShortcutCommandId,
+      label: () => t('toggle'),
+      aliases: ['sidebar', 'toggle left sidebar'],
       defaults: {
         'desktop:macos': { code: 'KeyB', modifiers: ['primary'] },
         'desktop:windows': { code: 'KeyB', modifiers: ['primary'] },
@@ -197,8 +206,14 @@ export function apply(ctx: ClientContext): void {
         'web:macos': { code: 'KeyB', modifiers: ['primary', 'alt'] },
         'web:windows': { code: 'KeyB', modifiers: ['primary', 'alt'] },
       },
-      regions: ['page', 'editable'], modals: [],
-      resolve: () => ({ status: 'handled', run: () => { layout.toggleSidebar() } }),
+      regions: ['page', 'editable'],
+      modals: [],
+      resolve: () => ({
+        status: 'handled',
+        run: () => {
+          layout.toggleSidebar()
+        },
+      }),
     })
     const disposePanels = ctx.slots.subscribe('main', retainMainPanels)
     retainMainPanels()
@@ -218,7 +233,9 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const presenter = new ThemePresenter()
     presenter.apply(ctx.theme.getTheme())
-    const off = ctx.on('theme/change', (snapshot) => { presenter.apply(snapshot) })
+    const off = ctx.on('theme/change', snapshot => {
+      presenter.apply(snapshot)
+    })
     return () => {
       off()
       presenter.dispose()

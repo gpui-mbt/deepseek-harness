@@ -57,7 +57,9 @@ export function parseBuildArguments(args: readonly string[]): BuildArguments {
     allowPositionals: false,
   })
   if (values.scope !== undefined && values.scope !== 'artifacts' && values.scope !== 'check' && values.scope !== 'typecheck') {
-    throw new Error(`build: --scope must be artifacts, check, or typecheck, got ${JSON.stringify(values.scope)}; omit it for the complete build`)
+    throw new Error(
+      `build: --scope must be artifacts, check, or typecheck, got ${JSON.stringify(values.scope)}; omit it for the complete build`,
+    )
   }
   const scope: BuildScope = values.scope ?? 'complete'
   if ((scope === 'check' || scope === 'typecheck') && values.profile !== undefined) {
@@ -82,11 +84,7 @@ export function parseBuildArguments(args: readonly string[]): BuildArguments {
  * @returns The gate graph in report order.
  * @throws If an aggregate configuration is invalid.
  */
-export function buildGates(
-  root: string,
-  scope: BuildScope,
-  environment: Readonly<Record<string, string | undefined>> = {},
-): Gate[] {
+export function buildGates(root: string, scope: BuildScope, environment: Readonly<Record<string, string | undefined>> = {}): Gate[] {
   const env = { ...environment }
   const gates: Gate[] = []
   if (scope === 'complete' || scope === 'artifacts') {
@@ -153,7 +151,9 @@ function environmentOverlay(parent: NodeJS.ProcessEnv, child: NodeJS.ProcessEnv)
 async function main(): Promise<number> {
   // tsdown.config.ts loads only through Node type stripping (`--config-loader native`); this names the cause before tsdown fails.
   if (!process.features.typescript) {
-    throw new Error('build: Node.js TypeScript type stripping is unavailable in this Node.js process; remove --no-experimental-strip-types from NODE_OPTIONS or use a Node.js build with TypeScript support')
+    throw new Error(
+      'build: Node.js TypeScript type stripping is unavailable in this Node.js process; remove --no-experimental-strip-types from NODE_OPTIONS or use a Node.js build with TypeScript support',
+    )
   }
   const { scope, profile } = parseBuildArguments(process.argv.slice(2))
   const root = resolve(import.meta.dirname, '..')

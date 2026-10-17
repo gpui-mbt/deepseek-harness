@@ -2,7 +2,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { codingHarness, finalText, SYSTEM_PROMPT, waitForIdle } from './harness.ts'
@@ -38,11 +38,18 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('resume: continue a persisted ses
     // dispose the whole context (simulating process exit) so only the JSONL
     // log on disk survives.
     ctx = await codingHarness(process.cwd(), { personaPrefix: SYSTEM_PROMPT, persistenceRoot: root })
-    const first = (await ctx.agents.create({
-      sessionId: SESSION_ID,
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    })).agent
-    first.followup(createUserMessage({ content: [{ type: 'text', text: `Remember this code for later: ${SECRET}. Just acknowledge it.` }], source: { kind: 'user' } }))
+    const first = (
+      await ctx.agents.create({
+        sessionId: SESSION_ID,
+        agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      })
+    ).agent
+    first.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: `Remember this code for later: ${SECRET}. Just acknowledge it.` }],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, first)
     await ctx.fiber.dispose()
     ctx = undefined
@@ -51,15 +58,22 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('resume: continue a persisted ses
     // session. The loaded event log seeds the live session, so the model sees
     // run 1's exchange as conversation history.
     ctx = await codingHarness(process.cwd(), { personaPrefix: SYSTEM_PROMPT, persistenceRoot: root })
-    const resumed = (await ctx.agents.resume({
-      resumeSessionId: SESSION_ID,
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    })).agent
+    const resumed = (
+      await ctx.agents.resume({
+        resumeSessionId: SESSION_ID,
+        agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      })
+    ).agent
     expect(resumed.session.id).toBe(SESSION_ID)
     // The prior user turn is in the rehydrated log before the model is asked.
     expect(JSON.stringify(resumed.session.deriveMessages())).toContain(SECRET)
 
-    resumed.followup(createUserMessage({ content: [{ type: 'text', text: 'What was the code I asked you to remember? Reply with just the code.' }], source: { kind: 'user' } }))
+    resumed.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'What was the code I asked you to remember? Reply with just the code.' }],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, resumed)
 
     // The model recalls it — only possible from the resumed history.

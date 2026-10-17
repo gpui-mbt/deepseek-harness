@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { desktopUpdateChannel } from '../src/update-channel.ts'
 
 it('reads the installed channel independently from the current version', () => {

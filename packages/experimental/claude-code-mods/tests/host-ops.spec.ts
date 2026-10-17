@@ -2,12 +2,16 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Message } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness, provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
+import {
+  mountAgentLoopTestDependencies,
+  mountAgentLoopTestHarness,
+  provideWorkingDirectoryFixture,
+} from '@deepseek-ai/dsh-agent-loop-testkit'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
@@ -46,7 +50,13 @@ function setup(ctx = new Context()) {
     modCommands: new Set(),
     modTools: new Set(),
   })
-  const engine = new ModsEngine<AgentBinding>({ ops: op => ops[op], stateKey: () => 's', budgetMs: 1000, catchBudgetMs: 100, report: () => {} })
+  const engine = new ModsEngine<AgentBinding>({
+    ops: op => ops[op],
+    stateKey: () => 's',
+    budgetMs: 1000,
+    catchBudgetMs: 100,
+    report: () => {},
+  })
   const context = (agent?: Agent): OpContext<AgentBinding> => ({ mod, binding: { agent }, signal: new AbortController().signal, engine })
   const call = (op: string, input: unknown, agent?: Agent): Promise<unknown> =>
     Promise.resolve().then(() => ops[op]?.(input, context(agent)))
@@ -74,8 +84,9 @@ function fakeAgent(ctx: Context, overrides: { cwd?: string; model?: string; requ
     options: overrides.model === undefined ? {} : { model: overrides.model },
     session: {
       id: 'fake',
-      header: { id: 'fake', createdAt: 1, ...overrides.cwd === undefined ? {} : { cwd: overrides.cwd } },
-      requestHeader: () => overrides.requestModel === undefined ? undefined : { config: { provider: 'p', model: overrides.requestModel } },
+      header: { id: 'fake', createdAt: 1, ...(overrides.cwd === undefined ? {} : { cwd: overrides.cwd }) },
+      requestHeader: () =>
+        overrides.requestModel === undefined ? undefined : { config: { provider: 'p', model: overrides.requestModel } },
       deriveMessages: (): Message[] => [],
     },
   }
@@ -93,8 +104,20 @@ describe('values', () => {
     expect(messageOf('plain')).toBe('plain')
     expect(stringify({ a: 1 })).toBe('{"a":1}')
     expect(stringify(undefined)).toBeUndefined()
-    expect(toolCallResultOf({ isError: false, value: null, content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] })).toEqual({ result: 'ab' })
-    expect(toolCallResultOf({ isError: true, error: { message: 'x' }, content: [{ type: 'text', text: 'Error: x' }] })).toEqual({ result: 'Error: x', isError: true })
+    expect(
+      toolCallResultOf({
+        isError: false,
+        value: null,
+        content: [
+          { type: 'text', text: 'a' },
+          { type: 'text', text: 'b' },
+        ],
+      }),
+    ).toEqual({ result: 'ab' })
+    expect(toolCallResultOf({ isError: true, error: { message: 'x' }, content: [{ type: 'text', text: 'Error: x' }] })).toEqual({
+      result: 'Error: x',
+      isError: true,
+    })
   })
 })
 
@@ -124,7 +147,19 @@ describe('services a deployment did not compose', () => {
 
   it('requires a session for session-bound calls and validates mod input', async () => {
     const { call } = setup()
-    for (const op of ['ui.ask', 'command.run', 'command.list', 'prompt.submit', 'session.id', 'session.cwd', 'session.root', 'session.model', 'session.turns', 'session.messages', 'session.usage']) {
+    for (const op of [
+      'ui.ask',
+      'command.run',
+      'command.list',
+      'prompt.submit',
+      'session.id',
+      'session.cwd',
+      'session.root',
+      'session.model',
+      'session.turns',
+      'session.messages',
+      'session.usage',
+    ]) {
       await expect(call(op, {})).rejects.toThrow(`$.${op} needs a session, and this event has none`)
     }
     await expect(call('ui.log', { text: 1, to: 'transcript' })).rejects.toThrow('$.ui.log text must be a string')
@@ -172,7 +207,7 @@ describe('files through the filesystem seam', () => {
     expect(await call('fs.stat', { path: 'dangling.txt' })).toEqual({ kind: 'other', size: 0, mtimeMs: 0, isLink: true })
     expect(await call('fs.stat', { path: 'small.txt' }, fakeAgent(ctx, { cwd: root }))).toMatchObject({ kind: 'file', isLink: false })
     expect(await call('fs.stat', { path: '.' })).toMatchObject({ kind: 'dir', isLink: false })
-    const listed = await call('fs.list', { path: '.' }) as { name: string; kind: string }[]
+    const listed = (await call('fs.list', { path: '.' })) as { name: string; kind: string }[]
     expect(listed.map(entry => entry.kind)).toContain('file')
     expect(await call('fs.exists', { path: 'nope' })).toBe(false)
   })
@@ -185,20 +220,29 @@ describe('processes through the subprocess seam', () => {
     const { call } = setup(ctx)
     const cwd = mkdtempSync(join(tmpdir(), 'dsh-cc-mods-proc-'))
     dirs.push(cwd)
-    const run = await call('process.run', {
+    const run = (await call('process.run', {
       argv: ['node', '-e', 'process.stdout.write(process.cwd() + "|" + process.env.CC_MODS_ENV)'],
       init: { cwd, env: { CC_MODS_ENV: 'set' } },
-    }) as { exitCode: number; stdout: string }
+    })) as { exitCode: number; stdout: string }
     expect(run.exitCode).toBe(0)
     expect(run.stdout.endsWith('|set')).toBe(true)
     provideWorkingDirectoryFixture(ctx)
-    const viaAgent = await call('process.run', { argv: ['node', '-e', 'process.stdout.write(process.cwd())'] }, fakeAgent(ctx, { cwd })) as { stdout: string }
+    const viaAgent = (await call(
+      'process.run',
+      { argv: ['node', '-e', 'process.stdout.write(process.cwd())'] },
+      fakeAgent(ctx, { cwd }),
+    )) as { stdout: string }
     expect(viaAgent.stdout.length).toBeGreaterThan(0)
-    const bare = await call('process.run', { argv: ['node', '-e', 'process.stdout.write(process.cwd())'] }) as { exitCode: number; stdout: string }
+    const bare = (await call('process.run', { argv: ['node', '-e', 'process.stdout.write(process.cwd())'] })) as {
+      exitCode: number
+      stdout: string
+    }
     expect(bare).toEqual({ exitCode: 0, stdout: process.cwd(), stderr: '' })
     // A Windows child that kills itself still reports an exit code, so the signal branch is POSIX evidence.
     if (process.platform !== 'win32') {
-      await expect(call('process.run', { argv: ['node', '-e', 'process.kill(process.pid, "SIGKILL")'] })).rejects.toThrow(/was terminated by signal SIGKILL/)
+      await expect(call('process.run', { argv: ['node', '-e', 'process.kill(process.pid, "SIGKILL")'] })).rejects.toThrow(
+        /was terminated by signal SIGKILL/,
+      )
     }
     await expect(call('process.run', { argv: [] })).rejects.toThrow(/non-empty argv/)
     await expect(call('process.run', { argv: ['node', 1] })).rejects.toThrow(/non-empty argv/)
@@ -230,7 +274,11 @@ describe('the store limit', () => {
     expect(await call('store.set', { key: 'ascii', value: 'y'.repeat(1.5 * 1024 * 1024) })).toBeUndefined()
     await call('store.delete', { key: 'ascii' })
     // Concurrent writes to one plugin's record are serialized, so neither update is lost.
-    await Promise.all([call('store.set', { key: 'a', value: 1 }), call('store.set', { key: 'b', value: 2 }), call('store.delete', { key: 'ok' })])
+    await Promise.all([
+      call('store.set', { key: 'a', value: 1 }),
+      call('store.set', { key: 'b', value: 2 }),
+      call('store.delete', { key: 'ok' }),
+    ])
     expect(await call('store.keys', {})).toEqual(['a', 'b'])
     await call('store.set', { key: 'ok', value: 1 })
     await call('store.delete', { key: 'a' })
@@ -251,9 +299,11 @@ describe('registrations outside a session', () => {
     await call('command.register', { name: 'Global', description: 'global command' })
     await call('tool.register', { name: 'global_tool', description: 'global tool' })
     expect(ctx.tools.schemas().map(tool => tool.name)).toContain('mcp__unit-mod__global_tool')
-    expect((await call('tool.list', {}) as { name: string }[]).map(tool => tool.name)).toContain('mcp__unit-mod__global_tool')
+    expect(((await call('tool.list', {})) as { name: string }[]).map(tool => tool.name)).toContain('mcp__unit-mod__global_tool')
     const agent = fakeAgent(ctx)
-    expect((await call('command.list', {}, agent) as { name: string; source: string }[])).toEqual([{ name: 'global', description: 'global command', source: 'plugin' }])
+    expect((await call('command.list', {}, agent)) as { name: string; source: string }[]).toEqual([
+      { name: 'global', description: 'global command', source: 'plugin' },
+    ])
     expect([...registrations.keys()]).toEqual([''])
     expect(registrations.get('')?.size).toBe(2)
     void engine
@@ -275,7 +325,6 @@ describe('ui.log sinks', () => {
     expect(debug).toHaveBeenCalledWith('unit-mod: hidden')
   })
 })
-
 
 describe('the committed directory owner', () => {
   it('moves session cwd, relative files and new processes while retaining the project root', async () => {
@@ -302,7 +351,9 @@ describe('the committed directory owner', () => {
     expect(await call('fs.read', { path: 'witness.txt' }, agent)).toBe('current')
     expect(await call('fs.exists', { path: 'only-current.txt' }, agent)).toBe(true)
     expect(await call('fs.stat', { path: 'witness.txt' }, agent)).toMatchObject({ kind: 'file', size: 7 })
-    expect(await call('fs.list', { path: '.' }, agent)).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'only-current.txt' })]))
+    expect(await call('fs.list', { path: '.' }, agent)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'only-current.txt' })]),
+    )
     await call('fs.write', { path: 'created.txt', text: 'selected output' }, agent)
     expect(await call('fs.exists', { path: join(origin, 'created.txt') }, agent)).toBe(false)
     expect(await call('fs.read', { path: join(current, 'created.txt') }, agent)).toBe('selected output')
@@ -315,8 +366,14 @@ describe('the committed directory owner', () => {
     })
     expect(await call('fs.stat', { path: 'link.txt' }, agent)).toMatchObject({ kind: 'file', size: 7, isLink: true })
     await ctx.workingDirectory.set(agent, current)
-    expect(await call('process.run', { argv: [process.execPath, '-e', 'process.stdout.write(process.cwd())'] }, agent)).toEqual({ exitCode: 0, stdout: current, stderr: '' })
-    expect(await call('process.run', { argv: [process.execPath, '-e', 'process.stdout.write(process.cwd())'], init: { cwd: origin } }, agent)).toEqual({ exitCode: 0, stdout: origin, stderr: '' })
+    expect(await call('process.run', { argv: [process.execPath, '-e', 'process.stdout.write(process.cwd())'] }, agent)).toEqual({
+      exitCode: 0,
+      stdout: current,
+      stderr: '',
+    })
+    expect(
+      await call('process.run', { argv: [process.execPath, '-e', 'process.stdout.write(process.cwd())'], init: { cwd: origin } }, agent),
+    ).toEqual({ exitCode: 0, stdout: origin, stderr: '' })
     expect(ctx.workingDirectory.get(agent.session)).toBe(current)
     expect(agent.session.header.cwd).toBe(origin)
   })
@@ -326,7 +383,12 @@ describe('the committed directory owner', () => {
     await ctx.plugin(LocalFileSystem)
     await ctx.plugin(LocalSubprocessRuntime)
     const agent = fakeAgent(ctx)
-    for (const [op, input] of [['session.cwd', {}], ['fs.read', { path: 'x' }], ['fs.stat', { path: 'x' }], ['process.run', { argv: [process.execPath] }]] as const) {
+    for (const [op, input] of [
+      ['session.cwd', {}],
+      ['fs.read', { path: 'x' }],
+      ['fs.stat', { path: 'x' }],
+      ['process.run', { argv: [process.execPath] }],
+    ] as const) {
       await expect(call(op, input, agent)).rejects.toThrow(/dsh-working-directory/)
     }
   })

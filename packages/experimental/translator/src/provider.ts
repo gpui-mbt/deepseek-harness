@@ -34,8 +34,7 @@ function requestFor(spec: AnonymousTranslationSpec, config: Config): { url: URL;
       const url = new URL(config.googleEndpoint)
       const form = new URLSearchParams({ client: 'gtx', sl: source, tl: target, dt: 't', q: spec.text })
       for (const key of form.keys()) url.searchParams.delete(key)
-      return { url, init: { method: 'POST', body: form.toString(),
-        headers: { 'content-type': 'application/x-www-form-urlencoded' } } }
+      return { url, init: { method: 'POST', body: form.toString(), headers: { 'content-type': 'application/x-www-form-urlencoded' } } }
     }
     case 'bing': {
       const url = new URL(config.bingEndpoint)
@@ -43,11 +42,11 @@ function requestFor(spec: AnonymousTranslationSpec, config: Config): { url: URL;
       else url.searchParams.delete('from')
       url.searchParams.set('to', target)
       url.searchParams.set('isEnterpriseClient', 'false')
-      return { url, init: { method: 'POST', body: JSON.stringify([spec.text]),
-        headers: { 'content-type': 'application/json' } } }
+      return { url, init: { method: 'POST', body: JSON.stringify([spec.text]), headers: { 'content-type': 'application/json' } } }
     }
     /* v8 ignore next -- TranslationProvider is a closed typed union; JSON/config validation owns admission. */
-    default: return assertNever(spec.provider)
+    default:
+      return assertNever(spec.provider)
   }
 }
 
@@ -62,12 +61,14 @@ function translationOf(payload: unknown, provider: AnonymousTranslationProvider)
     case 'google': {
       if (!Array.isArray(first) || first.length === 0) throw invalidResponse(provider)
       const segments: unknown[] = first
-      return segments.map((segment) => {
-        if (!Array.isArray(segment)) throw invalidResponse(provider)
-        const text: unknown = segment[0]
-        if (typeof text !== 'string') throw invalidResponse(provider)
-        return text
-      }).join('')
+      return segments
+        .map(segment => {
+          if (!Array.isArray(segment)) throw invalidResponse(provider)
+          const text: unknown = segment[0]
+          if (typeof text !== 'string') throw invalidResponse(provider)
+          return text
+        })
+        .join('')
     }
     case 'bing': {
       if (typeof first !== 'object' || first === null || !('translations' in first) || !Array.isArray(first.translations)) {
@@ -80,7 +81,8 @@ function translationOf(payload: unknown, provider: AnonymousTranslationProvider)
       return translated.text
     }
     /* v8 ignore next -- TranslationProvider is a closed typed union; JSON/config validation owns admission. */
-    default: return assertNever(provider)
+    default:
+      return assertNever(provider)
   }
 }
 
@@ -96,7 +98,10 @@ async function responseJson(response: Response, config: Config, provider: Anonym
       bytes += chunk.value.byteLength
       if (bytes > config.maxResponseBytes) {
         await reader.cancel()
-        throw new TranslationError('TRANSLATION_RESPONSE_LIMIT', `${provider} translation response exceeds ${config.maxResponseBytes} bytes`)
+        throw new TranslationError(
+          'TRANSLATION_RESPONSE_LIMIT',
+          `${provider} translation response exceeds ${config.maxResponseBytes} bytes`,
+        )
       }
       chunks.push(chunk.value)
     }

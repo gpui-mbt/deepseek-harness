@@ -128,12 +128,7 @@ export interface ShellFileSystem {
  * @param fs - the filesystem this run acts on.
  * @returns the exit status.
  */
-export type ShellProgram = (
-  argv: readonly string[],
-  io: ShellIo,
-  state: ShellState,
-  fs: ShellFileSystem,
-) => number | Promise<number>
+export type ShellProgram = (argv: readonly string[], io: ShellIo, state: ShellState, fs: ShellFileSystem) => number | Promise<number>
 
 /** Outcome of one interpreted command line. */
 export interface ShellRunOutcome {

@@ -1,5 +1,5 @@
 /** Initial resize delivery from jsdom's modeled offsets; geometry/timing suites supply their own observers. */
-import { afterAll, beforeEach } from 'vitest'
+import { afterAll, beforeEach } from 'vite-plus/test'
 
 const original = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver')
 let installed = false
@@ -15,15 +15,27 @@ class TestResizeObserver implements ResizeObserver {
     const width = target instanceof HTMLElement ? target.offsetWidth : 0
     const height = target instanceof HTMLElement ? target.offsetHeight : 0
     const size = [{ inlineSize: width, blockSize: height }]
-    this.callback([{
-      target, contentRect: new DOMRectReadOnly(0, 0, width, height),
-      borderBoxSize: size, contentBoxSize: size, devicePixelContentBoxSize: size,
-    }], this)
+    this.callback(
+      [
+        {
+          target,
+          contentRect: new DOMRectReadOnly(0, 0, width, height),
+          borderBoxSize: size,
+          contentBoxSize: size,
+          devicePixelContentBoxSize: size,
+        },
+      ],
+      this,
+    )
   }
 
-  unobserve(target: Element): void { this.targets.delete(target) }
+  unobserve(target: Element): void {
+    this.targets.delete(target)
+  }
 
-  disconnect(): void { this.targets.clear() }
+  disconnect(): void {
+    this.targets.clear()
+  }
 }
 
 beforeEach(() => {

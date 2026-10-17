@@ -95,8 +95,7 @@ export interface ScannedFile {
 export function scanSlotFiles(scanRoot: string, patterns: readonly string[]): ScannedFile[] {
   const out: ScannedFile[] = []
   const names = new Map<string, string>()
-  const rels = [...new Set(globSync(patterns as string[], { cwd: scanRoot })
-    .map(path => path.split(sep).join('/')))].sort()
+  const rels = [...new Set(globSync(patterns as string[], { cwd: scanRoot }).map(path => path.split(sep).join('/')))].sort()
   for (const rel of rels) {
     const abs = resolve(scanRoot, rel)
     const text = readFileSync(abs, 'utf8')
@@ -122,8 +121,7 @@ export function scanSlotFiles(scanRoot: string, patterns: readonly string[]): Sc
 export function indexExportedTypes(scanRoot: string, patterns: readonly string[]): Map<string, TypeDeclaration> {
   const index = new Map<string, TypeDeclaration>()
   const ambiguous = new Set<string>()
-  const rels = [...new Set(globSync(patterns as string[], { cwd: scanRoot })
-    .map(path => path.split(sep).join('/')))].sort()
+  const rels = [...new Set(globSync(patterns as string[], { cwd: scanRoot }).map(path => path.split(sep).join('/')))].sort()
   for (const rel of rels) {
     const abs = resolve(scanRoot, rel)
     const sf = ts.createSourceFile(abs, readFileSync(abs, 'utf8'), ts.ScriptTarget.Latest, true, scriptKindOf(rel))
@@ -158,9 +156,7 @@ export function slotDeclarations(file: ScannedFile): SlotDeclaration[] {
       if (!ts.isInterfaceDeclaration(statement) || statement.name.text !== 'SlotMap') continue
       for (const member of statement.members) {
         if (!ts.isPropertySignature(member) || member.type === undefined) continue
-        const key = ts.isStringLiteral(member.name) || ts.isIdentifier(member.name)
-          ? member.name.text
-          : member.name.getText(file.sf)
+        const key = ts.isStringLiteral(member.name) || ts.isIdentifier(member.name) ? member.name.text : member.name.getText(file.sf)
         const entry = ts.isTypeLiteralNode(member.type) ? member.type : undefined
         const ownerType = memberTypeText(entry, 'owner', file.sf)
         const keyProps = memberTypeText(entry, 'keyProps', file.sf)
@@ -170,10 +166,10 @@ export function slotDeclarations(file: ScannedFile): SlotDeclaration[] {
           key,
           kind: literalMember(entry, 'kind'),
           scope: literalMember(entry, 'scope'),
-          ...ownerType === undefined ? {} : { ownerType },
-          ...keyProps === undefined ? {} : { keyProps },
-          ...hookContext === undefined ? {} : { hookContext },
-          ...injectType === undefined ? {} : { injectType },
+          ...(ownerType === undefined ? {} : { ownerType }),
+          ...(keyProps === undefined ? {} : { keyProps }),
+          ...(hookContext === undefined ? {} : { hookContext }),
+          ...(injectType === undefined ? {} : { injectType }),
           jsDoc: jsDocOf(member, file.sf),
           package: file.package,
           source: `${file.rel}:${String(lineOf(file.sf, member))}`,
@@ -196,11 +192,13 @@ export function slotDeclarations(file: ScannedFile): SlotDeclaration[] {
 export function slotRegistrations(file: ScannedFile): SlotRegistration[] {
   const out: SlotRegistration[] = []
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node)
-      && ts.isPropertyAccessExpression(node.expression)
-      && (node.expression.name.text === 'register' || node.expression.name.text === 'registerFactory')
-      && isSlotsReceiver(node.expression.expression, file.sf)
-      && node.arguments.length >= 1) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      (node.expression.name.text === 'register' || node.expression.name.text === 'registerFactory') &&
+      isSlotsReceiver(node.expression.expression, file.sf) &&
+      node.arguments.length >= 1
+    ) {
       const options = node.arguments[0]
       if (options !== undefined && ts.isObjectLiteralExpression(options)) {
         const key = stringProperty(options, 'name')
@@ -211,9 +209,9 @@ export function slotRegistrations(file: ScannedFile): SlotRegistration[] {
             key,
             package: file.package,
             component: componentText(node.arguments[1], file.sf),
-            ...node.expression.name.text === 'registerFactory' ? { factory: true } : {},
-            ...id === undefined ? {} : { id },
-            ...entryKey === undefined ? {} : { entryKey },
+            ...(node.expression.name.text === 'registerFactory' ? { factory: true } : {}),
+            ...(id === undefined ? {} : { id }),
+            ...(entryKey === undefined ? {} : { entryKey }),
             children: childKeys(options),
             source: `${file.rel}:${String(lineOf(file.sf, node))}`,
           })
@@ -261,10 +259,7 @@ export function standardKitMembers(files: readonly ScannedFile[], interfaceName:
  * @param index - the type index from {@link indexExportedTypes}.
  * @returns the mentioned names, sorted.
  */
-export function referencedTypeNames(
-  seeds: readonly string[],
-  index: ReadonlyMap<string, TypeDeclaration>,
-): string[] {
+export function referencedTypeNames(seeds: readonly string[], index: ReadonlyMap<string, TypeDeclaration>): string[] {
   const found: string[] = []
   for (const name of index.keys()) {
     const pattern = new RegExp(`\\b${name}\\b`)
@@ -279,13 +274,8 @@ export function referencedTypeNames(
  * @param index - the type index from {@link indexExportedTypes}.
  * @returns the resolved declarations, sorted by name.
  */
-export function declaredTypes(
-  names: readonly string[],
-  index: ReadonlyMap<string, TypeDeclaration>,
-): TypeDeclaration[] {
-  return [...names]
-    .flatMap(name => index.get(name) ?? [])
-    .sort((left, right) => left.name.localeCompare(right.name))
+export function declaredTypes(names: readonly string[], index: ReadonlyMap<string, TypeDeclaration>): TypeDeclaration[] {
+  return [...names].flatMap(name => index.get(name) ?? []).sort((left, right) => left.name.localeCompare(right.name))
 }
 
 /** Every slot-contract module block in one file, in source order. */
@@ -358,7 +348,9 @@ function jsDocOf(member: ts.Node, sf: ts.SourceFile): string {
 /** Strip the shared leading indentation of a multi-line source slice. */
 function dedent(text: string): string {
   const lines = text.split('\n')
-  const indents = lines.slice(1).filter(line => line.trim() !== '')
+  const indents = lines
+    .slice(1)
+    .filter(line => line.trim() !== '')
     .map(line => (/^\s*/.exec(line) as RegExpExecArray)[0].length)
   const shared = indents.length === 0 ? 0 : Math.min(...indents)
   return [lines[0] ?? '', ...lines.slice(1).map(line => line.slice(shared))].join('\n').trimEnd()
@@ -373,17 +365,11 @@ function collapse(text: string): string {
 function literalMember(entry: ts.TypeLiteralNode | undefined, name: string): string {
   const member = namedMember(entry, name)
   if (member?.type === undefined) return ''
-  return ts.isLiteralTypeNode(member.type) && ts.isStringLiteral(member.type.literal)
-    ? member.type.literal.text
-    : ''
+  return ts.isLiteralTypeNode(member.type) && ts.isStringLiteral(member.type.literal) ? member.type.literal.text : ''
 }
 
 /** A type-literal member's type text on one line, absent when the member is. */
-function memberTypeText(
-  entry: ts.TypeLiteralNode | undefined,
-  name: string,
-  sf: ts.SourceFile,
-): string | undefined {
+function memberTypeText(entry: ts.TypeLiteralNode | undefined, name: string, sf: ts.SourceFile): string | undefined {
   const member = namedMember(entry, name)
   return member?.type === undefined ? undefined : collapse(member.type.getText(sf))
 }
@@ -418,8 +404,7 @@ function childKeys(options: ts.ObjectLiteralExpression): string[] {
     if (!ts.isPropertyAssignment(property)) continue
     if (memberName(property.name) !== 'children') continue
     if (!ts.isObjectLiteralExpression(property.initializer)) return []
-    return property.initializer.properties
-      .flatMap(child => (child.name === undefined ? [] : [memberName(child.name)]))
+    return property.initializer.properties.flatMap(child => (child.name === undefined ? [] : [memberName(child.name)]))
   }
   return []
 }

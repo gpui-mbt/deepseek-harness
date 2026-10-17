@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { PtcRuntime } from '@deepseek-ai/dsh-ptc-runtime'
 import type { PtcRunRequest, PtcRunResult } from '@deepseek-ai/dsh-ptc-runtime'
@@ -10,7 +10,9 @@ import type { PtcRunRequest, PtcRunResult } from '@deepseek-ai/dsh-ptc-runtime'
  * the smallest subclass that honors it.
  */
 class StubRuntime extends PtcRuntime {
-  resolve(request: import('@deepseek-ai/dsh-ptc-runtime').PtcRunRequest): import('@deepseek-ai/dsh-ptc-runtime').PtcRunSpec { return { ...request, cwd: request.cwd ?? process.cwd(), timeoutMs: request.timeoutMs ?? 120_000 } }
+  resolve(request: import('@deepseek-ai/dsh-ptc-runtime').PtcRunRequest): import('@deepseek-ai/dsh-ptc-runtime').PtcRunSpec {
+    return { ...request, cwd: request.cwd ?? process.cwd(), timeoutMs: request.timeoutMs ?? 120_000 }
+  }
 
   readonly language = 'typescript'
   readonly isolation = 'in-process-stub'
@@ -48,10 +50,22 @@ describe('PtcRuntime service seam', () => {
     await expect(runtime.release({})).resolves.toBeUndefined()
 
     const calls: unknown[] = []
-    const result = await runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{ global: 'tools', functions: { probe: async (args) => { calls.push(args); return null } } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return 1',
+        bindings: [
+          {
+            global: 'tools',
+            functions: {
+              probe: async args => {
+                calls.push(args)
+                return null
+              },
+            },
+          },
+        ],
+      }),
+    )
     expect(result).toEqual({ logs: [] })
     expect(calls).toEqual([{ from: 'stub' }])
     expect(runtime.requests).toHaveLength(1)
@@ -89,5 +103,4 @@ describe('PtcRuntime service seam', () => {
     const { ctx } = await setup()
     await expect(ctx.plugin(StubRuntime)).rejects.toThrow(/registered/)
   })
-
 })

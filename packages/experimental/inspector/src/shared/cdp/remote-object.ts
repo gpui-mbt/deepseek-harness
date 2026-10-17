@@ -4,15 +4,7 @@ import type { InspectorObjectReference } from '../cordis/object-reference.ts'
 import type { InspectorJsonValue } from '../json.ts'
 
 /** Runtime value kinds represented by CDP `Runtime.RemoteObject`. */
-export type RuntimeRemoteObjectType =
-  | 'object'
-  | 'function'
-  | 'undefined'
-  | 'string'
-  | 'number'
-  | 'boolean'
-  | 'symbol'
-  | 'bigint'
+export type RuntimeRemoteObjectType = 'object' | 'function' | 'undefined' | 'string' | 'number' | 'boolean' | 'symbol' | 'bigint'
 
 /** Runtime object subtype hints understood by Chrome DevTools. */
 export type RuntimeRemoteObjectSubtype =

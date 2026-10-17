@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PlatformOverlay } from '../src/client/PlatformOverlay.tsx'
 import { acquireOverlayInert } from '../src/client/overlay-inert.ts'
 import { OnboardingSurface } from '../src/client/OnboardingSurface.tsx'
@@ -21,7 +21,11 @@ afterEach(() => {
 
 describe('OnboardingSurface', () => {
   it('portals the overlay chrome to document.body around its content', () => {
-    const view = render(<OnboardingSurface><p>step content</p></OnboardingSurface>)
+    const view = render(
+      <OnboardingSurface>
+        <p>step content</p>
+      </OnboardingSurface>,
+    )
     // Portaled: the overlay is a body child, not inside the render container.
     expect(view.container.querySelector('[class*="onboardingOverlay"]')).toBeNull()
     const overlay = document.body.querySelector('[class*="onboardingOverlay"]')
@@ -82,16 +86,36 @@ describe('OnboardingSurface', () => {
 })
 
 it('restores interaction when onboarding and its recharge overlay unmount together', () => {
-  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  )
   try {
     const bridge = { open: async () => {}, close: async () => {}, setBounds: async () => {} }
-    const view = render(<><OnboardingSurface>onboarding</OnboardingSurface>
-      <PlatformOverlay bridge={bridge} page="top-up" backLabel="Back" loadingLabel="Loading" failureLabel="Failed" retryLabel="Retry" onClose={() => {}} /></>)
+    const view = render(
+      <>
+        <OnboardingSurface>onboarding</OnboardingSurface>
+        <PlatformOverlay
+          bridge={bridge}
+          page="top-up"
+          backLabel="Back"
+          loadingLabel="Loading"
+          failureLabel="Failed"
+          retryLabel="Retry"
+          onClose={() => {}}
+        />
+      </>,
+    )
     expect(appRoot.inert).toBe(true)
     view.unmount()
     expect(appRoot.inert).toBe(false)
     expect(appRoot.style.opacity).toBe('')
-  } finally { vi.unstubAllGlobals() }
+  } finally {
+    vi.unstubAllGlobals()
+  }
 })
 
 it('releasing one overlay twice cannot release a different active overlay', () => {

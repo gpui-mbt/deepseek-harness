@@ -47,6 +47,6 @@ import examplePreviewZh from './assets/example-preview.zh.svg'
 
 ## 5. 校验与验收
 
-运行 `pnpm exec vitest run scripts/builtin-plugin-preview.spec.ts packages/client/ui-plugin-manager/tests/components.client.spec.tsx scripts/client-bundle-css.spec.ts`，再运行 `pnpm run build`。素材测试检查每个注册条目的双语文件、固定 SVG 尺寸、自包含内容和合计大小；类型检查要求同时提供两种语言。这些检查约束格式；视觉质量及双语含义一致仍需人工审阅。
+运行 `pnpm exec vp test --config vitest.config.ts scripts/builtin-plugin-preview.spec.ts packages/client/ui-plugin-manager/tests/components.client.spec.tsx scripts/client-bundle-css.spec.ts`，再运行 `pnpm run build`。素材测试检查每个注册条目的双语文件、固定 SVG 尺寸、自包含内容和合计大小；类型检查要求同时提供两种语言。这些检查约束格式；视觉质量及双语含义一致仍需人工审阅。
 
 在真实插件详情页分别使用英文和中文，启用前解码图片，确认原始尺寸 640×300、插入位置、浅色及深色主题的可读性，以及 390 px 宽度下没有横向溢出。同时检查一个无配图的内置插件和一个第三方插件。按 [record-browser-gif](../../.agents/skills/record-browser-gif/SKILL.md) 制作 PR 证据，从最终干净提交录制，并准确说明演示范围。

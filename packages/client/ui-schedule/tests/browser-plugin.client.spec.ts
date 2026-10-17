@@ -1,6 +1,6 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { Context, Service } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi, type Mock } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { resolveSlotLabel, type HostObservable, type StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
@@ -17,7 +17,12 @@ import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { CatalogInjected } from '../src/client/catalog-source.ts'
 import { ScheduleDeleteToast, type DeleteToastSource } from '../src/client/DeleteToast.tsx'
 import { SCHEDULE_TASK_ID, SCHEDULE_TASK_KIND } from '../src/client/definition.ts'
-import { ScheduleTaskTab, type ScheduleTaskBindingInjected, type ScheduleTaskCatalogInjected, type ScheduleTaskTabInjected } from '../src/client/ScheduleTaskTab.tsx'
+import {
+  ScheduleTaskTab,
+  type ScheduleTaskBindingInjected,
+  type ScheduleTaskCatalogInjected,
+  type ScheduleTaskTabInjected,
+} from '../src/client/ScheduleTaskTab.tsx'
 import { ScheduleTaskTabTitle } from '../src/client/ScheduleTaskTabTitle.tsx'
 import type { TaskManagerInjected } from '../src/client/TaskManagerPage.tsx'
 import { ScheduleCatalogAction } from '../src/client/ScheduleCatalogAction.tsx'
@@ -34,9 +39,7 @@ interface SessionCatalogFace {
 }
 
 function headerEntryIds(ctx: Context): (string | undefined)[] {
-  return ctx.slots
-    .entries('conversation.session.header.utilities')
-    .map(entry => entry.options.id)
+  return ctx.slots.entries('conversation.session.header.utilities').map(entry => entry.options.id)
 }
 
 /** The right-Sidebar services `apply` registers into, replaced by spies. */
@@ -78,15 +81,15 @@ interface RemoteStubInput {
 
 // A Service preserves the associated namespace lookup used by the real Gateway.
 class RemoteStub extends Service {
-  constructor(ctx: Context, readonly $on: RemoteStubInput['$on']) {
+  constructor(
+    ctx: Context,
+    readonly $on: RemoteStubInput['$on'],
+  ) {
     super(ctx, 'remote')
   }
 }
 
-async function baseContext(
-  remote: RemoteStubInput = { $on: () => () => {} },
-  sidebar: SidebarStubs = sidebarStubs(),
-): Promise<Context> {
+async function baseContext(remote: RemoteStubInput = { $on: () => () => {} }, sidebar: SidebarStubs = sidebarStubs()): Promise<Context> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   new UiConversation(ctx, { binding: () => undefined } as never)
@@ -95,18 +98,31 @@ async function baseContext(
   // `RemoteStub` registers the `remote` service itself, so this harness must not also
   // provide one: the second registration is rejected as a duplicate at <root>.
   new RemoteStub(ctx, remote.$on)
-  await ctx.plugin({ apply(provider: Context) {
-    provider.provide('remote.schedule', (remote.schedule ?? {}) as never)
-  } }).await()
+  await ctx
+    .plugin({
+      apply(provider: Context) {
+        provider.provide('remote.schedule', (remote.schedule ?? {}) as never)
+      },
+    })
+    .await()
   ctx.provide('uiWorkspace', { openSession: vi.fn(), startSession: vi.fn() } as never)
   ctx.provide('sidebarRightTabs', { register: sidebar.register } as never)
   ctx.provide('sidebarRight', { openTab: sidebar.openTab, tabsIn: sidebar.tabsIn } as never)
   const id = 'cold-original' as SessionId
   const sessions: SessionListState = {
-    ids: [id], byId: { [id]: { id, displayTitle: id, running: false, blank: false, updatedAt: 0, retainedBy: {} } },
-    phase: 'ready', projectionsBySession: {},
+    ids: [id],
+    byId: { [id]: { id, displayTitle: id, running: false, blank: false, updatedAt: 0, retainedBy: {} } },
+    phase: 'ready',
+    projectionsBySession: {},
   }
-  const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+  const workspaces: WorkspaceSnapshot = {
+    items: [],
+    archivedSessionIds: [],
+    pinnedSessionIds: [],
+    state: 'idle',
+    phase: 'ready',
+    error: null,
+  }
   ctx.provide('sessions', {
     list: { getSnapshot: () => sessions, subscribe: () => () => {} },
     binding: () => undefined,
@@ -118,29 +134,44 @@ async function baseContext(
 }
 
 function declareHeader(ctx: Context): () => void {
-  return ctx.slots.register({
-    name: 'root',
-    children: {
-      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-    },
-  } as never, Empty)
+  return ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    Empty,
+  )
 }
 
 function declareTranscriptSeats(ctx: Context): () => void {
-  return ctx.slots.register({
-    name: 'root',
-    children: {
-      'tool.call.toolview': { kind: 'keyed', scope: 'session' },
-      'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
-    },
-  } as never, Empty)
+  return ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'tool.call.toolview': { kind: 'keyed', scope: 'session' },
+        'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    Empty,
+  )
 }
 
 describe('ui-schedule browser half', () => {
   it('declares only the services used by registration', () => {
     expect(inject).toEqual([
-      'slots', 'locale', 'remote', 'remote.schedule', 'conversation', 'uiConversation', 'uiWorkspace', 'sessions',
-      'workspaces', 'sidebarRightTabs', 'sidebarRight',
+      'slots',
+      'locale',
+      'remote',
+      'remote.schedule',
+      'conversation',
+      'uiConversation',
+      'uiWorkspace',
+      'sessions',
+      'workspaces',
+      'sidebarRightTabs',
+      'sidebarRight',
     ])
   })
 
@@ -151,12 +182,22 @@ describe('ui-schedule browser half', () => {
     expect(headerEntryIds(ctx)).toEqual([])
 
     const header = declareHeader(ctx)
-    ctx.slots.register({
-      name: 'conversation.session.header.utilities', id: 'agent-preset', order: -10,
-    }, Empty)
-    ctx.slots.register({
-      name: 'conversation.session.header.utilities', id: 'job-list', order: 20,
-    }, Empty)
+    ctx.slots.register(
+      {
+        name: 'conversation.session.header.utilities',
+        id: 'agent-preset',
+        order: -10,
+      },
+      Empty,
+    )
+    ctx.slots.register(
+      {
+        name: 'conversation.session.header.utilities',
+        id: 'job-list',
+        order: 20,
+      },
+      Empty,
+    )
     expect(headerEntryIds(ctx)).toEqual(['agent-preset', 'schedule-catalog', 'job-list'])
 
     await fiber.dispose()
@@ -210,17 +251,21 @@ describe('ui-schedule browser half', () => {
   it('registers the deletion notice on the frame overlay and reports each settled outcome into it', async () => {
     const id = 'toast-reminder' as ScheduleId
     const list = vi.fn().mockResolvedValue({ ok: true, value: [] })
-    const remove = vi.fn()
+    const remove = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true, value: { id, deleted: true } })
       .mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'Unavailable', {}) })
     const ctx = await baseContext({ schedule: { list, delete: remove }, $on: () => () => {} })
-    const owner = ctx.slots.register({
-      name: 'root',
-      children: {
-        'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-        'shell.overlay': { kind: 'list', scope: 'root' },
-      },
-    } as never, Empty)
+    const owner = ctx.slots.register(
+      {
+        name: 'root',
+        children: {
+          'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+          'shell.overlay': { kind: 'list', scope: 'root' },
+        },
+      } as never,
+      Empty,
+    )
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     try {
@@ -263,7 +308,9 @@ describe('ui-schedule browser half', () => {
     const face = injectedFace(entry, 'original' as never) as CatalogInjected
     const dispose = face.hooks.catalog.subscribe(vi.fn())
     try {
-      await vi.waitFor(() => { expect(face.hooks.catalog.getSnapshot().status).toBe('error') })
+      await vi.waitFor(() => {
+        expect(face.hooks.catalog.getSnapshot().status).toBe('error')
+      })
       expect(list).not.toHaveBeenCalled()
     } finally {
       dispose()
@@ -274,13 +321,16 @@ describe('ui-schedule browser half', () => {
   it('registers the task tab type, its body, and its chip under one id', async () => {
     const sidebar = sidebarStubs()
     const ctx = await baseContext(undefined, sidebar)
-    const owner = ctx.slots.register({
-      name: 'root',
-      children: {
-        'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session' },
-        'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session' },
-      },
-    } as never, Empty)
+    const owner = ctx.slots.register(
+      {
+        name: 'root',
+        children: {
+          'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session' },
+          'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session' },
+        },
+      } as never,
+      Empty,
+    )
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     try {
@@ -303,31 +353,31 @@ describe('ui-schedule browser half', () => {
   it('binds the shown task to the Session committed tabs and starts a new task from the panel', async () => {
     const sidebar = sidebarStubs()
     const ctx = await baseContext(undefined, sidebar)
-    const owner = ctx.slots.register({
-      name: 'root',
-      children: {
-        'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session' },
-        'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session' },
-        main: { kind: 'keyed', scope: 'root' },
-      },
-    } as never, Empty)
+    const owner = ctx.slots.register(
+      {
+        name: 'root',
+        children: {
+          'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session' },
+          'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session' },
+          main: { kind: 'keyed', scope: 'root' },
+        },
+      } as never,
+      Empty,
+    )
     const startSession = vi.spyOn(ctx.uiWorkspace, 'startSession')
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     try {
       const sessionId = 'bound-session' as SessionId
       const page = { id: 'tab-1', kind: SCHEDULE_TASK_KIND, contentId: SCHEDULE_TASK_ID }
-      const body = injectedFace(
-        ctx.slots.entries('sidebar.right.pane.tab')[0]!, sessionId as never,
-      ) as ScheduleTaskTabInjected
+      const body = injectedFace(ctx.slots.entries('sidebar.right.pane.tab')[0]!, sessionId as never) as ScheduleTaskTabInjected
       body.taskBindings.write(sessionId, page, { sessionId, id: 'bound-task' as ScheduleId })
       // A write reads the committed tab ids of the Session that owns the tab.
       expect(sidebar.tabsIn).toHaveBeenCalledWith(sessionId)
       expect(body.taskBindings.read(sessionId, page)).toEqual({ sessionId, id: 'bound-task' })
       // The chip reads the same binding and the same Host catalog as the body.
-      const chip = injectedFace(
-        ctx.slots.entries('sidebar.right.pane.tab.title')[0]!, sessionId as never,
-      ) as ScheduleTaskCatalogInjected & ScheduleTaskBindingInjected
+      const chip = injectedFace(ctx.slots.entries('sidebar.right.pane.tab.title')[0]!, sessionId as never) as ScheduleTaskCatalogInjected &
+        ScheduleTaskBindingInjected
       expect(chip.taskBindings).toBe(body.taskBindings)
       expect(chip.hooks.catalog).toBe(body.hooks.catalog)
       // The panel starts a new reminder in a Session rather than opening a creation form.
@@ -353,9 +403,9 @@ describe('ui-schedule browser half', () => {
     const face = injectedFace(entry, 'catalog-session' as never) as { readonly openTaskDetail: (id: ScheduleId) => void }
     try {
       face.openTaskDetail('catalog-reminder' as ScheduleId)
-      expect(sidebar.openTab).toHaveBeenCalledExactlyOnceWith(
-        SCHEDULE_TASK_KIND, { params: { sessionId: 'catalog-session', id: 'catalog-reminder' } },
-      )
+      expect(sidebar.openTab).toHaveBeenCalledExactlyOnceWith(SCHEDULE_TASK_KIND, {
+        params: { sessionId: 'catalog-session', id: 'catalog-reminder' },
+      })
     } finally {
       await fiber.dispose()
       await ctx.fiber.dispose()
@@ -379,9 +429,9 @@ describe('ui-schedule browser half', () => {
       expect(entry.locale).toBe('schedule.manager')
       const face = injectedFace(entry, 'card-session' as never) as ScheduleTurnCardInjected
       face.openTaskDetail('created-reminder' as ScheduleId)
-      expect(sidebar.openTab).toHaveBeenCalledExactlyOnceWith(
-        SCHEDULE_TASK_KIND, { params: { sessionId: 'card-session', id: 'created-reminder' } },
-      )
+      expect(sidebar.openTab).toHaveBeenCalledExactlyOnceWith(SCHEDULE_TASK_KIND, {
+        params: { sessionId: 'card-session', id: 'created-reminder' },
+      })
     } finally {
       await fiber.dispose()
       owner()
@@ -391,33 +441,52 @@ describe('ui-schedule browser half', () => {
 
   it('retains an ended task in the global page and navigates and deletes with its original Session binding', async () => {
     const record: ScheduleCatalogEntry = {
-      id: 'host-task' as ScheduleId, sessionId: 'cold-original' as SessionId, status: 'active',
-      kind: 'after', title: 'Review deployment', prompt: 'Review deployment', afterSeconds: 60,
+      id: 'host-task' as ScheduleId,
+      sessionId: 'cold-original' as SessionId,
+      status: 'active',
+      kind: 'after',
+      title: 'Review deployment',
+      prompt: 'Review deployment',
+      afterSeconds: 60,
       scheduledAt: '2099-01-01T00:00:00.000Z',
     }
     const catalog = vi.fn().mockResolvedValue({ ok: true, value: [record] })
-    const historyResult = { ok: true, value: {
-      id: record.id, records: [], earlierRecordsUnavailable: false,
-      earlierRecordsPruned: false, retention: { days: 30, records: 200 },
-    } }
+    const historyResult = {
+      ok: true,
+      value: {
+        id: record.id,
+        records: [],
+        earlierRecordsUnavailable: false,
+        earlierRecordsPruned: false,
+        retention: { days: 30, records: 200 },
+      },
+    }
     const history = vi.fn().mockResolvedValue(historyResult)
     const remove = vi.fn().mockResolvedValue({ ok: true, value: { id: record.id, deleted: true } })
     let onChanged: (() => void) | undefined
-    const ctx = await baseContext({ schedule: { catalog, history, delete: remove }, $on: (_event, listener) => {
-      onChanged = listener
-      return () => { onChanged = undefined }
-    } })
+    const ctx = await baseContext({
+      schedule: { catalog, history, delete: remove },
+      $on: (_event, listener) => {
+        onChanged = listener
+        return () => {
+          onChanged = undefined
+        }
+      },
+    })
     const openSession = vi.spyOn(ctx.uiWorkspace, 'openSession')
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(ctx.slots.entries('main')).toEqual([])
-    const owner = ctx.slots.register({
-      name: 'root',
-      children: {
-        main: { kind: 'keyed', scope: 'root' },
-        'sidebar.panellist': { kind: 'list', scope: 'root' },
-      },
-    } as never, Empty)
+    const owner = ctx.slots.register(
+      {
+        name: 'root',
+        children: {
+          main: { kind: 'keyed', scope: 'root' },
+          'sidebar.panellist': { kind: 'list', scope: 'root' },
+        },
+      } as never,
+      Empty,
+    )
     const entry = ctx.slots.entries('main')[0]!
     expect(entry.options.key).toBe('schedules')
     const panel = ctx.slots.entries('sidebar.panellist')[0]!
@@ -429,11 +498,15 @@ describe('ui-schedule browser half', () => {
     const face = injectedFace(entry, undefined as never) as TaskManagerInjected
     const dispose = face.hooks.catalog.subscribe(vi.fn())
     try {
-      await vi.waitFor(() => { expect(face.hooks.catalog.getSnapshot().records).toEqual([record]) })
+      await vi.waitFor(() => {
+        expect(face.hooks.catalog.getSnapshot().records).toEqual([record])
+      })
       const ended: ScheduleCatalogEntry = { ...record, status: 'inactive' }
       catalog.mockResolvedValue({ ok: true, value: [ended] })
       onChanged!()
-      await vi.waitFor(() => { expect(face.hooks.catalog.getSnapshot().records).toEqual([ended]) })
+      await vi.waitFor(() => {
+        expect(face.hooks.catalog.getSnapshot().records).toEqual([ended])
+      })
       expect(remove).not.toHaveBeenCalled()
       expect(history).not.toHaveBeenCalled()
       const request = { id: record.id, sessionId: record.sessionId, limit: 20 }
@@ -478,14 +551,17 @@ describe('ui-schedule browser half', () => {
   it('registers the row mark and hover-card seats under the Session row declarations', async () => {
     const catalog = vi.fn().mockResolvedValue({ ok: true, value: [] })
     const ctx = await baseContext({ schedule: { catalog }, $on: () => () => {} })
-    const owner = ctx.slots.register({
-      name: 'root',
-      children: {
-        'sidebar.session.row.leading': { kind: 'list', scope: 'root' },
-        'sidebar.session.row.hover': { kind: 'list', scope: 'root' },
-        main: { kind: 'keyed', scope: 'root' },
-      },
-    } as never, Empty)
+    const owner = ctx.slots.register(
+      {
+        name: 'root',
+        children: {
+          'sidebar.session.row.leading': { kind: 'list', scope: 'root' },
+          'sidebar.session.row.hover': { kind: 'list', scope: 'root' },
+          main: { kind: 'keyed', scope: 'root' },
+        },
+      } as never,
+      Empty,
+    )
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     try {
@@ -535,18 +611,31 @@ describe('ui-schedule browser half', () => {
 
 describe('task timing Remote injection', () => {
   it.each(['saved', 'noop', 'conflict', 'ended', 'missing', 'invalid', 'remote', 'reject'] as const)(
-    'preserves the exact request and refreshes only acknowledged or stale %s results', async (mode) => {
+    'preserves the exact request and refreshes only acknowledged or stale %s results',
+    async mode => {
       const record: ScheduleCatalogEntry = {
-        id: 'timing' as ScheduleId, sessionId: 'cold-original' as SessionId, status: 'active', kind: 'every',
-        title: 'Original instruction', prompt: 'Original instruction', everySeconds: 301,
+        id: 'timing' as ScheduleId,
+        sessionId: 'cold-original' as SessionId,
+        status: 'active',
+        kind: 'every',
+        title: 'Original instruction',
+        prompt: 'Original instruction',
+        everySeconds: 301,
         scheduledAt: '2099-01-01T00:00:00.000Z',
       }
       const expected = {
-        id: record.id, kind: 'every' as const, title: record.title, prompt: record.prompt,
-        everySeconds: 301, scheduledAt: record.scheduledAt,
+        id: record.id,
+        kind: 'every' as const,
+        title: record.title,
+        prompt: record.prompt,
+        everySeconds: 301,
+        scheduledAt: record.scheduledAt,
       }
       const request: ScheduleUpdateRequest = {
-        sessionId: record.sessionId, id: record.id, expected, change: { kind: 'every', every_seconds: 601 },
+        sessionId: record.sessionId,
+        id: record.id,
+        expected,
+        change: { kind: 'every', every_seconds: 601 },
       }
       const error = new RemoteError('gateway/internal', 'Storage unavailable', {})
       const replies: Record<Exclude<typeof mode, 'reject'>, RemoteResult<ScheduleUpdateResult>> = {
@@ -574,7 +663,10 @@ describe('task timing Remote injection', () => {
         const read = Promise.withResolvers<RemoteResult<ScheduleCatalogEntry[]>>()
         catalog.mockReturnValue(read.promise)
         const completion = vi.fn()
-        const updating = face.onUpdateTiming(request).then((value) => { completion(); return value })
+        const updating = face.onUpdateTiming(request).then(value => {
+          completion()
+          return value
+        })
         if (mode === 'reject') {
           await expect(updating).rejects.toBe(error)
           expect(catalog).not.toHaveBeenCalled()
@@ -582,7 +674,9 @@ describe('task timing Remote injection', () => {
           expect(await updating).toBe(replies[mode])
           expect(catalog).not.toHaveBeenCalled()
         } else {
-          await vi.waitFor(() => { expect(catalog).toHaveBeenCalledOnce() })
+          await vi.waitFor(() => {
+            expect(catalog).toHaveBeenCalledOnce()
+          })
           expect(completion).not.toHaveBeenCalled()
           expect(face.hooks.catalog.getSnapshot().records).toEqual([record])
           read.resolve({ ok: true, value: [refreshed] })
@@ -602,24 +696,36 @@ describe('task timing Remote injection', () => {
 
   it('reads again for an accepted update instead of joining the read in flight', async () => {
     const record: ScheduleCatalogEntry = {
-      id: 'timing' as ScheduleId, sessionId: 'cold-original' as SessionId, status: 'active', kind: 'every',
-      title: 'Original instruction', prompt: 'Original instruction', everySeconds: 301,
+      id: 'timing' as ScheduleId,
+      sessionId: 'cold-original' as SessionId,
+      status: 'active',
+      kind: 'every',
+      title: 'Original instruction',
+      prompt: 'Original instruction',
+      everySeconds: 301,
       scheduledAt: '2099-01-01T00:00:00.000Z',
     }
     const expected = {
-      id: record.id, kind: 'every' as const, title: record.title, prompt: record.prompt,
-      everySeconds: 301, scheduledAt: record.scheduledAt,
+      id: record.id,
+      kind: 'every' as const,
+      title: record.title,
+      prompt: record.prompt,
+      everySeconds: 301,
+      scheduledAt: record.scheduledAt,
     }
     const request: ScheduleUpdateRequest = {
-      sessionId: record.sessionId, id: record.id, expected, change: { kind: 'every', every_seconds: 601 },
+      sessionId: record.sessionId,
+      id: record.id,
+      expected,
+      change: { kind: 'every', every_seconds: 601 },
     }
     const accepted: RemoteResult<ScheduleUpdateResult> = {
-      ok: true, value: { id: record.id, updated: true, record: { ...expected, everySeconds: 601 } },
+      ok: true,
+      value: { id: record.id, updated: true, record: { ...expected, everySeconds: 601 } },
     }
     const reply = Promise.withResolvers<RemoteResult<ScheduleUpdateResult>>()
     const catalog = vi.fn().mockResolvedValue({ ok: true, value: [record] })
-    const update = vi.fn<(input: ScheduleUpdateRequest) => Promise<RemoteResult<ScheduleUpdateResult>>>()
-      .mockReturnValue(reply.promise)
+    const update = vi.fn<(input: ScheduleUpdateRequest) => Promise<RemoteResult<ScheduleUpdateResult>>>().mockReturnValue(reply.promise)
     const ctx = await baseContext({ schedule: { catalog, update }, $on: () => () => {} })
     ctx.slots.register({ name: 'root', children: { main: { kind: 'keyed', scope: 'root' } } } as never, Empty)
     await ctx.plugin({ inject: [...inject], apply }).await()
@@ -649,8 +755,7 @@ describe('task timing Remote injection', () => {
       // Premise: one read is in flight, issued under `staleRequest`, with the write's
       // receipt queued behind it.
       expect(catalog).toHaveBeenCalledTimes(1)
-      expect(face.hooks.catalog.getSnapshot())
-        .toMatchObject({ status: 'loading', readRequest: staleRequest })
+      expect(face.hooks.catalog.getSnapshot()).toMatchObject({ status: 'loading', readRequest: staleRequest })
 
       // The read sent before the write settles here. A readback that joined it would
       // issue no second read and publish this pre-write list instead.
@@ -662,7 +767,10 @@ describe('task timing Remote injection', () => {
       // read's records, so the settled ordinal names the readback's request.
       expect(catalog).toHaveBeenCalledTimes(2)
       expect(face.hooks.catalog.getSnapshot()).toMatchObject({
-        records: [fresh], status: 'ready', readRequest: staleRequest + 1, readSettled: staleRequest + 1,
+        records: [fresh],
+        status: 'ready',
+        readRequest: staleRequest + 1,
+        readSettled: staleRequest + 1,
       })
     } finally {
       dispose()

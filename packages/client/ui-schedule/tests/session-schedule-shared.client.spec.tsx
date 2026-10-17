@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ScheduleCatalogEntry, ScheduleId } from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -13,14 +13,15 @@ const OTHER_SESSION = 'shared-other-session' as SessionId
 
 afterEach(cleanup)
 
-function entry(
-  taskId: string,
-  sessionId: SessionId,
-  status: 'active' | 'inactive' = 'active',
-): ScheduleCatalogEntry {
+function entry(taskId: string, sessionId: SessionId, status: 'active' | 'inactive' = 'active'): ScheduleCatalogEntry {
   return {
-    id: taskId as ScheduleId, sessionId, status, kind: 'at',
-    title: 'Read status', prompt: 'Read status', scheduledAt: '2026-10-01T00:00:00.000Z',
+    id: taskId as ScheduleId,
+    sessionId,
+    status,
+    kind: 'at',
+    title: 'Read status',
+    prompt: 'Read status',
+    scheduledAt: '2026-10-01T00:00:00.000Z',
   }
 }
 
@@ -38,12 +39,14 @@ function catalogObservable(initial: CatalogSnapshot<ScheduleCatalogEntry>): {
   return {
     source: {
       getSnapshot: () => snapshot,
-      subscribe: (listener) => {
+      subscribe: listener => {
         listeners.add(listener)
-        return () => { listeners.delete(listener) }
+        return () => {
+          listeners.delete(listener)
+        }
       },
     },
-    publish: (next) => {
+    publish: next => {
       snapshot = next
       for (const listener of listeners) listener()
     },
@@ -68,10 +71,14 @@ describe('shared catalog facts selection', () => {
 
     // Another Session gaining an active task leaves this row's facts equal, so
     // the selector keeps the previous selection and React skips the render.
-    act(() => { catalog.publish(ready([mine, other])) })
+    act(() => {
+      catalog.publish(ready([mine, other]))
+    })
     expect(renders).toHaveBeenCalledTimes(1)
 
-    act(() => { catalog.publish(ready([other])) })
+    act(() => {
+      catalog.publish(ready([other]))
+    })
     expect(renders).toHaveBeenCalledTimes(2)
     expect(view.container.querySelector('[data-has-active]')?.getAttribute('data-has-active')).toBe('false')
   })
@@ -92,14 +99,20 @@ describe('shared catalog facts selection', () => {
     expect(renders).toHaveBeenCalledTimes(1)
 
     // Same active count but different task records: the projection changed.
-    act(() => { catalog.publish(ready([replacement])) })
+    act(() => {
+      catalog.publish(ready([replacement]))
+    })
     expect(renders).toHaveBeenCalledTimes(2)
 
-    act(() => { catalog.publish(ready([added])) })
+    act(() => {
+      catalog.publish(ready([added]))
+    })
     expect(renders).toHaveBeenCalledTimes(3)
 
     // A growing task list changes the projection length.
-    act(() => { catalog.publish(ready([added, entry('added-2', SESSION)])) })
+    act(() => {
+      catalog.publish(ready([added, entry('added-2', SESSION)]))
+    })
     expect(renders).toHaveBeenCalledTimes(4)
     expect(view.container.querySelector('[data-count]')?.getAttribute('data-count')).toBe('2')
   })

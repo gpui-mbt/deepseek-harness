@@ -8,7 +8,7 @@
  * the thread boundary is simulated, because a Node test host has no DOM
  * `Worker` to cross. The real browser Worker boundary is not exercised here.
  */
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { MemoryVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/memory.ts'
 import { setActiveVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/active.ts'
 import { startProcess } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/process/host.ts'
@@ -48,9 +48,15 @@ class LoopbackWorker {
       if (this.terminated) return
       if (isShellStartFrame(frame)) {
         runShellProcess(frame, {
-          postMessage: (reply: FromProcessFrame) => { this.toHost(reply) },
-          addEventListener: (_type: 'message', listener: (event: MessageEvent) => void) => { this.childListener = listener },
-          close: () => { this.closed = true },
+          postMessage: (reply: FromProcessFrame) => {
+            this.toHost(reply)
+          },
+          addEventListener: (_type: 'message', listener: (event: MessageEvent) => void) => {
+            this.childListener = listener
+          },
+          close: () => {
+            this.closed = true
+          },
         })
         return
       }
@@ -99,7 +105,7 @@ afterEach(() => {
 async function run(script: string, stdin = ''): Promise<{ code: number; stdout: string; stderr: string }> {
   let stdout = ''
   let stderr = ''
-  const code = await new Promise<number>((settle) => {
+  const code = await new Promise<number>(settle => {
     startProcess({
       script,
       argv: ['bash', '-c', script],
@@ -163,7 +169,9 @@ it('asks first and terminates second', async () => {
   })
   // The first rung asks the command to stop; a `sleep` honours it.
   running.interrupt()
-  await vi.waitFor(() => { expect(events).toHaveLength(1) })
+  await vi.waitFor(() => {
+    expect(events).toHaveLength(1)
+  })
   expect(events[0]).toBe(130)
 
   // The second rung does not ask: the worker is gone whatever it was doing.
@@ -177,20 +185,24 @@ it('asks first and terminates second', async () => {
     onExit: code => events.push(code),
   })
   stubborn.destroy()
-  await vi.waitFor(() => { expect(events).toHaveLength(2) })
+  await vi.waitFor(() => {
+    expect(events).toHaveLength(2)
+  })
   expect(started[1]?.terminated).toBe(true)
 })
 
 it('runs an explicit argv without a command line to parse', async () => {
   vfs.writeFileSync(`${WORKSPACE}/spaced name.txt`, 'kept\n')
   let stdout = ''
-  const code = await new Promise<number>((settle) => {
+  const code = await new Promise<number>(settle => {
     startProcess({
       argv: ['cat', 'spaced name.txt'],
       cwd: WORKSPACE,
       env: {},
       stdin: '',
-      onOutput: (_stream, text) => { stdout += text },
+      onOutput: (_stream, text) => {
+        stdout += text
+      },
       onExit: settle,
     })
   })

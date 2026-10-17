@@ -6,7 +6,9 @@
  * @returns a sorted copy; model order within each group is unchanged.
  */
 export function orderModelProviders<T extends { readonly id: string }>(groups: readonly T[]): T[] {
-  return groups.toSorted((left, right) =>
-    (left.id === 'deepseek-account' ? 0 : left.id === 'deepseek-official' ? 1 : 2)
-      - (right.id === 'deepseek-account' ? 0 : right.id === 'deepseek-official' ? 1 : 2))
+  return groups.toSorted(
+    (left, right) =>
+      (left.id === 'deepseek-account' ? 0 : left.id === 'deepseek-official' ? 1 : 2) -
+      (right.id === 'deepseek-account' ? 0 : right.id === 'deepseek-official' ? 1 : 2),
+  )
 }

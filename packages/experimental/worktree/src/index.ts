@@ -48,8 +48,12 @@ declare module '@deepseek-ai/cordis' {
 
 /** Reject path traversal independently of Git's branch-name grammar. */
 function relativePath(value: string): boolean {
-  return value.length > 0 && !value.includes('\\') && !value.includes(':')
-    && value.split('/').every(part => part.length > 0 && part !== '.' && part !== '..')
+  return (
+    value.length > 0 &&
+    !value.includes('\\') &&
+    !value.includes(':') &&
+    value.split('/').every(part => part.length > 0 && part !== '.' && part !== '..')
+  )
 }
 
 /** Creates retained Git worktrees under the mounted filesystem and sandbox providers. */
@@ -127,11 +131,17 @@ export class WorktreeService extends Service {
   private async createCheckout(agent: Agent, { branch, revision }: WorktreeSpec, signal: AbortSignal): Promise<CreatedWorktree> {
     const cwd = await this.ctx.workingDirectory.ensure(agent, signal)
     const policy = this.ctx.sandboxPolicy.resolve({ session: agent.session })
-    const run = (directory: string, args: string[], allowedExitCodes?: number[], env?: NodeJS.ProcessEnv) => runCommand(
-      this.ctx, this.config, policy, directory,
-      [this.config.gitCommand, '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', ...args],
-      signal, allowedExitCodes, env,
-    )
+    const run = (directory: string, args: string[], allowedExitCodes?: number[], env?: NodeJS.ProcessEnv) =>
+      runCommand(
+        this.ctx,
+        this.config,
+        policy,
+        directory,
+        [this.config.gitCommand, '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', ...args],
+        signal,
+        allowedExitCodes,
+        env,
+      )
     await run(cwd, ['check-ref-format', `refs/heads/${branch}`])
     const rootOutput = await run(cwd, ['rev-parse', '--show-toplevel'])
     const rootTarget = await this.ctx.fs.resolve(rootOutput.stdout.replace(/\r?\n$/, ''), { cwd, signal })
@@ -144,10 +154,16 @@ export class WorktreeService extends Service {
     const poolPath = this.ctx.fs.processPath(pool)
     const destination = await this.ctx.fs.resolve(branch, { cwd: poolPath, signal })
     const path = this.ctx.fs.processPath(destination)
-    if (await this.ctx.fs.lstat(path, undefined, signal) !== undefined) throw new Error(`worktree path already exists: ${path}`)
+    if ((await this.ctx.fs.lstat(path, undefined, signal)) !== undefined) throw new Error(`worktree path already exists: ${path}`)
     try {
-      await runCommand(this.ctx, this.config, policy, repositoryRoot,
-        [this.config.nodeCommand, '--input-type=module', '-e', PREPARE_DIRECTORY, poolPath, path], signal)
+      await runCommand(
+        this.ctx,
+        this.config,
+        policy,
+        repositoryRoot,
+        [this.config.nodeCommand, '--input-type=module', '-e', PREPARE_DIRECTORY, poolPath, path],
+        signal,
+      )
       await run(repositoryRoot, ['--work-tree', repositoryRoot, 'worktree', 'add', '--no-checkout', '-b', branch, '--', path, baseCommit])
       const configured = await run(path, ['config', '--null', '--name-only', '--get-regexp', '^filter\\.'], [0, 1])
       const drivers = new Set<string>()
@@ -170,7 +186,10 @@ export class WorktreeService extends Service {
       const canonicalPath = await this.ctx.workingDirectory.set(agent, path, signal)
       return { path: canonicalPath, branch, baseCommit, repositoryRoot }
     } catch (error) {
-      throw new Error(`Could not finish worktree ${branch} at ${path}. Any created checkout and branch are retained. ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+      throw new Error(
+        `Could not finish worktree ${branch} at ${path}. Any created checkout and branch are retained. ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      )
     }
   }
 }

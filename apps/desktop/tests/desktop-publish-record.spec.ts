@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createDesktopPublicationRecord, wasDesktopAttemptPublished, withDesktopChannelLock } from '../scripts/desktop-publish-record.ts'
 
 it('excludes another process while a channel lock is held and admits it after release', async () => {
@@ -17,14 +17,28 @@ it('excludes another process while a channel lock is held and admits it after re
       process.stdout.write('locked');
     }
   `
-  const contender = () => promisify(execFile)(process.execPath, ['--import', 'tsx/esm', '--input-type=module', '-e', script,
-    new URL('../scripts/desktop-publish-record.ts', import.meta.url).href, root], { encoding: 'utf8' })
+  const contender = () =>
+    promisify(execFile)(
+      process.execPath,
+      [
+        '--import',
+        'tsx/esm',
+        '--input-type=module',
+        '-e',
+        script,
+        new URL('../scripts/desktop-publish-record.ts', import.meta.url).href,
+        root,
+      ],
+      { encoding: 'utf8' },
+    )
   try {
     await withDesktopChannelLock(root, 'bucket/mac', async () => {
       expect((await contender()).stdout).toBe('locked')
     })
     expect((await contender()).stdout).toBe('acquired')
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('excludes overlapping writers of one channel but permits independent channels and releases after failure', async () => {
@@ -34,22 +48,43 @@ it('excludes overlapping writers of one channel but permits independent channels
       await expect(withDesktopChannelLock(root, 'bucket/mac', async () => {})).rejects.toThrow(/locked/u)
       await expect(withDesktopChannelLock(root, 'bucket/win', async () => 'independent')).resolves.toBe('independent')
     })
-    await expect(withDesktopChannelLock(root, 'bucket/mac', async () => { throw new Error('fixture') })).rejects.toThrow('fixture')
+    await expect(
+      withDesktopChannelLock(root, 'bucket/mac', async () => {
+        throw new Error('fixture')
+      }),
+    ).rejects.toThrow('fixture')
     await expect(withDesktopChannelLock(root, 'bucket/mac', async () => 'recovered')).resolves.toBe('recovered')
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('persists intent, before/after bytes and terminal state outside the checkout', async () => {
   const root = await mkdtemp(join(tmpdir(), 'desktop-audit-'))
   try {
-    const record = await createDesktopPublicationRecord(root, { repository: 'owner/repo', runId: '1', attempt: '2',
-      actor: 'operator', destination: 'bucket/feed/mac', operation: 'rollback', reason: 'restore previous release' })
+    const record = await createDesktopPublicationRecord(root, {
+      repository: 'owner/repo',
+      runId: '1',
+      attempt: '2',
+      actor: 'operator',
+      destination: 'bucket/feed/mac',
+      operation: 'rollback',
+      reason: 'restore previous release',
+    })
     await record.record({ type: 'put-intent', key: 'feed/mac/nightly.yml', before: 'version: 2.0.0', after: 'version: 1.0.0' })
     await record.finish('complete')
-    expect(JSON.parse(await readFile(join(record.directory, 'operation.json'), 'utf8'))).toMatchObject({ actor: 'operator', operation: 'rollback' })
-    expect(JSON.parse((await readFile(join(record.directory, 'events.jsonl'), 'utf8')).trim())).toMatchObject({ before: 'version: 2.0.0', after: 'version: 1.0.0' })
+    expect(JSON.parse(await readFile(join(record.directory, 'operation.json'), 'utf8'))).toMatchObject({
+      actor: 'operator',
+      operation: 'rollback',
+    })
+    expect(JSON.parse((await readFile(join(record.directory, 'events.jsonl'), 'utf8')).trim())).toMatchObject({
+      before: 'version: 2.0.0',
+      after: 'version: 1.0.0',
+    })
     expect(JSON.parse(await readFile(join(record.directory, 'result.json'), 'utf8'))).toMatchObject({ status: 'complete' })
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('recognizes feed completion even when the later tag failed', async () => {
@@ -63,7 +98,9 @@ it('recognizes feed completion even when the later tag failed', async () => {
     await journal.finish('published-tag-pending')
     expect(await wasDesktopAttemptPublished(root, identity)).toBe(true)
     expect(await wasDesktopAttemptPublished(root, { ...identity, attempt: '1' })).toBe(false)
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('ignores interrupted initialization before an audit directory becomes visible', async () => {
@@ -76,5 +113,7 @@ it('ignores interrupted initialization before an audit directory becomes visible
     const record = await createDesktopPublicationRecord(root, { ...identity, actor: 'fixture', operation: 'publish', reason: 'fixture' })
     await record.record({ type: 'feeds-complete' })
     expect(await wasDesktopAttemptPublished(root, identity)).toBe(true)
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })

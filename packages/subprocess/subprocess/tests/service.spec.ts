@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { PassThrough } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
 import { scrubbedParentEnv, SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
@@ -16,16 +16,16 @@ import type {
  * is all an implementation owes the abstract class.
  */
 class StubSubprocessRuntime extends SubprocessRuntime {
-  async terminalEnvironment() { return { platform: 'posix' as const } }
+  async terminalEnvironment() {
+    return { platform: 'posix' as const }
+  }
   async resolveExecutable(command: string): Promise<string> {
     return `/bin/${command}`
   }
 
   spawn(spec: SubprocessSpawnSpec): SubprocessHandle {
     const read: SubprocessOutputRead = { text: '', nextOffset: 0, lossy: false }
-    const collected = spec.stdio.stdout !== 'pipe' && spec.stdio.stdout !== 'inherit'
-      ? { stdout: { readFrom: () => read } }
-      : {}
+    const collected = spec.stdio.stdout !== 'pipe' && spec.stdio.stdout !== 'inherit' ? { stdout: { readFrom: () => read } } : {}
     return {
       control: undefined,
       stdin: undefined,

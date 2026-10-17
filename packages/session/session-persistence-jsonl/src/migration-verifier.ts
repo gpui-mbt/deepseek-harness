@@ -113,14 +113,10 @@ export function verifyCurrentGenerationInWorker(
   expectedPrefix?: JsonlExpectedPrefix,
   signal?: AbortSignal,
 ): Promise<JsonlVerifiedGeneration> {
-  return verificationScheduler.run(() => runVerificationWorker(
-    path,
-    compression,
-    expectedId,
-    expectedEventCount,
-    expectedPrefix,
+  return verificationScheduler.run(
+    () => runVerificationWorker(path, compression, expectedId, expectedEventCount, expectedPrefix, signal),
     signal,
-  ), signal)
+  )
 }
 
 function runVerificationWorker(
@@ -133,7 +129,10 @@ function runVerificationWorker(
 ): Promise<JsonlVerifiedGeneration> {
   signal?.throwIfAborted()
   const request: VerificationRequest = {
-    path, compression, expectedId, expectedEventCount,
+    path,
+    compression,
+    expectedId,
+    expectedEventCount,
     ...(expectedPrefix === undefined ? {} : { expectedPrefix }),
   }
   const { entry, options } = workerSpawn(request)
@@ -150,7 +149,9 @@ function runVerificationWorker(
       settled = true
       cleanup()
       void worker.terminate().then(
-        () => { reject(error) },
+        () => {
+          reject(error)
+        },
         (cleanup: unknown) => {
           reject(new AggregateError([error, cleanup], 'migration verifier termination failed'))
         },
@@ -173,7 +174,7 @@ function runVerificationWorker(
       success = response
     })
     worker.once('error', fail)
-    worker.once('exit', (code) => {
+    worker.once('exit', code => {
       if (settled) return
       settled = true
       cleanup()
@@ -185,14 +186,14 @@ function runVerificationWorker(
         resolve(success.result)
       }
     })
-    const abort = (): void => { fail(verifierAbortError(signal)) }
+    const abort = (): void => {
+      fail(verifierAbortError(signal))
+    }
     signal?.addEventListener('abort', abort, { once: true })
   })
 }
 
 function verifierAbortError(signal?: AbortSignal): Error {
   const reason: unknown = signal?.reason
-  return reason instanceof Error
-    ? reason
-    : new Error('migration verifier aborted', { cause: reason })
+  return reason instanceof Error ? reason : new Error('migration verifier aborted', { cause: reason })
 }

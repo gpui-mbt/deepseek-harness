@@ -15,15 +15,24 @@ function assertToolChange(block: unknown, developer: boolean): void {
 }
 
 function assertContent(value: SessionFormatJsonValue | undefined, developer = false): void {
-  if (Array.isArray(value)) value.forEach((block) => { assertToolChange(block, developer) })
+  if (Array.isArray(value))
+    value.forEach(block => {
+      assertToolChange(block, developer)
+    })
 }
 
 function assertDeveloperMessage(message: SessionFormatJsonObject): void {
   assertContent(message['content'], true)
   const source = message['source']
-  if (typeof message['id'] !== 'string' || message['id'].length === 0
-    || !Array.isArray(message['content']) || !isSessionFormatJsonObject(source)
-    || typeof source['kind'] !== 'string' || source['kind'].length === 0 || source['kind'] === 'plugin') {
+  if (
+    typeof message['id'] !== 'string' ||
+    message['id'].length === 0 ||
+    !Array.isArray(message['content']) ||
+    !isSessionFormatJsonObject(source) ||
+    typeof source['kind'] !== 'string' ||
+    source['kind'].length === 0 ||
+    source['kind'] === 'plugin'
+  ) {
     throw new SessionFormatError('format v4 developer message requires id, role, content, and a producer-owned source')
   }
 }

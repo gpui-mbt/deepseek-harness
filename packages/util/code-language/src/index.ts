@@ -97,8 +97,9 @@ const LANGUAGE_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
  * `foo.__proto__`) must miss instead of resolving the inherited member, which
  * would otherwise reach callers as a non-string language value.
  */
-const LANGUAGES = new Map(Object.entries(LANGUAGE_EXTENSIONS)
-  .flatMap(([language, extensions]) => extensions.map(extension => [extension, language] as const)))
+const LANGUAGES = new Map(
+  Object.entries(LANGUAGE_EXTENSIONS).flatMap(([language, extensions]) => extensions.map(extension => [extension, language] as const)),
+)
 
 /** Every recognized filename suffix, one entry each; a document-preview registry uses it to claim Code-rendered bodies. */
 export const CODE_HIGHLIGHT_EXTENSIONS: readonly string[] = [...LANGUAGES.keys()]
@@ -115,8 +116,11 @@ const READ_LANG_BY_EXTENSION = new Map<string, string>([
   // The two JSX flavors keep their own suffix; every other persisted value is
   // the language's short name, or an extension naming itself better than its
   // language does (`tf` rather than `hcl`, `gradle` rather than `groovy`).
-  ['tsx', 'tsx'], ['jsx', 'jsx'],
-  ['tf', 'tf'], ['tfvars', 'tfvars'], ['gradle', 'gradle'],
+  ['tsx', 'tsx'],
+  ['jsx', 'jsx'],
+  ['tf', 'tf'],
+  ['tfvars', 'tfvars'],
+  ['gradle', 'gradle'],
 ])
 
 /**
@@ -229,5 +233,5 @@ export function readLangHintForPath(path: string): string | undefined {
   const extension = extensionForPath(path)
   if (extension === undefined) return undefined
   const canonical = LANGUAGES.get(extension)
-  return canonical === undefined ? undefined : READ_LANG_BY_EXTENSION.get(extension) ?? SHORT_BY_LANGUAGE[canonical]
+  return canonical === undefined ? undefined : (READ_LANG_BY_EXTENSION.get(extension) ?? SHORT_BY_LANGUAGE[canonical])
 }

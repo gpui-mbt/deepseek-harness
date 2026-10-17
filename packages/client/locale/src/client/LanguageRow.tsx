@@ -18,9 +18,10 @@ export interface LanguageRowInjected {
 }
 
 /** Full component props: runtime share + store share + locale seat + injected face. */
-export type LanguageRowComponentProps =
-  PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createLanguageRowStore>>
-  & PropsLocale<'settings.locale'> & LanguageRowInjected
+export type LanguageRowComponentProps = PropsRuntime<'settings.general.item'> &
+  PropsStore<ReturnType<typeof createLanguageRowStore>> &
+  PropsLocale<'settings.locale'> &
+  LanguageRowInjected
 
 /**
  * Render the Language row.
@@ -40,27 +41,31 @@ export function LanguageRow({ t, setLocale, useStore }: LanguageRowComponentProp
       </div>
       <Menu
         open={open}
-        onClose={() => { setOpen(false) }}
+        onClose={() => {
+          setOpen(false)
+        }}
         items={options.map(o => ({ id: o.id, label: o.label }))}
         selectedId={active}
-        onSelect={(id) => {
+        onSelect={id => {
           setLocale(id)
           setOpen(false)
         }}
         align="end"
         portal
-        anchor={(
+        anchor={
           <button
             type="button"
             className={css.selector}
             aria-haspopup="menu"
             aria-expanded={open}
-            onClick={() => { setOpen(v => !v) }}
+            onClick={() => {
+              setOpen(v => !v)
+            }}
           >
             {activeLabel}
             <IconChevronDownOutlineRegular className={css.chevron} />
           </button>
-        )}
+        }
       />
     </div>
   )

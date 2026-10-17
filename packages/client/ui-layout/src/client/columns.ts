@@ -5,7 +5,11 @@
  */
 
 /** Resolved widths for one frame. */
-export interface Columns { sidebar: number; center: number; rightbar: number }
+export interface Columns {
+  sidebar: number
+  center: number
+  rightbar: number
+}
 
 /** Center width protected while the normal right column is open. */
 export const CENTER_MIN = 400
@@ -52,8 +56,7 @@ export function clampWidth(px: number, min: number, max: number): number {
 export function computeColumns(viewport: number, sidebar: number, rightbar: number, collapsedWidth = SIDEBAR_COLLAPSED): Columns {
   const s = sidebar === 0 ? collapsedWidth : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const available = viewport - s - CENTER_MIN
-  const r = rightbar === 0 || available < RIGHTBAR_MIN
-    ? 0
-    : Math.min(available, clampWidth(rightbar, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO))
+  const r =
+    rightbar === 0 || available < RIGHTBAR_MIN ? 0 : Math.min(available, clampWidth(rightbar, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO))
   return { sidebar: s, center: Math.max(0, viewport - s - r), rightbar: r }
 }

@@ -21,11 +21,7 @@ export function extractSessionEventText(event: SessionEvent): string {
     case 'tool/call':
       return joinText([event.data.name, event.data.arguments])
     case 'tool/result':
-      return joinText([
-        contentText(event.data.message.content),
-        event.data.error?.name ?? '',
-        event.data.error?.code ?? '',
-      ])
+      return joinText([contentText(event.data.message.content), event.data.error?.name ?? '', event.data.error?.code ?? ''])
     case 'todo/write':
       return joinText(event.data.todos.flatMap(todo => [todo.status, todo.content]))
     case 'turn/end':
@@ -83,5 +79,8 @@ function blockText(block: SessionContentBlock): string[] {
 }
 
 function joinText(parts: readonly string[]): string {
-  return parts.map(part => part.trim()).filter(Boolean).join('\n')
+  return parts
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join('\n')
 }

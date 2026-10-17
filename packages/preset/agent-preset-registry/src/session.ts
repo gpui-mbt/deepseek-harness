@@ -39,9 +39,7 @@ export const agentPresetProjectionDefinition = {
   key: 'agentPreset',
   stateSchema: agentPresetSchema,
   init: header => header.agentPreset ?? null,
-  apply: (state, event) => event.type === 'agent-preset/selected'
-    ? event.data.agentPreset
-    : state,
+  apply: (state, event) => (event.type === 'agent-preset/selected' ? event.data.agentPreset : state),
   wire: { viewSchema: agentPresetSchema, view: state => state },
   stateVersion: 1,
 } satisfies ProjectionDefinition<'agentPreset', string | null>

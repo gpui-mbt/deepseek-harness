@@ -18,9 +18,9 @@ export interface ScheduleTurnCardInjected extends Pick<CatalogInjected<ScheduleC
 }
 
 /** Props of the created-task row of one Turn tail. */
-export type ScheduleTurnCardProps = PropsRuntime<'conversation.chat.turnTail'>
-  & InjectFace<ScheduleTurnCardInjected>
-  & PropsLocale<'schedule.manager'>
+export type ScheduleTurnCardProps = PropsRuntime<'conversation.chat.turnTail'> &
+  InjectFace<ScheduleTurnCardInjected> &
+  PropsLocale<'schedule.manager'>
 
 /**
  * Props of one card rendered from the Turn tail.
@@ -74,19 +74,14 @@ function CurrentScheduleCards({ created, openTaskDetail, t, useCatalog, onRetry 
   // The mount ordinal goes with the request: the source shares an in-flight read
   // only when that read was requested after this tail appeared, so a read sent
   // before it cannot answer for it.
-  useEffect(() => { void onRetry(requestAtMount) }, [onRetry, requestAtMount])
+  useEffect(() => {
+    void onRetry(requestAtMount)
+  }, [onRetry, requestAtMount])
   const records = catalog.settled && catalog.readSettled > requestAtMount ? catalog.records : undefined
-  return created.map((block) => {
+  return created.map(block => {
     const task = scheduleCreateCardModel(block, SCHEDULE_CREATE_TOOL).task
-    const current = task === undefined || records === undefined
-      ? undefined
-      : records.find(record => record.id === task.id) ?? null
-    return (
-      <ScheduleCreateCard
-        key={block.callId}
-        {...cardProps(block, openTaskDetail, t, current)}
-      />
-    )
+    const current = task === undefined || records === undefined ? undefined : (records.find(record => record.id === task.id) ?? null)
+    return <ScheduleCreateCard key={block.callId} {...cardProps(block, openTaskDetail, t, current)} />
   })
 }
 

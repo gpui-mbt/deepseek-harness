@@ -2,13 +2,26 @@
  * Model and operation-engine behavior: what each operation does to the tree, and
  * that applying its inverse returns the exact state it started from.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { applyOp, replay } from '../src/engine/operations.ts'
 import { createIdMinter, createInitialState } from '../src/engine/initial.ts'
 import { asPane, asSplit, asTab, childAt, fileTab, firstTab, seedTab } from './fixtures.client.ts'
 import {
-  assertNever, dockPaneIds, findParent, findTabPane, firstDockPaneId, floatIndex, floatRect, getNode, getPane, getSplit,
-  getTab, normalizeSizes, onlyTabId, replaceInParent, topRightPaneId,
+  assertNever,
+  dockPaneIds,
+  findParent,
+  findTabPane,
+  firstDockPaneId,
+  floatIndex,
+  floatRect,
+  getNode,
+  getPane,
+  getSplit,
+  getTab,
+  normalizeSizes,
+  onlyTabId,
+  replaceInParent,
+  topRightPaneId,
 } from '../src/engine/tree.ts'
 import type { IdMinter } from '../src/engine/initial.ts'
 import type { LayoutOp, LayoutState, PaneId, PaneNode, TabId } from '../src/contract/types.ts'
@@ -118,16 +131,33 @@ describe('split', () => {
 
   it('refuses an unknown pane and a floating pane', () => {
     const { state, minter, paneId, guideTabId } = fixture()
-    expect(() => applyOp(state, {
-      type: 'split', paneId: asPane('nope'), axis: 'row', direction: 'after', newPaneId: asPane('p'), newSplitId: asSplit('s'),
-    })).toThrow(/unknown node/)
+    expect(() =>
+      applyOp(state, {
+        type: 'split',
+        paneId: asPane('nope'),
+        axis: 'row',
+        direction: 'after',
+        newPaneId: asPane('p'),
+        newSplitId: asSplit('s'),
+      }),
+    ).toThrow(/unknown node/)
     const floatId = minter.next('float')
     const floated = applyOp(state, {
-      type: 'float', tabId: guideTabId, newPaneId: floatId, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: floatId,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
-    expect(() => applyOp(floated, {
-      type: 'split', paneId: floatId, axis: 'row', direction: 'after', newPaneId: asPane('p'), newSplitId: asSplit('s'),
-    })).toThrow(/docked pane/)
+    expect(() =>
+      applyOp(floated, {
+        type: 'split',
+        paneId: floatId,
+        axis: 'row',
+        direction: 'after',
+        newPaneId: asPane('p'),
+        newSplitId: asSplit('s'),
+      }),
+    ).toThrow(/docked pane/)
     expect(paneId).toBeDefined()
   })
 })
@@ -242,8 +272,7 @@ describe('tabs', () => {
 
   it('refuses a cross-pane move onto the tab own pane', () => {
     const { state, paneId, guideTabId } = fixture()
-    expect(() => applyOp(state, { type: 'moveTab', tabId: guideTabId, toPaneId: paneId, index: 0 }))
-      .toThrow(/reorderTab/)
+    expect(() => applyOp(state, { type: 'moveTab', tabId: guideTabId, toPaneId: paneId, index: 0 })).toThrow(/reorderTab/)
   })
 
   it('reorders inside one pane without changing the active tab', () => {
@@ -272,10 +301,16 @@ describe('focus', () => {
     const firstFloat = minter.next('float')
     const secondFloat = minter.next('float')
     current = applyOp(current, {
-      type: 'float', tabId: guideTabId, newPaneId: firstFloat, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: firstFloat,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
     current = applyOp(current, {
-      type: 'float', tabId: tab.id, newPaneId: secondFloat, rect: { x: 10, y: 10, width: 100, height: 100 },
+      type: 'float',
+      tabId: tab.id,
+      newPaneId: secondFloat,
+      rect: { x: 10, y: 10, width: 100, height: 100 },
     }).state
     const after = expectRoundTrip(current, { type: 'focusTab', tabId: guideTabId })
     expect(after.floats).toEqual([secondFloat, firstFloat])
@@ -289,10 +324,16 @@ describe('focus', () => {
     const firstFloat = minter.next('float')
     const secondFloat = minter.next('float')
     current = applyOp(current, {
-      type: 'float', tabId: guideTabId, newPaneId: firstFloat, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: firstFloat,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
     current = applyOp(current, {
-      type: 'float', tabId: tab.id, newPaneId: secondFloat, rect: { x: 10, y: 10, width: 100, height: 100 },
+      type: 'float',
+      tabId: tab.id,
+      newPaneId: secondFloat,
+      rect: { x: 10, y: 10, width: 100, height: 100 },
     }).state
     expect(current.floats).toEqual([firstFloat, secondFloat])
     const after = expectRoundTrip(current, { type: 'focusPane', paneId: firstFloat })
@@ -305,7 +346,11 @@ describe('resize', () => {
   it('replaces divider sizes', () => {
     const { state, minter, paneId } = fixture()
     const after = split(state, minter, paneId)
-    const resized = expectRoundTrip(after.state, { type: 'resize', splitId: getSplit(after.state, after.state.rootId).id, sizes: [0.3, 0.7] })
+    const resized = expectRoundTrip(after.state, {
+      type: 'resize',
+      splitId: getSplit(after.state, after.state.rootId).id,
+      sizes: [0.3, 0.7],
+    })
     expect(getSplit(resized, resized.rootId).sizes).toEqual([0.3, 0.7])
   })
 
@@ -338,7 +383,10 @@ describe('floating panes', () => {
     const { state, minter, paneId, guideTabId } = fixture()
     const floatId = minter.next('float')
     const floated = applyOp(state, {
-      type: 'float', tabId: guideTabId, newPaneId: floatId, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: floatId,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
     const docked = expectRoundTrip(floated, { type: 'unfloat', paneId: floatId, toPaneId: paneId, index: 0 })
     expect(docked.floats).toEqual([])
@@ -351,7 +399,10 @@ describe('floating panes', () => {
     const { state, minter, paneId, guideTabId } = fixture()
     const floatId = minter.next('float')
     const floated = applyOp(state, {
-      type: 'float', tabId: guideTabId, newPaneId: floatId, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: floatId,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
     const closed = expectRoundTrip(floated, { type: 'closeTab', tabId: guideTabId })
     expect(closed.floats).toEqual([])
@@ -367,10 +418,16 @@ describe('floating panes', () => {
     const topId = minter.next('float')
     let current = applyOp(state, { type: 'openTab', paneId, tab, index: 1 }).state
     current = applyOp(current, {
-      type: 'float', tabId: guideTabId, newPaneId: floatId, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: floatId,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
     current = applyOp(current, {
-      type: 'float', tabId: tab.id, newPaneId: topId, rect: { x: 10, y: 10, width: 100, height: 100 },
+      type: 'float',
+      tabId: tab.id,
+      newPaneId: topId,
+      rect: { x: 10, y: 10, width: 100, height: 100 },
     }).state
     current = applyOp(current, { type: 'focusPane', paneId }).state
     expect(current.floats).toEqual([floatId, topId])
@@ -384,25 +441,39 @@ describe('floating panes', () => {
 
     const lowered = applyOp(moved, { type: 'focusPane', paneId: topId }).state
     const resized = expectRoundTrip(lowered, {
-      type: 'resizeFloat', paneId: floatId, rect: { x: 25, y: 35, width: 420, height: 260 },
+      type: 'resizeFloat',
+      paneId: floatId,
+      rect: { x: 25, y: 35, width: 420, height: 260 },
     })
     expect(getPane(resized, floatId).rect).toEqual({ x: 25, y: 35, width: 420, height: 260 })
     expect(resized.floats).toEqual([topId, floatId])
     expect(resized.activePaneId).toBe(floatId)
-    expect(() => applyOp(moved, {
-      type: 'resizeFloat', paneId: floatId, rect: { x: 0, y: 0, width: 0, height: 10 },
-    })).toThrow(/above zero/)
+    expect(() =>
+      applyOp(moved, {
+        type: 'resizeFloat',
+        paneId: floatId,
+        rect: { x: 0, y: 0, width: 0, height: 10 },
+      }),
+    ).toThrow(/above zero/)
   })
 
   it('refuses to float a tab that already floats', () => {
     const { state, minter, guideTabId } = fixture()
     const floatId = minter.next('float')
     const floated = applyOp(state, {
-      type: 'float', tabId: guideTabId, newPaneId: floatId, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: floatId,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
-    expect(() => applyOp(floated, {
-      type: 'float', tabId: guideTabId, newPaneId: minter.next('float'), rect: { x: 0, y: 0, width: 10, height: 10 },
-    })).toThrow(/docked tab/)
+    expect(() =>
+      applyOp(floated, {
+        type: 'float',
+        tabId: guideTabId,
+        newPaneId: minter.next('float'),
+        rect: { x: 0, y: 0, width: 10, height: 10 },
+      }),
+    ).toThrow(/docked tab/)
   })
 })
 
@@ -434,7 +505,10 @@ describe('tree readers', () => {
     const { state, minter, paneId, guideTabId } = fixture()
     const floatId = minter.next('float')
     const next = applyOp(state, {
-      type: 'float', tabId: guideTabId, newPaneId: floatId, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: floatId,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
     return { state: next, paneId, floatId, guideTabId }
   }
@@ -450,7 +524,7 @@ describe('tree readers', () => {
     expect(() => replaceInParent(after, asPane('nope'), paneId)).toThrow(/neither rooted nor parented/)
   })
 
-  it('read a floating pane\'s rectangle, z position, and only tab, and refuse a docked one', () => {
+  it("read a floating pane's rectangle, z position, and only tab, and refuse a docked one", () => {
     const { state, paneId, floatId, guideTabId } = floated()
     const pane = getPane(state, floatId)
     expect(floatRect(pane)).toEqual({ x: 0, y: 0, width: 100, height: 100 })
@@ -485,7 +559,9 @@ describe('tree readers', () => {
   })
 
   it('assertNever names the value a closed switch failed to handle', () => {
-    expect(() => { assertNever('nope' as never, 'layout: thing') }).toThrow('layout: thing: unhandled "nope"')
+    expect(() => {
+      assertNever('nope' as never, 'layout: thing')
+    }).toThrow('layout: thing: unhandled "nope"')
   })
 })
 
@@ -506,7 +582,10 @@ describe('operations refuse', () => {
     const opened = applyOp(second.state, { type: 'openTab', paneId, tab, index: 1 }).state
     const floatId = minter.next('float')
     const floated = applyOp(opened, {
-      type: 'float', tabId: tab.id, newPaneId: floatId, rect: { x: 0, y: 0, width: 100, height: 100 },
+      type: 'float',
+      tabId: tab.id,
+      newPaneId: floatId,
+      rect: { x: 0, y: 0, width: 100, height: 100 },
     }).state
     return { state: floated, minter, paneId, secondPaneId: second.newPaneId, floatId, guideTabId, floatTabId: tab.id }
   }
@@ -528,24 +607,39 @@ describe('operations refuse', () => {
     const { state, minter, paneId, floatId, guideTabId } = mixed()
     const otherFloat = minter.next('float')
     const twoFloats = applyOp(state, {
-      type: 'float', tabId: guideTabId, newPaneId: otherFloat, rect: { x: 5, y: 5, width: 100, height: 100 },
+      type: 'float',
+      tabId: guideTabId,
+      newPaneId: otherFloat,
+      rect: { x: 5, y: 5, width: 100, height: 100 },
     }).state
-    expect(() => applyOp(twoFloats, { type: 'unfloat', paneId: floatId, toPaneId: otherFloat, index: 0 }))
-      .toThrow(/target must be docked/)
+    expect(() => applyOp(twoFloats, { type: 'unfloat', paneId: floatId, toPaneId: otherFloat, index: 0 })).toThrow(/target must be docked/)
     expect(() => applyOp(state, { type: 'unfloat', paneId, toPaneId: paneId, index: 0 })).toThrow(/is not floating/)
     expect(() => applyOp(state, { type: 'moveFloat', paneId, x: 1, y: 1 })).toThrow(/is not floating/)
-    expect(() => applyOp(state, { type: 'resizeFloat', paneId, rect: { x: 0, y: 0, width: 10, height: 10 } }))
-      .toThrow(/is not floating/)
+    expect(() => applyOp(state, { type: 'resizeFloat', paneId, rect: { x: 0, y: 0, width: 10, height: 10 } })).toThrow(/is not floating/)
   })
 
   it('creating a node under an id that is already taken', () => {
     const { state, minter, paneId, secondPaneId } = mixed()
-    expect(() => applyOp(state, {
-      type: 'split', paneId, axis: 'column', direction: 'after', newPaneId: secondPaneId, newSplitId: minter.next('split'),
-    })).toThrow(/already exists/)
-    expect(() => applyOp(state, {
-      type: 'split', paneId, axis: 'column', direction: 'after', newPaneId: minter.next('pane'), newSplitId: asSplit(state.rootId),
-    })).toThrow(/already exists/)
+    expect(() =>
+      applyOp(state, {
+        type: 'split',
+        paneId,
+        axis: 'column',
+        direction: 'after',
+        newPaneId: secondPaneId,
+        newSplitId: minter.next('split'),
+      }),
+    ).toThrow(/already exists/)
+    expect(() =>
+      applyOp(state, {
+        type: 'split',
+        paneId,
+        axis: 'column',
+        direction: 'after',
+        newPaneId: minter.next('pane'),
+        newSplitId: asSplit(state.rootId),
+      }),
+    ).toThrow(/already exists/)
   })
 
   it('putting a pane back with records that do not match the pane or the split', () => {
@@ -554,30 +648,57 @@ describe('operations refuse', () => {
     const stray = fileTab(minter.next('tab'), 'dsh-resource://file/session/s/c.txt', 'c.txt')
     const fresh: PaneNode = { ...pane, id: minter.next('pane') }
     const parent = getSplit(state, state.rootId)
-    expect(() => applyOp(state, {
-      type: 'insertPane', pane, tabs: [], attach: { mode: 'child', parentId: parent.id, index: 1, sizes: parent.sizes },
-    })).toThrow(/already exists/)
-    expect(() => applyOp(state, {
-      type: 'insertPane', pane: fresh, tabs: [stray], attach: { mode: 'child', parentId: parent.id, index: 1, sizes: parent.sizes },
-    })).toThrow(/do not match the pane/)
-    expect(() => applyOp(state, {
-      type: 'insertPane', pane: fresh, tabs: [], attach: { mode: 'child', parentId: parent.id, index: 1, sizes: parent.sizes },
-    })).toThrow(/sizes do not match the split/)
-    expect(() => applyOp(state, {
-      type: 'insertPane', pane: fresh, tabs: [], attach: { mode: 'wrap', targetId: paneId, split: parent },
-    })).toThrow(/does not list the pane/)
-    expect(() => applyOp(state, {
-      type: 'insertPane', pane: fresh, tabs: [], attach: { mode: 'float', index: 0 },
-    })).toThrow(/requires a floating pane/)
+    expect(() =>
+      applyOp(state, {
+        type: 'insertPane',
+        pane,
+        tabs: [],
+        attach: { mode: 'child', parentId: parent.id, index: 1, sizes: parent.sizes },
+      }),
+    ).toThrow(/already exists/)
+    expect(() =>
+      applyOp(state, {
+        type: 'insertPane',
+        pane: fresh,
+        tabs: [stray],
+        attach: { mode: 'child', parentId: parent.id, index: 1, sizes: parent.sizes },
+      }),
+    ).toThrow(/do not match the pane/)
+    expect(() =>
+      applyOp(state, {
+        type: 'insertPane',
+        pane: fresh,
+        tabs: [],
+        attach: { mode: 'child', parentId: parent.id, index: 1, sizes: parent.sizes },
+      }),
+    ).toThrow(/sizes do not match the split/)
+    expect(() =>
+      applyOp(state, {
+        type: 'insertPane',
+        pane: fresh,
+        tabs: [],
+        attach: { mode: 'wrap', targetId: paneId, split: parent },
+      }),
+    ).toThrow(/does not list the pane/)
+    expect(() =>
+      applyOp(state, {
+        type: 'insertPane',
+        pane: fresh,
+        tabs: [],
+        attach: { mode: 'float', index: 0 },
+      }),
+    ).toThrow(/requires a floating pane/)
     expect(floatId).toBeDefined()
   })
 
   it('restoring focus facts that name a docked pane as floating or an unknown pane', () => {
     const { state, paneId } = mixed()
-    expect(() => applyOp(state, { type: 'restoreFocus', activePaneId: paneId, floats: [paneId], paneActiveTabs: {} }))
-      .toThrow(/as floating/)
-    expect(() => applyOp(state, { type: 'restoreFocus', activePaneId: paneId, floats: [], paneActiveTabs: { [asPane('nope')]: undefined } }))
-      .toThrow(/unknown node/)
+    expect(() => applyOp(state, { type: 'restoreFocus', activePaneId: paneId, floats: [paneId], paneActiveTabs: {} })).toThrow(
+      /as floating/,
+    )
+    expect(() =>
+      applyOp(state, { type: 'restoreFocus', activePaneId: paneId, floats: [], paneActiveTabs: { [asPane('nope')]: undefined } }),
+    ).toThrow(/unknown node/)
   })
 })
 
@@ -588,15 +709,25 @@ describe('inverses the engine itself never records', () => {
     const parent = getSplit(after.state, after.state.rootId)
     const tab = fileTab(minter.next('tab'), 'dsh-resource://file/session/s/a.txt', 'a.txt')
     const pane: PaneNode = { kind: 'pane', id: minter.next('pane'), host: 'dock', tabs: [tab.id], activeTabId: tab.id, rect: undefined }
-    expect(() => applyOp(after.state, {
-      type: 'insertPane', pane, tabs: [tab], attach: { mode: 'child', parentId: parent.id, index: 2, sizes: [0.25, 0.25, 0.5] },
-    })).toThrow(/returns a docked pane empty/)
+    expect(() =>
+      applyOp(after.state, {
+        type: 'insertPane',
+        pane,
+        tabs: [tab],
+        attach: { mode: 'child', parentId: parent.id, index: 2, sizes: [0.25, 0.25, 0.5] },
+      }),
+    ).toThrow(/returns a docked pane empty/)
   })
 
   it('merge away an empty floating pane and restore it at its z position', () => {
     const { state, minter } = fixture()
     const pane: PaneNode = {
-      kind: 'pane', id: minter.next('float'), host: 'float', tabs: [], activeTabId: undefined, rect: { x: 1, y: 2, width: 50, height: 40 },
+      kind: 'pane',
+      id: minter.next('float'),
+      host: 'float',
+      tabs: [],
+      activeTabId: undefined,
+      rect: { x: 1, y: 2, width: 50, height: 40 },
     }
     const inserted = expectRoundTrip(state, { type: 'insertPane', pane, tabs: [], attach: { mode: 'float', index: 0 } })
     expect(inserted.floats).toEqual([pane.id])

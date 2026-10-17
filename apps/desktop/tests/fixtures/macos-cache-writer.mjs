@@ -10,6 +10,8 @@ await cachedMacOSSignature(file, cache, {
     await ready
     writeFileSync(path, `${readFileSync(path, 'utf8')}:signed`)
   },
-  verify: path => { if (readFileSync(path, 'utf8') !== 'original:signed') throw Error('invalid signature') },
+  verify: path => {
+    if (readFileSync(path, 'utf8') !== 'original:signed') throw Error('invalid signature')
+  },
 })
 process.disconnect()

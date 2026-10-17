@@ -54,15 +54,7 @@ export function getClientProperties(
           `Client property result exceeds the configured ${String(maxProperties)}-property limit`,
         )
       }
-      properties.push(toRemoteDescriptor(
-        objects,
-        key,
-        descriptor,
-        group,
-        own,
-        command.generatePreview === true,
-        allocation,
-      ))
+      properties.push(toRemoteDescriptor(objects, key, descriptor, group, own, command.generatePreview === true, allocation))
     }
     if (command.ownProperties === true) break
     owner = readPrototype(owner)
@@ -71,12 +63,15 @@ export function getClientProperties(
 
   if (command.accessorPropertiesOnly === true) return { properties }
   const prototype = readPrototype(value)
-  const internalProperties: ClientRuntimeInternalPropertyDescriptor[] = prototype === null
-    ? []
-    : [{
-      name: '[[Prototype]]',
-      value: objects.serialize(prototype, remoteOptions(group, command.generatePreview), allocation),
-    }]
+  const internalProperties: ClientRuntimeInternalPropertyDescriptor[] =
+    prototype === null
+      ? []
+      : [
+          {
+            name: '[[Prototype]]',
+            value: objects.serialize(prototype, remoteOptions(group, command.generatePreview), allocation),
+          },
+        ]
   return { properties, internalProperties }
 }
 
@@ -90,7 +85,7 @@ function toRemoteDescriptor(
   allocation: ClientObjectAllocation,
 ): ClientRuntimePropertyDescriptor {
   const common = {
-    name: typeof key === 'symbol' ? key.description ?? String(key) : String(key),
+    name: typeof key === 'symbol' ? (key.description ?? String(key)) : String(key),
     configurable: descriptor.configurable ?? false,
     enumerable: descriptor.enumerable ?? false,
     isOwn: own,
@@ -149,7 +144,10 @@ function renderError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-function remoteOptions(group: string | undefined, generatePreview?: boolean): {
+function remoteOptions(
+  group: string | undefined,
+  generatePreview?: boolean,
+): {
   readonly group?: string
   readonly generatePreview?: boolean
 } {

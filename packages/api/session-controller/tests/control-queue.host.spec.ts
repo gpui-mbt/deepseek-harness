@@ -3,17 +3,14 @@ import type { Agent, Inbox, InboxState } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { SessionControlController } from '../src/control.ts'
 import type { SessionControlFrame } from '../src/types.ts'
-import {
-  mountAgentLoopTestDependencies,
-  mountAgentLoopTestHarness,
-} from '@deepseek-ai/dsh-agent-loop-testkit'
+import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'fixture': { kind: 'fixture' } & ContextFormed
+    fixture: { kind: 'fixture' } & ContextFormed
   }
 }
 
@@ -72,9 +69,14 @@ describe('Session control Inbox projection', () => {
       type: 'baseline',
       value: {
         projections: {
-          'queue-session': { values: { inbox: {
-            'next-turn': [queued], 'next-step': [steering, context],
-          } } },
+          'queue-session': {
+            values: {
+              inbox: {
+                'next-turn': [queued],
+                'next-step': [steering, context],
+              },
+            },
+          },
         },
       },
     })
@@ -164,11 +166,14 @@ describe('Session control Inbox projection', () => {
     const session = ctx.sessions.create(SessionId('unattached-inbox'))
     const pending = message('unattached')
     session.append('agent/inbox/spliced', {
-      target: 'next-turn', start: 0, inserted: [pending],
+      target: 'next-turn',
+      start: 0,
+      inserted: [pending],
     })
     expect(ctx.agents.get(session.id)).toBeUndefined()
     await expect(nextInboxFrame(iterator)).resolves.toMatchObject({
-      sessionId: session.id, value: { 'next-turn': [pending], 'next-step': [] },
+      sessionId: session.id,
+      value: { 'next-turn': [pending], 'next-step': [] },
     })
     abort.abort()
     await iterator.next()

@@ -2,7 +2,7 @@
 
 import { EventEmitter } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { internals, provideCmdline } from '@deepseek-ai/dsh-cmdline'
 import { apply, type Config, SDK_APP_STARTUP_SERVICE } from '../src/index.ts'
 
@@ -32,14 +32,24 @@ function start(args: string[], config: Config = {}): { ctx: Context; exits: numb
   const exits: number[] = []
   const stdin = new TestStdin()
   let out = ''
-  const capture = { write: (chunk: string) => { out += chunk; return true } }
+  const capture = {
+    write: (chunk: string) => {
+      out += chunk
+      return true
+    },
+  }
   internals.stdin = stdin
   internals.stdout = capture
   internals.stderr = capture
   provideCmdline(ctx, {
     args,
     exit: code => void exits.push(code),
-    ready: { onReady: (listener) => { listener(); return () => {} } },
+    ready: {
+      onReady: listener => {
+        listener()
+        return () => {}
+      },
+    },
   })
   apply(ctx, config)
   return { ctx, exits, out: () => out, stdin }

@@ -20,9 +20,11 @@ function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): b
   const constructor: unknown = descriptor?.value
   if (typeof constructor !== 'function') return false
   try {
-    return constructor.name === name
-      && constructor.prototype === prototype
-      && Function.prototype.toString.call(constructor) === Function.prototype.toString.call(name === 'Array' ? Array : Object)
+    return (
+      constructor.name === name &&
+      constructor.prototype === prototype &&
+      Function.prototype.toString.call(constructor) === Function.prototype.toString.call(name === 'Array' ? Array : Object)
+    )
   } catch {
     return false
   }
@@ -38,16 +40,13 @@ function hasPlainArrayPrototype(value: unknown[]): boolean {
   const prototype: unknown = Object.getPrototypeOf(value)
   if (!Array.isArray(prototype) || !hasIntrinsicConstructor(prototype, 'Array')) return false
   const objectPrototype: unknown = Object.getPrototypeOf(prototype)
-  return typeof objectPrototype === 'object'
-    && objectPrototype !== null
-    && isIntrinsicObjectPrototype(objectPrototype)
+  return typeof objectPrototype === 'object' && objectPrototype !== null && isIntrinsicObjectPrototype(objectPrototype)
 }
 
 /** Whether an object is a plain or null-prototype record from any JavaScript realm. */
 function hasPlainObjectPrototype(value: object): boolean {
   const prototype: unknown = Object.getPrototypeOf(value)
-  return prototype === null
-    || typeof prototype === 'object' && isIntrinsicObjectPrototype(prototype)
+  return prototype === null || (typeof prototype === 'object' && isIntrinsicObjectPrototype(prototype))
 }
 
 /** Return every JSON-visible object key, or reject own data JSON would discard. */
@@ -88,11 +87,13 @@ function walkJsonValue(value: unknown, detach: boolean): JsonValue | true | unde
     }
   }
 
-  const tasks: JsonWalkTask[] = [{
-    kind: 'visit',
-    value,
-    ...(detach ? { destination: { kind: 'root' } as const } : {}),
-  }]
+  const tasks: JsonWalkTask[] = [
+    {
+      kind: 'visit',
+      value,
+      ...(detach ? { destination: { kind: 'root' } as const } : {}),
+    },
+  ]
   for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
     if (task.kind === 'leave') {
       ancestors.delete(task.source)
@@ -137,7 +138,7 @@ function walkJsonValue(value: unknown, detach: boolean): JsonValue | true | unde
       if (!hasPlainArrayPrototype(current)) return undefined
       const length = current.length
       if (Reflect.ownKeys(current).length !== length + 1) return undefined
-      const target = detach ? [] as JsonValue[] : undefined
+      const target = detach ? ([] as JsonValue[]) : undefined
       if (target !== undefined) assign(task.destination, target)
       ancestors.add(current)
       tasks.push({ kind: 'leave', source: current })
@@ -150,7 +151,7 @@ function walkJsonValue(value: unknown, detach: boolean): JsonValue | true | unde
     if (!hasPlainObjectPrototype(current)) return undefined
     const keys = enumerableStringKeys(current)
     if (keys === undefined) return undefined
-    const target = detach ? {} as { [key: string]: JsonValue } : undefined
+    const target = detach ? ({} as { [key: string]: JsonValue }) : undefined
     if (target !== undefined) assign(task.destination, target)
     ancestors.add(current)
     tasks.push({ kind: 'leave', source: current })
@@ -209,10 +210,9 @@ export function deepEqualJson(a: unknown, b: unknown): boolean {
  */
 export function deepFreeze<T>(value: T): T {
   const seen = new WeakSet<object>()
-  const pending: (
-    | { kind: 'visit'; node: unknown }
-    | { kind: 'property'; source: Record<string, unknown>; key: string }
-  )[] = [{ kind: 'visit', node: value }]
+  const pending: ({ kind: 'visit'; node: unknown } | { kind: 'property'; source: Record<string, unknown>; key: string })[] = [
+    { kind: 'visit', node: value },
+  ]
   while (pending.length > 0) {
     const task = pending.pop()
     /* v8 ignore next -- the loop condition guarantees one pending task. */

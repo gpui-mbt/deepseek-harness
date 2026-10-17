@@ -1,5 +1,5 @@
 /** JSONL plugin metadata must survive the Loader's module normalization. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import * as JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 

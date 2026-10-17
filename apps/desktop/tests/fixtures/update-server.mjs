@@ -29,28 +29,68 @@ export async function createUpdateServer() {
       if (path === '/api/v0/check_client_update') {
         response.setHeader('Content-Type', 'application/json')
         if (policyMode === 'stall') return
-        if (policyMode === 'failure') { response.writeHead(503).end('{"code":500}'); return }
-        response.end(JSON.stringify(policyMode === 'force' ? {
-          code: 40005, data: { show_content: { title: '需要更新', detail: '现有任务继续运行，请更新后继续操作。' },
-            desktop_app_link: 'https://downloads.example.com/desktop' },
-        } : { code: 0, data: { biz_code: 0, biz_data: null } }))
+        if (policyMode === 'failure') {
+          response.writeHead(503).end('{"code":500}')
+          return
+        }
+        response.end(
+          JSON.stringify(
+            policyMode === 'force'
+              ? {
+                  code: 40005,
+                  data: {
+                    show_content: { title: '需要更新', detail: '现有任务继续运行，请更新后继续操作。' },
+                    desktop_app_link: 'https://downloads.example.com/desktop',
+                  },
+                }
+              : { code: 0, data: { biz_code: 0, biz_data: null } },
+          ),
+        )
         return
       }
       if (path === '/nightly.yml') {
         if (selectedMode === 'feed-stall') return
-        if (selectedMode === 'feed-404') { response.writeHead(404).end(); return }
-        if (selectedMode === 'feed-408') { response.writeHead(408).end(); return }
-        if (selectedMode === 'invalid-yaml') { response.end('files: ['); return }
-        if (selectedMode === 'hold-check') { arrived.resolve(); await selectedGate.promise }
+        if (selectedMode === 'feed-404') {
+          response.writeHead(404).end()
+          return
+        }
+        if (selectedMode === 'feed-408') {
+          response.writeHead(408).end()
+          return
+        }
+        if (selectedMode === 'invalid-yaml') {
+          response.end('files: [')
+          return
+        }
+        if (selectedMode === 'hold-check') {
+          arrived.resolve()
+          await selectedGate.promise
+        }
         response.setHeader('Content-Type', 'application/yaml')
-        response.end(dump({ version, files: [{ url: `${origin}/payload.exe`, size: payload.length, sha512 }],
-          path: 'payload.exe', sha512, releaseDate: '2026-09-10T00:00:00.000Z' }))
+        response.end(
+          dump({
+            version,
+            files: [{ url: `${origin}/payload.exe`, size: payload.length, sha512 }],
+            path: 'payload.exe',
+            sha512,
+            releaseDate: '2026-09-10T00:00:00.000Z',
+          }),
+        )
         return
       }
-      if (path !== '/payload.exe' || selectedMode === 'download-404') { response.writeHead(404).end(); return }
+      if (path !== '/payload.exe' || selectedMode === 'download-404') {
+        response.writeHead(404).end()
+        return
+      }
       response.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': payload.length })
-      if (selectedMode === 'download-stall') { response.write(payload.subarray(0, 1024)); return }
-      if (selectedMode === 'corrupt') { response.end(Buffer.alloc(payload.length, 0x21)); return }
+      if (selectedMode === 'download-stall') {
+        response.write(payload.subarray(0, 1024))
+        return
+      }
+      if (selectedMode === 'corrupt') {
+        response.end(Buffer.alloc(payload.length, 0x21))
+        return
+      }
       if (selectedMode === 'disconnect') {
         response.write(payload.subarray(0, 1024), () => response.destroy())
         return
@@ -63,15 +103,23 @@ export async function createUpdateServer() {
         return
       }
       response.end(payload)
-    })().catch(error => { failures.push(String(error)); response.destroy() })
+    })().catch(error => {
+      failures.push(String(error))
+      response.destroy()
+    })
   })
   const listening = once(server, 'listening')
   server.listen(0, '127.0.0.1')
   await listening
   origin = `http://127.0.0.1:${server.address().port}`
   return {
-    url: `${origin}/`, payload, requests, failures,
-    policy(next) { policyMode = next },
+    url: `${origin}/`,
+    payload,
+    requests,
+    failures,
+    policy(next) {
+      policyMode = next
+    },
     select(nextMode, nextVersion = '1.0.1-nightly.1') {
       gate.resolve()
       gate = Promise.withResolvers()
@@ -83,7 +131,7 @@ export async function createUpdateServer() {
     release: () => gate.resolve(),
     async close() {
       gate.resolve()
-      const closed = new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+      const closed = new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())))
       server.closeAllConnections()
       await closed
     },

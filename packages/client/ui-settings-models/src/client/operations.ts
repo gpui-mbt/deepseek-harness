@@ -7,8 +7,10 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
-  LlmDiscoveredModel, LlmModelDiscoveryRequest,
-  SettingsNamespaceView, SettingsPathOpView,
+  LlmDiscoveredModel,
+  LlmModelDiscoveryRequest,
+  SettingsNamespaceView,
+  SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 
 /** What one namespace write answered. */
@@ -53,11 +55,7 @@ export interface ModelsOperations {
    * @param expectedRevision - revision the draft was opened at, or undefined to write unfenced.
    * @returns the write outcome the card renders from.
    */
-  writeSettings(
-    ns: string,
-    ops: SettingsPathOpView[],
-    expectedRevision: number | undefined,
-  ): Promise<SettingsWriteOutcome>
+  writeSettings(ns: string, ops: SettingsPathOpView[], expectedRevision: number | undefined): Promise<SettingsWriteOutcome>
   /**
    * Ask a provider endpoint what models it serves.
    * @param settingsNs - namespace whose adapter family answers.
@@ -79,7 +77,7 @@ export function createModelsOperations(ctx: ClientContext): ModelsOperations {
       const response = await ctx.remote.credentials.set(ref, value)
       return response.ok ? undefined : response.error.message
     },
-    removeCredential: async (ref) => {
+    removeCredential: async ref => {
       const response = await ctx.remote.credentials.unset(ref)
       return response.ok ? undefined : response.error.message
     },
@@ -91,9 +89,7 @@ export function createModelsOperations(ctx: ClientContext): ModelsOperations {
     },
     discoverModels: async (settingsNs, request) => {
       const response = await ctx.remote.llm.discoverModels(settingsNs, request)
-      return response.ok
-        ? { kind: 'found', models: response.value }
-        : { kind: 'refused', message: response.error.message }
+      return response.ok ? { kind: 'found', models: response.value } : { kind: 'refused', message: response.error.message }
     },
   }
 }

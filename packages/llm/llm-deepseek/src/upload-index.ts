@@ -43,11 +43,7 @@ export interface UploadIndexCommit {
  * @returns branded SHA-256 namespace digest.
  */
 export function deepSeekFileScope(baseURL: string, credentials: string): DeepSeekFileScopeType {
-  const digest = createHash('sha256')
-    .update(baseURL.replace(/\/+$/u, ''))
-    .update('\0')
-    .update(credentials)
-    .digest('hex')
+  const digest = createHash('sha256').update(baseURL.replace(/\/+$/u, '')).update('\0').update(credentials).digest('hex')
   return DeepSeekFileScope(digest)
 }
 
@@ -60,13 +56,22 @@ function parseRecord(value: unknown): DeepSeekUploadRecord {
     throw new InvalidUploadIndexError('llm-deepseek: upload index contains a non-object record')
   }
   const record = value as Record<string, unknown>
-  if (typeof record.scope !== 'string' || !/^[0-9a-f]{64}$/u.test(record.scope)
-    || typeof record.attachmentId !== 'string' || !/^sha256:[0-9a-f]{64}$/u.test(record.attachmentId)
-    || typeof record.variantId !== 'string' || !/^sha256:[0-9a-f]{64}$/u.test(record.variantId)
-    || typeof record.fileId !== 'string' || record.fileId.length === 0
-    || !Number.isSafeInteger(record.bytes) || (record.bytes as number) < 0
-    || !Number.isSafeInteger(record.createdAt) || (record.createdAt as number) < 0
-    || !Number.isSafeInteger(record.expiresAt) || (record.expiresAt as number) < 0) {
+  if (
+    typeof record.scope !== 'string' ||
+    !/^[0-9a-f]{64}$/u.test(record.scope) ||
+    typeof record.attachmentId !== 'string' ||
+    !/^sha256:[0-9a-f]{64}$/u.test(record.attachmentId) ||
+    typeof record.variantId !== 'string' ||
+    !/^sha256:[0-9a-f]{64}$/u.test(record.variantId) ||
+    typeof record.fileId !== 'string' ||
+    record.fileId.length === 0 ||
+    !Number.isSafeInteger(record.bytes) ||
+    (record.bytes as number) < 0 ||
+    !Number.isSafeInteger(record.createdAt) ||
+    (record.createdAt as number) < 0 ||
+    !Number.isSafeInteger(record.expiresAt) ||
+    (record.expiresAt as number) < 0
+  ) {
     throw new InvalidUploadIndexError('llm-deepseek: upload index contains an invalid record')
   }
   return {
@@ -152,9 +157,7 @@ export class DeepSeekUploadIndex {
     now: number,
     refreshMarginMs: number,
   ): Promise<DeepSeekUploadRecord | undefined> {
-    const record = (await this.load()).records.find(candidate => (
-      candidate.scope === scope && candidate.variantId === variantId
-    ))
+    const record = (await this.load()).records.find(candidate => candidate.scope === scope && candidate.variantId === variantId)
     return record !== undefined && reusable(record, now, refreshMarginMs) ? record : undefined
   }
 
@@ -165,24 +168,17 @@ export class DeepSeekUploadIndex {
    * @param refreshMarginMs - minimum reusable remaining lifetime.
    * @returns the winning record and whether the candidate entered the index.
    */
-  async commit(
-    candidate: DeepSeekUploadRecord,
-    now: number,
-    refreshMarginMs: number,
-  ): Promise<UploadIndexCommit> {
+  async commit(candidate: DeepSeekUploadRecord, now: number, refreshMarginMs: number): Promise<UploadIndexCommit> {
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 })
     return withFileLock(this.path, async () => {
       const index = await this.load()
-      const existing = index.records.find(record => (
-        record.scope === candidate.scope
-        && record.variantId === candidate.variantId
-        && reusable(record, now, refreshMarginMs)
-      ))
+      const existing = index.records.find(
+        record => record.scope === candidate.scope && record.variantId === candidate.variantId && reusable(record, now, refreshMarginMs),
+      )
       if (existing !== undefined) return { record: existing, accepted: false }
-      const records = index.records.filter(record => (
-        reusable(record, now, refreshMarginMs)
-        && !(record.scope === candidate.scope && record.variantId === candidate.variantId)
-      ))
+      const records = index.records.filter(
+        record => reusable(record, now, refreshMarginMs) && !(record.scope === candidate.scope && record.variantId === candidate.variantId),
+      )
       records.push(candidate)
       await this.save({ formatVersion: 3, records })
       return { record: candidate, accepted: true }
@@ -194,17 +190,12 @@ export class DeepSeekUploadIndex {
    * @param scope - endpoint/API-key namespace.
    * @param generations - exact remote generations being invalidated; pairs absent from the index are ignored.
    */
-  async remove(
-    scope: DeepSeekFileScopeType,
-    generations: readonly Pick<DeepSeekUploadRecord, 'variantId' | 'fileId'>[],
-  ): Promise<void> {
+  async remove(scope: DeepSeekFileScopeType, generations: readonly Pick<DeepSeekUploadRecord, 'variantId' | 'fileId'>[]): Promise<void> {
     const invalidated = new Set(generations.map(generation => `${generation.variantId}\0${generation.fileId}`))
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 })
     await withFileLock(this.path, async () => {
       const index = await this.load()
-      const records = index.records.filter(record => !(
-        record.scope === scope && invalidated.has(`${record.variantId}\0${record.fileId}`)
-      ))
+      const records = index.records.filter(record => !(record.scope === scope && invalidated.has(`${record.variantId}\0${record.fileId}`)))
       if (records.length !== index.records.length) await this.save({ formatVersion: 3, records })
     })
   }

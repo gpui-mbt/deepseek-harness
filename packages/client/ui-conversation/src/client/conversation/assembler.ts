@@ -1,24 +1,31 @@
 import type {
-  SessionAssistantSettlementEntry, SessionEventLikeEntry, SessionTransientEventEntry,
+  SessionAssistantSettlementEntry,
+  SessionEventLikeEntry,
+  SessionTransientEventEntry,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { LlmAttemptId } from '@deepseek-ai/dsh-llm/brand'
 import type {
-  ConversationContextReader, ConversationLocationData, ConversationMatch, ConversationMatchResult,
-  ConversationNodeContext, ConversationNodeDefinition, ConversationPreviousContext,
-  ConversationLocationDataScope, ConversationPublication, ConversationViewBuilder,
+  ConversationContextReader,
+  ConversationLocationData,
+  ConversationMatch,
+  ConversationMatchResult,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
+  ConversationPreviousContext,
+  ConversationLocationDataScope,
+  ConversationPublication,
+  ConversationViewBuilder,
   ConversationStartMatch,
-  ConversationViewDefinition, ConversationViewNode, ConversationViewSnapshotMap,
+  ConversationViewDefinition,
+  ConversationViewNode,
+  ConversationViewSnapshotMap,
   ConversationViewSnapshotStore,
 } from '../contract/conversation.ts'
 import { conversationContextKey } from '../contract/conversation.ts'
-import type {
-  ConversationGroupData, ConversationGroupDefinition, ConversationGroupedView,
-} from '../contract/groups.ts'
+import type { ConversationGroupData, ConversationGroupDefinition, ConversationGroupedView } from '../contract/groups.ts'
 import { ConversationGroupStore } from './group-store.ts'
 import type { ConversationEventRegistry } from './event-registry.ts'
-import {
-  ConversationLocationIndex, type ConversationLocationDataChange,
-} from './location-index.ts'
+import { ConversationLocationIndex, type ConversationLocationDataChange } from './location-index.ts'
 
 interface Dependency {
   readonly kind: string
@@ -75,10 +82,7 @@ function emptyLocationData(): Record<ConversationLocationDataScope, Conversation
   return { step: null, turn: null }
 }
 
-function maximumPublication(
-  left: ConversationPublication,
-  right: ConversationPublication,
-): ConversationPublication {
+function maximumPublication(left: ConversationPublication, right: ConversationPublication): ConversationPublication {
   return PUBLICATION_RANK[left] >= PUBLICATION_RANK[right] ? left : right
 }
 
@@ -110,11 +114,7 @@ function contextSnapshot<State>(context: InternalContext): ConversationNodeConte
   }
 }
 
-function mergeMatches(
-  key: string,
-  additions: readonly ConversationMatch[],
-  existing: readonly ConversationMatch[],
-): ConversationMatch[] {
+function mergeMatches(key: string, additions: readonly ConversationMatch[], existing: readonly ConversationMatch[]): ConversationMatch[] {
   const merged: ConversationMatch[] = []
   let added = 0
   let current = 0
@@ -283,15 +283,12 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * @param entry - durable message or attempt event committed for the stream.
    * @returns highest requested publication cadence.
    */
-  settleAssistant(
-    attemptId: LlmAttemptId,
-    entry?: SessionAssistantSettlementEntry,
-  ): ConversationPublication {
+  settleAssistant(attemptId: LlmAttemptId, entry?: SessionAssistantSettlementEntry): ConversationPublication {
     this.revised.clear()
-    const retired = [...this.inputs.values()].filter((candidate): candidate is SessionTransientEventEntry => (
-      candidate.type === 'transient'
-      && candidate.event.data.attemptId === attemptId
-    ))
+    const retired = [...this.inputs.values()].filter(
+      (candidate): candidate is SessionTransientEventEntry =>
+        candidate.type === 'transient' && candidate.event.data.attemptId === attemptId,
+    )
     const retiredSeqs = new Set(retired.map(candidate => candidate.event.seq))
     const affected = new Set<InternalContext>()
     for (const seq of retiredSeqs) {
@@ -328,9 +325,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     this.revised.clear()
     let publication: ConversationPublication = 'none'
     const previousHasMore = this.hasMore
-    const fresh = entries
-      .filter(entry => !this.inputs.has(entry.event.seq))
-      .sort((left, right) => left.event.seq - right.event.seq)
+    const fresh = entries.filter(entry => !this.inputs.has(entry.event.seq)).sort((left, right) => left.event.seq - right.event.seq)
     for (const entry of fresh) this.inputs.set(entry.event.seq, entry)
     this.hasMore = hasMore
     const previousTimeline = this.locationIndex.snapshot()
@@ -429,15 +424,11 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return this.views.get(target)?.snapshot
   }
 
-  get<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(
-    target: Target,
-  ): ConversationViewSnapshotMap[Target] | undefined {
+  get<Target extends Extract<keyof ConversationViewSnapshotMap, string>>(target: Target): ConversationViewSnapshotMap[Target] | undefined {
     return this.snapshot(target) as ConversationViewSnapshotMap[Target] | undefined
   }
 
-  grouped<Target extends string>(
-    target: Target,
-  ): ConversationGroupedView<ConversationGroupData<Target>> | undefined {
+  grouped<Target extends string>(target: Target): ConversationGroupedView<ConversationGroupData<Target>> | undefined {
     return this.groups.get(target)?.store as ConversationGroupedView<ConversationGroupData<Target>> | undefined
   }
 
@@ -464,10 +455,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return this.dispatchInput(input, this.acceptMatch)
   }
 
-  private collectInput(
-    input: SessionEventLikeEntry,
-    pending: Map<string, PendingMatch[]>,
-  ): ConversationPublication {
+  private collectInput(input: SessionEventLikeEntry, pending: Map<string, PendingMatch[]>): ConversationPublication {
     return this.dispatchInput(input, (definition, id, match) => {
       const key = conversationContextKey(definition.kind, id)
       const matches = pending.get(key) ?? []
@@ -493,8 +481,8 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     const matchFor = (role: ConversationMatch['role']): ConversationMatch => {
       location ??= this.locationIndex.locationOf(event)
       return role === 'start'
-        ? startMatch ??= conversationMatch(input, role, location)
-        : updateMatch ??= conversationMatch(input, role, location)
+        ? (startMatch ??= conversationMatch(input, role, location))
+        : (updateMatch ??= conversationMatch(input, role, location))
     }
     const definitions = this.matchedDefinitions
     const results = this.matchedResults
@@ -527,9 +515,11 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
       }
       const claimant = claims?.get(target)
       if (claimant !== undefined) {
-        throw new Error(`conversation Definitions "${claimant}" and "${definition.kind}" both claim ${event.type} at seq ${String(event.seq)} on target "${target}"`)
+        throw new Error(
+          `conversation Definitions "${claimant}" and "${definition.kind}" both claim ${event.type} at seq ${String(event.seq)} on target "${target}"`,
+        )
       }
-      (claims ??= new Map()).set(target, definition.kind)
+      ;(claims ??= new Map()).set(target, definition.kind)
     }
     let firstTarget: string | undefined
     let secondTarget: string | undefined
@@ -550,8 +540,13 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     }
     const fallback = this.eventDefinitions.fallbackEntry()
     const target = fallback?.target
-    if (fallback !== undefined && target !== undefined
-      && target !== firstTarget && target !== secondTarget && otherTargets?.has(target) !== true) {
+    if (
+      fallback !== undefined &&
+      target !== undefined &&
+      target !== firstTarget &&
+      target !== secondTarget &&
+      otherTargets?.has(target) !== true
+    ) {
       const result = fallback.match(event)
       if (result !== null) {
         publication = maximumPublication(publication, accept.call(this, fallback, result.id, matchFor(result.role)))
@@ -560,11 +555,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return publication
   }
 
-  private createContext(
-    definition: ConversationNodeDefinition,
-    id: string,
-    key: string,
-  ): InternalContext {
+  private createContext(definition: ConversationNodeDefinition, id: string, key: string): InternalContext {
     const context: InternalContext = {
       key,
       kind: definition.kind,
@@ -584,11 +575,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return context
   }
 
-  private acceptMatch(
-    definition: ConversationNodeDefinition,
-    id: string,
-    match: ConversationMatch,
-  ): ConversationPublication {
+  private acceptMatch(definition: ConversationNodeDefinition, id: string, match: ConversationMatch): ConversationPublication {
     const latest = this.contextsByKind.get(definition.kind)?.at(-1)
     const key = latest?.id === id ? latest.key : conversationContextKey(definition.kind, id)
     let context = this.contexts.get(key)
@@ -626,17 +613,14 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return definition.publication?.(match) ?? 'immediate'
   }
 
-  private applyPendingMatches(
-    pending: ReadonlyMap<string, readonly PendingMatch[]>,
-    affected: Set<InternalContext>,
-  ): void {
+  private applyPendingMatches(pending: ReadonlyMap<string, readonly PendingMatch[]>, affected: Set<InternalContext>): void {
     for (const [key, entries] of pending) {
       const first = entries[0]
       if (first === undefined) continue
       let context = this.contexts.get(key)
       context ??= this.createContext(first.definition, first.id, key)
       const additions = entries
-        .map((entry) => {
+        .map(entry => {
           if (entry.definition !== context.definition || entry.id !== context.id) {
             throw new Error(`conversation Context ${key} received inconsistent Definition identity`)
           }
@@ -657,8 +641,9 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
 
   private replayContexts(contexts: ReadonlySet<InternalContext>): void {
     this.refreshStarts(contexts)
-    const ordered = [...contexts].sort((left, right) =>
-      (left.startSeq ?? Number.POSITIVE_INFINITY) - (right.startSeq ?? Number.POSITIVE_INFINITY))
+    const ordered = [...contexts].sort(
+      (left, right) => (left.startSeq ?? Number.POSITIVE_INFINITY) - (right.startSeq ?? Number.POSITIVE_INFINITY),
+    )
     for (const context of ordered) {
       if (context.start === undefined) {
         context.state = undefined
@@ -687,7 +672,10 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     }
     for (const [kind, starts] of startsByKind) {
       const existing = this.contextsByKind.get(kind) ?? []
-      this.contextsByKind.set(kind, existing.filter(context => !changed.has(context)))
+      this.contextsByKind.set(
+        kind,
+        existing.filter(context => !changed.has(context)),
+      )
       this.indexStartedContexts(kind, starts)
     }
   }
@@ -704,21 +692,13 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     const dependencies = new Map<string, Dependency>()
     const reader = this.readerFor(start.event.seq, dependencies)
     context.state = undefined
-    context.state = requireState(
-      context.definition,
-      'start',
-      context.definition.start(contextSnapshot(context), start, reader),
-    )
+    context.state = requireState(context.definition, 'start', context.definition.start(contextSnapshot(context), start, reader))
     this.replaceDependencies(context, dependencies)
     for (let index = 1; index < context.matches.length; index++) {
       const match = context.matches[index]
       if (match === undefined) continue
       const typed = contextSnapshot(context) as ConversationNodeContext & { readonly state: unknown }
-      context.state = requireState(
-        context.definition,
-        'update',
-        context.definition.update(typed, match),
-      )
+      context.state = requireState(context.definition, 'update', context.definition.update(typed, match))
     }
     context.revision++
     this.revised.add(context)
@@ -779,10 +759,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return affected.size > 0
   }
 
-  private readerFor(
-    beforeSeq: number,
-    dependencies: Map<string, Dependency>,
-  ): ConversationContextReader {
+  private readerFor(beforeSeq: number, dependencies: Map<string, Dependency>): ConversationContextReader {
     return {
       previous: <State>(kind: string): ConversationPreviousContext<State> | undefined => {
         const predecessor = this.previousContext(kind, beforeSeq)
@@ -830,8 +807,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
 
   private indexStartedContexts(kind: string, additions: readonly InternalContext[]): void {
     if (additions.length === 0) return
-    const sorted = [...additions].sort((left, right) =>
-      (left.startSeq as number) - (right.startSeq as number))
+    const sorted = [...additions].sort((left, right) => (left.startSeq as number) - (right.startSeq as number))
     const existing = this.contextsByKind.get(kind) ?? []
     const merged: InternalContext[] = []
     let before = 0
@@ -863,9 +839,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
       for (const dependency of context.dependencies.values()) {
         const current = this.previousContext(dependency.kind, before)
         const windowGap = current === undefined && this.hasMore
-        if (current?.key !== dependency.key
-          || current?.revision !== dependency.revision
-          || windowGap !== dependency.windowGap) {
+        if (current?.key !== dependency.key || current?.revision !== dependency.revision || windowGap !== dependency.windowGap) {
           changed = true
           break
         }
@@ -921,12 +895,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     this.updateView(view, true, this.buildTargetNodes(view.target, this.contextsByTarget.get(view.target)), [])
   }
 
-  private updateView(
-    view: ViewState,
-    replacing: boolean,
-    nodes: readonly ConversationViewNode[],
-    changedTurns: readonly number[],
-  ): void {
+  private updateView(view: ViewState, replacing: boolean, nodes: readonly ConversationViewNode[], changedTurns: readonly number[]): void {
     const builder = view.builder ?? view.definition.create()
     const definition = view.groupDefinition
     if (definition !== undefined && builder.groupInput === undefined) {
@@ -946,8 +915,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
       const input = builder.groupInput()
       context.state = definition.update(context, input)
       const change = definition.buildGroups(context)
-      if ((initial || input.kind === 'replace')
-        && (change === null || change.entries === undefined || change.groups.kind !== 'replace')) {
+      if ((initial || input.kind === 'replace') && (change === null || change.entries === undefined || change.groups.kind !== 'replace')) {
         throw new Error(`conversation group target "${view.target}" requires complete grouping for replacement input`)
       }
       if (change !== null) {
@@ -969,10 +937,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return changed
   }
 
-  private buildTargetNodes(
-    target: string,
-    contexts: Iterable<InternalContext> | undefined,
-  ): ConversationViewNode[] {
+  private buildTargetNodes(target: string, contexts: Iterable<InternalContext> | undefined): ConversationViewNode[] {
     const nodes: ConversationViewNode[] = []
     for (const context of contexts ?? []) {
       const node = this.buildNode(context, target)
@@ -982,10 +947,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return nodes
   }
 
-  private buildTargetUpserts(
-    target: string,
-    contexts: Iterable<InternalContext> | undefined,
-  ): ConversationViewNode[] {
+  private buildTargetUpserts(target: string, contexts: Iterable<InternalContext> | undefined): ConversationViewNode[] {
     const upserts: ConversationViewNode[] = []
     for (const context of contexts ?? []) {
       const previous = context.current.get(target) ?? null
@@ -1010,14 +972,10 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     const data = context.definition.buildLocationData(contextSnapshot(context), scope, previous)
     if (data === null) return null
     if (data.kind !== scope) {
-      throw new Error(
-        `conversation Definition "${context.kind}" published ${data.kind} data through its ${scope} scope`,
-      )
+      throw new Error(`conversation Definition "${context.kind}" published ${data.kind} data through its ${scope} scope`)
     }
     if (data.key !== context.kind) {
-      throw new Error(
-        `conversation Definition "${context.kind}" published Location data key "${data.key}"; expected its owned kind`,
-      )
+      throw new Error(`conversation Definition "${context.kind}" published Location data key "${data.key}"; expected its owned kind`)
     }
     if (!Number.isSafeInteger(data.turn) || data.turn < 0) {
       throw new Error(`conversation Definition "${context.kind}" published invalid turn ${data.turn}`)
@@ -1074,9 +1032,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
         target: definition.target,
         definition,
         groupDefinition: this.groupDefinitions.forTarget(definition.target),
-        isActive: definition.isActive === undefined
-          ? undefined
-          : snapshot => definition.isActive?.(snapshot) === true,
+        isActive: definition.isActive === undefined ? undefined : snapshot => definition.isActive?.(snapshot) === true,
         builder: undefined,
         snapshot: undefined,
       }
@@ -1090,11 +1046,7 @@ function isLocationBoundary(type: string): boolean {
   return type === 'turn/start' || type === 'turn/end' || type === 'step/start' || type === 'step/end'
 }
 
-function requireState(
-  definition: ConversationNodeDefinition,
-  phase: 'start' | 'update',
-  state: unknown,
-): unknown {
+function requireState(definition: ConversationNodeDefinition, phase: 'start' | 'update', state: unknown): unknown {
   if (state === undefined) {
     throw new Error(`conversation Definition "${definition.kind}" returned undefined from ${phase}()`)
   }
