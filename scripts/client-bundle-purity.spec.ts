@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build, type Rolldown, type TsdownBundle, type UserConfig } from 'tsdown'
+import { build, type Rolldown, type UserConfig } from 'tsdown'
 import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { clientBundle, requestedExternals, staticLinked } from '../packages/client/tsdown.client.ts'
 
@@ -130,7 +130,7 @@ describe('client bundle dynamic imports', () => {
     for (const platform of ['node', 'browser'] as const) {
       const config = configs.find(config => config.name?.endsWith(platform === 'node' ? '/client-node' : '/client'))
       if (config === undefined) throw new Error(`${platform} config missing`)
-      const builds = await build({
+      const handle = await build({
         ...config,
         cwd: root,
         config: false,
@@ -141,6 +141,7 @@ describe('client bundle dynamic imports', () => {
         report: false,
         logLevel: 'silent',
       })
+      const builds = handle.bundles
       try {
         const names = builds.flatMap(bundle => bundle.chunks).map(chunk => chunk.fileName)
         expect(names).toContain(platform === 'node' ? 'client.node.js' : 'client.browser.js')
@@ -156,9 +157,9 @@ describe('client bundle dynamic imports', () => {
     const config = clientConfigs()[0]
     if (config === undefined) throw new Error('client config missing')
 
-    let builds: TsdownBundle[] = []
+    let handle: Awaited<ReturnType<typeof build>> | undefined
     try {
-      builds = await build({
+      handle = await build({
         ...config,
         cwd: root,
         config: false,
@@ -169,12 +170,13 @@ describe('client bundle dynamic imports', () => {
         report: false,
         logLevel: 'silent',
       })
+      const builds = handle.bundles
       const chunks = builds.flatMap(bundle => bundle.chunks).filter(chunk => chunk.type === 'chunk')
       const output = chunks.find(chunk => chunk.fileName === 'client.js')?.code
       expect(output).toContain('require.async("./client.terminal.js")')
       expect(output).not.toContain('Promise.resolve().then(() => require("./client.terminal.js"))')
     } finally {
-      for (const bundle of builds) await bundle[Symbol.asyncDispose]()
+      for (const bundle of handle?.bundles ?? []) await bundle[Symbol.asyncDispose]()
     }
   })
 })
@@ -316,9 +318,9 @@ describe('client bundle experimental input isolation', () => {
   }
 
   async function bundle(owner: string, config: UserConfig): Promise<string> {
-    let builds: TsdownBundle[] = []
+    let handle: Awaited<ReturnType<typeof build>> | undefined
     try {
-      builds = await build({
+      handle = await build({
         ...config,
         cwd: owner,
         config: false,
@@ -329,9 +331,10 @@ describe('client bundle experimental input isolation', () => {
         report: false,
         logLevel: 'silent',
       })
+      const builds = handle.bundles
       return builds.flatMap(build => build.chunks.filter(chunk => chunk.type === 'chunk').map(chunk => chunk.code)).join('\n')
     } finally {
-      for (const build of builds) await build[Symbol.asyncDispose]()
+      for (const build of handle?.bundles ?? []) await build[Symbol.asyncDispose]()
     }
   }
 
