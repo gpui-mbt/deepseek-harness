@@ -662,9 +662,14 @@ export type GenericResult = {
 `,
     )
     editFile(root, 'packages/remote/src/index.ts', source =>
-      source.replace('  RenameGoalResult,\n', '  RenameGoalResult,\n  GenericRequest,\n  GenericResult,\n').replace(
-        "  @Remote({ mode: 'stream' })\n  async *watch",
-        `  @Remote
+      source
+        .replace(
+          "import type { CreateGoalRequest, CreateGoalResult, RenameGoalRequest, RenameGoalResult } from './types.ts'",
+          "import type { CreateGoalRequest, CreateGoalResult, GenericRequest, GenericResult, RenameGoalRequest, RenameGoalResult } from './types.ts'",
+        )
+        .replace(
+          "  @Remote({ mode: 'stream' })\n  async *watch",
+          `  @Remote
   dispatch(request: GenericRequest): GenericResult {
     if (request.kind === 'ship') return { kind: 'ship', value: { accepted: request.payload.count > 0 } }
     return { kind: 'cancel', value: { cancelled: request.payload.reason.length > 0 } }
@@ -672,7 +677,7 @@ export type GenericResult = {
 
   @Remote({ mode: 'stream' })
   async *watch`,
-      ),
+        ),
     )
 
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
@@ -709,16 +714,21 @@ export interface BoxPayload {
 `,
     )
     editFile(root, 'packages/remote/src/index.ts', source =>
-      source.replace('  RenameGoalResult,\n', '  RenameGoalResult,\n  Box,\n  BoxPayload,\n').replace(
-        "  @Remote({ mode: 'stream' })\n  async *watch",
-        `  @Remote
+      source
+        .replace(
+          "import type { CreateGoalRequest, CreateGoalResult, RenameGoalRequest, RenameGoalResult } from './types.ts'",
+          "import type { Box, BoxPayload, CreateGoalRequest, CreateGoalResult, RenameGoalRequest, RenameGoalResult } from './types.ts'",
+        )
+        .replace(
+          "  @Remote({ mode: 'stream' })\n  async *watch",
+          `  @Remote
   box(request: Box<BoxPayload>): Box<BoxPayload> {
     return request
   }
 
   @Remote({ mode: 'stream' })
   async *watch`,
-      ),
+        ),
     )
 
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
