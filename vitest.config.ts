@@ -251,8 +251,9 @@ export default defineConfig({
         'packages/*/*/src/oxlint-contract-*.ts',
         // Client/web UI files whose remaining branches need a browser-grade
         // harness the jsdom lane doesn't cover yet. TODO(gui): cover and
-        // remove as the client test lane matures.
-        'packages/client/ui-trajectory/src/*',
+        // remove as the client test lane matures. The recursive pattern keeps
+        // nested src/client modules under the same GUI debt exemption.
+        'packages/client/ui-trajectory/src/**',
         // Electron guest integration retains its unit specs; per-file coverage
         // is deferred until a native Electron harness covers guest behavior.
         'packages/client/ui-sidebar-browser/src/client/electron/**',
@@ -286,8 +287,13 @@ export default defineConfig({
         'packages/client/ui-tool/src/*',
         'packages/client/ui-slots/src/*',
         'packages/client/ui-layout/src/*',
-        'packages/client/web/src/*',
+        'packages/client/web/src/**',
         'packages/host/webserver/src/*',
+        // Linux-only exec/scope implementations cannot be attributed on macOS or
+        // Windows; the Linux CI lane keeps them under the per-file gate.
+        ...(process.platform === 'linux'
+          ? []
+          : ['packages/subprocess/subprocess-local/src/linux-execve.ts', 'packages/subprocess/subprocess-local/src/linux-scope.ts']),
         // The browser-worker runtime and its image packer: the executing
         // composition is a real dedicated Worker driven by the web browser lane
         // (apps/web/tests/preview-boot.e2e.ts), which unit-process V8 coverage
