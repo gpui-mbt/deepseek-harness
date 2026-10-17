@@ -151,6 +151,20 @@ describe('WebSearchCardController credential', () => {
     b.controller.dispose()
   })
 
+  it('re-reads the credential when a served section scope publishes', async () => {
+    const b = bench()
+    serve(b)
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenCalled()
+    })
+    b.credentials.describe.mockClear()
+    b.web.publish({ value: { searchProvider: 'ollama-cloud' } })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenCalled()
+    })
+    b.controller.dispose()
+  })
+
   it('addresses the reference the selected API section declares', async () => {
     const b = bench({ accept: true })
     serve(b)
