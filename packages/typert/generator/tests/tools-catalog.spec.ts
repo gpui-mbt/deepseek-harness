@@ -10,6 +10,14 @@ import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import { FaceModelEmitter } from '../src/emitter.ts'
 
 const workspaceRoot = resolve(import.meta.dirname, '../../../..')
+
+/** Runtime and catalog signatures differ only by formatter whitespace and trailing commas. */
+const signature = (value: string): string =>
+  value
+    .replace(/\s+/g, ' ')
+    .replace(/\(\s+/g, '(')
+    .replace(/,\s*\)/g, ')')
+    .trim()
 const temporaryRoots: string[] = []
 
 afterEach(() => {
@@ -61,14 +69,14 @@ describe('model-driven dsh-tools generation', () => {
         .map(event => ({
           name: event.name,
           mode: event.mode,
-          signature: event.signature,
+          signature: signature(event.signature),
           summary: event.summary,
         })),
     ).toEqual(
       EVENT_API.filter(event => event.name.startsWith('tools/')).map(event => ({
         name: event.name,
         mode: event.mode,
-        signature: event.signature,
+        signature: signature(event.signature),
         summary: event.summary,
       })),
     )
